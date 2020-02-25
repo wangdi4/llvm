@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -3712,6 +3712,14 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       ArrayRef<unsigned> StructOffsets;
       if (&Dim == &Arr.getLowestDim()) {
         StructOffsets = Arr.offsets();
+      }
+
+      // If lower can be merged into index, do it. This will make HIR generated
+      // for Fortran and C/C++ test cases similar and make it easier to perform
+      // idiom recognition.
+      if (!LowerCE->isZero() && CanonExprUtils::canSubtract(IndexCE, LowerCE)) {
+        CanonExprUtils::subtract(IndexCE, LowerCE);
+        LowerCE->clear();
       }
 
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,

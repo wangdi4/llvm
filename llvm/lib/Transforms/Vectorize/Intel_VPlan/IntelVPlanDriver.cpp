@@ -88,6 +88,9 @@ static cl::opt<unsigned> VPlanVectCand(
     cl::desc(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
 
+static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(1),
+                                      cl::desc("Force VPlan to use given UF"));
+
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
 /// Check whether the edge (\p SrcBB, \p DestBB) is a backedge according to LI.
@@ -512,7 +515,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
   BasicBlock *Header = Lp->getHeader();
-  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, SE);
+  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, SE, TTI);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
@@ -556,15 +559,20 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   }
 #endif //INTEL_CUSTOMIZATION
 
+  unsigned UF = VPlanForceUF;
+  if (UF == 0)
+    UF = 1;
+  VPlan *Plan = LVP.getVPlanForVF(VF);
+  LVP.unroll(*Plan, UF);
+
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     if (VPlanVectCand)
       LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: "
                         << Fn.getName() << "\n");
 
-    VPlan *Plan = LVP.getVPlanForVF(VF);
-    VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, 1, &LVL,
-                        &VLSA, Plan);
+    VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF,
+                        &LVL, &VLSA, Plan);
     VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
     if (VF != 1) {
       // Run VLS analysis before IR for the current loop is modified.
@@ -880,7 +888,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // process for vectorization
   VPlanOptReportBuilder VPORBuilder(LORBuilder);
 
-  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL);
+  VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI);
 
   HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,

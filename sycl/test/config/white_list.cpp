@@ -9,6 +9,9 @@
 //
 // RUN: env TEST_DEVICE_IS_NOT_AVAILABLE=1 env SYCL_DEVICE_WHITE_LIST="PlatformName:{{SUCH NAME DOESN'T EXIST}}" %t.out
 
+// TODO: Test the correct filtering of the particular driver versions once a mock
+// platform mechanism is prepared
+
 #include <CL/sycl.hpp>
 #include <iostream>
 #include <cstdlib>

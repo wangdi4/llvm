@@ -137,6 +137,8 @@ enum Kind {
   kw_fastcc,
   kw_coldcc,
   kw_intel_ocl_bicc,
+  kw_intel_ocl_bicc_avx,    // INTEL
+  kw_intel_ocl_bicc_avx512, // INTEL
   kw_cfguard_checkcc,
   kw_x86_stdcallcc,
   kw_x86_fastcallcc,
@@ -429,6 +431,7 @@ enum Kind {
   kw_sizeM1,
   kw_bitMask,
   kw_inlineBits,
+  kw_vcall_visibility,
   kw_wpdResolutions,
   kw_wpdRes,
   kw_indir,

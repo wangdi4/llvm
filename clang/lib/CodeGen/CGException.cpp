@@ -402,14 +402,32 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
 }
 
 Address CodeGenFunction::getExceptionSlot() {
+#if INTEL_COLLAB
+  if (!ExceptionSlot) {
+    Address A = CreateDefaultAlignTempAlloca(Int8PtrTy, "exn.slot");
+    ExceptionSlot = A.getPointer();
+    if (CapturedStmtInfo)
+      CapturedStmtInfo->recordValueDefinition(ExceptionSlot);
+  }
+#else
   if (!ExceptionSlot)
     ExceptionSlot = CreateTempAlloca(Int8PtrTy, "exn.slot");
+#endif  // INTEL_COLLAB
   return Address(ExceptionSlot, getPointerAlign());
 }
 
 Address CodeGenFunction::getEHSelectorSlot() {
+#if INTEL_COLLAB
+  if (!EHSelectorSlot) {
+    Address A = CreateDefaultAlignTempAlloca(Int32Ty, "ehselector.slot");
+    EHSelectorSlot = A.getPointer();
+    if (CapturedStmtInfo)
+      CapturedStmtInfo->recordValueDefinition(EHSelectorSlot);
+  }
+#else
   if (!EHSelectorSlot)
     EHSelectorSlot = CreateTempAlloca(Int32Ty, "ehselector.slot");
+#endif // INTEL_COLLAB
   return Address(EHSelectorSlot, CharUnits::fromQuantity(4));
 }
 
@@ -1908,7 +1926,7 @@ void CodeGenFunction::startOutlinedSEHHelper(CodeGenFunction &ParentCGF,
                 OutlinedStmt->getBeginLoc(), OutlinedStmt->getBeginLoc());
   CurSEHParent = ParentCGF.CurSEHParent;
 
-  CGM.SetLLVMFunctionAttributes(GlobalDecl(), FnInfo, CurFn);
+  CGM.SetInternalFunctionAttributes(GlobalDecl(), CurFn, FnInfo);
   EmitCapturedLocals(ParentCGF, OutlinedStmt, IsFilter);
 }
 

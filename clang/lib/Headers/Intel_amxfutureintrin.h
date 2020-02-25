@@ -24,8 +24,6 @@
 #define _tile_coladdps(mem_dst, tsrc) __builtin_ia32_tcoladdps(mem_dst, tsrc)
 
 // Memory
-#define _tile_broadcastrowd(tdst, mem_src)                                     \
-  __builtin_ia32_tbroadcastrowd(tdst, mem_src)
 #define _tile_gatherrowd(tdst, base, index)                                    \
   __builtin_ia32_tgatherrowd(tdst, base, index)
 #define _tile_gatherrowdt1(tdst, base, index)                                  \
@@ -42,17 +40,6 @@
   __builtin_ia32_tscatterrowq(base, index, tsrc)
 #define _tile_scatterrowqt1(base, index, tsrc)                                 \
   __builtin_ia32_tscatterrowqt1(base, index, tsrc)
-#define _tile_storehd(base, stride, tsrc)                                      \
-  __builtin_ia32_tstorehd(base, stride, tsrc)
-#define _tile_storehdt1(base, stride, tsrc)                                    \
-  __builtin_ia32_tstorehdt1(base, stride, tsrc)
-#define _tile_storentd(base, stride, tsrc)                                     \
-  __builtin_ia32_tstorentd(base, stride, tsrc)
-#define _tile_storeqd(base, stride, tsrc)                                      \
-  __builtin_ia32_tstoreqd(base, stride, tsrc)
-#define _tile_storeqdt1(base, stride, tsrc)                                    \
-  __builtin_ia32_tstoreqdt1(base, stride, tsrc)
-#define _tile_storerowd(mem_dst, tsrc) __builtin_ia32_tstorerowd(mem_dst, tsrc)
 
 // Format
 #define _tile_blendvd(tdst, tsrc1, tsrc2)                                      \

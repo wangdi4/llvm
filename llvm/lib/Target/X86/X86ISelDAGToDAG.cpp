@@ -217,6 +217,10 @@ namespace {
     bool matchAdd(SDValue &N, X86ISelAddressMode &AM, unsigned Depth);
     bool matchAddressRecursively(SDValue N, X86ISelAddressMode &AM,
                                  unsigned Depth);
+#if INTEL_CUSTOMIZATION
+    bool matchVectorAddressRecursively(SDValue N, X86ISelAddressMode &AM,
+                                       unsigned Depth);
+#endif // INTEL_CUSTOMIZATION
     bool matchAddressBase(SDValue N, X86ISelAddressMode &AM);
     bool selectAddr(SDNode *Parent, SDValue N, SDValue &Base,
                     SDValue &Scale, SDValue &Index, SDValue &Disp,
@@ -816,6 +820,8 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
     }
 
     switch (N->getOpcode()) {
+    case ISD::FP_ROUND:
+    case ISD::STRICT_FP_ROUND:
     case ISD::FP_TO_SINT:
     case ISD::FP_TO_UINT:
     case ISD::STRICT_FP_TO_SINT:
@@ -828,6 +834,8 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
       unsigned NewOpc;
       switch (N->getOpcode()) {
       default: llvm_unreachable("Unexpected opcode!");
+      case ISD::FP_ROUND:          NewOpc = X86ISD::VFPROUND;        break;
+      case ISD::STRICT_FP_ROUND:   NewOpc = X86ISD::STRICT_VFPROUND; break;
       case ISD::STRICT_FP_TO_SINT: NewOpc = X86ISD::STRICT_CVTTP2SI; break;
       case ISD::FP_TO_SINT:        NewOpc = X86ISD::CVTTP2SI;        break;
       case ISD::STRICT_FP_TO_UINT: NewOpc = X86ISD::STRICT_CVTTP2UI; break;
@@ -843,12 +851,7 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
             CurDAG->getNode(NewOpc, SDLoc(N), N->getValueType(0),
                             N->getOperand(0));
       --I;
-      if (N->isStrictFPOpcode()) {
-        SDValue From[] = {SDValue(N, 0), SDValue(N, 1)};
-        SDValue To[] = {Res.getValue(0), Res.getValue(1)};
-        CurDAG->ReplaceAllUsesOfValuesWith(From, To, 2);
-      } else
-        CurDAG->ReplaceAllUsesOfValueWith(SDValue(N, 0), Res);
+      CurDAG->ReplaceAllUsesWith(N, Res.getNode());
       ++I;
       CurDAG->DeleteNode(N);
       continue;
@@ -897,27 +900,45 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
       continue;
     }
     case ISD::FCEIL:
+    case ISD::STRICT_FCEIL:
     case ISD::FFLOOR:
+    case ISD::STRICT_FFLOOR:
     case ISD::FTRUNC:
+    case ISD::STRICT_FTRUNC:
     case ISD::FNEARBYINT:
-    case ISD::FRINT: {
+    case ISD::STRICT_FNEARBYINT:
+    case ISD::FRINT:
+    case ISD::STRICT_FRINT: {
       // Replace fp rounding with their X86 specific equivalent so we don't
       // need 2 sets of patterns.
       unsigned Imm;
       switch (N->getOpcode()) {
       default: llvm_unreachable("Unexpected opcode!");
+      case ISD::STRICT_FCEIL:
       case ISD::FCEIL:      Imm = 0xA; break;
+      case ISD::STRICT_FFLOOR:
       case ISD::FFLOOR:     Imm = 0x9; break;
+      case ISD::STRICT_FTRUNC:
       case ISD::FTRUNC:     Imm = 0xB; break;
+      case ISD::STRICT_FNEARBYINT:
       case ISD::FNEARBYINT: Imm = 0xC; break;
+      case ISD::STRICT_FRINT:
       case ISD::FRINT:      Imm = 0x4; break;
       }
       SDLoc dl(N);
-      SDValue Res = CurDAG->getNode(
-          X86ISD::VRNDSCALE, dl, N->getValueType(0), N->getOperand(0),
-          CurDAG->getTargetConstant(Imm, dl, MVT::i8));
+      bool IsStrict = N->isStrictFPOpcode();
+      SDValue Res;
+      if (IsStrict)
+        Res = CurDAG->getNode(X86ISD::STRICT_VRNDSCALE, dl,
+                              {N->getValueType(0), MVT::Other},
+                              {N->getOperand(0), N->getOperand(1),
+                               CurDAG->getTargetConstant(Imm, dl, MVT::i8)});
+      else
+        Res = CurDAG->getNode(X86ISD::VRNDSCALE, dl, N->getValueType(0),
+                              N->getOperand(0),
+                              CurDAG->getTargetConstant(Imm, dl, MVT::i8));
       --I;
-      CurDAG->ReplaceAllUsesOfValueWith(SDValue(N, 0), Res);
+      CurDAG->ReplaceAllUsesWith(N, Res.getNode());
       ++I;
       CurDAG->DeleteNode(N);
       continue;
@@ -1053,12 +1074,7 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
       // Here we could have an FP stack truncation or an FPStack <-> SSE convert.
       // FPStack has extload and truncstore.  SSE can fold direct loads into other
       // operations.  Based on this, decide what we want to do.
-      MVT MemVT;
-      if (N->getOpcode() == ISD::FP_ROUND)
-        MemVT = DstVT;  // FP_ROUND must use DstVT, we can't do a 'trunc load'.
-      else
-        MemVT = SrcIsSSE ? SrcVT : DstVT;
-
+      MVT MemVT = (N->getOpcode() == ISD::FP_ROUND) ? DstVT : SrcVT;
       SDValue MemTmp = CurDAG->CreateStackTemporary(MemVT);
       SDLoc dl(N);
 
@@ -1111,22 +1127,47 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
       // Here we could have an FP stack truncation or an FPStack <-> SSE convert.
       // FPStack has extload and truncstore.  SSE can fold direct loads into other
       // operations.  Based on this, decide what we want to do.
-      MVT MemVT;
-      if (N->getOpcode() == ISD::STRICT_FP_ROUND)
-        MemVT = DstVT;  // FP_ROUND must use DstVT, we can't do a 'trunc load'.
-      else
-        MemVT = SrcIsSSE ? SrcVT : DstVT;
-
+      MVT MemVT = (N->getOpcode() == ISD::STRICT_FP_ROUND) ? DstVT : SrcVT;
       SDValue MemTmp = CurDAG->CreateStackTemporary(MemVT);
       SDLoc dl(N);
 
       // FIXME: optimize the case where the src/dest is a load or store?
 
       //Since the operation is StrictFP, use the preexisting chain.
-      SDValue Store = CurDAG->getTruncStore(N->getOperand(0), dl, N->getOperand(1),
-                                MemTmp, MachinePointerInfo(), MemVT);
-      SDValue Result = CurDAG->getExtLoad(ISD::EXTLOAD, dl, DstVT, Store, MemTmp,
-                                          MachinePointerInfo(), MemVT);
+      SDValue Store, Result;
+      if (!SrcIsSSE) {
+        SDVTList VTs = CurDAG->getVTList(MVT::Other);
+        SDValue Ops[] = {N->getOperand(0), N->getOperand(1), MemTmp};
+        Store = CurDAG->getMemIntrinsicNode(X86ISD::FST, dl, VTs, Ops, MemVT,
+                                            MachinePointerInfo(), 0,
+                                            MachineMemOperand::MOStore);
+        if (N->getFlags().hasNoFPExcept()) {
+          SDNodeFlags Flags = Store->getFlags();
+          Flags.setNoFPExcept(true);
+          Store->setFlags(Flags);
+        }
+      } else {
+        assert(SrcVT == MemVT && "Unexpected VT!");
+        Store = CurDAG->getStore(N->getOperand(0), dl, N->getOperand(1), MemTmp,
+                                 MachinePointerInfo());
+      }
+
+      if (!DstIsSSE) {
+        SDVTList VTs = CurDAG->getVTList(DstVT, MVT::Other);
+        SDValue Ops[] = {Store, MemTmp};
+        Result = CurDAG->getMemIntrinsicNode(X86ISD::FLD, dl, VTs, Ops, MemVT,
+                                             MachinePointerInfo(), 0,
+                                             MachineMemOperand::MOLoad);
+        if (N->getFlags().hasNoFPExcept()) {
+          SDNodeFlags Flags = Result->getFlags();
+          Flags.setNoFPExcept(true);
+          Result->setFlags(Flags);
+        }
+      } else {
+        assert(DstVT == MemVT && "Unexpected VT!");
+        Result =
+            CurDAG->getLoad(DstVT, dl, Store, MemTmp, MachinePointerInfo());
+      }
 
       // We're about to replace all uses of the FP_ROUND/FP_EXTEND with the
       // extload we created.  This will cause general havok on the dag because
@@ -1552,12 +1593,24 @@ bool X86DAGToDAGISel::matchAdd(SDValue &N, X86ISelAddressMode &AM,
   if (!matchAddressRecursively(N.getOperand(0), AM, Depth+1) &&
       !matchAddressRecursively(Handle.getValue().getOperand(1), AM, Depth+1))
     return false;
-  AM = Backup;
 
-  // Try again after commuting the operands.
-  if (!matchAddressRecursively(Handle.getValue().getOperand(1), AM, Depth+1) &&
-      !matchAddressRecursively(Handle.getValue().getOperand(0), AM, Depth+1))
-    return false;
+  // Don't try commuting operands if the address is in the form of
+  // sym+disp(%rip). foldOffsetIntoAddress() currently does not know there is a
+  // symbolic displacement and would fold disp. If disp is just a bit smaller
+  // than 2**31, it can easily cause a relocation overflow.
+  bool NoCommutate = false;
+  if (AM.isRIPRelative() && AM.hasSymbolicDisplacement())
+    if (ConstantSDNode *Cst =
+            dyn_cast<ConstantSDNode>(Handle.getValue().getOperand(1)))
+      NoCommutate = Cst->getSExtValue() != 0;
+
+  AM = Backup;
+  if (!NoCommutate) {
+    // Try again after commutating the operands.
+    if (!matchAddressRecursively(Handle.getValue().getOperand(1), AM, Depth + 1) &&
+        !matchAddressRecursively(Handle.getValue().getOperand(0), AM, Depth + 1))
+      return false;
+  }
   AM = Backup;
 
   // If we couldn't fold both operands into the address at the same time,
@@ -2230,10 +2283,19 @@ bool X86DAGToDAGISel::matchAddressBase(SDValue N, X86ISelAddressMode &AM) {
   return false;
 }
 
-/// Helper for selectVectorAddr. Handles things that can be folded into a
-/// gather scatter address. The index register and scale should have already
-/// been handled.
-bool X86DAGToDAGISel::matchVectorAddress(SDValue N, X86ISelAddressMode &AM) {
+#if INTEL_CUSTOMIZATION
+bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
+                                                    X86ISelAddressMode &AM,
+                                                    unsigned Depth) {
+  SDLoc dl(N);
+  LLVM_DEBUG({
+    dbgs() << "MatchVectorAddress: ";
+    AM.dump(CurDAG);
+  });
+  // Limit recursion.
+  if (Depth > 5)
+    return matchAddressBase(N, AM);
+
   // TODO: Support other operations.
   switch (N.getOpcode()) {
   case ISD::Constant: {
@@ -2246,10 +2308,41 @@ bool X86DAGToDAGISel::matchVectorAddress(SDValue N, X86ISelAddressMode &AM) {
     if (!matchWrapper(N, AM))
       return false;
     break;
+  case ISD::ADD: {
+    // Add an artificial use to this node so that we can keep track of
+    // it if it gets CSE'd with a different node.
+    HandleSDNode Handle(N);
+
+    X86ISelAddressMode Backup = AM;
+    if (!matchVectorAddressRecursively(N.getOperand(0), AM,
+                                       Depth+1) &&
+        !matchVectorAddressRecursively(Handle.getValue().getOperand(1), AM,
+                                       Depth+1))
+      return false;
+    AM = Backup;
+
+    // Try again after commuting the operands.
+    if (!matchVectorAddressRecursively(Handle.getValue().getOperand(1), AM,
+                                       Depth+1) &&
+        !matchVectorAddressRecursively(Handle.getValue().getOperand(0), AM,
+                                       Depth+1))
+      return false;
+    AM = Backup;
+
+    N = Handle.getValue();
+  }
   }
 
   return matchAddressBase(N, AM);
 }
+
+/// Helper for selectVectorAddr. Handles things that can be folded into a
+/// gather scatter address. The index register and scale should have already
+/// been handled.
+bool X86DAGToDAGISel::matchVectorAddress(SDValue N, X86ISelAddressMode &AM) {
+  return matchVectorAddressRecursively(N, AM, 0);
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86DAGToDAGISel::selectVectorAddr(SDNode *Parent, SDValue N, SDValue &Base,
                                        SDValue &Scale, SDValue &Index,
@@ -4487,12 +4580,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     case Intrinsic::x86_tscatterrowd:
     case Intrinsic::x86_tscatterrowdt1:
     case Intrinsic::x86_tscatterrowq:
-    case Intrinsic::x86_tscatterrowqt1:
-    case Intrinsic::x86_tstorehd:
-    case Intrinsic::x86_tstorehdt1:
-    case Intrinsic::x86_tstorentd:
-    case Intrinsic::x86_tstoreqd:
-    case Intrinsic::x86_tstoreqdt1: {
+    case Intrinsic::x86_tscatterrowqt1: {
       if (!Subtarget->hasAMXMEMORY())
         break;
       unsigned Opc;
@@ -4502,11 +4590,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       case Intrinsic::x86_tscatterrowdt1: Opc = X86::PTSCATTERROWDT1; break;
       case Intrinsic::x86_tscatterrowq:   Opc = X86::PTSCATTERROWQ; break;
       case Intrinsic::x86_tscatterrowqt1: Opc = X86::PTSCATTERROWQT1; break;
-      case Intrinsic::x86_tstorehd:   Opc = X86::PTSTOREHD; break;
-      case Intrinsic::x86_tstorehdt1: Opc = X86::PTSTOREHDT1; break;
-      case Intrinsic::x86_tstorentd:  Opc = X86::PTSTORENTD; break;
-      case Intrinsic::x86_tstoreqd:   Opc = X86::PTSTOREQD; break;
-      case Intrinsic::x86_tstoreqdt1: Opc = X86::PTSTOREQDT1; break;
       }
       // FIXME: Match displacement and scale.
       SDValue Base = Node->getOperand(2);
@@ -4522,44 +4605,10 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CNode);
       return;
     }
-    case Intrinsic::x86_tileloadde64:
-    case Intrinsic::x86_tileloaddt1e64:
-    case Intrinsic::x86_tilestorede64: {
-      if (!Subtarget->hasAMXTILEEVEX())
-        break;
-      unsigned Opc;
-      switch (IntNo) {
-      default: llvm_unreachable("Unexpected intrinsic!");
-      case Intrinsic::x86_tileloadde64:   Opc = X86::PTILELOADDE; break;
-      case Intrinsic::x86_tileloaddt1e64: Opc = X86::PTILELOADDT1E; break;
-      case Intrinsic::x86_tilestorede64:  Opc = X86::PTILESTOREDE; break;
-      }
-      // FIXME: Match displacement and scale.
-      unsigned TIndex = Node->getConstantOperandVal(2);
-      SDValue TReg = getI8Imm(TIndex, dl);
-      SDValue Base = Node->getOperand(3);
-      SDValue Scale = getI8Imm(1, dl);
-      SDValue Index = Node->getOperand(4);
-      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
-      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
-      SDValue Chain = Node->getOperand(0);
-      MachineSDNode *CNode;
-      if (Opc == X86::PTILESTOREDE) {
-        SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg, Chain };
-        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
-      } else {
-        SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Chain };
-        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
-      }
-      ReplaceNode(Node, CNode);
-      return;
-    }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
     case Intrinsic::x86_t2rpntlvw:
-    case Intrinsic::x86_t2rpntlvwt1:
-    case Intrinsic::x86_t2transposew:
-    case Intrinsic::x86_t2transposewt1: {
+    case Intrinsic::x86_t2rpntlvwt1: {
       if (!Subtarget->hasAMXTRANSPOSE())
         break;
       unsigned Opc;
@@ -4567,8 +4616,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       default: llvm_unreachable("Unexpected intrinsic!");
       case Intrinsic::x86_t2rpntlvw:   Opc = X86::PT2RPNTLVW; break;
       case Intrinsic::x86_t2rpntlvwt1: Opc = X86::PT2RPNTLVWT1; break;
-      case Intrinsic::x86_t2transposew:   Opc = X86::PT2TRANSPOSEW; break;
-      case Intrinsic::x86_t2transposewt1: Opc = X86::PT2TRANSPOSEWT1; break;
       }
       // FIXME: Match displacement and scale.
       unsigned TIndex = Node->getConstantOperandVal(2);
@@ -4613,8 +4660,42 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CNode);
       return;
     }
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+    case Intrinsic::x86_tstorehd:
+    case Intrinsic::x86_tstorehdt1:
+    case Intrinsic::x86_tstorentd:
+    case Intrinsic::x86_tstoreqd:
+    case Intrinsic::x86_tstoreqdt1: {
+      if (!Subtarget->hasAMXMEMORY2())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tstorehd:   Opc = X86::PTSTOREHD; break;
+      case Intrinsic::x86_tstorehdt1: Opc = X86::PTSTOREHDT1; break;
+      case Intrinsic::x86_tstorentd:  Opc = X86::PTSTORENTD; break;
+      case Intrinsic::x86_tstoreqd:   Opc = X86::PTSTOREQD; break;
+      case Intrinsic::x86_tstoreqdt1: Opc = X86::PTSTOREQDT1; break;
+      }
+      // FIXME: Match displacement and scale.
+      SDValue Base = Node->getOperand(2);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(3);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      unsigned TIndex = Node->getConstantOperandVal(4);
+      SDValue TReg = getI8Imm(TIndex, dl);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
     case Intrinsic::x86_tcvtd2pse: {
-      if (!Subtarget->hasAMXELEMENTEVEX())
+      if (!Subtarget->hasAMXCONVERTEVEX())
         break;
       unsigned Opc;
       switch (IntNo) {
@@ -4635,7 +4716,68 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CNode);
       return;
     }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+    case Intrinsic::x86_tileloadde64:
+    case Intrinsic::x86_tileloaddt1e64:
+    case Intrinsic::x86_tilestorede64: {
+      if (!Subtarget->hasAMXTILEEVEX())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tileloadde64:   Opc = X86::PTILELOADDE; break;
+      case Intrinsic::x86_tileloaddt1e64: Opc = X86::PTILELOADDT1E; break;
+      case Intrinsic::x86_tilestorede64:  Opc = X86::PTILESTOREDE; break;
+      }
+      // FIXME: Match displacement and scale.
+      unsigned TIndex = Node->getConstantOperandVal(2);
+      SDValue TReg = getI8Imm(TIndex, dl);
+      SDValue Base = Node->getOperand(3);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(4);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      SDValue Chain = Node->getOperand(0);
+      MachineSDNode *CNode;
+      if (Opc == X86::PTILESTOREDE) {
+        SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg, Chain };
+        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      } else {
+        SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Chain };
+        CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      }
+      ReplaceNode(Node, CNode);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+    case Intrinsic::x86_t2transposew:
+    case Intrinsic::x86_t2transposewt1: {
+      if (!Subtarget->hasAMXTRANSPOSE2())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_t2transposew:   Opc = X86::PT2TRANSPOSEW; break;
+      case Intrinsic::x86_t2transposewt1: Opc = X86::PT2TRANSPOSEWT1; break;
+      }
+      // FIXME: Match displacement and scale.
+      unsigned TIndex = Node->getConstantOperandVal(2);
+      SDValue TReg = getI8Imm(TIndex, dl);
+      SDValue Base = Node->getOperand(3);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(4);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      SDValue Reg = Node->getOperand(5);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Reg, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
     }
 
@@ -5320,6 +5462,17 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       MachineSDNode *NewNode;
       SDValue Tmp0, Tmp1, Tmp2, Tmp3, Tmp4;
       if (tryFoldLoad(Node, N0.getNode(), Reg, Tmp0, Tmp1, Tmp2, Tmp3, Tmp4)) {
+        if (auto *LoadN = dyn_cast<LoadSDNode>(N0.getOperand(0).getNode())) {
+          if (!LoadN->isSimple()) {
+            unsigned NumVolBits = LoadN->getValueType(0).getSizeInBits();
+            if (MOpc == X86::TEST8mi && NumVolBits != 8)
+              break;
+            else if (MOpc == X86::TEST16mi && NumVolBits != 16)
+              break;
+            else if (MOpc == X86::TEST32mi && NumVolBits != 32)
+              break;
+          }
+        }
         SDValue Ops[] = { Tmp0, Tmp1, Tmp2, Tmp3, Tmp4, Imm,
                           Reg.getOperand(0) };
         NewNode = CurDAG->getMachineNode(MOpc, dl, MVT::i32, MVT::Other, Ops);
@@ -5416,34 +5569,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     if (foldLoadStoreIntoMemOperand(Node))
       return;
     break;
-  case ISD::FCEIL:
-  case ISD::FFLOOR:
-  case ISD::FTRUNC:
-  case ISD::FNEARBYINT:
-  case ISD::FRINT: {
-    // Replace fp rounding with their X86 specific equivalent so we don't
-    // need 2 sets of patterns.
-    // FIXME: This can only happen when the nodes started as STRICT_* and have
-    // been mutated into their non-STRICT equivalents. Eventually this
-    // mutation will be removed and we should switch the STRICT_ nodes to a
-    // strict version of RNDSCALE in PreProcessISelDAG.
-    unsigned Imm;
-    switch (Node->getOpcode()) {
-    default: llvm_unreachable("Unexpected opcode!");
-    case ISD::FCEIL:      Imm = 0xA; break;
-    case ISD::FFLOOR:     Imm = 0x9; break;
-    case ISD::FTRUNC:     Imm = 0xB; break;
-    case ISD::FNEARBYINT: Imm = 0xC; break;
-    case ISD::FRINT:      Imm = 0x4; break;
-    }
-    SDLoc dl(Node);
-    SDValue Res = CurDAG->getNode(X86ISD::VRNDSCALE, dl, Node->getValueType(0),
-                                  Node->getOperand(0),
-                                  CurDAG->getTargetConstant(Imm, dl, MVT::i8));
-    ReplaceNode(Node, Res.getNode());
-    SelectCode(Res.getNode());
-    return;
-  }
   }
 
   SelectCode(Node);
@@ -5456,10 +5581,6 @@ SelectInlineAsmMemoryOperand(const SDValue &Op, unsigned ConstraintID,
   switch (ConstraintID) {
   default:
     llvm_unreachable("Unexpected asm memory constraint");
-  case InlineAsm::Constraint_i:
-    // FIXME: It seems strange that 'i' is needed here since it's supposed to
-    //        be an immediate and not a memory constraint.
-    LLVM_FALLTHROUGH;
   case InlineAsm::Constraint_o: // offsetable        ??
   case InlineAsm::Constraint_v: // not offsetable    ??
   case InlineAsm::Constraint_m: // memory

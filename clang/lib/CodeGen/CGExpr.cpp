@@ -717,7 +717,7 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
   if (SanOpts.has(SanitizerKind::ObjectSize) &&
       !SkippedChecks.has(SanitizerKind::ObjectSize) &&
       !Ty->isIncompleteType()) {
-    uint64_t TySize = getContext().getTypeSizeInChars(Ty).getQuantity();
+    uint64_t TySize = CGM.getMinimumObjectSize(Ty).getQuantity();
     llvm::Value *Size = llvm::ConstantInt::get(IntPtrTy, TySize);
     if (ArraySize)
       Size = Builder.CreateMul(Size, ArraySize);
@@ -748,7 +748,9 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
       !SkippedChecks.has(SanitizerKind::Alignment)) {
     AlignVal = Alignment.getQuantity();
     if (!Ty->isIncompleteType() && !AlignVal)
-      AlignVal = getContext().getTypeAlignInChars(Ty).getQuantity();
+      AlignVal =
+          getNaturalTypeAlignment(Ty, nullptr, nullptr, /*ForPointeeType=*/true)
+              .getQuantity();
 
     // The glvalue must be suitably aligned.
     if (AlignVal > 1 &&
@@ -1017,6 +1019,9 @@ EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
 
   // Store the updated result through the lvalue.
   EmitStoreOfComplex(IncVal, LV, /*init*/ false);
+  if (getLangOpts().OpenMP)
+    CGM.getOpenMPRuntime().checkAndEmitLastprivateConditional(*this,
+                                                              E->getSubExpr());
 
   // If this is a postinc, return the value read from memory, otherwise use the
   // updated value.
@@ -1681,6 +1686,23 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
 
   CGM.DecorateInstructionWithTBAA(Load, TBAAInfo);
 
+#if INTEL_CUSTOMIZATION
+  // If pointer is loaded from restrict-qualified alloca, track it as
+  // restrict pointer.
+  auto NAP = NoAliasSlotMap.find(Addr.getPointer());
+  if (NAP != NoAliasSlotMap.end()) {
+    NoAliasPtrMap.try_emplace(Load, NAP->second);
+  }
+
+  // Assign alias.scope metadata if Load address is based on restrict-qualified
+  // pointer.
+  auto NAI = NoAliasPtrMap.find(Addr.getPointer());
+  if (NAI != NoAliasPtrMap.end()) {
+    Load->setMetadata(llvm::LLVMContext::MD_alias_scope, NAI->second);
+    getCurNoAliasScope().addMemInst(Load);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (EmitScalarRangeCheck(Load, Ty, Loc)) {
     // In order to prevent the optimizer from throwing away the check, don't
     // attach range metadata to the load.
@@ -1772,6 +1794,15 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
   }
 
   CGM.DecorateInstructionWithTBAA(Store, TBAAInfo);
+
+#if INTEL_CUSTOMIZATION
+  // Assign alias.scope if Store is made to a restrict-qualified pointer.
+  auto NAI = NoAliasPtrMap.find(Addr.getPointer());
+  if (NAI != NoAliasPtrMap.end()) {
+    Store->setMetadata(llvm::LLVMContext::MD_alias_scope, NAI->second);
+    getCurNoAliasScope().addMemInst(Store);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
@@ -1897,8 +1928,7 @@ RValue CodeGenFunction::EmitLoadOfExtVectorElementLValue(LValue LV) {
 /// Generates lvalue for partial ext_vector access.
 Address CodeGenFunction::EmitExtVectorElementLValue(LValue LV) {
   Address VectorAddress = LV.getExtVectorAddress();
-  const VectorType *ExprVT = LV.getType()->getAs<VectorType>();
-  QualType EQT = ExprVT->getElementType();
+  QualType EQT = LV.getType()->castAs<VectorType>()->getElementType();
   llvm::Type *VectorElementTy = CGM.getTypes().ConvertType(EQT);
 
   Address CastToPointerElement =
@@ -2858,7 +2888,7 @@ LValue CodeGenFunction::EmitPredefinedLValue(const PredefinedExpr *E) {
       PredefinedExpr::getIdentKindName(E->getIdentKind()), FnName};
   std::string GVName = llvm::join(NameItems, NameItems + 2, ".");
   if (auto *BD = dyn_cast_or_null<BlockDecl>(CurCodeDecl)) {
-    std::string Name = SL->getString();
+    std::string Name = std::string(SL->getString());
     if (!Name.empty()) {
       unsigned Discriminator =
           CGM.getCXXABI().getMangleContext().getBlockId(BD, true);
@@ -2867,7 +2897,8 @@ LValue CodeGenFunction::EmitPredefinedLValue(const PredefinedExpr *E) {
       auto C = CGM.GetAddrOfConstantCString(Name, GVName.c_str());
       return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
     } else {
-      auto C = CGM.GetAddrOfConstantCString(FnName, GVName.c_str());
+      auto C =
+          CGM.GetAddrOfConstantCString(std::string(FnName), GVName.c_str());
       return MakeAddrLValue(C, E->getType(), AlignmentSource::Decl);
     }
   }
@@ -2997,7 +3028,8 @@ llvm::Constant *CodeGenFunction::EmitCheckSourceLocation(SourceLocation Loc) {
         FilenameString = llvm::sys::path::filename(FilenameString);
     }
 
-    auto FilenameGV = CGM.GetAddrOfConstantCString(FilenameString, ".src");
+    auto FilenameGV =
+        CGM.GetAddrOfConstantCString(std::string(FilenameString), ".src");
     CGM.getSanitizerMetadata()->disableSanitizerForGlobal(
                           cast<llvm::GlobalVariable>(FilenameGV.getPointer()));
     Filename = FilenameGV.getPointer();
@@ -3461,6 +3493,15 @@ static const Expr *isSimpleArrayDecayOperand(const Expr *E) {
   return SubExpr;
 }
 
+#if INTEL_CUSTOMIZATION
+void CodeGenFunction::recordNoAliasPtr(llvm::Value *BasePtr, llvm::Value *Ptr) {
+  auto NAP = NoAliasPtrMap.find(BasePtr);
+  if (NAP != NoAliasPtrMap.end()) {
+    NoAliasPtrMap.insert(std::make_pair(Ptr, NAP->second));
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 static llvm::Value *emitArraySubscriptGEP(CodeGenFunction &CGF,
                                           llvm::Value *ptr,
                                           ArrayRef<llvm::Value*> indices,
@@ -3473,7 +3514,11 @@ static llvm::Value *emitArraySubscriptGEP(CodeGenFunction &CGF,
                                       CodeGenFunction::NotSubtraction, loc,
                                       name);
   } else {
-    return CGF.Builder.CreateGEP(ptr, indices, name);
+#if INTEL_CUSTOMIZATION
+    auto GEPVal = CGF.Builder.CreateGEP(ptr, indices, name);
+    CGF.recordNoAliasPtr(ptr, GEPVal);
+    return GEPVal;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -3991,7 +4036,7 @@ EmitExtVectorElementExpr(const ExtVectorElementExpr *E) {
     LValueBaseInfo BaseInfo;
     TBAAAccessInfo TBAAInfo;
     Address Ptr = EmitPointerWithAlignment(E->getBase(), &BaseInfo, &TBAAInfo);
-    const PointerType *PT = E->getBase()->getType()->getAs<PointerType>();
+    const auto *PT = E->getBase()->getType()->castAs<PointerType>();
     Base = MakeAddrLValue(Ptr, PT->getPointeeType(), BaseInfo, TBAAInfo);
     Base.getQuals().removeObjCGCAttr();
   } else if (E->getBase()->isGLValue()) {
@@ -4131,15 +4176,26 @@ static Address emitAddrOfZeroSizeField(CodeGenFunction &CGF, Address Base,
 /// The resulting address doesn't necessarily have the right type.
 static Address emitAddrOfFieldStorage(CodeGenFunction &CGF, Address base,
                                       const FieldDecl *field) {
-  if (field->isZeroSize(CGF.getContext()))
-    return emitAddrOfZeroSizeField(CGF, base, field);
+
+#if INTEL_CUSTOMIZATION
+  if (field->isZeroSize(CGF.getContext())) {
+    Address Addr = emitAddrOfZeroSizeField(CGF, base, field);
+    CGF.recordNoAliasPtr(base.getPointer(), Addr.getPointer());
+    return Addr;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   const RecordDecl *rec = field->getParent();
 
   unsigned idx =
     CGF.CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field);
 
-  return CGF.Builder.CreateStructGEP(base, idx, field->getName());
+#if INTEL_CUSTOMIZATION
+  Address Addr = CGF.Builder.CreateStructGEP(base, idx, field->getName());
+  CGF.recordNoAliasPtr(base.getPointer(), Addr.getPointer());
+
+  return Addr;
+#endif // INTEL_CUSTOMIZATION
 }
 
 static Address emitPreserveStructAccess(CodeGenFunction &CGF, Address base,
@@ -4213,7 +4269,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
     LValueBaseInfo FieldBaseInfo(BaseInfo.getAlignmentSource());
 #if INTEL_CUSTOMIZATION
     BitfieldResult = LValue::MakeBitfield(Addr, Info, fieldType, FieldBaseInfo,
-                                TBAAAccessInfo());
+                                          TBAAAccessInfo());
     if (!getLangOpts().isIntelCompat(LangOptions::IntelTBAABF))
       return BitfieldResult;
 #endif  // INTEL_CUSTOMIZATION
@@ -4725,8 +4781,8 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
 
   case CK_UncheckedDerivedToBase:
   case CK_DerivedToBase: {
-    const RecordType *DerivedClassTy =
-      E->getSubExpr()->getType()->getAs<RecordType>();
+    const auto *DerivedClassTy =
+        E->getSubExpr()->getType()->castAs<RecordType>();
     auto *DerivedClassDecl = cast<CXXRecordDecl>(DerivedClassTy->getDecl());
 
     LValue LV = EmitLValue(E->getSubExpr());
@@ -4746,7 +4802,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_ToUnion:
     return EmitAggExprToLValue(E);
   case CK_BaseToDerived: {
-    const RecordType *DerivedClassTy = E->getType()->getAs<RecordType>();
+    const auto *DerivedClassTy = E->getType()->castAs<RecordType>();
     auto *DerivedClassDecl = cast<CXXRecordDecl>(DerivedClassTy->getDecl());
 
     LValue LV = EmitLValue(E->getSubExpr());
@@ -4911,8 +4967,15 @@ RValue CodeGenFunction::EmitSimpleCallExpr(const CallExpr *E,
 }
 
 static CGCallee EmitDirectCallee(CodeGenFunction &CGF, const FunctionDecl *FD) {
+
   if (auto builtinID = FD->getBuiltinID()) {
-    return CGCallee::forBuiltin(builtinID, FD);
+    // Replaceable builtin provide their own implementation of a builtin. Unless
+    // we are in the builtin implementation itself, don't call the actual
+    // builtin. If we are in the builtin implementation, avoid trivial infinite
+    // recursion.
+    if (!FD->isInlineBuiltinDeclaration() ||
+        CGF.CurFn->getName() == FD->getName())
+      return CGCallee::forBuiltin(builtinID, FD);
   }
 
 #if INTEL_COLLAB
@@ -5020,6 +5083,9 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
     if (RV.isScalar())
       EmitNullabilityCheck(LV, RV.getScalarVal(), E->getExprLoc());
     EmitStoreThroughLValue(RV, LV);
+    if (getLangOpts().OpenMP)
+      CGM.getOpenMPRuntime().checkAndEmitLastprivateConditional(*this,
+                                                                E->getLHS());
     return LV;
   }
 
@@ -5342,9 +5408,7 @@ EmitPointerToDataMemberBinaryExpr(const BinaryOperator *E) {
   }
 
   llvm::Value *OffsetV = EmitScalarExpr(E->getRHS());
-
-  const MemberPointerType *MPT
-    = E->getRHS()->getType()->getAs<MemberPointerType>();
+  const auto *MPT = E->getRHS()->getType()->castAs<MemberPointerType>();
 
   LValueBaseInfo BaseInfo;
   TBAAAccessInfo TBAAInfo;

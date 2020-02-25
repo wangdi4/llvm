@@ -186,9 +186,12 @@ Retry:
 
     // Look up the identifier, and typo-correct it to a keyword if it's not
     // found.
-    if (Next.isNot(tok::coloncolon) &&                               // INTEL
-        (!(getLangOpts().MSVCCompat || getLangOpts().IntelCompat) || // INTEL
-         Next.isNot(tok::less))) {                                   // INTEL
+#if INTEL_CUSTOMIZATION
+    if (Next.isNot(tok::coloncolon) &&
+        (!(getLangOpts().MSVCCompat ||
+           getLangOpts().isIntelCompat(LangOptions::AllowMissingTypename)) ||
+         Next.isNot(tok::less))) {
+#endif // INTEL_CUSTOMIZATION
       // Try to limit which sets of keywords should be included in typo
       // correction based on what the next token is.
       StatementFilterCCC CCC(Next);
@@ -393,6 +396,10 @@ Retry:
   case tok::annot_pragma_loop_count:
     ProhibitAttributes(Attrs);
     return ParsePragmaLoopCount(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  case tok::annot_pragma_loop_fuse:
+    ProhibitAttributes(Attrs);
+    return HandlePragmaLoopFuse();
 #endif // INTEL_CUSTOMIZATION
 
   case tok::annot_pragma_openmp:
@@ -1053,9 +1060,9 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
                                 Tok.getLocation(),
                                 "in compound statement ('{}')");
 
-  // Record the state of the FP_CONTRACT pragma, restore on leaving the
+  // Record the state of the FPFeatures, restore on leaving the
   // compound statement.
-  Sema::FPContractStateRAII SaveFPContractState(Actions);
+  Sema::FPFeaturesStateRAII SaveFPContractState(Actions);
 
   InMessageExpressionRAIIObject InMessage(*this, false);
   BalancedDelimiterTracker T(*this, tok::l_brace);
@@ -1253,6 +1260,42 @@ struct MisleadingIndentationChecker {
     if (Kind == MSK_else && !ShouldSkip)
       P.MisleadingIndentationElseLoc = SL;
   }
+
+  /// Compute the column number will aligning tabs on TabStop (-ftabstop), this
+  /// gives the visual indentation of the SourceLocation.
+  static unsigned getVisualIndentation(SourceManager &SM, SourceLocation Loc) {
+    unsigned TabStop = SM.getDiagnostics().getDiagnosticOptions().TabStop;
+
+    unsigned ColNo = SM.getSpellingColumnNumber(Loc);
+    if (ColNo == 0 || TabStop == 1)
+      return ColNo;
+
+    std::pair<FileID, unsigned> FIDAndOffset = SM.getDecomposedLoc(Loc);
+
+    bool Invalid;
+    StringRef BufData = SM.getBufferData(FIDAndOffset.first, &Invalid);
+    if (Invalid)
+      return 0;
+
+    const char *EndPos = BufData.data() + FIDAndOffset.second;
+    // FileOffset are 0-based and Column numbers are 1-based
+    assert(FIDAndOffset.second + 1 >= ColNo &&
+           "Column number smaller than file offset?");
+
+    unsigned VisualColumn = 0; // Stored as 0-based column, here.
+    // Loop from beginning of line up to Loc's file position, counting columns,
+    // expanding tabs.
+    for (const char *CurPos = EndPos - (ColNo - 1); CurPos != EndPos;
+         ++CurPos) {
+      if (*CurPos == '\t')
+        // Advance visual column to next tabstop.
+        VisualColumn += (TabStop - VisualColumn % TabStop);
+      else
+        VisualColumn++;
+    }
+    return VisualColumn + 1;
+  }
+
   void Check() {
     Token Tok = P.getCurToken();
     if (P.getActions().getDiagnostics().isIgnored(
@@ -1269,16 +1312,18 @@ struct MisleadingIndentationChecker {
       P.MisleadingIndentationElseLoc = SourceLocation();
 
     SourceManager &SM = P.getPreprocessor().getSourceManager();
-    unsigned PrevColNum = SM.getSpellingColumnNumber(PrevLoc);
-    unsigned CurColNum = SM.getSpellingColumnNumber(Tok.getLocation());
-    unsigned StmtColNum = SM.getSpellingColumnNumber(StmtLoc);
+    unsigned PrevColNum = getVisualIndentation(SM, PrevLoc);
+    unsigned CurColNum = getVisualIndentation(SM, Tok.getLocation());
+    unsigned StmtColNum = getVisualIndentation(SM, StmtLoc);
 
     if (PrevColNum != 0 && CurColNum != 0 && StmtColNum != 0 &&
         ((PrevColNum > StmtColNum && PrevColNum == CurColNum) ||
-         !Tok.isAtStartOfLine()) && SM.getPresumedLineNumber(StmtLoc) !=
-          SM.getPresumedLineNumber(Tok.getLocation())) {
-      P.Diag(Tok.getLocation(), diag::warn_misleading_indentation)
-          << Kind;
+         !Tok.isAtStartOfLine()) &&
+        SM.getPresumedLineNumber(StmtLoc) !=
+            SM.getPresumedLineNumber(Tok.getLocation()) &&
+        (Tok.isNot(tok::identifier) ||
+         P.getPreprocessor().LookAhead(0).isNot(tok::colon))) {
+      P.Diag(Tok.getLocation(), diag::warn_misleading_indentation) << Kind;
       P.Diag(StmtLoc, diag::note_previous_statement);
     }
   }

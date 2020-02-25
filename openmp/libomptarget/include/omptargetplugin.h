@@ -182,9 +182,13 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
     int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc, void *AsyncData);
 
-// Returns opaque handle to a device-dependent offload pipe.
+// Creates an opaque handle to a device-dependent offload pipe.
 EXTERN
-void *__tgt_rtl_get_offload_pipe(int32_t ID);
+void *__tgt_rtl_create_offload_pipe(int32_t ID, bool IsAsync);
+
+// Releases a device-dependent offload pipe.
+EXTERN
+int32_t __tgt_rtl_release_offload_pipe(int32_t ID, void *Pipe);
 
 // Checks if the specified memory location is managed.
 EXTERN

@@ -29,15 +29,15 @@ int main() {
   queue q;
   auto dev = q.get_device();
   auto ctxt = q.get_context();
-  Node *s_head = nullptr;
-  Node *s_cur = nullptr;
+  if (!dev.get_info<info::device::usm_shared_allocations>())
+    return 0;
 
-  s_head = (Node *)malloc_shared(sizeof(Node), dev, ctxt);
+  Node *s_head = (Node *)malloc_shared(sizeof(Node), dev, ctxt);
   if (s_head == nullptr) {
     return -1;
   }
-  q.mem_advise(s_head, sizeof(Node), 42);
-  s_cur = s_head;
+  q.mem_advise(s_head, sizeof(Node), PI_MEM_ADVICE_SET_READ_MOSTLY);
+  Node *s_cur = s_head;
 
   for (int i = 0; i < numNodes; i++) {
     s_cur->Num = i * 2;
@@ -47,7 +47,7 @@ int main() {
       if (s_cur->pNext == nullptr) {
         return -1;
       }
-      q.mem_advise(s_cur->pNext, sizeof(Node), 42);
+      q.mem_advise(s_cur->pNext, sizeof(Node), PI_MEM_ADVICE_SET_READ_MOSTLY);
     } else {
       s_cur->pNext = nullptr;
     }
@@ -72,7 +72,7 @@ int main() {
   for (int i = 0; i < numNodes; i++) {
     const int want = i * 4 + 1;
     if (s_cur->Num != want) {
-      return -1;
+      return -2;
     }
     Node *old = s_cur;
     s_cur = s_cur->pNext;

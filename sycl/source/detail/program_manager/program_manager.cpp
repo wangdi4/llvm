@@ -27,7 +27,7 @@
 #include <mutex>
 #include <sstream>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 namespace detail {
 
@@ -44,7 +44,7 @@ ProgramManager &ProgramManager::getInstance() {
 }
 
 static RT::PiDevice getFirstDevice(RT::PiContext Context) {
-  cl_uint NumDevices = 0;
+  pi_uint32 NumDevices = 0;
   PI_CALL(piContextGetInfo)(Context, PI_CONTEXT_INFO_NUM_DEVICES,
                             sizeof(NumDevices), &NumDevices,
                             /*param_value_size_ret=*/nullptr);
@@ -65,7 +65,7 @@ static RT::PiProgram createBinaryProgram(const RT::PiContext Context,
                                          size_t DataLen) {
   // FIXME: we don't yet support multiple devices with a single binary.
 #ifndef _NDEBUG
-  cl_uint NumDevices = 0;
+  pi_uint32 NumDevices = 0;
   PI_CALL(piContextGetInfo)(Context, PI_CONTEXT_INFO_NUM_DEVICES,
                             sizeof(NumDevices), &NumDevices,
                             /*param_value_size_ret=*/nullptr);
@@ -325,8 +325,9 @@ ProgramManager::getBuiltPIProgram(OSModuleHandle M, const context &Context,
         [](const device Dev) { return getRawSyclObjImpl(Dev)->getHandleRef(); });
 
     ProgramPtr BuiltProgram =
-        build(std::move(ProgramManaged), PiContext, Img.BuildOptions, PiDevices,
-              ContextImpl->getCachedLibPrograms(), LinkDeviceLibs);
+        build(std::move(ProgramManaged), PiContext, Img.CompileOptions,
+              Img.LinkOptions, PiDevices, ContextImpl->getCachedLibPrograms(),
+              LinkDeviceLibs);
 
     return BuiltProgram.release();
   };
@@ -374,16 +375,16 @@ RT::PiKernel ProgramManager::getOrCreateKernel(OSModuleHandle M,
 
 RT::PiProgram ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel) {
   RT::PiProgram Program;
-  PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program),
+  PI_CALL(piKernelGetInfo)(Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(RT::PiProgram),
                            &Program, nullptr);
   return Program;
 }
 
 string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program) {
   size_t Size = 0;
-  PI_CALL(piProgramGetInfo)(Program, CL_PROGRAM_DEVICES, 0, nullptr, &Size);
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_DEVICES, 0, nullptr, &Size);
   vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
-  PI_CALL(piProgramGetInfo)(Program, CL_PROGRAM_DEVICES, Size, PIDevices.data(),
+  PI_CALL(piProgramGetInfo)(Program, PI_PROGRAM_INFO_DEVICES, Size, PIDevices.data(),
                             nullptr);
   string_class Log = "The program was built for " +
                      std::to_string(PIDevices.size()) + " devices";
@@ -431,8 +432,12 @@ static const char* getDeviceLibFilename(DeviceLibExt Extension) {
     return "libsycl-fallback-cassert.spv";
   case cl_intel_devicelib_math:
     return "libsycl-fallback-cmath.spv";
+  case cl_intel_devicelib_math_fp64:
+    return "libsycl-fallback-cmath-fp64.spv";
   case cl_intel_devicelib_complex:
     return "libsycl-fallback-complex.spv";
+  case cl_intel_devicelib_complex_fp64:
+    return "libsycl-fallback-complex-fp64.spv";
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -443,8 +448,12 @@ static const char* getDeviceLibExtensionStr(DeviceLibExt Extension) {
     return "cl_intel_devicelib_assert";
   case cl_intel_devicelib_math:
     return "cl_intel_devicelib_math";
+  case cl_intel_devicelib_math_fp64:
+    return "cl_intel_devicelib_math_fp64";
   case cl_intel_devicelib_complex:
     return "cl_intel_devicelib_complex";
+  case cl_intel_devicelib_complex_fp64:
+    return "cl_intel_devicelib_complex_fp64";
   }
   throw compile_program_error("Unhandled (new?) device library extension");
 }
@@ -523,7 +532,8 @@ ProgramManager::ProgramManager() {
     ImgPtr->Version = PI_DEVICE_BINARY_VERSION;
     ImgPtr->Kind = PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL;
     ImgPtr->DeviceTargetSpec = PI_DEVICE_BINARY_TARGET_UNKNOWN;
-    ImgPtr->BuildOptions = "";
+    ImgPtr->CompileOptions = "";
+    ImgPtr->LinkOptions = "";
     ImgPtr->ManifestStart = nullptr;
     ImgPtr->ManifestEnd = nullptr;
     ImgPtr->BinaryStart = Data.release();
@@ -581,11 +591,13 @@ DeviceImage &ProgramManager::getDeviceImage(OSModuleHandle M, KernelSetId KSId,
   return *Img;
 }
 
-static std::vector<RT::PiProgram> getDeviceLibPrograms(
-    const RT::PiContext Context,
-    const std::vector<RT::PiDevice> &Devices,
-    std::map<DeviceLibExt, RT::PiProgram> &CachedLibPrograms) {
-
+// TODO: getDeviceLibPrograms should also support Windows but
+// current implementation doesn't work on Windows when multiple
+// device libraries exist and this problem should be fixed.
+static std::vector<RT::PiProgram>
+getDeviceLibPrograms(const RT::PiContext Context,
+                     const std::vector<RT::PiDevice> &Devices,
+                     std::map<DeviceLibExt, RT::PiProgram> &CachedLibPrograms) {
   std::vector<RT::PiProgram> Programs;
 
   // TODO: SYCL compiler should generate a list of required extensions for a
@@ -594,8 +606,20 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
   std::pair<DeviceLibExt, bool> RequiredDeviceLibExt[] = {
       {cl_intel_devicelib_assert, /* is fallback loaded? */ false},
       {cl_intel_devicelib_math, false},
-      {cl_intel_devicelib_complex, false}
+      {cl_intel_devicelib_math_fp64, false},
+      {cl_intel_devicelib_complex, false},
+      {cl_intel_devicelib_complex_fp64, false}
   };
+
+  // Disable all devicelib extensions requiring fp64 support if at least
+  // one underlying device doesn't support cl_khr_fp64.
+  bool fp64Support = true;
+  for (RT::PiDevice Dev : Devices) {
+    std::string DevExtList =
+	get_device_info<std::string, info::device::extensions>::get(Dev);
+    fp64Support = fp64Support &&
+	          (DevExtList.npos != DevExtList.find("cl_khr_fp64"));
+  }
 
   // Load a fallback library for an extension if at least one device does not
   // support it.
@@ -607,6 +631,11 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
       bool &FallbackIsLoaded = Pair.second;
 
       if (FallbackIsLoaded) {
+        continue;
+      }
+
+      if ((Ext == cl_intel_devicelib_math_fp64 ||
+	  Ext == cl_intel_devicelib_complex_fp64) && !fp64Support) {
         continue;
       }
 
@@ -631,19 +660,36 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
 
 ProgramManager::ProgramPtr
 ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
-                      const string_class &Options,
+                      const string_class &CompileOptions,
+                      const string_class &LinkOptions,
                       const std::vector<RT::PiDevice> &Devices,
                       std::map<DeviceLibExt, RT::PiProgram> &CachedLibPrograms,
                       bool LinkDeviceLibs) {
 
   if (DbgProgMgr > 0) {
     std::cerr << ">>> ProgramManager::build(" << Program.get() << ", "
-              << Options << ", ... " << Devices.size() << ")\n";
+              << CompileOptions << ", " << LinkOptions << ", ... "
+              << Devices.size() << ")\n";
   }
-  const char *Opts = std::getenv("SYCL_PROGRAM_BUILD_OPTIONS");
 
-  if (!Opts)
-    Opts = Options.c_str();
+  const char *CompileOpts = std::getenv("SYCL_PROGRAM_COMPILE_OPTIONS");
+  if (!CompileOpts) {
+    CompileOpts = CompileOptions.c_str();
+  }
+  const char *LinkOpts = std::getenv("SYCL_PROGRAM_LINK_OPTIONS");
+  if (!LinkOpts) {
+    LinkOpts = LinkOptions.c_str();
+  }
+
+#if INTEL_CUSTOMIZATION
+  // L0 plugin doesn't support piProgramCompile/piProgramLink commands, program
+  // is built during piProgramCreate.
+  // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
+  // implemented in L0 plugin.
+  if (pi::useBackend(pi::SYCL_BE_PI_OTHER)) {
+    LinkDeviceLibs = false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   std::vector<RT::PiProgram> LinkPrograms;
   if (LinkDeviceLibs) {
@@ -651,34 +697,32 @@ ProgramManager::build(ProgramPtr Program, RT::PiContext Context,
   }
 
   if (LinkPrograms.empty()) {
+    std::string Opts(CompileOpts);
+    Opts += " ";
+    Opts += LinkOpts;
+
     RT::PiResult Error = PI_CALL_NOCHECK(piProgramBuild)(
-        Program.get(), Devices.size(), Devices.data(), Opts, nullptr, nullptr);
+        Program.get(), Devices.size(), Devices.data(), Opts.c_str(), nullptr,
+        nullptr);
     if (Error != PI_SUCCESS)
       throw compile_program_error(getProgramBuildLog(Program.get()));
     return Program;
   }
 
   // Include the main program and compile/link everything together
-  PI_CALL(piProgramCompile)(Program.get(), Devices.size(), Devices.data(), Opts,
-                            0, nullptr, nullptr, nullptr, nullptr);
+  PI_CALL(piProgramCompile)(Program.get(), Devices.size(), Devices.data(),
+                            CompileOpts, 0, nullptr, nullptr, nullptr, nullptr);
   LinkPrograms.push_back(Program.get());
 
   RT::PiProgram LinkedProg = nullptr;
+
   RT::PiResult Error = PI_CALL_NOCHECK(piProgramLink)(
-      Context, Devices.size(), Devices.data(), Opts, LinkPrograms.size(),
+      Context, Devices.size(), Devices.data(), LinkOpts, LinkPrograms.size(),
       LinkPrograms.data(), nullptr, nullptr, &LinkedProg);
 
   // Link program call returns a new program object if all parameters are valid,
   // or NULL otherwise. Release the original (user) program.
-#if INTEL_CUSTOMIZATION
-  // LinkedProg is not expected to be nullptr in case of success. But currently
-  // L0 plugin doesn't support piProgramCompile/piProgramLink commands, program
-  // is built during piProgramCreate.
-  // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
-  // implemented in L0 plugin.
-  if (LinkedProg)
-#endif // INTEL_CUSTOMIZATION
-    Program.reset(LinkedProg);
+  Program.reset(LinkedProg);
   if (Error != PI_SUCCESS) {
     if (LinkedProg) {
       // A non-trivial error occurred during linkage: get a build log, release
@@ -744,12 +788,14 @@ void ProgramManager::debugDumpBinaryImage(const DeviceImage *Img) const {
   std::cerr << "  --- Image " << Img << "\n";
   if (!Img)
     return;
-  std::cerr << "    Version  : " << (int)Img->Version << "\n";
-  std::cerr << "    Kind     : " << (int)Img->Kind << "\n";
-  std::cerr << "    Format   : " << (int)Img->Format << "\n";
-  std::cerr << "    Target   : " << Img->DeviceTargetSpec << "\n";
-  std::cerr << "    Options  : "
-            << (Img->BuildOptions ? Img->BuildOptions : "NULL") << "\n";
+  std::cerr << "    Version         : " << (int)Img->Version << "\n";
+  std::cerr << "    Kind            : " << (int)Img->Kind << "\n";
+  std::cerr << "    Format          : " << (int)Img->Format << "\n";
+  std::cerr << "    Target          : " << Img->DeviceTargetSpec << "\n";
+  std::cerr << "    Compile options : "
+            << (Img->CompileOptions ? Img->CompileOptions : "NULL") << "\n";
+  std::cerr << "    Link options    : "
+            << (Img->LinkOptions ? Img->LinkOptions : "NULL") << "\n";
   std::cerr << "    Bin size : "
             << ((intptr_t)Img->BinaryEnd - (intptr_t)Img->BinaryStart) << "\n";
   std::cerr << "    Entries  : ";
@@ -856,11 +902,11 @@ void ProgramManager::dumpImage(const DeviceImage &Img, KernelSetId KSId) const {
 } // namespace sycl
 } // namespace cl
 
-extern "C" void __tgt_register_lib(pi_device_binaries desc) {
+extern "C" void __sycl_register_lib(pi_device_binaries desc) {
   cl::sycl::detail::ProgramManager::getInstance().addImages(desc);
 }
 
 // Executed as a part of current module's (.exe, .dll) static initialization
-extern "C" void __tgt_unregister_lib(pi_device_binaries desc) {
+extern "C" void __sycl_unregister_lib(pi_device_binaries desc) {
   // TODO implement the function
 }

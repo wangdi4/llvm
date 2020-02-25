@@ -108,6 +108,7 @@ using IndicesVector = std::vector<uint64_t>;
 static Function *
 doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
             SmallPtrSetImpl<Argument *> &ByValArgsToTransform,
+            bool isCallback, // INTEL
             Optional<function_ref<void(CallSite OldCS, CallSite NewCS)>>
                 ReplaceCallSite) {
   // Start by computing a new prototype for the function, which is the same as
@@ -137,6 +138,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   // attributes are lost
   SmallVector<AttributeSet, 8> ArgAttrVec;
   AttributeList PAL = F->getAttributes();
+  const DataLayout &DL = F->getParent()->getDataLayout(); // INTEL
 
   // First, determine the new argument list
   unsigned ArgNo = 0;
@@ -199,9 +201,15 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       // Add a parameter to the function for each element passed in.
       for (const auto &ArgIndex : ArgIndices) {
         // not allowed to dereference ->begin() if size() is 0
-        Params.push_back(GetElementPtrInst::getIndexedType(
-            cast<PointerType>(I->getType()->getScalarType())->getElementType(),
-            ArgIndex.second));
+#if INTEL_CUSTOMIZATION
+        Type *ParamTy =
+            isCallback ? DL.getIntPtrType(I->getType())
+                       : GetElementPtrInst::getIndexedType(
+                             cast<PointerType>(I->getType()->getScalarType())
+                                 ->getElementType(),
+                             ArgIndex.second);
+        Params.push_back(ParamTy);
+#endif // INTEL_CUSTOMIZATION
         ArgAttrVec.push_back(AttributeSet());
         assert(Params.back());
       }
@@ -244,19 +252,73 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   //
   SmallVector<Value *, 16> Args;
   while (!F->use_empty()) {
-    CallSite CS(F->user_back());
-    assert(CS.getCalledFunction() == F);
+#if INTEL_CUSTOMIZATION
+    AbstractCallSite ACS(&*F->use_begin());
+    assert(ACS.getCalledFunction() == F);
+    CallSite CS = ACS.getCallSite();
+#endif // INTEL_CUSTOMIZATION
     Instruction *Call = CS.getInstruction();
     const AttributeList &CallPAL = CS.getAttributes();
     IRBuilder<NoFolder> IRB(Call);
 
+#if INTEL_CUSTOMIZATION
+    // Build mapping between actual and formal arguments for the call site.
+    DenseMap<int, int> Actual2Formal;
+    for (unsigned ArgNo = 0; ArgNo < F->arg_size(); ++ArgNo) {
+      int OpndNo = ACS.getCallArgOperandNo(ArgNo);
+      if (OpndNo >= 0)
+        Actual2Formal[OpndNo] = ArgNo;
+    }
+
+    // Cast given value to a pointer-sized integer type for callback functions.
+    auto MaybeCastTo = [&](Value *Val, Argument &Arg) {
+      if (isCallback) {
+        // Bitcast to integer.
+        Value *IntVal = IRB.CreateBitOrPointerCast(
+            Val, IRB.getIntNTy(DL.getTypeStoreSizeInBits(Val->getType())));
+
+        // Zero-extend to pointer-sized integer.
+        Val = IRB.CreateZExt(IntVal, DL.getIntPtrType(Arg.getType()));
+      }
+      return Val;
+    };
+#endif // INTEL_CUSTOMIZATION
+
     // Loop over the operands, inserting GEP and loads in the caller as
     // appropriate.
-    CallSite::arg_iterator AI = CS.arg_begin();
     ArgNo = 0;
-    for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
-         ++I, ++AI, ++ArgNo)
+#if INTEL_CUSTOMIZATION
+    for (CallSite::arg_iterator AI = CS.arg_begin(), E = CS.arg_end(); AI != E;
+         ++AI, ++ArgNo) {
+      if (ACS.isCallbackCall() &&
+          static_cast<unsigned>(ACS.getCallArgOperandNoForCallee()) == ArgNo) {
+        // Use new function for the the callback call's callee operand.
+        const Use &CBA = ACS.getCalleeUseForCallback();
+        Args.push_back(NF->getType() != CBA->getType()
+                           ? ConstantExpr::getPointerCast(NF, CBA->getType())
+                           : NF);
+        ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
+        continue;
+      }
+
+      if (!Actual2Formal.count(ArgNo)) {
+        Args.push_back(*AI);
+        ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
+        continue;
+      }
+
+      Function::arg_iterator I =
+          std::next(F->arg_begin(), Actual2Formal[ArgNo]);
+#endif // INTEL_CUSTOMIZATION
       if (!ArgsToPromote.count(&*I) && !ByValArgsToTransform.count(&*I)) {
+#if INTEL_CUSTOMIZATION
+        if (isCallback && I->use_empty()) {
+          // Argument with no uses. Pass undef value for callbacks.
+          Args.push_back(UndefValue::get(AI->get()->getType()));
+          ArgAttrVec.push_back(AttributeSet());
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
         Args.push_back(*AI); // Unmodified argument
         ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
       } else if (ByValArgsToTransform.count(&*I)) {
@@ -304,6 +366,14 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
             V = IRB.CreateGEP(ArgIndex.first, V, Ops, V->getName() + ".idx");
             Ops.clear();
           }
+#if INTEL_CUSTOMIZATION
+          // For callback call sites type of the actual argument may differ
+          // from the formal, so add a type cast if necessary.
+          if (ACS.isCallbackCall() &&
+              OrigLoad->getPointerOperandType() != V->getType())
+            V = IRB.CreatePointerCast(V, OrigLoad->getPointerOperandType(),
+                                      V->getName() + ".cst");
+#endif // INTEL_CUSTOMIZATION
           // Since we're replacing a load make sure we take the alignment
           // of the previous load.
           LoadInst *newLoad =
@@ -314,26 +384,24 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           OrigLoad->getAAMetadata(AAInfo);
           newLoad->setAAMetadata(AAInfo);
 
-          Args.push_back(newLoad);
+          Args.push_back(MaybeCastTo(newLoad, *I)); // INTEL
           ArgAttrVec.push_back(AttributeSet());
         }
       }
-
-    // Push any varargs arguments on the list.
-    for (; AI != CS.arg_end(); ++AI, ++ArgNo) {
-      Args.push_back(*AI);
-      ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
     }
 
     SmallVector<OperandBundleDef, 1> OpBundles;
     CS.getOperandBundlesAsDefs(OpBundles);
 
     CallSite NewCS;
+    Value *NewF = ACS.isCallbackCall() ? CS.getCalledFunction() : NF; // INTEL
     if (InvokeInst *II = dyn_cast<InvokeInst>(Call)) {
-      NewCS = InvokeInst::Create(NF, II->getNormalDest(), II->getUnwindDest(),
+      NewCS = InvokeInst::Create(NewF, II->getNormalDest(), // INTEL
+                                 II->getUnwindDest(),       // INTEL
                                  Args, OpBundles, "", Call);
     } else {
-      auto *NewCall = CallInst::Create(NF, Args, OpBundles, "", Call);
+      auto *NewCall =                                        // INTEL
+          CallInst::Create(NewF, Args, OpBundles, "", Call); // INTEL
       NewCall->setTailCallKind(cast<CallInst>(Call)->getTailCallKind());
       NewCS = NewCall;
     }
@@ -365,6 +433,12 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     // Finally, remove the old call from the program, reducing the use-count of
     // F.
     Call->eraseFromParent();
+
+#if INTEL_CUSTOMIZATION
+    // Remove dead constants referencing this function that may remain after
+    // removing the call.
+    F->removeDeadConstantUsers();
+#endif // INTEL_CUSTOMIZATION
   }
 
 #if INTEL_CUSTOMIZATION
@@ -375,12 +449,28 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   if (OldCount.hasValue())
     NF->setEntryCount(OldCount.getCount());
 #endif // INTEL_CUSTOMIZATION
-  const DataLayout &DL = F->getParent()->getDataLayout();
 
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
   NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+
+#if INTEL_CUSTOMIZATION
+  auto MaybeCastFrom = [&](Value *Val, Instruction *Inst) {
+    if (isCallback) {
+      IRBuilder<> IRB(Inst);
+      Type *Ty = Inst->getType();
+
+      // Truncate to type-sized integer.
+      Value *IntVal =
+          IRB.CreateTrunc(Val, IRB.getIntNTy(DL.getTypeStoreSizeInBits(Ty)));
+
+      // Bitcast to destination type.
+      Val = IRB.CreateBitOrPointerCast(IntVal, Ty);
+    }
+    return Val;
+  };
+#endif // INTEL_CUSTOMIZATION
 
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments, also transferring over the names as well.
@@ -447,7 +537,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
         assert(ArgIndices.begin()->second.empty() &&
                "Load element should sort to front!");
         I2->setName(I->getName() + ".val");
-        LI->replaceAllUsesWith(&*I2);
+        LI->replaceAllUsesWith(MaybeCastFrom(&*I2, LI)); // INTEL
         LI->eraseFromParent();
         LLVM_DEBUG(dbgs() << "*** Promoted load of argument '" << I->getName()
                           << "' in function '" << F->getName() << "'\n");
@@ -469,7 +559,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           assert(It != ArgIndices.end() && "GEP not handled??");
         }
 
-        std::string NewName = I->getName();
+        std::string NewName = std::string(I->getName());
         for (unsigned i = 0, e = Operands.size(); i != e; ++i) {
           NewName += "." + utostr(Operands[i]);
         }
@@ -483,7 +573,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
         // the argument specified by ArgNo.
         while (!GEP->use_empty()) {
           LoadInst *L = cast<LoadInst>(GEP->user_back());
-          L->replaceAllUsesWith(&*TheArg);
+          L->replaceAllUsesWith(MaybeCastFrom(&*TheArg, L)); // INTEL
           L->eraseFromParent();
         }
         GEP->eraseFromParent();
@@ -524,15 +614,18 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg, Type *Ty) {
 
   unsigned ArgNo = Arg->getArgNo();
 
+#if INTEL_CUSTOMIZATION
   // Look at all call sites of the function.  At this point we know we only have
-  // direct callees.
-  for (User *U : Callee->users()) {
-    CallSite CS(U);
-    assert(CS && "Should only have direct calls!");
+  // direct or callback callees.
+  for (const Use &U : Callee->uses()) {
+    AbstractCallSite CS(&U);
+    assert((CS.isDirectCall() || CS.isCallbackCall()) &&
+           "Should only have direct or callback calls!");
 
-    if (!isDereferenceablePointer(CS.getArgument(ArgNo), Ty, DL))
+    if (!isDereferenceablePointer(CS.getCallArgOperand(ArgNo), Ty, DL))
       return false;
   }
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 
@@ -604,12 +697,13 @@ static void markIndicesSafe(const IndicesVector &ToMark,
 /// elements of the aggregate in order to avoid exploding the number of
 /// arguments passed in.
 static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR,
+                                    bool isCallback, // INTEL
                                     unsigned MaxElements) {
   using GEPIndicesSet = std::set<IndicesVector>;
 
   // Quick exit for unused arguments
   if (Arg->use_empty())
-    return true;
+    return !isCallback; // INTEL
 
   // We can only promote this argument if all of the uses are loads, or are GEP
   // instructions (with constant indices) that are subsequently loaded.
@@ -720,7 +814,8 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
         // TODO: This runs the above loop over and over again for dead GEPs
         // Couldn't we just do increment the UI iterator earlier and erase the
         // use?
-        return isSafeToPromoteArgument(Arg, ByValTy, AAR, MaxElements);
+        return isSafeToPromoteArgument(Arg, ByValTy, AAR, isCallback, // INTEL
+                                       MaxElements);                  // INTEL
       }
 
       if (!UpdateBaseTy(GEP->getSourceElementType()))
@@ -775,6 +870,19 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
   if (Loads.empty())
     return true; // No users, this is a dead argument.
 
+#if INTEL_CUSTOMIZATION
+  if (isCallback) {
+    // We cannot change the number of arguments for callbacks.
+    if (ToPromote.size() > 1)
+      return false;
+
+    // Promoted argument should fit into pointer size.
+    const DataLayout &DL = Arg->getParent()->getParent()->getDataLayout();
+    if (DL.getTypeStoreSize(BaseTy) > DL.getTypeStoreSize(Arg->getType()))
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Okay, now we know that the argument is only used by load instructions and
   // it is safe to unconditionally perform all of them. Use alias analysis to
   // check to see if the pointer is guaranteed to not be modified from entry of
@@ -809,8 +917,7 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
   return true;
 }
 
-/// Checks if a type could have padding bytes.
-static bool isDenselyPacked(Type *type, const DataLayout &DL) {
+bool ArgumentPromotionPass::isDenselyPacked(Type *type, const DataLayout &DL) {
   // There is no size information, so be conservative.
   if (!type->isSized())
     return false;
@@ -879,13 +986,15 @@ static bool canPaddingBeAccessed(Argument *arg) {
   return false;
 }
 
-static bool areFunctionArgsABICompatible(
+bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     const Function &F, const TargetTransformInfo &TTI,
     SmallPtrSetImpl<Argument *> &ArgsToPromote,
     SmallPtrSetImpl<Argument *> &ByValArgsToTransform) {
   for (const Use &U : F.uses()) {
-    CallSite CS(U.getUser());
-    const Function *Caller = CS.getCaller();
+    AbstractCallSite CS(&U); // INTEL
+    if (!CS)
+      return false;
+    const Function *Caller = CS.getCallSite().getCaller(); // INTEL
     const Function *Callee = CS.getCalledFunction();
     if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
         !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
@@ -939,18 +1048,26 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   // transform functions that have indirect callers.  Also see if the function
   // is self-recursive and check that target features are compatible.
   bool isSelfRecursive = false;
+  bool isCallback = false; // INTEL
   for (Use &U : F->uses()) {
-    CallSite CS(U.getUser());
-    // Must be a direct call.
-    if (CS.getInstruction() == nullptr || !CS.isCallee(&U))
+#if INTEL_CUSTOMIZATION
+    AbstractCallSite CS(&U);
+    // Must be a direct or a callback call.
+    if (!CS || !(CS.isDirectCall() || CS.isCallbackCall()) || !CS.isCallee(&U))
       return nullptr;
 
-    // Can't change signature of musttail callee
-    if (CS.isMustTailCall())
-      return nullptr;
+    if (CS.isDirectCall()) {
+      // Can't change signature of musttail callee
+      if (CS.getCallSite().isMustTailCall())
+        return nullptr;
 
-    if (CS.getInstruction()->getParent()->getParent() == F)
-      isSelfRecursive = true;
+      if (CS.getInstruction()->getParent()->getParent() == F)
+        isSelfRecursive = true;
+    }
+
+    if (CS.isCallbackCall())
+      isCallback = true;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Can't change signature of musttail caller
@@ -983,12 +1100,37 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    // For callbacks need to check that broker function propagates argument to
+    // the callee at all callback call sites.
+    if (isCallback && !all_of(F->uses(), [&](const Use &U) {
+          AbstractCallSite ACS(&U);
+          if (ACS.isCallbackCall()) {
+            int ArgNo = ACS.getCallArgOperandNo(*PtrArg);
+
+            // Broker function must propagate argument to the callback.
+            if (ArgNo < 0)
+              return false;
+
+            // And it should be passed to the broker as a vararg argument.
+            // Otherwise we would need to change broker function signature.
+            Function *Broker = ACS.getCallSite().getCalledFunction();
+            assert(Broker && "Expecting broker function");
+            if (!Broker->isVarArg() ||
+                static_cast<unsigned>(ArgNo) < Broker->arg_size())
+              return false;
+          }
+          return true;
+        }))
+      continue;
+#endif // INTEL_CUSTOMIZATION
+
     // If this is a byval argument, and if the aggregate type is small, just
     // pass the elements, which is always safe, if the passed value is densely
     // packed or if we can prove the padding bytes are never accessed.
-    bool isSafeToPromote =
-        PtrArg->hasByValAttr() &&
-        (isDenselyPacked(AgTy, DL) || !canPaddingBeAccessed(PtrArg));
+    bool isSafeToPromote = PtrArg->hasByValAttr() && !isCallback && // INTEL
+                           (ArgumentPromotionPass::isDenselyPacked(AgTy, DL) ||
+                            !canPaddingBeAccessed(PtrArg));
     if (isSafeToPromote) {
       if (StructType *STy = dyn_cast<StructType>(AgTy)) {
         if (MaxElements > 0 && STy->getNumElements() > MaxElements) {
@@ -1038,7 +1180,8 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     // Otherwise, see if we can promote the pointer to its value.
     Type *ByValTy =
         PtrArg->hasByValAttr() ? PtrArg->getParamByValType() : nullptr;
-    if (isSafeToPromoteArgument(PtrArg, ByValTy, AAR, MaxElements))
+    if (isSafeToPromoteArgument(PtrArg, ByValTy, AAR, isCallback, // INTEL
+                                MaxElements))                     // INTEL
       ArgsToPromote.insert(PtrArg);
   }
 
@@ -1046,11 +1189,12 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   if (ArgsToPromote.empty() && ByValArgsToTransform.empty())
     return nullptr;
 
-  if (!areFunctionArgsABICompatible(*F, TTI, ArgsToPromote,
-                                    ByValArgsToTransform))
+  if (!ArgumentPromotionPass::areFunctionArgsABICompatible(
+          *F, TTI, ArgsToPromote, ByValArgsToTransform))
     return nullptr;
 
-  return doPromotion(F, ArgsToPromote, ByValArgsToTransform, ReplaceCallSite);
+  return doPromotion(F, ArgsToPromote, ByValArgsToTransform, // INTEL
+                     isCallback, ReplaceCallSite);           // INTEL
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,

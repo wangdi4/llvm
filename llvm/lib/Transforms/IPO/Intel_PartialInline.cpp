@@ -675,7 +675,7 @@ bool PartialInliner::runImpl() {
     }
 
     InlineReason Reason;
-    if (!isInlineViable(*(Clone.getClone()), Reason)) {
+    if (!isInlineViable(*(Clone.getClone()), Reason).isSuccess()) {
       LLVM_DEBUG(dbgs() << "    Result: Inline is not viable\n");
       Clone.revertTransformation();
     }

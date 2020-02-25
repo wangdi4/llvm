@@ -1,6 +1,6 @@
 //===-------- HLLoop.cpp - Implements the HLLoop class --------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -57,7 +57,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false),
+      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -80,7 +81,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
       NestingLevel(0), IsInnermost(true), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false),
+      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   initialize();
   setNumExits(NumEx);
 
@@ -108,7 +110,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       MaxTCIsUsefulForDD(HLLoopObj.MaxTCIsUsefulForDD),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
       HasDistributePoint(HLLoopObj.HasDistributePoint),
-      IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate) {
+      IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate),
+      ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
+      ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor) {
 
   initialize();
 
@@ -143,6 +147,8 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
   IsUndoSinkingCandidate = Lp.IsUndoSinkingCandidate;
+  ForcedVectorWidth = Lp.ForcedVectorWidth;
+  ForcedVectorUnrollFactor = Lp.ForcedVectorUnrollFactor;
 
   // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
   // order of HLLoops which remains the same as before.
@@ -423,7 +429,21 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   if (getMVTag()) {
-    OS << "  <MVTag: " << getMVTag() << ">";
+    OS << "  <MVTag: " << getMVTag();
+
+    auto &Delinearized = getMVDelinearizableBlobIndices();
+    if (!Delinearized.empty()) {
+      auto &BU = getBlobUtils();
+
+      OS << ", Delinearized: ";
+      for (auto I = Delinearized.begin(), E = Delinearized.end(); I != E; ++I) {
+        BU.printBlob(OS, BU.getBlob(*I));
+        if (I + 1 != E) {
+          OS << ", ";
+        }
+      }
+    }
+    OS << ">";
   }
 
   printDistributePoint(OS);
@@ -1030,7 +1050,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
   return ParentLp->getNestingLevel();
 }
 
-void HLLoop::replaceByFirstIteration() {
+void HLLoop::replaceByFirstIteration(bool ExtractPostexit) {
   unsigned Level = getNestingLevel();
   const RegDDRef *LB = getLowerDDRef();
 
@@ -1038,7 +1058,10 @@ void HLLoop::replaceByFirstIteration() {
   SmallPtrSet<HLLoop *, 8> InnerLoops;
 
   extractZtt(Level - 1);
-  extractPreheaderAndPostexit();
+  extractPreheader();
+  if (ExtractPostexit) {
+    extractPostexit();
+  }
 
   ForEach<RegDDRef>::visitRange(
       child_begin(), child_end(),

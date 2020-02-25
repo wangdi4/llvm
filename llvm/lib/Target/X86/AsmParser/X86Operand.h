@@ -53,6 +53,7 @@ struct X86Operand final : public MCParsedAsmOperand {
 
   struct ImmOp {
     const MCExpr *Val;
+    bool LocalRef;
   };
 
   struct MemOp {
@@ -279,16 +280,9 @@ struct X86Operand final : public MCParsedAsmOperand {
     return isImmUnsignedi8Value(CE->getValue());
   }
 
-  bool isOffsetOf() const override {
-    return OffsetOfLoc.getPointer();
-  }
+  bool isOffsetOfLocal() const override { return isImm() && Imm.LocalRef; }
 
-  bool needAddressOf() const override {
-    return AddressOf;
-  }
-
-  bool isCallOperand() const override { return CallOperand; }
-  void setCallOperand(bool IsCallOperand) { CallOperand = IsCallOperand; }
+  bool needAddressOf() const override { return AddressOf; }
 
   bool isMem() const override { return Kind == Memory; }
   bool isMemUnsized() const {
@@ -545,7 +539,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX
   bool isVTILEPair() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VTILERegClassID].contains(getReg());
@@ -590,7 +584,9 @@ struct X86Operand final : public MCParsedAsmOperand {
     }
     Inst.addOperand(MCOperand::createReg(Reg));
   }
+#endif // INTEL_FEATURE_ISA_AMX
 
+#if INTEL_FEATURE_ISA_AMX_LNC
   bool isZMM16Tuples() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VR512RegClassID].contains(getReg());
@@ -677,9 +673,16 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
   static std::unique_ptr<X86Operand> CreateImm(const MCExpr *Val,
-                                               SMLoc StartLoc, SMLoc EndLoc) {
+                                               SMLoc StartLoc, SMLoc EndLoc,
+                                               StringRef SymName = StringRef(),
+                                               void *OpDecl = nullptr,
+                                               bool GlobalRef = true) {
     auto Res = std::make_unique<X86Operand>(Immediate, StartLoc, EndLoc);
-    Res->Imm.Val = Val;
+    Res->Imm.Val      = Val;
+    Res->Imm.LocalRef = !GlobalRef;
+    Res->SymName      = SymName;
+    Res->OpDecl       = OpDecl;
+    Res->AddressOf    = true;
     return Res;
   }
 

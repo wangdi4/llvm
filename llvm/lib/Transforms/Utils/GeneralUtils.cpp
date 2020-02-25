@@ -348,46 +348,62 @@ bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
 }
 
 bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
-  if (isa<AllocaInst>(V))
-    return true;
+  // Filter out global variable references, first.
+  // Everything else is classified for a local variable reference,
+  // except that we run special verification for AddrSpaceCastInst's
+  // below.
+  if (isOMPItemGlobalVAR(V))
+    return false;
 
-  if (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
-    if (const auto *AI = dyn_cast<AllocaInst>(ASCI->getPointerOperand())) {
-      // If this is an AddrSpaceCastInst of an AllocaInst, then
-      // assert that the AddrSpaceCastInst's type and the operand's
-      // type are only different by the addrspace. We expect that
-      // we can deduce the original type of the OpenMP clause's
-      // item VAR in both cases, i.e. when VAR is represented directly
-      // with an AllocaInst or with AllocaInst followed by AddrSpaceCastInst.
-      (void)AI;
-      assert(cast<PointerType>(ASCI->getType())->getElementType() ==
-             AI->getType()->getElementType() &&
-             "isItemLocalVAR: Type mismatch for an alloca and "
-             "its addrspacecast.");
+  if (!isa<PointerType>(V->getType()))
+    return false;
 
-      return true;
-    }
-
-  return false;
-}
-
-PointerType *GeneralUtils::getOMPItemLocalVARPointerType(const Value *V) {
-  if (!isOMPItemLocalVAR(V)) {
-    llvm_unreachable("getItemLocalVARPointerType: Expect AllocaInst or "
-                     "AddrSpaceCastInst as a definition of an OpenMP "
-                     "item local VAR.");
-    return nullptr;
+#ifndef NDEBUG
+  // Skip a sequence of AddrSpaceCastInst's in hope to reach
+  // the AllocaInst.
+  bool ASCIChangedType = false;
+  while (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V)) {
+    // We expect that the address space casts do not change
+    // the original type of their pointer operand.
+    // If we reach an AllocaInst by following AddrSpaceCastInst
+    // chain, and the type changes along the way, then it is not
+    // clear what object type was specified in the clause.
+    V = ASCI->getPointerOperand();
+    if (cast<PointerType>(ASCI->getType())->getElementType() !=
+        cast<PointerType>(V->getType())->getElementType())
+      ASCIChangedType = true;
   }
 
-  if (const auto *AI = dyn_cast<AllocaInst>(V))
-    return AI->getType();
+  (void)ASCIChangedType;
+  assert(!isa<AllocaInst>(V) || !ASCIChangedType && "isItemLocalVAR: "
+         "type changed between an alloca and the clause reference.");
+#endif  // NDEBUG
 
-  if (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
-    return cast<PointerType>(ASCI->getType());
+  return true;
+}
 
-  llvm_unreachable("getItemLocalVARPointerType: Mismatch between "
-                   "isItemLocalVAR and getItemLocalVARPointerType.");
+std::tuple<PointerType *, Value *>
+    GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
+  Value *V) {
+  if (!isOMPItemLocalVAR(V)) {
+    llvm_unreachable("getItemLocalVARPointerType: expect isOMPItemLocalVAR().");
+    return std::make_tuple(nullptr, nullptr);
+  }
 
-  return nullptr;
+  // Skip a sequence of AddrSpaceCastInst's in hope to reach
+  // the AllocaInst.
+  while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
+    V = ASCI->getPointerOperand();
+
+  if (auto *AI = dyn_cast<AllocaInst>(V)) {
+    // VLA allocas specify the number of allocated elements.
+    Value *NumElements = AI->getArraySize();
+    return std::make_tuple(AI->getType(), NumElements);
+  }
+
+  // If we did not find an AllocaInst, then we treat this as a scalar
+  // clause item.
+  return std::make_tuple(cast<PointerType>(V->getType()),
+      cast<Value>(ConstantInt::get(Type::getInt32Ty(V->getContext()), 1)));
 }
 #endif // INTEL_COLLAB

@@ -33,7 +33,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
         endif()
 
         include_directories(${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS})
-        add_library(omptarget.rtl.opencl SHARED src/rtl.cpp)
+        add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/ompt-opencl.cpp)
 
         if (NOT OPENMP_STANDALONE_BUILD)
           # We have to disable EH for Windows compilation.
@@ -52,17 +52,22 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
                 RUNTIME COMPONENT llvm-opencl-ompplugin
                 DESTINATION bin)
 
-        add_dependencies(omptarget.rtl.opencl libomptarget-libiomp-file)
+        if(INTEL_CUSTOMIZATION)
+          add_dependencies(omptarget.rtl.opencl libomptarget-libiomp-file)
+          target_link_libraries(omptarget.rtl.opencl ${LIBOMP_LIB_FILE})
+        else(INTEL_CUSTOMIZATION)
+          # OpenMP runtime library must be linked in.
+          target_link_libraries(omptarget.rtl.opencl omp)
+        endif(INTEL_CUSTOMIZATION)
+
+        target_link_libraries(omptarget.rtl.opencl
+          ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES})
 
         if (CMAKE_SYSTEM_NAME MATCHES "Linux")
           target_link_libraries(omptarget.rtl.opencl
-                  ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES} ${LIBOMP_LIB_FILE}
-                  dl
-                  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
-        elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")
-          target_link_libraries(omptarget.rtl.opencl
-                  ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES} ${LIBOMP_LIB_FILE})
-        else()
+            dl
+            "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
+        elseif (NOT CMAKE_SYSTEM_NAME MATCHES "Windows")
           message(FATAL_ERROR "Missing platfrom support.")
         endif()
 

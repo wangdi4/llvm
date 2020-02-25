@@ -191,6 +191,15 @@ void GenerateLEAPass::collectPotentialInst(MachineBasicBlock &MBB,
     if (!isVirtualOrNoReg(SegOp))
       continue;
 
+    if (IndexOp->getReg() != X86::NoRegister) {
+      // Make sure the index is valid for LEA. This is needed to exclude gather
+      // and scatter.
+      const TargetRegisterClass *RC = MRI->getRegClass(IndexOp->getReg());
+      if (!RC->hasSuperClassEq(&X86::GR32_NOSPRegClass) &&
+          !RC->hasSuperClassEq(&X86::GR64_NOSPRegClass))
+        continue;
+    }
+
     // Don't process JTI.
     if (DispOp->isJTI())
       continue;
@@ -296,13 +305,10 @@ bool GenerateLEAPass::insertLEA(const MachineBasicBlock &MBB,
     const Register DestReg = MRI->createVirtualRegister(TRC);
     MachineBasicBlock *MBB = MI->getParent();
 
-    LLVM_DEBUG(dbgs() << "OptimizeLEAs: Candidate to insert: "; MI->dump(););
+    LLVM_DEBUG(dbgs() << "GenerateLEA: Candidate to insert: "; MI->dump(););
 
-#ifndef NDEBUG
-    const MachineInstrBuilder &LEA =
-#endif
     // Insert LEA instruction with MI's base, scale, index, disp and seg.
-    BuildMI(*MBB, *MI, DL, TII->get(LEAOp), DestReg)
+    const MachineInstr *LEA = BuildMI(*MBB, *MI, DL, TII->get(LEAOp), DestReg)
         .add(BaseOp)
         .add(ScaleOp)
         .add(IndexOp)
@@ -316,7 +322,8 @@ bool GenerateLEAPass::insertLEA(const MachineBasicBlock &MBB,
     SegOp.setReg(X86::NoRegister);
     DispOp.ChangeToImmediate(0);
 
-    LLVM_DEBUG(dbgs() << "OptimizeLEAs: After inserting: "; LEA->dump();
+    (void)LEA;
+    LLVM_DEBUG(dbgs() << "GenerateLEA: After inserting: "; LEA->dump();
                MI->dump(););
     Changed = true;
   }
@@ -347,6 +354,13 @@ bool GenerateLEAPass::generateLEAs(MachineBasicBlock &MBB) {
     const unsigned Weight = calculateWeight(MemOpKey, MIs);
     // Normally, LEA instruction takes 7 bytes.
     unsigned Threshold = 7;
+
+    // 548.exchange2's front-end bound is too heavy,
+    // set a smaller threshold.
+    if (MBB.getParent()->getFunction()
+           .hasFnAttribute("contains-rec-pro-clone")) {
+      Threshold = 3;
+    }
 
     // Need 1 byte for SIB.
     if (MemOpKey.getIndexReg() != X86::NoRegister)

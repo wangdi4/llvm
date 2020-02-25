@@ -153,18 +153,18 @@ SYCL_EXTERNAL
 extern "C" float  __complex__ __devicelib_catanf(float __complex__ z);
 
 SYCL_EXTERNAL
-extern "C" double __complex__ __devicelib_muldc3(double a, double b,
+extern "C" double __complex__ __devicelib___muldc3(double a, double b,
                                                  double c, double d);
 
 SYCL_EXTERNAL
-extern "C" float  __complex__ __devicelib_mulsc3(float a, float b,
+extern "C" float  __complex__ __devicelib___mulsc3(float a, float b,
                                                  float c, float d);
 
 SYCL_EXTERNAL
-extern "C" double __complex__ __devicelib_divdc3(double a, double b,
+extern "C" double __complex__ __devicelib___divdc3(double a, double b,
                                                  double c, double d);
 
 SYCL_EXTERNAL
-extern "C" float  __complex__ __devicelib_divsc3(float a, float b,
+extern "C" float  __complex__ __devicelib___divsc3(float a, float b,
                                                  float c, float d);
 #endif

@@ -1,0 +1,194 @@
+# RUN: llc -march=x86-64 -run-pass x86-generate-lea-opt -o - %s | FileCheck %s
+
+--- |
+  ; ModuleID = 'intel-gen-lea.1.ll'
+  source_filename = "intel-gen-lea.1.ll"
+  target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+  
+  ; Function Attrs: nounwind
+  define internal fastcc void @test_gather(<8 x double*>* readonly %base_ptr, <8 x double>* readonly %out, <8 x i64>* nocapture readonly %i) unnamed_addr #0 {
+    %index = load <8 x i64>, <8 x i64>* %i, align 8
+    %base = load <8 x double*>, <8 x double*>* %base_ptr, align 8
+    %index3 = mul <8 x i64> %index, <i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3>
+    %offset.0 = getelementptr inbounds double, <8 x double*> %base, <8 x i64> %index3
+    %r.0 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> undef)
+    %r.1 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> undef)
+    %r.2 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 false, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> undef)
+    %r.3 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 true, i1 false, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x double> undef)
+    %r.4 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true, i1 true>, <8 x double> undef)
+    %r.5 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>, <8 x double> undef)
+    %r.6 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true>, <8 x double> undef)
+    %r.7 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 true>, <8 x double> undef)
+    %r.8 = call <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*> %offset.0, i32 8, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false>, <8 x double> undef)
+    %r.01 = fmul <8 x double> %r.0, %r.1
+    %r.23 = fmul <8 x double> %r.2, %r.3
+    %r.45 = fmul <8 x double> %r.4, %r.5
+    %r.67 = fmul <8 x double> %r.6, %r.7
+    %r.0123 = fmul <8 x double> %r.01, %r.23
+    %r.4567 = fmul <8 x double> %r.45, %r.67
+    %result = fmul <8 x double> %r.0123, %r.4567
+    store <8 x double> %result, <8 x double>* %out, align 8
+    ret void
+  }
+  
+  ; Function Attrs: nounwind readonly willreturn
+  declare <8 x double> @llvm.masked.gather.v8f64.v8p0f64(<8 x double*>, i32 immarg, <8 x i1>, <8 x double>) #1
+  
+  ; Function Attrs: nounwind
+  declare void @llvm.stackprotector(i8*, i8**) #2
+  
+  attributes #0 = { nounwind "contains-rec-pro-clone" "target-cpu"="skylake-avx512" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" }
+  attributes #1 = { nounwind readonly willreturn }
+  attributes #2 = { nounwind }
+
+...
+---
+name:            test_gather
+alignment:       16
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: gr64 }
+  - { id: 1, class: gr64 }
+  - { id: 2, class: gr64 }
+  - { id: 3, class: vr512 }
+  - { id: 4, class: vr512 }
+  - { id: 5, class: vr512 }
+  - { id: 6, class: vk16 }
+  - { id: 7, class: vk16wm }
+  - { id: 8, class: vr512 }
+  - { id: 9, class: vr512 }
+  - { id: 10, class: vk16wm }
+  - { id: 11, class: gr8 }
+  - { id: 12, class: gr32 }
+  - { id: 13, class: gr32 }
+  - { id: 14, class: vk16wm }
+  - { id: 15, class: vr512 }
+  - { id: 16, class: vk16wm }
+  - { id: 17, class: gr8 }
+  - { id: 18, class: gr32 }
+  - { id: 19, class: gr32 }
+  - { id: 20, class: vk16wm }
+  - { id: 21, class: vr512 }
+  - { id: 22, class: vk16wm }
+  - { id: 23, class: gr8 }
+  - { id: 24, class: gr32 }
+  - { id: 25, class: gr32 }
+  - { id: 26, class: vk16wm }
+  - { id: 27, class: vr512 }
+  - { id: 28, class: vk16wm }
+  - { id: 29, class: gr8 }
+  - { id: 30, class: gr32 }
+  - { id: 31, class: gr32 }
+  - { id: 32, class: vk16wm }
+  - { id: 33, class: vr512 }
+  - { id: 34, class: vk16wm }
+  - { id: 35, class: gr8 }
+  - { id: 36, class: gr32 }
+  - { id: 37, class: gr32 }
+  - { id: 38, class: vk16wm }
+  - { id: 39, class: vr512 }
+  - { id: 40, class: vk16wm }
+  - { id: 41, class: gr8 }
+  - { id: 42, class: gr32 }
+  - { id: 43, class: gr32 }
+  - { id: 44, class: vk16wm }
+  - { id: 45, class: vr512 }
+  - { id: 46, class: vk16wm }
+  - { id: 47, class: gr8 }
+  - { id: 48, class: gr32 }
+  - { id: 49, class: gr32 }
+  - { id: 50, class: vk16wm }
+  - { id: 51, class: vr512 }
+  - { id: 52, class: vk16wm }
+  - { id: 53, class: gr8 }
+  - { id: 54, class: gr32 }
+  - { id: 55, class: gr32 }
+  - { id: 56, class: vk16wm }
+  - { id: 57, class: vr512 }
+  - { id: 58, class: vk16wm }
+  - { id: 59, class: vr512 }
+  - { id: 60, class: vr512 }
+  - { id: 61, class: vr512 }
+  - { id: 62, class: vr512 }
+  - { id: 63, class: vr512 }
+  - { id: 64, class: vr512 }
+  - { id: 65, class: vr512 }
+  - { id: 66, class: vr512 }
+  - { id: 67, class: vr512 }
+  - { id: 68, class: vr512 }
+  - { id: 69, class: vr512 }
+  - { id: 70, class: vr512 }
+  - { id: 71, class: vr512 }
+liveins:
+  - { reg: '$rdi', virtual-reg: '%0' }
+  - { reg: '$rsi', virtual-reg: '%1' }
+  - { reg: '$rdx', virtual-reg: '%2' }
+frameInfo:
+  maxAlignment:    1
+constants:
+  - id:              0
+    value:           i64 24
+    alignment:       8
+machineFunctionInfo: {}
+body:             |
+  bb.0 (%ir-block.0):
+    liveins: $rdi, $rsi, $rdx
+    ; CHECK-LABEL: name: test_gather
+    ; CHECK-NOT: LEA 
+    %2:gr64 = COPY $rdx
+    %1:gr64 = COPY $rsi
+    %0:gr64 = COPY $rdi
+    %3:vr512 = VMOVDQU64Zrm %2, 1, $noreg, 0, $noreg :: (load 64 from %ir.i, align 8)
+    %4:vr512 = VPMULLQZrmb killed %3, $rip, 1, $noreg, %const.0, $noreg :: (load 8 from constant-pool)
+    %5:vr512 = VPADDQZrm killed %4, %0, 1, $noreg, 0, $noreg :: (load 64 from %ir.base_ptr, align 8)
+    %6:vk16 = KSET1W
+    %7:vk16wm = COPY %6
+    %8:vr512 = AVX512_512_SET0
+    early-clobber %9:vr512, %10:vk16wm = VGATHERQPDZrm %8, %7, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %11:gr8 = MOV8ri -2
+    %13:gr32 = IMPLICIT_DEF
+    %12:gr32 = INSERT_SUBREG %13, killed %11, %subreg.sub_8bit
+    %14:vk16wm = COPY %12
+    early-clobber %15:vr512, %16:vk16wm = VGATHERQPDZrm %8, %14, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %59:vr512 = nofpexcept VMULPDZrr killed %9, killed %15, implicit $mxcsr
+    %17:gr8 = MOV8ri -3
+    %19:gr32 = IMPLICIT_DEF
+    %18:gr32 = INSERT_SUBREG %19, killed %17, %subreg.sub_8bit
+    %20:vk16wm = COPY %18
+    early-clobber %21:vr512, %22:vk16wm = VGATHERQPDZrm %8, %20, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %23:gr8 = MOV8ri -5
+    %25:gr32 = IMPLICIT_DEF
+    %24:gr32 = INSERT_SUBREG %25, killed %23, %subreg.sub_8bit
+    %26:vk16wm = COPY %24
+    early-clobber %27:vr512, %28:vk16wm = VGATHERQPDZrm %8, %26, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %60:vr512 = nofpexcept VMULPDZrr killed %21, killed %27, implicit $mxcsr
+    %63:vr512 = nofpexcept VMULPDZrr killed %59, killed %60, implicit $mxcsr
+    %29:gr8 = MOV8ri -9
+    %31:gr32 = IMPLICIT_DEF
+    %30:gr32 = INSERT_SUBREG %31, killed %29, %subreg.sub_8bit
+    %32:vk16wm = COPY %30
+    early-clobber %33:vr512, %34:vk16wm = VGATHERQPDZrm %8, %32, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %35:gr8 = MOV8ri -17
+    %37:gr32 = IMPLICIT_DEF
+    %36:gr32 = INSERT_SUBREG %37, killed %35, %subreg.sub_8bit
+    %38:vk16wm = COPY %36
+    early-clobber %39:vr512, %40:vk16wm = VGATHERQPDZrm %8, %38, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %61:vr512 = nofpexcept VMULPDZrr killed %33, killed %39, implicit $mxcsr
+    %41:gr8 = MOV8ri -33
+    %43:gr32 = IMPLICIT_DEF
+    %42:gr32 = INSERT_SUBREG %43, killed %41, %subreg.sub_8bit
+    %44:vk16wm = COPY %42
+    early-clobber %45:vr512, %46:vk16wm = VGATHERQPDZrm %8, %44, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %47:gr8 = MOV8ri -65
+    %49:gr32 = IMPLICIT_DEF
+    %48:gr32 = INSERT_SUBREG %49, killed %47, %subreg.sub_8bit
+    %50:vk16wm = COPY %48
+    early-clobber %51:vr512, %52:vk16wm = VGATHERQPDZrm %8, %50, $noreg, 1, %5, 0, $noreg :: (load 64, align 8)
+    %62:vr512 = nofpexcept VMULPDZrr killed %45, killed %51, implicit $mxcsr
+    %64:vr512 = nofpexcept VMULPDZrr killed %61, killed %62, implicit $mxcsr
+    %65:vr512 = nofpexcept VMULPDZrr killed %63, killed %64, implicit $mxcsr
+    VMOVUPDZmr %1, 1, $noreg, 0, $noreg, killed %65 :: (store 64 into %ir.out, align 8)
+    RET 0
+
+...
+

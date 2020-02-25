@@ -178,8 +178,8 @@ class FunctionArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
                                                                           opt,
                                                                           fake>;
 class NamedArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
-                                                                          opt,
-                                                                          fake>;
+                                                                       opt,
+                                                                       fake>;
 class TypeArgument<string name, bit opt = 0> : Argument<name, opt>;
 class UnsignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 class VariadicUnsignedArgument<string name> : Argument<name, 1>;
@@ -695,6 +695,15 @@ def XRayLogArgs : InheritableAttr {
   let Documentation = [XRayDocs];
 }
 
+def PatchableFunctionEntry
+    : InheritableAttr,
+      TargetSpecificAttr<TargetArch<["aarch64", "x86", "x86_64"]>> {
+  let Spellings = [GCC<"patchable_function_entry">];
+  let Subjects = SubjectList<[Function, ObjCMethod]>;
+  let Args = [UnsignedArgument<"Count">, DefaultIntArgument<"Offset", 0>];
+  let Documentation = [PatchableFunctionEntryDocs];
+}
+
 def TLSModel : InheritableAttr {
   let Spellings = [GCC<"tls_model">];
   let Subjects = SubjectList<[TLSVar], IntelWarnDiag>; // INTEL
@@ -1074,6 +1083,15 @@ def CUDAShared : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+// INTEL_CUSTOMIZATION
+def HLSDevice : InheritableAttr {
+  let Spellings = [Clang<"hls_device">];
+  let Subjects = SubjectList<[Function]>;
+  let LangOpts = [HLS];
+  let Documentation = [HLSDeviceDocs];
+}
+// end INTEL_CUSTOMIZATION
+
 def SYCLDevice : InheritableAttr {
   let Spellings = [GNU<"sycl_device">];
   let Subjects = SubjectList<[Function]>;
@@ -1152,6 +1170,15 @@ def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let PragmaAttributeSupport = 0;
 }
 
+def SYCLIntelUsesGlobalWorkOffset : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","uses_global_work_offset">];
+  let Args = [BoolArgument<"Enabled">];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [SYCLIntelUsesGlobalWorkOffsetDocs];
+  let PragmaAttributeSupport = 0;
+}
+
 def C11NoReturn : InheritableAttr {
   let Spellings = [Keyword<"_Noreturn">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
@@ -1181,17 +1208,22 @@ def OpenCLUnrollHint : InheritableAttr {
 
 def LoopUnrollHint : InheritableAttr {
   let Spellings = [CXX11<"clang","loop_unroll">];
-  let Args = [UnsignedArgument<"UnrollHint">];
+  let Args = [ExprArgument<"UnrollHintExpr">];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let HasCustomTypeTransform = 1;
   let AdditionalMembers = [{
     static const char *getName() {
       return "loop_unroll";
     }
-    std::string getDiagnosticName() const {
-      std::string Value = "";
-      if (getUnrollHint())
-        Value = "(" + std::to_string(getUnrollHint()) + ")";
-      return "[[clang::loop_unroll" + Value + "]]";
+    std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+      std::string ValueName;
+      llvm::raw_string_ostream OS(ValueName);
+      if (auto *E = getUnrollHintExpr()) {
+        OS << "(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << ")";
+      }
+      return "[[clang::loop_unroll" + OS.str() + "]]";
     }
   }];
   let Documentation = [LoopUnrollHintDocs];
@@ -1753,12 +1785,13 @@ def IntelFPGANumBanks : Attr {
   }];
 }
 
-def IntelFPGAMaxPrivateCopies : InheritableAttr {
-  let Spellings = [CXX11<"intelfpga","max_private_copies">];
+def IntelFPGAPrivateCopies : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","private_copies">, // INTEL
+                   GNU<"private_copies">]; // INTEL
   let Args = [ExprArgument<"Value">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Subjects = SubjectList<[IntelFPGALocalNonConstVar, Field], ErrorDiag>;
-  let Documentation = [IntelFPGAMaxPrivateCopiesAttrDocs];
+  let Documentation = [IntelFPGAPrivateCopiesAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {
       return 0;
@@ -1851,6 +1884,11 @@ def NeonVectorType : TypeAttr {
   let Documentation = [Undocumented];
   // Represented as VectorType instead.
   let ASTNode = 0;
+}
+
+def ArmMveStrictPolymorphism : TypeAttr, TargetSpecificAttr<TargetARM> {
+  let Spellings = [Clang<"__clang_arm_mve_strict_polymorphism">];
+  let Documentation = [ArmMveStrictPolymorphismDocs];
 }
 
 def NoUniqueAddress : InheritableAttr, TargetSpecificAttr<TargetItaniumCXXABI> {
@@ -2936,10 +2974,6 @@ def Capability : InheritableAttr {
   let Accessors = [Accessor<"isShared",
                     [Clang<"shared_capability", 0>]>];
   let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    bool isMutex() const { return getName().equals_lower("mutex"); }
-    bool isRole() const { return getName().equals_lower("role"); }
-  }];
 }
 
 def AssertCapability : InheritableAttr {
@@ -3290,6 +3324,15 @@ def MSAllocator : InheritableAttr {
   let Documentation = [MSAllocatorDocs];
 }
 
+def CFGuard : InheritableAttr {
+  // Currently only the __declspec(guard(nocf)) modifier is supported. In future
+  // we might also want to support __declspec(guard(suppress)).
+  let Spellings = [Declspec<"guard">];
+  let Subjects = SubjectList<[Function]>;
+  let Args = [EnumArgument<"Guard", "GuardArg", ["nocf"], ["nocf"]>];
+  let Documentation = [CFGuardDocs];
+}
+
 def MSStruct : InheritableAttr {
   let Spellings = [GCC<"ms_struct">];
   let Subjects = SubjectList<[Record]>;
@@ -3415,6 +3458,25 @@ def InitSeg : Attr {
   }
   }];
 }
+
+// INTEL_CUSTOMIZATION
+def LoopFuse : Attr {
+  let Spellings = [Pragma<"", "loop_fuse">];
+  let Args = [DefaultIntArgument<"Depth", 0>,
+              DefaultBoolArgument<"Independent", /*default*/0, /*fake*/0>];
+  let Documentation = [LoopFuseDocs];
+  let Subjects = SubjectList<[Block]>;
+  let AdditionalMembers = [{
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+    OS << "#pragma loop_fuse";
+    if (getDepth())
+      OS << " depth(" << getDepth() << ")";
+    if (getIndependent())
+      OS << " independent";
+  }
+  }];
+}
+// end INTEL_CUSTOMIZATION
 
 def LoopHint : Attr {
   /// #pragma clang loop <option> directive
@@ -3822,16 +3884,18 @@ def OMPDeclareVariant : InheritableAttr {
     static const char *getSupportedSelectorSets() {
       return "'construct' or 'device'";
     }
-    static const char *getSupportedConstructs() {
-      return "'target variant dispatch'";
-    }
     static const char *getSupportedDevices() {
       return "'arch'";
+    }
+// end INTEL_CUSTOMIZATION
+// INTEL_COLLAB
+    static const char *getSupportedConstructs() {
+      return "'target variant dispatch'";
     }
     static const char *getSupportedArchs() {
       return "'gen'";
     }
-// end INTEL_CUSTOMIZATION
+// end INTEL_COLLAB
     void printScore(raw_ostream & OS, const PrintingPolicy &Policy, unsigned I) const {
       if (const Expr *E = *std::next(scores_begin(), I)) {
         OS << "score(";

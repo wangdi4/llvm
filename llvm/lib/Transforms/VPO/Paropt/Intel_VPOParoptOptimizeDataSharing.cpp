@@ -331,9 +331,8 @@ bool VPOParoptTransform::optimizeDataSharing() {
   for (auto I = WRegionList.begin(), E = WRegionList.end(); I != E; ++I) {
     WRegionNode *W = *I;
 
-    if (!isa<WRNTargetNode>(W))
+    if (!isa<WRNTargetNode>(W) && !isa<WRNTeamsNode>(W))
       // Optimize PRIVATE/FIRSTPRIVATE clauses of "target" regions.
-      // TODO: we should do the same for "teams".
       continue;
 
     // No need to reset the BBSets afterwards.

@@ -188,7 +188,7 @@ int Compilation::ExecuteCommand(const Command &C,
     }
 
     if (getDriver().CCPrintOptions)
-      *OS << "[Logging clang options]";
+      *OS << "[Logging clang options]\n";
 
     C.Print(*OS, "\n", /*Quote=*/getDriver().CCPrintOptions);
   }
@@ -214,10 +214,11 @@ static bool ActionFailed(const Action *A,
   if (FailingCommands.empty())
     return false;
 
-  // CUDA/HIP can have the same input source code compiled multiple times so do
-  // not compiled again if there are already failures. It is OK to abort the
-  // CUDA pipeline on errors.
-  if (A->isOffloading(Action::OFK_Cuda) || A->isOffloading(Action::OFK_HIP))
+  // CUDA/HIP/SYCL can have the same input source code compiled multiple times
+  // so do not compile again if there are already failures. It is OK to abort
+  // the CUDA pipeline on errors.
+  if (A->isOffloading(Action::OFK_Cuda) || A->isOffloading(Action::OFK_HIP) ||
+      A->isOffloading(Action::OFK_SYCL))
     return true;
 
   for (const auto &CI : FailingCommands)

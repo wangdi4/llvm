@@ -25,6 +25,8 @@ VERS1.0 {
     __tgt_release_interop_obj;
     __tgt_get_interop_property;
     __tgt_offload_proxy_task_complete_ooo;
+    __tgt_push_code_location;
+    __tgt_get_ompt_trace;
 # end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;
@@ -35,6 +37,9 @@ VERS1.0 {
     omp_target_memcpy_rect;
     omp_target_associate_ptr;
     omp_target_disassociate_ptr;
+# INTEL_COLLAB
+    omp_get_mapped_ptr;
+# end INTEL_COLLAB
     __kmpc_push_target_tripcount;
   local:
     *;

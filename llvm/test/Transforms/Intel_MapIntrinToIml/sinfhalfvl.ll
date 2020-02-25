@@ -1,4 +1,4 @@
-; Check to see that __svml_sinf2 is translated to a __svml_sinf4 high accuracy variant call. For this test, also check to see
+; Check to see that __svml_sinf2 is translated to a __svml_sinf4 medium accuracy variant call. For this test, also check to see
 ; that the lower half elements are repeated in the upper half of the vector and that only the lower two elements are selected
 ; from the call result vector.
 
@@ -6,7 +6,7 @@
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK shufflevector <2 x float> %{{.*}}, <2 x float> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
-; CHECK call <4 x float> @__svml_sinf4_ha
+; CHECK call <4 x float> @__svml_sinf4(
 ; CHECK shufflevector <4 x float> %{{.*}}, <4 x float> undef, <2 x i32> <i32 0, i32 1>
 ; CHECK: ret
 

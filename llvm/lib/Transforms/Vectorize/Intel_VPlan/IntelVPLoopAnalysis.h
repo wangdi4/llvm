@@ -58,7 +58,7 @@ extern bool VPlanDisplaySOAAnalysisInformation;
 /// Base class for loop entities
 class VPLoopEntity {
 public:
-  using LinkedVPValuesTy = SmallSet<VPValue *, 4>;
+  using LinkedVPValuesTy = SetVector<VPValue *>;
 
   enum { Reduction, IndexReduction, Induction, Private };
   unsigned char getID() const { return SubclassID; }

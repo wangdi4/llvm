@@ -12,8 +12,8 @@ define i32 @_Z9FindFirsty(i64 %b) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i64 @llvm.cttz.i64(i64 [[B:%.*]], i1 true), !range !0
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 [[B]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[TMP1]], i64 0, i64 [[TMP0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = trunc i64 [[TMP2]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[TMP0]] to i32
+; CHECK-NEXT:    [[TMP3:%.*]] = select i1 [[TMP1]], i32 0, i32 [[TMP2]]
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
 ; NOBMI-LABEL: @_Z9FindFirsty(
@@ -76,8 +76,8 @@ define i32 @_Z15FindFirstRemovePy(i64* nocapture %b) {
 ; CHECK-NEXT:    store i64 [[XOR]], i64* [[B]], align 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i64 @llvm.cttz.i64(i64 [[TMP0]], i1 true), !range !0
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[TMP0]], 0
-; CHECK-NEXT:    [[TMP4:%.*]] = select i1 [[TMP3]], i64 0, i64 [[TMP2]]
-; CHECK-NEXT:    [[TMP5:%.*]] = trunc i64 [[TMP4]] to i32
+; CHECK-NEXT:    [[TMP4:%.*]] = trunc i64 [[TMP2]] to i32
+; CHECK-NEXT:    [[TMP5:%.*]] = select i1 [[TMP3]], i32 0, i32 [[TMP4]]
 ; CHECK-NEXT:    ret i32 [[TMP5]]
 ;
 ; NOBMI-LABEL: @_Z15FindFirstRemovePy(

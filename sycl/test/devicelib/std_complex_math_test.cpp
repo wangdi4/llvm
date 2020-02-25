@@ -347,6 +347,5 @@ void device_complex_test(s::queue &deviceQueue) {
 int main() {
   s::queue deviceQueue;
   device_complex_test<float>(deviceQueue);
-  device_complex_test<double>(deviceQueue);
   cout << "Pass" << endl;
 }

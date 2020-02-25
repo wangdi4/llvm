@@ -15,6 +15,7 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
@@ -203,9 +204,18 @@ void InstCombiner::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
     STDest = Builder.CreateStore(LDSrc, GEPDest);
     STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
     STDest->setAlignment(MaybeAlign(DL.getABITypeAlignment(ElemTy)));
+
+    // Propagate alias.scope and noalias metadata to load and store.
+    for (Instruction *I : {static_cast<Instruction *>(LDSrc),
+                           static_cast<Instruction *>(STDest)}) {
+      I->setMetadata(LLVMContext::MD_alias_scope,
+                     MI->getMetadata(LLVMContext::MD_alias_scope));
+      I->setMetadata(LLVMContext::MD_noalias,
+                     MI->getMetadata(LLVMContext::MD_noalias));
+    }
   }
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// Return a constant boolean vector that has true elements in all positions
 /// where the input constant data vector has an element with the sign bit set.
@@ -1177,7 +1187,8 @@ static Value *simplifyX86vpermv(const IntrinsicInst &II,
 // * Narrow width by halfs excluding zero/undef lanes
 Value *InstCombiner::simplifyMaskedLoad(IntrinsicInst &II) {
   Value *LoadPtr = II.getArgOperand(0);
-  unsigned Alignment = cast<ConstantInt>(II.getArgOperand(1))->getZExtValue();
+  const Align Alignment =
+      cast<ConstantInt>(II.getArgOperand(1))->getAlignValue();
 
   // If the mask is all ones or undefs, this is a plain vector load of the 1st
   // argument.
@@ -1187,9 +1198,9 @@ Value *InstCombiner::simplifyMaskedLoad(IntrinsicInst &II) {
 
   // If we can unconditionally load from this address, replace with a
   // load/select idiom. TODO: use DT for context sensitive query
-  if (isDereferenceableAndAlignedPointer(
-          LoadPtr, II.getType(), MaybeAlign(Alignment),
-          II.getModule()->getDataLayout(), &II, nullptr)) {
+  if (isDereferenceableAndAlignedPointer(LoadPtr, II.getType(), Alignment,
+                                         II.getModule()->getDataLayout(), &II,
+                                         nullptr)) {
     Value *LI = Builder.CreateAlignedLoad(II.getType(), LoadPtr, Alignment,
                                          "unmaskedload");
     return Builder.CreateSelect(II.getArgOperand(2), LI, II.getArgOperand(3));
@@ -1452,7 +1463,7 @@ static Instruction *simplifyX86MaskedLoad(IntrinsicInst &II, InstCombiner &IC) {
 
   // The pass-through vector for an x86 masked load is a zero vector.
   CallInst *NewMaskedLoad =
-      IC.Builder.CreateMaskedLoad(PtrCast, 1, BoolMask, ZeroVec);
+      IC.Builder.CreateMaskedLoad(PtrCast, Align(1), BoolMask, ZeroVec);
   return IC.replaceInstUsesWith(II, NewMaskedLoad);
 }
 
@@ -1493,7 +1504,7 @@ static bool simplifyX86MaskedStore(IntrinsicInst &II, InstCombiner &IC) {
   // on each element's most significant bit (the sign bit).
   Constant *BoolMask = getNegativeIsTrueBoolVec(ConstMask);
 
-  IC.Builder.CreateMaskedStore(Vec, PtrCast, 1, BoolMask);
+  IC.Builder.CreateMaskedStore(Vec, PtrCast, Align(1), BoolMask);
 
   // 'Replace uses' doesn't work for stores. Erase the original masked store.
   IC.eraseInstFromFunction(II);
@@ -1580,7 +1591,7 @@ static Value *simplifyNeonVld1(const IntrinsicInst &II,
 
   auto *BCastInst = Builder.CreateBitCast(II.getArgOperand(0),
                                           PointerType::get(II.getType(), 0));
-  return Builder.CreateAlignedLoad(II.getType(), BCastInst, Alignment);
+  return Builder.CreateAlignedLoad(II.getType(), BCastInst, Align(Alignment));
 }
 
 // Returns true iff the 2 intrinsics have the same operands, limiting the
@@ -1831,9 +1842,10 @@ static Instruction *SimplifyNVVMIntrinsic(IntrinsicInst *II, InstCombiner &IC) {
   // intrinsic, we don't have to look up any module metadata, as
   // FtzRequirementTy will be FTZ_Any.)
   if (Action.FtzRequirement != FTZ_Any) {
-    bool FtzEnabled =
-        II->getFunction()->getFnAttribute("nvptx-f32ftz").getValueAsString() ==
-        "true";
+    StringRef Attr = II->getFunction()
+                         ->getFnAttribute("denormal-fp-math-f32")
+                         .getValueAsString();
+    bool FtzEnabled = parseDenormalFPAttribute(Attr) != DenormalMode::IEEE;
 
     if (FtzEnabled != (Action.FtzRequirement == FTZ_MustBeOn))
       return nullptr;
@@ -2424,6 +2436,16 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
                                                  II->getArgOperand(0), II);
       return replaceInstUsesWith(*II, Builder.CreateFNegFMF(Fabs, II));
     }
+
+    // Propagate sign argument through nested calls:
+    // copysign X, (copysign ?, SignArg) --> copysign X, SignArg
+    Value *SignArg;
+    if (match(II->getArgOperand(1),
+              m_Intrinsic<Intrinsic::copysign>(m_Value(), m_Value(SignArg)))) {
+      II->setArgOperand(1, SignArg);
+      return II;
+    }
+
     break;
   }
   case Intrinsic::fabs: {
@@ -2490,7 +2512,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // Turn PPC VSX loads into normal loads.
     Value *Ptr = Builder.CreateBitCast(II->getArgOperand(0),
                                        PointerType::getUnqual(II->getType()));
-    return new LoadInst(II->getType(), Ptr, Twine(""), false, Align::None());
+    return new LoadInst(II->getType(), Ptr, Twine(""), false, Align(1));
   }
   case Intrinsic::ppc_altivec_stvx:
   case Intrinsic::ppc_altivec_stvxl:
@@ -2508,7 +2530,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // Turn PPC VSX stores into normal stores.
     Type *OpPtrTy = PointerType::getUnqual(II->getArgOperand(0)->getType());
     Value *Ptr = Builder.CreateBitCast(II->getArgOperand(1), OpPtrTy);
-    return new StoreInst(II->getArgOperand(0), Ptr, false, Align::None());
+    return new StoreInst(II->getArgOperand(0), Ptr, false, Align(1));
   }
   case Intrinsic::ppc_qpx_qvlfs:
     // Turn PPC QPX qvlfs -> load if the pointer is known aligned.
@@ -2597,6 +2619,64 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
         return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), Result));
       }
       // TODO should we convert this to an AND if the RHS is constant?
+    }
+    break;
+  case Intrinsic::x86_bmi_pext_32:
+  case Intrinsic::x86_bmi_pext_64:
+    if (auto *MaskC = dyn_cast<ConstantInt>(II->getArgOperand(1))) {
+      if (MaskC->isNullValue())
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), 0));
+      if (MaskC->isAllOnesValue())
+        return replaceInstUsesWith(CI, II->getArgOperand(0));
+
+      if (auto *SrcC = dyn_cast<ConstantInt>(II->getArgOperand(0))) {
+        uint64_t Src = SrcC->getZExtValue();
+        uint64_t Mask = MaskC->getZExtValue();
+        uint64_t Result = 0;
+        uint64_t BitToSet = 1;
+
+        while (Mask) {
+          // Isolate lowest set bit.
+          uint64_t BitToTest = Mask & -Mask;
+          if (BitToTest & Src)
+            Result |= BitToSet;
+
+          BitToSet <<= 1;
+          // Clear lowest set bit.
+          Mask &= Mask - 1;
+        }
+
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), Result));
+      }
+    }
+    break;
+  case Intrinsic::x86_bmi_pdep_32:
+  case Intrinsic::x86_bmi_pdep_64:
+    if (auto *MaskC = dyn_cast<ConstantInt>(II->getArgOperand(1))) {
+      if (MaskC->isNullValue())
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), 0));
+      if (MaskC->isAllOnesValue())
+        return replaceInstUsesWith(CI, II->getArgOperand(0));
+
+      if (auto *SrcC = dyn_cast<ConstantInt>(II->getArgOperand(0))) {
+        uint64_t Src = SrcC->getZExtValue();
+        uint64_t Mask = MaskC->getZExtValue();
+        uint64_t Result = 0;
+        uint64_t BitToTest = 1;
+
+        while (Mask) {
+          // Isolate lowest set bit.
+          uint64_t BitToSet = Mask & -Mask;
+          if (BitToTest & Src)
+            Result |= BitToSet;
+
+          BitToTest <<= 1;
+          // Clear lowest set bit;
+          Mask &= Mask - 1;
+        }
+
+        return replaceInstUsesWith(CI, ConstantInt::get(II->getType(), Result));
+      }
     }
     break;
 
@@ -4013,6 +4093,21 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     II->setOperand(0, UndefValue::get(Old->getType()));
     return II;
   }
+  case Intrinsic::amdgcn_permlane16:
+  case Intrinsic::amdgcn_permlanex16: {
+    // Discard vdst_in if it's not going to be read.
+    Value *VDstIn = II->getArgOperand(0);
+   if (isa<UndefValue>(VDstIn))
+     break;
+
+    ConstantInt *FetchInvalid = cast<ConstantInt>(II->getArgOperand(4));
+    ConstantInt *BoundCtrl = cast<ConstantInt>(II->getArgOperand(5));
+    if (!FetchInvalid->getZExtValue() && !BoundCtrl->getZExtValue())
+      break;
+
+    II->setArgOperand(0, UndefValue::get(VDstIn->getType()));
+    return II;
+  }
   case Intrinsic::amdgcn_readfirstlane:
   case Intrinsic::amdgcn_readlane: {
     // A constant value is trivially uniform.
@@ -4233,18 +4328,18 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
       Value *CurrCond = II->getArgOperand(0);
 
       // Remove a guard that it is immediately preceded by an identical guard.
-      if (CurrCond == NextCond)
-        return eraseInstFromFunction(*NextInst);
-
       // Otherwise canonicalize guard(a); guard(b) -> guard(a & b).
-      Instruction *MoveI = II->getNextNonDebugInstruction();
-      while (MoveI != NextInst) {
-        auto *Temp = MoveI;
-        MoveI = MoveI->getNextNonDebugInstruction();
-        Temp->moveBefore(II);
+      if (CurrCond != NextCond) {
+        Instruction *MoveI = II->getNextNonDebugInstruction();
+        while (MoveI != NextInst) {
+          auto *Temp = MoveI;
+          MoveI = MoveI->getNextNonDebugInstruction();
+          Temp->moveBefore(II);
+        }
+        II->setArgOperand(0, Builder.CreateAnd(CurrCond, NextCond));
       }
-      II->setArgOperand(0, Builder.CreateAnd(CurrCond, NextCond));
-      return eraseInstFromFunction(*NextInst);
+      eraseInstFromFunction(*NextInst);
+      return II;
     }
     break;
   }

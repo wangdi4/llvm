@@ -113,6 +113,8 @@ add_clang_library(clangCodeGen
   intel/CGIntelHLS.cpp
 # end INTEL_CUSTOMIZATION
 
+  ENABLE_PLUGINS
+
   DEPENDS
   ${codegen_deps}
 

@@ -1,8 +1,7 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=0 -debug-only=LoopVectorizationPlanner -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
-;CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -enable-mmindex=1  -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -enable-mmindex=1  -disable-nonlinear-mmindex=1 -print-after=VPlanDriverHIR  -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
 ;CHECK: Reduction list
 ;CHECK-NEXT: signed (SIntMax) Start: i32 [[BEST:%best.[0-9]+]] Exit: i32 [[BEST_EXIT:%vp[0-9]+]]
 ;CHECK-NEXT:   Linked values:{{.*}}
@@ -30,8 +29,8 @@
 ;CHECK-NEXT:  i32 [[TMP_FINAL:%vp[0-9]+]] = reduction-final{s_smin} i32 [[TMP_EXIT]] i32 [[BEST_EXIT]] i32 [[BEST_FINAL]]
 ;CHECK-NEXT:  i32 {{%vp[0-9]+}} = reduction-final{s_smin} i32 [[VAL_EXIT]] i32 [[BEST_EXIT]] i32 [[BEST_FINAL]]
 
-;DISABLED: Idiom List
-;DISABLED-NEXT  No idioms detected.
+;CHECK: <4 x
+;DISABLED-NOT: <4 x
 ;
 ; source code
 ;int ordering[1000];

@@ -1,6 +1,6 @@
 //===-----HIRSparseArrayReductionAnalysis.cpp - Sparse Array Reduction-----===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -47,7 +47,7 @@
 //   ...
 //   faction(j) = tx12 + t30
 //   =>
-//   tx12 = 0.0 – t11
+//   tx12 = 0.0 - t11
 //   ...
 //   tempx =  tx12 + t30
 //   faction(j) += tempx
@@ -82,8 +82,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 
-#include <algorithm>
-#include <map>
 #include <vector>
 
 using namespace llvm;
@@ -100,7 +98,8 @@ HIRSparseArrayReductionAnalysis
 HIRSparseArrayReductionAnalysisPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
   return HIRSparseArrayReductionAnalysis(AM.getResult<HIRFrameworkAnalysis>(F),
-                                         AM.getResult<HIRDDAnalysisPass>(F));
+                                         AM.getResult<HIRDDAnalysisPass>(F),
+                                         AM.getResult<TargetIRAnalysis>(F));
 }
 
 FunctionPass *llvm::createHIRSparseArrayReductionAnalysisPass() {
@@ -114,6 +113,7 @@ INITIALIZE_PASS_BEGIN(HIRSparseArrayReductionAnalysisWrapperPass,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(HIRSparseArrayReductionAnalysisWrapperPass,
                     "hir-sparse-array-reduction-analysis",
                     "HIR Sparse Array Reduction Analysis", false, true)
@@ -124,6 +124,7 @@ void HIRSparseArrayReductionAnalysisWrapperPass::getAnalysisUsage(
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
 }
 
 // Sample code for calling Sparse Array Reduction
@@ -145,13 +146,14 @@ void HIRSparseArrayReductionAnalysisWrapperPass::getAnalysisUsage(
 bool HIRSparseArrayReductionAnalysisWrapperPass::runOnFunction(Function &F) {
   HSAR.reset(new HIRSparseArrayReductionAnalysis(
       getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA()));
+      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+      getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F)));
   return false;
 }
 
 HIRSparseArrayReductionAnalysis::HIRSparseArrayReductionAnalysis(
-    HIRFramework &HIRF, HIRDDAnalysis &DDA)
-    : HIRAnalysis(HIRF), DDA(DDA) {
+    HIRFramework &HIRF, HIRDDAnalysis &DDA, TargetTransformInfo &TTI)
+    : HIRAnalysis(HIRF), DDA(DDA), TTI(TTI) {
   if (!ForceSARA) {
     return;
   }
@@ -175,6 +177,12 @@ void printAChain(formatted_raw_ostream &OS, unsigned Indented,
 void HIRSparseArrayReductionAnalysis::identifySparseArrayReductionChains(
     const HLLoop *Loop) {
   if (!Loop->isDo()) {
+    return;
+  }
+
+  // [CMPLRLLVM-11824] Disable SAR recognition for non-AVX512 platforms.
+  if (!TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512)) {
     return;
   }
 
@@ -233,7 +241,7 @@ static bool isMatchedLoadPattern(const RegDDRef *RDDRef,
   // Properties checked on the load at instruction <3> | %0 = (@a1)[0][i1];
   // a1[i1] should have no incoming edges from the same loop.
   if (!isa<LoadInst>(SrcInst->getLLVMInstruction())) {
-      return false;
+    return false;
   }
 
   const RegDDRef *RRef = SrcInst->getRvalDDRef();
@@ -258,7 +266,6 @@ static bool isMatchedLoadPattern(const RegDDRef *RDDRef,
 
   auto I = RRef->canon_begin();
   auto E = RRef->canon_end();
-
 
   if ((*I)->numIVs() != 1) {
     return false;
@@ -642,7 +649,7 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
   // Each group should have the same base.
   // The ddref should be non-linear
   // and the parent of the ddrefs are within the same loop.
-  if (!StoreRef->isNonLinear() || StoreNode->getParent() != Loop) {
+  if (!StoreRef->isNonLinear() || StoreNode->getLexicalParentLoop() != Loop) {
     return;
   }
 

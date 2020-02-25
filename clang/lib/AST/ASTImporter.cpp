@@ -186,32 +186,33 @@ namespace clang {
       return import(*From);
     }
 
-    template <class T>
-    Expected<std::tuple<T>>
-    importSeq(const T &From) {
-      Expected<T> ToOrErr = import(From);
-      if (!ToOrErr)
-        return ToOrErr.takeError();
-      return std::make_tuple<T>(std::move(*ToOrErr));
+    // Helper for error management in importSeq.
+    template <typename T> T checkImport(Error &Err, const T &From) {
+      // Don't attempt to import nodes if we hit an error earlier.
+      if (Err)
+        return T{};
+      Expected<T> MaybeVal = import(From);
+      if (!MaybeVal) {
+        Err = MaybeVal.takeError();
+        return T{};
+      }
+      return *MaybeVal;
     }
 
     // Import multiple objects with a single function call.
     // This should work for every type for which a variant of `import` exists.
     // The arguments are processed from left to right and import is stopped on
     // first error.
-    template <class THead, class... TTail>
-    Expected<std::tuple<THead, TTail...>>
-    importSeq(const THead &FromHead, const TTail &...FromTail) {
-      Expected<std::tuple<THead>> ToHeadOrErr = importSeq(FromHead);
-      if (!ToHeadOrErr)
-        return ToHeadOrErr.takeError();
-      Expected<std::tuple<TTail...>> ToTailOrErr = importSeq(FromTail...);
-      if (!ToTailOrErr)
-        return ToTailOrErr.takeError();
-      return std::tuple_cat(*ToHeadOrErr, *ToTailOrErr);
+    template <class... Args>
+    Expected<std::tuple<Args...>> importSeq(const Args &... args) {
+      Error E = Error::success();
+      std::tuple<Args...> Res{checkImport(E, args)...};
+      if (E)
+        return std::move(E);
+      return std::move(Res);
     }
 
-// Wrapper for an overload set.
+    // Wrapper for an overload set.
     template <typename ToDeclT> struct CallOverloadedCreateFun {
       template <typename... Args>
       auto operator()(Args &&... args)
@@ -1366,9 +1367,21 @@ ExpectedType ASTNodeImporter::VisitAutoType(const AutoType *T) {
   if (!ToDeducedTypeOrErr)
     return ToDeducedTypeOrErr.takeError();
 
-  return Importer.getToContext().getAutoType(*ToDeducedTypeOrErr,
-                                             T->getKeyword(),
-                                             /*IsDependent*/false);
+  ExpectedDecl ToTypeConstraintConcept = import(T->getTypeConstraintConcept());
+  if (!ToTypeConstraintConcept)
+    return ToTypeConstraintConcept.takeError();
+
+  SmallVector<TemplateArgument, 2> ToTemplateArgs;
+  ArrayRef<TemplateArgument> FromTemplateArgs = T->getTypeConstraintArguments();
+  if (Error Err = ImportTemplateArguments(FromTemplateArgs.data(),
+                                          FromTemplateArgs.size(),
+                                          ToTemplateArgs))
+    return std::move(Err);
+
+  return Importer.getToContext().getAutoType(
+      *ToDeducedTypeOrErr, T->getKeyword(), /*IsDependent*/false,
+      /*IsPack=*/false, cast_or_null<ConceptDecl>(*ToTypeConstraintConcept),
+      ToTemplateArgs);
 }
 
 ExpectedType ASTNodeImporter::VisitInjectedClassNameType(
@@ -1741,7 +1754,7 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
     // fix since operations such as code generation will expect this to be so.
     if (ImportedOrErr) {
       FieldDecl *FieldFrom = dyn_cast_or_null<FieldDecl>(From);
-      Decl *ImportedDecl = (Decl*)*ImportedOrErr;
+      Decl *ImportedDecl = *ImportedOrErr;
       FieldDecl *FieldTo = dyn_cast_or_null<FieldDecl>(ImportedDecl);
       if (FieldFrom && FieldTo) {
         const RecordType *RecordFrom = FieldFrom->getType()->getAs<RecordType>();
@@ -3081,7 +3094,7 @@ Error ASTNodeImporter::ImportFunctionDeclBody(FunctionDecl *FromFD,
 
 // Returns true if the given D has a DeclContext up to the TranslationUnitDecl
 // which is equal to the given DC.
-bool isAncestorDeclContextOf(const DeclContext *DC, const Decl *D) {
+static bool isAncestorDeclContextOf(const DeclContext *DC, const Decl *D) {
   const DeclContext *DCi = D->getDeclContext();
   while (DCi != D->getTranslationUnitDecl()) {
     if (DCi == DC)
@@ -3279,10 +3292,12 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
   TypeSourceInfo *TInfo;
   SourceLocation ToInnerLocStart, ToEndLoc;
   NestedNameSpecifierLoc ToQualifierLoc;
+  Expr *TrailingRequiresClause;
   if (auto Imp = importSeq(
       FromTy, D->getTypeSourceInfo(), D->getInnerLocStart(),
-      D->getQualifierLoc(), D->getEndLoc()))
-    std::tie(T, TInfo, ToInnerLocStart, ToQualifierLoc, ToEndLoc) = *Imp;
+      D->getQualifierLoc(), D->getEndLoc(), D->getTrailingRequiresClause()))
+    std::tie(T, TInfo, ToInnerLocStart, ToQualifierLoc, ToEndLoc,
+             TrailingRequiresClause) = *Imp;
   else
     return Imp.takeError();
 
@@ -3311,7 +3326,10 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
             ExplicitSpecifier(
                 ExplicitExpr,
                 FromConstructor->getExplicitSpecifier().getKind()),
-            D->isInlineSpecified(), D->isImplicit(), D->getConstexprKind()))
+            D->isInlineSpecified(), D->isImplicit(), D->getConstexprKind(),
+            InheritedConstructor(), // FIXME: Properly import inherited
+                                    // constructor info
+            TrailingRequiresClause))
       return ToFunction;
   } else if (CXXDestructorDecl *FromDtor = dyn_cast<CXXDestructorDecl>(D)) {
 
@@ -3329,7 +3347,7 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
     if (GetImportedOrCreateDecl<CXXDestructorDecl>(
         ToFunction, D, Importer.getToContext(), cast<CXXRecordDecl>(DC),
         ToInnerLocStart, NameInfo, T, TInfo, D->isInlineSpecified(),
-        D->isImplicit(), D->getConstexprKind()))
+        D->isImplicit(), D->getConstexprKind(), TrailingRequiresClause))
       return ToFunction;
 
     CXXDestructorDecl *ToDtor = cast<CXXDestructorDecl>(ToFunction);
@@ -3349,20 +3367,21 @@ ExpectedDecl ASTNodeImporter::VisitFunctionDecl(FunctionDecl *D) {
             ToInnerLocStart, NameInfo, T, TInfo, D->isInlineSpecified(),
             ExplicitSpecifier(ExplicitExpr,
                               FromConversion->getExplicitSpecifier().getKind()),
-            D->getConstexprKind(), SourceLocation()))
+            D->getConstexprKind(), SourceLocation(), TrailingRequiresClause))
       return ToFunction;
   } else if (auto *Method = dyn_cast<CXXMethodDecl>(D)) {
     if (GetImportedOrCreateDecl<CXXMethodDecl>(
             ToFunction, D, Importer.getToContext(), cast<CXXRecordDecl>(DC),
             ToInnerLocStart, NameInfo, T, TInfo, Method->getStorageClass(),
             Method->isInlineSpecified(), D->getConstexprKind(),
-            SourceLocation()))
+            SourceLocation(), TrailingRequiresClause))
       return ToFunction;
   } else {
     if (GetImportedOrCreateDecl(
             ToFunction, D, Importer.getToContext(), DC, ToInnerLocStart,
             NameInfo, T, TInfo, D->getStorageClass(), D->isInlineSpecified(),
-            D->hasWrittenPrototype(), D->getConstexprKind()))
+            D->hasWrittenPrototype(), D->getConstexprKind(),
+            TrailingRequiresClause))
       return ToFunction;
   }
 
@@ -5091,7 +5110,7 @@ ASTNodeImporter::VisitTemplateTypeParmDecl(TemplateTypeParmDecl *D) {
   // context. This context will be fixed when the actual template declaration
   // is created.
 
-  // FIXME: Import default argument.
+  // FIXME: Import default argument  and constraint expression.
 
   ExpectedSLoc BeginLocOrErr = import(D->getBeginLoc());
   if (!BeginLocOrErr)
@@ -5102,12 +5121,47 @@ ASTNodeImporter::VisitTemplateTypeParmDecl(TemplateTypeParmDecl *D) {
     return LocationOrErr.takeError();
 
   TemplateTypeParmDecl *ToD = nullptr;
-  (void)GetImportedOrCreateDecl(
+  if (GetImportedOrCreateDecl(
       ToD, D, Importer.getToContext(),
       Importer.getToContext().getTranslationUnitDecl(),
       *BeginLocOrErr, *LocationOrErr,
       D->getDepth(), D->getIndex(), Importer.Import(D->getIdentifier()),
-      D->wasDeclaredWithTypename(), D->isParameterPack());
+      D->wasDeclaredWithTypename(), D->isParameterPack(),
+      D->hasTypeConstraint()))
+    return ToD;
+
+  // Import the type-constraint
+  if (const TypeConstraint *TC = D->getTypeConstraint()) {
+    NestedNameSpecifierLoc ToNNS;
+    DeclarationName ToName;
+    SourceLocation ToNameLoc;
+    NamedDecl *ToFoundDecl;
+    ConceptDecl *ToNamedConcept;
+    Expr *ToIDC;
+    if (auto Imp = importSeq(TC->getNestedNameSpecifierLoc(),
+        TC->getConceptNameInfo().getName(), TC->getConceptNameInfo().getLoc(),
+        TC->getFoundDecl(), TC->getNamedConcept(),
+        TC->getImmediatelyDeclaredConstraint()))
+      std::tie(ToNNS, ToName, ToNameLoc, ToFoundDecl, ToNamedConcept,
+               ToIDC) = *Imp;
+    else
+      return Imp.takeError();
+
+    TemplateArgumentListInfo ToTAInfo;
+    const auto *ASTTemplateArgs = TC->getTemplateArgsAsWritten();
+    if (ASTTemplateArgs)
+      if (Error Err = ImportTemplateArgumentListInfo(*ASTTemplateArgs,
+                                                     ToTAInfo))
+        return std::move(Err);
+
+    ToD->setTypeConstraint(ToNNS, DeclarationNameInfo(ToName, ToNameLoc),
+        ToFoundDecl, ToNamedConcept,
+        ASTTemplateArgs ?
+            ASTTemplateArgumentListInfo::Create(Importer.getToContext(),
+                                                ToTAInfo) : nullptr,
+        ToIDC);
+  }
+
   return ToD;
 }
 
@@ -8200,7 +8254,7 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
           // FIXME Should we remove these Decls from the LookupTable,
           // and from ImportedFromDecls?
       }
-    SavedImportPaths[FromD].clear();
+    SavedImportPaths.erase(FromD);
 
     // Do not return ToDOrErr, error was taken out of it.
     return make_error<ImportError>(ErrOut);
@@ -8233,7 +8287,7 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
   Imported(FromD, ToD);
 
   updateFlags(FromD, ToD);
-  SavedImportPaths[FromD].clear();
+  SavedImportPaths.erase(FromD);
   return ToDOrErr;
 }
 

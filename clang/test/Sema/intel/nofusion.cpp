@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fintel-compatibility -fsyntax-only %s -verify -ast-dump -pedantic | FileCheck %s
+// RUN: %clang_cc1 -fhls -fsyntax-only %s -verify -ast-dump -pedantic | FileCheck %s
 
 void foo() {
   int i;

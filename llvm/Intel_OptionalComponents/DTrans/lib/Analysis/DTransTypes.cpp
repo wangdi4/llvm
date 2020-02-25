@@ -401,7 +401,8 @@ DTransTypeManager::getOrCreateStructType(llvm::StructType *StTy) {
 
   if (StTy->isOpaque()) {
     DTransStructType *DTransStTy = new DTransStructType(
-        StTy->getContext(), StTy, StTy->getName(), 0, /*IsOpaque=*/true);
+        StTy->getContext(), StTy, std::string(StTy->getName()), 0,
+        /*IsOpaque=*/true);
     StructTypeInfoMap.insert(std::make_pair(StTy->getName(), DTransStTy));
 
     return DTransStTy;
@@ -530,7 +531,7 @@ void DTransTypeManager::printTypes() const {
   for (auto &P : StructTypeInfoMap) {
     DTransStructType *StTy = P.second;
     if (StTy->hasName())
-      SMap.insert(std::make_pair(StTy->getName(), P.second));
+      SMap.insert(std::make_pair(std::string(StTy->getName()), P.second));
     else {
       std::string Name;
       raw_string_ostream NameStr(Name);

@@ -31,11 +31,11 @@
 ; 'xvar' must be globalized, because it is modified by multiple
 ; threads:
 ; CHECK-LABEL: @__omp_offloading_804_3121174_test1_l3
-; CHECK-DAG: [[ID0:%[a-zA-Z._0-9]+]] = call i64 @_Z12get_local_idj(i32 0)
+; CHECK-DAG: [[ID0:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK-DAG: [[CMP0:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID0]], 0
-; CHECK-DAG: [[ID1:%[a-zA-Z._0-9]+]] = call i64 @_Z12get_local_idj(i32 1)
+; CHECK-DAG: [[ID1:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 1)
 ; CHECK-DAG: [[CMP1:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID1]], 0
-; CHECK-DAG: [[ID2:%[a-zA-Z._0-9]+]] = call i64 @_Z12get_local_idj(i32 2)
+; CHECK-DAG: [[ID2:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 2)
 ; CHECK-DAG: [[CMP2:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID2]], 0
 ; CHECK-DAG: [[AND:%[a-zA-Z._0-9]+]] = and i1 [[CMP0]], [[CMP1]]
 ; CHECK-DAG: [[PRED:%[a-zA-Z._0-9]+]] = and i1 [[AND]], [[CMP2]]
@@ -44,7 +44,7 @@
 ; CHECK: store i32 10, i32 addrspace(1)* @xvar{{.*}}
 ; CHECK: br label %[[FALLTHRU]]
 ; CHECK: [[FALLTHRU]]:
-; CHECK: call void @_Z18work_group_barrierj(i32 3)
+; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
 
 ; 'xvar' must be WI local, because it is only modified inside "target"
 ; and only read by WI threads:

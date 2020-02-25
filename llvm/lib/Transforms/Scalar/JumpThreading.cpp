@@ -402,6 +402,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   DTU = DTU_;
   BFI.reset();
   BPI.reset();
+  BlockThreadCount.clear(); // INTEL
   // When profile data is available, we need to update edge weights after
   // successful jump threading, which requires both BPI and BFI being available.
   HasProfileData = HasProfileData_;

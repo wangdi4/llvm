@@ -798,7 +798,7 @@ PartialInlinerImpl::computeOutliningInfo(Function *F) {
   return OutliningInfo;
 }
 
-// Check if there is PGO data or user annoated branch data:
+// Check if there is PGO data or user annotated branch data:
 static bool hasProfileData(Function *F, FunctionOutliningInfo *OI) {
   if (F->hasProfileData())
     return true;
@@ -877,7 +877,7 @@ bool PartialInlinerImpl::shouldPartialInline(
 
   InlineReason Reason; // INTEL
   if (SkipCostAnalysis)
-    return isInlineViable(*Callee, Reason); // INTEL
+    return isInlineViable(*Callee, Reason).isSuccess(); // INTEL
 
   Function *Caller = CS.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);
@@ -1667,7 +1667,8 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     if (!InlineFunction(CS, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
                         true,                                        // INTEL
                         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
-                                         : nullptr)))
+                                         : nullptr))
+             .isSuccess())
       continue;
 
     CallerORE.emit(OR);

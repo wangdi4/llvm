@@ -13,6 +13,9 @@
 #include "device.h"
 #include "private.h"
 #include "rtl.h"
+#if INTEL_COLLAB
+#include "omptarget-tools.h"
+#endif // INTEL_COLLAB
 
 #include <cassert>
 #include <cstdlib>
@@ -81,6 +84,9 @@ void RTLsTy::LoadRTLs() {
   if (TargetOffloadPolicy == tgt_disabled) {
     return;
   }
+#if INTEL_COLLAB
+  omptInit();
+#endif // INTEL_COLLAB
 
   DP("Loading RTLs...\n");
 
@@ -123,12 +129,12 @@ void RTLsTy::LoadRTLs() {
   }
 
   for (auto *Name : RTLChecked) {
-#else // !INTEL_COLLAB
+#else // INTEL_COLLAB
 
   // Attempt to open all the plugins and, if they exist, check if the interface
   // is correct and if they are supporting any devices.
   for (auto *Name : RTLNames) {
-#endif // !INTEL_COLLAB
+#endif // INTEL_COLLAB
     DP("Loading library '%s'...\n", Name);
     void *dynlib_handle = dlopen(Name, RTLD_NOW);
 
@@ -220,9 +226,12 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.run_team_nd_region_nowait) = dlsym(
               dynlib_handle, "__tgt_rtl_run_target_team_nd_region_nowait")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region_nowait\n");
-    if ((*((void **)&R.get_offload_pipe) =
-              dlsym(dynlib_handle, "__tgt_rtl_get_offload_pipe")))
-      DP("Optional interface: __tgt_rtl_get_offload_pipe\n");
+    if ((*((void **)&R.create_offload_pipe) =
+              dlsym(dynlib_handle, "__tgt_rtl_create_offload_pipe")))
+      DP("Optional interface: __tgt_rtl_create_offload_pipe\n");
+    if ((*((void **)&R.release_offload_pipe) =
+              dlsym(dynlib_handle, "__tgt_rtl_release_offload_pipe")))
+      DP("Optional interface: __tgt_rtl_release_offload_pipe\n");
     if ((*((void **)&R.is_managed_data) =
               dlsym(dynlib_handle, "__tgt_rtl_is_managed_data")))
       DP("Optional interface: __tgt_rtl_is_managed_data\n");

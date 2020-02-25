@@ -432,13 +432,29 @@ protected:
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
   bool HasAMXTRANSPOSE = false;
-  bool HasAMXFP16 = false;
   bool HasAMXAVX512 = false;
-  bool HasAMXINT8EVEX = false;
-  bool HasAMXTILEEVEX = false;
-  bool HasAMXBF16EVEX = false;
-  bool HasAMXELEMENTEVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  bool HasAMXFP16 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  bool HasAMXMEMORY2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+  bool HasAMXBF16EVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+  bool HasAMXCONVERTEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  bool HasAMXINT8EVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  bool HasAMXTILEEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  bool HasAMXTRANSPOSE2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
@@ -816,12 +832,28 @@ public:
 #if INTEL_FEATURE_ISA_AMX_LNC
   bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXAVX512() const { return HasAMXAVX512; }
-  bool hasAMXFP16() const { return HasAMXFP16; }
-  bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
-  bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
-  bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
-  bool hasAMXELEMENTEVEX() const { return HasAMXELEMENTEVEX; }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  bool hasAMXFP16() const { return HasAMXFP16; }
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  bool hasAMXMEMORY2() const { return HasAMXMEMORY2; }
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+  bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+  bool hasAMXCONVERTEVEX() const { return HasAMXCONVERTEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  bool hasAMXTRANSPOSE2() const { return HasAMXTRANSPOSE2; }
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -940,6 +972,10 @@ public:
     case CallingConv::X86_ThisCall:
     case CallingConv::X86_VectorCall:
     case CallingConv::Intel_OCL_BI:
+#if INTEL_CUSTOMIZATION
+    case CallingConv::Intel_OCL_BI_AVX:
+    case CallingConv::Intel_OCL_BI_AVX512:
+#endif // INTEL_CUSTOMIZATION
       return isTargetWin64();
     // This convention allows using the Win64 convention on other targets.
     case CallingConv::Win64:

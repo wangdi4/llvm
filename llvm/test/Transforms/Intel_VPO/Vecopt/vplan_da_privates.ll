@@ -22,15 +22,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return arr1[RetIdx];
 ;}
 
-;RUN: opt -S -VPlanDriver -disable-output -debug-only=vplan-divergence-analysis -vplan-print-after-linearization %s 2>& 1| FileCheck %s
+; RUN: opt < %s -S -VPlanDriver -disable-output -vplan-dump-da -vplan-print-after-linearization 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
-; CHECK: Memory entity = [1024 x i32]* [[ARR_PRIV:%.*]]
+@N = dso_local local_unnamed_addr constant i32 1024, align 4
+@i = dso_local local_unnamed_addr global i32 0, align 4
+@j = dso_local local_unnamed_addr global i32 0, align 4
+@arr1 = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+@arr2 = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+
+; Function Attrs: nounwind uwtable
+define dso_local i32 @getElement(i32 %RetIdx) local_unnamed_addr {
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI2:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK: Uniform: [Shape: Uniform] i32 [[PHI1:%.*]] = phi  [ i32 0, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT1:%.*]] = sext i32 [[PHI1]] to i64
-; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT1]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV:%.*]] i64 0 i64 [[SEXT1]]
 ; CHECK: Divergent: [Shape: Random] i8* [[IV_IDX:%.*]] = bitcast i32* %inv.arrayidx
 ; CHECK-NEXT: Divergent: [Shape: Random] i8 [[BC1:%.*]] = load i8* %bc.1
 ; CHECK-NEXT: Divergent: [Shape: Random] i82 [[BC2:%.*]] = load i82* %bc.2
@@ -69,16 +76,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:  [DA: Divergent] i64 [[L6:%.*]] = load i64* [[GEP2]]
 ; CHECK:  [DA: Divergent] i32* [[GEP5:%.*]] = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 {{.*}}
 ; CHECK-NEXT:  [DA: Divergent] store i32 {{.*}} i32* [[GEP5]]
-
-
-@N = dso_local local_unnamed_addr constant i32 1024, align 4
-@i = dso_local local_unnamed_addr global i32 0, align 4
-@j = dso_local local_unnamed_addr global i32 0, align 4
-@arr1 = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@arr2 = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-
-; Function Attrs: nounwind uwtable
-define dso_local i32 @getElement(i32 %RetIdx) local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %arr1.priv = alloca [1024 x i32], align 4
   %inv.arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 0
@@ -169,14 +166,11 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 ;  return arr1[RetIdx];
 ;}
 
-
-; CHECK: Memory entity = i32* [[J:%.*]]
-; CHECK-NEXT: Memory entity = i32* %i.lpriv
-
-
+; Function Attrs: nounwind uwtable
+define dso_local i32 @scalPrivate(i32 %RetIdx) local_unnamed_addr #0 {
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI1:%.*]] = phi  [ i32 0, {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
 ; CHECK: Divergent: [Shape: Random] store i32 [[PHI1]] i32* %i.lpriv
-; CHECK: Divergent: [Shape: Random] i32 [[J1:%.*]] = load i32* [[J]]
+; CHECK: Divergent: [Shape: Random] i32 [[J1:%.*]] = load i32* [[J:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD4:%.*]] = add i32 [[J1]] i32 [[PHI1]]
 ; CHECK: Divergent: [Shape: Random] store i32 [[ADD4]] i32* [[J]]
 ; CHECK: Divergent: [Shape: Random] i32 [[H1:%.*]] = call i32 [[ADD4]] i32 (i32)* @helper
@@ -187,17 +181,12 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 ; CHECK:      [DA: Divergent] i32* [[PRIV2:%.*]] = allocate-priv i32*
 ; CHECK-NEXT: [DA: Divergent] i32* [[L_PRIV:%.*]] = allocate-priv i32*
 
-
 ; CHECK:      [DA: Divergent] i32 [[PHI5:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 [[ADD1:%.*]], {{.*}}]
 ; CHECK:      [DA: Divergent] store i32 [[PHI5]] i32* [[L_PRIV]]
 ; CHECK:      [DA: Divergent] store i32 {{.*}} i32* [[PRIV2]]
 ; CHECK-NEXT: [DA: Divergent] i32 {{.*}} = call i32 {{.*}} i32 (i32)* @helper
 ; CHECK-NEXT: [DA: Divergent] i32 {{.*}} = call i32* [[PRIV2]] i32 (i32*)* @helperPtr
 ; CHECK:      [DA: Divergent] i32 [[ADD1]] = add i32 [[PHI5]] i32 {{.*}}
-
-
-; Function Attrs: nounwind uwtable
-define dso_local i32 @scalPrivate(i32 %RetIdx) local_unnamed_addr #0 {
 omp.inner.for.body.lr.ph:
   %j.priv = alloca i32, align 4
   %i.lpriv = alloca i32, align 4

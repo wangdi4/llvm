@@ -14,6 +14,7 @@
 #include <CL/sycl/detail/context_impl.hpp>
 #include <CL/sycl/detail/event_impl.hpp>
 #include <CL/sycl/detail/kernel_desc.hpp>
+#include <CL/sycl/detail/kernel_impl.hpp>
 #include <CL/sycl/detail/kernel_info.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
 #include <CL/sycl/detail/program_manager/program_manager.hpp>
@@ -32,7 +33,7 @@
 #include <memory>
 #endif
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 namespace detail {
 
@@ -293,12 +294,11 @@ cl_int ReleaseCommand::enqueueImp() {
     NeedUnmap |= CurAllocaIsHost == MAllocaCmd->MIsActive;
   }
 
+  RT::PiEvent UnmapEvent = nullptr; // INTEL
   if (NeedUnmap) {
     const QueueImplPtr &Queue = CurAllocaIsHost
                                     ? MAllocaCmd->MLinkedAllocaCmd->getQueue()
                                     : MAllocaCmd->getQueue();
-    RT::PiEvent UnmapEvent = nullptr;
-
     void *Src = CurAllocaIsHost
                     ? MAllocaCmd->getMemAllocation()
                     : MAllocaCmd->MLinkedAllocaCmd->getMemAllocation();
@@ -322,6 +322,17 @@ cl_int ReleaseCommand::enqueueImp() {
                            MAllocaCmd->getSYCLMemObj(),
                            MAllocaCmd->getMemAllocation(), std::move(RawEvents),
                            Event);
+
+#ifdef INTEL_CUSTOMIZATION
+  // TODO: remove this after https://github.com/intel/llvm/pull/1030 is merged.
+  // In there the raw PI event will be wrapped into SYCL object that will
+  // perform this releasing in its destructor.
+  //
+  if (UnmapEvent) {
+    // Release the event created for unmap
+    PI_CALL(piEventRelease)(UnmapEvent);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return CL_SUCCESS;
 }
@@ -565,7 +576,7 @@ cl_int MemCpyCommandHost::enqueueImp() {
 void EmptyCommand::printDot(std::ostream &Stream) const {
   Stream << "\"" << this << "\" [style=filled, fillcolor=\"#8d8f29\", label=\"";
 
-  Stream << "ID = " << this << "\n";
+  Stream << "ID = " << this << "\\n";
   Stream << "EMPTY NODE"
          << "\\n";
 
@@ -583,7 +594,7 @@ void EmptyCommand::printDot(std::ostream &Stream) const {
 void MemCpyCommandHost::printDot(std::ostream &Stream) const {
   Stream << "\"" << this << "\" [style=filled, fillcolor=\"#B6A2EB\", label=\"";
 
-  Stream << "ID = " << this << "\n";
+  Stream << "ID = " << this << "\\n";
   Stream << "MEMCPY HOST ON " << deviceToString(MQueue->get_device()) << "\\n";
 
   Stream << "\"];" << std::endl;
@@ -600,7 +611,7 @@ void MemCpyCommandHost::printDot(std::ostream &Stream) const {
 void ExecCGCommand::printDot(std::ostream &Stream) const {
   Stream << "\"" << this << "\" [style=filled, fillcolor=\"#AFFF82\", label=\"";
 
-  Stream << "ID = " << this << "\n";
+  Stream << "ID = " << this << "\\n";
   Stream << "EXEC CG ON " << deviceToString(MQueue->get_device()) << "\\n";
 
   switch (MCommandGroup->getType()) {
@@ -921,13 +932,8 @@ cl_int ExecCGCommand::enqueueImp() {
         break;
       }
       case kernel_param_kind_t::kind_pointer: {
-        std::shared_ptr<usm::USMDispatcher> USMDispatch =
-            getSyclObjImpl(Context)->getUSMDispatch();
-        auto PtrToPtr = reinterpret_cast<intptr_t *>(Arg.MPtr);
-        auto DerefPtr = reinterpret_cast<void *>(*PtrToPtr);
-        assert(USMDispatch != nullptr && "USM dispatcher is not available");
-        pi::cast<RT::PiResult>(
-            USMDispatch->setKernelArgMemPointer(Kernel, Arg.MIndex, DerefPtr));
+        PI_CALL(piextKernelSetArgPointer)(Kernel, Arg.MIndex, Arg.MSize,
+                                          Arg.MPtr);
         break;
       }
       default:
@@ -939,10 +945,10 @@ cl_int ExecCGCommand::enqueueImp() {
         NDRDesc, Kernel,
         detail::getSyclObjImpl(MQueue->get_device())->getHandleRef());
 
-    std::shared_ptr<usm::USMDispatcher> USMDispatch =
-        getSyclObjImpl(Context)->getUSMDispatch();
-    assert(USMDispatch != nullptr && "USM dispatcher is not available");
-    USMDispatch->setKernelIndirectAccess(Kernel, MQueue->getHandleRef());
+    // Some PI Plugins (like OpenCL) require this call to enable USM
+    // For others, PI will turn this into a NOP.
+    PI_CALL(piKernelSetExecInfo)(Kernel, PI_USM_INDIRECT_ACCESS,
+                                 sizeof(pi_bool), &PI_TRUE);
 
     // Remember this information before the range dimensions are reversed
     const bool HasLocalSize = (NDRDesc.LocalSize[0] != 0);

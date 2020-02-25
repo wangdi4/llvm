@@ -88,19 +88,33 @@ INLINE int __kmp_get_num_workers() {
   return __kmp_get_master_id();
 }
 
-/// Lock builtins which are not widened (considered
-/// uniform) by the device compiler(s).
-EXTERN void __builtin_IB_kmp_acquire_lock(__global int *);
-EXTERN void __builtin_IB_kmp_release_lock(__global int *);
-
-/// Acquire lock
-INLINE void __kmp_acquire_lock(__global int *lock) {
-  __builtin_IB_kmp_acquire_lock(lock);
+/// Return the active sub group leader id
+INLINE int __kmp_get_active_sub_group_leader_id() {
+  int id = get_sub_group_local_id();
+  return sub_group_scan_inclusive_min(id);
 }
 
-/// Release lock
-INLINE void __kmp_release_lock(__global int *lock) {
-  __builtin_IB_kmp_release_lock(lock);
+/// Acquire lock for a sub group
+INLINE void __kmp_acquire_lock(int *lock) {
+  if (get_sub_group_local_id() == __kmp_get_active_sub_group_leader_id()) {
+    int expected;
+    bool acquired;
+    do {
+      expected = 0;
+      acquired = atomic_compare_exchange_weak_explicit(
+          (volatile atomic_int *)lock, &expected, 1, memory_order_acq_rel,
+          memory_order_relaxed);
+    } while (!acquired);
+  }
+  sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+}
+
+/// Release lock for a sub group
+INLINE void __kmp_release_lock(int *lock) {
+  sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+  if (get_sub_group_local_id() == __kmp_get_active_sub_group_leader_id()) {
+    atomic_store_explicit((volatile atomic_int *)lock, 0, memory_order_release);
+  }
 }
 
 /// Initialize a single team data

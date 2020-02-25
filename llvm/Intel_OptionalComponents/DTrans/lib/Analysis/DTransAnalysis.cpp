@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -587,19 +587,22 @@ class LocalPointerInfo {
 public:
   // Used to describe the field and offset into an array or structure.
   struct PointeeLoc {
-    size_t ElementNum;
-    size_t ByteOffset;
+    enum PointeeLocKind { PLK_Field, PLK_Offset };
+    PointeeLocKind Kind;
+    union {
+      size_t ElementNum;
+      size_t ByteOffset;
+    } Loc;
 
-    // Sentinel to represent the location is just a byte offset, that does not
-    // refer to a valid element of the containing type. This is used when
-    // tracking an address into a structure that does not start on a field
-    // boundary.
-    static const size_t InvalidElement = ~0;
-
-    PointeeLoc(size_t ElementNum, size_t ByteOffset)
-        : ElementNum(ElementNum), ByteOffset(ByteOffset) {}
-    size_t getElementNum() const { return ElementNum; }
-    size_t getByteOffset() const { return ByteOffset; }
+    PointeeLoc(PointeeLocKind Kind, size_t Val) : Kind(Kind) {
+      if (Kind == PLK_Field)
+        Loc.ElementNum = Val;
+      else
+        Loc.ByteOffset = Val;
+    }
+    PointeeLocKind getKind() const { return Kind; }
+    size_t getElementNum() const { return Loc.ElementNum; }
+    size_t getByteOffset() const { return Loc.ByteOffset; }
   };
 
   typedef std::pair<llvm::Type *, PointeeLoc> TypeAndPointeeLocPair;
@@ -648,9 +651,18 @@ public:
   }
 
   // If a pointer is pointing to an element of an aggregate, we want to track
-  // that information.
-  void addElementPointee(llvm::Type *Base, size_t ElemIdx, size_t ByteOffset) {
-    PointeeLoc Loc(ElemIdx, ByteOffset);
+  // that information. Track the element being accessed by index.
+  void addElementPointee(llvm::Type *Base, size_t ElemIdx) {
+    PointeeLoc Loc(PointeeLoc::PLK_Field, ElemIdx);
+    ElementPointees.insert(std::make_pair(Base, Loc));
+  }
+
+  // If the pointer is pointing into an aggregate, but does not correspond to
+  // the starting location of an element, we want to track the byte offset. This
+  // is used for the case of a memintrinsic that starts on a byte that is
+  // padding between elements.
+  void addElementPointeeByOffset(llvm::Type *Base, size_t ByteOffset) {
+    PointeeLoc Loc(PointeeLoc::PLK_Offset, ByteOffset);
     ElementPointees.insert(std::make_pair(Base, Loc));
   }
 
@@ -826,13 +838,20 @@ public:
 
           StringStream << Prefix;
           StringStream.indent(Indent + 4);
-          StringStream << *PointeePair.first << " @ "
-                       << (PointeePair.second.getElementNum() ==
-                                   LocalPointerInfo::PointeeLoc::InvalidElement
-                               ? "not-field"
-                               : std::to_string(
-                                     PointeePair.second.getElementNum()))
-                       << " ByteOffset: " << PointeePair.second.getByteOffset();
+          if (auto *StTy = dyn_cast<llvm::StructType>(PointeePair.first))
+            if (StTy->hasName())
+              StringStream << "%" << StTy->getName();
+            else
+              StringStream << *StTy;
+          else
+            StringStream << *PointeePair.first;
+          StringStream << " @ ";
+          if (PointeePair.second.getKind() == PointeeLoc::PLK_Offset)
+            StringStream << "not-field ByteOffset: "
+                         << PointeePair.second.getByteOffset();
+          else
+            StringStream << std::to_string(PointeePair.second.getElementNum());
+
           StringStream.flush();
           return OutputVal;
         };
@@ -887,8 +906,16 @@ private:
 // Comparator for PointeeLoc to enable using type within std::set.
 bool operator<(const LocalPointerInfo::PointeeLoc &A,
                const LocalPointerInfo::PointeeLoc &B) {
-  return std::make_pair(A.ElementNum, A.ByteOffset) <
-    std::make_pair(B.ElementNum, B.ByteOffset);
+  if (A.Kind == B.Kind)
+    return A.Kind == LocalPointerInfo::PointeeLoc::PLK_Field
+               ? A.getElementNum() < B.getElementNum()
+               : A.getByteOffset() < B.getByteOffset();
+
+  // Treat field elements as sorting before non-field elements
+  if (A.Kind == LocalPointerInfo::PointeeLoc::PLK_Field)
+    return true;
+
+  return false;
 }
 
 // Class to analyze and identify functions that are post-dominated by
@@ -2635,7 +2662,7 @@ private:
                DestTy->getPointerElementType()->isPointerTy() &&
                dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
                                           &AccessedTy))) {
-            Info.addElementPointee(AccessedTy->getPointerElementType(), 0, 0);
+            Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
             IsElementZeroAccess = true;
             // If the bitcast is to an i8** and element zero of the accessed
             // type is a pointer, we need to add the type of that pointer
@@ -2662,9 +2689,13 @@ private:
             // because loading from the new pointer will effectively be
             // an access of the original element.
             for (auto &PointeePair : SrcLPI.getElementPointeeSet())
-              Info.addElementPointee(PointeePair.first,
-                                     PointeePair.second.getElementNum(),
-                                     PointeePair.second.getByteOffset());
+              if (PointeePair.second.getKind() ==
+                  LocalPointerInfo::PointeeLoc::PLK_Field)
+                Info.addElementPointee(PointeePair.first,
+                                       PointeePair.second.getElementNum());
+              else
+                Info.addElementPointeeByOffset(
+                    PointeePair.first, PointeePair.second.getByteOffset());
           }
         }
         // If this is an element zero access, don't merge the source info.
@@ -2748,8 +2779,7 @@ private:
             dyn_cast<ConstantInt>(GEP->getOperand(GEP->getNumOperands() - 1))) {
       uint64_t Idx = LastArg->getLimitedValue();
       // Add this information to the local pointer information for the GEP.
-      Info.addElementPointee(IndexedTy, Idx,
-                             Idx * DL.getTypeStoreSize(IndexedTy));
+      Info.addElementPointee(IndexedTy, Idx);
       return;
     }
 
@@ -2766,7 +2796,7 @@ private:
       // then it is safe to have non-constant array access. Use 0 index for
       // Pointee set.
       if (!DTransOutOfBoundsOK)
-        Info.addElementPointee(IndexedTy, 0, 0);
+        Info.addElementPointee(IndexedTy, 0);
     }
 
     return;
@@ -2903,7 +2933,7 @@ private:
     // Otherwise, this is a match.
     // Save the element address usage in the returned value's
     // local pointer info.
-    Info.addElementPointee(StructTy, IdxAtOffset, ElementOffset);
+    Info.addElementPointee(StructTy, IdxAtOffset);
 
     // If this element is a type of interest, mark that as an expected
     // type alias for this pointer.
@@ -2922,7 +2952,7 @@ private:
     if (NewOffset == 0) {
       // The offset is an exact multiple of the element size. This
       // is a match for the element access.
-      Info.addElementPointee(ArrayTy, Offset / ElementSize, Offset);
+      Info.addElementPointee(ArrayTy, Offset / ElementSize);
 
       // If this element is a type of interest, mark that as an expected
       // type alias for this pointer.
@@ -3159,8 +3189,8 @@ private:
         for (auto &PointeePair : ElementPointees) {
           llvm::Type *Ty = PointeePair.first;
           if (auto *StructTy = dyn_cast<StructType>(Ty)) {
-            assert(PointeePair.second.getElementNum() !=
-                       LocalPointerInfo::PointeeLoc::InvalidElement &&
+            assert(PointeePair.second.getKind() !=
+                       LocalPointerInfo::PointeeLoc::PLK_Offset &&
                    "Unexpected use of invalid element");
             llvm::Type *ElemTy =
                 StructTy->getElementType(PointeePair.second.getElementNum());
@@ -5582,9 +5612,9 @@ public:
             DTInfo.getOrCreateTypeInfo(PointeePair.first);
         llvm::Type *ElemTy;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          assert(PointeePair.second.getElementNum() !=
-            LocalPointerInfo::PointeeLoc::InvalidElement &&
-            "Unexpected use of invalid element");
+          assert(PointeePair.second.getKind() !=
+                     LocalPointerInfo::PointeeLoc::PLK_Offset &&
+                 "Unexpected use of invalid element");
 
           size_t ElementNum = PointeePair.second.getElementNum();
           assert(ElementNum < ParentStInfo->getNumFields());
@@ -5674,6 +5704,11 @@ public:
                             << "  bad type for element zero load:\n"
                             << "  " << I << "\n");
           setBaseTypeInfoSafetyData(AliasTy, dtrans::MismatchedElementAccess);
+          auto *TI = DTInfo.getOrCreateTypeInfo(AliasTy);
+          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+            dtrans::FieldInfo &FI = ParentStInfo->getField(0);
+            FI.setMismatchedElementAccess();
+          }
         }
       }
       // We expect that all cases will either find a pointer to a pointer alias
@@ -5784,8 +5819,8 @@ public:
                       Value *ValOp) {
     llvm::Type *ParentTy = PointeePair.first;
     assert((!ParentTy->isStructTy() ||
-            PointeePair.second.getElementNum() !=
-                LocalPointerInfo::PointeeLoc::InvalidElement) &&
+            PointeePair.second.getKind() !=
+                LocalPointerInfo::PointeeLoc::PLK_Offset) &&
            "Unexpected use of invalid element");
 
     size_t Idx = PointeePair.second.getElementNum();
@@ -6051,8 +6086,7 @@ public:
             static_cast<uint64_t>(Offset) < DL.getTypeStoreSize(DomAggTy) &&
             OnlyUsedForMemset(I)) {
           // Record the access offset to allow the memset analyzer to check it.
-          GEPLPI.addElementPointee(
-              DomAggTy, LocalPointerInfo::PointeeLoc::InvalidElement, Offset);
+          GEPLPI.addElementPointeeByOffset(DomAggTy, Offset);
         } else {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                             << "  " << *I << "\n");
@@ -6073,8 +6107,8 @@ public:
         // byte-flattened form, store this information for later reference.
         LocalPointerInfo::TypeAndPointeeLocPair Element = *PointeeSet.begin();
         assert((!Element.first->isStructTy() ||
-                Element.second.getElementNum() !=
-                    LocalPointerInfo::PointeeLoc::InvalidElement) &&
+                Element.second.getKind() !=
+                    LocalPointerInfo::PointeeLoc::PLK_Offset) &&
                "Unexpected use of invalid element");
         std::pair<llvm::Type *, size_t> Pointee(Element.first,
                                                 Element.second.getElementNum());
@@ -6110,8 +6144,8 @@ public:
           if (ParentTy->isStructTy()) {
             auto *ParentStInfo =
                 cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
-            assert(PointeePair.second.getElementNum() !=
-                       LocalPointerInfo::PointeeLoc::InvalidElement &&
+            assert(PointeePair.second.getKind() !=
+                       LocalPointerInfo::PointeeLoc::PLK_Offset &&
                    "Unexpected use of invalid element");
             dtrans::FieldInfo &FI =
                 ParentStInfo->getField(PointeePair.second.getElementNum());
@@ -6910,6 +6944,16 @@ public:
       }
 
       void emitLPA(Value *V, formatted_raw_ostream &OS) {
+        // Check for any constant expressions being used for the instruction,
+        // and report types for those, if available.
+        if (auto *I = dyn_cast<Instruction>(V))
+          for (auto *Op : I->operand_values())
+            if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
+              OS << "\n;        CE: " << *CE << "\n";
+              auto &LPI = LPA.getLocalPointerInfo(CE);
+              LPI.print(OS, 10, ";");
+            }
+
         if (!LPA.isPossiblePtrValue(V))
           return;
 
@@ -7756,10 +7800,17 @@ private:
     // the result.  Because the means for storing into the allocated array
     // fields are not exhaustively analyzed, for now, we always mark such
     // field values as 'incomplete'.
-    auto AnalyzeIndirectArrays = [](dtrans::FieldInfo *FI, Instruction *I) {
+    std::function<void(dtrans::FieldInfo *FI, Instruction *I)>
+        AnalyzeIndirectArrays = [&AnalyzeIndirectArrays](dtrans::FieldInfo *FI,
+                                                         Instruction *I) {
       if (!I)
         return;
       for (User *U : I->users()) {
+        auto BCI = dyn_cast<BitCastInst>(U);
+        if (BCI) {
+          AnalyzeIndirectArrays(FI, BCI);
+          continue;
+        }
         auto GEPI = dyn_cast<GetElementPtrInst>(U);
         if (!GEPI || GEPI->getPointerOperand() != I ||
             GEPI->getNumIndices() != 1)
@@ -7775,13 +7826,46 @@ private:
       }
     };
 
+    // FSV and FSAF checks for "ConstVal" that is being assigned to a field
+    // corresponding to "FI".
+    auto CheckWriteValue = [](Constant *ConstVal, dtrans::FieldInfo &FI,
+                              size_t ElementNum,
+                              dtrans::StructInfo *ParentStInfo) {
+      if (FI.processNewSingleValue(ConstVal)) {
+        DEBUG_WITH_TYPE(DTRANS_FSV, {
+          dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType()) << " ["
+                 << ElementNum << "] New value: ";
+          ConstVal->printAsOperand(dbgs());
+          dbgs() << "\n";
+        });
+      }
+      if (!isa<ConstantPointerNull>(ConstVal)) {
+        DEBUG_WITH_TYPE(DTRANS_FSAF, {
+          if (!FI.isBottomAllocFunction())
+            dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType()) << " ["
+                   << ElementNum << "] <BOTTOM>\n";
+        });
+        FI.setBottomAllocFunction();
+      }
+    };
+
+    // Returns true if "WriteVal" is SelectInst and both true and false values
+    // are constants.
+    auto IsConstantResultSelectInst = [](Value *WriteVal) {
+      auto *SI = dyn_cast<SelectInst>(WriteVal);
+      if (!SI || !isa<Constant>(SI->getTrueValue()) ||
+          !isa<Constant>(SI->getFalseValue()))
+        return false;
+      return true;
+    };
+
     // Update LoadInfoMap and StoreInfoMap if the instruction I is accessing
     // a structure element.
     auto &PointeeSet = PtrInfo.getElementPointeeSet();
     if (PointeeSet.size() == 1 && PointeeSet.begin()->first->isStructTy()) {
       LocalPointerInfo::TypeAndPointeeLocPair Element = *PointeeSet.begin();
-      assert(Element.second.getElementNum() !=
-                 LocalPointerInfo::PointeeLoc::InvalidElement &&
+      assert(Element.second.getKind() !=
+                 LocalPointerInfo::PointeeLoc::PLK_Offset &&
              "Unexpected use of invalid element");
       std::pair<llvm::Type *, size_t> Pointee(Element.first,
                                               Element.second.getElementNum());
@@ -7813,11 +7897,11 @@ private:
 
       if (auto *CompTy = cast<CompositeType>(ParentTy)) {
         assert((!PointeePair.first->isStructTy() ||
-                PointeePair.second.getElementNum() !=
-                    LocalPointerInfo::PointeeLoc::InvalidElement) &&
+                PointeePair.second.getKind() !=
+                    LocalPointerInfo::PointeeLoc::PLK_Offset) &&
                "Unexpected use of invalid element");
-        llvm::Type *FieldTy =
-            CompTy->getTypeAtIndex(PointeePair.second.getElementNum());
+        size_t ElementNum = PointeePair.second.getElementNum();
+        llvm::Type *FieldTy = CompTy->getTypeAtIndex(ElementNum);
 
         // If this field is an aggregate, and this is not a nested
         // element zero access, mark this as a whole structure reference.
@@ -7832,16 +7916,36 @@ private:
         //
         //   (1) FieldTy is a pointer type and ValTy is pointer-sized integer
         //   (2) FieldTy is a pointer type and ValTy is i8*
-        //   (3) ValTy matches the type of element zero of FieldTy
-        //   (4) FieldTy is a pointer type and ValTy is a pointer to the type
+        //   (3) FieldTy is a pointer type that does not point to an aggregate
+        //       type, and ValTy is a pointer to a pointer-sized integer.
+        //   (4) ValTy matches the type of element zero of FieldTy
+        //   (5) FieldTy is a pointer type and ValTy is a pointer to the type
         //       of element zero of the type pointed to by FieldTy
+        //
+        // Examples of the mismatched element access safety check:
+        //   - Loading a field declared as an double as a i64 should trigger
+        //     the safety check.
+        //   - Loading a field declared as an i8* as a %struct.foo* should
+        //     trigger the safety check.
+        //   - However, loading a field declared as double* as an i64* should be
+        //     treated as safe.
+        //   - Trigger the safety check if a field is a pointer to a structure
+        //     type, but used as an i64* (this may be more conservative than
+        //     necessary).
+        bool IsAggregateTy =
+            FieldTy->isPointerTy() &&
+            FieldTy->getPointerElementType()->isAggregateType();
+        bool AggrTyPtrAsPtrSizedInt =
+            IsAggregateTy && (ValTy == PtrSizeIntPtrTy);
         if ((FieldTy != ValTy) &&
-            (!FieldTy->isPointerTy() ||
-             (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy)) &&
-            !dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
-                                         ValTy->getPointerTo()) &&
-            !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
-                                                   ValTy->getPointerTo())) {
+            (((!FieldTy->isPointerTy() ||
+               (ValTy != PtrSizeIntTy && ValTy != Int8PtrTy &&
+                ValTy != PtrSizeIntPtrTy)) &&
+              !dtrans::isElementZeroAccess(FieldTy->getPointerTo(),
+                                           ValTy->getPointerTo()) &&
+              !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
+                                                     ValTy->getPointerTo())) ||
+             AggrTyPtrAsPtrSizedInt)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
           LLVM_DEBUG(dbgs() << "  " << I << "\n");
 
@@ -7850,12 +7954,21 @@ private:
             // ParentTy.
             setBaseTypeInfoSafetyData(ParentTy,
                                       dtrans::MismatchedElementAccess);
+            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
+            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+              for (auto &FI : ParentStInfo->getFields())
+                FI.setMismatchedElementAccess();
+            }
           } else {
             // Set safety issue to the ParentTy and to the impacted field type
             // only.
-            DTInfo.getOrCreateTypeInfo(ParentTy)->setSafetyData(
-                dtrans::MismatchedElementAccess);
+            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
+            TI->setSafetyData(dtrans::MismatchedElementAccess);
             setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
+            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+              dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
+              FI.setMismatchedElementAccess();
+            }
           }
         }
 
@@ -7863,8 +7976,8 @@ private:
           auto *ParentStInfo =
               cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
           assert((!PointeePair.first->isStructTy() ||
-                  PointeePair.second.getElementNum() !=
-                      LocalPointerInfo::PointeeLoc::InvalidElement) &&
+                  PointeePair.second.getKind() !=
+                      LocalPointerInfo::PointeeLoc::PLK_Offset) &&
                  "Unexpected use of invalid element");
           size_t ElementNum = PointeePair.second.getElementNum();
           dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
@@ -7877,22 +7990,7 @@ private:
             AnalyzeIndirectArrays(&FI, &I);
           } else {
             if (auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal)) {
-              if (FI.processNewSingleValue(ConstVal)) {
-                DEBUG_WITH_TYPE(DTRANS_FSV, {
-                  dbgs() << "dtrans-fsv: " << *(ParentStInfo->getLLVMType())
-                         << " [" << ElementNum << "] New value: ";
-                  ConstVal->printAsOperand(dbgs());
-                  dbgs() << "\n";
-                });
-              }
-              if (!isa<ConstantPointerNull>(WriteVal)) {
-                DEBUG_WITH_TYPE(DTRANS_FSAF, {
-                  if (!FI.isBottomAllocFunction())
-                    dbgs() << "dtrans-fsaf: " << *(ParentStInfo->getLLVMType())
-                           << " [" << ElementNum << "] <BOTTOM>\n";
-                });
-                FI.setBottomAllocFunction();
-              }
+              CheckWriteValue(ConstVal, FI, ElementNum, ParentStInfo);
             } else if (auto *Call = dyn_cast<CallBase>(WriteVal)) {
               DEBUG_WITH_TYPE(DTRANS_FSV, {
                 if (!FI.isMultipleValue())
@@ -7921,6 +8019,12 @@ private:
                 });
                 FI.setBottomAllocFunction();
               }
+            } else if (IsConstantResultSelectInst(WriteVal)) {
+              auto *SI = cast<SelectInst>(WriteVal);
+              CheckWriteValue(cast<Constant>(SI->getTrueValue()), FI,
+                              ElementNum, ParentStInfo);
+              CheckWriteValue(cast<Constant>(SI->getFalseValue()), FI,
+                              ElementNum, ParentStInfo);
             } else {
               DEBUG_WITH_TYPE(DTRANS_FSV, {
                 if (!FI.isMultipleValue())
@@ -8416,7 +8520,7 @@ private:
 
         if (analyzeMemfuncStructureMemberParam(
                 I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc))
-          createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
+          createMemsetCallInfo(I, StructTy, RegionDesc);
 
         return;
       }
@@ -8466,7 +8570,7 @@ private:
 
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
-      createMemsetCallInfo(I, cast<PointerType>(DestParentTy), RegionDesc);
+      createMemsetCallInfo(I, DestPointeeTy, RegionDesc);
 
       return;
     }
@@ -8478,7 +8582,7 @@ private:
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
                                              RegionDesc))
-        createMemsetCallInfo(I, StructTy->getPointerTo(), RegionDesc);
+        createMemsetCallInfo(I, StructTy, RegionDesc);
       return;
     }
 
@@ -8647,8 +8751,8 @@ private:
 
         // Create memfunc info for a single field access.
         createMemcpyOrMemmoveCallInfo(
-            I, (DstPtrToMember ? DestParentTy : SrcParentTy)->getPointerTo(),
-            Kind, RegionDesc, RegionDesc);
+            I, (DstPtrToMember ? DestParentTy : SrcParentTy), Kind, RegionDesc,
+            RegionDesc);
 
         auto *StructInfo =
             cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructType));
@@ -8760,8 +8864,8 @@ private:
         if (analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
                                                DstPrePadBytes, SetSize,
                                                RegionDesc)) {
-          createMemcpyOrMemmoveCallInfo(I, DstStructTy->getPointerTo(), Kind,
-                                        RegionDesc, RegionDesc);
+          createMemcpyOrMemmoveCallInfo(I, DstStructTy, Kind, RegionDesc,
+                                        RegionDesc);
 
           auto *SrcParentTI = DTInfo.getOrCreateTypeInfo(SrcStructTy);
           auto *SrcParentStructTI = cast<dtrans::StructInfo>(SrcParentTI);
@@ -8826,9 +8930,8 @@ private:
       // which are the same types/
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
-      createMemcpyOrMemmoveCallInfo(I, cast<PointerType>(DestParentTy), Kind,
-                                    RegionDesc, RegionDesc);
-
+      createMemcpyOrMemmoveCallInfo(I, DestPointeeTy, Kind, RegionDesc,
+                                    RegionDesc);
       return;
     }
 
@@ -8843,8 +8946,8 @@ private:
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
                                              RegionDesc)) {
-        createMemcpyOrMemmoveCallInfo(I, StructTy->getPointerTo(), Kind,
-                                      RegionDesc, RegionDesc);
+        createMemcpyOrMemmoveCallInfo(I, StructTy, Kind, RegionDesc,
+                                      RegionDesc);
 
         addFieldReaders(SrcParentStructTI, RegionDesc.FirstField,
                         RegionDesc.LastField, I);
@@ -8873,14 +8976,14 @@ private:
   void populateCallInfoFromLPI(LocalPointerInfo &LPI, dtrans::CallInfo *CI) {
     CI->setAnalyzed(true);
     if (LPI.canAliasToAggregatePointer()) {
-      CI->setAliasesToAggregatePointer(true);
+      CI->setAliasesToAggregateType(true);
       LocalPointerInfo::PointerTypeAliasSetRef &AliasSet =
           LPI.getPointerTypeAliasSet();
-      for (auto *Ty : AliasSet) {
+      for (auto *Ty : AliasSet)
         if (DTInfo.isTypeOfInterest(Ty)) {
-          CI->addType(Ty);
+          assert(Ty->isPointerTy() && "Expected pointer type");
+          CI->addElemType(Ty->getPointerElementType());
         }
-      }
     }
   }
 
@@ -8893,33 +8996,32 @@ private:
 
   // Create a MemfuncCallInfo object that will store the details about a safe
   // memset call.
-  void createMemsetCallInfo(Instruction &I, llvm::PointerType *Ty,
+  void createMemsetCallInfo(Instruction &I, llvm::Type *ElemTy,
                             dtrans::MemfuncRegion &RegionDesc) {
     dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
         &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
-    MCI->setAliasesToAggregatePointer(true);
+    MCI->setAliasesToAggregateType(true);
     MCI->setAnalyzed(true);
-    MCI->addType(Ty);
+    MCI->addElemType(ElemTy);
 
     if (!RegionDesc.IsCompleteAggregate)
-      markFieldsComplexUse(Ty->getElementType(), RegionDesc.FirstField,
-                           RegionDesc.LastField);
+      markFieldsComplexUse(ElemTy, RegionDesc.FirstField, RegionDesc.LastField);
   }
 
   // Create a MemfuncCallInfo object that will store the details about a safe
   // memcpy/memmove call.
-  void createMemcpyOrMemmoveCallInfo(Instruction &I, llvm::PointerType *Ty,
+  void createMemcpyOrMemmoveCallInfo(Instruction &I, llvm::Type *ElemTy,
                                      dtrans::MemfuncCallInfo::MemfuncKind Kind,
                                      dtrans::MemfuncRegion &RegionDescDest,
                                      dtrans::MemfuncRegion &RegionDescSrc) {
     dtrans::MemfuncCallInfo *MCI =
         DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
-    MCI->setAliasesToAggregatePointer(true);
+    MCI->setAliasesToAggregateType(true);
     MCI->setAnalyzed(true);
-    MCI->addType(Ty);
+    MCI->addElemType(ElemTy);
 
     if (!RegionDescDest.IsCompleteAggregate)
-      markFieldsComplexUse(Ty->getElementType(), RegionDescDest.FirstField,
+      markFieldsComplexUse(ElemTy, RegionDescDest.FirstField,
                            RegionDescDest.LastField);
   }
 
@@ -8949,11 +9051,10 @@ private:
       return false;
 
     auto &PointeePair = *(ElementPointees.begin());
-    size_t ElementNum = PointeePair.second.getElementNum();
     // Check whether the address is to a location that is not the start of a
     // field.
-    if (ElementNum ==
-        LocalPointerInfo::PointeeLoc::InvalidElement) {
+    if (PointeePair.second.getKind() ==
+        LocalPointerInfo::PointeeLoc::PLK_Offset) {
       Type *Ty = PointeePair.first;
       if (auto *StTy = dyn_cast<llvm::StructType>(Ty)) {
         auto *SL = DL.getStructLayout(StTy);
@@ -8995,6 +9096,7 @@ private:
     //   call void @llvm.memset.p0i8.i64(i8* getelementptr(
     //        %struct.test08, %struct.test08* @test08var, i64 0, i32 0, i64 0),
     //       i8 0, i64 200, i32 4, i1 false)
+    size_t ElementNum = PointeePair.second.getElementNum();
     if (ElementNum == 0) {
       if (isAliasSetOverloaded(LPI.getPointerTypeAliasSet()))
         return false;
@@ -10528,6 +10630,9 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
   if (Field.isAddressTaken())
     dbgs() << " AddressTaken";
 
+  if (Field.isMismatchedElementAccess())
+    dbgs() << " MismatchedElementAccess";
+
   dbgs() << "\n";
   dbgs() << "    Frequency: " << Field.getFrequency();
   dbgs() << "\n";
@@ -10632,7 +10737,7 @@ DTransAnalysisInfo::getStructField(GEPOperator *GEP) {
     auto StructField = getByteFlattenedGEPElement(GEP);
     auto StructTy = dyn_cast_or_null<StructType>(StructField.first);
     if (!StructTy)
-      std::make_pair(nullptr, 0);
+      return std::make_pair(nullptr, 0);
 
     return std::make_pair(StructTy, StructField.second);
   }

@@ -160,13 +160,29 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
   bool HasAMXTRANSPOSE = false;
-  bool HasAMXFP16 = false;
   bool HasAMXAVX512 = false;
-  bool HasAMXBF16EVEX = false;
-  bool HasAMXINT8EVEX = false;
-  bool HasAMXTILEEVEX = false;
-  bool HasAMXELEMENTEVEX =  false;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  bool HasAMXFP16 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  bool HasAMXMEMORY2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+  bool HasAMXBF16EVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+  bool HasAMXCONVERTEVEX =  false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  bool HasAMXINT8EVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  bool HasAMXTILEEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  bool HasAMXTRANSPOSE2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -378,6 +394,10 @@ public:
     case CC_Swift:
     case CC_X86Pascal:
     case CC_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+    case CC_IntelOclBiccAVX:
+    case CC_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
     case CC_OpenCLKernel:
       return CCCR_OK;
     default:
@@ -733,6 +753,10 @@ public:
     case CC_Swift:
     case CC_X86VectorCall:
     case CC_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+    case CC_IntelOclBiccAVX:
+    case CC_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
     case CC_Win64:
     case CC_PreserveMost:
     case CC_PreserveAll:
@@ -806,6 +830,10 @@ public:
     case CC_C:
     case CC_X86VectorCall:
     case CC_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+    case CC_IntelOclBiccAVX:
+    case CC_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
     case CC_PreserveMost:
     case CC_PreserveAll:
     case CC_X86_64SysV:

@@ -23,7 +23,7 @@
 ;
 ; 2. Emit the kmpc atomic call without the ident_t and the global_id parameters
 ; 3. Add addrspace(4) to the pointer parameter
-; CHECK: call void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* %{{[0-9]+}}, i32 2)
+; CHECK: call spir_func void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* %{{[0-9]+}}, i32 2)
 
 
 ; ModuleID = '<stdin>'

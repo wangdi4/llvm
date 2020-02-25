@@ -1,6 +1,6 @@
 //===------- DTransImmutableAnalysis.cpp - DTrans Immutable Analysis ------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -46,8 +46,8 @@ DTransImmutableInfo DTransImmutableAnalysis::run(Function &F,
 
 void DTransImmutableInfo::addStructFieldInfo(
     StructType *StructTy, unsigned FieldNum,
-    SmallPtrSetImpl<Constant *> &LikelyValues,
-    SmallPtrSetImpl<Constant *> &LikelyIndirectArrayValues) {
+    SetVector<Constant *> &LikelyValues,
+    SetVector<Constant *> &LikelyIndirectArrayValues) {
 
   StructInfo *SInfo = nullptr;
 

@@ -152,6 +152,8 @@ public:
 
   bool hasBranchDivergence() { return false; }
 
+  bool useGPUDivergenceAnalysis() { return false; }
+
   bool isSourceOfDivergence(const Value *V) { return false; }
 
   bool isAlwaysUniform(const Value *V) { return false; }
@@ -543,6 +545,10 @@ public:
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const {
     return false;
   }
+
+  bool isVPlanVLSProfitable() const { return true; }
+
+  bool isAggressiveVLSProfitable() const { return false; }
 
   bool needsStructuredCFG() const { return false; }
 

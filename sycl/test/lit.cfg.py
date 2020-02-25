@@ -57,6 +57,11 @@ else:
 if 'OCL_ICD_FILENAMES' in os.environ:
     config.environment['OCL_ICD_FILENAMES'] = os.environ['OCL_ICD_FILENAMES']
 
+if 'SYCL_BE' in os.environ:
+    config.environment['SYCL_BE'] = os.environ['SYCL_BE']
+if 'SYCL_DEVICE_WHITE_LIST' in os.environ:
+    config.environment['SYCL_DEVICE_WHITE_LIST'] = os.environ['SYCL_DEVICE_WHITE_LIST']
+
 config.substitutions.append( ('%clang_cc1', ' ' + config.clang + ' -cc1 ') )
 # INTEL_CUSTOMIZATION
 # Propagate --gcc-toolchain if we are overriding system installed gcc.
@@ -170,6 +175,7 @@ if getDeviceCount("accelerator"):
     print("Found available accelerator device")
     acc_run_substitute = " env SYCL_DEVICE_TYPE=ACC "
     acc_check_substitute = "| FileCheck %s"
+    config.available_features.add('accelerator')
 config.substitutions.append( ('%ACC_RUN_PLACEHOLDER',  acc_run_substitute) )
 config.substitutions.append( ('%ACC_CHECK_PLACEHOLDER',  acc_check_substitute) )
 

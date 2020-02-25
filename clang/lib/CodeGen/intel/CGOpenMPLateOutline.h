@@ -161,6 +161,7 @@ class OpenMPLateOutliner {
   };
   const OMPExecutableDirective &Directive;
   OpenMPDirectiveKind CurrentDirectiveKind;
+  OMPClause *CurrentClause = nullptr;
 
   static ArraySectionDataTy emitArraySectionData(const Expr *E,
                                                  CodeGenFunction &CGF);
@@ -238,8 +239,8 @@ class OpenMPLateOutliner {
   void emitOMPAllocatorClause(const OMPAllocatorClause *);
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
-  void emitOMPTileClause(const OMPTileClause *);
 #if INTEL_CUSTOMIZATION
+  void emitOMPTileClause(const OMPTileClause *);
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
 #endif // INTEL_FEATURE_CSA
@@ -397,6 +398,7 @@ public:
   }
   static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,
                                     OpenMPDirectiveKind Kind);
+  bool checkIfModifier(OpenMPDirectiveKind DKind, const OMPIfClause *IC);
 };
 
 class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {

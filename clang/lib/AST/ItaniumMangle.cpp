@@ -22,6 +22,7 @@
 #include "clang/AST/DeclOpenMP.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/TypeLoc.h"
@@ -2859,6 +2860,10 @@ StringRef CXXNameMangler::getCallingConvQualifierName(CallingConv CC) {
   case CC_AAPCS_VFP:
   case CC_AArch64VectorCall:
   case CC_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+  case CC_IntelOclBiccAVX:
+  case CC_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
   case CC_SpirFunction:
   case CC_OpenCLKernel:
   case CC_PreserveMost:
@@ -3812,6 +3817,7 @@ recurse:
   case Expr::ConvertVectorExprClass:
   case Expr::StmtExprClass:
   case Expr::TypeTraitExprClass:
+  case Expr::RequiresExprClass:
   case Expr::ArrayTypeTraitExprClass:
   case Expr::ExpressionTraitExprClass:
   case Expr::VAArgExprClass:

@@ -209,7 +209,7 @@ entry:
 ; CHECK:      Aliased types:
 ; CHECK:        i32*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.test02.a = type { i32, i32 } @ 1
+; CHECK:        %struct.test02.a @ 1
 
   %pb.y = getelementptr %struct.test02.b, %struct.test02.b* %pb, i64 0, i32 1
 ; CHECK: %pb.y = getelementptr %struct.test02.b, %struct.test02.b* %pb, i64 0, i32 1
@@ -217,7 +217,7 @@ entry:
 ; CHECK:      Aliased types:
 ; CHECK:        i32*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.test02.b = type { i32, i32 } @ 1
+; CHECK:        %struct.test02.b @ 1
 
   br i1 undef, label %block_A, label %block_B
 
@@ -228,8 +228,8 @@ block_C:
 ; CHECK:      Aliased types:
 ; CHECK:        i32*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.test02.a = type { i32, i32 } @ 1
-; CHECK:        %struct.test02.b = type { i32, i32 } @ 1
+; CHECK:        %struct.test02.a @ 1
+; CHECK:        %struct.test02.b @ 1
 
   %elem0 = load i32, i32* %y
   br label %merge
@@ -241,8 +241,8 @@ block_A:
 ; CHECK:      Aliased types:
 ; CHECK:        i32*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.test02.a = type { i32, i32 } @ 1
-; CHECK:        %struct.test02.b = type { i32, i32 } @ 1
+; CHECK:        %struct.test02.a @ 1
+; CHECK:        %struct.test02.b @ 1
 
   br i1 undef, label %block_C, label %exit
 
@@ -253,8 +253,8 @@ block_B:
 ; CHECK:      Aliased types:
 ; CHECK:        i32*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.test02.a = type { i32, i32 } @ 1
-; CHECK:        %struct.test02.b = type { i32, i32 } @ 1
+; CHECK:        %struct.test02.a @ 1
+; CHECK:        %struct.test02.b @ 1
 
   br i1 undef, label %block_C, label %exit
 
@@ -298,7 +298,7 @@ define void @test03() {
 ; CHECK:        %struct.test03**
 ; CHECK:        i8*
 ; CHECK:      Element pointees:
-; CHECK:        %struct.test03 = type { i32, %struct.test03*, float } @ 1
+; CHECK:        %struct.test03 @ 1
 
   %B2 = bitcast i8* %GEP to i8**
 ; CHECK: %B2 = bitcast i8* %GEP to i8**
@@ -308,7 +308,7 @@ define void @test03() {
 ; CHECK:        i8*
 ; CHECK:        i8**
 ; CHECK:      Element pointees:
-; CHECK:        %struct.test03 = type { i32, %struct.test03*, float } @ 1
+; CHECK:        %struct.test03 @ 1
 
   store i8* %M, i8** %B2, align 16
   call void @free(i8* %M)

@@ -1,6 +1,6 @@
 //===-------- DDUtils.cpp - Implements DD Utilities -----------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1014,6 +1014,7 @@ bool ignoreDVWithNoLTGTForPermute(const DirectionVector &DV,
 // For a candidate loop, DVs of its Edges are collected.
 // Some Edges are ignored since does not affect the legality of interchange
 // This visitor assumes SRA is computed already
+template <typename T>
 struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
 
   const HLLoop *CandidateLoop;
@@ -1029,13 +1030,16 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   bool RefineDV;
 
   // Outputs of this visitor
-  SmallVectorImpl<DirectionVector> &DVs;
+  T &DVs;
 
   CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned InnermostLevel,
                           HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
                           const SpecialSymbasesTy *SpecialSBs,
                           bool IgnoreSpecialSymbases, bool RefineDV,
-                          SmallVectorImpl<DirectionVector> &DVs);
+                          T &DVs);
+
+  void addToDVs(T &DVs,
+                const DirectionVector& DV, const DDEdge *Edge);
 
   void visit(const HLDDNode *DDNode);
 
@@ -1043,13 +1047,40 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
   void postVisit(const HLDDNode *Node) {}
 };
+
+template<>
+void CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>>::addToDVs(
+  SmallVectorImpl<DirectionVector> &DVs,
+  const DirectionVector& DV, const DDEdge *Edge) {
+  DVs.push_back(DV);
+}
+
+template<>
+void CollectDDInfoForPermute<
+SmallVectorImpl<std::pair<DirectionVector, unsigned>>>::addToDVs(
+  SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
+  const DirectionVector& DV, const DDEdge *Edge) {
+
+  unsigned BasePtrBlobIndex = InvalidBlobIndex;
+
+  if (const RegDDRef* SrcRef = dyn_cast<RegDDRef>(Edge->getSrc())) {
+    if (const RegDDRef* DstRef = dyn_cast<RegDDRef>(Edge->getSink())) {
+      if (SrcRef->isMemRef() && DDRefUtils::areEqual(SrcRef, DstRef)) {
+        BasePtrBlobIndex = SrcRef->getBasePtrBlobIndex();
+      }
+    }
+  }
+
+  DVs.push_back(make_pair(DV, BasePtrBlobIndex));
+}
 } // namespace
 
-CollectDDInfoForPermute::CollectDDInfoForPermute(
+template <typename T>
+CollectDDInfoForPermute<T>::CollectDDInfoForPermute(
     const HLLoop *CandidateLoop, unsigned InnermostLevel, HIRDDAnalysis &DDA,
     HIRSafeReductionAnalysis &SRA, const SpecialSymbasesTy *SpecialSBs,
     bool IgnoreSpecialSymbases, bool RefineDV,
-    SmallVectorImpl<DirectionVector> &DVs)
+    T &DVs)
     : CandidateLoop(CandidateLoop),
       OutermostLevel(CandidateLoop->getNestingLevel()),
       InnermostLevel(InnermostLevel), DDA(DDA),
@@ -1059,7 +1090,8 @@ CollectDDInfoForPermute::CollectDDInfoForPermute(
   DVs.clear();
 }
 
-void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
+template <typename T>
+void CollectDDInfoForPermute<T>::visit(const HLDDNode *DDNode) {
 
   const HLInst *Inst = dyn_cast<HLInst>(DDNode);
   if (Inst && SRA.isSafeReduction(Inst)) {
@@ -1140,7 +1172,7 @@ void CollectDDInfoForPermute::visit(const HLDDNode *DDNode) {
       }
 
       //  Save the DV in an array which will be used later
-      DVs.push_back(*TempDV);
+      addToDVs(DVs, *TempDV, Edge);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       LLVM_DEBUG(dbgs() << "\n\t<Edge selected>");
@@ -1157,13 +1189,15 @@ void DDUtils::computeDVsForPermute(SmallVectorImpl<DirectionVector> &DVs,
                                    HIRSafeReductionAnalysis &SRA,
                                    bool RefineDV) {
 
-  CollectDDInfoForPermute CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
+  CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD(
+    OutermostLoop, InnermostNestingLevel, DDA, SRA,
                               nullptr, true, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
 
-void DDUtils::computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DVs,
+void DDUtils::computeDVsForPermuteWithSBs(
+  SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
                                           const HLLoop *OutermostLoop,
                                           unsigned InnermostNestingLevel,
                                           HIRDDAnalysis &DDA,
@@ -1171,8 +1205,9 @@ void DDUtils::computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DVs,
                                           bool RefineDV,
                                           const SpecialSymbasesTy *SpecialSBs) {
 
-  CollectDDInfoForPermute CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
-                              SpecialSBs, false, RefineDV, DVs);
+  CollectDDInfoForPermute<SmallVectorImpl<std::pair<DirectionVector, unsigned>
+    >> CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
+           SpecialSBs, false, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
@@ -1183,8 +1218,50 @@ void DDUtils::computeDVsForPermuteIgnoringSBs(
     HIRSafeReductionAnalysis &SRA, bool RefineDV,
     const SpecialSymbasesTy *SpecialSBs) {
 
-  CollectDDInfoForPermute CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
+  CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD(
+    OutermostLoop, InnermostNestingLevel, DDA, SRA,
                               SpecialSBs, true, RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
+}
+
+const RegDDRef *DDUtils::getSingleBasePtrLoadRef(const DDGraph &DDG,
+                                                 const RegDDRef *MemRef) {
+  assert(!DDG.empty() && "Empty DDG not expected!");
+  assert(MemRef->isMemRef() && "getSingleBasePtrLoadRef needs a memref");
+
+  unsigned BaseIndex = MemRef->getBasePtrBlobIndex();
+
+  auto *BasePtrBlobRef = MemRef->getBlobDDRef(BaseIndex);
+
+  if (!BasePtrBlobRef) {
+    return nullptr;
+  }
+
+  const RegDDRef *SrcRef         = nullptr;
+  const RegDDRef *BasePtrLoadRef = nullptr;
+
+  for (const DDEdge *Edge : DDG.incoming(BasePtrBlobRef)) {
+    if (BasePtrLoadRef) {
+      return nullptr;
+    }
+
+    SrcRef = cast<RegDDRef>(Edge->getSrc());
+    assert(SrcRef->isTerminalRef() && "SrcRef should be a terminal ref!");
+
+    auto *SrcInst = cast<HLInst>(SrcRef->getHLDDNode());
+
+    if (!isa<LoadInst>(SrcInst->getLLVMInstruction())) {
+      return nullptr;
+    }
+
+    // Single definition should dominate the use or we cannot use it.
+    if (!HLNodeUtils::dominates(SrcInst, MemRef->getHLDDNode())) {
+      return nullptr;
+    }
+
+    BasePtrLoadRef = SrcInst->getRvalDDRef();
+  }
+
+  return BasePtrLoadRef;
 }

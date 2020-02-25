@@ -31,10 +31,11 @@ let Namespace = "X86" in {
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX
   def sub_t0   : SubRegIndex<-1>;
   def sub_t1   : SubRegIndex<-1, -1>;
-
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   def sub_z0   : SubRegIndex<512>;
   def sub_z1   : SubRegIndex<512, 512>;
   def sub_z2   : SubRegIndex<512, 1024>;
@@ -308,9 +309,7 @@ def TMM12: X86Reg<"tmm12", 12>;
 def TMM13: X86Reg<"tmm13", 13>;
 def TMM14: X86Reg<"tmm14", 14>;
 def TMM15: X86Reg<"tmm15", 15>;
-#endif // INTEL_FEATURE_ISA_AMX
 
-#if INTEL_FEATURE_ISA_AMX_LNC
 def TMM16: X86Reg<"tmm16", 16>;
 def TMM17: X86Reg<"tmm17", 17>;
 def TMM18: X86Reg<"tmm18", 18>;
@@ -327,7 +326,7 @@ def TMM28: X86Reg<"tmm28", 28>;
 def TMM29: X86Reg<"tmm29", 29>;
 def TMM30: X86Reg<"tmm30", 30>;
 def TMM31: X86Reg<"tmm31", 31>;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
 // Mask Registers, used by AVX-512 instructions.
@@ -729,8 +728,6 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 let isAllocatable = 0 in
 def VTILE : RegisterClass<"X86", [untyped], 0,
                           (sequence "TMM%u", 0, 15)> {let Size = 8192;}
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
 // Tiles
 let isAllocatable = 0 in
 def VTILEX : RegisterClass<"X86", [untyped], 0,
@@ -745,6 +742,8 @@ def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
 let isAllocatable = 0 in
 def VTILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
 
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
 // FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
 // can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.
 def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, sub_z6,

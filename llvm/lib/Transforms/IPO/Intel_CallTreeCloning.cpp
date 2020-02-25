@@ -1765,14 +1765,14 @@ template<typename It> CTCDebugCostModel::CTCDebugCostModel(It Beg, It End) {
       Psets.insert(Pset);
     } while (P.second.size() > 0);
 
-    SeedsFromCmdLine.insert(std::make_pair(FuncName, Psets));
+    SeedsFromCmdLine.insert(std::make_pair(std::string(FuncName), Psets));
   });
 }
 
 SetOfParamIndSets CTCDebugCostModel::assess(Function &F) {
   assert(!SeedsFromCmdLine.empty() && "seeds must have been provided");
   // 'It' references a pair <function name, sets of param index sets>:
-  auto It = SeedsFromCmdLine.find(F.getName());
+  auto It = SeedsFromCmdLine.find(std::string(F.getName()));
 
   if (It!=SeedsFromCmdLine.end()) {
     // function/param sets were added from the command line - make it a seed

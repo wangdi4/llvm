@@ -1,6 +1,6 @@
 //===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -63,7 +63,8 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), Volatile(false), IsCollapsed(false), Alignment(0) {}
+      AddressOf(false), Volatile(false), IsCollapsed(false), Alignment(0),
+      DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
@@ -71,7 +72,7 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
       Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
       DimTypes(Info.DimTypes), MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
-      MemDbgLoc(Info.MemDbgLoc) {
+      MemDbgLoc(Info.MemDbgLoc), DummyGepLoc(nullptr) {
 
   for (auto *Lower : Info.LowerBounds) {
     CanonExpr *LowerClone = Lower->clone();
@@ -84,7 +85,11 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
   }
 }
 
-RegDDRef::GEPInfo::~GEPInfo() {}
+RegDDRef::GEPInfo::~GEPInfo() {
+  if (DummyGepLoc) {
+    DummyGepLoc->eraseFromParent();
+  }
+}
 
 RegDDRef *RegDDRef::clone() const {
 
@@ -420,24 +425,197 @@ bool RegDDRef::accessesStruct() const {
   return false;
 }
 
-MemoryLocation RegDDRef::getMemoryLocation() const {
-  MemoryLocation Loc;
+bool RegDDRef::hasKnownLocation() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
 
-  const CanonExpr *BaseCE = getBaseCE();
+  auto *Node = getHLDDNode();
+  return (Node && Node->isAttached() && !isFake());
+}
 
-  if (BaseCE->isNull()) {
-    Loc.Ptr = Constant::getNullValue(BaseCE->getDestType());
-  } else {
-    auto &BU = getBlobUtils();
-    auto Blob = BU.getBlob(getBaseCE()->getSingleBlobIndex());
-    Loc.Ptr = BU.getTempOrUndefBlobValue(Blob);
+bool RegDDRef::canCreateLocationGEP() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
+
+  if (!hasKnownLocation() || !isStructurallyRegionInvariant()) {
+    return false;
   }
 
-  Loc.Size = MemoryLocation::UnknownSize;
+  auto *BaseTy = getBaseType();
+
+  if (BaseTy->isVectorTy()) {
+    return false;
+  }
+
+  SmallVector<uint64_t, 8> IdxList;
+
+  for (unsigned I = getNumDimensions(); I > 0; --I) {
+    auto *LowerCE = getDimensionLower(I);
+
+    if (LowerCE->getSrcType()->isVectorTy() || !LowerCE->isZero()) {
+      return false;
+    }
+
+    auto *StrideCE = getDimensionStride(I);
+
+    if (StrideCE->getSrcType()->isVectorTy() || StrideCE->isZero() ||
+        !StrideCE->isIntConstant()) {
+      return false;
+    }
+
+    auto *IndexCE = getDimensionIndex(I);
+
+    // Only handle standalone blobs and constants which do not contain any
+    // 'operations'.
+    if (IndexCE->getSrcType()->isVectorTy() ||
+        (!IndexCE->isSelfBlob() && !IndexCE->isIntConstant())) {
+      return false;
+    }
+
+    // Array index value doesn't matter for index type validation.
+    IdxList.push_back(0);
+
+    for (auto StructOffset : getTrailingStructOffsets(I)) {
+      IdxList.push_back(StructOffset);
+    }
+  }
+
+  // getIndexedType requires element type.
+  BaseTy = BaseTy->getPointerElementType();
+
+  // Check if the indexing is valid. It may be invalid for refs fromed from
+  // fortran subscript intrinsics.
+  if (!GetElementPtrInst::getIndexedType(BaseTy, IdxList)) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool isEquivalentGEPInfo(const GetElementPtrInst *GepInst,
+                                const Value *Base, ArrayRef<Value *> IdxList,
+                                bool IsInBounds) {
+
+  if (GepInst->isInBounds() != IsInBounds) {
+    return false;
+  }
+
+  if (GepInst->getPointerOperand() != Base) {
+    return false;
+  }
+
+  unsigned I = 0;
+  for (Value *GepIdx : GepInst->indices()) {
+    if (GepIdx != IdxList[I]) {
+      return false;
+    }
+    ++I;
+  }
+
+  return true;
+}
+
+GetElementPtrInst *RegDDRef::getOrCreateLocationGEP() const {
+  assert(canCreateLocationGEP() && "Cannot create GEP for ref!");
+
+  SmallVector<Value *, 8> IdxList;
+
+  auto &BU = getBlobUtils();
+  auto *Int32Ty = IntegerType::getInt32Ty(getDDRefUtils().getContext());
+
+  for (unsigned I = getNumDimensions(); I > 0; --I) {
+    auto *IndexCE = getDimensionIndex(I);
+
+    // Add dimension index to GEP index list.
+    if (IndexCE->isSelfBlob()) {
+      auto *Blob = BU.getBlob(IndexCE->getSingleBlobIndex());
+      IdxList.push_back(BU.getTempOrUndefBlobValue(Blob));
+
+    } else {
+      int64_t Val;
+      bool IsConst = IndexCE->isIntConstant(&Val);
+      (void)IsConst;
+
+      assert(IsConst && "Unexpected index CE!");
+
+      auto *IntTy = cast<IntegerType>(IndexCE->getSrcType());
+      IdxList.push_back(ConstantInt::getSigned(IntTy, Val));
+    }
+
+    // Add struct offsets to GEP index list as unsigned 32 bit values.
+    for (auto StructOffset : getTrailingStructOffsets(I)) {
+      IdxList.push_back(ConstantInt::get(Int32Ty, StructOffset));
+    }
+  }
+
+  auto *BaseVal = getBaseValue();
+  bool IsInBounds = isInBounds();
+
+  // Check if the cached gep is present and valid.
+  auto *CachedDummyGepLoc = GepInfo->DummyGepLoc;
+  if (CachedDummyGepLoc) {
+    if (isEquivalentGEPInfo(CachedDummyGepLoc, BaseVal, IdxList, IsInBounds)) {
+      return CachedDummyGepLoc;
+    } else {
+      CachedDummyGepLoc->eraseFromParent();
+    }
+  }
+
+  // Insert the unused location GEP in the region entry bblock.
+  // It will be deleted when ref is destroyed.
+  auto *Reg = getHLDDNode()->getParentRegion();
+  auto *RegEntryInsertPt = &*Reg->getEntryBBlock()->getFirstInsertionPt();
+
+  auto *GepLoc = GetElementPtrInst::Create(nullptr, BaseVal, IdxList,
+                                           "dummygep", RegEntryInsertPt);
+
+  GepLoc->setIsInBounds(IsInBounds);
+
+  // Cache the gep location so only one is created for each ref.
+  GepInfo->DummyGepLoc = GepLoc;
+
+  return GepLoc;
+}
+
+Value *RegDDRef::getLocationPtr(bool &IsPrecise) const {
+  assert(hasGEPInfo() && "GEP ref expected!");
+
+  IsPrecise = false;
+  if (!canCreateLocationGEP()) {
+    return getBaseValue();
+  }
+
+  IsPrecise = true;
+  return getOrCreateLocationGEP();
+}
+
+MemoryLocation RegDDRef::getMemoryLocation() const {
+  assert(isMemRef() && "Memref expected!");
+
+  MemoryLocation Loc;
+  bool IsPrecise;
+
+  Loc.Ptr = getLocationPtr(IsPrecise);
+
+  Loc.Size = IsPrecise ? LocationSize::precise(getDestTypeSizeInBytes())
+                       : MemoryLocation::UnknownSize;
 
   getAAMetadata(Loc.AATags);
 
   return Loc;
+}
+
+Value *RegDDRef::getBaseValue() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
+
+  auto BaseCE = getBaseCE();
+
+  if (BaseCE->isNull()) {
+    return Constant::getNullValue(BaseCE->getDestType());
+  }
+
+  auto &BU = getBlobUtils();
+  auto Blob = BU.getBlob(BaseCE->getSingleBlobIndex());
+
+  return BU.getTempOrUndefBlobValue(Blob);
 }
 
 Value *RegDDRef::getTempBaseValue() const {
@@ -445,16 +623,13 @@ Value *RegDDRef::getTempBaseValue() const {
 
   auto BaseCE = getBaseCE();
 
-  // Standalone check allows conversion in the base.
-  if (!BaseCE->isStandAloneBlob()) {
+  if (BaseCE->isNull() || BaseCE->isStandAloneUndefBlob()) {
     return nullptr;
   }
 
   auto Blob = getBlobUtils().getBlob(BaseCE->getSingleBlobIndex());
 
-  if (!BlobUtils::isTempBlob(Blob)) {
-    return nullptr;
-  }
+  assert(BlobUtils::isTempBlob(Blob) && "Temp blob expected!");
 
   return BlobUtils::getTempBlobValue(Blob);
 }
@@ -1605,6 +1780,41 @@ bool RegDDRef::hasTrailingStructOffsets() const {
   }
 
   return false;
+}
+
+unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
+  assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
+  assert(isDimensionValid(DimensionNum) && "DimensionNum is invalid!");
+
+  Type *DimType = getDimensionType(DimensionNum);
+
+  if (DimType->isArrayTy()) {
+    return DimType->getArrayNumElements();
+
+  } else if (DimensionNum < getNumDimensions()) {
+    // Try to compute number of elements using dimension stride of this and the
+    // next dimension.
+
+    // Dimensions are not contiguous.
+    if (hasTrailingStructOffsets(DimensionNum + 1)) {
+      return 0;
+    }
+
+    int64_t CurDimStride, NextDimStride;
+
+    if (!getDimensionStride(DimensionNum)->isIntConstant(&CurDimStride) ||
+        !getDimensionStride(DimensionNum + 1)->isIntConstant(&NextDimStride)) {
+      return 0;
+    }
+
+    assert((NextDimStride % CurDimStride == 0) &&
+           "Higher dimension stride is not an exact multiple of lower "
+           "dimension stride!");
+
+    return NextDimStride / CurDimStride;
+  }
+
+  return 0;
 }
 
 bool RegDDRef::hasIV(unsigned Level) const {

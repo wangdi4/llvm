@@ -50,12 +50,6 @@
 ; CHECK:    tscatterrowdt1  %tmm6, (%{{.*}},%{{.*}})
 ; CHECK:    tscatterrowq    %tmm1, (%{{.*}},%{{.*}})
 ; CHECK:    tscatterrowqt1  %tmm7, (%{{.*}},%{{.*}})
-; CHECK:    tstorehd        %tmm1, (%{{.*}},%{{.*}})
-; CHECK:    tstorehdt1      %tmm3, (%{{.*}},%{{.*}})
-; CHECK:    tstorentd       %tmm1, (%{{.*}},%{{.*}})
-; CHECK:    tstoreqd        %tmm5, (%{{.*}},%{{.*}})
-; CHECK:    tstoreqdt1      %tmm1, (%{{.*}},%{{.*}})
-; CHECK:    tstorerowd      %tmm1, (%{{.*}})
 ; CHECK:    tcoladdbcastps  %tmm1, %tmm2
 ; CHECK:    tcoladdps       %tmm1, (%{{.*}})
 ; CHECK:    taddps  (%{{.*}}), %tmm2, %tmm3
@@ -77,7 +71,6 @@
 ; CHECK:    tfnmaddps       (%{{.*}}), %tmm2, %tmm3
 ; CHECK:    tfnmsubps       (%{{.*}}), %tmm2, %tmm7
 ; CHECK:    tcmpps  $1, (%{{.*}}), %tmm3, %tmm6
-; CHECK:    tbroadcastrowd  (%{{.*}}), %tmm4
 
 define void @test_amx(i64 %addr, i64 %addrx, i32 %rv32, i64 %stride, i64 %rvalue, i8* %addr1,i8* %addr2, <16 x float> %zmm, <4 x float> %xmm) {
 call void @llvm.x86.taddps.reg(i8 3, i8 2, i8 1)
@@ -127,12 +120,6 @@ call void @llvm.x86.tscatterrowd  (i8* %addr1, i8* %addr2, i8 5)
 call void @llvm.x86.tscatterrowdt1(i8* %addr1, i8* %addr2, i8 6)
 call void @llvm.x86.tscatterrowq  (i8* %addr1, i8* %addr2, i8 1)
 call void @llvm.x86.tscatterrowqt1(i8* %addr1, i8* %addr2, i8 7)
-call void @llvm.x86.tstorehd  (i8* %addr1, i64 %stride, i8 1)
-call void @llvm.x86.tstorehdt1(i8* %addr1, i64 %stride, i8 3)
-call void @llvm.x86.tstorentd (i8* %addr1, i64 %stride, i8 1)
-call void @llvm.x86.tstoreqd  (i8* %addr1, i64 %stride, i8 5)
-call void @llvm.x86.tstoreqdt1(i8* %addr1, i64 %stride, i8 1)
-call void @llvm.x86.tstorerowd(i8* %addr1, i8 7)
 call void @llvm.x86.tcoladdbcastps(i8 2, i8 1)
 call void @llvm.x86.tcoladdps(i8* %addr1, i8 3)
 call void @llvm.x86.taddps.mem(i8 3, i8 2, i8* %addr1)
@@ -154,7 +141,6 @@ call void @llvm.x86.tfmsubps.mem(i8 3, i8 4, i8* %addr1)
 call void @llvm.x86.tfnmaddps.mem(i8 3, i8 2, i8* %addr1)
 call void @llvm.x86.tfnmsubps.mem(i8 7, i8 2, i8* %addr1)
 call void @llvm.x86.tcmpps.mem(i8 6, i8 3, i8* %addr1, i8 1)
-call void @llvm.x86.tbroadcastrowd(i8 4, i8* %addr1)
 ret void
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -216,7 +202,6 @@ declare void @llvm.x86.tpermd.reg(i8 %tile3, i8 %tile2, i8 %tile1)
 declare void @llvm.x86.tpermw.reg(i8 %tile3, i8 %tile2, i8 %tile1)
 declare void @llvm.x86.twidenb(i8 %tile8, i8 %tile2, i8 %n)
 declare void @llvm.x86.twidenw(i8 %tile8, i8 %tile2, i8 %n)
-declare void @llvm.x86.tbroadcastrowd(i8 %tile1, i8* %addr)
 declare void @llvm.x86.tgatherrowd  (i8 %tile1, i8* %addr1, i8* %addr2)
 declare void @llvm.x86.tgatherrowdt1(i8 %tile1, i8* %addr1, i8* %addr2)
 declare void @llvm.x86.tgatherrowq  (i8 %tile1, i8* %addr1, i8* %addr2)
@@ -225,11 +210,5 @@ declare void @llvm.x86.tscatterrowd  (i8* %addr1, i8* %addr2, i8 %tile1)
 declare void @llvm.x86.tscatterrowdt1(i8* %addr1, i8* %addr2, i8 %tile1)
 declare void @llvm.x86.tscatterrowq  (i8* %addr1, i8* %addr2, i8 %tile1)
 declare void @llvm.x86.tscatterrowqt1(i8* %addr1, i8* %addr2, i8 %tile1)
-declare void @llvm.x86.tstorehd  (i8* %addr1, i64 %stride, i8 %tile1)
-declare void @llvm.x86.tstorehdt1(i8* %addr1, i64 %stride, i8 %tile1)
-declare void @llvm.x86.tstorentd (i8* %addr1, i64 %stride, i8 %tile1)
-declare void @llvm.x86.tstoreqd  (i8* %addr1, i64 %stride, i8 %tile1)
-declare void @llvm.x86.tstoreqdt1(i8* %addr1, i64 %stride, i8 %tile1)
-declare void @llvm.x86.tstorerowd(i8* %addr1, i8 %tile1)
 declare void @llvm.x86.tcoladdbcastps(i8 %tile2, i8 %tile1)
 declare void @llvm.x86.tcoladdps(i8* %addr1, i8 %tile1)

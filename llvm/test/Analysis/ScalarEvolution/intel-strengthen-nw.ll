@@ -4,7 +4,7 @@
 ; not signed wrap. E.g., (v0 + 7 + 13) summed in any order will not wrap.
 ; CHECK-LABEL: @nosignedwrap
 ; CHECK: %a1 =
-; CHECK: -->  (20 + %v0)<nsw> U: full-set S: [16,24)
+; CHECK: -->  (20 + %v0)<nsw> U: [-108,-128) S: [16,24)
 define i8 @nosignedwrap(i8 %v) {
         %v0 = srem i8 %v, 4
         %a0 = add i8 %v0, 7

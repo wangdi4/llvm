@@ -1,6 +1,6 @@
 //===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  ---------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -169,10 +169,10 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
 public:
   PiGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
           HIRSparseArrayReductionAnalysis &SARA,
-          bool ForceCycleForLoopIndepDep,
+          bool AllowScalarExpansion,
           bool CreateControlNodes) {
 
-    PPGraph = new DistPPGraph(Loop, DDA, SARA, ForceCycleForLoopIndepDep,
+    PPGraph = new DistPPGraph(Loop, DDA, SARA, AllowScalarExpansion,
                               CreateControlNodes);
 
     if (!isGraphValid()) {

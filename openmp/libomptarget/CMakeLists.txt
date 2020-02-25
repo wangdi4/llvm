@@ -59,7 +59,7 @@ add_definitions(-DOMPTARGET_DEBUG)
 
 include_directories(include)
 
-# INTEL_COLLAB
+if (INTEL_CUSTOMIZATION)
   if (OPENMP_STANDALONE_BUILD)
     message(FATAL_ERROR "Standalone OpenMP build is unsupported.")
   else()
@@ -70,28 +70,26 @@ include_directories(include)
     endif()
     set(LIBOMP_LIB_LOC ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER})
 
-    if (INTEL_CUSTOMIZATION)
-      if ((NOT LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER) OR
-          (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}))
-        if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
-          if (WIN32)
-            set(LIBOMP_LIB_LOC
-              "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_win")
-          else()
-            set(LIBOMP_LIB_LOC
-              "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_lin")
-          endif()
+    if ((NOT LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER) OR
+        (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}))
+      if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
+        if (WIN32)
+          set(LIBOMP_LIB_LOC
+            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_win")
         else()
-          if (WIN32)
-            set(LIBOMP_LIB_LOC
-              "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_win")
-          else()
-            set(LIBOMP_LIB_LOC
-              "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_lin")
-          endif()
+          set(LIBOMP_LIB_LOC
+            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_lin")
+        endif()
+      else()
+        if (WIN32)
+          set(LIBOMP_LIB_LOC
+            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_win")
+        else()
+          set(LIBOMP_LIB_LOC
+            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_lin")
         endif()
       endif()
-    endif(INTEL_CUSTOMIZATION)
+    endif()
 
     set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER ${LIBOMP_LIB_LOC} CACHE STRING
         "Path to folder containing libiomp5 library" FORCE)
@@ -108,31 +106,23 @@ include_directories(include)
 
     message(STATUS "OMP library found: ${LIBOMP_LIB}")
 
-    if (INTEL_CUSTOMIZATION)
-      # We cannot use UNC paths with forward slashes with MS linker,
-      # so we have to copy the OMP library to the current binary directory.
-      get_filename_component(LIBOMP_LIB_BASENAME "${LIBOMP_LIB}" NAME)
-      set(LIBOMP_LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/${LIBOMP_LIB_BASENAME})
-      add_custom_target(libomptarget-libiomp-file
-        DEPENDS ${LIBOMP_LIB}
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          "${LIBOMP_LIB}" ${CMAKE_CURRENT_BINARY_DIR}
-        COMMENT "Copying ${LIBOMP_LIB} to ${CMAKE_CURRENT_BINARY_DIR}")
-    else(INTEL_CUSTOMIZATION)
-      set(LIBOMP_LIB_FILE "${LIBOMP_LIB}")
-      add_custom_target(libomptarget-libiomp-file
-                        DEPENDS ${LIBOMP_LIB})
-    endif(INTEL_CUSTOMIZATION)
+    # We cannot use UNC paths with forward slashes with MS linker,
+    # so we have to copy the OMP library to the current binary directory.
+    get_filename_component(LIBOMP_LIB_BASENAME "${LIBOMP_LIB}" NAME)
+    set(LIBOMP_LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/${LIBOMP_LIB_BASENAME})
+    add_custom_target(libomptarget-libiomp-file
+      DEPENDS ${LIBOMP_LIB}
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${LIBOMP_LIB}" ${CMAKE_CURRENT_BINARY_DIR}
+      COMMENT "Copying ${LIBOMP_LIB} to ${CMAKE_CURRENT_BINARY_DIR}")
 
     set(LIBOMP_HEADER_LOC ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER})
 
-    if (INTEL_CUSTOMIZATION)
-      if ((NOT LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER) OR
-          (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}))
-        set(LIBOMP_HEADER_LOC
-          "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/include")
-      endif()
-    endif(INTEL_CUSTOMIZATION)
+    if ((NOT LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER) OR
+        (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}))
+      set(LIBOMP_HEADER_LOC
+        "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/include")
+    endif()
 
     set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER
         ${LIBOMP_HEADER_LOC} CACHE STRING
@@ -144,12 +134,12 @@ include_directories(include)
               PATHS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}
               NO_DEFAULT_PATH)
     if (NOT LIBOMP_OMP_H_FILE)
-      message(FATAL_ERROR "omp.h requires for libomptarget is not found.")
+      message(FATAL_ERROR "omp.h required for libomptarget is not found.")
     endif()
 
     message(STATUS "omp.h found: ${LIBOMP_OMP_H_FILE}")
   endif()
-# end INTEL_COLLAB
+endif(INTEL_CUSTOMIZATION)
 
 # Build target agnostic offloading library.
 add_subdirectory(src)

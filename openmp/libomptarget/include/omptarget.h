@@ -201,6 +201,10 @@ int omp_target_associate_ptr(void *host_ptr, void *device_ptr, size_t size,
 EXTERN
 #endif  // INTEL_COLLAB
 int omp_target_disassociate_ptr(void *host_ptr, int device_num);
+#if INTEL_COLLAB
+EXTERN
+void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+#endif  // INTEL_COLLAB
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB
@@ -349,6 +353,12 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj);
 // Returns an interop property from the given interop object.
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value);
+
+// Set code location information
+EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
+
+// Return OMPT trace object
+EXTERN void *__tgt_get_ompt_trace(void);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

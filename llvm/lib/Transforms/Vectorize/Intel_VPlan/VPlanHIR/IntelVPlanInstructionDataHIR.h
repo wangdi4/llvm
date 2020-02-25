@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -17,6 +17,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANINSTRUCTION_DATA_HIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANINSTRUCTION_DATA_HIR_H
 
+#include "llvm/ADT/FoldingSet.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 
 namespace llvm {

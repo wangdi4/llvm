@@ -58,7 +58,9 @@ static cl::opt<bool> StrictOutlineVerification(
     cl::desc("Only allow pointers to be arguments of outlined routines."));
 
 // Undocumented option to control execution scheme for SPIR targets.
-cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
+// This option has to have the same value for the host and the target
+// compilations to work properly.
+static cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
     spirv::ExecutionSchemeOptionName, cl::Hidden,
     cl::init(spirv::ImplicitSIMDSPMDES),
     cl::desc(""),
@@ -69,6 +71,15 @@ cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
             "1", "<undocumented>"),        // Implicit SIMD with SPMD
         clEnumValN(spirv::ExplicitSIMDES,
             "2", "<undocumented>")));      // Explicit SIMD
+
+// Control whether "omp target parallel for" may be executed
+// with multiple teams/WGs.
+// This option has to have the same value for the host and the target
+// compilations to work properly.
+static cl::opt<bool> SPIRImplicitMultipleTeams(
+    "vpo-implicit-multiple-teams", cl::Hidden, cl::init(true),
+    cl::desc("Allow creation of multiple WGs for executing omp target "
+             "parallel for. Note that it is not OpenMP conformant."));
 
 static const unsigned StackAdjustedAlignment = 16;
 
@@ -844,7 +855,19 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
 
   CallInst *Call =
       genCall(FnName, RetType, FnArgs, ArgType, InsertPt);
+  setFuncCallingConv(Call, true);
   return Call;
+}
+
+// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
+// do nothing.
+void VPOParoptUtils::setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV) {
+  if (!IsTargetSPIRV)
+    return;
+
+  CI->setCallingConv(CallingConv::SPIR_FUNC);
+  if (auto *CF = CI->getCalledFunction())
+    CF->setCallingConv(CallingConv::SPIR_FUNC);
 }
 
 // Call to i32 __cxa_atexit(void (i8*)*
@@ -3408,6 +3431,14 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
       return false;
 
   // Now insert the calls in the IR.
+  if (IsTargetSPIRV) {
+    // __kmpc_[end_]critical calls must be convergent for SPIR-V targets.
+    BeginCritical->getCalledFunction()->setConvergent();
+    setFuncCallingConv(BeginCritical, IsTargetSPIRV);
+    EndCritical->getCalledFunction()->setConvergent();
+    setFuncCallingConv(EndCritical, IsTargetSPIRV);
+  }
+
   BeginCritical->insertBefore(BeginInst);
   if (EndInst->isTerminator())
     EndCritical->insertBefore(EndInst);
@@ -3603,6 +3634,9 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
                           AllocaAddrSpace.getValue());
 
+    if (!ValueAddrSpace)
+      return GV;
+
     auto *ASCI = Builder.CreateAddrSpaceCast(
         GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),
         GV->getName() + ".ascast");
@@ -3641,8 +3675,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(
   auto *NormUB = RegionInfo.getNormUB(Idx);
 
   assert(NormUB && GeneralUtils::isOMPItemLocalVAR(NormUB) &&
-         "NORMALIZED.UB clause must specify an AllocaInst or"
-         " AddrSpaceCastInst.");
+         "computeOmpUpperBound: Expect isOMPItemLocalVAR().");
 
   auto *NormUBAlloca = cast<Instruction>(NormUB);
   assert(isa<PointerType>(NormUBAlloca->getType()) &&
@@ -3766,7 +3799,7 @@ CallInst *VPOParoptUtils::addOperandBundlesInCall(
   CI->getOperandBundlesAsDefs(OpBundles);
 
   for (auto &StrValVec : OpBundlesToAdd) {
-    OperandBundleDef B(StrValVec.first, StrValVec.second);
+    OperandBundleDef B(std::string(StrValVec.first), StrValVec.second);
     OpBundles.push_back(B);
   }
 
@@ -3847,6 +3880,30 @@ bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
   return true;
 }
 
+Instruction *VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(WRegionNode *W,
+                                                                 Function *F) {
+  assert(W && "Null WRegion.");
+
+  WRegionNode *FirstParentWhichDoesOutlining = nullptr;
+
+  for (W = W->getParent(); W != nullptr; W = W->getParent()) {
+    if (!W->needsOutlining())
+      continue;
+
+    FirstParentWhichDoesOutlining = W;
+    break;
+  }
+
+  if (!FirstParentWhichDoesOutlining)
+    return F->getEntryBlock().getFirstNonPHI();
+
+  BasicBlock *SecondBB =
+      FirstParentWhichDoesOutlining->getEntryBBlock()->getSingleSuccessor();
+  assert(SecondBB && "Couldn't find second BB of Wregion.");
+
+  return SecondBB->getFirstNonPHI();
+}
+
 // Find the first directive that dominates "PosInst" and which supports
 // the private clause, and add a private clause for "I" into that directive.
 // Return false if no directive was found. Intended to be called outside paropt,
@@ -3921,9 +3978,16 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
   // FIXME: we can probably gather the type information from
   //        BaseAddr, and do not pass AI at all.
   assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genArrayLength: Expect non-empty optionally casted "
-         "alloca instruction.");
-  Type *AllocaTy = cast<PointerType>(AI->getType())->getElementType();
+         "genArrayLength: Expect isOMPItemLocalVAR().");
+
+  Type *AllocaTy;
+  Value *NumElements;
+  std::tie(AllocaTy, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
+  assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
+
+  // TODO: NumElements??
+  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
   ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   assert(ArrTy && "Expect array type. ");
@@ -4242,8 +4306,9 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
 
   StringRef Name = MapEntry->second;
 
-  auto HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
-                        &*Builder.GetInsertPoint());
+  auto *HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
+                         &*Builder.GetInsertPoint());
+  setFuncCallingConv(HRCall, true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ <<
              ": SPIRV horizontal reduction is used "
@@ -4292,6 +4357,10 @@ bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
 
 spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
   return SPIRExecutionScheme;
+}
+
+bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {
+  return SPIRImplicitMultipleTeams;
 }
 
 bool VPOParoptUtils::isOMPCritical(

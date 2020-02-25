@@ -869,6 +869,99 @@ Value *InstCombiner::dyn_castNegVal(Value *V) const {
   return nullptr;
 }
 
+/// Get negated V (that is 0-V) without increasing instruction count,
+/// assuming that the original V will become unused.
+Value *InstCombiner::freelyNegateValue(Value *V) {
+  if (Value *NegV = dyn_castNegVal(V))
+    return NegV;
+
+  Instruction *I = dyn_cast<Instruction>(V);
+  if (!I)
+    return nullptr;
+
+  unsigned BitWidth = I->getType()->getScalarSizeInBits();
+  switch (I->getOpcode()) {
+  // 0-(zext i1 A)  =>  sext i1 A
+  case Instruction::ZExt:
+    if (I->getOperand(0)->getType()->isIntOrIntVectorTy(1))
+      return Builder.CreateSExtOrBitCast(
+          I->getOperand(0), I->getType(), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(sext i1 A)  =>  zext i1 A
+  case Instruction::SExt:
+    if (I->getOperand(0)->getType()->isIntOrIntVectorTy(1))
+      return Builder.CreateZExtOrBitCast(
+          I->getOperand(0), I->getType(), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(A lshr (BW-1))  =>  A ashr (BW-1)
+  case Instruction::LShr:
+    if (match(I->getOperand(1), m_SpecificInt(BitWidth - 1)))
+      return Builder.CreateAShr(
+          I->getOperand(0), I->getOperand(1),
+          I->getName() + ".neg", cast<BinaryOperator>(I)->isExact());
+    return nullptr;
+
+  // 0-(A ashr (BW-1))  =>  A lshr (BW-1)
+  case Instruction::AShr:
+    if (match(I->getOperand(1), m_SpecificInt(BitWidth - 1)))
+      return Builder.CreateLShr(
+          I->getOperand(0), I->getOperand(1),
+          I->getName() + ".neg", cast<BinaryOperator>(I)->isExact());
+    return nullptr;
+
+  default:
+    break;
+  }
+
+  // TODO: The "sub" pattern below could also be applied without the one-use
+  // restriction. Not allowing it for now in line with existing behavior.
+  if (!I->hasOneUse())
+    return nullptr;
+
+  switch (I->getOpcode()) {
+  // 0-(A-B)  =>  B-A
+  case Instruction::Sub:
+    return Builder.CreateSub(
+        I->getOperand(1), I->getOperand(0), I->getName() + ".neg");
+
+  // 0-(A sdiv C)  =>  A sdiv (0-C)  provided the negation doesn't overflow.
+  case Instruction::SDiv: {
+    Constant *C = dyn_cast<Constant>(I->getOperand(1));
+    if (C && !C->containsUndefElement() && C->isNotMinSignedValue() &&
+        C->isNotOneValue())
+      return Builder.CreateSDiv(I->getOperand(0), ConstantExpr::getNeg(C),
+          I->getName() + ".neg", cast<BinaryOperator>(I)->isExact());
+    return nullptr;
+  }
+
+  // 0-(A<<B)  =>  (0-A)<<B
+  case Instruction::Shl:
+    if (Value *NegA = freelyNegateValue(I->getOperand(0)))
+      return Builder.CreateShl(NegA, I->getOperand(1), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(trunc A)  =>  trunc (0-A)
+  case Instruction::Trunc:
+    if (Value *NegA = freelyNegateValue(I->getOperand(0)))
+      return Builder.CreateTrunc(NegA, I->getType(), I->getName() + ".neg");
+    return nullptr;
+
+  // 0-(A*B)  =>  (0-A)*B
+  // 0-(A*B)  =>  A*(0-B)
+  case Instruction::Mul:
+    if (Value *NegA = freelyNegateValue(I->getOperand(0)))
+      return Builder.CreateMul(NegA, I->getOperand(1), V->getName() + ".neg");
+    if (Value *NegB = freelyNegateValue(I->getOperand(1)))
+      return Builder.CreateMul(I->getOperand(0), NegB, V->getName() + ".neg");
+    return nullptr;
+
+  default:
+    return nullptr;
+  }
+}
+
 static Value *foldOperationIntoSelectOperand(Instruction &I, Value *SO,
                                              InstCombiner::BuilderTy &Builder) {
   if (auto *Cast = dyn_cast<CastInst>(&I))
@@ -1204,7 +1297,15 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
 
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
-Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
+#if INTEL_CUSTOMIZATION
+// If TestOnly is true, then Descale will make no modifications: instead, it
+// will test whether or not Val can be Descaled. If it can be Descaled, a
+// non-zero value is returned, otherwise nullptr. False negatives may be
+// possible, but false positives are not possible. Any updates to NoSignedWrap
+// should be ignored.
+Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
+                             bool TestOnly) {
+#endif // INTEL_CUSTOMIZATION
   assert(isa<IntegerType>(Val->getType()) && "Can only descale integers!");
   assert(cast<IntegerType>(Val->getType())->getBitWidth() ==
          Scale.getBitWidth() && "Scale not compatible with value!");
@@ -1256,7 +1357,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   SmallVector<std::pair<Instruction *, Instruction *>, 4> DuplicatedInsts;
   bool Successful = false;
   auto AutoDelete = make_scope_exit([&]() {
-    if (!Successful) {
+    if (!TestOnly && !Successful) {
       for (auto &Pair : DuplicatedInsts) {
         Pair.first->replaceAllUsesWith(Pair.second);
         Pair.first->eraseFromParent();
@@ -1268,7 +1369,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
   for (;; Op = Parent.first->getOperand(Parent.second)) { // Drill down
 #if INTEL_CUSTOMIZATION
     auto makeUniqueOp = [&](BinaryOperator *BO) {
-      if (!BO->hasOneUse()) {
+      if (!TestOnly && !BO->hasOneUse()) {
         Instruction *Clone = BO->clone();
         Clone->insertAfter(BO);
         DuplicatedInsts.push_back(std::make_pair(Clone, BO));
@@ -1334,6 +1435,69 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
           match(BO->getOperand(0), m_Zero())) {
         Parent = std::make_pair(makeUniqueOp(BO), 1);
         continue;
+      }
+
+      // We'll try to descale sums and differences, including sums implemented
+      // as bitwise ors. Conservatively, NSW is required of BinOp and cannot be
+      // required of the scaled version.
+      if (!RequireNoSignedWrap &&
+          (BO->getOpcode() == Instruction::Add ||
+           BO->getOpcode() == Instruction::Sub ||
+           (BO->getOpcode() == Instruction::Or &&
+            haveNoCommonBitsSet(BO->getOperand(0), BO->getOperand(1), DL))) &&
+          (BO->getOpcode() == Instruction::Or || BO->hasNoSignedWrap())) {
+
+        // We can descale if both operands can themselves be descaled. These
+        // Descale invocations are non-destructive.
+        bool LHSNoSignedWrap = false, RHSNoSignedWrap = false;
+        Value *LHS = BO->getOperand(0);
+        Value *RHS = BO->getOperand(1);
+        bool CanDescale = Descale(LHS, Scale, LHSNoSignedWrap, true) &&
+                          Descale(RHS, Scale, RHSNoSignedWrap, true);
+
+        // We now know whether or not we can succeed. Return a conclusion if in
+        // "TestOnly" mode.
+        if (TestOnly)
+          return CanDescale ? Val : nullptr;
+
+        if (CanDescale) {
+          // We know that we can descale both operands. First, build a new BO
+          // so that recursive Descale calls will see that modified operands
+          // may now have multiple users.
+          IRBuilderBase::InsertPointGuard Guard(Builder);
+          Builder.SetInsertPoint(BO);
+          if (BO->getOpcode() == Instruction::Add) {
+            Op = Builder.CreateAdd(LHS, RHS, BO->getName(),
+                                   BO->hasNoUnsignedWrap(),
+                                   BO->hasNoSignedWrap());
+          } else if (BO->getOpcode() == Instruction::Or) {
+            Op = Builder.CreateAdd(LHS, RHS, BO->getName(), true, false);
+          } else {
+            assert(BO->getOpcode() == Instruction::Sub &&
+                   "Unexpected Descaled binary operation");
+            Op = Builder.CreateSub(LHS, RHS, BO->getName(),
+                                   BO->hasNoUnsignedWrap(),
+                                   BO->hasNoSignedWrap());
+          }
+
+          // Next, get the descaled Values.
+          LHSNoSignedWrap = RHSNoSignedWrap = false;
+          Value *RHSDescale, *LHSDescale;
+          RHSDescale = Descale(RHS, Scale, RHSNoSignedWrap);
+          LHSDescale = Descale(LHS, Scale, LHSNoSignedWrap);
+          assert(LHSDescale && RHSDescale &&
+                 "A Descale TestOnly returned a false positive");
+
+          // Finally, update the new BO to be descaled via the descaled
+          // operands.
+          BinaryOperator *DescaledBO = dyn_cast<BinaryOperator>(Op);
+          DescaledBO->setOperand(0, LHSDescale);
+          DescaledBO->setOperand(1, RHSDescale);
+
+          // Now we have multiplication by exactly the scale.
+          NoSignedWrap = false;
+          break;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1420,6 +1584,11 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
 #if INTEL_CUSTOMIZATION
   // If we reach this point, we know we can descale.
   Successful = true;
+  // No modifications have been made yet. If we're only testing if  Descaling
+  // is possible, return here. Otherwise, we proceed to potentially make
+  // changes.
+  if (TestOnly)
+    return Val;
 #endif // INTEL_CUSTOMIZATION
 
   // If Op is zero then Val = Op * Scale.
@@ -1737,6 +1906,15 @@ static void mergeIntelTBAAMetadata(GetElementPtrInst &GEP, const Value *Src,
 }
 #endif // INTEL_CUSTOMIZATION
 
+static bool isMergedGEPInBounds(GEPOperator &GEP1, GEPOperator &GEP2) {
+  // At least one GEP must be inbounds.
+  if (!GEP1.isInBounds() && !GEP2.isInBounds())
+    return false;
+
+  return (GEP1.isInBounds() || GEP1.hasAllZeroIndices()) &&
+         (GEP2.isInBounds() || GEP2.hasAllZeroIndices());
+}
+
 Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
   Type *GEPType = GEP.getType();
@@ -2019,6 +2197,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 
       // Update the GEP in place if possible.
       if (Src->getNumOperands() == 2) {
+        GEP.setIsInBounds(isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP)));
         GEP.setOperand(0, Src->getOperand(0));
         GEP.setOperand(1, Sum);
         // TODO: INTEL: Should we drop all the metadata and upstream?
@@ -2039,7 +2218,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 #if INTEL_CUSTOMIZATION
     // Handle merging of IntelTBAA nodes and update all users accordingly.
     if (!Indices.empty()) {
-      auto NewGEP = GEP.isInBounds() && Src->isInBounds()
+      auto NewGEP = isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP))
                         ? GetElementPtrInst::CreateInBounds(
                               Src->getSourceElementType(), Src->getOperand(0),
                               Indices, GEP.getName())
@@ -2545,12 +2724,13 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
         replaceInstUsesWith(*C,
                             ConstantInt::get(Type::getInt1Ty(C->getContext()),
                                              C->isFalseWhenEqual()));
-      } else if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I) ||
-                 isa<AddrSpaceCastInst>(I)) {
-        replaceInstUsesWith(*I, UndefValue::get(I->getType()));
       } else if (auto *SI = dyn_cast<StoreInst>(I)) {
         for (auto *DII : DIIs)
           ConvertDebugDeclareToDebugValue(DII, SI, *DIB);
+      } else {
+        // Casts, GEP, or anything else: we're about to delete this instruction,
+        // so it can not have any valid uses.
+        replaceInstUsesWith(*I, UndefValue::get(I->getType()));
       }
       eraseInstFromFunction(*I);
     }
@@ -2686,14 +2866,17 @@ Instruction *InstCombiner::visitReturnInst(ReturnInst &RI) {
 
   Value *ResultOp = RI.getOperand(0);
   Type *VTy = ResultOp->getType();
-  if (!VTy->isIntegerTy())
+  if (!VTy->isIntegerTy() || isa<Constant>(ResultOp))
     return nullptr;
 
   // There might be assume intrinsics dominating this return that completely
   // determine the value. If so, constant fold it.
   KnownBits Known = computeKnownBits(ResultOp, 0, &RI);
-  if (Known.isConstant())
+  if (Known.isConstant()) {
+    Worklist.AddValue(ResultOp);
     RI.setOperand(0, Constant::getIntegerValue(VTy, Known.getConstant()));
+    return &RI;
+  }
 
   return nullptr;
 }
@@ -3506,6 +3689,7 @@ bool InstCombiner::run() {
       }
       MadeIRChange = true;
     }
+    Worklist.AddDeferredInstructions();
   }
 
   Worklist.Zap();
@@ -3567,10 +3751,20 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
 
       // See if we can constant fold its operands.
       for (Use &U : Inst->operands()) {
-        if (!isa<ConstantVector>(U) && !isa<ConstantExpr>(U))
+        bool WrapAsMetadata = false;
+        auto *V = cast<Value>(U);
+
+        // Look through metadata wrappers.
+        if (auto *MAV = dyn_cast<MetadataAsValue>(V))
+          if (auto *VAM = dyn_cast<ValueAsMetadata>(MAV->getMetadata())) {
+            V = VAM->getValue();
+            WrapAsMetadata = true;
+          }
+
+        if (!isa<ConstantVector>(V) && !isa<ConstantExpr>(V))
           continue;
 
-        auto *C = cast<Constant>(U);
+        auto *C = cast<Constant>(V);
         Constant *&FoldRes = FoldedConstants[C];
         if (!FoldRes)
           FoldRes = ConstantFoldConstant(C, DL, TLI);
@@ -3581,7 +3775,11 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
           LLVM_DEBUG(dbgs() << "IC: ConstFold operand of: " << *Inst
                             << "\n    Old = " << *C
                             << "\n    New = " << *FoldRes << '\n');
-          U = FoldRes;
+          if (WrapAsMetadata)
+            U = MetadataAsValue::get(Inst->getContext(),
+                                     ValueAsMetadata::get(FoldRes));
+          else
+            U = FoldRes;
           MadeIRChange = true;
         }
       }
@@ -3663,7 +3861,8 @@ static bool combineInstructionsOverFunction(
     ProfileSummaryInfo *PSI, bool ExpensiveCombines, unsigned MaxIterations,
     bool TypeLoweringOpts, LoopInfo *LI) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
-  ExpensiveCombines |= EnableExpensiveCombines;
+  if (EnableExpensiveCombines.getNumOccurrences())
+    ExpensiveCombines = EnableExpensiveCombines;
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
   if (DisableTypeLoweringOpts)      // INTEL
     TypeLoweringOpts = false;       // INTEL
@@ -3673,7 +3872,7 @@ static bool combineInstructionsOverFunction(
   IRBuilder<TargetFolder, IRBuilderCallbackInserter> Builder(
       F.getContext(), TargetFolder(DL),
       IRBuilderCallbackInserter([&Worklist, &AC](Instruction *I) {
-        Worklist.Add(I);
+        Worklist.AddDeferred(I);
         if (match(I, m_Intrinsic<Intrinsic::assume>()))
           AC.registerAssumption(cast<CallInst>(I));
       }));

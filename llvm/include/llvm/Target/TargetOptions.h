@@ -113,12 +113,13 @@ namespace llvm {
           IntelAdvancedOptim(false),               // INTEL
           IntelLibIRCAllowed(false),               // INTEL
           IntelFtzDaz(false),                      // INTEL
+          X87Precision(0),                         // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
           DisableIntegratedAS(false), RelaxELFRelocations(false),
           FunctionSections(false), DataSections(false),
           UniqueSectionNames(true), TrapUnreachable(false),
-          NoTrapAfterNoreturn(false), EmulatedTLS(false),
+          NoTrapAfterNoreturn(false), TLSSize(0), EmulatedTLS(false),
           ExplicitEmulatedTLS(false), EnableIPRA(false),
           EmitStackSizeSection(false), EnableMachineOutliner(false),
           SupportsDefaultOutlining(false), EmitAddrsig(false),
@@ -193,6 +194,13 @@ namespace llvm {
     /// and "Denormals Are Zero" flags in MXCSR. It can improve the performance
     /// in some FP mode.
     unsigned IntelFtzDaz : 1;
+
+    /// X87Precision - Indicate how to set the precision of X87 FPU
+    /// 0: Do not set the precision
+    /// 1: Set the precision to 24-bit FP32
+    /// 2: Set the precision to 53-bit FP64
+    /// 3: Set the precision to 64-bit FP80
+    unsigned X87Precision : 2;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is
@@ -250,6 +258,9 @@ namespace llvm {
     /// Do not emit a trap instruction for 'unreachable' IR instructions behind
     /// noreturn calls, even if TrapUnreachable is true.
     unsigned NoTrapAfterNoreturn : 1;
+
+    /// Bit size of immediate TLS offsets (0 == use the default).
+    unsigned TLSSize : 8;
 
     /// EmulatedTLS - This flag enables emulated TLS model, using emutls
     /// function in the runtime library..

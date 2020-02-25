@@ -448,6 +448,17 @@ public:
     llvm::CallInst *CallEntry = nullptr;
   };
 
+  class IntelFPGALoopFuseHandler {
+  public:
+    IntelFPGALoopFuseHandler(CodeGenFunction &CGF,
+                             ArrayRef<const Attr *> Attrs);
+    ~IntelFPGALoopFuseHandler();
+
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry = nullptr;
+  };
+
   class DistributePointHandler {
   public:
     DistributePointHandler(CodeGenFunction &CGF, const Stmt *S,
@@ -603,7 +614,11 @@ public:
 
   /// The selector slot.  Under the MandatoryCleanup model, all landing pads
   /// write the current selector value into this alloca.
+#if INTEL_COLLAB
+  llvm::Value *EHSelectorSlot = nullptr;
+#else
   llvm::AllocaInst *EHSelectorSlot = nullptr;
+#endif // INTEL_COLLAB
 
   /// A stack of exception code slots. Entering an __except block pushes a slot
   /// on the stack and leaving pops one. The __exception_code() intrinsic loads
@@ -823,10 +838,73 @@ public:
   EHScopeStack::stable_iterator CurrentCleanupScopeDepth =
       EHScopeStack::stable_end();
 
+#if INTEL_CUSTOMIZATION
+  class NoAliasScope {
+    SmallVector<llvm::Instruction *, 32> MemoryInsts;
+    SmallVector<llvm::Metadata *, 32> NoAliasScopes;
+
+  public:
+    NoAliasScope() {}
+    NoAliasScope(const NoAliasScope &ParentScope)
+        : NoAliasScopes(ParentScope.NoAliasScopes) {}
+
+    void addNoAliasScope(llvm::Metadata *Scope) {
+      NoAliasScopes.push_back(Scope);
+    }
+
+    void addMemInst(llvm::Instruction *MemInst) {
+      MemoryInsts.push_back(MemInst);
+    }
+
+    void addMemCpyInst(llvm::Instruction *MemCallInst) {
+      assert(isa<llvm::MemTransferInst>(MemCallInst) && "Memcpy call expected");
+      MemoryInsts.push_back(MemCallInst);
+    }
+
+    llvm::MDNode *intersectScopes(llvm::LLVMContext &Ctx,
+                                  llvm::Metadata *SelfScope) {
+      llvm::SmallVector<llvm::Metadata *, 32> NewNoAliasScopes;
+      llvm::SmallPtrSet<llvm::Metadata *, 8> BSet;
+
+      BSet.insert(SelfScope);
+      if (auto *MD = dyn_cast<llvm::MDNode>(SelfScope)) {
+        BSet.insert(MD->op_begin(), MD->op_end());
+      }
+
+      NewNoAliasScopes.reserve(NoAliasScopes.size());
+      std::copy_if(NoAliasScopes.begin(), NoAliasScopes.end(),
+                   std::back_inserter(NewNoAliasScopes),
+                   [&BSet](llvm::Metadata *MD) { return BSet.count(MD) == 0; });
+
+      return llvm::MDNode::get(Ctx, NewNoAliasScopes);
+    }
+
+    ~NoAliasScope() {
+      if (MemoryInsts.empty() || NoAliasScopes.empty()) {
+        return;
+      }
+
+      for (auto &I : MemoryInsts) {
+        auto *SelfScope = I->getMetadata(llvm::LLVMContext::MD_alias_scope);
+        llvm::MDNode *NewScopeList = intersectScopes(
+            MemoryInsts.front()->getParent()->getContext(), SelfScope);
+
+        I->setMetadata(
+            llvm::LLVMContext::MD_noalias,
+            llvm::MDNode::concatenate(
+                I->getMetadata(llvm::LLVMContext::MD_noalias), NewScopeList));
+      }
+    }
+  };
+
+  void recordNoAliasPtr(llvm::Value *BasePtr, llvm::Value *Ptr);
+#endif // INTEL_CUSTOMIZATION
+
   class LexicalScope : public RunCleanupsScope {
     SourceRange Range;
     SmallVector<const LabelDecl*, 4> Labels;
     LexicalScope *ParentScope;
+    NoAliasScope CurNoAliasScope; // INTEL
 
     LexicalScope(const LexicalScope &) = delete;
     void operator=(const LexicalScope &) = delete;
@@ -834,7 +912,9 @@ public:
   public:
     /// Enter a new cleanup scope.
     explicit LexicalScope(CodeGenFunction &CGF, SourceRange Range)
-      : RunCleanupsScope(CGF), Range(Range), ParentScope(CGF.CurLexicalScope) {
+        : RunCleanupsScope(CGF), Range(Range),        // INTEL
+          ParentScope(CGF.CurLexicalScope),              // INTEL
+          CurNoAliasScope(CGF.getCurNoAliasScope()) {    // INTEL
       CGF.CurLexicalScope = this;
       if (CGDebugInfo *DI = CGF.getDebugInfo())
         DI->EmitLexicalBlockStart(CGF.Builder, Range.getBegin());
@@ -844,6 +924,12 @@ public:
       assert(PerformCleanup && "adding label to dead scope?");
       Labels.push_back(label);
     }
+
+#if INTEL_CUSTOMIZATION
+    NoAliasScope &getNoAliasScope() {
+      return CurNoAliasScope;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     /// Exit this cleanup scope, emitting any accumulated
     /// cleanups.
@@ -1588,12 +1674,18 @@ public:
     CodeGenFunction &CGF;
     llvm::BasicBlock *TerminateHandler;
     llvm::BasicBlock *TerminateLandingPad;
+    llvm::Value *ExceptionSlot = nullptr;
+    llvm::Value *EHSelectorSlot = nullptr;
+
   public:
     TerminateHandlerRAII(CodeGenFunction &CGF)
-      : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
-                         TerminateLandingPad(CGF.TerminateLandingPad) {
+        : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
+          TerminateLandingPad(CGF.TerminateLandingPad),
+          ExceptionSlot(CGF.ExceptionSlot), EHSelectorSlot(CGF.EHSelectorSlot) {
       CGF.TerminateHandler = nullptr;
       CGF.TerminateLandingPad = nullptr;
+      CGF.ExceptionSlot = nullptr;
+      CGF.EHSelectorSlot = nullptr;
     }
     ~TerminateHandlerRAII() {
       if (CGF.TerminateHandler) {
@@ -1610,6 +1702,8 @@ public:
       }
       CGF.TerminateHandler = TerminateHandler;
       CGF.TerminateLandingPad = TerminateLandingPad;
+      CGF.ExceptionSlot = ExceptionSlot;
+      CGF.EHSelectorSlot = EHSelectorSlot;
     }
   };
 private:
@@ -1779,6 +1873,16 @@ private:
 
 #if INTEL_CUSTOMIZATION
   bool StdContainerOptKindDetermined = false;
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+  NoAliasScope RootNoAliasScope;
+
+  NoAliasScope &getCurNoAliasScope() {
+    if (CurLexicalScope)
+      return CurLexicalScope->getNoAliasScope();
+    return RootNoAliasScope;
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// The current lexical scope.
@@ -3218,7 +3322,8 @@ public:
   llvm::Function *EmitCapturedStmt(const CapturedStmt &S, CapturedRegionKind K);
   llvm::Function *GenerateCapturedStmtFunction(const CapturedStmt &S);
   Address GenerateCapturedStmtArgument(const CapturedStmt &S);
-  llvm::Function *GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S);
+  llvm::Function *GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S,
+                                                     SourceLocation Loc);
   void GenerateOpenMPCapturedVars(const CapturedStmt &S,
                                   SmallVectorImpl<llvm::Value *> &CapturedVars);
   void emitOMPSimpleStore(LValue LVal, RValue RVal, QualType RValTy,
@@ -3584,10 +3689,13 @@ private:
 
 public:
   bool requiresImplicitTask(const OMPExecutableDirective &S);
-#if INTEL_CUSTOMIZATION
+  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
+                                         OpenMPDirectiveKind Kind,
+                                         unsigned Depth);
   bool IsPrivateCounter(const VarDecl *VD) {
     return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
   }
+#if INTEL_CUSTOMIZATION
   bool LoopBoundsHaveBeenHoisted(const OMPLoopDirective *LD) {
    return HoistedBoundsLoops.find(LD) != HoistedBoundsLoops.end();
   }
@@ -3597,9 +3705,6 @@ public:
                                              OpenMPDirectiveKind Kind);
   bool hasOMPSpirTarget() const;
   bool useUncollapsedLoop(const OMPLoopDirective &S) const;
-  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
-                                         OpenMPDirectiveKind Kind,
-                                         unsigned Depth);
 
 private:
   llvm::SmallPtrSet<const void *, 8> HoistedBoundsLoops;
@@ -4003,6 +4108,8 @@ public:
 
   RValue EmitNVPTXDevicePrintfCallExpr(const CallExpr *E,
                                        ReturnValueSlot ReturnValue);
+  RValue EmitAMDGPUDevicePrintfCallExpr(const CallExpr *E,
+                                        ReturnValueSlot ReturnValue);
 
   RValue EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                          const CallExpr *E, ReturnValueSlot ReturnValue);
@@ -4011,6 +4118,11 @@ public:
 
   /// Emit IR for __builtin_os_log_format.
   RValue emitBuiltinOSLogFormat(const CallExpr &E);
+
+  /// Emit IR for __builtin_is_aligned.
+  RValue EmitBuiltinIsAligned(const CallExpr *E);
+  /// Emit IR for __builtin_align_up/__builtin_align_down.
+  RValue EmitBuiltinAlignTo(const CallExpr *E, bool AlignUp);
 
   llvm::Function *generateBuiltinOSLogHelperFunction(
       const analyze_os_log::OSLogBufferLayout &Layout,
@@ -4092,7 +4204,9 @@ public:
                                           const CallExpr *E);
   llvm::Value *EmitHexagonBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
-  RValue EmitIntelFPGARegBuiltin(const CallExpr *E, ReturnValueSlot ReturnValue);
+  RValue EmitIntelFPGARegBuiltin(const CallExpr *E,
+                                 ReturnValueSlot ReturnValue);
+  RValue EmitIntelFPGAMemBuiltin(const CallExpr *E);
 
 private:
   enum class MSVCIntrin;
@@ -4324,6 +4438,11 @@ public:
 
   RValue EmitAtomicExpr(AtomicExpr *E);
 
+#if INTEL_CUSTOMIZATION
+  /// Create alias.scope for the restrict qualified variable.
+  void AssignAliasScope(const CodeGenFunction::AutoVarEmission &emission);
+#endif // INTEL_CUSTOMIZATION
+
   //===--------------------------------------------------------------------===//
   //                         Annotations Emission
   //===--------------------------------------------------------------------===//
@@ -4399,6 +4518,16 @@ public:
   /// An enumeration which makes it easier to specify whether or not an
   /// operation is a subtraction.
   enum { NotSubtraction = false, IsSubtraction = true };
+
+#if INTEL_CUSTOMIZATION
+  /// The noalias domain metadata for this function.
+  llvm::MDNode *NoAliasDomain = nullptr;
+
+  /// A map between the addresses of local restrict-qualified variables and
+  /// their alias.scope.
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> NoAliasPtrMap;
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> NoAliasSlotMap;
+#endif // INTEL_CUSTOMIZATION
 
   /// Same as IRBuilder::CreateInBoundsGEP, but additionally emits a check to
   /// detect undefined behavior when the pointer overflow sanitizer is enabled.
@@ -4733,7 +4862,7 @@ inline llvm::Value *DominatingLLVMValue::restore(CodeGenFunction &CGF,
 
   // Otherwise, it should be an alloca instruction, as set up in save().
   auto alloca = cast<llvm::AllocaInst>(value.getPointer());
-  return CGF.Builder.CreateAlignedLoad(alloca, alloca->getAlignment());
+  return CGF.Builder.CreateAlignedLoad(alloca, alloca->getAlign());
 }
 
 }  // end namespace CodeGen

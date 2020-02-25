@@ -1,10 +1,11 @@
 ; Test to check that DA propagates stride information for selects with external uniform conditions generating
 ; a strided VectorShape.
 
-; RUN: opt %s -VPlanDriver -debug-only=vplan-divergence-analysis -vplan-force-vf=2 -S 2>&1 | FileCheck %s
+; RUN: opt %s -VPlanDriver -vplan-dump-da -vplan-force-vf=2 -S -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 
+define void @foo([1024 x i32]* %src, [1024 x i32]* %dest, i1 %cond) {
 ; CHECK-LABEL: Printing Divergence info for Loop at depth 1
 ; CHECK: Basic Block: [[HEADER:BB.*]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV_PHI:%vp.*]] = phi  [ i64 0, [[PREHEADER:BB.*]] ],  [ i64 [[IV_ADD:%.*]], [[HEADER]] ]
@@ -19,9 +20,7 @@
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[SRC_LOAD]] i32* [[DEST_SELECT]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV_ADD]] = add i64 [[IV_PHI]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[IV_CMP:%vp.*]] = icmp i64 [[IV_ADD]] i64 1024
-
-
-define void @foo([1024 x i32]* %src, [1024 x i32]* %dest, i1 %cond) {
+;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %omp.inner.for.body

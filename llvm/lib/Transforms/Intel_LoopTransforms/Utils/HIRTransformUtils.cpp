@@ -1,6 +1,6 @@
 //===--- HIRTransformUtils.cpp  -------------------------------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -123,46 +123,20 @@ void HIRTransformUtils::doLoopReversal(HLLoop *InnermostLp, HIRDDAnalysis &HDDA,
   ReversalPass.doHIRReversalTransform(InnermostLp);
 }
 
-bool HIRTransformUtils::doHIRLoopRedundantMemoryMotion(
-    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
-    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
-) {
-  assert(InnermostLp && "HLLoop* can't be null\n");
-  assert(InnermostLp->isInnermost() && "HIR LRMM (Loop Redundant Memory "
-                                       "Motion) can only work on an inner-most "
-                                       "loop\n");
+bool HIRTransformUtils::isLoopInvariant(const RegDDRef *MemRef,
+                                        const HLLoop *Loop, HIRDDAnalysis &HDDA,
+                                        HIRLoopStatistics &HLS,
+                                        FieldModRefResult *FieldModRef,
+                                        bool IgnoreIVs) {
+  assert(MemRef && "Memref is null!");
+  assert(MemRef->isMemRef() && "Ref is not a memref!");
+  assert(Loop && "Loop is null!");
+  assert(HLNodeUtils::contains(Loop, MemRef->getHLDDNode()) &&
+         "MemRef expected to be inside Loop!");
 
-  // to implement!
-
-  return false;
-}
-
-bool HIRTransformUtils::doHIRLoopInvariantMemoryMotion(
-    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
-    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
-) {
-  assert(InnermostLp && "HLLoop* can't be null\n");
-  assert(InnermostLp->isInnermost() && "HIR LIMM (Loop Invariant Memory "
-                                       "Motion) can only work on an inner-most "
-                                       "loop\n");
-
-  HIRLMM LMMPass(InnermostLp->getHLNodeUtils().getHIRFramework(), HDDA, HLS);
-  return LMMPass.doLoopMemoryMotion(InnermostLp);
-}
-
-bool HIRTransformUtils::doHIRLoopMemoryMotion(
-    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-    HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
-    HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-) {
-  assert(InnermostLp && "HLLoop* can't be null\n");
-  assert(InnermostLp->isInnermost() &&
-         "HIR LMM (Loop Memory Motion) can only work on an inner-most loop\n");
-
-  // to implement!
-  return false;
+  HIRLMM LMMPass(Loop->getHLNodeUtils().getHIRFramework(), HDDA, HLS, nullptr,
+                 FieldModRef);
+  return LMMPass.isLoopInvariant(MemRef, Loop, IgnoreIVs);
 }
 
 bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
@@ -841,6 +815,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
 
   UBCE->divide(StripmineSize);
   UBCE->simplify(true, true);
+
+  UBRef->makeConsistent({}, Level);
 
   RegDDRef *InnerLBRef =
       UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);

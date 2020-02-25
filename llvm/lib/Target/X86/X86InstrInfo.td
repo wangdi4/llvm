@@ -385,8 +385,8 @@ class X86VMemOperand<RegisterClass RC, string printMethod,
 
 def anymem : X86MemOperand<"printanymem">;
 def X86any_fcmp : PatFrags<(ops node:$lhs, node:$rhs),
-                          [(X86cmp node:$lhs, node:$rhs),
-                           (X86strict_fcmp node:$lhs, node:$rhs)]>;
+                          [(X86strict_fcmp node:$lhs, node:$rhs),
+                           (X86cmp node:$lhs, node:$rhs)]>;
 
 // FIXME: Right now we allow any size during parsing, but we might want to
 // restrict to only unsized memory.
@@ -466,18 +466,6 @@ def i64mem_TC : Operand<i64> {
   let OperandType = "OPERAND_MEMORY";
 }
 
-let OperandType = "OPERAND_PCREL",
-    ParserMatchClass = X86AbsMemAsmOperand,
-    PrintMethod = "printPCRelImm" in {
-def i32imm_pcrel : Operand<i32>;
-def i16imm_pcrel : Operand<i16>;
-
-// Branch targets have OtherVT type and print as pc-relative values.
-def brtarget : Operand<OtherVT>;
-def brtarget8 : Operand<OtherVT>;
-
-}
-
 // Special parser to detect 16-bit mode to select 16-bit displacement.
 def X86AbsMem16AsmOperand : AsmOperandClass {
   let Name = "AbsMem16";
@@ -485,14 +473,26 @@ def X86AbsMem16AsmOperand : AsmOperandClass {
   let SuperClasses = [X86AbsMemAsmOperand];
 }
 
-// Branch targets have OtherVT type and print as pc-relative values.
-let OperandType = "OPERAND_PCREL",
-    PrintMethod = "printPCRelImm" in {
-let ParserMatchClass = X86AbsMem16AsmOperand in
-  def brtarget16 : Operand<OtherVT>;
-let ParserMatchClass = X86AbsMemAsmOperand in
-  def brtarget32 : Operand<OtherVT>;
+// Branch targets print as pc-relative values.
+class BranchTargetOperand<ValueType ty> : Operand<ty> {
+  let OperandType = "OPERAND_PCREL";
+  let PrintMethod = "printPCRelImm";
+  let ParserMatchClass = X86AbsMemAsmOperand;
 }
+
+def i32imm_brtarget : BranchTargetOperand<i32>;
+def i16imm_brtarget : BranchTargetOperand<i16>;
+
+// 64-bits but only 32 bits are significant, and those bits are treated as being
+// pc relative.
+def i64i32imm_brtarget : BranchTargetOperand<i64>;
+
+def brtarget : BranchTargetOperand<OtherVT>;
+def brtarget8 : BranchTargetOperand<OtherVT>;
+def brtarget16 : BranchTargetOperand<OtherVT> {
+  let ParserMatchClass = X86AbsMem16AsmOperand;
+}
+def brtarget32 : BranchTargetOperand<OtherVT>;
 
 let RenderMethod = "addSrcIdxOperands" in {
   def X86SrcIdx8Operand : AsmOperandClass {
@@ -780,14 +780,6 @@ def i64u8imm : Operand<i64> {
   let OperandType = "OPERAND_IMMEDIATE";
 }
 
-// 64-bits but only 32 bits are significant, and those bits are treated as being
-// pc relative.
-def i64i32imm_pcrel : Operand<i64> {
-  let PrintMethod = "printPCRelImm";
-  let ParserMatchClass = X86AbsMemAsmOperand;
-  let OperandType = "OPERAND_PCREL";
-}
-
 def lea64_32mem : Operand<i32> {
   let PrintMethod = "printanymem";
   let MIOperandInfo = (ops GR64, i8imm, GR64_NOSP, i32imm, SEGMENT_REG);
@@ -831,7 +823,7 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
 
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX
 let RenderMethod = "addTILEPairOperands" in {
   def VTILEPairAsmOperand : AsmOperandClass { let Name = "VTILEPair"; }
 }
@@ -840,6 +832,8 @@ def VTILEPair : RegisterOperand<VTILEPAIR, "printVTILEPair"> {
   let ParserMatchClass = VTILEPairAsmOperand;
 }
 
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
 let RenderMethod = "addZMM16TuplesOperands" in {
   def ZMM16TuplesAsmOperand : AsmOperandClass { let Name = "ZMM16Tuples"; }
 }
@@ -1037,13 +1031,35 @@ def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 #if INTEL_FEATURE_ISA_AMX_LNC
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
-def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
 def HasAMXAVX512   : Predicate<"Subtarget->hasAMXAVX512()">;
-def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
-def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
-def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
-def HasAMXELEMENTEVEX   : Predicate<"Subtarget->hasAMXELEMENTEVEX()">;
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+def HasAMXFP16   : Predicate<"Subtarget->hasAMXFP16()">;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+def HasAMXMEMORY2    : Predicate<"Subtarget->hasAMXMEMORY2()">;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+def HasAMXBF16EVEX    : Predicate<"Subtarget->hasAMXBF16EVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+def HasAMXCONVERTEVEX   : Predicate<"Subtarget->hasAMXCONVERTEVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+def HasAMXINT8EVEX    : Predicate<"Subtarget->hasAMXINT8EVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<"!Mode64Bit", "Not 64-bit mode">;
@@ -2953,7 +2969,7 @@ let SchedRW = [WriteStore], Defs = [EFLAGS] in {
 //===----------------------------------------------------------------------===//
 // CLZERO Instruction
 //
-let SchedRW = [WriteSystem] in {
+let SchedRW = [WriteLoad] in {
   let Uses = [EAX] in
   def CLZERO32r : I<0x01, MRM_FC, (outs), (ins), "clzero", []>,
                   TB, Requires<[HasCLZERO, Not64BitMode]>;

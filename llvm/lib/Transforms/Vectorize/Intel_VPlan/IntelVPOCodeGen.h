@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
@@ -127,8 +128,10 @@ public:
                                                     bool Masked);
 
   /// Vectorize call arguments, or for simd functions scalarize if the arg
-  /// is linear or uniform.
+  /// is linear or uniform. If the call is being pumped by \p PumpFactor times,
+  /// then the appropriate sub-vector is extracted for given \p PumpPart.
   void vectorizeCallArgs(VPInstruction *VPCall, VectorVariant *VecVariant,
+                         unsigned PumpPart, unsigned PumpFactor,
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
@@ -262,17 +265,20 @@ private:
   void fixOutgoingValues();
 
   /// Fix up reduction last value (link with remainder etc).
-  void fixReductionLastVal(const VPReduction &Red, Value *LastVal);
+  void fixReductionLastVal(const VPReduction &Red, VPReductionFinal *RedFinal);
 
-  /// Fix up live out value for a loop entity \p Ent.
-  void fixLiveOutValues(const VPLoopEntity &Ent, Value *LastVal);
+  /// Fix up live out value for a loop entity with finalization instruction \p
+  /// FinalVPInst. NOTE: This fixup assumes that all external uses of VPEntity
+  /// related instructions are replaced by its corresponding finalization
+  /// VPInstruction.
+  void fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal);
 
   /// A part of fix up of last value. Creates a needed phi in intermediate
   /// block and updates phi in remainder.
   void createLastValPhiAndUpdateOldStart(Value *OrigStartValue, PHINode *Phi,
                                          const Twine &NameStr, Value *LastVal);
   /// Fix up induction last value.
-  void fixInductionLastVal(const VPInduction &Ind, Value *LastVal);
+  void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
 
   /// Get an index of last written lane using Mask value.
   Value *getLastLaneFromMask(Value *MaskPtr);
@@ -442,8 +448,8 @@ private:
   // generated %ptr alloca above will be <4 x i32>*.
   DenseMap<VPValue *, Value *> LoopPrivateVPWidenMap;
 
-  // Holds last values generated for loop entities.
-  DenseMap<const VPLoopEntity *, Value *> EntitiesLastValMap;
+  // Holds finalization VPInstructions generated for loop entities.
+  MapVector<const VPLoopEntity *, VPInstruction *> EntitiesFinalVPInstMap;
 
   // --- Vectorization state ---
 
@@ -470,7 +476,7 @@ private:
 
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.
-  unsigned getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
+  Align getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
 
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support
@@ -516,14 +522,31 @@ private:
   // vector. Functionality is same as VectorUtils::getSplatValue.
   const VPValue *getOrigSplatVPValue(const VPValue *V);
 
-  /// Adjust arguments passed to SVML functions to handle masks
-  void addMaskToSVMLCall(Function *OrigF, SmallVectorImpl<Value *> &VecArgs,
+  // Determine if scalar function \p FnName should be vectorized by pumping
+  // feature. If yes, then the factor to pump by is returned, 1 otherwise.
+  unsigned getPumpFactor(StringRef FnName, bool IsMasked);
+
+  /// Adjust arguments passed to SVML functions to handle masks. \p
+  /// CallMaskValue defines the mask being applied to the current SVML call
+  /// instruction that is processed.
+  void addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
+                         SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
-  // Widen call instruction parameters and return. Currently, this is limited
-  // to svml function support that is hooked in to TLI. Later, this can be
-  // extended to user-defined vector functions.
-  void vectorizeCallInstruction(VPInstruction *VPCall);
+  // Widen call instruction parameters and return. If given \p VPCall cannot be
+  // widened for current VF, but can be pumped with lower VF, then vectorize the
+  // call by breaking down the operands and pumping it \p PumpFactor times.
+  // Pumped call results are subsequently combined back to current VF context.
+  // For example -
+  // %1 = call float @sinf(float %0)
+  //
+  // for a VF=128, this call will be pumped 2-way as below -
+  // %shuffle1 = shufflevector %0.vec, undef, <0, 1, ... 63>
+  // %pump1 = call <64 x float> @__svml_sinf64(%shuffle1)
+  // %shuffle2 = shufflevector %0.vec, undef, <64, 65, ... 127>
+  // %pump2 = call <64 x float> @__svml_sinf64(%shuffle2)
+  // %combine = shufflevector %pump1, %pump2, <0, 1, ... 127>
+  void vectorizeCallInstruction(VPInstruction *VPCall, unsigned PumpFactor);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(VPInstruction *VPInst);

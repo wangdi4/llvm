@@ -300,31 +300,58 @@ def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE
                                       "Support AMX amx-transpose instructions",
                                       [FeatureAMXTILE]>;
 
-def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
-                                      "Support AMX amx-fp16 instructions",
-                                      [FeatureAMXTILE]>;
-
 def FeatureAMXAVX512     : SubtargetFeature<"amx-avx512", "HasAMXAVX512", "true",
                                       "Support AMX amx-avx512 instructions",
                                       [FeatureAMXTILE]>;
 
-def FeatureAMXTILEEVEX     : SubtargetFeature<"amx-tile-evex", "HasAMXTILEEVEX", "true",
-                                      "Support AMX amx-tile-evex instructions",
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
+                                      "Support AMX amx-fp16 instructions",
                                       [FeatureAMXTILE]>;
 
-def FeatureAMXINT8EVEX     : SubtargetFeature<"amx-int8-evex", "HasAMXINT8EVEX", "true",
-                                      "Support AMX amx-int8-evex instructions",
-                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
 
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+def FeatureAMXMEMORY2     : SubtargetFeature<"amx-memory2", "HasAMXMEMORY2", "true",
+                                      "Support AMX amx-memory2 instructions",
+                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
 def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX", "true",
                                       "Support AMX amx-bf16-evex instructions",
                                       [FeatureAMXTILE]>;
 
-def FeatureAMXELEMENTEVEX     : SubtargetFeature<"amx-element-evex", "HasAMXELEMENTEVEX", "true",
-                                      "Support AMX amx-element-evex instructions",
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+def FeatureAMXCONVERTEVEX     : SubtargetFeature<"amx-convert-evex", "HasAMXCONVERTEVEX", "true",
+                                      "Support AMX amx-convert-evex instructions",
                                       [FeatureAMXTILE]>;
 
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+def FeatureAMXINT8EVEX     : SubtargetFeature<"amx-int8-evex", "HasAMXINT8EVEX", "true",
+                                      "Support AMX amx-int8-evex instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+def FeatureAMXTILEEVEX     : SubtargetFeature<"amx-tile-evex", "HasAMXTILEEVEX", "true",
+                                      "Support AMX amx-tile-evex instructions",
+                                      [FeatureAMXTILE]>;
+
+
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+def FeatureAMXTRANSPOSE2     : SubtargetFeature<"amx-transpose2", "HasAMXTRANSPOSE2", "true",
+                                      "Support AMX amx-transpose2 instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
@@ -605,6 +632,7 @@ include "X86SchedHaswell.td"
 include "X86SchedBroadwell.td"
 include "X86ScheduleSLM.td"
 include "X86ScheduleZnver1.td"
+include "X86ScheduleZnver2.td"
 include "X86ScheduleBdVer2.td"
 include "X86ScheduleBtVer2.td"
 include "X86SchedSkylakeClient.td"
@@ -1358,7 +1386,7 @@ def : Proc<"bdver3", ProcessorFeatures.BdVer3Features>;
 def : Proc<"bdver4", ProcessorFeatures.BdVer4Features>;
 
 def : ProcessorModel<"znver1", Znver1Model, ProcessorFeatures.ZNFeatures>;
-def : ProcessorModel<"znver2", Znver1Model, ProcessorFeatures.ZN2Features>;
+def : ProcessorModel<"znver2", Znver2Model, ProcessorFeatures.ZN2Features>;
 
 def : Proc<"geode",           [FeatureX87, FeatureSlowUAMem16, FeatureCMPXCHG8B,
                                Feature3DNowA, FeatureInsertVZEROUPPER]>;

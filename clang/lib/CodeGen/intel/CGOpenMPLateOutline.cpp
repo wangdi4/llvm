@@ -417,6 +417,40 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
   }
 }
 
+/// Verify current if-clause applies to current directive, which can be
+/// an individual directive or part of a set of directives connected
+/// together. An if-clause applies if:
+/// - it is implicit, or
+/// - it has no name modifier associated with it, or
+/// - its name modifier matches current directive (DKind)
+///
+/// An example: the distribute parallel for simd directive is broken down
+/// into distribute paralle for, and, simd, both of which will come through
+/// this function from getApplicableDirectives. An if-clause specified with
+/// distribute parallel for simd can specify no name modifier, or parallel,
+/// or simd, or both.
+bool OpenMPLateOutliner::checkIfModifier(OpenMPDirectiveKind DKind,
+                                         const OMPIfClause *IC) {
+
+  // If no if-clause(s) with original directive, then this if-clause is
+  // implicit.
+  if (!Directive.hasClausesOfKind<OMPIfClause>())
+    return true;
+  OpenMPDirectiveKind NameModifier = IC ? IC->getNameModifier() : OMPD_unknown;
+
+  // If no name modifier, or name modifier matches current directive, or
+  // name modifier is parallel and the current directive is another form
+  // of the parallel directive, if-clause should be applied.
+  if (NameModifier == OMPD_unknown || NameModifier == DKind ||
+     (NameModifier == OMPD_parallel && (DKind == OMPD_parallel_for ||
+     DKind == OMPD_parallel_sections || DKind == OMPD_distribute_parallel_for)))
+    return true;
+
+  // No match for current if-clause/modifier and current directive. Should not
+  // be applied.
+  return false;
+}
+
 void OpenMPLateOutliner::getApplicableDirectives(
     OpenMPClauseKind CK, SmallVector<DirectiveIntrinsicSet *, 4> &Dirs) {
 
@@ -445,6 +479,13 @@ void OpenMPLateOutliner::getApplicableDirectives(
           isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP))
         Dirs.push_back(&D);
       break;
+    case OMPC_if:
+      if (isAllowedClauseForDirective(D.DKind, CK, CGF.getLangOpts().OpenMP)) {
+        const OMPIfClause *IC = dyn_cast_or_null<OMPIfClause>(CurrentClause);
+        if (checkIfModifier(D.DKind, IC))
+          Dirs.push_back(&D);
+      }
+      break;
     case OMPC_unknown:
       Dirs.push_back(&D);
       break;
@@ -460,7 +501,7 @@ void OpenMPLateOutliner::startDirectiveIntrinsicSet(StringRef Begin,
                                                     OpenMPDirectiveKind K) {
   assert(BundleValues.empty());
   DirectiveIntrinsicSet D(End, K);
-  llvm::OperandBundleDef B(Begin, BundleValues);
+  llvm::OperandBundleDef B(std::string(Begin), BundleValues);
   D.OpBundles.push_back(B);
   Directives.push_back(D);
 }
@@ -468,7 +509,7 @@ void OpenMPLateOutliner::startDirectiveIntrinsicSet(StringRef Begin,
 void OpenMPLateOutliner::emitDirective(DirectiveIntrinsicSet &D,
                                        StringRef Name) {
   assert(BundleValues.empty());
-  llvm::OperandBundleDef B(Name, BundleValues);
+  llvm::OperandBundleDef B(std::string(Name), BundleValues);
   D.OpBundles.push_back(B);
   clearBundleTemps();
 }
@@ -477,7 +518,7 @@ void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK) {
   SmallVector<DirectiveIntrinsicSet *, 4> DRefs;
   getApplicableDirectives(CK, DRefs);
   for (auto *D : DRefs) {
-    llvm::OperandBundleDef B(BundleString, BundleValues);
+    llvm::OperandBundleDef B(std::string(BundleString), BundleValues);
     D->OpBundles.push_back(B);
   }
   clearBundleTemps();
@@ -775,10 +816,8 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
       CSB.setNonPod();
     if (IsRef)
       CSB.setByRef();
-#if INTEL_CUSTOMIZATION
     if (Cl->getKind() == OMPC_LASTPRIVATE_conditional)
       CSB.setConditional();
-#endif // INTEL_CUSTOMIZATION
     addArg(CSB.getString());
     addArg(E, IsRef);
     if (!IsPODType) {
@@ -1173,8 +1212,10 @@ void OpenMPLateOutliner::emitOMPCollapseClause(const OMPCollapseClause *Cl) {
 void OpenMPLateOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_aligned);
   addArg("QUAL.OMP.ALIGNED");
-  for (auto *E : Cl->varlists())
+  for (auto *E : Cl->varlists()) {
+    E = E->IgnoreParenImpCasts();
     addArg(E);
+  }
   addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
                             : CGF.Builder.getInt32(0));
 }
@@ -1494,12 +1535,14 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
 void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
   ClauseEmissionHelper CEH(*this, OMPC_tile);
   addArg("QUAL.OMP.TILE");
   for (auto *E : C->sizes())
     addArg(CGF.EmitScalarExpr(E));
 }
+#endif // INTEL_CUSTOMIZATION
 
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
@@ -1908,6 +1951,7 @@ void OpenMPLateOutliner::emitOMPTargetVariantDispatchDirective() {
 OpenMPLateOutliner &OpenMPLateOutliner::
 operator<<(ArrayRef<OMPClause *> Clauses) {
   for (auto *C : Clauses) {
+    CurrentClause = C;
     OpenMPClauseKind ClauseKind = C->getClauseKind();
     if (shouldSkipExplicitClause(ClauseKind))
       continue;
@@ -1925,6 +1969,7 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
       llvm_unreachable("Clause not allowed");
     }
   }
+  CurrentClause = nullptr;
   return *this;
 }
 
@@ -1984,6 +2029,7 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_master_taskloop_simd:
     return Kind == OMPD_master;
 
+  case OMPD_parallel_master:
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
     return Kind == OMPD_parallel;
@@ -2230,6 +2276,12 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
       return OMPD_taskloop_simd;
     return OMPD_unknown;
 
+  case OMPD_parallel_master:
+    // OMPD_parallel -> OMPD_master
+    if (CurrDirKind == OMPD_parallel)
+      return OMPD_master;
+    return OMPD_unknown;
+
   case OMPD_parallel_master_taskloop:
     // OMPD_parallel -> OMPD_master -> OMPD_taskloop
     if (CurrDirKind == OMPD_parallel)
@@ -2249,6 +2301,13 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
   default:
     llvm_unreachable("Unhandled combined directive.");
   }
+}
+
+static void addAttrsForFuncWithTargetRegion(llvm::Function *F) {
+    F->addFnAttr("contains-openmp-target", "true");
+    if (F->hasFnAttribute(llvm::Attribute::AlwaysInline))
+      F->removeFnAttr(llvm::Attribute::AlwaysInline);
+    F->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void CodeGenFunction::EmitLateOutlineOMPDirective(
@@ -2472,7 +2531,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
       isOpenMPTargetExecutionDirective(S.getDirectiveKind());
     if (IsDeviceTarget)
-      CurFn->addFnAttr("contains-openmp-target", "true");
+      addAttrsForFuncWithTargetRegion(CurFn);
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
     const Stmt *CapturedStmt = S.getInnermostCapturedStmt();
     CapturedStmtInfo->EmitBody(*this, CapturedStmt);
@@ -2532,7 +2591,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoopDirective(
   bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
     isOpenMPTargetExecutionDirective(S.getDirectiveKind());
   if (IsDeviceTarget)
-    CurFn->addFnAttr("contains-openmp-target", "true");
+    addAttrsForFuncWithTargetRegion(CurFn);
   CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
   emitLateOutlineDirective(*this, CodeGen);
 }

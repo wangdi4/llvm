@@ -15,6 +15,7 @@
 #ifndef LLVM_CLANG_AST_ASTNODETRAVERSER_H
 #define LLVM_CLANG_AST_ASTNODETRAVERSER_H
 
+#include "clang/AST/ASTTypeTraits.h"
 #include "clang/AST/AttrVisitor.h"
 #include "clang/AST/CommentVisitor.h"
 #include "clang/AST/DeclVisitor.h"
@@ -387,6 +388,9 @@ public:
       for (const auto *Parameter : D->parameters())
         Visit(Parameter);
 
+    if (const Expr *TRC = D->getTrailingRequiresClause())
+      Visit(TRC);
+
     if (const auto *C = dyn_cast<CXXConstructorDecl>(D))
       for (const auto *I : C->inits())
         Visit(I);
@@ -537,6 +541,10 @@ public:
   }
 
   void VisitTemplateTypeParmDecl(const TemplateTypeParmDecl *D) {
+    if (const auto *TC = D->getTypeConstraint())
+      if (TC->hasExplicitTemplateArgs())
+        for (const auto &ArgLoc : TC->getTemplateArgsAsWritten()->arguments())
+          dumpTemplateArgumentLoc(ArgLoc);
     if (D->hasDefaultArgument())
       Visit(D->getDefaultArgument(), SourceRange(),
             D->getDefaultArgStorage().getInheritedFrom(),
@@ -544,6 +552,8 @@ public:
   }
 
   void VisitNonTypeTemplateParmDecl(const NonTypeTemplateParmDecl *D) {
+    if (const auto *E = D->getPlaceholderTypeConstraint())
+      Visit(E);
     if (D->hasDefaultArgument())
       Visit(D->getDefaultArgument(), SourceRange(),
             D->getDefaultArgStorage().getInheritedFrom(),

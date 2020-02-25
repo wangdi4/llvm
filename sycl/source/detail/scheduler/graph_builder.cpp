@@ -17,12 +17,13 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <queue>
 #include <set>
 #include <vector>
 
-namespace cl {
+__SYCL_INLINE namespace cl {
 namespace sycl {
 namespace detail {
 
@@ -120,11 +121,9 @@ Scheduler::GraphBuilder::getOrInsertMemObjRecord(const QueueImplPtr &Queue,
   if (nullptr != Record)
     return Record;
 
-  MemObject->MRecord.reset(new MemObjRecord{/*MAllocaCommands*/ {},
-                                            /*MReadLeaves*/ {},
-                                            /*MWriteLeaves*/ {},
-                                            Queue->get_context_impl(),
-                                            /*MMemModified*/ false});
+  const size_t LeafLimit = 8;
+  MemObject->MRecord.reset(
+      new MemObjRecord{Queue->getContextImplPtr(), LeafLimit});
 
   MMemObjs.push_back(MemObject);
   return MemObject->MRecord.get();
@@ -139,13 +138,15 @@ void Scheduler::GraphBuilder::UpdateLeaves(const std::set<Command *> &Cmds,
   if (ReadOnlyReq)
     return;
 
-  for (const Command *Cmd : Cmds) {
+  for (Command *Cmd : Cmds) {
     auto NewEnd = std::remove(Record->MReadLeaves.begin(),
                               Record->MReadLeaves.end(), Cmd);
+    Cmd->MLeafCounter -= std::distance(NewEnd, Record->MReadLeaves.end());
     Record->MReadLeaves.erase(NewEnd, Record->MReadLeaves.end());
 
     NewEnd = std::remove(Record->MWriteLeaves.begin(),
                          Record->MWriteLeaves.end(), Cmd);
+    Cmd->MLeafCounter -= std::distance(NewEnd, Record->MWriteLeaves.end());
     Record->MWriteLeaves.erase(NewEnd, Record->MWriteLeaves.end());
   }
 }
@@ -153,16 +154,30 @@ void Scheduler::GraphBuilder::UpdateLeaves(const std::set<Command *> &Cmds,
 void Scheduler::GraphBuilder::AddNodeToLeaves(MemObjRecord *Record,
                                               Command *Cmd,
                                               access::mode AccessMode) {
-  if (AccessMode == access::mode::read)
-    Record->MReadLeaves.push_back(Cmd);
-  else
-    Record->MWriteLeaves.push_back(Cmd);
+  CircularBuffer<Command *> &Leaves{AccessMode == access::mode::read
+                                        ? Record->MReadLeaves
+                                        : Record->MWriteLeaves};
+  if (Leaves.full()) {
+    Command *OldLeaf = Leaves.front();
+    // TODO this is a workaround for duplicate leaves, remove once fixed
+    if (OldLeaf == Cmd)
+      return;
+    // Add the old leaf as a dependency for the new one by duplicating one of
+    // the requirements for the current record
+    DepDesc Dep = findDepForRecord(Cmd, Record);
+    Dep.MDepCommand = OldLeaf;
+    Cmd->addDep(Dep);
+    OldLeaf->addUser(Cmd);
+    --(OldLeaf->MLeafCounter);
+  }
+  Leaves.push_back(Cmd);
+  ++(Cmd->MLeafCounter);
 }
 
 UpdateHostRequirementCommand *Scheduler::GraphBuilder::insertUpdateHostReqCmd(
     MemObjRecord *Record, Requirement *Req, const QueueImplPtr &Queue) {
   AllocaCommandBase *AllocaCmd =
-      findAllocaForReq(Record, Req, Queue->get_context_impl());
+      findAllocaForReq(Record, Req, Queue->getContextImplPtr());
   assert(AllocaCmd && "There must be alloca for requirement!");
   UpdateHostRequirementCommand *UpdateCommand =
       new UpdateHostRequirementCommand(Queue, *Req, AllocaCmd, &Req->MData);
@@ -171,7 +186,7 @@ UpdateHostRequirementCommand *Scheduler::GraphBuilder::insertUpdateHostReqCmd(
   const Requirement *StoredReq = UpdateCommand->getRequirement();
 
   std::set<Command *> Deps =
-      findDepsForReq(Record, Req, Queue->get_context_impl());
+      findDepsForReq(Record, Req, Queue->getContextImplPtr());
   for (Command *Dep : Deps) {
     UpdateCommand->addDep(DepDesc{Dep, StoredReq, AllocaCmd});
     Dep->addUser(UpdateCommand);
@@ -218,7 +233,7 @@ Command *Scheduler::GraphBuilder::insertMemoryMove(MemObjRecord *Record,
     throw runtime_error("Out of host memory");
 
   std::set<Command *> Deps =
-      findDepsForReq(Record, Req, Queue->get_context_impl());
+      findDepsForReq(Record, Req, Queue->getContextImplPtr());
   Deps.insert(AllocaCmdDst);
   // Get parent allocation of sub buffer to perform full copy of whole buffer
   if (IsSuitableSubReq(Req)) {
@@ -232,6 +247,22 @@ Command *Scheduler::GraphBuilder::insertMemoryMove(MemObjRecord *Record,
 
   AllocaCommandBase *AllocaCmdSrc =
       findAllocaForReq(Record, Req, Record->MCurContext);
+  if (!AllocaCmdSrc && IsSuitableSubReq(Req)) {
+    // Since no alloca command for the sub buffer requirement was found in the
+    // current context, need to find a parent alloca command for it (it must be
+    // there)
+    auto IsSuitableAlloca = [Record, Req](AllocaCommandBase *AllocaCmd) {
+      bool Res = sameCtx(AllocaCmd->getQueue()->getContextImplPtr(),
+                         Record->MCurContext) &&
+                 // Looking for a parent buffer alloca command
+                 AllocaCmd->getType() == Command::CommandType::ALLOCA;
+      return Res;
+    };
+    const auto It =
+        std::find_if(Record->MAllocaCommands.begin(),
+                     Record->MAllocaCommands.end(), IsSuitableAlloca);
+    AllocaCmdSrc = (Record->MAllocaCommands.end() != It) ? *It : nullptr;
+  }
   if (!AllocaCmdSrc)
     throw runtime_error("Cannot find buffer allocation");
   // Get parent allocation of sub buffer to perform full copy of whole buffer
@@ -239,9 +270,8 @@ Command *Scheduler::GraphBuilder::insertMemoryMove(MemObjRecord *Record,
     if (AllocaCmdSrc->getType() == Command::CommandType::ALLOCA_SUB_BUF)
       AllocaCmdSrc =
           static_cast<AllocaSubBufCommand *>(AllocaCmdSrc)->getParentAlloca();
-    else
-      assert(
-          !"Inappropriate alloca command. AllocaSubBufCommand was expected.");
+    else if (AllocaCmdSrc->getSYCLMemObj() != Req->MSYCLMemObj)
+      assert(!"Inappropriate alloca command.");
   }
 
   Command *NewCmd = nullptr;
@@ -264,7 +294,7 @@ Command *Scheduler::GraphBuilder::insertMemoryMove(MemObjRecord *Record,
   }
   UpdateLeaves(Deps, Record, access::mode::read_write);
   AddNodeToLeaves(Record, NewCmd, access::mode::read_write);
-  Record->MCurContext = Queue->get_context_impl();
+  Record->MCurContext = Queue->getContextImplPtr();
   return NewCmd;
 }
 
@@ -283,7 +313,7 @@ Command *Scheduler::GraphBuilder::addCopyBack(Requirement *Req) {
     return nullptr;
 
   std::set<Command *> Deps =
-      findDepsForReq(Record, Req, HostQueue->get_context_impl());
+      findDepsForReq(Record, Req, HostQueue->getContextImplPtr());
   AllocaCommandBase *SrcAllocaCmd =
       findAllocaForReq(Record, Req, Record->MCurContext);
 
@@ -321,7 +351,7 @@ Command *Scheduler::GraphBuilder::addHostAccessor(Requirement *Req) {
   AllocaCommandBase *HostAllocaCmd =
       getOrCreateAllocaForReq(Record, Req, HostQueue);
 
-  if (!sameCtx(HostAllocaCmd->getQueue()->get_context_impl(),
+  if (!sameCtx(HostAllocaCmd->getQueue()->getContextImplPtr(),
                Record->MCurContext))
     insertMemoryMove(Record, Req, HostQueue);
 
@@ -374,9 +404,8 @@ Scheduler::GraphBuilder::findDepsForReq(MemObjRecord *Record, Requirement *Req,
   std::set<Command *> Visited;
   const bool ReadOnlyReq = Req->MAccessMode == access::mode::read;
 
-  std::vector<Command *> ToAnalyze;
-
-  ToAnalyze = Record->MWriteLeaves;
+  std::vector<Command *> ToAnalyze{Record->MWriteLeaves.begin(),
+                                   Record->MWriteLeaves.end()};
 
   if (!ReadOnlyReq)
     ToAnalyze.insert(ToAnalyze.begin(), Record->MReadLeaves.begin(),
@@ -403,7 +432,7 @@ Scheduler::GraphBuilder::findDepsForReq(MemObjRecord *Record, Requirement *Req,
       // Going through copying memory between contexts is not supported.
       if (Dep.MDepCommand)
         CanBypassDep &=
-            sameCtx(Context, Dep.MDepCommand->getQueue()->get_context_impl());
+            sameCtx(Context, Dep.MDepCommand->getQueue()->getContextImplPtr());
 
       if (!CanBypassDep) {
         RetDeps.insert(DepCmd);
@@ -421,12 +450,25 @@ Scheduler::GraphBuilder::findDepsForReq(MemObjRecord *Record, Requirement *Req,
   return RetDeps;
 }
 
+// A helper function for finding a command dependency on a specific memory
+// object
+DepDesc Scheduler::GraphBuilder::findDepForRecord(Command *Cmd,
+                                                  MemObjRecord *Record) {
+  for (const DepDesc &DD : Cmd->MDeps) {
+    if (getMemObjRecord(DD.MDepRequirement->MSYCLMemObj) == Record) {
+      return DD;
+    }
+  }
+  assert(false && "No dependency found for a leaf of the record");
+  return {nullptr, nullptr, nullptr};
+}
+
 // The function searches for the alloca command matching context and
 // requirement.
 AllocaCommandBase *Scheduler::GraphBuilder::findAllocaForReq(
     MemObjRecord *Record, Requirement *Req, const ContextImplPtr &Context) {
   auto IsSuitableAlloca = [&Context, Req](AllocaCommandBase *AllocaCmd) {
-    bool Res = sameCtx(AllocaCmd->getQueue()->get_context_impl(), Context);
+    bool Res = sameCtx(AllocaCmd->getQueue()->getContextImplPtr(), Context);
     if (IsSuitableSubReq(Req)) {
       const Requirement *TmpReq = AllocaCmd->getRequirement();
       Res &= TmpReq->MOffsetInBytes == Req->MOffsetInBytes;
@@ -447,7 +489,7 @@ AllocaCommandBase *Scheduler::GraphBuilder::getOrCreateAllocaForReq(
     MemObjRecord *Record, Requirement *Req, QueueImplPtr Queue) {
 
   AllocaCommandBase *AllocaCmd =
-      findAllocaForReq(Record, Req, Queue->get_context_impl());
+      findAllocaForReq(Record, Req, Queue->getContextImplPtr());
 
   if (!AllocaCmd) {
     if (IsSuitableSubReq(Req)) {
@@ -462,7 +504,7 @@ AllocaCommandBase *Scheduler::GraphBuilder::getOrCreateAllocaForReq(
       auto *ParentAlloca =
           getOrCreateAllocaForReq(Record, &ParentRequirement, Queue);
       AllocaCmd = new AllocaSubBufCommand(Queue, *Req, ParentAlloca);
-      UpdateLeaves(findDepsForReq(Record, Req, Queue->get_context_impl()),
+      UpdateLeaves(findDepsForReq(Record, Req, Queue->getContextImplPtr()),
                    Record, access::mode::read_write);
     } else {
 
@@ -515,13 +557,14 @@ AllocaCommandBase *Scheduler::GraphBuilder::getOrCreateAllocaForReq(
           AllocaCmd->MIsActive = false;
         } else {
           LinkedAllocaCmd->MIsActive = false;
-          Record->MCurContext = Queue->get_context_impl();
+          Record->MCurContext = Queue->getContextImplPtr();
         }
       }
     }
 
     Record->MAllocaCommands.push_back(AllocaCmd);
     Record->MWriteLeaves.push_back(AllocaCmd);
+    ++(AllocaCmd->MLeafCounter);
   }
   return AllocaCmd;
 }
@@ -561,7 +604,7 @@ Scheduler::GraphBuilder::addCG(std::unique_ptr<detail::CG> CommandGroup,
     AllocaCommandBase *AllocaCmd = getOrCreateAllocaForReq(Record, Req, Queue);
     // If there is alloca command we need to check if the latest memory is in
     // required context.
-    if (!sameCtx(Queue->get_context_impl(), Record->MCurContext)) {
+    if (!sameCtx(Queue->getContextImplPtr(), Record->MCurContext)) {
       // Cannot directly copy memory from OpenCL device to OpenCL device -
       // create two copies: device->host and host->device.
       if (!Queue->is_host() && !Record->MCurContext->is_host())
@@ -570,7 +613,7 @@ Scheduler::GraphBuilder::addCG(std::unique_ptr<detail::CG> CommandGroup,
       insertMemoryMove(Record, Req, Queue);
     }
     std::set<Command *> Deps =
-        findDepsForReq(Record, Req, Queue->get_context_impl());
+        findDepsForReq(Record, Req, Queue->getContextImplPtr());
 
     for (Command *Dep : Deps)
       NewCmd->addDep(DepDesc{Dep, Req, AllocaCmd});
@@ -595,49 +638,125 @@ Scheduler::GraphBuilder::addCG(std::unique_ptr<detail::CG> CommandGroup,
   return NewCmd.release();
 }
 
-void Scheduler::GraphBuilder::cleanupCommandsForRecord(MemObjRecord *Record) {
-  if (Record->MAllocaCommands.empty())
-    return;
-
-  std::queue<Command *> RemoveQueue;
-  std::set<Command *> Visited;
-
-  // TODO: release commands need special handling here as they are not reachable
-  // from alloca commands
-
-  for (AllocaCommandBase *AllocaCmd : Record->MAllocaCommands) {
-    if (Visited.find(AllocaCmd) == Visited.end())
-      RemoveQueue.push(AllocaCmd);
-    // Use BFS to find and process all users of removal candidate
-    while (!RemoveQueue.empty()) {
-      Command *CandidateCommand = RemoveQueue.front();
-      RemoveQueue.pop();
-
-      if (Visited.insert(CandidateCommand).second) {
-        for (Command *UserCmd : CandidateCommand->MUsers) {
-          // As candidate command is about to be freed, we need
-          // to remove it from dependency list of other commands.
-          auto NewEnd =
-              std::remove_if(UserCmd->MDeps.begin(), UserCmd->MDeps.end(),
-                             [CandidateCommand](const DepDesc &Dep) {
-                               return Dep.MDepCommand == CandidateCommand;
-                             });
-          UserCmd->MDeps.erase(NewEnd, UserCmd->MDeps.end());
-
-          // Commands that have no unsatisfied dependencies can be executed
-          // and are good candidates for clean up.
-          if (UserCmd->MDeps.empty())
-            RemoveQueue.push(UserCmd);
-        }
-        CandidateCommand->getEvent()->setCommand(nullptr);
-        delete CandidateCommand;
-      }
-    }
+void Scheduler::GraphBuilder::decrementLeafCountersForRecord(
+    MemObjRecord *Record) {
+  for (Command *Cmd : Record->MReadLeaves) {
+    --(Cmd->MLeafCounter);
+  }
+  for (Command *Cmd : Record->MWriteLeaves) {
+    --(Cmd->MLeafCounter);
   }
 }
 
-void Scheduler::GraphBuilder::cleanupCommands(bool CleanupReleaseCommands) {
-  // TODO: Implement.
+void Scheduler::GraphBuilder::cleanupCommandsForRecord(MemObjRecord *Record) {
+  std::vector<AllocaCommandBase *> &AllocaCommands = Record->MAllocaCommands;
+  if (AllocaCommands.empty())
+    return;
+
+  std::queue<Command *> ToVisit;
+  std::set<Command *> Visited;
+  std::vector<Command *> CmdsToDelete;
+  // First, mark all allocas for deletion and their direct users for traversal
+  // Dependencies of the users will be cleaned up during the traversal
+  for (Command *AllocaCmd : AllocaCommands) {
+    Visited.insert(AllocaCmd);
+    for (Command *UserCmd : AllocaCmd->MUsers)
+      ToVisit.push(UserCmd);
+    CmdsToDelete.push_back(AllocaCmd);
+    // These commands will be deleted later, clear users now to avoid
+    // updating them during edge removal
+    AllocaCmd->MUsers.clear();
+  }
+
+  // Traverse the graph using BFS
+  while (!ToVisit.empty()) {
+    Command *Cmd = ToVisit.front();
+    ToVisit.pop();
+
+    if (!Visited.insert(Cmd).second)
+      continue;
+
+    for (Command *UserCmd : Cmd->MUsers)
+      ToVisit.push(UserCmd);
+
+    // Delete all dependencies on any allocations being removed
+    // Track which commands should have their users updated
+    std::map<Command *, bool> ShouldBeUpdated;
+    auto NewEnd = std::remove_if(
+        Cmd->MDeps.begin(), Cmd->MDeps.end(), [&](const DepDesc &Dep) {
+          if (std::find(AllocaCommands.begin(), AllocaCommands.end(),
+                        Dep.MAllocaCmd) != AllocaCommands.end()) {
+            ShouldBeUpdated.insert({Dep.MDepCommand, true});
+            return true;
+          }
+          ShouldBeUpdated[Dep.MDepCommand] = false;
+          return false;
+        });
+    Cmd->MDeps.erase(NewEnd, Cmd->MDeps.end());
+
+    // Update users of removed dependencies
+    for (auto DepCmdIt : ShouldBeUpdated) {
+      if (!DepCmdIt.second)
+        continue;
+      DepCmdIt.first->MUsers.erase(Cmd);
+    }
+
+    // If all dependencies have been removed this way, mark the command for
+    // deletion
+    if (Cmd->MDeps.empty()) {
+      CmdsToDelete.push_back(Cmd);
+      Cmd->MUsers.clear();
+    }
+  }
+
+  for (Command *Cmd : CmdsToDelete) {
+    Cmd->getEvent()->setCommand(nullptr);
+    delete Cmd;
+  }
+}
+
+void Scheduler::GraphBuilder::cleanupFinishedCommands(Command *FinishedCmd) {
+  std::queue<Command *> CmdsToVisit({FinishedCmd});
+  std::set<Command *> Visited;
+
+  // Traverse the graph using BFS
+  while (!CmdsToVisit.empty()) {
+    Command *Cmd = CmdsToVisit.front();
+    CmdsToVisit.pop();
+
+    if (!Visited.insert(Cmd).second)
+      continue;
+
+    for (const DepDesc &Dep : Cmd->MDeps) {
+      if (Dep.MDepCommand)
+        CmdsToVisit.push(Dep.MDepCommand);
+    }
+
+    // Do not clean up the node if it is a leaf for any memory object
+    if (Cmd->MLeafCounter > 0)
+      continue;
+    // Do not clean up allocation commands
+    Command::CommandType CmdT = Cmd->getType();
+    if (CmdT == Command::ALLOCA || CmdT == Command::ALLOCA_SUB_BUF)
+      continue;
+
+    for (Command *UserCmd : Cmd->MUsers) {
+      for (DepDesc &Dep : UserCmd->MDeps) {
+        // Link the users of the command to the alloca command(s) instead
+        if (Dep.MDepCommand == Cmd) {
+          Dep.MDepCommand = Dep.MAllocaCmd;
+          Dep.MDepCommand->MUsers.insert(UserCmd);
+        }
+      }
+    }
+    // Update dependency users
+    for (DepDesc &Dep : Cmd->MDeps) {
+      Command *DepCmd = Dep.MDepCommand;
+      DepCmd->MUsers.erase(Cmd);
+    }
+    Cmd->getEvent()->setCommand(nullptr);
+    delete Cmd;
+  }
 }
 
 void Scheduler::GraphBuilder::removeRecordForMemObj(SYCLMemObjI *MemObject) {

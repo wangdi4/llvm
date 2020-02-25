@@ -4,22 +4,24 @@
 ; The test used to crash because of the bug in new shape creation for sub
 
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -vpo-vplan-build-stress-test -debug-only=vplan-divergence-analysis 2>&1 | FileCheck %s
+; RUN: opt -S %s -VPlanDriver -vpo-vplan-build-stress-test -vplan-dump-da 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @XNU() local_unnamed_addr #0 {
-; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]]
-; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]
+; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
+; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD_PHI:%.*]] = phi  [ i64 1, [[BB3:BB[0-9]+]] ],  [ i64 [[VP_ADD:%.*]], [[BB2]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 2, [[BB3]] ],  [ i64 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB2]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD_PHI:%.*]] = phi  [ i64 1, [[BB5:BB[0-9]+]] ],  [ i64 [[VP_ADD:%.*]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 2, [[BB5]] ],  [ i64 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB4]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD]] = add i64 [[VP_ADD_PHI]] i64 1
 ; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_OUTER_LOOP_INDUCTION_PHI]], [[BB0]] ],  [ i64 [[VP_INNER_LOOP_INDUCTION:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_OUTER_LOOP_INDUCTION_PHI]], [[BB3]] ],  [ i64 [[VP_INNER_LOOP_INDUCTION:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Uniform] i64 [[VP_SUB:%.*]] = sub i64 [[VP_INNER_LOOP_INDUCTION_PHI]] i64 [[VP_ADD_PHI]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION]] = add i64 [[VP_INNER_LOOP_INDUCTION_PHI]] i64 1
 ; CHECK-EMPTY:
@@ -27,19 +29,22 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION]] = add i64 [[VP_OUTER_LOOP_INDUCTION_PHI]] i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp i64 [[VP_OUTER_LOOP_INDUCTION]] i64 5
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB5:BB[0-9]+]]
-; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB6:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB6]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_INNER_LOOP_INDUCTION_PHI_1:%.*]] = phi  [ i64 [[OUTER_LOOP_INDUCTION_PHI0:%.*]], [[BB7:BB[0-9]+]] ],  [ i64 [[VP_INNER_LOOP_INDUCTION_1:%.*]], [[BB6]] ]
+; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB8:BB[0-9]+]]<header><latch><exiting>
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB8]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_INNER_LOOP_INDUCTION_PHI_1:%.*]] = phi  [ i64 [[OUTER_LOOP_INDUCTION_PHI0:%.*]], [[BB9:BB[0-9]+]] ],  [ i64 [[VP_INNER_LOOP_INDUCTION_1:%.*]], [[BB8]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_SUB_1:%.*]] = sub i64 [[VP_INNER_LOOP_INDUCTION_PHI_1]] i64 [[ADD_PHI0:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_INNER_LOOP_INDUCTION_1]] = add i64 [[VP_INNER_LOOP_INDUCTION_PHI_1]] i64 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB8:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB9:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB11:BB[0-9]+]]
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %outer.loop

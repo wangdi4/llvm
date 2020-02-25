@@ -1,7 +1,7 @@
 ; Test to verify that DA computes correct vector shapes for divergent users of updated VPInstructions
 ; that are added to the worklist.
 
-; RUN: opt %s -VPlanDriver -debug-only=vplan-divergence-analysis -vplan-force-vf=2 -S 2>&1 | FileCheck %s
+; RUN: opt %s -VPlanDriver -vplan-dump-da -vplan-force-vf=2 -S 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check DA results for inner.loopbypass BB. Before the fix, both "add" and "gep" VPInstructions below were

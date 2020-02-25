@@ -234,9 +234,9 @@ void ilist_alloc_traits<MCFragment>::deleteNode(MCFragment *V) { V->destroy(); }
 
 MCFragment::MCFragment(FragmentType Kind, bool HasInstructions,
                        MCSection *Parent)
-    : Kind(Kind), HasInstructions(HasInstructions), LayoutOrder(0),
-      Parent(Parent), Atom(nullptr), Offset(~UINT64_C(0)) {
-  if (Parent && !isDummy())
+    : Parent(Parent), Atom(nullptr), Offset(~UINT64_C(0)), LayoutOrder(0),
+      Kind(Kind), HasInstructions(HasInstructions) {
+  if (Parent && !isa<MCDummyFragment>(*this))
     Parent->getFragmentList().push_back(this);
 }
 
@@ -422,6 +422,7 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
     OS << " Value:" << LF->getValue() << " Signed:" << LF->isSigned();
     break;
   }
+#if INTEL_CUSTOMIZATION
   case MCFragment::FT_BoundaryAlign: {
     const auto *BF = cast<MCBoundaryAlignFragment>(this);
     if (BF->hasEmitNops())
@@ -434,6 +435,7 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
        << " Size:" << BF->getSize();
     break;
   }
+#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_SymbolId: {
     const auto *F = cast<MCSymbolIdFragment>(this);
     OS << "\n       ";

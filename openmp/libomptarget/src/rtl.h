@@ -59,7 +59,8 @@ struct RTLInfoTy {
   typedef int32_t(run_team_region_nowait_ty)(int32_t, void *, void **,
                                              ptrdiff_t *, int32_t, int32_t,
                                              int32_t, uint64_t, void *);
-  typedef void *(get_offload_pipe_ty)(int32_t);
+  typedef void *(create_offload_pipe_ty)(int32_t, bool);
+  typedef int32_t(release_offload_pipe_ty)(int32_t, void *);
   typedef int32_t(is_managed_data_ty)(int32_t, void *);
 #endif // INTEL_COLLAB
 
@@ -104,7 +105,8 @@ struct RTLInfoTy {
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait;
   run_region_nowait_ty *run_region_nowait;
   run_team_region_nowait_ty *run_team_region_nowait;
-  get_offload_pipe_ty *get_offload_pipe;
+  create_offload_pipe_ty *create_offload_pipe;
+  release_offload_pipe_ty *release_offload_pipe;
   is_managed_data_ty *is_managed_data;
 #endif // INTEL_COLLAB
 
@@ -132,7 +134,8 @@ struct RTLInfoTy {
         manifest_data_for_region(0), data_alloc_base(0), data_alloc_user(0),
         create_buffer(0), get_device_name(0), release_buffer(0),
         run_team_nd_region(0), run_team_nd_region_nowait(0),
-        run_region_nowait(0), run_team_region_nowait(0), get_offload_pipe(0),
+        run_region_nowait(0), run_team_region_nowait(0), create_offload_pipe(0),
+        release_offload_pipe(0),
         is_managed_data(0), isUsed(false), Mtx() {}
 #else
         init_requires(0), isUsed(false), Mtx() {}
@@ -172,7 +175,8 @@ struct RTLInfoTy {
     run_team_nd_region_nowait = r.run_team_nd_region_nowait;
     run_region_nowait = r.run_region_nowait;
     run_team_region_nowait = r.run_team_region_nowait;
-    get_offload_pipe = r.get_offload_pipe;
+    create_offload_pipe = r.create_offload_pipe;
+    release_offload_pipe = r.release_offload_pipe;
     is_managed_data = r.is_managed_data;
 #endif // INTEL_COLLAB
     isUsed = r.isUsed;

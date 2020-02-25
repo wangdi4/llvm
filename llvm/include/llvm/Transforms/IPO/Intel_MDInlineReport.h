@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.h ----------------------------------*- C++ -*-===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -24,6 +24,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <vector>
@@ -35,17 +36,11 @@ using namespace InlineReportTypes;
 std::string getLinkageStr(Function *F);
 
 // Inlining report metadata tags and constants.
-namespace  MDInliningReport {
-  static constexpr const char *ModuleTag = "intel.module.inlining.report";
-  static constexpr const char *FunctionTag = "intel.function.inlining.report";
-  static constexpr const char *CallSitesTag = "intel.callsites.inlining.report";
-  static constexpr const char *CallSiteTag = "intel.callsite.inlining.report";
-  static constexpr const int FunctionMDSize = 7;
-  static constexpr const int CallSiteMDSize = 12;
+namespace MDInliningReport {
 
 // Enumeration of the call site inlining report metadata fields.
-enum CallSiteField{
-  CSMDIR_Tag,
+enum CallSiteField {
+  CSMDIR_Tag = 0,
   CSMDIR_CalleeName,
   CSMDIR_CSs,
   CSMDIR_IsInlined,
@@ -56,19 +51,30 @@ enum CallSiteField{
   CSMDIR_EarlyExitCost,
   CSMDIR_EarlyExitThreshold,
   CSMDIR_LineAndColumn,
-  CSMDIR_ModuleName
+  CSMDIR_ModuleName,
+  CSMDIR_SuppressPrintReport,
+  CSMDIR_Last,
 };
 
 // Enumeration of the function inlining report metadata fields.
-enum FuncField{
-  FMDIR_Tag,
+enum FuncField {
+  FMDIR_Tag = 0,
   FMDIR_FuncName,
   FMDIR_CSs,
   FMDIR_ModuleName,
   FMDIR_IsDead,
   FMDIR_IsDeclaration,
-  FMDIR_LinkageStr
+  FMDIR_LinkageStr,
+  FMDIR_SuppressPrintReport,
+  FMDIR_Last,
 };
+
+static constexpr const char *ModuleTag = "intel.module.inlining.report";
+static constexpr const char *FunctionTag = "intel.function.inlining.report";
+static constexpr const char *CallSitesTag = "intel.callsites.inlining.report";
+static constexpr const char *CallSiteTag = "intel.callsite.inlining.report";
+static constexpr const int FunctionMDSize = FMDIR_Last;
+static constexpr const int CallSiteMDSize = CSMDIR_Last;
 }
 
 // This class is needed to store Callback vector for functions and instructions
@@ -87,7 +93,7 @@ class InlineReportBuilder : public CallGraphReport {
 public:
   explicit InlineReportBuilder(unsigned MyLevel)
       : Level(MyLevel), CurrentCallInstr(nullptr),
-        CurrentCallInstReport(nullptr), CurrentCallee(nullptr){};
+        CurrentCallInstReport(nullptr), CurrentCallee(nullptr) {};
 
   virtual ~InlineReportBuilder(void) {
     while (!IRCallbackVector.empty()) {
@@ -223,8 +229,8 @@ private:
 
   public:
     InliningReportCallback(Value *V, InlineReportBuilder *IRBPtr, MDNode *MD)
-        : CallbackVH(V), IRB(IRBPtr), MDIR(MD){};
-    virtual ~InliningReportCallback(){};
+        : CallbackVH(V), IRB(IRBPtr), MDIR(MD) {};
+    virtual ~InliningReportCallback() {};
   };
 
   SmallVector<InliningReportCallback *, 16> IRCallbackVector;
@@ -243,9 +249,11 @@ public:
 class InliningReport {
 protected:
   MDTuple *Report;
+  bool SuppressPrint; // flag to suppress inline-report print when true
 
 public:
-  InliningReport(MDTuple *R = nullptr) : Report(R) {}
+  InliningReport(MDTuple *R = nullptr, bool SuppressPrint = false)
+      : Report(R), SuppressPrint(SuppressPrint) {}
 
   MDTuple *get() const { return Report; }
 
@@ -254,25 +262,34 @@ public:
       return "";
     return llvm::getOpStr(Report->getOperand(1), "name: ");
   }
+
+  /// brief Get and set SuppressPrint
+  bool getSuppressPrint(void) const { return SuppressPrint; }
+  void setSuppressPrint(bool V) { SuppressPrint = V; }
 };
 
 // Class representing inlining report for function
 class FunctionInliningReport : public InliningReport {
 public:
-  FunctionInliningReport(MDTuple *R = nullptr) : InliningReport(R) {
+  FunctionInliningReport(MDTuple *R = nullptr, bool SuppressPrint = false)
+      : InliningReport(R, SuppressPrint) {
     assert((!R || isFunctionInliningReportMetadata(R)) &&
-           "Bad function inlining report metadata");
+        "Bad function inlining report metadata");
   }
 
   FunctionInliningReport(LLVMContext *C, std::string FuncName,
                          std::vector<MDTuple *> *CSs, std::string ModuleName,
-                         bool IsDead, bool isDeclaration,
+                         bool IsDead, bool isDeclaration, bool isSuppressPrint,
                          std::string LinkageChar);
+
   FunctionInliningReport(Function *F, std::vector<MDTuple *> *CSs, bool IsDead)
       : FunctionInliningReport(&(F->getParent()->getContext()),
-                               (F->hasName() ? F->getName() : ""), CSs,
-                               F->getParent()->getName(), IsDead,
-                               F->isDeclaration(), getLinkageStr(F)) {}
+                               std::string(F->hasName() ? F->getName() : ""), CSs,
+                               std::string(F->getParent()->getName()), IsDead,
+                               F->isDeclaration(),
+                               F->getMetadata(IPOUtils::getSuppressInlineReportStringRef()),
+                               std::string(getLinkageStr(F))) {}
+
   static bool isFunctionInliningReportMetadata(const Metadata *R);
 };
 
@@ -281,25 +298,31 @@ class CallSiteInliningReport : public InliningReport {
   MDTuple *
   initCallSite(LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
                InlineReason Reason = NinlrNoReason, bool IsInlined = false,
+               bool IsSuppressPrint = false,
                int InlineCost = -1, int OuterInlineCost = -1,
                int InlineThreshold = -1, int EarlyExitInlineCost = INT_MAX,
                int EarlyExitInlineThreshold = INT_MAX, unsigned Line = 0,
                unsigned Col = 0, std::string ModuleName = "");
 
 public:
-  CallSiteInliningReport(MDTuple *R = nullptr) : InliningReport(R) {
+  CallSiteInliningReport(MDTuple *R = nullptr, bool SuppressPrint = false)
+      : InliningReport(R, SuppressPrint) {
     assert((!R || isCallSiteInliningReportMetadata(R)) &&
-           "Bad function inlining report metadata");
+        "Bad function inlining report metadata");
   }
+
   CallSiteInliningReport(
       LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
       InlineReason Reason = NinlrNoReason, bool IsInlined = false,
+      bool IsSuppressPrint = false,
       int InlineCost = -1, int OuterInlineCost = -1, int InlineThreshold = -1,
       int EarlyExitInlineCost = INT_MAX, int EarlyExitInlineThreshold = INT_MAX,
       unsigned Line = 0, unsigned Col = 0, std::string ModuleName = "");
+
   CallSiteInliningReport(CallBase *MainCS, std::vector<MDTuple *> *CSs,
                          InlineReason Reason = NinlrNoReason,
-                         bool IsInlined = false, int InlineCost = -1,
+                         bool IsInlined = false, bool IsSuppressPrint = false,
+                         int InlineCost = -1,
                          int OuterInlineCost = -1, int InlineThreshold = -1,
                          int EarlyExitInlineCost = INT_MAX,
                          int EarlyExitInlineThreshold = INT_MAX);
@@ -328,7 +351,7 @@ public:
   // Return module name of the call site inline report
   StringRef getModuleName() {
     assert((Report->getNumOperands() == MDInliningReport::CallSiteMDSize) &&
-           "bad metadata for callsite inline report");
+        "bad metadata for callsite inline report");
     return llvm::getOpStr(
         Report->getOperand(MDInliningReport::CSMDIR_ModuleName),
         "moduleName: ");

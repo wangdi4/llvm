@@ -506,7 +506,7 @@ static void printExtendedName(raw_ostream &OS, const DINode *Node,
                               const DILocation *DL) {
   const LLVMContext &Ctx = Node->getContext();
   StringRef Res;
-  unsigned Line;
+  unsigned Line = 0;
   if (const auto *V = dyn_cast<const DILocalVariable>(Node)) {
     Res = V->getName();
     Line = V->getLine();
@@ -646,8 +646,8 @@ bool LDVImpl::handleDebugValue(MachineInstr &MI, SlotIndex Idx) {
   }
 
   // Get or create the UserValue for (variable,offset) here.
-  assert(!MI.getOperand(1).isImm() && "DBG_VALUE with indirect flag before "
-                                      "LiveDebugVariables");
+  assert((!MI.getOperand(1).isImm() || MI.getOperand(1).getImm() == 0) &&
+         "DBG_VALUE with nonzero offset");
   const DILocalVariable *Var = MI.getDebugVariable();
   const DIExpression *Expr = MI.getDebugExpression();
   UserValue *UV =

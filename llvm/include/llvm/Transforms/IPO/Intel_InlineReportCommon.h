@@ -1,6 +1,6 @@
 //===- Intel_InlineReportCommon.h - Inlining report utils ------*- C++ -*-===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -98,7 +98,7 @@ const static InlPrtRecord InlineReasonText[] = {
     // InlrAlwaysInlineRecursive,
     {InlPrtSimple, "Callee is always inline (recursive)"},
     // InlrInlineList,
-    {InlPrtSimple, "Callee is in inline list"},
+    {InlPrtSimple, "Callsite on inline list"},
     // InlrHotProfile,
     {InlPrtCost, "Callsite has hot profile"},
     // InlrRecProClone
@@ -147,7 +147,7 @@ const static InlPrtRecord InlineReasonText[] = {
     // NinlrNoReason,
     {InlPrtSimple, "Not tested for inlining"},
     // NinlrNoinlineList,
-    {InlPrtSimple, "Callee is in noinline list"},
+    {InlPrtSimple, "Callsite on noinline list"},
     // NinlrColdCC,
     {InlPrtCost, "Callee has cold calling convention"},
     // NinlrColdProfile,

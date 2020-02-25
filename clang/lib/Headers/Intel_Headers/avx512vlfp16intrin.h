@@ -28,6 +28,12 @@ _mm_cvtsh_h(__m128h __a)
   return __a[0];
 }
 
+static __inline__ _Float16 __DEFAULT_FN_ATTRS256
+_mm256_cvtsh_h(__m256h __a)
+{
+  return __a[0];
+}
+
 static __inline__ __m128h __DEFAULT_FN_ATTRS128
 _mm_set_sh(_Float16 __h)
 {
@@ -46,6 +52,31 @@ _mm256_set1_ph(_Float16 __h)
   return (__m256h)(__v16hf){ __h, __h, __h, __h, __h, __h, __h, __h,
                              __h, __h, __h, __h, __h, __h, __h, __h};
 }
+
+static __inline __m128h __DEFAULT_FN_ATTRS128
+_mm_set_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+              _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8)
+{
+  return (__m128h)(__v8hf){ __h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8 };
+}
+
+static __inline __m256h __DEFAULT_FN_ATTRS256
+_mm256_set_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+              _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8,
+              _Float16 __h9, _Float16 __h10, _Float16 __h11, _Float16 __h12,
+              _Float16 __h13, _Float16 __h14, _Float16 __h15, _Float16 __h16)
+{
+  return (__m256h)(__v16hf){ __h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8,
+                             __h9, __h10, __h11, __h12, __h13, __h14, __h15, __h16 };
+}
+
+#define _mm_setr_ph( __h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8) \
+  _mm_set_ph((__h8),(__h7),(__h6),(__h5),(__h4),(__h3),(__h2),(__h1))
+
+#define _mm256_setr_ph( __h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8, \
+                        __h9, __h10, __h11, __h12, __h13, __h14, __h15, __h16) \
+  _mm256_set_ph((__h16),(__h15),(__h14),(__h13),(__h12),(__h11),(__h10),(__h9),\
+                (__h8),(__h7),(__h6),(__h5),(__h4),(__h3),(__h2),(__h1))
 
 static __inline__ __m256h __DEFAULT_FN_ATTRS256
 _mm256_add_ph(__m256h __A, __m256h __B) {

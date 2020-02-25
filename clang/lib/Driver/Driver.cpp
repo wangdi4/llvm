@@ -105,7 +105,7 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
   // exact same string ("a/../b/" and "b/" get different hashes, for example).
 
   // Dir is bin/ or lib/, depending on where BinaryPath is.
-  std::string Dir = llvm::sys::path::parent_path(BinaryPath);
+  std::string Dir = std::string(llvm::sys::path::parent_path(BinaryPath));
 
   SmallString<128> P(Dir);
   if (CustomResourceDir != "") {
@@ -121,7 +121,7 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
                             CLANG_VERSION_STRING);
   }
 
-  return P.str();
+  return std::string(P.str());
 }
 
 Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
@@ -137,13 +137,12 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       TargetTriple(TargetTriple), CCCGenericGCCName(""), Saver(Alloc),
       CheckInputsExist(true), GenReproducer(false),
       SuppressMissingInputWarning(false) {
-
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
 
-  Name = llvm::sys::path::filename(ClangExecutable);
-  Dir = llvm::sys::path::parent_path(ClangExecutable);
+  Name = std::string(llvm::sys::path::filename(ClangExecutable));
+  Dir = std::string(llvm::sys::path::parent_path(ClangExecutable));
   InstalledDir = Dir; // Provide a sensible default installed dir.
 
 #if defined(CLANG_CONFIG_FILE_SYSTEM_DIR)
@@ -980,7 +979,7 @@ bool Driver::readConfigFile(StringRef FileName) {
   // Read options from config file.
   llvm::SmallString<128> CfgFileName(FileName);
   llvm::sys::path::native(CfgFileName);
-  ConfigFile = CfgFileName.str();
+  ConfigFile = std::string(CfgFileName.str());
   bool ContainErrors;
   CfgOptions = std::make_unique<InputArgList>(
       ParseArgStrings(NewCfgArgs, IsCLMode(), ContainErrors));
@@ -1163,7 +1162,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     while (!CompilerPath.empty()) {
       std::pair<StringRef, StringRef> Split =
           CompilerPath.split(llvm::sys::EnvPathSeparator);
-      PrefixDirs.push_back(Split.first);
+      PrefixDirs.push_back(std::string(Split.first));
       CompilerPath = Split.second;
     }
   }
@@ -1245,6 +1244,10 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
   // -no-canonical-prefixes is used very early in main.
   Args.ClaimAllArgs(options::OPT_no_canonical_prefixes);
+
+  // f(no-)integated-cc1 is also used very early in main.
+  Args.ClaimAllArgs(options::OPT_fintegrated_cc1);
+  Args.ClaimAllArgs(options::OPT_fno_integrated_cc1);
 
   // Ignore -pipe.
   Args.ClaimAllArgs(options::OPT_pipe);
@@ -1631,7 +1634,7 @@ void Driver::generateCompilationDiagnostics(
       ScriptOS << "\n# Additional information: " << AdditionalInformation
                << "\n";
     if (Report)
-      Report->TemporaryFiles.push_back(Script.str());
+      Report->TemporaryFiles.push_back(std::string(Script.str()));
     Diag(clang::diag::note_drv_command_failed_diag_msg) << Script;
   }
 
@@ -1733,7 +1736,7 @@ int Driver::ExecuteCompilation(
     // diagnostics, so always print the diagnostic there.
     const Tool &FailingTool = FailingCommand->getCreator();
 
-    if (!FailingCommand->getCreator().hasGoodDiagnostics() || CommandRes != 1) {
+    if (!FailingTool.hasGoodDiagnostics() || CommandRes != 1) {
       // FIXME: See FIXME above regarding result code interpretation.
       if (CommandRes < 0)
         Diag(clang::diag::err_drv_command_signalled)
@@ -1742,6 +1745,10 @@ int Driver::ExecuteCompilation(
         Diag(clang::diag::err_drv_command_failed)
             << FailingTool.getShortName() << CommandRes;
     }
+
+    auto CustomDiag = FailingCommand->getDiagForErrorCode(CommandRes);
+    if (!CustomDiag.empty())
+      Diag(clang::diag::note_drv_command_failed_diag_msg) << CustomDiag;
   }
   return Res;
 }
@@ -1918,7 +1925,7 @@ void Driver::HandleAutocompletions(StringRef PassedFlags) const {
     // this code.
     for (StringRef S : DiagnosticIDs::getDiagnosticFlags())
       if (S.startswith(Cur))
-        SuggestedCompletions.push_back(S);
+        SuggestedCompletions.push_back(std::string(S));
   }
 
   // Sort the autocomplete candidates so that shells print them out in a
@@ -3139,6 +3146,13 @@ class OffloadingActionBuilder final {
       // If this is an input action replicate it for each OpenMP toolchain.
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
         OpenMPDeviceActions.clear();
+#if INTEL_CUSTOMIZATION
+        // Objects should already be consumed with -foffload-static-lib
+        if (Args.hasArg(options::OPT_foffload_static_lib_EQ) &&
+            IA->getType() == types::TY_Object &&
+            isObjectFile(IA->getInputArg().getAsString(Args)))
+          return ABRT_Inactive;
+#endif // INTEL_CUSTOMIZATION
         for (unsigned I = 0; I < ToolChains.size(); ++I)
           OpenMPDeviceActions.push_back(
               C.MakeAction<InputAction>(IA->getInputArg(), IA->getType()));
@@ -3300,6 +3314,9 @@ class OffloadingActionBuilder final {
     /// Type of output file for FPGA device compilation.
     types::ID FPGAOutType = types::TY_FPGA_AOCX;
 
+    /// List of objects to extract FPGA dependency info from
+    ActionList FPGAObjectInputs;
+
   public:
     SYCLActionBuilder(Compilation &C, DerivedArgList &Args,
                       const Driver::InputList &Inputs)
@@ -3421,8 +3438,12 @@ class OffloadingActionBuilder final {
           // Check if the type of the file is the same as the action. Do not
           // unbundle it if it is not. Do not unbundle .so files, for example,
           // which are not object files.
-          if (IA->getType() == types::TY_Object && !isObjectFile(FileName))
-            return ABRT_Inactive;
+          if (IA->getType() == types::TY_Object) {
+            if (!isObjectFile(FileName))
+              return ABRT_Inactive;
+            if (Args.hasArg(options::OPT_fintelfpga))
+              FPGAObjectInputs.push_back(IA);
+          }
           // When creating FPGA device fat objects, all host objects are
           // partially linked.  Gather that list here.
           if (IA->getType() == types::TY_Object ||
@@ -3595,6 +3616,16 @@ class OffloadingActionBuilder final {
           Action *DeviceBECompileAction;
           ActionList BEActionList;
           BEActionList.push_back(SPIRVTranslateAction);
+          for (Action *A : FPGAObjectInputs) {
+            // Send any known objects through the unbundler to grab the
+            // dependency file associated.
+            ActionList AL;
+            AL.push_back(A);
+            Action *UnbundleAction =
+                C.MakeAction<OffloadUnbundlingJobAction>(AL,
+                types::TY_FPGA_Dependencies);
+            BEActionList.push_back(UnbundleAction);
+          }
           for (const auto &A : DeviceLibObjects)
             BEActionList.push_back(A);
           DeviceBECompileAction =
@@ -5471,14 +5502,25 @@ InputInfo Driver::BuildJobsForActionNoCache(
                                                 DependentOffloadKind)}] =
           CurI;
     }
-
-    // Now that we have all the results generated, select the one that should be
-    // returned for the current depending action.
-    std::pair<const Action *, std::string> ActionTC = {
-        A, GetTriplePlusArchString(TC, BoundArch, TargetDeviceOffloadKind)};
-    assert(CachedResults.find(ActionTC) != CachedResults.end() &&
-           "Result does not exist??");
-    Result = CachedResults[ActionTC];
+    // Do a check for a dependency file unbundle for FPGA.  This is out of line
+    // from a regular unbundle, so just create and return the name of the
+    // unbundled file.
+    if (JA->getType() == types::TY_FPGA_Dependencies) {
+      std::string TmpFileName = C.getDriver().GetTemporaryPath(
+            llvm::sys::path::stem(BaseInput), "d");
+      const char *TmpFile =
+          C.addTempFile(C.getArgs().MakeArgString(TmpFileName));
+      Result = InputInfo(types::TY_FPGA_Dependencies, TmpFile, TmpFile);
+      UnbundlingResults.push_back(Result);
+    } else {
+      // Now that we have all the results generated, select the one that should
+      // be returned for the current depending action.
+      std::pair<const Action *, std::string> ActionTC = {
+          A, GetTriplePlusArchString(TC, BoundArch, TargetDeviceOffloadKind)};
+      assert(CachedResults.find(ActionTC) != CachedResults.end() &&
+             "Result does not exist??");
+      Result = CachedResults[ActionTC];
+    }
   } else if (JA->getType() == types::TY_Nothing)
     Result = InputInfo(A, BaseInput);
   else {
@@ -5626,9 +5668,11 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
   if ((!AtTopLevel && !isSaveTempsEnabled() &&
        (!C.getArgs().hasArg(options::OPT__SLASH_Fo) ||
         // FIXME - The use of /Fo is limited when offloading is enabled.  When
-        // compiling to exe use of /Fo does not produce the named obj
+        // compiling to exe use of /Fo does not produce the named obj.  We also
+        // should not use the named output when performing unbundling.
         (C.getArgs().hasArg(options::OPT__SLASH_Fo) &&
          (!JA.isOffloading(Action::OFK_None) ||
+          isa<OffloadUnbundlingJobAction>(JA) ||
           JA.getOffloadingHostActiveKinds() > Action::OFK_Host)))) ||
       CCGenDiagnostics) {
     StringRef Name = llvm::sys::path::filename(BaseInput);
@@ -5666,7 +5710,8 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
   // Determine what the derived output name should be.
   const char *NamedOutput;
 
-  if ((JA.getType() == types::TY_Object || JA.getType() == types::TY_LTO_BC) &&
+  if ((JA.getType() == types::TY_Object || JA.getType() == types::TY_LTO_BC ||
+       JA.getType() == types::TY_Archive) &&
       C.getArgs().hasArg(options::OPT__SLASH_Fo, options::OPT__SLASH_o)) {
     // The /Fo or /o flag decides the object filename.
     StringRef Val =
@@ -5790,7 +5835,7 @@ std::string Driver::GetFilePath(StringRef Name, const ToolChain &TC) const {
       SmallString<128> P(Dir[0] == '=' ? SysRoot + Dir.substr(1) : Dir);
       llvm::sys::path::append(P, Name);
       if (llvm::sys::fs::exists(Twine(P)))
-        return P.str().str();
+        return std::string(P);
     }
     return None;
   };
@@ -5801,17 +5846,17 @@ std::string Driver::GetFilePath(StringRef Name, const ToolChain &TC) const {
   SmallString<128> R(ResourceDir);
   llvm::sys::path::append(R, Name);
   if (llvm::sys::fs::exists(Twine(R)))
-    return R.str();
+    return std::string(R.str());
 
   SmallString<128> P(TC.getCompilerRTPath());
   llvm::sys::path::append(P, Name);
   if (llvm::sys::fs::exists(Twine(P)))
-    return P.str();
+    return std::string(P.str());
 
   SmallString<128> D(Dir);
   llvm::sys::path::append(D, "..", Name);
   if (llvm::sys::fs::exists(Twine(D)))
-    return D.str();
+    return std::string(D.str());
 
   if (auto P = SearchPaths(TC.getLibraryPaths()))
     return *P;
@@ -5819,7 +5864,7 @@ std::string Driver::GetFilePath(StringRef Name, const ToolChain &TC) const {
   if (auto P = SearchPaths(TC.getFilePaths()))
     return *P;
 
-  return Name;
+  return std::string(Name);
 }
 
 void Driver::generatePrefixedToolNames(
@@ -5856,11 +5901,11 @@ std::string Driver::GetProgramPath(StringRef Name, const ToolChain &TC) const {
     if (llvm::sys::fs::is_directory(PrefixDir)) {
       SmallString<128> P(PrefixDir);
       if (ScanDirForExecutable(P, TargetSpecificExecutables))
-        return P.str();
+        return std::string(P.str());
     } else {
       SmallString<128> P((PrefixDir + Name).str());
       if (llvm::sys::fs::can_execute(Twine(P)))
-        return P.str();
+        return std::string(P.str());
     }
   }
 
@@ -5868,7 +5913,7 @@ std::string Driver::GetProgramPath(StringRef Name, const ToolChain &TC) const {
   for (const auto &Path : List) {
     SmallString<128> P(Path);
     if (ScanDirForExecutable(P, TargetSpecificExecutables))
-      return P.str();
+      return std::string(P.str());
   }
 
   // If all else failed, search the path.
@@ -5877,7 +5922,7 @@ std::string Driver::GetProgramPath(StringRef Name, const ToolChain &TC) const {
             llvm::sys::findProgramByName(TargetSpecificExecutable))
       return *P;
 
-  return Name;
+  return std::string(Name);
 }
 
 std::string Driver::GetTemporaryPath(StringRef Prefix, StringRef Suffix) const {
@@ -5888,7 +5933,7 @@ std::string Driver::GetTemporaryPath(StringRef Prefix, StringRef Suffix) const {
     return "";
   }
 
-  return Path.str();
+  return std::string(Path.str());
 }
 
 std::string Driver::GetTemporaryDirectory(StringRef Prefix) const {
@@ -5899,7 +5944,7 @@ std::string Driver::GetTemporaryDirectory(StringRef Prefix) const {
     return "";
   }
 
-  return Path.str();
+  return std::string(Path.str());
 }
 
 std::string Driver::GetClPchPath(Compilation &C, StringRef BaseName) const {
@@ -5921,7 +5966,7 @@ std::string Driver::GetClPchPath(Compilation &C, StringRef BaseName) const {
       Output = BaseName;
     llvm::sys::path::replace_extension(Output, ".pch");
   }
-  return Output.str();
+  return std::string(Output.str());
 }
 
 const ToolChain &Driver::getToolChain(const ArgList &Args,

@@ -20,12 +20,12 @@
 
 /// Executed as a part of current module's (.exe, .dll) static initialization.
 /// Registers device executable images with the runtime.
-extern "C" void __tgt_register_lib(pi_device_binaries desc);
+extern "C" void __sycl_register_lib(pi_device_binaries desc);
 
 /// Executed as a part of current module's (.exe, .dll) static
 /// de-initialization.
 /// Unregisters device executable images with the runtime.
-extern "C" void __tgt_unregister_lib(pi_device_binaries desc);
+extern "C" void __sycl_unregister_lib(pi_device_binaries desc);
 
 // +++ }
 
@@ -44,7 +44,9 @@ struct ImageDeleter;
 enum DeviceLibExt {
   cl_intel_devicelib_assert = 0,
   cl_intel_devicelib_math,
-  cl_intel_devicelib_complex
+  cl_intel_devicelib_math_fp64,
+  cl_intel_devicelib_complex,
+  cl_intel_devicelib_complex_fp64
 };
 
 // Provides single loading and building OpenCL programs with unique contexts
@@ -79,7 +81,8 @@ private:
   using ProgramPtr = unique_ptr_class<remove_pointer_t<RT::PiProgram>,
                                       decltype(&::piProgramRelease)>;
   ProgramPtr build(ProgramPtr Program, RT::PiContext Context,
-                   const string_class &Options,
+                   const string_class &CompileOptions,
+                   const string_class &LinkOptions,
                    const std::vector<RT::PiDevice> &Devices,
                    std::map<DeviceLibExt, RT::PiProgram> &CachedLibPrograms,
                    bool LinkDeviceLibs = false);

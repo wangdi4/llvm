@@ -44,7 +44,7 @@ struct {
   // Please note that there is no way for passing -DMACRO=0 to llvm-tblgen,
   // and passing -DMACRO implies that both "#if MACRO" and "#ifdef MACRO"
   // will evaluate to true.
-  { tgtok::If, "if" },
+  { tgtok::IfPP, "if" },
 #endif  // INTEL_CUSTOMIZATION
   { tgtok::Ifdef, "ifdef" },
   { tgtok::Ifndef, "ifndef" },
@@ -361,6 +361,10 @@ tgtok::TokKind TGLexer::LexIdentifier() {
     .Case("field", tgtok::Field)
     .Case("let", tgtok::Let)
     .Case("in", tgtok::In)
+    .Case("defvar", tgtok::Defvar)
+    .Case("if", tgtok::If)
+    .Case("then", tgtok::Then)
+    .Case("else", tgtok::ElseKW)
     .Default(tgtok::Id);
 
   if (Kind == tgtok::Id)
@@ -683,7 +687,7 @@ tgtok::TokKind TGLexer::lexPreprocessor(
                     "preprocessor directive");
 
   if (Kind == tgtok::Ifdef || Kind == tgtok::Ifndef ||  // INTEL
-      Kind == tgtok::If) {      // INTEL
+      Kind == tgtok::IfPP) {      // INTEL
     StringRef MacroName = prepLexMacroName();
     StringRef IfTokName = Kind == tgtok::Ifdef ? "#ifdef" : "#ifndef";
     if (MacroName.empty())
@@ -733,7 +737,7 @@ tgtok::TokKind TGLexer::lexPreprocessor(
     PreprocessorControlDesc IfdefEntry = PrepIncludeStack.back()->back();
 
     if (IfdefEntry.Kind != tgtok::Ifdef && // INTEL
-        IfdefEntry.Kind != tgtok::If) {    // INTEL
+        IfdefEntry.Kind != tgtok::IfPP) {  // INTEL
       PrintError(TokStart, "double #else");
       return ReturnError(IfdefEntry.SrcPos, "Previous #else is here");
     }
@@ -767,7 +771,7 @@ tgtok::TokKind TGLexer::lexPreprocessor(
     auto &IfdefOrElseEntry = PrepIncludeStack.back()->back();
 
     if (IfdefOrElseEntry.Kind != tgtok::Ifdef &&
-        IfdefOrElseEntry.Kind != tgtok::If && // INTEL
+        IfdefOrElseEntry.Kind != tgtok::IfPP && // INTEL
         IfdefOrElseEntry.Kind != tgtok::Else) {
       PrintFatalError("Invalid preprocessor control on the stack");
       return tgtok::Error;

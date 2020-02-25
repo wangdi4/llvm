@@ -1,6 +1,6 @@
 //===---------------- DeleteField.cpp - DTransDeleteFieldPass -------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -193,7 +193,9 @@ bool DeleteFieldImpl::checkParentStructure(dtrans::StructInfo *ParentStruct) {
 
     dtrans::FieldInfo &Field = ParentStruct->getField(Idx);
     llvm::Type *FieldTy = Field.getLLVMType();
-    dtrans::TypeInfo *FieldTI = DTInfo->getOrCreateTypeInfo(FieldTy);
+    dtrans::TypeInfo *FieldTI = DTInfo->getTypeInfo(FieldTy);
+    assert(FieldTI && "Field TypeInfo must be created during analysis pass to "
+           "have safety data computed");
 
     // If the field is marked as address taken, then we need to make sure
     // that it passes the safety issues for delete fields.
@@ -729,14 +731,10 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
   if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
     return;
 
-  // The number of types in the pointer info and the number of types
+  // The number of types in the call element info and the number of types
   // in the OrigToNew type mapping should both be very small.
-  auto &PtrInfo = CInfo->getPointerTypeInfoRef();
-  for (auto *CallTy : PtrInfo.getTypes()) {
-    if (!CallTy->isPointerTy())
-      continue;
-
-    auto *PointeeTy = CallTy->getPointerElementType();
+  auto CallElemTypes = CInfo->getElementTypesRef();
+  for (auto *PointeeTy : CallElemTypes.getElemTypes())
 
     for (auto &ONPair : OrigToNewTypeMapping) {
       llvm::Type *OrigTy = ONPair.first;
@@ -759,7 +757,6 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
       const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
       updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
     }
-  }
 }
 
 void DeleteFieldImpl::processSubInst(Instruction *I) {
@@ -793,31 +790,28 @@ bool DeleteFieldImpl::typeContainsDeletedFields(llvm::Type *Ty) {
 
 GlobalVariable *
 DeleteFieldImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
-  Type *GVTy = GV->getType();
+  Type *ValueType = GV->getValueType();
+
+  // Let the base class handle replacing globals that are pointers. If the
+  // original value type is a pointer, then the replacement type is also going
+  // to be a pointer type, which can be handled by the base class.
+  if (ValueType->isPointerTy())
+    return nullptr;
 
   // If we aren't deleting fields from this type, let the base class handle it.
-  if (!typeContainsDeletedFields(GVTy->getPointerElementType()))
+  if (!typeContainsDeletedFields(ValueType))
     return nullptr;
 
-  Type *ReplTy = TypeRemapper->remapType(GVTy);
-
-  assert(GVTy != ReplTy &&
+  Type *ReplValueTy = TypeRemapper->remapType(ValueType);
+  assert(ValueType != ReplValueTy &&
          "createGlobalVariableReplacement called for unchanged type!");
-
-  // Globals are always pointers, so the variable we want to create is
-  // the element type of the pointer.
-  Type *RemapType = ReplTy->getPointerElementType();
-
-  // Let the base class handle replacing globals that are pointers.
-  if (RemapType->isPointerTy())
-    return nullptr;
 
   // Create and set the properties of the variable. The initialization of
   // the variable will not occur until all variables have been created
   // because there may be references to other variables being replaced in
   // the initializer list which have not been processed yet.
   GlobalVariable *NewGV = new GlobalVariable(
-      *(GV->getParent()), RemapType, GV->isConstant(), GV->getLinkage(),
+      *(GV->getParent()), ReplValueTy, GV->isConstant(), GV->getLinkage(),
       /*init=*/nullptr, GV->getName(),
       /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
       GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
@@ -877,11 +871,11 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
                                                 GlobalVariable *NewGV) {
   // If we didn't delete fields from this type, don't do anything with the
   // global variable. This happens with dependent types.
-  llvm::Type *OrigTy = OrigGV->getType()->getPointerElementType();
+  llvm::Type *OrigTy = OrigGV->getValueType();
   if (!typeContainsDeletedFields(OrigTy))
     return;
 
-  llvm::Type *ReplTy = NewGV->getType()->getPointerElementType();
+  llvm::Type *ReplTy = NewGV->getValueType();
   SmallVector<GEPOperator *, 4> GEPsToErase;
   for (auto *U : OrigGV->users()) {
     // Instructions will be processed elsewhere.

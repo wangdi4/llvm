@@ -11,6 +11,12 @@
 # RUN: cp %S/Inputs/bar.cpp bar_test_5.cpp
 # RUN: cp %S/Inputs/baz.cpp baz_test_5.cpp
 
+# Remove the objects and the executable related to the test
+# RUN: rm -f driver_test_5.obj foo_test_5.obj
+# RUN: rm -f test_sub_lib_5.lib
+# RUN: rm -f test_lib_5.lib
+# RUN: rm -f msgl_test_5
+
 # Compile with LTO
 # RUN: clang-cl -c -flto driver_test_5.cpp
 # RUN: clang-cl -c -flto foo_test_5.cpp
@@ -36,12 +42,8 @@ CHECK: Generating code
 CHECK: Finished generating code
 
 # Check that the executable runs correctly
-# RUN: ./msgl_test_5 | FileCheck -check-prefix=CHECKRUN5 %s
+# RUN: ./msgl_test_5 > %t_out 2>&1
+# RUN: cat %t_out | FileCheck -check-prefix=CHECKRUN5 %s
 CHECKRUN5: FOO: 1
 CHECKRUN5: BAR: 2
 CHECKRUN5: BAZ: 3
-
-# RUN: rm driver_test_5.obj foo_test_5.obj
-# RUN: rm msgl_test_5
-# RUN: rm test_sub_lib_5.lib
-# RUN: rm test_lib_5.lib

@@ -306,6 +306,19 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
           // should ignore vectorization profitability in vectorizer cost
           // model.
           W->setHasVectorAlways(L->hasVectorizeAlwaysPragma());
+          // TODO: Update to use "pragma vector vectorlength(N)" when support is
+          // added in FE.
+          unsigned PragmaBasedVF = L->getVectorizePragmaWidth();
+          unsigned LoopOptForcedVF = L->getForcedVectorWidth();
+          // VF forced via pragma takes higher precedence than LoopOpt's
+          // internal forced VF.
+          if (PragmaBasedVF > 0) {
+            assert(!W->getSimdlen() && "Cannot overwrite SIMD length value.");
+            W->setSimdlen(PragmaBasedVF);
+          } else if (LoopOptForcedVF > 0) {
+            assert(!W->getSimdlen() && "Cannot overwrite SIMD length value.");
+            W->setSimdlen(LoopOptForcedVF);
+          }
         }
       }
     }

@@ -817,22 +817,43 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     MI->setIsByRef(ClauseInfo.getIsByRef());
     ArraySectionInfo &ArrSecInfo = MI->getArraySectionInfo();
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr()) {
-    // "AGGRHEAD" or "AGGR" seen: expect 3 arguments: BasePtr, SectionPtr, Size
-    assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
+  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr() ||
+             NumArgs == 4) { // Map-chains with (BasePtr, SectionPtr,
+                             // Size, MapType)
+    // TODO: Remove handling of AGGR/AGGRHEAD type map-chains when clang only
+    // sends in the updated map-chains with 4 element links.
+    assert((NumArgs == 3 || NumArgs == 4) &&
+           "Malformed MAP:AGGR[HEAD]/CHAIN clause");
 
     assert (MapKind != MapItem::WRNMapUpdateTo &&
             MapKind != MapItem::WRNMapUpdateFrom &&
             "Unexpected Map Chain in a TO/FROM clause");
 
-    // Create a MapAggr for the triple: <BasePtr, SectionPtr, Size>.
+    // Create a MapAggr for: <BasePtr, SectionPtr, Size[, MapType]>.
     Value *BasePtr = (Value *)Args[0];
     Value *SectionPtr = (Value *)Args[1];
     Value *Size = (Value *)Args[2];
-    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
+    uint64_t MapType = 0;
+    bool AggrHasMapType = (NumArgs == 4);
+    if (AggrHasMapType) {
+      assert(isa<ConstantInt>(Args[3]) && "IR is corrupt");
+      ConstantInt *CI = dyn_cast<ConstantInt>(Args[3]);
+      MapType = CI->getZExtValue();
+    }
+    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
 
     MapItem *MI;
-    if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
+
+    // Head of the updated map-chains does not have any modifier equivalent to
+    // AGGRHEAD. Instead, only subsequent links in the chain have a CHAIN
+    // modifier. Example: QUAL.OMP.MAP(BasePtr, SectionPtr, Size, MapType)
+    // QUAL.OMP.MAP:CHAIN(...)
+    bool AggrStartsNewStyleMapChain =
+        (!ClauseInfo.getIsMapChainLink() && !ClauseInfo.getIsMapAggrHead() &&
+         !ClauseInfo.getIsMapAggr() && AggrHasMapType);
+
+    if (ClauseInfo.getIsMapAggrHead() || AggrStartsNewStyleMapChain) {
+      // Start a new chain: Add a MapItem
       MI = new MapItem(Aggr);
       MI->setOrig(BasePtr);
       MI->setIsByRef(ClauseInfo.getIsByRef());
@@ -844,9 +865,10 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
       MapChain.push_back(Aggr);
     }
     MI->setMapKind(MapKind);
-  }
-  else
-    // Scalar map items; create a MapItem for each of them
+  } else
+    // TODO: Remove this loop and add an assertion that non-chain maps should
+    // each have their own clause string.
+    // Scalar map items; create a MapItem for each of them.
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       C.add(V);
@@ -862,7 +884,13 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
   C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
 
   if (ClauseInfo.getIsArraySection()) {
-    //TODO: Parse array section arguments.
+    Value *V = Args[0];
+    C.add(V);
+    DependItem *DI = C.back();
+    DI->setIsIn(IsIn);
+    DI->setIsByRef(ClauseInfo.getIsByRef());
+    ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
+    ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
@@ -1587,6 +1615,7 @@ bool WRegionNode::needsOutlining() const {
   case WRNTaskloop:
   case WRNTeams:
   case WRNTarget:
+  case WRNTargetData:
     return true;
   }
   return false;

@@ -408,3 +408,16 @@ define i64 @ucodecall(i64 %s1, i64 %s2) {
   %e = add i64 %c, %d
   ret i64 %e
 }
+
+declare void @llvm.x86.icecode.set.tracker(i32)
+
+define void @set_tracker() {
+; CHECK-LABEL: set_tracker:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    settracker $0
+; CHECK-NEXT:    settracker $255
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.set.tracker(i32 0)
+  call void @llvm.x86.icecode.set.tracker(i32 255)
+  ret void
+}

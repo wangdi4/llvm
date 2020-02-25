@@ -77,7 +77,7 @@ void TypeFinder::run(const Module &M, bool onlyNamed) {
   }
 
   for (const auto &NMD : M.named_metadata())
-    for (const auto &MDOp : NMD.operands())
+    for (const auto *MDOp : NMD.operands())
       incorporateMDNode(MDOp);
 }
 
@@ -149,7 +149,7 @@ void TypeFinder::incorporateValue(const Value *V) {
 /// find types hiding within.
 void TypeFinder::incorporateMDNode(const MDNode *V) {
   // Already visited?
-  if (!VisitedMetadata.insert(V).second)
+  if (!V || !VisitedMetadata.insert(V).second) // INTEL
     return;
 
   // Look in operands for types.

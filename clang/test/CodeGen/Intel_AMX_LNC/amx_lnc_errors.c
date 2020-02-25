@@ -1,8 +1,7 @@
 // REQUIRES: intel_feature_isa_amx_lnc
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
-// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-int8-evex -target-feature +amx-bf16-evex -target-feature +amx-tile-evex -target-feature\
-// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex \
-// RUN: -emit-llvm -fsyntax-only -verify
+// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-transpose -target-feature +amx-avx512 \
+// RUN: -target-feature +avx512f -target-feature +amx-element-evex -emit-llvm -fsyntax-only -verify
 
 #include <immintrin.h>
 #include <stddef.h>
@@ -13,12 +12,6 @@ void test_tile_2rpntlvw(const void *A, size_t B, unsigned short C) {
 }
 void test_tile_2rpntlvwt1(const void *A, size_t B, unsigned short C) {
   _tile_2rpntlvwt1(16, A, B, C); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-void test_tile_2transposew(const void *A, size_t B, unsigned short C) {
-  _tile_2transposew(16, A, B, C); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-void test_tile_2transposewt1(const void *A, size_t B, unsigned short C) {
-  _tile_2transposewt1(16, A, B, C); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
 }
 
 // Reduce
@@ -31,10 +24,6 @@ void test_tile_coladdps(void *A) {
 }
 
 // Memory
-void test_tile_broadcastrowd(const void *A) {
-  _tile_broadcastrowd(16, A); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
 void test_tile_gatherrowd(const void *A, const void *B) {
   _tile_gatherrowd(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
 
@@ -66,30 +55,6 @@ void test_tile_scatterrowq(void *A, void *B) {
 
 void test_tile_scatterrowqt1(void *A, void *B) {
   _tile_scatterrowqt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-void test_tile_storehd(void *A, size_t B) {
-  _tile_storehd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-void test_tile_storehdt1(void *A, size_t B) {
-  _tile_storehdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-void test_tile_storentd(void *A, size_t B) {
-  _tile_storentd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-void test_tile_storeqd(void *A, size_t B) {
-  _tile_storeqd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-void test_tile_storeqdt1(void *A, size_t B) {
-  _tile_storeqdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-void test_tile_storerowd(void *A) {
-  _tile_storerowd(A, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
 }
 
 // Format
@@ -374,13 +339,6 @@ void test_tile_xord_mem(void *A) {
   _tile_xord_mem(1, 1, A); // expected-error {{tmul arguments must refer to different tiles}}
 }
 
-// FP16
-void test_tile_dpfp16ps() {
-  _tile_dpfp16ps(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpfp16ps(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpfp16ps(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
-}
-
 // AMXAVX512
 typedef float __m512 __attribute__((__vector_size__(64)));
 void test_tile_mov16zmm(__m512 tsrc1, __m512 tsrc2, __m512 tsrc3, __m512 tsrc4,
@@ -403,80 +361,6 @@ void test_tile_tilemovrowee(uint32_t A) {
 typedef float __m128 __attribute__((__vector_size__(16)));
 void test_tile_tilemovrowex(__m128 A) {
   _tile_tilemovrowex(16, A); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-// BF16-EVEX
-void test_tile_dpbf16pse() {
-  _tile_dpbf16pse(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbf16pse(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbf16pse(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbf16pse(32, 2, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbf16pse(1, 32, 3); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbf16pse(1, 2, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-// INT8-EVEX
-void test_tile_tdpbssde() {
-  _tile_dpbssde(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbssde(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbssde(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbssde(32, 2, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbssde(1, 32, 3); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbssde(1, 2, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_tdpbsude() {
-  _tile_dpbsude(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbsude(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbsude(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbsude(32, 2, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbsude(1, 32, 3); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbsude(1, 2, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_tdpbusde() {
-  _tile_dpbusde(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbusde(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbusde(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbusde(32, 2, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbusde(1, 32, 3); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbusde(1, 2, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_tdpbuude() {
-  _tile_dpbuude(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbuude(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbuude(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpbuude(32, 2, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbuude(1, 32, 3); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_dpbuude(1, 2, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-// TILE-EVEX
-void test_tile_loadde(const void * base, size_t stride) {
-  _tile_loadde(32, base, stride); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_tileloaddt164e(const void * base, size_t stride) {
-  _tile_stream_loadde(32, base, stride); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_tilestored64e(const void * base, size_t stride) {
-  _tile_storede(32, base, stride); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_tilemove() {
-  _tile_tilemove(1, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_tilemove(32, 2); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_tilemove(1, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_tilezeroe() {
-  _tile_zeroe(32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_cvtd2pse(void *A, size_t B) {
-  _tile_cvtd2pse(A, B, 32); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }
 
 void test_tile_cvtrowd2psei() {

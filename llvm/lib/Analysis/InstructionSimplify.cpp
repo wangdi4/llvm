@@ -519,6 +519,10 @@ static Value *ThreadCmpOverSelect(CmpInst::Predicate Pred, Value *LHS,
 static Value *threadCmpOverTwoSelects(CmpInst::Predicate Pred, Value *LHS,
                                       Value *RHS, const SimplifyQuery &Q,
                                       unsigned MaxRecurse) {
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!Q.TTI || !Q.TTI->isAdvancedOptEnabled(TTIAVX2))
+    return nullptr;
+
   // Recursion is always used, so bail out at once if we already hit the limit.
   if (!MaxRecurse--)
     return nullptr;
@@ -1468,9 +1472,6 @@ static Value *simplifyUnsignedRangeCheck(ICmpInst *ZeroICmp,
     if (match(UnsignedICmp,
               m_c_ICmp(UnsignedPred, m_Specific(A), m_Specific(B))) &&
         ICmpInst::isUnsigned(UnsignedPred)) {
-      if (UnsignedICmp->getOperand(0) != A)
-        UnsignedPred = ICmpInst::getSwappedPredicate(UnsignedPred);
-
       // A >=/<= B || (A - B) != 0  <-->  true
       if ((UnsignedPred == ICmpInst::ICMP_UGE ||
            UnsignedPred == ICmpInst::ICMP_ULE) &&
@@ -1500,9 +1501,6 @@ static Value *simplifyUnsignedRangeCheck(ICmpInst *ZeroICmp,
     //   Y <  A || Y == 0  --> Y <  A  iff B != 0
     if (match(UnsignedICmp,
               m_c_ICmp(UnsignedPred, m_Specific(Y), m_Specific(A)))) {
-      if (UnsignedICmp->getOperand(0) != Y)
-        UnsignedPred = ICmpInst::getSwappedPredicate(UnsignedPred);
-
       if (UnsignedPred == ICmpInst::ICMP_UGE && IsAnd &&
           EqPred == ICmpInst::ICMP_NE &&
           isKnownNonZero(B, Q.DL, /*Depth=*/0, Q.AC, Q.CxtI, Q.DT))
@@ -4053,6 +4051,15 @@ static Value *SimplifySelectInst(Value *Cond, Value *TrueVal, Value *FalseVal,
       return FalseVal;
   }
 
+  // select i1 Cond, i1 true, i1 false --> i1 Cond
+  assert(Cond->getType()->isIntOrIntVectorTy(1) &&
+         "Select must have bool or bool vector condition");
+  assert(TrueVal->getType() == FalseVal->getType() &&
+         "Select must have same types for true/false ops");
+  if (Cond->getType() == TrueVal->getType() &&
+      match(TrueVal, m_One()) && match(FalseVal, m_ZeroInt()))
+    return Cond;
+
   // select ?, X, X -> X
   if (TrueVal == FalseVal)
     return TrueVal;
@@ -4061,6 +4068,34 @@ static Value *SimplifySelectInst(Value *Cond, Value *TrueVal, Value *FalseVal,
     return FalseVal;
   if (isa<UndefValue>(FalseVal))   // select ?, X, undef -> X
     return TrueVal;
+
+  // Deal with partial undef vector constants: select ?, VecC, VecC' --> VecC''
+  Constant *TrueC, *FalseC;
+  if (TrueVal->getType()->isVectorTy() && match(TrueVal, m_Constant(TrueC)) &&
+      match(FalseVal, m_Constant(FalseC))) {
+    unsigned NumElts = TrueC->getType()->getVectorNumElements();
+    SmallVector<Constant *, 16> NewC;
+    for (unsigned i = 0; i != NumElts; ++i) {
+      // Bail out on incomplete vector constants.
+      Constant *TEltC = TrueC->getAggregateElement(i);
+      Constant *FEltC = FalseC->getAggregateElement(i);
+      if (!TEltC || !FEltC)
+        break;
+
+      // If the elements match (undef or not), that value is the result. If only
+      // one element is undef, choose the defined element as the safe result.
+      if (TEltC == FEltC)
+        NewC.push_back(TEltC);
+      else if (isa<UndefValue>(TEltC))
+        NewC.push_back(FEltC);
+      else if (isa<UndefValue>(FEltC))
+        NewC.push_back(TEltC);
+      else
+        break;
+    }
+    if (NewC.size() == NumElts)
+      return ConstantVector::get(NewC);
+  }
 
   if (Value *V =
           simplifySelectWithICmpCond(Cond, TrueVal, FalseVal, Q, MaxRecurse))
@@ -5648,12 +5683,16 @@ const SimplifyQuery getBestSimplifyQuery(Pass &P, Function &F) {
   auto *TLI = TLIWP ? &TLIWP->getTLI(F) : nullptr;
   auto *ACWP = P.getAnalysisIfAvailable<AssumptionCacheTracker>();
   auto *AC = ACWP ? &ACWP->getAssumptionCache(F) : nullptr;
-  return {F.getParent()->getDataLayout(), TLI, DT, AC};
+#if INTEL_CUSTOMIZATION
+  auto *TTIWP = P.getAnalysisIfAvailable<TargetTransformInfoWrapperPass>();
+  auto *TTI = TTIWP ? &TTIWP->getTTI(F) : nullptr;
+  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+#endif // INTEL_CUSTOMIZATION
 }
 
 const SimplifyQuery getBestSimplifyQuery(LoopStandardAnalysisResults &AR,
                                          const DataLayout &DL) {
-  return {DL, &AR.TLI, &AR.DT, &AR.AC};
+  return {DL, &AR.TLI, &AR.DT, &AR.AC, nullptr, true, &AR.TTI}; // INTEL
 }
 
 template <class T, class... TArgs>
@@ -5662,7 +5701,10 @@ const SimplifyQuery getBestSimplifyQuery(AnalysisManager<T, TArgs...> &AM,
   auto *DT = AM.template getCachedResult<DominatorTreeAnalysis>(F);
   auto *TLI = AM.template getCachedResult<TargetLibraryAnalysis>(F);
   auto *AC = AM.template getCachedResult<AssumptionAnalysis>(F);
-  return {F.getParent()->getDataLayout(), TLI, DT, AC};
+#if INTEL_CUSTOMIZATION
+  auto *TTI = AM.template getCachedResult<TargetIRAnalysis>(F);
+  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+#endif // INTEL_CUSTOMIZATION
 }
 template const SimplifyQuery getBestSimplifyQuery(AnalysisManager<Function> &,
                                                   Function &);

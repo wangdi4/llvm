@@ -12,6 +12,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <string>   // INTEL
 
 static const std::string help =
 "   Help\n"
@@ -27,6 +28,23 @@ int main(int argc, char* argv[]) {
     }
 
     std::string type = argv[1];
+
+#if INTEL_CUSTOMIZATION
+    // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
+    // TODO: until CORC-7342 is fixed SYCL_BE=PI_OTHER will only see GPU
+    // devices, so return 0 for everything else.
+    //
+    if (std::string("PI_OTHER") == std::getenv("SYCL_BE")) {
+        if (type != "gpu") {
+            std::cout << "0:" << type << " device is not supported "
+                << "with SYCL_BE=PI_OTHER (CORC-7342)" << std::endl;
+            return 0;
+        }
+        std::cout << "1:L0 GPU assumed under SYCL_BE=PI_OTHER" << std::endl;
+        return 0;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     cl_device_type device_type;
     if (type == "cpu") {
         device_type = CL_DEVICE_TYPE_CPU;

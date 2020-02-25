@@ -1,6 +1,6 @@
 //===--- HIRLMMImpl.h -----------------------------------------*- C++ -*---===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,6 +21,9 @@
 
 namespace llvm {
 
+class DominatorTree;
+class FieldModRefResult;
+
 namespace loopopt {
 
 class DDGraph;
@@ -31,42 +34,37 @@ namespace lmm {
 
 // MemRefGroup has a vector of MemRefs, with supporting data
 class MemRefGroup {
-  SmallVector<RegDDRef *, 8> RefV;
-  bool IsProfitable;
-  bool IsLegal;
-
-  bool IsAnalyzed;
-  bool HasLoad, HasLoadOnDomPath, HasStore, HasStoreOnDomPath;
-  HLLoop *Lp = nullptr;
-
 public:
+  typedef SmallVector<RegDDRef *, 8> RefVecTy;
+  typedef RefVecTy::iterator iterator;
+  typedef RefVecTy::const_iterator const_iterator;
+
   MemRefGroup(RegDDRef *FirstRef);
 
-  bool getProfitable(void) const { return IsProfitable; }
-  void setProfitable(bool NewFlag) { IsProfitable = NewFlag; }
-  bool getLegal(void) const { return IsLegal; }
+  bool isProfitable(void) const { return IsProfitable; }
+  bool isLegal(void) const { return IsLegal; }
   void setLegal(bool NewFlag) { IsLegal = NewFlag; }
 
-  void insert(RegDDRef *Ref) { RefV.push_back(Ref); }
-  void clear(void) { RefV.clear(); }
+  void insert(RegDDRef *Ref) { RefVec.push_back(Ref); }
 
-  unsigned getSize(void) const { return RefV.size(); }
+  iterator begin() { return RefVec.begin(); }
+  iterator end() { return RefVec.end(); }
 
-  RegDDRef *get(unsigned Idx) const {
-    assert((Idx < RefV.size()) && "Idx is out of bound\n");
-    return RefV[Idx];
+  const_iterator begin() const { return RefVec.begin(); }
+  const_iterator end() const { return RefVec.end(); }
+
+  unsigned size(void) const { return RefVec.size(); }
+
+  RegDDRef *operator[](unsigned Idx) const {
+    assert((Idx < RefVec.size()) && "Idx is out of bound\n");
+    return RefVec[Idx];
   }
 
-  void set(unsigned Idx, RegDDRef *Ref) {
-    assert((Idx < RefV.size()) && "Idx is out of bound\n");
-    RefV[Idx] = Ref;
-  }
-
-  // Check if the given RegDDRef* belongs to the current MRG
+  // Check if the given RegDDRef* belongs to the current Group
   bool belongs(RegDDRef *Ref) const;
 
-  // Statistically analyze all ref(s) in the MRG
-  void analyze(void);
+  // Statistically analyze all ref(s) in the Group
+  void analyze(const HLLoop *Lp, DominatorTree *DT, bool LoopNestHoistingOnly);
 
   // *** Supported Queries ***
   bool hasAnyLoadOrStoreOnDominatePath(void) const {
@@ -99,6 +97,14 @@ public:
   // E.g.: A[0] { R W R R .. W } 5W:3R
   LLVM_DUMP_METHOD void print(bool NewLine = false);
 #endif
+private:
+  RefVecTy RefVec;
+
+  bool IsProfitable;
+  bool IsLegal;
+
+  bool IsAnalyzed;
+  bool HasLoad, HasLoadOnDomPath, HasStore, HasStoreOnDomPath;
 };
 
 // MemRefCollection is a SmallVector of MemRefGroup
@@ -110,17 +116,21 @@ public:
 // A[1] { W R .. R     } 1W:4R
 // ..
 //
-struct MemRefCollection {
-  SmallVector<MemRefGroup, 8> MRVV;
+class MemRefCollection {
+public:
+  typedef SmallVector<MemRefGroup, 8> GroupsTy;
+  typedef GroupsTy::iterator iterator;
+  typedef GroupsTy::const_iterator const_iterator;
 
-  unsigned getSize(void) const { return MRVV.size(); }
-  bool isEmpty(void) { return MRVV.empty(); }
-  void clear(void) { MRVV.clear(); }
+  unsigned size(void) const { return MemRefGroups.size(); }
+  bool empty(void) { return MemRefGroups.empty(); }
+  void clear(void) { MemRefGroups.clear(); }
 
-  MemRefGroup &get(unsigned Idx) {
-    assert(Idx < MRVV.size());
-    return MRVV[Idx];
-  }
+  iterator begin() { return MemRefGroups.begin(); }
+  iterator end() { return MemRefGroups.end(); }
+
+  const_iterator begin() const { return MemRefGroups.begin(); }
+  const_iterator end() const { return MemRefGroups.end(); }
 
   // find if a given Ref is available in the collection
   //
@@ -133,9 +143,9 @@ struct MemRefCollection {
   void insert(RegDDRef *Ref);
 
   // analyze each group in MRC by checking Load(s), store(s), etc.
-  void analyze(void) {
-    for (auto &MRG : MRVV) {
-      MRG.analyze();
+  void analyze(const HLLoop *Lp, DominatorTree *DT, bool LoopNestHoistingOnly) {
+    for (auto &Group : MemRefGroups) {
+      Group.analyze(Lp, DT, LoopNestHoistingOnly);
     }
   }
 
@@ -143,6 +153,8 @@ struct MemRefCollection {
   // Dump MemRefGroup: A[0] { R W R R .. W } 5W:3R
   LLVM_DUMP_METHOD void print(void);
 #endif
+private:
+  GroupsTy MemRefGroups;
 };
 
 class HIRLMM {
@@ -150,68 +162,93 @@ class HIRLMM {
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
   HLNodeUtils &HNU;
+  DominatorTree *DT;
+  FieldModRefResult *FieldModRef;
 
   MemRefCollection MRC;
+  SmallVector<HLInst *, 8> UnknownAliasingCallInsts;
 
-  class CollectMemRefs;
+  DDGraph DDG;
+
   unsigned LoopLevel = 0;
+  bool LoopNestHoistingOnly;
 
 public:
-  HIRLMM(HIRFramework &HIRF, HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS)
-      : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()) {}
-
-  // The only entry for all caller(s) for doing loop memory motion
-  bool doLoopMemoryMotion(HLLoop *Lp);
+  HIRLMM(HIRFramework &HIRF, HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
+         DominatorTree *DT = nullptr, FieldModRefResult *FieldModRef = nullptr,
+         bool LoopNestHoistingOnly = false)
+      : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()), DT(DT),
+        FieldModRef(FieldModRef), LoopNestHoistingOnly(LoopNestHoistingOnly) {}
 
   bool run();
 
+  // Exposed as a utility to be called on demand.
+  // Returns true if \p MemRef is invariant inside \p Loop. \p If IgnoreIVs is
+  // set to true, any IVs present inside \p MemRef will be ignored when making
+  // structural checks.
+  bool isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Loop,
+                       bool IgnoreIVs);
+
 private:
-  bool doLoopPreliminaryChecks(const HLLoop *Lp);
+  bool doLoopMemoryMotion(HLLoop *Lp);
 
-  bool doCollection(HLLoop *Lp);
+  bool doLoopPreliminaryChecks(const HLLoop *Lp,
+                               bool AllowUnknownAliasingCalls);
 
-  bool isProfitable(const HLLoop *Lp);
+  /// Collects candidate memrefs and unknown aliasing calls insts.
+  /// If \p CandidateMemRef is non-null, it is the only candidate considered.
+  /// If \p IgnoreIVs is set to true, any IVs present inside candidate memrefs
+  /// will be ignored when making structural checks.
+  bool doCollection(HLLoop *Lp, RegDDRef *CandidateMemRef = nullptr,
+                    bool IgnoreIVs = false);
+
+  bool processLegalityAndProfitability(const HLLoop *Lp);
 
   bool isLegal(const HLLoop *Lp);
-  bool isLegal(const HLLoop *Lp, MemRefGroup &MRG, DDGraph &DDG);
-  bool areDDEdgesLegal(const HLLoop *Lp, const RegDDRef *Ref, DDGraph &DDG);
+
+  /// \p QueryMode indicates that this pass only intends to query invariance but
+  /// not perform any transformation.
+  bool isLegal(const HLLoop *Lp, const MemRefGroup &Group,
+               bool QueryMode = false);
 
   // Analyze the Loop by doing collection, profit analysis and legal analysis.
-  // Return true indicates that the loop has at least 1 MRG suitable
+  // Return true indicates that the loop has at least 1 Group suitable
   // (profitable+legal) for LMM.
   bool doAnalysis(HLLoop *Lp);
 
   void doTransform(HLLoop *Lp);
 
-  // Do LIMM Reference Promotion on the given MRG
-  void doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
+  // Do LIMM Reference Promotion on the given Group
+  void doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
                  SmallSet<unsigned, 32> &TempRefSet);
 
-  bool isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG);
+  HLInst *
+  canHoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
+                                 SmallSet<unsigned, 32> &TempRefSet) const;
 
-  bool canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef, MemRefGroup &MRG,
-                          SmallSet<unsigned, 32> &TempRefSet) const;
-
-  bool canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef, MemRefGroup &MRG,
+  bool canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef, MemRefGroup &Group,
                           SmallSet<unsigned, 32> &TempRefSet) const;
 
   void handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpDDRef,
                           bool IsLoadOnly);
 
-  bool hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
-                         SmallSet<unsigned, 32> &TempRefSet,
-                         LoopOptReportBuilder &LORBuilder);
+  bool hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
+                                     SmallSet<unsigned, 32> &TempRefSet,
+                                     LoopOptReportBuilder &LORBuilder);
 
-  bool sinkedSingleStore(HLLoop *Lp, RegDDRef *StoreRef, MemRefGroup &MRG,
-                         SmallSet<unsigned, 32> &TempRefSet,
-                         LoopOptReportBuilder &LORBuilder);
+  bool sinkedStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
+                                     MemRefGroup &Group,
+                                     SmallSet<unsigned, 32> &TempRefSet,
+                                     LoopOptReportBuilder &LORBuilder);
 
   HLLoop *getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
-                                             MemRefGroup &MRG);
+                                             MemRefGroup &Group);
 
-  void setLinear(DDRef *TmpRef);
-
-  void clearWorkingSetMemory(void) { MRC.clear(); }
+  void clearWorkingSetMemory() {
+    MRC.clear();
+    UnknownAliasingCallInsts.clear();
+    DDG.clear();
+  }
 
   // *** Utility functions ***
   HLInst *createLoadInPreheader(HLLoop *InnermostLp, RegDDRef *Ref,

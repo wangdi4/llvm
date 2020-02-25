@@ -1,18 +1,22 @@
 ; RUN: opt -vplan-force-vf=4 -S -VPlanDriver -disable-vplan-predicator < %s | FileCheck %s
 
 ; CHECK-LABEL: foo
-; CHECK: vector.body
-; CHECK:  %index = phi i64 [ 0, %vector.ph ], [ %index.next, %[[VPBB1:.*]] ]
-; CHECK:  br i1 %cmp1, label %[[VPBB1]], label %[[VPBB:.*]]
+; CHECK:   vector.body
+; CHECK:      %index = phi i64 [ 0, %vector.ph ], [ %index.next, %[[VPBB1:.*]] ]
+; CHECK-NEXT: [[SCAL_PHI:%.*]] = phi i64 [ 1, %vector.ph ], [ [[SCAL_NDX:%.*]], %[[VPBB1]] ]
+; CHECK-NEXT: [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 1, i64 2, i64 3, i64 4>, %vector.ph ], [ [[VEC_NDX:%.*]], %[[VPBB1]] ]
+; CHECK:      br i1 %cmp1, label %[[VPBB1]], label %[[VPBB:.*]]
 
 ; CHECK: [[VPBB]]:
 ; CHECK:   %wide.load{{.*}} = load <4 x i32>, <4 x i32>*
 ; CHECK:   br label %[[VPBB1]]
 
 ; CHECK: [[VPBB1]]:
-; CHECK:  phi <4 x i32> [ %wide.load, %[[VPBB]] ], [ <i32 6, i32 6, i32 6, i32 6>, %vector.body ]
-; CHECK: %wide.load{{.*}} = load <4 x i32>,
-
+; CHECK:      phi <4 x i32> [ %wide.load, %[[VPBB]] ], [ <i32 6, i32 6, i32 6, i32 6>, %vector.body ]
+; CHECK:      %wide.load{{.*}} = load <4 x i32>,
+; CHECK:      [[VEC_NDX]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-NEXT: [[SCAL_NDX]] = add nuw nsw i64 [[SCAL_PHI]], 4
+;
 ;void foo(int *A, int *B, int N, int c) {
 ;  for (int i=0: N) {
 ;    if (c != 0)

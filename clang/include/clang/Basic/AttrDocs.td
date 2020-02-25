@@ -260,6 +260,7 @@ The ``sycl_kernel`` attribute specifies that a function template will be used
 to outline device code and to generate an OpenCL kernel.
 Here is a code example of the SYCL program, which demonstrates the compiler's
 outlining job:
+
 .. code-block:: c++
 
   int foo(int x) { return ++x; }
@@ -282,27 +283,29 @@ compilation of functions for the device part can be found in the SYCL 1.2.1
 specification Section 6.4.
 To show to the compiler entry point to the "device part" of the code, the SYCL
 runtime can use the ``sycl_kernel`` attribute in the following way:
-.. code-block:: c++
-namespace cl {
-namespace sycl {
-class handler {
-  template <typename KernelName, typename KernelType/*, ...*/>
-  __attribute__((sycl_kernel)) void sycl_kernel_function(KernelType KernelFuncObj) {
-    // ...
-    KernelFuncObj();
-  }
 
-  template <typename KernelName, typename KernelType, int Dims>
-  void parallel_for(range<Dims> NumWorkItems, KernelType KernelFunc) {
-#ifdef __SYCL_DEVICE_ONLY__
-    sycl_kernel_function<KernelName, KernelType, Dims>(KernelFunc);
-#else
-    // Host implementation
-#endif
-  }
-};
-} // namespace sycl
-} // namespace cl
+.. code-block:: c++
+
+  namespace cl {
+  namespace sycl {
+  class handler {
+    template <typename KernelName, typename KernelType/*, ...*/>
+    __attribute__((sycl_kernel)) void sycl_kernel_function(KernelType KernelFuncObj) {
+      // ...
+      KernelFuncObj();
+    }
+
+    template <typename KernelName, typename KernelType, int Dims>
+    void parallel_for(range<Dims> NumWorkItems, KernelType KernelFunc) {
+  #ifdef __SYCL_DEVICE_ONLY__
+      sycl_kernel_function<KernelName, KernelType, Dims>(KernelFunc);
+  #else
+      // Host implementation
+  #endif
+    }
+  };
+  } // namespace sycl
+  } // namespace cl
 
 The compiler will also generate an OpenCL kernel using the function marked with
 the ``sycl_kernel`` attribute.
@@ -1876,9 +1879,9 @@ with N banks.
   }];
 }
 
-def IntelFPGAMaxPrivateCopiesAttrDocs : Documentation {
+def IntelFPGAPrivateCopiesAttrDocs : Documentation {
   let Category = DocCatVariable;
-  let Heading = "max_private_copies (IntelFPGA)";
+  let Heading = "private_copies (IntelFPGA)";
   let Content = [{
 This attribute may be attached to a variable or struct member declaration and
 instructs the backend to replicate the memory generated for the variable or
@@ -2009,6 +2012,16 @@ device kernel, the attribute is ignored and it is not propagated to a kernel.
   }];
 }
 
+def SYCLIntelUsesGlobalWorkOffsetDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "uses_global_work_offset (IntelFPGA)";
+  let Content = [{
+Applies to a device function/lambda function or function call operator (of a
+function object). If 0, compiler doesn't use the global work offset values for
+the device function. Valid values are 0 and 1.
+  }];
+}
+
 def SYCLFPGAPipeDocs : Documentation {
   let Category = DocCatStmt;
   let Heading = "pipe (read_only, write_only)";
@@ -2018,6 +2031,53 @@ It requires a string argument that specifies if the pipe is read only or
 write only. Expected to be used only in SYCL headers.
   }];
 }
+
+// INTEL_CUSTOMIZATION
+def LoopFuseDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "loop_fuse";
+  let Content = [{
+The ``#pragma loop fuse`` directive applies to a scope (compound statement). A
+``loop_fuse`` construct specifies a region of code where the compiler will
+attempt to fuse adjacent loops. The default behavior at -O3 is the compiler
+attempts to fuse loops it considers safe and profitable. #pragma loop_fuse
+causes the compiler to ignore the profitability analysis part. Additional
+clauses to the pragma can be specified to cause the compiler to ignore different
+aspects of the safety analysis.
+
+If a ``depth`` clause is present, the integer-expression parameter value defines
+the number of nesting depths at which fusion of adjacent loops will be attempted
+foregoing the compiler's profitability analysis. The depth clause extends the
+applicability of the ``loop_fuse`` construct to all loops nested in top-level
+loops contained in the construct at nesting depth less-than or equal to the
+clause parameter, including loops that become adjacent as a result of fusion of
+their corresponding containing loops. In the absence of a `depth` clause, only
+loops at the top-level of the ``loop_fuse`` construct will attempt to be fused,
+ignoring the compiler's profitability analysis (i.e. loops not contained in
+other loops defined within the construct). ``depth`` clause with a parameter of
+1 is equivalent to absence of a ``depth`` clause.
+
+If an ``independent`` clause is present, adjacent loops that are fusion
+candidates within a ``loop_fuse`` construct are assumed to have no
+negative-distance data access dependencies. That is, for two adjacent loops
+considered for fusion, iterations of the logically-second loop will not access
+data elements produced in a later iteration of the logically-first loop. The
+``independent`` clause overloads the compiler's static analysis during Loop
+Fusion safety analysis. ``independent`` clause applies to loops at all nesting
+depths as specified by the ``depth`` clause that are explicitly defined inside
+the ``loop_fuse`` construct.
+
+If a function call is present in a ``loop_fuse`` construct at any of the
+applicable nesting depths, and inlining the function call materializes a loop,
+then the resulting loop is considered to be a candidate for fusion.
+
+Default clauses are none, making the ``loop_fuse`` construct unable to introduce
+a functional error on its own. Introduction of an ``independent`` clause is a
+guarantee by the user that bypasses a respective aspect of the compiler's safety
+analysis and might lead to functional errors.
+  }];
+}
+// end INTEL_CUSTOMIZATION
 
 def SYCLIntelFPGAIVDepAttrDocs : Documentation {
   let Category = DocCatVariable;
@@ -2108,6 +2168,19 @@ no direct uses from other device functions. All ``sycl_device`` function callees
 implicitly inherit this attribute.
   }];
 }
+
+// INTEL_CUSTOMIZATION
+def HLSDeviceDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "hls_device";
+  let Content = [{
+This attribute can only be applied to functions and indicates that the
+function must be treated as a device function and must be emitted even if it has
+no direct uses from other device functions. All ``hls_device`` function callees
+implicitly inherit this attribute.
+  }];
+}
+// end INTEL_CUSTOMIZATION
 
 def RISCVInterruptDocs : Documentation {
   let Category = DocCatFunction;
@@ -3326,7 +3399,8 @@ must be compiled and executed with a sub-group of size n. The value of n must be
 set to a sub-group size supported by the device, or device compilation will fail.
 
 In addition to device functions, the required sub-group size attribute may also
-be specified in the definition of a named functor object, as in the example below:
+be specified in the definition of a named functor object and lambda functions,
+as in the examples below:
 
 .. code-block:: c++
 
@@ -3337,6 +3411,11 @@ be specified in the definition of a named functor object, as in the example belo
           /* kernel code */
       }
   }
+
+  kernel<class kernel_name>(
+  []() [[cl::intel_reqd_sub_group_size(n)]] {
+       /* kernel code */
+  });
 
 See Sub-groups for NDRange Parallelism proposal in sycl/doc/extensions/sub_group_ndrange/sub_group_ndrange.md
   }];
@@ -4315,6 +4394,16 @@ If a function has neither of these attributes, they become subject to the XRay h
   }];
 }
 
+def PatchableFunctionEntryDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+``__attribute__((patchable_function_entry(N,M)))`` is used to generate M NOPs
+before the function entry and N-M NOPs after the function entry. This attribute
+takes precedence over the command line option ``-fpatchable-function-entry=N,M``.
+``M`` defaults to 0 if omitted.
+}];
+}
+
 def TransparentUnionDocs : Documentation {
   let Category = DocCatDecl;
   let Content = [{
@@ -4705,7 +4794,7 @@ below. The explicit attribute annotation indicates that the third parameter
 (`start_routine`) is called zero or more times by the `pthread_create` function,
 and that the fourth parameter (`arg`) is passed along. Note that the callback
 behavior of `pthread_create` is automatically recognized by Clang. In addition,
-the declarations of `__kmpc_fork_teams` and `__kmpc_fork_call`, generated for 
+the declarations of `__kmpc_fork_teams` and `__kmpc_fork_call`, generated for
 `#pragma omp target teams` and `#pragma omp parallel`, respectively, are also
 automatically recognized as broker functions. Further functions might be added
 in the future.
@@ -4885,6 +4974,26 @@ This attribute does not affect optimizations in any way, unlike GCC's
 }];
 }
 
+def CFGuardDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+Code can indicate CFG checks are not wanted with the ``__declspec(guard(nocf))``
+attribute. This directs the compiler to not insert any CFG checks for the entire
+function. This approach is typically used only sparingly in specific situations 
+where the programmer has manually inserted "CFG-equivalent" protection. The 
+programmer knows that they are calling through some read-only function table 
+whose address is obtained through read-only memory references and for which the 
+index is masked to the function table limit. This approach may also be applied 
+to small wrapper functions that are not inlined and that do nothing more than 
+make a call through a function pointer. Since incorrect usage of this directive 
+can compromise the security of CFG, the programmer must be very careful using 
+the directive. Typically, this usage is limited to very small functions that 
+only call one function.
+
+`Control Flow Guard documentation <https://docs.microsoft.com/en-us/windows/win32/secbp/pe-metadata>`
+}];
+}
+
 def HIPPinnedShadowDocs : Documentation {
   let Category = DocCatType;
   let Content = [{
@@ -4917,7 +5026,7 @@ object of type ``T``:
 
 The argument ``T`` is optional and is ignored.
 This attribute may be used by analysis tools and has no effect on code
-generation.
+generation. A ``void`` argument means that the class can own any type.
 
 See Pointer_ for an example.
 }];
@@ -4943,7 +5052,7 @@ like pointers to an object of type ``T``:
 
 The argument ``T`` is optional and is ignored.
 This attribute may be used by analysis tools and has no effect on code
-generation.
+generation. A ``void`` argument means that the pointer can point to any type.
 
 Example:
 When constructing an instance of a class annotated like this (a Pointer) from
@@ -5083,4 +5192,46 @@ close the handle. It is also assumed to require an open handle to work with.
 
   zx_status_t zx_handle_close(zx_handle_t handle [[clang::release_handle]]);
   }];
+}
+
+def ArmMveStrictPolymorphismDocs : Documentation {
+    let Category = DocCatType;
+    let Content = [{
+This attribute is used in the implementation of the ACLE intrinsics for the Arm
+MVE instruction set. It is used to define the vector types used by the MVE
+intrinsics.
+
+Its effect is to modify the behavior of a vector type with respect to function
+overloading. If a candidate function for overload resolution has a parameter
+type with this attribute, then the selection of that candidate function will be
+disallowed if the actual argument can only be converted via a lax vector
+conversion. The aim is to prevent spurious ambiguity in ARM MVE polymorphic
+intrinsics.
+
+.. code-block:: c++
+
+  void overloaded(uint16x8_t vector, uint16_t scalar);
+  void overloaded(int32x4_t vector, int32_t scalar);
+  uint16x8_t myVector;
+  uint16_t myScalar;
+
+  // myScalar is promoted to int32_t as a side effect of the addition,
+  // so if lax vector conversions are considered for myVector, then
+  // the two overloads are equally good (one argument conversion
+  // each). But if the vector has the __clang_arm_mve_strict_polymorphism
+  // attribute, only the uint16x8_t,uint16_t overload will match.
+  overloaded(myVector, myScalar + 1);
+
+However, this attribute does not prohibit lax vector conversions in contexts
+other than overloading.
+
+.. code-block:: c++
+
+  uint16x8_t function();
+
+  // This is still permitted with lax vector conversion enabled, even
+  // if the vector types have __clang_arm_mve_strict_polymorphism
+  int32x4_t result = function();
+
+    }];
 }

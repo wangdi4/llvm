@@ -61,25 +61,18 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
   auto replaceReductionVarInTask = [&](WRegionNode *W,
                                        ReductionClause &RedClause) {
     W->populateBBSet();
-    BasicBlock *EntryBB = W->getEntryBBlock();
-    BasicBlock *ExitBB = W->getExitBBlock();
 
     for (ReductionItem *RedI : RedClause.items()) {
 
       Value *Orig = RedI->getOrig();
 
-      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-        Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        auto *NewPrivInst =
-            genPrivatizationAlloca(RedI, AllocaInsertPt, ".red");
-        genPrivatizationReplacement(W, Orig, NewPrivInst);
+      if (!isa<GlobalVariable>(Orig) && !isa<AllocaInst>(Orig))
+          continue;
 
-        IRBuilder<> Builder(EntryBB->getTerminator());
-        VPOParoptUtils::genCopyByAddr(NewPrivInst, RedI->getNew(),
-                                      EntryBB->getTerminator());
-        VPOParoptUtils::genCopyByAddr(RedI->getNew(), NewPrivInst,
-                                      ExitBB->getTerminator());
-      }
+      Instruction *InsertPt = GeneralUtils::nextUniqueInstruction(
+          cast<Instruction>(RedI->getNew()));
+      auto *NewPrivInst = getClauseItemReplacementValue(RedI, InsertPt);
+      genPrivatizationReplacement(W, Orig, NewPrivInst);
     }
   };
 
@@ -420,8 +413,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   auto reserveFieldsForItemInPrivateThunk = [&](Item *I) {
     Type *ElementTy = nullptr;
     Value *NumElements = nullptr;
-    unsigned AddrSpace = 0;
-    getItemInfo(I, ElementTy, NumElements, AddrSpace);
+    std::tie(ElementTy, NumElements, std::ignore) = getItemInfo(I);
     if (!NumElements) {
       PrivateThunkTypes.push_back(ElementTy);
       I->setPrivateThunkIdx(PrivateCount++);
@@ -742,6 +734,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
                                      IRBuilder<> &Builder) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
+        computeArraySectionTypeOffsetSize(*RedI, &*Builder.GetInsertPoint());
+
         StringRef OrigName = RedI->getOrig()->getName();
         Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
             KmpSharedTy, SharedCast,
@@ -749,12 +743,31 @@ bool VPOParoptTransform::genTaskLoopInitCode(
             OrigName + ".shr.gep");
         Value *ThunkSharedVal =
             Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
+
+        // The __kmpc_task_reduction_get_th_data call needs the pointer to the
+        // actual data being reduced, after any pointer dereferences or offset
+        // additions.
+        if (RedI->getIsByRef())
+          ThunkSharedVal =
+              Builder.CreateLoad(ThunkSharedVal, OrigName + ".shr.deref");
+
+        if (RedI->getIsArraySection()) {
+          const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+          ThunkSharedVal = genBasePlusOffsetGEPForArraySection(
+              ThunkSharedVal, ArrSecInfo, &*Builder.GetInsertPoint());
+        }
+
         Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
             W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
             Mode & OmpTbb);
         RedRes->setName(OrigName + ".red");
-        Value *RedResCast = Builder.CreateBitCast(
-            RedRes, RedI->getOrig()->getType(), OrigName + ".red.cast");
+
+        Type *ElementType = nullptr;
+        std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+
+        Type *RedNewTy = PointerType::getUnqual(ElementType);
+        Value *RedResCast =
+            Builder.CreateBitCast(RedRes, RedNewTy, OrigName + ".red.cast");
         RedI->setNew(RedResCast);
       }
     }
@@ -1145,10 +1158,12 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
 Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
                                                      ReductionItem *RedI) {
   LLVMContext &C = F->getContext();
-  Value *Orig = RedI->getOrig();
   Module *M = F->getParent();
 
-  Type *TaskLoopRedInitParams[] = {Orig->getType()};
+  Type *ElementType = nullptr;
+  std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+
+  Type *TaskLoopRedInitParams[] = {PointerType::getUnqual(ElementType)};
   FunctionType *TaskLoopRedInitFnTy =
       FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
 
@@ -1183,10 +1198,13 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
 Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
                                                      ReductionItem *RedI) {
   LLVMContext &C = F->getContext();
-  Value *Orig = RedI->getOrig();
   Module *M = F->getParent();
 
-  Type *TaskLoopRedInitParams[] = {Orig->getType(), Orig->getType()};
+  Type *ElementType = nullptr;
+  std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+
+  Type *TaskLoopRedInitParams[] = {PointerType::getUnqual(ElementType),
+                                   PointerType::getUnqual(ElementType)};
   FunctionType *TaskLoopRedInitFnTy =
       FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
 
@@ -1210,7 +1228,10 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
 
   Value *NewRedInst = RedI->getNew();
 
-  genReductionFini(W, RedI, DstArg, EntryBB->getTerminator(), &DT);
+  genReductionFini(
+      W, RedI, DstArg, EntryBB->getTerminator(), &DT,
+      true); // There is no need for extra dereference/offset computation on the
+             // destination arg in the reduction combiner for tasks.
 
   NewRedInst->replaceAllUsesWith(SrcArg);
 
@@ -1374,31 +1395,50 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
   const DataLayout DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
   for (DependItem *DepI : DepClause.items()) {
+    Value *Orig = DepI->getOrig();
+    Value *Size = nullptr;
+    Value *BasePtr = Orig;
+    Type *IntPtrTy = Builder.getIntPtrTy(DL);
+
+    // TODO: Paropt doesn't support code generation for non-contiguous sections,
+    // the plan is for the frontend to send us an array section in this form:
+    // "(0, i64 %number_of_elements_from_start_to_end, 1)
+    // %gep_with_starting_offset".
+    computeArraySectionTypeOffsetSize(Orig, DepI->getArraySectionInfo(),
+                                      DepI->getIsByRef(), InsertBefore);
 
     Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
         KmpTaskTDependVecTy, DummyTaskTDependVec,
-        {Builder.getInt32(0), Builder.getInt32(Count++)});
+        {Builder.getInt32(0), Builder.getInt32(Count++)}, ".dep.struct");
 
-    Value *Gep =
-        Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                  {Builder.getInt32(0), Builder.getInt32(0)});
-    Builder.CreateStore(
-        Builder.CreatePtrToInt(DepI->getOrig(),
-                               DL.getIntPtrType(DepI->getOrig()->getType())),
-        Gep);
+    if (DepI->getIsArraySection()) {
+      const ArraySectionInfo &ArrSecInfo = DepI->getArraySectionInfo();
+      BasePtr =
+          genBasePlusOffsetGEPForArraySection(Orig, ArrSecInfo, InsertBefore);
+      Value *NumElements = ArrSecInfo.getSize();
+      Value *ElementSize = Builder.getIntN(
+          DL.getPointerSizeInBits(),
+          DL.getTypeSizeInBits(ArrSecInfo.getElementType()) / 8);
+      Size = Builder.CreateMul(NumElements, ElementSize,
+                               Orig->getName() + ".size.in.bytes");
+    } else
+      Size = Builder.getIntN(
+          DL.getPointerSizeInBits(),
+          DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+
+    Value *Gep = Builder.CreateInBoundsGEP(
+        KmpTaskDependInfoTy, BaseTaskTDependGep,
+        {Builder.getInt32(0), Builder.getInt32(0)}, ".dep.base.ptr");
+    Builder.CreateStore(Builder.CreatePtrToInt(BasePtr, IntPtrTy), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                    {Builder.getInt32(0), Builder.getInt32(1)});
-    Builder.CreateStore(
-        (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
-            ? Builder.getInt64(DL.getTypeAllocSize(
-                  DepI->getOrig()->getType()->getPointerElementType()))
-            : Builder.getInt32(DL.getTypeAllocSize(
-                  DepI->getOrig()->getType()->getPointerElementType())),
-        Gep);
+                                    {Builder.getInt32(0), Builder.getInt32(1)},
+                                    ".dep.num.bytes");
+    Builder.CreateStore(Size, Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                    {Builder.getInt32(0), Builder.getInt32(2)});
+                                    {Builder.getInt32(0), Builder.getInt32(2)},
+                                    ".dep.flags");
     Builder.CreateStore(Builder.getInt8(DepI->getIsIn() ? 0x1 : 0x3), Gep);
   }
 
@@ -1439,6 +1479,11 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   unsigned Count = 0;
   for (ReductionItem *RedI : RedClause.items()) {
 
+    // For non-taskgroups, computeArraySectionTypeOffsetSize is called as part
+    // of genTaskInitCode/genTaskLoopInitCode.
+    if (isa<WRNTaskgroupNode>(W) && RedI->getIsArraySection())
+      computeArraySectionTypeOffsetSize(*RedI, InsertBefore);
+
     StringRef NamePrefix = RedI->getOrig()->getName();
 
     Value *BaseTaskTRedGep = Builder.CreateInBoundsGEP(
@@ -1447,16 +1492,37 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
     Value *Gep = Builder.CreateInBoundsGEP(
         KmpTaskTRedTy, BaseTaskTRedGep, {Zero, Zero}, NamePrefix + ".red.item");
-    Builder.CreateStore(
-        Builder.CreateBitCast(RedI->getOrig(), Type::getInt8PtrTy(C)), Gep);
+
+    // The reduction item struct needs to store the starting address of the
+    // actual data to be reduced (after any offset computation, or  dereference
+    // for by-refs etc.)
+    Value *RedIBase = RedI->getOrig();
+    if (RedI->getIsByRef())
+      RedIBase = Builder.CreateLoad(RedIBase, NamePrefix + ".orig.deref");
+
+    if (RedI->getIsArraySection()) {
+      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+      RedIBase = genBasePlusOffsetGEPForArraySection(RedIBase, ArrSecInfo,
+                                                     InsertBefore);
+    }
+    Builder.CreateStore(Builder.CreateBitCast(RedIBase, Type::getInt8PtrTy(C)),
+                        Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
                                     {Zero, Builder.getInt32(1)},
                                     NamePrefix + ".red.size");
-    Builder.CreateStore(
-        Builder.getInt64(DL.getTypeAllocSize(
-            RedI->getOrig()->getType()->getPointerElementType())),
-        Gep);
+
+    Type *ElementType = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElementType, NumElements, std::ignore) = getItemInfo(RedI);
+
+    Value *ElementSize = Builder.getInt64(DL.getTypeAllocSize(ElementType));
+
+    Value *Size = nullptr;
+    Size = NumElements ? Builder.CreateMul(ElementSize, NumElements,
+                                           NamePrefix + ".red.size")
+                       : ElementSize;
+    Builder.CreateStore(Size, Gep);
 
     Function *RedInitFunc = genTaskLoopRedInitFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
@@ -1505,6 +1571,16 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
     return;
   for (DependItem *DepI : DepClause.items()) {
     resetValueInOmpClauseGeneric(W, DepI->getOrig());
+    if (DepI->getIsArraySection()) {
+      const auto &ArraySectionDims =
+          DepI->getArraySectionInfo().getArraySectionDims();
+
+      for (const auto &Dim : ArraySectionDims) {
+        resetValueInOmpClauseGeneric(W, std::get<0>(Dim));
+        resetValueInOmpClauseGeneric(W, std::get<1>(Dim));
+        resetValueInOmpClauseGeneric(W, std::get<2>(Dim));
+      }
+    }
   }
 }
 

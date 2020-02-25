@@ -274,10 +274,11 @@ def AllowMissingTypenameDocs : Documentation {
   let RegressionTest = "cfeCpp/cq117771";
   let Owner = "";
   let CompatVersions = "";
+  let Default = 0;
   let Content = [{
 Microsoft allows you to leave off typename in some contexts.  Clang also
 allows this in MSVCCompat mode.  See isMicrosoftMissingTypename in
-SemaDecl.cpp.
+SemaDecl.cpp. This behavior is off-by-default.
 
 The Intel compiler allows this in more cases than Clang and in some cases
 more than Microsoft.
@@ -1013,6 +1014,75 @@ The ``loop_count`` pragma specifies the minimum, maximum, or average number of
 iterations for a for loop. In addition, a list of commonly occurring values
 can be specified to help the compiler generate multiple versions and perform
 complete unrolling.
+  }];
+}
+
+def PragmaLoopFuseDocs : Documentation {
+  let Category = DocCatIntelHLSPragmas;
+  let Option = "IntelCompat";
+  let RegressionTest = "SemaIntelHLS/loop_fuse.cpp, CodeGenIntelHLS/loop_fuse.cpp";
+  let Owner = "achikin";
+  let Content = [{
+A ``loop_fuse`` construct specifies a region of code where the compiler will
+attempt to fuse adjacent loops.
+Syntax:
+
+.. code-block:: text
+
+  #pragma loop_fuse [depth(depth-val)] [independent]
+  { // structured-block: compound statement
+    ...
+  }
+
+Implements a new attribute (LoopFuseAttr). Generates IR directives that
+surround the applicable scope.
+
+Example:
+
+.. code-block:: c
+  void foo(float* A, float* B, float* C) {
+    #pragma loop_fuse depth(2) independent
+    {
+      for (int i = 0; i < 1024; ++i)
+        C[i] += A[i];
+      for (int j = 0; j < 1024; ++j)
+        C[j] += B[j];
+    }
+  }
+
+
+AST:
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.c
+
+.. code-block:: text
+  `-FunctionDecl 0x896bef8 <doc.c:1:1, line:9:1> line:1:6 foo 'void (float *, float *, float *)'
+  |-ParmVarDecl 0x896bd10 <col:10, col:17> col:17 used A 'float *'
+  |-ParmVarDecl 0x896bd90 <col:20, col:27> col:27 used B 'float *'
+  |-ParmVarDecl 0x896be10 <col:30, col:37> col:37 used C 'float *'
+  `-CompoundStmt 0x896c6d0 <col:40, line:9:1>
+    `-AttributedStmt 0x896c6b8 <line:3:3, line:8:3>
+      |-LoopFuseAttr 0x896c670 <line:3:3, line:8:3> 2 "independent"
+      `-CompoundStmt 0x896c650 <line:3:3, line:8:3>
+        |-ForStmt 0x896c310 <line:4:5, line:5:18>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - doc.c
+
+.. code-block:: llvm
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.FUSE"(), "QUAL.PRAGMA.FUSE.DISTANCE"(i32 2), "QUAL.PRAGMA.FUSE.INDEPENDENT"() ]
+
+  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.FUSE"() ]
+  }];
+ let UserContent = [{
+The ``loop_fuse`` pragma specifies a region of code where the compiler will
+attempt to fuse adjacent loops, letting you exert greater control over
+optimizations on adjacent loops.
   }];
 }
 

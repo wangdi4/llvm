@@ -28,9 +28,26 @@ add_library(pi_level0 SHARED
 
 add_dependencies(sycl-toolchain pi_level0)
 
-target_link_libraries(pi_level0 PRIVATE "${L0_LIBRARY}")
 if (UNIX)
+  target_link_libraries(pi_level0 PRIVATE "${L0_LIBRARY}")
   target_link_libraries(pi_level0 PRIVATE pthread)
+else()
+  # We cannot use UNC paths with forward slashes with MS linker,
+  # so we have to copy the L0 library to the current binary directory.
+  # Only static import library is copied which means that runtime is
+  # not affected by this copy.
+  # TODO: implement removal of this file to be sure that it doesn't
+  # cause any side effects
+  get_filename_component(L0_LIB_BASENAME "${L0_LIBRARY}" NAME)
+  set(L0_LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/${L0_LIB_BASENAME})
+  add_custom_target(l0-lib-file
+    DEPENDS "${L0_LIBRARY}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+	  "${L0_LIBRARY}" ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Copying ${L0_LIBRARY} to ${CMAKE_CURRENT_BINARY_DIR}")
+
+  add_dependencies(pi_level0 l0-lib-file)
+  target_link_libraries(pi_level0 PRIVATE ${L0_LIB_FILE})
 endif()
 
 add_common_options(pi_level0)

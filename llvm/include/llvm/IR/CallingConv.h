@@ -246,6 +246,11 @@ namespace CallingConv {
     SVML = 100,
     /// \brief Calling convention for functions only touch AVX2 vector registers
     X86_AVX2_C = 101,
+    /// Intel_OCL_BI_AVX - Calling conventions for Intel OpenCL AVX built-ins
+    Intel_OCL_BI_AVX = 102,
+    /// Intel_OCL_BI_AVX512 - Calling conventions for Intel OpenCL AVX512
+    /// built-ins
+    Intel_OCL_BI_AVX512 = 103,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

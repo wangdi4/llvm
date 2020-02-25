@@ -23,6 +23,7 @@ add_llvm_unittest(AnalysisTests
 # end INTEL_CUSTOMIZATION
   IVDescriptorsTest.cpp
   LazyCallGraphTest.cpp
+  LoadsTest.cpp
   LoopInfoTest.cpp
   MemoryBuiltinsTest.cpp
   MemorySSATest.cpp

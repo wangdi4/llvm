@@ -808,19 +808,25 @@ private:
   Value *BasePtr;
   Value *SectionPtr;
   Value *Size;
+  uint64_t MapType;
 public:
-  MapAggrTy(Value *BP, Value *SP, Value *Sz) : BasePtr(BP), SectionPtr(SP),
-                                               Size(Sz) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz)
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(0) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT)
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT) {}
   void setBasePtr(Value *BP) { BasePtr = BP; }
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
+  void setMapType(uint64_t MT) { MapType = MT;}
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
+  uint64_t getMapType() const { return MapType; }
 };
 
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
+class UseDevicePtrItem;
 //
 //   MapItem: OMP MAP clause item
 //
@@ -829,8 +835,11 @@ class MapItem : public Item
 private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
+  UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
   MapChainTy MapChain;
-  ArraySectionInfo ArrSecInfo;      // For TARGET UPDATE TO/FROM clauses
+  ArraySectionInfo ArrSecInfo;    // For TARGET UPDATE TO/FROM clauses
+  Instruction *BasePtrGEPForOrig; // GEP for Orig in the  baseptrs struct sent
+                                  // to tgt runtime calls.
 
 public:
   enum WRNMapKind {
@@ -845,9 +854,12 @@ public:
     WRNMapUpdateFrom = 0x0080,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr) {}
+  MapItem(VAR Orig)
+      : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr),
+        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {}
   MapItem(MapAggrTy *Aggr)
-      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr) {
+      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr),
+        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {
     MapChain.push_back(Aggr);
   }
   ~MapItem() {
@@ -884,7 +896,7 @@ public:
     MapChain.push_back(Aggr);
   }
 
-  bool getIsMapChain() const { return MapChain.size() > 0; }
+  bool getIsMapChain() const { return !MapChain.empty(); }
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -917,7 +929,7 @@ public:
       case QUAL_OMP_MAP_ALWAYS_DELETE:
         return WRNMapDelete | WRNMapAlways;
       default:
-        llvm_unreachable("Unsupported MAP Clause ID");
+        return WRNMapNone;
     }
   };
 
@@ -930,8 +942,11 @@ public:
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
+  void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
+  void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
 
   unsigned getMapKind()     const { return MapKind; }
+  bool getIsMapNone()       const { return MapKind == WRNMapNone; }
   bool getIsMapTo()         const { return MapKind & WRNMapTo; }
   bool getIsMapFrom()       const { return MapKind & WRNMapFrom; }
   bool getIsMapTofrom()     const { return (MapKind & WRNMapFrom) &&
@@ -943,6 +958,8 @@ public:
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
+  UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
+  Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
 
   ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
   const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
@@ -958,13 +975,16 @@ public:
         Value *BasePtr = Aggr->getBasePtr();
         Value *SectionPtr = Aggr->getSectionPtr();
         Value *Size = Aggr->getSize();
+        uint64_t MapType = Aggr->getMapType();
         OS << "<" ;
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
         SectionPtr->printAsOperand(OS, PrintType);
         OS << ", ";
         Size->printAsOperand(OS, PrintType);
-        OS << "> ";
+        OS << ", ";
+        OS << MapType;
+        OS <<  "> ";
       }
       OS << ") ";
     } else if (getIsArraySection()) {
@@ -999,11 +1019,13 @@ class IsDevicePtrItem : public Item
 //
 class UseDevicePtrItem : public Item
 {
-  public:
-    UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
-    static bool classof(const Item *I) {
-      return I->getKind() == IK_UseDevicePtr;
-    }
+  MapItem *InMap;
+
+public:
+  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+  void setInMap(MapItem *MI) { InMap = MI; }
+  MapItem *getInMap() const { return InMap; }
+  static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
 };
 
 
@@ -1027,20 +1049,19 @@ class DependItem
     VAR   Base;           // scalar item or base of array section
     bool  IsByRef;        // true if Base is by-reference
     bool  IsIn;           // depend type: true for IN; false for OUT/INOUT
-    bool  IsArraySection; // if true, then lb, length, stride below are used
     EXPR  LowerBound;     // null if unspecified
     EXPR  Length;         // null if unspecified
     EXPR  Stride;         // null if unspecified
+    ArraySectionInfo ArrSecInfo;
 
   public:
-    DependItem(VAR V=nullptr) : Base(V), IsByRef(false), IsIn(true),
-    IsArraySection(false), LowerBound(nullptr), Length(nullptr),
-    Stride(nullptr) {}
+    DependItem(VAR V = nullptr)
+        : Base(V), IsByRef(false), IsIn(true), LowerBound(nullptr),
+          Length(nullptr), Stride(nullptr) {}
 
     void setOrig(VAR V)         { Base = V; }
     void setIsByRef(bool Flag)  { IsByRef = Flag; }
     void setIsIn(bool Flag)     { IsIn = Flag; }
-    void setIsArrSec(bool Flag) { IsArraySection = Flag; }
     void setLb(EXPR Lb)         { LowerBound = Lb;   }
     void setLength(EXPR Len)    { Length = Len;  }
     void setStride(EXPR Str)    { Stride = Str;  }
@@ -1048,14 +1069,22 @@ class DependItem
     VAR  getOrig()      const   { return Base; }
     bool getIsByRef()   const   { return IsByRef; }
     bool getIsIn()      const   { return IsIn; }
-    bool getIsArrSec()  const   { return IsArraySection; }
     EXPR getLb()        const   { return LowerBound; }
     EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
+    ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
+    const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
+    bool getIsArraySection() const {
+      return !ArrSecInfo.getArraySectionDims().empty();
+    };
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsByRef())
         OS << "BYREF";
+      if (getIsArraySection()) {
+        OS << " ";
+        ArrSecInfo.print(OS, PrintType);
+      }
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -1137,6 +1166,7 @@ template <typename ClauseItem> class Clause
 {
   friend class WRegionNode;
   friend class WRegionUtils;
+  friend class VPOParoptTransform;
   private:
     typedef typename std::vector<ClauseItem*>       ItemArray;
     typedef typename ItemArray::iterator            Iterator;

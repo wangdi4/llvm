@@ -4,9 +4,7 @@
 ; CHECK-LABEL: region.0
 ; CHECK: loop{{.*}}:
 ; CHECK-NEXT: %[[IV:.*]] = load i64, i64* %i1.i64
-; CHECK-NEXT: %[[IVONE:.*]] = add i64 %[[IV]], 1
-; CHECK-NEXT: %[[IVONELB:.*]] = sub nsw i64 %[[IVONE:.*]], 1
-; CHECK-NEXT: %[[P:.*]] = getelementptr inbounds [100 x float], [100 x float]* %"foo_$X", i64 0, i64 %[[IVONELB]]
+; CHECK-NEXT: %[[P:.*]] = getelementptr inbounds [100 x float], [100 x float]* %"foo_$X", i64 0, i64 %[[IV]]
 ; CHECK-NEXT: store float 1.500000e+01, float* %[[P]]
 
 source_filename = "fortran-simple.f"

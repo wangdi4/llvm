@@ -16,11 +16,11 @@
 ; Check that the master thread predicate is computed and used only once.
 ; The three side-effect stores inside the target region are consecuitive,
 ; so they may be guarded all at once:
-; CHECK-DAG: [[ID0:%[a-zA-Z._0-9]+]] = call i64 @_Z12get_local_idj(i32 0)
+; CHECK-DAG: [[ID0:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK-DAG: [[CMP0:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID0]], 0
-; CHECK-DAG: [[ID1:%[a-zA-Z._0-9]+]] = call i64 @_Z12get_local_idj(i32 1)
+; CHECK-DAG: [[ID1:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 1)
 ; CHECK-DAG: [[CMP1:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID1]], 0
-; CHECK-DAG: [[ID2:%[a-zA-Z._0-9]+]] = call i64 @_Z12get_local_idj(i32 2)
+; CHECK-DAG: [[ID2:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 2)
 ; CHECK-DAG: [[CMP2:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID2]], 0
 ; CHECK-DAG: [[AND:%[a-zA-Z._0-9]+]] = and i1 [[CMP0]], [[CMP1]]
 ; CHECK-DAG: [[PRED:%[a-zA-Z._0-9]+]] = and i1 [[AND]], [[CMP2]]
@@ -30,10 +30,10 @@
 ; CHECK: [[FALLTHRU]]:
 ; CHECK-NOT: br i1 [[PRED]]
 ; An extra call to get_local_id(0) is required for parallel for:
-; CHECK: call i64 @_Z12get_local_idj(i32 0)
-; CHECK-NOT: call i64 @_Z12get_local_idj(i32 0)
-; CHECK-NOT: call i64 @_Z12get_local_idj(i32 1)
-; CHECK-NOT: call i64 @_Z12get_local_idj(i32 2)
+; CHECK: call spir_func i64 @_Z12get_local_idj(i32 0)
+; CHECK-NOT: call{{.*}}@_Z12get_local_idj(i32 0)
+; CHECK-NOT: call{{.*}}@_Z12get_local_idj(i32 1)
+; CHECK-NOT: call{{.*}}@_Z12get_local_idj(i32 2)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

@@ -8,14 +8,21 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 option(SYCL_ENABLE_WERROR "Treat all warnings as errors in SYCL project" OFF)
 
+# enable all warnings by default
+if (MSVC)
+  set(CMAKE_CXX_FLAGS "/W4 ${CMAKE_CXX_FLAGS}")
+else ()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-deprecated-declarations")
+endif()
+
 if(SYCL_ENABLE_WERROR)
   if(MSVC)
-    set(CMAKE_CXX_FLAGS "/W4 /WX ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "/WX ${CMAKE_CXX_FLAGS}")
     add_definitions(
       -wd4996 # Suppress 'function': was declared deprecated'
     )
   else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
   endif()
 endif()
 
@@ -241,15 +248,12 @@ add_custom_target( sycl-toolchain
           clang-offload-wrapper
           clang-offload-bundler
           llc
-          llvm-as
           llvm-ar
-          llvm-dis
           llvm-foreach
           llvm-no-spir-kernel
           llvm-spirv
           llvm-link
           llvm-objcopy
-          opt
           sycl-post-link
 # INTEL_CUSTOMIZATION
           sycl-config-file
@@ -280,27 +284,17 @@ endif()
 
 # Package deploy support
 # Listed here are component names contributing the package
-# INTEL_CUSTOMIZATION
-# WARNING: the components list below does not affect creation
-# WARNING: of official Intel software products. Please use
-# WARNING: llvm/CMakeLists.txt to define components that
-# WARNING: must appear in the official releases
-# WARNING: (look for INTEL_CMAKE_DEPLOY).
-# end INTEL_CUSTOMIZATION
 set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      clang
      clang-offload-wrapper
      clang-offload-bundler
      llc
-     llvm-as
      llvm-ar
-     llvm-dis
      llvm-foreach
      llvm-no-spir-kernel
      llvm-spirv
      llvm-link
      llvm-objcopy
-     opt
      sycl-post-link
      clang-resource-headers
      opencl-headers
@@ -308,15 +302,19 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl
      pi_opencl
 # INTEL_CUSTOMIZATION
-     sycl-config-file
+     # Please add xmain specific deploy components
+     # under the existing if(INTEL_CUSTOMIZATION)
+     # guard below.
 # end INTEL_CUSTOMIZATION
 )
 
-# INTEL_CUSTOMIZATION
-if (CMAKE_SYCL_USE_LEVEL0)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
-endif()
-# end INTEL_CUSTOMIZATION
+if(INTEL_CUSTOMIZATION)
+  # Add xmain specific deploy components here.
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
+  if (CMAKE_SYCL_USE_LEVEL0)
+    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
+  endif()
+endif(INTEL_CUSTOMIZATION)
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it
@@ -326,6 +324,12 @@ add_custom_command(OUTPUT __force_it
 set(__chain_dep __force_it)
 
 set(manifest_list)
+if(INTEL_CUSTOMIZATION)
+  # Keep the list in cache to have some useful info in the build logs.
+  set(SYCL_DEPLOY_COMPONENTS ${SYCL_TOOLCHAIN_DEPLOY_COMPONENTS} CACHE INTERNAL
+    "SYCL deploy components for xmain product."
+    )
+endif(INTEL_CUSTOMIZATION)
 foreach( comp ${SYCL_TOOLCHAIN_DEPLOY_COMPONENTS} )
   message( STATUS "Adding component ${comp} to deploy")
 

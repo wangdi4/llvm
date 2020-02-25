@@ -1,6 +1,6 @@
 //===-- DTransOptBase.cpp - Common base classes for DTrans Transforms---==//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -725,10 +725,11 @@ void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
         DTInfo->replaceCallInfoInstruction(
             CInfo, cast<Instruction>(VMap[CInfo->getInstruction()]));
 
-      dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
-      size_t Num = PTI.getNumTypes();
+      dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
+      size_t Num = ElementTypes.getNumTypes();
       for (size_t i = 0; i < Num; ++i)
-        PTI.setType(i, TypeRemapper->remapType(PTI.getType(i)));
+        ElementTypes.setElemType(
+            i, TypeRemapper->remapType(ElementTypes.getElemType(i)));
     }
 }
 
@@ -781,12 +782,11 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
   for (auto *F : WL) {
     // If the function signature changes as a result of the type remapping
     // then a clone will be necessary.
-    Type *FuncTy = F->getType();
-    Type *ReplTy = TypeRemapper->remapType(FuncTy);
-    if (ReplTy != FuncTy) {
-      Function *NewF =
-          Function::Create(cast<FunctionType>(ReplTy->getPointerElementType()),
-                           F->getLinkage(), F->getName(), &M);
+    Type *FuncValueTy = F->getValueType();
+    Type *FuncReplValueTy = TypeRemapper->remapType(FuncValueTy);
+    if (FuncReplValueTy != FuncValueTy) {
+      Function *NewF = Function::Create(cast<FunctionType>(FuncReplValueTy),
+                                        F->getLinkage(), F->getName(), &M);
       NewF->copyAttributesFrom(F);
       VMap[F] = NewF;
 
@@ -819,17 +819,21 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
 void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
   // Build a work list of global variables that are going to need to be
   // remapped due to their types getting changed. Store the existing
-  // global variable and the type the replacement should be in the work list.
-  SmallVector<std::pair<GlobalVariable *, Type *>, 8> GlobalsWL;
+  // global variable and the value type of the replacement in the work list.
+  // (Note, global variables are always pointer types. This is storing the value
+  // type of the object the global points to. This will be important for when
+  // opaque pointers are enabled to know whether the variable needs to be
+  // remapped.)
+  SmallVector<std::pair<GlobalVariable *, Type *>, 8> GlobalToRemapValueTyWL;
   for (auto &GV : M.globals()) {
     // If the type changes as a result of the type remapping
     // then a clone of the variable will be necessary.
-    Type *GVTy = GV.getType();
-    Type *RemapTy = TypeRemapper->remapType(GVTy);
-    if (RemapTy != GVTy) {
+    Type *ValueTy = GV.getValueType();
+    Type *ValueRemapTy = TypeRemapper->remapType(ValueTy);
+    if (ValueRemapTy != ValueTy) {
       LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Need to replace global variable: "
                         << GV << "\n");
-      GlobalsWL.push_back(std::make_pair(&GV, RemapTy));
+      GlobalToRemapValueTyWL.push_back(std::make_pair(&GV, ValueRemapTy));
     }
   }
 
@@ -838,7 +842,7 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
   // facilitate how the new variable will be initialized.
   DenseMap<GlobalVariable *, GlobalVariable *> LocalVMap;
   SmallPtrSet<GlobalVariable *, 4> SubclassHandledGVMap;
-  for (auto &GVTypePair : GlobalsWL) {
+  for (auto &GVTypePair : GlobalToRemapValueTyWL) {
     GlobalVariable *GV = GVTypePair.first;
 
     // Give the derived class a chance to handle replacing the global variable.
@@ -850,14 +854,14 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
     } else {
       // Globals are always pointers, so the variable we want to create is
       // the element type of the pointer.
-      Type *RemapType = GVTypePair.second->getPointerElementType();
+      Type *NewValueType = GVTypePair.second;
 
       // Create and set the properties of the variable. The initialization of
       // the variable will not occur until all variables have been created
       // because there may be references to other variables being replaced in
       // the initializer list which have not been processed yet.
       NewGV = new GlobalVariable(
-          M, RemapType, GV->isConstant(), GV->getLinkage(),
+          M, NewValueType, GV->isConstant(), GV->getLinkage(),
           /*init=*/nullptr, GV->getName(),
           /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
           GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
@@ -891,10 +895,11 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
     // then this GlobalAlias needs to be updated.
     auto VMapIt = VMap.find(Aliasee);
     if (VMapIt != VMap.end() && VMapIt->second != Aliasee) {
-      Type *RemapTy = VMapIt->second->getType();
+      llvm::Type *ValTy = Alias.getValueType();
+      llvm::Type *RemapValTy = TypeRemapper->remapType(ValTy);
       auto *NewAlias = GlobalAlias::create(
-          RemapTy->getPointerElementType(), Alias.getType()->getAddressSpace(),
-          Alias.getLinkage(), "", Mapper.mapConstant(*Aliasee), &M);
+          RemapValTy, Alias.getType()->getAddressSpace(), Alias.getLinkage(),
+          "", Mapper.mapConstant(*Aliasee), &M);
       NewAlias->takeName(&Alias);
       VMap[&Alias] = NewAlias;
       GlobalsForRemoval.push_back(&Alias);

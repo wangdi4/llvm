@@ -246,6 +246,11 @@ struct PragmaMaxInterleavingHandler : public PragmaHandler {
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &Tok);
 };
+struct PragmaLoopFuseHandler : public PragmaHandler {
+  explicit PragmaLoopFuseHandler(const char *name) : PragmaHandler(name) {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                    Token &Tok);
+};
 struct PragmaIVDepHandler : public PragmaHandler {
   PragmaIVDepHandler(const char *name) : PragmaHandler(name) {}
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
@@ -328,6 +333,18 @@ struct PragmaAttributeHandler : public PragmaHandler {
 
   /// A pool of attributes that were parsed in \#pragma clang attribute.
   ParsedAttributes AttributesForPragmaAttribute;
+};
+
+struct PragmaMaxTokensHereHandler : public PragmaHandler {
+  PragmaMaxTokensHereHandler() : PragmaHandler("max_tokens_here") {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                    Token &FirstToken) override;
+};
+
+struct PragmaMaxTokensTotalHandler : public PragmaHandler {
+  PragmaMaxTokensTotalHandler() : PragmaHandler("max_tokens_total") {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                    Token &FirstToken) override;
 };
 
 }  // end namespace
@@ -447,6 +464,8 @@ void Parser::initializePragmaHandlers() {
     MaxInterleavingHandler =
         std::make_unique<PragmaMaxInterleavingHandler>("max_interleaving");
     PP.AddPragmaHandler(MaxInterleavingHandler.get());
+    LoopFuseHandler = std::make_unique<PragmaLoopFuseHandler>("loop_fuse");
+    PP.AddPragmaHandler(LoopFuseHandler.get());
     IIAtMostHandler = std::make_unique<PragmaHLSConstArgHandler>("ii_at_most");
     PP.AddPragmaHandler(IIAtMostHandler.get());
     IIAtLeastHandler =
@@ -473,8 +492,6 @@ void Parser::initializePragmaHandlers() {
     DistributePointHandler =
         std::make_unique<PragmaDistributePointHandler>("distribute_point");
     PP.AddPragmaHandler(DistributePointHandler.get());
-    NoFusionHandler = std::make_unique<PragmaNoFusionHandler>("nofusion");
-    PP.AddPragmaHandler(NoFusionHandler.get());
     FusionHandler = std::make_unique<PragmaFusionHandler>("fusion");
     PP.AddPragmaHandler(FusionHandler.get());
   }
@@ -485,6 +502,8 @@ void Parser::initializePragmaHandlers() {
   if (HLSCompat || IntelCompat) {
     IVDepHandler = std::make_unique<PragmaIVDepHandler>("ivdep");
     PP.AddPragmaHandler(IVDepHandler.get());
+    NoFusionHandler = std::make_unique<PragmaNoFusionHandler>("nofusion");
+    PP.AddPragmaHandler(NoFusionHandler.get());
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
     VectorHandler = std::make_unique<PragmaVectorHandler>("vector");
@@ -515,6 +534,12 @@ void Parser::initializePragmaHandlers() {
   AttributePragmaHandler =
       std::make_unique<PragmaAttributeHandler>(AttrFactory);
   PP.AddPragmaHandler("clang", AttributePragmaHandler.get());
+
+  MaxTokensHerePragmaHandler = std::make_unique<PragmaMaxTokensHereHandler>();
+  PP.AddPragmaHandler("clang", MaxTokensHerePragmaHandler.get());
+
+  MaxTokensTotalPragmaHandler = std::make_unique<PragmaMaxTokensTotalHandler>();
+  PP.AddPragmaHandler("clang", MaxTokensTotalPragmaHandler.get());
 }
 
 void Parser::resetPragmaHandlers() {
@@ -617,6 +642,8 @@ void Parser::resetPragmaHandlers() {
     MaxConcurrencyHandler.reset();
     PP.RemovePragmaHandler(MaxInterleavingHandler.get());
     MaxInterleavingHandler.reset();
+    PP.RemovePragmaHandler(LoopFuseHandler.get());
+    LoopFuseHandler.reset();
     PP.RemovePragmaHandler(IIAtMostHandler.get());
     IIAtMostHandler.reset();
     PP.RemovePragmaHandler(IIAtLeastHandler.get());
@@ -636,8 +663,6 @@ void Parser::resetPragmaHandlers() {
   if (IntelCompat) {
     PP.RemovePragmaHandler(DistributePointHandler.get());
     DistributePointHandler.reset();
-    PP.RemovePragmaHandler(NoFusionHandler.get());
-    NoFusionHandler.reset();
     PP.RemovePragmaHandler(FusionHandler.get());
     FusionHandler.reset();
   }
@@ -648,6 +673,8 @@ void Parser::resetPragmaHandlers() {
   if (HLSCompat || IntelCompat) {
     PP.RemovePragmaHandler(IVDepHandler.get());
     IVDepHandler.reset();
+    PP.RemovePragmaHandler(NoFusionHandler.get());
+    NoFusionHandler.reset();
   }
   if (getLangOpts().isIntelCompat(LangOptions::PragmaVector)) {
     PP.RemovePragmaHandler(VectorHandler.get());
@@ -675,6 +702,12 @@ void Parser::resetPragmaHandlers() {
 
   PP.RemovePragmaHandler("clang", AttributePragmaHandler.get());
   AttributePragmaHandler.reset();
+
+  PP.RemovePragmaHandler("clang", MaxTokensHerePragmaHandler.get());
+  MaxTokensHerePragmaHandler.reset();
+
+  PP.RemovePragmaHandler("clang", MaxTokensTotalPragmaHandler.get());
+  MaxTokensTotalPragmaHandler.reset();
 }
 
 /// Handle the annotation token produced for #pragma unused(...)
@@ -861,6 +894,80 @@ StmtResult Parser::HandlePragmaCaptured()
 
   return Actions.ActOnCapturedRegionEnd(R.get());
 }
+
+#if INTEL_CUSTOMIZATION
+namespace {
+struct PragmaLoopFuseInfo {
+  Token PragmaName;
+  ArrayRef<Token> DepthToks;
+  IdentifierInfo *IndependentII = nullptr;
+  SourceLocation IndependentLoc;
+};
+} // end anonymous namespace
+
+StmtResult Parser::HandlePragmaLoopFuse() {
+  assert(Tok.is(tok::annot_pragma_loop_fuse));
+  PragmaLoopFuseInfo *Info =
+      static_cast<PragmaLoopFuseInfo *>(Tok.getAnnotationValue());
+  IdentifierInfo *PragmaNameInfo = Info->PragmaName.getIdentifierInfo();
+  SourceLocation AttrLoc = Tok.getLocation();
+
+  // Parse the Depth expression
+  Expr *DepthExpr = nullptr;
+  IdentifierLoc *IndependentLoc = nullptr;
+  if (!Info->DepthToks.empty()) {
+    // Enter constant expression including eof terminator into token
+    // stream.
+    PP.EnterTokenStream(Info->DepthToks, false, false);
+    ConsumeAnnotationToken();
+    ExprResult R = ParseConstantExpression();
+    // Remove ill-formed constant expression trailing tokens
+    if (Tok.isNot(tok::eof)) {
+      Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+          << "loop_fuse";
+      while (Tok.isNot(tok::eof))
+        ConsumeAnyToken();
+    }
+    ConsumeToken(); // Consume the constant expression eof terminator.
+
+    // Re-use the LoopHint checker for sanity despite this not being a loop hint
+    if (R.isInvalid() || Actions.CheckLoopHintExpr(
+                             R.get(), Info->DepthToks[0].getLocation(), false))
+      return false;
+    DepthExpr = R.get();
+  } else
+    ConsumeAnnotationToken();
+
+  // Create an IdentifierLoc to use as an Attr argument
+  if (Info->IndependentII)
+    IndependentLoc = IdentifierLoc::create(
+        Actions.Context, Info->IndependentLoc, Info->IndependentII);
+
+  // Must be followed by a structured block (compound statement)
+  // (delimited by `{` `}`)
+  if (Tok.isNot(tok::l_brace)) {
+    PP.Diag(Tok, diag::err_expected) << tok::l_brace;
+    return StmtError();
+  }
+
+  // Parse the underlying scope
+  ParseScope LoopFusionScope(this, Scope::FnScope | Scope::DeclScope |
+                                       Scope::CompoundStmtScope);
+  StmtResult R = ParseCompoundStatement();
+  LoopFusionScope.Exit();
+  Stmt *FuseScopeStmt = R.get();
+
+  // Create the attributes corresponding to the clauses and the attributed
+  // statement itself.
+  ParsedAttributesWithRange Attrs(AttrFactory);
+  ArgsUnion AttrArgs[] = {IndependentLoc, DepthExpr};
+  Attrs.addNew(PragmaNameInfo, FuseScopeStmt->getSourceRange(), nullptr,
+               AttrLoc, AttrArgs, 2, ParsedAttr::AS_Pragma);
+  R = Actions.ProcessStmtAttributes(FuseScopeStmt, Attrs,
+                                    FuseScopeStmt->getSourceRange());
+  return R;
+}
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
   enum OpenCLExtState : char {
@@ -1197,11 +1304,11 @@ struct PragmaLoopHintInfo {
 static std::string PragmaLoopHintString(Token PragmaName, Token Option) {
   StringRef Str = PragmaName.getIdentifierInfo()->getName();
   std::string ClangLoopStr = (llvm::Twine("clang loop ") + Str).str();
-  return llvm::StringSwitch<StringRef>(Str)
-      .Case("loop", ClangLoopStr)
-      .Case("unroll_and_jam", Str)
-      .Case("unroll", Str)
-      .Default("");
+  return std::string(llvm::StringSwitch<StringRef>(Str)
+                         .Case("loop", ClangLoopStr)
+                         .Case("unroll_and_jam", Str)
+                         .Case("unroll", Str)
+                         .Default(""));
 }
 
 bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
@@ -3437,6 +3544,119 @@ void PragmaMaxInterleavingHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false, /*IsReinject*/false);
 }
 
+/// Handle the loop_fuse pragma.
+///  #pragma loop_fuse [depth(hint-val)] [independent]
+///
+///  hint-val:
+///    constant-expression
+///
+/// This pragma is used to indicate to the compiler that loops contained
+/// in the annotated scope should be fused, if safe to do so.
+///
+/// #pragma loop_fuse
+/// Fuse loops contained in the associated scope, if safe to do so
+///
+/// #pragma loop_fuse depth(2)
+/// Fuse loops contained in the associated scope, and in their child loops at
+/// depth up to 2, if safe to do so
+///
+/// #pragma loop_fuse independent
+/// Fuse loops contained in the associated scope, if safe to do so,
+/// except ignoring compiler-inferred negative-distance memory dependencies
+/// between loops
+///
+/// A single depth clause and a single independent clauses are allowed in any
+/// order.
+void PragmaLoopFuseHandler::HandlePragma(Preprocessor &PP,
+                                         PragmaIntroducer Introducer,
+                                         Token &Tok) {
+  Token PragmaName = Tok;
+  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopFuseInfo;
+  SmallVector<Token, 1> DepthValueList;
+  bool HasDepth = false;
+  bool HasIndependent = false;
+  PP.Lex(Tok);
+  Info->PragmaName = PragmaName;
+
+  // Parse the options (independent, depth)
+  while (Tok.isNot(tok::eod)) {
+    if (Tok.isNot(tok::identifier)) {
+      PP.Diag(Tok.getLocation(),
+              diag::warn_pragma_expected_depth_independent_loop_fuse_clause);
+      return;
+    }
+    IdentifierInfo *II = Tok.getIdentifierInfo();
+    if (II->isStr("depth")) {
+      if (HasDepth) {
+        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_fuse_clause) << 0;
+        return;
+      }
+      HasDepth = true;
+      unsigned ParenCount = 0;
+      PP.Lex(Tok);
+      if (Tok.isNot(tok::l_paren)) {
+        PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_lparen)
+            << "loop_fuse";
+        return;
+      }
+      ParenCount++;
+      PP.Lex(Tok);
+      while (ParenCount != 0) {
+        if (Tok.is(tok::eod)) {
+          PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_rparen)
+              << "loop_fuse";
+          return;
+        }
+        if (Tok.is(tok::l_paren))
+          ParenCount++;
+        else if (Tok.is(tok::r_paren))
+          ParenCount--;
+        if (ParenCount)
+          DepthValueList.push_back(Tok);
+        PP.Lex(Tok);
+      }
+    } else if (II->isStr("independent")) {
+      if (HasIndependent) {
+        PP.Diag(Tok.getLocation(), diag::warn_multiple_loop_fuse_clause) << 1;
+        return;
+      }
+      HasIndependent = true;
+      Info->IndependentLoc = Tok.getLocation();
+      Info->IndependentII = II;
+      PP.Lex(Tok);
+    } else {
+      PP.Diag(Tok.getLocation(),
+              diag::warn_pragma_expected_depth_independent_loop_fuse_clause);
+      return;
+    }
+  }
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "loop_fuse";
+    return;
+  }
+  if (!DepthValueList.empty()) {
+    Token EOFTok;
+    EOFTok.startToken();
+    EOFTok.setKind(tok::eof);
+    EOFTok.setLocation(Tok.getLocation());
+    DepthValueList.push_back(EOFTok); // Terminates expression for parsing.
+    Info->DepthToks =
+        llvm::makeArrayRef(DepthValueList).copy(PP.getPreprocessorAllocator());
+  }
+
+  // Generate the attribute token.
+  auto TokenArray = std::make_unique<Token[]>(1);
+  TokenArray[0].startToken();
+  TokenArray[0].setKind(tok::annot_pragma_loop_fuse);
+  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
+  TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
+  PP.EnterTokenStream(std::move(TokenArray), 1,
+                      /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
+}
+
 /// Handle the ivdep pragma.
 ///  #pragma ivdep [safelen(hint-val)] [array(<array-name>)]
 ///
@@ -4266,4 +4486,65 @@ void PragmaAttributeHandler::HandlePragma(Preprocessor &PP,
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
   PP.EnterTokenStream(std::move(TokenArray), 1,
                       /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
+}
+
+// Handle '#pragma clang max_tokens 12345'.
+void PragmaMaxTokensHereHandler::HandlePragma(Preprocessor &PP,
+                                              PragmaIntroducer Introducer,
+                                              Token &Tok) {
+  PP.Lex(Tok);
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_missing_argument)
+        << "clang max_tokens_here" << /*Expected=*/true << "integer";
+    return;
+  }
+
+  SourceLocation Loc = Tok.getLocation();
+  uint64_t MaxTokens;
+  if (Tok.isNot(tok::numeric_constant) ||
+      !PP.parseSimpleIntegerLiteral(Tok, MaxTokens)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer)
+        << "clang max_tokens_here";
+    return;
+  }
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "clang max_tokens_here";
+    return;
+  }
+
+  if (PP.getTokenCount() > MaxTokens) {
+    PP.Diag(Loc, diag::warn_max_tokens)
+        << PP.getTokenCount() << (unsigned)MaxTokens;
+  }
+}
+
+// Handle '#pragma clang max_file_tokens 12345'.
+void PragmaMaxTokensTotalHandler::HandlePragma(Preprocessor &PP,
+                                               PragmaIntroducer Introducer,
+                                               Token &Tok) {
+  PP.Lex(Tok);
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_missing_argument)
+        << "clang max_tokens_total" << /*Expected=*/true << "integer";
+    return;
+  }
+
+  SourceLocation Loc = Tok.getLocation();
+  uint64_t MaxTokens;
+  if (Tok.isNot(tok::numeric_constant) ||
+      !PP.parseSimpleIntegerLiteral(Tok, MaxTokens)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer)
+        << "clang max_tokens_total";
+    return;
+  }
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "clang max_tokens_total";
+    return;
+  }
+
+  PP.overrideMaxTokens(MaxTokens, Loc);
 }

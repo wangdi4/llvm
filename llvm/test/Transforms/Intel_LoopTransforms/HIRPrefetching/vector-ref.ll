@@ -2,6 +2,7 @@
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ;
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ;*** IR Dump Before HIR Prefetching ***
 ;
 ;<0>          BEGIN REGION { modified }
@@ -26,7 +27,10 @@
 ; CHECK:             {
 ; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <nounroll> <novectorize>
 ; CHECK:                |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 24][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 372][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 373][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 374][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 375][0]),  0,  3,  1);
 ; CHECK:                + END LOOP
 ; CHECK:             }
 ;
@@ -34,6 +38,18 @@
 ; CHECK:             |   (@A)[0][i1][0] = i1;
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
+;
+; OPTREPORT: Global loop optimization report for : foo
+;
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:     Remark: LOOP WAS VECTORIZED
+; OPTREPORT:     Remark: vectorization support: vector length 4
+; OPTREPORT:     Remark: Number of spatial prefetches=4, dist=93
+; OPTREPORT: LOOP END
+;
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Remainder loop for vectorization>
+; OPTREPORT: LOOP END
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

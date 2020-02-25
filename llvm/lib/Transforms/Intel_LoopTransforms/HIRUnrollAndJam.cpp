@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -612,6 +612,14 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     LLVM_DEBUG(
         dbgs() << "Skipping unroll & jam of loopnest containing call(s) with "
                   "NoDuplicate attribute !\n");
+    HUAJ.throttleRecursively(Lp);
+    return;
+  }
+
+  if (LS.hasCallsWithUnsafeSideEffects()) {
+    LLVM_DEBUG(
+        dbgs() << "Skipping unroll & jam of loopnest containing call(s) with "
+                  "unsafe side effects!\n");
     HUAJ.throttleRecursively(Lp);
     return;
   }

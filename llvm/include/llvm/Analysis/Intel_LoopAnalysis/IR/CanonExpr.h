@@ -1,6 +1,6 @@
 //===- CanonExpr.h - Closed form in high level IR ---------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -587,12 +587,13 @@ public:
   bool hasIVConstCoeff(const_iv_iterator ConstIVIter) const;
 
   /// Adds to the existing blob/constant IV coefficients at a particular loop
-  /// level. The new IV coefficient looks something like (C1 * b1 + C2 * b2).
-  /// Index can be set to zero if only a constant needs to be added. For example
-  /// if the canon expr looks like (2 * n) * i1 before change, it will be
-  /// modified to (3 + 2 * n) * i1 after a call to addIV(1, 0, 3). If IsMathAdd
-  /// is set to true (default is false), it performs mathematical addition by
-  /// considering denominator in addition.
+  /// level. The new IV coefficient looks something like `(C1 * b1 + C2 * b2)`.
+  /// \p Index can be set to #InvalidBlobIndex if only a constant needs to be
+  /// added. For example if the canon expr looks like `(2 * n) * i1` before
+  /// change, it will be modified to `(3 + 2 * n) * i1` after a call to
+  /// `addIV(1, InvalidBlobIndex, 3)`. If \p IsMathAdd is set to true (default
+  /// is false), it performs mathematical addition by considering denominator in
+  /// addition.
   void addIV(unsigned Lvl, unsigned Index, int64_t Coeff,
              bool IsMathAdd = false);
   /// Iterator version of addIV().
@@ -613,6 +614,14 @@ public:
   void replaceIVByConstant(unsigned Lvl, int64_t Val);
   /// Iterator version of replaceIVByConstant().
   void replaceIVByConstant(iv_iterator IVI, int64_t Val);
+
+  /// Replaces the IV at loop level \p OldLevel to with an IV at \p NewLevel.
+  ///
+  /// If there are existing coefficients for the IV at \p NewLevel, the
+  /// coeficients from \p OldLevel will be added to those. For instance, given
+  /// the CE `%N * i1 + 2 * i2` a call to `replaceIV(2, 1)` will transform it
+  /// to `(2 + %N) * i1`.
+  void replaceIV(unsigned OldLevel, unsigned NewLevel);
 
   /// Returns the index associated with this blob iterator.
   unsigned getBlobIndex(const_blob_iterator CBlobI) const;

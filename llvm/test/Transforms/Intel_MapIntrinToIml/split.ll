@@ -6,9 +6,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: @test_sinf8
 ; CHECK: [[ARG1:%.*]] = shufflevector <8 x float> %A, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG1]])
+; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG1]])
 ; CHECK: [[ARG2:%.*]] = shufflevector <8 x float> %A, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG2]])
+; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG2]])
 ; CHECK: [[RESULT:%.*]] = shufflevector <4 x float> [[RESULT1]], <4 x float> [[RESULT2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: ret <8 x float> [[RESULT]]
 
@@ -20,13 +20,13 @@ entry:
 
 ; CHECK-LABEL: @test_sinf16
 ; CHECK: [[ARG1:%.*]] = shufflevector <16 x float> %A, <16 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG1]])
+; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG1]])
 ; CHECK: [[ARG2:%.*]] = shufflevector <16 x float> %A, <16 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG2]])
+; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG2]])
 ; CHECK: [[ARG3:%.*]] = shufflevector <16 x float> %A, <16 x float> undef, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
-; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG3]])
+; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG3]])
 ; CHECK: [[ARG4:%.*]] = shufflevector <16 x float> %A, <16 x float> undef, <4 x i32> <i32 12, i32 13, i32 14, i32 15>
-; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG4]])
+; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG4]])
 ; CHECK: [[RESULT12:%.*]] = shufflevector <4 x float> [[RESULT1]], <4 x float> [[RESULT2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT34:%.*]] = shufflevector <4 x float> [[RESULT3]], <4 x float> [[RESULT4]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT:%.*]] = shufflevector <8 x float> [[RESULT12]], <8 x float> [[RESULT34]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -40,21 +40,21 @@ entry:
 
 ; CHECK-LABEL: @test_sinf32
 ; CHECK: [[ARG1:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG1]])
+; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG1]])
 ; CHECK: [[ARG2:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG2]])
+; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG2]])
 ; CHECK: [[ARG3:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
-; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG3]])
+; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG3]])
 ; CHECK: [[ARG4:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 12, i32 13, i32 14, i32 15>
-; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG4]])
+; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG4]])
 ; CHECK: [[ARG5:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 16, i32 17, i32 18, i32 19>
-; CHECK: [[RESULT5:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG5]])
+; CHECK: [[RESULT5:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG5]])
 ; CHECK: [[ARG6:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 20, i32 21, i32 22, i32 23>
-; CHECK: [[RESULT6:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG6]])
+; CHECK: [[RESULT6:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG6]])
 ; CHECK: [[ARG7:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 24, i32 25, i32 26, i32 27>
-; CHECK: [[RESULT7:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG7]])
+; CHECK: [[RESULT7:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG7]])
 ; CHECK: [[ARG8:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <4 x i32> <i32 28, i32 29, i32 30, i32 31>
-; CHECK: [[RESULT8:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha(<4 x float> [[ARG8]])
+; CHECK: [[RESULT8:%.*]] = call svml_cc <4 x float> @__svml_sinf4(<4 x float> [[ARG8]])
 ; CHECK: [[RESULT12:%.*]] = shufflevector <4 x float> [[RESULT1]], <4 x float> [[RESULT2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT34:%.*]] = shufflevector <4 x float> [[RESULT3]], <4 x float> [[RESULT4]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT56:%.*]] = shufflevector <4 x float> [[RESULT5]], <4 x float> [[RESULT6]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
@@ -73,10 +73,10 @@ entry:
 ; CHECK-LABEL: @test_sinf8_mask
 ; CHECK: [[ARG1:%.*]] = shufflevector <8 x float> %A, <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[MASK1:%.*]] = shufflevector <8 x i32> %B, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG1]], <4 x i32> [[MASK1]])
+; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG1]], <4 x i32> [[MASK1]])
 ; CHECK: [[ARG2:%.*]] = shufflevector <8 x float> %A, <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[MASK2:%.*]] = shufflevector <8 x i32> %B, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG2]], <4 x i32> [[MASK2]])
+; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG2]], <4 x i32> [[MASK2]])
 ; CHECK: [[RESULT:%.*]] = shufflevector <4 x float> [[RESULT1]], <4 x float> [[RESULT2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: ret <8 x float> [[RESULT]]
 
@@ -91,16 +91,16 @@ entry:
 ; CHECK: [[MASK_CAST:%.*]] = select <16 x i1> [[MASK]], <16 x i32> <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>, <16 x i32> zeroinitializer
 ; CHECK: [[ARG1:%.*]] = shufflevector <16 x float> %C, <16 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[MASK1:%.*]] = shufflevector <16 x i32> [[MASK_CAST]], <16 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG1]], <4 x i32> [[MASK1]])
+; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG1]], <4 x i32> [[MASK1]])
 ; CHECK: [[ARG2:%.*]] = shufflevector <16 x float> %C, <16 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[MASK2:%.*]] = shufflevector <16 x i32> [[MASK_CAST]], <16 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG2]], <4 x i32> [[MASK2]])
+; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG2]], <4 x i32> [[MASK2]])
 ; CHECK: [[ARG3:%.*]] = shufflevector <16 x float> %C, <16 x float> undef, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
 ; CHECK: [[MASK3:%.*]] = shufflevector <16 x i32> [[MASK_CAST]], <16 x i32> undef, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
-; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG3]], <4 x i32> [[MASK3]])
+; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG3]], <4 x i32> [[MASK3]])
 ; CHECK: [[ARG4:%.*]] = shufflevector <16 x float> %C, <16 x float> undef, <4 x i32> <i32 12, i32 13, i32 14, i32 15>
 ; CHECK: [[MASK4:%.*]] = shufflevector <16 x i32> [[MASK_CAST]], <16 x i32> undef, <4 x i32> <i32 12, i32 13, i32 14, i32 15>
-; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG4]], <4 x i32> [[MASK4]])
+; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG4]], <4 x i32> [[MASK4]])
 ; CHECK: [[RESULT12:%.*]] = shufflevector <4 x float> [[RESULT1]], <4 x float> [[RESULT2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT34:%.*]] = shufflevector <4 x float> [[RESULT3]], <4 x float> [[RESULT4]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT:%.*]] = shufflevector <8 x float> [[RESULT12]], <8 x float> [[RESULT34]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
@@ -119,28 +119,28 @@ entry:
 ; CHECK: [[MASK_CAST:%.*]] = select <32 x i1> [[MASK]], <32 x i32> <i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1, i32 -1>, <32 x i32> zeroinitializer
 ; CHECK: [[ARG1:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK: [[MASK1:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG1]], <4 x i32> [[MASK1]])
+; CHECK: [[RESULT1:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG1]], <4 x i32> [[MASK1]])
 ; CHECK: [[ARG2:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[MASK2:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG2]], <4 x i32> [[MASK2]])
+; CHECK: [[RESULT2:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG2]], <4 x i32> [[MASK2]])
 ; CHECK: [[ARG3:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
 ; CHECK: [[MASK3:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
-; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG3]], <4 x i32> [[MASK3]])
+; CHECK: [[RESULT3:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG3]], <4 x i32> [[MASK3]])
 ; CHECK: [[ARG4:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 12, i32 13, i32 14, i32 15>
 ; CHECK: [[MASK4:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 12, i32 13, i32 14, i32 15>
-; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG4]], <4 x i32> [[MASK4]])
+; CHECK: [[RESULT4:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG4]], <4 x i32> [[MASK4]])
 ; CHECK: [[ARG5:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 16, i32 17, i32 18, i32 19>
 ; CHECK: [[MASK5:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 16, i32 17, i32 18, i32 19>
-; CHECK: [[RESULT5:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG5]], <4 x i32> [[MASK5]])
+; CHECK: [[RESULT5:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG5]], <4 x i32> [[MASK5]])
 ; CHECK: [[ARG6:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 20, i32 21, i32 22, i32 23>
 ; CHECK: [[MASK6:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 20, i32 21, i32 22, i32 23>
-; CHECK: [[RESULT6:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG6]], <4 x i32> [[MASK6]])
+; CHECK: [[RESULT6:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG6]], <4 x i32> [[MASK6]])
 ; CHECK: [[ARG7:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 24, i32 25, i32 26, i32 27>
 ; CHECK: [[MASK7:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 24, i32 25, i32 26, i32 27>
-; CHECK: [[RESULT7:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG7]], <4 x i32> [[MASK7]])
+; CHECK: [[RESULT7:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG7]], <4 x i32> [[MASK7]])
 ; CHECK: [[ARG8:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <4 x i32> <i32 28, i32 29, i32 30, i32 31>
 ; CHECK: [[MASK8:%.*]] = shufflevector <32 x i32> [[MASK_CAST]], <32 x i32> undef, <4 x i32> <i32 28, i32 29, i32 30, i32 31>
-; CHECK: [[RESULT8:%.*]] = call svml_cc <4 x float> @__svml_sinf4_ha_mask(<4 x float> [[ARG8]], <4 x i32> [[MASK8]])
+; CHECK: [[RESULT8:%.*]] = call svml_cc <4 x float> @__svml_sinf4_mask(<4 x float> [[ARG8]], <4 x i32> [[MASK8]])
 ; CHECK: [[RESULT12:%.*]] = shufflevector <4 x float> [[RESULT1]], <4 x float> [[RESULT2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT34:%.*]] = shufflevector <4 x float> [[RESULT3]], <4 x float> [[RESULT4]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[RESULT56:%.*]] = shufflevector <4 x float> [[RESULT5]], <4 x float> [[RESULT6]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
@@ -163,11 +163,11 @@ entry:
 ; CHECK: [[SRC1:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK: [[MASK1:%.*]] = shufflevector <32 x i1> [[MASK]], <32 x i1> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK: [[ARG1:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-; CHECK: [[RESULT1:%.*]] = call svml_cc <16 x float> @__svml_sinf16_ha_mask(<16 x float> [[SRC1]], <16 x i1> [[MASK1]], <16 x float> [[ARG1]])
+; CHECK: [[RESULT1:%.*]] = call svml_cc <16 x float> @__svml_sinf16_mask(<16 x float> [[SRC1]], <16 x i1> [[MASK1]], <16 x float> [[ARG1]])
 ; CHECK: [[SRC2:%.*]] = shufflevector <32 x float> %A, <32 x float> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
 ; CHECK: [[MASK2:%.*]] = shufflevector <32 x i1> [[MASK]], <32 x i1> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
 ; CHECK: [[ARG2:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
-; CHECK: [[RESULT2:%.*]] = call svml_cc <16 x float> @__svml_sinf16_ha_mask(<16 x float> [[SRC2]], <16 x i1> [[MASK2]], <16 x float> [[ARG2]])
+; CHECK: [[RESULT2:%.*]] = call svml_cc <16 x float> @__svml_sinf16_mask(<16 x float> [[SRC2]], <16 x i1> [[MASK2]], <16 x float> [[ARG2]])
 ; CHECK: [[RESULT:%.*]] = shufflevector <16 x float> [[RESULT1]], <16 x float> [[RESULT2]], <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
 ; CHECK: ret <32 x float> [[RESULT]]
 

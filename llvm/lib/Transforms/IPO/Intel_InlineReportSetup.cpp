@@ -1,6 +1,6 @@
 //=== --------- Intel_InlineReiortSetup.cpp - Inlining Report Setup ------=== //
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -93,7 +93,8 @@ InlineReportTreeNode::insertNewChild(Instruction *CallI, unsigned InsertAt,
   // Create and fill up new InlineReportTreeNode.
   InlineReportTreeNode *NewChild = new InlineReportTreeNode();
   Function *Callee = CB->getCalledFunction();
-  NewChild->Name = Callee ? (Callee->hasName() ? Callee->getName() : "") : "";
+  NewChild->Name =
+      Callee ? std::string(Callee->hasName() ? Callee->getName() : "") : "";
 
   // Create inlining report metadata and attach it to the call instruction if it
   // has no attached metadata yet.
@@ -165,7 +166,7 @@ InlineReportTreeNode *buildNode(MDTuple *MDT, unsigned Idx, unsigned Depth,
   // Create inline report tree node.
   InlineReportTreeNode *TreeNode = new InlineReportTreeNode();
   InliningReport IR(MDT);
-  TreeNode->Name = IR.getName();
+  TreeNode->Name = std::string(IR.getName());
   unsigned LineNum = 0, ColNum = 0;
   if (NumOperands == CallSiteMDSize) {
     CallSiteInliningReport CSIR(MDT);
@@ -333,7 +334,7 @@ static bool matchCallSiteToMetadata(CallBase *CB, MDNode *MD) {
 
   // Consider the case when CallInst has no inlining report attached.
   InliningReport IR(cast<MDTuple>(MD));
-  std::string MDNameStr = IR.getName();
+  std::string MDNameStr = std::string(IR.getName());
   Function *CallICallee = CB->getCalledFunction();
   if (!CallICallee || !CallICallee->hasName()) {
     if (MDNameStr.empty())

@@ -51,6 +51,7 @@ struct TripCountInfo {
 /// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
 /// Hierarchical CFG. It is a specialization of LoopInfoBase class.
 class VPLoopInfo;
+class VPDominatorTree;
 
 /// A VPLoop holds analysis information for every loop detected by VPLoopInfo.
 /// It is an instantiation of LoopBase.
@@ -105,7 +106,7 @@ class VPLoopInfo : public LoopInfoBase<VPBlockBase, VPLoop> {
   // key. VPloop seems to be the best candidate so far.
   using Base::releaseMemory;
 public:
-  void analyze(const DomTreeBase<VPBlockBase> &DomTree);
+  void analyze(const VPDominatorTree &DomTree);
 };
 } // namespace vpo
 

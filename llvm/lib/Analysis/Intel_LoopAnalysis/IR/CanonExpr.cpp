@@ -1,6 +1,6 @@
 //===- CanonExpr.cpp - Implements the CanonExpr class ---------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -797,6 +797,14 @@ void CanonExpr::multiplyIVByConstant(unsigned Lvl, int64_t Val) {
 
 void CanonExpr::multiplyIVByConstant(iv_iterator IVI, int64_t Val) {
   multiplyIVByConstant(getLevel(IVI), Val);
+}
+
+void CanonExpr::replaceIV(unsigned OldLevel, unsigned NewLevel) {
+  unsigned Index;
+  int64_t Coeff;
+  getIVCoeff(OldLevel, &Index, &Coeff);
+  removeIV(OldLevel);
+  addIV(NewLevel, Index, Coeff);
 }
 
 int64_t CanonExpr::getBlobCoeff(unsigned Index) const {

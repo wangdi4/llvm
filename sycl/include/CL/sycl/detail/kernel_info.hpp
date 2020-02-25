@@ -39,9 +39,9 @@ template <info::kernel Param> struct get_kernel_info<string_class, Param> {
 
 template <info::kernel Param> struct get_kernel_info<cl_uint, Param> {
   static cl_uint get(RT::PiKernel Kernel) {
-    cl_uint Result;
+    pi_uint32 Result;
     // TODO catch an exception and put it to list of asynchronous exceptions
-    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), sizeof(cl_uint),
+    PI_CALL(piKernelGetInfo)(Kernel, pi_kernel_info(Param), sizeof(pi_uint32),
                              &Result, nullptr);
     return Result;
   }

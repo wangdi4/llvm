@@ -27,13 +27,13 @@ namespace vpo {
 
 /// Template specialization of the standard LLVM dominator tree utility for
 /// VPBlockBases.
-using VPDominatorTree = DomTreeBase<VPBlockBase>;
+class VPDominatorTree : public DomTreeBase<VPBlockBase> {};
 
 using VPDomTreeNode = DomTreeNodeBase<VPBlockBase>;
 
 /// Template specialization of the standard LLVM post-dominator tree utility for
 /// VPBlockBases.
-using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
+class VPPostDominatorTree : public PostDomTreeBase<VPBlockBase> {};
 
 } // namespace vpo
 

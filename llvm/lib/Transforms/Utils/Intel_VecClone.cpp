@@ -1436,14 +1436,21 @@ int VecCloneImpl::getParmIndexInFunction(Function *F, Value *Parm) {
 
 // Allocates space for each linear/uniform parameter.
 static void emitAllocaForParameter(
-    BasicBlock *EntryBlock, SmallVectorImpl<Value *> &ParamVars,
-    Value *ArgValue,
+    SmallVectorImpl<Value *> &ParamVars, Argument *Arg,
     SmallVectorImpl<std::pair<AllocaInst *, Value *>> &AllocaArgValueVector,
     IRBuilder<> &IRB) {
-  AllocaInst *Alloca = IRB.CreateAlloca(ArgValue->getType(), nullptr,
-                                        "alloca." + ArgValue->getName());
+  // No need to allocate another stack slot for an argument if there is already
+  // a dedicated storage for it on the stack.
+  if (Arg->hasByValAttr()) {
+    ParamVars.push_back(Arg);
+    AllocaArgValueVector.emplace_back(nullptr, Arg);
+    return;
+  }
+
+  AllocaInst *Alloca =
+      IRB.CreateAlloca(Arg->getType(), nullptr, "alloca." + Arg->getName());
   ParamVars.push_back(Alloca);
-  AllocaArgValueVector.push_back(std::make_pair(Alloca, ArgValue));
+  AllocaArgValueVector.push_back(std::make_pair(Alloca, Arg));
 }
 
 // Stores the parameter in the stack and loads it.
@@ -1516,8 +1523,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
     if (ParmKinds[ParmIdx].isLinear()) {
       // Allocate space for storing the linear parameters in the stack.
-      emitAllocaForParameter(EntryBlock, LinearVars, cast<Value>(ArgListIt),
-                             AllocaArgValueVector, Builder);
+      emitAllocaForParameter(LinearVars, &*ArgListIt, AllocaArgValueVector,
+                             Builder);
       Constant *Stride = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
                                           ParmKinds[ParmIdx].getStride());
       LinearVars.push_back(Stride);
@@ -1525,8 +1532,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
     if (ParmKinds[ParmIdx].isUniform()) {
       // Allocate space for storing the uniform parameters in the stack.
-      emitAllocaForParameter(EntryBlock, UniformVars, cast<Value>(ArgListIt),
-                             AllocaArgValueVector, Builder);
+      emitAllocaForParameter(UniformVars, &*ArgListIt, AllocaArgValueVector,
+                             Builder);
     }
   }
 
@@ -1540,7 +1547,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
     for (const auto &Pair : AllocaArgValueVector) {
       AllocaInst *Alloca = Pair.first;
       Value *ArgValue = Pair.second;
-      emitLoadStoreForParameter(Alloca, ArgValue, LoopPreHeader);
+      if (Alloca)
+        emitLoadStoreForParameter(Alloca, ArgValue, LoopPreHeader);
     }
   }
 

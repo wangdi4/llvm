@@ -212,6 +212,10 @@ bool TargetTransformInfo::hasBranchDivergence() const {
   return TTIImpl->hasBranchDivergence();
 }
 
+bool TargetTransformInfo::useGPUDivergenceAnalysis() const {
+  return TTIImpl->useGPUDivergenceAnalysis();
+}
+
 bool TargetTransformInfo::isSourceOfDivergence(const Value *V) const {
   return TTIImpl->isSourceOfDivergence(V);
 }
@@ -790,6 +794,13 @@ bool TargetTransformInfo::isTargetSpecificShuffleMask(
   return TTIImpl->isTargetSpecificShuffleMask(Mask);
 }
 
+bool TargetTransformInfo::isVPlanVLSProfitable() const {
+  return TTIImpl->isVPlanVLSProfitable();
+}
+
+bool TargetTransformInfo::isAggressiveVLSProfitable() const {
+  return TTIImpl->isAggressiveVLSProfitable();
+}
 #endif // INTEL_CUSTOMIZATION
 
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(LLVMContext &Context,

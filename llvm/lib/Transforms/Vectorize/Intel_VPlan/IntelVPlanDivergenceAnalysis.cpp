@@ -42,6 +42,7 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
 #include "IntelVPlanUtils.h"
@@ -59,6 +60,11 @@ static cl::opt<bool>
                           cl::Hidden,
                           cl::desc("Allow VPlan's divergence analysis to "
                                    "ignore integer overflow checks."));
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool>
+    DumpDA("vplan-dump-da", cl::init(false), cl::Hidden,
+           cl::desc("Print detailed DA dump after analysis is done."));
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 extern cl::opt<bool> EnableVPValueCodegen;
 
 #define Uni VPVectorShape::Uni
@@ -710,21 +716,21 @@ void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
 // print function differs from the community version because VPlan is VPLoop
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
-
-  LLVM_DEBUG(dbgs() << "\nPrinting Divergence info for " << *VPLp << "\n");
+  OS << "\nPrinting Divergence info for " << *VPLp << "\n";
   ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
-  for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
+  for (VPBlockBase *Block : RPOT) {
     if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      LLVM_DEBUG(dbgs() << "Basic Block: " << VPBB->getName() << "\n");
+      OS << "Basic Block: " << VPBB->getName() << "\n";
       for (auto &VPInst : *VPBB) {
         if (isDivergent(VPInst))
-          LLVM_DEBUG(OS << "Divergent: ");
+          OS << "Divergent: ";
         else
-          LLVM_DEBUG(OS << "Uniform: ");
-        LLVM_DEBUG(getVectorShape(&VPInst).print(OS); OS << ' ');
-        LLVM_DEBUG(VPInst.dump(OS));
+          OS << "Uniform: ";
+        getVectorShape(&VPInst).print(OS);
+        OS << ' ';
+        VPInst.dump(OS);
       }
-      LLVM_DEBUG(dbgs() << "\n");
+      OS << "\n";
     }
   }
 }
@@ -1401,7 +1407,10 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  LLVM_DEBUG(print(dbgs(), CandidateLoop));
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (DumpDA)
+    print(dbgs(), CandidateLoop);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
 // Note: community version contains a LoopDivergencePrinter class that creates

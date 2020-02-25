@@ -1,12 +1,12 @@
 ; RUN: opt < %s -hir-details-refs -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
 ; RUN: opt < %s -hir-details-refs -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
-; Check that load of (%"sub_$W")[1:i1 + 1:8(%complex_64bit*:0)].1 has LB equal 1.
+; Check that load of (%"sub_$W")[0:i1:8(%complex_64bit*:0)].1 has LB of 0 as incoming LB was merged into the index.
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:       + DO i1 = 0, 3, 1   <DO_LOOP>
-; CHECK:       |   %.unpack1415 = (i32*)(%"sub_$W")[1:i1 + 1:8(%complex_64bit*:0)].1;
-; CHECK:       |   (i32*)(%"sub_$A")[1:i1 + 1:4(float*:0)] = %.unpack1415;
+; CHECK:       |   %.unpack1415 = (i32*)(%"sub_$W")[0:i1:8(%complex_64bit*:0)].1;
+; CHECK:       |   (i32*)(%"sub_$A")[0:i1:4(float*:0)] = %.unpack1415;
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 

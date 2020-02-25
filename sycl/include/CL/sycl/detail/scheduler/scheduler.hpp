@@ -9,6 +9,7 @@
 #pragma once
 
 #include <CL/sycl/detail/cg.hpp>
+#include <CL/sycl/detail/circular_buffer.hpp>
 #include <CL/sycl/detail/scheduler/commands.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_i.hpp>
 
@@ -32,21 +33,25 @@ using ContextImplPtr = std::shared_ptr<detail::context_impl>;
 // The MemObjRecord is created for each memory object used in command
 // groups. There should be only one MemObjRecord for SYCL memory object.
 struct MemObjRecord {
+  MemObjRecord(ContextImplPtr CurContext, size_t LeafLimit)
+      : MReadLeaves{LeafLimit}, MWriteLeaves{LeafLimit}, MCurContext{
+                                                             CurContext} {}
+
   // Contains all allocation commands for the memory object.
   std::vector<AllocaCommandBase *> MAllocaCommands;
 
   // Contains latest read only commands working with memory object.
-  std::vector<Command *> MReadLeaves;
+  CircularBuffer<Command *> MReadLeaves;
 
   // Contains latest write commands working with memory object.
-  std::vector<Command *> MWriteLeaves;
+  CircularBuffer<Command *> MWriteLeaves;
 
   // The context which has the latest state of the memory object.
   ContextImplPtr MCurContext;
 
   // The flag indicates that the content of the memory object was/will be
   // modified. Used while deciding if copy back needed.
-  bool MMemModified;
+  bool MMemModified = false;
 };
 
 class Scheduler {
@@ -70,6 +75,10 @@ public:
   // memory assigned to the memory object. It's called from the sycl::buffer and
   // sycl::image destructors.
   void removeMemoryObject(detail::SYCLMemObjI *MemObj);
+
+  // Removes finished non-leaf non-alloca commands from the subgraph (assuming
+  // that all its commands have been waited for).
+  void cleanupFinishedCommands(Command *FinishedCmd);
 
   // Creates nodes in the graph, that update Req with the pointer to the host
   // memory which contains the latest data of the memory object. New operations
@@ -119,8 +128,9 @@ protected:
     // Event passed and its dependencies.
     void optimize(EventImplPtr Event);
 
-    // Removes unneeded commands from the graph.
-    void cleanupCommands(bool CleanupReleaseCommands = false);
+    // Removes finished non-leaf non-alloca commands from the subgraph (assuming
+    // that all its commands have been waited for).
+    void cleanupFinishedCommands(Command *FinishedCmd);
 
     // Reschedules command passed using Queue provided. this can lead to
     // rescheduling of all dependent commands. This can be used when user
@@ -133,6 +143,9 @@ protected:
     // Return nullptr if there the record is not found.
     MemObjRecord *getOrInsertMemObjRecord(const QueueImplPtr &Queue,
                                           Requirement *Req);
+
+    // Decrements leaf counters for all leaves of the record.
+    void decrementLeafCountersForRecord(MemObjRecord *Record);
 
     // Removes commands that use given MemObjRecord from the graph.
     void cleanupCommandsForRecord(MemObjRecord *Record);
@@ -164,6 +177,9 @@ protected:
 
     std::set<Command *> findDepsForReq(MemObjRecord *Record, Requirement *Req,
                                        const ContextImplPtr &Context);
+
+    // Finds a command dependency corresponding to the record
+    DepDesc findDepForRecord(Command *Cmd, MemObjRecord *Record);
 
     // Searches for suitable alloca in memory record.
     AllocaCommandBase *findAllocaForReq(MemObjRecord *Record, Requirement *Req,

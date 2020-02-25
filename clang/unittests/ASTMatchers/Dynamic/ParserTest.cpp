@@ -28,7 +28,7 @@ public:
     // 'stmt()' to be all the same matcher.
     // Use a more complex expression to prevent that.
     ast_matchers::internal::Matcher<Stmt> M = stmt(stmt(), stmt());
-    ExpectedMatchers.insert(std::make_pair(MatcherName, M));
+    ExpectedMatchers.insert(std::make_pair(std::string(MatcherName), M));
     return M.getID().second;
   }
 
@@ -43,7 +43,7 @@ public:
   llvm::Optional<MatcherCtor>
   lookupMatcherCtor(StringRef MatcherName) override {
     const ExpectedMatchersTy::value_type *Matcher =
-        &*ExpectedMatchers.find(MatcherName);
+        &*ExpectedMatchers.find(std::string(MatcherName));
     return reinterpret_cast<MatcherCtor>(Matcher);
   }
 
@@ -54,7 +54,8 @@ public:
                                         Diagnostics *Error) override {
     const ExpectedMatchersTy::value_type *Matcher =
         reinterpret_cast<const ExpectedMatchersTy::value_type *>(Ctor);
-    MatcherInfo ToStore = { Matcher->first, NameRange, Args, BindID };
+    MatcherInfo ToStore = {Matcher->first, NameRange, Args,
+                           std::string(BindID)};
     Matchers.push_back(ToStore);
     return VariantMatcher::SingleMatcher(Matcher->second);
   }
@@ -437,9 +438,9 @@ decl()))matcher";
 )matcher";
     M = Parser::parseMatcherExpression(Code, nullptr, nullptr, &Error);
     EXPECT_FALSE(M.hasValue());
-    EXPECT_EQ(R"error(1:1: Error parsing argument 1 for matcher varDecl.
-2:3: Matcher not found: doesNotExist)error",
-              Error.toStringFull());
+    StringRef Expected = R"error(1:1: Error parsing argument 1 for matcher varDecl.
+2:3: Matcher not found: doesNotExist)error";
+    EXPECT_EQ(Expected, Error.toStringFull());
   }
 }
 

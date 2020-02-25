@@ -58,14 +58,15 @@ CallInst *IntrinsicUtils::createSimdDirectiveBegin(
 
   SmallVector<llvm::Value *, 1> OpBundleVal;
   llvm::OperandBundleDef OpBundle(
-      IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD), OpBundleVal);
+      std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)),
+      OpBundleVal);
   IntrinOpBundle.push_back(OpBundle);
 
   for (SmallDenseMap<StringRef, SmallVector<Value *, 4>>::iterator
            I = DirectiveStrMap.begin(),
            E = DirectiveStrMap.end();
        I != E; ++I) {
-    llvm::OperandBundleDef OpBundle(I->first, I->second);
+    llvm::OperandBundleDef OpBundle(std::string(I->first), I->second);
     IntrinOpBundle.push_back(OpBundle);
   }
 
@@ -92,7 +93,8 @@ CallInst *IntrinsicUtils::createSimdDirectiveEnd(Module &M,
 
   SmallVector<llvm::Value *, 1> OpBundleVal1;
   llvm::OperandBundleDef OpBundle1(
-      IntrinsicUtils::getDirectiveString(DIR_OMP_END_SIMD), OpBundleVal1);
+      std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_END_SIMD)),
+      OpBundleVal1);
   IntrinOpBundle.push_back(OpBundle1);
 
   SmallVector<llvm::Value *, 1> Arg;

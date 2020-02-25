@@ -1,7 +1,7 @@
 //==--- HIRPMSymbolicTripCountCompleteUnroll.cpp --*-C++-*-----------------===//
 // Implements HIR Loop Early Pattern Match Pass.
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -446,17 +446,17 @@ bool HIRPMSymbolicTripCountCompleteUnroll::doPreliminaryChecks(
 //
 bool HIRPMSymbolicTripCountCompleteUnroll::doOuterLpTest(void) {
 
+  // Check: NOT MultiExit
+  if (!OuterLp->isDo()) {
+    return false;
+  }
+
   // Check: UB is Integer Constant 3
   int64_t UBConst = 0;
   if (!OuterLp->getUpperDDRef()->isIntConstant(&UBConst)) {
     return false;
   }
   if (UBConst != 3) {
-    return false;
-  }
-
-  // Check: NOT MultiExit
-  if (!OuterLp->isDo()) {
     return false;
   }
 
@@ -485,6 +485,11 @@ bool HIRPMSymbolicTripCountCompleteUnroll::doInnerLpTest(void) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
+  // Check: HAS MultiExits
+  if (!InnerLp->isDoMultiExit()) {
+    return false;
+  }
+
   // Check: UB is unknown (in a temp linear to the loop)
   // RegDDRef *UBRef = InnerLp->getUpperDDRef();
   CanonExpr *UBCE = InnerLp->getUpperDDRef()->getSingleCanonExpr();
@@ -507,11 +512,6 @@ bool HIRPMSymbolicTripCountCompleteUnroll::doInnerLpTest(void) {
 
   // Check: NO ZTT
   if (InnerLp->hasZtt()) {
-    return false;
-  }
-
-  // Check: HAS MultiExits
-  if (!InnerLp->isDoMultiExit()) {
     return false;
   }
 

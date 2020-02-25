@@ -136,6 +136,11 @@ void __kmpc_init_runtime() {
   __kmp_init_locals();
 }
 
+/// Initialize program data
+kernel void __kmpc_init_program(global void *data) {
+  GLOBAL.program_data = *(kmp_program_data_t *)data;
+}
+
 
 ///
 /// Support for critical section
@@ -143,11 +148,11 @@ void __kmpc_init_runtime() {
 
 // Requires correctly initialized "*name" (=0).
 EXTERN void __kmpc_critical(kmp_critical_name *name) {
-  __kmp_acquire_lock((__global int *)name);
+  __kmp_acquire_lock((int *)name);
 }
 
 EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
-  __kmp_release_lock((__global int *)name);
+  __kmp_release_lock((int *)name);
 }
 
 
@@ -190,6 +195,14 @@ EXTERN int __kmpc_master_sub_group_leader() {
     return KMP_FALSE;
 }
 
+/// Check if current work is the active sub group leader
+EXTERN int __kmpc_active_sub_group_leader() {
+  if (__kmp_get_active_sub_group_leader_id() == get_sub_group_local_id())
+    return KMP_TRUE;
+  else
+    return KMP_FALSE;
+}
+
 
 ///
 /// Support for reduction
@@ -220,5 +233,7 @@ EXTERN int __kmpc_master_sub_group_leader() {
 KMPC_REDUCTION(OP_ADD, add, int)
 KMPC_REDUCTION(OP_ADD, add, long)
 KMPC_REDUCTION(OP_ADD, add, float)
+#if HAVE_FP64_SUPPORT
 KMPC_REDUCTION(OP_ADD, add, double)
+#endif // HAVE_FP64_SUPPORT
 #endif // INTEL_COLLAB

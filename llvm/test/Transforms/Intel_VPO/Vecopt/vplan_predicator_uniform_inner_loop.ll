@@ -5,6 +5,7 @@
 ; Check that we have proper bypasses of the inner loop when it should not be entered.
 
 define void @foo(i32 %n1, i32 %n2) {
+;
 ; CHECK-LABEL:  After predication and linearization
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
@@ -13,14 +14,14 @@ define void @foo(i32 %n1, i32 %n2) {
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP2:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
+; CHECK-NEXT:     [DA: Divergent] i32 [[VP0:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
 ; CHECK-NEXT:     Condition(external): i1 [[CMP10:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[CMP10]]), [[BB3]](!i1 [[CMP10]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
@@ -44,13 +45,13 @@ define void @foo(i32 %n1, i32 %n2) {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND15:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_EXITCOND15]]), [[BB2]](!i1 [[VP_EXITCOND15]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP3:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

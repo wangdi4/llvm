@@ -355,7 +355,8 @@ public:
         ExpensiveCombines(ExpensiveCombines),          // INTEL
         TypeLoweringOpts(TypeLoweringOpts),            // INTEL
         AA(AA), AC(AC), TLI(TLI),                      // INTEL
-        TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC), // INTEL
+        TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL
+                                     nullptr, true, &TTI), // INTEL
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}        // INTEL
 
   /// Run the combiner over the entire worklist until it is empty.
@@ -385,7 +386,8 @@ public:
   Instruction *visitFNeg(UnaryOperator &I);
   Instruction *visitAdd(BinaryOperator &I);
   Instruction *visitFAdd(BinaryOperator &I);
-  Value *OptimizePointerDifference(Value *LHS, Value *RHS, Type *Ty);
+  Value *OptimizePointerDifference(
+      Value *LHS, Value *RHS, Type *Ty, bool isNUW);
   Instruction *visitSub(BinaryOperator &I);
   Instruction *visitFSub(BinaryOperator &I);
   Instruction *visitMul(BinaryOperator &I);
@@ -497,10 +499,14 @@ public:
   /// \return true if successful.
   bool replacePointer(Instruction &I, Value *V);
 
+  LoadInst *combineLoadToNewType(LoadInst &LI, Type *NewTy,
+                                 const Twine &Suffix = "");
+
 private:
   bool shouldChangeType(unsigned FromBitWidth, unsigned ToBitWidth) const;
   bool shouldChangeType(Type *From, Type *To) const;
   Value *dyn_castNegVal(Value *V) const;
+  Value *freelyNegateValue(Value *V);
   Type *FindElementAtOffset(PointerType *PtrTy, int64_t Offset,
                             SmallVectorImpl<Value *> &NewIndices);
 
@@ -1051,7 +1057,12 @@ private:
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
-  Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap);
+#if INTEL_CUSTOMIZATION
+  // If "TestOnly" is true, then Descale makes no modifications and only tests
+  // whether or not a value can be descaled.
+  Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
+                 bool TestOnly = false);
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

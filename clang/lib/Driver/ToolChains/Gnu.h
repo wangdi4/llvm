@@ -329,6 +329,11 @@ protected:
   Tool *buildAssembler() const override;
   Tool *buildLinker() const override;
 
+  virtual std::string getMultiarchTriple(const Driver &D,
+                                         const llvm::Triple &TargetTriple,
+                                         StringRef SysRoot) const
+  { return TargetTriple.str(); }
+
   /// \name ToolChain Implementation Helper Functions
   /// @{
 
@@ -354,6 +359,10 @@ protected:
                         llvm::opt::ArgStringList &CC1Args) const;
   virtual void
   addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
+                           llvm::opt::ArgStringList &CC1Args) const;
+
+  bool
+  addGCCLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                            llvm::opt::ArgStringList &CC1Args) const;
 
   bool addLibStdCXXIncludePaths(Twine Base, Twine Suffix, StringRef GCCTriple,

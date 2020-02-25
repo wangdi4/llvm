@@ -16,30 +16,44 @@
 
 /// -fintelfpga -fsycl-link tests
 // RUN:  touch %t.o
-// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fsycl-link %t.o 2>&1 \
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fsycl-link %t.o -o libfoo.a 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK,CHK-FPGA-EARLY %s
-// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fsycl-link=early %t.o 2>&1 \
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fsycl-link=early %t.o -o libfoo.a 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK,CHK-FPGA-EARLY %s
-// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fsycl-link=image %t.o 2>&1 \
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fsycl-link=image %t.o -o libfoo.a 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK,CHK-FPGA-IMAGE %s
 // CHK-FPGA-LINK-NOT: clang-offload-bundler{{.*}} "-check-section"
 // CHK-FPGA-LINK: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice" "-inputs=[[INPUT:.+\.o]]" "-outputs=[[OUTPUT1:.+\.o]]" "-unbundle"
+// CHK-FPGA-LINK-NOT: clang-offload-bundler{{.*}}
 // CHK-FPGA-LINK: llvm-link{{.*}} "[[OUTPUT1]]" "-o" "[[OUTPUT2:.+\.bc]]"
 // CHK-FPGA-LINK: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-ext=+all" "[[OUTPUT2]]"
 // CHK-FPGA-EARLY: aoc{{.*}} "-o" "[[OUTPUT4:.+\.aocr]]" "[[OUTPUT3]]" "-sycl" "-rtl"
 // CHK-FPGA-IMAGE: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocx]]" "[[OUTPUT3]]" "-sycl"
-// CHK-FPGA-LINK: {{lib|llvm-ar}}{{.*}} "[[INPUT]]"
+// CHK-FPGA-LINK: llvm-ar{{.*}} "cr" "libfoo.a" "[[INPUT]]"
+
+// Output designation should not be used for unbundling step
+// RUN:  touch %t.o
+// RUN:  touch %t.obj
+// RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga -fsycl-link %t.o -o libfoo.a 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-FPGA-LINK-OUT %s
+// RUN:  %clang_cl -### -fsycl -fintelfpga -fsycl-link %t.obj -Folibfoo.a 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK-OUT %s
+// RUN:  %clang_cl -### -fsycl -fintelfpga -fsycl-link %t.obj -o libfoo.a 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK-OUT %s
+// CHK-FPGA-LINK-OUT-NOT: clang-offload-bundler{{.*}} "-outputs=libfoo.a" "-unbundle"
 
 /// -fintelfpga -fsycl-link clang-cl specific
 // RUN:  touch %t.obj
-// RUN:  %clang_cl -### -fsycl -fintelfpga -fsycl-link %t.obj 2>&1 \
+// RUN:  %clang_cl -### -fsycl -fintelfpga -fsycl-link %t.obj -Folibfoo.lib 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK-WIN %s
+// RUN:  %clang_cl -### -fsycl -fintelfpga -fsycl-link %t.obj -o libfoo.lib 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-LINK-WIN %s
 // CHK-FPGA-LINK-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice{{.*}}" "-inputs=[[INPUT:.+\.obj]]" "-outputs=[[OUTPUT1:.+\.obj]]" "-unbundle"
+// CHK-FPGA-LINK-WIN-NOT: clang-offload-bundler{{.*}}
 // CHK-FPGA-LINK-WIN: llvm-link{{.*}} "[[OUTPUT1]]" "-o" "[[OUTPUT2:.+\.bc]]"
 // CHK-FPGA-LINK-WIN: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-max-version=1.1" "-spirv-ext=+all" "[[OUTPUT2]]"
 // CHK-FPGA-LINK-WIN: aoc{{.*}} "-o" "[[OUTPUT5:.+\.aocr]]" "[[OUTPUT3]]" "-sycl" "-rtl"
-// CHK-FPGA-LINK-WIN: lib.exe{{.*}} "[[INPUT]]"
-
+// CHK-FPGA-LINK-WIN: lib.exe{{.*}} "[[INPUT]]" {{.*}} "-OUT:libfoo.lib"
 
 /// Check -fintelfpga -fsycl-link with an FPGA archive
 // Create the dummy archive
@@ -143,11 +157,54 @@
 // RUN: touch %t-2.cpp
 // RUN: %clangxx -### -fsycl -fintelfpga %t-1.cpp %t-2.cpp -o %t.out 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES %s
+// RUN: %clang_cl -### -fsycl -fintelfpga %t-1.cpp %t-2.cpp -o %t.out 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES %s
 // RUN: %clangxx -### -fsycl -fintelfpga %t-1.cpp %t-2.cpp 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES %s
+// RUN: %clang_cl -### -fsycl -fintelfpga %t-1.cpp %t-2.cpp 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES %s
 // CHK-FPGA-DEP-FILES: clang{{.*}} "-dependency-file" "[[INPUT1:.+\.d]]"
 // CHK-FPGA-DEP-FILES: clang{{.*}} "-dependency-file" "[[INPUT2:.+\.d]]"
 // CHK-FPGA-DEP-FILES: aoc{{.*}} "-dep-files={{.*}}[[INPUT1]],{{.*}}[[INPUT2]]"
+
+/// -fintelfpga dependency file generation test to object
+// RUN: %clangxx -### -fsycl -fintelfpga %t-1.cpp %t-2.cpp -c 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHK-FPGA-DEP-FILES2,CHK-FPGA-DEP-FILES2-LIN %s
+// RUN: %clang_cl -### -fsycl -fintelfpga %t-1.cpp %t-2.cpp -c 2>&1 \
+// RUN:  | FileCheck -check-prefixes=CHK-FPGA-DEP-FILES2,CHK-FPGA-DEP-FILES2-WIN %s
+// CHK-FPGA-DEP-FILES2: clang{{.*}} "-dependency-file" "[[INPUT1:.+\.d]]"
+// CHK-FPGA-DEP-FILES2-LIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice,host-x86_64-unknown-linux-gnu,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.o,{{.*}}.o,[[INPUT1]]"
+// CHK-FPGA-DEP-FILES2-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice-coff,host-x86_64-pc-windows-msvc,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.obj,{{.*}}.obj,[[INPUT1]]"
+// CHK-FPGA-DEP-FILES2: clang{{.*}} "-dependency-file" "[[INPUT2:.+\.d]]"
+// CHK-FPGA-DEP-FILES2-LIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice,host-x86_64-unknown-linux-gnu,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.o,{{.*}}.o,[[INPUT2]]"
+// CHK-FPGA-DEP-FILES2-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice-coff,host-x86_64-pc-windows-msvc,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.obj,{{.*}}.obj,[[INPUT2]]"
+
+/// -fintelfpga dependency obj use test
+// RUN: touch %t-1.o
+// RUN: touch %t-2.o
+// RUN: %clangxx -### -fsycl -fintelfpga %t-1.o %t-2.o 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES-OBJ -DINPUT1=%t-1.o -DINPUT2=%t-2.o %s
+// RUN: %clang_cl -### -fsycl -fintelfpga %t-1.o %t-2.o 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES-OBJ -DINPUT1=%t-1.o -DINPUT2=%t-2.o %s
+// CHK-FPGA-DEP-FILES-OBJ: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-fpga_dep" "-inputs=[[INPUT1]]" "-outputs=[[DEPFILE1:.+\.d]]" "-unbundle"
+// CHK-FPGA-DEP-FILES-OBJ: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-fpga_dep" "-inputs=[[INPUT2]]" "-outputs=[[DEPFILE2:.+\.d]]" "-unbundle"
+// CHK-FPGA-DEP-FILES-OBJ: aoc{{.*}} "-dep-files=[[DEPFILE1]],[[DEPFILE2]]
+
+/// -fintelfpga dependency file use from object phases test
+// RUN: touch %t-1.o
+// RUN: %clangxx -fsycl -fintelfpga -ccc-print-phases -### %t-1.o 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES-OBJ-PHASES -DINPUT=%t-1.o %s
+// RUN: %clang_cl -fsycl -fintelfpga -ccc-print-phases -### %t-1.o 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-FPGA-DEP-FILES-OBJ-PHASES -DINPUT=%t-1.o %s
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 0: input, "[[INPUT]]", object, (host-sycl)
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 1: clang-offload-unbundler, {0}, object, (host-sycl)
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 2: linker, {1}, image, (host-sycl)
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 3: linker, {1}, ir, (device-sycl)
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 4: llvm-spirv, {3}, spirv, (device-sycl)
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 5: clang-offload-unbundler, {0}, fpga_dependencies
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 6: backend-compiler, {4, 5}, fpga_aocx, (device-sycl)
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 7: clang-offload-wrapper, {6}, object, (device-sycl)
+// CHK-FPGA-DEP-FILES-OBJ-PHASES: 8: offload, "host-sycl (x86_64-{{unknown-linux-gnu|pc-windows-msvc}})" {2}, "device-sycl (spir64_fpga-unknown-unknown-sycldevice{{(-coff)?}})" {7}, image
 
 /// -fintelfpga output report file test
 // RUN: mkdir -p %t_dir

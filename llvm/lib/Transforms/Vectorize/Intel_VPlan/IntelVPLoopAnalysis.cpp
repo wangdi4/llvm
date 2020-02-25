@@ -615,6 +615,7 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
                                         VPValue &Init, Type *Ty,
                                         VPValue &Start) {
   if (PrivateMem) {
+    assert(AI && "Expected non-null original pointer");
     auto V = Builder.createNaryOp(Instruction::Store, Ty, {&Init, PrivateMem});
     Plan.getVPlanDA()->markDivergent(*V);
     AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
@@ -625,8 +626,9 @@ void VPLoopEntityList::processInitValue(VPLoopEntity &E, VPValue *AI,
   if (!E.getIsMemOnly()) {
     auto &LinkedVals = E.getLinkedVPValues();
     for (auto *Val : LinkedVals)
-      if (auto *Instr = dyn_cast<VPInstruction>(Val))
-        Instr->replaceUsesOfWith(&Start, &Init);
+      if (auto *Phi = dyn_cast<VPPHINode>(Val))
+        if (Loop.getHeader() == Phi->getParent())
+          Phi->replaceUsesOfWith(&Start, &Init);
   }
   linkValue(&E, &Init);
 }
@@ -686,12 +688,21 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
     // Currently, we use broadcast-only for FP data types and min/max
     // reductions. For integers and pointers we use the broadcast-and-insert
     // method.
+    StringRef Name;
+    if (AI)
+      Name = AI->getName();
+    else {
+      VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
+      Name = PhiN ? PhiN->getName() : "";
+    }
     bool StartIncluded = !Ty->isFloatingPointTy();
     VPInstruction *Init =
         StartIncluded && !Reduction->isMinMax()
             ? Builder.createReductionInit(Identity,
-                                          Reduction->getRecurrenceStartValue())
-            : Builder.createReductionInit(Identity);
+                                          Reduction->getRecurrenceStartValue(),
+                                          Name + ".red.init")
+            : Builder.createReductionInit(Identity, nullptr /* Start */,
+                                          Name + ".red.init");
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
     Plan.getVPlanDA()->markDivergent(*Init);
@@ -713,13 +724,13 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       VPInstruction *ParentExit;
       VPReductionFinal *ParentFinal;
       std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
-      Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
-                                           Exit, ParentExit, ParentFinal,
-                                           Reduction->isSigned());
+      Final = Builder.createReductionFinal(
+          Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
+          Reduction->isSigned(), Name + ".red.final");
     } else {
       if (StartIncluded || Reduction->isMinMax()) {
-        Final =
-            Builder.createReductionFinal(Reduction->getReductionOpcode(), Exit);
+        Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
+                                             Exit, Name + ".red.final");
       } else {
         // Create a load for Start value if it's a pointer.
         VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
@@ -729,15 +740,30 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
           FinalStartValue =
               Builder.createNaryOp(Instruction::Load, Ty, {FinalStartValue});
         }
-
-        Final = Builder.createReductionFinal(Reduction->getReductionOpcode(),
-                                             Exit, FinalStartValue,
-                                             Reduction->isSigned());
+        Final = Builder.createReductionFinal(
+            Reduction->getReductionOpcode(), Exit, FinalStartValue,
+            Reduction->isSigned(), Name + ".red.final");
       }
       RedFinalMap[Reduction] = std::make_pair(Final, Exit);
     }
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
+}
+
+// Check whether \p Inst is a consistent update of induction, i.e. it
+// has correct opcode and contains induction step.
+static bool isConsistentInductionUpdate(const VPInstruction *Inst,
+                                        unsigned BinOpc, const VPValue *Step) {
+  // Check whether update operator is consistent with induction definition,
+  // i.e. it has the declared opcode and induction step as operand.
+  // For auto-recognized inductions the BinOpc is set to BinaryOpsEnd
+  // so we have special check for that.
+  // TODO: It's better to have the BinOpc set for auto-recognized inductions
+  // as well. This is planned for implementation in the fix for CMPLRLLVM-11590.
+  bool IsAutoRecognizedInduction = BinOpc == Instruction::BinaryOpsEnd;
+  return Instruction::isBinaryOp(Inst->getOpcode()) &&
+         (IsAutoRecognizedInduction || Inst->getOpcode() == BinOpc) &&
+         Inst->getOperandIndex(Step) != -1;
 }
 
 // Insert VPInstructions related to VPInductions.
@@ -763,18 +789,33 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
 
     Instruction::BinaryOps Opc =
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
-    VPInstruction *Init =
-        Builder.createInductionInit(Start, Induction->getStep(), Opc);
+    StringRef Name;
+    if (AI)
+      Name = AI->getName();
+    else {
+      VPPHINode *PhiN = getRecurrentVPHINode(*Induction);
+      Name = PhiN ? PhiN->getName() : "";
+    }
+    VPInstruction *Init = Builder.createInductionInit(
+        Start, Induction->getStep(), Opc, Name + ".ind.init");
     Plan.getVPlanDA()->markDivergent(*Init);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
-    VPInstruction *InitStep =
-        Builder.createInductionInitStep(Induction->getStep(), Opc);
+
+    VPInstruction *InitStep = Builder.createInductionInitStep(
+        Induction->getStep(), Opc, Name + ".ind.init.step");
+
     if (!Induction->needCloseForm()) {
-      auto &LinkedVals = Induction->getLinkedVPValues();
-      for (auto *Val : LinkedVals)
-        if (auto *Instr = dyn_cast<VPInstruction>(Val))
-          if (!isa<VPInductionInit>(Instr))
-            Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
+      if (auto *Instr = Induction->getInductionBinOp()) {
+        assert(isConsistentInductionUpdate(Instr,
+                                           Induction->getInductionOpcode(),
+                                           Induction->getStep()) &&
+               "Inconsistent induction update");
+        // This is the only instruction to replace step in induction
+        // calculation, no other instruction should be affected. That is
+        // important in case the step is used in other instructions linked
+        // with induction.
+        Instr->replaceUsesOfWith(Induction->getStep(), InitStep);
+      }
     } else {
       createInductionCloseForm(Induction, Builder, *Init, *InitStep,
                                *PrivateMem);
@@ -791,8 +832,9 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
             : ExitInstr;
     VPInstruction *Final =
         IsExtract && Exit
-            ? Builder.createInductionFinal(Exit)
-            : Builder.createInductionFinal(Start, Induction->getStep(), Opc);
+            ? Builder.createInductionFinal(Exit, Name + ".ind.final")
+            : Builder.createInductionFinal(Start, Induction->getStep(), Opc,
+                                           Name + ".ind.final");
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
   }
 }
@@ -1091,6 +1133,7 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
       }
 
       // CurrPHI doesn't match StartPhi requirements, recurse on its PHI users.
+      LinkedVPVals.push_back(Exit);
       Exit = CurrPHI;
       // TODO: Enable the assert below when Decomposer is updated to set
       // live-out property of PHI nodes. Check JIRA CMPLRLLVM-10836.
@@ -1459,8 +1502,14 @@ bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
     // blend them. There might be uses between the updates.
     return true;
 
-  VPInstruction *IndIncrementVPI = InductionBinOp ? InductionBinOp : nullptr;
+  VPInstruction *IndIncrementVPI = InductionBinOp;
 
+  if (IndIncrementVPI) {
+    if (!isConsistentInductionUpdate(IndIncrementVPI, getBinOpcode(),
+                                        getStep()))
+      // The update instruction is inconsistent.
+      return true;
+  }
   if (!IndIncrementVPI) {
     // TODO: Currently we don't have analyses for memory inductions in
     // VPLoopEntities to determine final updating instruction. Temporarily using

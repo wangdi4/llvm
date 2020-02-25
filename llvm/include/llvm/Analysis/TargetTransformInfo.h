@@ -342,6 +342,10 @@ public:
   /// branches.
   bool hasBranchDivergence() const;
 
+  /// Return true if the target prefers to use GPU divergence analysis to
+  /// replace the legacy version.
+  bool useGPUDivergenceAnalysis() const;
+
   /// Returns whether V is a source of divergence.
   ///
   /// This function provides the target-dependent information for
@@ -1081,6 +1085,12 @@ public:
   /// \return true if 'Mask' requires a target-specific shuffle
   /// instruction, return false otherwise.
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;
+
+  /// \return true if VPlanVLS is expected to be profitable for the target.
+  bool isVPlanVLSProfitable() const;
+
+  /// \return true if VLS is expected to be profitable in almost all cases.
+  bool isAggressiveVLSProfitable() const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -1229,6 +1239,7 @@ public:
   virtual int
   getUserCost(const User *U, ArrayRef<const Value *> Operands) = 0;
   virtual bool hasBranchDivergence() = 0;
+  virtual bool useGPUDivergenceAnalysis() = 0;
   virtual bool isSourceOfDivergence(const Value *V) = 0;
   virtual bool isAlwaysUniform(const Value *V) = 0;
   virtual unsigned getFlatAddressSpace() = 0;
@@ -1402,6 +1413,8 @@ public:
 
   virtual bool
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const = 0;
+  virtual bool isVPlanVLSProfitable() const = 0;
+  virtual bool isAggressiveVLSProfitable() const = 0;
   virtual bool needsStructuredCFG() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
@@ -1493,6 +1506,7 @@ public:
     return Impl.getUserCost(U, Operands);
   }
   bool hasBranchDivergence() override { return Impl.hasBranchDivergence(); }
+  bool useGPUDivergenceAnalysis() override { return Impl.useGPUDivergenceAnalysis(); }
   bool isSourceOfDivergence(const Value *V) override {
     return Impl.isSourceOfDivergence(V);
   }
@@ -1863,6 +1877,14 @@ public:
   bool
   isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const override {
     return Impl.isTargetSpecificShuffleMask(Mask);
+  }
+
+  bool isVPlanVLSProfitable() const override {
+    return Impl.isVPlanVLSProfitable();
+  }
+
+  bool isAggressiveVLSProfitable() const override {
+    return Impl.isAggressiveVLSProfitable();
   }
 
   bool needsStructuredCFG() const override {

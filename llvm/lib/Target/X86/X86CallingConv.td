@@ -386,6 +386,10 @@ def RetCC_X86_Win64_C : CallingConv<[
   // The X86-Win64 calling convention always returns __m64 values in RAX.
   CCIfType<[x86mmx], CCBitConvertToType<i64>>,
 
+  // GCC returns FP values in RAX on Win64.
+  CCIfType<[f32], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i32>>>,
+  CCIfType<[f64], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i64>>>,
+
   // Otherwise, everything is the same as 'normal' X86-64 C CC.
   CCDelegateTo<RetCC_X86_64_C>
 ]>;
@@ -539,6 +543,8 @@ def RetCC_X86 : CallingConv<[
   // Check if this is the Intel OpenCL built-ins calling convention
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<RetCC_Intel_OCL_BI>>,
 // if INTEL_CUSTOMIZATION
+  CCIfCC<"CallingConv::Intel_OCL_BI_AVX", CCDelegateTo<RetCC_Intel_OCL_BI>>,
+  CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<RetCC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
 // endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<RetCC_X86_64>>,
@@ -756,7 +762,6 @@ def CC_X86_Win64_C : CallingConv<[
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-
   // 256 bit vectors are passed by pointer
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -781,6 +786,22 @@ def CC_X86_Win64_C : CallingConv<[
   // The first 4 MMX vector arguments are passed in GPRs.
   CCIfType<[x86mmx], CCBitConvertToType<i64>>,
 
+  // If SSE was disabled, pass FP values smaller than 64-bits as integers in
+  // GPRs or on the stack.
+  CCIfType<[f32], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i32>>>,
+  CCIfType<[f64], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i64>>>,
+
+  // The first 4 FP/Vector arguments are passed in XMM registers.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  CCIfType<[f16, f32, f64],
+#else // INTEL_FEATURE_ISA_FP16
+  CCIfType<[f32, f64],
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+           CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
+                                   [RCX , RDX , R8  , R9  ]>>,
+
   // The first 4 integer arguments are passed in integer registers.
   CCIfType<[i8 ], CCAssignToRegWithShadow<[CL  , DL  , R8B , R9B ],
                                           [XMM0, XMM1, XMM2, XMM3]>>,
@@ -797,17 +818,6 @@ def CC_X86_Win64_C : CallingConv<[
 
   CCIfType<[i64], CCAssignToRegWithShadow<[RCX , RDX , R8  , R9  ],
                                           [XMM0, XMM1, XMM2, XMM3]>>,
-
-  // The first 4 FP/Vector arguments are passed in XMM registers.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  CCIfType<[f16, f32, f64, v16i8, v8i16, v4i32, v2i64, v8f32, v4f32, v2f64],
-#else // INTEL_FEATURE_ISA_FP16
-  CCIfType<[f32, f64, v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-           CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
-                                   [RCX , RDX , R8  , R9  ]>>,
 
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
@@ -1207,13 +1217,13 @@ def CC_X86_32_HiPE : CallingConv<[
 // if INTEL_CUSTOMIZATION
 def CC_SVML : CallingConv<[
 
-  CCIfType<[f32, f64, v4i32, v2i64, v4f32, v2f64],
+  CCIfType<[f32, f64, v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
            CCAssignToReg<[XMM0, XMM1, XMM2]>>,
   
-  CCIfType<[v8f32, v4f64, v8i32, v4i64],
+  CCIfType<[v8f32, v4f64, v32i8, v16i16, v8i32, v4i64],
            CCAssignToReg<[YMM0, YMM1, YMM2]>>,
 
-  CCIfType<[v16f32, v8f64, v16i32, v8i64],
+  CCIfType<[v16f32, v8f64, v64i8, v32i16, v16i32, v8i64],
            CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>,
 
   CCIfType<[v2i1, v4i1, v8i1, v16i1],
@@ -1304,6 +1314,8 @@ let Entry = 1 in
 def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI", CCDelegateTo<CC_Intel_OCL_BI>>,
 // if INTEL_CUSTOMIZATION
+  CCIfCC<"CallingConv::Intel_OCL_BI_AVX", CCDelegateTo<CC_Intel_OCL_BI>>,
+  CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<CC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<CC_SVML>>,
 // endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<CC_X86_64>>,

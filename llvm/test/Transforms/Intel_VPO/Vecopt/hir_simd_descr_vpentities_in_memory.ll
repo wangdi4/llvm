@@ -44,12 +44,11 @@
 ; in finalize statements.
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -debug -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -debug -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -disable-vplan-codegen -vplan-entities-dump -vplan-use-entity-instr -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check entities dump and VPlan IR
-; CHECK-LABEL: VPlan IR for: After insertion VPEntities instructions
 ; CHECK: Reduction list
 ; CHECK: (+) Start: i64* [[V1_START:%.*]]
 ; CHECK: Memory: i64* [[V1_START]]

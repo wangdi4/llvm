@@ -609,6 +609,8 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(spir_func);
   KEYWORD(intel_ocl_bicc);
 #if INTEL_CUSTOMIZATION
+  KEYWORD(intel_ocl_bicc_avx);
+  KEYWORD(intel_ocl_bicc_avx512);
   KEYWORD(svml_cc);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
@@ -800,6 +802,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(sizeM1);
   KEYWORD(bitMask);
   KEYWORD(inlineBits);
+  KEYWORD(vcall_visibility);
   KEYWORD(wpdResolutions);
   KEYWORD(wpdRes);
   KEYWORD(indir);

@@ -1,6 +1,6 @@
 //===------ HIRTransformUtils.h ---------------------------- --*- C++ -*---===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -31,6 +31,7 @@
 namespace llvm {
 
 class LoopOptReportBuilder;
+class FieldModRefResult;
 
 namespace loopopt {
 
@@ -175,44 +176,34 @@ public:
       HIRLoopStatistics &HLS          // INPUT: Existing HIRLoopStatitics
   );
 
-  // Do HIR Loop-Invariant Memory Motion (LIMM) on a given loop
+  /// Returns true if \p MemRef is invariant inside \p Loop. \p If IgnoreIVs is
+  /// set to true, any IVs present inside \p MemRef will be ignored when making
+  /// structural checks. The invariance is checked using DD/ModRef. When
+  /// IgnoreIVs is true, the result indicates invariance of the entire range of
+  /// locations accessed.
+  ///
+  /// For example, A[i2] may be considered invariant in the i1 loop if it
+  /// doesn't alias with B[][]-
   //
-  // Return: bool
-  // -true: if any LIMM is promoted;
-  // -false: otherwise;
-  //
-  static bool doHIRLoopInvariantMemoryMotion(
-      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
-      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-  );
-
-  // Do HIR Loop-Redundant Memory Motion (LRMM) on a given loop
-  //
-  // Return: bool
-  // -true: if any LRMM is promoted;
-  // -false: otherwise;
-  //
-  static bool doHIRLoopRedundantMemoryMotion(
-      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
-      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-  );
-
-  // Do HIR Loop Memory Motion on a given innermost loop
-  //
-  // This will promote both Loop-Invariant Memory Motion (LIMM) and
-  // Loop-Redundant Memory Motion (LRMM) if available.
-  //
-  // Return: bool
-  // -true: if any LIMM or LRMM is promoted;
-  // -false: otherwise;
-  //
-  static bool doHIRLoopMemoryMotion(
-      HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-      HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
-      HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-  );
+  /// DO i1
+  ///   DO i2
+  ///     B[i1][i2] = A[i2];
+  ///   END DO
+  /// END DO
+  ///
+  /// In some cases, it may return true if the base is reloaded inside the loop
+  /// but is also invariant. For example-
+  ///
+  /// DO i1
+  ///   p = S[5].2;  << invariant base
+  ///   DO i2
+  ///     B[i1][i2] = p[i2]; << invariant load
+  ///   END DO
+  /// END DO
+  static bool isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Loop,
+                              HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
+                              FieldModRefResult *FieldModRef = nullptr,
+                              bool IgnoreIVs = false);
 
   /// This function creates and returns a new loop that will be used as the
   /// main loop for unrolling or vectorization(current clients). The bounds

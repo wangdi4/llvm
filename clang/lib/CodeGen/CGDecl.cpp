@@ -35,6 +35,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
+#include "clang/Sema/Sema.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -43,6 +44,9 @@
 
 using namespace clang;
 using namespace CodeGen;
+
+static_assert(clang::Sema::MaximumAlignment <= llvm::Value::MaximumAlignment,
+              "Clang max alignment greater than what LLVM supports?");
 
 void CodeGenFunction::EmitDecl(const Decl &D) {
   switch (D.getKind()) {
@@ -115,6 +119,7 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::Empty:
   case Decl::Concept:
   case Decl::LifetimeExtendedTemporary:
+  case Decl::RequiresExprBody:
     // None of these decls require codegen support.
     return;
 
@@ -216,9 +221,9 @@ static std::string getStaticDeclName(CodeGenModule &CGM, const VarDecl &D) {
   if (auto *CD = dyn_cast<CapturedDecl>(DC))
     DC = cast<DeclContext>(CD->getNonClosureContext());
   if (const auto *FD = dyn_cast<FunctionDecl>(DC))
-    ContextName = CGM.getMangledName(FD);
+    ContextName = std::string(CGM.getMangledName(FD));
   else if (const auto *BD = dyn_cast<BlockDecl>(DC))
-    ContextName = CGM.getBlockMangledName(GlobalDecl(), BD);
+    ContextName = std::string(CGM.getBlockMangledName(GlobalDecl(), BD));
   else if (const auto *OMD = dyn_cast<ObjCMethodDecl>(DC))
     ContextName = OMD->getSelector().getAsString();
   else
@@ -243,7 +248,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
   // Use the label if the variable is renamed with the asm-label extension.
   std::string Name;
   if (D.hasAttr<AsmLabelAttr>())
-    Name = getMangledName(&D);
+    Name = std::string(getMangledName(&D));
   else
     Name = getStaticDeclName(*this, D);
 
@@ -396,7 +401,8 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
 
   emitter.finalize(GV);
 
-  if (D.needsDestruction(getContext()) && HaveInsertPoint()) {
+  if (D.needsDestruction(getContext()) == QualType::DK_cxx_destructor &&
+      HaveInsertPoint()) {
     // We have a constant initializer, but a nontrivial destructor. We still
     // need to perform a guarded "initialization" in order to register the
     // destructor.
@@ -490,8 +496,7 @@ void CodeGenFunction::EmitStaticVarDecl(const VarDecl &D,
 
   // Emit global variable debug descriptor for static vars.
   CGDebugInfo *DI = getDebugInfo();
-  if (DI &&
-      CGM.getCodeGenOpts().getDebugInfo() >= codegenoptions::LimitedDebugInfo) {
+  if (DI && CGM.getCodeGenOpts().hasReducedDebugInfo()) {
     DI->setLocation(D.getLocation());
     DI->EmitGlobalVariable(var, &D);
   }
@@ -1144,7 +1149,7 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
         return CC->getNameAsString();
       if (const auto *CD = dyn_cast<CXXDestructorDecl>(FD))
         return CD->getNameAsString();
-      return getMangledName(FD);
+      return std::string(getMangledName(FD));
     } else if (const auto *OM = dyn_cast<ObjCMethodDecl>(DC)) {
       return OM->getNameAsString();
     } else if (isa<BlockDecl>(DC)) {
@@ -1455,8 +1460,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     EmitVariablyModifiedType(Ty);
 
   auto *DI = getDebugInfo();
-  bool EmitDebugInfo = DI && CGM.getCodeGenOpts().getDebugInfo() >=
-                                 codegenoptions::LimitedDebugInfo;
+  bool EmitDebugInfo = DI && CGM.getCodeGenOpts().hasReducedDebugInfo();
 
   Address address = Address::invalid();
   Address AllocaAddr = Address::invalid();
@@ -1647,6 +1651,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
                          AnnotStr, D.getLocation());
     }
   }
+
+  AssignAliasScope(emission);
 #endif // INTEL_CUSTOMIZATION
 
   // Emit Intel FPGA attribute annotation for a local variable.
@@ -1831,6 +1837,51 @@ void CodeGenFunction::emitZeroOrPatternForAutoVarInit(QualType type,
   } break;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+void CodeGenFunction::AssignAliasScope(
+    const CodeGenFunction::AutoVarEmission &emission) {
+  assert(emission.Variable && "emission was not valid!");
+
+  // Don't emit noalias intrinsics unless we're optimizing.
+  if (CGM.getCodeGenOpts().OptimizationLevel == 0)
+    return;
+
+  const VarDecl &Decl = *emission.Variable;
+  QualType DeclTy = Decl.getType();
+
+  // Emit a noalias intrinsic for restrict-qualified variables.
+  if (!DeclTy.isRestrictQualified())
+    return;
+
+  llvm::MDBuilder MDB(CurFn->getContext());
+  if (!NoAliasDomain)
+    NoAliasDomain = MDB.createAnonymousAliasScopeDomain(CurFn->getName());
+
+  llvm::SmallString<128> Name = CurFn->getName();
+  Name += ": ";
+  Name += Decl.getName();
+
+  llvm::MDNode *Scope =
+      MDB.createAnonymousAliasScope(NoAliasDomain, Name);
+  getCurNoAliasScope().addNoAliasScope(Scope);
+
+  SmallVector<llvm::Metadata *, 8> ScopeListEntries(1, Scope);
+  llvm::MDNode *ScopeList =
+      llvm::MDNode::get(CurFn->getContext(), ScopeListEntries);
+
+  // Check whether this is a byref variable that's potentially
+  // captured and moved by its own initializer.  If so, we'll need to
+  // emit the initializer first, then copy into the variable.
+  bool CapturedByInit =
+      emission.IsEscapingByRef && isCapturedBy(Decl, Decl.getInit());
+
+  Address Loc =
+      CapturedByInit ? emission.Addr : emission.getObjectAddress(*this);
+
+  NoAliasSlotMap[Loc.getPointer()] = ScopeList;
+}
+#endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAutoVarInit(const AutoVarEmission &emission) {
   assert(emission.Variable && "emission was not valid!");
@@ -2585,9 +2636,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
 
   // Emit debug info for param declarations in non-thunk functions.
   if (CGDebugInfo *DI = getDebugInfo()) {
-    if (CGM.getCodeGenOpts().getDebugInfo() >=
-            codegenoptions::LimitedDebugInfo &&
-        !CurFuncIsThunk) {
+    if (CGM.getCodeGenOpts().hasReducedDebugInfo() && !CurFuncIsThunk) {
       DI->EmitDeclareOfArgVariable(&D, DeclPtr.getPointer(), ArgNo, Builder);
     }
   }

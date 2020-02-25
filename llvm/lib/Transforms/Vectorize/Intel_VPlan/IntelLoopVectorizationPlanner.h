@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.h ------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -19,6 +19,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
+#include "IntelVPlanLoopUnroller.h"
 #else
 #include "VPlan.h"
 #endif
@@ -102,6 +103,9 @@ public:
 
   /// \brief Predicate all unique non-scalar VPlans
   void predicate(void);
+
+  /// Perform VPlan loop unrolling if needed
+  void unroll(VPlan &Plan, unsigned UF);
 
   template <typename CostModelTy = VPlanCostModel>
   void printCostModelAnalysisIfRequested();

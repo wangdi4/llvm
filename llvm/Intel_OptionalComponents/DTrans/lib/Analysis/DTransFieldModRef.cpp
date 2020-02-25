@@ -1,6 +1,6 @@
 //===-------DTransFieldModRef.cpp - DTrans Field ModRef Analysis-----------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -53,6 +53,28 @@ namespace llvm {
 static cl::opt<bool> DTransFieldModRefEval("dtrans-fieldmodref-eval",
                                            cl::init(false), cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+static const char *ModRefInfoToString(ModRefInfo &Info) {
+  switch (Info) {
+  case ModRefInfo::NoModRef:
+    return "NoModRef";
+  case ModRefInfo::Mod:
+    return "Mod";
+  case ModRefInfo::Ref:
+    return "Ref";
+  case ModRefInfo::ModRef:
+    return "ModRef";
+  case ModRefInfo::Must:
+    return "Must";
+  case ModRefInfo::MustMod:
+    return "MustMod";
+  case ModRefInfo::MustRef:
+    return "MustRef";
+  case ModRefInfo::MustModRef:
+    return "MustModRef";
+  }
+  llvm_unreachable("Fall-through from fully covered switch");
+}
 
 void FieldModRefResult::addReader(llvm::StructType *Ty, size_t FieldNum,
                                   Function *F) {
@@ -125,7 +147,7 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
     // Need to give up for anything that is a byte-flattened GEP form because we
     // don't have DTrans analysis info preserved.
     if (GEP->getNumIndices() == 1)
-      std::make_pair(nullptr, 0);
+      return std::make_pair(nullptr, 0);
 
     auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
     if (!StructTy)
@@ -160,32 +182,46 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
       dbgs() << "Loc: " << cast<Function>(Loc.Ptr)->getName() << "\n";
   });
 
-  // Cannot tell anything about an indirect call.
-  if (Call->isIndirectCall())
-    return ModRefInfo::ModRef;
-
   // Return a conservative answer for direct calls to memcpy, memset, etc. This
   // is necessary because information about what they modify within our data
   // structures is stored with the calling function. Alternatively, we could
   // return the Mod/Ref info about the calling function, but this case is
   // not necessary at the moment.
-  if (isa<MemIntrinsic>(Call))
+  if (isa<MemIntrinsic>(Call)) {
+    DEBUG_WITH_TYPE(DTRANS_FMR_QUERIES,
+                    dbgs() << "Result: ModRef [MemIntrinsic]\n");
     return ModRefInfo::ModRef;
+  }
 
   auto *GEP = dyn_cast<GetElementPtrInst>(Loc.Ptr);
-  if (!GEP)
+  if (!GEP) {
+    DEBUG_WITH_TYPE(DTRANS_FMR_QUERIES, dbgs() << "Result: ModRef [Not GEP]\n");
     return ModRefInfo::ModRef;
+  }
 
   // Try to identify the structure type and field being requested in the GEP,
   // and the see if any information is available for structure field.
   auto StTyAndField = GetStructField(GEP);
-  if (!StTyAndField.first)
+  if (!StTyAndField.first) {
+    DEBUG_WITH_TYPE(DTRANS_FMR_QUERIES,
+                    dbgs() << "Result: ModRef [No info for structure]\n");
     return ModRefInfo::ModRef;
+  }
 
   llvm::StructType *StTy = StTyAndField.first;
   size_t FieldNum = StTyAndField.second;
-  if (!isCandidate(StTy, FieldNum))
+  if (!isCandidate(StTy, FieldNum)) {
+    DEBUG_WITH_TYPE(DTRANS_FMR_QUERIES,
+                    dbgs() << "Result: ModRef [Field " << FieldNum << " of "
+                           << *StTy << " is not a tracked candidate]\n");
     return ModRefInfo::ModRef;
+  }
+
+  // Any field read or written by an indirect call (or reachable from the
+  // indirect call) has been eliminated as a candidate. Therefore, this indirect
+  // call must not modify or reference the field.
+  if (Call->isIndirectCall())
+    return ModRefInfo::NoModRef;
 
   // Information is available for the structure field, check the function and
   // all the reachable functions from it to determine whether the field may be
@@ -194,6 +230,9 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
   SmallPtrSet<Function *, 16> Visited;
   unionModRefInfo(MRI, Call->getCalledFunction(), StTy, FieldNum,
                   /*Indirect=*/true, Visited);
+  DEBUG_WITH_TYPE(DTRANS_FMR_QUERIES,
+                  dbgs() << "Result: " << ModRefInfoToString(MRI) << "\n");
+
   return MRI;
 }
 
@@ -363,13 +402,9 @@ void DTransModRefAnalyzer::initialize(Module &M) {
 
   // List of safety conditions that definitely invalidate the ability to
   // perform some ModRef analysis of the field usage.
-  //
-  // TODO: Enable MismatchedElementAccess after fixing DTrans safety checks to
-  // handle casting between scalar type and pointer-to-pointer type.
   const dtrans::SafetyData MandatoryMask =
       dtrans::BadCasting | dtrans::BadAllocSizeArg |
       dtrans::BadPtrManipulation | dtrans::AmbiguousGEP |
-      /* dtrans::MismatchedElementAccess | */
       dtrans::UnsafePointerStore | dtrans::GlobalPtr | dtrans::UnsafePtrMerge |
       dtrans::BadMemFuncSize | dtrans::BadMemFuncManipulation |
       dtrans::AmbiguousPointerTarget | dtrans::AddressTaken |
@@ -444,17 +479,12 @@ void DTransModRefAnalyzer::initialize(Module &M) {
                                            << ": Address taken field\n");
         FI.setRWBottom();
       }
-
-      // TODO: Enable after mismatched element access is tracked on a per-field
-      // basis.
-#if 0
       else if (FI.isMismatchedElementAccess()) {
         DEBUG_WITH_TYPE(DTRANS_FMR, dbgs() << "Disqualifying field #" << FNum
           << " of " << *StInfo->getLLVMType()
           << ": Mismatched element access on field\n");
         FI.setRWBottom();
       }
-#endif
       else if (std::any_of(FI.writers().begin(), FI.writers().end(),
                            [&AddrTakenClosure](Function *F) {
                              return AddrTakenClosure.count(F) == true;
@@ -1080,34 +1110,8 @@ void DTransModRefAnalyzer::printQueryResults(Module &M,
         MemoryLocation Loc = MemoryLocation::get(I);
         ModRefInfo LocResult = Result.getModRefInfo(Call, Loc);
 
-        dbgs() << "  Result     : ";
-        switch (LocResult) {
-        case ModRefInfo::NoModRef:
-          dbgs() << "NoModRef";
-          break;
-        case ModRefInfo::Mod:
-          dbgs() << "Mod";
-          break;
-        case ModRefInfo::Ref:
-          dbgs() << "Ref";
-          break;
-        case ModRefInfo::ModRef:
-          dbgs() << "ModRef";
-          break;
-        case ModRefInfo::Must:
-          dbgs() << "Must";
-          break;
-        case ModRefInfo::MustMod:
-          dbgs() << "MustMod";
-          break;
-        case ModRefInfo::MustRef:
-          dbgs() << "MustRef";
-          break;
-        case ModRefInfo::MustModRef:
-          dbgs() << "MustModRef";
-          break;
-        }
-        dbgs() << "\nFieldModRefQuery End\n\n";
+        dbgs() << "  Result     : " << ModRefInfoToString(LocResult) << "\n";
+        dbgs() << "FieldModRefQuery End\n\n";
       }
   }
 }
@@ -1128,7 +1132,7 @@ bool DTransFieldModRefAnalysisWrapper::runOnModule(Module &M) {
       getAnalysis<DTransAnalysisWrapper>();
   DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
 
-  auto FMRResult = getAnalysis<DTransFieldModRefResultWrapper>().getResult();
+  auto &FMRResult = getAnalysis<DTransFieldModRefResultWrapper>().getResult();
   WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
   return Impl.runAnalysis(M, DTInfo, WPInfo, FMRResult);
 }
@@ -1165,7 +1169,7 @@ DTransFieldModRefAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
   DTransModRefAnalyzer Analyzer;
-  FieldModRefResult FMRResult = AM.getResult<DTransFieldModRefResult>(M);
+  FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
   Analyzer.runAnalysis(M, DTransInfo, WPInfo, FMRResult);
   return FMRResult;
 }

@@ -132,7 +132,7 @@ llvm::Value *CGOpenCLRuntime::getChannelElemAlign(const Expr *ChannelArg) {
 #endif // INTEL_CUSTOMIZATION
 
 llvm::Value *CGOpenCLRuntime::getPipeElemSize(const Expr *PipeArg) {
-  const PipeType *PipeTy = PipeArg->getType()->getAs<PipeType>();
+  const PipeType *PipeTy = PipeArg->getType()->castAs<PipeType>();
   // The type of the last (implicit) argument to be passed.
   llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
   unsigned TypeSize = CGM.getContext()
@@ -142,7 +142,7 @@ llvm::Value *CGOpenCLRuntime::getPipeElemSize(const Expr *PipeArg) {
 }
 
 llvm::Value *CGOpenCLRuntime::getPipeElemAlign(const Expr *PipeArg) {
-  const PipeType *PipeTy = PipeArg->getType()->getAs<PipeType>();
+  const PipeType *PipeTy = PipeArg->getType()->castAs<PipeType>();
   // The type of the last (implicit) argument to be passed.
   llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
   unsigned TypeSize = CGM.getContext()

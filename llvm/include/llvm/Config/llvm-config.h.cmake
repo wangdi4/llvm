@@ -17,9 +17,6 @@
 /* Define if LLVM_ENABLE_DUMP is enabled */
 #cmakedefine LLVM_ENABLE_DUMP
 
-/* Define if we link Polly to the tools */
-#cmakedefine LINK_POLLY_INTO_TOOLS
-
 /* INTEL_CUSTOMIZATION */
 /* Define if we want to include DTrans in the builds */
 #cmakedefine01 INTEL_INCLUDE_DTRANS

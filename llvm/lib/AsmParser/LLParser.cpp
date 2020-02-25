@@ -2018,6 +2018,8 @@ void LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
 ///   ::= 'ccc'
 ///   ::= 'fastcc'
 ///   ::= 'intel_ocl_bicc'
+///   ::= 'intel_ocl_bicc_avx' // INTEL
+///   ::= 'intel_ocl_bicc_avx512' // INTEL
 ///   ::= 'coldcc'
 ///   ::= 'cfguard_checkcc'
 ///   ::= 'x86_stdcallcc'
@@ -2088,6 +2090,10 @@ bool LLParser::ParseOptionalCallingConv(unsigned &CC) {
   case lltok::kw_spir_func:      CC = CallingConv::SPIR_FUNC; break;
   case lltok::kw_intel_ocl_bicc: CC = CallingConv::Intel_OCL_BI; break;
 #if INTEL_CUSTOMIZATION
+  case lltok::kw_intel_ocl_bicc_avx: CC = CallingConv::Intel_OCL_BI_AVX; break;
+  case lltok::kw_intel_ocl_bicc_avx512:
+    CC = CallingConv::Intel_OCL_BI_AVX512;
+    break;
   case lltok::kw_svml_cc:        CC = CallingConv::SVML; break;
 #endif // INTEL_CUSTOMIZATION
   case lltok::kw_x86_64_sysvcc:  CC = CallingConv::X86_64_SysV; break;
@@ -3796,7 +3802,7 @@ bool LLParser::parseOptionalComdat(StringRef GlobalName, Comdat *&C) {
   } else {
     if (GlobalName.empty())
       return TokError("comdat cannot be unnamed");
-    C = getComdat(GlobalName, KwLoc);
+    C = getComdat(std::string(GlobalName), KwLoc);
   }
 
   return false;
@@ -4734,7 +4740,8 @@ bool LLParser::ParseDIFile(MDNode *&Result, bool IsDistinct) {
 ///                      isOptimized: true, flags: "-O2", runtimeVersion: 1,
 ///                      splitDebugFilename: "abc.debug",
 ///                      emissionKind: FullDebug, enums: !1, retainedTypes: !2,
-///                      globals: !4, imports: !5, macros: !6, dwoId: 0x0abcd)
+///                      globals: !4, imports: !5, macros: !6, dwoId: 0x0abcd,
+///                      sysroot: "/")
 bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
   if (!IsDistinct)
     return Lex.Error("missing 'distinct', required for !DICompileUnit");
@@ -4757,7 +4764,8 @@ bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(splitDebugInlining, MDBoolField, = true);                           \
   OPTIONAL(debugInfoForProfiling, MDBoolField, = false);                       \
   OPTIONAL(nameTableKind, NameTableKindField, );                               \
-  OPTIONAL(rangesBaseAddress, MDBoolField, = false);
+  OPTIONAL(debugBaseAddress, MDBoolField, = false);                            \
+  OPTIONAL(sysroot, MDStringField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
@@ -4766,7 +4774,7 @@ bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
       runtimeVersion.Val, splitDebugFilename.Val, emissionKind.Val, enums.Val,
       retainedTypes.Val, globals.Val, imports.Val, macros.Val, dwoId.Val,
       splitDebugInlining.Val, debugInfoForProfiling.Val, nameTableKind.Val,
-      rangesBaseAddress.Val);
+      debugBaseAddress.Val, sysroot.Val);
   return false;
 }
 
@@ -4922,19 +4930,18 @@ bool LLParser::ParseDIMacroFile(MDNode *&Result, bool IsDistinct) {
 
 /// ParseDIModule:
 ///   ::= !DIModule(scope: !0, name: "SomeModule", configMacros: "-DNDEBUG",
-///                 includePath: "/usr/include", sysroot: "/")
+///                 includePath: "/usr/include")
 bool LLParser::ParseDIModule(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   REQUIRED(scope, MDField, );                                                  \
   REQUIRED(name, MDStringField, );                                             \
   OPTIONAL(configMacros, MDStringField, );                                     \
-  OPTIONAL(includePath, MDStringField, );                                      \
-  OPTIONAL(sysroot, MDStringField, );
+  OPTIONAL(includePath, MDStringField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
   Result = GET_OR_DISTINCT(DIModule, (Context, scope.Val, name.Val,
-                           configMacros.Val, includePath.Val, sysroot.Val));
+                           configMacros.Val, includePath.Val));
   return false;
 }
 
@@ -5646,7 +5653,7 @@ bool LLParser::PerFunctionState::resolveForwardRefBlockAddresses() {
   ValID ID;
   if (FunctionNumber == -1) {
     ID.Kind = ValID::t_GlobalName;
-    ID.StrVal = F.getName();
+    ID.StrVal = std::string(F.getName());
   } else {
     ID.Kind = ValID::t_GlobalID;
     ID.UIntVal = FunctionNumber;
@@ -8140,12 +8147,10 @@ bool LLParser::ParseGVEntry(unsigned ID) {
 
   // Have a list of summaries
   if (ParseToken(lltok::kw_summaries, "expected 'summaries' here") ||
-      ParseToken(lltok::colon, "expected ':' here"))
+      ParseToken(lltok::colon, "expected ':' here") ||
+      ParseToken(lltok::lparen, "expected '(' here"))
     return true;
-
   do {
-    if (ParseToken(lltok::lparen, "expected '(' here"))
-      return true;
     switch (Lex.getKind()) {
     case lltok::kw_function:
       if (ParseFunctionSummary(Name, GUID, ID))
@@ -8162,11 +8167,10 @@ bool LLParser::ParseGVEntry(unsigned ID) {
     default:
       return Error(Lex.getLoc(), "expected summary type");
     }
-    if (ParseToken(lltok::rparen, "expected ')' here"))
-      return true;
   } while (EatIfPresent(lltok::comma));
 
-  if (ParseToken(lltok::rparen, "expected ')' here"))
+  if (ParseToken(lltok::rparen, "expected ')' here") ||
+      ParseToken(lltok::rparen, "expected ')' here"))
     return true;
 
   return false;
@@ -8256,7 +8260,9 @@ bool LLParser::ParseVariableSummary(std::string Name, GlobalValue::GUID GUID,
       /*Linkage=*/GlobalValue::ExternalLinkage, /*NotEligibleToImport=*/false,
       /*Live=*/false, /*IsLocal=*/false, /*CanAutoHide=*/false);
   GlobalVarSummary::GVarFlags GVarFlags(/*ReadOnly*/ false,
-                                        /* WriteOnly */ false);
+                                        /* WriteOnly */ false,
+                                        /* Constant */ false,
+                                        GlobalObject::VCallVisibilityPublic);
   std::vector<ValueInfo> Refs;
   VTableFuncList VTableFuncs;
   if (ParseToken(lltok::colon, "expected ':' here") ||
@@ -8928,7 +8934,8 @@ bool LLParser::ParseGVFlags(GlobalValueSummary::GVFlags &GVFlags) {
 
 /// GVarFlags
 ///   ::= 'varFlags' ':' '(' 'readonly' ':' Flag
-///                      ',' 'writeonly' ':' Flag ')'
+///                      ',' 'writeonly' ':' Flag
+///                      ',' 'constant' ':' Flag ')'
 bool LLParser::ParseGVarFlags(GlobalVarSummary::GVarFlags &GVarFlags) {
   assert(Lex.getKind() == lltok::kw_varFlags);
   Lex.Lex();
@@ -8956,6 +8963,16 @@ bool LLParser::ParseGVarFlags(GlobalVarSummary::GVarFlags &GVarFlags) {
       if (ParseRest(Flag))
         return true;
       GVarFlags.MaybeWriteOnly = Flag;
+      break;
+    case lltok::kw_constant:
+      if (ParseRest(Flag))
+        return true;
+      GVarFlags.Constant = Flag;
+      break;
+    case lltok::kw_vcall_visibility:
+      if (ParseRest(Flag))
+        return true;
+      GVarFlags.VCallVisibility = Flag;
       break;
     default:
       return Error(Lex.getLoc(), "expected gvar flag type");

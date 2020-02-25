@@ -1,6 +1,6 @@
 //===----------- HIRPrefetching.cpp Implements Prefetching class ---------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -47,7 +47,7 @@ static cl::opt<uint64_t>
 
 // Threshold for min allowed number of memory streams
 static cl::opt<unsigned> NumMemoryStreamsThreshold(
-    "hir-prefetching-num-memory-streams-threshold", cl::init(18), cl::Hidden,
+    "hir-prefetching-num-memory-streams-threshold", cl::init(15), cl::Hidden,
     cl::desc("Threshold for number of memory streams"));
 
 // Threshold for min allowed number of trip count
@@ -55,9 +55,14 @@ static cl::opt<uint64_t>
     TripCountThreshold("hir-prefetching-trip-count-threshold", cl::init(10000),
                        cl::Hidden, cl::desc("Threshold for trip count"));
 
-static cl::opt<unsigned> IterationDistance(
+static cl::opt<unsigned> ForceIterationDistance(
     "hir-prefetching-iteration-distance", cl::init(6), cl::Hidden,
     cl::desc("Iteration distance for prefetching distance computation"));
+
+static cl::opt<unsigned>
+    AssumedMemPrefetchLatency("hir-prefetching-assumed-mem-prefetch-latency",
+                              cl::init(840), cl::Hidden,
+                              cl::desc("Assumed Memory Prefetch Latency"));
 
 static cl::opt<bool>
     SkipNonModifiedRegions("hir-prefetching-skip-non-modified-regions",
@@ -77,12 +82,13 @@ namespace {
 class HIRPrefetching {
   HIRFramework &HIRF;
   HIRLoopLocality &LA;
+  HIRLoopResource &HLR;
   const TargetTransformInfo &TTI;
 
 public:
-  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA,
+  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA, HIRLoopResource &HLR,
                  const TargetTransformInfo &TTI)
-      : HIRF(HIRF), LA(LA), TTI(TTI) {}
+      : HIRF(HIRF), LA(LA), HLR(HLR), TTI(TTI) {}
 
   bool run();
 
@@ -94,12 +100,13 @@ private:
                   SmallVectorImpl<const RegDDRef *> &PrefetchCandidates);
 
   void collectPrefetchCandidates(
-      RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride,
+      RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
       SmallVectorImpl<const RegDDRef *> &PrefetchCandidates);
 };
 } // namespace
 
-static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
+static const RegDDRef *getScalarRef(const RegDDRef *FirstRef,
+                                    unsigned &VecNumElements) {
   bool HasVectorIndex = false;
 
   for (auto *IndexCE :
@@ -134,6 +141,7 @@ static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
         // the CanonExpr
         ConstantDataVector *CV = cast<ConstantDataVector>(VecConst);
         int64_t SExtValue = CV->getElementAsAPInt(0).getSExtValue();
+        VecNumElements = CV->getNumElements();
         IndexCE->addConstant(Blob.Coeff * SExtValue, false);
         BlobIdxToRemove.push_back(Blob.Index);
       }
@@ -152,18 +160,33 @@ static const RegDDRef *getScalarRef(const RegDDRef *FirstRef) {
 // Collect the prefetching  candidates by computing the number of Streams in the
 // MemRefs
 void HIRPrefetching::collectPrefetchCandidates(
-    RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride,
+    RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
     SmallVectorImpl<const RegDDRef *> &PrefetchCandidates) {
   const RegDDRef *FirstRef = RefGroup.front();
+  unsigned VecNumElements = 0;
 
-  const RegDDRef *ScalarRef = getScalarRef(FirstRef);
+  const RegDDRef *ScalarRef = getScalarRef(FirstRef, VecNumElements);
 
   PrefetchCandidates.push_back(ScalarRef);
 
-  if (ScalarRef != FirstRef) {
+  unsigned ScalarRefSize = ScalarRef->getDestTypeSizeInBytes();
+
+  // When the stride exceeds trip count, we need to create multiple scalar refs
+  // for vector refs as they belong to different memory streams
+  if (VecNumElements > 0 && Stride / ScalarRefSize >= TripCount) {
+    for (unsigned I = 1; I < VecNumElements; ++I) {
+      RegDDRef *StrideRef = ScalarRef->clone();
+      StrideRef->shift(Level, I);
+      PrefetchCandidates.push_back(StrideRef);
+    }
+  }
+
+  // TODO: Compare the stride with the other vector refs in the ref group
+  if (VecNumElements > 0) {
     return;
   }
 
+  // Rest of the code is precessing scalar refs case
   const RegDDRef *PrevRef = FirstRef;
   const RegDDRef *CurRef = nullptr;
 
@@ -220,21 +243,33 @@ bool HIRPrefetching::doAnalysis(
   unsigned Level = Lp->getNestingLevel();
   int64_t ConstStride;
   uint64_t Stride;
+  unsigned NumNonLinearStreams = 0;
 
   for (auto &RefGroup : SpatialGroups) {
     const RegDDRef *FirstRef = RefGroup.front();
 
     if (!FirstRef->getConstStrideAtLevel(Level, &ConstStride) ||
         ConstStride == 0) {
+
+      if (!FirstRef->isLinearAtLevel(Level)) {
+        NumNonLinearStreams++;
+      }
+
       continue;
     }
 
     Stride = std::abs(ConstStride);
 
-    collectPrefetchCandidates(RefGroup, TripCount, Stride, PrefetchCandidates);
+    collectPrefetchCandidates(RefGroup, TripCount, Stride, Level,
+                              PrefetchCandidates);
   }
 
-  if (PrefetchCandidates.size() < NumMemoryStreamsThreshold &&
+  if (PrefetchCandidates.empty()) {
+    return false;
+  }
+
+  if ((PrefetchCandidates.size() + NumNonLinearStreams) <
+          NumMemoryStreamsThreshold &&
       !SkipNumMemoryStreamsCheck) {
     return false;
   }
@@ -254,8 +289,26 @@ bool HIRPrefetching::doPrefetching(
 
   StrideRef->isIntConstant(&Stride);
 
+  unsigned IterationDistance = 0;
+
+  if (ForceIterationDistance.getNumOccurrences() > 0) {
+    IterationDistance = ForceIterationDistance;
+  } else {
+    // Dynamically compute the IterationDistance by considering the total cost
+    // in loop resource as the loop latency. The IterationDistance and the cost
+    // have an inverse ratio.
+    unsigned Cost = HLR.getTotalLoopResource(Lp).getTotalCost();
+    IterationDistance = AssumedMemPrefetchLatency / Cost;
+
+    if (IterationDistance == 0) {
+      IterationDistance = ForceIterationDistance;
+    }
+  }
+
   unsigned Distance = IterationDistance * Stride;
+
   unsigned Level = Lp->getNestingLevel();
+  unsigned NumSpatialPrefetches = PrefetchCandidates.size();
 
   for (auto RefIt = PrefetchCandidates.begin(), E = PrefetchCandidates.end();
        RefIt != E; ++RefIt) {
@@ -277,6 +330,12 @@ bool HIRPrefetching::doPrefetching(
         HNU.createPrefetch(PrefetchRef, ReadTy, Locality, DataCacheTy);
     HLNodeUtils::insertAsLastChild(Lp, PrefetchInst);
   }
+
+  LoopOptReportBuilder &LORBuilder = HNU.getHIRFramework().getLORBuilder();
+
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                            "Number of spatial prefetches=%d, dist=%d",
+                            NumSpatialPrefetches, IterationDistance);
 
   HIRInvalidationUtils::invalidateBody(Lp);
 
@@ -331,6 +390,7 @@ PreservedAnalyses HIRPrefetchingPass::run(llvm::Function &F,
                                           llvm::FunctionAnalysisManager &AM) {
   HIRPrefetching(AM.getResult<HIRFrameworkAnalysis>(F),
                  AM.getResult<HIRLoopLocalityAnalysis>(F),
+                 AM.getResult<HIRLoopResourceAnalysis>(F),
                  AM.getResult<TargetIRAnalysis>(F))
       .run();
   return PreservedAnalyses::all();
@@ -347,6 +407,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.setPreservesAll();
   }
@@ -359,6 +420,7 @@ public:
     return HIRPrefetching(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+               getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
                getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
         .run();
   }
@@ -370,6 +432,7 @@ INITIALIZE_PASS_BEGIN(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_END(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
                     false)
 

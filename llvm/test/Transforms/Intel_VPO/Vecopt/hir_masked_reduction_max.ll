@@ -21,6 +21,15 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-entities-dump -vplan-print-after-hcfg < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported as VPEntity with correct Exit PHI identified in the HCFG.
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@B = common dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
+@C = common dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
+
+; Function Attrs: norecurse nounwind readonly uwtable
+define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL: Reduction list
 ; CHECK-NEXT:   (FloatMax) Start: float [[TMAX_0150:%.*]] Exit: float [[VP0:%.*]]
 ; CHECK-NEXT:    Linked values:{{.*}}
@@ -80,15 +89,6 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
 ;
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-@B = common dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
-@C = common dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
-
-; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp14 = icmp sgt i32 %N, 0
   br i1 %cmp14, label %for.body.preheader, label %for.cond.cleanup

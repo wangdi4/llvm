@@ -64,7 +64,7 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ;
 ; HIR-LABEL:  After predication and linearization
 ; HIR:    REGION: [[REGION0:region[0-9]+]]
-; HIR:     [DA: Divergent] i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
+; HIR:     [DA: Divergent] i64 [[VP2:%.*]] = phi  [ i64 [[IND_INIT:%vp.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
 ; HIR:     [DA: Divergent] [256 x i8]* [[VP6:%.*]] = alloca i64 [[VP2]]
 ; HIR:    END Region([[REGION0]])
 ;

@@ -34,25 +34,25 @@
 ; Check that SIMD1 emulation code was generated and reduction updates
 ; are not using atomic_op() and horizontal reduction:
 ; CHECK-LABEL: define{{.*}}@__omp_offloading_804_356a5e8_test1_l10
-; CHECK-DAG: call i32 @_Z18get_num_sub_groupsv
-; CHECK-DAG: call i32 @_Z16get_sub_group_idv
-; CHECK-NOT: call i64 @_Z14get_local_sizej
-; CHECK-NOT: call i64 @_Z12get_local_idj
+; CHECK-DAG: call spir_func i32 @_Z18get_num_sub_groupsv
+; CHECK-DAG: call spir_func i32 @_Z16get_sub_group_idv
+; CHECK-NOT: call spir_func i64 @_Z14get_local_sizej
+; CHECK-NOT: call spir_func i64 @_Z12get_local_idj
 ; CHECK-NOT: call void @__kmpc_atomic_fixed4_add
 ; CHECK-NOT: call double @_Z20sub_group_reduce_addd
 
 ; Check that SPMD execution scheme is not applied (due to
 ; unknown call to ext_func):
 ; CHECK-LABEL: define{{.*}}@__omp_offloading_804_356a5e8_test2_l18
-; CHECK-DAG: call i32 @_Z18get_num_sub_groupsv
-; CHECK-DAG: call i32 @_Z16get_sub_group_idv
-; CHECK-NOT: call i64 @_Z14get_local_sizej
-; CHECK-NOT: call i64 @_Z12get_local_idj
+; CHECK-DAG: call spir_func i32 @_Z18get_num_sub_groupsv
+; CHECK-DAG: call spir_func i32 @_Z16get_sub_group_idv
+; CHECK-NOT: call spir_func i64 @_Z14get_local_sizej
+; CHECK-NOT: call spir_func i64 @_Z12get_local_idj
 
 ; Check that SPMD execution scheme is applied (since sinf()
 ; is a known LibFunc call):
 ; CHECK-LABEL: define{{.*}}@__omp_offloading_804_356a5e8_test3_l24
-; CHECK: call i64 @_Z13get_global_idj
+; CHECK: call spir_func i64 @_Z13get_global_idj
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

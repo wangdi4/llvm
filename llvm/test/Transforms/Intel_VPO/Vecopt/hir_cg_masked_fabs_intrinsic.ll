@@ -1,5 +1,5 @@
 ; Test to check that masked fabs intrinsic calls are vectorized or not vectorized in HIR vector CG,
-; based  on the cl::opt that was added to control this behavior.
+; based  on the target features being compiled for.
 
 ; HIR incoming to vectorizer
 ; <0>     BEGIN REGION { }
@@ -17,11 +17,12 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -vplan-vectorize-masked-fabs=true < %s 2>&1 | FileCheck %s --check-prefix=VEC
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -vplan-vectorize-masked-fabs=false < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
 
-; Check that loop is vectorized if fabs vectorization is explicitly enabled by switch.
+; Check that loop is vectorized if compiled for AVX512 target.
 ; VEC:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>
+; VEC-NEXT:       |   %llvm.fabs.v4f64 = undef
 ; VEC-NEXT:       |   %.vec = (<4 x double>*)(%y)[i1];
 ; VEC-NEXT:       |   %wide.cmp. = %.vec == %key;
 ; VEC-NEXT:       |   %llvm.fabs.v4f64 = @llvm.fabs.v4f64(%.vec); Mask = @{%wide.cmp.}
@@ -32,7 +33,7 @@
 ; VEC: [[VEC_CALL:%.*]] = call fast <4 x double> @llvm.fabs.v4f64(<4 x double> {{%.*}})
 
 
-; Check that loop was not vectorized if it's explicitly diabled by switch.
+; Check that loop was not vectorized if compiled for non-AVX512 targets.
 ; NOVEC:          + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; NOVEC-NEXT:     |   %0 = (%y)[i1];
 ; NOVEC-NEXT:     |   if (%0 == %key)

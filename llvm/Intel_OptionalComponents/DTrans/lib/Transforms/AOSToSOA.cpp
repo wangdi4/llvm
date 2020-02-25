@@ -1,6 +1,6 @@
 //===---------------- AOSToSOA.cpp - DTransAOStoSOAPass -------------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1604,7 +1604,7 @@ private:
 
     // Check all uses of global variables of the dependent type.
     for (auto &GV : M.globals()) {
-      if (GV.getType()->getPointerElementType() != Ty)
+      if (GV.getValueType() != Ty)
         continue;
 
       if (hasUseOfType(&GV, IsBCOpToInt8Ptr, OnBCOp))
@@ -2340,7 +2340,7 @@ private:
   // being transformed, return nullptr.
   std::pair<llvm::Type *, AOSConvType>
   getCallInfoTypeToTransform(dtrans::CallInfo *CInfo) {
-    auto &TypeList = CInfo->getPointerTypeInfoRef().getTypes();
+    auto &TypeList = CInfo->getElementTypesRef().getElemTypes();
 
     // Only cases with a single type will be allowed during the transformation.
     // If there's more than one, we don't need the type, because we won't be
@@ -2348,11 +2348,7 @@ private:
     if (TypeList.size() != 1)
       return std::make_pair(nullptr, AOS_NoConv);
 
-    llvm::Type *Ty = *TypeList.begin();
-    if (!Ty->isPointerTy())
-      return std::make_pair(nullptr, AOS_NoConv);
-
-    llvm::Type *ElemTy = Ty->getPointerElementType();
+    llvm::Type *ElemTy = *TypeList.begin();
     if (isTypeToTransform(ElemTy))
       return std::make_pair(ElemTy, AOS_SOAConv);
 
@@ -2732,16 +2728,15 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
   DenseMap<dtrans::StructInfo *, Instruction *> TypeToAllocInstr;
   for (auto *Call : DTInfo.call_info_entries()) {
     auto *ACI = dyn_cast<dtrans::AllocCallInfo>(Call);
-    if (!ACI || !ACI->getAliasesToAggregatePointer())
+    if (!ACI || !ACI->getAliasesToAggregateType())
       continue;
 
     // We do not support transforming any allocations that are not
     // calloc/malloc. Invalidate the information for all types.
     if (ACI->getAllocKind() != dtrans::AK_Calloc &&
         ACI->getAllocKind() != dtrans::AK_Malloc) {
-      for (auto *AllocatedTy : ACI->getPointerTypeInfoRef().getTypes()) {
-        auto *Ty = AllocatedTy->getPointerElementType();
-        auto *TI = DTInfo.getTypeInfo(Ty);
+      for (auto *AllocatedTy : ACI->getElementTypesRef().getElemTypes()) {
+        auto *TI = DTInfo.getTypeInfo(AllocatedTy);
         if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
           LLVM_DEBUG({
             if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
@@ -2750,7 +2745,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                  TypeToAllocInstr[StInfo] != nullptr))
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
                         "allocation function: "
-                     << StructNamePrintHelper(Ty) << "\n"
+                     << StructNamePrintHelper(AllocatedTy) << "\n"
                      << "  " << *ACI->getInstruction() << "\n";
           });
 
@@ -2763,9 +2758,8 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
 
     // For supported allocations, update the association between the type and
     // allocating instruction.
-    for (auto *AllocatedTy : ACI->getPointerTypeInfoRef().getTypes()) {
-      auto *Ty = AllocatedTy->getPointerElementType();
-      auto *TI = DTInfo.getTypeInfo(Ty);
+    for (auto *AllocatedTy : ACI->getElementTypesRef().getElemTypes()) {
+      auto *TI = DTInfo.getTypeInfo(AllocatedTy);
       if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
         if (TypeToAllocInstr.count(StInfo)) {
           LLVM_DEBUG({
@@ -2773,7 +2767,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
-                     << StructNamePrintHelper(Ty) << "\n";
+                     << StructNamePrintHelper(AllocatedTy) << "\n";
           });
           TypeToAllocInstr[StInfo] = nullptr;
           continue;

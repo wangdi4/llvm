@@ -42,8 +42,8 @@
 ;    std::cout << " passed " << std::endl;
 ; }
 ;
-; CHECK: %{{.*}} = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK: %{{.*}} = call i64 @_Z12get_local_idj(i32 0)
+; CHECK: %{{.*}} = call spir_func i64 @_Z14get_local_sizej(i32 0)
+; CHECK: %{{.*}} = call spir_func i64 @_Z12get_local_idj(i32 0)
 ;
 ; ModuleID = 'target_parallel_wksfor_loop.cpp'
 source_filename = "target_parallel_wksfor_loop.cpp"

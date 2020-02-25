@@ -128,10 +128,11 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_master);
     }
-    // Combined parallel/master_taskloop directives
+    // Combined parallel/master/master_taskloop directives
     if (S->getStmtClass() == Stmt::OMPParallelMasterTaskLoopDirectiveClass ||
         S->getStmtClass() ==
-            Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass) {
+            Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPParallelMasterDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_parallel);
     }
@@ -638,8 +639,7 @@ void CodeGenFunction::EmitLabel(const LabelDecl *D) {
 
   // Emit debug info for labels.
   if (CGDebugInfo *DI = getDebugInfo()) {
-    if (CGM.getCodeGenOpts().getDebugInfo() >=
-        codegenoptions::LimitedDebugInfo) {
+    if (CGM.getCodeGenOpts().hasReducedDebugInfo()) {
       DI->setLocation(D->getLocation());
       DI->EmitLabel(D, Builder);
     }
@@ -766,6 +766,46 @@ CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
   }
 }
 
+/// Handle #pragma loop_fuse
+CodeGenFunction::IntelFPGALoopFuseHandler::IntelFPGALoopFuseHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+  auto LFAIt = std::find_if(Attrs.begin(), Attrs.end(),
+                            [](const Attr *A) { return isa<LoopFuseAttr>(A); });
+  const LoopFuseAttr *LFA =
+      LFAIt == Attrs.end() ? nullptr : cast<LoopFuseAttr>(*LFAIt);
+
+  if (LFA) {
+    llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(CGF.getLLVMContext());
+    SmallVector<llvm::OperandBundleDef, 3> OpBundles{
+        llvm::OperandBundleDef("DIR.PRAGMA.FUSE", ArrayRef<llvm::Value *>{})};
+
+    if (LFA->getDepth())
+      OpBundles.push_back(
+          llvm::OperandBundleDef("QUAL.PRAGMA.FUSE.DISTANCE",
+                                 ArrayRef<llvm::Value *>{llvm::ConstantInt::get(
+                                     Int32Ty, LFA->getDepth())}));
+
+    if (LFA->getIndependent())
+      OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.FUSE.INDEPENDENT",
+                                                 ArrayRef<llvm::Value *>{}));
+
+    CallEntry = CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+        OpBundles);
+  }
+}
+
+CodeGenFunction::IntelFPGALoopFuseHandler::~IntelFPGALoopFuseHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef(
+        "DIR.PRAGMA.END.FUSE", ArrayRef<llvm::Value *>{})};
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
 CodeGenFunction::DistributePointHandler::DistributePointHandler(
     CodeGenFunction &CGF, const Stmt *S, ArrayRef<const Attr *> Attrs)
     : CGF(CGF), CallEntry(nullptr) {
@@ -866,6 +906,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
+  IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }

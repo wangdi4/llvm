@@ -10,6 +10,10 @@
 # RUN: cp %S/Inputs/bar.cpp bar_test_1.cpp
 # RUN: cp %S/Inputs/baz.cpp baz_test_1.cpp
 
+# Remove the objects and the executable related to the test
+# RUN: rm -f driver_test_1.obj foo_test_1.obj bar_test_1.obj baz_test_1.obj
+# RUN: rm -f msgl_test_1
+
 # Compile with /GL
 # RUN: cl /c /EHsc /GL driver_test_1.cpp
 # RUN: cl /c /GL foo_test_1.cpp
@@ -29,10 +33,8 @@ CHECK: Generating code
 CHECK: Finished generating code
 
 # Check that the executable runs correctly
-# RUN: ./msgl_test_1 | FileCheck -check-prefix=CHECKRUN1 %s
+# RUN: ./msgl_test_1 > %t_out 2>&1
+# RUN: cat %t_out | FileCheck -check-prefix=CHECKRUN1 %s
 CHECKRUN1: FOO: 1
 CHECKRUN1: BAR: 2
 CHECKRUN1: BAZ: 3
-
-# RUN: rm driver_test_1.obj foo_test_1.obj bar_test_1.obj baz_test_1.obj
-# RUN: rm msgl_test_1

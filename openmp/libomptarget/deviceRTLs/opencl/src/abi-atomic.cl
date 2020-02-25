@@ -58,25 +58,11 @@
     atomic_fetch_##OPNAME((atomic_##DATATYPE *)lhs, rhs);                      \
   }
 
-/// Use intrinsics for 8-byte data
-#define KMPC_ATOMIC_IMPL_INTRINSIC8(DATANAME, DATATYPE, OPNAME)                \
-  /* __kmpc_atomic_DATANAME_OPNAME(*lhs, rhs) */                               \
-  KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
-    atom_##OPNAME((volatile global long *)lhs, rhs);                           \
-  }
-
 /// Use intrinsics for binary and/or
 #define KMPC_ATOMIC_IMPL_INTRINSIC_B(DATANAME, DATATYPE, OPNAME)               \
   /* __kmpc_atomic_DATANAME_OPNAMEb(*lhs, rhs) */                              \
   KMPC_ATOMIC_FN(DATANAME, OPNAME##b, DATATYPE) {                              \
     atomic_fetch_##OPNAME((atomic_##DATATYPE *)lhs, rhs);                      \
-  }
-
-/// Use intrinsics for 8-byte binary and/or
-#define KMPC_ATOMIC_IMPL_INTRINSIC8_B(DATANAME, DATATYPE, OPNAME)              \
-  /* __kmpc_atomic_DATANAME_OPNAMEb(*lhs, rhs) */                              \
-  KMPC_ATOMIC_FN(DATANAME, OPNAME##b, DATATYPE) {                              \
-    atom_##OPNAME((volatile global long *)lhs, rhs);                           \
   }
 
 /// Use intrinsics for capture atomics with generic OP
@@ -89,31 +75,11 @@
     return captured;                                                           \
   }
 
-/// Use intrinsics for 8-byte capture atomics with generic OP
-#define KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(DATANAME, DATATYPE, OPNAME, OP)        \
-  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*lhs, rhs, flag) */                     \
-  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
-    DATATYPE captured = atom_##OPNAME((volatile global long*)lhs, rhs);        \
-    if (flag)                                                                  \
-      captured = OP(captured, rhs, DATATYPE);                                  \
-    return captured;                                                           \
-  }
-
 /// Use intrinsics for binary and/or capture atomics
 #define KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(DATANAME, DATATYPE, OPNAME, OP)       \
   /* __kmpc_atomic_DATANAME_OPNAMEb_cpt(*lhs, rhs, flag) */                    \
   KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME##b, DATATYPE) {                          \
     DATATYPE captured = atomic_fetch_##OPNAME((atomic_##DATATYPE *)lhs, rhs);  \
-    if (flag)                                                                  \
-      captured = OP(captured, rhs, DATATYPE);                                  \
-    return captured;                                                           \
-  }
-
-/// Use intrinsics for 8-byte binary and/or capture atomics
-#define KMPC_ATOMIC_IMPL_INTRINSIC8_B_CPT(DATANAME, DATATYPE, OPNAME, OP)      \
-  /* __kmpc_atomic_DATANAME_OPNAMEb_cpt(*lhs, rhs, flag) */                    \
-  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME##b, DATATYPE) {                          \
-    DATATYPE captured = atom_##OPNAME((volatile global long *)lhs, rhs);       \
     if (flag)                                                                  \
       captured = OP(captured, rhs, DATATYPE);                                  \
     return captured;                                                           \
@@ -132,19 +98,6 @@
     }                                                                          \
   }
 
-/// Use cmpxchg with generic OP for 8-byte data
-#define KMPC_ATOMIC_IMPL_CMPXCHG8(DATANAME, DATATYPE, OPNAME, OP)              \
-  /* __kmpc_atomic_DATANAME_OPNAME(*lhs, rhs) */                               \
-  KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
-    volatile global long *obj = (volatile global long *)lhs;                   \
-    bool done = false;                                                         \
-    while (!done) {                                                            \
-      DATATYPE prev = atom_add(obj, 0);                                        \
-      DATATYPE next = OP(prev, rhs, DATATYPE);                                 \
-      done = ((long)prev == atom_cmpxchg(obj, prev, next));                    \
-    }                                                                          \
-  }
-
 /// Use cmpxchg for capture atomics with generic OP
 #define KMPC_ATOMIC_IMPL_CMPXCHG_CPT(DATANAME, DATATYPE, OPNAME, OP)           \
   /* __kmpc_atomic_DATANAME_OPNAME_cpt(*lhs, rhs, flag) */                     \
@@ -156,21 +109,6 @@
       prev = atomic_load(obj);                                                 \
       next = OP(prev, rhs, DATATYPE);                                          \
       done = atomic_compare_exchange_strong(obj, &prev, next);                 \
-    }                                                                          \
-    return flag ? next : prev;                                                 \
-  }
-
-/// Use cmpxchg for capture atomics with generic OP for 8-byte data
-#define KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(DATANAME, DATATYPE, OPNAME, OP)          \
-  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*lhs, rhs, flag) */                     \
-  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
-    volatile global long *obj = (volatile global long *)lhs;                   \
-    bool done = false;                                                         \
-    DATATYPE prev, next;                                                       \
-    while (!done) {                                                            \
-      prev = atom_add(obj, 0);                                                 \
-      next = OP(prev, rhs, DATATYPE);                                          \
-      done = ((long)prev == atom_cmpxchg(obj, prev, next));                    \
     }                                                                          \
     return flag ? next : prev;                                                 \
   }
@@ -193,24 +131,6 @@
     }                                                                          \
   }
 
-/// Use cmpxchg with type cast, generic OP for 8-byte data
-#define KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(DATANAME, DATATYPE, BASETYPE, OPNAME,   \
-                                       OP)                                     \
-  /* __kmpc_atomic_DATANAME_OPNAME(*lhs, rhs, flag) */                         \
-  KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
-    union {                                                                    \
-      long base;                                                               \
-      DATATYPE data;                                                           \
-    } prev, next;                                                              \
-    volatile global long *obj = (volatile global long *)lhs;                   \
-    bool done = false;                                                         \
-    while (!done) {                                                            \
-      prev.base = atom_add(obj, 0);                                            \
-      next.data = OP(prev.data, rhs, DATATYPE);                                \
-      done = (prev.base == atom_cmpxchg(obj, prev.base, next.base));           \
-    }                                                                          \
-  }
-
 /// Use cmpxchg with type cast, generic OP for capture atomics
 #define KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(DATANAME, DATATYPE, BASETYPE,        \
                                           OPNAME, OP)                          \
@@ -229,26 +149,6 @@
     }                                                                          \
     return flag ? next.data : prev.data;                                       \
   }
-
-/// Use cmpxchg with type cast, generic OP for 8-byte capture atomics
-#define KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(DATANAME, DATATYPE, BASETYPE,       \
-                                           OPNAME, OP)                         \
-  /* __kmpc_atomic_DATANAME_OPNAME_cpt(*lhs, rhs, flag) */                     \
-  KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
-    union {                                                                    \
-      long base;                                                               \
-      DATATYPE data;                                                           \
-    } prev, next;                                                              \
-    volatile global long *obj = (volatile global long *)lhs;                   \
-    bool done = false;                                                         \
-    while (!done) {                                                            \
-      prev.base = atom_add(obj, 0);                                            \
-      next.data = OP(prev.data, rhs, DATATYPE);                                \
-      done = (prev.base == atom_cmpxchg(obj, prev.base, next.base));           \
-    }                                                                          \
-    return flag ? next.data : prev.data;                                       \
-  }
-
 
 /// 4-byte fixed atomics
 #if KMP_ATOMIC_FIXED4_SUPPORTED
@@ -379,32 +279,32 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float4, float, div, /)
 
 /// 8-byte fixed atomics
 #if KMP_ATOMIC_FIXED8_SUPPORTED
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8, long, add)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8, long, sub)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B(fixed8, long, or)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8, long, xor)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B(fixed8, long, and)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8, long, min)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8, long, max)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8, long, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8, long, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8, long, shl, OP_SHL)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8, long, shr, OP_SHR)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8, long, orl, OP_OR)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8, long, andl, OP_AND)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8, long, add, OP_ADD)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8, long, sub, OP_SUB)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B_CPT(fixed8, long, or, OP_ORB)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8, long, xor, OP_XOR)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B_CPT(fixed8, long, and, OP_ANDB)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8, long, min, OP_MIN)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8, long, max, OP_MAX)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8, long, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8, long, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8, long, shl, OP_SHL)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8, long, shr, OP_SHR)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8, long, orl, OP_OR)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8, long, andl, OP_AND)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8, long, add)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8, long, sub)
+KMPC_ATOMIC_IMPL_INTRINSIC_B(fixed8, long, or)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8, long, xor)
+KMPC_ATOMIC_IMPL_INTRINSIC_B(fixed8, long, and)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8, long, min)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8, long, max)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, div, OP_DIV)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, shl, OP_SHL)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, shr, OP_SHR)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, orl, OP_OR)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8, long, andl, OP_AND)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, add, OP_ADD)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, sub, OP_SUB)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8, long, or, OP_ORB)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, xor, OP_XOR)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8, long, and, OP_ANDB)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, min, OP_MIN)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8, long, max, OP_MAX)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, div, OP_DIV)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, shl, OP_SHL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, shr, OP_SHR)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, orl, OP_OR)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8, long, andl, OP_AND)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8, long, sub, -)
@@ -436,32 +336,32 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8, long, shr, >>)
 
 /// 8-byte unsigned fixed atomics
 #if KMP_ATOMIC_FIXED8_SUPPORTED
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8u, ulong, add)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8u, ulong, sub)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B(fixed8u, ulong, or)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8u, ulong, xor)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B(fixed8u, ulong, and)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8u, ulong, min)
-KMPC_ATOMIC_IMPL_INTRINSIC8(fixed8u, ulong, max)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8u, ulong, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8u, ulong, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8u, ulong, shl, OP_SHL)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8u, ulong, shr, OP_SHR)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8u, ulong, orl, OP_OR)
-KMPC_ATOMIC_IMPL_CMPXCHG8(fixed8u, ulong, andl, OP_AND)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8u, ulong, add, OP_ADD)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8u, ulong, sub, OP_SUB)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B_CPT(fixed8u, ulong, or, OP_ORB)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8u, ulong, xor, OP_XOR)
-KMPC_ATOMIC_IMPL_INTRINSIC8_B_CPT(fixed8u, ulong, and, OP_ANDB)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8u, ulong, min, OP_MIN)
-KMPC_ATOMIC_IMPL_INTRINSIC8_CPT(fixed8u, ulong, max, OP_MAX)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8u, ulong, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8u, ulong, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8u, ulong, shl, OP_SHL)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8u, ulong, shr, OP_SHR)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8u, ulong, orl, OP_OR)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CPT(fixed8u, ulong, andl, OP_AND)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8u, ulong, add)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8u, ulong, sub)
+KMPC_ATOMIC_IMPL_INTRINSIC_B(fixed8u, ulong, or)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8u, ulong, xor)
+KMPC_ATOMIC_IMPL_INTRINSIC_B(fixed8u, ulong, and)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8u, ulong, min)
+KMPC_ATOMIC_IMPL_INTRINSIC(fixed8u, ulong, max)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, div, OP_DIV)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, shl, OP_SHL)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, shr, OP_SHR)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, orl, OP_OR)
+KMPC_ATOMIC_IMPL_CMPXCHG(fixed8u, ulong, andl, OP_AND)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, add, OP_ADD)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, sub, OP_SUB)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8u, ulong, or, OP_ORB)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, xor, OP_XOR)
+KMPC_ATOMIC_IMPL_INTRINSIC_B_CPT(fixed8u, ulong, and, OP_ANDB)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, min, OP_MIN)
+KMPC_ATOMIC_IMPL_INTRINSIC_CPT(fixed8u, ulong, max, OP_MAX)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, div, OP_DIV)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, shl, OP_SHL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, shr, OP_SHR)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, orl, OP_OR)
+KMPC_ATOMIC_IMPL_CMPXCHG_CPT(fixed8u, ulong, andl, OP_AND)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(fixed8u, ulong, sub, -)
@@ -491,24 +391,25 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, shl, <<)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, shr, >>)
 #endif
 
+#if HAVE_FP64_SUPPORT
 /// 8-byte float atomics
 #if KMP_ATOMIC_FIXED8_SUPPORTED
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, add, OP_ADD)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, sub, OP_SUB)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, min, OP_MIN)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, max, OP_MAX)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, orl, OP_OR)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST(float8, double, long, andl, OP_AND)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, add, OP_ADD)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, sub, OP_SUB)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, min, OP_MIN)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, max, OP_MAX)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, orl, OP_OR)
-KMPC_ATOMIC_IMPL_CMPXCHG8_CAST_CPT(float8, double, long, andl, OP_AND)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, add, OP_ADD)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, sub, OP_SUB)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, div, OP_DIV)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, min, OP_MIN)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, max, OP_MAX)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, orl, OP_OR)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, andl, OP_AND)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, add, OP_ADD)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, sub, OP_SUB)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, div, OP_DIV)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, min, OP_MIN)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, max, OP_MAX)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, orl, OP_OR)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, andl, OP_AND)
 #else
 KMPC_ATOMIC_IMPL_FALLBACK(float8, double, add, +)
 KMPC_ATOMIC_IMPL_FALLBACK(float8, double, sub, -)
@@ -526,7 +427,9 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, min, OP_MIN)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, max, OP_MAX)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, orl, OP_OR)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, andl, OP_AND)
-#endif
+#endif // ! KMP_ATOMIC_FIXED8_SUPPORTED
+#endif // HAVE_FP64_SUPPORT
+
 
 
 // Needed to use this code due to a compiler issue with casting
@@ -560,7 +463,7 @@ EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
     KMP_ATOMIC_LOAD_EXPLICIT(uint, ptr, ret, order);
 #if KMP_ATOMIC_FIXED8_SUPPORTED
   } else if (size == sizeof(ulong)) {
-    *(long *)ret = atom_add((volatile global long *)ptr, 0);
+    KMP_ATOMIC_LOAD_EXPLICIT(ulong, ptr, ret, order);
 #endif
   } else {
 // Work around printf Issue.  TODO: restore them when fixed.
@@ -598,7 +501,7 @@ EXTERN void __kmpc_atomic_store(size_t size, void *ptr, void *val, int order) {
     KMP_ATOMIC_STORE_EXPLICIT(uint, ptr, val, order);
 #if KMP_ATOMIC_FIXED8_SUPPORTED
   } else if (size == sizeof(ulong)) {
-    atom_xchg((volatile global long *)ptr, *(long *)val);
+    KMP_ATOMIC_STORE_EXPLICIT(ulong, ptr, val, order);
 #endif
   } else {
 // Work around printf Issue.  TODO: restore them when fixed.
@@ -648,13 +551,8 @@ EXTERN bool __kmpc_atomic_compare_exchange(size_t size, void *ptr,
                                  success_order, failure_order);
 #if KMP_ATOMIC_FIXED8_SUPPORTED
   } else if (size == sizeof(ulong)) {
-    long old_exp = *(long *)expected;
-    long old_val = atom_cmpxchg((volatile global long *)ptr, old_exp,
-                                *(long *)desired);
-    if (old_val != old_exp) {
-      *(long *)expected = old_val;
-      ret = false;
-    }
+    KMP_ATOMIC_COMPXCHG_EXPLICIT(ulong, ret, ptr, expected, desired,
+                                 success_order, failure_order);
 #endif
   } else {
 // Work around printf Issue.  TODO: restore them when fixed.

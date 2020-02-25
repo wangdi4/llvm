@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details -hir-details-refs | FileCheck %s
 
 ; Verify that the load below contains blob ddrefs for the blobs %t17 and %t18 which are the lower and stride for the 2nd dimension.
-; CHECK: %t21 = (%"ul_arg_0.0_GEPs_$field0$33")[1:i1 + 1:1(i32*:0)][%t17:%t:%t18(i32*:0)];
+; CHECK: %t21 = (%"ul_arg_0.0_GEPs_$field0$33")[0:i1:1(i32*:0)][0:-1 * %t17 + %t:%t18(i32*:0)];
 ; CHECK: <RVAL-REG>
 ; CHECK: <BLOB> NON-LINEAR i64 %t18
 ; CHECK: <BLOB> NON-LINEAR i64 %t17

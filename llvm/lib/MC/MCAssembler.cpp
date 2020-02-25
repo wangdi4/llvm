@@ -163,10 +163,6 @@ bool MCAssembler::isSymbolLinkerVisible(const MCSymbol &Symbol) const {
   if (!Symbol.isTemporary())
     return true;
 
-  // Absolute temporary labels are never visible.
-  if (!Symbol.isInSection())
-    return false;
-
   if (Symbol.isUsedInReloc())
     return true;
 
@@ -221,6 +217,13 @@ bool MCAssembler::evaluateFixup(const MCAsmLayout &Layout,
   }
 
   assert(getBackendPtr() && "Expected assembler backend");
+  bool IsTarget = getBackendPtr()->getFixupKindInfo(Fixup.getKind()).Flags &
+                  MCFixupKindInfo::FKF_IsTarget;
+
+  if (IsTarget)
+    return getBackend().evaluateTargetFixup(*this, Layout, Fixup, DF, Target,
+                                            Value, WasForced);
+
   bool IsPCRel = getBackendPtr()->getFixupKindInfo(Fixup.getKind()).Flags &
                  MCFixupKindInfo::FKF_IsPCRel;
 
@@ -576,6 +579,7 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
     unsigned VSize = FF.getValueSize();
     const unsigned MaxChunkSize = 16;
     char Data[MaxChunkSize];
+    assert(0 < VSize && VSize <= MaxChunkSize && "Illegal fragment fill size");
     // Duplicate V into Data as byte vector to reduce number of
     // writes done. As such, do endian conversion here.
     for (unsigned I = 0; I != VSize; ++I) {
@@ -608,6 +612,7 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
     break;
   }
 
+#if INTEL_CUSTOMIZATION
   case MCFragment::FT_BoundaryAlign: {
     const MCBoundaryAlignFragment &BF = cast<MCBoundaryAlignFragment>(F);
     if (BF.hasEmitNops()) {
@@ -620,6 +625,7 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
     }
     break;
   }
+#endif // INTEL_CUSTOMIZATION
 
   case MCFragment::FT_SymbolId: {
     const MCSymbolIdFragment &SF = cast<MCSymbolIdFragment>(F);
@@ -961,7 +967,7 @@ bool MCAssembler::relaxLEB(MCAsmLayout &Layout, MCLEBFragment &LF) {
 ///
 /// \param StartAddr start address of the fused/unfused branch.
 /// \param Size size of the fused/unfused branch.
-/// \param BoundaryAlignment aligment requirement of the branch.
+/// \param BoundaryAlignment alignment requirement of the branch.
 /// \returns true if the branch cross the boundary.
 static bool mayCrossBoundary(uint64_t StartAddr, uint64_t Size,
                              Align BoundaryAlignment) {
@@ -974,7 +980,7 @@ static bool mayCrossBoundary(uint64_t StartAddr, uint64_t Size,
 ///
 /// \param StartAddr start address of the fused/unfused branch.
 /// \param Size size of the fused/unfused branch.
-/// \param BoundaryAlignment aligment requirement of the branch.
+/// \param BoundaryAlignment alignment requirement of the branch.
 /// \returns true if the branch is against the boundary.
 static bool isAgainstBoundary(uint64_t StartAddr, uint64_t Size,
                               Align BoundaryAlignment) {
@@ -986,7 +992,7 @@ static bool isAgainstBoundary(uint64_t StartAddr, uint64_t Size,
 ///
 /// \param StartAddr start address of the fused/unfused branch.
 /// \param Size size of the fused/unfused branch.
-/// \param BoundaryAlignment aligment requirement of the branch.
+/// \param BoundaryAlignment alignment requirement of the branch.
 /// \returns true if the branch needs padding.
 static bool needPadding(uint64_t StartAddr, uint64_t Size,
                         Align BoundaryAlignment) {
@@ -994,6 +1000,7 @@ static bool needPadding(uint64_t StartAddr, uint64_t Size,
          isAgainstBoundary(StartAddr, Size, BoundaryAlignment);
 }
 
+#if INTEL_CUSTOMIZATION
 bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
                                      MCBoundaryAlignFragment &BF) {
   // The MCBoundaryAlignFragment that does not emit anything or not have any
@@ -1005,8 +1012,12 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
   const MCFragment *TF = BF.getFragment();
   uint64_t AlignedSize = computeFragmentSize(Layout, *TF);
   uint64_t AlignedOffset = Layout.getFragmentOffset(TF);
+  // Note: It should be guaranteed that there is a MCBoundaryAlignFragment
+  // before TF in the same section.
   for (auto *F = TF->getPrevNode(); !isa<MCBoundaryAlignFragment>(F);
        F = F->getPrevNode()) {
+    assert(F->hasInstructions() &&
+           "The fragment doesn't have any instruction.");
     uint64_t Size = computeFragmentSize(Layout, *F);
     AlignedSize += Size;
     AlignedOffset -= Size;
@@ -1025,7 +1036,7 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
                          ? offsetToAlignment(AlignedOffset, BoundaryAlignment)
                          : 0U;
   if (!BF.hasEmitNops()) {
-    assert((*(BF.getNextNode())).hasInstructions() &&
+    assert(BF.getNextNode()->hasInstructions() &&
            "The fragment doesn't have any instruction.");
     assert(computeFragmentSize(Layout, *(BF.getNextNode())) <= 15 &&
            "The fragment's size must be no longer than 15 since it should only "
@@ -1040,6 +1051,7 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
   Layout.invalidateFragmentsFrom(&BF);
   return true;
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool MCAssembler::relaxDwarfLineAddr(MCAsmLayout &Layout,
                                      MCDwarfLineAddrFragment &DF) {
@@ -1197,8 +1209,8 @@ void MCAssembler::finishLayout(MCAsmLayout &Layout) {
   // The layout is done. Mark every fragment as valid.
   for (unsigned int i = 0, n = Layout.getSectionOrder().size(); i != n; ++i) {
     MCSection &Section = *Layout.getSectionOrder()[i];
-    Layout.getFragmentOffset(&*Section.rbegin());
-    computeFragmentSize(Layout, *Section.rbegin());
+    Layout.getFragmentOffset(&*Section.getFragmentList().rbegin());
+    computeFragmentSize(Layout, *Section.getFragmentList().rbegin());
   }
   getBackend().finishLayout(*this, Layout);
 }

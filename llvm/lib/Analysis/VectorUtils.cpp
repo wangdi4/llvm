@@ -916,6 +916,57 @@ Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
   return Builder.CreateVectorSplat(VF, V, V->getName() + Name);
 }
 
+Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
+                                      unsigned NumParts, IRBuilder<> &Builder,
+                                      const Twine &Name) {
+  // Example:
+  // Consider the following vector code -
+  // %1 = sitofp <4 x i32> %0 to <4 x double>
+  //
+  // If NumParts is 2, then shuffle values for %1 for different parts are -
+  // If Part = 1, output value is -
+  // %shuffle = shufflevector <4 x double> %1, <4 x double> undef,
+  //                                           <2 x i32> <i32 0, i32 1>
+  //
+  // and if Part = 2, output is -
+  // %shuffle7 =shufflevector <4 x double> %1, <4 x double> undef,
+  //                                           <2 x i32> <i32 2, i32 3>
+
+  if (!V)
+    return nullptr; // No vector to extract from.
+
+  assert(NumParts > 0 && "Invalid number of subparts of vector.");
+
+  if (NumParts == 1) {
+    // Return the original vector as there is only one Part.
+    return V;
+  }
+
+  assert(isa<VectorType>(V->getType()) &&
+         "Cannot generate shuffles for non-vector values.");
+  unsigned VecLen = V->getType()->getVectorNumElements();
+  assert(VecLen % NumParts == 0 &&
+         "Vector cannot be divided into unequal parts for extraction");
+  assert(Part < NumParts && "Invalid subpart to be extracted from vector.");
+
+  unsigned SubVecLen = VecLen / NumParts;
+  SmallVector<unsigned, 4> ShuffleMask;
+  Value *Undef = UndefValue::get(V->getType());
+
+  unsigned ElemIdx = Part * SubVecLen;
+
+  for (unsigned K = 0; K < SubVecLen; K++)
+    ShuffleMask.push_back(ElemIdx + K);
+
+  auto *ShuffleInst = Builder.CreateShuffleVector(
+      V, Undef, ShuffleMask,
+      !Name.isTriviallyEmpty() ? Name
+                               : V->getName() + ".part." + Twine(Part) +
+                                     ".of." + Twine(NumParts) + ".");
+
+  return ShuffleInst;
+}
+
 #endif // INTEL_CUSTOMIZATION
 /// Add all access groups in @p AccGroups to @p List.
 template <typename ListT>
@@ -1609,12 +1660,13 @@ void VFABI::getVectorVariantNames(
 
   for (auto &S : SetVector<StringRef>(ListAttr.begin(), ListAttr.end())) {
 #ifndef NDEBUG
-    Optional<VFInfo> Info = VFABI::tryDemangleForVFABI(S);
+    LLVM_DEBUG(dbgs() << "VFABI: adding mapping '" << S << "'\n");
+    Optional<VFInfo> Info = VFABI::tryDemangleForVFABI(S, *(CI.getModule()));
     assert(Info.hasValue() && "Invalid name for a VFABI variant.");
     assert(CI.getModule()->getFunction(Info.getValue().VectorName) &&
            "Vector function is missing.");
 #endif
-    VariantMappings.push_back(S);
+    VariantMappings.push_back(std::string(S));
   }
 }
 

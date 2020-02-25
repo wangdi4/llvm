@@ -13,6 +13,24 @@
 // RUN:  -triple x86_64-unknown-linux-gnu \
 // RUN:  | FileCheck %s -check-prefixes=BOTH,OPT
 
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: -fexceptions -fcxx-exceptions \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -DTARGET_TEST -emit-llvm %s -o - \
+// RUN:  | FileCheck %s --check-prefix TTEST
+//
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: -fexceptions -fcxx-exceptions \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -DTARGET_TEST -emit-llvm-bc %s -o %t-targ-host.bc
+
+// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp \
+// RUN: -fexceptions -fcxx-exceptions \
+// RUN: -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
+// RUN: -fopenmp-is-device -fopenmp-host-ir-file-path %t-targ-host.bc \
+// RUN: -DTARGET_TEST -emit-llvm %s -o - \
+// RUN:  | FileCheck %s --check-prefix TTEST
+
 extern void bar(float*);
 extern void goo(float*);
 
@@ -90,13 +108,13 @@ void call_invoke_check()
   #pragma omp parallel for
   for (int i = 0; i < 100; ++i)
   {
-    //BOTH: call void{{.*}}may_throw
+    //BOTH: call void{{.*}}may_throw{{.*}} #[[NOUNWIND:[0-9]+]]
     may_throw();
     try {
       //BOTH: invoke void{{.*}}may_throw
       may_throw();
     } catch(...) {}
-    //BOTH: call void{{.*}}may_throw
+    //BOTH: call void{{.*}}may_throw{{.*}} #[[NOUNWIND]]
     may_throw();
   }
   //BOTH: call {{.*}}DIR.OMP.END.PARALLEL.LOOP
@@ -111,7 +129,7 @@ void call_invoke_check_two() {
     #pragma omp target teams distribute parallel for collapse(2)
     for (int i = 0; i < 100; ++i)
       for (int j = 0; j < 100; ++j) {
-        //BOTH: call void{{.*}}may_throw
+        //BOTH: call void{{.*}}may_throw{{.*}} #[[NOUNWIND]]
         may_throw();
     }
     //BOTH: call {{.*}}DIR.OMP.END.TARGET
@@ -120,4 +138,45 @@ void call_invoke_check_two() {
   } catch(...) { }
 }
 
+//BOTH: attributes #[[NOUNWIND]] = { {{.*}}nounwind{{.*}} }
+
+#ifdef TARGET_TEST
+void __attribute__ ((noinline)) target_throw_foo(int i)
+{
+  if (i % 3 == 0) throw 3;
+}
+
+//TTEST: define{{.*}}target_throw
+void target_throw() {
+
+  //TTEST: [[EXNSLOT:%exn.slot.*]] = alloca i8*
+  //TTEST: [[EHSEL:%ehselector.slot.*]] = alloca i32
+
+  //TTEST: [[EXNSLOT2:%exn.slot.*]] = alloca i8*
+  //TTEST: [[EHSEL2:%ehselector.slot.*]] = alloca i32
+
+  //TTEST: DIR.OMP.TARGET
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i8** [[EXNSLOT]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i32* [[EHSEL]])
+  #pragma omp target parallel for
+  for (int i = 0; i < 100; i++) {
+    try {
+      target_throw_foo(i);
+    }
+    catch (int i) { }
+    catch (...) { }
+  }
+  //TTEST: DIR.OMP.TARGET
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i8** [[EXNSLOT2]])
+  //TTEST-SAME: "QUAL.OMP.PRIVATE"(i32* [[EHSEL2]])
+  #pragma omp target parallel for
+  for (int i = 0; i < 100; i++) {
+    try {
+      target_throw_foo(i);
+    }
+    catch (int i) { }
+    catch (...) { }
+  }
+}
+#endif
 // end INTEL_COLLAB

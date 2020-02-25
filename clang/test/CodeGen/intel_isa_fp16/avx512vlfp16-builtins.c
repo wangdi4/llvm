@@ -9,6 +9,12 @@ _Float16 test_mm_cvtsh_h(__m128h __A) {
   return _mm_cvtsh_h(__A);
 }
 
+_Float16 test_mm256_cvtsh_h(__m256h __A) {
+  // CHECK-LABEL: @test_mm256_cvtsh_h
+  // CHECK: extractelement <16 x half> %{{.*}}, i32 0
+  return _mm256_cvtsh_h(__A);
+}
+
 __m128h test_mm_set_sh(_Float16 __h)
 {
   // CHECK-LABEL: @test_mm_set_sh
@@ -58,6 +64,89 @@ __m256h test_mm256_set1_ph(_Float16 h)
   // CHECK: insertelement <16 x half> {{.*}}, i32 15
   return _mm256_set1_ph(h);
 }
+
+__m128h test_mm_set_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                       _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8)
+{
+  // CHECK-LABEL: @test_mm_set_ph
+  // CHECK: insertelement <8 x half> {{.*}}, i32 0
+  // CHECK: insertelement <8 x half> {{.*}}, i32 1
+  // CHECK: insertelement <8 x half> {{.*}}, i32 2
+  // CHECK: insertelement <8 x half> {{.*}}, i32 3
+  // CHECK: insertelement <8 x half> {{.*}}, i32 4
+  // CHECK: insertelement <8 x half> {{.*}}, i32 5
+  // CHECK: insertelement <8 x half> {{.*}}, i32 6
+  // CHECK: insertelement <8 x half> {{.*}}, i32 7
+  return _mm_set_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8);
+}
+
+__m256h test_mm256_set_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                          _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8,
+                          _Float16 __h9, _Float16 __h10, _Float16 __h11, _Float16 __h12,
+                          _Float16 __h13, _Float16 __h14, _Float16 __h15, _Float16 __h16)
+{
+  // CHECK-LABEL: @test_mm256_set_ph
+  // CHECK: insertelement <16 x half> {{.*}}, i32 0
+  // CHECK: insertelement <16 x half> {{.*}}, i32 1
+  // CHECK: insertelement <16 x half> {{.*}}, i32 2
+  // CHECK: insertelement <16 x half> {{.*}}, i32 3
+  // CHECK: insertelement <16 x half> {{.*}}, i32 4
+  // CHECK: insertelement <16 x half> {{.*}}, i32 5
+  // CHECK: insertelement <16 x half> {{.*}}, i32 6
+  // CHECK: insertelement <16 x half> {{.*}}, i32 7
+  // CHECK: insertelement <16 x half> {{.*}}, i32 8
+  // CHECK: insertelement <16 x half> {{.*}}, i32 9
+  // CHECK: insertelement <16 x half> {{.*}}, i32 10
+  // CHECK: insertelement <16 x half> {{.*}}, i32 11
+  // CHECK: insertelement <16 x half> {{.*}}, i32 12
+  // CHECK: insertelement <16 x half> {{.*}}, i32 13
+  // CHECK: insertelement <16 x half> {{.*}}, i32 14
+  // CHECK: insertelement <16 x half> {{.*}}, i32 15
+  return _mm256_set_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8,
+                       __h9, __h10, __h11, __h12, __h13, __h14, __h15, __h16);
+}
+
+__m128h test_mm_setr_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                        _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8)
+{
+  // CHECK-LABEL: @test_mm_setr_ph
+  // CHECK: insertelement <8 x half> {{.*}}, i32 0
+  // CHECK: insertelement <8 x half> {{.*}}, i32 1
+  // CHECK: insertelement <8 x half> {{.*}}, i32 2
+  // CHECK: insertelement <8 x half> {{.*}}, i32 3
+  // CHECK: insertelement <8 x half> {{.*}}, i32 4
+  // CHECK: insertelement <8 x half> {{.*}}, i32 5
+  // CHECK: insertelement <8 x half> {{.*}}, i32 6
+  // CHECK: insertelement <8 x half> {{.*}}, i32 7
+  return _mm_setr_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8);
+}
+
+__m256h test_mm256_setr_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                           _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8,
+                           _Float16 __h9, _Float16 __h10, _Float16 __h11, _Float16 __h12,
+                           _Float16 __h13, _Float16 __h14, _Float16 __h15, _Float16 __h16)
+{
+  // CHECK-LABEL: @test_mm256_setr_ph
+  // CHECK: insertelement <16 x half> {{.*}}, i32 0
+  // CHECK: insertelement <16 x half> {{.*}}, i32 1
+  // CHECK: insertelement <16 x half> {{.*}}, i32 2
+  // CHECK: insertelement <16 x half> {{.*}}, i32 3
+  // CHECK: insertelement <16 x half> {{.*}}, i32 4
+  // CHECK: insertelement <16 x half> {{.*}}, i32 5
+  // CHECK: insertelement <16 x half> {{.*}}, i32 6
+  // CHECK: insertelement <16 x half> {{.*}}, i32 7
+  // CHECK: insertelement <16 x half> {{.*}}, i32 8
+  // CHECK: insertelement <16 x half> {{.*}}, i32 9
+  // CHECK: insertelement <16 x half> {{.*}}, i32 10
+  // CHECK: insertelement <16 x half> {{.*}}, i32 11
+  // CHECK: insertelement <16 x half> {{.*}}, i32 12
+  // CHECK: insertelement <16 x half> {{.*}}, i32 13
+  // CHECK: insertelement <16 x half> {{.*}}, i32 14
+  // CHECK: insertelement <16 x half> {{.*}}, i32 15
+  return _mm256_setr_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8,
+                        __h9, __h10, __h11, __h12, __h13, __h14, __h15, __h16);
+}
+
 __m256h test_mm256_add_ph(__m256h __A, __m256h __B) {
   // CHECK-LABEL: @test_mm256_add_ph
   // CHECK: %{{.*}} = fadd <16 x half> %{{.*}}, %{{.*}}

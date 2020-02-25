@@ -89,12 +89,6 @@ X86RegisterInfo::getCSRFirstUseCost(const MachineFunction &MF) const {
   return 1 << 14;
 }
 #endif // INTEL_CUSTOMIZATION
-bool
-X86RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
-  // ExecutionDomainFix, BreakFalseDeps and PostRAScheduler require liveness.
-  return true;
-}
-
 int
 X86RegisterInfo::getSEHRegNum(unsigned i) const {
   return getEncodingValue(i);
@@ -330,19 +324,24 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
       return MF->getInfo<X86MachineFunctionInfo>()->isSplitCSR() ?
              CSR_64_CXX_TLS_Darwin_PE_SaveList : CSR_64_TLS_Darwin_SaveList;
     break;
-  case CallingConv::Intel_OCL_BI: {
+#if INTEL_CUSTOMIZATION
+  case CallingConv::Intel_OCL_BI_AVX512:
     if (HasAVX512 && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX512_SaveList;
     if (HasAVX512 && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX512_SaveList;
+    break;
+  case CallingConv::Intel_OCL_BI_AVX:
     if (HasAVX && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX_SaveList;
     if (HasAVX && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX_SaveList;
-    if (!HasAVX && !IsWin64 && Is64Bit)
+    break;
+  case CallingConv::Intel_OCL_BI:
+    if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_SaveList;
     break;
-  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_SaveList;
 #if INTEL_CUSTOMIZATION
@@ -458,19 +457,24 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     if (Is64Bit)
       return CSR_64_TLS_Darwin_RegMask;
     break;
-  case CallingConv::Intel_OCL_BI: {
+#if INTEL_CUSTOMIZATION
+  case CallingConv::Intel_OCL_BI_AVX512:
     if (HasAVX512 && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX512_RegMask;
     if (HasAVX512 && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX512_RegMask;
+    break;
+  case CallingConv::Intel_OCL_BI_AVX:
     if (HasAVX && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX_RegMask;
     if (HasAVX && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX_RegMask;
-    if (!HasAVX && !IsWin64 && Is64Bit)
+    break;
+  case CallingConv::Intel_OCL_BI:
+    if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_RegMask;
     break;
-  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_RegMask;
 #if INTEL_CUSTOMIZATION

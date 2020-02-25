@@ -1483,6 +1483,13 @@ Verifier::visitModuleFlag(const MDNode *Op,
            "'Linker Options' named metadata no longer supported");
   }
 
+  if (ID->getString() == "SemanticInterposition") {
+    ConstantInt *Value =
+        mdconst::dyn_extract_or_null<ConstantInt>(Op->getOperand(2));
+    Assert(Value,
+           "SemanticInterposition metadata requires constant integer argument");
+  }
+
   if (ID->getString() == "CG Profile") {
     for (const MDOperand &MDO : cast<MDNode>(Op->getOperand(2))->operands())
       visitModuleFlagCGProfileEntry(MDO);
@@ -1858,6 +1865,27 @@ void Verifier::verifyFunctionAttrs(FunctionType *FT, AttributeList Attrs,
     if (FP != "all" && FP != "non-leaf" && FP != "none")
       CheckFailed("invalid value for 'frame-pointer' attribute: " + FP, V);
   }
+
+  if (Attrs.hasFnAttribute("patchable-function-prefix")) {
+    StringRef S = Attrs
+                      .getAttribute(AttributeList::FunctionIndex,
+                                    "patchable-function-prefix")
+                      .getValueAsString();
+    unsigned N;
+    if (S.getAsInteger(10, N))
+      CheckFailed(
+          "\"patchable-function-prefix\" takes an unsigned integer: " + S, V);
+  }
+  if (Attrs.hasFnAttribute("patchable-function-entry")) {
+    StringRef S = Attrs
+                      .getAttribute(AttributeList::FunctionIndex,
+                                    "patchable-function-entry")
+                      .getValueAsString();
+    unsigned N;
+    if (S.getAsInteger(10, N))
+      CheckFailed(
+          "\"patchable-function-entry\" takes an unsigned integer: " + S, V);
+  }
 }
 
 void Verifier::verifyFunctionMetadata(
@@ -2209,6 +2237,8 @@ void Verifier::visitFunction(const Function &F) {
   case CallingConv::Cold:
   case CallingConv::Intel_OCL_BI:
 #if INTEL_CUSTOMIZATION
+  case CallingConv::Intel_OCL_BI_AVX:
+  case CallingConv::Intel_OCL_BI_AVX512:
   case CallingConv::SVML:
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::PTX_Kernel:
@@ -4406,7 +4436,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
       "an array");
     break;
   }
-#define INSTRUCTION(NAME, NARGS, ROUND_MODE, INTRINSIC, DAGN)                  \
+#define INSTRUCTION(NAME, NARGS, ROUND_MODE, INTRINSIC)                        \
   case Intrinsic::INTRINSIC:
 #include "llvm/IR/ConstrainedOps.def"
     visitConstrainedFPIntrinsic(cast<ConstrainedFPIntrinsic>(Call));
@@ -4426,6 +4456,7 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     visitDbgLabelIntrinsic("label", cast<DbgLabelInst>(Call));
     break;
   case Intrinsic::memcpy:
+  case Intrinsic::memcpy_inline:
   case Intrinsic::memmove:
   case Intrinsic::memset: {
     const auto *MI = cast<MemIntrinsic>(&Call);
@@ -4730,6 +4761,21 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     break;
   }
 
+  case Intrinsic::masked_gather: {
+    const APInt &Alignment =
+        cast<ConstantInt>(Call.getArgOperand(1))->getValue();
+    Assert(Alignment.isNullValue() || Alignment.isPowerOf2(),
+           "masked_gather: alignment must be 0 or a power of 2", Call);
+    break;
+  }
+  case Intrinsic::masked_scatter: {
+    const APInt &Alignment =
+        cast<ConstantInt>(Call.getArgOperand(2))->getValue();
+    Assert(Alignment.isNullValue() || Alignment.isPowerOf2(),
+           "masked_scatter: alignment must be 0 or a power of 2", Call);
+    break;
+  }
+
   case Intrinsic::experimental_guard: {
     Assert(isa<CallInst>(Call), "experimental_guard cannot be invoked", Call);
     Assert(Call.countOperandBundlesOfType(LLVMContext::OB_deopt) == 1,
@@ -4777,28 +4823,32 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   case Intrinsic::smul_fix:
   case Intrinsic::smul_fix_sat:
   case Intrinsic::umul_fix:
-  case Intrinsic::umul_fix_sat: {
+  case Intrinsic::umul_fix_sat:
+  case Intrinsic::sdiv_fix:
+  case Intrinsic::udiv_fix: {
     Value *Op1 = Call.getArgOperand(0);
     Value *Op2 = Call.getArgOperand(1);
     Assert(Op1->getType()->isIntOrIntVectorTy(),
-           "first operand of [us]mul_fix[_sat] must be an int type or vector "
-           "of ints");
+           "first operand of [us][mul|div]_fix[_sat] must be an int type or "
+           "vector of ints");
     Assert(Op2->getType()->isIntOrIntVectorTy(),
-           "second operand of [us]mul_fix_[sat] must be an int type or vector "
-           "of ints");
+           "second operand of [us][mul|div]_fix[_sat] must be an int type or "
+           "vector of ints");
 
     auto *Op3 = cast<ConstantInt>(Call.getArgOperand(2));
     Assert(Op3->getType()->getBitWidth() <= 32,
-           "third argument of [us]mul_fix[_sat] must fit within 32 bits");
+           "third argument of [us][mul|div]_fix[_sat] must fit within 32 bits");
 
-    if (ID == Intrinsic::smul_fix || ID == Intrinsic::smul_fix_sat) {
+    if (ID == Intrinsic::smul_fix || ID == Intrinsic::smul_fix_sat ||
+        ID == Intrinsic::sdiv_fix) {
       Assert(
           Op3->getZExtValue() < Op1->getType()->getScalarSizeInBits(),
-          "the scale of smul_fix[_sat] must be less than the width of the operands");
+          "the scale of s[mul|div]_fix[_sat] must be less than the width of "
+          "the operands");
     } else {
       Assert(Op3->getZExtValue() <= Op1->getType()->getScalarSizeInBits(),
-             "the scale of umul_fix[_sat] must be less than or equal to the width of "
-             "the operands");
+             "the scale of u[mul|div]_fix[_sat] must be less than or equal "
+             "to the width of the operands");
     }
     break;
   }
@@ -4838,7 +4888,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
   unsigned NumOperands;
   bool HasRoundingMD;
   switch (FPI.getIntrinsicID()) {
-#define INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC, DAGN)                   \
+#define INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC)                         \
   case Intrinsic::INTRINSIC:                                                   \
     NumOperands = NARG;                                                        \
     HasRoundingMD = ROUND_MODE;                                                \
@@ -4875,7 +4925,7 @@ void Verifier::visitConstrainedFPIntrinsic(ConstrainedFPIntrinsic &FPI) {
 
   case Intrinsic::experimental_constrained_fcmp:
   case Intrinsic::experimental_constrained_fcmps: {
-    auto Pred = dyn_cast<ConstrainedFPCmpIntrinsic>(&FPI)->getPredicate();
+    auto Pred = cast<ConstrainedFPCmpIntrinsic>(&FPI)->getPredicate();
     Assert(CmpInst::isFPPredicate(Pred),
            "invalid predicate for constrained FP comparison intrinsic", &FPI);
     break;

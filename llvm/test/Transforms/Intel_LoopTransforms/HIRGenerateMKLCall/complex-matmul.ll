@@ -43,7 +43,7 @@
 
 ; After HIR Generate MKL Call-
 ; CHECK: BEGIN REGION { modified }
-; CHECK: 0 = &((i8*)(@"main_$C3")[0][1][1].0);
+; CHECK: 0 = &((i8*)(@"main_$C3")[0][0][0].0);
 ; CHECK: 1 = 8;
 ; CHECK: 2 = 0;
 ; CHECK: 3 = 0;
@@ -55,7 +55,7 @@
 ; CHECK: 9 = 50;
 ; CHECK: 10 = 400;
 ; CHECK: 11 = 1;
-; CHECK: 0 = &((i8*)(@"main_$A3")[0][1][1].0);
+; CHECK: 0 = &((i8*)(@"main_$A3")[0][0][0].0);
 ; CHECK: 1 = 8;
 ; CHECK: 2 = 0;
 ; CHECK: 3 = 0;
@@ -67,7 +67,7 @@
 ; CHECK: 9 = 50;
 ; CHECK: 10 = 400;
 ; CHECK: 11 = 1;
-; CHECK: 0 = &((i8*)(@"main_$B3")[0][1][1].0);
+; CHECK: 0 = &((i8*)(@"main_$B3")[0][0][0].0);
 ; CHECK: 1 = 8;
 ; CHECK: 2 = 0;
 ; CHECK: 3 = 0;

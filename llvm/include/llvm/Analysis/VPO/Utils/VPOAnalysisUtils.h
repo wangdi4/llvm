@@ -56,55 +56,67 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 //
 /// The Modifier is used in the following cases:
 ///
-/// 1. Schedule modifiers. Example:
+/// * Schedule modifiers. Example:
 ///      FullName = "QUAL.OMP.SCHEDULE.STATIC:SIMD.MONOTONIC"
 ///      BaseName = "QUAL.OMP.SCHEDULE.STATIC"
 ///      Modifier = "SIMD.MONOTONIC"
 ///      Id = QUAL_OMP_SCHEDULE_STATIC
 ///
-/// 2. Array sections. Example:
+/// * Array sections. Example:
 ///      FullName = "QUAL.OMP.REDUCTION.ADD:ARRSECT"
 ///      BaseName = "QUAL.OMP.REDUCTION.ADD"
 ///      Modifier = "ARRSECT"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
-/// 3. ByRef operands. Example:
+/// * ByRef operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:BYREF"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "BYREF"
 ///      Id = QUAL_OMP_PRIVATE
 ///
-/// 4. NonPOD operands. Example:
+/// * NonPOD operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:NONPOD"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
 ///
-/// 5. MAP clause for aggregate objects. Example:
+/// * MAP clause for aggregate objects. Example:
 ///      FullName = "QUAL.OMP.MAP.TOFROM:AGGRHEAD"
 ///      BaseName = "QUAL.OMP.MAP.TOFROM"
 ///      Modifier = "AGGRHEAD"
 ///      Id = QUAL_OMP_MAP_TOFROM
 ///
-/// 6. LINEAR clause on original loop's IV. Example:
+/// * MAP chains' links after the first link. Example:
+///      FullName = "QUAL.OMP.MAP.TOFROM:CHAIN"
+///      BaseName = "QUAL.OMP.MAP.TOFROM"
+///      Modifier = "CHAIN"
+///      Id = QUAL_OMP_MAP_TOFROM
+///
+/// * LINEAR clause on original loop's IV. Example:
 ///      FullName = "QUAL.OMP.LINEAR:IV"
 ///      BaseName = "QUAL.OMP.LINEAR"
 ///      Modifier = "IV"
 ///      Id = QUAL_OMP_LINEAR
 #if INTEL_CUSTOMIZATION
 ///
-/// 7. F90 Dope Vector operands. Example:
+/// * F90 Dope Vector operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:F90_DV"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "F90_DV"
 ///      Id = QUAL_OMP_PRIVATE
 ///
-/// 8. WI local operands of clauses implying privatization. Example:
+/// * WI local operands of clauses implying privatization. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:WILOCAL
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "WILOCAL"
 ///      Id = QUAL_OMP_PRIVATE
 #endif // INTEL_CUSTOMIZATION
+///
+/// *  ALWAYS modifier for map clause. Example:
+///      FullName = "QUAL.OMP.MAP:ALWAYS"
+///      BaseName = "QUAL.OMP.MAP"
+///      Modifier = "ALWAYS"
+///      Id = QUAL_OMP_MAP
 ///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
@@ -124,6 +136,7 @@ private:
   bool IsF90DopeVector:1;
   bool IsWILocal:1;
 #endif // INTEL_CUSTOMIZATION
+  bool IsAlways:1;
   bool IsUnsigned:1;     // needed by min/max reduction
   bool IsComplex:1;
 
@@ -138,6 +151,8 @@ private:
   // Map clause for aggregate objects
   bool IsMapAggrHead:1;
   bool IsMapAggr:1;
+  // Map clause is for a link in an ongoing map chain.
+  bool IsMapChainLink:1;
   bool IsIV:1;
 
 public:
@@ -153,6 +168,7 @@ public:
   void setIsArraySection()         { IsArraySection = true; }
   void setIsByRef()                { IsByRef = true; }
   void setIsNonPod()               { IsNonPod = true; }
+  void setIsAlways()               { IsAlways = true; }
   void setIsUnsigned()             { IsUnsigned = true; }
   void setIsConditional()          { IsConditional = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
@@ -160,6 +176,7 @@ public:
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
   void setIsMapAggrHead()          { IsMapAggrHead = true; }
   void setIsMapAggr()              { IsMapAggr = true; }
+  void setIsMapChainLink()         { IsMapChainLink = true; }
   void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
 
@@ -171,6 +188,7 @@ public:
   bool getIsArraySection() const { return IsArraySection; }
   bool getIsByRef() const { return IsByRef; }
   bool getIsNonPod() const { return IsNonPod; }
+  bool getIsAlways() const { return IsAlways; }
   bool getIsUnsigned() const { return IsUnsigned; }
   bool getIsConditional() const { return IsConditional; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
@@ -178,6 +196,7 @@ public:
   bool getIsScheduleSimd() const { return IsScheduleSimd; }
   bool getIsMapAggrHead() const { return IsMapAggrHead; }
   bool getIsMapAggr() const { return IsMapAggr; }
+  bool getIsMapChainLink() const { return IsMapChainLink; }
 #if INTEL_CUSTOMIZATION
   void setIsF90DopeVector() {IsF90DopeVector = true; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }

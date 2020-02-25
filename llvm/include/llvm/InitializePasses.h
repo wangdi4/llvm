@@ -337,7 +337,7 @@ void initializeMemoryDependenceWrapperPassPass(PassRegistry&);
 void initializeMemorySSAPrinterLegacyPassPass(PassRegistry&);
 void initializeMemorySSAWrapperPassPass(PassRegistry&);
 void initializeMemorySanitizerLegacyPassPass(PassRegistry&);
-void initializeMergeFunctionsPass(PassRegistry&);
+void initializeMergeFunctionsLegacyPassPass(PassRegistry&);
 void initializeMergeICmpsLegacyPassPass(PassRegistry &);
 void initializeMergedLoadStoreMotionLegacyPassPass(PassRegistry&);
 void initializeMetaRenamerPass(PassRegistry&);
@@ -505,6 +505,8 @@ void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 void initializeTransformFPGARegPass(PassRegistry &);
 // Qsort recognition
 void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
+// Multiversioning and inline marking for tiled functions
+void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);

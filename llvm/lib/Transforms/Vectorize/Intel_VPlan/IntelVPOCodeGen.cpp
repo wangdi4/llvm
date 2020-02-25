@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -155,6 +155,18 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       NewLoad->setSyncScopeID(Load->getSyncScopeID());
       NewLoad->setAlignment(MaybeAlign{Load->getAlignment()});
     }
+  } else if (VPInst->getOpcode() == Instruction::Store) {
+    assert(ScalarOperands.size() == 2 &&
+           "Store VPInstruction has incorrect number of operands.");
+    SerialInst = Builder.CreateStore(Ops[0], Ops[1]);
+    if (auto *Underlying = VPInst->getUnderlyingValue()) {
+      auto *NewStore = cast<StoreInst>(SerialInst);
+      auto *OldStore = cast<StoreInst>(Underlying);
+      NewStore->setVolatile(OldStore->isVolatile());
+      NewStore->setOrdering(OldStore->getOrdering());
+      NewStore->setSyncScopeID(OldStore->getSyncScopeID());
+      NewStore->setAlignment(MaybeAlign{OldStore->getAlignment()});
+    }
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
@@ -173,6 +185,13 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
           cast<PointerType>(FuncPtrTy)->getPointerElementType());
 
       SerialInst = Builder.CreateCall(FT, FuncPtr, Ops);
+    }
+    // FIXME: We plan to introduce VPCallInst subclass that should abstract
+    // these accessors.
+    if (auto *UnderlyingCall =
+            cast_or_null<CallInst>(VPInst->getUnderlyingValue())) {
+      cast<CallInst>(SerialInst)
+          ->setCallingConv(UnderlyingCall->getCallingConv());
     }
   } else if (VPGEPInstruction *VPGEP = dyn_cast<VPGEPInstruction>(VPInst)) {
     assert(ScalarOperands.size() > 1 &&
@@ -202,11 +221,25 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
     SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());
     SerialInst = SerialAlloca;
+  } else if (VPInst->getOpcode() == Instruction::AtomicRMW) {
+    assert(ScalarOperands.size() == 2 &&
+           "AtomicRMW instruction should have two operands.");
+    // BinOp for atomicrmw instruction is needed, so underlying instruction must
+    // exist. Should we have VPlan specialization of this opcode for capturing
+    // BinOp?
+    auto *OrigAtomicRMW = cast<AtomicRMWInst>(VPInst->getUnderlyingValue());
+    AtomicRMWInst *SerialAtomicRMW = Builder.CreateAtomicRMW(
+        OrigAtomicRMW->getOperation(), Ops[0], Ops[1],
+        OrigAtomicRMW->getOrdering(), OrigAtomicRMW->getSyncScopeID());
+    SerialAtomicRMW->setVolatile(OrigAtomicRMW->isVolatile());
+    if (SerialAtomicRMW->isFloatingPointOperation())
+      SerialAtomicRMW->setFastMathFlags(OrigAtomicRMW->getFastMathFlags());
+    SerialInst = SerialAtomicRMW;
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
-    llvm_unreachable(
-        "Currently serialization of only binop instructions, "
-        "load, call, gep, insert/extract-element, alloca is supported.");
+    llvm_unreachable("Currently serialization of only binop instructions, "
+                     "load, store, call, gep, insert/extract-element, alloca, "
+                     "atomicrmw is supported.");
   }
 
   return SerialInst;
@@ -342,7 +375,7 @@ void VPOCodeGen::createEmptyLoop() {
 
   Type *IdxTy = Legal->getWidestInductionType();
   Value *StartIdx = ConstantInt::get(IdxTy, 0);
-  Constant *Step = ConstantInt::get(IdxTy, VF);
+  Constant *Step = ConstantInt::get(IdxTy, VF * UF);
 
   // Create an induction variable in vector loop with a step equal to VF.
   Induction = createInductionVariable(Lp, StartIdx, CountRoundDown, Step);
@@ -650,13 +683,47 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
   return false;
 }
 
-void VPOCodeGen::addMaskToSVMLCall(Function *OrigF,
+unsigned VPOCodeGen::getPumpFactor(StringRef FnName, bool IsMasked) {
+  // Call can already be vectorized for current VF, pumping not needed.
+  if (TLI->isFunctionVectorizable(FnName, VF, IsMasked))
+    return 1;
+
+  // TODO: Pumping is supported only for simple SVML functions.
+  if (isOpenCLSinCos(FnName))
+    return 1;
+
+  // Check if function can be vectorized for a dummy low VF value. This is
+  // purely to identify and filter out non-SVML functions.
+  // TODO: This filtering is temporary until we start supporting pumping feature
+  // for SIMD functions with vector-variants.
+  StringRef VecFnName =
+      TLI->getVectorizedFunction(FnName, 4 /*dummy VF*/, IsMasked);
+  if (VecFnName.empty() || !isSVMLFunction(TLI, FnName, VecFnName))
+    return 1;
+
+  // Pumping can be done if function can be vectorized for any LowerVF starting
+  // from VF/2 -> 2.
+  assert(isPowerOf2_32(VF) &&
+         "Pumping analysis is not supported for non-power of two VF.");
+  unsigned LowerVF;
+  for (LowerVF = VF / 2; LowerVF > 1; LowerVF /= 2) {
+    if (TLI->isFunctionVectorizable(FnName, LowerVF, IsMasked))
+      break;
+  }
+
+  if (LowerVF > 1)
+    return VF / LowerVF;
+
+  return 1;
+}
+
+void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys) {
-  assert(MaskValue && "Expected mask to be present");
+  assert(CallMaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
   assert(VecTy->getVectorNumElements() ==
-             MaskValue->getType()->getVectorNumElements() &&
+             CallMaskValue->getType()->getVectorNumElements() &&
          "Re-vectorization of SVML functions is not supported yet");
 
   if (VecTy->getBitWidth() < 512) {
@@ -667,7 +734,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF,
     VectorType *MaskTyExt = VectorType::get(
         IntegerType::get(OrigF->getContext(), VecTy->getScalarSizeInBits()),
         VecTy->getElementCount());
-    Value *MaskValueExt = Builder.CreateSExt(MaskValue, MaskTyExt);
+    Value *MaskValueExt = Builder.CreateSExt(CallMaskValue, MaskTyExt);
     VecArgTys.push_back(MaskTyExt);
     VecArgs.push_back(MaskValueExt);
   } else {
@@ -685,8 +752,8 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF,
     NewArgTys.push_back(VecTy);
     NewArgs.push_back(Undef);
 
-    NewArgTys.push_back(MaskValue->getType());
-    NewArgs.push_back(MaskValue);
+    NewArgTys.push_back(CallMaskValue->getType());
+    NewArgs.push_back(CallMaskValue);
 
     NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
     NewArgs.append(VecArgs.begin(), VecArgs.end());
@@ -705,7 +772,7 @@ void VPOCodeGen::initOpenCLScalarSelectSet(
 }
 
 bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
-  return Idx == 2 && ScalarSelectSet.count(FnName);
+  return Idx == 2 && ScalarSelectSet.count(std::string(FnName));
 }
 
 bool VPOCodeGen::callHasAttribute(VPInstruction *VPInst,
@@ -724,6 +791,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
 
   case Instruction::Alloca: {
+    serializeWithPredication(VPInst);
+    return;
+  }
+
+  case Instruction::AtomicRMW: {
     serializeWithPredication(VPInst);
     return;
   }
@@ -1006,16 +1078,24 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
     StringRef CalledFunc = F->getName();
     bool IsMasked = MaskValue != nullptr;
+    unsigned PumpFactor = getPumpFactor(CalledFunc, IsMasked);
     if (callHasAttribute(VPInst, "kernel-uniform-call") &&
         callHasAttribute(VPInst, "kernel-convergent-call")) {
       // TODO: this case must be handled via VPlan to VPlan bypass
       // infrastructure.
       processPredicatedKernelConvergentUniformCall(VPInst);
     } else if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
-        ((matchVectorVariant(UnderlyingCI, IsMasked) ||
-          (!IsMasked && matchVectorVariant(UnderlyingCI, true)))) ||
-        (isOpenCLReadChannel(CalledFunc) || isOpenCLWriteChannel(CalledFunc))) {
-      vectorizeCallInstruction(VPInst);
+               PumpFactor > 1 ||
+               ((matchVectorVariant(UnderlyingCI, IsMasked) ||
+                 (!IsMasked && matchVectorVariant(UnderlyingCI, true)))) ||
+               (isOpenCLReadChannel(CalledFunc) ||
+                isOpenCLWriteChannel(CalledFunc))) {
+      LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is pumped "
+                        << PumpFactor << "-way.\n");
+      assert(PumpFactor == 1 || !callHasAttribute(VPInst, "kernel-call-once") &&
+                                    "VPVALCG: Pumped vectorization of a kernel "
+                                    "called-once function is not allowed.");
+      vectorizeCallInstruction(VPInst, PumpFactor);
     } else {
       LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       assert(!callHasAttribute(VPInst, "kernel-call-once") &&
@@ -1209,7 +1289,7 @@ Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L) {
   // iterations are not required for correctness, or N - Step, otherwise. Step
   // is equal to the vectorization factor (number of SIMD elements) times the
   // unroll factor (number of SIMD instructions).
-  Constant *Step = ConstantInt::get(TC->getType(), VF);
+  Constant *Step = ConstantInt::get(TC->getType(), VF * UF);
   Value *R = Builder.CreateURem(TC, Step, "n.mod.vf");
 
   VectorTripCount = Builder.CreateSub(TC, R, "n.vec");
@@ -1605,15 +1685,16 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
 #endif
 
   Value *WideSinLoad = Builder.CreateAlignedLoad(
-      WideSinPtr, cast<AllocaInst>(WideCosPtr)->getAlignment(),
-      "wide.sin.InitVal");
+      WideSinPtr, cast<AllocaInst>(WideCosPtr)->getAlign(), "wide.sin.InitVal");
   VPWidenMap[VPCall] = WideSinLoad;
 }
 
 void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
-                                   VectorVariant *VecVariant,
+                                   VectorVariant *VecVariant, unsigned PumpPart,
+                                   unsigned PumpFactor,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys) {
+  unsigned PumpedVF = VF / PumpFactor;
   std::vector<VectorKind> Parms;
   if (VecVariant) {
     Parms = VecVariant->getParameters();
@@ -1638,7 +1719,11 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
       if (isOpenCLSelectMask(FnName, OrigArgIdx))
         return getOpenCLSelectVectorMask(Arg);
 
-      return getVectorValue(Arg);
+      Value *VecArg = getVectorValue(Arg);
+      VecArg = generateExtractSubVector(VecArg, PumpPart, PumpFactor, Builder);
+      assert(VecArg && "Vectorized call arg cannot be nullptr.");
+
+      return VecArg;
     }
     // Linear and uniform parameters for simd functions must be passed as
     // scalars according to the vector function abi. CodeGen currently
@@ -1648,6 +1733,12 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     // because this will be the starting value for which the stride will be
     // added. The same method applies to built-in functions for args that
     // need to be treated as uniform.
+
+    // TODO: To support pumping for linear arguments of vector-variants, special
+    // processing is needed to correctly update the linear argument for each
+    // PumpPart.
+    assert(PumpFactor == 1 && "Pumping feature is not implemented for SIMD "
+                              "functions with vector-variants.");
 
     assert(!isOpenCLSelectMask(FnName, OrigArgIdx) &&
            "OpenCL select mask parameter is linear/uniform?");
@@ -1672,19 +1763,31 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
     VecArgTys.push_back(VecArg->getType());
   }
 
-  // Process mask parameters
-  StringRef VecFnName = TLI->getVectorizedFunction(FnName, VF, MaskValue);
-  if (MaskValue && !VecFnName.empty() &&
+  // Process mask parameters for current part being pumped.
+  bool IsMasked = MaskValue != nullptr;
+  // NOTE: We can potentially cache the subvector extracted for MaskValue with a
+  // map from {MaskValue, PumpPart, PumpFactor} to SubMaskValue. Since same mask
+  // might be used for multiple calls, this would prevent dead code. However
+  // this can be extended in general to all call arguments and might need a more
+  // central map similar to VectorMap/ScalarMap. This cache can be implemented
+  // in the future if we need very clean outgoing vector code.
+  Value *PumpPartMaskValue =
+      generateExtractSubVector(MaskValue, PumpPart, PumpFactor, Builder);
+  StringRef VecFnName = TLI->getVectorizedFunction(FnName, PumpedVF, IsMasked);
+  if (IsMasked && !VecFnName.empty() &&
       isSVMLFunction(TLI, FnName, VecFnName)) {
-    addMaskToSVMLCall(F, VecArgs, VecArgTys);
+    addMaskToSVMLCall(F, PumpPartMaskValue, VecArgs, VecArgTys);
     return;
   }
   if (!VecVariant || !VecVariant->isMasked())
     return;
 
-  Value *MaskToUse = MaskValue ? MaskValue
-                               : Constant::getAllOnesValue(VectorType::get(
-                                     Type::getInt1Ty(F->getContext()), VF));
+  assert(PumpFactor == 1 && "Pumping feature is not implemented for SIMD "
+                            "functions with vector-variants.");
+  Value *MaskToUse = PumpPartMaskValue
+                         ? PumpPartMaskValue
+                         : Constant::getAllOnesValue(VectorType::get(
+                               Type::getInt1Ty(F->getContext()), PumpedVF));
 
   // Add the mask parameter for masked simd functions.
   // Mask should already be vectorized as i1 type.
@@ -1710,13 +1813,13 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
   // characteristic type.
   Type *ScalarToType =
       IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
-  VectorType *VecToType = VectorType::get(ScalarToType, VF);
+  VectorType *VecToType = VectorType::get(ScalarToType, PumpedVF);
   Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
   if (ScalarToType != CharacteristicType) {
-    Type *MaskCastTy = VectorType::get(CharacteristicType, VF);
+    Type *MaskCastTy = VectorType::get(CharacteristicType, PumpedVF);
     Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
     VecArgs.push_back(MaskCast);
     VecArgTys.push_back(MaskCastTy);
@@ -1765,15 +1868,14 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = NewSelect;
 }
 
-unsigned
-VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
+Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
   assert((VPInst->getOpcode() == Instruction::Load ||
           VPInst->getOpcode() == Instruction::Store) &&
          "Alignment helper called on non load/store instruction.");
   // TODO: Peeking at underlying Value for alignment info.
   auto *UV = VPInst->getUnderlyingValue();
   if (!UV)
-    return 1;
+    return Align(1);
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   // For store instructions alignment is determined by type of value operand.
@@ -1783,8 +1885,7 @@ VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
 
   // Absence of alignment means target abi alignment. We need to use the
   // scalar's target abi alignment in such a case.
-  return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy)
-      .value();
+  return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy);
 }
 
 Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
@@ -1796,6 +1897,9 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   assert(Group->getNumElems() == VF &&
          "Group number of elements must match VF");
 
+  // The wide load can be based on InsertPoint only. Any other memory reference
+  // in the group (e.g. Group->getFirstMemref()) may be not ready at this point
+  // in code generation yet.
   OVLSMemref *InsertPoint = Group->getInsertPoint();
   int InterleaveIndex = computeInterleaveIndex(InsertPoint, Group);
   const VPInstruction *Leader =
@@ -1819,7 +1923,7 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
       cast<PointerType>(ScalarAddress->getType())->getAddressSpace();
   Value *GroupPtr = Builder.CreateBitCast(
       ScalarAddress, GroupType->getPointerTo(AddressSpace), "groupPtr");
-  unsigned Align = getOriginalLoadStoreAlignment(Leader);
+  Align Alignment = getOriginalLoadStoreAlignment(Leader);
 
   Instruction *GroupLoad;
   if (MaskValue) {
@@ -1828,11 +1932,11 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
                           : 1;
     Value *LoadMask = replicateVectorElts(MaskValue, OriginalVL * Group->size(),
                                           Builder, "groupLoadMask");
-    GroupLoad = Builder.CreateMaskedLoad(GroupPtr, Align, LoadMask, nullptr,
+    GroupLoad = Builder.CreateMaskedLoad(GroupPtr, Alignment, LoadMask, nullptr,
                                          "groupLoad");
   } else {
     GroupLoad =
-        Builder.CreateAlignedLoad(GroupType, GroupPtr, Align, "groupLoad");
+        Builder.CreateAlignedLoad(GroupType, GroupPtr, Alignment, "groupLoad");
   }
 
   DEBUG_WITH_TYPE(
@@ -1850,7 +1954,7 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   });
   assert(MemrefIter != Group->end() &&
          "Instruction does not belong to the group");
-  OVLSMemref *Memref = *MemrefIter;
+  auto *Memref = cast<VPVLSClientMemref>(*MemrefIter);
 
   auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
   auto InterleaveFactor = computeInterleaveFactor(Memref);
@@ -1866,15 +1970,23 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   if (InterleaveFactor == 1)
     return GroupLoad;
 
-  // Extract a proper widened value from the wide load. A bit more sophisticated
-  // shuffle mask is required if the input type is itself a vector type.
-  Type *Ty = VPLoad->getType();
-  unsigned OriginalVL = Ty->isVectorTy() ? Ty->getVectorNumElements() : 1;
+  // Extract a proper widened value from the wide load. Generally, an extraction
+  // mask looks like <0, 2, 4, 6>, but in case of vector input types (for
+  // example, <2 x i32>) we would need somewhat more sophisticated mask:
+  // <0, 1, 4, 5, 8, 9, 12, 13>.
+  Type *GroupLeaderTy = cast<VPVLSClientMemref>(Group->getInsertPoint())
+                            ->getInstruction()
+                            ->getType();
+  unsigned OriginalVL =
+      GroupLeaderTy->isVectorTy() ? GroupLeaderTy->getVectorNumElements() : 1;
   Constant *ShuffleMask = createVectorStrideMask(
       Builder, InterleaveIndex, InterleaveFactor, VF, OriginalVL);
-  return Builder.CreateShuffleVector(GroupLoad,
-                                     UndefValue::get(GroupLoad->getType()),
-                                     ShuffleMask, "groupShuffle");
+  Value *GroupShuffle = Builder.CreateShuffleVector(
+      GroupLoad, UndefValue::get(GroupLoad->getType()), ShuffleMask,
+      "groupShuffle");
+  return Builder.CreateBitCast(
+      GroupShuffle, getWidenedType(Memref->getInstruction()->getType(), VF),
+      "groupCast");
 }
 
 Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
@@ -1884,7 +1996,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
   Type *LoadType = getLoadStoreType(VPInst);
   unsigned OriginalVL =
       LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
 
   // Masking not needed for privates.
@@ -1944,7 +2056,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   unsigned OriginalVL =
       LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
 
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *NewLI = nullptr;
 
   // Try to handle consecutive loads without VLS.
@@ -1984,13 +2096,23 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   VPWidenMap[VPInst] = NewLI;
 }
 
-void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
+void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
                                            OVLSGroup *Group) {
   // Don't do anything unless we're vectorizing an instruction that is the group
   // insertion point.
-  auto *Memref = cast<VPVLSClientMemref>(Group->getInsertPoint());
-  if (Memref->getInstruction() != VPStore)
+  if (VPStoreArg !=
+      cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction())
     return;
+
+  // Now we forget about VPStoreArg and work with group leader only.
+  auto *Leader = cast<VPVLSClientMemref>(Group->getFirstMemref());
+  const VPInstruction *LeaderInst = Leader->getInstruction();
+  assert(LeaderInst->getOpcode() == Instruction::Store &&
+         "Unexpected instruction in OVLSGroup");
+  Type *LeaderAccessType = LeaderInst->getOperand(0)->getType();
+  unsigned OriginalVL = LeaderAccessType->isVectorTy()
+                            ? LeaderAccessType->getVectorNumElements()
+                            : 1;
 
   // Values to be stored.
   SmallVector<Value *, 8> GrpValues;
@@ -2001,7 +2123,9 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   // Populate GrpValues and GrpIndexes.
   for (OVLSMemref *Mrf : *Group) {
     VPValue *V = cast<VPVLSClientMemref>(Mrf)->getInstruction()->getOperand(0);
-    GrpValues.push_back(getVectorValue(V));
+    Type *LeaderAccessType = LeaderInst->getOperand(0)->getType();
+    GrpValues.push_back(Builder.CreateBitCast(
+        getVectorValue(V), getWidenedType(LeaderAccessType, VF), "groupCast"));
     GrpIndexes.push_back(computeInterleaveIndex(Mrf, Group));
   }
 
@@ -2011,10 +2135,7 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
     assert(GrpIndexes[i] == i && "Unsupported memory references sequence");
 
   // Check that all memory references have the same interleave factor.
-  OVLSMemref *MemRef = Group->getFirstMemref();
-  assert(MemRef &&
-         "Expect a non-null first memref to determine the Interleave factor.");
-  auto InterleaveFactor = computeInterleaveFactor(MemRef);
+  auto InterleaveFactor = computeInterleaveFactor(Leader);
   assert(all_of(*Group,
                 [InterleaveFactor](OVLSMemref *x) {
                   return computeInterleaveFactor(x) == InterleaveFactor;
@@ -2024,11 +2145,6 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   // Check if the group is valid for this VF.
   assert(Group->getNumElems() == VF &&
          "Group number of elements must match VF");
-
-  Type *SingleAccessType = VPStore->getOperand(0)->getType();
-  unsigned OriginalVL = SingleAccessType->isVectorTy()
-                            ? SingleAccessType->getVectorNumElements()
-                            : 1;
 
   Value *StoredValue;
   if (InterleaveFactor != 1) {
@@ -2048,9 +2164,7 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
   }
 
   // Compute address for the wide store.
-  const VPInstruction *Leader =
-      cast<VPVLSClientMemref>(MemRef)->getInstruction();
-  Value *ScatterAddress = getVectorValue(Leader->getOperand(1));
+  Value *ScatterAddress = getVectorValue(LeaderInst->getOperand(1));
   Value *ScalarAddress = Builder.CreateExtractElement(
       ScatterAddress, (uint64_t)0, ScatterAddress->getName() + "_0");
   auto AddressSpace =
@@ -2060,15 +2174,15 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStore,
       Builder.CreateBitCast(ScalarAddress, GroupPtrTy, "groupPtr");
 
   // Create the wide store.
-  unsigned Align = getOriginalLoadStoreAlignment(VPStore);
+  Align Alignment = getOriginalLoadStoreAlignment(LeaderInst);
   Instruction *GroupStore;
   if (MaskValue) {
     Value *StoreMask = replicateVectorElts(
         MaskValue, OriginalVL * Group->size(), Builder, "groupStoreMask");
     GroupStore =
-        Builder.CreateMaskedStore(StoredValue, GroupPtr, Align, StoreMask);
+        Builder.CreateMaskedStore(StoredValue, GroupPtr, Alignment, StoreMask);
   } else {
-    GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Align);
+    GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Alignment);
   }
 
   DEBUG_WITH_TYPE("ovls", dbgs()
@@ -2085,7 +2199,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
   Type *StoreType = getLoadStoreType(VPInst);
   unsigned OriginalVL =
       StoreType->isVectorTy() ? StoreType->getVectorNumElements() : 1;
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
 
   if (StrideVal < 0) // Reverse
@@ -2111,7 +2225,11 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
-  unsigned Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
+
+  if (auto *Underlying = VPInst->getUnderlyingValue())
+    if (!cast<StoreInst>(Underlying)->isSimple())
+      return serializeWithPredication(VPInst);
 
   // Handle vectorization of a linear value store.
   if (isVPValueLinear(Ptr)) {
@@ -2126,13 +2244,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   // vectorized code.
   // TODO: Extend the optimization for masked uniform stores too. Will need
   // all-zero check (like masked uniform load) and functionality to find out
-  // last unmasked lane for divergent data operand. This optimization is also
-  // disabled for volatile/atomic stores.
-  bool IsSimpleStore = true;
-  if (Instruction *I = VPInst->getInstruction())
-    IsSimpleStore = cast<StoreInst>(I)->isSimple();
-
-  if (isVPValueUniform(Ptr, Plan) && !MaskValue && IsSimpleStore) {
+  // last unmasked lane for divergent data operand.
+  if (isVPValueUniform(Ptr, Plan) && !MaskValue) {
     Value *ScalarPtr = getScalarValue(Ptr, 0);
     VPValue *DataOp = VPInst->getOperand(0);
     // Extract last lane of data operand to generate scalar store. For uniform
@@ -2336,9 +2449,8 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
   return Builder.CreateSExt(Cmp, VecTy);
 }
 
-void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
-  SmallVector<Value *, 2> VecArgs;
-  SmallVector<Type *, 2> VecArgTys;
+void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
+                                          unsigned PumpFactor) {
   CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
   assert(UnderlyingCI &&
          "VPVALCG: Need underlying CallInst for call-site attributes.");
@@ -2351,6 +2463,8 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
 
   // OpenCL SinCos, would have a 'nullptr' MatchedVariant.
   if (isOpenCLSinCos(CalledFunc->getName())) {
+    assert(PumpFactor == 1 &&
+           "Pumping feature is not supported for OpenCL sincos.");
     vectorizeOpenCLSinCos(VPCall, IsMasked);
     return;
   }
@@ -2362,6 +2476,8 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
     // 1) A more sophisticated interface is needed to determine the most
     //    appropriate match.
     // 2) A SIMD function is not a library function.
+    // TODO: When matchVectorVariant is updated to search based on specific VF,
+    // use VF/PumpFactor to support pumping feature.
     MatchedVariant = matchVectorVariant(UnderlyingCI, IsMasked);
     if (!MatchedVariant && !IsMasked) {
       // If non-masked version isn't available, try running the masked version
@@ -2370,65 +2486,87 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall) {
       IsMasked = true;
     }
     assert(MatchedVariant && "Unexpected null matched vector variant");
+    assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
+                              "functions with vector variants.");
     LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
                       << "\n");
   }
 
-  vectorizeCallArgs(VPCall, MatchedVariant.get(), VecArgs, VecArgTys);
+  // Call results for each pumped part.
+  SmallVector<Value *, 4> CallResults;
 
-  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
-                                                Intrinsic::not_intrinsic,
-                                                MatchedVariant.get(), IsMasked);
-  assert(VectorF && "Can't create vector function.");
-  CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+  for (unsigned PumpPart = 0; PumpPart < PumpFactor; ++PumpPart) {
+    LLVM_DEBUG(dbgs() << "Pumping part " << PumpPart << "/" << PumpFactor
+                      << "\n");
+    SmallVector<Value *, 2> VecArgs;
+    SmallVector<Type *, 2> VecArgTys;
 
-  // TODO: investigate why attempting to copy fast math flags for __read_pipe
-  // fails. For now, just don't do the copy.
-  // TODO: Fast math flags are not represented in VPValue yet.
-  if (isa<FPMathOperator>(VecCall) &&
-      !isOpenCLReadChannel(CalledFunc->getName())) {
+    vectorizeCallArgs(VPCall, MatchedVariant.get(), PumpPart, PumpFactor,
+                      VecArgs, VecArgTys);
+
+    Function *VectorF = getOrInsertVectorFunction(
+        CalledFunc, VF / PumpFactor, VecArgTys, TLI, Intrinsic::not_intrinsic,
+        MatchedVariant.get(), IsMasked);
+    assert(VectorF && "Can't create vector function.");
+    CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+    CallResults.push_back(VecCall);
+
+    // TODO: investigate why attempting to copy fast math flags for __read_pipe
+    // fails. For now, just don't do the copy.
+    // TODO: Fast math flags are not represented in VPValue yet.
+    if (isa<FPMathOperator>(VecCall) &&
+        !isOpenCLReadChannel(CalledFunc->getName())) {
 #if 0
-    VecCall->copyFastMathFlags(Call);
+      VecCall->copyFastMathFlags(Call);
 #endif
+    }
+
+    // Make sure we don't lose attributes at the call site. E.g., IMF
+    // attributes are taken from call sites in MapIntrinToIml to refine
+    // SVML calls for precision.
+    // TODO: Call attributes are not represented in VPValue yet. Peek at
+    // underlying instruction.
+    copyRequiredAttributes(UnderlyingCI, VecCall);
+
+    // Set calling convention for SVML function calls.
+    if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
+      VecCall->setCallingConv(CallingConv::SVML);
+
+#if 0
+    // TODO: Need a VPValue based analysis for call arg memory references.
+    // VPValue-based stride info also needed.
+    Loop *Lp = LI->getLoopFor(Call->getParent());
+    analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
+#endif
+
+    // No blending is required here for masked simd function calls as of now for
+    // two reasons:
+    //
+    // 1) A select is already generated for call results that are live outside
+    //    of the predicated region by using the predicated region's mask. See
+    //    widenNonInductionPhi().
+    //
+    // 2) Currently, masked stores are always generated for call results stored
+    //    to memory within a predicated region. See vectorizeStoreInstruction().
+
+    if (isOpenCLReadChannel(CalledFunc->getName())) {
+      llvm_unreachable(
+          "VPVALCG: OpenCL read channel vectorization not uplifted.");
+#if 0
+      vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
+#endif
+    }
   }
 
-  // Make sure we don't lose attributes at the call site. E.g., IMF
-  // attributes are taken from call sites in MapIntrinToIml to refine
-  // SVML calls for precision.
-  // TODO: Call attributes are not represented in VPValue yet. Peek at
-  // underlying instruction.
-  copyRequiredAttributes(UnderlyingCI, VecCall);
-
-  // Set calling convention for SVML function calls.
-  if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
-    VecCall->setCallingConv(CallingConv::SVML);
-
-#if 0
-  // TODO: Need a VPValue based analysis for call arg memory references.
-  // VPValue-based stride info also needed.
-  Loop *Lp = LI->getLoopFor(Call->getParent());
-  analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
-#endif
-
-  // No blending is required here for masked simd function calls as of now for
-  // two reasons:
-  //
-  // 1) A select is already generated for call results that are live outside of
-  //    the predicated region by using the predicated region's mask. See
-  //    widenNonInductionPhi().
-  //
-  // 2) Currently, masked stores are always generated for call results stored
-  //    to memory within a predicated region. See vectorizeStoreInstruction().
-
-  if (isOpenCLReadChannel(CalledFunc->getName())) {
-    llvm_unreachable(
-        "VPVALCG: OpenCL read channel vectorization not uplifted.");
-#if 0
-    vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
-#endif
+  if (PumpFactor > 1) {
+    // Combine the pumped call results to be used in original VF context.
+    assert(CallResults.size() >= 2 && isPowerOf2_32(CallResults.size()) &&
+           "Number of pumped vector calls to combine must be a power of 2 "
+           "(atleast 2^1)");
+    VPWidenMap[VPCall] = joinVectors(CallResults, Builder, "combined");
+  } else {
+    VPWidenMap[VPCall] = CallResults[0];
   }
-
-  VPWidenMap[VPCall] = VecCall;
 }
 
 Value *VPOCodeGen::getVectorValue(VPValue *V) {
@@ -2992,7 +3130,7 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
 
   const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
   assert(Entity && "Unexpected: reduction last value is not for entity");
-  EntitiesLastValMap[Entity] = Ret;
+  EntitiesFinalVPInstMap[Entity] = RedFinal;
 }
 
 void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
@@ -3188,37 +3326,41 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   }
   // The value is scalar
   VPScalarMap[VPInst][0] = LastValue;
-  EntitiesLastValMap[Entity] = LastValue;
+  EntitiesFinalVPInstMap[Entity] = VPInst;
 }
 
 void VPOCodeGen::fixOutgoingValues() {
-  for (auto &LastValPair : EntitiesLastValMap) {
+  for (auto &LastValPair : EntitiesFinalVPInstMap) {
     if (auto *Reduction = dyn_cast<VPReduction>(LastValPair.first))
-      fixReductionLastVal(*Reduction, LastValPair.second);
+      fixReductionLastVal(*Reduction,
+                          cast<VPReductionFinal>(LastValPair.second));
     if (auto *Induction = dyn_cast<VPInduction>(LastValPair.first))
-      fixInductionLastVal(*Induction, LastValPair.second);
+      fixInductionLastVal(*Induction,
+                          cast<VPInductionFinal>(LastValPair.second));
   }
 }
 
-void VPOCodeGen::fixLiveOutValues(const VPLoopEntity &Entity, Value *LastVal) {
-  for (auto *Linked : Entity.getLinkedVPValues())
-    for (auto *User : Linked->users())
-      if (isa<VPExternalUse>(User)) {
-        Value *ExtVal = User->getUnderlyingValue();
-        if (auto Phi = dyn_cast<PHINode>(ExtVal)) {
-          int Ndx = Phi->getBasicBlockIndex(LoopMiddleBlock);
-          if (Ndx == -1)
-            Phi->addIncoming(LastVal, LoopMiddleBlock);
-          else
-            Phi->setIncomingValue(Ndx, LastVal);
-        } else {
-          int Ndx = User->getOperandIndex(Linked);
-          assert(Ndx != -1 && "Operand not found in User");
-          Value *Operand = const_cast<Value *>(
-              cast<VPExternalUse>(User)->getUnderlyingOperand(Ndx));
-          cast<Instruction>(ExtVal)->replaceUsesOfWith(Operand, LastVal);
-        }
+void VPOCodeGen::fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal) {
+  assert(isa<VPReductionFinal>(FinalVPInst) ||
+         isa<VPInductionFinal>(FinalVPInst) &&
+             "Only loop entity finalization instructions can be live-out.");
+  for (auto *User : FinalVPInst->users())
+    if (isa<VPExternalUse>(User)) {
+      Value *ExtVal = User->getUnderlyingValue();
+      if (auto Phi = dyn_cast<PHINode>(ExtVal)) {
+        int Ndx = Phi->getBasicBlockIndex(LoopMiddleBlock);
+        if (Ndx == -1)
+          Phi->addIncoming(LastVal, LoopMiddleBlock);
+        else
+          Phi->setIncomingValue(Ndx, LastVal);
+      } else {
+        int Ndx = User->getOperandIndex(FinalVPInst);
+        assert(Ndx != -1 && "Operand not found in User");
+        Value *Operand = const_cast<Value *>(
+            cast<VPExternalUse>(User)->getUnderlyingOperand(Ndx));
+        cast<Instruction>(ExtVal)->replaceUsesOfWith(Operand, LastVal);
       }
+    }
 }
 
 void VPOCodeGen::createLastValPhiAndUpdateOldStart(Value *OrigStartValue,
@@ -3239,7 +3381,8 @@ void VPOCodeGen::createLastValPhiAndUpdateOldStart(Value *OrigStartValue,
   Phi->setIncomingValue(SelfEdgeBlockIdx, BCBlockPhi);
 }
 
-void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
+void VPOCodeGen::fixReductionLastVal(const VPReduction &Red,
+                                     VPReductionFinal *RedFinal) {
   if (Red.getIsMemOnly()) {
 #if 0
     // TODO: Implement last value fixing for in-memory reductions.
@@ -3250,6 +3393,9 @@ void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
     MergedVal = Builder.CreateLoad(ScalarPtr, ScalarPtr->getName() + ".reload");
 #endif
   } else {
+    // Reduction final value should be mapped only in scalar map always. TODO:
+    // Use getScalarValue instead?
+    Value *LastVal = VPScalarMap[RedFinal][0];
     VPValue *VPStart = Red.getRecurrenceStartValue();
     Value *OrigStartValue = VPStart->getUnderlyingValue();
     VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Red);
@@ -3257,14 +3403,18 @@ void VPOCodeGen::fixReductionLastVal(const VPReduction &Red, Value *LastVal) {
     PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
     createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.merge.reduction",
                                       LastVal);
-    fixLiveOutValues(Red, LastVal);
+    fixLiveOutValues(RedFinal, LastVal);
   }
 }
 
-void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind, Value *LastVal) {
+void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind,
+                                     VPInductionFinal *IndFinal) {
   if (Ind.getIsMemOnly()) {
     // TODO: Implement last value fixing for in-memory inductions.
   } else {
+    // Induction final value should be mapped only in scalar map always. TODO:
+    // Use getScalarValue instead?
+    Value *LastVal = VPScalarMap[IndFinal][0];
     VPValue *VPStart = Ind.getStartValue();
     Value *OrigStartValue = VPStart->getUnderlyingValue();
     VPPHINode *VPHi = VPEntities->getRecurrentVPHINode(Ind);
@@ -3272,7 +3422,7 @@ void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind, Value *LastVal) {
     PHINode *Phi = cast<PHINode>(VPHi->getUnderlyingValue());
     createLastValPhiAndUpdateOldStart(OrigStartValue, Phi, "bc.resume.val",
                                       LastVal);
-    fixLiveOutValues(Ind, LastVal);
+    fixLiveOutValues(IndFinal, LastVal);
   }
 }
 

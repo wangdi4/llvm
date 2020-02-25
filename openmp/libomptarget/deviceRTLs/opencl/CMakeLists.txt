@@ -35,6 +35,11 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     -cc1 -emit-llvm-bc -triple spir64-unknown-unknown -cl-std=CL2.0
     -disable-llvm-passes -include opencl-c.h -DINTEL_COLLAB=1
   )
+  if("$ENV{LIBOMPTARGET_NO_DOUBLE_PRECISION}" STREQUAL "1")
+    list(APPEND opencl_flags_spirv -DHAVE_FP64_SUPPORT=0)
+  else()
+    list(APPEND opencl_flags_spirv -DHAVE_FP64_SUPPORT=1)
+  endif()
   if(INTEL_CUSTOMIZATION)
     set(opencl_flags_spirv ${opencl_flags_spirv} -DINTEL_CUSTOMIZATION=1)
     list(APPEND opencl_flags_spirv -disable-intel-proprietary-opts)

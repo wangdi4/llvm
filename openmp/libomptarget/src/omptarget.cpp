@@ -12,6 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <omptarget.h>
+#if INTEL_COLLAB
+#include "omptarget-tools.h"
+#endif // INTEL_COLLAB
 
 #include "device.h"
 #include "private.h"
@@ -25,6 +28,41 @@ int DebugLevel = 0;
 #endif // OMPTARGET_DEBUG
 
 
+#if INTEL_COLLAB
+/// OMPT
+thread_local OmptTraceTy omptTrace;
+OmptCallbacksInternalTy omptCallbacks;
+OmptCallbacksActiveTy omptEnabled;
+std::atomic<ompt_id_t> omptTargetId = ATOMIC_VAR_INIT(1);
+std::atomic<ompt_id_t> omptHostOpId = ATOMIC_VAR_INIT(1);
+
+/// Initialize OMPT for offload
+void omptInit() {
+  static bool omptInitialized = false;
+  if (omptInitialized) {
+    DP("OMPT was already initialized\n");
+    return;
+  }
+  void (*getOmptCallbacksFn)(void **, void **) = nullptr;
+  *(void **)(&getOmptCallbacksFn) = DLSYM("__kmpc_get_ompt_callbacks");
+  if (!getOmptCallbacksFn) {
+    DP("Warning: Cannot initialize OMPT\n");
+    return;
+  }
+  OmptCallbacksInternalTy *callbacks = nullptr;
+  OmptCallbacksActiveTy *enabled = nullptr;
+  std::memset(&omptEnabled, 0, sizeof(omptEnabled));
+  getOmptCallbacksFn((void **)&callbacks, (void **)&enabled);
+  if (!callbacks || !enabled) {
+    DP("Warning: Cannot initialize OMPT\n");
+    return;
+  }
+  omptCallbacks = *callbacks;
+  omptEnabled = *enabled;
+  omptInitialized = true;
+  DP("Initialized OMPT\n");
+}
+#endif // INTEL_COLLAB
 
 /* All begin addresses for partially mapped structs must be 8-aligned in order
  * to ensure proper alignment of members. E.g.
@@ -72,6 +110,11 @@ static int InitLibrary(DeviceTy& Device) {
       ii = HostEntriesBeginToTransTable.begin();
       ii != HostEntriesBeginToTransTable.end(); ++ii) {
     TranslationTable *TransTable = &ii->second;
+    if (TransTable->HostTable.EntriesBegin ==
+        TransTable->HostTable.EntriesEnd) {
+      // No host entry so no need to proceed
+      continue;
+    }
     if (TransTable->TargetsTable[device_id] != 0) {
       // Library entries have already been processed
       continue;
@@ -139,7 +182,7 @@ static int InitLibrary(DeviceTy& Device) {
             (uintptr_t)CurrHostEntry->addr /*HstPtrBegin*/,
             (uintptr_t)CurrHostEntry->addr + CurrHostEntry->size /*HstPtrEnd*/,
             (uintptr_t)CurrDeviceEntry->addr /*TgtPtrBegin*/,
-            INF_REF_CNT /*RefCount*/));
+            true /*IsRefCountINF*/));
       }
     }
     Device.DataMapMtx.unlock();
@@ -301,7 +344,7 @@ int target_data_begin(DeviceTy &Device, int32_t arg_num,
         } else if (arg_types[i] & OMP_TGT_MAPTYPE_MEMBER_OF) {
           // Copy data only if the "parent" struct has RefCount==1.
           int32_t parent_idx = member_of(arg_types[i]);
-          long parent_rc = Device.getMapEntryRefCnt(args[parent_idx]);
+          uint64_t parent_rc = Device.getMapEntryRefCnt(args[parent_idx]);
           assert(parent_rc > 0 && "parent struct not found");
           if (parent_rc == 1) {
             copy = true;
@@ -402,7 +445,7 @@ int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
               !(arg_types[i] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)) {
             // Copy data only if the "parent" struct has RefCount==1.
             int32_t parent_idx = member_of(arg_types[i]);
-            long parent_rc = Device.getMapEntryRefCnt(args[parent_idx]);
+            uint64_t parent_rc = Device.getMapEntryRefCnt(args[parent_idx]);
             assert(parent_rc > 0 && "parent struct not found");
             if (parent_rc == 1) {
               CopyMember = true;

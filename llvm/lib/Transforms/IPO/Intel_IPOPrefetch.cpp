@@ -67,6 +67,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
@@ -115,7 +116,7 @@ static cl::opt<bool> Generate2ndPrefetchInst(
 // Option to suppress Inline Report for IPO Prefetch, default to false.
 static cl::opt<bool> SuppressInlineReport(
     PASS_NAME_STR "-suppress-inline-report",
-    cl::init(false), cl::ReallyHidden,
+    cl::init(true), cl::ReallyHidden,
     cl::desc("suppress inline report for ipo prefetch"));
 
 // Min Expected # of arguments in a function that a Delinquent Load (DL) may
@@ -281,6 +282,33 @@ static cl::opt<unsigned> AppTestArraySize(
     cl::ReallyHidden,
     cl::desc("App Test Array Size"));
 
+// BasicBlock size thresholds:
+// - small bb:   [1  ..  5]
+// - regular bb: [6  .. 12]
+// - large bb:   [13 .. 25]
+// - huge bb:    [26 ..  +)
+
+// Threshold for the number of instructions in a BasicBlock, such that the
+// BasicBlock can be classified as "small".
+static cl::opt<unsigned> SmallBBThreshold(
+    PASS_NAME_STR "-smallbb-threshold", cl::init(5),
+    cl::ReallyHidden,
+    cl::desc("Small Basic-block size threadhold"));
+
+// Threshold for the number of instructions in a BasicBlock, such that the
+// BasicBlock can be classified as "regular".
+static cl::opt<unsigned> RegularBBThreshold(
+    PASS_NAME_STR "-regularbb-threshold", cl::init(12),
+    cl::ReallyHidden,
+    cl::desc("Regular Basic-block size threadhold"));
+
+// Threshold for the number of instructions in a BasicBlock, such that the
+// BasicBlock can be classified as "large".
+static cl::opt<unsigned> LargeBBThreshold(
+    PASS_NAME_STR "-largebb-threshold", cl::init(25),
+    cl::ReallyHidden,
+    cl::desc("Large Basic-block size threadhold"));
+
 namespace {
 
 static const StringRef PrefetchFunctionName = "Prefetch.Backbone";
@@ -311,126 +339,330 @@ static bool verifyFunction(Function *F, StringRef Msg) {
 }
 #endif
 
-// This class describes an LLVM Instruction's position inside an LLVM Function.
-// This helps to precisely identify a position inside an LLVM function.
-class PositionDescription {
-  Function *F = nullptr;
-  unsigned NumLoad = 0;
-  unsigned NumStore = 0;
-  unsigned NumBranch = 0;
-  unsigned NumCmp = 0;
-  unsigned NumCall = 0;
-  unsigned NumIntrinsic = 0;
-  Instruction *PreciseInst = nullptr;   // the located inst
-  Instruction *InsertPosition = nullptr;// PreciseInst's next inst
+// Enumeration of Index Range:
+enum BasicBlockIndexRange {
+  BBIR_Unknown = 0,     // unknown category (default place holder)
+  BBIR_1stQuarter,      // 1/4 of all BBs in Function
+  BBIR_2ndQuarter,      // 2/4
+  BBIR_3rdQuarter,      // 3/4
+  BBIR_4thQuarter,      // 4/4
+  BBIR_Last,
+};
+
+enum BasicBlockSizeCategory {
+  BBSC_Unknown = 0,  // unknown category
+  BBSC_Small,        // Small BB:   [ 1 ..  5] instructions
+  BBSC_Regular,      // Regular BB: [ 6 .. 12] instructions
+  BBSC_Large,        // Large BB:   [13 .. 25] instructions
+  BBSC_Huge,         // Huge BB:    [26 ..  +) instructions
+  BBSC_Last,         // end marker
+};
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+StringRef BasicBlockIndexRangeNames[] = {
+    "BBIR_Unknown",     // unknown category (default place holder)
+    "BBIR_1stQuarter",  // 1/4
+    "BBIR_2ndQuarter",  // 2/4
+    "BBIR_3rdQuarter",  // 3/4
+    "BBIR_4thQuarter",  // 4/4
+    "BBIR_Last",
+};
+
+StringRef BasicBlockSizeCategoryNames[] = {
+    "BBSC_Unknown",  // unknown category
+    "BBSC_Small",    // Small BB:   [ 1 ..  5] instructions
+    "BBSC_Regular",  // Regular BB: [ 6 .. 12] instructions
+    "BBSC_Large",    // Large BB:   [13 .. 25] instructions
+    "BBSC_Huge",     // Huge BB:    [26 ..  +) instructions
+    "BBSC_Last",     // end marker
+};
+#endif
+
+// This class contains information related a BasicBlock.
+// It will be used to identify the precise location where a call to the prefetch
+// function will be inserted within a host function.
+struct BasicBlockInfo {
+  BasicBlock *BB = nullptr;
+  unsigned BBIndex; // index of this BB inside its function
+  unsigned NumInst; // Count of non-debug instructions in BB
+  unsigned NumPred; // # of predecessors
+  unsigned NumSucc; // # of successors
+  BasicBlockSizeCategory SizeCategory = BBSC_Unknown;
+  BasicBlockIndexRange IndexRange = BBIR_Unknown;
 
 public:
-  PositionDescription(Function *F = nullptr, unsigned NumLoad = 0,
-                      unsigned NumStore = 0, unsigned NumBranch = 0,
-                      unsigned NumCmp = 0, unsigned NumCall = 0,
-                      unsigned NumIntrinsic = 0)
-      : F(F), NumLoad(NumLoad),
-        NumStore(NumStore), NumBranch(NumBranch), NumCmp(NumCmp),
-        NumCall(NumCall), NumIntrinsic(NumIntrinsic),
-        PreciseInst(nullptr), InsertPosition(nullptr) {}
+  // default constructor
+  BasicBlockInfo()
+      : BB(nullptr), BBIndex(0), NumInst(0), NumPred(0), NumSucc(0),
+        SizeCategory(BBSC_Unknown), IndexRange(BBIR_Unknown) {}
 
-  // getters and setters
-  void setF(Function *F) { this->F = F; }
-  Instruction *getInst(void) const { return PreciseInst; }
-  Instruction *getInsertPos(void) const { return InsertPosition; }
+  // partial constructor
+  BasicBlockInfo(BasicBlock *BB, unsigned BBIndex)
+      : BB(BB), BBIndex(BBIndex), NumInst(0), NumPred(0), NumSucc(0),
+        SizeCategory(BBSC_Unknown), IndexRange(BBIR_Unknown) {}
 
-  // Analyze the given Instruction*, update relevant counters for
-  // certain types of instructions.
-  void analyze(Instruction *I) {
-    // Skip any DebugInfo Intrinsic: don't count it
-    if (isa<DbgInfoIntrinsic>(I))
-      return;
+  // full constructor
+  BasicBlockInfo(BasicBlock *BB, unsigned BBIndex, unsigned NumInst,
+                 unsigned NumPred, unsigned NumSucc,
+                 BasicBlockSizeCategory SizeCategory,
+                 BasicBlockIndexRange IndexRange)
+      : BB(BB), BBIndex(BBIndex), NumInst(NumInst), NumPred(NumPred),
+        NumSucc(NumSucc),
+        SizeCategory(SizeCategory), IndexRange(IndexRange) {}
 
-    if (isa<LoadInst>(I))  // Count LoadInst
-      ++NumLoad;
-    else if (isa<StoreInst>(I))   // Count StoreInst
-      ++NumStore;
-    else if (isa<BranchInst>(I))  // Count BranchInst
-      ++NumBranch;
-    else if (isa<CmpInst>(I))  // Count CmpInst
-      ++NumCmp;
-    else if (isa<IntrinsicInst>(I))  // Count IntrinsicInst
-      ++NumIntrinsic;
-    else if (isa<CallBase>(I))  // Count CallInst
-      ++NumCall;
-  }
+  BasicBlock *getBasicBlock(void) const { return BB; }
+  Instruction *getInsertPos(void) const { return &*(BB->begin()); }
 
-  // Analyze the current Function using PositionDescription info, and
-  // obtain the target Instruction * at a precise location in F.
-  void analyze(void) {
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-      LLVM_DEBUG(dbgs() << *I << "\n";);
-      analyze(&*I);
+  //Count number of Debug Intrinsic(s) in the BB
+  unsigned CountDgbInfoIntrinsic(void) {
+    unsigned Count = 0;
+    for (auto &I: *BB) {
+      if (isa<DbgInfoIntrinsic>(I))
+        ++Count;
     }
+    return Count;
   }
 
-  bool compare(PositionDescription &PosDes) {
-    return (F == PosDes.F)
-        && (NumLoad == PosDes.NumLoad)
-        && (NumStore == PosDes.NumStore)
-        && (NumBranch == PosDes.NumBranch)
-        && (NumCmp == PosDes.NumCmp)
-        && (NumIntrinsic == PosDes.NumIntrinsic)
-        && (NumCall == PosDes.NumCall);
+  // Obtain the N-th load instruction
+  Instruction *getLoad(const unsigned NumLoad) {
+    unsigned Count = 0;
+    for (auto &I: *BB) {
+      if (isa<LoadInst>(I))
+        ++Count;
+      if (NumLoad == Count)
+        return &I;
+    }
+    return nullptr; // No match found
   }
 
-  bool operator==(PositionDescription &PD) {
-    return compare(PD);
+  // Classify according to BB's size:
+  void classifySizeCategory(void) {
+    if (IPOUtils::isInRange<unsigned>(NumInst, 1, SmallBBThreshold))
+      SizeCategory = BBSC_Small;
+    else if (IPOUtils::isInRange<unsigned>(NumInst,
+                                           SmallBBThreshold + 1,
+                                           RegularBBThreshold))
+      SizeCategory = BBSC_Regular;
+    else if (IPOUtils::isInRange<unsigned>(NumInst,
+                                           RegularBBThreshold + 1,
+                                           LargeBBThreshold))
+      SizeCategory = BBSC_Large;
+    else
+      SizeCategory = BBSC_Huge;
   }
 
-  // Identity Function F's Insertion Position using pre-set counters.
-  // - set Inst to point to the insertPosition if a precise match is obtained;
+  // Classify according to BB's index position within the parent function
+  bool classifyIndexRange(void) {
+    assert(BB && "Expect a valid BB");
+    unsigned NumBBs = BB->getParent()->size();
+    assert(NumBBs && "Expect NO empty function");
+
+    unsigned
+        IndexRangeData[4] = {NumBBs/4, NumBBs*2/4, NumBBs*3/4, NumBBs};
+
+    if (IPOUtils::isInRange<unsigned>(BBIndex, 1, IndexRangeData[0]))
+      IndexRange = BBIR_1stQuarter;
+    else if (IPOUtils::isInRange<unsigned>(BBIndex,
+                                           IndexRangeData[0] + 1,
+                                           IndexRangeData[1]))
+      IndexRange = BBIR_2ndQuarter;
+    else if (IPOUtils::isInRange<unsigned>(BBIndex,
+                                           IndexRangeData[1] + 1,
+                                           IndexRangeData[2]))
+      IndexRange = BBIR_3rdQuarter;
+    else if (IPOUtils::isInRange<unsigned>(BBIndex,
+                                           IndexRangeData[2] + 1,
+                                           IndexRangeData[3]))
+      IndexRange = BBIR_4thQuarter;
+
+    return true;
+  }
+
+  // Analyze the basic block by (i) obtain its #Pred, #Succ and (ii) classify
+  // its size and index range.
+  bool analyze(bool PrintFlag = false) {
+    assert(BB && "Expect valid BB* at this point");
+    NumInst = BB->size() - CountDgbInfoIntrinsic();
+    // obtain #pred (incoming edges) and #succ (outgoing edges):
+    NumPred = std::distance(pred_begin(BB), pred_end(BB));
+    NumSucc = std::distance(succ_begin(BB), succ_end(BB));
+
+    // apply 2 classifiers:
+    classifySizeCategory();// size
+    classifyIndexRange();  // index
+
+    LLVM_DEBUG({
+                 if (PrintFlag)
+                   dump();
+               });
+
+    return true;
+  }
+
+  //Overload == operator: compare 2 BasicBlockInfo objects
+  //Note: don't compare NumInst
+  bool operator==(BasicBlockInfo &BBI) {
+    return (BBIndex == BBI.BBIndex)
+        && (NumPred == BBI.NumPred)
+        && (NumSucc == BBI.NumSucc)
+        && (SizeCategory == BBI.SizeCategory)
+        && (IndexRange == BBI.IndexRange);
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump(bool PrintDetail = false) {
+    dbgs() << "BasicBlocInfo:\n"
+           << "\t#BBIndex: " << BBIndex << "\n"
+           << "\t#NumInst: " << NumInst << "\n"
+           << "\t#Pred: " << NumPred << "\n"
+           << "\t#Succ: " << NumSucc << "\n"
+           << "\tSizeCategory: " << BasicBlockSizeCategoryNames[SizeCategory]
+           << "\n"
+           << "\tIndexRange: " << BasicBlockIndexRangeNames[IndexRange] << "\n";
+
+    // print the full BB only if being requested
+    if (PrintDetail && BB)
+      BB->dump();
+  }
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+};
+
+// This class describes an LLVM Instruction's position inside an LLVM Function
+// on Basic-Block (BB) level.
+// This helps to precisely identify a position inside an LLVM function to
+// insert a call to the prefetch function.
+class BasicBlockPositionDescription {
+  Function *F = nullptr;
+  SmallVector<BasicBlockInfo, 4> BBIVec;
+
+public:
+  BasicBlockPositionDescription(Function *F)
+      : F(F) { BBIVec.resize(F->size()); }
+
+  void saveBBInfo(BasicBlock *BB, unsigned Index, BasicBlockInfo &BBI) {
+    assert((Index < F->size()) && "BBIndex out of bound\n");
+    BBIVec[Index] = BBI;
+  }
+
+  // Find the target basic block
+  bool findTargetBB(BasicBlockInfo &Heuristic, BasicBlockInfo &ResultBBI) {
+    // search BBs using heuristic:
+    SmallVector<BasicBlockInfo, 4> ResultBBIVec;
+    unsigned Count = 0;
+    for (auto &BBI: BBIVec) {
+      if (BBI == Heuristic) {
+        LLVM_DEBUG({
+                     dbgs() << "Match: TRUE!!\nCount: " << Count
+                            << "\n *** Matched *** ";
+                     BBI.dump();
+                   });
+        ResultBBIVec.push_back(BBI);
+      }
+      ++Count;
+    }
+
+    // see what we have after search:
+    const unsigned ResultSize = ResultBBIVec.size();
+    LLVM_DEBUG({
+                 dbgs() << "#Items in result vec after search: " << ResultSize
+                        << "\n";
+                 for (auto &BBI: ResultBBIVec)
+                   BBI.dump();
+               });
+
+    // If there is just 1 result item, we are done!
+    const unsigned ExpectedNumRes = 1;
+    if (ResultSize == ExpectedNumRes) {
+      ResultBBI = ResultBBIVec[0];
+      return true;
+    }
+
+    // Abnormal cases: msg only!
+    LLVM_DEBUG({
+                 if (ResultSize < ExpectedNumRes) //case1: no result found!
+                   dbgs()
+                       << "Expect to have 1 result. Surprise: 0 result found\n";
+                 else
+                   // case2: 2+ results, need to trim!
+                   dbgs()
+                       << "Expect to have 1 result. Surprise: 2+ result found\n";
+               });
+
+    return false;
+  }
+
+  // Identity Insertion Position using BasicBlock Signature matching.
+  // - set TargetBB to point to the BasicBlock where insert will happen.
   //
   // Return: boolean
   // -true:  if a precise match is found;
   // -false: otherwise
   //
-  bool identifyInsertPosition(Function *F) {
-    assert(F && "Expect a valid Function F");
-    this->F = F;
-    PositionDescription Pos(F);
-    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-      Instruction *Ins = &*I;
-      LLVM_DEBUG(dbgs() << *Ins << "\n";);
-      Pos.analyze(Ins);
-      if (Pos.compare(*this)) {
-        PreciseInst = &*I;        // mark current inst
-        InsertPosition = &*(++I); // save next inst to allow insert before
-        LLVM_DEBUG({
-                     dbgs() << "PreciseInst: " << *PreciseInst << "\n"
-                            << "InsertPosition: " << *InsertPosition << "\n";
-                   });
-        return true;
-      }
+  bool identifyInsertPosition(BasicBlockInfo &Heuristic, BasicBlockInfo &Result,
+                              bool PrintFunction = false) {
+    // show Function details on BasicBlock level:
+    LLVM_DEBUG({
+                 if (PrintFunction)
+                   printFunction();
+               });
+
+    // Collect + analyze each basic block:
+    unsigned Count = 0;
+    for (auto &BB: *F) {
+      // Analyze the current BB, and record its analysis result:
+      BasicBlockInfo BBI(&BB, Count);
+      BBI.analyze();
+      saveBBInfo(&BB, Count, BBI);
+      ++Count;
     }
-    return false;
+
+    // Find targetBB:
+    if (!findTargetBB(Heuristic, Result)) {
+      LLVM_DEBUG({
+                   dbgs() << "Fail to find target BB\n" << "Heuristic: ";
+                   Heuristic.dump(true);
+                 });
+      return false;
+    }
+
+    LLVM_DEBUG({
+                 if (PrintFunction)
+                   dump();
+               });
+    return true;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LLVM_DUMP_METHOD
-  void dump() {
+  LLVM_DUMP_METHOD void printFunction(void) {
+    LLVM_DEBUG(
+        {
+          unsigned Count = 0;
+          for (auto &BB : *F) {
+            // obtain #pred and #succ:
+            unsigned NumPred = std::distance(pred_begin(&BB), pred_end(&BB));
+            unsigned NumSucc = std::distance(succ_begin(&BB), succ_end(&BB));
+            dbgs() << "BB#: " << Count++ << " : "
+                   << "#Pred: " << NumPred << "\t#Succ: " << NumSucc << "\n"
+                   << BB << "\n";
+          }
+        });
+  }
+
+  LLVM_DUMP_METHOD void dump(bool PrintDetail = false) {
     if (F)
       dbgs() << "Function: " << F->getName() << "():\n";
     else
       dbgs() << "Function: nullptr\n";
 
-    dbgs() << "Load: " << NumLoad << "\n"
-           << "Store: " << NumStore << "\n"
-           << "Branch: " << NumBranch << "\n"
-           << "Compare: " << NumCmp << "\n"
-           << "Intrinsic: " << NumIntrinsic << "\n"
-           << "Call: " << NumCall << "\n";
+    // print the analysis results:
+    dbgs() << BBIVec.size() << "  BasicBlockInfo collected\n";
+    if (PrintDetail) {
+      for (auto &BBI: BBIVec)
+        BBI.dump();
+    }
 
-    dbgs() << "Insert Position: ";
-    InsertPosition ? dbgs() << *InsertPosition << "\n" : dbgs() << "nullptr\n";
   }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 };
 
 // This class analyzes the current module to ensure that the struct types
@@ -577,7 +809,7 @@ class IPOPrefetcher {
 private:
   SmallVector<Function *, 4> DLCandidates; // Functions where the DLs reside
   // Host function and its insert position(s):
-  DenseMap<Function *, SmallVector<PositionDescription, 4>> PrefetchPositions;
+  DenseMap<Function *, SmallVector<BasicBlockInfo, 4>> PrefetchPositions;
   Function *PrefetchFunction = nullptr; // Place holder for prefetch function
   Module &M;
   LoadInst *DL = nullptr; // the delinquent load
@@ -1185,7 +1417,7 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
   //
   static const FunctionSignatureMatcher FSMA[] = {
       FunctionSignatureMatcher(
-          DL0HostFuncMinArgs   /* MinNumArg: 5 */,
+          DL0HostFuncMinArgs    /* MinNumArg: 5 */,
           DL0HostFuncMaxArgs    /* MaxNumArg: 5*/,
           DL0HostFuncMinIntArgs /* MinNumIntArg: 4 */,
           DL0HostFuncMaxIntArgs /* MaxNumIntArg: 4 */,
@@ -1196,14 +1428,14 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
           false /* LeafFunc */),
 
       FunctionSignatureMatcher(
-          DL1HostFuncMinArgs    /* MinNumArg: 6 */,
-          DL1HostFuncMaxArgs    /* MaxNumArg: 6*/,
+          DL1HostFuncMinArgs      /* MinNumArg: 6 */,
+          DL1HostFuncMaxArgs      /* MaxNumArg: 6*/,
           DL1HostFuncMinIntArgs   /* MinNumIntArg: 5 */,
-          DL1HostFuncMaxIntArgs  /* MaxNumIntArg: 5 */,
-          DL1HostFuncMinIntPtrArgs   /* NumPtrArg0: 1 */,
-          DL1HostFuncMaxIntPtrArgs   /* NumPtrArg1: 1 */,
-          0   /* MinNumDoublePtrArgs: 0 */,
-          0   /* MaxNumDoublePtrArgs: 0 */,
+          DL1HostFuncMaxIntArgs   /* MaxNumIntArg: 5 */,
+          DL1HostFuncMinIntPtrArgs /* NumPtrArg0: 1 */,
+          DL1HostFuncMaxIntPtrArgs /* NumPtrArg1: 1 */,
+          0      /* MinNumDoublePtrArgs: 0 */,
+          0      /* MaxNumDoublePtrArgs: 0 */,
           false /* LeafFunc */),
   };
 
@@ -1250,46 +1482,66 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
                  dbgs() << F->getName() << "() \n";
              });
 
-
-  // 2 Position Descriptions, each needs precise customization
-  static PositionDescription PDA[] = {
-      PositionDescription(nullptr    /* Function */,
-                          54   /* NumLoad */,
-                          5    /* NumStore */,
-                          68   /* NumBranch */,
-                          55   /* NumCmp */,
-                          23   /* NumCall */,
-                          6    /* NumInstrinsic */),
-
-      PositionDescription(nullptr     /* Function */,
-                          144   /* NumLoad */,
-                          39    /* NumStore */,
-                          133   /* NumBranch */,
-                          139   /* NumCmp */,
-                          62    /* NumCall */,
-                          14    /* NumInstrinsic */),
-
+  // 2 BasicBlockInfo Target Heuristics, each needs precise customization
+  static BasicBlockInfo Heuristics[] = {
+      // entry0:
+      BasicBlockInfo(nullptr,      /* BasicBlock * BB  */
+                     69,       /* unsigned BBIndex  */
+                     23,       /* unsigned NumInst  */
+                     1,       /* unsigned NumPred  */
+                     2,       /* unsigned NumSucc  */
+                     BBSC_Large, /* BasicBlockSizeCategory  */
+                     BBIR_4thQuarter /*BasicBlockIndexRange */
+      ),
+      // entry1:
+      BasicBlockInfo(nullptr,      /* BasicBlock * BB  */
+                     136,      /* unsigned Index   */
+                     29,       /* unsigned NumInst */
+                     3,       /* unsigned NumPred */
+                     2,       /* unsigned NumSucc */
+                     BBSC_Huge, /* BasicBlockSizeCategory SizeCategory */
+                     BBIR_4thQuarter /*BasicBlockIndexRange IndexRange)*/
+      ),
   };
 
-  // Finish construction of the 2 PositionDescription objects
+  // Identify the insert position for each identified DL Function:
   unsigned Count = 0;
-  for (auto F: DLCallers) {
-    PositionDescription &PD = PDA[Count++];
-    if (PD.identifyInsertPosition(F)) {
+  for (auto HostF: DLCallers) {
+    BasicBlockPositionDescription PD(HostF);
+    BasicBlockInfo &Heuristic = Heuristics[Count++];
+    BasicBlockInfo ResultBBI;
+
+    if (PD.identifyInsertPosition(Heuristic, ResultBBI)) {
       LLVM_DEBUG({
                    dbgs() << "Precise InsertPosition Identified:\t"
-                          << F->getName() << "():\n";
+                          << HostF->getName() << "():\n";
                    PD.dump();
                  });
-      auto &PosDesV = PrefetchPositions[F];
-      PosDesV.push_back(PD);
+
+      // Record the per-function analysis result:
+      PrefetchPositions[HostF].push_back(ResultBBI);
     } else {
       LLVM_DEBUG({
                    dbgs() << "Precise InsertPosition NOT Identified:\t"
-                          << F->getName() << "():\n";
+                          << HostF->getName() << "():\n";
                  });
     }
   }
+
+  LLVM_DEBUG(
+      {
+        for (auto &Pair: PrefetchPositions) {
+          Function *F = Pair.first;
+          auto &BBIV = Pair.second;
+          dbgs() << "Func: " << F->getName() << "\t# BBIs: " << BBIV.size()
+                 << "\n";
+          unsigned Count = 0;
+          for (auto &BBI: BBIV) {
+            dbgs() << Count++ << "\t";
+            BBI.dump();
+          }
+        }
+      });
 
   return (PrefetchPositions.size() == ExpectedNumPrefetchInsertPositions);
 }
@@ -1570,7 +1822,6 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
   // - call existing -simply-cfg and -early-cse to do cleanup;
   //
   auto CleanupClone = [&](Function *F) -> bool {
-
     // Insert a ret instruction at the end of the BB where the delinquent load
     // (DL) resides. This replaces the original end-of-BB terminator (a
     // conditional branch).
@@ -1602,22 +1853,30 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     // ret i32 0                        ; <<= replace the br with a ret 0
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     //
-    // PD for the DL:
-    // (#Load:6, #Store: 2, #Cmp: 2, #Branch: 2, #Call: 0, #Intrinsic: 0)
-    static PositionDescription PD(F   /* Function * */,
-                                  6   /* NumLoad */,
-                                  2   /* NumStore */,
-                                  2  /* NumBranch */,
-                                  2    /* NumCmp */,
-                                  0     /* NumCall */,
-                                  0  /* NumInstrinsic */);
 
     // Locate the DL:
-    if (!PD.identifyInsertPosition(F)) {
-      LLVM_DEBUG(dbgs() << "Identify Insert Position failed\n";);
+    // Delinquent Load Position Description (on BB level):
+    static BasicBlockInfo DLPDHeuristic(
+        nullptr,      /* BasicBlock*BB    */
+        2,        /* unsigned BBIndex  */
+        6,        /* unsigned NumInst */
+        2,       /* unsigned NumPred */
+        2,       /* unsigned NumSucc */
+        BBSC_Regular, /* BasicBlockSizeCategory  */
+        BBIR_1stQuarter /*BasicBlockIndexRange */
+    );
+    BasicBlockPositionDescription PD(F);
+    BasicBlockInfo ResultBBI;
+
+    if (!PD.identifyInsertPosition(DLPDHeuristic, ResultBBI)) {
+      LLVM_DEBUG({
+                   dbgs() << "Fail to identify Insert Position in "
+                          << F->getName() << "():\n";
+                 });
       return false;
     }
-    Instruction *DLInst = PD.getInst();
+
+    Instruction *DLInst = ResultBBI.getLoad(1);
     assert(DLInst && "Expect a valid instruction");
     if (!isa<LoadInst>(DLInst)) {
       LLVM_DEBUG(dbgs() << "Expect a load on the DL position\n";);
@@ -1812,10 +2071,11 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
          ConstantInt::get(I32, 1) // 1: data cache
         });
 
-    LLVM_DEBUG(dbgs() << "PrefetchInst: " << *PrefetchInst << "\n";);
-    LLVM_DEBUG(
-        dbgs() << "BasicBlock:\n" << *PrefetchInst->getParent() << "\n";);
-    LLVM_DEBUG(dbgs() << "Function:\n" << *F << "\n";);
+    LLVM_DEBUG({
+                 dbgs() << "PrefetchInst: " << *PrefetchInst << "\n"
+                        << "BasicBlock:\n" << *PrefetchInst->getParent() << "\n"
+                        << "Function:\n" << *F << "\n";
+               });
     (void) PrefetchInst;
 
     // Insert 2nd (optional) prefetch intrinsic
@@ -1856,10 +2116,12 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
            ConstantInt::get(I32, 1) // 1: data cache
           });
 
-      LLVM_DEBUG(dbgs() << "PrefetchInst2: " << *PrefetchInst2 << "\n";);
       LLVM_DEBUG(
-          dbgs() << "BasicBlock:\n" << *PrefetchInst2->getParent() << "\n";);
-      LLVM_DEBUG(dbgs() << "Function:\n" << *F << "\n";);
+          {
+            dbgs() << "PrefetchInst2: " << *PrefetchInst2 << "\n"
+                   << "BasicBlock:\n" << *PrefetchInst2->getParent() << "\n"
+                   << "Function:\n" << *F << "\n";
+          });
       (void) PrefetchInst2;
     }
 
@@ -1878,7 +2140,7 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     return true;
   };
 
-  // Attach a metadata node onto a function
+// Attach a metadata node onto a function
   auto MarkFunctionNoInlineReport = [&](Function *F) -> bool {
     LLVM_DEBUG(dbgs() << "Inside: " << F->getName() << "\n";);
     LLVMContext &C = F->getContext();
@@ -1934,15 +2196,16 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
       return false;
     }
 
-  LLVM_DEBUG({
-               if (!verifyFunction(PrefetchFunction,
-                                   "Function verification failed after "
-                                   "IPOPrefetcher::createPrefetchFunction(void)\n"))
-                 return false;
-               dbgs() << "After IPOPrefetcher::createPrefetchFunction(void): \n"
-                      << PrefetchFunction->getName() << "()\n"
-                      << *PrefetchFunction << "\n";
-             });
+  LLVM_DEBUG(
+      {
+        if (!verifyFunction(PrefetchFunction,
+                            "Function verification failed after "
+                            "IPOPrefetcher::createPrefetchFunction(void)\n"))
+          return false;
+        dbgs() << "After IPOPrefetcher::createPrefetchFunction(void): \n"
+               << PrefetchFunction->getName() << "()\n"
+               << *PrefetchFunction << "\n";
+      });
 
   return true;
 }
@@ -1966,16 +2229,16 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
 
   for (auto Pair: PrefetchPositions) {
     Function *F = Pair.first;
-    auto &PosDesVec = Pair.second;
+    auto &BBIVec = Pair.second;
     Function *Caller = F;
 
-    for (auto Pos: PosDesVec) {
-      if (!Pos.identifyInsertPosition(Caller)) {
+    for (auto BBI: BBIVec) {
+      Instruction *InsertPos = BBI.getInsertPos();
+      if (!InsertPos) {
         LLVM_DEBUG(dbgs() << "Fail to identify prefetch insert position in "
                           << F->getName() << "()\n";);
         return false;
       }
-      Instruction *InsertPos = Pos.getInsertPos();
       assert(InsertPos && "Expect a valid InsertPos");
 
       // move to nextI, prepare to insert

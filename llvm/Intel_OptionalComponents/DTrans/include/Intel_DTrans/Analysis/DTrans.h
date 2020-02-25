@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,6 +22,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
@@ -68,8 +69,8 @@ class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
-        ComplexUse(false), AddressTaken(false), SVKind(SVK_Complete),
-        SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
+        ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
+        SVKind(SVK_Complete), SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
         SingleAllocFunction(nullptr), RWState(RWK_Top), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
@@ -79,6 +80,7 @@ public:
   bool isValueUnused() const { return UnusedValue && isRead(); }
   bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
+  bool isMismatchedElementAccess() const { return MismatchedElementAccess; }
   bool isNoValue() const {
     return SVKind == SVK_Complete && ConstantValues.empty();
   }
@@ -119,6 +121,7 @@ public:
   }
   void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
+  void setMismatchedElementAccess() { MismatchedElementAccess = true; }
   void setSingleAllocFunction(llvm::Function *F) {
     assert((SAFKind == SAFK_Top) && "Expecting lattice at top");
     SAFKind = SAFK_Single;
@@ -134,11 +137,11 @@ public:
   uint64_t getFrequency() const { return Frequency; }
 
   // Returns a set of possible constant values.
-  llvm::SmallPtrSetImpl<llvm::Constant *> &values()
+  llvm::SetVector<llvm::Constant *> &values()
       { return ConstantValues; }
 
   // Returns a set of possible indirect array constant values.
-  llvm::SmallPtrSetImpl<llvm::Constant *> &iavalues()
+  llvm::SetVector<llvm::Constant *> &iavalues()
       { return ConstantIAValues; }
 
   // Returns true if the set of possible values is complete.
@@ -201,10 +204,15 @@ private:
   bool UnusedValue;
   bool ComplexUse;
   bool AddressTaken;
+
+  // Tracks whether this field triggered the mismatched element access safety
+  // check on the structure.
+  bool MismatchedElementAccess;
+
   SingleValueKind SVKind;
-  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantValues;
+  llvm::SetVector<llvm::Constant *> ConstantValues;
   SingleValueKind SVIAKind;
-  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantIAValues;
+  llvm::SetVector<llvm::Constant *> ConstantIAValues;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
   // For computing ModRef information for the field, these sets contain the
@@ -745,53 +753,52 @@ struct MemfuncRegion {
   unsigned int PostPadBytes;
 };
 
-// This class is used to hold information that has been
-// extracted from the LocalPointerInfo to contain a
-// list of aggregate types being used by one of the tracked
-// call instructions. This is kept outside of the CallInfo
-// class itself to allow for cases where type information needs
-// to be tracked for more than a single function argument.
-class PointerTypeInfo {
+// This class is used to hold information related to the object type(s) that are
+// used by a CallInfo object. The information stored here has been extracted
+// from the LocalPointerInfo to contain a list of aggregate types being used by
+// one of the tracked call instructions. This is kept outside of the CallInfo
+// class itself to allow for cases where type information needs to be tracked
+// for more than a single function argument.
+class CallInfoElementTypes {
 public:
-  typedef SmallVector<llvm::Type *, 2> PointerTypeAliasSet;
-  typedef SmallVectorImpl<llvm::Type *> &PointerTypeAliasSetRef;
+  typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
+  typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
 
-  PointerTypeInfo() : AliasesToAggregatePointer(false), Analyzed(false) {}
+  CallInfoElementTypes() : AliasesToAggregateType(false), Analyzed(false) {}
 
-  // Returns 'true' if the type (at some level of indirection)
-  // was known to be a pointer to an aggregate type.
-  bool getAliasesToAggregatePointer() const {
-    return AliasesToAggregatePointer;
+  // Returns 'true' if the call was known to be a pointer (at some level of
+  // indirection) to an aggregate type.
+  bool getAliasesToAggregateType() const {
+    return AliasesToAggregateType;
   }
 
-  void setAliasesToAggregatePointer(bool Val) {
-    AliasesToAggregatePointer = Val;
+  void setAliasesToAggregateType(bool Val) {
+    AliasesToAggregateType = Val;
   }
 
   void setAnalyzed(bool Val) { Analyzed = Val; }
 
   bool getAnalyzed() const { return Analyzed; }
 
-  void addType(llvm::Type *Ty) {
-    assert(isa<llvm::PointerType>(Ty) &&
-        "PointerTypeInfo::addType: Expecting pointer type");
-    Types.push_back(Ty);
+  void addElemType(llvm::Type *Ty) {
+    ElemTypes.push_back(Ty);
   }
-  PointerTypeAliasSetRef getTypes() { return Types; }
 
-  size_t getNumTypes() { return Types.size(); }
+  TypeAliasSetRef getElemTypes() { return ElemTypes; }
 
-  llvm::Type *getType(size_t Idx) const {
-    assert(Idx < Types.size() && "Index out of range");
-    return Types[Idx];
+  size_t getNumTypes() { return ElemTypes.size(); }
+
+  llvm::Type *getElemType(size_t Idx) const {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    return ElemTypes[Idx];
   }
 
   // Change the type at index \p Idx to type \p Ty. This
   // function should only be used for updating a type based
   // on the type remapping done when processing a function.
-  void setType(size_t Idx, llvm::Type *Ty) {
-    assert(Idx < Types.size() && "Index out of range");
-    Types[Idx] = Ty;
+  void setElemType(size_t Idx, llvm::Type *Ty) {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    ElemTypes[Idx] = Ty;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -801,16 +808,17 @@ public:
 
 private:
   // When true, indicates that the base type for one or more of the pointer
-  // types collected for the pointer was an aggregate type.
-  bool AliasesToAggregatePointer;
+  // types operated upon by the call was an aggregate type.
+  bool AliasesToAggregateType;
 
   // When true, indicates the LocalPointerAnalysis was performed to collect type
   // information for the pointer.
   bool Analyzed;
 
-  // List of pointer to aggregate types resolved by the local pointer analysis
-  // for this item.
-  PointerTypeAliasSet Types;
+  // List of element types, resolved by the local pointer analysis, that the
+  // call instruction is operating upon. e.g. an allocation of %struct.foo
+  // objects, or a memset of i64 objects or %struct.foo* pointers.
+  TypeAliasSet ElemTypes;
 };
 
 // Base class for storing collected information about specific
@@ -825,21 +833,22 @@ public:
   Instruction *getInstruction() const { return I; }
   void setInstruction(Instruction *NewI) { I = NewI; }
 
-  bool getAliasesToAggregatePointer() const {
-    return PTI.getAliasesToAggregatePointer();
+  bool getAliasesToAggregateType() const {
+    return ElementTypes.getAliasesToAggregateType();
   }
 
-  void setAliasesToAggregatePointer(bool Val) {
-    PTI.setAliasesToAggregatePointer(Val);
+  void setAliasesToAggregateType(bool Val) {
+    ElementTypes.setAliasesToAggregateType(Val);
+  }
+  void setAnalyzed(bool Val) { ElementTypes.setAnalyzed(Val); }
+
+  bool getAnalyzed() const { return ElementTypes.getAnalyzed(); }
+
+  void addElemType(llvm::Type *Ty) {
+    ElementTypes.addElemType(Ty);
   }
 
-  void setAnalyzed(bool Val) { PTI.setAnalyzed(Val); }
-
-  bool getAnalyzed() const { return PTI.getAnalyzed(); }
-
-  void addType(llvm::Type *Ty) { PTI.addType(Ty); }
-
-  PointerTypeInfo &getPointerTypeInfoRef() { return PTI; }
+  CallInfoElementTypes &getElementTypesRef() { return ElementTypes; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
@@ -853,7 +862,7 @@ protected:
   Instruction *I;
 
   // The type list from the local pointer analysis.
-  PointerTypeInfo PTI;
+  CallInfoElementTypes ElementTypes;
 
 private:
   // ID to support type inquiry through isa, cast, and dyn_cast

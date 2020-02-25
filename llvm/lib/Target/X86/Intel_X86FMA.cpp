@@ -960,6 +960,10 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   if (Options.AllowFPOpFusion != FPOpFusion::Fast || !Options.UnsafeFPMath)
     return false;
 
+  // Don't optimize StrictFP functions.
+  if (MF->getFunction().hasFnAttribute(Attribute::StrictFP))
+    return false;
+
   // Even though the compilation switches allow the Global FMA optimization it
   // still may be unsafe to do it as some of MUL/ADD/SUB/etc machine
   // instructions could be generated for LLVM IR operations with unset
@@ -1263,6 +1267,7 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
         ? MI->getOperand(0).getReg()
         : MRI->createVirtualRegister(RC);
     MachineInstr *NewMI = genInstruction(Opcode, DstReg, MOs, DL);
+    NewMI->setFlag(MachineInstr::MIFlag::NoFPExcept);
 
     for (auto *T : FMAOpnds)
       if (T)

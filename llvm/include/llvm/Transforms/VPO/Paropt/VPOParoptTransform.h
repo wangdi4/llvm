@@ -356,14 +356,11 @@ private:
 
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p I.
-  /// \param [in] I Input Item
-  /// \param [out] ElementType Type of one element
-  /// \param [out] NumElements Number of elements, in case \p OrigValue is
-  /// an array, \b nullptr otherwise.
-  /// \param [out] AddrSpace Address space of the input item object.
-  static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements,
-                          unsigned &AddrSpace);
-
+  /// \returns a \b tuple of <ElementType, NumElements, AddrSpace>. where
+  /// NumElements is the number of elements, in case I's Orig is an array, \b
+  /// nullptr otherwise. AddrSpace is the address space of the input item
+  /// object.
+  static std::tuple<Type *, Value *, unsigned> getItemInfo(Item *I);
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
@@ -425,6 +422,16 @@ private:
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
                                    Value *NewPrivInst);
 
+  /// For array sections, generate a base + offset GEP corresponding to the
+  /// section's starting address. \p Orig is the base of the array section
+  /// coming from the frontend, \p ArrSecInfo is the data structure containg the
+  /// starting offset, size and stride for various dimensions of the section.
+  /// The generated GEP is inserted before \p InsertBefore.
+  static Value *
+  genBasePlusOffsetGEPForArraySection(Value *Orig,
+                                      const ArraySectionInfo &ArrSecInfo,
+                                      Instruction *InsertBefore);
+
   /// \name Reduction Specific Functions
   /// {@
 
@@ -456,17 +463,37 @@ private:
   /// \param [out] DestArrayBegin Starting address of the original reduction
   /// array [section].
   /// \param [out] DestElementTy Type of each element of the array [section].
+  /// \param [in] NoNeedToOffsetOrDerefOldV If true, then that means that \p
+  /// OldV has already been pre-processed to include any pointer
+  /// dereference/offset, and can be used directly as the destination base
+  /// pointer. (default = false)
   void genAggrReductionFiniSrcDstInfo(const ReductionItem &RedI, Value *AI,
                                       Value *OldV, Instruction *InsertPt,
                                       IRBuilder<> &Builder, Value *&NumElements,
                                       Value *&SrcArrayBegin,
                                       Value *&DestArrayBegin,
-                                      Type *&DestElementTy);
+                                      Type *&DestElementTy,
+                                      bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
   /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
   /// Instructions, which is done \b before \p InsertPt.
   void computeArraySectionTypeOffsetSize(Item &CI, Instruction *InsertPt);
+
+  /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
+  /// ArraySectionInfo \p ArrSecInfo. \p Orig is the base of the array section.
+  /// The code emitted is inserted \b before \p InsertPt.
+  void computeArraySectionTypeOffsetSize(Value *Orig,
+                                         ArraySectionInfo &ArrSecInfo,
+                                         bool IsByRef, Instruction *InsertPt);
+
+  /// For all use_device_ptr clauses in \p W, create a Map clause.
+  bool addMapForUseDevicePtr(WRegionNode *W);
+
+  /// Update references of use_device_ptr operands in tgt data region to use the
+  /// value updated by the tgt_data_init call.
+  void useUpdatedUseDevicePtrsInTgtDataRegion(
+      WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall);
 
   /// Transform all array sections in \p W region's map clauses
   /// into map chains. New instructions to compute parameters of
@@ -495,9 +522,13 @@ private:
 
   /// Generate the reduction update code.
   /// Returns true iff critical section is required around the generated
-  /// reduction update code.
+  /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
+  /// means that \p OldV has already been pre-processed to include any pointer
+  /// dereference/offset, and can be used directly as the destination base
+  /// pointer. (default = false)
   bool genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
-                        Instruction *InsertPt, DominatorTree *DT);
+                        Instruction *InsertPt, DominatorTree *DT,
+                        bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -537,11 +568,14 @@ private:
   /// Generate the reduction initialization/update for array.
   /// Returns true iff critical section is required around the generated
   /// reduction update code. The method always returns false, when
-  /// IsInit is true.
-  bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI,
-                                 Value *AI, Value *OldV,
-                                 Instruction *InsertPt, bool IsInit,
-                                 DominatorTree *DT);
+  /// IsInit is true. If \p NoNeedToOffsetOrDerefOldV is true, then that means
+  /// that \p OldV has already been pre-processed to include any pointer
+  /// dereference/offset, and can be used directly as the destination base
+  /// pointer. (default = false)
+  bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI, Value *AI,
+                                 Value *OldV, Instruction *InsertPt,
+                                 bool IsInit, DominatorTree *DT,
+                                 bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
@@ -872,15 +906,16 @@ private:
                             SmallVectorImpl<Constant *> &ConstSizes,
                             bool hasRuntimeEvaluationCaptureSize);
 
-  /// Utilities to construct the assignment to the base pointers, section
-  /// pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
-  /// true.
+  /// Utility to construct the assignment to the base pointers, section
+  /// pointers (and size pointers if the flag hasRuntimeEvaluationCaptureSize is
+  /// true). Sets \p BasePtrGEPOut to the GEP where \p BasePtr is stored.
   void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
                                 Value *SectionPtr, Value *Size,
                                 TgDataInfo *Info,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 unsigned &Cnt,
-                                bool hasRuntimeEvaluationCaptureSize);
+                                bool hasRuntimeEvaluationCaptureSize,
+                                Instruction **BasePtrGEPOut = nullptr);
 
   /// Fixup references generated for global variables in OpenMP
   /// clauses for targets supporting non-default address spaces.
@@ -1270,7 +1305,7 @@ private:
     TGT_MAP_TARGET_PARAM = 0x20,
     // instructs the runtime that it is the first
     // occurrence of this mapped variable within this construct.
-    GT_MAP_RETURN_PARAM = 0x40,
+    TGT_MAP_RETURN_PARAM = 0x40,
     // instructs the runtime to return the base
     // device address of the mapped variable.
     TGT_MAP_PRIVATE = 0x80,

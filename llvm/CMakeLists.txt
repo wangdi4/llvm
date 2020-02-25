@@ -16,7 +16,7 @@ if(POLICY CMP0077)
 endif()
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 10)
+  set(LLVM_VERSION_MAJOR 11)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -358,7 +358,13 @@ option(LLVM_ENABLE_LIBPFM "Use libpfm for performance counters if available." ON
 
 option(LLVM_ENABLE_THREADS "Use threads if available." ON)
 
-option(LLVM_ENABLE_ZLIB "Use zlib for compression/decompression if available." ON)
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+  set(zlib_DEFAULT "OFF")
+else()
+  set(zlib_DEFAULT "ON")
+endif()
+
+set(LLVM_ENABLE_ZLIB "${zlib_DEFAULT}" CACHE STRING "Use zlib for compression/decompression if available. Can be ON, OFF, or FORCE_ON")
 
 set(LLVM_Z3_INSTALL_DIR "" CACHE STRING "Install directory of the Z3 solver.")
 
@@ -474,29 +480,6 @@ set(LLVM_LIB_FUZZING_ENGINE "" CACHE PATH
 option(LLVM_USE_SPLIT_DWARF
   "Use -gsplit-dwarf when compiling llvm." OFF)
 
-option(LLVM_POLLY_LINK_INTO_TOOLS "Statically link Polly into tools (if available)" ON)
-option(LLVM_POLLY_BUILD "Build LLVM with Polly" ON)
-
-if (EXISTS ${LLVM_MAIN_SRC_DIR}/tools/polly/CMakeLists.txt)
-  set(POLLY_IN_TREE TRUE)
-elseif(LLVM_EXTERNAL_POLLY_SOURCE_DIR)
-  set(POLLY_IN_TREE TRUE)
-else()
-  set(POLLY_IN_TREE FALSE)
-endif()
-
-if (LLVM_POLLY_BUILD AND POLLY_IN_TREE)
-  set(WITH_POLLY ON)
-else()
-  set(WITH_POLLY OFF)
-endif()
-
-if (LLVM_POLLY_LINK_INTO_TOOLS AND WITH_POLLY)
-  set(LINK_POLLY_INTO_TOOLS ON)
-else()
-  set(LINK_POLLY_INTO_TOOLS OFF)
-endif()
-
 # Define an option controlling whether we should build for 32-bit on 64-bit
 # platforms, where supported.
 if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
@@ -538,6 +521,10 @@ option(LLVM_BUILD_RUNTIME
 option(LLVM_BUILD_EXAMPLES
   "Build the LLVM example programs. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_EXAMPLES "Generate build targets for the LLVM examples" ON)
+
+if(LLVM_BUILD_EXAMPLES)
+  add_definitions(-DBUILD_EXAMPLES)
+endif(LLVM_BUILD_EXAMPLES)
 
 option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
@@ -904,6 +891,41 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_LNC)
 # end INTEL_FEATURE_ISA_AMX_LNC
+
+# INTEL_FEATURE_ISA_AMX_FP16
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP16)
+# end INTEL_FEATURE_ISA_AMX_FP16
+
+# INTEL_FEATURE_ISA_AMX_MEMORY2
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMORY2)
+# end INTEL_FEATURE_ISA_AMX_MEMORY2
+
+# INTEL_FEATURE_ISA_AMX_BF16_EVEX
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF16_EVEX)
+# end INTEL_FEATURE_ISA_AMX_BF16_EVEX
+
+# INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT_EVEX)
+# end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+# INTEL_FEATURE_ISA_AMX_INT8_EVEX
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_INT8_EVEX)
+# end INTEL_FEATURE_ISA_AMX_INT8_EVEX
+
+# INTEL_FEATURE_ISA_AMX_TILE_EVEX
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TILE_EVEX)
+# end INTEL_FEATURE_ISA_AMX_TILE_EVEX
+
+# INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TRANSPOSE2)
+# end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
 # INTEL_FEATURE_ISA_KEYLOCKER
       list(APPEND features_enabled_by_default
@@ -1395,6 +1417,8 @@ if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
   add_subdirectory(utils/llvm-locstats)
 endif()
 
+process_llvm_pass_plugins()
+
 if (INTEL_CUSTOMIZATION)
   if (INTEL_CMAKE_DEPLOY)
 
@@ -1416,9 +1440,9 @@ if (INTEL_CUSTOMIZATION)
       # OpenMP components
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
+      llvm-level0-ompplugin
       # SYCL components
-      opencl-headers khronos-icd-loader sycl sycl-headers llvm-no-spir-kernel
-      pi_opencl sycl-config-file opencl-aot
+      khronos-icd-loader opencl-aot
     )
 
     if (WIN32)
@@ -1432,8 +1456,6 @@ if (INTEL_CUSTOMIZATION)
         llvm-ar llvm-ranlib LLVMgold
         # XDEV components
         xdev-icpx
-        # SYCL components
-        pi_level0
         # CXX components
         cxx cxxabi cxx-headers
       )
@@ -1468,18 +1490,11 @@ if (INTEL_CUSTOMIZATION)
       ${INTEL_OPENCL_DEPLOY_COMPONENTS_LIST}
     )
 
-    # FIXME: temporary verification before we remove INTEL_DEPLOY_COMPONENTS
-    #        setup in VRD files.
-    if (DEFINED INTEL_DEPLOY_COMPONENTS)
-      foreach (comp ${INTEL_DEPLOY_COMPONENTS})
-        list(FIND INTEL_DEPLOY_COMPONENTS_LIST ${comp} idx)
-        if (idx LESS 0)
-          message(FATAL_ERROR "CMake component (${comp}) is present in "
-            "INTEL_DEPLOY_COMPONENTS but not in "
-            "INTEL_DEPLOY_COMPONENTS_LIST.")
-        endif()
-      endforeach(comp)
-    endif()
+    # Add SYCL deploy components defined by SYCL project.
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST ${SYCL_DEPLOY_COMPONENTS})
+
+    # There may be duplicates due to the addition of SYCL_DEPLOY_COMPONENTS.
+    list(REMOVE_DUPLICATES INTEL_DEPLOY_COMPONENTS_LIST)
 
     set(INTEL_DEPLOY_COMPONENTS ${INTEL_DEPLOY_COMPONENTS_LIST})
   endif()

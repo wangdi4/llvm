@@ -1,6 +1,6 @@
 //===-------- HLGoto.cpp - Implements the HLGoto class --------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -70,8 +70,10 @@ void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
 
   if (TargetLabel) {
     OS << TargetLabel->getDebugName();
-  } else {
+  } else if (TargetBBlock) {
     HLLabel::printBBlockName(OS, *TargetBBlock);
+  } else {
+    OS << "<null>";
   }
 
   OS << ";\n";

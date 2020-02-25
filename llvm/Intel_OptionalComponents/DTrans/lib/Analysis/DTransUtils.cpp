@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -677,13 +677,13 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
   if (!C)
     return false;
-  return ConstantValues.insert(C).second;
+  return ConstantValues.insert(C);
 }
 
 bool dtrans::FieldInfo::processNewSingleIAValue(llvm::Constant *C) {
   if (!C)
     return false;
-  return ConstantIAValues.insert(C).second;
+  return ConstantIAValues.insert(C);
 }
 
 bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
@@ -790,15 +790,15 @@ void dtrans::StructInfo::CallSubGraph::insertFunction(Function *F,
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void PointerTypeInfo::dump() { print(dbgs()); }
+void CallInfoElementTypes::dump() { print(dbgs()); }
 
-void PointerTypeInfo::print(raw_ostream &OS) {
+void CallInfoElementTypes::print(raw_ostream &OS) {
   if (!getAnalyzed()) {
     OS << "    Type: Not analyzed\n";
     return;
   }
 
-  if (!getAliasesToAggregatePointer()) {
+  if (!getAliasesToAggregateType()) {
     OS << "    Type: Non-aggregate\n";
     return;
   }
@@ -807,7 +807,7 @@ void PointerTypeInfo::print(raw_ostream &OS) {
   // it in sorted order to enable consistency for testing.
   std::vector<std::string> StrVec;
 
-  for (auto *T : Types) {
+  for (auto *T : ElemTypes) {
     std::string Name;
     raw_string_ostream(Name) << "    Type: " << *T;
     StrVec.push_back(Name);
@@ -842,7 +842,7 @@ void AllocCallInfo::print(raw_ostream &OS) {
   OS << "AllocCallInfo:\n";
   OS << "  Kind: " << AllocKindName(AK) << "\n";
   OS << "  Aliased types:\n";
-  PTI.print(OS);
+  ElementTypes.print(OS);
 }
 
 void FreeCallInfo::dump() { print(dbgs()); }
@@ -851,7 +851,7 @@ void FreeCallInfo::print(raw_ostream &OS) {
   OS << "FreeCallInfo:\n";
   OS << "  Kind: " << FreeKindName(FK) << "\n";
   OS << "  Aliased types:\n";
-  PTI.print(OS);
+  ElementTypes.print(OS);
 }
 
 void MemfuncCallInfo::dump() { print(dbgs()); }
@@ -872,7 +872,7 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
       OS << "    PostPad:    " << getPostPadBytes(RN) << "\n";
     }
 
-    PTI.print(OS);
+    ElementTypes.print(OS);
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

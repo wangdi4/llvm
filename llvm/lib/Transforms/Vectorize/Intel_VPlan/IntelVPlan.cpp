@@ -184,27 +184,6 @@ VPBasicBlock *VPBlockUtils::splitBlockEnd(VPBlockBase *Block,
 }
 #endif
 
-/// Returns the closest ancestor, starting from "this", which has successors.
-/// Returns the root ancestor if all ancestors have no successors.
-VPBlockBase *VPBlockBase::getAncestorWithSuccessors() {
-  if (!Successors.empty() || !Parent)
-    return this;
-  assert(Parent->getExit() == this &&
-         "Block w/o successors not the exit of its parent.");
-  return Parent->getAncestorWithSuccessors();
-}
-
-/// Returns the closest ancestor, starting from "this", which has
-/// predecessors.
-/// Returns the root ancestor if all ancestors have no predecessors.
-VPBlockBase *VPBlockBase::getAncestorWithPredecessors() {
-  if (!Predecessors.empty() || !Parent)
-    return this;
-  assert(Parent->getEntry() == this &&
-         "Block w/o predecessors not the entry of its parent.");
-  return Parent->getAncestorWithPredecessors();
-}
-
 void VPBlockBase::setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
                                    VPBlockBase *IfFalse) {
   assert(Successors.empty() && "Setting two successors when others exist.");
@@ -260,7 +239,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   // result from creating new BranchInsts are prepended instead of appended to
   // the predecessor list. In order to preserve original CFG and original
   // predecessors order, we have to process them in reverse order.
-  const SmallVectorImpl<VPBlockBase *> &Preds = getHierarchicalPredecessors();
+  const SmallVectorImpl<VPBlockBase *> &Preds = getPredecessors();
   for (VPBlockBase *PredVPBlock : make_range(Preds.rbegin(), Preds.rend())) {
 
     VPBasicBlock *PredVPBB = PredVPBlock->getExitBasicBlock();
@@ -286,7 +265,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   }
 #else
   // Hook up the new basic block to its predecessors.
-  for (VPBlockBase *PredVPBlock : getHierarchicalPredecessors()) {
+  for (VPBlockBase *PredVPBlock : getPredecessors()) {
     VPBasicBlock *PredVPBB = PredVPBlock->getExitBasicBlock();
     auto &PredVPSuccessors = PredVPBB->getSuccessors();
     BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
@@ -348,10 +327,10 @@ void VPBasicBlock::execute(VPTransformState *State) {
     State->Builder.SetInsertPoint(NewBB->getTerminator());
     State->CFG.PrevBB = NewBB;
   } else if (PrevVPBB /* A */ &&
-             !((SingleHPred = getSingleHierarchicalPredecessor()) &&
+             !((SingleHPred = getSinglePredecessor()) &&
                SingleHPred->getExitBasicBlock() == PrevVPBB &&
-               PrevVPBB->getSingleHierarchicalSuccessor()) && /* C */
-             !(Replica && getPredecessors().empty())) {       /* D */
+               PrevVPBB->getSingleSuccessor()) &&       /* C */
+             !(Replica && getPredecessors().empty())) { /* D */
 
     NewBB = createEmptyBasicBlock(State);
     State->Builder.SetInsertPoint(NewBB);
@@ -538,6 +517,11 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
   CG->setCurMaskValue(nullptr);
+
+  // Emit block start label. This is done only if we see uniform control flow
+  // and only for blocks inside the loop being vectorized.
+  CG->emitBlockLabel(this);
+
   for (VPInstruction &Inst : Instructions) {
     if (isDeadPredicateInst(Inst))
       // This is not just emitted code clean-up, but something required to
@@ -546,6 +530,11 @@ void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
       continue;
     Inst.executeHIR(CG);
   }
+
+  // Emit block terminator. This can be either an if/else or a simple goto
+  // depending on the block's successors. This is done only if we see uniform
+  // control flow and only for non-latch blocks.
+  CG->emitBlockTerminator(this);
 }
 
 VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
@@ -673,6 +662,21 @@ void VPRegionBlock::print(raw_ostream &OS, unsigned Indent,
 
 void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBlockBase *> RPOT(Entry);
+  const VPLoop *VLoop = CG->getVPLoop();
+
+  // Check and mark if we see any uniform control flow remaining in the loop.
+  // We check for a non-latch block with two successors.
+  // TODO - The code here assumes inner loop vectorization. This needs to
+  // be changed for outer loop vectorization.
+  for (VPBlockBase *Block : RPOT) {
+    auto *BBlock = cast<VPBasicBlock>(Block);
+
+    if (VLoop->contains(BBlock) && !VLoop->isLoopLatch(BBlock) &&
+        BBlock->getNumSuccessors() == 2) {
+      CG->setUniformControlFlowSeen();
+      break;
+    }
+  }
 
   // Visit the VPBlocks connected to "this", starting from it.
   for (VPBlockBase *Block : RPOT) {
@@ -863,7 +867,11 @@ bool VPInstruction::mayHaveSideEffects() const {
   if (Instruction::isCast(Opcode) || Instruction::isShift(Opcode) ||
       Instruction::isBitwiseLogicOp(Opcode) ||
       Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
-      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr)
+      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr ||
+      Opcode == Instruction::PHI || Opcode == Instruction::ICmp ||
+      Opcode == Instruction::FCmp || Opcode == VPInstruction::Not ||
+      Opcode == VPInstruction::AllZeroCheck ||
+      Opcode == VPInstruction::InductionInit)
     return false;
 
   return true;
@@ -1096,7 +1104,7 @@ void VPlan::execute(VPTransformState *State) {
     unsigned Idx = 0;
     auto *BBTerminator = BB->getTerminator();
 
-    for (VPBlockBase *SuccVPBlock : VPBB->getHierarchicalSuccessors()) {
+    for (VPBlockBase *SuccVPBlock : VPBB->getSuccessors()) {
       VPBasicBlock *SuccVPBB = SuccVPBlock->getEntryBasicBlock();
       BBTerminator->setSuccessor(Idx, State->CFG.VPBB2IRBB[SuccVPBB]);
       ++Idx;
@@ -1726,14 +1734,6 @@ void VPValue::printAsOperand(raw_ostream &OS) const {
     OS << *getType() << " %vp" << (unsigned short)(unsigned long long)this;
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-void VPBlockUtils::setParentRegionForBody(VPRegionBlock *Region) {
-  for (VPBlockBase *Block :
-       make_range(df_iterator<VPBlockBase *>::begin(Region->getEntry()),
-                  df_iterator<VPBlockBase *>::end(Region->getExit()))) {
-    Block->setParent(Region);
-  }
-}
 
 using VPDomTree = DomTreeBase<VPBlockBase>;
 template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);

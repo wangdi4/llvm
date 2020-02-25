@@ -265,7 +265,7 @@ InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
 
   InlineReportFunction *IRF = new InlineReportFunction(F, SuppressInlRpt);
   IRFunctionMap.insert(std::make_pair(F, IRF));
-  IRF->setName(F->getName());
+  IRF->setName(std::string(F->getName()));
   IRF->setIsDeclaration(F->isDeclaration());
   IRF->setLinkageChar(F);
   addCallback(F);
@@ -712,7 +712,7 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
   assert(count == 1);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
   IRF->setLinkageChar(NewFunction);
-  IRF->setName(NewFunction->getName());
+  IRF->setName(std::string(NewFunction->getName()));
   addCallback(NewFunction);
 }
 

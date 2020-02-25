@@ -259,12 +259,11 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
   // Skip all the checks if we are compiling SYCL device code, but the function
   // is not marked to be used on device, this code won't be codegen'ed anyway.
   if (getLangOpts().SYCLIsDevice) {
-    SYCLDiagIfDeviceCode(AsmLoc, diag::err_sycl_restrict)
-        << KernelUseAssembly;
+    SYCLDiagIfDeviceCode(AsmLoc, diag::err_sycl_restrict) << KernelUseAssembly;
     return new (Context)
-      GCCAsmStmt(Context, AsmLoc, IsSimple, IsVolatile, NumOutputs,
-                 NumInputs, Names, Constraints, Exprs.data(), AsmString,
-                 NumClobbers, Clobbers, NumLabels, RParenLoc);
+        GCCAsmStmt(Context, AsmLoc, IsSimple, IsVolatile, NumOutputs, NumInputs,
+                   Names, Constraints, Exprs.data(), AsmString, NumClobbers,
+                   Clobbers, NumLabels, RParenLoc);
   }
 
   FunctionDecl *FD = dyn_cast<FunctionDecl>(getCurLexicalContext());
@@ -718,8 +717,13 @@ void Sema::FillInlineAsmIdentifierInfo(Expr *Res,
   if (T->isFunctionType() || T->isDependentType())
     return Info.setLabel(Res);
   if (Res->isRValue()) {
-    if (isa<clang::EnumType>(T) && Res->EvaluateAsRValue(Eval, Context))
+    bool IsEnum = isa<clang::EnumType>(T);
+    if (DeclRefExpr *DRE = dyn_cast<clang::DeclRefExpr>(Res))
+      if (DRE->getDecl()->getKind() == Decl::EnumConstant)
+        IsEnum = true;
+    if (IsEnum && Res->EvaluateAsRValue(Eval, Context))
       return Info.setEnum(Eval.Val.getInt().getSExtValue());
+
     return Info.setLabel(Res);
   }
   unsigned Size = Context.getTypeSizeInChars(T).getQuantity();

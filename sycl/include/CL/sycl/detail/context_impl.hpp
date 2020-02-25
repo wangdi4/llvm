@@ -111,11 +111,6 @@ public:
     return MDevices;
   }
 
-  /// Gets USM dispatcher.
-  ///
-  /// @return a pointer to USM dispatcher.
-  std::shared_ptr<usm::USMDispatcher> getUSMDispatch() const;
-
   /// In contrast to user programs, which are compiled from user code, library
   /// programs come from the SYCL runtime. They are identified by the
   /// corresponding extension:
@@ -134,6 +129,9 @@ public:
 
   KernelProgramCache &getKernelProgramCache() const;
 
+  /// Returns true if and only if context contains the given device.
+  bool hasDevice(shared_ptr_class<detail::device_impl> Device) const;
+
 private:
   async_handler MAsyncHandler;
   vector_class<device> MDevices;
@@ -141,7 +139,6 @@ private:
   PlatformImplPtr MPlatform;
   bool MPluginInterop;
   bool MHostContext;
-  std::shared_ptr<usm::USMDispatcher> MUSMDispatch;
   std::map<DeviceLibExt, RT::PiProgram> MCachedLibPrograms;
   mutable KernelProgramCache MKernelProgramCache;
 };

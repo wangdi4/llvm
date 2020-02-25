@@ -1,6 +1,6 @@
 //===------- DDTest.h - Provides Data Dependence Analysis -*-- C++ --*-----===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -205,6 +205,15 @@ public:
 
   DDGraph() : CurNode(nullptr), G(nullptr) {}
   DDGraph(const HLNode *Node, DDGraphTy *Graph) : CurNode(Node), G(Graph) {}
+
+  // Returns true if this is an empty object containing no info.
+  bool empty() const { return !CurNode; }
+
+  // Clears the object and makes it empty.
+  void clear() {
+    CurNode = nullptr;
+    G = nullptr;
+  }
 
   iterator_range<FilterEdgeIterator> incoming(const DDRef *Ref) const {
     return make_filter_range(

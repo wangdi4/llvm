@@ -99,7 +99,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
   // linked archives.  The unbundled information is a list of files and not
   // an actual object/archive.  Take that list and pass those to the linker
   // instead of the original object.
-  if (JA.isDeviceOffloading(Action::OFK_SYCL)) {
+  if (JA.isDeviceOffloading(Action::OFK_SYCL) ||   // INTEL
+      JA.isDeviceOffloading(Action::OFK_OpenMP)) { // INTEL
     // Go through the Inputs to the link.  When a listfile is encountered, we
     // know it is an unbundled generated list.
     for (const auto &II : InputFiles) {
@@ -113,6 +114,13 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
   } else
     for (const auto &II : InputFiles)
       CmdArgs.push_back(II.getFilename());
+
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel) &&
+      JA.isDeviceOffloading(Action::OFK_OpenMP))
+    CmdArgs.push_back(Args.MakeArgString(C.getDriver().Dir +
+                                         "/../lib/libomptarget-opencl.bc"));
+#endif // INTEL_CUSTOMIZATION
 
   // Add additional options from -Xsycl-target-linker
   TranslateSYCLLinkerArgs(C, Args, getToolChain(), CmdArgs);
@@ -155,10 +163,11 @@ void SYCL::Linker::ConstructJob(Compilation &C, const JobAction &JA,
           getToolChain().getTriple().getArch() == llvm::Triple::spir64) &&
          "Unsupported target");
 
-  std::string SubArchName = getToolChain().getTriple().getArchName();
+  std::string SubArchName =
+      std::string(getToolChain().getTriple().getArchName());
 
   // Prefix for temporary file name.
-  std::string Prefix = llvm::sys::path::stem(SubArchName);
+  std::string Prefix = std::string(llvm::sys::path::stem(SubArchName));
 
   // We want to use llvm-spirv linker to link spirv binaries before putting
   // them into the fat object.
@@ -302,6 +311,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
          "Unsupported target");
 
   InputInfoList ForeachInputs;
+  InputInfoList FPGADepFiles;
   ArgStringList CmdArgs{"-o",  Output.getFilename()};
   for (const auto &II : Inputs) {
     std::string Filename(II.getFilename());
@@ -311,6 +321,8 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
       // Add any FPGA library lists.  These come in as special tempfile lists.
       CmdArgs.push_back(Args.MakeArgString(Twine("-library-list=") +
           Filename));
+    else if (II.getType() == types::TY_FPGA_Dependencies)
+      FPGADepFiles.push_back(II);
     else
       CmdArgs.push_back(C.getArgs().MakeArgString(Filename));
   }
@@ -323,8 +335,6 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
       ForeachExt = "aocr";
     }
 
-
-  InputInfoList FPGADepFiles;
   for (auto *A : Args) {
     // Any input file is assumed to have a dependency file associated
     if (A->getOption().getKind() == Option::InputClass) {
@@ -334,7 +344,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(Compilation &C,
         types::ID Ty = getToolChain().LookupTypeForExtension(Ext.drop_front());
         if (Ty == types::TY_INVALID)
           continue;
-        if (types::isSrcFile(Ty) || Ty == types::TY_Object) {
+        if (types::isSrcFile(Ty)) {
           llvm::sys::path::replace_extension(FN, "d");
           FPGADepFiles.push_back(InputInfo(types::TY_Dependencies,
               Args.MakeArgString(FN), Args.MakeArgString(FN)));

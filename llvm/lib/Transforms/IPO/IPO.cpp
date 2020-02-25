@@ -49,7 +49,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeBlockExtractorPass(Registry);
   initializeSingleLoopExtractorPass(Registry);
   initializeLowerTypeTestsPass(Registry);
-  initializeMergeFunctionsPass(Registry);
+  initializeMergeFunctionsLegacyPassPass(Registry);
   initializePartialInlinerLegacyPassPass(Registry);
   initializeAttributorLegacyPassPass(Registry);
   initializePostOrderFunctionAttrsLegacyPassPass(Registry);
@@ -77,6 +77,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeQsortRecognizerLegacyPassPass(Registry); // INTEL
   initializeIntelFoldWPIntrinsicLegacyPassPass(Registry); // INTEL
   initializeDeadArrayOpsEliminationLegacyPassPass(Registry); // INTEL
+  initializeTileMVInlMarkerLegacyPassPass(Registry); // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

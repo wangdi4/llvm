@@ -398,82 +398,6 @@ Instruction *InstCombiner::commonShiftTransforms(BinaryOperator &I) {
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION
-/// Recognize the following sequence:
-///  %1 = lshr %X, 0x1
-///  %2 = and %1, 0x55555555(55555555)
-///  %3 = sub %X, %2
-///  %4 = lshr %3, 0x2
-///  %5 = and %4, 0x33333333(33333333)
-///  %6 = and %3, 0x33333333(33333333)
-///  %7 = add nuw nsw %5, %6
-///  %8 = lshr %7, 0x4
-///  %9 = add nuw nsw %8, %7
-///  %10 = and %9, 0x0F0F0F0F(0F0F0F0F)
-///  %11 = mul %10, 0x01010101(01010101)
-///  %12 = lshr %11, 0x18 (0x38)
-///
-/// and replace with
-///  %1 = popcnt(%X)
-Instruction *InstCombiner::recognizePopcnt(BinaryOperator &I) {
-  // Check return type: it should be 32 or 64 bits int.
-  if (!I.getType()->isIntegerTy(64) && !I.getType()->isIntegerTy(32))
-    return nullptr;
-
-  unsigned Shift = 0;
-  if (I.getType()->isIntegerTy(32))
-    Shift = 0x20;
-
-  // Checking %12 = lshr %11, 0x18 (0x38)
-  // Checking %11 = mul %10, 0x01010101(01010101)
-  Value *I10;
-  if (!match(&I, m_LShr(m_Mul(m_Value(I10),
-                              m_SpecificInt(0x0101010101010101 >> Shift)),
-                        m_SpecificInt(0x38 - Shift))))
-    return nullptr;
-
-  // Checking %10 = and %9, 0x0F0F0F0F(0F0F0F0F)
-  // Checking %9 = add nuw nsw %8, %7
-  // Checking %8 = lshr %7, 0x4
-  Value *I7, *I7B;
-  if (!match(I10, m_And(m_c_Add(m_Value(I7),
-                                m_LShr(m_Value(I7B), m_SpecificInt(0x4))),
-                        m_SpecificInt(0x0F0F0F0F0F0F0F0F >> Shift))) ||
-      I7 != I7B)
-    return nullptr;
-
-  // Checking %7 = add nuw nsw %5, %6
-  // Checking %6 = and %3, 0x33333333(33333333)
-  // Checking %5 = and %4, 0x33333333(33333333)
-  // Checking %4 = lshr %3, 0x2
-  Value *I3, *I3B;
-  if (!match(I7,
-             m_c_Add(m_And(m_Value(I3),
-                           m_SpecificInt(0x3333333333333333 >> Shift)),
-                     m_And(m_LShr(m_Value(I3B), m_SpecificInt(2)),
-                           m_SpecificInt(0x3333333333333333 >> Shift)))) ||
-      I3 != I3B)
-    return nullptr;
-
-  // Checking %3 = sub %X, %2
-  // Checking %2 = and %1, 0x55555555(55555555)
-  // Checking %1 = lshr %X, 0x1
-  Value *X, *XB;
-  if (!match(I3, m_Sub(m_Value(X),
-                       m_And(m_LShr(m_Value(XB), m_SpecificInt(1)),
-                             m_SpecificInt(0x5555555555555555 >> Shift)))) ||
-      X != XB)
-    return nullptr;
-
-  assert(X->getType() == I.getType() &&
-         "There is no type changing instruction in the sequence!");
-  Value *Func =
-      Intrinsic::getDeclaration(I.getModule(), Intrinsic::ctpop, I.getType());
-  CallInst *CI = Builder.CreateCall(Func, X);
-  return replaceInstUsesWith(I, CI);
-}
-#endif //INTEL_CUSTOMIZATION
-
 /// Return true if we can simplify two logical (either left or right) shifts
 /// that have constant shift amounts: OuterShift (InnerShift X, C1), C2.
 static bool canEvaluateShiftedShift(unsigned OuterShAmt, bool IsOuterShl,
@@ -1162,11 +1086,6 @@ Instruction *InstCombiner::visitLShr(BinaryOperator &I) {
 
   if (Instruction *R = commonShiftTransforms(I))
     return R;
-
-#if INTEL_CUSTOMIZATION
-  if (Instruction *V = recognizePopcnt(I))
-    return V;
-#endif // INTEL_CUSTOMIZATION
 
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
   Type *Ty = I.getType();

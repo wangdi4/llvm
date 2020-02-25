@@ -2,7 +2,7 @@
 //-===//
 //                               Also Implements ParDirectionInsertion class
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -80,8 +80,9 @@ ParVecDirectiveInsertion::Visitor::insertBeginRegion(HLLoop *Lp,
   assert(Intrin && "Cannot get declaration for intrinsic");
 
   SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
-  llvm::OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(Dir),
-                                  ArrayRef<llvm::Value *>{});
+  llvm::OperandBundleDef OpBundle(
+      std::string(IntrinsicUtils::getDirectiveString(Dir)),
+      ArrayRef<llvm::Value *>{});
   IntrinOpBundle.push_back(OpBundle);
   // TODO: Operand bundles for any clauses in auto-vec directive
 
@@ -103,8 +104,9 @@ HLInst *ParVecDirectiveInsertion::Visitor::insertEndRegion(HLLoop *Lp,
   assert(Intrin && "Cannot get declaration for intrinsic");
 
   SmallVector<llvm::OperandBundleDef, 1> IntrinOpBundle;
-  llvm::OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(Dir),
-                                  ArrayRef<llvm::Value *>{});
+  llvm::OperandBundleDef OpBundle(
+      std::string(IntrinsicUtils::getDirectiveString(Dir)),
+      ArrayRef<llvm::Value *>{});
   IntrinOpBundle.push_back(OpBundle);
 
   SmallVector<RegDDRef *, 1> CallArgs;

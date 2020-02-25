@@ -19,15 +19,15 @@
 ; CHECK: modified
 
 ; CHECK:   %tmp = 0;
-; CHECK:   %tmp1 = 0;
+; CHECK:   %tmp4 = 0;
 ; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   %0 = (@A)[0][i1];
 ; CHECK: |   (@A)[0][i1] = %0 + 2;
-; CHECK: |   %tmp1 = %tmp1  +  3;
+; CHECK: |   %tmp4 = %tmp4  +  3;
 ; CHECK: |   %tmp = %tmp  +  9;
 ; CHECK: + END LOOP
 ; CHECK:   %1 = (@A)[0][5];
-; CHECK:   (@A)[0][5] = %1 + %tmp1;
+; CHECK:   (@A)[0][5] = %1 + %tmp4;
 ; CHECK:   %2 = (@A)[0][%t];
 ; CHECK:   (@A)[0][%t] = %2 + %tmp;
 

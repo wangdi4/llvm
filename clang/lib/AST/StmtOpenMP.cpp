@@ -160,7 +160,7 @@ void OMPLoopDirective::setFinalsConditions(ArrayRef<Expr *> A) {
   llvm::copy(A, getFinalsConditions().begin());
 }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 #define DEFINE_UNCOLLAPSED_SET(Name)                                                   \
   void OMPLoopDirective::setUncollapsed##Name(ArrayRef<Expr *> A) {            \
     assert(A.size() == getCollapsedNumber() &&                                 \
@@ -176,7 +176,7 @@ void OMPLoopDirective::setFinalsConditions(ArrayRef<Expr *> A) {
   DEFINE_UNCOLLAPSED_SET(Incs)
   DEFINE_UNCOLLAPSED_SET(Updates)
 #undef DEFINE_UNCOLLAPSED_SET
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 OMPParallelDirective *OMPParallelDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,

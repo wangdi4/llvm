@@ -65,7 +65,7 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   UID = uid;
 
   Rec = insn.TheDef;
-  Name = Rec->getName();
+  Name = std::string(Rec->getName());
   Spec = &tables.specForUID(UID);
 
   if (!Rec->isSubClassOf("X86Inst")) {
@@ -94,7 +94,7 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   ForceDisassemble   = Rec->getValueAsBit("ForceDisassemble");
   CD8_Scale          = byteFromRec(Rec, "CD8_Scale");
 
-  Name      = Rec->getName();
+  Name = std::string(Rec->getName());
 
   Operands = &insn.Operands.OperandList;
 
@@ -418,12 +418,12 @@ void RecognizableInstr::handleOperand(bool optional, unsigned &operandIndex,
 
   StringRef typeName = (*Operands)[operandIndex].Rec->getName();
 
-  OperandEncoding encoding = encodingFromString(typeName, OpSize);
+  OperandEncoding encoding = encodingFromString(std::string(typeName), OpSize);
   // Adjust the encoding type for an operand based on the instruction.
   adjustOperandEncoding(encoding);
   Spec->operands[operandIndex].encoding = encoding;
-  Spec->operands[operandIndex].type = typeFromString(typeName,
-                                                     HasREX_WPrefix, OpSize);
+  Spec->operands[operandIndex].type =
+      typeFromString(std::string(typeName), HasREX_WPrefix, OpSize);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   // Hack to force decoder using 32bits registers for memory operand
@@ -970,9 +970,9 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i128mem",             TYPE_M)
   TYPE("i256mem",             TYPE_M)
   TYPE("i512mem",             TYPE_M)
-  TYPE("i64i32imm_pcrel",     TYPE_REL)
-  TYPE("i16imm_pcrel",        TYPE_REL)
-  TYPE("i32imm_pcrel",        TYPE_REL)
+  TYPE("i64i32imm_brtarget",  TYPE_REL)
+  TYPE("i16imm_brtarget",     TYPE_REL)
+  TYPE("i32imm_brtarget",     TYPE_REL)
   TYPE("ccode",               TYPE_IMM)
   TYPE("AVX512RC",            TYPE_IMM)
   TYPE("brtarget32",          TYPE_REL)
@@ -1046,10 +1046,10 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   TYPE("VTILE",               TYPE_TMM)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   TYPE("VTILEX",              TYPE_TMM)
   TYPE("VTILEPair",           TYPE_TMM_PAIR)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   TYPE("ZMM16Tuples",         TYPE_ZMM16_TUPLES)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1100,10 +1100,8 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_IB)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_IB)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled immediate encoding " << s << "\n";
   llvm_unreachable("Unhandled immediate encoding");
@@ -1151,10 +1149,10 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_RM)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_RM)
   ENCODING("VTILEPAIR",       ENCODING_RM)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1212,10 +1210,10 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_REG)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_REG)
   ENCODING("VTILEPair",       ENCODING_REG)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1258,10 +1256,10 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_VVVV)
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("VTILEX",          ENCODING_VVVV)
   ENCODING("VTILEPAIR",       ENCODING_VVVV)
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
@@ -1338,45 +1336,45 @@ RecognizableInstr::relocationEncodingFromString(const std::string &s,
   if(OpSize != X86Local::OpSize16) {
     // For instructions without an OpSize prefix, a declared 16-bit register or
     // immediate encoding is special.
-    ENCODING("i16imm",        ENCODING_IW)
+    ENCODING("i16imm",           ENCODING_IW)
   }
-  ENCODING("i16imm",          ENCODING_Iv)
-  ENCODING("i16i8imm",        ENCODING_IB)
-  ENCODING("i32imm",          ENCODING_Iv)
-  ENCODING("i32i8imm",        ENCODING_IB)
-  ENCODING("i64i32imm",       ENCODING_ID)
-  ENCODING("i64i8imm",        ENCODING_IB)
-  ENCODING("i8imm",           ENCODING_IB)
-  ENCODING("u8imm",           ENCODING_IB)
-  ENCODING("i16u8imm",        ENCODING_IB)
-  ENCODING("i32u8imm",        ENCODING_IB)
-  ENCODING("i64u8imm",        ENCODING_IB)
-  ENCODING("i64i32imm_pcrel", ENCODING_ID)
-  ENCODING("i16imm_pcrel",    ENCODING_IW)
-  ENCODING("i32imm_pcrel",    ENCODING_ID)
-  ENCODING("brtarget32",      ENCODING_ID)
-  ENCODING("brtarget16",      ENCODING_IW)
-  ENCODING("brtarget8",       ENCODING_IB)
-  ENCODING("i64imm",          ENCODING_IO)
-  ENCODING("offset16_8",      ENCODING_Ia)
-  ENCODING("offset16_16",     ENCODING_Ia)
-  ENCODING("offset16_32",     ENCODING_Ia)
-  ENCODING("offset32_8",      ENCODING_Ia)
-  ENCODING("offset32_16",     ENCODING_Ia)
-  ENCODING("offset32_32",     ENCODING_Ia)
-  ENCODING("offset32_64",     ENCODING_Ia)
-  ENCODING("offset64_8",      ENCODING_Ia)
-  ENCODING("offset64_16",     ENCODING_Ia)
-  ENCODING("offset64_32",     ENCODING_Ia)
-  ENCODING("offset64_64",     ENCODING_Ia)
-  ENCODING("srcidx8",         ENCODING_SI)
-  ENCODING("srcidx16",        ENCODING_SI)
-  ENCODING("srcidx32",        ENCODING_SI)
-  ENCODING("srcidx64",        ENCODING_SI)
-  ENCODING("dstidx8",         ENCODING_DI)
-  ENCODING("dstidx16",        ENCODING_DI)
-  ENCODING("dstidx32",        ENCODING_DI)
-  ENCODING("dstidx64",        ENCODING_DI)
+  ENCODING("i16imm",             ENCODING_Iv)
+  ENCODING("i16i8imm",           ENCODING_IB)
+  ENCODING("i32imm",             ENCODING_Iv)
+  ENCODING("i32i8imm",           ENCODING_IB)
+  ENCODING("i64i32imm",          ENCODING_ID)
+  ENCODING("i64i8imm",           ENCODING_IB)
+  ENCODING("i8imm",              ENCODING_IB)
+  ENCODING("u8imm",              ENCODING_IB)
+  ENCODING("i16u8imm",           ENCODING_IB)
+  ENCODING("i32u8imm",           ENCODING_IB)
+  ENCODING("i64u8imm",           ENCODING_IB)
+  ENCODING("i64i32imm_brtarget", ENCODING_ID)
+  ENCODING("i16imm_brtarget",    ENCODING_IW)
+  ENCODING("i32imm_brtarget",    ENCODING_ID)
+  ENCODING("brtarget32",         ENCODING_ID)
+  ENCODING("brtarget16",         ENCODING_IW)
+  ENCODING("brtarget8",          ENCODING_IB)
+  ENCODING("i64imm",             ENCODING_IO)
+  ENCODING("offset16_8",         ENCODING_Ia)
+  ENCODING("offset16_16",        ENCODING_Ia)
+  ENCODING("offset16_32",        ENCODING_Ia)
+  ENCODING("offset32_8",         ENCODING_Ia)
+  ENCODING("offset32_16",        ENCODING_Ia)
+  ENCODING("offset32_32",        ENCODING_Ia)
+  ENCODING("offset32_64",        ENCODING_Ia)
+  ENCODING("offset64_8",         ENCODING_Ia)
+  ENCODING("offset64_16",        ENCODING_Ia)
+  ENCODING("offset64_32",        ENCODING_Ia)
+  ENCODING("offset64_64",        ENCODING_Ia)
+  ENCODING("srcidx8",            ENCODING_SI)
+  ENCODING("srcidx16",           ENCODING_SI)
+  ENCODING("srcidx32",           ENCODING_SI)
+  ENCODING("srcidx64",           ENCODING_SI)
+  ENCODING("dstidx8",            ENCODING_DI)
+  ENCODING("dstidx16",           ENCODING_DI)
+  ENCODING("dstidx32",           ENCODING_DI)
+  ENCODING("dstidx64",           ENCODING_DI)
   errs() << "Unhandled relocation encoding " << s << "\n";
   llvm_unreachable("Unhandled relocation encoding");
 }

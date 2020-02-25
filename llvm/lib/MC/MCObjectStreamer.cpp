@@ -29,7 +29,10 @@ MCObjectStreamer::MCObjectStreamer(MCContext &Context,
     : MCStreamer(Context),
       Assembler(std::make_unique<MCAssembler>(
           Context, std::move(TAB), std::move(Emitter), std::move(OW))),
-      EmitEHFrame(true), EmitDebugFrame(false) {}
+      EmitEHFrame(true), EmitDebugFrame(false) {
+  if (Assembler->getBackendPtr())
+    setAllowAutoPadding(Assembler->getBackend().allowAutoPadding());
+}
 
 MCObjectStreamer::~MCObjectStreamer() {}
 
@@ -188,6 +191,7 @@ MCFragment *MCObjectStreamer::getCurrentFragment() const {
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
 static bool CanReuseDataFragment(const MCDataFragment &F, MCObjectStreamer &OS,
                                  const MCSubtargetInfo *STI) {
   if (!F.hasInstructions())
@@ -195,16 +199,17 @@ static bool CanReuseDataFragment(const MCDataFragment &F, MCObjectStreamer &OS,
 
   MCAssembler &Assembler = OS.getAssembler();
 
-  // When the target need align instructions, we need to determine the size
-  // of some instructions during the relaxation, the easiest way to do it is
-  // to emit each instruction into fragment of its own.
-  if (Assembler.getBackend().needAlign(OS))
-    return false;
-
   // When bundling is enabled, we don't want to add data to a fragment that
   // already has instructions (see MCELFStreamer::EmitInstToData for details)
   if (Assembler.isBundlingEnabled())
     return Assembler.getRelaxAll();
+
+  // When the target need align instructions, we need to determine the size
+  // of some instructions during the relaxation, the easiest way to do it is
+  // to emit each instruction into fragment of its own.
+  if (Assembler.getBackend().allowAutoPadding())
+    return false;
+
   // If the subtarget is changed mid fragment we start a new fragment to record
   // the new STI.
   return !STI || F.getSubtargetInfo() == STI;
@@ -228,6 +233,7 @@ MCBoundaryAlignFragment *MCObjectStreamer::getOrCreateBoundaryAlignFragment() {
   }
   return F;
 }
+#endif // INTEL_CUSTOMIZATION
 
 void MCObjectStreamer::visitUsedSymbol(const MCSymbol &Sym) {
   Assembler->registerSymbol(Sym);
@@ -586,12 +592,6 @@ void MCObjectStreamer::EmitBytes(StringRef Data) {
   MCDataFragment *DF = getOrCreateDataFragment();
   flushPendingLabels(DF, DF->getContents().size());
   DF->getContents().append(Data.begin(), Data.end());
-
-  // EmitBytes might not cover all possible ways we emit data (or could be used
-  // to emit executable code in some cases), but is the best method we have
-  // right now for checking this.
-  MCSection *Sec = getCurrentSectionOnly();
-  Sec->setHasData(true);
 }
 
 void MCObjectStreamer::EmitValueToAlignment(unsigned ByteAlignment,

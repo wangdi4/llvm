@@ -59,6 +59,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
   case CC_AAPCS: return llvm::CallingConv::ARM_AAPCS;
   case CC_AAPCS_VFP: return llvm::CallingConv::ARM_AAPCS_VFP;
   case CC_IntelOclBicc: return llvm::CallingConv::Intel_OCL_BI;
+#if INTEL_CUSTOMIZATION
+  case CC_IntelOclBiccAVX: return llvm::CallingConv::Intel_OCL_BI_AVX;
+  case CC_IntelOclBiccAVX512: return llvm::CallingConv::Intel_OCL_BI_AVX512;
+#endif // INTEL_CUSTOMIZATION
   // TODO: Add support for __pascal to LLVM.
   case CC_X86Pascal: return llvm::CallingConv::C;
   // TODO: Add support for __vectorcall to LLVM.
@@ -229,6 +233,14 @@ static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
 
   if (D->hasAttr<IntelOclBiccAttr>())
     return CC_IntelOclBicc;
+
+#if INTEL_CUSTOMIZATION
+  if (D->hasAttr<IntelOclBiccAVXAttr>())
+    return CC_IntelOclBiccAVX;
+
+  if (D->hasAttr<IntelOclBiccAVX512Attr>())
+    return CC_IntelOclBiccAVX512;
+#endif // INTEL_CUSTOMIZATION
 
   if (D->hasAttr<MSABIAttr>())
     return IsWindows ? CC_C : CC_Win64;
@@ -1778,9 +1790,16 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
 
     if (CodeGenOpts.NullPointerIsValid)
       FuncAttrs.addAttribute("null-pointer-is-valid", "true");
+
+    // TODO: Omit attribute when the default is IEEE.
     if (CodeGenOpts.FPDenormalMode != llvm::DenormalMode::Invalid)
       FuncAttrs.addAttribute("denormal-fp-math",
                              llvm::denormalModeName(CodeGenOpts.FPDenormalMode));
+
+    if (CodeGenOpts.FP32DenormalMode != llvm::DenormalMode::Invalid)
+      FuncAttrs.addAttribute(
+          "denormal-fp-math-f32",
+          llvm::denormalModeName(CodeGenOpts.FP32DenormalMode));
 
     FuncAttrs.addAttribute("no-trapping-math",
                            llvm::toStringRef(CodeGenOpts.NoTrappingMath));
@@ -1807,10 +1826,6 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
     FuncAttrs.addAttribute(
         "correctly-rounded-divide-sqrt-fp-math",
         llvm::toStringRef(CodeGenOpts.CorrectlyRoundedDivSqrt));
-
-    if (getLangOpts().OpenCL)
-      FuncAttrs.addAttribute("denorms-are-zero",
-                             llvm::toStringRef(CodeGenOpts.FlushDenorm));
 
     // TODO: Reciprocal estimate codegen options should apply to instructions?
     const std::vector<std::string> &Recips = CodeGenOpts.Reciprocals;
@@ -1844,10 +1859,6 @@ void CodeGenModule::ConstructDefaultFnAttrList(StringRef Name, bool HasOptnone,
   if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice) {
     // Exceptions aren't supported in CUDA device code.
     FuncAttrs.addAttribute(llvm::Attribute::NoUnwind);
-
-    // Respect -fcuda-flush-denormals-to-zero.
-    if (CodeGenOpts.FlushDenorm)
-      FuncAttrs.addAttribute("nvptx-f32ftz", "true");
   }
 
   for (StringRef Attr : CodeGenOpts.DefaultFunctionAttrs) {
@@ -1862,6 +1873,42 @@ void CodeGenModule::AddDefaultFnAttrs(llvm::Function &F) {
   ConstructDefaultFnAttrList(F.getName(), F.hasOptNone(),
                              /* AttrOnCallSite = */ false, FuncAttrs);
   F.addAttributes(llvm::AttributeList::FunctionIndex, FuncAttrs);
+}
+
+static void addNoBuiltinAttributes(llvm::AttrBuilder &FuncAttrs,
+                                   const LangOptions &LangOpts,
+                                   const NoBuiltinAttr *NBA = nullptr) {
+  auto AddNoBuiltinAttr = [&FuncAttrs](StringRef BuiltinName) {
+    SmallString<32> AttributeName;
+    AttributeName += "no-builtin-";
+    AttributeName += BuiltinName;
+    FuncAttrs.addAttribute(AttributeName);
+  };
+
+  // First, handle the language options passed through -fno-builtin.
+  if (LangOpts.NoBuiltin) {
+    // -fno-builtin disables them all.
+    FuncAttrs.addAttribute("no-builtins");
+    return;
+  }
+
+  // Then, add attributes for builtins specified through -fno-builtin-<name>.
+  llvm::for_each(LangOpts.NoBuiltinFuncs, AddNoBuiltinAttr);
+
+  // Now, let's check the __attribute__((no_builtin("...")) attribute added to
+  // the source.
+  if (!NBA)
+    return;
+
+  // If there is a wildcard in the builtin names specified through the
+  // attribute, disable them all.
+  if (llvm::is_contained(NBA->builtinNames(), "*")) {
+    FuncAttrs.addAttribute("no-builtins");
+    return;
+  }
+
+  // And last, add the rest of the builtin names.
+  llvm::for_each(NBA->builtinNames(), AddNoBuiltinAttr);
 }
 
 void CodeGenModule::ConstructAttributeList(
@@ -1882,6 +1929,8 @@ void CodeGenModule::ConstructAttributeList(
   const Decl *TargetDecl = CalleeInfo.getCalleeDecl().getDecl();
 
   bool HasOptnone = false;
+  // The NoBuiltinAttr attached to a TargetDecl (only allowed on FunctionDecls).
+  const NoBuiltinAttr *NBA = nullptr;
   // FIXME: handle sseregparm someday...
   if (TargetDecl) {
     if (TargetDecl->hasAttr<ReturnsTwiceAttr>())
@@ -1907,22 +1956,7 @@ void CodeGenModule::ConstructAttributeList(
       if (!(AttrOnCallSite && IsVirtualCall)) {
         if (Fn->isNoReturn())
           FuncAttrs.addAttribute(llvm::Attribute::NoReturn);
-
-        const auto *NBA = Fn->getAttr<NoBuiltinAttr>();
-        bool HasWildcard = NBA && llvm::is_contained(NBA->builtinNames(), "*");
-        if (getLangOpts().NoBuiltin || HasWildcard)
-          FuncAttrs.addAttribute("no-builtins");
-        else {
-          auto AddNoBuiltinAttr = [&FuncAttrs](StringRef BuiltinName) {
-            SmallString<32> AttributeName;
-            AttributeName += "no-builtin-";
-            AttributeName += BuiltinName;
-            FuncAttrs.addAttribute(AttributeName);
-          };
-          llvm::for_each(getLangOpts().NoBuiltinFuncs, AddNoBuiltinAttr);
-          if (NBA)
-            llvm::for_each(NBA->builtinNames(), AddNoBuiltinAttr);
-        }
+        NBA = Fn->getAttr<NoBuiltinAttr>();
       }
     }
 
@@ -1956,6 +1990,14 @@ void CodeGenModule::ConstructAttributeList(
                                  NumElemsParam);
     }
   }
+
+  // Attach "no-builtins" attributes to:
+  // * call sites: both `nobuiltin` and "no-builtins" or "no-builtin-<name>".
+  // * definitions: "no-builtins" or "no-builtin-<name>" only.
+  // The attributes can come from:
+  // * LangOpts: -ffreestanding, -fno-builtin, -fno-builtin-<name>
+  // * FunctionDecl attributes: __attribute__((no_builtin(...)))
+  addNoBuiltinAttributes(FuncAttrs, getLangOpts(), NBA);
 
   ConstructDefaultFnAttrList(Name, HasOptnone, AttrOnCallSite, FuncAttrs);
 
@@ -2055,8 +2097,8 @@ void CodeGenModule::ConstructAttributeList(
   if (const auto *RefTy = RetTy->getAs<ReferenceType>()) {
     QualType PTy = RefTy->getPointeeType();
     if (!PTy->isIncompleteType() && PTy->isConstantSizeType())
-      RetAttrs.addDereferenceableAttr(getContext().getTypeSizeInChars(PTy)
-                                        .getQuantity());
+      RetAttrs.addDereferenceableAttr(
+          getMinimumObjectSize(PTy).getQuantity());
     else if (getContext().getTargetAddressSpace(PTy) == 0 &&
              !CodeGenOpts.NullPointerIsValid)
       RetAttrs.addAttribute(llvm::Attribute::NonNull);
@@ -2173,8 +2215,8 @@ void CodeGenModule::ConstructAttributeList(
     if (const auto *RefTy = ParamType->getAs<ReferenceType>()) {
       QualType PTy = RefTy->getPointeeType();
       if (!PTy->isIncompleteType() && PTy->isConstantSizeType())
-        Attrs.addDereferenceableAttr(getContext().getTypeSizeInChars(PTy)
-                                       .getQuantity());
+        Attrs.addDereferenceableAttr(
+            getMinimumObjectSize(PTy).getQuantity());
       else if (getContext().getTargetAddressSpace(PTy) == 0 &&
                !CodeGenOpts.NullPointerIsValid)
         Attrs.addAttribute(llvm::Attribute::NonNull);
@@ -2480,9 +2522,8 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
               EmitScalarExpr(AVAttr->getAlignment());
             llvm::ConstantInt *AlignmentCI =
               cast<llvm::ConstantInt>(AlignmentValue);
-            unsigned Alignment = std::min((unsigned)AlignmentCI->getZExtValue(),
-                                          +llvm::Value::MaximumAlignment);
-            AI->addAttrs(llvm::AttrBuilder().addAlignmentAttr(Alignment));
+            AI->addAttrs(llvm::AttrBuilder().addAlignmentAttr(llvm::MaybeAlign(
+                AlignmentCI->getLimitedValue(llvm::Value::MaximumAlignment))));
           }
         }
 
@@ -3871,6 +3912,106 @@ void CodeGenFunction::deferPlaceholderReplacement(llvm::Instruction *Old,
   DeferredReplacements.push_back(std::make_pair(Old, New));
 }
 
+namespace {
+
+/// Specify given \p NewAlign as the alignment of return value attribute. If
+/// such attribute already exists, re-set it to the maximal one of two options.
+LLVM_NODISCARD llvm::AttributeList
+maybeRaiseRetAlignmentAttribute(llvm::LLVMContext &Ctx,
+                                const llvm::AttributeList &Attrs,
+                                llvm::Align NewAlign) {
+  llvm::Align CurAlign = Attrs.getRetAlignment().valueOrOne();
+  if (CurAlign >= NewAlign)
+    return Attrs;
+  llvm::Attribute AlignAttr = llvm::Attribute::getWithAlignment(Ctx, NewAlign);
+  return Attrs
+      .removeAttribute(Ctx, llvm::AttributeList::ReturnIndex,
+                       llvm::Attribute::AttrKind::Alignment)
+      .addAttribute(Ctx, llvm::AttributeList::ReturnIndex, AlignAttr);
+}
+
+template <typename AlignedAttrTy> class AbstractAssumeAlignedAttrEmitter {
+protected:
+  CodeGenFunction &CGF;
+
+  /// We do nothing if this is, or becomes, nullptr.
+  const AlignedAttrTy *AA = nullptr;
+
+  llvm::Value *Alignment = nullptr;      // May or may not be a constant.
+  llvm::ConstantInt *OffsetCI = nullptr; // Constant, hopefully zero.
+
+  AbstractAssumeAlignedAttrEmitter(CodeGenFunction &CGF_, const Decl *FuncDecl)
+      : CGF(CGF_) {
+    if (!FuncDecl)
+      return;
+    AA = FuncDecl->getAttr<AlignedAttrTy>();
+  }
+
+public:
+  /// If we can, materialize the alignment as an attribute on return value.
+  LLVM_NODISCARD llvm::AttributeList
+  TryEmitAsCallSiteAttribute(const llvm::AttributeList &Attrs) {
+    if (!AA || OffsetCI || CGF.SanOpts.has(SanitizerKind::Alignment))
+      return Attrs;
+    const auto *AlignmentCI = dyn_cast<llvm::ConstantInt>(Alignment);
+    if (!AlignmentCI)
+      return Attrs;
+    llvm::AttributeList NewAttrs = maybeRaiseRetAlignmentAttribute(
+        CGF.getLLVMContext(), Attrs,
+        llvm::Align(
+            AlignmentCI->getLimitedValue(llvm::Value::MaximumAlignment)));
+    AA = nullptr; // We're done. Disallow doing anything else.
+    return NewAttrs;
+  }
+
+  /// Emit alignment assumption.
+  /// This is a general fallback that we take if either there is an offset,
+  /// or the alignment is variable or we are sanitizing for alignment.
+  void EmitAsAnAssumption(SourceLocation Loc, QualType RetTy, RValue &Ret) {
+    if (!AA)
+      return;
+    CGF.EmitAlignmentAssumption(Ret.getScalarVal(), RetTy, Loc,
+                                AA->getLocation(), Alignment, OffsetCI);
+    AA = nullptr; // We're done. Disallow doing anything else.
+  }
+};
+
+/// Helper data structure to emit `AssumeAlignedAttr`.
+class AssumeAlignedAttrEmitter final
+    : public AbstractAssumeAlignedAttrEmitter<AssumeAlignedAttr> {
+public:
+  AssumeAlignedAttrEmitter(CodeGenFunction &CGF_, const Decl *FuncDecl)
+      : AbstractAssumeAlignedAttrEmitter(CGF_, FuncDecl) {
+    if (!AA)
+      return;
+    // It is guaranteed that the alignment/offset are constants.
+    Alignment = cast<llvm::ConstantInt>(CGF.EmitScalarExpr(AA->getAlignment()));
+    if (Expr *Offset = AA->getOffset()) {
+      OffsetCI = cast<llvm::ConstantInt>(CGF.EmitScalarExpr(Offset));
+      if (OffsetCI->isNullValue()) // Canonicalize zero offset to no offset.
+        OffsetCI = nullptr;
+    }
+  }
+};
+
+/// Helper data structure to emit `AllocAlignAttr`.
+class AllocAlignAttrEmitter final
+    : public AbstractAssumeAlignedAttrEmitter<AllocAlignAttr> {
+public:
+  AllocAlignAttrEmitter(CodeGenFunction &CGF_, const Decl *FuncDecl,
+                        const CallArgList &CallArgs)
+      : AbstractAssumeAlignedAttrEmitter(CGF_, FuncDecl) {
+    if (!AA)
+      return;
+    // Alignment may or may not be a constant, and that is okay.
+    Alignment = CallArgs[AA->getParamIndex().getLLVMIndex()]
+                    .getRValue(CGF)
+                    .getScalarVal();
+  }
+};
+
+} // namespace
+
 RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                                  const CGCallee &Callee,
                                  ReturnValueSlot ReturnValue,
@@ -4467,6 +4608,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     // Can't legally throw in an OpenMP region that cannot catch the exception
     // within the region.
     CannotThrow = true;
+    Attrs =
+        Attrs.addAttribute(getLLVMContext(), llvm::AttributeList::FunctionIndex,
+                           llvm::Attribute::NoUnwind);
 #endif // INTEL_COLLAB
   } else {
     // Otherwise, nounwind call sites will never throw.
@@ -4493,6 +4637,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       Attrs =
         Attrs.addAttribute(getLLVMContext(), llvm::AttributeList::FunctionIndex,
                            llvm::Attribute::StrictFP);
+
+  AssumeAlignedAttrEmitter AssumeAlignedAttrEmitter(*this, TargetDecl);
+  Attrs = AssumeAlignedAttrEmitter.TryEmitAsCallSiteAttribute(Attrs);
+
+  AllocAlignAttrEmitter AllocAlignAttrEmitter(*this, TargetDecl, CallArgs);
+  Attrs = AllocAlignAttrEmitter.TryEmitAsCallSiteAttribute(Attrs);
 
   // Emit the actual call/invoke instruction.
   llvm::CallBase *CI;
@@ -4526,6 +4676,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                                  llvm::AttributeList::FunctionIndex, A.first);
 }
 #endif // INTEL_CUSTOMIZATION
+
+  // If this is within a function that has the guard(nocf) attribute and is an
+  // indirect call, add the "guard_nocf" attribute to this call to indicate that
+  // Control Flow Guard checks should not be added, even if the call is inlined.
+  if (const auto *FD = dyn_cast_or_null<FunctionDecl>(CurFuncDecl)) {
+    if (const auto *A = FD->getAttr<CFGuardAttr>()) {
+      if (A->getGuard() == CFGuardAttr::GuardArg::nocf && !CI->getCalledFunction())
+        Attrs = Attrs.addAttribute(
+            getLLVMContext(), llvm::AttributeList::FunctionIndex, "guard_nocf");
+    }
+  }
 
   // Apply the attributes and calling convention.
   CI->setAttributes(Attrs);
@@ -4563,6 +4724,31 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   if (getDebugInfo() && TargetDecl &&
       TargetDecl->hasAttr<MSAllocatorAttr>())
     getDebugInfo()->addHeapAllocSiteMetadata(CI, RetTy, Loc);
+
+#if INTEL_CUSTOMIZATION
+  // Assign scopes to function arguments. They will be stored as a list in
+  // "intel.args.alias.scope" metadata.
+  if (std::any_of(
+          IRCallArgs.begin(), IRCallArgs.end(),
+          [this](llvm::Value *Ptr) { return NoAliasPtrMap.count(Ptr) != 0; })) {
+    SmallVector<llvm::Metadata *, 16> ArgsNoAliasScopes;
+    ArgsNoAliasScopes.reserve(IRCallArgs.size());
+
+    for (auto *Arg : IRCallArgs) {
+      llvm::MDNode *Scope = nullptr;
+
+      auto I = NoAliasPtrMap.find(Arg);
+      if (I != NoAliasPtrMap.end()) {
+        Scope = I->second;
+      }
+
+      ArgsNoAliasScopes.push_back(Scope);
+    }
+
+    CI->setMetadata("intel.args.alias.scope",
+                    llvm::MDNode::get(getLLVMContext(), ArgsNoAliasScopes));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // 4. Finish the call.
 
@@ -4721,22 +4907,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
   // Emit the assume_aligned check on the return value.
   if (Ret.isScalar() && TargetDecl) {
-    if (const auto *AA = TargetDecl->getAttr<AssumeAlignedAttr>()) {
-      llvm::Value *OffsetValue = nullptr;
-      if (const auto *Offset = AA->getOffset())
-        OffsetValue = EmitScalarExpr(Offset);
-
-      llvm::Value *Alignment = EmitScalarExpr(AA->getAlignment());
-      llvm::ConstantInt *AlignmentCI = cast<llvm::ConstantInt>(Alignment);
-      EmitAlignmentAssumption(Ret.getScalarVal(), RetTy, Loc, AA->getLocation(),
-                              AlignmentCI, OffsetValue);
-    } else if (const auto *AA = TargetDecl->getAttr<AllocAlignAttr>()) {
-      llvm::Value *AlignmentVal = CallArgs[AA->getParamIndex().getLLVMIndex()]
-                                      .getRValue(*this)
-                                      .getScalarVal();
-      EmitAlignmentAssumption(Ret.getScalarVal(), RetTy, Loc, AA->getLocation(),
-                              AlignmentVal);
-    }
+    AssumeAlignedAttrEmitter.EmitAsAnAssumption(Loc, RetTy, Ret);
+    AllocAlignAttrEmitter.EmitAsAnAssumption(Loc, RetTy, Ret);
   }
 
   // Explicitly call CallLifetimeEnd::Emit just to re-use the code even though

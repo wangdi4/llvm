@@ -245,8 +245,8 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
     return true;
   }
 
-  // See if this is a deleted function.
   if (FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+    // See if this is a deleted function.
     if (FD->isDeleted()) {
       auto *Ctor = dyn_cast<CXXConstructorDecl>(FD);
       if (Ctor && Ctor->isInheritingConstructor())
@@ -259,6 +259,29 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
       return true;
     }
 
+    // [expr.prim.id]p4
+    //   A program that refers explicitly or implicitly to a function with a
+    //   trailing requires-clause whose constraint-expression is not satisfied,
+    //   other than to declare it, is ill-formed. [...]
+    //
+    // See if this is a function with constraints that need to be satisfied.
+    // Check this before deducing the return type, as it might instantiate the
+    // definition.
+    if (FD->getTrailingRequiresClause()) {
+      ConstraintSatisfaction Satisfaction;
+      if (CheckFunctionConstraints(FD, Satisfaction, Loc))
+        // A diagnostic will have already been generated (non-constant
+        // constraint expression, for example)
+        return true;
+      if (!Satisfaction.IsSatisfied) {
+        Diag(Loc,
+             diag::err_reference_to_function_with_unsatisfied_constraints)
+            << D;
+        DiagnoseUnsatisfiedConstraint(Satisfaction);
+        return true;
+      }
+    }
+
     // If the function has a deduced return type, and we can't deduce it,
     // then we can't use it either.
     if (getLangOpts().CPlusPlus14 && FD->getReturnType()->isUndeducedType() &&
@@ -268,8 +291,11 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
     if (getLangOpts().CUDA && !CheckCUDACall(Loc, FD))
       return true;
 
-    if (getLangOpts().SYCLIsDevice)
-      CheckSYCLCall(Loc, FD);
+#if INTEL_CUSTOMIZATION
+    // HLS also uses SYCL's diagnostic deferring system
+    if (getLangOpts().SYCLIsDevice || getLangOpts().HLS)
+#endif // INTEL_CUSTOMIZATION
+      checkSYCLDeviceFunction(Loc, FD);
   }
 
   if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
@@ -328,6 +354,17 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
   DiagnoseUnusedOfDecl(*this, D, Loc);
 
   diagnoseUseOfInternalDeclInInlineFunction(*this, D, Loc);
+
+  if (isa<ParmVarDecl>(D) && isa<RequiresExprBodyDecl>(D->getDeclContext()) &&
+      !isUnevaluatedContext()) {
+    // C++ [expr.prim.req.nested] p3
+    //   A local parameter shall only appear as an unevaluated operand
+    //   (Clause 8) within the constraint-expression.
+    Diag(Loc, diag::err_requires_expr_parameter_referenced_in_evaluated_context)
+        << D;
+    Diag(D->getLocation(), diag::note_entity_declared_at) << D;
+    return true;
+  }
 
   return false;
 }
@@ -1883,7 +1920,7 @@ Sema::BuildDeclRefExpr(ValueDecl *D, QualType Ty, ExprValueKind VK,
   bool RefersToCapturedVariable =
       isa<VarDecl>(D) &&
       NeedToCaptureVariable(cast<VarDecl>(D), NameInfo.getLoc());
-
+  
   DeclRefExpr *E = DeclRefExpr::Create(
       Context, NNS, TemplateKWLoc, D, RefersToCapturedVariable, NameInfo, Ty,
       VK, FoundD, TemplateArgs, getNonOdrUseReasonInCurrentContext(D));
@@ -5411,6 +5448,16 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
 
     // Otherwise do argument promotion, (C99 6.5.2.2p7).
     } else {
+#if INTEL_CUSTOMIZATION
+      // Diagnose variadic calls in HLS.
+      if (getLangOpts().HLS && !isUnevaluatedContext()) {
+        CallingConv CC = FDecl->getType()->castAs<FunctionType>()->getCallConv();
+        if (!supportsVariadicCall(CC))
+          SYCLDiagIfDeviceCode(CallLoc, diag::err_cconv_varargs)
+              << FunctionType::getNameForCallConv(CC);
+      }
+#endif // INTEL_CUSTOMIZATION
+
       for (Expr *A : Args.slice(ArgIx)) {
         ExprResult Arg = DefaultVariadicArgumentPromotion(A, CallType, FDecl);
         Invalid |= Arg.isInvalid();
@@ -5837,7 +5884,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
     StringRef FeatList = FeatAttr->getFeatures();
     while (!FeatList.empty()) {
       std::pair<StringRef, StringRef> FPair = FeatList.split(',');
-      Features.push_back(FPair.first);
+      Features.push_back(std::string(FPair.first));
       FeatList = FPair.second;
     }
   }
@@ -5852,7 +5899,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
   // Check Feature List
   for (StringRef ReqFeature : ReqFeatures)
     if (!FeatureMap.lookup(ReqFeature))
-      FeaturesToAdd.push_back(ReqFeature);
+      FeaturesToAdd.push_back(std::string(ReqFeature));
 
   if (FeaturesToAdd.empty())
     return;
@@ -5875,7 +5922,7 @@ static void PromoteIntelIntrins(Sema &S, ExprResult Call) {
 
   // Update Feature Attribute.
   if (auto *FeatAttr = CurFD->getAttr<TargetPromotionAttr>()) {
-    std::string NewFeatureString = FeatAttr->getFeatures();
+    std::string NewFeatureString = std::string(FeatAttr->getFeatures());
     NewFeatureString += ',';
     NewFeatureString += FeaturesToAddList;
     FeatAttr->setFeatures(S.getASTContext(), NewFeatureString);
@@ -8932,7 +8979,7 @@ Sema::CheckSingleAssignmentConstraints(QualType LHSType, ExprResult &CallerRHS,
         ImplicitConversionSequence ICS =
             TryImplicitConversion(RHS.get(), LHSType.getUnqualifiedType(),
                                   /*SuppressUserConversions=*/false,
-                                  /*AllowExplicit=*/false,
+                                  AllowedExplicit::None,
                                   /*InOverloadResolution=*/false,
                                   /*CStyle=*/false,
                                   /*AllowObjCWritebackConversion=*/false);
@@ -10586,8 +10633,6 @@ static bool convertPointersToCompositeType(Sema &S, SourceLocation Loc,
     return true;
   }
 
-  LHS = S.ImpCastExprToType(LHS.get(), T, CK_BitCast);
-  RHS = S.ImpCastExprToType(RHS.get(), T, CK_BitCast);
   return false;
 }
 
@@ -11469,6 +11514,9 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
         diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS,
                                           /*isError*/false);
       }
+      // FIXME: If LPtrToVoid, we should presumably convert the LHS rather than
+      // the RHS, but we have test coverage for this behavior.
+      // FIXME: Consider using convertPointersToCompositeType in C++.
       if (LHSIsNull && !RHSIsNull) {
         Expr *E = LHS.get();
         if (getLangOpts().ObjCAutoRefCount)
@@ -11728,12 +11776,12 @@ static void diagnoseXorMisusedAsPow(Sema &S, const ExprResult &XorLHS,
   if (XorStr == "xor")
     return;
 
-  std::string LHSStr = Lexer::getSourceText(
+  std::string LHSStr = std::string(Lexer::getSourceText(
       CharSourceRange::getTokenRange(LHSInt->getSourceRange()),
-      S.getSourceManager(), S.getLangOpts());
-  std::string RHSStr = Lexer::getSourceText(
+      S.getSourceManager(), S.getLangOpts()));
+  std::string RHSStr = std::string(Lexer::getSourceText(
       CharSourceRange::getTokenRange(RHSInt->getSourceRange()),
-      S.getSourceManager(), S.getLangOpts());
+      S.getSourceManager(), S.getLangOpts()));
 
   if (Negative) {
     RightSideValue = -RightSideValue;
@@ -15861,8 +15909,7 @@ static bool funcHasParameterSizeMangling(Sema &S, FunctionDecl *FD) {
   // These manglings don't do anything on non-Windows or non-x86 platforms, so
   // we don't need parameter type sizes.
   const llvm::Triple &TT = S.Context.getTargetInfo().getTriple();
-  if (!TT.isOSWindows() || (TT.getArch() != llvm::Triple::x86 &&
-                            TT.getArch() != llvm::Triple::x86_64))
+  if (!TT.isOSWindows() || !TT.isX86())
     return false;
 
   // If this is C++ and this isn't an extern "C" function, parameters do not
@@ -16062,7 +16109,7 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
   if (getLangOpts().CUDA)
     CheckCUDACall(Loc, Func);
   if (getLangOpts().SYCLIsDevice)
-    CheckSYCLCall(Loc, Func);
+    checkSYCLDeviceFunction(Loc, Func);
 
   // If we need a definition, try to create one.
   if (NeedDefinition && !Func->getBody()) {
@@ -16758,8 +16805,10 @@ bool Sema::tryCaptureVariable(
               captureVariablyModifiedType(Context, QTy, OuterRSI);
             }
           }
-          bool IsTargetCap = !IsOpenMPPrivateDecl &&
-                             isOpenMPTargetCapturedDecl(Var, RSI->OpenMPLevel);
+          bool IsTargetCap =
+              !IsOpenMPPrivateDecl &&
+              isOpenMPTargetCapturedDecl(Var, RSI->OpenMPLevel,
+                                         RSI->OpenMPCaptureLevel);
           // When we detect target captures we are looking from inside the
           // target region, therefore we need to propagate the capture from the
           // enclosing region. Therefore, the capture is not initially nested.
@@ -17641,15 +17690,7 @@ namespace {
     }
 
     void VisitCXXNewExpr(CXXNewExpr *E) {
-      FunctionDecl *FD = E->getOperatorNew();
-      if (FD && S.getLangOpts().SYCLIsDevice) {
-        if (FD->isReplaceableGlobalAllocationFunction())
-          S.SYCLDiagIfDeviceCode(E->getExprLoc(), diag::err_sycl_restrict)
-              << S.KernelAllocateStorage;
-        else if (FunctionDecl *Def = FD->getDefinition())
-          S.CheckSYCLCall(E->getExprLoc(), Def);
-      }
-      if (FD)
+      if (E->getOperatorNew())
         S.MarkFunctionReferenced(E->getBeginLoc(), E->getOperatorNew());
       if (E->getOperatorDelete())
         S.MarkFunctionReferenced(E->getBeginLoc(), E->getOperatorDelete());
@@ -18499,7 +18540,7 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
     // No guarantees that ResolveAndFixSingleFunctionTemplateSpecialization
     // leaves Result unchanged on failure.
     Result = E;
-    if (resolveAndFixAddressOfOnlyViableOverloadCandidate(Result))
+    if (resolveAndFixAddressOfSingleOverloadCandidate(Result))
       return Result;
 
     // If that failed, try to recover with a call.
@@ -18639,4 +18680,9 @@ ExprResult Sema::ActOnObjCAvailabilityCheckExpr(
 
   return new (Context)
       ObjCAvailabilityCheckExpr(Version, AtLoc, RParen, Context.BoolTy);
+}
+
+bool Sema::IsDependentFunctionNameExpr(Expr *E) {
+  assert(E->isTypeDependent());
+  return isa<UnresolvedLookupExpr>(E);
 }

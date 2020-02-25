@@ -583,7 +583,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
   }
 
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 #define DEFINE_GET_UNCOLLAPSED(Name, Offset)                                   \
   MutableArrayRef<Expr *> getUncollapsed##Name() {                             \
     Expr **Storage = reinterpret_cast<Expr **>(                                \
@@ -600,7 +600,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
   DEFINE_GET_UNCOLLAPSED(Incs, 13)
   DEFINE_GET_UNCOLLAPSED(Updates, 14)
 #undef DEFINE_GET_UNCOLLAPSED
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 protected:
   /// Build instance of loop directive of class \a Kind.
@@ -806,7 +806,7 @@ protected:
   void setDependentCounters(ArrayRef<Expr *> A);
   void setDependentInits(ArrayRef<Expr *> A);
   void setFinalsConditions(ArrayRef<Expr *> A);
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
   void setUncollapsedIVs(ArrayRef<Expr *> A);
   void setUncollapsedLowerBounds(ArrayRef<Expr *> A);
   void setUncollapsedUpperBounds(ArrayRef<Expr *> A);
@@ -814,7 +814,7 @@ protected:
   void setUncollapsedLoopConds(ArrayRef<Expr *> A);
   void setUncollapsedIncs(ArrayRef<Expr *> A);
   void setUncollapsedUpdates(ArrayRef<Expr *> A);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 public:
   /// The expressions built to support OpenMP loops in combined/composite
@@ -1256,7 +1256,7 @@ public:
   ArrayRef<Expr *> finals() const {
     return const_cast<OMPLoopDirective *>(this)->getFinals();
   }
-#if INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
 #define DEFINE_UNCOLLAPSED_RANGES(Name)                                        \
   ArrayRef<Expr *> uncollapsed##Name() { return getUncollapsed##Name(); }      \
                                                                                \
@@ -1271,7 +1271,7 @@ public:
   DEFINE_UNCOLLAPSED_RANGES(Incs)
   DEFINE_UNCOLLAPSED_RANGES(Updates)
 #undef DEFINE_UNCOLLAPSED_RANGES
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   ArrayRef<Expr *> dependent_counters() { return getDependentCounters(); }
 

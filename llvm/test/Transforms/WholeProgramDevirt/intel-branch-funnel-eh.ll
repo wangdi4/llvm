@@ -2,7 +2,7 @@
 ; in functions that contain exception handling. It should generate the
 ; branch funnel intrinsic.
 
-; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=true %s | FileCheck %s
+; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=true %s | FileCheck %s
 
 ; Check that the virtual call in %result was substituted with a call to
 ; the branch funnel

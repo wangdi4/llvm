@@ -1,6 +1,6 @@
 //===- Intel_Float128Expand.cpp - Expand FP128 operations -----------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -63,7 +63,7 @@ static Value *expandToLibCall(IRBuilder<> &Builder, Instruction *I,
   const DataLayout &DL = M->getDataLayout();
 
   Type *FP128Ty = Type::getFP128Ty(Ctx);
-  unsigned AllocaAlignment = DL.getPrefTypeAlignment(FP128Ty);
+  auto AllocaAlignment = MaybeAlign(DL.getPrefTypeAlignment(FP128Ty));
   ConstantInt *SizeVal64 = Builder.getInt64(DL.getTypeStoreSize(FP128Ty));
 
   SmallVector<Value *, 3> Args;
@@ -78,7 +78,7 @@ static Value *expandToLibCall(IRBuilder<> &Builder, Instruction *I,
   if (RetTy->isFP128Ty()) {
     AllocaDst = new AllocaInst(FP128Ty, AllocaAS, "",
                                &F.getEntryBlock().front());
-    AllocaDst->setAlignment(MaybeAlign(AllocaAlignment));
+    AllocaDst->setAlignment(AllocaAlignment);
 
     Builder.CreateLifetimeStart(AllocaDst, SizeVal64);
     Args.push_back(AllocaDst);
@@ -92,7 +92,7 @@ static Value *expandToLibCall(IRBuilder<> &Builder, Instruction *I,
   if (Ops[0]->getType()->isFP128Ty()) {
     AllocaOp0 = new AllocaInst(FP128Ty, AllocaAS, "",
                                &F.getEntryBlock().front());
-    AllocaOp0->setAlignment(MaybeAlign(AllocaAlignment));
+    AllocaOp0->setAlignment(AllocaAlignment);
 
     Builder.CreateLifetimeStart(AllocaOp0, SizeVal64);
     Builder.CreateAlignedStore(Ops[0], AllocaOp0, AllocaAlignment);
@@ -107,7 +107,7 @@ static Value *expandToLibCall(IRBuilder<> &Builder, Instruction *I,
     assert(Ops[1]->getType()->isFP128Ty() && "Unexpected type!");
     AllocaOp1 = new AllocaInst(FP128Ty, AllocaAS, "",
                                &F.getEntryBlock().front());
-    AllocaOp1->setAlignment(MaybeAlign(AllocaAlignment));
+    AllocaOp1->setAlignment(AllocaAlignment);
 
     Builder.CreateLifetimeStart(AllocaOp1, SizeVal64);
     Builder.CreateAlignedStore(Ops[1], AllocaOp1, AllocaAlignment);

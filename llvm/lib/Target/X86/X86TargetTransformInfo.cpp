@@ -913,6 +913,27 @@ bool X86TTIImpl::isTargetSpecificShuffleMask(
 
   return IsAlternateLaneVectorMask;
 }
+
+bool X86TTIImpl::isVPlanVLSProfitable() const {
+  // Conservative VLS is profitable for most architectures, except the most
+  // advanced IA processors.
+  return !(ST->hasAVX512() &&
+           getTLI()->getTargetMachine().Options.IntelAdvancedOptim);
+}
+
+bool X86TTIImpl::isAggressiveVLSProfitable() const {
+  // Old processors without support for GATHER/SCATTER instructions always
+  // benefit from the optimization.
+  if (!ST->hasAVX2())
+    return true;
+
+  // We know that it is safe to run VLS aggressively when tuning for IA.
+  if (getTLI()->getTargetMachine().Options.IntelAdvancedOptim)
+    return true;
+
+  // Be conservative otherwise.
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
@@ -1437,6 +1458,7 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
     { ISD::UINT_TO_FP,  MVT::v4f64,  MVT::v4i64,  5 },
     { ISD::UINT_TO_FP,  MVT::v8f64,  MVT::v8i64,  5 },
 
+    { ISD::UINT_TO_FP,  MVT::f32,    MVT::i64,    1 },
     { ISD::UINT_TO_FP,  MVT::f64,    MVT::i64,    1 },
     { ISD::FP_TO_UINT,  MVT::i64,    MVT::f32,    1 },
     { ISD::FP_TO_UINT,  MVT::i64,    MVT::f64,    1 },
@@ -1470,6 +1492,8 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
     { ISD::ZERO_EXTEND, MVT::v8i32,  MVT::v8i16,  1 },
     { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i32,  1 },
     { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i32,  1 },
+    { ISD::ZERO_EXTEND, MVT::v16i32, MVT::v16i16, 3 },
+    { ISD::SIGN_EXTEND, MVT::v16i32, MVT::v16i16, 3 },
 
     { ISD::TRUNCATE,    MVT::v4i8,   MVT::v4i64,  2 },
     { ISD::TRUNCATE,    MVT::v4i16,  MVT::v4i64,  2 },
@@ -1599,6 +1623,7 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
     { ISD::TRUNCATE,    MVT::v16i16, MVT::v16i32, 6 },
     { ISD::TRUNCATE,    MVT::v2i8,   MVT::v2i64,  1 }, // PSHUFB
 
+    { ISD::UINT_TO_FP,  MVT::f32,    MVT::i64,    4 },
     { ISD::UINT_TO_FP,  MVT::f64,    MVT::i64,    4 },
   };
 
@@ -1630,7 +1655,9 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
 
     { ISD::FP_TO_SINT,  MVT::v2i32,  MVT::v2f64,  3 },
 
+    { ISD::UINT_TO_FP,  MVT::f32,    MVT::i64,    6 },
     { ISD::UINT_TO_FP,  MVT::f64,    MVT::i64,    6 },
+
     { ISD::FP_TO_UINT,  MVT::i64,    MVT::f32,    4 },
     { ISD::FP_TO_UINT,  MVT::i64,    MVT::f64,    4 },
 
@@ -3664,7 +3691,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
     assert(newFunc && "The function should be defined");
   }
   else {
-    std::string baseName = origFunc->getName();
+    std::string baseName = std::string(origFunc->getName());
     origFunc->setName(Twine("_replaced_").concat(baseName));
     newFunc = cast<Function>((M->getOrInsertFunction(baseName, newFuncType,
                                      origFunc->getAttributes())).getCallee());

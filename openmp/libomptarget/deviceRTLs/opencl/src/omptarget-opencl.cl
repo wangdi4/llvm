@@ -20,7 +20,8 @@
 
 kmp_global_state_t GLOBAL = {
   .g_barrier = {{ATOMIC_VAR_INIT(0u), ATOMIC_VAR_INIT(0u)}},
-  .assume_simple_spmd_mode = 1
+  .assume_simple_spmd_mode = 1,
+  .program_data = {0, 0, -1, CL_DEVICE_TYPE_GPU}
 };
 
 kmp_local_state_t LOCALS[KMP_MAX_NUM_GROUPS];

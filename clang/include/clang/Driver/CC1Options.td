@@ -381,6 +381,9 @@ def fsanitize_coverage_no_prune
 def fsanitize_coverage_stack_depth
     : Flag<["-"], "fsanitize-coverage-stack-depth">,
       HelpText<"Enable max stack depth tracing">;
+def fpatchable_function_entry_offset_EQ
+    : Joined<["-"], "fpatchable-function-entry-offset=">, MetaVarName<"<M>">,
+      HelpText<"Generate M NOPs before function entry">;
 def fprofile_instrument_EQ : Joined<["-"], "fprofile-instrument=">,
     HelpText<"Enable PGO instrumentation. The accepted value is clang, llvm, "
              "or none">, Values<"none,clang,llvm">;
@@ -413,6 +416,9 @@ def cfguard_no_checks : Flag<["-"], "cfguard-no-checks">,
     HelpText<"Emit Windows Control Flow Guard tables only (no checks)">;
 def cfguard : Flag<["-"], "cfguard">,
     HelpText<"Emit Windows Control Flow Guard tables and checks">;
+
+def fdenormal_fp_math_f32_EQ : Joined<["-"], "fdenormal-fp-math-f32=">,
+   Group<f_Group>;
 
 //===----------------------------------------------------------------------===//
 // Dependency Output Options
@@ -564,7 +570,10 @@ def ftest_module_file_extension_EQ :
   HelpText<"introduce a module file extension for testing purposes. "
            "The argument is parsed as blockname:major:minor:hashed:user info">;
 def fconcepts_ts : Flag<["-"], "fconcepts-ts">,
-  HelpText<"Enable C++ Extensions for Concepts.">;
+  HelpText<"Enable C++ Extensions for Concepts. (deprecated - use -std=c++2a)">;
+def fno_concept_satisfaction_caching : Flag<["-"],
+                                            "fno-concept-satisfaction-caching">,
+  HelpText<"Disable satisfaction caching for C++2a Concepts.">;
 
 let Group = Action_Group in {
 
@@ -977,6 +986,8 @@ def fsycl_int_header : Separate<["-"], "fsycl-int-header">,
   HelpText<"Generate SYCL integration header into this file.">;
 def fsycl_int_header_EQ : Joined<["-"], "fsycl-int-header=">,
   Alias<fsycl_int_header>;
+def fsycl_std_layout_kernel_params: Flag<["-"], "fsycl-std-layout-kernel-params">,
+  HelpText<"Enable standard layout requirement for SYCL kernel parameters.">;
 def fsycl_allow_func_ptr : Flag<["-"], "fsycl-allow-func-ptr">,
   HelpText<"Allow function pointers in SYCL device.">;
 def fno_sycl_allow_func_ptr : Flag<["-"], "fno-sycl-allow-func-ptr">;

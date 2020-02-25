@@ -288,7 +288,7 @@ void Sema::ActOnPragmaClangSection(SourceLocation PragmaLoc, PragmaClangSectionA
   }
 
   CSec->Valid = true;
-  CSec->SectionName = SecName;
+  CSec->SectionName = std::string(SecName);
   CSec->PragmaLocation = PragmaLoc;
 }
 
@@ -945,6 +945,14 @@ void Sema::ActOnPragmaFPContract(LangOptions::FPContractModeKind FPC) {
     Context.disableFPContract(); // INTEL
     break;
   }
+}
+
+void Sema::setRoundingMode(LangOptions::FPRoundingModeKind FPR) {
+  FPFeatures.setRoundingMode(FPR);
+}
+
+void Sema::setExceptionMode(LangOptions::FPExceptionModeKind FPE) {
+  FPFeatures.setExceptionMode(FPE);
 }
 
 void Sema::ActOnPragmaFEnvAccess(LangOptions::FEnvAccessModeKind FPC) {

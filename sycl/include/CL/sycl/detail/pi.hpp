@@ -43,6 +43,7 @@ using PiPlatform = ::pi_platform;
 using PiDevice = ::pi_device;
 using PiDeviceType = ::pi_device_type;
 using PiDeviceInfo = ::pi_device_info;
+using PiProgramInfo = ::pi_program_info;
 using PiDeviceBinaryType = ::pi_device_binary_type;
 using PiContext = ::pi_context;
 using PiProgram = ::pi_program;
@@ -92,6 +93,30 @@ template <> inline void print<>(PiPlatform val) {
   std::cout << "pi_platform : " << val;
 }
 
+/* INTEL_CUSTOMIZATION */
+template <> inline void print<>(PiEvent val) {
+  std::cout << "pi_event : " << val;
+}
+
+template <> inline void print<>(PiMem val) {
+  std::cout << "pi_mem : " << val;
+}
+
+template <> inline void print<>(PiEvent *val) {
+  std::cout << "pi_event * : " << val;
+  if (val) {
+    std::cout << "[ " << *val << " ... ]";
+  }
+}
+
+template <> inline void print<>(const PiEvent *val) {
+  std::cout << "const pi_event * : " << val;
+  if (val) {
+    std::cout << "[ " << *val << " ... ]";
+  }
+}
+/* end INTEL_CUSTOMIZATION */
+
 template <> inline void print<>(PiResult val) {
   std::cout << "pi_result : ";
   if (val == PI_SUCCESS)
@@ -110,6 +135,52 @@ void printArgs(Arg0 arg0, Args... args) {
   print(arg0);
   printArgs(std::forward<Args>(args)...);
 }
+
+/* INTEL_CUSTOMIZATION */
+template <typename T>
+struct printOut { printOut(T val) { } }; // Do nothing
+
+template<> struct printOut<PiEvent *> {
+  printOut(PiEvent *val) {
+  std::cout << std::endl << "       ";
+  std::cout << "[out]pi_event * : " << val;
+  if (val) {
+    std::cout << "[ " << *val << " ... ]";
+  }
+}};
+
+template<> struct printOut<PiMem *> {
+  printOut(PiMem *val) {
+  std::cout << std::endl << "       ";
+  std::cout << "[out]pi_mem * : " << val;
+  if (val) {
+    std::cout << "[ " << *val << " ... ]";
+  }
+}};
+
+template<> struct printOut<void *> {
+  printOut(void *val) {
+  std::cout << std::endl << "       ";
+  std::cout << "[out]void * : " << val;
+}};
+
+template<typename T> struct printOut<T **> {
+  printOut(T **val) {
+  std::cout << std::endl << "       ";
+  std::cout << "[out]<unknown> ** : " << val;
+  if (val) {
+    std::cout << "[ " << *val << " ... ]";
+  }
+}};
+
+inline void printOuts(void) {}
+template <typename Arg0, typename... Args>
+void printOuts(Arg0 arg0, Args... args) {
+  using T = decltype(arg0);
+  printOut<T> a(arg0);
+  printOuts(std::forward<Args>(args)...);
+}
+/* end INTEL_CUSTOMIZATION */
 
 // Utility function to check return from pi calls.
 // Throws if pi_result is not a PI_SUCCESS.
@@ -142,6 +213,7 @@ public:
     if (MEnableTrace) {
       std::cout << "---> " << MFnName << "(";
       printArgs(args...);
+      std::cout << std::flush;  // INTEL
     }
 
     PiResult r = MFnPtr(args...);
@@ -149,6 +221,9 @@ public:
     if (MEnableTrace) {
       std::cout << ") ---> ";
       std::cout << (print(r), "") << std::endl;
+      printOuts(args...);       // INTEL
+      std::cout << std::endl;   // INTEL
+      std::cout << std::flush;  // INTEL
     }
     return r;
   }

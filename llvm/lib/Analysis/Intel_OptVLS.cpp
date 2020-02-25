@@ -1846,7 +1846,7 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                                 OVLSGroupVector &Grps, unsigned VectorLength,
                                 OVLSMemrefToGroupMap *MemrefToGroupMap) {
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n"
-                       << "  Recieved a vector of memrefs (" << Memrefs.size()
+                       << "  Received a vector of memrefs (" << Memrefs.size()
                        << "): \n");
   OVLSDebug(OptVLS::dumpOVLSMemrefVector(OVLSdbgs(), Memrefs, 2));
 

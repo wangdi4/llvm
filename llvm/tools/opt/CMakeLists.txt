@@ -44,11 +44,17 @@ add_llvm_tool(opt
   PrintSCC.cpp
   opt.cpp
 
+  ENABLE_PLUGINS
+
   DEPENDS
   intrinsics_gen
   SUPPORT_PLUGINS
   )
 export_executable_symbols(opt)
+
+if(LLVM_BUILD_EXAMPLES)
+    target_link_libraries(opt PRIVATE ExampleIRTransforms)
+endif(LLVM_BUILD_EXAMPLES)
 
 # INTEL_CUSTOMIZATION
 if(INTEL_INCLUDE_DTRANS)
@@ -63,7 +69,3 @@ if (p)
 endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-
-if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
-  target_link_libraries(opt PRIVATE Polly)
-endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)

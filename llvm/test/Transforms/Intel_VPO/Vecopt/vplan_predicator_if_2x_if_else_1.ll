@@ -6,6 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
 define void @test_2_hammocks_3(i32* noalias nocapture %a) local_unnamed_addr #0 {
+;
 ; CHECK-LABEL:  After predication and linearization
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
@@ -14,13 +15,13 @@ define void @test_2_hammocks_3(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION_PHI_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDUCTION_PHI_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_INDUCTION_PHI_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Divergent] i32* [[VP_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDUCTION_PHI]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_LOOP_HEADER_LD:%.*]] = load i32* [[VP_GEP]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_LOOP_HEADER_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 0
@@ -28,7 +29,7 @@ define void @test_2_hammocks_3(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB1_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 1
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB1_VARYING_NOT:%.*]] = not i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
@@ -41,19 +42,19 @@ define void @test_2_hammocks_3(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LOOP_HEADER_LD]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB2_MUL:%.*]] = mul i32 [[VP_LOOP_HEADER_LD]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_LOOP_HEADER_VARYING]]
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_VARYING:%.*]] = icmp i32 [[VP_LOOP_HEADER_LD]] i32 4
 ; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_VARYING_NOT:%.*]] = not i1 [[VP_BB4_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
@@ -66,25 +67,25 @@ define void @test_2_hammocks_3(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB6_MUL:%.*]] = mul i32 [[VP_LOOP_HEADER_LD]] i32 6
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_BB4_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_BB4_VARYING]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB5_SUB:%.*]] = sub i32 [[VP_LOOP_HEADER_LD]] i32 5
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION]] = add i64 [[VP_INDUCTION_PHI]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION]] = add i64 [[VP_INDUCTION_PHI]] i64 [[VP_INDUCTION_PHI_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDUCTION]] i64 1000
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB12:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP8:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB13:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

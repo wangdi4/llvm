@@ -1,6 +1,6 @@
 //===--- Intel_MDInlineReport.cpp  --Inlining report vis metadata --------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,6 +16,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/InstIterator.h"
@@ -29,10 +31,10 @@ using namespace MDInliningReport;
 std::string llvm::getLinkageStr(Function *F) {
   std::string LinkageChar =
       (F->hasLocalLinkage()
-           ? "L"
-           : (F->hasLinkOnceODRLinkage()
-                  ? "O"
-                  : (F->hasAvailableExternallyLinkage() ? "X" : "A")));
+       ? "L"
+       : (F->hasLinkOnceODRLinkage()
+          ? "O"
+          : (F->hasAvailableExternallyLinkage() ? "X" : "A")));
   return LinkageChar;
 }
 
@@ -40,13 +42,15 @@ std::string llvm::getLinkageStr(Function *F) {
 // Constructor for function inlining report metadata and object.
 // Ex.:
 // !21 = distinct !{!"intel.function.inlining.report", !"name: a", !22,
-//       !"name: test1.c", !"isDead: 0", !"isDeclaration: 0", !"linkage: A"}
+//       !"name: test1.c", !"isDead: 0", !"isDeclaration: 0", !"linkage: A",
+//       !"isSuppressPrint: 0"}
 // !22 = distinct !{!"intel.callsites.inlining.report"}
 FunctionInliningReport::FunctionInliningReport(LLVMContext *C,
                                                std::string FuncName,
                                                std::vector<MDTuple *> *CSs,
                                                std::string ModuleName,
                                                bool IsDead, bool IsDeclaration,
+                                               bool isSuppressPrint,
                                                std::string LinkageStr) {
   // Create inlining report metadata list for call sites inside function.
   SmallVector<Metadata *, 100> Ops;
@@ -84,6 +88,16 @@ FunctionInliningReport::FunctionInliningReport(LLVMContext *C,
   LinkageStr.insert(0, "linkage: ");
   auto LinkageMD = MDNode::get(*C, llvm::MDString::get(*C, LinkageStr));
   Ops.push_back(LinkageMD);
+  // Op 7: isSuppressPrint
+  std::string IsSuppressPrintStr = "isSuppressPrint: ";
+  if (isSuppressPrint) {
+    LLVM_DEBUG(dbgs() << "isSuppressPrint is ON\n";);
+    setSuppressPrint(true);
+  }
+  IsSuppressPrintStr.append(std::to_string(isSuppressPrint));
+  auto IsSuppressPrintMD =
+      MDNode::get(*C, llvm::MDString::get(*C, IsSuppressPrintStr));
+  Ops.push_back(IsSuppressPrintMD);
 
   Report = MDTuple::getDistinct(*C, Ops);
 }
@@ -115,7 +129,8 @@ bool FunctionInliningReport::isFunctionInliningReportMetadata(
 //
 MDTuple *CallSiteInliningReport::initCallSite(
     LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
-    InlineReason Reason, bool IsInlined, int InlineCost, int OuterInlineCost,
+    InlineReason Reason, bool IsInlined, bool IsSuppressPrint,
+    int InlineCost, int OuterInlineCost,
     int InlineThreshold, int EarlyExitInlineCost, int EarlyExitInlineThreshold,
     unsigned Line, unsigned Col, std::string ModuleName) {
   // Create a list of inlining reports for call sites that appear from inlining
@@ -185,33 +200,52 @@ MDTuple *CallSiteInliningReport::initCallSite(
   ModuleName.insert(0, "moduleName: ");
   auto ModuleNameMD = MDNode::get(*C, llvm::MDString::get(*C, ModuleName));
   Ops.push_back(ModuleNameMD);
+
+  // Op 12: isSuppressPrint
+  std::string IsSuppressPrintStr = "isSuppressPrint: ";
+  if (IsSuppressPrint) {
+    LLVM_DEBUG(dbgs() << "IsSuppressPrint is ON\n";);
+    setSuppressPrint(true);
+  }
+  IsSuppressPrintStr.append(std::to_string(IsSuppressPrint));
+  auto IsSuppressPrintMD =
+      MDNode::get(*C, llvm::MDString::get(*C, IsSuppressPrintStr));
+  Ops.push_back(IsSuppressPrintMD);
+
   return MDTuple::getDistinct(*C, Ops);
 }
 
 CallSiteInliningReport::CallSiteInliningReport(
     LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
-    InlineReason Reason, bool IsInlined, int InlineCost, int OuterInlineCost,
+    InlineReason Reason, bool IsInlined, bool IsSuppressPrint, int InlineCost,
+    int OuterInlineCost,
     int InlineThreshold, int EarlyExitInlineCost, int EarlyExitInlineThreshold,
     unsigned Line, unsigned Col, std::string ModuleName) {
-  Report = initCallSite(C, Name, CSs, Reason, IsInlined, InlineCost,
-                        OuterInlineCost, InlineThreshold, EarlyExitInlineCost,
-                        EarlyExitInlineThreshold, Line, Col, ModuleName);
+  Report = initCallSite(C, Name, CSs, Reason, IsInlined, IsSuppressPrint,
+                        InlineCost, OuterInlineCost, InlineThreshold,
+                        EarlyExitInlineCost, EarlyExitInlineThreshold, Line,
+                        Col, ModuleName);
 }
 
 CallSiteInliningReport::CallSiteInliningReport(
     CallBase *MainCB, std::vector<MDTuple *> *CSs, InlineReason Reason,
-    bool IsInlined, int InlineCost, int OuterInlineCost, int InlineThreshold,
-    int EarlyExitInlineCost, int EarlyExitInlineThreshold) {
+    bool IsInlined, bool IsSuppressPrint, int InlineCost, int OuterInlineCost,
+    int InlineThreshold, int EarlyExitInlineCost,
+    int EarlyExitInlineThreshold) {
   Function *Callee = MainCB->getCalledFunction();
-  std::string Name = Callee ? (Callee->hasName() ? Callee->getName() : "") : "";
+  std::string Name =
+      Callee ? std::string(Callee->hasName() ? Callee->getName() : "") : "";
   const DebugLoc &DL = MainCB->getDebugLoc();
   StringRef ModuleName =
       MainCB->getParent()->getParent()->getParent()->getName();
   Report = initCallSite(&(MainCB->getParent()->getParent()->getContext()), Name,
-                        CSs, Reason, IsInlined, InlineCost, OuterInlineCost,
+                        CSs, Reason, IsInlined,
+                        MainCB->getMetadata(IPOUtils::getSuppressInlineReportStringRef()),
+                        InlineCost, OuterInlineCost,
                         InlineThreshold, EarlyExitInlineCost,
                         EarlyExitInlineThreshold, (DL ? DL.getLine() : 0),
                         (DL ? DL.getCol() : 0), ModuleName.str());
+
 }
 
 bool CallSiteInliningReport::isCallSiteInliningReportMetadata(
@@ -238,13 +272,9 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
-         "Incorrect call site inline report metadata");
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
+      "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
-  std::string ReasonStr = "reason: ";
-  ReasonStr.append(std::to_string(Reason));
-  auto ReasonMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
-  CSIR->replaceOperandWith(CSMDIR_InlineReason, ReasonMD);
   std::string InlineCostStr = "inlineCost: ";
   InlineCostStr.append(std::to_string(IC.getCost()));
   auto InlineCostMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, InlineCostStr));
@@ -271,8 +301,8 @@ void llvm::setMDReasonNotInlined(const CallSite CS, InlineReason Reason) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
-         "Incorrect call site inline report metadata");
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
+      "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string ReasonStr = "reason: ";
   ReasonStr.append(std::to_string(Reason));
@@ -288,8 +318,8 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC,
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
-         "Incorrect call site inline report metadata");
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
+      "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string OuterInlineCostStr = "outerInlineCost: ";
   OuterInlineCostStr.append(std::to_string(TotalSecondaryCost));
@@ -305,8 +335,8 @@ void llvm::setMDReasonIsInlined(const CallSite CS, InlineReason Reason) {
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
-         "Incorrect call site inline report metadata");
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
+      "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
   std::string ReasonStr = "reason: ";
   ReasonStr.append(std::to_string(Reason));
@@ -318,17 +348,14 @@ void llvm::setMDReasonIsInlined(const CallSite CS, InlineReason Reason) {
 void llvm::setMDReasonIsInlined(const CallSite CS, const InlineCost &IC) {
   InlineReason Reason = IC.getInlineReason();
   assert(IsInlinedReason(Reason));
+  llvm::setMDReasonIsInlined(CS, Reason);
   Metadata *CSMD = CS->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
-  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
-         "Incorrect call site inline report metadata");
+  assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
+      "Incorrect call site inline report metadata");
   LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
-  std::string ReasonStr = "reason: ";
-  ReasonStr.append(std::to_string(Reason));
-  auto ReasonMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
-  CSIR->replaceOperandWith(CSMDIR_InlineReason, ReasonMD);
   std::string InlineCostStr = "inlineCost: ";
   InlineCostStr.append(std::to_string(IC.getCost()));
   auto InlineCostMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, InlineCostStr));
@@ -434,8 +461,10 @@ cloneInliningReportHelper(LLVMContext &C, Metadata *OldMD,
     unsigned LineNum = 0, ColNum = 0;
     OldRep.getLineAndCol(&LineNum, &ColNum);
     CallSiteInliningReport *NewRep = new CallSiteInliningReport(
-        &C, OldRep.getName(), nullptr, NinlrNoReason, false, -1, -1, -1,
-        INT_MAX, INT_MAX, LineNum, ColNum, OldRep.getModuleName());
+        &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false,
+        OldRep.getSuppressPrint(),
+        -1, -1, -1,
+        INT_MAX, INT_MAX, LineNum, ColNum, std::string(OldRep.getModuleName()));
     NewMD = NewRep->get();
   } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;
@@ -483,7 +512,7 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
     return nullptr;
 
   for (ValueToValueMapTy::iterator InstIt = VMap.begin(),
-                                   InstItEnd = VMap.end();
+           InstItEnd = VMap.end();
        InstIt != InstItEnd; InstIt++) {
     Metadata *OldMetadata = nullptr;
     if (!InstIt->first) {
@@ -518,8 +547,8 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
   std::set<MDTuple *>::iterator It, ItEnd = LeafMDIR.end();
   for (It = LeafMDIR.begin(); It != ItEnd; ++It) {
     auto *CSIR = dyn_cast<MDTuple>(*It);
-    assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
-           "Incorrect call site inline report metadata");
+    assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
+        "Incorrect call site inline report metadata");
     LLVMContext &Ctx = CSIR->getContext();
     std::string ReasonStr = "reason: ";
     ReasonStr.append(std::to_string(NinlrDeleted));
@@ -545,8 +574,8 @@ void InlineReportBuilder::updateInliningReport() {
     // to be associated with it, which should not happen because it is
     // deleted.
     Value *OldCall = ActiveOriginalCalls[I] == CurrentCallInstr
-                         ? nullptr
-                         : ActiveOriginalCalls[I];
+                     ? nullptr
+                     : ActiveOriginalCalls[I];
     Value *NewCall = ActiveInlinedCalls[I];
     VMap.insert(std::make_pair(OldCall, NewCall));
   }
@@ -580,7 +609,7 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
 
   LLVMContext &Ctx = NewFunction->getParent()->getContext();
   // Op 1: function name
-  std::string FuncName = NewFunction->getName();
+  std::string FuncName = std::string(NewFunction->getName());
   FuncName.insert(0, "name: ");
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
   OldFIR->replaceOperandWith(FMDIR_FuncName, FuncNameMD);

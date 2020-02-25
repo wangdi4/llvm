@@ -90,28 +90,6 @@ let Predicates = [InIceCodeMode] in {
                           "fscp_read{q}\t{$src, $dst|$dst, $src}",
                           [(set GR64:$dst, (int_x86_icecode_fscp_read_64 GR32:$src))]>;
 
-    let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0 in {
-      def CREG_XCHG32r_Rev : I<0x03, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "creg_xchg{l}\t{$src, $dst|$dst, $src}", []>;
-      def CREG_XCHG64r_Rev : RI<0x03, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "creg_xchg{q}\t{$src, $dst|$dst, $src}", []>;
-
-      def FSCP_XCHG32r_Rev : I<0x23, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "fscp_xchg{l}\t{$src, $dst|$dst, $src}", []>;
-      def FSCP_XCHG64r_Rev : RI<0x23, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "fscp_xchg{q}\t{$src, $dst|$dst, $src}", []>;
-
-      def CREG_READ32r_Rev : I<0x2b, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "creg_read{l}\t{$src, $dst|$dst, $src}", []>;
-      def CREG_READ64r_Rev : RI<0x2b, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "creg_read{q}\t{$src, $dst|$dst, $src}", []>;
-
-      def FSCP_READ32r_Rev : I<0x0b, MRMSrcReg, (outs GR32:$dst), (ins GR32:$src),
-                               "fscp_read{l}\t{$src, $dst|$dst, $src}", []>;
-      def FSCP_READ64r_Rev : RI<0x0b, MRMSrcReg, (outs GR64:$dst), (ins GR32:$src),
-                                "fscp_read{q}\t{$src, $dst|$dst, $src}", []>;
-    }
-
     def PORTIN8rm  : I<0x8a, MRMSrcMem, (outs GR8:$dst), (ins opaquemem:$src),
                        "portin{b}\t{$src, $dst|$dst, $src}",
                        [(set GR8:$dst, (int_x86_icecode_portin_8 addr:$src))]>, AdSize32;
@@ -142,11 +120,15 @@ let Predicates = [InIceCodeMode] in {
                          [(int_x86_icecode_sta_special addr:$mem)]>, NotMemoryFoldable, AdSize32;
     def NR_READr : Ii8<0x83, MRM6r, (outs GR32:$dst), (ins i32u8imm:$src),
                        "nr_read\t{$src, $dst|$dst, $src}",
-                       [(set GR32:$dst, (int_x86_icecode_nr_read (i32 imm:$src)))]>;
+                       [(set GR32:$dst, (int_x86_icecode_nr_read (i32 timm:$src)))]>;
 
     let Uses = [EAX] in
       def SIGEVENTJUMP : Ii32<0x81, MRM2r, (outs), (ins GR32:$src1, i32imm:$src2),
                               "sigeventjump\t{$src2, $src1, %eax|eax, $src1, $src2}", []>;
+
+    def SETTRACKER : Ii8<0x6a, RawFrm, (outs), (ins i32u8imm:$src),
+                         "settracker\t$src",
+                         [(int_x86_icecode_set_tracker (i32 timm:$src))]>;
   }
 
   def SSERIALIZE : I<0x01, MRM_D4, (outs), (ins), "sserialize", []>, TB;
@@ -172,6 +154,6 @@ let Predicates = [InIceCodeMode] in {
   let Constraints = "$src1 = $dst" in
     def CMODEMOVcc : Ii8<0x40, MRMSrcRegCC, (outs GR64:$dst), (ins GR64:$src1, GR64:$src2, i32u4imm:$cond),
                          "cmodemov\t{$cond, $src2, $dst|$dst, $src2, $cond}",
-                         [(set GR64:$dst, (int_x86_icecode_cmodemov GR64:$src1, GR64:$src2, (i32 imm:$cond)))]>, XS;
+                         [(set GR64:$dst, (int_x86_icecode_cmodemov GR64:$src1, GR64:$src2, (i32 timm:$cond)))]>, XS;
 }
 // end INTEL_FEATURE_ICECODE

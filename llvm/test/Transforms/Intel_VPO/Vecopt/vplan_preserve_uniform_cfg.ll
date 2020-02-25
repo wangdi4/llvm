@@ -10,6 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define i64 @test_uniform() local_unnamed_addr #0 {
+;
 ; CHECK-LABEL:  After predication and linearization
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
@@ -18,13 +19,13 @@ define i64 @test_uniform() local_unnamed_addr #0 {
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP1:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION_PHI_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDUCTION_PHI_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP0]], [[BB1]] ],  [ i64 [[VP_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_INDUCTION_PHI_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_LOOP_HEADER_UNIFORM:%.*]] = icmp i64 [[UNIFORM_LD0:%.*]] i64 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_LOOP_HEADER_UNIFORM]]), [[BB3]](!i1 [[VP_LOOP_HEADER_UNIFORM]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
@@ -35,13 +36,13 @@ define i64 @test_uniform() local_unnamed_addr #0 {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION]] = add i64 [[VP_INDUCTION_PHI]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDUCTION]] = add i64 [[VP_INDUCTION_PHI]] i64 [[VP_INDUCTION_PHI_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDUCTION]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP2:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:

@@ -17,8 +17,8 @@
 ;
 ;<0>          BEGIN REGION { }
 ;<14>               %mv.test = &((@a)[0]) >=u &((%0)[0]);
-;<15>               %mv.test1 = &((%0)[0]) >=u &((@a)[0]);
-;<16>               %mv.and = %mv.test  &&  %mv.test1;
+;<15>               %mv.test2 = &((%0)[0]) >=u &((@a)[0]);
+;<16>               %mv.and = %mv.test  &&  %mv.test2;
 ;<17>               if (%mv.and == 0)
 ;<17>               {
 ;<10>                  + DO i1 = 0, 16, 1   <DO_LOOP>  <MVTag: 10>
@@ -39,8 +39,8 @@
 ;
 ;CHECK:       BEGIN REGION { modified }
 ;CHECK:            %mv.test = &((@a)[0]) >=u &((%0)[0]);
-;CHECK:            %mv.test1 = &((%0)[0]) >=u &((@a)[0]);
-;CHECK:            %mv.and = %mv.test  &&  %mv.test1;
+;CHECK:            %mv.test2 = &((%0)[0]) >=u &((@a)[0]);
+;CHECK:            %mv.and = %mv.test  &&  %mv.test2;
 ;CHECK:            if (%mv.and == 0)
 ;CHECK:            {
 ;CHECK:               %1 = (%0)[0];

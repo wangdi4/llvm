@@ -1,8 +1,7 @@
 // REQUIRES: intel_feature_isa_amx_lnc
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
-// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-int8-evex -target-feature +amx-bf16-evex -target-feature +amx-tile-evex -target-feature\
-// RUN: +amx-transpose -target-feature +amx-fp16 -target-feature +amx-avx512 -target-feature +avx512f -target-feature +amx-element-evex -emit-llvm -o - -Wall -Werror -pedantic \
-// RUN: -Wno-gnu-statement-expression| FileCheck %s
+// RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-transpose -target-feature +amx-avx512 \
+// RUN: -target-feature +avx512f -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression| FileCheck %s
 
 #include <immintrin.h>
 #include <stddef.h>
@@ -17,25 +16,6 @@ void test_tile_2rpntlvwt1(const void *A, size_t B, size_t C) {
   // CHECK-LABEL: @test_tile_2rpntlvwt1
   // CHECK: call void @llvm.x86.t2rpntlvwt1(i8 1, i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
   _tile_2rpntlvwt1(1, A, B, C);
-}
-
-void test_tile_2transposew(const void *A, size_t B, size_t C) {
-  // CHECK-LABEL: @test_tile_2transposew
-  // CHECK: call void @llvm.x86.t2transposew(i8 1, i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
-  _tile_2transposew(1, A, B, C);
-}
-
-void test_tile_2transposewt1(const void *A, size_t B, size_t C) {
-  // CHECK-LABEL: @test_tile_2transposewt1
-  // CHECK: call void @llvm.x86.t2transposewt1(i8 1, i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
-  _tile_2transposewt1(1, A, B, C);
-}
-
-// FP16
-void test_tile_dpfp16ps() {
-  // CHECK-LABEL: @test_tile_dpfp16ps
-  // CHECK: call void @llvm.x86.tdpfp16ps(i8 1, i8 2, i8 3)
-  _tile_dpfp16ps(1, 2, 3);
 }
 
 typedef float __m512 __attribute__((__vector_size__(64)));
@@ -68,76 +48,6 @@ void test_tile_tilemovrowex(__m128 A) {
   // CHECK-LABEL: @test_tile_tilemovrowex
   // CHECK: %1 = call <16 x float> @llvm.x86.tilemovex(i8 1, <4 x float> %0)
   _tile_tilemovrowex(1, A);
-}
-
-// BF16-EVEX
-void test_tile_dpbf16pse() {
-  // CHECK-LABEL: @test_tile_dpbf16pse
-  // CHECK: call void @llvm.x86.tdpbf16pse(i8 1, i8 2, i8 3)
-  _tile_dpbf16pse(1, 2, 3);
-}
-
-// INT8-EVEX
-void test_tile_tdpbssde() {
-  // CHECK-LABEL: @test_tile_tdpbssde
-  // CHECK: call void @llvm.x86.tdpbssde(i8 1, i8 2, i8 3)
-  _tile_dpbssde(1, 2, 3);
-}
-
-void test_tile_tdpbsude() {
-  // CHECK-LABEL: @test_tile_tdpbsude
-  // CHECK: call void @llvm.x86.tdpbsude(i8 1, i8 2, i8 3)
-  _tile_dpbsude(1, 2, 3);
-}
-
-void test_tile_tdpbusde() {
-  // CHECK-LABEL: @test_tile_tdpbusde
-  // CHECK: call void @llvm.x86.tdpbusde(i8 1, i8 2, i8 3)
-  _tile_dpbusde(1, 2, 3);
-}
-
-void test_tile_tdpbuude() {
-  // CHECK-LABEL: @test_tile_tdpbuude
-  // CHECK: call void @llvm.x86.tdpbuude(i8 1, i8 2, i8 3)
-  _tile_dpbuude(1, 2, 3);
-}
-
-// TILE-EVEX
-void test_tile_loadde(const void * base, size_t stride) {
-  // CHECK-LABEL: @test_tile_loadde
-  // CHECK: call void @llvm.x86.tileloadde64(i8 1, i8* %0, i64 %1)
-  _tile_loadde(1, base, stride);
-}
-
-void test_tile_tileloaddt164e(const void * base, size_t stride) {
-  // CHECK-LABEL: @test_tile_tileloaddt164e
-  // CHECK: call void @llvm.x86.tileloaddt1e64(i8 1, i8* %0, i64 %1)
-  _tile_stream_loadde(1, base, stride);
-}
-
-void test_tile_tilestored64e(const void * base, size_t stride) {
-  // CHECK-LABEL: @test_tile_tilestored64e
-  // CHECK: call void @llvm.x86.tilestorede64(i8 1, i8* %0, i64 %1)
-  _tile_storede(1, base, stride);
-}
-
-void test_tile_tilemove() {
-  // CHECK-LABEL: @test_tile_tilemove
-  // CHECK: call void @llvm.x86.tilemove(i8 1, i8 2)
-  _tile_tilemove(1, 2);
-}
-
-void test_tile_tilezeroe() {
-  // CHECK-LABEL: @test_tile_tilezeroe
-  // CHECK: call void @llvm.x86.tilezeroe(i8 1)
-  _tile_zeroe(1);
-}
-
-//AMX_LNC
-void test_tile_cvtd2pse(void *A, size_t B) {
-  // CHECK-LABEL: @test_tile_cvtd2pse
-  // CHECK: call void @llvm.x86.tcvtd2pse{{.*}}, i64 %{{.*}}, i8 1)
-  _tile_cvtd2pse(A, B, 1);
 }
 
 void test_tile_cvtrowd2psei() {

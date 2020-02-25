@@ -37,13 +37,13 @@ VectorVariant::VectorVariant(StringRef MangledVariantName) {
   if (AliasStart != MangledVariantName.npos) {
     assert(MangledVariantName[MangledVariantName.size() - 1] == ')' &&
            "No matching parenthesis!");
-    this->Alias =
-        MangledVariantName.slice(AliasStart + 1, MangledVariantName.size() - 1);
+    this->Alias = std::string(MangledVariantName.slice(
+        AliasStart + 1, MangledVariantName.size() - 1));
   }
 
   assert(isVectorVariant(FuncName) && "invalid vector variant format");
 
-  std::stringstream SST(FuncName.drop_front(prefix().size()));
+  std::stringstream SST(std::string(FuncName.drop_front(prefix().size())));
 
   // mandatory annotations
   char EncodedISA;

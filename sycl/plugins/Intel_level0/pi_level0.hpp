@@ -19,6 +19,12 @@ struct _pi_device {
   //   driver.
   ze_command_list_handle_t L0CommandListInit;
 
+  // Indicates if this is a root-device or a sub-device.
+  // Technically this information can be queried from a device handle, but it
+  // seems better to just keep it here.
+  //
+  bool IsSubDevice;
+
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
 
@@ -73,6 +79,12 @@ struct _pi_mem {
   // TODO: see if there a better way to tag buffer vs. image.
   bool IsMemImage;
 
+  // Keeps the host pointer where the buffer will be mapped to,
+  // if created with PI_MEM_FLAGS_HOST_PTR_USE (see
+  // piEnqueueMemBufferMap for details).
+  //
+  char *MapHostPtr;
+
 #ifndef NDEBUG
   // Keep the descriptor of the image (for debugging purposes)
   ze_image_desc_t L0ImageDesc;
@@ -113,6 +125,9 @@ struct _pi_event {
   // These are NULL for the user events.
   pi_queue Queue;
   pi_command_type CommandType;
+
+  // Opaque data to hold any data needed for CommandType.
+  void * CommandData;
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;

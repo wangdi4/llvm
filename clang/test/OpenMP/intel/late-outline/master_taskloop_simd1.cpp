@@ -56,6 +56,8 @@ T tmain(T argc) {
   // CHECK-SAME: QUAL.OMP.NOGROUP
   // CHECK-SAME: QUAL.OMP.NUM_TASKS
   // CHECK: DIR.OMP.SIMD
+  // Should be here once we switch to OpenMP5.0 (allows if on simd)
+  // CHECK-NOT: QUAL.OMP.IF
   // CHECK-SAME: QUAL.OMP.COLLAPSE
   // CHECK-SAME: QUAL.OMP.SIMDLEN
   // CHECK: DIR.OMP.END.SIMD

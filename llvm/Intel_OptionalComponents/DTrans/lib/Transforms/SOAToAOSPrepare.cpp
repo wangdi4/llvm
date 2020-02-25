@@ -1,6 +1,6 @@
 //===------ SOAToAOSPrepare.cpp - SOAToAOSPreparePass ---------------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -462,7 +462,7 @@ void SOAToAOSPrepCandidateInfo::updateCallBase(CallBase *CB,
 }
 
 void SOAToAOSPrepCandidateInfo::removeDeadInsts(Function *F) {
-  SmallVector<Instruction *, 4> DeadInsts;
+  SmallVector<WeakTrackingVH, 4> DeadInsts;
 
   for (auto &I : instructions(F))
     if (isInstructionTriviallyDead(&I)) {
@@ -694,10 +694,11 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
   // Fix pointer type of "CInfo" using "TypeRemapper".
   auto FixCInfoPointerType = [](CallInfo *CInfo,
                                 DTransTypeRemapper &TypeRemapper) {
-    dtrans::PointerTypeInfo &PTI = CInfo->getPointerTypeInfoRef();
-    size_t Num = PTI.getNumTypes();
+    dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
+    size_t Num = ElementTypes.getNumTypes();
     for (size_t i = 0; i < Num; ++i)
-      PTI.setType(i, TypeRemapper.remapType(PTI.getType(i)));
+      ElementTypes.setElemType(
+          i, TypeRemapper.remapType(ElementTypes.getElemType(i)));
   };
 
   ValueToValueMapTy VMap;
@@ -805,7 +806,7 @@ void SOAToAOSPrepCandidateInfo::simplifyCalls() {
     InlineFunctionInfo IFI;
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
                     { dbgs() << "  Inlining Call: " << *CB << "\n"; });
-    bool InlineStatus = InlineFunction(CB, IFI);
+    bool InlineStatus = InlineFunction(CB, IFI).isSuccess();
     assert(InlineStatus && "inline must succeed");
     (void)InlineStatus;
   };
@@ -1100,8 +1101,7 @@ void SOAToAOSPrepCandidateInfo::postprocessFunction(Function &F,
       if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
         continue;
 
-      for (auto *PTy : CInfo->getPointerTypeInfoRef().getTypes()) {
-        Type *StTy = PTy->getPointerElementType();
+      for (auto *StTy : CInfo->getElementTypesRef().getElemTypes()) {
         if (StTy != NewElemTy)
           continue;
         DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
@@ -1817,7 +1817,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     Indices.push_back(IRB.getInt32(BaseArrayIdx));
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewElemTy, ThisPtr, Indices, "");
-    unsigned Align = DL.getABITypeAlignment(Elem->getType());
+    auto Align = MaybeAlign(DL.getABITypeAlignment(Elem->getType()));
     LoadInst *Load =
         IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());

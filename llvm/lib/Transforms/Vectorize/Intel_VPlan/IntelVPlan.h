@@ -44,6 +44,7 @@
 #include "IntelVPlanLoopInfo.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
@@ -76,8 +77,8 @@ class VPOCodeGen;
 class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPBasicBlock;
-using VPDominatorTree = DomTreeBase<VPBlockBase>;
-using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
+class VPDominatorTree;
+class VPPostDominatorTree;
 #if INTEL_CUSTOMIZATION
 class VPlanCostModel; // INTEL: to be later declared as a friend
 class VPlanCostModelProprietary; // INTEL: to be later declared as a friend
@@ -164,23 +165,19 @@ struct VPTransformState {
   /// traversing the VPBasicBlocks and generating corresponding IR BasicBlocks.
   struct CFGState {
     /// The previous VPBasicBlock visited. Initially set to null.
-    VPBasicBlock *PrevVPBB;
+    VPBasicBlock *PrevVPBB = nullptr;
     /// The previous IR BasicBlock created or used. Initially set to the new
     /// header BasicBlock.
-    BasicBlock *PrevBB;
+    BasicBlock *PrevBB = nullptr;
     /// The last IR BasicBlock in the output IR. Set to the new latch
     /// BasicBlock, used for placing the newly created BasicBlocks.
-    BasicBlock *LastBB;
+    BasicBlock *LastBB = nullptr;
     /// A mapping of each VPBasicBlock to the corresponding BasicBlock. In case
     /// of replication, maps the BasicBlock of the last replica created.
     SmallDenseMap<VPBasicBlock *, BasicBlock *> VPBB2IRBB;
-
-#if INTEL_CUSTOMIZATION
     /// Vector of VPBasicBlocks whose terminator instruction needs to be fixed
     /// up at the end of vector code generation.
     SmallVector<VPBasicBlock *, 8> VPBBsToFix;
-#endif
-    CFGState() : PrevVPBB(nullptr), PrevBB(nullptr), LastBB(nullptr) {}
   } CFG;
 
   /// Hold a pointer to LoopInfo to register new basic blocks in the loop.
@@ -309,6 +306,11 @@ class VPInstruction : public VPUser,
     // VPInstruction.
     std::unique_ptr<VPOperandHIR> LHSHIROperand;
 
+    // Used to save the symbase of the scalar memref corresponding to a
+    // load/store instruction. Vector memref generated during vector CG is
+    // assigned the same symbase.
+    unsigned Symbase = loopopt::InvalidSymbase;
+
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
     ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
@@ -317,7 +319,7 @@ class VPInstruction : public VPUser,
     ///      holding the actual HIR data.
     ///   3) Other VPInstruction (!Master and !Decomposed): MasterData is null.
     ///      We use a void pointer to represent this case.
-    PointerUnion3<MasterVPInstData *, VPInstruction *, void *> MasterData =
+    PointerUnion<MasterVPInstData *, VPInstruction *, void *> MasterData =
         (int *)nullptr;
 
     // Return the VPInstruction data of this VPInstruction if it's a master or
@@ -432,6 +434,9 @@ class VPInstruction : public VPUser,
          << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
     }
 
+    void setSymbase(unsigned SB) { Symbase = SB; }
+    unsigned getSymbase(void) const { return Symbase; }
+
     void cloneFrom(const HIRSpecifics &HIR) {
       if (HIR.isMaster()) {
         setUnderlyingNode(HIR.getUnderlyingNode());
@@ -449,6 +454,7 @@ class VPInstruction : public VPUser,
           setOperandIV(IV->getIVLevel());
         }
       }
+      setSymbase(HIR.getSymbase());
 
       // Verify correctness of the cloned HIR.
       assert(isMaster() == HIR.isMaster() &&
@@ -499,6 +505,24 @@ private:
   // Hold the underlying HIR information, if any, attached to this
   // VPInstruction.
   HIRSpecifics HIR;
+
+  void setSymbase(unsigned Symbase) {
+    assert(Opcode == Instruction::Store ||
+           Opcode == Instruction::Load &&
+               "setSymbase called for invalid VPInstruction");
+    assert(Symbase != loopopt::InvalidSymbase &&
+           "Unexpected invalid symbase assignment");
+    HIR.setSymbase(Symbase);
+  }
+
+  unsigned getSymbase(void) const {
+    assert(Opcode == Instruction::Store ||
+           Opcode == Instruction::Load &&
+               "getSymbase called for invalid VPInstruction");
+    assert(HIR.Symbase != loopopt::InvalidSymbase &&
+           "Unexpected invalid symbase");
+    return HIR.getSymbase();
+  }
 #endif
 
   /// Utility method serving execute(): generates a single instance of the
@@ -1478,46 +1502,6 @@ public:
     return PredBB;
   }
 #endif // INTEL_CUSTOMIZATION
-
-  /// Returns the closest ancestor starting from "this", which has successors.
-  /// Returns the root ancestor if all ancestors have no successors.
-  VPBlockBase *getAncestorWithSuccessors();
-
-  /// Returns the closest ancestor starting from "this", which has predecessors.
-  /// Returns the root ancestor if all ancestors have no predecessors.
-  VPBlockBase *getAncestorWithPredecessors();
-
-  /// \return the successors either attached directly to this VPBlockBase or, if
-  /// this VPBlockBase is the exit block of a VPRegionBlock and has no
-  /// successors of its own, search recursively for the first enclosing
-  /// VPRegionBlock that has successors and return them. If no such
-  /// VPRegionBlock exists, return the (empty) successors of the topmost
-  /// VPBlockBase reached.
-  const SmallVectorImpl<VPBlockBase *> &getHierarchicalSuccessors() {
-    return getAncestorWithSuccessors()->getSuccessors();
-  }
-
-  /// \return the hierarchical successor of this VPBlockBase if it has a single
-  /// hierarchical successor. Otherwise return a null pointer.
-  VPBlockBase *getSingleHierarchicalSuccessor() {
-    return getAncestorWithSuccessors()->getSingleSuccessor();
-  }
-
-  /// \return the predecessors either attached directly to this VPBlockBase or,
-  /// if this VPBlockBase is the entry block of a VPRegionBlock and has no
-  /// predecessors of its own, search recursively for the first enclosing
-  /// VPRegionBlock that has predecessors and return them. If no such
-  /// VPRegionBlock exists, return the (empty) predecessors of the topmost
-  /// VPBlockBase reached.
-  const SmallVectorImpl<VPBlockBase *> &getHierarchicalPredecessors() {
-    return getAncestorWithPredecessors()->getPredecessors();
-  }
-
-  /// \return the hierarchical predecessor of this VPBlockBase if it has a
-  /// single hierarchical predecessor. Otherwise return a null pointer.
-  VPBlockBase *getSingleHierarchicalPredecessor() {
-    return getAncestorWithPredecessors()->getSinglePredecessor();
-  }
 
   VPValue *getPredicate() { return Predicate; }
 
@@ -2662,53 +2646,7 @@ public:
   splitBlockEnd(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                 VPDominatorTree *DomTree = nullptr,
                 VPPostDominatorTree *PostDomTree = nullptr);
-  //===----------------------------------------------------------------------===//
-  // VPRegionBlock specific Utilities
-  //===----------------------------------------------------------------------===//
 
-  /// Insert a \p Region in a HCFG using \p Entry and \p Exit blocks as Region's
-  /// single entry and single exit. \p Entry and \p Exit blocks must be part of
-  /// the HCFG and be in the same region. \p Region cannot be part of a HCFG.
-  static void insertRegion(VPRegionBlock *Region, VPBlockBase *Entry,
-                           VPBlockBase *Exit, bool RecomputeSize = true) {
-
-    assert(Entry->getNumSuccessors() != 0 && "Entry must be in a HCFG");
-    assert(Entry->getNumPredecessors() != 0 && "Exit must be in a HCFG");
-    assert(Entry->getParent() && Exit->getParent() &&
-           "Entry and Exit must have a parent region");
-    assert(Entry->getParent() == Exit->getParent() &&
-           "Entry and Exit must have the same parent region");
-    assert(Exit->getParent()->getExit() != Exit &&
-           "Exit node cannot be an exit node in another region");
-    assert(!Region->getEntry() && "Region's entry must be null");
-    assert(!Region->getExit() && "Region's exit must be null");
-    assert(!Region->getNumSuccessors() && "Region cannot have successors");
-    assert(!Region->getNumPredecessors() && "Region cannot have predecessors");
-
-    VPRegionBlock *ParentRegion = Entry->getParent();
-
-    // If Entry is parent region's entry, set Region as parent region's entry
-    if (ParentRegion->getEntry() == Entry) {
-      ParentRegion->setEntry(Region);
-    } else {
-      VPBlockUtils::movePredecessors(Entry, Region);
-    }
-
-    // moveSuccessors is propagating Exit's parent to Region
-    VPBlockUtils::moveSuccessors(Exit, Region);
-    Region->setEntry(Entry);
-    Region->setExit(Exit);
-
-    // Recompute region size and update parent
-    if (RecomputeSize) {
-      Region->recomputeSize();
-      ParentRegion->Size -= Region->Size + 1 /*Region*/;
-    }
-  }
-
-  /// Set parent region for each VPBlockBase of the given region. Don't enter
-  /// into subregions, because their VPBlockBases must not be touched.
-  static void setParentRegionForBody(VPRegionBlock *Region);
 #endif // INTEL_CUSTOMIZATION
 };
 

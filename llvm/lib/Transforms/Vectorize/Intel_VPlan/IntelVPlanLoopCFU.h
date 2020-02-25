@@ -42,8 +42,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     LLVM_DEBUG(dbgs() << "SubLoopExitBlock: " << SubLoopExitBlock->getName() << "\n");
     (void)SubLoopExitBlock; // Unused under old-predicator release build.
 
-    auto *SubLoopRegnPred =
-        SubLoopPreHeader->getSingleHierarchicalPredecessor();
+    auto *SubLoopRegnPred = SubLoopPreHeader->getSinglePredecessor();
     // Find inner loop top test
     assert(SubLoopRegnPred &&
            "Assumed a single predecessor of subloop contains top test");
@@ -69,8 +68,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
       auto *SubLoopRegnPredBlock = cast<VPBasicBlock>(SubLoopRegnPred);
       // If the subloop region is the false successor of the predecessor,
       // we need to negate the top test.
-      if (SubLoopRegnPredBlock->getHierarchicalSuccessors()[1]
-              ->getEntryBasicBlock() == SubLoopPreHeader) {
+      if (SubLoopRegnPredBlock->getSuccessors()[1]->getEntryBasicBlock() ==
+          SubLoopPreHeader) {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(SubLoopRegnPredBlock);
         bool Divergent = VPDA->isDivergent(*TopTest);

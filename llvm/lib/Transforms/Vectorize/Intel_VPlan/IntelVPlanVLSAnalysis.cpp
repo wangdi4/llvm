@@ -15,15 +15,33 @@
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #endif // INTEL_CUSTOMIZATION
+
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-vls-analysis"
 
 namespace llvm {
 
 namespace vpo {
+
+enum VPlanVLSLevelVariant {
+  VPlanVLSRunNever,
+  VPlanVLSRunAuto,
+  VPlanVLSRunAlways
+};
+
+cl::opt<VPlanVLSLevelVariant> VPlanVLSLevel(
+    "vplan-vls-level", cl::desc("Level of VLS optimization in VPlan"),
+    cl::values(clEnumValN(VPlanVLSRunNever, "never", "Disable OptVLS in VPlan"),
+               clEnumValN(VPlanVLSRunAuto, "auto",
+                          "Run OptVLS only for select targets"),
+               clEnumValN(VPlanVLSRunAlways, "always",
+                          "Always run OptVLS during loop vectorization")),
+    cl::init(VPlanVLSRunAuto));
 
 OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
                                               const unsigned VF) const {
@@ -40,6 +58,11 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
     AccessSize = DL.getTypeAllocSizeInBits(VPInst->getOperand(0)->getType());
   }
 
+  // Skip volatile and atomic memory accesses.
+  if (auto *I = dyn_cast_or_null<Instruction>(VPInst->getUnderlyingValue()))
+    if (isVolatileOrAtomic(I))
+      return nullptr;
+
   OVLSType Ty(AccessSize, VF);
 
   // At this point we are not sure if this memref should be created. So, we
@@ -54,6 +77,14 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
 void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
                                       OVLSMemrefVector &MemrefVector,
                                       unsigned VF) {
+  // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
+  if (VPlanVLSLevel == VPlanVLSRunNever ||
+      VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable())
+    return;
+
+  if (!TTI->isAggressiveVLSProfitable())
+    return;
+
   auto Range = make_range(df_iterator<const VPRegionBlock *>::begin(Region),
                           df_iterator<const VPRegionBlock *>::end(Region));
 

@@ -2,6 +2,12 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
+# INTEL_CUSTOMIZATION
+if (MSVC)
+  set_source_files_properties(Transforms.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_clang_library(clangARCMigrate
   ARCMT.cpp
   ARCMTActions.cpp

@@ -15,32 +15,21 @@
 ;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=8 -VPlanDriverHIR -hir-cg -mem2reg -print-after=VPlanDriverHIR -S %s 2>&1 | FileCheck %s
 ;
 ; CHECK:           BEGIN REGION { modified }
-; CHECK:           %result.vector = insertelement zeroinitializer,  %sum.07,  0;
+; CHECK:           %red.var = 0;
+; CHECK:           %red.var = insertelement %red.var,  %sum.07,  0;
 
 ; CHECK:           + DO i1 = 0, 1023, 8   <DO_LOOP>
 ; CHECK:           |   %.vec = (<8 x i32>*)(@arr)[0][i1];
-; CHECK:           |   %result.vector = %.vec  +  %result.vector;
+; CHECK:           |   %red.var = %.vec  +  %red.var;
 ; CHECK:           + END LOOP
 
-; CHECK:           %rdx.shuf = shufflevector %result.vector,  %result.vector,  <i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef>;
-; CHECK:           %bin.rdx = %result.vector  +  %rdx.shuf;
-; CHECK:           %rdx.shuf1 = shufflevector %bin.rdx,  %bin.rdx,  <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
-; CHECK:           %bin.rdx2 = %bin.rdx  +  %rdx.shuf1;
-; CHECK:           %rdx.shuf3 = shufflevector %bin.rdx2,  %bin.rdx2,  <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>;
-; CHECK:           %bin.rdx4 = %bin.rdx2  +  %rdx.shuf3;
-; CHECK:           %sum.07 = extractelement %bin.rdx4,  0;
+; CHECK:           %sum.07 = @llvm.experimental.vector.reduce.add.v8i32(%red.var);
 ; CHECK:           END REGION
 
 ; CHECK: loop
-; CHECK: add {{.*}} <8 x i32>
+; CHECK: [[WIDE_ADD:%.*]] = add <8 x i32>
 ; CHECK: afterloop
-; CHECK: shufflevector <8 x i32>
-; CHECK: add <8 x i32>
-; CHECK: shufflevector <8 x i32>
-; CHECK: add <8 x i32>
-; CHECK: shufflevector <8 x i32>
-; CHECK: add <8 x i32>
-; CHECK: extractelement <8 x i32>
+; CHECK: call i32 @llvm.experimental.vector.reduce.add.v8i32(<8 x i32> [[WIDE_ADD]])
 ; CHECK-NOT: add i32
 source_filename = "t1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

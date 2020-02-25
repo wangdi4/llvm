@@ -1,6 +1,6 @@
 //===- HIRLoopFusionGraph.cpp - Implements Loop Fusion Graph --------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -613,6 +613,7 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
+      Heap.remove(NodeY, NodeX);
 
       eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
@@ -657,6 +658,7 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
       Heap.remove(NodeY, NodeX);
+      Heap.remove(NodeX, NodeY);
 
       eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
@@ -725,6 +727,7 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
       Heap.remove(NodeX, NodeY);
+      Heap.remove(NodeY, NodeX);
     } else {
       // No existing relationship, make Y a neighbor of V.
 

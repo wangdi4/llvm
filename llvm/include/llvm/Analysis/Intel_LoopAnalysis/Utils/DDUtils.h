@@ -1,6 +1,6 @@
 //===-------- DDUtils.h - Utilities for DD  -------------------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -108,13 +108,24 @@ public:
       HIRSafeReductionAnalysis &SRA, bool RefineDV,
       const SpecialSymbasesTy *IgnorableSBs);
 
-  static void computeDVsForPermuteWithSBs(SmallVectorImpl<DirectionVector> &DV,
+  static void computeDVsForPermuteWithSBs(
+                   SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
                                           const HLLoop *OutermostLoop,
                                           unsigned InnermostNestingLevel,
                                           HIRDDAnalysis &DDA,
                                           HIRSafeReductionAnalysis &SRA,
                                           bool RefineDV,
                                           const SpecialSymbasesTy *SpecialSBs);
+
+  /// Looks for a single dominating (load inst) definition of the base pointer
+  /// of \p MemRef. Returns the rval load ref if found, nullptr otherwise. Ex-
+  ///
+  /// \code
+  /// p = A[0].1; << BasePtrLoadRef
+  ///   = p[5]; << MemRef
+  /// \endcode
+  static const RegDDRef *getSingleBasePtrLoadRef(const DDGraph &DDG,
+                                                 const RegDDRef *MemRef);
 };
 } // End namespace loopopt
 } // End namespace llvm

@@ -1,6 +1,6 @@
 //===--- Intel_LoadCoalescing.cpp - Coalescing of consecutive loads -------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -524,8 +524,8 @@ void LoadCoalescing::codeGen(const MemInstGroup &G) {
   Builder.SetInsertPoint(Head->getNextNode());
   Value *WidePtr = Builder.CreateBitCast(Head->getPointerOperand(),
                                          G.getWideType()->getPointerTo(AS));
-  Instruction *WideLoad = cast<Instruction>(
-      Builder.CreateAlignedLoad(WidePtr, Head->getAlignment()));
+  Instruction *WideLoad =
+      cast<Instruction>(Builder.CreateAlignedLoad(WidePtr, Head->getAlign()));
   LLVM_DEBUG(dbgs() << "LC: Emitted WideLoad: " << *WideLoad << "\n");
 
   Instruction *InsertPointForShuffle = WideLoad->getNextNode();

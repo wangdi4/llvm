@@ -1,6 +1,6 @@
 //===----- HIRLoopDistribution.cpp - Distribution of HIR loops  -----------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -116,31 +116,33 @@ bool HIRLoopDistribution::run() {
     }
 
     unsigned TotalMemOps = 0;
-    bool ForceCycleForLoopIndepDep = true;
+    bool AllowScalarExpansion = false;
     bool CreateControlNodes = false;
-
-    if (DistCostModel == DistHeuristics::BreakMemRec) {
-      TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
-                    HLR.getSelfLoopResource(Lp).getNumFPMemOps();
-
-      if (TotalMemOps >= ScalarExpansionCost) {
-        ForceCycleForLoopIndepDep = false;
-      }
-
-      LLVM_DEBUG(dbgs() << "[Distribution] Loop has " << TotalMemOps
-                        << " memory operations which makes it "
-                        << (ForceCycleForLoopIndepDep ? "non-" : "")
-                        << "profitable for scalar expansion\n");
-
-      CreateControlNodes = true;
-    }
 
     // Sparse array reduction info is needed to create the DistPPGraph
     // and in findDistPoints while breaking the PiBlock Recurrences.
     SARA.computeSparseArrayReductionChains(Lp);
 
+    if (DistCostModel == DistHeuristics::BreakMemRec) {
+      CreateControlNodes = true;
+
+      TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
+                    HLR.getSelfLoopResource(Lp).getNumFPMemOps();
+
+      TotalMemOps += 3 * SARA.getNumSparseArrayReductionChains(Lp);
+
+      if (TotalMemOps >= ScalarExpansionCost) {
+        AllowScalarExpansion = true;
+      }
+
+      LLVM_DEBUG(dbgs() << "[Distribution] Loop has " << TotalMemOps
+                        << " memory operations which makes it "
+                        << (AllowScalarExpansion ? "" : "non-")
+                        << "profitable for scalar expansion\n");
+    }
+
     std::unique_ptr<PiGraph> PG(new PiGraph(
-        Lp, DDA, SARA, ForceCycleForLoopIndepDep, CreateControlNodes));
+        Lp, DDA, SARA, AllowScalarExpansion, CreateControlNodes));
 
     if (!PG->isGraphValid()) {
       LLVM_DEBUG(
@@ -179,8 +181,12 @@ bool HIRLoopDistribution::run() {
 
     if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
+
+      invalidateLoop(Lp);
+
       processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
       distributeLoop(Lp, DistributedLoops, false, LORBuilder);
+
       Modified = true;
     } else {
       LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
@@ -234,22 +240,63 @@ void HIRLoopDistribution::processPiBlocksToHLNodes(
         continue;
       }
 
-      HLIf *OrigControlNode = cast<HLIf>(ControlDep->first->getNode());
-      HLIf *&ControlNode = ControlGuards[{OrigControlNode, &PList}];
+      // The function returns ControlNode for the given PiNode and the current
+      // chunk (PList).
+      // It either returns existing ControlNode or clones one for the current
+      // chunk.
+      std::function<HLIf *(DistPPNode * PiNode)> GetControlNode =
+          [&](DistPPNode *PiNode) -> HLIf * {
+        HLIf *OrigControlNode = cast<HLIf>(PiNode->getNode());
 
-      // Check if control node doesn't exist in the current PiBlock.
-      if (!ControlNode) {
-        ControlNode = OrigControlNode->cloneEmpty();
-        // Use {LoopNum, true} to indicate insert or move HLIf to its final
-        // place in HIR.
-        DistDirectiveNodeMap[ControlNode] = {LoopNum, true};
-        CurLoopHLDDNodeList.push_back(ControlNode);
-      }
+        // Try to get an existing node.
+        HLIf *&ControlNode = ControlGuards[{OrigControlNode, &PList}];
 
+        // Do the cloning.
+        if (!ControlNode) {
+          ControlNode = OrigControlNode->cloneEmpty();
+
+          // Check if the control node itself has a control dependence.
+          auto InterimControlDep = PGraph->getControlDependence(PiNode);
+          if (InterimControlDep) {
+            // Recursive call to get the parent control node.
+            auto InterimControlNode = GetControlNode(InterimControlDep->first);
+            if (InterimControlDep->second) {
+              HLNodeUtils::insertAsLastThenChild(InterimControlNode,
+                                                 ControlNode);
+            } else {
+              HLNodeUtils::insertAsLastElseChild(InterimControlNode,
+                                                 ControlNode);
+            }
+
+          } else {
+            // Use {LoopNum, true} to indicate insert or move HLIf to its
+            // final place in HIR.
+            DistDirectiveNodeMap[ControlNode] = {LoopNum, true};
+            CurLoopHLDDNodeList.push_back(ControlNode);
+          }
+        }
+
+        return ControlNode;
+      };
+
+      // Get the HLIf node for the current chunk. It may be an original HLIf or
+      // a clone.
+      auto ControlNode = GetControlNode(ControlDep->first);
+
+      // Move Node under the ControlNode if not in the right position already.
       if (ControlDep->second) {
-        HLNodeUtils::moveAsLastThenChild(ControlNode, Node);
+        // Node should be placed under "true" branch of the control node.
+        //
+        // Do not move the node if it's already a child of the ControlNode.
+        // It may happen if ControlNode is an original HLIf.
+        if (!ControlNode->isThenChild(Node)) {
+          HLNodeUtils::moveAsLastThenChild(ControlNode, Node);
+        }
       } else {
-        HLNodeUtils::moveAsLastElseChild(ControlNode, Node);
+        // Node should be placed under "false" branch of the control node.
+        if (!ControlNode->isElseChild(Node)) {
+          HLNodeUtils::moveAsLastElseChild(ControlNode, Node);
+        }
       }
     }
 
@@ -566,8 +613,6 @@ void HIRLoopDistribution::distributeLoop(
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
-
-  invalidateLoop(Loop);
 
   LastLoopNum = DistributedLoops.size();
   assert(LastLoopNum > 1 && "Invalid loop distribution");
