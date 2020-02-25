@@ -12106,16 +12106,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return EmitX86FMAExpr(*this, Ops, BuiltinID, /*IsAddSub*/false);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  case X86::BI__builtin_ia32_vfmaddsubph:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  case X86::BI__builtin_ia32_vfmaddsubph256:
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddsubph512_mask:
   case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubph512_mask3:

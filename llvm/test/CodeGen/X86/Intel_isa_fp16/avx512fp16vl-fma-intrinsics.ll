@@ -78,14 +78,12 @@ define <16 x half>@test_int_x86_avx512_mask3_vfmaddsub_ph_256(<16 x half> %x0, <
 ; X64-NEXT:    vfmaddsub231ph %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x29,0xb6,0xd1]
 ; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <16 x half> @llvm.fma.v16f16(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2)
-  %2 = fsub <16 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <16 x half> @llvm.fma.v16f16(<16 x half> %x0, <16 x half> %x1, <16 x half> %2)
-  %4 = shufflevector <16 x half> %3, <16 x half> %1, <16 x i32> <i32 0, i32 17, i32 2, i32 19, i32 4, i32 21, i32 6, i32 23, i32 8, i32 25, i32 10, i32 27, i32 12, i32 29, i32 14, i32 31>
-  %5 = bitcast i16 %x3 to <16 x i1>
-  %6 = select <16 x i1> %5, <16 x half> %4, <16 x half> %x2
-  ret <16 x half> %6
+  %res = call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2)
+  %bc = bitcast i16 %x3 to <16 x i1>
+  %sel = select <16 x i1> %bc, <16 x half> %res, <16 x half> %x2
+  ret <16 x half> %sel
 }
+declare <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half>, <16 x half>, <16 x half>)
 
 define <16 x half>@test_int_x86_avx512_maskz_vfmaddsub_ph_256(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2, i16 %x3){
 ; X86-LABEL: test_int_x86_avx512_maskz_vfmaddsub_ph_256:
@@ -99,13 +97,10 @@ define <16 x half>@test_int_x86_avx512_maskz_vfmaddsub_ph_256(<16 x half> %x0, <
 ; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub213ph %ymm2, %ymm1, %ymm0 {%k1} {z} # encoding: [0x62,0xf6,0x75,0xa9,0xa6,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <16 x half> @llvm.fma.v16f16(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2)
-  %2 = fsub <16 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <16 x half> @llvm.fma.v16f16(<16 x half> %x0, <16 x half> %x1, <16 x half> %2)
-  %4 = shufflevector <16 x half> %3, <16 x half> %1, <16 x i32> <i32 0, i32 17, i32 2, i32 19, i32 4, i32 21, i32 6, i32 23, i32 8, i32 25, i32 10, i32 27, i32 12, i32 29, i32 14, i32 31>
-  %5 = bitcast i16 %x3 to <16 x i1>
-  %6 = select <16 x i1> %5, <16 x half> %4, <16 x half> zeroinitializer
-  ret <16 x half> %6
+  %res = call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2)
+  %bc = bitcast i16 %x3 to <16 x i1>
+  %sel = select <16 x i1> %bc, <16 x half> %res, <16 x half> zeroinitializer
+  ret <16 x half> %sel
 }
 
 define <16 x half>@test_int_x86_avx512_mask3_vfmsubadd_ph_256(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2, i16 %x3){
@@ -122,13 +117,11 @@ define <16 x half>@test_int_x86_avx512_mask3_vfmsubadd_ph_256(<16 x half> %x0, <
 ; X64-NEXT:    vfmsubadd231ph %ymm1, %ymm0, %ymm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x29,0xb7,0xd1]
 ; X64-NEXT:    vmovaps %ymm2, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfc,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <16 x half> @llvm.fma.v16f16(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2)
-  %2 = fsub <16 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <16 x half> @llvm.fma.v16f16(<16 x half> %x0, <16 x half> %x1, <16 x half> %2)
-  %4 = shufflevector <16 x half> %1, <16 x half> %3, <16 x i32> <i32 0, i32 17, i32 2, i32 19, i32 4, i32 21, i32 6, i32 23, i32 8, i32 25, i32 10, i32 27, i32 12, i32 29, i32 14, i32 31>
-  %5 = bitcast i16 %x3 to <16 x i1>
-  %6 = select <16 x i1> %5, <16 x half> %4, <16 x half> %x2
-  ret <16 x half> %6
+  %neg = fneg <16 x half> %x2
+  %res = call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %x0, <16 x half> %x1, <16 x half> %neg)
+  %bc = bitcast i16 %x3 to <16 x i1>
+  %sel = select <16 x i1> %bc, <16 x half> %res, <16 x half> %x2
+  ret <16 x half> %sel
 }
 
 define <16 x half>@test_int_x86_avx512_mask3_vfmsub_ph_256(<16 x half> %x0, <16 x half> %x1, <16 x half> %x2, i16 %x3){
@@ -348,14 +341,12 @@ define <8 x half>@test_int_x86_avx512_mask3_vfmaddsub_ph_128(<8 x half> %x0, <8 
 ; X64-NEXT:    vfmaddsub231ph %xmm1, %xmm0, %xmm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x09,0xb6,0xd1]
 ; X64-NEXT:    vmovaps %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf8,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <8 x half> @llvm.fma.v8f16(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2)
-  %2 = fsub <8 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <8 x half> @llvm.fma.v8f16(<8 x half> %x0, <8 x half> %x1, <8 x half> %2)
-  %4 = shufflevector <8 x half> %3, <8 x half> %1, <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 4, i32 13, i32 6, i32 15>
-  %5 = bitcast i8 %x3 to <8 x i1>
-  %6 = select <8 x i1> %5, <8 x half> %4, <8 x half> %x2
-  ret <8 x half> %6
+  %res = call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2)
+  %bc = bitcast i8 %x3 to <8 x i1>
+  %sel = select <8 x i1> %bc, <8 x half> %res, <8 x half> %x2
+  ret <8 x half> %sel
 }
+declare <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half>, <8 x half>, <8 x half>)
 
 define <8 x half>@test_int_x86_avx512_maskz_vfmaddsub_ph_128(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2, i8 %x3){
 ; X86-LABEL: test_int_x86_avx512_maskz_vfmaddsub_ph_128:
@@ -369,36 +360,31 @@ define <8 x half>@test_int_x86_avx512_maskz_vfmaddsub_ph_128(<8 x half> %x0, <8 
 ; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub213ph %xmm2, %xmm1, %xmm0 {%k1} {z} # encoding: [0x62,0xf6,0x75,0x89,0xa6,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <8 x half> @llvm.fma.v8f16(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2)
-  %2 = fsub <8 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <8 x half> @llvm.fma.v8f16(<8 x half> %x0, <8 x half> %x1, <8 x half> %2)
-  %4 = shufflevector <8 x half> %3, <8 x half> %1, <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 4, i32 13, i32 6, i32 15>
-  %5 = bitcast i8 %x3 to <8 x i1>
-  %6 = select <8 x i1> %5, <8 x half> %4, <8 x half> zeroinitializer
-  ret <8 x half> %6
+  %res = call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2)
+  %bc = bitcast i8 %x3 to <8 x i1>
+  %sel = select <8 x i1> %bc, <8 x half> %res, <8 x half> zeroinitializer
+  ret <8 x half> %sel
 }
 
 define <8 x half>@test_int_x86_avx512_mask3_vfmsubadd_ph_128(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2, i8 %x3){
 ; X86-LABEL: test_int_x86_avx512_mask3_vfmsubadd_ph_128:
 ; X86:       # %bb.0:
 ; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 # encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x04]
-; X86-NEXT:    vfmaddsub231ph %xmm1, %xmm0, %xmm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x09,0xb6,0xd1]
+; X86-NEXT:    vfmsubadd231ph %xmm1, %xmm0, %xmm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x09,0xb7,0xd1]
 ; X86-NEXT:    vmovaps %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf8,0x28,0xc2]
 ; X86-NEXT:    retl # encoding: [0xc3]
 ;
 ; X64-LABEL: test_int_x86_avx512_mask3_vfmsubadd_ph_128:
 ; X64:       # %bb.0:
 ; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
-; X64-NEXT:    vfmaddsub231ph %xmm1, %xmm0, %xmm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x09,0xb6,0xd1]
+; X64-NEXT:    vfmsubadd231ph %xmm1, %xmm0, %xmm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x09,0xb7,0xd1]
 ; X64-NEXT:    vmovaps %xmm2, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf8,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <8 x half> @llvm.fma.v8f16(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2)
-  %2 = fsub <8 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <8 x half> @llvm.fma.v8f16(<8 x half> %x0, <8 x half> %x1, <8 x half> %2)
-  %4 = shufflevector <8 x half> %3, <8 x half> %1, <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 4, i32 13, i32 6, i32 15>
-  %5 = bitcast i8 %x3 to <8 x i1>
-  %6 = select <8 x i1> %5, <8 x half> %4, <8 x half> %x2
-  ret <8 x half> %6
+  %neg = fneg <8 x half> %x2
+  %res = call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %x0, <8 x half> %x1, <8 x half> %neg)
+  %bc = bitcast i8 %x3 to <8 x i1>
+  %sel = select <8 x i1> %bc, <8 x half> %res, <8 x half> %x2
+  ret <8 x half> %sel
 }
 
 define <8 x half>@test_int_x86_avx512_mask3_vfmsub_ph_128(<8 x half> %x0, <8 x half> %x1, <8 x half> %x2, i8 %x3){

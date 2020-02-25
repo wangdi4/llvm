@@ -5677,7 +5677,16 @@ let TargetPrefix = "x86" in {
       : Intrinsic<[ llvm_v32f16_ty ],
                   [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<3> ]>;
-  // TODO: Can we use 2 vfmadds+shufflevector?
+  def int_x86_avx512fp16_vfmaddsub_ph_128
+      : GCCBuiltin<"__builtin_ia32_vfmaddsubph">,
+        Intrinsic<[ llvm_v8f16_ty ],
+                  [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_v8f16_ty ],
+                  [ IntrNoMem ]>;
+  def int_x86_avx512fp16_vfmaddsub_ph_256
+      : GCCBuiltin<"__builtin_ia32_vfmaddsubph256">,
+        Intrinsic<[ llvm_v16f16_ty ],
+                  [ llvm_v16f16_ty, llvm_v16f16_ty, llvm_v16f16_ty ],
+                  [ IntrNoMem ]>;
   def int_x86_avx512fp16_vfmaddsub_ph_512
       : Intrinsic<[ llvm_v32f16_ty ],
                   [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
