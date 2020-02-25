@@ -779,7 +779,7 @@ public:
       return false;
     }
 
-    unsigned PrevMinimumLevel;
+    unsigned PrevMinimumLevel = MinLevel;
     for (unsigned I = 0, E = Groups.size(); I < E; I++) {
       unsigned Min;
       if (!scanDiffsFromMedian(Groups[I], Min)) {
