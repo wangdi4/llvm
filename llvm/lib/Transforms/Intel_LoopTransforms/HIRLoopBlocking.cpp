@@ -177,6 +177,7 @@ enum DiagMsg {
   NO_STENCIL_LOOP_BODY,
   NO_STENCIL_MEM_REFS,
   SUCCESS_NON_SIV,
+  SUCCESS_NON_SIV_OR_NON_ADVANCED,
   SUCCESS_BASIC_SIV,
   SUCCESS_STENCIL,
 
@@ -202,6 +203,7 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
   Map[NO_STENCIL_LOOP_BODY] = "Operations for stencil is missing.";
   Map[NO_STENCIL_MEM_REFS] = "Memrefs are not of stencil pattern.";
   Map[SUCCESS_NON_SIV] = "Non-Siv loop.";
+  Map[SUCCESS_NON_SIV_OR_NON_ADVANCED] = "Non-Siv loop or Non-advanced.";
   Map[SUCCESS_BASIC_SIV] = "Basic algorithm.";
   Map[SUCCESS_STENCIL] = "Stencil pattern.";
 
@@ -974,7 +976,7 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap) {
 // Checks whether memrefs with missing loop induction variables exist.
 class KAndRChecker {
 public:
-  KAndRChecker(MemRefGatherer::VectorTy &Refs) : Refs(Refs) {
+  KAndRChecker(const MemRefGatherer::VectorTy &Refs) : Refs(Refs) {
     NumRefsWithSmallStrides.resize(MaxLoopNestLevel + 1, 0);
     NumRefsMissingAtLevel.resize(MaxLoopNestLevel + 1, 0);
     countProBlockingRefs(Refs);
@@ -1178,7 +1180,7 @@ private:
   }
 
 private:
-  MemRefGatherer::VectorTy &Refs;
+  const MemRefGatherer::VectorTy &Refs;
   SmallVector<int, MaxLoopNestLevel + 1> NumRefsWithSmallStrides;
   SmallVector<int, MaxLoopNestLevel + 1> NumRefsMissingAtLevel;
 };
@@ -1345,6 +1347,30 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   return nullptr;
 }
 
+HLLoop *tryKAndRWithFixedStripmineSizes(
+    const MemRefGatherer::VectorTy &Refs, const LoopNestTCTy &LoopNestTC,
+    HLLoop *InnermostLoop, HLLoop *OutermostLoop, unsigned ConsecutiveDepth,
+    HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, StringRef Func,
+    LoopMapTy &LoopMap) {
+
+  // Try K&R + fixed stripmine sizes
+  // Just use existing logic for now to avoid regression
+  KAndRChecker KAndRProfitability(Refs);
+  LoopMapTy StripmineSizes;
+  adjustBlockSize(LoopNestTC, StripmineSizes);
+
+  StripmineSizeExplorerByDefault StripmineExplorer(StripmineSizes);
+  HLLoop *ValidOutermost = exploreLoopNest(
+      InnermostLoop, OutermostLoop, ConsecutiveDepth, KAndRProfitability,
+      StripmineExplorer, DDA, SRA, Func, LoopMap);
+  if (ValidOutermost) {
+    printDiag(SUCCESS_NON_SIV, Func, ValidOutermost, "SUCCESS");
+    return ValidOutermost;
+  }
+
+  return nullptr;
+}
+
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
 HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
@@ -1420,6 +1446,16 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   if (!CommandLineBlockSize && RefAnalyzer::isSIV(RefKind) &&
       (!OldVersion || Advanced)) {
 
+    // Try K&R as default.
+    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
+        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
+        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
+
+    if (ValidOutermost) {
+      printDiag(SUCCESS_BASIC_SIV, Func, ValidOutermost, "SUCCESS");
+      return ValidOutermost;
+    }
+
     // Grouping Refs for memory foot print and for stencil
     RefGrouper Grouping(Refs);
 
@@ -1434,7 +1470,7 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     }
 
     // TODO: memoization of isLegalToInterchange could help compile-time.
-    HLLoop *ValidOutermost =
+    ValidOutermost =
         exploreLoopNest(InnermostLoop, AdjustedHighestAncestor,
                         StencilProfitability, DDA, SRA, Func, LoopMap);
     if (ValidOutermost) {
@@ -1450,16 +1486,13 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
 
     // Try K&R + fixed stripmine sizes
     // Just use existing logic for now to avoid regression
-    KAndRChecker KAndRProfitability(Refs);
-    LoopMapTy StripmineSizes;
-    adjustBlockSize(LoopNestTC, StripmineSizes);
+    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
+        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
+        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
 
-    StripmineSizeExplorerByDefault StripmineExplorer(StripmineSizes);
-    HLLoop *ValidOutermost = exploreLoopNest(
-        InnermostLoop, AdjustedHighestAncestor, ConsecutiveDepth,
-        KAndRProfitability, StripmineExplorer, DDA, SRA, Func, LoopMap);
     if (ValidOutermost) {
-      printDiag(SUCCESS_NON_SIV, Func, ValidOutermost, "SUCCESS");
+      printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, ValidOutermost,
+                "SUCCESS");
       return ValidOutermost;
     }
   }
