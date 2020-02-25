@@ -23,7 +23,7 @@ define i8* @test2(i8* nonnull %p) {
 ; Given an SCC where one of the functions can not be marked nonnull,
 ; can we still mark the other one which is trivially nonnull
 define i8* @scc_binder(i1 %c) {
-; ATTRIBUTOR: define noalias i8* @scc_binder
+; ATTRIBUTOR: define noalias align 536870912 i8* @scc_binder
   br i1 %c, label %rec, label %end
 rec:
   call i8* @test3(i1 %c)
@@ -57,7 +57,7 @@ define i8* @test4() {
 ; Given a mutual recursive set of functions which *can* return null
 ; make sure we haven't marked them as nonnull.
 define i8* @test5_helper(i1 %c) {
-; ATTRIBUTOR: define noalias i8* @test5_helper
+; ATTRIBUTOR: define noalias align 536870912 i8* @test5_helper
   br i1 %c, label %rec, label %end
 rec:
   %ret = call i8* @test5(i1 %c)
@@ -67,7 +67,7 @@ end:
 }
 
 define i8* @test5(i1 %c) {
-; ATTRIBUTOR: define noalias i8* @test5
+; ATTRIBUTOR: define noalias align 536870912 i8* @test5
   %ret = call i8* @test5_helper(i1 %c)
   ret i8* %ret
 }
@@ -530,9 +530,7 @@ define internal i32* @g2() {
   ret i32* inttoptr (i64 4 to i32*)
 }
 
-; INTEL_CUSTOMIZATION
-; ATTRIBUTOR: define nonnull i32* @g1()
-; END INTEL_CUSTOMIZATION
+; ATTRIBUTOR: define nonnull align 4 i32* @g1()
 ; ATTRIBUTOR:   ret i32* inttoptr (i64 4 to i32*)
 define i32* @g1() {
  %c = call i32* @g2()

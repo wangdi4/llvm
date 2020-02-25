@@ -16,20 +16,10 @@ define internal void @dead() {
 
 define internal i32 @test(i32* %X, i32* %Y) {
 ; OLDPM_CGSCC-LABEL: define {{[^@]+}}@test
-; INTEL_CUSTOMIZATION
-; The following check breaks, it is described in CMPLRLLVM-12018.
-; OLDPM_CGSCC-SAME-FAIL-INTEL: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
-; Intel customization checks for the following
-; OLDPM_CGSCC-SAME: (i32* noalias nocapture nofree writeonly [[X:%.*]])
-; END INTEL_CUSTOMIZATION
+; OLDPM_CGSCC-SAME: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
 ; OLDPM_CGSCC-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
 ; OLDPM_CGSCC:       live:
-; INTEL_CUSTOMIZATION
-; The following check breaks, it is described in CMPLRLLVM-12018.
-; OLDPM_CGSCC-NEXT-FAIL-INTEL:    store i32 0, i32* [[X]], align 4
-; Intel customization checks for the following
-; OLDPM_CGSCC-NEXT:    store i32 0, i32* [[X]]
-; END INTEL_CUSTOMIZATION
+; OLDPM_CGSCC-NEXT:    store i32 0, i32* [[X]], align 4
 ; OLDPM_CGSCC-NEXT:    ret i32 undef
 ; OLDPM_CGSCC:       dead:
 ; OLDPM_CGSCC-NEXT:    unreachable

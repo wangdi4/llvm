@@ -16,20 +16,10 @@ define internal void @dead() {
 
 define internal i32 @test(i32* %X, i32* %Y) {
 ; OLDPM_MODULE-LABEL: define {{[^@]+}}@test
-; INTEL_CUSTOMIZATION
-; The following check breaks, it is described in CMPLRLLVM-12018.
-; OLDPM_MODULE-SAME-FAIL-INTEL: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
-; Intel customization checks for the following
-; OLDPM_MODULE-SAME: (i32* noalias nocapture nofree writeonly [[X:%.*]])
-; END INTEL_CUSTOMIZATION
+; OLDPM_MODULE-SAME: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
 ; OLDPM_MODULE-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
 ; OLDPM_MODULE:       live:
-; INTEL_CUSTOMIZATION
-; The following check breaks, it is described in CMPLRLLVM-12018.
-; OLDPM_MODULE-NEXT-FAIL-INTEL:    store i32 0, i32* [[X]], align 4
-; Intel customization checks for the following
-; OLDPM_MODULE-NEXT:    store i32 0, i32* [[X]]
-; END INTEL_CUSTOMIZATION
+; OLDPM_MODULE:    store i32 0, i32* [[X]], align 4
 ; OLDPM_MODULE-NEXT:    ret i32 undef
 ; OLDPM_MODULE:       dead:
 ; OLDPM_MODULE-NEXT:    unreachable
@@ -44,20 +34,10 @@ define internal i32 @test(i32* %X, i32* %Y) {
 ; OLDPM_CGSCC-NEXT:    unreachable
 ;
 ; NEWPM_MODULE-LABEL: define {{[^@]+}}@test
-; INTEL_CUSTOMIZATION
-; The following check breaks, it is described in CMPLRLLVM-12018.
-; NEWPM_MODULE-SAME-FAIL: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
-; Intel customization checks for the following
-; NEWPM_MODULE-SAME: (i32* noalias nocapture nofree writeonly [[X:%.*]])
-; END INTEL_CUSTOMIZATION
+; NEWPM_MODULE: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
 ; NEWPM_MODULE-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
 ; NEWPM_MODULE:       live:
-; INTEL_CUSTOMIZATION
-; The following check breaks, it is described in CMPLRLLVM-12018.
-; NEWPM_MODULE-NEXT-FILE-INTEL:    store i32 0, i32* [[X]], align 4
-; Intel customization checks for the following
-; NEWPM_MODULE-NEXT:    store i32 0, i32* [[X]]
-; END INTEL_CUSTOMIZATION
+; NEWPM_MODULE-NEXT:    store i32 0, i32* [[X]], align 4
 ; NEWPM_MODULE-NEXT:    ret i32 undef
 ; NEWPM_MODULE:       dead:
 ; NEWPM_MODULE-NEXT:    unreachable
