@@ -191,6 +191,15 @@ void GenerateLEAPass::collectPotentialInst(MachineBasicBlock &MBB,
     if (!isVirtualOrNoReg(SegOp))
       continue;
 
+    if (IndexOp->getReg() != X86::NoRegister) {
+      // Make sure the index is valid for LEA. This is needed to exclude gather
+      // and scatter.
+      const TargetRegisterClass *RC = MRI->getRegClass(IndexOp->getReg());
+      if (!RC->hasSuperClassEq(&X86::GR32_NOSPRegClass) &&
+          !RC->hasSuperClassEq(&X86::GR64_NOSPRegClass))
+        continue;
+    }
+
     // Don't process JTI.
     if (DispOp->isJTI())
       continue;
