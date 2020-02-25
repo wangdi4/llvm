@@ -3946,6 +3946,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
 
       if (FprivI->getInMap())
+#if INTEL_CUSTOMIZATION
+        // For F90 dope vectors which are firstprivate, ifx frontend emits a
+        // map in addition to a firstprivate clause. We need to honor both.
+        if (!FprivI->getIsF90DopeVector())
+#endif // INTEL_CUSTOMIZATION
         // For some reason clang may put a variable both into map() and
         // firstprivate clause, e.g.:
         // void foo(int n) {
