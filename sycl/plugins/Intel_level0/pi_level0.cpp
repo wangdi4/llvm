@@ -1661,7 +1661,12 @@ pi_result L0(piKernelGetInfo)(
     SET_PARAM_VALUE(pi_uint32{kernel->RefCount});
   }
   else if (param_name == PI_KERNEL_INFO_ATTRIBUTES) {
-    pi_throw("Unsupported PI_KERNEL_ATTRIBUTES in piKernelGetInfo\n");
+    uint32_t size;
+    ZE_CALL(zeKernelGetAttribute(kernel->L0Kernel, ZE_KERNEL_ATTR_SOURCE_ATTRIBUTE, &size, nullptr));
+    char* attributes = new char[size];
+    ZE_CALL(zeKernelGetAttribute(kernel->L0Kernel, ZE_KERNEL_ATTR_SOURCE_ATTRIBUTE, &size, attributes));
+    SET_PARAM_VALUE_STR(attributes);
+    delete []attributes;
   }
   else {
     fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);
