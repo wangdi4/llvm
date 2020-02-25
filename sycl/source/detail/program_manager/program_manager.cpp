@@ -613,7 +613,11 @@ DeviceImage &ProgramManager::getDeviceImage(OSModuleHandle M, KernelSetId KSId,
 // current implementation doesn't work on Windows when multiple
 // device libraries exist and this problem should be fixed.
 static std::vector<RT::PiProgram>
+<<<<<<< HEAD
 getDeviceLibPrograms(const ContextImplPtr Context,
+=======
+getDeviceLibPrograms(const RT::PiContext Context,
+>>>>>>> fd26d53bbb7e225c3269f52346ce27822f172c23
                      const std::vector<RT::PiDevice> &Devices,
                      std::map<DeviceLibExt, RT::PiProgram> &CachedLibPrograms) {
   std::vector<RT::PiProgram> Programs;
@@ -634,8 +638,12 @@ getDeviceLibPrograms(const ContextImplPtr Context,
   bool fp64Support = true;
   for (RT::PiDevice Dev : Devices) {
     std::string DevExtList =
+<<<<<<< HEAD
 	get_device_info<std::string, info::device::extensions>::get(
             Dev, Context->getPlugin());
+=======
+	get_device_info<std::string, info::device::extensions>::get(Dev);
+>>>>>>> fd26d53bbb7e225c3269f52346ce27822f172c23
     fp64Support = fp64Support &&
 	          (DevExtList.npos != DevExtList.find("cl_khr_fp64"));
   }
