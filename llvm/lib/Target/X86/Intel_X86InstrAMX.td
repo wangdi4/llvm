@@ -911,22 +911,22 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
 multiclass m_tgatherrow {
   let Predicates = [HasAMXMEMORY, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def D : I<0xe9, MRMSrcMemFSIB, (outs VTILE:$dst),
+      def D : I<0x6e, MRMSrcMemFSIB, (outs VTILE:$dst),
                 (ins i8mem:$src),
                 "tgatherrowd\t{$src, $dst|$dst, $src}",
-                []>, VEX, T_MAP5XS;
-      def DT1 : I<0xea, MRMSrcMemFSIB, (outs VTILE:$dst),
+                []>, VEX, T8XD;
+      def DT1 : I<0x6f, MRMSrcMemFSIB, (outs VTILE:$dst),
                   (ins i8mem:$src),
                   "tgatherrowdt1\t{$src, $dst|$dst, $src}",
-                  []>, VEX, T_MAP5PS;
-      def Q : I<0xea, MRMSrcMemFSIB, (outs VTILE:$dst),
+                  []>, VEX, T8XD;
+      def Q : I<0x6e, MRMSrcMemFSIB, (outs VTILE:$dst),
                 (ins i8mem:$src),
                 "tgatherrowq\t{$src, $dst|$dst, $src}",
-                []>, VEX, T_MAP5PD;
-      def QT1 : I<0xea, MRMSrcMemFSIB, (outs VTILE:$dst),
+                []>, VEX, VEX_W, T8XD;
+      def QT1 : I<0x6f, MRMSrcMemFSIB, (outs VTILE:$dst),
                   (ins i8mem:$src),
                   "tgatherrowqt1\t{$src, $dst|$dst, $src}",
-                  []>, VEX, T_MAP5XD;
+                  []>, VEX, VEX_W, T8XD;
     }
   } // HasAMXTILE, HasAMXMEMORY
 }
@@ -946,22 +946,22 @@ let Predicates = [HasAMXMEMORY, In64BitMode],
 // TSCATTERROW[D, Q][T1] sibmem2
 let Predicates = [HasAMXMEMORY, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TSCATTERROWD : I<0xea, MRMDestMemFSIB, (outs),
+    def TSCATTERROWD : I<0x6e, MRMDestMemFSIB, (outs),
                          (ins i8mem:$dst, VTILE:$src),
                          "tscatterrowd\t{$src, $dst|$dst, $src}",
-                         []>, VEX, T_MAP5XS;
-    def TSCATTERROWDT1 : I<0xeb, MRMDestMemFSIB, (outs),
+                         []>, VEX, T8XS;
+    def TSCATTERROWDT1 : I<0x6f, MRMDestMemFSIB, (outs),
                            (ins i8mem:$dst, VTILE:$src),
                            "tscatterrowdt1\t{$src, $dst|$dst, $src}",
-                           []>, VEX, T_MAP5PS;
-    def TSCATTERROWQ : I<0xeb, MRMDestMemFSIB, (outs),
+                           []>, VEX, T8XS;
+    def TSCATTERROWQ : I<0x6e, MRMDestMemFSIB, (outs),
                          (ins i8mem:$dst, VTILE:$src),
                          "tscatterrowq\t{$src, $dst|$dst, $src}",
-                         []>, VEX, T_MAP5PD;
-    def TSCATTERROWQT1 : I<0xeb, MRMDestMemFSIB, (outs),
+                         []>, VEX, VEX_W, T8XS;
+    def TSCATTERROWQT1 : I<0x6f, MRMDestMemFSIB, (outs),
                            (ins i8mem:$dst, VTILE:$src),
                            "tscatterrowqt1\t{$src, $dst|$dst, $src}",
-                           []>, VEX, T_MAP5XD;
+                           []>, VEX, VEX_W, T8XS;
     let usesCustomInserter = 1 in {
       def PTSCATTERROWD : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
       def PTSCATTERROWDT1 : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
