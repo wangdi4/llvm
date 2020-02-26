@@ -1570,57 +1570,88 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
 unsigned HIRParser::processInstBlob(const Instruction *Inst,
                                     const Instruction *BaseInst,
                                     unsigned Symbase) {
-  unsigned DefLevel = 0;
-  bool IsRegionLivein = false;
-  HLLoop *LCALoop = nullptr;
-
   auto ParentBB = Inst->getParent();
-  Loop *DefLp = LI.getLoopFor(Inst->getParent());
-
-  HLLoop *DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
 
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
 
-  // Set region livein and def level.
+  // Handle the easier region livein case.
   if (!CurRegion->containsBBlock(ParentBB)) {
     CurRegion->addLiveInTemp(Symbase, Inst);
-    IsRegionLivein = true;
-    assert(!DefLoop && "Livein value cannot come from another region!");
+    assert((Inst == BaseInst) &&
+           "Inst and BaseInst should be same for region liveins!");
 
-  } else if ((LCALoop =
-                  HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
-    // If the current node where the blob is used and the blob definition are
-    // both in some HLLoop, the defined at level should be the lowest common
-    // ancestor loop. For example-
-    //
-    // DO i1
-    //   DO i2
-    //     t1 = ...
-    //   END DO
-    //
-    //   DO i2
-    //     A[i2] = t1; // t1 is defined at level 1 for this loop.
-    //   END DO
-    // END DO
-    //
-    DefLevel = LCALoop->getNestingLevel();
+    while (UseLoop) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
+    }
+    return 0;
+  }
+
+  // Inst and BaseInst are different in these cases-
+  // 1) Inst is an SCC inst. In this case BaseInst is the outermost loop header
+  // phi.
+  //
+  // 2) Inst is a livein copy of a deconstructed phi. BaseInst is the
+  // corresponding phi.
+  //
+  // 3) Inst is a single operand phi. BaseInst is anything we traced back the
+  // chain of single operand phis to. If BaseInst is a loop header phi both Inst
+  // and BaseInst are in the same loop.
+  //
+  // Matrix of whether we need the def loop from Inst or BaseInst for
+  // livein/liveout analysis or setting the def level.
+  //
+  //          livein/liveout       def level
+  // 1)          BaseInst            Inst
+  // 2)          BaseInst            Inst
+  // 3)          BaseInst            BaseInst
+  //
+  // The issue is that the parser does not have direct knowledge of which of the
+  // cases is being handled. We work around the problem by checking the
+  // properties of BaseInst.
+
+  Loop *DefLLVMLoop = LI.getLoopFor(Inst->getParent());
+
+  HLLoop *DefLoop = DefLLVMLoop ? LF.findHLLoop(DefLLVMLoop) : nullptr;
+  HLLoop *OrigDefLoop = DefLoop;
+
+  if (Inst != BaseInst) {
+    DefLLVMLoop = LI.getLoopFor(BaseInst->getParent());
+    DefLoop = DefLLVMLoop ? LF.findHLLoop(DefLLVMLoop) : nullptr;
+  }
+
+  bool BaseIsLoopHeaderPhi =
+      DefLoop && isa<PHINode>(BaseInst) &&
+      (BaseInst->getParent() == DefLLVMLoop->getHeader());
+  bool BaseIsDeconstructedPhi =
+      SE.getHIRMetadata(BaseInst, ScalarEvolution::HIRLiveKind::LiveIn);
+  unsigned DefLevel = 0;
+
+  // Given a blob definition and a use in some HLLoop, the defined at level for
+  // that use should be the lowest common ancestor loop level. For example-
+  //
+  // DO i1
+  //   DO i2
+  //     t1 = ...
+  //   END DO
+  //
+  //   DO i2
+  //     A[i2] = t1; // t1 is defined at level 1 for this loop.
+  //   END DO
+  // END DO
+  //
+  if (auto *DefLevelLoop = HLNodeUtils::getLowestCommonAncestorLoop(
+          (BaseIsLoopHeaderPhi || BaseIsDeconstructedPhi) ? OrigDefLoop
+                                                          : DefLoop,
+          UseLoop)) {
+    DefLevel = DefLevelLoop->getNestingLevel();
   }
 
   // Set loop livein/liveout as applicable.
 
-  // For loop livein/liveout analysis we need to set defining loop based on
-  // BaseInst as it represents Inst in HIR.
-  if (!IsRegionLivein && (Inst != BaseInst)) {
-    DefLp = LI.getLoopFor(BaseInst->getParent());
-    DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
-
-    LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
-  }
-
   // This if-else case handles liveins/liveouts caused by SSA deconstruction.
-  if (DefLoop && isa<PHINode>(BaseInst) &&
-      (BaseInst->getParent() == DefLp->getHeader())) {
+  if (BaseIsLoopHeaderPhi) {
     // If this is a phi in the loop header, it should be added as a livein
     // temp in defining loop since header phis are deconstructed as follows-
     // Before deconstruction-
@@ -1641,14 +1672,15 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     //
     DefLoop->addLiveInTemp(Symbase);
 
-  } else if (SE.getHIRMetadata(BaseInst,
-                               ScalarEvolution::HIRLiveKind::LiveIn)) {
+  } else if (BaseIsDeconstructedPhi) {
     ScalarSA.handleLoopExitLiveoutPhi(dyn_cast<PHINode>(BaseInst), Symbase);
   }
 
   // Loop livein/liveouts are processed per use (except for the special cases
   // handled above) so we skip the definitions (scalar lvals).
   if (!parsingScalarLval()) {
+
+    auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
     // Add temp as livein into UseLoop and all its parent loops till we reach
     // LCA loop.
     while (UseLoop != LCALoop) {
