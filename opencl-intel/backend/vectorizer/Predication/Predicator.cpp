@@ -26,20 +26,21 @@
 
 #include "llvm/Pass.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <iostream>
@@ -2305,12 +2306,27 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     clones.push_back(cloneBB);
   }
 
+  auto &MD = clonesMap.MD();
   // Update references inside the clones.
   for(SmallVector<BasicBlock *, 8>::iterator bbIt = clones.begin(), bbEnd = clones.end();
         bbIt != bbEnd; ++bbIt) {
     BasicBlock * cloneBB = *bbIt;
-    for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii)
+    for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii){
+      Instruction *I = &*ii;
+      // The source locations for the cloned instructions are already correct,
+      // avoid duplicating by remapping them to themselves.
+      DILocation* Loc = I->getDebugLoc().get();
+      if(Loc)
+        MD[Loc].reset(Loc);
+      // Remap DbgVariableIntrinsic instruction's variables to themselves, to make them
+      // agree with !dbg attachments's scopes
+      if (isa<DbgVariableIntrinsic>(I)){
+        DILocalVariable *Var = cast<DbgVariableIntrinsic>(I)->getVariable();
+        if(Var)
+          MD[Var].reset(Var);
+      }
       RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingLocals);
+    }
   }
 
   // Create conditional branch to the original and cloned UCF entry BBs

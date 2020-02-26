@@ -10,6 +10,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/name_mangling
+    ${BACKEND_ROOT_DIR}/utils
     ${CMAKE_BINARY_DIR}/include/
     )
 
@@ -25,6 +26,7 @@ set(TARGET_SOURCE_FILES
   ImplicitGIDPass.cpp
   RedundantPhiNodePass.cpp
   RemoveDuplicationBarrierPass.cpp
+  ReplaceScalarWithMaskPass.cpp
   SplitBBonBarrierPass.cpp
   WIRelatedValuePass.cpp
 )
