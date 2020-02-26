@@ -5088,6 +5088,11 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
   if (!isTargetSPIRV())
     return llvm::None;
 
+#if INTEL_CUSTOMIZATION
+  if (I->getIsWILocal())
+    return vpo::ADDRESS_SPACE_PRIVATE;
+#endif  // INTEL_CUSTOMIZATION
+
   if (isa<WRNDistributeNode>(W) ||
       isa<WRNTeamsNode>(W))
     return vpo::ADDRESS_SPACE_LOCAL;
@@ -5095,9 +5100,6 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
   // Objects declared inside "omp target" must be accessible by all teams,
   // so they have to be __global.
   if (isa<WRNTargetNode>(W))
-#if INTEL_CUSTOMIZATION
-    if (!I->getIsWILocal())
-#endif  // INTEL_CUSTOMIZATION
     return vpo::ADDRESS_SPACE_GLOBAL;
 
   return vpo::ADDRESS_SPACE_PRIVATE;

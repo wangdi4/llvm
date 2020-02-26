@@ -398,6 +398,10 @@ public:
     case CC_Swift:
     case CC_X86Pascal:
     case CC_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+    case CC_IntelOclBiccAVX:
+    case CC_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
     case CC_OpenCLKernel:
       return CCCR_OK;
     default:
@@ -753,6 +757,10 @@ public:
     case CC_Swift:
     case CC_X86VectorCall:
     case CC_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+    case CC_IntelOclBiccAVX:
+    case CC_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
     case CC_Win64:
     case CC_PreserveMost:
     case CC_PreserveAll:
@@ -826,6 +834,10 @@ public:
     case CC_C:
     case CC_X86VectorCall:
     case CC_IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+    case CC_IntelOclBiccAVX:
+    case CC_IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
     case CC_PreserveMost:
     case CC_PreserveAll:
     case CC_X86_64SysV:

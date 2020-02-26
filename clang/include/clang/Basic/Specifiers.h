@@ -284,6 +284,10 @@ namespace clang {
     CC_PreserveMost, // __attribute__((preserve_most))
     CC_PreserveAll,  // __attribute__((preserve_all))
     CC_AArch64VectorCall, // __attribute__((aarch64_vector_pcs))
+#if INTEL_CUSTOMIZATION
+    CC_IntelOclBiccAVX, // __attribute__((intel_ocl_bicc_avx))
+    CC_IntelOclBiccAVX512 // __attribute__((intel_ocl_bicc_avx512))
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// Checks whether the given calling convention supports variadic

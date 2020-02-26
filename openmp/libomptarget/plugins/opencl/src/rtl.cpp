@@ -388,7 +388,7 @@ public:
   cl_platform_id platformID;
   // per device information
   std::vector<cl_device_id> deviceIDs;
-  std::vector<int32_t> maxWorkGroups;
+  std::vector<int32_t> maxExecutionUnits;
   std::vector<size_t> maxWorkGroupSize;
 
   // A vector of descriptors of OpenCL extensions for each device.
@@ -402,6 +402,7 @@ public:
   std::vector<ProfileDataTy> Profiles;
   std::vector<std::vector<char>> Names;
   std::vector<bool> Initialized;
+  std::vector<cl_ulong> SLMSize;
   std::mutex *Mutexes;
 
   // Requires flags
@@ -413,6 +414,7 @@ public:
   int64_t ProfileResolution;
   cl_device_type DeviceType;
   std::string CompilationOptions;
+  std::string LinkingOptions;
 
 #if INTEL_CUSTOMIZATION
   // A pointer to clGetMemAllocInfoINTEL extension API.
@@ -424,6 +426,14 @@ public:
 
   // Limit for the number of WIs in a WG.
   int32_t OMPThreadLimit = -1;
+#if INTEL_CUSTOMIZATION
+  // Default subscription rate is heuristically set to 4.
+  // It only matters for the default ND-range parallelization,
+  // i.e. when the global size is unknown on the host.
+  // This is a factor applied to the number of WGs computed
+  // for the execution, based on the HW characteristics.
+  size_t SubscriptionRate = 4;
+#endif  // INTEL_CUSTOMIZATION
   static const uint64_t LinkDeviceRTLFlag                    = 1ULL << 0;
   static const uint64_t CollectDataTransferLatencyFlag       = 1ULL << 1;
   static const uint64_t EnableProfileFlag                    = 1ULL << 2;
@@ -444,6 +454,16 @@ public:
     DP("omp_get_thread_limit() returned %d\n", OMPThreadLimit);
 
     const char *env;
+
+#if INTEL_CUSTOMIZATION
+    if (env = std::getenv("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
+      int32_t value = std::stoi(env);
+
+      // Set some reasonable limits.
+      if (value > 0 || value <= 0xFFFF)
+        SubscriptionRate = value;
+    }
+#endif  // INTEL_CUSTOMIZATION
 
     // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
     if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
@@ -528,6 +548,9 @@ public:
     if (env = std::getenv("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
       CompilationOptions += env;
     }
+    if (env = std::getenv("LIBOMPTARGET_OPENCL_LINKING_OPTIONS")) {
+      LinkingOptions += env;
+    }
 #if INTEL_CUSTOMIZATION
     // OpenCL CPU compiler complains about unsupported option.
     // Intel Graphics compilers that do not support that option
@@ -535,7 +558,7 @@ public:
     if (DeviceType == CL_DEVICE_TYPE_GPU &&
         (env = std::getenv("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) &&
         (env[0] == 'T' || env[0] == 't' || env[0] == '1'))
-        CompilationOptions += " -cl-take-global-address ";
+        LinkingOptions += " -cl-take-global-address ";
 #endif  // INTEL_CUSTOMIZATION
   }
 };
@@ -868,7 +891,7 @@ int32_t __tgt_rtl_number_of_devices() {
     // device type, so breaking here should be fine.
   }
 
-  DeviceInfo.maxWorkGroups.resize(DeviceInfo.numDevices);
+  DeviceInfo.maxExecutionUnits.resize(DeviceInfo.numDevices);
   DeviceInfo.maxWorkGroupSize.resize(DeviceInfo.numDevices);
   DeviceInfo.Extensions.resize(DeviceInfo.numDevices);
   DeviceInfo.CTX.resize(DeviceInfo.numDevices);
@@ -880,6 +903,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.Profiles.resize(DeviceInfo.numDevices);
   DeviceInfo.Names.resize(DeviceInfo.numDevices);
   DeviceInfo.Initialized.resize(DeviceInfo.numDevices);
+  DeviceInfo.SLMSize.resize(DeviceInfo.numDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.numDevices];
 
   // get device specific information
@@ -897,12 +921,12 @@ int32_t __tgt_rtl_number_of_devices() {
       continue;
     DP("Device %d: %s\n", i, DeviceInfo.Names[i].data());
     clGetDeviceInfo(deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
-                    &DeviceInfo.maxWorkGroups[i], nullptr);
-    DP("Maximum number of work groups (compute units) is %d\n",
-       DeviceInfo.maxWorkGroups[i]);
+                    &DeviceInfo.maxExecutionUnits[i], nullptr);
+    DP("Number of execution units on the device is %d\n",
+       DeviceInfo.maxExecutionUnits[i]);
     clGetDeviceInfo(deviceId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t),
                     &DeviceInfo.maxWorkGroupSize[i], nullptr);
-    DP("Maximum work group size is %d\n",
+    DP("Maximum work group size for the device is %d\n",
        static_cast<int32_t>(DeviceInfo.maxWorkGroupSize[i]));
 #ifdef OMPTARGET_OPENCL_DEBUG
     cl_uint addressmode;
@@ -910,6 +934,9 @@ int32_t __tgt_rtl_number_of_devices() {
                     nullptr);
     DP("Addressing mode is %d bit\n", addressmode);
 #endif
+    clGetDeviceInfo(deviceId, CL_DEVICE_LOCAL_MEM_SIZE,
+                    sizeof(cl_ulong), &DeviceInfo.SLMSize[i], nullptr);
+    DP("Device local mem size: %zu\n", (size_t)DeviceInfo.SLMSize[i]);
     DeviceInfo.Initialized[i] = false;
   }
   if (DeviceInfo.numDevices > 0) {
@@ -1073,6 +1100,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_program program[3];
   cl_uint num_programs = 0;
   std::string compilation_options(DeviceInfo.CompilationOptions);
+  std::string linking_options(DeviceInfo.LinkingOptions);
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 
@@ -1141,11 +1169,15 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   if (num_programs < 2)
     DP("Skipped device RTL.\n");
 
+  DP("OpenCL linking options: %s\n", linking_options.c_str());
+  // clLinkProgram drops the last symbol. Work this around temporarily.
+  linking_options += " ";
+
   LinkingTimer.start();
 
   program[2] = clLinkProgram(
       DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id],
-      compilation_options.c_str(), num_programs, &program[0], nullptr, nullptr,
+      linking_options.c_str(), num_programs, &program[0], nullptr, nullptr,
       &status);
   if (status != CL_SUCCESS) {
     debugPrintBuildLog(program[2], DeviceInfo.deviceIDs[device_id]);
@@ -1794,9 +1826,24 @@ static inline int32_t run_target_team_nd_region(
 
   // For portability, we also need to set max local_work_size.
   size_t local_work_size_max = DeviceInfo.maxWorkGroupSize[device_id];
-  DP("OpenCL maximum work-group size is %zu.\n", local_work_size_max);
-  size_t num_work_groups_max = DeviceInfo.maxWorkGroups[device_id];
-  DP("OpenCL maximum number of work-groups is %zu.\n", num_work_groups_max);
+  DP("Maximum work-group size on the device is %zu.\n", local_work_size_max);
+  size_t num_execution_units_max = DeviceInfo.maxExecutionUnits[device_id];
+  DP("Number of execution units on the device is %zu.\n",
+     num_execution_units_max);
+
+#ifdef OMPTARGET_OPENCL_DEBUG
+  // TODO: kernels using to much SLM may limit the number of
+  //       work groups running simultaneously on a sub slice.
+  //       We may take this into account for computing the work partitioning.
+  size_t device_local_mem_size = (size_t)DeviceInfo.SLMSize[device_id];
+  DP("Device local mem size: %zu\n", device_local_mem_size);
+  cl_ulong local_mem_size_tmp = 0;
+  INVOKE_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
+                     DeviceInfo.deviceIDs[device_id], CL_KERNEL_LOCAL_MEM_SIZE,
+                     sizeof(local_mem_size_tmp), &local_mem_size_tmp, nullptr);
+  size_t kernel_local_mem_size = (size_t)local_mem_size_tmp;
+  DP("Kernel local mem size: %zu\n", kernel_local_mem_size);
+#endif  // OMPTARGET_OPENCL_DEBUG
 
   size_t kernel_simd_width = 1;
   INVOKE_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
@@ -1817,36 +1864,167 @@ static inline int32_t run_target_team_nd_region(
        local_work_size_max);
   }
 
+  bool local_size_forced_by_user = false;
+
   if (thread_limit > 0 &&
-      (size_t)thread_limit < local_work_size_max) {
+      (size_t)thread_limit <= local_work_size_max) {
     local_work_size_max = (size_t)thread_limit;
+    local_size_forced_by_user = true;
     DP("Setting maximum work-group size to %zu (due to thread_limit clause).\n",
        local_work_size_max);
   }
 
   if (DeviceInfo.OMPThreadLimit > 0 &&
-      (size_t)DeviceInfo.OMPThreadLimit < local_work_size_max) {
+      (size_t)DeviceInfo.OMPThreadLimit <= local_work_size_max) {
     local_work_size_max = (size_t)DeviceInfo.OMPThreadLimit;
+    local_size_forced_by_user = true;
     DP("Setting maximum work-group size to %zu (due to OMP_THREAD_LIMIT).\n",
        local_work_size_max);
   }
 
+#if INTEL_CUSTOMIZATION
+  bool num_teams_forced_by_user = false;
+
+  // We are currently handling only GEN9/GEN9.5 here.
+  // TODO: we need to find a way to compute the number of sub slices
+  //       and number of EUs per sub slice for the particular device.
+  size_t number_of_subslices = 9;
+  size_t eus_per_ss = 8;
+  size_t threads_per_eu = 7;
+
+
+  // Each EU has 7 threads. A work group is partitioned into EU threads,
+  // and then scheduled onto a sub slice. A sub slice must have all the
+  // resources available to start a work group, otherwise it will wait
+  // for resources. This means that uneven partitioning may result
+  // in waiting work groups, and also unused EUs.
+  // See slides 25-27 here:
+  //   https://software.intel.com/sites/default/files/\
+  //   Faster-Better-Pixels-on-the-Go-and-in-the-Cloud-\
+  //   with-OpenCL-on-Intel-Architecture.pdf
+  if (num_execution_units_max >= 72) {
+    // Default best Halo (GT4) configuration.
+  } else if (num_execution_units_max >= 48) {
+    // GT3
+    number_of_subslices = 6;
+  } else if (num_execution_units_max >= 24) {
+    // GT2
+    number_of_subslices = 3;
+  } else if (num_execution_units_max >= 18) {
+    // GT1.5
+    number_of_subslices = 3;
+    eus_per_ss = 6;
+  } else {
+    // GT1
+    number_of_subslices = 2;
+    eus_per_ss = 6;
+  }
+
+  size_t num_work_groups_max =
+      number_of_subslices * eus_per_ss * threads_per_eu;
+
+  // For open-source keep the previous default, i.e. maximum number
+  // of work groups is equal to the number of execution units.
+#else  // INTEL_CUSTOMIZATION
+  size_t num_work_groups_max = num_execution_units_max;
+#endif // INTEL_CUSTOMIZATION
+
   if (num_teams > 0 &&
-      (size_t)num_teams < num_work_groups_max) {
+      // Maybe we should get rid of this limitation and allow users
+      // to specify as many teams as they want, but let's keep it
+      // for the time being.
+      (size_t)num_teams <= num_work_groups_max) {
     num_work_groups_max = (size_t)num_teams;
+#if INTEL_CUSTOMIZATION
+    num_teams_forced_by_user = true;
+#endif  // INTEL_CUSTOMIZATION
     DP("Setting maximum number of work groups to %zu "
        "(due to num_teams clause).\n", num_work_groups_max);
   }
 
   int64_t *loop_levels = loop_desc ? (int64_t *)loop_desc : nullptr;
+
+#if INTEL_CUSTOMIZATION
+  // With specific ND-range parallelization we use 8/16/32 WIs per WG.
+  // Each WG can be run by one EU thread, so all work groups evenly
+  // fit the sub slices.
+  if (!loop_levels &&
+      // If user specifies both number of work groups and the local size,
+      // the we must honor that.
+      (!local_size_forced_by_user || !num_teams_forced_by_user)) {
+    // For default ND-range parallelization, i.e. when we do not know
+    // the number of iterations, we want to create work groups with
+    // maximum local size and also make sure that we can start all
+    // work groups at once. We want to maximize the local size
+    // to reduce the number of work groups run on the same sub slice
+    // simultaneously, because this number is limited by the amount
+    // of local memory used by the kernel, and the number of barriers,
+    // which is currently unknown.
+
+    size_t threads_per_ss = eus_per_ss * threads_per_eu;
+
+    if (num_teams_forced_by_user) {
+      assert(num_work_groups_max <=
+             number_of_subslices * eus_per_ss * threads_per_eu &&
+             "num_teams is bigger than the maximum number of "
+             "simultaneously executing work groups.");
+      // Try to maximize the local size, but still fit all work groups
+      // into the sub slices at once.
+      assert((local_work_size_max <= kernel_simd_width ||
+              (local_work_size_max % kernel_simd_width) == 0) &&
+             "invalid local_work_size_max.");
+
+      while (local_work_size_max > kernel_simd_width) {
+        size_t threads_per_wg = local_work_size_max / kernel_simd_width;
+        size_t wgs_per_ss = threads_per_ss / threads_per_wg;
+        size_t number_of_simultaneous_wgs = wgs_per_ss * number_of_subslices;
+        if (number_of_simultaneous_wgs >= num_work_groups_max)
+          break;
+
+        local_work_size_max -= kernel_simd_width;
+      }
+      // The minimum value for local_work_size_max is kernel_simd_width
+      // after this loop, which means one work group is run by one
+      // EU thread.
+    } else if (local_size_forced_by_user) {
+      // Local size is fixed by the user, so we need to compute
+      // the maximum number of simultaneously running work groups,
+      // which will be used later to set the global size.
+      size_t threads_per_wg =
+          (local_work_size_max + kernel_simd_width - 1) / kernel_simd_width;
+      size_t wgs_per_ss = threads_per_ss / threads_per_wg;
+      num_work_groups_max = wgs_per_ss * number_of_subslices;
+    } else {
+      assert(!local_size_forced_by_user && !num_teams_forced_by_user &&
+             "mismatched conditions.");
+      // Make sure we use all sub slices without loss of any EU thread,
+      // maximize the work group size, and also fit all work groups
+      // at once.
+      //
+      // Even use of sub slices means:
+      //   (eus_per_ss * threads_per_eu) % (local_size / SIMDWidth) == 0
+      assert((local_work_size_max <= kernel_simd_width ||
+              (local_work_size_max % kernel_simd_width) == 0) &&
+             "invalid local_work_size_max.");
+
+      while (local_work_size_max > kernel_simd_width) {
+        size_t threads_per_wg = local_work_size_max / kernel_simd_width;
+        if ((threads_per_ss % threads_per_wg) == 0) {
+          size_t wgs_per_ss = threads_per_ss / threads_per_wg;
+          size_t max_wg_num = wgs_per_ss * number_of_subslices;
+          num_work_groups_max = max_wg_num;
+          break;
+        }
+
+        local_work_size_max -= kernel_simd_width;
+      }
+    }
+  }
+#endif  // INTEL_CUSTOMIZATION
+
   size_t optimal_work_size = local_work_size_max;
 
-  if (loop_levels && thread_limit <= 0 &&
-      (DeviceInfo.OMPThreadLimit <= 0 ||
-       // omp_get_thread_limit() would return INT_MAX by default.
-       // NOTE: Windows.h defines max() macro, so we have to guard
-       //       the call with parentheses.
-       DeviceInfo.OMPThreadLimit == (std::numeric_limits<int32_t>::max)()) &&
+  if (loop_levels && !local_size_forced_by_user &&
       optimal_work_size > kernel_simd_width)
     // Default to 8/16/32 WIs per WG for ND-range paritioning depending
     // on the SIMD width the kernel was compiled for.
@@ -1880,6 +2058,10 @@ static inline int32_t run_target_team_nd_region(
   else {
     local_work_size[0] = optimal_work_size;
     num_work_groups[0] = num_work_groups_max;
+#if INTEL_CUSTOMIZATION
+    if (!num_teams_forced_by_user)
+      num_work_groups[0] *= DeviceInfo.SubscriptionRate;
+#endif  // INTEL_CUSTOMIZATION
   }
 
   // Compute num_work_groups using the loop descriptor.

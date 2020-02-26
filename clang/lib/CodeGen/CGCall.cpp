@@ -59,6 +59,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
   case CC_AAPCS: return llvm::CallingConv::ARM_AAPCS;
   case CC_AAPCS_VFP: return llvm::CallingConv::ARM_AAPCS_VFP;
   case CC_IntelOclBicc: return llvm::CallingConv::Intel_OCL_BI;
+#if INTEL_CUSTOMIZATION
+  case CC_IntelOclBiccAVX: return llvm::CallingConv::Intel_OCL_BI_AVX;
+  case CC_IntelOclBiccAVX512: return llvm::CallingConv::Intel_OCL_BI_AVX512;
+#endif // INTEL_CUSTOMIZATION
   // TODO: Add support for __pascal to LLVM.
   case CC_X86Pascal: return llvm::CallingConv::C;
   // TODO: Add support for __vectorcall to LLVM.
@@ -229,6 +233,14 @@ static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
 
   if (D->hasAttr<IntelOclBiccAttr>())
     return CC_IntelOclBicc;
+
+#if INTEL_CUSTOMIZATION
+  if (D->hasAttr<IntelOclBiccAVXAttr>())
+    return CC_IntelOclBiccAVX;
+
+  if (D->hasAttr<IntelOclBiccAVX512Attr>())
+    return CC_IntelOclBiccAVX512;
+#endif // INTEL_CUSTOMIZATION
 
   if (D->hasAttr<MSABIAttr>())
     return IsWindows ? CC_C : CC_Win64;

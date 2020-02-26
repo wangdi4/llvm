@@ -972,6 +972,10 @@ public:
     case CallingConv::X86_ThisCall:
     case CallingConv::X86_VectorCall:
     case CallingConv::Intel_OCL_BI:
+#if INTEL_CUSTOMIZATION
+    case CallingConv::Intel_OCL_BI_AVX:
+    case CallingConv::Intel_OCL_BI_AVX512:
+#endif // INTEL_CUSTOMIZATION
       return isTargetWin64();
     // This convention allows using the Win64 convention on other targets.
     case CallingConv::Win64:

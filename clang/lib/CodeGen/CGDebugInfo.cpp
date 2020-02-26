@@ -1212,6 +1212,12 @@ static unsigned getDwarfCC(CallingConv CC) {
     return llvm::dwarf::DW_CC_LLVM_AAPCS_VFP;
   case CC_IntelOclBicc:
     return llvm::dwarf::DW_CC_LLVM_IntelOclBicc;
+#if INTEL_CUSTOMIZATION
+  case CC_IntelOclBiccAVX:
+    return llvm::dwarf::DW_CC_LLVM_IntelOclBiccAVX;
+  case CC_IntelOclBiccAVX512:
+    return llvm::dwarf::DW_CC_LLVM_IntelOclBiccAVX512;
+#endif // INTEL_CUSTOMIZATION
   case CC_SpirFunction:
     return llvm::dwarf::DW_CC_LLVM_SpirFunction;
   case CC_OpenCLKernel:

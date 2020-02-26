@@ -1559,8 +1559,9 @@ public:
     Descriptor.setInductionBinOp(nullptr);
     Descriptor.setBinOpcode(Instruction::Add);
     assertIsSingleElementAlloca(CurValue.first);
-    Descriptor.setAllocaInst(
-        isa<AllocaInst>(CurValue.first) ? Descriptor.getStart() : nullptr);
+    // Initialize the AllocaInst of the descriptor with the induction start
+    // value. Explicit inductions always have a valid memory allocation.
+    Descriptor.setAllocaInst(Descriptor.getStart());
     Descriptor.setIsExplicitInduction(true);
   }
 };

@@ -895,6 +895,14 @@ void TypePrinter::printFunctionAfter(const FunctionType::ExtInfo &Info,
     case CC_IntelOclBicc:
       OS << " __attribute__((intel_ocl_bicc))";
       break;
+#if INTEL_CUSTOMIZATION
+    case CC_IntelOclBiccAVX:
+      OS << " __attribute__((intel_ocl_bicc_avx))";
+      break;
+    case CC_IntelOclBiccAVX512:
+      OS << " __attribute__((intel_ocl_bicc_avx512))";
+      break;
+#endif // INTEL_CUSTOMIZATION
     case CC_Win64:
       OS << " __attribute__((ms_abi))";
       break;
@@ -1601,6 +1609,10 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
   }
   case attr::AArch64VectorPcs: OS << "aarch64_vector_pcs"; break;
   case attr::IntelOclBicc: OS << "inteloclbicc"; break;
+#if INTEL_CUSTOMIZATION
+  case attr::IntelOclBiccAVX: OS << "inteloclbiccavx"; break;
+  case attr::IntelOclBiccAVX512: OS << "inteloclbiccavx512"; break;
+#endif // INTEL_CUSTOMIZATION
   case attr::PreserveMost:
     OS << "preserve_most";
     break;

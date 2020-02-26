@@ -2018,6 +2018,8 @@ void LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
 ///   ::= 'ccc'
 ///   ::= 'fastcc'
 ///   ::= 'intel_ocl_bicc'
+///   ::= 'intel_ocl_bicc_avx' // INTEL
+///   ::= 'intel_ocl_bicc_avx512' // INTEL
 ///   ::= 'coldcc'
 ///   ::= 'cfguard_checkcc'
 ///   ::= 'x86_stdcallcc'
@@ -2088,6 +2090,10 @@ bool LLParser::ParseOptionalCallingConv(unsigned &CC) {
   case lltok::kw_spir_func:      CC = CallingConv::SPIR_FUNC; break;
   case lltok::kw_intel_ocl_bicc: CC = CallingConv::Intel_OCL_BI; break;
 #if INTEL_CUSTOMIZATION
+  case lltok::kw_intel_ocl_bicc_avx: CC = CallingConv::Intel_OCL_BI_AVX; break;
+  case lltok::kw_intel_ocl_bicc_avx512:
+    CC = CallingConv::Intel_OCL_BI_AVX512;
+    break;
   case lltok::kw_svml_cc:        CC = CallingConv::SVML; break;
 #endif // INTEL_CUSTOMIZATION
   case lltok::kw_x86_64_sysvcc:  CC = CallingConv::X86_64_SysV; break;

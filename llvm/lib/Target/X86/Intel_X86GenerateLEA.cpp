@@ -355,6 +355,13 @@ bool GenerateLEAPass::generateLEAs(MachineBasicBlock &MBB) {
     // Normally, LEA instruction takes 7 bytes.
     unsigned Threshold = 7;
 
+    // 548.exchange2's front-end bound is too heavy,
+    // set a smaller threshold.
+    if (MBB.getParent()->getFunction()
+           .hasFnAttribute("contains-rec-pro-clone")) {
+      Threshold = 3;
+    }
+
     // Need 1 byte for SIB.
     if (MemOpKey.getIndexReg() != X86::NoRegister)
       ++Threshold;

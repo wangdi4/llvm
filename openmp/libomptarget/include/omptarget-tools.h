@@ -1792,6 +1792,13 @@ struct OmptTraceTy {
 
 extern thread_local OmptTraceTy omptTrace;
 
+#define OMPT_TRACE(Event)                                                      \
+  do {                                                                         \
+    if (omptEnabled.enabled) {                                                 \
+      omptTrace.Event;                                                         \
+    }                                                                          \
+  } while (0)
+
 /// DL utilities
 #ifdef _WIN32
 #include <windows.h>

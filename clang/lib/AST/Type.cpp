@@ -3031,6 +3031,10 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_AAPCS_VFP: return "aapcs-vfp";
   case CC_AArch64VectorCall: return "aarch64_vector_pcs";
   case CC_IntelOclBicc: return "intel_ocl_bicc";
+#if INTEL_CUSTOMIZATION
+  case CC_IntelOclBiccAVX: return "intel_ocl_bicc_avx";
+  case CC_IntelOclBiccAVX512: return "intel_ocl_bicc_avx512";
+#endif // INTEL_CUSTOMIZATION
   case CC_SpirFunction: return "spir_function";
   case CC_OpenCLKernel: return "opencl_kernel";
   case CC_Swift: return "swiftcall";
@@ -3464,6 +3468,10 @@ bool AttributedType::isCallingConv() const {
   case attr::MSABI:
   case attr::SysVABI:
   case attr::IntelOclBicc:
+#if INTEL_CUSTOMIZATION
+  case attr::IntelOclBiccAVX:
+  case attr::IntelOclBiccAVX512:
+#endif // INTEL_CUSTOMIZATION
   case attr::PreserveMost:
   case attr::PreserveAll:
     return true;

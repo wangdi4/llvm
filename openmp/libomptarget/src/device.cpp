@@ -293,11 +293,11 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
       DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
           DPxPTR(HT.TgtPtrBegin), Size);
 #if INTEL_COLLAB
-      omptTrace.targetDataDeleteBegin(RTLDeviceID, (void *)HT.TgtPtrBegin);
+      OMPT_TRACE(targetDataDeleteBegin(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
       RTL->data_delete(RTLDeviceID, (void *)HT.TgtPtrBegin);
 #if INTEL_COLLAB
-      omptTrace.targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin);
+      OMPT_TRACE(targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
       DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
           ", Size=%" PRId64 "\n", (ForceDelete ? " (forced)" : ""),
@@ -354,9 +354,10 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
 int32_t DeviceTy::data_submit(void *TgtPtrBegin, void *HstPtrBegin,
     int64_t Size) {
 #if INTEL_COLLAB
-  omptTrace.targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
+  OMPT_TRACE(
+      targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   int32_t ret = RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
-  omptTrace.targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
+  OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   return ret;
 #else // INTEL_COLLAB
   return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
@@ -367,9 +368,11 @@ int32_t DeviceTy::data_submit(void *TgtPtrBegin, void *HstPtrBegin,
 int32_t DeviceTy::data_retrieve(void *HstPtrBegin, void *TgtPtrBegin,
     int64_t Size) {
 #if INTEL_COLLAB
-  omptTrace.targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
+  OMPT_TRACE(
+      targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   int32_t ret = RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
-  omptTrace.targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
+  OMPT_TRACE(
+      targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   return ret;
 #else // INTEL_COLLAB
   return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
@@ -380,10 +383,10 @@ int32_t DeviceTy::data_retrieve(void *HstPtrBegin, void *TgtPtrBegin,
 int32_t DeviceTy::run_region(void *TgtEntryPtr, void **TgtVarsPtr,
     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize) {
 #if INTEL_COLLAB
-  omptTrace.targetSubmitBegin(RTLDeviceID, 1);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize);
-  omptTrace.targetSubmitEnd(RTLDeviceID, 1);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
   return ret;
 #else // INTEL_COLLAB
   return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
@@ -396,11 +399,11 @@ int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
     int32_t ThreadLimit, uint64_t LoopTripCount) {
 #if INTEL_COLLAB
-  omptTrace.targetSubmitBegin(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
   int32_t ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                      TgtOffsets, TgtVarsSize, NumTeams,
                                      ThreadLimit, LoopTripCount);
-  omptTrace.targetSubmitEnd(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
   return ret;
 #else // INTEL_COLLAB
   return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
@@ -499,43 +502,45 @@ char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
 
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
-  omptTrace.targetDataAllocBegin(RTLDeviceID, Size);
+  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   void *ret = RTL->data_alloc_base
       ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
       : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
-  omptTrace.targetDataAllocEnd(RTLDeviceID, Size, ret);
+  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
   return ret;
 }
 
 void *DeviceTy::data_alloc_user(int64_t Size, void *HstPtrBegin) {
-  omptTrace.targetDataAllocBegin(RTLDeviceID, Size);
+  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   void *ret = RTL->data_alloc_user
       ? RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin)
       : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
-  omptTrace.targetDataAllocEnd(RTLDeviceID, Size, ret);
+  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
   return ret;
 }
 
 int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
                                      int64_t Size, void *AsyncData) {
-  omptTrace.targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
+  OMPT_TRACE(
+      targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   int32_t ret = RTL->data_submit_nowait
       ? RTL->data_submit_nowait(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
                                 AsyncData)
       : OFFLOAD_FAIL;
-  omptTrace.targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
+  OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   return ret;
 }
 
 int32_t DeviceTy::data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
                                        int64_t Size, void *AsyncData) {
-  omptTrace.targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin,
-                                    Size);
+  OMPT_TRACE(
+      targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   int32_t ret = RTL->data_retrieve_nowait
       ? RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
                                   AsyncData)
       : OFFLOAD_FAIL;
-  omptTrace.targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
+  OMPT_TRACE(
+      targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   return ret;
 }
 
@@ -543,13 +548,13 @@ int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                      int32_t NumTeams, int32_t ThreadLimit,
                                      void *TgtNDLoopDesc) {
-  omptTrace.targetSubmitBegin(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
   int32_t ret = RTL->run_team_nd_region
       ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
                                 TgtNDLoopDesc)
       : OFFLOAD_FAIL;
-  omptTrace.targetSubmitEnd(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
   return ret;
 }
 
@@ -558,25 +563,25 @@ DeviceTy::run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                     int32_t NumTeams, int32_t ThreadLimit,
                                     void *TgtNDLoopDesc, void *AsyncData) {
-  omptTrace.targetSubmitBegin(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
   int32_t ret = RTL->run_team_nd_region_nowait
       ? RTL->run_team_nd_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                        TgtOffsets, TgtVarsSize, NumTeams,
                                        ThreadLimit, TgtNDLoopDesc, AsyncData)
       : OFFLOAD_FAIL;
-  omptTrace.targetSubmitEnd(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
   return ret;
 }
 
 int32_t DeviceTy::run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                     void *AsyncData) {
-  omptTrace.targetSubmitBegin(RTLDeviceID, 1);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t ret = RTL->run_region_nowait
       ? RTL->run_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                                TgtVarsSize, AsyncData)
       : OFFLOAD_FAIL;
-  omptTrace.targetSubmitEnd(RTLDeviceID, 1);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
   return ret;
 }
 
@@ -586,13 +591,13 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                          int32_t ThreadLimit,
                                          uint64_t LoopTripCount,
                                          void *AsyncData) {
-  omptTrace.targetSubmitBegin(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
   int32_t ret = RTL->run_team_region_nowait
       ? RTL->run_team_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                     TgtOffsets, TgtVarsSize, NumTeams,
                                     ThreadLimit, LoopTripCount, AsyncData)
       : OFFLOAD_FAIL;
-  omptTrace.targetSubmitEnd(RTLDeviceID, NumTeams);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
   return ret;
 }
 

@@ -3392,6 +3392,10 @@ enum CXCallingConv {
   CXCallingConv_PreserveMost = 14,
   CXCallingConv_PreserveAll = 15,
   CXCallingConv_AArch64VectorCall = 16,
+#if INTEL_CUSTOMIZATION
+  CXCallingConv_IntelOclBiccAVX = 17,
+  CXCallingConv_IntelOclBiccAVX512 = 18,
+#endif /* INTEL_CUSTOMIZATION */
 
   CXCallingConv_Invalid = 100,
   CXCallingConv_Unexposed = 200
