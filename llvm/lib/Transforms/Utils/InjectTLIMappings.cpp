@@ -111,9 +111,16 @@ static void addMappingsFromTLI(const TargetLibraryInfo &TLI, CallInst &CI) {
     return;
 
   const std::string ScalarName = std::string(CI.getCalledFunction()->getName());
+#if INTEL_CUSTOMIZATION
   // Nothing to be done if the TLI thinks the function is not
-  // vectorizable.
-  if (!TLI.isFunctionVectorizable(ScalarName))
+  // vectorizable or vector library function does not match scalar function's
+  // prototype for non-intrinsic calls.
+  LibFunc VecLibF;
+  bool IsIntrinsic =
+      getVectorIntrinsicIDForCall(&CI, &TLI) != Intrinsic::not_intrinsic;
+  if (!TLI.isFunctionVectorizable(ScalarName) ||
+      (!IsIntrinsic && !TLI.getLibFunc(*CI.getCalledFunction(), VecLibF)))
+#endif // INTEL_CUSTOMIZATION
     return;
   SmallVector<std::string, 8> Mappings;
   VFABI::getVectorVariantNames(CI, Mappings);
