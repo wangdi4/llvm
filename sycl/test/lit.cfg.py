@@ -63,6 +63,7 @@ if 'SYCL_DEVICE_WHITE_LIST' in os.environ:
     config.environment['SYCL_DEVICE_WHITE_LIST'] = os.environ['SYCL_DEVICE_WHITE_LIST']
 
 config.substitutions.append( ('%clang_cc1', ' ' + config.clang + ' -cc1 ') )
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Propagate --gcc-toolchain if we are overriding system installed gcc.
 if 'ICS_GCCBIN' in os.environ:
@@ -77,9 +78,14 @@ else:
     config.substitutions.append( ('%clang_cl', ' ' + config.clang_cl + ' /I '+config.opencl_include ) )
     config.substitutions.append( ('%clang', ' ' + config.clang + ' -I'+config.opencl_include ) )
 # end INTEL_CUSTOMIZATION
+=======
+config.substitutions.append( ('%clangxx', ' ' + config.clangxx ) )
+config.substitutions.append( ('%clang_cl', ' ' + config.clang_cl ) )
+config.substitutions.append( ('%clang', ' ' + config.clang ) )
+>>>>>>> 1137134f94f89a023bec93ba737f9001f3f08c10
 config.substitutions.append( ('%llvm_build_libs_dir',  config.llvm_build_libs_dir ) )
-config.substitutions.append( ('%opencl_include',  config.opencl_include ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
+config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 
 tools = ['llvm-spirv']
 tool_dirs = [config.llvm_tools_dir]
