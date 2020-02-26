@@ -195,7 +195,7 @@ bool DebugInfoPass::runOnModule(Module& M)
         if (func_iter->isDeclaration() || findFunctionsInModule(func_iter->getName()))
             continue;
 
-        if (CompilationUtils::isGlobalCtorDtor(&(*func_iter)))
+        if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&(*func_iter)))
             continue;
 
         runOnUserFunction(&(*func_iter));

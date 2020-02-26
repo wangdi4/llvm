@@ -183,6 +183,9 @@ public:
     // Create LLJIT instance
     virtual std::unique_ptr<LLJIT2> CreateLLJIT() = 0;
 
+    // Allocate a module key
+    virtual llvm::orc::VModuleKey allocateVModule() = 0;
+
     // Get Function Address Resolver
     virtual void *GetFunctionAddressResolver() { return NULL; }
 

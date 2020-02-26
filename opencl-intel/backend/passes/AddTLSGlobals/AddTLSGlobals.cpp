@@ -82,7 +82,7 @@ bool AddTLSGlobals::runOnModule(Module &M) {
       continue;
     }
     // No need to handle global ctors/dtors
-    if (CompilationUtils::isGlobalCtorDtor(&Func))
+    if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&Func))
       continue;
 
     FunctionsToHandle.push_back(&Func);

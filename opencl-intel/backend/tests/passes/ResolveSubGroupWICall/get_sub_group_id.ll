@@ -61,8 +61,13 @@ entry:
   store <16 x i32> %vector19, <16 x i32> addrspace(1)* %ptrTypeCast18, align 4
   %call4 = tail call i32 @_Z18get_sub_group_sizev() #4
 ; CHECK-NOT: @_Z18get_sub_group_sizev
-; CHECK: insertelement <16 x i32> undef
-; CHECK-SAME: i32 16, i32 0
+; CHECK: [[local_size:%[0-9]+]] = call i64 @_Z14get_local_sizej(i32 0)
+; CHECK: %uniform.id.max = and i64 {{-16|4294967280}}, [[local_size]]
+; CHECK: %nonuniform.size = sub i64 [[local_size]], %uniform.id.max
+; CHECK: [[local_id:%[0-9]+]] = call i64 @_Z12get_local_idj(i32 0)
+; CHECK: [[cond:%[0-9]+]] = icmp ult i64 [[local_id]], %uniform.id.max
+; CHECK: [[result:%[0-9]+]] = select i1 [[cond]], i64 16, i64 %nonuniform.size
+; CHECK: %subgroup.size = trunc i64 [[result]] to i32
   %temp23 = insertelement <16 x i32> undef, i32 %call4, i32 0
   %vector22 = shufflevector <16 x i32> %temp23, <16 x i32> undef, <16 x i32> zeroinitializer
   %3 = getelementptr inbounds i32, i32 addrspace(1)* %sub_groups_sizes, i64 %call

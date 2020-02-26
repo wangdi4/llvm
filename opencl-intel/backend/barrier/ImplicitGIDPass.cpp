@@ -64,7 +64,7 @@ bool ImplicitGlobalIdPass::runOnFunction(Function& F)
   if (!F.getSubprogram())
     return false;
 
-  if (CompilationUtils::isGlobalCtorDtor(&F))
+  if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&F))
     return false;
 
   m_pSyncInstSet = 0;

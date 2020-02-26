@@ -20,13 +20,14 @@
 
 // internal-ctor-kernel.ioc.obj is created from:
 //  command:
-//    ./aocl-ioc64 -cmd=compile -device=fpga_fast_emu -bo='-cl-std=CL1.2 -g -s
-//    "kernel.cl"  -DINTELFPGA_CL=201' -input=kernel.cl -ir=kernel.ioc.obj
+//    ./aocl-ioc64 -cmd=compile -device=fpga_fast_emu -bo='-cl-std=CL1.2
+//    -cl-opt-disable -s "kernel.cl"  -DINTELFPGA_CL=201' -input=kernel.cl
+//    -ir=internal-ctor-kernel.ioc.obj
 //
 //  kernel.cl:
-//    int myfunc();
+//    int myfunc(int x);
 //    kernel void test(__global int *out) {
-//      out[0] = myfunc();
+//      out[0] = myfunc(0);
 //    }
 //
 // internal-ctor-lib.cpp.ioc.obj is created from
@@ -34,7 +35,7 @@
 //    ./aocl-clang -cc1 -emit-llvm-bc -O3 -disable-llvm-passes -x c++
 //    --std=c++14 -fhls -D_HLS_EMBEDDED_PROFILE -x c++ --std=c++14 -fhls
 //    -D_HLS_EMBEDDED_PROFILE -D__INTELFPGA_TYPE__=NONE -DHLS_X86 -triple
-//    spir64-unknown-unknown-intelfpga lib.cpp  -o lib.cpp.ioc.obj
+//    spir64-unknown-unknown-intelfpga lib.cpp  -o internal-ctor-lib.cpp.ioc.obj
 //    -Wunknown-pragmas -Wuninitialized -D__INTELFPGA_COMPILER__=201
 //
 //  lib.cpp:
@@ -44,7 +45,7 @@
 //    };
 //    struct glob globobj(4);
 //    extern "C" int myfunc(int x){
-//      return globobj.val;
+//      return globobj.val + x;
 //    }
 
 #include "base_fixture.h"
@@ -98,8 +99,8 @@ TEST_F(CPPTest, internalGlobalCtor) {
 
   // Create program from object files
   cl_int err;
-  std::vector<std::string> filenames = {"internal-ctor-lib.cpp.ioc.obj",
-                                        "internal-ctor-kernel.ioc.obj"};
+  std::vector<std::string> filenames = {"internal-ctor-kernel.ioc.obj",
+                                        "internal-ctor-lib.cpp.ioc.obj"};
   int num_programs = (int)filenames.size();
   std::vector<cl_program> programs(num_programs);
   for (int i = 0; i < num_programs; ++i) {

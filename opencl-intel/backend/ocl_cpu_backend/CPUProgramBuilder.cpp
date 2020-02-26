@@ -166,8 +166,8 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // create LLJIT
     std::unique_ptr<LLJIT2> LLJIT = pCompiler->CreateLLJIT();
-    llvm::Error err = LLJIT->addObjectFile(pCache->getObject(nullptr));
-    if (err) {
+    if (llvm::Error err = LLJIT->addObjectFile(pCache->getObject(nullptr),
+                                               pCompiler->allocateVModule())) {
         llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
         throw Exceptions::CompilerException("Failed to add object to LLJIT");
     }

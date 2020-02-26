@@ -62,7 +62,6 @@ entry:
 ; CHECK-LABEL: entryvector_func:
 ; CHECK-SAME: preds = %entryvector_func, %dim_0_vector_pre_head
 ; CHECK-LABEL: scalar_kernel_entry:
-; CHECK-SAME: No predecessors!
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-sign
 ed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }

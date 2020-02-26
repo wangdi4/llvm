@@ -192,6 +192,7 @@ ProgramBuilder::~ProgramBuilder()
 
 void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStats)
 {
+#ifndef INTEL_PRODUCT_RELEASE
     if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
     {
         // use sequential number to distinguish dumped files
@@ -223,6 +224,7 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStat
         else
           throw Exceptions::CompilerException(ec.message());
     }
+#endif // INTEL_PRODUCT_RELEASE
 }
 
 void ProgramBuilder::ParseProgram(Program* pProgram)
@@ -266,10 +268,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         assert(pModule && "Module parsing has failed without exception. Strange");
 
 #ifndef INTEL_PRODUCT_RELEASE
-        if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS"))
-        {
-            if (pEnv[0] != 0 && (strcmp("ALL", pEnv) || strcmp("all", pEnv)))
-            {
+        // If environment variable VOLCANO_EQUALIZER_STATS is set to any
+        // non-empty string, then we dump IR before optimization.
+        if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS")) {
+            if (pEnv[0] != 0) {
                 DumpModuleStats(pModule, /*isEqualizerStats = */ true);
             }
         }
@@ -305,14 +307,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         // set runtime service for the program
         pProgram->SetRuntimeService(lRuntimeService);
 
+#ifndef INTEL_PRODUCT_RELEASE
         // Dump module stats just before lowering if requested
-        if (const char *pEnv = getenv("VOLCANO_STATS"))
-        {
-            if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
-            {
-                DumpModuleStats(pModule, /*isEqualizerStats = */ false);
-            }
-        }
+        DumpModuleStats(pModule, /*isEqualizerStats = */ false);
+#endif // INTEL_PRODUCT_RELEASE
 
         PostOptimizationProcessing(pProgram, pModule, pOptions);
 

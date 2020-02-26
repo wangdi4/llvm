@@ -1223,6 +1223,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         std::vector<IOCLDevMemoryObject*>   m_nonArgSvmBuffersVec;        
         std::vector<IOCLDevMemoryObject*>   m_nonArgUsmBuffersVec;
+        // Record device descriptor of buffers in order to release them
+        std::vector<IOCLDevMemoryObject*>   m_argDevDescMemObjects;
 #if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
 #endif

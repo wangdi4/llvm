@@ -206,6 +206,7 @@ struct KernelInternalMetadataAPI {
         VectorizationDimension(Func, "vectorization_dimension"),
         CanUniteWorkgroups(Func, "can_unite_workgroups"),
         VectorizedKernel(Func, "vectorized_kernel"),
+        VectorizedMaskedKernel(Func, "vectorized_masked_kernel"),
         KernelWrapper(Func, "kernel_wrapper"),
         ScalarizedKernel(Func, "scalarized_kernel"),
         UseFPGAPipes(Func, "use_fpga_pipes")
@@ -225,6 +226,7 @@ struct KernelInternalMetadataAPI {
       MDNames.push_back(VectorizationDimension.getID());
       MDNames.push_back(CanUniteWorkgroups.getID());
       MDNames.push_back(VectorizedKernel.getID());
+      MDNames.push_back(VectorizedMaskedKernel.getID());
       MDNames.push_back(KernelWrapper.getID());
       MDNames.push_back(ScalarizedKernel.getID());
       MDNames.push_back(UseFPGAPipes.getID());
@@ -246,6 +248,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<VectorizationDimensionTy> VectorizationDimension;
   NamedMDValueAccessor<CanUniteWorkgroupsTy> CanUniteWorkgroups;
   NamedMDValueAccessor<VectorizedKernelTy> VectorizedKernel;
+  NamedMDValueAccessor<VectorizedKernelTy> VectorizedMaskedKernel;
   NamedMDValueAccessor<KernelWrapperTy> KernelWrapper;
   NamedMDValueAccessor<ScalarizedKernelTy> ScalarizedKernel;
   NamedMDValueAccessor<UseFPGAPipesTy> UseFPGAPipes;

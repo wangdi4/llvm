@@ -1863,6 +1863,8 @@ cl_err_code NDRangeKernelCommand::Init()
                 // Get location in the command parameters
                 IOCLDevMemoryObject* *devObjSrc = (IOCLDevMemoryObject**)(pArgValues + pArg->GetOffset());
                 res = GetMemObjectDescriptor(pMemObj, devObjSrc);
+                if (pArg->IsSvmPtr())
+                    m_argDevDescMemObjects.push_back(*devObjSrc);
                 if ( CL_FAILED(res) )
                 {
                     assert( 0 && "GetMemObjectDescriptor() supposed to success" );
@@ -1951,6 +1953,10 @@ cl_err_code NDRangeKernelCommand::CommandDone()
 
     // Delete local command
     ALIGNED_FREE(m_kernelParams.arg_values);
+
+    // Delete device descriptor of buffers
+    for (auto &obj : m_argDevDescMemObjects)
+        delete obj;
 
     return CL_SUCCESS;
 }

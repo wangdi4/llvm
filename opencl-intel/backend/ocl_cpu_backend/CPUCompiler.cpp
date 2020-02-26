@@ -30,6 +30,7 @@
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -281,6 +282,7 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     {
         m_pVTuneListener = llvm::JITEventListener::createIntelJITEventListener();
     }
+    m_gdbListener = llvm::JITEventListener::createGDBRegistrationListener();
 }
 
 CPUCompiler::~CPUCompiler()
@@ -288,6 +290,14 @@ CPUCompiler::~CPUCompiler()
     // WORKAROUND!!! See the notes in TerminationBlocker description
     if( Utils::TerminationBlocker::IsReleased() )
         return;
+
+    // LLJIT doesn't support JITEventListener yet, so we manually notify GDB
+    // listener of freeing objects.
+    for (auto key : m_moduleKeys) {
+        if (m_pVTuneListener)
+            m_pVTuneListener->notifyFreeingObject(key);
+        m_gdbListener->notifyFreeingObject(key);
+    }
 
     delete m_pBuiltinModule;
     delete m_pVTuneListener;
@@ -390,8 +400,30 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
 }
 
 std::unique_ptr<LLJIT2> CPUCompiler::CreateLLJIT() {
+    llvm::orc::RTDyldObjectLinkingLayer::NotifyLoadedFunction
+        notifyLoadedFunction =
+            [&](llvm::orc::VModuleKey K, const llvm::object::ObjectFile &Obj,
+                const llvm::RuntimeDyld::LoadedObjectInfo &L) -> void {
+        uint64_t Key = static_cast<uint64_t>(K);
+        if (m_pVTuneListener)
+            m_pVTuneListener->notifyObjectLoaded(Key, Obj, L);
+        m_gdbListener->notifyObjectLoaded(Key, Obj, L);
+    };
+
     // Create LLJIT instance
-    auto LLJIT = LLJIT2Builder().create();
+    Expected<std::unique_ptr<LLJIT2>> LLJIT = LLJIT2Builder()
+        .setObjectLinkingLayerCreator(
+            [&](llvm::orc::ExecutionSession &ES, const llvm::Triple &TT)
+                    -> std::unique_ptr<llvm::orc::ObjectLayer> {
+                auto GetMemMgr = []() {
+                    return std::make_unique<llvm::SectionMemoryManager>();
+                };
+                auto LL = std::make_unique<llvm::orc::RTDyldObjectLinkingLayer>(
+                    ES, std::move(GetMemMgr));
+                LL->setNotifyLoaded(notifyLoadedFunction);
+                return std::unique_ptr<llvm::orc::ObjectLayer>(std::move(LL));
+            })
+        .create();
     if (!LLJIT)
         throw Exceptions::CompilerException("Failed to create LLJIT");
 
@@ -414,6 +446,12 @@ std::unique_ptr<LLJIT2> CPUCompiler::CreateLLJIT() {
     }
 
     return std::move(*LLJIT);
+}
+
+llvm::orc::VModuleKey CPUCompiler::allocateVModule() {
+    llvm::orc::VModuleKey key = m_moduleKeys.empty() ? 0 : m_moduleKeys.back();
+    m_moduleKeys.push_back(++key);
+    return key;
 }
 
 bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {

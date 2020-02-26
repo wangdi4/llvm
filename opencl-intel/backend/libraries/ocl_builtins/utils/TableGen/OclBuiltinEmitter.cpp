@@ -97,6 +97,22 @@ OclType::OclType(const OclBuiltinDB& DB, const Record* R)
   assert(R->isSubClassOf("OclType") && "Invalid OclType record.");
 }
 
+
+std::string
+OclType::getMaskCastTy() const
+{
+  StringRef Name(m_Name);
+  if (Name.endswith("64"))
+    return "long";
+  if (Name.endswith("32"))
+    return "int";
+  if (Name.endswith("16"))
+    return "short";
+  if (Name.endswith("8"))
+    return "char";
+  return "UnknownTy";
+}
+
 std::string
 OclType::getCType(const OclBuiltin* OB, bool NoAS) const
 {
@@ -1347,6 +1363,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
             val = getOclType(getExpandLoType(OT->getName()))->getSuffix();
         } else if ("$ExpandHiSuffix" == pat) {
             val = getOclType(getExpandHiType(OT->getName()))->getSuffix();
+        } else if ("$MaskCastTy" == pat) {
+            val = OT->getMaskCastTy();
         } else {
           GENOCL_WARNING("Invalid rewrite pattern: '" << pat << "'\n");
         }

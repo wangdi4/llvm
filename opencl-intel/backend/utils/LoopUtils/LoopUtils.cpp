@@ -22,6 +22,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 namespace intel {
 namespace LoopUtils {
@@ -304,6 +305,74 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   indVar->addIncoming(begin, preHead);
   indVar->addIncoming(incIndVar, latch);
   return loopRegion(preHead, exit);
+}
+
+Value* generateRemainderMask(unsigned packetWidth, Value* loopLen, BasicBlock* BB) {
+
+  Module* m = BB->getModule();
+
+  auto IndTy = getIndTy(m);
+  auto Int32Ty = Type::getInt32Ty(m->getContext());
+  auto MaskTy = VectorType::get(Int32Ty, packetWidth);
+
+  ConstantInt* constZero = ConstantInt::get(Int32Ty, 0);
+
+  // Generate sequential vector 0 ... packetWidth-1.
+  SmallVector<Constant*, 16> indVec;
+  Constant *indVar = nullptr;
+  for (unsigned ind = 0; ind < packetWidth; ++ind) {
+    indVar = ConstantInt::get(IndTy, ind);
+    indVec.push_back(indVar);
+  }
+  Constant* sequenceVec = ConstantVector::get(indVec);
+
+  // Generate splat vector loopLen ... loopLen.
+  Value* loopLenVec = UndefValue::get(VectorType::get(IndTy, packetWidth));
+  Instruction* lenInsertVec = InsertElementInst::Create(loopLenVec, loopLen, constZero, "", BB);
+
+  Constant* shuffleMask = ConstantVector::getSplat(packetWidth, constZero);
+  Instruction* lenSplatVec = new ShuffleVectorInst(lenInsertVec, loopLenVec, shuffleMask, "", BB);
+
+  // Generate mask.
+  Instruction* vecCmp = new ICmpInst(*BB, CmpInst::ICMP_ULT, sequenceVec, lenSplatVec, "mask.bool");
+  Value* mask = new SExtInst(vecCmp, MaskTy, "mask.i32", BB);
+
+  return mask;
+}
+
+void inlineMaskToScalar(Function* scalarKernel, Function* maskedKernel) {
+
+  auto pModule = scalarKernel->getParent();
+  assert(pModule == maskedKernel->getParent() &&
+         "scalar and masked kernel are not in the same module!");
+  LLVMContext &context = pModule->getContext();
+
+  // Prepare args for masked kernel.
+  SmallVector<Value*, 4> args;
+  for (auto arg = scalarKernel->arg_begin(), arg_end = scalarKernel->arg_end();
+       arg != arg_end; ++arg)
+    args.push_back(arg);
+
+  // Mask argument is handled in generateRemainderMask.
+  auto dummyMaskArg = UndefValue::get((maskedKernel->arg_end()-1)->getType());
+  args.push_back(dummyMaskArg);
+
+  auto *entry = BasicBlock::Create(context, "", scalarKernel,
+                                   &scalarKernel->getEntryBlock());
+  // Call the masked kernel.
+  auto *call = CallInst::Create(maskedKernel, args, "", entry);
+
+  // Let DCE delete the scalar kernel body.
+  ReturnInst::Create(context, entry);
+
+  // Inline the masked kernel to scalar kernel.
+  InlineFunctionInfo inlineInfo;
+  CallBase* callBase = dyn_cast<CallBase>(call);
+  assert(callBase && "unexpected call");
+  InlineFunction(callBase, inlineInfo);
+
+  // Erase the masked kernel.
+  maskedKernel->eraseFromParent();
 }
 } // LoopUtils
 } // namespace intel

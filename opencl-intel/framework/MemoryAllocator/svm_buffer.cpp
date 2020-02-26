@@ -90,10 +90,6 @@ cl_err_code BufferPointerArg::LockOnDevice(IN const SharedPtr<FissionableDevice>
 
 cl_err_code BufferPointerArg::UnLockOnDevice(IN const SharedPtr<FissionableDevice>& dev, IN MemObjUsage usage)
 {
-    if (m_bufDescriptor) {
-        delete m_bufDescriptor;
-        m_bufDescriptor = nullptr;
-    }
     return m_pBuf->UnLockOnDevice(dev, usage);
 }
 
@@ -150,9 +146,7 @@ cl_err_code BufferPointerArg::GetDeviceDescriptor(const SharedPtr<FissionableDev
     {
         return err;
     }
-    m_bufDescriptor =
-        new PointerArgDevMemoryObject(this, pBufDevObj, m_szOffset);
-    *ppDevObject = m_bufDescriptor;
+    *ppDevObject = new PointerArgDevMemoryObject(this, pBufDevObj, m_szOffset);
     return CL_SUCCESS;
 }
 

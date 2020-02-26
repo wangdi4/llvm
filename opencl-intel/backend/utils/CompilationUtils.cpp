@@ -379,6 +379,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if (kimd.VectorizedKernel.hasValue() && kimd.VectorizedKernel.get()) {
         functionSet.insert(kimd.VectorizedKernel.get());
       }
+      if (kimd.VectorizedMaskedKernel.hasValue() && kimd.VectorizedMaskedKernel.get()) {
+        functionSet.insert(kimd.VectorizedMaskedKernel.get());
+      }
     }
   }
 
@@ -1759,13 +1762,13 @@ void CompilationUtils::getArrayTypeDimensions(
 
 bool CompilationUtils::isGlobalCtorDtor(Function *F) {
   // TODO: implement good solution based on value of @llvm.global_ctors variable
-  if( F->getName() == "__pipe_global_ctor" ||
-      F->getName() == "__pipe_global_dtor" )
-    return true;
-  // TODO: Rename this funciton name to reflect the real functionality.
-  // If a function is not from ocl or dpcpp, for example, it's from pure
-  // C++ module, it will be filtered as global ctors / dtors when renaming.
-  return F->hasFnAttribute("not-ocl-dpcpp");
+  return F->getName() == "__pipe_global_ctor" ||
+         F->getName() == "__pipe_global_dtor";
+}
+
+bool CompilationUtils::isGlobalCtorDtorOrCPPFunc(Function *F) {
+  assert(F && "Invalid input for global ctor / dtor / cpp func check");
+  return isGlobalCtorDtor(F) || F->hasFnAttribute("not-ocl-dpcpp");
 }
 
 static void recordCtorDtors(

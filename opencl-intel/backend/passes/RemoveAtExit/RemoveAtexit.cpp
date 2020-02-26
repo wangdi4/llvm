@@ -48,7 +48,7 @@ RemoveAtExit::RemoveAtExit() : ModulePass(ID) {}
 bool RemoveAtExit::runOnModule(Module &M) {
   bool Changed = false;
   for (auto &Func : M) {
-    if (CompilationUtils::isGlobalCtorDtor(&Func))
+    if (CompilationUtils::isGlobalCtorDtorOrCPPFunc(&Func))
        Changed |= runOnFunction(&Func);
   }
 
