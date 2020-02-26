@@ -6385,6 +6385,39 @@ public:
     }
   }
 
+  //
+  // CMPLRLLVM-12063: Throw the "bad casting" safety check if a Constant used
+  // in an initializer of a GlobalVariable is being cast from a source type to
+  // the declared type of the GlobalVariable or one of its fields.
+  //
+  // To illustrate the issue, consider this GlobalVariable definition:
+  //  @T = internal unnamed_addr constant %eh.ThrowInfo
+  //    { i32 0, i8* bitcast (%eh.CatchableTypeArray* @U to i8*) }
+  // If the type %eh.ThrowInfo has a safety check violation like "system
+  // object", this definition of @T implies that %eh.CatchableTypeArray
+  // should also have the "system object" safety violation, because the
+  // initializer of @T implies that the GlobalVariable @U is accessible
+  // from @T. We note this as a "bad casting" because we do not
+  // enough context to determine what safety violation might be on
+  // %eh.ThrowInfo.
+  //
+  // NOTE: Andy Kaylor and Chris Chrulski prefer marking this as "unsafe
+  // pointer store", but right now "unsafe pointer store" does not cascade
+  // through pointer types. After the immediate release (Feb 2020), we should
+  // try replacing this with "unsafe pointer store" and add "unsafe pointer
+  // store" to the cases in isPointerCarriedSafetyCondition().
+  //
+  // NOTE: This may be a more conservative fix than necessary. In the future,
+  // we can enhance this by checking whether the initializer type is compatible
+  // with the field declaration type.
+  //
+  void visitBitCastInInitializer(Constant *Initializer) {
+    auto BC = dyn_cast_or_null<BitCastOperator>(Initializer);
+    if (!BC)
+      return;
+    setBaseTypeInfoSafetyData(BC->getSrcTy(), dtrans::BadCasting);
+  }
+
   void visitModule(Module &M) {
     // Module's should already be materialized by the time this pass is run.
     assert(M.isMaterialized());
@@ -6481,6 +6514,7 @@ public:
                               << "  " << GV << "\n");
             setBaseTypeInfoSafetyData(GVTy, dtrans::HasInitializerList);
           }
+          visitBitCastInInitializer(Initializer);
           analyzeGlobalStructSingleValue(GVElemTy, Initializer);
 
           DEBUG_WITH_TYPE(
@@ -9308,7 +9342,7 @@ private:
 
   //
   // Update the "single value" info for GVElemTy, given that it has the
-  // indicated Init.
+  // indicated Init. Also, update the safety checks, if needed.
   //
   void analyzeGlobalStructSingleValue(llvm::Type *GVElemTy,
                                       llvm::Constant *Init) {
@@ -9318,6 +9352,7 @@ private:
         llvm::Type *FieldTy = StTy->getTypeAtIndex(I);
         llvm::Constant *ConstVal = Init ? Init->getAggregateElement(I) :
                                    nullptr;
+        visitBitCastInInitializer(ConstVal);
         dtrans::FieldInfo &FI = StInfo->getField(I);
         analyzeGlobalStructSingleValue(FieldTy, ConstVal);
         DEBUG_WITH_TYPE(DTRANS_FSV,
