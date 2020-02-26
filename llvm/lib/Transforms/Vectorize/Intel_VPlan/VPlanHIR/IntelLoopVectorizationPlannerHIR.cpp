@@ -27,7 +27,7 @@ cl::opt<uint64_t>
                            cl::desc("Default estimated trip count"));
 
 static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
-                                           cl::init(false), cl::Hidden,
+                                           cl::init(true), cl::Hidden,
                                            cl::desc("Force CFG linearization"));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
