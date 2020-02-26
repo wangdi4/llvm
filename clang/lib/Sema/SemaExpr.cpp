@@ -292,12 +292,6 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
 
     if (getLangOpts().CUDA && !CheckCUDACall(Loc, FD))
       return true;
-
-#if INTEL_CUSTOMIZATION
-    // HLS also uses SYCL's diagnostic deferring system
-    if (getLangOpts().HLS)
-      checkSYCLDeviceFunction(Loc, FD);
-#endif // INTEL_CUSTOMIZATION
   }
 
   if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
