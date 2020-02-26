@@ -48762,12 +48762,8 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
     return combineUIntToFP(N, DAG, Subtarget);
   case ISD::FADD:
   case ISD::FSUB:           return combineFaddFsub(N, DAG, Subtarget);
-<<<<<<< HEAD
-  case ISD::FNEG:           return combineFneg(N, DAG, DCI, Subtarget);
-=======
   case ISD::FMUL:           return combineFMUL(N, DAG, Subtarget); // INTEL
-  case ISD::FNEG:           return combineFneg(N, DAG, Subtarget);
->>>>>>> f29e2ab1f14ab29a7d187d23be425689b1f84721
+  case ISD::FNEG:           return combineFneg(N, DAG, DCI, Subtarget);
   case ISD::TRUNCATE:       return combineTruncate(N, DAG, Subtarget);
   case X86ISD::VTRUNC:      return combineVTRUNC(N, DAG);
   case X86ISD::ANDNP:       return combineAndnp(N, DAG, DCI, Subtarget);
