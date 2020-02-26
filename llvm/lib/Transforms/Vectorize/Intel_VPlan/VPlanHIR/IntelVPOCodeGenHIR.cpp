@@ -1210,6 +1210,10 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // SVML calls for precision.
     cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
 
+    if (isa<FPMathOperator>(Inst)) {
+      Inst->copyFastMathFlags(Call);
+    }
+
     // TODO: Matt can you look into the following code review comment
     // from Pankaj?
     // Call instructions can have one fake memref for each AddressOf

@@ -40,6 +40,7 @@ add_llvm_component_library(LLVMipo
   Intel_InlineLists.cpp   # INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
   Intel_PartialInline.cpp           # INTEL
+  Intel_TileMVInlMarker.cpp         # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp

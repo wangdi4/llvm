@@ -13,19 +13,13 @@
 ; Check outer loops
 ; CHECK: DO i1
 ; CHECK: %min
-; CHECK: DO i2
-; CHECK: %min
-; CHECK: DO i3
-; CHECK: %min
 
 ; Check inner loops
+; CHECK: DO i2
+; CHECK: DO i3
 ; CHECK: DO i4
-; CHECK: DO i5
-; CHECK: DO i6
 
 ; Check loops ends
-; CHECK: END LOOP
-; CHECK: END LOOP
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 ; CHECK: END LOOP

@@ -972,6 +972,15 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_CGSCCOptimizerLate, MPM);
   addFunctionSimplificationPasses(MPM);
 
+#if INTEL_CUSTOMIZATION
+  // If VPO paropt was required to run then do IP constant propagation after
+  // promoting pointer arguments to values (when OptLevel > 2) and running
+  // simplification passes. That will propagate constant values down to callback
+  // functions which represent outlined OpenMP parallel loops where possible.
+  if (RunVPOParopt && OptLevel > 2)
+    MPM.add(createIPConstantPropagationPass());
+#endif // INTEL_CUSTOMIZATION
+
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
   // pass manager that we are specifically trying to avoid. To prevent this
   // we must insert a no-op module pass to reset the pass manager.
@@ -1494,6 +1503,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelArgumentAlignmentLegacyPass());
     // Recognize Functions that implement qsort
     PM.add(createQsortRecognizerLegacyPass());
+    // Multiversion and mark for inlining functions for tiling
+    PM.add(createTileMVInlMarkerLegacyPass());
   }
 
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;

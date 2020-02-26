@@ -1268,17 +1268,19 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 
 void pull3DStencilSmallStripmineSizes(const LoopNestTCTy &LoopNest,
                                       LoopMapTy &LoopMap) {
-
-  // Special casing with 4 * 4 * 40
+  // Special casing with (none * 8 * none)
+  // Block only the middle loop with 8
   int Count = 0;
   for (auto Level : make_range(LoopNest.level_from_outer_begin(),
                                LoopNest.level_from_outer_end())) {
-    LoopMap[LoopNest.getLoop(Level)] = 4;
     Count++;
-    if (Count == 3) {
-      LoopMap[LoopNest.getLoop(Level)] = 40;
-    }
+    if (Count != 2)
+      continue;
+
+    LoopMap[LoopNest.getLoop(Level)] = 8;
   }
+
+  assert(Count == 3);
 }
 
 // Used with 3d-stencil pattern check

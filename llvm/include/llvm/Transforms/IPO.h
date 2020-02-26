@@ -337,6 +337,9 @@ ModulePass *createQsortRecognizerLegacyPass(void);
 /// \brief This pass eliminates dead array element operations.
 ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
 
+/// \brief This pass multiversions for tiling and marks tiled functions for
+/// inlining.
+ModulePass *createTileMVInlMarkerLegacyPass(void);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
