@@ -177,6 +177,12 @@ namespace intrinsics {
 class VPOParoptUtils {
 
 public:
+  typedef enum SrcLocMode {
+    SRC_LOC_NONE = 0,
+    SRC_LOC_FUNC = 1,
+    SRC_LOC_FILE = 2,
+    SRC_LOC_PATH = 3
+  } SrcLocMode;
   /// \name Utilities for getting/creating named StructTypes.
   /// @{
 
@@ -268,6 +274,11 @@ public:
   static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
                                                 StructType *IdentTy, int Flags,
                                                 BasicBlock *BS, BasicBlock *BE);
+
+  /// Generate source location String from debug location \p Loc1 and \p Loc2.
+  static GlobalVariable *genLocStrfromDebugLoc(Function *F, DILocation *Loc1,
+                                               DILocation *Loc2,
+                                               SrcLocMode Mode);
 
   /// \p Arg is a Value from a clause.  It is either a Constant or
   /// a Value of pointer type.  If it is a pointer Value, the method
@@ -1158,6 +1169,11 @@ public:
                               Instruction *InsertPt, Value *HostAddr = nullptr,
                               Value *NumTeamsPtr = nullptr,
                               Value *ThreadLimitPtr = nullptr);
+
+  /// Generate tgt_push_code_location call which pushes source code location
+  /// and the pointer to the tgt_target*() function.
+  static CallInst *genTgtPushCodeLocation(Instruction *Location,
+                                          CallInst *TgtTargetCall);
 
   /// Generate a call to `tgt_unregister_lib`. Example:
   /// \code

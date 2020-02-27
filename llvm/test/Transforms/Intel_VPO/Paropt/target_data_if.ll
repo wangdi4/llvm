@@ -86,6 +86,7 @@ for.end:                                          ; preds = %for.cond
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_ptrs, i32 0, i32 0
 ; CHECK-NEXT: %{{.*}} = getelementptr inbounds [2 x i64], [2 x i64]* %.offload_sizes, i32 0, i32 0
+; CHECK-NEXT: call void @__tgt_push_code_location({{.*}})
 ; CHECK-NEXT: call void @__tgt_target_data_end(i64 -1, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes.1, i32 0, i32 0))
 ; CHECK-NEXT:  br label %if.end
 ; CHECK-EMPTY:
