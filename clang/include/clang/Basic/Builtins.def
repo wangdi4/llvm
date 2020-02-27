@@ -988,10 +988,6 @@ BUILTIN(__notify_intrinsic, "vcC*vCD*", "n")
 BUILTIN(__notify_zc_intrinsic, "vcC*vCD*", "n")
 #endif  // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-BUILTIN(__assume_aligned, "v.", "tn")
-#endif // INTEL_CUSTOMIZATION
-
 // OpenCL 2.0 atomic builtins.
 ATOMIC_BUILTIN(__opencl_atomic_init, "v.", "t")
 ATOMIC_BUILTIN(__opencl_atomic_load, "v.", "t")
