@@ -1405,6 +1405,26 @@ private:
     return LMap[L];
   }
 
+  // Replace all occurences of ___builtin_csa_spmd_worker_num() by ID
+  void lowerSPMDWorkerNum(const Loop *L, unsigned ID) {
+    LLVMContext &Context = L->getHeader()->getContext();
+    SmallVector<Instruction *, 4> toDelete;
+
+    for (BasicBlock *const BB : L->getBlocks()) {
+      for (Instruction &inst : *BB)
+        if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+          if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+            Value *id =
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), ID);
+            inst.replaceAllUsesWith(id);
+            toDelete.push_back(&inst);
+          }
+    }
+
+    for (auto I : toDelete)
+      I->eraseFromParent();
+  }
+
   void cloneWorkers(WRegionNode *W) {
     // Get the number of workers to use for this loop.
     auto NumWorkers = getNumWorkers(W);
@@ -1466,6 +1486,10 @@ private:
       WI.Head = cast<BasicBlock>(VMap[W0.Head]);
       WI.Tail = cast<BasicBlock>(VMap[W0.Tail]);
 
+      // Replace all occurences of ___builtin_csa_spmd_worker_num() by the
+      // worker's number.
+      lowerSPMDWorkerNum(WI.WL, ID);
+
       // Link cloned worker to cfg.
       cast<BranchInst>(Last->getTerminator())->setOperand(0, WI.Head);
       Last = WI.Tail;
@@ -1473,6 +1497,10 @@ private:
 
     // Connect the last worker to the exit block.
     cast<BranchInst>(Last->getTerminator())->setOperand(0, Exit);
+
+    // For Worker 0, replace all occurences of ___builtin_csa_spmd_worker_num()
+    // by 0.
+    lowerSPMDWorkerNum(W0.WL, 0);
 
     W->resetBBSet();
   }
