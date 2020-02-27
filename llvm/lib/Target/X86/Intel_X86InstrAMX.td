@@ -857,6 +857,42 @@ multiclass m_tcvtrowd2pse{
 
 defm TCVTROWD2PSE : m_tcvtrowd2pse;
 
+// AMX-AVX512
+multiclass m_tcvtrowps2bf16e {
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
+    let SchedRW = [WriteSystem] in {
+      def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
+                    (ins VTILEX:$src1, i32u8imm:$src2),
+                    "tcvtrowps2bf16e\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    []>, TAXD, EVEX, EVEX_V512;
+      def rre : I<0x6D, MRMSrcReg4VOp3, (outs VR512:$dst),
+                  (ins VTILEX:$src1, GR32:$src2),
+                  "tcvtrowps2bf16e\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  []>, T8XD, EVEX_4V, EVEX_V512;
+    }
+  } // HasAMXAVX512, In64BitMode
+}
+
+defm TCVTROWPS2BF16E : m_tcvtrowps2bf16e;
+
+// AMX-AVX512
+multiclass m_tcvtrowps2phe {
+  let Predicates = [HasAMXAVX512, In64BitMode] in {
+    let SchedRW = [WriteSystem] in {
+      def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
+                    (ins VTILEX:$src1, i32u8imm:$src2),
+                    "tcvtrowps2phe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                    []>, TAPS, EVEX, EVEX_V512;
+      def rre : I<0x6D, MRMSrcReg4VOp3, (outs VR512:$dst),
+                  (ins VTILEX:$src1, GR32:$src2),
+                  "tcvtrowps2phe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  []>, T8PS, EVEX_4V, EVEX_V512;
+    }
+  } // HasAMXAVX512, In64BitMode
+}
+
+defm TCVTROWPS2PHE : m_tcvtrowps2phe;
+
 let Predicates = [HasAMXAVX512, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let  usesCustomInserter = 1 in {

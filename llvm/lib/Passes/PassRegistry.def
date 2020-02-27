@@ -361,6 +361,7 @@ FUNCTION_PASS("kasan", AddressSanitizerPass(true, false, false))
 FUNCTION_PASS("msan", MemorySanitizerPass({}))
 
 #if INTEL_CUSTOMIZATION
+FUNCTION_PASS("forced-cmov-generation", ForcedCMOVGenerationPass())
 FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
 FUNCTION_PASS("hir-ssa-deconstruction", loopopt::HIRSSADeconstructionPass())
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
