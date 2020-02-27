@@ -769,6 +769,19 @@ def i32u4imm : Operand<i32> {
   let ParserMatchClass = ImmUnsignedi4AsmOperand;
   let OperandType = "OPERAND_IMMEDIATE";
 }
+
+// 32-bit immediate used by some IceCode instructions.
+// [0, 0xFFFFFFFF]
+def ImmUnsignedi32AsmOperand : AsmOperandClass {
+  let Name = "ImmUnsignedi32";
+  let RenderMethod = "addImmOperands";
+  let DiagnosticType = "InvalidImmUnsignedi32";
+}
+
+def i32u32imm : Operand<i32> {
+  let ParserMatchClass = ImmUnsignedi32AsmOperand;
+  let OperandType = "OPERAND_IMMEDIATE";
+}
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 
