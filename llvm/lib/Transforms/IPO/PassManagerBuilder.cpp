@@ -1714,6 +1714,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createJumpThreadingPass());
 
 #if INTEL_CUSTOMIZATION
+  PM.add(createForcedCMOVGenerationPass()); // To help CMOV generation
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
   if (RunInliner)
     PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION

@@ -127,6 +127,7 @@ namespace {
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
       (void) llvm::createCallTreeCloningPass();
       (void) llvm::createAddSubReassociatePass();
+      (void) llvm::createForcedCMOVGenerationPass();
       (void) llvm::createTransformFPGARegPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
