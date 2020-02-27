@@ -855,23 +855,20 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
       useUpdatedUseDevicePtrsInTgtDataRegion(W, NewCall);
+      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
+        NewF->removeFnAttr(Attribute::NoInline);
+        NewF->addFnAttr(Attribute::AlwaysInline);
+      }
     } else if (isa<WRNTargetEnterDataNode>(W) ||
                isa<WRNTargetExitDataNode>(W) ||
                isa<WRNTargetUpdateNode>(W)) {
-      NewCall->eraseFromParent();
-      // We cannot erase the function right now, because it now contains
-      // the region's entry/exit calls, which we will try to erase later.
-
-#if INTEL_CUSTOMIZATION
-      // TEMPORARY to address JIRA  CMPLRLLVM-10758.
-#endif // INTEL_CUSTOMIZATION
-      // Cannot just disconnect from parent as some passes
-      // walk all functions and encounters this function without
-      // a module and asserts.
-      // TODO Fix WRN's entry/exit BB to null and modify VPOUtils
-      // VPOUtils::stripDirectives to accept and ignore null BBs
-      // and remove the NewF completely.
-      // NewF->removeFromParent();
+      // We cannot delete the outlined functions, because they
+      // may contain some meaningful code (e.g. InstCombine may put
+      // something into the initially empty blocks).
+      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
+        NewF->removeFnAttr(Attribute::NoInline);
+        NewF->addFnAttr(Attribute::AlwaysInline);
+      }
     }
   }
 

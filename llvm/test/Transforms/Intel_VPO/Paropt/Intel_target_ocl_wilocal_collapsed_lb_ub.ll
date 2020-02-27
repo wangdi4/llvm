@@ -1,3 +1,4 @@
+; INTEL_CUSTOMIZATION
 ; RUN: opt < %s -prepare-switch-to-offload=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt  -S | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -prepare-switch-to-offload=true -switch-to-offload  -S | FileCheck %s
 
@@ -124,3 +125,4 @@ attributes #1 = { nounwind }
 !2 = !{}
 !3 = !{!"clang version 9.0.0"}
 
+; end INTEL_CUSTOMIZATION
