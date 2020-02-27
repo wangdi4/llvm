@@ -562,6 +562,19 @@ EXTERN void *__tgt_create_interop_obj(
 
   DeviceTy &Device = Devices[device_id];
 
+  auto &rtl_name = Device.RTL->RTLName;
+  int32_t plugin;
+  if (rtl_name.find("opencl") != std::string::npos) {
+    plugin = INTEROP_PLUGIN_OPENCL;
+  } else if (rtl_name.find("level0") != std::string::npos) {
+    plugin = INTEROP_PLUGIN_LEVEL0;
+  } else if (rtl_name.find("x86_64") != std::string::npos) {
+    plugin = INTEROP_PLUGIN_X86_64;
+  } else {
+    DP("%s does not support interop interface\n", rtl_name.c_str());
+    return NULL;
+  }
+
   __tgt_interop_obj *obj =
       (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
   if (!obj) {
@@ -574,6 +587,7 @@ EXTERN void *__tgt_create_interop_obj(
   obj->async_obj = async_obj;
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
   obj->pipe = Device.create_offload_pipe(is_async);
+  obj->plugin_interface = plugin;
 
   return obj;
 }
@@ -620,6 +634,9 @@ EXTERN int __tgt_get_interop_property(
     break;
   case INTEROP_OFFLOAD_PIPE:
     *property_value = interop->pipe;
+    break;
+  case INTEROP_PLUGIN_INTERFACE:
+    *property_value = (void *)&interop->plugin_interface;
     break;
   default:
     DP("Invalid interop property name " PRId32 "\n");

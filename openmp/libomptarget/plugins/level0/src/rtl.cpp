@@ -15,12 +15,20 @@
 #include <cstring>
 #include <limits>
 #include <mutex>
-#include <omp.h>
 #include <string>
 #include <thread>
 #include <vector>
 #include <ze_api.h>
 #include "omptargetplugin.h"
+
+/// Host runtime routines being used
+#ifdef _WIN32
+int __cdecl omp_get_thread_limit(void);
+double __cdecl omp_get_wtime(void);
+#else
+int omp_get_thread_limit(void) __attribute__((weak));
+double omp_get_wtime(void) __attribute__((weak));
+#endif
 
 #ifndef TARGET_NAME
 #define TARGET_NAME LEVEL0
@@ -914,4 +922,35 @@ int32_t __tgt_rtl_run_target_region_nowait(int32_t DeviceId, void *TgtEntryPtr,
                              NumArgs, 1, 0, nullptr, AsyncEvent);
 }
 
+EXTERN void *__tgt_rtl_create_offload_pipe(int32_t DeviceId, bool IsAsync) {
+  // Create and return a new command queue for interop
+  ze_command_queue_desc_t cmdQueueDesc = {
+    ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT,
+    ZE_COMMAND_QUEUE_FLAG_NONE,
+    ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+    ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
+    0 // ordinal
+  };
+  // TODO: check with MKL team and decide what to do with IsAsync
+
+  ze_command_queue_handle_t pipe = nullptr;
+  CALL_ZE_RET_NULL(zeCommandQueueCreate, DeviceInfo.Devices[DeviceId],
+                   &cmdQueueDesc, &pipe);
+  DP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
+     DPxPTR(pipe));
+  return pipe;
+}
+
+EXTERN int32_t __tgt_rtl_release_offload_pipe(int32_t DeviceId, void *Pipe) {
+  CALL_ZE_RET_FAIL(zeCommandQueueDestroy, (ze_command_queue_handle_t)Pipe);
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN void *__tgt_rtl_create_buffer(int32_t DeviceId, void *TgtPtr) {
+  return TgtPtr;
+}
+
+EXTERN int32_t __tgt_rtl_release_buffer(void *TgtPtr) {
+  return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_CUSTOMIZATION

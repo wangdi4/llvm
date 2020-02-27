@@ -90,7 +90,14 @@ enum InteropPropertyTy : int32_t {
   INTEROP_IS_ASYNC,
   INTEROP_ASYNC_OBJ,
   INTEROP_ASYNC_CALLBACK,
-  INTEROP_OFFLOAD_PIPE
+  INTEROP_OFFLOAD_PIPE,
+  INTEROP_PLUGIN_INTERFACE
+};
+
+enum InteropPluginInterfaceTy : int32_t {
+  INTEROP_PLUGIN_OPENCL = 1,
+  INTEROP_PLUGIN_LEVEL0,
+  INTEROP_PLUGIN_X86_64
 };
 
 struct __tgt_interop_obj {
@@ -99,6 +106,7 @@ struct __tgt_interop_obj {
   void *async_obj; // Pointer to the asynchronous object
   void (*async_handler)(void *); // Callback function for asynchronous operation
   void *pipe; // Opaque handle to device-dependent offload pipe
+  int32_t plugin_interface; // Plugin selector
 };
 #endif // INTEL_COLLAB
 
