@@ -431,7 +431,13 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   CmdArgs.push_back("-output_no_suffix");
   CmdArgs.push_back("-spirv_input");
   TranslateSYCLTargetArgs(C, Args, getToolChain(), CmdArgs);
-  SmallString<128> ExecPath(getToolChain().GetProgramPath("ocloc"));
+#if INTEL_CUSTOMIZATION
+  std::string ProgName("ocloc");
+  if (C.getSingleOffloadToolChain<Action::OFK_Host>()
+      ->getTriple().isWindowsMSVCEnvironment())
+    ProgName.append(".exe");
+  SmallString<128> ExecPath(getToolChain().GetProgramPath(ProgName.c_str()));
+#endif // INTEL_CUSTOMIZATION
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, Exec, CmdArgs, None);
   if (!ForeachInputs.empty())
