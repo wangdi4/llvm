@@ -232,6 +232,75 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLRegion *Region,
   return DDGraph(Node, &DDG);
 }
 
+static bool forwardEdgeIsRedundant(RefVectorTy<DDRef>::iterator Ref1It,
+                                   RefVectorTy<DDRef>::iterator Ref2It,
+                                   HLDDNode *Ref1Node, HLDDNode *Ref2Node) {
+  unsigned QueryCount = 0;
+  auto BackwardEndIt = Ref1It;
+
+  // Look in forward direction from Ref1It to Ref2It.
+  for (auto It = std::next(Ref1It), E = Ref2It; It != E; ++It) {
+    if (QueryCount == DominationQueryThreshold) {
+      break;
+    }
+
+    DDRef *InBetweenRef = *It;
+    bool IsLval = InBetweenRef->isLval();
+
+    if (IsLval) {
+      BackwardEndIt = It;
+      ++QueryCount;
+
+      if (HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node) ||
+          HLNodeUtils::dominates(InBetweenRef->getHLDDNode(), Ref2Node)) {
+        LLVM_DEBUG(dbgs() << "Skipping forward edge from "
+                          << Ref1Node->getNumber() << "("
+                          << ((*Ref1It)->isLval() ? "lval" : "rval") << ")"
+                          << " to " << Ref2Node->getNumber()
+                          << "(" << ((*Ref2It)->isLval() ? "lval" : "rval")
+                          << ")"
+                          << " because of inbetween def at "
+                          << InBetweenRef->getHLDDNode()->getNumber() << "("
+                          << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
+                          << "\n");
+        return true;
+      }
+    }
+  }
+
+  QueryCount = 0;
+  // Look in backward direction from Ref2It to Ref1It.
+  for (auto It = std::prev(Ref2It); It != BackwardEndIt; --It) {
+    if (QueryCount == DominationQueryThreshold) {
+      break;
+    }
+
+    DDRef *InBetweenRef = *It;
+    bool IsLval = InBetweenRef->isLval();
+
+    if (IsLval) {
+      ++QueryCount;
+
+      if (HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node) ||
+          HLNodeUtils::dominates(InBetweenRef->getHLDDNode(), Ref2Node)) {
+        LLVM_DEBUG(dbgs() << "Skipping forward edge from "
+                          << Ref1Node->getNumber() << "("
+                          << ((*Ref1It)->isLval() ? "lval" : "rval") << ")"
+                          << " to " << Ref2Node->getNumber()
+                          << "(" << ((*Ref2It)->isLval() ? "lval" : "rval")
+                          << ")"
+                          << " because of inbetween def at "
+                          << InBetweenRef->getHLDDNode()->getNumber() << "("
+                          << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
+                          << "\n");
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 // Returns true if we must do dd testing between ref1 and ref2. We generally
 // do not need to do testing between rvals, unless we need explicitly need input
 // edges. There may be other reasons in the future certain refs will be excluded
@@ -262,35 +331,8 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
   auto Ref2Node = Ref2->getHLDDNode();
 
   // Look refs in-between Ref1 and Ref2 to ignore the forward edge
-  bool NeedForwardEdge = true;
-  unsigned QueryCount = 0;
-  for (auto It = std::next(Ref1It), E = Ref2It; It != E; ++It) {
-    if (QueryCount == DominationQueryThreshold) {
-      break;
-    }
-
-    DDRef *InBetweenRef = *It;
-    bool IsLval = InBetweenRef->isLval();
-
-    if (IsLval) {
-      ++QueryCount;
-
-      if (HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node) ||
-          HLNodeUtils::dominates(InBetweenRef->getHLDDNode(), Ref2Node)) {
-        LLVM_DEBUG(dbgs() << "Skipping forward edge from "
-                          << Ref1->getHLDDNode()->getNumber() << "("
-                          << (Ref1->isLval() ? "lval" : "rval") << ")"
-                          << " to " << Ref2->getHLDDNode()->getNumber() << "("
-                          << (Ref2->isLval() ? "lval" : "rval") << ")"
-                          << " because of inbetween def at "
-                          << InBetweenRef->getHLDDNode()->getNumber() << "("
-                          << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
-                          << "\n");
-        NeedForwardEdge = false;
-        break;
-      }
-    }
-  }
+  bool NeedForwardEdge =
+      !forwardEdgeIsRedundant(Ref1It, Ref2It, Ref1Node, Ref2Node);
 
   auto Parent1 = Ref1Node->getLexicalParentLoop();
   if (!IsGraphForInnermostLoop &&
@@ -304,7 +346,7 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
   bool NeedBackwardEdge = true;
   std::reverse_iterator<decltype(Ref1It)> RI(Ref1It);
   std::reverse_iterator<decltype(BeginIt)> RE(BeginIt);
-  QueryCount = 0;
+  unsigned QueryCount = 0;
 
   for (auto It = RI; It != RE; ++It) {
     if (QueryCount == DominationQueryThreshold) {
@@ -323,9 +365,9 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
 
       if (HLNodeUtils::dominates(UpwardRef->getHLDDNode(), Ref1Node)) {
         LLVM_DEBUG(dbgs() << "Skipping backward edge from "
-                          << Ref2->getHLDDNode()->getNumber() << "("
+                          << Ref2Node->getNumber() << "("
                           << (Ref2->isLval() ? "lval" : "rval") << ")"
-                          << " to " << Ref1->getHLDDNode()->getNumber() << "("
+                          << " to " << Ref1Node->getNumber() << "("
                           << (Ref1->isLval() ? "lval" : "rval") << ")"
                           << " because of upward def at "
                           << UpwardRef->getHLDDNode()->getNumber() << "("
@@ -357,9 +399,9 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
 
         if (HLNodeUtils::postDominates(DownwardRef->getHLDDNode(), Ref2Node)) {
           LLVM_DEBUG(dbgs() << "Skipping backward edge from "
-                            << Ref2->getHLDDNode()->getNumber() << "("
+                            << Ref2Node->getNumber() << "("
                             << (Ref2->isLval() ? "lval" : "rval") << ")"
-                            << " to " << Ref1->getHLDDNode()->getNumber() << "("
+                            << " to " << Ref1Node->getNumber() << "("
                             << (Ref1->isLval() ? "lval" : "rval") << ")"
                             << " because of downward def at "
                             << DownwardRef->getHLDDNode()->getNumber() << "("
