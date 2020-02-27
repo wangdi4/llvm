@@ -724,6 +724,12 @@
 // CHK-TOOLS-AOT: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-include" "[[INPUT1]]" {{.*}} "-o" "[[OUTPUT7:.+\.o]]"
 // CHK-TOOLS-AOT: ld{{.*}} "[[OUTPUT7]]" "[[OUTPUT6]]" {{.*}} "-lsycl"
 
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cl -fsycl -fsycl-targets=spir64_gen-unknown-unknown-sycldevice %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=CHK-GEN-EXE
+// CHK-GEN-EXE: ocloc.exe
+// end INTEL_CUSTOMIZATION
+
 /// ###########################################################################
 
 /// Check -Xsycl-target-backend option passing
