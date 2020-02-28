@@ -75,7 +75,9 @@ int main() {
   addEdge(InnerA, &LeafA, &AllocaA);
   addEdge(InnerA, InnerB, &AllocaB);
 
-  TS.cleanupFinishedCommands(InnerA);
+  std::shared_ptr<detail::event_impl> Event{new detail::event_impl{}};
+  Event->setCommand(InnerA);
+  TS.cleanupFinishedCommands(Event);
   TS.removeRecordForMemObj(detail::getSyclObjImpl(BufC).get());
 
   assert(NInnerCommandsAlive == 0);
