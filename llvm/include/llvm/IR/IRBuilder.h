@@ -963,102 +963,16 @@ private:
                                   const Twine &Name = "");
 
   Value *getCastedInt8PtrValue(Value *Ptr);
-<<<<<<< HEAD
-};
-
-/// This provides a uniform API for creating instructions and inserting
-/// them into a basic block: either at the end of a BasicBlock, or at a specific
-/// iterator location in a block.
-///
-/// Note that the builder does not expose the full generality of LLVM
-/// instructions.  For access to extra instruction properties, use the mutators
-/// (e.g. setVolatile) on the instructions after they have been
-/// created. Convenience state exists to specify fast-math flags and fp-math
-/// tags.
-///
-/// The first template argument specifies a class to use for creating constants.
-/// This defaults to creating minimally folded constants.  The second template
-/// argument allows clients to specify custom insertion hooks that are called on
-/// every newly created insertion.
-template <typename T = ConstantFolder,
-          typename Inserter = IRBuilderDefaultInserter>
-class IRBuilder : public IRBuilderBase, public Inserter {
-  T Folder;
-
-public:
-  IRBuilder(LLVMContext &C, const T &F, Inserter I = Inserter(),
-            MDNode *FPMathTag = nullptr,
-            ArrayRef<OperandBundleDef> OpBundles = None)
-      : IRBuilderBase(C, FPMathTag, OpBundles), Inserter(std::move(I)),
-        Folder(F) {}
-
-  explicit IRBuilder(LLVMContext &C, MDNode *FPMathTag = nullptr,
-                     ArrayRef<OperandBundleDef> OpBundles = None)
-      : IRBuilderBase(C, FPMathTag, OpBundles) {}
-
-  explicit IRBuilder(BasicBlock *TheBB, const T &F, MDNode *FPMathTag = nullptr,
-                     ArrayRef<OperandBundleDef> OpBundles = None)
-      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles), Folder(F) {
-    SetInsertPoint(TheBB);
-  }
-
-  explicit IRBuilder(BasicBlock *TheBB, MDNode *FPMathTag = nullptr,
-                     ArrayRef<OperandBundleDef> OpBundles = None)
-      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles) {
-    SetInsertPoint(TheBB);
-  }
-
-  explicit IRBuilder(Instruction *IP, MDNode *FPMathTag = nullptr,
-                     ArrayRef<OperandBundleDef> OpBundles = None)
-      : IRBuilderBase(IP->getContext(), FPMathTag, OpBundles) {
-    SetInsertPoint(IP);
-  }
-
-  IRBuilder(BasicBlock *TheBB, BasicBlock::iterator IP, const T &F,
-            MDNode *FPMathTag = nullptr,
-            ArrayRef<OperandBundleDef> OpBundles = None)
-      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles), Folder(F) {
-    SetInsertPoint(TheBB, IP);
-  }
-
-  IRBuilder(BasicBlock *TheBB, BasicBlock::iterator IP,
-            MDNode *FPMathTag = nullptr,
-            ArrayRef<OperandBundleDef> OpBundles = None)
-      : IRBuilderBase(TheBB->getContext(), FPMathTag, OpBundles) {
-    SetInsertPoint(TheBB, IP);
-  }
-
-  /// Avoid copying the full IRBuilder. Prefer using InsertPointGuard
-  /// or FastMathFlagGuard instead.
-  IRBuilder(const IRBuilder &) = delete;
-
-  /// Get the constant folder being used.
-  const T &getFolder() { return Folder; }
-
-  /// Insert and return the specified instruction.
-  template<typename InstTy>
-  InstTy *Insert(InstTy *I, const Twine &Name = "") const {
-    this->InsertHelper(I, Name, BB, InsertPt);
-    this->SetInstDebugLocation(I);
-    return I;
-  }
 
 #if INTEL_CUSTOMIZATION
   /// Insert and return the specified instruction without changing its debug
   /// location.
   template <typename InstTy>
   InstTy *InsertWithDbgLoc(InstTy *I, const Twine &Name = "") const {
-    this->InsertHelper(I, Name, BB, InsertPt);
+    Inserter.InsertHelper(I, Name, BB, InsertPt);
     return I;
   }
 #endif // INTEL_CUSTOMIZATION
-
-  /// No-op overload to handle constants.
-  Constant *Insert(Constant *C, const Twine& = "") const {
-    return C;
-  }
-=======
->>>>>>> 3eaa53e80543813a2274391956e91d275950fbf8
 
   //===--------------------------------------------------------------------===//
   // Instruction creation methods: Terminators
