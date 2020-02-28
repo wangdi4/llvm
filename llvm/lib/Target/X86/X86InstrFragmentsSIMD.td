@@ -855,6 +855,28 @@ def X86vpdpbsuds : SDNode<"X86ISD::VPDPBSUDS", SDTVnni>;
 def X86vpdpbuud  : SDNode<"X86ISD::VPDPBUUD",  SDTVnni>;
 def X86vpdpbuuds : SDNode<"X86ISD::VPDPBUUDS", SDTVnni>;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+def X86vcvt2ps2ph :       SDNode<"X86ISD::VCVT2PS2PH",
+                          SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f16>,
+                                               SDTCVecEltisVT<1, f32>,
+                                               SDTCisSameAs<1,2>]>>;
+def X86vcvtbf162ph :      SDNode<"X86ISD::VCVTBF162PH",
+                          SDTypeProfile<1, 1, [SDTCVecEltisVT<0, f16>,
+                                               SDTCVecEltisVT<1, i16>]>>;
+def X86vcvtneph2bf16 :    SDNode<"X86ISD::VCVTNEPH2BF16",
+                          SDTypeProfile<1, 1, [SDTCVecEltisVT<0, i16>,
+                                               SDTCVecEltisVT<1, f16>]>>;
+def X86vcvt2ps2phRnd :    SDNode<"X86ISD::VCVT2PS2PH_RND",
+                          SDTypeProfile<1, 3, [SDTCVecEltisVT<0, f16>,
+                                               SDTCVecEltisVT<1, f32>,
+                                               SDTCisSameAs<1,2>,
+                                               SDTCisVT<3, i32>]>>;
+def X86vcvtbf162phRnd :   SDNode<"X86ISD::VCVTBF162PH_RND",
+                          SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f16>,
+                                               SDTCVecEltisVT<1, i16>,
+                                               SDTCisVT<2, i32>]>>;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE Complex Patterns

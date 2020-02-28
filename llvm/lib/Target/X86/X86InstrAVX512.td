@@ -14307,3 +14307,80 @@ defm VPDPBUUDS : avx512_vpdpb_common<0x51, "vpdpbuuds", SchedWriteVecIMul, X86vp
 
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+multiclass avx512_cvt2ps2ph_rc<bits<8> opc, string OpcodeStr, X86FoldableSchedWrite sched,
+                                  X86VectorVTInfo _Src, X86VectorVTInfo _,
+                                  SDNode OpNodeRnd> {
+  let Uses = [MXCSR] in
+    defm rrb : AVX512_maskable<opc, MRMSrcReg, _, (outs _.RC:$dst),
+                            (ins _Src.RC:$src1, _Src.RC:$src2, AVX512RC:$rc), OpcodeStr,
+                            "$rc, $src2, $src1", "$src1, $src2, $rc",
+                            (_.VT (OpNodeRnd (_Src.VT _Src.RC:$src1),
+                                             (_Src.VT _Src.RC:$src2), (i32 timm:$rc)))>,
+                            EVEX_4V, EVEX_B, EVEX_RC, Sched<[sched]>;
+}
+
+multiclass avx512_binop_all3<bits<8> opc, string OpcodeStr,
+                             X86SchedWriteWidths sched,
+                             AVX512VLVectorVTInfo _SrcVTInfo,
+                             AVX512VLVectorVTInfo _DstVTInfo,
+                             SDNode OpNode, SDNode OpNodeRnd,
+                             Predicate prd> {
+  let Predicates = [prd], Uses = [MXCSR], mayRaiseFPException = 1 in {
+    defm Z : avx512_binop_rm2<opc, OpcodeStr, sched.ZMM, OpNode,
+                                   _SrcVTInfo.info512, _DstVTInfo.info512,
+                                   _SrcVTInfo.info512>,
+             avx512_cvt2ps2ph_rc<opc, OpcodeStr, sched.ZMM,
+                                 _SrcVTInfo.info512, _DstVTInfo.info512,
+                                 OpNodeRnd>,
+                                 EVEX_V512, EVEX_CD8<32, CD8VF>;
+  }
+  let Predicates = [HasVLX, prd], Uses = [MXCSR], mayRaiseFPException = 1 in {
+    defm Z256 : avx512_binop_rm2<opc, OpcodeStr, sched.YMM, OpNode,
+                                      _SrcVTInfo.info256, _DstVTInfo.info256,
+                                      _SrcVTInfo.info256>,
+                                      EVEX_V256, EVEX_CD8<32, CD8VF>;
+    defm Z128 : avx512_binop_rm2<opc, OpcodeStr, sched.XMM, OpNode,
+                                      _SrcVTInfo.info128, _DstVTInfo.info128,
+                                      _SrcVTInfo.info128>,
+                                      EVEX_V128, EVEX_CD8<32, CD8VF>;
+  }
+}
+
+defm VCVT2PS2PH : avx512_binop_all3<0x67, "vcvt2ps2ph",
+                                    SchedWriteCvtPD2PS, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+                                    avx512vl_f32_info, avx512vl_f16_info,
+                                    X86vcvt2ps2ph, X86vcvt2ps2phRnd,
+                                    HasCONVERT>, T8PD;
+
+multiclass avx512_cvtbf16ph<bits<8> opc, string OpcodeStr,
+                            AVX512VLVectorVTInfo _SrcVTInfo,
+                            AVX512VLVectorVTInfo _DstVTInfo,
+                            SDNode OpNode, X86SchedWriteWidths sched> {
+  let Predicates = [HasCONVERT], mayRaiseFPException = 0 in
+    defm Z    : avx512_vcvt_fp<opc, OpcodeStr, _DstVTInfo.info512, _SrcVTInfo.info512,
+                              OpNode, OpNode, sched.ZMM>, EVEX_V512;
+
+  let Predicates = [HasVLX, HasCONVERT], mayRaiseFPException = 0 in {
+    defm Z128 : avx512_vcvt_fp<opc, OpcodeStr, _DstVTInfo.info128, _SrcVTInfo.info128,
+                              OpNode, OpNode, sched.XMM>, EVEX_V128;
+    defm Z256 : avx512_vcvt_fp<opc, OpcodeStr, _DstVTInfo.info256, _SrcVTInfo.info256,
+                              OpNode, OpNode, sched.YMM>, EVEX_V256;
+  }
+}
+
+defm VCVTBF162PH : avx512_cvtbf16ph<0x67, "vcvtbf162ph", avx512vl_i16_info, avx512vl_f16_info,
+                                    X86vcvtbf162ph , SchedWriteCvtPD2PS>, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+                                    EVEX_CD8<16, CD8VF>, T8XS;
+
+defm VCVTBF162PH : avx512_vcvt_fp_rc<0x67, "vcvtbf162ph", v32f16_info, v32i16_info, X86vcvtbf162phRnd,
+                                     SchedWriteCvtPD2PS.ZMM>, EVEX_CD8<16, CD8VF>, T8XS, EVEX_V512; // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+
+defm VCVTNEPH2BF16 : avx512_cvtbf16ph<0x67, "vcvtneph2bf16", avx512vl_f16_info, avx512vl_i16_info,
+                                      X86vcvtneph2bf16, SchedWriteCvtPD2PS>, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+                                      EVEX_CD8<16, CD8VF>, T8XD;
+
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
