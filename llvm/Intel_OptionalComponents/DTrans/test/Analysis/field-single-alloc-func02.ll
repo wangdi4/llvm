@@ -28,4 +28,4 @@ define i32 @main() {
 ; CHECK: Field info: Written
 ; CHECK: Multiple Value
 ; CHECK: Bottom Alloc Function
-; CHECK: Safety data: Global instance | Has initializer list
+; CHECK: Safety data: Bad casting | Global instance | Has initializer list
