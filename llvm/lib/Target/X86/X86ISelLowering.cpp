@@ -22961,9 +22961,7 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   // Lower FP selects into a CMP/AND/ANDN/OR sequence when the necessary SSE ops
   // are available or VBLENDV if AVX is available.
   // Otherwise FP cmovs get lowered into a less efficient branch sequence later.
-  if (Cond.getOpcode() == ISD::SETCC &&
-      ((Subtarget.hasSSE2() && VT == MVT::f64) ||
-       (Subtarget.hasSSE1() && VT == MVT::f32)) &&
+  if (Cond.getOpcode() == ISD::SETCC && isScalarFPTypeInSSEReg(VT) &&
       VT == Cond.getOperand(0).getSimpleValueType() && Cond->hasOneUse()) {
     SDValue CondOp0 = Cond.getOperand(0), CondOp1 = Cond.getOperand(1);
     bool IsAlwaysSignaling;
@@ -23019,6 +23017,7 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   }
 
   // AVX512 fallback is to lower selects of scalar floats to masked moves.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   if ((VT == MVT::f64 || VT == MVT::f32 ||
@@ -23028,6 +23027,9 @@ SDValue X86TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   if ((VT == MVT::f64 || VT == MVT::f32) && Subtarget.hasAVX512()) {
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (isScalarFPTypeInSSEReg(VT) && Subtarget.hasAVX512()) {
+>>>>>>> b0840934a7cd56512801f422c57bd3b8a7c97f78
     SDValue Cmp = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, MVT::v1i1, Cond);
     return DAG.getNode(X86ISD::SELECTS, DL, VT, Cmp, Op1, Op2);
   }
