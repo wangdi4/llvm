@@ -727,7 +727,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   }
   else if (param_name == PI_DEVICE_INFO_SINGLE_FP_CONFIG) {
     uint32_t singleFPValue = 0;
-    ze_floating_point_capabilities_t singleFpCapabilities = ze_device_kernel_properties.singleFpCapabilities;
+    ze_fp_capabilities_t singleFpCapabilities = ze_device_kernel_properties.singleFpCapabilities;
     if (ZE_FP_CAPS_DENORM & singleFpCapabilities) {
       singleFPValue |= CL_FP_DENORM;
     }
@@ -754,7 +754,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   }
   else if (param_name == PI_DEVICE_INFO_DOUBLE_FP_CONFIG) {
     uint32_t doubleFPValue = 0;
-    ze_floating_point_capabilities_t doubleFpCapabilities = ze_device_kernel_properties.doubleFpCapabilities;
+    ze_fp_capabilities_t doubleFpCapabilities = ze_device_kernel_properties.doubleFpCapabilities;
     if (ZE_FP_CAPS_DENORM & doubleFpCapabilities) {
       doubleFPValue |= CL_FP_DENORM;
     }
