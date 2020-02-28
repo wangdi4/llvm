@@ -1929,11 +1929,7 @@ static inline int32_t run_target_team_nd_region(
   size_t num_work_groups_max = num_execution_units_max;
 #endif // INTEL_CUSTOMIZATION
 
-  if (num_teams > 0 &&
-      // Maybe we should get rid of this limitation and allow users
-      // to specify as many teams as they want, but let's keep it
-      // for the time being.
-      (size_t)num_teams <= num_work_groups_max) {
+  if (num_teams > 0) {
     num_work_groups_max = (size_t)num_teams;
 #if INTEL_CUSTOMIZATION
     num_teams_forced_by_user = true;
@@ -1964,28 +1960,33 @@ static inline int32_t run_target_team_nd_region(
     size_t threads_per_ss = eus_per_ss * threads_per_eu;
 
     if (num_teams_forced_by_user) {
-      assert(num_work_groups_max <=
-             number_of_subslices * eus_per_ss * threads_per_eu &&
-             "num_teams is bigger than the maximum number of "
-             "simultaneously executing work groups.");
-      // Try to maximize the local size, but still fit all work groups
-      // into the sub slices at once.
-      assert((local_work_size_max <= kernel_simd_width ||
-              (local_work_size_max % kernel_simd_width) == 0) &&
-             "invalid local_work_size_max.");
+      if (num_work_groups_max >= number_of_subslices * threads_per_ss) {
+        // If the requested number of teams is bigger than the number
+        // of work groups that the HW can run simultaneously, then
+        // just use the kernel's SIMD width for the local size.
+        // This means every EU thread will run one work group,
+        // but some work groups may be waiting for vacant threads.
+        local_work_size_max = kernel_simd_width;
+      } else {
+        // Try to maximize the local size, but still fit all work groups
+        // into the sub slices at once.
+        assert((local_work_size_max <= kernel_simd_width ||
+                (local_work_size_max % kernel_simd_width) == 0) &&
+               "invalid local_work_size_max.");
 
-      while (local_work_size_max > kernel_simd_width) {
-        size_t threads_per_wg = local_work_size_max / kernel_simd_width;
-        size_t wgs_per_ss = threads_per_ss / threads_per_wg;
-        size_t number_of_simultaneous_wgs = wgs_per_ss * number_of_subslices;
-        if (number_of_simultaneous_wgs >= num_work_groups_max)
-          break;
+        while (local_work_size_max > kernel_simd_width) {
+          size_t threads_per_wg = local_work_size_max / kernel_simd_width;
+          size_t wgs_per_ss = threads_per_ss / threads_per_wg;
+          size_t number_of_simultaneous_wgs = wgs_per_ss * number_of_subslices;
+          if (number_of_simultaneous_wgs >= num_work_groups_max)
+            break;
 
-        local_work_size_max -= kernel_simd_width;
+          local_work_size_max -= kernel_simd_width;
+        }
+        // The minimum value for local_work_size_max is kernel_simd_width
+        // after this loop, which means one work group is run by one
+        // EU thread.
       }
-      // The minimum value for local_work_size_max is kernel_simd_width
-      // after this loop, which means one work group is run by one
-      // EU thread.
     } else if (local_size_forced_by_user) {
       // Local size is fixed by the user, so we need to compute
       // the maximum number of simultaneously running work groups,
