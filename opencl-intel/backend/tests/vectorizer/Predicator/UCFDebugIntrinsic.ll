@@ -2,6 +2,7 @@
 
 ; CHECK: call void @llvm.dbg.value(metadata i32 %add.ucf_allones, metadata {{![0-9]+}}, metadata !DIExpression()), !dbg {{![0-9]+}}
 ; CHECK: %sext.ucf_allones = shl i64 %call, 32, !dbg [[PARAM:![0-9]+]]
+; CHECK: call void @llvm.dbg.label(metadata {{![0-9]+}}), !dbg {{![0-9]+}}
 ; CHECK: {{![0-9]+}} = distinct !DISubprogram(name: "test",
 ; CHECK: [[PARAM]] = !DILocation(line: 1, column: 142,
 
@@ -15,6 +16,9 @@ declare i64 @_Z13get_global_idj(i32 %0) local_unnamed_addr #1
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata %0, metadata %1, metadata %2) #2
+
+; Function Attrs: nounwind readnone speculatable willreturn
+declare void @llvm.dbg.label(metadata %0) #2
 
 ; Function Attrs: convergent nounwind
 define void @__Vectorized_.test(i32 addrspace(1)* %out, i32 addrspace(1)* %in) local_unnamed_addr #0 !dbg !48 !kernel_arg_addr_space !24 !kernel_arg_access_qual !25 !kernel_arg_type !26 !kernel_arg_base_type !26 !kernel_arg_type_qual !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !27 !kernel_arg_buffer_location !27 !kernel_arg_name !30 !vectorized_kernel !58 !ocl_recommended_vector_length !59 {
@@ -38,6 +42,7 @@ if.then4:                                         ; preds = %if.then
   %sext = shl i64 %call, 32, !dbg !69
   %idxprom = ashr exact i64 %sext, 32, !dbg !69
   %arrayidx6 = getelementptr inbounds i32, i32 addrspace(1)* %out, i64 %idxprom, !dbg !69
+  call void @llvm.dbg.label(metadata !8), !dbg !69
   store i32 %add, i32 addrspace(1)* %arrayidx6, align 4, !dbg !70, !tbaa !36
   br label %phi-split-bb, !dbg !71
 
@@ -72,6 +77,7 @@ attributes #3 = { convergent nounwind readnone }
 !5 = !{i32 1, i32 2}
 !6 = !{!"-g"}
 !7 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!8 = !DILabel(scope: !54, name: "label", file: !10, line: 1)
 !9 = distinct !DISubprogram(name: "test", scope: !10, file: !10, line: 1, type: !11, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !15)
 !10 = !DIFile(filename: "1", directory: "dir")
 !11 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !12)

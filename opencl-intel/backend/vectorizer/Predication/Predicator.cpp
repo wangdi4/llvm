@@ -2325,6 +2325,12 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
         if(Var)
           MD[Var].reset(Var);
       }
+      // Remap DbgLabelInst instruction's Labels(llvm.dbg.label) to themselves
+      if (isa<DbgLabelInst>(I)){
+        DILabel *Label = cast<DbgLabelInst>(I)->getLabel();
+        if(Label)
+          MD[Label].reset(Label);
+      }
       RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingLocals);
     }
   }
