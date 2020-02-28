@@ -73,11 +73,8 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
-<<<<<<< HEAD
-#include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
-=======
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
->>>>>>> e9849d5195e9951a8210ebf63d19c014800c3368
+#include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
 #include "llvm/Transforms/IPO/Attributor.h"

@@ -269,11 +269,8 @@ FUNCTION_PASS("tbaa-prop", TbaaMDPropagationPass())        // INTEL
 FUNCTION_PASS("cleanup-fakeloads", CleanupFakeLoadsPass()) // INTEL
 FUNCTION_PASS("consthoist", ConstantHoistingPass())
 FUNCTION_PASS("chr", ControlHeightReductionPass())
-<<<<<<< HEAD
 FUNCTION_PASS("convert-to-subscript", ConvertGEPToSubscriptIntrinsicPass()) // INTEL
-=======
 FUNCTION_PASS("coro-early", CoroEarlyPass())
->>>>>>> e9849d5195e9951a8210ebf63d19c014800c3368
 FUNCTION_PASS("correlated-propagation", CorrelatedValuePropagationPass())
 FUNCTION_PASS("dce", DCEPass())
 FUNCTION_PASS("div-rem-pairs", DivRemPairsPass())
