@@ -119,7 +119,7 @@ if( DEFINED ICD_LOADER_SRC_DIR )
       BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
       CMAKE_ARGS        -DOPENCL_ICD_LOADER_HEADERS_DIR=${OpenCL_INCLUDE_DIRS}
                         -DBUILD_TESTING=OFF
-                        -DCMAKE_INSTALL_LIBDIR:PATH=lib
+                        -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
                         -DCMAKE_INSTALL_BINDIR:PATH=bin
                         ${OPENCL_ICD_LOADER_WDK}
                         -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy
