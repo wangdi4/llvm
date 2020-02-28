@@ -1025,6 +1025,10 @@ private:
   SmallVector<MemfuncRegion, 2> Regions;
 };
 
+// Get the printable name for a SafetyData bit. The \p SafetyInfo value input to
+// this function may only have a single non-zero bit set.
+const char* getSafetyDataName(const SafetyData &SafetyInfo);
+
 /// Determine whether the specified \p Call is a call to allocation function,
 /// and if so what kind of allocation function it is and the size of the
 /// allocation.
