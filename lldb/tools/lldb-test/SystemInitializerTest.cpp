@@ -20,6 +20,8 @@
 #define LLDB_PLUGIN(p) LLDB_PLUGIN_DECLARE(p)
 #include "Plugins/Plugins.def"
 
+LLDB_PLUGIN_DECLARE(ScriptInterpreterNone)
+
 using namespace lldb_private;
 
 SystemInitializerTest::SystemInitializerTest() {}
@@ -40,6 +42,10 @@ llvm::Error SystemInitializerTest::Initialize() {
 #define LLDB_PLUGIN(p) LLDB_PLUGIN_INITIALIZE(p);
 #include "Plugins/Plugins.def"
 
+  // We ignored all the script interpreter earlier, so initialize
+  // ScriptInterpreterNone explicitly.
+  LLDB_PLUGIN_INITIALIZE(ScriptInterpreterNone);
+
   // Scan for any system or user LLDB plug-ins.
   PluginManager::Initialize();
 
@@ -58,6 +64,10 @@ void SystemInitializerTest::Terminate() {
 
   // Terminate and unload and loaded system or user LLDB plug-ins.
   PluginManager::Terminate();
+
+  // We ignored all the script interpreter earlier, so terminate
+  // ScriptInterpreterNone explicitly.
+  LLDB_PLUGIN_TERMINATE(ScriptInterpreterNone);
 
 #define LLDB_SCRIPT_PLUGIN(p)
 #define LLDB_PLUGIN(p) LLDB_PLUGIN_TERMINATE(p);
