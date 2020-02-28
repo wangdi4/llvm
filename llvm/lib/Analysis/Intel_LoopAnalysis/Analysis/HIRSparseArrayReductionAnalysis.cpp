@@ -180,12 +180,6 @@ void HIRSparseArrayReductionAnalysis::identifySparseArrayReductionChains(
     return;
   }
 
-  // [CMPLRLLVM-11824] Disable SAR recognition for non-AVX512 platforms.
-  if (!TTI.isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512)) {
-    return;
-  }
-
   DDG = DDA.getGraph(Loop);
 
   // Gather all the memory references and group by equal DDRef.
@@ -646,10 +640,18 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
     return;
   }
 
+  // [CMPLRLLVM-11824] Disable conditional-SAR recognition for non-AVX512
+  // platforms.
+  HLNode *ParentNode =
+      TTI.isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512)
+          ? StoreNode->getLexicalParentLoop()
+          : StoreNode->getParent();
+
   // Each group should have the same base.
   // The ddref should be non-linear
   // and the parent of the ddrefs are within the same loop.
-  if (!StoreRef->isNonLinear() || StoreNode->getLexicalParentLoop() != Loop) {
+  if (!StoreRef->isNonLinear() || ParentNode != Loop) {
     return;
   }
 
