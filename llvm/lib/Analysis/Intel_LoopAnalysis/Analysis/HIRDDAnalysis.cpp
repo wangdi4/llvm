@@ -46,6 +46,8 @@ using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-dd-analysis"
 
+using DominationMatrixTy = SmallVector<SmallVector<bool, 16>, 16>;
+
 // Rebuild nests in runOnFunction for loops of level n, 0 being whole region
 // for testing.
 // eg opt -hir-dd-analysis -hir-dd-analysis-verify=L1,L2 ... would result a walk
@@ -78,14 +80,6 @@ static cl::list<int> DumpGraphForNodeNumbers(
 static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
-
-// A low number of queries should suffice in practice. If a
-// dominating/post-dominating temp definition which kills a redundant edge
-// exists, it should be 'close by'.
-static cl::opt<unsigned> DominationQueryThreshold(
-    "hir-dd-domination-query-threshold", cl::init(3), cl::Hidden,
-    cl::desc("Approximate threshold for number of queries allowed (per temp "
-             "pair) to refine edges based on control flow."));
 
 enum ConstructDDEdgeType { None, Forward, Backward, Both };
 
@@ -232,87 +226,22 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLRegion *Region,
   return DDGraph(Node, &DDG);
 }
 
-static bool forwardEdgeIsRedundant(RefVectorTy<DDRef>::iterator Ref1It,
-                                   RefVectorTy<DDRef>::iterator Ref2It,
-                                   HLDDNode *Ref1Node, HLDDNode *Ref2Node) {
-  unsigned QueryCount = 0;
-  auto BackwardEndIt = Ref1It;
-
-  // Look in forward direction from Ref1It to Ref2It.
-  for (auto It = std::next(Ref1It), E = Ref2It; It != E; ++It) {
-    if (QueryCount == DominationQueryThreshold) {
-      break;
-    }
-
-    DDRef *InBetweenRef = *It;
-    bool IsLval = InBetweenRef->isLval();
-
-    if (IsLval) {
-      BackwardEndIt = It;
-      ++QueryCount;
-
-      if (HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node) ||
-          HLNodeUtils::dominates(InBetweenRef->getHLDDNode(), Ref2Node)) {
-        LLVM_DEBUG(dbgs() << "Skipping forward edge from "
-                          << Ref1Node->getNumber() << "("
-                          << ((*Ref1It)->isLval() ? "lval" : "rval") << ")"
-                          << " to " << Ref2Node->getNumber()
-                          << "(" << ((*Ref2It)->isLval() ? "lval" : "rval")
-                          << ")"
-                          << " because of inbetween def at "
-                          << InBetweenRef->getHLDDNode()->getNumber() << "("
-                          << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
-                          << "\n");
-        return true;
-      }
-    }
-  }
-
-  QueryCount = 0;
-  // Look in backward direction from Ref2It to Ref1It.
-  for (auto It = std::prev(Ref2It); It != BackwardEndIt; --It) {
-    if (QueryCount == DominationQueryThreshold) {
-      break;
-    }
-
-    DDRef *InBetweenRef = *It;
-    bool IsLval = InBetweenRef->isLval();
-
-    if (IsLval) {
-      ++QueryCount;
-
-      if (HLNodeUtils::postDominates(InBetweenRef->getHLDDNode(), Ref1Node) ||
-          HLNodeUtils::dominates(InBetweenRef->getHLDDNode(), Ref2Node)) {
-        LLVM_DEBUG(dbgs() << "Skipping forward edge from "
-                          << Ref1Node->getNumber() << "("
-                          << ((*Ref1It)->isLval() ? "lval" : "rval") << ")"
-                          << " to " << Ref2Node->getNumber()
-                          << "(" << ((*Ref2It)->isLval() ? "lval" : "rval")
-                          << ")"
-                          << " because of inbetween def at "
-                          << InBetweenRef->getHLDDNode()->getNumber() << "("
-                          << (InBetweenRef->isLval() ? "lval" : "rval") << ")"
-                          << "\n");
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 // Returns true if we must do dd testing between ref1 and ref2. We generally
 // do not need to do testing between rvals, unless we need explicitly need input
 // edges. There may be other reasons in the future certain refs will be excluded
 // from testing
-static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
-                                      RefVectorTy<DDRef>::iterator Ref2It,
-                                      RefVectorTy<DDRef>::iterator BeginIt,
-                                      RefVectorTy<DDRef>::iterator EndIt,
-                                      bool IsGraphForInnermostLoop) {
+static ConstructDDEdgeType edgeNeeded(const DDARefGatherer::VectorTy &Refs,
+                                      unsigned R1, unsigned R2,
+                                      unsigned LoopStart, unsigned LoopEnd,
+                                      const DominationMatrixTy &M) {
+  // Note:
+  // M[I][J] == true when:
+  //   (I > J AND there is a Refs[J..I-1] that dominates Refs[I]) OR
+  //   (I < J AND there is a Refs[I+1..J] that post-dominates Refs[I]);
+  //   false otherwise.
 
-  DDRef *Ref1 = *Ref1It;
-  DDRef *Ref2 = *Ref2It;
+  DDRef *Ref1 = Refs[R1];
+  DDRef *Ref2 = Refs[R2];
 
   if (Ref1->isRval() && Ref2->isRval()) {
     return ConstructDDEdgeType::None;
@@ -327,91 +256,15 @@ static ConstructDDEdgeType edgeNeeded(RefVectorTy<DDRef>::iterator Ref1It,
     return ConstructDDEdgeType::None;
   }
 
-  auto Ref1Node = Ref1->getHLDDNode();
-  auto Ref2Node = Ref2->getHLDDNode();
-
   // Look refs in-between Ref1 and Ref2 to ignore the forward edge
-  bool NeedForwardEdge =
-      !forwardEdgeIsRedundant(Ref1It, Ref2It, Ref1Node, Ref2Node);
-
-  auto Parent1 = Ref1Node->getLexicalParentLoop();
-  if (!IsGraphForInnermostLoop &&
-      (!Parent1 || !Parent1->isInnermost() ||
-       (Parent1 != Ref2Node->getLexicalParentLoop()))) {
-    return NeedForwardEdge ? ConstructDDEdgeType::Both
-                           : ConstructDDEdgeType::Backward;
-  }
+  bool NeedForwardEdge = !M[R2][R1 + 1] && !M[R1][R2 - 1];
 
   // Look refs before Ref1 to ignore the backward edge
-  bool NeedBackwardEdge = true;
-  std::reverse_iterator<decltype(Ref1It)> RI(Ref1It);
-  std::reverse_iterator<decltype(BeginIt)> RE(BeginIt);
-  unsigned QueryCount = 0;
-
-  for (auto It = RI; It != RE; ++It) {
-    if (QueryCount == DominationQueryThreshold) {
-      break;
-    }
-
-    DDRef *UpwardRef = *It;
-    if (!IsGraphForInnermostLoop &&
-        (UpwardRef->getLexicalParentLoop() != Parent1)) {
-      break;
-    }
-
-    bool IsLval = UpwardRef->isLval();
-    if (IsLval) {
-      ++QueryCount;
-
-      if (HLNodeUtils::dominates(UpwardRef->getHLDDNode(), Ref1Node)) {
-        LLVM_DEBUG(dbgs() << "Skipping backward edge from "
-                          << Ref2Node->getNumber() << "("
-                          << (Ref2->isLval() ? "lval" : "rval") << ")"
-                          << " to " << Ref1Node->getNumber() << "("
-                          << (Ref1->isLval() ? "lval" : "rval") << ")"
-                          << " because of upward def at "
-                          << UpwardRef->getHLDDNode()->getNumber() << "("
-                          << (UpwardRef->isLval() ? "lval" : "rval") << ")"
-                          << "\n");
-        NeedBackwardEdge = false;
-        break;
-      }
-    }
-  }
+  bool NeedBackwardEdge = !M[R1][LoopStart];
 
   // Look refs after Ref2 to see if we can still ignore the backward edge
-  if (NeedBackwardEdge) {
-    QueryCount = 0;
-    for (auto It = std::next(Ref2It), E = EndIt; It != E; ++It) {
-      if (QueryCount == DominationQueryThreshold) {
-        break;
-      }
-
-      DDRef *DownwardRef = *It;
-      if (!IsGraphForInnermostLoop &&
-          (DownwardRef->getLexicalParentLoop() != Parent1)) {
-        break;
-      }
-
-      bool IsLval = DownwardRef->isLval();
-      if (IsLval) {
-        ++QueryCount;
-
-        if (HLNodeUtils::postDominates(DownwardRef->getHLDDNode(), Ref2Node)) {
-          LLVM_DEBUG(dbgs() << "Skipping backward edge from "
-                            << Ref2Node->getNumber() << "("
-                            << (Ref2->isLval() ? "lval" : "rval") << ")"
-                            << " to " << Ref1Node->getNumber() << "("
-                            << (Ref1->isLval() ? "lval" : "rval") << ")"
-                            << " because of downward def at "
-                            << DownwardRef->getHLDDNode()->getNumber() << "("
-                            << (DownwardRef->isLval() ? "lval" : "rval") << ")"
-                            << "\n");
-          NeedBackwardEdge = false;
-          break;
-        }
-      }
-    }
+  if (NeedBackwardEdge && LoopEnd > R2) {
+    NeedBackwardEdge = !M[R2][LoopEnd];
   }
 
   if (NeedForwardEdge && NeedBackwardEdge) {
@@ -520,6 +373,87 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
   return ValidationMap[TopLoop->getParentRegion()] == GraphState::Valid;
 }
 
+// Precomputes domination information for the lexically ordered vector of \p
+// Refs.
+//
+// The output matrix \p M is a combination of upper-triangular domination
+// info and lower-triangular post-domination info.
+//
+// M[i][j]:
+//  false: if (i == j)
+//   true: if (j < i) AND there is Ref[j..i-1] that dominates Ref[i]
+//   true: if (j > i) AND there is Ref[i+1..j] that post-dominates Ref[i].
+static void computeDominationRelations(const DDARefGatherer::VectorTy &Refs,
+                                       DominationMatrixTy &M) {
+  int Size = Refs.size();
+
+  M.resize(Size);
+  for (auto &Column : M) {
+    Column.resize(Size, 0);
+  }
+
+  for (int I = 0; I < Size; ++I) {
+    M[I][I] = false;
+  }
+
+  // Start from the last column. All domination queries would be w.r.t Ref[I].
+  for (int I = Size - 1; I >= 0; --I) {
+    // We may skip non-terminal I-columns as we will never ask about them later.
+    if (!Refs[I]->isTerminalRef()) {
+      continue;
+    }
+
+    auto *NodeI = Refs[I]->getHLDDNode();
+
+    // Compute domination part, upwards.
+    for (int J = I - 1; J >= 0; --J) {
+      bool Prev = M[I][J + 1];
+
+      if (!Prev && (Refs[J]->isLval() && Refs[J]->isTerminalRef())) {
+        auto *NodeJ = Refs[J]->getHLDDNode();
+        Prev = HLNodeUtils::dominates(NodeJ, NodeI);
+      }
+
+      M[I][J] = Prev;
+    }
+
+    // Compute post-domination part, downwards.
+    for (int J = I + 1; J < Size; ++J) {
+      bool Prev = M[I][J - 1];
+
+      if (!Prev && (Refs[J]->isLval() && Refs[J]->isTerminalRef())) {
+        auto *NodeJ = Refs[J]->getHLDDNode();
+        Prev = HLNodeUtils::postDominates(NodeJ, NodeI);
+      }
+
+      M[I][J] = Prev;
+    }
+  }
+}
+
+// Compute helper array with the indices of the loops's first reference.
+// With an arbitrary Ref index I it will be possible to know Ref[I]'s parent
+// loop first reference index.
+template <typename IterI, typename IterO>
+void computeLoopStartStops(IterI Begin, IterI End, IterO Out) {
+  assert(Begin != End && "Empty loops are not expected");
+
+  HLLoop *PrevParentLoop = (*Begin)->getLexicalParentLoop();
+  IterO PrevOut = Out;
+  *(Out++) = 0;
+
+  for (auto I = std::next(Begin); I != End; ++I) {
+    auto *ParentLoop = (*I)->getLexicalParentLoop();
+    if (PrevParentLoop == ParentLoop) {
+      *Out = *PrevOut;
+    } else {
+      PrevOut = Out;
+      *Out = I - Begin;
+    }
+    ++Out;
+  }
+}
+
 void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
   assert((isa<HLRegion>(Node) || isa<HLLoop>(Node)) &&
          "Node should be HLLoop or HLRegion");
@@ -528,11 +462,9 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
   LLVM_DEBUG(Node->dump());
 
   DDARefGatherer::MapTy RefMap;
-  bool IsGraphForInnermostLoop = false;
 
   if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
     DDARefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
-    IsGraphForInnermostLoop = Loop->isInnermost();
   } else {
     DDARefGatherer::gather(Node, RefMap);
   }
@@ -544,17 +476,30 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
-    auto BeginIt = RefVec.begin();
-    auto EndIt = RefVec.end();
 
-    for (auto Ref1It = BeginIt; Ref1It != EndIt; ++Ref1It) {
-      DDRef *Ref1 = *Ref1It;
+    SmallVector<unsigned, 8> LoopStarts;
+    SmallVector<unsigned, 8> LoopStops;
+    LoopStarts.resize(RefVec.size(), 0);
+    LoopStops.resize(RefVec.size(), 0);
 
-      for (auto Ref2It = Ref1It; Ref2It != EndIt; ++Ref2It) {
-        DDRef *Ref2 = *Ref2It;
+    // Find loop lexical bounds in terms of references.
+    computeLoopStartStops(RefVec.begin(), RefVec.end(), LoopStarts.begin());
+    computeLoopStartStops(RefVec.rbegin(), RefVec.rend(), LoopStops.rbegin());
+
+    DominationMatrixTy DominationMatrix;
+    computeDominationRelations(RefVec, DominationMatrix);
+
+    for (unsigned I = 0, Size = RefVec.size(); I < Size; ++I) {
+      DDRef *Ref1 = RefVec[I];
+      auto LoopStart = LoopStarts[I];
+      auto LoopStop = RefVec.size() - LoopStops[I] - 1;
+
+      for (auto J = I; J < Size; ++J) {
+        DDRef *Ref2 = RefVec[J];
 
         ConstructDDEdgeType NeededEdgeType =
-            edgeNeeded(Ref1It, Ref2It, BeginIt, EndIt, IsGraphForInnermostLoop);
+            edgeNeeded(RefVec, I, J, LoopStart, LoopStop, DominationMatrix);
+
         if (NeededEdgeType != ConstructDDEdgeType::None &&
             !isEdgeValid(Ref1, Ref2)) {
           DDTest DT(*AAR, Node->getHLNodeUtils());
