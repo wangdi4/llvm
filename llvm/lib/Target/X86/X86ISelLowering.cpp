@@ -39873,8 +39873,6 @@ combineVSelectWithAllOnesOrZeros(SDNode *N, SelectionDAG &DAG,
 
   assert(CondVT.isVector() && "Vector select expects a vector selector!");
 
-  // Check if the first operand is all zeros and Cond type is vXi1.
-  // This situation only applies to avx512.
   // TODO: Use isNullOrNullSplat() to distinguish constants with undefs?
   // TODO: Can we assert that both operands are not zeros (because that should
   //       get simplified at node creation time)?
@@ -39887,14 +39885,6 @@ combineVSelectWithAllOnesOrZeros(SDNode *N, SelectionDAG &DAG,
     if (VT.isFloatingPoint())
       return DAG.getConstantFP(0.0, DL, VT);
     return DAG.getConstant(0, DL, VT);
-  }
-
-  if (TValIsAllZeros && !FValIsAllZeros && Subtarget.hasAVX512() &&
-      Cond.hasOneUse() && CondVT.getVectorElementType() == MVT::i1) {
-    // Invert the cond to not(cond) : xor(op,allones)=not(op)
-    SDValue CondNew = DAG.getNOT(DL, Cond, CondVT);
-    // Vselect cond, op1, op2 = Vselect not(cond), op2, op1
-    return DAG.getSelect(DL, VT, CondNew, RHS, LHS);
   }
 
   // To use the condition operand as a bitwise mask, it must have elements that
@@ -40638,6 +40628,19 @@ static SDValue combineSelect(SDNode *N, SelectionDAG &DAG,
           return DAG.getNode(ISD::UADDSAT, DL, VT, OpLHS, OpRHS);
       }
     }
+  }
+
+  // Check if the first operand is all zeros and Cond type is vXi1.
+  // If this an avx512 target we can improve the use of zero masking by
+  // swapping the operands and inverting the condition.
+  if (N->getOpcode() == ISD::VSELECT && Cond.hasOneUse() &&
+       Subtarget.hasAVX512() && CondVT.getVectorElementType() == MVT::i1 &&
+      ISD::isBuildVectorAllZeros(LHS.getNode()) &&
+      !ISD::isBuildVectorAllZeros(RHS.getNode())) {
+    // Invert the cond to not(cond) : xor(op,allones)=not(op)
+    SDValue CondNew = DAG.getNOT(DL, Cond, CondVT);
+    // Vselect cond, op1, op2 = Vselect not(cond), op2, op1
+    return DAG.getSelect(DL, VT, CondNew, RHS, LHS);
   }
 
   // Early exit check
