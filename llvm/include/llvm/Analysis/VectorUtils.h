@@ -454,31 +454,31 @@ void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall);
 // Common utilities to manipulate vectors
 
 /// \brief Join a set of vectors into a single vector.
-Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
+Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder,
                    Twine Name = "");
 
 /// \brief Extend the length of incoming vector \p OrigVal to \p TargetLength
 /// using undefs. Example -
 /// {0, 1, 2, 3} -> TargetLen = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
-Value *extendVector(Value *OrigVal, unsigned TargetLength, IRBuilder<> &Builder,
+Value *extendVector(Value *OrigVal, unsigned TargetLength, IRBuilderBase &Builder,
                     const Twine &Name = "");
 
 /// \brief Replicate elements of vector by \p OriginalVL times in consecutive
 /// locations. Example - {0, 1, 2, 3} -> { 0, 0, 1, 1, 2, 2, 3, 3}
 Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
-                           IRBuilder<> &Builder, const Twine &Name = "");
+                           IRBuilderBase &Builder, const Twine &Name = "");
 
 /// \brief Replicate the entire vector \p OrigVal by \p OriginalVL times.
 /// Example - {0, 1, 2, 3} -> { 0, 1, 2, 3, 0, 1, 2, 3}
 Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
-                       IRBuilder<> &Builder, const Twine &Name = "");
+                       IRBuilderBase &Builder, const Twine &Name = "");
 
 /// Create vector which contains \p V broadcasted \p VF times. \p V can be
 /// either another vector or a scalar value. So the resulting vector is
 /// - in case \p V is a scalar: {V, V,..,V}, vector of VF elements
 /// - in case \p V is vector: {v1,v2,...vN, v1,v2,...vN,...,v1,v2,...vN},
 ///   vector of NxVF elements
-Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+Value *createVectorSplat(Value *V, unsigned VF, IRBuilderBase &Builder,
                          const Twine &Name = "");
 
 /// Generate code to extract a subvector of vector value \p V. The number of
@@ -487,7 +487,7 @@ Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
 /// size)-th element of the vector. Subvector size is determined by given vector
 /// size and number of parts to be divided into.
 Value *generateExtractSubVector(Value *V, unsigned Part, unsigned NumParts,
-                                IRBuilder<> &Builder, const Twine &Name = "");
+                                IRBuilderBase &Builder, const Twine &Name = "");
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.
@@ -590,7 +590,7 @@ Constant *createStrideMask(IRBuilderBase &Builder, unsigned Start,
 ///      (3, 4, 5), (15, 16, 17), (27, 28, 29),
 ///      (6, 7, 8), (18, 19, 20), (30, 31, 32),
 ///      (9, 10, 11), (21, 22, 23), (33, 34, 35)>.
-Constant *createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                      unsigned NumVecs, unsigned VecWidth);
 
 /// Create a stride shuffle mask for a "vector of vectors".
@@ -606,7 +606,7 @@ Constant *createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
 /// <12 x <3 x float>> starting with the second element (Start=1) is:
 ///
 ///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
-Constant *createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *createVectorStrideMask(IRBuilderBase &Builder, unsigned Start,
                                  unsigned Stride, unsigned VF,
                                  unsigned VecWidth);
 #endif /* INTEL_CUSTOMIZATION */

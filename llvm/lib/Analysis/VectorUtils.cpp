@@ -879,7 +879,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   return VectorF;
 }
 
-Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
+Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder,
                          Twine Name) {
   SmallVector<Value *, 8> VParts(VectorsToJoin.begin(), VectorsToJoin.end());
   unsigned VL = VParts.size();
@@ -899,7 +899,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
 }
 
 Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
-                          IRBuilder<> &Builder, const Twine &Name) {
+                          IRBuilderBase &Builder, const Twine &Name) {
   Type *OrigTy = OrigVal->getType();
   assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
   unsigned VectorElts = OrigTy->getVectorNumElements();
@@ -914,7 +914,7 @@ Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
 }
 
 Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
-                                 IRBuilder<> &Builder, const Twine &Name) {
+                                 IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
   Value *ShuffleMask = createReplicatedMask(
@@ -925,7 +925,7 @@ Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
 }
 
 Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
-                             IRBuilder<> &Builder, const Twine &Name) {
+                             IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
   unsigned NumElts = OrigVal->getType()->getVectorNumElements();
@@ -938,7 +938,7 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
                                      ShuffleMask, Name + OrigVal->getName());
 }
 
-Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilderBase &Builder,
                                const Twine &Name) {
   if (V->getType()->isVectorTy())
     return replicateVectorElts(V, VF, Builder, Name);
@@ -946,7 +946,7 @@ Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
 }
 
 Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
-                                      unsigned NumParts, IRBuilder<> &Builder,
+                                      unsigned NumParts, IRBuilderBase &Builder,
                                       const Twine &Name) {
   // Example:
   // Consider the following vector code -
@@ -1174,9 +1174,8 @@ Constant *llvm::createStrideMask(IRBuilderBase &Builder, unsigned Start,
   return ConstantVector::get(Mask);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *llvm::createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                            unsigned NumVecs,
                                            unsigned VecWidth) {
   SmallVector<Constant *, 64> Mask;
@@ -1188,7 +1187,7 @@ Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
   return ConstantVector::get(Mask);
 }
 
-Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *llvm::createVectorStrideMask(IRBuilderBase &Builder, unsigned Start,
                                        unsigned Stride, unsigned VF,
                                        unsigned VecWidth) {
   SmallVector<Constant *, 64> Mask;
@@ -1200,10 +1199,7 @@ Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
 }
 #endif // INTEL_CUSTOMIZATION
 
-Constant *llvm::createSequentialMask(IRBuilder<> &Builder, unsigned Start,
-=======
 Constant *llvm::createSequentialMask(IRBuilderBase &Builder, unsigned Start,
->>>>>>> f37e899fd73d1a8958246d761eeb306a8846e81a
                                      unsigned NumInts, unsigned NumUndefs) {
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < NumInts; i++)
