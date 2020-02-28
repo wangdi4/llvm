@@ -237,9 +237,6 @@ public:
   void setSupportsDefaultOutlining(bool Enable) {
     Options.SupportsDefaultOutlining = Enable;
   }
-  void setSupportsDebugEntryValues(bool Enable) {
-    Options.SupportsDebugEntryValues = Enable;
-  }
 
 #if INTEL_CUSTOMIZATION
   void setIntelLibIRCAllowed(bool Value) {
