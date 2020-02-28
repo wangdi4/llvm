@@ -1099,6 +1099,59 @@ let Predicates = [HasAMXCONVERTEVEX, In64BitMode] in {
 
 // end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
 
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+let Predicates = [HasAMXCONVERT, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def TCVTD2PSmr : I<0x5f, MRMDestMemFSIB, (outs),
+                     (ins opaquemem:$dst, VTILE:$src),
+                     "tcvtd2ps\t{$src, $dst|$dst, $src}",
+                     []>, VEX, T8XD;
+    let usesCustomInserter = 1 in {
+      def PTCVTD2PSmr : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
+    }
+
+    def TCVT2PS2BF16mr : I<0x5d, MRMDestMem4VOp2FSIB, (outs),
+                         (ins opaquemem:$dst, VTILE:$src1, VTILE:$src2),
+                         "tcvt2ps2bf16\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                         []>, VEX_4V, VEX_WIG, T8XS;
+    let usesCustomInserter = 1 in {
+      def PTCVT2PS2BF16mr : PseudoI<(outs),
+                                    (ins opaquemem:$dst,
+                                     u8imm:$src1, u8imm:$src2), []>;
+    }
+
+    def TCVT2PS2PHmr : I<0x5d, MRMDestMem4VOp2FSIB, (outs),
+                       (ins opaquemem:$dst, VTILE:$src1, VTILE:$src2),
+                       "tcvt2ps2ph\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                       []>, VEX_4V, VEX_WIG, T8XD;
+    let usesCustomInserter = 1 in {
+      def PTCVT2PS2PHmr : PseudoI<(outs),
+                                  (ins opaquemem:$dst,
+                                   u8imm:$src1, u8imm:$src2), []>;
+    }
+
+    def TCVTPS2BF16mr : I<0x5d, MRMDestMemFSIB, (outs opaquemem:$dst),
+                       (ins VTILE:$src),
+                       "tcvtps2bf16\t{$src, $dst|$dst, $src}",
+                       []>, VEX, T8PD;
+    let usesCustomInserter = 1 in {
+      def PTCVTPS2BF16mr : PseudoI<(outs opaquemem:$dst),
+                                   (ins u8imm:$src), []>;
+    }
+
+    def TCVTPS2PHmr : I<0x5d, MRMDestMemFSIB, (outs opaquemem:$dst),
+                      (ins VTILE:$src),
+                      "tcvtps2ph\t{$src, $dst|$dst, $src}",
+                      []>, VEX, T8PS;
+    let usesCustomInserter = 1 in {
+      def PTCVTPS2PHmr : PseudoI<(outs opaquemem:$dst),
+                                 (ins u8imm:$src), []>;
+    }
+  }
+}
+
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+
 // INTEL_FEATURE_ISA_AMX_INT8_EVEX
 //AMX-INT8-EVEX
 let Predicates = [HasAMXINT8EVEX, In64BitMode] in {
