@@ -9644,11 +9644,11 @@ let Defs = [EFLAGS], Predicates = [HasFP16] in {
   defm VCOMISHZ : avx512_ord_cmp_sae<0x2F, v8f16x_info, "vcomish",
                                 SSEPackedSingle>, AVX512PSIi8Base, T_MAP5PS,
                                 EVEX_CD8<16, CD8VT1>;
-  defm VUCOMISHZ : sse12_ord_cmp<0x2E, FR16X, X86cmp, f16, f16mem, loadf16,
+  defm VUCOMISHZ : sse12_ord_cmp<0x2E, FR16X, X86any_fcmp, f16, f16mem, loadf16,
                                 "ucomish", SSEPackedSingle>, T_MAP5PS, EVEX,
                                 VEX_LIG, EVEX_CD8<16, CD8VT1>;
   let Pattern = []<dag> in {
-    defm VCOMISHZ : sse12_ord_cmp<0x2F, FR16X, undef, f16, f16mem, loadf16,
+    defm VCOMISHZ : sse12_ord_cmp<0x2F, FR16X, X86strict_fcmps, f16, f16mem, loadf16,
                                 "comish", SSEPackedSingle>, T_MAP5PS, EVEX,
                                 VEX_LIG, EVEX_CD8<16, CD8VT1>;
   }
