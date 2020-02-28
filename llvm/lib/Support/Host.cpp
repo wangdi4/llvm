@@ -1264,7 +1264,7 @@ StringRef sys::getHostCPUName() {
       return "swift";
     default:;
     }
-  
+
   return "generic";
 }
 #else

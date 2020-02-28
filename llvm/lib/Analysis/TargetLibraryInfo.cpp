@@ -1828,6 +1828,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   // avoid conflicts during community pulldowns, which otherwise occur
   // every time a new entry is added to the enumeration.
 
+<<<<<<< HEAD
   case LibFunc_dunder_isoc99_fscanf:
     // int __isoc99_fscanf(FILE *stream, const char *format, ... );
     return (NumParams >= 2 && FTy.getReturnType()->isIntegerTy() &&
@@ -1857,6 +1858,20 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isFloatTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
+=======
+bool TargetLibraryInfoImpl::getLibFunc(const Function &FDecl,
+                                       LibFunc &F) const {
+  // Intrinsics don't overlap w/libcalls; if our module has a large number of
+  // intrinsics, this ends up being an interesting compile time win since we
+  // avoid string normalization and comparison.
+  if (FDecl.isIntrinsic()) return false;
+
+  const DataLayout *DL =
+      FDecl.getParent() ? &FDecl.getParent()->getDataLayout() : nullptr;
+  return getLibFunc(FDecl.getName(), F) &&
+         isValidProtoForLibFunc(*FDecl.getFunctionType(), F, DL);
+}
+>>>>>>> 466f8843f526b03c8944a46af5ebb374133b5389
 
   case LibFunc_assert_fail:
     return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
