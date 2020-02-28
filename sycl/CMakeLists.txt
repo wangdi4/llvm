@@ -58,7 +58,10 @@ if( INTEL_CUSTOMIZATION )
   set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
 endif()
 
-if( DEFINED ICD_LOADER_SRC_DIR )
+if( OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY )
+  # Use OpenCL ICD Loader and headers passed explicitely
+  find_package(OpenCL)
+elseif( DEFINED ICD_LOADER_SRC_DIR )
   if( NOT EXISTS ${OpenCL_INCLUDE_DIR} )
     message(ERROR "Missed OpenCL headers" )
   endif()
