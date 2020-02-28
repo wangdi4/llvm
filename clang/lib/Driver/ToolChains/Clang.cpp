@@ -6800,6 +6800,13 @@ const char *Clang::getDependencyFileName(const ArgList &Args,
     llvm::sys::path::replace_extension(OutputFilename, llvm::Twine('d'));
     return Args.MakeArgString(OutputFilename);
   }
+#if INTEL_CUSTOMIZATION
+  if (Arg *OutputOpt = Args.getLastArg(options::OPT__SLASH_Fo)) {
+    SmallString<128> OutputFilename(OutputOpt->getValue());
+    llvm::sys::path::replace_extension(OutputFilename, llvm::Twine('d'));
+    return Args.MakeArgString(OutputFilename);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return Args.MakeArgString(Twine(getBaseInputStem(Args, Inputs)) + ".d");
 }
