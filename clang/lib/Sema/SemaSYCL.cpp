@@ -1061,8 +1061,6 @@ static bool buildArgTys(ASTContext &Context, CXXRecordDecl *KernelObj,
           continue;
         }
       }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
       CXXRecordDecl *RD =
           cast<CXXRecordDecl>(ArgTy->getAs<RecordType>()->getDecl());
       if (!RD->hasTrivialCopyConstructor()) {
@@ -1070,24 +1068,6 @@ static bool buildArgTys(ASTContext &Context, CXXRecordDecl *KernelObj,
             Fld->getLocation(),
             diag::err_sycl_non_trivially_copy_ctor_dtor_type)
             << 0 << ArgTy;
-=======
-
-      CXXRecordDecl *RD =
-          cast<CXXRecordDecl>(ArgTy->getAs<RecordType>()->getDecl());
-      if (!RD->hasTrivialCopyConstructor()) {
-        Context.getDiagnostics().Report(
-            Fld->getLocation(),
-            diag::err_sycl_non_trivially_copy_ctor_dtor_type)
-            << 0 << ArgTy;
-        AllArgsAreValid = false;
-        continue;
-      }
-      if (!RD->hasTrivialDestructor()) {
-        Context.getDiagnostics().Report(
-            Fld->getLocation(),
-            diag::err_sycl_non_trivially_copy_ctor_dtor_type)
-            << 1 << ArgTy;
->>>>>>> e0d64f538e3d2743f8dbd278f736aec57213f568
         AllArgsAreValid = false;
         continue;
       }
@@ -1099,7 +1079,6 @@ static bool buildArgTys(ASTContext &Context, CXXRecordDecl *KernelObj,
          AllArgsAreValid = false;
          continue;
        }
-#endif // INTEL_CUSTOMIZATION
 
       CreateAndAddPrmDsc(Fld, ArgTy);
 
