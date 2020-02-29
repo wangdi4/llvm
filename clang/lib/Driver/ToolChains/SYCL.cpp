@@ -325,12 +325,23 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   // The next line prevents ocloc from modifying the image name
   CmdArgs.push_back("-output_no_suffix");
   CmdArgs.push_back("-spirv_input");
+<<<<<<< HEAD
   // Add -Xsycl-target* options.
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   TC.TranslateBackendTargetArgs(Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(Args, CmdArgs);
   SmallString<128> ExecPath(getToolChain().GetProgramPath("ocloc"));
+=======
+  TranslateSYCLTargetArgs(C, Args, getToolChain(), CmdArgs);
+#if INTEL_CUSTOMIZATION
+  std::string ProgName("ocloc");
+  if (C.getSingleOffloadToolChain<Action::OFK_Host>()
+      ->getTriple().isWindowsMSVCEnvironment())
+    ProgName.append(".exe");
+  SmallString<128> ExecPath(getToolChain().GetProgramPath(ProgName.c_str()));
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> bf2eae0073caddcc1dd2f9a55152332a791ed68c
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, Exec, CmdArgs, None);
   if (!ForeachInputs.empty())
