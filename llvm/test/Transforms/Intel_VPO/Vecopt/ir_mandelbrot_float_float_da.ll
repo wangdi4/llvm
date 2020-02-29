@@ -1,6 +1,6 @@
 ; Test DA divergence and vector shape propagation for the float, float version of mandelbrot kernel.
 ; REQUIRES: asserts
-; RUN: opt -S %s -VPlanDriver -disable-vplan-da=false -vplan-loop-cfu -vplan-dump-da 2>&1 -disable-output | FileCheck %s
+; RUN: opt -S %s -VPlanDriver -vplan-loop-cfu -vplan-dump-da 2>&1 -disable-output | FileCheck %s
 
 ; For VPValue-based CG, loop private variables and their corresponding users are marked as divergent by DA.
 

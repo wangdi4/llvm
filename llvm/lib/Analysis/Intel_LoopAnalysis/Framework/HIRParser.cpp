@@ -4266,6 +4266,30 @@ static bool isDistributePoint(const IntrinsicInst *Intrin, bool &IsBegin) {
   return false;
 }
 
+static bool isBlockLoopBeginDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.BLOCK_LOOP");
+}
+
+static bool isBlockLoopEndDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP");
+}
+
 bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
 
@@ -4279,7 +4303,11 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   }
 
   bool IsBegin;
-  if (!isDistributePoint(Intrin, IsBegin)) {
+
+  if (isBlockLoopEndDirective(Intrin)) {
+    IsBegin = false;
+
+  } else if (!isDistributePoint(Intrin, IsBegin)) {
     return false;
   }
 
@@ -4293,6 +4321,58 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   }
 
   return true;
+}
+
+static HLLoop *getNextLexicalLoop(HLNode *Node) {
+  HLNode *NextNode = Node;
+
+  do {
+    NextNode = NextNode->getNextNode();
+  } while (NextNode && !isa<HLLoop>(NextNode));
+
+  return cast_or_null<HLLoop>(NextNode);
+}
+
+void HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
+  auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
+
+  if (!Intrin || !isBlockLoopBeginDirective(Intrin)) {
+    return;
+  }
+
+  // We ignore pragma if loop is not found. This can happen when ztt is not
+  // recognized.
+  if (auto *PragmaLp = getNextLexicalLoop(HInst)) {
+
+    int64_t Level = 0;
+    bool LevelFound = false;
+    (void)LevelFound;
+    for (unsigned I = 0, E = HInst->getNumOperandBundles(); I < E; ++I) {
+      StringRef TagName = HInst->getOperandBundleAt(I).getTagName();
+
+      if (TagName.equals("QUAL.PRAGMA.PRIVATE")) {
+        PragmaLp->addBlockingPragmaPrivate(*HInst->bundle_op_ddref_begin(I));
+        LevelFound = false;
+      } else if (TagName.equals("QUAL.PRAGMA.LEVEL")) {
+        // Store level info, to be added along with the corresponding factor.
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Level);
+        LevelFound = true;
+      } else if (TagName.equals("QUAL.PRAGMA.FACTOR")) {
+        assert(LevelFound && "Factor found without corresponding level!");
+        PragmaLp->addBlockingPragmaLevelAndFactor(
+            (int)Level, *HInst->bundle_op_ddref_begin(I));
+        LevelFound = false;
+      }
+    }
+  }
+
+  // Remove refs' link to the instruction now that they are stored inside loop.
+  for (unsigned I = 0, E = HInst->getNumOperands(); I < E; ++I) {
+    HInst->removeOperandDDRef(I);
+  }
+
+  // Do not need explicit block_loop intrinsic in HIR.
+  HLNodeUtils::erase(HInst);
 }
 
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
@@ -4380,6 +4460,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     HInst->setPredicate(
         {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
   }
+
+  processBlockLoopBeginDirective(HInst);
 }
 
 void HIRParser::phase1Parse(HLNode *Node) {
