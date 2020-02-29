@@ -2263,7 +2263,7 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
                          WRegionUtils::hasCancelConstruct(WParent);
 
   auto *BarrierCall = VPOParoptUtils::genKmpcBarrierImpl(
-      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier);
+      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier, IsTargetSPIRV);
 
   if (IsCancelBarrier)
     WParent->addCancellationPoint(BarrierCall);
@@ -2550,6 +2550,8 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     // Emit an empty __kmpc_barrier without parameters,
     // and insert it above InsertPt
     CallInst *BarrierCall = genEmptyCall(M, FnName, RetTy, InsertPt);
+    BarrierCall->getCalledFunction()->setConvergent();
+    setFuncCallingConv(BarrierCall, IsTargetSPIRV);
     return BarrierCall;
   }
 
