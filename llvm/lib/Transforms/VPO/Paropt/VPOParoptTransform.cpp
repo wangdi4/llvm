@@ -1263,6 +1263,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W, false);
 #if INTEL_CUSTOMIZATION
           improveAliasForOutlinedFunc(W);
+          Changed |= privatizeSharedItems(W);
 #endif  // INTEL_CUSTOMIZATION
 
           // For the case of target parallel for (OpenCL), the compiler
@@ -7880,6 +7881,118 @@ void VPOParoptTransform::improveAliasForOutlinedFunc(WRegionNode *W) {
   W->populateBBSet();
   VPOUtils::genAliasSet(makeArrayRef(W->bbset_begin(), W->bbset_end()), AA,
                         &(F->getParent()->getDataLayout()));
+}
+
+bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
+  // This transformation should be combined with the argument promotion pass (to
+  // do a cleanup) which currently runs only at O3, therefore we limit it to O3
+  // as well.
+  if (OptLevel < 3 || !W->canHaveShared())
+    return false;
+
+  W->populateBBSet();
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::privatizeSharedItems\n");
+
+  // Returns true if all given users are either load instructions or bitcasts
+  // that are used by the loads.
+  auto allUsersAreLoads = [W](ArrayRef<Instruction *> Users) {
+    SmallVector<Instruction *, 8u> Worklist{Users.begin(), Users.end()};
+    while (!Worklist.empty()) {
+      Instruction *I = Worklist.pop_back_val();
+      if (auto *BCI = dyn_cast<BitCastInst>(I)) {
+        WRegionUtils::findUsersInRegion(W, BCI, &Worklist, true);
+        continue;
+      }
+      if (!isa<LoadInst>(I))
+        return false;
+    }
+    return true;
+  };
+
+#ifndef NDEBUG
+  auto reportSkipped = [](Value *V, const Twine &Msg) {
+    dbgs() << "skipping '" << V->getName() << "' - " << Msg << "\n";
+  };
+#endif // NDEBUG
+
+  // Find "shared" candidates that can be privatized.
+  DenseMap<AllocaInst *, SmallVector<Instruction *, 8>> toPrivatize;
+  for (SharedItem *I : W->getShared().items()) {
+    if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
+      // Do not attempt to promote arrays or structures.
+      if (AI->isArrayAllocation() ||
+          !AI->getType()->getElementType()->isSingleValueType()) {
+        LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
+        continue;
+      }
+      Optional<uint64_t> Size =
+          AI->getAllocationSizeInBits(F->getParent()->getDataLayout());
+      if (!Size) {
+        LLVM_DEBUG(reportSkipped(AI, "unknown size"));
+        continue;
+      }
+
+      // Check if item's memory is modified inside the region. If not then it
+      // should be safe to privatize it.
+      MemoryLocation Loc{AI, LocationSize::precise(*Size)};
+      if (any_of(W->blocks(), [&](const BasicBlock *BB) {
+            if (BB == W->getEntryBBlock() || BB == W->getExitBBlock())
+              return false;
+            if (!AA->canBasicBlockModify(*BB, Loc))
+              return false;
+            LLVM_DEBUG(reportSkipped(AI, "is modified in " + BB->getName()));
+            return true;
+          }))
+        continue;
+
+      SmallVector<Instruction *, 8> Users;
+      if (!WRegionUtils::findUsersInRegion(W, AI, &Users, true)) {
+        LLVM_DEBUG(reportSkipped(AI, "no users in the region"));
+        continue;
+      }
+
+      // Check if item has users other then loads or bitcasts + loads.
+      if (!allUsersAreLoads(Users)) {
+        LLVM_DEBUG(reportSkipped(AI, "address escapes"));
+        continue;
+      }
+
+      toPrivatize[AI] = std::move(Users);
+    } else
+      LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
+  }
+  if (toPrivatize.empty())
+    return false;
+
+  // Create separate block for alloca and load/store instructions.
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *NewBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
+  Instruction *InsPt = NewBB->getTerminator();
+
+  // Clear blocks.
+  W->resetBBSet();
+
+  // Create private instances for variables collected earlier.
+  for (auto &P : toPrivatize) {
+    AllocaInst *AI = P.first;
+
+    LLVM_DEBUG(dbgs() << "privatizing '" << AI->getName() << "'\n");
+
+    // Allocate space for the private copy.
+    auto *NewAI = cast<AllocaInst>(AI->clone());
+    NewAI->setName(AI->getName() + ".fp");
+    NewAI->insertBefore(InsPt);
+
+    // Copy variable value from the original location to the private instance.
+    new StoreInst(new LoadInst(AI, AI->getName() + ".v", InsPt), NewAI, InsPt);
+
+    // And replace all uses of the original variable in the region with the
+    // private one.
+    for (auto *User : P.second)
+      User->replaceUsesOfWith(AI, NewAI);
+  }
+  return true;
 }
 #endif  // INTEL_CUSTOMIZATION
 
