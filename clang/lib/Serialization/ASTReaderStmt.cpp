@@ -2455,6 +2455,7 @@ void ASTStmtReader::VisitOMPCancelDirective(OMPCancelDirective *D) {
 
 void ASTStmtReader::VisitOMPTaskLoopDirective(OMPTaskLoopDirective *D) {
   VisitOMPLoopDirective(D);
+  D->setHasCancel(Record.readInt());
 }
 
 void ASTStmtReader::VisitOMPTaskLoopSimdDirective(OMPTaskLoopSimdDirective *D) {
@@ -2464,6 +2465,7 @@ void ASTStmtReader::VisitOMPTaskLoopSimdDirective(OMPTaskLoopSimdDirective *D) {
 void ASTStmtReader::VisitOMPMasterTaskLoopDirective(
     OMPMasterTaskLoopDirective *D) {
   VisitOMPLoopDirective(D);
+  D->setHasCancel(Record.readInt());
 }
 
 void ASTStmtReader::VisitOMPMasterTaskLoopSimdDirective(
@@ -2474,6 +2476,7 @@ void ASTStmtReader::VisitOMPMasterTaskLoopSimdDirective(
 void ASTStmtReader::VisitOMPParallelMasterTaskLoopDirective(
     OMPParallelMasterTaskLoopDirective *D) {
   VisitOMPLoopDirective(D);
+  D->setHasCancel(Record.readInt());
 }
 
 void ASTStmtReader::VisitOMPParallelMasterTaskLoopSimdDirective(

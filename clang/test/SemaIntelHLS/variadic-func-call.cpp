@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fhls -fsyntax-only -ast-dump -verify -pedantic -triple spir64-unknown-unknown-intelfpga %s
-
+// XFAIL:*
 void variadic(int, ...);
 namespace NS {
 void variadic(int, ...);

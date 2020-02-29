@@ -124,8 +124,8 @@ def pedantic_Group : OptionGroup<"<pedantic group>">, Group<f_Group>,
 def opencl_Group : OptionGroup<"<opencl group>">, Group<f_Group>,
                    DocName<"OpenCL flags">;
 
-def sycl_Group : OptionGroup<"<sycl group>">, Group<f_Group>, 
-                  DocName<"SYCL flags">;
+def sycl_Group : OptionGroup<"<SYCL group>">, Group<f_Group>,
+                 DocName<"SYCL flags">;
 
 def m_Group : OptionGroup<"<m group>">, Group<CompileOnly_Group>,
               DocName<"Target-dependent compilation options">;
@@ -196,6 +196,8 @@ def u_Group : OptionGroup<"<u group>">, Group<Link_Group>, DocFlatten;
 
 def reserved_lib_Group : OptionGroup<"<reserved libs group>">,
                          Flags<[Unsupported]>;
+
+def offload_lib_Group : OptionGroup<"<offload libs group>">;
 
 // Temporary groups for clang options which we know we don't support,
 // but don't want to verbosely warn the user about.
@@ -617,6 +619,9 @@ def c : Flag<["-"], "c">, Flags<[DriverOption]>, Group<Action_Group>,
 def fconvergent_functions : Flag<["-"], "fconvergent-functions">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Assume functions may be convergent">;
 
+def gpu_use_aux_triple_only : Flag<["--"], "gpu-use-aux-triple-only">,
+  InternalDriverOpt, HelpText<"Prepare '-aux-triple' only without populating "
+                              "'-aux-target-cpu' and '-aux-target-feature'.">;
 def cuda_device_only : Flag<["--"], "cuda-device-only">,
   HelpText<"Compile CUDA code for device only">;
 def cuda_host_only : Flag<["--"], "cuda-host-only">,
@@ -714,9 +719,8 @@ def emit_merged_ifs : Flag<["-"], "emit-merged-ifs">,
 def interface_stub_version_EQ : JoinedOrSeparate<["-"], "interface-stub-version=">, Flags<[CC1Option]>;
 def exported__symbols__list : Separate<["-"], "exported_symbols_list">;
 def e : JoinedOrSeparate<["-"], "e">, Group<Link_Group>;
-def fmax_tokens : Separate<["-"], "fmax-tokens">,
-  HelpText<"Max total number of preprocessed tokens for -Wmax-tokens.">,
-  Group<f_Group>, Flags<[CC1Option]>;
+def fmax_tokens_EQ : Joined<["-"], "fmax-tokens=">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Max total number of preprocessed tokens for -Wmax-tokens.">;
 def fPIC : Flag<["-"], "fPIC">, Group<f_Group>;
 def fno_PIC : Flag<["-"], "fno-PIC">, Group<f_Group>;
 def fPIE : Flag<["-"], "fPIE">, Group<f_Group>;
@@ -999,6 +1003,8 @@ def fseh_exceptions : Flag<["-"], "fseh-exceptions">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Use SEH style exceptions">;
 def fwasm_exceptions : Flag<["-"], "fwasm-exceptions">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Use WebAssembly style exceptions">;
+def fignore_exceptions : Flag<["-"], "fignore-exceptions">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Enable support for ignoring exception handling constructs">;
 def fexcess_precision_EQ : Joined<["-"], "fexcess-precision=">,
     Group<clang_ignored_gcc_optimization_f_Group>;
 def : Flag<["-"], "fexpensive-optimizations">, Group<clang_ignored_gcc_optimization_f_Group>;
@@ -1738,7 +1744,8 @@ def fobjc_nonfragile_abi : Flag<["-"], "fobjc-nonfragile-abi">, Group<f_Group>;
 def fno_objc_nonfragile_abi : Flag<["-"], "fno-objc-nonfragile-abi">, Group<f_Group>;
 
 def fobjc_sender_dependent_dispatch : Flag<["-"], "fobjc-sender-dependent-dispatch">, Group<f_Group>;
-def foffload_static_lib_EQ : CommaJoined<["-"], "foffload-static-lib=">, Flags<[DriverOption, CoreOption]>;
+def foffload_static_lib_EQ : CommaJoined<["-"], "foffload-static-lib=">, Flags<[DriverOption, CoreOption]>, Group<offload_lib_Group>;
+def foffload_whole_static_lib_EQ : CommaJoined<["-"], "foffload-whole-static-lib=">, Flags<[DriverOption, CoreOption]>, Group<offload_lib_Group>;
 def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
@@ -1868,6 +1875,10 @@ def fno_signed_char : Flag<["-"], "fno-signed-char">, Group<f_Group>,
 def fsplit_stack : Flag<["-"], "fsplit-stack">, Group<f_Group>;
 def fstack_protector_all : Flag<["-"], "fstack-protector-all">, Group<f_Group>,
   HelpText<"Enable stack protectors for all functions">;
+def fstack_clash_protection : Flag<["-"], "fstack-clash-protection">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Enable stack clash protection">;
+def fnostack_clash_protection : Flag<["-"], "fnostack-clash-protection">, Group<f_Group>,
+  HelpText<"Disable stack clash protection">;
 def fstack_protector_strong : Flag<["-"], "fstack-protector-strong">, Group<f_Group>,
   HelpText<"Enable stack protectors for some functions vulnerable to stack smashing. "
            "Compared to -fstack-protector, this uses a stronger heuristic "
@@ -1907,9 +1918,6 @@ def fstrict_vtable_pointers: Flag<["-"], "fstrict-vtable-pointers">,
 def fstrict_overflow : Flag<["-"], "fstrict-overflow">, Group<f_Group>;
 def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
   Flags<[CC1Option, CoreOption]>, HelpText<"Perform ahead of time compilation for FPGA">;
-def fsycl : Flag<["-"], "fsycl">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption]>,
-  HelpText<"Generate SYCL code">;
-def fno_sycl : Flag<["-"], "fno-sycl">, Group<f_Group>, Flags<[NoArgumentUnused, CoreOption]>;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption]>,
   HelpText<"Compile SYCL kernels for device">;
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[DriverOption, CC1Option, CoreOption]>,
@@ -2482,6 +2490,9 @@ def mno_neg_immediates: Flag<["-"], "mno-neg-immediates">, Group<m_arm_Features_
 def mcmse : Flag<["-"], "mcmse">, Group<m_arm_Features_Group>,
   Flags<[DriverOption,CC1Option]>,
   HelpText<"Allow use of CMSE (Armv8-M Security Extensions)">;
+def ForceAAPCSBitfieldLoad : Flag<["-"], "fAAPCSBitfieldLoad">, Group<m_arm_Features_Group>,
+  Flags<[DriverOption,CC1Option]>,
+  HelpText<"Follows the AAPCS standard that all volatile bit-field write generates at least one load. (ARM only).">;
 
 def mgeneral_regs_only : Flag<["-"], "mgeneral-regs-only">, Group<m_aarch64_Features_Group>,
   HelpText<"Generate code which only uses the general purpose registers (AArch64 only)">;
@@ -3677,6 +3688,11 @@ defm stack_arrays : BooleanFFlag<"stack-arrays">, Group<gfortran_Group>;
 defm underscoring : BooleanFFlag<"underscoring">, Group<gfortran_Group>;
 defm whole_file : BooleanFFlag<"whole-file">, Group<gfortran_Group>;
 
+// C++ SYCL options
+def fsycl : Flag<["-"], "fsycl">, Group<sycl_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption]>,
+  HelpText<"Enable SYCL kernels compilation for device">;
+def fno_sycl : Flag<["-"], "fno-sycl">, Group<sycl_Group>,
+  HelpText<"Disable SYCL kernels compilation for device">, Flags<[NoArgumentUnused, CoreOption]>;
 def reuse_exe_EQ : Joined<["-"], "reuse-exe=">,
   HelpText<"Speed up FPGA aoc compile if the device code in <exe> is unchanged.">,
   MetaVarName<"<exe>">;

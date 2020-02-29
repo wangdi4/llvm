@@ -15,8 +15,20 @@
 
 #include <algorithm>
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+
+namespace detail {
+
+QueueOrder getQueueOrder(const property_list &propList) {
+  if (propList.has_property<property::queue::in_order>()) {
+    return QueueOrder::Ordered;
+  }
+  return QueueOrder::OOO;
+}
+
+} // namespace detail
+
 queue::queue(const context &syclContext, const device_selector &deviceSelector,
              const async_handler &asyncHandler, const property_list &propList) {
 
@@ -27,9 +39,10 @@ queue::queue(const context &syclContext, const device_selector &deviceSelector,
   };
 
   const device &syclDevice = *std::max_element(Devs.begin(), Devs.end(), Comp);
+
   impl = std::make_shared<detail::queue_impl>(
       detail::getSyclObjImpl(syclDevice), detail::getSyclObjImpl(syclContext),
-      asyncHandler, cl::sycl::detail::QueueOrder::OOO, propList);
+      asyncHandler, detail::getQueueOrder(propList), propList);
 }
 
 queue::queue(const context &syclContext,
@@ -45,7 +58,7 @@ queue::queue(const device &syclDevice, const async_handler &asyncHandler,
              const property_list &propList) {
   impl = std::make_shared<detail::queue_impl>(
       detail::getSyclObjImpl(syclDevice), asyncHandler,
-      cl::sycl::detail::QueueOrder::OOO, propList);
+      detail::getQueueOrder(propList), propList);
 }
 
 queue::queue(cl_command_queue clQueue, const context &syclContext,
@@ -122,4 +135,4 @@ template property::queue::enable_profiling
 queue::get_property<property::queue::enable_profiling>() const;
 
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

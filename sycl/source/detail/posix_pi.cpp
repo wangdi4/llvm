@@ -12,7 +12,7 @@
 #include <string>
 #include <iostream>
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 namespace pi {
@@ -37,4 +37,4 @@ void *getOsLibraryFuncAddress(void *Library, const std::string &FunctionName) {
 } // namespace pi
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

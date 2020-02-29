@@ -8,6 +8,8 @@
 
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/event_impl.hpp>
+#include <CL/sycl/detail/event_info.hpp>
+#include <CL/sycl/detail/plugin.hpp>
 #include <CL/sycl/detail/queue_impl.hpp>
 #include <CL/sycl/detail/scheduler/scheduler.hpp>
 
@@ -15,7 +17,7 @@
 
 #include <chrono>
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
@@ -25,7 +27,7 @@ bool event_impl::is_host() const { return MHostEvent || !MOpenCLInterop; }
 
 cl_event event_impl::get() const {
   if (MOpenCLInterop) {
-    PI_CALL(piEventRetain)(MEvent);
+    getPlugin().call<PiApiKind::piEventRetain>(MEvent);
     return pi::cast<cl_event>(MEvent);
   }
   throw invalid_object_error(
@@ -34,12 +36,12 @@ cl_event event_impl::get() const {
 
 event_impl::~event_impl() {
   if (MEvent)
-    PI_CALL(piEventRelease)(MEvent);
+    getPlugin().call<PiApiKind::piEventRelease>(MEvent);
 }
 
 void event_impl::waitInternal() const {
   if (!MHostEvent) {
-    PI_CALL(piEventsWait)(1, &MEvent);
+    getPlugin().call<PiApiKind::piEventsWait>(1, &MEvent);
   }
   // Waiting of host events is NOP so far as all operations on host device
   // are blocking.
@@ -49,6 +51,10 @@ const RT::PiEvent &event_impl::getHandleRef() const { return MEvent; }
 RT::PiEvent &event_impl::getHandleRef() { return MEvent; }
 
 const ContextImplPtr &event_impl::getContextImpl() { return MContext; }
+
+const plugin &event_impl::getPlugin() const {
+  return MContext->getPlugin();
+}
 
 void event_impl::setContextImpl(const ContextImplPtr &Context) {
   MHostEvent = Context->is_host();
@@ -68,16 +74,16 @@ event_impl::event_impl(RT::PiEvent Event, const context &SyclContext)
 
   RT::PiContext TempContext;
 #if INTEL_CUSTOMIZATION
-  PI_CALL(piEventGetInfo)(MEvent, PI_EVENT_INFO_CONTEXT, sizeof(RT::PiContext),
+  getPlugin().call<PiApiKind::piEventGetInfo>(
+      MEvent, PI_EVENT_INFO_CONTEXT, sizeof(RT::PiContext), &TempContext, nullptr);
 #endif // INTEL_CUSTOMIZATION
-                          &TempContext, nullptr);
   if (MContext->getHandleRef() != TempContext) {
     throw cl::sycl::invalid_parameter_error(
         "The syclContext must match the OpenCL context associated with the "
         "clEvent.");
   }
 
-  PI_CALL(piEventRetain)(MEvent);
+  getPlugin().call<PiApiKind::piEventRetain>(MEvent);
 }
 
 event_impl::event_impl(QueueImplPtr Queue) : MQueue(Queue) {
@@ -121,7 +127,7 @@ cl_ulong
 event_impl::get_profiling_info<info::event_profiling::command_submit>() const {
   if (!MHostEvent) {
     return get_event_profiling_info<info::event_profiling::command_submit>::get(
-        this->getHandleRef());
+        this->getHandleRef(), this->getPlugin());
   }
   if (!MHostProfilingInfo)
     throw invalid_object_error("Profiling info is not available.");
@@ -133,7 +139,7 @@ cl_ulong
 event_impl::get_profiling_info<info::event_profiling::command_start>() const {
   if (!MHostEvent) {
     return get_event_profiling_info<info::event_profiling::command_start>::get(
-        this->getHandleRef());
+        this->getHandleRef(), this->getPlugin());
   }
   if (!MHostProfilingInfo)
     throw invalid_object_error("Profiling info is not available.");
@@ -145,7 +151,7 @@ cl_ulong
 event_impl::get_profiling_info<info::event_profiling::command_end>() const {
   if (!MHostEvent) {
     return get_event_profiling_info<info::event_profiling::command_end>::get(
-        this->getHandleRef());
+        this->getHandleRef(), this->getPlugin());
   }
   if (!MHostProfilingInfo)
     throw invalid_object_error("Profiling info is not available.");
@@ -155,7 +161,7 @@ event_impl::get_profiling_info<info::event_profiling::command_end>() const {
 template <> cl_uint event_impl::get_info<info::event::reference_count>() const {
   if (!MHostEvent) {
     return get_event_info<info::event::reference_count>::get(
-        this->getHandleRef());
+        this->getHandleRef(), this->getPlugin());
   }
   return 0;
 }
@@ -165,7 +171,7 @@ info::event_command_status
 event_impl::get_info<info::event::command_execution_status>() const {
   if (!MHostEvent) {
     return get_event_info<info::event::command_execution_status>::get(
-        this->getHandleRef());
+        this->getHandleRef(), this->getPlugin());
   }
   return info::event_command_status::complete;
 }
@@ -182,4 +188,4 @@ void HostProfilingInfo::end() { EndTime = getTimestamp(); }
 
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

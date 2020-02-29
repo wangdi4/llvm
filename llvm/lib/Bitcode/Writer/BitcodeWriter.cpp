@@ -4223,7 +4223,7 @@ static void writeIdentificationBlock(BitstreamWriter &Stream) {
   Abbv->Add(BitCodeAbbrevOp(bitc::IDENTIFICATION_CODE_EPOCH));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
   auto EpochAbbrev = Stream.EmitAbbrev(std::move(Abbv));
-  SmallVector<unsigned, 1> Vals = {bitc::BITCODE_CURRENT_EPOCH};
+  constexpr std::array<unsigned, 1> Vals = {bitc::BITCODE_CURRENT_EPOCH};
   Stream.EmitRecord(bitc::IDENTIFICATION_CODE_EPOCH, Vals, EpochAbbrev);
   Stream.ExitBlock();
 }
@@ -4490,9 +4490,10 @@ void llvm::WriteBitcodeToFile(const Module &M, raw_ostream &Out,
                               bool GenerateHash, ModuleHash *ModHash) {
 #if INTEL_CUSTOMIZATION
   if (M.isIntelProprietary()) {
-    report_fatal_error("Bitcode output disabled because proprietary "
-                       "optimizations have been performed.");
-    return;
+    errs() << "LLVM ERROR: Bitcode output disabled because proprietary "
+           << "optimizations have been performed.\n";
+    errs().flush();
+    exit(1);
   }
 #endif // INTEL_CUSTOMIZATION
 

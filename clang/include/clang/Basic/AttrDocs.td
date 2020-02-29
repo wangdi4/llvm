@@ -2012,13 +2012,14 @@ device kernel, the attribute is ignored and it is not propagated to a kernel.
   }];
 }
 
-def SYCLIntelUsesGlobalWorkOffsetDocs : Documentation {
+def SYCLIntelNoGlobalWorkOffsetAttrDocs : Documentation {
   let Category = DocCatFunction;
-  let Heading = "uses_global_work_offset (IntelFPGA)";
+  let Heading = "no_global_work_offset (IntelFPGA)";
   let Content = [{
 Applies to a device function/lambda function or function call operator (of a
-function object). If 0, compiler doesn't use the global work offset values for
-the device function. Valid values are 0 and 1.
+function object). If 1, compiler doesn't use the global work offset values for
+the device function. Valid values are 0 and 1. If used without argument, value
+of 1 is set implicitly.
   }];
 }
 
@@ -4521,7 +4522,7 @@ documentation for more information.
 def ObjCDirectMembersDocs : Documentation {
   let Category = DocCatDecl;
   let Content = [{
-The ``objc_direct_members`` attribute can be placed on an  Objective-C
+The ``objc_direct_members`` attribute can be placed on an Objective-C
 ``@interface`` or ``@implementation`` to mark that methods declared
 therein should be considered direct by default.  See the documentation
 for ``objc_direct`` for more information about direct methods.
@@ -4530,9 +4531,7 @@ When ``objc_direct_members`` is placed on an ``@interface`` block, every
 method in the block is considered to be declared as direct.  This includes any
 implicit method declarations introduced by property declarations.  If the method
 redeclares a non-direct method, the declaration is ill-formed, exactly as if the
-method was annotated with the ``objc_direct`` attribute.  ``objc_direct_members``
-cannot be placed on the primary interface of a class, only on category or class
-extension interfaces.
+method was annotated with the ``objc_direct`` attribute.
 
 When ``objc_direct_members`` is placed on an ``@implementation`` block,
 methods defined in the block are considered to be declared as direct unless

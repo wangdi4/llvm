@@ -12,6 +12,7 @@
 #include <CL/sycl/detail/context_impl.hpp>
 #include <CL/sycl/detail/device_impl.hpp>
 #include <CL/sycl/detail/event_impl.hpp>
+#include <CL/sycl/detail/plugin.hpp>
 #include <CL/sycl/detail/scheduler/scheduler.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/event.hpp>
@@ -21,11 +22,11 @@
 #include <CL/sycl/property_list.hpp>
 #include <CL/sycl/stl.hpp>
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
-using ContextImplPtr = shared_ptr_class<detail::context_impl>;
+using ContextImplPtr = std::shared_ptr<detail::context_impl>;
 using DeviceImplPtr = shared_ptr_class<detail::device_impl>;
 
 /// Sets max number of queues supported by FPGA RT.
@@ -91,26 +92,27 @@ public:
     MCommandQueue = pi::cast<RT::PiQueue>(PiQueue);
 
     RT::PiDevice Device = nullptr;
+    const detail::plugin &Plugin = getPlugin();
     // TODO catch an exception and put it to list of asynchronous exceptions
-    PI_CALL(piQueueGetInfo)(MCommandQueue, PI_QUEUE_INFO_DEVICE, sizeof(Device),
-                            &Device, nullptr);
-    MDevice = DeviceImplPtr(new device_impl(Device));
+    Plugin.call<PiApiKind::piQueueGetInfo>(MCommandQueue, PI_QUEUE_INFO_DEVICE,
+                                           sizeof(Device), &Device, nullptr);
+    MDevice = DeviceImplPtr(new device_impl(Device, Context->getPlatformImpl()));
 
     // TODO catch an exception and put it to list of asynchronous exceptions
-    PI_CALL(piQueueRetain)(MCommandQueue);
+    Plugin.call<PiApiKind::piQueueRetain>(MCommandQueue);
   }
 
   ~queue_impl() {
     throw_asynchronous();
     if (MOpenCLInterop) {
-      PI_CALL(piQueueRelease)(MCommandQueue);
+      getPlugin().call<PiApiKind::piQueueRelease>(MCommandQueue);
     }
   }
 
   /// @return an OpenCL interoperability queue handle.
   cl_command_queue get() {
     if (MOpenCLInterop) {
-      PI_CALL(piQueueRetain)(MCommandQueue);
+      getPlugin().call<PiApiKind::piQueueRetain>(MCommandQueue);
       return pi::cast<cl_command_queue>(MCommandQueue);
     }
     throw invalid_object_error(
@@ -121,6 +123,8 @@ public:
   context get_context() const {
     return createSyclObjFromImpl<context>(MContext);
   }
+
+  const plugin &getPlugin() const { return MContext->getPlugin(); }
 
   ContextImplPtr getContextImplPtr() const { return MContext; }
 
@@ -230,8 +234,9 @@ public:
     RT::PiQueue Queue;
     RT::PiContext Context = MContext->getHandleRef();
     RT::PiDevice Device = MDevice->getHandleRef();
-    RT::PiResult Error =
-        PI_CALL_NOCHECK(piQueueCreate)(Context, Device, CreationFlags, &Queue);
+    const detail::plugin &Plugin = getPlugin();
+    RT::PiResult Error = Plugin.call_nocheck<PiApiKind::piQueueCreate>(
+        Context, Device, CreationFlags, &Queue);
 
     // If creating out-of-order queue failed and this property is not
     // supported (for example, on FPGA), it will return
@@ -240,7 +245,7 @@ public:
       MSupportOOO = false;
       Queue = createQueue(QueueOrder::Ordered);
     } else {
-      RT::checkPiResult(Error);
+      Plugin.checkPiResult(Error);
     }
 
     return Queue;
@@ -264,7 +269,7 @@ public:
     MQueueNumber %= MaxNumQueues;
     size_t FreeQueueNum = MQueueNumber++;
 
-    PI_CALL(piQueueFinish)(MQueues[FreeQueueNum]);
+    getPlugin().call<PiApiKind::piQueueFinish>(MQueues[FreeQueueNum]);
     return MQueues[FreeQueueNum];
   }
 
@@ -347,12 +352,14 @@ private:
     handler Handler(std::move(Self), MHostQueue);
     CGF(Handler);
     event Event = Handler.finalize();
-    {
-      std::lock_guard<mutex_class> Guard(MMutex);
-      MEvents.push_back(Event);
-    }
+    addEvent(Event);
     return Event;
   }
+
+  /// Stores an event that should be associated with the queue
+  ///
+  /// @param Event is the event to be stored
+  void addEvent(event Event);
 
   /// Protects all the fields that can be changed by class' methods.
   mutex_class MMutex;
@@ -379,4 +386,4 @@ private:
 
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

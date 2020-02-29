@@ -100,11 +100,13 @@ void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
+void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeAttributorLegacyPassPass(PassRegistry&);
+void initializeAttributorCGSCCLegacyPassPass(PassRegistry &);
 void initializeBDCELegacyPassPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAAWrapperPassPass(PassRegistry&);
@@ -464,6 +466,7 @@ void initializeUnifyFunctionExitNodesPass(PassRegistry&);
 void initializeUnpackMachineBundlesPass(PassRegistry&);
 void initializeUnreachableBlockElimLegacyPassPass(PassRegistry&);
 void initializeUnreachableMachineBlockElimPass(PassRegistry&);
+void initializeVectorCombineLegacyPassPass(PassRegistry&);
 void initializeVerifierLegacyPassPass(PassRegistry&);
 void initializeVirtRegMapPass(PassRegistry&);
 void initializeVirtRegRewriterPass(PassRegistry&);

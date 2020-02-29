@@ -135,8 +135,10 @@ define void @nc3(void ()* %p) {
 	ret void
 }
 
-declare void @external(i8*) readonly nounwind
-; ATTRIBUTOR: define void @nc4(i8* nocapture readonly %p)
+; The following test is tricky because improvements to AAIsDead can cause the call to be removed.
+; FIXME: readonly and nocapture missing on the pointer.
+declare void @external(i8* readonly) nounwind argmemonly
+; ATTRIBUTOR: define void @nc4(i8* %p)
 define void @nc4(i8* %p) {
 	call void @external(i8* %p)
 	ret void
@@ -322,7 +324,7 @@ declare void @unknown(i8*)
 define void @test_callsite() {
 entry:
 ; We know that 'null' in AS 0 does not alias anything and cannot be captured. Though the latter is not qurried -> derived atm.
-; ATTRIBUTOR: call void @unknown(i8* noalias null)
+; ATTRIBUTOR: call void @unknown(i8* noalias align 536870912 null)
   call void @unknown(i8* null)
   ret void
 }

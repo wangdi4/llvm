@@ -1099,7 +1099,7 @@ OMPTeamsDirective *OMPTeamsDirective::CreateEmpty(const ASTContext &C,
 OMPTaskLoopDirective *OMPTaskLoopDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
-    const HelperExprs &Exprs) {
+    const HelperExprs &Exprs, bool HasCancel) {
   unsigned Size =
       llvm::alignTo(sizeof(OMPTaskLoopDirective), alignof(OMPClause *));
   void *Mem =
@@ -1137,6 +1137,7 @@ OMPTaskLoopDirective *OMPTaskLoopDirective::Create(
   Dir->setFinalsConditions(Exprs.FinalsConditions);
   CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
+  Dir->setHasCancel(HasCancel);
   return Dir;
 }
 
@@ -1210,7 +1211,7 @@ OMPTaskLoopSimdDirective::CreateEmpty(const ASTContext &C, unsigned NumClauses,
 OMPMasterTaskLoopDirective *OMPMasterTaskLoopDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
-    const HelperExprs &Exprs) {
+    const HelperExprs &Exprs, bool HasCancel) {
   unsigned Size =
       llvm::alignTo(sizeof(OMPMasterTaskLoopDirective), alignof(OMPClause *));
   void *Mem = C.Allocate(
@@ -1248,6 +1249,7 @@ OMPMasterTaskLoopDirective *OMPMasterTaskLoopDirective::Create(
   Dir->setFinalsConditions(Exprs.FinalsConditions);
   CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
+  Dir->setHasCancel(HasCancel);
   return Dir;
 }
 
@@ -1324,7 +1326,7 @@ OMPMasterTaskLoopSimdDirective::CreateEmpty(const ASTContext &C,
 OMPParallelMasterTaskLoopDirective *OMPParallelMasterTaskLoopDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
-    const HelperExprs &Exprs) {
+    const HelperExprs &Exprs, bool HasCancel) {
   unsigned Size = llvm::alignTo(sizeof(OMPParallelMasterTaskLoopDirective),
                                 alignof(OMPClause *));
   void *Mem = C.Allocate(
@@ -1363,6 +1365,7 @@ OMPParallelMasterTaskLoopDirective *OMPParallelMasterTaskLoopDirective::Create(
   Dir->setFinalsConditions(Exprs.FinalsConditions);
   CALL_ALL_SET_UNCOLLAPSED // INTEL
   Dir->setPreInits(Exprs.PreInits);
+  Dir->setHasCancel(HasCancel);
   return Dir;
 }
 

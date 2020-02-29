@@ -1156,13 +1156,13 @@ void OpenMPLateOutliner::emitOMPDataflowClause(const OMPDataflowClause *Cl) {
 void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_default);
   switch (Cl->getDefaultKind()) {
-  case OMPC_DEFAULT_none:
+  case OMP_DEFAULT_none:                               // INTEL
     addArg("QUAL.OMP.DEFAULT.NONE");
     break;
-  case OMPC_DEFAULT_shared:
+  case OMP_DEFAULT_shared:                             // INTEL
     addArg("QUAL.OMP.DEFAULT.SHARED");
     break;
-  case OMPC_DEFAULT_unknown:
+  case OMP_DEFAULT_unknown:                            // INTEL
     llvm_unreachable("Unknown default clause");
   }
 }
@@ -1564,6 +1564,11 @@ void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
+void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *) {}
+void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
+void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
+void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
+void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can

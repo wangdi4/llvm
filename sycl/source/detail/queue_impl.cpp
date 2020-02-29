@@ -16,14 +16,15 @@
 
 #include <cstring>
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 template <> cl_uint queue_impl::get_info<info::queue::reference_count>() const {
   RT::PiResult result = PI_SUCCESS;
   if (!is_host())
-    PI_CALL(piQueueGetInfo)(MCommandQueue, PI_QUEUE_INFO_REFERENCE_COUNT,
-                            sizeof(result), &result, nullptr);
+    getPlugin().call<PiApiKind::piQueueGetInfo>(
+        MCommandQueue, PI_QUEUE_INFO_REFERENCE_COUNT, sizeof(result), &result,
+        nullptr);
   return result;
 }
 
@@ -44,7 +45,9 @@ event queue_impl::memset(shared_ptr_class<detail::queue_impl> Impl, void *Ptr,
   if (Context.is_host())
     return event();
 
-  return event(pi::cast<cl_event>(Event), Context);
+  event ResEvent{pi::cast<cl_event>(Event), Context};
+  addEvent(ResEvent);
+  return ResEvent;
 }
 
 event queue_impl::memcpy(shared_ptr_class<detail::queue_impl> Impl, void *Dest,
@@ -56,7 +59,9 @@ event queue_impl::memcpy(shared_ptr_class<detail::queue_impl> Impl, void *Dest,
   if (Context.is_host())
     return event();
 
-  return event(pi::cast<cl_event>(Event), Context);
+  event ResEvent{pi::cast<cl_event>(Event), Context};
+  addEvent(ResEvent);
+  return ResEvent;
 }
 
 event queue_impl::mem_advise(const void *Ptr, size_t Length, pi_mem_advice Advice) {
@@ -67,11 +72,20 @@ event queue_impl::mem_advise(const void *Ptr, size_t Length, pi_mem_advice Advic
 
   // non-Host device
   RT::PiEvent Event = nullptr;
-  PI_CALL(piextUSMEnqueueMemAdvise)(getHandleRef(), Ptr, Length, Advice,
-                                    &Event);
+  const detail::plugin &Plugin = getPlugin();
+  Plugin.call<PiApiKind::piextUSMEnqueueMemAdvise>(getHandleRef(), Ptr, Length,
+                                                   Advice, &Event);
 
-  return event(pi::cast<cl_event>(Event), Context);
+  event ResEvent{pi::cast<cl_event>(Event), Context};
+  addEvent(ResEvent);
+  return ResEvent;
 }
+
+void queue_impl::addEvent(event Event) {
+  std::lock_guard<mutex_class> Guard(MMutex);
+  MEvents.push_back(std::move(Event));
+}
+
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

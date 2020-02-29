@@ -168,6 +168,12 @@ Pass *createVPlanDriverPass();
 Pass *createVPlanDriverHIRPass();
 #endif // INTEL_CUSTOMIZATION
 
+//===----------------------------------------------------------------------===//
+//
+// Optimize partial vector operations using target cost models.
+//
+Pass *createVectorCombinePass();
+
 } // End llvm namespace
 
 #endif

@@ -226,8 +226,7 @@ static bool checkAttributeAtMostNumArgs(Sema &S, const ParsedAttr &AL,
 /// A helper function to provide Attribute Location for the Attr types
 /// AND the ParsedAttr.
 template <typename AttrInfo>
-static typename std::enable_if<std::is_base_of<Attr, AttrInfo>::value,
-                               SourceLocation>::type
+static std::enable_if_t<std::is_base_of<Attr, AttrInfo>::value, SourceLocation>
 getAttrLoc(const AttrInfo &AL) {
   return AL.getLocation();
 }
@@ -4772,9 +4771,8 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 template <typename AttrType>
-void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
-                                            const AttributeCommonInfo &CI,
-                                            Expr *E) {
+void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                   Expr *E) {
   AttrType TmpAttr(Context, CI, E);
 
   if (!E->isValueDependent()) {
@@ -4804,8 +4802,9 @@ void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
 }
 
 template <typename AttrType>
-void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
-    Decl *D, const AttributeCommonInfo &CI, Expr *E) {
+void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
+                                           const AttributeCommonInfo &CI,
+                                           Expr *E) {
   AttrType TmpAttr(Context, CI, E);
 
   if (!E->isValueDependent()) {
@@ -4845,6 +4844,21 @@ void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
 
   D->addAttr(::new (Context) AttrType(Context, CI, E));
 }
+
+#if INTEL_CUSTOMIZATION
+// Explicitly instantiate members defined above, because they are used in a
+// separate translation unit and by some reason, icpx behaves differently
+// than g++ or clang - it doesn't include these symbols into object file at all,
+// even as weak symbols
+template void Sema::AddOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+template void Sema::AddOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+template void Sema::AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+template void Sema::AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
+    Decl *, const AttributeCommonInfo &, Expr *);
+#endif // INTEL_CUSTOMIZATION
 
 void Sema::AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                           bool IsPackExpansion) {
@@ -6084,24 +6098,26 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
       AL.getMustBeNull()));
 }
 
-static void handleSYCLUsesGlobalWorkOffsetAttr(Sema &S, Decl *D,         // INTEL
-                                               const ParsedAttr &Attr) { // INTEL
+static void handleNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
+                                         const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
 
-  checkForDuplicateAttribute<SYCLIntelUsesGlobalWorkOffsetAttr>(S, D, Attr);
+  checkForDuplicateAttribute<SYCLIntelNoGlobalWorkOffsetAttr>(S, D, Attr);
 
-  uint32_t Enabled;
-  const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, Enabled, 0,
-                           /*StrictlyUnsigned=*/true))
-    return;
+  uint32_t Enabled = 1;
+  if (Attr.getNumArgs()) {
+    const Expr *E = Attr.getArgAsExpr(0);
+    if (!checkUInt32Argument(S, Attr, E, Enabled, 0,
+                             /*StrictlyUnsigned=*/true))
+      return;
+  }
   if (Enabled > 1)
     S.Diag(Attr.getLoc(), diag::warn_boolean_attribute_argument_is_not_valid)
         << Attr;
 
   D->addAttr(::new (S.Context)
-                 SYCLIntelUsesGlobalWorkOffsetAttr(S.Context, Attr, Enabled));
+                 SYCLIntelNoGlobalWorkOffsetAttr(S.Context, Attr, Enabled));
 }
 
 /// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]] attributes.
@@ -6179,8 +6195,7 @@ static void handleForcePow2DepthAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<ForcePow2DepthAttr>(D, AL,
-                                                         AL.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<ForcePow2DepthAttr>(D, AL, AL.getArgAsExpr(0));
 }
 
 
@@ -6250,8 +6265,7 @@ static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
 /// The numbanks and bank_bits attributes are related.  If bank_bits exists
 /// when handling numbanks they are checked for consistency.
 template <typename AttrType>
-static void
-handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
                                             const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
@@ -6264,7 +6278,7 @@ handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantPowerTwoValueAttr<AttrType>(
+  S.AddOneConstantPowerTwoValueAttr<AttrType>(
       D, Attr, Attr.getArgAsExpr(0));
 }
 
@@ -6304,8 +6318,8 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
-      D, Attr, Attr.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(D, Attr,
+                                                        Attr.getArgAsExpr(0));
 }
 
 /// Handle the merge attribute.
@@ -6454,8 +6468,8 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
-      D, Attr, Attr.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(D, Attr,
+                                                        Attr.getArgAsExpr(0));
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -8632,8 +8646,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim:
     handleSYCLMaxGlobalWorkDimAttr(S, D, AL); // INTEL
     break;
-  case ParsedAttr::AT_SYCLIntelUsesGlobalWorkOffset:
-    handleSYCLUsesGlobalWorkOffsetAttr(S, D, AL); // INTEL
+  case ParsedAttr::AT_SYCLIntelNoGlobalWorkOffset:
+    handleNoGlobalWorkOffsetAttr(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
@@ -9006,10 +9020,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleIntelFPGARegisterAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGABankWidth:
-    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
+    handleOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGANumBanks:
-    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
+    handleOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGAPrivateCopies:
     handleIntelFPGAPrivateCopiesAttr(S, D, AL);
@@ -9236,10 +9250,6 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-      D->setInvalidDecl();
-    } else if (const auto *A =
-                   D->getAttr<SYCLIntelUsesGlobalWorkOffsetAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<VecTypeHintAttr>()) {

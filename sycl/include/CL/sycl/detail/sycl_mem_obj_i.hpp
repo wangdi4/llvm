@@ -8,11 +8,10 @@
 
 #pragma once
 
-#include <CL/cl.h>
 #include <CL/sycl/detail/pi.hpp>
 #include <memory>
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 
 namespace detail {
@@ -28,6 +27,8 @@ using ContextImplPtr = std::shared_ptr<detail::context_impl>;
 // objects.
 class SYCLMemObjI {
 public:
+  virtual ~SYCLMemObjI() = default;
+
   enum MemObjType { BUFFER, IMAGE };
 
   virtual MemObjType getType() const = 0;
@@ -69,4 +70,4 @@ protected:
 
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

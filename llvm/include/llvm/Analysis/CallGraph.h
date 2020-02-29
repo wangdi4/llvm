@@ -95,10 +95,6 @@ class CallGraph {
   /// callers from the old function to the new.
   void spliceFunction(const Function *From, const Function *To);
 
-  /// Add a function to the call graph, and link the node to all of the
-  /// functions that it calls.
-  void addToCallGraph(Function *F);
-
   // INTEL A list of CGReports (e.g. the InlineReport) which can be manipulated
   // INTEL in a minimal way outside their local context
   SmallVector<CallGraphReport*, 16> CGReports; // INTEL
@@ -188,6 +184,13 @@ public:
     }
   }
 #endif // INTEL_CUSTOMIZATION
+
+  /// Populate \p CGN based on the calls inside the associated function.
+  void populateCallGraphNode(CallGraphNode *CGN);
+
+  /// Add a function to the call graph, and link the node to all of the
+  /// functions that it calls.
+  void addToCallGraph(Function *F);
 };
 
 /// A node in the call graph for a module.

@@ -5,18 +5,20 @@
 define <2 x i16> @foo(<2 x half>%a) #0 {
 ; CHECK-LABEL: foo:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtps2ph $4, %xmm1, %xmm1
-; CHECK-NEXT:    vcvtph2ps %xmm1, %xmm1
-; CHECK-NEXT:    vcvtps2ph $4, %xmm0, %xmm0
+; CHECK-NEXT:    movzwl %di, %eax
+; CHECK-NEXT:    vmovd %eax, %xmm0
 ; CHECK-NEXT:    vcvtph2ps %xmm0, %xmm0
-; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
-; CHECK-NEXT:    vucomiss %xmm2, %xmm0
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
+; CHECK-NEXT:    vucomiss %xmm1, %xmm0
 ; CHECK-NEXT:    setnp %al
 ; CHECK-NEXT:    sete %cl
 ; CHECK-NEXT:    andb %al, %cl
 ; CHECK-NEXT:    andl $1, %ecx
 ; CHECK-NEXT:    kmovw %ecx, %k0
-; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm1
+; CHECK-NEXT:    movzwl %si, %eax
+; CHECK-NEXT:    vmovd %eax, %xmm0
+; CHECK-NEXT:    vcvtph2ps %xmm0, %xmm0
+; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
 ; CHECK-NEXT:    setnp %al
 ; CHECK-NEXT:    sete %cl
 ; CHECK-NEXT:    andb %al, %cl

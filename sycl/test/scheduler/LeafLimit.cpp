@@ -32,7 +32,7 @@ int main() {
 
   // Create commands that will be added as leaves exceeding the limit by 1
   std::vector<FakeCommand *> LeavesToAdd;
-  for (size_t i = 0; i < Rec->MWriteLeaves.capacity() + 1; ++i) {
+  for (std::size_t i = 0; i < Rec->MWriteLeaves.capacity() + 1; ++i) {
     LeavesToAdd.push_back(
         new FakeCommand(detail::getSyclObjImpl(Queue), FakeReq));
   }
@@ -43,14 +43,14 @@ int main() {
   }
   // Add edges as leaves and exceed the leaf limit
   for (auto LeafPtr : LeavesToAdd) {
-    TS.AddNodeToLeaves(Rec, LeafPtr);
+    TS.addNodeToLeaves(Rec, LeafPtr);
   }
   // Check that the oldest leaf has been removed from the leaf list
   // and added as a dependency of the newest one instead
   const detail::CircularBuffer<detail::Command *> &Leaves = Rec->MWriteLeaves;
   assert(std::find(Leaves.begin(), Leaves.end(), LeavesToAdd.front()) ==
          Leaves.end());
-  for (size_t i = 1; i < LeavesToAdd.size(); ++i) {
+  for (std::size_t i = 1; i < LeavesToAdd.size(); ++i) {
     assert(std::find(Leaves.begin(), Leaves.end(), LeavesToAdd[i]) !=
            Leaves.end());
   }

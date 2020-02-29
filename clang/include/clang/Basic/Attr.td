@@ -180,6 +180,27 @@ class FunctionArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
 class NamedArgument<string name, bit opt = 0, bit fake = 0> : Argument<name,
                                                                        opt,
                                                                        fake>;
+
+// An argument of a OMPDeclareVariantAttr that represents the `match`
+// clause of the declare variant by keeping the information (incl. nesting) in
+// an OMPTraitInfo object.
+//
+// With some exceptions, the `match(<context-selector>)` clause looks roughly
+// as follows:
+//   context-selector := list<selector-set>
+//       selector-set := <kind>={list<selector>}
+//           selector := <kind>([score(<const-expr>):] list<trait>)
+//              trait := <kind>
+//
+// The structure of an OMPTraitInfo object is a tree as defined below:
+//
+//   OMPTraitInfo     := {list<OMPTraitSet>}
+//   OMPTraitSet      := {Kind, list<OMPTraitSelector>}
+//   OMPTraitSelector := {Kind, Expr, list<OMPTraitProperty>}
+//   OMPTraitProperty := {Kind}
+//
+class OMPTraitInfoArgument<string name> : Argument<name, 0>;
+
 class TypeArgument<string name, bit opt = 0> : Argument<name, opt>;
 class UnsignedArgument<string name, bit opt = 0> : Argument<name, opt>;
 class VariadicUnsignedArgument<string name> : Argument<name, 1>;
@@ -1170,12 +1191,12 @@ def SYCLIntelMaxGlobalWorkDim : InheritableAttr {
   let PragmaAttributeSupport = 0;
 }
 
-def SYCLIntelUsesGlobalWorkOffset : InheritableAttr {
-  let Spellings = [CXX11<"intelfpga","uses_global_work_offset">];
-  let Args = [BoolArgument<"Enabled">];
+def SYCLIntelNoGlobalWorkOffset : InheritableAttr {
+  let Spellings = [CXX11<"intelfpga","no_global_work_offset">];
+  let Args = [BoolArgument<"Enabled", 1>];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
   let Subjects = SubjectList<[Function], ErrorDiag>;
-  let Documentation = [SYCLIntelUsesGlobalWorkOffsetDocs];
+  let Documentation = [SYCLIntelNoGlobalWorkOffsetAttrDocs];
   let PragmaAttributeSupport = 0;
 }
 
@@ -2312,7 +2333,7 @@ def ObjCDirect : Attr {
 
 def ObjCDirectMembers : Attr {
   let Spellings = [Clang<"objc_direct_members">];
-  let Subjects = SubjectList<[ObjCImpl, ObjCCategory], ErrorDiag>;
+  let Subjects = SubjectList<[ObjCImpl, ObjCInterface, ObjCCategory], ErrorDiag>;
   let LangOpts = [ObjC];
   let Documentation = [ObjCDirectMembersDocs];
 }
@@ -3873,36 +3894,10 @@ def OMPDeclareVariant : InheritableAttr {
   let Documentation = [OMPDeclareVariantDocs];
   let Args = [
     ExprArgument<"VariantFuncRef">,
-    VariadicExprArgument<"Scores">,
-    VariadicUnsignedArgument<"CtxSelectorSets">,
-    VariadicUnsignedArgument<"CtxSelectors">,
-    VariadicStringArgument<"ImplVendors">,
-    VariadicStringArgument<"DeviceKinds">
+    OMPTraitInfoArgument<"TraitInfos">,
   ];
   let AdditionalMembers = [{
-// INTEL_CUSTOMIZATION
-    static const char *getSupportedSelectorSets() {
-      return "'construct' or 'device'";
-    }
-    static const char *getSupportedDevices() {
-      return "'arch'";
-    }
-// end INTEL_CUSTOMIZATION
-// INTEL_COLLAB
-    static const char *getSupportedConstructs() {
-      return "'target variant dispatch'";
-    }
-    static const char *getSupportedArchs() {
-      return "'gen'";
-    }
-// end INTEL_COLLAB
-    void printScore(raw_ostream & OS, const PrintingPolicy &Policy, unsigned I) const {
-      if (const Expr *E = *std::next(scores_begin(), I)) {
-        OS << "score(";
-        E->printPretty(OS, nullptr, Policy);
-        OS << "):";
-      }
-    }
+    OMPTraitInfo &getTraitInfo() { return traitInfos; }
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
         const {
       if (const Expr *E = getVariantFuncRef()) {
@@ -3910,86 +3905,8 @@ def OMPDeclareVariant : InheritableAttr {
         E->printPretty(OS, nullptr, Policy);
         OS << ")";
       }
-      // TODO: add printing of real context selectors.
       OS << " match(";
-      int Used[OMP_CTX_SET_unknown] = {0};
-      for (unsigned I = 0, E = ctxSelectorSets_size(); I < E; ++I) {
-        auto CtxSet = static_cast<OpenMPContextSelectorSetKind>(
-            *std::next(ctxSelectorSets_begin(), I));
-        if (Used[CtxSet])
-          continue;
-        if (I > 0)
-          OS << ",";
-        switch (CtxSet) {
-        case OMP_CTX_SET_implementation:
-          OS << "implementation={";
-          break;
-        case OMP_CTX_SET_device:
-          OS << "device={";
-          break;
-// INTEL_COLLAB
-        case OMP_CTX_SET_construct:
-          OS << "implementation={";
-          OS << "target variant dispatch";
-          OS << "}";
-          break;
-// end INTEL_COLLAB
-        case OMP_CTX_SET_unknown:
-          llvm_unreachable("Unknown context selector set.");
-        }
-        Used[CtxSet] = 1;
-        for (unsigned K = I, EK = ctxSelectors_size(); K < EK; ++K) {
-          auto CtxSetK = static_cast<OpenMPContextSelectorSetKind>(
-              *std::next(ctxSelectorSets_begin(), K));
-          if (CtxSet != CtxSetK)
-            continue;
-          if (K != I)
-            OS << ",";
-          auto Ctx = static_cast<OpenMPContextSelectorKind>(
-              *std::next(ctxSelectors_begin(), K));
-          switch (Ctx) {
-          case OMP_CTX_vendor:
-            assert(CtxSet == OMP_CTX_SET_implementation &&
-                   "Expected implementation context selector set.");
-            OS << "vendor(";
-            printScore(OS, Policy, K);
-            if (implVendors_size() > 0) {
-              OS << *implVendors(). begin();
-              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
-                OS << ", " << VendorName;
-            }
-            OS << ")";
-            break;
-          case OMP_CTX_kind:
-            assert(CtxSet == OMP_CTX_SET_device &&
-                   "Expected device context selector set.");
-            OS << "kind(";
-            if (deviceKinds_size() > 0) {
-              OS << *deviceKinds().begin();
-              for (StringRef KindName : llvm::drop_begin(deviceKinds(), 1))
-                OS << ", " << KindName;
-            }
-            OS << ")";
-            break;
-// INTEL_COLLAB
-          case OMP_CTX_arch:
-            OS << "arch(";
-            printScore(OS, Policy, I);
-            if (implVendors_size() > 0) {
-              OS << *implVendors(). begin();
-              for (StringRef VendorName : llvm::drop_begin(implVendors(), 1))
-                OS << ", " << VendorName;
-            }
-            OS << ")";
-            break;
-          case OMP_CTX_target_variant_dispatch:
-// end INTEL_COLLAB
-          case OMP_CTX_unknown:
-            llvm_unreachable("Unknown context selector.");
-          }
-        }
-        OS << "}";
-      }
+      traitInfos.print(OS, Policy);
       OS << ")";
     }
   }];

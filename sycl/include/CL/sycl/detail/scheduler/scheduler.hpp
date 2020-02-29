@@ -13,12 +13,13 @@
 #include <CL/sycl/detail/scheduler/commands.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_i.hpp>
 
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <vector>
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
@@ -33,7 +34,7 @@ using ContextImplPtr = std::shared_ptr<detail::context_impl>;
 // The MemObjRecord is created for each memory object used in command
 // groups. There should be only one MemObjRecord for SYCL memory object.
 struct MemObjRecord {
-  MemObjRecord(ContextImplPtr CurContext, size_t LeafLimit)
+  MemObjRecord(ContextImplPtr CurContext, std::size_t LeafLimit)
       : MReadLeaves{LeafLimit}, MWriteLeaves{LeafLimit}, MCurContext{
                                                              CurContext} {}
 
@@ -154,11 +155,11 @@ protected:
     void removeRecordForMemObj(SYCLMemObjI *MemObject);
 
     // Add new command to leaves if needed.
-    void AddNodeToLeaves(MemObjRecord *Record, Command *Cmd,
+    void addNodeToLeaves(MemObjRecord *Record, Command *Cmd,
                          access::mode AccessMode);
 
     // Removes commands from leaves.
-    void UpdateLeaves(const std::set<Command *> &Cmds, MemObjRecord *Record,
+    void updateLeaves(const std::set<Command *> &Cmds, MemObjRecord *Record,
                       access::mode AccessMode);
 
     std::vector<SYCLMemObjI *> MMemObjs;
@@ -237,4 +238,4 @@ protected:
 
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

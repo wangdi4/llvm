@@ -976,7 +976,7 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
   SmallVector<const Argument *, 4> NoAliasArgs;
 
   for (const Argument &Arg : CalledFunc->args())
-    if (Arg.hasNoAliasAttr() && !Arg.use_empty())
+    if (CS.paramHasAttr(Arg.getArgNo(), Attribute::NoAlias) && !Arg.use_empty())
       NoAliasArgs.push_back(&Arg);
 
 #if INTEL_CUSTOMIZATION
@@ -2246,10 +2246,6 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       Caller->getEntryBlock().getInstList().splice(
           InsertPoint, FirstNewBlock->getInstList(), AI->getIterator(), I);
     }
-    // Move any dbg.declares describing the allocas into the entry basic block.
-    DIBuilder DIB(*Caller->getParent());
-    for (auto &AI : IFI.StaticAllocas)
-      replaceDbgDeclareForAlloca(AI, AI, DIB, DIExpression::ApplyOffset, 0);
   }
   SmallVector<Value*,4> VarArgsToForward;
   SmallVector<AttributeSet, 4> VarArgsAttrs;

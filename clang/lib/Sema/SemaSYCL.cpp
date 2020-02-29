@@ -465,12 +465,12 @@ public:
           FD->dropAttr<SYCLIntelMaxGlobalWorkDimAttr>();
         }
       }
-      if (auto *A = FD->getAttr<SYCLIntelUsesGlobalWorkOffsetAttr>()) {
+      if (auto *A = FD->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
         if (ParentFD == SYCLKernel) {
           Attrs.insert(A);
         } else {
           SemaRef.Diag(A->getLocation(), diag::warn_attribute_ignored) << A;
-          FD->dropAttr<SYCLIntelUsesGlobalWorkOffsetAttr>();
+          FD->dropAttr<SYCLIntelNoGlobalWorkOffsetAttr>();
         }
       }
 
@@ -1393,7 +1393,7 @@ void Sema::MarkDevice(void) {
         case attr::Kind::SYCLIntelNumSimdWorkItems:
         case attr::Kind::SYCLIntelMaxGlobalWorkDim:
         case attr::Kind::SYCLIntelMaxWorkGroupSize:
-        case attr::Kind::SYCLIntelUsesGlobalWorkOffset: {
+        case attr::Kind::SYCLIntelNoGlobalWorkOffset: {
           SYCLKernel->addAttr(A);
           break;
         }
@@ -1452,24 +1452,6 @@ Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
     return DeviceDiagBuilder::K_Deferred;
   }();
   return DeviceDiagBuilder(DiagKind, Loc, DiagID, FD, *this);
-}
-
-void Sema::checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee) {
-  assert(Callee && "Callee may not be null.");
-
-  // Errors in unevaluated context don't need to be generated,
-  // so we can safely skip them.
-  if (isUnevaluatedContext())
-    return;
-
-  FunctionDecl *Caller = dyn_cast<FunctionDecl>(getCurLexicalContext());
-
-  // If the caller is known-emitted, mark the callee as known-emitted.
-  // Otherwise, mark the call in our call graph so we can traverse it later.
-  if (Caller && isKnownEmitted(*this, Caller))
-    markKnownEmitted(*this, Caller, Callee, Loc, isKnownEmitted);
-  else if (Caller)
-    DeviceCallGraph[Caller].insert({Callee, Loc});
 }
 
 // -----------------------------------------------------------------------------
@@ -1682,7 +1664,7 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
   }
   O << "\n";
 
-  O << "__SYCL_INLINE namespace cl {\n";
+  O << "__SYCL_INLINE_NAMESPACE(cl) {\n";
   O << "namespace sycl {\n";
   O << "namespace detail {\n";
 
@@ -1775,7 +1757,7 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
   O << "\n";
   O << "} // namespace detail\n";
   O << "} // namespace sycl\n";
-  O << "} // namespace cl\n";
+  O << "} // __SYCL_INLINE_NAMESPACE(cl)\n";
   O << "\n";
 }
 

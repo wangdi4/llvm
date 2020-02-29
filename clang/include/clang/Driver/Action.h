@@ -613,6 +613,7 @@ private:
 
 public:
   // Offloading unbundling doesn't change the type of output.
+  OffloadUnbundlingJobAction(Action *Input);
   OffloadUnbundlingJobAction(ActionList &Inputs);
   OffloadUnbundlingJobAction(ActionList &Inputs, types::ID Type);
 

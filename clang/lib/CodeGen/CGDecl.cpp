@@ -2674,5 +2674,5 @@ void CodeGenModule::EmitOMPDeclareMapper(const OMPDeclareMapperDecl *D,
 }
 
 void CodeGenModule::EmitOMPRequiresDecl(const OMPRequiresDecl *D) {
-  getOpenMPRuntime().checkArchForUnifiedAddressing(D);
+  getOpenMPRuntime().processRequiresDirective(D);
 }

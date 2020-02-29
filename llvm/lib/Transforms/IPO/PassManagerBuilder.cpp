@@ -83,6 +83,8 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #endif // INTEL_COLLAB
 
+#include "llvm/Transforms/Vectorize/VectorCombine.h"
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
@@ -824,6 +826,7 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createBarrierNoopPass());
 
     if (PerformThinLTO) {
+      MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
       // Drop available_externally and unreferenced globals. This is necessary
       // with ThinLTO in order to avoid leaving undefined references to dead
       // globals in the object file.
@@ -874,9 +877,11 @@ void PassManagerBuilder::populateModulePassManager(
   // inter-module indirect calls. For that we perform indirect call promotion
   // earlier in the pass pipeline, here before globalopt. Otherwise imported
   // available_externally functions look unreferenced and are removed.
-  if (PerformThinLTO)
+  if (PerformThinLTO) {
     MPM.add(createPGOIndirectCallPromotionLegacyPass(/*InLTO = */ true,
                                                      !PGOSampleUse.empty()));
+    MPM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
+  }
 
   // For SamplePGO in ThinLTO compile phase, we do not want to unroll loops
   // as it will change the CFG too much to make the 2nd profile annotation
@@ -889,6 +894,9 @@ void PassManagerBuilder::populateModulePassManager(
   // Infer attributes about declarations if possible.
   MPM.add(createInferFunctionAttrsLegacyPass());
 
+  // Infer attributes on declarations, call sites, arguments, etc.
+  MPM.add(createAttributorLegacyPass());
+
   addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
 
   if (OptLevel > 2)
@@ -896,9 +904,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createIPSCCPPass());          // IP SCCP
   MPM.add(createCalledValuePropagationPass());
-
-  // Infer attributes on declarations, call sites, arguments, etc.
-  MPM.add(createAttributorLegacyPass());
 
   MPM.add(createGlobalOptimizerPass()); // Optimize out global vars
   // Promote any localized global vars.
@@ -952,6 +957,15 @@ void PassManagerBuilder::populateModulePassManager(
     addVPOPasses(MPM, false, /* Simplify= */ true);
   }
 #endif // INTEL_COLLAB
+
+  // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
+  MPM.add(createAttributorCGSCCLegacyPass());
+
+  // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
+  // there are no OpenMP runtime calls present in the module.
+  if (OptLevel > 1)
+    MPM.add(createOpenMPOptLegacyPass());
+
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
   if (OptLevel > 2)
     MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
@@ -1126,6 +1140,7 @@ void PassManagerBuilder::populateModulePassManager(
   // on -O1 and no #pragma is found). Would be good to have these two passes
   // as function calls, so that we can only pass them when the vectorizer
   // changed the code.
+  MPM.add(createVectorCombinePass());
   addInstructionCombiningPass(MPM);
   if (OptLevel > 1 && ExtraVectorizerPasses) {
     // At higher optimization levels, try to clean up any runtime overlap and
@@ -1152,6 +1167,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    MPM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       MPM.add(createLoadCoalescingPass());
@@ -1534,6 +1550,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // CSFDO instrumentation and use pass.
   addPGOInstrPasses(PM, /* IsCS */ true);
 
+  // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
+  PM.add(createAttributorCGSCCLegacyPass());
+
+  // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
+  // there are no OpenMP runtime calls present in the module.
+  if (OptLevel > 1)
+    PM.add(createOpenMPOptLegacyPass());
+
   // Optimize globals again if we ran the inliner.
   if (RunInliner) { // INTEL
 #if INTEL_CUSTOMIZATION
@@ -1660,6 +1684,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar
   // optimizer again at this point.
+  PM.add(createVectorCombinePass());
   addInstructionCombiningPass(PM); // Initial cleanup
   PM.add(createCFGSimplificationPass()); // if-convert
   PM.add(createSCCPPass()); // Propagate exposed constants
@@ -1667,16 +1692,17 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
-#if INTEL_CUSTOMIZATION
   if (SLPVectorize) {
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    PM.add(createVectorCombinePass()); // Clean up partial vectorization.
+#if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP)
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.
@@ -2043,8 +2069,8 @@ void PassManagerBuilder::populateThinLTOPassManager(
     PM.add(createVerifierPass());
 
   if (ImportSummary) {
-    // These passes import type identifier resolutions for whole-program
-    // devirtualization and CFI. They must run early because other passes may
+    // This pass imports type identifier resolutions for whole-program
+    // devirtualization and CFI. It must run early because other passes may
     // disturb the specific instruction patterns that these passes look for,
     // creating dependencies on resolutions that may not appear in the summary.
     //
@@ -2092,6 +2118,9 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   // control flow integrity mechanisms (-fsanitize=cfi*) and needs to run at
   // link time if CFI is enabled. The pass does nothing if CFI is disabled.
   PM.add(createLowerTypeTestsPass(ExportSummary, nullptr));
+  // Run a second time to clean up any type tests left behind by WPD for use
+  // in ICP (which is performed earlier than this in the regular LTO pipeline).
+  PM.add(createLowerTypeTestsPass(nullptr, nullptr, true));
 
   if (OptLevel != 0)
     addLateLTOOptimizationPasses(PM);
