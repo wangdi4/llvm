@@ -74,7 +74,12 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/Coroutines/CoroEarly.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h" // INTEL
+=======
+#include "llvm/Transforms/Coroutines/CoroElide.h"
+#include "llvm/Transforms/Coroutines/CoroSplit.h"
+>>>>>>> 2365238b9d0bc566f2e6dd1f10f0f3cb623292f4
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/ArgumentPromotion.h"
 #include "llvm/Transforms/IPO/Attributor.h"
