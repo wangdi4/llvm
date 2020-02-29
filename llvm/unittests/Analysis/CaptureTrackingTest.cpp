@@ -70,11 +70,7 @@ TEST(CaptureTracking, MaxUsesToExplore) {
     Instruction *Ret = EntryBB->getTerminator();
     ASSERT_TRUE(isa<ReturnInst>(Ret));
     ASSERT_FALSE(PointerMayBeCapturedBefore(Arg, true, true, Ret, &DT, false,
-<<<<<<< HEAD
-                                            &OBB, FalseMaxUsesLimit));
-=======
                                             FalseMaxUsesLimit));
->>>>>>> 0c2b09a9b6246aebd301ad75b5d78ac1e7daa9c4
     ASSERT_TRUE(PointerMayBeCapturedBefore(Arg, true, true, Ret, &DT, false,
                                            TrueMaxUsesLimit));
   };

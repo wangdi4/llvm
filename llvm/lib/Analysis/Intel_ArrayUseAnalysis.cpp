@@ -16,7 +16,6 @@
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/OrderedBasicBlock.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -251,11 +250,10 @@ public:
     // Before doing dataflow, sort the gen/kill info in backwards order for the
     // basic block.
     for (auto &BB : F) {
-      OrderedBasicBlock OBB(&BB);
       auto &InstArray = BlockMap[&BB];
       llvm::sort(InstArray.begin(), InstArray.end(),
-          [&OBB](const GenKillInfo &A, const GenKillInfo &B) {
-            return OBB.dominates(B.AtPoint, A.AtPoint);
+          [](const GenKillInfo &A, const GenKillInfo &B) {
+            return B.AtPoint->comesBefore(A.AtPoint);
           });
     }
 
