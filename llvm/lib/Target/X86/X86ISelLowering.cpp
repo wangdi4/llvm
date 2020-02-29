@@ -46616,8 +46616,11 @@ static SDValue combineX86GatherScatter(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // FIXME: This should be open sourced and used in the community code.
+=======
+>>>>>>> 89ab5c69c8514bd1768beb4f8c058192770aa05d
 static SDValue rebuildGatherScatter(MaskedGatherScatterSDNode *GorS,
                                     SDValue Index, SDValue Base, SDValue Scale,
                                     SelectionDAG &DAG) {
@@ -46639,15 +46642,16 @@ static SDValue rebuildGatherScatter(MaskedGatherScatterSDNode *GorS,
                               Ops, Scatter->getMemOperand(),
                               Scatter->getIndexType());
 }
+<<<<<<< HEAD
 #endif
+=======
+>>>>>>> 89ab5c69c8514bd1768beb4f8c058192770aa05d
 
 static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
                                     TargetLowering::DAGCombinerInfo &DCI) {
   SDLoc DL(N);
   auto *GorS = cast<MaskedGatherScatterSDNode>(N);
-  SDValue Chain = GorS->getChain();
   SDValue Index = GorS->getIndex();
-  SDValue Mask = GorS->getMask();
   SDValue Base = GorS->getBasePtr();
   SDValue Scale = GorS->getScale();
 
@@ -46667,21 +46671,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
         unsigned NumElts = Index.getValueType().getVectorNumElements();
         EVT NewVT = EVT::getVectorVT(*DAG.getContext(), MVT::i32, NumElts);
         Index = DAG.getNode(ISD::TRUNCATE, DL, NewVT, Index);
-        if (auto *Gather = dyn_cast<MaskedGatherSDNode>(GorS)) {
-          SDValue Ops[] = { Chain, Gather->getPassThru(),
-                            Mask, Base, Index, Scale } ;
-          return DAG.getMaskedGather(Gather->getVTList(),
-                                     Gather->getMemoryVT(), DL, Ops,
-                                     Gather->getMemOperand(),
-                                     Gather->getIndexType());
-        }
-        auto *Scatter = cast<MaskedScatterSDNode>(GorS);
-        SDValue Ops[] = { Chain, Scatter->getValue(),
-                          Mask, Base, Index, Scale };
-        return DAG.getMaskedScatter(Scatter->getVTList(),
-                                    Scatter->getMemoryVT(), DL,
-                                    Ops, Scatter->getMemOperand(),
-                                    Scatter->getIndexType());
+        return rebuildGatherScatter(GorS, Index, Base, Scale, DAG);
       }
     }
 
@@ -46696,21 +46686,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
       unsigned NumElts = Index.getValueType().getVectorNumElements();
       EVT NewVT = EVT::getVectorVT(*DAG.getContext(), MVT::i32, NumElts);
       Index = DAG.getNode(ISD::TRUNCATE, DL, NewVT, Index);
-      if (auto *Gather = dyn_cast<MaskedGatherSDNode>(GorS)) {
-        SDValue Ops[] = { Chain, Gather->getPassThru(),
-                          Mask, Base, Index, Scale } ;
-        return DAG.getMaskedGather(Gather->getVTList(),
-                                   Gather->getMemoryVT(), DL, Ops,
-                                   Gather->getMemOperand(),
-                                   Gather->getIndexType());
-      }
-      auto *Scatter = cast<MaskedScatterSDNode>(GorS);
-      SDValue Ops[] = { Chain, Scatter->getValue(),
-                        Mask, Base, Index, Scale };
-      return DAG.getMaskedScatter(Scatter->getVTList(),
-                                  Scatter->getMemoryVT(), DL,
-                                  Ops, Scatter->getMemOperand(),
-                                  Scatter->getIndexType());
+      return rebuildGatherScatter(GorS, Index, Base, Scale, DAG);
     }
   }
 
@@ -46767,25 +46743,12 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
       EVT IndexVT = EVT::getVectorVT(*DAG.getContext(), EltVT,
                                    Index.getValueType().getVectorNumElements());
       Index = DAG.getSExtOrTrunc(Index, DL, IndexVT);
-      if (auto *Gather = dyn_cast<MaskedGatherSDNode>(GorS)) {
-        SDValue Ops[] = { Chain, Gather->getPassThru(),
-                          Mask, Base, Index, Scale } ;
-        return DAG.getMaskedGather(Gather->getVTList(),
-                                   Gather->getMemoryVT(), DL, Ops,
-                                   Gather->getMemOperand(),
-                                   Gather->getIndexType());
-      }
-      auto *Scatter = cast<MaskedScatterSDNode>(GorS);
-      SDValue Ops[] = { Chain, Scatter->getValue(),
-                        Mask, Base, Index, Scale };
-      return DAG.getMaskedScatter(Scatter->getVTList(),
-                                  Scatter->getMemoryVT(), DL,
-                                  Ops, Scatter->getMemOperand(),
-                                  Scatter->getIndexType());
+      return rebuildGatherScatter(GorS, Index, Base, Scale, DAG);
     }
   }
 
   // With vector masks we only demand the upper bit of the mask.
+  SDValue Mask = GorS->getMask();
   if (Mask.getScalarValueSizeInBits() != 1) {
     const TargetLowering &TLI = DAG.getTargetLoweringInfo();
     APInt DemandedMask(APInt::getSignMask(Mask.getScalarValueSizeInBits()));
