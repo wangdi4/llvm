@@ -9693,9 +9693,34 @@ private:
   bool isPointerCarriedSafetyCondition(dtrans::SafetyData Data) {
     switch (Data) {
     case dtrans::AddressTaken:
+    case dtrans::AmbiguousPointerTarget:
     case dtrans::BadCasting:
     case dtrans::BadCastingPending:
+    case dtrans::BadMemFuncManipulation:
+    case dtrans::SystemObject:
+    case dtrans::UnsafePtrMerge:
+    case dtrans::UnhandledUse:
+
+      // TODO: UnsafePointerStore and UnsafePointerStoreConditional should be
+      // pointer carried because they can have the effect of changing the type
+      // of a pointer, similar to a bitcast but done via a memory location.
+      // Currently, these are inhibited because more analysis is necessary on
+      // mitigating the impact this has on one of the benchmarks.
+      //
+      // case dtrans::UnsafePointerStore:
+      // case dtrans::UnsafePointerStoreConditional:
+
       return true;
+
+      // FieldAddressTaken is treated as a pointer carried condition based on
+      // how out of bounds field accesses is set because the access is not
+      // permitted under the C/C++ rules, but is allowed within the definition
+      // of llvm IR. If an out of bounds access is permitted, then it would be
+      // possible to access elements of pointed-to objects, as well, in methods
+      // that DTrans would not be able to analyze.
+    case dtrans::FieldAddressTaken:
+      return DTransOutOfBoundsOK;
+
     default:
       return false;
     }
@@ -9749,10 +9774,10 @@ private:
     // propagation through pointer fields. Propagation is done via a recursive
     // call to setBaseTypeInfoSafetyData in order to handle additional levels
     // of nesting.
-    auto maybePropagateSafetyCondition = [this](llvm::Type *FieldTy,
-                                                dtrans::SafetyData Data,
-                                                bool IsCascading,
-                                                bool IsPointerCarried) {
+    auto maybePropagateSafetyCondition = [this, BaseTy](llvm::Type *FieldTy,
+                                                        dtrans::SafetyData Data,
+                                                        bool IsCascading,
+                                                        bool IsPointerCarried) {
       // If FieldTy is not a type of interest, there's no need to propagate.
       if (!DTInfo.isTypeOfInterest(FieldTy))
         return;
@@ -9769,9 +9794,17 @@ private:
         while (FieldBaseTy->isPointerTy())
           FieldBaseTy = FieldBaseTy->getPointerElementType();
         dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
-        if (!FieldTI->testSafetyData(Data))
+        if (!FieldTI->testSafetyData(Data)) {
+          LLVM_DEBUG({
+            dbgs()
+                << "dtrans-safety: Cascading pointer carried safety condition: "
+                << "From: " << *BaseTy << " To: " << *FieldBaseTy
+                << " :: " << dtrans::getSafetyDataName(Data) << "\n";
+          });
+
           setBaseTypeInfoSafetyData(FieldBaseTy, Data, IsCascading,
                                     IsPointerCarried);
+        }
       }
     };
 
