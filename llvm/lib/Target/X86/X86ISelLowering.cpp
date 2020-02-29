@@ -46616,11 +46616,6 @@ static SDValue combineX86GatherScatter(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-// FIXME: This should be open sourced and used in the community code.
-=======
->>>>>>> 89ab5c69c8514bd1768beb4f8c058192770aa05d
 static SDValue rebuildGatherScatter(MaskedGatherScatterSDNode *GorS,
                                     SDValue Index, SDValue Base, SDValue Scale,
                                     SelectionDAG &DAG) {
@@ -46642,10 +46637,6 @@ static SDValue rebuildGatherScatter(MaskedGatherScatterSDNode *GorS,
                               Ops, Scatter->getMemOperand(),
                               Scatter->getIndexType());
 }
-<<<<<<< HEAD
-#endif
-=======
->>>>>>> 89ab5c69c8514bd1768beb4f8c058192770aa05d
 
 static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
                                     TargetLowering::DAGCombinerInfo &DCI) {
