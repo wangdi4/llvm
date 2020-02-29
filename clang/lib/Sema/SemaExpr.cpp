@@ -16860,6 +16860,14 @@ bool Sema::tryCaptureVariable(
       !(LangOpts.OpenMP && isOpenMPCapturedDecl(Var, /*CheckScopeInfo=*/true,
                                                 MaxFunctionScopesIndex)))
     return true;
+
+#if INTEL_COLLAB
+  // Don't capture certain variables in target regions so they can be
+  // treated as firstprivate.
+  if (isOpenMPTargetLastPrivate(Var))
+    return true;
+#endif // INTEL_COLLAB
+
   Var = Var->getCanonicalDecl();
 
   // Walk up the stack to determine whether we can capture the variable,

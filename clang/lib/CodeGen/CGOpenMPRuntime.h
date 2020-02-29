@@ -875,15 +875,20 @@ public:
   virtual void clear();
 
 #if INTEL_COLLAB
-  struct MapInfo {
+  struct LOMapInfo {
     llvm::Value *Base;
     llvm::Value *Pointer;
     llvm::Value *Size;
+    llvm::Value *Type;
+    SmallVector<OpenMPMapModifierKind, 1> Modifiers;
+    OpenMPMapClauseKind MapType;
+    const VarDecl *Var;
+    bool IsChain;
   };
 
   static void getLOMapInfo(const OMPExecutableDirective &Dir,
-                           CodeGenFunction &CGF, const OMPMapClause *C,
-                           const Expr *E, SmallVector<MapInfo, 4> &Info);
+                           CodeGenFunction &CGF,
+                           SmallVectorImpl<LOMapInfo> *Info);
 #endif // INTEL_COLLAB
 
   /// Emits code for OpenMP 'if' clause using specified \a CodeGen

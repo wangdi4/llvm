@@ -11,7 +11,10 @@ void bar() {
 }
 
 void foo() {
-// CHECK: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]), "QUAL.OMP.MAP.TOFROM"(i32* [[VAR_I]]) ]
+// CHECK: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry()
+// CHECK-SAME: "DIR.OMP.TARGET"()
+// CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]])
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[VAR_I]], i32* [[VAR_I]], i64 4, i64 35) ]
 // CHECK: store i32 3, i32* [[VAR_I]],
 // CHECK: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
 

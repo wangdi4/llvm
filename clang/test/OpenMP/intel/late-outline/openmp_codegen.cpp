@@ -311,27 +311,40 @@ int main(int argc, char **argv) {
     int z = 3, y = 9;
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"()
 // CHECK-SAME: "QUAL.OMP.DEVICE"(i32 4),
-// CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(i32** [[A_ADDR]], i32** [[B_ADDR]]),
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR"()
 // CHECK-SAME: "QUAL.OMP.NOWAIT"()
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+// CHECK: region.exit(token {{.*}} [ "DIR.OMP.END.TASK"() ]
     #pragma omp target device(4) is_device_ptr(a,b) \
                        defaultmap(tofrom:scalar) nowait
     {
+      a = b;
     }
-// CHECK: [[TARGD_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}), "QUAL.OMP.USE_DEVICE_PTR"(i32** %a{{.*}}, i32** %b{{.*}}) ]
+// CHECK: call void @_Z3foov()
+  foo();
+// CHECK: [[L0:%[0-9]+]] = load i32*, i32** %a{{.*}}
+// CHECK: [[L1:%[0-9]+]] = load i32*, i32** %b{{.*}}
+// CHECK: [[TARGD_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry()
+// CHECK-SAME: "DIR.OMP.TARGET.DATA"()
+// CHECK-SAME: "QUAL.OMP.USE_DEVICE_PTR"(i32** %a, i32** %b)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L0]], i32* [[L0]], i64 0, i64 96)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[L1]], i64 0, i64 96)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 35)
 // CHECK: region.exit(token [[TARGD_TOKENVAL]]) [ "DIR.OMP.END.TARGET.DATA"() ]
     #pragma omp target data map(tofrom:z) use_device_ptr(a,b)
     {
     }
-// CHECK: [[TARGU_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.TO"(i32* %z{{.*}}), "QUAL.OMP.FROM"(i32* %y{{.*}}) ]
+// CHECK: [[TARGU_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.UPDATE"(),
+// CHECK-SAME "QUAL.OMP.FROMQUAL.OMP.MAP.FROM"(i32* %y{{.*}}, i32* %y{{.*}}, i64 4, i64 34),
+// CHECK-SAME "QUAL.OMP.FROMQUAL.OMP.MAP.TO"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 34) ]
 // CHECK: region.exit(token [[TARGU_TOKENVAL]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
     #pragma omp target update to(z) from(y)
   }
   {
     int local_int = 1;
+   bar(1);
+// CHECK: call {{.*}}bar
 // CHECK: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET
-// CHECK-SAME: IS_DEVICE_PTR{{.*}}glob_ptr
 // CHECK-SAME: FIRSTPRIVATE{{.*}}local_int
 // CHECK-SAME: FIRSTPRIVATE{{.*}}glob_int
 // CHECK: region.exit(token [[TARG2_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
@@ -538,13 +551,13 @@ extern void modify_array_on_target();
 //CHECK-LABEL: enter_exit_data
 void enter_exit_data() {
   //CHECK: "DIR.OMP.TARGET.ENTER.DATA"
-  //CHECK-SAME: QUAL.OMP.MAP.ALWAYS.TO
+  //CHECK-SAME: QUAL.OMP.MAP.TO:ALWAYS
   //CHECK: "DIR.OMP.END.TARGET.ENTER.DATA"
   #pragma omp target enter data map(always,to: a[7:17])
   //CHECK: call{{.*}}modify_array_on_target
   modify_array_on_target();
   //CHECK: "DIR.OMP.TARGET.EXIT.DATA"
-  //CHECK-SAME: QUAL.OMP.MAP.ALWAYS.FROM:AGGRHEAD
+  //CHECK-SAME: QUAL.OMP.MAP.FROM:ALWAYS
   //CHECK: "DIR.OMP.END.TARGET.EXIT.DATA"
   #pragma omp target exit data map(always,from: a[9:13])
 }
