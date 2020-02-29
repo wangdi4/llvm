@@ -427,25 +427,6 @@ void VPOCodeGen::updateAnalysis() {
   // LLVM_DEBUG(DT->verifyDomTree());
 }
 
-Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
-  // We need to place the broadcast of invariant variables outside the loop.
-  Instruction *Instr = dyn_cast<Instruction>(V);
-  bool NewInstr = (Instr && NewLoop->contains(Instr));
-  bool Invariant = OrigLoop->isLoopInvariant(V) && !NewInstr;
-
-  auto OldIP = Builder.saveIP();
-  // Place the code for broadcasting invariant variables in the new preheader.
-  IRBuilder<>::InsertPointGuard Guard(Builder);
-  if (Invariant)
-    Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
-
-  // Broadcast the scalar into all locations in the vector.
-  Value *Shuf = Builder.CreateVectorSplat(VF, V, "broadcast");
-
-  Builder.restoreIP(OldIP);
-  return Shuf;
-}
-
 /// Reverse vector \p Vec. \p OriginalVL specifies the original vector length
 /// of the value before vectorization.
 /// If the original value was scalar, a vector <A0, A1, A2, A3> will be just
@@ -1207,7 +1188,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         Builder.CreateICmpEQ(BitCastInst, Constant::getNullValue(IntTy));
 
     // Broadcast the compare and set as the widened value.
-    auto *V = getBroadcastInstrs(CmpInst);
+    auto *V = Builder.CreateVectorSplat(VF, CmpInst, "broadcast");
     VPWidenMap[VPInst] = V;
     return;
   }
@@ -2634,7 +2615,12 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   assert(UnderlyingV && "VPExternalDefs and VPConstants are expected to have "
                         "underlying IR value set.");
 
+  // Place the code for broadcasting invariant variables in the new preheader.
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
+
   // Broadcast V and save the value for future uses.
+  Value *Widened;
   if (V->getType()->isVectorTy()) {
     assert(V->getType()->getVectorElementType()->isSingleValueType() &&
            "Re-vectorization is supported for simple vectors only");
@@ -2645,12 +2631,14 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
     //                             |
     //                             V
     //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
-    VPWidenMap[V] = replicateVector(UnderlyingV, VF, Builder,
+    Widened = replicateVector(UnderlyingV, VF, Builder,
                                     "replicatedVal." + UnderlyingV->getName());
-  } else
-    VPWidenMap[V] = getBroadcastInstrs(UnderlyingV);
+  } else {
+    Widened = Builder.CreateVectorSplat(VF, UnderlyingV, "broadcast");
+  }
+  VPWidenMap[V] = Widened;
 
-  return VPWidenMap[V];
+  return Widened;
 }
 
 Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {

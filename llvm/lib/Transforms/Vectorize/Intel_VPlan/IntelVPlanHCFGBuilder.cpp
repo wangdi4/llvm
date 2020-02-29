@@ -49,9 +49,6 @@ static cl::opt<bool> VPlanPrintAfterLoopMassaging(
     cl::desc("Print plain dump after loop massaging"));
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool>
-    DisableVPlanDA("disable-vplan-da", cl::init(false), cl::Hidden,
-                   cl::desc("Disable VPlan divergence analysis"));
 
 static cl::opt<bool>
     VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
@@ -1241,15 +1238,15 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   // VPlan region. We will need additional information provided to DA if we wish
   // to vectorize more than one loop, or vectorize a specific loop within the
   // VPlan that is not the outermost one.
-  if (!DisableVPlanDA) {
-    // TODO: Determine if we want to have a separate DA instance for each VF.
-    // Currently, there is only one instance and no distinction between VFs.
-    // i.e., values are either uniform or divergent for all VFs.
-    VPLoop *CandidateLoop = *VPLInfo->begin();
-    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
-    VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree, false/*Not in LCSSA form*/);
-    Plan->setVPlanDA(std::move(VPDA));
-  }
+
+  // TODO: Determine if we want to have a separate DA instance for each VF.
+  // Currently, there is only one instance and no distinction between VFs.
+  // i.e., values are either uniform or divergent for all VFs.
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+  auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+  VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree,
+                false /*Not in LCSSA form*/);
+  Plan->setVPlanDA(std::move(VPDA));
 #endif /* INTEL_CUSTOMIZATION */
 
 #if INTEL_CUSTOMIZATION

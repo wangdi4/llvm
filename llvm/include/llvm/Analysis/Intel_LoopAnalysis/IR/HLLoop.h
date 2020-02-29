@@ -38,6 +38,13 @@ class CanonExpr;
 class RegDDRef;
 class HLLoopParallelTraits;
 
+typedef std::pair<int, RegDDRef *> LevelAndFactorPairTy;
+
+struct BlockingPragmaInfo {
+  SmallVector<LevelAndFactorPairTy, MaxLoopNestLevel> LevelsAndFactors;
+  SmallVector<RegDDRef *, 4> Privates;
+};
+
 /// High level node representing a loop
 class HLLoop final : public HLDDNode {
 public:
@@ -146,6 +153,9 @@ private:
   // Special field to force vector UF for a loop inside LoopOpt.
   unsigned ForcedVectorUnrollFactor;
 
+  // Contains info specified in blocking pragma.
+  std::unique_ptr<BlockingPragmaInfo> BlockingInfo;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -216,6 +226,23 @@ protected:
 
   /// Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
+
+  /// Adds a pair of {level-factor} info specified in the blocking pragma for
+  /// this loop.
+  void addBlockingPragmaLevelAndFactor(int Level, RegDDRef *Factor) {
+    if (!BlockingInfo) {
+      BlockingInfo.reset(new BlockingPragmaInfo);
+    }
+    BlockingInfo->LevelsAndFactors.push_back(std::make_pair(Level, Factor));
+  }
+
+  /// Adds a new private specified in the blocking pragma for this loop.
+  void addBlockingPragmaPrivate(RegDDRef *Private) {
+    if (!BlockingInfo) {
+      BlockingInfo.reset(new BlockingPragmaInfo);
+    }
+    BlockingInfo->Privates.push_back(Private);
+  }
 
 public:
   /// Prints preheader of loop.
@@ -1190,6 +1217,24 @@ public:
   bool isMVFallBack() const {
     unsigned MVTag = getMVTag();
     return (MVTag && (MVTag != getNumber()));
+  }
+
+  /// Returns all (level-factor) pairs specified in the blocking pragma for this
+  /// loop. Returns empty ArrayRef if no info exists.
+  ArrayRef<LevelAndFactorPairTy> getBlockingPragmaLevelAndFactors() const {
+    if (BlockingInfo) {
+      return BlockingInfo->LevelsAndFactors;
+    }
+    return {};
+  }
+
+  /// Returns all privates specified in the blocking pragma for this loop.
+  /// Returns empty ArrayRef if no info exists.
+  ArrayRef<RegDDRef *> getBlockingPragmaPrivates() const {
+    if (BlockingInfo) {
+      BlockingInfo->Privates;
+    }
+    return {};
   }
 };
 
