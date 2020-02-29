@@ -61,6 +61,7 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
@@ -1784,7 +1785,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   }
-  #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // If vectorizer was required to run then cleanup any remaining directives
   // that were not removed by vectorizer. This applies to all optimization
   // levels since this function is called with RunVec=true in both pass
@@ -1794,7 +1795,23 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
   // assetion failure as the feature matures.
   if (RunVPOParopt && RunVec)
     PM.add(createVPODirectiveCleanupPass());
-  #endif // INTEL_CUSTOMIZATION
+  // Paropt transformation pass may produce new AlwaysInline functions.
+  // Force inlining for them, if paropt pass runs after the normal inliner.
+  if (RunVPOParopt && RunVPOOpt == InvokeParoptAfterInliner) {
+    // Run it even at -O0, because the only AlwaysInline functions
+    // after paropt are the ones that it artificially created.
+    // There is some interference with coroutines passes, which
+    // insert some AlwaysInline functions early and expect them
+    // to exist up to some other coroutine pass - this is rather
+    // a problem of coroutine passes implementation that we may
+    // inline those functions here. If it becomes a problem,
+    // we will have to resolve that issue with coroutines.
+    PM.add(createAlwaysInlinerLegacyPass());
+    if (OptLevel > 0)
+      // Run GlobalDCE to delete dead functions.
+      PM.add(createGlobalDCEPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 #endif // INTEL_COLLAB
 

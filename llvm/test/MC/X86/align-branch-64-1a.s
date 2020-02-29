@@ -1,10 +1,6 @@
 # Check only fused conditional jumps, conditional jumps and unconditional jumps are aligned with option --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp
 # RUN: llvm-mc -filetype=obj -triple x86_64-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp %p/Inputs/align-branch-64-1.s -o %t1 && llvm-objdump -d %t1 | FileCheck %s
 
-# Check that -x86-branches-within-32B-boundaries matches the above command line
-# RUN: llvm-mc -filetype=obj -triple x86_64-unknown-unknown --x86-branches-within-32B-boundaries %p/Inputs/align-branch-64-1.s -o %t2
-# RUN: cmp %t1 %t2
-
 # Check no branches is aligned with option --x86-align-branch-boundary=0
 # RUN: llvm-mc -filetype=obj -triple x86_64-unknown-unknown --x86-align-branch-boundary=0 --x86-align-branch=fused+jcc+jmp %p/Inputs/align-branch-64-1.s | llvm-objdump -d  - > %t3
 # RUN: llvm-mc -filetype=obj -triple x86_64-unknown-unknown %p/Inputs/align-branch-64-1.s | llvm-objdump -d  - > %t4
