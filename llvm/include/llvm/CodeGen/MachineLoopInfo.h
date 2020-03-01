@@ -67,7 +67,6 @@ public:
   /// it returns an unknown location.
   DebugLoc getStartLoc() const;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// \brief Find the llvm.loop metadata for this loop.
   /// If each branch to the header of this loop contains the same llvm.loop
@@ -77,11 +76,10 @@ public:
   /// then null is returned.
   MDNode *getLoopID() const;
 #endif  // INTEL_CUSTOMIZATION
-=======
+
   /// Returns true if a machine loop has blocks that have static profiling
   /// information---e.g. from '__builtin_expect()'.
   bool hasStaticProfInfo() const;
->>>>>>> 129c911efaa492790c251b3eb18e4db36b55cbc5
 
   void dump() const;
 
