@@ -5,8 +5,7 @@
 ; This test tries to convince CHECK about promoting the load from %A + 2,
 ; because there is a load of %A in the entry block
 define internal i32 @callee(i1 %C, i32* %A) {
-; CHECK-LABEL: define {{[^@]+}}@callee
-; CHECK-SAME: (i32* noalias nocapture nofree nonnull readonly align 536870912 dereferenceable(4) [[A:%.*]])
+; CHECK-LABEL: define {{[^@]+}}@callee()
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[A_0:%.*]] = load i32, i32* null
 ; CHECK-NEXT:    br label [[F:%.*]]
