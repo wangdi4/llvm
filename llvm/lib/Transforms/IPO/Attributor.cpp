@@ -646,6 +646,14 @@ SubsumingPositionIterator::SubsumingPositionIterator(const IRPosition &IRP) {
       if (const Function *Callee = ICS.getCalledFunction()) {
         IRPositions.emplace_back(IRPosition::returned(*Callee));
         IRPositions.emplace_back(IRPosition::function(*Callee));
+        for (const Argument &Arg : Callee->args())
+          if (Arg.hasReturnedAttr()) {
+            IRPositions.emplace_back(
+                IRPosition::callsite_argument(ICS, Arg.getArgNo()));
+            IRPositions.emplace_back(
+                IRPosition::value(*ICS.getArgOperand(Arg.getArgNo())));
+            IRPositions.emplace_back(IRPosition::argument(Arg));
+          }
       }
     }
     IRPositions.emplace_back(
@@ -671,9 +679,10 @@ SubsumingPositionIterator::SubsumingPositionIterator(const IRPosition &IRP) {
 
 bool IRPosition::hasAttr(ArrayRef<Attribute::AttrKind> AKs,
                          bool IgnoreSubsumingPositions) const {
+  SmallVector<Attribute, 4> Attrs;
   for (const IRPosition &EquivIRP : SubsumingPositionIterator(*this)) {
     for (Attribute::AttrKind AK : AKs)
-      if (EquivIRP.getAttr(AK).getKindAsEnum() == AK)
+      if (EquivIRP.getAttrsFromIRAttr(AK, Attrs))
         return true;
     // The first position returned by the SubsumingPositionIterator is
     // always the position itself. If we ignore subsuming positions we
@@ -688,11 +697,8 @@ void IRPosition::getAttrs(ArrayRef<Attribute::AttrKind> AKs,
                           SmallVectorImpl<Attribute> &Attrs,
                           bool IgnoreSubsumingPositions) const {
   for (const IRPosition &EquivIRP : SubsumingPositionIterator(*this)) {
-    for (Attribute::AttrKind AK : AKs) {
-      const Attribute &Attr = EquivIRP.getAttr(AK);
-      if (Attr.getKindAsEnum() == AK)
-        Attrs.push_back(Attr);
-    }
+    for (Attribute::AttrKind AK : AKs)
+      EquivIRP.getAttrsFromIRAttr(AK, Attrs);
     // The first position returned by the SubsumingPositionIterator is
     // always the position itself. If we ignore subsuming positions we
     // are done after the first iteration.
@@ -700,6 +706,24 @@ void IRPosition::getAttrs(ArrayRef<Attribute::AttrKind> AKs,
       break;
   }
 }
+
+bool IRPosition::getAttrsFromIRAttr(Attribute::AttrKind AK,
+                                    SmallVectorImpl<Attribute> &Attrs) const {
+  if (getPositionKind() == IRP_INVALID || getPositionKind() == IRP_FLOAT)
+    return false;
+
+  AttributeList AttrList;
+  if (ImmutableCallSite ICS = ImmutableCallSite(&getAnchorValue()))
+    AttrList = ICS.getAttributes();
+  else
+    AttrList = getAssociatedFunction()->getAttributes();
+
+  bool HasAttr = AttrList.hasAttribute(getAttrIdx(), AK);
+  if (HasAttr)
+    Attrs.push_back(AttrList.getAttribute(getAttrIdx(), AK));
+  return HasAttr;
+}
+
 
 void IRPosition::verify() {
   switch (KindOrArgNo) {
@@ -812,6 +836,11 @@ struct AAComposeTwoGenericDeduction
     : public F<AAType, G<AAType, Base, StateType>, StateType> {
   AAComposeTwoGenericDeduction(const IRPosition &IRP)
       : F<AAType, G<AAType, Base, StateType>, StateType>(IRP) {}
+
+  void initialize(Attributor &A) override {
+    F<AAType, G<AAType, Base, StateType>, StateType>::initialize(A);
+    G<AAType, Base, StateType>::initialize(A);
+  }
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
@@ -3797,10 +3826,10 @@ struct AAAlignImpl : AAAlign {
     ChangeStatus LoadStoreChanged = ChangeStatus::UNCHANGED;
 
     // Check for users that allow alignment annotations.
-    Value &AnchorVal = getIRPosition().getAnchorValue();
-    for (const Use &U : AnchorVal.uses()) {
+    Value &AssociatedValue = getAssociatedValue();
+    for (const Use &U : AssociatedValue.uses()) {
       if (auto *SI = dyn_cast<StoreInst>(U.getUser())) {
-        if (SI->getPointerOperand() == &AnchorVal)
+        if (SI->getPointerOperand() == &AssociatedValue)
           if (SI->getAlignment() < getAssumedAlign()) {
             STATS_DECLTRACK(AAAlign, Store,
                             "Number of times alignment added to a store");
@@ -3808,7 +3837,7 @@ struct AAAlignImpl : AAAlign {
             LoadStoreChanged = ChangeStatus::CHANGED;
           }
       } else if (auto *LI = dyn_cast<LoadInst>(U.getUser())) {
-        if (LI->getPointerOperand() == &AnchorVal)
+        if (LI->getPointerOperand() == &AssociatedValue)
           if (LI->getAlignment() < getAssumedAlign()) {
             LI->setAlignment(Align(getAssumedAlign()));
             STATS_DECLTRACK(AAAlign, Load,
@@ -4611,6 +4640,8 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
     // the replaced value and not the copy that byval creates implicitly.
     Argument *Arg = getAssociatedArgument();
     if (Arg->hasByValAttr()) {
+      // TODO: We probably need to verify synchronization is not an issue, e.g.,
+      //       there is no race by not copying a constant byval.
       const auto &MemAA = A.getAAFor<AAMemoryBehavior>(*this, getIRPosition());
       if (!MemAA.isAssumedReadOnly())
         return indicatePessimisticFixpoint();
@@ -7673,6 +7704,8 @@ ChangeStatus Attributor::run() {
     ChangeStatus LocalChange = AA->manifest(*this);
     if (LocalChange == ChangeStatus::CHANGED && AreStatisticsEnabled())
       AA->trackStatistics();
+    LLVM_DEBUG(dbgs() << "[Attributor] Manifest " << LocalChange << " : " << *AA
+                      << "\n");
 
     ManifestChange = ManifestChange | LocalChange;
 
