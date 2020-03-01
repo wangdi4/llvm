@@ -61,10 +61,6 @@ kernel void test_pointers(volatile global void *global_p, global const int4 *a) 
   atom_cmpxchg((volatile __global unsigned int *)global_p, ui, ui);
 }
 
-<<<<<<< HEAD
-kernel void basic_conversion(global float4 *buf, global int4 *res) {
-  res[0] = convert_int4(buf[0]);
-=======
 kernel void basic_conversion() {
   double d;
   float f;
@@ -77,7 +73,6 @@ kernel void basic_conversion() {
   d = convert_double_rtp(f);
   l2 = convert_long2_rtz(c2);
   i4 = convert_int4_sat(f4);
->>>>>>> 81e8b60b722e5494cb92b6b4ec03d4631028eece
 }
 
 kernel void basic_conversion_neg() {
