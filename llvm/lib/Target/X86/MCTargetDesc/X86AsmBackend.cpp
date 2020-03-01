@@ -123,18 +123,24 @@ class X86AsmBackend : public MCAsmBackend {
   std::unique_ptr<const MCInstrInfo> MCII;
   X86AlignBranchKind AlignBranchType;
   Align AlignBoundary;
-  uint8_t AlignMaxPrefixSize = 0; // INTEL
+#if INTEL_CUSTOMIZATION
+  uint8_t AlignMaxPrefixSize = 0;
+  uint64_t LastDFSizeOfInst = 0;
+  bool HasPrefixedInst = false;
+  bool IsPrefixedInst = false;
+#endif // INTEL_CUSTOMIZATION
 
   bool isMacroFused(const MCInst &Cmp, const MCInst &Jcc) const;
 
   bool needAlign(MCObjectStreamer &OS) const;
   bool needAlignInst(const MCInst &Inst) const;
 #if INTEL_CUSTOMIZATION
-  bool isAffectedInst(const MCInst &Inst) const;
-
   bool shouldAddPrefix(const MCInst &Inst) const;
   uint8_t choosePrefix(const MCInst &Inst) const;
-  const MCFragment *LastAffectedFragment = nullptr;
+  uint8_t getMaxPrefixSize(MCObjectStreamer &OS, const MCInst &Inst,
+                           uint8_t InstSize) const;
+  const MCFragment *LastFragmentToBeAligned = nullptr;
+  const MCDataFragment *LastDFOfInst = nullptr;
 #endif // INTEL_CUSTOMIZATION
   MCInst PrevInst;
 
@@ -384,8 +390,7 @@ bool X86AsmBackend::needAlign(MCObjectStreamer &OS) const {
   assert(allowAutoPadding() && "incorrect initialization!");
 
 #if INTEL_CUSTOMIZATION
-  // Currently don't deal with Bundle cases. The logic here should keep same
-  // with MCObjectStreamer::getOrCreateDataFragment.
+  // Currently don't deal with Bundle cases.
   if (OS.getAssembler().isBundlingEnabled())
     return false;
 #endif // INTEL_CUSTOMIZATION
@@ -418,16 +423,14 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
 }
 
 #if INTEL_CUSTOMIZATION
-/// Check if the instruction is affected by JCC Erratum.
-bool X86AsmBackend::isAffectedInst(const MCInst &Inst) const {
-  unsigned Opcode = Inst.getOpcode();
-  const MCInstrDesc &InstDesc = MCII->get(Opcode);
-  return InstDesc.isBranch() || InstDesc.isCall() || InstDesc.isReturn();
-}
-
 /// Check if prefix can be added before instruction \p Inst.
 bool X86AsmBackend::shouldAddPrefix(const MCInst &Inst) const {
   assert(!needAlignInst(Inst) && "Unexpected control flow!");
+
+  // At most one instruction can be prefixed to align one instruction or a fused
+  // pair.
+  if (HasPrefixedInst)
+    return false;
 
   // No prefix can be added if AlignMaxPrefixSize is 0.
   if (AlignMaxPrefixSize == 0)
@@ -523,6 +526,25 @@ uint8_t X86AsmBackend::choosePrefix(const MCInst &Inst) const {
   return 0x3e;
 }
 
+/// Get the maximum size of prefixes that can be added on the instruction.
+uint8_t X86AsmBackend::getMaxPrefixSize(MCObjectStreamer &OS,
+                                        const MCInst &Inst,
+                                        uint8_t InstSize) const {
+
+  assert(InstSize <= 15 &&
+         "The length of instruction must be no longer than 15.");
+  SmallString<256> Code;
+  raw_svector_ostream VecOS(Code);
+  OS.getAssembler().getEmitter().emitPrefix(Inst, VecOS, STI);
+  assert(Code.size() < 15 && "The number of prefixes must be less than 15.");
+  uint8_t ExistingPrefixSize = static_cast<uint8_t>(Code.size());
+  uint8_t MaxPrefixSize = (AlignMaxPrefixSize > ExistingPrefixSize)
+                              ? (AlignMaxPrefixSize - ExistingPrefixSize)
+                              : 0;
+  MaxPrefixSize = std::min(MaxPrefixSize, static_cast<uint8_t>(15 - InstSize));
+  return MaxPrefixSize;
+}
+
 /// Insert MCBoundaryAlignFragment before instructions to align branches.
 void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
                                        const MCInst &Inst) {
@@ -555,8 +577,12 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
   // \endcode
   //
   // since there is no clear instruction boundary.
-  if (isa_and_nonnull<MCDataFragment>(CF) && !CF->hasInstructions())
-    return;
+  if (auto *F = dyn_cast_or_null<MCDataFragment>(CF)) {
+    // FIXME: The method to detect hardcode is tricky here.
+    if (F != LastDFOfInst || F->getContents().size() != LastDFSizeOfInst) {
+      return;
+    }
+  }
 
   // Prefix or NOP shouldn't be inserted after prefix. e.g.
   //
@@ -566,19 +592,6 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
   // \endcode
   if(X86::isPrefix(PrevInst.getOpcode()))
     return;
-
-  // The number of prefixes is limited by AlignMaxPrefixSize for some
-  // performance reasons, so we need to compute how many prefixes can be added.
-  auto GetRemainingPrefixSize = [&](const MCInst &Inst) {
-    SmallString<256> Code;
-    raw_svector_ostream VecOS(Code);
-    OS.getAssembler().getEmitter().emitPrefix(Inst, VecOS, STI);
-    assert(Code.size() < 15 && "The number of prefixes must be less than 15.");
-    uint8_t ExistingPrefixSize = static_cast<uint8_t>(Code.size());
-    return (AlignMaxPrefixSize > ExistingPrefixSize)
-               ? (AlignMaxPrefixSize - ExistingPrefixSize)
-               : 0;
-  };
 
   bool NeedAlignFused = AlignBranchType & X86::AlignBranchFused;
   //  Step 1:
@@ -622,8 +635,13 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
       // Macro fusion doesn't happen indeed, emit prefix before the previous
       // instruction.
       PF->setAlignment(AlignBoundary);
-      PF->setMaxBytesToEmit(GetRemainingPrefixSize(PrevInst));
       PF->setValue(choosePrefix(PrevInst));
+      HasPrefixedInst = true;
+      if (isa<MCDataFragment>(CF)) {
+        uint8_t MaxBytesToEmit = getMaxPrefixSize(
+            OS, PrevInst, static_cast<uint8_t>(LastDFSizeOfInst));
+        PF->setMaxBytesToEmit(MaxBytesToEmit);
+      }
     }
   }
 
@@ -654,8 +672,9 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     // Emit prefixes before instruction that doesn't need to be aligned.
     auto *F = OS.getOrCreateBoundaryAlignFragment();
     F->setAlignment(AlignBoundary);
-    F->setMaxBytesToEmit(GetRemainingPrefixSize(Inst));
     F->setValue(choosePrefix(Inst));
+    HasPrefixedInst = true;
+    IsPrefixedInst = true;
   }
 }
 
@@ -669,13 +688,33 @@ void X86AsmBackend::alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {
   PrevInst = Inst;
   const MCFragment *CF = OS.getCurrentFragment();
 
-  if (!needAlignInst(Inst)) {
-    if (isAffectedInst(Inst))
-      LastAffectedFragment = CF;
-    return;
+  if (!MCII->get(Inst.getOpcode()).isPseudo()) {
+    if (auto *F = dyn_cast_or_null<MCDataFragment>(CF)) {
+      // Record the position and the size of data fragment if any instruction is
+      // emitted into it.
+      LastDFOfInst = F;
+      LastDFSizeOfInst = F->getContents().size();
+      // The number of prefixes is limited by AlignMaxPrefixSize for some
+      // performance reasons, so we need to compute how many prefixes can be
+      // added.
+      if (IsPrefixedInst &&
+          isa_and_nonnull<MCBoundaryAlignFragment>(F->getPrevNode())) {
+        auto *BF = const_cast<MCBoundaryAlignFragment *>(
+            cast<MCBoundaryAlignFragment>(F->getPrevNode()));
+        assert(BF->hasValue() && "Unexpected control flow!");
+        uint8_t MaxBytesToEmit =
+            getMaxPrefixSize(OS, Inst, static_cast<uint8_t>(LastDFSizeOfInst));
+        BF->setMaxBytesToEmit(MaxBytesToEmit);
+      }
+    }
   }
 
-  for (auto *F = CF; F && F != LastAffectedFragment &&
+  IsPrefixedInst = false;
+
+  if (!needAlignInst(Inst))
+    return;
+
+  for (auto *F = CF; F && F != LastFragmentToBeAligned &&
                      (F->hasInstructions() || isa<MCBoundaryAlignFragment>(F));
        F = F->getPrevNode()) {
     // The fragments to be aligned should be in the same section with this
@@ -693,8 +732,8 @@ void X86AsmBackend::alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {
     }
   }
 
-  assert(isAffectedInst(Inst) && "Unexpected control flow!");
-  LastAffectedFragment = CF;
+  HasPrefixedInst = false;
+  LastFragmentToBeAligned = CF;
 
   // We need no further instructions can be emitted into the current fragment.
   //

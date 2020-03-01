@@ -358,7 +358,8 @@ bool GenerateLEAPass::generateLEAs(MachineBasicBlock &MBB) {
     // 548.exchange2's front-end bound is too heavy,
     // set a smaller threshold.
     if (MBB.getParent()->getFunction()
-           .hasFnAttribute("contains-rec-pro-clone")) {
+           .hasFnAttribute("contains-rec-pro-clone") &&
+        ST->hasDSB()) {
       Threshold = 3;
     }
 

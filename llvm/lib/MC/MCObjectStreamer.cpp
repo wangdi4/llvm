@@ -204,12 +204,6 @@ static bool CanReuseDataFragment(const MCDataFragment &F, MCObjectStreamer &OS,
   if (Assembler.isBundlingEnabled())
     return Assembler.getRelaxAll();
 
-  // When the target need align instructions, we need to determine the size
-  // of some instructions during the relaxation, the easiest way to do it is
-  // to emit each instruction into fragment of its own.
-  if (Assembler.getBackend().allowAutoPadding())
-    return false;
-
   // If the subtarget is changed mid fragment we start a new fragment to record
   // the new STI.
   return !STI || F.getSubtargetInfo() == STI;
