@@ -27,13 +27,10 @@ def RawFrmDstSrc  : Format<6>;
 def RawFrmImm8    : Format<7>;
 def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
-<<<<<<< HEAD
+def PrefixByte    : Format<10>;
 def MRMDestMem4VOp2FSIB : Format<29>; //INTEL
 def MRMSrcMem4VOp3FSIB  : Format<30>; //INTEL
 def MRMDestMemFSIB      : Format<31>; //INTEL
-=======
-def PrefixByte    : Format<10>;
->>>>>>> 8875ee18d72b1b395331c1b7217d2b91fb4dc4b7
 def MRMDestMem     : Format<32>;
 def MRMSrcMem      : Format<33>;
 def MRMSrcMem4VOp3 : Format<34>;
