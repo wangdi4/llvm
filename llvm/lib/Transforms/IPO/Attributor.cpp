@@ -4578,6 +4578,17 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
     if (hasAttr({Attribute::InAlloca, Attribute::StructRet, Attribute::Nest},
                 /* IgnoreSubsumingPositions */ true))
       indicatePessimisticFixpoint();
+
+    // FIXME: This is a hack to prevent us from propagating function poiner in
+    // the new pass manager CGSCC pass as it creates call edges the
+    // CallGraphUpdater cannot handle yet.
+    Value &V = getAssociatedValue();
+    if (V.getType()->isPointerTy() &&
+        V.getType()->getPointerElementType()->isFunctionTy() &&
+        !A.isModulePass() &&
+        A.getInfoCache().getAnalysisResultForFunction<LoopAnalysis>(
+            *getAnchorScope()))
+      indicatePessimisticFixpoint();
   }
 
   /// See AbstractAttribute::updateImpl(...).
@@ -4594,21 +4605,24 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
     bool HasValueBefore = SimplifiedAssociatedValue.hasValue();
 
     auto PredForCallSite = [&](AbstractCallSite ACS) {
-      // Check if we have an associated argument or not (which can happen for
-      // callback calls).
-      Value *ArgOp = ACS.getCallArgOperand(getArgNo());
-      if (!ArgOp)
+      const IRPosition &ACSArgPos =
+          IRPosition::callsite_argument(ACS, getArgNo());
+      // Check if a coresponding argument was found or if it is on not
+      // associated (which can happen for callback calls).
+      if (ACSArgPos.getPositionKind() == IRPosition::IRP_INVALID)
         return false;
+
       // We can only propagate thread independent values through callbacks.
       // This is different to direct/indirect call sites because for them we
       // know the thread executing the caller and callee is the same. For
       // callbacks this is not guaranteed, thus a thread dependent value could
       // be different for the caller and callee, making it invalid to propagate.
+      Value &ArgOp = ACSArgPos.getAssociatedValue();
       if (ACS.isCallbackCall())
-        if (auto *C = dyn_cast<Constant>(ArgOp))
+        if (auto *C = dyn_cast<Constant>(&ArgOp))
           if (C->isThreadDependent())
             return false;
-      return checkAndUpdate(A, *this, *ArgOp, SimplifiedAssociatedValue);
+      return checkAndUpdate(A, *this, ArgOp, SimplifiedAssociatedValue);
     };
 
     bool AllCallSitesKnown;
@@ -4698,6 +4712,7 @@ struct AAValueSimplifyFloating : AAValueSimplifyImpl {
 
   /// See AbstractAttribute::initialize(...).
   void initialize(Attributor &A) override {
+    AAValueSimplifyImpl::initialize(A);
     Value &V = getAnchorValue();
 
     // TODO: add other stuffs
@@ -7290,12 +7305,22 @@ bool Attributor::checkForAllCallSites(
   // If we do not require all call sites we might not see all.
   AllCallSitesKnown = RequireAllCallSites;
 
-  for (const Use &U : Fn.uses()) {
+  SmallVector<const Use *, 8> Uses(make_pointer_range(Fn.uses()));
+  for (unsigned u = 0; u < Uses.size(); ++u) {
+    const Use &U = *Uses[u];
     LLVM_DEBUG(dbgs() << "[Attributor] Check use: " << *U << " in "
                       << *U.getUser() << "\n");
     if (isAssumedDead(U, QueryingAA, nullptr, /* CheckBBLivenessOnly */ true)) {
       LLVM_DEBUG(dbgs() << "[Attributor] Dead use, skip!\n");
       continue;
+    }
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U.getUser())) {
+      if (CE->isCast() && CE->getType()->isPointerTy() &&
+          CE->getType()->getPointerElementType()->isFunctionTy()) {
+        for (const Use &CEU : CE->uses())
+          Uses.push_back(&CEU);
+        continue;
+      }
     }
 
     AbstractCallSite ACS(&U);
@@ -7317,6 +7342,24 @@ bool Attributor::checkForAllCallSites(
       LLVM_DEBUG(dbgs() << "[Attributor] User " << EffectiveUse->getUser()
                         << " is an invalid use of " << Fn.getName() << "\n");
       return false;
+    }
+
+    // Make sure the arguments that can be matched between the call site and the
+    // callee argee on their type. It is unlikely they do not and it doesn't
+    // make sense for all attributes to know/care about this.
+    assert(&Fn == ACS.getCalledFunction() && "Expected known callee");
+    unsigned MinArgsParams =
+        std::min(size_t(ACS.getNumArgOperands()), Fn.arg_size());
+    for (unsigned u = 0; u < MinArgsParams; ++u) {
+      Value *CSArgOp = ACS.getCallArgOperand(u);
+      if (CSArgOp && Fn.getArg(u)->getType() != CSArgOp->getType()) {
+        LLVM_DEBUG(
+            dbgs() << "[Attributor] Call site / callee argument type mismatch ["
+                   << u << "@" << Fn.getName() << ": "
+                   << *Fn.getArg(u)->getType() << " vs. "
+                   << *ACS.getCallArgOperand(u)->getType() << "\n");
+        return false;
+      }
     }
 
     if (Pred(ACS))
@@ -8218,6 +8261,9 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
 
     // Every argument might be simplified.
     getOrCreateAAFor<AAValueSimplify>(ArgPos);
+
+    // Every argument might be dead.
+    getOrCreateAAFor<AAIsDead>(ArgPos);
 
     if (Arg.getType()->isPointerTy()) {
       // Every argument with pointer type might be marked nonnull.
