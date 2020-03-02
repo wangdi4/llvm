@@ -446,11 +446,11 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
   }
   else {
     llvm::Error err = pProgram->HasCachedExecutable()
-                          ? LLJIT->runConstructors(pProgram->GetGlobalCtors())
-                          : LLJIT->runConstructors();
+                          ? LLJIT->initialize(pProgram->GetGlobalCtors())
+                          : LLJIT->initialize();
     if (err) {
       llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
-      throw Exceptions::CompilerException("Failed to run LLJIT constructors");
+      throw Exceptions::CompilerException("Failed to run LLJIT initialize");
     }
   }
 

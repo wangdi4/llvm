@@ -48,20 +48,20 @@ public:
         }))
       return Err;
 
-    return LLJIT::addIRModule(Main, std::move(TSM));
+    return LLJIT::addIRModule(*Main, std::move(TSM));
   }
 
   // Add an object file and it key to the Main JITDylib
   llvm::Error addObjectFile(std::unique_ptr<llvm::MemoryBuffer> Obj,
                             llvm::orc::VModuleKey K) {
-    return ObjTransformLayer.add(Main, std::move(Obj), std::move(K));
+    return ObjTransformLayer.add(*Main, std::move(Obj), std::move(K));
   }
 
-  /// Runs all static constructors.
-  llvm::Error runConstructors() { return LLJIT::runConstructors(); }
+  /// Run the initializers
+  llvm::Error initialize() { return LLJIT::initialize(*Main); }
 
-  /// Run static constructors by name.
-  llvm::Error runConstructors(const std::vector<std::string> &Ctors) {
+  /// Run the initializers, i.e. static constructors, by name.
+  llvm::Error initialize(const std::vector<std::string> &Ctors) {
     using CtorTy = void (*)();
     for (const std::string &Name : Ctors) {
       if (auto Sym = lookupLinkerMangled(Name)) {
