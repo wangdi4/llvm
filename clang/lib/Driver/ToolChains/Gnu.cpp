@@ -722,12 +722,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_L);
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
-  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel))
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
+  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
