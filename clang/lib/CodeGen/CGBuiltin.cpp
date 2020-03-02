@@ -12104,21 +12104,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     return EmitX86FMAExpr(*this, Ops, BuiltinID, /*IsAddSub*/false);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddsubph:
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-  case X86::BI__builtin_ia32_vfmaddsubps:
-  case X86::BI__builtin_ia32_vfmaddsubpd:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddsubph256:
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-  case X86::BI__builtin_ia32_vfmaddsubps256:
-  case X86::BI__builtin_ia32_vfmaddsubpd256:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddsubph512_mask:
@@ -12127,8 +12122,6 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmsubaddph512_mask3:
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 727328433ad61b8c7acdd4d63e73241303a6beb7
   case X86::BI__builtin_ia32_vfmaddsubps512_mask:
   case X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubps512_mask3:
