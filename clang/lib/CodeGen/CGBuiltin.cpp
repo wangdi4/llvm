@@ -11316,7 +11316,8 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
 
   // Only handle in case of _MM_FROUND_CUR_DIRECTION/4 (no rounding).
   if (IID != Intrinsic::not_intrinsic &&
-      cast<llvm::ConstantInt>(Ops.back())->getZExtValue() != (uint64_t)4) {
+      (cast<llvm::ConstantInt>(Ops.back())->getZExtValue() != (uint64_t)4 ||
+       IsAddSub)) {
     Function *Intr = CGF.CGM.getIntrinsic(IID);
     Res = CGF.Builder.CreateCall(Intr, {A, B, C, Ops.back() });
   } else {
@@ -11328,24 +11329,6 @@ static Value *EmitX86FMAExpr(CodeGenFunction &CGF, ArrayRef<Value *> Ops,
     } else {
       FMA = CGF.CGM.getIntrinsic(Intrinsic::fma, Ty);
       Res = CGF.Builder.CreateCall(FMA, {A, B, C});
-    }
-
-    if (IsAddSub) {
-      // Negate even elts in C using a mask.
-      unsigned NumElts = Ty->getVectorNumElements();
-      SmallVector<uint32_t, 16> Indices(NumElts);
-      for (unsigned i = 0; i != NumElts; ++i)
-        Indices[i] = i + (i % 2) * NumElts;
-
-      // FIXME: This code isn't exception safe for constrained FP. We need to
-      // suppress exceptions on the unselected elements.
-      Value *NegC = CGF.Builder.CreateFNeg(C);
-      Value *FMSub;
-      if (CGF.Builder.getIsFPConstrained())
-        FMSub = CGF.Builder.CreateConstrainedFPCall(FMA, {A, B, NegC} );
-      else
-        FMSub = CGF.Builder.CreateCall(FMA, {A, B, NegC} );
-      Res = CGF.Builder.CreateShuffleVector(FMSub, Res, Indices);
     }
   }
 
@@ -12121,6 +12104,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     return EmitX86FMAExpr(*this, Ops, BuiltinID, /*IsAddSub*/false);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddsubph:
@@ -12143,6 +12127,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vfmsubaddph512_mask3:
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 727328433ad61b8c7acdd4d63e73241303a6beb7
   case X86::BI__builtin_ia32_vfmaddsubps512_mask:
   case X86::BI__builtin_ia32_vfmaddsubps512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubps512_mask3:
