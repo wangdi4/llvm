@@ -8,7 +8,8 @@
 # CHECK-NEXT:        c: 4c 8b 8c 24 88 00 00 00          movq    136(%rsp), %r9
 # CHECK-COUNT-4:      : 90                               nop
 # CHECK:            18: 66 66 90                         nop
-# CHECK-NEXT:       1b: 2e 2e 4c 89 c1                   movq    %r8, %rcx
+# CHECK-NEXT:       1b: 4c 89 c1                         movq    %r8, %rcx
+# CHECK-COUNT-2:      : 90                               nop
 # CHECK-NEXT:       20: eb de                            jmp     {{.*}}
 # CHECK-NEXT:       22: c3                               retq
 

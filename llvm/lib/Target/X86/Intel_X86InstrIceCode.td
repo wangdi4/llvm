@@ -64,31 +64,59 @@ let Predicates = [InIceCodeMode] in {
       def CREG_XCHG32r : I<0x01, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src),
                            "creg_xchg{l}\t{$src, $dst|$dst, $src}",
                            [(set GR32:$dst, (int_x86_icecode_creg_xchg_32 GR32:$src, GR32:$src1))]>;
+      def CREG_XCHG32i : Ii32<0x81, MRM0r, (outs GR32:$dst), (ins GR32:$src1, i32u32imm:$src),
+                              "creg_xchg{l}\t{$src, $dst|$dst, $src}",
+                              [(set GR32:$dst, (int_x86_icecode_creg_xchg_32 imm:$src, GR32:$src1))]>;
+
       def CREG_XCHG64r : RI<0x01, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR32:$src),
                             "creg_xchg{q}\t{$src, $dst|$dst, $src}",
                             [(set GR64:$dst, (int_x86_icecode_creg_xchg_64 GR32:$src, GR64:$src1))]>;
+      def CREG_XCHG64i : RIi32<0x81, MRM0r, (outs GR64:$dst), (ins GR64:$src1, i32u32imm:$src),
+                               "creg_xchg{q}\t{$src, $dst|$dst, $src}",
+                               [(set GR64:$dst, (int_x86_icecode_creg_xchg_64 imm:$src, GR64:$src1))]>;
 
       def FSCP_XCHG32r : I<0x21, MRMDestReg, (outs GR32:$dst), (ins GR32:$src1, GR32:$src),
                            "fscp_xchg{l}\t{$src, $dst|$dst, $src}",
                            [(set GR32:$dst, (int_x86_icecode_fscp_xchg_32 GR32:$src, GR32:$src1))]>;
+      def FSCP_XCHG32i : Ii32<0x81, MRM4r, (outs GR32:$dst), (ins GR32:$src1, i32u32imm:$src),
+                              "fscp_xchg{l}\t{$src, $dst|$dst, $src}",
+                              [(set GR32:$dst, (int_x86_icecode_fscp_xchg_32 imm:$src, GR32:$src1))]>;
+
       def FSCP_XCHG64r : RI<0x21, MRMDestReg, (outs GR64:$dst), (ins GR64:$src1, GR32:$src),
                             "fscp_xchg{q}\t{$src, $dst|$dst, $src}",
                             [(set GR64:$dst, (int_x86_icecode_fscp_xchg_64 GR32:$src, GR64:$src1))]>;
+      def FSCP_XCHG64i : RIi32<0x81, MRM4r, (outs GR64:$dst), (ins GR64:$src1, i32u32imm:$src),
+                               "fscp_xchg{q}\t{$src, $dst|$dst, $src}",
+                               [(set GR64:$dst, (int_x86_icecode_fscp_xchg_64 imm:$src, GR64:$src1))]>;
     }
 
     def CREG_READ32r : I<0x29, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
                          "creg_read{l}\t{$src, $dst|$dst, $src}",
                          [(set GR32:$dst, (int_x86_icecode_creg_read_32 GR32:$src))]>;
+    def CREG_READ32i : Ii32<0x81, MRM5r, (outs GR32:$dst), (ins i32u32imm:$src),
+                            "creg_read{l}\t{$src, $dst|$dst, $src}",
+                            [(set GR32:$dst, (int_x86_icecode_creg_read_32 imm:$src))]>;
+
     def CREG_READ64r : RI<0x29, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
                           "creg_read{q}\t{$src, $dst|$dst, $src}",
                           [(set GR64:$dst, (int_x86_icecode_creg_read_64 GR32:$src))]>;
+    def CREG_READ64i : RIi32<0x81, MRM5r, (outs GR64:$dst), (ins i32u32imm:$src),
+                             "creg_read{q}\t{$src, $dst|$dst, $src}",
+                             [(set GR64:$dst, (int_x86_icecode_creg_read_64 imm:$src))]>;
 
     def FSCP_READ32r : I<0x09, MRMDestReg, (outs GR32:$dst), (ins GR32:$src),
                          "fscp_read{l}\t{$src, $dst|$dst, $src}",
                          [(set GR32:$dst, (int_x86_icecode_fscp_read_32 GR32:$src))]>;
+    def FSCP_READ32i : Ii32<0x81, MRM1r, (outs GR32:$dst), (ins i32u32imm:$src),
+                            "fscp_read{l}\t{$src, $dst|$dst, $src}",
+                            [(set GR32:$dst, (int_x86_icecode_fscp_read_32 imm:$src))]>;
+
     def FSCP_READ64r : RI<0x09, MRMDestReg, (outs GR64:$dst), (ins GR32:$src),
                           "fscp_read{q}\t{$src, $dst|$dst, $src}",
                           [(set GR64:$dst, (int_x86_icecode_fscp_read_64 GR32:$src))]>;
+    def FSCP_READ64i : RIi32<0x81, MRM1r, (outs GR64:$dst), (ins i32u32imm:$src),
+                             "fscp_read{q}\t{$src, $dst|$dst, $src}",
+                             [(set GR64:$dst, (int_x86_icecode_fscp_read_64 imm:$src))]>;
 
     def PORTIN8rm  : I<0x8a, MRMSrcMem, (outs GR8:$dst), (ins opaquemem:$src),
                        "portin{b}\t{$src, $dst|$dst, $src}",

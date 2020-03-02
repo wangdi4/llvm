@@ -11,10 +11,9 @@
 # CHECK:           3c: 89 75 f4                         movl    %esi, -12(%rbp)
 # CHECK-NEXT:      3f: 55                               pushq   %rbp
 # CHECK-NEXT:      40: ff d0                            callq   *%rax
-# CHECK-NEXT:      42: 64 64 64 64 89 04 25 01 00 00 00 movl    %eax, %fs:1
-# CHECK-NEXT:      4d: 64 64 64 89 04 25 01 00 00 00    movl    %eax, %fs:1
-# CHECK-NEXT:      57: 64 89 04 25 01 00 00 00          movl    %eax, %fs:1
-# CHECK-NEXT:      5f: 55                               pushq   %rbp
+# CHECK-COUNT-3:     : 64 89 04 25 01 00 00 00          movl    %eax, %fs:1
+# CHECK-NEXT:      5a: 55                               pushq   %rbp
+# CHECK-COUNT-5:     : 90                               nop
 # CHECK-NEXT:      60: e8 00 00 00 00                   callq   {{.*}}
 # CHECK-COUNT-4:     : 64 89 04 25 01 00 00 00          movl    %eax, %fs:1
 # CHECK:           85: ff 14 25 00 00 00 00             callq   *0

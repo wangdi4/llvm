@@ -1,9 +1,9 @@
 ## Check approriate prefix is choosen to prefix an instruction.
-# RUN: llvm-mc -filetype=obj -triple i386-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp  --x86-align-branch-prefix-size=2 %s | llvm-objdump -d  - | FileCheck %s
+# RUN: llvm-mc -filetype=obj -triple i386-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp  --x86-align-branch-prefix-size=3 %s | llvm-objdump -d  - | FileCheck %s
 
 # CHECK: 00000000 foo:
-# CHECK-NEXT:        0: 65 65 a3 01 00 00 00             movl    %eax, %gs:1
-# CHECK-NEXT:        7: 3e 55                            pushl   %ebp
+# CHECK-NEXT:        0: 65 65 65 a3 01 00 00 00          movl    %eax, %gs:1
+# CHECK-NEXT:        8: 55                               pushl   %ebp
 # CHECK-NEXT:        9: 57                               pushl   %edi
 # CHECK-COUNT-2:      : 55                               pushl   %ebp
 # CHECK:             c: 89 e5                            movl    %esp, %ebp
@@ -41,9 +41,10 @@
 # CHECK-COUNT-4:      : 89 b5 50 fb ff ff                movl    %esi, -1200(%ebp)
 # CHECK:            a0: 89 75 0c                         movl    %esi, 12(%ebp)
 # CHECK-NEXT:       a3: e9 fc ff ff ff                   jmp     {{.*}}
-# CHECK-COUNT-3:      : 64 64 8e 15 01 00 00 00          movw    %fs:1, %ss
-# CHECK             c0: 39 c5                            cmpl    %eax, %ebp
-# CHECK-NEXT        c2: 74 c4                            je    {{.*}}
+# CHECK-COUNT-3:      : 64 8e 15 01 00 00 00             movw    %fs:1, %ss
+# CHECK-COUNT-3:      : 90                               nop
+# CHECK:            c0: 39 c5                            cmpl    %eax, %ebp
+# CHECK-NEXT:       c2: 74 c4                            je    {{.*}}
   .text
   .globl  foo
   .p2align  4
