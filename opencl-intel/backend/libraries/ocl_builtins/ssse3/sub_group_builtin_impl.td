@@ -1,3 +1,25 @@
+//
+// Broadcast
+//
+
+OclBuiltinImpl sub_group_broadcast_vector = OclBuiltinImpl<sub_group_broadcast_vec, [v4i32, v8i32, v16i32,
+                                                                                     v4u32, v8u32, v16u32,
+                                                                                     v4i64, v8i64, v16i64,
+                                                                                     v4u64, v8u64, v16u64,
+                                                                                     v4f32, v8f32, v16f32,
+                                                                                     v4f64, v8f64, v16f64],  0,
+  [{
+    return $Arg0VarName[$Arg1VarName];
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_vector_cs = OclBuiltinImpl<sub_group_broadcast_vec_cs, [v4i8 , v8i8 , v16i8 ,
+                                                                                           v4u8 , v8u8 , v16u8 ,
+                                                                                           v4i16, v8i16, v16i16,
+                                                                                           v4u16, v8u16, v16u16], 0,
+  [{
+    return $Arg0VarName[$Arg1VarName];
+  }]>;
+
 OclBuiltinImpl sub_group_shuffle_avx512v48gentype = OclBuiltinImpl<sub_group_shuffle_avx512, [v48i8, v48u8, v48i16, v48u16, v48f32,
                                                                                               v48i32, v48u32, v48i64, v48u64], 0,
   [{
