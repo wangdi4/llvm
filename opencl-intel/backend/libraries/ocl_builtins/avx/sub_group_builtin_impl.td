@@ -1254,7 +1254,7 @@ OclBuiltinImpl sub_group_shuffle_up_avx_gen = OclBuiltinImpl<sub_group_shuffle_u
   }]>;
 
 // char, uchar
-OclBuiltinImpl sub_group_shuffle_up_avx_gen = OclBuiltinImpl<sub_group_shuffle_up_avx,
+OclBuiltinImpl sub_group_shuffle_up_avx_i8 = OclBuiltinImpl<sub_group_shuffle_up_avx,
                [v4i8, v4u8, v8i8, v8u8, v16i8, v16u8, v32i8, v32u8, v64i8, v64u8], 0,
   [{
     $Arg0Type res_cur, res_next;
@@ -1289,7 +1289,7 @@ OclBuiltinImpl sub_group_shuffle_up_avx_gen = OclBuiltinImpl<sub_group_shuffle_u
   }]>;
 
 // short, ushort
-OclBuiltinImpl sub_group_shuffle_up_avx_gen = OclBuiltinImpl<sub_group_shuffle_up_avx,
+OclBuiltinImpl sub_group_shuffle_up_avx_i16 = OclBuiltinImpl<sub_group_shuffle_up_avx,
                [v4i16, v4u16, v8i16, v8u16, v16i16, v16u16, v32i16, v32u16, v64i16, v64u16], 0,
   [{
     $Arg0Type res_cur, res_next;
