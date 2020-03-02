@@ -189,10 +189,6 @@ void *__tgt_rtl_create_offload_pipe(int32_t ID, bool IsAsync);
 // Releases a device-dependent offload pipe.
 EXTERN
 int32_t __tgt_rtl_release_offload_pipe(int32_t ID, void *Pipe);
-
-// Checks if the specified memory location is managed.
-EXTERN
-int32_t __tgt_rtl_is_managed_data(int32_t ID, void *HostPtr);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

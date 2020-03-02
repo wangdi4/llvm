@@ -950,7 +950,6 @@ int32_t __tgt_rtl_number_of_devices() {
 
 EXTERN
 int32_t __tgt_rtl_init_device(int32_t device_id) {
-
   cl_int status;
   DP("Initialize OpenCL device\n");
   assert(device_id >= 0 && (cl_uint)device_id < DeviceInfo.numDevices &&
@@ -1216,9 +1215,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   if (!DeviceInfo.clGetMemAllocInfoINTELFn &&
       DeviceInfo.Extensions[device_id].GetMemAllocInfoINTELPointer ==
-      ExtensionStatusEnabled &&
-      (DeviceInfo.DeviceType == CL_DEVICE_TYPE_CPU ||
-       DeviceInfo.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)) {
+      ExtensionStatusEnabled && DeviceInfo.DeviceType == CL_DEVICE_TYPE_CPU) {
     // TODO: limit this to CPU devices for the time being.
     DeviceInfo.clGetMemAllocInfoINTELFn =
         reinterpret_cast<clGetMemAllocInfoINTELTy>(
@@ -1516,19 +1513,6 @@ EXTERN int32_t __tgt_rtl_release_offload_pipe(int32_t device_id, void *pipe) {
   }
   return OFFLOAD_SUCCESS;
 }
-
-#if INTEL_CUSTOMIZATION
-EXTERN int32_t __tgt_rtl_is_managed_data(int32_t device_id, void *hst_ptr) {
-  if (!DeviceInfo.clGetMemAllocInfoINTELFn)
-    return 0;
-  cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_UNKNOWN_INTEL;
-  INVOKE_CL_RET(0, DeviceInfo.clGetMemAllocInfoINTELFn,
-                DeviceInfo.CTX[device_id], hst_ptr, CL_MEM_ALLOC_TYPE_INTEL,
-                sizeof(type), &type, nullptr);
-  // These two types do not need explicit data move.
-  return (type == CL_MEM_TYPE_HOST_INTEL || type == CL_MEM_TYPE_SHARED_INTEL);
-}
-#endif // INTEL_CUSTOMIZATION
 
 static inline
 void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,

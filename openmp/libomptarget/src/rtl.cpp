@@ -232,9 +232,6 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.release_offload_pipe) =
               dlsym(dynlib_handle, "__tgt_rtl_release_offload_pipe")))
       DP("Optional interface: __tgt_rtl_release_offload_pipe\n");
-    if ((*((void **)&R.is_managed_data) =
-              dlsym(dynlib_handle, "__tgt_rtl_is_managed_data")))
-      DP("Optional interface: __tgt_rtl_is_managed_data\n");
 #endif // INTEL_COLLAB
 
     // Optional functions
