@@ -79,12 +79,43 @@ static RT::PiProgram createBinaryProgram(const ContextImplPtr Context,
          "Only a single device is supported for AOT compilation");
 #endif
 
-  RT::PiDevice Device = getFirstDevice(Context);
-  pi_int32 BinaryStatus = CL_SUCCESS;
   RT::PiProgram Program;
-  Plugin.call<PiApiKind::piclProgramCreateWithBinary>(
-      Context->getHandleRef(), 1 /*one binary*/, &Device, &DataLen, &Data,
-      &BinaryStatus, &Program);
+
+  bool IsCUDA = false;
+
+  // TODO: Implement `piProgramCreateWithBinary` to not require extra logic for
+  //       the CUDA backend.
+#if USE_PI_CUDA
+  // All devices in a context are from the same platform.
+  RT::PiDevice Device = getFirstDevice(Context);
+  RT::PiPlatform Platform = nullptr;
+  Plugin.call<PiApiKind::piDeviceGetInfo>(Device, PI_DEVICE_INFO_PLATFORM, sizeof(Platform),
+                           &Platform, nullptr);
+  size_t PlatformNameSize = 0u;
+  Plugin.call<PiApiKind::piPlatformGetInfo>(Platform, PI_PLATFORM_INFO_NAME, 0u, nullptr,
+                             &PlatformNameSize);
+  std::vector<char> PlatformName(PlatformNameSize, '\0');
+  Plugin.call<PiApiKind::piPlatformGetInfo>(Platform, PI_PLATFORM_INFO_NAME,
+                             PlatformName.size(), PlatformName.data(), nullptr);
+  if (PlatformNameSize > 0u &&
+      std::strncmp(PlatformName.data(), "NVIDIA CUDA", PlatformNameSize) == 0) {
+    IsCUDA = true;
+  }
+#endif // USE_PI_CUDA
+
+  if (IsCUDA) {
+    // TODO: Reemplace CreateWithSource with CreateWithBinary in CUDA backend
+    const char *SignedData = reinterpret_cast<const char *>(Data);
+    Plugin.call<PiApiKind::piclProgramCreateWithSource>(Context->getHandleRef(), 1 /*one binary*/, &SignedData,
+                                         &DataLen, &Program);
+  } else {
+    RT::PiDevice Device = getFirstDevice(Context);
+    pi_int32 BinaryStatus = CL_SUCCESS;
+    Plugin.call<PiApiKind::piclProgramCreateWithBinary>(Context->getHandleRef(), 1 /*one binary*/, &Device,
+                                         &DataLen, &Data, &BinaryStatus,
+                                         &Program);
+  }
+
   return Program;
 }
 
@@ -412,7 +443,11 @@ ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel,
   RT::PiProgram Program;
   const detail::plugin &Plugin = Context->getPlugin();
   Plugin.call<PiApiKind::piKernelGetInfo>(
+<<<<<<< HEAD
       Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(RT::PiProgram), &Program, nullptr);
+=======
+      Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program), &Program, nullptr);
+>>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
   return Program;
 }
 

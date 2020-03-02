@@ -929,6 +929,7 @@ cl_int ExecCGCommand::enqueueImp() {
       case kernel_param_kind_t::kind_accessor: {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
         if (RT::useBackend(pi::Backend::SYCL_BE_PI_OTHER)) {
@@ -937,8 +938,18 @@ cl_int ExecCGCommand::enqueueImp() {
           break;
         }
 #endif // INTEL_CUSTOMIZATION
+=======
+#if USE_PI_CUDA
+        pi_mem MemArg = (pi_mem)AllocaCmd->getMemAllocation();
+        Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex, &MemArg);
+#else
+        cl_mem MemArg = (cl_mem)AllocaCmd->getMemAllocation();
+>>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
         Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                sizeof(cl_mem), &MemArg);
+        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
+                                               sizeof(cl_mem), &MemArg);
+#endif
         break;
       }
       case kernel_param_kind_t::kind_std_layout: {
@@ -1015,7 +1026,35 @@ cl_int ExecCGCommand::enqueueImp() {
     CGPrefetchUSM *Prefetch = (CGPrefetchUSM *)MCommandGroup.get();
     MemoryManager::prefetch_usm(Prefetch->getDst(), MQueue,
                                 Prefetch->getLength(), std::move(RawEvents),
-                                Event);
+                                Event); 
+    return CL_SUCCESS;
+  }
+  case CG::CGTYPE::INTEROP_TASK_CODEPLAY: {
+    const detail::plugin &Plugin = MQueue->getPlugin();
+    CGInteropTask *ExecInterop = (CGInteropTask *)MCommandGroup.get();
+    // Wait for dependencies to complete before dispatching work on the host
+    // TODO: Use a callback to dispatch the interop task instead of waiting for
+    //  the event
+    if (!RawEvents.empty()) {
+      Plugin.call<PiApiKind::piEventsWait>(RawEvents.size(), &RawEvents[0]);
+    }
+    std::vector<interop_handler::ReqToMem> ReqMemObjs;
+    // Extract the Mem Objects for all Requirements, to ensure they are available if
+    // a user ask for them inside the interop task scope
+    const auto& HandlerReq = ExecInterop->MRequirements;
+    std::for_each(std::begin(HandlerReq), std::end(HandlerReq), [&](Requirement* Req) {
+      AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
+      auto MemArg = reinterpret_cast<pi_mem>(AllocaCmd->getMemAllocation());
+      interop_handler::ReqToMem ReqToMem = std::make_pair(Req, MemArg);
+      ReqMemObjs.emplace_back(ReqToMem);
+    });
+
+    auto interop_queue = MQueue->get();
+    std::sort(std::begin(ReqMemObjs), std::end(ReqMemObjs));
+    interop_handler InteropHandler(std::move(ReqMemObjs), interop_queue);
+    ExecInterop->MInteropTask->call(InteropHandler);
+    Plugin.call<PiApiKind::piEnqueueEventsWait>(MQueue->getHandleRef(), 0, nullptr, &Event);
+    Plugin.call<PiApiKind::piQueueRelease>(reinterpret_cast<pi_queue>(interop_queue));
     return CL_SUCCESS;
   }
   case CG::CGTYPE::NONE:
