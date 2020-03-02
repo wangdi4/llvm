@@ -407,6 +407,33 @@ OclBuiltinImpl sub_group_scan_inclusive_add_avx256f64 = OclBuiltinImpl<sub_group
     return $Arg0VarName;
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_add_avx256i8 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_inclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx256u8 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_inclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx256i16 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_inclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_add_avx256u16 = OclBuiltinImpl<sub_group_scan_inclusive_add_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_inclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
 
 // min
 OclBuiltinImpl sub_group_scan_inclusive_min_avx256i32 =  OclBuiltinImpl<sub_group_scan_inclusive_min_vec, [v8i32], 0,
@@ -525,6 +552,34 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx256f64 =  OclBuiltinImpl<sub_grou
     return as_$Arg0Type(arg0);
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_min_avx256i8 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_inclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx256u8 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_inclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx256i16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_inclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_min_avx256u16 = OclBuiltinImpl<sub_group_scan_inclusive_min_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_inclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
 // max
 OclBuiltinImpl sub_group_scan_inclusive_max_avx256i32 =  OclBuiltinImpl<sub_group_scan_inclusive_max_vec, [v8i32], 0,
   [{
@@ -641,6 +696,34 @@ OclBuiltinImpl sub_group_scan_inclusive_max_avx256f64 =  OclBuiltinImpl<sub_grou
     return as_$Arg0Type(arg0);
   }]>;
 
+OclBuiltinImpl sub_group_scan_inclusive_max_avx256i8 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_inclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx256u8 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_inclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx256i16 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_inclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_inclusive_max_avx256u16 = OclBuiltinImpl<sub_group_scan_inclusive_max_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_inclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
 // exclusive scan
 // add
 OclBuiltinImpl sub_group_scan_exclusive_add_avx256iu32 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec, [v8i32, v8u32], 0,
@@ -723,6 +806,34 @@ OclBuiltinImpl sub_group_scan_exclusive_add_avx256f64 = OclBuiltinImpl<sub_group
       $Arg0VarName.hi = as_$Arg0BaseType#4(_mm256_add_pd((__m256d)$Arg0VarName.hi, (__m256d)temp.hi));
     }
     return $Arg0VarName;
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx256i8 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_exclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx256u8 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_exclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx256i16 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_exclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_add_avx256u16 = OclBuiltinImpl<sub_group_scan_exclusive_add_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_exclusive_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
   }]>;
 
 //min
@@ -861,6 +972,34 @@ OclBuiltinImpl sub_group_scan_exclusive_min_avx256f64 = OclBuiltinImpl<sub_group
     return as_$Arg0Type(arg0);
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_min_avx256i8 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx256u8 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx256i16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_min_avx256u16 = OclBuiltinImpl<sub_group_scan_exclusive_min_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_exclusive_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
 //max
 OclBuiltinImpl sub_group_scan_exclusive_max_avx256i32 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec, [v8i32], 0,
   [{
@@ -997,6 +1136,33 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256f64 = OclBuiltinImpl<sub_group
     return as_$Arg0Type(arg0);
   }]>;
 
+OclBuiltinImpl sub_group_scan_exclusive_max_avx256i8 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx256u8 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx256i16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_scan_exclusive_max_avx256u16 = OclBuiltinImpl<sub_group_scan_exclusive_max_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_scan_exclusive_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
 
 //
 // Shuffles
