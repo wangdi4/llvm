@@ -1220,7 +1220,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   std::string CodeModel = getTargetOpts().CodeModel;
   if (CodeModel == "default")
     CodeModel = "small";
-  Builder.defineMacro("__code_model_" + CodeModel + "_");
+  Builder.defineMacro("__code_model_" + CodeModel + "__");
 
   // Target identification.
 #if INTEL_CUSTOMIZATION

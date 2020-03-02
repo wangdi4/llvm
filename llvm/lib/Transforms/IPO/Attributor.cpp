@@ -4628,9 +4628,7 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
     Value &V = getAssociatedValue();
     if (V.getType()->isPointerTy() &&
         V.getType()->getPointerElementType()->isFunctionTy() &&
-        !A.isModulePass() &&
-        A.getInfoCache().getAnalysisResultForFunction<LoopAnalysis>(
-            *getAnchorScope()))
+        !A.isModulePass())
       indicatePessimisticFixpoint();
   }
 
@@ -4757,7 +4755,9 @@ struct AAValueSimplifyFloating : AAValueSimplifyImpl {
 
   /// See AbstractAttribute::initialize(...).
   void initialize(Attributor &A) override {
-    AAValueSimplifyImpl::initialize(A);
+    // FIXME: This might have exposed a SCC iterator update bug in the old PM.
+    //        Needs investigation.
+    // AAValueSimplifyImpl::initialize(A);
     Value &V = getAnchorValue();
 
     // TODO: add other stuffs
