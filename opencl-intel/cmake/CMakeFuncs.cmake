@@ -452,6 +452,7 @@ function (add_ocl_unittest test_name)
   add_lit_testsuite(${LIT_TARGET}
     "Running the OpenCL ${test_name} unittests"
     ${CMAKE_CURRENT_SOURCE_DIR}
+    EXCLUDE_FROM_CHECK_ALL
     PARAMS ${RT_TEST_PARAMS}
     DEPENDS ${test_name}
     ARGS ${RT_TEST_ARGS})
