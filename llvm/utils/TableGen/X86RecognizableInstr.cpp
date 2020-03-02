@@ -945,6 +945,7 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   TYPE("i32u4imm",            TYPE_UIMM8)
+  TYPE("i32u32imm",           TYPE_IMM)
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
   TYPE("i32u8imm",            TYPE_UIMM8)
@@ -1355,6 +1356,11 @@ RecognizableInstr::relocationEncodingFromString(const std::string &s,
   ENCODING("i16imm",             ENCODING_Iv)
   ENCODING("i16i8imm",           ENCODING_IB)
   ENCODING("i32imm",             ENCODING_Iv)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  ENCODING("i32u32imm",          ENCODING_Iv)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   ENCODING("i32i8imm",           ENCODING_IB)
   ENCODING("i64i32imm",          ENCODING_ID)
   ENCODING("i64i8imm",           ENCODING_IB)
