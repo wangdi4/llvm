@@ -1465,6 +1465,14 @@ TLI_DEFINE_STRING_INTERNAL("copysignl")
 /// double cos(double x);
 TLI_DEFINE_ENUM_INTERNAL(cos)
 TLI_DEFINE_STRING_INTERNAL("cos")
+#if INTEL_CUSTOMIZATION
+/// double cosd(double x);
+TLI_DEFINE_ENUM_INTERNAL(cosd)
+TLI_DEFINE_STRING_INTERNAL("cosd")
+/// float cosdf(float x);
+TLI_DEFINE_ENUM_INTERNAL(cosdf)
+TLI_DEFINE_STRING_INTERNAL("cosdf")
+#endif // INTEL_CUSTOMIZATION
 /// float cosf(float x);
 TLI_DEFINE_ENUM_INTERNAL(cosf)
 TLI_DEFINE_STRING_INTERNAL("cosf")
@@ -2550,6 +2558,12 @@ TLI_DEFINE_STRING_INTERNAL("sincos")
 /// void sincosf(float x, float *y, float *z);
 TLI_DEFINE_ENUM_INTERNAL(sincosf)
 TLI_DEFINE_STRING_INTERNAL("sincosf")
+/// double sind(double x);
+TLI_DEFINE_ENUM_INTERNAL(sind)
+TLI_DEFINE_STRING_INTERNAL("sind")
+/// float sindf(float x);
+TLI_DEFINE_ENUM_INTERNAL(sindf)
+TLI_DEFINE_STRING_INTERNAL("sindf")
 #endif // INTEL_CUSTOMIZATION
 
 /// float sinf(float x);
@@ -2751,6 +2765,14 @@ TLI_DEFINE_STRING_INTERNAL("system")
 /// double tan(double x);
 TLI_DEFINE_ENUM_INTERNAL(tan)
 TLI_DEFINE_STRING_INTERNAL("tan")
+#if INTEL_CUSTOMIZATION
+/// double tand(double x);
+TLI_DEFINE_ENUM_INTERNAL(tand)
+TLI_DEFINE_STRING_INTERNAL("tand")
+/// float tandf(float x);
+TLI_DEFINE_ENUM_INTERNAL(tandf)
+TLI_DEFINE_STRING_INTERNAL("tandf")
+#endif // INTEL_CUSTOMIZATION
 /// float tanf(float x);
 TLI_DEFINE_ENUM_INTERNAL(tanf)
 TLI_DEFINE_STRING_INTERNAL("tanf")
