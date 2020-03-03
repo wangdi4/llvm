@@ -742,54 +742,73 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_uint32{ze_device_image_properties.maxWriteImageArgs});
   }
   else if (param_name == PI_DEVICE_INFO_SINGLE_FP_CONFIG) {
-    uint32_t singleFPValue = 0;
+    uint64_t singleFPValue = 0;
     ze_fp_capabilities_t singleFpCapabilities = ze_device_kernel_properties.singleFpCapabilities;
     if (ZE_FP_CAPS_DENORM & singleFpCapabilities) {
-      singleFPValue |= CL_FP_DENORM;
+      singleFPValue |= PI_FP_DENORM;
     }
     if (ZE_FP_CAPS_INF_NAN & singleFpCapabilities) {
-      singleFPValue |= CL_FP_INF_NAN;
+      singleFPValue |= PI_FP_INF_NAN;
     }
     if (ZE_FP_CAPS_ROUND_TO_NEAREST  & singleFpCapabilities) {
-      singleFPValue |= CL_FP_ROUND_TO_NEAREST;
+      singleFPValue |= PI_FP_ROUND_TO_NEAREST;
     }
     if (ZE_FP_CAPS_ROUND_TO_ZERO & singleFpCapabilities) {
-      singleFPValue |= CL_FP_ROUND_TO_ZERO;
+      singleFPValue |= PI_FP_ROUND_TO_ZERO;
     }
     if (ZE_FP_CAPS_ROUND_TO_INF & singleFpCapabilities) {
-      singleFPValue |= CL_FP_ROUND_TO_INF;
+      singleFPValue |= PI_FP_ROUND_TO_INF;
     }
     if (ZE_FP_CAPS_FMA & singleFpCapabilities) {
-      singleFPValue |= CL_FP_FMA;
+      singleFPValue |= PI_FP_FMA;
     }
-    SET_PARAM_VALUE(pi_uint32{singleFPValue});
+    SET_PARAM_VALUE(pi_uint64{singleFPValue});
   }
   else if (param_name == PI_DEVICE_INFO_HALF_FP_CONFIG) {
-    // TODO: To find out correct value
-    printf("Unsupported PI_DEVICE_INFO_HALF_FP_CONFIG in piGetDeviceInfo");
+    uint64_t halfFPValue = 0;
+    ze_fp_capabilities_t halfFpCapabilities = ze_device_kernel_properties.halfFpCapabilities;
+    if (ZE_FP_CAPS_DENORM & halfFpCapabilities) {
+      halfFPValue |= PI_FP_DENORM;
+    }
+    if (ZE_FP_CAPS_INF_NAN & halfFpCapabilities) {
+      halfFPValue |= PI_FP_INF_NAN;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_NEAREST  & halfFpCapabilities) {
+      halfFPValue |= PI_FP_ROUND_TO_NEAREST;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_ZERO & halfFpCapabilities) {
+      halfFPValue |= PI_FP_ROUND_TO_ZERO;
+    }
+    if (ZE_FP_CAPS_ROUND_TO_INF & halfFpCapabilities) {
+      halfFPValue |= PI_FP_ROUND_TO_INF;
+    }
+    if (ZE_FP_CAPS_FMA & halfFpCapabilities) {
+      halfFPValue |= PI_FP_FMA;
+    }
+    SET_PARAM_VALUE(pi_uint64{halfFPValue});
   }
   else if (param_name == PI_DEVICE_INFO_DOUBLE_FP_CONFIG) {
-    uint32_t doubleFPValue = 0;
+    uint64_t doubleFPValue = 0;
     ze_fp_capabilities_t doubleFpCapabilities = ze_device_kernel_properties.doubleFpCapabilities;
     if (ZE_FP_CAPS_DENORM & doubleFpCapabilities) {
-      doubleFPValue |= CL_FP_DENORM;
+      doubleFPValue |= PI_FP_DENORM;
     }
     if (ZE_FP_CAPS_INF_NAN & doubleFpCapabilities) {
-      doubleFPValue |= CL_FP_INF_NAN;
+      doubleFPValue |= PI_FP_INF_NAN;
     }
     if (ZE_FP_CAPS_ROUND_TO_NEAREST  & doubleFpCapabilities) {
-      doubleFPValue |= CL_FP_ROUND_TO_NEAREST;
+      doubleFPValue |= PI_FP_ROUND_TO_NEAREST;
     }
     if (ZE_FP_CAPS_ROUND_TO_ZERO & doubleFpCapabilities) {
-      doubleFPValue |= CL_FP_ROUND_TO_ZERO;
+      doubleFPValue |= PI_FP_ROUND_TO_ZERO;
     }
     if (ZE_FP_CAPS_ROUND_TO_INF & doubleFpCapabilities) {
-      doubleFPValue |= CL_FP_ROUND_TO_INF;
+      doubleFPValue |= PI_FP_ROUND_TO_INF;
     }
     if (ZE_FP_CAPS_FMA & doubleFpCapabilities) {
-      doubleFPValue |= CL_FP_FMA;
+      doubleFPValue |= PI_FP_FMA;
     }
-    SET_PARAM_VALUE(pi_uint32{doubleFPValue});
+    SET_PARAM_VALUE(pi_uint64{doubleFPValue});
   }
   else if (param_name == PI_DEVICE_INFO_IMAGE2D_MAX_WIDTH) {
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288

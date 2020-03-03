@@ -231,6 +231,15 @@ typedef enum {
 } _pi_kernel_group_info;
 
 typedef enum {
+  PI_FP_ROUND_TO_NEAREST  = CL_FP_ROUND_TO_NEAREST,
+  PI_FP_ROUND_TO_ZERO     = CL_FP_ROUND_TO_ZERO,
+  PI_FP_ROUND_TO_INF      = CL_FP_ROUND_TO_INF,
+  PI_FP_INF_NAN           = CL_FP_INF_NAN,
+  PI_FP_DENORM            = CL_FP_DENORM,
+  PI_FP_FMA               = CL_FP_FMA
+} _pi_fp_capabilities;
+
+typedef enum {
   PI_EVENT_INFO_COMMAND_QUEUE              = CL_EVENT_COMMAND_QUEUE,
   PI_EVENT_INFO_CONTEXT                    = CL_EVENT_CONTEXT,
   PI_EVENT_INFO_COMMAND_TYPE               = CL_EVENT_COMMAND_TYPE,
@@ -401,6 +410,7 @@ typedef _pi_queue_info              pi_queue_info;
 typedef _pi_image_info              pi_image_info;
 typedef _pi_kernel_info             pi_kernel_info;
 typedef _pi_kernel_group_info       pi_kernel_group_info;
+typedef _pi_fp_capabilities         pi_fp_capabilities;
 typedef _pi_event_info              pi_event_info;
 typedef _pi_command_type            pi_command_type;
 typedef _pi_mem_type                pi_mem_type;
