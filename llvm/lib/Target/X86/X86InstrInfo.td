@@ -962,6 +962,12 @@ def HasFP16      : Predicate<"Subtarget->hasFP16()">;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+def HasDOTPROD   : Predicate<"Subtarget->hasDOTPROD()">;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_CUSTOMIZATION
+
 def HasBITALG    : Predicate<"Subtarget->hasBITALG()">;
 def HasPOPCNT    : Predicate<"Subtarget->hasPOPCNT()">;
 def HasAES       : Predicate<"Subtarget->hasAES()">;

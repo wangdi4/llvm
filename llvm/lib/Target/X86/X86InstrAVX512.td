@@ -14194,3 +14194,116 @@ defm VFCMULCSHZ : avx512_cfmbinop_sh_common<0xD7, "vfcmulcsh", x86vfcmulcSh, x86
                                   T_MAP6XD, EVEX_CD8<32, CD8VT1>, EVEX_V128, VEX_LIG, EVEX_4V;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+multiclass avx512_vdpd_round<bits<8> opc, string OpcodeStr, SDNode OpNode,
+                                 X86FoldableSchedWrite sched,
+                                 X86VectorVTInfo _> {
+  let Constraints = "$src1 = $dst", Uses = [MXCSR] in
+  defm rb: AVX512_maskable_3src<opc, MRMSrcReg, _, (outs _.RC:$dst),
+          (ins _.RC:$src2, _.RC:$src3, AVX512RC:$rc),
+          OpcodeStr, "$rc, $src3, $src2", "$src2, $src3, $rc",
+          (_.VT ( OpNode _.RC:$src1, _.RC:$src2, _.RC:$src3, (i32 timm:$rc)))>,
+          EVEX_4V, EVEX_B, EVEX_RC, Sched<[sched]>;
+}
+
+multiclass avx512_vdpd_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
+                          X86FoldableSchedWrite sched, X86VectorVTInfo _> {
+  let Constraints = "$src1 = $dst", Uses = [MXCSR] in {
+  defm r: AVX512_maskable_3src<opc, MRMSrcReg, _, (outs _.RC:$dst),
+          (ins _.RC:$src2, _.RC:$src3),
+          OpcodeStr, "$src3, $src2", "$src2, $src3",
+          (_.VT (OpNode _.RC:$src1, _.RC:$src2, _.RC:$src3))>,
+          EVEX_4V, Sched<[sched]>;
+
+  defm m: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
+          (ins _.RC:$src2, _.MemOp:$src3),
+          OpcodeStr, "$src3, $src2", "$src2, $src3",
+          (_.VT (OpNode _.RC:$src1, _.RC:$src2, (_.LdFrag addr:$src3)))>,
+          EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+
+  defm mb: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
+           (ins _.RC:$src2, _.ScalarMemOp:$src3),
+           OpcodeStr,   !strconcat("${src3}", _.BroadcastStr,", $src2"),
+           !strconcat("$src2, ${src3}", _.BroadcastStr ),
+           (OpNode _.RC:$src1,
+           _.RC:$src2,(_.VT (_.BroadcastLdFrag addr:$src3)))>,
+           EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+}
+
+multiclass avx512_vdpd_common<bits<8> opc, string OpcodeStr, X86SchedWriteWidths sched,
+                              SDNode OpNode, SDNode OpNodeRnd, AVX512VLVectorVTInfo _> {
+  let Predicates = [HasDOTPROD] in {
+    defm Z      : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.ZMM, _.info512>,
+                  avx512_vdpd_round<opc, OpcodeStr, OpNodeRnd, sched.ZMM, _.info512>,
+                              EVEX_V512, EVEX_CD8<32, CD8VF>;
+  }
+  let Predicates = [HasDOTPROD, HasAVX512] in {
+    defm Z256 : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.YMM, _.info256>,
+                      EVEX_V256, EVEX_CD8<32, CD8VF>;
+    defm Z128 : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.XMM, _.info128>,
+                      EVEX_V128, EVEX_CD8<32, CD8VF>;
+  }
+}
+
+defm VDPPHPS : avx512_vdpd_common<0x52, "vdpphps",
+                           SchedWriteCvtPD2PS, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+                           X86vdpphps, X86vdpphpsRnd, avx512vl_f32_info>, T8PS;
+
+let Constraints = "$src1 = $dst" in
+multiclass avx512_vpdpb_rmb<bits<8> Op, string OpStr, SDNode OpNode,
+                    X86FoldableSchedWrite sched, X86VectorVTInfo VTI,
+                    bit IsCommutable> {
+  defm r  :   AVX512_maskable_3src<Op, MRMSrcReg, VTI, (outs VTI.RC:$dst),
+                                   (ins VTI.RC:$src2, VTI.RC:$src3), OpStr,
+                                   "$src3, $src2", "$src2, $src3",
+                                   (VTI.VT (OpNode VTI.RC:$src1,
+                                            VTI.RC:$src2, VTI.RC:$src3)),
+                                   IsCommutable, IsCommutable>,
+                                   EVEX_4V, Sched<[sched]>;
+  defm m  :   AVX512_maskable_3src<Op, MRMSrcMem, VTI, (outs VTI.RC:$dst),
+                                   (ins VTI.RC:$src2, VTI.MemOp:$src3), OpStr,
+                                   "$src3, $src2", "$src2, $src3",
+                                   (VTI.VT (OpNode VTI.RC:$src1, VTI.RC:$src2,
+                                            (VTI.VT (VTI.LdFrag addr:$src3))))>,
+                                   EVEX_4V, EVEX_CD8<32, CD8VF>,
+                                   Sched<[sched.Folded, sched.ReadAfterFold]>;
+  defm mb :   AVX512_maskable_3src<Op, MRMSrcMem, VTI, (outs VTI.RC:$dst),
+                                   (ins VTI.RC:$src2, VTI.ScalarMemOp:$src3),
+                                   OpStr, "${src3}"##VTI.BroadcastStr##", $src2",
+                                   "$src2, ${src3}"##VTI.BroadcastStr,
+                                   (OpNode VTI.RC:$src1, VTI.RC:$src2,
+                                    (VTI.VT (VTI.BroadcastLdFrag addr:$src3)))>,
+                                   EVEX_4V, EVEX_CD8<32, CD8VF>, EVEX_B,
+                                   Sched<[sched.Folded, sched.ReadAfterFold]>;
+}
+
+multiclass avx512_vpdpb_common<bits<8> Op, string OpStr, X86SchedWriteWidths sched,
+                               SDNode OpNode, bit IsCommutable = 0> {
+  let Predicates = [HasVNNI] in
+  defm Z      :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.ZMM, v16i32_info,
+                                   IsCommutable>,  EVEX_V512;
+  let Predicates = [HasVNNI, HasVLX] in {
+    defm Z256 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.YMM, v8i32x_info,
+                                   IsCommutable>, EVEX_V256;
+    defm Z128 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.XMM, v4i32x_info,
+                                   IsCommutable>, EVEX_V128;
+  }
+}
+
+defm VPDPBSSD  : avx512_vpdpb_common<0x50,"vpdpbssd", SchedWriteVecIMul, X86vpdpbssd, 1>, T8XD;
+
+defm VPDPBSSDS : avx512_vpdpb_common<0x51, "vpdpbssds", SchedWriteVecIMul, X86vpdpbssds, 1>, T8XD;
+
+defm VPDPBSUD  : avx512_vpdpb_common<0x50, "vpdpbsud", SchedWriteVecIMul, X86vpdpbsud, 0>, T8XS;
+
+defm VPDPBSUDS : avx512_vpdpb_common<0x51, "vpdpbsuds",SchedWriteVecIMul, X86vpdpbsuds, 0>, T8XS;
+
+defm VPDPBUUD  : avx512_vpdpb_common<0x50, "vpdpbuud", SchedWriteVecIMul, X86vpdpbuud, 1>, T8PS;
+
+defm VPDPBUUDS : avx512_vpdpb_common<0x51, "vpdpbuuds", SchedWriteVecIMul, X86vpdpbuuds, 1>, T8PS;
+
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_CUSTOMIZATION

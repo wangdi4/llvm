@@ -462,6 +462,10 @@ protected:
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  bool HasDOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
 #endif // INTEL_CUSTOMIZATION
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -863,6 +867,10 @@ public:
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  bool hasDOTPROD() const { return HasDOTPROD; }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
   bool preferMaskRegisters() const { return PreferMaskRegisters; }

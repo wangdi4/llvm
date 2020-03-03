@@ -202,6 +202,15 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
+                           "Enable AVX512-DOTPROD",
+                           [FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_CUSTOMIZATION
+
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
                          "Enable packed carry-less multiplication instructions",
                                [FeatureSSE2]>;
