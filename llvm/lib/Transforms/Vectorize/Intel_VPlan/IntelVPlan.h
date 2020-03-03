@@ -1750,7 +1750,6 @@ public:
     insert(Instruction, end());
   }
 
-#if INTEL_CUSTOMIZATION
   /// Add \p Instruction after \p After. If \p After is null, \p Instruction
   /// will be inserted as the first instruction.
   void addInstructionAfter(VPInstruction *Instruction, VPInstruction *After) {
@@ -1778,7 +1777,6 @@ public:
   }
 
   void moveConditionalEOBTo(VPBasicBlock *ToBB);
-#endif
 
   /// Remove the instruction from VPBasicBlock's instructions.
   void removeInstruction(VPInstruction *Instruction) {
@@ -1807,7 +1805,7 @@ public:
   /// Retrieve the list of VPInstructions that belong to this VPBasicBlock.
   const VPInstructionListTy &getInstructions() const { return Instructions; }
   VPInstructionListTy &getInstructions() { return Instructions; }
-#if INTEL_CUSTOMIZATION
+
   /// Returns a range that iterates over non predicator related instructions
   /// in the VPBasicBlock.
   auto getNonPredicateInstructions() const {
@@ -1885,7 +1883,6 @@ private:
   /// containing the block-predicate instruction after the split is used.
   VPBasicBlock *splitBlock(iterator I, const Twine &NewBBName = "");
 
-private:
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
@@ -1897,7 +1894,6 @@ private:
   // something similar to LLVM IR's loop metadata on the backedge branch
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
-#endif
 };
 
 /// VPRegionBlock represents a collection of VPBasicBlocks and VPRegionBlocks
@@ -2038,7 +2034,6 @@ class VPlan {
   friend class VPlanPrinter;
 
 private:
-#if INTEL_CUSTOMIZATION
   LLVMContext *Context = nullptr;
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
@@ -2058,18 +2053,13 @@ private:
   // allocation are generated and the needed replacements in the VPLoop code are
   // done.
   bool LoopEntitiesPrivatizationIsDone = false;
-#endif
 
-#if INTEL_CUSTOMIZATION
-protected:
-#endif
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
   std::unique_ptr<VPRegionBlock> Entry;
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
 
-#if INTEL_CUSTOMIZATION
   /// Holds all the VPConstants created for this VPlan.
   DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
@@ -2097,11 +2087,6 @@ protected:
       VPMetadataAsValues;
 
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
-#else
-  /// Holds a mapping between Values and their corresponding VPValue inside
-  /// VPlan.
-  Value2VPValueTy Value2VPValue;
-#endif
 
 public:
   VPlan(LLVMContext *Context, const DataLayout *DL)
@@ -2113,6 +2098,8 @@ public:
   void execute(struct VPTransformState *State);
 #if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
+#endif // INTEL_CUSTOMIZATION
+
   VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
 
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
@@ -2132,12 +2119,13 @@ public:
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
-  const DataLayout* getDataLayout() const { return DL; }
+  const DataLayout *getDataLayout() const { return DL; }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
     // Sanity check
-    VPBlockBase *HeaderBB = L->getHeader(); (void)HeaderBB;
+    VPBlockBase *HeaderBB = L->getHeader();
+    (void)HeaderBB;
     assert(VPLInfo->getLoopFor(HeaderBB) == L &&
            "the loop does not exist in VPlan");
 
@@ -2152,7 +2140,7 @@ public:
 
   /// Return LoopEntities list for the loop \p L. The nullptr is returned if
   /// the descriptors were not created for the loop.
-  const VPLoopEntityList* getLoopEntities(const VPLoop* L) const {
+  const VPLoopEntityList *getLoopEntities(const VPLoop *L) const {
     auto Iter = LoopEntities.find(L);
     if (Iter == LoopEntities.end())
       return nullptr;
@@ -2169,7 +2157,6 @@ public:
   void setLoopEntitiesPrivatizationDone(bool LEImportsDone) {
     LoopEntitiesPrivatizationIsDone = LEImportsDone;
   }
-#endif // INTEL_CUSTOMIZATION
 
   VPRegionBlock *getEntry() { return Entry.get(); }
   const VPRegionBlock *getEntry() const { return Entry.get(); }
@@ -2189,7 +2176,6 @@ public:
 
   void setName(const Twine &newName) { Name = newName.str(); }
 
-#if INTEL_CUSTOMIZATION
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.
   VPConstant *getVPConstant(Constant *Const) {
@@ -2276,14 +2262,6 @@ public:
   // are consistent with the underlying IR information of each
   // VPMetadataAsValue.
   void verifyVPMetadataAsValues() const;
-#else
-  void addVPValue(Value &V) {
-    if (!Value2VPValue.count(&V))
-      Value2VPValue[&V] = new VPValue();
-  }
-
-  VPValue *getVPValue(Value &V) { return Value2VPValue[&V]; }
-#endif
 
 private:
   /// Add to the given dominator tree the header block and every new basic block
@@ -2357,7 +2335,6 @@ private:
   }
 };
 
-#if INTEL_CUSTOMIZATION
 class VPLoopRegion : public VPRegionBlock {
   friend class VPValueMapper;
 private:
@@ -2383,8 +2360,6 @@ public:
            B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
   }
 };
-
-#endif
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// VPlanPrinter prints a given VPlan to a given output stream. The printing is
@@ -2443,17 +2418,16 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
   return OS;
 }
 
-#if INTEL_CUSTOMIZATION
 // Set of print functions
 inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
   I.dump(OS);
   return OS;
 }
+
 inline raw_ostream &operator<<(raw_ostream &OS, const VPBlockBase &BB) {
   BB.print(OS, 2);
   return OS;
 }
-#endif // INTEL_CUSTOMIZATION
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 //===----------------------------------------------------------------------===//
@@ -2465,7 +2439,6 @@ class VPBlockUtils {
 public:
   VPBlockUtils() = delete;
 
-#if INTEL_CUSTOMIZATION
   /// Insert NewBlock in the HCFG before BlockPtr and update parent region
   /// accordingly.
   static void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
@@ -2507,7 +2480,6 @@ public:
     if (ParentRegion->getExit() == BlockPtr)
       ParentRegion->setExit(NewBlock);
   }
-#endif
 
   /// Connect VPBlockBases \p From and \p To bi-directionally. Append \p To to
   /// the successors of \p From and \p From to the predecessors of \p To. Both
@@ -2522,7 +2494,6 @@ public:
     To->appendPredecessor(From);
   }
 
-#if INTEL_CUSTOMIZATION
   /// Connect \p From to \p IfTrue and \p IfFalse bi-directionally. \p IfTrue
   /// and \p IfFalse are set as successors of \p From. \p From is set as
   /// predecessor of \p IfTrue and \p IfFalse. \p From must have no successors.
@@ -2532,7 +2503,6 @@ public:
     IfTrue->appendPredecessor(From);
     IfFalse->appendPredecessor(From);
   }
-#endif
 
   /// Disconnect VPBlockBases \p From and \p To bi-directionally. Remove \p To
   /// from the successors of \p From and \p From from the predecessors of \p To.
@@ -2542,7 +2512,6 @@ public:
     To->removePredecessor(From);
   }
 
-#if INTEL_CUSTOMIZATION
   // Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
   // \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
   static void replaceBlockSuccessor(VPBlockBase *Block,
@@ -2653,8 +2622,6 @@ public:
   splitBlockEnd(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                 VPDominatorTree *DomTree = nullptr,
                 VPPostDominatorTree *PostDomTree = nullptr);
-
-#endif // INTEL_CUSTOMIZATION
 };
 
 /// The VPlanUtils class provides common interfaces and functions that are

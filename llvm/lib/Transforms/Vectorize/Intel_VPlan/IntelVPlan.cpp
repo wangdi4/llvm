@@ -97,7 +97,6 @@ VPBasicBlock *VPBlockBase::getExitBasicBlock() {
   return cast<VPBasicBlock>(Block);
 }
 
-#if INTEL_CUSTOMIZATION
 // It turns A->B into A->NewSucc->B and updates VPLoopInfo, DomTree and
 // PostDomTree accordingly.
 VPBasicBlock *VPBlockUtils::splitBlock(VPBasicBlock *Block,
@@ -182,7 +181,6 @@ VPBasicBlock *VPBlockUtils::splitBlockEnd(VPBlockBase *Block,
   auto BB = cast<VPBasicBlock>(Block);
   return splitBlock(BB, BB->end(), VPLInfo, DomTree, PostDomTree);
 }
-#endif
 
 void VPBlockBase::setTwoSuccessors(VPValue *ConditionV, VPBlockBase *IfTrue,
                                    VPBlockBase *IfFalse) {
@@ -291,11 +289,6 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
 }
 
 void VPBasicBlock::execute(VPTransformState *State) {
-  // The community version and 'vpo' version of "execute" for VPBB diverge
-  // considerably. Instead of having INTEL_CUSTOMIZATIONS every few lines of
-  // code and make the code unreadable, we decided to seperate both the
-  // versions with a single INTEL_CUSTOMIZATION
-
   bool Replica = State->Instance &&
                  !(State->Instance->Part == 0 && State->Instance->Lane == 0);
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
@@ -403,7 +396,6 @@ void VPRegionBlock::execute(VPTransformState *State) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
 // TODO: Please, remove this interface once C/T/F blocks have been removed.
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
   // Set CondBit in NewBlock. Note that we are only setting the
@@ -684,7 +676,6 @@ void VPRegionBlock::executeHIR(VPOCodeGenHIR *CG) {
     Block->executeHIR(CG);
   }
 }
-#endif //INTEL_CUSTOMIZATION
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
@@ -1048,11 +1039,6 @@ void VPInstruction::print(raw_ostream &O,
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
 void VPlan::execute(VPTransformState *State) {
-#if INTEL_CUSTOMIZATION
-  // The community version and "vpo" version of "execute" for VPlan, diverge
-  // considerably. Instead of having INTEL_CUSTOMIZATION for every few lines
-  // of code, we decided to seperate both versions with a single
-  // INTEL_CUSTOMIZATION
   assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
          "Expected single outermost loop!");
   VPLoop *VLoop = *VPLInfo->begin();
@@ -1126,7 +1112,7 @@ void VPlan::execute(VPTransformState *State) {
 
   bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
   assert(merged && "Could not merge last basic block with latch.");
-  (void) merged;
+  (void)merged;
   VectorLatchBB = LatchBB;
 
   // Insert LastBB between LatchBB and MiddleBlock. TODO - currently we
@@ -1145,55 +1131,6 @@ void VPlan::execute(VPTransformState *State) {
   // preserved - so this should be ok.
   // updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
   State->Builder.restoreIP(CurrIP);
-
-#else
-  // 0. Set the reverse mapping from VPValues to Values for code generation.
-  for (auto &Entry : Value2VPValue)
-    State->VPValue2Value[Entry.second] = Entry.first;
-
-  BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
-  BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
-  assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
-  BasicBlock *VectorLatchBB = VectorHeaderBB;
-
-  // 1. Make room to generate basic-blocks inside loop body if needed.
-  VectorLatchBB = VectorHeaderBB->splitBasicBlock(
-      VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
-  Loop *L = State->LI->getLoopFor(VectorHeaderBB);
-  L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
-  // Remove the edge between Header and Latch to allow other connections.
-  // Temporarily terminate with unreachable until CFG is rewired.
-  // Note: this asserts the generated code's assumption that
-  // getFirstInsertionPt() can be dereferenced into an Instruction.
-  VectorHeaderBB->getTerminator()->eraseFromParent();
-  State->Builder.SetInsertPoint(VectorHeaderBB);
-  UnreachableInst *Terminator = State->Builder.CreateUnreachable();
-  State->Builder.SetInsertPoint(Terminator);
-
-  // 2. Generate code in loop body.
-  State->CFG.PrevVPBB = nullptr;
-  State->CFG.PrevBB = VectorHeaderBB;
-  State->CFG.LastBB = VectorLatchBB;
-
-  for (VPBlockBase *Block : depth_first(Entry))
-    Block->execute(State);
-
-  // 3. Merge the temporary latch created with the last basic-block filled.
-  BasicBlock *LastBB = State->CFG.PrevBB;
-  // Connect LastBB to VectorLatchBB to facilitate their merge.
-  assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
-         "Expected VPlan CFG to terminate with unreachable");
-  LastBB->getTerminator()->eraseFromParent();
-  BranchInst::Create(VectorLatchBB, LastBB);
-
-  // Merge LastBB with Latch.
-  bool Merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
-  (void)Merged;
-  assert(Merged && "Could not merge last basic block with latch.");
-  VectorLatchBB = LastBB;
-
-  updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
-#endif
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1203,6 +1140,7 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   CG->createAndMapLoopEntityRefs();
   Entry->executeHIR(CG);
 }
+#endif
 
 void VPlan::verifyVPConstants() const {
   SmallPtrSet<const Constant *, 16> ConstantSet;
@@ -1261,7 +1199,6 @@ void VPlan::verifyVPMetadataAsValues() const {
     MDAsValueSet.insert(KeyMD);
   }
 }
-#endif
 
 void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
                                 BasicBlock *LoopLatchBB) {
@@ -1314,7 +1251,6 @@ const Twine VPlanPrinter::getOrCreateName(const VPBlockBase *Block) {
   return "VPB" + Twine(getOrCreateBID(Block));
 }
 
-#if INTEL_CUSTOMIZATION
 void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   if (!getName().empty())
     OS << "VPlan IR for: " << getName() << "\n";
@@ -1435,8 +1371,6 @@ void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
   OS << "Live-in and Live-out info end\n";
 }
 
-#endif /* INTEL_CUSTOMIZATION */
-
 void VPlanPrinter::dump() {
 #if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
@@ -1451,16 +1385,6 @@ void VPlanPrinter::dump() {
   OS << "graph [labelloc=t, fontsize=30; label=\"Vectorization Plan";
   if (!Plan.getName().empty())
     OS << "\\n" << DOT::EscapeString(Plan.getName());
-#if !INTEL_CUSTOMIZATION
-  if (!Plan.Value2VPValue.empty()) {
-    OS << ", where:";
-    for (auto Entry : Plan.Value2VPValue) {
-      OS << "\\n" << *Entry.second;
-      OS << DOT::EscapeString(" := ");
-      Entry.first->printAsOperand(OS, false);
-    }
-  }
-#endif
   OS << "\"]\n";
   OS << "node [shape=rect, fontname=Courier, fontsize=30]\n";
   OS << "edge [fontname=Courier, fontsize=30]\n";
