@@ -268,6 +268,8 @@ typedef struct kmp_local_state {
   ushort num_threads;
   kmp_shared_data_t shared_data;
   kmp_barrier_counting_t work_barrier;
+  // Data for ad-hoc simple SPMD mode
+  ushort spmd_num_threads;
 } kmp_local_state_t;
 
 /// Host data -- misc. data that are copied from host
@@ -359,6 +361,9 @@ EXTERN short __kmpc_parallel_level(ident_t *loc, uint gtid);
 
 /// Push num_threads for the next parallel region
 EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads);
+
+/// Pop num_threads
+EXTERN void __kmpc_pop_num_threads(ident_t *loc, int tid);
 
 /// Push simd_limit for the next region
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);

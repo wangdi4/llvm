@@ -182,11 +182,25 @@ EXTERN short __kmpc_parallel_level(ident_t *loc, uint gtid) {
 
 /// Push num threads
 EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads) {
+  if (GLOBAL.assume_simple_spmd_mode) {
+    kmp_local_state_t *local_state = __kmp_get_local_state();
+    local_state->spmd_num_threads = num_threads;
+    return;
+  }
   KMP_ASSERT(__kmp_check_rtl_initialized(loc),
              "Invalid RTL state while pushing num_threads\n");
   tid = __kmp_get_logical_thread_id(__kmp_check_spmd_mode(loc));
   kmp_thread_state_t *thread_state = __kmp_get_thread_state();
   thread_state->next_region.num_threads[tid] = num_threads;
+}
+
+/// Pop num threads
+EXTERN void __kmpc_pop_num_threads(ident_t *loc, int tid) {
+  if (GLOBAL.assume_simple_spmd_mode) {
+    kmp_local_state_t *local_state = __kmp_get_local_state();
+    local_state->spmd_num_threads = 0xffff;
+    return;
+  }
 }
 
 /// Push simd limit -- not sure if we need this
