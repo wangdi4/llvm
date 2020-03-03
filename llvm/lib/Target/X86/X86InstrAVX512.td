@@ -13383,7 +13383,8 @@ multiclass avx512_binop_all2<bits<8> opc, string OpcodeStr,
 defm VCVTNE2PS2BF16 : avx512_binop_all2<0x72, "vcvtne2ps2bf16",
                                         SchedWriteCvtPD2PS, //FIXME: Shoulod be SchedWriteCvtPS2BF
                                         avx512vl_f32_info, avx512vl_i16_info,
-                                        X86cvtne2ps2bf16, HasBF16, 0>, T8XD;
+                                        X86cvtne2ps2bf16, HasBF16, 0>, T8XD, // INTEL
+                                        NotEVEX2VEXConvertible; // INTEL
 
 // Truncate Float to BFloat16
 multiclass avx512_cvtps2bf16<bits<8> opc, string OpcodeStr,
@@ -13419,7 +13420,8 @@ multiclass avx512_cvtps2bf16<bits<8> opc, string OpcodeStr,
 
 defm VCVTNEPS2BF16 : avx512_cvtps2bf16<0x72, "vcvtneps2bf16",
                                        SchedWriteCvtPD2PS>, T8XS,
-                                       EVEX_CD8<32, CD8VF>;
+                                       EVEX_CD8<32, CD8VF>, // INTEL
+                                       NotEVEX2VEXConvertible; // INTEL
 
 let Predicates = [HasBF16, HasVLX] in {
   // Special patterns to allow use of X86mcvtneps2bf16 for masking. Instruction
@@ -13500,7 +13502,8 @@ multiclass avx512_dpbf16ps_sizes<bits<8> opc, string OpcodeStr, SDNode OpNode,
 
 defm VDPBF16PS : avx512_dpbf16ps_sizes<0x52, "vdpbf16ps", X86dpbf16ps, SchedWriteFMA,
                                        avx512vl_f32_info, avx512vl_i32_info,
-                                       HasBF16>, T8XS, EVEX_CD8<32, CD8VF>;
+                                       HasBF16>, T8XS, EVEX_CD8<32, CD8VF>, // INTEL
+                                       NotEVEX2VEXConvertible; // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 
