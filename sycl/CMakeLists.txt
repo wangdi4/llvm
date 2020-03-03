@@ -322,7 +322,6 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # end INTEL_CUSTOMIZATION
 )
 
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   # Add xmain specific deploy components here.
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
@@ -330,7 +329,6 @@ if(INTEL_CUSTOMIZATION)
     list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
   endif()
 endif(INTEL_CUSTOMIZATION)
-=======
 
 if(SYCL_BUILD_PI_CUDA)
   # Ensure that libclc is enabled.
@@ -344,7 +342,6 @@ if(SYCL_BUILD_PI_CUDA)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins)
 endif()
 
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it

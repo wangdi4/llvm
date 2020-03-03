@@ -1,13 +1,9 @@
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // This test fires assertion: CORC-5473.
 // TODO: remove the requirement once issue fixed.
 // REQUIRES: !asserts
 // end INTEL_CUSTOMIZATION
-// RUN: %clangxx -fsycl %s -o %t.out
-=======
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out

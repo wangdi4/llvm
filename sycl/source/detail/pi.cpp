@@ -126,37 +126,14 @@ std::shared_ptr<plugin> GlobalPlugin;
 // Find the plugin at the appropriate location and return the location.
 // TODO: Change the function appropriately when there are multiple plugins.
 bool findPlugins(vector_class<std::string> &PluginNames) {
-  // TODO: Based on final design discussions, change the location where the
-  // plugin must be searched; how to identify the plugins etc. Currently the
-  // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
-  // env only.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // TODO: Update public version to handle OpenCL plugin in the same way.
-  std::string PluginName;
   if (useBackend(SYCL_BE_PI_OPENCL)) {
-#ifdef SYCL_RT_OS_WINDOWS
-    PluginName = "pi_opencl.dll";
-#else
-    PluginName = "libpi_opencl.so";
-#endif
-  }
-  else if (useBackend(SYCL_BE_PI_OTHER)) {
-#ifdef SYCL_RT_OS_WINDOWS
-    PluginName = "pi_level0.dll";
-#else
-    PluginName = "libpi_level0.so";
-#endif
+    PluginNames.push_back(OPENCL_PLUGIN_NAME);
   } else {
-    die("Unknown SYCL_BE");
+    PluginNames.push_back(LEVEL0_PLUGIN_NAME);
   }
-
-  PluginNames.push_back(PluginName);
-#endif // INTEL_CUSTOMIZATION
-=======
-  PluginNames.push_back(OPENCL_PLUGIN_NAME);
+#ifndef INTEL_CUSTOMIZATION
   PluginNames.push_back(CUDA_PLUGIN_NAME);
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
+#endif
   return true;
 }
 
@@ -197,7 +174,6 @@ bool bindPlugin(void *Library, PiPlugin *PluginInformation) {
 vector_class<plugin> initialize() {
   vector_class<plugin> Plugins;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Not needed when we have support for level0.
   // This is checked in findPlugin.
@@ -205,11 +181,9 @@ vector_class<plugin> initialize() {
   //   die("Unknown SYCL_BE");
   // }
 #endif
-=======
   if (!useBackend(SYCL_BE_PI_OPENCL) && !useBackend(SYCL_BE_PI_CUDA)) {
     die("Unknown SYCL_BE");
   }
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
 
   bool EnableTrace = (std::getenv("SYCL_PI_TRACE") != nullptr);
 

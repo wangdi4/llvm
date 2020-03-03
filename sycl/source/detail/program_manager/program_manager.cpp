@@ -443,11 +443,7 @@ ProgramManager::getClProgramFromClKernel(RT::PiKernel Kernel,
   RT::PiProgram Program;
   const detail::plugin &Plugin = Context->getPlugin();
   Plugin.call<PiApiKind::piKernelGetInfo>(
-<<<<<<< HEAD
       Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(RT::PiProgram), &Program, nullptr);
-=======
-      Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(cl_program), &Program, nullptr);
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
   return Program;
 }
 

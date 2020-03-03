@@ -3322,10 +3322,9 @@ class OffloadingActionBuilder final {
     /// Type of output file for FPGA device compilation.
     types::ID FPGAOutType = types::TY_FPGA_AOCX;
 
-<<<<<<< HEAD
     /// List of objects to extract FPGA dependency info from
     ActionList FPGAObjectInputs;
-=======
+
     /// List of CUDA architectures to use in this compilation with NVPTX targets.
     SmallVector<CudaArch, 8> GpuArchList;
 
@@ -3342,7 +3341,6 @@ class OffloadingActionBuilder final {
       }
       return BA;
     }
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
 
   public:
     SYCLActionBuilder(Compilation &C, DerivedArgList &Args,
@@ -3675,8 +3673,6 @@ class OffloadingActionBuilder final {
           // triple calls for it (provided a valid subarch).
           Action *DeviceBECompileAction;
           ActionList BEActionList;
-<<<<<<< HEAD
-          BEActionList.push_back(SPIRVTranslateAction);
           for (Action *A : FPGAObjectInputs) {
             // Send any known objects through the unbundler to grab the
             // dependency file associated.
@@ -3687,9 +3683,7 @@ class OffloadingActionBuilder final {
                 types::TY_FPGA_Dependencies);
             BEActionList.push_back(UnbundleAction);
           }
-=======
           BEActionList.push_back(DeviceLinkAction);
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
           for (const auto &A : DeviceLibObjects)
             BEActionList.push_back(A);
           DeviceBECompileAction =

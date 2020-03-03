@@ -34,7 +34,6 @@ int main(int argc, char* argv[]) {
     }
 
     std::string type = argv[1];
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
@@ -51,7 +50,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 #endif // INTEL_CUSTOMIZATION
-=======
+
     std::string backend{argv[2]};
 
     cl_uint deviceCount = 0;
@@ -79,7 +78,6 @@ int main(int argc, char* argv[]) {
       return 0;
     }
 #endif  // USE_PI_CUDA
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
 
     cl_device_type device_type;
     if (type == "cpu") {

@@ -579,19 +579,6 @@ pi_result OCL(piEnqueueMemBufferMap)(
   return ret_err;
 }
 
-// Special version of piKernelSetArg to accept pi_mem.
-pi_result OCL(piextKernelSetArgMemObj)(
-  pi_kernel         kernel,
-  pi_uint32         arg_index,
-  const pi_mem *    arg_value) {
-
-  return cast<pi_result>(clSetKernelArg(
-    cast<cl_kernel>(kernel),
-    cast<cl_uint>(arg_index),
-    cast<size_t>(sizeof(cl_mem)),
-    cast<const void*>(arg_value)));
-}
-
 //
 // USM
 //
@@ -1085,8 +1072,6 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextUSMEnqueuePrefetch, OCL(piextUSMEnqueuePrefetch))
   _PI_CL(piextUSMEnqueueMemAdvise, OCL(piextUSMEnqueueMemAdvise))
   _PI_CL(piextUSMGetMemAllocInfo, OCL(piextUSMGetMemAllocInfo))
-
-  _PI_CL(piextKernelSetArgMemObj,      OCL(piextKernelSetArgMemObj))
 
 #undef _PI_CL
 

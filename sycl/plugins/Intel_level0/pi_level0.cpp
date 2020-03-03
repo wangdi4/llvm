@@ -507,7 +507,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
       pi_throw("FPGA not supported");
     }
   }
-  else if (param_name == PI_DEVICE_INFO_PARENT) {
+  else if (param_name == PI_DEVICE_INFO_PARENT_DEVICE) {
     // TODO: all L0 devices are parent ?
     SET_PARAM_VALUE(pi_device{0});
   }
@@ -1658,7 +1658,7 @@ pi_result L0(piKernelGetInfo)(
 pi_result L0(piKernelGetGroupInfo)(
   pi_kernel                  kernel,
   pi_device                  device,
-  cl_kernel_work_group_info  param_name,  // TODO: change to pi_kernel_group_info
+  pi_kernel_group_info       param_name,
   size_t                     param_value_size,
   void *                     param_value,
   size_t *                   param_value_size_ret)
@@ -1674,7 +1674,7 @@ pi_result L0(piKernelGetGroupInfo)(
   ze_kernel_properties.version = ZE_KERNEL_PROPERTIES_VERSION_CURRENT;
   ZE_CALL(zeKernelGetProperties(kernel->L0Kernel, &ze_kernel_properties));
 
-  if (param_name == PI_KERNEL_GLOBAL_WORK_SIZE) {
+  if (param_name == PI_KERNEL_GROUP_INFO_GLOBAL_WORK_SIZE) {
     // TODO: To revisit after level_zero/issues/262 is resolved
     struct {
       size_t arr[3];
@@ -1686,13 +1686,13 @@ pi_result L0(piKernelGetGroupInfo)(
     };
     SET_PARAM_VALUE(work_size);
   }
-  if (param_name == PI_KERNEL_WORK_GROUP_SIZE) {
+  if (param_name == PI_KERNEL_GROUP_INFO_WORK_GROUP_SIZE) {
     uint32_t X, Y, Z;
     ZE_CALL(zeKernelSuggestGroupSize(kernel->L0Kernel,
                                      10000, 10000, 10000, &X, &Y, &Z));
     SET_PARAM_VALUE(size_t{X * Y * Z});
   }
-  else if (param_name == PI_KERNEL_COMPILE_WORK_GROUP_SIZE) {
+  else if (param_name == PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE) {
     struct {
       size_t arr[3];
     }  wg_size = {
@@ -1703,17 +1703,17 @@ pi_result L0(piKernelGetGroupInfo)(
     };
     SET_PARAM_VALUE(wg_size);
   }
-  else if (param_name == PI_KERNEL_LOCAL_MEM_SIZE) {
+  else if (param_name == PI_KERNEL_GROUP_INFO_LOCAL_MEM_SIZE) {
     // TODO: Assume 0 for now, but follow-up on https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
     SET_PARAM_VALUE(pi_uint32{0});
   }
-  else if (param_name == PI_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE) {
+  else if (param_name == PI_KERNEL_GROUP_INFO_PREFERRED_WORK_GROUP_SIZE_MULTIPLE) {
     // TODO: Follow-up on https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
-    pi_throw("Unsupported PI_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE in piKernelGetInfo\n");
+    pi_throw("Unsupported PI_KERNEL_GROUP_INFO_PREFERRED_WORK_GROUP_SIZE_MULTIPLE in piKernelGetInfo\n");
   }
-  else if (param_name == PI_KERNEL_PRIVATE_MEM_SIZE) {
+  else if (param_name == PI_KERNEL_GROUP_INFO_PRIVATE_MEM_SIZE) {
     // TODO: Follow-up on https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
-    pi_throw("Unsupported PI_KERNEL_PRIVATE_MEM_SIZE in piKernelGetInfo\n");
+    pi_throw("Unsupported PI_KERNEL_GROUP_INFO_PRIVATE_MEM_SIZE in piKernelGetInfo\n");
   }
   else {
     fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);

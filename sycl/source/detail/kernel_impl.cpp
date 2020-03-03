@@ -33,13 +33,9 @@ kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
 
   RT::PiContext Context = nullptr;
   // Using the plugin from the passed ContextImpl
-#if INTEL_CUSTOMIZATION
   getPlugin().call<PiApiKind::piKernelGetInfo>(
       MKernel, PI_KERNEL_INFO_CONTEXT, sizeof(Context), &Context, nullptr);
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
+
   if (ContextImpl->getHandleRef() != Context)
     throw cl::sycl::invalid_parameter_error(
         "Input context must be the same as the context of cl_kernel");

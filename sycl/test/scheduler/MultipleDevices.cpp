@@ -1,12 +1,9 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -I %sycl_source_dir %s -o %t.out
 // RUN: %t.out
 
-<<<<<<< HEAD
-=======
 // TODO: pi_die: cuda_piEventSetCallback not implemented
 // XFAIL: cuda
 
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
 //===- MultipleDevices.cpp - Test checking multi-device execution --------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

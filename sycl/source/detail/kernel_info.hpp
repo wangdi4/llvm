@@ -26,25 +26,15 @@ template <info::kernel Param> struct get_kernel_info<string_class, Param> {
     size_t ResultSize;
 
     // TODO catch an exception and put it to list of asynchronous exceptions
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-=======
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
     Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param), 0,
                                             nullptr, &ResultSize);
-/* end INTEL_CUSTOMIZATION */
     if (ResultSize == 0) {
       return "";
     }
     vector_class<char> Result(ResultSize);
     // TODO catch an exception and put it to list of asynchronous exceptions
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-=======
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
     Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param),
                                             ResultSize, Result.data(), nullptr);
-/* end INTEL_CUSTOMIZATION */
     return string_class(Result.data());
   }
 };
@@ -55,11 +45,7 @@ template <info::kernel Param> struct get_kernel_info<cl_uint, Param> {
 
     // TODO catch an exception and put it to list of asynchronous exceptions
     Plugin.call<PiApiKind::piKernelGetInfo>(Kernel, pi_kernel_info(Param),
-<<<<<<< HEAD
                                             sizeof(pi_uint32), &Result, nullptr);
-=======
-                                            sizeof(cl_uint), &Result, nullptr);
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
     return Result;
   }
 };

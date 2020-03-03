@@ -100,20 +100,16 @@ get_device_count_by_type_path = os.path.join(config.llvm_binary_dir,
     "bin", "get_device_count_by_type")
 
 def getDeviceCount(device_type):
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
     # If SYCL_LIT_USE_HOST_ONLY is unset or set to something not equal to FALSE,
     # then return 0 to prohibit using all devices except HOST.
     host_only = os.getenv('SYCL_LIT_USE_HOST_ONLY', 'true').lower()
     if host_only != '0' and host_only != 'false' and host_only != 'no':
-        return 0
+        return [0, False]
 # end INTEL_CUSTOMIZATION
 
-    process = subprocess.Popen([get_device_count_by_type_path, device_type],
-=======
     is_cuda = False;
     process = subprocess.Popen([get_device_count_by_type_path, device_type, backend],
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
         stdout=subprocess.PIPE)
     (output, err) = process.communicate()
     exit_code = process.wait()
@@ -134,7 +130,7 @@ def getDeviceCount(device_type):
             print("getDeviceCount {TYPE}:{ERR}".format(
                 TYPE=device_type, ERR=err))
         return [value,is_cuda]
-    return 0
+    return [0, False]
 
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
@@ -188,17 +184,12 @@ config.substitutions.append( ('%GPU_RUN_ON_LINUX_PLACEHOLDER',  gpu_run_on_linux
 config.substitutions.append( ('%GPU_CHECK_PLACEHOLDER',  gpu_check_substitute) )
 config.substitutions.append( ('%GPU_CHECK_ON_LINUX_PLACEHOLDER',  gpu_check_on_linux_substitute) )
 
-<<<<<<< HEAD
-# INTEL_CUSTOMIZATION
-=======
 if cuda:
     config.substitutions.append( ('%sycl_triple',  "nvptx64-nvidia-cuda-sycldevice" ) )
 else:
     config.substitutions.append( ('%sycl_triple',  "spir64-unknown-linux-sycldevice" ) )
 
->>>>>>> bd3a8ee10f02cc296fbda8599dd1df0f658c6d02
 acc_run_substitute = "true"
-# end INTEL_CUSTOMIZATION
 acc_check_substitute = ""
 if getDeviceCount("accelerator")[0]:
     print("Found available accelerator device")
