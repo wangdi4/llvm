@@ -51,7 +51,7 @@ bool OCLPostVect::runOnModule(Module &M) {
   auto Kernels = KernelList(*&M).getList();
   bool ModifiedModule = false;
   for (Function *F : Kernels) {
-    //Remove "ocl_recommended_vector_length" metadata
+    // Remove "ocl_recommended_vector_length" metadata.
     MDValueGlobalObjectStrategy::unset(F, "ocl_recommended_vector_length");
     auto FMD = KernelInternalMetadataAPI(F);
     Function *ClonedKernel = FMD.VectorizedKernel.get();

@@ -57,6 +57,7 @@ void initializeWIRelatedValuePass(llvm::PassRegistry&);
 void initializeSinCosFoldPass(llvm::PassRegistry&);
 void initializeDataPerBarrierPass(llvm::PassRegistry&);
 void initializeDataPerValuePass(llvm::PassRegistry&);
+void initializeReplaceScalarWithMaskPass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
 void initializeBuiltinCallToInstPass(llvm::PassRegistry&);
 void initializeInstToFuncCallPass(llvm::PassRegistry&);
