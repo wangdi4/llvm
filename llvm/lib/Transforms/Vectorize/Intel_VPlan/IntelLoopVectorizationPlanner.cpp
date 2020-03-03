@@ -156,20 +156,18 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
-    if (VPlanUseVPEntityInstructions) {
-      VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
-      // Loop entities may be not created in some cases.
-      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
-      VPBuilder VPIRBuilder;
-      LE->insertVPInstructions(VPIRBuilder);
-      LE->doSOAAnalysis();
+    VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+    // Loop entities may be not created in some cases.
+    VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+    VPBuilder VPIRBuilder;
+    LE->insertVPInstructions(VPIRBuilder);
+    LE->doSOAAnalysis();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      if (DumpAfterVPEntityInstructions) {
-        outs() << "After insertion VPEntities instructions:\n";
-        Plan->dump(outs(), Plan->getVPlanDA());
-      }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    if (DumpAfterVPEntityInstructions) {
+      outs() << "After insertion VPEntities instructions:\n";
+      Plan->dump(outs(), Plan->getVPlanDA());
     }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
@@ -440,10 +438,6 @@ void LoopVectorizationPlanner::EnterExplicitData(
     WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
 #if INTEL_CUSTOMIZATION
   constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
-  if (Kind == IRKind::LLVMIR)
-    VPlanUseVPEntityInstructions = true;
-  if (Kind == IRKind::HIR)
-    VPlanUseVPEntityInstructions = true;
 #endif
   // Collect any SIMD loop private information
   if (WRLp) {

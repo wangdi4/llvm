@@ -507,38 +507,16 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     // Handling liveouts for privates/inductions is not implemented in
-    // VPValue-based CG. The checks below enable the following -
-    // 1. For full VPValue-based CG all reductions are supported.
-    // 2. For mixed mode CG, minmax reductions are not supported if VPLoopEntity
-    // representation is not used.
-    // TODO: Revisit when VPLoopEntity representation for reductions is made
-    // default.
+    // VPValue-based CG.
     auto TLval = Inst->getLvalDDRef();
     if (TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase())) {
       unsigned RedOpcode = 0;
-      if (CG->isReductionRef(TLval, RedOpcode)) {
-        if (EnableVPValueCodegenHIR)
-          // VPValue-based CG for reductions is supported.
-          return;
-        // Min/max reductions are not supported without VPLoopEntities.
-        if (!VPlanUseVPEntityInstructions &&
-            (RedOpcode == Instruction::Select ||
-             RedOpcode == VPInstruction::UMin ||
-             RedOpcode == VPInstruction::UMax ||
-             RedOpcode == VPInstruction::SMin ||
-             RedOpcode == VPInstruction::SMax ||
-             RedOpcode == VPInstruction::FMin ||
-             RedOpcode == VPInstruction::FMax))
-          IsHandled = false;
-      } else if (EnableVPValueCodegenHIR)
-        IsHandled = false;
-
-      if (!IsHandled) {
+      if (!CG->isReductionRef(TLval, RedOpcode) && EnableVPValueCodegenHIR) {
         LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(
-            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private or "
-                      "min/max reduction not handled\n");
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout "
+                             "induction/private not handled\n");
+        IsHandled = false;
         return;
       }
     }

@@ -32,17 +32,6 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Print VPlan entities"));
 
-// Temporary flag to disable loop entities import until CMPLRLLVM-9026 is
-// fixed.
-static cl::opt<bool, true> LoopEntityImportEnabledOpt(
-    "vplan-import-entities", cl::location(LoopEntityImportEnabled), cl::Hidden,
-    cl::desc("Enable VPloop entities import"));
-
-static cl::opt<bool, true> VPlanUseVPEntityInstructionsOpt(
-    "vplan-use-entity-instr", cl::Hidden,
-    cl::location(VPlanUseVPEntityInstructions),
-    cl::desc("Generate VPInstructions for VPEntities"));
-
 // Flag to enable printing of SOA-analysis information.
 static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
     "vplan-dump-soa-info", cl::Hidden,
@@ -51,8 +40,6 @@ static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
 
 namespace llvm {
 namespace vpo {
-bool LoopEntityImportEnabled = true;
-bool VPlanUseVPEntityInstructions = false;
 bool VPlanDisplaySOAAnalysisInformation = false;
 } // namespace vpo.
 } // namespace llvm.
@@ -903,12 +890,6 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
 // Insert VPInstructions corresponding to the VPLoopEntities like
 // VPInductions, VPReductions and VPPrivates.
 void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
-
-  // If the generation of VPEntityInstructions is not enabled, just return
-  // early.
-  if (!VPlanUseVPEntityInstructions)
-    return;
-
   // If the loop is multi-exit then the code gen for it is done using
   // underlying IR and we don't need to emit anything here.
   if (!Loop.getUniqueExitBlock())
@@ -1209,9 +1190,6 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
 }
 
 void ReductionDescr::invalidateReductionInstructions() {
-  if (!VPlanUseVPEntityInstructions)
-    return;
-
   for (auto *V : LinkedVPVals)
     V->invalidateUnderlyingIR();
 

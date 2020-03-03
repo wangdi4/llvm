@@ -1,8 +1,8 @@
 ; Test for basic functionality of min/max+index idiom (main reduction + last linear index).
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix VPVAL_CG %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix MIXED_CG %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix VPVAL_CG %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix MIXED_CG %s
 ;
 ;CHECK: Reduction list
 ;CHECK-NEXT: signed (SIntMax) Start: i32 [[BEST:%best.[0-9]+]] Exit: i32 [[BEST_EXIT:%vp[0-9]+]]

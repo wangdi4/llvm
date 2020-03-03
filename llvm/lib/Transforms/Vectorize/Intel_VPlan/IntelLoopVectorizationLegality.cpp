@@ -484,24 +484,11 @@ bool VPOVectorizationLegality::canVectorize() {
           return false;
         }
 
-        if (isExplicitReductionPhi(Phi)) {
-          if (!VPlanUseVPEntityInstructions) {
-            LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions without "
-                                 "VPLoopEntities.\n");
-            return false;
-          }
-
+        if (isExplicitReductionPhi(Phi))
           continue;
-        }
 
         RecurrenceDescriptor RedDes;
         if (RecurrenceDescriptor::isReductionPHI(Phi, TheLoop, RedDes)) {
-          if (!VPlanUseVPEntityInstructions) {
-            LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions without "
-                                 "VPLoopEntities.\n");
-            return false;
-          }
-
           AllowedExit.insert(RedDes.getLoopExitInstr());
           Reductions[Phi] = RedDes;
           continue;

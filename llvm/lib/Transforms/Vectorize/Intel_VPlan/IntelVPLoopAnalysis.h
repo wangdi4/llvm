@@ -51,8 +51,6 @@ class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
 
-extern bool LoopEntityImportEnabled;
-extern bool VPlanUseVPEntityInstructions;
 extern bool VPlanDisplaySOAAnalysisInformation;
 
 /// Base class for loop entities
