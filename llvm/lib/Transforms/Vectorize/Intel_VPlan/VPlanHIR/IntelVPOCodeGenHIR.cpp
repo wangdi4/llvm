@@ -3619,6 +3619,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
           cast<VPBasicBlock>(*std::next(Successors.begin()));
       const VPValue *CondBit = SourceBB->getCondBit();
       auto *CondRef = getWideRefForVPVal(CondBit);
+      assert(CondRef && "Missind widened DDRef!");
       HLInst *Extract = HLNodeUtilities.createExtractElementInst(
           CondRef->clone(), (unsigned)0, "unifcond");
       addInst(Extract, nullptr /* Mask */);
