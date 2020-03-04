@@ -59,8 +59,8 @@ if 'OCL_ICD_FILENAMES' in os.environ:
 
 if 'SYCL_BE' in os.environ:
     config.environment['SYCL_BE'] = os.environ['SYCL_BE']
-if 'SYCL_DEVICE_WHITE_LIST' in os.environ:
-    config.environment['SYCL_DEVICE_WHITE_LIST'] = os.environ['SYCL_DEVICE_WHITE_LIST']
+if 'SYCL_DEVICE_ALLOWLIST' in os.environ:
+    config.environment['SYCL_DEVICE_ALLOWLIST'] = os.environ['SYCL_DEVICE_ALLOWLIST']
 
 config.substitutions.append( ('%clang_cc1', ' ' + config.clang + ' -cc1 ') )
 # INTEL_CUSTOMIZATION
