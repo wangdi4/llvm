@@ -4862,11 +4862,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_v);
-  Args.AddLastArg(CmdArgs, options::OPT_H);
+
+  if (Args.getLastArg(options::OPT_H)) {
+    CmdArgs.push_back("-H");
+    CmdArgs.push_back("-sys-header-deps");
+  }
+
   if (D.CCPrintHeaders && !D.CCGenDiagnostics) {
     CmdArgs.push_back("-header-include-file");
     CmdArgs.push_back(D.CCPrintHeadersFilename ? D.CCPrintHeadersFilename
                                                : "-");
+    CmdArgs.push_back("-sys-header-deps");
   }
   Args.AddLastArg(CmdArgs, options::OPT_P);
   Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
@@ -6679,6 +6685,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back("--dependent-lib=oldnames");
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Add Intel performance libraries
   if (Args.hasArg(options::OPT_ipp_EQ))
@@ -6692,6 +6699,15 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 #endif // INTEL_CUSTOMIZATION
 
   Args.AddLastArg(CmdArgs, options::OPT_show_includes);
+=======
+  if (Arg *ShowIncludes =
+          Args.getLastArg(options::OPT__SLASH_showIncludes,
+                          options::OPT__SLASH_showIncludes_user)) {
+    CmdArgs.push_back("--show-includes");
+    if (ShowIncludes->getOption().matches(options::OPT__SLASH_showIncludes))
+      CmdArgs.push_back("-sys-header-deps");
+  }
+>>>>>>> bcda1269c4c4d5d19d2be425c0a52d19fe09f146
 
   // This controls whether or not we emit RTTI data for polymorphic types.
   if (Args.hasFlag(options::OPT__SLASH_GR_, options::OPT__SLASH_GR,
