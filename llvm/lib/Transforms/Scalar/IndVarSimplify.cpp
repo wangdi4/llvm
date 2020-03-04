@@ -2907,7 +2907,8 @@ bool IndVarSimplify::run(Loop *L) {
 
       // Avoid high cost expansions.  Note: This heuristic is questionable in
       // that our definition of "high cost" is not exactly principled.
-      if (Rewriter.isHighCostExpansion(ExitCount, L, TTI))
+      if (Rewriter.isHighCostExpansion(ExitCount, L, SCEVCheapExpansionBudget,
+                                       TTI))
         continue;
 
       // Check preconditions for proper SCEVExpander operation. SCEV does not
