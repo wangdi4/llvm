@@ -2318,7 +2318,10 @@ bool HIRParser::isCastedFromLoopIVType(const CastInst *CI,
 
   // Ignore if SCEV form of CI is already a cast. Top cast can be handled by
   // parseRecursive().
-  if (isa<SCEVCastExpr>(SC)) {
+  // We should ignore casts on constants like trunc.i64.i8(256) which get
+  // simplified to constants like 'i8 0'. Casts on constants are not expected in
+  // HIR.
+  if (isa<SCEVCastExpr>(SC) || isa<SCEVConstant>(SC)) {
     return false;
   }
 
