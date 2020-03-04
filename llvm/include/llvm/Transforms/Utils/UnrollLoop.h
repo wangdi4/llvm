@@ -81,23 +81,8 @@ struct UnrollLoopOptions {
 
 LoopUnrollResult UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                             ScalarEvolution *SE, DominatorTree *DT,
-<<<<<<< HEAD
-                            AssumptionCache *AC,                    // INTEL
-                            const LoopOptReportBuilder &LORBuilder, // INTEL
-                            OptimizationRemarkEmitter *ORE,         // INTEL
-                            bool PreserveLCSSA, Loop **RemainderLoop = nullptr);
-
-bool UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
-                                bool AllowExpensiveTripCount,
-                                bool UseEpilogRemainder, bool UnrollRemainder,
-                                bool ForgetAllSCEV,
-                                LoopInfo *LI, ScalarEvolution *SE,
-                                DominatorTree *DT, AssumptionCache *AC,
-                                const LoopOptReportBuilder &LORBuilder, // INTEL
-                                bool PreserveLCSSA,
-                                Loop **ResultLoop = nullptr);
-=======
                             AssumptionCache *AC,
+                            const LoopOptReportBuilder &LORBuilder, // INTEL
                             const llvm::TargetTransformInfo *TTI,
                             OptimizationRemarkEmitter *ORE, bool PreserveLCSSA,
                             Loop **RemainderLoop = nullptr);
@@ -106,9 +91,9 @@ bool UnrollRuntimeLoopRemainder(
     Loop *L, unsigned Count, bool AllowExpensiveTripCount,
     bool UseEpilogRemainder, bool UnrollRemainder, bool ForgetAllSCEV,
     LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT, AssumptionCache *AC,
+    const LoopOptReportBuilder &LORBuilder, // INTEL
     const TargetTransformInfo *TTI, bool PreserveLCSSA,
     Loop **ResultLoop = nullptr);
->>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
 
 void computePeelCount(Loop *L, unsigned LoopSize,
                       TargetTransformInfo::UnrollingPreferences &UP,

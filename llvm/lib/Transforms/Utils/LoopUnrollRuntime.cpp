@@ -554,23 +554,12 @@ static bool canProfitablyUnrollMultiExitLoop(
 ///        if (extraiters != 0) jump Epil: // Omitted if unroll factor is 2.
 /// EpilExit:
 
-<<<<<<< HEAD
-bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
-                                      bool AllowExpensiveTripCount,
-                                      bool UseEpilogRemainder,
-                                      bool UnrollRemainder, bool ForgetAllSCEV,
-                                      LoopInfo *LI, ScalarEvolution *SE, 
-                                      DominatorTree *DT, AssumptionCache *AC,
-                                      const LoopOptReportBuilder &LORB, // INTEL
-                                      bool PreserveLCSSA,               // INTEL
-                                      Loop **ResultLoop) {
-=======
 bool llvm::UnrollRuntimeLoopRemainder(
     Loop *L, unsigned Count, bool AllowExpensiveTripCount,
     bool UseEpilogRemainder, bool UnrollRemainder, bool ForgetAllSCEV,
     LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT, AssumptionCache *AC,
+    const LoopOptReportBuilder &LORB, // INTEL
     const TargetTransformInfo *TTI, bool PreserveLCSSA, Loop **ResultLoop) {
->>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
   LLVM_DEBUG(dbgs() << "Trying runtime unrolling on Loop: \n");
   LLVM_DEBUG(L->dump());
   LLVM_DEBUG(UseEpilogRemainder ? dbgs() << "Using epilog remainder.\n"
@@ -981,12 +970,8 @@ bool llvm::UnrollRuntimeLoopRemainder(
                     /*AllowExpensiveTripCount*/ false, /*PreserveCondBr*/ true,
                     /*PreserveOnlyFirst*/ false, /*TripMultiple*/ 1,
                     /*PeelCount*/ 0, /*UnrollRemainder*/ false, ForgetAllSCEV},
-<<<<<<< HEAD
-                   LI, SE, DT, AC, LORB,            // INTEL
+                   LI, SE, DT, AC, LORB, TTI,       // INTEL
                    /*ORE*/ nullptr, PreserveLCSSA); // INTEL
-=======
-                   LI, SE, DT, AC, TTI, /*ORE*/ nullptr, PreserveLCSSA);
->>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
   }
 
   if (ResultLoop && UnrollResult != LoopUnrollResult::FullyUnrolled)

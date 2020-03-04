@@ -283,19 +283,12 @@ void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
 /// If RemainderLoop is non-null, it will receive the remainder loop (if
 /// required and not fully unrolled).
 LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
-<<<<<<< HEAD
-                 ScalarEvolution *SE, DominatorTree *DT,
-                 AssumptionCache *AC,                                // INTEL
-                 const LoopOptReportBuilder &LORBuilder,             // INTEL
-                 OptimizationRemarkEmitter *ORE, bool PreserveLCSSA, // INTEL
-                 Loop **RemainderLoop) {
-=======
                                   ScalarEvolution *SE, DominatorTree *DT,
                                   AssumptionCache *AC,
+                                  const LoopOptReportBuilder &LORBuilder, // INTEL
                                   const TargetTransformInfo *TTI,
                                   OptimizationRemarkEmitter *ORE,
                                   bool PreserveLCSSA, Loop **RemainderLoop) {
->>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
 
   BasicBlock *Preheader = L->getLoopPreheader();
   if (!Preheader) {
@@ -454,15 +447,9 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   if (RuntimeTripCount && ULO.TripMultiple % ULO.Count != 0 &&
       !UnrollRuntimeLoopRemainder(L, ULO.Count, ULO.AllowExpensiveTripCount,
                                   EpilogProfitability, ULO.UnrollRemainder,
-<<<<<<< HEAD
-                                  ULO.ForgetAllSCEV, LI, SE, DT, AC, // INTEL
+                                  ULO.ForgetAllSCEV, LI, SE, DT, AC,
                                   LORBuilder,                        // INTEL
-                                  PreserveLCSSA,                     // INTEL
-                                  RemainderLoop)) {
-=======
-                                  ULO.ForgetAllSCEV, LI, SE, DT, AC, TTI,
-                                  PreserveLCSSA, RemainderLoop)) {
->>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
+                                  TTI, PreserveLCSSA, RemainderLoop)) {
     if (ULO.Force)
       RuntimeTripCount = false;
     else {

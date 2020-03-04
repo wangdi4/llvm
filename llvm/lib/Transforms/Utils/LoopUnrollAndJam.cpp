@@ -231,13 +231,9 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
     if (!UnrollRuntimeLoopRemainder(L, Count, /*AllowExpensiveTripCount*/ false,
                                     /*UseEpilogRemainder*/ true,
                                     UnrollRemainder, /*ForgetAllSCEV*/ false,
-<<<<<<< HEAD
                                     LI, SE, DT, AC, // INTEL
                                     LORBuilder,                      // INTEL
-                                    true, EpilogueLoop)) {           // INTEL
-=======
-                                    LI, SE, DT, AC, TTI, true, EpilogueLoop)) {
->>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
+                                    TTI, true, EpilogueLoop)) {      // INTEL
       LLVM_DEBUG(dbgs() << "Won't unroll-and-jam; remainder loop could not be "
                            "generated when assuming runtime trip count\n");
       return LoopUnrollResult::Unmodified;

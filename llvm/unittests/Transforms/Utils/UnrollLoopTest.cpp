@@ -70,7 +70,6 @@ while.end:                                        ; preds = %while.cond
 
   bool PreserveLCSSA = L->isRecursivelyLCSSAForm(DT,LI);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Create a phony builder with OptReportVerbosity::None.
   LoopOptReportBuilder LORBuilder;
@@ -80,11 +79,7 @@ while.end:                                        ; preds = %while.cond
   bool ret = UnrollRuntimeLoopRemainder(L, 4, true, false, false, false, &LI,
                                         &SE, &DT, &AC, // INTEL
                                         LORBuilder, // INTEL
+                                        /*TTI=*/nullptr, // INTEL
                                         PreserveLCSSA); // INTEL
-=======
-  bool ret =
-      UnrollRuntimeLoopRemainder(L, 4, true, false, false, false, &LI, &SE, &DT,
-                                 &AC, /*TTI=*/nullptr, PreserveLCSSA);
->>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
   EXPECT_FALSE(ret);
 }
