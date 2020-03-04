@@ -93,6 +93,12 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
 
+// Due to implicit widening for SPIR targets, we want to schedule a loop
+// such that adjacent WIs process adjacent iterations of the loop.
+static cl::opt<bool> AvoidStridedProcessing(
+    "vpo-paropt-avoid-strided-processing", cl::Hidden, cl::init(true),
+    cl::desc("For SPIR targets schedule parallel loops such that adjacent "
+             "threads execute adjacent iterations of the loop."));
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -383,7 +389,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                                    AllocaInst *UpperBnd,
                                                    AllocaInst *TeamLowerBnd,
                                                    AllocaInst *TeamUpperBnd,
-                                                   AllocaInst *SchedStride) {
+                                                   AllocaInst *&SchedStride) {
   assert(W->getIsOmpLoop() && "genOCLLoopBoundUpdateCode: W is not a loop-type WRN");
   assert (LowerBnd->getType() == UpperBnd->getType() &&
           "Expected LowerBnd and UpperBnd to be of same type");
@@ -441,10 +447,90 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
 
+  bool MayHaveOMPCritical = W->mayHaveOMPCritical();
+  // There are two ways to process iterations of the chunk
+  // provided by the teams distribution for static even scheduling:
+  //   Strided:
+  //     chunk_size =
+  //         (team_ub - team_lb + get_local_size(Idx)) /
+  //         get_local_size(Idx);
+  //     new_lb = team_lb + get_local_id(Idx) * chunk_size;
+  //     new_ub = min(new_lb + chunk_size - 1, team_ub);
+  //     for (i = new_lb; i <= new_ub; i++)
+  //
+  //   Non-strided:
+  //     new_lb = team_lb + get_local_id(Idx);
+  //     new_ub = team_ub;
+  //     for (i = new_lb; i <= new_ub; i += get_local_size(Idx))
+  //
+  // Due to implicit widening (combining adjacent WIs into a SIMD program),
+  // in Strided case, vector representing induction variable 'i' will
+  // contain values different from each other by stride equal to
+  // chunk_size. This may result in inefficient strided memory accesses,
+  // e.g. if the original code accesses some data as data[i].
+  // In Non-strided case, the vector for 'i' will contain
+  // consecutive values of the induction variable providing
+  // better memory access pattern. Moreover, we are avoiding quite
+  // a few arithmetic operations and a min() computation with
+  // Non-strided scheduling.
+  //
+  // To be on the safe side, we only use Non-strided scheduling,
+  // if the iteration processing pattern matches the canonical one,
+  // i.e. the induction variable is incremented by 1 on each iteration.
+  //
+  // Non-strided scheduling is actually similar to schedule(static, 1),
+  // except that for the latter the generated IR looks more complex:
+  //   new_lb = team_lb + get_local_id(Idx);
+  //   new_ub = min(new_lb, team_ub);
+  //   while (new_lb <= new_ub) {
+  //     new_ub = min(new_ub, team_ub);
+  //     if (new_lb > new_ub)
+  //       break;
+  //     for (i = new_lb; i <= new_ub; i++) { ... }
+  //     new_lb += get_local_size(Idx);
+  //     new_ub += get_local_size(Idx);
+  //   }
+  //
+  // It is much harder to optimize this IR, otherwise, we would
+  // just use schedule(static, 1) as the default schedule under
+  // AvoidStridedProcessing.
+  //
+  // Note that useSPMDMode() provides non-strided iterations processing
+  // as well:
+  //   new_lb = get_global_id(Idx);
+  //   new_ub = min(new_lb, team_ub);
+  //   for (i = new_lb; i <= new_ub; i++)
+  //
+  // For useSPMDMode() we do not encode the team distribution loop,
+  // so team_ub is equal to the original normalized loop's upper bound.
+  // If get_global_id(Idx) returns value outside of the loop's
+  // iteration space, then the loop above will just not run,
+  // otherwise, it will run exactly one iteration.
+  bool IncrementByLocalSize = false;
+  PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
+  Instruction *IVInc =
+      dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
+  uint32_t IVAddendOp = 0;
+  if (AvoidStridedProcessing &&
+      // Do not mess with SIMD1 emulation.
+      !MayHaveOMPCritical &&
+      !VPOParoptUtils::useSPMDMode(W) &&
+      // Do this only for schedule(static) for the time being.
+      SchedKind == WRNScheduleStaticEven &&
+      IVInc && IVInc->getOpcode() == Instruction::Add) {
+    if (IVInc->getOperand(0) == PN)
+      IVAddendOp = 1;
+
+    auto *AddendConst = dyn_cast<ConstantInt>(IVInc->getOperand(IVAddendOp));
+    if (AddendConst && AddendConst->isOneValue())
+      // Make sure that the canonical induction variable is incremented
+      // by 1 each iteration.
+      IncrementByLocalSize = true;
+  }
+
   // All operands of math expressions below will be of LBType
   auto LBType = LB->getType();
   Value *NewUB = nullptr;
-  bool MayHaveOMPCritical = W->mayHaveOMPCritical();
 
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
@@ -463,9 +549,16 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
-      Value *ItSpace = Builder.CreateSub(UB, LB);
-      Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
-      Chunk = Builder.CreateSDiv(ItSpaceRounded, NumThreads);
+      if (!IncrementByLocalSize) {
+        // The chunk size is not used for Non-strided scheduling.
+        // Otherwise, it is equal to:
+        //   chunk_size =
+        //       (team_ub - team_lb + get_local_size(Idx)) /
+        //       get_local_size(Idx);
+        Value *ItSpace = Builder.CreateSub(UB, LB);
+        Value *ItSpaceRounded = Builder.CreateAdd(ItSpace, NumThreads);
+        Chunk = Builder.CreateSDiv(ItSpaceRounded, NumThreads);
+      }
     } else if (SchedKind == WRNScheduleStatic) {
       Chunk = W->getSchedule().getChunkExpr();
       Chunk = Builder.CreateSExtOrTrunc(Chunk, LBType);
@@ -473,8 +566,16 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       llvm_unreachable(
           "Unsupported loop schedule type in OpenCL based offloading!");
 
-    Value *SchedStrideVal = Builder.CreateMul(NumThreads, Chunk);
-    Builder.CreateStore(SchedStrideVal, SchedStride);
+    if (IncrementByLocalSize)
+      // Static even scheduling does not create a scheduling loop
+      // for chunks processing, so the scheduling stride is not needed.
+      // Reset it to nullptr here to make sure all invalid users
+      // of the scheduling stride fail right on its use.
+      SchedStride = nullptr;
+    else {
+      Value *SchedStrideVal = Builder.CreateMul(NumThreads, Chunk);
+      Builder.CreateStore(SchedStrideVal, SchedStride);
+    }
 
     CallInst *LocalId = nullptr;
     if (MayHaveOMPCritical)
@@ -489,13 +590,32 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
-    Value *LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
+    Value *LBDiff = nullptr;
+    if (IncrementByLocalSize)
+      // new_lb = team_lb + get_local_id(Idx);
+      LBDiff = LocalIdCasted;
+    else
+      // new_lb = team_lb + get_local_id(Idx) * chunk_size;
+      LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
     LB = Builder.CreateAdd(LB, LBDiff);
     Builder.CreateStore(LB, LowerBnd);
 
-    ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(LBType), 1);
-    Value *Ch = Builder.CreateSub(Chunk, ValueOne);
-    NewUB = Builder.CreateAdd(LB, Ch);
+    if (IncrementByLocalSize) {
+      // new_ub = team_ub;
+      NewUB = UB;
+
+      auto *LocalSizeCasted = CastInst::CreateIntegerCast(
+          LocalSize, IVInc->getType(), false, "", IVInc);
+      IVInc->replaceUsesOfWith(IVInc->getOperand(IVAddendOp), LocalSizeCasted);
+    } else {
+      // new_ub = min(new_lb + chunk_size - 1, team_ub);
+      //
+      // Compute the first operand of the min(). The min() computation
+      // will be done below.
+      ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(LBType), 1);
+      Value *Ch = Builder.CreateSub(Chunk, ValueOne);
+      NewUB = Builder.CreateAdd(LB, Ch);
+    }
   } else {
     assert(!MayHaveOMPCritical &&
            "SPMD mode cannot be used with omp critical.");
@@ -511,23 +631,26 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     NewUB = GlobalIdCasted;
   }
 
-  // Compare bounds using signed/unsigned comparison based on the ZTT compare.
-  // This helps optimizing CFG after Paropt. If ZTT is not found, then
-  // use unsigned comparison.
-  ICmpInst *ZTTCmpInst =
-      WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
-  bool IsSignedZTT = ZTTCmpInst ? ZTTCmpInst->isSigned() : false;
+  // No need to update UpperBnd for Non-strided scheduling.
+  if (!IncrementByLocalSize) {
+    // Compare bounds using signed/unsigned comparison based on the ZTT compare.
+    // This helps optimizing CFG after Paropt. If ZTT is not found, then
+    // use unsigned comparison.
+    ICmpInst *ZTTCmpInst =
+        WRegionUtils::getOmpLoopZeroTripTest(L, W->getEntryBBlock());
+    bool IsSignedZTT = ZTTCmpInst ? ZTTCmpInst->isSigned() : false;
 
-  Value *Compare = Builder.CreateICmp(
-      IsSignedZTT ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT, NewUB, UB);
-  Instruction *ThenTerm = SplitBlockAndInsertIfThen(
-      Compare, InsertPt, false,
-      MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
-  BasicBlock *ThenBB = ThenTerm->getParent();
-  ThenBB->setName("then.bb.");
-  IRBuilder<> BuilderThen(ThenBB);
-  BuilderThen.SetInsertPoint(ThenBB->getTerminator());
-  BuilderThen.CreateStore(NewUB, UpperBnd);
+    Value *Compare = Builder.CreateICmp(
+        IsSignedZTT ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT, NewUB, UB);
+    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+        Compare, InsertPt, false,
+        MDBuilder(F->getContext()).createBranchWeights(99999, 100000), DT, LI);
+    BasicBlock *ThenBB = ThenTerm->getParent();
+    ThenBB->setName("then.bb.");
+    IRBuilder<> BuilderThen(ThenBB);
+    BuilderThen.SetInsertPoint(ThenBB->getTerminator());
+    BuilderThen.CreateStore(NewUB, UpperBnd);
+  }
 }
 
 // Generate the GPU loop scheduling code.

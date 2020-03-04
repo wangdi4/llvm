@@ -1667,7 +1667,7 @@ private:
                                  AllocaInst *LowerBnd, AllocaInst *UpperBnd,
                                  AllocaInst *TeamLowerBnd,
                                  AllocaInst *TeamUpperBnd,
-                                 AllocaInst *SchedStride);
+                                 AllocaInst *&SchedStride);
 
   /// Generate the loop update code for DistParLoop under OpenCL.
   /// \param [in]  W            OpenMP distribute region node.
