@@ -9,10 +9,14 @@ if (MSVC)
   set_source_files_properties(SemaExprCXX.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaSYCL.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaTemplate.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   set_source_files_properties(SemaDeclCXX.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaTemplateDeduction.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 # end INTEL_CUSTOMIZATION
+=======
+  set_source_files_properties(SemaTemplateDeduction.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+>>>>>>> 29a12d354d818646a80c3fd1461f07ea721b3fa0
 endif()
 
 clang_tablegen(OpenCLBuiltins.inc -gen-clang-opencl-builtins
