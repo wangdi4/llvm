@@ -46809,6 +46809,20 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
       }
     }
   }
+
+  // If the index is a constant splat, we can fold it into the base. And change
+  // the index to all zeroes. This can avoid a constant pool load.
+  if (auto *BV = dyn_cast<BuildVectorSDNode>(Index)) {
+    BitVector UndefElts;
+    if (ConstantSDNode *C = BV->getConstantSplatNode(&UndefElts)) {
+      if (UndefElts.none() && isOneConstant(Scale)) {
+        SDValue SExt = DAG.getSExtOrTrunc(SDValue(C, 0), DL, PtrVT);
+        Base = DAG.getNode(ISD::ADD, DL, PtrVT, Base, SExt);
+        Index = DAG.getConstant(0, DL, Index.getValueType());
+        return rebuildGatherScatter(GorS, Index, Base, Scale, DAG);
+      }
+    }
+  }
 #endif
 
   if (DCI.isBeforeLegalizeOps()) {
