@@ -793,6 +793,47 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
   // LLVM_DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
   CallInst *Call = genCall(FnName, ReturnTy, FnArgs, FnArgTypes,
                            InsertPt);
+  CallInst *CallPushCodeLocation = genTgtPushCodeLocation(InsertPt, Call);
+  LLVM_DEBUG(dbgs() << "\nGenerating: " << *CallPushCodeLocation << "\n");
+  (void)CallPushCodeLocation;
+
+  return Call;
+}
+
+/// Generate tgt_push_code_location call which pushes source code location
+/// and the pointer to the tgt_target*() function.
+/// Generated function looks as follows:
+/// void __tgt_push_code_location (const char *Location,
+///                                 void *FunctionPtr)
+CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
+                                                 CallInst *TgtTargetCall) {
+  IRBuilder<> Builder(Location);
+  BasicBlock *B = Location->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  DILocation *Loc1 = Location->getDebugLoc();
+  DILocation *Loc2 = nullptr;
+  SrcLocMode Mode = SRC_LOC_FUNC;
+
+  GlobalVariable *LocStr = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
+
+  //  Create the following function call
+  //  call void @__tgt_push_code_location([22 x i8]* @.source.0.0,
+  // i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to
+  // i8*))
+  Type *ReturnTy = Type::getVoidTy(C);
+  SmallVector<Value *, 2> Args;
+  SmallVector<Type *, 2> ArgTypes;
+  Function *Fn = TgtTargetCall->getCalledFunction();
+  Value *Cast = Builder.CreateBitCast(Fn, Int8PtrTy);
+  Args.push_back(LocStr);
+  ArgTypes.push_back(LocStr->getType());
+  Args.push_back(Cast);
+  ArgTypes.push_back(Int8PtrTy);
+  CallInst *Call = genCall("__tgt_push_code_location", ReturnTy, Args, ArgTypes,
+                           TgtTargetCall);
   return Call;
 }
 
@@ -2090,68 +2131,63 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
   return GetTidCall;
 }
 
-// This function collects path, file name, line, column information for
-// generating kmpc_location struct needed for OpenMP runtime library
-GlobalVariable *
-VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
-                                       StructType *IdentTy, int Flags,
-                                       BasicBlock *BS, BasicBlock *BE) {
-  Module *M = F->getParent();
-  LLVMContext &C = F->getContext();
-  std::string LocString;
+// This function generates a GlobalVariable for the source location string
+// consisting of 4 fields. if Loc2==null the last field of the LocString is the
+// Column Number otherwise, the last field of the LocString is the end Line.
+// This utility is called either from genKmpcLocfromDebugLoc to generate kmpc
+// location (in this case loc2 will be non null) or from
+// genTgtPushCodeLocation (in which case loc2 will be null).
+// Based on the value of Mode, the function will generate the following
+// LocStrings
+// if Mode = SRC_LOC_NONE;
+//    LocString =";unknown;unknown;0;0;;\00";
+// if Mode = SRC_LOC_FUNC;
+//    LocString
+//    =“;unknown;<function name>;<start line>;<end line OR column num>;;”
+// if Mode = SRC_LOC_FILE;
+//    LocString
+//   =“;<file name>;<function name>;<start line>;<end line OR column num>;;”
+// if Mode = SRC_LOC_PATH;
+//    LocString =
+//  “;<Path/file name>;<function name>;<start line>;<end line OR column num>;;”
 
-  StringRef Path("");
-  StringRef File("unknown");
-  StringRef FnName("unknown");
+GlobalVariable *VPOParoptUtils::genLocStrfromDebugLoc(Function *F,
+                                                      DILocation *Loc1,
+                                                      DILocation *Loc2,
+                                                      SrcLocMode Mode) {
+  std::string LocString;
+  std::string Path("");
+  std::string File("unknown");
+  std::string FnName("unknown");
   unsigned SLine = 0;
   unsigned ELine = 0;
 
-  int VpoEmitSourceLocation = 1;
-
-  for (int K = 0; K < 2; ++K) {
-    BasicBlock::iterator I = (K == 0) ? BS->begin() : BE->begin();
-    if (Instruction *Inst = dyn_cast<Instruction>(I)) {
-      if (DILocation *Loc = Inst->getDebugLoc()) {
-        if (K == 0) {
-          Path = Loc->getDirectory();
-          File = Loc->getFilename();
-          FnName = Loc->getScope()->getSubprogram()->getName();
-          SLine = Loc->getLine();
-        } else {
-          ELine = Loc->getLine();
-        }
-      }
+  if (Loc1 != nullptr) {
+    switch (Mode) {
+    case SRC_LOC_PATH:
+      Path = (Loc1->getDirectory() + "/").str();
+    case SRC_LOC_FILE:
+      File = (Loc1->getFilename()).str();
+    case SRC_LOC_FUNC:
+      FnName = (Loc1->getScope()->getSubprogram()->getName()).str();
+      SLine = Loc1->getLine();
+      ELine = Loc2 ? Loc2->getLine() : Loc1->getColumn();
+      break;
+    case SRC_LOC_NONE:
+      break;
+    default:
+      llvm_unreachable("genLocStrfromDebugLoc: unhandled source location mode");
+      break;
     }
   }
+  LocString = (";" + Path + File + ";" + FnName + ";" + Twine(SLine) + ";" +
+               Twine(ELine) + ";;\00")
+                  .str();
 
-  // Source location string for OpenMP runtime library call
-  // LocString = ";pathfilename;routinename;sline;eline;;"
-  switch (VpoEmitSourceLocation) {
+  LLVM_DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
 
-  case 1:
-    LocString = (";unknown;" + FnName + ";" + Twine(SLine) + ";" +
-                 Twine(ELine) + ";;\00")
-                    .str();
-    break;
-
-  case 2:
-    LocString = (";" + Path + "/" + File + ";" + FnName + ";" + Twine(SLine) +
-                 ";" + Twine(ELine) + ";;\00")
-                    .str();
-    break;
-
-  case 0:
-  default:
-    LocString = ";unknown;unknown;0;0;;\00";
-    break;
-  }
-
-  Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
-
-  // Constant Definitions
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-  ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
-
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
   // Define the type of loc string. It is an array of i8/char type.
   ArrayType *LocStringTy = ArrayType::get(Type::getInt8Ty(C), LocString.size());
 
@@ -2162,16 +2198,44 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   GlobalVariable *LocStringVar = new GlobalVariable(
       *M, LocStringTy, true, GlobalValue::PrivateLinkage, LocStringInit,
       ".source." + Twine(SLine) + "." + Twine(ELine));
+
+  return LocStringVar;
+}
+
+// This function collects path, file name, line, column information for
+// generating kmpc_location struct needed for OpenMP runtime library
+GlobalVariable *
+VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
+                                       StructType *IdentTy, int Flags,
+                                       BasicBlock *BS, BasicBlock *BE) {
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Instruction *SInst = dyn_cast<Instruction>(BS->begin());
+  DILocation *Loc1 = SInst ? SInst->getDebugLoc() : nullptr;
+  Instruction *EInst = dyn_cast<Instruction>(BE->begin());
+  DILocation *Loc2 = EInst ? EInst->getDebugLoc() : nullptr;
+
+  SrcLocMode Mode = SRC_LOC_FUNC;
+
+  GlobalVariable *LocStringVar = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
+
   // Allows merging of variables with same content.
   LocStringVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+  Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
 
-  LLVM_DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
-
+  // Constant Definitions
+  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+  ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
   // Get a pointer to the global variable containing loc string.
   Constant *Zeros[] = {ValueZero, ValueZero};
   Constant *LocStringPtr =
-      ConstantExpr::getGetElementPtr(LocStringTy, LocStringVar, Zeros);
+      ConstantExpr::getGetElementPtr(nullptr, LocStringVar, Zeros);
 
+  unsigned SLine =
+      (Loc1 != nullptr && Mode != SRC_LOC_NONE) ? Loc1->getLine() : 0;
+  unsigned ELine =
+      (Loc2 != nullptr && Mode != SRC_LOC_NONE) ? Loc2->getLine() : 0;
   // We now have values of all loc struct elements.
   // IdentTy:       {i32,   i32,    i32,    i32,    i8*         }
   // Loc struct:    {0,     Flags,  0,      0,      LocStringPtr}
@@ -2263,7 +2327,7 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
                          WRegionUtils::hasCancelConstruct(WParent);
 
   auto *BarrierCall = VPOParoptUtils::genKmpcBarrierImpl(
-      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier);
+      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier, IsTargetSPIRV);
 
   if (IsCancelBarrier)
     WParent->addCancellationPoint(BarrierCall);
@@ -2550,6 +2614,8 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     // Emit an empty __kmpc_barrier without parameters,
     // and insert it above InsertPt
     CallInst *BarrierCall = genEmptyCall(M, FnName, RetTy, InsertPt);
+    BarrierCall->getCalledFunction()->setConvergent();
+    setFuncCallingConv(BarrierCall, IsTargetSPIRV);
     return BarrierCall;
   }
 

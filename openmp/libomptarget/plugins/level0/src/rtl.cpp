@@ -160,6 +160,7 @@ struct RTLDeviceInfoTy {
   std::mutex *Mutexes;
 
   /// Flags, parameters, options
+  int64_t RequiresFlags = OMP_REQ_UNDEFINED;
   uint32_t DataTransferLatency; // Emulated data transfer latency in us
   int32_t DeviceType;
   uint32_t ThreadLimit; // Global thread limit
@@ -272,6 +273,12 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
   int32_t ret = (magicWord == 0x07230203 || magicWord == 0x03022307);
   DP("Target binary is %s\n", ret ? "VALID" : "INVALID");
   return ret;
+}
+
+EXTERN int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
+  DP("Initialize requires flags to %" PRId64 "\n", RequiresFlags);
+  DeviceInfo.RequiresFlags = RequiresFlags;
+  return RequiresFlags;
 }
 
 EXTERN

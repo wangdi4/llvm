@@ -879,6 +879,24 @@ public:
     }
     return Cloned;
   }
+
+  /// Checks whether the specified PHI node always merges together the same
+  /// value, assuming that undefs result in the same value as non-undefs.
+  /// Adapted from the LLVM-source PHINode::hasConstantOrUndefValue().
+  bool hasConstantOrUndefValue() const {
+    VPValue *ConstantValue = nullptr;
+    for (int I = 0, E = getNumIncomingValues(); I != E; ++I) {
+      VPValue *Incoming = getIncomingValue(I);
+      const VPConstant *ConstOp = dyn_cast<VPConstant>(Incoming);
+      bool IsUndef = ConstOp && isa<UndefValue>(ConstOp->getConstant());
+      if (Incoming != this && !IsUndef) {
+        if (ConstantValue && ConstantValue != Incoming)
+          return false;
+        ConstantValue = Incoming;
+      }
+    }
+    return true;
+  }
 };
 
 /// Concrete class to represent GEP instruction in VPlan.

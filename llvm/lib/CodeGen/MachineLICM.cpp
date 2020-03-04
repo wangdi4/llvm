@@ -1345,10 +1345,10 @@ MachineInstr *MachineLICMBase::ExtractHoistableLoad(MachineInstr *MI) {
   bool Success = TII->unfoldMemoryOperand(MF, *MI, Reg,
                                           /*UnfoldLoad=*/true,
                                           /*UnfoldStore=*/false, NewMIs);
-  (void)Success;
-  assert(Success &&
-         "unfoldMemoryOperand failed when getOpcodeAfterMemoryUnfold "
-         "succeeded!");
+#if INTEL_CUSTOMIZATION
+  if (!Success)
+    return nullptr;
+#endif
   assert(NewMIs.size() == 2 &&
          "Unfolded a load into multiple instructions!");
   MachineBasicBlock *MBB = MI->getParent();

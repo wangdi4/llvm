@@ -187,8 +187,10 @@ class OpenMPLateOutliner {
   void emitOMPReductionClause(const OMPReductionClause *Cl);
   void emitOMPOrderedClause(const OMPOrderedClause *C);
   void buildMapQualifier(OpenMPLateOutliner::ClauseStringBuilder &CSB,
-                         const OMPMapClause *C);
-  void emitOMPMapClause(const OMPMapClause *Cl);
+                         OpenMPMapClauseKind MapType,
+                         const SmallVector<OpenMPMapModifierKind, 1> Modifiers);
+  void emitOMPAllMapClauses();
+  void emitOMPMapClause(const OMPMapClause *C);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);
   void emitOMPCopyinClause(const OMPCopyinClause *Cl);
@@ -224,8 +226,8 @@ class OpenMPLateOutliner {
   void emitOMPHintClause(const OMPHintClause *);
   void emitOMPDistScheduleClause(const OMPDistScheduleClause *);
   void emitOMPDefaultmapClause(const OMPDefaultmapClause *);
-  void emitOMPToClause(const OMPToClause *);
   void emitOMPFromClause(const OMPFromClause *);
+  void emitOMPToClause(const OMPToClause *);
   void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *);
   void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *);
   void emitOMPTaskReductionClause(const OMPTaskReductionClause *);
@@ -259,8 +261,7 @@ class OpenMPLateOutliner {
 
   bool isIgnoredImplicit(const VarDecl *);
   bool isImplicit(const VarDecl *);
-  bool isExplicit(const VarDecl *);
-  bool hasMapClause(const VarDecl *);
+  bool isExplicitForDirective(const VarDecl *, OpenMPDirectiveKind);
   bool alreadyHandled(llvm::Value *);
   void addImplicitClauses();
   void addRefsToOuter();
@@ -272,7 +273,6 @@ class OpenMPLateOutliner {
     ICK_firstprivate,
     ICK_lastprivate,
     ICK_shared,
-    ICK_map_tofrom,
     ICK_normalized_iv,
     ICK_normalized_ub,
     // A firstprivate specified with an implicit OMPFirstprivateClause.
@@ -281,8 +281,10 @@ class OpenMPLateOutliner {
   };
   void HandleImplicitVar(const Expr *E, ImplicitClauseKind ICK);
   llvm::MapVector<const VarDecl *, ImplicitClauseKind> ImplicitMap;
-  llvm::DenseSet<const VarDecl *> ExplicitRefs;
-  llvm::DenseSet<const VarDecl *> MapRefs;
+
+  llvm::DenseMap<const VarDecl *, SmallVector<OpenMPClauseKind, 2>>
+      ExplicitRefs;
+
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
@@ -305,7 +307,7 @@ public:
   }
   void privatizeMappedPointers(CodeGenFunction::OMPPrivateScope &PrivateScope) {
     for (auto MT : MapTemps) {
-      QualType Ty = MT.second->getType().getNonReferenceType();
+      QualType Ty = MT.second->getType().getCanonicalType();
       Address A = CGF.CreateMemTemp(Ty, MT.second->getName() + ".map.ptr.tmp");
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
@@ -356,21 +358,6 @@ public:
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
 
-  template <typename ClauseType>
-  void AddMapToFromClauses(const ClauseType *C) {
-    for (auto *E : C->varlists()) {
-      const VarDecl *VD = getExplicitVarDecl(E);
-      assert(VD && "expected VarDecl in clause");
-      if (hasMapClause(VD))
-        continue;
-      emitImplicit(VD, ICK_map_tofrom);
-      // Adding to explicit list to prevent additional clauses from implicit
-      // rules.
-      addExplicit(VD, /*IsMap=*/true);
-    }
-  }
-  void emitCombinedTargetMapClauses();
-
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
   void emitImplicit(const VarDecl *VD, ImplicitClauseKind K);
@@ -386,10 +373,14 @@ public:
   }
   void addValueSuppress(llvm::Value *V) { HandledValues.insert(V); }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
-  void addExplicit(const VarDecl *VD, bool IsMap = false) {
-    ExplicitRefs.insert(VD);
-    if (IsMap)
-      MapRefs.insert(VD);
+  void addExplicit(const VarDecl *VD, OpenMPClauseKind CK) {
+    auto It = ExplicitRefs.find(VD);
+    if (It != ExplicitRefs.end()) {
+      It->second.push_back(CK);
+    } else {
+      llvm::SmallVector<OpenMPClauseKind, 2> CKs = {CK};
+      ExplicitRefs.insert({VD,CKs});
+    }
   }
   bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
   void setInsertPoint() {

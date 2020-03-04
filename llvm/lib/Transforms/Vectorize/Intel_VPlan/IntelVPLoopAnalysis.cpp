@@ -649,6 +649,7 @@ void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
     VPValue *V = Builder.createNaryOp(Instruction::Store, Ty, {&Final, AI});
+    Plan.getVPlanDA()->markUniform(*V);
     linkValue(&E, V);
   }
   if (Exit && !E.getIsMemOnly())
@@ -746,6 +747,7 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       }
       RedFinalMap[Reduction] = std::make_pair(Final, Exit);
     }
+    Plan.getVPlanDA()->markUniform(*Final);
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
 }
@@ -784,8 +786,10 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     VPValue *PrivateMem = createPrivateMemory(*Induction, Builder, AI);
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
-    if (Induction->getIsMemOnly())
+    if (Induction->getIsMemOnly()) {
       Start = Builder.createNaryOp(Instruction::Load, Ty, {AI});
+      Plan.getVPlanDA()->markUniform(*Start);
+    }
 
     Instruction::BinaryOps Opc =
         static_cast<Instruction::BinaryOps>(Induction->getInductionOpcode());
@@ -800,10 +804,9 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
         Start, Induction->getStep(), Opc, Name + ".ind.init");
     Plan.getVPlanDA()->markDivergent(*Init);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
-
-    VPInstruction *InitStep = Builder.createInductionInitStep(
-        Induction->getStep(), Opc, Name + ".ind.init.step");
-
+    VPInstruction *InitStep =
+        Builder.createInductionInitStep(Induction->getStep(), Opc);
+    Plan.getVPlanDA()->markUniform(*InitStep);
     if (!Induction->needCloseForm()) {
       if (auto *Instr = Induction->getInductionBinOp()) {
         assert(isConsistentInductionUpdate(Instr,
@@ -836,6 +839,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
             : Builder.createInductionFinal(Start, Induction->getStep(), Opc,
                                            Name + ".ind.final");
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
+    Plan.getVPlanDA()->markUniform(*Final);
   }
 }
 
@@ -866,12 +870,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
     // Handle aliases in two passes.
     // Insert the aliases into the Loop preheader in the regular order first.
     for (auto const &ValInstPair : Private->aliases()) {
-      auto *VPOperand = ValInstPair.first;
       auto *VPInst = ValInstPair.second;
       Builder.insert(VPInst);
       DA->markDivergent(*VPInst);
-      auto VectorShape = DA->getVectorShape(VPOperand);
-      DA->updateVectorShape(VPInst, VectorShape);
     }
 
     // Now do the replacement. We first replace all instances of VPOperand

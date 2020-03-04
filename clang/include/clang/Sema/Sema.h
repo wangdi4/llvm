@@ -10052,6 +10052,10 @@ public:
   bool isOpenMPCapturedByRef(const ValueDecl *D, unsigned Level,
                              unsigned OpenMPCaptureLevel) const;
 
+#if INTEL_COLLAB
+  bool isOpenMPTargetLastPrivate(ValueDecl *D);
+#endif // INTEL_COLLAB
+
   /// Check if the specified variable is used in one of the private
   /// clauses (private, firstprivate, lastprivate, reduction etc.) in OpenMP
   /// constructs.

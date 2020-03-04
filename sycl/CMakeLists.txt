@@ -58,7 +58,10 @@ if( INTEL_CUSTOMIZATION )
   set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
 endif()
 
-if( DEFINED ICD_LOADER_SRC_DIR )
+if( OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY )
+  # Use OpenCL ICD Loader and headers passed explicitely
+  find_package(OpenCL)
+elseif( DEFINED ICD_LOADER_SRC_DIR )
   if( NOT EXISTS ${OpenCL_INCLUDE_DIR} )
     message(ERROR "Missed OpenCL headers" )
   endif()
@@ -119,7 +122,7 @@ if( DEFINED ICD_LOADER_SRC_DIR )
       BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
       CMAKE_ARGS        -DOPENCL_ICD_LOADER_HEADERS_DIR=${OpenCL_INCLUDE_DIRS}
                         -DBUILD_TESTING=OFF
-                        -DCMAKE_INSTALL_LIBDIR:PATH=lib
+                        -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
                         -DCMAKE_INSTALL_BINDIR:PATH=bin
                         ${OPENCL_ICD_LOADER_WDK}
                         -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy
@@ -141,7 +144,7 @@ if( DEFINED ICD_LOADER_SRC_DIR )
     )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
-  message("OpenCL_LIBRARIES is missed. Will try to download OpenCL ICD Loader from github.com")
+  message("OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
   if(MSVC)
     set(OpenCL_LIBRARIES
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")

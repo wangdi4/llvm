@@ -61,7 +61,6 @@ struct RTLInfoTy {
                                              int32_t, uint64_t, void *);
   typedef void *(create_offload_pipe_ty)(int32_t, bool);
   typedef int32_t(release_offload_pipe_ty)(int32_t, void *);
-  typedef int32_t(is_managed_data_ty)(int32_t, void *);
 #endif // INTEL_COLLAB
 
   int32_t Idx;                     // RTL index, index is the number of devices
@@ -107,7 +106,6 @@ struct RTLInfoTy {
   run_team_region_nowait_ty *run_team_region_nowait;
   create_offload_pipe_ty *create_offload_pipe;
   release_offload_pipe_ty *release_offload_pipe;
-  is_managed_data_ty *is_managed_data;
 #endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
@@ -136,7 +134,7 @@ struct RTLInfoTy {
         run_team_nd_region(0), run_team_nd_region_nowait(0),
         run_region_nowait(0), run_team_region_nowait(0), create_offload_pipe(0),
         release_offload_pipe(0),
-        is_managed_data(0), isUsed(false), Mtx() {}
+        isUsed(false), Mtx() {}
 #else
         init_requires(0), isUsed(false), Mtx() {}
 #endif // INTEL_COLLAB
@@ -177,7 +175,6 @@ struct RTLInfoTy {
     run_team_region_nowait = r.run_team_region_nowait;
     create_offload_pipe = r.create_offload_pipe;
     release_offload_pipe = r.release_offload_pipe;
-    is_managed_data = r.is_managed_data;
 #endif // INTEL_COLLAB
     isUsed = r.isUsed;
   }

@@ -321,3 +321,46 @@ void uncollapsed_simd(int n) {
       for (int k = 0; k < n; ++k)
         for (int l = 0; l < n; ++l);
 }
+
+// CHECK-LABEL: test_four
+void test_four() {
+#pragma omp target
+#pragma omp teams distribute parallel for collapse(2)
+  for (int i = 0; i < 1000; i++)
+    for (int k = 0; k < 1000; k++)
+//CHECK-LABEL: if.then:
+//CHECK-NEXT: br label %omp.body.continue
+//CHECK-LABEL: if.end:
+//CHECK-NEXT: br label %omp.body.continue
+//CHECK-LABEL: omp.body.continue: {{.*}}
+//CHECK-NEXT: br label %omp.uncollapsed.loop.inc
+       if ( k == 10)
+         continue;
+       else
+         k++;
+}
+
+struct A {
+  int m, a;
+  A(int x=0, int y=0) :m(x),   a(y) {}
+  A(const A& p)       :m(p.m), a(p.a) {}
+  ~A() {m=-1;a=-1;}
+};
+// CHECK-LABEL: test_five
+// CHECK-LABEL: cleanup.cont:
+// CHECK-NEXT: br label %omp.body.continue
+// CHECK-LABEL: omp.body.continue: {{.*}}
+// CHECK-NEXT: br label %omp.uncollapsed.loop.inc
+void test_five() {
+#pragma omp target
+#pragma omp teams distribute parallel for collapse(2)
+  for (int i = 0; i < 1000; i++)
+    for (int k = 0; k < 1000; k++) {
+      A a(1);
+       if ( a.m == 10)
+         continue;
+       else
+         k++;
+     }
+}
+

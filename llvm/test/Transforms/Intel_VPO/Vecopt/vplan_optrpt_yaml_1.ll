@@ -1,8 +1,8 @@
 ; Test to chack that opt-report messages are printed for VPlan Vectorizer.
 ; Based on vplan_pointer_operand_widening test.
 
-; RUN: opt <%s -VPlanDriver -vplan-force-vf=2 -pass-remarks-output=%t -S; FileCheck --input-file %t %s
-; RUN: opt <%s -VPlanDriver -vplan-force-vf=1 -pass-remarks-output=%t -S; FileCheck --check-prefix=CHECK-NEG --allow-empty --input-file %t %s
+; RUN: opt <%s -VPlanDriver -vplan-force-vf=2 -pass-remarks-output=%t -S -disable-output ; FileCheck --input-file %t %s
+; RUN: opt <%s -VPlanDriver -vplan-force-vf=1 -pass-remarks-output=%t -S -disable-output ; FileCheck --check-prefix=CHECK-NEG --allow-empty --input-file %t %s
 
 ; CHECK: Pass:{{[ ]*}}VPlan Vectorization
 ; CHECK: Function:{{[ ]*}}foo

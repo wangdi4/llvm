@@ -72,10 +72,8 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
           SubLoopPreHeader) {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(SubLoopRegnPredBlock);
-        bool Divergent = VPDA->isDivergent(*TopTest);
         TopTest = Builder.createNot(TopTest, TopTest->getName() + ".not");
-        if (Divergent)
-          VPDA->markDivergent(*TopTest);
+        VPDA->updateDivergence(*TopTest);
       }
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
     }
@@ -304,14 +302,17 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
       // Compute and set the new condition bit in the loop latch. If all the
       // lanes are inactive, new condition bit will be true.
       auto *NewCondBit = Builder.createAllZeroCheck(BottomTest);
+      Plan->getVPlanDA()->updateDivergence(*NewCondBit);
 
       // If back edge is the false successor, we can use new condition bit as
       // the loop latch condition. However, if back edge is the true
       // successor, we need to negate the new condition bit before using it as
       // the loop latch condition.
-      if (!BackEdgeIsFalseSucc)
+      if (!BackEdgeIsFalseSucc) {
         NewCondBit = Builder.createNot(NewCondBit);
+      }
       NewLoopLatch->setCondBit(NewCondBit);
+      Plan->getVPlanDA()->updateDivergence(*NewCondBit);
     }
 
     LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);

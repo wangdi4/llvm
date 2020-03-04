@@ -20,6 +20,7 @@
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
+#include <queue>
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
@@ -69,8 +70,8 @@ public:
   /// Mark \p DivVal as a value that is always divergent.
   void markDivergent(const VPValue &DivVal);
 
-  /// Whether any value was marked or analyzed to be divergent.
-  bool hasDetectedDivergence() const { return !DivergentValues.empty(); }
+  /// Mark \p UniVal as a value that is non-divergent.
+  void markUniform(const VPValue &UniVal);
 
   /// Whether \p Val will always return a uniform value regardless of its
   /// operands
@@ -95,7 +96,49 @@ public:
   /// Return \p true if the given pointer is unit-stride.
   bool isUnitStridePtr(const VPValue *Ptr) const;
 
+  void updateDivergence(const VPValue &Val) {
+    assert(isa<VPInstruction>(&Val) &&
+           "Expected a VPInstruction as input argument.");
+    auto NewShape = computeVectorShape(cast<VPInstruction>(&Val));
+    updateVectorShape(&Val, NewShape);
+  }
+
 private:
+  /// Initialize instructions with initial shapes and mark 'pinned' shapes.
+  void init();
+
+  /// Propagate divergence to all instructions in the region.
+  /// Divergence is seeded by calls to \p markDivergent.
+  void computeImpl();
+
+  /// Make the shape for the \p Val immutable.
+  void setPinned(const VPValue &Val) { Pinned.insert(&Val); }
+
+  /// Set the shape for \p Val and make it immutable.
+  void setPinnedShape(const VPValue &Val, const VPVectorShape Shape) {
+    setPinned(Val);
+    updateVectorShape(&Val, Shape);
+  }
+
+  /// Push users of instructions with non-deterministic results on to the
+  /// Worklist.
+  void pushNonDeterministicInsts(VPLoop *CandidateLoop);
+
+  /// Set shapes for instructions in Loop Preheader.
+  void initializeShapesForInstsInLoopPreheader();
+
+  /// Set shapes for instructions with loop-invariant operands.
+  void initializeShapesForConstOpInsts();
+
+  /// Mark Loop-exit condition as uniforms.
+  void markLoopExitsAsUniforms(VPLoop *CandidateLoop);
+
+  /// Push the instruction to the Worklist.
+  bool pushToWorklist(const VPInstruction &I);
+
+  /// Pop the instruction from the Worklist.
+  const VPInstruction *popFromWorklist();
+
   /// Whether \p BB is part of the region.
   bool inRegion(const VPBlockBase &BB) const;
   /// Whether \p I is part of the region.
@@ -103,10 +146,6 @@ private:
 
   /// Mark \p UniVal as a value that is always uniform.
   void addUniformOverride(const VPValue &UniVal);
-
-  /// Propagate divergence to all instructions in the region.
-  /// Divergence is seeded by calls to \p markDivergent.
-  void computeImpl();
 
   bool updatePHINode(const VPInstruction &Phi) const;
 
@@ -122,13 +161,12 @@ private:
   ///
   /// \param LoopHeader the header of the divergent loop.
   ///
-  /// Marks all users of live-out values of the loop headed by \p LoopHeader
+  /// Marks all users of live-out values of the loop headed by \p LoopHeader.
   /// as divergent and puts them on the worklist.
   void taintLoopLiveOuts(const VPBlockBase &LoopHeader);
 
-  /// Push only non-divergent users of \p Val (in the region) to the worklist
-  /// unless \p PushAll is true;
-  void pushUsers(const VPValue &V, bool PushAll=false); // INTEL
+  /// Push users of \p Val (in the region) to the worklist.
+  void pushUsers(const VPValue &V);
 
   /// Push all phi nodes in \p Block to the worklist if \p PushAll is true.
   /// If \p PushAll is false, only those phi nodes that have not already been
@@ -143,9 +181,28 @@ private:
     DivergentJoinBlocks.insert(&Block);
   }
 
-  /// Whether \p Val is divergent when read in \p ObservingBlock.
-  bool isTemporalDivergent(const VPBlockBase &ObservingBlock,
-                           const VPValue &Val) const;
+  /// Mark \p Block as divergent loop-exit block.
+  bool addDivergentLoopExit(const VPBlockBase &Block) {
+    return DivergentLoopExits.insert(&Block).second;
+  }
+
+  /// Mark \p Loop as divergent.
+  bool addDivergentLoops(const VPLoop &VPLp) {
+    return DivergentLoops.insert(&VPLp).second;
+  }
+
+  /// Return \p true if the value has 'pinned' shape.
+  bool isPinned(const VPValue &Val) const { return Pinned.count(&Val) != 0; }
+
+  /// Return \p true if \p Loop is divergent.
+  bool isDivergentLoop(const VPLoop &VPLp) const {
+    return DivergentLoops.find(&VPLp) != DivergentLoops.end();
+  }
+
+  /// Return \p true if \p Block is a divergent loop-exit block.
+  bool isDivergentLoopExit(const VPBlockBase &Block) const {
+    return DivergentLoopExits.find(&Block) != DivergentLoopExits.end();
+  }
 
   /// Whether \p Block is join divergent
   ///
@@ -153,6 +210,19 @@ private:
   bool isJoinDivergent(const VPBlockBase &Block) const {
     return DivergentJoinBlocks.find(&Block) != DivergentJoinBlocks.end();
   }
+
+  bool addJoinDivergentBlock(const VPBlockBase &Block) {
+    return DivergentJoinBlocks.insert(&Block).second;
+  }
+
+  /// Whether \p Val is divergent when read in \p ObservingBlock.
+  bool isTemporalDivergent(const VPBlockBase &ObservingBlock,
+                           const VPValue &Val) const;
+
+  /// Get the vector shape of \p Val observed in \p ObserverBlock. This will
+  /// be varying if \p Val is defined in divergent loop.
+  VPVectorShape getObservedShape(const VPBasicBlock &ObserverBlock,
+                                 const VPValue &Val);
 
   /// Propagate control-induced divergence to users (phi nodes and
   /// instructions).
@@ -178,15 +248,17 @@ private:
   /// Initialize shapes before propagation.
   void initializePhiShapes(VPLoop *CandidateLoop);
 
+  /// Initialize shapes for inner-loop Phis.
+  void initializeInnerLoopPhis();
+
   /// Returns true if OldShape is not equal to NewShape.
   bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 
-  /// Set any remaining shapes for instructions that stayed uniform after
-  /// divergence propagation.
-  void setVectorShapesForUniforms(const VPLoop *VPLp);
-
   /// Compute vector shape of \p I.
   VPVectorShape computeVectorShape(const VPInstruction *I);
+
+  /// Computes vector shapes for all unary instructions.
+  VPVectorShape computeVectorShapeForUnaryInst(const VPInstruction *I);
 
   /// Computes vector shapes for all binary instructions. E.g., add, sub, etc.
   VPVectorShape computeVectorShapeForBinaryInst(const VPInstruction *I);
@@ -243,13 +315,13 @@ private:
   /// shapes are needed to compute the vector shape of \p I.
   bool pushMissingOperands(const VPInstruction &I);
 
-  /// Verify that there are not undefined shapes after divergence analysis.
+  /// Verify that there are no undefined shapes after divergence analysis.
   /// Also ensure that divergent/uniform properties are consistent with vector
   /// shapes.
   void verifyVectorShapes(const VPLoop *VPLp);
 
-  /// Mark \p DivVal as a value that is non-divergent.
-  void markNonDivergent(const VPValue *DivVal);
+  /// Verify the shape of each instruction in give Block \p VPBB.
+  void verifyBasicBlock(const VPBasicBlock *VPBB);
 
   // Mark all relevant loop-entities as Divergent.
   template <typename EntitiesRange>
@@ -293,11 +365,17 @@ private:
   // Blocks with joining divergent control from different predecessors.
   DenseSet<const VPBlockBase *> DivergentJoinBlocks;
 
-  // Detected/marked divergent values.
-  DenseSet<const VPValue *> DivergentValues;
+  // Blocks which are loop-exits and result in divergent Control-flow.
+  DenseSet<const VPBlockBase *> DivergentLoopExits;
 
   // Internal worklist for divergence propagation.
-  SmallVector<const VPInstruction *, 8> Worklist;
+  std::queue<const VPInstruction *> Worklist;
+
+  // Unique-elements of the Worklist.
+  DenseSet<const VPInstruction*> OnWorklist;
+
+  // Internal list of values with 'pinned' values.
+  DenseSet<const VPValue *> Pinned;
 };
 
 } // namespace vpo

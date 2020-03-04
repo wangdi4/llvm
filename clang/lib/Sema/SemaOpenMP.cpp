@@ -1169,18 +1169,10 @@ void DSAStackTy::addDSA(const ValueDecl *D, const Expr *E, OpenMPClauseKind A,
     Data.PrivateCopy = nullptr;
   } else {
     DSAInfo &Data = getTopOfStack().SharingMap[D];
-#if INTEL_COLLAB
-    assert(Data.Attributes == OMPC_unknown || (A == Data.Attributes) ||
-           Data.Attributes == OMPC_map ||
-           (A == OMPC_firstprivate && Data.Attributes == OMPC_lastprivate) ||
-           (A == OMPC_lastprivate && Data.Attributes == OMPC_firstprivate) ||
-           (isLoopControlVariable(D).first && A == OMPC_private));
-#else
     assert(Data.Attributes == OMPC_unknown || (A == Data.Attributes) ||
            (A == OMPC_firstprivate && Data.Attributes == OMPC_lastprivate) ||
            (A == OMPC_lastprivate && Data.Attributes == OMPC_firstprivate) ||
            (isLoopControlVariable(D).first && A == OMPC_private));
-#endif // INTEL_COLLAB
     if (A == OMPC_lastprivate && Data.Attributes == OMPC_firstprivate) {
       Data.RefExpr.setInt(/*IntVal=*/true);
       return;
@@ -1958,6 +1950,17 @@ bool Sema::isOpenMPCapturedByRef(const ValueDecl *D, unsigned Level,
           !Ty->isScalarType() ||
           DSAStack->isDefaultmapCapturedByRef(
               Level, getVariableCategoryFromDecl(LangOpts, D)) ||
+#if INTEL_COLLAB
+          // OpenMP spec 5.0, sec 2.19.7:
+          // If a list item appears in a reduction, lastprivate or linear
+          // clause on a combined target construct then it is treated as if
+          // it also appears in a map clause with a map-type of tofrom.
+          // So these clauses will treated as if mapped and byref captured.
+          LangOpts.OpenMPLateOutline && DSAStack->hasExplicitDSA(
+              D, [](OpenMPClauseKind K) { return K == OMPC_reduction ||
+                                                 K == OMPC_lastprivate ||
+                                                 K == OMPC_linear; }, Level) ||
+#endif // INTEL_COLLAB
           DSAStack->hasExplicitDSA(
               D, [](OpenMPClauseKind K) { return K == OMPC_reduction; }, Level);
     }
@@ -2008,6 +2011,55 @@ bool Sema::isInOpenMPTargetExecutionDirective() const {
              false);
 }
 
+#if INTEL_COLLAB
+bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
+  if (!getLangOpts().OpenMPLateOutline)
+    return false;
+
+  D = getCanonicalDecl(D);
+
+  auto *VD = dyn_cast<VarDecl>(D);
+  // Do not capture constexpr variables.
+  if (VD && VD->isConstexpr())
+    return false;
+
+  if (VD && DSAStack->getCurrentDirective() != OMPD_unknown &&
+      isInOpenMPTargetExecutionDirective()) {
+    // Find the level of the Target Directive
+    int Level = DSAStack->getNestingLevel();
+    for ( ; Level >= 0; --Level) {
+      if (isOpenMPTargetExecutionDirective(DSAStack->getDirective(Level)))
+        break;
+    }
+    assert(isOpenMPTargetExecutionDirective(DSAStack->getDirective(Level)) &&
+           "Expected target directive at this level");
+    bool HasScalarDefaultMap = false;
+    OpenMPDefaultmapClauseModifier M =
+        DSAStack->getDefaultmapModifierAtLevel(Level, OMPC_DEFAULTMAP_scalar);
+    if (M == OMPC_DEFAULTMAP_MODIFIER_tofrom) {
+      HasScalarDefaultMap = true;
+    }
+    bool HasMapClause = DSAStack->checkMappableExprComponentListsForDeclAtLevel(
+        VD, Level,
+        [](OMPClauseMappableExprCommon::MappableExprComponentListRef
+               MapExprComponents,
+           OpenMPClauseKind WhereFoundClauseKind) { return true; });
+    if (!HasScalarDefaultMap && !HasMapClause &&
+        !DSAStack->hasExplicitDSA(
+            D,
+            [](OpenMPClauseKind K) {
+              return K == OMPC_reduction || K == OMPC_lastprivate ||
+                     K == OMPC_linear;
+            },
+            Level) &&
+        VD->getType().getCanonicalType()->isScalarType() &&
+        !VD->getType().getCanonicalType()->isPointerType())
+      return true;
+  }
+  return false;
+}
+#endif // INTEL_COLLAB
+
 VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
                                     unsigned StopAt) {
   assert(LangOpts.OpenMP && "OpenMP is not allowed");
@@ -2025,6 +2077,11 @@ VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
   DSAStackTy::ParentDirectiveScope InParentDirectiveRAII(
       *DSAStack, CheckScopeInfo && DSAStack->isBodyComplete());
 
+#if INTEL_COLLAB
+  if (VD && isOpenMPTargetLastPrivate(VD))
+    return nullptr;
+#endif // INTEL_COLLAB
+
   // If we are attempting to capture a global variable in a directive with
   // 'target' we return true so that this global is also mapped to the device.
   //
@@ -2041,6 +2098,9 @@ VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
       // If the declaration is enclosed in a 'declare target' directive,
       // then it should not be captured.
       //
+#if INTEL_COLLAB
+      if (!getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
       if (OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD))
         return nullptr;
       CapturedRegionScopeInfo *CSI = nullptr;
@@ -2090,11 +2150,6 @@ VarDecl *Sema::isOpenMPCapturedDecl(ValueDecl *D, bool CheckScopeInfo,
       return VD ? VD : Info.second;
     DSAStackTy::DSAVarData DVarPrivate =
         DSAStack->getTopDSA(D, DSAStack->isClauseParsingMode());
-#if INTEL_COLLAB
-    if (getLangOpts().OpenMPLateOutline && isa<FieldDecl>(D) &&
-        DVarPrivate.CKind == OMPC_map)
-      return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
-#endif // INTEL_COLLAB
     if (DVarPrivate.CKind != OMPC_unknown && isOpenMPPrivate(DVarPrivate.CKind))
       return VD ? VD : cast<VarDecl>(DVarPrivate.PrivateCopy->getDecl());
     // Threadprivate variables must not be captured.
@@ -16728,36 +16783,7 @@ OMPClause *Sema::ActOnOpenMPMapClause(
     ++Count;
   }
 
-#if INTEL_COLLAB
-  SmallVector<Expr *, 8> NewVarList;
-  if (this->getLangOpts().OpenMPLateOutline) {
-    for (Expr *RefExpr : VarList) {
-      const Expr *E = RefExpr;
-      while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
-        E = OASE->getBase()->IgnoreParenImpCasts();
-      while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
-        E = ASE->getBase()->IgnoreParenImpCasts();
-
-      Expr *VarsExpr = RefExpr;
-      if (auto *ME = dyn_cast<MemberExpr>(E)) {
-        if (isa<CXXThisExpr>(ME->getBase()->IgnoreParenImpCasts()) &&
-            !CurContext->isDependentContext()) {
-          auto *Field =
-              const_cast<ValueDecl *>(getCanonicalDecl(ME->getMemberDecl()));
-          TransformExprToCaptures RebuildToCapture(*this, Field);
-          VarsExpr =
-              RebuildToCapture.TransformExpr(RefExpr->IgnoreParens()).get();
-          DeclRefExpr *Ref = RebuildToCapture.getCapturedExpr();
-          DSAStack->addDSA(Field, RefExpr->IgnoreParens(), OMPC_map, Ref);
-        }
-      }
-      NewVarList.push_back(VarsExpr);
-    }
-  }
-  MappableVarListInfo MVLI(NewVarList.empty() ? VarList : NewVarList);
-#else
   MappableVarListInfo MVLI(VarList);
-#endif // INTEL_COLLAB
   checkMappableExpressionList(*this, DSAStack, OMPC_map, MVLI, Locs.StartLoc,
                               MapperIdScopeSpec, MapperId, UnresolvedMappers,
                               MapType, IsMapTypeImplicit);

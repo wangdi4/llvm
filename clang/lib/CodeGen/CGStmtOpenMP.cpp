@@ -6186,6 +6186,9 @@ void CodeGenFunction::EmitLateOutlineOMPUncollapsedLoop(
   EmitBlock(LoopBody);
 
   if (Depth == S.getCollapsedNumber() - 1) {
+    // On a continue in the body, jump to the end.
+    JumpDest Continue = getJumpDestInCurrentScope("omp.body.continue");
+    BreakContinueStack.push_back(BreakContinue(LoopEnd, Continue));
     RunCleanupsScope BodyScope(*this);
     for (auto *E : S.counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
@@ -6204,6 +6207,8 @@ void CodeGenFunction::EmitLateOutlineOMPUncollapsedLoop(
       EmitIgnoredExpr(UE);
     EmitStmt(S.getBody());
     EmitStopPoint(&S);
+    EmitBlock(Continue.getBlock());
+    BreakContinueStack.pop_back();
   } else
     EmitLateOutlineOMPUncollapsedLoop(S, Kind, Depth + 1);
 
