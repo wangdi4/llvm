@@ -1356,9 +1356,12 @@ int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI, TargetLibraryInfo *TLI,
 
         // Computing the value outside of the loop brings no benefit if it is
         // definitely used inside the loop in a way which can not be optimized
-        // away. Avoid doing so unless we know we have a value which computes
-        // the ExitValue already. TODO: This should be merged into SCEV
-        // expander to leverage its knowledge of existing expressions.
+        // away. Avoid doing so unless either we know we have a value
+        // which computes the ExitValue already, or it is cheap to do so
+        // TODO: This should be merged into SCEV expander to leverage
+        // its knowledge of existing expressions.
+        bool HighCost = Rewriter.isHighCostExpansion(
+            ExitValue, L, SCEVCheapExpansionBudget, TTI, Inst);
 #if INTEL_CUSTOMIZATION
         // CMPLRLLVM-7590. Allow SCEV add, min and max expression to be
         // propagated into the exit value even if DefInst of this exit value has
@@ -1366,12 +1369,10 @@ int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI, TargetLibraryInfo *TLI,
         if (ReplaceExitValue != AlwaysRepl &&
             !(ExitValue->getSCEVType() < scMulExpr ||
               isa<SCEVMinMaxExpr>(ExitValue) || isa<SCEVUnknown>(ExitValue)) &&
-            hasHardUserWithinLoop(L, Inst))
+            HighCost && hasHardUserWithinLoop(L, Inst))
           continue;
 #endif // INTEL_CUSTOMIZATION
 
-        bool HighCost = Rewriter.isHighCostExpansion(
-            ExitValue, L, SCEVCheapExpansionBudget, TTI, Inst);
         Value *ExitVal = Rewriter.expandCodeFor(ExitValue, PN->getType(), Inst);
 
         LLVM_DEBUG(dbgs() << "rewriteLoopExitValues: AfterLoopVal = "
