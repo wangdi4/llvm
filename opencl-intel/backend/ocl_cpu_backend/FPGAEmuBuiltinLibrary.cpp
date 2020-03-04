@@ -24,14 +24,16 @@ using namespace llvm;
 
 void FPGAEmuBuiltinLibrary::Load() {
 #if defined(_WIN32)
+  std::string file_prefix = "";
   std::string file_ext = ".dll";
 #else
+  std::string file_prefix = "lib";
   std::string file_ext = ".so";
 #endif
-  std::string MPIRPath = "libpsg_mpir" + file_ext;
-  std::string MPFRPath = "libpsg_mpfr" + file_ext;
-  std::string FIX_P_M_Path = "libhls_fixed_point_math_x86" + file_ext;
-  std::string HLS_VPFP_Path = "libhls_vpfp_library" + file_ext;
+  std::string MPIRPath = file_prefix + "psg_mpir" + file_ext;
+  std::string MPFRPath = file_prefix + "psg_mpfr" + file_ext;
+  std::string FIX_P_M_Path = file_prefix + "hls_fixed_point_math_x86" + file_ext;
+  std::string HLS_VPFP_Path = file_prefix + "hls_vpfp_library" + file_ext;
   bool continue_load = true;
 
   // Load these 4 libraries one by one basing on their dependency.
