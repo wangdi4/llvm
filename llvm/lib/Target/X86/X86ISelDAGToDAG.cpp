@@ -2363,7 +2363,6 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
   return matchAddressBase(N, AM);
 }
 
-<<<<<<< HEAD
 /// Helper for selectVectorAddr. Handles things that can be folded into a
 /// gather scatter address. The index register and scale should have already
 /// been handled.
@@ -2372,16 +2371,11 @@ bool X86DAGToDAGISel::matchVectorAddress(SDValue N, X86ISelAddressMode &AM) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool X86DAGToDAGISel::selectVectorAddr(SDNode *Parent, SDValue N, SDValue &Base,
-                                       SDValue &Scale, SDValue &Index,
-                                       SDValue &Disp, SDValue &Segment) {
-=======
 bool X86DAGToDAGISel::selectVectorAddr(MemSDNode *Parent, SDValue BasePtr,
                                        SDValue IndexOp, SDValue ScaleOp,
                                        SDValue &Base, SDValue &Scale,
                                        SDValue &Index, SDValue &Disp,
                                        SDValue &Segment) {
->>>>>>> 89ba4acad6ccc1ba6e1044ea929c4dcc1e92f6a3
   X86ISelAddressMode AM;
   AM.IndexReg = IndexOp;
   AM.Scale = cast<ConstantSDNode>(ScaleOp)->getZExtValue();
