@@ -1270,10 +1270,12 @@ static bool canLoopBeDeleted(Loop *L, SmallVector<RewritePhi, 8> &RewritePhiSet)
   return true;
 }
 
-int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI,
-    TargetLibraryInfo *TLI, ScalarEvolution *SE, SCEVExpander &Rewriter,
-    DominatorTree *DT, ReplaceExitVal ReplaceExitValue,
-    SmallVector<WeakTrackingVH, 16> &DeadInsts) {
+int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI, TargetLibraryInfo *TLI,
+                                ScalarEvolution *SE,
+                                const TargetTransformInfo *TTI,
+                                SCEVExpander &Rewriter, DominatorTree *DT,
+                                ReplaceExitVal ReplaceExitValue,
+                                SmallVector<WeakTrackingVH, 16> &DeadInsts) {
   // Check a pre-condition.
   assert(L->isRecursivelyLCSSAForm(*DT, *LI) &&
          "Indvars did not preserve LCSSA!");
@@ -1368,7 +1370,7 @@ int llvm::rewriteLoopExitValues(Loop *L, LoopInfo *LI,
           continue;
 #endif // INTEL_CUSTOMIZATION
 
-        bool HighCost = Rewriter.isHighCostExpansion(ExitValue, L, Inst);
+        bool HighCost = Rewriter.isHighCostExpansion(ExitValue, L, TTI, Inst);
         Value *ExitVal = Rewriter.expandCodeFor(ExitValue, PN->getType(), Inst);
 
         LLVM_DEBUG(dbgs() << "rewriteLoopExitValues: AfterLoopVal = "

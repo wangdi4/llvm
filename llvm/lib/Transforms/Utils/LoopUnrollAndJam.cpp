@@ -191,10 +191,12 @@ static void moveHeaderPhiOperandsToForeBlocks(BasicBlock *Header,
   If EpilogueLoop is non-null, it receives the epilogue loop (if it was
   necessary to create one and not fully unrolled).
 */
-LoopUnrollResult llvm::UnrollAndJamLoop(
-    Loop *L, unsigned Count, unsigned TripCount, unsigned TripMultiple,
-    bool UnrollRemainder, LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
-    AssumptionCache *AC, OptimizationRemarkEmitter *ORE, Loop **EpilogueLoop) {
+LoopUnrollResult
+llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
+                       unsigned TripMultiple, bool UnrollRemainder,
+                       LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
+                       AssumptionCache *AC, const TargetTransformInfo *TTI,
+                       OptimizationRemarkEmitter *ORE, Loop **EpilogueLoop) {
 
   // When we enter here we should have already checked that it is safe
   BasicBlock *Header = L->getHeader();
@@ -229,9 +231,13 @@ LoopUnrollResult llvm::UnrollAndJamLoop(
     if (!UnrollRuntimeLoopRemainder(L, Count, /*AllowExpensiveTripCount*/ false,
                                     /*UseEpilogRemainder*/ true,
                                     UnrollRemainder, /*ForgetAllSCEV*/ false,
+<<<<<<< HEAD
                                     LI, SE, DT, AC, // INTEL
                                     LORBuilder,                      // INTEL
                                     true, EpilogueLoop)) {           // INTEL
+=======
+                                    LI, SE, DT, AC, TTI, true, EpilogueLoop)) {
+>>>>>>> 0789f280483e315d8bcb5e7005e04e7118983b21
       LLVM_DEBUG(dbgs() << "Won't unroll-and-jam; remainder loop could not be "
                            "generated when assuming runtime trip count\n");
       return LoopUnrollResult::Unmodified;
@@ -596,8 +602,9 @@ LoopUnrollResult llvm::UnrollAndJamLoop(
   // At this point, the code is well formed.  We now do a quick sweep over the
   // inserted code, doing constant propagation and dead code elimination as we
   // go.
-  simplifyLoopAfterUnroll(SubLoop, true, LI, SE, DT, AC);
-  simplifyLoopAfterUnroll(L, !CompletelyUnroll && Count > 1, LI, SE, DT, AC);
+  simplifyLoopAfterUnroll(SubLoop, true, LI, SE, DT, AC, TTI);
+  simplifyLoopAfterUnroll(L, !CompletelyUnroll && Count > 1, LI, SE, DT, AC,
+                          TTI);
 
   NumCompletelyUnrolledAndJammed += CompletelyUnroll;
   ++NumUnrolledAndJammed;
