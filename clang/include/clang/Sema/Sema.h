@@ -4062,11 +4062,16 @@ public:
                                  SourceLocation Loc);
   NamedDecl *ImplicitlyDefineFunction(SourceLocation Loc, IdentifierInfo &II,
                                       Scope *S);
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+  void AddKnownFunctionAttributesForReplaceableGlobalAllocationFunction(
+      FunctionDecl *FD);
+>>>>>>> 3dd5a298bfff48c0939448c9b4bc987cf6bb5385
   void AddKnownFunctionAttributes(FunctionDecl *FD);
 
   // More parsing and symbol table subroutines.
