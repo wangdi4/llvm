@@ -16,11 +16,7 @@
 //
 // This is compile-only test for now.
 //
-<<<<<<< HEAD
-// XFAIL:*
-=======
 // XFAIL:* 
->>>>>>> 7003df199130e1f919610e2b80a58baf9afaa2e5
 #include "sycl.hpp"
 
 using namespace cl::sycl;
