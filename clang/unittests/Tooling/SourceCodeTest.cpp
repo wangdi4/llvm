@@ -83,12 +83,11 @@ static ::testing::Matcher<CharSourceRange> AsRange(const SourceManager &SM,
 
 // Base class for visitors that expect a single match corresponding to a
 // specific annotated range.
-template <typename T>
-class AnnotatedCodeVisitor : public TestVisitor<T> {
+template <typename T> class AnnotatedCodeVisitor : public TestVisitor<T> {
   llvm::Annotations Code;
   int MatchCount = 0;
 
- public:
+public:
   AnnotatedCodeVisitor() : Code("$r[[]]") {}
   bool VisitDeclHelper(Decl *Decl) {
     // Only consider explicit declarations.
@@ -96,18 +95,22 @@ class AnnotatedCodeVisitor : public TestVisitor<T> {
       return true;
 
     ++MatchCount;
-    EXPECT_THAT(
-        getAssociatedRange(*Decl, *this->Context),
-        EqualsAnnotatedRange(&this->Context->getSourceManager(), Code.range("r")))
+    EXPECT_THAT(getAssociatedRange(*Decl, *this->Context),
+                EqualsAnnotatedRange(&this->Context->getSourceManager(),
+                                     Code.range("r")))
         << Code.code();
     return true;
   }
 
-  bool runOverAnnotated(llvm::StringRef AnnotatedCode) {
+  bool runOverAnnotated(llvm::StringRef AnnotatedCode,
+                        std::vector<std::string> Args = {}) {
     Code = llvm::Annotations(AnnotatedCode);
     MatchCount = 0;
-    bool result = this->runOver(Code.code());
-    EXPECT_EQ(MatchCount, 1);
+    Args.push_back("-std=c++11");
+    Args.push_back("-fno-delayed-template-parsing");
+    bool result = tooling::runToolOnCodeWithArgs(this->CreateTestAction(),
+                                                 Code.code(), Args);
+    EXPECT_EQ(MatchCount, 1) << AnnotatedCode;
     return result;
   }
 };
@@ -182,9 +185,7 @@ TEST(SourceCodeTest, getExtendedText) {
 
 TEST(SourceCodeTest, getAssociatedRange) {
   struct VarDeclsVisitor : AnnotatedCodeVisitor<VarDeclsVisitor> {
-    bool VisitVarDecl(VarDecl *Decl) {
-      return VisitDeclHelper(Decl);
-    }
+    bool VisitVarDecl(VarDecl *Decl) { return VisitDeclHelper(Decl); }
   };
   VarDeclsVisitor Visitor;
 
@@ -218,9 +219,7 @@ TEST(SourceCodeTest, getAssociatedRange) {
 
 TEST(SourceCodeTest, getAssociatedRangeClasses) {
   struct RecordDeclsVisitor : AnnotatedCodeVisitor<RecordDeclsVisitor> {
-    bool VisitRecordDecl(RecordDecl *Decl) {
-      return VisitDeclHelper(Decl);
-    }
+    bool VisitRecordDecl(RecordDecl *Decl) { return VisitDeclHelper(Decl); }
   };
   RecordDeclsVisitor Visitor;
 
@@ -252,9 +251,7 @@ TEST(SourceCodeTest, getAssociatedRangeClassTemplateSpecializations) {
 
 TEST(SourceCodeTest, getAssociatedRangeFunctions) {
   struct FunctionDeclsVisitor : AnnotatedCodeVisitor<FunctionDeclsVisitor> {
-    bool VisitFunctionDecl(FunctionDecl *Decl) {
-      return VisitDeclHelper(Decl);
-    }
+    bool VisitFunctionDecl(FunctionDecl *Decl) { return VisitDeclHelper(Decl); }
   };
   FunctionDeclsVisitor Visitor;
 
@@ -284,52 +281,33 @@ TEST(SourceCodeTest, getAssociatedRangeMemberTemplates) {
 }
 
 TEST(SourceCodeTest, getAssociatedRangeWithComments) {
-  struct VarDeclsVisitor : TestVisitor<VarDeclsVisitor> {
-    llvm::Annotations Code;
-    int Count;
-
-    VarDeclsVisitor() : Code("$r[[]]") {}
-    bool VisitVarDecl(VarDecl *Decl) {
-      ++Count;
-      EXPECT_THAT(
-          getAssociatedRange(*Decl, *Context),
-          EqualsAnnotatedRange(&Context->getSourceManager(), Code.range("r")))
-          << Code.code();
-      return true;
-    }
-
-    bool runOverAnnotated(llvm::StringRef AnnotatedCode) {
-      Code = llvm::Annotations(AnnotatedCode);
-      Count = 0;
-      std::vector<std::string> Args = {"-std=c++11", "-fparse-all-comments"};
-      bool result =
-          tooling::runToolOnCodeWithArgs(CreateTestAction(), Code.code(), Args);
-      EXPECT_EQ(Count, 1) << Code.code();
-      return result;
-    }
+  struct VarDeclsVisitor : AnnotatedCodeVisitor<VarDeclsVisitor> {
+    bool VisitVarDecl(VarDecl *Decl) { return VisitDeclHelper(Decl); }
   };
 
   VarDeclsVisitor Visitor;
+  auto Visit = [&](llvm::StringRef AnnotatedCode) {
+    Visitor.runOverAnnotated(AnnotatedCode, {"-fparse-all-comments"});
+  };
 
   // Includes leading comments.
-  Visitor.runOverAnnotated("$r[[// Comment.\nint x = 4;]]");
-  Visitor.runOverAnnotated("$r[[// Comment.\nint x = 4;\n]]");
-  Visitor.runOverAnnotated("$r[[/* Comment.*/\nint x = 4;\n]]");
+  Visit("$r[[// Comment.\nint x = 4;]]");
+  Visit("$r[[// Comment.\nint x = 4;\n]]");
+  Visit("$r[[/* Comment.*/\nint x = 4;\n]]");
   // ... even if separated by (extra) horizontal whitespace.
-  Visitor.runOverAnnotated("$r[[/* Comment.*/  \nint x = 4;\n]]");
+  Visit("$r[[/* Comment.*/  \nint x = 4;\n]]");
 
   // Includes comments even in the presence of trailing whitespace.
-  Visitor.runOverAnnotated("$r[[// Comment.\nint x = 4;]]  ");
-
+  Visit("$r[[// Comment.\nint x = 4;]]  ");
 
   // Includes comments when the declaration is followed by the beginning or end
   // of a compound statement.
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
   void foo() {
     $r[[/* C */
     int x = 4;
   ]]};)cpp");
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
   void foo() {
     $r[[/* C */
     int x = 4;
@@ -337,57 +315,57 @@ TEST(SourceCodeTest, getAssociatedRangeWithComments) {
    })cpp");
 
   // Includes comments inside macros (when decl is in the same macro).
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       #define DECL /* Comment */ int x
       $r[[DECL;]])cpp");
 
   // Does not include comments when only the decl or the comment come from a
   // macro.
   // FIXME: Change code to allow this.
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       #define DECL int x
       // Comment
       $r[[DECL;]])cpp");
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       #define COMMENT /* Comment */
       COMMENT
       $r[[int x;]])cpp");
 
   // Includes multi-line comments.
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       $r[[/* multi
        * line
        * comment
        */
       int x;]])cpp");
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       $r[[// multi
       // line
       // comment
       int x;]])cpp");
 
   // Does not include comments separated by multiple empty lines.
-  Visitor.runOverAnnotated("// Comment.\n\n\n$r[[int x = 4;\n]]");
-  Visitor.runOverAnnotated("/* Comment.*/\n\n\n$r[[int x = 4;\n]]");
+  Visit("// Comment.\n\n\n$r[[int x = 4;\n]]");
+  Visit("/* Comment.*/\n\n\n$r[[int x = 4;\n]]");
 
   // Does not include comments before a *series* of declarations.
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       // Comment.
       $r[[int x = 4;
       ]]class foo {};)cpp");
 
   // Does not include IfThisThenThat comments
-  Visitor.runOverAnnotated("// LINT.IfChange.\n$r[[int x = 4;]]");
-  Visitor.runOverAnnotated("// LINT.ThenChange.\n$r[[int x = 4;]]");
+  Visit("// LINT.IfChange.\n$r[[int x = 4;]]");
+  Visit("// LINT.ThenChange.\n$r[[int x = 4;]]");
 
   // Includes attributes.
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       #define ATTR __attribute__((deprecated("message")))
       $r[[ATTR
       int x;]])cpp");
 
   // Includes attributes and comments together.
-  Visitor.runOverAnnotated(R"cpp(
+  Visit(R"cpp(
       #define ATTR __attribute__((deprecated("message")))
       $r[[ATTR
       // Commment.
