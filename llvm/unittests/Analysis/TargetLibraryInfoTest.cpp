@@ -137,6 +137,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @cabsf([2 x float])\n"
       "declare x86_fp80 @cabsl([2 x x86_fp80])\n"
       "declare double @cos(double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @cosd(double)\n"
+      "declare float @cosdf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @cosf(float)\n"
       "declare double @cosh(double)\n"
       "declare float @coshf(float)\n"
@@ -283,6 +287,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @setitimer(i32, %struct*, %struct*)\n"
       "declare i32 @setvbuf(%struct*, i8*, i32, i64)\n"
       "declare double @sin(double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @sind(double)\n"
+      "declare float @sindf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @sinf(float)\n"
       "declare double @sinh(double)\n"
       "declare float @sinhf(float)\n"
@@ -327,6 +335,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64 @strtoull(i8*, i8**, i32)\n"
       "declare i64 @strxfrm(i8*, i8*, i64)\n"
       "declare double @tan(double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @tand(double)\n"
+      "declare float @tandf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @tanf(float)\n"
       "declare double @tanh(double)\n"
       "declare float @tanhf(float)\n"

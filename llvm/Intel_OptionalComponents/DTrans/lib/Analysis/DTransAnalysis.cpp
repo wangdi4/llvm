@@ -2764,6 +2764,13 @@ private:
         Info.addPointerTypeAlias(BasePointer->getType());
     }
 
+    // Check for the special case of the empty set index set, which just returns
+    // the GEP pointer operand.
+    if (GEP->getNumIndices() == 0) {
+      Info.addPointerTypeAlias(BasePointer->getType());
+      return;
+    }
+
     // Find the type of the type of the last composite type being
     // indexed by this GEP.
     SmallVector<Value *, 4> Ops(GEP->idx_begin(), GEP->idx_end() - 1);
@@ -6064,11 +6071,13 @@ public:
     if (!GEPLPI.pointsToSomeElement()) {
       // If the source is an i8* value, this is a byte-flattened GEP access
       // and we should have been able to figure out the field being accessed.
-      // Otherwise, a single index element indicates a pointer is being treated
-      // as an array.
+      // Otherwise:
+      //   - Zero index elements just results in the original pointer.
+      //   - A single index element indicates a pointer is being treated
+      //     as an array.
       if ((isInt8Ptr(Src) &&
            !(SrcLPI.isPtrToPtr() || SrcLPI.isPtrToCharArray())) ||
-          I->getNumIndices() != 1) {
+          I->getNumIndices() > 1) {
 
         // If the byte-flattened GEP access is used to access a location that is
         // between fields, and is only being used as a parameter to memset, we

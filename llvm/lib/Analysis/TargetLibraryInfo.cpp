@@ -1614,6 +1614,8 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_ceilf:
   case LibFunc_ceill:
   case LibFunc_cos:
+  case LibFunc_cosd:  // INTEL
+  case LibFunc_cosdf: // INTEL
   case LibFunc_cosf:
   case LibFunc_cosh:
   case LibFunc_cosh_finite:
@@ -1683,6 +1685,8 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_roundf:
   case LibFunc_roundl:
   case LibFunc_sin:
+  case LibFunc_sind:  // INTEL
+  case LibFunc_sindf: // INTEL
   case LibFunc_sinf:
   case LibFunc_sinh:
   case LibFunc_sinh_finite:
@@ -1698,6 +1702,8 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_sqrtl:
   case LibFunc_sqrtl_finite:
   case LibFunc_tan:
+  case LibFunc_tand:  // INTEL
+  case LibFunc_tandf: // INTEL
   case LibFunc_tanf:
   case LibFunc_tanh:
   case LibFunc_tanhf:
