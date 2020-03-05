@@ -526,6 +526,84 @@ Type *dtrans::unwrapType(Type *Ty) {
   return BaseTy;
 }
 
+const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
+  assert(countPopulation(SafetyInfo) == 1 &&
+         "More than one safety type detected\n");
+
+  if (SafetyInfo & dtrans::BadCasting)
+    return "Bad casting";
+  if (SafetyInfo & dtrans::BadAllocSizeArg)
+    return "Bad alloc size";
+  if (SafetyInfo & dtrans::BadPtrManipulation)
+    return "Bad pointer manipulation";
+  if (SafetyInfo & dtrans::AmbiguousGEP)
+    return "Ambiguous GEP";
+  if (SafetyInfo & dtrans::VolatileData)
+    return "Volatile data";
+  if (SafetyInfo & dtrans::MismatchedElementAccess)
+    return "Mismatched element access";
+  if (SafetyInfo & dtrans::WholeStructureReference)
+    return "Whole structure reference";
+  if (SafetyInfo & dtrans::UnsafePointerStore)
+    return "Unsafe pointer store";
+  if (SafetyInfo & dtrans::FieldAddressTaken)
+    return "Field address taken";
+  if (SafetyInfo & dtrans::GlobalPtr)
+    return "Global pointer";
+  if (SafetyInfo & dtrans::GlobalInstance)
+    return "Global instance";
+  if (SafetyInfo & dtrans::HasInitializerList)
+    return "Has initializer list";
+  if (SafetyInfo & dtrans::BadMemFuncSize)
+    return "Bad memfunc size";
+  if (SafetyInfo & dtrans::MemFuncPartialWrite)
+    return "Memfunc partial write";
+  if (SafetyInfo & dtrans::BadMemFuncManipulation)
+    return "Bad memfunc manipulation";
+  if (SafetyInfo & dtrans::AmbiguousPointerTarget)
+    return "Ambiguous pointer target";
+  if (SafetyInfo & dtrans::UnsafePtrMerge)
+    return "Unsafe pointer merge";
+  if (SafetyInfo & dtrans::AddressTaken)
+    return "Address taken";
+  if (SafetyInfo & NoFieldsInStruct)
+    return "No fields in structure";
+  if (SafetyInfo & dtrans::NestedStruct)
+    return "Nested structure";
+  if (SafetyInfo & dtrans::ContainsNestedStruct)
+    return "Contains nested structure";
+  if (SafetyInfo & dtrans::SystemObject)
+    return "System object";
+  if (SafetyInfo & dtrans::LocalPtr)
+    return "Local pointer";
+  if (SafetyInfo & dtrans::LocalInstance)
+    return "Local instance";
+  if (SafetyInfo & dtrans::MismatchedArgUse)
+    return "Mismatched argument use";
+  if (SafetyInfo & dtrans::GlobalArray)
+    return "Global array";
+  if (SafetyInfo & dtrans::HasVTable)
+    return "Has vtable";
+  if (SafetyInfo & dtrans::HasFnPtr)
+    return "Has function ptr";
+  if (SafetyInfo & dtrans::HasCppHandling)
+    return "Has C++ handling";
+  if (SafetyInfo & dtrans::HasZeroSizedArray)
+    return "Has zero-sized array";
+  if (SafetyInfo & dtrans::BadCastingPending)
+    return "Bad casting (pending)";
+  if (SafetyInfo & dtrans::BadCastingConditional)
+    return "Bad casting (conditional)";
+  if (SafetyInfo & dtrans::UnsafePointerStorePending)
+    return "Unsafe pointer store (pending)";
+  if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
+    return "Unsafe pointer store (conditional)";
+  if (SafetyInfo & dtrans::UnhandledUse)
+    return "Unhandled use";
+
+  llvm_unreachable("Unknown SafetyData type");
+}
+
 static void printSafetyInfo(const SafetyData &SafetyInfo,
                             llvm::raw_ostream &ostr) {
   if (SafetyInfo == 0) {
@@ -573,84 +651,21 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::UnsafePointerStoreConditional ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
-  std::vector<StringRef> SafetyIssues;
-  if (SafetyInfo & dtrans::BadCasting)
-    SafetyIssues.push_back("Bad casting");
-  if (SafetyInfo & dtrans::BadAllocSizeArg)
-    SafetyIssues.push_back("Bad alloc size");
-  if (SafetyInfo & dtrans::BadPtrManipulation)
-    SafetyIssues.push_back("Bad pointer manipulation");
-  if (SafetyInfo & dtrans::AmbiguousGEP)
-    SafetyIssues.push_back("Ambiguous GEP");
-  if (SafetyInfo & dtrans::VolatileData)
-    SafetyIssues.push_back("Volatile data");
-  if (SafetyInfo & dtrans::MismatchedElementAccess)
-    SafetyIssues.push_back("Mismatched element access");
-  if (SafetyInfo & dtrans::WholeStructureReference)
-    SafetyIssues.push_back("Whole structure reference");
-  if (SafetyInfo & dtrans::UnsafePointerStore)
-    SafetyIssues.push_back("Unsafe pointer store");
-  if (SafetyInfo & dtrans::FieldAddressTaken)
-    SafetyIssues.push_back("Field address taken");
-  if (SafetyInfo & dtrans::GlobalPtr)
-    SafetyIssues.push_back("Global pointer");
-  if (SafetyInfo & dtrans::GlobalInstance)
-    SafetyIssues.push_back("Global instance");
-  if (SafetyInfo & dtrans::HasInitializerList)
-    SafetyIssues.push_back("Has initializer list");
-  if (SafetyInfo & dtrans::BadMemFuncSize)
-    SafetyIssues.push_back("Bad memfunc size");
-  if (SafetyInfo & dtrans::MemFuncPartialWrite)
-    SafetyIssues.push_back("Memfunc partial write");
-  if (SafetyInfo & dtrans::BadMemFuncManipulation)
-    SafetyIssues.push_back("Bad memfunc manipulation");
-  if (SafetyInfo & dtrans::AmbiguousPointerTarget)
-    SafetyIssues.push_back("Ambiguous pointer target");
-  if (SafetyInfo & dtrans::UnsafePtrMerge)
-    SafetyIssues.push_back("Unsafe pointer merge");
-  if (SafetyInfo & dtrans::AddressTaken)
-    SafetyIssues.push_back("Address taken");
-  if (SafetyInfo & NoFieldsInStruct)
-    SafetyIssues.push_back("No fields in structure");
-  if (SafetyInfo & dtrans::NestedStruct)
-    SafetyIssues.push_back("Nested structure");
-  if (SafetyInfo & dtrans::ContainsNestedStruct)
-    SafetyIssues.push_back("Contains nested structure");
-  if (SafetyInfo & dtrans::SystemObject)
-    SafetyIssues.push_back("System object");
-  if (SafetyInfo & dtrans::LocalPtr)
-    SafetyIssues.push_back("Local pointer");
-  if (SafetyInfo & dtrans::LocalInstance)
-    SafetyIssues.push_back("Local instance");
-  if (SafetyInfo & dtrans::MismatchedArgUse)
-    SafetyIssues.push_back("Mismatched argument use");
-  if (SafetyInfo & dtrans::GlobalArray)
-    SafetyIssues.push_back("Global array");
-  if (SafetyInfo & dtrans::HasVTable)
-    SafetyIssues.push_back("Has vtable");
-  if (SafetyInfo & dtrans::HasFnPtr)
-    SafetyIssues.push_back("Has function ptr");
-  if (SafetyInfo & dtrans::HasCppHandling)
-    SafetyIssues.push_back("Has C++ handling");
-  if (SafetyInfo & dtrans::HasZeroSizedArray)
-    SafetyIssues.push_back("Has zero-sized array");
-  if (SafetyInfo & dtrans::BadCastingPending)
-    SafetyIssues.push_back("Bad casting (pending)");
-  if (SafetyInfo & dtrans::BadCastingConditional)
-    SafetyIssues.push_back("Bad casting (conditional)");
-  if (SafetyInfo & dtrans::UnsafePointerStorePending)
-    SafetyIssues.push_back("Unsafe pointer store (pending)");
-  if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
-    SafetyIssues.push_back("Unsafe pointer store (conditional)");
-  if (SafetyInfo & dtrans::UnhandledUse)
-    SafetyIssues.push_back("Unhandled use");
-  // Print the safety issues found
-  size_t NumIssues = SafetyIssues.size();
-  for (size_t i = 0; i < NumIssues; ++i) {
-    ostr << SafetyIssues[i];
-    if (i != NumIssues - 1) {
-      ostr << " | ";
+
+  // Go through the issues in the order of LSB to MSB, and print the names of
+  // the SafetyData bits that are set.
+  SafetyData TmpInfo = SafetyInfo;
+  SafetyData Bit = 1;
+  bool First = true;
+  while (TmpInfo) {
+    if (SafetyInfo & Bit) {
+      if (!First)
+        ostr << " | ";
+      ostr << getSafetyDataName(Bit);
+      First = false;
     }
+    Bit <<= 1;
+    TmpInfo >>= 1;
   }
 
   // TODO: Make this unnecessary.
