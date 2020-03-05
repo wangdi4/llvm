@@ -2874,6 +2874,9 @@ bool IndVarSimplify::run(Loop *L) {
   // If we have a trip count expression, rewrite the loop's exit condition
   // using it.
   if (!DisableLFTR) {
+    BasicBlock *PreHeader = L->getLoopPreheader();
+    BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
+
     SmallVector<BasicBlock*, 16> ExitingBlocks;
     L->getExitingBlocks(ExitingBlocks);
     for (BasicBlock *ExitingBB : ExitingBlocks) {
@@ -2908,7 +2911,7 @@ bool IndVarSimplify::run(Loop *L) {
       // Avoid high cost expansions.  Note: This heuristic is questionable in
       // that our definition of "high cost" is not exactly principled.
       if (Rewriter.isHighCostExpansion(ExitCount, L, SCEVCheapExpansionBudget,
-                                       TTI))
+                                       TTI, PreHeaderBR))
         continue;
 
       // Check preconditions for proper SCEVExpander operation. SCEV does not
