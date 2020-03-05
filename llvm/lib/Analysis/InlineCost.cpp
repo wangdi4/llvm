@@ -44,11 +44,8 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-<<<<<<< HEAD
-#include "llvm/Support/GenericDomTree.h"            // INTEL
-=======
 #include "llvm/Support/FormattedStream.h"
->>>>>>> c965fd942f1d2de6179cd1a2f78c78fa4bd74626
+#include "llvm/Support/GenericDomTree.h"            // INTEL
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"    // INTEL
 #include <algorithm>                                // INTEL
@@ -3312,11 +3309,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #endif // INTEL_CUSTOMIZATION
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  InlineResult finalizeAnalysis(InlineReason *ReasonAddr) override {
-#endif // INTEL_CUSTOMIZATION
-=======
   void onInstructionAnalysisStart(const Instruction *I) override {
     // This function is called to store the initial cost of inlining before
     // the given instruction was assessed.
@@ -3335,8 +3327,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     Writer.CostThresholdMap[I].ThresholdAfter = Threshold;
   }
 
-  InlineResult finalizeAnalysis() override {
->>>>>>> c965fd942f1d2de6179cd1a2f78c78fa4bd74626
+#if INTEL_CUSTOMIZATION
+  InlineResult finalizeAnalysis(InlineReason *ReasonAddr) override {
+#endif // INTEL_CUSTOMIZATION
     // Loops generally act a lot like calls in that they act like barriers to
     // movement, require a certain amount of setup, etc. So when optimising for
     // size, we penalise any call sites that perform loops. We do this after all
@@ -3574,19 +3567,15 @@ public:
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
         Params(Params), Threshold(Params.DefaultThreshold),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         BoostIndirectCalls(BoostIndirect),
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         FuncsForDTrans(FForDTrans), SubtractedBonus(false) {}
 #endif // INTEL_CUSTOMIZATION
-=======
-        BoostIndirectCalls(BoostIndirect) {}
 
   /// Annotation Writer for cost annotation
   CostAnnotationWriter Writer;
->>>>>>> c965fd942f1d2de6179cd1a2f78c78fa4bd74626
 
   void dump();
 
