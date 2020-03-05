@@ -245,11 +245,21 @@ int main(int argc, char** argv)
         DTT_LOG("Preparing OpenCL execution...");
         vector<cl::Platform> platforms;
         cl::Platform::get(&platforms);
+
+        unsigned cl_platform_index = 0;
+        char *envIndex = getenv("CL_PLATFORM_INDEX");
+        if (envIndex) {
+            cl_platform_index = atoi(envIndex);
+        }
+
         if (platforms.size() == 0)
             throw runtime_error("0 platforms found");
+        else if (platforms.size() <= cl_platform_index)
+            throw runtime_error("CL_PLATFORM_INDEX out of bound");
 
         cl_context_properties properties[] = {
-            CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(), 0
+            CL_CONTEXT_PLATFORM,
+            (cl_context_properties)(platforms[cl_platform_index])(), 0
         };
 
         cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;

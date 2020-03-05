@@ -309,7 +309,10 @@ Type *CoerceTypes::getNonCompositeTypeAtExactOffset(Type *T,
   if (auto *ArrayT = dyn_cast<ArrayType>(T)) {
     Type *ElementT = ArrayT->getElementType();
     unsigned ElementSize = m_pDataLayout->getTypeAllocSize(ElementT);
-    Offset -= (Offset / ElementSize) * ElementSize;
+    unsigned OffsetElement = Offset / ElementSize;
+    if (OffsetElement >= (unsigned)ArrayT->getNumElements())
+      return nullptr;
+    Offset -= OffsetElement * ElementSize;
     return getNonCompositeTypeAtExactOffset(ElementT, Offset);
   }
 
