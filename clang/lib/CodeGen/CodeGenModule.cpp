@@ -3778,6 +3778,32 @@ bool CodeGenModule::isTypeConstant(QualType Ty, bool ExcludeCtor) {
   return true;
 }
 
+static void maybeEmitPipeStorageMetadata(const VarDecl *D,
+                                         llvm::GlobalVariable *GV,
+                                         CodeGenModule &CGM) {
+  // TODO: Applicable only on pipe storages. Currently they are defined
+  // as structures inside of SYCL headers. Add a check for pipe_storage_t
+  // when it ready.
+  QualType PipeTy = D->getType();
+  if (!PipeTy->isStructureType())
+    return;
+
+  if (auto *IOAttr = D->getAttr<SYCLIntelPipeIOAttr>()) {
+    llvm::APSInt ID(32);
+    llvm::LLVMContext &Context = CGM.getLLVMContext();
+    bool IsValid =
+        IOAttr->getID()->isIntegerConstantExpr(ID, D->getASTContext());
+    assert(IsValid && "Not an integer constant expression");
+    (void)IsValid;
+
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(Context), ID.getSExtValue()))};
+    GV->setMetadata(IOAttr->getSpelling(),
+                    llvm::MDNode::get(Context, AttrMDArgs));
+  }
+}
+
 /// GetOrCreateLLVMGlobal - If the specified mangled name is not in the module,
 /// create and return an llvm GlobalVariable with the specified type.  If there
 /// is something in the module with the specified name, return it potentially
@@ -3976,6 +4002,10 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         : (LangOpts.OpenCL ? LangAS::opencl_global : LangAS::Default);
   assert(getContext().getTargetAddressSpace(ExpectedAS) ==
          Ty->getPointerAddressSpace());
+
+  if (LangOpts.SYCLIsDevice)
+    maybeEmitPipeStorageMetadata(D, GV, *this);
+
   if (AddrSpace != ExpectedAS)
     return getTargetCodeGenInfo().performAddrSpaceCast(*this, GV, AddrSpace,
                                                        ExpectedAS, Ty);
@@ -4769,9 +4799,14 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     if (getCodeGenOpts().hasReducedDebugInfo())
       DI->EmitGlobalVariable(GV, D);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   maybeEmitGlobalChannelMetadata(D, GV, *this);
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (LangOpts.SYCLIsDevice)
+    maybeEmitPipeStorageMetadata(D, GV, *this);
+>>>>>>> 7d493dd79c34197e3c602b04c397197b214857b4
 }
 
 void CodeGenModule::EmitExternalVarDeclaration(const VarDecl *D) {
