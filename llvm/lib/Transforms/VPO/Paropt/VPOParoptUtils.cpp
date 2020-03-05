@@ -2166,8 +2166,10 @@ GlobalVariable *VPOParoptUtils::genLocStrfromDebugLoc(Function *F,
     switch (Mode) {
     case SRC_LOC_PATH:
       Path = (Loc1->getDirectory() + "/").str();
+      LLVM_FALLTHROUGH;
     case SRC_LOC_FILE:
       File = (Loc1->getFilename()).str();
+      LLVM_FALLTHROUGH;
     case SRC_LOC_FUNC:
       FnName = (Loc1->getScope()->getSubprogram()->getName()).str();
       SLine = Loc1->getLine();
