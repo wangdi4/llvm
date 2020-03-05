@@ -4799,14 +4799,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     if (getCodeGenOpts().hasReducedDebugInfo())
       DI->EmitGlobalVariable(GV, D);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   maybeEmitGlobalChannelMetadata(D, GV, *this);
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (LangOpts.SYCLIsDevice)
     maybeEmitPipeStorageMetadata(D, GV, *this);
->>>>>>> 7d493dd79c34197e3c602b04c397197b214857b4
 }
 
 void CodeGenModule::EmitExternalVarDeclaration(const VarDecl *D) {

@@ -2033,7 +2033,6 @@ write only. Expected to be used only in SYCL headers.
   }];
 }
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 def LoopFuseDocs : Documentation {
   let Category = DocCatVariable;
@@ -2080,7 +2079,7 @@ analysis and might lead to functional errors.
   }];
 }
 // end INTEL_CUSTOMIZATION
-=======
+
 def SYCLIntelPipeIOAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "IO pipe ID";
@@ -2094,7 +2093,6 @@ The io_pipe_id(id) attribute specifies the I/O feature of an accelerator board
 with which a pipe interfaces. The id argument is the name of the I/O interface.
   }];
 }
->>>>>>> 7d493dd79c34197e3c602b04c397197b214857b4
 
 def SYCLIntelFPGAIVDepAttrDocs : Documentation {
   let Category = DocCatVariable;
