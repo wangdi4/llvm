@@ -9,13 +9,14 @@
 ; OPTREPORT:            LOOP BEGIN at m.c (10, 7)
 
 ; OPTREPORT:                 LOOP BEGIN at m.c (8, 3)
-; OPTREPORT:                 Remark: Loop is blocked
+; OPTREPORT:                 Remark: blocked by {{[0-9]+}}
 
 ; OPTREPORT:                    LOOP BEGIN at m.c (9, 5)
-; OPTREPORT:                   Remark: Loop is blocked
+; OPTREPORT:                 Remark: blocked by {{[0-9]+}}
 
 ; OPTREPORT:                        LOOP BEGIN at m.c (10, 7)
-; OPTREPORT:                       Remark: Loop is blocked
+; OPTREPORT:                 Remark: blocked by {{[0-9]+}}
+
 ; OPTREPORT:                   LOOP END
 ; OPTREPORT:               LOOP END
 ; OPTREPORT:            LOOP END
@@ -28,7 +29,7 @@
 ;CHECK:  {{![0-9]+}} = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
 ;CHECK:  [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]
 ;CHECK:  {{![0-9]+}} = !{!"intel.optreport.remarks", [[M8:!.*]]}
-;CHECK:  [[M8]] = !{!"intel.optreport.remark", !"Loop is blocked"}
+;CHECK:  [[M8]] = !{!"intel.optreport.remark", !"blocked by %d"}
 
 ;Module Before HIR
 ; ModuleID = 'm.c'
