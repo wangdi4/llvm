@@ -9,7 +9,10 @@ define i32 @test_01(double* %p, double %x, i32* %np, i32* %mp, i32 %k) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[K:%.*]], 1
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i32 [[K]], i32 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SMAX]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SMAX]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV_WIDE:%.*]] = phi i64 [ [[CANONICAL_IV_NEXT_I:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
