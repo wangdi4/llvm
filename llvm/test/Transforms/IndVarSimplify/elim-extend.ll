@@ -11,7 +11,10 @@ define void @postincConstIV(i8* %base, i32 %limit) nounwind {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[LIMIT:%.*]], 0
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i32 [[LIMIT]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nuw i32 [[SMAX]], 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[TMP1]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[TMP1]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]
@@ -118,7 +121,10 @@ define void @nestedIV(i8* %address, i32 %limit) nounwind {
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext i32 [[LIMITDEC]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp sgt i32 [[LIMIT]], 1
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP1]], i32 [[LIMIT]], i32 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SMAX]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SMAX]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[OUTERLOOP:%.*]]
 ; CHECK:       outerloop:
 ; CHECK-NEXT:    [[INDVARS_IV1:%.*]] = phi i64 [ [[INDVARS_IV_NEXT2:%.*]], [[OUTERMERGE:%.*]] ], [ 0, [[ENTRY:%.*]] ]

@@ -187,7 +187,10 @@ define void @unguardedloop([0 x double]* %matrix, [0 x double]* %vector,
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[IROW:%.*]], 1
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i32 [[IROW]], i32 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SMAX]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SMAX]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[INDVARS_IV2:%.*]] = phi i64 [ [[INDVARS_IV_NEXT3:%.*]], [[LOOP]] ], [ 0, [[ENTRY:%.*]] ]

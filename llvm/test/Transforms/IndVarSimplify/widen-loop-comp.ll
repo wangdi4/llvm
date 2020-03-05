@@ -125,7 +125,10 @@ define void @test2([8 x i8]* %a, i8* %b, i8 %limit) {
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT]], [[WIDE_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[FOR_BODY4_US]], label [[FOR_INC13_US_LOOPEXIT:%.*]]
 ; CHECK:       for.body4.lr.ph.us:
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT]] = zext i32 [[SMAX]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT]] = sext i32 [[SMAX]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_BODY4_US]]
 ; CHECK:       for.cond1.preheader:
 ; CHECK-NEXT:    br i1 false, label [[FOR_INC13:%.*]], label [[FOR_INC13]]
@@ -187,7 +190,10 @@ define i32 @test3(i32* %a, i32 %b) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[B:%.*]], 0
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i32 [[B]], i32 0
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SMAX]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SMAX]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY:%.*]] ], [ 0, [[ENTRY:%.*]] ]
@@ -310,7 +316,10 @@ define i32 @test6(i32* %a, i32 %b) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[B:%.*]], -1
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i32 [[B]], i32 -1
 ; CHECK-NEXT:    [[TMP1:%.*]] = add i32 [[SMAX]], 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[TMP1]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[TMP1]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_COND:%.*]]
 ; CHECK:       for.cond:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY:%.*]] ], [ 0, [[ENTRY:%.*]] ]

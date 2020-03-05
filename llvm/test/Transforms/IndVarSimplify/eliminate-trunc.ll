@@ -474,7 +474,10 @@ define void @test_10(i32 %n) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = zext i32 [[TMP0]] to i64
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 90
 ; CHECK-NEXT:    [[UMIN:%.*]] = select i1 [[TMP2]], i64 [[TMP1]], i64 90
-; CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[UMIN]], -99
+; INTEL_CUSTOMIZATION
+; Adding nuw nsw
+; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[UMIN]], -99
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ -100, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
@@ -553,7 +556,10 @@ define void @test_12(i32* %p) {
 ; CHECK-NEXT:    [[N:%.*]] = load i32, i32* [[P:%.*]], !range !0
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt i32 [[N]], 1
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP0]], i32 [[N]], i32 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[SMAX]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = sext i32 [[SMAX]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]

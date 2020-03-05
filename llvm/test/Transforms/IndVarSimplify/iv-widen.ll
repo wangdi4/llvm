@@ -169,7 +169,10 @@ define void @loop_2(i32 %size, i32 %nsteps, i32 %hsize, i32* %lined, i8 %tmp1) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext i32 [[HSIZE:%.*]] to i64
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp sgt i32 [[NSTEPS:%.*]], 1
 ; CHECK-NEXT:    [[SMAX:%.*]] = select i1 [[TMP2]], i32 [[NSTEPS]], i32 1
-; CHECK-NEXT:    [[WIDE_TRIP_COUNT11:%.*]] = zext i32 [[SMAX]] to i64
+; INTEL_CUSTOMIZATION
+; zext changed to sext
+; CHECK-NEXT:    [[WIDE_TRIP_COUNT11:%.*]] = sext i32 [[SMAX]] to i64
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV7:%.*]] = phi i64 [ [[INDVARS_IV_NEXT8:%.*]], [[FOR_INC:%.*]] ], [ 0, [[ENTRY:%.*]] ]
