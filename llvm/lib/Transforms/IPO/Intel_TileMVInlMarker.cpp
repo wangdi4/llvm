@@ -480,7 +480,7 @@ std::pair<Function *, Function *> TileMVInlMarker::identifyTileRoots(void) {
   for (auto *F : TileCandidates) {
     Function *Caller = uniqueCaller(*F);
     if (!Caller)
-      continue;
+      return std::make_pair(nullptr, nullptr);
     Callers[Caller] = Callers[Caller] + 1;
     if (Callers[Caller] > ValueMax) {
       CallerMax = Caller;
@@ -497,6 +497,7 @@ std::pair<Function *, Function *> TileMVInlMarker::identifyTileRoots(void) {
   Function *CallerMaxSub = nullptr;
   for (auto *F : TileCandidates) {
     Function *Caller = uniqueCaller(*F);
+    assert(Caller != nullptr && "Expecting unique caller");
     if (Caller == CallerMax)
       continue;
     if (CallerMaxSub && (Caller != CallerMaxSub))

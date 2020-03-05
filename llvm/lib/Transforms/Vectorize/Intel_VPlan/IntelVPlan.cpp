@@ -1557,27 +1557,6 @@ void VPlanPrinter::dumpRegion(const VPRegionBlock *Region) {
   OS << Indent << "}\n";
   dumpEdges(Region);
 }
-
-void VPlanPrinter::printAsIngredient(raw_ostream &O, Value *V) {
-  std::string IngredientString;
-  raw_string_ostream RSO(IngredientString);
-  if (auto *Inst = dyn_cast<Instruction>(V)) {
-    if (!Inst->getType()->isVoidTy()) {
-      Inst->printAsOperand(RSO, false);
-      RSO << " = ";
-    }
-    RSO << Inst->getOpcodeName() << " ";
-    unsigned E = Inst->getNumOperands();
-    if (E > 0) {
-      Inst->getOperand(0)->printAsOperand(RSO, false);
-      for (unsigned I = 1; I < E; ++I)
-        Inst->getOperand(I)->printAsOperand(RSO << ", ", false);
-    }
-  } else // !Inst
-    V->printAsOperand(RSO, false);
-  RSO.flush();
-  O << DOT::EscapeString(IngredientString);
-}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION

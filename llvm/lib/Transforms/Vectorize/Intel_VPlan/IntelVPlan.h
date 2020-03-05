@@ -2391,8 +2391,6 @@ public:
 /// indented and follows the dot format.
 class VPlanPrinter {
   friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
-  friend inline raw_ostream &operator<<(raw_ostream &OS,
-                                        const struct VPlanIngredient &I);
 
 private:
   raw_ostream &OS;
@@ -2437,16 +2435,7 @@ private:
   VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
 
   void dump();
-
-  static void printAsIngredient(raw_ostream &O, Value *V);
 };
-
-#if !INTEL_CUSTOMIZATION
-inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
-  VPlanPrinter::printAsIngredient(OS, I.V);
-  return OS;
-}
-#endif
 
 inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
   VPlanPrinter Printer(OS, Plan);
