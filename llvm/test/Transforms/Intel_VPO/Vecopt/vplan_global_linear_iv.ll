@@ -5,6 +5,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-pc-linux-gnu"
 
+define i32 @linear_iv_test(i32* nocapture %k) {
 ; CHECK-LABEL:  After insertion VPEntities instructions:
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
@@ -20,8 +21,7 @@ target device_triples = "x86_64-pc-linux-gnu"
 ; CHECK-NEXT:     [DA: Divergent] i32 [[I2_INIT:%.*]] = induction-init{add} i32 [[LOAD1]] i32 1
 ; CHECK-NEXT:     [DA: Divergent] store i32 [[I2_INIT:%.*]] i32* [[ALLOCA]]
 ; CHECK-NEXT:     [DA: Uniform]   i32 [[I2_STEP:%.*]] = induction-init-step{add} i32 1
-
-define i32 @linear_iv_test(i32* nocapture %k) {
+;
   %sum.red = alloca double, align 8
   br label %simd.begin.region
 simd.begin.region:
