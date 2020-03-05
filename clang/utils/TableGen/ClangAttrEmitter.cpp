@@ -3636,25 +3636,19 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     if (I + 1 != E)
       OS << " && ";
   }
-<<<<<<< HEAD
-  SS << ")) {\n";
+  OS << ")) {\n";
 #if INTEL_CUSTOMIZATION
   if (IntelWarn) {
-    SS << "    if (S.getLangOpts().IntelCompat)\n";
-    SS << "      S.Diag(Attr.getLoc(), "
+    OS << "    if (S.getLangOpts().IntelCompat)\n";
+    OS << "      S.Diag(Attr.getLoc(), "
           "diag::warn_attribute_wrong_decl_type_str)\n";
-    SS << "        << Attr << ";
-    SS << CalculateDiagnostic(*SubjectObj) << ";\n";
-    SS << "    else\n";
+    OS << "        << Attr << ";
+    OS << CalculateDiagnostic(*SubjectObj) << ";\n";
+    OS << "    else\n";
   }
 #endif // INTEL_CUSTOMIZATION
-  SS << "    S.Diag(Attr.getLoc(), diag::";
-  SS << (Warn ? "warn_attribute_wrong_decl_type_str" :
-=======
-  OS << ")) {\n";
   OS << "    S.Diag(Attr.getLoc(), diag::";
   OS << (Warn ? "warn_attribute_wrong_decl_type_str" :
->>>>>>> 590dc8d02cd781b110a87b82476c3557cb5957c3
                "err_attribute_wrong_decl_type_str");
   OS << ")\n";
   OS << "      << Attr << ";
