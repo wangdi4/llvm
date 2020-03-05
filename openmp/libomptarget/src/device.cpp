@@ -192,7 +192,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // maps are respected.
     // In addition to the mapping rules above, the close map
     // modifier forces the mapping of the variable to the device.
-    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+    if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
         !HasCloseModifier) {
 #if INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
