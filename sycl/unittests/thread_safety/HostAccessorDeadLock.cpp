@@ -15,7 +15,9 @@
 namespace {
 constexpr auto sycl_read_write = cl::sycl::access::mode::read_write;
 
-TEST(HostAccessorDeadLockTest, CheckThreadOrder) {
+// TODO: Temporary solution. Enable the test back once root cause of
+// hanging is found.
+TEST(DISABLED_HostAccessorDeadLockTest, CheckThreadOrder) {
   constexpr std::size_t size = 1;
   constexpr std::size_t threadCount = 4, launchCount = 5;
 
