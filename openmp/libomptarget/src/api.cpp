@@ -59,8 +59,13 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
 
   DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
+  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    rc = Device.data_alloc_managed(size);
+    DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
+    return rc;
+  }
   rc = Device.data_alloc_user(size, NULL);
-#else
+#else // INTEL_COLLAB
   rc = Device.RTL->data_alloc(Device.RTLDeviceID, size, NULL);
 #endif // INTEL_COLLAB
   DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
@@ -88,6 +93,13 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
   }
 
   DeviceTy &Device = Devices[device_num];
+#if INTEL_COLLAB
+  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    Device.data_delete_managed(device_ptr);
+    DP("omp_target_free deallocated managed ptr\n");
+    return;
+  }
+#endif // INTEL_COLLAB
   Device.RTL->data_delete(Device.RTLDeviceID, (void *)device_ptr);
   DP("omp_target_free deallocated device ptr\n");
 }

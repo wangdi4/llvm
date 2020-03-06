@@ -22,6 +22,7 @@
 #include "omptargetplugin.h"
 
 /// Host runtime routines being used
+extern "C" {
 #ifdef _WIN32
 int __cdecl omp_get_thread_limit(void);
 double __cdecl omp_get_wtime(void);
@@ -29,6 +30,7 @@ double __cdecl omp_get_wtime(void);
 int omp_get_thread_limit(void) __attribute__((weak));
 double omp_get_wtime(void) __attribute__((weak));
 #endif
+} // extern "C"
 
 #ifndef TARGET_NAME
 #define TARGET_NAME LEVEL0
@@ -517,6 +519,25 @@ EXTERN
 void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
                                 void *HstBase) {
   return allocData(DeviceId, Size, HstPtr, HstBase, 0);
+}
+
+EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
+  ze_host_mem_alloc_desc_t allocDesc = {
+    ZE_HOST_MEM_ALLOC_DESC_VERSION_CURRENT,
+    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT
+  };
+  void *mem = nullptr;
+  CALL_ZE_RET_NULL(zeDriverAllocHostMem, DeviceInfo.Driver, &allocDesc, Size,
+                   LEVEL0_ALIGNMENT, &mem);
+  DP("Allocated a managed memory object " DPxMOD "\n", DPxPTR(mem));
+  return mem;
+}
+
+EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
+  auto &mutex = DeviceInfo.Mutexes[DeviceId];
+  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, mutex, DeviceInfo.Driver, Ptr);
+  DP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(Ptr));
+  return OFFLOAD_SUCCESS;
 }
 
 // Template for synchronous command execution.

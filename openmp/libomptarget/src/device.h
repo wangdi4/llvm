@@ -209,6 +209,8 @@ struct DeviceTy {
                                  uint64_t LoopTripCount, void *AsyncData);
   void *create_offload_pipe(bool);
   int32_t release_offload_pipe(void *);
+  void *data_alloc_managed(int64_t Size);
+  int32_t data_delete_managed(void *Ptr);
 #endif // INTEL_COLLAB
 private:
   // Call to RTL

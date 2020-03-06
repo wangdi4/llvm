@@ -189,6 +189,12 @@ void *__tgt_rtl_create_offload_pipe(int32_t ID, bool IsAsync);
 // Releases a device-dependent offload pipe.
 EXTERN
 int32_t __tgt_rtl_release_offload_pipe(int32_t ID, void *Pipe);
+
+// Allocate a managed memory object.
+EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
+
+// Delete a managed memory object.
+EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t ID, void *Ptr);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
