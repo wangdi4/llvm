@@ -4771,6 +4771,7 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 template <typename AttrType>
+<<<<<<< HEAD
 void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
                                    Expr *E) {
   AttrType TmpAttr(Context, CI, E);
@@ -4860,6 +4861,25 @@ template void Sema::AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
     Decl *, const AttributeCommonInfo &, Expr *);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+bool Sema::checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
+                                       ExprResult &Result) {
+  llvm::APSInt Value;
+  Result = VerifyIntegerConstantExpression(E, &Value);
+  if (Result.isInvalid())
+    return true;
+
+  if (Value < AttrType::getMinValue() || Value > AttrType::getMaxValue()) {
+    Diag(TmpAttr->getRange().getBegin(),
+         diag::err_attribute_argument_out_of_range)
+        << TmpAttr << AttrType::getMinValue() << AttrType::getMaxValue()
+        << E->getSourceRange();
+    return true;
+  }
+  return false;
+}
+
+>>>>>>> dcbdcfdda710a52895db499546b8f819226c967b
 void Sema::AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                           bool IsPackExpansion) {
   AlignedAttr TmpAttr(Context, CI, true, E);
