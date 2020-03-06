@@ -12592,6 +12592,16 @@ void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
           Context, IntelFPGAMemoryAttr::Default));
   }
 
+#if INTEL_CUSTOMIZATION
+  if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
+      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D)) ||
+      isa<ForcePow2DepthAttr>(TmpAttr)) {
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   D->addAttr(::new (Context) AttrType(Context, CI, E));
 }
 
