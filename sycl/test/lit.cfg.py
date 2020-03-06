@@ -40,14 +40,9 @@ if platform.system() == "Linux":
     if 'LD_LIBRARY_PATH' in os.environ:
         config.environment['LD_LIBRARY_PATH'] = os.path.pathsep.join((config.environment['LD_LIBRARY_PATH'], config.sycl_libs_dir))
     else:
-<<<<<<< HEAD
-        config.environment['LD_LIBRARY_PATH'] = config.llvm_build_libs_dir
-else:
-=======
         config.environment['LD_LIBRARY_PATH'] = config.sycl_libs_dir
 
 elif platform.system() == "Windows":
->>>>>>> aa0619c2891075e235a749ef0f9750671db5b4ae
     config.available_features.add('windows')
     if 'LIB' in os.environ:
         config.environment['LIB'] = os.path.pathsep.join((config.environment['LIB'], config.sycl_libs_dir))
@@ -59,8 +54,6 @@ elif platform.system() == "Windows":
     else:
         config.environment['PATH'] = config.sycl_tools_dir
 
-<<<<<<< HEAD
-=======
 elif platform.system() == "Darwin":
     # FIXME: surely there is a more elegant way to instantiate the Xcode directories.
     if 'CPATH' in os.environ:
@@ -70,39 +63,28 @@ elif platform.system() == "Darwin":
     config.environment['CPATH'] = os.path.pathsep.join((config.environment['CPATH'], "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/"))
     config.environment['DYLD_LIBRARY_PATH'] = config.sycl_libs_dir
 
->>>>>>> aa0619c2891075e235a749ef0f9750671db5b4ae
 # propagate the environment variable OCL_ICD_FILANEMES to use proper runtime.
 if 'OCL_ICD_FILENAMES' in os.environ:
     config.environment['OCL_ICD_FILENAMES'] = os.environ['OCL_ICD_FILENAMES']
 
-<<<<<<< HEAD
 if 'SYCL_BE' in os.environ:
     config.environment['SYCL_BE'] = os.environ['SYCL_BE']
 if 'SYCL_DEVICE_WHITE_LIST' in os.environ:
     config.environment['SYCL_DEVICE_WHITE_LIST'] = os.environ['SYCL_DEVICE_WHITE_LIST']
 
-config.substitutions.append( ('%clang_cc1', ' ' + config.clang + ' -cc1 ') )
-# INTEL_CUSTOMIZATION
-# Propagate --gcc-toolchain if we are overriding system installed gcc.
-if 'ICS_GCCBIN' in os.environ:
-    config.substitutions.append( ('%clangxx', ' ' + config.clangxx
-        + ' --gcc-toolchain=' + os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], "..") ) ) )
-    config.substitutions.append( ('%clang', ' ' + config.clang
-        + ' --gcc-toolchain=' + os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], "..") ) ) )
-else:
-    config.substitutions.append( ('%clangxx', ' ' + config.clangxx ) )
-    config.substitutions.append( ('%clang_cl', ' ' + config.clang_cl ) )
-    config.substitutions.append( ('%clang', ' ' + config.clang ) )
-# end INTEL_CUSTOMIZATION
-config.substitutions.append( ('%llvm_build_libs_dir',  config.llvm_build_libs_dir ) )
-=======
 config.substitutions.append( ('%sycl_libs_dir',  config.sycl_libs_dir ) )
->>>>>>> aa0619c2891075e235a749ef0f9750671db5b4ae
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 config.substitutions.append( ('%sycl_source_dir', config.sycl_source_dir) )
 
-llvm_config.use_clang()
+# INTEL_CUSTOMIZATION
+# Propagate --gcc-toolchain if we are overriding system installed gcc.
+if 'ICS_GCCBIN' in os.environ:
+    llvm_config.use_clang(additional_flags=['--gcc-toolchain='
+        + os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], ".." ) ) ] )
+else:
+    llvm_config.use_clang()
+# end INTEL_CUSTOMIZATION
 
 tools = ['llvm-spirv']
 tool_dirs = [config.sycl_tools_dir]

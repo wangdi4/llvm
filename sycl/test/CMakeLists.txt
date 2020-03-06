@@ -40,14 +40,6 @@ add_lit_testsuite(check-sycl "Running the SYCL regression tests"
   PARAMS "SYCL_BE=PI_OPENCL"
   DEPENDS ${SYCL_TEST_DEPS}
   )
-<<<<<<< HEAD
-# TODO: Enable back once fix LIT config issue
-#add_lit_testsuite(check-sycl-deploy "Running the SYCL regression tests"
-#  ${CMAKE_CURRENT_BINARY_DIR}
-#  ARGS ${DEPLOY_RT_TEST_ARGS}
-#  DEPENDS ${SYCL_DEPLOY_TEST_DEPS}
-#  )
-=======
 
 add_lit_testsuite(check-sycl-deploy "Running the SYCL regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
@@ -56,7 +48,7 @@ add_lit_testsuite(check-sycl-deploy "Running the SYCL regression tests"
   DEPENDS ${SYCL_DEPLOY_TEST_DEPS}
   EXCLUDE_FROM_CHECK_ALL
   )
->>>>>>> aa0619c2891075e235a749ef0f9750671db5b4ae
+
 set_target_properties(check-sycl PROPERTIES FOLDER "SYCL tests")
 
 add_lit_testsuites(SYCL ${CMAKE_CURRENT_SOURCE_DIR}
