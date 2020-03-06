@@ -230,6 +230,27 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
   return RI.isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
+static void
+sortInReverseLexOrder(const HIRRegionIdentification &RI,
+                      SmallVectorImpl<BasicBlock *> &BBlocks,
+                      const SmallPtrSetImpl<const BasicBlock *> &EndBBs) {
+  // This check orders dom children that are reachable from other children,
+  // before them.
+  // This is because I couldn't think of an appropriate check for sorting in the
+  // reverse order. So instead the children are visited in reverse order after
+  // sorting.
+  auto ReverseLexOrder = [&RI, &EndBBs](BasicBlock *B1, BasicBlock *B2) {
+    SmallPtrSet<const BasicBlock *, 8> FromBBs;
+    FromBBs.insert(B2);
+
+    // First check satisfies the strict weak ordering requirements of
+    // comparator function.
+    return ((B1 != B2) && RI.isReachableFrom(B1, EndBBs, FromBBs));
+  };
+
+  std::sort(BBlocks.begin(), BBlocks.end(), ReverseLexOrder);
+}
+
 bool HIRCreation::sortDomChildren(
     DomTreeNode *Node, SmallVectorImpl<BasicBlock *> &SortedChildren) const {
 
@@ -245,24 +266,10 @@ bool HIRCreation::sortDomChildren(
   }
 
   auto NodeBB = Node->getBlock();
-  SmallPtrSet<const BasicBlock *, 2> EndBBs;
+  SmallPtrSet<const BasicBlock *, 1> EndBBs;
   EndBBs.insert(NodeBB);
 
-  // This check orders dom children that are reachable from other children,
-  // before them.
-  // This is because I couldn't think of an appropriate check for sorting in the
-  // reverse order. So instead the children are visited in reverse order after
-  // sorting.
-  auto ReverseLexOrder = [this, EndBBs](BasicBlock *B1, BasicBlock *B2) {
-    SmallPtrSet<const BasicBlock *, 8> FromBBs;
-    FromBBs.insert(B2);
-
-    // First check satisfies the strict weak ordering requirements of
-    // comparator function.
-    return ((B1 != B2) && RI.isReachableFrom(B1, EndBBs, FromBBs));
-  };
-
-  std::sort(SortedChildren.begin(), SortedChildren.end(), ReverseLexOrder);
+  sortInReverseLexOrder(RI, SortedChildren, EndBBs);
 
   return true;
 }
@@ -323,7 +330,18 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 
     // DomChildBB is an early exit. We should link it after the loop latch.
     if (IsMultiExitLoop && !IsLoopLatch && !Lp->contains(DomChildBB)) {
-      EarlyExits[Lp].push_back(DomChildBB);
+      // In the case of nested multi-exit loops, DomChildBB may belong to an
+      // ancestor loop. The following code tries to get to the outermost
+      // multi-exit parent loop of Lp which does not contain DomChildBB.
+      auto *EarlyExitLp = Lp;
+      auto *ParentLp = Lp->getParentLoop();
+      while (ParentLp && !ParentLp->getExitingBlock() &&
+             !ParentLp->contains(DomChildBB) &&
+             CurRegion->containsBBlock(ParentLp->getHeader())) {
+        EarlyExitLp = ParentLp;
+        ParentLp = ParentLp->getParentLoop();
+      }
+      EarlyExits[EarlyExitLp].push_back(DomChildBB);
       continue;
     }
 
@@ -391,8 +409,17 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   if (IsMultiExitLoop && (Lp->getHeader() == BB)) {
     InsertionPos = doPreOrderRegionWalk(Lp->getLoopLatch(), InsertionPos);
 
-    for (auto ExitBB : EarlyExits[Lp]) {
-      InsertionPos = doPreOrderRegionWalk(ExitBB, InsertionPos);
+    // Exit blocks also need to be sorted as we do for dom children to avoid
+    // backward jumps.
+    auto &ExitBlocks = EarlyExits[Lp];
+
+    SmallPtrSet<const BasicBlock *, 1> EndBBs;
+    EndBBs.insert(BB);
+    sortInReverseLexOrder(RI, ExitBlocks, EndBBs);
+
+    for (auto RI = ExitBlocks.rbegin(), RE = ExitBlocks.rend(); RI != RE;
+         ++RI) {
+      InsertionPos = doPreOrderRegionWalk(*RI, InsertionPos);
     }
   }
 
