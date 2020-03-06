@@ -14282,10 +14282,10 @@ multiclass avx512_vpdpb_rmb<bits<8> Op, string OpStr, SDNode OpNode,
 
 multiclass avx512_vpdpb_common<bits<8> Op, string OpStr, X86SchedWriteWidths sched,
                                SDNode OpNode, bit IsCommutable = 0> {
-  let Predicates = [HasVNNI] in
+  let Predicates = [HasDOTPROD] in
   defm Z      :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.ZMM, v16i32_info,
                                    IsCommutable>,  EVEX_V512;
-  let Predicates = [HasVNNI, HasVLX] in {
+  let Predicates = [HasDOTPROD, HasVLX] in {
     defm Z256 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.YMM, v8i32x_info,
                                    IsCommutable>, EVEX_V256;
     defm Z128 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.XMM, v4i32x_info,

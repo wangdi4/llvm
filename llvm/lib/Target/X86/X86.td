@@ -204,10 +204,15 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+def FeatureAVXDOTPROD    : SubtargetFeature<"avxdotprod", "HasAVXDOTPROD", "true",
+                           "Enable AVX-DOTPROD",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
 def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
                            "Enable AVX512-DOTPROD",
-                           [FeatureFP16, FeatureAVX512]>;
+                           [FeatureAVXDOTPROD, FeatureFP16, FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
 
 #if INTEL_FEATURE_ISA_AVX512_CONVERT

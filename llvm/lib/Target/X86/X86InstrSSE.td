@@ -8108,3 +8108,48 @@ let isCommutable = 0 in {
                                              X86GF2P8affineqb>, TAPD;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+let Predicates = [HasAVXDOTPROD], Constraints = "$src1 = $dst" in
+multiclass avx_dotprod_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
+                          RegisterClass RC, PatFrag MemOpFrag,
+                          X86MemOperand x86memop, SDNode OpNode,
+                          X86FoldableSchedWrite sched> {
+  def rr  :  I<opc, MRMSrcReg, (outs RC:$dst),
+             (ins RC:$src1, RC:$src2, RC:$src3),
+             !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+             [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, RC:$src3)))]>,
+             VEX_4V, Sched<[sched]>;
+
+  def rm  :  I<opc, MRMSrcMem, (outs RC:$dst),
+             (ins RC:$src1, RC:$src2, x86memop:$src3),
+             !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+             [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, (MemOpFrag addr:$src3))))]>,
+             VEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+}
+
+let Uses = [MXCSR] in {
+  // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+  defm VDPPHPS  :  avx_dotprod_rm<0x52, "vdpphps", v4f32, VR128, loadv4f32, f128mem,
+                                  X86vdpphps, SchedWriteCvtPD2PS.XMM>, T8PS;
+  defm VDPPHPSY :  avx_dotprod_rm<0x52, "vdpphps", v8f32, VR256, loadv8f32, f256mem,
+                                  X86vdpphps, SchedWriteCvtPD2PS.YMM>, VEX_L, T8PS;
+}
+
+let isCommutable = 1 in {
+  defm VPDPBSSD   : avx_dotprod_rm<0x50,"vpdpbssd",  v4i32, VR128, loadv4i32, i128mem, X86vpdpbssd, SchedWriteVecIMul.XMM>,  T8XD;
+  defm VPDPBSSDY  : avx_dotprod_rm<0x50,"vpdpbssd",  v8i32, VR256, loadv8i32, i256mem, X86vpdpbssd, SchedWriteVecIMul.YMM>,  VEX_L, T8XD;
+  defm VPDPBUUD   : avx_dotprod_rm<0x50,"vpdpbuud",  v4i32, VR128, loadv4i32, i128mem, X86vpdpbuud, SchedWriteVecIMul.XMM>,  T8PS;
+  defm VPDPBUUDY  : avx_dotprod_rm<0x50,"vpdpbuud",  v8i32, VR256, loadv8i32, i256mem, X86vpdpbuud, SchedWriteVecIMul.YMM>,  VEX_L, T8PS;
+  defm VPDPBSSDS  : avx_dotprod_rm<0x51,"vpdpbssds", v4i32, VR128, loadv4i32, i128mem, X86vpdpbssds, SchedWriteVecIMul.XMM>, T8XD;
+  defm VPDPBSSDSY : avx_dotprod_rm<0x51,"vpdpbssds", v8i32, VR256, loadv8i32, i256mem, X86vpdpbssds, SchedWriteVecIMul.YMM>, VEX_L, T8XD;
+  defm VPDPBUUDS  : avx_dotprod_rm<0x51,"vpdpbuuds", v4i32, VR128, loadv4i32, i128mem, X86vpdpbuuds, SchedWriteVecIMul.XMM>, T8PS;
+  defm VPDPBUUDSY : avx_dotprod_rm<0x51,"vpdpbuuds", v8i32, VR256, loadv8i32, i256mem, X86vpdpbuuds, SchedWriteVecIMul.YMM>, VEX_L, T8PS;
+}
+
+  defm VPDPBSUD   : avx_dotprod_rm<0x50,"vpdpbsud",  v4i32, VR128, loadv4i32, i128mem, X86vpdpbsud,  SchedWriteVecIMul.XMM>,  T8XS;
+  defm VPDPBSUDY  : avx_dotprod_rm<0x50,"vpdpbsud",  v8i32, VR256, loadv8i32, i256mem, X86vpdpbsud,  SchedWriteVecIMul.YMM>,  VEX_L, T8XS;
+  defm VPDPBSUDS  : avx_dotprod_rm<0x51,"vpdpbsuds", v4i32, VR128, loadv4i32, i128mem, X86vpdpbsuds, SchedWriteVecIMul.XMM>, T8XS;
+  defm VPDPBSUDSY : avx_dotprod_rm<0x51,"vpdpbsuds", v8i32, VR256, loadv8i32, i256mem, X86vpdpbsuds, SchedWriteVecIMul.YMM>, VEX_L, T8XS;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_CUSTOMIZATION

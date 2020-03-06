@@ -470,6 +470,9 @@ protected:
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
   bool HasDOTPROD = false;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  bool HasAVXDOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #endif // INTEL_CUSTOMIZATION
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -874,6 +877,9 @@ public:
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
   bool hasDOTPROD() const { return HasDOTPROD; }
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  bool hasAVXDOTPROD() const { return HasAVXDOTPROD; }
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   bool hasCONVERT() const { return HasCONVERT; }
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
