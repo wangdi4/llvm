@@ -14,9 +14,12 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
+
+#define DEBUG_TYPE "dtrans-pta"
 
 // Trace messages for the pointer type analyzer when new information is
 // associated with a Value object.
@@ -157,8 +160,23 @@ public:
   ~PtrTypeAnalyzerImpl();
 
   void run(Module &M);
+
+  // Get the ValueTypeInfo object for the Value, creating it if necessary.
+  ValueTypeInfo *getOrCreateValueTypeInfo(Value *V);
+
+  // Get the ValueTypeInfo object for the specified operand of the Instruction.
+  // This method must be used for a Value object that represents 'null'. It may
+  // be used for other Value objects, in which case it just redirects to the
+  // above overload. Creates a new ValueTypeInfo object if necessary.
+  ValueTypeInfo *getOrCreateValueTypeInfo(const Instruction *I, unsigned OpNum);
+
+  // Get the ValueTypeInfo object, if it exists.
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
   ValueTypeInfo *getValueTypeInfo(const Instruction *I, unsigned OpNum) const;
+
+  // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
+  // completely analyzed.
+  void setDeclaredType(Value *V, DTransType *Ty);
 
 private:
   DTransTypeManager &TM;
@@ -183,6 +201,92 @@ private:
   // representing different types.
   std::map<std::pair<const Instruction *, unsigned>, ValueTypeInfo *>
       LocalMapForConstant;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Implementation of PtrTypeAnalyzerInstVisitor class
+//
+////////////////////////////////////////////////////////////////////////////////
+
+// This class will walk the IR, updating the type information for each
+// important Value in the PtrTypeAnalyzer.
+class PtrTypeAnalyzerInstVisitor
+    : public InstVisitor<PtrTypeAnalyzerInstVisitor> {
+public:
+  PtrTypeAnalyzerInstVisitor(
+      PtrTypeAnalyzerImpl &PTA, DTransTypeManager &TM,
+      TypeMetadataReader &MDReader, const DataLayout &DL,
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
+      : PTA(PTA), TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {}
+
+  void visitModule(Module &M) {
+    // Get the type for all the Function definitions.
+    for (auto &F : M) {
+      // TODO: Currently, we do not have information about declarations that are
+      // outside the module in the metadata. The metadata descriptions may be
+      // extended in the future to handle these.
+      if (F.isDeclaration())
+        continue;
+
+      if (auto *MDNode = F.getMetadata("dtrans_type")) {
+        DTransType *DType = MDReader.decodeMDNode(MDNode);
+        if (DType) {
+          PTA.setDeclaredType(&F, TM.getOrCreatePointerType(DType));
+          continue;
+        }
+      }
+
+      llvm::Type *FnType = F.getValueType();
+      if (TM.isSimpleType(FnType)) {
+        DTransType *DType = TM.getOrCreateSimpleType(FnType);
+        assert(DType && "Expected simple type");
+        PTA.setDeclaredType(&F, TM.getOrCreatePointerType(DType));
+        continue;
+      }
+
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&F);
+      Info->setUnhandled();
+      LLVM_DEBUG(dbgs() << "Unable to set declared type for function: "
+                        << F.getName() << "\n");
+    }
+
+    // Get the type of all the global variable pointers that were annotated with
+    // metadata. Note, GlobalVariables are pointers to a value type. The type
+    // recovered is the variable's value type, so we need to make a pointer to
+    // it when saving the pointer info.
+    for (auto &GV : M.globals()) {
+      if (auto *MDNode = GV.getMetadata("dtrans_type")) {
+        dtrans::DTransType *DT = MDReader.decodeMDNode(MDNode);
+        if (DT) {
+          PTA.setDeclaredType(&GV, TM.getOrCreatePointerType(DT));
+          continue;
+        }
+      }
+
+      // Variable types that don't involve pointer types can be directly
+      // reconstructed into a DTransType.
+      llvm::Type *ValTy = GV.getValueType();
+      if (TM.isSimpleType(ValTy)) {
+        dtrans::DTransType *Ty = TM.getOrCreateSimpleType(ValTy);
+        assert(Ty && "Expected simple type");
+        PTA.setDeclaredType(&GV, TM.getOrCreatePointerType(Ty));
+        continue;
+      }
+
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&GV);
+      Info->setUnhandled();
+      LLVM_DEBUG(dbgs() << "Unable to set declared type for global variable: "
+                        << GV.getName() << "\n");
+    }
+  }
+
+private:
+  PtrTypeAnalyzerImpl &PTA;
+  DTransTypeManager &TM;
+  TypeMetadataReader &MDReader;
+  const DataLayout &DL;
+  std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -299,7 +403,6 @@ const char *ValueTypeInfo::LPIStateToString(LPIState S) {
   llvm_unreachable("Exit from fully covered switch table");
 }
 
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void ValueTypeInfo::dump() { print(dbgs()); }
 
@@ -415,8 +518,35 @@ PtrTypeAnalyzerImpl::~PtrTypeAnalyzerImpl() {
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
-  // TODO: Visit each Value object within the IR, and identify the possible
-  // pointer types being used.
+  PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, DL, GetTLI);
+  InstAnalyzer.visit(M);
+}
+
+ValueTypeInfo *PtrTypeAnalyzerImpl::getOrCreateValueTypeInfo(Value *V) {
+  assert(!isCompilerConstant(V) && "Should not be compiler constant.");
+  ValueTypeInfo *Info = getValueTypeInfo(V);
+  if (Info)
+    return Info;
+
+  Info = new ValueTypeInfo(V);
+  LocalMap[V] = Info;
+  return Info;
+}
+
+ValueTypeInfo *
+PtrTypeAnalyzerImpl::getOrCreateValueTypeInfo(const Instruction *I,
+                                              unsigned OpNum) {
+  ValueTypeInfo *Info = getValueTypeInfo(I, OpNum);
+  if (Info)
+    return Info;
+
+  Value *V = I->getOperand(OpNum);
+  if (!isCompilerConstant(V))
+    return getOrCreateValueTypeInfo(V);
+
+  Info = new ValueTypeInfo(nullptr);
+  LocalMapForConstant[{I, OpNum}] = Info;
+  return Info;
 }
 
 ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const Value *V) const {
@@ -439,6 +569,12 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const Instruction *I,
   }
 
   return getValueTypeInfo(V);
+}
+
+void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, dtrans::DTransType *Ty) {
+  ValueTypeInfo *Info = getOrCreateValueTypeInfo(V);
+  Info->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
+  Info->setCompletelyAnalyzed();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -24,6 +24,7 @@
 
 namespace llvm {
 class raw_ostream;
+class Type;
 
 namespace dtrans {
 
@@ -55,6 +56,9 @@ static void printCollectionSorted(raw_ostream &OS, IterType Begin, IterType End,
     First = false;
   }
 }
+// Helper function to check whether \p Ty is a pointer type, or contains a
+// reference to a pointer type.
+bool hasPointerType(llvm::Type *Ty);
 
 } // namespace dtrans
 } // namespace llvm

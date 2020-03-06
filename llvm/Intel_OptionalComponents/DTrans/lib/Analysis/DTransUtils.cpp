@@ -14,6 +14,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -1082,3 +1083,40 @@ bool dtrans::isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
           FirstArgType->isPointerTy());
 }
 
+bool dtrans::hasPointerType(llvm::Type *Ty) {
+  if (Ty->isPointerTy())
+    return true;
+
+  if (auto *SeqTy = dyn_cast<SequentialType>(Ty))
+    return hasPointerType(SeqTy->getElementType());
+
+  if (auto *StTy = dyn_cast<StructType>(Ty)) {
+    // Check inside of literal structs because those cannot be referenced by
+    // name. However, there is no need to look inside non-literal structures
+    // because those will be referenced by their name.
+    if (StTy->isLiteral())
+      for (auto *ElemTy : StTy->elements()) {
+        bool HasPointer = hasPointerType(ElemTy);
+        if (HasPointer)
+          return true;
+      }
+  }
+
+  if (auto *FnTy = dyn_cast<FunctionType>(Ty)) {
+    // Check the return type and the parameter types for any possible
+    // pointer because metadata descriptions on these will be used to help
+    // recovery of opaque pointer types.
+    Type *RetTy = FnTy->getReturnType();
+    if (hasPointerType(RetTy))
+      return true;
+
+    unsigned NumParams = FnTy->getNumParams();
+    for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
+      Type *ParmTy = FnTy->getParamType(Idx);
+      if (hasPointerType(ParmTy))
+        return true;
+    }
+  }
+
+  return false;
+}

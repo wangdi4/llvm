@@ -421,7 +421,7 @@ DTransTypeManager::getOrCreateStructType(llvm::StructType *StTy) {
   return DTransStTy;
 }
 
-DTransStructType *DTransTypeManager::getStructType(StringRef Name) {
+DTransStructType *DTransTypeManager::getStructType(StringRef Name) const {
   auto It = StructTypeInfoMap.find(Name);
   if (It != StructTypeInfoMap.end())
     return cast<DTransStructType>(It->second);
@@ -514,6 +514,113 @@ DTransFunctionType *DTransTypeManager::getOrCreateFunctionType(
 
   FunctionTypeVec.push_back(NewDTFnTy);
   return NewDTFnTy;
+}
+
+// A simple type is one that is not a pointer, and does not contain any
+// elements that are pointers, or a named structure type that's already
+// been created.
+bool DTransTypeManager::isSimpleType(llvm::Type *Ty) const {
+  if (auto *StTy = dyn_cast<StructType>(Ty)) {
+    // If the struct type has already been created, a reference to the type
+    // can be returned, so treat it as simple.
+    if (!StTy->isLiteral() && getStructType(StTy->getName()))
+      return true;
+
+    for (llvm::Type *FieldTy : StTy->elements())
+      if (!isSimpleType(FieldTy))
+        return false;
+
+    return true;
+  }
+
+  if (auto *VTy = dyn_cast<VectorType>(Ty)) {
+    // TODO: We don't support scalable vector types in our model. If needed in
+    // the future, changes will need to be made to DTransVectorType to support
+    // it.
+    if (VTy->isScalable())
+      return false;
+  }
+
+  return !hasPointerType(Ty);
+}
+
+DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
+  if (Ty->isPointerTy())
+    return nullptr;
+
+  if (isa<ArrayType>(Ty)) {
+    // To support the construction of nested arrays, build a stack of types so
+    // the DTransTypes can be constructed from the innermost to the outermost.
+    SmallVector<llvm::ArrayType *, 4> TypeStack;
+    llvm::Type *BaseTy = Ty;
+    while (BaseTy->isArrayTy()) {
+      TypeStack.push_back(cast<ArrayType>(BaseTy));
+      BaseTy = BaseTy->getArrayElementType();
+
+      // Pointers are not simple types. Cannot create the type.
+      if (BaseTy->isPointerTy())
+        return nullptr;
+    }
+
+    DTransType *LastTy = getOrCreateSimpleType(BaseTy);
+    while (!TypeStack.empty()) {
+      auto *ArrTy = TypeStack.back();
+      TypeStack.pop_back();
+      uint64_t Num = ArrTy->getNumElements();
+      LastTy = getOrCreateArrayType(LastTy, Num);
+    }
+
+    return LastTy;
+  }
+
+  if (auto *VecTy = dyn_cast<VectorType>(Ty)) {
+    // TODO: Scalable vector types not currently modeled.
+    if (VecTy->isScalable())
+      return nullptr;
+
+    llvm::Type *ElemType = VecTy->getElementType();
+    if (ElemType->isPointerTy())
+      return nullptr;
+
+    return getOrCreateVectorType(getOrCreateSimpleType(ElemType),
+      VecTy->getElementCount().Min);
+  }
+
+  if (auto *StTy = dyn_cast<StructType>(Ty)) {
+    if (StTy->isLiteral()) {
+      SmallVector<DTransType *, 4> FieldTypes;
+      for (auto *ElemTy : StTy->elements()) {
+        dtrans::DTransType *DTy = getOrCreateSimpleType(ElemTy);
+        if (!DTy)
+          return nullptr;
+        FieldTypes.push_back(DTy);
+      }
+      return getOrCreateLiteralStructType(StTy->getContext(), FieldTypes);
+    }
+
+    return getOrCreateStructType(StTy);
+  }
+
+  if (auto *FnTy = dyn_cast<FunctionType>(Ty)) {
+    DTransType *RetTy = getOrCreateSimpleType(FnTy->getReturnType());
+    if (!RetTy)
+      return nullptr;
+
+    SmallVector<DTransType *, 8> ParamTypes;
+    for (auto *ElemTy : FnTy->params()) {
+      dtrans::DTransType *DTy = getOrCreateSimpleType(ElemTy);
+      if (!DTy)
+        return nullptr;
+      ParamTypes.push_back(DTy);
+    }
+
+    return getOrCreateFunctionType(RetTy, ParamTypes, FnTy->isVarArg());
+  }
+
+  assert((Ty->isIntegerTy() || Ty->isFloatingPointTy() || Ty->isVoidTy() ||
+    Ty->isMetadataTy()) &&
+    "Primitive type must be based on scalar type");
+  return getOrCreateAtomicType(Ty);
 }
 
 DTransType *DTransTypeManager::findType(llvm::Type *Ty) const {
