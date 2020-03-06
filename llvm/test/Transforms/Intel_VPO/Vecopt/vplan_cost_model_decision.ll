@@ -24,9 +24,9 @@
 
 define void @test_vectorize() local_unnamed_addr #0 {
 ; CHECK-LLVM-LABEL: test_vectorize
-; CHECK-LLVM: fadd fast <8 x float>
+; CHECK-LLVM: fadd fast <2 x float>
 ; CHECK-HIR-LABEL: test_vectorize
-; CHECK-HIR: fadd fast <8 x float>
+; CHECK-HIR: fadd fast <2 x float>
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
