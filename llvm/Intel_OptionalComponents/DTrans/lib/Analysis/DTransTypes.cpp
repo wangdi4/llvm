@@ -1,6 +1,6 @@
 //===-----------DTransTypes.cpp - Type model for DTrans -------------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,10 +10,7 @@
 
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 
-// TODO: DTrans.h is needed for printCollectionSorted. Move that definition to a
-// utility file header.
-#include "Intel_DTrans/Analysis/DTrans.h"
-
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
@@ -34,6 +31,11 @@ DTransType *DTransType::getPointerElementType() const {
 DTransType *DTransType::getArrayElementType() const {
   assert(isArrayTy() && "Must be DTransArrayType");
   return cast<DTransArrayType>(this)->getElementType();
+}
+
+DTransType *DTransType::getVectorElementType() const {
+  assert(isVectorTy() && "Must be DTransVectorType");
+  return cast<DTransVectorType>(this)->getElementType();
 }
 
 llvm::Type *DTransType::getLLVMType() const {

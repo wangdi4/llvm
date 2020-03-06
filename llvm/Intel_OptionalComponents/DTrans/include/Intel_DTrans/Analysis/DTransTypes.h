@@ -1,6 +1,6 @@
 //===-----------DTransTypes.h - Type model for DTrans ---------------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -117,6 +117,7 @@ public:
   bool isPointerTy() const { return getTypeID() == DTransPointerTypeID; }
   bool isStructTy() const { return getTypeID() == DTransStructTypeID; }
   bool isArrayTy() const { return getTypeID() == DTransArrayTypeID; }
+  bool isVectorTy() const { return getTypeID() == DTransVectorTypeID; }
   bool isFunctionTy() const { return getTypeID() == DTransFunctionTypeID; }
   bool isAggregateType() const { return isStructTy() || isArrayTy(); }
 
@@ -127,6 +128,10 @@ public:
   // Helper method that casts this object to an array type, and returns
   // the type stored in the array. Derived object must be DTransArray.
   DTransType *getArrayElementType() const;
+
+  // Helper method that casts this object to a vector type, and returns
+  // the type stored in the vector. Derived object must be DTransVectorType.
+  DTransType *getVectorElementType() const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump() const;

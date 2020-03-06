@@ -18,10 +18,17 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-ptrtypeanalyzertest"
+
+// When 'true', print the IR intermixed with comments indicating the types
+// resolved by the pointer type analyzer.
+static cl::opt<bool> PrintPTAResults(
+    "dtrans-print-pta-results", cl::ReallyHidden,
+    cl::desc("Print IR with pointer type analyzer results as comments"));
 
 namespace {
 
@@ -54,6 +61,10 @@ public:
     const DataLayout &DL = M.getDataLayout();
     dtrans::PtrTypeAnalyzer Analyzer(TM, Reader, DL, GetTLI);
     Analyzer.run(M);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintPTAResults)
+      Analyzer.dumpPTA(M);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
 };
 

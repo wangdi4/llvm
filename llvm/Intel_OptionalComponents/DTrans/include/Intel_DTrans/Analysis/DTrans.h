@@ -1147,35 +1147,6 @@ bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
 bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                    const TargetLibraryInfo &TLI);
 
-// This template function is to support dumping a collection of items in
-// lexically sorted order so that debug traces do not change due to pointer
-// addresses changing. This is done by first printing each item within the
-// iterator range to a string, sorting the strings, and then outputting the
-// strings to the output stream.
-//
-// \p OS               - Output stream
-// \p Begin and \p End - Range of elements to be output.
-// \p ToString         - Function that converts an element of the collection to
-//                       a string. Signature should be:
-//                       std::string F(IterType::value_type V);
-// \p Separator        - Delimiter to use between elements output.
-template<typename IterType, class Fn>
-static void printCollectionSorted(raw_ostream &OS, IterType Begin, IterType End,
-                                  const char *Separator, Fn ToString) {
-  SmallVector<std::string, 8> Outputs;
-  for (auto I = Begin; I != End; ++I)
-    Outputs.emplace_back(ToString(*I));
-
-  std::sort(Outputs.begin(), Outputs.end());
-  bool First = true;
-  for (auto &Str : Outputs) {
-    if (!First)
-      OS << Separator;
-    OS << Str;
-    First = false;
-  }
-}
-
 } // namespace dtrans
 
 } // namespace llvm
