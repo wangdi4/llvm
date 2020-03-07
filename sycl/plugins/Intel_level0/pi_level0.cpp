@@ -546,10 +546,10 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_INFO_NAME) {
     SET_PARAM_VALUE_STR(ze_device_properties.name);
   }
-  else if (param_name == PI_DEVICE_INFO_COMPILER_AVAILABLE) {
+  else if (param_name == PI_DEVICE_INFO_IS_COMPILER_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{1});
   }
-  else if (param_name == PI_DEVICE_INFO_LINKER_AVAILABLE) {
+  else if (param_name == PI_DEVICE_INFO_IS_LINKER_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{1});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_COMPUTE_UNITS) {
@@ -609,7 +609,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_INFO_HOST_UNIFIED_MEMORY) {
     SET_PARAM_VALUE(pi_bool{ze_device_properties.unifiedMemorySupported});
   }
-  else if (param_name == PI_DEVICE_INFO_AVAILABLE) {
+  else if (param_name == PI_DEVICE_INFO_IS_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{ze_device ? true : false});
   }
   else if (param_name == PI_DEVICE_INFO_VENDOR) {
@@ -699,7 +699,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_INFO_EXECUTION_CAPABILITIES) {
     SET_PARAM_VALUE(pi_device_exec_capabilities{PI_DEVICE_EXEC_CAPABILITIES_NATIVE_KERNEL});
   }
-  else if (param_name == PI_DEVICE_INFO_ENDIAN_LITTLE) {
+  else if (param_name == PI_DEVICE_INFO_IS_ENDIAN_LITTLE) {
     SET_PARAM_VALUE(pi_bool{true});
   }
   else if (param_name == PI_DEVICE_INFO_ERROR_CORRECTION_SUPPORT) {
@@ -1956,7 +1956,7 @@ pi_result L0(piEventGetInfo)(
   void *           param_value,
   size_t *         param_value_size_ret) {
 
-  if (param_name == PI_EVENT_INFO_COMMAND_QUEUE) {
+  if (param_name == PI_EVENT_INFO_QUEUE) {
     SET_PARAM_VALUE(pi_queue{event->Queue});
   }
   else if (param_name == PI_EVENT_INFO_CONTEXT) {
