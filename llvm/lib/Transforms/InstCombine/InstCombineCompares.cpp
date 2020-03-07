@@ -3699,6 +3699,39 @@ Value *InstCombiner::foldUnsignedMultiplicationOverflowCheck(ICmpInst &I) {
   return Res;
 }
 
+#if INTEL_CUSTOMIZATION
+// Checks if \p Cmp is the loop backedge condition.
+// For example-
+//
+// L:
+//   %i = phi [ %i.inc, %L ], [ 0, %pre ]  ; IV
+//   ...
+//   %i.inc = add %i, 1
+//   %cmp = cmp sle %i.inc, %n  ; Cmp, %n is CmpOp1
+//   br %cmp %L, %exit
+static bool isLoopBackedgeCompare(ICmpInst *Cmp, Value *IV, Value *CmpOp1) {
+  if (!Cmp->getParent()->getParent()->isPreLoopOpt())
+    return false;
+
+  if (!Cmp->hasOneUse())
+    return false;
+
+  auto *IVPhi = dyn_cast<PHINode>(IV);
+
+  if (!IVPhi)
+    return false;
+
+  // If the other compare operand is the same as initial value of IV, folding
+  // can result in elimination of compare altogether so we should allow it.
+  if (CmpOp1 == IVPhi->getOperand(0) || CmpOp1 == IVPhi->getOperand(1))
+    return false;
+
+  auto *IVPhiBB = IVPhi->getParent();
+  auto *Br = dyn_cast<BranchInst>(Cmp->user_back());
+  return (Br && Br->isConditional() &&
+          (Br->getSuccessor(0) == IVPhiBB || Br->getSuccessor(1) == IVPhiBB));
+}
+#endif // INTEL_CUSTOMIZATION
 /// Try to fold icmp (binop), X or icmp X, (binop).
 /// TODO: A large part of this logic is duplicated in InstSimplify's
 /// simplifyICmpWithBinOp(). We should be able to share that and avoid the code
@@ -3749,7 +3782,13 @@ Instruction *InstCombiner::foldICmpBinOp(ICmpInst &I, const SimplifyQuery &SQ) {
     C = BO1->getOperand(0);
     D = BO1->getOperand(1);
   }
-
+#if INTEL_CUSTOMIZATION
+  // Disabling optimization of loop backedge compares because it results in loss
+  // of information for ScalarEvolution.
+  if (A && match(B, m_One()) && NoOp0WrapProblem &&
+      isLoopBackedgeCompare(&I, A, Op1))
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   // icmp (A+B), A -> icmp B, 0 for equalities or if there is no overflow.
   // icmp (A+B), B -> icmp A, 0 for equalities or if there is no overflow.
   if ((A == Op1 || B == Op1) && NoOp0WrapProblem)
