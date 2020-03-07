@@ -54,7 +54,7 @@ ClangFECompilerParseSPIRVTask::ClangFECompilerParseSPIRVTask(
 
 std::uint32_t ClangFECompilerParseSPIRVTask::getSPIRVWord(
     std::uint32_t const *wordPtr) const {
-  return m_littleEndian ? *wordPtr : llvm::sys::SwapByteOrder_32(*wordPtr);
+  return m_littleEndian ? *wordPtr : llvm::ByteSwap_32(*wordPtr);
 }
 
 bool ClangFECompilerParseSPIRVTask::isSPIRV(const void *pBinary,
@@ -65,7 +65,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRV(const void *pBinary,
   auto Magic = *static_cast<const std::uint32_t*>(pBinary);
   // Also try with other endianness. See the tip in SPIR-V spec s3.1
   return spv::MagicNumber == Magic ||
-         spv::MagicNumber == llvm::sys::SwapByteOrder_32(Magic);
+         spv::MagicNumber == llvm::ByteSwap_32(Magic);
 }
 
 bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
