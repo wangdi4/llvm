@@ -42,6 +42,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -307,10 +308,12 @@ public:
   SampleProfileLoader(
       StringRef Name, StringRef RemapName, bool IsThinLTOPreLink,
       std::function<AssumptionCache &(Function &)> GetAssumptionCache,
-      std::function<TargetTransformInfo &(Function &)> GetTargetTransformInfo)
+      std::function<TargetTransformInfo &(Function &)> GetTargetTransformInfo,
+      std::function<const TargetLibraryInfo &(Function &)> GetTLI)
       : GetAC(std::move(GetAssumptionCache)),
-        GetTTI(std::move(GetTargetTransformInfo)), CoverageTracker(*this),
-        Filename(std::string(Name)), RemappingFilename(std::string(RemapName)),
+        GetTTI(std::move(GetTargetTransformInfo)), GetTLI(std::move(GetTLI)),
+        CoverageTracker(*this), Filename(std::string(Name)),
+        RemappingFilename(std::string(RemapName)),
         IsThinLTOPreLink(IsThinLTOPreLink) {}
 
   bool doInitialization(Module &M);
@@ -397,6 +400,7 @@ protected:
 
   std::function<AssumptionCache &(Function &)> GetAC;
   std::function<TargetTransformInfo &(Function &)> GetTTI;
+  std::function<const TargetLibraryInfo &(Function &)> GetTLI;
 
   /// Predecessors for each basic block in the CFG.
   BlockEdgeMap Predecessors;
@@ -474,14 +478,17 @@ public:
 
   SampleProfileLoaderLegacyPass(StringRef Name = SampleProfileFile,
                                 bool IsThinLTOPreLink = false)
-      : ModulePass(ID),
-        SampleLoader(Name, SampleProfileRemappingFile, IsThinLTOPreLink,
-                     [&](Function &F) -> AssumptionCache & {
-                       return ACT->getAssumptionCache(F);
-                     },
-                     [&](Function &F) -> TargetTransformInfo & {
-                       return TTIWP->getTTI(F);
-                     }) {
+      : ModulePass(ID), SampleLoader(
+                            Name, SampleProfileRemappingFile, IsThinLTOPreLink,
+                            [&](Function &F) -> AssumptionCache & {
+                              return ACT->getAssumptionCache(F);
+                            },
+                            [&](Function &F) -> TargetTransformInfo & {
+                              return TTIWP->getTTI(F);
+                            },
+                            [&](Function &F) -> TargetLibraryInfo & {
+                              return TLIWP->getTLI(F);
+                            }) {
     initializeSampleProfileLoaderLegacyPassPass(
         *PassRegistry::getPassRegistry());
   }
@@ -498,6 +505,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<ProfileSummaryInfoWrapperPass>();
   }
 
@@ -505,6 +513,7 @@ private:
   SampleProfileLoader SampleLoader;
   AssumptionCacheTracker *ACT = nullptr;
   TargetTransformInfoWrapperPass *TTIWP = nullptr;
+  TargetLibraryInfoWrapperPass *TLIWP = nullptr;
 };
 
 } // end anonymous namespace
@@ -904,10 +913,14 @@ bool SampleProfileLoader::inlineCallInstruction(Instruction *I) {
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
       getInlineCost(cast<CallBase>(*I), Params, GetTTI(*CalledFunction), GetAC,
+<<<<<<< HEAD
                     None, nullptr, ILIC, nullptr, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+                    None, GetTLI, nullptr, nullptr);
+>>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
   if (Cost.isNever()) {
     ORE->emit(OptimizationRemarkAnalysis(CSINLINE_DEBUG, "InlineFail", DLoc, BB)
               << "incompatible inlining");
@@ -936,10 +949,14 @@ bool SampleProfileLoader::shouldInlineColdCallee(Instruction &CallInst) {
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
       getInlineCost(cast<CallBase>(CallInst), getInlineParams(),
+<<<<<<< HEAD
                     GetTTI(*Callee), GetAC, None, nullptr, ILIC, nullptr,
                     nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
+=======
+                    GetTTI(*Callee), GetAC, None, GetTLI, nullptr, nullptr);
+>>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
 
   return Cost.getCost() <= SampleColdCallSiteThreshold;
 }
@@ -1780,6 +1797,7 @@ INITIALIZE_PASS_BEGIN(SampleProfileLoaderLegacyPass, "sample-profile",
                       "Sample Profile loader", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_END(SampleProfileLoaderLegacyPass, "sample-profile",
                     "Sample Profile loader", false, false)
@@ -1900,6 +1918,7 @@ bool SampleProfileLoader::runOnModule(Module &M, ModuleAnalysisManager *AM,
 bool SampleProfileLoaderLegacyPass::runOnModule(Module &M) {
   ACT = &getAnalysis<AssumptionCacheTracker>();
   TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
+  TLIWP = &getAnalysis<TargetLibraryInfoWrapperPass>();
   ProfileSummaryInfo *PSI =
       &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
   return SampleLoader.runOnModule(M, nullptr, PSI, nullptr);
@@ -1976,12 +1995,15 @@ PreservedAnalyses SampleProfileLoaderPass::run(Module &M,
   auto GetTTI = [&](Function &F) -> TargetTransformInfo & {
     return FAM.getResult<TargetIRAnalysis>(F);
   };
+  auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
 
   SampleProfileLoader SampleLoader(
       ProfileFileName.empty() ? SampleProfileFile : ProfileFileName,
       ProfileRemappingFileName.empty() ? SampleProfileRemappingFile
                                        : ProfileRemappingFileName,
-      IsThinLTOPreLink, GetAssumptionCache, GetTTI);
+      IsThinLTOPreLink, GetAssumptionCache, GetTTI, GetTLI);
 
   if (!SampleLoader.doInitialization(M))
     return PreservedAnalyses::all();

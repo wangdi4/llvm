@@ -710,7 +710,7 @@ static bool
 inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 std::function<AssumptionCache &(Function &)> GetAssumptionCache,
                 ProfileSummaryInfo *PSI,
-                std::function<TargetLibraryInfo &(Function &)> GetTLI,
+                std::function<const TargetLibraryInfo &(Function &)> GetTLI,
                 bool InsertLifetime,
                 function_ref<InlineCost(CallSite CS)> GetInlineCost,
                 function_ref<AAResults &(Function &)> AARGetter,
@@ -1038,7 +1038,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-  auto GetTLI = [&](Function &F) -> TargetLibraryInfo & {
+  GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
     return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
   ILIC = new InliningLoopInfoCache(); // INTEL
@@ -1366,6 +1366,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     auto GetBFI = [&](Function &F) -> BlockFrequencyInfo & {
       return FAM.getResult<BlockFrequencyAnalysis>(F);
     };
+    auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
+      return FAM.getResult<TargetLibraryAnalysis>(F);
+    };
 
     auto GetInlineCost = [&](CallSite CS) {
       Function &Callee = *CS.getCalledFunction();
@@ -1381,9 +1384,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
 
       return getInlineCost(cast<CallBase>(*CS.getInstruction()), Params,
+<<<<<<< HEAD
                            CalleeTTI, GetAssumptionCache, {GetBFI}, // INTEL
                            TLI, ILIC, AggI, &CallSitesForFusion,    // INTEL
                            &FuncsForDTrans, PSI,                // INTEL
+=======
+                           CalleeTTI, GetAssumptionCache, {GetBFI}, GetTLI, PSI,
+>>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
                            RemarksEnabled ? &ORE : nullptr);
     };
 
