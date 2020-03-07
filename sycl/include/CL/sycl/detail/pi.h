@@ -239,8 +239,6 @@ typedef enum {
 } _pi_device_info;
 
 typedef enum {
-<<<<<<< HEAD
-=======
   PI_LOCAL_MEM_TYPE_LOCAL = CL_LOCAL,
   PI_LOCAL_MEM_TYPE_GLOBAL = CL_GLOBAL
 } _pi_local_mem_type;
@@ -249,7 +247,6 @@ typedef intptr_t pi_context_properties;
 
 // TODO: populate
 typedef enum {
->>>>>>> d7eba00f0ee0e31fe4696cb99ba7b70b5f25a62b
   PI_CONTEXT_INFO_DEVICES = CL_CONTEXT_DEVICES,
   PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES,
   PI_CONTEXT_INFO_PROPERTIES = CL_CONTEXT_PROPERTIES,
