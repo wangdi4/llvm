@@ -129,6 +129,10 @@
 // AARCH64-NEXT: #define __INT8_FMTi__ "hhi"
 // AARCH64-NEXT: #define __INT8_MAX__ 127
 // AARCH64-NEXT: #define __INT8_TYPE__ signed char
+// INTEL_CUSTOMIZATION
+// AARCH64-NEXT: #define __INTEL_CLANG_COMPILER {{.*}}
+// AARCH64-NEXT: #define __INTEL_LLVM_COMPILER {{.*}}
+// INTEL_CUSTOMIZATION
 // AARCH64-NEXT: #define __INTMAX_C_SUFFIX__ L
 // AARCH64-NEXT: #define __INTMAX_FMTd__ "ld"
 // AARCH64-NEXT: #define __INTMAX_FMTi__ "li"
