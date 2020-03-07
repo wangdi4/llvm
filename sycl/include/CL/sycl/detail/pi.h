@@ -239,6 +239,17 @@ typedef enum {
 } _pi_device_info;
 
 typedef enum {
+<<<<<<< HEAD
+=======
+  PI_LOCAL_MEM_TYPE_LOCAL = CL_LOCAL,
+  PI_LOCAL_MEM_TYPE_GLOBAL = CL_GLOBAL
+} _pi_local_mem_type;
+
+typedef intptr_t pi_context_properties;
+
+// TODO: populate
+typedef enum {
+>>>>>>> d7eba00f0ee0e31fe4696cb99ba7b70b5f25a62b
   PI_CONTEXT_INFO_DEVICES = CL_CONTEXT_DEVICES,
   PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES,
   PI_CONTEXT_INFO_PROPERTIES = CL_CONTEXT_PROPERTIES,
@@ -732,12 +743,12 @@ pi_result piextGetDeviceFunctionPointer(pi_device device, pi_program program,
 //
 // Context
 //
-pi_result piContextCreate(
-    const cl_context_properties *properties, // TODO: untie from OpenCL
-    pi_uint32 num_devices, const pi_device *devices,
-    void (*pfn_notify)(const char *errinfo, const void *private_info, size_t cb,
-                       void *user_data),
-    void *user_data, pi_context *ret_context);
+pi_result piContextCreate(const pi_context_properties *properties,
+                          pi_uint32 num_devices, const pi_device *devices,
+                          void (*pfn_notify)(const char *errinfo,
+                                             const void *private_info,
+                                             size_t cb, void *user_data),
+                          void *user_data, pi_context *ret_context);
 
 pi_result piContextGetInfo(pi_context context, pi_context_info param_name,
                            size_t param_value_size, void *param_value,
