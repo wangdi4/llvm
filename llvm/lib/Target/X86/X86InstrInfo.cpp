@@ -8065,7 +8065,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULSSrr:
   case X86::VMULSDZrr:
   case X86::VMULSSZrr:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case X86::VADDPHZ128rr:
@@ -8078,11 +8077,8 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULSHZrr:
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-    return Inst.getParent()->getParent()->getTarget().Options.UnsafeFPMath;
-=======
     return Inst.getFlag(MachineInstr::MIFlag::FmReassoc) &&
            Inst.getFlag(MachineInstr::MIFlag::FmNsz);
->>>>>>> 90fd859f51d7a77ccb7978804af00c847e8e4d6d
   default:
     return false;
   }
