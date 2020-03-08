@@ -48771,7 +48771,6 @@ static SDValue combineFP_EXTEND(SDNode *N, SelectionDAG &DAG,
   if (!Subtarget.hasF16C() || Subtarget.useSoftFloat())
     return SDValue();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   if (Subtarget.hasFP16())
@@ -48779,9 +48778,7 @@ static SDValue combineFP_EXTEND(SDNode *N, SelectionDAG &DAG,
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-=======
   bool IsStrict = N->isStrictFPOpcode();
->>>>>>> c0d0e6b198e7f8ed4e5bdffd3706b386643cc8c6
   EVT VT = N->getValueType(0);
   SDValue Src = N->getOperand(IsStrict ? 1 : 0);
   EVT SrcVT = Src.getValueType();
