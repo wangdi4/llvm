@@ -389,8 +389,12 @@ bool X86AsmBackend::needAlign(MCObjectStreamer &OS) const {
     return false;
   assert(allowAutoPadding() && "incorrect initialization!");
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Currently don't deal with Bundle cases.
+=======
+  // To be Done: Currently don't deal with Bundle cases.
+>>>>>>> 129a762555b8b7fcc6e29a320a0d27f960e469ae
   if (OS.getAssembler().isBundlingEnabled())
     return false;
 #endif // INTEL_CUSTOMIZATION
