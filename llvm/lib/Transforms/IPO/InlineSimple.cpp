@@ -63,7 +63,6 @@ public:
   InlineCost getInlineCost(CallSite CS) override {
     Function *Callee = CS.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
-    TargetLibraryInfo &TLI = TLIWP->getTLI(*Callee); // INTEL
 
     bool RemarksEnabled = false;
     const auto &BBs = CS.getCaller()->getBasicBlockList();
@@ -88,12 +87,8 @@ public:
 
     return llvm::getInlineCost(
         cast<CallBase>(*CS.getInstruction()), Params, TTI, GetAssumptionCache,
-<<<<<<< HEAD
-        /*GetBFI=*/None, &TLI, ILIC, AggI, &CallSitesForFusion,     // INTEL
-        &FuncsForDTrans, PSI, RemarksEnabled ? &ORE : nullptr); // INTEL
-=======
-        /*GetBFI=*/None, GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
+        /*GetBFI=*/None, GetTLI, ILIC, AggI, &CallSitesForFusion,     // INTEL
+        &FuncsForDTrans, PSI, RemarksEnabled ? &ORE : nullptr);       // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

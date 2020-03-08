@@ -424,14 +424,10 @@ InlineCost getInlineCost(
     CallBase &Call, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-<<<<<<< HEAD
-    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,   // INTEL
-    InlineAggressiveInfo *AggI,                            // INTEL
-    SmallSet<CallBase *, 20> *CallSitesForFusion,          // INTEL
-    SmallSet<Function *, 20> *FuncsForDTrans,          // INTEL
-=======
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
+    InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AggI,   // INTEL
+    SmallSet<CallBase *, 20> *CallSitesForFusion,              // INTEL
+    SmallSet<Function *, 20> *FuncsForDTrans,                  // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE = nullptr);
 
 /// Get an InlineCost with the callee explicitly specified.
@@ -444,15 +440,11 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-<<<<<<< HEAD
-              TargetLibraryInfo *TLI,                // INTEL
+              function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
               SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
               SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
-=======
-              function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.

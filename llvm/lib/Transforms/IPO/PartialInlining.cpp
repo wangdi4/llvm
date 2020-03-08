@@ -230,20 +230,13 @@ struct PartialInlinerImpl {
       function_ref<AssumptionCache *(Function &)> LookupAC,
       std::function<TargetTransformInfo &(Function &)> *GTTI,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> GBFI,
-<<<<<<< HEAD
+      std::function<const TargetLibraryInfo &(Function &)> *GTLI,
       InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI, // INTEL
       bool RunLTOPartialInline, bool EnableSpecialCases)            // INTEL
       : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
-        GetTTI(GTTI), GetBFI(GBFI), ILIC(InlLoopIC), PSI(ProfSI),   // INTEL
-        RunLTOPartialInline(RunLTOPartialInline),                   // INTEL
+        GetTTI(GTTI), GetBFI(GBFI), GetTLI(GTLI), ILIC(InlLoopIC),  // INTEL
+        PSI(ProfSI), RunLTOPartialInline(RunLTOPartialInline),      // INTEL
         EnableSpecialCases(EnableSpecialCases) {}                   // INTEL
-=======
-      std::function<const TargetLibraryInfo &(Function &)> *GTLI,
-      ProfileSummaryInfo *ProfSI)
-      : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
-        GetTTI(GTTI), GetBFI(GBFI), GetTLI(GTLI), PSI(ProfSI) {}
-
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
   bool run(Module &M);
   // Main part of the transformation that calls helper functions to find
   // outlining candidates, clone & outline the function, and attempt to
@@ -311,11 +304,8 @@ private:
   function_ref<AssumptionCache *(Function &)> LookupAssumptionCache;
   std::function<TargetTransformInfo &(Function &)> *GetTTI;
   Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI;
-<<<<<<< HEAD
-  InliningLoopInfoCache *ILIC;   // INTEL
-=======
   std::function<const TargetLibraryInfo &(Function &)> *GetTLI;
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
+  InliningLoopInfoCache *ILIC;   // INTEL
   ProfileSummaryInfo *PSI;
 
   // Return the frequency of the OutlininingBB relative to F's entry point.
@@ -486,21 +476,16 @@ struct PartialInlinerLegacyPass : public ModulePass {
       return TTIWP->getTTI(F);
     };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    auto ILIC = std::make_unique<InliningLoopInfoCache>();
-    return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
-                              &GetTTI, NoneType::None, ILIC.get(), PSI,
-                              RunLTOPartialInline, EnableSpecialCases)
-=======
     std::function<const TargetLibraryInfo &(Function &)> GetTLI =
         [this](Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
+#if INTEL_CUSTOMIZATION
+    auto ILIC = std::make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
-                              &GetTTI, NoneType::None, &GetTLI, PSI)
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
+                              &GetTTI, NoneType::None, &GetTLI, ILIC.get(),
+                              PSI, RunLTOPartialInline, EnableSpecialCases)
         .run(M);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -909,15 +894,10 @@ bool PartialInlinerImpl::shouldPartialInline(
           DEBUG_TYPE);
   assert(Call && "invalid callsite for partial inline");
   InlineCost IC = getInlineCost(cast<CallBase>(*Call), getInlineParams(),
-<<<<<<< HEAD
                                 CalleeTTI, *GetAssumptionCache,   // INTEL
-                                GetBFI, nullptr, ILIC, nullptr,   // INTEL
-                                nullptr, nullptr, PSI,            // INTEL
+                                GetBFI, *GetTLI, ILIC,            // INTEL
+                                nullptr, nullptr, nullptr, PSI,   // INTEL
                                 RemarksEnabled ? &ORE : nullptr);
-=======
-                                CalleeTTI, *GetAssumptionCache, GetBFI, *GetTLI,
-                                PSI, RemarksEnabled ? &ORE : nullptr);
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
 
   if (IC.isAlways()) {
     ORE.emit([&]() {
@@ -1828,12 +1808,8 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
   PA.preserve<WholeProgramAnalysis>();
   auto ILIC = std::make_unique<InliningLoopInfoCache>();
   if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
-<<<<<<< HEAD
-                         {GetBFI}, ILIC.get(), PSI, RunLTOPartialInline,
-                         EnableSpecialCases)
-=======
-                         {GetBFI}, &GetTLI, PSI)
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
+                         {GetBFI}, &GetTLI, ILIC.get(), PSI,
+                         RunLTOPartialInline, EnableSpecialCases)
           .run(M))
     return PA;
 #endif // INTEL_CUSTOMIZATION

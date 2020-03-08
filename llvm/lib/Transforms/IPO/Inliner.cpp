@@ -1379,18 +1379,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
       if (IntelInlineReportLevel & InlineReportOptions::RealCost)
         Params.ComputeFullInlineCost = true;
-      TargetLibraryInfo *TLI =
-          FAM.getCachedResult<TargetLibraryAnalysis>(Callee);
 #endif // INTEL_CUSTOMIZATION
 
       return getInlineCost(cast<CallBase>(*CS.getInstruction()), Params,
-<<<<<<< HEAD
                            CalleeTTI, GetAssumptionCache, {GetBFI}, // INTEL
-                           TLI, ILIC, AggI, &CallSitesForFusion,    // INTEL
+                           GetTLI, ILIC, AggI, &CallSitesForFusion,    // INTEL
                            &FuncsForDTrans, PSI,                // INTEL
-=======
-                           CalleeTTI, GetAssumptionCache, {GetBFI}, GetTLI, PSI,
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
                            RemarksEnabled ? &ORE : nullptr);
     };
 

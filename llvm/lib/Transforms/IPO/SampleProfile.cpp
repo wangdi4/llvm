@@ -913,14 +913,10 @@ bool SampleProfileLoader::inlineCallInstruction(Instruction *I) {
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
       getInlineCost(cast<CallBase>(*I), Params, GetTTI(*CalledFunction), GetAC,
-<<<<<<< HEAD
-                    None, nullptr, ILIC, nullptr, nullptr, nullptr, nullptr);
+                    None, GetTLI, ILIC, nullptr, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
-=======
-                    None, GetTLI, nullptr, nullptr);
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
   if (Cost.isNever()) {
     ORE->emit(OptimizationRemarkAnalysis(CSINLINE_DEBUG, "InlineFail", DLoc, BB)
               << "incompatible inlining");
@@ -949,14 +945,10 @@ bool SampleProfileLoader::shouldInlineColdCallee(Instruction &CallInst) {
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
       getInlineCost(cast<CallBase>(CallInst), getInlineParams(),
-<<<<<<< HEAD
-                    GetTTI(*Callee), GetAC, None, nullptr, ILIC, nullptr,
-                    nullptr, nullptr, nullptr);
+                    GetTTI(*Callee), GetAC, None, GetTLI, ILIC,
+                    nullptr, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
-=======
-                    GetTTI(*Callee), GetAC, None, GetTLI, nullptr, nullptr);
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
 
   return Cost.getCost() <= SampleColdCallSiteThreshold;
 }

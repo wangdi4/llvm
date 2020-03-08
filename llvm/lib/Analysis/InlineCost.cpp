@@ -143,7 +143,12 @@ static cl::opt<bool> OptComputeFullInlineCost(
     cl::desc("Compute the full inline cost of a call site even when the cost "
              "exceeds the threshold."));
 
-<<<<<<< HEAD
+static cl::opt<bool> InlineCallerSupersetNoBuiltin(
+    "inline-caller-superset-nobuiltin", cl::Hidden, cl::init(true),
+    cl::ZeroOrMore,
+    cl::desc("Allow inlining when caller has a superset of callee's nobuiltin "
+             "attributes."));
+
 #if INTEL_CUSTOMIZATION
 // InliningForDeeplyNestedIfs has three possible values(BOU_UNSET is
 // default). Use TRUE to force enabling of heuristic. Use FALSE to disable.
@@ -211,13 +216,6 @@ static cl::opt<unsigned> DummyArgsMinCallsiteCount(
     cl::desc("Minimum callsite count for dummy-args function"));
 
 #endif // INTEL_CUSTOMIZATION
-=======
-static cl::opt<bool> InlineCallerSupersetNoBuiltin(
-    "inline-caller-superset-nobuiltin", cl::Hidden, cl::init(true),
-    cl::ZeroOrMore,
-    cl::desc("Allow inlining when caller has a superset of callee's nobuiltin "
-             "attributes."));
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
 
 namespace {
 
@@ -5312,27 +5310,19 @@ InlineCost llvm::getInlineCost(
     CallBase &Call, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-<<<<<<< HEAD
+    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
 #if INTEL_CUSTOMIZATION
-    TargetLibraryInfo *TLI,
     InliningLoopInfoCache *ILIC,
     InlineAggressiveInfo *AI,
     SmallSet<CallBase *, 20> *CallSitesForFusion,
     SmallSet<Function *, 20> *FuncsForDTrans,
 #endif // INTEL_CUSTOMIZATION
-=======
-    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 #if INTEL_CUSTOMIZATION
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
-<<<<<<< HEAD
-                       GetAssumptionCache, GetBFI, TLI, ILIC, AI,
+                       GetAssumptionCache, GetBFI, GetTLI, ILIC, AI,
                        CallSitesForFusion, FuncsForDTrans, PSI, ORE);
 #endif // INTEL_CUSTOMIZATION
-=======
-                       GetAssumptionCache, GetBFI, GetTLI, PSI, ORE);
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
 }
 
 InlineCost llvm::getInlineCost(
@@ -5340,17 +5330,13 @@ InlineCost llvm::getInlineCost(
     TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-<<<<<<< HEAD
+    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
 #if INTEL_CUSTOMIZATION
-    TargetLibraryInfo *TLI,
     InliningLoopInfoCache *ILIC,
     InlineAggressiveInfo *AI,
     SmallSet<CallBase *, 20> *CallSitesForFusion,
     SmallSet<Function *, 20> *FuncsForDTrans,
 #endif // INTEL_CUSTOMIZATION
-=======
-    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
   // Cannot inline indirect calls.
@@ -5398,14 +5384,9 @@ InlineCost llvm::getInlineCost(
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
   Function *Caller = Call.getCaller();
-<<<<<<< HEAD
-  if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI))
+  if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI, GetTLI))
     return llvm::InlineCost::getNever("conflicting attributes",   // INTEL
                                       NinlrMismatchedAttributes); // INTEL
-=======
-  if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI, GetTLI))
-    return llvm::InlineCost::getNever("conflicting attributes");
->>>>>>> f9ca75f19bab639988ebbe68c81d07babd952afb
 
   // Don't inline this call if the caller has the optnone attribute.
   if (Caller->hasOptNone())
@@ -5437,8 +5418,9 @@ InlineCost llvm::getInlineCost(
   LLVM_DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                           << "... (caller:" << Caller->getName() << ")\n");
 #if INTEL_CUSTOMIZATION
+  auto TLI = GetTLI(*Callee);  
   InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
-                            *Callee, Call, TLI, ILIC, AI, CallSitesForFusion,
+                            *Callee, Call, &TLI, ILIC, AI, CallSitesForFusion,
                             FuncsForDTrans, Params, true);
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyze(CalleeTTI, &Reason);
