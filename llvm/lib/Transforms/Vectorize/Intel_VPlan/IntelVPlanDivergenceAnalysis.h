@@ -31,7 +31,6 @@ namespace vpo {
 
 class VPValue;
 class VPInstruction;
-class VPBlockBase;
 class VPLoop;
 class SyncDependenceAnalysis;
 #if INTEL_CUSTOMIZATION
@@ -140,7 +139,7 @@ private:
   const VPInstruction *popFromWorklist();
 
   /// Whether \p BB is part of the region.
-  bool inRegion(const VPBlockBase &BB) const;
+  bool inRegion(const VPBasicBlock &BB) const;
   /// Whether \p I is part of the region.
   bool inRegion(const VPInstruction &I) const;
 
@@ -163,7 +162,7 @@ private:
   ///
   /// Marks all users of live-out values of the loop headed by \p LoopHeader.
   /// as divergent and puts them on the worklist.
-  void taintLoopLiveOuts(const VPBlockBase &LoopHeader);
+  void taintLoopLiveOuts(const VPBasicBlock &LoopHeader);
 
   /// Push users of \p Val (in the region) to the worklist.
   void pushUsers(const VPValue &V);
@@ -171,18 +170,18 @@ private:
   /// Push all phi nodes in \p Block to the worklist if \p PushAll is true.
   /// If \p PushAll is false, only those phi nodes that have not already been
   /// identified as divergent are pushed.
-  void pushPHINodes(const VPBlockBase &Block, bool PushAll); // INTEL
+  void pushPHINodes(const VPBasicBlock &Block, bool PushAll); // INTEL
 
   /// Mark \p Block as join divergent
   ///
   /// A block is join divergent if two threads may reach it from different
   /// incoming blocks at the same time.
-  void markBlockJoinDivergent(const VPBlockBase &Block) {
+  void markBlockJoinDivergent(const VPBasicBlock &Block) {
     DivergentJoinBlocks.insert(&Block);
   }
 
   /// Mark \p Block as divergent loop-exit block.
-  bool addDivergentLoopExit(const VPBlockBase &Block) {
+  bool addDivergentLoopExit(const VPBasicBlock &Block) {
     return DivergentLoopExits.insert(&Block).second;
   }
 
@@ -200,23 +199,23 @@ private:
   }
 
   /// Return \p true if \p Block is a divergent loop-exit block.
-  bool isDivergentLoopExit(const VPBlockBase &Block) const {
+  bool isDivergentLoopExit(const VPBasicBlock &Block) const {
     return DivergentLoopExits.find(&Block) != DivergentLoopExits.end();
   }
 
   /// Whether \p Block is join divergent
   ///
   /// (see markBlockJoinDivergent).
-  bool isJoinDivergent(const VPBlockBase &Block) const {
+  bool isJoinDivergent(const VPBasicBlock &Block) const {
     return DivergentJoinBlocks.find(&Block) != DivergentJoinBlocks.end();
   }
 
-  bool addJoinDivergentBlock(const VPBlockBase &Block) {
+  bool addJoinDivergentBlock(const VPBasicBlock &Block) {
     return DivergentJoinBlocks.insert(&Block).second;
   }
 
   /// Whether \p Val is divergent when read in \p ObservingBlock.
-  bool isTemporalDivergent(const VPBlockBase &ObservingBlock,
+  bool isTemporalDivergent(const VPBasicBlock &ObservingBlock,
                            const VPValue &Val) const;
 
   /// Get the vector shape of \p Val observed in \p ObserverBlock. This will
@@ -230,7 +229,7 @@ private:
   // \param JoinBlock is a divergent loop exit or join point of two disjoint
   // paths.
   // \returns Whether \p JoinBlock is a divergent loop exit of \p TermLoop.
-  bool propagateJoinDivergence(const VPBlockBase &JoinBlock,
+  bool propagateJoinDivergence(const VPBasicBlock &JoinBlock,
                                const VPLoop *TermLoop);
 
   /// Propagate induced value divergence due to control divergence in \p Term.
@@ -361,10 +360,10 @@ private:
   DenseSet<const VPValue *> UniformOverrides;
 
   // Blocks with joining divergent control from different predecessors.
-  DenseSet<const VPBlockBase *> DivergentJoinBlocks;
+  DenseSet<const VPBasicBlock *> DivergentJoinBlocks;
 
   // Blocks which are loop-exits and result in divergent Control-flow.
-  DenseSet<const VPBlockBase *> DivergentLoopExits;
+  DenseSet<const VPBasicBlock *> DivergentLoopExits;
 
   // Internal worklist for divergence propagation.
   std::queue<const VPInstruction *> Worklist;

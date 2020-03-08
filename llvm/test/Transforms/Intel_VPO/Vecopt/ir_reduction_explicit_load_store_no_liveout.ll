@@ -21,7 +21,6 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:       SOASafe = float* [[X0]]
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
@@ -61,7 +60,6 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 ; Check generated vector code.
 ; CHECK:  define float @load_store_reduction_add(float* nocapture [[A0]]) {

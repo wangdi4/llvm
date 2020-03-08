@@ -9,7 +9,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define i64 @test_2_level_loop_nest() local_unnamed_addr #0 {
 ; CHECK-LABEL:  After predication and linearization
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -63,8 +62,6 @@ define i64 @test_2_level_loop_nest() local_unnamed_addr #0 {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
 ;        entry
@@ -125,7 +122,6 @@ exit:                                        ; preds = %outer.loop.latch
 ; Function Attrs: nounwind uwtable
 define i64 @test_2_level_loop_nest_swap_inner_branch() local_unnamed_addr #0 {
 ; CHECK-LABEL:  After predication and linearization
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -180,8 +176,6 @@ define i64 @test_2_level_loop_nest_swap_inner_branch() local_unnamed_addr #0 {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
 ;        entry

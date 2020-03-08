@@ -91,8 +91,8 @@ static bool isSupportedInstructionType(Type *Ty) {
   return !Ty->isVectorTy() || Ty->getVectorElementType()->isSingleValueType();
 }
 
-/// \brief Check that the instruction has outside loop users and is not an
-/// identified reduction variable.
+/// Check that the instruction has outside loop users and is not an identified
+/// reduction variable.
 static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
                                SmallPtrSetImpl<Value *> &AllowedExit) {
   // Reduction and Induction instructions are allowed to have exit users. All

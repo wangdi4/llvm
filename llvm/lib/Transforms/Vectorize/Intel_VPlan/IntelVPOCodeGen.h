@@ -283,9 +283,9 @@ private:
   /// Get an index of last written lane using Mask value.
   Value *getLastLaneFromMask(Value *MaskPtr);
 
-  /// \brief The Loop exit block may have single value PHI nodes where the
-  /// incoming value is 'Undef'. While vectorizing we only handled real values
-  /// that were defined inside the loop. Here we fix the 'undef case'.
+  /// The Loop exit block may have single value PHI nodes where the incoming
+  /// value is 'Undef'. While vectorizing we only handled real values that were
+  /// defined inside the loop. Here we fix the 'undef case'.
   void fixLCSSAPHIs();
 
   /// Insert the new loop to the loop hierarchy and pass manager

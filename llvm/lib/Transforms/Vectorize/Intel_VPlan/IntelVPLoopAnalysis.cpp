@@ -296,8 +296,7 @@ VPLoopEntityList::findInductionStartPhi(const VPInduction *Induction) const {
   if (BinOp)
     for (auto User : BinOp->users())
       if (auto Instr = dyn_cast<VPInstruction>(User))
-        if (isa<VPPHINode>(Instr) &&
-            Loop.contains(cast<VPBlockBase>(Instr->getParent())) &&
+        if (isa<VPPHINode>(Instr) && Loop.contains(Instr->getParent()) &&
             hasLiveInOrConstOperand(Instr, Loop)) {
           StartPhi = cast<VPPHINode>(Instr);
           break;
@@ -522,7 +521,7 @@ bool VPLoopEntityList::isMinMaxLastItem(const VPReduction &Red) const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPLoopEntityList::dump(raw_ostream &OS,
-                            const VPBlockBase *LoopHeader) const {
+                            const VPBasicBlock *LoopHeader) const {
   if (!(DumpVPlanEntities || VPlanDisplaySOAAnalysisInformation))
     return;
 
@@ -544,7 +543,7 @@ void VPLoopEntityList::dump(raw_ostream &OS,
   }
 
   // TODO: Dump profitability information along with safety information.
-  VPBasicBlock *Preheader = cast<VPBasicBlock>(getLoop().getLoopPreheader());
+  VPBasicBlock *Preheader = getLoop().getLoopPreheader();
   auto getVPLoopEntity = [&](const VPValue *VPVal) -> const VPLoopEntity * {
     auto *PrivIter = find(PrivateMap, VPVal);
     if (PrivIter)
@@ -878,8 +877,8 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   if (!Loop.getUniqueExitBlock())
     return;
 
-  VPBasicBlock *PostExit = cast<VPBasicBlock>(Loop.getUniqueExitBlock());
-  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+  VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
+  VPBasicBlock *Preheader = Loop.getLoopPreheader();
 
   // Insert VPInstructions related to VPReductions.
   insertReductionVPInstructions(Builder, Preheader, PostExit);
@@ -982,12 +981,12 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     // In-memory induction.
     // First insert phi and store after existing PHIs in loop header block.
     // See comment before the routine.
-    VPBasicBlock *Block = cast<VPBasicBlock>(Loop.getHeader());
+    VPBasicBlock *Block = Loop.getHeader();
     Builder.setInsertPointFirstNonPhi(Block);
     VPPHINode *IndPhi = Builder.createPhiInstruction(Ty);
     Builder.createNaryOp(Instruction::Store, Ty, {IndPhi, &PrivateMem});
     // Then insert increment of induction and update phi.
-    Block = cast<VPBasicBlock>(Loop.getLoopLatch());
+    Block = Loop.getLoopLatch();
     Builder.setInsertPoint(Block);
     VPValue *NewInd;
     if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
@@ -996,7 +995,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {IndPhi, &InitStep});
     // Step will be initialized in loop preheader always.
-    VPBasicBlock *InitParent = cast<VPBasicBlock>(Loop.getLoopPreheader());
+    VPBasicBlock *InitParent = Loop.getLoopPreheader();
     IndPhi->addIncoming(&Init, InitParent);
     IndPhi->addIncoming(NewInd, Block);
   }
@@ -1022,7 +1021,7 @@ static bool checkInstructionInLoop(const VPValue *V, const VPlan *Plan,
   // Check for null and VPInstruction here to avoid these checks at caller(s)
   // side
   return V == nullptr || !isa<VPInstruction>(V) ||
-         Loop->contains(cast<VPBlockBase>(cast<VPInstruction>(V)->getParent()));
+         Loop->contains(cast<VPInstruction>(V)->getParent());
 }
 
 void ReductionDescr::checkParentVPLoop(const VPlan *Plan,
@@ -1111,8 +1110,7 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
     for (auto *LVPV : LinkedVPVals) {
       for (auto *User : LVPV->users()) {
         if (auto Instr = dyn_cast<VPInstruction>(User))
-          if (isa<VPPHINode>(Instr) &&
-              Loop->contains(cast<VPBlockBase>(Instr->getParent())) &&
+          if (isa<VPPHINode>(Instr) && Loop->contains(Instr->getParent()) &&
               hasLiveInOrConstOperand(Instr, *Loop) &&
               Instr->getNumOperandsFrom(Start) > 0) {
             StartPhi = Instr;
@@ -1320,7 +1318,7 @@ VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
     VPValue *LdStInstr = nullptr;
     for (auto User : Start->users())
       if (auto Instr = dyn_cast<VPInstruction>(User))
-        if (Loop->contains(cast<VPBlockBase>(Instr->getParent()))) {
+        if (Loop->contains(Instr->getParent())) {
           if (Instr->getOpcode() == Instruction::Load)
             LdStInstr = Instr;
           else if (Instr->getOpcode() == Instruction::Store)
@@ -1425,8 +1423,8 @@ bool InductionDescr::hasUserOfIndIncrement(
     // 1. Non-loop user of increment instruction.
     // 2. Already processed in recursion chain.
     // 3. One of the whitelist instruction listed above.
-    if (!Loop->contains(cast<VPBlockBase>(UserVPI->getParent())) ||
-        AnalyzedVPIs.count(UserVPI) || UserVPI == StartPhi ||
+    if (!Loop->contains(UserVPI->getParent()) || AnalyzedVPIs.count(UserVPI) ||
+        UserVPI == StartPhi ||
         (UserVPI->getOpcode() == Instruction::Store &&
          UserVPI->getOperand(1) == AllocaInst) ||
         (isa<VPCmpInst>(UserVPI) && Loop->getLoopLatch() &&
@@ -1521,8 +1519,7 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
     VPValue *V = InductionBinOp ? InductionBinOp : Start;
     for (auto User : V->users())
       if (auto Instr = dyn_cast<VPInstruction>(User))
-        if (isa<VPPHINode>(Instr) &&
-            Loop->contains(cast<VPBlockBase>(Instr->getParent())) &&
+        if (isa<VPPHINode>(Instr) && Loop->contains(Instr->getParent()) &&
             hasLiveInOrConstOperand(Instr, *Loop)) {
           StartPhi = Instr;
           break;
@@ -1561,7 +1558,7 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 
 // Top-level public interface function, meant to be invoked by the client.
 void VPLoopEntityList::VPSOAAnalysis::doSOAAnalysis() {
-  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+  VPBasicBlock *Preheader = Loop.getLoopPreheader();
   // Iterate through all the instructions in the loop-preheader, and for
   // VPAllocatePrivate instruction check if that instruction itself or any of
   // its possible use, escapes.
@@ -1674,7 +1671,7 @@ bool VPLoopEntityList::VPSOAAnalysis::isInstructionInRelevantScope(
     const VPInstruction *UseInst) {
   if (!UseInst)
     return false;
-  VPBasicBlock *Preheader = cast<VPBasicBlock>(Loop.getLoopPreheader());
+  VPBasicBlock *Preheader = Loop.getLoopPreheader();
   return ((UseInst->getParent() == Preheader) ||
           (checkInstructionInLoop(UseInst, &Plan, &Loop)));
 }

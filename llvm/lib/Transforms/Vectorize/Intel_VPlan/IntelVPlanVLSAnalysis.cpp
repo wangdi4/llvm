@@ -74,9 +74,9 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
                                  : nullptr;
 }
 
-void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
-                                      OVLSMemrefVector &MemrefVector,
-                                      unsigned VF) {
+void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
+                                      const VPlan *Plan, unsigned VF) {
+
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
       VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable())
@@ -85,17 +85,8 @@ void VPlanVLSAnalysis::collectMemrefs(const VPRegionBlock *Region,
   if (!TTI->isAggressiveVLSProfitable())
     return;
 
-  auto Range = make_range(df_iterator<const VPRegionBlock *>::begin(Region),
-                          df_iterator<const VPRegionBlock *>::end(Region));
-
-  for (const VPBlockBase *Block : Range) {
-    if (auto *NestedRegion = dyn_cast<const VPRegionBlock>(Block)) {
-      collectMemrefs(NestedRegion, MemrefVector, VF);
-      continue;
-    }
-
-    auto BasicBlock = cast<VPBasicBlock>(Block);
-    for (const VPInstruction &VPInst : *BasicBlock) {
+  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock())) {
+    for (const VPInstruction &VPInst : *Block) {
       auto Opcode = VPInst.getOpcode();
       if (Opcode != Instruction::Load && Opcode != Instruction::Store)
         continue;
@@ -141,8 +132,7 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
     else
       std::tie(VLSInfoIt, std::ignore) = Plan2VLSInfo.insert({Plan, {}});
 
-    collectMemrefs(cast<VPRegionBlock>(Plan->getEntry()),
-                   VLSInfoIt->second.Memrefs, VF);
+    collectMemrefs(VLSInfoIt->second.Memrefs, Plan, VF);
   }
 
   // Finally run grouping of collected/changed memrefs.

@@ -380,6 +380,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
 unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   unsigned Cost = 0;
   for (const VPInstruction &VPInst : *VPBB) {
+    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
+    // correctly scale the cost of the basic block.
     unsigned InstCost = getCost(&VPInst);
     if (InstCost == UnknownCost)
       continue;
@@ -389,39 +391,16 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) const {
-  if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
-    unsigned Cost = 0;
-    for (const VPBlockBase *Block : depth_first(Region->getEntry())) {
-      // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
-      // correctly scale the cost of the basic block.
-      Cost += getCost(Block);
-    }
-    return Cost;
-  }
-
-  // TODO: swap the casts with the above?
-  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
-  return getCost(VPBB);
-}
-
 unsigned VPlanCostModel::getCost() const {
-  assert(Plan->getEntry()->getNumSuccessors() == 0 &&
-         "VPlan Entry block must have no successors!");
-  return getCost(Plan->getEntry());
+  unsigned Cost = 0;
+  for (auto *Block : depth_first(Plan->getEntryBlock()))
+    Cost += getCost(Block);
+  return Cost;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
-                                         const VPBlockBase *VPBlock) const {
-  // TODO: match print order with "vector execution order".
-  if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
-    for (const VPBlockBase *Block : depth_first(Region->getEntry()))
-      printForVPBlockBase(OS, Block);
-    return;
-  }
-
-  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
+void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
+                                          const VPBasicBlock *VPBB) const {
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: ";
   unsigned VPBBCost = getCost(VPBB);
   if (VPBBCost == UnknownCost)
@@ -447,8 +426,8 @@ void VPlanCostModel::print(raw_ostream &OS) const {
   LLVM_DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".
-  for (const VPBlockBase *Block : depth_first(Plan->getEntry()))
-    printForVPBlockBase(OS, Block);
+  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
+    printForVPBasicBlock(OS, Block);
 
   OS << '\n';
 }

@@ -131,12 +131,6 @@ unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) const {
   return VPlanCostModel::getCost(VPBB);
 }
 
-// Right now it calls for VPlanCostModel::getCost(VPBB), but later we may want
-// to have more precise cost estimation for VPBB.
-unsigned VPlanCostModelProprietary::getCost(const VPBlockBase *VPBlock) const {
-  return VPlanCostModel::getCost(VPBlock);
-}
-
 unsigned VPlanCostModelProprietary::getCost() const {
   NumberOfBoolComputations = 0;
   unsigned Cost = VPlanCostModel::getCost();
@@ -190,8 +184,8 @@ void VPlanCostModelProprietary::print(raw_ostream &OS) {
   LLVM_DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".
-  for (const VPBlockBase *Block : depth_first(Plan->getEntry()))
-    printForVPBlockBase(OS, Block);
+  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
+    printForVPBasicBlock(OS, Block);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

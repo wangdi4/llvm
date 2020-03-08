@@ -18,7 +18,6 @@
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture readonly %cur) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after building H-CFG:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -71,8 +70,6 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %cmp10 = icmp eq i32 %len_limit, 1

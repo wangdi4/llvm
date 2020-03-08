@@ -19,7 +19,6 @@ declare void @llvm.directive.region.exit(token)
 
 define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after loop massaging:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -109,8 +108,6 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) loc
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -165,7 +162,6 @@ for.end7:
 
 define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after loop massaging:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -253,8 +249,6 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -309,7 +303,6 @@ for.end7:
 
 define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after loop massaging:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -398,8 +391,6 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -454,7 +445,6 @@ for.end7:
 
 define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after loop massaging:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -540,8 +530,6 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_inner_loop
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

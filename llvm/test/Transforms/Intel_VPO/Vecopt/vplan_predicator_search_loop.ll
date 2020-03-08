@@ -17,7 +17,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocapture readnone %b, i8 signext %val) local_unnamed_addr #0 {
 ; CHECK-LABEL:  After predication and linearization
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -47,13 +46,13 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP_BB7_BR_VP__NOT:%.*]] = and i1 [[VP__NOT]] i1 [[VP__NOT_1]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP_BB6_BR_VP__NOT:%.*]] = and i1 [[VP__NOT]] i1 [[VP__NOT_1]]
 ; CHECK-NEXT:       Condition([[BB5]]): [DA: Divergent] i1 [[VP8]] = icmp i64 [[VP3]] i64 [[VP1]]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB2]](i1 [[VP8]]), [[BB6:BB[0-9]+]](!i1 [[VP8]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
-; CHECK-NEXT:       [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB7_BR_VP__NOT]]
+; CHECK-NEXT:       [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB6_BR_VP__NOT]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
@@ -73,8 +72,6 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %cmp8 = icmp sgt i32 %n, 0
