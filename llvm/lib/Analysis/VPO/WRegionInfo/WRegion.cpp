@@ -837,10 +837,10 @@ WRNGenericLoopNode::WRNGenericLoopNode(BasicBlock *BB, LoopInfo *Li)
 //   BIND=thread    ==> change to DIR_OMP_SIMD
 //
 // If BIND is absent, then we should look at the immediate parent WRN:
-//   Parent=null       ==> assert; BIND clause must be present
-//   Parent=Parallel   ==> DIR_OMP_LOOP
-//   Parent=Teams      ==> DIR_OMP_DISTRIBUTE_PARLOOP
-//   Parent=Distribute ==> DIR_OMP_PARALLEL_LOOP
+//   Parent=nullptr            ==> assert; BIND clause must be present
+//   Parent=Parallel           ==> DIR_OMP_LOOP
+//   Parent=Teams              ==> DIR_OMP_DISTRIBUTE_PARLOOP
+//   Parent=Distribute||Target ==> DIR_OMP_PARALLEL_LOOP
 //   Parent=WksLoop||ParallelLoop||DistributeParLoop||Taskloop ==> DIR_OMP_SIMD
 //   Parent=anything else  ==> DIR_OMP_SIMD
 //
@@ -874,7 +874,8 @@ bool WRNGenericLoopNode::mapLoopScheme() {
       } else if (Parent->getWRegionKindID() == WRegionNode::WRNTeams) {
         MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
         Mapped = true;
-      } else if (Parent->getWRegionKindID() == WRegionNode::WRNDistribute) {
+      } else if (Parent->getWRegionKindID() == WRegionNode::WRNDistribute ||
+                 Parent->getWRegionKindID() == WRegionNode::WRNTarget) {
         MappedDir = DIR_OMP_PARALLEL_LOOP;
         Mapped = true;
       } else {
