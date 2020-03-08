@@ -1,4 +1,5 @@
 ; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
 
 ; XFAIL: *
 
@@ -15,9 +16,10 @@
 ; }
 
 
+
 ; ModuleID = 'generic_loop_null_parent.c'
 source_filename = "generic_loop_null_parent.c"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @aaa = common dso_local global [1000 x i32] zeroinitializer, align 16
@@ -26,8 +28,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo() #0 {
 entry:
   %i = alloca i32, align 4
-  %.omp.iv = alloca i32, align 4
   %tmp = alloca i32, align 4
+  %.omp.iv = alloca i32, align 4
   %.omp.lb = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
   %j = alloca i32, align 4
@@ -56,11 +58,9 @@ for.body:                                         ; preds = %for.cond
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %5) #2
   store i32 99, i32* %.omp.ub, align 4, !tbaa !2
 
-; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.LOOP
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.NORMALIZED.IV"({{.*}}), "QUAL.OMP.NORMALIZED.UB"({{.*}}), "QUAL.OMP.PRIVATE"({{.*}}) ]
 
-  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %j) ]
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SHARED"(i32* %i), "QUAL.OMP.SHARED"([1000 x i32]* @aaa) ]
   %7 = load i32, i32* %.omp.lb, align 4, !tbaa !2
   store i32 %7, i32* %.omp.iv, align 4, !tbaa !2
   br label %omp.inner.for.cond
@@ -106,7 +106,6 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.LOOP"() {{.*}}
 
   call void @llvm.directive.region.exit(token %6) [ "DIR.OMP.END.GENERICLOOP"() ]
   %18 = bitcast i32* %.omp.ub to i8*
@@ -127,7 +126,7 @@ for.end:                                          ; preds = %for.cond.cleanup
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
+; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
 
 ; Function Attrs: nounwind
@@ -136,18 +135,18 @@ declare token @llvm.directive.region.entry() #2
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #2
 
-; Function Attrs: argmemonly nounwind
+; Function Attrs: argmemonly nounwind willreturn
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
+attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { argmemonly nounwind willreturn }
 attributes #2 = { nounwind }
 
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"icx (ICX) dev.8.x.0"}
+!1 = !{!"clang version 9.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

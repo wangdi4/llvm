@@ -1536,7 +1536,14 @@ public:
 /// \endcode
 class WRNGenericLoopNode : public WRegionNode {
 private:
+  // Shared and Firstprivate clauses are not allowed for loop construct as in
+  // OpenMP spec 5.0, but they're needed for outlining logic in backend. Backend
+  // maps the loop construct to the underlying loop-related directive, checks
+  // the clauses are needed by the underlying directive, and decides to keep or
+  // drop the clauses.
+  SharedClause Shared;
   PrivateClause Priv;
+  FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
   int Collapse;
@@ -1555,7 +1562,9 @@ protected:
   void setCollapse(int N) { Collapse = N; }
 
 public:
+  DEFINE_GETTER(SharedClause, getShared, Shared)
   DEFINE_GETTER(PrivateClause, getPriv, Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv, Fpriv)
   DEFINE_GETTER(LastprivateClause, getLpriv, Lpriv)
   DEFINE_GETTER(ReductionClause, getRed, Reduction)
   DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)

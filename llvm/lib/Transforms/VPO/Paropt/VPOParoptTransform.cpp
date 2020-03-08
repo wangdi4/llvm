@@ -8182,12 +8182,12 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
          "Loop directive must be mapped to right parallization scheme.");
 
   // replace entry directive with the mapped directive
-  StringRef MappedEntryDir =
-      VPOAnalysisUtils::getDirectiveString(WL->getMappedDir());
-  LLVM_DEBUG(dbgs() << "Entry Directive: " << W->getEntryDirective()
-                    << " maps to Directive: " << MappedEntryDir << "\n");
-
+  int MappedDir = WL->getMappedDir();
+  StringRef MappedEntryDirStr = VPOAnalysisUtils::getDirectiveString(MappedDir);
   CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
+  LLVM_DEBUG(dbgs() << "Entry directive: "
+                    << VPOAnalysisUtils::getDirectiveString(EntryCI)
+                    << " maps to Directive: " << MappedEntryDirStr << "\n");
 
   SmallVector<OperandBundleDef, 8> OpBundles;
   EntryCI->getOperandBundlesAsDefs(OpBundles);
@@ -8196,12 +8196,22 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
         EntryCI, OpBundles[i].getTag());
   }
   SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> OpBundlesToAdd;
-  OpBundlesToAdd.emplace_back(MappedEntryDir, ArrayRef<Value *>{});
+  OpBundlesToAdd.emplace_back(MappedEntryDirStr, ArrayRef<Value *>{});
   for (unsigned i = 1; i < OpBundles.size(); i++) {
-    // Skip bind clause since it's used for loop contruct
-    if (VPOAnalysisUtils::isBindClause(OpBundles[i].getTag()))
+    // The clauses should be dropped during mapping, since it's only used for
+    // loop construct but it's not supported by the mapped directive.
+    // 1. BIND clause;
+    // 2. SHARED clause if the mapped directive is DIR_OMP_LOOP or DIR_OMP_SIMD;
+    // 3. FIRSTPRIVATE clause if the mapped directive is DIR_OMP_SIMD.
+    StringRef Tag = OpBundles[i].getTag();
+    int ClauseID = VPOAnalysisUtils::getClauseID(Tag);
+    if (VPOAnalysisUtils::isBindClause(ClauseID) ||
+        ((QUAL_OMP_SHARED == ClauseID) &&
+         (MappedDir == DIR_OMP_LOOP || MappedDir == DIR_OMP_SIMD)) ||
+        ((QUAL_OMP_FIRSTPRIVATE == ClauseID) && (MappedDir == DIR_OMP_SIMD)))
       continue;
-    OpBundlesToAdd.emplace_back(OpBundles[i].getTag(), OpBundles[i].inputs());
+
+    OpBundlesToAdd.emplace_back(Tag, OpBundles[i].inputs());
   }
   EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI, OpBundlesToAdd);
   W->setEntryDirective(EntryCI);
@@ -8209,16 +8219,16 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   // replace exit directive accordingly
   CallInst *ExitCI =
       dyn_cast<CallInst>(VPOAnalysisUtils::getEndRegionDir(EntryCI));
-  StringRef ExitDir = VPOAnalysisUtils::getDirectiveString(ExitCI);
+  StringRef ExitDirStr = VPOAnalysisUtils::getDirectiveString(ExitCI);
 
-  StringRef MappedExitDir = VPOAnalysisUtils::getDirectiveString(
-      VPOAnalysisUtils::getMatchingEndDirective(WL->getMappedDir()));
-  LLVM_DEBUG(dbgs() << "Exit Directive: " << ExitDir
-                    << " maps to directive: " << MappedExitDir << "\n");
+  StringRef MappedExitDirStr = VPOAnalysisUtils::getDirectiveString(
+      VPOAnalysisUtils::getMatchingEndDirective(MappedDir));
+  LLVM_DEBUG(dbgs() << "Exit directive: " << ExitDirStr
+                    << " maps to directive: " << MappedExitDirStr << "\n");
 
-  ExitCI = VPOParoptUtils::removeOperandBundlesFromCall(ExitCI, {ExitDir});
+  ExitCI = VPOParoptUtils::removeOperandBundlesFromCall(ExitCI, {ExitDirStr});
   ExitCI = VPOParoptUtils::addOperandBundlesInCall(
-      ExitCI, {{MappedExitDir, ArrayRef<Value *>{}}});
+      ExitCI, {{MappedExitDirStr, ArrayRef<Value *>{}}});
 
   return Changed;
 }
