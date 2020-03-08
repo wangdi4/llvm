@@ -1,5 +1,5 @@
-; RUN: opt < %s -ip-cloning -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 
 ; Test that all recursive progression clones are inlined.

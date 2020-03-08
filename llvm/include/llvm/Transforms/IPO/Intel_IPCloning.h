@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.h - IP Cloning  -*------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -25,16 +25,16 @@ namespace llvm {
 /// Pass to perform IP Cloning.
 class IPCloningPass : public PassInfoMixin<IPCloningPass> {
 public:
-  IPCloningPass(bool AfterInl, bool IFSwitchHeuristic);
+  IPCloningPass(bool AfterInl, bool EnableDTrans);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
 private:
   // This flag helps to decide whether function addresses or other
   // constants need to be considered for cloning.
   bool AfterInl;
-  // If 'true', enable cloning on routines with formals that feed a
-  // large number of if tests and switches.
-  bool IFSwitchHeuristic;
+  // If 'true' we are doing specialized cloning generally applicable
+  // when we are running DTrans.
+  bool EnableDTrans;
 };
 
 }
