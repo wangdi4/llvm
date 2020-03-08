@@ -5418,7 +5418,7 @@ InlineCost llvm::getInlineCost(
   LLVM_DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
                           << "... (caller:" << Caller->getName() << ")\n");
 #if INTEL_CUSTOMIZATION
-  auto TLI = GetTLI(*Callee);  
+  auto TLI = GetTLI(*Callee);
   InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
                             *Callee, Call, &TLI, ILIC, AI, CallSitesForFusion,
                             FuncsForDTrans, Params, true);
