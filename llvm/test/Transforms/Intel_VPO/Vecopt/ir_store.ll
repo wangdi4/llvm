@@ -13,8 +13,7 @@ define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[CMP_ZERO:%.*]] = icmp eq i64 [[N_VEC]], 0
 ; CHECK-NEXT:    br i1 [[CMP_ZERO]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[UNI_PHI1]]
@@ -23,10 +22,8 @@ define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    store <4 x i32> [[TMP0]], <4 x i32>* [[TMP1]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 4
-; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], [[N_VEC]]
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
+; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ; CHECK:       scalar.ph:
 ; CHECK-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[FOR_BODY_PREHEADER:%.*]] ], [ [[TMP8:%.*]], [[MIDDLE_BLOCK:%.*]] ]

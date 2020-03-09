@@ -66,7 +66,7 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:    store <16 x i32> [[GROUPSHUFFLE9]], <16 x i32>* [[GROUPPTR11]], align 4
 ; CHECK-NEXT:    br label %VPlannedBB13
 ; CHECK:       VPlannedBB13:
-; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
+; CHECK:         br i1 %{{.*}}, label %vector.body, label %{{.*}}
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

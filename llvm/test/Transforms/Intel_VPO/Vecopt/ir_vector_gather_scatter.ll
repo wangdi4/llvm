@@ -14,8 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP7:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 11, i64 22, i64 33>, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI]]
@@ -34,9 +33,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI1]], 44
 ; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ne i64 [[TMP7]], 280
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq i64 [[INDEX_NEXT]], 280
-; CHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

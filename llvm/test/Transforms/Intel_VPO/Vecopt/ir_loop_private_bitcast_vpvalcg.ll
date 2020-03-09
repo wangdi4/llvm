@@ -33,10 +33,9 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP13:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP11:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    store <4 x i64> [[VEC_PHI]], <4 x i64>* [[COUNT_VEC]], align 8
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IARR:%.*]], i64 [[UNI_PHI1]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IARR:%.*]], i64 [[UNI_PHI1:%.*]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_3_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 3

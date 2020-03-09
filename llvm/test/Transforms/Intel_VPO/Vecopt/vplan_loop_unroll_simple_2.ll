@@ -77,7 +77,6 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[INDEX_NEXT0:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP11:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP10:%.*]], [[VECTOR_BODY0]] ]
@@ -101,13 +100,11 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    [[TMP11]] = add nuw nsw i64 [[TMP4]], 2
 ; CHECK-NEXT:    [[TMP12]] = add i64 [[TMP5]], 2
 ; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i64 [[TMP12]], [[N_VEC0]]
-; CHECK-NEXT:    [[INDEX_NEXT0]] = add i64 [[INDEX0]], 4
-; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[INDEX_NEXT0]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP14]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CHECK-NEXT:    br i1 [[TMP13]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
-; CHECK-NEXT:    [[TMP15:%.*]] = mul i64 1, [[N_VEC0]]
-; CHECK-NEXT:    [[TMP16:%.*]] = add i64 0, [[TMP15]]
+; CHECK-NEXT:    [[TMP14:%.*]] = mul i64 1, [[N_VEC0]]
+; CHECK-NEXT:    [[TMP15:%.*]] = add i64 0, [[TMP14]]
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  middle.block:
@@ -115,14 +112,14 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    br i1 [[CMP_N0]], label [[DIR_OMP_END_SIMD_30:%.*]], label [[SCALAR_PH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  scalar.ph:
-; CHECK-NEXT:    [[BC_RESUME_VAL0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10]] ], [ [[TMP16]], [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    [[BC_RESUME_VAL0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10]] ], [ [[TMP15]], [[MIDDLE_BLOCK0]] ]
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.inner.for.body:
 ; CHECK-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[BC_RESUME_VAL0]], [[SCALAR_PH0]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0]] ]
 ; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[INDVARS_IV0]]
-; CHECK-NEXT:    [[TMP17:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
-; CHECK-NEXT:    [[INC0:%.*]] = add nsw i32 [[TMP17]], 1
+; CHECK-NEXT:    [[TMP16:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
+; CHECK-NEXT:    [[INC0:%.*]] = add nsw i32 [[TMP16]], 1
 ; CHECK-NEXT:    store i32 [[INC0]], i32* [[ARRAYIDX0]], align 4
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
