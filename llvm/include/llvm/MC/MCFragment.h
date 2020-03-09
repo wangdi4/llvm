@@ -531,6 +531,7 @@ class MCBoundaryAlignFragment : public MCFragment {
   bool EmitNops = false;
   /// The alignment requirement of the branch to be aligned.
   Align AlignBoundary;
+<<<<<<< HEAD
   /// The size of the fragment.  The size is lazily set during relaxation, and
   /// is not meaningful before that.
   uint64_t Size = 0;
@@ -541,14 +542,24 @@ class MCBoundaryAlignFragment : public MCFragment {
   uint64_t MaxBytesToEmit = 0;
   /// The fragment to be aligned.
   const MCFragment *LastFragment = nullptr;
+=======
+  /// Flag to indicate whether the branch is fused.  Use in determining the
+  /// region of fragments being aligned.
+  bool Fused : 1;
+  /// Flag to indicate whether NOPs should be emitted.
+  bool EmitNops : 1;
+>>>>>>> 2ac19feb1571960b8e1479a451b45ab56da7034e
 
 public:
   MCBoundaryAlignFragment(MCSection *Sec = nullptr)
       : MCFragment(FT_BoundaryAlign, false, Sec) {}
 
+<<<<<<< HEAD
   uint64_t getSize() const { return Size; }
   void setSize(uint64_t V) { Size = V; }
 
+=======
+>>>>>>> 2ac19feb1571960b8e1479a451b45ab56da7034e
   Align getAlignment() const { return AlignBoundary; }
   void setAlignment(Align V) { AlignBoundary = V; }
 
