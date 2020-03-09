@@ -1062,11 +1062,16 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
         }
 
         cl_kernel_arg_type clArgType     = clArg.GetType(); 
-        bool depth_required = (clArgType == CL_KRNL_ARG_PTR_IMG_2D_DEPTH || clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH);
-        // either both depth_required and depth provided or not
-        if (depth_required ^ (imgFormat.image_channel_order == CL_DEPTH))
+
+        // Depth channel is only used for 2D image.
+        bool is_2dimage =
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D_DEPTH ||
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH ||
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D ||
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR;
+        if (!is_2dimage && (imgFormat.image_channel_order == CL_DEPTH))
         {
-            return CL_INVALID_ARG_VALUE;   
+            return CL_INVALID_ARG_VALUE;
         }
 
         clArg.SetValue(sizeof(cl_mem), &clMemId); 
