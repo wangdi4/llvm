@@ -3825,24 +3825,26 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *NewPrivValue) {
 
   // Find instructions in W that use V
-  SmallVector<Instruction *, 8> PrivUses;
-  if (!WRegionUtils::findUsersInRegion(W, PrivValue, &PrivUses, false))
+  SmallVector<Instruction *, 8> UserInsts;
+  SmallPtrSet<ConstantExpr *, 8> UserExprs;
+  if (!WRegionUtils::findUsersInRegion(W, PrivValue, &UserInsts, false,
+                                       &UserExprs))
     return; // Found no applicable uses of PrivValue in W's body
 
   // Replace all USEs of each PrivValue with its NewPrivValue in the
   // W-Region (parallel loop/region/section ... etc.)
-  while (!PrivUses.empty()) {
-    Instruction *UI = PrivUses.pop_back_val();
+  while (!UserInsts.empty()) {
+    Instruction *UI = UserInsts.pop_back_val();
     UI->replaceUsesOfWith(PrivValue, NewPrivValue);
 
-    if (GeneralUtils::isOMPItemGlobalVAR(PrivValue)) {
-      // If PrivValue is a global, its uses could be in ConstantExprs
-      SmallVector<Instruction *, 2> NewInstArr;
-      GeneralUtils::breakExpressions(UI, &NewInstArr);
-      for (Instruction *NewInstr : NewInstArr) {
-        NewInstr->replaceUsesOfWith(PrivValue, NewPrivValue);
-      }
-    }
+    if (UserExprs.empty())
+      continue;
+
+    // If PrivValue is a global, its uses could be in ConstantExprs
+    SmallVector<Instruction *, 2> NewInstArr;
+    GeneralUtils::breakExpressions(UI, &NewInstArr, &UserExprs);
+    for (Instruction *NewInst : NewInstArr)
+      UserInsts.push_back(NewInst);
   }
 
   if (W->getIsTask())
@@ -4405,9 +4407,10 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
     bool InsertLoadInBeginningOfEntryBB) {
 
   // Find instructions in W that use V
-  SmallVector<Instruction *, 8> Users;
-  WRegionUtils::findUsersInRegion(W, V, &Users,
-                                  !InsertLoadInBeginningOfEntryBB);
+  SmallVector<Instruction *, 8> UserInsts;
+  SmallPtrSet<ConstantExpr *, 8> UserExprs;
+  WRegionUtils::findUsersInRegion(W, V, &UserInsts,
+                                  !InsertLoadInBeginningOfEntryBB, &UserExprs);
 
   Instruction *AllocaInsertPt =
       W->getEntryBBlock()->getParent()->getEntryBlock().getTerminator();
@@ -4422,7 +4425,7 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
              dbgs() << "' to '"; VAddr->printAsOperand(dbgs());
              dbgs() << "'.\n";);
 
-  if (Users.empty())
+  if (UserInsts.empty())
     return VAddr; // Nothing to replace inside the region. Just capture the
                   // address of V to VAddr and return it.
 
@@ -4454,9 +4457,12 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
   VRenamed->setName(V->getName());
 
   // Replace uses of V with VRenamed
-  for (Instruction * User : Users) {
-
+  while (!UserInsts.empty()) {
+    Instruction *User = UserInsts.pop_back_val();
     User->replaceUsesOfWith(V, VRenamed);
+
+    if (UserExprs.empty())
+      continue;
 
     // Some uses of V are in a ConstantExpr, in which case the User is the
     // instruction using the ConstantExpr. For example, the use of @u below is
@@ -4469,10 +4475,9 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
     // The solution is to access the ConstantExpr as instruction(s) in order to
     // do the replacement. NewInstArr below keeps such instruction(s).
     SmallVector<Instruction *, 2> NewInstArr;
-    GeneralUtils::breakExpressions(User, &NewInstArr);
-    for (Instruction *NewInstr : NewInstArr) {
-      NewInstr->replaceUsesOfWith(V, VRenamed);
-    }
+    GeneralUtils::breakExpressions(User, &NewInstArr, &UserExprs);
+    for (Instruction *NewInst : NewInstArr)
+      UserInsts.push_back(NewInst);
   }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loaded '";
              VAddr->printAsOperand(dbgs()); dbgs() << "' into '";
