@@ -35,7 +35,7 @@ entry:
 ; CHECK: call <12 x i32> @_Z23intel_sub_group_shuffleDv12_iDv4_jS0_(<12 x i32> %wide.insert, <4 x i32> [[SLID_REVERSE]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
   %vec3 = insertelement <16 x i16> undef, i16 %1, i32 0
   %val4 = call <16 x i16> @_Z23intel_sub_group_shuffleDv16_sj(<16 x i16> %vec3, i32 %slid.reverse)
-; CHECK: call <64 x i16> @_Z23intel_sub_group_shuffleDv64_sDv4_jS0_(<64 x i16> %wide.insert{{[0-6]+}}, <4 x i32> [[SLID_REVERSE]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
+; CHECK: call <64 x i16> @_Z23intel_sub_group_shuffleDv64_sDv4_jS0_(<64 x i16> %wide.insert{{[0-9]+}}, <4 x i32> [[SLID_REVERSE]], <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>)
 
   %call1 = tail call spir_func i32 @_Z13sub_group_alli(i32 %0) #4
   %call2 = tail call spir_func i32 @_Z16get_sub_group_idv() #4
