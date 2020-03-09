@@ -1,0 +1,137 @@
+///
+/// Driver tests for SYCL + OpenMP offloading with -fiopenmp and target spir64
+/// on Windows.
+///
+
+// REQUIRES: clang-driver
+// REQUIRES: x86-registered-target
+// REQUIRES: system-windows
+
+/// ###########################################################################
+
+/// Check phases graph when using single source file.
+// RUN:   %clang -ccc-print-phases --intel -fsycl -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-PHASES %s
+
+// CHK-PHASES: 0: input, "[[INPUT:.+\.c]]", c, (host-sycl)
+// CHK-PHASES: 1: preprocessor, {0}, cpp-output, (host-sycl)
+// CHK-PHASES: 2: input, "[[INPUT]]", c, (device-sycl)
+// CHK-PHASES: 3: preprocessor, {2}, cpp-output, (device-sycl)
+// CHK-PHASES: 4: compiler, {3}, sycl-header, (device-sycl)
+// CHK-PHASES: 5: offload, "host-sycl (x86_64-pc-windows-msvc)" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, cpp-output
+// CHK-PHASES: 6: compiler, {5}, ir, (host-openmp-sycl)
+// CHK-PHASES: 7: backend, {6}, assembler, (host-openmp-sycl)
+// CHK-PHASES: 8: assembler, {7}, object, (host-openmp-sycl)
+// CHK-PHASES: 9: input, "[[INPUT]]", c, (device-openmp)
+// CHK-PHASES: 10: preprocessor, {9}, cpp-output, (device-openmp)
+// CHK-PHASES: 11: compiler, {10}, ir, (device-openmp)
+// CHK-PHASES: 12: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {6}, "device-openmp (spir64)" {11}, ir
+// CHK-PHASES: 13: backend, {12}, ir, (device-openmp)
+// CHK-PHASES: 14: linker, {13}, image, (device-openmp)
+// CHK-PHASES: 15: llvm-spirv, {14}, image, (device-openmp)
+// CHK-PHASES: 16: offload, "device-openmp (spir64)" {15}, image
+// CHK-PHASES: 17: clang-offload-wrapper, {16}, ir, (host-openmp-sycl)
+// CHK-PHASES: 18: backend, {17}, assembler, (host-openmp-sycl)
+// CHK-PHASES: 19: assembler, {18}, object, (host-openmp-sycl)
+// CHK-PHASES: 20: linker, {8, 19}, image, (host-openmp-sycl)
+// CHK-PHASES: 21: compiler, {3}, ir, (device-sycl)
+// CHK-PHASES: 22: linker, {21}, ir, (device-sycl)
+// CHK-PHASES: 23: llvm-spirv, {22}, spirv, (device-sycl)
+// CHK-PHASES: 24: clang-offload-wrapper, {23}, object, (device-sycl)
+// CHK-PHASES: 25: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {20}, "device-sycl (spir64-unknown-unknown-sycldevice)" {24}, image
+
+/// ###########################################################################
+
+/// Check of the commands passed to each tool when using valid OpenMP targets.
+// RUN:   %clang -### --intel -fsycl -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-COMMANDS %s
+
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
+// CHK-COMMANDS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
+// CHK-COMMANDS: llvm-spirv{{.*}} "-o" "[[SYCLSPIRV:.+\.spv]]" {{.*}} "[[SYCLLINKEDBC]]"
+// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc{{.*}}" "-target=spir64" "-kind=sycl" "[[SYCLSPIRV]]"
+// CHK-COMMANDS: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJ:.+\.o]]" "[[SYCLWRAPPERBC]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-disable-llvm-passes" "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: llvm-link{{.*}} "[[OMPBC]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[OMPLINKEDBC:.+\.out]]"
+// CHK-COMMANDS: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.out]]" "[[OMPLINKEDBC]]"
+// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRV]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-o" "[[OMPWRAPPEROBJ:.+\.o]]" {{.*}} "[[OMPWRAPPERBC]]"
+// CHK-COMMANDS: link{{.*}} "-out:{{.*}}" {{.*}} "-defaultlib:sycl.lib" {{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib" "[[HOSTOBJ]]" "[[OMPWRAPPEROBJ]]" "[[SYCLWRAPPEROBJ]]"
+
+/// ###########################################################################
+
+/// Check separate compilation with offloading - bundling actions
+// RUN:   %clang -### -ccc-print-phases --intel -fsycl -fiopenmp -c -o %t.o -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s -no-canonical-prefixes 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-BUACTIONS %s
+
+// CHK-BUACTIONS: 0: input, "[[INPUT:.+\.c]]", c, (host-sycl)
+// CHK-BUACTIONS: 1: preprocessor, {0}, cpp-output, (host-sycl)
+// CHK-BUACTIONS: 2: input, "[[INPUT]]", c, (device-sycl)
+// CHK-BUACTIONS: 3: preprocessor, {2}, cpp-output, (device-sycl)
+// CHK-BUACTIONS: 4: compiler, {3}, sycl-header, (device-sycl)
+// CHK-BUACTIONS: 5: offload, "host-sycl (x86_64-pc-windows-msvc)" {1}, "device-sycl (spir64-unknown-unknown-sycldevice)" {4}, cpp-output
+// CHK-BUACTIONS: 6: compiler, {5}, ir, (host-openmp-sycl)
+// CHK-BUACTIONS: 7: input, "[[INPUT]]", c, (device-openmp)
+// CHK-BUACTIONS: 8: preprocessor, {7}, cpp-output, (device-openmp)
+// CHK-BUACTIONS: 9: compiler, {8}, ir, (device-openmp)
+// CHK-BUACTIONS: 10: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {6}, "device-openmp (spir64)" {9}, ir
+// CHK-BUACTIONS: 11: backend, {10}, ir, (device-openmp)
+// CHK-BUACTIONS: 12: offload, "device-openmp (spir64)" {11}, ir
+// CHK-BUACTIONS: 13: compiler, {3}, ir, (device-sycl)
+// CHK-BUACTIONS: 14: offload, "device-sycl (spir64-unknown-unknown-sycldevice)" {13}, ir
+// CHK-BUACTIONS: 15: backend, {6}, assembler, (host-openmp-sycl)
+// CHK-BUACTIONS: 16: assembler, {15}, object, (host-openmp-sycl)
+// CHK-BUACTIONS: 17: clang-offload-bundler, {12, 14, 16}, object, (host-openmp-sycl)
+
+/// ###########################################################################
+
+/// Check separate compilation with offloading - unbundling actions
+// RUN:   touch %t.o
+// RUN:   %clang -### -ccc-print-phases --intel -fsycl -fiopenmp -o %t.out -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %t.o -no-canonical-prefixes 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-UBACTIONS %s
+
+// CHK-UBACTIONS: 0: input, "[[INPUT:.+\.o]]", object, (host-openmp-sycl)
+// CHK-UBACTIONS: 1: clang-offload-unbundler, {0}, object, (host-openmp-sycl)
+// CHK-UBACTIONS: 2: linker, {1}, image, (device-openmp)
+// CHK-UBACTIONS: 3: llvm-spirv, {2}, image, (device-openmp)
+// CHK-UBACTIONS: 4: offload, "device-openmp (spir64)" {3}, image
+// CHK-UBACTIONS: 5: clang-offload-wrapper, {4}, ir, (host-openmp-sycl)
+// CHK-UBACTIONS: 6: backend, {5}, assembler, (host-openmp-sycl)
+// CHK-UBACTIONS: 7: assembler, {6}, object, (host-openmp-sycl)
+// CHK-UBACTIONS: 8: linker, {1, 7}, image, (host-openmp-sycl)
+// CHK-UBACTIONS: 9: linker, {1}, ir, (device-sycl)
+// CHK-UBACTIONS: 10: llvm-spirv, {9}, spirv, (device-sycl)
+// CHK-UBACTIONS: 11: clang-offload-wrapper, {10}, object, (device-sycl)
+// CHK-UBACTIONS: 12: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {8}, "device-sycl (spir64-unknown-unknown-sycldevice)" {11}, image
+
+/// ###########################################################################
+
+/// Check separate compilation with offloading - bundling jobs construct
+// RUN:   %clang -### --intel -fsycl -fiopenmp -c -o %t.o -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s -no-canonical-prefixes 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-BUJOBS %s
+
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT:.+\.c]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-disable-llvm-passes" "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
+// CHK-BUJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice,host-x86_64-pc-windows-msvc" "-outputs=[[FATOBJ:.+\.o]]" "-inputs=[[OMPBC]],[[SYCLBC]],[[HOSTOBJ]]"
+
+/// Check separate compilation with offloading - unbundling jobs construct
+// RUN:   touch %t.o
+// RUN:   %clang -### --intel -fsycl -fiopenmp %t.o -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -no-canonical-prefixes 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
+
+// CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-inputs=[[FATOBJ:.+\.o]]" "-outputs=[[HOSTOBJ:.+\.o]],[[OMPBC:.+\.o]],[[SYCLBC:.+\.o]]" "-unbundle"
+// CHK-UBJOBS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
+// CHK-UBJOBS: llvm-spirv{{.*}} "-o" "[[SYCLSPIRV:.+\.spv]]" {{.*}} "[[SYCLLINKEDBC]]"
+// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc{{.*}}" "-target=spir64" "-kind=sycl" "[[SYCLSPIRV]]"
+// CHK-UBJOBS: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJ:.+\.o]]" "[[SYCLWRAPPERBC]]"
+// CHK-UBJOBS: llvm-link{{.*}} "[[OMPBC]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[OMPLINKEDBC:.+\.out]]"
+// CHK-UBJOBS: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.out]]" "[[OMPLINKEDBC]]"
+// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRV]]"
+// CHK-UBJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-o" "[[OMPWRAPPEROBJ:.+\.o]]" {{.*}} "[[OMPWRAPPERBC]]"
+// CHK-UBJOBS: link{{.*}} "-out:{{.*}}" {{.*}} "-defaultlib:sycl.lib" {{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib" "[[HOSTOBJ]]" "[[OMPWRAPPEROBJ]]" "[[SYCLWRAPPEROBJ]]"
