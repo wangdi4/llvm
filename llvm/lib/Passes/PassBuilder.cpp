@@ -790,6 +790,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
         EnableMSSALoopDependency, DebugLogging));
   }
 
+  if (PTO.Coroutines)
+    FPM.addPass(CoroElidePass());
+
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
 
@@ -1115,10 +1118,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   MainCGPipeline.addPass(AttributorCGSCCPass());
 
-  if (PTO.Coroutines) {
+  if (PTO.Coroutines)
     MainCGPipeline.addPass(CoroSplitPass());
-    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(CoroElidePass()));
-  }
 
   // Now deduce any function attributes based in the current code.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
