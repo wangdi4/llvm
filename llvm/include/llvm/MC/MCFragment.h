@@ -543,14 +543,25 @@ class MCBoundaryAlignFragment : public MCFragment {
   const MCFragment *LastFragment = nullptr;
 
 public:
+<<<<<<< HEAD
   MCBoundaryAlignFragment(MCSection *Sec = nullptr)
       : MCFragment(FT_BoundaryAlign, false, Sec) {}
+=======
+  MCBoundaryAlignFragment(Align AlignBoundary = Align(1), bool Fused = false,
+                          bool EmitNops = false, MCSection *Sec = nullptr)
+      : MCFragment(FT_BoundaryAlign, false, Sec), AlignBoundary(AlignBoundary),
+        Fused(Fused), EmitNops(EmitNops) {}
+>>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
 
   uint64_t getSize() const { return Size; }
   void setSize(uint64_t V) { Size = V; }
 
   Align getAlignment() const { return AlignBoundary; }
+<<<<<<< HEAD
   void setAlignment(Align V) { AlignBoundary = V; }
+=======
+  void setAlignment(Align Value) { AlignBoundary = Value; }
+>>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
 
   bool hasValue() const { return Value.hasValue(); }
   uint8_t getValue() const { return Value.getValue(); }
