@@ -4,7 +4,6 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<4 x i32>* nocapture %ary) {
 ;  typedef int32_t v4i32 __attribute__((vector_size(16)));
 ;  v4i32 *ary, t0;
 ;  for (i = 0; i < 3072; i += 11) {
@@ -12,6 +11,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ;    ary[i + 3] = t0;
 ;  }
 ;
+define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK:         vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]

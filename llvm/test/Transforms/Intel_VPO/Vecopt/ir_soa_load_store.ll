@@ -1,5 +1,9 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -S < %s | FileCheck %s
 
+@arr2p = external global <2 x i32>*, align 8
+@arrB = external global i32*, align 8
+
+define void @foo1()  {
 ; CHECK-LABEL: foo1
 ; CHECK: entry:
 ; CHECK: [[PTR:%.*]] = load <2 x i32>*, <2 x i32>** {{.*}}, align 8
@@ -24,12 +28,7 @@
 ; CHECK:   %[[ADDR2:.*]] = bitcast <2 x i32>* %[[GEP3]] to <8 x i32>*
 ; CHECK:   store <8 x i32> %[[ADD2]], <8 x i32>* %[[ADDR2]], align 4
 ; CHECK:   [[UNI_PHI_LOOP]] = add nuw nsw i64 [[UNI_PHI]], 4
-
-
-@arr2p = external global <2 x i32>*, align 8
-@arrB = external global i32*, align 8
-
-define void @foo1()  {
+;
 entry:
   %0 = load <2 x i32>*, <2 x i32>** @arr2p, align 8
   %ptrToB = load i32*, i32** @arrB, align 8

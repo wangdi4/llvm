@@ -7,8 +7,7 @@
 ; CHECK-PREDICATOR-NOT: {{Divergent.* and}}
 ; CHECK-PREDICATOR-NOT: {{Divergent.* or}}
 
-; Checks for VPValue-based CG
-
+define void @test_uniform_edge_to_uniform_block(i32* %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL:  define void @test_uniform_edge_to_uniform_block
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VPLANNEDBB8:%.*]] ]
@@ -26,7 +25,6 @@
 ; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT2]], <i1 true, i1 true>
 ; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <2 x i1> [[TMP5]], i32 0
 ; CHECK-NEXT:    br i1 [[TMP3]], label %[[VPLANNEDBB:.*]], label %[[VPLANNEDBB5:.*]]
-
 ; CHECK:       [[VPLANNEDBB]]:
 ; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[TMP2]], true
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <2 x i1> undef, i1 [[TMP7]], i32 0
@@ -39,15 +37,12 @@
 ; CHECK-NEXT:    [[BROADCAST_SPLAT11:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT10]], <2 x i1> undef, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP13:%.*]] = and i1 [[TMP3]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB7:%.*]], label %[[VPLANNEDBB5]]
-
 ; CHECK:       [[VPLANNEDBB5]]:
 ; CHECK-NEXT:    [[VEC_PHI6:%.*]] = phi <2 x i1> [ [[BROADCAST_SPLAT11]], %[[VPLANNEDBB]] ], [ zeroinitializer, [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[TMP15:%.*]] = extractelement <2 x i1> [[VEC_PHI6]], i32 0
 ; CHECK-NEXT:    [[TMP16:%.*]] = or i1 [[TMP15]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP18:%.*]] = add <2 x i32> [[WIDE_LOAD]], <i32 2, i32 2>
 ; CHECK-NEXT:    br label [[VPLANNEDBB8]]
-
-define void @test_uniform_edge_to_uniform_block(i32* %a, i32 %b) local_unnamed_addr {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
