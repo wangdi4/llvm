@@ -8607,7 +8607,10 @@ Sema::CheckAssignmentConstraints(QualType LHSType, ExprResult &RHS,
       return Compatible;
     }
 
-    Kind = CK_IntegralCast;
+    if (LHSType->isBooleanType())
+      Kind = CK_IntegralToBoolean;
+    else
+      Kind = CK_IntegralCast;
     return Compatible;
   }
 #endif // INTEL_CUSTOMIZATION
