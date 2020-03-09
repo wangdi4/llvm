@@ -64,9 +64,6 @@ public:
     // FIXME Remove this once LLJIT supports JITEventListener.
     llvm::orc::VModuleKey allocateVModule() override;
 
-    void DumpJIT( llvm::Module* pModule, const std::string& filename,
-                  llvm::CodeGenFileType genType =
-                  llvm::CGFT_AssemblyFile) const;
     void SetObjectCache(ObjectCodeCache* pCache) override;
 
     void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures) override;

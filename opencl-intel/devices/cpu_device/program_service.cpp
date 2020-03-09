@@ -342,14 +342,21 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
     pEntry->clBuildStatus = status;
 
-    // if the user requested -dump-opt-asm, emit the asm of this module into a file
+    // if the user requested -dump-opt-asm, disassemble object code and print
+    // into a file
     if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
         (nullptr != (p = strstr(options, "-dump-opt-asm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
         ProgramDumpConfig dumpOptions(p);
-        m_pBackendCompiler->DumpJITCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(),
-            dumpOptions.GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE,""));
+        m_pBackendCompiler->DumpJITCodeContainer(
+            pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
+    }
+
+    if (m_pCPUConfig->DumpAsm()) {
+        assert( pEntry->pProgram && "Program must be created already");
+        m_pBackendCompiler->DumpJITCodeContainer(
+            pEntry->pProgram->GetProgramCodeContainer(), nullptr);
     }
 
 #ifndef INTEL_PRODUCT_RELEASE

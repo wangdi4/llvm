@@ -13,9 +13,11 @@
 // License.
 
 #include "SystemInfo.h"
+#include "llvm/Support/Path.h"
 
 #if defined(_WIN32)
 #include <Windows.h>
+#include <codecvt>
 #else
 #include <unistd.h>
 #include <linux/limits.h>
@@ -187,3 +189,28 @@ void SystemInfo::GetModuleDirectory( char* szModuleDir, size_t strLen)
 #endif
 }
 
+std::string SystemInfo::GetExecutableFilename() {
+  std::string name;
+#if defined(WIN32)
+  WCHAR path[MAX_PATH];
+  if (GetModuleFileNameW(GetModuleHandleW(nullptr), path, MAX_PATH)) {
+    std::wstring wstr(path);
+    name = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
+  }
+  // Remove .exe from the name.
+  if (!name.empty())
+    name = llvm::sys::path::stem(llvm::StringRef(name)).str();
+#else // WIN32
+  char buf[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+  if (-1 != len) {
+    buf[len] = '\0';
+    name = buf;
+  }
+  // Find the base name by searching for the last '/' in the name
+  if (!name.empty())
+    name = llvm::sys::path::filename(llvm::StringRef(name)).str();
+#endif // WIN32
+
+  return name;
+}
