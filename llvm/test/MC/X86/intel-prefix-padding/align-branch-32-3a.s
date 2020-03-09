@@ -41,7 +41,7 @@
 # CHECK-COUNT-4:      : 89 b5 50 fb ff ff                movl    %esi, -1200(%ebp)
 # CHECK:            a0: 89 75 0c                         movl    %esi, 12(%ebp)
 # CHECK-NEXT:       a3: e9 fc ff ff ff                   jmp     {{.*}}
-# CHECK-COUNT-3:      : 64 8e 15 01 00 00 00             movw    %fs:1, %ss
+# CHECK-COUNT-3:      : 64 8e 0d 01 00 00 00             movw    %fs:1, %cs
 # CHECK-COUNT-3:      : 90                               nop
 # CHECK:            c0: 39 c5                            cmpl    %eax, %ebp
 # CHECK-NEXT:       c2: 74 c4                            je    {{.*}}
@@ -106,7 +106,7 @@ foo:
   movl  %esi, 12(%ebp)
   jmp  bar
   .rept 3
-  mov %fs:0x1, %ss
+  mov %fs:0x1, %cs
   .endr
   cmp  %eax, %ebp
   je .L_3

@@ -191,14 +191,11 @@ MCFragment *MCObjectStreamer::getCurrentFragment() const {
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION
-static bool CanReuseDataFragment(const MCDataFragment &F, MCObjectStreamer &OS,
+static bool CanReuseDataFragment(const MCDataFragment &F,
+                                 const MCAssembler &Assembler,
                                  const MCSubtargetInfo *STI) {
   if (!F.hasInstructions())
     return true;
-
-  MCAssembler &Assembler = OS.getAssembler();
-
   // When bundling is enabled, we don't want to add data to a fragment that
   // already has instructions (see MCELFStreamer::EmitInstToData for details)
   if (Assembler.isBundlingEnabled())
@@ -212,29 +209,23 @@ static bool CanReuseDataFragment(const MCDataFragment &F, MCObjectStreamer &OS,
 MCDataFragment *
 MCObjectStreamer::getOrCreateDataFragment(const MCSubtargetInfo *STI) {
   MCDataFragment *F = dyn_cast_or_null<MCDataFragment>(getCurrentFragment());
-  if (!F || !CanReuseDataFragment(*F, *this, STI)) {
+  if (!F || !CanReuseDataFragment(*F, *Assembler, STI)) {
     F = new MCDataFragment();
     insert(F);
   }
   return F;
 }
 
+#if INTEL_CUSTOMIZATION
 MCBoundaryAlignFragment *MCObjectStreamer::getOrCreateBoundaryAlignFragment() {
   auto *F = dyn_cast_or_null<MCBoundaryAlignFragment>(getCurrentFragment());
-<<<<<<< HEAD
   if (!F || F->hasEmitNopsOrValue()) {
-=======
-  if (!F || F->canEmitNops()) {
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
     F = new MCBoundaryAlignFragment();
     insert(F);
   }
   return F;
 }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
 
 void MCObjectStreamer::visitUsedSymbol(const MCSymbol &Sym) {
   Assembler->registerSymbol(Sym);

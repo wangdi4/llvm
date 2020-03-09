@@ -87,18 +87,10 @@ public:
   /// if the Subtarget differs from the current fragment.
   MCDataFragment *getOrCreateDataFragment(const MCSubtargetInfo* STI = nullptr);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
   /// Get a boundary-align fragment to write into, creating a new one if the
   /// current fragment is not a boundary-align fragment or has been used to emit
   /// something.
   MCBoundaryAlignFragment *getOrCreateBoundaryAlignFragment();
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
 
 protected:
   bool changeSectionImpl(MCSection *Section, const MCExpr *Subsection);

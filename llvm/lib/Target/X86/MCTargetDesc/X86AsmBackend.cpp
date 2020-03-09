@@ -134,7 +134,6 @@ class X86AsmBackend : public MCAsmBackend {
 
   bool needAlign(MCObjectStreamer &OS) const;
   bool needAlignInst(const MCInst &Inst) const;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool shouldAddPrefix(const MCInst &Inst) const;
   uint8_t choosePrefix(const MCInst &Inst) const;
@@ -143,8 +142,6 @@ class X86AsmBackend : public MCAsmBackend {
   const MCFragment *LastFragmentToBeAligned = nullptr;
   const MCDataFragment *LastDFOfInst = nullptr;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
   MCInst PrevInst;
 
 public:
@@ -402,6 +399,26 @@ bool X86AsmBackend::needAlign(MCObjectStreamer &OS) const {
 
   return true;
 }
+/// X86 has certain instructions which enable interrupts exactly one
+/// instruction *after* the instruction which stores to SS.  Return true if the
+/// given instruction has such an interrupt delay slot.
+static bool hasInterruptDelaySlot(const MCInst &Inst) {
+  switch (Inst.getOpcode()) {
+  case X86::POPSS16:
+  case X86::POPSS32:
+  case X86::STI:
+    return true;
+
+  case X86::MOV16sr:
+  case X86::MOV32sr:
+  case X86::MOV64sr:
+  case X86::MOV16sm:
+    if (Inst.getOperand(0).getReg() == X86::SS)
+      return true;
+    break;
+  }
+  return false;
+}
 
 /// Check if the instruction operand needs to be aligned. Padding is disabled
 /// before intruction which may be rewritten by linker(e.g. TLSCALL).
@@ -423,7 +440,6 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
           (AlignBranchType & X86::AlignBranchIndirect));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Check if prefix can be added before instruction \p Inst.
 bool X86AsmBackend::shouldAddPrefix(const MCInst &Inst) const {
@@ -547,8 +563,6 @@ uint8_t X86AsmBackend::getMaxPrefixSize(MCObjectStreamer &OS,
   return MaxPrefixSize;
 }
 
-=======
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
 /// Insert MCBoundaryAlignFragment before instructions to align branches.
 void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
                                        const MCInst &Inst) {
@@ -594,8 +608,14 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
   //   data16
   //   leaq  bar@tlsld(%rip), %rdi
   // \endcode
-  if(X86::isPrefix(PrevInst.getOpcode()))
+  if (X86::isPrefix(PrevInst.getOpcode()))
     return;
+
+  if (hasInterruptDelaySlot(PrevInst)) {
+    // If this instruction follows an interrupt enabling instruction with a one
+    // instruction delay, inserting a nop would change behavior.
+    return;
+  }
 
   bool NeedAlignFused = AlignBranchType & X86::AlignBranchFused;
   //  Step 1:
@@ -617,6 +637,8 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
       isa_and_nonnull<MCBoundaryAlignFragment>(CF->getPrevNode())) {
     auto *PF = const_cast<MCBoundaryAlignFragment *>(
         cast<MCBoundaryAlignFragment>(CF->getPrevNode()));
+    if (PF->hasEmitNopsOrValue())
+      return;
     // Macro fusion actually happens, so emit NOP before the first instrucion in
     // the fused pair. Note: When there is a MCAlignFragment inserted just
     // before the first instruction in the fused pair, e.g.
@@ -660,21 +682,15 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     //   je .Label0
     // \endcode
     //
-<<<<<<< HEAD
     // We will not emit NOP before the instruction since the align directive is
     // used to align JCC rather than NOP.
     if (isa_and_nonnull<MCAlignFragment>(CF))
       return;
     // Emit NOP before the instruction to be aligned.
-=======
-    // We will treat the JCC as a unfused branch although it may be fused
-    // with the CMP.
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
     auto *F = OS.getOrCreateBoundaryAlignFragment();
     F->setAlignment(AlignBoundary);
     F->setEmitNops(true);
   } else if (NeedAlignFused && isFirstMacroFusibleInst(Inst, *MCII)) {
-<<<<<<< HEAD
     // We don't know if macro fusion happens until reaching the next
     // instruction, so a placeholder is put here if necessary.
     OS.getOrCreateBoundaryAlignFragment();
@@ -685,12 +701,12 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     F->setValue(choosePrefix(Inst));
     HasPrefixedInst = true;
     IsPrefixedInst = true;
-=======
-    // We don't know if macro fusion happens until the reaching the next
-    // instruction, so a place holder is put here if necessary.
-    auto *F = OS.getOrCreateBoundaryAlignFragment();
-    F->setAlignment(AlignBoundary);
->>>>>>> 95fa5c4f24fa3a1c794f770a92d7561e8012ebb2
+  }
+
+  if (auto *F = dyn_cast<MCBoundaryAlignFragment>(OS.getCurrentFragment())) {
+    if (F->hasEmitNops())
+      assert(isFirstMacroFusibleInst(Inst, *MCII) ||
+             needAlignInst(Inst));
   }
 }
 
