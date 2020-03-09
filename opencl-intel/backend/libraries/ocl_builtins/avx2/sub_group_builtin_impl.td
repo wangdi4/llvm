@@ -12,12 +12,6 @@ list<OclType> sub_group_types_vec = [v4i32, v8i32, v16i32,
                                      v4f32, v8f32, v16f32,
                                      v4f64, v8f64, v16f64];
 
-// broadcast
-OclBuiltinImpl sub_group_broadcast_avx256v8gentype = OclBuiltinImpl<sub_group_broadcast_vec, [v8u32, v8i32, v8f32,
-                                                                                              v8i64, v8u64, v8f64], 0,
-  [{
-    return $Arg0VarName[$Arg1VarName];
-  }]>;
 
 //
 // reductions
@@ -54,6 +48,34 @@ OclBuiltinImpl sub_group_reduce_add_avx256f32 = OclBuiltinImpl<sub_group_reduce_
     $Arg0BaseType#4 temp0 = as_$Arg0BaseType#4(_mm_add_ps((__m128)arg0.lo, (__m128)arg0.hi));
     $Arg0BaseType#4 temp1 = as_$Arg0BaseType#4(_mm_hadd_ps((__m128)temp0, (__m128)temp0));
     return temp1[0] + temp1[1];
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx256i8 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_reduce_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx256u8 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_reduce_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx256i16 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_reduce_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_add_avx256u16 = OclBuiltinImpl<sub_group_reduce_add_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_reduce_add(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
   }]>;
 
 OclBuiltinImpl sub_group_reduce_add_avx256ui64 = OclBuiltinImpl<sub_group_reduce_add_vec, [v8i64, v8u64], 0,
@@ -167,6 +189,34 @@ OclBuiltinImpl sub_group_reduce_min_avx256f64 = OclBuiltinImpl<sub_group_reduce_
      return min(temp2.lo, temp2.hi);
   }]>;
 
+OclBuiltinImpl sub_group_reduce_min_avx256i8 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_reduce_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx256u8 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_reduce_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx256i16 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_reduce_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_min_avx256u16 = OclBuiltinImpl<sub_group_reduce_min_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_reduce_min(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
 // reduce max
 OclBuiltinImpl sub_group_reduce_max_avx256u32 = OclBuiltinImpl<sub_group_reduce_max_vec, [v8u32], 0,
   [{
@@ -255,6 +305,34 @@ OclBuiltinImpl sub_group_reduce_max_avx256f64 = OclBuiltinImpl<sub_group_reduce_
      temp1 |= temp0.hi & ~mask2;
      $Arg0BaseType#2 temp2 = as_$Arg0BaseType#2(temp1);
      return max(temp2.lo, temp2.hi);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx256i8 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [v8i8], 0,
+  [{
+    __m256i temp = _mm256_cvtepi8_epi32(__builtin_astype((char16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_reduce_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx256u8 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [v8u8], 0,
+  [{
+    __m256i temp = _mm256_cvtepu8_epi32(__builtin_astype((uchar16)($Arg0VarName, $Arg0VarName), __m128i));
+    int8 temp1 = sub_group_reduce_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx256i16 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [v8i16], 0,
+  [{
+    __m256i temp = _mm256_cvtepi16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_reduce_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
+  }]>;
+
+OclBuiltinImpl sub_group_reduce_max_avx256u16 = OclBuiltinImpl<sub_group_reduce_max_vec_cs, [v8u16], 0,
+  [{
+    __m256i temp = _mm256_cvtepu16_epi32(__builtin_astype($Arg0VarName, __m128i));
+    int8 temp1 = sub_group_reduce_max(__builtin_astype(temp, int8), $Arg1VarName);
+    return convert_$Arg0Type(temp1);
   }]>;
 
 // inclusive scan
