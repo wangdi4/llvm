@@ -204,7 +204,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print declared and usage type information.
-  void dump();
+  void dump() const;
 
   // @param OS        - Output stream.
   // @param Combined  - When 'true' output will combine the 'declared' type set
@@ -212,7 +212,8 @@ public:
   //                    these will be printed separately.
   // @param Prefix    - String to prefix lines by, such as a comment character
   //                    or indentation.
-  void print(raw_ostream &OS, bool Combined = false, const char *Prefix = "");
+  void print(raw_ostream &OS, bool Combined = false,
+             const char *Prefix = "") const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -244,6 +245,13 @@ private:
   // analysis routine.
   LPIState AnalysisState = LPIS_NotAnalyzed;
 };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static raw_ostream &operator<<(raw_ostream &OS, const ValueTypeInfo &Info) {
+  Info.print(OS);
+  return OS;
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Comparator for ValueTypeInfo::PointeeLoc to enable using type within
 // std::set.
