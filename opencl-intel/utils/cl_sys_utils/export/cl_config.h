@@ -18,7 +18,6 @@
 #include "cl_env.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
-#include "task_executor.h"
 
 #include <fstream>
 #include <map>
@@ -656,32 +655,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         /**
          * @returns the number of TBB workers.
          */
-        unsigned GetNumTBBWorkers() const
-        {
-            unsigned numWorkers;
-
-            std::string strEnv;
-            cl_err_code err = GetEnvVar(strEnv, "DPCPP_CPU_NUM_CUS");
-            if (CL_SUCCEEDED(err))
-                numWorkers = (unsigned)std::stoi(strEnv);
-            else
-            {
-                // OCL_TBB_NUM_WORKERS is deprecated and should be removed.
-                err = GetEnvVar(strEnv, "OCL_TBB_NUM_WORKERS");
-                if (CL_SUCCEEDED(err))
-                    numWorkers = (unsigned)std::stoi(strEnv);
-                else
-                {
-                    numWorkers = m_pConfigFile->Read<unsigned>(
-                        "CL_CONFIG_CPU_TBB_NUM_WORKERS",
-                        Intel::OpenCL::TaskExecutor::TE_AUTO_THREADS);
-                }
-            }
-
-            if (numWorkers < Intel::OpenCL::TaskExecutor::TE_MIN_WORKER_THREADS)
-                numWorkers = Intel::OpenCL::TaskExecutor::TE_MIN_WORKER_THREADS;
-            return numWorkers;
-        }
+        unsigned GetNumTBBWorkers() const;
 
     private:
         BasicCLConfigWrapper(const BasicCLConfigWrapper&);
