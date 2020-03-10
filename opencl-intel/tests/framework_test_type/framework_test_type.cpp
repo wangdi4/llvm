@@ -576,6 +576,13 @@ TEST(FrameworkTestType, Test_ClkEventAsKernelArg)
     EXPECT_TRUE(ClkEventAsKernelArg());
 }
 
+#if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
+TEST(FrameworkTestType, Test_cl_DumpIRBeforeAfterPasses)
+{
+    cl_DumpIRBeforeAndAfterPasses();
+}
+#endif
+
 /////////////////////////////////////////////////////////////////////
 //////////////      CL20 tests.        //////////////////////////////
 /////////////////////////////////////////////////////////////////////

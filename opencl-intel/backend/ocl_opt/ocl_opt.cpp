@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "BreakpointPrinter.h"
+#include "InitializeOCLPasses.hpp"
 #include "NewPMDriver.h"
 #include "PassPrinters.h"
 #include "llvm/ADT/Triple.h"
@@ -58,8 +59,6 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-
-#include "InitializePasses.h"
 
 #include <algorithm>
 #include <memory>
@@ -279,8 +278,6 @@ RuntimeServices("runtime",
 
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 extern "C" llvm::ImmutablePass * createImplicitArgsAnalysisPass(LLVMContext *C);
-
-#include "InitializeOCLPasses.hpp"
 
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,
                                  llvm::legacy::PassManager& passMgr) {
