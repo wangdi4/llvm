@@ -525,11 +525,16 @@ void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
   if (VPPhi->getBlend() == false) {
     auto PhiTy = VPPhi->getType();
     PHINode *NewPhi;
-    if (needScalarCode(VPPhi)) {
+    // FIXME: Replace with proper SVA.
+    bool EmitScalarOnly =
+        !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
+    if (needScalarCode(VPPhi) || EmitScalarOnly) {
       NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
       VPScalarMap[VPPhi][0] = NewPhi;
       ScalarPhisToFix[VPPhi] = NewPhi;
     }
+    if (EmitScalarOnly)
+      return;
     if (needVectorCode(VPPhi)) {
       PhiTy = getWidenedType(PhiTy, VF);
       NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
@@ -984,6 +989,20 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
 
   case Instruction::ICmp: {
+    // FIXME: Proper SVA-driven scalar ICMP codegen.
+    if (!MaskValue &&
+        !Plan->getVPlanDA()->isDivergent(*VPInst)
+        // DA forces icmp corresponding to the original loop exit condition to
+        // be treated as uniform, which is wrong. Don't emit scalar icmp for it.
+        && (!Plan->getVPlanDA()->isDivergent(*VPInst->getOperand(0)) &&
+            !Plan->getVPlanDA()->isDivergent(*VPInst->getOperand(1)))) {
+      Value *A = getScalarValue(VPInst->getOperand(0), 0);
+      Value *B = getScalarValue(VPInst->getOperand(1), 0);
+      auto *Cmp = cast<VPCmpInst>(VPInst);
+      VPScalarMap[VPInst][0] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
+      return;
+    }
+
     Value *A = getVectorValue(VPInst->getOperand(0));
     Value *B = getVectorValue(VPInst->getOperand(1));
     auto *Cmp = cast<VPCmpInst>(VPInst);
@@ -2564,12 +2583,24 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
 
     Value *VectorValue = nullptr;
     IRBuilder<>::InsertPointGuard Guard(Builder);
-    if (IsUniform) {
-      Value *ScalarValue = VPScalarMap[V][0];
+
+    auto UpdateInsertPoint = [=](Value *ScalarValue) -> void {
       // ScalarValue can be a constant, so insertion point setting is not needed
       // for that case.
-      if (isa<Instruction>(ScalarValue))
-        Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
+      auto *ScalarInst = dyn_cast<Instruction>(ScalarValue);
+      if (!ScalarInst)
+        return;
+      auto It = ++(ScalarInst->getIterator());
+
+      while (isa<PHINode>(*It))
+        ++It;
+
+      Builder.SetInsertPoint(ScalarInst->getParent(), It);
+    };
+
+    if (IsUniform) {
+      Value *ScalarValue = VPScalarMap[V][0];
+      UpdateInsertPoint(ScalarValue);
       if (ScalarValue->getType()->isVectorTy()) {
         VectorValue =
             replicateVector(ScalarValue, VF, Builder,
@@ -2588,7 +2619,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       Value *ScalarValue = VPScalarMap[V][VF - 1];
       assert(isa<Instruction>(ScalarValue) &&
              "Expected instruction for scalar value");
-      Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
+      UpdateInsertPoint(ScalarValue);
       VectorValue = joinVectors(Parts, Builder);
     } else {
       VectorValue = UndefValue::get(VectorType::get(V->getType(), VF));
