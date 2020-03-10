@@ -154,7 +154,11 @@ static bool IsSyclMathFunc(unsigned BuiltinID) {
   case Builtin::BI__builtin_round:
   case Builtin::BItrunc:
   case Builtin::BI__builtin_trunc:
+<<<<<<< HEAD
   case Builtin::BIceilf:
+=======
+  case Builtin::BIcopysignf:
+>>>>>>> f41309bbbe5cf59132ed6428a0982c23f3f769aa
   case Builtin::BI__builtin_copysignf:
   case Builtin::BIfloorf:
   case Builtin::BI__builtin_floorf:
