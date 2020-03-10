@@ -31,6 +31,7 @@ static void initializeOCLPasses(PassRegistry &Registry) {
     intel::initializeWIRelatedValuePass(Registry);
     intel::initializeDataPerBarrierPass(Registry);
     intel::initializeDataPerValuePass(Registry);
+    intel::initializeReplaceScalarWithMaskPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeBuiltinCallToInstPass(Registry);
     intel::initializeInstToFuncCallPass(Registry);

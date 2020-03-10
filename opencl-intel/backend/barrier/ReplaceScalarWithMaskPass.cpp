@@ -14,8 +14,10 @@
 
 #include "ReplaceScalarWithMaskPass.h"
 
+#include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "MetadataAPI.h"
+#include "OCLPassSupport.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instruction.h"
@@ -27,6 +29,11 @@ namespace intel {
 
   char ReplaceScalarWithMask::ID = 0;
 
+  // Register ReplaceScalarWithMask Pass for oclopt.
+  OCL_INITIALIZE_PASS(ReplaceScalarWithMask, "B-ReplaceScalarWithMask",
+    "Barrier Pass - Replace scalar kernel with masked kernel when the \
+kernel has barrier path and subgroup calls", false, false)
+
   bool ReplaceScalarWithMask::runOnModule(Module& module) {
     bool changed = false;
     m_util.init(&module);
@@ -36,7 +43,8 @@ namespace intel {
     for (auto pFunc : kernels) {
       auto skimd = KernelInternalMetadataAPI(pFunc);
       if ((skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get()) ||
-          !skimd.VectorizedMaskedKernel.hasValue())
+          !(skimd.VectorizedMaskedKernel.hasValue() &&
+          skimd.VectorizedMaskedKernel.get()))
         continue;
       changed = true;
       auto maskedKernel = skimd.VectorizedMaskedKernel.get();

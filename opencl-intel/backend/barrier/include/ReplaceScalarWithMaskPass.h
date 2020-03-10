@@ -35,11 +35,11 @@ namespace intel {
     /// @brief D'tor
     ~ReplaceScalarWithMask() {}
 
-    virtual StringRef getPassName() const {
+    StringRef getPassName() const override{
       return "Intel ReplaceScalarWithMask";
     }
 
-    virtual bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
   private:
     BarrierUtils m_util;
