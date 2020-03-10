@@ -546,6 +546,7 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   // Scalar -> [VF4, VF8, VF16]
   using BuiltinInfo = std::pair<std::string, std::array<std::string, 3>>;
   using BuiltinInfoList = std::vector<BuiltinInfo>;
+  using LengthVec = const SmallVector<unsigned, 5>;
 
   std::map<std::string, reflection::TypePrimitiveEnum> SuffixMap{
       {{"",    reflection::PRIMITIVE_UINT},
@@ -555,7 +556,8 @@ static void addSpecialBuiltins(ContainerTy &Info) {
        {"_uc", reflection::PRIMITIVE_UCHAR}}};
 
   const char *BlockReadWriteSuffixes[] = {"", "_ul", "_ui", "_us", "_uc"};
-  unsigned BlockReadWriteVecLengths[4] = {1, 2, 4, 8};
+  LengthVec BlockReadWriteVecLengths = {1, 2, 4, 8};
+  LengthVec BlockReadWriteVecLengthsForChar = {1, 2, 4, 8, 16};
 
   // Example:
   // "intel_sub_group_block_read", "", 1 -> "intel_sub_group_block_read"
@@ -701,7 +703,9 @@ static void addSpecialBuiltins(ContainerTy &Info) {
   BuiltinInfoList ReadImgBuiltins;
   BuiltinInfoList WriteImgBuiltins;
   for (const char *Suffix : BlockReadWriteSuffixes) {
-    for (auto OrigTypeVL : BlockReadWriteVecLengths) {
+    LengthVec& VecLengths = StringRef(Suffix) == "_uc" ?
+      BlockReadWriteVecLengthsForChar : BlockReadWriteVecLengths;
+    for (auto OrigTypeVL : VecLengths) {
       const std::string BlockReadBaseName("intel_sub_group_block_read");
       std::string ReadBaseName =
           ConstructBaseName(BlockReadBaseName, Suffix, OrigTypeVL);

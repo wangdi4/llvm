@@ -1688,6 +1688,20 @@ code BlockRead8_8 =
 OclBuiltinImpl intel_sub_group_block_read8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read8_8, [ v1u32 ], 0, BlockRead8_8>;
 OclBuiltinImpl intel_sub_group_block_read_us8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read_us8_8, intel_sub_group_block_read_write_us_types, 0, BlockRead8_8>;
 
+OclBuiltinImpl intel_sub_group_block_read_us16_8_avx2 = OclBuiltinImpl<intel_sub_group_block_read_us16_8, [v1u8], 0,
+  [{
+    $ReturnType res;
+    res.lo.lo.lo  = vload16(0, $Arg0VarName);
+    res.lo.lo.hi  = vload16(1, $Arg0VarName);
+    res.lo.hi.lo  = vload16(2, $Arg0VarName);
+    res.lo.hi.hi  = vload16(3, $Arg0VarName);
+    res.hi.lo.lo  = vload16(4, $Arg0VarName);
+    res.hi.lo.hi  = vload16(5, $Arg0VarName);
+    res.hi.hi.lo  = vload16(6, $Arg0VarName);
+    res.hi.hi.hi  = vload16(7, $Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_8x16(res);
+  }]>;
+
 code BlockWrite1_8 =
   [{
     $Arg1BaseType#8 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7);
@@ -1725,6 +1739,18 @@ code BlockWrite8_8 =
 OclBuiltinImpl intel_sub_group_block_write8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write8_8, [ v1u32 ], 0, BlockWrite8_8>;
 OclBuiltinImpl intel_sub_group_block_write_us8_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write_us8_8, intel_sub_group_block_read_write_us_types, 0, BlockWrite8_8>;
 
+OclBuiltinImpl intel_sub_group_block_write_us16_8_avx2 = OclBuiltinImpl<intel_sub_group_block_write_us16_8, [v1u8], 0,
+  [{
+    $Arg1BaseType#128 res = __ocl_shuffle_transpose_$Arg1BaseType#_16x8($Arg1VarName);
+    vstore16(res.lo.lo.lo, 0, $Arg0VarName);
+    vstore16(res.lo.lo.hi, 1, $Arg0VarName);
+    vstore16(res.lo.hi.lo, 2, $Arg0VarName);
+    vstore16(res.lo.hi.hi, 3, $Arg0VarName);
+    vstore16(res.hi.lo.lo, 4, $Arg0VarName);
+    vstore16(res.hi.lo.hi, 5, $Arg0VarName);
+    vstore16(res.hi.hi.lo, 6, $Arg0VarName);
+    vstore16(res.hi.hi.hi, 7, $Arg0VarName);
+  }]>;
 
 //
 // Block read/write for image
@@ -1858,3 +1884,32 @@ OclBuiltinImpl intel_sub_group_block_write8_8_img_avx2 =  OclBuiltinImpl<intel_s
 OclBuiltinImpl intel_sub_group_block_write8_8_img_rw_avx2 =  OclBuiltinImpl<intel_sub_group_block_write8_8_img_rw, [ v1u32 ], 0, BlockWriteImg8_8>;
 OclBuiltinImpl intel_sub_group_block_write_us8_8_img_avx2 =  OclBuiltinImpl<intel_sub_group_block_write_us8_8_img, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg8_8>;
 OclBuiltinImpl intel_sub_group_block_write_us8_8_img_rw_avx2 =  OclBuiltinImpl<intel_sub_group_block_write_us8_8_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg8_8>;
+code BlockReadImg16_8 =
+  [{
+     $ReturnType res;
+     $ReturnBaseType *r = ($ReturnBaseType*)&res;
+     $ReturnBaseType#8* p;
+#pragma clang unroll(full)
+     for (int i=0; i < 16; ++i) {
+       p = ($ReturnBaseType#8 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
+       *($ReturnBaseType#8*)&r[i * 8] = *p;
+       $Arg1VarName.hi += 1;
+     }
+    return __ocl_shuffle_transpose_$ReturnBaseType#_8x16(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read_us16_8_img_avx2 =  OclBuiltinImpl<intel_sub_group_block_read_us16_8_img, [v1u8], 0, BlockReadImg16_8>;
+OclBuiltinImpl intel_sub_group_block_read_us16_8_img_rw_avx2 =  OclBuiltinImpl<intel_sub_group_block_read_us16_8_img_rw, [v1u8], 0, BlockReadImg16_8>;
+code BlockWriteImg16_8 =
+  [{
+     $Arg2Type d = __ocl_shuffle_transpose_$Arg2BaseType#_16x8($Arg2VarName);
+     $Arg2BaseType *r = ($Arg2BaseType*)&d;
+     $Arg2BaseType#8* p;
+#pragma clang unroll(full)
+     for (int i=0; i < 16; ++i) {
+       p = ($Arg2BaseType#8 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
+       *p = *($Arg2BaseType#8 *)&r[i * 8];
+       $Arg1VarName.hi += 1;
+     }
+  }];
+OclBuiltinImpl intel_sub_group_block_write_us16_8_img_avx2 =  OclBuiltinImpl<intel_sub_group_block_write_us16_8_img, [v1u8], 0, BlockWriteImg16_8>;
+OclBuiltinImpl intel_sub_group_block_write_us16_8_img_rw_avx2 =  OclBuiltinImpl<intel_sub_group_block_write_us16_8_img_rw, [v1u8], 0, BlockWriteImg16_8>;
