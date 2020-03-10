@@ -2,8 +2,8 @@
 ; In the following lit test, the inner loop is uniform and all the side exits
 ; are uniform.
 
-; RUN: opt -S < %s -VPlanDriver -disable-output -vplan-print-after-simplify-cfg 2>&1 | FileCheck %s
-; RUN: opt -S < %s -passes="vplan-driver" -disable-output -vplan-print-after-simplify-cfg 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -disable-output -vplan-print-after-simplify-cfg %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-driver" -disable-output -vplan-print-after-simplify-cfg %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
