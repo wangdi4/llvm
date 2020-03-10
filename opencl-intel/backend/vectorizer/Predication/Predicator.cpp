@@ -2312,23 +2312,22 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
         bbIt != bbEnd; ++bbIt) {
     BasicBlock * cloneBB = *bbIt;
     for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii){
-      Instruction *I = &*ii;
+      Instruction * I = &*ii;
       // The source locations for the cloned instructions are already correct,
       // avoid duplicating by remapping them to themselves.
-      DILocation* Loc = I->getDebugLoc().get();
-      if(Loc)
+      if (DILocation* Loc = I->getDebugLoc().get())
         MD[Loc].reset(Loc);
+      if (MDNode* MDloop = I->getMetadata(LLVMContext::MD_loop))
+        MD[MDloop].reset(MDloop);
       // Remap DbgVariableIntrinsic instruction's variables to themselves, to make them
       // agree with !dbg attachments's scopes
       if (isa<DbgVariableIntrinsic>(I)){
-        DILocalVariable *Var = cast<DbgVariableIntrinsic>(I)->getVariable();
-        if(Var)
+        if (DILocalVariable* Var = cast<DbgVariableIntrinsic>(I)->getVariable())
           MD[Var].reset(Var);
       }
       // Remap DbgLabelInst instruction's Labels(llvm.dbg.label) to themselves
       if (isa<DbgLabelInst>(I)){
-        DILabel *Label = cast<DbgLabelInst>(I)->getLabel();
-        if(Label)
+        if (DILabel* Label = cast<DbgLabelInst>(I)->getLabel())
           MD[Label].reset(Label);
       }
       RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingLocals);
