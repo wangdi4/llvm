@@ -966,6 +966,11 @@ if(INTEL_CUSTOMIZATION)
 list(APPEND features_enabled_by_default
      ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD)
 # end INTEL_FEATURE_ISA_AVX512_DOTPROD
+
+# INTEL_FEATURE_ISA_AVX512_CONVERT
+    list(APPEND features_enabled_by_default
+         ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_CONVERT)
+# end INTEL_FEATURE_ISA_AVX512_CONVERT
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

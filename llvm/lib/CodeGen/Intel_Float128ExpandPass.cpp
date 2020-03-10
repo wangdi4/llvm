@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -50,13 +51,15 @@ public:
 private:
   using AllocatorTy =
       RecyclingAllocator<BumpPtrAllocator,
-                         ScopedHashTableVal<Value *, AllocaInst *>>;
-  using ScopedHTType = ScopedHashTable<Value *, AllocaInst *,
+                         ScopedHashTableVal<Value *, Instruction *>>;
+  using ScopedHTType = ScopedHashTable<Value *, Instruction *,
                                        DenseMapInfo<Value *>, AllocatorTy>;
   using ScopeType = ScopedHTType::ScopeTy;
   ScopedHTType VNT;
   DenseMap<BasicBlock *, ScopeType *> ScopeMap;
   DenseMap<BasicBlock *, SmallVector<Instruction *, 4>> BBWorkList;
+  MapVector<PHINode *, PHINode *> NewPHI2OldPHI;
+  DenseMap<Value *, Instruction *> Value2Ptr;
 
   void EnterScope(BasicBlock *BB);
   void ExitScope(BasicBlock *BB);
@@ -65,6 +68,8 @@ private:
   bool ProcessInstruction(Instruction *I);
   bool ProcessBlock(BasicBlock *BB);
   bool PerformFp128Transform(DomTreeNode *Node);
+  bool TransformFP128PHI(Instruction *I);
+  void PostTransformFP128PHI();
   Value *expandToLibCall(IRBuilder<> &Builder, Instruction *I,
                          StringRef LibCallName, Type *RetTy,
                          ArrayRef<Value *> Ops);
@@ -95,31 +100,104 @@ static Instruction *getFirstNonAllocaInTheEntryBlock(Function &F) {
   llvm_unreachable("No terminator in the entry block");
 }
 
-Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
-                                       StringRef LibCallName, Type *RetTy,
-                                       ArrayRef<Value *> Ops) {
+static AllocaInst *CreateFP128AllocaInst(IRBuilder<> &Builder, BasicBlock *BB) {
   LLVMContext &Ctx = Builder.getContext();
-  Function &F = *I->getFunction();
-  Module *M = I->getModule();
+  Function &F = *BB->getParent();
+  Module *M = BB->getModule();
   const DataLayout &DL = M->getDataLayout();
 
   Type *FP128Ty = Type::getFP128Ty(Ctx);
   auto AllocaAlignment = MaybeAlign(DL.getPrefTypeAlignment(FP128Ty));
+  unsigned AllocaAS = DL.getAllocaAddrSpace();
+  AllocaInst *AllocaRes =
+      new AllocaInst(FP128Ty, AllocaAS, "", &F.getEntryBlock().front());
+  AllocaRes->setAlignment(MaybeAlign(AllocaAlignment));
+  return AllocaRes;
+}
 
+static bool isUsedByFP128Libcall(Value *Val) {
+  for (auto UI : Val->users()) {
+    Instruction *I = cast<Instruction>(UI);
+    switch (I->getOpcode()) {
+    default:
+      break;
+    case Instruction::FAdd:
+    case Instruction::FSub:
+    case Instruction::FMul:
+    case Instruction::FDiv:
+    case Instruction::FNeg:
+    case Instruction::FPTrunc:
+    case Instruction::FPExt:
+    case Instruction::FPToSI:
+    case Instruction::FPToUI:
+    case Instruction::FCmp:
+      return true;
+    }
+  }
+  return false;
+}
+
+// in our first traverse, if the oldphi is used by  a libcall,
+// then we will create newphi(without incomings) for it.
+bool Float128Expand::TransformFP128PHI(Instruction *I) {
+  IRBuilder<> Builder(I->getParent()->getFirstNonPHI());
+  LLVMContext &Ctx = Builder.getContext();
+  Type *FP128PtrTy = Type::getFP128PtrTy(Ctx);
+  PHINode *Phi = cast<PHINode>(I);
+  PHINode *NewPhi = Builder.CreatePHI(FP128PtrTy, Phi->getNumIncomingValues());
+  NewPHI2OldPHI.insert({NewPhi, Phi});
+  VNT.insert(I, NewPhi);
+  Value2Ptr.insert({I, NewPhi});
+  return true;
+}
+
+// After we finish the first traverse, we will add incoming value&block for
+// NewPhi. If we can't add incoming value&block, in spite of OldPhi's being used
+// by Libcall, we will create a alloca(AllocaForPhi) for OldPhi, store OldPhi
+// into AllocaForPhi, erase NewPhi and replace NewPhi's use with AllocaForPhi.
+// We won't erase the OldPhi, since some function calls might use it.
+void Float128Expand::PostTransformFP128PHI() {
+  for (auto PairI : NewPHI2OldPHI) {
+    PHINode* NewPhi = PairI.first;
+    PHINode *OldPhi = PairI.second;
+
+    for (unsigned i = 0; i != OldPhi->getNumIncomingValues(); ++i) {
+      Value *IncomingValue = OldPhi->getIncomingValue(i);
+      Value *IncomingPtr = Value2Ptr[IncomingValue];
+      if (IncomingPtr == nullptr) {
+        IRBuilder<> Builder(&*NewPhi->getParent()->getFirstInsertionPt());
+        AllocaInst *AllocaForPhi =
+            CreateFP128AllocaInst(Builder, NewPhi->getParent());
+        Builder.CreateAlignedStore(OldPhi, AllocaForPhi,
+                                   MaybeAlign(AllocaForPhi->getAlignment()));
+        NewPhi->replaceAllUsesWith(AllocaForPhi);
+        NewPhi->eraseFromParent();
+
+        break;
+      }
+      BasicBlock *IncomingBB = OldPhi->getIncomingBlock(i);
+      NewPhi->addIncoming(IncomingPtr, IncomingBB);
+    }
+  }
+  return;
+}
+
+Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
+                                       StringRef LibCallName, Type *RetTy,
+                                       ArrayRef<Value *> Ops) {
+  LLVMContext &Ctx = Builder.getContext();
+  Type *FP128Ty = Type::getFP128Ty(Ctx);
+  Module *M = I->getModule();
   SmallVector<Value *, 3> Args;
 
   AllocaInst *AllocaDst = nullptr;
   AllocaInst *AllocaOp0 = nullptr;
   AllocaInst *AllocaOp1 = nullptr;
 
-  unsigned AllocaAS = DL.getAllocaAddrSpace();
 
   // If the return is FP128, create an alloca and push it to the arg list.
   if (RetTy->isFP128Ty()) {
-    AllocaDst = new AllocaInst(FP128Ty, AllocaAS, "",
-                               &F.getEntryBlock().front());
-    AllocaDst->setAlignment(AllocaAlignment);
-
+    AllocaDst = CreateFP128AllocaInst(Builder, I->getParent());
     Args.push_back(AllocaDst);
     // Replace the type with void.
     RetTy = Type::getVoidTy(Ctx);
@@ -130,16 +208,15 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
   assert(Ops.size() > 0 && Ops.size() <= 2 && "Unexpected number of operands");
   if (Ops[0]->getType()->isFP128Ty()) {
     if (!VNT.count(Ops[0])) {
-      AllocaOp0 =
-          new AllocaInst(FP128Ty, AllocaAS, "", &F.getEntryBlock().front());
-      AllocaOp0->setAlignment(MaybeAlign(AllocaAlignment));
-
-      Builder.CreateAlignedStore(Ops[0], AllocaOp0, AllocaAlignment);
+      AllocaOp0 = CreateFP128AllocaInst(Builder, I->getParent());
+      Builder.CreateAlignedStore(Ops[0], AllocaOp0,
+                                 MaybeAlign(AllocaOp0->getAlignment()));
       Args.push_back(AllocaOp0);
       VNT.insert(Ops[0], AllocaOp0);
+      Value2Ptr.insert({Ops[0], AllocaOp0});
     } else {
-      AllocaOp0 = VNT.lookup(Ops[0]);
-      Args.push_back(AllocaOp0);
+      Instruction *Op0 = VNT.lookup(Ops[0]);
+      Args.push_back(Op0);
     }
 
   } else {
@@ -152,16 +229,15 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
 
     if (!VNT.count(Ops[1])) {
       assert(Ops[1]->getType()->isFP128Ty() && "Unexpected type!");
-      AllocaOp1 =
-          new AllocaInst(FP128Ty, AllocaAS, "", &F.getEntryBlock().front());
-      AllocaOp1->setAlignment(MaybeAlign(AllocaAlignment));
-
-      Builder.CreateAlignedStore(Ops[1], AllocaOp1, AllocaAlignment);
+      AllocaOp1 = CreateFP128AllocaInst(Builder, I->getParent());
+      Builder.CreateAlignedStore(Ops[1], AllocaOp1,
+                                 MaybeAlign(AllocaOp1->getAlignment()));
       Args.push_back(AllocaOp1);
       VNT.insert(Ops[1], AllocaOp1);
+      Value2Ptr.insert({Ops[1], AllocaOp1});
     } else {
-      AllocaOp1 = VNT.lookup(Ops[1]);
-      Args.push_back(AllocaOp1);
+      Instruction *Op1 = VNT.lookup(Ops[1]);
+      Args.push_back(Op1);
     }
   }
 
@@ -183,11 +259,13 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
   }
 
   if (AllocaDst) {
-    Result = Builder.CreateAlignedLoad(FP128Ty, AllocaDst, AllocaAlignment);
+    Result = Builder.CreateAlignedLoad(FP128Ty, AllocaDst,
+                                       MaybeAlign(AllocaDst->getAlignment()));
     // TODO How to handle the life time end?
     // Builder.CreateLifetimeEnd(AllocaDst, SizeVal64);
     // Record the Result maping to AllocaDst so that we can resue it later.
     VNT.insert(Result, AllocaDst);
+    Value2Ptr.insert({Result, AllocaDst});
   }
 
   return Result;
@@ -419,6 +497,10 @@ bool Float128Expand::ProcessInstruction(Instruction *I) {
   case Instruction::FCmp:
     MadeChange |= expandFCmp(Builder, I);
     break;
+  case Instruction::PHI:
+    if (isUsedByFP128Libcall(I))
+      MadeChange |= TransformFP128PHI(I);
+    break;
   }
 
   return MadeChange;
@@ -431,23 +513,15 @@ bool Float128Expand::ProcessBlock(BasicBlock *BB) {
   // create Store at the entry bb
   if (BB == &(F->getEntryBlock())) {
     for (Argument &Arg : F->args()) {
-      if (!Arg.getType()->isFP128Ty())
+      if (!Arg.getType()->isFP128Ty() || !isUsedByFP128Libcall(&Arg))
         continue;
       IRBuilder<> Builder(getFirstNonAllocaInTheEntryBlock(*F));
-      LLVMContext &Ctx = Builder.getContext();
-      Module *M = BB->getModule();
-      const DataLayout &DL = M->getDataLayout();
-      unsigned AllocaAS = DL.getAllocaAddrSpace();
+      AllocaInst *AllocaArg = CreateFP128AllocaInst(Builder, BB);
 
-      Type *FP128Ty = Type::getFP128Ty(Ctx);
-      auto AllocaAlignment = MaybeAlign(DL.getPrefTypeAlignment(FP128Ty));
-
-      AllocaInst *AllocaArg =
-          new AllocaInst(FP128Ty, AllocaAS, "", &BB->front());
-      AllocaArg->setAlignment(MaybeAlign(AllocaAlignment));
-
-      Builder.CreateAlignedStore(&Arg, AllocaArg, AllocaAlignment);
+      Builder.CreateAlignedStore(&Arg, AllocaArg,
+                                 MaybeAlign(AllocaArg->getAlignment()));
       VNT.insert(&Arg, AllocaArg);
+      Value2Ptr.insert({&Arg, AllocaArg});
     }
   }
   for (auto It : BBWorkList[BB]) {
@@ -476,7 +550,6 @@ bool Float128Expand::PerformFp128Transform(DomTreeNode *Node) {
       WorkList.push_back(Child);
   } while (!WorkList.empty());
 
-  // Now perform CSE.
   bool Changed = false;
   for (DomTreeNode *Node : Scopes) {
     BasicBlock *BB = Node->getBlock();
@@ -516,5 +589,9 @@ bool Float128Expand::runOnFunction(Function &F) {
     }
   }
   MadeChange = PerformFp128Transform(DT.getRootNode());
+  PostTransformFP128PHI();
+  // clear local record
+  NewPHI2OldPHI.clear();
+  Value2Ptr.clear();
   return MadeChange;
 }

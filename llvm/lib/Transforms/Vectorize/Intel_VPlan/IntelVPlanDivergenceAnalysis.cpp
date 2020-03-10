@@ -1062,16 +1062,6 @@ VPlanDivergenceAnalysis::computeVectorShapeForPhiNode(const VPPHINode *Phi) {
     Shapes.push_back(NewShape);
   }
 
-  // Prevent undefined phi nodes from causing an infinite loop. If divergence is
-  // ever propagated to the phi, then isJoinDivergent() becomes true and a new
-  // shape will be computed. The infinite loop is possible for phis that stay
-  // uniform because they can have cyclic dependencies on other uniform
-  // VPInstructions. Thus, pushMissingOperands() will continuously push the
-  // undefined operands of the phi, which will in turn push the phi node again,
-  // causing the infinite loop.
-  if (NewShape.isUndefined() && !isJoinDivergent(*Phi->getParent()))
-    NewShape = getUniformVectorShape();
-
   return NewShape;
 }
 

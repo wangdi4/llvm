@@ -459,6 +459,10 @@ protected:
   bool HasAMXTRANSPOSE2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  bool HasCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -870,7 +874,9 @@ public:
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
   bool hasDOTPROD() const { return HasDOTPROD; }
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  bool hasCONVERT() const { return HasCONVERT; }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
   bool preferMaskRegisters() const { return PreferMaskRegisters; }

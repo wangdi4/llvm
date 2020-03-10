@@ -98,13 +98,13 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 }
 
 ; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, i64 [[BPARAM:%.+]], i64 [[APARAM:%.+]], i64 %{{.+}}, i64 %{{.+}})
-; CHECK-DAG:   [[BBASE:%.+]] = inttoptr i64 [[BPARAM]] to float*
-; CHECK-DAG:   [[ABASE:%.+]] = inttoptr i64 [[APARAM]] to float*
-; CHECK:     omp.inner.for.body:
-; CHECK:       [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
-; CHECK:       %{{.+}} = load float, float* [[BADDR]]
-; CHECK:       [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV]]
-; CHECK:       store float %{{.+}}, float* [[AADDR]]
+; CHECK:   [[BBASE:%.+]] = inttoptr i64 [[BPARAM]] to float*
+; CHECK:   [[ABASE:%.+]] = inttoptr i64 [[APARAM]] to float*
+; CHECK: omp.inner.for.body:
+; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
+; CHECK:   %{{.+}} = load float, float* [[BADDR]]
+; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV]]
+; CHECK:   store float %{{.+}}, float* [[AADDR]]
 
 declare token @llvm.directive.region.entry()
 

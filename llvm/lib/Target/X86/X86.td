@@ -209,6 +209,12 @@ def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
                            "Enable AVX512-DOTPROD",
                            [FeatureFP16, FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+def FeatureCONVERT    : SubtargetFeature<"avx512convert", "HasCONVERT", "true",
+                           "Enable AVX512-CONVERT",
+                           [FeatureBF16, FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",

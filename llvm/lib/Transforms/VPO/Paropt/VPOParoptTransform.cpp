@@ -8040,7 +8040,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 #endif // NDEBUG
 
   // Find "shared" candidates that can be privatized.
-  DenseMap<AllocaInst *, SmallVector<Instruction *, 8>> toPrivatize;
+  using ItemData = std::pair<AllocaInst *, SmallVector<Instruction *, 8>>;
+  SmallVector<ItemData, 8> ToPrivatize;
   for (SharedItem *I : W->getShared().items()) {
     if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
       // Do not attempt to promote arrays or structures.
@@ -8081,11 +8082,11 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         continue;
       }
 
-      toPrivatize[AI] = std::move(Users);
+      ToPrivatize.emplace_back(AI, std::move(Users));
     } else
       LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
   }
-  if (toPrivatize.empty())
+  if (ToPrivatize.empty())
     return false;
 
   // Create separate block for alloca and load/store instructions.
@@ -8097,7 +8098,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   W->resetBBSet();
 
   // Create private instances for variables collected earlier.
-  for (auto &P : toPrivatize) {
+  for (ItemData &P : ToPrivatize) {
     AllocaInst *AI = P.first;
 
     LLVM_DEBUG(dbgs() << "privatizing '" << AI->getName() << "'\n");

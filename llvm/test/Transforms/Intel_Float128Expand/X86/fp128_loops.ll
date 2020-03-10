@@ -211,3 +211,34 @@ D:
   %xx3 = fadd fp128 %x, %x
   ret i32 0
 }
+
+define dso_local i32 @test7(fp128 %y) local_unnamed_addr #0 {
+; CHECK-LABEL: @test7(
+; CHECK-NEXT:  A:
+; CHECK-NEXT:    [[TMP0:%.*]] = alloca fp128, align 16
+; CHECK-NEXT:    [[TMP1:%.*]] = alloca fp128, align 16
+; CHECK-NEXT:    store fp128 [[Y:%.*]], fp128* [[TMP1]], align 16
+; CHECK-NEXT:    call void @__addq(fp128* [[TMP0]], fp128* [[TMP1]], fp128* [[TMP1]])
+; CHECK-NEXT:    [[TMP2:%.*]] = load fp128, fp128* [[TMP0]], align 16
+; CHECK-NEXT:    br i1 undef, label [[B:%.*]], label [[C:%.*]]
+; CHECK:       B:
+; CHECK-NEXT:    [[TMP3:%.*]] = phi fp128 [ [[TMP2]], [[A:%.*]] ], [ [[TMP4:%.*]], [[C]] ]
+; CHECK-NEXT:    br i1 undef, label [[C]], label [[D:%.*]]
+; CHECK:       C:
+; CHECK-NEXT:    [[TMP4]] = phi fp128 [ [[TMP2]], [[A]] ], [ [[TMP3]], [[B]] ]
+; CHECK-NEXT:    br label [[B]]
+; CHECK:       D:
+; CHECK-NEXT:    ret i32 0
+;
+A:
+  %0 = fadd fp128 %y, %y
+  br i1 undef, label %B, label %C
+B:
+  %1 = phi fp128 [%0, %A], [%2, %C]
+  br i1 undef, label %C, label %D
+C:
+  %2 = phi fp128 [%0, %A], [%1, %B]
+  br label %B
+D:
+  ret i32 0
+}
