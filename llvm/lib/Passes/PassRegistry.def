@@ -82,6 +82,8 @@ MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 MODULE_PASS("dtrans-typemetadatareader",                         // INTEL
             dtrans::DTransTypeMetadataReaderTestPass())          // INTEL
+MODULE_PASS("dtrans-ptrtypeanalyzertest",                        // INTEL
+            dtrans::DTransPtrTypeAnalyzerTestPass())             // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL

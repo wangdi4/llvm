@@ -1870,7 +1870,8 @@ void PlainCFGBuilder::addExternalUses(Value *Val, VPValue *NewVPInst) {
   for (User *U : Val->users())
     if (auto Inst = dyn_cast<Instruction>(U))
       if (!TheLoop->contains(Inst)) {
-        VPExternalUse *User = Plan->getVPExternalUse(Inst);
+        // LLVM IR loop must be in LCSSA form.
+        VPExternalUse *User = Plan->getVPExternalUse(cast<PHINode>(Inst));
         User->addOperandWithUnderlyingValue(NewVPInst, Val);
       }
 }

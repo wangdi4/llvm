@@ -14,10 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
-#include "IntelVPOLoopAdapters.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOCodeGen.h"
+#include "IntelVPOLoopAdapters.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVolcanoOpenCL.h"
@@ -33,6 +33,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -344,6 +345,7 @@ INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LCSSAWrapperPass)
 INITIALIZE_PASS_END(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
                     false, false)
 
@@ -366,6 +368,7 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 
   // TODO (CMPLRS-44750): Preserve analyses.
 #endif // INTEL_CUSTOMIZATION
+  AU.addRequiredID(LCSSAID);
   AU.addRequired<WRegionInfoWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
@@ -681,22 +684,15 @@ static bool isSupportedRec(Loop *Lp) {
 namespace llvm {
 namespace vpo {
 // Return true if this loop is supported in VPlan
-#if INTEL_CUSTOMIZATION
 template <> bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp) {
-#else  // INTEL_CUSTOMIZATION
-bool VPlanDriverImpl::isSupported(Loop *Lp) {
-#endif // INTEL_CUSTOMIZATION
-
-  // When running directly from opt there is no guarantee that the loop is in
-  // LCSSA form because we no longer apply this transformation from within
-  // VPlanDriver. The reasoning behind this is due to the idea that we want to
-  // perform all the enabling transformations before VPlanDriver so that the
-  // only modifications to the underlying LLVM IR are done as a result of
-  // vectorization. When stress testing VPlan construction, allow loops not
-  // in LCSSA form.
-  if (!VPlanConstrStressTest)
-    assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) &&
-           "Loop is not in LCSSA form!");
+  // TODO: Ensure this is true for the new pass manager. Currently, vplan-driver
+  // isn't added to the pass manager at all. Once it's done there would be three
+  // options probably:
+  //   1) "Conventional" LCSSA pass in the pass manager builder before VPlan
+  //   2) Explicit LCSSA run inside the VPlanPass itself
+  //   3) Analogue of FunctionToLoopPassAdaptor that will ensure required passes
+  //      are run before VPlan
+  assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) && "Loop is not in LCSSA form!");
 
   if (!hasDedicadedAndUniqueExits(Lp))
     return false;

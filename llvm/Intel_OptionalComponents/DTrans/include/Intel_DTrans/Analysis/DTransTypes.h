@@ -1,6 +1,6 @@
 //===-----------DTransTypes.h - Type model for DTrans ---------------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -117,6 +117,7 @@ public:
   bool isPointerTy() const { return getTypeID() == DTransPointerTypeID; }
   bool isStructTy() const { return getTypeID() == DTransStructTypeID; }
   bool isArrayTy() const { return getTypeID() == DTransArrayTypeID; }
+  bool isVectorTy() const { return getTypeID() == DTransVectorTypeID; }
   bool isFunctionTy() const { return getTypeID() == DTransFunctionTypeID; }
   bool isAggregateType() const { return isStructTy() || isArrayTy(); }
 
@@ -127,6 +128,10 @@ public:
   // Helper method that casts this object to an array type, and returns
   // the type stored in the array. Derived object must be DTransArray.
   DTransType *getArrayElementType() const;
+
+  // Helper method that casts this object to a vector type, and returns
+  // the type stored in the vector. Derived object must be DTransVectorType.
+  DTransType *getVectorElementType() const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump() const;
@@ -748,7 +753,7 @@ public:
   DTransStructType *getOrCreateStructType(llvm::StructType *Ty);
 
   // Get an existing DTransStructType, if one exists with the given \p Name.
-  DTransStructType *getStructType(StringRef Name);
+  DTransStructType *getStructType(StringRef Name) const;
 
   // Create a DTransStructType for a literal type, populating the field types
   // with the types in \p FieldTypes. Returns existing type, if one already
@@ -777,6 +782,20 @@ public:
   // unambiguously. For example, the type "void (ptr, i32)" could be used for
   // "void (i32*, i32)" or "void (%struct.ty*, i32)"
   DTransFunctionType *createFunctionType(size_t NumArgs, bool IsVarArg);
+
+  // Return 'true' if it is possible to directly convert the llvm::type into a
+  // DTransType.
+  //
+  // A simple type is one that is not a pointer, and does not contain any
+  // elements that are pointers. An exception is made for the case of named
+  // structures, as long as a type for the structure has already been created
+  // based on decoding DTrans metadata.
+  bool isSimpleType(llvm::Type *Ty) const;
+
+  // Create a DTransType for the llvm::type. The input type must pass the test
+  // of isSimpleType to create a DTransType, otherwise a nullptr will be
+  // returned.
+  DTransType *getOrCreateSimpleType(llvm::Type *Ty);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printTypes() const;

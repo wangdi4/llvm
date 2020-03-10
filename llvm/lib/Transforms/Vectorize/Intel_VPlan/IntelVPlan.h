@@ -2212,7 +2212,7 @@ public:
   }
 
   /// Create or retrieve a VPExternalUse for a given Value \p ExtVal.
-  VPExternalUse *getVPExternalUse(Value *ExtDef) {
+  VPExternalUse *getVPExternalUse(PHINode *ExtDef) {
     return getExternalItem(VPExternalUses, ExtDef);
   }
 
@@ -2274,7 +2274,7 @@ private:
   // ExtVal.
   template <typename T>
   typename T::mapped_type::element_type *getExternalItem(T &Table,
-                                                         Value *ExtVal) {
+                                                         PHINode *ExtVal) {
     using Def = typename T::mapped_type::element_type;
     typename T::mapped_type &UPtr = Table[ExtVal];
     if (!UPtr)

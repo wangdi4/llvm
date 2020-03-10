@@ -10,6 +10,7 @@
 
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
@@ -28,46 +29,6 @@ const char *MDStructTypesTag = "dtrans_types";
 // The tag name used for variables and instructions marked with DTrans type
 // information for pointer type recovery.
 const char *MDDTransTypeTag = "dtrans_type";
-
-// Helper function to check whether \p Ty is a pointer type, or contains a
-// reference to a pointer type.
-static bool hasPointerType(llvm::Type *Ty) {
-  if (Ty->isPointerTy())
-    return true;
-
-  if (auto *SeqTy = dyn_cast<SequentialType>(Ty))
-    return hasPointerType(SeqTy->getElementType());
-
-  if (auto *StTy = dyn_cast<StructType>(Ty)) {
-    // Check inside of literal structs because those cannot be referenced by
-    // name. However, there is no need to look inside non-literal structures
-    // because those will be referenced by their name.
-    if (StTy->isLiteral())
-      for (auto *ElemTy : StTy->elements()) {
-        bool HasPointer = hasPointerType(ElemTy);
-        if (HasPointer)
-          return true;
-      }
-  }
-
-  if (auto *FnTy = dyn_cast<FunctionType>(Ty)) {
-    // Check the return type and the parameter types for any possible
-    // pointer because metadata descriptions on these will be used to help
-    // recovery of opaque pointer types.
-    Type *RetTy = FnTy->getReturnType();
-    if (hasPointerType(RetTy))
-      return true;
-
-    unsigned NumParams = FnTy->getNumParams();
-    for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
-      Type *ParmTy = FnTy->getParamType(Idx);
-      if (hasPointerType(ParmTy))
-        return true;
-    }
-  }
-
-  return false;
-}
 
 bool TypeMetadataReader::initialize(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);

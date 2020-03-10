@@ -1596,6 +1596,13 @@ private:
   /// Add alias_scope and no_alias metadata to improve the alias
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
+
+  /// Promote shared items to firstprivate (effectively) if we can prove that
+  /// item is not modified inside the region. Such items remain 'shared' on the
+  /// directive bundle, but a private instance is allocated and initialized
+  /// inside the region and all references to the original instance are replaced
+  /// with the private one.
+  bool privatizeSharedItems(WRegionNode *W);
 #endif  // INTEL_CUSTOMIZATION
 
   /// Guard each instruction that has a side effect with master thread id
@@ -1660,7 +1667,7 @@ private:
                                  AllocaInst *LowerBnd, AllocaInst *UpperBnd,
                                  AllocaInst *TeamLowerBnd,
                                  AllocaInst *TeamUpperBnd,
-                                 AllocaInst *SchedStride);
+                                 AllocaInst *&SchedStride);
 
   /// Generate the loop update code for DistParLoop under OpenCL.
   /// \param [in]  W            OpenMP distribute region node.

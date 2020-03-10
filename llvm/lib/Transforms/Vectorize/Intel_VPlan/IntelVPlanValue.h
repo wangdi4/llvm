@@ -553,7 +553,7 @@ private:
   std::unique_ptr<VPOperandHIR> HIROperand;
 
   // Construct a VPExternalUse given a Value \p ExtVal.
-  VPExternalUse(Value *ExtVal)
+  VPExternalUse(PHINode *ExtVal)
       : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
     setUnderlyingValue(*ExtVal);
   }
