@@ -26,6 +26,8 @@ VERS1.0 {
     __tgt_rtl_run_target_team_nd_region_nowait;
     __tgt_rtl_create_offload_pipe;
     __tgt_rtl_release_offload_pipe;
+    __tgt_rtl_data_alloc_managed;
+    __tgt_rtl_data_delete_managed;
 # end INTEL_COLLAB
   local:
     *;

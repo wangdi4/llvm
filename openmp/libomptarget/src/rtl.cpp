@@ -252,6 +252,12 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.release_offload_pipe) =
               dlsym(dynlib_handle, "__tgt_rtl_release_offload_pipe")))
       DP("Optional interface: __tgt_rtl_release_offload_pipe\n");
+    if ((*((void **)&R.data_alloc_managed) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_managed")))
+      DP("Optional interface: __tgt_rtl_data_alloc_managed\n");
+    if ((*((void **)&R.data_delete_managed) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_delete_managed")))
+      DP("Optional interface: __tgt_rtl_data_delete_managed\n");
 #endif // INTEL_COLLAB
 
     // Optional functions

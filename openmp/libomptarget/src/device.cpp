@@ -611,6 +611,20 @@ int32_t DeviceTy::release_offload_pipe(void *Pipe) {
   else
     return OFFLOAD_SUCCESS;
 }
+
+void *DeviceTy::data_alloc_managed(int64_t Size) {
+  if (RTL->data_alloc_managed)
+    return RTL->data_alloc_managed(RTLDeviceID, Size);
+  else
+    return nullptr;
+}
+
+int32_t DeviceTy::data_delete_managed(void *Ptr) {
+  if (RTL->data_delete_managed)
+    return RTL->data_delete_managed(RTLDeviceID, Ptr);
+  else
+    return OFFLOAD_FAIL;
+}
 #endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.

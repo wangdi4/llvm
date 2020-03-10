@@ -57,11 +57,15 @@ extern ompt_interface_fn_t omptLookupEntries(const char *);
 #define CL_MEM_TYPE_DEVICE_INTEL        0x4198
 #define CL_MEM_TYPE_SHARED_INTEL        0x4199
 
+#define CL_MEM_ALLOC_FLAGS_INTEL        0x4195
+#define CL_MEM_ALLOC_DEFAULT_INTEL      0
+
 #define CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL    0x4201
 #define CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL                  0x4203
 
 typedef cl_uint cl_mem_info_intel;
 typedef cl_uint cl_unified_shared_memory_type_intel;
+typedef cl_bitfield cl_mem_properties_intel;
 typedef cl_int  (CL_API_CALL *clGetMemAllocInfoINTELTy)(
     cl_context context,
     const void* ptr,
@@ -69,6 +73,15 @@ typedef cl_int  (CL_API_CALL *clGetMemAllocInfoINTELTy)(
     size_t param_value_size,
     void* param_value,
     size_t* param_value_size_ret);
+typedef void * (CL_API_CALL *clHostMemAllocINTELTy)(
+    cl_context context,
+    cl_mem_properties_intel *properties,
+    size_t size,
+    cl_uint alignment,
+    cl_int *errcodeRet);
+typedef cl_int (CL_API_CALL *clMemFreeINTELTy)(
+    cl_context context,
+    const void *ptr);
 #endif  // INTEL_CUSTOMIZATION
 #ifdef __cplusplus
 extern "C" {
@@ -332,6 +345,8 @@ struct ExtensionsTy {
   // clGetDeviceGlobalVariablePointerINTEL API:
   ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
   ExtensionStatusTy GetMemAllocInfoINTELPointer = ExtensionStatusUnknown;
+  ExtensionStatusTy HostMemAllocINTELPointer = ExtensionStatusUnknown;
+  ExtensionStatusTy MemFreeINTELPointer = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
 
   // Initialize extensions' statuses for the given device.
@@ -422,6 +437,8 @@ public:
   // It is available on the whole platform, so it is not
   // device-specific within the same platform.
   clGetMemAllocInfoINTELTy clGetMemAllocInfoINTELFn = nullptr;
+  clHostMemAllocINTELTy clHostMemAllocINTELFn = nullptr;
+  clMemFreeINTELTy clMemFreeINTELFn = nullptr;
 #endif  // INTEL_CUSTOMIZATION
 
   // Limit for the number of WIs in a WG.
@@ -832,6 +849,12 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
       GetMemAllocInfoINTELPointer = ExtensionStatusEnabled;
       DPI("Extension clGetMemAllocInfoINTEL enabled.\n");
     }
+
+  if (Extensions.find("cl_intel_unified_shared_memory_preview") !=
+      std::string::npos) {
+    HostMemAllocINTELPointer = ExtensionStatusEnabled;
+    MemFreeINTELPointer = ExtensionStatusEnabled;
+  }
 #endif  // INTEL_CUSTOMIZATION
 
   return CL_SUCCESS;
@@ -984,6 +1007,27 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   DeviceInfo.QueuesOOO[device_id] = nullptr;
 
   DeviceInfo.Extensions[device_id].getExtensionsInfoForDevice(device_id);
+
+#if INTEL_CUSTOMIZATION
+  // Find extension function pointers
+  auto &ext = DeviceInfo.Extensions[device_id];
+  if (ext.HostMemAllocINTELPointer == ExtensionStatusEnabled) {
+    DeviceInfo.clHostMemAllocINTELFn =
+        reinterpret_cast<clHostMemAllocINTELTy>(
+        clGetExtensionFunctionAddressForPlatform(DeviceInfo.platformID,
+        "clHostMemAllocINTEL"));
+    if (DeviceInfo.clHostMemAllocINTELFn)
+      DP("Extension clHostMemAllocINTEL enabled.\n");
+  }
+  if (ext.MemFreeINTELPointer == ExtensionStatusEnabled) {
+    DeviceInfo.clMemFreeINTELFn =
+        reinterpret_cast<clMemFreeINTELTy>(
+        clGetExtensionFunctionAddressForPlatform(DeviceInfo.platformID,
+        "clMemFreeINTEL"));
+    if (DeviceInfo.clMemFreeINTELFn)
+      DP("Extension clMemFreeINTEL enabled.\n");
+  }
+#endif // INTEL_CUSTOMIZATION
 
   OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
                 DeviceInfo.Names[device_id].data(),
@@ -1513,6 +1557,40 @@ EXTERN int32_t __tgt_rtl_release_offload_pipe(int32_t device_id, void *pipe) {
   }
   return OFFLOAD_SUCCESS;
 }
+
+#if INTEL_CUSTOMIZATION
+// Allocate a managed memory object.
+EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
+  if (!DeviceInfo.clHostMemAllocINTELFn) {
+    DP("clHostMemAllocINTEL is not available\n");
+    return nullptr;
+  }
+  cl_mem_properties_intel properties[] = {
+      CL_MEM_ALLOC_FLAGS_INTEL, CL_MEM_ALLOC_DEFAULT_INTEL, 0};
+  cl_int rc;
+  void *mem = DeviceInfo.clHostMemAllocINTELFn(
+      DeviceInfo.CTX[device_id], properties, size, 0, &rc);
+  if (rc != CL_SUCCESS) {
+    DP("clHostMemAllocINTEL failed with error code %d, %s\n", rc,
+       getCLErrorName(rc));
+    return nullptr;
+  }
+  DP("Allocated a managed memory object " DPxMOD "\n", DPxPTR(mem));
+  return mem;
+}
+
+// Delete a managed memory object.
+EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t device_id, void *ptr) {
+  if (!DeviceInfo.clMemFreeINTELFn) {
+    DP("clMemFreeINTEL is not available\n");
+    return OFFLOAD_FAIL;
+  }
+  INVOKE_CL_RET_FAIL(DeviceInfo.clMemFreeINTELFn, DeviceInfo.CTX[device_id],
+                     ptr);
+  DP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(ptr));
+  return OFFLOAD_SUCCESS;
+}
+#endif // INTEL_CUSTOMIZATION
 
 static inline
 void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
