@@ -2096,6 +2096,7 @@ static void writeDITemplateTypeParameter(raw_ostream &Out,
   MDFieldPrinter Printer(Out, TypePrinter, Machine, Context);
   Printer.printString("name", N->getName());
   Printer.printMetadata("type", N->getRawType(), /* ShouldSkipNull */ false);
+  Printer.printBool("defaulted", N->isDefault(), /* Default= */ false);
   Out << ")";
 }
 
@@ -2110,6 +2111,7 @@ static void writeDITemplateValueParameter(raw_ostream &Out,
     Printer.printTag(N);
   Printer.printString("name", N->getName());
   Printer.printMetadata("type", N->getRawType());
+  Printer.printBool("defaulted", N->isDefault(), /* Default= */ false);
   Printer.printMetadata("value", N->getValue(), /* ShouldSkipNull */ false);
   Out << ")";
 }
