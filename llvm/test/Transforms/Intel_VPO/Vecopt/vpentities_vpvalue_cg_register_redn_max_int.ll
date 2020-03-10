@@ -17,9 +17,9 @@
 ; <0>    END REGION
 
 ; Fully VPValue-based HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 ; Mixed HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-use-entity-instr -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; CHECK-HIR: Function: foo_int
 ; CHECK-HIR: if (0 <u 4 * [[UB:%.*]])
@@ -32,7 +32,7 @@
 
 
 ; Fully VPValue-based LLVM-IR codegen
-; RUN: opt -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4 -vplan-use-entity-instr -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
+; RUN: opt -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
 
 ; CHECK-LLVMIR-LABEL: @foo_int
 ; CHECK-LLVMIR-LABEL: vector.body:

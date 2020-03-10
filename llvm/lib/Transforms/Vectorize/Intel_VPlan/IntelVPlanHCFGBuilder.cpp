@@ -2156,8 +2156,7 @@ VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   std::unique_ptr<VPRegionBlock> TopRegion = PCFGBuilder.buildPlainCFG();
   // Converting loop enities.
-  if (LoopEntityImportEnabled)
-    PCFGBuilder.convertEntityDescriptors(Legal, Cvts);
+  PCFGBuilder.convertEntityDescriptors(Legal, Cvts);
   return TopRegion;
 }
 

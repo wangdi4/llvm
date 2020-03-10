@@ -1378,8 +1378,7 @@ VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
   PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop,
                                  HIRLegality);
   std::unique_ptr<VPRegionBlock> TopRegion = PCFGBuilder.buildPlainCFG();
-  if (LoopEntityImportEnabled)
-    PCFGBuilder.convertEntityDescriptors(HIRLegality, CvtVec);
+  PCFGBuilder.convertEntityDescriptors(HIRLegality, CvtVec);
   return TopRegion;
 }
 
