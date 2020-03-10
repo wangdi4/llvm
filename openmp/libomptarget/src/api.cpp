@@ -59,7 +59,7 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
 
   DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
-  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
     rc = Device.data_alloc_managed(size);
     DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
     return rc;
@@ -94,7 +94,7 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
 
   DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
-  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
     Device.data_delete_managed(device_ptr);
     DP("omp_target_free deallocated managed ptr\n");
     return;
