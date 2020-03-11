@@ -332,17 +332,10 @@ public:
   /// Provides additional information to the underlying runtime about how
   /// different allocations are used.
   ///
-<<<<<<< HEAD
-  /// @param Ptr is a USM pointer to the allocation.
-  /// @param Length is a number of bytes in the allocation.
-  /// @param Advice is a device-defined advice for the specified allocation.
-  event mem_advise(const void *Ptr, size_t Length, pi_mem_advice Advice);
-=======
   /// \param Ptr is a USM pointer to the allocation.
   /// \param Length is a number of bytes in the allocation.
   /// \param Advice is a device-defined advice for the specified allocation.
-  event mem_advise(const void *Ptr, size_t Length, int Advice);
->>>>>>> 9134bfa7f96fe643dc17165d046724873d48b1a1
+  event mem_advise(const void *Ptr, size_t Length, pi_mem_advice Advice);
 
   /// Puts exception to the list of asynchronous ecxeptions.
   ///
