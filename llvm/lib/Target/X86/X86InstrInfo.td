@@ -966,6 +966,11 @@ def HasFP16      : Predicate<"Subtarget->hasFP16()">;
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
 def HasDOTPROD   : Predicate<"Subtarget->hasDOTPROD()">;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+def HasAVXDOTPROD   : Predicate<"Subtarget->hasAVXDOTPROD()">;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 def HasCONVERT   : Predicate<"Subtarget->hasCONVERT()">;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
