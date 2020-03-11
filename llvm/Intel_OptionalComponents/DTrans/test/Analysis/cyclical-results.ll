@@ -50,7 +50,7 @@
 
 ; Verify the type alias information is printed for the input
 ; parameters.
-; CHECK: Input Parameters:
+; CHECK-LABEL: Input Parameters: test01
 ; CHECK:     Arg 0: %struct.test01.a* %a_in
 ; CHECK:     LocalPointerInfo:
 ; CHECK:       Aliased types:
@@ -189,7 +189,7 @@ exit:
 %struct.test02.a = type { i32, i32 };
 %struct.test02.b = type { i32, i32 };
 
-; CHECK: Input Parameters:
+; CHECK-LABEL: Input Parameters: test02
 ; CHECK:    Arg 0: %struct.test02.a* %pa
 ; CHECK:    LocalPointerInfo:
 ; CHECK:      Aliased types:

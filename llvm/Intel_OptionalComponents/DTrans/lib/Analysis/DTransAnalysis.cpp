@@ -6972,7 +6972,7 @@ public:
         if (F->isDeclaration())
           return;
 
-        OS << ";  Input Parameters:\n";
+        OS << ";  Input Parameters: " << F->getName() << "\n";
         for (auto &Arg : F->args())
           if (Arg.getType()->isPointerTy()) {
             OS << ";    Arg " << Arg.getArgNo() << ": " << Arg;
