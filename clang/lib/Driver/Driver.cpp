@@ -4593,7 +4593,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
           continue;
         }
 #endif // INTEL_CUSTOMIZATION
-        UnbundlerInputs.push_back(LI);
       }
       UnbundlerInputs.push_back(LI);
     }
