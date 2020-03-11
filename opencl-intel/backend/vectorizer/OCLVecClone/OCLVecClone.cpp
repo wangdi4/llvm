@@ -47,6 +47,8 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
 
+#include <string>
+
 #define DEBUG_TYPE "OCLVecClone"
 #define SV_NAME "ocl-vecclone"
 #define SV_NAME1 "ocl-reqd-sub-group-size"
@@ -382,11 +384,19 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     if (Call->hasFnAttr("vector-variants"))
       Variants = std::string(Call->getFnAttr("vector-variants").getValueAsString());
 
+    // Indicates the call must have mask arg.
+    bool HasMask = true;
+    // Indicates the call must not mask arg.
+    bool NotHasMask = true;
     for (auto &Variant : MatchingVariants) {
       if (!Variants.empty())
         Variants += ',';
 
       Variants +=  Variant.second.toString();
+      if (Variant.second.isMasked())
+        NotHasMask = false;
+      else
+        HasMask = false;
     }
 
     AttributeList AL = Call->getAttributes();
@@ -397,7 +407,14 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     // are essentially "kernel-call-once" functions.
     AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
                          CompilationUtils::ATTR_KERNEL_CALL_ONCE);
-
+    if (HasMask)
+      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
+                           CompilationUtils::ATTR_HAS_VPLAN_MASK);
+    else if (!NotHasMask) {
+      unsigned ParamsNum = Call->arg_size();
+      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
+                           "call-params-num", std::to_string(ParamsNum));
+    }
     Call->setAttributes(AL);
   }
 }

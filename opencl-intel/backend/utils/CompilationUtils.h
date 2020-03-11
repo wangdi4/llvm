@@ -432,6 +432,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string ATTR_KERNEL_UNIFORM_CALL;
     static const std::string ATTR_KERNEL_CONVERGENT_CALL;
 
+    // Builtin call attribute used to indicate the call may
+    // have a vplan style mask.
+    static const std::string ATTR_HAS_VPLAN_MASK;
+
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function mem_fence
     //////////////////////////////////////////////////////////////////

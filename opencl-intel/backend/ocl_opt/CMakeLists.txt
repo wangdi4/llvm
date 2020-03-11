@@ -20,6 +20,7 @@ set(OCL_BE_PASSES
     DebugInfoPass
     DetectRecursion
     GenericAddressResolution
+    HandleVPlanMask
     ImplicitArgsAnalysis
     InfiniteLoopCreator
     InstToFuncCall

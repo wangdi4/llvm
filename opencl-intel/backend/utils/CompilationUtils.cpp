@@ -43,6 +43,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::ATTR_KERNEL_UNIFORM_CALL = "kernel-uniform-call";
   const std::string CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL = "kernel-convergent-call";
 
+  const std::string CompilationUtils::ATTR_HAS_VPLAN_MASK = "has-vplan-mask";
+
   const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
   const std::string CompilationUtils::NAME_GET_LID = "get_local_id";
