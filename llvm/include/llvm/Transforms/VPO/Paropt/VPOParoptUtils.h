@@ -810,13 +810,14 @@ public:
 
   /// Emit and return a call to `data_size =_f90_dope_vector_size(DV)`, which
   /// returns the size of the array (in bytes) described by the dope vector.
-  static CallInst *genF90DVSizeCall(Value * DV, Instruction * InsertBefore);
+  static CallInst *genF90DVSizeCall(Value *DV, Instruction *InsertBefore);
 
   /// Emit and return a call to `data_size = _f90_dope_vector_init(OrigDV,
   /// NewDV)`, which initializes NewDV using OrigDV, and returns the size of the
   /// array (in bytes) described by the dope vectors.
   static CallInst *genF90DVInitCall(Value *OrigDV, Value *NewDV,
-                                    Instruction *InsertBefore);
+                                    Instruction *InsertBefore,
+                                    bool IsTargetSPIRV = false);
 
   /// Emit code to initialize the local copy of \p I, where \p I is an F90 dope
   /// vector. The code looks like: \code
@@ -826,8 +827,10 @@ public:
   ///   %num_elements = udiv %size, <element_size> ; Only for reduction items
   /// \endcode
   /// The emitted code is inserted after the alloca NewV, which is the local
-  /// dope vector corresponding to \p I, and OrigV is the original.
-  static void genF90DVInitCode(Item *I);
+  /// dope vector corresponding to \p I, and OrigV is the original. If NewV is
+  /// a global variable, then the code is inserted before \p InsertPt.
+  static void genF90DVInitCode(Item *I, Instruction *InsertPt,
+                               bool IsTargetSPIRV = false);
 
   /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
   /// privates thunk. This is done after the `__kmpc_task_alloc` call, but
@@ -840,16 +843,19 @@ public:
   /// Emit a call to `_f90_firstprivate_copy(NewV, OrigV)`. The
   /// call is inserted before \p InsertBefore.
   static void genF90DVFirstprivateCopyCall(Value *NewV, Value *OrigV,
-                                           Instruction *InsertBefore);
+                                           Instruction *InsertBefore,
+                                           bool IsTargetSPIRV = false);
+
   /// Emit a call to `_f90_lastprivate_copy(NewV, OrigV)`. The
   /// call is inserted before \p InsertBefore.
   static void genF90DVLastprivateCopyCall(Value *NewV, Value *OrigV,
-                                          Instruction *InsertBefore);
+                                          Instruction *InsertBefore,
+                                          bool IsTargetSPIRV = false);
 
 private:
-  static void genF90DVFirstOrLastprivateCopyCallImpl(StringRef FnName,
-                                                     Value *NewV, Value *OrigV,
-                                                     Instruction *InsertBefore);
+  static void genF90DVFirstOrLastprivateCopyCallImpl(
+      StringRef FnName, Value *NewV, Value *OrigV, Instruction *InsertBefore,
+      bool IsTargetSPIRV = false);
 
 public:
   /// Compute the destination address, number of elements and element type for

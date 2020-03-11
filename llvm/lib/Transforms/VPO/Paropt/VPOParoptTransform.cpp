@@ -2640,7 +2640,8 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   if (FprivI->getIsF90DopeVector()) {
     if (FprivI->getIsByRef())
       OldV = new LoadInst(OldV, "", InsertPt);
-    VPOParoptUtils::genF90DVFirstprivateCopyCall(NewV, OldV, InsertPt);
+    VPOParoptUtils::genF90DVFirstprivateCopyCall(NewV, OldV, InsertPt,
+                                                 isTargetSPIRV());
     return;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2685,7 +2686,8 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
 
 #if INTEL_CUSTOMIZATION
   if (LprivI->getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt);
+    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt,
+                                                isTargetSPIRV());
     return;
   }
 
@@ -3240,7 +3242,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
       if (RedI->getIsF90DopeVector())
-        VPOParoptUtils::genF90DVInitCode(RedI);
+        VPOParoptUtils::genF90DVInitCode(RedI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
 
       createEmptyPrvInitBB(W, RedInitEntryBB);
@@ -4120,7 +4122,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && FprivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(FprivI);
+          VPOParoptUtils::genF90DVInitCode(FprivI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
       } else if (!ForTask) { // && LprivI
         // Lastprivate codegen has replaced the original var with the
@@ -4267,7 +4269,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && LprivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(LprivI);
+          VPOParoptUtils::genF90DVInitCode(LprivI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
 
       // Emit constructor call for lastprivate var if it is not also a
@@ -5218,7 +5220,9 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
     return llvm::None;
 
 #if INTEL_CUSTOMIZATION
-  if (I->getIsWILocal())
+  if (I->getIsWILocal() || I->getIsF90DopeVector())
+    // FIXME: Remove the check for F90 DV, when we have a way to privatize them
+    // at module level/using maps.
     return vpo::ADDRESS_SPACE_PRIVATE;
 #endif  // INTEL_CUSTOMIZATION
 
@@ -5307,7 +5311,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
                                            NewPrivInst);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && PrivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(PrivI);
+          VPOParoptUtils::genF90DVInitCode(PrivI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
         if (ForTask && PrivI->getDestructor()) {
           // For tasks, call the destructor at the end of the region.
