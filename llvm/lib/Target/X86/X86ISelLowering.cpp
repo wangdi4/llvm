@@ -41645,6 +41645,34 @@ static SDValue combineMul(SDNode *N, SelectionDAG &DAG,
   if (DCI.isBeforeLegalize() && VT.isVector())
     if (SDValue V = combineMulToPCMPGTW(N, DAG, Subtarget))
       return V;
+
+  // Strength reduce a vXi32/vXi64 multipy by 2^N -/+ 1 to (add/sub (shl)).
+  // from Haswell on. vXi64 has to be emulated prior to avx512 and even then its
+  // 3 uops.
+  if (VT.isVector() &&
+      ((VT.getVectorElementType() == MVT::i32 && Subtarget.hasAVX2()) ||
+        VT.getVectorElementType() == MVT::i64) &&
+      DAG.getTarget().Options.IntelAdvancedOptim) {
+    if (auto *N1BV = dyn_cast<BuildVectorSDNode>(N->getOperand(1))) {
+      if (auto *N1SplatC = N1BV->getConstantSplatNode()) {
+        uint64_t C = N1SplatC->getZExtValue();
+        // (mul x, 2^N + 1) => (add (shl x, N), x)
+        if (isPowerOf2_64(C - 1)) {
+          SDLoc DL(N);
+          SDValue Shl = DAG.getNode(ISD::SHL, DL, VT, N->getOperand(0),
+                                    DAG.getConstant(Log2_64(C - 1), DL, VT));
+          return DAG.getNode(ISD::ADD, DL, VT, Shl, N->getOperand(0));
+        }
+        // (mul x, 2^N - 1) => (sub (shl x, N), x)
+        if (isPowerOf2_64(C + 1)) {
+          SDLoc DL(N);
+          SDValue Shl = DAG.getNode(ISD::SHL, DL, VT, N->getOperand(0),
+                                    DAG.getConstant(Log2_64(C + 1), DL, VT));
+          return DAG.getNode(ISD::SUB, DL, VT, Shl, N->getOperand(0));
+        }
+      }
+    }
+  }
 #endif
 
   if (DCI.isBeforeLegalize() && VT.isVector())
