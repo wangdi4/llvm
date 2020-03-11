@@ -1879,6 +1879,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_taskwait:
   case OMPD_taskgroup:
   case OMPD_flush:
+  case OMPD_depobj:
   case OMPD_for:
   case OMPD_for_simd:
   case OMPD_sections:
@@ -2179,6 +2180,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     break;
   }
   case OMPD_flush:
+  case OMPD_depobj:
   case OMPD_taskyield:
   case OMPD_barrier:
   case OMPD_taskwait:
@@ -2241,10 +2243,13 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_target_teams_distribute_simd: {
-    // Special processing for flush clause.
-    Token FlushTok;
-    if (DKind == OMPD_flush)
-      FlushTok = Tok;
+    // Special processing for flush and depobj clauses.
+    Token ImplicitTok;
+    bool ImplicitClauseAllowed = false;
+    if (DKind == OMPD_flush || DKind == OMPD_depobj) {
+      ImplicitTok = Tok;
+      ImplicitClauseAllowed = true;
+    }
     ConsumeToken();
     // Parse directive name of the 'critical' directive if any.
     if (DKind == OMPD_critical) {
@@ -2274,22 +2279,32 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     Actions.StartOpenMPDSABlock(DKind, DirName, Actions.getCurScope(), Loc);
 
     while (Tok.isNot(tok::annot_pragma_openmp_end)) {
-      bool FlushHasClause = false;
-      if (DKind == OMPD_flush && Tok.is(tok::l_paren)) {
-        FlushHasClause = true;
+      bool HasImplicitClause = false;
+      if (ImplicitClauseAllowed && Tok.is(tok::l_paren)) {
+        HasImplicitClause = true;
         // Push copy of the current token back to stream to properly parse
-        // pseudo-clause OMPFlushClause.
+        // pseudo-clause OMPFlushClause or OMPDepobjClause.
         PP.EnterToken(Tok, /*IsReinject*/ true);
-        PP.EnterToken(FlushTok, /*IsReinject*/ true);
+        PP.EnterToken(ImplicitTok, /*IsReinject*/ true);
         ConsumeAnyToken();
       }
-      OpenMPClauseKind CKind =
-          Tok.isAnnotation()
-              ? OMPC_unknown
-              : FlushHasClause ? OMPC_flush
-                               : getOpenMPClauseKind(PP.getSpelling(Tok));
+      OpenMPClauseKind CKind = Tok.isAnnotation()
+                                   ? OMPC_unknown
+                                   : getOpenMPClauseKind(PP.getSpelling(Tok));
+      if (HasImplicitClause) {
+        assert(CKind == OMPC_unknown && "Must be unknown implicit clause.");
+        if (DKind == OMPD_flush) {
+          CKind = OMPC_flush;
+        } else {
+          assert(DKind == OMPD_depobj &&
+                 "Expected flush or depobj directives.");
+          CKind = OMPC_depobj;
+        }
+      }
+      // No more implicit clauses allowed.
+      ImplicitClauseAllowed = false;
       Actions.StartOpenMPClause(CKind);
-      FlushHasClause = false;
+      HasImplicitClause = false;
       OMPClause *Clause =
           ParseOpenMPClause(DKind, CKind, !FirstClauses[CKind].getInt());
       FirstClauses[CKind].setInt(true);
@@ -2456,12 +2471,17 @@ bool Parser::ParseOpenMPSimpleVarList(
 ///       nogroup-clause | num_tasks-clause | hint-clause | to-clause |
 ///       from-clause | is_device_ptr-clause | task_reduction-clause |
 ///       in_reduction-clause | allocator-clause | allocate-clause |
+<<<<<<< HEAD
 ///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///       | dataflow-clause
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause |
+///       depobj-clause
+>>>>>>> c112e941a0c5d3b3423272c3f0024cdf6b50e44e
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
@@ -2492,12 +2512,16 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_num_tasks:
   case OMPC_hint:
   case OMPC_allocator:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_depobj:
+>>>>>>> c112e941a0c5d3b3423272c3f0024cdf6b50e44e
     // OpenMP [2.5, Restrictions]
     //  At most one num_threads clause can appear on the directive.
     // OpenMP [2.8.1, simd construct, Restrictions]

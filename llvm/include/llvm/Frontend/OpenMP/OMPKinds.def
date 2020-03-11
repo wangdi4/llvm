@@ -91,6 +91,7 @@ __OMP_DIRECTIVE_EXT(parallel_master_taskloop, "parallel master taskloop")
 __OMP_DIRECTIVE_EXT(master_taskloop_simd, "master taskloop simd")
 __OMP_DIRECTIVE_EXT(parallel_master_taskloop_simd,
                     "parallel master taskloop simd")
+__OMP_DIRECTIVE(depobj)
 
 #if INTEL_COLLAB
 __OMP_DIRECTIVE_EXT(target_variant_dispatch, "target variant dispatch")
@@ -134,7 +135,7 @@ __OMP_TYPE(Int32Ptr)
 #define OMP_ARRAY_TYPE(VarName, ElemTy, ArraySize)
 #endif
 
-#define __OMP_ARRAY_TYPE(VarName, ElemTy, ArraySize) 						  \
+#define __OMP_ARRAY_TYPE(VarName, ElemTy, ArraySize)                           \
   OMP_ARRAY_TYPE(VarName, ElemTy, ArraySize)
 
 __OMP_ARRAY_TYPE(KmpCriticalName, Int32, 8)
