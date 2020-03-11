@@ -32,7 +32,7 @@ entry:
   %arrayidx = getelementptr inbounds i32, i32* %1, i64 0, !dbg !16
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(i32* %0, i32* %arrayidx, i64 80), "QUAL.OMP.PRIVATE"(i32** %p.map.ptr.tmp) ], !dbg !15
 
-; CHECK: call void @__tgt_push_code_location([18 x i8]* [[SRC_STR]], i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
+; CHECK: call void @__tgt_push_code_location(i8* getelementptr inbounds ([18 x i8], [18 x i8]* [[SRC_STR]], i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
 ; CHECK: call i32 @__tgt_target({{.*}})
 
   store i32* %0, i32** %p.map.ptr.tmp, align 8, !dbg !15
