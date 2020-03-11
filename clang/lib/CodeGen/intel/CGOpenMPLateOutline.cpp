@@ -1457,13 +1457,19 @@ void OpenMPLateOutliner::buildMapQualifier(
     CSB.add("RELEASE");
     break;
   }
+  bool IsFirstModifier = true;
   for (auto MD : Modifiers) {
+    if (IsFirstModifier)
+      CSB.add(":");
+    else
+      CSB.add(".");
+    IsFirstModifier = false;
     switch (MD) {
       case OMPC_MAP_MODIFIER_always:
-        CSB.add(":ALWAYS");
+        CSB.add("ALWAYS");
         break;
       case OMPC_MAP_MODIFIER_close:
-        CSB.add(":CLOSE");
+        CSB.add("CLOSE");
         break;
       case OMPC_MAP_MODIFIER_unknown:
         break;
