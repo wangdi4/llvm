@@ -2129,7 +2129,7 @@ pi_result cuda_piKernelGetGroupInfo(pi_kernel kernel, pi_device device,
   if (kernel != nullptr) {
 
     switch (param_name) {
-    case PI_KERNEL_GROUP_INFO_SIZE: {
+    case PI_KERNEL_GROUP_INFO_WORK_GROUP_SIZE: {
       int max_threads = 0;
       cl::sycl::detail::pi::assertion(cuFuncGetAttribute(&max_threads,
                                        CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK,
@@ -2137,7 +2137,7 @@ pi_result cuda_piKernelGetGroupInfo(pi_kernel kernel, pi_device device,
       return getInfo(param_value_size, param_value, param_value_size_ret,
                      size_t(max_threads));
     }
-    case PI_KERNEL_COMPILE_GROUP_INFO_SIZE: {
+    case PI_KERNEL_GROUP_INFO_COMPILE_WORK_GROUP_SIZE: {
       // Returns the work-group size specified in the kernel source or IL.
       // If the work-group size is not specified in the kernel source or IL,
       // (0, 0, 0) is returned.
@@ -2148,7 +2148,7 @@ pi_result cuda_piKernelGetGroupInfo(pi_kernel kernel, pi_device device,
       return getInfoArray(3, param_value_size, param_value,
                           param_value_size_ret, group_size);
     }
-    case PI_KERNEL_LOCAL_MEM_SIZE: {
+    case PI_KERNEL_GROUP_INFO_LOCAL_MEM_SIZE: {
       // OpenCL LOCAL == CUDA SHARED
       int bytes = 0;
       cl::sycl::detail::pi::assertion(cuFuncGetAttribute(&bytes,
@@ -2157,7 +2157,7 @@ pi_result cuda_piKernelGetGroupInfo(pi_kernel kernel, pi_device device,
       return getInfo(param_value_size, param_value, param_value_size_ret,
                      pi_uint64(bytes));
     }
-    case PI_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: {
+    case PI_KERNEL_GROUP_INFO_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: {
       // Work groups should be multiples of the warp size
       int warpSize = 0;
       cl::sycl::detail::pi::assertion(
@@ -2166,7 +2166,7 @@ pi_result cuda_piKernelGetGroupInfo(pi_kernel kernel, pi_device device,
       return getInfo(param_value_size, param_value, param_value_size_ret,
                      static_cast<size_t>(warpSize));
     }
-    case PI_KERNEL_PRIVATE_MEM_SIZE: {
+    case PI_KERNEL_GROUP_INFO_PRIVATE_MEM_SIZE: {
       // OpenCL PRIVATE == CUDA LOCAL
       int bytes = 0;
       cl::sycl::detail::pi::assertion(
