@@ -4581,7 +4581,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
             IA->getInputArg().getOption().hasFlag(options::LinkerInput))
           // Pass the Input along to linker only.
           continue;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         // Modify any of the performance library placeholders to be full
         // blown libraries with locations.
@@ -4595,8 +4594,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         }
 #endif // INTEL_CUSTOMIZATION
         UnbundlerInputs.push_back(LI);
-=======
->>>>>>> 1a951cb7ae8e79b84abf50427bfbd3e7967e22c3
       }
       UnbundlerInputs.push_back(LI);
     }
