@@ -1758,7 +1758,10 @@ private: // INTEL
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                              bool isSigned, bool ControlsExit,
-                             bool AllowPredicates = false);
+#if INTEL_CUSTOMIZATION
+                             bool AllowPredicates = false,
+                             bool IVMaxValIsUB = false);
+#endif // INTEL_CUSTOMIZATION
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
@@ -1974,7 +1977,9 @@ private: // INTEL
   /// assert these preconditions so please be careful.
   const SCEV *computeMaxBECountForLT(const SCEV *Start, const SCEV *Stride,
                                      const SCEV *End, unsigned BitWidth,
-                                     bool IsSigned);
+#if INTEL_CUSTOMIZATION
+                                     bool IsSigned, bool IVMaxValIsUB = false);
+#endif // INTEL_CUSTOMIZATION
 
   /// Verify if an linear IV with positive stride can overflow when in a
   /// less-than comparison, knowing the invariant term of the comparison,
