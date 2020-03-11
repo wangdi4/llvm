@@ -5652,13 +5652,8 @@ InputInfo Driver::BuildJobsForActionNoCache(
     // from a regular unbundle, so just create and return the name of the
     // unbundled file.
     if (JA->getType() == types::TY_FPGA_Dependencies) {
-<<<<<<< HEAD
-      std::string TmpFileName = C.getDriver().GetTemporaryPath(
-            llvm::sys::path::stem(BaseInput), "d");
-=======
       std::string TmpFileName =
           C.getDriver().GetTemporaryPath(llvm::sys::path::stem(BaseInput), "d");
->>>>>>> 7b58b01775979f1ad13925903c42aea11346a85a
       const char *TmpFile =
           C.addTempFile(C.getArgs().MakeArgString(TmpFileName));
       Result = InputInfo(types::TY_FPGA_Dependencies, TmpFile, TmpFile);
