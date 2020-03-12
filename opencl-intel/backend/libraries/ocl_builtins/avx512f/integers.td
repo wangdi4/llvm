@@ -26,7 +26,7 @@ OclBuiltinImpl abs_diff_iavx512 = OclBuiltinImpl<abs_diff,
 /*****************************************************************\
  * mad_sat:                                                      *
  *   gentype mad_sat (gentype x , gentype y , gentype z)         *
- *   Returns min(max(x, y), z)                                   *
+ *   Returns x * y + z and saturates the result.                 *
 \*****************************************************************/
 // mad_sat native int16
 OclBuiltinImpl mad_sat_v16i32 = OclBuiltinImpl<mad_sat, [v16i32] , 0, [{
@@ -38,9 +38,9 @@ OclBuiltinImpl mad_sat_v16i32 = OclBuiltinImpl<mad_sat, [v16i32] , 0, [{
     reslo = reslo & as_$Arg0Type((long8)long_even_mask);
     $Arg0VarName = as_$Arg0Type(as_long8($Arg0VarName) >> 32);
     $Arg1VarName = as_$Arg0Type(as_long8($Arg1VarName) >> 32);
-    $Arg2VarName = as_$Arg0Type(as_long8($Arg2VarName) >> 32);
+    $Arg0Type hiz = as_$Arg0Type(_mm512_srli_epi64((__m512i)$Arg2VarName, 32));
     $Arg0Type reshi = as_$Arg0Type(_mm512_mul_epi32((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-    reshi = reshi + $Arg2VarName;
+    reshi = reshi + hiz;
     reshi = as_$Arg0Type(max(as_long8(reshi), (long)generic_min_int));
     reshi = as_$Arg0Type(min(as_long8(reshi), (long)generic_max_int));
     reshi = as_$Arg0Type(as_long8(reshi) << 32);
