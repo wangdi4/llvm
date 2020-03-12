@@ -196,10 +196,11 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
         !HasCloseModifier) {
 #if INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
+      DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
 #else // INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
-#endif // INTEL_COLLAB
       DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+#endif // INTEL_COLLAB
       IsHostPtr = true;
       rc = HstPtrBegin;
     } else {
