@@ -74,11 +74,12 @@
 // CHK-UBACTIONS: 0: input, "[[INPUT]]", object, (host-openmp)
 // CHK-UBACTIONS: 1: clang-offload-unbundler, {0}, object, (host-openmp)
 // CHK-UBACTIONS: 2: linker, {1}, image, (device-openmp)
-// CHK_UBACTIONS: 3: offload, "device-openmp (spir64)" {2}, image
-// CHK_UBACTIONS: 4: clang-offload-wrapper, {3}, ir, (host-openmp)
-// CHK_UBACTIONS: 5: backend, {4}, assembler, (host-openmp)
-// CHK_UBACTIONS: 6: assembler, {5}, object, (host-openmp)
-// CHK_UBACTIONS: 7: linker, {1, 6}, image, (host-openmp)
+// CHK-UBACTIONS: 3: llvm-spirv, {2}, image, (device-openmp)
+// CHK-UBACTIONS: 4: offload, "device-openmp (spir64)" {3}, image
+// CHK-UBACTIONS: 5: clang-offload-wrapper, {4}, ir, (host-openmp)
+// CHK-UBACTIONS: 6: backend, {5}, assembler, (host-openmp)
+// CHK-UBACTIONS: 7: assembler, {6}, object, (host-openmp)
+// CHK-UBACTIONS: 8: linker, {1, 7}, image, (host-openmp)
 
 /// ###########################################################################
 

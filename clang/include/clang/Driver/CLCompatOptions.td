@@ -47,6 +47,11 @@ class CLCompileJoinedOrSeparate<string name> : Option<["/", "-"], name,
 class CLRemainingArgsJoined<string name> : Option<["/", "-"], name,
   KIND_REMAINING_ARGS_JOINED>, Group<cl_Group>, Flags<[CLOption, DriverOption]>;
 
+#if INTEL_CUSTOMIZATION
+class CLCommaJoined<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
+  Group<cl_Group>, Flags<[CLOption, DriverOption]>;
+#endif // INTEL_CUSTOMIZATION
+
 // Aliases:
 // (We don't put any of these in cl_compile_Group as the options they alias are
 // already in the right group.)
@@ -166,6 +171,12 @@ def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
 def _SLASH_Qnextgen : CLFlag<"Qnextgen">, Alias<_intel>;
 def _SLASH_Qopenmp : CLFlag<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
+def _SLASH_Qopenmp_targets_EQ : CLCommaJoined<"Qopenmp-targets=">,
+  Alias<fopenmp_targets_EQ>;
+def _SLASH_Qopenmp_targets_COL : CLCommaJoined<"Qopenmp-targets:">,
+  Alias<fopenmp_targets_EQ>, HelpText<"Specify comma-separated list of triples"
+  " OpenMP offloading targets to be supported">;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
