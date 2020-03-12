@@ -418,6 +418,7 @@ public:
   std::vector<std::vector<char>> Names;
   std::vector<bool> Initialized;
   std::vector<cl_ulong> SLMSize;
+  std::vector<std::map<void *, int64_t>> ManagedData;
   std::mutex *Mutexes;
 
   // Requires flags
@@ -929,6 +930,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.Names.resize(DeviceInfo.numDevices);
   DeviceInfo.Initialized.resize(DeviceInfo.numDevices);
   DeviceInfo.SLMSize.resize(DeviceInfo.numDevices);
+  DeviceInfo.ManagedData.resize(DeviceInfo.numDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.numDevices];
 
   // get device specific information
@@ -1570,13 +1572,18 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
   cl_mem_properties_intel properties[] = {
       CL_MEM_ALLOC_FLAGS_INTEL, CL_MEM_ALLOC_DEFAULT_INTEL, 0};
   cl_int rc;
+  auto &mutex = DeviceInfo.Mutexes[device_id];
+  mutex.lock();
   void *mem = DeviceInfo.clHostMemAllocINTELFn(
       DeviceInfo.CTX[device_id], properties, size, 0, &rc);
   if (rc != CL_SUCCESS) {
     DP("clHostMemAllocINTEL failed with error code %d, %s\n", rc,
        getCLErrorName(rc));
+    mutex.unlock();
     return nullptr;
   }
+  DeviceInfo.ManagedData[device_id].emplace(std::make_pair(mem, size));
+  mutex.unlock();
   DP("Allocated a managed memory object " DPxMOD "\n", DPxPTR(mem));
   return mem;
 }
@@ -1587,12 +1594,34 @@ EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t device_id, void *ptr) {
     DP("clMemFreeINTEL is not available\n");
     return OFFLOAD_FAIL;
   }
+  auto &mutex = DeviceInfo.Mutexes[device_id];
+  mutex.lock();
   INVOKE_CL_RET_FAIL(DeviceInfo.clMemFreeINTELFn, DeviceInfo.CTX[device_id],
                      ptr);
+  DeviceInfo.ManagedData[device_id].erase(ptr);
+  mutex.unlock();
   DP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(ptr));
   return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
+
+// Check if the pointer belongs to a managed memory addres range.
+EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t device_id, void *ptr) {
+  int32_t ret = false;
+  auto &mutex = DeviceInfo.Mutexes[device_id];
+  mutex.lock();
+  for (auto &range : DeviceInfo.ManagedData[device_id]) {
+    intptr_t base = (intptr_t)range.first;
+    if (base <= (intptr_t)ptr && (intptr_t)ptr < base + range.second) {
+      ret = true;
+      break;
+    }
+  }
+  mutex.unlock();
+  DP("Ptr " DPxMOD " is %sa managed memory pointer.\n", DPxPTR(ptr),
+     ret ? "" : "not ");
+  return ret;
+}
 
 static inline
 void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,

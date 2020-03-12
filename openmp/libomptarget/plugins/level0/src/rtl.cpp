@@ -540,6 +540,21 @@ EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
+  ze_memory_allocation_properties_t properties = {
+    ZE_MEMORY_ALLOCATION_PROPERTIES_VERSION_CURRENT,
+    ZE_MEMORY_TYPE_UNKNOWN,
+    0
+  };
+  CALL_ZE_RET_ZERO(zeDriverGetMemAllocProperties, DeviceInfo.Driver, Ptr,
+                   &properties, nullptr /* associated device */);
+  int32_t ret = (properties.type == ZE_MEMORY_TYPE_HOST ||
+                 properties.type == ZE_MEMORY_TYPE_SHARED);
+  DP("Ptr " DPxMOD " is %sa managed memory pointer.\n", DPxPTR(Ptr),
+     ret ? "" : "not ");
+  return ret;
+}
+
 // Template for synchronous command execution.
 static int32_t executeCommand(ze_command_list_handle_t CmdList,
                               ze_command_queue_handle_t CmdQueue,
