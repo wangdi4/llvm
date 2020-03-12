@@ -5,6 +5,12 @@
 
 ; Test pointer type recovery on getelementptr instructions
 
+; Lines marked with CHECK-CUR are tests for the current form of IR.
+; Lines marked with CHECK-FUT are placeholders for check lines that will
+;   changed when the future opaque pointer form of IR is used.
+; Lines marked with CHECK should remain the same when changing to use opaque
+;   pointers.
+
 %struct.test01 = type { i64, %struct.test01* }
 
 define void @test01(%struct.test01* %in)  !dtrans_type !1 {
@@ -17,24 +23,34 @@ define void @test01(%struct.test01* %in)  !dtrans_type !1 {
   ret void
 }
 
-; TODO: Currently, only the framework exists for walking the elements to print,
-; so all pointers are reported as not having information. When the analysis is
-; implemented the real types and field accesses should be reported.
+; TODO: These currently report UNHANDLED because getelementptr analysis
+; is not implemented yet. This should go away after that analysis is
+; implemented.
 
+; CHECK-LABEL: Input Parameters: test01
+; CHECK-CUR: Arg 0: %struct.test01* %in
+; CHECK-FUT: Arg 0: p0 %in
+; CHECK:    LocalPointerInfo:
+; CHECK:      Aliased types:
+; CHECK-NEXT:   %struct.test01*
+; CHECK-NEXT: No element pointees.
 
-; CHECK: Input Parameters:
-; CHECK:  0: %struct.test01* %in
-; CHECK:        <NO PTR INFO AVAILABLE>
-; CHECK: void @test01(%struct.test01* %in) !dtrans_type !4 {
-; CHECK: %f0 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 0
-; CHECK:            <NO PTR INFO AVAILABLE>
+; CHECK-CUR: %f0 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 0
+; CHECK-FUT: %f0 = getelementptr %struct.test01, p0 %in, i64 0, i32 0
+; CHECK:    LocalPointerInfo:
+; CHECK-SAME: UNHANDLED
 
-; CHECK: %v0 = load i64, i64* %f0
-; CHECK: %f1 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 1
-; CHECK:            <NO PTR INFO AVAILABLE>
+; CHECK-CUR: %v0 = load i64, i64* %f0
+; CHECK-FUT: %v0 = load i64, p0 %f0
+; CHECK-CUR: %f1 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 1
+; CHECK-FUT: %f1 = getelementptr %struct.test01, p0 %in, i64 0, i32 1
+; CHECK:    LocalPointerInfo:
+; CHECK-SAME: UNHANDLED
 
-; CHECK: %v1 = load %struct.test01*, %struct.test01** %f1
-; CHECK:            <NO PTR INFO AVAILABLE>
+; CHECK-CUR: %v1 = load %struct.test01*, %struct.test01** %f1
+; CHECK-FUT: %v1 = load p0, p0 %f1
+; CHECK:    LocalPointerInfo:
+; CHECK-SAME: DEPENDS ON UNHANDLED
 
 
 !1 = !{!"F", i1 false, i32 1, !2, !3}  ; void (%struct.test01*)

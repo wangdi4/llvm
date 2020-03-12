@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return arr1[RetIdx];
 ;}
 
-; RUN: opt < %s -S -VPlanDriver -disable-output -vplan-dump-da -vplan-print-after-linearization 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -disable-output -vplan-dump-da -vplan-print-after-linearization %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 

@@ -2,8 +2,8 @@
 ; Test to check that DA initializes correct VectorShape for different types of IVs in loop.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -VPlanDriver -vplan-dump-da -S -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -S -disable-output 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-dump-da -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-driver" -vplan-dump-da -disable-output %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

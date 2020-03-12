@@ -1,7 +1,7 @@
 ; Test to check that DA propagates stride information for selects with external uniform conditions generating
 ; a strided VectorShape.
 
-; RUN: opt %s -VPlanDriver -vplan-dump-da -vplan-force-vf=2 -S -disable-output 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-dump-da -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 
