@@ -11869,6 +11869,9 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_order:
     C = new (Context) OMPOrderClause();
     break;
+  case OMPC_destroy:
+    C = new (Context) OMPDestroyClause();
+    break;
   }
   assert(C && "Unknown OMPClause type");
 
@@ -12013,6 +12016,8 @@ void OMPClauseReader::VisitOMPThreadsClause(OMPThreadsClause *) {}
 void OMPClauseReader::VisitOMPSIMDClause(OMPSIMDClause *) {}
 
 void OMPClauseReader::VisitOMPNogroupClause(OMPNogroupClause *) {}
+
+void OMPClauseReader::VisitOMPDestroyClause(OMPDestroyClause *) {}
 
 void OMPClauseReader::VisitOMPUnifiedAddressClause(OMPUnifiedAddressClause *) {}
 

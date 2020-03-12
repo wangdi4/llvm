@@ -5150,12 +5150,16 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_is_device_ptr:
       case OMPC_nontemporal:
       case OMPC_order:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
       case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+      case OMPC_destroy:
+>>>>>>> 375437ab92a879629cd6abef057428f3572514c2
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -11232,12 +11236,16 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_destroy:
+>>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12060,6 +12068,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+  case OMPC_destroy:
     llvm_unreachable("Unexpected OpenMP clause.");
   }
   return CaptureRegion;
@@ -12500,12 +12509,16 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_destroy:
+>>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12703,12 +12716,16 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_destroy:
+>>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12888,6 +12905,9 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_dynamic_allocators:
     Res = ActOnOpenMPDynamicAllocatorsClause(StartLoc, EndLoc);
     break;
+  case OMPC_destroy:
+    Res = ActOnOpenMPDestroyClause(StartLoc, EndLoc);
+    break;
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
@@ -13042,6 +13062,11 @@ OMPClause *Sema::ActOnOpenMPDynamicAllocatorsClause(SourceLocation StartLoc,
   return new (Context) OMPDynamicAllocatorsClause(StartLoc, EndLoc);
 }
 
+OMPClause *Sema::ActOnOpenMPDestroyClause(SourceLocation StartLoc,
+                                          SourceLocation EndLoc) {
+  return new (Context) OMPDestroyClause(StartLoc, EndLoc);
+}
+
 OMPClause *Sema::ActOnOpenMPVarListClause(
     OpenMPClauseKind Kind, ArrayRef<Expr *> VarList, Expr *TailExpr,
     const OMPVarListLocTy &Locs, SourceLocation ColonLoc,
@@ -13190,12 +13215,16 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_order:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_destroy:
+>>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
