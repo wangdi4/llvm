@@ -851,6 +851,12 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
     if (!FMAOpcodesInfo::recognizeOpcode(Opcode, LookForAVX512, VT, OpcodeKind,
                                          IsMem, MulSign, AddSign))
       continue;
+    // Sometimes the fast flags lost during the instruction lowering.
+    // Sometimes non fast fp instruction is inlined, so there is mixed
+    // instruction that have fast flags and non fast flags. We only
+    // optimize thoes that have fast flags declared.
+    if (!MI.isFast())
+      continue;
 
     std::array<FMANode *, 3u> Ops;
     FMATerm *MemTerm = IsMem ? createMemoryTerm(VT, &MI) : nullptr;
@@ -956,48 +962,9 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   if (!ST->hasFMA())
     return false;
 
-  // Compilation options must allow FP contraction and FP expression
-  // re-association.
-  const TargetOptions &Options = MF->getTarget().Options;
-  if (Options.AllowFPOpFusion != FPOpFusion::Fast || !Options.UnsafeFPMath)
-    return false;
-
   // Don't optimize StrictFP functions.
   if (MF->getFunction().hasFnAttribute(Attribute::StrictFP))
     return false;
-
-  // Even though the compilation switches allow the Global FMA optimization it
-  // still may be unsafe to do it as some of MUL/ADD/SUB/etc machine
-  // instructions could be generated for LLVM IR operations with unset
-  // 'fast-math' attributes. Such LLVM IR operations may be added to the
-  // currently compiled function by the inlining optimization controlled by
-  // -flto switch.
-  // The 'fast-math' attributes get lost after LLVM IR to MachineInstr
-  // translation. So, it is generally incorrect to do any unsafe algebra
-  // transformations at the MachineInstr IR level.
-  // FIXME: The ideal solution for this problem would be to have 'fast-math'
-  // attributes defined for individual MachineInstr operations.
-  // The currently used solution is rather temporary.
-  //
-  // Check the LLVM IR function. If there are some instructions in it with
-  // attributes not allowing unsafe algebra, then exit.
-  for (auto &I : instructions(MF->getFunction())) {
-    // isa<FPMathOperator>(&I) returns true for any operation having FP result.
-    // In particular, it returns true for FP loads, which never have
-    // the Fast-Math attributes set. Thus this opcode check is needed to
-    // avoid mess with FP loads and other FMA opt unrelated operations.
-    unsigned Opcode = I.getOpcode();
-    bool CheckedOp =
-        Opcode == Instruction::FAdd || Opcode == Instruction::FSub ||
-        Opcode == Instruction::FMul || Opcode == Instruction::FDiv ||
-        Opcode == Instruction::FRem || Opcode == Instruction::FCmp ||
-        Opcode == Instruction::Call;
-    if (CheckedOp && isa<FPMathOperator>(&I) && !I.hasAllowReassoc()) {
-      LLVM_DEBUG(FMADbg::dbgs()
-                     << "Exit because found mixed fast-math settings.\n");
-      return false;
-    }
-  }
 
   // The patterns storage initialization code is not cheap, so it is better
   // to call it only when FMA instructions have a chance to be generated.
