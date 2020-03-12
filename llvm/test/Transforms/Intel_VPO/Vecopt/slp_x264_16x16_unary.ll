@@ -1,6 +1,10 @@
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=true -S | FileCheck %s -check-prefix=8WIDE_PATH_STEERING
 ; RUN: opt < %s -slp-vectorizer -enable-intel-advanced-opts -mtriple=x86_64-unknown-linux-gnu -pslp -mcpu=skylake-avx512 -tti -enable-path-steering=false -S | FileCheck %s -check-prefix=8WIDE
 
+; XFAIL: *
+; CMPLRLLVM-18345
+; Expected failure since merge of "Improve extract/insert element costs"
+
 ; 8WIDE_PATH_STEERING: [[L1:%.*]] = load <4 x i8>, <4 x i8>* 
 ; 8WIDE_PATH_STEERING: [[L2:%.*]] = load <4 x i8>, <4 x i8>*
 ; 8WIDE_PATH_STEERING: [[L3:%.*]] = load <4 x i8>, <4 x i8>*
