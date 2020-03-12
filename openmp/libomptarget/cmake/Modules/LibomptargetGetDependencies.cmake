@@ -308,7 +308,8 @@ else()
     message(STATUS "Looking for Level0 library.")
 
     find_library(LIBOMPTARGET_DEP_LEVEL0_LIBRARIES
-      NAMES level_zero
+      NAMES
+        ze_loader
       PATHS
         ENV LIBOMPTARGET_LEVEL0_ROOT
         ENV LIBRARY_PATH
