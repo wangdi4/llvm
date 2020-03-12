@@ -326,20 +326,19 @@ static bool getPIE(const ArgList &Args, const ToolChain &TC) {
   return A->getOption().matches(options::OPT_pie);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void addIntelLibPaths(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // Add Intel specific library search locations
   // TODO: This is a rudimentary way to add the library search locations
-  if (ToolChain.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
+  if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
     // deploy
     CmdArgs.push_back(Args.MakeArgString("-L" +
-        ToolChain.getDriver().Dir + "/../compiler/lib/intel64_lin"));
+        TC.getDriver().Dir + "/../compiler/lib/intel64_lin"));
   } else {
     // deploy
     CmdArgs.push_back(Args.MakeArgString("-L" +
-        ToolChain.getDriver().Dir + "/../compiler/lib/ia32_lin"));
+        TC.getDriver().Dir + "/../compiler/lib/ia32_lin"));
   }
   // IA32ROOT
   const char * IA32Root = getenv("IA32ROOT");
@@ -380,7 +379,7 @@ static bool isStaticLinkState(ArgStringList &CmdArgs) {
 
 // Add IPP libraries
 static void addIPPLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is statically link
   bool linkStatic = true;
   if (const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ)) {
@@ -396,7 +395,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
     CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
-  ToolChain.AddIPPLibArgs(Args, CmdArgs, "-l");
+  TC.AddIPPLibArgs(Args, CmdArgs, "-l");
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   if (!curStaticLinkState && isStaticLinkState(CmdArgs))
@@ -405,7 +404,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
 
 // Add MKL libraries
 static void addMKLLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
   bool linkStatic = false;
 
@@ -418,7 +417,7 @@ static void addMKLLibs(ArgStringList &CmdArgs,
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   CmdArgs.push_back(Args.MakeArgString("--start-group"));
-  ToolChain.AddMKLLibArgs(Args, CmdArgs, "-l");
+  TC.AddMKLLibArgs(Args, CmdArgs, "-l");
   CmdArgs.push_back(Args.MakeArgString("--end-group"));
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
@@ -428,7 +427,7 @@ static void addMKLLibs(ArgStringList &CmdArgs,
 
 // Add TBB libraries
 static void addTBBLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
   bool linkStatic = false;
 
@@ -440,7 +439,7 @@ static void addTBBLibs(ArgStringList &CmdArgs,
     CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
-  ToolChain.AddTBBLibArgs(Args, CmdArgs, "-l");
+  TC.AddTBBLibArgs(Args, CmdArgs, "-l");
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   if (!curStaticLinkState && isStaticLinkState(CmdArgs))
@@ -449,7 +448,7 @@ static void addTBBLibs(ArgStringList &CmdArgs,
 
 // Add DAAL libraries
 static void addDAALLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
   bool linkStatic = false;
 
@@ -462,7 +461,7 @@ static void addDAALLibs(ArgStringList &CmdArgs,
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   CmdArgs.push_back(Args.MakeArgString("--start-group"));
-  ToolChain.AddDAALLibArgs(Args, CmdArgs, "-l");
+  TC.AddDAALLibArgs(Args, CmdArgs, "-l");
   CmdArgs.push_back(Args.MakeArgString("--end-group"));
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
@@ -472,15 +471,15 @@ static void addDAALLibs(ArgStringList &CmdArgs,
 
 // Add performance library search paths.
 static void addPerfLibPaths(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   if (Args.hasArg(options::OPT_ipp_EQ))
-    ToolChain.AddIPPLibPath(Args, CmdArgs, "-L");
+    TC.AddIPPLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_mkl_EQ))
-    ToolChain.AddMKLLibPath(Args, CmdArgs, "-L");
+    TC.AddMKLLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
-    ToolChain.AddTBBLibPath(Args, CmdArgs, "-L");
+    TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_daal_EQ))
-    ToolChain.AddDAALLibPath(Args, CmdArgs, "-L");
+    TC.AddDAALLibPath(Args, CmdArgs, "-L");
 }
 
 // Intel libraries are added in statically by default
@@ -504,11 +503,7 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
     CmdArgs.push_back("-Bdynamic");
 }
 #endif // INTEL_CUSTOMIZATION
-static bool getStaticPIE(const ArgList &Args,
-                         const toolchains::Linux &ToolChain) {
-=======
 static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
->>>>>>> 7e77cf473ac9d8f8b65db017d660892f1c8f4b75
   bool HasStaticPIE = Args.hasArg(options::OPT_static_pie);
   // -no-pie is an alias for -nopie. So, handling -nopie takes care of
   // -no-pie as well.
