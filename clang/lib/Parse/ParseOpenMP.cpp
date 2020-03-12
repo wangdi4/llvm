@@ -2471,17 +2471,13 @@ bool Parser::ParseOpenMPSimpleVarList(
 ///       nogroup-clause | num_tasks-clause | hint-clause | to-clause |
 ///       from-clause | is_device_ptr-clause | task_reduction-clause |
 ///       in_reduction-clause | allocator-clause | allocate-clause |
-<<<<<<< HEAD
-///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause
+///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause |
+///       depobj-clause
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///       | dataflow-clause
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause |
-///       depobj-clause
->>>>>>> c112e941a0c5d3b3423272c3f0024cdf6b50e44e
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
@@ -2512,16 +2508,13 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_num_tasks:
   case OMPC_hint:
   case OMPC_allocator:
-<<<<<<< HEAD
+  case OMPC_depobj:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_depobj:
->>>>>>> c112e941a0c5d3b3423272c3f0024cdf6b50e44e
     // OpenMP [2.5, Restrictions]
     //  At most one num_threads clause can appear on the directive.
     // OpenMP [2.8.1, simd construct, Restrictions]
