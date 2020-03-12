@@ -14,28 +14,42 @@ define dso_local i32 @main(fp128 %x) #0 personality i8* bitcast (i32 (...)* @__C
 ; CHECK-NEXT:    [[TMP:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[I:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[I3:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast fp128* [[TMP2]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP3]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP2]], align 16
 ; CHECK-NEXT:    store i32 0, i32* [[RETVAL]], align 4
 ; CHECK-NEXT:    store i32 1, i32* [[TMP]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[TMP]] to i8*
-; CHECK-NEXT:    invoke void @_CxxThrowException(i8* [[TMP3]], %eh.ThrowInfo* null)
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP]] to i8*
+; CHECK-NEXT:    invoke void @_CxxThrowException(i8* [[TMP4]], %eh.ThrowInfo* null)
 ; CHECK-NEXT:    to label [[UNREACHABLE:%.*]] unwind label [[CATCH_DISPATCH:%.*]]
 ; CHECK:       catch.dispatch:
-; CHECK-NEXT:    [[TMP4:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH1:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH1:%.*]]
 ; CHECK:       catch.dispatch1:
-; CHECK-NEXT:    [[TMP5:%.*]] = catchswitch within none [label %catch2] unwind to caller
+; CHECK-NEXT:    [[TMP6:%.*]] = catchswitch within none [label %catch2] unwind to caller
 ; CHECK:       catch2:
-; CHECK-NEXT:    [[TMP6:%.*]] = catchpad within [[TMP5]] [i32 0, i32* %i3]
+; CHECK-NEXT:    [[TMP7:%.*]] = catchpad within [[TMP6]] [i32 0, i32* %i3]
 ; CHECK-NEXT:    store i32 2, i32* [[RETVAL]], align 4
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast fp128* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP8]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP0]], fp128* [[TMP2]], fp128* [[TMP2]])
-; CHECK-NEXT:    [[TMP7:%.*]] = load fp128, fp128* [[TMP0]], align 16
-; CHECK-NEXT:    catchret from [[TMP6]] to label [[CATCHRET_DEST4:%.*]]
+; CHECK-NEXT:    [[TMP9:%.*]] = bitcast fp128* [[TMP2]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP9]])
+; CHECK-NEXT:    [[TMP10:%.*]] = load fp128, fp128* [[TMP0]], align 16
+; CHECK-NEXT:    [[TMP11:%.*]] = bitcast fp128* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP11]])
+; CHECK-NEXT:    catchret from [[TMP7]] to label [[CATCHRET_DEST4:%.*]]
 ; CHECK:       catch:
-; CHECK-NEXT:    [[TMP8:%.*]] = catchpad within [[TMP4]] [i32 0, i32* %i]
+; CHECK-NEXT:    [[TMP12:%.*]] = catchpad within [[TMP5]] [i32 0, i32* %i]
 ; CHECK-NEXT:    store i32 1, i32* [[RETVAL]], align 4
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP13]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP1]], fp128* [[TMP2]], fp128* [[TMP2]])
-; CHECK-NEXT:    [[TMP9:%.*]] = load fp128, fp128* [[TMP1]], align 16
-; CHECK-NEXT:    catchret from [[TMP8]] to label [[CATCHRET_DEST:%.*]]
+; CHECK-NEXT:    [[TMP14:%.*]] = bitcast fp128* [[TMP2]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP14]])
+; CHECK-NEXT:    [[TMP15:%.*]] = load fp128, fp128* [[TMP1]], align 16
+; CHECK-NEXT:    [[TMP16:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP16]])
+; CHECK-NEXT:    catchret from [[TMP12]] to label [[CATCHRET_DEST:%.*]]
 ; CHECK:       catchret.dest:
 ; CHECK-NEXT:    br label [[RETURN:%.*]]
 ; CHECK:       try.cont:
@@ -46,8 +60,8 @@ define dso_local i32 @main(fp128 %x) #0 personality i8* bitcast (i32 (...)* @__C
 ; CHECK-NEXT:    store i32 0, i32* [[RETVAL]], align 4
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[TMP10:%.*]] = load i32, i32* [[RETVAL]], align 4
-; CHECK-NEXT:    ret i32 [[TMP10]]
+; CHECK-NEXT:    [[TMP17:%.*]] = load i32, i32* [[RETVAL]], align 4
+; CHECK-NEXT:    ret i32 [[TMP17]]
 ; CHECK:       unreachable:
 ; CHECK-NEXT:    unreachable
 ;

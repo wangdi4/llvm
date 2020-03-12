@@ -15,8 +15,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/ScopedHashTable.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
@@ -55,12 +58,26 @@ private:
   using ScopedHTType = ScopedHashTable<Value *, Instruction *,
                                        DenseMapInfo<Value *>, AllocatorTy>;
   using ScopeType = ScopedHTType::ScopeTy;
+  struct SCCNode {
+    DenseSet<BasicBlock *> BBList;
+    bool HasLoop = false;
+    DenseSet<SCCNode *> Preds;
+    DenseSet<SCCNode *> Succs;
+  };
   ScopedHTType VNT;
   DenseMap<BasicBlock *, ScopeType *> ScopeMap;
   DenseMap<BasicBlock *, SmallVector<Instruction *, 4>> BBWorkList;
   MapVector<PHINode *, PHINode *> NewPHI2OldPHI;
   DenseMap<Value *, Instruction *> Value2Ptr;
-
+  // SCCList contains SCCs in Reverse-Topological-Order.
+  SmallVector<std::unique_ptr<SCCNode>, 4> SCCList;
+  DenseMap<BasicBlock *, SCCNode *> BB2SCC;
+  DenseMap<std::pair<BasicBlock *, Value *>, Instruction *> LastUse;
+  DenseSet<std::pair<SCCNode *, Value *>> IsLive;
+  DenseSet<std::pair<SCCNode *, Value *>> HasUse;
+  // We use SetVector instead of DenseSet since if we visit FP128PtrList
+  // out of order, testcases sometimes fail.
+  SetVector<Value *> FP128PtrList;
   void EnterScope(BasicBlock *BB);
   void ExitScope(BasicBlock *BB);
   void ExitScopeIfDone(DomTreeNode *Node,
@@ -80,6 +97,9 @@ private:
   bool expandIToFP(IRBuilder<> &Builder, Instruction *I);
   bool expandFPToI(IRBuilder<> &Builder, Instruction *I);
   bool expandFCmp(IRBuilder<> &Builder, Instruction *I);
+  bool isUsedOutsideLoops(Value *Val, SCCNode *CurSCC);
+  BasicBlock *calculateSafePoint(SCCNode *CurSCC);
+  void visitSCCAndCreateLE(SCCNode &CurSCC);
 };
 
 } // end anonymous namespace
@@ -115,6 +135,26 @@ static AllocaInst *CreateFP128AllocaInst(IRBuilder<> &Builder, BasicBlock *BB) {
   return AllocaRes;
 }
 
+static Instruction *CreateFP128LifetimeStart(IRBuilder<> &Builder,
+                                             Value *AllocaPtr, Function &F) {
+  LLVMContext &Ctx = Builder.getContext();
+  Module *M = F.getParent();
+  const DataLayout &DL = M->getDataLayout();
+  Type *FP128Ty = Type::getFP128Ty(Ctx);
+  ConstantInt *SizeVal64 = Builder.getInt64(DL.getTypeStoreSize(FP128Ty));
+  return Builder.CreateLifetimeStart(AllocaPtr, SizeVal64);
+}
+
+static Instruction *CreateFP128LifetimeEnd(IRBuilder<> &Builder,
+                                           Value *AllocaPtr, Function &F) {
+  LLVMContext &Ctx = Builder.getContext();
+  Module *M = F.getParent();
+  const DataLayout &DL = M->getDataLayout();
+  Type *FP128Ty = Type::getFP128Ty(Ctx);
+  ConstantInt *SizeVal64 = Builder.getInt64(DL.getTypeStoreSize(FP128Ty));
+  return Builder.CreateLifetimeEnd(AllocaPtr, SizeVal64);
+}
+
 static bool isUsedByFP128Libcall(Value *Val) {
   for (auto UI : Val->users()) {
     Instruction *I = cast<Instruction>(UI);
@@ -134,6 +174,16 @@ static bool isUsedByFP128Libcall(Value *Val) {
       return true;
     }
   }
+  return false;
+}
+
+// Check if Val is used by PHI.
+static bool isUsedbyPHI(Value *Val) {
+  for (auto *UI : Val->users()) {
+    if (isa<PHINode>(UI))
+      return true;
+  }
+
   return false;
 }
 
@@ -172,7 +222,6 @@ void Float128Expand::PostTransformFP128PHI() {
                                    MaybeAlign(AllocaForPhi->getAlignment()));
         NewPhi->replaceAllUsesWith(AllocaForPhi);
         NewPhi->eraseFromParent();
-
         break;
       }
       BasicBlock *IncomingBB = OldPhi->getIncomingBlock(i);
@@ -191,14 +240,77 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
   SmallVector<Value *, 3> Args;
 
   AllocaInst *AllocaDst = nullptr;
-  AllocaInst *AllocaOp0 = nullptr;
-  AllocaInst *AllocaOp1 = nullptr;
-
-
+  Value *VOp0 = nullptr;
+  Value *VOp1 = nullptr;
+  auto *CurSCC = BB2SCC[I->getParent()];
   // If the return is FP128, create an alloca and push it to the arg list.
   if (RetTy->isFP128Ty()) {
     AllocaDst = CreateFP128AllocaInst(Builder, I->getParent());
+    // As for LifetimeStart, normally, we will create LifetimeStart before
+    // Store. But if the a fp128 value is defined inside a loop and used outside
+    // the loop, we will hoist LifetimeStart outside the loop safely.
+    //
+    // Here are two examples:
+    // Example#1:
+    //     bb1
+    //    /   \
+    //   /     \
+    // bb2      bb3(PX's def)
+    //          / \
+    //         |   |
+    //          \ /
+    //           bb4
+    //            \
+    //             \
+    //              bb5(use PX)
+    //
+    // We will hoist LifetimeStart to bb1, since PX is defined in a loop
+    // and is used in bb5 which is outside the loop.
+    //
+    // Example#2:
+    //     bb1
+    //     /
+    //    /
+    //   bb2
+    //   / \
+    //  |   |
+    //   \ /
+    //   bb3
+    //     \
+    //      \
+    //       bb4(PX's def)
+    //       / \
+    //      |   |
+    //       \ /
+    //        bb5
+    //         \
+    //          \
+    //           bb6(use PX)
+    // We won't create LifetimeStart for PX since bb3 is in a loop
+    // Thus, we won't create PX's LifetimeEnd for PX.
+    bool HasCreatedLS = false;
+    if (CurSCC->HasLoop && isUsedOutsideLoops(I, CurSCC)) {
+      if (BasicBlock *TargetBB = calculateSafePoint(CurSCC)) {
+        Instruction *InsertPt =
+            TargetBB == &TargetBB->getParent()->getEntryBlock()
+                ? getFirstNonAllocaInTheEntryBlock(*TargetBB->getParent())
+                : &*TargetBB->getFirstInsertionPt();
+        IRBuilder<> NewBuilder(InsertPt);
+        CreateFP128LifetimeStart(NewBuilder, AllocaDst, *I->getFunction());
+        HasCreatedLS = true;
+      }
+    } else {
+      CreateFP128LifetimeStart(Builder, AllocaDst, *I->getFunction());
+      HasCreatedLS = true;
+    }
     Args.push_back(AllocaDst);
+    // Assume we have %newphi = phi fp128*, [%px, bb1], [%py, bb2],
+    // %px's Lifetime will be extended by newphi's uses.
+    // So it's better ignore fp128ptr's LifetimeMarker if its value is related
+    // with PHI. Besides, if we haven't create LifetimeStart for PX, we won't
+    // create LifetimeEnd for it.
+    if (!isUsedbyPHI(I) && HasCreatedLS)
+      FP128PtrList.insert(AllocaDst);
     // Replace the type with void.
     RetTy = Type::getVoidTy(Ctx);
   }
@@ -208,17 +320,20 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
   assert(Ops.size() > 0 && Ops.size() <= 2 && "Unexpected number of operands");
   if (Ops[0]->getType()->isFP128Ty()) {
     if (!VNT.count(Ops[0])) {
-      AllocaOp0 = CreateFP128AllocaInst(Builder, I->getParent());
+      AllocaInst *AllocaOp0 = CreateFP128AllocaInst(Builder, I->getParent());
+      CreateFP128LifetimeStart(Builder, AllocaOp0, *I->getFunction());
       Builder.CreateAlignedStore(Ops[0], AllocaOp0,
                                  MaybeAlign(AllocaOp0->getAlignment()));
       Args.push_back(AllocaOp0);
       VNT.insert(Ops[0], AllocaOp0);
       Value2Ptr.insert({Ops[0], AllocaOp0});
+      VOp0 = AllocaOp0;
+      if (!isUsedbyPHI(Ops[0]))
+        FP128PtrList.insert(VOp0);
     } else {
-      Instruction *Op0 = VNT.lookup(Ops[0]);
-      Args.push_back(Op0);
+      VOp0 = VNT.lookup(Ops[0]);
+      Args.push_back(VOp0);
     }
-
   } else {
     // Otherwise just push the argument.
     Args.push_back(Ops[0]);
@@ -226,18 +341,21 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
 
   // If there is a second argument it will always be an fp128.
   if (Ops.size() >= 2) {
-
     if (!VNT.count(Ops[1])) {
       assert(Ops[1]->getType()->isFP128Ty() && "Unexpected type!");
-      AllocaOp1 = CreateFP128AllocaInst(Builder, I->getParent());
+      AllocaInst *AllocaOp1 = CreateFP128AllocaInst(Builder, I->getParent());
+      CreateFP128LifetimeStart(Builder, AllocaOp1, *I->getFunction());
       Builder.CreateAlignedStore(Ops[1], AllocaOp1,
                                  MaybeAlign(AllocaOp1->getAlignment()));
       Args.push_back(AllocaOp1);
       VNT.insert(Ops[1], AllocaOp1);
       Value2Ptr.insert({Ops[1], AllocaOp1});
+      VOp1 = AllocaOp1;
+      if (!isUsedbyPHI(Ops[1]))
+        FP128PtrList.insert(VOp1);
     } else {
-      Instruction *Op1 = VNT.lookup(Ops[1]);
-      Args.push_back(Op1);
+      VOp1 = VNT.lookup(Ops[1]);
+      Args.push_back(VOp1);
     }
   }
 
@@ -246,25 +364,25 @@ Value *Float128Expand::expandToLibCall(IRBuilder<> &Builder, Instruction *I,
     ArgTys.push_back(Arg->getType());
   FunctionType *FnType = FunctionType::get(RetTy, ArgTys, false);
   FunctionCallee LibcallFn = M->getOrInsertFunction(LibCallName, FnType);
-  Value *Result = Builder.CreateCall(LibcallFn, Args);
+  Instruction *Result = Builder.CreateCall(LibcallFn, Args);
 
   // If we had fp128 operands, we're done with their allocas now.
-  if (AllocaOp0) {
-    // TODO How to handle the life time end?
-    // Builder.CreateLifetimeEnd(AllocaOp0, SizeVal64);
+  if (VOp0) {
+    LastUse[{I->getParent(), VOp0}] = Result;
+    HasUse.insert({CurSCC, VOp0});
   }
-  if (AllocaOp1) {
-    // TODO How to handle the life time end?
-    // Builder.CreateLifetimeEnd(AllocaOp1, SizeVal64);
+  if (VOp1) {
+    LastUse[{I->getParent(), VOp1}] = Result;
+    HasUse.insert({CurSCC, VOp1});
   }
 
   if (AllocaDst) {
     Result = Builder.CreateAlignedLoad(FP128Ty, AllocaDst,
                                        MaybeAlign(AllocaDst->getAlignment()));
-    // TODO How to handle the life time end?
-    // Builder.CreateLifetimeEnd(AllocaDst, SizeVal64);
     // Record the Result maping to AllocaDst so that we can resue it later.
     VNT.insert(Result, AllocaDst);
+    LastUse[{I->getParent(), AllocaDst}] = Result;
+    HasUse.insert({CurSCC, AllocaDst});
     Value2Ptr.insert({Result, AllocaDst});
   }
 
@@ -510,18 +628,20 @@ bool Float128Expand::ProcessBlock(BasicBlock *BB) {
   bool MadeChange = false;
   Function *F = BB->getParent();
   // If there is a fp128 variable X which is a function argument, we should
-  // create Store at the entry bb
+  // create LifetimeStart&Store at the entry bb
   if (BB == &(F->getEntryBlock())) {
     for (Argument &Arg : F->args()) {
       if (!Arg.getType()->isFP128Ty() || !isUsedByFP128Libcall(&Arg))
         continue;
       IRBuilder<> Builder(getFirstNonAllocaInTheEntryBlock(*F));
       AllocaInst *AllocaArg = CreateFP128AllocaInst(Builder, BB);
-
+      CreateFP128LifetimeStart(Builder, AllocaArg, *BB->getParent());
       Builder.CreateAlignedStore(&Arg, AllocaArg,
                                  MaybeAlign(AllocaArg->getAlignment()));
       VNT.insert(&Arg, AllocaArg);
       Value2Ptr.insert({&Arg, AllocaArg});
+      if (!isUsedbyPHI(&Arg))
+        FP128PtrList.insert(AllocaArg);
     }
   }
   for (auto It : BBWorkList[BB]) {
@@ -574,6 +694,33 @@ bool Float128Expand::runOnFunction(Function &F) {
     return false;
 
   bool MadeChange = false;
+  // Calculate each SCC’s predecessors and successors in reverse topological
+  // order and check if each SCC has a USE of fp128 PX
+  for (scc_iterator<Function *> SCCI = scc_begin(&F); !SCCI.isAtEnd(); ++SCCI) {
+    const std::vector<BasicBlock *> &CurSCC = *SCCI;
+    std::unique_ptr<SCCNode> CurSCCNode = std::make_unique<SCCNode>();
+    for (auto *BI : CurSCC) {
+      BB2SCC[BI] = CurSCCNode.get();
+      CurSCCNode->BBList.insert(BI);
+    }
+    for (auto *BI : CurSCC) {
+      for (auto *CurBB : successors(BI)) {
+        assert(BB2SCC[CurBB] != nullptr &&
+               "Since we calculate each SCC’s predecessors and successors in "
+               "reverse topological order, BB2SCC[CurBB] should never be "
+               "nullptr");
+        SCCNode *SCCOut = BB2SCC[CurBB];
+        if (SCCOut == CurSCCNode.get())
+          continue;
+        CurSCCNode->Succs.insert(SCCOut);
+        SCCOut->Preds.insert(CurSCCNode.get());
+      }
+      if (SCCI.hasCycle())
+        CurSCCNode->HasLoop = true;
+    }
+    SCCList.push_back(std::move(CurSCCNode));
+  }
+
   DominatorTree DT(F);
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BBWorkList.insert({&*BBI, {}});
@@ -588,10 +735,104 @@ bool Float128Expand::runOnFunction(Function &F) {
       CurBBWorkList.push_back(I);
     }
   }
+
   MadeChange = PerformFp128Transform(DT.getRootNode());
   PostTransformFP128PHI();
-  // clear local record
+  // Call visitSCCAndCreateLE while visiting SCC in post-order order
+  // SCCList is in reverse-topological order.
+  for (std::unique_ptr<SCCNode> &UPI : SCCList) {
+    visitSCCAndCreateLE(*UPI);
+  }
+
+  // Finally, we clear local records.
+  BB2SCC.clear();
+  LastUse.clear();
+  IsLive.clear();
+  HasUse.clear();
+  FP128PtrList.clear();
   NewPHI2OldPHI.clear();
   Value2Ptr.clear();
+  SCCList.clear();
   return MadeChange;
+}
+
+// Check if Val is used outside CurSCC.
+bool Float128Expand::isUsedOutsideLoops(Value *Val, SCCNode *CurSCC) {
+  for (auto *UI : Val->users()) {
+    Instruction *UserInst = cast<Instruction>(UI);
+    if (BB2SCC[UserInst->getParent()] == CurSCC)
+      continue;
+    return true;
+  }
+
+  return false;
+}
+
+// We try to make the whole thing as simple as possible:
+// When CurSCC only have only one preceding SCC which has one BB, we will do
+// Hoist for LifetimeStart safely. Also, if the TargetBB is catchswitch, we
+// won't do Hoist.
+BasicBlock *Float128Expand::calculateSafePoint(SCCNode *CurSCC) {
+  if (CurSCC->Preds.size() != 1)
+    return nullptr;
+  SCCNode *PredSCC = *(CurSCC->Preds.begin());
+  if (PredSCC->BBList.size() > 1)
+    return nullptr;
+  BasicBlock *PredBB = *(PredSCC->BBList.begin());
+  if (PredBB->isEHPad())
+    return nullptr;
+  return PredBB;
+}
+
+// As for LifetimeEnd, when there are no more uses of a value on a code path, a
+// lifetime.end marker can be inserted after the final use.
+// In details:
+// For PX in all fp128 ptr:
+//     If isLive[scc][PX]==false for all scc in CurSCC.successors, then set
+//     IsDead=true; otherwise set IsDead=false
+//
+//     if IsDead && HasUse[CurSCC][PX] && (CurSCC.size == 1):
+//              Do LifetimeEnd after LastUse[the only BB of CurSCC][PX]
+//     isLive[CurSCC][PX] = !IsDead | HasUse[CurSCC][PX]
+//
+// Here is two example:
+//
+// Example#1:
+//     bb1(PX's def)
+//    /   \
+//   /     \
+// bb2      bb3(use PX)
+// we will create LifetimeEnd after the final PX's use in bb3
+// And we won't create LifetimeEnd in bb2.
+//
+// Example#2:
+//     bb1
+//       \
+//        \
+//          bb2(PX's def)
+//          / \
+//         |   |
+//          \ /
+//          bb3(use PX)
+//            \
+//             \
+//              bb4
+// We won't create PX's LifetimeEnd for PX since bb2&bb3 is in a loop,
+// Also we won't create PX's LifetimeEnd in bb4.
+void Float128Expand::visitSCCAndCreateLE(SCCNode &CurSCCNode) {
+  for (Value *PXI : FP128PtrList) {
+    bool IsDead = llvm::none_of(CurSCCNode.Succs, [&](SCCNode *CurSucc) {
+      return IsLive.count({CurSucc, PXI});
+    });
+    if (IsDead && HasUse.count({&CurSCCNode, PXI}) && !CurSCCNode.HasLoop &&
+        CurSCCNode.BBList.size() == 1) {
+      BasicBlock *TargetBB = *(CurSCCNode.BBList.begin());
+      IRBuilder<> Builder(
+          LastUse[{TargetBB, PXI}]->getNextNonDebugInstruction());
+      CreateFP128LifetimeEnd(Builder, PXI, *TargetBB->getParent());
+    }
+    // Propagate successors' live state to CurSCCNode.
+    if (!IsDead || HasUse.count({&CurSCCNode, PXI}))
+      IsLive.insert({&CurSCCNode, PXI});
+  }
 }
