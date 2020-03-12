@@ -728,7 +728,9 @@ static void closeRTL() {
       if (kernel)
         INVOKE_CL_EXIT_FAIL(clReleaseKernel, kernel);
     }
-    INVOKE_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo.FuncGblEntries[i].Program);
+    // No entries may exist if offloading was done through MKL
+    if (DeviceInfo.FuncGblEntries[i].Program)
+       INVOKE_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo.FuncGblEntries[i].Program);
     INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo.Queues[i]);
     if (DeviceInfo.QueuesOOO[i]) {
       INVOKE_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo.QueuesOOO[i]);

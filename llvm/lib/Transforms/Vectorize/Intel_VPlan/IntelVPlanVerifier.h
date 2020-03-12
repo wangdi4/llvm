@@ -44,6 +44,9 @@ private:
   // Verify VPGEPInstruction instruction.
   void verifyGEPInstruction(const VPGEPInstruction *GEP) const;
 
+  // Verify VPSubscriptInst instruction.
+  void verifySubscriptInst(const VPSubscriptInst *SI) const;
+
   // Main functions driving the verification of instructions, blocks,
   // loops and regions.
 
