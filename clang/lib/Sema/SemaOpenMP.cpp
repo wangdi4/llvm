@@ -5150,16 +5150,13 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_is_device_ptr:
       case OMPC_nontemporal:
       case OMPC_order:
-<<<<<<< HEAD
+      case OMPC_destroy:
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
       case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-      case OMPC_destroy:
->>>>>>> 375437ab92a879629cd6abef057428f3572514c2
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -11236,16 +11233,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
-<<<<<<< HEAD
+  case OMPC_destroy:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_destroy:
->>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12509,16 +12503,13 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_nontemporal:
-<<<<<<< HEAD
+  case OMPC_destroy:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_destroy:
->>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12716,16 +12707,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
-<<<<<<< HEAD
+  case OMPC_destroy:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_destroy:
->>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13215,16 +13203,13 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_device_type:
   case OMPC_match:
   case OMPC_order:
-<<<<<<< HEAD
+  case OMPC_destroy:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_destroy:
->>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;

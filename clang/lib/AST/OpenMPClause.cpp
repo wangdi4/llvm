@@ -236,16 +236,13 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
-<<<<<<< HEAD
+  case OMPC_destroy:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_destroy:
->>>>>>> 375437ab92a879629cd6abef057428f3572514c2
     break;
   }
 

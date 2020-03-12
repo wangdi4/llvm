@@ -1559,6 +1559,7 @@ void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
 void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
 void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
+void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
