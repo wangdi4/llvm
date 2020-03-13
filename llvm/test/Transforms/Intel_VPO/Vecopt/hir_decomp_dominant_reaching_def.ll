@@ -28,7 +28,14 @@
 ; In the above HIR, node <15> kills the external definition of %add824 for its use in node <17>,
 ; hence the valid number of reaching definitions for %add824 in node <17> and <19> is just 1.
 
-; Check correctness of HCFG
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@a = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+
+; Function Attrs: nounwind uwtable
+define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-LABEL:  Print after building H-CFG:
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-COUNT-2: {{BB[0-9]*}}:
@@ -51,14 +58,6 @@
 ; CHECK-NEXT:    PREDECESSORS(2): [[LP_PH]] [[LP_BODY]]
 ; CHECK:         END Region([[REGION0]])
 ;
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-@a = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-
-; Function Attrs: nounwind uwtable
-define dso_local i32 @_Z3foov() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %s2.red = alloca i32, align 4
   %s.red = alloca i32, align 4

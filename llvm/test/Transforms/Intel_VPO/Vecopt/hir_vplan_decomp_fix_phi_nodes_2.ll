@@ -40,7 +40,16 @@
 ; Here PHI nodes are inserted at multiple VPBBs for %t1.0, %t2.1 and %t2.069. The PHI placed at loop latch VPBB for %t2.069 is of interest
 ; for us. The incoming value for this PHI node does not directly come the predecessor BB9 (outer else), but rather from BB4 which precedes BB9.
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
+@a = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+@b = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+@c = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+@d = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
+
+; Function Attrs: nounwind uwtable
+define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
@@ -86,18 +95,7 @@
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK:         END Region([[REGION0]])
-
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-@a = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@b = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@c = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-@d = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
-
-; Function Attrs: nounwind uwtable
-define dso_local i32 @foo(i32 %N) local_unnamed_addr {
+;
 omp.inner.for.body.lr.ph:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
   %mul23 = shl nsw i32 %N, 1

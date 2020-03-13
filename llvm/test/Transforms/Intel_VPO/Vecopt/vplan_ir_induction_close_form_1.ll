@@ -19,6 +19,11 @@
 ; RUN: opt -passes="vplan-driver" -vplan-entities-dump -disable-vplan-codegen -debug-only=VPlanPredicator -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+; Function Attrs: nounwind uwtable
+define dso_local i32 @_Z3fooPiii(i32* nocapture readonly %ptr, i32 %step, i32 %n) local_unnamed_addr {
 ; Check entities
 ; CHECK-LABEL: Loop Entities of the loop with header
 ; CHECK: Induction list
@@ -49,12 +54,6 @@
 ; Check induction close-form instructions
 ; CHECK: i32* [[IV1_CLOSE_FORM]] = getelementptr inbounds i32* [[IV1_PHI]] i64 [[IV1_INIT_STEP]]
 ; CHECK: i8 [[IV2_CLOSE_FORM]] = add i8 [[IV2_PHI]] i8 [[IV2_INIT_STEP]]
-
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-; Function Attrs: nounwind uwtable
-define dso_local i32 @_Z3fooPiii(i32* nocapture readonly %ptr, i32 %step, i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
