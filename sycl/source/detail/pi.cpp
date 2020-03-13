@@ -177,13 +177,10 @@ vector_class<plugin> initialize() {
 #if INTEL_CUSTOMIZATION
   // Not needed when we have support for level0.
   // This is checked in findPlugin.
-  // if (!useBackend(SYCL_BE_PI_OPENCL)) {
+  // if (!useBackend(SYCL_BE_PI_OPENCL) && !useBackend(SYCL_BE_PI_CUDA)) {
   //   die("Unknown SYCL_BE");
   // }
 #endif
-  if (!useBackend(SYCL_BE_PI_OPENCL) && !useBackend(SYCL_BE_PI_CUDA)) {
-    die("Unknown SYCL_BE");
-  }
 
   bool EnableTrace = (std::getenv("SYCL_PI_TRACE") != nullptr);
 
