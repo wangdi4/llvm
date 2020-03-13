@@ -439,10 +439,12 @@ namespace intel{
     // Change name of old function
     pFunc->setName("__" + pFunc->getName() + "_separated_args");
 
-    // Make sure old function always inlined
+    // Make sure old function always inlined when OptNone is absent
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
-    pFunc->removeFnAttr(llvm::Attribute::NoInline);
-    pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
+    if (!pFunc->hasOptNone()){
+      pFunc->removeFnAttr(llvm::Attribute::NoInline);
+      pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
+    }
 
     createWrapperBody(pWrapper, pFunc);
 
