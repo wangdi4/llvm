@@ -474,6 +474,17 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
       ZE_CALL(zeCommandListCreateImmediate(ze_device, &ze_command_queue_desc,
                                            &L0PiDevice->L0CommandListInit));
 
+      // Cache device properties
+      L0PiDevice->L0DeviceProperties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
+      ZE_CALL(zeDeviceGetProperties(
+        ze_device,
+        &L0PiDevice->L0DeviceProperties));
+
+      L0PiDevice->L0DeviceComputeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
+      ZE_CALL(zeDeviceGetComputeProperties(
+        ze_device,
+        &L0PiDevice->L0DeviceComputeProperties));
+
       devices[i] = L0PiDevice;
     }
   }
@@ -509,19 +520,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
                               void *          param_value,
                               size_t *        param_value_size_ret) {
 
-  // TODO: cache device properties instead of querying L0 each time
   ze_device_handle_t ze_device = device->L0Device;
-  ze_device_properties_t ze_device_properties;
-  ze_device_properties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
-  ZE_CALL(zeDeviceGetProperties(
-    ze_device,
-    &ze_device_properties));
-
-  ze_device_compute_properties_t ze_device_compute_properties;
-  ze_device_compute_properties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
-  ZE_CALL(zeDeviceGetComputeProperties(
-    ze_device,
-    &ze_device_compute_properties));
 
   uint32_t ze_avail_mem_count = 0;
   ZE_CALL(zeDeviceGetMemoryProperties(
@@ -536,6 +535,9 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   for (uint32_t i = 0; i < ze_avail_mem_count; i++) {
     ze_device_memory_properties[i].version = ZE_DEVICE_MEMORY_PROPERTIES_VERSION_CURRENT;
   }
+  // TODO: cache various device properties in the PI device object,
+  // and initialize them only upon they are first requested.
+  //
   ZE_CALL(zeDeviceGetMemoryProperties(
     ze_device,
     &ze_avail_mem_count,
@@ -564,7 +566,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     ));
 
   if (param_name == PI_DEVICE_INFO_TYPE) {
-    if (ze_device_properties.type == ZE_DEVICE_TYPE_GPU) {
+    if (device->L0DeviceProperties.type == ZE_DEVICE_TYPE_GPU) {
       SET_PARAM_VALUE(PI_DEVICE_TYPE_GPU);
     }
     else { // ZE_DEVICE_TYPE_FPGA
@@ -580,7 +582,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_cast<pi_platform>(&ze_driver_global));
   }
   else if (param_name == PI_DEVICE_INFO_VENDOR_ID) {
-    SET_PARAM_VALUE(pi_uint32{ze_device_properties.vendorId});
+    SET_PARAM_VALUE(pi_uint32{device->L0DeviceProperties.vendorId});
   }
   else if (param_name == PI_DEVICE_INFO_EXTENSIONS) {
     // Convention adopted from OpenCL:
@@ -629,7 +631,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR(SupportedExtensions.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_NAME) {
-    SET_PARAM_VALUE_STR(ze_device_properties.name);
+    SET_PARAM_VALUE_STR(device->L0DeviceProperties.name);
   }
   else if (param_name == PI_DEVICE_INFO_COMPILER_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{1});
@@ -639,13 +641,14 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   }
   else if (param_name == PI_DEVICE_INFO_MAX_COMPUTE_UNITS) {
     pi_uint32 max_compute_units =
-        ze_device_properties.numEUsPerSubslice *
-        ze_device_properties.numSubslicesPerSlice *
+        device->L0DeviceProperties.numEUsPerSubslice *
+        device->L0DeviceProperties.numSubslicesPerSlice *
 #ifdef _WIN32 // TODO: remove this fragmentation after Windows drivers are updated
-        ze_device_properties.numSlicesPerTile *
-        (ze_device_properties.numTiles > 0 ? ze_device_properties.numTiles : 1);
+        device->L0DeviceProperties.numSlicesPerTile *
+        (device->L0DeviceProperties.numTiles > 0 ?
+         device->L0DeviceProperties.numTiles : 1);
 #else
-        ze_device_properties.numSlices;
+        device->L0DeviceProperties.numSlices;
 #endif // _WIN32
     SET_PARAM_VALUE(pi_uint32{max_compute_units});
   }
@@ -654,21 +657,21 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_uint32{3});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_WORK_GROUP_SIZE) {
-    SET_PARAM_VALUE(pi_uint64{ze_device_compute_properties.maxTotalGroupSize});
+    SET_PARAM_VALUE(pi_uint64{device->L0DeviceComputeProperties.maxTotalGroupSize});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_WORK_ITEM_SIZES) {
     struct {
       size_t arr[3];
     }  max_group_size = {
-      { ze_device_compute_properties.maxGroupSizeX,
-        ze_device_compute_properties.maxGroupSizeY,
-        ze_device_compute_properties.maxGroupSizeZ
+      { device->L0DeviceComputeProperties.maxGroupSizeX,
+        device->L0DeviceComputeProperties.maxGroupSizeY,
+        device->L0DeviceComputeProperties.maxGroupSizeZ
       }
     };
     SET_PARAM_VALUE(max_group_size);
   }
   else if (param_name == PI_DEVICE_INFO_MAX_CLOCK_FREQUENCY) {
-    SET_PARAM_VALUE(pi_uint32{ze_device_properties.coreClockRate});
+    SET_PARAM_VALUE(pi_uint32{device->L0DeviceProperties.coreClockRate});
   }
   else if (param_name == PI_DEVICE_INFO_ADDRESS_BITS) {
     // TODO: To confirm with spec.
@@ -690,13 +693,13 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_uint64{global_mem_size});
   }
   else if (param_name == PI_DEVICE_INFO_LOCAL_MEM_SIZE) {
-    SET_PARAM_VALUE(pi_uint64{ze_device_compute_properties.maxSharedLocalMemory});
+    SET_PARAM_VALUE(pi_uint64{device->L0DeviceComputeProperties.maxSharedLocalMemory});
   }
   else if (param_name == PI_DEVICE_INFO_IMAGE_SUPPORT) {
     SET_PARAM_VALUE(pi_bool{ze_device_image_properties.supported});
   }
   else if (param_name == PI_DEVICE_INFO_HOST_UNIFIED_MEMORY) {
-    SET_PARAM_VALUE(pi_bool{ze_device_properties.unifiedMemorySupported});
+    SET_PARAM_VALUE(pi_bool{device->L0DeviceProperties.unifiedMemorySupported});
   }
   else if (param_name == PI_DEVICE_INFO_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{ze_device ? true : false});
@@ -718,12 +721,12 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR(driver_version.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_VERSION) {
-    std::string version = std::to_string(pi_cast<pi_uint32>(ze_device_properties.version));
+    std::string version = std::to_string(pi_cast<pi_uint32>(device->L0DeviceProperties.version));
     SET_PARAM_VALUE_STR(version.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_PARTITION_MAX_SUB_DEVICES) {
 #ifdef _WIN32 // TODO: remove this fragmentation after Windows drivers are updated
-    SET_PARAM_VALUE(pi_uint32{ze_device_properties.numTiles});
+    SET_PARAM_VALUE(pi_uint32{device->L0DeviceProperties.numTiles});
 #else
     uint32_t ze_sub_device_count = 0;
     ZE_CALL(zeDeviceGetSubDevices(ze_device, &ze_sub_device_count, nullptr));
@@ -798,10 +801,10 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_bool{true});
   }
   else if (param_name == PI_DEVICE_INFO_ERROR_CORRECTION_SUPPORT) {
-    SET_PARAM_VALUE(pi_bool{ze_device_properties.eccMemorySupported});
+    SET_PARAM_VALUE(pi_bool{device->L0DeviceProperties.eccMemorySupported});
   }
   else if (param_name == PI_DEVICE_INFO_PROFILING_TIMER_RESOLUTION) {
-    SET_PARAM_VALUE(size_t{ze_device_properties.timerResolution });
+    SET_PARAM_VALUE(size_t{device->L0DeviceProperties.timerResolution});
   }
   else if (param_name == PI_DEVICE_INFO_LOCAL_MEM_TYPE) {
     SET_PARAM_VALUE(PI_DEVICE_LOCAL_MEM_TYPE_LOCAL);
@@ -958,39 +961,41 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   //
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_CHAR ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_CHAR) {
-    SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 1);
+    SET_PARAM_VALUE(device->L0DeviceProperties.physicalEUSimdWidth / 1);
   }
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_SHORT ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_SHORT) {
-    SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 2);
+    SET_PARAM_VALUE(device->L0DeviceProperties.physicalEUSimdWidth / 2);
   }
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_INT ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_INT) {
-    SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 4);
+    SET_PARAM_VALUE(device->L0DeviceProperties.physicalEUSimdWidth / 4);
   }
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_LONG ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_LONG) {
-    SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 8);
+    SET_PARAM_VALUE(device->L0DeviceProperties.physicalEUSimdWidth / 8);
   }
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_FLOAT ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_FLOAT) {
-    SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 4);
+    SET_PARAM_VALUE(device->L0DeviceProperties.physicalEUSimdWidth / 4);
   }
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_DOUBLE ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_DOUBLE) {
-    SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 8);
+    SET_PARAM_VALUE(device->L0DeviceProperties.physicalEUSimdWidth / 8);
   }
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_HALF ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_HALF) {
-    SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 2);
+    SET_PARAM_VALUE(device->L0DeviceProperties.physicalEUSimdWidth / 2);
   } else if (param_name == PI_DEVICE_INFO_MAX_NUM_SUB_GROUPS) {
     // Max_num_sub_Groups = maxTotalGroupSize/min(set of subGroupSizes);
-    uint32_t MinSubGroupSize = ze_device_compute_properties.subGroupSizes[0];
-    for (uint32_t i = 1; i < ze_device_compute_properties.numSubGroupSizes; i++) {
-      if (MinSubGroupSize > ze_device_compute_properties.subGroupSizes[i])
-        MinSubGroupSize = ze_device_compute_properties.subGroupSizes[i];
+    uint32_t MinSubGroupSize =
+        device->L0DeviceComputeProperties.subGroupSizes[0];
+    for (uint32_t i = 1;
+         i < device->L0DeviceComputeProperties.numSubGroupSizes; i++) {
+      if (MinSubGroupSize > device->L0DeviceComputeProperties.subGroupSizes[i])
+        MinSubGroupSize = device->L0DeviceComputeProperties.subGroupSizes[i];
     }
-    SET_PARAM_VALUE(ze_device_compute_properties.maxTotalGroupSize /
+    SET_PARAM_VALUE(device->L0DeviceComputeProperties.maxTotalGroupSize /
                     MinSubGroupSize);
   } else if (param_name ==
              PI_DEVICE_INFO_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS) {
@@ -1000,8 +1005,9 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   } else if (param_name == PI_DEVICE_INFO_SUB_GROUP_SIZES_INTEL) {
     // ze_device_compute_properties.subGroupSizes is in uint32_t whereas the
     // expected return is size_t datatype. size_t can be 8 bytes of data.
-    SET_PARAM_VALUE_VLA(ze_device_compute_properties.subGroupSizes,
-                        ze_device_compute_properties.numSubGroupSizes, size_t);
+    SET_PARAM_VALUE_VLA(device->L0DeviceComputeProperties.subGroupSizes,
+                        device->L0DeviceComputeProperties.numSubGroupSizes,
+                        size_t);
   } else if (param_name == PI_DEVICE_INFO_IL_VERSION) {
     // Set to a space separated list of IL version strings of the form
     // <IL_Prefix>_<Major_version>.<Minor_version>.
@@ -1022,9 +1028,8 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
              param_name == PI_DEVICE_INFO_USM_SINGLE_SHARED_SUPPORT ||
              param_name == PI_DEVICE_INFO_USM_CROSS_SHARED_SUPPORT ||
              param_name == PI_DEVICE_INFO_USM_SYSTEM_SHARED_SUPPORT) {
-
     pi_uint64 supported = 0;
-    if (ze_device_properties.unifiedMemorySupported) {
+    if (device->L0DeviceProperties.unifiedMemorySupported) {
       // TODO: Use ze_memory_access_capabilities_t
       supported =
           PI_USM_ACCESS |
@@ -2113,7 +2118,7 @@ pi_result L0(piEventCreate)(
 
   ze_event_pool_desc_t ze_event_pool_desc;
   ze_event_pool_desc.count = 1;
-  ze_event_pool_desc.flags = ZE_EVENT_POOL_FLAG_HOST_VISIBLE;
+  ze_event_pool_desc.flags = ZE_EVENT_POOL_FLAG_TIMESTAMP;
   ze_event_pool_desc.version = ZE_EVENT_POOL_DESC_VERSION_CURRENT;
 
   // TODO: see if we can employ larger event pools for better efficency
@@ -2205,15 +2210,22 @@ pi_result L0(piEventGetProfilingInfo)(
   void *              param_value,
   size_t *            param_value_size_ret) {
 
-  if (param_name == PI_PROFILING_INFO_COMMAND_SUBMIT ||
-      param_name == PI_PROFILING_INFO_COMMAND_START ||
-      param_name == PI_PROFILING_INFO_COMMAND_END ) {
+  uint64_t L0TimerResolution =
+      event->Queue->Context->Device->L0DeviceProperties.timerResolution;
 
-    // TODO: return dummy "0" until
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/290
-    // is resolved.
-    //
-    SET_PARAM_VALUE(size_t{0});
+  if (param_name == PI_PROFILING_INFO_COMMAND_START) {
+    uint64_t context_start;
+    ZE_CALL(zeEventGetTimestamp(
+        event->L0Event, ZE_EVENT_TIMESTAMP_CONTEXT_START, &context_start));
+    context_start *= L0TimerResolution;
+    SET_PARAM_VALUE(uint64_t{context_start});
+  }
+  else if (param_name == PI_PROFILING_INFO_COMMAND_END) {
+    uint64_t context_end;
+    ZE_CALL(zeEventGetTimestamp(
+        event->L0Event, ZE_EVENT_TIMESTAMP_CONTEXT_END, &context_end));
+    context_end *= L0TimerResolution;
+    SET_PARAM_VALUE(uint64_t{context_end});
   }
   else {
     pi_throw("piEventGetProfilingInfo: not supported param_name");

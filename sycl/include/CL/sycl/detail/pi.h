@@ -1035,7 +1035,7 @@ pi_result piKernelSetExecInfo(pi_kernel kernel, pi_kernel_exec_info value_name,
 pi_result piEventCreate(pi_context context, pi_event *ret_event);
 
 pi_result piEventGetInfo(pi_event event,
-                         pi_event_info param_name, // TODO: untie from OpenCL
+                         pi_event_info param_name,
                          size_t param_value_size, void *param_value,
                          size_t *param_value_size_ret);
 
