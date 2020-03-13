@@ -2617,29 +2617,11 @@ void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc) {
       }
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Value *PtrCast = CI->getArgOperand(0);
     BitCastInst *PtrInst = dyn_cast<BitCastInst>(PtrCast);
-
-    // TODO: The type metadata needs to be removed from the IR after we do
-    // devirtualization with multiversioning. Skipping this step could break
-    // other optimizations that depend on this cleanup (CMPLRLLVM-11965).
-    // For now, don't run the skip process if whole program safe is achieved.
-    if (!IsWholeProgramSafe) {
-#endif // INTEL_CUSTOMIZATION
-    // If we have any uses on type metadata, keep the type test assumes for
-    // later analysis. Otherwise remove as they aren't useful, and
-    // LowerTypeTests will think they are Unsat and lower to False, which
-    // breaks any uses on assumes.
-    if (TypeIdMap.count(TypeId))
-      continue;
-#if INTEL_CUSTOMIZATION
-    }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 80bf137fa132ea33204e98bbefa924afe9258a4e
     // We no longer need the assumes or the type test.
     for (auto Assume : Assumes)
       Assume->eraseFromParent();
@@ -2845,19 +2827,11 @@ bool DevirtModule::run() {
       (!TypeCheckedLoadFunc || TypeCheckedLoadFunc->use_empty()))
     return false;
 
-<<<<<<< HEAD
-  // Rebuild type metadata into a map for easy lookup.
-  std::vector<VTableBits> Bits;
-  DenseMap<Metadata *, std::set<TypeMemberInfo>> TypeIdMap;
-  buildTypeIdentifierMap(Bits, TypeIdMap);
-
 #if INTEL_CUSTOMIZATION
   // Find the possible places where a downcasting can occur
   filterDowncasting(AssumeFunc);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 80bf137fa132ea33204e98bbefa924afe9258a4e
   if (TypeTestFunc && AssumeFunc)
     scanTypeTestUsers(TypeTestFunc);
 
