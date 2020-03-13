@@ -459,8 +459,10 @@ public:
 
   /// PrintHelp - Print the help text.
   ///
-  /// \param ShowHidden - Show hidden options.
-  void PrintHelp(bool ShowHidden) const;
+#if INTEL_CUSTOMIZATION
+  /// \param Args - arguments used to control help information
+  void PrintHelp(const llvm::opt::ArgList &Args) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
   void PrintSYCLToolHelp(const Compilation &C) const;

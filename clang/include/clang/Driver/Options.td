@@ -32,6 +32,15 @@ def NoArgumentUnused : OptionFlag;
 // lines that use it.
 def Unsupported : OptionFlag;
 
+#if INTEL_CUSTOMIZATION
+// DpcppUnsupported - This option is unsupported for DPC++ and the driver will
+// reject command lines that use it and not emit help.
+def DpcppUnsupported : OptionFlag;
+
+// DpcppHidden - This option is does not show help for DPC++
+def DpcppHidden : OptionFlag;
+#endif // INTEL_CUSTOMIZATION
+
 // Ignored - The option is unsupported, and the driver will silently ignore it.
 def Ignored : OptionFlag;
 
@@ -267,7 +276,7 @@ def ccc_gcc_name : Separate<["-"], "ccc-gcc-name">, InternalDriverOpt,
   HelpText<"Name for native GCC compiler">,
   MetaVarName<"<gcc-path>">;
 #if INTEL_CUSTOMIZATION
-def dpcpp : Flag<["--"], "dpcpp">, Group<internal_driver_Group>,
+def _dpcpp : Flag<["--"], "dpcpp">, Group<internal_driver_Group>,
   Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Enable specific DPC++ driver behaviors">;
 #endif // INTEL_CUSTOMIZATION
@@ -352,7 +361,7 @@ def qnextgen : Flag<["-"], "qnextgen">, Flags<[DriverOption]>, Alias<_intel>;
 def extended_float_types : Flag<["--"], "extended_float_types">, Flags<[CC1Option]>;
 def fintel_long_double_size_EQ : Joined<["-"], "fintel-long-double-size=">,
   HelpText<"Overrides the size of long double from the architecture/OS defaults.">,
-  Flags<[CC1Option]>;
+  Flags<[CC1Option, DpcppHidden]>;
 def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
   Flags<[CC1Option]>, HelpText<"Force certain functions using intrinsics to "
   "promote their architectures and make the intrinsic headers included by default">;
@@ -515,15 +524,17 @@ def Xassembler : Separate<["-"], "Xassembler">,
 def Xclang : Separate<["-"], "Xclang">,
   HelpText<"Pass <arg> to the clang compiler">, MetaVarName<"<arg>">,
   Flags<[DriverOption, CoreOption]>, Group<CompileOnly_Group>;
-def Xcuda_fatbinary : Separate<["-"], "Xcuda-fatbinary">,
+#if INTEL_CUSTOMIZATION
+def Xcuda_fatbinary : Separate<["-"], "Xcuda-fatbinary">, Flags<[DpcppUnsupported]>,
   HelpText<"Pass <arg> to fatbinary invocation">, MetaVarName<"<arg>">;
-def Xcuda_ptxas : Separate<["-"], "Xcuda-ptxas">,
+def Xcuda_ptxas : Separate<["-"], "Xcuda-ptxas">, Flags<[DpcppUnsupported]>,
   HelpText<"Pass <arg> to the ptxas assembler">, MetaVarName<"<arg>">;
-def Xopenmp_target : Separate<["-"], "Xopenmp-target">,
+def Xopenmp_target : Separate<["-"], "Xopenmp-target">, Flags<[DpcppUnsupported]>,
   HelpText<"Pass <arg> to the target offloading toolchain.">, MetaVarName<"<arg>">;
-def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">,
+def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">, Flags<[DpcppUnsupported]>,
   HelpText<"Pass <arg> to the target offloading toolchain identified by <triple>.">,
   MetaVarName<"<triple> <arg>">;
+#endif // INTEL_CUSTOMIZATION
 def Xsycl_backend : Separate<["-"], "Xsycl-target-backend">,
   HelpText<"Pass <arg> to the SYCL based target backend.">, MetaVarName<"<arg>">, Flags<[CoreOption]>;
 def Xsycl_backend_EQ : JoinedAndSeparate<["-"], "Xsycl-target-backend=">,
@@ -595,7 +606,7 @@ def cl_fp32_correctly_rounded_divide_sqrt : Flag<["-"], "cl-fp32-correctly-round
 // if INTEL_CUSTOMIZATION
 def cl_spir_compile_options : Separate<["-"], "cl-spir-compile-options">, Group<opencl_Group>, Flags<[CC1Option]>,
   HelpText<"SPIR compilation options to record in metadata">;
-def fhls : Flag<["-"], "fhls">, Group<f_Group>, Flags<[CC1Option]>,
+def fhls : Flag<["-"], "fhls">, Group<f_Group>, Flags<[CC1Option, DpcppUnsupported]>,
   HelpText<"Enable Intel FPGA High Level Synthesis extensions">;
 // endif INTEL_CUSTOMIZATION
 def cl_uniform_work_group_size : Flag<["-"], "cl-uniform-work-group-size">, Group<opencl_Group>, Flags<[CC1Option]>,
@@ -623,50 +634,54 @@ def fconvergent_functions : Flag<["-"], "fconvergent-functions">, Group<f_Group>
 def gpu_use_aux_triple_only : Flag<["--"], "gpu-use-aux-triple-only">,
   InternalDriverOpt, HelpText<"Prepare '-aux-triple' only without populating "
                               "'-aux-target-cpu' and '-aux-target-feature'.">;
-def cuda_device_only : Flag<["--"], "cuda-device-only">,
+#if INTEL_CUSTOMIZATION
+def cuda_device_only : Flag<["--"], "cuda-device-only">, Flags<[DpcppUnsupported]>,
   HelpText<"Compile CUDA code for device only">;
-def cuda_host_only : Flag<["--"], "cuda-host-only">,
+def cuda_host_only : Flag<["--"], "cuda-host-only">, Flags<[DpcppUnsupported]>,
   HelpText<"Compile CUDA code for host only.  Has no effect on non-CUDA "
            "compilations.">;
-def cuda_compile_host_device : Flag<["--"], "cuda-compile-host-device">,
+def cuda_compile_host_device : Flag<["--"], "cuda-compile-host-device">, Flags<[DpcppUnsupported]>,
   HelpText<"Compile CUDA code for both host and device (default).  Has no "
            "effect on non-CUDA compilations.">;
-def cuda_include_ptx_EQ : Joined<["--"], "cuda-include-ptx=">, Flags<[DriverOption]>,
+def cuda_include_ptx_EQ : Joined<["--"], "cuda-include-ptx=">, Flags<[DriverOption, DpcppUnsupported]>,
   HelpText<"Include PTX for the following GPU architecture (e.g. sm_35) or 'all'. May be specified more than once.">;
-def no_cuda_include_ptx_EQ : Joined<["--"], "no-cuda-include-ptx=">, Flags<[DriverOption]>,
+def no_cuda_include_ptx_EQ : Joined<["--"], "no-cuda-include-ptx=">, Flags<[DriverOption, DpcppUnsupported]>,
   HelpText<"Do not include PTX for the following GPU architecture (e.g. sm_35) or 'all'. May be specified more than once.">;
-def cuda_gpu_arch_EQ : Joined<["--"], "cuda-gpu-arch=">, Flags<[DriverOption]>,
+def cuda_gpu_arch_EQ : Joined<["--"], "cuda-gpu-arch=">, Flags<[DriverOption, DpcppUnsupported]>,
   HelpText<"CUDA GPU architecture (e.g. sm_35).  May be specified more than once.">;
-def hip_link : Flag<["--"], "hip-link">,
+def hip_link : Flag<["--"], "hip-link">, Flags<[DpcppUnsupported]>,
   HelpText<"Link clang-offload-bundler bundles for HIP">;
-def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[DriverOption]>,
+def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[DriverOption, DpcppUnsupported]>,
   HelpText<"Remove GPU architecture (e.g. sm_35) from the list of GPUs to compile for. "
            "'all' resets the list to its default value.">;
-def cuda_noopt_device_debug : Flag<["--"], "cuda-noopt-device-debug">,
+def cuda_noopt_device_debug : Flag<["--"], "cuda-noopt-device-debug">, Flags<[DpcppUnsupported]>,
   HelpText<"Enable device-side debug info generation. Disables ptxas optimizations.">;
-def no_cuda_version_check : Flag<["--"], "no-cuda-version-check">,
+def no_cuda_version_check : Flag<["--"], "no-cuda-version-check">, Flags<[DpcppUnsupported]>,
   HelpText<"Don't error out if the detected version of the CUDA install is "
            "too low for the requested CUDA gpu architecture.">;
 def no_cuda_noopt_device_debug : Flag<["--"], "no-cuda-noopt-device-debug">;
-def cuda_path_EQ : Joined<["--"], "cuda-path=">, Group<i_Group>,
+def cuda_path_EQ : Joined<["--"], "cuda-path=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
   HelpText<"CUDA installation path">;
-def cuda_path_ignore_env : Flag<["--"], "cuda-path-ignore-env">, Group<i_Group>,
+def cuda_path_ignore_env : Flag<["--"], "cuda-path-ignore-env">, Group<i_Group>, Flags<[DpcppUnsupported]>,
   HelpText<"Ignore environment variables to detect CUDA installation">;
-def ptxas_path_EQ : Joined<["--"], "ptxas-path=">, Group<i_Group>,
+def ptxas_path_EQ : Joined<["--"], "ptxas-path=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
   HelpText<"Path to ptxas (used for compiling CUDA code)">;
-def fcuda_flush_denormals_to_zero : Flag<["-"], "fcuda-flush-denormals-to-zero">,
+def fcuda_flush_denormals_to_zero : Flag<["-"], "fcuda-flush-denormals-to-zero">, Flags<[DpcppUnsupported]>,
   HelpText<"Flush denormal floating point values to zero in CUDA device mode.">;
 def fno_cuda_flush_denormals_to_zero : Flag<["-"], "fno-cuda-flush-denormals-to-zero">;
 def fcuda_approx_transcendentals : Flag<["-"], "fcuda-approx-transcendentals">,
-  Flags<[CC1Option]>, HelpText<"Use approximate transcendental functions">;
+  Flags<[CC1Option, DpcppUnsupported]>, HelpText<"Use approximate transcendental functions">;
+#endif // INTEL_CUSTOMIZATION
 def fno_cuda_approx_transcendentals : Flag<["-"], "fno-cuda-approx-transcendentals">;
 def fgpu_rdc : Flag<["-"], "fgpu-rdc">, Flags<[CC1Option]>,
   HelpText<"Generate relocatable device code, also known as separate compilation mode.">;
 def fno_gpu_rdc : Flag<["-"], "fno-gpu-rdc">;
 def : Flag<["-"], "fcuda-rdc">, Alias<fgpu_rdc>;
 def : Flag<["-"], "fno-cuda-rdc">, Alias<fno_gpu_rdc>;
-def fcuda_short_ptr : Flag<["-"], "fcuda-short-ptr">, Flags<[CC1Option]>,
+#if INTEL_CUSTOMIZATION
+def fcuda_short_ptr : Flag<["-"], "fcuda-short-ptr">, Flags<[CC1Option, DpcppUnsupported]>,
   HelpText<"Use 32-bit pointers for accessing const/local/shared address spaces.">;
+#endif // INTEL_CUSTOMIZATION
 def fno_cuda_short_ptr : Flag<["-"], "fno-cuda-short-ptr">;
 def hip_device_lib_path_EQ : Joined<["--"], "hip-device-lib-path=">, Group<Link_Group>,
   HelpText<"HIP device library path">;
@@ -1748,15 +1763,16 @@ def fobjc_sender_dependent_dispatch : Flag<["-"], "fobjc-sender-dependent-dispat
 def foffload_static_lib_EQ : CommaJoined<["-"], "foffload-static-lib=">, Flags<[DriverOption, CoreOption]>, Group<offload_lib_Group>;
 def foffload_whole_static_lib_EQ : CommaJoined<["-"], "foffload-whole-static-lib=">, Flags<[DriverOption, CoreOption]>, Group<offload_lib_Group>;
 def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
-def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
-  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 #if INTEL_CUSTOMIZATION
-def qopenmp: Flag<["-"], "qopenmp">, Alias<fopenmp>,
+def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def qopenmp: Flag<["-"], "qopenmp">, Alias<fopenmp>, Flags<[DpcppUnsupported]>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>;
+def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>;
+def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>, Flags<[DpcppUnsupported]>;
 #endif // INTEL_CUSTOMIZATION
-def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
-def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
-def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>;
 def fopenmp_use_tls : Flag<["-"], "fopenmp-use-tls">, Group<f_Group>,
   Flags<[NoArgumentUnused, HelpHidden]>;
 def fnoopenmp_use_tls : Flag<["-"], "fnoopenmp-use-tls">, Group<f_Group>,
@@ -1765,17 +1781,17 @@ def fnoopenmp_use_tls : Flag<["-"], "fnoopenmp-use-tls">, Group<f_Group>,
 def fopenmp_late_outline : Flag<["-"], "fopenmp-late-outline">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused]>;
 // end INTEL_COLLAB
-def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[DriverOption, CC1Option]>,
+def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[DriverOption, CC1Option, DpcppUnsupported]>,
   HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;
 def fopenmp_relocatable_target : Flag<["-"], "fopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fnoopenmp_relocatable_target : Flag<["-"], "fnoopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
-def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
+def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
-def fno_openmp_simd : Flag<["-"], "fno-openmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
+def fno_openmp_simd : Flag<["-"], "fno-openmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>;
 def fopenmp_cuda_mode : Flag<["-"], "fopenmp-cuda-mode">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fno_openmp_cuda_mode : Flag<["-"], "fno-openmp-cuda-mode">, Group<f_Group>,
@@ -1794,8 +1810,10 @@ def fopenmp_optimistic_collapse : Flag<["-"], "fopenmp-optimistic-collapse">, Gr
   Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fno_openmp_optimistic_collapse : Flag<["-"], "fno-openmp-optimistic-collapse">, Group<f_Group>,
   Flags<[NoArgumentUnused, HelpHidden]>;
-def static_openmp: Flag<["-"], "static-openmp">,
+#if INTEL_CUSTOMIZATION
+def static_openmp: Flag<["-"], "static-openmp">, Flags<[DpcppUnsupported]>,
   HelpText<"Use the static host OpenMP runtime while linking.">;
+#endif // INTEL_CUSTOMIZATION
 // INTEL_COLLAB
 def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 // end INTEL_COLLAB
@@ -2854,8 +2872,10 @@ def no__dead__strip__inits__and__terms : Flag<["-"], "no_dead_strip_inits_and_te
 def nobuiltininc : Flag<["-"], "nobuiltininc">, Flags<[CC1Option, CoreOption]>,
   HelpText<"Disable builtin #include directories">;
 def nocudainc : Flag<["-"], "nocudainc">;
-def nogpulib : Flag<["-"], "nogpulib">,
+#if INTEL_CUSTOMIZATION
+def nogpulib : Flag<["-"], "nogpulib">, Flags<[DpcppUnsupported]>,
   HelpText<"Do not link device library for CUDA/HIP device compilation">;
+#endif // INTEL_CUSTOMIZATION
 def : Flag<["-"], "nocudalib">, Alias<nogpulib>;
 def nodefaultlibs : Flag<["-"], "nodefaultlibs">;
 def nofixprebinding : Flag<["-"], "nofixprebinding">;
