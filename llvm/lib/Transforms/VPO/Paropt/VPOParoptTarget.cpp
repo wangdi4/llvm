@@ -943,6 +943,9 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
   if (MapI->getIsMapAlways())
     Res |= TGT_MAP_ALWAYS;
 
+  if (MapI->getIsMapClose())
+    Res |= TGT_MAP_CLOSE;
+
   // Memberof is given by the 16 MSB of the flag, so rotate by 48 bits.
   // It is workaroud. Need more work.
   auto getMemberOfFlag = [&]() {

@@ -112,10 +112,10 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Id = QUAL_OMP_PRIVATE
 #endif // INTEL_CUSTOMIZATION
 ///
-/// *  ALWAYS modifier for map clause. Example:
-///      FullName = "QUAL.OMP.MAP:ALWAYS"
+/// *  ALWAYS, CLOSE, PRESENT modifiers for map clause. Example:
+///      FullName = "QUAL.OMP.MAP:ALWAYS.CLOSE"
 ///      BaseName = "QUAL.OMP.MAP"
-///      Modifier = "ALWAYS"
+///      Modifiers = "ALWAYS" and "CLOSE"
 ///      Id = QUAL_OMP_MAP
 ///
 /// Id is the enum corresponding to BaseName.
@@ -137,6 +137,8 @@ private:
   bool IsWILocal:1;
 #endif // INTEL_CUSTOMIZATION
   bool IsAlways:1;
+  bool IsClose:1;
+  bool IsPresent:1;
   bool IsUnsigned:1;     // needed by min/max reduction
   bool IsComplex:1;
 
@@ -169,6 +171,8 @@ public:
   void setIsByRef()                { IsByRef = true; }
   void setIsNonPod()               { IsNonPod = true; }
   void setIsAlways()               { IsAlways = true; }
+  void setIsClose()                { IsClose = true; }
+  void setIsPresent()              { IsPresent = true; }
   void setIsUnsigned()             { IsUnsigned = true; }
   void setIsConditional()          { IsConditional = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
@@ -189,6 +193,8 @@ public:
   bool getIsByRef() const { return IsByRef; }
   bool getIsNonPod() const { return IsNonPod; }
   bool getIsAlways() const { return IsAlways; }
+  bool getIsClose() const { return IsClose; }
+  bool getIsPresent() const { return IsPresent; }
   bool getIsUnsigned() const { return IsUnsigned; }
   bool getIsConditional() const { return IsConditional; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
