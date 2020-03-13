@@ -803,7 +803,7 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
 /// Generate tgt_push_code_location call which pushes source code location
 /// and the pointer to the tgt_target*() function.
 /// Generated function looks as follows:
-/// void __tgt_push_code_location (const char *Location,
+/// void __tgt_push_code_location (void *Location,
 ///                                 void *FunctionPtr)
 CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
                                                  CallInst *TgtTargetCall) {
@@ -820,16 +820,17 @@ CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
   GlobalVariable *LocStr = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
   //  Create the following function call
-  //  call void @__tgt_push_code_location([22 x i8]* @.source.0.0,
-  // i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to
-  // i8*))
+  // call void @__tgt_push_code_location(i8* getelementptr inbounds ([18 x i8],
+  // [18 x i8]* @.source.3.4, i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32,
+  // i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
   Type *ReturnTy = Type::getVoidTy(C);
   SmallVector<Value *, 2> Args;
   SmallVector<Type *, 2> ArgTypes;
   Function *Fn = TgtTargetCall->getCalledFunction();
   Value *Cast = Builder.CreateBitCast(Fn, Int8PtrTy);
-  Args.push_back(LocStr);
-  ArgTypes.push_back(LocStr->getType());
+  Value *LocStrCast = Builder.CreateBitCast(LocStr, Int8PtrTy);
+  Args.push_back(LocStrCast);
+  ArgTypes.push_back(LocStrCast->getType());
   Args.push_back(Cast);
   ArgTypes.push_back(Int8PtrTy);
   CallInst *Call = genCall("__tgt_push_code_location", ReturnTy, Args, ArgTypes,

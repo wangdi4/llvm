@@ -8140,3 +8140,49 @@ let isCommutable = 1 in {
   defm VPDPBSUDSY : avx_dotprod_rm<0x51,"vpdpbsuds", v8i32, VR256, loadv8i32, i256mem, X86vpdpbsuds, SchedWriteVecIMul.YMM>, VEX_L, T8XS;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+multiclass avx_vcvt2ps2ph_rm<ValueType OpVT, RegisterClass RC,
+                             PatFrag MemOpFrag, X86MemOperand X86MemOp,
+                             X86FoldableSchedWrite sched> {
+  let Predicates = [HasAVXCONVERT] in {
+    def rr : I<0x67, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2),
+               "vcvt2ps2ph\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+               [(set RC:$dst, (OpVT (X86vcvt2ps2ph RC:$src1, RC:$src2)))]>,
+               Sched<[sched]>, SIMD_EXC, T8PD, VEX_4V;
+    def rm : I<0x67, MRMSrcMem, (outs RC:$dst), (ins RC:$src1, X86MemOp:$src2),
+               "vcvt2ps2ph\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+               [(set RC:$dst, (OpVT (X86vcvt2ps2ph RC:$src1,
+                              (MemOpFrag addr:$src2))))]>,
+               Sched<[sched.Folded, sched.ReadAfterFold]>, SIMD_EXC, T8PD, VEX_4V;
+  }
+}
+// FIXME: Using SchedWriteCvtPD2PS is a workaround.
+defm VCVT2PS2PH  : avx_vcvt2ps2ph_rm<v8f16,  VR128, loadv4f32, f128mem, SchedWriteCvtPD2PS.XMM>;
+defm VCVT2PS2PHY : avx_vcvt2ps2ph_rm<v16f16, VR256, loadv8f32, f256mem, SchedWriteCvtPD2PS.YMM>, VEX_L;
+
+multiclass VCVTPHBF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
+                          X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode,
+                          X86FoldableSchedWrite sched> {
+  let Uses = [MXCSR], Predicates = [HasAVXCONVERT] in {
+    def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+               [(set RC:$dst, (OpNode RC:$src))]>, Sched<[sched]>, VEX;
+    def rm : I<opc, MRMSrcMem, (outs RC:$dst), (ins x86memop:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+               [(set RC:$dst, (OpNode (MemOpFrag addr:$src)))]>,
+               Sched<[sched.Folded, sched.ReadAfterFold]>, VEX;
+  }
+}
+// FIXME: Using SchedWriteCvtPD2PS is a workaround.
+defm VCVTBF162PH    : VCVTPHBF16_rm<0x67, "vcvtbf162ph",   VR128, f128mem, loadv8i16,  X86vcvtbf162ph,
+                                    SchedWriteCvtPD2PS.XMM>, T8XS;
+defm VCVTBF162PHY   : VCVTPHBF16_rm<0x67, "vcvtbf162ph",   VR256, f256mem, loadv16i16, X86vcvtbf162ph,
+                                    SchedWriteCvtPD2PS.XMM>, T8XS, VEX_L;
+defm VCVTNEPH2BF16  : VCVTPHBF16_rm<0x67, "vcvtneph2bf16", VR128, f128mem, loadv8f16,  X86vcvtneph2bf16,
+                                    SchedWriteCvtPD2PS.XMM>, T8XD;
+defm VCVTNEPH2BF16Y : VCVTPHBF16_rm<0x67, "vcvtneph2bf16", VR256, f256mem, loadv16f16, X86vcvtneph2bf16,
+                                    SchedWriteCvtPD2PS.XMM>, T8XD, VEX_L;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#endif // INTEL_CUSTOMIZATION

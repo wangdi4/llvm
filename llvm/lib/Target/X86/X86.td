@@ -214,11 +214,15 @@ def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
                            "Enable AVX512-DOTPROD",
                            [FeatureAVXDOTPROD, FeatureFP16, FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+def FeatureAVXCONVERT  : SubtargetFeature<"avxconvert", "HasAVXCONVERT", "true",
+                           "Enable AVX-CONVERT",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 def FeatureCONVERT    : SubtargetFeature<"avx512convert", "HasCONVERT", "true",
                            "Enable AVX512-CONVERT",
-                           [FeatureBF16, FeatureFP16, FeatureAVX512]>;
+                           [FeatureAVXCONVERT, FeatureBF16, FeatureFP16, FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
 
