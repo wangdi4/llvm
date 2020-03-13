@@ -75,6 +75,7 @@ else:
     config.substitutions.append( ('%clang_cl', ' ' + config.clang_cl ) )
     config.substitutions.append( ('%clang', ' ' + config.clang ) )
 # end INTEL_CUSTOMIZATION
+
 config.substitutions.append( ('%llvm_build_libs_dir',  config.llvm_build_libs_dir ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
