@@ -919,7 +919,7 @@ Value *spirv::genLinearLocalID(Instruction &Before, const Triple &TT) {
                              asUInt(spirv::AddrSpace::Global) // AddressSpace
       );
       unsigned Align = M.getDataLayout().getPreferredAlignment(G);
-      G->setAlignment(Align);
+      G->setAlignment(MaybeAlign(Align));                         // INTEL
     }
     Value *Res = new LoadInst(G, "", &Before);
     return Res;
