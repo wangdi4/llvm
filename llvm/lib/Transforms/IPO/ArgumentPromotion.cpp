@@ -202,12 +202,11 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       for (const auto &ArgIndex : ArgIndices) {
         // not allowed to dereference ->begin() if size() is 0
 #if INTEL_CUSTOMIZATION
-        Type *ParamTy =
-            isCallback ? DL.getIntPtrType(I->getType())
-                       : GetElementPtrInst::getIndexedType(
-                             cast<PointerType>(I->getType()->getScalarType())
-                                 ->getElementType(),
-                             ArgIndex.second);
+        Type *ParamTy = GetElementPtrInst::getIndexedType(
+            cast<PointerType>(I->getType()->getScalarType())->getElementType(),
+            ArgIndex.second);
+        if (isCallback && !isa<PointerType>(ParamTy))
+          ParamTy = DL.getIntPtrType(I->getType());
         Params.push_back(ParamTy);
 #endif // INTEL_CUSTOMIZATION
         ArgAttrVec.push_back(AttributeSet());
@@ -272,7 +271,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 
     // Cast given value to a pointer-sized integer type for callback functions.
     auto MaybeCastTo = [&](Value *Val, Argument &Arg) {
-      if (isCallback) {
+      if (isCallback && !isa<PointerType>(Val->getType())) {
         // Bitcast to integer.
         Value *IntVal = IRB.CreateBitOrPointerCast(
             Val, IRB.getIntNTy(DL.getTypeStoreSizeInBits(Val->getType())));
@@ -457,7 +456,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 
 #if INTEL_CUSTOMIZATION
   auto MaybeCastFrom = [&](Value *Val, Instruction *Inst) {
-    if (isCallback) {
+    if (isCallback && !isa<PointerType>(Val->getType())) {
       IRBuilder<> IRB(Inst);
       Type *Ty = Inst->getType();
 
