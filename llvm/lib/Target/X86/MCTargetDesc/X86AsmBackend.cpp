@@ -717,6 +717,7 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
 void X86AsmBackend::alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {
   if (!needAlign(OS))
     return;
+<<<<<<< HEAD
 
   PrevInst = Inst;
   const MCFragment *CF = OS.getCurrentFragment();
@@ -779,6 +780,19 @@ void X86AsmBackend::alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {
   // prefix to align other instruction.
   if (!isa<MCRelaxableFragment>(OS.getCurrentFragment()))
     OS.insert(new MCBoundaryAlignFragment());
+=======
+  // If the branch is emitted into a MCRelaxableFragment, we can determine the
+  // size of the branch easily in MCAssembler::relaxBoundaryAlign. When the
+  // branch is fused, the fused branch(macro fusion pair) must be emitted into
+  // two fragments. Or when the branch is unfused, the branch must be emitted
+  // into one fragment. The MCRelaxableFragment naturally marks the end of the
+  // fused or unfused branch.
+  // Otherwise, we need to insert a MCBoundaryAlignFragment to mark the end of
+  // the branch. This MCBoundaryAlignFragment may be reused to emit NOP to align
+  // other branch.
+  if (needAlignInst(Inst) && !isa<MCRelaxableFragment>(OS.getCurrentFragment()))
+    OS.insert(new MCBoundaryAlignFragment(AlignBoundary));
+>>>>>>> af57b139a0808be41383e8b3838bb8277423c2ab
 
   // Update the maximum alignment on the current section if necessary.
   MCSection *Sec = OS.getCurrentSectionOnly();
