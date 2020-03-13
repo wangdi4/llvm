@@ -428,14 +428,10 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
     if (BF->hasEmitNops())
       OS << " (emit nops)";
     OS << "\n       ";
-<<<<<<< HEAD
     if (BF->hasValue())
       OS << " Value:" << hexdigit(BF->getValue());
     OS << " BoundarySize:" << BF->getAlignment().value()
        << " MaxBytesToEmit:" << BF->getMaxBytesToEmit()
-=======
-    OS << " BoundarySize:" << BF->getAlignment().value()
->>>>>>> af57b139a0808be41383e8b3838bb8277423c2ab
        << " Size:" << BF->getSize();
     break;
   }

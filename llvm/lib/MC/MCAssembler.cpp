@@ -1002,7 +1002,6 @@ static bool needPadding(uint64_t StartAddr, uint64_t Size,
          isAgainstBoundary(StartAddr, Size, BoundaryAlignment);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
                                      MCBoundaryAlignFragment &BF) {
@@ -1034,31 +1033,10 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
       FixedValue += MBF->getSize();
 
   AlignedOffset -= FixedValue;
-=======
-bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
-                                     MCBoundaryAlignFragment &BF) {
-  // The MCBoundaryAlignFragment that doesn't emit NOP should not be relaxed.
-  if (!BF.canEmitNops())
-    return false;
-
-  uint64_t AlignedOffset = Layout.getFragmentOffset(BF.getNextNode());
-  uint64_t AlignedSize = 0;
-  const MCFragment *F = BF.getNextNode();
-  // If the branch is unfused, it is emitted into one fragment, otherwise it is
-  // emitted into two fragments at most, the next MCBoundaryAlignFragment(if
-  // exists) also marks the end of the branch.
-  for (auto i = 0, N = BF.isFused() ? 2 : 1;
-       i != N && !isa<MCBoundaryAlignFragment>(F); ++i, F = F->getNextNode()) {
-    AlignedSize += computeFragmentSize(Layout, *F);
-  }
-  uint64_t OldSize = BF.getSize();
-  AlignedOffset -= OldSize;
->>>>>>> af57b139a0808be41383e8b3838bb8277423c2ab
   Align BoundaryAlignment = BF.getAlignment();
   uint64_t NewSize = needPadding(AlignedOffset, AlignedSize, BoundaryAlignment)
                          ? offsetToAlignment(AlignedOffset, BoundaryAlignment)
                          : 0U;
-<<<<<<< HEAD
   if (!BF.hasEmitNops()) {
     assert(BF.getNextNode()->hasInstructions() &&
            "The fragment doesn't have any instruction.");
@@ -1066,18 +1044,12 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
       NewSize = 0;
   }
   if (NewSize == BF.getSize())
-=======
-  if (NewSize == OldSize)
->>>>>>> af57b139a0808be41383e8b3838bb8277423c2ab
     return false;
   BF.setSize(NewSize);
   Layout.invalidateFragmentsFrom(&BF);
   return true;
 }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> af57b139a0808be41383e8b3838bb8277423c2ab
 
 bool MCAssembler::relaxDwarfLineAddr(MCAsmLayout &Layout,
                                      MCDwarfLineAddrFragment &DF) {
