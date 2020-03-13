@@ -133,6 +133,9 @@ class ClientCDB(TestClient):
         cl_file_fullpath = self.cl_abs_filename(cl_name)
         # CDB environment variable should be set to cdb path before start of test
         cdb_command = '"' + env["CDB"] + '"'
+        # Direct CDB to use the specified symbol cache. Environment variable
+        # DTT_CDBSYMSTORE will be set by debugger_test_driver.py
+        cdb_command += ' -y \"cache*' + env["DTT_CDBSYMSTORE"] + '\"'
         options_str = ""
         if self.device_type:
             options_str = 'device=' + self.device_type + ','
@@ -163,6 +166,9 @@ class ClientCDB(TestClient):
             # and CDB is just a bit slow to start...
             logw("Timeout waiting for CDB prompt after startup")
             pass
+
+        # Display the symbol search path
+        self._command(".sympath")
 
         # Enable debugging with source line information
         self._command(".lines")
