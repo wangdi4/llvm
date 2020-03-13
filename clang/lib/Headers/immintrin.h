@@ -315,6 +315,40 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVX512DOTPROD_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVX512DOTPROD__)
+#include <avx512dotprod/avx512dotprodintrin.h>
+#endif
+#if defined(__AVX512VL__) && defined(__AVX512DOTPROD__)
+#include <avx512dotprod/avx512vldotprodintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_CONVERT */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVX512CONVERT_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVX512CONVERT__)
+#include <avx512convert/avx512convertintrin.h>
+#endif
+#if defined(__AVX512VL__) && defined(__AVX512CONVERT__)
+#include <avx512convert/avx512vlconvertintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_CONVERT */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 /// Returns the value of the IA32_TSC_AUX MSR (0xc0000103).

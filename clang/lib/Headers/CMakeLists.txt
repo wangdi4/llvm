@@ -149,6 +149,20 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxvnni/avxvnniintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_VNNI
+# INTEL_FEATURE_ISA_AVX512_DOTPROD
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD
+  Intel_Headers/avx512dotprod/avx512dotprodintrin.h
+  Intel_Headers/avx512dotprod/avx512vldotprodintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD
+# INTEL_FEATURE_ISA_AVX512_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_CONVERT
+  Intel_Headers/avx512convert/avx512convertintrin.h
+  Intel_Headers/avx512convert/avx512vlconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_CONVERT
 # end INTEL_CUSTOMIZATION
 
 set(files
