@@ -337,15 +337,11 @@ int target_data_begin(DeviceTy &Device, int32_t arg_num,
 
     if (arg_types[i] & OMP_TGT_MAPTYPE_TO) {
       bool copy = false;
-<<<<<<< HEAD
-      if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
-=======
 #if INTEL_COLLAB
-      if (!(RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
+      if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
           !Device.is_managed_ptr(HstPtrBegin) || HasCloseModifier) {
 #else // INTEL_COLLAB
-      if (!(RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
->>>>>>> 8a39b6acba56cb7fc2088420a2aee38bdc453b1f
+      if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
           HasCloseModifier) {
 #endif // INTEL_COLLAB
         if (IsNew || (arg_types[i] & OMP_TGT_MAPTYPE_ALWAYS)) {
@@ -448,15 +444,11 @@ int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
       if (arg_types[i] & OMP_TGT_MAPTYPE_FROM) {
         bool Always = arg_types[i] & OMP_TGT_MAPTYPE_ALWAYS;
         bool CopyMember = false;
-<<<<<<< HEAD
-        if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
-=======
 #if INTEL_COLLAB
-        if (!(RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
+        if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
             !Device.is_managed_ptr(HstPtrBegin) || HasCloseModifier) {
 #else // INTEL_COLLAB
-        if (!(RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
->>>>>>> 8a39b6acba56cb7fc2088420a2aee38bdc453b1f
+        if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
             HasCloseModifier) {
 #endif // INTEL_COLLAB
           if ((arg_types[i] & OMP_TGT_MAPTYPE_MEMBER_OF) &&
