@@ -192,12 +192,18 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // maps are respected.
     // In addition to the mapping rules above, the close map
     // modifier forces the mapping of the variable to the device.
+<<<<<<< HEAD
     if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
         !HasCloseModifier) {
+=======
+>>>>>>> 8a39b6acba56cb7fc2088420a2aee38bdc453b1f
 #if INTEL_COLLAB
+    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+        !HasCloseModifier && is_managed_ptr(HstPtrBegin)) {
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
       DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
 #else // INTEL_COLLAB
+    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
       DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
       DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
 #endif // INTEL_COLLAB
@@ -248,7 +254,16 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
         (UpdateRefCount ? " updated" : ""),
         HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
+<<<<<<< HEAD
   } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+=======
+#if INTEL_COLLAB
+  } else if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+             is_managed_ptr(HstPtrBegin)) {
+#else // INTEL_COLLAB
+  } else if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+#endif // INTEL_COLLAB
+>>>>>>> 8a39b6acba56cb7fc2088420a2aee38bdc453b1f
     // If the value isn't found in the mapping and unified shared memory
     // is on then it means we have stumbled upon a value which we need to
     // use directly from the host.
@@ -278,7 +293,16 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
 
 int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
                             bool HasCloseModifier) {
+<<<<<<< HEAD
   if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
+=======
+#if INTEL_COLLAB
+  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier &&
+      is_managed_ptr(HstPtrBegin))
+#else // INTEL_COLLAB
+  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
+#endif // INTEL_COLLAB
+>>>>>>> 8a39b6acba56cb7fc2088420a2aee38bdc453b1f
     return OFFLOAD_SUCCESS;
   // Check if the pointer is contained in any sub-nodes.
   int rc;
@@ -625,6 +649,13 @@ int32_t DeviceTy::data_delete_managed(void *Ptr) {
     return RTL->data_delete_managed(RTLDeviceID, Ptr);
   else
     return OFFLOAD_FAIL;
+}
+
+int32_t DeviceTy::is_managed_ptr(void *Ptr) {
+  if (RTL->is_managed_ptr)
+    return RTL->is_managed_ptr(RTLDeviceID, Ptr);
+  else
+    return 0;
 }
 #endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not

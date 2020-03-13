@@ -28,6 +28,7 @@ VERS1.0 {
     __tgt_rtl_release_offload_pipe;
     __tgt_rtl_data_alloc_managed;
     __tgt_rtl_data_delete_managed;
+    __tgt_rtl_is_managed_ptr;
 # end INTEL_COLLAB
   local:
     *;
