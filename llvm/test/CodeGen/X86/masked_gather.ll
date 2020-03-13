@@ -1726,9 +1726,9 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX512-NEXT:    vpxor   %xmm2, %xmm2, %xmm2 ;INTEL
 ; AVX512-NEXT:    kmovw %k1, %k2
 ; AVX512-NEXT:    vpgatherdd c(,%zmm1,4), %zmm2 {%k2} ;INTEL
-; AVX512-NEXT:    vpbroadcastd {{.*#+}} zmm1 = [28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28] ;INTEL
-; AVX512-NEXT:    vpgatherdd c(,%zmm1), %zmm0 {%k1} ;INTEL
-; AVX512-NEXT:    vpaddd %ymm0, %ymm0, %ymm0 ;INTEL
+; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1 ;INTEL
+; AVX512-NEXT:    vpgatherdd c+28(,%zmm0), %zmm1 {%k1} ;INTEL
+; AVX512-NEXT:    vpaddd %ymm1, %ymm1, %ymm0 ;INTEL
 ; AVX512-NEXT:    vpaddd %ymm0, %ymm2, %ymm0 ;INTEL
 ; AVX512-NEXT:    retq
   %1 = insertelement <8 x %struct.a*> undef, %struct.a* @c, i32 0

@@ -363,6 +363,12 @@ inline bool isNonByStripLoop(const HLLoop *Loop, const LoopMapTy &LoopMap) {
   return MapIt == LoopMap.end() || MapIt->second != BY_STRIP_LOOP_VAL;
 }
 
+inline bool isBlockedLoop(const HLLoop *Loop, const LoopMapTy &LoopMap) {
+  // Return true for a non-byStrip loop.
+  auto MapIt = LoopMap.find(Loop);
+  return MapIt != LoopMap.end() && MapIt->second != BY_STRIP_LOOP_VAL;
+}
+
 inline void markAsToStripmine(const HLLoop *LoopToStripmine,
                               LoopMapTy &LoopMap) {
   LoopMap[LoopToStripmine] = STRIPMINE_CAND_VAL;
@@ -1638,16 +1644,15 @@ void doTransformation(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
     CurLoopNests.push_back(Lp);
   });
 
-  // Add OptReport after permutation.
-  // ToStripmines knows which loops are blocked in terms of the level
-  // before the permutation happens.
+  // Add OptReport after permutation to get the correct information.
   LoopOptReportBuilder &LORBuilder =
       CurLoopNests.front()->getHLNodeUtils().getHIRFramework().getLORBuilder();
   for (auto Lp : CurLoopNests) {
     const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
         Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
-    if (isNonByStripLoop(OrigLoop, LoopMap)) {
-      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop is blocked");
+    if (isBlockedLoop(OrigLoop, LoopMap)) {
+      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "blocked by %d",
+                                LoopMap[OrigLoop]);
     }
   }
 
