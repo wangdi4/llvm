@@ -420,6 +420,27 @@ static bool hasInterruptDelaySlot(const MCInst &Inst) {
   return false;
 }
 
+/// X86 has certain instructions which enable interrupts exactly one
+/// instruction *after* the instruction which stores to SS.  Return true if the
+/// given instruction has such an interrupt delay slot.
+static bool hasInterruptDelaySlot(const MCInst &Inst) {
+  switch (Inst.getOpcode()) {
+  case X86::POPSS16:
+  case X86::POPSS32:
+  case X86::STI:
+    return true;
+
+  case X86::MOV16sr:
+  case X86::MOV32sr:
+  case X86::MOV64sr:
+  case X86::MOV16sm:
+    if (Inst.getOperand(0).getReg() == X86::SS)
+      return true;
+    break;
+  }
+  return false;
+}
+
 /// Check if the instruction operand needs to be aligned. Padding is disabled
 /// before intruction which may be rewritten by linker(e.g. TLSCALL).
 bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
@@ -586,6 +607,7 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
   // Otherwise emit prefix before the instruction.
 
   MCFragment *CF = OS.getCurrentFragment();
+<<<<<<< HEAD
 
   // Prefix or NOP shouldn't be inserted after hardcode, e.g.
   //
@@ -599,6 +621,20 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     // FIXME: The method to detect hardcode is tricky here.
     if (F != LastDFOfInst || F->getContents().size() != LastDFSizeOfInst) {
       return;
+=======
+  bool NeedAlignFused = AlignBranchType & X86::AlignBranchFused;
+  if (hasInterruptDelaySlot(PrevInst)) {
+    // If this instruction follows an interrupt enabling instruction with a one
+    // instruction delay, inserting a nop would change behavior.
+  } else if (NeedAlignFused && isMacroFused(PrevInst, Inst) && CF) {
+    // Macro fusion actually happens and there is no other fragment inserted
+    // after the previous instruction. NOP can be emitted in PF to align fused
+    // jcc.
+    if (auto *PF =
+            dyn_cast_or_null<MCBoundaryAlignFragment>(CF->getPrevNode())) {
+      const_cast<MCBoundaryAlignFragment *>(PF)->setEmitNops(true);
+      const_cast<MCBoundaryAlignFragment *>(PF)->setFused(true);
+>>>>>>> 7049cf6496c9aa8e355345a3fbea30861e4d2da8
     }
   }
 
