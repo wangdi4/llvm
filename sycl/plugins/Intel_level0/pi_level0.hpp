@@ -76,6 +76,16 @@ struct _pi_mem {
     ze_image_handle_t L0Image;
   };
 
+  // TODO: as this only affects buffers and not images reorganize to
+  // not waste memory. Even for buffers this should better be a pointer
+  // (null for normal buffers) than statically allocates structure.
+  //
+  struct {
+    _pi_mem * Parent;
+    size_t Origin; // only valid if Parent != nullptr
+    size_t Size;   // only valid if Parent != nullptr
+  } SubBuffer;
+
   // TODO: see if there a better way to tag buffer vs. image.
   bool IsMemImage;
 
