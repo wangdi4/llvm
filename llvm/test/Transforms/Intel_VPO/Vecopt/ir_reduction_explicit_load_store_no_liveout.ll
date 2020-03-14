@@ -20,9 +20,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
-; CHECK-EMPTY:
-; CHECK-EMPTY:
-; CHECK-NEXT:  SOASafe = float* [[X0]]
+; CHECK:       SOASafe = float* [[X0]]
 ; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
@@ -64,10 +62,10 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    END Region([[REGION0]])
-
+;
 ; Check generated vector code.
-; CHECK:       define float @load_store_reduction_add
-; CHECK:       vector.ph:
+; CHECK:  define float @load_store_reduction_add(float* nocapture [[A0]]) {
+; CHECK:  vector.ph:
 ; CHECK-NEXT:    store <8 x float> zeroinitializer, <8 x float>* [[X_VEC0:%.*]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
@@ -80,7 +78,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP0]] to <8 x float>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x float>, <8 x float>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1]] = fadd <8 x float> [[VEC_PHI10]], [[WIDE_LOAD0]]
-; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0:%.*]], align 4
+; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <8 x i64> [[TMP2]], <i64 1000, i64 1000, i64 1000, i64 1000, i64 1000, i64 1000, i64 1000, i64 1000>
@@ -93,7 +91,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[WIDE_LOAD20:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD20]])
 ; CHECK-NEXT:    store float [[TMP6]], float* [[X0]], align 1
-
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 entry:
   %x = alloca float, align 4
   store float 2.000000e+00, float* %x, align 4

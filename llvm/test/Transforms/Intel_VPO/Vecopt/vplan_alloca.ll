@@ -12,13 +12,11 @@
 
 define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-LABEL:  After predication and linearization
-; LLVM:    REGION: [[REGION0:region[0-9]+]]
-; LLVM:     [DA: Divergent] i64 [[VP0:%.*]] = induction-init{add} i64 0 i64 1
-; LLVM:     [DA: Divergent] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1:BB[0-9]+]] ]
+; LLVM:     [DA: Divergent] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; LLVM:     [DA: Divergent] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP_IV_IND_INIT]], [[BB1:BB[0-9]+]] ]
 ; LLVM:     [DA: Divergent] [256 x i8]* [[VP_A_VAR:%.*]] = alloca i64 [[VP_IV]]
-; LLVM:    END Region([[REGION0]])
 ;
-; LLVM-CG-LABEL: vector.body:
+; LLVM-CG-LABEL:  vector.body:
 ; LLVM-CG-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[PRED_ALLOCA_CONTINUE30:%.*]] ]
 ; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP18:%.*]], [[PRED_ALLOCA_CONTINUE30]] ], [ 0, [[VECTOR_PH0]] ]
 ; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[PRED_ALLOCA_CONTINUE30]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
@@ -63,10 +61,8 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-CG-NEXT:    store <2 x [256 x i8]*> [[TMP15]], <2 x [256 x i8]*>* [[TMP16]], align 8
 ;
 ; HIR-LABEL:  After predication and linearization
-; HIR:    REGION: [[REGION0:region[0-9]+]]
-; HIR:     [DA: Divergent] i64 [[VP2:%.*]] = phi  [ i64 [[IND_INIT:%vp.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
+; HIR:     [DA: Divergent] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
 ; HIR:     [DA: Divergent] [256 x i8]* [[VP6:%.*]] = alloca i64 [[VP2]]
-; HIR:    END Region([[REGION0]])
 ;
 ; Ensure we correctly bailout from vectorization
 ; HIR-CG-NOT: <2 x
