@@ -8186,3 +8186,62 @@ defm VCVTNEPH2BF16Y : VCVTPHBF16_rm<0x67, "vcvtneph2bf16", VR256, f256mem, loadv
                                     SchedWriteCvtPD2PS.XMM>, T8XD, VEX_L;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+multiclass VCVTBF16_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
+                        RegisterClass RC, PatFrag MemOpFrag, X86MemOperand X86MemOp,
+                        SDNode OpNode> {
+  let Predicates  = [HasAVXBF16] in {
+    def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2),
+               OpcodeStr##"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+               [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2)))]>, VEX_4V;
+    def rm : I<opc, MRMSrcMem, (outs RC:$dst), (ins RC:$src1, X86MemOp:$src2),
+                 OpcodeStr##"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                 [(set RC:$dst, (OpVT (OpNode RC:$src1,
+                                 (MemOpFrag addr:$src2))))]>, VEX_4V;
+  }
+}
+
+let Constraints = "$src1 = $dst" in {
+multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
+                        RegisterClass RC, PatFrag MemOpFrag, X86MemOperand X86MemOp,
+                        SDNode OpNode> {
+  let Predicates  = [HasAVXBF16] in {
+    def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2, RC:$src3),
+               OpcodeStr##"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+               [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, RC:$src3)))]>, VEX_4V;
+    def rm : I<opc, MRMSrcMem, (outs RC:$dst), (ins RC:$src1, RC:$src2, X86MemOp:$src3),
+               OpcodeStr##"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+               [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, (MemOpFrag addr:$src3))))]>, VEX_4V;
+  }
+}
+}  // Constraints = "$src1 = $dst"
+
+  defm VDPBF16PS       : VDPBF16PS_rm<0x52, "vdpbf16ps", v4f32, VR128, loadv4i32,
+                                    f128mem, X86dpbf16ps>, T8XS;
+  defm VDPBF16PSY      : VDPBF16PS_rm<0x52, "vdpbf16ps", v8f32, VR256, loadv8i32,
+                                    f256mem, X86dpbf16ps>, VEX_L, T8XS;
+  defm VCVTNE2PS2BF16  : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v8i16, VR128, loadv4f32,
+                                    f128mem, X86cvtne2ps2bf16>, T8XD;
+  defm VCVTNE2PS2BF16Y : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v16i16, VR256, loadv8f32,
+                                    f256mem, X86cvtne2ps2bf16>, VEX_L, T8XD;
+
+multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
+                          X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode> {
+  let Predicates  = [HasAVXBF16] in {
+    def rr : I<opc, MRMSrcReg, (outs VR128:$dst), (ins RC:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+               [(set VR128:$dst, (OpNode RC:$src))]>, VEX;
+    def rm : I<opc, MRMSrcMem, (outs VR128:$dst), (ins x86memop:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+               [(set VR128:$dst, (OpNode (MemOpFrag addr:$src)))]>, VEX;
+  }
+}
+
+  defm VCVTNEPS2BF16  : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR128,
+                                    f128mem,  loadv4f32 ,X86cvtneps2bf16>, T8XS;
+  defm VCVTNEPS2BF16Y : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR256,
+                                    f256mem, loadv8f32, X86cvtneps2bf16>, VEX_L, T8XS;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION

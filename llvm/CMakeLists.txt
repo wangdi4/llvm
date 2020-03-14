@@ -975,6 +975,11 @@ list(APPEND features_enabled_by_default
 list(APPEND features_enabled_by_default
      ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_CONVERT)
 # end INTEL_FEATURE_ISA_AVX_CONVERT
+
+# INTEL_FEATURE_ISA_AVX_BF16
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_BF16)
+# end INTEL_FEATURE_ISA_AVX_BF16
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
