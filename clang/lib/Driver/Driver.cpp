@@ -407,26 +407,6 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       continue;
     }
 
-#if INTEL_CUSTOMIZATION
-    // Add SYCL specific performance libraries.  The names are considered as
-    // placeholders as we need to manipulate by adding full paths and extensions
-    // based on known performance library locations.
-    if (Args.hasArg(options::OPT_fsycl)) {
-      if (A->getOption().matches(options::OPT_mkl_EQ)) {
-        std::string LibName("libmkl_sycl");
-        DAL->AddJoinedArg(A,
-            Opts.getOption(options::OPT_foffload_static_lib_EQ),
-            Args.MakeArgString(LibName));
-      }
-      if (A->getOption().matches(options::OPT_daal_EQ)) {
-        std::string LibName("libdaal_sycl");
-        DAL->AddJoinedArg(A,
-            Opts.getOption(options::OPT_foffload_static_lib_EQ),
-            Args.MakeArgString(LibName));
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-
     DAL->append(A);
   }
 
@@ -2544,6 +2524,36 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
       A->claim();
     }
+#if INTEL_CUSTOMIZATION
+    // Handle Performance library inputs that imply specific libraries that
+    // need to be unbundled (i.e. are fat static libraries).  MKL and DAAL
+    // are part of this.
+    if ((A->getOption().matches(options::OPT_mkl_EQ) ||
+         A->getOption().matches(options::OPT_daal_EQ)) &&
+        Args.hasArg(options::OPT_fsycl)) {
+      SmallString<128> LibName;
+      bool IsMSVC = TC.getTriple().isWindowsMSVCEnvironment();
+      if (A->getOption().matches(options::OPT_mkl_EQ)) {
+        LibName = TC.GetMKLLibPath();
+        llvm::sys::path::append(LibName, IsMSVC ? "mkl_sycl.lib"
+                                                : "libmkl_sycl.a");
+      }
+      if (A->getOption().matches(options::OPT_daal_EQ)) {
+        LibName = TC.GetDAALLibPath();
+        llvm::sys::path::append(LibName, IsMSVC ? "daal_sycl.lib"
+                                                : "libdaal_sycl.a");
+      }
+      if (!LibName.empty()) {
+        // Add the library as an offload static library and also add as a lib
+        // direct on the command line.
+        Args.AddJoinedArg(A,
+            Opts.getOption(options::OPT_foffload_static_lib_EQ),
+            Args.MakeArgString(LibName));
+        Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
+        Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
   if (CCCIsCPP() && Inputs.empty()) {
     // If called as standalone preprocessor, stdin is processed
@@ -4477,21 +4487,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   if (!C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment() &&
       Args.hasArg(options::OPT_offload_lib_Group)) {
     ActionList UnbundlerInputs;
-#if INTEL_CUSTOMIZATION
-    auto makePerfLib = [&](SmallString<128> &FileName) {
-      // Modify any of the performance library placeholders to be full
-      // blown libraries with locations.
-      if (FileName == StringRef("libmkl_sycl")) {
-        FileName = C.getDefaultToolChain().GetMKLLibPath();
-        llvm::sys::path::append(FileName, "libmkl_sycl.a");
-      }
-      if (FileName == StringRef("libdaal_sycl")) {
-        FileName = C.getDefaultToolChain().GetDAALLibPath();
-        llvm::sys::path::append(FileName, "libdaal_sycl.a");
-      }
-    };
     for (auto &LI : LinkerInputs) {
-#endif // INTEL_CUSTOMIZATION
       // Unbundler only handles objects.
       if (auto *IA = dyn_cast<InputAction>(LI)) {
         std::string FileName = IA->getInputArg().getAsString(Args);
@@ -4499,31 +4495,13 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
             IA->getInputArg().getOption().hasFlag(options::LinkerInput))
           // Pass the Input along to linker only.
           continue;
-#if INTEL_CUSTOMIZATION
-        // Modify any of the performance library placeholders to be full
-        // blown libraries with locations.
-        if (FileName == "libdaal_sycl" || FileName == "libmkl_sycl") {
-          SmallString<128> LibName(FileName);
-          makePerfLib(LibName);
-          const llvm::opt::OptTable &Opts = getOpts();
-          Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
-          LI = C.MakeAction<InputAction>(*InputArg, IA->getType());
-          continue;
-        }
-#endif // INTEL_CUSTOMIZATION
         UnbundlerInputs.push_back(LI);
       }
     }
     const Arg *LastArg;
     auto addUnbundlerInput = [&](types::ID T, const Arg *A) {
       const llvm::opt::OptTable &Opts = getOpts();
-#if INTEL_CUSTOMIZATION
-      // For Performance libraries, we have placeholders which need to be
-      // updated to the proper library name.
-      SmallString<128> LibName(A->getValue());
-      makePerfLib(LibName);
-      Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
-#endif // INTEL_CUSTOMIZATION
+      Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
       LastArg = InputArg;
       Action *Current = C.MakeAction<InputAction>(*InputArg, T);
       UnbundlerInputs.push_back(Current);
@@ -4543,22 +4521,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   }
   const llvm::opt::OptTable &Opts = getOpts();
   auto unbundleStaticLib = [&](types::ID T, const Arg *A) {
-#if INTEL_CUSTOMIZATION
-    SmallString<128> LibName(A->getValue());
-    if (T == types::TY_Archive || T == types::TY_WholeArchive) {
-      // For Performance libraries, we have placeholders which need to be
-      // updated to the proper library name
-      if (A->getValue() == StringRef("libmkl_sycl")) {
-        LibName = C.getDefaultToolChain().GetMKLLibPath();
-        llvm::sys::path::append(LibName, "mkl_sycl.lib");
-      }
-      if (A->getValue() == StringRef("libdaal_sycl")) {
-        LibName = C.getDefaultToolChain().GetDAALLibPath();
-        llvm::sys::path::append(LibName, "daal_sycl.lib");
-      }
-    }
-    Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
-#endif // INTEL_CUSTOMIZATION
+    Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
     Action *Current = C.MakeAction<InputAction>(*InputArg, T);
     OffloadBuilder.addHostDependenceToDeviceActions(Current, InputArg, Args);
     OffloadBuilder.addDeviceDependencesToHostAction(
