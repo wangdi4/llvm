@@ -14,9 +14,9 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD_PHI:%.*]] = phi  [ i64 1, [[BB5:BB[0-9]+]] ],  [ i64 [[VP_ADD:%.*]], [[BB4]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 2, [[BB5]] ],  [ i64 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB4]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD]] = add i64 [[VP_ADD_PHI]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD_PHI:%.*]] = phi  [ i64 [[IND1:%.*]], [[BB5:BB[0-9]+]] ],  [ i64 [[VP_ADD:%.*]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 [[IND2:%.*]], [[BB5]] ],  [ i64 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD]] = add i64 [[VP_ADD_PHI]] i64 [[STEP1:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-EMPTY:
@@ -26,15 +26,15 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_INNER_LOOP_INDUCTION]] = add i64 [[VP_INNER_LOOP_INDUCTION_PHI]] i64 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION]] = add i64 [[VP_OUTER_LOOP_INDUCTION_PHI]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION]] = add i64 [[VP_OUTER_LOOP_INDUCTION_PHI]] i64  [[STEP2:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp i64 [[VP_OUTER_LOOP_INDUCTION]] i64 5
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
-; CHECK-EMPTY:
+; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[IND1_FINAL:%.*]] = induction-final{add} i64 1 i64 1
+; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[IND2_FINAL:%.*]] = induction-final{add} i64 2 i64 1
+
 ; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB8:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB8]]

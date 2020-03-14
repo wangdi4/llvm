@@ -5,12 +5,13 @@
 ; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -VPlanDriver -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -passes="vplan-driver" -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
 
+
 define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK:  Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]]<latch><exiting>
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB5:BB[0-9]+]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_IND_INIT:%.*]], [[BB5:BB[0-9]+]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB4]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i64 [[VP_OUTER_IV:%.*]] = sext i32 [[VP_IV]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_UNIT_ADD:%.*]] = add i64 [[VP_OUTER_IV]] i64 [[UNI_CALL0:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64* [[VP_OUTER_GEP:%.*]] = getelementptr inbounds i64* [[ARR0:%.*]] i64 42
@@ -30,12 +31,13 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND2:%.*]] = icmp i64 [[VP_IV_NEXT2]] i64 [[N0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP0:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 1024
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
 ;

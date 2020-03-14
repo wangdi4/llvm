@@ -1231,6 +1231,8 @@ public:
 
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
 
+  VPValue *getStep() const { return getOperand(1); }
+
 private:
   Instruction::BinaryOps BinOpcode;
 };
@@ -2333,17 +2335,6 @@ public:
     if (Iter == LoopEntities.end())
       return nullptr;
     return Iter->second.get();
-  }
-
-  /// Return \p true if we have finished importing of loop-entities and
-  /// generated appropriate VPInstructions.
-  bool isLoopEntitiesPrivatizationDone() const {
-    return LoopEntitiesPrivatizationIsDone;
-  }
-
-  /// Mark the flag that indicates that importing of loop entities is done.
-  void setLoopEntitiesPrivatizationDone(bool LEImportsDone) {
-    LoopEntitiesPrivatizationIsDone = LEImportsDone;
   }
 
   VPRegionBlock *getEntry() { return Entry.get(); }

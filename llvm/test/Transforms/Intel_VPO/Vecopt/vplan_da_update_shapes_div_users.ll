@@ -6,12 +6,10 @@
 
 ; Check DA results for inner.loopbypass BB. Before the fix, both "add" and "gep" VPInstructions below were
 ; identified as unit-strided and strided respectively.
-; CHECK-LABEL: Basic Block: BB7
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[UPDATED_PHI:%vp.*]] = phi  [ i64 0, BB4 ],  [ i64 [[INNER_IV_LIVE_OUT:%vp.*]], BB10 ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[DIV_USER_ADD:%vp.*]] = add i64 [[UPDATED_PHI]] i64 [[OUTER_UNIT_STRIDE:%vp.*]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 addrspace(1)* [[GEP_USING_ADD:%vp.*]] = getelementptr inbounds i32 addrspace(1)* [[UNI_ADDRESS:%vp.*]] i64 [[DIV_USER_ADD]]
+; CHECK:       Divergent: [Shape: Random] i64 [[UPDATED_PHI:%.*]] = phi  [ i64 4242, {{BB.*}} ],  [ i64 [[INNER_IV_LIVE_OUT:%.*]], {{BB.*}} ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[DIV_USER_ADD:%.*]] = add i64 [[UPDATED_PHI]] i64 [[OUTER_UNIT_STRIDE:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 addrspace(1)* [[GEP_USING_ADD:%.*]] = getelementptr inbounds i32 addrspace(1)* [[UNI_ADDRESS:.*]] i64 [[DIV_USER_ADD]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[STORED_VAL:%vp.*]] i32 addrspace(1)* [[GEP_USING_ADD]]
-
 
 define dso_local void @foo(i32 addrspace(1)** %uni0, i32 addrspace(1)** %uni1, i64* %uni2, i64* %uni3) {
   %1 = add i64 42, 42
@@ -67,7 +65,7 @@ inner.loopexit: ; preds = %innerloop.header
   br label %inner.loopbypass
 
 inner.loopbypass: ; preds = %inner.loopexit, %7
-  %innerloop.iv.lcssa = phi i64 [ 0, %7 ], [ %.lcssa, %inner.loopexit ]
+  %innerloop.iv.lcssa = phi i64 [ 4242, %7 ], [ %.lcssa, %inner.loopexit ]
   %23 = add i64 %innerloop.iv.lcssa, %5
   %24 = getelementptr inbounds i32, i32 addrspace(1)* %4, i64 %23
   store i32 %10, i32 addrspace(1)* %24, align 4

@@ -1234,22 +1234,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   simplifyPlainCFG();
 
 #if INTEL_CUSTOMIZATION
-  // TODO: Right now DA is computed per VPlan for the outermost loop of the
-  // VPlan region. We will need additional information provided to DA if we wish
-  // to vectorize more than one loop, or vectorize a specific loop within the
-  // VPlan that is not the outermost one.
-
-  // TODO: Determine if we want to have a separate DA instance for each VF.
-  // Currently, there is only one instance and no distinction between VFs.
-  // i.e., values are either uniform or divergent for all VFs.
-  VPLoop *CandidateLoop = *VPLInfo->begin();
-  auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
-  VPDA->compute(Plan, CandidateLoop, VPLInfo, VPDomTree, VPPostDomTree,
-                false /*Not in LCSSA form*/);
-  Plan->setVPlanDA(std::move(VPDA));
-#endif /* INTEL_CUSTOMIZATION */
-
-#if INTEL_CUSTOMIZATION
   if (VPlanPrintSimplifyCFG) {
     errs() << "Print after simplify plain CFG\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

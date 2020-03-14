@@ -39,6 +39,9 @@ class VPVectorShape;
 class VPPHINode;
 class VPCmpInst;
 class VPLoopEntityList;
+class VPAllocatePrivate;
+class VPInductionInit;
+class VPInductionInitStep;
 #endif // INTEL_CUSTOMIZATION
 
 class VPDominatorTree;
@@ -123,9 +126,6 @@ private:
   /// Push users of instructions with non-deterministic results on to the
   /// Worklist.
   void pushNonDeterministicInsts(VPLoop *CandidateLoop);
-
-  /// Set shapes for instructions in Loop Preheader.
-  void initializeShapesForInstsInLoopPreheader();
 
   /// Set shapes for instructions with loop-invariant operands.
   void initializeShapesForConstOpInsts();
@@ -245,6 +245,10 @@ private:
   unsigned getTypeSizeInBytes(Type *Ty) const;
 
 #if INTEL_CUSTOMIZATION
+
+  /// Initialize shapes for LoopHeader.
+  void initializeShapesForLoopInvariantCode(VPLoop *RegionLoop);
+
   /// Initialize shapes before propagation.
   void initializePhiShapes(VPLoop *CandidateLoop);
 
@@ -290,6 +294,13 @@ private:
   /// Computes vector shape for call instructions.
   VPVectorShape computeVectorShapeForCallInst(const VPInstruction *I);
 
+  /// Computes vector shape for AllocatePrivate instructions.
+  VPVectorShape
+  computeVectorShapeForAllocatePrivateInst(const VPAllocatePrivate *AI);
+
+  /// Computes vector shape for induction-init instruction.
+  VPVectorShape computeVectorShapeForInductionInit(const VPInductionInit *Init);
+
   /// Returns a uniform vector shape.
   VPVectorShape getUniformVectorShape();
 
@@ -323,10 +334,6 @@ private:
   /// Verify the shape of each instruction in give Block \p VPBB.
   void verifyBasicBlock(const VPBasicBlock *VPBB);
 
-  // Mark all relevant loop-entities as Divergent.
-  template <typename EntitiesRange>
-  void markEntitiesAsDivergent(const EntitiesRange &Range);
-
   VPlan *Plan;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
@@ -336,18 +343,12 @@ private:
   // Provides information on uniform, linear, private(vector), etc.
   VPLoopEntityList *RegionLoopEntities;
 
-  // Internal list of privates/induction/reductions collected from
-  // Loop-entities, to help functions like markDivergent and isAlwaysUniform
-  // distinguish between regular VPExternalDefs and Private pointers and their
-  // aliases which are outside the Loop and also appear as 'VPExternalDefs' in
-  // the representation.
-  DenseSet<VPValue *> DivergentLoopEntities;
-
   // Shape information of divergent values.
   DenseMap<const VPValue *, VPVectorShape> VectorShapes;
 #endif // INTEL_CUSTOMIZATION
 
   VPDominatorTree *DT;
+  VPPostDominatorTree *PDT;
   VPLoopInfo *VPLI;
 
   // Recognized divergent loops
@@ -376,6 +377,7 @@ private:
 
   // Internal list of values with 'pinned' values.
   DenseSet<const VPValue *> Pinned;
+
 };
 
 } // namespace vpo
