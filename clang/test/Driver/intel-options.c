@@ -96,3 +96,15 @@
 // CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS:"-lirc" "-lsvml"
 
+// RUN: %clang -### -fp-speculation=strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
+// RUN: %clang_cl -### /Qfp-speculation:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
+// RUN: %clang_cl -### /Qfp-speculation:fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
+// RUN: %clang -### -fp-speculation=fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
+// RUN: %clang_cl -### /Qfp-speculation:safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
+// RUN: %clang -### -fp-speculation=safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
+// RUN: %clang -### -fp-model=fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
+// RUN: %clang_cl -### -fp:fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
+// CHECK-SAFE: "-ffp-exception-behavior=maytrap"
+// CHECK-STRICT: "-ffp-exception-behavior=strict"
+// CHECK-IGNORE: "-ffp-exception-behavior=ignore"
+// CHECK-FAST: "-ffp-contract=fast"
