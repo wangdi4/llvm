@@ -802,14 +802,9 @@ def X86vfproundRnd: SDNode<"X86ISD::VFPROUND_RND",
 #endif // INTEL_CUSTOMIZATION
 // cvt fp to bfloat16
 def X86cvtne2ps2bf16 : SDNode<"X86ISD::CVTNE2PS2BF16",
-<<<<<<< HEAD
                        SDTypeProfile<1, 2, [SDTCVecEltisVT<0, i16>,
                                             SDTCVecEltisVT<1, f32>,
                                             SDTCisSameSizeAs<0,1>,
-=======
-                       SDTypeProfile<1, 2, [SDTCVecEltisVT<0, i16>, // INTEL
-                                            SDTCVecEltisVT<1, f32>, // INTEL
->>>>>>> 316ae6b9e8f953eb366c22ad4b898fe0452b2b0d
                                             SDTCisSameAs<1,2>]>>;
 def X86mcvtneps2bf16 : SDNode<"X86ISD::MCVTNEPS2BF16",
                        SDTypeProfile<1, 3, [SDTCVecEltisVT<0, i16>,
