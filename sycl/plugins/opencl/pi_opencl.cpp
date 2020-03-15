@@ -1072,11 +1072,9 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextUSMEnqueueMemAdvise, OCL(piextUSMEnqueueMemAdvise))
   _PI_CL(piextUSMGetMemAllocInfo, OCL(piextUSMGetMemAllocInfo))
 
-<<<<<<< HEAD
-=======
   _PI_CL(piextKernelSetArgMemObj, OCL(piextKernelSetArgMemObj))
 
->>>>>>> 5709b89fcabc807250bc58ce9e98ff016dda6789
+
 #undef _PI_CL
 
   return PI_SUCCESS;
