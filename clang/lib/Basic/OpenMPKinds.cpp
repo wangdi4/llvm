@@ -184,7 +184,6 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
 #define OPENMP_ORDER_KIND(Name) .Case(#Name, OMPC_ORDER_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_ORDER_unknown);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -195,13 +194,11 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
         .Default(OMPC_DATAFLOW_MODIFIER_unknown);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
   case OMPC_update:
     return llvm::StringSwitch<OpenMPDependClauseKind>(Str)
 #define OPENMP_DEPEND_KIND(Name) .Case(#Name, OMPC_DEPEND_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_DEPEND_unknown);
->>>>>>> 82f7c207f51b28c834d71bbb3b0f818f51c8b090
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -418,7 +415,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'order' clause type");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
@@ -433,7 +429,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
     llvm_unreachable("Invalid OpenMP 'dataflow' clause type");
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
   case OMPC_update:
     switch (Type) {
     case OMPC_DEPEND_unknown:
@@ -444,7 +439,6 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'depend' clause type");
->>>>>>> 82f7c207f51b28c834d71bbb3b0f818f51c8b090
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
