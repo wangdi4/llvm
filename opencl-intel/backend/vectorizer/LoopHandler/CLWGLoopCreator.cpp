@@ -138,6 +138,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
 
   // Update member fields with the current kernel.
   m_F = &F;
+  m_maskFn = nullptr;
   m_M = F.getParent();
   m_vectorFunc = vectorFunc;
   m_packetWidth = packetWidth;
