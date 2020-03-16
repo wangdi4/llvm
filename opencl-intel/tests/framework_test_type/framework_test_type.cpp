@@ -123,7 +123,7 @@ TEST(FrameworkTestType, Test_clCreateContextTest)
 }
 
 
-TEST(FrameworkTestType, DISABLED_Test_clBuildProgramWithBinaryTest)
+TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
     if (gBcfuncMap.end() == iter)
@@ -193,7 +193,7 @@ TEST(FrameworkTestType, Test_clGetProgramBuildInfoTest)
     ASSERT_NO_FATAL_FAILURE(clGetProgramBuildInfoTest());
 }
 
-TEST(FrameworkTestType, DISABLED_Test_clCreateKernelTest)
+TEST(FrameworkTestType, Test_clCreateKernelTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
     if (gBcfuncMap.end() == iter)

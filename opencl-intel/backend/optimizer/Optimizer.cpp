@@ -132,6 +132,7 @@ llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
+llvm::ModulePass *createHandleVPlanMaskPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
@@ -606,6 +607,9 @@ static void populatePassesPostFailCheck(
         PM.add(createVectorizerPass(pRtlModuleList, pConfig));
       }
     }
+
+    if (UseVplan)
+      PM.add(createHandleVPlanMaskPass());
 
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,

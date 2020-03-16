@@ -157,10 +157,10 @@ declare void @_Z31intel_sub_group_block_write_us2PU3AS1tDv2_t(i16 addrspace(1)*,
 
 attributes #0 = { convergent nounwind }
 
-; CHECK: attributes #[[SHUFFLE_ATTR_1]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[SHUFFLE_ATTR_2]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[SHUFFLE_ATTR_3]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[SHUFFLE_ATTR_4]] = { "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[SHUFFLE_ATTR_1]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[SHUFFLE_ATTR_2]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[SHUFFLE_ATTR_3]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[SHUFFLE_ATTR_4]] = { {{.*}} "kernel-call-once" {{.*}} }
 
 ; CHECK: attributes #[[BROADCAST_ATTR_1]] = { {{.*}} "kernel-call-once" {{.*}} }
 ; CHECK: attributes #[[BROADCAST_ATTR_2]] = { {{.*}} "kernel-call-once" {{.*}} }
@@ -179,16 +179,16 @@ attributes #0 = { convergent nounwind }
 ; CHECK: attributes #[[INCL_SCAN_ATTR_2]] = { {{.*}} "kernel-call-once" {{.*}} }
 ; CHECK: attributes #[[INCL_SCAN_ATTR_3]] = { {{.*}} "kernel-call-once" {{.*}} }
 
-; CHECK: attributes #[[SHUFFLE_ATTR_5]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[SHUFFLE_ATTR_6]] = { "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[SHUFFLE_ATTR_5]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[SHUFFLE_ATTR_6]] = { {{.*}} "kernel-call-once" {{.*}} }
 
-; CHECK: attributes #[[BLOCKREAD_ATTR_1]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[BLOCKREAD_ATTR_2]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[BLOCKREAD_ATTR_3]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[BLOCKREAD_ATTR_4]] = { "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[BLOCKREAD_ATTR_1]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[BLOCKREAD_ATTR_2]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[BLOCKREAD_ATTR_3]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[BLOCKREAD_ATTR_4]] = { {{.*}} "kernel-call-once" {{.*}} }
 
-; CHECK: attributes #[[BALLOT_ATTR_1]] = { "kernel-call-once" {{.*}} }
-; CHECK: attributes #[[BALLOT_ATTR_2]] = { "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[BALLOT_ATTR_1]] = { {{.*}} "kernel-call-once" {{.*}} }
+; CHECK: attributes #[[BALLOT_ATTR_2]] = { {{.*}} "kernel-call-once" {{.*}} }
 
 !opencl.kernels = !{!0}
 
