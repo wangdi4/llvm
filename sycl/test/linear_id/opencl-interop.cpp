@@ -4,10 +4,6 @@
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
-<<<<<<< HEAD
-// REQUIRES: opencl
-=======
->>>>>>> 7750ee09f512a0525f4892f2af0b185aea80a1f1
 // UNSUPPORTED: cuda
 //==---------------- opencl-interop.cpp - SYCL linear id test --------------==//
 //

@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 // REQUIRES: opencl
 
->>>>>>> 7750ee09f512a0525f4892f2af0b185aea80a1f1
 // RUN: %clangxx -fsycl -I %sycl_source_dir %s -o %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 //==---------------- cache.cpp - SYCL kernel/program test ------------------==//

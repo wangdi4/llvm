@@ -89,13 +89,9 @@ if 'ICS_GCCBIN' in os.environ:
 else:
     llvm_config.use_clang()
 # end INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-=======
 
-config.substitutions.append( ('%llvm_build_libs_dir',  config.llvm_build_libs_dir ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
->>>>>>> 7750ee09f512a0525f4892f2af0b185aea80a1f1
 
 tools = ['llvm-spirv']
 tool_dirs = [config.sycl_tools_dir]
