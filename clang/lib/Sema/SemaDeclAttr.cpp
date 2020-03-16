@@ -3841,11 +3841,7 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
-    return;
-
   if (D->hasAttr<AutorunAttr>()) {
     long long int N = 1ll << 32ll;
     if (N % WGSize[0] != 0 || N % WGSize[1] != 0 || N % WGSize[2] != 0) {
@@ -3855,20 +3851,21 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize)) // INTEL
-    return;
-
-=======
   // For a SYCLDevice WorkGroupAttr arguments are reversed
   if (S.getLangOpts().SYCLIsDevice) {
     std::swap(WGSize[0], WGSize[2]);
   }
->>>>>>> 1da6fbea7859c955f34787a43873e0cf05cae985
+
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
   if (Existing &&
       !(Existing->getXDim() == WGSize[0] && Existing->getYDim() == WGSize[1] &&
         Existing->getZDim() == WGSize[2]))
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
+
+#if INTEL_CUSTOMIZATION
+  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize))
+    return;
+#endif // INTEL_CUSTOMIZATION
   if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
     return;
 
