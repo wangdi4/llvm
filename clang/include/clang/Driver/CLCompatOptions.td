@@ -217,6 +217,8 @@ def _SLASH_Qdaal_EQ : CLJoined<"Qdaal=">, Alias<daal_EQ>,
   "libraries and bring in the associated headers">;
 def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<daal_EQ>;
 def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_Qm32 : CLFlag<"Qm32">, Alias<m32>;
+def _SLASH_Qm64 : CLFlag<"Qm64">, Alias<m64>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
