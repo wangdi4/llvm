@@ -300,14 +300,9 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
 
     if (getLangOpts().CUDA && !CheckCUDACall(Loc, FD))
       return true;
-<<<<<<< HEAD
-    if (getLangOpts().SYCLIsDevice)
-      checkSYCLDeviceFunction(Loc, FD);
-=======
 
     if (getLangOpts().SYCLIsDevice && !checkSYCLDeviceFunction(Loc, FD))
       return true;
->>>>>>> a3b340bee254e519b6ebe3968ccbd6f5751a560f
   }
 
   if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {

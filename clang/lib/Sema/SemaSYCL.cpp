@@ -1410,24 +1410,6 @@ void Sema::MarkDevice(void) {
 // SYCL device specific diagnostics implementation
 // -----------------------------------------------------------------------------
 
-<<<<<<< HEAD
-// Do we know that we will eventually codegen the given function?
-static bool isKnownEmitted(Sema &S, FunctionDecl *FD) {
-  assert(FD && "Given function may not be null.");
-
-#if INTEL_CUSTOMIZATION
-  if (FD->hasAttr<SYCLDeviceAttr>() || FD->hasAttr<SYCLKernelAttr>() ||
-      FD->hasAttr<HLSDeviceAttr>())
-    return true;
-#endif // INTEL_CUSTOMIZATION
-
-  // Otherwise, the function is known-emitted if it's in our set of
-  // known-emitted functions.
-  return S.DeviceKnownEmittedFns.count(FD) > 0;
-}
-
-=======
->>>>>>> a3b340bee254e519b6ebe3968ccbd6f5751a560f
 Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
                                                    unsigned DiagID) {
 #if INTEL_CUSTOMIZATION
