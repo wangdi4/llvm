@@ -328,6 +328,12 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::UADDSAT, VT, Legal);
     setOperationAction(ISD::SSUBSAT, VT, Legal);
     setOperationAction(ISD::USUBSAT, VT, Legal);
+
+    // Min/Max-- these are expand by default
+    setOperationAction(ISD::UMIN, VT, Legal);
+    setOperationAction(ISD::UMAX, VT, Legal);
+    setOperationAction(ISD::SMIN, VT, Legal);
+    setOperationAction(ISD::SMAX, VT, Legal);
   }
 
   setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);

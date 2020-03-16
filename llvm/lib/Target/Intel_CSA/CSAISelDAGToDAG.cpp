@@ -190,6 +190,46 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
 
   // Custom selection
   switch (Node->getOpcode()) {
+  case ISD::SETCC: {
+    // This code here is to handle this special pattern that
+    // does SIMD min when the results are either 0 or 1.
+    //     t3: v8i8 = setcc t1, t2, setne:ch
+    //       t2: v8i8 = bitcast Constant:i64<0>
+    //
+    // Only continue the rewrite if
+    //       the result type is a vector type,
+    //   and the condition is ne,
+    //   and the second operand is bitcast constant 0.
+    EVT RVT = Node->getValueType(0);
+    if (!RVT.isVector()) break;
+
+    const ISD::CondCode CC = cast<CondCodeSDNode>(Node->getOperand(2))->get();
+    if (CC != ISD::SETNE) break;
+
+    SDNode* Op1 = Node->getOperand(1).getNode();
+    if (Op1->getOpcode() != ISD::BITCAST ||
+        Op1->getConstantOperandVal(0) != 0) break;
+
+    // Rewrite ISD::SETCC to CSA::MINU.
+    // Op0: Original first operand
+    // Op1: For i8, then it's 0x0101010101010101
+    //      For i16 then it's 0x0001000100010001
+    SmallVector<SDValue, 2> Ops;
+    Ops.push_back(Node->getOperand(0));
+    EVT VT = Op1->getValueType(0);
+    unsigned Opcode;
+    if (VT.getScalarSizeInBits() == 8) {
+      Opcode = CSA::MINU8X8;
+      Ops.push_back(CurDAG->getTargetConstant(0x0101010101010101, dl, MVT::i64));
+    } else if (VT.getScalarSizeInBits() == 16) {
+      Opcode = CSA::MINU16X4;
+      Ops.push_back(CurDAG->getTargetConstant(0x0001000100010001, dl, MVT::i64));
+    } else
+      report_fatal_error("Unsupported vector for MINU");
+
+    CurDAG->SelectNodeTo(Node, Opcode, VT, Ops);
+    return;
+  }
   case ISD::BITCAST: {
     // All types of the same size are forced into the same register classes
     // anyways, so drop the bitcast entirely.
