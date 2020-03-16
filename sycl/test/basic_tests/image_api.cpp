@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+// REQUIRES: opencl
+
+>>>>>>> 7750ee09f512a0525f4892f2af0b185aea80a1f1
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -I %sycl_source_dir %s -o %t1.out
 // RUN: %clangxx -I %sycl_source_dir %s -o %t3.out -lsycl
 // RUN: env SYCL_DEVICE_TYPE=HOST %t1.out
