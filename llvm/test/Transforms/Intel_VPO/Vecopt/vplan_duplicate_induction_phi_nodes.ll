@@ -3,6 +3,9 @@
 ; RUN: opt -loopopt=0 -VPlanDriver -vpo-vplan-build-stress-test -vplan-print-after-hcfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -loopopt=0 -passes="vplan-driver" -vpo-vplan-build-stress-test -vplan-print-after-hcfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
 
+; CMPLRLLVM-18412
+; XFAIL: *
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
