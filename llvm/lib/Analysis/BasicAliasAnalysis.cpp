@@ -77,6 +77,12 @@ static cl::opt<bool> ForceAtLeast64Bits("basicaa-force-at-least-64b",
 static cl::opt<bool> DoubleCalcBits("basicaa-double-calc-bits",
                                     cl::Hidden, cl::init(false));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<unsigned> PtrCaptureMaxUses("basicaa-ptr-max-uses",
+                                           cl::ReallyHidden,
+                                           cl::init(DefaultMaxUsesToExplore));
+#endif // INTEL_CUSTOMIZATION
+
 /// SearchLimitReached / SearchTimes shows how often the limit of
 /// to decompose GEPs is reached. It will affect the precision
 /// of basic alias analysis.
@@ -131,7 +137,9 @@ bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
 // In the above example, the value V represents the malloc call.
 static bool isNonEscapingAllocObj(const Value *V) {
   if (isNoAliasCall(V))
-    return !PointerMayBeCaptured(V, false, true, true);
+#if INTEL_CUSTOMIZATION
+    return !PointerMayBeCaptured(V, false, true, true, PtrCaptureMaxUses);
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -177,7 +185,11 @@ static bool isNonEscapingLocalObject(
     // PointerMayBeCaptured doesn't have any special analysis for the
     // StoreCaptures=false case; if it did, our callers could be refined to be
     // more precise.
-    auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+#if INTEL_CUSTOMIZATION
+    auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true,
+                                     /*IgnoreNoAliasArgStCaptures=*/false,
+                                     PtrCaptureMaxUses);
+#endif // INTEL_CUSTOMIZATION
     if (IsCapturedCache)
       CacheIt->second = Ret;
     return Ret;
@@ -191,7 +203,11 @@ static bool isNonEscapingLocalObject(
       // Note even if the argument is marked nocapture, we still need to check
       // for copies made inside the function. The nocapture attribute only
       // specifies that there are no copies made that outlive the function.
-      auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+#if INTEL_CUSTOMIZATION
+      auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true,
+                                       /*IgnoreNoAliasArgStCaptures=*/false,
+                                       PtrCaptureMaxUses);
+#endif // INTEL_CUSTOMIZATION
       if (IsCapturedCache)
         CacheIt->second = Ret;
       return Ret;
