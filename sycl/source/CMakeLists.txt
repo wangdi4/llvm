@@ -171,7 +171,6 @@ if (MSVC)
     add_sycl_rt_library(sycld ${SYCL_SOURCES})
   endif()
   target_compile_options(sycld PRIVATE ${SYCL_CXX_FLAGS_DEBUG})
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 else()
 # Don't use libcxx library to build sycl library if it is not explicitly stated to do so
@@ -192,9 +191,6 @@ else()
   endif()
 
 # end INTEL_CUSTOMIZATION
-=======
-
->>>>>>> 9bf81eba396ff9822b43f622372644c24c9707da
 endif()
 
 # INTEL_CUSTOMIZATION
