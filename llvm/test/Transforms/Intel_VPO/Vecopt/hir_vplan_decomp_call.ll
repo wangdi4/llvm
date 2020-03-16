@@ -15,10 +15,10 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-print-after-hcfg < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-print-plain-cfg < %s -disable-output 2>&1 | FileCheck %s
 
 define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
-; CHECK-LABEL:  Print after building H-CFG:
+; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     double* [[VP4:%.*]] = getelementptr inbounds double* [[Y0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     double [[VP5:%.*]] = load double* [[VP4]]
