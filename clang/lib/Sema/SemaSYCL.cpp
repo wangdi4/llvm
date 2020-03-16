@@ -537,6 +537,7 @@ private:
     }
     return true;
   }
+
   Sema &SemaRef;
 };
 
@@ -1409,6 +1410,7 @@ void Sema::MarkDevice(void) {
 // SYCL device specific diagnostics implementation
 // -----------------------------------------------------------------------------
 
+<<<<<<< HEAD
 // Do we know that we will eventually codegen the given function?
 static bool isKnownEmitted(Sema &S, FunctionDecl *FD) {
   assert(FD && "Given function may not be null.");
@@ -1424,6 +1426,8 @@ static bool isKnownEmitted(Sema &S, FunctionDecl *FD) {
   return S.DeviceKnownEmittedFns.count(FD) > 0;
 }
 
+=======
+>>>>>>> a3b340bee254e519b6ebe3968ccbd6f5751a560f
 Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
                                                    unsigned DiagID) {
 #if INTEL_CUSTOMIZATION
@@ -1434,29 +1438,104 @@ Sema::DeviceDiagBuilder Sema::SYCLDiagIfDeviceCode(SourceLocation Loc,
   DeviceDiagBuilder::Kind DiagKind = [this, FD] {
     if (ConstructingOpenCLKernel || !FD)
       return DeviceDiagBuilder::K_Nop;
-    if (isKnownEmitted(*this, FD))
+    if (getEmissionStatus(FD) == Sema::FunctionEmissionStatus::Emitted)
       return DeviceDiagBuilder::K_ImmediateWithCallStack;
     return DeviceDiagBuilder::K_Deferred;
   }();
   return DeviceDiagBuilder(DiagKind, Loc, DiagID, FD, *this);
 }
 
-void Sema::checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee) {
+bool Sema::checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee) {
+  assert(getLangOpts().SYCLIsDevice &&
+         "Should only be called during SYCL compilation");
   assert(Callee && "Callee may not be null.");
 
   // Errors in unevaluated context don't need to be generated,
   // so we can safely skip them.
-  if (isUnevaluatedContext())
-    return;
+  if (isUnevaluatedContext() || isConstantEvaluated())
+    return true;
 
   FunctionDecl *Caller = dyn_cast<FunctionDecl>(getCurLexicalContext());
 
+  if (!Caller)
+    return true;
+
+  bool CallerKnownEmitted =
+      getEmissionStatus(Caller) == FunctionEmissionStatus::Emitted;
+
   // If the caller is known-emitted, mark the callee as known-emitted.
   // Otherwise, mark the call in our call graph so we can traverse it later.
-  if (Caller && isKnownEmitted(*this, Caller))
-    markKnownEmitted(*this, Caller, Callee, Loc, isKnownEmitted);
-  else if (Caller)
+  if (CallerKnownEmitted)
+    markKnownEmitted(*this, Caller, Callee, Loc, [](Sema &S, FunctionDecl *FD) {
+      return S.getEmissionStatus(FD) == Sema::FunctionEmissionStatus::Emitted;
+    });
+  else
     DeviceCallGraph[Caller].insert({Callee, Loc});
+
+  DeviceDiagBuilder::Kind DiagKind = DeviceDiagBuilder::K_Nop;
+
+  // TODO Set DiagKind to K_Immediate/K_Deferred to emit diagnostics for Callee
+
+  DeviceDiagBuilder(DiagKind, Loc, diag::err_sycl_restrict, Caller, *this)
+      << Sema::KernelCallUndefinedFunction;
+  DeviceDiagBuilder(DiagKind, Callee->getLocation(), diag::note_previous_decl,
+                    Caller, *this)
+      << Callee;
+
+  return DiagKind != DeviceDiagBuilder::K_Immediate &&
+         DiagKind != DeviceDiagBuilder::K_ImmediateWithCallStack;
+}
+
+static void emitCallToUndefinedFnDiag(Sema &SemaRef, const FunctionDecl *Callee,
+                                      const FunctionDecl *Caller,
+                                      const SourceLocation &Loc) {
+  // Somehow an unspecialized template appears to be in callgraph or list of
+  // device functions. We don't want to emit diagnostic here.
+  if (Callee->getTemplatedKind() == FunctionDecl::TK_FunctionTemplate)
+    return;
+
+  // Don't emit diagnostic for functions not called from device code
+  if (!Caller->hasAttr<SYCLDeviceAttr>() && !Caller->hasAttr<SYCLKernelAttr>())
+    return;
+
+  bool RedeclHasAttr = false;
+
+  for (const Decl *Redecl : Callee->redecls()) {
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(Redecl)) {
+      if ((FD->hasAttr<SYCLDeviceAttr>() &&
+           !FD->getAttr<SYCLDeviceAttr>()->isImplicit()) ||
+          FD->hasAttr<SYCLKernelAttr>()) {
+        RedeclHasAttr = true;
+        break;
+      }
+    }
+  }
+
+  // Disallow functions with neither definition nor SYCL_EXTERNAL mark
+  bool NotDefinedNoAttr = !Callee->isDefined() && !RedeclHasAttr;
+
+  if (NotDefinedNoAttr && !Callee->getBuiltinID()) {
+    SemaRef.Diag(Loc, diag::err_sycl_restrict)
+        << Sema::KernelCallUndefinedFunction;
+    SemaRef.Diag(Callee->getLocation(), diag::note_previous_decl) << Callee;
+    SemaRef.Diag(Caller->getLocation(), diag::note_called_by) << Caller;
+  }
+}
+
+void Sema::finalizeSYCLDelayedAnalysis() {
+  assert(getLangOpts().SYCLIsDevice &&
+         "Should only be called during SYCL compilation");
+
+  llvm::DenseSet<const FunctionDecl *> Checked;
+
+  for (const auto &EmittedWithLoc : DeviceKnownEmittedFns) {
+    const FunctionDecl *Caller = EmittedWithLoc.getSecond().FD;
+    const SourceLocation &Loc = EmittedWithLoc.getSecond().Loc;
+    const FunctionDecl *Callee = EmittedWithLoc.getFirst();
+
+    if (Checked.insert(Callee).second)
+      emitCallToUndefinedFnDiag(*this, Callee, Caller, Loc);
+  }
 }
 
 // -----------------------------------------------------------------------------
