@@ -252,9 +252,6 @@ private:
   /// Initialize shapes before propagation.
   void initializePhiShapes(VPLoop *CandidateLoop);
 
-  /// Initialize shapes for inner-loop Phis.
-  void initializeInnerLoopPhis();
-
   /// Returns true if OldShape is not equal to NewShape.
   bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 

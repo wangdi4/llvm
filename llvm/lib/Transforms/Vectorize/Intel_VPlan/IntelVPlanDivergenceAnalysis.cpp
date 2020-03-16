@@ -1364,31 +1364,6 @@ void VPlanDivergenceAnalysis::initializeShapesForConstOpInsts() {
     }
   }
 }
-
-/// Initialize inner-loop PHIs.
-void VPlanDivergenceAnalysis::initializeInnerLoopPhis() {
-  // Inner-loop PHIs, in some cases, might not be reachable during traversal
-  // on account of the computeImpl() function. This means that they would have
-  // an undefined shape and as a result, leave other dependent instruction with
-  // an undefined shape. This is typically seen in phis with one operand coming
-  // from an outer loop and the other from the loop-body (a triangular loop),
-  // or a loop with one of the operands being constant and the other from the
-  // loop-body.
-  assert(RegionLoop && "Expect a non-null RegionLoop");
-  for (const VPLoop *VPLp : RegionLoop->getSubLoopsVector()) {
-    if (auto VPBB = dyn_cast<VPBasicBlock>(VPLp->getHeader())) {
-      for (auto &VPInst : *VPBB) {
-        if (isa<VPPHINode>(&VPInst)) {
-          VPVectorShape NewShape = VPVectorShape::Undef;
-          for (const VPValue *Op : VPInst.operands())
-            NewShape = VPVectorShape::joinShapes(NewShape, getVectorShape(Op));
-          updateVectorShape(&VPInst, NewShape);
-          pushUsers(VPInst);
-        }
-      }
-    }
-  }
-}
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1482,11 +1457,6 @@ void VPlanDivergenceAnalysis::init() {
   // Initialize the shapes of operands of instructions which have constant or
   // uniform operands.
   initializeShapesForConstOpInsts();
-
-  // Initialize inner-loop PHIs. This is essential as these might not be visited
-  // as part of the DA algorithm because of no incoming value from the
-  // outer-loop.
-  initializeInnerLoopPhis();
 
   // Push users of pinned values to the Worklist.
   for (auto *PinnedVal : Pinned)

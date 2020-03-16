@@ -5145,26 +5145,21 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
       // Keeps the reordered operands to avoid code duplication.
       SmallVector<ValueList, 2> OperandsVec;
-#if INTEL_CUSTOMIZATION
-      SmallVector<SmallVector<int, 4>, 2> OperandsDirVec;
-#endif
+      SmallVector<SmallVector<int, 4>, 2> OperandsDirVec;  // INTEL
       for (unsigned i = 0, e = PH->getNumIncomingValues(); i < e; ++i) {
+        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-        for (Value *j : VL) {
+        for (Value *j : VL)
           Operands.push_back(cast<PHINode>(j)->getIncomingValueForBlock(
               PH->getIncomingBlock(i)));
-          OpDirection.push_back(i);
-        }
-        OperandsDirVec.push_back(OpDirection);
-#endif // INTEL_CUSTOMIZATION
         TE->setOperand(i, Operands);
         OperandsVec.push_back(Operands);
+        OperandsDirVec.push_back(OpDirection); // INTEL
       }
       for (unsigned OpIdx = 0, OpE = OperandsVec.size(); OpIdx != OpE; ++OpIdx)
-        buildTree_rec(OperandsVec[OpIdx], Depth + 1, {TE, OpIdx, OperandsDirVec[OpIdx]}); //INTEL
+        buildTree_rec(OperandsVec[OpIdx], Depth + 1,       // INTEL
+                      {TE, OpIdx, OperandsDirVec[OpIdx]}); // INTEL
       return;
   }
   case Instruction::ExtractValue:
@@ -5385,17 +5380,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = VL0->getNumOperands(); i < e; ++i) {
+        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-        for (Value *V : VL) {
+        for (Value *V : VL)
           Operands.push_back(cast<Instruction>(V)->getOperand(i));
-          OpDirection.push_back(i);
-        }
-#endif // INTEL_CUSTOMIZATION
 
-        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection}); // INTEL
       }
       return;
     }
@@ -5521,17 +5512,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = VL0->getNumOperands(); i < e; ++i) {
+        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-        for (Value *j : VL) {
+        for (Value *j : VL)
           Operands.push_back(cast<Instruction>(j)->getOperand(i));
-          OpDirection.push_back(i);
-        }
-#endif // INTEL_CUSTOMIZATION
 
-        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection}); // INTEL
       }
       return;
     }
@@ -5585,17 +5572,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       LLVM_DEBUG(dbgs() << "SLP: added a vector of GEPs.\n");
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = 2; i < e; ++i) {
+        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-        for (Value *V : VL) {
+        for (Value *V : VL)
           Operands.push_back(cast<Instruction>(V)->getOperand(i));
-          OpDirection.push_back(i);
-        }
-#endif // INTEL_CUSTOMIZATION
 
-        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection}); // INTEL
       }
       return;
     }
@@ -5737,19 +5720,14 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
                                    ReuseShuffleIndicies);
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = CI->getNumArgOperands(); i != e; ++i) {
+        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-#endif // INTEL_CUSTOMIZATION
         for (Value *V : VL) {
           auto *CI2 = cast<CallInst>(V);
           Operands.push_back(CI2->getArgOperand(i));
-#if INTEL_CUSTOMIZATION
-          OpDirection.push_back(i);
-#endif // INTEL_CUSTOMIZATION
         }
-        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection}); // INTEL
       }
       return;
     }
@@ -5784,17 +5762,13 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
       TE->setOperandsInOrder();
       for (unsigned i = 0, e = VL0->getNumOperands(); i < e; ++i) {
+        SmallVector<int, 4> OpDirection(VL.size(), i); // INTEL
         ValueList Operands;
         // Prepare the operand vector.
-#if INTEL_CUSTOMIZATION
-        SmallVector<int, 4> OpDirection;
-        for (Value *V : VL) {
+        for (Value *V : VL)
           Operands.push_back(cast<Instruction>(V)->getOperand(i));
-          OpDirection.push_back(i);
-        }
-#endif // INTEL_CUSTOMIZATION
 
-        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection});
+        buildTree_rec(Operands, Depth + 1, {TE, i, OpDirection}); // INTEL
       }
       return;
     }

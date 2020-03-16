@@ -783,7 +783,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
         Start, Induction->getStep(), Opc, Name + ".ind.init");
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
     VPInstruction *InitStep = Builder.createInductionInitStep(
-        Induction->getStep(), Opc, ".ind.init.step");
+        Induction->getStep(), Opc, Name + ".ind.init.step");
     if (!Induction->needCloseForm()) {
       if (auto *Instr = Induction->getInductionBinOp()) {
         assert(isConsistentInductionUpdate(Instr,
