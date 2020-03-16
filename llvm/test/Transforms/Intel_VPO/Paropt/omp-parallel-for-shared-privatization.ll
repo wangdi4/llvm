@@ -46,7 +46,7 @@ omp.precond.then:                                 ; preds = %entry
   %3 = load i32, i32* %.capture_expr.1, align 4
   store i32 %3, i32* %.omp.ub, align 4
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64, i64, i64, i64)* [[OUTLINED_FUNC:@.+]] to void (i32*, i32*, ...)*),
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64, i64)* [[OUTLINED_FUNC:@.+]] to void (i32*, i32*, ...)*), float* %B, float* %A,
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(float** %A.addr) ]
   %5 = load i32, i32* %.omp.lb, align 4
@@ -97,9 +97,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   ret void
 }
 
-; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, i64 [[BPARAM:%.+]], i64 [[APARAM:%.+]], i64 %{{.+}}, i64 %{{.+}})
-; CHECK:   [[BBASE:%.+]] = inttoptr i64 [[BPARAM]] to float*
-; CHECK:   [[ABASE:%.+]] = inttoptr i64 [[APARAM]] to float*
+; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* [[BBASE:%.+]], float* [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
 ; CHECK: omp.inner.for.body:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
 ; CHECK:   %{{.+}} = load float, float* [[BADDR]]

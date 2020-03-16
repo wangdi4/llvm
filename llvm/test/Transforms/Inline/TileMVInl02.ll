@@ -12,41 +12,52 @@
 
 ; CHECK: TMVINL: fun01_ Loop Index   %14 = add nuw nsw i64 %10, 1
 ; CHECK: TMVINL: fun01_ Loop Inc   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
-; CHECK: TILEMVINL: fun01_ Arg %0(2,1)
-; CHECK: TILEMVINL: Tile Candidate fun01_
+; CHECK: TMVINL: fun01_ Arg %0(2,1)
+; CHECK: TMVINL: Tile Candidate fun01_
 ; CHECK: TMVINL: fun00_ Loop Index   %14 = add nuw nsw i64 %10, 1
 ; CHECK: TMVINL: fun00_ Loop Inc   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
-; CHECK: TILEMVINL: fun00_ Arg %0(0,1)
-; CHECK: TILEMVINL: fun00_ Arg %1(2,1)
-; CHECK: TILEMVINL: Tile Candidate fun00_
+; CHECK: TMVINL: fun00_ Arg %0(0,1)
+; CHECK: TMVINL: fun00_ Arg %1(2,1)
+; CHECK: TMVINL: Tile Candidate fun00_
 ; CHECK: TMVINL: fun1_ Loop Index   %13 = add nuw nsw i64 %9, 1
 ; CHECK: TMVINL: fun1_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
-; CHECK: TILEMVINL: fun1_ Arg %0(2,1)
-; CHECK: TILEMVINL: Tile Candidate fun1_
+; CHECK: TMVINL: fun1_ Arg %0(2,1)
+; CHECK: TMVINL: Tile Candidate fun1_
 ; CHECK: TMVINL: fun2_ Loop Index   %13 = add nuw nsw i64 %9, 1
 ; CHECK: TMVINL: fun2_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
-; CHECK: TILEMVINL: fun2_ Arg %0(2,1)
-; CHECK: TILEMVINL: Tile Candidate fun2_
+; CHECK: TMVINL: fun2_ Arg %0(2,1)
+; CHECK: TMVINL: Tile Candidate fun2_
 ; CHECK: TMVINL: fun3_ Loop Index   %13 = add nuw nsw i64 %9, 1
 ; CHECK: TMVINL: fun3_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
-; CHECK: TILEMVINL: fun3_ Arg %0(2,1)
-; CHECK: TILEMVINL: Tile Candidate fun3_
+; CHECK: TMVINL: fun3_ Arg %0(2,1)
+; CHECK: TMVINL: Tile Candidate fun3_
 ; CHECK: TMVINL: fun0_ Loop Index   %13 = add nuw nsw i64 %9, 1
 ; CHECK: TMVINL: fun0_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
-; CHECK: TILEMVINL: fun0_ Arg %0(0,1)
-; CHECK: TILEMVINL: fun0_ Arg %1(2,1)
-; CHECK: TILEMVINL: Tile Candidate fun0_
+; CHECK: TMVINL: fun0_ Arg %0(0,1)
+; CHECK: TMVINL: fun0_ Arg %1(2,1)
+; CHECK: TMVINL: Tile Candidate fun0_
 
 ; Check that there are no tile choices, since fun3_ did not have a unique
 ; caller.
 
-; CHECK-NOT: TILEMVINL: Tile Choice fun0_
-; CHECK-NOT: TILEMVINL: Tile Choice fun1_
-; CHECK-NOT: TILEMVINL: Tile Choice fun2_
-; CHECK-NOT: TILEMVINL: Tile Choice fun3_
-; CHECK-NOT: TILEMVINL: Tile Choice extra_
-; CHECK-NOT: TILEMVINL: Tile Choice fun00_
-; CHECK-NOT: TILEMVINL: Tile Choice fun01_
+; CHECK-NOT: TMVINL: Tile Choice fun0_
+; CHECK-NOT: TMVINL: Tile Choice fun1_
+; CHECK-NOT: TMVINL: Tile Choice fun2_
+; CHECK-NOT: TMVINL: Tile Choice fun3_
+; CHECK-NOT: TMVINL: Tile Choice extra_
+; CHECK-NOT: TMVINL: Tile Choice fun00_
+; CHECK-NOT: TMVINL: Tile Choice fun01_
+
+; Check that guards for the tile choices are not identified, because there
+; are none.
+
+; CHECK-NOT: TMVINL: GVMAP
+; CHECK-NOT: TMVINL: CONDMAP
+
+; Check that the global variables were not validated, because the tile choices
+; were not determined.
+
+; CHECK-NOT: TMVINL: Validated GVM
 
 @anon.0 = internal unnamed_addr constant i32 2
 @"main_$A" = internal global [100 x [100 x double]] zeroinitializer, align 16

@@ -15,14 +15,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -35,9 +37,9 @@ static cl::opt<bool> TileCandidateTest("tile-candidate-test", cl::init(false),
 //
 // Minimum number of tile candidate functions for this transformation.
 //
-static cl::opt<unsigned> TileCandidateMin(
-    "tile-candidate-min", cl::init(6), cl::ReallyHidden,
-    cl::desc("Minimum number of tile candidate functions"));
+static cl::opt<unsigned>
+    TileCandidateMin("tile-candidate-min", cl::init(6), cl::ReallyHidden,
+                     cl::desc("Minimum number of tile candidate functions"));
 
 //
 // A function can only be considered a tile candidate if it has at least
@@ -63,14 +65,14 @@ static cl::opt<unsigned> TileCandidateSubArgMin(
 // Return the unique caller of 'F', if there is a unique caller.
 //
 static Function *uniqueCaller(Function &F) {
-   Function *Caller = nullptr;
-   for (User *U : F.users()) {
-     auto CB = dyn_cast<CallBase>(U);
-     if (!CB || Caller)
-       return nullptr;
-     Caller = CB->getCaller();
-   }
-   return Caller;
+  Function *Caller = nullptr;
+  for (User *U : F.users()) {
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB || Caller)
+      return nullptr;
+    Caller = CB->getCaller();
+  }
+  return Caller;
 }
 
 //
@@ -80,14 +82,16 @@ static Function *uniqueCaller(Function &F) {
 class TileMVInlMarker {
 
 public:
-
   // Lambda function to identify the LoopInfo of the input function
   using LoopInfoFuncType = std::function<LoopInfo &(Function &)>;
 
   // Main constructor
   TileMVInlMarker(Module &M, LoopInfoFuncType &LoopInfoFunc,
+                  std::function<DominatorTree &(Function &)> *GetDT,
+                  std::function<PostDominatorTree &(Function &)> *GetPDT,
                   WholeProgramInfo *WPInfo)
-      : M(M), GetLoopInfo(LoopInfoFunc), WPInfo(WPInfo) {}
+      : M(M), GetLoopInfo(LoopInfoFunc), GetDT(GetDT), GetPDT(GetPDT),
+        WPInfo(WPInfo) {}
 
   // Run the tile multiversioning and inline marker
   bool runImpl();
@@ -95,7 +99,13 @@ public:
 private:
   Module &M;
   LoopInfoFuncType &GetLoopInfo;
+  std::function<DominatorTree &(Function &)> *GetDT;
+  std::function<PostDominatorTree &(Function &)> *GetPDT;
   WholeProgramInfo *WPInfo;
+
+  // A set of non-tile candidates. These are Functions which have doubly
+  // subscripted arrays. We should not mark these for tiling.
+  SetVector<Function *> NonTileChoices;
 
   // A set of tile candidates.  These are Functions which have arrays that
   // are indexed by both "i" and "i+1" or "i-1", where "i" is the loop index.
@@ -106,7 +116,7 @@ private:
 
   // A set of tile choices. These are the Functions which we will mark for
   // inlining so that their code can be exposed to Loop Opt for tiling.
-  SmallPtrSet<Function *, 10> TileChoices;
+  SmallSetVector<Function *, 8> TileChoices;
 
   // A set of Values that represent loop indices in the Function currently
   // being analyzed as a tile candidate.
@@ -205,6 +215,14 @@ private:
   // Return 'true' if 'F' is a tile candidate.
   bool isTileCandidate(Function &F);
 
+  // Return 'true' if 'Arg' is a tile candidate argument.  This is an
+  // Argument representing the pointer operand in a SubscriptInst which is
+  // indexed by a loop index and the loop index plus or minus an offset.
+  bool isNonTileCandidateArg(Argument &Arg);
+
+  // Return 'true' if 'F' is a non-tile candidate.
+  bool isNonTileCandidate(Function &F);
+
   // Return the number of tile candidates. The transformation will only be
   // performed if enough tile candidates are found.
   unsigned identifyTileCandidates(void);
@@ -221,6 +239,28 @@ private:
   // set.
   void siftTileChoices(Function *F);
 
+  // Find the non-tile choices. These are functions that should not be tiled
+  // and should not be called in the high performace version of the code.
+  void makeNonTileChoices(Function &Root);
+
+  // A mapping of GlobalVariables which appear in the 'Root' Function
+  // to Values in which those GlobalVariables appear and which control the
+  // IR where the bulk of the tiling computations occur.
+  MapVector<GlobalVariable *, Value *> GVM;
+
+  // A map from the Values in 'GVM' to either 'true' or 'false', depending
+  // on whether the 'true' or 'false' sense of the Value controls the tile
+  // computations.
+  MapVector<Value *, bool> CM;
+
+  // Compute the maps 'GVM' and 'CM', which are used to compute the multi-
+  // versioning expression surrounding the the key computation IR for tiling.
+  void findGVMandCM(Function &Root);
+
+  // Return 'true' if none of the GlobalVariables in 'GVM' are modified by
+  // 'Root'.
+  bool validateGVM(Function &Root);
+
 #ifndef NDEBUG
   // Dump out a message indicating that 'LI' is a loop index and 'LO' is that
   // loop index plus or minus and offset in 'F'.
@@ -228,6 +268,15 @@ private:
 
   // Dump out the tile choices.
   void dumpTileChoices(void);
+
+  // Dump out the non-tile candidates.
+  void dumpNonTileChoices(void);
+
+  // Dump out the global variable map 'GVM'.
+  void dumpGVM(void);
+
+  // Dump out the condition map 'CM'.
+  void dumpCM(void);
 #endif // NDEBUG
 };
 
@@ -275,8 +324,7 @@ void TileMVInlMarker::dumpLoopIndexPair(Function &F, Value *LI, Value *LO) {
 }
 #endif // NDEBUG
 
-bool TileMVInlMarker::processLoopCaseStart(Function &F,
-                                           TestStackTuple &Item,
+bool TileMVInlMarker::processLoopCaseStart(Function &F, TestStackTuple &Item,
                                            Value *BOV) {
   Value *X = nullptr;
   if (match(std::get<0>(Item), m_Add(m_Value(X), m_One()))) {
@@ -290,32 +338,31 @@ bool TileMVInlMarker::processLoopCaseStart(Function &F,
   if (!PHIN)
     return false;
   for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I < E; ++I) {
-     Value *TV = PHIN->getIncomingValue(I);
-     auto PHI0 = dyn_cast<PHINode>(TV);
-     if (PHI0 && PHI0 != BOV) {
-       TestStack.push(std::make_tuple(PHI0, nullptr, TS_FoundPHI));
-       continue;
-     }
-     Value *Y = nullptr;
-     if (match(TV, m_Add(m_Value(Y), m_One()))) {
-       if (Y == BOV) {
-         LLVM_DEBUG(dumpLoopIndexPair(F, BOV, TV));
-         LoopIndices.insert(BOV);
-         LoopOffsets.insert(TV);
-         return true;
-       }
-       auto PHI1 = dyn_cast<PHINode>(Y);
-       if (PHI1) {
-         TestStack.push(std::make_tuple(PHI1, TV, TS_FoundBoth));
-         continue;
-       }
+    Value *TV = PHIN->getIncomingValue(I);
+    auto PHI0 = dyn_cast<PHINode>(TV);
+    if (PHI0 && PHI0 != BOV) {
+      TestStack.push(std::make_tuple(PHI0, nullptr, TS_FoundPHI));
+      continue;
+    }
+    Value *Y = nullptr;
+    if (match(TV, m_Add(m_Value(Y), m_One()))) {
+      if (Y == BOV) {
+        LLVM_DEBUG(dumpLoopIndexPair(F, BOV, TV));
+        LoopIndices.insert(BOV);
+        LoopOffsets.insert(TV);
+        return true;
+      }
+      auto PHI1 = dyn_cast<PHINode>(Y);
+      if (PHI1) {
+        TestStack.push(std::make_tuple(PHI1, TV, TS_FoundBoth));
+        continue;
+      }
     }
   }
   return false;
 }
 
-bool TileMVInlMarker::processLoopCaseFoundInc(Function &F,
-                                              TestStackTuple &Item,
+bool TileMVInlMarker::processLoopCaseFoundInc(Function &F, TestStackTuple &Item,
                                               Value *BOV) {
   auto PHIN = cast<PHINode>(std::get<0>(Item));
   for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I < E; ++I) {
@@ -328,15 +375,14 @@ bool TileMVInlMarker::processLoopCaseFoundInc(Function &F,
     }
     auto PHI0 = dyn_cast<PHINode>(TV);
     if (PHI0) {
-       TestStack.push(std::make_tuple(PHI0, std::get<1>(Item), TS_FoundBoth));
-       continue;
+      TestStack.push(std::make_tuple(PHI0, std::get<1>(Item), TS_FoundBoth));
+      continue;
     }
   }
   return false;
 }
 
-bool TileMVInlMarker::processLoopCaseFoundPHI(Function &F,
-                                              TestStackTuple &Item,
+bool TileMVInlMarker::processLoopCaseFoundPHI(Function &F, TestStackTuple &Item,
                                               Value *BOV) {
   Value *Z = nullptr;
   if (!match(std::get<0>(Item), m_Add(m_Value(Z), m_One())) || Z != BOV)
@@ -364,10 +410,10 @@ bool TileMVInlMarker::processLoopCaseFoundBoth(Function &F,
 }
 
 bool TileMVInlMarker::processLoop(Function &F, Loop &L) {
-   // Check the left side of a branch conditional for a loop index
-   BasicBlock *BB = L.getLoopLatch();
-   if (!BB)
-     return false;
+  // Check the left side of a branch conditional for a loop index
+  BasicBlock *BB = L.getLoopLatch();
+  if (!BB)
+    return false;
   auto BI = dyn_cast<BranchInst>(BB->getTerminator());
   if (!BI || BI->isUnconditional())
     return false;
@@ -441,10 +487,39 @@ bool TileMVInlMarker::isTileCandidateArg(Argument &Arg) {
       }
     }
   }
-  LLVM_DEBUG(dbgs() << "TILEMVINL: " << Arg.getParent()->getName()
-                    << " Arg %" << Arg.getArgNo()
-                    << "(" << ZeroCount << "," << OffsetCount << ")\n");
+  LLVM_DEBUG(dbgs() << "TMVINL: " << Arg.getParent()->getName() << " Arg %"
+                    << Arg.getArgNo() << "(" << ZeroCount << "," << OffsetCount
+                    << ")\n");
   return ZeroCount && OffsetCount;
+}
+
+bool TileMVInlMarker::isNonTileCandidateArg(Argument &Arg) {
+  for (User *U : Arg.users()) {
+    auto SI = dyn_cast<SubscriptInst>(U);
+    if (!SI || SI->getPointerOperand() != &Arg)
+      continue;
+    Value *V = SI->getIndex();
+    auto W = dyn_cast<SExtInst>(V);
+    if (W)
+      V = W->getOperand(0);
+    auto LI = dyn_cast<LoadInst>(V);
+    if (!LI)
+      continue;
+    if (isa<SubscriptInst>(LI->getPointerOperand()))
+      return true;
+  }
+  return false;
+}
+
+bool TileMVInlMarker::isNonTileCandidate(Function &F) {
+  for (auto &Arg : F.args()) {
+    if (isNonTileCandidateArg(Arg)) {
+      LLVM_DEBUG(dbgs() << "TMVINL: Non Tile Candidate " << F.getName()
+                        << "\n");
+      return true;
+    }
+  }
+  return false;
 }
 
 bool TileMVInlMarker::isTileCandidate(Function &F) {
@@ -459,11 +534,21 @@ bool TileMVInlMarker::isTileCandidate(Function &F) {
   }
   for (auto &Arg : F.args()) {
     if (isTileCandidateArg(Arg)) {
-      LLVM_DEBUG(dbgs() << "TILEMVINL: Tile Candidate " << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "TMVINL: Tile Candidate " << F.getName() << "\n");
       return true;
     }
   }
   return false;
+}
+
+void TileMVInlMarker::makeNonTileChoices(Function &Root) {
+  for (auto &F : M.functions()) {
+    Function *Caller = uniqueCaller(F);
+    if (Caller != &Root)
+      continue;
+    if (isNonTileCandidate(F))
+      NonTileChoices.insert(&F);
+  }
 }
 
 unsigned TileMVInlMarker::identifyTileCandidates(void) {
@@ -521,28 +606,32 @@ void TileMVInlMarker::makeTileChoices(Function *Root, Function *RootSub) {
     Function *Callee = CB->getCalledFunction();
     if (!Callee || Callee->isDeclaration())
       continue;
-    if (Callee != RootSub && (hasUniqueTileSubscriptArg(*Callee) ||
-        std::distance(Callee->arg_begin(), Callee->arg_end()) >=
-        TileCandidateArgMin && IPOUtils::isLeafFunction(*Callee))) {
+    if (Callee != RootSub &&
+        (hasUniqueTileSubscriptArg(*Callee) ||
+         std::distance(Callee->arg_begin(), Callee->arg_end()) >=
+                 TileCandidateArgMin &&
+             IPOUtils::isLeafFunction(*Callee))) {
       TileChoices.insert(Callee);
     }
   }
 }
 
+//
+// If 'BB' starts with a call to a Function, return a pointer to that Function.
+//
+static Function *getTargetCall(BasicBlock *BB) {
+  if (BB->empty())
+    return nullptr;
+  BasicBlock::iterator I = BB->begin();
+  while (isa<DbgInfoIntrinsic>(I))
+    ++I;
+  auto CB = dyn_cast<CallBase>(&*I);
+  if (!CB)
+    return nullptr;
+  return CB->getCalledFunction();
+}
+
 void TileMVInlMarker::siftTileChoices(Function *F) {
-
-  auto GetTargetCall = [](BasicBlock *BB) -> Function * {
-    if (BB->empty())
-      return nullptr;
-    BasicBlock::iterator I = BB->begin();
-    while (isa<DbgInfoIntrinsic>(I))
-      ++I;
-    auto CB = dyn_cast<CallBase>(&*I);
-    if (!CB)
-      return nullptr;
-    return CB->getCalledFunction();
-  };
-
   for (auto &BB : *F) {
     auto BI = dyn_cast<BranchInst>(BB.getTerminator());
     if (!BI || BI->isUnconditional())
@@ -550,22 +639,508 @@ void TileMVInlMarker::siftTileChoices(Function *F) {
     auto LI = dyn_cast<LoadInst>(BI->getCondition());
     if (!LI || !isa<GlobalVariable>(LI->getPointerOperand()))
       continue;
-    Function *TrueF = GetTargetCall(BI->getSuccessor(0));
+    Function *TrueF = getTargetCall(BI->getSuccessor(0));
     if (!TrueF || !TileChoices.count(TrueF))
       continue;
-    Function *FalseF = GetTargetCall(BI->getSuccessor(1));
+    Function *FalseF = getTargetCall(BI->getSuccessor(1));
     if (!FalseF || !TileChoices.count(FalseF))
       continue;
-    TileChoices.erase(FalseF);
+    TileChoices.remove(FalseF);
   }
 }
 
 #ifndef NDEBUG
 void TileMVInlMarker::dumpTileChoices(void) {
   for (auto *F : TileChoices)
-    dbgs() << "TILEMVINL: Tile Choice " << F->getName() << "\n";
+    dbgs() << "TMVINL: Tile Choice " << F->getName() << "\n";
+}
+
+void TileMVInlMarker::dumpNonTileChoices(void) {
+  for (auto *F : NonTileChoices)
+    dbgs() << "TMVINL: Non Tile Choice " << F->getName() << "\n";
+}
+
+void TileMVInlMarker::dumpGVM(void) {
+  for (auto &Pair : GVM) {
+    dbgs() << "TMVINL: GVMAP " << Pair.first->getName() << "\n";
+    dbgs() << "TMVINL: ";
+    Pair.second->dump();
+  }
+}
+
+void TileMVInlMarker::dumpCM(void) {
+  for (auto &Pair : CM) {
+    dbgs() << "TMVINL: CONDMAP " << (Pair.second ? "T " : "F ");
+    Value *V = Pair.first;
+    V->dump();
+    auto BO = dyn_cast<ICmpInst>(V);
+    if (BO) {
+      auto LI0 = dyn_cast<LoadInst>(BO->getOperand(0));
+      if (LI0) {
+        dbgs() << "TMVINL: LI ";
+        LI0->dump();
+      }
+      auto LI1 = dyn_cast<LoadInst>(BO->getOperand(1));
+      if (LI1) {
+        dbgs() << "TMVINL: LI ";
+        LI1->dump();
+      }
+    }
+  }
 }
 #endif // NDEBUG
+
+void TileMVInlMarker::findGVMandCM(Function &Root) {
+
+  //
+  // Return 'true' if 'GV' should be inserted into 'GVM' with Value 'V' and 'V'
+  // should be inserted into 'CM' with value 'Sense'. 'LeftLoad' is 'true' if
+  // 'V' is an ICmpInst with a 'LoadInst' as operand(0). Also, set 'FoundMatch'
+  // if we will do the insertion or if we found an entry in 'GV' and 'CM' that
+  // already covers the value we are testing.
+  //
+  // NOTE: In order to keep the implementation simple, we only allow one Value
+  // for each GlobalVariable in 'GVM'. Testing for this condition is done after
+  // the call to 'ShouldInsert'.  This requirement could be relaxed if it is
+  // found useful to do so.
+  //
+  auto ShouldInsert = [this](GlobalVariable *GV, Value *V, bool Sense,
+                             bool LeftLoad, bool &FoundMatch) -> bool {
+    FoundMatch = false;
+    if (!GVM.count(GV))
+      return true;
+    // Get the constant and predicate for the new value.
+    Value *OV = GVM[GV];
+    bool OSense = CM[OV];
+    bool NSense = Sense;
+    ICmpInst::Predicate P = ICmpInst::ICMP_EQ;
+    ConstantInt *CI = nullptr;
+    auto LI = dyn_cast<LoadInst>(V);
+    if (LI) {
+      CI = ConstantInt::get(Type::getInt32Ty(GV->getContext()), 0);
+    } else {
+      auto IC = cast<ICmpInst>(V);
+      P = IC->getPredicate();
+      if (LeftLoad) {
+        LI = cast<LoadInst>(IC->getOperand(0));
+        CI = cast<ConstantInt>(IC->getOperand(1));
+      } else {
+        LI = cast<LoadInst>(IC->getOperand(1));
+        CI = cast<ConstantInt>(IC->getOperand(0));
+        NSense = !NSense;
+      }
+    }
+    // Canonicalize the new value to match the sense of the old value.
+    if (OSense != NSense)
+      P = ICmpInst::getInversePredicate(P);
+    // Get the constant and predicate for the old value.
+    ConstantInt *OCI = nullptr;
+    ICmpInst::Predicate OP = ICmpInst::ICMP_EQ;
+    if (auto OLI = dyn_cast<LoadInst>(OV)) {
+      OCI = ConstantInt::get(Type::getInt32Ty(GV->getContext()), 0);
+    } else {
+      auto OIC = cast<ICmpInst>(OV);
+      OLI = dyn_cast<LoadInst>(OIC->getOperand(0));
+      if (OLI) {
+        OCI = cast<ConstantInt>(OIC->getOperand(1));
+        OP = OIC->getPredicate();
+      } else {
+        OLI = cast<LoadInst>(OIC->getOperand(1));
+        OCI = cast<ConstantInt>(OIC->getOperand(0));
+        OP = OIC->getInversePredicate();
+      }
+    }
+    // Insert if the constants don't match.
+    if (CI != OCI)
+      return true;
+    // If the predicates match, no need to update.
+    if (OP == P) {
+      FoundMatch = true;
+      return false;
+    }
+    // Determine if old condition is stricter that the new condition. If so,
+    // there is no need to update.
+    switch (P) {
+    case ICmpInst::ICMP_SLE:
+      if (OP == ICmpInst::ICMP_SLT || OP == ICmpInst::ICMP_EQ) {
+        FoundMatch = true;
+        return false;
+      }
+      break;
+    case ICmpInst::ICMP_SGE:
+      if (OP == ICmpInst::ICMP_SGT || OP == ICmpInst::ICMP_EQ) {
+        FoundMatch = true;
+        return false;
+      }
+      break;
+    case ICmpInst::ICMP_ULE:
+      if (OP == ICmpInst::ICMP_ULT || OP == ICmpInst::ICMP_EQ) {
+        FoundMatch = true;
+        return false;
+      }
+      break;
+    case ICmpInst::ICMP_UGE:
+      if (OP == ICmpInst::ICMP_UGT || OP == ICmpInst::ICMP_EQ) {
+        FoundMatch = true;
+        return false;
+      }
+      break;
+    default:
+      return true;
+    }
+    return true;
+  };
+
+  //
+  // Return 'true' if the condition 'V' guards a 'BB' which contains a call to
+  // one of the 'TileChoices' or 'NonTileChoices'. Also, update 'GVM' and 'CM'
+  // as appropriate.  'GV' is the sole GlobalVariable in 'V'. 'Sense' is true
+  // if we are testing if the guarding happens when 'V' is 'true'. 'LeftLoad'
+  // is 'true' if 'V' is an ICmpInst with a LoadInst of 'GV' as operand(0).
+  //
+  auto TestAndAdd = [this, &ShouldInsert](BasicBlock *BB, GlobalVariable *GV,
+                                          Value *V, bool Sense,
+                                          bool LeftLoad) -> bool {
+    bool FoundMatch = false;
+    Function *F = getTargetCall(BB);
+    if (TileChoices.count(F)) {
+      if (ShouldInsert(GV, V, Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
+        GVM[GV] = V;
+        CM[V] = Sense;
+      }
+      if (FoundMatch)
+        return true;
+    }
+    if (NonTileChoices.count(F)) {
+      if (ShouldInsert(GV, V, !Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
+        GVM[GV] = V;
+        CM[V] = !Sense;
+      }
+      if (FoundMatch)
+        return true;
+    }
+    return false;
+  };
+
+  //
+  // Return 'true' if either the true or false branch of 'BI', which has a
+  // condition 'V' containing 'GV' guards a 'TileChoice' or 'NonTileChoice'.
+  // Update 'GVM' and 'CM' as appropriate. If 'TrueOnly', only test the true
+  // branch. If 'LeftLoad' is true, 'V' is an ICmpInst with a LoadInst of 'GV'
+  // as operand(0).
+  //
+  auto TestAndAddBoth = [&TestAndAdd](BranchInst *BI, GlobalVariable *GV,
+                                      Value *V, bool TrueOnly,
+                                      bool LeftLoad) -> bool {
+    if (TestAndAdd(BI->getSuccessor(0), GV, V, true, LeftLoad))
+      return true;
+    if (!TrueOnly && TestAndAdd(BI->getSuccessor(1), GV, V, false, LeftLoad))
+      return true;
+    return false;
+  };
+
+  //
+  // Return 'true' if 'LIC' is a LoadInst contained in 'VC', a condition used
+  // in 'BI', and 'BI' guards a 'TileChoice' or 'NonTileChoice'. Update 'GVM'
+  // and 'CM' as appropriate. If 'TrueOnly', only test the true branch. If
+  // 'LeftLoad' is true, 'V' is an ICmpInst with a LoadInst of 'GV' as
+  // operand(0).
+  //
+  auto TestLoad = [&TestAndAddBoth](BranchInst *BI, Value *LIC, Value *VC,
+                                    bool TrueOnly, bool LeftLoad) -> bool {
+    auto LI = dyn_cast<LoadInst>(LIC);
+    if (!LI)
+      return false;
+    auto GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+    if (!GV)
+      return false;
+    TestAndAddBoth(BI, GV, VC, TrueOnly, LeftLoad);
+    return true;
+  };
+
+  //
+  // Return 'true' if the condition 'VC' in 'BI' guards a 'TileChoice' or
+  // 'NonTileChoice'. If 'TrueOnly', only test the true branch. Update 'GVM'
+  // and 'CM' as appropriate.
+  //
+  auto TestCondition = [&TestLoad](BranchInst *BI, Value *VC,
+                                   bool TrueOnly) -> bool {
+    if (TestLoad(BI, VC, VC, TrueOnly, false))
+      return true;
+    auto BO = dyn_cast<ICmpInst>(VC);
+    if (!BO)
+      return false;
+    if (isa<Constant>(BO->getOperand(1)) &&
+        TestLoad(BI, BO->getOperand(0), VC, TrueOnly, true))
+      return true;
+    if (isa<Constant>(BO->getOperand(0)) &&
+        TestLoad(BI, BO->getOperand(1), VC, TrueOnly, false))
+      return true;
+    return false;
+  };
+
+  //
+  // Return 'true' if 'BB' contains a call to a key FortranIO function. For
+  // now, we consider 'open', 'close', and 'stop'. The idea is that a
+  // BasicBlock containing such a call is not on the hot path of the execution,
+  // and should be excluded from the specialized version that is optimized
+  // with tiling.
+  //
+  auto HasKeyFortranIOFunction = [](BasicBlock &BB) -> bool {
+    for (auto &I : BB) {
+      auto CB = dyn_cast<CallBase>(&I);
+      if (!CB)
+        continue;
+      Function *F = CB->getCalledFunction();
+      if (!F)
+        continue;
+      StringRef FN = F->getName();
+      if (FN == "for_open" || FN == "for_close" || FN == "for_stop_core_quiet")
+        return true;
+    }
+    return false;
+  };
+
+  //
+  // Return 'true' if the condition 'VC', containing the LoadInst 'VC' with
+  // the given 'Sense' will refine the set of conditions in 'GVM' and 'CM'.
+  // If so, update 'GVM' and 'CM'.
+  //
+  auto TestLoadWithSuccessor = [this, &ShouldInsert](Value *LIC, Value *VC,
+                                                     bool Sense,
+                                                     bool LeftLoad) -> bool {
+    bool FoundMatch = false;
+    auto LI = dyn_cast<LoadInst>(LIC);
+    if (!LI)
+      return false;
+    auto GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+    if (!GV)
+      return false;
+    if (ShouldInsert(GV, VC, !Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
+      GVM[GV] = VC;
+      CM[VC] = !Sense;
+    }
+    if (FoundMatch)
+      return true;
+    return false;
+  };
+
+  //
+  // Return 'true' if the condition 'VC' with the given 'Sense' will refine
+  // the set of conditions in 'GVM' and 'CM'. If so, update 'GVM' and 'CM'.
+  //
+  auto TestConditionWithSuccessor =
+      [&TestLoadWithSuccessor](Value *VC, bool Sense) -> bool {
+    if (TestLoadWithSuccessor(VC, VC, Sense, false))
+      return true;
+    auto BO = dyn_cast<ICmpInst>(VC);
+    if (!BO)
+      return false;
+    if (isa<Constant>(BO->getOperand(1)) &&
+        TestLoadWithSuccessor(BO->getOperand(0), VC, Sense, true))
+      return true;
+    if (isa<Constant>(BO->getOperand(0)) &&
+        TestLoadWithSuccessor(BO->getOperand(1), VC, Sense, false))
+      return true;
+    return false;
+  };
+
+  //
+  // Main code for findGVMandCM
+  //
+
+  //
+  // Find the 'CallBlocks' which contain calls to Key Fortran IO functions
+  // that we want to exclude from the version of the code optimizied for
+  // tiling. While doing that, add to 'GVM' and 'CM' GlobalVariables and
+  // Values that will guard the 'TileChoices' and 'NonTileChoices'.
+  //
+  SmallPtrSet<BasicBlock *, 10> CallBlocks;
+  for (auto &BB : Root) {
+    if (HasKeyFortranIOFunction(BB))
+      CallBlocks.insert(&BB);
+    auto BI = dyn_cast<BranchInst>(BB.getTerminator());
+    if (!BI || BI->isUnconditional())
+      continue;
+    Value *VC = BI->getCondition();
+    Value *V1 = nullptr;
+    Value *V2 = nullptr;
+    auto BO = dyn_cast<BinaryOperator>(VC);
+    if (BO && BO->getOpcode() == Instruction::And &&
+        match(VC, m_BinOp(m_Value(V1), m_Value(V2)))) {
+      TestCondition(BI, V1, true);
+      TestCondition(BI, V2, true);
+    } else {
+      TestCondition(BI, VC, false);
+    }
+  }
+
+  //
+  // Walk over the CallBlocks and derive conditions that will guard the
+  // 'CallBlocks', updating 'GVM' and 'CM'. Use the DominatorTree to find
+  // candidate BasicBlocks terminating in tests that can serve as suitable
+  // guard tests. Use the PostdominatorTree to exclude unsuitable candidate
+  // BasicBlocks.  For example:
+  //     BB0: if C goto BB1 else goto BB2;
+  //     BB1: <code> goto BB3;
+  //     BB2: <code> goto BB4;
+  //     BB4:
+  // It might be thought that the 'true' test in BB0 is a good guard for
+  // 'BB4', since 'BB0' dominates 'BB4'.  But 'BB2' postdominates 'BB4',
+  // showing that this is a bad choice.
+  //
+  DominatorTree &DT = (*GetDT)(Root);
+  PostDominatorTree &PDT = (*GetPDT)(Root);
+  for (auto *BB : CallBlocks) {
+    DomTreeNode *DTN = DT.getNode(BB);
+    if (!DTN)
+      continue;
+    BasicBlock *BP = BB;
+    for (DTN = DTN->getIDom(); DTN; DTN = DTN->getIDom()) {
+      BasicBlock *BT = DTN->getBlock();
+      auto BI = dyn_cast<BranchInst>(BT->getTerminator());
+      if (!BI || BI->isUnconditional() || BI->getNumSuccessors() != 2)
+        continue;
+      Value *VC = BI->getCondition();
+      BasicBlock *BBS0 = BI->getSuccessor(0);
+      BasicBlock *BBS1 = BI->getSuccessor(1);
+      if (BBS0 == BP && !PDT.dominates(BP, BBS1)) {
+        if (TestConditionWithSuccessor(VC, true))
+          break;
+      } else if (BBS1 == BP && !PDT.dominates(BP, BBS0)) {
+        if (TestConditionWithSuccessor(VC, false))
+          break;
+      }
+      BP = BT;
+    }
+  }
+}
+
+bool TileMVInlMarker::validateGVM(Function &Root) {
+
+  //
+  // If the user 'U' of 'BC' appears in a canonical, self-contained Fortran
+  // read of a GlobalVariable, return the StoreInst that references that
+  // GlobalVariable.
+  //
+  // Here is an example of the sequence of Instructions that this function is
+  // intended to match:
+  //
+  // %126 = alloca { i8* }, align 8
+  // %690 = getelementptr inbounds { i8* }, { i8* }* %126, i64 0, i32 0
+  // store i8* bitcast (i32* @globalvar_mod_mp_pulse_ to i8*), i8** %690,
+  //    align 8
+  // %691 = bitcast { i8* }* %126 to i8*
+  // %692 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(
+  //    i8* nonnull %1333, i32 9, i64 1239157112576, i8* nonnull %686,
+  //    i8* nonnull %691)
+  //
+  auto IsCanonicalFortranRead = [](BitCastOperator *BC,
+                                   User *U) -> StoreInst * {
+    auto SI = dyn_cast<StoreInst>(U);
+    if (!SI || SI->getValueOperand() != BC)
+      return nullptr;
+    auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEPI || !GEPI->hasAllZeroIndices())
+      return nullptr;
+    auto AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+    if (!AI)
+      return nullptr;
+    unsigned UserCount = 0;
+    for (auto *V : AI->users()) {
+      if (UserCount > 2)
+        return nullptr;
+      if (V == GEPI) {
+        ++UserCount;
+        continue;
+      }
+      auto BC = dyn_cast<BitCastInst>(V);
+      if (BC) {
+        if (!BC->hasOneUse())
+          return nullptr;
+        auto CI = dyn_cast<CallInst>(BC->user_back());
+        if (!CI)
+          return nullptr;
+        Function *Callee = CI->getCalledFunction();
+        if (!Callee || !Callee->isDeclaration() ||
+            Callee->getName() != "for_read_seq_lis" || Callee->arg_size() < 5 ||
+            CI->getArgOperand(4) != BC)
+          return nullptr;
+        ++UserCount;
+        continue;
+      }
+      return nullptr;
+    }
+    return UserCount == 2 ? SI : nullptr;
+  };
+
+  //
+  // Fill 'AS' with pointers to the Functions which assign the GlobalVariables
+  // contained in 'GVM'. Return 'true' if 'AS' contains a complete set, 'false'
+  // if we cannot determine the complete set.
+  //
+  auto FindASF =
+      [this, &IsCanonicalFortranRead](SmallPtrSetImpl<Function *> &AS) -> bool {
+    for (auto &Pair : GVM) {
+      GlobalVariable *GV = Pair.first;
+      for (auto *V : GV->users()) {
+        if (isa<LoadInst>(V))
+          continue;
+        if (auto SI = dyn_cast<StoreInst>(V)) {
+          if (SI->getPointerOperand() != GV)
+            return false;
+          AS.insert(SI->getFunction());
+        } else if (auto BC = dyn_cast<BitCastOperator>(V)) {
+          for (User *U : BC->users()) {
+            StoreInst *SI = IsCanonicalFortranRead(BC, U);
+            if (!SI)
+              return false;
+            AS.insert(SI->getFunction());
+          }
+        } else {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  //
+  // Return 'true' if tracing a path from 'F' through any sequence of callers
+  // never encounters 'Root'.
+  //
+  auto ToMainBeforeRoot = [](Function &F, Function &Root) -> bool {
+    SmallPtrSet<Function *, 10> Visited;
+    SmallVector<Function *, 10> Worklist;
+    Worklist.push_back(&Root);
+    while (!Worklist.empty()) {
+      Function *G = Worklist.pop_back_val();
+      Visited.insert(G);
+      for (User *U : G->users()) {
+        auto CB = dyn_cast<CallBase>(U);
+        if (!CB || CB->getCalledFunction() != G)
+          return false;
+        Function *Caller = CB->getCaller();
+        if (Caller == &Root)
+          return false;
+        if (!Visited.count(Caller))
+          Worklist.push_back(Caller);
+      }
+    }
+    return true;
+  };
+
+  //
+  // Main code for TileMVInlMarker::validateGVM.
+  //
+  SmallPtrSet<Function *, 10> AS;
+  if (!FindASF(AS))
+    return false;
+  for (auto *F : AS)
+    if (!ToMainBeforeRoot(*F, Root))
+      return false;
+  return true;
+}
 
 bool TileMVInlMarker::runImpl() {
 
@@ -582,15 +1157,27 @@ bool TileMVInlMarker::runImpl() {
 
   unsigned TileCandidateCount = identifyTileCandidates();
   if (TileCandidateCount < TileCandidateMin)
-     return false;
+    return false;
   std::pair<Function *, Function *> Roots = identifyTileRoots();
   if (!Roots.first || !Roots.second)
-     return false;
-  makeTileChoices(Roots.first, Roots.second);
-  makeTileChoices(Roots.second, nullptr);
-  siftTileChoices(Roots.first);
-  siftTileChoices(Roots.second);
+    return false;
+  Function *MainRoot = Roots.first;
+  Function *SubRoot = Roots.second;
+  makeTileChoices(MainRoot, SubRoot);
+  makeTileChoices(SubRoot, nullptr);
+  siftTileChoices(MainRoot);
+  siftTileChoices(SubRoot);
+  makeNonTileChoices(*MainRoot);
   LLVM_DEBUG(dumpTileChoices());
+  LLVM_DEBUG(dumpNonTileChoices());
+  findGVMandCM(*MainRoot);
+  LLVM_DEBUG(dumpGVM());
+  LLVM_DEBUG(dumpCM());
+  if (!validateGVM(*MainRoot)) {
+    LLVM_DEBUG(dbgs() << "TMVINL: Did not validate GVM\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << "TMVINL: Validated GVM\n");
   //
   // TODO: Add multiversioning and setting of callsites for inlining.
   //
@@ -608,6 +1195,8 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
   }
@@ -619,14 +1208,25 @@ public:
 
     // Lambda function to find the LoopInfo related to an input function
     TileMVInlMarker::LoopInfoFuncType GetLoopInfo =
-       [this](Function &F) -> LoopInfo & {
+        [this](Function &F) -> LoopInfo & {
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+    };
+
+    std::function<DominatorTree &(Function &)> GetDT =
+        [this](Function &F) -> DominatorTree & {
+      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+    };
+
+    std::function<PostDominatorTree &(Function &)> GetPDT =
+        [this](Function &F) -> PostDominatorTree & {
+      return this->getAnalysis<PostDominatorTreeWrapperPass>(F)
+          .getPostDomTree();
     };
 
     WholeProgramInfo *WPInfo =
         &getAnalysis<WholeProgramWrapperPass>().getResult();
 
-    return TileMVInlMarker(M, GetLoopInfo, WPInfo).runImpl();
+    return TileMVInlMarker(M, GetLoopInfo, &GetDT, &GetPDT, WPInfo).runImpl();
   }
 };
 
@@ -636,6 +1236,8 @@ char TileMVInlMarkerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(TileMVInlMarkerLegacyPass, "tilemvinlmarker",
                       "Tile Multiversioning and Inline Marker", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(TileMVInlMarkerLegacyPass, "tilemvinlmarker",
                     "Tile Multiversioning and Inline Marker", false, false)
@@ -656,9 +1258,19 @@ PreservedAnalyses TileMVInlMarkerPass::run(Module &M,
     return FAM.getResult<LoopAnalysis>(F);
   };
 
+  std::function<DominatorTree &(Function &)> GetDT =
+      [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
+  };
+
+  std::function<PostDominatorTree &(Function &)> GetPDT =
+      [&FAM](Function &F) -> PostDominatorTree & {
+    return FAM.getResult<PostDominatorTreeAnalysis>(F);
+  };
+
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  if (!TileMVInlMarker(M, GetLoopInfo, &WPInfo).runImpl())
+  if (!TileMVInlMarker(M, GetLoopInfo, &GetDT, &GetPDT, &WPInfo).runImpl())
     PreservedAnalyses::all();
 
   PreservedAnalyses PA;
