@@ -46,7 +46,6 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<unsigned>
     DebugLineTableVersion("debug-line-version",
@@ -55,18 +54,6 @@ static cl::opt<unsigned>
                           cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 
-void mcdwarf::emitListsTableHeaderStart(MCStreamer *S, MCSymbol *TableStart,
-                                        MCSymbol *TableEnd) {
-  S->AddComment("Length");
-  S->emitAbsoluteSymbolDiff(TableEnd, TableStart, 4);
-  S->emitLabel(TableStart);
-  S->AddComment("Version");
-  S->emitInt16(S->getContext().getDwarfVersion());
-  S->AddComment("Address size");
-  S->emitInt8(S->getContext().getAsmInfo()->getCodePointerSize());
-  S->AddComment("Segment selector size");
-  S->emitInt8(0);
-=======
 MCSymbol *mcdwarf::emitListsTableHeaderStart(MCStreamer &S) {
   MCSymbol *Start =
       S.getContext().createTempSymbol("debug_list_header_start", true, true);
@@ -82,7 +69,6 @@ MCSymbol *mcdwarf::emitListsTableHeaderStart(MCStreamer &S) {
   S.AddComment("Segment selector size");
   S.emitInt8(0);
   return End;
->>>>>>> 90acc505edf46410a44f45ff01eb301de21936fb
 }
 
 /// Manage the .debug_line_str section contents, if we use it.
