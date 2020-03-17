@@ -29,8 +29,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #if INTEL_CUSTOMIZATION
       IsF90DopeVector(false), IsWILocal(false),
 #endif // INTEL_CUSTOMIZATION
-      IsAlways(false), IsUnsigned(false), IsComplex(false),
-      IsConditional(false), IsScheduleMonotonic(false),
+      IsAlways(false), IsClose(false), IsPresent(false), IsUnsigned(false),
+      IsComplex(false), IsConditional(false), IsScheduleMonotonic(false),
       IsScheduleNonmonotonic(false), IsScheduleSimd(false),
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false) {
@@ -88,6 +88,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
         if (ModSubString[i] == "ALWAYS")
           setIsAlways();
+        else if (ModSubString[i] == "CLOSE")
+          setIsClose();
+        else if (ModSubString[i] == "PRESENT")
+          setIsPresent();
         else if (ModSubString[i] == "ARRSECT")
           setIsArraySection();
         else if (ModSubString[i] == "BYREF")

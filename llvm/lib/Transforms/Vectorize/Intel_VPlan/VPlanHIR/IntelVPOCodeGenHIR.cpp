@@ -2719,6 +2719,25 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   if ((WideRef = getWideRefForVPVal(VPVal)))
     return WideRef->clone();
 
+  // Temporary special handling for VPInstructions associated with main loop IV.
+  // Widended version of -
+  // PHI = i1 + <0, 1,..., VF-1> (already in map and returned)
+  // Add = i1 + <0, 1,..., VF-1> + VF * CurrentUnrollPart
+  // TODO: Remove this specialization when VPValue-based codegen is able to
+  // build CanonExprs and recognize IV expressions.
+  if (MainLoopIVInsts.count(VPVal)) {
+    assert(!isa<VPPHINode>(VPVal) &&
+           "Main loop IV PHI was not found in WidenMap!");
+    assert(cast<VPInstruction>(VPVal)->getOpcode() == Instruction::Add &&
+           "Invalid instruction associated with main loop IV.");
+    llvm_unreachable("Cannot have any users of IV update without unroller.");
+    RegDDRef *IVRef = generateLoopInductionRef(VPVal->getType());
+    // TODO: When unroller support is added to HIR vectorizer remove the
+    // llvm_unreachable and uncomment below code.
+    // IVRef->shift(OrigLoop->NestingLevel, CurrentVPInstUnrollPart * VF);
+    return IVRef;
+  }
+
   if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
     const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
 
@@ -2862,6 +2881,11 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   // Assuming remaining PHIs to be loop induction - this will change with
   // support for live-outs.
   auto RefDestTy = VPPhi->getType();
+  auto *NewRef = generateLoopInductionRef(RefDestTy);
+  addVPValueWideRefMapping(VPPhi, NewRef);
+}
+
+RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
   auto VecRefDestTy = VectorType::get(RefDestTy, VF);
 
   auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
@@ -2876,7 +2900,7 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   BlobUtilities.createConstantBlob(ConstantVector::get(ConstVec), true, &Idx);
   CE->addBlob(Idx, 1);
   auto *NewRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-  addVPValueWideRefMapping(VPPhi, NewRef);
+  return NewRef;
 }
 
 RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
@@ -3396,6 +3420,52 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs() {
           VectorType::get(RedInit->getType(), VF), "red.var");
       mapInstAndUsersToRednRef(RedInit, RednRef);
     }
+  }
+
+  // Capture main loop IV instructions.
+  bool MainLoopIVCaptured = false;
+  for (VPInstruction &Inst : *OuterMostLpPreheader) {
+    if (!isa<VPInductionInit>(&Inst))
+      continue;
+
+    auto *IndInit = cast<VPInductionInit>(&Inst);
+    if (MainLoopIVCaptured)
+      report_fatal_error(
+          "HIR is expected to have only one loop induction variable.");
+    MainLoopIVCaptured = true;
+
+    std::function<void(VPInstruction *)> CaptureIVUpdates =
+        [&](VPInstruction *Inst) {
+          assert(Inst->getOpcode() == Instruction::Add &&
+                 "Invalid induction variable.");
+          assert(isa<VPInductionInitStep>(Inst->getOperand(0)) ||
+                 isa<VPInductionInitStep>(Inst->getOperand(1)) &&
+                     "One of the operands of IV update should be IV step.");
+          MainLoopIVInsts.insert(Inst);
+          for (auto *Op : Inst->operands()) {
+            if (isa<VPPHINode>(Op) || isa<VPInductionInitStep>(Op)) {
+              // Ignore IV step and PHI operands.
+              continue;
+            } else {
+              CaptureIVUpdates(cast<VPInstruction>(Op));
+            }
+          }
+        };
+
+    assert(IndInit->getNumUsers() == 1 && "Invalid induction variable.");
+    auto *User = *(IndInit->users().begin());
+    VPPHINode *IndPHI = cast<VPPHINode>(User);
+    MainLoopIVInsts.insert(IndPHI);
+    VPInstruction *LastUpdate = cast<VPInstruction>(
+        IndPHI->getOperand(0) == IndInit ? IndPHI->getOperand(1)
+                                         : IndPHI->getOperand(0));
+    CaptureIVUpdates(LastUpdate);
+  }
+
+  for (auto *V : MainLoopIVInsts) {
+    LLVM_DEBUG(dbgs() << "VPInst:"; V->dump();
+               dbgs() << " is associated with main loop IV.\n");
+    (void)V;
   }
 
   // Process inductions

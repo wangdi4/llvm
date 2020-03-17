@@ -429,6 +429,19 @@ public:
     return Fields[N];
   }
 
+  // If the field was resolved to be a single type, return it. Otherwise, nullptr.
+  DTransType *getFieldType(size_t N) {
+    if (getReconstructError())
+      return nullptr;
+
+    auto &Field = Fields[N];
+    auto &ResolvedTypes = Field.getTypes();
+    if (ResolvedTypes.size() != 1)
+      return nullptr;
+
+    return *ResolvedTypes.begin();
+  }
+
   unsigned getNumFields() const { return Fields.size(); }
 
   // Convert to an existing LLVMType. If no LLVMType type exists for the
@@ -497,13 +510,15 @@ public:
 
   uint64_t getNumElements() const { return Num; }
 
-  // TODO: unsigned parameter is to provide compatibility with
-  // llvm::CompositeType::getTypeAtIndex interface. Currently, this function
-  // within DTrans is being placed at the SequentialType derivation because it
-  // may be possible that a structure type does not contain a unique type. Need
-  // to either move this to DTransCompositeType if some sensible return value
-  // can be determined or remove parameter.
-  DTransType *getTypeAtIndex(unsigned) const { return DTType; }
+  // Note, this function is being defined with the same interface as
+  // llvm::CompositeType::getTypeAtIndex to enable compatibility during the
+  // migration to using DTransTypes, but within DTrans it differs by being
+  // placed within the SequentialType derivation because it may be possible that
+  // a structure type does not contain a unique type if the type recovery fails
+  // to uniquely recovery the structure.
+  // TODO: Should to either move this to DTransCompositeType if some sensible
+  // return value can be determined or remove the unused parameter.
+  DTransType *getTypeAtIndex(uint64_t) const { return DTType; }
   DTransType *getElementType() const { return DTType; }
 
   llvm::Type *getLLVMType() const {

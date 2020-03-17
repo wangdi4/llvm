@@ -844,14 +844,19 @@ private:
 public:
   enum WRNMapKind {
     WRNMapNone       = 0x0000,
+    // map types:
     WRNMapTo         = 0x0001,
     WRNMapFrom       = 0x0002,
-    WRNMapAlways     = 0x0004,
-    WRNMapDelete     = 0x0008,
-    WRNMapAlloc      = 0x0010,
-    WRNMapRelease    = 0x0020,
-    WRNMapUpdateTo   = 0x0040,
-    WRNMapUpdateFrom = 0x0080,
+    WRNMapAlloc      = 0x0004,
+    WRNMapRelease    = 0x0008,
+    WRNMapDelete     = 0x0010,
+    // update to/from clauses:
+    WRNMapUpdateTo   = 0x0020,
+    WRNMapUpdateFrom = 0x0040,
+    // map-type modifiers:
+    WRNMapAlways     = 0x0080,
+    WRNMapClose      = 0x0100,
+    WRNMapPresent    = 0x0200,
   } WRNMapKind;
 
   MapItem(VAR Orig)
@@ -936,11 +941,13 @@ public:
   void setMapKind(unsigned MK) { MapKind = MK; }
   void setIsMapTo()      { MapKind |= WRNMapTo; }
   void setIsMapFrom()    { MapKind |= WRNMapFrom; }
-  void setIsMapTofrom() { MapKind |= WRNMapFrom | WRNMapTo; }
+  void setIsMapTofrom()  { MapKind |= WRNMapFrom | WRNMapTo; }
   void setIsMapAlloc()   { MapKind |= WRNMapAlloc; }
   void setIsMapRelease() { MapKind |= WRNMapRelease; }
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
+  void setIsMapClose()   { MapKind |= WRNMapClose; }
+  void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
@@ -955,6 +962,8 @@ public:
   bool getIsMapRelease()    const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()     const { return MapKind & WRNMapDelete; }
   bool getIsMapAlways()     const { return MapKind & WRNMapAlways; }
+  bool getIsMapClose()      const { return MapKind & WRNMapClose; }
+  bool getIsMapPresent()    const { return MapKind & WRNMapPresent; }
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }

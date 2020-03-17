@@ -293,11 +293,12 @@ public:
 
   void visitFunction(Function &F) {
     for (auto &A : F.args())
-      if (A.getType()->isPointerTy())
+      if (isPossiblePtrValue(&A))
         analyzeValue(&A);
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
+  void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitLoadInst(LoadInst &I) { analyzeValue(&I); }
 
 private:
@@ -403,6 +404,9 @@ private:
     case Instruction::Alloca:
       analyzeAllocaInst(cast<AllocaInst>(I), Info);
       break;
+    case Instruction::GetElementPtr:
+      analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
+      break;
     case Instruction::Load:
       analyzeLoadInst(cast<LoadInst>(I), Info);
       break;
@@ -434,8 +438,15 @@ private:
       switch (I->getOpcode()) {
       default:
         break;
+      case Instruction::GetElementPtr: {
+        auto *GEP = cast<GetElementPtrInst>(I);
+        Value *BasePtr = GEP->getPointerOperand();
+        if (AddDependency(BasePtr, DependentVals))
+          populateDependencyStack(BasePtr, DependentVals);
+        break;
+      }
       case Instruction::Load: {
-        auto *LI = cast<LoadInst>(V);
+        auto *LI = cast<LoadInst>(I);
         Value *Ptr = LI->getPointerOperand();
         if (AddDependency(Ptr, DependentVals))
           populateDependencyStack(Ptr, DependentVals);
@@ -460,7 +471,7 @@ private:
   }
 
   void analyzeArgument(Argument *Arg, ValueTypeInfo *ResultInfo) {
-    if (!Arg->getType()->isPointerTy())
+    if (!isPossiblePtrValue(Arg))
       return;
 
     Function *F = Arg->getParent();
@@ -535,6 +546,256 @@ private:
 
     ResultInfo->setUnhandled();
     LLVM_DEBUG(dbgs() << "Unhandled AllocaInst:" << *AI << "\n");
+  }
+
+  void analyzeGetElementPtrOperator(GEPOperator *GEP,
+                                    ValueTypeInfo *ResultInfo) {
+    analyzeGetElementPtrOperatorIndex(*GEP, ResultInfo);
+    analyzeGEPAsBitcastEquivalent(*GEP, ResultInfo);
+  }
+
+  // Update \p ResultInfo with the type being indexed into and the type of
+  // the Value produced by the GEP if the GEP is indexing an aggregate type. For
+  // a GEP with 0 or 1 index, transfer the alias types from the base pointer to
+  // the \p ResultInfo.
+  void analyzeGetElementPtrOperatorIndex(GEPOperator &GEP,
+                                         ValueTypeInfo *ResultInfo) {
+    // Get the type of element being indexed within \p DTy using \p IdxList
+    // for traversing the types. DTy could be a structure, or sequential type.
+    // This will walk the indices to find the type, or return nullptr if the
+    // indices are not valid for the input type.
+    auto GetGEPIndexedType = [](DTransType *DTy,
+                                ArrayRef<Value *> IdxList) -> DTransType * {
+      if (IdxList.empty())
+        return DTy;
+
+      unsigned CurIdx = 1;
+      DTransType *Agg = DTy;
+      for (; CurIdx != IdxList.size(); ++CurIdx) {
+        if (!Agg || Agg->isPointerTy())
+          return nullptr;
+
+        if (auto *DSeqTy = dyn_cast<DTransSequentialType>(Agg)) {
+          Agg = DSeqTy->getTypeAtIndex(0);
+        } else if (auto *DStTy = dyn_cast<DTransStructType>(Agg)) {
+          Value *IndexValue = IdxList[CurIdx];
+          uint64_t Idx =
+              cast<Constant>(IndexValue)->getUniqueInteger().getZExtValue();
+          if (DStTy->getNumFields() <= Idx)
+            return nullptr;
+
+          // Try to get the field type of the structure. If there was a conflict
+          // while re-constructing the structure types from metadata, then this
+          // will result in nullptr, and we cannot tell what type is being used.
+          Agg = DStTy->getFieldType(Idx);
+          if (!Agg)
+            return nullptr;
+        }
+      }
+      return Agg;
+    };
+
+    auto ProcessIndexedElement = [&GetGEPIndexedType, this, &GEP,
+                                  ResultInfo](DTransType *Ty,
+                                              SmallVector<Value *, 4> &GepOps) {
+      // Need to compute indexed type based on GEP indices
+      // Case 1: Structure
+      //  - 2 operands, type is field member type
+      //  - 3 or more operands, type is nested structure or array access.
+      //    Iterate on field member type until final type is reached.
+      //
+      // Case 2: Array
+      // - 2 operands, type is array element type.
+      //   For example:
+      //    [8 x i16] -> i16
+      //    [8 x p0] --> type is kind of pointer stored in array.
+      // - 3 or more operands, type is multi-dimensional array.  Iterate
+      //   until type is reached.
+      dtrans::DTransType *IndexedTy = GetGEPIndexedType(Ty, GepOps);
+      if (!IndexedTy) {
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
+        return false;
+      }
+
+      if (auto *IndexedStTy = dyn_cast<DTransStructType>(IndexedTy)) {
+        // The final argument of the GEP of a structure field element must
+        // always be a constant value
+        auto *LastArg =
+            cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
+        uint64_t FieldNum = LastArg->getLimitedValue();
+        DTransType *FieldTy = IndexedStTy->getFieldType(FieldNum);
+        if (!FieldTy) {
+          ResultInfo->setUnhandled();
+          LLVM_DEBUG(dbgs() << "Unhandled: unknown field type for GEP: " << GEP
+                            << "\n");
+          return false;
+        }
+
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
+                                 TM.getOrCreatePointerType(FieldTy));
+
+        // Access is to an element of the structure, update element
+        // pointee info
+        ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
+                                      FieldNum);
+        return true;
+      }
+
+      if (auto *IndexedSeqTy = dyn_cast<DTransSequentialType>(IndexedTy)) {
+        DTransType *ElemTy = IndexedSeqTy->getElementType();
+        DTransType *PtrToElemTy = TM.getOrCreatePointerType(ElemTy);
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, PtrToElemTy);
+
+        // Access is to an element of the structure, update element pointee
+        // info.
+        Value *LastArg = GEP.getOperand(GEP.getNumOperands() - 1);
+        auto *ConstIdx = dyn_cast<ConstantInt>(LastArg);
+        if (ConstIdx) {
+          uint64_t ElemNum = ConstIdx->getLimitedValue();
+          ResultInfo->addElementPointee(ValueTypeInfo::VAT_Decl, IndexedTy,
+                                        ElemNum);
+        } else {
+          // TODO: LocalPointerAnalyzer treats this as an element pointee at
+          // index 0 when DTransOutOfBoundsOk = false for some reason, but not
+          // when DTransOutOfBounds = true. Mimic this behavior.
+        }
+        return true;
+      }
+
+      ResultInfo->setUnhandled();
+      LLVM_DEBUG(dbgs() << "GEP not handled: " << GEP << "\n");
+      return false;
+    };
+
+    Value *BasePointer = GEP.getPointerOperand();
+    ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(BasePointer);
+    if (!PointerInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
+
+    if (PointerInfo->getUnhandled() || PointerInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
+
+    if (GEP.getNumIndices() > 1) {
+      // Mark the pointer operand with the type used for indexing.
+      //
+      // Cases to handle:
+      // Case 1: getelementptr <SimpleTy>, p0 %x, i64 0, i32 1
+      //   where SimpleTy is a named structure or simple array definition.
+      //
+      // Case 2: getelementptr <ComplexTy>, p0 %x, i64 0, i32
+      //   where ComplexTy is a literal structure or array that involves
+      //   pointer types, such as [8 x %struct.test*] or {i32, i32*}
+      //
+      // In case 1, we know that %x is being used as a pointer to the simple
+      // type.
+      // In case 2, we need we rely upon the type information collected
+      // based on the declaration of %x. If this turns out to not be sufficient,
+      // we will need the FE to annotate these cases with metadata.
+      llvm::Type *SrcTy = GEP.getSourceElementType();
+      DTransType *DTransSrcTy = nullptr;
+      SmallVector<Value *, 4> Ops(GEP.idx_begin(), GEP.idx_end() - 1);
+      if (TM.isSimpleType(SrcTy)) {
+        DTransSrcTy = TM.getOrCreateSimpleType(SrcTy);
+        assert(DTransSrcTy && "Expected type to exist");
+
+        // Mark the pointer operand as being used as the indexing type of the
+        // GEP.
+        PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use,
+                                  TM.getOrCreatePointerType(DTransSrcTy));
+
+        bool Handled = ProcessIndexedElement(DTransSrcTy, Ops);
+        if (!Handled) {
+          PointerInfo->setUnhandled();
+          ResultInfo->setDependsOnUnhandled();
+          LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
+        }
+
+        return;
+      }
+
+      // Try to process the alias type for any of the potential types the base
+      // pointer represents.
+      for (auto *Alias :
+           PointerInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+        bool Handled = false;
+        if (Alias->isPointerTy())
+          Handled = ProcessIndexedElement(Alias->getPointerElementType(), Ops);
+
+        if (!Handled) {
+          // We may need to have metadata on the some GEP instructions that
+          // defines the indexed type, if we encounter this case.
+          PointerInfo->setUnhandled();
+          ResultInfo->setDependsOnUnhandled();
+          LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
+        }
+      }
+      return;
+    }
+
+    // Zero or Single index operand GEPs of the form, result in the same
+    // type as the base pointer.
+    // For example, these cases result in the same type identified for %x:
+    //   getelementptr p0, p0 %x, i64 5
+    //   getelementptr <ty>, <ptr vector> %x, <vector index type> %idx
+
+    // These are treating the source operand as an array, and therefore are
+    // generating the same type as the pointer operand. However, there is a
+    // special case when indexed type is an i8, since it may be a
+    // byte-flattened GEP that needs to be analyzed.
+    propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true, 0);
+
+    // TODO: Check if this is a byte-flattened GEP. We need to have bitcasts
+    // analyzed before this can be implemented.
+  }
+
+  // There's an odd case where LLVM's constant folder will transform
+  // a bitcast into a GEP if the first element of the structure at
+  // any level of nesting matches the type of the bitcast. Normally
+  // this is good, but if the first element is an i8 (or a fixed array
+  // of i8, or a nested structure whose first element is an i8, etc.)
+  // then this folding can lead to a misleading GEP where the code
+  // was actually just trying to obtain a void pointer to the structure.
+  //
+  // For that reason, if this GEP returns an i8* and all but its first
+  // index arguments are zero, we want to include the base structure
+  // type in the alias set. The first index argument does not index
+  // into the structure but offsets from it (as a dynamic array) so
+  // this case applies even if the first index is non-zero.
+  //
+  // TODO: This is here for compatibility with the existing local pointer
+  // analyzer for matching the output of the analyzed types. This may need
+  // to be revisited when the compiler actually is using opaque pointers
+  // because in that case the rest of the compiler would not be making a
+  // distinction between an i8* and any other pointer type. An alternative,
+  // may be to infer the type from its uses when that is implemented.
+  void analyzeGEPAsBitcastEquivalent(GEPOperator &GEP,
+                                     ValueTypeInfo *ResultInfo) {
+    for (unsigned i = 1; i < GEP.getNumIndices(); ++i)
+      // The +1 here is because the first operand of a GEP is not an index.
+      if (ConstantInt *CI = dyn_cast<ConstantInt>(GEP.getOperand(i + 1)))
+        if (!CI->isZero())
+          return;
+
+    bool MayBeI8Ptr = false;
+    for (auto *AliasTy :
+         ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl))
+      if (AliasTy == getDTransI8Ptr()) {
+        MayBeI8Ptr = true;
+        break;
+      }
+
+    if (!MayBeI8Ptr)
+      return;
+
+    ValueTypeInfo *PtrInfo =
+        PTA.getOrCreateValueTypeInfo(GEP.getPointerOperand());
+    for (auto *AliasTy :
+         PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl))
+      ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, AliasTy);
+
+    if (!PtrInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
   }
 
   void analyzeLoadInst(LoadInst *LI, ValueTypeInfo *ResultInfo) {

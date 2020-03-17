@@ -806,9 +806,17 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
   C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in
                                   // the MapKind of each list item
 
+  // Get map-type modifiers (always, close, present) from ClauseInfo
+  if (ClauseInfo.getIsAlways())
+    MapKind |= MapItem::WRNMapAlways;
+  if (ClauseInfo.getIsClose())
+    MapKind |= MapItem::WRNMapClose;
+  if (ClauseInfo.getIsPresent())
+    MapKind |= MapItem::WRNMapPresent;
+
   if (ClauseInfo.getIsArraySection()) {
-    assert ((MapKind == MapItem::WRNMapUpdateTo ||
-             MapKind == MapItem::WRNMapUpdateFrom) &&
+    assert ((MapKind & MapItem::WRNMapUpdateTo ||
+             MapKind & MapItem::WRNMapUpdateFrom) &&
              "Expected Map Chain instead of Array Section in a MAP clause");
     Value *V = Args[0];
     C.add(V);
@@ -825,9 +833,9 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     assert((NumArgs == 3 || NumArgs == 4) &&
            "Malformed MAP:AGGR[HEAD]/CHAIN clause");
 
-    assert (MapKind != MapItem::WRNMapUpdateTo &&
-            MapKind != MapItem::WRNMapUpdateFrom &&
-            "Unexpected Map Chain in a TO/FROM clause");
+    assert(!(MapKind & MapItem::WRNMapUpdateTo ||
+             MapKind & MapItem::WRNMapUpdateFrom) &&
+           "Unexpected Map Chain in a TO/FROM clause");
 
     // Create a MapAggr for: <BasePtr, SectionPtr, Size[, MapType]>.
     Value *BasePtr = (Value *)Args[0];
