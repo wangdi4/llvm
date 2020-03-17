@@ -2,6 +2,48 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
+// CHECK-LABEL: foo_close
+void foo_close(int ii){
+  // Map of a scalar.
+  int a = ii;
+  // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CLOSE"(i32* %a, i32* %a, i64 4, i64 1059)
+  // CHECK:  region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target map(close, tofrom: a)
+  {
+    a++;
+  }
+  // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:ALWAYS.CLOSE"(i32* %a, i32* %a, i64 4, i64 1063)
+  // CHECK:  region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target map(always, close, tofrom: a)
+  {
+     a++;
+  }
+}
+
+// CHECK-LABEL: foo_close_one
+void foo_close_one(int arg)
+{
+  float lb[arg];
+  // CHECK: [[ARG:%.+]] = alloca i32
+  // CHECK: [[L:%[0-9]+]] = load i32, i32* [[ARG]]
+  // CHECK: [[L1:%[0-9]+]] = zext i32 [[L]] to i64
+  // CHECK: [[VLA:%.+]] = alloca float, i64 [[L1]]
+  // CHECK: [[L3:%[0-9]+]] =  mul nuw i64 [[L1]], 4
+  // CHECK: [[ARR:%.+]] = getelementptr inbounds float, float* [[VLA]], i64 0
+  // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
+  // CHECK-SAME: "QUAL.OMP.MAP.TO:CLOSE"(float* [[VLA]], float* [[ARR]], i64 [[L3]], i64 1057)
+  // CHECK:  region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
+  #pragma omp target enter data map(close, to: lb)
+  {++arg;}
+  // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET.ENTER.DATA
+  // CHECK-SAME: "QUAL.OMP.MAP.TO:ALWAYS.CLOSE"(float* %vla, {{.*}} 1061)
+  // CHECK:  region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET.ENTER.DATA"() ]
+  #pragma omp target enter data map(always close, to: lb)
+  {++arg;}
+}
+
 class B {
 public:
   B();

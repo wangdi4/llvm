@@ -25,6 +25,8 @@
 #include "llvm/Support/CommandLine.h" // INTEL
 #include <queue>
 
+#define DEBUG_TYPE "general-utils"
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
@@ -140,14 +142,17 @@ void GeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
 // Breaks up the instruction recursively for all the constant expression
 // operands.
 void GeneralUtils::breakExpressions(
-    Instruction *Inst, SmallVectorImpl<Instruction *> *NewInstArr) {
+    Instruction *Inst, SmallVectorImpl<Instruction *> *NewInstArr,
+    SmallPtrSetImpl<ConstantExpr *> *ExprsToBreak) {
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Breaking constant exprs in '" << *Inst
+                    << "'.\n");
   if (DbgDeclareInst *DbgDclInst = dyn_cast<DbgDeclareInst>(Inst)) {
     // For DbgDeclareInst, the operand is a metadata that might
     // contain a constant expression.
     Value* Op = DbgDclInst->getAddress();
     // If the debug adress is a constant expression, recursively break it up.
     if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
-      breakExpressionsHelper(Expr, 0, Inst, NewInstArr);
+      breakExpressionsHelper(Expr, 0, Inst, NewInstArr, ExprsToBreak);
   }
   else if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(Inst)) {
     // For DbgValueInst, the operand is a metadata that might
@@ -155,7 +160,7 @@ void GeneralUtils::breakExpressions(
     Value* Op = DbgValInst->getValue();
     // If the debug value operand is a constant expression, recursively break it up.
     if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
-      breakExpressionsHelper(Expr, 0, Inst, NewInstArr);
+      breakExpressionsHelper(Expr, 0, Inst, NewInstArr, ExprsToBreak);
   }
   else {
     // And all the operands of each instruction
@@ -165,7 +170,7 @@ void GeneralUtils::breakExpressions(
 
       // If the operand is a constant expression, recursively break it up.
       if (ConstantExpr* Expr = dyn_cast<ConstantExpr>(Op))
-        breakExpressionsHelper(Expr, I, Inst, NewInstArr);
+        breakExpressionsHelper(Expr, I, Inst, NewInstArr, ExprsToBreak);
     }
   }
 }
@@ -174,7 +179,13 @@ void GeneralUtils::breakExpressions(
 // expression operand.
 void GeneralUtils::breakExpressionsHelper(
     ConstantExpr *Expr, unsigned OperandIndex, Instruction *User,
-    SmallVectorImpl<Instruction *> *NewInstArr) {
+    SmallVectorImpl<Instruction *> *NewInstArr,
+    SmallPtrSetImpl<ConstantExpr *> *ExprsToBreak) {
+  if (ExprsToBreak && !ExprsToBreak->count(Expr))
+    return;
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Breaking Expr '" << *Expr << "'.\n");
+
   // Create a new instruction, and insert it at the appropriate point.
   Instruction *NewInst = Expr->getAsInstruction();
   NewInst->setDebugLoc(User->getDebugLoc());
@@ -198,7 +209,7 @@ void GeneralUtils::breakExpressionsHelper(
     Value *Op = NewInst->getOperand(I);
     ConstantExpr *InnerExpr = dyn_cast<ConstantExpr>(Op);
     if (InnerExpr)
-      breakExpressionsHelper(InnerExpr, I, NewInst, NewInstArr);
+      breakExpressionsHelper(InnerExpr, I, NewInst, NewInstArr, ExprsToBreak);
   }
 }
 

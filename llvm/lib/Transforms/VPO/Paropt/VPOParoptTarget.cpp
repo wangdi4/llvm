@@ -369,7 +369,11 @@ static bool ignoreSpecialOperands(const Instruction *I) {
       "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
       "_Z14get_num_groupsj", "_Z12get_group_idj",   "_Z18work_group_barrierj",
       "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
-      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
+#if INTEL_CUSTOMIZATION
+      "_f90_dope_vector_init", "_f90_firstprivate_copy",
+      "_f90_dope_vector_size", "_f90_lastprivate_copy",
+#endif // INTEL_CUSTOMIZATION
+      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num"};
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
@@ -2016,6 +2020,19 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // We need this for private F90 DVs as well, as we pass in the original
+  // DV into the target region as a parameter of the outlined function.
+  if (W->canHavePrivate()) {
+    PrivateClause &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      if (!PrivI->getIsF90DopeVector())
+        continue;
+      VNew = createRenamedValueForGlobalsAndConstExprs(PrivI->getOrig());
+      PrivI->setOrig(VNew);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (W->canHaveIsDevicePtr()) {
     IsDevicePtrClause &IsDevPtrClause = W->getIsDevicePtr();
     for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {

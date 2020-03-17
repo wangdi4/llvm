@@ -13,6 +13,7 @@
 ///
 //==------------------------------------------------------------------------==//
 
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #define DEBUG_TYPE "vpo-paropt-utils"
@@ -33,12 +34,16 @@ CallInst *VPOParoptUtils::genF90DVSizeCall(Value *DV,
 }
 
 CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
-                                           Instruction *InsertBefore) {
+                                           Instruction *InsertBefore,
+                                           bool IsTargetSPIRV) {
   IRBuilder<> Builder(InsertBefore);
 
-  Type *Int8PtrTy = Builder.getInt8PtrTy();
-  auto *NewDVCast = Builder.CreateBitCast(NewDV, Int8PtrTy);
-  auto *OrigDVCast = Builder.CreateBitCast(OrigDV, Int8PtrTy);
+  Type *Int8PtrTy =
+      Builder.getInt8PtrTy(IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0);
+  auto *NewDVCast =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(NewDV, Int8PtrTy);
+  auto *OrigDVCast =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(OrigDV, Int8PtrTy);
   CallInst *DataSize =
       genCall(InsertBefore->getModule(), "_f90_dope_vector_init",
               Builder.getInt64Ty(), {NewDVCast, OrigDVCast});
@@ -47,7 +52,8 @@ CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
   return DataSize;
 }
 
-void VPOParoptUtils::genF90DVInitCode(Item *I) {
+void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
+                                      bool IsTargetSPIRV) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   Value *NewV = I->getNew();
@@ -58,11 +64,13 @@ void VPOParoptUtils::genF90DVInitCode(Item *I) {
       isa<StructType>(cast<PointerType>(OrigV->getType())->getElementType()) &&
       "Clause item is expected to be a struct for F90 DVs.");
 
-  Instruction *InsertPt =
-      (cast<Instruction>(NewV))->getParent()->getTerminator();
+  if (!GeneralUtils::isOMPItemGlobalVAR(NewV))
+    InsertPt = (cast<Instruction>(NewV))->getParent()->getTerminator();
+
   IRBuilder<> Builder(InsertPt);
 
-  CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt);
+  CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt, IsTargetSPIRV);
+  setFuncCallingConv(DataSize, IsTargetSPIRV);
 
   // Get base address from the dope vector.
   auto *Zero = Builder.getInt32(0);
@@ -74,7 +82,10 @@ void VPOParoptUtils::genF90DVInitCode(Item *I) {
           ->getElementType();
   Value *PointeeData = genPrivatizationAlloca(ElementTy, DataSize, InsertPt,
                                               NamePrefix + ".data");
-  Builder.CreateStore(PointeeData, Addr0GEP);
+  Type *PointeePtrTy = PointerType::getUnqual(PointeeData->getType());
+  auto *Addr0GEPCast =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(Addr0GEP, PointeePtrTy);
+  Builder.CreateStore(PointeeData, Addr0GEPCast);
 
   if (!isa<ReductionItem>(I))
     return;
@@ -127,28 +138,34 @@ void VPOParoptUtils::genF90DVInitForItemsInTaskPrivatesThunk(
 }
 
 void VPOParoptUtils::genF90DVFirstOrLastprivateCopyCallImpl(
-    StringRef FnName, Value *NewV, Value *OrigV, Instruction *InsertBefore) {
+    StringRef FnName, Value *NewV, Value *OrigV, Instruction *InsertBefore,
+    bool IsTargetSPIRV) {
 
   IRBuilder<> Builder(InsertBefore);
 
-  Type *Int8PtrTy = Builder.getInt8PtrTy();
-  auto *NewVCast = Builder.CreateBitCast(NewV, Int8PtrTy);
-  auto *OrigVCast = Builder.CreateBitCast(OrigV, Int8PtrTy);
+  Type *Int8PtrTy =
+      Builder.getInt8PtrTy(IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0);
+  auto *NewVCast = Builder.CreatePointerBitCastOrAddrSpaceCast(NewV, Int8PtrTy);
+  auto *OrigVCast =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(OrigV, Int8PtrTy);
   CallInst *F90DVCopy = genCall(InsertBefore->getModule(), FnName,
                                 Builder.getVoidTy(), {NewVCast, OrigVCast});
+  setFuncCallingConv(F90DVCopy, IsTargetSPIRV);
   F90DVCopy->insertBefore(InsertBefore);
 }
 
 void VPOParoptUtils::genF90DVFirstprivateCopyCall(Value *NewV, Value *OrigV,
-                                                  Instruction *InsertBefore) {
+                                                  Instruction *InsertBefore,
+                                                  bool IsTargetSPIRV) {
   genF90DVFirstOrLastprivateCopyCallImpl("_f90_firstprivate_copy", NewV, OrigV,
-                                         InsertBefore);
+                                         InsertBefore, IsTargetSPIRV);
 }
 
 void VPOParoptUtils::genF90DVLastprivateCopyCall(Value *NewV, Value *OrigV,
-                                                 Instruction *InsertBefore) {
+                                                 Instruction *InsertBefore,
+                                                 bool IsTargetSPIRV) {
   genF90DVFirstOrLastprivateCopyCallImpl("_f90_lastprivate_copy", NewV, OrigV,
-                                         InsertBefore);
+                                         InsertBefore, IsTargetSPIRV);
 }
 
 void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I,

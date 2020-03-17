@@ -2640,7 +2640,8 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
   if (FprivI->getIsF90DopeVector()) {
     if (FprivI->getIsByRef())
       OldV = new LoadInst(OldV, "", InsertPt);
-    VPOParoptUtils::genF90DVFirstprivateCopyCall(NewV, OldV, InsertPt);
+    VPOParoptUtils::genF90DVFirstprivateCopyCall(NewV, OldV, InsertPt,
+                                                 isTargetSPIRV());
     return;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -2685,7 +2686,8 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
 
 #if INTEL_CUSTOMIZATION
   if (LprivI->getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt);
+    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt,
+                                                isTargetSPIRV());
     return;
   }
 
@@ -3240,7 +3242,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
       if (RedI->getIsF90DopeVector())
-        VPOParoptUtils::genF90DVInitCode(RedI);
+        VPOParoptUtils::genF90DVInitCode(RedI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
 
       createEmptyPrvInitBB(W, RedInitEntryBB);
@@ -3823,24 +3825,26 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *NewPrivValue) {
 
   // Find instructions in W that use V
-  SmallVector<Instruction *, 8> PrivUses;
-  if (!WRegionUtils::findUsersInRegion(W, PrivValue, &PrivUses, false))
+  SmallVector<Instruction *, 8> UserInsts;
+  SmallPtrSet<ConstantExpr *, 8> UserExprs;
+  if (!WRegionUtils::findUsersInRegion(W, PrivValue, &UserInsts, false,
+                                       &UserExprs))
     return; // Found no applicable uses of PrivValue in W's body
 
   // Replace all USEs of each PrivValue with its NewPrivValue in the
   // W-Region (parallel loop/region/section ... etc.)
-  while (!PrivUses.empty()) {
-    Instruction *UI = PrivUses.pop_back_val();
+  while (!UserInsts.empty()) {
+    Instruction *UI = UserInsts.pop_back_val();
     UI->replaceUsesOfWith(PrivValue, NewPrivValue);
 
-    if (GeneralUtils::isOMPItemGlobalVAR(PrivValue)) {
-      // If PrivValue is a global, its uses could be in ConstantExprs
-      SmallVector<Instruction *, 2> NewInstArr;
-      GeneralUtils::breakExpressions(UI, &NewInstArr);
-      for (Instruction *NewInstr : NewInstArr) {
-        NewInstr->replaceUsesOfWith(PrivValue, NewPrivValue);
-      }
-    }
+    if (UserExprs.empty())
+      continue;
+
+    // If PrivValue is a global, its uses could be in ConstantExprs
+    SmallVector<Instruction *, 2> NewInstArr;
+    GeneralUtils::breakExpressions(UI, &NewInstArr, &UserExprs);
+    for (Instruction *NewInst : NewInstArr)
+      UserInsts.push_back(NewInst);
   }
 
   if (W->getIsTask())
@@ -4120,7 +4124,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && FprivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(FprivI);
+          VPOParoptUtils::genF90DVInitCode(FprivI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
       } else if (!ForTask) { // && LprivI
         // Lastprivate codegen has replaced the original var with the
@@ -4267,7 +4271,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       genPrivatizationReplacement(W, Orig, ReplacementVal);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && LprivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(LprivI);
+          VPOParoptUtils::genF90DVInitCode(LprivI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
 
       // Emit constructor call for lastprivate var if it is not also a
@@ -4403,9 +4407,10 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
     bool InsertLoadInBeginningOfEntryBB) {
 
   // Find instructions in W that use V
-  SmallVector<Instruction *, 8> Users;
-  WRegionUtils::findUsersInRegion(W, V, &Users,
-                                  !InsertLoadInBeginningOfEntryBB);
+  SmallVector<Instruction *, 8> UserInsts;
+  SmallPtrSet<ConstantExpr *, 8> UserExprs;
+  WRegionUtils::findUsersInRegion(W, V, &UserInsts,
+                                  !InsertLoadInBeginningOfEntryBB, &UserExprs);
 
   Instruction *AllocaInsertPt =
       W->getEntryBBlock()->getParent()->getEntryBlock().getTerminator();
@@ -4420,7 +4425,7 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
              dbgs() << "' to '"; VAddr->printAsOperand(dbgs());
              dbgs() << "'.\n";);
 
-  if (Users.empty())
+  if (UserInsts.empty())
     return VAddr; // Nothing to replace inside the region. Just capture the
                   // address of V to VAddr and return it.
 
@@ -4452,9 +4457,12 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
   VRenamed->setName(V->getName());
 
   // Replace uses of V with VRenamed
-  for (Instruction * User : Users) {
-
+  while (!UserInsts.empty()) {
+    Instruction *User = UserInsts.pop_back_val();
     User->replaceUsesOfWith(V, VRenamed);
+
+    if (UserExprs.empty())
+      continue;
 
     // Some uses of V are in a ConstantExpr, in which case the User is the
     // instruction using the ConstantExpr. For example, the use of @u below is
@@ -4467,10 +4475,9 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
     // The solution is to access the ConstantExpr as instruction(s) in order to
     // do the replacement. NewInstArr below keeps such instruction(s).
     SmallVector<Instruction *, 2> NewInstArr;
-    GeneralUtils::breakExpressions(User, &NewInstArr);
-    for (Instruction *NewInstr : NewInstArr) {
-      NewInstr->replaceUsesOfWith(V, VRenamed);
-    }
+    GeneralUtils::breakExpressions(User, &NewInstArr, &UserExprs);
+    for (Instruction *NewInst : NewInstArr)
+      UserInsts.push_back(NewInst);
   }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loaded '";
              VAddr->printAsOperand(dbgs()); dbgs() << "' into '";
@@ -5218,7 +5225,9 @@ llvm::Optional<unsigned> VPOParoptTransform::getPrivatizationAllocaAddrSpace(
     return llvm::None;
 
 #if INTEL_CUSTOMIZATION
-  if (I->getIsWILocal())
+  if (I->getIsWILocal() || I->getIsF90DopeVector())
+    // FIXME: Remove the check for F90 DV, when we have a way to privatize them
+    // at module level/using maps.
     return vpo::ADDRESS_SPACE_PRIVATE;
 #endif  // INTEL_CUSTOMIZATION
 
@@ -5307,7 +5316,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
                                            NewPrivInst);
 #if INTEL_CUSTOMIZATION
         if (!ForTask && PrivI->getIsF90DopeVector())
-          VPOParoptUtils::genF90DVInitCode(PrivI);
+          VPOParoptUtils::genF90DVInitCode(PrivI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
         if (ForTask && PrivI->getDestructor()) {
           // For tasks, call the destructor at the end of the region.

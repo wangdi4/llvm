@@ -730,6 +730,11 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
       SET_PARAM_VALUE(size_t{ze_device_kernel_properties.maxArgumentsSize});
   }
   else if (param_name == PI_DEVICE_INFO_MEM_BASE_ADDR_ALIGN) {
+    // SYCL/OpenCL spec is vague on what this means exactly, but seems to
+    // be for "alignment requirement (in bits) for sub-buffer offsets."
+    // An OpenCL implementation returns 8*128, but L0 can do just 8,
+    // meaning unaligned access for values of types larger than 8 bits.
+    //
     SET_PARAM_VALUE(pi_uint32{8});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_SAMPLERS) {
@@ -1175,6 +1180,7 @@ pi_result piMemBufferCreate(
   L0PiMem->L0Mem = pi_cast<char*>(ptr);
   L0PiMem->RefCount = 1;
   L0PiMem->IsMemImage = false;
+  L0PiMem->SubBuffer.Parent = nullptr;
   L0PiMem->MapHostPtr = (flags & PI_MEM_FLAGS_HOST_PTR_USE) ?
       pi_cast<char*>(host_ptr): nullptr;
   *ret_mem = L0PiMem;
@@ -1203,7 +1209,9 @@ pi_result L0(piMemRelease)(pi_mem mem) {
       ZE_CALL(zeImageDestroy(mem->L0Image));
     }
     else {
-      ZE_CALL(zeDriverFreeMem(ze_driver_global, mem->L0Mem));
+      if (!mem->SubBuffer.Parent) {
+        ZE_CALL(zeDriverFreeMem(ze_driver_global, mem->L0Mem));
+      }
     }
     delete mem;
   }
@@ -1332,6 +1340,7 @@ pi_result L0(piMemImageCreate)(
   L0PiImage->L0Image = hImage;
   L0PiImage->RefCount = 1;
   L0PiImage->IsMemImage = true;
+  L0PiImage->SubBuffer.Parent = nullptr;
 #ifndef NDEBUG
   L0PiImage->L0ImageDesc = imageDesc;
 #endif // !NDEBUG
@@ -3165,7 +3174,23 @@ pi_result L0(piMemBufferPartition)(
     void *                    buffer_create_info,
     pi_mem *                  ret_mem) {
 
-  pi_throw("piMemBufferPartition: not implemented");
+  pi_assert(buffer && !buffer->IsMemImage);
+  pi_assert(flags == PI_MEM_FLAGS_ACCESS_RW);
+  pi_assert(buffer_create_type == PI_BUFFER_CREATE_TYPE_REGION);
+
+  auto region = (pi_buffer_region)buffer_create_info;
+
+  auto L0PiMem = new _pi_mem();
+  L0PiMem->L0Mem = pi_cast<char*>(buffer->L0Mem + region->origin);
+  L0PiMem->RefCount = 1;
+  L0PiMem->IsMemImage = false;
+  L0PiMem->MapHostPtr = nullptr;
+  L0PiMem->SubBuffer.Parent = buffer;
+  L0PiMem->SubBuffer.Origin = region->origin;
+  L0PiMem->SubBuffer.Size = region->size;
+  *ret_mem = L0PiMem;
+
+  return PI_SUCCESS;
 }
 
 pi_result L0(piEnqueueNativeKernel)(

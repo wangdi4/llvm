@@ -217,11 +217,17 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
 
   // Check for unsupported options.
   for (const Arg *A : Args) {
-    if (A->getOption().hasFlag(options::Unsupported)) {
+    if (A->getOption().hasFlag(options::Unsupported) ||
+        (A->getOption().hasFlag(options::DpcppUnsupported) &&
+         Args.hasArg(options::OPT__dpcpp))) {
       unsigned DiagID;
       auto ArgString = A->getAsString(Args);
       std::string Nearest;
-      if (getOpts().findNearest(
+#if INTEL_CUSTOMIZATION
+      // Do not suggest an alternative with DPC++ unsupported options
+      if (A->getOption().hasFlag(options::DpcppUnsupported) ||
+          getOpts().findNearest(
+#endif // INTEL_CUSTOMIZATION
             ArgString, Nearest, IncludedFlagsBitmask,
             ExcludedFlagsBitmask | options::Unsupported) > 1) {
         DiagID = diag::err_drv_unsupported_opt;
@@ -1756,15 +1762,23 @@ int Driver::ExecuteCompilation(
   return Res;
 }
 
-void Driver::PrintHelp(bool ShowHidden) const {
+#if INTEL_CUSTOMIZATION
+void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
+#endif // INTEL_CUSTOMIZATION
   unsigned IncludedFlagsBitmask;
   unsigned ExcludedFlagsBitmask;
   std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
       getIncludeExcludeOptionFlagMasks(IsCLMode());
 
   ExcludedFlagsBitmask |= options::NoDriverOption;
-  if (!ShowHidden)
+#if INTEL_CUSTOMIZATION
+  if (!Args.hasArg(options::OPT__help_hidden))
     ExcludedFlagsBitmask |= HelpHidden;
+  if (Args.hasArg(options::OPT__dpcpp)) {
+    ExcludedFlagsBitmask |= options::DpcppUnsupported;
+    ExcludedFlagsBitmask |= options::DpcppHidden;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   std::string Usage = llvm::formatv("{0} [options] file...", Name).str();
   getOpts().PrintHelp(llvm::outs(), Usage.c_str(), DriverTitle.c_str(),
@@ -1967,7 +1981,9 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
 
   if (C.getArgs().hasArg(options::OPT_help) ||
       C.getArgs().hasArg(options::OPT__help_hidden)) {
-    PrintHelp(C.getArgs().hasArg(options::OPT__help_hidden));
+#if INTEL_CUSTOMIZATION
+    PrintHelp(C.getArgs());
+#endif // INTEL_CUSTOMIZATION
     return false;
   }
 
@@ -4442,12 +4458,8 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (Arg *A = Args.getLastArg(options::OPT_fopenmp_EQ, options::OPT_fopenmp))
-    // -fopenmp is not supported with the DPC++ compiler (from dpcpp driver)
-    if (A && Args.hasArg(options::OPT_dpcpp))
-      Diag(diag::err_drv_unsupported_opt) << A->getAsString(Args);
   // Go ahead and claim usage of --dpcpp
-  Args.ClaimAllArgs(options::OPT_dpcpp);
+  Args.ClaimAllArgs(options::OPT__dpcpp);
 #endif // INTEL_CUSTOMIZATION
 
   handleArguments(C, Args, Inputs, Actions);

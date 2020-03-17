@@ -7688,7 +7688,8 @@ static void HandleExtVectorTypeAttr(QualType &CurType, const ParsedAttr &Attr,
 static void HandleArbPrecIntAttr(QualType &CurType, const ParsedAttr &Attr,
                                  Sema &S) {
   // Warning message handled later, but prevent changing of the type.
-  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL)
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL &&
+      !S.getLangOpts().SYCLIsDevice)
     return;
 
   // check the attribute arguments.

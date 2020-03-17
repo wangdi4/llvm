@@ -609,6 +609,13 @@ struct pi_device_binary_struct {
 };
 typedef pi_device_binary_struct *pi_device_binary;
 
+// pi_buffer_region structure repeats cl_buffer_region
+struct pi_buffer_region_struct {
+  size_t origin;
+  size_t size;
+};
+typedef pi_buffer_region_struct * pi_buffer_region;
+
 // Offload binaries descriptor version supported by this library.
 static const uint16_t PI_DEVICE_BINARIES_VERSION = 1;
 

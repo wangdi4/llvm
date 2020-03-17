@@ -275,15 +275,19 @@ public:
   static bool usedInRegionEntryDirective(WRegionNode *W, Value *I);
 
   /// Return true if the value \p V is used in the WRN \p W.
-  /// If \p Users is not null, then find all users of \p V in \p W and put them
-  /// in \p *Users.
+  /// If \p UserInsts is not null, then find all users of \p V in \p W and put
+  /// them in \p *UserInsts.
   /// If \p ExcludeEntryDirective is true, then ignore the region.entry
   /// directive of \p W.
+  /// If \p UserExprs is not null, then add all ConstantExpr users of \p V in
+  /// it.
   ///
   /// Prerequisite: W's BBSet must be populated before calling this util.
-  static bool findUsersInRegion(WRegionNode *W, Value *V,
-                                SmallVectorImpl<Instruction *> *Users = nullptr,
-                                bool ExcludeEntryDirective = true);
+  static bool
+  findUsersInRegion(WRegionNode *W, Value *V,
+                    SmallVectorImpl<Instruction *> *UserInsts = nullptr,
+                    bool ExcludeEntryDirective = true,
+                    SmallPtrSetImpl<ConstantExpr *> *UserExprs = nullptr);
 
   /// \brief The utility to create the loop and update the loopinfo.
   static Loop *createLoop(Loop *L, Loop *PL, LoopInfo *LI);

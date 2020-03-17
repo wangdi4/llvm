@@ -2,16 +2,22 @@
 // 1. member variable whose width depends on the template parameters, and
 // 2. method that uses ap_[u]ints whose type depends on the template parameters
 
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-windows-pc -fhls %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-linux-pc -fhls %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-windows-pc -fhls %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,HLS
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-linux-pc -fhls %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,HLS
+
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,SYCL
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s -check-prefixes=CHECK,SYCL
+
 // CHECK: %a = alloca i3, align 1
 // CHECK: %b = alloca i3, align 1
 
-// CHECK: %[[U0:[0-9]+]] = load i2, i2* %value{{([0-9]+)?}}, align 1
+// HLS: %[[U0:[0-9]+]] = load i2, i2* %value{{([0-9]+)?}}, align 1
+// SYCL: %[[U0:[0-9]+]] = load i2, i2 addrspace(4)* %value{{([0-9]+)?}}, align 1
 // CHECK: %[[U1:[a-zA-Z0-9]+]] = zext i2 %[[U0]] to i3
 // CHECK: store i3 %[[U1]], i3* %a, align 1
 
-// CHECK: %[[U2:[0-9]+]] = load i2, i2* %value{{([0-9]+)?}}, align 1
+// HLS: %[[U2:[0-9]+]] = load i2, i2* %value{{([0-9]+)?}}, align 1
+// SYCL: %[[U2:[0-9]+]] = load i2, i2 addrspace(4)* %value{{([0-9]+)?}}, align 1
 // CHECK: %[[U3:[a-zA-Z0-9]+]] = zext i2 %[[U2]] to i3
 // CHECK: store i3 %[[U3]], i3* %b, align 1
 
@@ -27,6 +33,9 @@
 // CHECK: store i32 %[[OB_CONV]], i32*
 
 #define AC_MAX(a, b) ((a) > (b) ? (a) : (b))
+#ifndef SYCL_EXTERNAL
+#define SYCL_EXTERNAL
+#endif
 
 template <int W, bool S>
 struct select_type {};
@@ -58,6 +67,7 @@ public:
   }
 };
 
+SYCL_EXTERNAL
 bool foo() {
   iv<2, false> x, y;
   x.value = 3;
@@ -69,6 +79,7 @@ template <unsigned int Bits>
 using ap_uint = unsigned int __attribute__((__ap_int(Bits)));
 
 
+SYCL_EXTERNAL
 void bar() {
   ap_uint<1> unsigned_one_bit = 0;
   int i = unsigned_one_bit;
