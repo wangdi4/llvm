@@ -44,8 +44,18 @@ void DAGTypeLegalizer::ScalarizeVectorResult(SDNode *N, unsigned ResNo) {
     N->dump(&DAG);
     dbgs() << "\n";
 #endif
+#if INTEL_FEATURE_CSA
+    {
+      std::string Str;
+      raw_string_ostream SS(Str);
+      N->print(SS, &DAG);
+      report_fatal_error("Do not know how to scalarize the result of this "
+                         "operator!\n  " + SS.str());
+    }
+#else
     report_fatal_error("Do not know how to scalarize the result of this "
                        "operator!\n");
+#endif
 
   case ISD::MERGE_VALUES:      R = ScalarizeVecRes_MERGE_VALUES(N, ResNo);break;
   case ISD::BITCAST:           R = ScalarizeVecRes_BITCAST(N); break;
