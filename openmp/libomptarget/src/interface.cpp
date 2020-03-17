@@ -423,11 +423,16 @@ EXTERN void *__tgt_create_buffer(int64_t device_num, void *host_ptr) {
 
   if (!host_ptr) {
     DP("Call to __tgt_create_buffer with invalid host_ptr\n");
+    HandleTargetOutcome(false);
     return NULL;
   }
 
   DeviceTy &Device = Devices[device_num];
   void *ret = Device.create_buffer(host_ptr);
+  if (!ret) {
+    DP("Call to __tgt_create_buffer with no associated device_ptr\n");
+    HandleTargetOutcome(false);
+  }
   DP("__tgt_create_buffer returns " DPxMOD "\n", DPxPTR(ret));
 
   return ret;
