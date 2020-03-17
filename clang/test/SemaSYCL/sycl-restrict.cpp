@@ -185,7 +185,7 @@ int use2(a_type ab, a_type *abp) {
   return another_global;
   // expected-error@+1 {{SYCL kernel cannot use a non-const global variable}}
   return ns::glob +
-  // expected-error@+1 {{SYCL kernel cannot use a global variable}}
+  // expected-error@+1 {{SYCL kernel cannot use a non-const global variable}}
     AnotherNS::moar_globals;
   // expected-note@+1 {{called by 'use2'}}
   eh_not_ok();
@@ -204,7 +204,7 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
   kernelFunc();
   a_type ab;
   a_type *p;
-  // expected-note@+1 5{{called by 'kernel_single_task}}
+  // expected-note@+1 7{{called by 'kernel_single_task}}
   use2(ab, p);
 }
 
