@@ -21,6 +21,8 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
 
+#include <string>
+
 using namespace llvm;
 
 namespace intel {
@@ -91,7 +93,7 @@ bool HandleVPlanMask::runOnModule(Module &M) {
       continue;
 
     // Create a new function with expected mask type.
-    StringRef FnName = F.getName();
+    const std::string FnName = F.getName().str();
     F.setName(FnName + "_before");
     SmallVector<Type *, 4> NewParams;
     for (unsigned idx = 0; idx < LastArgIdx; ++idx)
