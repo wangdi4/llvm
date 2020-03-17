@@ -817,7 +817,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             SKernelArgumentInfo& argInfo = m_vArgumentsInfo[i];
              
             argInfo.accessQualifier = pArgsInfo->getArgAccessQualifier(i);
-            argInfo.adressQualifier = pArgsInfo->getArgAdressQualifier(i);
+            argInfo.addressQualifier = pArgsInfo->getArgAdressQualifier(i);
             argInfo.name            = pArgsInfo->getArgName(i);
             argInfo.typeName        = pArgsInfo->getArgTypeName(i);
             argInfo.typeQualifier   = pArgsInfo->getArgTypeQualifier(i);
@@ -848,7 +848,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             SKernelArgumentInfo& argInfo = m_vArgumentsInfo[i];
              
             argInfo.accessQualifier = argInfoArray[i].accessQualifier;
-            argInfo.adressQualifier = argInfoArray[i].adressQualifier;
+            argInfo.addressQualifier = argInfoArray[i].addressQualifier;
             argInfo.name            = argInfoArray[i].name;
             argInfo.typeName        = argInfoArray[i].typeName;
             argInfo.typeQualifier   = argInfoArray[i].typeQualifier;
@@ -1317,7 +1317,7 @@ cl_err_code Kernel::GetKernelArgInfo (    cl_uint argIndx,
         stParamSize = m_vArgumentsInfo[argIndx].typeName.length() + 1;      
         break;
     case CL_KERNEL_ARG_ADDRESS_QUALIFIER:
-        pValue = &(m_vArgumentsInfo[argIndx].adressQualifier);
+        pValue = &(m_vArgumentsInfo[argIndx].addressQualifier);
         stParamSize = sizeof(cl_kernel_arg_address_qualifier);      
         break;
     case CL_KERNEL_ARG_ACCESS_QUALIFIER:
