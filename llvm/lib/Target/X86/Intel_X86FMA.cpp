@@ -328,8 +328,8 @@ const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::AVX512Opcodes[] = {
   { X86::VFNMADD213PDZ128r, X86::VFNMADD213PDZ128m, MVT::v2f64,  FNMA213Opc },
   { X86::VFNMADD213PSZ256r, X86::VFNMADD213PSZ256m, MVT::v8f32,  FNMA213Opc },
   { X86::VFNMADD213PDZ256r, X86::VFNMADD213PDZ256m, MVT::v4f64,  FNMA213Opc },
-  { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v8f32,  FNMA213Opc },
-  { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v4f64,  FNMA213Opc },
+  { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v16f32, FNMA213Opc },
+  { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v8f64,  FNMA213Opc },
   // FNMS213
   { X86::VFNMSUB213SSZr,    X86::VFNMSUB213SSZm,    MVT::f32,    FNMS213Opc },
   { X86::VFNMSUB213SDZr,    X86::VFNMSUB213SDZm,    MVT::f64,    FNMS213Opc },
@@ -525,17 +525,19 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
 /// efficient equivalents.
 class X86GlobalFMA final : public GlobalFMA {
 public:
+  /// Pass identification, replacement for typeid.
+  static char ID;
+
   X86GlobalFMA()
-      : GlobalFMA(ID), MF(nullptr), ST(nullptr), TII(nullptr), MRI(nullptr) {}
+      : GlobalFMA(ID), MF(nullptr), ST(nullptr), TII(nullptr), MRI(nullptr) {
+    initializeX86GlobalFMAPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override { return "X86 GlobalFMA"; }
 
   bool runOnMachineFunction(MachineFunction &MFunc) override;
 
 private:
-  /// Pass identification, replacement for typeid.
-  static char ID;
-
   /// A reference to the function being currently compiled.
   MachineFunction *MF;
 
@@ -668,8 +670,6 @@ private:
   unsigned selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
                                   const TargetRegisterClass **RC) const;
 };
-
-char X86GlobalFMA::ID = 0;
 
 /// X86 specific variant of the immediate term.
 class X86FMAImmediateTerm final : public FMAImmediateTerm {
@@ -1053,7 +1053,7 @@ X86GlobalFMA::genInstruction(unsigned Opcode, unsigned DstReg,
                              const SmallVectorImpl<MachineOperand> &MOs,
                              const DebugLoc &DL) {
   const MCInstrDesc &MCID = TII->get(Opcode);
-  MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, true);
+  MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, false);
   MachineInstrBuilder MIB(*MF, NewMI);
 
   MIB.add(MachineOperand::CreateReg(DstReg, true));
@@ -1548,5 +1548,10 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
 }
 
 } // End anonymous namespace.
+
+char X86GlobalFMA::ID = 0;
+
+INITIALIZE_PASS(X86GlobalFMA, DEBUG_TYPE, "Global FMA",
+                false, false)
 
 FunctionPass *llvm::createX86GlobalFMAPass() { return new X86GlobalFMA(); }
