@@ -135,11 +135,7 @@ protected:
     ExprBits.ValueKind = VK;
     ExprBits.ObjectKind = OK;
     assert(ExprBits.ObjectKind == OK && "truncated kind");
-<<<<<<< HEAD
-    ExprBits.ContainsUnexpandedParameterPack = ContainsUnexpandedParameterPack;
     ExprBits.IsCondition = 0; // INTEL
-=======
->>>>>>> ec3060c72de6ab6992269318d92764199856e5fe
     setType(T);
   }
 
@@ -2637,10 +2633,6 @@ class CallExpr : public Expr {
   /// The location of the right parenthese. This has a different meaning for
   /// the derived classes of CallExpr.
   SourceLocation RParenLoc;
-<<<<<<< HEAD
-  void updateDependenciesFromArg(Expr *Arg);
-=======
->>>>>>> ec3060c72de6ab6992269318d92764199856e5fe
 
   // CallExpr store some data in trailing objects. However since CallExpr
   // is used a base of other expression classes we cannot use
