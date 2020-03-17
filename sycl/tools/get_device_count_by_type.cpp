@@ -40,7 +40,8 @@ int main(int argc, char* argv[]) {
     // TODO: until CORC-7342 is fixed SYCL_BE=PI_OTHER will only see GPU
     // devices, so return 0 for everything else.
     //
-    if (std::string("PI_OTHER") == std::getenv("SYCL_BE")) {
+    const char *sycl_be = std::getenv("SYCL_BE");
+    if (sycl_be && (std::string("PI_OTHER") == sycl_be)) {
         if (type != "gpu") {
             std::cout << "0:" << type << " device is not supported "
                 << "with SYCL_BE=PI_OTHER (CORC-7342)" << std::endl;
