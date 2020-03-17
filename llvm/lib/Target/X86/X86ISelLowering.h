@@ -698,6 +698,11 @@ namespace llvm {
       // scalar broadcast from memory
       VBROADCAST_LOAD,
 
+#if INTEL_CUSTOMIZATION
+      // masked version of above.
+      MASKED_VBROADCAST_LOAD,
+#endif // INTEL_CUSTOMIZATION
+
       // Store FP control world into i16 memory.
       FNSTCW16m,
 

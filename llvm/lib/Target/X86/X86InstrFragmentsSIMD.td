@@ -106,6 +106,17 @@ def X86vextractst  : SDNode<"X86ISD::VEXTRACT_STORE", SDTStore,
 def X86VBroadcastld  : SDNode<"X86ISD::VBROADCAST_LOAD", SDTLoad,
                       [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
 
+#if INTEL_CUSTOMIZATION
+def SDTVmasked_VBroadcastld : SDTypeProfile<1, 2, [SDTCisVec<0>,
+                                                   SDTCisPtrTy<1>,
+                                                   SDTCisVec<2>,
+                                                   SDTCisSameNumEltsAs<0, 2>]>;
+
+def X86masked_VBroadcastld  : SDNode<"X86ISD::MASKED_VBROADCAST_LOAD",
+                                     SDTVmasked_VBroadcastld,
+                      [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+#endif // INTEL_CUSTOMIZATION
+
 def SDTVtrunc    : SDTypeProfile<1, 1, [SDTCisVec<0>, SDTCisVec<1>,
                                         SDTCisInt<0>, SDTCisInt<1>,
                                         SDTCisOpSmallerThanOp<0, 1>]>;
@@ -1127,6 +1138,28 @@ def X86VBroadcastld64 : PatFrag<(ops node:$src),
                                 (X86VBroadcastld node:$src), [{
   return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 8;
 }]>;
+
+#if INTEL_CUSTOMIZATION
+def X86masked_VBroadcastld8 : PatFrag<(ops node:$src, node:$mask),
+                              (X86masked_VBroadcastld node:$src, node:$mask), [{
+  return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 1;
+}]>;
+
+def X86masked_VBroadcastld16 : PatFrag<(ops node:$src, node:$mask),
+                              (X86masked_VBroadcastld node:$src, node:$mask), [{
+  return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 2;
+}]>;
+
+def X86masked_VBroadcastld32 : PatFrag<(ops node:$src, node:$mask),
+                              (X86masked_VBroadcastld node:$src, node:$mask), [{
+  return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 4;
+}]>;
+
+def X86masked_VBroadcastld64 : PatFrag<(ops node:$src, node:$mask),
+                              (X86masked_VBroadcastld node:$src, node:$mask), [{
+  return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 8;
+}]>;
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
