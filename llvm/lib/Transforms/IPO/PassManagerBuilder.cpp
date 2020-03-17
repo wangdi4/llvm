@@ -1118,11 +1118,18 @@ void PassManagerBuilder::populateModulePassManager(
   // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
   MPM.add(createLoopDistributePass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableLV)
     MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
+  MPM.add(createVectorCombinePass());
+  MPM.add(createEarlyCSEPass());
+
+>>>>>>> 71a316883d503ba9020d78089d276e73a6113cef
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   MPM.add(createLoopLoadEliminationPass());
@@ -1137,7 +1144,6 @@ void PassManagerBuilder::populateModulePassManager(
   // on -O1 and no #pragma is found). Would be good to have these two passes
   // as function calls, so that we can only pass them when the vectorizer
   // changed the code.
-  MPM.add(createVectorCombinePass());
   addInstructionCombiningPass(MPM);
   if (OptLevel > 1 && ExtraVectorizerPasses) {
     // At higher optimization levels, try to clean up any runtime overlap and
@@ -1146,7 +1152,6 @@ void PassManagerBuilder::populateModulePassManager(
     // common computations, hoist loop-invariant aspects out of any outer loop,
     // and unswitch the runtime checks if possible. Once hoisted, we may have
     // dead (or speculatable) control flows or more combining opportunities.
-    MPM.add(createEarlyCSEPass());
     MPM.add(createCorrelatedValuePropagationPass());
     addInstructionCombiningPass(MPM);
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
@@ -1164,6 +1169,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+<<<<<<< HEAD
     MPM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
@@ -1172,6 +1178,8 @@ void PassManagerBuilder::populateModulePassManager(
       // SLP creates opportunities for SROA.
       MPM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 71a316883d503ba9020d78089d276e73a6113cef
     if (OptLevel > 1 && ExtraVectorizerPasses) {
       MPM.add(createEarlyCSEPass());
     }
