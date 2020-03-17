@@ -3689,16 +3689,6 @@ class OffloadingActionBuilder final {
           // triple calls for it (provided a valid subarch).
           Action *DeviceBECompileAction;
           ActionList BEActionList;
-          for (Action *A : FPGAObjectInputs) {
-            // Send any known objects through the unbundler to grab the
-            // dependency file associated.
-            ActionList AL;
-            AL.push_back(A);
-            Action *UnbundleAction =
-                C.MakeAction<OffloadUnbundlingJobAction>(AL,
-                types::TY_FPGA_Dependencies);
-            BEActionList.push_back(UnbundleAction);
-          }
           BEActionList.push_back(DeviceLinkAction);
           for (Action *A : FPGAObjectInputs) {
             // Send any known objects through the unbundler to grab the

@@ -7267,14 +7267,6 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
     UB += ',';
     UB += CurOutput;
   }
-  // For -fintelfpga, when bundling objects we also want to bundle up the
-  // named dependency file.
-  if (IsFPGADepBundle) {
-    SmallString<128> CurOutput(Output.getFilename());
-    llvm::sys::path::replace_extension(CurOutput, "d");
-    UB += ',';
-    UB += CurOutput;
-  }
   CmdArgs.push_back(TCArgs.MakeArgString(UB));
 
   // All the inputs are encoded as commands.
