@@ -263,7 +263,6 @@ let Types = [ v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
         def intel_sub_group_block_write_us8_8_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_8",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype64:$data, v8u32:$vec_mask), [], [], 1, 0>;
         def intel_sub_group_block_write_us8_16_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_16",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype128:$data, v16u32:$vec_mask), [], [], 1, 0>;
       }
-
       let Types = [ v1u64, v1u32, v1u16, v1u8 ] in {
         def intel_sub_group_block_read_us_img_rw  : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix",   (outs gentype:$ret),  (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
         def intel_sub_group_block_read_us2_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#2", (outs gentype2:$ret), (ins image2d_rw:$img_rw, v2i32:$coord), [], [], 1, 0>;
@@ -301,6 +300,23 @@ let Types = [ v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
         def intel_sub_group_block_write_us8_8_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_8",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype64:$data, v8u32:$vec_mask), [], [], 1, 0>;
         def intel_sub_group_block_write_us8_16_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#8_16",  (outs void:$ret), (ins image2d_rw:$img_rw, v2i32:$coord, gentype128:$data, v16u32:$vec_mask), [], [], 1, 0>;
       }
+      // image block read/write for uchar16 type.
+      def intel_sub_group_block_read_us16_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16", (outs gentype16:$ret), (ins image2d_ro:$img, v2i32:$coord), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_img : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16", (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype16:$data), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_4_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_4", (outs gentype64:$ret),(ins image2d_ro:$img, v2i32:$coord, v4u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_4_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16_4",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype64:$data, v4u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_8_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_8", (outs gentype128:$ret),(ins image2d_ro:$img, v2i32:$coord, v8u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_8_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16_8",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype128:$data, v8u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_16_img : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_16", (outs gentype256:$ret),(ins image2d_ro:$img, v2i32:$coord, v16u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_16_img  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16_16",  (outs void:$ret), (ins image2d_wo:$img, v2i32:$coord, gentype256:$data, v16u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16", (outs gentype16:$ret), (ins image2d_rw:$img, v2i32:$coord), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_img_rw : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16", (outs void:$ret), (ins image2d_rw:$img, v2i32:$coord, gentype16:$data), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_4_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_4", (outs gentype64:$ret),(ins image2d_rw:$img, v2i32:$coord, v4u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_4_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16_4",  (outs void:$ret), (ins image2d_rw:$img, v2i32:$coord, gentype64:$data, v4u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_8_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_8", (outs gentype128:$ret),(ins image2d_rw:$img, v2i32:$coord, v8u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_8_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16_8",  (outs void:$ret), (ins image2d_rw:$img, v2i32:$coord, gentype128:$data, v8u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_16_img_rw : OclBuiltin<"intel_sub_group_block_read_$RetSGBlockOpSuffix#16_16", (outs gentype256:$ret),(ins image2d_rw:$img, v2i32:$coord, v16u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_16_img_rw  : OclBuiltin<"intel_sub_group_block_write_$Arg2SGBlockOpSuffix#16_16",  (outs void:$ret), (ins image2d_rw:$img, v2i32:$coord, gentype256:$data, v16u32:$vec_mask), [v1u8], [], 1, 0>;
 
   // These are horribly inconvenient to represent in OpenCL TableGen.
   // Non-triviality comes from the need to represent the ret type for read and arg1 for write as multiple of base vector size and VF
@@ -342,6 +358,15 @@ let Types = [ v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
         def intel_sub_group_block_write_us8_8  : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#8_8",  (outs void:$ret), (ins gpgentype:$p, gentype64:$data,  v8u32:$vec_mask), [], [], 1, 0>;
         def intel_sub_group_block_write_us8_16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#8_16", (outs void:$ret), (ins gpgentype:$p, gentype128:$data, v16u32:$vec_mask), [], [], 1, 0>;
       }
+      // block read/write for uchar16.
+      def intel_sub_group_block_read_us16 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16", (outs gentype16:$ret), (ins cgpgentype:$p), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16", (outs void:$ret), (ins gpgentype:$p, gentype16:$data), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_4 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16_4", (outs gentype64:$ret),(ins cgpgentype:$p, v4u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_4 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16_4", (outs void:$ret), (ins gpgentype:$p, gentype64:$data, v4u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_8 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16_8", (outs gentype128:$ret),(ins cgpgentype:$p, v8u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_8 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16_8", (outs void:$ret), (ins gpgentype:$p, gentype128:$data, v8u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_read_us16_16 : OclBuiltin<"intel_sub_group_block_read_$Arg0SGBlockOpSuffix#16_16", (outs gentype256:$ret),(ins cgpgentype:$p, v16u32:$vec_mask), [v1u8], [], 1, 0>;
+      def intel_sub_group_block_write_us16_16 : OclBuiltin<"intel_sub_group_block_write_$Arg0SGBlockOpSuffix#16_16", (outs void:$ret), (ins gpgentype:$p, gentype256:$data, v16u32:$vec_mask), [v1u8], [], 1, 0>;
 }
 
 //

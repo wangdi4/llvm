@@ -4094,6 +4094,29 @@ code BlockRead8_16 =
 OclBuiltinImpl intel_sub_group_block_read8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read8_16, [ v1u32 ], 0, BlockRead8_16>;
 OclBuiltinImpl intel_sub_group_block_read_us8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us8_16, intel_sub_group_block_read_write_us_types, 0, BlockRead8_16>;
 
+OclBuiltinImpl intel_sub_group_block_read_us16_16_avx512f = OclBuiltinImpl<intel_sub_group_block_read_us16_16, [v1i8, v1u8], 0,
+  [{
+    $ReturnType res;
+    res.lo.lo.lo.lo  = vload16(0, $Arg0VarName);
+    res.lo.lo.lo.hi  = vload16(1, $Arg0VarName);
+    res.lo.lo.hi.lo  = vload16(2, $Arg0VarName);
+    res.lo.lo.hi.hi  = vload16(3, $Arg0VarName);
+    res.lo.hi.lo.lo  = vload16(4, $Arg0VarName);
+    res.lo.hi.lo.hi  = vload16(5, $Arg0VarName);
+    res.lo.hi.hi.lo  = vload16(6, $Arg0VarName);
+    res.lo.hi.hi.hi  = vload16(7, $Arg0VarName);
+    res.hi.lo.lo.lo  = vload16(8, $Arg0VarName);
+    res.hi.lo.lo.hi  = vload16(9, $Arg0VarName);
+    res.hi.lo.hi.lo  = vload16(10, $Arg0VarName);
+    res.hi.lo.hi.hi  = vload16(11, $Arg0VarName);
+    res.hi.hi.lo.lo  = vload16(12, $Arg0VarName);
+    res.hi.hi.lo.hi  = vload16(13, $Arg0VarName);
+    res.hi.hi.hi.lo  = vload16(14, $Arg0VarName);
+    res.hi.hi.hi.hi  = vload16(15, $Arg0VarName);
+    return __ocl_shuffle_transpose_$ReturnBaseType#_16x16(res);
+
+  }]>;
+
 code BlockWrite1_16 =
   [{
     $Arg1BaseType#16 res = __builtin_shufflevector($Arg1VarName, $Arg1VarName, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
@@ -4137,6 +4160,26 @@ code BlockWrite8_16 =
   }];
 OclBuiltinImpl intel_sub_group_block_write8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write8_16, [ v1u32 ], 0, BlockWrite8_16>;
 OclBuiltinImpl intel_sub_group_block_write_us8_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us8_16, intel_sub_group_block_read_write_us_types, 0, BlockWrite8_16>;
+OclBuiltinImpl intel_sub_group_block_write_us16_16_avx512f = OclBuiltinImpl<intel_sub_group_block_write_us16_16, [v1i8, v1u8], 0,
+  [{
+    $Arg1BaseType#256 res = __ocl_shuffle_transpose_$Arg1BaseType#_16x16($Arg1VarName);
+    vstore16(res.lo.lo.lo.lo, 0, $Arg0VarName);
+    vstore16(res.lo.lo.lo.hi, 1, $Arg0VarName);
+    vstore16(res.lo.lo.hi.lo, 2, $Arg0VarName);
+    vstore16(res.lo.lo.hi.hi, 3, $Arg0VarName);
+    vstore16(res.lo.hi.lo.lo, 4, $Arg0VarName);
+    vstore16(res.lo.hi.lo.hi, 5, $Arg0VarName);
+    vstore16(res.lo.hi.hi.lo, 6, $Arg0VarName);
+    vstore16(res.lo.hi.hi.hi, 7, $Arg0VarName);
+    vstore16(res.hi.lo.lo.lo, 8, $Arg0VarName);
+    vstore16(res.hi.lo.lo.hi, 9, $Arg0VarName);
+    vstore16(res.hi.lo.hi.lo, 10, $Arg0VarName);
+    vstore16(res.hi.lo.hi.hi, 11, $Arg0VarName);
+    vstore16(res.hi.hi.lo.lo, 12, $Arg0VarName);
+    vstore16(res.hi.hi.lo.hi, 13, $Arg0VarName);
+    vstore16(res.hi.hi.hi.lo, 14, $Arg0VarName);
+    vstore16(res.hi.hi.hi.hi, 15, $Arg0VarName);
+  }]>;
 
 //
 // Block read/write for image
@@ -4276,3 +4319,33 @@ OclBuiltinImpl intel_sub_group_block_write8_16_img_avx512f =  OclBuiltinImpl<int
 OclBuiltinImpl intel_sub_group_block_write8_16_img_rw_avx512f =  OclBuiltinImpl<intel_sub_group_block_write8_16_img_rw, [ v1u32 ], 0, BlockWriteImg8_16>;
 OclBuiltinImpl intel_sub_group_block_write_us8_16_img_avx512f =  OclBuiltinImpl<intel_sub_group_block_write_us8_16_img, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg8_16>;
 OclBuiltinImpl intel_sub_group_block_write_us8_16_img_rw_avx512f =  OclBuiltinImpl<intel_sub_group_block_write_us8_16_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg8_16>;
+
+code BlockReadImg16_16 =
+  [{
+     $ReturnType res;
+     $ReturnBaseType *r = ($ReturnBaseType*)&res;
+     $ReturnBaseType#16* p;
+#pragma clang unroll(full)
+     for (int i=0; i < 16; ++i) {
+       p = ($ReturnBaseType#16 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
+       *($ReturnBaseType#16*)&r[i * 16] = *p;
+       $Arg1VarName.hi += 1;
+     }
+     return __ocl_shuffle_transpose_$ReturnBaseType#_16x16(res);
+  }];
+OclBuiltinImpl intel_sub_group_block_read_us16_16_img_avx512f =  OclBuiltinImpl<intel_sub_group_block_read_us16_16_img, [v1u8], 0, BlockReadImg16_16>;
+OclBuiltinImpl intel_sub_group_block_read_us16_16_img_rw_avx512f =  OclBuiltinImpl<intel_sub_group_block_read_us16_16_img_rw, [v1u8], 0, BlockReadImg16_16>;
+code BlockWriteImg16_16 =
+  [{
+     $Arg2Type d = __ocl_shuffle_transpose_$Arg2BaseType#_16x16($Arg2VarName);
+     $Arg2BaseType *r = ($Arg2BaseType*)&d;
+     $Arg2BaseType#16* p;
+#pragma clang unroll(full)
+     for (int i=0; i < 16; ++i) {
+       p = ($Arg2BaseType#16 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
+       *p = *($Arg2BaseType#16 *)&r[i * 16];
+       $Arg1VarName.hi += 1;
+     }
+  }];
+OclBuiltinImpl intel_sub_group_block_write_us16_16_img_avx512f =  OclBuiltinImpl<intel_sub_group_block_write_us16_16_img, [v1u8], 0, BlockWriteImg16_16>;
+OclBuiltinImpl intel_sub_group_block_write_us16_16_img_rw_avx512f =  OclBuiltinImpl<intel_sub_group_block_write_us16_16_img_rw, [v1u8], 0, BlockWriteImg16_16>;
