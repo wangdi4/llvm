@@ -6,8 +6,8 @@
 ; CHECK: |   %mul12.out = %mul12;
 ; CHECK: |   %mul13.out = %mul13;
 ; CHECK: |   %mul = %mul13.out  *  i1 + %mul12.out;
-; CHECK: |   %mul13 = ((%mul12.out + %indvars.iv) * %mul13.out);
-; CHECK: |   %mul12 = ((%mul12.out + %indvars.iv) * %mul13.out);
+; CHECK: |   %mul13 = ((%indvars.iv + %mul12.out) * %mul13.out);
+; CHECK: |   %mul12 = ((%indvars.iv + %mul12.out) * %mul13.out);
 ; CHECK: |   %indvars.iv = i1 + 1;
 ; CHECK: + END LOOP
 

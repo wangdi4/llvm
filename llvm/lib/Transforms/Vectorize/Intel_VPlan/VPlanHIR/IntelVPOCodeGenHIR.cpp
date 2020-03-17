@@ -2634,6 +2634,9 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     } else {
       InsertInMap = false;
     }
+  } else if (INode->isCopyInst()) {
+    WideInst = HLNodeUtilities.createCopyInst(
+        WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
   } else {
     llvm_unreachable("Unimplemented widening for inst");
   }
@@ -3207,6 +3210,18 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::InductionFinal:
     widenLoopEntityInst(VPInst);
     return;
+  }
+
+  // TODO: Temporary fix to handle ssa_copy intrinsics in VPValue-based CG.
+  // Should be removed when we use VPHIRCopyInst.
+  if (VPInst->getOpcode() == Instruction::Call) {
+    if (getCalledFunction(VPInst)->getIntrinsicID() == Intrinsic::ssa_copy) {
+      WInst = HLNodeUtilities.createCopyInst(
+          widenRef(VPInst->getOperand(0), getVF()), ".vec");
+      addInst(WInst, Mask);
+      addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+      return;
+    }
   }
 
   // Skip widening the first select operand. The select instruction is generated

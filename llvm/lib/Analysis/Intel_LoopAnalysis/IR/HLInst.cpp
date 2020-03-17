@@ -93,12 +93,9 @@ HLInst *HLInst::clone(HLNodeMapper *NodeMapper) const {
 }
 
 bool HLInst::isCopyInst() const {
-
-  if (auto BCInst = dyn_cast<BitCastInst>(Inst)) {
-    if (BCInst->getSrcTy() == BCInst->getDestTy()) {
+  if (auto CInst = dyn_cast<CallInst>(Inst))
+    if (CInst->getIntrinsicID() == Intrinsic::ssa_copy)
       return true;
-    }
-  }
 
   return false;
 }
@@ -165,13 +162,11 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
 #if !INTEL_PRODUCT_RELEASE
 
   if (auto CInst = dyn_cast<CastInst>(Inst)) {
-    if (!isCopyInst()) {
       OS << CInst->getOpcodeName() << ".";
       OS << *(CInst->getSrcTy());
       OS << ".";
       OS << *(CInst->getDestTy());
       OS << "(";
-    }
   } else if (auto *FInst = getCallInst()) {
     if (isIndirectCallInst()) {
       // Use the last operand which is the function pointer.
@@ -187,7 +182,8 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
   } else if (isa<FreezeInst>(Inst)) {
     OS << "freeze(";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
-             !isa<GEPOrSubsOperator>(Inst) && !isa<CmpInst>(Inst)) {
+             !isa<GEPOrSubsOperator>(Inst) && !isa<CmpInst>(Inst) &&
+             !isCopyInst()) {
     OS << Inst->getOpcodeName() << " ";
   }
 #endif // !INTEL_PRODUCT_RELEASE
@@ -195,8 +191,7 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
 
 void HLInst::printEndOpcode(formatted_raw_ostream &OS) const {
 #if !INTEL_PRODUCT_RELEASE
-  if (isCallInst() || isa<FreezeInst>(Inst) ||
-      (isa<CastInst>(Inst) && !isCopyInst())) {
+  if (isCallInst() || isa<FreezeInst>(Inst) || isa<CastInst>(Inst)) {
     OS << ")";
   }
 #endif // !INTEL_PRODUCT_RELEASE

@@ -7313,20 +7313,6 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     return getSignExtendExpr(getSCEV(U->getOperand(0)), U->getType());
 
   case Instruction::BitCast:
-#if INTEL_CUSTOMIZATION // HIR parsing
-    // Suppress traceback for liveout copy instructions inserted by HIR.
-    if (auto BCInst = dyn_cast<BitCastInst>(V)) {
-      if (getHIRMetadata(BCInst, HIRLiveKind::LiveOut)) {
-        const SCEV *S = getUnknown(BCInst);
-        const SCEV *OpS = getSCEV(BCInst->getOperand(0));
-        // Propagate range information to liveout copies to avoid conservative
-        // behavior.
-        setRange(S, ScalarEvolution::HINT_RANGE_UNSIGNED, getUnsignedRange(OpS));
-        setRange(S, ScalarEvolution::HINT_RANGE_SIGNED, getSignedRange(OpS));
-        return S;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
     // BitCasts are no-op casts so we just eliminate the cast.
     if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
       return getSCEV(U->getOperand(0));
@@ -7355,6 +7341,21 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
   case Instruction::Call:
   case Instruction::Invoke:
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Suppress traceback for liveout copy instructions inserted by HIR.
+    if (auto Inst = dyn_cast<Instruction>(U)) {
+      if (getHIRMetadata(Inst, HIRLiveKind::LiveOut)) {
+        const SCEV *S = getUnknown(Inst);
+        const SCEV *OpS = getSCEV(Inst->getOperand(0));
+        // Propagate range information to liveout copies to avoid conservative
+        // behavior.
+        setRange(S, ScalarEvolution::HINT_RANGE_UNSIGNED,
+                 getUnsignedRange(OpS));
+        setRange(S, ScalarEvolution::HINT_RANGE_SIGNED, getSignedRange(OpS));
+        return S;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
     if (Value *RV = cast<CallBase>(U)->getReturnedArgOperand())
       return getSCEV(RV);
     break;

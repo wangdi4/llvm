@@ -78,7 +78,8 @@ private:
                       ScalarEvolution::HIRLiveKind Kind) const;
 
   /// \brief Returns a copy of Val.
-  Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein) const;
+  Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein,
+                          Module *M) const;
 
   /// Returns true if Inst is a livein copy for IV update: i = i + 1.
   bool isIVUpdateLiveInCopy(Instruction *Inst) const;
@@ -275,20 +276,21 @@ void HIRSSADeconstruction::attachMetadata(
 }
 
 Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
-                                              bool IsLivein) const {
-  auto CInst = CastInst::Create(Instruction::BitCast, Val, Val->getType(),
+                                              bool IsLivein, Module *M) const {
+  Type *Ty = Val->getType();
+  Function *SSACopyFunc = Intrinsic::getDeclaration(M, Intrinsic::ssa_copy, Ty);
+  auto CInst = CallInst::Create(FunctionCallee(SSACopyFunc), {Val},
                                 Name + (IsLivein ? ".in" : ".out"));
 
   attachMetadata(CInst, IsLivein ? Name : "",
                  IsLivein ? ScalarEvolution::HIRLiveKind::LiveIn
                           : ScalarEvolution::HIRLiveKind::LiveOut);
-
   return CInst;
 }
 
 bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
 
-  if (!isa<BitCastInst>(Inst) || !SE->isSCEVable(Inst->getType())) {
+  if (!isa<CallInst>(Inst) || !SE->isSCEVable(Inst->getType())) {
     return false;
   }
 
@@ -309,9 +311,10 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
 
 void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
                                             StringRef Name) {
-  auto CopyInst = createCopy(Val, Name, true);
+  auto TermInst = BB->getTerminator();
+  auto CopyInst = createCopy(Val, Name, true, TermInst->getModule());
 
-  auto InsertionPoint = BB->getTerminator()->getIterator();
+  auto InsertionPoint = TermInst->getIterator();
 
   // We need to keep IV update copies last in the bblock or we may encounter a
   // live-range issue when IV is parsed as a blob in one of the non-linear
@@ -336,7 +339,7 @@ void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
 Instruction *HIRSSADeconstruction::insertLiveOutCopy(Instruction *Inst,
                                                      BasicBlock *BB,
                                                      StringRef Name) {
-  auto CopyInst = createCopy(Inst, Name, false);
+  auto CopyInst = createCopy(Inst, Name, false, Inst->getModule());
 
   if (isa<PHINode>(Inst)) {
     CopyInst->insertBefore(&*(BB->getFirstInsertionPt()));

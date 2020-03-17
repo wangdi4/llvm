@@ -277,12 +277,9 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Unary instruction types are alloca, cast, extractvalue, load and vaarg.
   if (isa<UnaryInstruction>(Node)) {
-    // Only allow single use non-(liveout copy) instructions as they can be
-    // removed as intermediate temps from the SCC and do not cause type mismatch
-    // issues.
-    if (!isa<CastInst>(Node) ||
-        (!SE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut) &&
-         !Node->hasOneUse())) {
+    // Only allow single use cast instructions as they can be removed as
+    // intermediate temps from the SCC and do not cause type mismatch issues.
+    if (!isa<CastInst>(Node) || !Node->hasOneUse()) {
       return false;
     }
   }
@@ -294,7 +291,9 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   }
 
   // Phi SCCs do not have anything to do with calls.
-  if (isa<CallInst>(Node) && !isa<SubscriptInst>(Node)) {
+  // issues.
+  if (isa<CallInst>(Node) && !isa<SubscriptInst>(Node) &&
+      !SE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut)) {
     return false;
   }
 

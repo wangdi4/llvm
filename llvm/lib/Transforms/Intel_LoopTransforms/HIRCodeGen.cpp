@@ -365,7 +365,7 @@ private:
 
   // Clears HIR related metadata from instructions. Returns true if any
   // instruction was cleared.
-  bool clearHIRMetadata(HLRegion *Reg) const;
+  bool clearHIRMetadataAndCopyInsts(HLRegion *Reg) const;
 
   // Returns true if we need to generate code for this region.
   bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
@@ -452,7 +452,7 @@ bool HIRCodeGen::run() {
       Transformed = true;
     } else {
       // Clear HIR related metadata.
-      bool Cleared = clearHIRMetadata(Reg);
+      bool Cleared = clearHIRMetadataAndCopyInsts(Reg);
       Transformed = Transformed || Cleared;
     }
   }
@@ -486,8 +486,9 @@ bool HIRCodeGen::shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const {
   return false;
 }
 
-bool HIRCodeGen::clearHIRMetadata(HLRegion *Reg) const {
+bool HIRCodeGen::clearHIRMetadataAndCopyInsts(HLRegion *Reg) const {
   bool Cleared = false;
+  SmallVector<Instruction *, 16> InstrsToDelete;
   unsigned LiveInID = SE.getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveIn);
   unsigned LiveOutID = SE.getHIRMDKindID(ScalarEvolution::HIRLiveKind::LiveOut);
   unsigned LiveRangeID =
@@ -496,20 +497,33 @@ bool HIRCodeGen::clearHIRMetadata(HLRegion *Reg) const {
   for (auto BB = Reg->bb_begin(), End = Reg->bb_end(); BB != End; ++BB) {
     for (auto &Inst : **BB) {
       Instruction &NonConstInst = const_cast<Instruction &>(Inst);
+      const CallInst *CI = dyn_cast<CallInst>(&Inst);
+      bool IsSSACopyIntrin =
+          (CI && (CI->getIntrinsicID() == Intrinsic::ssa_copy));
 
       if (Inst.getMetadata(LiveInID)) {
         Cleared = true;
-        NonConstInst.setMetadata(LiveInID, nullptr);
-
+        if (IsSSACopyIntrin) {
+          assert(!Inst.getNumUses() &&
+                 "Live-in is in use after HIR ransformation");
+          InstrsToDelete.push_back(&NonConstInst);
+        } else {
+          NonConstInst.setMetadata(LiveInID, nullptr);
+        }
       } else if (Inst.getMetadata(LiveOutID)) {
         Cleared = true;
-        NonConstInst.setMetadata(LiveOutID, nullptr);
-
+        assert(IsSSACopyIntrin && "Not an ssa_copy LiveOut instruction");
+        NonConstInst.replaceAllUsesWith(CI->getArgOperand(0));
+        InstrsToDelete.push_back(&NonConstInst);
       } else if (Inst.getMetadata(LiveRangeID)) {
         Cleared = true;
         NonConstInst.setMetadata(LiveRangeID, nullptr);
       }
     }
+  }
+
+  for (Instruction *I : InstrsToDelete) {
+    I->eraseFromParent();
   }
 
   return Cleared;
@@ -1841,7 +1855,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   // Any LLVM instruction which semantically has a terminal lval/rval can
   // alternatively contain a memref operand in HIR.
   // For example, add instruction can look like this- A[i] = B[i] + C[i].
-  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) || HInst->isCopyInst()) {
     StoreVal = Ops[1];
 
   } else if (auto BOp = dyn_cast<BinaryOperator>(Inst)) {
