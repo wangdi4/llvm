@@ -140,7 +140,8 @@ unsigned MapIntrinToImlImpl::calculateNumReturns(TargetTransformInfo *TTI,
   return NumRet;
 }
 
-void MapIntrinToImlImpl::createImfAttributeList(CallInst *CI, ImfAttr **List) {
+void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
+                                                ImfAttr **List) {
 
   // Tail of the linked list of IMF attributes. The head of the list is
   // passed in from the caller via the List parameter.
@@ -153,10 +154,16 @@ void MapIntrinToImlImpl::createImfAttributeList(CallInst *CI, ImfAttr **List) {
   Precision->name = "precision";
   // If fast math is enabled, use medium accuracy (as ICC does), otherwise
   // defaults to high accuracy.
-  Precision->value = isa<FPMathOperator>(CI) &&
-    CI->getFastMathFlags().approxFunc() ? "medium" : "high";
+  Precision->value = isa<FPMathOperator>(I) &&
+    I->getFastMathFlags().approxFunc() ? "medium" : "high";
   Precision->next = nullptr;
   addAttributeToList(List, &Tail, Precision);
+
+  // Populate the list using attributes attached to this instruction if it's a
+  // call, otherwise just return the default list.
+  CallInst *CI = dyn_cast<CallInst>(I);
+  if (!CI)
+    return;
 
   // Build the linked list of IMF attributes that will be used to query
   // the IML interface.
@@ -726,7 +733,8 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
   }
 }
 
-const char *MapIntrinToImlImpl::findX86Variant(CallInst *CI, StringRef FuncName,
+const char *MapIntrinToImlImpl::findX86Variant(Instruction *I,
+                                               StringRef FuncName,
                                                unsigned LogicalVL,
                                                unsigned TargetVL) {
 
@@ -753,7 +761,7 @@ const char *MapIntrinToImlImpl::findX86Variant(CallInst *CI, StringRef FuncName,
   LLVM_DEBUG(dbgs() << "Legal Function: " << TempFuncName << "\n");
 
   ImfAttr *AttrList = nullptr;
-  createImfAttributeList(CI, &AttrList);
+  createImfAttributeList(I, &AttrList);
 
   // External libiml_attr interface that returns the SVML/libm variant if the
   // parent function and IMF attributes match. Return NULL otherwise.
@@ -864,10 +872,17 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
 
       VectorType *LegalVecTy =
           VectorType::get(VecTy->getScalarType(), TargetVL);
+      // Find an appropriate SVML function to call. If there is none, this
+      // instruction will not be optimized to SVML.
       std::string FuncName = getSVMLIDivOrRemFuncName(
-          BinOp->getOpcode(), cast<VectorType>(LegalVecTy));
-      FunctionCallee Func =
-          M->getOrInsertFunction(FuncName, LegalVecTy, LegalVecTy, LegalVecTy);
+          BinOp->getOpcode(), cast<VectorType>(VecTy));
+      const char *VariantFuncName =
+          findX86Variant(&I, FuncName, LogicalVL, TargetVL);
+      if (!VariantFuncName)
+        continue;
+
+      FunctionCallee Func = M->getOrInsertFunction(VariantFuncName, LegalVecTy,
+                                                   LegalVecTy, LegalVecTy);
 
       Value *Result = BinOp;
       SmallVector<Value *, 2> Args(BinOp->operands());

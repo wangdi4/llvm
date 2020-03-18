@@ -51,9 +51,9 @@ class MapIntrinToImlImpl {
   /// transformed using this IRBuilder.
   IRBuilder<> Builder;
 
-  /// \brief For a given intrinsic \p CI, try to find an equivalent math
-  /// library function to replace it with.
-  const char* findX86Variant(CallInst *CI, StringRef FuncName,
+  /// \brief For a given instruction \p I and function name \p FuncName, try to
+  /// find an equivalent math library function to replace it with.
+  const char* findX86Variant(Instruction *I, StringRef FuncName,
                              unsigned LogicalVL, unsigned TargetVL);
 
   /// \brief Add an IMF attribute to the attribute list.
@@ -90,7 +90,7 @@ class MapIntrinToImlImpl {
 
   /// \brief Build a linked list of IMF attributes used to query the IML
   /// accuracy interface.
-  void createImfAttributeList(CallInst *CI, ImfAttr **List);
+  void createImfAttributeList(Instruction *I, ImfAttr **List);
 
   /// \brief Performs type legalization on parameter arguments and inserts the
   /// legally typed svml function declaration.
