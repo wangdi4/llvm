@@ -16,6 +16,7 @@
 // SUPPORT-CHECK: unsupported option '-fhls'
 // SUPPORT-CHECK: unsupported option '--cuda-device-only'
 
-// RUN: not %clang_cl -### --dpcpp -openmp %s 2>&1 \
+// RUN: not %clang_cl -### --dpcpp -openmp -Qopenmp-targets=x86_64 %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=SUPPORT-CHECK-CL %s
 // SUPPORT-CHECK-CL: unsupported option '-openmp'
+// SUPPORT-CHECK-CL: unsupported option '-Qopenmp-targets=x86_64'
