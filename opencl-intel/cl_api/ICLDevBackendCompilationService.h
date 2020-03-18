@@ -109,12 +109,13 @@ public:
      /**
      * Prints the JIT code in assembly x86
      *
-     * @param pCodeContainer Code container
-     * @param dumpJIT The filename for dumping the JIT code
-     * @param baseDirectory The base directory
+     * @param codeContainer Code container
+     * @param options Pointer to the options object which may contain the dump
+     *                settings. /see cl_dev_backend_dump_options
      */
-    virtual cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                                                  const std::string& filename) const = 0;
+    virtual cl_dev_err_code DumpJITCodeContainer(
+        const ICLDevBackendCodeContainer* codeContainer,
+        const ICLDevBackendOptions* options) const = 0;
 };
 
 }}} // namespace

@@ -59,7 +59,7 @@ const ICLDevBackendCodeContainer* Program::GetProgramIRCodeContainer() const
 
 const ICLDevBackendCodeContainer* Program::GetProgramCodeContainer() const
 {
-    return m_pObjectCodeContainer ? m_pObjectCodeContainer: GetProgramIRCodeContainer();
+    return m_pObjectCodeContainer;
 }
 
 const ICLDevBackendProgramJITCodeProperties* Program::GetProgramJITCodeProperties() const

@@ -16,6 +16,8 @@
 #define __SYSTEM_INFO_H__
 
 #include <cstddef>
+#include <string>
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
 
 class SystemInfo
@@ -27,6 +29,8 @@ public:
   static unsigned long long HostTime();
   static void GetModuleDirectory(char* szModuleDir, size_t strLen);
 
+  /// Get executable filename.
+  static std::string GetExecutableFilename();
 };
 
 }}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Utils {
