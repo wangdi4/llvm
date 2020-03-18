@@ -23,6 +23,7 @@
 #if INTEL_CUSTOMIZATION
 // FIXME: temporary solution for LIBDL on Windows.
 #ifdef _WIN32
+#include <windows.h>
 #include <intel_win_dlfcn.h>
 #else  // !_WIN32
 #include <dlfcn.h>
@@ -99,6 +100,39 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
   delete HostPtrToTableMap;
   delete TblMapMtx;
 }
+
+#if INTEL_CUSTOMIZATION
+#if _WIN32
+extern "C" BOOL WINAPI
+DllMain(HINSTANCE const instance, // handle to DLL module
+        DWORD const reason,       // reason for calling function
+        LPVOID const reserved)    // reserved
+{
+  // Perform actions based on the reason for calling.
+  switch (reason) {
+  case DLL_PROCESS_ATTACH:
+    // Initialize once for each new process.
+    // Return FALSE to fail DLL load.
+    init();
+    break;
+
+  case DLL_THREAD_ATTACH:
+    // Do thread-specific initialization.
+    break;
+
+  case DLL_THREAD_DETACH:
+    // Do thread-specific cleanup.
+    break;
+
+  case DLL_PROCESS_DETACH:
+    // Perform any necessary cleanup.
+    deinit();
+    break;
+  }
+  return TRUE; // Successful DLL_PROCESS_ATTACH.
+}
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 
 void RTLsTy::LoadRTLs() {
 #ifdef OMPTARGET_DEBUG
