@@ -1,7 +1,7 @@
 ## Check approriate prefix is choosen to prefix an instruction.
 # RUN: llvm-mc -filetype=obj -triple i386-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp  --x86-align-branch-prefix-size=3 %s | llvm-objdump -d  - | FileCheck %s
 
-# CHECK: 00000000 foo:
+# CHECK: 00000000 <foo>:
 # CHECK-NEXT:        0: 65 65 65 a3 01 00 00 00          movl    %eax, %gs:1
 # CHECK-NEXT:        8: 55                               pushl   %ebp
 # CHECK-NEXT:        9: 57                               pushl   %edi

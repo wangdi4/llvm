@@ -1,7 +1,7 @@
 ## Check prefix won't be prepended to instruction that has variant symbol operand.
 # RUN: llvm-mc -filetype=obj -triple x86_64-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc  --x86-align-branch-prefix-size=5 %s | llvm-objdump -d - | FileCheck %s
 
-# CHECK: 0000000000000000 _start:
+# CHECK: 0000000000000000 <_start>:
 # CHECK-NEXT:        0: 66 66 48 48                      rex64
 # CHECK-NEXT:        4: 8d 3d 00 00 00 00                leal    (%rip), %edi
 # CHECK-NEXT:        a: 66 48 8d 3d 00 00 00 00          leaq    (%rip), %rdi

@@ -4,7 +4,7 @@
 # RUN: llvm-mc -filetype=obj -triple i386-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp  --x86-align-branch-prefix-size=5 %s | llvm-objdump -d  - | FileCheck %s -check-prefixes=CHECK,PREFIX5
 
 
-# CHECK: 00000000 foo:
+# CHECK: 00000000 <foo>:
 # PREFIX4:           0: 66 0f 3a 60 00 03             pcmpestrm    $3, (%eax), %xmm0
 # PREFIX4-NEXT:      6: c4 e3 79 60 00 03             vpcmpestrm   $3, (%eax), %xmm0
 # PREFIX4-NEXT:      c: 65 a3 01 00 00 00             movl    %eax, %gs:1

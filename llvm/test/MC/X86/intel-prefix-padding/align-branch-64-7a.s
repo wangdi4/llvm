@@ -1,7 +1,7 @@
 ## Check no prefixes is added to the instruction if there is a align directive between the instruction and the target branch
 # RUN: llvm-mc -filetype=obj -triple x86_64-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=jmp  --x86-align-branch-prefix-size=5 %s | llvm-objdump -d  - | FileCheck %s
 
-# CHECK: 0000000000000000 test1:
+# CHECK: 0000000000000000 <test1>:
 # CHECK-NEXT:        0: 31 d2                            xorl    %edx, %edx
 # CHECK-NEXT:        2: 89 8c 24 84 00 00 00             movl    %ecx, 132(%rsp)
 # CHECK-NEXT:        9: 4c 89 c1                         movq    %r8, %rcx

@@ -1,7 +1,7 @@
 ## Check only indirect jumps and calls are aligned with option --x86-align-branch-boundary=32 --x86-align-branch=indirect+call --x86-align-branch-prefix-size=4
 # RUN: llvm-mc -filetype=obj -triple x86_64-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=indirect+call --x86-align-branch-prefix-size=4 %p/../Inputs/align-branch-64-2.s  | llvm-objdump -d  - | FileCheck %s
 
-# CHECK: 0000000000000000 foo:
+# CHECK: 0000000000000000 <foo>:
 # CHECK-NEXT:       0: 64 64 64 89 04 25 01 00 00 00    movl    %eax, %fs:1
 # CHECK-COUNT-2:     : 64 89 04 25 01 00 00 00          movl    %eax, %fs:1
 # CHECK-COUNT-2:     : 89 75 f4                         movl    %esi, -12(%rbp)
