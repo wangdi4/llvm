@@ -14,11 +14,7 @@
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmLayout.h"
 #include "llvm/MC/MCAssembler.h"
-<<<<<<< HEAD
-#include "llvm/MC/MCCodeEmitter.h"  // INTEL
-=======
 #include "llvm/MC/MCCodeEmitter.h"
->>>>>>> f708c823f06c7758b07967ca00e00600fb9e728b
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCELFObjectWriter.h"
@@ -456,6 +452,15 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
           (AlignBranchType & X86::AlignBranchRet)) ||
          (InstDesc.isIndirectBranch() &&
           (AlignBranchType & X86::AlignBranchIndirect));
+}
+
+/// Return true if this instruction has been fully relaxed into it's most
+/// general available form.
+static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
+  auto &Inst = RF.getInst();
+  auto &STI = *RF.getSubtargetInfo();
+  bool Is16BitMode = STI.getFeatureBits()[X86::Mode16Bit];
+  return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1048,12 +1053,10 @@ void X86AsmBackend::finishLayout(MCAssembler const &Asm,
         continue;
       }
 
+#ifndef NDEBUG
       const uint64_t OrigOffset = Layout.getFragmentOffset(&F);
+#endif
       const uint64_t OrigSize = Asm.computeFragmentSize(Layout, F);
-      if (OrigSize == 0 || Relaxable.empty()) {
-        Relaxable.clear();
-        continue;
-      }
 
       // To keep the effects local, prefer to relax instructions closest to
       // the align directive.  This is purely about human understandability
@@ -1075,7 +1078,7 @@ void X86AsmBackend::finishLayout(MCAssembler const &Asm,
         // We don't need to worry about larger positive offsets as none of the
         // possible offsets between this and our align are visible, and the
         // ones afterwards aren't changing.
-        if (mayNeedRelaxation(RF.getInst(), *RF.getSubtargetInfo()))
+        if (!isFullyRelaxed(RF))
           break;
       }
       Relaxable.clear();
@@ -1091,25 +1094,23 @@ void X86AsmBackend::finishLayout(MCAssembler const &Asm,
       if (F.getKind() == MCFragment::FT_BoundaryAlign)
         cast<MCBoundaryAlignFragment>(F).setSize(RemainingSize);
 
+#ifndef NDEBUG
       const uint64_t FinalOffset = Layout.getFragmentOffset(&F);
       const uint64_t FinalSize = Asm.computeFragmentSize(Layout, F);
       assert(OrigOffset + OrigSize == FinalOffset + FinalSize &&
              "can't move start of next fragment!");
       assert(FinalSize == RemainingSize && "inconsistent size computation?");
+#endif
 
       // If we're looking at a boundary align, make sure we don't try to pad
       // its target instructions for some following directive.  Doing so would
       // break the alignment of the current boundary align.
-      if (F.getKind() == MCFragment::FT_BoundaryAlign) {
-        auto &BF = cast<MCBoundaryAlignFragment>(F);
-        const MCFragment *F = BF.getNextNode();
-        // If the branch is unfused, it is emitted into one fragment, otherwise
-        // it is emitted into two fragments at most, the next
-        // MCBoundaryAlignFragment(if exists) also marks the end of the branch.
-        for (int i = 0, N = BF.isFused() ? 2 : 1;
-             i != N && !isa<MCBoundaryAlignFragment>(F);
-             ++i, F = F->getNextNode(), I++) {
-        }
+      if (auto *BF = dyn_cast<MCBoundaryAlignFragment>(&F)) {
+        const MCFragment *LastFragment = BF->getFragment();
+        if (!LastFragment)
+          continue;
+        while (&*I != LastFragment)
+          ++I;
       }
     }
   }
