@@ -2039,18 +2039,13 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
     }
     assert(isOpenMPTargetExecutionDirective(DSAStack->getDirective(Level)) &&
            "Expected target directive at this level");
-    bool HasScalarDefaultMap = false;
-    OpenMPDefaultmapClauseModifier M =
-        DSAStack->getDefaultmapModifierAtLevel(Level, OMPC_DEFAULTMAP_scalar);
-    if (M == OMPC_DEFAULTMAP_MODIFIER_tofrom) {
-      HasScalarDefaultMap = true;
-    }
     bool HasMapClause = DSAStack->checkMappableExprComponentListsForDeclAtLevel(
         VD, Level,
         [](OMPClauseMappableExprCommon::MappableExprComponentListRef
                MapExprComponents,
            OpenMPClauseKind WhereFoundClauseKind) { return true; });
-    if (!HasScalarDefaultMap && !HasMapClause &&
+    if (!HasMapClause &&
+        DSAStack->mustBeFirstprivateAtLevel(Level, OMPC_DEFAULTMAP_scalar) &&
         !DSAStack->hasExplicitDSA(
             D,
             [](OpenMPClauseKind K) {
