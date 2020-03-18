@@ -3760,29 +3760,28 @@ pi_result L0(piKernelSetExecInfo)(pi_kernel kernel,
                                   pi_kernel_exec_info param_name,
                                   size_t param_value_size,
                                   const void *param_value) {
-
   if (param_name == PI_USM_INDIRECT_ACCESS &&
       *(static_cast<const pi_bool *>(param_value)) == PI_TRUE) {
-    // TODO: enable when this is resolved:
-    // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/
-    // issues/45
-    //
-#if 0
     // The whole point for users really was to not need to know anything
     // about the types of allocations kernel uses. So in DPC++ we always
     // just set all 3 modes for each kernel.
     //
+    bool ze_indirect_value = true;
     ZE_CALL(zeKernelSetAttribute(
-      kernel->L0Kernel, ZE_KERNEL_SET_ATTR_INDIRECT_SHARED_ACCESS, 1));
+      kernel->L0Kernel, ZE_KERNEL_ATTR_INDIRECT_SHARED_ACCESS,
+        sizeof(bool), &ze_indirect_value));
     ZE_CALL(zeKernelSetAttribute(
-      kernel->L0Kernel, ZE_KERNEL_SET_ATTR_INDIRECT_DEVICE_ACCESS, 1));
+      kernel->L0Kernel, ZE_KERNEL_ATTR_INDIRECT_DEVICE_ACCESS,
+        sizeof(bool), &ze_indirect_value));
     ZE_CALL(zeKernelSetAttribute(
-      kernel->L0Kernel, ZE_KERNEL_SET_ATTR_INDIRECT_HOST_ACCESS, 1));
-#endif // 0
-    return PI_SUCCESS;
+      kernel->L0Kernel, ZE_KERNEL_ATTR_INDIRECT_HOST_ACCESS,
+        sizeof(bool), &ze_indirect_value));
+  }
+  else {
+    pi_throw("piKernelSetExecInfo: unsupported param_name");
   }
 
-  pi_throw("piKernelSetExecInfo: param not supported");
+  return PI_SUCCESS;
 }
 
 pi_result piextProgramSetSpecializationConstant(pi_program prog,
