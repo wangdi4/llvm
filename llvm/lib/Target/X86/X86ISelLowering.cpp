@@ -2313,10 +2313,10 @@ handleMaskRegisterForCallingConv(unsigned NumElts, CallingConv::ID CC,
   if (NumElts == 4)
     return {MVT::v4i32, 1};
   if (NumElts == 8 && CC != CallingConv::X86_RegCall &&
-      CC != CallingConv::Intel_OCL_BI)
+      CC != CallingConv::Intel_OCL_BI_AVX512) // INTEL
     return {MVT::v8i16, 1};
   if (NumElts == 16 && CC != CallingConv::X86_RegCall &&
-      CC != CallingConv::Intel_OCL_BI)
+      CC != CallingConv::Intel_OCL_BI_AVX512) // INTEL
     return {MVT::v16i8, 1};
   // v32i1 passes in ymm unless we have BWI and the calling convention is
   // regcall.
