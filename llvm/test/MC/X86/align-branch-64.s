@@ -103,23 +103,13 @@ test_indirect:
 bar:
   retq
 
-<<<<<<< HEAD
-  # This case looks really tempting to pad, but doing so for the call causes
-  # the jmp to be misaligned.
-  # CHECK: test_pad_via_relax_neg1:
-  # CHECK: 200: int3
-  # CHECK: 21a: testq
-  # CHECK: 21d: jne
-  # CHECK: 21f: nop
-  # CHECK: 220: callq
-=======
   # CHECK: <test_pad_via_relax>:
   # CHECK: 200: testq
   # CHECK: 203: jne
   # CHECK: 209: int3
   # note 6 byte jne which could be a 2 byte jne, but is instead
   # expanded for padding purposes
-  # CHECK-NOT: nop
+  # CHECK: 21f: nop
   # CHECK: 220: callq
   .global test_pad_via_relax
   .p2align  5
@@ -139,7 +129,6 @@ test_pad_via_relax:
   # CHECK: 25d: jne
   # CHECK: 25f: nop
   # CHECK: 260: callq
->>>>>>> 71e2ca6e32105b35aeadeab25010e8f999c47c23
   .global test_pad_via_relax_neg1
   .p2align  5
 test_pad_via_relax_neg1:
@@ -151,19 +140,11 @@ test_pad_via_relax_neg1:
   callq bar
 
   # Same as previous, but without fusion
-<<<<<<< HEAD
-  # CHECK: test_pad_via_relax_neg2:
-  # CHECK: 240: int3
-  # CHECK: 25d: jmp
-  # CHECK: 25f: nop
-  # CHECK: 260: callq
-=======
   # CHECK: <test_pad_via_relax_neg2>:
   # CHECK: 280: int3
   # CHECK: 29d: jmp
   # CHECK: 29f: nop
   # CHECK: 2a0: callq
->>>>>>> 71e2ca6e32105b35aeadeab25010e8f999c47c23
   .global test_pad_via_relax_neg2
   .p2align  5
 test_pad_via_relax_neg2:
