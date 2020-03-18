@@ -687,8 +687,10 @@ static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
       St->getStmtClass() != Stmt::WhileStmtClass) {
+    SmallString<24> DiagStr("#pragma ");
+    DiagStr += AA.getArgAsIdent(0)->Ident->getName();
     S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop)
-        << "#pragma block_loop";
+        << DiagStr;
     return nullptr;
   }
 
@@ -748,7 +750,7 @@ static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
   }
   const IntelBlockLoopAttr *BL = IntelBlockLoopAttr::CreateImplicit(
       S.Context, Factors.data(), Factors.size(), Levels.data(), Levels.size(),
-      Privates.data(), Privates.size(), AA.getRange());
+      Privates.data(), Privates.size(), AA);
   if (!S.CheckIntelBlockLoopAttribute(BL))
     return nullptr;
   return const_cast<IntelBlockLoopAttr *>(BL);

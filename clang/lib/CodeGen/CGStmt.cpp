@@ -874,6 +874,8 @@ CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
   }
 
   IntelBlockLoopAttr::factors_iterator FI = BL->factors_begin();
+  bool IsNoBlockLoop = (BL->getSemanticSpelling() ==
+                        IntelBlockLoopAttr::Pragma_noblock_loop);
   for (const auto L : BL->levels()) {
     llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
     OpBundles.push_back(llvm::OperandBundleDef(
@@ -883,7 +885,8 @@ CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
                                                  CGF.EmitScalarExpr(*FI)));
     else
       OpBundles.push_back(llvm::OperandBundleDef(
-          "QUAL.PRAGMA.FACTOR", llvm::ConstantInt::get(Int32Ty, -1)));
+          "QUAL.PRAGMA.FACTOR",
+           llvm::ConstantInt::get(Int32Ty, IsNoBlockLoop ? 0 : -1)));
     ++FI;
   }
   CallEntry = CGF.Builder.CreateCall(

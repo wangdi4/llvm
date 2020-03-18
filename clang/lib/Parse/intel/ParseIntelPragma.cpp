@@ -310,6 +310,38 @@ static bool ParseIntelBlockLoopToken(Preprocessor &PP, Token &Tok,
   return false;
 }
 
+/// Handle the noblock_loop pragma
+void PragmaNoBlockLoopHandler::HandlePragma(Preprocessor &PP,
+                                            PragmaIntroducer Introducer,
+                                            Token &Tok) {
+  // Incoming token is "noblock_loop" for "#pragma noblock_loop"
+  Token PragmaName = Tok;
+  SmallVector<Token, 4> TokenList;
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+        << "noblock_loop";
+    return;
+  }
+
+  // Generate the hint token.
+  PragmaBlockLoopInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaBlockLoopInfo;
+  Info->PragmaName = PragmaName;
+  Token NoBlockLoopTok;
+  NoBlockLoopTok.startToken();
+  NoBlockLoopTok.setKind(tok::annot_pragma_blockloop);
+  NoBlockLoopTok.setLocation(PragmaName.getLocation());
+  NoBlockLoopTok.setAnnotationEndLoc(PragmaName.getLocation());
+  NoBlockLoopTok.setAnnotationValue(static_cast<void *>(Info));
+  TokenList.push_back(NoBlockLoopTok);
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
+  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+
+  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
+                      /*DisableMacroExpansion=*/false, /*IsReinject*/ false);
+}
+
 /// Handle the block_loop pragma
 /// #pragma block_loop [ clause[, clause]...]
 ///
@@ -436,6 +468,9 @@ void Parser::initializeIntelPragmaHandlers() {
   if (getLangOpts().isIntelCompat(LangOptions::PragmaBlockLoop)) {
     BlockLoopHandler.reset(new PragmaBlockLoopHandler("block_loop"));
     PP.AddPragmaHandler(BlockLoopHandler.get());
+    // #pragma noblock_loop
+    NoBlockLoopHandler.reset(new PragmaNoBlockLoopHandler("noblock_loop"));
+    PP.AddPragmaHandler(NoBlockLoopHandler.get());
   }
 }
 
@@ -456,5 +491,8 @@ void Parser::resetIntelPragmaHandlers() {
   if (getLangOpts().isIntelCompat(LangOptions::PragmaBlockLoop)) {
     PP.RemovePragmaHandler(BlockLoopHandler.get());
     BlockLoopHandler.reset();
+    // #pragma noblock_loop
+    PP.RemovePragmaHandler(NoBlockLoopHandler.get());
+    NoBlockLoopHandler.reset();
   }
 }

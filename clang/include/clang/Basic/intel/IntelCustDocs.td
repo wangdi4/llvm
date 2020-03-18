@@ -864,17 +864,19 @@ and jamming loops.
 def PragmaBlockLoopDocs : Documentation {
   let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
-  let RegressionTest = "Parser/intel/block_loop.cpp, Sema/intel/block_loop.cpp, CodeGenCXX/intel/block_loop.cpp";
-  let Owner = "jyu2";
+  let RegressionTest = "Parser/intel/block_loop.cpp, Sema/intel/block_loop.cpp, CodeGenCXX/intel/block_loop.cpp, Parser/intel/noblock_loop.cpp, Sema/intel/noblock_loop.cpp, CodeGenCXX/intel/noblock_loop.cpp";
+  let Owner = "jyu2,smanna";
   let Content = [{
 The ``block_loop`` pragma lets you exert greater control over optimizations
-on a specific loop inside a nested loop.
+on a specific loop inside a nested loop. The ``noblock_loop`` pragma tunes the
+performance by disabling loop blocking for nested loops.
 
 Syntax:
 
 .. code-block:: text
 
   #pragma block_loop [level(levels)] [private(vars)] [factor(expr)]
+  #pragma noblock_loop
 
 Implements a new attribute (IntelBlockLoopAttr) instead of using the LoopHint
 attribute framework used.  LoopHintAttrs create metadata but this pragma
@@ -890,36 +892,55 @@ Example:
     for (int j=0; j<512; ++j) { bar(var); }
   }
 
+  void bar(int i, int *x, int *y) {
+    #pragma noblock_loop
+     for (i = 0; i < 10; ++i) {
+       x[i] = y[i];
+     }
+  }
+
 AST:
 
 .. code-block:: console
 
   $ clang -cc1 -fintel-compatibility -ast-dump -o - t.c
+  $ clang -cc1 -fintel-compatibility -ast-dump -o - t1.c
 
 .. code-block:: text
 
   AttributedStmt 0xdb151f8 <<invalid sloc>, line:5:41>
-  |-IntelBlockLoopAttr 0xdb15190 <line:3:11, col:56> Implicit 1 2
+  |-IntelBlockLoopAttr 0xdb15190 <line:3:11, col:56> Implicit block_loop 1 2
   | |-IntegerLiteral 0xdb14cb0 <col:40> 'int' 256
   | |-IntegerLiteral 0xdb14cb0 <col:40> 'int' 256
   | `-DeclRefExpr 0xdb14d30 <col:53> 'int' lvalue ParmVar 0xdab48c0 'var' 'int'
   `-ForStmt 0xdb15158 <line:4:3, line:5:41>
+
+   AttributedStmt 0x1091f290 <<invalid sloc>, line:5:3>
+  |-IntelBlockLoopAttr 0x1091f220 <line:2:9> Implicit noblock_loop -1
+  | `-<<<NULL>>>
+  `-ForStmt 0x1091f1e0 <line:3:3, line:5:3>
 
 IR:
 
 .. code-block:: console
 
   $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t1.c
 
 .. code-block:: llvm
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(i32* %var.addr), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 256), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 256) ]
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 -1), "QUAL.PRAGMA.FACTOR"(i32 0) ]
+
+  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
   }];
   let UserContent = [{
 The ``block_loop`` pragma lets you exert greater control over optimizations on
-a specific loop inside a nested loop.
+a specific loop inside a nested loop. The ``noblock_loop`` pragma lets you tune
+the performance by disabling loop blocking for nested loops.
   }];
 }
 
