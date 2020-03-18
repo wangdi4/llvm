@@ -2211,14 +2211,8 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
     //   type large enough to hold it; except in Microsoft mode, where the
     //   integral type size doesn't matter (except we don't allow bool).
     if ((Self.Context.getTypeSize(SrcType) >
-<<<<<<< HEAD
          Self.Context.getTypeSize(DestType)) &&
-         !Self.getLangOpts().GnuPermissive && //***INTEL CQ#376357
-         !MicrosoftException) {
-      msg = diag::err_bad_reinterpret_cast_small_int;
-      return TC_Failed;
-=======
-         Self.Context.getTypeSize(DestType))) {
+         !Self.getLangOpts().GnuPermissive) { //***INTEL CQ#376357
       bool MicrosoftException =
           Self.getLangOpts().MicrosoftExt && !DestType->isBooleanType();
       if (MicrosoftException) {
@@ -2230,7 +2224,6 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
         msg = diag::err_bad_reinterpret_cast_small_int;
         return TC_Failed;
       }
->>>>>>> cfff4851acc5132c8dcaebca6af92f817e133d66
     }
     Kind = CK_PointerToIntegral;
     return TC_Success;
