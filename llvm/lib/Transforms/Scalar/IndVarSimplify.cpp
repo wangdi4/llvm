@@ -145,7 +145,11 @@ class IndVarSimplify {
   std::unique_ptr<MemorySSAUpdater> MSSAU;
 
   SmallVector<WeakTrackingVH, 16> DeadInsts;
+#if INTEL_CUSTOMIZATION
+  DenseMap<const SCEV *, ConstantRange> NonNegativeIVRanges;
 
+  void cacheIVRange(PHINode *NarrowIV);
+#endif // INTEL_CUSTOMIZATION
   bool handleFloatingPointIV(Loop *L, PHINode *PH);
   bool rewriteNonIntegerIVs(Loop *L);
 
@@ -1739,6 +1743,23 @@ public:
 
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
+void IndVarSimplify::cacheIVRange(PHINode *NarrowIV) {
+  auto *AddRec = cast<SCEVAddRecExpr>(SE->getSCEV(NarrowIV));
+
+  // If both NSW and NUW are set, IV is non-negative.
+  if (AddRec->hasNoSignedWrap() && AddRec->hasNoUnsignedWrap()) {
+    auto SignedRange = SE->getSignedRange(AddRec);
+
+    // This check is unnecessary but unfortunately, looks like ScalarEvolution
+    // does not refine signed range based on <nsw> flag in some cases. This is
+    // one of the signed range exmaples which triggered assertion in
+    // genLoopLimit() - [2, 0).
+    if (!SignedRange.isSignWrappedSet() && !SignedRange.isWrappedSet())
+      NonNegativeIVRanges.insert({AddRec, SignedRange});
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 /// Iteratively perform simplification on a worklist of IV users. Each
 /// successive simplification may push more users which may themselves be
 /// candidates for simplification.
@@ -1786,6 +1807,9 @@ bool IndVarSimplify::simplifyAndExtend(Loop *L,
     for (; !WideIVs.empty(); WideIVs.pop_back()) {
       WidenIV Widener(WideIVs.back(), LI, SE, DT, DeadInsts, HasGuards);
       if (PHINode *WidePhi = Widener.createWideIV(Rewriter)) {
+#if INTEL_CUSTOMIZATION
+        cacheIVRange(WideIVs.back().NarrowIV);
+#endif // INTEL_CUSTOMIZATION
         Changed = true;
         LoopPhis.push_back(WidePhi);
       }
@@ -2114,7 +2138,10 @@ static PHINode *FindLoopCounter(Loop *L, BasicBlock *ExitingBB,
 /// is taken ExitCount times.
 static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
                            const SCEV *ExitCount, bool UsePostInc, Loop *L,
-                           SCEVExpander &Rewriter, ScalarEvolution *SE) {
+#if INTEL_CUSTOMIZATION
+                           SCEVExpander &Rewriter, ScalarEvolution *SE,
+              DenseMap<const SCEV *, ConstantRange> &NonNegativeIVRanges) {
+#endif // INTEL_CUSTOMIZATION
   assert(isLoopCounter(IndVar, L, SE));
   const SCEVAddRecExpr *AR = cast<SCEVAddRecExpr>(SE->getSCEV(IndVar));
   const SCEV *IVInit = AR->getStart();
@@ -2165,7 +2192,7 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
     assert(AR->getStepRecurrence(*SE)->isOne() && "only handles unit stride");
     // For unit stride, IVCount = Start + ExitCount with 2's complement
     // overflow.
-
+    auto *NarrowAddRec = AR; // INTEL
     // For integer IVs, truncate the IV before computing IVInit + BECount,
     // unless we know apriori that the limit must be a constant when evaluated
     // in the bitwidth of the IV.  We prefer (potentially) keeping a truncate
@@ -2173,16 +2200,43 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
     // widened exit count add(zext(add)) expression.
     if (SE->getTypeSizeInBits(IVInit->getType())
         > SE->getTypeSizeInBits(ExitCount->getType())) {
+#if INTEL_CUSTOMIZATION
+      NarrowAddRec = dyn_cast<SCEVAddRecExpr>(
+          SE->getTruncateExpr(NarrowAddRec, ExitCount->getType()));
+#endif // INTEL_CUSTOMIZATION
       if (isa<SCEVConstant>(IVInit) && isa<SCEVConstant>(ExitCount))
         ExitCount = SE->getZeroExtendExpr(ExitCount, IVInit->getType());
       else
         IVInit = SE->getTruncateExpr(IVInit, ExitCount->getType());
     }
 
-    const SCEV *IVLimit = SE->getAddExpr(IVInit, ExitCount);
+#if INTEL_CUSTOMIZATION
+    SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
+    if (NarrowAddRec) {
+      auto It = NonNegativeIVRanges.find(NarrowAddRec);
+
+      if (It != NonNegativeIVRanges.end()) {
+        auto IVRange = It->second;
+        assert(!IVRange.isWrappedSet() &&
+               "IV unexpectedly wraps in unsigned range!");
+        assert(!IVRange.isSignWrappedSet() &&
+               "IV unexpectedly wraps in signed range!");
+
+        auto SignedMaxVal = APInt::getSignedMaxValue(
+            SE->getTypeSizeInBits(NarrowAddRec->getType()));
+        // If IV is non-negative and its max value is less than signed max then
+        // IVLimit computation does not wrap in signed/unsigned range.
+        if (IVRange.getSignedMax().slt(SignedMaxVal))
+          Flags = (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW);
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+    const SCEV *IVLimit = SE->getAddExpr(IVInit, ExitCount, Flags); // INTEL
 
     if (UsePostInc)
-      IVLimit = SE->getAddExpr(IVLimit, SE->getOne(IVLimit->getType()));
+#if INTEL_CUSTOMIZATION
+      IVLimit = SE->getAddExpr(IVLimit, SE->getOne(IVLimit->getType()), Flags);
+#endif // INTEL_CUSTOMIZATION
 
     // Expand the code for the iteration count.
     assert(SE->isLoopInvariant(IVLimit, L) &&
@@ -2277,7 +2331,8 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
   }
 
   Value *ExitCnt = genLoopLimit(
-      IndVar, ExitingBB, ExitCount, UsePostInc, L, Rewriter, SE);
+      IndVar, ExitingBB, ExitCount, UsePostInc, L, Rewriter, SE, // INTEL
+      NonNegativeIVRanges); // INTEL
   assert(ExitCnt->getType()->isPointerTy() ==
              IndVar->getType()->isPointerTy() &&
          "genLoopLimit missed a cast");
