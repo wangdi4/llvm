@@ -25,6 +25,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -67,12 +68,26 @@ static cl::opt<unsigned> TileCandidateSubArgMin(
 static Function *uniqueCaller(Function &F) {
   Function *Caller = nullptr;
   for (User *U : F.users()) {
-    auto CB = dyn_cast<CallBase>(U);
+    auto CB = dyn_cast<CallInst>(U);
     if (!CB || Caller)
       return nullptr;
     Caller = CB->getCaller();
   }
   return Caller;
+}
+
+//
+// Return the unique callsite of 'F', if there is a unique callsite.
+//
+static CallInst *uniqueCallSite(Function &F) {
+  CallInst *CISave = nullptr;
+  for (User *U : F.users()) {
+    auto CI = dyn_cast<CallInst>(U);
+    if (!CI || CISave)
+      return nullptr;
+    CISave = CI;
+  }
+  return CISave;
 }
 
 //
@@ -102,6 +117,16 @@ private:
   std::function<DominatorTree &(Function &)> *GetDT;
   std::function<PostDominatorTree &(Function &)> *GetPDT;
   WholeProgramInfo *WPInfo;
+
+  // A collection of key Function "roots" over which the analysis proceeds.
+  // The 'MainRoot' and 'SubRoot' are Functions which call tile choices,
+  // Functions on which tiling will be performed in LoopOpt. 'NewMainRoot'
+  // and 'NewSubRoot' are clones of the above Functions that will not be
+  // tiled.
+  Function *MainRoot = nullptr;
+  Function *SubRoot = nullptr;
+  Function *NewMainRoot = nullptr;
+  Function *NewSubRoot = nullptr;
 
   // A set of non-tile candidates. These are Functions which have doubly
   // subscripted arrays. We should not mark these for tiling.
@@ -227,13 +252,14 @@ private:
   // performed if enough tile candidates are found.
   unsigned identifyTileCandidates(void);
 
-  // A pair of tile roots. A tile root is a Function which calls other
-  // Functions that are tile choices.  The tile choices are Functions which
-  // will be marked for inlining to facilitate tiling in Loop Opt.
-  std::pair<Function *, Function *> identifyTileRoots(void);
+  // Identify 'MainRoot' and 'SubRoot'. Each root is a Function which calls
+  // other Functions which are tile choices.  The tile choices are Functions
+  // which will be marked for inlining to facilitate tiling in Loop Opt.
+  // Return 'true' if the 'MainRoot' and 'SubRoot' are identified.
+  bool identifyTileRoots(void);
 
   // Create a initial set of tile choices.
-  void makeTileChoices(Function *Root, Function *RootSub);
+  void makeTileChoices(Function *Root, Function *SubRoot);
 
   // Refine the initial set of tile choices by removing some of them for the
   // set.
@@ -253,13 +279,34 @@ private:
   // computations.
   MapVector<Value *, bool> CM;
 
+  // Similar to the above map, but contains extra Values for which its
+  // GlobalVariable already appears in the GVM.
+  MapVector<Value *, bool> CMExtra;
+
   // Compute the maps 'GVM' and 'CM', which are used to compute the multi-
   // versioning expression surrounding the the key computation IR for tiling.
-  void findGVMandCM(Function &Root);
+  void findGVMandCM();
 
   // Return 'true' if none of the GlobalVariables in 'GVM' are modified by
-  // 'Root'.
-  bool validateGVM(Function &Root);
+  // 'MainRoot'.
+  bool validateGVM();
+
+  // Return the multiversioning condition between the high performance and
+  // default version of the code. This condition will be placed in 'CondBB'.
+  Value *makeConditionFromGlobals(BasicBlock *CondBB);
+
+  // Transform the call to the 'MainRoot' function by conditioning it on the
+  // multiversioning test. A copy of 'MainRoot' is cloned, which is used for
+  // the default version of 'MainRoot' and a copy of 'SubRoot' is cloned which
+  // is called from the clone of 'MainRoot'.
+  void cloneCallToRoot();
+
+  // Simplify the conditionals in 'MainRoot' using the 'CM' and 'CMExtra' maps.
+  void simplifyConditionalsInRoot();
+
+  // Mark the calls to the TileChoices in the high performance version of
+  // the code.
+  void markTileChoicesForInlining();
 
 #ifndef NDEBUG
   // Dump out a message indicating that 'LI' is a loop index and 'LO' is that
@@ -277,6 +324,10 @@ private:
 
   // Dump out the condition map 'CM'.
   void dumpCM(void);
+
+  // Dump the names of the key root Functions and the Functions they call
+  // with IR.
+  void dumpKeyFunctionNamesAndCalls();
 #endif // NDEBUG
 };
 
@@ -558,14 +609,14 @@ unsigned TileMVInlMarker::identifyTileCandidates(void) {
   return TileCandidates.size();
 }
 
-std::pair<Function *, Function *> TileMVInlMarker::identifyTileRoots(void) {
+bool TileMVInlMarker::identifyTileRoots(void) {
   DenseMap<Function *, unsigned> Callers;
   Function *CallerMax = nullptr;
   unsigned ValueMax = 0;
   for (auto *F : TileCandidates) {
     Function *Caller = uniqueCaller(*F);
     if (!Caller)
-      return std::make_pair(nullptr, nullptr);
+      return false;
     Callers[Caller] = Callers[Caller] + 1;
     if (Callers[Caller] > ValueMax) {
       CallerMax = Caller;
@@ -573,12 +624,12 @@ std::pair<Function *, Function *> TileMVInlMarker::identifyTileRoots(void) {
     }
   }
   if (!CallerMax)
-    return std::make_pair(nullptr, nullptr);
+    return false;
   Function *Main = uniqueCaller(*CallerMax);
   if (!Main)
-    return std::make_pair(nullptr, nullptr);
+    return false;
   if (!WPUtils.isMainEntryPoint(Main->getName()))
-    return std::make_pair(nullptr, nullptr);
+    return false;
   Function *CallerMaxSub = nullptr;
   for (auto *F : TileCandidates) {
     Function *Caller = uniqueCaller(*F);
@@ -586,19 +637,21 @@ std::pair<Function *, Function *> TileMVInlMarker::identifyTileRoots(void) {
     if (Caller == CallerMax)
       continue;
     if (CallerMaxSub && (Caller != CallerMaxSub))
-      return std::make_pair(nullptr, nullptr);
+      return false;
     CallerMaxSub = Caller;
     Caller = uniqueCaller(*Caller);
     if (Caller == CallerMax)
       continue;
-    return std::make_pair(nullptr, nullptr);
+    return false;
   }
   if (!CallerMaxSub)
-    return std::make_pair(nullptr, nullptr);
-  return std::make_pair(CallerMax, CallerMaxSub);
+    return false;
+  MainRoot = CallerMax;
+  SubRoot = CallerMaxSub;
+  return true;
 }
 
-void TileMVInlMarker::makeTileChoices(Function *Root, Function *RootSub) {
+void TileMVInlMarker::makeTileChoices(Function *Root, Function *SubRoot) {
   for (auto &I : instructions(Root)) {
     auto CB = dyn_cast<CallBase>(&I);
     if (!CB)
@@ -606,7 +659,7 @@ void TileMVInlMarker::makeTileChoices(Function *Root, Function *RootSub) {
     Function *Callee = CB->getCalledFunction();
     if (!Callee || Callee->isDeclaration())
       continue;
-    if (Callee != RootSub &&
+    if (Callee != SubRoot &&
         (hasUniqueTileSubscriptArg(*Callee) ||
          std::distance(Callee->arg_begin(), Callee->arg_end()) >=
                  TileCandidateArgMin &&
@@ -688,9 +741,38 @@ void TileMVInlMarker::dumpCM(void) {
     }
   }
 }
+
+void TileMVInlMarker::dumpKeyFunctionNamesAndCalls() {
+  //
+  // Dump the name of a Function and the Functions it calls that have IR.
+  //
+  auto dumpFunctionNameAndCalls = [](const char Title[], Function *F) {
+    if (!F)
+      return;
+    dbgs() << "TMVINL: " << Title << " " << F->getName() << "\n";
+    for (auto &I : instructions(F)) {
+      auto CB = dyn_cast<CallBase>(&I);
+      if (CB && !isa<IntrinsicInst>(CB)) {
+        Function *Callee = CB->getCalledFunction();
+        if (Callee && !Callee->isDeclaration()) {
+          dbgs() << "TMVINL:  ";
+          if (CB->hasFnAttr("prefer-inline-tile-choice"))
+            dbgs() << "T ";
+          dbgs() << Callee->getName() << "\n";
+        }
+      }
+    }
+  };
+
+  dumpFunctionNameAndCalls("Root:", MainRoot);
+  dumpFunctionNameAndCalls("SubRoot:", SubRoot);
+  dumpFunctionNameAndCalls("NewRoot:", NewMainRoot);
+  dumpFunctionNameAndCalls("NewSubRoot:", NewSubRoot);
+}
+
 #endif // NDEBUG
 
-void TileMVInlMarker::findGVMandCM(Function &Root) {
+void TileMVInlMarker::findGVMandCM() {
 
   //
   // Return 'true' if 'GV' should be inserted into 'GVM' with Value 'V' and 'V'
@@ -804,17 +886,25 @@ void TileMVInlMarker::findGVMandCM(Function &Root) {
     bool FoundMatch = false;
     Function *F = getTargetCall(BB);
     if (TileChoices.count(F)) {
-      if (ShouldInsert(GV, V, Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
-        GVM[GV] = V;
-        CM[V] = Sense;
+      if (ShouldInsert(GV, V, Sense, LeftLoad, FoundMatch)) {
+        if (GVM.count(GV)) {
+          CMExtra[V] = Sense;
+        } else {
+          GVM[GV] = V;
+          CM[V] = Sense;
+        }
       }
       if (FoundMatch)
         return true;
     }
     if (NonTileChoices.count(F)) {
-      if (ShouldInsert(GV, V, !Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
-        GVM[GV] = V;
-        CM[V] = !Sense;
+      if (ShouldInsert(GV, V, !Sense, LeftLoad, FoundMatch)) {
+        if (GVM.count(GV)) {
+          CMExtra[V] = !Sense;
+        } else {
+          GVM[GV] = V;
+          CM[V] = !Sense;
+        }
       }
       if (FoundMatch)
         return true;
@@ -916,9 +1006,13 @@ void TileMVInlMarker::findGVMandCM(Function &Root) {
     auto GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
     if (!GV)
       return false;
-    if (ShouldInsert(GV, VC, !Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
-      GVM[GV] = VC;
-      CM[VC] = !Sense;
+    if (ShouldInsert(GV, VC, !Sense, LeftLoad, FoundMatch)) {
+      if (GVM.count(GV)) {
+        CMExtra[VC] = !Sense;
+      } else {
+        GVM[GV] = VC;
+        CM[VC] = !Sense;
+      }
     }
     if (FoundMatch)
       return true;
@@ -956,7 +1050,7 @@ void TileMVInlMarker::findGVMandCM(Function &Root) {
   // Values that will guard the 'TileChoices' and 'NonTileChoices'.
   //
   SmallPtrSet<BasicBlock *, 10> CallBlocks;
-  for (auto &BB : Root) {
+  for (auto &BB : *MainRoot) {
     if (HasKeyFortranIOFunction(BB))
       CallBlocks.insert(&BB);
     auto BI = dyn_cast<BranchInst>(BB.getTerminator());
@@ -989,8 +1083,8 @@ void TileMVInlMarker::findGVMandCM(Function &Root) {
   // 'BB4', since 'BB0' dominates 'BB4'.  But 'BB2' postdominates 'BB4',
   // showing that this is a bad choice.
   //
-  DominatorTree &DT = (*GetDT)(Root);
-  PostDominatorTree &PDT = (*GetPDT)(Root);
+  DominatorTree &DT = (*GetDT)(*MainRoot);
+  PostDominatorTree &PDT = (*GetPDT)(*MainRoot);
   for (auto *BB : CallBlocks) {
     DomTreeNode *DTN = DT.getNode(BB);
     if (!DTN)
@@ -1016,7 +1110,7 @@ void TileMVInlMarker::findGVMandCM(Function &Root) {
   }
 }
 
-bool TileMVInlMarker::validateGVM(Function &Root) {
+bool TileMVInlMarker::validateGVM() {
 
   //
   // If the user 'U' of 'BC' appears in a canonical, self-contained Fortran
@@ -1137,9 +1231,183 @@ bool TileMVInlMarker::validateGVM(Function &Root) {
   if (!FindASF(AS))
     return false;
   for (auto *F : AS)
-    if (!ToMainBeforeRoot(*F, Root))
+    if (!ToMainBeforeRoot(*F, *MainRoot))
       return false;
   return true;
+}
+
+Value *TileMVInlMarker::makeConditionFromGlobals(BasicBlock *CondBB) {
+  Value *TAnd = nullptr;
+  for (auto &Pair : CM) {
+    Value *V = Pair.first;
+    bool Sense = Pair.second;
+    auto LI = dyn_cast<LoadInst>(V);
+    if (LI) {
+      LoadInst *NewLI = cast<LoadInst>(LI->clone());
+      CondBB->getInstList().push_back(NewLI);
+      Constant *CZ = ConstantInt::get(LI->getType(), 0);
+      CmpInst *CI = ICmpInst::Create(
+          Instruction::ICmp, Sense ? ICmpInst::ICMP_NE : ICmpInst::ICMP_EQ,
+          NewLI, CZ, "clone.tile.cmp", CondBB);
+      CI->setDebugLoc(LI->getDebugLoc());
+      if (TAnd) {
+        BinaryOperator *BO =
+            BinaryOperator::CreateAnd(TAnd, CI, ".clone.tile.and", CondBB);
+        BO->setDebugLoc(LI->getDebugLoc());
+      } else {
+        TAnd = cast<Value>(CI);
+      }
+      continue;
+    }
+    auto IC = dyn_cast<ICmpInst>(V);
+    if (IC) {
+      auto LLI = dyn_cast<LoadInst>(IC->getOperand(0));
+      if (LLI) {
+        LoadInst *NewLLI = cast<LoadInst>(LLI->clone());
+        CondBB->getInstList().push_back(NewLLI);
+        CmpInst *CI = ICmpInst::Create(
+            Instruction::ICmp,
+            Sense ? IC->getPredicate() : IC->getInversePredicate(), NewLLI,
+            IC->getOperand(1), "clone.tile.cmp", CondBB);
+        CI->setDebugLoc(LLI->getDebugLoc());
+        if (TAnd) {
+          BinaryOperator *BO =
+              BinaryOperator::CreateAnd(TAnd, CI, ".clone.tile.and", CondBB);
+          BO->setDebugLoc(LLI->getDebugLoc());
+        } else {
+          TAnd = cast<Value>(CI);
+        }
+        continue;
+      }
+      auto LRI = dyn_cast<LoadInst>(IC->getOperand(1));
+      if (LRI) {
+        LoadInst *NewLRI = cast<LoadInst>(LRI->clone());
+        CondBB->getInstList().push_back(NewLRI);
+        CmpInst *CI = ICmpInst::Create(
+            Instruction::ICmp,
+            Sense ? IC->getPredicate() : IC->getInversePredicate(),
+            IC->getOperand(0), NewLRI, "clone.tile.cmp", CondBB);
+        CI->setDebugLoc(LRI->getDebugLoc());
+        if (TAnd) {
+          BinaryOperator *BO =
+              BinaryOperator::CreateAnd(TAnd, CI, ".clone.tile.and", CondBB);
+          BO->setDebugLoc(LRI->getDebugLoc());
+        } else {
+          TAnd = cast<Value>(CI);
+        }
+        continue;
+      }
+      assert(false && "Expecting LoadInst as operand");
+    }
+    assert(false && "Expecting LoadInst or ICmpInst");
+  }
+  return TAnd;
+}
+
+void TileMVInlMarker::cloneCallToRoot() {
+  //
+  // Redirect the call from 'NewRoot' to 'SubRoot' to be to 'NewSubRoot'.
+  //
+  auto FixSubRootCall = [](Function &NewRoot, Function &SubRoot,
+                           Function &NewSubRoot) {
+    auto UI = SubRoot.use_begin();
+    auto UE = SubRoot.use_end();
+    while (UI != UE) {
+      Use &U = *UI;
+      ++UI;
+      auto CI = dyn_cast<CallInst>(U.getUser());
+      if (CI && CI->getCalledFunction() == &SubRoot &&
+          CI->getCaller() == &NewRoot) {
+        U.set(&NewSubRoot);
+        CI->setCalledFunction(&NewSubRoot);
+      }
+    }
+  };
+
+  // Clone the 'Root' and 'SubRoot'
+  ValueToValueMapTy VMap;
+  NewMainRoot = CloneFunction(MainRoot, VMap);
+  NewSubRoot = CloneFunction(SubRoot, VMap);
+  // Split the BasicBlock containing the call to 'Root' into three, so that
+  // the call is in its own BasicBlock.
+  CallInst *CI = uniqueCallSite(*MainRoot);
+  assert(CI && "Expecting unique callsite for MainRoot");
+  BasicBlock *OrigBB = CI->getParent();
+  BasicBlock *OrigCallBB = OrigBB->splitBasicBlock(CI);
+  Instruction *AfterCI = CI->getNextNonDebugInstruction();
+  BasicBlock *TailBB = OrigCallBB->splitBasicBlock(AfterCI);
+  // Create a BasicBlock to hold the multiversioning test and place the
+  // multiversioning test into it.
+  BasicBlock *CondBB = BasicBlock::Create(CI->getContext(), ".clone.tile.cond",
+                                          OrigBB->getParent(), TailBB);
+  Value *TAnd = makeConditionFromGlobals(CondBB);
+  Constant *ConstantZero = ConstantInt::get(TAnd->getType(), 0);
+  CmpInst *Cmp = CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, TAnd,
+                                 ConstantZero, ".clone.tile.cmp", CondBB);
+  Cmp->setDebugLoc(CI->getDebugLoc());
+  // Create a BasicBlock for the call to the cloned 'MainRoot' and place the
+  // call to the cloned 'MainRoot' in it.
+  BasicBlock *NewCallBB = BasicBlock::Create(
+      CI->getContext(), ".clone.tile.call", OrigBB->getParent(), TailBB);
+  std::vector<Value *> Args(CI->op_begin(), CI->op_end() - 1);
+  std::string New_Name;
+  New_Name = CI->hasName() ? CI->getName().str() + ".clone.tile.cs" : "";
+  CallInst *NewCI = CallInst::Create(NewMainRoot, Args, New_Name, NewCallBB);
+  NewCI->setDebugLoc(CI->getDebugLoc());
+  NewCI->setCallingConv(CI->getCallingConv());
+  NewCI->setAttributes(CI->getAttributes());
+  // Patch up the control flow between the BasicBlocks.
+  BranchInst *BI = BranchInst::Create(TailBB, NewCallBB);
+  BI->setDebugLoc(CI->getDebugLoc());
+  Instruction *BIDbg = &OrigBB->getInstList().back();
+  OrigBB->getInstList().pop_back();
+  BI = BranchInst::Create(CondBB, OrigBB);
+  BI->setDebugLoc(BIDbg->getDebugLoc());
+  BI = BranchInst::Create(OrigCallBB, NewCallBB, Cmp, CondBB);
+  BI->setDebugLoc(Cmp->getDebugLoc());
+  // If the cloned call has a return value, tie that return value and the
+  // return value of the original together with a PHINode.
+  if (!CI->getType()->isVoidTy()) {
+    PHINode *RPHI =
+        PHINode::Create(CI->getType(), 2, ".clone.tile.phi", &TailBB->front());
+    RPHI->addIncoming(NewCI, NewCallBB);
+    RPHI->setDebugLoc(CI->getDebugLoc());
+    CI->replaceAllUsesWith(RPHI);
+  }
+  // Make the cloned 'Root' call the cloned 'SubRoot'.
+  FixSubRootCall(*NewMainRoot, *SubRoot, *NewSubRoot);
+}
+
+void TileMVInlMarker::simplifyConditionalsInRoot() {
+
+  //
+  // Simplify the conditionals in 'Root' using 'CM'.
+  //
+  auto simplifyConditionalsWithMap = [](MapVector<Value *, bool> &CM) {
+    for (auto &Pair : CM) {
+      Value *V = Pair.first;
+      bool Sense = Pair.second;
+      Constant *CI = ConstantInt::get(V->getType(), (Sense ? 1 : 0));
+      V->replaceAllUsesWith(CI);
+    }
+  };
+
+  simplifyConditionalsWithMap(CM);
+  simplifyConditionalsWithMap(CMExtra);
+}
+
+void TileMVInlMarker::markTileChoicesForInlining() {
+  for (auto *F : TileChoices)
+    for (User *U : F->users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (CB && CB->getCalledFunction() == F &&
+          (CB->getCaller() == MainRoot || CB->getCaller() == SubRoot)) {
+        CB->addAttribute(llvm::AttributeList::FunctionIndex,
+                         "prefer-inline-tile-choice");
+        LLVM_DEBUG(dbgs() << "TMVINL: Marked " << CB->getCaller()->getName()
+                          << " TO " << F->getName() << "FOR INLINING\n");
+      }
+    }
 }
 
 bool TileMVInlMarker::runImpl() {
@@ -1147,22 +1415,25 @@ bool TileMVInlMarker::runImpl() {
   // Checks for whole program and AVX2 to limit scope.
   auto TTIOptLevel = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
   if (!TileCandidateTest &&
-      (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLevel)))
+      (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLevel))) {
     //
     // I have removed the test !WPInfo->isWholeProgramSafe() for now as we
     // are not yet achieving whole program. I will add it back in once we are.
     // It is not needed for legality, it is just a screen.
     //
+    LLVM_DEBUG(dbgs() << "TMVINL: Did not pass basic screen\n");
     return false;
+  }
 
   unsigned TileCandidateCount = identifyTileCandidates();
-  if (TileCandidateCount < TileCandidateMin)
+  if (TileCandidateCount < TileCandidateMin) {
+    LLVM_DEBUG(dbgs() << "TMVINL: Not enough tile candidates\n");
     return false;
-  std::pair<Function *, Function *> Roots = identifyTileRoots();
-  if (!Roots.first || !Roots.second)
+  }
+  if (!identifyTileRoots()) {
+    LLVM_DEBUG(dbgs() << "TMVINL: Did not identify tile roots\n");
     return false;
-  Function *MainRoot = Roots.first;
-  Function *SubRoot = Roots.second;
+  }
   makeTileChoices(MainRoot, SubRoot);
   makeTileChoices(SubRoot, nullptr);
   siftTileChoices(MainRoot);
@@ -1170,18 +1441,21 @@ bool TileMVInlMarker::runImpl() {
   makeNonTileChoices(*MainRoot);
   LLVM_DEBUG(dumpTileChoices());
   LLVM_DEBUG(dumpNonTileChoices());
-  findGVMandCM(*MainRoot);
+  findGVMandCM();
   LLVM_DEBUG(dumpGVM());
   LLVM_DEBUG(dumpCM());
-  if (!validateGVM(*MainRoot)) {
+  if (!validateGVM()) {
     LLVM_DEBUG(dbgs() << "TMVINL: Did not validate GVM\n");
     return false;
   }
   LLVM_DEBUG(dbgs() << "TMVINL: Validated GVM\n");
-  //
-  // TODO: Add multiversioning and setting of callsites for inlining.
-  //
-  return false;
+  if (CM.size())
+    cloneCallToRoot();
+  markTileChoicesForInlining();
+  simplifyConditionalsInRoot();
+  LLVM_DEBUG(dumpKeyFunctionNamesAndCalls());
+  LLVM_DEBUG(dbgs() << "TMVINL: Multiversioning complete\n");
+  return true;
 }
 
 namespace {

@@ -1,54 +1,26 @@
-; REQUIRES: asserts
-; RUN: opt < %s -disable-output -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker' -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
-; Check that the loop indices and increments are correctly identified for
-;   the loops within the tile candidates.
-; Check that the loop index and loop increment for each subscript arg is:
-;   correctly identified.
-; Check that the tile candidates are correctly identified.
+; This is the same test as TileMVInl02.ll, but does not require asserts
+; and checks the IR only.
 
-; CHECK: TMVINL: fun01_ Loop Index   %14 = add nuw nsw i64 %10, 1
-; CHECK: TMVINL: fun01_ Loop Inc   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
-; CHECK: TMVINL: fun01_ Arg %0(2,1)
-; CHECK: TMVINL: Tile Candidate fun01_
-; CHECK: TMVINL: fun00_ Loop Index   %14 = add nuw nsw i64 %10, 1
-; CHECK: TMVINL: fun00_ Loop Inc   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
-; CHECK: TMVINL: fun00_ Arg %0(0,1)
-; CHECK: TMVINL: fun00_ Arg %1(2,1)
-; CHECK: TMVINL: Tile Candidate fun00_
-; CHECK: TMVINL: fun1_ Loop Index   %13 = add nuw nsw i64 %9, 1
-; CHECK: TMVINL: fun1_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
-; CHECK: TMVINL: fun1_ Arg %0(2,1)
-; CHECK: TMVINL: Tile Candidate fun1_
-; CHECK: TMVINL: fun2_ Loop Index   %13 = add nuw nsw i64 %9, 1
-; CHECK: TMVINL: fun2_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
-; CHECK: TMVINL: fun2_ Arg %0(2,1)
-; CHECK: TMVINL: Tile Candidate fun2_
-; CHECK: TMVINL: fun0_ Loop Index   %13 = add nuw nsw i64 %9, 1
-; CHECK: TMVINL: fun0_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
-; CHECK: TMVINL: fun0_ Arg %0(0,1)
-; CHECK: TMVINL: fun0_ Arg %1(2,1)
-; CHECK: TMVINL: Tile Candidate fun0_
+; This is a variant of TileMVInl02ir.ll with @fun3_ introduced, which is a tile
+; candidate, but not a tile choice, because it does not have a unique caller.
 
-; Check that the tile choices are correctly identified.
-
-; CHECK: TMVINL: Tile Choice fun0_
-; CHECK: TMVINL: Tile Choice fun1_
-; CHECK: TMVINL: Tile Choice fun2_
-; CHECK: TMVINL: Tile Choice extra_
-; CHECK: TMVINL: Tile Choice fun00_
-; CHECK: TMVINL: Tile Choice fun01_
-
-; Check that guards for the tile choices are not identified, because there
-; are none.
-
-; CHECK-NOT: TMVINL: GVMAP
-; CHECK-NOT: TMVINL: CONDMAP
-
-; Check that the global variables were validated, because there were none.
-
-; CHECK: TMVINL: Validated GVM
+; CHECK: define{{.*}}@MAIN__({{.*}})
+; CHECK: call{{.*}}@leapfrog_({{.*}}){{ *$}}
+; CHECK: define{{.*}}@leapfrog_({{.*}})
+; CHECK: call{{.*}}@fun0_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun1_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun2_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun3_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@extra_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@switch_({{.*}}){{ *$}}
+; CHECK: define{{.*}}@switch_({{.*}})
+; CHECK: call{{.*}}@fun00_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun01_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun3_({{.*}}){{ *$}}
+; CHECK-NOT: attributes{{.*}}prefer-inline-tile-choice
 
 @anon.0 = internal unnamed_addr constant i32 2
 @"main_$A" = internal global [100 x [100 x double]] zeroinitializer, align 16
@@ -110,6 +82,7 @@ define internal fastcc void @leapfrog_(double* noalias nocapture %0, double* noa
   tail call fastcc void @fun0_(double* %0, double* %1, i32* %2)
   tail call fastcc void @fun1_(double* %0, double* %1, i32* %2)
   tail call fastcc void @fun2_(double* %0, double* %1, i32* %2)
+  tail call fastcc void @fun3_(double* %0, double* %1, i32* %2)
   tail call fastcc void @extra_(double* %0, i32* %2)
   tail call fastcc void @switch_(double* %0, double* %1, i32* %2, i32* %3)
   ret void
@@ -130,6 +103,7 @@ define internal fastcc void @switch_(double* noalias nocapture %0, double* noali
   br label %10
 
 10:                                               ; preds = %9, %8
+  tail call fastcc void @fun3_(double* %0, double* %1, i32* %2)
   ret void
 }
 
@@ -226,6 +200,36 @@ define internal fastcc void @fun1_(double* noalias nocapture readonly %0, double
 }
 
 define internal fastcc void @fun2_(double* noalias nocapture readonly %0, double* noalias nocapture %1, i32* noalias nocapture readonly %2) unnamed_addr #0 {
+  %4 = load i32, i32* %2, align 4
+  %5 = icmp slt i32 %4, 3
+  br i1 %5, label %22, label %6
+
+6:                                                ; preds = %3
+  %7 = zext i32 %4 to i64
+  br label %8
+
+8:                                                ; preds = %8, %6
+  %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
+  %10 = add nsw i64 %9, -1
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %12 = load double, double* %11, align 8
+  %13 = add nuw nsw i64 %9, 1
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %13)
+  %15 = load double, double* %14, align 8
+  %16 = fadd double %12, %15
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %18 = load double, double* %17, align 8
+  %19 = fadd double %16, %18
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  store double %19, double* %20, align 8
+  %21 = icmp eq i64 %13, %7
+  br i1 %21, label %22, label %8
+
+22:                                               ; preds = %8, %3
+  ret void
+}
+
+define internal fastcc void @fun3_(double* noalias nocapture readonly %0, double* noalias nocapture %1, i32* noalias nocapture readonly %2) unnamed_addr #0 {
   %4 = load i32, i32* %2, align 4
   %5 = icmp slt i32 %4, 3
   br i1 %5, label %22, label %6

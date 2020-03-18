@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
 ; Check that the loop indices and increments are correctly identified for
 ;   the loops within the tile candidates.
@@ -63,6 +63,79 @@
 
 ; CHECK: TMVINL: Validated GVM
 
+; Check that the tile choices are correctly identified.
+
+; CHECK: TMVINL: Marked leapfrog_ TO fun0_FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO fun1_FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO fun2_FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO extra_FOR INLINING
+; CHECK: TMVINL: Marked switch_ TO fun00_FOR INLINING
+; CHECK: TMVINL: Marked switch_ TO fun01_FOR INLINING
+
+; Check that the skeleton graph shows the right tile choices.
+
+; CHECK: TMVINL: Root: leapfrog_
+; CHECK: TMVINL:  T fun0_
+; CHECK: TMVINL:  T fun1_
+; CHECK: TMVINL:  T fun2_
+; CHECK: TMVINL:  T extra_
+; CHECK: TMVINL:  switch_
+; CHECK: TMVINL: SubRoot: switch_
+; CHECK: TMVINL:  T fun00_
+; CHECK: TMVINL:  T fun01_
+; CHECK: TMVINL: NewRoot: leapfrog_.1
+; CHECK: TMVINL:  fun0_
+; CHECK: TMVINL:  fun1_
+; CHECK: TMVINL:  fun2_
+; CHECK: TMVINL:  extra_
+; CHECK: TMVINL:  switch_.2
+; CHECK: TMVINL: NewSubRoot: switch_.2
+; CHECK: TMVINL:  fun00_
+; CHECK: TMVINL:  fun01_
+; CHECK: TMVINL: Multiversioning complete
+
+; Check the IR
+
+; CHECK: define{{.*}}@MAIN__({{.*}})
+; CHECK: br label %.clone.tile.cond
+; CHECK: [[L2:[0-9]+]]:
+; CHECK: call{{.*}}@leapfrog_({{.*}})
+; CHECK: br label %[[L1:[0-9]+]]
+; CHECK: .clone.tile.cond:
+; CHECK: %[[V1:[0-9]+]] = load i32, i32* @mymod_mp_mytester_, align 8
+; CHECK: %clone.tile.cmp = icmp sgt i32 %[[V1]], 5
+; CHECK: %[[V2:[0-9]+]] = load i32, i32* @mymod_mp_myglobal_, align 8
+; CHECK: %clone.tile.cmp1 = icmp eq i32 %[[V2]], 1
+; CHECK: %.clone.tile.and = and i1 %clone.tile.cmp, %clone.tile.cmp1
+; CHECK: %[[V3:[0-9]+]] = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: %clone.tile.cmp2 = icmp ne i1 %[[V3]], false
+; CHECK: %.clone.tile.and3 = and i1 %clone.tile.cmp, %clone.tile.cmp2
+; CHECK: %[[V4:[0-9]+]] = load i32, i32* @mymod_mp_mynnodes_, align 8
+; CHECK: %clone.tile.cmp4 = icmp ne i32 %[[V4]], -2
+; CHECK: %.clone.tile.and5 = and i1 %clone.tile.cmp, %clone.tile.cmp4
+; CHECK: %.clone.tile.cmp = icmp ne i1 %clone.tile.cmp, false
+; CHECK: br i1 %.clone.tile.cmp, label %[[L2]], label %.clone.tile.call
+; CHECK: .clone.tile.call:
+; CHECK: call{{.*}}@leapfrog_.1({{.*}}){{ *$}}
+; CHECK: define{{.*}}@leapfrog_({{.*}})
+; CHECK: call{{.*}}@fun0_({{.*}}) #1{{ *$}}
+; CHECK: call{{.*}}@fun1_({{.*}}) #1{{ *$}}
+; CHECK: call{{.*}}@fun2_({{.*}}) #1{{ *$}}
+; CHECK: call{{.*}}@extra_({{.*}}) #1{{ *$}}
+; CHECK: call{{.*}}@switch_({{.*}}){{ *$}}
+; CHECK: define{{.*}}@switch_({{.*}})
+; CHECK: call{{.*}}@fun00_({{.*}}) #1{{ *$}}
+; CHECK: call{{.*}}@fun01_({{.*}}) #1{{ *$}}
+; CHECK: define{{.*}}@leapfrog_.1({{.*}})
+; CHECK: call{{.*}}@fun0_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun1_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun2_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@extra_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@switch_.2({{.*}}){{ *$}}
+; CHECK: define{{.*}}@switch_.2({{.*}})
+; CHECK: call{{.*}}@fun00_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun01_({{.*}}){{ *$}}
+; CHECK: attributes #1 = { "prefer-inline-tile-choice" }
 
 @"main_$A" = internal global [100 x double] zeroinitializer, align 16
 @"main_$B" = internal global [100 x double] zeroinitializer, align 16
