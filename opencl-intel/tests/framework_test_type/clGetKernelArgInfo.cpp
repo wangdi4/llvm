@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "FrameworkTest.h"
 
-/**************************************************************************************************
+/*******************************************************************************
 * clGetKernelArgInfoTest
 * -------------------
 * (1) get device ids
@@ -11,26 +11,87 @@
 * (3) create programs with source
 * (4) build programs
 * (5) query and test kernel arg info
-**************************************************************************************************/
+*******************************************************************************/
 
 extern cl_device_type gDeviceType;
 
 bool clGetKernelArgInfoTest()
 {
     bool bResult = true;
+
+    // kernel 3 is used to check valid address qualifier
     const char *ocl_test_program[] = {\
-    "__kernel void test_kernel1(__global char16 pBuff0[], __global char* pBuff1, __global const char* pBuff2, image2d_t __read_only test_image) "\
-    "__attribute__((vec_type_hint(uint8))) __attribute__((reqd_work_group_size(8,8,8)))"\
-    "{"\
-    "    size_t id = get_global_id(0);"\
-    "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
-    "}"\
-    ""\
-    "__kernel void test_kernel2(__global int4* pBuff0, __global int* pBuff1, __global const volatile int* pBuff2)"\
-    "{"\
-    "    size_t id = get_global_id(0);"\
-    "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];"\
-    "}"
+      "__kernel void test_kernel1(__global char16 pBuff0[], __global char*"\
+        " pBuff1, __global const char* pBuff2, image2d_t"\
+        " __read_only test_image) __attribute__((vec_type_hint(uint8)))"\
+        " __attribute__((reqd_work_group_size(8,8,8)))\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];\n"\
+        "}\n"\
+        "\n"\
+        "__kernel void test_kernel2(__global int4* pBuff0, __global int*"\
+        " pBuff1, __global const volatile int* pBuff2)\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = pBuff1[id] ? pBuff0[id] : pBuff2[id];\n"\
+        "}\n"\
+        "\n"\
+        "__kernel void test_kernel3(int n, __local int* m, __constant int* l,"\
+        " __global int* k, __private int i, __global int4* pBuff0)\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = n + m[id] + l[id] + k[id] + i;\n"\
+        "}\n"\
+        "\n"
+    };
+
+    // The programs are used to check invalid address qualifier
+#define INVALID_PROGRAM_NUM 5
+    const char *ocl_test_invalid_program1[] = {\
+      "__kernel void test_invalid_kernel1(int* n, __global int4* pBuff0)\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = n[id];\n"\
+        "}\n"\
+        "\n"
+    };
+
+    const char *ocl_test_invalid_program2[] = {\
+      "__kernel void test_invalid_kernel2(__private int* n, __global int4*"\
+        " pBuff0)\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = n[id];\n"\
+        "}\n"\
+        "\n"
+    };
+    const char *ocl_test_invalid_program3[] = {\
+      "__kernel void test_invalid_kernel3(__local int n, __global int4*"\
+        " pBuff0)\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = n;\n"\
+        "}\n"\
+        "\n"
+    };
+    const char *ocl_test_invalid_program4[] = {\
+      "__kernel void test_invalid_kernel4(__global int n, __global int4*"\
+        " pBuff0)\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = n;\n"\
+        "}\n"\
+        "\n"
+    };
+    const char *ocl_test_invalid_program5[] = {\
+      "__kernel void test_invalid_kernel5(__constant int n, __global int4*"\
+        " pBuff0)\n"\
+        "{\n"\
+        "    size_t id = get_global_id(0);\n"\
+        "    pBuff0[id] = n;\n"\
+        "}\n"\
+        "\n"
     };
 
     printf("clGetKernelArgInfoTest\n");
@@ -44,7 +105,8 @@ bool clGetKernelArgInfoTest()
         return bResult;
     }
 
-    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM,
+                                      (cl_context_properties)platform, 0 };
 
     cl_uint uiNumDevices = 0;
     // get device(s)
@@ -56,7 +118,8 @@ bool clGetKernelArgInfoTest()
     }
 
     std::vector<cl_device_id> devices(uiNumDevices);
-    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
+    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0],
+                          NULL);
     if (CL_SUCCESS != iRet)
     {
         printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
@@ -68,8 +131,10 @@ bool clGetKernelArgInfoTest()
     cl_bool isImagesSupported = CL_TRUE;
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
-        iRet = clGetDeviceInfo(devices[i], CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &isImagesSupported, NULL);
-        bResult = Check("clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
+        iRet = clGetDeviceInfo(devices[i], CL_DEVICE_IMAGE_SUPPORT,
+                               sizeof(cl_bool), &isImagesSupported, NULL);
+        bResult = Check("clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS,
+                        iRet);
         if (!bResult)
         {
             return bResult;
@@ -80,7 +145,8 @@ bool clGetKernelArgInfoTest()
     }
 
     // create context
-    cl_context context = clCreateContext(prop, uiNumDevices, &devices[0], NULL, NULL, &iRet);
+    cl_context context = clCreateContext(prop, uiNumDevices, &devices[0], NULL,
+                                         NULL, &iRet);
     if (CL_SUCCESS != iRet)
     {
         printf("clCreateContext = %s\n",ClErrTxt(iRet));
@@ -89,7 +155,8 @@ bool clGetKernelArgInfoTest()
     printf("context = %p\n", (void*)context);
 
     cl_program clProg;
-    bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-kernel-arg-info", &clProg);
+    bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program,
+                                 NULL, "-cl-kernel-arg-info", &clProg);
     if (!bResult)
     {
         clReleaseContext(context);
@@ -119,16 +186,109 @@ bool clGetKernelArgInfoTest()
         return false;
     }
 
-    cl_kernel_arg_address_qualifier adressQualifier;
+    cl_kernel clKernel3 = clCreateKernel (clProg, "test_kernel3", &iRet);
+    if (CL_SUCCESS != iRet)
+    {
+        printf("clCreateKernel = %s\n",ClErrTxt(iRet));
+
+        clReleaseContext(context);
+        clReleaseProgram(clProg);
+        clReleaseKernel(clKernel1);
+        clReleaseKernel(clKernel2);
+
+        return false;
+    }
+
+    cl_kernel_arg_address_qualifier addressQualifier;
     cl_kernel_arg_access_qualifier accessQualifier;
     cl_kernel_arg_type_qualifier typeQualifier;
 
     iRet |= clGetKernelArgInfo (clKernel1, 0, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
-        sizeof(cl_kernel_arg_address_qualifier), &adressQualifier, NULL);
+        sizeof(cl_kernel_arg_address_qualifier), &addressQualifier, NULL);
 
-    if (CL_KERNEL_ARG_ADDRESS_GLOBAL != adressQualifier)
+    if (CL_KERNEL_ARG_ADDRESS_GLOBAL != addressQualifier)
     {
+        printf("Incorrect address qualifier: 0x%X(expected: 0x%X)\n",
+               addressQualifier, CL_KERNEL_ARG_ADDRESS_GLOBAL);
         iRet = -1;
+    }
+
+    // kernel argument without address qualifier
+    iRet |= clGetKernelArgInfo (clKernel3, 0, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
+        sizeof(cl_kernel_arg_address_qualifier), &addressQualifier, NULL);
+
+    // according to spec, the address qualifier is CL_KERNEL_ARG_ADDRESS_PRIVATE
+    // by default. That is, if kernel argument is not specified with address
+    // qualifier, it's set to CL_KERNEL_ARG_ADDRESS_PRIVATE.
+    if (CL_KERNEL_ARG_ADDRESS_PRIVATE != addressQualifier)
+    {
+        printf("Incorrect address qualifier: 0x%X(expected: 0x%X)\n",
+               addressQualifier, CL_KERNEL_ARG_ADDRESS_PRIVATE);
+        iRet = -1;
+    }
+
+    // kernel argument with __local address qualifier
+    iRet |= clGetKernelArgInfo (clKernel3, 1, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
+        sizeof(cl_kernel_arg_address_qualifier), &addressQualifier, NULL);
+
+    if (CL_KERNEL_ARG_ADDRESS_LOCAL != addressQualifier)
+    {
+        printf("Incorrect address qualifier: 0x%X(expected: 0x%X)\n",
+               addressQualifier, CL_KERNEL_ARG_ADDRESS_LOCAL);
+        iRet = -1;
+    }
+
+    // kernel argument with __constant address qualifier
+    iRet |= clGetKernelArgInfo (clKernel3, 2, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
+        sizeof(cl_kernel_arg_address_qualifier), &addressQualifier, NULL);
+
+    if (CL_KERNEL_ARG_ADDRESS_CONSTANT != addressQualifier)
+    {
+        printf("Incorrect address qualifier: 0x%X(expected: 0x%X)\n",
+               addressQualifier, CL_KERNEL_ARG_ADDRESS_CONSTANT);
+        iRet = -1;
+    }
+
+    // kernel argument with __global address qualifier
+    iRet |= clGetKernelArgInfo (clKernel3, 3, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
+        sizeof(cl_kernel_arg_address_qualifier), &addressQualifier, NULL);
+
+    if (CL_KERNEL_ARG_ADDRESS_GLOBAL != addressQualifier)
+    {
+        printf("Incorrect address qualifier: 0x%X(expected: 0x%X)\n",
+               addressQualifier, CL_KERNEL_ARG_ADDRESS_GLOBAL);
+        iRet = -1;
+    }
+
+    // kernel argument with __private address qualifier
+    iRet |= clGetKernelArgInfo (clKernel3, 4, CL_KERNEL_ARG_ADDRESS_QUALIFIER,
+        sizeof(cl_kernel_arg_address_qualifier), &addressQualifier, NULL);
+
+    if (CL_KERNEL_ARG_ADDRESS_PRIVATE != addressQualifier)
+    {
+        printf("Incorrect address qualifier: 0x%X(expected: 0x%X)\n",
+               addressQualifier, CL_KERNEL_ARG_ADDRESS_PRIVATE);
+        iRet = -1;
+    }
+
+    const char **invalid_prog_ptr[] = { ocl_test_invalid_program1,
+                                        ocl_test_invalid_program2,
+                                        ocl_test_invalid_program3,
+                                        ocl_test_invalid_program4,
+                                        ocl_test_invalid_program5
+                                      };
+
+    for (int i=0; i<INVALID_PROGRAM_NUM; i++) {
+        bool bResultInvalid = true;
+        bResultInvalid = BuildProgramSynch(context, 1,
+                                           (const char**)invalid_prog_ptr[i],
+                                           NULL, "-cl-kernel-arg-info",
+                                           &clProg);
+        if (bResultInvalid)
+        {
+            printf("Program is built unexpectedly for invalid kernel %d\n", i);
+            iRet = -1;
+        }
     }
 
     char szTypeName[255];
@@ -184,7 +344,8 @@ bool clGetKernelArgInfoTest()
     iRet |= clGetKernelArgInfo (clKernel2, 2, CL_KERNEL_ARG_TYPE_QUALIFIER,
         sizeof(cl_kernel_arg_type_qualifier), &typeQualifier, NULL);
 
-    if ((CL_KERNEL_ARG_TYPE_CONST | CL_KERNEL_ARG_TYPE_VOLATILE) != typeQualifier)
+    if ((CL_KERNEL_ARG_TYPE_CONST | CL_KERNEL_ARG_TYPE_VOLATILE) !=
+        typeQualifier)
     {
         iRet = -1;
     }
@@ -201,8 +362,8 @@ bool clGetKernelArgInfoTest()
         return false;
     }
 
-    iRet |= clGetKernelInfo(clKernel1, CL_KERNEL_ATTRIBUTES, sizeof(szName), szName, NULL);
-
+    iRet |= clGetKernelInfo(clKernel1, CL_KERNEL_ATTRIBUTES, sizeof(szName),
+                            szName, NULL);
     if (0 == strstr(szName, "reqd_work_group_size(8,8,8)"))
     {
         iRet = -1;
