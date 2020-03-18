@@ -71,9 +71,9 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer(
         const char* buffer = (const char*)reader.GetSectionData(
             Intel::OpenCL::ELFUtils::g_objSectionName);
         assert(buffer && "Object buffer is null");
+        // Create a copy to ensure objBuffer is properly aligned
         std::unique_ptr<llvm::MemoryBuffer> objBuffer =
-            llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(buffer, size),
-                                             "", false);
+            llvm::MemoryBuffer::getMemBufferCopy(llvm::StringRef(buffer, size));
 
         // Get dump filename
         std::string filename;
