@@ -84,6 +84,13 @@ def StdIOAPI : PublicAPI<"stdio.h"> {
   ];
 }
 
+def StdlibAPI : PublicAPI<"stdlib.h"> {
+  let Functions = [
+    "_Exit",
+    "abort",
+  ];
+}
+
 def ErrnoAPI : PublicAPI<"errno.h"> {
   let Macros = [
     ErrnoMacro,
@@ -143,7 +150,15 @@ def SignalAPI : PublicAPI<"signal.h"> {
   ];
 }
 
+def ThreadStartT : TypeDecl<"thrd_start_t"> {
+  let Decl = "typedef int (*thrd_start_t)(void *);";
+}
+
 def ThreadsAPI : PublicAPI<"threads.h"> {
+  let TypeDeclarations = [
+    ThreadStartT,
+  ];
+
   let Enumerations = [
     "mtx_plain",
     "mtx_recursive",
@@ -153,5 +168,10 @@ def ThreadsAPI : PublicAPI<"threads.h"> {
     "thrd_busy",
     "thrd_error",
     "thrd_nomem",
+  ];
+
+  let Functions = [
+    "thrd_create",
+    "thrd_join",
   ];
 }
