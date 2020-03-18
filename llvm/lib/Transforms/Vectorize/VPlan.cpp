@@ -395,14 +395,10 @@ void VPInstruction::execute(VPTransformState &State) {
     generateInstruction(State, Part);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
-=======
 void VPInstruction::print(raw_ostream &O, const Twine &Indent,
                           VPSlotTracker &SlotTracker) const {
->>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
   O << " +\n" << Indent << "\"EMIT ";
   print(O, SlotTracker);
   O << "\\l\"";
