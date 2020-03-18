@@ -8128,6 +8128,32 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromCondImpl(
   return computeExitCountExhaustively(L, ExitCond, ExitIfTrue);
 }
 
+#if INTEL_CUSTOMIZATION
+/// Returns true if IV being the max signed/unsigned value of its type results
+/// in undefined behavior.
+static bool isIVMaxValUB(const SCEV *IV, ICmpInst::Predicate Pred,
+                         bool ControlsExit) {
+  // If the loop has other exits, max IV val may not be reached so we need to
+  // return conservative answer.
+  if (!ControlsExit)
+    return false;
+
+  auto *AddRecIV = dyn_cast<SCEVAddRecExpr>(IV);
+
+  if (!AddRecIV)
+    return false;
+
+  bool IsSigned = CmpInst::isSigned(Pred);
+  bool NoWrap =
+      AddRecIV->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW);
+
+  if (!NoWrap)
+    return false;
+
+  // Is comparison of the form: (IV <= Final)?
+  return Pred == (IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE);
+}
+#endif // INTEL_CUSTOMIZATION
 ScalarEvolution::ExitLimit
 ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
                                           ICmpInst *ExitCond,
@@ -8166,6 +8192,11 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
     Pred = ICmpInst::getSwappedPredicate(Pred);
   }
 
+#if INTEL_CUSTOMIZATION
+  // This needs to be checked before simplification happens below.
+  // Simplification changes '<=' to '<' which results in information loss.
+  bool IVMaxValIsUB = isIVMaxValUB(LHS, Pred, ControlsExit);
+#endif // INTEL_CUSTOMIZATION
   // Simplify the operands before analyzing them.
   (void)SimplifyICmpOperands(Pred, LHS, RHS);
 
@@ -8200,7 +8231,7 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
   case ICmpInst::ICMP_ULT: {                    // while (X < Y)
     bool IsSigned = Pred == ICmpInst::ICMP_SLT;
     ExitLimit EL = howManyLessThans(LHS, RHS, L, IsSigned, ControlsExit,
-                                    AllowPredicates);
+                                    AllowPredicates, IVMaxValIsUB); // INTEL
     if (EL.hasAnyInfo()) return EL;
     break;
   }
@@ -11435,7 +11466,10 @@ const SCEV *ScalarEvolution::computeMaxBECountForLT(const SCEV *Start,
                                                     const SCEV *Stride,
                                                     const SCEV *End,
                                                     unsigned BitWidth,
-                                                    bool IsSigned) {
+#if INTEL_CUSTOMIZATION
+                                                    bool IsSigned,
+                                                    bool IVMaxValIsUB) {
+#endif // INTEL_CUSTOMIZATION
 
   assert(!isKnownNonPositive(Stride) &&
          "Stride is expected strictly positive!");
@@ -11458,6 +11492,10 @@ const SCEV *ScalarEvolution::computeMaxBECountForLT(const SCEV *Start,
 
   APInt MaxValue = IsSigned ? APInt::getSignedMaxValue(BitWidth)
                             : APInt::getMaxValue(BitWidth);
+#if INTEL_CUSTOMIZATION
+  if (IVMaxValIsUB)
+    MaxValue = MaxValue - 1;
+#endif // INTEL_CUSTOMIZATION
   APInt Limit = MaxValue - (StrideForMaxBECount - 1);
 
   // Although End can be a MAX expression we estimate MaxEnd considering only
@@ -11477,7 +11515,10 @@ const SCEV *ScalarEvolution::computeMaxBECountForLT(const SCEV *Start,
 ScalarEvolution::ExitLimit
 ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
                                   const Loop *L, bool IsSigned,
-                                  bool ControlsExit, bool AllowPredicates) {
+#if INTEL_CUSTOMIZATION
+                                  bool ControlsExit, bool AllowPredicates,
+                                  bool IVMaxValIsUB) {
+#endif // INTEL_CUSTOMIZATION
   SmallPtrSet<const SCEVPredicate *, 4> Predicates;
 
   const SCEVAddRecExpr *IV = dyn_cast<SCEVAddRecExpr>(LHS);
@@ -11608,7 +11649,10 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
     MaxOrZero = true;
   } else {
     MaxBECount = computeMaxBECountForLT(
-        Start, Stride, RHS, getTypeSizeInBits(LHS->getType()), IsSigned);
+#if INTEL_CUSTOMIZATION
+        Start, Stride, RHS, getTypeSizeInBits(LHS->getType()), IsSigned,
+        IVMaxValIsUB);
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (isa<SCEVCouldNotCompute>(MaxBECount) &&
