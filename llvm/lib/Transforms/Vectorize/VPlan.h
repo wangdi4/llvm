@@ -639,9 +639,15 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
+<<<<<<< HEAD
   virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent);
+  virtual void print(raw_ostream &O, const Twine &Indent,
+                     VPSlotTracker &SlotTracker) const = 0;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 
   /// Insert an unlinked recipe into a basic block immediately before
   /// the specified recipe.
@@ -729,12 +735,17 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the Recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+<<<<<<< HEAD
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, VPSlotTracker &SlotTracker) const;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 
   /// Return true if this instruction may modify memory.
   bool mayWriteToMemory() const {
@@ -782,9 +793,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// A recipe for handling GEP instructions.
@@ -816,9 +832,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// A recipe for handling phi nodes of integer and floating-point inductions,
@@ -845,9 +866,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// A recipe for handling all phi nodes except for integer and FP inductions.
@@ -870,9 +896,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// A recipe for vectorizing a phi-node as a sequence of mask-based select
@@ -905,9 +936,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// VPInterleaveRecipe is a recipe for transforming an interleave group of load
@@ -949,9 +985,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 
   const InterleaveGroup<Instruction> *getInterleaveGroup() { return IG; }
 };
@@ -1003,9 +1044,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// A recipe for generating conditional branches on the bits of a mask.
@@ -1031,10 +1077,11 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override {
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override {
     O << " +\n" << Indent << "\"BRANCH-ON-MASK ";
     if (User)
-      O << *User->getOperand(0);
+      User->getOperand(0)->print(O, SlotTracker);
     else
       O << " All-One";
     O << "\\l\"";
@@ -1070,9 +1117,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// A Recipe for widening load/store operations.
@@ -1114,9 +1166,14 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
+<<<<<<< HEAD
   void print(raw_ostream &O, const Twine &Indent) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+>>>>>>> 40e7bfc42461bc6ed7ea51564e7bb93f25bf5f08
 };
 
 /// VPBasicBlock serves as the leaf of the Hierarchical Control-Flow Graph. It
@@ -1404,6 +1461,7 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
   }
 };
 
+class VPSlotTracker;
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost. VPlan holds a
@@ -1411,6 +1469,7 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
 /// VPBlock.
 class VPlan {
   friend class VPlanPrinter;
+  friend class VPSlotTracker;
 
 private:
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
@@ -1444,7 +1503,10 @@ private:
   SmallVector<VPValue *, 4> VPCBVs;
 
 public:
-  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {
+    if (Entry)
+      Entry->setPlan(this);
+  }
 
   ~VPlan() {
     if (Entry)
@@ -1550,7 +1612,10 @@ private:
   unsigned BID = 0;
   SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
 
-  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
+  VPSlotTracker SlotTracker;
+
+  VPlanPrinter(raw_ostream &O, const VPlan &P)
+      : OS(O), Plan(P), SlotTracker(&P) {}
 
   /// Handle indentation.
   void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
