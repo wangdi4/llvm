@@ -4,7 +4,7 @@
 # RUN: llvm-mc -filetype=obj -triple i386-unknown-unknown --x86-align-branch-boundary=32 --x86-align-branch=call+jmp --x86-align-branch-prefix-size=4 %s | llvm-objdump -d  - | FileCheck %s
 #endif // INTEL_CUSTOMIZATION
 
-# CHECK: 00000000 foo:
+# CHECK: 00000000 <foo>:
 # CHECK-COUNT-5:      : 64 a3 01 00 00 00                movl    %eax, %fs:1
 # CHECK:            1e: e8 fc ff ff ff                   calll   {{.*}}
 # CHECK-COUNT-4:      : 64 a3 01 00 00 00                movl    %eax, %fs:1
