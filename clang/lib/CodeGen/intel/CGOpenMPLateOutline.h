@@ -307,10 +307,13 @@ public:
   }
   void privatizeMappedPointers(CodeGenFunction::OMPPrivateScope &PrivateScope) {
     for (auto MT : MapTemps) {
-      QualType Ty = MT.second->getType().getCanonicalType();
-      Address A = CGF.CreateMemTemp(Ty, MT.second->getName() + ".map.ptr.tmp");
+      llvm::Type *Ty = MT.first->getType();
+      Address A = CGF.CreateDefaultAlignTempAlloca(Ty, MT.second->getName() +
+                                                           ".map.ptr.tmp");
       CGF.Builder.CreateStore(MT.first, A);
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
+      if (MT.second->getType()->isReferenceType())
+        CGF.addMappedRefTemp(MT.second);
     }
     PrivateScope.Privatize();
   }

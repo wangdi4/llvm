@@ -3682,6 +3682,8 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_COLLAB
+  /// MapRefTemps - This keeps track of variables with reference type.
+  llvm::DenseSet<const VarDecl *> MapRefTemps;
   void EmitLateOutlineOMPDirective(
       const OMPExecutableDirective &S,
       OpenMPDirectiveKind Kind = llvm::omp::OMPD_unknown);
@@ -3690,6 +3692,11 @@ private:
                                        OpenMPDirectiveKind Kind);
 
 public:
+  void addMappedRefTemp(const VarDecl *VD) { MapRefTemps.insert(VD); }
+  bool isMappedRefTemp(const VarDecl *VD) {
+    return MapRefTemps.find(VD) != MapRefTemps.end();
+  }
+  void clearMappedRefTemps() { MapRefTemps.clear(); }
   bool requiresImplicitTask(const OMPExecutableDirective &S);
   void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
                                          OpenMPDirectiveKind Kind,
