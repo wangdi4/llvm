@@ -60,6 +60,7 @@ bool HandleVPlanMask::runOnModule(Module &M) {
         StringRef AttrStr = Attr.getValueAsString();
         int ArgSize;
         bool status = AttrStr.getAsInteger<int>(10, ArgSize);
+        (void)status;
         assert(!status && "Unexpected call-params-num attribute");
         HasVPlanMask |= (Call->arg_size() - 1 == (unsigned)ArgSize);
       }
