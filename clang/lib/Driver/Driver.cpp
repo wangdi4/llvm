@@ -4579,22 +4579,6 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
             IA->getInputArg().getOption().hasFlag(options::LinkerInput))
           // Pass the Input along to linker only.
           continue;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-        // Modify any of the performance library placeholders to be full
-        // blown libraries with locations.
-        if (FileName == "libdaal_sycl" || FileName == "libmkl_sycl") {
-          SmallString<128> LibName(FileName);
-          makePerfLib(LibName);
-          const llvm::opt::OptTable &Opts = getOpts();
-          Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
-          LI = C.MakeAction<InputAction>(*InputArg, IA->getType());
-          continue;
-        }
-#endif // INTEL_CUSTOMIZATION
-=======
-        UnbundlerInputs.push_back(LI);
->>>>>>> 82a79741958293b8ebf27e3fd35862f0724d655b
       }
       UnbundlerInputs.push_back(LI);
     }
