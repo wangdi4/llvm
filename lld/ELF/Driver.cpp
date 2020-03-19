@@ -37,6 +37,7 @@
 #include "Target.h"
 #include "Writer.h"
 #include "lld/Common/Args.h"
+#include "lld/Common/DWARF.h" // INTEL
 #include "lld/Common/Driver.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Filesystem.h"
