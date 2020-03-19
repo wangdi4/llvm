@@ -47,8 +47,6 @@ bool clGetDeviceInfoTest();
 void clGetKernelSubGroupInfoKHR();
 bool clBuildProgramWithSourceTest();
 bool clCheckJITSaveLoadTest();
-bool clCheckJITSaveTest();
-bool clCheckJITLoadTest();
 bool GenerateBinaryFile();
 bool clCheckCPUArchForJIT();
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
