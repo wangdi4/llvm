@@ -653,4 +653,12 @@ EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
 EXTERN void *__tgt_get_ompt_trace(void) {
   return &omptTrace;
 }
+
+EXTERN int __tgt_get_num_devices(void) {
+  RTLsMtx.lock();
+  size_t Devices_size = Devices.size();
+  RTLsMtx.unlock();
+  DP("Call to omp_get_num_devices returning %zd\n", Devices_size);
+  return Devices_size;
+}
 #endif // INTEL_COLLAB
