@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl
-// RUN: %clang_cc1 %s -emit-llvm -triple spir64-unknown-unknown-sycldevice -fsycl-is-device -disable-llvm-passes -o - | FileCheck %s
-=======
 // RUN: %clang_cc1 -fsycl -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -o - | FileCheck %s
->>>>>>> 032687c5bf7a79e6c73e32da88d0b3aee7429e8b
 // CHECK: %opencl.pipe_wo_t
 // CHECK: %opencl.pipe_ro_t
 
