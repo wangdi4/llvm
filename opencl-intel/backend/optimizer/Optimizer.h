@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -83,6 +83,9 @@ public:
     /// @param Ty is a type of global variables to search
     /// @return std::vector with global variable names
     std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty);
+
+    /// @brief register OpenCL passes to LLVM PassRegistry
+    static void initializePasses();
 
 private:
 

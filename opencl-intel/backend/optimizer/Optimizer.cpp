@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,17 +16,19 @@
 #include "CPUDetect.h"
 #include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
+#include "InitializeOCLPasses.hpp"
 #include "MetadataAPI.h"
 #include "OclTune.h"
 #include "VecConfig.h"
 #include "debuggingservicetype.h"
-#include "InitializePasses.h"
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
+
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -59,8 +61,6 @@ llvm::FunctionPass* createFMASplitterPass();
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
-
-#include "InitializeOCLPasses.hpp"
 
 // This flag enables VPlan for loop vectorization.
 static cl::opt<bool> DisableVPlanVec("disable-vplan-loop-vectorizer",
@@ -836,9 +836,6 @@ Optimizer::Optimizer(llvm::Module *pModule,
     : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList),
       m_IsFpgaEmulator(pConfig->isFpgaEmulator()),
       m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
-  PassRegistry &Registry = *PassRegistry::getPassRegistry();
-  initializeOCLPasses(Registry);
-
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
 
@@ -986,6 +983,55 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
   }
 
   return Res;
+}
+
+void Optimizer::initializePasses() {
+  // Initialize passes so that -print-after/-print-before work. In release
+  // build, dumping IR is not allowed, so there's no need to do initialization.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  PassRegistry &Registry = *PassRegistry::getPassRegistry();
+  initializeCore(Registry);
+  initializeCoroutines(Registry);
+  initializeScalarOpts(Registry);
+  initializeObjCARCOpts(Registry);
+  initializeVectorization(Registry);
+  initializeIPO(Registry);
+  initializeAnalysis(Registry);
+  initializeTransformUtils(Registry);
+  initializeInstCombine(Registry);
+  initializeInstrumentation(Registry);
+  initializeTarget(Registry);
+  // For codegen passes, only passes that do IR to IR transformation are
+  // supported.
+  initializeExpandMemCmpPassPass(Registry);
+  initializeScalarizeMaskedMemIntrinPass(Registry);
+  initializeCodeGenPreparePass(Registry);
+  initializeAtomicExpandPass(Registry);
+  initializeRewriteSymbolsLegacyPassPass(Registry);
+  initializeWinEHPreparePass(Registry);
+  initializeDwarfEHPreparePass(Registry);
+  initializeSafeStackLegacyPassPass(Registry);
+  initializeSjLjEHPreparePass(Registry);
+  initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
+  initializeGlobalMergePass(Registry);
+  initializeInterleavedAccessPass(Registry);
+  initializeEntryExitInstrumenterPass(Registry);
+  initializePostInlineEntryExitInstrumenterPass(Registry);
+  initializeUnreachableBlockElimLegacyPassPass(Registry);
+  initializeExpandReductionsPass(Registry);
+  initializeWriteBitcodePassPass(Registry);
+
+  initializeIntel_LoopAnalysis(Registry);
+  initializeIntel_LoopTransforms(Registry);
+  initializeVecClonePass(Registry);
+  initializeMapIntrinToImlPass(Registry);
+  initializeIntel_OpenCLTransforms(Registry);
+  initializeVPOAnalysis(Registry);
+  initializeVPOTransforms(Registry);
+  initializeOptimizeDynamicCastsWrapperPass(Registry);
+
+  initializeOCLPasses(Registry);
+#endif
 }
 
 }}}
