@@ -987,6 +987,13 @@ class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, co
   list<list<string>> CustomMacro = customMacro;
 }
 
+// Reflection alias map
+class AliasMap<list<list<string>> AliasList>{
+  // For every item in the aliasList, it should be a list whose first item is
+  // an OclBuiltin Record name, the other items should be alias name.
+  list<list<string>> aliasList = AliasList;
+}
+
 //Reflection module map cell
 class MapCell<OclBuiltin bi, OclType ty>{
   OclBuiltin builtin = bi;
