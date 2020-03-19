@@ -77,10 +77,12 @@ static int DebugLevel = 0;
     }                                                                          \
   } while (0)
 
-#define CALL_ZE_RET_FAIL_MTX(Fn, ...)                                          \
-  CALL_ZE_RET_MTX(OFFLOAD_FAIL, Fn, __VA_ARGS__)
-#define CALL_ZE_RET_NULL_MTX(Fn, ...) CALL_ZE_RET_MTX(NULL, Fn, __VA_ARGS__)
-#define CALL_ZE_RET_ZERO_MTX(Fn, ...) CALL_ZE_RET_MTX(0, Fn, __VA_ARGS__)
+#define CALL_ZE_RET_FAIL_MTX(Fn, Mtx, ...)                                     \
+  CALL_ZE_RET_MTX(OFFLOAD_FAIL, Fn, Mtx, __VA_ARGS__)
+#define CALL_ZE_RET_NULL_MTX(Fn, Mtx, ...)                                     \
+  CALL_ZE_RET_MTX(NULL, Fn, Mtx, __VA_ARGS__)
+#define CALL_ZE_RET_ZERO_MTX(Fn, Mtx, ...)                                     \
+  CALL_ZE_RET_MTX(0, Fn, Mtx, __VA_ARGS__)
 
 /// For thread-safe functions
 #define CALL_ZE_RET(Ret, Fn, ...)                                              \
@@ -302,8 +304,8 @@ int32_t __tgt_rtl_number_of_devices() {
   if (numDrivers == 0)
     return 0;
 
-  ze_driver_handle_t driverHandles[numDrivers];
-  CALL_ZE_RET_ZERO(zeDriverGet, &numDrivers, driverHandles);
+  std::vector<ze_driver_handle_t> driverHandles(numDrivers);
+  CALL_ZE_RET_ZERO(zeDriverGet, &numDrivers, driverHandles.data());
   DP("Found %" PRIu32 " driver(s)!\n", numDrivers);
   DP("Looking for device type %" PRId32 "...\n", DeviceInfo.DeviceType);
 

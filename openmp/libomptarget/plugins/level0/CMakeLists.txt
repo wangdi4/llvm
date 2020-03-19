@@ -59,8 +59,15 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
           ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE} pthread
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
     elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
+      # Full path to the L0 library is recognized as a linker option, so we
+      # separate directory and file name
+      get_filename_component(LEVEL0_LIBRARY_PATH
+          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} DIRECTORY)
+      get_filename_component(LEVEL0_LIBRARY_NAME
+          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} NAME)
       target_link_libraries(omptarget.rtl.level0
-          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE})
+          ${LEVEL0_LIBRARY_NAME} ${LIBOMP_LIB_FILE}
+          -LIBPATH:${LEVEL0_LIBRARY_PATH})
     else()
       message(FATAL_ERROR "Missing platfrom support.")
     endif()
