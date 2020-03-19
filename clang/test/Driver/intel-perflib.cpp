@@ -4,10 +4,10 @@
 // IPP tests
 // RUN: env IPPROOT=/dummy/ipp \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHK-IPP-LIN-COMMON %s
+// RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-COMMON %s
 // RUN: env IPPROOT=/dummy/ipp \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp=common -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHK-IPP-LIN-COMMON %s
+// RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-COMMON %s
 // RUN: env IPPROOT=/dummy/ipp \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -ipp=nonpic -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-IPP,CHECK-IPP-LIN,CHECK-IPP-LIN-NONPIC %s
@@ -43,19 +43,19 @@
 // MKL tests
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -mkl -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHK-MKL-LIN-PARALLEL %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -mkl -tbb -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHK-MKL-LIN-TBB %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-TBB %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -mkl -fsycl -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHK-MKL-LIN-PARALLEL,CHK-MKL-SYCL,CHK-MKL-LIN-SYCL %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL,CHECK-MKL-SYCL,CHECK-MKL-LIN-SYCL %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -mkl=parallel -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHK-MKL-LIN-PARALLEL %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -mkl=parallel -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHK-MKL-LIN-PARALLEL-OMP %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-PARALLEL-OMP %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -mkl=sequential -### %s 2>&1 \
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-SEQUENTIAL %s
@@ -64,48 +64,49 @@
 // RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-LIN,CHECK-MKL-LIN-CLUSTER %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-PARALLEL %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-PARALLEL %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl -Qtbb -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-TBB %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-TBB %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl:parallel -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-PARALLEL %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-PARALLEL %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl:parallel -openmp -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-PARALLEL-OMP %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-PARALLEL-OMP %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl -fsycl -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-PARALLEL,CHK-MKL-SYCL,CHK-MKL-WIN-SYCL %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-PARALLEL,CHECK-MKL-SYCL,CHECK-MKL-WIN-SYCL %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl -Qtbb -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-TBB %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-TBB %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl:sequential -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-PARALLEL %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-SEQUENTIAL %s
 // RUN: env MKLROOT=/dummy/mkl \
 // RUN: %clang_cl -Qmkl:cluster -### %s 2>&1 \
-// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHK-MKL-WIN-CLUSTER %s
+// RUN: | FileCheck -check-prefixes=CHECK-MKL,CHECK-MKL-WIN,CHECK-MKL-WIN-CLUSTER %s
+// CHECK-MKL-WIN-SYCL-NOT: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs=libmkl_sycl"
 // CHECK-MKL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib" "-outputs=[[LISTWIN:.+\.txt]]" "-unbundle"
 // CHECK-MKL-WIN-SYCL: llvm-link{{.*}} "@[[LISTWIN]]"
 // CHECK-MKL-LIN-SYCL: ld{{.*}} "-r" {{.*}} "{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a"
-// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=host-x86_64-unknown-linux-gnu,sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs={{.+\.o}},[[LISTLIN:.+\.txt]]" "-unbundle"
+// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=oo" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}" "-outputs=[[LISTLIN:.+\.txt]]" "-unbundle"
 // CHECK-MKL-LIN-SYCL: llvm-link{{.*}} "@[[LISTLIN]]"
 // CHECK-MKL-SYCL: llvm-spirv{{.*}}
 // CHECK-MKL-SYCL: clang-offload-wrapper{{.*}}
 // CHECK-MKL-SYCL: llc{{.*}}
-// CHECK-MKL: clang{{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-LIN: ld{{.*}} "-L{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64"
-// CHECK-MKL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_core"
-// CHECK-MKL-WIN-PARALLEL-OMP: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core"
-// CHECK-MKL-WIN-TBB: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core"
-// CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_lp64" "--dependent-lib=mkl_blacs_intelmpi_lp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core"
+// CHECK-MKL-WIN-PARALLEL: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-PARALLEL-OMP: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-SEQUENTIAL: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-TBB: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_tbb_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
+// CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_lp64" "--dependent-lib=mkl_blacs_intelmpi_lp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-LIN-PARALLEL: "--start-group" "-lmkl_intel_lp64" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-PARALLEL-OMP: "--start-group" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
-// CHECK-MKL-LIN-TBB: "--start-group" "-lmkl_intel_lp64" "-lmkl_core" "--end-group"
+// CHECK-MKL-LIN-TBB: "--start-group" "-lmkl_intel_lp64" "-lmkl_tbb_thread" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-SEQUENTIAL: "--start-group" "-lmkl_intel_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group"
 // CHECK-MKL-LIN-CLUSTER: "--start-group" "-lmkl_intel_lp64" "-lmkl_cdft_core" "-lmkl_scalapack_lp64" "-lmkl_blacs_intelmpi_lp64" "-lmkl_sequential" "-lmkl_core" "--end-group"
-// CHECK-MKL-WIN-SYCL: link{{.*}} "-defaultlib:{{.*}}mkli{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib"
+// CHECK-MKL-WIN-SYCL: link{{.*}} "-defaultlib:{{/|\\\\}}dummy{{/|\\\\}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycl.lib"
 // CHECK-MKL-WIN: "-libpath:{{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64"
 
 // TBB tests
