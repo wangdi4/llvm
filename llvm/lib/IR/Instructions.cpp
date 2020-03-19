@@ -384,7 +384,6 @@ CallBase::populateBundleOperandInfos(ArrayRef<OperandBundleDef> Bundles,
   return It;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void CallBase::updateProfxWeight(uint64_t S, uint64_t T) {
   auto *MD = getMetadata(LLVMContext::MD_intel_profx);
@@ -413,7 +412,7 @@ void CallBase::updateProfxWeight(uint64_t S, uint64_t T) {
   setMetadata(LLVMContext::MD_intel_profx, MDNode::get(M->getContext(), Vals));
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 CallBase::BundleOpInfo &CallBase::getBundleOpInfoForOperand(unsigned OpIdx) {
   /// When there isn't many bundles, we do a simple linear search.
   /// Else fallback to a binary-search that use the fact that bundles usually
@@ -460,7 +459,6 @@ CallBase::BundleOpInfo &CallBase::getBundleOpInfoForOperand(unsigned OpIdx) {
          "the operand bundle doesn't cover every value in the range");
   return *Current;
 }
->>>>>>> 84056394e97885e1d7c588992d725f188d134e63
 
 //===----------------------------------------------------------------------===//
 //                        CallInst Implementation
