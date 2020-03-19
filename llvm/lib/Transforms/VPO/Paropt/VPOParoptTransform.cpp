@@ -1251,6 +1251,17 @@ bool VPOParoptTransform::paroptTransforms() {
     NeedBID = false;
   }
 #endif  // INTEL_FEATURE_CSA
+
+  // Privatize shared items upfront before outlining work regions.
+  if ((Mode & OmpPar) && (Mode & ParTrans))
+    for (auto *W : WRegionList)
+      switch (W->getWRegionKindID()) {
+      case WRegionNode::WRNParallelSections:
+      case WRegionNode::WRNParallelLoop:
+      case WRegionNode::WRNDistributeParLoop:
+        RoutineChanged |= privatizeSharedItems(W);
+        break;
+      }
 #endif  // INTEL_CUSTOMIZATION
 
   Type *Int32Ty = Type::getInt32Ty(C);
@@ -1386,7 +1397,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W, false);
 #if INTEL_CUSTOMIZATION
           improveAliasForOutlinedFunc(W);
-          Changed |= privatizeSharedItems(W);
 #endif  // INTEL_CUSTOMIZATION
 
           // For the case of target parallel for (OpenCL), the compiler
@@ -8024,7 +8034,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 
   W->populateBBSet();
 
-  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::privatizeSharedItems\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::privatizeSharedItems: "
+                    << W->getName() << "\n");
 
   // Returns true if all given users are either load instructions or bitcasts
   // that are used by the loads.
@@ -8095,6 +8106,10 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     } else
       LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
   }
+
+  // Clear blocks.
+  W->resetBBSet();
+
   if (ToPrivatize.empty())
     return false;
 
@@ -8102,9 +8117,6 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
   Instruction *InsPt = NewBB->getTerminator();
-
-  // Clear blocks.
-  W->resetBBSet();
 
   // Create private instances for variables collected earlier.
   for (ItemData &P : ToPrivatize) {
