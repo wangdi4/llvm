@@ -4015,7 +4015,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  const llvm::Triple *AuxTriple = (IsSYCL || IsCuda) ? TC.getAuxTriple() : nullptr;
+  const llvm::Triple *AuxTriple =
+      (IsSYCL || IsCuda) ? TC.getAuxTriple() : nullptr;
   bool IsWindowsMSVC = RawTriple.isWindowsMSVCEnvironment();
   bool IsIAMCU = RawTriple.isOSIAMCU();
   bool IsSYCLDevice = (RawTriple.getEnvironment() == llvm::Triple::SYCLDevice);
@@ -4099,6 +4100,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (UseSYCLTriple) {
     // We want to compile sycl kernels.
+    CmdArgs.push_back("-fsycl");
     CmdArgs.push_back("-fsycl-is-device");
     // Pass the triple of host when doing SYCL
     auto AuxT = llvm::Triple(llvm::sys::getProcessTriple());
@@ -4133,17 +4135,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_sycl_std_EQ)) {
-    A->render(Args, CmdArgs);
-    CmdArgs.push_back("-fsycl-std-layout-kernel-params");
-  } else if (IsSYCL) {
-    // Ensure the default version in SYCL mode is 1.2.1
-    CmdArgs.push_back("-sycl-std=1.2.1");
-    // The user had not pass SYCL version, thus we'll employ no-sycl-strict
-    // to allow address-space unqualified pointers in function params/return
-    // along with marking the same function with explicit SYCL_EXTERNAL
-    CmdArgs.push_back("-Wno-sycl-strict");
-  }
+    if (IsSYCL) {
+    if (Arg *A = Args.getLastArg(options::OPT_sycl_std_EQ)) {
+      A->render(Args, CmdArgs);
+      CmdArgs.push_back("-fsycl-std-layout-kernel-params");
+    } else {
+      // Ensure the default version in SYCL mode is 1.2.1 (aka 2017)
+      CmdArgs.push_back("-sycl-std=2017");
+      // The user had not pass SYCL version, thus we'll employ no-sycl-strict
+      // to allow address-space unqualified pointers in function params/return
+      // along with marking the same function with explicit SYCL_EXTERNAL
+      CmdArgs.push_back("-Wno-sycl-strict");
+    }
+    }
 
   if (IsOpenMPDevice) {
     // We have to pass the triple of the host if compiling for an OpenMP device.
@@ -6090,6 +6094,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(IntHeaderPath);
       // Let the FE know we are doing a SYCL offload compilation, but we are
       // doing the host pass.
+      CmdArgs.push_back("-fsycl");
       CmdArgs.push_back("-fsycl-is-host");
     }
     if (IsSYCLOffloadDevice && JA.getType() == types::TY_SYCL_Header) {
