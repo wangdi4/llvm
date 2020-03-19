@@ -81,6 +81,13 @@ static cl::opt<bool> SPIRImplicitMultipleTeams(
     cl::desc("Allow creation of multiple WGs for executing omp target "
              "parallel for. Note that it is not OpenMP conformant."));
 
+// Control the level of detail of the source location info passed to OpenMP
+// via the kmp_ident_t* argument of most kmp calls.
+static cl::opt<uint32_t> ParallelSourceInfoMode(
+    "parallel-source-info", cl::Hidden, cl::init(1),
+    cl::desc("Control source location info in OpenMP code.  0 = none; "
+             "1 (default) = function + line; 2 = path + function + line."));
+
 static const unsigned StackAdjustedAlignment = 16;
 
 // If module M has a StructType of name Name, and element types ElementTypes,
@@ -800,6 +807,19 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
   return Call;
 }
 
+VPOParoptUtils::SrcLocMode getSrcLocMode() {
+  switch (ParallelSourceInfoMode) {
+  case 0:
+    return VPOParoptUtils::SRC_LOC_NONE;
+  case 1:
+    return VPOParoptUtils::SRC_LOC_FUNC;
+  case 2:
+    return VPOParoptUtils::SRC_LOC_PATH;
+  default:
+    return VPOParoptUtils::SRC_LOC_FUNC;
+  }
+}
+
 /// Generate tgt_push_code_location call which pushes source code location
 /// and the pointer to the tgt_target*() function.
 /// Generated function looks as follows:
@@ -815,7 +835,7 @@ CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
 
   DILocation *Loc1 = Location->getDebugLoc();
   DILocation *Loc2 = nullptr;
-  SrcLocMode Mode = SRC_LOC_FUNC;
+  SrcLocMode Mode = getSrcLocMode();
 
   GlobalVariable *LocStr = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
@@ -2219,7 +2239,7 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   Instruction *EInst = dyn_cast<Instruction>(BE->begin());
   DILocation *Loc2 = EInst ? EInst->getDebugLoc() : nullptr;
 
-  SrcLocMode Mode = SRC_LOC_FUNC;
+  SrcLocMode Mode = getSrcLocMode();
 
   GlobalVariable *LocStringVar = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
 
