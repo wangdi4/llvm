@@ -275,7 +275,6 @@ static cl::opt<bool>
     EnableAddrsig("addrsig", cl::desc("Emit an address-significance table"),
                   cl::init(false));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This option can be used to enable advanced optimizations when running opt.
 // This option must be used with -mtriple and -mattr. For example:
@@ -294,13 +293,12 @@ static cl::opt<int>
 X87Precision("x87-precision",
              cl::desc("Set X87 internal precision"), cl::init(0));
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static cl::opt<bool> EmitCallSiteInfo(
     "emit-call-site-info",
     cl::desc(
         "Emit call site debug information, if debug information is enabled."),
     cl::init(false));
->>>>>>> c15c68abdc6f1afece637bdedba808676191a8e6
 
 static cl::opt<bool>
     EnableDebugEntryValues("debug-entry-values",
@@ -342,7 +340,6 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.ExceptionModel = ExceptionModel;
   Options.EmitStackSizeSection = EnableStackSizeSection;
   Options.EmitAddrsig = EnableAddrsig;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableIntelAdvancedOpts)
     Options.IntelAdvancedOptim = EnableIntelAdvancedOpts;
@@ -355,9 +352,7 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
     case 80: Options.X87Precision = 3; break;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   Options.EmitCallSiteInfo = EmitCallSiteInfo;
->>>>>>> c15c68abdc6f1afece637bdedba808676191a8e6
   Options.EnableDebugEntryValues = EnableDebugEntryValues;
   Options.ForceDwarfFrameSection = ForceDwarfFrameSection;
 
