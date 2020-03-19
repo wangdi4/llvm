@@ -1357,6 +1357,7 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
     const MemRefGatherer::VectorTy &Refs, const LoopNestTCTy &LoopNestTC,
     HLLoop *InnermostLoop, HLLoop *OutermostLoop, unsigned ConsecutiveDepth,
     HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, StringRef Func,
+    DiagMsg MsgCode,
     LoopMapTy &LoopMap) {
 
   // Try K&R + fixed stripmine sizes
@@ -1370,7 +1371,7 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
       InnermostLoop, OutermostLoop, ConsecutiveDepth, KAndRProfitability,
       StripmineExplorer, DDA, SRA, Func, LoopMap);
   if (ValidOutermost) {
-    printDiag(SUCCESS_NON_SIV, Func, ValidOutermost, "SUCCESS");
+    printDiag(MsgCode, Func, ValidOutermost, "SUCCESS");
     return ValidOutermost;
   }
 
@@ -1455,7 +1456,7 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     // Try K&R as default.
     HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
         Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
+        ConsecutiveDepth, DDA, SRA, Func, SUCCESS_BASIC_SIV, LoopMap);
 
     if (ValidOutermost) {
       printDiag(SUCCESS_BASIC_SIV, Func, ValidOutermost, "SUCCESS");
@@ -1494,11 +1495,10 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     // Just use existing logic for now to avoid regression
     HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
         Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
+        ConsecutiveDepth, DDA, SRA, Func, SUCCESS_NON_SIV_OR_NON_ADVANCED,
+        LoopMap);
 
     if (ValidOutermost) {
-      printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, ValidOutermost,
-                "SUCCESS");
       return ValidOutermost;
     }
   }

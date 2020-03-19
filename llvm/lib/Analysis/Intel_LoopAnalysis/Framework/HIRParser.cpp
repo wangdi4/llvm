@@ -4829,7 +4829,7 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   }
 
   // No candidates for delinearization.
-  if (Strides.size() < 2) {
+  if (Strides.empty()) {
     return false;
   }
 
