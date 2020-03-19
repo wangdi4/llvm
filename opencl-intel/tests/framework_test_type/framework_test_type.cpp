@@ -153,18 +153,6 @@ TEST(FrameworkTestType, Test_clCheckJITSaveLoadTest)
     EXPECT_TRUE(clCheckJITSaveLoadTest());
 }
 
-TEST(FrameworkTestType, Test_clCheckJITSaveTest)
-{
-    EXPECT_TRUE(clCheckJITSaveTest());
-}
-
-TEST(FrameworkTestType, Test_clJITLoadTest)
-{
-    // [QA]: save JIT file before loading
-    EXPECT_TRUE(clCheckJITSaveTest());
-    EXPECT_TRUE(clCheckJITLoadTest());
-}
-
 TEST(FrameworkTestType, DISABLED_Test_clCheckCPUArchForJIT)
 {
     // GenerateBinaryFile before clCheckCPUArchForJIT
