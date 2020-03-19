@@ -25,7 +25,7 @@ namespace ClangFE {
 struct CachedArgInfo {
   std::string typeName;
   std::string name;
-  cl_kernel_arg_address_qualifier adressQualifier;
+  cl_kernel_arg_address_qualifier addressQualifier;
   cl_kernel_arg_access_qualifier accessQualifier;
   cl_kernel_arg_type_qualifier typeQualifier;
   cl_bool hostAccessible;
@@ -45,7 +45,7 @@ public:
   }
   cl_kernel_arg_address_qualifier
   getArgAdressQualifier(size_t index) const override {
-    return m_argsInfo[index].adressQualifier;
+    return m_argsInfo[index].addressQualifier;
   }
   cl_kernel_arg_access_qualifier
   getArgAccessQualifier(size_t index) const override {

@@ -94,7 +94,7 @@ struct cl_kernel_argument_info
 {
     const char*                     name;               //!< String specifies the name of the argument
     const char*                     typeName;           //!< String specifies the argument type
-    cl_kernel_arg_address_qualifier adressQualifier;    //!< Argument's address qualifier
+    cl_kernel_arg_address_qualifier addressQualifier;   //!< Argument's address qualifier
     cl_kernel_arg_access_qualifier  accessQualifier;    //!< Argument's access qualifier
     cl_kernel_arg_type_qualifier    typeQualifier;      //!< Argument's type qualifier
 };

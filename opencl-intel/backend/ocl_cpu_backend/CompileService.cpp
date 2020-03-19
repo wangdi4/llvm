@@ -183,8 +183,9 @@ void CompileService::Release()
 }
 
 //prints the JIT file in assembly x86
-cl_dev_err_code CompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                                           const std::string& filename) const
+cl_dev_err_code CompileService::DumpJITCodeContainer(
+    const ICLDevBackendCodeContainer* codeContainer,
+    const ICLDevBackendOptions* options) const
 {
     assert(false);
     return CL_DEV_NOT_SUPPORTED;

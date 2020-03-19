@@ -35,6 +35,7 @@
 #include "ObjectCodeCache.h"
 #include "OclTune.h"
 #include "ChannelPipeUtils.h"
+#include "SystemInfo.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -51,19 +52,11 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-
-#if defined (WIN32)
-#include <windows.h>
-#include <shellapi.h>
-#include <codecvt>
-#endif // WIN32
 
 #include <algorithm>
 #include <atomic>
@@ -148,35 +141,9 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
         (!m_statFileBaseName.empty() &&
          llvm::sys::path::is_separator(*m_statFileBaseName.rbegin())))
     {
-#if defined (WIN32)
-        LPWSTR *cl;
-        int numArgs;
-        string nameStr, nameStr2;
-        const char *name = nullptr;
-
-        WCHAR path[MAX_PATH];
-        if (!GetModuleFileNameW(GetModuleHandleW(nullptr), path, MAX_PATH)) {
-            std::wstring wstr(path);
-            nameStr = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
-            name = nameStr.c_str();
-        }
-
-        // find the base name by searching for the last '/' in the name
-        // Remove .exe from the name. To actually create a file name without
-        // the extension, need to create it in a string and take it's c_str()
-        if (name != nullptr) {
-            nameStr2 = llvm::sys::path::stem(StringRef(name)).str();
-            name = nameStr2.c_str();
-        }
-
-#else // WIN32
-         const char *name = getenv("_");
-        // find the base name by searching for the last '/' in the name
-        if (name != nullptr)
-            name = llvm::sys::path::filename(StringRef(name)).data();
-#endif // WIN32
+        std::string name = Utils::SystemInfo::GetExecutableFilename();
         // if still no meaningful name just use "Program" as module name
-        if (name == nullptr || *name == 0)
+        if (name.empty())
             name = "Program";
 
         m_statFileBaseName += name;
@@ -196,14 +163,13 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStat
     if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
     {
         // use sequential number to distinguish dumped files
-        std::stringstream fileNameBuilder;
+        std::string fileId;
         if (isEqualizerStats)
-          fileNameBuilder << (Utils::getEqualizerDumpFileId());
+          fileId = std::to_string(Utils::getEqualizerDumpFileId());
         else
-          fileNameBuilder << (Utils::getVolcanoDumpFileId());
+          fileId = std::to_string(Utils::getVolcanoDumpFileId());
 
-        std::string fileName(m_statFileBaseName);
-        fileName += fileNameBuilder.str();
+        std::string fileName(m_statFileBaseName + fileId);
         if (isEqualizerStats)
           fileName += "_eq";
         fileName += ".ll";
@@ -213,7 +179,7 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStat
         {
           intel::Statistic::setModuleStatInfo(pModule,
               m_statWkldName.c_str(), // workload name
-              (m_statWkldName + fileNameBuilder.str()).c_str() // module name
+              (m_statWkldName + fileId).c_str() // module name
               );
         }
         // dump IR with stats

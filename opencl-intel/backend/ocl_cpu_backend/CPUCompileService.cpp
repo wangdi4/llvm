@@ -13,8 +13,12 @@
 // License.
 
 #include "BitCodeContainer.h"
+#include "CompilationUtils.h"
 #include "CPUCompileService.h"
 #include "CPUDeviceBackendFactory.h"
+#include "ObjectCodeContainer.h"
+#include "ObjectDump.h"
+#include "SystemInfo.h"
 #include "exceptions.h"
 #include "elf_binary.h"
 #include "cache_binary_handler.h"
@@ -29,22 +33,74 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
+namespace Utils {
+
+static int getAsmDumpFileId() {
+  static std::atomic<unsigned> fileId(0);
+  fileId++;
+
+  return fileId.load(std::memory_order_relaxed);
+}
+
+} // namespace Utils
+
 CPUCompileService::CPUCompileService(const ICompilerConfig& config)
     :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config)
 {
      m_backendFactory = CPUDeviceBackendFactory::GetInstance();
 }
 
-cl_dev_err_code CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                                              const std::string& filename) const
+cl_dev_err_code CPUCompileService::DumpJITCodeContainer(
+    const ICLDevBackendCodeContainer* codeContainer,
+    const ICLDevBackendOptions* options) const
 {
     try
     {
-        const BitCodeContainer* pContainer = static_cast<const BitCodeContainer*>(pCodeContainer);
-        llvm::Module*           pModule    = reinterpret_cast<llvm::Module*>(pContainer->GetModule());
-        const CPUCompiler*      pCompiler  = static_cast<const CPUCompiler*>(m_programBuilder.GetCompiler());
+        // Load object code from ObjectCodeContainer
+        const ObjectCodeContainer* container =
+            static_cast<const ObjectCodeContainer*>(codeContainer);
+        if (!container)
+            return CL_DEV_INVALID_PROGRAM_EXECUTABLE;
 
-        pCompiler->DumpJIT( pModule, filename);
+        OpenCL::ELFUtils::CacheBinaryReader reader(container->GetCode(),
+                                                   container->GetCodeSize());
+        if (!reader.IsCachedObject())
+            return CL_DEV_INVALID_PROGRAM_EXECUTABLE;
+        size_t size = reader.GetSectionSize(
+            Intel::OpenCL::ELFUtils::g_objSectionName);
+        const char* buffer = (const char*)reader.GetSectionData(
+            Intel::OpenCL::ELFUtils::g_objSectionName);
+        assert(buffer && "Object buffer is null");
+        std::unique_ptr<llvm::MemoryBuffer> objBuffer =
+            llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(buffer, size),
+                                             "", false);
+
+        // Get dump filename
+        std::string filename;
+        if (options) {
+            filename =
+                options->GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE, "");
+        } else {
+            // Use default base filename
+            filename = Utils::SystemInfo::GetExecutableFilename();
+            if (filename.empty())
+                filename = "Program";
+            filename += std::to_string(Utils::getAsmDumpFileId()) + ".asm";
+        }
+
+        // Open file
+        std::error_code ec;
+        llvm::raw_fd_ostream out(filename.c_str(), ec, llvm::sys::fs::FA_Write);
+        if (ec)
+            throw Exceptions::CompilerException(
+                std::string("Failed to open file for dump: ") + ec.message());
+
+        Utils::ObjectDump &objDump = Utils::ObjectDump::getInstance();
+        if (llvm::Error err = objDump.disassembleAll(objBuffer.get(), out)) {
+            llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+            throw Exceptions::CompilerException("Failed to dump object buffer");
+        }
+
         return CL_DEV_SUCCESS;
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )

@@ -317,6 +317,47 @@ private:
 };
 
 /**
+ * Options used during program jit code container dump
+ */
+class ProgramJitDumpConfig: public ICLDevBackendOptions
+{
+public:
+
+    ProgramJitDumpConfig(std::string fileName)
+    {
+        m_fileName = fileName;
+    }
+
+    bool GetBooleanValue(int optionId, bool defaultValue) const
+    {
+        return defaultValue;
+    }
+
+    virtual int GetIntValue( int optionId, int defaultValue) const
+    {
+        return defaultValue;
+    }
+
+    virtual const char* GetStringValue(int optionId, const char* defaultValue)const
+    {
+        if( CL_DEV_BACKEND_OPTION_DUMPFILE != optionId )
+        {
+            return defaultValue;
+        }
+
+        return m_fileName.c_str();
+    }
+
+    virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
+    {
+        return false;
+    }
+
+private:
+    std::string m_fileName;
+};
+
+/**
  * Options used during program building
  */
 class BuildProgramOptions: public ICLDevBackendOptions

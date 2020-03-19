@@ -509,33 +509,6 @@ llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
     return m_pBuiltinModule->GetBuiltinModuleList();
 }
 
-void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename,
-                           CodeGenFileType genType) const
-{
-    assert(pModule && "pModule parameter should be valid");
-
-    TargetMachine* pTargetMachine = GetTargetMachine(pModule);
-    if( nullptr == pTargetMachine )
-    {
-        throw Exceptions::CompilerException("Failed to create TargetMachine object");
-    }
-
-    std::error_code ec;
-    llvm::raw_fd_ostream out(filename.c_str(), ec, llvm::sys::fs::FA_Write);
-    if (ec)
-    {
-        throw Exceptions::CompilerException(
-        std::string("Failed to open the target file for dump: error code:") + ec.message());
-    }
-
-    // Build up all of the passes that we want to do to the module.
-    llvm::legacy::PassManager pm;
-    pTargetMachine->addPassesToEmitFile(pm, out,
-        /*raw_pwrite_stream*/ nullptr, genType,
-        /*DisableVerify*/ true);
-    pm.run(*pModule);
-}
-
 void CPUCompiler::SetObjectCache(ObjectCodeCache* pCache)
 {
     ((llvm::ExecutionEngine*)GetExecutionEngine())->setObjectCache(pCache);
