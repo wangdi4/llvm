@@ -1906,7 +1906,7 @@ bool Util::matchQualifiedTypeName(const QualType &Ty,
 
   if (!RecTy)
     return false; // only classes/structs supported
-  const auto *Ctx = dyn_cast<DeclContext>(RecTy);
+  const auto *Ctx = cast<DeclContext>(RecTy);
   StringRef Name = "";
 
   for (const auto &Scope : llvm::reverse(Scopes)) {
