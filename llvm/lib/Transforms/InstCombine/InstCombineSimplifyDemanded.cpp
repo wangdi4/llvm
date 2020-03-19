@@ -537,6 +537,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       // low bits known zero.
       if (ShiftAmt)
         Known.Zero.setLowBits(ShiftAmt);
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -560,6 +562,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       Known.One.lshrInPlace(ShiftAmt);
       if (ShiftAmt)
         Known.Zero.setHighBits(ShiftAmt);  // high bits known zero.
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -620,6 +624,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       } else if (Known.One[BitWidth-ShiftAmt-1]) { // New bits are known one.
         Known.One |= HighBits;
       }
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -641,6 +647,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       // Propagate zero bits from the input.
       Known.Zero.setHighBits(std::min(
           BitWidth, LHSKnown.Zero.countLeadingOnes() + RHSTrailingZeros));
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -699,7 +707,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     Known.Zero = APInt::getHighBitsSet(BitWidth, Leaders) & DemandedMask;
     break;
   }
-  case Instruction::Call:
+  case Instruction::Call: {
+    bool KnownBitsComputed = false;
     if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
       switch (II->getIntrinsicID()) {
       default: break;
@@ -731,8 +740,6 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
           NewVal->takeName(I);
           return InsertNewInstWith(NewVal, *I);
         }
-
-        // TODO: Could compute known zero/one bits based on the input.
         break;
       }
       case Intrinsic::fshr:
@@ -757,6 +764,7 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
                      RHSKnown.Zero.lshr(BitWidth - ShiftAmt);
         Known.One = LHSKnown.One.shl(ShiftAmt) |
                     RHSKnown.One.lshr(BitWidth - ShiftAmt);
+        KnownBitsComputed = true;
         break;
       }
       case Intrinsic::x86_mmx_pmovmskb:
@@ -785,15 +793,20 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
 
         // We know that the upper bits are set to zero.
         Known.Zero.setBitsFrom(ArgWidth);
-        return nullptr;
+        KnownBitsComputed = true;
+        break;
       }
       case Intrinsic::x86_sse42_crc32_64_64:
         Known.Zero.setBitsFrom(32);
-        return nullptr;
+        KnownBitsComputed = true;
+        break;
       }
     }
-    computeKnownBits(V, Known, Depth, CxtI);
+
+    if (!KnownBitsComputed)
+      computeKnownBits(V, Known, Depth, CxtI);
     break;
+  }
   }
 
   // If the client is only demanding bits that we know, return the known
