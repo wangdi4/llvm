@@ -1208,6 +1208,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
     const VPInductionInit *Init) {
   VPValue *Step = Init->getStep();
   auto *StepConst = dyn_cast<VPConstant>(Step);
+
+  // If we do not have a constant step, return random shape.
   if (!StepConst) {
     // This could be a VPExternalDef (a non-constant value), i.e., a
     // variable step IV. We should set the shape to be random if we
@@ -1216,6 +1218,11 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
            "Expect the non-constant to be VPExternalDef.");
     return getRandomVectorShape();
   }
+
+  // If we do not have an integer step, return random shape.
+  if (!StepConst->isConstantInt())
+    return getRandomVectorShape();
+
   int StepInt;
   // If this is a pointer induction, compute the step-size in terms of
   // bytes, using the size of the pointee.
