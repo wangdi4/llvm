@@ -21,14 +21,10 @@
 #include <cstdlib>
 
 EXTERN int omp_get_num_devices(void) {
-<<<<<<< HEAD
-  RTLsMtx->lock();
-=======
 #if INTEL_COLLAB
   return __tgt_get_num_devices();
 #else // INTEL_COLLAB
-  RTLsMtx.lock();
->>>>>>> 750e3e276b7b218a77855d7615b6c4916ec27338
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
   RTLsMtx->unlock();
 

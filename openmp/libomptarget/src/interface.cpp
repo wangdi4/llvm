@@ -655,9 +655,9 @@ EXTERN void *__tgt_get_ompt_trace(void) {
 }
 
 EXTERN int __tgt_get_num_devices(void) {
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
   DP("Call to omp_get_num_devices returning %zd\n", Devices_size);
   return Devices_size;
 }
