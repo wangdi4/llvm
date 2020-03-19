@@ -243,6 +243,39 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
          Ref1->getNumDimensions() == Ref2->getNumDimensions();
 }
 
+bool DDRefUtils::haveConstDimensionDistances(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2,
+                                             bool RelaxedMode) {
+  // Dealing with GEP refs only
+  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
+         "Both refs are expected to be memrefs");
+  if (Ref1 == Ref2) {
+    return true;
+  }
+
+  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode)) {
+    return false;
+  }
+
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
+    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
+
+    // Do not allow different offsets in outer dimensions.
+    if (I != 1 && DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
+      return false;
+    }
+
+    bool Res =
+        CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, nullptr, RelaxedMode);
+    if (!Res) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                               bool RelaxedMode, bool IgnoreAddressOf) {
 

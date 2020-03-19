@@ -236,6 +236,7 @@ FUNCTION_ANALYSIS("hir-dd-analysis", loopopt::HIRDDAnalysisPass())
 FUNCTION_ANALYSIS("hir-safe-reduction-analysis", loopopt::HIRSafeReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-sparse-array-reduction-analysis", loopopt::HIRSparseArrayReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
+FUNCTION_ANALYSIS("hir-array-section-analysis", loopopt::HIRArraySectionAnalysisPass())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_ANALYSIS("vpo-wrncollection", WRegionCollectionAnalysis())
@@ -386,6 +387,7 @@ FUNCTION_PASS("print<hir-locality-analysis>", loopopt::HIRLoopLocalityPrinterPas
 FUNCTION_PASS("print<hir-dd-analysis>", loopopt::HIRDDAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-safe-reduction-analysis>", loopopt::HIRSafeReductionAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("print<hir-sparse-array-reduction-analysis>", loopopt::HIRSparseArrayReductionAnalysisPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir-array-section-analysis>", loopopt::HIRArraySectionAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("hir-recognize-par-loop", loopopt::HIRRecognizeParLoopPass())
 FUNCTION_PASS("hir-dead-store-elimination", loopopt::HIRDeadStoreEliminationPass())
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())

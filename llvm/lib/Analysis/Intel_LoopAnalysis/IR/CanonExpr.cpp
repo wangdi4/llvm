@@ -73,7 +73,7 @@ void CanonExpr::dump(bool Detailed) const {
 void CanonExpr::dump() const { dump(false); }
 #endif
 
-void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
+void CanonExpr::print(raw_ostream &OS, bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
   auto C0 = getConstant();
   auto Denom = getDenominator();
