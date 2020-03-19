@@ -136,7 +136,7 @@ public:
   MicrosoftMangleContextImpl(ASTContext &Context, DiagnosticsEngine &Diags);
   bool shouldMangleCXXName(const NamedDecl *D) override;
   bool shouldMangleStringLiteral(const StringLiteral *SL) override;
-  void mangleCXXName(const NamedDecl *D, raw_ostream &Out) override;
+  void mangleCXXName(GlobalDecl GD, raw_ostream &Out) override;
   void mangleVirtualMemPtrThunk(const CXXMethodDecl *MD,
                                 const MethodVFTableLocation &ML,
                                 raw_ostream &Out) override;
@@ -178,10 +178,6 @@ public:
                                      ArrayRef<const CXXRecordDecl *> BasePath,
                                      raw_ostream &Out) override;
   void mangleTypeName(QualType T, raw_ostream &) override;
-  void mangleCXXCtor(const CXXConstructorDecl *D, CXXCtorType Type,
-                     raw_ostream &) override;
-  void mangleCXXDtor(const CXXDestructorDecl *D, CXXDtorType Type,
-                     raw_ostream &) override;
   void mangleReferenceTemporary(const VarDecl *, unsigned ManglingNumber,
                                 raw_ostream &) override;
   void mangleStaticGuardVariable(const VarDecl *D, raw_ostream &Out) override;
@@ -2991,6 +2987,7 @@ void MicrosoftCXXNameMangler::mangleType(const PipeType *T, Qualifiers,
     << Range;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
                                          SourceRange Range) {
@@ -3030,17 +3027,29 @@ void MicrosoftCXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T,
 #endif // INTEL_CUSTOMIZATION
 
 void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
+=======
+void MicrosoftMangleContextImpl::mangleCXXName(GlobalDecl GD,
+>>>>>>> 29e1a16be8216066d1ed733a763a749aed13ff47
                                                raw_ostream &Out) {
-  assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
-         "Invalid mangleName() call, argument is not a variable or function!");
-  assert(!isa<CXXConstructorDecl>(D) && !isa<CXXDestructorDecl>(D) &&
-         "Invalid mangleName() call on 'structor decl!");
-
+  const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
   PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
                                  getASTContext().getSourceManager(),
                                  "Mangling declaration");
 
   msvc_hashing_ostream MHO(Out);
+
+  if (auto *CD = dyn_cast<CXXConstructorDecl>(D)) {
+    auto Type = GD.getCtorType();
+    MicrosoftCXXNameMangler mangler(*this, MHO, CD, Type);
+    return mangler.mangle(D);
+  }
+
+  if (auto *DD = dyn_cast<CXXDestructorDecl>(D)) {
+    auto Type = GD.getDtorType();
+    MicrosoftCXXNameMangler mangler(*this, MHO, DD, Type);
+    return mangler.mangle(D);
+  }
+
   MicrosoftCXXNameMangler Mangler(*this, MHO);
   return Mangler.mangle(D);
 }
@@ -3298,7 +3307,7 @@ void MicrosoftMangleContextImpl::mangleCXXCatchableType(
   if (!OmitCopyCtor && CD) {
     llvm::raw_svector_ostream Stream(CopyCtorMangling);
     msvc_hashing_ostream MHO(Stream);
-    mangleCXXCtor(CD, CT, MHO);
+    mangleCXXName(GlobalDecl(CD, CT), MHO);
   }
   Mangler.getStream() << CopyCtorMangling;
 
@@ -3399,22 +3408,6 @@ void MicrosoftMangleContextImpl::mangleTypeName(QualType T, raw_ostream &Out) {
   MicrosoftCXXNameMangler Mangler(*this, Out);
   Mangler.getStream() << '?';
   Mangler.mangleType(T, SourceRange());
-}
-
-void MicrosoftMangleContextImpl::mangleCXXCtor(const CXXConstructorDecl *D,
-                                               CXXCtorType Type,
-                                               raw_ostream &Out) {
-  msvc_hashing_ostream MHO(Out);
-  MicrosoftCXXNameMangler mangler(*this, MHO, D, Type);
-  mangler.mangle(D);
-}
-
-void MicrosoftMangleContextImpl::mangleCXXDtor(const CXXDestructorDecl *D,
-                                               CXXDtorType Type,
-                                               raw_ostream &Out) {
-  msvc_hashing_ostream MHO(Out);
-  MicrosoftCXXNameMangler mangler(*this, MHO, D, Type);
-  mangler.mangle(D);
 }
 
 void MicrosoftMangleContextImpl::mangleReferenceTemporary(
