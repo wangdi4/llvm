@@ -824,6 +824,9 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     MI->setMapKind(MapKind);
     MI->setIsByRef(ClauseInfo.getIsByRef());
     ArraySectionInfo &ArrSecInfo = MI->getArraySectionInfo();
+
+    assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
+           "Unexpected number of args for array section operand.");
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr() ||
              NumArgs == 4) { // Map-chains with (BasePtr, SectionPtr,
@@ -898,6 +901,9 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
     DI->setIsIn(IsIn);
     DI->setIsByRef(ClauseInfo.getIsByRef());
     ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
+
+    assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
+           "Unexpected number of args for array section operand.");
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   }
   else
@@ -968,10 +974,28 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
+
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
+    // The number of non array section tuple arguments is 2 by default (base
+    // pointer and dimension at the beginning). For UDR, it's 6, while there are
+    // 4 additional arguments for constructor, destructor, combiner and
+    // initializer at the end.
+    assert((NumArgs ==
+            3 * (cast<ConstantInt>(Args[1])->getZExtValue()) +
+                ((ReductionKind == ReductionItem::WRNReductionUdr) ? 6 : 2)) &&
+           "Unexpected number of args for array section operand.");
+
+    if (ReductionKind == ReductionItem::WRNReductionUdr) {
+      RI->setConstructor(
+          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
+      RI->setDestructor(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
+      RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
+      RI->setInitializer(
+          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+    }
+
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  }
-  else
+  } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       C.add(V);
@@ -988,9 +1012,19 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       if (ClauseInfo.getIsF90DopeVector())
         RI->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
-    }
-}
 
+      if (ReductionKind == ReductionItem::WRNReductionUdr) {
+        assert(((I + 4) < NumArgs) &&
+               "Incorrect arg size for User-defined reduction.");
+        RI->setConstructor(dyn_cast<Function>(dyn_cast<Value>(Args[I + 1])));
+        RI->setDestructor(dyn_cast<Function>(dyn_cast<Value>(Args[I + 2])));
+        RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[I + 3])));
+        RI->setInitializer(dyn_cast<Function>(dyn_cast<Value>(Args[I + 4])));
+        I += 4;
+      }
+    }
+  }
+}
 
 //
 // The code below was trying to get initializer and combiner from the LLVM IR.

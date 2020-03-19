@@ -170,15 +170,14 @@ void VPOParoptUtils::genF90DVLastprivateCopyCall(Value *NewV, Value *OrigV,
                                          InsertBefore, IsTargetSPIRV);
 }
 
-void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I,
-                                                 Value *&DestArrayBeginOut,
-                                                 Type *&DestElementTyOut,
-                                                 Value *&NumElementsOut,
-                                                 Instruction *InsertBefore) {
+void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
+                                                  Value *&DestArrayBeginOut,
+                                                  Type *&DestElementTyOut,
+                                                  Value *&NumElementsOut,
+                                                  Instruction *InsertBefore) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   IRBuilder<> Builder(InsertBefore);
-  Value *NewV = I->getNew();
   StringRef NamePrefix = NewV->getName();
 
   // Get base address from the dope vector.
@@ -192,26 +191,24 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I,
   NumElementsOut = I->getF90DVNumElements();
 }
 
-void VPOParoptUtils::genF90DVReductionFiniSrcDstInfo(const Item *I,
-                                                    Value *&SrcArrayBeginOut,
-                                                    Value *&DestArrayBeginOut,
-                                                    Type *&DestElementTyOut,
-                                                    Value *&NumElementsOut,
-                                                    Instruction *InsertBefore) {
+void VPOParoptUtils::genF90DVReductionSrcDstInfo(
+    const Item *I, Value *&SrcVal, Value *&DestVal, Value *&SrcArrayBeginOut,
+    Value *&DestArrayBeginOut, Type *&DestElementTyOut, Value *&NumElementsOut,
+    Instruction *InsertBefore) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   // Destination on reduction init code (local array) is the source for the
   // finish code.
-  VPOParoptUtils::genF90DVReductionInitDstInfo(
-      I, SrcArrayBeginOut, DestElementTyOut, NumElementsOut, InsertBefore);
+  VPOParoptUtils::genF90DVReductionInitDstInfo(I, SrcVal, SrcArrayBeginOut,
+                                               DestElementTyOut, NumElementsOut,
+                                               InsertBefore);
 
   IRBuilder<> Builder(InsertBefore);
-  Value *OrigV = I->getOrig();
-  StringRef NamePrefix = OrigV->getName();
+  StringRef NamePrefix = DestVal->getName();
 
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP =
-      Builder.CreateInBoundsGEP(OrigV, {Zero, Zero}, NamePrefix + ".addr0");
+      Builder.CreateInBoundsGEP(DestVal, {Zero, Zero}, NamePrefix + ".addr0");
   DestArrayBeginOut = Builder.CreateLoad(Addr0GEP, NamePrefix + ".data");
 }
 #endif // INTEL_CUSTOMIZATION

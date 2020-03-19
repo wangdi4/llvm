@@ -535,14 +535,17 @@ public:
 
     // TODO: Combiner and Initializer are Function*'s from UDR.
     //       We should change Value* to Function* below.
-    Value *Combiner;
-    Value *Initializer;
+    RDECL Combiner;
+    RDECL Initializer;
+    RDECL Constructor;
+    RDECL Destructor;
     ArraySectionInfo ArrSecInfo;
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
-          IsInReduction(false), Combiner(nullptr), Initializer(nullptr) {}
+          IsInReduction(false), Combiner(nullptr), Initializer(nullptr),
+          Constructor(nullptr), Destructor(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -634,14 +637,19 @@ public:
     void setIsUnsigned(bool B)        { IsUnsigned = B;      }
     void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
-    void setCombiner(Value *Comb)     { Combiner = Comb;     }
-    void setInitializer(Value *Init)  { Initializer = Init;  }
+    void setCombiner(RDECL Comb)      { Combiner = Comb;     }
+    void setInitializer(RDECL Init)   { Initializer = Init;  }
+    void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
+    void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
     bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
-    Value *getCombiner()       const { return Combiner;      }
-    Value *getInitializer()    const { return Initializer;   }
+    RDECL getCombiner()        const { return Combiner;      }
+    RDECL getInitializer()     const { return Initializer;   }
+    RDECL getConstructor()     const { return Constructor;   }
+    RDECL getDestructor()      const { return Destructor;    }
+
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
     bool getIsArraySection() const {

@@ -456,12 +456,12 @@ private:
                                    Value *&NumElements, Value *&DestArrayBegin,
                                    Type *&DestElementTy);
 
-  /// For array [section] reduction finalization loop, compute the base address
-  /// of the source and destination arrays, number of elements, and the type of
-  /// destination array elements.
+  /// For array [section] reduction init (for UDR with non-null initializer) or
+  /// finalization loop, compute the base address of the source and destination
+  /// arrays, number of elements, and the type of destination array elements.
   /// \param [in] ReductionItem Reduction Item.
-  /// \param [in] AI Local Value for the reduction operand.
-  /// \param [in] OldV Original reduction operand Value.
+  /// \param [in] SrcVal Source Value for the reduction operand.
+  /// \param [in] DestVal Destination Value for the reduction operand.
   /// \param [in] InsertPt Insert point for any Instructions to be inserted.
   /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
   /// \param [out] NumElements Number of elements in the array [section].
@@ -473,13 +473,12 @@ private:
   /// OldV has already been pre-processed to include any pointer
   /// dereference/offset, and can be used directly as the destination base
   /// pointer. (default = false)
-  void genAggrReductionFiniSrcDstInfo(const ReductionItem &RedI, Value *AI,
-                                      Value *OldV, Instruction *InsertPt,
-                                      IRBuilder<> &Builder, Value *&NumElements,
-                                      Value *&SrcArrayBegin,
-                                      Value *&DestArrayBegin,
-                                      Type *&DestElementTy,
-                                      bool NoNeedToOffsetOrDerefOldV = false);
+  void genAggrReductionSrcDstInfo(const ReductionItem &RedI, Value *SrcVal,
+                                  Value *DestVal, Instruction *InsertPt,
+                                  IRBuilder<> &Builder, Value *&NumElements,
+                                  Value *&SrcArrayBegin, Value *&DestArrayBegin,
+                                  Type *&DestElementTy,
+                                  bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
   /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
@@ -539,6 +538,12 @@ private:
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
 
+  /// Generate calling reduction initialization function for user-defined
+  /// reduction.
+  void genReductionUdrInit(ReductionItem *RedI, Value *ReductionVar,
+                           Value *ReductionValueLoc, Type *ScalarTy,
+                           IRBuilder<> &Builder);
+
   /// Generate the reduction intialization instructions.
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
@@ -562,6 +567,10 @@ private:
   /// Generate the reduction update instructions for min/max.
   Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
+
+  /// Generate calling reduction update function for user-defined reduction.
+  bool genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
+                           Value *ReductionValueLoc, IRBuilder<> &Builder);
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated

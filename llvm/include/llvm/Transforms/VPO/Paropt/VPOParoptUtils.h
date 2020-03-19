@@ -773,6 +773,8 @@ public:
 
   /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
   /// @{
+  static void genConstructorCall(Function *Ctor, Value *V,
+                                 IRBuilder<> &Builder);
   static CallInst *genConstructorCall(Function *Ctor, Value *V,
                                       Value *PrivAlloca);
   static CallInst *genDestructorCall(Function *Dtor, Value *V,
@@ -865,31 +867,34 @@ public:
   /// \p InsertBefore.
   /// \code
   ///   %newv.addr0 = getelementpointer (NewV, 0, 0)
-  ///   %dest.arr.begin = load <element_ty>* %addr0
+  ///   %dest.arr.begin = load <element_ty>* %newv.addr0
   /// \endcode
   /// Where NewV is the local dope vector for I.
-  static void genF90DVReductionInitDstInfo(const Item *I,
-                                          Value *&DestArrayBeginOut,
-                                          Type *&DestElementTyOut,
-                                          Value *&NumElementsOut,
-                                          Instruction *InsertBefore);
+  static void genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
+                                           Value *&DestArrayBeginOut,
+                                           Type *&DestElementTyOut,
+                                           Value *&NumElementsOut,
+                                           Instruction *InsertBefore);
+
   /// Compute the destination address, number of elements and element type for
   /// reduction finalization loop for Fortran dope vectors. The function emits
   /// code to get the data array for the dope vector, which is inserted before
   /// \p InsertBefore.
   /// \code
-  ///   %newv.addr0 = getelementpointer (NewV, 0, 0)
-  ///   %src.arr.begin = load <element_ty>* %newv.addr0
-  ///   %origv.addr0 = getelementpointer (OrigV, 0, 0)
-  ///   %src.arr.begin = load <element_ty>* %origv.addr0
+  ///   %srcv.addr0 = getelementpointer (SrcVal, 0, 0)
+  ///   %src.arr.begin = load <element_ty>* %srcv.addr0
+  ///   %destv.addr0 = getelementpointer (DestVal, 0, 0)
+  ///   %dest.arr.begin = load <element_ty>* %destv.addr0
   /// \endcode
-  /// Where NewV is the local dope vector for I, and OrigV is the original.
-  static void genF90DVReductionFiniSrcDstInfo(const Item *I,
-                                             Value *&SrcArrayBeginOut,
-                                             Value *&DestArrayBeginOut,
-                                             Type *&DestElementTyOut,
-                                             Value *&NumElementsOut,
-                                             Instruction *InsertBefore);
+  /// Where SrcVal is the source dope vector (For reduction initialization, it's
+  /// the original dope vector; for reduction fini, it's local dope vector).
+  /// Where DestVal is the destination dope vector (For reduction
+  /// initialization, it's the local dope vector; for reduction fini, it's
+  /// original dope vector).
+  static void genF90DVReductionSrcDstInfo(
+      const Item *I, Value *&SrcVal, Value *&DestVal, Value *&SrcArrayBeginOut,
+      Value *&DestArrayBeginOut, Type *&DestElementTyOut,
+      Value *&NumElementsOut, Instruction *InsertBefore);
   /// @}
 
 #endif // INTEL_CUSTOMIZATION

@@ -3598,6 +3598,18 @@ CallInst *VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
   return CancelCall;
 }
 
+void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
+                                        IRBuilder<> &Builder) {
+  if (Ctor == nullptr)
+    return;
+
+  Type *ArgTy = Ctor->getFunctionType()->getParamType(0);
+  Type *ValType = V->getType();
+  if (ArgTy != ValType)
+    V = Builder.CreateBitCast(V, ArgTy);
+  Builder.CreateCall(Ctor, {V}, "");
+}
+
 // Emit Constructor call and insert it after PrivAlloca
 CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
                                              Value* PrivAlloca) {
@@ -3618,7 +3630,13 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   if (Dtor == nullptr)
     return nullptr;
 
+  Type *ArgTy = Dtor->getFunctionType()->getParamType(0);
   Type *ValType = V->getType();
+  if (ArgTy != ValType) {
+    IRBuilder<> Builder(InsertBeforePt);
+    V = Builder.CreateBitCast(V, ArgTy);
+    ValType = ArgTy;
+  }
   CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
   LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
