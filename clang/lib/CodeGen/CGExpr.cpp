@@ -5000,7 +5000,6 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
       return CGCallee::forBuiltin(builtinID, FD);
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
       CGF.CapturedStmtInfo->inTargetVariantDispatchRegion()) {
@@ -5013,12 +5012,8 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
     }
   }
 #endif // INTEL_COLLAB
-  llvm::Constant *calleePtr = EmitFunctionDeclPointer(CGF.CGM, FD);
-  return CGCallee::forDirect(calleePtr, GlobalDecl(FD));
-=======
   llvm::Constant *calleePtr = EmitFunctionDeclPointer(CGF.CGM, GD);
   return CGCallee::forDirect(calleePtr, GD);
->>>>>>> 29e1a16be8216066d1ed733a763a749aed13ff47
 }
 
 CGCallee CodeGenFunction::EmitCallee(const Expr *E) {

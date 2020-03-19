@@ -2987,7 +2987,6 @@ void MicrosoftCXXNameMangler::mangleType(const PipeType *T, Qualifiers,
     << Range;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
                                          SourceRange Range) {
@@ -3026,10 +3025,7 @@ void MicrosoftCXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T,
 }
 #endif // INTEL_CUSTOMIZATION
 
-void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
-=======
 void MicrosoftMangleContextImpl::mangleCXXName(GlobalDecl GD,
->>>>>>> 29e1a16be8216066d1ed733a763a749aed13ff47
                                                raw_ostream &Out) {
   const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
   PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
