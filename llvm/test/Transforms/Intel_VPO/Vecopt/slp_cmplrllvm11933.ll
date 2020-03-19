@@ -35,19 +35,22 @@ define dso_local i32 @rayobject_bb_intersect_test(%struct.Isect* nocapture reado
 entry:
   %arrayidx = getelementptr inbounds %struct.Isect, %struct.Isect* %isec, i64 0, i32 0, i64 0
 
-; CHECK:       [[TMP0:%.*]] = bitcast float* %arrayidx to <2 x float>*
-; CHECK-NEXT:  [[TMP1:%.*]] = load <2 x float>, <2 x float>* [[TMP0]], align 8
   %0 = load float, float* %arrayidx, align 8
   %arrayidx1 = getelementptr inbounds %struct.Isect, %struct.Isect* %isec, i64 0, i32 6, i64 0
-
-; CHECK:       [[TMP2:%.*]] = bitcast float* %arrayidx1 to <2 x float>*
-; CHECK-NEXT:  [[TMP3:%.*]] = load <2 x float>, <2 x float>* [[TMP2]], align 4
-; CHECK-NEXT:  [[TMP4:%.*]] = fmul fast <2 x float> [[TMP3]], [[TMP1]]
   %1 = load float, float* %arrayidx1, align 4
   %mul = fmul fast float %1, %0
   %arrayidx3 = getelementptr inbounds %struct.Isect, %struct.Isect* %isec, i64 0, i32 0, i64 1
+
+; CHECK:       [[TMP0:%.*]] = bitcast float* %arrayidx3 to <2 x float>*
+; CHECK-NEXT:  [[TMP1:%.*]] = load <2 x float>, <2 x float>* [[TMP0]], align 4
+
   %2 = load float, float* %arrayidx3, align 4
   %arrayidx5 = getelementptr inbounds %struct.Isect, %struct.Isect* %isec, i64 0, i32 6, i64 1
+
+; CHECK:       [[TMP2:%.*]] = bitcast float* %arrayidx5 to <2 x float>*
+; CHECK-NEXT:  [[TMP3:%.*]] = load <2 x float>, <2 x float>* [[TMP2]], align 4
+; CHECK-NEXT:  [[TMP4:%.*]] = fmul fast <2 x float> [[TMP3]], [[TMP1]]
+
   %3 = load float, float* %arrayidx5, align 4
   %mul6 = fmul fast float %3, %2
   %arrayidx8 = getelementptr inbounds %struct.Isect, %struct.Isect* %isec, i64 0, i32 0, i64 2
@@ -81,7 +84,7 @@ entry:
   %idxprom35 = sext i32 %12 to i64
   %arrayidx36 = getelementptr inbounds float, float* %_bb, i64 %idxprom35
 
-; CHECK:       [[TMP5:%.*]] = load float, float* %arrayidx28, align 4
+; CHECK:       [[TMP5:%.*]] = load float, float* %arrayidx36, align 4
 ; CHECK-NEXT:  [[TMP6:%.*]] = insertelement <2 x float> undef, float [[N:%.*]], i32 0
 ; CHECK-NEXT:  [[TMP7:%.*]] = insertelement <2 x float> [[TMP6]], float [[TMP5]], i32 1
 ; CHECK-NEXT:  [[TMP8:%.*]] = fmul fast <2 x float> [[TMP7]], [[TMP3]]
@@ -102,14 +105,14 @@ entry:
   %idxprom51 = sext i32 %16 to i64
   %arrayidx52 = getelementptr inbounds float, float* %_bb, i64 %idxprom51
 
-; CHECK:       [[TMP40:%.*]] = load float, float* %arrayidx44, align 4
 ; CHECK:       [[TMP10:%.*]] = load float, float* %arrayidx52, align 4
-; CHECK-NEXT:  [[TMP11:%.*]] = insertelement <2 x float> undef, float [[TMP40]], i32 0
+; CHECK-NEXT:  [[TMP11:%.*]] = insertelement <2 x float> undef, float [[TMP10]], i32 0
 ; CHECK-NEXT:  [[TMP12:%.*]] = insertelement <2 x float> [[TMP11]], float [[N1:%.*]], i32 1
 ; CHECK-NEXT:  [[TMP13:%.*]] = fmul fast <2 x float> [[TMP12]], [[TMP3]]
 ; CHECK-NEXT:  [[TMP14:%.*]] = fsub fast <2 x float> [[TMP13]], [[TMP4]]
-; CHECK-NEXT:  [[TMP15:%.*]] = extractelement <2 x float> [[TMP9]], i32 1
-; CHECK-NEXT:  [[TMP17:%.*]] = fcmp fast ole float [[TMP15]], %sub
+; CHECK-NEXT:  [[TMP15:%.*]] = extractelement <2 x float> [[TMP9]], i32 0
+; CHECK-NEXT:  [[TMP16:%.*]] = extractelement <2 x float> [[TMP14]], i32 1
+; CHECK-NEXT:  [[TMP17:%.*]] = fcmp fast ole float [[TMP15]], [[TMP16]]
 
   %17 = load float, float* %arrayidx52, align 4
   %mul55 = fmul fast float %17, %3
@@ -118,21 +121,21 @@ entry:
   %18 = select i1 %cmp, float %sub32, float %sub
   %cmp59 = fcmp fast ogt float %sub48, %18
 
-; CHECK:       [[TMP16:%.*]] = extractelement <2 x float> [[TMP14]], i32 0
-; CHECK:       [[TMP18:%.*]] = extractelement <2 x float> [[TMP14]], i32 1
-; CHECK-NEXT:  [[TMP20:%.*]] = fcmp fast oge float [[TMP18]], %sub40
+; CHECK:       [[TMP18:%.*]] = extractelement <2 x float> [[TMP9]], i32 1
+; CHECK-NEXT:  [[TMP19:%.*]] = extractelement <2 x float> [[TMP14]], i32 0
+; CHECK-NEXT:  [[TMP20:%.*]] = fcmp fast oge float [[TMP19]], [[TMP18]]
   %cmp61 = fcmp fast oge float %sub56, %sub40
   %19 = select i1 %cmp61, float %sub56, float %sub40
   %cmp57 = fcmp fast olt float %sub24, %19
   %or.cond143 = or i1 %cmp59, %cmp57
 
-; FIXME:  both operands of this cmp must be elements of the same vector
-; CHECK:       [[TMP21:%.*]] = fcmp fast ogt float [[TMP18]], %sub
+; Verify that both operands of cmp are extracts from the same vector
+; CHECK:       [[TMP21:%.*]] = fcmp fast ogt float [[TMP19]], [[TMP16]]
   %cmp63 = fcmp fast ogt float %sub56, %sub
   %or.cond144 = or i1 %cmp63, %or.cond143
 
-; FIXME:  both operands of this cmp must be elements of the same vector
-; CHECK:       [[TMP22:%.*]] = fcmp fast olt float [[TMP15]], %sub40
+; Verify that both operands of cmp are extracts from the same vector
+; CHECK:       [[TMP22:%.*]] = fcmp fast olt float [[TMP15]], [[TMP18]]
   %cmp65 = fcmp fast olt float %sub32, %sub40
   %or.cond145 = or i1 %cmp65, %or.cond144
   br i1 %or.cond145, label %cleanup, label %if.end
