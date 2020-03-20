@@ -1005,6 +1005,7 @@ static bool needPadding(uint64_t StartAddr, uint64_t Size,
 #if INTEL_CUSTOMIZATION
 bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
                                      MCBoundaryAlignFragment &BF) {
+<<<<<<< HEAD
   // The MCBoundaryAlignFragment that does not emit anything or not have any
   // fragment to be aligned should not be relaxed.
   if (!BF.hasEmitNopsOrValue() || !BF.getFragment())
@@ -1033,16 +1034,32 @@ bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
       FixedValue += MBF->getSize();
 
   AlignedOffset -= FixedValue;
+=======
+  // BoundaryAlignFragment that doesn't need to align any fragment should not be
+  // relaxed.
+  if (!BF.getLastFragment())
+    return false;
+
+  uint64_t AlignedOffset = Layout.getFragmentOffset(&BF);
+  uint64_t AlignedSize = 0;
+  for (const MCFragment *F = BF.getLastFragment(); F != &BF;
+       F = F->getPrevNode())
+    AlignedSize += computeFragmentSize(Layout, *F);
+
+>>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
   Align BoundaryAlignment = BF.getAlignment();
   uint64_t NewSize = needPadding(AlignedOffset, AlignedSize, BoundaryAlignment)
                          ? offsetToAlignment(AlignedOffset, BoundaryAlignment)
                          : 0U;
+<<<<<<< HEAD
   if (!BF.hasEmitNops()) {
     assert(BF.getNextNode()->hasInstructions() &&
            "The fragment doesn't have any instruction.");
     if (NewSize > static_cast<uint64_t>(BF.getMaxBytesToEmit()))
       NewSize = 0;
   }
+=======
+>>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
   if (NewSize == BF.getSize())
     return false;
   BF.setSize(NewSize);

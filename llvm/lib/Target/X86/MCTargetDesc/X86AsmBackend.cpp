@@ -154,6 +154,7 @@ class X86AsmBackend : public MCAsmBackend {
   const MCDataFragment *LastDFOfInst = nullptr;
 #endif // INTEL_CUSTOMIZATION
   MCInst PrevInst;
+  MCBoundaryAlignFragment *PendingBoundaryAlign = nullptr;
 
 public:
   X86AsmBackend(const Target &T, const MCSubtargetInfo &STI)
@@ -519,6 +520,7 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
           (AlignBranchType & X86::AlignBranchIndirect));
 }
 
+<<<<<<< HEAD
 /// Return true if this instruction has been fully relaxed into it's most
 /// general available form.
 static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
@@ -652,11 +654,15 @@ uint8_t X86AsmBackend::getMaxPrefixSize(MCObjectStreamer &OS,
 }
 
 /// Insert MCBoundaryAlignFragment before instructions to align branches.
+=======
+/// Insert BoundaryAlignFragment before instructions to align branches.
+>>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
 void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
                                        const MCInst &Inst) {
   if (!needAlign(OS))
     return;
 
+<<<<<<< HEAD
   // Summary of inserting scheme(Two Steps):
   // Step 1:
   // If the previous instruction is the first instruction in a fusible pair
@@ -730,6 +736,28 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     // Macro fusion actually happens, so emit NOP before the first instrucion in
     // the fused pair. Note: When there is a MCAlignFragment inserted just
     // before the first instruction in the fused pair, e.g.
+=======
+  if (hasInterruptDelaySlot(PrevInst))
+    // If this instruction follows an interrupt enabling instruction with a one
+    // instruction delay, inserting a nop would change behavior.
+    return;
+
+  if (!isMacroFused(PrevInst, Inst))
+    // Macro fusion doesn't happen indeed, clear the pending.
+    PendingBoundaryAlign = nullptr;
+
+  if (PendingBoundaryAlign &&
+      OS.getCurrentFragment()->getPrevNode() == PendingBoundaryAlign) {
+    // Macro fusion actually happens and there is no other fragment inserted
+    // after the previous instruction.
+    //
+    // Do nothing here since we already inserted a BoudaryAlign fragment when
+    // we met the first instruction in the fused pair and we'll tie them
+    // together in alignBranchesEnd.
+    //
+    // Note: When there is at least one fragment, such as MCAlignFragment,
+    // inserted after the previous instruction, e.g.
+>>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
     //
     // \code
     //   .align 16
@@ -770,6 +798,7 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     //   je .Label0
     // \endcode
     //
+<<<<<<< HEAD
     // We will not emit NOP before the instruction since the align directive is
     // used to align JCC rather than NOP.
     if (isa_and_nonnull<MCAlignFragment>(CF))
@@ -801,11 +830,29 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
 /// Set the last fragment in the set of fragments to be aligned (which is
 /// current fragment indeed) for BF and insert a new BF to prevent further
 /// instruction from being added to the current fragment if necessary.
+=======
+    // We will treat the JCC as a unfused branch although it may be fused
+    // with the CMP.
+    return;
+  }
+
+  if (needAlignInst(Inst) || ((AlignBranchType & X86::AlignBranchFused) &&
+                              isFirstMacroFusibleInst(Inst, *MCII))) {
+    // If we meet a unfused branch or the first instuction in a fusiable pair,
+    // insert a BoundaryAlign fragment.
+    OS.insert(PendingBoundaryAlign =
+                  new MCBoundaryAlignFragment(AlignBoundary));
+  }
+}
+
+/// Set the last fragment to be aligned for the BoundaryAlignFragment.
+>>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
 void X86AsmBackend::alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {
   if (!needAlign(OS))
     return;
 
   PrevInst = Inst;
+<<<<<<< HEAD
   const MCFragment *CF = OS.getCurrentFragment();
 
   if (!MCII->get(Inst.getOpcode()).isPseudo()) {
@@ -866,6 +913,22 @@ void X86AsmBackend::alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {
   // prefix to align other instruction.
   if (!isa<MCRelaxableFragment>(OS.getCurrentFragment()))
     OS.insert(new MCBoundaryAlignFragment());
+=======
+
+  if (!needAlignInst(Inst) || !PendingBoundaryAlign)
+    return;
+
+  // Tie the aligned instructions into a a pending BoundaryAlign.
+  PendingBoundaryAlign->setLastFragment(OS.getCurrentFragment());
+  PendingBoundaryAlign = nullptr;
+
+  // We need to ensure that further data isn't added to the current
+  // DataFragment, so that we can get the size of instructions later in
+  // MCAssembler::relaxBoundaryAlign. The easiest way is to insert a new empty
+  // DataFragment.
+  if (isa_and_nonnull<MCDataFragment>(OS.getCurrentFragment()))
+    OS.insert(new MCDataFragment());
+>>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
 
   // Update the maximum alignment on the current section if necessary.
   MCSection *Sec = OS.getCurrentSectionOnly();
@@ -1171,7 +1234,11 @@ void X86AsmBackend::finishLayout(MCAssembler const &Asm,
       // its target instructions for some following directive.  Doing so would
       // break the alignment of the current boundary align.
       if (auto *BF = dyn_cast<MCBoundaryAlignFragment>(&F)) {
+<<<<<<< HEAD
         const MCFragment *LastFragment = BF->getFragment();
+=======
+        const MCFragment *LastFragment = BF->getLastFragment();
+>>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
         if (!LastFragment)
           continue;
         while (&*I != LastFragment)
