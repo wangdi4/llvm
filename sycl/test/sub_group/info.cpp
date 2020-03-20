@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-=======
 // REQUIRES: opencl
 
-// RUN: %clangxx -fsycl %s -o %t.out
->>>>>>> 2b89583af13dbac36ea207deeee6d36a8ed8becd
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
