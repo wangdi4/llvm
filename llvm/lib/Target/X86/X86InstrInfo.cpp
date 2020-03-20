@@ -8690,6 +8690,10 @@ X86InstrInfo::describeLoadedValue(const MachineInstr &MI, Register Reg) const {
 
     return ParamLoadedValue(*Op, Expr);;
   }
+  case X86::MOV8ri:
+  case X86::MOV16ri:
+    // TODO: Handle MOV8ri and MOV16ri.
+    return None;
   case X86::MOV32ri:
   case X86::MOV64ri:
   case X86::MOV64ri32:
