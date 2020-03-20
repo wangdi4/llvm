@@ -1,5 +1,10 @@
 ; REQUIRES: x86
 
+; INTEL_CUSTOMIZATION
+; Marking it as XFAIL until CMPLRLLVM-18525 is fixed in ld.lld
+; XFAIL: *
+; END INTEL_CUSTOMIZATION
+
 ; Basic ThinLTO tests.
 ; RUN: opt -module-summary %s -o %t1.o
 ; RUN: opt -module-summary %p/Inputs/thinlto.ll -o %t2.o
