@@ -799,7 +799,9 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     // Enable BW and VL if AVX512FP16 is being enabled.
     if (Name == "avx512fp16") {
       if (Enabled) {
-        Features["avx512bw"] = Features["avx512vl"] = true;
+        Features["avx512bw"] = true;
+        Features["avx512dq"] = true;
+        Features["avx512vl"] = true;
       }
 #endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AMX_FP16
@@ -823,6 +825,8 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #endif // INTEL_FEATURE_ISA_FP16
     }
 #if INTEL_FEATURE_ISA_FP16
+    if (Name == "avx512dq" && !Enabled)
+      Features["avx512fp16"] = false;
     if (Name == "avx512vl" && !Enabled)
       Features["avx512fp16"] = false;
 #endif // INTEL_FEATURE_ISA_FP16
