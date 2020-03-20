@@ -1483,18 +1483,17 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   return WideRef;
 }
 
-/// \brief Return result of combining horizontal vector binary operation with
-/// initial value. Instead of splitting VecRef recursively into 2 parts of half
-/// VF until the VF becomes 2, VecRef is shuffled in such a way that the
-/// resulting vector stays VF-wide and the upper elements are shuffled down
-/// into the lower positions to form a new vector. Then, the horizontal
-/// operation is performed on VF-wide vectors, but the upper elements of the
-/// operation are simply ignored. The final result of the horizontal operation
-/// is then extracted from position 0, the leftmost position of the vector.
-/// The rightmost position is 7. E.g., if VF=8, we will have 3 horizontal
-/// operation stages. So, if we start with elements <0,2,1,4,5,1,3,0> and the
-/// horizontal operation is add, we end up with the following sequence of
-/// operations, where u is undefined.
+/// Return result of combining horizontal vector binary operation with initial
+/// value. Instead of splitting VecRef recursively into 2 parts of half VF until
+/// the VF becomes 2, VecRef is shuffled in such a way that the resulting vector
+/// stays VF-wide and the upper elements are shuffled down into the lower
+/// positions to form a new vector. Then, the horizontal operation is performed
+/// on VF-wide vectors, but the upper elements of the operation are simply
+/// ignored. The final result of the horizontal operation is then extracted from
+/// position 0, the leftmost position of the vector. The rightmost position
+/// is 7. E.g., if VF=8, we will have 3 horizontal operation stages. So, if we
+/// start with elements <0,2,1,4,5,1,3,0> and the horizontal operation is add,
+/// we end up with the following sequence of operations, where u is undefined.
 ///
 /// <0,2,1,4,5,1,3,0> + <5,1,3,0,u,u,u,u> = <5,3,4,4,u,u,u,u>
 /// Now, only the first 4 elements are considered for the next stage.
@@ -1562,8 +1561,8 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
   return Extract;
 }
 
-/// \brief Create a call to llvm.experimental.vector.reduce intrinsic in order
-/// to perform horizontal reduction on vector ref \p VecRef. The scalar return
+/// Create a call to llvm.experimental.vector.reduce intrinsic in order to
+/// perform horizontal reduction on vector ref \p VecRef. The scalar return
 /// value of this intrinsic call is stored back to the reduction descriptor
 /// variable \p RednDescriptor. Overloaded parameters of intrinsic call is
 /// determined based on type of reduction. Some examples -

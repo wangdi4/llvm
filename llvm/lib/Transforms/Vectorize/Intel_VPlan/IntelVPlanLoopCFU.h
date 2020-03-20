@@ -31,18 +31,18 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
     LLVM_DEBUG(dbgs() << "Checking inner loop control flow uniformity for:\n");
     LLVM_DEBUG(dbgs() << "SubLoop at depth: " << SubLoop->getLoopDepth() << "\n");
-    auto *SubLoopPreHeader = cast<VPBasicBlock>(SubLoop->getLoopPreheader());
+    VPBasicBlock *SubLoopPreHeader = SubLoop->getLoopPreheader();
     LLVM_DEBUG(dbgs() << "SubLoopPreHeader: " << SubLoopPreHeader->getName()
                       << "\n");
-    auto *SubLoopHeader = cast<VPBasicBlock>(SubLoop->getHeader());
+    VPBasicBlock *SubLoopHeader = SubLoop->getHeader();
     LLVM_DEBUG(dbgs() << "SubLoopHeader: " << SubLoopHeader->getName() << "\n");
-    auto *SubLoopLatch = cast<VPBasicBlock>(SubLoop->getLoopLatch());
+    VPBasicBlock *SubLoopLatch = SubLoop->getLoopLatch();
     LLVM_DEBUG(dbgs() << "SubLoopLatch: " << SubLoopLatch->getName() << "\n");
-    auto *SubLoopExitBlock = cast<VPBasicBlock>(SubLoop->getExitBlock());
+    VPBasicBlock *SubLoopExitBlock = SubLoop->getExitBlock();
     LLVM_DEBUG(dbgs() << "SubLoopExitBlock: " << SubLoopExitBlock->getName() << "\n");
     (void)SubLoopExitBlock; // Unused under old-predicator release build.
 
-    auto *SubLoopRegnPred = SubLoopPreHeader->getSinglePredecessor();
+    VPBasicBlock *SubLoopRegnPred = SubLoopPreHeader->getSinglePredecessor();
     // Find inner loop top test
     assert(SubLoopRegnPred &&
            "Assumed a single predecessor of subloop contains top test");
@@ -65,13 +65,11 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
 
     VPValue *TopTest = SubLoopRegnPred->getCondBit();
     if (TopTest) {
-      auto *SubLoopRegnPredBlock = cast<VPBasicBlock>(SubLoopRegnPred);
       // If the subloop region is the false successor of the predecessor,
       // we need to negate the top test.
-      if (SubLoopRegnPredBlock->getSuccessors()[1]->getEntryBasicBlock() ==
-          SubLoopPreHeader) {
+      if (SubLoopRegnPred->getSuccessors()[1] == SubLoopPreHeader) {
         VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPoint(SubLoopRegnPredBlock);
+        Builder.setInsertPoint(SubLoopRegnPred);
         TopTest = Builder.createNot(TopTest, TopTest->getName() + ".not");
         VPDA->updateDivergence(*TopTest);
       }
@@ -98,7 +96,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
     (void)NewLoopHeader;
 
     // Latch might have changed during splitting.
-    SubLoopLatch = cast<VPBasicBlock>(SubLoop->getLoopLatch());
+    SubLoopLatch = SubLoop->getLoopLatch();
     VPBasicBlock *NewLoopLatch =
         VPBlockUtils::splitBlockEnd(SubLoopLatch, VPLI, DT, PDT);
 
@@ -144,8 +142,7 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
       // If the back edge is the false successor of the loop latch, the bottom
       // test needs to be adjusted when masking the loop body by negating it.
       bool BackEdgeIsFalseSucc =
-          NewLoopLatch->getSuccessors()[1]->getEntryBasicBlock() ==
-          SubLoopHeader;
+          NewLoopLatch->getSuccessors()[1] == SubLoopHeader;
 
       if (BackEdgeIsFalseSucc) {
         assert(VPDA->isDivergent(*BottomTest));
@@ -192,17 +189,13 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
       // start processing Latch some blends might have been already created.
       // Don't try to process them as that's not needed.
       SmallSet<VPValue *, 8> CreatedBlends;
-      for (auto *BlockBase : SubLoop->blocks()) {
+      for (auto *BB : SubLoop->blocks()) {
         // Skip BB if it corresponds to an inner loop - we have processed
         // instructions in it already and all live-outs are through LCSSA phi of
         // that inner loop right now. We will create one more if the result
         // lives out of the current loop too when processing that inner's loop
         // exit block.
-        if (VPLI->getLoopFor(BlockBase) != SubLoop)
-          continue;
-
-        auto *BB = dyn_cast<VPBasicBlock>(BlockBase);
-        if (!BB)
+        if (VPLI->getLoopFor(BB) != SubLoop)
           continue;
 
         // We will be adding instructions to the latch so do the copy to avoid
@@ -255,9 +248,9 @@ void VPlanPredicator::handleInnerLoopBackedges(VPLoop *VPL) {
               // We need undef for all the predecessors except NewLoopLatch.
               auto *VPUndef =
                   Plan->getVPConstant(UndefValue::get(Inst->getType()));
-              for (VPBlockBase *Pred : SubLoopHeader->getPredecessors())
+              for (VPBasicBlock *Pred : SubLoopHeader->getPredecessors())
                 NewPhi->addIncoming(Pred == NewLoopLatch ? Blend : VPUndef,
-                                    cast<VPBasicBlock>(Pred));
+                                    Pred);
 
               LLVM_DEBUG(dbgs() << "LoopCFU: Handled live-out: " << *Inst
                                 << "Created blend: " << *Blend

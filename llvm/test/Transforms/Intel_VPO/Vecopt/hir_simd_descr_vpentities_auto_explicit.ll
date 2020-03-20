@@ -1,4 +1,5 @@
-; Test to check correctness of VPlan entities generated for auto-recognized and explicit SIMD reduction descriptors when vectorzing with incoming HIR.
+; Test to check correctness of VPlan entities generated for auto-recognized and
+; explicit SIMD reduction descriptors when vectorzing with incoming HIR.
 
 ; __inline
 ; int bar(int p0, int p1, int n, int *ptr, int step) {
@@ -40,8 +41,10 @@
 ; <29>          @llvm.directive.region.exit(%6); [ DIR.OMP.END.SIMD() ]
 ; <0>     END REGION
 
-; For the above HIR, reduction for the variable %p0.addr.i is auto-recognized as SRA while that for %p1.addr.i is recognized explicitly via clause descriptors.
-; We use aliases of the descriptor variables to correctly identify the init and finalize VPValues.
+; For the above HIR, reduction for the variable %p0.addr.i is auto-recognized
+; as SRA while that for %p1.addr.i is recognized explicitly via clause
+; descriptors. We use aliases of the descriptor variables to correctly identify
+; the init and finalize VPValues.
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
@@ -52,8 +55,6 @@
 ; CHECK: Reduction list
 ; CHECK: (+) Start: i32 [[V1_START:%.*]] Exit: i32 [[V1_EXIT:%.*]]
 ; CHECK: (+) Start: i32 [[V2_START:%.*]] Exit: i32 [[V2_EXIT:%.*]]
-
-; CHECK-LABEL: REGION
 ; CHECK: i32 {{%vp.*}} = reduction-init i32 0 i32 [[V1_START]]
 ; CHECK: i32 {{%vp.*}} = reduction-init i32 0 i32 [[V2_START]]
 ; CHECK: i32 {{%vp.*}} = reduction-final{u_add} i32 [[V1_EXIT]]

@@ -29,7 +29,6 @@
 ;     return ret;
 ; }
 
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -40,7 +39,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [101 x float]* nocapture %a, i1 zeroext %vec) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after simplify plain CFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -107,8 +105,6 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %i = alloca i64

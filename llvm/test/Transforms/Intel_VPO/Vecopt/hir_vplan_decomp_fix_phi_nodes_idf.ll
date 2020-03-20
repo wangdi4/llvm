@@ -22,10 +22,12 @@
 ; <35>    |      %inc.lcssa25 = %m;
 ; <50>    + END LOOP
 
-; For the above HIR, decomposer initially would place PHI nodes for the variable %ret.021 only in inner loop body and outer loop
-; exit VPBBs. However a PHI node is needed in the outer loop header since %ret.021 is updated in every iteration of outerloop. These
-; kind of scenarios are handled by the IDF based PHI node placement algorithm that is executed during fixPhiNode. IDF correctly inserts
-; a PHI node for %ret.021 in the outer loop header (BB2).
+; For the above HIR, decomposer initially would place PHI nodes for the variable
+; %ret.021 only in inner loop body and outer loop exit VPBBs. However a PHI node
+; is needed in the outer loop header since %ret.021 is updated in every
+; iteration of outerloop. These kind of scenarios are handled by the IDF based
+; PHI node placement algorithm that is executed during fixPhiNode. IDF correctly
+; inserts a PHI node for %ret.021 in the outer loop header (BB2).
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -38,7 +40,6 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [101 x float]* nocapture %a, i1 zeroext %vec) local_unnamed_addr {
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -99,8 +100,6 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %i = alloca i64, align 8

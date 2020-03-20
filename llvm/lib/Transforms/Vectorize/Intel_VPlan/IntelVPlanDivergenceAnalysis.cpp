@@ -255,7 +255,7 @@ bool VPlanDivergenceAnalysis::updateNormalInstruction(
 }
 
 bool VPlanDivergenceAnalysis::isTemporalDivergent(
-    const VPBlockBase &ObservingBlock, const VPValue &Val) const {
+    const VPBasicBlock &ObservingBlock, const VPValue &Val) const {
   const auto *Inst = dyn_cast<const VPInstruction>(&Val);
   if (!Inst)
     return false;
@@ -327,25 +327,26 @@ bool VPlanDivergenceAnalysis::updatePHINode(const VPInstruction &Phi) const {
 }
 
 bool VPlanDivergenceAnalysis::inRegion(const VPInstruction &I) const {
-  return I.getParent() && inRegion(*(cast<VPBlockBase>(I.getParent())));
+  return I.getParent() && inRegion(*I.getParent());
 }
 
-bool VPlanDivergenceAnalysis::inRegion(const VPBlockBase &BB) const {
+bool VPlanDivergenceAnalysis::inRegion(const VPBasicBlock &BB) const {
   return RegionLoop->contains(&BB);
 }
 
 // marks all users of loop-carried values of the loop headed by @LoopHeader as
 // divergent
-void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
+void VPlanDivergenceAnalysis::taintLoopLiveOuts(
+    const VPBasicBlock &LoopHeader) {
   auto *DivLoop = VPLI->getLoopFor(&LoopHeader);
   assert(DivLoop && "loopHeader is not actually part of a loop");
 
-  SmallVector<VPBlockBase *, 8> TaintStack;
+  SmallVector<VPBasicBlock *, 8> TaintStack;
   DivLoop->getExitBlocks(TaintStack);
 
   // Otherwise potential users of loop-carried values could be anywhere in the
   // dominance region of @DivLoop (including its fringes for phi nodes)
-  DenseSet<const VPBlockBase *> Visited;
+  DenseSet<const VPBasicBlock *> Visited;
   for (auto *Block : TaintStack)
     Visited.insert(Block);
   Visited.insert(&LoopHeader);
@@ -370,7 +371,7 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
     }
 
     // taint outside users of values carried by @DivLoop
-    for (VPInstruction &I : *(cast<VPBasicBlock>(UserBlock))) {
+    for (VPInstruction &I : *UserBlock) {
       if (isAlwaysUniform(I) || isPinned(I))
         continue;
 
@@ -378,7 +379,7 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
         auto *OpInst = dyn_cast<VPInstruction>(Op);
         if (!OpInst)
           continue;
-        if (DivLoop->contains(cast<VPBlockBase>(OpInst->getParent()))) {
+        if (DivLoop->contains(OpInst->getParent())) {
           pushToWorklist(I);
           break;
         }
@@ -396,11 +397,11 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(const VPBlockBase &LoopHeader) {
   }
 }
 
-void VPlanDivergenceAnalysis::pushPHINodes(const VPBlockBase &Block,
+void VPlanDivergenceAnalysis::pushPHINodes(const VPBasicBlock &Block,
                                            bool PushAll) { // INTEL
 
 #if INTEL_CUSTOMIZATION
-  for (const auto &Phi : cast<VPBasicBlock>(Block).getVPPhis()) {
+  for (const auto &Phi : Block.getVPPhis()) {
     if (isDivergent(Phi) && !PushAll)
 #endif // INTEL_CUSTOMIZATION
       continue;
@@ -422,7 +423,7 @@ void VPlanDivergenceAnalysis::pushUsers(const VPValue &V) {
 }
 
 bool VPlanDivergenceAnalysis::propagateJoinDivergence(
-    const VPBlockBase &JoinBlock, const VPLoop *BranchLoop) {
+    const VPBasicBlock &JoinBlock, const VPLoop *BranchLoop) {
   LLVM_DEBUG(dbgs() << "\tpropJoinDiv " << JoinBlock.getName() << "\n");
 
   // Ignore divergence outside the region.
@@ -461,8 +462,7 @@ void VPlanDivergenceAnalysis::propagateBranchDivergence(const VPValue &Cond) {
 
   // @BranchLoop is a divergent loop due to the divergent branch created by
   // @Cond.
-  for (const auto *JoinBlock :
-       SDA->joinBlocks(*cast<VPBlockBase>(CondInst->getParent()))) {
+  for (const auto *JoinBlock : SDA->joinBlocks(*CondInst->getParent())) {
     if (propagateJoinDivergence(*JoinBlock, BranchLoop)) {
       addDivergentLoopExit(*JoinBlock);
       IsBranchLoopDivergent |= true;
@@ -726,19 +726,18 @@ void VPlanDivergenceAnalysis::verifyBasicBlock(const VPBasicBlock *VPBB) {
 // Also ensure that divergent/uniform properties are consistent with vector
 // shapes.
 void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
-  for (VPBlockBase *Block : VPLp->getBlocks())
-    if (auto VPBB = dyn_cast<VPBasicBlock>(Block))
-      verifyBasicBlock(VPBB);
+  for (VPBasicBlock *VPBB : VPLp->getBlocks())
+    verifyBasicBlock(VPBB);
 
   // TODO: Verify the loop-preheader - CMPLRLLVM-11939. The veryifyBlock should
   // have more thorough checks for entities instructions. Also, the PreHeader is
   // not part of the 'Loop'.
-  verifyBasicBlock(cast<VPBasicBlock>(VPLp->getLoopPreheader()));
+  verifyBasicBlock(VPLp->getLoopPreheader());
 
   // TODO: Verify the loop-postExit - CMPLRLLVM-11939. We may not always have a
   // PostExit block at this time.
   if (VPLp->getUniqueExitBlock())
-    verifyBasicBlock(cast<VPBasicBlock>(VPLp->getUniqueExitBlock()));
+    verifyBasicBlock(VPLp->getUniqueExitBlock());
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -747,21 +746,19 @@ void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   OS << "\nPrinting Divergence info for " << *VPLp << "\n";
-  ReversePostOrderTraversal<VPBlockBase *> RPOT(VPLp->getHeader());
-  for (VPBlockBase *Block : RPOT) {
-    if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      OS << "Basic Block: " << VPBB->getName() << "\n";
-      for (auto &VPInst : *VPBB) {
-        if (isDivergent(VPInst))
-          OS << "Divergent: ";
-        else
-          OS << "Uniform: ";
-        getVectorShape(&VPInst).print(OS);
-        OS << ' ';
-        VPInst.dump(OS);
-      }
-      OS << "\n";
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(VPLp->getHeader());
+  for (VPBasicBlock *VPBB : RPOT) {
+    OS << "Basic Block: " << VPBB->getName() << "\n";
+    for (auto &VPInst : *VPBB) {
+      if (isDivergent(VPInst))
+        OS << "Divergent: ";
+      else
+        OS << "Uniform: ";
+      getVectorShape(&VPInst).print(OS);
+      OS << ' ';
+      VPInst.dump(OS);
     }
+    OS << "\n";
   }
 }
 
@@ -1311,8 +1308,7 @@ void VPlanDivergenceAnalysis::initializePhiShapes(VPLoop *CandidateLoop) {
   // strides. We could also initialize VPExternalDefs to uniform here, but
   // we can do that only the fly in computeVectorShapes() to avoid an
   // additional iteration over the instructions in the VPlan.
-  for (const auto &Phi :
-       cast<VPBasicBlock>(CandidateLoop->getHeader())->getVPPhis()) {
+  for (const auto &Phi : CandidateLoop->getHeader()->getVPPhis()) {
     VPVectorShape NewShape = VPVectorShape::getUndef();
     auto getInduction = [](const auto &Phi) -> VPInductionInit * {
       for (auto *PhiArg : Phi.incoming_values())
@@ -1336,38 +1332,36 @@ void VPlanDivergenceAnalysis::initializePhiShapes(VPLoop *CandidateLoop) {
 
 /// Set shapes for instructions with loop-invariant operands.
 void VPlanDivergenceAnalysis::initializeShapesForConstOpInsts() {
-  ReversePostOrderTraversal<VPBlockBase *> RPOT(RegionLoop->getHeader());
-  for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
-    if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
-      for (auto &VPInst : *VPBB) {
-        // If any operands of the instruction are always known to be
-        // uniform, set the shape as uniform. This will also cover cases
-        // where some instructions have all uniform operands that are
-        // external definitions and for which shapes will not be defined
-        // during divergence propagation. I.e., shape propagation happens
-        // through def/use chains and these instructions are not using
-        // other values defined within the region. Thus, these instructions
-        // will never be "seen" while propagating divergence and shape
-        // information and would result in shapes being undefined for them.
-        if (isa<VPBranchInst>(&VPInst) && VPInst.getNumOperands() == 0) {
-          updateVectorShape(&VPInst, getUniformVectorShape());
-          continue;
-        }
-        unsigned NumOps = VPInst.getNumOperands();
-        bool HasUniformShapedOperand = false;
-        for (unsigned i = 0; i < NumOps; i++) {
-          const VPValue *Op = VPInst.getOperand(i);
-          if (isAlwaysUniform(*Op)) {
-            HasUniformShapedOperand = true;
-            VPVectorShape NewShape = getUniformVectorShape();
-            updateVectorShape(Op, NewShape);
-          }
-        }
-        // If any operand has changed shape, push that instruction to the
-        // Worklist so that its shape is evaluated.
-        if (HasUniformShapedOperand)
-          pushToWorklist(VPInst);
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(RegionLoop->getHeader());
+  for (VPBasicBlock *VPBB : make_range(RPOT.begin(), RPOT.end())) {
+    for (auto &VPInst : *VPBB) {
+      // If any operands of the instruction are always known to be
+      // uniform, set the shape as uniform. This will also cover cases
+      // where some instructions have all uniform operands that are
+      // external definitions and for which shapes will not be defined
+      // during divergence propagation. I.e., shape propagation happens
+      // through def/use chains and these instructions are not using
+      // other values defined within the region. Thus, these instructions
+      // will never be "seen" while propagating divergence and shape
+      // information and would result in shapes being undefined for them.
+      if (isa<VPBranchInst>(&VPInst) && VPInst.getNumOperands() == 0) {
+        updateVectorShape(&VPInst, getUniformVectorShape());
+        continue;
       }
+      unsigned NumOps = VPInst.getNumOperands();
+      bool HasUniformShapedOperand = false;
+      for (unsigned i = 0; i < NumOps; i++) {
+        const VPValue *Op = VPInst.getOperand(i);
+        if (isAlwaysUniform(*Op)) {
+          HasUniformShapedOperand = true;
+          VPVectorShape NewShape = getUniformVectorShape();
+          updateVectorShape(Op, NewShape);
+        }
+      }
+      // If any operand has changed shape, push that instruction to the
+      // Worklist so that its shape is evaluated.
+      if (HasUniformShapedOperand)
+        pushToWorklist(VPInst);
     }
   }
 }
@@ -1380,20 +1374,19 @@ void VPlanDivergenceAnalysis::initializeShapesForConstOpInsts() {
 // instructions with no input operands.
 void VPlanDivergenceAnalysis::pushNonDeterministicInsts(VPLoop *CandidateLoop) {
   // Collect instructions that may possibly have non-deterministic result.
-  for (auto *B : CandidateLoop->getBlocks())
-    if (auto *VPBB = dyn_cast<VPBasicBlock>(B)) {
-      for (const auto &VPInst : *VPBB)
-        if (!hasDeterministicResult(VPInst) || VPInst.getNumOperands() == 0)
-          pushToWorklist(VPInst);
-      // We should set appropriate shape on Block CondBit.
-      if (auto *CB = VPBB->getCondBit()) {
-        if (isAlwaysUniform(*CB)) {
-          VPVectorShape NewShape = getUniformVectorShape();
-          updateVectorShape(CB, NewShape);
-        } else
-          markDivergent(*CB);
-      }
+  for (VPBasicBlock *VPBB : CandidateLoop->getBlocks()) {
+    for (const auto &VPInst : *VPBB)
+      if (!hasDeterministicResult(VPInst) || VPInst.getNumOperands() == 0)
+        pushToWorklist(VPInst);
+    // We should set appropriate shape on Block CondBit.
+    if (auto *CB = VPBB->getCondBit()) {
+      if (isAlwaysUniform(*CB)) {
+        VPVectorShape NewShape = getUniformVectorShape();
+        updateVectorShape(CB, NewShape);
+      } else
+        markDivergent(*CB);
     }
+  }
 }
 
 // Mark Loop-exit condition as uniforms.
@@ -1401,7 +1394,7 @@ void VPlanDivergenceAnalysis::markLoopExitsAsUniforms(VPLoop *CandidateLoop) {
   // After the scalar remainder loop is extracted, the loop exit condition will
   // be uniform. Source of code divergence here away from community - no
   // getTerminator() interface.
-  VPBlockBase *ExitingBlock = CandidateLoop->getExitingBlock();
+  VPBasicBlock *ExitingBlock = CandidateLoop->getExitingBlock();
   if (ExitingBlock) {
     auto LoopExitCond = ExitingBlock->getCondBit();
     assert(LoopExitCond && "Loop exit condition not found");
@@ -1420,7 +1413,7 @@ void VPlanDivergenceAnalysis::initializeShapesForLoopInvariantCode(
     VPLoop *RegionLoop) {
 
   // Mark instructions in the Preheader with appropriate shapes.
-  auto *LoopPreheader = dyn_cast<VPBasicBlock>(RegionLoop->getLoopPreheader());
+  VPBasicBlock *LoopPreheader = RegionLoop->getLoopPreheader();
   assert(LoopPreheader && "Expect a valid Loop preheader.");
   for (const auto &VPInst : *LoopPreheader) {
     // First mark the shapes of the operands as 'Uniform' if they are so.
@@ -1436,8 +1429,7 @@ void VPlanDivergenceAnalysis::initializeShapesForLoopInvariantCode(
   }
 
   // Mark instructions in the PostExit block with appropriate shapes.
-  if (VPBlockBase *UniqueExit = RegionLoop->getUniqueExitBlock()) {
-    auto *LoopExit = cast<VPBasicBlock>(UniqueExit);
+  if (VPBasicBlock *LoopExit = RegionLoop->getUniqueExitBlock()) {
     for (const auto &VPInst : *LoopExit)
       updateVectorShape(&VPInst, computeVectorShape(&VPInst));
   }

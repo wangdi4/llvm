@@ -68,11 +68,11 @@ TEST_F(VPlanVPSubscriptTest, TestVPSubscript) {
       2, {Lower2, Lower1}, {Stride2, Stride1}, Base, {Idx2, Idx1},
       {{1 /*Dimension*/, {1, 0}}, {0 /*Dimension*/, {0}}});
 
-  // Verify HCFG after adding subscript VPInstruction.
+  // Verify loops after adding subscript VPInstruction.
   VPlanVerifier Verifier(*Plan->getDataLayout());
-  Verifier.verifyHierarchicalCFG(Plan.get(), Plan->getEntry());
+  Plan.get()->computeDT();
+  Verifier.verifyLoops(Plan.get(), *Plan->getDT(), Plan->getVPLoopInfo());
 }
-
 } // namespace
 } // namespace vpo
 } // namespace llvm

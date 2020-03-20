@@ -13,7 +13,6 @@
 
 define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  After loop unrolling
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -61,10 +60,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
-; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:    [[DOTLCSSA0:%.*]] = phi i32 [ [[TMP2:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]
+; CHECK-NEXT:    [[DOTLCSSA0:%.*]] = phi i32 [ [[TMP2:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]i32 [[VP3]] -> i32 [[TMP2]]
 ;
 ; CHECK:  define dso_local i32 @_Z3fooPii(i32* nocapture readonly [[A0]], i32 [[N0:%.*]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:

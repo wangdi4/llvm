@@ -21,7 +21,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-LABEL:  Print after simplify plain CFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -60,8 +59,6 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %mul8 = shl nsw i32 %N, 1

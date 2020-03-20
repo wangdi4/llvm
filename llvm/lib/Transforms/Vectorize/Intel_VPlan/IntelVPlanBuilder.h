@@ -57,7 +57,7 @@ private:
 public:
   VPBuilder() {}
 #if INTEL_CUSTOMIZATION
-  /// \brief Clear the insertion point: created instructions will not be
+  /// Clear the insertion point: created instructions will not be
   /// inserted into a block.
   void clearInsertionPoint() {
     BB = nullptr;
@@ -67,7 +67,7 @@ public:
   VPBasicBlock *getInsertBlock() const { return BB; }
   VPBasicBlock::iterator getInsertPoint() const { return InsertPt; }
 
-  /// \brief Insert and return the specified instruction.
+  /// Insert and return the specified instruction.
   VPInstruction *insert(VPInstruction *I) const {
     BB->insert(I, InsertPt);
     return I;
@@ -79,21 +79,21 @@ public:
     VPBasicBlock::iterator Point;
 
   public:
-    /// \brief Creates a new insertion point which doesn't point to anything.
+    /// Creates a new insertion point which doesn't point to anything.
     VPInsertPoint() = default;
 
-    /// \brief Creates a new insertion point at the given location.
+    /// Creates a new insertion point at the given location.
     VPInsertPoint(VPBasicBlock *InsertBlock, VPBasicBlock::iterator InsertPoint)
         : Block(InsertBlock), Point(InsertPoint) {}
 
-    /// \brief Returns true if this insert point is set.
+    /// Returns true if this insert point is set.
     bool isSet() const { return (Block != nullptr); }
 
     VPBasicBlock *getBlock() const { return Block; }
     VPBasicBlock::iterator getPoint() const { return Point; }
   };
 
-  /// \brief Sets the current insert point to a previously-saved location.
+  /// Sets the current insert point to a previously-saved location.
   void restoreIP(VPInsertPoint IP) {
     if (IP.isSet())
       setInsertPoint(IP.getBlock(), IP.getPoint());
@@ -110,14 +110,14 @@ public:
     InsertPt = BB->end();
   }
 #if INTEL_CUSTOMIZATION
-  /// \brief This specifies that created instructions should be inserted
+  /// This specifies that created instructions should be inserted
   /// before the specified instruction.
   void setInsertPoint(VPInstruction *I) {
     BB = I->getParent();
     InsertPt = I->getIterator();
   }
 
-  /// \brief This specifies that created instructions should be inserted at the
+  /// This specifies that created instructions should be inserted at the
   /// specified point.
   void setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
     BB = TheBB;
@@ -212,7 +212,7 @@ public:
     return VPCI;
   }
 
-  /// \brief Create VPCmpInst with its two operands.
+  /// Create VPCmpInst with its two operands.
   VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
                            VPValue *RightOp, const Twine &Name = "") {
     assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
@@ -421,8 +421,8 @@ public:
   // RAII helpers.
   //===--------------------------------------------------------------------===//
 
-  // \brief RAII object that stores the current insertion point and restores it
-  // when the object is destroyed.
+  // RAII object that stores the current insertion point and restores it when
+  // the object is destroyed.
   class InsertPointGuard {
     VPBuilder &Builder;
     // TODO: AssertingVH<VPBasicBlock> Block;

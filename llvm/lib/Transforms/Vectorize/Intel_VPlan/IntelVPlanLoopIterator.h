@@ -8,7 +8,7 @@
 //   from the company.
 //
 //===----------------------------------------------------------------------===//
-// This file defines GraphTraits to visit the VPBlockBases within a VPLoop.
+// This file defines GraphTraits to visit the VPBasicBlocks within a VPLoop.
 //
 // The idea and part of the implementation was borrowed from the LoopIterator.h.
 // When upstreaming, we should probably unify/templatize that one instead.
@@ -24,11 +24,11 @@
 namespace llvm {
 namespace vpo {
 struct VPLoopBodyTraitsImpl {
-  using NodeRef = std::pair<const VPLoop *, const VPBlockBase *>;
+  using NodeRef = std::pair<const VPLoop *, const VPBasicBlock *>;
   using GraphRef = const VPLoop *;
 
   using SuccIterator =
-      decltype(std::declval<const VPBlockBase>().getSuccessors().begin());
+      decltype(std::declval<const VPBasicBlock>().getSuccessors().begin());
 
   class WrappedSuccIterator
       : public iterator_adaptor_base<
