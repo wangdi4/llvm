@@ -254,7 +254,7 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
-    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x11 : 0x0;
+    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x3 : 0x0;
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), FtzDaz),
         ConstantInt::get(IRB.getInt64Ty(), CpuBitMap[0]),
