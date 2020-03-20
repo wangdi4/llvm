@@ -216,7 +216,6 @@ MCObjectStreamer::getOrCreateDataFragment(const MCSubtargetInfo *STI) {
   return F;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 MCBoundaryAlignFragment *MCObjectStreamer::getOrCreateBoundaryAlignFragment() {
   auto *F = dyn_cast_or_null<MCBoundaryAlignFragment>(getCurrentFragment());
@@ -228,8 +227,6 @@ MCBoundaryAlignFragment *MCObjectStreamer::getOrCreateBoundaryAlignFragment() {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
 void MCObjectStreamer::visitUsedSymbol(const MCSymbol &Sym) {
   Assembler->registerSymbol(Sym);
 }

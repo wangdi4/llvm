@@ -531,11 +531,8 @@ class MCBoundaryAlignFragment : public MCFragment {
   bool EmitNops = false;
   /// The alignment requirement of the branch to be aligned.
   Align AlignBoundary;
-<<<<<<< HEAD
-=======
   /// The last fragment in the set of fragments to be aligned.
   const MCFragment *LastFragment = nullptr;
->>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
   /// The size of the fragment.  The size is lazily set during relaxation, and
   /// is not meaningful before that.
   uint64_t Size = 0;
@@ -544,18 +541,9 @@ class MCBoundaryAlignFragment : public MCFragment {
   /// The maximum number of bytes to emit; if the Flag EmitNops is true,
   /// then this constraint is ignored.
   uint64_t MaxBytesToEmit = 0;
-  /// The fragment to be aligned.
-  const MCFragment *LastFragment = nullptr;
-
 public:
-<<<<<<< HEAD
   MCBoundaryAlignFragment(MCSection *Sec = nullptr)
       : MCFragment(FT_BoundaryAlign, false, Sec) {}
-=======
-  MCBoundaryAlignFragment(Align AlignBoundary, MCSection *Sec = nullptr)
-      : MCFragment(FT_BoundaryAlign, false, Sec), AlignBoundary(AlignBoundary) {
-  }
->>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
 
   uint64_t getSize() const { return Size; }
   void setSize(uint64_t Value) { Size = Value; }
@@ -563,7 +551,12 @@ public:
   Align getAlignment() const { return AlignBoundary; }
   void setAlignment(Align V) { AlignBoundary = V; }
 
-<<<<<<< HEAD
+  const MCFragment *getLastFragment() const { return LastFragment; }
+  void setLastFragment(const MCFragment *F) {
+    assert(!F || getParent() == F->getParent());
+    LastFragment = F;
+  }
+
   bool hasValue() const { return Value.hasValue(); }
   uint8_t getValue() const { return Value.getValue(); }
   void setValue(uint8_t V) { Value = V; }
@@ -578,13 +571,6 @@ public:
 
   const MCFragment *getFragment() const { return LastFragment; }
   void setFragment(const MCFragment *F) { LastFragment = F; }
-=======
-  const MCFragment *getLastFragment() const { return LastFragment; }
-  void setLastFragment(const MCFragment *F) {
-    assert(!F || getParent() == F->getParent());
-    LastFragment = F;
-  }
->>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
 
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_BoundaryAlign;

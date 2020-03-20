@@ -425,20 +425,13 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
 #if INTEL_CUSTOMIZATION
   case MCFragment::FT_BoundaryAlign: {
     const auto *BF = cast<MCBoundaryAlignFragment>(this);
-<<<<<<< HEAD
     if (BF->hasEmitNops())
       OS << " (emit nops)";
-=======
->>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
     OS << "\n       ";
     if (BF->hasValue())
       OS << " Value:" << hexdigit(BF->getValue());
     OS << " BoundarySize:" << BF->getAlignment().value()
-<<<<<<< HEAD
        << " MaxBytesToEmit:" << BF->getMaxBytesToEmit()
-=======
-       << " LastFragment:" << BF->getLastFragment()
->>>>>>> 3a503ce66318ed65d071f6401af5750640d33444
        << " Size:" << BF->getSize();
     break;
   }
