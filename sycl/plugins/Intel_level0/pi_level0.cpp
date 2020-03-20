@@ -383,6 +383,27 @@ pi_result L0(piPlatformGetInfo)(
   return PI_SUCCESS;
 }
 
+pi_result L0(piextDeviceConvert)(
+  pi_device *   device,
+  void **       handle)
+{
+  pi_assert(device);
+  pi_assert(handle);
+
+  auto ze_device = pi_cast<ze_device_handle_t*>(handle);
+  if (*device == nullptr) {
+    // Create PI device from the given L0 device handle.
+    pi_throw("piextDeviceConvert: unsupported operation");
+  }
+  else {
+    // Extract the L0 module handle from the given PI program
+    pi_assert(*device);
+    pi_assert(*ze_device == nullptr);
+    *ze_device = (*device)->L0Device;
+  }
+  return PI_SUCCESS;
+}
+
 pi_result L0(piDevicesGet)(pi_platform      platform,
                            pi_device_type   device_type,
                            pi_uint32        num_entries,
@@ -1444,6 +1465,34 @@ pi_result L0(piMemImageCreate)(
   return PI_SUCCESS;
 }
 
+pi_result L0(piextProgramConvert)(
+  pi_context    context,
+  pi_program *  program,
+  void **       handle)
+{
+  pi_assert(program);
+  pi_assert(handle);
+
+  auto ze_module = pi_cast<ze_module_handle_t*>(handle);
+  if (*program == nullptr) {
+    // Create PI program from the given L0 module handle
+    pi_assert(*ze_module);
+    auto L0PiProgram = new _pi_program();
+    L0PiProgram->L0Module = *ze_module;
+    L0PiProgram->Context = context;
+    L0PiProgram->RefCount = 1;
+
+    *program = pi_cast<pi_program>(L0PiProgram);
+  }
+  else {
+    // Extract the L0 module handle from the given PI program
+    pi_assert(*program);
+    pi_assert(*ze_module == nullptr);
+    *ze_module = (*program)->L0Module;
+  }
+  return PI_SUCCESS;
+}
+
 pi_result L0(piProgramCreate)(
   pi_context    context,
   const void *  il,
@@ -1667,7 +1716,26 @@ pi_result L0(piProgramGetBuildInfo)(
   void *                  param_value,
   size_t *                param_value_size_ret) {
 
-  pi_throw("piProgramGetBuildInfo: not implemented");
+  if (param_name == CL_PROGRAM_BINARY_TYPE) {
+    // TODO: is this the only supported binary type in L0?
+    // We should probably return CL_PROGRAM_BINARY_TYPE_NONE if asked
+    // before the program was compiled.
+    //
+    SET_PARAM_VALUE(cl_program_binary_type{CL_PROGRAM_BINARY_TYPE_EXECUTABLE});
+  }
+  else if (param_name == CL_PROGRAM_BUILD_OPTIONS) {
+    // TODO: how to get module build options out of L0?
+    // For the programs that we compiled we can remember the options
+    // passed with piProgramCompile/piProgramBuild, but what can we
+    // return for programs that were built outside and registered
+    // with piProgramRegister?
+    //
+    SET_PARAM_VALUE_STR("");
+  }
+  else {
+    pi_throw("piProgramGetBuildInfo: unsupported param_name");
+  }
+  return PI_SUCCESS;
 }
 
 pi_result L0(piProgramRetain)(pi_program program) {
@@ -1677,6 +1745,7 @@ pi_result L0(piProgramRetain)(pi_program program) {
 
 pi_result L0(piProgramRelease)(pi_program program) {
   if (--(program->RefCount) == 0) {
+    // TODO: call zeModuleDestroy for non-interop L0 modules
     delete program;
   }
   return PI_SUCCESS;
