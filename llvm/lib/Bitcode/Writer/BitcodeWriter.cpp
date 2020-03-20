@@ -730,6 +730,9 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     llvm_unreachable("Can not encode end-attribute kinds marker.");
   case Attribute::None:
     llvm_unreachable("Can not encode none-attribute.");
+  case Attribute::EmptyKey:
+  case Attribute::TombstoneKey:
+    llvm_unreachable("Trying to encode EmptyKey/TombstoneKey");
   }
 
   llvm_unreachable("Trying to encode unknown attribute");
@@ -1810,6 +1813,7 @@ void ModuleBitcodeWriter::writeDITemplateTypeParameter(
   Record.push_back(N->isDistinct());
   Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
   Record.push_back(VE.getMetadataOrNullID(N->getType()));
+  Record.push_back(N->isDefault());
 
   Stream.EmitRecord(bitc::METADATA_TEMPLATE_TYPE, Record, Abbrev);
   Record.clear();
@@ -1822,6 +1826,7 @@ void ModuleBitcodeWriter::writeDITemplateValueParameter(
   Record.push_back(N->getTag());
   Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
   Record.push_back(VE.getMetadataOrNullID(N->getType()));
+  Record.push_back(N->isDefault());
   Record.push_back(VE.getMetadataOrNullID(N->getValue()));
 
   Stream.EmitRecord(bitc::METADATA_TEMPLATE_VALUE, Record, Abbrev);
@@ -3916,20 +3921,7 @@ void IndexBitcodeWriter::writeCombinedGlobalValueSummary() {
       ArrayRef<uint64_t>{ModuleSummaryIndex::BitcodeSummaryVersion});
 
   // Write the index flags.
-  uint64_t Flags = 0;
-  if (Index.withGlobalValueDeadStripping())
-    Flags |= 0x1;
-  if (Index.skipModuleByDistributedBackend())
-    Flags |= 0x2;
-  if (Index.hasSyntheticEntryCounts())
-    Flags |= 0x4;
-  if (Index.enableSplitLTOUnit())
-    Flags |= 0x8;
-  if (Index.partiallySplitLTOUnits())
-    Flags |= 0x10;
-  if (Index.withAttributePropagation())
-    Flags |= 0x20;
-  Stream.EmitRecord(bitc::FS_FLAGS, ArrayRef<uint64_t>{Flags});
+  Stream.EmitRecord(bitc::FS_FLAGS, ArrayRef<uint64_t>{Index.getFlags()});
 
   for (const auto &GVI : valueIds()) {
     Stream.EmitRecord(bitc::FS_VALUE_GUID,
@@ -4223,7 +4215,7 @@ static void writeIdentificationBlock(BitstreamWriter &Stream) {
   Abbv->Add(BitCodeAbbrevOp(bitc::IDENTIFICATION_CODE_EPOCH));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
   auto EpochAbbrev = Stream.EmitAbbrev(std::move(Abbv));
-  constexpr std::array<unsigned, 1> Vals = {bitc::BITCODE_CURRENT_EPOCH};
+  constexpr std::array<unsigned, 1> Vals = {{bitc::BITCODE_CURRENT_EPOCH}};
   Stream.EmitRecord(bitc::IDENTIFICATION_CODE_EPOCH, Vals, EpochAbbrev);
   Stream.ExitBlock();
 }

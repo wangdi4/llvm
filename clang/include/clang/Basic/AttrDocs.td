@@ -2080,6 +2080,20 @@ analysis and might lead to functional errors.
 }
 // end INTEL_CUSTOMIZATION
 
+def SYCLIntelPipeIOAttrDocs : Documentation {
+  let Category = DocCatVariable;
+  let Heading = "IO pipe ID";
+  let Content = [{
+Add I/O attribute to SYCL pipe declaration to declare a special I/O pipe to
+interface with input or output features of an FPGA. These features might include
+network interfaces, PCIe, cameras, or other data capture or processing devices
+or protocols.
+
+The io_pipe_id(id) attribute specifies the I/O feature of an accelerator board
+with which a pipe interfaces. The id argument is the name of the I/O interface.
+  }];
+}
+
 def SYCLIntelFPGAIVDepAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "ivdep";

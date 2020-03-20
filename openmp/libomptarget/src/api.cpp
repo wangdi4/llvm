@@ -24,9 +24,9 @@ EXTERN int omp_get_num_devices(void) {
 #if INTEL_COLLAB
   return __tgt_get_num_devices();
 #else // INTEL_COLLAB
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
 
   DP("Call to omp_get_num_devices returning %zd\n", Devices_size);
 
@@ -63,7 +63,7 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
 
   DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
-  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
     rc = Device.data_alloc_managed(size);
     DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
     return rc;
@@ -98,7 +98,7 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
 
   DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
-  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
     Device.data_delete_managed(device_ptr);
     DP("omp_target_free deallocated managed ptr\n");
     return;
@@ -122,9 +122,9 @@ EXTERN int omp_target_is_present(void *ptr, int device_num) {
     return true;
   }
 
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
   if (Devices_size <= (size_t)device_num) {
     DP("Call to omp_target_is_present with invalid device ID, returning "
         "false\n");
@@ -140,7 +140,7 @@ EXTERN int omp_target_is_present(void *ptr, int device_num) {
   // getTgtPtrBegin() function which means that there is no device
   // corresponding point for ptr. This function should return false
   // in that situation.
-  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
     rc = !IsHostPtr;
   DP("Call to omp_target_is_present returns %d\n", rc);
   return rc;

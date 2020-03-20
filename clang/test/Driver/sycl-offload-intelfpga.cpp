@@ -78,6 +78,14 @@
 // CHK-FPGA-LINK-LIB: clang-offload-bundler{{.*}} "-type=aoo" "-targets=host-x86_64-unknown-linux-gnu" "-inputs=[[INPUT]]" "-outputs=[[OUTPUT1:.+\.txt]]" "-unbundle"
 // CHK-FPGA-LINK-LIB: llvm-ar{{.*}} "cr" {{.*}} "@[[OUTPUT1]]"
 
+/// Check the warning's emission for -fsycl-link's appending behavior
+// RUN: touch dummy.a
+// RUN: %clangxx -fsycl -fintelfpga -fsycl-link=image %s -o dummy.a -### 2>&1 \
+// RUN: | FileCheck %s --check-prefix=CHK-FPGA-LINK-WARN
+// RUN: %clangxx -fsycl -fintelfpga -fsycl-link=early %s -o dummy.a -### 2>&1 \
+// RUN: | FileCheck %s --check-prefix=CHK-FPGA-LINK-WARN
+// CHK-FPGA-LINK-WARN: warning: appending to an existing archive 'dummy.a'
+
 /// -fintelfpga with AOCR library and additional object
 // RUN:  touch %t2.o
 // RUN:  %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga %t.a %t2.o 2>&1 \
@@ -177,7 +185,6 @@
 // CHK-FPGA-DEP-FILES2-LIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice,host-x86_64-unknown-linux-gnu,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.bc,{{.*}}.o,[[INPUT2]]"
 // CHK-FPGA-DEP-FILES2-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice-coff,host-x86_64-pc-windows-msvc,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.bc,{{.*}}.obj,[[INPUT2]]"
 
-// INTEL_CUSTOMIZATION
 /// -fintelfpga dependency file test to object with output designator
 // RUN: touch %t-1.cpp
 // RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fsycl -fintelfpga %t-1.cpp -c -o dummy.o 2>&1 \
@@ -187,7 +194,6 @@
 // CHK-FPGA-DEP-FILES3: clang{{.*}} "-dependency-file" "[[OUTPUT:.+\.d]]"
 // CHK-FPGA-DEP-FILES3-LIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice,host-x86_64-unknown-linux-gnu,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.bc,{{.*}}.o,[[OUTPUT]]"
 // CHK-FPGA-DEP-FILES3-WIN: clang-offload-bundler{{.*}} "-type=o" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice-coff,host-x86_64-pc-windows-msvc,sycl-fpga_dep" {{.*}} "-inputs={{.*}}.bc,{{.*}}.obj,[[OUTPUT]]"
-// end INTEL_CUSTOMIZATION
 
 /// -fintelfpga dependency obj use test
 // RUN: touch %t-1.o
@@ -251,7 +257,7 @@
 // CHK-FPGA-AOCO-PHASES: 10: linker, {0, 9}, image, (host-sycl)
 // CHK-FPGA-AOCO-PHASES: 11: compiler, {4}, ir, (device-sycl)
 // CHK-FPGA-AOCO-PHASES: 12: input, "[[INPUTA]]", archive
-// CHK-FPGA-AOCO-PHASES-LIN: 13: clang-offload-unbundler, {12}, object
+// CHK-FPGA-AOCO-PHASES-LIN: 13: clang-offload-unbundler, {9, 12}, object
 // CHK-FPGA-AOCO-PHASES-WIN: 13: clang-offload-unbundler, {12}, archive
 // CHK-FPGA-AOCO-PHASES: 14: linker, {11, 13}, ir, (device-sycl)
 // CHK-FPGA-AOCO-PHASES: 15: llvm-spirv, {14}, spirv, (device-sycl)
@@ -266,9 +272,10 @@
 // RUN:  %clang_cl -fsycl -fintelfpga -foffload-static-lib=%t_aoco.a -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=CHK-FPGA-AOCO,CHK-FPGA-AOCO-WIN %s
 // CHK-FPGA-AOCO-LIN: clang-offload-bundler{{.*}} "-type=ao" "-targets=sycl-fpga_aoco-intel-unknown-sycldevice" "-inputs=[[INPUTLIB:.+\.a]]" "-check-section"
-// CHK-FPGA-AOCO-LIN: ld{{.*}} "-r" "-o" "[[PARTLINKOBJ:.+\.o]]" "{{.*}}crt1.o" "{{.*}}crti.o" "[[INPUTLIB]]" "{{.*}}crtn.o"
+// CHK-FPGA-AOCO-LIN: clang{{.*}} "-emit-obj" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]"
+// CHK-FPGA-AOCO-LIN: ld{{.*}} "-r" "-o" "[[PARTLINKOBJ:.+\.o]]" "{{.*}}crt1.o" "{{.*}}crti.o" "[[HOSTOBJ]]" "[[INPUTLIB]]" "{{.*}}crtn.o"
 // CHK-FPGA-AOCO-LIN: clang-offload-bundler{{.*}} "-type=oo" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice" "-inputs=[[PARTLINKOBJ]]" "-outputs={{.*}}" "-unbundle"
-// CHK-FPGA-AOCO-WIN: clang-offload-bundler{{.*}} "-type=aoo" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice-coff" "-inputs=[[INPUTLIB:.+\.a]]" "-outputs={{.*}}" "-unbundle"                               
+// CHK-FPGA-AOCO-WIN: clang-offload-bundler{{.*}} "-type=aoo" "-targets=sycl-spir64_fpga-unknown-unknown-sycldevice-coff" "-inputs=[[INPUTLIB:.+\.a]]" "-outputs={{.*}}" "-unbundle"
 // CHK-FPGA-AOCO: llvm-link{{.*}} "@{{.*}}" "-o" "[[LINKEDBC:.+\.bc]]"
 // CHK-FPGA-AOCO: llvm-spirv{{.*}} "-o" "[[TARGSPV:.+\.spv]]" {{.*}} "[[LINKEDBC]]"
 // CHK-FPGA-AOCO: clang-offload-bundler{{.*}} "-type=aoo" "-targets=sycl-fpga_aoco-intel-unknown-sycldevice" "-inputs=[[INPUTLIB]]" "-outputs=[[AOCOLIST:.+\.txt]]" "-unbundle"

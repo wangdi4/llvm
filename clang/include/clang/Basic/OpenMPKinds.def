@@ -216,6 +216,9 @@
 #ifndef OPENMP_FLUSH_CLAUSE
 #define OPENMP_FLUSH_CLAUSE(Name)
 #endif
+#ifndef OPENMP_DEPOBJ_CLAUSE
+#define OPENMP_DEPOBJ_CLAUSE(Name)
+#endif
 
 #if INTEL_COLLAB
 #ifndef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE
@@ -343,6 +346,8 @@ OPENMP_CLAUSE(atomic_default_mem_order, OMPAtomicDefaultMemOrderClause)
 OPENMP_CLAUSE(allocate, OMPAllocateClause)
 OPENMP_CLAUSE(nontemporal, OMPNontemporalClause)
 OPENMP_CLAUSE(order, OMPOrderClause)
+OPENMP_CLAUSE(depobj, OMPDepobjClause)
+OPENMP_CLAUSE(destroy, OMPDestroyClause)
 #if INTEL_CUSTOMIZATION
 OPENMP_CLAUSE(tile, OMPTileClause)
 #if INTEL_FEATURE_CSA
@@ -1193,6 +1198,12 @@ OPENMP_FLUSH_CLAUSE(acq_rel)
 OPENMP_FLUSH_CLAUSE(acquire)
 OPENMP_FLUSH_CLAUSE(release)
 
+// Clauses allowed for OpenMP directive 'depobj'.
+OPENMP_DEPOBJ_CLAUSE(depend)
+OPENMP_DEPOBJ_CLAUSE(destroy)
+OPENMP_DEPOBJ_CLAUSE(update)
+
+#undef OPENMP_DEPOBJ_CLAUSE
 #undef OPENMP_FLUSH_CLAUSE
 #undef OPENMP_ORDER_KIND
 #undef OPENMP_LASTPRIVATE_KIND

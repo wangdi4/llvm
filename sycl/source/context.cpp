@@ -8,13 +8,14 @@
 
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
-#include <CL/sycl/detail/context_impl.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/exception.hpp>
 #include <CL/sycl/exception_list.hpp>
 #include <CL/sycl/platform.hpp>
 #include <CL/sycl/stl.hpp>
+#include <detail/context_impl.hpp>
+
 #include <algorithm>
 #include <memory>
 #include <utility>
@@ -23,26 +24,31 @@
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
-context::context(const async_handler &AsyncHandler)
-    : context(default_selector().select_device(), AsyncHandler) {}
+context::context(const async_handler &AsyncHandler, bool UsePrimaryContext)
+    : context(default_selector().select_device(), AsyncHandler,
+              UsePrimaryContext) {}
 
-context::context(const device &Device, async_handler AsyncHandler)
-    : context(vector_class<device>(1, Device), AsyncHandler) {}
+context::context(const device &Device, async_handler AsyncHandler,
+                 bool UsePrimaryContext)
+    : context(vector_class<device>(1, Device), AsyncHandler,
+              UsePrimaryContext) {}
 
-context::context(const platform &Platform, async_handler AsyncHandler)
-    : context(Platform.get_devices(), AsyncHandler) {}
+context::context(const platform &Platform, async_handler AsyncHandler,
+                 bool UsePrimaryContext)
+    : context(Platform.get_devices(), AsyncHandler, UsePrimaryContext) {}
 
 context::context(const vector_class<device> &DeviceList,
-                 async_handler AsyncHandler) {
+                 async_handler AsyncHandler, bool UsePrimaryContext) {
   if (DeviceList.empty()) {
-    throw invalid_parameter_error("DeviceList is empty.");
+    throw invalid_parameter_error("DeviceList is empty.", PI_INVALID_VALUE);
   }
   auto NonHostDeviceIter = std::find_if_not(
       DeviceList.begin(), DeviceList.end(),
       [&](const device &CurrentDevice) { return CurrentDevice.is_host(); });
   if (NonHostDeviceIter == DeviceList.end())
     impl =
-        std::make_shared<detail::context_impl>(DeviceList[0], AsyncHandler);
+        std::make_shared<detail::context_impl>(DeviceList[0], AsyncHandler,
+                                               UsePrimaryContext);
   else {
     const device &NonHostDevice = *NonHostDeviceIter;
     const auto &NonHostPlatform = NonHostDevice.get_platform().get();
@@ -53,9 +59,11 @@ context::context(const vector_class<device> &DeviceList,
                                  NonHostPlatform));
                     }))
       throw invalid_parameter_error(
-          "Can't add devices across platforms to a single context.");
+          "Can't add devices across platforms to a single context.",
+          PI_INVALID_DEVICE);
     else
-      impl = std::make_shared<detail::context_impl>(DeviceList, AsyncHandler);
+      impl = std::make_shared<detail::context_impl>(DeviceList, AsyncHandler,
+                                                    UsePrimaryContext);
   }
 }
 context::context(cl_context ClContext, async_handler AsyncHandler) {

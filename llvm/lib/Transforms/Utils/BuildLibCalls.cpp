@@ -1927,14 +1927,14 @@ StringRef llvm::getFloatFnName(const TargetLibraryInfo *TLI, Type *Ty,
 
 //- Emit LibCalls ------------------------------------------------------------//
 
-Value *llvm::castToCStr(Value *V, IRBuilder<> &B) {
+Value *llvm::castToCStr(Value *V, IRBuilderBase &B) {
   unsigned AS = V->getType()->getPointerAddressSpace();
   return B.CreateBitCast(V, B.getInt8PtrTy(AS), "cstr");
 }
 
 static Value *emitLibCall(LibFunc TheLibFunc, Type *ReturnType,
                           ArrayRef<Type *> ParamTypes,
-                          ArrayRef<Value *> Operands, IRBuilder<> &B,
+                          ArrayRef<Value *> Operands, IRBuilderBase &B,
                           const TargetLibraryInfo *TLI,
                           bool IsVaArgs = false) {
   if (!TLI->has(TheLibFunc))
@@ -1952,20 +1952,20 @@ static Value *emitLibCall(LibFunc TheLibFunc, Type *ReturnType,
   return CI;
 }
 
-Value *llvm::emitStrLen(Value *Ptr, IRBuilder<> &B, const DataLayout &DL,
+Value *llvm::emitStrLen(Value *Ptr, IRBuilderBase &B, const DataLayout &DL,
                         const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(LibFunc_strlen, DL.getIntPtrType(Context),
                      B.getInt8PtrTy(), castToCStr(Ptr, B), B, TLI);
 }
 
-Value *llvm::emitStrDup(Value *Ptr, IRBuilder<> &B,
+Value *llvm::emitStrDup(Value *Ptr, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strdup, B.getInt8PtrTy(), B.getInt8PtrTy(),
                      castToCStr(Ptr, B), B, TLI);
 }
 
-Value *llvm::emitStrChr(Value *Ptr, char C, IRBuilder<> &B,
+Value *llvm::emitStrChr(Value *Ptr, char C, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   Type *I32Ty = B.getInt32Ty();
@@ -1973,7 +1973,7 @@ Value *llvm::emitStrChr(Value *Ptr, char C, IRBuilder<> &B,
                      {castToCStr(Ptr, B), ConstantInt::get(I32Ty, C)}, B, TLI);
 }
 
-Value *llvm::emitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
+Value *llvm::emitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                          const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -1982,28 +1982,28 @@ Value *llvm::emitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
       {castToCStr(Ptr1, B), castToCStr(Ptr2, B), Len}, B, TLI);
 }
 
-Value *llvm::emitStrCpy(Value *Dst, Value *Src, IRBuilder<> &B,
+Value *llvm::emitStrCpy(Value *Dst, Value *Src, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_strcpy, I8Ptr, {I8Ptr, I8Ptr},
                      {castToCStr(Dst, B), castToCStr(Src, B)}, B, TLI);
 }
 
-Value *llvm::emitStpCpy(Value *Dst, Value *Src, IRBuilder<> &B,
+Value *llvm::emitStpCpy(Value *Dst, Value *Src, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_stpcpy, I8Ptr, {I8Ptr, I8Ptr},
                      {castToCStr(Dst, B), castToCStr(Src, B)}, B, TLI);
 }
 
-Value *llvm::emitStrNCpy(Value *Dst, Value *Src, Value *Len, IRBuilder<> &B,
+Value *llvm::emitStrNCpy(Value *Dst, Value *Src, Value *Len, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_strncpy, I8Ptr, {I8Ptr, I8Ptr, Len->getType()},
                      {castToCStr(Dst, B), castToCStr(Src, B), Len}, B, TLI);
 }
 
-Value *llvm::emitStpNCpy(Value *Dst, Value *Src, Value *Len, IRBuilder<> &B,
+Value *llvm::emitStpNCpy(Value *Dst, Value *Src, Value *Len, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_stpncpy, I8Ptr, {I8Ptr, I8Ptr, Len->getType()},
@@ -2011,7 +2011,7 @@ Value *llvm::emitStpNCpy(Value *Dst, Value *Src, Value *Len, IRBuilder<> &B,
 }
 
 Value *llvm::emitMemCpyChk(Value *Dst, Value *Src, Value *Len, Value *ObjSize,
-                           IRBuilder<> &B, const DataLayout &DL,
+                           IRBuilderBase &B, const DataLayout &DL,
                            const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_memcpy_chk))
     return nullptr;
@@ -2034,7 +2034,7 @@ Value *llvm::emitMemCpyChk(Value *Dst, Value *Src, Value *Len, Value *ObjSize,
   return CI;
 }
 
-Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilder<> &B,
+Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -2043,7 +2043,7 @@ Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilder<> &B,
       {castToCStr(Ptr, B), Val, Len}, B, TLI);
 }
 
-Value *llvm::emitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
+Value *llvm::emitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -2052,7 +2052,7 @@ Value *llvm::emitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
       {castToCStr(Ptr1, B), castToCStr(Ptr2, B), Len}, B, TLI);
 }
 
-Value *llvm::emitBCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
+Value *llvm::emitBCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                       const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -2062,7 +2062,7 @@ Value *llvm::emitBCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
 }
 
 Value *llvm::emitMemCCpy(Value *Ptr1, Value *Ptr2, Value *Val, Value *Len,
-                         IRBuilder<> &B, const TargetLibraryInfo *TLI) {
+                         IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   return emitLibCall(
       LibFunc_memccpy, B.getInt8PtrTy(),
       {B.getInt8PtrTy(), B.getInt8PtrTy(), B.getInt32Ty(), Len->getType()},
@@ -2070,7 +2070,7 @@ Value *llvm::emitMemCCpy(Value *Ptr1, Value *Ptr2, Value *Val, Value *Len,
 }
 
 Value *llvm::emitSNPrintf(Value *Dest, Value *Size, Value *Fmt,
-                          ArrayRef<Value *> VariadicArgs, IRBuilder<> &B,
+                          ArrayRef<Value *> VariadicArgs, IRBuilderBase &B,
                           const TargetLibraryInfo *TLI) {
   SmallVector<Value *, 8> Args{castToCStr(Dest, B), Size, castToCStr(Fmt, B)};
   Args.insert(Args.end(), VariadicArgs.begin(), VariadicArgs.end());
@@ -2080,7 +2080,7 @@ Value *llvm::emitSNPrintf(Value *Dest, Value *Size, Value *Fmt,
 }
 
 Value *llvm::emitSPrintf(Value *Dest, Value *Fmt,
-                         ArrayRef<Value *> VariadicArgs, IRBuilder<> &B,
+                         ArrayRef<Value *> VariadicArgs, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   SmallVector<Value *, 8> Args{castToCStr(Dest, B), castToCStr(Fmt, B)};
   Args.insert(Args.end(), VariadicArgs.begin(), VariadicArgs.end());
@@ -2089,28 +2089,28 @@ Value *llvm::emitSPrintf(Value *Dest, Value *Fmt,
                      /*IsVaArgs=*/true);
 }
 
-Value *llvm::emitStrCat(Value *Dest, Value *Src, IRBuilder<> &B,
+Value *llvm::emitStrCat(Value *Dest, Value *Src, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strcat, B.getInt8PtrTy(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy()},
                      {castToCStr(Dest, B), castToCStr(Src, B)}, B, TLI);
 }
 
-Value *llvm::emitStrLCpy(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
+Value *llvm::emitStrLCpy(Value *Dest, Value *Src, Value *Size, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strlcpy, Size->getType(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), Size->getType()},
                      {castToCStr(Dest, B), castToCStr(Src, B), Size}, B, TLI);
 }
 
-Value *llvm::emitStrLCat(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
+Value *llvm::emitStrLCat(Value *Dest, Value *Src, Value *Size, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strlcat, Size->getType(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), Size->getType()},
                      {castToCStr(Dest, B), castToCStr(Src, B), Size}, B, TLI);
 }
 
-Value *llvm::emitStrNCat(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
+Value *llvm::emitStrNCat(Value *Dest, Value *Src, Value *Size, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strncat, B.getInt8PtrTy(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), Size->getType()},
@@ -2118,7 +2118,7 @@ Value *llvm::emitStrNCat(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
 }
 
 Value *llvm::emitVSNPrintf(Value *Dest, Value *Size, Value *Fmt, Value *VAList,
-                           IRBuilder<> &B, const TargetLibraryInfo *TLI) {
+                           IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   return emitLibCall(
       LibFunc_vsnprintf, B.getInt32Ty(),
       {B.getInt8PtrTy(), Size->getType(), B.getInt8PtrTy(), VAList->getType()},
@@ -2126,7 +2126,7 @@ Value *llvm::emitVSNPrintf(Value *Dest, Value *Size, Value *Fmt, Value *VAList,
 }
 
 Value *llvm::emitVSPrintf(Value *Dest, Value *Fmt, Value *VAList,
-                          IRBuilder<> &B, const TargetLibraryInfo *TLI) {
+                          IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_vsprintf, B.getInt32Ty(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), VAList->getType()},
                      {castToCStr(Dest, B), castToCStr(Fmt, B), VAList}, B, TLI);
@@ -2148,7 +2148,7 @@ static void appendTypeSuffix(Value *Op, StringRef &Name,
 }
 
 static Value *emitUnaryFloatFnCallHelper(Value *Op, StringRef Name,
-                                         IRBuilder<> &B,
+                                         IRBuilderBase &B,
                                          const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitUnaryFloatFnCall");
 
@@ -2170,7 +2170,7 @@ static Value *emitUnaryFloatFnCallHelper(Value *Op, StringRef Name,
   return CI;
 }
 
-Value *llvm::emitUnaryFloatFnCall(Value *Op, StringRef Name, IRBuilder<> &B,
+Value *llvm::emitUnaryFloatFnCall(Value *Op, StringRef Name, IRBuilderBase &B,
                                   const AttributeList &Attrs) {
   SmallString<20> NameBuffer;
   appendTypeSuffix(Op, Name, NameBuffer);
@@ -2180,7 +2180,7 @@ Value *llvm::emitUnaryFloatFnCall(Value *Op, StringRef Name, IRBuilder<> &B,
 
 Value *llvm::emitUnaryFloatFnCall(Value *Op, const TargetLibraryInfo *TLI,
                                   LibFunc DoubleFn, LibFunc FloatFn,
-                                  LibFunc LongDoubleFn, IRBuilder<> &B,
+                                  LibFunc LongDoubleFn, IRBuilderBase &B,
                                   const AttributeList &Attrs) {
   // Get the name of the function according to TLI.
   StringRef Name = getFloatFnName(TLI, Op->getType(),
@@ -2190,7 +2190,7 @@ Value *llvm::emitUnaryFloatFnCall(Value *Op, const TargetLibraryInfo *TLI,
 }
 
 static Value *emitBinaryFloatFnCallHelper(Value *Op1, Value *Op2,
-                                          StringRef Name, IRBuilder<> &B,
+                                          StringRef Name, IRBuilderBase &B,
                                           const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitBinaryFloatFnCall");
 
@@ -2213,7 +2213,8 @@ static Value *emitBinaryFloatFnCallHelper(Value *Op1, Value *Op2,
 }
 
 Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2, StringRef Name,
-                                   IRBuilder<> &B, const AttributeList &Attrs) {
+                                   IRBuilderBase &B,
+                                   const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitBinaryFloatFnCall");
 
   SmallString<20> NameBuffer;
@@ -2225,7 +2226,7 @@ Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2, StringRef Name,
 Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2,
                                    const TargetLibraryInfo *TLI,
                                    LibFunc DoubleFn, LibFunc FloatFn,
-                                   LibFunc LongDoubleFn, IRBuilder<> &B,
+                                   LibFunc LongDoubleFn, IRBuilderBase &B,
                                    const AttributeList &Attrs) {
   // Get the name of the function according to TLI.
   StringRef Name = getFloatFnName(TLI, Op1->getType(),
@@ -2234,7 +2235,7 @@ Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2,
   return emitBinaryFloatFnCallHelper(Op1, Op2, Name, B, Attrs);
 }
 
-Value *llvm::emitPutChar(Value *Char, IRBuilder<> &B,
+Value *llvm::emitPutChar(Value *Char, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_putchar))
     return nullptr;
@@ -2257,7 +2258,7 @@ Value *llvm::emitPutChar(Value *Char, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitPutS(Value *Str, IRBuilder<> &B,
+Value *llvm::emitPutS(Value *Str, IRBuilderBase &B,
                       const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_puts))
     return nullptr;
@@ -2274,7 +2275,7 @@ Value *llvm::emitPutS(Value *Str, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilder<> &B,
+Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilderBase &B,
                        const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fputc))
     return nullptr;
@@ -2295,7 +2296,7 @@ Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFPutCUnlocked(Value *Char, Value *File, IRBuilder<> &B,
+Value *llvm::emitFPutCUnlocked(Value *Char, Value *File, IRBuilderBase &B,
                                const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fputc_unlocked))
     return nullptr;
@@ -2315,7 +2316,7 @@ Value *llvm::emitFPutCUnlocked(Value *Char, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFPutS(Value *Str, Value *File, IRBuilder<> &B,
+Value *llvm::emitFPutS(Value *Str, Value *File, IRBuilderBase &B,
                        const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fputs))
     return nullptr;
@@ -2334,7 +2335,7 @@ Value *llvm::emitFPutS(Value *Str, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFPutSUnlocked(Value *Str, Value *File, IRBuilder<> &B,
+Value *llvm::emitFPutSUnlocked(Value *Str, Value *File, IRBuilderBase &B,
                                const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fputs_unlocked))
     return nullptr;
@@ -2353,7 +2354,7 @@ Value *llvm::emitFPutSUnlocked(Value *Str, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilder<> &B,
+Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fwrite))
     return nullptr;
@@ -2377,7 +2378,7 @@ Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitMalloc(Value *Num, IRBuilder<> &B, const DataLayout &DL,
+Value *llvm::emitMalloc(Value *Num, IRBuilderBase &B, const DataLayout &DL,
                         const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_malloc))
     return nullptr;
@@ -2398,7 +2399,7 @@ Value *llvm::emitMalloc(Value *Num, IRBuilder<> &B, const DataLayout &DL,
 }
 
 Value *llvm::emitCalloc(Value *Num, Value *Size, const AttributeList &Attrs,
-                        IRBuilder<> &B, const TargetLibraryInfo &TLI) {
+                        IRBuilderBase &B, const TargetLibraryInfo &TLI) {
   if (!TLI.has(LibFunc_calloc))
     return nullptr;
 
@@ -2419,7 +2420,7 @@ Value *llvm::emitCalloc(Value *Num, Value *Size, const AttributeList &Attrs,
 }
 
 Value *llvm::emitFWriteUnlocked(Value *Ptr, Value *Size, Value *N, Value *File,
-                                IRBuilder<> &B, const DataLayout &DL,
+                                IRBuilderBase &B, const DataLayout &DL,
                                 const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fwrite_unlocked))
     return nullptr;
@@ -2441,7 +2442,7 @@ Value *llvm::emitFWriteUnlocked(Value *Ptr, Value *Size, Value *N, Value *File,
   return CI;
 }
 
-Value *llvm::emitFGetCUnlocked(Value *File, IRBuilder<> &B,
+Value *llvm::emitFGetCUnlocked(Value *File, IRBuilderBase &B,
                                const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fgetc_unlocked))
     return nullptr;
@@ -2461,7 +2462,7 @@ Value *llvm::emitFGetCUnlocked(Value *File, IRBuilder<> &B,
 }
 
 Value *llvm::emitFGetSUnlocked(Value *Str, Value *Size, Value *File,
-                               IRBuilder<> &B, const TargetLibraryInfo *TLI) {
+                               IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fgets_unlocked))
     return nullptr;
 
@@ -2481,7 +2482,7 @@ Value *llvm::emitFGetSUnlocked(Value *Str, Value *Size, Value *File,
 }
 
 Value *llvm::emitFReadUnlocked(Value *Ptr, Value *Size, Value *N, Value *File,
-                               IRBuilder<> &B, const DataLayout &DL,
+                               IRBuilderBase &B, const DataLayout &DL,
                                const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fread_unlocked))
     return nullptr;

@@ -1536,13 +1536,17 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       Result = Context.Int128Ty;
     break;
   case DeclSpec::TST_float16:
-    // CUDA host and device may have different _Float16 support, therefore
-    // do not diagnose _Float16 usage to avoid false alarm.
-    // ToDo: more precise diagnostics for CUDA.
-    if (!S.Context.getTargetInfo().hasFloat16Type() && !S.getLangOpts().CUDA &&
-        !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice))
-      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
-        << "_Float16";
+    {
+      // CUDA host and device may have different _Float16 support, therefore
+      // do not diagnose _Float16 usage to avoid false alarm.
+      // ToDo: more precise diagnostics for CUDA.
+      auto IsSYCLDeviceCuda =
+        S.getLangOpts().SYCLIsDevice && S.Context.getTargetInfo().getTriple().isNVPTX();
+      if (!S.Context.getTargetInfo().hasFloat16Type() && !S.getLangOpts().CUDA &&
+          !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice) && !IsSYCLDeviceCuda)
+        S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
+          << "_Float16";
+    }
     Result = Context.Float16Ty;
     break;
   case DeclSpec::TST_half:    Result = Context.HalfTy; break;
@@ -2438,6 +2442,12 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
             << ArraySize->getSourceRange();
         ASM = ArrayType::Normal;
       }
+
+      // Zero length arrays are disallowed in SYCL device code.
+      if (getLangOpts().SYCLIsDevice)
+        SYCLDiagIfDeviceCode(ArraySize->getBeginLoc(),
+                             diag::err_typecheck_zero_array_size)
+            << ArraySize->getSourceRange();
     } else if (!T->isDependentType() && !T->isVariablyModifiedType() &&
                !T->isIncompleteType() && !T->isUndeducedType()) {
       // Is the array too large?
@@ -6410,7 +6420,7 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       Attr.setInvalid();
   } else {
     // The keyword-based type attributes imply which address space to use.
-    ASIdx = S.getLangOpts().SYCLIsDevice ? 
+    ASIdx = S.getLangOpts().SYCLIsDevice ?
                 Attr.asSYCLLangAS() : Attr.asOpenCLLangAS();
     if (ASIdx == LangAS::Default)
       llvm_unreachable("Invalid address space");

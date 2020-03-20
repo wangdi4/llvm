@@ -206,7 +206,11 @@ public:
   // binaries.
   std::vector<RTLInfoTy *> UsedRTLs;
 
+#if INTEL_COLLAB
+  int64_t RequiresFlags = OMP_REQ_UNDEFINED;
+#else  // INTEL_COLLAB
   int64_t RequiresFlags;
+#endif // INTEL_COLLAB
 
   explicit RTLsTy() {}
 
@@ -219,8 +223,8 @@ public:
   // Unregister a shared library from all RTLs.
   void UnregisterLib(__tgt_bin_desc *desc);
 };
-extern RTLsTy RTLs;
-extern std::mutex RTLsMtx;
+extern RTLsTy *RTLs;
+extern std::mutex *RTLsMtx;
 
 
 /// Map between the host entry begin and the translation table. Each
@@ -238,8 +242,8 @@ struct TranslationTable {
 };
 typedef std::map<__tgt_offload_entry *, TranslationTable>
     HostEntriesBeginToTransTableTy;
-extern HostEntriesBeginToTransTableTy HostEntriesBeginToTransTable;
-extern std::mutex TrlTblMtx;
+extern HostEntriesBeginToTransTableTy *HostEntriesBeginToTransTable;
+extern std::mutex *TrlTblMtx;
 
 /// Map between the host ptr and a table index
 struct TableMap {
@@ -250,7 +254,7 @@ struct TableMap {
       : Table(table), Index(index) {}
 };
 typedef std::map<void *, TableMap> HostPtrToTableMapTy;
-extern HostPtrToTableMapTy HostPtrToTableMap;
-extern std::mutex TblMapMtx;
+extern HostPtrToTableMapTy *HostPtrToTableMap;
+extern std::mutex *TblMapMtx;
 
 #endif

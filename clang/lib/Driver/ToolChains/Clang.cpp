@@ -534,7 +534,7 @@ static bool mustUseNonLeafFramePointerForTarget(const llvm::Triple &Triple) {
 
 static bool useFramePointerForTargetByDefault(const ArgList &Args,
                                               const llvm::Triple &Triple) {
-  if (Args.hasArg(options::OPT_pg))
+  if (Args.hasArg(options::OPT_pg) && !Args.hasArg(options::OPT_mfentry))
     return true;
 
   switch (Triple.getArch()) {
@@ -2021,21 +2021,19 @@ void Clang::AddSystemZTargetArgs(const ArgList &Args,
                                    options::OPT_mno_backchain, false);
   bool HasPackedStack = Args.hasFlag(options::OPT_mpacked_stack,
                                      options::OPT_mno_packed_stack, false);
-  if (HasBackchain && HasPackedStack) {
+  systemz::FloatABI FloatABI =
+      systemz::getSystemZFloatABI(getToolChain().getDriver(), Args);
+  bool HasSoftFloat = (FloatABI == systemz::FloatABI::Soft);
+  if (HasBackchain && HasPackedStack && !HasSoftFloat) {
     const Driver &D = getToolChain().getDriver();
     D.Diag(diag::err_drv_unsupported_opt)
-      << Args.getLastArg(options::OPT_mpacked_stack)->getAsString(Args) +
-      " " + Args.getLastArg(options::OPT_mbackchain)->getAsString(Args);
+      << "-mpacked-stack -mbackchain -mhard-float";
   }
   if (HasBackchain)
     CmdArgs.push_back("-mbackchain");
   if (HasPackedStack)
     CmdArgs.push_back("-mpacked-stack");
-
-  systemz::FloatABI FloatABI =
-      systemz::getSystemZFloatABI(getToolChain().getDriver(), Args);
-
-  if (FloatABI == systemz::FloatABI::Soft) {
+  if (HasSoftFloat) {
     // Floating point operations and argument passing are soft.
     CmdArgs.push_back("-msoft-float");
     CmdArgs.push_back("-mfloat-abi");
@@ -3954,10 +3952,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Check number of inputs for sanity. We need at least one input.
   assert(Inputs.size() >= 1 && "Must have at least one input.");
   // CUDA/HIP compilation may have multiple inputs (source file + results of
-  // device-side compilations). OpenMP and SYCL device jobs also take the host
-  // IR as a second input. Module precompilation accepts a list of header files
-  // to include as part of the module. All other jobs are expected to have
-  // exactly one input.
+  // device-side compilations).
+  // OpenMP device jobs take the host IR as a second input.
+  // SYCL host jobs accept the integration header from the device-side
+  // compilation as a second input.
+  // Module precompilation accepts a list of header files to include as part
+  // of the module.
+  // All other jobs are expected to have exactly one input.
   bool IsCuda = JA.isOffloading(Action::OFK_Cuda);
   bool IsHIP = JA.isOffloading(Action::OFK_HIP);
   bool IsOpenMPDevice = JA.isDeviceOffloading(Action::OFK_OpenMP);
@@ -4006,7 +4007,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  const llvm::Triple *AuxTriple = IsCuda ? TC.getAuxTriple() : nullptr;
+  const llvm::Triple *AuxTriple = (IsSYCL || IsCuda) ? TC.getAuxTriple() : nullptr;
   bool IsWindowsMSVC = RawTriple.isWindowsMSVCEnvironment();
   bool IsIAMCU = RawTriple.isOSIAMCU();
   bool IsSYCLDevice = (RawTriple.getEnvironment() == llvm::Triple::SYCLDevice);
@@ -4114,7 +4115,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       }
     }
 
-    CmdArgs.push_back("-disable-llvm-passes");
+    if (Triple.isSPIR()) {
+      CmdArgs.push_back("-disable-llvm-passes");
+    }
+
     if (Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
                      options::OPT_fno_sycl_allow_func_ptr, false)) {
       CmdArgs.push_back("-fsycl-allow-func-ptr");
@@ -4127,6 +4131,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   } else if (IsSYCL) {
     // Ensure the default version in SYCL mode is 1.2.1
     CmdArgs.push_back("-sycl-std=1.2.1");
+    // The user had not pass SYCL version, thus we'll employ no-sycl-strict
+    // to allow address-space unqualified pointers in function params/return
+    // along with marking the same function with explicit SYCL_EXTERNAL
+    CmdArgs.push_back("-Wno-sycl-strict");
   }
 
   if (IsOpenMPDevice) {
@@ -4435,8 +4443,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Discard value names in assert builds unless otherwise specified.
   if (Args.hasFlag(options::OPT_fdiscard_value_names,
-                   options::OPT_fno_discard_value_names, !IsAssertBuild))
+                   options::OPT_fno_discard_value_names, !IsAssertBuild)) {
+    if (Args.hasArg(options::OPT_fdiscard_value_names) &&
+        (std::any_of(Inputs.begin(), Inputs.end(),
+                     [](const clang::driver::InputInfo &II) {
+                       return types::isLLVMIR(II.getType());
+                     }))) {
+      D.Diag(diag::warn_ignoring_fdiscard_for_bitcode);
+    }
     CmdArgs.push_back("-discard-value-names");
+  }
 
   // Set the main file name, so that debug info works even with
   // -save-temps.
@@ -4754,6 +4770,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // `--gpu-use-aux-triple-only` is specified.
   if (!Args.getLastArg(options::OPT_gpu_use_aux_triple_only) &&
       ((IsCuda && JA.isDeviceOffloading(Action::OFK_Cuda)) ||
+       (IsSYCL && IsSYCLOffloadDevice) ||
        (IsHIP && JA.isDeviceOffloading(Action::OFK_HIP)))) {
     const ArgList &HostArgs =
         C.getArgsForToolChain(nullptr, StringRef(), Action::OFK_None);
@@ -4773,8 +4790,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   (void)Args.hasArg(options::OPT_mtune_EQ);
 
   if (Arg *A = Args.getLastArg(options::OPT_mcmodel_EQ)) {
-    CmdArgs.push_back("-mcode-model");
-    CmdArgs.push_back(A->getValue());
+    StringRef CM = A->getValue();
+    if (CM == "small" || CM == "kernel" || CM == "medium" || CM == "large" ||
+        CM == "tiny")
+      A->render(Args, CmdArgs);
+    else
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << CM << A->getOption().getName();
   }
 
   if (Arg *A = Args.getLastArg(options::OPT_mtls_size_EQ)) {
@@ -4856,11 +4878,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_v);
-  Args.AddLastArg(CmdArgs, options::OPT_H);
+
+  if (Args.getLastArg(options::OPT_H)) {
+    CmdArgs.push_back("-H");
+    CmdArgs.push_back("-sys-header-deps");
+  }
+
   if (D.CCPrintHeaders && !D.CCGenDiagnostics) {
     CmdArgs.push_back("-header-include-file");
     CmdArgs.push_back(D.CCPrintHeadersFilename ? D.CCPrintHeadersFilename
                                                : "-");
+    CmdArgs.push_back("-sys-header-deps");
   }
   Args.AddLastArg(CmdArgs, options::OPT_P);
   Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
@@ -5991,7 +6019,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       Arg->render(Args, OriginalArgs);
 
     SmallString<256> Flags;
-    Flags += Exec;
+    EscapeSpacesAndBackslashes(Exec, Flags);
     for (const char *OriginalArg : OriginalArgs) {
       SmallString<128> EscapedArg;
       EscapeSpacesAndBackslashes(OriginalArg, EscapedArg);
@@ -6377,7 +6405,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   if (Arg *A = Args.getLastArg(options::OPT_pg))
-    if (FPKeepKind == CodeGenOptions::FramePointerKind::None)
+    if (FPKeepKind == CodeGenOptions::FramePointerKind::None &&
+        !Args.hasArg(options::OPT_mfentry))
       D.Diag(diag::err_drv_argument_not_allowed_with) << "-fomit-frame-pointer"
                                                       << A->getAsString(Args);
 
@@ -6684,7 +6713,13 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
 #endif // INTEL_CUSTOMIZATION
 
-  Args.AddLastArg(CmdArgs, options::OPT_show_includes);
+  if (Arg *ShowIncludes =
+          Args.getLastArg(options::OPT__SLASH_showIncludes,
+                          options::OPT__SLASH_showIncludes_user)) {
+    CmdArgs.push_back("--show-includes");
+    if (ShowIncludes->getOption().matches(options::OPT__SLASH_showIncludes))
+      CmdArgs.push_back("-sys-header-deps");
+  }
 
   // This controls whether or not we emit RTTI data for polymorphic types.
   if (Args.hasFlag(options::OPT__SLASH_GR_, options::OPT__SLASH_GR,
@@ -6865,7 +6900,8 @@ const char *Clang::getDependencyFileName(const ArgList &Args,
                                          const InputInfoList &Inputs) {
   // FIXME: Think about this more.
 
-  if (Arg *OutputOpt = Args.getLastArg(options::OPT_o)) {
+  if (Arg *OutputOpt =
+          Args.getLastArg(options::OPT_o, options::OPT__SLASH_Fo)) {
     SmallString<128> OutputFilename(OutputOpt->getValue());
     llvm::sys::path::replace_extension(OutputFilename, llvm::Twine('d'));
     return Args.MakeArgString(OutputFilename);
@@ -7051,7 +7087,7 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
 
     SmallString<256> Flags;
     const char *Exec = getToolChain().getDriver().getClangProgramPath();
-    Flags += Exec;
+    EscapeSpacesAndBackslashes(Exec, Flags);
     for (const char *OriginalArg : OriginalArgs) {
       SmallString<128> EscapedArg;
       EscapeSpacesAndBackslashes(OriginalArg, EscapedArg);
@@ -7185,7 +7221,7 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
   bool IsFPGADepBundle = (TCArgs.hasArg(options::OPT_fintelfpga) &&
-      Output.getType() == types::TY_Object);
+                          Output.getType() == types::TY_Object);
   // For -fintelfpga, when bundling objects we also want to bundle up the
   // named dependency file.
   // TODO - We are currently using the target triple inputs to slot a location
@@ -7194,7 +7230,7 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
   // file as it does not match the type being bundled.
   if (IsFPGADepBundle) {
     Triples += ',';
-    Triples += Action::GetOffloadKindName(Action::OFK_SYCL);;
+    Triples += Action::GetOffloadKindName(Action::OFK_SYCL);
     Triples += '-';
     Triples += llvm::Triple::getArchTypeName(llvm::Triple::fpga_dep);
   }

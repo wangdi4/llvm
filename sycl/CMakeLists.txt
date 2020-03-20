@@ -26,6 +26,10 @@ if(SYCL_ENABLE_WERROR)
   endif()
 endif()
 
+# Create a soft option for enabling or disabling the instrumentation
+# of the SYCL runtime and expect enabling
+option(SYCL_ENABLE_XPTI_TRACING "Enable tracing of SYCL constructs" OFF)
+
 if(MSVC)
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
   # Skip asynchronous C++ exceptions catching and assume "extern C" functions
@@ -193,8 +197,14 @@ install(DIRECTORY ${OPENCL_INCLUDE}/CL
   COMPONENT opencl-headers
 )
 
+option(SYCL_BUILD_PI_CUDA
+  "Selects the PI API backend. When set to ON, the CUDA backend is selected. \
+   When set to OFF, the OpenCL backend is selected." OFF)
+
 # Configure SYCL version macro
 set(sycl_inc_dir ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(sycl_src_dir ${CMAKE_CURRENT_SOURCE_DIR}/source)
+set(sycl_plugin_dir ${CMAKE_CURRENT_SOURCE_DIR}/plugins)
 string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")
 set(version_header "${sycl_inc_dir}/CL/sycl/version.hpp")
 configure_file("${version_header}.in" "${version_header}")
@@ -241,18 +251,19 @@ function( add_common_options LIB_NAME)
   endif()
 endfunction(add_common_options)
 
+set(SYCL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
 # SYCL runtime library
 add_subdirectory( source )
 
 # Auxilliary extras for SYCL headers/library
 if (NOT WIN32)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/xmethods/$<TARGET_FILE_NAME:sycl>-gdb.py" DESTINATION lib COMPONENT sycl-headers-extras)
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/xmethods/$<TARGET_FILE_NAME:sycl>-gdb.py" DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT sycl-headers-extras)
 endif()
 
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
 add_custom_target( sycl-toolchain
   DEPENDS ${SYCL_RT_LIBS}
-          pi_opencl
           clang
           clang-offload-wrapper
           clang-offload-bundler
@@ -269,6 +280,13 @@ add_custom_target( sycl-toolchain
 # end INTEL_CUSTOMIZATION
   COMMENT "Building SYCL compiler toolchain..."
 )
+
+if (SYCL_ENABLE_XPTI_TRACING)
+  add_dependencies( sycl-toolchain xpti)
+  if (MSVC)
+    add_dependencies( sycl-toolchain xptid)
+  endif()
+endif()
 
 if (NOT DEFINED LLVM_INCLUDE_TESTS)
   set(LLVM_INCLUDE_TESTS ON)
@@ -325,6 +343,19 @@ if(INTEL_CUSTOMIZATION)
     list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
   endif()
 endif(INTEL_CUSTOMIZATION)
+
+if(SYCL_BUILD_PI_CUDA)
+  # Ensure that libclc is enabled.
+  list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
+  if( LIBCLC_FOUND EQUAL -1 )
+    message(FATAL_ERROR
+        "CUDA support requires adding \"libclc\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
+  endif()
+
+  add_dependencies(sycl-toolchain libspirv-builtins pi_cuda)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_cuda)
+endif()
+
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef liblldb_Disassembler_h_
-#define liblldb_Disassembler_h_
+#ifndef LLDB_CORE_DISASSEMBLER_H
+#define LLDB_CORE_DISASSEMBLER_H
 
 #include "lldb/Core/Address.h"
 #include "lldb/Core/EmulateInstruction.h"
@@ -446,13 +446,11 @@ public:
                                 uint32_t num_mixed_context_lines,
                                 uint32_t options, Stream &strm);
 
-  size_t ParseInstructions(const ExecutionContext *exe_ctx,
-                           const AddressRange &range, Stream *error_strm_ptr,
-                           bool prefer_file_cache);
+  size_t ParseInstructions(Target &target, const AddressRange &range,
+                           Stream *error_strm_ptr, bool prefer_file_cache);
 
-  size_t ParseInstructions(const ExecutionContext *exe_ctx,
-                           const Address &range, uint32_t num_instructions,
-                           bool prefer_file_cache);
+  size_t ParseInstructions(Target &target, const Address &range,
+                           uint32_t num_instructions, bool prefer_file_cache);
 
   virtual size_t DecodeInstructions(const Address &base_addr,
                                     const DataExtractor &data,
@@ -553,4 +551,4 @@ private:
 
 } // namespace lldb_private
 
-#endif // liblldb_Disassembler_h_
+#endif // LLDB_CORE_DISASSEMBLER_H

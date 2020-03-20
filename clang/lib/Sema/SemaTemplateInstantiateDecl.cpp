@@ -8,6 +8,7 @@
 //  This file implements C++ template instantiation for declarations.
 //
 //===----------------------------------------------------------------------===/
+
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -20,6 +21,7 @@
 #include "clang/AST/Mangle.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
 #include "clang/AST/TypeLoc.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Template.h"
@@ -621,6 +623,17 @@ static void instantiateIntelFPGABankBitsAttr(
   S.AddIntelFPGABankBitsAttr(New, *Attr, Args.data(), Args.size());
 }
 
+static void instantiateSYCLIntelPipeIOAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const SYCLIntelPipeIOAttr *Attr, Decl *New) {
+  // The ID expression is a constant expression.
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult Result = S.SubstExpr(Attr->getID(), TemplateArgs);
+  if (!Result.isInvalid())
+    S.addSYCLIntelPipeIOAttr(New, *Attr, Result.getAs<Expr>());
+}
+
 void Sema::InstantiateAttrsForDecl(
     const MultiLevelTemplateArgumentList &TemplateArgs, const Decl *Tmpl,
     Decl *New, LateInstantiatedAttrVec *LateAttrs,
@@ -844,6 +857,10 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
             dyn_cast<IntelFPGABankBitsAttr>(TmplAttr)) {
       instantiateIntelFPGABankBitsAttr(*this, TemplateArgs, IntelFPGABankBits,
                                        New);
+    }
+    if (const auto *SYCLIntelPipeIO = dyn_cast<SYCLIntelPipeIOAttr>(TmplAttr)) {
+      instantiateSYCLIntelPipeIOAttr(*this, TemplateArgs, SYCLIntelPipeIO, New);
+      continue;
     }
 
     // Existing DLL attribute on the instantiation takes precedence.

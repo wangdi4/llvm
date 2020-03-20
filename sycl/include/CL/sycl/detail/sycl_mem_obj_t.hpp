@@ -9,9 +9,7 @@
 #pragma once
 
 #include <CL/sycl/detail/common.hpp>
-#include <CL/sycl/detail/context_impl.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_allocator.hpp>
-#include <CL/sycl/detail/plugin.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_i.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
 #include <CL/sycl/event.hpp>
@@ -26,7 +24,9 @@ namespace sycl {
 namespace detail {
 
 // Forward declarations
+class context_impl;
 class event_impl;
+class plugin;
 
 using ContextImplPtr = shared_ptr_class<context_impl>;
 using EventImplPtr = shared_ptr_class<event_impl>;
@@ -83,11 +83,8 @@ public:
 
   virtual ~SYCLMemObjT() = default;
 
-  const plugin &getPlugin() const {
-    assert((MInteropContext != nullptr) &&
-           "Trying to get Plugin from SYCLMemObjT with nullptr ContextImpl.");
-    return (MInteropContext->getPlugin());
-  }
+  const plugin &getPlugin() const;
+
   size_t getSize() const override { return MSizeInBytes; }
   size_t get_count() const {
     size_t AllocatorValueSize = MAllocator->getValueSize();
@@ -237,9 +234,10 @@ public:
     MHostPtrReadOnly = iterator_to_const_type_t<InputIterator>::value;
     setAlign(RequiredAlign);
     if (useHostPtr())
-      throw invalid_parameter_error(
+      throw runtime_error(
           "Buffer constructor from a pair of iterator values does not support "
-          "use_host_ptr property.");
+          "use_host_ptr property.",
+          PI_INVALID_OPERATION);
 
     setAlign(RequiredAlign);
     MShadowCopy = allocateHostMem();
@@ -258,6 +256,9 @@ public:
   void setAlign(size_t RequiredAlign) {
     MAllocator->setAlignment(RequiredAlign);
   }
+
+  static size_t getBufSizeForContext(const ContextImplPtr &Context,
+                                     cl_mem MemObject);
 
 protected:
   // Allocator used for allocation memory on host.

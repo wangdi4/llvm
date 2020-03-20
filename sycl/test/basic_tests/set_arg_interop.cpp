@@ -5,6 +5,9 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 
+// REQUIRES: opencl
+
+
 #include <CL/sycl.hpp>
 
 #include <cassert>

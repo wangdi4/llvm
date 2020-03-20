@@ -127,13 +127,10 @@ define <32 x half>@test_int_x86_avx512_mask3_vfmaddsub_ph_512(<32 x half> %x0, <
 ; X64-NEXT:    vfmaddsub231ph %zmm1, %zmm0, %zmm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x49,0xb6,0xd1]
 ; X64-NEXT:    vmovaps %zmm2, %zmm0 # encoding: [0x62,0xf1,0x7c,0x48,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <32 x half> @llvm.fma.v32f16(<32 x half> %x0, <32 x half> %x1, <32 x half> %x2)
-  %2 = fsub <32 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <32 x half> @llvm.fma.v32f16(<32 x half> %x0, <32 x half> %x1, <32 x half> %2)
-  %4 = shufflevector <32 x half> %3, <32 x half> %1, <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
-  %5 = bitcast i32 %x3 to <32 x i1>
-  %6 = select <32 x i1> %5, <32 x half> %4, <32 x half> %x2
-  ret <32 x half> %6
+  %res = call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %x0, <32 x half> %x1, <32 x half> %x2, i32 4)
+  %bc = bitcast i32 %x3 to <32 x i1>
+  %sel = select <32 x i1> %bc, <32 x half> %res, <32 x half> %x2
+  ret <32 x half> %sel
 }
 
 define <32 x half>@test_int_x86_avx512_maskz_vfmaddsub_ph_512(<32 x half> %x0, <32 x half> %x1, <32 x half> %x2, i32 %x3){
@@ -148,13 +145,10 @@ define <32 x half>@test_int_x86_avx512_maskz_vfmaddsub_ph_512(<32 x half> %x0, <
 ; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vfmaddsub213ph %zmm2, %zmm1, %zmm0 {%k1} {z} # encoding: [0x62,0xf6,0x75,0xc9,0xa6,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <32 x half> @llvm.fma.v32f16(<32 x half> %x0, <32 x half> %x1, <32 x half> %x2)
-  %2 = fsub <32 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <32 x half> @llvm.fma.v32f16(<32 x half> %x0, <32 x half> %x1, <32 x half> %2)
-  %4 = shufflevector <32 x half> %3, <32 x half> %1, <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
-  %5 = bitcast i32 %x3 to <32 x i1>
-  %6 = select <32 x i1> %5, <32 x half> %4, <32 x half> zeroinitializer
-  ret <32 x half> %6
+  %res = call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %x0, <32 x half> %x1, <32 x half> %x2, i32 4)
+  %bc = bitcast i32 %x3 to <32 x i1>
+  %sel = select <32 x i1> %bc, <32 x half> %res, <32 x half> zeroinitializer
+  ret <32 x half> %sel
 }
 
 define <32 x half>@test_int_x86_avx512_mask3_vfmsubadd_ph_512(<32 x half> %x0, <32 x half> %x1, <32 x half> %x2, i32 %x3){
@@ -171,13 +165,11 @@ define <32 x half>@test_int_x86_avx512_mask3_vfmsubadd_ph_512(<32 x half> %x0, <
 ; X64-NEXT:    vfmsubadd231ph %zmm1, %zmm0, %zmm2 {%k1} # encoding: [0x62,0xf6,0x7d,0x49,0xb7,0xd1]
 ; X64-NEXT:    vmovaps %zmm2, %zmm0 # encoding: [0x62,0xf1,0x7c,0x48,0x28,0xc2]
 ; X64-NEXT:    retq # encoding: [0xc3]
-  %1 = call <32 x half> @llvm.fma.v32f16(<32 x half> %x0, <32 x half> %x1, <32 x half> %x2)
-  %2 = fsub <32 x half> <half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00, half -0.000000e+00>, %x2
-  %3 = call <32 x half> @llvm.fma.v32f16(<32 x half> %x0, <32 x half> %x1, <32 x half> %2)
-  %4 = shufflevector <32 x half> %1, <32 x half> %3, <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
-  %5 = bitcast i32 %x3 to <32 x i1>
-  %6 = select <32 x i1> %5, <32 x half> %4, <32 x half> %x2
-  ret <32 x half> %6
+  %neg = fneg <32 x half> %x2
+  %res = call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %x0, <32 x half> %x1, <32 x half> %neg, i32 4)
+  %bc = bitcast i32 %x3 to <32 x i1>
+  %sel = select <32 x i1> %bc, <32 x half> %res, <32 x half> %x2
+  ret <32 x half> %sel
 }
 
 define <32 x half> @test_mask_round_vfmadd512_ph_rrb_rne(<32 x half> %a0, <32 x half> %a1, <32 x half> %a2, i32 %mask) {

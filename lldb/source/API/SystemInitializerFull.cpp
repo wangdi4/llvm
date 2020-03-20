@@ -29,9 +29,8 @@
 
 using namespace lldb_private;
 
-SystemInitializerFull::SystemInitializerFull() {}
-
-SystemInitializerFull::~SystemInitializerFull() {}
+SystemInitializerFull::SystemInitializerFull() = default;
+SystemInitializerFull::~SystemInitializerFull() = default;
 
 llvm::Error SystemInitializerFull::Initialize() {
   if (auto e = SystemInitializerCommon::Initialize())
@@ -46,7 +45,7 @@ llvm::Error SystemInitializerFull::Initialize() {
 #define LLDB_PLUGIN(p) LLDB_PLUGIN_INITIALIZE(p);
 #include "Plugins/Plugins.def"
 
-  // Scan for any system or user LLDB plug-ins.
+  // Scan for any system or user LLDB plug-ins
   PluginManager::Initialize();
 
   // The process settings need to know about installed plug-ins, so the
@@ -62,7 +61,7 @@ void SystemInitializerFull::Terminate() {
 
   Debugger::SettingsTerminate();
 
-  // Terminate and unload and loaded system or user LLDB plug-ins.
+  // Terminate and unload and loaded system or user LLDB plug-ins
   PluginManager::Terminate();
 
 #define LLDB_PLUGIN(p) LLDB_PLUGIN_TERMINATE(p);

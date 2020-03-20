@@ -6,12 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/queue_impl.hpp>
 #include <CL/sycl/event.hpp>
 #include <CL/sycl/exception_list.hpp>
 #include <CL/sycl/handler.hpp>
 #include <CL/sycl/queue.hpp>
 #include <CL/sycl/stl.hpp>
+#include <detail/queue_impl.hpp>
 
 #include <algorithm>
 
@@ -74,6 +74,12 @@ queue::queue(const context &syclContext, const device_selector &deviceSelector,
             detail::getSyclObjImpl(syclContext)->get_async_handler(),
             propList) {}
 
+queue::queue(const context &SyclContext, const device &SyclDevice,
+             const property_list &PropList)
+    : queue(SyclContext, SyclDevice,
+            detail::getSyclObjImpl(SyclContext)->get_async_handler(),
+            PropList) {}
+
 cl_command_queue queue::get() const { return impl->get(); }
 
 context queue::get_context() const { return impl->get_context(); }
@@ -82,9 +88,6 @@ device queue::get_device() const { return impl->get_device(); }
 
 bool queue::is_host() const { return impl->is_host(); }
 
-void queue::wait() { impl->wait(); }
-
-void queue::wait_and_throw() { impl->wait_and_throw(); }
 
 void queue::throw_asynchronous() { impl->throw_asynchronous(); }
 
@@ -100,13 +103,22 @@ event queue::mem_advise(const void *ptr, size_t length, pi_mem_advice advice) {
   return impl->mem_advise(ptr, length, advice);
 }
 
-event queue::submit_impl(function_class<void(handler &)> CGH) {
-  return impl->submit(CGH, impl);
+event queue::submit_impl(function_class<void(handler &)> CGH,
+                         const detail::code_location &CodeLoc) {
+  return impl->submit(CGH, impl, CodeLoc);
 }
 
-event queue::submit_impl(function_class<void(handler &)> CGH,
-                         queue secondQueue) {
-  return impl->submit(CGH, impl, secondQueue.impl);
+event queue::submit_impl(function_class<void(handler &)> CGH, queue secondQueue,
+                         const detail::code_location &CodeLoc) {
+  return impl->submit(CGH, impl, secondQueue.impl, CodeLoc);
+}
+
+void queue::wait_proxy(const detail::code_location &CodeLoc) {
+  impl->wait(CodeLoc);
+}
+
+void queue::wait_and_throw_proxy(const detail::code_location &CodeLoc) {
+  impl->wait_and_throw(CodeLoc);
 }
 
 template <info::queue param>
@@ -134,5 +146,8 @@ template bool queue::has_property<property::queue::enable_profiling>() const;
 template property::queue::enable_profiling
 queue::get_property<property::queue::enable_profiling>() const;
 
+bool queue::is_in_order() const {
+  return impl->has_property<property::queue::in_order>();
+}
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)

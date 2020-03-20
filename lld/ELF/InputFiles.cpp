@@ -859,7 +859,8 @@ InputSectionBase *ObjFile<ELFT>::createInputSection(const Elf_Shdr &sec) {
       break;
     ARMAttributeParser attributes;
     ArrayRef<uint8_t> contents = check(this->getObj().getSectionContents(&sec));
-    attributes.Parse(contents, /*isLittle*/ config->ekind == ELF32LEKind);
+    attributes.parse(contents, config->ekind == ELF32LEKind ? support::little
+                                                            : support::big);
     updateSupportedARMFeatures(attributes);
     updateARMVFPArgs(attributes, this);
 
@@ -1458,10 +1459,11 @@ BitcodeFile::BitcodeFile(MemoryBufferRef mb, StringRef archiveName,
   // into consideration at LTO time (which very likely causes undefined
   // symbols later in the link stage). So we append file offset to make
   // filename unique.
-  StringRef name = archiveName.empty()
-                       ? saver.save(path)
-                       : saver.save(archiveName + "(" + path + " at " +
-                                    utostr(offsetInArchive) + ")");
+  StringRef name =
+      archiveName.empty()
+          ? saver.save(path)
+          : saver.save(archiveName + "(" + path::filename(path) + " at " +
+                       utostr(offsetInArchive) + ")");
   MemoryBufferRef mbref(mb.getBuffer(), name);
 
   obj = CHECK(lto::InputFile::create(mbref), this);

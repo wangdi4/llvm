@@ -18,7 +18,6 @@
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CheckedArithmetic.h"
 
 namespace llvm {
@@ -255,6 +254,7 @@ template <typename T> class ArrayRef;
 class DemandedBits;
 class GetElementPtrInst;
 template <typename InstTy> class InterleaveGroup;
+class IRBuilderBase;
 class Loop;
 class ScalarEvolution;
 class TargetTransformInfo;
@@ -265,6 +265,15 @@ class Attribute; // INTEL
 
 namespace Intrinsic {
 typedef unsigned ID;
+}
+
+/// A helper function for converting Scalar types to vector types.
+/// If the incoming type is void, we return void. If the VF is 1, we return
+/// the scalar type.
+inline Type *ToVectorTy(Type *Scalar, unsigned VF, bool isScalable = false) {
+  if (Scalar->isVoidTy() || VF == 1)
+    return Scalar;
+  return VectorType::get(Scalar, {VF, isScalable});
 }
 
 /// Identify if the intrinsic is trivially vectorizable.
@@ -454,31 +463,31 @@ void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall);
 // Common utilities to manipulate vectors
 
 /// \brief Join a set of vectors into a single vector.
-Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
+Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder,
                    Twine Name = "");
 
 /// \brief Extend the length of incoming vector \p OrigVal to \p TargetLength
 /// using undefs. Example -
 /// {0, 1, 2, 3} -> TargetLen = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
-Value *extendVector(Value *OrigVal, unsigned TargetLength, IRBuilder<> &Builder,
+Value *extendVector(Value *OrigVal, unsigned TargetLength, IRBuilderBase &Builder,
                     const Twine &Name = "");
 
 /// \brief Replicate elements of vector by \p OriginalVL times in consecutive
 /// locations. Example - {0, 1, 2, 3} -> { 0, 0, 1, 1, 2, 2, 3, 3}
 Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
-                           IRBuilder<> &Builder, const Twine &Name = "");
+                           IRBuilderBase &Builder, const Twine &Name = "");
 
 /// \brief Replicate the entire vector \p OrigVal by \p OriginalVL times.
 /// Example - {0, 1, 2, 3} -> { 0, 1, 2, 3, 0, 1, 2, 3}
 Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
-                       IRBuilder<> &Builder, const Twine &Name = "");
+                       IRBuilderBase &Builder, const Twine &Name = "");
 
 /// Create vector which contains \p V broadcasted \p VF times. \p V can be
 /// either another vector or a scalar value. So the resulting vector is
 /// - in case \p V is a scalar: {V, V,..,V}, vector of VF elements
 /// - in case \p V is vector: {v1,v2,...vN, v1,v2,...vN,...,v1,v2,...vN},
 ///   vector of NxVF elements
-Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+Value *createVectorSplat(Value *V, unsigned VF, IRBuilderBase &Builder,
                          const Twine &Name = "");
 
 /// Generate code to extract a subvector of vector value \p V. The number of
@@ -487,7 +496,7 @@ Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
 /// size)-th element of the vector. Subvector size is determined by given vector
 /// size and number of parts to be divided into.
 Value *generateExtractSubVector(Value *V, unsigned Part, unsigned NumParts,
-                                IRBuilder<> &Builder, const Twine &Name = "");
+                                IRBuilderBase &Builder, const Twine &Name = "");
 #endif // INTEL_CUSTOMIZATION
 
 /// Compute the union of two access-group lists.
@@ -526,7 +535,7 @@ Instruction *propagateMetadata(Instruction *I, ArrayRef<Value *> VL);
 /// Note: The result is a mask of 0's and 1's, as opposed to the other
 /// create[*]Mask() utilities which create a shuffle mask (mask that
 /// consists of indices).
-Constant *createBitMaskForGaps(IRBuilder<> &Builder, unsigned VF,
+Constant *createBitMaskForGaps(IRBuilderBase &Builder, unsigned VF,
                                const InterleaveGroup<Instruction> &Group);
 
 /// Create a mask with replicated elements.
@@ -541,8 +550,8 @@ Constant *createBitMaskForGaps(IRBuilder<> &Builder, unsigned VF,
 /// For example, the mask for \p ReplicationFactor=3 and \p VF=4 is:
 ///
 ///   <0,0,0,1,1,1,2,2,2,3,3,3>
-Constant *createReplicatedMask(IRBuilder<> &Builder, unsigned ReplicationFactor,
-                               unsigned VF);
+Constant *createReplicatedMask(IRBuilderBase &Builder,
+                               unsigned ReplicationFactor, unsigned VF);
 
 /// Create an interleave shuffle mask.
 ///
@@ -555,7 +564,7 @@ Constant *createReplicatedMask(IRBuilder<> &Builder, unsigned ReplicationFactor,
 /// For example, the mask for VF = 4 and NumVecs = 2 is:
 ///
 ///   <0, 4, 1, 5, 2, 6, 3, 7>.
-Constant *createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *createInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                unsigned NumVecs);
 
 /// Create a stride shuffle mask.
@@ -570,7 +579,7 @@ Constant *createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
 /// For example, the mask for Start = 0, Stride = 2, and VF = 4 is:
 ///
 ///   <0, 2, 4, 6>
-Constant *createStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *createStrideMask(IRBuilderBase &Builder, unsigned Start,
                            unsigned Stride, unsigned VF);
 
 #if INTEL_CUSTOMIZATION
@@ -590,7 +599,7 @@ Constant *createStrideMask(IRBuilder<> &Builder, unsigned Start,
 ///      (3, 4, 5), (15, 16, 17), (27, 28, 29),
 ///      (6, 7, 8), (18, 19, 20), (30, 31, 32),
 ///      (9, 10, 11), (21, 22, 23), (33, 34, 35)>.
-Constant *createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                      unsigned NumVecs, unsigned VecWidth);
 
 /// Create a stride shuffle mask for a "vector of vectors".
@@ -606,7 +615,7 @@ Constant *createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
 /// <12 x <3 x float>> starting with the second element (Start=1) is:
 ///
 ///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
-Constant *createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *createVectorStrideMask(IRBuilderBase &Builder, unsigned Start,
                                  unsigned Stride, unsigned VF,
                                  unsigned VecWidth);
 #endif /* INTEL_CUSTOMIZATION */
@@ -622,7 +631,7 @@ Constant *createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
 /// For example, the mask for Start = 0, NumInsts = 4, and NumUndefs = 4 is:
 ///
 ///   <0, 1, 2, 3, undef, undef, undef, undef>
-Constant *createSequentialMask(IRBuilder<> &Builder, unsigned Start,
+Constant *createSequentialMask(IRBuilderBase &Builder, unsigned Start,
                                unsigned NumInts, unsigned NumUndefs);
 
 /// Concatenate a list of vectors.
@@ -632,7 +641,7 @@ Constant *createSequentialMask(IRBuilder<> &Builder, unsigned Start,
 /// their element types should be the same. The number of elements in the
 /// vectors should also be the same; however, if the last vector has fewer
 /// elements, it will be padded with undefs.
-Value *concatenateVectors(IRBuilder<> &Builder, ArrayRef<Value *> Vecs);
+Value *concatenateVectors(IRBuilderBase &Builder, ArrayRef<Value *> Vecs);
 
 /// Given a mask vector of the form <Y x i1>, Return true if all of the
 /// elements of this predicate mask are false or undef.  That is, return true

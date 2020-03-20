@@ -205,11 +205,12 @@ static bool isEpilogProfitable(Loop *L) {
 /// simplify/dce pass of the instructions.
 void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
                                    ScalarEvolution *SE, DominatorTree *DT,
-                                   AssumptionCache *AC) {
+                                   AssumptionCache *AC,
+                                   const TargetTransformInfo *TTI) {
   // Simplify any new induction variables in the partially unrolled loop.
   if (SE && SimplifyIVs) {
     SmallVector<WeakTrackingVH, 16> DeadInsts;
-    simplifyLoopIVs(L, SE, DT, LI, DeadInsts);
+    simplifyLoopIVs(L, SE, DT, LI, TTI, DeadInsts);
 
     // Aggressively clean up dead instructions that simplifyLoopIVs already
     // identified. Any remaining should be cleaned up below.
@@ -282,11 +283,12 @@ void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
 /// If RemainderLoop is non-null, it will receive the remainder loop (if
 /// required and not fully unrolled).
 LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
-                 ScalarEvolution *SE, DominatorTree *DT,
-                 AssumptionCache *AC,                                // INTEL
-                 const LoopOptReportBuilder &LORBuilder,             // INTEL
-                 OptimizationRemarkEmitter *ORE, bool PreserveLCSSA, // INTEL
-                 Loop **RemainderLoop) {
+                                  ScalarEvolution *SE, DominatorTree *DT,
+                                  AssumptionCache *AC,
+                                  const LoopOptReportBuilder &LORBuilder, // INTEL
+                                  const TargetTransformInfo *TTI,
+                                  OptimizationRemarkEmitter *ORE,
+                                  bool PreserveLCSSA, Loop **RemainderLoop) {
 
   BasicBlock *Preheader = L->getLoopPreheader();
   if (!Preheader) {
@@ -445,10 +447,9 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   if (RuntimeTripCount && ULO.TripMultiple % ULO.Count != 0 &&
       !UnrollRuntimeLoopRemainder(L, ULO.Count, ULO.AllowExpensiveTripCount,
                                   EpilogProfitability, ULO.UnrollRemainder,
-                                  ULO.ForgetAllSCEV, LI, SE, DT, AC, // INTEL
+                                  ULO.ForgetAllSCEV, LI, SE, DT, AC,
                                   LORBuilder,                        // INTEL
-                                  PreserveLCSSA,                     // INTEL
-                                  RemainderLoop)) {
+                                  TTI, PreserveLCSSA, RemainderLoop)) {
     if (ULO.Force)
       RuntimeTripCount = false;
     else {
@@ -947,7 +948,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   // At this point, the code is well formed.  We now simplify the unrolled loop,
   // doing constant propagation and dead code elimination as we go.
   simplifyLoopAfterUnroll(L, !CompletelyUnroll && (ULO.Count > 1 || Peeled), LI,
-                          SE, DT, AC);
+                          SE, DT, AC, TTI);
 
   NumCompletelyUnrolled += CompletelyUnroll;
   ++NumUnrolled;

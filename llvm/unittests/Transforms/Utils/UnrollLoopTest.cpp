@@ -79,6 +79,7 @@ while.end:                                        ; preds = %while.cond
   bool ret = UnrollRuntimeLoopRemainder(L, 4, true, false, false, false, &LI,
                                         &SE, &DT, &AC, // INTEL
                                         LORBuilder, // INTEL
+                                        /*TTI=*/nullptr, // INTEL
                                         PreserveLCSSA); // INTEL
   EXPECT_FALSE(ret);
 }

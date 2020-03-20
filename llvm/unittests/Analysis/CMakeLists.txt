@@ -26,9 +26,9 @@ add_llvm_unittest(AnalysisTests
   LazyCallGraphTest.cpp
   LoadsTest.cpp
   LoopInfoTest.cpp
+  LoopNestTest.cpp
   MemoryBuiltinsTest.cpp
   MemorySSATest.cpp
-  OrderedBasicBlockTest.cpp
   OrderedInstructionsTest.cpp
   PhiValuesTest.cpp
   ProfileSummaryInfoTest.cpp

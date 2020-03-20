@@ -88,6 +88,7 @@ static CGCXXABI *createCXXABI(CodeGenModule &CGM) {
   case TargetCXXABI::GenericMIPS:
   case TargetCXXABI::GenericItanium:
   case TargetCXXABI::WebAssembly:
+  case TargetCXXABI::XL:
     return CreateItaniumCXXABI(CGM);
   case TargetCXXABI::Microsoft:
     return CreateMicrosoftCXXABI(CGM);
@@ -288,6 +289,8 @@ void CodeGenModule::createSYCLRuntime() {
   switch (getTriple().getArch()) {
   case llvm::Triple::spir:
   case llvm::Triple::spir64:
+  case llvm::Triple::nvptx:
+  case llvm::Triple::nvptx64:
     SYCLRuntime.reset(new CGSYCLRuntime(*this));
     break;
   default:
@@ -509,6 +512,10 @@ void CodeGenModule::Release() {
     CodeGenFunction(*this).EmitCfiCheckStub();
   }
   emitAtAvailableLinkGuard();
+  if (Context.getTargetInfo().getTriple().isWasm() &&
+      !Context.getTargetInfo().getTriple().isOSEmscripten()) {
+    EmitMainVoidAlias();
+  }
   emitLLVMUsed();
   if (SanStats)
     SanStats->finish();
@@ -2160,15 +2167,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
     // default, only if it is invoked by a new-expression or delete-expression.
     F->addAttribute(llvm::AttributeList::FunctionIndex,
                     llvm::Attribute::NoBuiltin);
-
-    // A sane operator new returns a non-aliasing pointer.
-    // FIXME: Also add NonNull attribute to the return value
-    // for the non-nothrow forms?
-    auto Kind = FD->getDeclName().getCXXOverloadedOperator();
-    if (getCodeGenOpts().AssumeSaneOperatorNew &&
-        (Kind == OO_New || Kind == OO_Array_New))
-      F->addAttribute(llvm::AttributeList::ReturnIndex,
-                      llvm::Attribute::NoAlias);
   }
 
   if (isa<CXXConstructorDecl>(FD) || isa<CXXDestructorDecl>(FD))
@@ -2215,9 +2213,9 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   }
 }
 
-void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
-  assert(!GV->isDeclaration() &&
-         "Only globals with definition can force usage.");
+void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV, bool SkipCheck) {
+  assert(SkipCheck || (!GV->isDeclaration() &&
+                       "Only globals with definition can force usage."));
   LLVMUsed.emplace_back(GV);
 }
 
@@ -3784,6 +3782,32 @@ bool CodeGenModule::isTypeConstant(QualType Ty, bool ExcludeCtor) {
   return true;
 }
 
+static void maybeEmitPipeStorageMetadata(const VarDecl *D,
+                                         llvm::GlobalVariable *GV,
+                                         CodeGenModule &CGM) {
+  // TODO: Applicable only on pipe storages. Currently they are defined
+  // as structures inside of SYCL headers. Add a check for pipe_storage_t
+  // when it ready.
+  QualType PipeTy = D->getType();
+  if (!PipeTy->isStructureType())
+    return;
+
+  if (auto *IOAttr = D->getAttr<SYCLIntelPipeIOAttr>()) {
+    llvm::APSInt ID(32);
+    llvm::LLVMContext &Context = CGM.getLLVMContext();
+    bool IsValid =
+        IOAttr->getID()->isIntegerConstantExpr(ID, D->getASTContext());
+    assert(IsValid && "Not an integer constant expression");
+    (void)IsValid;
+
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(Context), ID.getSExtValue()))};
+    GV->setMetadata(IOAttr->getSpelling(),
+                    llvm::MDNode::get(Context, AttrMDArgs));
+  }
+}
+
 /// GetOrCreateLLVMGlobal - If the specified mangled name is not in the module,
 /// create and return an llvm GlobalVariable with the specified type.  If there
 /// is something in the module with the specified name, return it potentially
@@ -3982,6 +4006,10 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
         : (LangOpts.OpenCL ? LangAS::opencl_global : LangAS::Default);
   assert(getContext().getTargetAddressSpace(ExpectedAS) ==
          Ty->getPointerAddressSpace());
+
+  if (LangOpts.SYCLIsDevice)
+    maybeEmitPipeStorageMetadata(D, GV, *this);
+
   if (AddrSpace != ExpectedAS)
     return getTargetCodeGenInfo().performAddrSpaceCast(*this, GV, AddrSpace,
                                                        ExpectedAS, Ty);
@@ -4705,9 +4733,17 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     }
   }
 
-  if (!IsHIPPinnedShadowVar)
+  // HIPPinnedShadowVar should remain in the final code object irrespective of
+  // whether it is used or not within the code. Add it to used list, so that
+  // it will not get eliminated when it is unused. Also, it is an extern var
+  // within device code, and it should *not* get initialized within device code.
+  if (IsHIPPinnedShadowVar)
+    addUsedGlobal(GV, /*SkipCheck=*/true);
+  else
     GV->setInitializer(Init);
-  if (emitter) emitter->finalize(GV);
+
+  if (emitter)
+    emitter->finalize(GV);
 
   // If it is safe to mark the global 'constant', do so now.
   GV->setConstant(!NeedsGlobalCtor && !NeedsGlobalDtor &&
@@ -4778,6 +4814,9 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
 #if INTEL_CUSTOMIZATION
   maybeEmitGlobalChannelMetadata(D, GV, *this);
 #endif // INTEL_CUSTOMIZATION
+
+  if (LangOpts.SYCLIsDevice)
+    maybeEmitPipeStorageMetadata(D, GV, *this);
 }
 
 void CodeGenModule::EmitExternalVarDeclaration(const VarDecl *D) {
@@ -6246,6 +6285,17 @@ void CodeGenModule::EmitDeferredUnusedCoverageMappings() {
     default:
       break;
     };
+  }
+}
+
+void CodeGenModule::EmitMainVoidAlias() {
+  // In order to transition away from "__original_main" gracefully, emit an
+  // alias for "main" in the no-argument case so that libc can detect when
+  // new-style no-argument main is in used.
+  if (llvm::Function *F = getModule().getFunction("main")) {
+    if (!F->isDeclaration() && F->arg_size() == 0 && !F->isVarArg() &&
+        F->getReturnType()->isIntegerTy(Context.getTargetInfo().getIntWidth()))
+      addUsedGlobal(llvm::GlobalAlias::create("__main_void", F));
   }
 }
 

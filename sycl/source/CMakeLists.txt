@@ -4,9 +4,19 @@
 #cmake_policy(SET CMP0057 NEW)
 #include(AddLLVM)
 
-function(add_sycl_rt_library LIB_NAME)
+if (SYCL_ENABLE_XPTI_TRACING)
+  if (NOT EXISTS ${LLVM_EXTERNAL_XPTI_SOURCE_DIR})
+    message (FATAL_ERROR "Undefined LLVM_EXTERNAL_XPTI_SOURCE_DIR variable: Must be set when XPTI tracing is set to ON")
+  endif()
+  include_directories(${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
+endif()
 
-  add_library(${LIB_NAME} SHARED ${ARGN})
+function(add_sycl_rt_library LIB_NAME)
+  # Add an optional argument so we can get the library name to
+  # link with for Windows Debug version
+  cmake_parse_arguments(ARG "" "XPTI_LIB" "" ${ARGN})
+
+  add_library(${LIB_NAME} SHARED ${ARG_UNPARSED_ARGUMENTS})
 
   #To-Do: Remove dependency on icd loader and opencl headers.
   add_dependencies(${LIB_NAME}
@@ -17,14 +27,22 @@ function(add_sycl_rt_library LIB_NAME)
 
   set_target_properties(${LIB_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 
+  if (SYCL_ENABLE_XPTI_TRACING)
+    target_compile_definitions(${LIB_NAME} PRIVATE XPTI_ENABLE_INSTRUMENTATION XPTI_STATIC_LIBRARY)
+    target_link_libraries(${LIB_NAME} PRIVATE ${ARG_XPTI_LIB})
+  endif()
+
   if (MSVC)
-      target_compile_definitions(${LIB_NAME} PRIVATE __SYCL_BUILD_SYCL_DLL )
-      target_link_libraries(${LIB_NAME} PRIVATE shlwapi)
+    target_compile_definitions(${LIB_NAME} PRIVATE __SYCL_BUILD_SYCL_DLL )
+    target_link_libraries(${LIB_NAME} PRIVATE shlwapi)
   else()
-      set(linker_script "${CMAKE_CURRENT_SOURCE_DIR}/ld-version-script.txt")
-      target_link_libraries(
-        ${LIB_NAME} PRIVATE "-Wl,--version-script=${linker_script}")
-      set_target_properties(${LIB_NAME} PROPERTIES LINK_DEPENDS ${linker_script})
+    set(linker_script "${CMAKE_CURRENT_SOURCE_DIR}/ld-version-script.txt")
+    target_link_libraries(
+      ${LIB_NAME} PRIVATE "-Wl,--version-script=${linker_script}")
+    set_target_properties(${LIB_NAME} PROPERTIES LINK_DEPENDS ${linker_script})
+    if (SYCL_ENABLE_XPTI_TRACING)
+      target_link_libraries(${LIB_NAME} PRIVATE dl)
+    endif()
   endif()
 
   target_include_directories(
@@ -48,6 +66,7 @@ set(SYCL_SOURCES
     "detail/builtins_integer.cpp"
     "detail/builtins_math.cpp"
     "detail/builtins_relational.cpp"
+    "detail/cg.cpp"
     "detail/pi.cpp"
     "detail/common.cpp"
     "detail/config.cpp"
@@ -82,6 +101,7 @@ set(SYCL_SOURCES
     "detail/usm/usm_dispatch.cpp"
     "detail/usm/usm_impl.cpp"
     "detail/util.cpp"
+    "accessor.cpp"
     "context.cpp"
     "device.cpp"
     "device_selector.cpp"
@@ -103,7 +123,11 @@ set(SYCL_SOURCES
     "$<$<OR:$<PLATFORM_ID:Linux>,$<PLATFORM_ID:Darwin>>:detail/posix_pi.cpp>"
 )
 
-add_sycl_rt_library(sycl ${SYCL_SOURCES})
+if (SYCL_ENABLE_XPTI_TRACING)
+  add_sycl_rt_library(sycl ${SYCL_SOURCES} XPTI_LIB xpti)
+else()
+  add_sycl_rt_library(sycl ${SYCL_SOURCES})
+endif()
 
 if (MSVC)
   # MSVC provides two incompatible build variants for its CRT: release and debug
@@ -141,7 +165,11 @@ if (MSVC)
 
   target_compile_options(sycl PRIVATE ${SYCL_CXX_FLAGS_RELEASE})
 
-  add_sycl_rt_library(sycld ${SYCL_SOURCES})
+  if (SYCL_ENABLE_XPTI_TRACING)
+    add_sycl_rt_library(sycld ${SYCL_SOURCES} XPTI_LIB xptid)
+  else()
+    add_sycl_rt_library(sycld ${SYCL_SOURCES})
+  endif()
   target_compile_options(sycld PRIVATE ${SYCL_CXX_FLAGS_DEBUG})
 # INTEL_CUSTOMIZATION
 else()
@@ -166,8 +194,8 @@ else()
 endif()
 
 # INTEL_CUSTOMIZATION
-set(SYCL_ARCHIVE_INSTALL_DIR "lib")
-set(SYCL_LIBRARY_INSTALL_DIR "lib")
+set(SYCL_ARCHIVE_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
+set(SYCL_LIBRARY_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_RUNTIME_INSTALL_DIR "bin")
 
 install(TARGETS ${SYCL_RT_LIBS}

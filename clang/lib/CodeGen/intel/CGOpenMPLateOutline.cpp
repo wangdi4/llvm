@@ -1564,6 +1564,8 @@ void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
 void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
 void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
+void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
+void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
@@ -2095,6 +2097,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_requires:
+  case OMPD_depobj:
     return false;
   case OMPD_unknown:
     llvm_unreachable("Unexpected directive.");
@@ -2433,6 +2436,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   // These directives are not yet implemented.
   case OMPD_allocate:
   case OMPD_requires:
+  case OMPD_depobj:
     break;
 
   // These directives do not create region directives.

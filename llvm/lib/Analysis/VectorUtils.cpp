@@ -879,7 +879,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   return VectorF;
 }
 
-Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
+Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder,
                          Twine Name) {
   SmallVector<Value *, 8> VParts(VectorsToJoin.begin(), VectorsToJoin.end());
   unsigned VL = VParts.size();
@@ -899,7 +899,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
 }
 
 Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
-                          IRBuilder<> &Builder, const Twine &Name) {
+                          IRBuilderBase &Builder, const Twine &Name) {
   Type *OrigTy = OrigVal->getType();
   assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
   unsigned VectorElts = OrigTy->getVectorNumElements();
@@ -914,7 +914,7 @@ Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
 }
 
 Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
-                                 IRBuilder<> &Builder, const Twine &Name) {
+                                 IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
   Value *ShuffleMask = createReplicatedMask(
@@ -925,7 +925,7 @@ Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
 }
 
 Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
-                             IRBuilder<> &Builder, const Twine &Name) {
+                             IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
   unsigned NumElts = OrigVal->getType()->getVectorNumElements();
@@ -938,7 +938,7 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
                                      ShuffleMask, Name + OrigVal->getName());
 }
 
-Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilderBase &Builder,
                                const Twine &Name) {
   if (V->getType()->isVectorTy())
     return replicateVectorElts(V, VF, Builder, Name);
@@ -946,7 +946,7 @@ Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
 }
 
 Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
-                                      unsigned NumParts, IRBuilder<> &Builder,
+                                      unsigned NumParts, IRBuilderBase &Builder,
                                       const Twine &Name) {
   // Example:
   // Consider the following vector code -
@@ -1126,7 +1126,7 @@ Instruction *llvm::propagateMetadata(Instruction *Inst, ArrayRef<Value *> VL) {
 }
 
 Constant *
-llvm::createBitMaskForGaps(IRBuilder<> &Builder, unsigned VF,
+llvm::createBitMaskForGaps(IRBuilderBase &Builder, unsigned VF,
                            const InterleaveGroup<Instruction> &Group) {
   // All 1's means mask is not needed.
   if (Group.getNumMembers() == Group.getFactor())
@@ -1145,7 +1145,7 @@ llvm::createBitMaskForGaps(IRBuilder<> &Builder, unsigned VF,
   return ConstantVector::get(Mask);
 }
 
-Constant *llvm::createReplicatedMask(IRBuilder<> &Builder, 
+Constant *llvm::createReplicatedMask(IRBuilderBase &Builder, 
                                      unsigned ReplicationFactor, unsigned VF) {
   SmallVector<Constant *, 16> MaskVec;
   for (unsigned i = 0; i < VF; i++)
@@ -1155,7 +1155,7 @@ Constant *llvm::createReplicatedMask(IRBuilder<> &Builder,
   return ConstantVector::get(MaskVec);
 }
 
-Constant *llvm::createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *llvm::createInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                      unsigned NumVecs) {
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < VF; i++)
@@ -1165,7 +1165,7 @@ Constant *llvm::createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
   return ConstantVector::get(Mask);
 }
 
-Constant *llvm::createStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *llvm::createStrideMask(IRBuilderBase &Builder, unsigned Start,
                                  unsigned Stride, unsigned VF) {
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < VF; i++)
@@ -1175,7 +1175,7 @@ Constant *llvm::createStrideMask(IRBuilder<> &Builder, unsigned Start,
 }
 
 #if INTEL_CUSTOMIZATION
-Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *llvm::createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                            unsigned NumVecs,
                                            unsigned VecWidth) {
   SmallVector<Constant *, 64> Mask;
@@ -1187,7 +1187,7 @@ Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
   return ConstantVector::get(Mask);
 }
 
-Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *llvm::createVectorStrideMask(IRBuilderBase &Builder, unsigned Start,
                                        unsigned Stride, unsigned VF,
                                        unsigned VecWidth) {
   SmallVector<Constant *, 64> Mask;
@@ -1199,7 +1199,7 @@ Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
 }
 #endif // INTEL_CUSTOMIZATION
 
-Constant *llvm::createSequentialMask(IRBuilder<> &Builder, unsigned Start,
+Constant *llvm::createSequentialMask(IRBuilderBase &Builder, unsigned Start,
                                      unsigned NumInts, unsigned NumUndefs) {
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < NumInts; i++)
@@ -1215,7 +1215,7 @@ Constant *llvm::createSequentialMask(IRBuilder<> &Builder, unsigned Start,
 /// A helper function for concatenating vectors. This function concatenates two
 /// vectors having the same element type. If the second vector has fewer
 /// elements than the first, it is padded with undefs.
-static Value *concatenateTwoVectors(IRBuilder<> &Builder, Value *V1,
+static Value *concatenateTwoVectors(IRBuilderBase &Builder, Value *V1,
                                     Value *V2) {
   VectorType *VecTy1 = dyn_cast<VectorType>(V1->getType());
   VectorType *VecTy2 = dyn_cast<VectorType>(V2->getType());
@@ -1238,7 +1238,8 @@ static Value *concatenateTwoVectors(IRBuilder<> &Builder, Value *V1,
   return Builder.CreateShuffleVector(V1, V2, Mask);
 }
 
-Value *llvm::concatenateVectors(IRBuilder<> &Builder, ArrayRef<Value *> Vecs) {
+Value *llvm::concatenateVectors(IRBuilderBase &Builder,
+                                ArrayRef<Value *> Vecs) {
   unsigned NumVecs = Vecs.size();
   assert(NumVecs > 1 && "Should be at least two vectors");
 
@@ -1437,7 +1438,7 @@ void InterleavedAccessInfo::analyzeInterleaving(
     // create a group for B, we continue with the bottom-up algorithm to ensure
     // we don't break any of B's dependences.
     InterleaveGroup<Instruction> *Group = nullptr;
-    if (isStrided(DesB.Stride) && 
+    if (isStrided(DesB.Stride) &&
         (!isPredicated(B->getParent()) || EnablePredicatedInterleavedMemAccesses)) {
       Group = getInterleaveGroup(B);
       if (!Group) {
@@ -1538,8 +1539,8 @@ void InterleavedAccessInfo::analyzeInterleaving(
 
       // All members of a predicated interleave-group must have the same predicate,
       // and currently must reside in the same BB.
-      BasicBlock *BlockA = A->getParent();  
-      BasicBlock *BlockB = B->getParent();  
+      BasicBlock *BlockA = A->getParent();
+      BasicBlock *BlockB = B->getParent();
       if ((isPredicated(BlockA) || isPredicated(BlockB)) &&
           (!EnablePredicatedInterleavedMemAccesses || BlockA != BlockB))
         continue;

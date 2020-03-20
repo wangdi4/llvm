@@ -22,8 +22,8 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/Expr.h"
-#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/LocInfoType.h"
@@ -34,6 +34,7 @@
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/TypeOrdering.h"
 #include "clang/Basic/BitmaskEnum.h"
+#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/ExpressionTraits.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/OpenMPKinds.h"
@@ -4067,6 +4068,9 @@ public:
   void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S);
 #endif // INTEL_CUSTOMIZATION
 
+  void AddKnownFunctionAttributesForReplaceableGlobalAllocationFunction(
+      FunctionDecl *FD);
+
   void AddKnownFunctionAttributes(FunctionDecl *FD);
 
   // More parsing and symbol table subroutines.
@@ -5251,7 +5255,7 @@ public:
                             LabelDecl *TheDecl);
 
   void ActOnStartStmtExpr();
-  ExprResult ActOnStmtExpr(SourceLocation LPLoc, Stmt *SubStmt,
+  ExprResult ActOnStmtExpr(Scope *S, SourceLocation LPLoc, Stmt *SubStmt,
                            SourceLocation RPLoc); // "({..})"
   // Handle the final expression in a statement expression.
   ExprResult ActOnStmtExprResult(ExprResult E);
@@ -9869,6 +9873,10 @@ public:
   void addAMDGPUWavesPerEUAttr(Decl *D, const AttributeCommonInfo &CI,
                                Expr *Min, Expr *Max);
 
+  /// addSYCLIntelPipeIOAttr - Adds a pipe I/O attribute to a particular
+  /// declaration.
+  void addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &CI, Expr *ID);
+
   bool checkNSReturnsRetainedReturnType(SourceLocation loc, QualType type);
 
   //===--------------------------------------------------------------------===//
@@ -10318,6 +10326,10 @@ public:
   StmtResult ActOnOpenMPFlushDirective(ArrayRef<OMPClause *> Clauses,
                                        SourceLocation StartLoc,
                                        SourceLocation EndLoc);
+  /// Called on well-formed '\#pragma omp depobj'.
+  StmtResult ActOnOpenMPDepobjDirective(ArrayRef<OMPClause *> Clauses,
+                                        SourceLocation StartLoc,
+                                        SourceLocation EndLoc);
   /// Called on well-formed '\#pragma omp ordered' after parsing of the
   /// associated statement.
   StmtResult ActOnOpenMPOrderedDirective(ArrayRef<OMPClause *> Clauses,
@@ -10497,7 +10509,8 @@ public:
   /// Checks that the specified declaration matches requirements for the linear
   /// decls.
   bool CheckOpenMPLinearDecl(const ValueDecl *D, SourceLocation ELoc,
-                             OpenMPLinearClauseKind LinKind, QualType Type);
+                             OpenMPLinearClauseKind LinKind, QualType Type,
+                             bool IsDeclareSimd = false);
 
   /// Called on well-formed '\#pragma omp declare simd' after parsing of
   /// the associated method/function.
@@ -10627,6 +10640,12 @@ public:
                                     SourceLocation StartLoc,
                                     SourceLocation LParenLoc,
                                     SourceLocation EndLoc);
+  /// Called on well-formed 'update' clause.
+  OMPClause *ActOnOpenMPUpdateClause(OpenMPDependClauseKind Kind,
+                                     SourceLocation KindLoc,
+                                     SourceLocation StartLoc,
+                                     SourceLocation LParenLoc,
+                                     SourceLocation EndLoc);
 
   OMPClause *ActOnOpenMPSingleExprWithArgClause(
       OpenMPClauseKind Kind, ArrayRef<unsigned> Arguments, Expr *Expr,
@@ -10677,6 +10696,9 @@ public:
                                       SourceLocation EndLoc);
   /// Called on well-formed 'relaxed' clause.
   OMPClause *ActOnOpenMPRelaxedClause(SourceLocation StartLoc,
+                                      SourceLocation EndLoc);
+  /// Called on well-formed 'destroy' clause.
+  OMPClause *ActOnOpenMPDestroyClause(SourceLocation StartLoc,
                                       SourceLocation EndLoc);
   /// Called on well-formed 'threads' clause.
   OMPClause *ActOnOpenMPThreadsClause(SourceLocation StartLoc,
@@ -10790,6 +10812,10 @@ public:
                                     SourceLocation StartLoc,
                                     SourceLocation LParenLoc,
                                     SourceLocation EndLoc);
+  /// Called on well-formed 'depobj' pseudo clause.
+  OMPClause *ActOnOpenMPDepobjClause(Expr *Depobj, SourceLocation StartLoc,
+                                     SourceLocation LParenLoc,
+                                     SourceLocation EndLoc);
   /// Called on well-formed 'depend' clause.
   OMPClause *
   ActOnOpenMPDependClause(OpenMPDependClauseKind DepKind, SourceLocation DepLoc,
@@ -11021,6 +11047,11 @@ public:
     /// IncompatiblePointer - The assignment is between two pointers types that
     /// are not compatible, but we accept them as an extension.
     IncompatiblePointer,
+
+    /// IncompatibleFunctionPointer - The assignment is between two function
+    /// pointers types that are not compatible, but we accept them as an
+    /// extension.
+    IncompatibleFunctionPointer,
 
     /// IncompatiblePointerSign - The assignment is between two pointers types
     /// which point to integers which have a different sign, but are otherwise
@@ -12530,11 +12561,13 @@ public:
     KernelAllocateStorage,
     KernelUseAssembly,
     KernelCallDllimportFunction,
-    KernelCallVariadicFunction
- };
+    KernelCallVariadicFunction,
+    KernelCallUndefinedFunction
+  };
+
   bool isKnownGoodSYCLDecl(const Decl *D);
   void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc, MangleContext &MC);
-  void MarkDevice(void);
+  void MarkDevice();
 
   /// Creates a DeviceDiagBuilder that emits the diagnostic if the current
   /// context is "used as device code".
@@ -12555,11 +12588,101 @@ public:
   ///   SYCLDiagIfDeviceCode(Loc, diag::err_thread_unsupported);
   DeviceDiagBuilder SYCLDiagIfDeviceCode(SourceLocation Loc, unsigned DiagID);
 
-  /// Checks if Callee function is a device function and emits
-  /// diagnostics if it is known that it is a device function, adds this
-  /// function to the DeviceCallGraph otherwise.
-  void checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee);
+  /// Check whether we're allowed to call Callee from the current context.
+  ///
+  /// - If the call is never allowed in a semantically-correct program
+  ///   emits an error and returns false.
+  ///
+  /// - If the call is allowed in semantically-correct programs, but only if
+  ///   it's never codegen'ed, creates a deferred diagnostic to be emitted if
+  ///   and when the caller is codegen'ed, and returns true.
+  ///
+  /// - Otherwise, returns true without emitting any diagnostics.
+  ///
+  /// Adds Callee to DeviceCallGraph if we don't know if its caller will be
+  /// codegen'ed yet.
+  bool checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee);
+
+  /// Emit diagnostic that can't be emitted with deferred diagnostics mechanism.
+  /// At this step we imply that all device functions are marked with
+  /// sycl_device attribute.
+  void finalizeSYCLDelayedAnalysis();
 };
+
+template <typename AttrType>
+void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
+                                   Expr *E) {
+  AttrType TmpAttr(Context, CI, E);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
+      return;
+    E = ICE.get();
+  }
+
+  if (IntelFPGAPrivateCopiesAttr::classof(&TmpAttr)) {
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
+  }
+
+#if INTEL_CUSTOMIZATION
+  if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
+      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D)) ||
+      isa<ForcePow2DepthAttr>(TmpAttr)) {
+    if (!D->hasAttr<IntelFPGAMemoryAttr>())
+      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+          Context, IntelFPGAMemoryAttr::Default));
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  D->addAttr(::new (Context) AttrType(Context, CI, E));
+}
+
+template <typename AttrType>
+void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
+                                           const AttributeCommonInfo &CI,
+                                           Expr *E) {
+  AttrType TmpAttr(Context, CI, E);
+
+  if (!E->isValueDependent()) {
+    ExprResult ICE;
+    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
+      return;
+    Expr::EvalResult Result;
+    E->EvaluateAsInt(Result, Context);
+    llvm::APSInt Value = Result.Val.getInt();
+    if (!Value.isPowerOf2()) {
+      Diag(CI.getLoc(), diag::err_attribute_argument_not_power_of_two)
+          << &TmpAttr;
+      return;
+    }
+    if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
+      if (auto *BBA = D->getAttr<IntelFPGABankBitsAttr>()) {
+        unsigned NumBankBits = BBA->args_size();
+        if (NumBankBits != Value.ceilLogBase2()) {
+          Diag(TmpAttr.getLocation(), diag::err_bankbits_numbanks_conflicting);
+          return;
+        }
+      }
+    }
+    E = ICE.get();
+  }
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        Context, IntelFPGAMemoryAttr::Default));
+
+  // We are adding a user NumBanks, drop any implicit default.
+  if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
+    if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
+      if (NBA->isImplicit())
+        D->dropAttr<IntelFPGANumBanksAttr>();
+  }
+
+  D->addAttr(::new (Context) AttrType(Context, CI, E));
+}
 
 /// RAII object that enters a new expression evaluation context.
 class EnterExpressionEvaluationContext {

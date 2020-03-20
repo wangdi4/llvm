@@ -7,6 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <CL/sycl/detail/stream_impl.hpp>
+#include <detail/scheduler/scheduler.hpp>
+
 #include <cstdio>
 
 __SYCL_INLINE_NAMESPACE(cl) {
@@ -39,6 +41,7 @@ void stream_impl::flush() {
       range<1>(BufferSize_), id<1>(OffsetSize));
 
   printf("%s", HostAcc.get_pointer());
+  fflush(stdout);
 }
 } // namespace detail
 } // namespace sycl

@@ -218,6 +218,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeAMDGPUTarget() {
   initializeAMDGPULowerKernelAttributesPass(*PR);
   initializeAMDGPULowerIntrinsicsPass(*PR);
   initializeAMDGPUOpenCLEnqueuedBlockLoweringPass(*PR);
+  initializeAMDGPUPostLegalizerCombinerPass(*PR);
   initializeAMDGPUPreLegalizerCombinerPass(*PR);
   initializeAMDGPUPromoteAllocaPass(*PR);
   initializeAMDGPUCodeGenPreparePass(*PR);
@@ -623,8 +624,8 @@ public:
   bool addIRTranslator() override;
   void addPreLegalizeMachineIR() override;
   bool addLegalizeMachineIR() override;
+  void addPreRegBankSelect() override;
   bool addRegBankSelect() override;
-  void addPreGlobalInstructionSelect() override;
   bool addGlobalInstructionSelect() override;
   void addFastRegAlloc() override;
   void addOptimizedRegAlloc() override;
@@ -904,6 +905,7 @@ bool GCNPassConfig::addIRTranslator() {
 void GCNPassConfig::addPreLegalizeMachineIR() {
   bool IsOptNone = getOptLevel() == CodeGenOpt::None;
   addPass(createAMDGPUPreLegalizeCombiner(IsOptNone));
+  addPass(new Localizer());
 }
 
 bool GCNPassConfig::addLegalizeMachineIR() {
@@ -911,15 +913,14 @@ bool GCNPassConfig::addLegalizeMachineIR() {
   return false;
 }
 
+void GCNPassConfig::addPreRegBankSelect() {
+  bool IsOptNone = getOptLevel() == CodeGenOpt::None;
+  addPass(createAMDGPUPostLegalizeCombiner(IsOptNone));
+}
+
 bool GCNPassConfig::addRegBankSelect() {
   addPass(new RegBankSelect());
   return false;
-}
-
-void GCNPassConfig::addPreGlobalInstructionSelect() {
-  // FIXME: We should run this before legalizing globals, but for some reason
-  // this requires legalized and regbankselected.
-  addPass(new Localizer());
 }
 
 bool GCNPassConfig::addGlobalInstructionSelect() {

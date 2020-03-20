@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/context_impl.hpp>
 #include <CL/sycl/detail/sampler_impl.hpp>
+#include <detail/context_impl.hpp>
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
@@ -65,7 +65,8 @@ RT::PiSampler sampler_impl::getOrCreateSampler(const context &Context) {
       getSyclObjImpl(Context)->getHandleRef(), sprops, &resultSampler);
 
   if (errcode_ret == PI_INVALID_OPERATION)
-    throw feature_not_supported("Images are not supported by this device.");
+    throw feature_not_supported("Images are not supported by this device.",
+                                errcode_ret);
 
   Plugin.checkPiResult(errcode_ret);
   m_contextToSampler[Context] = resultSampler;

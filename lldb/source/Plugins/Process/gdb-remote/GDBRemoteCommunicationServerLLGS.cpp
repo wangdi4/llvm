@@ -458,11 +458,15 @@ static llvm::StringRef GetKindGenericOrEmpty(const RegisterInfo &reg_info) {
   }
 }
 
-static void CollectRegNums(const uint32_t *reg_num, StreamString &response) {
+static void CollectRegNums(const uint32_t *reg_num, StreamString &response,
+                           bool usehex) {
   for (int i = 0; *reg_num != LLDB_INVALID_REGNUM; ++reg_num, ++i) {
     if (i > 0)
       response.PutChar(',');
-    response.Printf("%" PRIx32, *reg_num);
+    if (usehex)
+      response.Printf("%" PRIx32, *reg_num);
+    else
+      response.Printf("%" PRIu32, *reg_num);
   }
 }
 
@@ -1816,13 +1820,13 @@ GDBRemoteCommunicationServerLLGS::Handle_qRegisterInfo(
 
   if (reg_info->value_regs && reg_info->value_regs[0] != LLDB_INVALID_REGNUM) {
     response.PutCString("container-regs:");
-    CollectRegNums(reg_info->value_regs, response);
+    CollectRegNums(reg_info->value_regs, response, true);
     response.PutChar(';');
   }
 
   if (reg_info->invalidate_regs && reg_info->invalidate_regs[0]) {
     response.PutCString("invalidate-regs:");
-    CollectRegNums(reg_info->invalidate_regs, response);
+    CollectRegNums(reg_info->invalidate_regs, response, true);
     response.PutChar(';');
   }
 
@@ -2807,13 +2811,13 @@ GDBRemoteCommunicationServerLLGS::BuildTargetXml() {
     if (reg_info->value_regs &&
         reg_info->value_regs[0] != LLDB_INVALID_REGNUM) {
       response.PutCString("value_regnums=\"");
-      CollectRegNums(reg_info->value_regs, response);
+      CollectRegNums(reg_info->value_regs, response, false);
       response.Printf("\" ");
     }
 
     if (reg_info->invalidate_regs && reg_info->invalidate_regs[0]) {
       response.PutCString("invalidate_regnums=\"");
-      CollectRegNums(reg_info->invalidate_regs, response);
+      CollectRegNums(reg_info->invalidate_regs, response, false);
       response.Printf("\" ");
     }
 

@@ -102,6 +102,7 @@ namespace X86Local {
     RawFrmImm8    = 7,
     RawFrmImm16   = 8,
     AddCCFrm      = 9,
+    PrefixByte    = 10,
     MRMDestMem4VOp2FSIB = 29, // INTEL
     MRMSrcMem4VOp3FSIB  = 30, // INTEL
     MRMDestMemFSIB      = 31, // INTEL

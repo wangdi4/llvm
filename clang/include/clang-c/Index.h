@@ -2574,12 +2574,16 @@ enum CXCursorKind {
    */
   CXCursor_OMPParallelMasterDirective      = 285,
 
+  /** OpenMP depobj directive.
+   */
+  CXCursor_OMPDepobjDirective             = 286,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 286,
+  CXCursor_OMPTargetVariantDispatchDirective = 287,
 
   CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPParallelMasterDirective,
+  CXCursor_LastStmt = CXCursor_OMPDepobjDirective,
 #endif /* INTEL_COLLAB */
 
   /**

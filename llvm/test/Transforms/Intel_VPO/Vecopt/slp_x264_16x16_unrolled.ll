@@ -2,6 +2,11 @@
 ; This test checks that we don't crash because of not unique values and still vectorize part of the tree.
 ; Full support for this case requires "head duplication".
 
+; XFAIL: *
+; CMPLRLLVM-18345
+; Expected failure since merge of "Improve extract/insert element costs"
+
+
 source_filename = "x264_pixel_satd_16x16.ll"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

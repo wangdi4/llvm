@@ -130,8 +130,11 @@ public:
     llvm::Optional<std::string> ResourceDir = llvm::None;
 
     /// Time to wait after a new file version before computing diagnostics.
-    DebouncePolicy UpdateDebounce =
-        DebouncePolicy::fixed(std::chrono::milliseconds(500));
+    DebouncePolicy UpdateDebounce = DebouncePolicy{
+        /*Min=*/std::chrono::milliseconds(50),
+        /*Max=*/std::chrono::milliseconds(500),
+        /*RebuildRatio=*/1,
+    };
 
     bool SuggestMissingIncludes = false;
 
@@ -141,9 +144,6 @@ public:
 
     /// Enable semantic highlighting features.
     bool SemanticHighlighting = false;
-
-    /// Enable cross-file rename feature.
-    bool CrossFileRename = false;
 
     /// Returns true if the tweak should be enabled.
     std::function<bool(const Tweak &)> TweakFilter = [](const Tweak &T) {
@@ -174,9 +174,6 @@ public:
   void addDocument(PathRef File, StringRef Contents,
                    WantDiagnostics WD = WantDiagnostics::Auto,
                    bool ForceRebuild = false);
-
-  /// Get the contents of \p File, which should have been added.
-  llvm::StringRef getDocument(PathRef File) const;
 
   /// Remove \p File from list of tracked files, schedule a request to free
   /// resources associated with it. Pending diagnostics for closed files may not
@@ -254,6 +251,7 @@ public:
 
   /// Test the validity of a rename operation.
   void prepareRename(PathRef File, Position Pos,
+                     const RenameOptions &RenameOpts,
                      Callback<llvm::Optional<Range>> CB);
 
   /// Rename all occurrences of the symbol at the \p Pos in \p File to
@@ -262,7 +260,7 @@ public:
   /// embedders could use this method to get all occurrences of the symbol (e.g.
   /// highlighting them in prepare stage).
   void rename(PathRef File, Position Pos, llvm::StringRef NewName,
-              bool WantFormat, Callback<FileEdits> CB);
+              const RenameOptions &Opts, Callback<FileEdits> CB);
 
   struct TweakRef {
     std::string ID;    /// ID to pass for applyTweak.
@@ -339,8 +337,6 @@ private:
   // If this is true, suggest include insertion fixes for diagnostic errors that
   // can be caused by missing includes (e.g. member access in incomplete type).
   bool SuggestMissingIncludes = false;
-
-  bool CrossFileRename = false;
 
   std::function<bool(const Tweak &)> TweakFilter;
 

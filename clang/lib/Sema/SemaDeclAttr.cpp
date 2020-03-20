@@ -3792,7 +3792,7 @@ static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
   if (const auto *A = D->getAttr<SYCLIntelMaxGlobalWorkDimAttr>())
     if (A->getNumber() == 0)
       Result &= checkZeroDim(A, WGSize[0], WGSize[1], WGSize[2],
-                             /*ReverseAttrs=*/ true);
+                             /*ReverseAttrs=*/true);
 
   if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
     if (!(WGSize[0] <= A->getXDim() && WGSize[1] <= A->getYDim() &&
@@ -3842,9 +3842,6 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
 #if INTEL_CUSTOMIZATION
-  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
-    return;
-
   if (D->hasAttr<AutorunAttr>()) {
     long long int N = 1ll << 32ll;
     if (N % WGSize[0] != 0 || N % WGSize[1] != 0 || N % WGSize[2] != 0) {
@@ -3854,14 +3851,23 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize)) // INTEL
-    return;
+  // For a SYCLDevice WorkGroupAttr arguments are reversed
+  if (S.getLangOpts().SYCLIsDevice) {
+    std::swap(WGSize[0], WGSize[2]);
+  }
 
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
-  if (Existing && !(Existing->getXDim() == WGSize[0] &&
-                    Existing->getYDim() == WGSize[1] &&
-                    Existing->getZDim() == WGSize[2]))
+  if (Existing &&
+      !(Existing->getXDim() == WGSize[0] && Existing->getYDim() == WGSize[1] &&
+        Existing->getZDim() == WGSize[2]))
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
+
+#if INTEL_CUSTOMIZATION
+  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize))
+    return;
+#endif // INTEL_CUSTOMIZATION
+  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
+    return;
 
   D->addAttr(::new (S.Context)
                  WorkGroupAttr(S.Context, AL, WGSize[0], WGSize[1], WGSize[2]));
@@ -4769,96 +4775,6 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
   S.AddAlignedAttr(D, AL, E, AL.isPackExpansion());
 }
-
-template <typename AttrType>
-void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
-                                   Expr *E) {
-  AttrType TmpAttr(Context, CI, E);
-
-  if (!E->isValueDependent()) {
-    ExprResult ICE;
-    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
-      return;
-    E = ICE.get();
-  }
-
-  if (IntelFPGAPrivateCopiesAttr::classof(&TmpAttr)) {
-    if (!D->hasAttr<IntelFPGAMemoryAttr>())
-      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-          Context, IntelFPGAMemoryAttr::Default));
-  }
-
-#if INTEL_CUSTOMIZATION
-  if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
-      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D)) ||
-      isa<ForcePow2DepthAttr>(TmpAttr)) {
-    if (!D->hasAttr<IntelFPGAMemoryAttr>())
-      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-          Context, IntelFPGAMemoryAttr::Default));
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  D->addAttr(::new (Context) AttrType(Context, CI, E));
-}
-
-template <typename AttrType>
-void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
-                                           const AttributeCommonInfo &CI,
-                                           Expr *E) {
-  AttrType TmpAttr(Context, CI, E);
-
-  if (!E->isValueDependent()) {
-    ExprResult ICE;
-    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
-      return;
-    Expr::EvalResult Result;
-    E->EvaluateAsInt(Result, Context);
-    llvm::APSInt Value = Result.Val.getInt();
-    if (!Value.isPowerOf2()) {
-      Diag(CI.getLoc(), diag::err_attribute_argument_not_power_of_two)
-          << &TmpAttr;
-      return;
-    }
-    if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
-      if (auto *BBA = D->getAttr<IntelFPGABankBitsAttr>()) {
-        unsigned NumBankBits = BBA->args_size();
-        if (NumBankBits != Value.ceilLogBase2()) {
-          Diag(TmpAttr.getLocation(), diag::err_bankbits_numbanks_conflicting);
-          return;
-        }
-      }
-    }
-    E = ICE.get();
-  }
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        Context, IntelFPGAMemoryAttr::Default));
-
-  // We are adding a user NumBanks, drop any implicit default.
-  if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
-    if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
-      if (NBA->isImplicit())
-        D->dropAttr<IntelFPGANumBanksAttr>();
-  }
-
-  D->addAttr(::new (Context) AttrType(Context, CI, E));
-}
-
-#if INTEL_CUSTOMIZATION
-// Explicitly instantiate members defined above, because they are used in a
-// separate translation unit and by some reason, icpx behaves differently
-// than g++ or clang - it doesn't include these symbols into object file at all,
-// even as weak symbols
-template void Sema::AddOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(
-    Decl *, const AttributeCommonInfo &, Expr *);
-template void Sema::AddOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(
-    Decl *, const AttributeCommonInfo &, Expr *);
-template void Sema::AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
-    Decl *, const AttributeCommonInfo &, Expr *);
-template void Sema::AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
-    Decl *, const AttributeCommonInfo &, Expr *);
-#endif // INTEL_CUSTOMIZATION
 
 void Sema::AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                           bool IsPackExpansion) {
@@ -6504,6 +6420,47 @@ static void handlePatchableFunctionEntryAttr(Sema &S, Decl *D,
                  PatchableFunctionEntryAttr(S.Context, AL, Count, Offset));
 }
 
+void Sema::addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &Attr,
+                                  Expr *E) {
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+  // TODO: Applicable only on pipe storages. Currently they are defined
+  // as structures inside of SYCL headers. Add a check for pipe_storage_t
+  // when it is ready.
+  if (!Ty->isStructureType()) {
+    Diag(Attr.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << Attr.getAttrName() << "SYCL pipe storage declaration";
+    return;
+  }
+
+  if (!E->isInstantiationDependent()) {
+    llvm::APSInt ArgVal(32);
+    if (!E->isIntegerConstantExpr(ArgVal, getASTContext())) {
+      Diag(E->getExprLoc(), diag::err_attribute_argument_type)
+          << Attr.getAttrName() << AANT_ArgumentIntegerConstant
+          << E->getSourceRange();
+      return;
+    }
+    int32_t ArgInt = ArgVal.getSExtValue();
+    if (ArgInt < 0) {
+      Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+          << Attr.getAttrName() << /*non-negative*/ 1;
+      return;
+    }
+  }
+
+  D->addAttr(::new (Context) SYCLIntelPipeIOAttr(Context, Attr, E));
+}
+
+static void handleSYCLIntelPipeIOAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  Expr *E = Attr.getArgAsExpr(0);
+  S.addSYCLIntelPipeIOAttr(D, Attr, E);
+}
+
 static bool ArmMveAliasValid(unsigned BuiltinID, StringRef AliasName) {
   if (AliasName.startswith("__arm_"))
     AliasName = AliasName.substr(6);
@@ -8128,7 +8085,9 @@ static void handleObjCExternallyRetainedAttr(Sema &S, Decl *D,
 
   // If D is a function-like declaration (method, block, or function), then we
   // make every parameter psuedo-strong.
-  for (unsigned I = 0, E = getFunctionOrMethodNumParams(D); I != E; ++I) {
+  unsigned NumParams =
+      hasFunctionProto(D) ? getFunctionOrMethodNumParams(D) : 0;
+  for (unsigned I = 0; I != NumParams; ++I) {
     auto *PVD = const_cast<ParmVarDecl *>(getFunctionOrMethodParam(D, I));
     QualType Ty = PVD->getType();
 
@@ -9145,6 +9104,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_IntelFPGABankBits:
     handleIntelFPGABankBitsAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLIntelPipeIO:
+    handleSYCLIntelPipeIOAttr(S, D, AL);
     break;
 
   case ParsedAttr::AT_AnyX86NoCallerSavedRegisters:

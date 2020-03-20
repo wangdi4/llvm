@@ -12,7 +12,9 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/SwapByteOrder.h"
 #include "llvm/Support/TargetParser.h"
+#include <cassert>
 #include <cstring>
 using namespace llvm;
 
@@ -40,7 +42,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
   case fpga_aoco:      return "fpga_aoco";
   case fpga_aocr:      return "fpga_aocr";
   case fpga_aocx:      return "fpga_aocx";
-  case fpga_dep:       return "fpga_dep";
+  case fpga_dep:
+    return "fpga_dep";
   case hexagon:        return "hexagon";
   case hsail64:        return "hsail64";
   case hsail:          return "hsail";
@@ -174,7 +177,8 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
   case fpga_aoco:
   case fpga_aocr:
   case fpga_aocx:
-  case fpga_dep:    return "fpga";
+  case fpga_dep:
+    return "fpga";
 
   case ve:          return "ve";
   }
@@ -335,15 +339,15 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     .Case("csa", csa)
-#endif  // INTEL_FEATURE_CSA
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
     .Case("x86", x86)
     .Case("x86-64", x86_64)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
     .Case("x86-icecode", x86_icecode)
-#endif  // INTEL_FEATURE_ICECODE
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     .Case("xcore", xcore)
     .Case("nvptx", nvptx)
     .Case("nvptx64", nvptx64)

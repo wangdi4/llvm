@@ -876,6 +876,9 @@ bool LLParser::ParseSummaryEntry() {
   case lltok::kw_typeidCompatibleVTable:
     result = ParseTypeIdCompatibleVtableEntry(SummaryID);
     break;
+  case lltok::kw_flags:
+    result = ParseSummaryIndexFlags();
+    break;
   default:
     result = Error(Lex.getLoc(), "unexpected summary kind");
     break;
@@ -3523,7 +3526,7 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
     ID.Kind = ValID::t_Constant;
     return false;
   }
- 
+
   // Unary Operators.
   case lltok::kw_fneg: {
     unsigned Opc = Lex.getUIntVal();
@@ -3533,7 +3536,7 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
         ParseGlobalTypeAndValue(Val) ||
         ParseToken(lltok::rparen, "expected ')' in unary constantexpr"))
       return true;
-    
+
     // Check that the type is valid for the operator.
     switch (Opc) {
     case Instruction::FNeg:
@@ -4871,7 +4874,7 @@ bool LLParser::ParseDICommonBlock(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(declaration, MDField, );                                            \
   OPTIONAL(name, MDStringField, );                                             \
   OPTIONAL(file, MDField, );                                                   \
-  OPTIONAL(line, LineField, );						       
+  OPTIONAL(line, LineField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
@@ -4946,33 +4949,38 @@ bool LLParser::ParseDIModule(MDNode *&Result, bool IsDistinct) {
 }
 
 /// ParseDITemplateTypeParameter:
-///   ::= !DITemplateTypeParameter(name: "Ty", type: !1)
+///   ::= !DITemplateTypeParameter(name: "Ty", type: !1, defaulted: false)
 bool LLParser::ParseDITemplateTypeParameter(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   OPTIONAL(name, MDStringField, );                                             \
-  REQUIRED(type, MDField, );
+  REQUIRED(type, MDField, );                                                   \
+  OPTIONAL(defaulted, MDBoolField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
-  Result =
-      GET_OR_DISTINCT(DITemplateTypeParameter, (Context, name.Val, type.Val));
+  Result = GET_OR_DISTINCT(DITemplateTypeParameter,
+                           (Context, name.Val, type.Val, defaulted.Val));
   return false;
 }
 
 /// ParseDITemplateValueParameter:
 ///   ::= !DITemplateValueParameter(tag: DW_TAG_template_value_parameter,
-///                                 name: "V", type: !1, value: i32 7)
+///                                 name: "V", type: !1, defaulted: false,
+///                                 value: i32 7)
 bool LLParser::ParseDITemplateValueParameter(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   OPTIONAL(tag, DwarfTagField, (dwarf::DW_TAG_template_value_parameter));      \
   OPTIONAL(name, MDStringField, );                                             \
   OPTIONAL(type, MDField, );                                                   \
+  OPTIONAL(defaulted, MDBoolField, );                                          \
   REQUIRED(value, MDField, );
+
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
-  Result = GET_OR_DISTINCT(DITemplateValueParameter,
-                           (Context, tag.Val, name.Val, type.Val, value.Val));
+  Result = GET_OR_DISTINCT(
+      DITemplateValueParameter,
+      (Context, tag.Val, name.Val, type.Val, defaulted.Val, value.Val));
   return false;
 }
 
@@ -6527,9 +6535,6 @@ bool LLParser::ParseCallBr(Instruction *&Inst, PerFunctionState &PFS) {
                           /*IsCall=*/true))
     return true;
 
-  if (isa<InlineAsm>(Callee) && !Ty->getReturnType()->isVoidTy())
-    return Error(RetTypeLoc, "asm-goto outputs not supported");
-
   // Set up the Attribute for the function.
   SmallVector<Value *, 8> Args;
   SmallVector<AttributeSet, 8> ArgAttrs;
@@ -7767,9 +7772,6 @@ bool LLParser::ParseTypeTestResolution(TypeTestResolution &TTRes) {
     return true;
 
   switch (Lex.getKind()) {
-  case lltok::kw_unknown:
-    TTRes.TheKind = TypeTestResolution::Unknown;
-    break;
   case lltok::kw_unsat:
     TTRes.TheKind = TypeTestResolution::Unsat;
     break;
@@ -8100,6 +8102,21 @@ void LLParser::AddGlobalValueToIndex(
       NumberedValueInfos.resize(ID + 1);
     NumberedValueInfos[ID] = VI;
   }
+}
+
+/// ParseSummaryIndexFlags
+///   ::= 'flags' ':' UInt64
+bool LLParser::ParseSummaryIndexFlags() {
+  assert(Lex.getKind() == lltok::kw_flags);
+  Lex.Lex();
+
+  if (ParseToken(lltok::colon, "expected ':' here"))
+    return true;
+  uint64_t Flags;
+  if (ParseUInt64(Flags))
+    return true;
+  Index->setFlags(Flags);
+  return false;
 }
 
 /// ParseGVEntry

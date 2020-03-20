@@ -1188,7 +1188,7 @@ define void @avg_v32i8_const(<32 x i8>* %a) nounwind {
 ;
 ; AVX1-LABEL: avg_v32i8_const:
 ; AVX1:       # %bb.0:
-; AVX1-NEXT:    vmovddup {{.*#+}} xmm0 = [7.9499288951273625E-275,7.9499288951273625E-275]
+; AVX1-NEXT:    vmovddup {{.*#+}} xmm0 = [506097522914230528,506097522914230528]
 ; AVX1-NEXT:    # xmm0 = mem[0,0]
 ; AVX1-NEXT:    vpavgb (%rdi), %xmm0, %xmm1
 ; AVX1-NEXT:    vpavgb 16(%rdi), %xmm0, %xmm0
@@ -1239,7 +1239,7 @@ define void @avg_v64i8_const(<64 x i8>* %a) nounwind {
 ;
 ; AVX1-LABEL: avg_v64i8_const:
 ; AVX1:       # %bb.0:
-; AVX1-NEXT:    vmovddup {{.*#+}} xmm0 = [7.9499288951273625E-275,7.9499288951273625E-275]
+; AVX1-NEXT:    vmovddup {{.*#+}} xmm0 = [506097522914230528,506097522914230528]
 ; AVX1-NEXT:    # xmm0 = mem[0,0]
 ; AVX1-NEXT:    vpavgb (%rdi), %xmm0, %xmm1
 ; AVX1-NEXT:    vpavgb 16(%rdi), %xmm0, %xmm2
@@ -2915,8 +2915,8 @@ define void @not_avg_v16i8_wide_constants(<16 x i8>* %a, <16 x i8>* %b) nounwind
   %2 = load <16 x i8>, <16 x i8>* %b
   %3 = zext <16 x i8> %1 to <16 x i128>
   %4 = zext <16 x i8> %2 to <16 x i128>
-  %5 = add nuw nsw <16 x i128> %3, <i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1>
-  %6 = add nuw nsw <16 x i128> %5, %4
+  %5 = add <16 x i128> %3, <i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1, i128 -1>
+  %6 = add <16 x i128> %5, %4
   %7 = lshr <16 x i128> %6, <i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1, i128 1>
   %8 = trunc <16 x i128> %7 to <16 x i8>
   store <16 x i8> %8, <16 x i8>* undef, align 4

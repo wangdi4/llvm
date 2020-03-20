@@ -22,9 +22,8 @@
 
 using namespace lldb_private;
 
-SystemInitializerTest::SystemInitializerTest() {}
-
-SystemInitializerTest::~SystemInitializerTest() {}
+SystemInitializerTest::SystemInitializerTest() = default;
+SystemInitializerTest::~SystemInitializerTest() = default;
 
 llvm::Error SystemInitializerTest::Initialize() {
   if (auto e = SystemInitializerCommon::Initialize())
@@ -40,7 +39,11 @@ llvm::Error SystemInitializerTest::Initialize() {
 #define LLDB_PLUGIN(p) LLDB_PLUGIN_INITIALIZE(p);
 #include "Plugins/Plugins.def"
 
-  // Scan for any system or user LLDB plug-ins.
+  // We ignored all the script interpreter earlier, so initialize
+  // ScriptInterpreterNone explicitly.
+  LLDB_PLUGIN_INITIALIZE(ScriptInterpreterNone);
+
+  // Scan for any system or user LLDB plug-ins
   PluginManager::Initialize();
 
   // The process settings need to know about installed plug-ins, so the
@@ -56,12 +59,16 @@ void SystemInitializerTest::Terminate() {
 
   Debugger::SettingsTerminate();
 
-  // Terminate and unload and loaded system or user LLDB plug-ins.
+  // Terminate and unload and loaded system or user LLDB plug-ins
   PluginManager::Terminate();
 
 #define LLDB_SCRIPT_PLUGIN(p)
 #define LLDB_PLUGIN(p) LLDB_PLUGIN_TERMINATE(p);
 #include "Plugins/Plugins.def"
+
+  // We ignored all the script interpreter earlier, so terminate
+  // ScriptInterpreterNone explicitly.
+  LLDB_PLUGIN_INITIALIZE(ScriptInterpreterNone);
 
   // Now shutdown the common parts, in reverse order.
   SystemInitializerCommon::Terminate();

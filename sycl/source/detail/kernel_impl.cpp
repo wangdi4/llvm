@@ -7,11 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include <CL/sycl/detail/common.hpp>
-#include <CL/sycl/detail/context_impl.hpp>
-#include <CL/sycl/detail/kernel_impl.hpp>
-#include <CL/sycl/detail/kernel_info.hpp>
 #include <CL/sycl/info/info_desc.hpp>
 #include <CL/sycl/program.hpp>
+#include <detail/context_impl.hpp>
+#include <detail/kernel_impl.hpp>
+#include <detail/kernel_info.hpp>
 
 #include <memory>
 
@@ -33,13 +33,13 @@ kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
 
   RT::PiContext Context = nullptr;
   // Using the plugin from the passed ContextImpl
-#if INTEL_CUSTOMIZATION
   getPlugin().call<PiApiKind::piKernelGetInfo>(
       MKernel, PI_KERNEL_INFO_CONTEXT, sizeof(Context), &Context, nullptr);
-#endif // INTEL_CUSTOMIZATION
+
   if (ContextImpl->getHandleRef() != Context)
     throw cl::sycl::invalid_parameter_error(
-        "Input context must be the same as the context of cl_kernel");
+        "Input context must be the same as the context of cl_kernel",
+        PI_INVALID_CONTEXT);
   getPlugin().call<PiApiKind::piKernelRetain>(MKernel);
 }
 
@@ -90,7 +90,8 @@ template <info::kernel_sub_group param>
 typename info::param_traits<info::kernel_sub_group, param>::return_type
 kernel_impl::get_sub_group_info(const device &Device) const {
   if (is_host()) {
-    throw runtime_error("Sub-group feature is not supported on HOST device.");
+    throw runtime_error("Sub-group feature is not supported on HOST device.",
+                        PI_INVALID_DEVICE);
   }
   return get_kernel_sub_group_info<
       typename info::param_traits<info::kernel_sub_group, param>::return_type,
@@ -105,7 +106,8 @@ kernel_impl::get_sub_group_info(
     typename info::param_traits<info::kernel_sub_group, param>::input_type
         Value) const {
   if (is_host()) {
-    throw runtime_error("Sub-group feature is not supported on HOST device.");
+    throw runtime_error("Sub-group feature is not supported on HOST device.",
+                        PI_INVALID_DEVICE);
   }
   return get_kernel_sub_group_info_with_input<
       typename info::param_traits<info::kernel_sub_group, param>::return_type,

@@ -244,10 +244,11 @@ enum IIT_Info {
   IIT_SCALABLE_VEC = 43,
   IIT_SUBDIVIDE2_ARG = 44,
   IIT_SUBDIVIDE4_ARG = 45,
-  IIT_VEC_OF_BITCASTS_TO_INT = 46
+  IIT_VEC_OF_BITCASTS_TO_INT = 46,
+  IIT_V128  = 47
 #if INTEL_CUSTOMIZATION
   ,
-  IIT_STRUCT9 = 47
+  IIT_STRUCT9 = 48
 #endif  // INTEL_CUSTOMIZATION
 };
 
@@ -384,6 +385,7 @@ static void EncodeFixedType(Record *R, std::vector<unsigned char> &ArgCodes,
     case 16: Sig.push_back(IIT_V16); break;
     case 32: Sig.push_back(IIT_V32); break;
     case 64: Sig.push_back(IIT_V64); break;
+    case 128: Sig.push_back(IIT_V128); break;
     case 512: Sig.push_back(IIT_V512); break;
     case 1024: Sig.push_back(IIT_V1024); break;
     }

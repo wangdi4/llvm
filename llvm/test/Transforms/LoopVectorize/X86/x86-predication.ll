@@ -65,9 +65,10 @@ for.end:
 ; sink-scalar-operands optimization for predicated instructions.
 ;
 ; SINK-GATHER: vector.body:
+; SINK-GATHER:   %[[T0:.+]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %{{.*}}, i32 4, <8 x i1> %{{.*}}, <8 x i32> undef) ;INTEL
 ; SINK-GATHER: pred.udiv.if:
-; SINK-GATHER:   %[[T0:.+]] = load i32, i32* %{{.*}}, align 4
-; SINK-GATHER:   %{{.*}} = udiv i32 %[[T0]], %{{.*}}
+; SINK-GATHER:   %[[T1:.+]] = extractelement <8 x i32> %[[T0]], i32 0 ;INTEL
+; SINK-GATHER:   %{{.*}} = udiv i32 %[[T1]], %{{.*}} ;INTEL
 ; SINK-GATHER: pred.udiv.continue:
 define i32 @scalarize_and_sink_gather(i32* %a, i1 %c, i32 %x, i64 %n) {
 entry:

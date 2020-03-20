@@ -897,6 +897,7 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
     llvm_unreachable("Unexpected form in emitVEXOpcodePrefix!");
   case X86II::MRM_C0: // INTEL
   case X86II::RawFrm:
+  case X86II::PrefixByte:
     break;
 #if INTEL_CUSTOMIZATION
   case X86II::MRMDestMem4VOp2FSIB: {
@@ -1501,6 +1502,7 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
   case X86II::RawFrmDstSrc:
   case X86II::RawFrmSrc:
   case X86II::RawFrmDst:
+  case X86II::PrefixByte:
     emitByte(BaseOpcode, CurByte, OS);
     break;
   case X86II::AddCCFrm: {

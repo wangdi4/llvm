@@ -5614,8 +5614,8 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
 
   // getODRHash will compute the ODRHash if it has not been previously computed.
   Record->push_back(D->getODRHash());
-  bool ModulesDebugInfo =
-      Writer->Context->getLangOpts().ModulesDebugInfo && !D->isDependentType();
+  bool ModulesDebugInfo = Writer->Context->getLangOpts().ModulesDebugInfo &&
+                          Writer->WritingModule && !D->isDependentType();
   Record->push_back(ModulesDebugInfo);
   if (ModulesDebugInfo)
     Writer->ModularCodegenDecls.push_back(Writer->GetDeclRef(D));
@@ -6176,7 +6176,14 @@ void OMPClauseWriter::VisitOMPReadClause(OMPReadClause *) {}
 
 void OMPClauseWriter::VisitOMPWriteClause(OMPWriteClause *) {}
 
-void OMPClauseWriter::VisitOMPUpdateClause(OMPUpdateClause *) {}
+void OMPClauseWriter::VisitOMPUpdateClause(OMPUpdateClause *C) {
+  Record.push_back(C->isExtended() ? 1 : 0);
+  if (C->isExtended()) {
+    Record.AddSourceLocation(C->getLParenLoc());
+    Record.AddSourceLocation(C->getArgumentLoc());
+    Record.writeEnum(C->getDependencyKind());
+  }
+}
 
 void OMPClauseWriter::VisitOMPCaptureClause(OMPCaptureClause *) {}
 
@@ -6195,6 +6202,8 @@ void OMPClauseWriter::VisitOMPThreadsClause(OMPThreadsClause *) {}
 void OMPClauseWriter::VisitOMPSIMDClause(OMPSIMDClause *) {}
 
 void OMPClauseWriter::VisitOMPNogroupClause(OMPNogroupClause *) {}
+
+void OMPClauseWriter::VisitOMPDestroyClause(OMPDestroyClause *) {}
 
 void OMPClauseWriter::VisitOMPPrivateClause(OMPPrivateClause *C) {
   Record.push_back(C->varlist_size());
@@ -6375,6 +6384,11 @@ void OMPClauseWriter::VisitOMPFlushClause(OMPFlushClause *C) {
   Record.AddSourceLocation(C->getLParenLoc());
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
+}
+
+void OMPClauseWriter::VisitOMPDepobjClause(OMPDepobjClause *C) {
+  Record.AddStmt(C->getDepobj());
+  Record.AddSourceLocation(C->getLParenLoc());
 }
 
 void OMPClauseWriter::VisitOMPDependClause(OMPDependClause *C) {

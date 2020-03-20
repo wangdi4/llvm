@@ -547,7 +547,7 @@ public:
       : MCFragment(FT_BoundaryAlign, false, Sec) {}
 
   uint64_t getSize() const { return Size; }
-  void setSize(uint64_t V) { Size = V; }
+  void setSize(uint64_t Value) { Size = Value; }
 
   Align getAlignment() const { return AlignBoundary; }
   void setAlignment(Align V) { AlignBoundary = V; }

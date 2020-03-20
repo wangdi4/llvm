@@ -8,15 +8,15 @@
 
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
-#include <CL/sycl/detail/context_impl.hpp>
-#include <CL/sycl/detail/device_impl.hpp>
 #include <CL/sycl/detail/os_util.hpp>
-#include <CL/sycl/detail/program_manager/program_manager.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
 #include <CL/sycl/detail/util.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/exception.hpp>
 #include <CL/sycl/stl.hpp>
+#include <detail/context_impl.hpp>
+#include <detail/device_impl.hpp>
+#include <detail/program_manager/program_manager.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -79,12 +79,43 @@ static RT::PiProgram createBinaryProgram(const ContextImplPtr Context,
          "Only a single device is supported for AOT compilation");
 #endif
 
-  RT::PiDevice Device = getFirstDevice(Context);
-  pi_int32 BinaryStatus = CL_SUCCESS;
   RT::PiProgram Program;
-  Plugin.call<PiApiKind::piclProgramCreateWithBinary>(
-      Context->getHandleRef(), 1 /*one binary*/, &Device, &DataLen, &Data,
-      &BinaryStatus, &Program);
+
+  bool IsCUDA = false;
+
+  // TODO: Implement `piProgramCreateWithBinary` to not require extra logic for
+  //       the CUDA backend.
+#if USE_PI_CUDA
+  // All devices in a context are from the same platform.
+  RT::PiDevice Device = getFirstDevice(Context);
+  RT::PiPlatform Platform = nullptr;
+  Plugin.call<PiApiKind::piDeviceGetInfo>(Device, PI_DEVICE_INFO_PLATFORM, sizeof(Platform),
+                           &Platform, nullptr);
+  size_t PlatformNameSize = 0u;
+  Plugin.call<PiApiKind::piPlatformGetInfo>(Platform, PI_PLATFORM_INFO_NAME, 0u, nullptr,
+                             &PlatformNameSize);
+  std::vector<char> PlatformName(PlatformNameSize, '\0');
+  Plugin.call<PiApiKind::piPlatformGetInfo>(Platform, PI_PLATFORM_INFO_NAME,
+                             PlatformName.size(), PlatformName.data(), nullptr);
+  if (PlatformNameSize > 0u &&
+      std::strncmp(PlatformName.data(), "NVIDIA CUDA", PlatformNameSize) == 0) {
+    IsCUDA = true;
+  }
+#endif // USE_PI_CUDA
+
+  if (IsCUDA) {
+    // TODO: Reemplace CreateWithSource with CreateWithBinary in CUDA backend
+    const char *SignedData = reinterpret_cast<const char *>(Data);
+    Plugin.call<PiApiKind::piclProgramCreateWithSource>(Context->getHandleRef(), 1 /*one binary*/, &SignedData,
+                                         &DataLen, &Program);
+  } else {
+    RT::PiDevice Device = getFirstDevice(Context);
+    pi_int32 BinaryStatus = CL_SUCCESS;
+    Plugin.call<PiApiKind::piclProgramCreateWithBinary>(Context->getHandleRef(), 1 /*one binary*/, &Device,
+                                         &DataLen, &Data, &BinaryStatus,
+                                         &Program);
+  }
+
   return Program;
 }
 
@@ -120,7 +151,7 @@ RetT *waitUntilBuilt(KernelProgramCache &Cache,
     return State == BS_Done || State == BS_Failed;
   });
 
-  if (BuildResult->Error.FilledIn) {
+  if (BuildResult->Error.isFilledIn()) {
     const KernelProgramCache::BuildError &Error = BuildResult->Error;
     throw ExceptionT(Error.Msg, Error.Code);
   }
@@ -206,7 +237,6 @@ RetT *getOrBuild(KernelProgramCache &KPCache, const KeyT &CacheKey,
   } catch (const exception &Ex) {
     BuildResult->Error.Msg = Ex.what();
     BuildResult->Error.Code = Ex.get_cl_code();
-    BuildResult->Error.FilledIn = true;
 
     BuildResult->State.store(BS_Failed);
 
@@ -283,10 +313,12 @@ RT::PiProgram ProgramManager::createPIProgram(const DeviceImage &Img,
 
   // perform minimal sanity checks on the device image and the descriptor
   if (Img.BinaryEnd < Img.BinaryStart) {
-    throw runtime_error("Malformed device program image descriptor");
+    throw runtime_error("Malformed device program image descriptor",
+                        PI_INVALID_VALUE);
   }
   if (Img.BinaryEnd == Img.BinaryStart) {
-    throw runtime_error("Invalid device program image: size is zero");
+    throw runtime_error("Invalid device program image: size is zero",
+                        PI_INVALID_VALUE);
   }
   size_t ImgSize = static_cast<size_t>(Img.BinaryEnd - Img.BinaryStart);
 
@@ -302,7 +334,8 @@ RT::PiProgram ProgramManager::createPIProgram(const DeviceImage &Img,
 
   if (!isDeviceBinaryTypeSupported(Context, Format))
     throw feature_not_supported(
-        "Online compilation is not supported in this context");
+        "Online compilation is not supported in this context",
+        PI_INVALID_OPERATION);
 
   // Load the image
   const ContextImplPtr Ctx = getSyclObjImpl(Context);
@@ -480,7 +513,8 @@ static const char* getDeviceLibFilename(DeviceLibExt Extension) {
   case cl_intel_devicelib_complex_fp64:
     return "libsycl-fallback-complex-fp64.spv";
   }
-  throw compile_program_error("Unhandled (new?) device library extension");
+  throw compile_program_error("Unhandled (new?) device library extension",
+                              PI_INVALID_OPERATION);
 }
 
 static const char* getDeviceLibExtensionStr(DeviceLibExt Extension) {
@@ -496,7 +530,8 @@ static const char* getDeviceLibExtensionStr(DeviceLibExt Extension) {
   case cl_intel_devicelib_complex_fp64:
     return "cl_intel_devicelib_complex_fp64";
   }
-  throw compile_program_error("Unhandled (new?) device library extension");
+  throw compile_program_error("Unhandled (new?) device library extension",
+                              PI_INVALID_OPERATION);
 }
 
 static RT::PiProgram loadDeviceLibFallback(
@@ -517,7 +552,8 @@ static RT::PiProgram loadDeviceLibFallback(
 
   if (!loadDeviceLib(Context, LibFileName, LibProg)) {
     CachedLibPrograms.erase(LibProgIt);
-    throw compile_program_error(std::string("Failed to load ") + LibFileName);
+    throw compile_program_error(std::string("Failed to load ") + LibFileName,
+                                PI_INVALID_VALUE);
   }
 
   const detail::plugin &Plugin = Context->getPlugin();
@@ -533,7 +569,7 @@ static RT::PiProgram loadDeviceLibFallback(
   if (Error != PI_SUCCESS) {
     CachedLibPrograms.erase(LibProgIt);
     throw compile_program_error(
-        ProgramManager::getProgramBuildLog(LibProg, Context));
+        ProgramManager::getProgramBuildLog(LibProg, Context), Error);
   }
 
   return LibProg;
@@ -557,7 +593,8 @@ ProgramManager::ProgramManager() {
 
     if (!File.is_open())
       throw runtime_error(std::string("Can't open file specified via ") +
-                          UseSpvEnv + ": " + SpvFile);
+                              UseSpvEnv + ": " + SpvFile,
+                          PI_INVALID_VALUE);
     File.seekg(0, std::ios::end);
     size_t Size = File.tellg();
     std::unique_ptr<unsigned char[]> Data(new unsigned char[Size]);
@@ -566,7 +603,8 @@ ProgramManager::ProgramManager() {
     File.close();
     if (!File.good())
       throw runtime_error(std::string("read from ") + SpvFile +
-                          std::string(" failed"));
+                              std::string(" failed"),
+                          PI_INVALID_VALUE);
 
     std::unique_ptr<DeviceImage, ImageDeleter> ImgPtr(new DeviceImage(),
                                                       ImageDeleter());
@@ -749,7 +787,8 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
         Program.get(), Devices.size(), Devices.data(), Opts.c_str(), nullptr,
         nullptr);
     if (Error != PI_SUCCESS)
-      throw compile_program_error(getProgramBuildLog(Program.get(), Context));
+      throw compile_program_error(getProgramBuildLog(Program.get(), Context),
+                                  Error);
     return Program;
   }
 
@@ -771,7 +810,8 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
     if (LinkedProg) {
       // A non-trivial error occurred during linkage: get a build log, release
       // an incomplete (but valid) LinkedProg, and throw.
-      throw compile_program_error(getProgramBuildLog(LinkedProg, Context));
+      throw compile_program_error(getProgramBuildLog(LinkedProg, Context),
+                                  Error);
     }
     Plugin.checkPiResult(Error);
   }
@@ -885,7 +925,8 @@ ProgramManager::getKernelSetId(OSModuleHandle M,
   if (ModuleKSIdIt != m_OSModuleKernelSets.end())
     return ModuleKSIdIt->second;
 
-  throw runtime_error("No kernel named " + KernelName + " was found");
+  throw runtime_error("No kernel named " + KernelName + " was found",
+                      PI_RESULT_INVALID_KERNEL_NAME);
 }
 
 RT::PiDeviceBinaryType ProgramManager::getFormat(const DeviceImage &Img) const {
@@ -935,7 +976,8 @@ void ProgramManager::dumpImage(const DeviceImage &Img, KernelSetId KSId) const {
   std::ofstream F(Fname, std::ios::binary);
 
   if (!F.is_open()) {
-    throw runtime_error(std::string("Can not write ") + Fname);
+    throw runtime_error(std::string("Can not write ") + Fname,
+                        PI_INVALID_VALUE);
   }
   size_t ImgSize = static_cast<size_t>(Img.BinaryEnd - Img.BinaryStart);
   F.write(reinterpret_cast<const char *>(Img.BinaryStart), ImgSize);

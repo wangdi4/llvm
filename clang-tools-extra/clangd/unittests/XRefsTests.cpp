@@ -97,6 +97,15 @@ TEST(HighlightsTest, All) {
       R"cpp(// Function parameter in decl
         void foo(int [[^bar]]);
       )cpp",
+      R"cpp(// Not touching any identifiers.
+        struct Foo {
+          [[~]]Foo() {};
+        };
+        void foo() {
+          Foo f;
+          f.[[^~]]Foo();
+        }
+      )cpp",
   };
   for (const char *Test : Tests) {
     Annotations T(Test);
@@ -329,7 +338,18 @@ TEST(LocateSymbol, All) {
        #define ADDRESSOF(X) &X;
        int *j = ADDRESSOF(^i);
       )cpp",
-
+      R"cpp(// Macro argument appearing multiple times in expansion
+        #define VALIDATE_TYPE(x) (void)x;
+        #define ASSERT(expr)       \
+          do {                     \
+            VALIDATE_TYPE(expr);   \
+            if (!expr);            \
+          } while (false)
+        bool [[waldo]]() { return true; }
+        void foo() {
+          ASSERT(wa^ldo());
+        }
+      )cpp",
       R"cpp(// Symbol concatenated inside macro (not supported)
        int *pi;
        #define POINTER(X) p ## X;
@@ -947,6 +967,27 @@ TEST(FindReferences, WithinAST) {
       R"cpp(
         int [[v^ar]] = 0;
         void foo(int s = [[var]]);
+      )cpp",
+
+      R"cpp(
+       template <typename T>
+       class [[Fo^o]] {};
+       void func([[Foo]]<int>);
+      )cpp",
+
+      R"cpp(
+       template <typename T>
+       class [[Foo]] {};
+       void func([[Fo^o]]<int>);
+      )cpp",
+      R"cpp(// Not touching any identifiers.
+        struct Foo {
+          [[~]]Foo() {};
+        };
+        void foo() {
+          Foo f;
+          f.[[^~]]Foo();
+        }
       )cpp",
   };
   for (const char *Test : Tests) {

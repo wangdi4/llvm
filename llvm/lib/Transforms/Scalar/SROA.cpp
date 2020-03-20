@@ -134,7 +134,7 @@ namespace {
 
 /// A custom IRBuilder inserter which prefixes all names, but only in
 /// Assert builds.
-class IRBuilderPrefixedInserter : public IRBuilderDefaultInserter {
+class IRBuilderPrefixedInserter final : public IRBuilderDefaultInserter {
   std::string Prefix;
 
   const Twine getNameWithPrefix(const Twine &Name) const {
@@ -144,9 +144,8 @@ class IRBuilderPrefixedInserter : public IRBuilderDefaultInserter {
 public:
   void SetNamePrefix(const Twine &P) { Prefix = P.str(); }
 
-protected:
   void InsertHelper(Instruction *I, const Twine &Name, BasicBlock *BB,
-                    BasicBlock::iterator InsertPt) const {
+                    BasicBlock::iterator InsertPt) const override {
     IRBuilderDefaultInserter::InsertHelper(I, getNameWithPrefix(Name), BB,
                                            InsertPt);
   }
@@ -2559,7 +2558,8 @@ public:
     Instruction *OldUserI = cast<Instruction>(OldUse->getUser());
     IRB.SetInsertPoint(OldUserI);
     IRB.SetCurrentDebugLocation(OldUserI->getDebugLoc());
-    IRB.SetNamePrefix(Twine(NewAI.getName()) + "." + Twine(BeginOffset) + ".");
+    IRB.getInserter().SetNamePrefix(
+        Twine(NewAI.getName()) + "." + Twine(BeginOffset) + ".");
 
     CanSROA &= visit(cast<Instruction>(OldUse->getUser()));
     if (VecTy || IntTy)
@@ -2710,6 +2710,8 @@ private:
         NewLI->setAAMetadata(AATags);
       if (LI.isVolatile())
         NewLI->setAtomic(LI.getOrdering(), LI.getSyncScopeID());
+      if (NewLI->isAtomic())
+        NewLI->setAlignment(LI.getAlign());
 
       // Any !nonnull metadata or !range metadata on the old load is also valid
       // on the new load. This is even true in some cases even when the loads
@@ -2900,6 +2902,8 @@ private:
       NewSI->setAAMetadata(AATags);
     if (SI.isVolatile())
       NewSI->setAtomic(SI.getOrdering(), SI.getSyncScopeID());
+    if (NewSI->isAtomic())
+      NewSI->setAlignment(SI.getAlign());
     Pass.DeadInsts.insert(&SI);
     deleteIfTriviallyDead(OldOp);
 
