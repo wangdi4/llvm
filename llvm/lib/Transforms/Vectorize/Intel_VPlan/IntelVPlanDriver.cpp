@@ -992,11 +992,12 @@ bool VPlanDriverHIRImpl::isVPlanCandidate(Function &Fn, HLLoop *Lp) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// \brief Overrides FunctionPass's printer pass to return one which prints
-  /// HIR instead of LLVM IR.
- FunctionPass *VPlanDriverHIR::createPrinterPass(raw_ostream &OS,
+/// Overrides FunctionPass's printer pass to return one which prints
+/// HIR instead of LLVM IR.
+FunctionPass *
+VPlanDriverHIR::createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const {
-    return createHIRPrinterPass(OS, Banner);
+  return createHIRPrinterPass(OS, Banner);
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 

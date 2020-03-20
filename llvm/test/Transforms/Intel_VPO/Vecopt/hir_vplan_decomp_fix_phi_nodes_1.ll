@@ -1,4 +1,5 @@
-; Test to verify correctness of the PHI node fixing algorithm for a simple case of if-else diamond for a single variable within HCFG.
+; Test to verify correctness of the PHI node fixing algorithm for a simple case
+; of if-else diamond for a single variable within HCFG.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
 
@@ -17,11 +18,11 @@
 ; <28>    |   (@d)[0][i1] = %spec.select;
 ; <34>    + END LOOP
 
-; Here a PHI node will be inserted for the DDRef %t1.0, incoming values are obtained from predecessor VPBBs
+; Here a PHI node will be inserted for the DDRef %t1.0, incoming values are
+; obtained from predecessor VPBBs
 
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -46,8 +47,6 @@
 ; CHECK:         [[BB6]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK:         END Region([[REGION0]])
-
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

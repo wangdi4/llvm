@@ -16,6 +16,7 @@
 
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVerifier.h"
+#include "IntelVPlanDominatorTree.h"
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-verifier"
@@ -24,148 +25,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 static cl::opt<bool>
-    DisableHCFGVerification("vplan-disable-verification", cl::init(false),
-                            cl::desc("Disable VPlan H-CFG verification"));
-
-// Verify that Block is contained in the right VPLoop.
-void VPlanVerifier::verifyContainerLoop(
-    const VPBlockBase *Block, const VPLoopRegion *ParentLoopR,
-    const SmallPtrSetImpl<const VPBlockBase *> &ExternalBlocks) const {
-  const VPLoop *ContainerLoop = nullptr;
-
-  if (ParentLoopR) {
-    if (ExternalBlocks.count(Block))
-      // If Block is outside of the loop cyle, Block shouldn't be contained in
-      // this loop but in ParentRegion's parent loop (if any).
-      ContainerLoop = VPLInfo->getLoopFor(Block->getParent());
-    else
-      // Block should be contained in parent loop.
-      ContainerLoop = ParentLoopR->getVPLoop();
-  }
-
-  if (ContainerLoop)
-    assert(ContainerLoop->contains(Block) &&
-           "Block is not contained in the right loop");
-  else
-    // Check that the loop is not contained in any loop.
-    assert(!VPLInfo->getLoopFor(Block) &&
-           "Block should not be contained in any VPLoop");
-}
-
-// Verify VPLoop information in \p LoopRegion.
-void VPlanVerifier::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
-
-  const VPLoop *Loop = LoopRegion->getVPLoop();
-  assert(Loop && "Missing VPLoop for VPLoopRegion");
-
-  const VPBlockBase *Preheader = LoopRegion->getEntry();
-  assert(Preheader && Preheader == Loop->getLoopPreheader() &&
-         "Wrong loop preheader");
-  const VPBlockBase *Header = Preheader->getSingleSuccessor();
-  assert(Header && "Loop preheader must have a single successor");
-  assert(Header == Loop->getHeader() && "Wrong loop header");
-
-  assert((VPLInfo->getLoopFor(Header) == Loop) &&
-         "Unexpected loop from loop header");
-
-  (void) Loop;
-  (void) Header;
-}
-
-/// Collect VPBlockBases that are outside of the loop cycle of the loop in \p
-/// ParentLoopR. Return \p ExternalBlock with the external blocks. If \p
-/// ExternalBlock is not empty, it is cleared before collecting the new external
-/// blocks.
-static void CollectLoopExternalBlocks(
-    const VPLoopRegion *ParentLoopR, const VPLoopInfo *VPLInfo,
-    SmallPtrSetImpl<const VPBlockBase *> &ExternalBlocks) {
-  ExternalBlocks.clear();
-
-  // Add loop PH to ExternalBlocks.
-  ExternalBlocks.insert(ParentLoopR->getEntry());
-
-  // Add VPBlockBases after loop exitings to ExternalBlocks.
-  SmallVector<VPBlockBase *, 4> LoopExits;
-  ParentLoopR->getVPLoop()->getUniqueExitBlocks(LoopExits);
-  for (const auto *LpExit : LoopExits)
-    for (const auto *Block :
-         make_range(df_iterator<const VPBlockBase *>::begin(LpExit),
-                    df_iterator<const VPBlockBase *>::end(LpExit))) {
-      // TODO: Regions outside the loop cycle are not expected. Implement them
-      // when necessary.
-      assert(!isa<VPRegionBlock>(Block) && "Regions not supported!");
-      ExternalBlocks.insert(Block);
-    }
-}
-
-// Verify information of LoopRegions nested in \p Region.
-void VPlanVerifier::verifyLoopRegions(
-    const VPRegionBlock *TopRegion) const {
-
-  // Hold blocks outside of the loop cycle of ParentLoopR.
-  SmallPtrSet<const VPBlockBase *, 8> ExternalBlocks;
-
-  // VerifyLoopRegions implementation.
-  typedef std::function<void(const VPRegionBlock *, const VPLoopRegion *)> RT;
-  RT verifyLoopRegionsImp = [&](const VPRegionBlock *Region,
-                                const VPLoopRegion *ParentLoopR) {
-
-    assert(Region && "Region cannot be null");
-
-    if (const auto *LoopR = dyn_cast<VPLoopRegion>(Region)) {
-      // If Region is a LoopRegion, Region is the new ParentLoopR.
-      ParentLoopR = LoopR;
-      CollectLoopExternalBlocks(ParentLoopR, VPLInfo, ExternalBlocks);
-
-      // Checks for underlying-IR-specific information.
-      verifyIRSpecificLoopRegion(LoopR);
-    }
-
-    // Visit Region's CFG
-    for (const VPBlockBase *VPB :
-         make_range(df_iterator<const VPRegionBlock *>::begin(Region),
-                    df_iterator<const VPRegionBlock *>::end(Region))) {
-      // If subregion is a loop region, use it as ParentLoop in the visit
-      if (const auto *LoopRegion = dyn_cast<VPLoopRegion>(VPB)) {
-        verifyVPLoopInfo(LoopRegion);
-      }
-
-      verifyContainerLoop(VPB, ParentLoopR, ExternalBlocks);
-    }
-
-    // Visit SubRegion
-    for (const VPBlockBase *VPB :
-         make_range(df_iterator<const VPRegionBlock *>::begin(Region),
-                    df_iterator<const VPRegionBlock *>::end(Region))) {
-
-      if (const auto *SR = dyn_cast<VPRegionBlock>(VPB)) {
-        verifyLoopRegionsImp(SR, ParentLoopR);
-      }
-    }
-  };
-
-  verifyLoopRegionsImp(TopRegion, nullptr /*ParentLoopRegion*/);
-}
-
-// Count the number of VPLoopRegion's nested in \p Region.
-static unsigned countLoopRegionsInRegion(const VPRegionBlock *Region) {
-
-  unsigned NumLoops = 0;
-
-  for (const VPBlockBase *VPB :
-       make_range(df_iterator<const VPBlockBase *>::begin(Region->getEntry()),
-                  df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
-
-    if (isa<VPLoopRegion>(VPB))
-      ++NumLoops;
-
-    // Count nested VPLoops
-    if (const VPRegionBlock *VPR = dyn_cast<VPRegionBlock>(VPB))
-      NumLoops += countLoopRegionsInRegion(VPR);
-  }
-
-  return NumLoops;
-}
+    DisableVerification("vplan-disable-verification", cl::init(false),
+                        cl::desc("Disable VPlan H-CFG verification"));
 
 // Count the number of VPLoop's in \p Lp, including itself.
 template <class LoopT> static unsigned countLoopsInLoop(const LoopT *Lp) {
@@ -179,128 +40,21 @@ template <class LoopT> static unsigned countLoopsInLoop(const LoopT *Lp) {
   return NumLoops;
 }
 
-// Verify that TopRegion contains the same number of loops (VPLoopRegion) as
+// Verify that Plan contains the same number of loops (VPLoopRegion) as
 // VPLoopInfo and LoopInfo.
-void VPlanVerifier::verifyNumLoops(const VPRegionBlock *TopRegion) const {
-
-  // Compare number of loops in H-CFG with loops in VPLoopInfo and LoopInfo
-  unsigned NumLoopsInCFG = countLoopRegionsInRegion(TopRegion);
-
+void VPlanVerifier::verifyNumLoops(void) const {
+  // Compare number of loops in VPLoopInfo with loops in LoopInfo.
   assert(VPLInfo->size() && "More than one top loop is not expected");
   unsigned NumLoopsInVPLoopInfo = countLoopsInLoop<VPLoop>(*VPLInfo->begin());
   unsigned NumLoopsInIR = countLoopsInUnderlyingIR();
-
-  assert(NumLoopsInCFG == NumLoopsInVPLoopInfo &&
-         NumLoopsInVPLoopInfo == NumLoopsInIR &&
-         "Number of loops in H-CFG, VPLoopInfo and underlying IR don't match");
-
-  (void)NumLoopsInCFG;
+  assert(NumLoopsInVPLoopInfo == NumLoopsInIR &&
+         "Number of loops in VPLoopInfo and underlying IR don't match");
   (void)NumLoopsInVPLoopInfo;
   (void)NumLoopsInIR;
 }
 
-// Main class to verify loop information.
-void VPlanVerifier::verifyLoops(const VPRegionBlock *TopRegion) const {
-  if (all_of(depth_first(TopRegion),
-             [](const VPBlockBase *BB) { return isa<VPBasicBlock>(BB); }))
-    // Flattened CFG, skip loop regions verification.
-    return;
-  verifyNumLoops(TopRegion);
-  verifyLoopRegions(TopRegion);
-}
-
-// Main function for VPRegionBlock verification.
-void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
-
-  const VPBlockBase *Entry = Region->getEntry();
-  const VPBlockBase *Exit = Region->getExit();
-
-  // At this point, we don't expect Entry or Exit to be another region
-  assert(isa<VPBasicBlock>(Entry) && "Region entry is not a VPBasicBlock");
-  assert(isa<VPBasicBlock>(Exit) && "Region exit is not a VPBasicBlock");
-
-  // Entry and Exit shouldn't have any predecessor/successor, respectively
-  assert(Entry->getNumPredecessors() == 0 && "Region entry has predecessors");
-  assert(Exit->getNumSuccessors() == 0 && "Region exit has successors");
-
-  // We are not creating all possible SESE regions. At this point, Entry must
-  // have more than two successors and Exit more than two predecessors. This
-  // doesn't apply to VPLoopRegion's or TopRegion.
-  if (Region->getParent() != nullptr /*TopRegion*/ &&
-      !isa<VPLoopRegion>(Region)) {
-    assert(Entry->getNumSuccessors() > 1 &&
-           "Region entry must have more than one successors");
-    assert(Exit->getNumPredecessors() > 1 &&
-           "Region exit must have more than one predecessors");
-  }
-  (void) Entry;
-  (void) Exit;
-
-  // Traverse Region's blocks
-  unsigned NumBlocks = 0;
-  for (const VPBlockBase *VPB :
-       make_range(df_iterator<const VPBlockBase *>::begin(Region->getEntry()),
-                  df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
-    // Compute Region's size
-    ++NumBlocks;
-
-    // Check block's parent
-    assert(VPB->getParent() == Region && "VPBlockBase has wrong parent");
-
-    // Check block's ConditionBit
-    if (VPB->getNumSuccessors() > 1)
-      assert(VPB->getCondBit() && "Missing condition bit!");
-    else
-      assert(!VPB->getCondBit() && "Unexpected condition bit!");
-
-    // Check block's successors
-    const auto &Successors = VPB->getSuccessors();
-    for (const VPBlockBase *Succ : Successors) {
-      // There must be only one instance of the successor in block's successor
-      // list. TODO: This won't work for switch statements
-      assert(std::count(Successors.begin(), Successors.end(), Succ) == 1 &&
-             "Multiple instances of the same successor");
-
-      // There must be a bidirectional link between block and successor
-      const auto &SuccPreds = Succ->getPredecessors();
-      assert(std::find(SuccPreds.begin(), SuccPreds.end(), VPB) !=
-                 SuccPreds.end() &&
-             "Missing predecessor link");
-      (void) SuccPreds;
-    }
-
-    // Check block's predecessors
-    const auto &Predecessors = VPB->getPredecessors();
-    for (const VPBlockBase *Pred : Predecessors) {
-
-      // Block and predecessor must be inside the same region
-      assert(Pred->getParent() == VPB->getParent() &&
-             "Predecessor is not in the same region");
-
-      // There must be only one instance of the predecessor in block's
-      // predecessor list. TODO: This won't work for switch statements
-      assert(std::count(Predecessors.begin(), Predecessors.end(), Pred) == 1 &&
-             "Multiple instances of the same predecessor");
-
-      // There must be a bidirectional link between block and predecessor
-      const auto &PredSuccs = Pred->getSuccessors();
-      assert(std::find(PredSuccs.begin(), PredSuccs.end(), VPB) !=
-                 PredSuccs.end() &&
-             "Missing successor link");
-      (void)PredSuccs;
-    }
-    verifyBlock(VPB, Region);
-
-    // Recurse here so that we won't need to do the traversal twice.
-    if (const auto *SubRegion = dyn_cast<VPRegionBlock>(VPB))
-      verifyRegions(SubRegion);
-  }
-
-  assert(NumBlocks == Region->getSize() && "Region has a wrong size");
-}
-
 #if INTEL_CUSTOMIZATION
-void VPlanVerifier::verifyHCFGContext(const VPlan *Plan) {
+void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
   Plan->verifyVPConstants();
   Plan->verifyVPExternalDefs();
   Plan->verifyVPExternalDefsHIR();
@@ -308,25 +62,44 @@ void VPlanVerifier::verifyHCFGContext(const VPlan *Plan) {
 }
 #endif
 
-// Public interface to verify the hierarchical CFG.
-void VPlanVerifier::verifyHierarchicalCFG(
+// Public interface to verify the loop and its loop info.
+void VPlanVerifier::verifyLoops(
 #if INTEL_CUSTOMIZATION
     const VPlan *Plan,
 #endif
-    const VPRegionBlock *TopRegion) const {
+    const VPDominatorTree &VPDomTree, VPLoopInfo *VPLI) {
 
-  if (DisableHCFGVerification)
+  VPLInfo = VPLI;
+
+  if (DisableVerification)
     return;
 
-  LLVM_DEBUG(dbgs() << "Verifying Hierarchical CFG.\n");
+  LLVM_DEBUG(dbgs() << "Verifying loop nest.\n");
 
 #if INTEL_CUSTOMIZATION
-  verifyHCFGContext(Plan);
+  verifyCFGExternals(Plan);
 #endif
-  if (VPLInfo)
-    verifyLoops(TopRegion);
 
-  verifyRegions(TopRegion);
+  unsigned BBNum = 0;
+  for (const VPBasicBlock *VPBB : depth_first(Plan->getEntryBlock())) {
+    verifyBlock(VPBB);
+    ++BBNum;
+  }
+
+  assert(Plan->getSize() == BBNum && "Plan has wrong size!");
+
+  if (!VPLInfo)
+    return;
+
+  // TODO: Verify domination and postdomination trees.
+  VPLInfo->verify(VPDomTree);
+  VPLoop *TopLoop = *VPLInfo->begin();
+  for (auto *CurVPLoop : post_order(TopLoop)) {
+    CurVPLoop->verifyLoop();
+  }
+
+  if (TheLoop)
+    verifyNumLoops();
 }
 
 unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
@@ -777,8 +550,7 @@ void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
 
   const auto &PBlocks = Phi->blocks();
   for (auto *Block : Phi->getParent()->getPredecessors()) {
-    // A VPRegion can be set as a predecessor thus we use getExitBasicBlock().
-    assert(llvm::find(PBlocks, Block->getExitBasicBlock())!= PBlocks.end() &&
+    assert(llvm::find(PBlocks, Block) != PBlocks.end() &&
            "A predecessor is not incoming VPBB for VPPHINode");
     (void)Block;
   }
@@ -875,11 +647,57 @@ void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
   verifySpecificInstruction(Inst);
 }
 
-// Verify information of Blocks nested in \p Region.
-void VPlanVerifier::verifyBlock(const VPBlockBase *Block,
-                                const VPRegionBlock *Region) const {
-  if (const auto *BB = dyn_cast<const VPBasicBlock>(Block)) {
-    for (const auto &Inst : *BB)
-      verifyInstruction(&Inst, BB);
-  }
+// Verify if the block is correctly connected with other basic blocks in the
+// loop.
+void VPlanVerifier::verifyBlock(const VPBasicBlock *VPBB) const {
+
+  for (const auto &Inst : *VPBB)
+    verifyInstruction(&Inst, VPBB);
+
+  // Check block's ConditionBit
+  if (VPBB->getNumSuccessors() > 1)
+    assert(VPBB->getCondBit() && VPBB->getNumSuccessors() == 2 &&
+           "Missing condition bit.");
+  else
+    assert(!VPBB->getCondBit() && VPBB->getNumSuccessors() < 2 &&
+           "Unexpected condition bit.");
+
+  // Check if there is a bidirectional link between block and its successors.
+  assert(all_of(VPBB->getSuccessors(),
+                [VPBB](VPBasicBlock *Succ) {
+                  return any_of(
+                      Succ->getPredecessors(),
+                      [VPBB](VPBasicBlock *Pred) { return Pred == VPBB; });
+                }) &&
+         "There is not a bidirectional link between the current block and "
+         "its successors.");
+
+  // There must be only one instance of the successors in block's
+  // successor list.
+  assert(all_of(VPBB->getSuccessors(),
+                 [VPBB](VPBasicBlock *Succ) {
+                   return std::count(VPBB->getSuccessors().begin(),
+                                     VPBB->getSuccessors().end(), Succ) == 1;
+                 }) &&
+         "Multiple instances of the same successor.");
+
+  // Check if there is a bidirectional link between block and its
+  // predecessors.
+  assert(all_of(VPBB->getPredecessors(),
+                [VPBB](VPBasicBlock *Pred) {
+                  return any_of(
+                      Pred->getSuccessors(),
+                      [VPBB](VPBasicBlock *Succ) { return Succ == VPBB; });
+                }) &&
+         "There is not a bidirectional link between the current block and "
+         "its predecessors.");
+
+  // There must be only one instance of the predecessors in block's
+  // predecessor list.
+  assert(all_of(VPBB->getPredecessors(),
+                [VPBB](VPBasicBlock *Pred) {
+                  return std::count(VPBB->getPredecessors().begin(),
+                                    VPBB->getPredecessors().end(), Pred) == 1;
+                }) &&
+         "Multiple instances of the same predecessor.");
 }

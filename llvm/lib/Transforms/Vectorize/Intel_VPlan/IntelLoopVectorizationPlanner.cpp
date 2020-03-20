@@ -166,11 +166,10 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     Plan->setVPlanDA(std::move(VPDA));
     auto *VPLInfo = Plan->getVPLoopInfo();
     VPLoop *CandidateLoop = *VPLInfo->begin();
-    VPRegionBlock *TopRegion = Plan->getEntry();
-    TopRegion->computeDT();
-    TopRegion->computePDT();
+    Plan->computeDT();
+    Plan->computePDT();
     Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
-                                *TopRegion->getDT(), *TopRegion->getPDT(),
+                                *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
     LE->doSOAAnalysis();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

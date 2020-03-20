@@ -8,7 +8,6 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @test_2_hammocks_2(i32* noalias nocapture %a) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  After predication and linearization
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -36,19 +35,19 @@ define void @test_2_hammocks_2(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB4_BR_VP_BB1_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB3_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB3_BR_VP_BB1_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_BB1_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LOOP_HEADER_LD]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_BB1_VARYING]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LOOP_HEADER_LD]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
@@ -73,19 +72,19 @@ define void @test_2_hammocks_2(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB10_BR_VP_BB6_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB6_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB10_BR_VP_BB6_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB6_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB9_BR_VP_BB6_VARYING_NOT:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB6_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP_BB9_BR_VP_BB6_VARYING:%.*]] = and i1 [[VP_LOOP_HEADER_VARYING]] i1 [[VP_BB6_VARYING]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB12:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB10_BR_VP_BB6_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB9_BR_VP_BB6_VARYING_NOT]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB8_ADD:%.*]] = add i32 [[VP_LOOP_HEADER_LD]] i32 8
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB13:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB10_BR_VP_BB6_VARYING]]
+; CHECK-NEXT:     [DA: Divergent] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB9_BR_VP_BB6_VARYING]]
 ; CHECK-NEXT:     [DA: Divergent] i32 [[VP_BB7_ADD:%.*]] = add i32 [[VP_LOOP_HEADER_LD]] i32 7
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB14:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
@@ -111,8 +110,6 @@ define void @test_2_hammocks_2(i32* noalias nocapture %a) local_unnamed_addr #0 
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB15]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
 ;        entry

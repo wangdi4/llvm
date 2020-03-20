@@ -1,4 +1,5 @@
-; Test to check correctness of VPlan entities generated for in-memory SIMD reduction descriptors when vectorzing with incoming HIR.
+; Test to check correctness of VPlan entities generated for in-memory SIMD
+; reduction descriptors when vectorzing with incoming HIR.
 
 ; long ub[N];
 ;
@@ -39,9 +40,12 @@
 ; <35>          @llvm.directive.region.exit(%1); [ DIR.OMP.END.SIMD() ]
 ; <0>    END REGION
 
-; For the above HIR, both the update sites (in then and else branches) are represented directly as stores. Hence there are no associated StartPHI nodes and it is an in-memory reduction.
-; The initial value should be saved in private memory and both the store operations must save the results in same private memory  which is appropriately written to the reduction variable
-; in finalize statements.
+; For the above HIR, both the update sites (in then and else branches) are
+; represented directly as stores. Hence there are no associated StartPHI
+; nodes and it is an in-memory reduction.
+; The initial value should be saved in private memory and both the store
+; operations must save the results in same private memory  which is
+; appropriately written to the reduction variable in finalize statements.
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
@@ -52,8 +56,6 @@
 ; CHECK: Reduction list
 ; CHECK: (+) Start: i64* [[V1_START:%.*]]
 ; CHECK: Memory: i64* [[V1_START]]
-
-; CHECK-LABEL: REGION
 ; CHECK: i64* [[PRIV:%vp.*]] = allocate-priv i64*
 ; CHECK: i64 [[INIT:%vp.*]] = reduction-init i64 0 i64* [[V1_START]]
 ; CHECK: store i64 [[INIT]] i64* [[PRIV]]

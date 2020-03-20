@@ -45,7 +45,6 @@ public:
   ~VPlanCostModelProprietary() {}
 
 private:
-  virtual unsigned getCost(const VPBlockBase *VPBlock) const final;
   static bool isUnitStrideLoadStore(const VPInstruction *VPinst);
 
   // FIXME: This is a temporary workaround until proper cost modeling is implemented.

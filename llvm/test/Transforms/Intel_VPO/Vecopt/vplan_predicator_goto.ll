@@ -8,7 +8,6 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo(i32* noalias nocapture readnone %a) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  After predication and linearization
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -49,8 +48,6 @@ define void @foo(i32* noalias nocapture readnone %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
 ;        entry

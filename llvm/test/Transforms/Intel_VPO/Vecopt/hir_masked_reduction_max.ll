@@ -40,7 +40,6 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    Linked values: i64 [[VP4]], i64 [[VP3]],
 ; CHECK-EMPTY:
 ; CHECK-EMPTY:
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
@@ -87,7 +86,6 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %cmp14 = icmp sgt i32 %N, 0

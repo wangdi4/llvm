@@ -136,9 +136,9 @@ private:
                       SmallVectorImpl<PhiNodePassData> &Worklist);
 
   void computeLiveInBlocks(unsigned Symbase,
-                           const SmallPtrSetImpl<VPBlockBase *> &DefBlocks,
-                           const SmallPtrSetImpl<VPBlockBase *> &UsingBlocks,
-                           SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks);
+                           const SmallPtrSetImpl<VPBasicBlock *> &DefBlocks,
+                           const SmallPtrSetImpl<VPBasicBlock *> &UsingBlocks,
+                           SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks);
 
   void addIDFPhiNodes();
 

@@ -585,9 +585,9 @@ private:
   // the lookup.
   void eraseLoopIntrinsImpl(bool BeginDir);
 
-  /// \brief Analyzes the memory references of \p OrigCall to determine
-  /// stride. The resulting stride information is attached to the arguments
-  /// of \p WideCall in the form of attributes.
+  /// Analyzes the memory references of \p OrigCall to determine stride. The
+  /// resulting stride information is attached to the arguments of \p WideCall
+  /// in the form of attributes.
   void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
                                       SmallVectorImpl<RegDDRef *> &Args);
 

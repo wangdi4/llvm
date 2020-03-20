@@ -15,7 +15,6 @@ declare void @llvm.directive.region.exit(token) nounwind
 define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  After inner loop control flow transformation
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -93,8 +92,6 @@ define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr #0 {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 entry:
   %outer.toptest = icmp sgt i64 %N, 0

@@ -835,9 +835,8 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
          "Only normalized single-exit DO loops are supported for now.");
   assert(LpPH->getSingleSuccessor() &&
-         isa<VPBasicBlock>(LpPH->getSingleSuccessor()) &&
          "Loop PH must have one successor VPBasicBlock.");
-  VPBasicBlock *LpH = cast<VPBasicBlock>(LpPH->getSingleSuccessor());
+  VPBasicBlock *LpH = LpPH->getSingleSuccessor();
 
   // Create IV start (0). Only normalized loops are expected.
   CanonExpr *LowerCE = HLp->getLowerCanonExpr();
@@ -964,30 +963,29 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 ///  will help us avoid inserting PHI nodes into blocks without any uses (no
 ///  dead PHI nodes)
 void VPDecomposerHIR::computeLiveInBlocks(
-    unsigned CurSymbase, const SmallPtrSetImpl<VPBlockBase *> &DefBlocks,
-    const SmallPtrSetImpl<VPBlockBase *> &UsingBlocks,
-    SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks) {
+    unsigned CurSymbase, const SmallPtrSetImpl<VPBasicBlock *> &DefBlocks,
+    const SmallPtrSetImpl<VPBasicBlock *> &UsingBlocks,
+    SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks) {
   // Liveness of the current symbase is determined by iterating over
   // predecessors of the blocks where definition is live. These blocks are
   // tracked via a worklist
 
   // Initially this worklist contains all the using blocks of the current
   // symbase
-  SmallVector<VPBlockBase *, 16> LiveInBlockWorklist(UsingBlocks.begin(),
+  SmallVector<VPBasicBlock *, 16> LiveInBlockWorklist(UsingBlocks.begin(),
                                                      UsingBlocks.end());
 
   // If a VPBB is both a defining and using block of the symbase, then we need
   // to check if the definition comes before or after the use. If definition
   // happens before use, the symbase is not really live-in to VPBB
   for (unsigned I = 0, E = LiveInBlockWorklist.size(); I != E; ++I) {
-    VPBlockBase *VPBB = LiveInBlockWorklist[I];
+    VPBasicBlock *VPBB = LiveInBlockWorklist[I];
     if (!DefBlocks.count(VPBB))
       continue;
 
     // VPBB has both use and definition of symbase, iterate over it's VPIs to
     // find out which comes first
-    assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &VPI : *(cast<VPBasicBlock>(VPBB))) {
+    for (auto &VPI : *VPBB) {
       // Underlying HIR is not attached to non-master VPInstructions
       if (!VPI.HIR.isMaster())
         continue;
@@ -1044,7 +1042,7 @@ void VPDecomposerHIR::computeLiveInBlocks(
   // Recursively add their predecessors, until we find the full region where the
   // symbase is live.
   while (!LiveInBlockWorklist.empty()) {
-    VPBlockBase *VPBB = LiveInBlockWorklist.pop_back_val();
+    VPBasicBlock *VPBB = LiveInBlockWorklist.pop_back_val();
 
     // Insert the VPBB into the proper LiveInBlocks set. If it already in the
     // set then we have also processed its predecessors
@@ -1053,7 +1051,7 @@ void VPDecomposerHIR::computeLiveInBlocks(
 
     // Add predecessors of VPBB unless they are defining blocks of current
     // symbase
-    for (VPBlockBase *Pred : VPBB->getPredecessors()) {
+    for (VPBasicBlock *Pred : VPBB->getPredecessors()) {
       if (DefBlocks.count(Pred))
         continue;
 
@@ -1071,20 +1069,19 @@ void VPDecomposerHIR::computeLiveInBlocks(
 //    IDFPHIBlocks does not already have a PHI for the current Symbase, then
 //    add it.
 void VPDecomposerHIR::addIDFPhiNodes() {
-  DenseMap<unsigned, SmallPtrSet<VPBlockBase *, 8>> SymbaseDefBlocks;
-  DenseMap<unsigned, SmallPtrSet<VPBlockBase *, 8>> SymbaseUsingBlocks;
-  VPRegionBlock *Region = Builder.getInsertBlock()->getParent();
-  Region->computeDT();
-  VPDominatorTree &DT = *(Region->getDT());
-  VPBlockBase *HCFGEntry = Region->getEntry();
+  DenseMap<unsigned, SmallPtrSet<VPBasicBlock *, 8>> SymbaseDefBlocks;
+  DenseMap<unsigned, SmallPtrSet<VPBasicBlock *, 8>> SymbaseUsingBlocks;
+  Plan->computeDT();
+  VPDominatorTree &DT = *(Plan->getDT());
+  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
 
   ///// Populate use-def blocks of each tracked symbase //////
 
   // Initialize all keys for the Symbase(Def|Using)Blocks map. If Symbase has an
-  // external def then the HCFGEntry block is noted as one of its defining block
+  // external def then the PlanEntry block is noted as one of its defining block
   for (auto Sym : TrackedSymbases) {
     if (Plan->getVPExternalDefForSymbase(Sym)) {
-      SymbaseDefBlocks[Sym] = {HCFGEntry};
+      SymbaseDefBlocks[Sym] = {PlanEntry};
     } else {
       SymbaseDefBlocks[Sym] = {};
     }
@@ -1103,11 +1100,8 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
   // For defining blocks we need to traverse the HCFG and check the Lval of each
   // underlying HIR nodes of each VPBB
-  for (VPBlockBase *VPBB :
-       make_range(df_iterator<VPBlockBase *>::begin(HCFGEntry),
-                  df_iterator<VPBlockBase *>::end(HCFGEntry))) {
-    assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &VPI : *(cast<VPBasicBlock>(VPBB))) {
+  for (VPBasicBlock *VPBB : depth_first(PlanEntry)) {
+    for (auto &VPI : *VPBB) {
       if (!VPI.HIR.isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
@@ -1158,8 +1152,8 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   // to run IDF and determine additional PHI nodes that are needed in the HCFG
   for (auto Sym : TrackedSymbases) {
     VPlanForwardIDFCalculator IDF(DT);
-    SmallPtrSet<VPBlockBase *, 8> SymLiveInBlocks;
-    SmallVector<VPBlockBase *, 8> IDFPHIBlocks;
+    SmallPtrSet<VPBasicBlock *, 8> SymLiveInBlocks;
+    SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
 
     assert(!SymbaseDefBlocks[Sym].empty() &&
            "Tracked symbase has no defining blocks.");
@@ -1184,16 +1178,15 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
     IDF.calculate(IDFPHIBlocks);
 
-    for (auto IPB : IDFPHIBlocks) {
-      VPBasicBlock *NewPhiBB = cast<VPBasicBlock>(IPB);
+    for (VPBasicBlock *NewPhiBB : IDFPHIBlocks) {
       LLVM_DEBUG(dbgs() << "VPDecomp: IDF decided to add a PHI in "
                         << NewPhiBB->getName() << " for the tracked symbase "
                         << Sym << "\n");
       std::pair<VPBasicBlock *, unsigned> VPBBSymPair =
           std::make_pair(NewPhiBB, Sym);
       if (PhisToFix.find(VPBBSymPair) == PhisToFix.end()) {
-        // IDF suggests to add a new PHI node in IPB basic block, no entry was
-        // found in PhisToFix
+        // IDF suggests to add a new PHI node in NewPhiBB basic block, no entry
+        // was found in PhisToFix
 
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(NewPhiBB, NewPhiBB->begin());
@@ -1258,17 +1251,17 @@ void VPDecomposerHIR::fixPhiNodes() {
     VPValues[Sym] = ExtDef;
   }
 
-  VPBasicBlock *CurrentVPBB = Builder.getInsertBlock();
-  assert(CurrentVPBB && "Current insertion VPBB for builder cannot be null.");
-  VPBasicBlock *HCFGEntry =
-      cast<VPBasicBlock>(CurrentVPBB->getParent()->getEntry());
-  assert(HCFGEntry && "Entry VPBB for HCFG cannot be null.");
-  LLVM_DEBUG(dbgs() << "HCFGEntry: "; HCFGEntry->dump(); dbgs() << "\n");
+  assert(Builder.getInsertBlock() &&
+         "Current insertion VPBB for builder cannot be null.");
+  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
+  assert(PlanEntry && "Entry VPBB for Plan cannot be null.");
+  LLVM_DEBUG(dbgs() << "PlanEntry: "; PlanEntry->getParent()->dump();
+             dbgs() << "\n");
 
   // Walk all VPBasicBlocks in the HCFG of current VPlan and perform the PHI
   // node fixing algorithm, updating the incoming values based on underlying HIR
   SmallVector<PhiNodePassData, 32> PhiNodePassWorkList;
-  PhiNodePassWorkList.emplace_back(HCFGEntry, nullptr /* No pred to entry*/,
+  PhiNodePassWorkList.emplace_back(PlanEntry, nullptr /* No pred to entry*/,
                                    VPValues);
 
   LLVM_DEBUG(dbgs() << "Starting fixPhiNodePass algorithm\n");
@@ -1524,13 +1517,11 @@ void VPDecomposerHIR::fixPhiNodePass(
   // consistency with the mem2reg version of this traversal algorithm.
   SmallPtrSet<VPBasicBlock *, 8> VisitedSuccs;
 
-  for (VPBlockBase::succ_reverse_iterator RI = VPBB->succ_rbegin(),
-                                          RE = VPBB->succ_rend();
-       RI != RE; ++RI) {
+  for (VPBasicBlock *CurVPBB : reverse(VPBB->getSuccessors())) {
     // Keep track of successors so that same successor is not added to worklist
     // twice
-    if (VisitedSuccs.insert(cast<VPBasicBlock>(*RI)).second)
-      Worklist.emplace_back(cast<VPBasicBlock>(*RI), VPBB, IncomingVPVals);
+    if (VisitedSuccs.insert(CurVPBB).second)
+      Worklist.emplace_back(CurVPBB, VPBB, IncomingVPVals);
   }
 }
 

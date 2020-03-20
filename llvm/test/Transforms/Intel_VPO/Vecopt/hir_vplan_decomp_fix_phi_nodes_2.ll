@@ -40,8 +40,10 @@
 ; <58>    |   (@d)[0][i1] = %spec.select;
 ; <73>    + END LOOP
 
-; Here PHI nodes are inserted at multiple VPBBs for %t1.0, %t2.1 and %t2.069. The PHI placed at loop latch VPBB for %t2.069 is of interest
-; for us. The incoming value for this PHI node does not directly come the predecessor BB9 (outer else), but rather from BB4 which precedes BB9.
+; Here PHI nodes are inserted at multiple VPBBs for %t1.0, %t2.1 and %t2.069.
+; The PHI placed at loop latch VPBB for %t2.069 is of interest for us. The
+; incoming value for this PHI node does not directly come the predecessor BB9
+; (outer else), but rather from BB4 which precedes BB9.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -55,7 +57,6 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -150,7 +151,6 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
 omp.inner.for.body.lr.ph:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]

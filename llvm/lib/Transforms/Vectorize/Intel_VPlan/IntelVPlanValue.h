@@ -579,8 +579,7 @@ public:
   VPExternalUse(const VPExternalUse &) = delete;
   VPExternalUse &operator=(const VPExternalUse &) = delete;
 
-  /// \brief Methods for supporting type inquiry through isa, cast, and
-  /// dyn_cast:
+  /// Methods for supporting type inquiry through isa, cast, and dyn_cast:
   static bool classof(const VPValue *V) {
     return V->getVPValueID() == VPExternalUseSC;
   }

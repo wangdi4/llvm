@@ -27,22 +27,21 @@
 namespace llvm {
 namespace vpo {
 
-using ConstBlockSet = SmallPtrSet<const VPBlockBase *, 4>;
+using ConstBlockSet = SmallPtrSet<const VPBasicBlock *, 4>;
 
-/// \brief Relates points of divergent control to join points in
-/// reducible CFGs.
+/// Relates points of divergent control to join points in reducible CFGs.
 ///
 /// This analysis relates points of divergent control to points of converging
 /// divergent control. The analysis requires all loops to be reducible.
 class SyncDependenceAnalysis {
-  void visitSuccessor(const VPBlockBase &SuccBlock, const VPLoop *TermLoop,
-                      const VPBlockBase *DefBlock);
+  void visitSuccessor(const VPBasicBlock &SuccBlock, const VPLoop *TermLoop,
+                      const VPBasicBlock *DefBlock);
 
 public:
-  bool inRegion(const VPBlockBase &BB) const;
+  bool inRegion(const VPBasicBlock &BB) const;
 
   ~SyncDependenceAnalysis();
-  SyncDependenceAnalysis(const VPBlockBase *RegionEntry,
+  SyncDependenceAnalysis(const VPBasicBlock *RegionEntry,
                          const VPDominatorTree &DT,
                          const VPPostDominatorTree &PDT, const VPLoopInfo &LI);
 
@@ -55,7 +54,7 @@ public:
   /// header. Those exit blocks are added to the returned set.
   /// If L is the parent loop of \p Term and an exit of L is in the returned
   /// set then L is a divergent loop.
-  const ConstBlockSet &joinBlocks(const VPBlockBase &TermBlock);
+  const ConstBlockSet &joinBlocks(const VPBasicBlock &TermBlock);
 
   /// Computes divergent join points and loop exits (in the surrounding loop)
   /// caused by the divergent loop exits of\p Loop.
@@ -69,13 +68,13 @@ public:
 private:
   static ConstBlockSet EmptyBlockSet;
 
-  ReversePostOrderTraversal<const VPBlockBase *> RegRPOT;
+  ReversePostOrderTraversal<const VPBasicBlock *> RegRPOT;
   const VPDominatorTree &DT;
   const VPPostDominatorTree &PDT;
   const VPLoopInfo &LI;
 
   std::map<const VPLoop *, std::unique_ptr<ConstBlockSet>> CachedLoopExitJoins;
-  std::map<const VPBlockBase *, std::unique_ptr<ConstBlockSet>>
+  std::map<const VPBasicBlock *, std::unique_ptr<ConstBlockSet>>
       CachedBranchJoins;
 };
 
