@@ -14,11 +14,7 @@
 #include "clang/AST/Mangle.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Basic/LLVM.h"
-<<<<<<< HEAD
-#include "clang/Basic/TargetInfo.h" // INTEL
-=======
 #include "clang/Basic/TargetInfo.h"
->>>>>>> c4d23d8854840294bf49c524f93e2be85a401f00
 #include "clang/Tooling/Tooling.h"
 #include "llvm/IR/DataLayout.h"
 #include "gtest/gtest.h"
