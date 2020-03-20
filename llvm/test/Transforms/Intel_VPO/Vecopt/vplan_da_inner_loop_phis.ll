@@ -30,9 +30,8 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_PHI2:%.*]] = phi  [ i64 [[VP_ADD7]], [[BB1]] ],  [ i64 [[VP_ADD_REC:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 1] i64 [[VP_ADD_REC]] = add i64 [[VP_PHI2]] i64 [[LOAD_150]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_ICMP3:%.*]] = icmp i64 [[VP_ADD_REC]] i64 [[VP_SELECT]]
-; CHECK-EMPTY:
 ; CHECK:       Basic Block: [[BB5]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VL_COND:%.*]] = icmp i32 [[VP_INDVAR]] i32 16
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
@@ -119,9 +118,8 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ADD_REC1]] = add i64 [[VP_PHI1]] i64 [[LOAD_150]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ADD_REC2]] = add i64 [[VP_PHI2]] i64 [[LOAD_150]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_ICMP3:%.*]] = icmp i64 [[VP_ADD2]] i64 [[VP_SELECT]]
-; CHECK-EMPTY:
 ; CHECK:       Basic Block: [[BB5]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VL_COND:%.*]] = icmp i32 [[VP_INDVAR]] i32 16
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
