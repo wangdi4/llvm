@@ -34,7 +34,7 @@
 @arr.i64.3 = common local_unnamed_addr global [1024 x i64] zeroinitializer, align 16
 
 define void @foo() local_unnamed_addr {
-; VPLAN-CM-AVX2-LABEL:  Cost Model for VPlan  with VF = 8:
+; VPLAN-CM-AVX2-LABEL:  Cost Model for VPlan foo.for.body with VF = 8:
 ; VPLAN-CM-AVX2-NEXT:  Total Cost: 115
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
@@ -61,7 +61,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-AVX2-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
-; VPLAN-CM-SSE2-LABEL:  Cost Model for VPlan  with VF = 8:
+; VPLAN-CM-SSE2-LABEL:  Cost Model for VPlan foo.for.body with VF = 8:
 ; VPLAN-CM-SSE2-NEXT:  Total Cost: 159
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
@@ -88,7 +88,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-SSE2-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
-; VPLAN-HIR-CM-AVX2-LABEL:  HIR Cost Model for VPlan  with VF = 8:
+; VPLAN-HIR-CM-AVX2-LABEL:  HIR Cost Model for VPlan foo.23 with VF = 8:
 ; VPLAN-HIR-CM-AVX2-NEXT:  Total Cost: 8
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
@@ -110,7 +110,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-HIR-CM-AVX2-NEXT:    Unknown cost for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
-; VPLAN-HIR-CM-SSE2-LABEL:  HIR Cost Model for VPlan  with VF = 8:
+; VPLAN-HIR-CM-SSE2-LABEL:  HIR Cost Model for VPlan foo.23 with VF = 8:
 ; VPLAN-HIR-CM-SSE2-NEXT:  Total Cost: 44
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0

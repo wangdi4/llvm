@@ -439,9 +439,8 @@ void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
   }
 }
 
-void VPlanCostModel::print(raw_ostream &OS) const {
-  OS << "Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
-     << ":\n";
+void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) const {
+  OS << "Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   LLVM_DEBUG(dbgs() << *Plan;);
 

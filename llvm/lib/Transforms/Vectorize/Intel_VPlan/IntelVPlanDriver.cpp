@@ -230,12 +230,14 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   LVP.buildInitialVPlans();
 #endif //INTEL_CUSTOMIZATION
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LVP.printCostModelAnalysisIfRequested();
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
   // VPlan Predicator
   LVP.predicate();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  std::string HeaderStr =
+    std::string(Fn.getName()) + "." + std::string(Lp->getName());
+  LVP.printCostModelAnalysisIfRequested(HeaderStr);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan construction stress test ends here.
   if (VPlanConstrStressTest)
@@ -976,10 +978,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
   }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>();
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
   if (VPlanConstrStressTest)
@@ -987,6 +985,13 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // VPlan Predicator
   LVP.predicate();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  std::string HeaderStr =
+    std::string(Fn.getName()) + "." + std::to_string(Lp->getNumber());
+  LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(HeaderStr);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF = LVP.selectBestPlan<VPlanCostModelProprietary>();
 

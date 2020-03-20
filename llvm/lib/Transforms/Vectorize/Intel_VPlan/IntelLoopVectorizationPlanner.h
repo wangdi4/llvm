@@ -114,7 +114,7 @@ public:
          VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
   template <typename CostModelTy = VPlanCostModel>
-  void printCostModelAnalysisIfRequested();
+  void printCostModelAnalysisIfRequested(const std::string &Header);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
