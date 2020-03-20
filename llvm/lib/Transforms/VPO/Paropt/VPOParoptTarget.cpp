@@ -629,9 +629,13 @@ void VPOParoptTransform::guardSideEffectStatements(
     //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
     //
     Value *TeamLocalVal = nullptr;
+    MaybeAlign Alignment =
+        StartI->getType()->isPointerTy()
+            ? StartI->getPointerAlignment(StartI->getModule()->getDataLayout())
+            : llvm::None;
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
-          StartI->getType(), nullptr, TargetDirectiveBegin,
+          StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
           StartI->getName() + ".broadcast.ptr", vpo::ADDRESS_SPACE_LOCAL);
 
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(

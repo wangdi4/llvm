@@ -798,11 +798,12 @@ public:
   /// then the generated Value will be immediately addrspacecast'ed
   /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
   /// expression will be returned as a result.
-  static Value *genPrivatizationAlloca(
-      Type *ElementType, Value *NumElements,
-      Instruction *InsertPt, const Twine &VarName = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
+  static Value *
+  genPrivatizationAlloca(Type *ElementType, Value *NumElements,
+                         MaybeAlign OrigAlignment, Instruction *InsertPt,
+                         const Twine &VarName = "",
+                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+                         llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
 
 #if INTEL_CUSTOMIZATION
   /// \name Utilities specific to Fortran dope vectors.

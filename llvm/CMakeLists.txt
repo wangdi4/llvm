@@ -1472,7 +1472,7 @@ if (INTEL_CUSTOMIZATION)
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
       clang-resource-headers
       # XDEV components
-      xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom
+      xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom xdev-fort-target-rtl
       xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
       xdev-support-scripts
       # OpenMP components

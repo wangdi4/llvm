@@ -9996,6 +9996,12 @@ public:
     return ReducedVals.size();
   }
 
+#if INTEL_CUSTOMIZATION
+  ArrayRef<Value*> getReducedVals() const {
+    return makeArrayRef(ReducedVals);
+  }
+#endif // INTEL_CUSTOMIZATION
+
 private:
   /// Calculate the cost of a reduction.
   int getReductionCost(TargetTransformInfo *TTI, Value *FirstReducedVal,
@@ -10265,6 +10271,19 @@ static bool tryToVectorizeHorReductionOrInstOperands(
       if (HorRdx.matchAssociativeReduction(P, Inst)) {
         if (HorRdx.tryToReduce(R, TTI)) {
           Res = true;
+#if INTEL_CUSTOMIZATION
+        } else {
+          // If reduced values are comparisons then we want to direct
+          // vectorizer first to make attempt to vectorize pair which
+          // are operands of a same cmp instruction.
+          ArrayRef<Value *> ReducedVals = HorRdx.getReducedVals();
+          for (auto *V : ReducedVals)
+            if (isa<CmpInst>(V) && VisitedInstrs.insert(V).second &&
+                Vectorize(cast<Instruction>(V), R))
+              Res = true;
+        }
+        if (Res) {
+#endif // INTEL_CUSTOMIZATION
           // Set P to nullptr to avoid re-analysis of phi node in
           // matchAssociativeReduction function unless this is the root node.
           P = nullptr;
@@ -10357,7 +10376,7 @@ bool SLPVectorizerPass::vectorizeInsertElementInst(InsertElementInst *IEI,
 
 bool SLPVectorizerPass::vectorizeCmpInst(CmpInst *CI, BasicBlock *BB,
                                          BoUpSLP &R) {
-  if (tryToVectorizePair(CI->getOperand(0), CI->getOperand(1), R))
+  if (tryToVectorize(CI, R)) // INTEL
     return true;
 
   bool OpsChanged = false;

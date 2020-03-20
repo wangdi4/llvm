@@ -69,6 +69,8 @@ void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
 
   IRBuilder<> Builder(InsertPt);
 
+  MaybeAlign OrigAlignment =
+      OrigV->getPointerAlignment(InsertPt->getModule()->getDataLayout());
   CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt, IsTargetSPIRV);
   setFuncCallingConv(DataSize, IsTargetSPIRV);
 
@@ -80,8 +82,8 @@ void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
       cast<PointerType>(cast<PointerType>(Addr0GEP->getType()->getScalarType())
                             ->getElementType())
           ->getElementType();
-  Value *PointeeData = genPrivatizationAlloca(ElementTy, DataSize, InsertPt,
-                                              NamePrefix + ".data");
+  Value *PointeeData = genPrivatizationAlloca(
+      ElementTy, DataSize, OrigAlignment, InsertPt, NamePrefix + ".data");
   Type *PointeePtrTy = PointerType::getUnqual(PointeeData->getType());
   auto *Addr0GEPCast =
       Builder.CreatePointerBitCastOrAddrSpaceCast(Addr0GEP, PointeePtrTy);
