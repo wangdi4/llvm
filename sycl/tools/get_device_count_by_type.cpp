@@ -36,23 +36,18 @@ int main(int argc, char* argv[]) {
     std::string type = argv[1];
 
 #if INTEL_CUSTOMIZATION
+    std::string backend{argv[2]};
     // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
-    // TODO: until CORC-7342 is fixed SYCL_BE=PI_OTHER will only see GPU
-    // devices, so return 0 for everything else.
-    //
-    const char *sycl_be = std::getenv("SYCL_BE");
-    if (sycl_be && (std::string("PI_OTHER") == sycl_be)) {
-        if (type != "gpu") {
-            std::cout << "0:" << type << " device is not supported "
-                << "with SYCL_BE=PI_OTHER (CORC-7342)" << std::endl;
-            return 0;
+    // TODO: Remove PI_OTHER, if it does not may to Level0.
+    // TODO: Use a Level0 low level API. 
+    if (backend == "PI_LEVEL0" || backend == "PI_OTHER") {
+        if (type == "gpu") {
+          std::cout << "1:L0 GPU assumed under SYCL_BE=PI_LEVEL0" << std::endl;
+	  return 0;
         }
-        std::cout << "1:L0 GPU assumed under SYCL_BE=PI_OTHER" << std::endl;
-        return 0;
     }
 #endif // INTEL_CUSTOMIZATION
 
-    std::string backend{argv[2]};
 
     cl_uint deviceCount = 0;
 
@@ -67,16 +62,14 @@ int main(int argc, char* argv[]) {
         std::cout << deviceCount << " :Unsupported CUDA Runtime " << std::endl;
       }
 
+#if INTEL_CUSTOMIZATION
       if (type == "gpu") {
         deviceCount = 1;
         msg = "cuda";
-      } else {
-        msg = "Unsupported device type for CUDA backend";
-        msg += " type: ";
-        msg += type;
+        std::cout << deviceCount << " : " << msg << std::endl;
+	return 0;
       }
-      std::cout << deviceCount << " : " << msg << std::endl;
-      return 0;
+#endif // INTEL_CUSTOMIZATION
     }
 #endif  // USE_PI_CUDA
 

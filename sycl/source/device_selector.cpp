@@ -14,6 +14,33 @@
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+
+#ifdef INTEL_CUSTOMIZATION
+// Utility function to check if device is of the preferred SYCL_BE.
+static bool isDeviceOfPreferredSyclBe(const device &Device) {
+  // Taking the version information from the platform gives us more useful
+  // information than the driver_version of the device.
+  const platform Platform = Device.get_info<info::device::platform>();
+  const std::string PlatformVersion =
+      Platform.get_info<info::platform::version>();
+
+  if (RT::preferredBackend(RT::Backend::SYCL_BE_PI_LEVEL0)) {
+    if (PlatformVersion.find("Level-Zero") != std::string::npos) {
+      return true;
+    }
+  } else if (RT::preferredBackend(RT::Backend::SYCL_BE_PI_OPENCL)) {
+    if (PlatformVersion.find("OpenCL") != std::string::npos) {
+      return true;
+    }
+  } else if (RT::preferredBackend(RT::Backend::SYCL_BE_PI_CUDA)) {
+    if (PlatformVersion.find("CUDA") != std::string::npos) {
+      return true;
+    }
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 device device_selector::select_device() const {
   vector_class<device> devices = device::get_devices();
   int score = -1;
@@ -24,10 +51,20 @@ device device_selector::select_device() const {
       score = operator()(dev);
     }
 
-  if (res != nullptr)
-    return *res;
-
 #ifdef INTEL_CUSTOMIZATION
+  if (res != nullptr) {
+    if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_BASIC)) {
+      std::cout
+        << "SYCL_PI_TRACE[1]: select_device(): ->" << std::endl
+        << "SYCL_PI_TRACE[1]:   platform: "
+        << res->get_info<info::device::platform>().
+            get_info<info::platform::name>() << std::endl
+        << "SYCL_PI_TRACE[1]:   device: "
+        << res->get_info<info::device::name>() << std::endl;
+    }
+    return *res;
+  }
+
   throw cl::sycl::runtime_error(
       "No device of requested type available. Please check "
       "https://software.intel.com/en-us/articles/"
@@ -38,6 +75,8 @@ device device_selector::select_device() const {
 
 int default_selector::operator()(const device &dev) const {
 
+#ifdef INTEL_CUSTOMIZATION
+#if 0
   // Take note of the SYCL_BE environment variable when doing default selection
   const char *SYCL_BE = std::getenv("SYCL_BE");
   if (SYCL_BE) {
@@ -57,38 +96,73 @@ int default_selector::operator()(const device &dev) const {
         backend == "PI_OPENCL") {
       return -1;
     }
-  }
+#endif
+
+  int Score = -1;
+
+  // Give preference to device of SYCL BE.
+  if (isDeviceOfPreferredSyclBe(dev))
+    Score = 50;
 
   if (dev.is_gpu())
-    return 500;
+    Score += 500;
 
   if (dev.is_accelerator())
-    return 400;
+    Score += 400;
 
   if (dev.is_cpu())
-    return 300;
+    Score += 300;
 
   if (dev.is_host())
-    return 100;
+    Score += 100;
 
-  return -1;
+  return Score;
 }
 
 int gpu_selector::operator()(const device &dev) const {
-  return dev.is_gpu() ? 1000 : -1;
+  int Score = -1;
+  if (dev.is_gpu()) {
+    Score = 1000;
+    // Give preference to device of SYCL BE.
+    if (isDeviceOfPreferredSyclBe(dev))
+      Score += 50;
+  }
+  return Score;
 }
 
 int cpu_selector::operator()(const device &dev) const {
-  return dev.is_cpu() ? 1000 : -1;
+  int Score = -1;
+  if (dev.is_cpu()) {
+    Score = 1000;
+    // Give preference to device of SYCL BE.
+    if (isDeviceOfPreferredSyclBe(dev))
+      Score += 50;
+  }
+  return Score;
 }
 
 int accelerator_selector::operator()(const device &dev) const {
-  return dev.is_accelerator() ? 1000 : -1;
+  int Score = -1;
+  if (dev.is_accelerator()) {
+    Score = 1000;
+    // Give preference to device of SYCL BE.
+    if (isDeviceOfPreferredSyclBe(dev))
+      Score += 50;
+  }
+  return Score;
 }
 
 int host_selector::operator()(const device &dev) const {
-  return dev.is_host() ? 1000 : -1;
+  int Score = -1;
+  if (dev.is_host()) {
+    Score = 1000;
+    // Give preference to device of SYCL BE.
+    if (isDeviceOfPreferredSyclBe(dev))
+      Score += 50;
+  }
+  return Score;
 }
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)

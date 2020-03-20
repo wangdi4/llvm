@@ -60,8 +60,8 @@ std::string platformInfoToString(pi_platform_info info) {
   case PI_PLATFORM_INFO_EXTENSIONS:
     return "PI_PLATFORM_INFO_EXTENSIONS";
   default:
-    die("Unknown pi_platform_info value passed to "
-        "cl::sycl::detail::pi::platformInfoToString");
+    pi::die("Unknown pi_platform_info value passed to "
+            "cl::sycl::detail::pi::platformInfoToString");
   }
 }
 
@@ -123,43 +123,62 @@ std::string memFlagsToString(pi_mem_flags Flags) {
   return Sstream.str();
 }
 
-// Check for manually selected BE at run-time.
-static Backend getBackend() {
-  static const char *GetEnv = std::getenv("SYCL_BE");
+#if INTEL_CUSTOMIZATION
+// Check for selected BE for EnvVariable at run-time.
+// If not set, the DefaultBE is returned.
+// The BEEnvVar can be SYCL_BE or SYCL_INTEROP_BE
+static Backend getBackend(const std::string &BEEnvVar, Backend DefaultBE) {
+  // TODO: make it cached somehow
+  const char *GetEnv = std::getenv(BEEnvVar.c_str());
   // Current default backend as SYCL_BE_PI_OPENCL
-  // Valid values of GetEnv are "PI_OPENCL", "PI_CUDA" and "PI_OTHER"
-  std::string StringGetEnv = (GetEnv ? GetEnv : "PI_OPENCL");
-  static const Backend Use =
-    std::map<std::string, Backend>{
-      { "PI_OPENCL", SYCL_BE_PI_OPENCL },
-      { "PI_CUDA", SYCL_BE_PI_CUDA },
-      { "PI_OTHER",  SYCL_BE_PI_OTHER }
-    }[ GetEnv ? StringGetEnv : "PI_OPENCL"];
+  // Valid values of GetEnv are "PI_OPENCL", "PI_CUDA", "PI_LEVEL0" and "PI_OTHER"
+  // TODO: Currently PI_OTHER maps to SYCL_BE_PI_LEVEL0.
+  if (!GetEnv)
+    return DefaultBE;
+  const std::map<std::string, Backend> SyclBeMap{
+      {"PI_OTHER", SYCL_BE_PI_LEVEL0},
+      {"PI_LEVEL0", SYCL_BE_PI_LEVEL0},
+      // {"PI_CUDA", SYCL_BE_PI_CUDA}, // INTEL
+      {"PI_OPENCL", SYCL_BE_PI_OPENCL}};
+  auto It = SyclBeMap.find(std::string(GetEnv));
+  if (It == SyclBeMap.end())
+    pi::die("Invalid SYCL_BE/SYCL_INTEROP_BE. Valid values are PI_LEVEL0/PI_OPENCL");
+  static const Backend Use = It->second;
   return Use;
 }
 
-// Check for manually selected BE at run-time.
-bool useBackend(Backend TheBackend) {
-  return TheBackend == getBackend();
+// Checks if the BE given by SYCL_BE is the same as parameter TheBackend.
+// This API is mostly used to check if a plugin/device are of the preferred BE.
+bool preferredBackend(Backend TheBackend) {
+  // TODO: Current default is PI_LEVEL0. Change if default needs to change.
+  return TheBackend == getBackend("SYCL_BE", SYCL_BE_PI_LEVEL0);
 }
+
+#endif // INTEL_CUSTOMIZATION
 
 // GlobalPlugin is a global Plugin used with Interoperability constructors that
 // use OpenCL objects to construct SYCL class objects.
 std::shared_ptr<plugin> GlobalPlugin;
 
 // Find the plugin at the appropriate location and return the location.
-// TODO: Change the function appropriately when there are multiple plugins.
-bool findPlugins(vector_class<std::string> &PluginNames) {
-  if (useBackend(SYCL_BE_PI_OPENCL)) {
-    PluginNames.push_back(OPENCL_PLUGIN_NAME);
-  } else {
-    PluginNames.push_back(LEVEL0_PLUGIN_NAME);
-  }
-#ifndef INTEL_CUSTOMIZATION
-  PluginNames.push_back(CUDA_PLUGIN_NAME);
+#if INTEL_CUSTOMIZATION
+bool findPlugins(vector_class<std::pair<std::string, Backend>> &PluginNames) {
+  // TODO: Based on final design discussions, change the location where the
+  // plugin must be searched; how to identify the plugins etc. Currently the
+  // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
+  // env only.
+  PluginNames.push_back(std::make_pair<std::string, Backend>(
+      OPENCL_PLUGIN_NAME, SYCL_BE_PI_OPENCL));
+  PluginNames.push_back(std::make_pair<std::string, Backend>(
+      LEVEL0_PLUGIN_NAME, SYCL_BE_PI_LEVEL0));
+#if 0
+  // Disabling use of CUDA plugin.
+   PluginNames.push_back(std::make_pair<std::string, Backend>(
+      CUDA_PLUGIN_NAME, SYCL_BE_PI_CUDA));
 #endif
   return true;
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Load the Plugin by calling the OS dependent library loading call.
 // Return the handle to the Library.
@@ -190,53 +209,46 @@ bool bindPlugin(void *Library, PiPlugin *PluginInformation) {
   // TODO: Return a more meaningful value/enum.
   return true;
 }
+#if INTEL_CUSTOMIZATION
+// TODO: open-source
+// Return true if we want to trace PI related activities.
+bool trace(TraceLevel Level) {
+  static auto TraceLevelCString = std::getenv("SYCL_PI_TRACE");
+  static int TraceLevelMask = TraceLevelCString ? std::atoi(TraceLevelCString) : 0;
+  return (TraceLevelMask & Level) == Level;
+}
 
-// Load the plugin based on SYCL_BE.
-// TODO: Currently only accepting OpenCL and CUDA plugins. Edit it to identify
-// and load other kinds of plugins, do the required changes in the
-// findPlugins, loadPlugin and bindPlugin functions.
+// Initializes all available Plugins.
 vector_class<plugin> initialize() {
   vector_class<plugin> Plugins;
-
-#if INTEL_CUSTOMIZATION
-  // Not needed when we have support for level0.
-  // This is checked in findPlugin.
-  // if (!useBackend(SYCL_BE_PI_OPENCL) && !useBackend(SYCL_BE_PI_CUDA)) {
-  //   die("Unknown SYCL_BE");
-  // }
-#endif
-
-  bool EnableTrace = (std::getenv("SYCL_PI_TRACE") != nullptr);
-
-  vector_class<std::string> PluginNames;
+  vector_class<std::pair<std::string, Backend>> PluginNames;
   findPlugins(PluginNames);
 
-  if (PluginNames.empty() && EnableTrace)
-    std::cerr << "No Plugins Found." << std::endl;
+  if (PluginNames.empty() && trace())
+    std::cerr << "SYCL_PI_TRACE[-1]: No Plugins Found." << std::endl;
 
-  PiPlugin PluginInformation; // TODO: include.
+  PiPlugin PluginInformation;
   for (unsigned int I = 0; I < PluginNames.size(); I++) {
-    void *Library = loadPlugin(PluginNames[I]);
-    if (!Library && EnableTrace) {
-      std::cerr << "Check if plugin is present. Failed to load plugin: "
-                << PluginNames[I] << std::endl;
+    void *Library = loadPlugin(PluginNames[I].first);
+    if (!Library && trace()) {
+      std::cerr << "SYCL_PI_TRACE[-1]: Check if plugin is present. "
+                << "Failed to load plugin: "
+                << PluginNames[I].first << std::endl;
     }
-
-    if (!bindPlugin(Library, &PluginInformation) && EnableTrace) {
-      std::cerr << "Failed to bind PI APIs to the plugin: " << PluginNames[I]
-                << std::endl;
+    if (!bindPlugin(Library, &PluginInformation) && trace()) {
+      std::cerr << "SYCL_PI_TRACE[-1]: Failed to bind PI APIs to the plugin: "
+                << PluginNames[I].first << std::endl;
     }
-    if (useBackend(SYCL_BE_PI_OPENCL) &&
-        PluginNames[I].find("opencl") != std::string::npos) {
-      // Use the OpenCL plugin as the GlobalPlugin
-      GlobalPlugin = std::make_shared<plugin>(PluginInformation);
+    // Set as Global Plugin if SYCL_INTEROP_BE is set.
+    if (getBackend("SYCL_INTEROP_BE", SYCL_BE_PI_OPENCL /*default*/) ==
+        PluginNames[I].second) {
+      GlobalPlugin =
+          std::make_shared<plugin>(PluginInformation, PluginNames[I].second);
     }
-    if (useBackend(SYCL_BE_PI_CUDA) &&
-        PluginNames[I].find("cuda") != std::string::npos) {
-      // Use the CUDA plugin as the GlobalPlugin
-      GlobalPlugin = std::make_shared<plugin>(PluginInformation);
-    }
-    Plugins.push_back(plugin(PluginInformation));
+    Plugins.push_back(plugin(PluginInformation, PluginNames[I].second));
+    if (trace(TraceLevel::PI_TRACE_BASIC))
+      std::cerr << "SYCL_PI_TRACE[1]: Plugin found and successfully loaded: "
+                << PluginNames[I].first << std::endl;
   }
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
@@ -283,6 +295,7 @@ vector_class<plugin> initialize() {
 
   return Plugins;
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Report error and no return (keeps compiler from printing warnings).
 // TODO: Probably change that to throw a catchable exception,

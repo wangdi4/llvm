@@ -107,6 +107,7 @@ if "opencl-aot" in config.llvm_enable_projects:
         print("Adding path to opencl-aot tool to PATH")
         os.environ['PATH'] = os.path.pathsep.join((os.getenv('PATH'), config.sycl_tools_dir))
 
+# TODO: Change default to PI_LEVEL0
 backend=lit_config.params.get('SYCL_BE', "PI_OPENCL")
 
 get_device_count_by_type_path = os.path.join(config.llvm_tools_dir, "get_device_count_by_type")
@@ -216,7 +217,6 @@ opencl = False
 if not cuda:
     opencl = True
     config.available_features.add('opencl')
-
 
 path = config.environment['PATH']
 path = os.path.pathsep.join((config.sycl_tools_dir, path))

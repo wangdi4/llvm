@@ -1640,7 +1640,7 @@ cl_int ExecCGCommand::enqueueImp() {
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
 #if INTEL_CUSTOMIZATION // Can be put into public GitHub now
         RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-        if (!RT::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_LEVEL0)) {
           Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex,
                                                           &MemArg);
           break;
@@ -1660,7 +1660,7 @@ cl_int ExecCGCommand::enqueueImp() {
         RT::PiSampler Sampler =
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
 #if INTEL_CUSTOMIZATION
-        if (RT::useBackend(pi::Backend::SYCL_BE_PI_OTHER)) {
+        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_LEVEL0)) {
           Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel,
               Arg.MIndex, (const RT::PiMem*)&Sampler);
           break;

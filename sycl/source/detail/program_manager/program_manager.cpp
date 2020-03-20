@@ -259,9 +259,10 @@ static bool isDeviceBinaryTypeSupported(const context &C,
     return true;
 
 #if INTEL_CUSTOMIZATION
+  pi::Backend CBackend = (detail::getSyclObjImpl(C)->getPlugin()).getBackend();
   // Assume all versions of the "other" backend have a compiler.
   // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
-  if (pi::useBackend(pi::SYCL_BE_PI_OTHER))
+  if ((CBackend == pi::SYCL_BE_PI_OTHER) || (CBackend == pi::SYCL_BE_PI_LEVEL0))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
@@ -274,7 +275,7 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   }
 
   // OpenCL 2.1 and greater require clCreateProgramWithIL
-  if (pi::useBackend(pi::SYCL_BE_PI_OPENCL) &&
+  if ((CBackend == pi::SYCL_BE_PI_OPENCL) && // INTEL
       C.get_platform().get_info<info::platform::version>() >= "2.1")
     return true;
 
@@ -767,7 +768,7 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
   // is built during piProgramCreate.
   // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
   // implemented in L0 plugin.
-  if (pi::useBackend(pi::SYCL_BE_PI_OTHER)) {
+  if (Context->getPlugin().getBackend()==(pi::SYCL_BE_PI_LEVEL0)) {
     LinkDeviceLibs = false;
   }
 #endif // INTEL_CUSTOMIZATION
