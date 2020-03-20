@@ -84,38 +84,6 @@ struct RTLInfoTy {
 #endif  // INTEL_COLLAB
 
   // Functions implemented in the RTL.
-<<<<<<< HEAD
-  is_valid_binary_ty *is_valid_binary;
-  number_of_devices_ty *number_of_devices;
-  init_device_ty *init_device;
-  load_binary_ty *load_binary;
-  data_alloc_ty *data_alloc;
-  data_submit_ty *data_submit;
-  data_retrieve_ty *data_retrieve;
-  data_delete_ty *data_delete;
-  run_region_ty *run_region;
-  run_team_region_ty *run_team_region;
-  init_requires_ty *init_requires;
-#if INTEL_COLLAB
-  data_submit_nowait_ty *data_submit_nowait;
-  data_retrieve_nowait_ty *data_retrieve_nowait;
-  manifest_data_for_region_ty *manifest_data_for_region;
-  data_alloc_base_ty *data_alloc_base;
-  data_alloc_user_ty *data_alloc_user;
-  create_buffer_ty *create_buffer;
-  get_device_name_ty *get_device_name;
-  release_buffer_ty *release_buffer;
-  run_team_nd_region_ty *run_team_nd_region;
-  run_team_nd_region_nowait_ty *run_team_nd_region_nowait;
-  run_region_nowait_ty *run_region_nowait;
-  run_team_region_nowait_ty *run_team_region_nowait;
-  create_offload_pipe_ty *create_offload_pipe;
-  release_offload_pipe_ty *release_offload_pipe;
-  data_alloc_managed_ty *data_alloc_managed;
-  data_delete_managed_ty *data_delete_managed;
-  is_managed_ptr_ty *is_managed_ptr;
-#endif // INTEL_COLLAB
-=======
   is_valid_binary_ty *is_valid_binary = nullptr;
   number_of_devices_ty *number_of_devices = nullptr;
   init_device_ty *init_device = nullptr;
@@ -127,7 +95,25 @@ struct RTLInfoTy {
   run_region_ty *run_region = nullptr;
   run_team_region_ty *run_team_region = nullptr;
   init_requires_ty *init_requires = nullptr;
->>>>>>> c422d69b1ad7ae3fdbe0d4ec795a2931e08459f7
+#if INTEL_COLLAB
+  data_submit_nowait_ty *data_submit_nowait = nullptr;
+  data_retrieve_nowait_ty *data_retrieve_nowait = nullptr;
+  manifest_data_for_region_ty *manifest_data_for_region = nullptr;
+  data_alloc_base_ty *data_alloc_base = nullptr;
+  data_alloc_user_ty *data_alloc_user = nullptr;
+  create_buffer_ty *create_buffer = nullptr;
+  get_device_name_ty *get_device_name = nullptr;
+  release_buffer_ty *release_buffer = nullptr;
+  run_team_nd_region_ty *run_team_nd_region = nullptr;
+  run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
+  run_region_nowait_ty *run_region_nowait = nullptr;
+  run_team_region_nowait_ty *run_team_region_nowait = nullptr;
+  create_offload_pipe_ty *create_offload_pipe = nullptr;
+  release_offload_pipe_ty *release_offload_pipe = nullptr;
+  data_alloc_managed_ty *data_alloc_managed = nullptr;
+  data_delete_managed_ty *data_delete_managed = nullptr;
+  is_managed_ptr_ty *is_managed_ptr = nullptr;
+#endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
   bool isUsed = false;
@@ -139,31 +125,7 @@ struct RTLInfoTy {
 
   // The existence of the mutex above makes RTLInfoTy non-copyable.
   // We need to provide a copy constructor explicitly.
-<<<<<<< HEAD
-  RTLInfoTy()
-      : Idx(-1), NumberOfDevices(-1), LibraryHandler(0),
-#ifdef OMPTARGET_DEBUG
-        RTLName(),
-#endif
-        is_valid_binary(0), number_of_devices(0), init_device(0),
-        load_binary(0), data_alloc(0), data_submit(0), data_retrieve(0),
-        data_delete(0), run_region(0), run_team_region(0),
-#if INTEL_COLLAB
-        init_requires(0),
-        data_submit_nowait(0), data_retrieve_nowait(0),
-        manifest_data_for_region(0), data_alloc_base(0), data_alloc_user(0),
-        create_buffer(0), get_device_name(0), release_buffer(0),
-        run_team_nd_region(0), run_team_nd_region_nowait(0),
-        run_region_nowait(0), run_team_region_nowait(0), create_offload_pipe(0),
-        release_offload_pipe(0), data_alloc_managed(0), data_delete_managed(0),
-        is_managed_ptr(0),
-        isUsed(false), Mtx() {}
-#else
-        init_requires(0), isUsed(false), Mtx() {}
-#endif // INTEL_COLLAB
-=======
   RTLInfoTy() = default;
->>>>>>> c422d69b1ad7ae3fdbe0d4ec795a2931e08459f7
 
   RTLInfoTy(const RTLInfoTy &r) {
     Idx = r.Idx;
