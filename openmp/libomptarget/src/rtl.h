@@ -13,6 +13,7 @@
 #ifndef _OMPTARGET_RTL_H
 #define _OMPTARGET_RTL_H
 
+#include "omptarget.h"
 #include <list>
 #include <map>
 #include <mutex>
@@ -66,13 +67,13 @@ struct RTLInfoTy {
   typedef int32_t(is_managed_ptr_ty)(int32_t, void *);
 #endif // INTEL_COLLAB
 
-  int32_t Idx;                     // RTL index, index is the number of devices
-                                   // of other RTLs that were registered before,
-                                   // i.e. the OpenMP index of the first device
-                                   // to be registered with this RTL.
-  int32_t NumberOfDevices;         // Number of devices this RTL deals with.
+  int32_t Idx = -1;             // RTL index, index is the number of devices
+                                // of other RTLs that were registered before,
+                                // i.e. the OpenMP index of the first device
+                                // to be registered with this RTL.
+  int32_t NumberOfDevices = -1; // Number of devices this RTL deals with.
 
-  void *LibraryHandler;
+  void *LibraryHandler = nullptr;
 
 #ifdef OMPTARGET_DEBUG
   std::string RTLName;
@@ -83,6 +84,7 @@ struct RTLInfoTy {
 #endif  // INTEL_COLLAB
 
   // Functions implemented in the RTL.
+<<<<<<< HEAD
   is_valid_binary_ty *is_valid_binary;
   number_of_devices_ty *number_of_devices;
   init_device_ty *init_device;
@@ -113,9 +115,22 @@ struct RTLInfoTy {
   data_delete_managed_ty *data_delete_managed;
   is_managed_ptr_ty *is_managed_ptr;
 #endif // INTEL_COLLAB
+=======
+  is_valid_binary_ty *is_valid_binary = nullptr;
+  number_of_devices_ty *number_of_devices = nullptr;
+  init_device_ty *init_device = nullptr;
+  load_binary_ty *load_binary = nullptr;
+  data_alloc_ty *data_alloc = nullptr;
+  data_submit_ty *data_submit = nullptr;
+  data_retrieve_ty *data_retrieve = nullptr;
+  data_delete_ty *data_delete = nullptr;
+  run_region_ty *run_region = nullptr;
+  run_team_region_ty *run_team_region = nullptr;
+  init_requires_ty *init_requires = nullptr;
+>>>>>>> c422d69b1ad7ae3fdbe0d4ec795a2931e08459f7
 
   // Are there images associated with this RTL.
-  bool isUsed;
+  bool isUsed = false;
 
   // Mutex for thread-safety when calling RTL interface functions.
   // It is easier to enforce thread-safety at the libomptarget level,
@@ -124,6 +139,7 @@ struct RTLInfoTy {
 
   // The existence of the mutex above makes RTLInfoTy non-copyable.
   // We need to provide a copy constructor explicitly.
+<<<<<<< HEAD
   RTLInfoTy()
       : Idx(-1), NumberOfDevices(-1), LibraryHandler(0),
 #ifdef OMPTARGET_DEBUG
@@ -145,8 +161,11 @@ struct RTLInfoTy {
 #else
         init_requires(0), isUsed(false), Mtx() {}
 #endif // INTEL_COLLAB
+=======
+  RTLInfoTy() = default;
+>>>>>>> c422d69b1ad7ae3fdbe0d4ec795a2931e08459f7
 
-  RTLInfoTy(const RTLInfoTy &r) : Mtx() {
+  RTLInfoTy(const RTLInfoTy &r) {
     Idx = r.Idx;
     NumberOfDevices = r.NumberOfDevices;
     LibraryHandler = r.LibraryHandler;
@@ -206,9 +225,9 @@ public:
   // binaries.
   std::vector<RTLInfoTy *> UsedRTLs;
 
-  int64_t RequiresFlags;
+  int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
-  explicit RTLsTy() {}
+  explicit RTLsTy() = default;
 
   // Register the clauses of the requires directive.
   void RegisterRequires(int64_t flags);
@@ -243,9 +262,9 @@ extern std::mutex *TrlTblMtx;
 
 /// Map between the host ptr and a table index
 struct TableMap {
-  TranslationTable *Table; // table associated with the host ptr.
-  uint32_t Index; // index in which the host ptr translated entry is found.
-  TableMap() : Table(0), Index(0) {}
+  TranslationTable *Table = nullptr; // table associated with the host ptr.
+  uint32_t Index = 0; // index in which the host ptr translated entry is found.
+  TableMap() = default;
   TableMap(TranslationTable *table, uint32_t index)
       : Table(table), Index(index) {}
 };
