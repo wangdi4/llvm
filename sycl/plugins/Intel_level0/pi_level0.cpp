@@ -16,7 +16,7 @@
 #include <memory>
 #include <string>
 #include <thread>
-
+#include <type_traits>
 #include <level_zero/zet_api.h>
 
 #ifdef __cplusplus
@@ -26,6 +26,10 @@ extern "C" {
 #include <stdio.h>
 #include <stdarg.h>
 
+// Some opencl extensions we know are supported by all Level0 devices.
+#define L0_SUPPORTED_EXTENSIONS                                                \
+  "cl_khr_il_program cl_khr_subgroups cl_intel_subgroups "                     \
+  "cl_intel_subgroups_short cl_intel_required_subgroup_size "
 bool ZE_DEBUG = false;
 
 // Forward declarations
@@ -280,6 +284,18 @@ decltype(piEventCreate) L0(piEventCreate);
       *param_value_size_ret = strlen(value) + 1;                               \
   }
 
+#define SET_PARAM_VALUE_VLA(value, num_values)                                 \
+  {                                                                            \
+    typedef std::remove_reference<decltype(value[0])>::type T;                 \
+    if (param_value) {                                                         \
+      memset(param_value, 0, param_value_size);                                \
+      for (uint32_t i = 0; i < num_values; i++)                                    \
+        ((T *)param_value)[i] = value[i];                                      \
+    }                                                                          \
+    if (param_value_size_ret)                                                  \
+      *param_value_size_ret = num_values * sizeof(T);                          \
+  }
+
 // TODO: Figure out how to pass these objects and eliminated these globals.
 ze_driver_handle_t ze_driver_global = {0};
 
@@ -340,9 +356,10 @@ pi_result L0(piPlatformGetInfo)(
     // Extensions defined here must be supported by all devices associated
     // with this platform."
     //
-    // TODO: any DPC++ features need this?
-    //
-    SET_PARAM_VALUE_STR("");
+    // TODO: Check the common extensions supported by all connected devices and
+    // return them. For now, hardcoding some extensions we know are supported by
+    // all Level0 devices.
+    SET_PARAM_VALUE_STR(L0_SUPPORTED_EXTENSIONS);
   }
   else if (param_name == PI_PLATFORM_INFO_PROFILE) {
     // TODO: figure out what this means and how is this used
@@ -539,9 +556,46 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     //     "Returns a space separated list of extension names (the extension
     // names themselves do not contain any spaces) supported by the device."
     //
-    // TODO: any DPC++ features need this?
+    // TODO: Use proper mechanism to get this information from Level0 after
+    // it is added to Level0.
+    // Hardcoding the few we know are supported by the current hardware.
     //
-    SET_PARAM_VALUE_STR("");
+    //
+    std::string SupportedExtensions;
+
+    // cl_khr_il_program - OpenCL 2.0 KHR extension for SPIRV support. Core
+    //   feature in >OpenCL 2.1
+    // cl_khr_subgroups - Extension adds support for implementation-controlled
+    //   subgroups.
+    // cl_intel_subgroups - Extension adds subgroup features, defined by Intel.
+    // cl_intel_subgroups_short - Extension adds subgroup functions described in
+    //   the cl_intel_subgroups extension to support 16-bit integer data types
+    //   for performance.
+    // cl_intel_required_subgroup_size - Extension to allow programmers to
+    //   optionally specify the required subgroup size for a kernel function.
+    // cl_khr_fp16 - Optional half floating-point support.
+    // cl_khr_fp64 - Support for double floating-point precision.
+    // cl_khr_int64_base_atomics, cl_khr_int64_extended_atomics - Optional
+    //   extensions that implement atomic operations on 64-bit signed and
+    //   unsigned integers to locations in __global and __local memory.
+    // cl_khr_3d_image_writes - Extension to enable writes to 3D image memory
+    //   objects.
+    //
+    // Hardcoding some extensions we know are supported by all Level0 devices.
+    SupportedExtensions += (L0_SUPPORTED_EXTENSIONS);
+    if (ze_device_kernel_properties.fp16Supported)
+      SupportedExtensions += ("cl_khr_fp16 ");
+    if (ze_device_kernel_properties.fp64Supported)
+      SupportedExtensions += ("cl_khr_fp64 ");
+    if (ze_device_kernel_properties.int64AtomicsSupported)
+      // int64AtomicsSupported indicates support for both.
+      SupportedExtensions +=
+          ("cl_khr_int64_base_atomics cl_khr_int64_extended_atomics ");
+    if (ze_device_image_properties.supported)
+      // Supports reading and writing of images.
+      SupportedExtensions += ("cl_khr_3d_image_writes ");
+
+    SET_PARAM_VALUE_STR(SupportedExtensions.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_NAME) {
     SET_PARAM_VALUE_STR(ze_device_properties.name);
@@ -888,12 +942,43 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_INFO_NATIVE_VECTOR_WIDTH_HALF ||
            param_name == PI_DEVICE_INFO_PREFERRED_VECTOR_WIDTH_HALF) {
     SET_PARAM_VALUE(ze_device_properties.physicalEUSimdWidth / 2);
-  }
-  else if (param_name == PI_DEVICE_INFO_USM_HOST_SUPPORT ||
-           param_name == PI_DEVICE_INFO_USM_DEVICE_SUPPORT ||
-           param_name == PI_DEVICE_INFO_USM_SINGLE_SHARED_SUPPORT ||
-           param_name == PI_DEVICE_INFO_USM_CROSS_SHARED_SUPPORT ||
-           param_name == PI_DEVICE_INFO_USM_SYSTEM_SHARED_SUPPORT) {
+  } else if (param_name == PI_DEVICE_INFO_MAX_NUM_SUB_GROUPS) {
+    // Max_num_sub_Groups = maxTotalGroupSize/min(set of subGroupSizes);
+    uint32_t MinSubGroupSize = ze_device_compute_properties.subGroupSizes[0];
+    for (uint32_t i = 1; i < ze_device_compute_properties.numSubGroupSizes; i++) {
+      if (MinSubGroupSize > ze_device_compute_properties.subGroupSizes[i])
+        MinSubGroupSize = ze_device_compute_properties.subGroupSizes[i];
+    }
+    SET_PARAM_VALUE(ze_device_compute_properties.maxTotalGroupSize /
+                    MinSubGroupSize);
+  } else if (param_name ==
+             PI_DEVICE_INFO_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS) {
+    // TODO: Not supported yet. Needs to be updated after support is added.
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/338
+    SET_PARAM_VALUE(pi_bool{false});
+  } else if (param_name == PI_DEVICE_INFO_SUB_GROUP_SIZES_INTEL) {
+    SET_PARAM_VALUE_VLA(ze_device_compute_properties.subGroupSizes,
+                        ze_device_compute_properties.numSubGroupSizes);
+  } else if (param_name == PI_DEVICE_INFO_IL_VERSION) {
+    // Set to a space separated list of IL version strings of the form
+    // <IL_Prefix>_<Major_version>.<Minor_version>.
+    // "SPIR-V" is a required IL prefix when cl_khr_il_progam extension is
+    // reported.
+    uint32_t spirv_version = ze_device_kernel_properties.spirvVersionSupported;
+    uint32_t spirv_version_major = ZE_MAJOR_VERSION(spirv_version);
+    uint32_t spirv_version_minor = ZE_MINOR_VERSION(spirv_version);
+
+    char spirv_version_string[50];
+    int len = sprintf(spirv_version_string, "SPIR-V_%d.%d ",
+                      spirv_version_major, spirv_version_minor);
+    // returned string to contain only len number of characters.
+    std::string IL_version(spirv_version_string, len);
+    SET_PARAM_VALUE_STR(IL_version.c_str());
+  } else if (param_name == PI_DEVICE_INFO_USM_HOST_SUPPORT ||
+             param_name == PI_DEVICE_INFO_USM_DEVICE_SUPPORT ||
+             param_name == PI_DEVICE_INFO_USM_SINGLE_SHARED_SUPPORT ||
+             param_name == PI_DEVICE_INFO_USM_CROSS_SHARED_SUPPORT ||
+             param_name == PI_DEVICE_INFO_USM_SYSTEM_SHARED_SUPPORT) {
 
     pi_uint64 supported = 0;
     if (ze_device_properties.unifiedMemorySupported) {
@@ -905,8 +990,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
           PI_USM_CONCURRENT_ATOMIC_ACCESS;
     }
     SET_PARAM_VALUE(supported);
-  }
-  else {
+  } else {
     fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);
     pi_throw("Unsupported param_name in piGetDeviceInfo");
   }
@@ -1236,6 +1320,10 @@ pi_result L0(piMemImageCreate)(
   case CL_FLOAT:
     ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_FLOAT;
     ze_image_format_type_size = 32;
+    break;
+  case CL_HALF_FLOAT:
+    ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_FLOAT;
+    ze_image_format_type_size = 16;
     break;
   case CL_UNSIGNED_INT32:
     ze_image_format_type = ZE_IMAGE_FORMAT_TYPE_UINT;
