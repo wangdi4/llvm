@@ -8,7 +8,7 @@ void ivdep_array_no_safelen() {
   int a[10];
   // CHECK: %[[ARRAY_B:[0-9a-z]+]] = alloca [10 x i32]
   int b[10];
-  [[intelfpga::ivdep_exp(a)]] // INTEL
+  [[intelfpga::ivdep(a)]]
   for (int i = 0; i != 10; ++i) {
     // CHECK:  %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], [10 x i32]* %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}, !llvm.index.group ![[IDX_GROUP_ARR:[0-9]+]]
     a[i] = 0;
@@ -25,7 +25,7 @@ void ivdep_array_with_safelen() {
   int a[10];
   // CHECK: %[[ARRAY_B:[0-9a-z]+]] = alloca [10 x i32]
   int b[10];
-  [[intelfpga::ivdep_exp(a, 5)]] // INTEL
+  [[intelfpga::ivdep(a, 5)]]
   for (int i = 0; i != 10; ++i) {
     // CHECK:  %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], [10 x i32]* %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}, !llvm.index.group ![[IDX_GROUP_ARR_SAFELEN:[0-9]+]]
     a[i] = 0;
@@ -47,10 +47,10 @@ void ivdep_multiple_arrays() {
   int c[10];
   // CHECK: %[[ARRAY_D:[0-9a-z]+]] = alloca [10 x i32]
   int d[10];
-  [[intelfpga::ivdep_exp(a, 5)]] // INTEL
-  [[intelfpga::ivdep_exp(b, 5)]] // INTEL
-  [[intelfpga::ivdep_exp(c)]] // INTEL
-  [[intelfpga::ivdep_exp(d)]] // INTEL
+  [[intelfpga::ivdep(a, 5)]]
+  [[intelfpga::ivdep(b, 5)]]
+  [[intelfpga::ivdep(c)]]
+  [[intelfpga::ivdep(d)]]
   for (int i = 0; i != 10; ++i) {
     // CHECK:  %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], [10 x i32]* %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}, !llvm.index.group ![[IDX_GROUP_A_MUL_ARR:[0-9]+]]
     a[i] = 0;
@@ -72,8 +72,8 @@ void ivdep_array_and_global() {
   int a[10];
   // CHECK: %[[ARRAY_B:[0-9a-z]+]] = alloca [10 x i32]
   int b[10];
-  [[intelfpga::ivdep_exp]] // INTEL
-  [[intelfpga::ivdep_exp(a)]] // INTEL
+  [[intelfpga::ivdep]]
+  [[intelfpga::ivdep(a)]]
   for (int i = 0; i != 10; ++i) {
     // CHECK: %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], [10 x i32]* %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}, !llvm.index.group ![[IDX_GROUP_A_ARR_AND_GLOB:[0-9]+]]
     a[i] = 0;
@@ -91,8 +91,8 @@ void ivdep_array_and_inf_global() {
   int a[10];
   // CHECK: %[[ARRAY_B:[0-9a-z]+]] = alloca [10 x i32]
   int b[10];
-  [[intelfpga::ivdep_exp]] // INTEL
-  [[intelfpga::ivdep_exp(a, 8)]] // INTEL
+  [[intelfpga::ivdep]]
+  [[intelfpga::ivdep(a, 8)]]
   for (int i = 0; i != 10; ++i) {
     // CHECK: %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], [10 x i32]* %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}, !llvm.index.group ![[IDX_GROUP_A_ARR_AND_INF_GLOB:[0-9]+]]
     a[i] = 0;
@@ -110,8 +110,8 @@ void ivdep_array_and_greater_global() {
   int a[10];
   // CHECK: %[[ARRAY_B:[0-9a-z]+]] = alloca [10 x i32]
   int b[10];
-  [[intelfpga::ivdep_exp(9)]] // INTEL
-  [[intelfpga::ivdep_exp(a, 8)]] // INTEL
+  [[intelfpga::ivdep(9)]]
+  [[intelfpga::ivdep(a, 8)]]
   for (int i = 0; i != 10; ++i) {
     // CHECK: %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], [10 x i32]* %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}, !llvm.index.group ![[IDX_GROUP_A_ARR_AND_GREAT_GLOB:[0-9]+]]
     a[i] = 0;
@@ -131,9 +131,9 @@ void ivdep_mul_arrays_and_global() {
   int b[10];
   // CHECK: %[[ARRAY_C:[0-9a-z]+]] = alloca [10 x i32]
   int c[10];
-  [[intelfpga::ivdep_exp(5)]] // INTEL
-  [[intelfpga::ivdep_exp(b, 6)]] // INTEL
-  [[intelfpga::ivdep_exp(c)]] // INTEL
+  [[intelfpga::ivdep(5)]]
+  [[intelfpga::ivdep(b, 6)]]
+  [[intelfpga::ivdep(c)]]
   for (int i = 0; i != 10; ++i) {
     // CHECK: %{{[0-9a-z]+}} = getelementptr inbounds [10 x i32], [10 x i32]* %[[ARRAY_A]], i64 0, i64 %{{[0-9a-z]+}}, !llvm.index.group ![[IDX_GROUP_A_MUL_ARR_AND_GLOB:[0-9]+]]
     a[i] = 0;
@@ -186,12 +186,15 @@ int main() {
 // CHECK-DAG: ![[IVDEP_MUL_ARR_VAL]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_A_MUL_ARR]], ![[IDX_GROUP_B_MUL_ARR]], i32 5}
 // CHECK-DAG: ![[IVDEP_MUL_ARR_INF]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_C_MUL_ARR]], ![[IDX_GROUP_D_MUL_ARR]]}
 
+// Find the single instance of a legacy "IVDep enable" MD node.
+// CHECK-DAG: ![[IVDEP_LEGACY_ENABLE:[0-9]+]] = !{!"llvm.loop.ivdep.enable"}
+
 /// Global INF safelen and specific array INF safelen
 /// The array-specific ivdep can be ignored, so it's the same as just global ivdep with safelen INF
 //
 // CHECK-DAG: ![[IDX_GROUP_A_ARR_AND_GLOB]] = distinct !{}
 // CHECK-DAG: ![[IDX_GROUP_B_ARR_AND_GLOB]] = distinct !{}
-// CHECK-DAG: ![[MD_LOOP_ARR_AND_GLOB]] = distinct !{![[MD_LOOP_ARR_AND_GLOB]], ![[IVDEP_ARR_AND_GLOB:[0-9]+]]}
+// CHECK-DAG: ![[MD_LOOP_ARR_AND_GLOB]] = distinct !{![[MD_LOOP_ARR_AND_GLOB]], ![[IVDEP_ARR_AND_GLOB:[0-9]+]], ![[IVDEP_LEGACY_ENABLE]]}
 // CHECK-DAG: ![[IVDEP_ARR_AND_GLOB]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_A_ARR_AND_GLOB]], ![[IDX_GROUP_B_ARR_AND_GLOB]]}
 
 /// Global INF safelen and specific array non-INF safelen
@@ -199,7 +202,7 @@ int main() {
 //
 // CHECK-DAG: ![[IDX_GROUP_A_ARR_AND_INF_GLOB]] = distinct !{}
 // CHECK-DAG: ![[IDX_GROUP_B_ARR_AND_INF_GLOB]] = distinct !{}
-// CHECK-DAG: ![[MD_LOOP_ARR_AND_INF_GLOB]] = distinct !{![[MD_LOOP_ARR_AND_INF_GLOB]], ![[IVDEP_ARR_AND_INF_GLOB:[0-9]+]]}
+// CHECK-DAG: ![[MD_LOOP_ARR_AND_INF_GLOB]] = distinct !{![[MD_LOOP_ARR_AND_INF_GLOB]], ![[IVDEP_ARR_AND_INF_GLOB:[0-9]+]], ![[IVDEP_LEGACY_ENABLE]]}
 // CHECK-DAG: ![[IVDEP_ARR_AND_INF_GLOB]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_A_ARR_AND_INF_GLOB]], ![[IDX_GROUP_B_ARR_AND_INF_GLOB]]}
 
 /// Global safelen and specific array with lesser safelen
@@ -207,7 +210,8 @@ int main() {
 //
 // CHECK-DAG: ![[IDX_GROUP_A_ARR_AND_GREAT_GLOB]] = distinct !{}
 // CHECK-DAG: ![[IDX_GROUP_B_ARR_AND_GREAT_GLOB]] = distinct !{}
-// CHECK-DAG: ![[MD_LOOP_ARR_AND_GREAT_GLOB]] = distinct !{![[MD_LOOP_ARR_AND_GREAT_GLOB]], ![[IVDEP_ARR_AND_GREAT_GLOB:[0-9]+]]}
+// CHECK-DAG: ![[MD_LOOP_ARR_AND_GREAT_GLOB]] = distinct !{![[MD_LOOP_ARR_AND_GREAT_GLOB]], ![[IVDEP_ARR_AND_GREAT_GLOB:[0-9]+]], ![[IVDEP_LEGACY_ARR_AND_GREAT_GLOB:[0-9]+]]}
+// CHECK-DAG: ![[IVDEP_LEGACY_ARR_AND_GREAT_GLOB]] = !{!"llvm.loop.ivdep.safelen", i32 9}
 // CHECK-DAG: ![[IVDEP_ARR_AND_GREAT_GLOB]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_A_ARR_AND_GREAT_GLOB]], ![[IDX_GROUP_B_ARR_AND_GREAT_GLOB]], i32 9}
 
 /// Multiple arrays with specific safelens and lesser global safelen
@@ -216,8 +220,8 @@ int main() {
 // CHECK-DAG: ![[IDX_GROUP_A_MUL_ARR_AND_GLOB]] = distinct !{}
 // CHECK-DAG: ![[IDX_GROUP_B_MUL_ARR_AND_GLOB]] = distinct !{}
 // CHECK-DAG: ![[IDX_GROUP_C_MUL_ARR_AND_GLOB]] = distinct !{}
-// CHECK-DAG: ![[MD_LOOP_MUL_ARR_AND_GLOB]] = distinct !{![[MD_LOOP_MUL_ARR_AND_GLOB]], ![[IVDEP_A_MUL_ARR_AND_GLOB:[0-9]+]], ![[IVDEP_B_MUL_ARR_AND_GLOB:[0-9]+]], ![[IVDEP_C_MUL_ARR_AND_GLOB:[0-9]+]]}
+// CHECK-DAG: ![[MD_LOOP_MUL_ARR_AND_GLOB]] = distinct !{![[MD_LOOP_MUL_ARR_AND_GLOB]], ![[IVDEP_A_MUL_ARR_AND_GLOB:[0-9]+]], ![[IVDEP_LEGACY_MUL_ARR_AND_GLOB:[0-9]+]], ![[IVDEP_B_MUL_ARR_AND_GLOB:[0-9]+]], ![[IVDEP_C_MUL_ARR_AND_GLOB:[0-9]+]]}
+// CHECK-DAG: ![[IVDEP_LEGACY_MUL_ARR_AND_GLOB]] = !{!"llvm.loop.ivdep.safelen", i32 5}
 // CHECK-DAG: ![[IVDEP_A_MUL_ARR_AND_GLOB]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_A_MUL_ARR_AND_GLOB]], i32 5}
 // CHECK-DAG: ![[IVDEP_B_MUL_ARR_AND_GLOB]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_B_MUL_ARR_AND_GLOB]], i32 6}
 // CHECK-DAG: ![[IVDEP_C_MUL_ARR_AND_GLOB]] = !{!"llvm.loop.parallel_access_indices", ![[IDX_GROUP_C_MUL_ARR_AND_GLOB]]}
-//

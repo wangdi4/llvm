@@ -476,6 +476,24 @@ EmitIVDepLoopMetadata(LLVMContext &Ctx,
   LoopProperties.push_back(MDNode::get(Ctx, MD));
 }
 
+/// Setting the legacy LLVM IR representation of the ivdep attribute.
+static void EmitLegacyIVDepLoopMetadata(
+    LLVMContext &Ctx, llvm::SmallVectorImpl<llvm::Metadata *> &LoopProperties,
+    const LoopAttributes::SYCLIVDepInfo &I) {
+  // Only emit the "enable" metadata if the safelen is set to 0, implying
+  // infinite safe length.
+  if (I.SafeLen == 0) {
+    Metadata *EnableMDs[] = {MDString::get(Ctx, "llvm.loop.ivdep.enable")};
+    LoopProperties.push_back(MDNode::get(Ctx, EnableMDs));
+    return;
+  }
+
+  Metadata *SafelenMDs[] = {MDString::get(Ctx, "llvm.loop.ivdep.safelen"),
+                            ConstantAsMetadata::get(ConstantInt::get(
+                                llvm::Type::getInt32Ty(Ctx), I.SafeLen))};
+  LoopProperties.push_back(MDNode::get(Ctx, SafelenMDs));
+}
+
 MDNode *LoopInfo::createMetadata(
     const LoopAttributes &Attrs,
     llvm::ArrayRef<llvm::Metadata *> AdditionalLoopProperties,
@@ -663,28 +681,18 @@ MDNode *LoopInfo::createMetadata(
                             llvm::Type::getInt32Ty(Ctx), Attrs.LoopCountAvg))};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
-
-  // Setting legacy ivdep attribute
-  if (Attrs.SYCLLegacyIVDepEnable) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ivdep.enable")};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
-
-  // Setting legacy ivdep attribute with safelen
-  if (Attrs.SYCLLegacyIVDepSafelen > 0) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {
-        MDString::get(Ctx, "llvm.loop.ivdep.safelen"),
-        ConstantAsMetadata::get(ConstantInt::get(
-            llvm::Type::getInt32Ty(Ctx), Attrs.SYCLLegacyIVDepSafelen))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
 #endif // INTEL_CUSTOMIZATION
 
   LLVMContext &Ctx = Header->getContext();
-  if (Attrs.GlobalSYCLIVDepInfo.hasValue())
+  if (Attrs.GlobalSYCLIVDepInfo.hasValue()) {
     EmitIVDepLoopMetadata(Ctx, LoopProperties, *Attrs.GlobalSYCLIVDepInfo);
+    // The legacy metadata also needs to be emitted to provide backwards
+    // compatibility with any conformant backend. This is done exclusively
+    // for the "global" ivdep specification so as not to impose unnecessarily
+    // tight safe length constraints on the array-specific cases.
+    EmitLegacyIVDepLoopMetadata(Ctx, LoopProperties,
+                                *Attrs.GlobalSYCLIVDepInfo);
+  }
   for (const auto &I : Attrs.ArraySYCLIVDepInfo)
     EmitIVDepLoopMetadata(Ctx, LoopProperties, I);
 
@@ -723,8 +731,7 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false), LoopCountMin(0),
-      LoopCountMax(0), LoopCountAvg(0), SYCLLegacyIVDepEnable(false),
-      SYCLLegacyIVDepSafelen(0),
+      LoopCountMax(0), LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
       UnrollAndJamEnable(LoopAttributes::Unspecified),
@@ -760,8 +767,6 @@ void LoopAttributes::clear() {
   LoopCountMin = 0;
   LoopCountMax = 0;
   LoopCountAvg = 0;
-  SYCLLegacyIVDepEnable = false;
-  SYCLLegacyIVDepSafelen = 0;
 #endif // INTEL_CUSTOMIZATION
   VectorizeWidth = 0;
   GlobalSYCLIVDepInfo.reset();
@@ -807,8 +812,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
       !Attrs.VectorizeAlwaysEnable && Attrs.LoopCount.size() == 0 &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
-      Attrs.LoopCountAvg == 0 && Attrs.SYCLLegacyIVDepEnable == false &&
-      Attrs.SYCLLegacyIVDepSafelen == 0 &&
+      Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
       Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
       Attrs.ArraySYCLIVDepInfo.empty() && Attrs.SYCLIInterval == 0 &&
@@ -1328,20 +1332,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
   for (const auto *Attr : Attrs) {
     const SYCLIntelFPGAIVDepAttr *IntelFPGAIVDep =
       dyn_cast<SYCLIntelFPGAIVDepAttr>(Attr);
-#if INTEL_CUSTOMIZATION
-    const SYCLIntelFPGALegacyIVDepAttr *IntelFPGALegacyIVDep =
-        dyn_cast<SYCLIntelFPGALegacyIVDepAttr>(Attr);
-#endif // INTEL_CUSTOMIZATION
     const SYCLIntelFPGAIIAttr *IntelFPGAII =
       dyn_cast<SYCLIntelFPGAIIAttr>(Attr);
     const SYCLIntelFPGAMaxConcurrencyAttr *IntelFPGAMaxConcurrency =
       dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(Attr);
 
-    if (!IntelFPGAIVDep && !IntelFPGAII && !IntelFPGAMaxConcurrency
-#if INTEL_CUSTOMIZATION
-        && !IntelFPGALegacyIVDep
-#endif // INTEL_CUSTOMIZATION
-    )
+    if (!IntelFPGAIVDep && !IntelFPGAII && !IntelFPGAMaxConcurrency)
       continue;
 
     if (IntelFPGAIVDep) {
@@ -1354,22 +1350,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       addSYCLIVDepInfo(Header->getContext(), IntelFPGAIVDep->getSafelenValue(),
                        Array);
     }
-
-#if INTEL_CUSTOMIZATION
-    if (IntelFPGALegacyIVDep) {
-      Expr *SafelenExpr = IntelFPGALegacyIVDep->getSafelenExpr();
-      if (SafelenExpr) {
-        llvm::APSInt ArgVal(32);
-        bool IsValid = SafelenExpr->isIntegerConstantExpr(ArgVal, Ctx);
-        assert(IsValid && "Not an integer constant expression");
-        (void)IsValid;
-        unsigned SafelenValue = ArgVal.getSExtValue();
-        if (SafelenValue > 0)
-          setSYCLLegacyIVDepSafelen(SafelenValue);
-      } else
-        setSYCLLegacyIVDepEnable();
-    }
-#endif // INTEL_CUSTOMIZATION
 
     if (IntelFPGAII) {
       llvm::APSInt ArgVal(32);

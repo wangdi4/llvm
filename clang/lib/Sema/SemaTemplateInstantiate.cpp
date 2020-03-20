@@ -1062,8 +1062,6 @@ namespace {
 #if INTEL_CUSTOMIZATION
     const IntelBlockLoopAttr *
     TransformIntelBlockLoopAttr(const IntelBlockLoopAttr *BL);
-    const SYCLIntelFPGALegacyIVDepAttr *TransformSYCLIntelFPGALegacyIVDepAttr(
-        const SYCLIntelFPGALegacyIVDepAttr *LegacyIVDep);
 #endif // INTEL_CUSTOMIZATION
 
     ExprResult TransformPredefinedExpr(PredefinedExpr *E);
@@ -1577,16 +1575,6 @@ const IntelBlockLoopAttr *TemplateInstantiator::TransformIntelBlockLoopAttr(
 
   getSema().CheckIntelBlockLoopAttribute(NewBL);
   return NewBL;
-}
-
-const SYCLIntelFPGALegacyIVDepAttr *
-TemplateInstantiator::TransformSYCLIntelFPGALegacyIVDepAttr(
-    const SYCLIntelFPGALegacyIVDepAttr *LegacyIVDep) {
-  Expr *SafelenExpr = LegacyIVDep->getSafelenExpr();
-  Expr *TransformedExpr =
-      SafelenExpr ? getDerived().TransformExpr(SafelenExpr).get() : nullptr;
-  return getSema().BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGALegacyIVDepAttr>(
-      *LegacyIVDep, TransformedExpr);
 }
 #endif // INTEL_CUSTOMIZATION
 

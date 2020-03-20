@@ -2119,19 +2119,6 @@ Note: this version of the attribute is not fully supported by the backend yet.
   }];
 }
 
-// INTEL_CUSTOMIZATION
-def SYCLIntelFPGALegacyIVDepAttrDocs : Documentation {
-  let Category = DocCatVariable;
-  let Heading = "ivdep";
-  let Content = [{
-This attribute applies to a loop. If no additional arguments are provided, it
-indicates that the backend may assume that the loop carries no dependences.
-If a safelen is provided then the backend may assume that all loop-carried
-dependences have a dependence distance of at least that length.
-  }];
-}
-// end INTEL_CUSTOMIZATION
-
 def SYCLIntelFPGAIIAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "ii";

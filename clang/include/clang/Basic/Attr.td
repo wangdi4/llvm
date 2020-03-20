@@ -1605,7 +1605,7 @@ def Mode : Attr {
 }
 
 def SYCLIntelFPGAIVDep : Attr {
-  let Spellings = [CXX11<"intelfpga","ivdep_exp">]; // INTEL
+  let Spellings = [CXX11<"intelfpga","ivdep">];
   let Args = [
     ExprArgument<"SafelenExpr">, ExprArgument<"ArrayExpr">,
     UnsignedArgument<"SafelenValue">
@@ -1645,25 +1645,6 @@ def SYCLIntelFPGAIVDep : Attr {
   }];
   let Documentation = [SYCLIntelFPGAIVDepAttrDocs];
 }
-
-// INTEL_CUSTOMIZATION
-def SYCLIntelFPGALegacyIVDep : Attr {
-  let Spellings = [CXX11<"intelfpga","ivdep">];
-  let Args = [ExprArgument<"SafelenExpr">];
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
-  let AdditionalMembers = [{
-    static const char *getName() {
-      return "ivdep";
-    }
-    bool isDependent() const {
-      return (getSafelenExpr() &&
-              getSafelenExpr()->isInstantiationDependent());
-    }
-  }];
-  let Documentation = [SYCLIntelFPGALegacyIVDepAttrDocs];
-}
-// end INTEL_CUSTOMIZATION
 
 def SYCLIntelFPGAII : Attr {
   let Spellings = [CXX11<"intelfpga","ii">];

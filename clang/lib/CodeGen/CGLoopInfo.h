@@ -117,12 +117,6 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.loopcount_averag
   unsigned LoopCountAvg;
 
-  /// Value for llvm.loop.ivdep.enable metadata.
-  bool SYCLLegacyIVDepEnable;
-
-  /// Value for llvm.loop.ivdep.safelen metadata.
-  unsigned SYCLLegacyIVDepSafelen;
-
 #endif // INTEL_CUSTOMIZATION
 
   /// Value for llvm.loop.unroll.* metadata (enable, disable, or full).
@@ -494,16 +488,6 @@ public:
                         const ValueDecl *Array);
 
   void addIVDepMetadata(const ValueDecl *Array, llvm::Instruction *GEP);
-
-#if INTEL_CUSTOMIZATION
-  /// Set flag of ivdep for the next loop pushed.
-  void setSYCLLegacyIVDepEnable() { StagedAttrs.SYCLLegacyIVDepEnable = true; }
-
-  /// Set value of safelen count for the next loop pushed.
-  void setSYCLLegacyIVDepSafelen(unsigned C) {
-    StagedAttrs.SYCLLegacyIVDepSafelen = C;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   /// Set value of an initiation interval for the next loop pushed.
   void setSYCLIInterval(unsigned C) { StagedAttrs.SYCLIInterval = C; }
