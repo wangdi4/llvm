@@ -2411,19 +2411,15 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
         Inheritable = true;
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (DisallowedAttr(Attr))
       continue;
 #endif // INTEL_CUSTOMIZATION
 
-    OS << "class " << R.getName() << "Attr : public " << SuperName << " {\n";
-=======
     if (Header)
       OS << "class " << R.getName() << "Attr : public " << SuperName << " {\n";
     else
       OS << "\n// " << R.getName() << "Attr implementation\n\n";
->>>>>>> 7420f96924a3889af628c851ff1940aae614f3f3
 
     std::vector<Record*> ArgRecords = R.getValueAsListOfDefs("Args");
     std::vector<std::unique_ptr<Argument>> Args;
@@ -2722,13 +2718,9 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
       OS << "  A->setImplicit(Implicit);\n";
       OS << "  return A;\n}\n\n";
 
-<<<<<<< HEAD
-    OS << "};\n"; // INTEL
-=======
       writePrettyPrintFunction(R, Args, OS);
       writeGetSpellingFunction(R, OS);
     }
->>>>>>> 7420f96924a3889af628c851ff1940aae614f3f3
   }
 }
 // Emits the class definitions for attributes.
@@ -2749,45 +2741,7 @@ void clang::EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
 
   emitAttributes(Records, OS, false);
 
-<<<<<<< HEAD
-  for (auto *Attr : Attrs) {
-    Record &R = *Attr;
-
-    if (!R.getValueAsBit("ASTNode"))
-      continue;
-
-#if INTEL_CUSTOMIZATION
-    if (DisallowedAttr(Attr))
-      continue;
-#endif // INTEL_CUSTOMIZATION
-
-    std::vector<Record*> ArgRecords = R.getValueAsListOfDefs("Args");
-    std::vector<std::unique_ptr<Argument>> Args;
-    for (const auto *Arg : ArgRecords)
-      Args.emplace_back(createArgument(*Arg, R.getName()));
-
-    for (auto const &ai : Args)
-      ai->writeAccessorDefinitions(OS);
-
-    OS << R.getName() << "Attr *" << R.getName()
-       << "Attr::clone(ASTContext &C) const {\n";
-    OS << "  auto *A = new (C) " << R.getName() << "Attr(C, *this";
-    for (auto const &ai : Args) {
-      OS << ", ";
-      ai->writeCloneArgs(OS);
-    }
-    OS << ");\n";
-    OS << "  A->Inherited = Inherited;\n";
-    OS << "  A->IsPackExpansion = IsPackExpansion;\n";
-    OS << "  A->setImplicit(Implicit);\n";
-    OS << "  return A;\n}\n\n";
-
-    writePrettyPrintFunction(R, Args, OS);
-    writeGetSpellingFunction(R, OS);
-  }
-=======
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
->>>>>>> 7420f96924a3889af628c851ff1940aae614f3f3
 
   // Instead of relying on virtual dispatch we just create a huge dispatch
   // switch. This is both smaller and faster than virtual functions.
