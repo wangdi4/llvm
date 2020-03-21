@@ -3615,6 +3615,7 @@ def LoopHint : Attr {
     llvm_unreachable("Unhandled LoopHint option.");
   }
 
+<<<<<<< HEAD
   void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
     unsigned SpellingIndex = getAttributeSpellingListIndex();
     // For "#pragma unroll" and "#pragma nounroll" the string "unroll" or
@@ -3644,28 +3645,16 @@ def LoopHint : Attr {
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     OS << ' ' << getOptionName(option) << getValueString(Policy);
   }
+=======
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const;
+>>>>>>> cb8e3597237c3edf54ef396874997efe7db3ce3a
 
   // Return a string containing the loop hint argument including the
   // enclosing parentheses.
-  std::string getValueString(const PrintingPolicy &Policy) const {
-    std::string ValueName;
-    llvm::raw_string_ostream OS(ValueName);
-    OS << "(";
-    if (state == Numeric)
-      value->printPretty(OS, nullptr, Policy);
-    else if (state == Enable)
-      OS << "enable";
-    else if (state == Full)
-      OS << "full";
-    else if (state == AssumeSafety)
-      OS << "assume_safety";
-    else
-      OS << "disable";
-    OS << ")";
-    return OS.str();
-  }
+  std::string getValueString(const PrintingPolicy &Policy) const;
 
   // Return a string suitable for identifying this attribute in diagnostics.
+<<<<<<< HEAD
   std::string getDiagnosticName(const PrintingPolicy &Policy) const {
     unsigned SpellingIndex = getAttributeSpellingListIndex();
     if (SpellingIndex == Pragma_nounroll)
@@ -3719,6 +3708,9 @@ def LoopHint : Attr {
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
     return getOptionName(option) + getValueString(Policy);
   }
+=======
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const;
+>>>>>>> cb8e3597237c3edf54ef396874997efe7db3ce3a
   }];
 
   let Documentation = [LoopHintDocs, UnrollHintDocs];
@@ -3780,53 +3772,7 @@ def OMPDeclareSimdDecl : Attr {
   ];
   let AdditionalMembers = [{
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
-        const {
-      if (getBranchState() != BS_Undefined)
-        OS << ' ' << ConvertBranchStateTyToStr(getBranchState());
-      if (auto *E = getSimdlen()) {
-        OS << " simdlen(";
-        E->printPretty(OS, nullptr, Policy);
-        OS << ")";
-      }
-      if (uniforms_size() > 0) {
-        OS << " uniform";
-        StringRef Sep = "(";
-        for (auto *E : uniforms()) {
-          OS << Sep;
-          E->printPretty(OS, nullptr, Policy);
-          Sep = ", ";
-        }
-        OS << ")";
-      }
-      alignments_iterator NI = alignments_begin();
-      for (auto *E : aligneds()) {
-        OS << " aligned(";
-        E->printPretty(OS, nullptr, Policy);
-        if (*NI) {
-          OS << ": ";
-          (*NI)->printPretty(OS, nullptr, Policy);
-        }
-        OS << ")";
-        ++NI;
-      }
-      steps_iterator I = steps_begin();
-      modifiers_iterator MI = modifiers_begin();
-      for (auto *E : linears()) {
-        OS << " linear(";
-        if (*MI != OMPC_LINEAR_unknown)
-          OS << getOpenMPSimpleClauseTypeName(OMPC_linear, *MI) << "(";
-        E->printPretty(OS, nullptr, Policy);
-        if (*MI != OMPC_LINEAR_unknown)
-          OS << ")";
-        if (*I) {
-          OS << ": ";
-          (*I)->printPretty(OS, nullptr, Policy);
-        }
-        OS << ")";
-        ++I;
-        ++MI;
-      }
-    }
+        const;
   }];
 }
 
@@ -3844,30 +3790,10 @@ def OMPDeclareTargetDecl : InheritableAttr {
                  [ "DT_Host", "DT_NoHost", "DT_Any" ]>
   ];
   let AdditionalMembers = [{
-    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
-      // Use fake syntax because it is for testing and debugging purpose only.
-      if (getDevType() != DT_Any)
-        OS << " device_type(" << ConvertDevTypeTyToStr(getDevType()) << ")";
-      if (getMapType() != MT_To)
-        OS << ' ' << ConvertMapTypeTyToStr(getMapType());
-    }
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const;
     static llvm::Optional<MapTypeTy>
-    isDeclareTargetDeclaration(const ValueDecl *VD) {
-      if (!VD->hasAttrs())
-        return llvm::None;
-      if (const auto *Attr = VD->getAttr<OMPDeclareTargetDeclAttr>())
-        return Attr->getMapType();
-
-      return llvm::None;
-    }
-    static llvm::Optional<DevTypeTy> getDeviceType(const ValueDecl *VD) {
-      if (!VD->hasAttrs())
-        return llvm::None;
-      if (const auto *Attr = VD->getAttr<OMPDeclareTargetDeclAttr>())
-        return Attr->getDevType();
-
-      return llvm::None;
-    }
+    isDeclareTargetDeclaration(const ValueDecl *VD);
+    static llvm::Optional<DevTypeTy> getDeviceType(const ValueDecl *VD);
   }];
 }
 
@@ -3908,16 +3834,7 @@ def OMPDeclareVariant : InheritableAttr {
   let AdditionalMembers = [{
     OMPTraitInfo &getTraitInfo() { return traitInfos; }
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)
-        const {
-      if (const Expr *E = getVariantFuncRef()) {
-        OS << "(";
-        E->printPretty(OS, nullptr, Policy);
-        OS << ")";
-      }
-      OS << " match(";
-      traitInfos.print(OS, Policy);
-      OS << ")";
-    }
+        const;
   }];
 }
 
