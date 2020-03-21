@@ -2294,6 +2294,8 @@ pi_result L0(piSamplerCreate)(
               ze_sampler_desc.addressMode = ZE_SAMPLER_ADDRESS_MODE_REPEAT;
             else if (cur_value_addressing_mode == PI_SAMPLER_ADDRESSING_MODE_CLAMP)
               ze_sampler_desc.addressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP;
+            else if (cur_value_addressing_mode == PI_SAMPLER_ADDRESSING_MODE_CLAMP_TO_EDGE)
+              ze_sampler_desc.addressMode = ZE_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
             else if (cur_value_addressing_mode == PI_SAMPLER_ADDRESSING_MODE_MIRRORED_REPEAT)
               ze_sampler_desc.addressMode = ZE_SAMPLER_ADDRESS_MODE_MIRROR;
             else {
