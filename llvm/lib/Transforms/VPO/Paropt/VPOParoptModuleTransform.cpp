@@ -615,9 +615,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     if (F->isDeclaration()) { // if(!F->hasOpenMPDirective()))
       if (IsTargetSPIRV) {
         auto FuncName = F->getName();
-        if (FuncName == "printf")
+        if (FuncName == "printf") {
           createOCLPrintfDecl(&*F);
-        else if (FuncName == "sincos")
+          VPOParoptTransform::replacePrintfWithOCLBuiltin(&*F,
+                                                          getOCLPrintfDecl());
+        } else if (FuncName == "sincos")
           replaceSincosWithOCLBuiltin(&*F, true);  // double sincos
         else if (FuncName == "sincosf")
           replaceSincosWithOCLBuiltin(&*F, false); // float sincosf
