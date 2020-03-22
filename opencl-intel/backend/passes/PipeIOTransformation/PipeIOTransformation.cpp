@@ -24,6 +24,8 @@
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
+#include <string>
+
 using namespace llvm;
 using namespace Intel::MetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -138,8 +140,16 @@ static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
   for (auto &PipeGV : M.globals()) {
     if (!isPipe(&PipeGV, PipeTypes))
       continue;
-    if (PipeGV.hasMetadata() && !PipeGV.getMetadata("io"))
-      continue;
+
+    // If IO pipe MD string is empty or GV has no IO pipe MD at all - skip it
+    if (PipeGV.hasMetadata()) {
+      if (auto *IOMetadata = PipeGV.getMetadata("io")) {
+        if (llvm::cast<llvm::MDString>(
+              IOMetadata->getOperand(0))->getLength() == 0)
+          continue;
+      } else
+        continue;
+    }
 
     if (!GlobalDtor)
       GlobalDtor = createGlobalPipeDtor(M);
@@ -184,7 +194,24 @@ static void getPipeBuiltinCalls(PipesBuiltinsVector &PBV, Value *V) {
     if (CallInst *Call = dyn_cast<CallInst>(U)) {
       Function *CF = Call->getCalledFunction();
       assert(CF && "Indirect function call?");
-      if (CompilationUtils::isPipeBuiltin(std::string(CF->getName()))) {
+      std::string CFName = std::string(CF->getName());
+      // If the callee is a function, that creates SYCL pipes - process its
+      // return value
+      if (CFName.find("__spirv_CreatePipeFromPipeStorage") !=
+          std::string::npos) {
+        for (auto *UU : Call->users()) {
+          // Result of __spirv_CreatePipeFromPipeStorage can be stored to a
+          // pointer, that represents a read/write pipe. Stores are having no
+          // users, but their pointer operand, as it was said, is a pipe itself,
+          // that is going to be used right after in read/write built-in calls.
+          if (StoreInst *Store = dyn_cast<StoreInst>(UU)) {
+            getPipeBuiltinCalls(PBV, Store->getPointerOperand());
+          } else {
+            getPipeBuiltinCalls(PBV, U);
+          }
+        }
+      }
+      if (CompilationUtils::isPipeBuiltin(CFName)) {
         PBV.push_back(Call);
       }
     } else {
