@@ -332,6 +332,12 @@ private:
   bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB,
                      Instruction *OMPLBForLinearClosedForm = nullptr);
 
+  /// Emit privatization and copyin/copyout code for linear/linear:iv clause
+  /// operands on SIMD directives. Initial copyin is generated for "linear"
+  /// operands but not for "linear:iv" operands. The final copyout is done for
+  /// both "linear" and "linear:iv" operands.
+  bool genLinearCodeForVecLoop(WRegionNode *W, BasicBlock *LinearFiniBB);
+
   /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 
