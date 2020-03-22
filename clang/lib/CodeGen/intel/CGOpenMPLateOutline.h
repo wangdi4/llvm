@@ -63,9 +63,6 @@ class OpenMPLateOutliner {
   CodeGenFunction &CGF;
   llvm::LLVMContext &C;
 
-  // Handle reprocessing VLASizeMap expressions.
-  CodeGenFunction::VLASizeMapHandler VSMH;
-
   // For region entry/exit implementation
   llvm::Function *RegionEntryDirective = nullptr;
   llvm::Function *RegionExitDirective = nullptr;
@@ -358,7 +355,7 @@ public:
   void emitOMPTargetVariantDispatchDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
-      VSMH.EmitVLAExpressions();
+      CGF.VLASizeMapHandler->EmitVLASizeExpressions();
   }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
@@ -522,8 +519,6 @@ public:
     // Start emission for the construct.
     CGF.CapturedStmtInfo =
         new CGLateOutlineOpenMPRegionInfo(CGF.CapturedStmtInfo, Outliner, D);
-    // If region is going to be outlined, re-emit the VLAExpressions.
-    O.emitVLAExpressions();
   }
   ~LateOutlineOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.

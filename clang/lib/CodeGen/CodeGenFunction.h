@@ -1730,37 +1730,52 @@ public:
   // provides the mechanism to re-emit the expressions in each region.
   // Since codegen expects these to be emitted on declaration of a variable
   // with variably modified type, we need to re-emit before processing the
-  // body of the region.  Currently we just re-emit all expressions seen
-  // so far, potentially emitting expressions we won't need in the region.
-  // If this turns out to be a problem we'll need to implement some
-  // mechanism to determine with are needed, or regenerate them on demand
-  // during codegen.
-  class VLASizeMapHandler {
+  // body of the region.
+  class CGVLASizeMapHandler {
     CodeGenFunction &CGF;
     llvm::DenseMap<const Expr*, llvm::Value*> SavedVLASizeMap;
     llvm::DenseMap<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
+    CGVLASizeMapHandler *PrevHandler = nullptr;
+    bool Initialized = false;
   public:
-    VLASizeMapHandler(CodeGenFunction &CGF)
-     : CGF(CGF) {
+    CGVLASizeMapHandler(CodeGenFunction &CGF)
+        : CGF(CGF), PrevHandler(CGF.VLASizeMapHandler) {
       SavedVLASizeMap = CGF.VLASizeMap;
-      // Outside the region save value in a temp.
-      for (auto &V : CGF.VLASizeMap) {
-        const Expr *E = V.first;
-        llvm::APSInt ConstLength;
-        if (E->isIntegerConstantExpr(ConstLength, CGF.getContext()))
-          continue;
+      CGF.VLASizeMapHandler = this;
+    }
 
-        Address A =
-            CGF.CreateMemTemp(CGF.getContext().getSizeType(), "omp.vla.tmp");
-        LValue LV = CGF.MakeAddrLValue(A, CGF.getContext().getSizeType());
-        RValue RV = RValue::get(V.second);
-        CGF.EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
-        AddressMap[V.first] = {A.getPointer(), A.getAlignment()};
+    // Find VLAs used in the captured statement. Emit stores of the Values
+    // to a temp before the outermost directive. Since there may be more
+    // than one llvm directive per OMPExecutable directive, use the
+    // Initialized field so it happens only at the outermost.
+    void ModifyVLASizeMap(const CapturedStmt *CS) {
+      if (Initialized || !CS)
+        return;
+      Initialized = true;
+
+      // Find VLAs in the captures.
+      const RecordDecl *RD = CS->getCapturedRecordDecl();
+      for (const auto *Field : RD->fields()) {
+        if (Field->hasCapturedVLAType()) {
+          const VariableArrayType *VAT = Field->getCapturedVLAType();
+          const Expr *E = VAT->getSizeExpr();
+          llvm::APSInt ConstLength;
+          if (E->isIntegerConstantExpr(ConstLength, CGF.getContext()))
+            continue;
+
+          Address A =
+              CGF.CreateMemTemp(CGF.getContext().getSizeType(), "omp.vla.tmp");
+          LValue LV = CGF.MakeAddrLValue(A, CGF.getContext().getSizeType());
+          RValue RV = RValue::get(CGF.VLASizeMap[E]);
+          CGF.EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
+          AddressMap[E] = {A.getPointer(), A.getAlignment()};
+        }
       }
     }
-    void EmitVLAExpressions() {
-      // Inside the region load the temp and record it so it appears in a
-      // clause.
+
+    // Before dumping the captured statement, load the temp and store that
+    // value in the VLASizeMap.  Record the value so it will appear in a clause.
+    void EmitVLASizeExpressions() {
       for (auto &Z : AddressMap) {
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
@@ -1772,10 +1787,13 @@ public:
               cast<llvm::LoadInst>(CGF.VLASizeMap[E])->getPointerOperand());
       }
     }
-    ~VLASizeMapHandler() {
+    ~CGVLASizeMapHandler() {
       CGF.VLASizeMap = SavedVLASizeMap;
+      CGF.VLASizeMapHandler = PrevHandler;
     }
   };
+  CGVLASizeMapHandler *VLASizeMapHandler = nullptr;
+
   // Save and clear the TerminateHandled and TerminateLandingPad on entry to
   // each OpenMP region. This will ensure we have one for each OpenMP region
   // when it is outlined.
