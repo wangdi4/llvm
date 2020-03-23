@@ -15,6 +15,7 @@
 #include "OclBuiltinEmitter.h"
 #include "OclBuiltinsHeaderGen.h"
 #include "VectorizerTableGen.h"
+#include "VectInfoGenerator.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -29,6 +30,7 @@ enum ActionType {
   GenOCLBuiltin,
   GenOCLBuiltisnHeader,
   GenVectorizerMap,
+  GenVectorizationInfo,
   PrintRecords,
   PrintEnums
 };
@@ -45,6 +47,8 @@ Action(cl::desc("Action to perform:"),
                              "Generate builtins files for ocl"),
                   clEnumValN(GenOCLBuiltisnHeader, "gen-ocl-biheader",
                             "Generates a header with builtins mangled names"),
+                  clEnumValN(GenVectorizationInfo, "gen-vectorization-info",
+                            "Generates the vector-variants attibute for builtins"),
                   clEnumValN(GenVectorizerMap, "gen-vectorizer-map",
                             "Generates an exeption map for the vecorizer's table")),
        cl::init(PrintRecords));
@@ -79,6 +83,9 @@ bool OCLTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
         break;
       case GenVectorizerMap:
         VectorizerTableGen(Records).run(OS);
+        break;
+      case GenVectorizationInfo:
+        VectInfoGenerator(Records).run(OS);
         break;
     }
 
