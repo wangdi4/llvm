@@ -122,6 +122,10 @@ static cl::opt<bool> EnableStructSupport("enable-" OPT_SWITCH "-structs",
                                          cl::desc("Enable " OPT_DESCR
                                                   " struct support."));
 
+static cl::opt<bool> EnableSExtDelinearization(
+    "enable-" OPT_SWITCH "-delin-sext", cl::init(false), cl::Hidden,
+    cl::desc("Enable " OPT_DESCR " delinearization with signed extensions."));
+
 static cl::opt<bool>
     DisableCostModel("disable-" OPT_SWITCH "-cost-model", cl::init(false),
                      cl::Hidden, cl::desc("Disable " OPT_DESCR " cost model."));
@@ -663,15 +667,6 @@ static bool computeDelinearizationValidityConditions(
     AuxRefs.insert(*MinMax.second);
 
     // Generate:
-    //   Size[i] > 1
-    auto SizeBlob = Sizes[E - I - 1];
-    RegDDRef *DimSizeRef = DRU.createConstDDRef(SizeBlob->getType(), 0);
-    DimSizeRef->getSingleCanonExpr()->addBlob(BU.findOrInsertBlob(SizeBlob), 1);
-    DimSizeRef->makeConsistent(AuxRefs.getArrayRef(), Level - 1);
-    RegDDRef *OneRef = DRU.createConstDDRef(SizeBlob->getType(), 1);
-    Conditions.emplace_back(DimSizeRef, CmpInst::ICMP_SGT, OneRef);
-
-    // Generate:
     //   Subscript[i + 1] < Size[i]
     // TODO: need to handle Ref's lower bound
 
@@ -709,6 +704,22 @@ static bool computeDelinearizationValidityConditions(
 
     // Subscripts may contain embedded cast even if they are constant.
     MaxRef->getSingleCanonExpr()->simplify(true, false);
+
+    // Generate:
+    //   Size[i] > 1
+    auto SizeBlob = Sizes[E - I - 1];
+    RegDDRef *DimSizeRef = DRU.createConstDDRef(SizeBlob->getType(), 0);
+    DimSizeRef->getSingleCanonExpr()->addBlob(BU.findOrInsertBlob(SizeBlob), 1);
+    if (DimSizeRef->getDestType() != MaxRef->getDestType()) {
+      auto *DimSizeCE = DimSizeRef->getSingleCanonExpr();
+      DimSizeCE->setDestType(MaxRef->getDestType());
+      DimSizeCE->setExtType(true);
+    }
+
+    DimSizeRef->makeConsistent(AuxRefs.getArrayRef(), Level - 1);
+
+    RegDDRef *OneRef = DRU.createConstDDRef(MaxRef->getDestType(), 1);
+    Conditions.emplace_back(DimSizeRef, CmpInst::ICMP_SGT, OneRef);
 
     // (MaxCE - MinCE) < DimSizeRef
     MaxRef->makeConsistent(AuxRefs.getArrayRef(), Level - 1);
@@ -754,7 +765,8 @@ tryDelinearization(const HLLoop *Loop, const HLLoop *InnermostLoop,
     }
 
     SmallVector<BlobTy, MaxLoopNestLevel> GroupSizes;
-    if (!DDRefUtils::delinearizeRefs(Group, DelinearizedGroup, &GroupSizes)) {
+    if (!DDRefUtils::delinearizeRefs(Group, DelinearizedGroup, &GroupSizes,
+                                     EnableSExtDelinearization)) {
       if (IsAlreadySorted(I)) {
         DelinearizedGroup.clear();
         continue;

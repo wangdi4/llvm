@@ -760,7 +760,8 @@ public:
   /// Refer to DDRefUtils::delinearizeRefs().
   bool delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
                        SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
-                       SmallVectorImpl<BlobTy> *DimSizes = nullptr);
+                       SmallVectorImpl<BlobTy> *DimSizes = nullptr,
+                       bool AllowSExt = false);
 };
 
 } // End namespace loopopt
