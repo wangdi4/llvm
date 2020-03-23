@@ -71,12 +71,6 @@ static cl::opt<bool> AllowOversizedCompletionBuffers(
     "CSA Specific: allow generation of oversized completionN buffers"),
   cl::init(false));
 
-static cl::opt<bool> MarkHLLICsAsBackedges(
-  "csa-mark-hllics-as-backedges", cl::Hidden,
-  cl::desc(
-    "CSA Specific: mark high-level LICs as backedges; consider using -csa-verify-backedges to verify these markings are precise."),
-  cl::init(false));
-
 #define DEBUG_TYPE "csa-cvt-cf-df-pass"
 
 //  Because of the namespace-related syntax limitations of gcc, we need
@@ -3125,7 +3119,7 @@ void CSACvtCFDFPass::lowerLicQueue() {
           TII->getLicClassForSize(MI.getOperand(1).getImm()*8);
         unsigned LicReg = LMFI->allocateLIC(RC, Twine("lic_queue") +
                                             Twine(licNum));
-        if (MarkHLLICsAsBackedges) {
+        if (csa_utils::markHLLICsAsBackedges()) {
           LMFI->addLICAttribute(LicReg, "csasim_backedge");
         }
         LMFI->setLICDepth(LicReg, MI.getOperand(3).getImm());

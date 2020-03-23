@@ -287,6 +287,11 @@ public:
     //       usage and figure out how to clean up the tripcount computation,
     //       if it is never used (e.g. DisableMultiSeq is true).
     addPass(createCSADeadInstructionElimPass(), false);
+
+    if (csa_utils::markHLLICsAsBackedges()) {
+      addPass(createCSABackedgeVerifier(), false);
+    }
+
     addPass(createCSADataflowCanonicalizationPass(), false);
     addPass(createCSASeqotToSeqOptimizationPass(), false);
     addPass(createCSAMultiSeqPass(), false);

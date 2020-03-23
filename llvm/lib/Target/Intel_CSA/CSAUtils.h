@@ -24,6 +24,7 @@ namespace csa_utils {
 bool isAlwaysDataFlowLinkageSet(void);
 bool createSCG(void);
 bool verifyBackedges(void);
+bool markHLLICsAsBackedges(void);
 bool reportWarningForExtCalls(void);
 unsigned createUseTree(MachineBasicBlock *, MachineBasicBlock::iterator,
                        unsigned, const SmallVector<unsigned, 4>,

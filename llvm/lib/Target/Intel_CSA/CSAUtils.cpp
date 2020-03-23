@@ -70,6 +70,12 @@ static cl::opt<bool>
                     cl::desc("CSA Specific: Verify a LIC with the csasim_backedge attribute does complete a cycle in the graph"),
                     cl::init(false));
 
+static cl::opt<bool> MarkHLLICsAsBackedges(
+  "csa-mark-hllics-as-backedges", cl::Hidden,
+  cl::desc(
+    "CSA Specific: mark high-level LICs as backedges; consider using -csa-verify-backedges to verify these markings are precise."),
+  cl::init(false));
+
 static cl::opt<bool>
 ReportWarningForExtCalls("csa-report-ext-calls-as-warning",
           cl::Hidden, cl::ZeroOrMore,
@@ -86,6 +92,10 @@ bool csa_utils::createSCG(void) {
 
 bool csa_utils::verifyBackedges(void) {
   return VerifyBackedges;
+}
+
+bool csa_utils::markHLLICsAsBackedges(void) {
+  return MarkHLLICsAsBackedges;
 }
 
 bool csa_utils::reportWarningForExtCalls(void) {
