@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -272,7 +272,7 @@ private:
   ///@brief Collect tid calls, and check uniformity of instructions in the
   ///       in the input block.
   ///@param BB - basic block to check.
-  void CollcectBlockData(llvm::BasicBlock *BB);
+  void CollectBlockData(llvm::BasicBlock *BB);
 
   ///@brief checks if the input cmp instruction is supported boundary compare
   ///       if so fills description of the boundary compare into eeVec.

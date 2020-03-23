@@ -224,10 +224,10 @@ public:
   bool hasVolatile() const { return m_HasVolatile; }
 
   void addAttribute(const OclBuiltinAttr&);
-  
+
   void removeAttribute(const OclBuiltinAttr&);
 
-  bool shouldGenerate() const; 
+  bool shouldGenerate() const;
 
 protected:
   const OclBuiltinDB& m_DB;
@@ -315,6 +315,15 @@ public:
 
   std::string getSVMLRounding(const std::string&) const;
 
+  // Process AliasMap records.
+  void processAliasMap();
+
+  // Check whether the builtin has alias names.
+  bool hasAlias(const OclBuiltin* builtin) const;
+
+  // Return the alias name for a specific OclBuiltin record.
+  ArrayRef<std::string> getAlias(const OclBuiltin* builtin);
+
 protected:
   RecordKeeper& m_Records;
   const Record* m_Record;
@@ -324,6 +333,7 @@ protected:
   std::map<std::string, OclType*> m_TypeMap;
   std::map<std::string, OclBuiltin*> m_ProtoMap;
   std::map<const OclBuiltin*, OclBuiltinImpl*> m_ImplMap;
+  std::map<const OclBuiltin*, std::vector<std::string>> m_AliasMap;
 };
 
 /// OclBuiltinEmitter

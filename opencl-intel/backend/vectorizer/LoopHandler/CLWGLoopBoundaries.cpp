@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -122,7 +122,7 @@ bool CLWGLoopBoundaries::isUniformByOps(Instruction *I) {
    return true;
 }
 
-void CLWGLoopBoundaries::CollcectBlockData(BasicBlock *BB) {
+void CLWGLoopBoundaries::CollectBlockData(BasicBlock *BB) {
   // Run over all instructions in the block (excluding the terminator)
   for (BasicBlock::iterator BBIter=BB->begin(), BBEndIter= --(BB->end()); BBIter!=BBEndIter ; ++BBIter) {
     Instruction *I = &*BBIter;
@@ -199,7 +199,7 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   // Collect information of get***id calls.
   collectTIDData();
   // Collects uniform data from the current basic block.
-  CollcectBlockData(&m_F->getEntryBlock());
+  CollectBlockData(&m_F->getEntryBlock());
   // Check if the function calls an atomic/pipe built-in.
   m_hasWIUniqueCalls = currentFunctionHasWIUniqueCalls();
 
@@ -501,7 +501,7 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
     if (EEsucc->getUniquePredecessor()) {
       // Collect TID info for the code successor block.
       // Since the entry is the only pred the successor is not part of a loop.
-      CollcectBlockData(EEsucc);
+      CollectBlockData(EEsucc);
       // Try to Merge the block into it's pred.
       // If the blocks were merged we might have another early exit oppurunity.
       if (MergeBlockIntoPredecessor(EEsucc)) return true;
@@ -818,6 +818,14 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
         break;
       }
       case Instruction::Call:
+        // Add uniform information for newly created instructions into m_Uni
+        // for future queries. The return here is the only one which can return
+        // true in this function, so we only need to add the uniform
+        // information here. Boundaries are uniform over all work items, so we
+        // can just set them to be true.
+        m_Uni[*bound] = true;
+        if (*(bound+1))
+          m_Uni[*(bound+1)] = true;
         // Only Supported candidate is tid generator itself
         return m_TIDs.count(tid);
       case Instruction::AShr: {
@@ -879,6 +887,10 @@ void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
       // We remove all calls at the end to avoid invalidating internal
       // data structures that keep information about tid calls.
       tidCall->replaceAllUsesWith(toRep);
+      // Move the instruction to where the 'call' instruction is, so that
+      // it will dominate all its uses.
+      if (Instruction *toRepIns = dyn_cast<Instruction>(toRep))
+        toRepIns->moveBefore(tidCall);
       m_toRemove.insert(tidCall);
     }
   }
