@@ -38,6 +38,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TypeSize.h"
 #include <map>
 
 #define SV_NAME "iml-trans"
@@ -911,8 +912,9 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     VectorType *NewMaskType = VectorType::get(NewMaskElementType, LogicalVL);
 
     Constant *Zeros = ConstantAggregateZero::get(NewMaskType);
-    Constant *Ones = ConstantVector::getSplat(
-        LogicalVL, ConstantInt::get(NewMaskElementType, -1));
+    Constant *Ones =
+        ConstantVector::getSplat(ElementCount(LogicalVL, false),
+                                 ConstantInt::get(NewMaskElementType, -1));
     Value *NewMask =
         Builder.CreateSelect(MaskValue, Ones, Zeros, "select.maskcvt");
 
@@ -933,7 +935,8 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     // parameter and create a new source parameter.
     VectorType *OldMaskType = cast<VectorType>(MaskValue->getType());
     Constant *Splat = ConstantVector::getSplat(
-        LogicalVL, ConstantInt::get(OldMaskType->getElementType(), -1));
+        ElementCount(LogicalVL, false),
+        ConstantInt::get(OldMaskType->getElementType(), -1));
     Value *NewMask = Builder.CreateICmpEQ(MaskValue, Splat, "icmp.maskcvt");
 
     Type *CallType = CI->getType();

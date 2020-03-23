@@ -32,8 +32,9 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TypeSize.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
@@ -4122,7 +4123,8 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
 
   ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
-    return ConstantVector::getSplat(VTy->getNumElements(), MinMaxVal);
+    return ConstantVector::getSplat(ElementCount(VTy->getNumElements(), false),
+                                    MinMaxVal);
   return MinMaxVal;
 }
 

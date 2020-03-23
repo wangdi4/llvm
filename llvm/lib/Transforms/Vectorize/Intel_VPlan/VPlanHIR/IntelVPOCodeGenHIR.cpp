@@ -33,6 +33,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TypeSize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -111,7 +112,8 @@ namespace llvm {
 
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
                                        unsigned VF) {
-  Constant *ConstVec = ConstantVector::getSplat(VF, ConstVal);
+  Constant *ConstVec =
+      ConstantVector::getSplat(ElementCount(VF, false), ConstVal);
   if (isa<ConstantDataVector>(ConstVec))
     return DDRU.createConstDDRef(cast<ConstantDataVector>(ConstVec));
   if (isa<ConstantAggregateZero>(ConstVec))

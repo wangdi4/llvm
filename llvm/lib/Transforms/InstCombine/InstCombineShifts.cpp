@@ -15,6 +15,7 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/TypeSize.h" // INTEL
 using namespace llvm;
 using namespace PatternMatch;
 
@@ -818,7 +819,8 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 
           if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
-            Mask = ConstantVector::getSplat(VT->getNumElements(), Mask);
+            Mask = ConstantVector::getSplat(
+                ElementCount(VT->getNumElements(), false), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
         }
 #endif // INTEL_CUSTOMIZATION
@@ -875,7 +877,8 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
           Constant *Mask = ConstantInt::get(I.getContext(), Bits);
 
           if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
-            Mask = ConstantVector::getSplat(VT->getNumElements(), Mask);
+            Mask = ConstantVector::getSplat(
+                ElementCount(VT->getNumElements(), false), Mask);
           return BinaryOperator::CreateAnd(X, Mask);
         }
 #endif // INTEL_CUSTOMIZATION
