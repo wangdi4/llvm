@@ -396,11 +396,6 @@ void VPBasicBlock::execute(VPTransformState *State) {
     // Temporarily terminate with unreachable until CFG is rewired.
     UnreachableInst *Terminator = State->Builder.CreateUnreachable();
     State->Builder.SetInsertPoint(Terminator);
-    // Register NewBB in its loop. In innermost loops its the same for all
-    // BB's.
-    Loop *L = State->LI->getLoopFor(State->CFG.LastBB);
-    assert(L && "Unexpected null loop for Last BasicBlock");
-    L->addBasicBlockToLoop(NewBB, *State->LI);
     State->CFG.PrevBB = NewBB;
   }
 
@@ -596,7 +591,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   // visited/created.
   BasicBlock *PrevBB = CFG.PrevBB;
   BasicBlock *NewBB = BasicBlock::Create(PrevBB->getContext(), "VPlannedBB",
-                                         PrevBB->getParent(), CFG.LastBB);
+                                         PrevBB->getParent(), CFG.InsertBefore);
   LLVM_DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
 
 #if INTEL_CUSTOMIZATION

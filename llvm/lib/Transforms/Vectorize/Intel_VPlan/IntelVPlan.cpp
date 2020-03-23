@@ -497,7 +497,7 @@ void VPlan::execute(VPTransformState *State) {
   // 2. Generate code in loop body of vectorized version.
   State->CFG.PrevVPBB = nullptr;
   State->CFG.PrevBB = VectorPreHeaderBB;
-  State->CFG.LastBB = VectorLatchBB;
+  State->CFG.InsertBefore = VectorLatchBB;
 
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
