@@ -1,24 +1,140 @@
 ; RUN: opt --mcpu=skylake-avx512 -S --x86-split-vector-value-type --verify < %s | FileCheck %s
 
-; Tests for x86-split-vector-value-type pass
+; Tests for x86-split-vector-value-type pass.
+; If an instruction has name, the split instructions will be name as [original inst name].(l|h)
+; e.g. %x will be split into %x.l and %x.h.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @_Z10foo_doublePi(i32* noalias nocapture %result) #0 {
+define <32 x i32> @candidateTest1(<32 x i32>* %x0_ptr, <32 x i32>* %y0_ptr) {
+; CHECK-LABEL: candidateTest1
+; CHECK:       %cmp0 = icmp sgt <32 x i32>
+entry:
+  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
+  %cmp0 = icmp sgt <32 x i32> %x0, %y0
+  %cmp0.broadcast = shufflevector <32 x i1> %cmp0, <32 x i1> undef, <32 x i32> zeroinitializer
+  %res = select <32 x i1> %cmp0.broadcast, <32 x i32> %x0, <32 x i32> %y0
+  ret <32 x i32> %res
+}
+
+define <32 x i1> @insertelementSplitTest(<32 x i32>* %data_ptr, i32 %val1, i32 %val2) {
+; CHECK-LABEL:  insertelementSplitTest
+; CHECK:        %x0.h = insertelement <16 x i32> %data.h, i32 %val1, i32 4
+; CHECK-NEXT:   %y0.l = insertelement <16 x i32> undef, i32 %val2, i32 15
+entry:
+  %data = load <32 x i32>, <32 x i32>* %data_ptr
+  %x0 = insertelement <32 x i32> %data, i32 %val1, i32 20
+  %y0 = insertelement <32 x i32> undef, i32 %val2, i32 15
+  %cmp0 = icmp sgt <32 x i32> %x0, %y0
+  %cmp1 = icmp sgt <32 x i32> %x0, zeroinitializer
+  %res = and <32 x i1> %cmp0, %cmp1
+  ret <32 x i1> %res
+}
+
+define <32 x i1> @shufflevectorSplitTest(<32 x i32>* %x0_ptr, <32 x i32>* %y0_ptr) {
+; CHECK-LABEL:  shufflevectorSplitTest
+; CHECK:        %x1.h = shufflevector <16 x i32> %x0.h, <16 x i32> undef, <16 x i32> <i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:   %y1.l = shufflevector <16 x i32> %y0.l, <16 x i32> undef, <16 x i32> zeroinitializer
+entry:
+  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
+  %x1 = shufflevector <32 x i32> %x0, <32 x i32> undef, <32 x i32> <i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20, i32 20>
+  %y1 = shufflevector <32 x i32> %y0, <32 x i32> undef, <32 x i32> zeroinitializer
+  %cmp0 = icmp sgt <32 x i32> %x1, %y1
+  %cmp1 = icmp sgt <32 x i32> %x1, zeroinitializer
+  %res = and <32 x i1> %cmp0, %cmp1
+  ret <32 x i1> %res
+}
+
+define void @phiSplitTest(<32 x i32>* %x0_ptr, <32 x i1>* %cond0_ptr) {
+; CHECK-LABEL:  phiSplitTest
+; CHECK:        bb1:
+; CHECK-NEXT:   %x1.l = phi <16 x i32> [ %x0.l, %entry ], [ %x3.l, %bb3 ]
+; CHECK-NEXT:   %x1.h = phi <16 x i32> [ %x0.h, %entry ], [ %x3.h, %bb3 ]
+; CHECK:        bb2:
+; CHECK-NEXT:   %x2.l = phi <16 x i32> [ %x1.l, %bb1 ]
+; CHECK-NEXT:   %x2.h = phi <16 x i32> [ %x1.h, %bb1 ]
+; CHECK:        bb3:
+; CHECK-NEXT:   %x3.l = phi <16 x i32> [ %x2.l, %bb2 ]
+; CHECK-NEXT:   %x3.h = phi <16 x i32> [ %x2.h, %bb2 ]
+entry:
+  %cond0 = load <32 x i1>, <32 x i1>* %cond0_ptr
+  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+  br label %bb1
+
+bb1:
+  %x1 = phi <32 x i32> [ %x0, %entry ], [ %x3, %bb3 ]
+  br label %bb2
+
+bb2:
+  %x2 = phi <32 x i32> [ %x1, %bb1 ]
+  br label %bb3
+
+bb3:
+  %x3 = phi <32 x i32> [ %x2, %bb2 ]
+  %cmp3 = icmp sgt <32 x i32> %x3, zeroinitializer
+  %cond1 = and <32 x i1> %cmp3, %cond0
+  %bc3 = bitcast <32 x i1> %cond1 to i32
+  %zcmp3 = icmp eq i32 %bc3, 0
+  br i1 %zcmp3, label %bb4, label %bb1
+
+bb4:
+  ret void
+}
+
+define i32 @foldFusedShufflevectorExtractElementTest(<32 x i32>* %x0_ptr, <32 x i32>* %y0_ptr) {
+; CHECK-LABEL: foldFusedShufflevectorExtractElementTest
+; CHECK:       %x1.h.extract.4{{.*}} = extractelement <16 x i32> %x1.h, i32 4
+; CHECK-NEXT:  %y1.l.extract.15{{.*}} = extractelement <16 x i32> %y1.l, i32 15
+entry:
+  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
+  %x1 = insertelement <32 x i32> %x0, i32 1, i32 20
+  %y1 = insertelement <32 x i32> %y0, i32 1, i32 15
+  %x1.extract.20 = extractelement <32 x i32> %x1, i32 20
+  %y1.extract.15 = extractelement <32 x i32> %y1, i32 15
+  %cmp0 = icmp sgt <32 x i32> %x1, %y1
+  %cmp1 = icmp sgt <32 x i32> %x1, zeroinitializer
+  %cond0 = and <32 x i1> %cmp0, %cmp1
+  %bc = bitcast <32 x i1> %cond0 to i32
+  %sum0 = add i32 %x1.extract.20, %y1.extract.15
+  %sum1 = add i32 %sum0, %bc
+  ret i32 %sum1
+}
+
+define <32 x i1> @foldSplattedCmpShuffleVectorTest(<32 x i32>* %x_ptr) {
+; CHECK-LABEL: foldSplattedCmpShuffleVectorTest
+; CHECK:       %{{.+}} = shufflevector <16 x i32> %x.h, <16 x i32> undef, <16 x i32> <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+; CHECK-NEXT:  %z.h = icmp sgt <16 x i32> %{{.+}}, <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
+entry:
+  %x = load <32 x i32>, <32 x i32>* %x_ptr
+  %cmp = icmp sgt <32 x i32> %x, <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
+  %z = shufflevector <32 x i1> %cmp, <32 x i1> undef, <32 x i32> <i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24, i32 24>
+  %res = and <32 x i1> %z, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  ret <32 x i1> %res
+}
+
+define void @foo_double(i32* noalias nocapture %result) {
+; CHECK-LABEL: foo_double
+; CHECK:       phi <16 x i32>
+; CHECK:       phi <16 x double>
+; CHECK:       phi <16 x i32>
+; CHECK:       phi <16 x i1>
+; CHECK:       extractelement <16 x i32>{{.*}} i32 0
+; CHECK:       fcmp fast olt <16 x double>
+; CHECK:       and <16 x i1>
+; CHECK:       insertelement <16 x i32>{{.*}} i32 0
+; CHECK-NEXT:  shufflevector <16 x i32>{{.*}} <16 x i32> zeroinitializer
+; CHECK-NEXT:  icmp sgt <16 x i32>
+; CHECK:       select <16 x i1>{{.*}}<16 x i32>
+; CHECK:       and <16 x i1>
+; CHECK:       select <16 x i1>{{.*}}<16 x i32>
+; CHECK:       bitcast <32 x i1>
+
 omp.inner.for.body.lr.ph:
   br label %hir.L.1
-
-; CHECK:      {{phi <16 x i32>}}
-; CHECK:      {{phi <16 x double>}}
-; CHECK:      {{phi <16 x i1>}}
-; CHECK:      {{fcmp fast olt <16 x double>}}
-; CHECK:      {{and <16 x i1>}}
-; CHECK:      {{icmp sgt <16 x i32>}}
-; CHECK:      {{select <16 x i1>.*<16 x i32>}}
-; CHECK:      {{and <16 x i1>}}
-; CHECK:      {{select <16 x i1>.*<16 x i32>}}
-; CHECK:      {{bitcast <32 x i1>}}
 
 hir.L.1:                                          ; preds = %then.38, %omp.inner.for.body.lr.ph
   %t3.0 = phi <32 x i32> [ undef, %omp.inner.for.body.lr.ph ], [ %22, %then.38 ]
@@ -75,23 +191,28 @@ ifmerge.101:                                      ; preds = %hir.L.1
 then.38:                                          ; preds = %ifmerge.101
   %24 = fmul fast <32 x double> %5, %5
   %25 = fsub fast <32 x double> %24, %18
-  br label %hir.L.1, !llvm.loop !2
+  br label %hir.L.1
 }
 
-define void @_Z9foo_floatPi(i32* noalias nocapture %result) #0 {
+define void @foo_float(i32* noalias nocapture %result) {
+; CHECK-LABEL: foo_float
+; CHECK:       phi <16 x i32>
+; CHECK:       phi <16 x float>
+; CHECK:       phi <16 x i32>
+; CHECK:       phi <16 x i1>
+; CHECK:       extractelement <16 x i32>{{.*}} i32 0
+; CHECK:       fcmp fast olt <16 x float>
+; CHECK:       and <16 x i1>
+; CHECK:       insertelement <16 x i32>{{.*}} i32 0
+; CHECK-NEXT:  shufflevector <16 x i32>{{.*}} <16 x i32> zeroinitializer
+; CHECK-NEXT:  icmp sgt <16 x i32>
+; CHECK:       select <16 x i1>{{.*}}<16 x i32>
+; CHECK:       and <16 x i1>
+; CHECK:       select <16 x i1>{{.*}}<16 x i32>
+; CHECK:       bitcast <32 x i1>
+
 omp.inner.for.body.lr.ph:
   br label %hir.L.1
-
-; CHECK:      {{phi <16 x i32>}}
-; CHECK:      {{phi <16 x float>}}
-; CHECK:      {{phi <16 x i1>}}
-; CHECK:      {{fcmp fast olt <16 x float>}}
-; CHECK:      {{and <16 x i1>}}
-; CHECK:      {{icmp sgt <16 x i32>}}
-; CHECK:      {{select <16 x i1>.*<16 x i32>}}
-; CHECK:      {{and <16 x i1>}}
-; CHECK:      {{select <16 x i1>.*<16 x i32>}}
-; CHECK:      {{bitcast <32 x i1>}}
 
 hir.L.1:                                          ; preds = %then.38, %omp.inner.for.body.lr.ph
   %t3.0 = phi <32 x i32> [ undef, %omp.inner.for.body.lr.ph ], [ %22, %then.38 ]
@@ -148,11 +269,5 @@ ifmerge.101:                                      ; preds = %hir.L.1
 then.38:                                          ; preds = %ifmerge.101
   %24 = fmul fast <32 x float> %5, %5
   %25 = fsub fast <32 x float> %24, %18
-  br label %hir.L.1, !llvm.loop !4
+  br label %hir.L.1
 }
-
-attributes #0 = { nounwind uwtable }
-
-!2 = distinct !{!2, !3}
-!3 = !{!"llvm.loop.unroll.disable"}
-!4 = distinct !{!4, !3}
