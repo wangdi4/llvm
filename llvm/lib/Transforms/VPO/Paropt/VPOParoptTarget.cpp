@@ -144,6 +144,7 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
     // no printf() found in the module
     return;
 
+  SmallVector<Instruction *, 4> InstsToDelete;
   Function *OCLPrintfDecl = MT->getOCLPrintfDecl();
   assert(OCLPrintfDecl != nullptr && "OCLPrintfDecl not initialized");
 
@@ -194,9 +195,12 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
         if (Instruction *I = dyn_cast<Instruction>(OldU))
           I->replaceUsesOfWith(OldCall, NewCall);
 
-      // Remove the old call
-      OldCall->eraseFromParent();
+      // Mark old call for deletion
+      InstsToDelete.push_back(OldCall);
     }
+
+  for (Instruction *I: InstsToDelete)
+    I->eraseFromParent();
 }
 
 Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,

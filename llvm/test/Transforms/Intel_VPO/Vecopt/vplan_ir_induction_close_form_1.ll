@@ -16,8 +16,8 @@
 ; Here both "ptr" and "c" are recognized by VPOLegality as induction variables. Since they are both used after their corresponding
 ; increment instruction, closed-form is needed for their representation in VPlan.
 
-; RUN: opt -VPlanDriver -vplan-entities-dump -disable-vplan-codegen -debug-only=VPlanPredicator -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="vplan-driver" -vplan-entities-dump -disable-vplan-codegen -debug-only=VPlanPredicator -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-codegen -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-driver" -disable-vplan-codegen -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -25,35 +25,31 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3fooPiii(i32* nocapture readonly %ptr, i32 %step, i32 %n) local_unnamed_addr {
-; Check entities
-; CHECK-LABEL: Loop Entities of the loop with header
-; CHECK: Induction list
-; CHECK: IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[LOOP_IV_BINOP:%vp.*]] = add i32 [[LOOP_IV_PHI:%vp.*]] i32 [[LOOP_IV_INIT_STEP:%vp.*]]
-; CHECK: PtrInduction(+) Start: i32* %ptr Step: i64 1 BinOp: i32* [[IV1_BINOP:%vp.*]] = getelementptr inbounds i32* [[IV1_PHI:%vp.*]] i64 1 need close form
-; CHECK: IntInduction(+) Start: i8 %conv Step: i8 1 BinOp: i8 [[IV2_BINOP:%vp.*]] = add i8 [[IV2_PHI:%vp.*]] i8 1 need close form
-
-; Check entity VPInstructions
 ; Check induction initialization instructions
-; CHECK: i32 [[LOOP_IV_INIT:%vp.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT: i32 [[LOOP_IV_INIT_STEP]] = induction-init-step{add} i32 1
-; CHECK-NEXT: i32* [[IV1_INIT:%vp.*]] = induction-init{getelementptr} i32* %ptr i64 1
-; CHECK-NEXT: i64 [[IV1_INIT_STEP:%vp.*]] = induction-init-step{getelementptr} i64 1
-; CHECK-NEXT: i8 [[IV2_INIT:%vp.*]] = induction-init{add} i8 %conv i8 1
-; CHECK-NEXT: i8 [[IV2_INIT_STEP:%vp.*]] = induction-init-step{add} i8 1
-
+; CHECK:          [DA: Div] i32 [[VP__OMP_IV_0_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP__OMP_IV_0_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     [DA: Div] i32* [[VP_PTR_ADDR_019_IND_INIT:%.*]] = induction-init{getelementptr} i32* [[PTR0:%.*]] i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_PTR_ADDR_019_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
+; CHECK-NEXT:     [DA: Div] i8 [[VP_C_018_IND_INIT:%.*]] = induction-init{add} i8 [[CONV0:%.*]] i8 1
+; CHECK-NEXT:     [DA: Uni] i8 [[VP_C_018_IND_INIT_STEP:%.*]] = induction-init-step{add} i8 1
+;
 ; Check induction PHIs
-; CHECK: i32 [[LOOP_IV_PHI]] = phi  [ i32 [[LOOP_IV_BINOP]], [[LATCH:BB.*]] ],  [ i32 [[LOOP_IV_INIT]], [[PH:BB.*]] ]
-; CHECK-NEXT: i32* [[IV1_PHI]] = phi  [ i32* [[IV1_CLOSE_FORM:%vp.*]], [[LATCH]] ],  [ i32* [[IV1_INIT]], [[PH]] ]
-; CHECK-NEXT: i8 [[IV2_PHI]] = phi  [ i8 [[IV2_CLOSE_FORM:%vp.*]], [[LATCH]] ],  [ i8 [[IV2_INIT]], [[PH]] ]
-
+; CHECK:     [DA: Div] i32 [[VP_ADD824:%.*]] = phi  [ i32 [[VP_ADD8:%.*]], [[BB2:BB[0-9]+]] ],  [ i32 [[VP_ADD824_RED_INIT:%.*]], [[BB1:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP__OMP_IV_0:%.*]] = phi  [ i32 [[VP_ADD9:%.*]], [[BB2]] ],  [ i32 [[VP__OMP_IV_0_IND_INIT]], [[BB1]] ]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_PTR_ADDR_019:%.*]] = phi  [ i32* [[VP0:%.*]], [[BB2]] ],  [ i32* [[VP_PTR_ADDR_019_IND_INIT]], [[BB1]] ]
+; CHECK-NEXT:     [DA: Div] i8 [[VP_C_018:%.*]] = phi  [ i8 [[VP1:%.*]], [[BB2]] ],  [ i8 [[VP_C_018_IND_INIT]], [[BB1]] ]
+;
 ; Check induction binops
-; CHECK: i32* [[IV1_BINOP]] = getelementptr inbounds i32* [[IV1_PHI]] i64 1
-; CHECK: i8 [[IV2_BINOP]] = add i8 [[IV2_PHI]] i8 1
-; CHECK: i32 [[LOOP_IV_BINOP]] = add i32 [[LOOP_IV_PHI]] i32 [[LOOP_IV_INIT_STEP]]
-
+; CHECK:          [DA: Div] i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 1
+; CHECK-NEXT:     [DA: Div] i8 [[VP_INC:%.*]] = add i8 [[VP_C_018]] i8 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_INCDEC_PTR]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_CONV6:%.*]] = sext i8 [[VP_INC]] to i32
+; CHECK-NEXT:     [DA: Div] i32 [[VP_MUL7:%.*]] = mul i32 [[VP2]] i32 [[VP_CONV6]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD8]] = add i32 [[VP_MUL7]] i32 [[VP_ADD824]]
+;
 ; Check induction close-form instructions
-; CHECK: i32* [[IV1_CLOSE_FORM]] = getelementptr inbounds i32* [[IV1_PHI]] i64 [[IV1_INIT_STEP]]
-; CHECK: i8 [[IV2_CLOSE_FORM]] = add i8 [[IV2_PHI]] i8 [[IV2_INIT_STEP]]
+; CHECK:          [DA: Div] i32* [[VP0]] = getelementptr inbounds i32* [[VP_PTR_ADDR_019]] i64 [[VP_PTR_ADDR_019_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Div] i8 [[VP1]] = add i8 [[VP_C_018]] i8 [[VP_C_018_IND_INIT_STEP]]
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end

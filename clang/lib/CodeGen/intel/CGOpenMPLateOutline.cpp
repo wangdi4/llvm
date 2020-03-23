@@ -407,6 +407,10 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
     }
   } else {
     assert(E->isGLValue());
+    const auto *DRE = dyn_cast<DeclRefExpr>(E);
+    const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
+    if (VD && CGF.isMappedRefTemp(VD))
+      IsRef = true;
     llvm::Value *V = CGF.EmitLValue(E).getPointer(CGF);
     if (IsRef) {
       auto *LI = dyn_cast<llvm::LoadInst>(V);
@@ -1512,11 +1516,12 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     if (I.IsChain)
       CSB.add(":CHAIN");
     else if (I.Var) {
-      QualType Ty = I.Var->getType().getNonReferenceType();
+      QualType Ty = I.Var->getType();
       if (!isImplicitTask(OMPD_task))
         addExplicit(I.Var, OMPC_map);
       if (CurrentDirectiveKind == OMPD_target)
-        if (Ty->isAnyPointerType() && !I.Base->hasName())
+        if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
+            !I.Base->hasName())
           MapTemps.emplace_back(I.Base, I.Var);
     }
     addArg(CSB.getString());
@@ -1702,6 +1707,8 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
   MarkerInstruction->eraseFromParent();
 
   addRefsToOuter();
+  if (CurrentDirectiveKind == OMPD_target)
+    CGF.clearMappedRefTemps();
 }
 
 void OpenMPLateOutliner::emitOMPParallelDirective() {
