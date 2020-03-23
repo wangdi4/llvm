@@ -2088,14 +2088,14 @@ pi_result L0(piEventGetInfo)(
 
 pi_result L0(piEventGetProfilingInfo)(
   pi_event            event,
-  cl_profiling_info   param_name, // TODO: untie from OpenCL
+  pi_profiling_info   param_name,
   size_t              param_value_size,
   void *              param_value,
   size_t *            param_value_size_ret) {
 
-  if (param_name == CL_PROFILING_COMMAND_SUBMIT ||
-      param_name == CL_PROFILING_COMMAND_START ||
-      param_name == CL_PROFILING_COMMAND_END ) {
+  if (param_name == PI_PROFILING_INFO_COMMAND_SUBMIT ||
+      param_name == PI_PROFILING_INFO_COMMAND_START ||
+      param_name == PI_PROFILING_INFO_COMMAND_END ) {
 
     // TODO: return dummy "0" until
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/290

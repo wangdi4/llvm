@@ -625,7 +625,6 @@ int main(int argc, char **argv) {
   initializeWriteBitcodePassPass(Registry);
   initializeHardwareLoopsPass(Registry);
   initializeTypePromotionPass(Registry);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
@@ -633,6 +632,7 @@ int main(int argc, char **argv) {
   initializeMapIntrinToImlPass(Registry);
   initializeFloat128ExpandPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
+  initializeSYCLLowerWGScopeLegacyPassPass(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransPasses(Registry);
 #endif // INTEL_INCLUDE_DTRANS
@@ -643,9 +643,6 @@ int main(int argc, char **argv) {
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
-=======
-  initializeSYCLLowerWGScopeLegacyPassPass(Registry);
->>>>>>> c9123d1f33e508314578f3ae8a3c736c35f1ed82
 
 #ifdef BUILD_EXAMPLES
   initializeExampleIRTransforms(Registry);
