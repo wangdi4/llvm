@@ -187,15 +187,11 @@ public:
   // binaries.
   std::vector<RTLInfoTy *> UsedRTLs;
 
-<<<<<<< HEAD
-  int64_t RequiresFlags = OMP_REQ_UNDEFINED;
-=======
 #if INTEL_COLLAB
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 #else  // INTEL_COLLAB
   int64_t RequiresFlags;
 #endif // INTEL_COLLAB
->>>>>>> 0d2162bf58cf934c2da81239bd36b9e4953301b2
 
   explicit RTLsTy() = default;
 
