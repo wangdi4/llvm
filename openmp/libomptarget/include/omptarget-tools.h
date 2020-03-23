@@ -1786,6 +1786,7 @@ struct OmptTraceTy {
     TargetId = 0;
     NumTeams = 0;
     ThreadLimit = 0;
+    CodeLocation.erase(ReturnAddress);
     ReturnAddress = nullptr;
   }
 };

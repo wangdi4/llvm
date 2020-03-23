@@ -1332,6 +1332,14 @@ static bool preferPartialInlineInlinedClone(Function *Callee) {
     "prefer-partial-inline-inlined-clone");
 }
 
+//
+// Return 'true' if 'CB' is preferred for inlining because doing so will
+// enable tiling opportunities.
+//
+static bool preferInlineTileChoice(CallBase &CB) {
+  return CB.hasFnAttr("prefer-inline-tile-choice");
+}
+
 // Return 'true' if 'F' calls an Intel partial inlining inlined clone,
 // which calls an Intel partial inlining outlined function, which calls
 // 'F'. (Note that the functions are tested in reverse order, because it
@@ -3108,6 +3116,10 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
   if (worthInliningForArrayStructArgs(CB, PrepareForLTO)) {
     YesReasonVector.push_back(InlrArrayStructArgs);
     return -InlineConstants::DeepInliningHeuristicBonus;
+  }
+  if (preferInlineTileChoice(CB)) {
+    YesReasonVector.push_back(InlrPreferTileChoice);
+    return -InlineConstants::VeryDeepInliningHeuristicBonus;
   }
   return 0;
 }

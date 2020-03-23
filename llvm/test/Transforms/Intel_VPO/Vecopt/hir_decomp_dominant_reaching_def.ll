@@ -2,8 +2,8 @@
 ; Test to check correctness of decomposed HCFG when external definition of a
 ; DDRef is killed by an instruction inside the HLLoop being decomposed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-after-hcfg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-hcfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <0>     BEGIN REGION { }
@@ -36,7 +36,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @_Z3foov() local_unnamed_addr {
-; CHECK-LABEL:  Print after building H-CFG:
+; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]

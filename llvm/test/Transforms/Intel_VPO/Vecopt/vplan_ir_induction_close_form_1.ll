@@ -34,7 +34,7 @@ define dso_local i32 @_Z3fooPiii(i32* nocapture readonly %ptr, i32 %step, i32 %n
 ; CHECK-NEXT:     [DA: Uni] i8 [[VP_C_018_IND_INIT_STEP:%.*]] = induction-init-step{add} i8 1
 ;
 ; Check induction PHIs
-; CHECK:     [DA: Div] i32 [[VP_ADD824:%.*]] = phi  [ i32 [[VP_ADD8:%.*]], [[BB2:BB[0-9]+]] ],  [ i32 [[VP_ADD824_RED_INIT:%.*]], [[BB1:BB[0-9]+]] ]
+; CHECK:          [DA: Div] i32 [[VP_ADD824:%.*]] = phi  [ i32 [[VP_ADD8:%.*]], [[BB2:BB[0-9]+]] ],  [ i32 [[VP_ADD824_RED_INIT:%.*]], [[BB1:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP__OMP_IV_0:%.*]] = phi  [ i32 [[VP_ADD9:%.*]], [[BB2]] ],  [ i32 [[VP__OMP_IV_0_IND_INIT]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_PTR_ADDR_019:%.*]] = phi  [ i32* [[VP0:%.*]], [[BB2]] ],  [ i32* [[VP_PTR_ADDR_019_IND_INIT]], [[BB1]] ]
 ; CHECK-NEXT:     [DA: Div] i8 [[VP_C_018:%.*]] = phi  [ i8 [[VP1:%.*]], [[BB2]] ],  [ i8 [[VP_C_018_IND_INIT]], [[BB1]] ]
