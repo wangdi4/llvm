@@ -8295,8 +8295,9 @@ void Attributor::initializeInformationCache(Function &F) {
       ReadOrWriteInsts.push_back(&I);
   }
 
+  InlineReason Reason;                                 // INTEL
   if (F.hasFnAttribute(Attribute::AlwaysInline) &&
-      isInlineViable(F).isSuccess())
+      isInlineViable(F, Reason).isSuccess())           // INTEL
     InfoCache.InlineableFunctions.insert(&F);
 }
 
