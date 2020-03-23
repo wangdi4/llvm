@@ -24,6 +24,8 @@
 
 namespace llvm {
 class raw_ostream;
+class CallBase;
+class Function;
 class Type;
 
 namespace dtrans {
@@ -56,6 +58,14 @@ static void printCollectionSorted(raw_ostream &OS, IterType Begin, IterType End,
     First = false;
   }
 }
+
+/// There is a possibility that a call to be analyzed is inside a BitCast, in
+/// which case we need to strip the pointer casting from the \p Call operand to
+/// identify the Function. The call may also be using an Alias to a Function,
+/// in which case we need to get the aliasee. If a function is found, return it.
+/// Otherwise, return nullptr.
+Function *getCalledFunction(const CallBase &Call);
+
 // Helper function to check whether \p Ty is a pointer type, or contains a
 // reference to a pointer type.
 bool hasPointerType(llvm::Type *Ty);
