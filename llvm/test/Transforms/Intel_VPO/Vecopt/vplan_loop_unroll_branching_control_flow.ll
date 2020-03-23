@@ -19,101 +19,101 @@ define dso_local void @_Z3fooPiS_i(i32* nocapture %a, i32* nocapture %b, i32 %n)
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP0:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], cloned.[[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP2:%.*]] = and i32 [[VP1]] i32 1
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_TOBOOL:%.*]] = icmp i32 [[VP2]] i32 0
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_TOBOOL_NOT:%.*]] = not i1 [[VP_TOBOOL]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], cloned.[[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP1:%.*]] = and i32 [[VP0]] i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOBOOL:%.*]] = icmp i32 [[VP1]] i32 0
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOBOOL_NOT:%.*]] = not i1 [[VP_TOBOOL]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): cloned.[[BB3]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP3:%.*]] = block-predicate i1 [[VP_TOBOOL_NOT]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP4:%.*]] = load i32* [[VP_ARRAYIDX13]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP4]] i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_TOBOOL_NOT]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX13]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP3]] i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP5:%.*]] = block-predicate i1 [[VP_TOBOOL]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP1]] i32* [[VP_ARRAYIDX13]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_TOBOOL]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP0]] i32* [[VP_ARRAYIDX13]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[WIDE_TRIP_COUNT0:%.*]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[WIDE_TRIP_COUNT0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB7]]:
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX_1:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_1]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP6:%.*]] = load i32* [[VP_ARRAYIDX_1]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP7:%.*]] = and i32 [[VP6]] i32 1
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_TOBOOL_1:%.*]] = icmp i32 [[VP7]] i32 0
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX13_1:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_1]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP8:%.*]] = not i1 [[VP_TOBOOL_1]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_1:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_1]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP5:%.*]] = load i32* [[VP_ARRAYIDX_1]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP6:%.*]] = and i32 [[VP5]] i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOBOOL_1:%.*]] = icmp i32 [[VP6]] i32 0
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_1:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = not i1 [[VP_TOBOOL_1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB8]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP9:%.*]] = block-predicate i1 [[VP8]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP10:%.*]] = load i32* [[VP_ARRAYIDX13_1]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP10]] i32* [[VP_ARRAYIDX_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP7]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP9:%.*]] = load i32* [[VP_ARRAYIDX13_1]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP9]] i32* [[VP_ARRAYIDX_1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB9]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP11:%.*]] = block-predicate i1 [[VP_TOBOOL_1]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP6]] i32* [[VP_ARRAYIDX13_1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP10:%.*]] = block-predicate i1 [[VP_TOBOOL_1]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP5]] i32* [[VP_ARRAYIDX13_1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB10]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND_1:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[WIDE_TRIP_COUNT0]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[WIDE_TRIP_COUNT0]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB11]]:
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX_2:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_2]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP12:%.*]] = load i32* [[VP_ARRAYIDX_2]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP13:%.*]] = and i32 [[VP12]] i32 1
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP_TOBOOL_2:%.*]] = icmp i32 [[VP13]] i32 0
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP_ARRAYIDX13_2:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_2]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP14:%.*]] = not i1 [[VP_TOBOOL_2]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_2:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = load i32* [[VP_ARRAYIDX_2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = and i32 [[VP11]] i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOBOOL_2:%.*]] = icmp i32 [[VP12]] i32 0
+; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_2:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP13:%.*]] = not i1 [[VP_TOBOOL_2]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB12:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB12]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP15:%.*]] = block-predicate i1 [[VP14]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP16:%.*]] = load i32* [[VP_ARRAYIDX13_2]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP16]] i32* [[VP_ARRAYIDX_2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP14:%.*]] = block-predicate i1 [[VP13]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP15:%.*]] = load i32* [[VP_ARRAYIDX13_2]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP15]] i32* [[VP_ARRAYIDX_2]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB13:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB13]]:
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP17:%.*]] = block-predicate i1 [[VP_TOBOOL_2]]
-; CHECK-NEXT:     [DA: Divergent] store i32 [[VP12]] i32* [[VP_ARRAYIDX13_2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP16:%.*]] = block-predicate i1 [[VP_TOBOOL_2]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP11]] i32* [[VP_ARRAYIDX13_2]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP0]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND_2:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[WIDE_TRIP_COUNT0]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[WIDE_TRIP_COUNT0]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB14:BB[0-9]+]](i1 [[VP_EXITCOND_2]]), [[BB2]](!i1 [[VP_EXITCOND_2]])
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB14]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB15:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB3]]
 ; CHECK-EMPTY:

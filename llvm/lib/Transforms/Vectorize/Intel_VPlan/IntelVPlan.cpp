@@ -319,9 +319,9 @@ void VPInstruction::print(raw_ostream &O,
 #if INTEL_CUSTOMIZATION
   if (DA) {
     if (DA->isDivergent(*this))
-      O << "[DA: Divergent] ";
+      O << "[DA: Div] ";
     else
-      O << "[DA: Uniform]   ";
+      O << "[DA: Uni] ";
   }
 
   if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {

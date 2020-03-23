@@ -803,13 +803,6 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
         Features["avx512dq"] = true;
         Features["avx512vl"] = true;
       }
-#endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_AMX_FP16
-      else {
-        Features["amx-fp16"] = false;
-      }
-#endif // INTEL_FEATURE_ISA_AMX_FP16
-#if INTEL_FEATURE_ISA_FP16
     }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -918,10 +911,8 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_FP16
-  else if (Name == "amx-fp16" && Enabled) {
+  else if (Name == "amx-fp16" && Enabled)
     Features["amx-tile"] = true;
-    setFeatureEnabledImpl(Features, "avx512fp16", true);
-  }
 #endif // INTEL_FEATURE_ISA_AMX_FP16
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   else if (Name == "amx-memory2" && Enabled)

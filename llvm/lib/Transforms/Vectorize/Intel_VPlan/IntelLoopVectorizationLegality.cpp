@@ -20,6 +20,7 @@
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
@@ -525,6 +526,18 @@ bool VPOVectorizationLegality::canVectorize() {
         Function *F = Call->getCalledFunction();
         if (!F)
           continue;
+
+        if (vpo::VPOAnalysisUtils::isBeginDirective(Call)) {
+          // Most probably DIR.OMP.ORDERED, which we have to support in future.
+          // But even any other directive is unexpected here, so be safe.
+          LLVM_DEBUG(dbgs()
+                     << (VPOAnalysisUtils::getDirectiveID(Call) ==
+                                 DIR_OMP_ORDERED
+                             ? "LV: Unimplemented omp simd ordered support."
+                             : "LV: Unsupported nested region directive.")
+                     << *Call << "\n");
+          return false;
+        }
 
         if ((isOpenCLReadChannel(F->getName()) ||
              isOpenCLWriteChannel(F->getName())) &&

@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
 ; Check that the loop indices and increments are correctly identified for
 ;   the loops within the tile candidates.
@@ -58,6 +58,33 @@
 ; were not determined.
 
 ; CHECK-NOT: TMVINL: Validated GVM
+
+; Check that the tile choices were not marked for inlining.
+
+; CHECK-NOT: TMVINL: Marked
+
+; Check that the skeleton graph shows the right tile choices (which are no
+; choices).
+
+; CHECK-NOT: TMVINL: Root
+; CHECK-NOT: TMVINL: SubRoot
+
+; Check the IR
+
+; CHECK: define{{.*}}@MAIN__({{.*}})
+; CHECK: call{{.*}}@leapfrog_({{.*}}){{ *$}}
+; CHECK: define{{.*}}@leapfrog_({{.*}})
+; CHECK: call{{.*}}@fun0_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun1_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun2_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun3_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@extra_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@switch_({{.*}}){{ *$}}
+; CHECK: define{{.*}}@switch_({{.*}})
+; CHECK: call{{.*}}@fun00_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun01_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@fun3_({{.*}}){{ *$}}
+; CHECK-NOT: attributes{{.*}}prefer-inline-tile-choice
 
 @anon.0 = internal unnamed_addr constant i32 2
 @"main_$A" = internal global [100 x [100 x double]] zeroinitializer, align 16

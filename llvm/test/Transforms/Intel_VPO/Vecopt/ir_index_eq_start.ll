@@ -19,25 +19,25 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 1 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_K_IV_IND_INIT:%.*]] = induction-init{add} i64 [[C0:%.*]] i64 [[C0]]
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 [[C0]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 1 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_K_IV_IND_INIT:%.*]] = induction-init{add} i64 [[C0:%.*]] i64 [[C0]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 [[C0]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_K_IV:%.*]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_K_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_K_IV_NEXT]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_K_IV:%.*]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_K_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_K_IV_NEXT]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB2]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 1 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_K_IV_IND_FINAL:%.*]] = induction-final{add} i64 [[C0]] i64 [[C0]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 1 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_K_IV_IND_FINAL:%.*]] = induction-final{add} i64 [[C0]] i64 [[C0]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

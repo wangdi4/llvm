@@ -327,6 +327,13 @@ void CodeGenFunction::GenerateOpenMPCapturedVars(
       CapturedVars.push_back(Val);
     } else if (CurCap->capturesThis()) {
       CapturedVars.push_back(CXXThisValue);
+#if INTEL_COLLAB
+    } else if (CGM.getLangOpts().OpenMPLateOutline &&
+               CurCap->getCapturedVar()->getType()->isLValueReferenceType()) {
+      // For variable with reference type, the privatization is
+      // performed in the late outlining. Skip generate extra load.
+      CapturedVars.push_back(EmitLValue(*I).getAddress(*this).getPointer());
+#endif  // INTEL_COLLAB
     } else if (CurCap->capturesVariableByCopy()) {
       llvm::Value *CV = EmitLoadOfScalar(EmitLValue(*I), CurCap->getLocation());
 

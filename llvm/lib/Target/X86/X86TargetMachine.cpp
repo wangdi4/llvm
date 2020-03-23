@@ -91,6 +91,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CondBrFoldingPassPass(PR);
   initializeX86OptimizeLEAPassPass(PR);
 #if INTEL_CUSTOMIZATION
+  initializeX86GlobalFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }

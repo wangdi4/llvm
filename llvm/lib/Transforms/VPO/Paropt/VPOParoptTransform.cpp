@@ -3782,13 +3782,14 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
   unsigned AddrSpace = 0;
+  MaybeAlign OrigAlignment =
+      OrigValue->getPointerAlignment(InsertPt->getModule()->getDataLayout());
 
   getItemInfoFromValue(OrigValue, ElementType, NumElements, AddrSpace);
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
-      ElementType, NumElements, InsertPt, OrigValue->getName() + NameSuffix,
-      AllocaAddrSpace,
-      !PreserveAddressSpace ?
-          llvm::None : llvm::Optional<unsigned>(AddrSpace));
+      ElementType, NumElements, OrigAlignment, InsertPt,
+      OrigValue->getName() + NameSuffix, AllocaAddrSpace,
+      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace));
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
@@ -3808,6 +3809,8 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
 
   Value *Orig = I->getOrig();
   assert(Orig && "Null original Value in clause item.");
+  MaybeAlign OrigAlignment =
+      Orig->getPointerAlignment(InsertPt->getModule()->getDataLayout());
 
   Type *ElementType = nullptr;
   Value *NumElements = nullptr;
@@ -3817,10 +3820,9 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   assert(ElementType && "Could not find Type of local element.");
 
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
-      ElementType, NumElements, InsertPt, Orig->getName() + NameSuffix,
-      AllocaAddrSpace,
-      !PreserveAddressSpace ?
-          llvm::None : llvm::Optional<unsigned>(AddrSpace));
+      ElementType, NumElements, OrigAlignment, InsertPt,
+      Orig->getName() + NameSuffix, AllocaAddrSpace,
+      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace));
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";

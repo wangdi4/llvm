@@ -3685,7 +3685,7 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 // Generate a private variable version for an array of Type ElementType,
 // size NumElements, and name VarName.
 Value *VPOParoptUtils::genPrivatizationAlloca(
-    Type *ElementType, Value *NumElements,
+    Type *ElementType, Value *NumElements, MaybeAlign OrigAlignment,
     Instruction *InsertPt, const Twine &VarName,
     llvm::Optional<unsigned> AllocaAddrSpace,
     llvm::Optional<unsigned> ValueAddrSpace) {
@@ -3722,6 +3722,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
                           nullptr,
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
                           AllocaAddrSpace.getValue());
+     GV->setAlignment(OrigAlignment);
 
     if (!ValueAddrSpace)
       return GV;
@@ -3738,6 +3739,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
       AllocaAddrSpace ?
           AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
       NumElements, VarName);
+  AI->setAlignment(OrigAlignment);
 
   if (!ValueAddrSpace)
     return AI;

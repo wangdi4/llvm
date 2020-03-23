@@ -117,6 +117,10 @@ enum class device : cl_device_info {
   partition_affinity_domains = CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
   partition_type_affinity_domain = CL_DEVICE_PARTITION_TYPE,
   reference_count = CL_DEVICE_REFERENCE_COUNT,
+/* INTEL_CUSTOMIZATION */
+  il_version = 
+     CL_DEVICE_IL_VERSION_KHR, // Same as CL_DEVICE_IL_VERSION for >=OpenCL 2.1
+/* end INTEL_CUSTOMIZATION */
   max_num_sub_groups = CL_DEVICE_MAX_NUM_SUB_GROUPS,
   sub_group_independent_forward_progress =
       CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS,

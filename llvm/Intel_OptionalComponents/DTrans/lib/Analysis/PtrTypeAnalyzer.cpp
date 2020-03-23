@@ -299,7 +299,11 @@ public:
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
+  void visitIntToPtrInst(IntToPtrInst &I) { analyzeValue(&I); }
   void visitLoadInst(LoadInst &I) { analyzeValue(&I); }
+  void visitPHINode(PHINode &I) { analyzeValue(&I); }
+  void visitPtrToIntInst(PtrToIntInst &I) { analyzeValue(&I); }
+  void visitSelectInst(SelectInst &I) { analyzeValue(&I); }
 
 private:
   ValueTypeInfo *analyzeValue(Value *V) {
@@ -407,8 +411,20 @@ private:
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
       break;
+    case Instruction::IntToPtr:
+      analyzeIntToPtrInst(cast<IntToPtrInst>(I), Info);
+      break;
     case Instruction::Load:
       analyzeLoadInst(cast<LoadInst>(I), Info);
+      break;
+    case Instruction::PHI:
+      analyzePHINode(cast<PHINode>(I), Info);
+      break;
+    case Instruction::PtrToInt:
+      analyzePtrToIntInst(cast<PtrToIntInst>(I), Info);
+      break;
+    case Instruction::Select:
+      analyzeSelectInst(cast<SelectInst>(I), Info);
       break;
       // TODO: Add other instructions analysis calls.
     }
@@ -445,11 +461,48 @@ private:
           populateDependencyStack(BasePtr, DependentVals);
         break;
       }
+      case Instruction::IntToPtr:
+      case Instruction::PtrToInt:
+        if (AddDependency(I->getOperand(0), DependentVals))
+          populateDependencyStack(I->getOperand(0), DependentVals);
+        break;
       case Instruction::Load: {
         auto *LI = cast<LoadInst>(I);
         Value *Ptr = LI->getPointerOperand();
         if (AddDependency(Ptr, DependentVals))
           populateDependencyStack(Ptr, DependentVals);
+        break;
+      }
+      case Instruction::PHI: {
+        // Get the set of unique values, excluding the PHInode to be analyzed,
+        // to ensure duplicate incoming values from different paths are not
+        // added multiple times. Then, for each new addition to the
+        // DependentVals list, add the dependents of those.
+        SmallPtrSet<Value *, 4> PhiDeps;
+        auto *Phi = cast<PHINode>(V);
+        for (Value *InVal : Phi->incoming_values())
+          if (InVal != Phi)
+            PhiDeps.insert(InVal);
+
+        SmallVector<Value *, 4> DepsAdded;
+        for (auto *Dep : PhiDeps)
+          if (AddDependency(Dep, DependentVals))
+            DepsAdded.push_back(Dep);
+
+        for (Value *Dep : DepsAdded)
+          populateDependencyStack(Dep, DependentVals);
+        break;
+      }
+      case Instruction::Select: {
+        auto *Sel = cast<SelectInst>(V);
+        Value *TV = Sel->getTrueValue();
+        Value *FV = Sel->getFalseValue();
+        bool TrueWasNew = AddDependency(TV, DependentVals);
+        bool FalseWasNew = AddDependency(FV, DependentVals);
+        if (TrueWasNew)
+          populateDependencyStack(TV, DependentVals);
+        if (FalseWasNew)
+          populateDependencyStack(FV, DependentVals);
         break;
       }
         // TODO: Add other instructions types the need to be analyzed to switch
@@ -798,6 +851,46 @@ private:
       ResultInfo->setPartiallyAnalyzed();
   }
 
+  void analyzeIntToPtrInst(IntToPtrInst *ITP, ValueTypeInfo *ResultInfo) {
+    // Propagate any pointer type information that has been identified for the
+    // source operand to the result info.
+    Value *Src = ITP->getOperand(0);
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
+    propagate(SrcInfo, ResultInfo, true, true, 0);
+
+    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
+
+    if (!SrcInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
+
+    // Currently, this only supports converting an integer that is the
+    // result of a PtrToInt instruction,
+    //   %i = ptrtoint %struct.foo* to i64
+    //   %p = inttoptr i64 %i to %struct.foo*
+    //
+    // All other uses will be set to unhandled because it would require
+    // analyzing all the integer arithmetic operations that may be modifying the
+    // pointer. Special cases that need to analyze patterns of this sort
+    // for memory allocation buffers should be processed prior to calling
+    // analyzeValue and marked as completely analyzed to avoid being flagged as
+    // unhandled here.
+    //   For example:
+    //     %alloc = call %struct.foo* @foo_allocator()
+    //     %i = ptrtoint %struct.foo* %alloc to i64
+    //     %r2 = shr i64 %i, 2
+    //     %l8 = shl i64 %r2, 2
+    //     %a8 = add i64 %l8, 8
+    //     %p = inttoptr i64 %a8 to %struct.foo*
+    Value *PTI = dyn_cast<PtrToIntInst>(Src);
+    if (PTI)
+      return;
+
+    ResultInfo->setUnhandled();
+    LLVM_DEBUG(dbgs() << "IntToPtr not tracked to source type: " << *ITP
+                      << "\n");
+  }
+
   void analyzeLoadInst(LoadInst *LI, ValueTypeInfo *ResultInfo) {
     // We cannot just take the value type of the load, and set that as
     // the type of value produced because the pointer may be a
@@ -907,6 +1000,66 @@ private:
       Changed |= DoPropagate(ValueTypeInfo::VAT_Use);
 
     return Changed;
+  }
+
+  void analyzePHINode(PHINode *PHI, ValueTypeInfo *ResultInfo) {
+    SmallVector<Value *, 4> IncomingVals;
+    for (Value *Val : PHI->incoming_values())
+      IncomingVals.push_back(Val);
+
+    analyzeSelectOrPhi(IncomingVals, ResultInfo);
+  }
+
+  void analyzePtrToIntInst(PtrToIntInst *PTI, ValueTypeInfo *ResultInfo) {
+    Value *Src = PTI->getPointerOperand();
+    if (isCompilerConstant(Src)) {
+      // The source pointer could be any type. We could try to infer the type by
+      // looking for a conversion of the value back to a pointer, but we do not
+      // expect to see a ptrtoint on a null/undef value, so just treat it as
+      // unhandled.
+      ResultInfo->setUnhandled();
+      LLVM_DEBUG(dbgs() << "PtrToInt from constant is not handled: " << *PTI
+                        << "\n");
+      return;
+    }
+
+    // Treat the resulting object to be the same type as the source pointer
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
+    propagate(SrcInfo, ResultInfo, true, true, 0);
+
+    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
+
+    if (!SrcInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
+  }
+
+  void analyzeSelectInst(SelectInst *Sel, ValueTypeInfo *ResultInfo) {
+    SmallVector<Value *, 4> IncomingVals;
+    IncomingVals.push_back(Sel->getTrueValue());
+    IncomingVals.push_back(Sel->getFalseValue());
+
+    analyzeSelectOrPhi(IncomingVals, ResultInfo);
+  }
+
+  void analyzeSelectOrPhi(SmallVectorImpl<Value *> &IncomingVals,
+                          ValueTypeInfo *ResultInfo) {
+    for (auto *ValIn : IncomingVals) {
+      // It's possible the operand to the select or phi is 0 or null, ignore
+      // these because they do not supply type information useful for
+      // determining the type of the result.
+      if (isCompilerConstant(ValIn))
+        continue;
+
+      ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(ValIn);
+      propagate(SrcInfo, ResultInfo, true, true, 0);
+
+      if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+        ResultInfo->setDependsOnUnhandled();
+
+      if (!SrcInfo->isCompletelyAnalyzed())
+        ResultInfo->setPartiallyAnalyzed();
+    }
   }
 
   // Check whether the type for the Value object is something that needs to be
