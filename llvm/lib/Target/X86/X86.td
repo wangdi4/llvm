@@ -724,7 +724,8 @@ def ProcessorFeatures {
 #endif // INTEL_CUSTOMIZATION
                                                   FeatureFastScalarFSQRT,
                                                   FeatureFastSHLDRotate,
-                                                  FeatureMergeToThreeWayBranch];
+                                                  FeatureMergeToThreeWayBranch,
+                                                  FeatureFast15ByteNOP];
   list<SubtargetFeature> SNBSpecificFeatures = [FeatureSlowUAMem32,
                                                 FeaturePOPCNTFalseDeps];
   list<SubtargetFeature> SNBInheritableFeatures =
