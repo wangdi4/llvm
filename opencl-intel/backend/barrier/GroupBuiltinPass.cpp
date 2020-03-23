@@ -22,6 +22,7 @@
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Support/TypeSize.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -154,7 +155,8 @@ namespace intel {
 
     // Broadcast the constant to vector if relevant
     if (dataWidth > 1) {
-      pInitVal = ConstantVector::getSplat(dataWidth, pInitVal);
+      pInitVal =
+          ConstantVector::getSplat(ElementCount(dataWidth, false), pInitVal);
     }
 
     return pInitVal;

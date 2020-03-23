@@ -22,6 +22,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TypeSize.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace intel {
@@ -330,7 +331,8 @@ Value* generateRemainderMask(unsigned packetWidth, Value* loopLen, BasicBlock* B
   Value* loopLenVec = UndefValue::get(VectorType::get(IndTy, packetWidth));
   Instruction* lenInsertVec = InsertElementInst::Create(loopLenVec, loopLen, constZero, "", BB);
 
-  Constant* shuffleMask = ConstantVector::getSplat(packetWidth, constZero);
+  Constant *shuffleMask =
+      ConstantVector::getSplat(ElementCount(packetWidth, false), constZero);
   Instruction* lenSplatVec = new ShuffleVectorInst(lenInsertVec, loopLenVec, shuffleMask, "", BB);
 
   // Generate mask.

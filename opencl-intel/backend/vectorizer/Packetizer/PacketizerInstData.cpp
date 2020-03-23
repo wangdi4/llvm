@@ -17,6 +17,7 @@
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/Support/TypeSize.h"
 
 namespace intel {
 
@@ -159,7 +160,8 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
     if (isa<Constant>(origValue))
     {
       // Create a broadcasted constant (no need to make an instruction for this)
-      broadcastedVal = ConstantVector::getSplat(m_packetWidth, cast<Constant>(origValue));
+      broadcastedVal = ConstantVector::getSplat(
+          ElementCount(m_packetWidth, false), cast<Constant>(origValue));
     }
     else
     {
