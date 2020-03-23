@@ -1106,8 +1106,7 @@ def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
-<<<<<<< HEAD
-                             AssemblerPredicate<"Mode64Bit", "64-bit mode">;
+                             AssemblerPredicate<(all_of Mode64Bit), "64-bit mode">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
 def NotIceCodeMode : Predicate<"!Subtarget->isIceCode()">,
@@ -1116,9 +1115,6 @@ def InIceCodeMode  : Predicate<"Subtarget->isIceCode()">,
                                AssemblerPredicate<"ModeIceCode", "IceCode mode">;
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-=======
-                             AssemblerPredicate<(all_of Mode64Bit), "64-bit mode">;
->>>>>>> a26bd4ec1652da20872e55d0bf468f52149a2ec9
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
 def NotLP64 : Predicate<"!Subtarget->isTarget64BitLP64()">;
 def In16BitMode  : Predicate<"Subtarget->is16Bit()">,
