@@ -69,7 +69,12 @@ event queue_impl::memcpy(shared_ptr_class<detail::queue_impl> Impl, void *Dest,
   return ResEvent;
 }
 
+<<<<<<< HEAD
 event queue_impl::mem_advise(const void *Ptr, size_t Length, pi_mem_advice Advice) {
+=======
+event queue_impl::mem_advise(const void *Ptr, size_t Length,
+                             pi_mem_advice Advice) {
+>>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
   context Context = get_context();
   if (Context.is_host()) {
     return event();

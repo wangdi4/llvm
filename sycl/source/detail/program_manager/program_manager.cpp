@@ -456,8 +456,8 @@ string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
   Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_INFO_DEVICES, 0,
                                            nullptr, &Size);
   vector_class<RT::PiDevice> PIDevices(Size / sizeof(RT::PiDevice));
-  Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_INFO_DEVICES, Size,
-                                           PIDevices.data(), nullptr);
+  Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_INFO_DEVICES,
+                                           Size, PIDevices.data(), nullptr);
   string_class Log = "The program was built for " +
                      std::to_string(PIDevices.size()) + " devices";
   for (RT::PiDevice &Device : PIDevices) {
