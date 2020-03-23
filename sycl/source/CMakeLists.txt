@@ -194,6 +194,14 @@ else()
 endif()
 
 # INTEL_CUSTOMIZATION
+# FIXME: temporary fix for xmain. It will be fixed
+#        in intel/llvm soon.
+# Enable new IN_LIST operator.
+cmake_policy(SET CMP0057 NEW)
+if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl libsycldevice)
+endif()
+
 set(SYCL_ARCHIVE_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_LIBRARY_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_RUNTIME_INSTALL_DIR "bin")
@@ -217,5 +225,3 @@ else()
 endif()
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/sycl.conf DESTINATION ${SYCL_CONF_INSTALL_PATH} COMPONENT sycl-config-file)
 # end INTEL_CUSTOMIZATION
-
-add_subdirectory(detail/devicelib)
