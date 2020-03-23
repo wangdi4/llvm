@@ -26,11 +26,25 @@
 ; CHECK: .clone.tile.call:
 ; CHECK: call{{.*}}@leapfrog_.1({{.*}}){{ *$}}
 ; CHECK: define{{.*}}@leapfrog_({{.*}})
+; CHECK: %t5 = load i32, i32* @mymod_mp_mytester_, align 8
+; CHECK: icmp sgt i32 %t5, 5
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@fun0_({{.*}}) #1{{ *$}}
+; CHECK: %t51 = load i32, i32* @mymod_mp_myglobal_, align 8
+; CHECK: icmp eq i32 %t51, 1
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@fun1_({{.*}}) #1{{ *$}}
+; CHECK: %t52 = load i32, i32* @mymod_mp_myglobal_, align 8
+; CHECK: icmp sge i32 %t52, 1
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@fun2_({{.*}}) #1{{ *$}}
+; CHECK: %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@extra_({{.*}}) #1{{ *$}}
 ; CHECK: call{{.*}}@switch_({{.*}}){{ *$}}
+; CHECK: %t7 = load i32, i32* @mymod_mp_mynnodes_, align 8
+; CHECK: icmp eq i32 %t7, -2
+; CHECK: br i1 false, label %{{.*}}, label %{{.*}}
 ; CHECK: define{{.*}}@switch_({{.*}})
 ; CHECK: call{{.*}}@fun00_({{.*}}) #1{{ *$}}
 ; CHECK: call{{.*}}@fun01_({{.*}}) #1{{ *$}}

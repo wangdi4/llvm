@@ -279,10 +279,6 @@ private:
   // computations.
   MapVector<Value *, bool> CM;
 
-  // Similar to the above map, but contains extra Values for which its
-  // GlobalVariable already appears in the GVM.
-  MapVector<Value *, bool> CMExtra;
-
   // Compute the maps 'GVM' and 'CM', which are used to compute the multi-
   // versioning expression surrounding the the key computation IR for tiling.
   void findGVMandCM();
@@ -301,7 +297,7 @@ private:
   // is called from the clone of 'MainRoot'.
   void cloneCallToRoot();
 
-  // Simplify the conditionals in 'MainRoot' using the 'CM' and 'CMExtra' maps.
+  // Simplify the conditionals in 'MainRoot' using the 'GVM' and 'CM' maps.
   void simplifyConditionalsInRoot();
 
   // Mark the calls to the TileChoices in the high performance version of
@@ -328,6 +324,10 @@ private:
   // Dump the names of the key root Functions and the Functions they call
   // with IR.
   void dumpKeyFunctionNamesAndCalls();
+
+  // Dump the name of the GlobalVariable used in the Value 'V' in the 'GVM'
+  // and 'CM' maps.
+  void dumpGVInCond(Value *V);
 #endif // NDEBUG
 };
 
@@ -770,6 +770,29 @@ void TileMVInlMarker::dumpKeyFunctionNamesAndCalls() {
   dumpFunctionNameAndCalls("NewSubRoot:", NewSubRoot);
 }
 
+void TileMVInlMarker::dumpGVInCond(Value *V) {
+
+  auto TestAndDumpGV = [](Value *V) -> bool {
+    auto LI = dyn_cast<LoadInst>(V);
+    if (!LI)
+      return false;
+    auto GV = cast<GlobalVariable>(LI->getPointerOperand());
+    dbgs() << GV->getName();
+    return true;
+  };
+
+  if (TestAndDumpGV(V))
+    return;
+  auto IC = dyn_cast<ICmpInst>(V);
+  if (!IC)
+    assert(false && "Expecting LoadInst or ICmpInst");
+  if (TestAndDumpGV(IC->getOperand(0)))
+    return;
+  if (TestAndDumpGV(IC->getOperand(1)))
+    return;
+  assert(false && "Expecting LoadInst or ICmpInst");
+}
+
 #endif // NDEBUG
 
 void TileMVInlMarker::findGVMandCM() {
@@ -886,25 +909,17 @@ void TileMVInlMarker::findGVMandCM() {
     bool FoundMatch = false;
     Function *F = getTargetCall(BB);
     if (TileChoices.count(F)) {
-      if (ShouldInsert(GV, V, Sense, LeftLoad, FoundMatch)) {
-        if (GVM.count(GV)) {
-          CMExtra[V] = Sense;
-        } else {
-          GVM[GV] = V;
-          CM[V] = Sense;
-        }
+      if (ShouldInsert(GV, V, Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
+        GVM[GV] = V;
+        CM[V] = Sense;
       }
       if (FoundMatch)
         return true;
     }
     if (NonTileChoices.count(F)) {
-      if (ShouldInsert(GV, V, !Sense, LeftLoad, FoundMatch)) {
-        if (GVM.count(GV)) {
-          CMExtra[V] = !Sense;
-        } else {
-          GVM[GV] = V;
-          CM[V] = !Sense;
-        }
+      if (ShouldInsert(GV, V, !Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
+        GVM[GV] = V;
+        CM[V] = !Sense;
       }
       if (FoundMatch)
         return true;
@@ -1006,13 +1021,9 @@ void TileMVInlMarker::findGVMandCM() {
     auto GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
     if (!GV)
       return false;
-    if (ShouldInsert(GV, VC, !Sense, LeftLoad, FoundMatch)) {
-      if (GVM.count(GV)) {
-        CMExtra[VC] = !Sense;
-      } else {
-        GVM[GV] = VC;
-        CM[VC] = !Sense;
-      }
+    if (ShouldInsert(GV, VC, !Sense, LeftLoad, FoundMatch) && !GVM.count(GV)) {
+      GVM[GV] = VC;
+      CM[VC] = !Sense;
     }
     if (FoundMatch)
       return true;
@@ -1381,19 +1392,231 @@ void TileMVInlMarker::cloneCallToRoot() {
 void TileMVInlMarker::simplifyConditionalsInRoot() {
 
   //
-  // Simplify the conditionals in 'Root' using 'CM'.
+  // Return the ICmpInst in the 'CM' which has a 'LV' as its LoadInst
+  // operand and 'RV' as its ConstantInt operand.  If there is none,
+  // return 'nullptr'.
   //
-  auto simplifyConditionalsWithMap = [](MapVector<Value *, bool> &CM) {
-    for (auto &Pair : CM) {
-      Value *V = Pair.first;
-      bool Sense = Pair.second;
-      Constant *CI = ConstantInt::get(V->getType(), (Sense ? 1 : 0));
-      V->replaceAllUsesWith(CI);
+  auto RecordedICmpInst = [this](Value *LV, Value *RV) -> ICmpInst * {
+    auto LI = dyn_cast<LoadInst>(LV);
+    if (!LI)
+      return nullptr;
+    auto GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+    if (!GV)
+      return nullptr;
+    auto IT = GVM.find(GV);
+    if (IT == GVM.end())
+      return nullptr;
+    auto CI = dyn_cast<ConstantInt>(RV);
+    if (!CI)
+      return nullptr;
+    return cast<ICmpInst>(GVM[GV]);
+  };
+
+  //
+  // If 'P' is a ICMP_SLT or ICMP_SGT compared to a ConstantInt with value
+  // 'CIV', change it to an equivalent ICM_SLE or ICMP_SGE and modify 'CIV'
+  // to be consistent.
+  //
+  auto ReducePAndCIV = [](ICmpInst::Predicate &P, int64_t &CIV) {
+    switch (P) {
+    case ICmpInst::ICMP_SLT:
+      P = ICmpInst::ICMP_SLE;
+      CIV--;
+      break;
+    case ICmpInst::ICMP_SGT:
+      P = ICmpInst::ICMP_SGE;
+      CIV++;
+      break;
+    default:
+      break;
     }
   };
 
-  simplifyConditionalsWithMap(CM);
-  simplifyConditionalsWithMap(CMExtra);
+  //
+  // Compare 'IC' with 'ICN' which is in the 'GVM' and 'CM' maps, to determine
+  // if it is either provably 'true' or 'false'. 'Direction' is 'true' if the
+  // LoadInst in 'IC' is operand(0). Return 'true' if 'IC' is either provably
+  // 'true' or 'false', and set 'Sense' to which it is.
+  //
+  auto HasProvableBranch = [this, &ReducePAndCIV](ICmpInst *IC, ICmpInst *ICN,
+                                                  bool Direction,
+                                                  bool &Sense) -> bool {
+    bool SDirection = isa<LoadInst>(ICN->getOperand(0));
+    //
+    // Canonicalize the predicates for comparison. (Right now, all of the
+    // predicates we need to deal with are signed. We can extend the code if
+    // we need to deal with unsigned predicates.)
+    //
+    ICmpInst::Predicate P = IC->getPredicate();
+    if (P != IC->getSignedPredicate())
+      return false;
+    ICmpInst::Predicate SP = ICN->getPredicate();
+    if (SP != ICN->getSignedPredicate())
+      return false;
+    if (Direction != SDirection)
+      SP = CmpInst::getSwappedPredicate(SP);
+    if (!CM[ICN])
+      SP = ICmpInst::getInversePredicate(SP);
+    ConstantInt *CI = cast<ConstantInt>(IC->getOperand(Direction ? 1 : 0));
+    auto CIV = CI->getSExtValue();
+    ConstantInt *SCI = cast<ConstantInt>(ICN->getOperand(SDirection ? 1 : 0));
+    auto SCIV = SCI->getSExtValue();
+    ReducePAndCIV(P, CIV);
+    ReducePAndCIV(SP, SCIV);
+    //
+    // Compare the predicates and constants. Set the values of 'Sense' and
+    // return 'true' if 'IC' is provably 'true' or 'false'.
+    //
+    switch (SP) {
+    case ICmpInst::ICMP_EQ:
+      switch (P) {
+      case ICmpInst::ICMP_EQ:
+        Sense = SCIV == CIV;
+        return true;
+      case ICmpInst::ICMP_NE:
+        Sense = SCIV != CIV;
+        return true;
+      case ICmpInst::ICMP_SLE:
+        Sense = SCIV <= CIV;
+        return true;
+      case ICmpInst::ICMP_SGE:
+        Sense = SCIV >= CIV;
+        return true;
+      default:
+        assert(false && "Expecting EQ, NE, SLE, SGE for tested predicate");
+        break;
+      }
+      break;
+    case ICmpInst::ICMP_NE:
+      switch (P) {
+      case ICmpInst::ICMP_EQ:
+        Sense = SCIV != CIV;
+        return true;
+      case ICmpInst::ICMP_NE:
+        Sense = SCIV == CIV;
+        return true;
+      case ICmpInst::ICMP_SLE:
+      case ICmpInst::ICMP_SGE:
+        return false;
+      default:
+        assert(false && "Expecting EQ, NE, SLE, SGE for tested predicate");
+        break;
+      }
+      break;
+    case ICmpInst::ICMP_SLE:
+      switch (P) {
+      case ICmpInst::ICMP_EQ:
+        Sense = false;
+        return SCIV < CIV;
+      case ICmpInst::ICMP_NE:
+        Sense = true;
+        return SCIV < CIV;
+      case ICmpInst::ICMP_SLE:
+        Sense = true;
+        return SCIV <= CIV;
+      case ICmpInst::ICMP_SGE:
+        Sense = false;
+        return SCIV <= CIV - 1;
+      default:
+        assert(false && "Expecting EQ, NE, SLE, SGE for tested predicate");
+        break;
+      }
+      break;
+    case ICmpInst::ICMP_SGE:
+      switch (P) {
+      case ICmpInst::ICMP_EQ:
+        Sense = false;
+        return SCIV > CIV;
+      case ICmpInst::ICMP_NE:
+        Sense = true;
+        return SCIV > CIV;
+      case ICmpInst::ICMP_SLE:
+        Sense = false;
+        return SCIV <= CIV + 1;
+      case ICmpInst::ICMP_SGE:
+        Sense = true;
+        return SCIV <= CIV;
+      default:
+        assert(false && "Expecting EQ, NE, SLE, SGE for tested predicate");
+        break;
+      }
+      break;
+    default:
+      assert(false && "Expecting EQ, NE, SLE, SGE for known predicate");
+      break;
+    }
+    return false;
+  };
+
+  //
+  // If 'IC' with operands 'V0' and 'V1' is provably 'true' or 'false',
+  // replace all of uses with either 'true' or 'false'. 'Direction' is
+  // 'true' if 'V0' is the LoadInst and 'V1' is the ConstantInt, and 'false'
+  // if vice versa. Return 'true' if a replacement is done.
+  //
+  auto TestAndReplaceICmpInst = [this, &RecordedICmpInst, &HasProvableBranch](
+                                    ICmpInst *IC, Value *V0, Value *V1,
+                                    bool Direction) -> bool {
+    ICmpInst *ICN = RecordedICmpInst(V0, V1);
+    if (!ICN)
+      return false;
+    bool Sense = false;
+    if (!HasProvableBranch(IC, ICN, Direction, Sense))
+      return false;
+    LLVM_DEBUG({
+      dbgs() << "TMVINL: Testing     ";
+      IC->dump();
+      dbgs() << "TMVINL: Against (" << (CM[ICN] ? "T" : "F") << ") ";
+      ICN->dump();
+      dbgs() << "TMVINST: Provably " << (Sense ? "TRUE" : "FALSE")
+             << "   GV = ";
+      dumpGVInCond(IC);
+      dbgs() << "\n";
+    });
+    Constant *CI = ConstantInt::get(IC->getType(), (Sense ? 1 : 0));
+    IC->replaceAllUsesWith(CI);
+    return true;
+  };
+
+  //
+  // Main code for TileMVInlMarker::simplifyConditionalsInRoot.
+  //
+  for (auto &I : instructions(*MainRoot)) {
+    auto LI = dyn_cast<LoadInst>(&I);
+    if (LI) {
+      auto GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
+      if (!GV)
+        continue;
+      auto IT = GVM.find(GV);
+      if (IT == GVM.end())
+        continue;
+      if (!isa<LoadInst>(IT->second))
+        continue;
+      bool Sense = CM[IT->second];
+      Constant *CI = ConstantInt::get(LI->getType(), (Sense ? 1 : 0));
+      LI->replaceAllUsesWith(CI);
+      LLVM_DEBUG({
+        dbgs() << "TMVINL: Testing     ";
+        LI->dump();
+        dbgs() << "TMVINL: Against (" << (CM[IT->second] ? "T" : "F") << ") ";
+        IT->second->dump();
+        dbgs() << "TMVINST: Provably " << (Sense ? "TRUE" : "FALSE")
+               << "   GV = ";
+        dumpGVInCond(LI);
+        dbgs() << "\n";
+      });
+      continue;
+    }
+    auto IC = dyn_cast<ICmpInst>(&I);
+    if (IC) {
+      Value *V0 = IC->getOperand(0);
+      Value *V1 = IC->getOperand(1);
+      if (TestAndReplaceICmpInst(IC, V0, V1, true))
+        continue;
+      if (TestAndReplaceICmpInst(IC, V1, V0, false))
+        continue;
+    }
+  }
 }
 
 void TileMVInlMarker::markTileChoicesForInlining() {
