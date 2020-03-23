@@ -1638,18 +1638,6 @@ cl_int ExecCGCommand::enqueueImp() {
       case kernel_param_kind_t::kind_accessor: {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION // Can be put into public GitHub now
-        RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-        if (!RT::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
-          Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex,
-                                                          &MemArg);
-          break;
-        }
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                               sizeof(RT::PiMem), &MemArg);
-#endif // INTEL_CUSTOMIZATION
-=======
 #if USE_PI_CUDA
         pi_mem MemArg = (pi_mem)AllocaCmd->getMemAllocation();
         Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex, &MemArg);
@@ -1660,7 +1648,6 @@ cl_int ExecCGCommand::enqueueImp() {
         Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                sizeof(RT::PiMem), &MemArg);
 #endif
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
         break;
       }
       case kernel_param_kind_t::kind_std_layout: {

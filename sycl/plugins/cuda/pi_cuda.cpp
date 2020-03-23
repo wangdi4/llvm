@@ -2279,7 +2279,7 @@ pi_result cuda_piEventGetInfo(pi_event event, pi_event_info param_name,
   assert(event != nullptr);
 
   switch (param_name) {
-  case PI_EVENT_INFO_QUEUE:
+  case PI_EVENT_INFO_COMMAND_QUEUE:
     return getInfo<pi_queue>(param_value_size, param_value,
                              param_value_size_ret, event->get_queue());
   case PI_EVENT_INFO_COMMAND_TYPE:

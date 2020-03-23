@@ -86,14 +86,9 @@ program_impl::program_impl(ContextImplPtr Context, RT::PiProgram Program)
   // TODO handle the case when cl_program build is in progress
   pi_uint32 NumDevices;
   const detail::plugin &Plugin = getPlugin();
-<<<<<<< HEAD
-  Plugin.call<PiApiKind::piProgramGetInfo>(
-      Program, PI_PROGRAM_INFO_NUM_DEVICES, sizeof(pi_uint32), &NumDevices, nullptr);
-=======
   Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_INFO_NUM_DEVICES,
                                            sizeof(pi_uint32), &NumDevices,
                                            nullptr);
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
   vector_class<RT::PiDevice> PiDevices(NumDevices);
   Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_INFO_DEVICES,
                                            sizeof(RT::PiDevice) * NumDevices,
@@ -419,12 +414,8 @@ cl_uint program_impl::get_info<info::program::reference_count>() const {
   }
   pi_uint32 Result;
   const detail::plugin &Plugin = getPlugin();
-<<<<<<< HEAD
-  Plugin.call<PiApiKind::piProgramGetInfo>(MProgram, PI_PROGRAM_INFO_REFERENCE_COUNT,
-=======
   Plugin.call<PiApiKind::piProgramGetInfo>(MProgram,
                                            PI_PROGRAM_INFO_REFERENCE_COUNT,
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
                                            sizeof(pi_uint32), &Result, nullptr);
   return Result;
 }

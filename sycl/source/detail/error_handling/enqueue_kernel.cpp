@@ -90,12 +90,8 @@ bool oclHandleInvalidWorkGroupSize(const device_impl &DeviceImpl,
     // PI_INVALID_WORK_GROUP_SIZE if local_work_size is specified and the
     // total number of work-items in the work-group computed as
     // local_work_size[0] * ... * local_work_size[work_dim – 1] is greater
-<<<<<<< HEAD
-    // than the value specified by PI_KERNEL_GROUP_INFO_WORK_GROUP_SIZE in table 5.21.
-=======
     // than the value specified by PI_KERNEL_GROUP_INFO_WORK_GROUP_SIZE in
     // table 5.21.
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
     size_t KernelWGSize = 0;
     Plugin.call<PiApiKind::piKernelGetGroupInfo>(
         Kernel, Device, PI_KERNEL_GROUP_INFO_WORK_GROUP_SIZE, sizeof(size_t),

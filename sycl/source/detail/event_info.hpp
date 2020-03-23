@@ -36,13 +36,8 @@ template <info::event Param> struct get_event_info {
   static RetType get(RT::PiEvent Event, const plugin &Plugin) {
     RetType Result = (RetType)0;
     // TODO catch an exception and put it to list of asynchronous exceptions
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-=======
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
     Plugin.call<PiApiKind::piEventGetInfo>(Event, pi_event_info(Param),
                                            sizeof(Result), &Result, nullptr);
-/* end INTEL_CUSTOMIZATION */
     return Result;
   }
 };

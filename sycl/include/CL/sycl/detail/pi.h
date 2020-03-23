@@ -98,21 +98,6 @@ typedef enum {
 } _pi_platform_info;
 
 typedef enum {
-<<<<<<< HEAD
-  PI_PROGRAM_INFO_REFERENCE_COUNT = CL_PROGRAM_REFERENCE_COUNT,
-  PI_PROGRAM_INFO_CONTEXT = CL_PROGRAM_CONTEXT,
-  PI_PROGRAM_INFO_NUM_DEVICES = CL_PROGRAM_NUM_DEVICES,
-  PI_PROGRAM_INFO_DEVICES = CL_PROGRAM_DEVICES,
-  PI_PROGRAM_INFO_SOURCE = CL_PROGRAM_SOURCE,
-  PI_PROGRAM_INFO_BINARY_SIZES = CL_PROGRAM_BINARY_SIZES,
-  PI_PROGRAM_INFO_BINARIES = CL_PROGRAM_BINARIES,
-  PI_PROGRAM_INFO_NUM_KERNELS = CL_PROGRAM_NUM_KERNELS,
-  PI_PROGRAM_INFO_KERNEL_NAMES = CL_PROGRAM_KERNEL_NAMES
-} _pi_program_info;
-
-typedef enum {
-=======
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
   PI_PROGRAM_BUILD_INFO_STATUS = CL_PROGRAM_BUILD_STATUS,
   PI_PROGRAM_BUILD_INFO_OPTIONS = CL_PROGRAM_BUILD_OPTIONS,
   PI_PROGRAM_BUILD_INFO_LOG = CL_PROGRAM_BUILD_LOG
@@ -240,15 +225,12 @@ typedef enum {
   PI_DEVICE_INFO_PARTITION_AFFINITY_DOMAIN =
       CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
   PI_DEVICE_INFO_PARTITION_TYPE = CL_DEVICE_PARTITION_TYPE,
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
   PI_DEVICE_INFO_MAX_NUM_SUB_GROUPS = CL_DEVICE_MAX_NUM_SUB_GROUPS,
   PI_DEVICE_INFO_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS =
       CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS,
   PI_DEVICE_INFO_SUB_GROUP_SIZES_INTEL = CL_DEVICE_SUB_GROUP_SIZES_INTEL,
 /* end INTEL_CUSTOMIZATION */
-=======
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
   PI_DEVICE_INFO_USM_HOST_SUPPORT = CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
   PI_DEVICE_INFO_USM_DEVICE_SUPPORT = CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
   PI_DEVICE_INFO_USM_SINGLE_SHARED_SUPPORT =
@@ -275,11 +257,7 @@ typedef enum {
   PI_CONTEXT_INFO_DEVICES = CL_CONTEXT_DEVICES,
   PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES,
   PI_CONTEXT_INFO_PROPERTIES = CL_CONTEXT_PROPERTIES,
-<<<<<<< HEAD
-  PI_CONTEXT_INFO_REFERENCE_COUNT = CL_CONTEXT_REFERENCE_COUNT
-=======
   PI_CONTEXT_INFO_REFERENCE_COUNT = CL_CONTEXT_REFERENCE_COUNT,
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
 } _pi_context_info;
 
 typedef enum {
@@ -329,38 +307,6 @@ typedef enum {
   PI_FP_DENORM = CL_FP_DENORM,
   PI_FP_FMA = CL_FP_FMA
 } _pi_fp_capabilities;
-
-typedef enum {
-  PI_COMMAND_TYPE_NDRANGE_KERNEL = CL_COMMAND_NDRANGE_KERNEL,
-  PI_COMMAND_TYPE_MEM_BUFFER_READ = CL_COMMAND_READ_BUFFER,
-  PI_COMMAND_TYPE_MEM_BUFFER_WRITE = CL_COMMAND_WRITE_BUFFER,
-  PI_COMMAND_TYPE_MEM_BUFFER_COPY = CL_COMMAND_COPY_BUFFER,
-  PI_COMMAND_TYPE_MEM_BUFFER_MAP = CL_COMMAND_MAP_BUFFER,
-  PI_COMMAND_TYPE_MEM_BUFFER_UNMAP = CL_COMMAND_UNMAP_MEM_OBJECT,
-  PI_COMMAND_TYPE_MEM_BUFFER_READ_RECT = CL_COMMAND_READ_BUFFER_RECT,
-  PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT = CL_COMMAND_WRITE_BUFFER_RECT,
-  PI_COMMAND_TYPE_MEM_BUFFER_COPY_RECT = CL_COMMAND_COPY_BUFFER_RECT,
-  PI_COMMAND_TYPE_USER = CL_COMMAND_USER,
-  PI_COMMAND_TYPE_MEM_BUFFER_FILL = CL_COMMAND_FILL_BUFFER,
-  PI_COMMAND_TYPE_IMAGE_READ = CL_COMMAND_READ_IMAGE,
-  PI_COMMAND_TYPE_IMAGE_WRITE = CL_COMMAND_WRITE_IMAGE,
-  PI_COMMAND_TYPE_IMAGE_COPY = CL_COMMAND_COPY_IMAGE,
-  PI_COMMAND_TYPE_NATIVE_KERNEL = CL_COMMAND_NATIVE_KERNEL,
-  PI_COMMAND_TYPE_COPY_BUFFER_TO_IMAGE = CL_COMMAND_COPY_BUFFER_TO_IMAGE,
-  PI_COMMAND_TYPE_COPY_IMAGE_TO_BUFFER = CL_COMMAND_COPY_IMAGE_TO_BUFFER,
-  PI_COMMAND_TYPE_MAP_IMAGE = CL_COMMAND_MAP_IMAGE,
-  PI_COMMAND_TYPE_MARKER = CL_COMMAND_MARKER,
-  PI_COMMAND_TYPE_ACQUIRE_GL_OBJECTS = CL_COMMAND_ACQUIRE_GL_OBJECTS,
-  PI_COMMAND_TYPE_RELEASE_GL_OBJECTS = CL_COMMAND_RELEASE_GL_OBJECTS,
-  PI_COMMAND_TYPE_BARRIER = CL_COMMAND_BARRIER,
-  PI_COMMAND_TYPE_MIGRATE_MEM_OBJECTS = CL_COMMAND_MIGRATE_MEM_OBJECTS,
-  PI_COMMAND_TYPE_FILL_IMAGE = CL_COMMAND_FILL_IMAGE,
-  PI_COMMAND_TYPE_SVM_FREE = CL_COMMAND_SVM_FREE,
-  PI_COMMAND_TYPE_SVM_MEMCPY = CL_COMMAND_SVM_MEMCPY,
-  PI_COMMAND_TYPE_SVM_MEMFILL = CL_COMMAND_SVM_MEMFILL,
-  PI_COMMAND_TYPE_SVM_MAP = CL_COMMAND_SVM_MAP,
-  PI_COMMAND_TYPE_SVM_UNMAP = CL_COMMAND_SVM_UNMAP
-} _pi_command_type;
 
 typedef enum {
   PI_EVENT_INFO_COMMAND_QUEUE = CL_EVENT_COMMAND_QUEUE,
@@ -413,26 +359,6 @@ typedef enum {
 } _pi_mem_type;
 
 typedef enum {
-<<<<<<< HEAD
-  PI_MEM_ADVICE_SET_READ_MOSTLY =
-      0, // hints that memory will be read from frequently and written to rarely
-  PI_MEM_ADVICE_CLEAR_READ_MOSTLY,        // removes the affect of
-                                          // PI_MEM_ADVICE_SET_READ_MOSTLY
-  PI_MEM_ADVICE_SET_PREFERRED_LOCATION,   // hints that the preferred memory
-                                          // location is the specified device
-  PI_MEM_ADVICE_CLEAR_PREFERRED_LOCATION, // removes the affect of
-                                          // PI_MEM_ADVICE_SET_PREFERRED_LOCATION
-  PI_MEM_ADVICE_SET_ACCESSED_BY,   // hints that memory will be accessed by the
-                                   // specified device
-  PI_MEM_ADVICE_CLEAR_ACCESSED_BY, // removes the affect of
-                                   // PI_MEM_ADVICE_SET_ACCESSED_BY
-  PI_MEM_ADVICE_SET_NON_ATOMIC_MOSTLY,   // hints that memory will mostly be
-                                         // accessed non-atomically
-  PI_MEM_ADVICE_CLEAR_NON_ATOMIC_MOSTLY, // removes the affect of
-                                         // PI_MEM_ADVICE_SET_NON_ATOMIC_MOSTLY
-  PI_MEM_ADVICE_BIAS_CACHED,             // hints that memory should be cached
-  PI_MEM_ADVICE_BIAS_UNCACHED // hints that memory should not be cached
-=======
   PI_MEM_ADVICE_SET_READ_MOSTLY = 0,    ///< hints that memory will be read from
                                         ///< frequently and written to rarely
   PI_MEM_ADVICE_CLEAR_READ_MOSTLY,      ///< removes the affect of
@@ -451,7 +377,6 @@ typedef enum {
                                          ///< PI_MEM_ADVICE_SET_NON_ATOMIC_MOSTLY
   PI_MEM_ADVICE_BIAS_CACHED,  ///< hints that memory should be cached
   PI_MEM_ADVICE_BIAS_UNCACHED ///< hints that memory should not be cached
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
 } _pi_mem_advice;
 
 typedef enum {
@@ -520,29 +445,6 @@ typedef enum {
   PI_SAMPLER_FILTER_MODE_LINEAR = CL_FILTER_LINEAR,
 } _pi_sampler_filter_mode;
 
-<<<<<<< HEAD
-typedef pi_bitfield pi_device_exec_capabilities;
-const pi_device_exec_capabilities PI_DEVICE_EXEC_CAPABILITIES_KERNEL =
-    CL_EXEC_KERNEL;
-const pi_device_exec_capabilities PI_DEVICE_EXEC_CAPABILITIES_NATIVE_KERNEL =
-    CL_EXEC_NATIVE_KERNEL;
-
-typedef pi_bitfield pi_sampler_properties;
-const pi_sampler_properties PI_SAMPLER_PROPERTIES_NORMALIZED_COORDS =
-    CL_SAMPLER_NORMALIZED_COORDS;
-const pi_sampler_properties PI_SAMPLER_PROPERTIES_ADDRESSING_MODE =
-    CL_SAMPLER_ADDRESSING_MODE;
-const pi_sampler_properties PI_SAMPLER_PROPERTIES_FILTER_MODE =
-    CL_SAMPLER_FILTER_MODE;
-
-typedef enum {
-  PI_EVENT_INFO_QUEUE = CL_EVENT_COMMAND_QUEUE,
-  PI_EVENT_INFO_COMMAND_TYPE = CL_EVENT_COMMAND_TYPE,
-  PI_EVENT_INFO_REFERENCE_COUNT = CL_EVENT_REFERENCE_COUNT,
-  PI_EVENT_INFO_COMMAND_EXECUTION_STATUS = CL_EVENT_COMMAND_EXECUTION_STATUS,
-  PI_EVENT_INFO_CONTEXT = CL_EVENT_CONTEXT
-} _pi_event_info;
-=======
 using pi_context_properties = intptr_t;
 
 using pi_device_exec_capabilities = pi_bitfield;
@@ -558,7 +460,6 @@ constexpr pi_sampler_properties PI_SAMPLER_PROPERTIES_ADDRESSING_MODE =
     CL_SAMPLER_ADDRESSING_MODE;
 constexpr pi_sampler_properties PI_SAMPLER_PROPERTIES_FILTER_MODE =
     CL_SAMPLER_FILTER_MODE;
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
 
 // NOTE: this is made 64-bit to match the size of cl_mem_flags to
 // make the translation to OpenCL transparent.
@@ -582,13 +483,6 @@ constexpr pi_queue_properties PI_QUEUE_ON_DEVICE = CL_QUEUE_ON_DEVICE;
 constexpr pi_queue_properties PI_QUEUE_ON_DEVICE_DEFAULT =
     CL_QUEUE_ON_DEVICE_DEFAULT;
 
-<<<<<<< HEAD
-// For compatibility with OpenCL define this not as enum.
-typedef intptr_t pi_device_partition_property;
-static const pi_device_partition_property PI_DEVICE_PARTITION_EQUALLY =
-    CL_DEVICE_PARTITION_EQUALLY;
-static const pi_device_partition_property
-=======
 using pi_result = _pi_result;
 using pi_platform_info = _pi_platform_info;
 using pi_device_type = _pi_device_type;
@@ -621,50 +515,16 @@ using pi_device_partition_property = intptr_t;
 static constexpr pi_device_partition_property PI_DEVICE_PARTITION_EQUALLY =
     CL_DEVICE_PARTITION_EQUALLY;
 static constexpr pi_device_partition_property
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
     PI_DEVICE_PARTITION_BY_AFFINITY_DOMAIN =
         CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN;
 
 // For compatibility with OpenCL define this not as enum.
-<<<<<<< HEAD
-typedef pi_bitfield pi_device_affinity_domain;
-static const pi_device_affinity_domain PI_DEVICE_AFFINITY_DOMAIN_NUMA =
-    CL_DEVICE_AFFINITY_DOMAIN_NUMA;
-static const pi_device_affinity_domain
-    PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE =
-        CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE;
-
-typedef _pi_result pi_result;
-typedef _pi_platform_info pi_platform_info;
-typedef _pi_device_type pi_device_type;
-typedef _pi_device_info pi_device_info;
-typedef _pi_context_info pi_context_info;
-typedef _pi_queue_info pi_queue_info;
-typedef _pi_image_info pi_image_info;
-typedef _pi_mem_type pi_mem_type;
-typedef _pi_mem_advice pi_mem_advice;
-typedef _pi_image_channel_order pi_image_channel_order;
-typedef _pi_image_channel_type pi_image_channel_type;
-typedef _pi_buffer_create_type pi_buffer_create_type;
-typedef _pi_sampler_addressing_mode pi_sampler_addressing_mode;
-typedef _pi_sampler_filter_mode pi_sampler_filter_mode;
-typedef _pi_sampler_info pi_sampler_info;
-typedef _pi_event_status pi_event_status;
-typedef _pi_event_info pi_event_info;
-typedef _pi_command_type pi_command_type;
-typedef _pi_program_info pi_program_info;
-typedef _pi_program_build_info pi_program_build_info;
-typedef _pi_program_build_status pi_program_build_status;
-typedef _pi_kernel_info pi_kernel_info;
-typedef _pi_kernel_group_info pi_kernel_group_info;
-=======
 using pi_device_affinity_domain = pi_bitfield;
 static constexpr pi_device_affinity_domain PI_DEVICE_AFFINITY_DOMAIN_NUMA =
     CL_DEVICE_AFFINITY_DOMAIN_NUMA;
 static constexpr pi_device_affinity_domain
     PI_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE =
         CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE;
->>>>>>> b54e4418f9bb70ee2f8dc26fa8803360010576ef
 
 // Entry type, matches OpenMP for compatibility
 struct _pi_offload_entry_struct {
