@@ -28,7 +28,22 @@ void LoopHintAttr::printPrettyPragma(raw_ostream &OS,
            SpellingIndex == Pragma_unroll_and_jam) {
     OS << ' ' << getValueString(Policy);
     return;
-  }
+#if INTEL_CUSTOMIZATION
+  } else if (SpellingIndex == Pragma_distribute_point)
+    return;
+  else if (SpellingIndex == Pragma_nofusion)
+    return;
+  else if (SpellingIndex == Pragma_fusion)
+    return;
+  else if (SpellingIndex == Pragma_novector)
+    return;
+  else if (SpellingIndex == Pragma_vector)
+    return;
+  else if (SpellingIndex == Pragma_force_hyperopt)
+    return;
+  else if (SpellingIndex == Pragma_force_no_hyperopt)
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
   OS << ' ' << getOptionName(option) << getValueString(Policy);
@@ -68,6 +83,44 @@ LoopHintAttr::getDiagnosticName(const PrintingPolicy &Policy) const {
   else if (SpellingIndex == Pragma_unroll_and_jam)
     return "#pragma unroll_and_jam" +
            (option == UnrollAndJamCount ? getValueString(Policy) : "");
+#if INTEL_CUSTOMIZATION
+  else if (SpellingIndex == Pragma_ii)
+    return "#pragma ii";
+  else if (SpellingIndex == Pragma_ivdep)
+    return "#pragma ivdep";
+  else if (SpellingIndex == Pragma_loop_coalesce)
+    return "#pragma loop_coalesce";
+  else if (SpellingIndex == Pragma_max_concurrency)
+    return "#pragma max_concurrency";
+  else if (SpellingIndex == Pragma_max_interleaving)
+    return "#pragma max_interleaving";
+  else if (SpellingIndex == Pragma_ii_at_most)
+    return "#pragma ii_at_most";
+  else if (SpellingIndex == Pragma_ii_at_least)
+    return "#pragma ii_at_least";
+  else if (SpellingIndex == Pragma_min_ii_at_target_fmax)
+    return "#pragma min_ii_at_target_fmax";
+  else if (SpellingIndex == Pragma_speculated_iterations)
+    return "#pragma speculated_iterations";
+  else if (SpellingIndex == Pragma_disable_loop_pipelining)
+    return "#pragma disable_loop_pipelining";
+  else if (SpellingIndex == Pragma_force_hyperopt)
+    return "#pragma force_hyperopt";
+  else if (SpellingIndex == Pragma_force_no_hyperopt)
+    return "#pragma force_no_hyperopt";
+  else if (SpellingIndex == Pragma_distribute_point)
+    return "#pragma distribute_point";
+  else if (SpellingIndex == Pragma_nofusion)
+    return "#pragma nofusion";
+  else if (SpellingIndex == Pragma_fusion)
+    return "#pragma fusion";
+  else if (SpellingIndex == Pragma_novector)
+    return "#pragma novector";
+  else if (SpellingIndex == Pragma_vector)
+    return "#pragma vector";
+  else if (SpellingIndex == Pragma_loop_count)
+    return getOptionName(option) + getValueString(Policy);
+#endif // INTEL_CUSTOMIZATION
 
   assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
   return getOptionName(option) + getValueString(Policy);
