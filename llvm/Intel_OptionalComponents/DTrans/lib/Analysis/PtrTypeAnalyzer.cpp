@@ -13,6 +13,7 @@
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
@@ -227,7 +228,17 @@ public:
 
     PointerSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
     DTransI8PtrTy = TM.getOrCreatePointerType(
-      TM.getOrCreateSimpleType(llvm::Type::getInt8Ty(Ctx)));
+        TM.getOrCreateSimpleType(llvm::Type::getInt8Ty(Ctx)));
+
+    // If the metadata contained a description of the system object type for
+    // %struct._IO_FILE, use it. Otherwise, default the type to be an i8* since
+    // there must not be any accesses of structure elements for it within the
+    // user program.
+    dtrans::DTransType *StTy = TM.getStructType("struct._IO_FILE");
+    if (StTy)
+      DTransIOPtrTy = TM.getOrCreatePointerType(StTy);
+    else
+      DTransIOPtrTy = DTransI8PtrTy;
   }
 
   void visitModule(Module &M) {
@@ -239,12 +250,10 @@ public:
       if (F.isDeclaration())
         continue;
 
-      if (auto *MDNode = F.getMetadata("dtrans_type")) {
-        DTransType *DType = MDReader.decodeMDNode(MDNode);
-        if (DType) {
-          PTA.setDeclaredType(&F, TM.getOrCreatePointerType(DType));
-          continue;
-        }
+      DTransType *DType = MDReader.getDTransTypeFromMD(&F);
+      if (DType) {
+        PTA.setDeclaredType(&F, TM.getOrCreatePointerType(DType));
+        continue;
       }
 
       llvm::Type *FnType = F.getValueType();
@@ -266,12 +275,10 @@ public:
     // recovered is the variable's value type, so we need to make a pointer to
     // it when saving the pointer info.
     for (auto &GV : M.globals()) {
-      if (auto *MDNode = GV.getMetadata("dtrans_type")) {
-        dtrans::DTransType *DT = MDReader.decodeMDNode(MDNode);
-        if (DT) {
-          PTA.setDeclaredType(&GV, TM.getOrCreatePointerType(DT));
-          continue;
-        }
+      DTransType *DType = MDReader.getDTransTypeFromMD(&GV);
+      if (DType) {
+        PTA.setDeclaredType(&GV, TM.getOrCreatePointerType(DType));
+        continue;
       }
 
       // Variable types that don't involve pointer types can be directly
@@ -285,19 +292,47 @@ public:
       }
 
       ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&GV);
+      if (GV.isDeclaration() && handleLibraryGlobal(GV, Info))
+        continue;
+
       Info->setUnhandled();
       LLVM_DEBUG(dbgs() << "Unable to set declared type for global variable: "
                         << GV.getName() << "\n");
     }
   }
 
+  // For certain library global variables that are of known types, set them
+  // here.
+  bool handleLibraryGlobal(GlobalVariable &GV, ValueTypeInfo *ResultInfo) {
+    // TODO: In the future, we may need metadata from the FE about external
+    // declarations. Once there are opaque pointers, we do not expect
+    // to see a structure type defined for struct._IO_FILE, and these will
+    // just be defined as being of type 'p0'
+    DTransType *DTy = StringSwitch<DTransType *>(GV.getName())
+                          .Case("stdout", getDTransIOPtrTy())
+                          .Case("stderr", getDTransIOPtrTy())
+                          .Default(nullptr);
+
+    if (DTy) {
+      // Global variables are pointers to the object type.
+      ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
+                               TM.getOrCreatePointerType(DTy));
+      ResultInfo->setCompletelyAnalyzed();
+      return true;
+    }
+
+    return false;
+  }
+
   void visitFunction(Function &F) {
-    for (auto &A : F.args())
-      if (isPossiblePtrValue(&A))
-        analyzeValue(&A);
+    if (!F.isDeclaration())
+      for (auto &A : F.args())
+        if (isPossiblePtrValue(&A))
+          analyzeValue(&A);
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
+  void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) { analyzeValue(&I); }
   void visitLoadInst(LoadInst &I) { analyzeValue(&I); }
@@ -407,6 +442,10 @@ private:
       break;
     case Instruction::Alloca:
       analyzeAllocaInst(cast<AllocaInst>(I), Info);
+      break;
+    case Instruction::Call:
+    case Instruction::Invoke:
+      analyzeCallBase(cast<CallBase>(I), Info);
       break;
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
@@ -549,7 +588,7 @@ private:
 
     auto *FnTy = cast<DTransFunctionType>(FnPtrTy->getPointerElementType());
     unsigned ArgNo = Arg->getArgNo();
-    if (ArgNo > FnTy->getNumArgs()) {
+    if (ArgNo >= FnTy->getNumArgs()) {
       ResultInfo->setUnhandled();
       return;
     }
@@ -576,14 +615,12 @@ private:
   void analyzeAllocaInst(AllocaInst *AI, ValueTypeInfo *ResultInfo) {
     // Types that involve pointers should have metadata annotations attached,
     // use them to set the declared type of the AllocaInst.
-    if (auto *MDNode = AI->getMetadata("dtrans_type")) {
-      dtrans::DTransType *DTy = MDReader.decodeMDNode(MDNode);
-      if (DTy) {
-        // The metadata describes the ValueType of the alloca, but the
-        // Value object is a pointer to that type.
-        PTA.setDeclaredType(AI, TM.getOrCreatePointerType(DTy));
-        return;
-      }
+    DTransType *DType = MDReader.getDTransTypeFromMD(AI);
+    if (DType) {
+      // The metadata describes the ValueType of the alloca, but the
+      // Value object is a pointer to that type.
+      PTA.setDeclaredType(AI, TM.getOrCreatePointerType(DType));
+      return;
     }
 
     // Try to produce the type for a non-metadata annotated type.
@@ -599,6 +636,311 @@ private:
 
     ResultInfo->setUnhandled();
     LLVM_DEBUG(dbgs() << "Unhandled AllocaInst:" << *AI << "\n");
+  }
+
+  // For a call that results in a pointer type, we want to update the
+  // ResultInfo with type aliases. We also want to update the ValueTypeInfo
+  // of the parameters to reflect the usage type in case a pointer is being
+  // passed to a function that is declared as taking a pointer of a different
+  // type.
+  void analyzeCallBase(CallBase *Call, ValueTypeInfo *ResultInfo) {
+    // Check if the return type should have a pointer type, and the type, if so.
+    std::pair<bool, DTransType *> OptRetType = getCallReturnType(Call);
+    if (OptRetType.first) {
+      if (OptRetType.second) {
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, OptRetType.second);
+
+        // An indirect call that returns an i8* should be checked for the
+        // actual type it gets used as.
+        if (Call->isIndirectCall() && OptRetType.second == getDTransI8Ptr())
+          inferTypeFromUse(Call, ResultInfo);
+      } else {
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Unknown return type for call: " << *Call);
+      }
+    }
+
+    // Set the usage type for the call arguments.
+    unsigned NumArg = Call->arg_size();
+    for (unsigned AI = 0; AI < NumArg; ++AI) {
+      Value *Arg = Call->getArgOperand(AI);
+      if (Arg->getType()->isPointerTy()) {
+        ValueTypeInfo *ParamInfo = PTA.getOrCreateValueTypeInfo(Call, AI);
+        // Check whether the argument should have a pointer type, and the type,
+        // if so.
+        std::pair<bool, DTransType *> OptArgType = getArgumentType(Call, AI);
+        if (!OptArgType.first)
+          continue;
+
+        if (OptArgType.second) {
+          ParamInfo->addTypeAlias(ValueTypeInfo::VAT_Use, OptArgType.second);
+        } else {
+          ParamInfo->setUnhandled();
+          LLVM_DEBUG(dbgs() << "Unknown usage type for call argument: " << *Call
+                            << " @" << AI << "\n");
+        }
+      }
+    }
+  }
+
+  // Determine the expected type for the return value for types of interest for
+  // a call.
+  //
+  // Return value meaning:
+  //  <false, nullptr>    - Type is not a pointer type to be tracked.
+  //  <true, DTransType*> - Type is a pointer, of the type in the pair.
+  //  <true, nullptr>     - Type is a pointer, but could not be resolved.
+  std::pair<bool, DTransType *> getCallReturnType(CallBase *Call) {
+    if (!isPossiblePtrValue(Call))
+      return {false, nullptr};
+
+    // Check if there is metadata for information available to use from a called
+    // function or an indirect call.
+    Function *Target = dtrans::getCalledFunction(*Call);
+    if (Call->isIndirectCall()) {
+      DTransType *DType = MDReader.getDTransTypeFromMD(Call);
+      if (DType) {
+        auto *FnType = cast<DTransFunctionType>(DType);
+        dtrans::DTransType *DRetTy = FnType->getReturnType();
+        return {true, DRetTy};
+      }
+      return {true, nullptr};
+    }
+
+    return getFunctionReturnType(Target, GetTLI(*Call->getFunction()));
+  }
+
+  // Determine the expected type for the return value for types of interest for
+  // a Function. (See getCallReturnType for description of return value)
+  std::pair<bool, DTransType *>
+  getFunctionReturnType(Function *F, const TargetLibraryInfo &TLI) {
+
+    // Helper lambda for getting the type returned by a library call.
+    // TODO: For now, just hard code some common cases that are of interest
+    // since there are not many functions that return pointers. In the future,
+    // we may need a metadata table.
+    auto GetLibCallReturnType =
+        [this](LibFunc TheLibFunc) -> dtrans::DTransType * {
+      switch (TheLibFunc) {
+      default:
+        return nullptr;
+
+        // Functions that are known to just return an i8*
+      case LibFunc_cxa_allocate_exception:
+      case LibFunc_calloc:
+      case LibFunc_fgets_unlocked:
+      case LibFunc_malloc:
+      case LibFunc_realloc:
+      case LibFunc_strcpy:
+        return getDTransI8Ptr();
+
+        // Functions that return the system object for FILE*
+      case LibFunc_fopen:
+        return getDTransIOPtrTy();
+      }
+    };
+
+    // Check whether the return value will be of interest.
+    llvm::Type *RetType = F->getReturnType();
+    if (!(RetType->isPointerTy() ||
+          (RetType->isVectorTy() &&
+           RetType->getVectorElementType()->isPointerTy())))
+      return {false, nullptr};
+
+    // Handle functions with metadata descriptions.
+    DTransType *DType = MDReader.getDTransTypeFromMD(F);
+    if (DType) {
+      auto *FnType = cast<DTransFunctionType>(DType);
+      dtrans::DTransType *DRetTy = FnType->getReturnType();
+      return {true, DRetTy};
+    }
+
+    // TODO: Add a list of types returned by intrinsic functions, if there are
+    // any of interest.
+    if (F->isIntrinsic())
+      return {true, nullptr};
+
+    // Check if the call is to a libfunc. If so, use a table to get the
+    // type produced by the call.
+    LibFunc TheLibFunc;
+    if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
+      return {true, GetLibCallReturnType(TheLibFunc)};
+    }
+
+    // The function returns a type of interest, but we do not have information
+    // about the type. In the future, it may be possible to analyze the return
+    // instructions within the function body when there is missing metadata to
+    // try to resolve the return type.
+    return {true, nullptr};
+  }
+
+  // Determine the type that a function is expected to use the argument as.
+  std::pair<bool, DTransType *> getArgumentType(CallBase *Call, unsigned Idx) {
+    // Helper lambda for getting the argument type of an intrinsic function. The
+    // majority of intrinsics do not have pointer arguments, and the few that do
+    // usually just take an i8*. A simple table here will suffice for now.
+    auto GetIntrinsicArgumentType =
+        [this](Intrinsic::ID IntrinId,
+               unsigned Idx) -> std::pair<bool, DTransType *> {
+      switch (IntrinId) {
+      default:
+        LLVM_DEBUG(
+            dbgs()
+            << "Warning intrinsic not in table. Unknown pointer type for Idx @ "
+            << Idx << "\n");
+        return {true, nullptr};
+
+        // We do not need to the treat the argument to these intrinsics as being
+        // used as a pointer type.
+      case Intrinsic::dbg_addr:
+      case Intrinsic::dbg_declare:
+      case Intrinsic::dbg_label:
+      case Intrinsic::dbg_value:
+        return {false, nullptr};
+
+        // Any pointer argument to these intrinsics is being used as i8*
+      case Intrinsic::lifetime_end:
+      case Intrinsic::lifetime_start:
+      case Intrinsic::memcpy:
+      case Intrinsic::memmove:
+      case Intrinsic::memset:
+      case Intrinsic::prefetch:
+      case Intrinsic::vacopy:
+      case Intrinsic::vaend:
+      case Intrinsic::vastart:
+        break;
+
+        // TODO:  Add cases where specific pointer argument is not i8*, if
+        // needed
+      }
+
+      return {true, getDTransI8Ptr()};
+    };
+
+    // Helper lambda for getting the argument type of a library call. Most of
+    // these just take i8*.
+    auto GetLibCallArgumentType =
+        [this](LibFunc TheLibFunc,
+               unsigned Idx) -> std::pair<bool, DTransType *> {
+      // It should be safe to treat any pointer as an i8*, except in the few
+      // rare cases where a pointer to a structure is used. For now, a more
+      // conservative approach is taken of requiring the LibFunc to be
+      // explicitly listed in the table.
+      switch (TheLibFunc) {
+      default:
+        LLVM_DEBUG(
+            dbgs()
+            << "Warning LibFunc not in table. Unknown pointer type for Idx @ "
+            << Idx << "\n");
+        return {true, nullptr};
+
+        // Any pointer argument to these LibFuncs is being used as i8*
+      case LibFunc_dunder_isoc99_scanf:
+      case LibFunc_dunder_isoc99_sscanf:
+      case LibFunc_fopen:
+      case LibFunc_free:
+      case LibFunc_printf:
+      case LibFunc_puts:
+      case LibFunc_realloc:
+      case LibFunc_sprintf:
+      case LibFunc_strcpy:
+        break;
+
+        // Handle cases where the argument may be used as something other than
+        // i8*. Argument positions not listed will be treated as i8*.
+      case LibFunc_fgets_unlocked:
+        if (Idx == 2)
+          return {true, getDTransIOPtrTy()};
+        break;
+
+      case LibFunc_fclose:
+      case LibFunc_fflush:
+      case LibFunc_ftell:
+        if (Idx == 0)
+          return {true, getDTransIOPtrTy()};
+
+        break;
+
+      case LibFunc_fread:
+      case LibFunc_fwrite:
+        if (Idx == 3)
+          return {true, getDTransIOPtrTy()};
+
+        break;
+
+      case LibFunc_fprintf:
+        if (Idx == 0)
+          return {true, getDTransIOPtrTy()};
+
+        break;
+
+      case LibFunc_strtol:
+        if (Idx == 1)
+          return {true, TM.getOrCreatePointerType(getDTransI8Ptr())}; // i8**
+        break;
+      }
+
+      // All cases that exit the switch table means the argument is an i8*.
+      return {true, getDTransI8Ptr()};
+    };
+
+    if (!Call->getArgOperand(Idx)->getType()->isPointerTy())
+      return {false, nullptr};
+
+    DTransType *DType = nullptr;
+    Function *Target = dtrans::getCalledFunction(*Call);
+    if (Call->isIndirectCall())
+      DType = MDReader.getDTransTypeFromMD(Call);
+    else if (Target)
+      DType = MDReader.getDTransTypeFromMD(Target);
+
+    if (!DType) {
+      // Try to get a FunctionType from the ValueTypeInfo of the call. Give up
+      // if there is more than one possibility.
+      ValueTypeInfo *CallInfo = PTA.getValueTypeInfo(Call->getCalledOperand());
+      if (CallInfo) {
+        for (auto *Ty :
+             CallInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+          if (!Ty->isPointerTy())
+            continue;
+          auto *FnTy =
+              dyn_cast_or_null<DTransFunctionType>(Ty->getPointerElementType());
+          if (FnTy) {
+            if (!DType)
+              DType = FnTy;
+            else
+              return {true, nullptr};
+          }
+        }
+      }
+    }
+
+    if (DType) {
+      auto *FnType = cast<DTransFunctionType>(DType);
+      if (Idx < FnType->getNumArgs())
+        return {true, FnType->getArgType(Idx)};
+
+      // Cannot return an expected type for a vararg element, but don't treat it
+      // as an error. Safety analysis should check for type compatibility of the
+      // vararg elements.
+      if (FnType->isVarArg())
+        return {false, nullptr};
+
+      return {true, nullptr};
+    }
+
+    if (Call->isIndirectCall())
+      return {true, nullptr};
+
+    if (Target->isIntrinsic())
+      return GetIntrinsicArgumentType(Target->getIntrinsicID(), Idx);
+
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    LibFunc TheLibFunc;
+    if (TLI.getLibFunc(Target->getName(), TheLibFunc) && TLI.has(TheLibFunc))
+      return GetLibCallArgumentType(TheLibFunc, Idx);
+
+    return {true, nullptr};
   }
 
   void analyzeGetElementPtrOperator(GEPOperator *GEP,
@@ -1092,6 +1434,7 @@ private:
 
   llvm::Type *getPointerSizedIntType() const { return PointerSizedIntType; }
   dtrans::DTransPointerType *getDTransI8Ptr() const { return DTransI8PtrTy; }
+  dtrans::DTransPointerType *getDTransIOPtrTy() const { return DTransIOPtrTy; }
 
   ////////////////////////////////////////////////////////////////////////////////
   // Start of member data
@@ -1109,6 +1452,9 @@ private:
 
   // Representation of i8* in DTransType system
   dtrans::DTransPointerType *DTransI8PtrTy;
+
+  // Representation of %struct._IO_FILE*
+  dtrans::DTransPointerType *DTransIOPtrTy;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

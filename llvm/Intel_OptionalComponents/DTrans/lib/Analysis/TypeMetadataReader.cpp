@@ -308,6 +308,22 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
   return StTy;
 }
 
+// This method is the publicly visible method that will check whether a Value
+// has DTransType metadata, and returns it if available.
+// Otherwise, returns nullptr.
+DTransType *TypeMetadataReader::getDTransTypeFromMD(Value *V) {
+  MDNode *MDNode = nullptr;
+  if (auto *I = dyn_cast<Instruction>(V))
+    MDNode = I->getMetadata(MDDTransTypeTag);
+  else if (auto *G = dyn_cast<GlobalObject>(V))
+    MDNode = G->getMetadata(MDDTransTypeTag);
+
+  if (MDNode)
+    return decodeMDNode(MDNode);
+
+  return nullptr;
+}
+
 // This method returns a DTransType* by decoding the information the metadata
 // node.
 DTransType *TypeMetadataReader::decodeMDNode(MDNode *MD) {
@@ -592,10 +608,11 @@ void TypeMetadataReader::cacheMDDecoding(MDNode *MD, DTransType *DTTy) {
 } // end namespace dtrans
 } // end namespace llvm
 
-using namespace llvm;
-
 #if !INTEL_PRODUCT_RELEASE
-namespace {
+
+namespace llvm {
+namespace dtrans {
+
 class TypeMetadataTester {
 private:
   dtrans::DTransTypeManager TM;
@@ -729,6 +746,10 @@ public:
     return !ErrorsFound;
   }
 };
+} // end namespace dtrans
+} // end namespace llvm
+
+using namespace llvm;
 
 // This pass is just for testing the TypeMetadataReader class. This pass will
 // not be part of the compiler pipeline.
@@ -743,7 +764,7 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    TypeMetadataTester Tester(M.getContext());
+    dtrans::TypeMetadataTester Tester(M.getContext());
     Tester.runTest(M);
     return false;
   }
@@ -752,7 +773,6 @@ public:
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
-} // end anonymous namespace
 
 char DTransTypeMetadataReaderTestWrapper::ID = 0;
 INITIALIZE_PASS(DTransTypeMetadataReaderTestWrapper,

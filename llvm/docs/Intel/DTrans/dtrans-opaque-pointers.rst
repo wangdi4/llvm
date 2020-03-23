@@ -25,12 +25,12 @@ The main requirements for DTrans to operate are the following:
 * Every [structure, array, function] pointer used needs to have information
   about what type(s) the pointer will be used as.
 * Every pointer that resolves to a field member of a structure type needs to
-  identified, and load/store operations of that pointer identified.
+  be identified, and load/store operations of that pointer identified.
 
-  * This also needs to allow for a pointer value to refer to possibly refer to
-    to multiple field members of the same structure. This can happen as the
-    result of a select instruction or PHI node that referred to separate fields
-    initially.
+  * This also needs to allow for a pointer value to possibly refer to
+    multiple field members of the same structure. This can happen as the
+    result of a select instruction or PHI node that referred to the addresses
+    of different fields initially.
 
 * Non-pointer types that hold the value of a pointer need to be identified for
   the type of pointer referred to.
@@ -48,15 +48,17 @@ For example:
 
 
 In the opaque pointer representation, all pointer types are a generic type.
-This type will simply indicate the number of bytes required to represent a
-pointer in the pointer's address space. No information is provided about the
-type of object the pointer refers to. This will lose the ability to explicitly
-see the relationship from one structure to another. In this case, %struct.foo
-would be represented as:
+When this is enabled, all PointerType objects in the IR simply indicate the
+address space the pointer belongs to. For our purposes of DTrans with
+Intel64/x86 code generation, all pointers belong to address space zero.
+No information is provided about the original type of object the pointer
+refers to. This will lose the ability to explicitly see the relationship
+from one structure to another. In this case, %struct.foo would be represented
+as:
 
 .. code-block:: llvm
 
-  %struct.foo = { i32, ptr, ptr, ptr }
+  %struct.foo = { i32, p0, p0, p0 }
 
 
 This presents a problem for the DTrans analysis and transformations when
@@ -64,7 +66,7 @@ analyzing an instruction to determine the Value object type, such as:
 
 .. code-block:: llvm
 
-  %fa = getelementptr %struct.foo, ptr %ptr, i64 0, i32 3
+  %fa = getelementptr %struct.foo, p0 %ptr, i64 0, i32 3
 
 
 In this case, it would not be known whether the 3rd field is a pointer to an
@@ -75,7 +77,8 @@ without first performing type recovery of the structure members.
 In order for DTrans analysis to process with safety analysis, a utility class
 first needs to run, which is similar to the current LocalPointerAnalyzer, which
 will analyze the IR to identify the type of objects a pointer value can refer
-to.
+to. This also requires a means to represent the 'pointed-to' for the pointers
+which will no longer be possible with the llvm::Type classes.
 
 However, this also requires a means to represent the 'pointed-to' for the
 pointers which will no longer be possible with the llvm::Type classes.
@@ -96,10 +99,10 @@ Major component classes
 
 <This it a preliminary description of design, and is subject to change>
 
-Starting from the bottom:
+Starting from the bottom of the diagram:
 
 * The DTransTypeManager will handle the creation and type pooling of DTransType
-   objects.
+   objects. (See "`Metadata encoding from the compiler front-end`_")
 * The DTransType will be a base class for the DTrans type system.
 * The DTransAllocAnalyzer is the existing class that analyzes functions that
   allocate/release memory. This will need to be modified to handle opaque
@@ -139,12 +142,13 @@ information to help start the type recovery analysis to avoid the problems of
 cross-function analysis to determine types, or the need to perform an iterative
 approach to recovering types.
 
-The main items that will be provided are:
+The main items that need to have metadata attached to them are:
 
 * Descriptions of data structures
 * Types of global variables that involve pointer types
 * Types produced by 'alloca' instructions that involve pointer types
-* Function signatures that involve pointer types
+* Function signatures for definitions that involve pointer types
+* Indirect function calls to describe the function signature of the call
 
 
 Descriptions of data structures
