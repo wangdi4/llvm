@@ -257,14 +257,22 @@ static ConstructDDEdgeType edgeNeeded(const DDARefGatherer::VectorTy &Refs,
   }
 
   // Look refs in-between Ref1 and Ref2 to ignore the forward edge
-  bool NeedForwardEdge = !M[R2][R1 + 1] && !M[R1][R2 - 1];
+  bool NeedForwardEdge =
+      !M[R2][R1 + 1] && // is !true if there is a Ref between
+                        // R1 and R2 which dominates Ref[R2],
+      !M[R1][R2 - 1];   // is !true if there is a Ref between R1
+                        // and R2 which post-dominates Ref[R1].
 
   // Look refs before Ref1 to ignore the backward edge
-  bool NeedBackwardEdge = !M[R1][LoopStart];
+  bool NeedBackwardEdge =
+      !M[R1][LoopStart]; // is !true if there is a ref before R1 inside the same
+                         // loop that dominates Ref[R1].
 
   // Look refs after Ref2 to see if we can still ignore the backward edge
   if (NeedBackwardEdge && LoopEnd > R2) {
-    NeedBackwardEdge = !M[R2][LoopEnd];
+    NeedBackwardEdge =
+        !M[R2][LoopEnd]; // is !true if there is a ref after R2 inside the same
+                         // loop that post-dominates Ref[R2].
   }
 
   if (NeedForwardEdge && NeedBackwardEdge) {
@@ -385,31 +393,26 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
 //   true: if (j > i) AND there is Ref[i+1..j] that post-dominates Ref[i].
 static void computeDominationRelations(const DDARefGatherer::VectorTy &Refs,
                                        DominationMatrixTy &M) {
+  assert(!Refs.empty() && "Unexpected empty Refs");
+  assert(Refs.front()->isTerminalRef() &&
+         "Precomputed domination info is used for terminal refs only.");
+
   int Size = Refs.size();
 
   M.resize(Size);
   for (auto &Column : M) {
-    Column.resize(Size, 0);
-  }
-
-  for (int I = 0; I < Size; ++I) {
-    M[I][I] = false;
+    Column.resize(Size, false);
   }
 
   // Start from the last column. All domination queries would be w.r.t Ref[I].
   for (int I = Size - 1; I >= 0; --I) {
-    // We may skip non-terminal I-columns as we will never ask about them later.
-    if (!Refs[I]->isTerminalRef()) {
-      continue;
-    }
-
     auto *NodeI = Refs[I]->getHLDDNode();
 
     // Compute domination part, upwards.
     for (int J = I - 1; J >= 0; --J) {
       bool Prev = M[I][J + 1];
 
-      if (!Prev && (Refs[J]->isLval() && Refs[J]->isTerminalRef())) {
+      if (!Prev && Refs[J]->isLval()) {
         auto *NodeJ = Refs[J]->getHLDDNode();
         Prev = HLNodeUtils::dominates(NodeJ, NodeI);
       }
@@ -421,7 +424,7 @@ static void computeDominationRelations(const DDARefGatherer::VectorTy &Refs,
     for (int J = I + 1; J < Size; ++J) {
       bool Prev = M[I][J - 1];
 
-      if (!Prev && (Refs[J]->isLval() && Refs[J]->isTerminalRef())) {
+      if (!Prev && Refs[J]->isLval()) {
         auto *NodeJ = Refs[J]->getHLDDNode();
         Prev = HLNodeUtils::postDominates(NodeJ, NodeI);
       }
@@ -431,9 +434,33 @@ static void computeDominationRelations(const DDARefGatherer::VectorTy &Refs,
   }
 }
 
-// Compute helper array with the indices of the loops's first reference.
+// Compute helper array with the indices of the loops's lexical bounds.
 // With an arbitrary Ref index I it will be possible to know Ref[I]'s parent
-// loop first reference index.
+// loop lexical bound index.
+//
+// For example-
+//
+//  (F)(B) - Forward and Backward traversal indices.
+//
+//         DO i1
+//   0  6    R1
+//   1  5    R2
+//   2  4    R3
+//           DO i2
+//   3  3      R4
+//   4  2      R5
+//           END DO
+//   5  1    R6
+//   6  0    R7
+//         END DO
+//
+// Result indices:
+//   Forward traversal:  0,0,0,3,3,5,5
+//   Backward traversal: 0,0,2,2,4,4,4
+//
+// That correspond to Refs:
+//   Forward:  R1,R1,R1,R4,R4,R6,R6
+//   Backward: R7,R7,R5,R5,R3,R3,R3
 template <typename IterI, typename IterO>
 void computeLoopStartStops(IterI Begin, IterI End, IterO Out) {
   assert(Begin != End && "Empty loops are not expected");
@@ -462,9 +489,11 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
   LLVM_DEBUG(Node->dump());
 
   DDARefGatherer::MapTy RefMap;
+  bool IsGraphForInnermostLoop = false;
 
   if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
     DDARefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
+    IsGraphForInnermostLoop = Loop->isInnermost();
   } else {
     DDARefGatherer::gather(Node, RefMap);
   }
@@ -476,25 +505,39 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
+    auto RefVecSize = RefVec.size();
+    assert(RefVecSize && "Unexpected empty Refs");
 
-    SmallVector<unsigned, 8> LoopStarts;
-    SmallVector<unsigned, 8> LoopStops;
-    LoopStarts.resize(RefVec.size(), 0);
-    LoopStops.resize(RefVec.size(), 0);
-
-    // Find loop lexical bounds in terms of references.
-    computeLoopStartStops(RefVec.begin(), RefVec.end(), LoopStarts.begin());
-    computeLoopStartStops(RefVec.rbegin(), RefVec.rend(), LoopStops.rbegin());
+    bool IsTerminalSymbase = RefVec.front()->isTerminalRef();
 
     DominationMatrixTy DominationMatrix;
-    computeDominationRelations(RefVec, DominationMatrix);
+    SmallVector<unsigned, 8> LoopStarts;
+    SmallVector<unsigned, 8> LoopStops;
+    LoopStarts.resize(RefVecSize, 0);
+    LoopStops.resize(RefVecSize, 0);
 
-    for (unsigned I = 0, Size = RefVec.size(); I < Size; ++I) {
+    // LoopStarts, LoopStops and DominationMatrix are needed for terminals only.
+    if (IsTerminalSymbase) {
+      if (!IsGraphForInnermostLoop) {
+        // Find loop lexical bounds in terms of references.
+        computeLoopStartStops(RefVec.begin(), RefVec.end(), LoopStarts.begin());
+        computeLoopStartStops(RefVec.rbegin(), RefVec.rend(),
+                              LoopStops.rbegin());
+      }
+
+      computeDominationRelations(RefVec, DominationMatrix);
+    }
+
+    for (unsigned I = 0; I < RefVecSize; ++I) {
       DDRef *Ref1 = RefVec[I];
+      // Get indices of the first and the last Ref of the Ref1's parent
+      // loop.
       auto LoopStart = LoopStarts[I];
-      auto LoopStop = RefVec.size() - LoopStops[I] - 1;
+      // Make LoopStop index based on RefVec.begin(), originally it's based on
+      // RefVec.rbegin().
+      auto LoopStop = RefVecSize - LoopStops[I] - 1;
 
-      for (auto J = I; J < Size; ++J) {
+      for (auto J = I; J < RefVecSize; ++J) {
         DDRef *Ref2 = RefVec[J];
 
         ConstructDDEdgeType NeededEdgeType =
