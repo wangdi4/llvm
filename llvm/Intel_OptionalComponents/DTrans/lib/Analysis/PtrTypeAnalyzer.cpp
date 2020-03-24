@@ -110,20 +110,32 @@ public:
   // For pointers and values of interest, print the type information determined
   // for Value \p CV
   void printInfoComment(const Value &CV, formatted_raw_ostream &OS) {
+    std::function<void(formatted_raw_ostream &, ConstantExpr *)>
+        PrintConstantExpr =
+            [&PrintConstantExpr, this](formatted_raw_ostream &OS,
+                                       ConstantExpr *CE) -> void {
+      OS << "\n;        CE: " << *CE << "\n";
+      auto *Info = Analyzer.getValueTypeInfo(CE);
+      if (Info)
+        Info->print(OS, CombineUseAndDecl, ";          ");
+      else if (CE->getType()->isPointerTy())
+        OS << ";          <NO PTR INFO AVAILABLE FOR ConstantExpr>\n";
+
+      // There may be constant expressions nested within this CE that should be
+      // reported.
+      for (auto *Op : CE->operand_values())
+        if (auto *InnerCE = dyn_cast<ConstantExpr>(Op))
+          PrintConstantExpr(OS, InnerCE);
+    };
+
     Value *V = const_cast<Value *>(&CV);
 
     // Check for any constant expressions being used for the instruction, and
     // report types for those, if available.
     if (auto *I = dyn_cast<Instruction>(V))
       for (auto *Op : I->operand_values())
-        if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
-          OS << "\n;        CE: " << *CE << "\n";
-          auto *Info = Analyzer.getValueTypeInfo(CE);
-          if (Info)
-            Info->print(OS, CombineUseAndDecl, ";          ");
-          else if (CE->getType()->isPointerTy())
-            OS << ";          <NO PTR INFO AVAILABLE FOR ConstantExpr>\n";
-        }
+        if (auto *CE = dyn_cast<ConstantExpr>(Op))
+          PrintConstantExpr(OS, CE);
 
     // Report the information about the value produced by the instruction.
     llvm::Type *ValueTy = V->getType();
@@ -299,6 +311,18 @@ public:
       LLVM_DEBUG(dbgs() << "Unable to set declared type for global variable: "
                         << GV.getName() << "\n");
     }
+
+    // Now that types have been set up for the functions and globals, process
+    // the uses of them within constant expressions.
+    for (auto &F : M)
+      for (auto *U : F.users())
+        if (auto *CE = dyn_cast<ConstantExpr>(U))
+          analyzeConstantExpr(CE);
+
+    for (auto &GV : M.globals())
+      for (auto *U : GV.users())
+        if (auto *CE = dyn_cast<ConstantExpr>(U))
+          analyzeConstantExpr(CE);
   }
 
   // For certain library global variables that are of known types, set them
@@ -418,6 +442,11 @@ private:
     if (!I) {
       if (auto *Arg = dyn_cast<Argument>(V)) {
         analyzeArgument(Arg, Info);
+        return;
+      }
+
+      if (auto *GEP = dyn_cast<GEPOperator>(V)) {
+        analyzeGetElementPtrOperator(GEP, Info);
         return;
       }
 
@@ -1006,12 +1035,15 @@ private:
       //    [8 x p0] --> type is kind of pointer stored in array.
       // - 3 or more operands, type is multi-dimensional array.  Iterate
       //   until type is reached.
+      //
+      // If this function returns 'false', an appropriate type alias could not
+      // be found with 'Ty' using the 'GepOps'. The caller should mark the
+      // ResultInfo as 'unhandled' if this index lookup was not being done
+      // speculatively.
+      //
       dtrans::DTransType *IndexedTy = GetGEPIndexedType(Ty, GepOps);
-      if (!IndexedTy) {
-        ResultInfo->setUnhandled();
-        LLVM_DEBUG(dbgs() << "unable to resolve index type: " << GEP << "\n");
+      if (!IndexedTy)
         return false;
-      }
 
       if (auto *IndexedStTy = dyn_cast<DTransStructType>(IndexedTy)) {
         // The final argument of the GEP of a structure field element must
@@ -1019,13 +1051,12 @@ private:
         auto *LastArg =
             cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
         uint64_t FieldNum = LastArg->getLimitedValue();
-        DTransType *FieldTy = IndexedStTy->getFieldType(FieldNum);
-        if (!FieldTy) {
-          ResultInfo->setUnhandled();
-          LLVM_DEBUG(dbgs() << "Unhandled: unknown field type for GEP: " << GEP
-                            << "\n");
+        if (FieldNum >= IndexedStTy->getNumFields())
           return false;
-        }
+
+        DTransType *FieldTy = IndexedStTy->getFieldType(FieldNum);
+        if (!FieldTy)
+          return false;
 
         ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
                                  TM.getOrCreatePointerType(FieldTy));
@@ -1058,8 +1089,6 @@ private:
         return true;
       }
 
-      ResultInfo->setUnhandled();
-      LLVM_DEBUG(dbgs() << "GEP not handled: " << GEP << "\n");
       return false;
     };
 
@@ -1430,6 +1459,35 @@ private:
 
     // Otherwise, we don't need to analyze it as a pointer.
     return false;
+  }
+
+  // Perform pointer type analysis for constant operator expressions
+  void analyzeConstantExpr(ConstantExpr *CE) {
+    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      dbgs() << "--\n";
+      dbgs() << "Begin analyzeConstantExpr for: ";
+      printValue(dbgs(), CE);
+      dbgs() << "\n";
+    });
+
+    ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(CE);
+    if (auto *GEPOp = dyn_cast<GEPOperator>(CE)) {
+      analyzeGetElementPtrOperator(GEPOp, Info);
+      Info->setCompletelyAnalyzed();
+    } else {
+      Info->setUnhandled();
+      LLVM_DEBUG(dbgs() << "Unhandled constant expression: " << *CE << "\n");
+    }
+
+    for (auto *U : CE->users())
+      if (auto *UCE = dyn_cast<ConstantExpr>(U))
+        analyzeConstantExpr(UCE);
+
+    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      dbgs() << "End analyzeConstantExpr for: ";
+      printValue(dbgs(), CE);
+      dbgs() << "\n";
+    });
   }
 
   llvm::Type *getPointerSizedIntType() const { return PointerSizedIntType; }
