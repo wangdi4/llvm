@@ -12648,6 +12648,7 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
       if (!Var->isInvalidDecl()) {
         if (const IncompleteArrayType *ArrayT
                                     = Context.getAsIncompleteArrayType(Type)) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
           // CQ#370357 - Arrays with incomplete element type
           if (!getLangOpts().IntelCompat)
@@ -12655,6 +12656,11 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
           if (RequireCompleteType(Var->getLocation(),
                                   ArrayT->getElementType(),
                                   diag::err_illegal_decl_array_incomplete_type))
+=======
+          if (RequireCompleteSizedType(
+                  Var->getLocation(), ArrayT->getElementType(),
+                  diag::err_array_incomplete_or_sizeless_type))
+>>>>>>> 994c071a1b7eee8de132d78286c730da2be2c48f
             Var->setInvalidDecl();
         } else if (Var->getStorageClass() == SC_Static) {
           // C99 6.9.2p3: If the declaration of an identifier for an object is
