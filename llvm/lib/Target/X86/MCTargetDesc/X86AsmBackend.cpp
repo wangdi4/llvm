@@ -358,6 +358,11 @@ static bool isRIPRelative(const MCInst &MI, const MCInstrInfo &MCII) {
   return (BaseReg == X86::RIP);
 }
 
+/// Check if the instruction is a prefix.
+static bool isPrefix(const MCInst &MI, const MCInstrInfo &MCII) {
+  return X86II::isPrefix(MCII.get(MI.getOpcode()).TSFlags);
+}
+
 /// Check if the instruction is valid as the first instruction in macro fusion.
 static bool isFirstMacroFusibleInst(const MCInst &Inst,
                                     const MCInstrInfo &MCII) {
@@ -664,6 +669,7 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     return;
   }
 
+<<<<<<< HEAD
   // Summary of inserting scheme(Two Steps):
   // Step 1:
   // If the previous instruction is the first instruction in a fusible pair
@@ -696,6 +702,16 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
       return;
     }
   }
+=======
+  if (isPrefix(PrevInst, *MCII))
+    // If this instruction follows a prefix, inserting a nop would change
+    // semantic.
+    return;
+
+  if (!isMacroFused(PrevInst, Inst))
+    // Macro fusion doesn't happen indeed, clear the pending.
+    PendingBoundaryAlign = nullptr;
+>>>>>>> e6f1dd40bd013c7b9780625b19328296ff9fbb2e
 
   // Prefix or NOP shouldn't be inserted after prefix. e.g.
   //
