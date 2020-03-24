@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,6 +20,7 @@
 #error SOAToAOSStruct.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "SOAToAOSArrays.h"
 #include "SOAToAOSCommon.h"
 #include "SOAToAOSEffects.h"

@@ -227,12 +227,9 @@ public:
     return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
-  VPBasicBlock(const std::string &Name, VPInstruction *Instruction = nullptr)
+  VPBasicBlock(const std::string &Name)
       : Name(Name), CBlock(nullptr), TBlock(nullptr), FBlock(nullptr),
-        OriginalBB(nullptr) {
-    if (Instruction)
-      appendInstruction(Instruction);
-  }
+        OriginalBB(nullptr) {}
 
   ~VPBasicBlock() { Instructions.clear(); }
 
