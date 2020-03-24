@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2020 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -69,6 +69,7 @@ volatile bool	gExecDone = true;
 unsigned int gDeviceIdInType = 0;
 
 std::string gDPCPPAffinity;
+std::string gDPCPPPlace;
 unsigned int gNumProcessors;
 bool gUseHalfProcessors;
 
@@ -740,6 +741,9 @@ void initDpcppAffinity()
     int idx = std::uniform_int_distribution<>{0, 2}(rng);
     gDPCPPAffinity = (idx == 0) ? "close" : (idx == 1) ? "spread" : "master";
     SETENV("DPCPP_CPU_CU_AFFINITY", gDPCPPAffinity.c_str());
+    idx = std::uniform_int_distribution<>{0, 2}(rng);
+    gDPCPPPlace = (idx == 0) ? "sockets" : (idx == 1) ? "cores" : "threads";
+    SETENV("DPCPP_CPU_PLACES", gDPCPPPlace.c_str());
 
     gNumProcessors = (unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors();
     unsigned numUsedProcessors = gNumProcessors;

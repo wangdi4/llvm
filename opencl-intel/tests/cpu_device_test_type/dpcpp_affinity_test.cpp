@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Intel Corporation
+// Copyright (c) 2019-2020 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -25,6 +25,7 @@
 #ifndef _WIN32
 extern IOCLDeviceAgent *dev_entry;
 extern std::string gDPCPPAffinity;
+extern std::string gDPCPPPlace;
 extern unsigned int gNumProcessors;
 extern bool gUseHalfProcessors;
 
@@ -36,25 +37,38 @@ TEST_F(DPCPPAffinityTest, affinity) {
   dev_entry->clDevGetComputeUnitMap(&computeUnitMap, &count);
   ASSERT_EQ(gNumProcessors, (unsigned int)count);
 
+  unsigned int numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+  unsigned int numCoresPerSocket = gNumProcessors / numSockets;
+  unsigned int numCoresHalf = gNumProcessors / 2;
   unsigned int numUsedProcessors =
-      gUseHalfProcessors ? (gNumProcessors / 2) : gNumProcessors;
-  unsigned int numCpuSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
-  unsigned int numUsedCoresPerSocket = numUsedProcessors / numCpuSockets;
+      gUseHalfProcessors ? numCoresHalf : gNumProcessors;
+
   std::string errMsg =
-      "Combination of DPCPP_CPU_CU_AFFINITY=" + gDPCPPAffinity +
+      "Combination of DPCPP_CPU_PLACES=" + gDPCPPPlace +
+      ", DPCPP_CPU_CU_AFFINITY=" + gDPCPPAffinity +
       " and DPCPP_CPU_NUM_CUS=" + std::to_string(numUsedProcessors) + "/" +
-      std::to_string(gNumProcessors) + " failed.";
+      std::to_string(gNumProcessors) + " failed at index ";
   for (unsigned int i = 0; i < numUsedProcessors; ++i) {
-    unsigned int cpuId;
-    if ("close" == gDPCPPAffinity)
-      cpuId = gUseHalfProcessors ? (2 * i) : i;
-    else if ("spread" == gDPCPPAffinity) {
-      cpuId = (i % numCpuSockets) * numUsedCoresPerSocket + (i / numCpuSockets);
+    unsigned int cpuId = i;
+    if ("close" == gDPCPPAffinity) {
       if (gUseHalfProcessors)
-        cpuId *= 2;
-    } else if ("master" == gDPCPPAffinity)
-      cpuId = i;
-    ASSERT_EQ(computeUnitMap[i], cpuId) << errMsg;
+        cpuId = i * 2;
+      else if ("cores" == gDPCPPPlace)
+        cpuId = (i % numCoresHalf) * 2 + (i / numCoresHalf);
+    } else if ("spread" == gDPCPPAffinity) {
+      cpuId = (i % numSockets) * numCoresPerSocket;
+      if (gUseHalfProcessors)
+        cpuId += (i / numSockets) * 2;
+      else {
+        if (Intel::OpenCL::Utils::IsHyperThreadingEnabled() &&
+            "cores" == gDPCPPPlace) {
+          cpuId += ((i - (i % numSockets)) % numCoresHalf) / numSockets * 2 +
+                   (i / numCoresHalf);
+        } else
+          cpuId += i / numSockets;
+      }
+    }
+    ASSERT_EQ(computeUnitMap[i], cpuId) << (errMsg + std::to_string(i));
   }
 }
 #endif
