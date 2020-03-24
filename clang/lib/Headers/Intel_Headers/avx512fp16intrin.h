@@ -806,13 +806,13 @@ _mm_maskz_max_sh(__mmask8 __U,__m128h __A, __m128h __B) {
                                            (__mmask8)(U), (int)(R))
 
 #define _mm512_cmp_round_ph_mask(A, B, P, R) \
-  (__mmask32)__builtin_ia32_cmpph512_mask((__v32hf)(__m512)(A), \
-                                          (__v32hf)(__m512)(B), (int)(P), \
+  (__mmask32)__builtin_ia32_cmpph512_mask((__v32hf)(__m512h)(A), \
+                                          (__v32hf)(__m512h)(B), (int)(P), \
                                           (__mmask32)-1, (int)(R))
 
 #define _mm512_mask_cmp_round_ph_mask(U, A, B, P, R) \
-  (__mmask32)__builtin_ia32_cmpph512_mask((__v32hf)(__m512)(A), \
-                                          (__v32hf)(__m512)(B), (int)(P), \
+  (__mmask32)__builtin_ia32_cmpph512_mask((__v32hf)(__m512h)(A), \
+                                          (__v32hf)(__m512h)(B), (int)(P), \
                                           (__mmask32)(U), (int)(R))
 
 #define _mm512_cmp_ph_mask(A, B, P) \
@@ -822,24 +822,24 @@ _mm_maskz_max_sh(__mmask8 __U,__m128h __A, __m128h __B) {
   _mm512_mask_cmp_round_ph_mask((U), (A), (B), (P), _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_cmp_round_sh_mask(X, Y, P, R) \
-  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128)(X), \
-                                      (__v8hf)(__m128)(Y), (int)(P), \
+  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128h)(X), \
+                                      (__v8hf)(__m128h)(Y), (int)(P), \
                                       (__mmask8)-1, (int)(R))
 
 #define _mm_mask_cmp_round_sh_mask(M, X, Y, P, R) \
-  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128)(X), \
-                                      (__v8hf)(__m128)(Y), (int)(P), \
+  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128h)(X), \
+                                      (__v8hf)(__m128h)(Y), (int)(P), \
                                       (__mmask8)(M), (int)(R))
 
 #define _mm_cmp_sh_mask(X, Y, P) \
-  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128)(X), \
-                                      (__v8hf)(__m128)(Y), (int)(P), \
+  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128h)(X), \
+                                      (__v8hf)(__m128h)(Y), (int)(P), \
                                       (__mmask8)-1, \
                                       _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_mask_cmp_sh_mask(M, X, Y, P) \
-  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128)(X), \
-                                      (__v8hf)(__m128)(Y), (int)(P), \
+  (__mmask8)__builtin_ia32_cmpsh_mask((__v8hf)(__m128h)(X), \
+                                      (__v8hf)(__m128h)(Y), (int)(P), \
                                       (__mmask8)(M), \
                                       _MM_FROUND_CUR_DIRECTION)
 // loads with vmovsh:
@@ -1212,55 +1212,55 @@ _mm_maskz_rsqrt_sh (__mmask8 __U, __m128h __A, __m128h __B)
 }
 
 #define _mm_getmant_round_sh(A, B, C, D, R) \
-  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128)(A), \
-                                              (__v8hf)(__m128h)(B), \
-                                              (int)(((D)<<2) | (C)), \
-                                              (__v8hf)_mm_setzero_ph(), \
-                                              (__mmask8)-1, (int)(R))
+  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128h)(A), \
+                                               (__v8hf)(__m128h)(B), \
+                                               (int)(((D)<<2) | (C)), \
+                                               (__v8hf)_mm_setzero_ph(), \
+                                               (__mmask8)-1, (int)(R))
 
 #define _mm_getmant_sh(A, B, C, D) \
-  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128)(A), \
-                                              (__v8hf)(__m128h)(B), \
-                                              (int)(((D)<<2) | (C)), \
-                                              (__v8hf)_mm_setzero_ph(), \
-                                              (__mmask8)-1, \
-                                              _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128h)(A), \
+                                               (__v8hf)(__m128h)(B), \
+                                               (int)(((D)<<2) | (C)), \
+                                               (__v8hf)_mm_setzero_ph(), \
+                                               (__mmask8)-1, \
+                                               _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_mask_getmant_sh(W, U, A, B, C, D) \
-  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128)(A), \
-                                              (__v8hf)(__m128h)(B), \
-                                              (int)(((D)<<2) | (C)), \
-                                              (__v8hf)(__m128h)(W), \
-                                              (__mmask8)(U), \
-                                              _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128h)(A), \
+                                               (__v8hf)(__m128h)(B), \
+                                               (int)(((D)<<2) | (C)), \
+                                               (__v8hf)(__m128h)(W), \
+                                               (__mmask8)(U), \
+                                               _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_mask_getmant_round_sh(W, U, A, B, C, D, R) \
-  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128)(A), \
-                                              (__v8hf)(__m128h)(B), \
-                                              (int)(((D)<<2) | (C)), \
-                                              (__v8hf)(__m128h)(W), \
-                                              (__mmask8)(U), (int)(R))
+  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128h)(A), \
+                                               (__v8hf)(__m128h)(B), \
+                                               (int)(((D)<<2) | (C)), \
+                                               (__v8hf)(__m128h)(W), \
+                                               (__mmask8)(U), (int)(R))
 
 #define _mm_maskz_getmant_sh(U, A, B, C, D) \
-  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128)(A), \
-                                              (__v8hf)(__m128h)(B), \
-                                              (int)(((D)<<2) | (C)), \
-                                              (__v8hf)_mm_setzero_ph(), \
-                                              (__mmask8)(U), \
-                                              _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128h)(A), \
+                                               (__v8hf)(__m128h)(B), \
+                                               (int)(((D)<<2) | (C)), \
+                                               (__v8hf)_mm_setzero_ph(), \
+                                               (__mmask8)(U), \
+                                               _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_maskz_getmant_round_sh(U, A, B, C, D, R) \
-  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128)(A), \
-                                              (__v8hf)(__m128h)(B), \
-                                              (int)(((D)<<2) | (C)), \
-                                              (__v8hf)_mm_setzero_ph(), \
-                                              (__mmask8)(U), (int)(R))
+  (__m128h)__builtin_ia32_getmantsh_round_mask((__v8hf)(__m128h)(A), \
+                                               (__v8hf)(__m128h)(B), \
+                                               (int)(((D)<<2) | (C)), \
+                                               (__v8hf)_mm_setzero_ph(), \
+                                               (__mmask8)(U), (int)(R))
 
 #define _mm_getexp_round_sh(A, B, R) \
-  (__m128h)__builtin_ia32_getexpsh128_round_mask((__v8hf)(__m128)(A), \
-                                                (__v8hf)(__m128h)(B), \
-                                                (__v8hf)_mm_setzero_ph(), \
-                                                (__mmask8)-1, (int)(R))
+  (__m128h)__builtin_ia32_getexpsh128_round_mask((__v8hf)(__m128h)(A), \
+                                                 (__v8hf)(__m128h)(B), \
+                                                 (__v8hf)_mm_setzero_ph(), \
+                                                 (__mmask8)-1, (int)(R))
 
 static __inline__ __m128h __DEFAULT_FN_ATTRS128
 _mm_getexp_sh (__m128h __A, __m128h __B)
@@ -1283,10 +1283,10 @@ _mm_mask_getexp_sh (__m128h __W, __mmask8 __U, __m128h __A, __m128h __B)
 }
 
 #define _mm_mask_getexp_round_sh(W, U, A, B, R) \
-  (__m128h)__builtin_ia32_getexpsh128_round_mask((__v8hf)(__m128)(A), \
-                                                (__v8hf)(__m128h)(B), \
-                                                (__v8hf)(__m128h)(W), \
-                                                (__mmask8)(U), (int)(R))
+  (__m128h)__builtin_ia32_getexpsh128_round_mask((__v8hf)(__m128h)(A), \
+                                                 (__v8hf)(__m128h)(B), \
+                                                 (__v8hf)(__m128h)(W), \
+                                                 (__mmask8)(U), (int)(R))
 
 static __inline__ __m128h __DEFAULT_FN_ATTRS128
 _mm_maskz_getexp_sh (__mmask8 __U, __m128h __A, __m128h __B)
@@ -1299,16 +1299,16 @@ _mm_maskz_getexp_sh (__mmask8 __U, __m128h __A, __m128h __B)
 }
 
 #define _mm_maskz_getexp_round_sh(U, A, B, R) \
-  (__m128h)__builtin_ia32_getexpsh128_round_mask((__v8hf)(__m128)(A), \
-                                                (__v8hf)(__m128h)(B), \
-                                                (__v8hf)_mm_setzero_ph(), \
-                                                (__mmask8)(U), (int)(R))
+  (__m128h)__builtin_ia32_getexpsh128_round_mask((__v8hf)(__m128h)(A), \
+                                                 (__v8hf)(__m128h)(B), \
+                                                 (__v8hf)_mm_setzero_ph(), \
+                                                 (__mmask8)(U), (int)(R))
 
 #define _mm_scalef_round_sh(A, B, R) \
-  (__m128h)__builtin_ia32_scalefsh_round_mask((__v8hf)(__m128)(A), \
-                                             (__v8hf)(__m128h)(B), \
-                                             (__v8hf)_mm_setzero_ph(), \
-                                             (__mmask8)-1, (int)(R))
+  (__m128h)__builtin_ia32_scalefsh_round_mask((__v8hf)(__m128h)(A), \
+                                              (__v8hf)(__m128h)(B), \
+                                              (__v8hf)_mm_setzero_ph(), \
+                                              (__mmask8)-1, (int)(R))
 
 static __inline__ __m128h __DEFAULT_FN_ATTRS128
 _mm_scalef_sh (__m128h __A, __m128h __B)
@@ -1330,10 +1330,10 @@ _mm_mask_scalef_sh (__m128h __W, __mmask8 __U, __m128h __A, __m128h __B)
 }
 
 #define _mm_mask_scalef_round_sh(W, U, A, B, R) \
-  (__m128h)__builtin_ia32_scalefsh_round_mask((__v8hf)(__m128)(A), \
-                                             (__v8hf)(__m128h)(B), \
-                                             (__v8hf)(__m128h)(W), \
-                                             (__mmask8)(U), (int)(R))
+  (__m128h)__builtin_ia32_scalefsh_round_mask((__v8hf)(__m128h)(A), \
+                                              (__v8hf)(__m128h)(B), \
+                                              (__v8hf)(__m128h)(W), \
+                                              (__mmask8)(U), (int)(R))
 
 static __inline__ __m128h __DEFAULT_FN_ATTRS128
 _mm_maskz_scalef_sh (__mmask8 __U, __m128h __A, __m128h __B)
@@ -1346,93 +1346,94 @@ _mm_maskz_scalef_sh (__mmask8 __U, __m128h __A, __m128h __B)
 }
 
 #define _mm_maskz_scalef_round_sh(U, A, B, R) \
-  (__m128h)__builtin_ia32_scalefsh_round_mask((__v8hf)(__m128)(A), \
-                                             (__v8hf)(__m128h)(B), \
-                                             (__v8hf)_mm_setzero_ph(), \
-                                             (__mmask8)(U), \
-                                             (int)(R))
+  (__m128h)__builtin_ia32_scalefsh_round_mask((__v8hf)(__m128h)(A), \
+                                              (__v8hf)(__m128h)(B), \
+                                              (__v8hf)_mm_setzero_ph(), \
+                                              (__mmask8)(U), \
+                                              (int)(R))
 
 #define _mm_roundscale_round_sh(A, B, imm, R) \
-  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128)(A), \
-                                               (__v8hf)(__m128h)(B), \
-                                               (__v8hf)_mm_setzero_ph(), \
-                                               (__mmask8)-1, (int)(imm), \
-                                               (int)(R))
+  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128h)(A), \
+                                                (__v8hf)(__m128h)(B), \
+                                                (__v8hf)_mm_setzero_ph(), \
+                                                (__mmask8)-1, (int)(imm), \
+                                                (int)(R))
 
 #define _mm_roundscale_sh(A, B, imm) \
-  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128)(A), \
-                                               (__v8hf)(__m128h)(B), \
-                                               (__v8hf)_mm_setzero_ph(), \
-                                               (__mmask8)-1, (int)(imm), \
-                                               _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128h)(A), \
+                                                (__v8hf)(__m128h)(B), \
+                                                (__v8hf)_mm_setzero_ph(), \
+                                                (__mmask8)-1, (int)(imm), \
+                                                _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_mask_roundscale_sh(W, U, A, B, I) \
-  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128)(A), \
-                                               (__v8hf)(__m128h)(B), \
-                                               (__v8hf)(__m128h)(W), \
-                                               (__mmask8)(U), (int)(I), \
-                                               _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128h)(A), \
+                                                (__v8hf)(__m128h)(B), \
+                                                (__v8hf)(__m128h)(W), \
+                                                (__mmask8)(U), (int)(I), \
+                                                _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_mask_roundscale_round_sh(W, U, A, B, I, R) \
-  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128)(A), \
-                                               (__v8hf)(__m128h)(B), \
-                                               (__v8hf)(__m128h)(W), \
-                                               (__mmask8)(U), (int)(I), \
-                                               (int)(R))
+  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128h)(A), \
+                                                (__v8hf)(__m128h)(B), \
+                                                (__v8hf)(__m128h)(W), \
+                                                (__mmask8)(U), (int)(I), \
+                                                (int)(R))
 
 #define _mm_maskz_roundscale_sh(U, A, B, I) \
-  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128)(A), \
-                                               (__v8hf)(__m128h)(B), \
-                                               (__v8hf)_mm_setzero_ph(), \
-                                               (__mmask8)(U), (int)(I), \
-                                               _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128h)(A), \
+                                                (__v8hf)(__m128h)(B), \
+                                                (__v8hf)_mm_setzero_ph(), \
+                                                (__mmask8)(U), (int)(I), \
+                                                _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_maskz_roundscale_round_sh(U, A, B, I, R) \
-  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128)(A), \
-                                               (__v8hf)(__m128h)(B), \
-                                               (__v8hf)_mm_setzero_ph(), \
-                                               (__mmask8)(U), (int)(I), \
-                                               (int)(R))
+  (__m128h)__builtin_ia32_rndscalesh_round_mask((__v8hf)(__m128h)(A), \
+                                                (__v8hf)(__m128h)(B), \
+                                                (__v8hf)_mm_setzero_ph(), \
+                                                (__mmask8)(U), (int)(I), \
+                                                (int)(R))
 
 #define _mm_reduce_sh(A, B, C) \
-  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128)(A), \
-                                       (__v8hf)(__m128h)(B), \
-                                       (__v8hf)_mm_setzero_ph(), (__mmask8)-1, \
-                                       (int)(C), _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128h)(A), \
+                                        (__v8hf)(__m128h)(B), \
+                                        (__v8hf)_mm_setzero_ph(), \
+                                        (__mmask8)-1, \
+                                        (int)(C), _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_mask_reduce_sh(W, U, A, B, C) \
-  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128)(A), \
-                                       (__v8hf)(__m128h)(B), \
-                                       (__v8hf)(__m128h)(W), (__mmask8)(U), \
-                                       (int)(C), _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128h)(A), \
+                                        (__v8hf)(__m128h)(B), \
+                                        (__v8hf)(__m128h)(W), (__mmask8)(U), \
+                                        (int)(C), _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_maskz_reduce_sh(U, A, B, C) \
-  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128)(A), \
-                                       (__v8hf)(__m128h)(B), \
-                                       (__v8hf)_mm_setzero_ph(), \
-                                       (__mmask8)(U), (int)(C), \
-                                       _MM_FROUND_CUR_DIRECTION)
+  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128h)(A), \
+                                        (__v8hf)(__m128h)(B), \
+                                        (__v8hf)_mm_setzero_ph(), \
+                                        (__mmask8)(U), (int)(C), \
+                                        _MM_FROUND_CUR_DIRECTION)
 
 #define _mm_reduce_round_sh(A, B, C, R) \
-  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128)(A), \
-                                       (__v8hf)(__m128h)(B), \
-                                       (__v8hf)_mm_setzero_ph(), (__mmask8)-1, \
-                                       (int)(C), (int)(R))
+  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128h)(A), \
+                                        (__v8hf)(__m128h)(B), \
+                                        (__v8hf)_mm_setzero_ph(), (__mmask8)-1, \
+                                        (int)(C), (int)(R))
 
 #define _mm_mask_reduce_round_sh(W, U, A, B, C, R) \
-  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128)(A), \
-                                       (__v8hf)(__m128h)(B), \
-                                       (__v8hf)(__m128h)(W), (__mmask8)(U), \
-                                       (int)(C), (int)(R))
+  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128h)(A), \
+                                        (__v8hf)(__m128h)(B), \
+                                        (__v8hf)(__m128h)(W), (__mmask8)(U), \
+                                        (int)(C), (int)(R))
 
 #define _mm_maskz_reduce_round_sh(U, A, B, C, R) \
-  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128)(A), \
-                                       (__v8hf)(__m128h)(B), \
-                                       (__v8hf)_mm_setzero_ph(), \
-                                       (__mmask8)(U), (int)(C), (int)(R))
+  (__m128h)__builtin_ia32_reducesh_mask((__v8hf)(__m128h)(A), \
+                                        (__v8hf)(__m128h)(B), \
+                                        (__v8hf)_mm_setzero_ph(), \
+                                        (__mmask8)(U), (int)(C), (int)(R))
 
 #define _mm512_sqrt_round_ph(A, R) \
-  (__m512h)__builtin_ia32_sqrtph512((__v32hf)(__m512)(A), (int)(R))
+  (__m512h)__builtin_ia32_sqrtph512((__v32hf)(__m512h)(A), (int)(R))
 
 #define _mm512_mask_sqrt_round_ph(W, U, A, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
@@ -1521,11 +1522,11 @@ _mm_maskz_sqrt_sh (__mmask32 __U, __m128h __A, __m128h __B)
                                               (int)(imm), (__mmask32)-1)
 
 #define _mm_fpclass_sh_mask(A, imm) \
-  (__mmask8)__builtin_ia32_fpclasssh_mask((__v8hf)(__m128)(A), (int)(imm), \
+  (__mmask8)__builtin_ia32_fpclasssh_mask((__v8hf)(__m128h)(A), (int)(imm), \
                                           (__mmask8)-1)
 
 #define _mm_mask_fpclass_sh_mask(U, A, imm) \
-  (__mmask8)__builtin_ia32_fpclasssh_mask((__v8hf)(__m128)(A), (int)(imm), \
+  (__mmask8)__builtin_ia32_fpclasssh_mask((__v8hf)(__m128h)(A), (int)(imm), \
                                           (__mmask8)(U))
 
 #define _mm512_cvt_roundpd_ph(A, R)                                            \

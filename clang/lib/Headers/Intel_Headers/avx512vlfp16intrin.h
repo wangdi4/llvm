@@ -307,23 +307,23 @@ _mm_maskz_max_ph(__mmask8 __U, __m128h __A, __m128h __B) {
 }
 
 #define _mm256_cmp_ph_mask(a, b, p)  \
-  (__mmask16)__builtin_ia32_cmpph256_mask((__v16hf)(__m256)(a), \
-                                          (__v16hf)(__m256)(b), (int)(p), \
+  (__mmask16)__builtin_ia32_cmpph256_mask((__v16hf)(__m256h)(a), \
+                                          (__v16hf)(__m256h)(b), (int)(p), \
                                           (__mmask16)-1)
 
 #define _mm256_mask_cmp_ph_mask(m, a, b, p)  \
-  (__mmask16)__builtin_ia32_cmpph256_mask((__v16hf)(__m256)(a), \
-                                          (__v16hf)(__m256)(b), (int)(p), \
+  (__mmask16)__builtin_ia32_cmpph256_mask((__v16hf)(__m256h)(a), \
+                                          (__v16hf)(__m256h)(b), (int)(p), \
                                           (__mmask16)(m))
 
 #define _mm_cmp_ph_mask(a, b, p)  \
-  (__mmask8)__builtin_ia32_cmpph128_mask((__v8hf)(__m128)(a), \
-                                         (__v8hf)(__m128)(b), (int)(p), \
+  (__mmask8)__builtin_ia32_cmpph128_mask((__v8hf)(__m128h)(a), \
+                                         (__v8hf)(__m128h)(b), (int)(p), \
                                          (__mmask8)-1)
 
 #define _mm_mask_cmp_ph_mask(m, a, b, p)  \
-  (__mmask8)__builtin_ia32_cmpph128_mask((__v8hf)(__m128)(a), \
-                                         (__v8hf)(__m128)(b), (int)(p), \
+  (__mmask8)__builtin_ia32_cmpph128_mask((__v8hf)(__m128h)(a), \
+                                         (__v8hf)(__m128h)(b), (int)(p), \
                                          (__mmask8)(m))
 
 static __inline__ __m256h __DEFAULT_FN_ATTRS256
