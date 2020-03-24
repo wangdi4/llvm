@@ -23,7 +23,7 @@ extern cl_device_type gDeviceType;
 
 class DumpOptimizedIrAsmTest : public ::testing::Test {
 protected:
-  virtual void SetUp() {
+  virtual void SetUp() override {
     cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
 
@@ -32,37 +32,49 @@ protected:
 
     m_context = clCreateContext(nullptr, 1, &m_device, nullptr, nullptr, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateContext");
+
+    // Create program
+    m_kernelName = "test";
+    std::string source = "kernel void " + m_kernelName +
+                         "(global int* dst) {\n"
+                         "  dst[get_global_id(0)] = 0;\n"
+                         "}";
+    const char *csource = source.c_str();
+    m_program =
+        clCreateProgramWithSource(m_context, 1, &csource, nullptr, &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
   }
 
-  virtual void TearDown() {
-    cl_int err = clReleaseContext(m_context);
+  virtual void TearDown() override {
+    cl_int err = clReleaseProgram(m_program);
+    EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+    err = clReleaseContext(m_context);
     EXPECT_OCL_SUCCESS(err, "clReleaseContext");
   }
 
-  bool fileContains(const std::string &filename, std::string pattern) {
+  bool fileContains(const std::string &filename,
+                    const std::vector<std::string> &patterns) {
     std::ifstream ifs(filename);
+    if (!ifs)
+      return false;
     std::stringstream ss;
     ss << ifs.rdbuf();
     std::string buffer = ss.str();
-    return buffer.find(pattern) != std::string::npos;
+    for (auto &pattern : patterns)
+      if (buffer.find(pattern) == std::string::npos)
+        return false;
+    return true;
   }
 
 protected:
   cl_platform_id m_platform;
   cl_device_id m_device;
   cl_context m_context;
+  cl_program m_program;
+  std::string m_kernelName;
 };
 
-TEST_F(DumpOptimizedIrAsmTest, dumpOptions) {
-  // Create program
-  cl_int err;
-  const char *source = "kernel void test(global int* dst) {\n"
-                       "  dst[get_global_id(0)] = 0;\n"
-                       "}";
-  cl_program program =
-      clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
-  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
-
+TEST_F(DumpOptimizedIrAsmTest, buildOptions) {
   std::string dir = get_exe_dir();
   std::string asmFile = dir + "dump_opt.asm";
   std::string irFile = dir + "dump_opt.ll";
@@ -71,15 +83,65 @@ TEST_F(DumpOptimizedIrAsmTest, dumpOptions) {
   std::string options =
       "-dump-opt-asm=\"" + asmFile + "\" -dump-opt-llvm=\"" + irFile + "\"";
 
-  err =
-      clBuildProgram(program, 1, &m_device, options.c_str(), nullptr, nullptr);
+  cl_int err = clBuildProgram(m_program, 1, &m_device, options.c_str(), nullptr,
+                              nullptr);
   ASSERT_OCL_SUCCESS(err, "clBuildProgram");
 
-  // Check dumped files contain kernel name
-  ASSERT_TRUE(fileContains(asmFile, "test"));
-  ASSERT_TRUE(fileContains(irFile, "test"));
+  // Check dumped files contain kernel name and section
+  std::vector<std::string> patterns = {m_kernelName};
+  ASSERT_TRUE(fileContains(irFile, patterns));
+  patterns.push_back("Disassembly of section");
+  ASSERT_TRUE(fileContains(asmFile, patterns));
 
   // Delete dumped files
   (void)std::remove(asmFile.c_str());
   (void)std::remove(irFile.c_str());
+}
+
+TEST_F(DumpOptimizedIrAsmTest, buildOptionsDebug) {
+  std::string dir = get_exe_dir();
+  std::string asmFile = dir + "dump_opt_debug.asm";
+  std::string irFile = dir + "dump_opt_debug.ll";
+
+  // Build program
+  std::string options =
+      "-dump-opt-asm=\"" + asmFile + "\" -dump-opt-llvm=\"" + irFile + "\" -g";
+
+  cl_int err = clBuildProgram(m_program, 1, &m_device, options.c_str(), nullptr,
+                              nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  // Check dumped files contain kernel name and section
+  std::vector<std::string> patterns = {m_kernelName};
+  ASSERT_TRUE(fileContains(irFile, patterns));
+  patterns.push_back("Disassembly of section .debug");
+  ASSERT_TRUE(fileContains(asmFile, patterns));
+
+  // Delete dumped files
+  (void)std::remove(asmFile.c_str());
+  (void)std::remove(irFile.c_str());
+}
+
+TEST_F(DumpOptimizedIrAsmTest, env) {
+  // Set env
+  std::string envName = "CL_CONFIG_DUMP_ASM";
+  ASSERT_TRUE(SETENV(envName.c_str(), "True"))
+      << ("Failed to set env " + envName);
+
+  // Build program
+  cl_int err =
+      clBuildProgram(m_program, 1, &m_device, nullptr, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  // Unset env
+  ASSERT_TRUE(UNSETENV(envName.c_str()))
+      << ("Failed to unset env " + envName);
+
+  // Check dumped file contains kernel name and section
+  std::string asmFile = "framework_test_type1.asm";
+  std::vector<std::string> patterns = {m_kernelName, "Disassembly of section"};
+  ASSERT_TRUE(fileContains(asmFile, patterns));
+
+  // Delete dumped file
+  (void)std::remove(asmFile.c_str());
 }
