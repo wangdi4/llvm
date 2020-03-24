@@ -18,11 +18,15 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop outer.loop
+; CHECK-NEXT:     i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT]], [[BB1]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT]], [[BB1]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB3]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
@@ -60,8 +64,9 @@ define dso_local i32 @main() #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_CMP4:%.*]] = icmp i32 [[VP_OUTER_LOOP_INDUCTION]] i32 1024
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_CMP4]]), [[BB9:BB[0-9]+]](!i1 [[VP_CMP4]])
+; CHECK-NEXT:     i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
+; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB9:BB[0-9]+]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:

@@ -400,6 +400,8 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  emitVectorLoopIV();
+
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
 
@@ -904,4 +906,66 @@ void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
     BaseConverter *Converter = dyn_cast<BaseConverter>(Cvt.get());
     Converter->passToVPlan(Plan, Mapper);
   }
+}
+
+void VPlanHCFGBuilder::emitVectorLoopIV() {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  auto *Header = CandidateLoop->getHeader();
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  auto *Latch = CandidateLoop->getLoopLatch();
+  assert(PreHeader && "Single pre-header is expected!");
+  assert(Latch && "Single loop latch is expected!");
+
+  Type *VectorLoopIVType = Legal->getWidestInductionType();
+  if (!VectorLoopIVType) {
+    // Ugly workaround for tests forcing VPlan build when we can't actually do
+    // that. Shouldn't happen outside stress/forced pipeline.
+    VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
+  }
+  auto *VPZero =
+      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
+  auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
+
+  VPBuilder Builder;
+  Builder.setInsertPoint(PreHeader);
+  auto *VF = Builder.createInductionInitStep(VPOne, Instruction::Add, "VF");
+
+  auto *OrigTC =
+      new VPOrigTripCountCalculation(TheLoop, CandidateLoop, VectorLoopIVType);
+  OrigTC->setName("orig.trip.count");
+  Builder.getInsertBlock()->insert(OrigTC, Builder.getInsertPoint());
+
+  auto *TC = new VPVectorTripCountCalculation(OrigTC);
+  TC->setName("vector.trip.count");
+  Builder.getInsertBlock()->insert(TC, Builder.getInsertPoint());
+
+  Builder.setInsertPoint(Header, Header->begin());
+  auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
+  IV->addIncoming(VPZero, PreHeader);
+  Builder.setInsertPoint(Latch);
+  auto *IVUpdate = Builder.createAdd(IV, VF, "vector.loop.iv.next");
+  IV->addIncoming(IVUpdate, Latch);
+  auto *ExitCond = Builder.createCmpInst(
+      Latch->getSuccessors()[0] == Header ? CmpInst::ICMP_NE : CmpInst::ICMP_EQ,
+      IVUpdate, TC, "vector.loop.exitcond");
+
+  VPValue *OrigExitCond = Latch->getCondBit();
+  Latch->setCondBit(ExitCond);
+
+  // FIXME: Without explicit terminators, CondBit isn't a proper user.
+  if (any_of(*Plan, [OrigExitCond](const VPBasicBlock &BB) {
+        return BB.getCondBit() == OrigExitCond;
+      }))
+    return;
+
+  // If original exit condition had single use, remove it - we calculate exit
+  // condition differently now.
+  // FIXME: "_or_null" here is due to broken stess pipeline that must really
+  // stop right after CFG is imported, before *any* transformation is tried on
+  // it.
+  if (auto *Inst = dyn_cast_or_null<VPInstruction>(OrigExitCond))
+    if (Inst->getNumUsers() == 0)
+      Latch->eraseInstruction(Inst);
 }

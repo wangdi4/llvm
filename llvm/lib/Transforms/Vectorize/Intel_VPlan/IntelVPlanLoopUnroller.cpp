@@ -55,6 +55,11 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   assert(Latch && "Expected single latch block");
   VPBasicBlock *CurrentLatch = Latch;
 
+  // TODO: Support explicit uniform IV in the vectorized loop for HIR pipeline.
+  if (auto *Cmp = dyn_cast<VPInstruction>(CurrentLatch->getCondBit()))
+    if (auto *VTC = dyn_cast<VPVectorTripCountCalculation>(Cmp->getOperand(1)))
+      VTC->setUF(VTC->getUF() * UF);
+
   SmallVector<VPCloneUtils::Value2ValueMapTy, 8> Clones(UF - 1);
   for (unsigned Part = 0; Part < UF - 1; Part++) {
     VPCloneUtils::cloneBlocksRange(Header, Latch, Clones[Part],

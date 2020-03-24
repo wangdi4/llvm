@@ -74,6 +74,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
 
   if (ForceLinearizationHIR)
     Plan->markFullLinearizationForced();
+
   return SharedPlan;
 }
 

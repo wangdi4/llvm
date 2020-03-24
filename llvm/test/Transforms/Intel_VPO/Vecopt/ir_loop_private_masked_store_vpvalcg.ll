@@ -25,25 +25,33 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
-; CHECK:       entry:
-; CHECK:         [[VAL_VEC:%.*]] = alloca <4 x i64>, align 32
+; CHECK-LABEL: @foo(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[VAL:%.*]] = alloca i64, align 8
+; CHECK-NEXT:    [[VAL_VEC:%.*]] = alloca <4 x i64>, align 32
 ; CHECK-NEXT:    [[VAL_VEC_BC:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i64*
 ; CHECK-NEXT:    [[VAL_VEC_BASE_ADDR:%.*]] = getelementptr i64, i64* [[VAL_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:       vector.body:
-; CHECK:         [[UNI_PHI:%uni.phi.*]] = phi i64 [ 0, %vector.ph ], [ [[TMP8:%.*]], %vector.body ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, %vector.ph ], [ [[TMP7:%.*]], %vector.body ]
-; CHECK:         store <4 x i64> [[VEC_PHI]], <4 x i64>* [[VAL_VEC]], align 8
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[IP:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP10:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP8:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP7:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[DOTEXTRACT_0_:%.*]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[DOTEXTRACT_1_:%.*]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[DOTEXTRACT_2_:%.*]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[DOTEXTRACT_3_:%.*]])
+; CHECK-NEXT:    store <4 x i64> [[VEC_PHI]], <4 x i64>* [[VAL_VEC]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[IP:%.*]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i64>, <4 x i64>* [[TMP2]], align 8
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <4 x i64> [[WIDE_LOAD]], zeroinitializer
 ; CHECK-NEXT:    [[TMP4:%.*]] = xor <4 x i1> [[TMP3]], <i1 true, i1 true, i1 true, i1 true>
-; CHECK-NEXT:    [[SCALAR_GEP1:%.*]] = getelementptr inbounds i64, i64* [[IP2:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i64* [[SCALAR_GEP1]] to <4 x i64>*
+; CHECK-NEXT:    [[SCALAR_GEP2:%.*]] = getelementptr inbounds i64, i64* [[IP2:%.*]], i64 [[UNI_PHI1]]
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i64* [[SCALAR_GEP2]] to <4 x i64>*
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0v4i64(<4 x i64>* [[TMP5]], i32 8, <4 x i1> [[TMP4]], <4 x i64> undef)
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[WIDE_MASKED_LOAD]], <4 x i64>* [[VAL_VEC]], i32 8, <4 x i1> [[TMP4]])
 ; CHECK:         [[TMP7]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ;
 entry:
   %val = alloca i64, align 8

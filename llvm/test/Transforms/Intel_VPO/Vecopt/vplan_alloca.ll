@@ -16,19 +16,21 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP_IV_IND_INIT]], [[BB1:BB[0-9]+]] ]
 ; LLVM:     [DA: Div] [256 x i8]* [[VP_A_VAR:%.*]] = alloca i64 [[VP_IV]]
 ;
-; LLVM-CG-LABEL:  vector.body:
-; LLVM-CG-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[PRED_ALLOCA_CONTINUE30:%.*]] ]
-; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP18:%.*]], [[PRED_ALLOCA_CONTINUE30]] ], [ 0, [[VECTOR_PH0]] ]
-; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[PRED_ALLOCA_CONTINUE30]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; LLVM-CG-LABEL: define dso_local void @func(
+; LLVM-CG:       vector.body:
+; LLVM-CG-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[PRED_ALLOCA_CONTINUE40:%.*]] ]
+; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP20:%.*]], [[PRED_ALLOCA_CONTINUE40]] ]
+; LLVM-CG-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ [[TMP18:%.*]], [[PRED_ALLOCA_CONTINUE40]] ], [ 0, [[VECTOR_PH0]] ]
+; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[PRED_ALLOCA_CONTINUE40]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
 ; LLVM-CG-NEXT:    [[VEC_PHI_EXTRACT_1_0:%.*]] = extractelement <2 x i64> [[VEC_PHI0]], i32 1
 ; LLVM-CG-NEXT:    [[TMP0:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], <i64 42, i64 42>
-; LLVM-CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds [256 x i8]*, [256 x i8]** [[STORAGE0:%.*]], i64 [[UNI_PHI0]]
+; LLVM-CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds [256 x i8]*, [256 x i8]** [[STORAGE0:%.*]], i64 [[UNI_PHI10]]
 ; LLVM-CG-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP0]], i64 0
 ; LLVM-CG-NEXT:    [[TMP1:%.*]] = icmp eq i1 [[PREDICATE0]], true
 ; LLVM-CG-NEXT:    br i1 [[TMP1]], label [[PRED_ALLOCA_IF0:%.*]], label [[TMP4:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.alloca.if:
-; LLVM-CG-NEXT:    [[TMP2:%.*]] = alloca [256 x i8], i64 [[UNI_PHI0]], align 16
+; LLVM-CG-NEXT:    [[TMP2:%.*]] = alloca [256 x i8], i64 [[UNI_PHI10]], align 16
 ; LLVM-CG-NEXT:    [[TMP3:%.*]] = insertelement <2 x [256 x i8]*> undef, [256 x i8]* [[TMP2]], i32 0
 ; LLVM-CG-NEXT:    br label [[TMP4]]
 ; LLVM-CG-EMPTY:
@@ -37,20 +39,20 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-CG-NEXT:    br label [[PRED_ALLOCA_CONTINUE0:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.alloca.continue:
-; LLVM-CG-NEXT:    [[PREDICATE10:%.*]] = extractelement <2 x i1> [[TMP0]], i64 1
-; LLVM-CG-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE10]], true
-; LLVM-CG-NEXT:    br i1 [[TMP6]], label [[PRED_ALLOCA_IF20:%.*]], label [[TMP9:%.*]]
+; LLVM-CG-NEXT:    [[PREDICATE20:%.*]] = extractelement <2 x i1> [[TMP0]], i64 1
+; LLVM-CG-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE20]], true
+; LLVM-CG-NEXT:    br i1 [[TMP6]], label [[PRED_ALLOCA_IF30:%.*]], label [[TMP9:%.*]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  pred.alloca.if2:
+; LLVM-CG-NEXT:  pred.alloca.if3:
 ; LLVM-CG-NEXT:    [[TMP7:%.*]] = alloca [256 x i8], i64 [[VEC_PHI_EXTRACT_1_0]], align 16
 ; LLVM-CG-NEXT:    [[TMP8:%.*]] = insertelement <2 x [256 x i8]*> [[TMP5]], [256 x i8]* [[TMP7]], i32 1
 ; LLVM-CG-NEXT:    br label [[TMP9]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  9:
-; LLVM-CG-NEXT:    [[TMP10:%.*]] = phi <2 x [256 x i8]*> [ [[TMP5]], [[PRED_ALLOCA_CONTINUE0]] ], [ [[TMP8]], [[PRED_ALLOCA_IF20]] ]
-; LLVM-CG-NEXT:    br label [[PRED_ALLOCA_CONTINUE30]]
+; LLVM-CG-NEXT:    [[TMP10:%.*]] = phi <2 x [256 x i8]*> [ [[TMP5]], [[PRED_ALLOCA_CONTINUE0]] ], [ [[TMP8]], [[PRED_ALLOCA_IF30]] ]
+; LLVM-CG-NEXT:    br label [[PRED_ALLOCA_CONTINUE40]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  pred.alloca.continue3:
+; LLVM-CG-NEXT:  pred.alloca.continue4:
 ; LLVM-CG-NEXT:    [[TMP11:%.*]] = bitcast [256 x i8]** [[SCALAR_GEP0]] to <2 x [256 x i8]*>*
 ; LLVM-CG-NEXT:    call void @llvm.masked.store.v2p0a256i8.p0v2p0a256i8(<2 x [256 x i8]*> [[TMP10]], <2 x [256 x i8]*>* [[TMP11]], i32 8, <2 x i1> [[TMP0]])
 ; LLVM-CG-NEXT:    [[TMP12:%.*]] = alloca [256 x i8], align 16
