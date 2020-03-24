@@ -4501,11 +4501,7 @@ void CodeGenModule::generateIntelFPGAAnnotation(
   }
   if (D->hasAttr<IntelFPGASimpleDualPortAttr>())
     Out << "{simple_dual_port:1}";
-<<<<<<< HEAD
   if (const auto *FP2D = D->getAttr<ForcePow2DepthAttr>()) {
-=======
-  if (const auto *FP2D = D->getAttr<IntelFPGAForcePow2DepthAttr>()) {
->>>>>>> 30a60bfef6ab86206fbed49161b80e8cbb695d8a
     llvm::APSInt FP2DInt =
         FP2D->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << FP2D->getSpelling() << ':' << FP2DInt << '}';
