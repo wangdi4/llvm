@@ -1442,6 +1442,75 @@ defm VBROADCASTSS  : avx512_fp_broadcast_ss<0x18, "vbroadcastss",
 defm VBROADCASTSD  : avx512_fp_broadcast_sd<0x19, "vbroadcastsd",
                                        avx512vl_f64_info>, VEX_W1X;
 
+#if INTEL_CUSTOMIZATION
+let Predicates = [HasVLX] in {
+def : Pat<(v4f32 (X86masked_VBroadcastld32 addr:$src, VK4:$mask)),
+          (VBROADCASTSSZ128rmkz VK4:$mask, addr:$src)>;
+def : Pat<(v8f32 (X86masked_VBroadcastld32 addr:$src, VK8:$mask)),
+          (VBROADCASTSSZ256rmkz VK8:$mask, addr:$src)>;
+
+def : Pat<(v4f64 (X86masked_VBroadcastld64 addr:$src, VK4:$mask)),
+          (VBROADCASTSDZ256rmkz VK4:$mask, addr:$src)>;
+
+// Versions with vselect and non-zero false value.
+def : Pat<(v4f32 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK4:$mask),
+                          VR128X:$src0)),
+          (VBROADCASTSSZ128rmk VR128X:$src0, VK4:$mask, addr:$src)>;
+def : Pat<(v8f32 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK8:$mask),
+                          VR256X:$src0)),
+          (VBROADCASTSSZ256rmk VR256X:$src0, VK8:$mask, addr:$src)>;
+
+def : Pat<(v4f64 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK4:$mask),
+                          VR256X:$src0)),
+          (VBROADCASTSDZ256rmk VR256X:$src0, VK4:$mask, addr:$src)>;
+
+// Versions with vselect and zero false value.
+def : Pat<(v4f32 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK4:$mask),
+                          immAllZerosV)),
+          (VBROADCASTSSZ128rmkz VK4:$mask, addr:$src)>;
+def : Pat<(v8f32 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK8:$mask),
+                          immAllZerosV)),
+          (VBROADCASTSSZ256rmkz VK8:$mask, addr:$src)>;
+
+def : Pat<(v4f64 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK4:$mask),
+                          immAllZerosV)),
+          (VBROADCASTSDZ256rmkz VK4:$mask, addr:$src)>;
+}
+
+let Predicates = [HasAVX512] in {
+def : Pat<(v16f32 (X86masked_VBroadcastld32 addr:$src, VK16:$mask)),
+          (VBROADCASTSSZrmkz VK16:$mask, addr:$src)>;
+def : Pat<(v8f64 (X86masked_VBroadcastld64 addr:$src, VK8:$mask)),
+          (VBROADCASTSDZrmkz VK8:$mask, addr:$src)>;
+
+// Versions with vselect and non-zero false value.
+def : Pat<(v16f32 (vselect VK16:$mask,
+                           (X86masked_VBroadcastld32 addr:$src, VK16:$mask),
+                           VR512:$src0)),
+          (VBROADCASTSSZrmk VR512:$src0, VK16:$mask, addr:$src)>;
+def : Pat<(v8f64 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK8:$mask),
+                          VR512:$src0)),
+          (VBROADCASTSDZrmk VR512:$src0, VK8:$mask, addr:$src)>;
+
+// Versions with vselect and zero false value.
+def : Pat<(v16f32 (vselect VK16:$mask,
+                           (X86masked_VBroadcastld32 addr:$src, VK16:$mask),
+                           immAllZerosV)),
+          (VBROADCASTSSZrmkz VK16:$mask, addr:$src)>;
+def : Pat<(v8f64 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK8:$mask),
+                          immAllZerosV)),
+          (VBROADCASTSDZrmkz VK8:$mask, addr:$src)>;
+}
+#endif // INTEL_CUSTOMIZATION
+
 multiclass avx512_int_broadcast_reg<bits<8> opc, SchedWrite SchedRR,
                                     X86VectorVTInfo _, SDPatternOperator OpNode,
                                     RegisterClass SrcRC> {
@@ -1544,6 +1613,85 @@ defm VPBROADCASTD  : avx512_int_broadcast_rm_vl<0x58, "vpbroadcastd",
                                            avx512vl_i32_info, HasAVX512, 1>;
 defm VPBROADCASTQ  : avx512_int_broadcast_rm_vl<0x59, "vpbroadcastq",
                                            avx512vl_i64_info, HasAVX512, 1>, VEX_W1X;
+
+#if INTEL_CUSTOMIZATION
+let Predicates = [HasVLX] in {
+def : Pat<(v4i32 (X86masked_VBroadcastld32 addr:$src, VK4:$mask)),
+          (VPBROADCASTDZ128rmkz VK4:$mask, addr:$src)>;
+def : Pat<(v8i32 (X86masked_VBroadcastld32 addr:$src, VK8:$mask)),
+          (VPBROADCASTDZ256rmkz VK8:$mask, addr:$src)>;
+
+def : Pat<(v2i64 (X86masked_VBroadcastld64 addr:$src, VK2:$mask)),
+          (VPBROADCASTQZ128rmkz VK2:$mask, addr:$src)>;
+def : Pat<(v4i64 (X86masked_VBroadcastld64 addr:$src, VK4:$mask)),
+          (VPBROADCASTQZ256rmkz VK4:$mask, addr:$src)>;
+
+// Versions with vselect and non-zero false value.
+def : Pat<(v4i32 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK4:$mask),
+                          VR128X:$src0)),
+          (VPBROADCASTDZ128rmk VR128X:$src0, VK4:$mask, addr:$src)>;
+def : Pat<(v8i32 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK8:$mask),
+                          VR256X:$src0)),
+          (VPBROADCASTDZ256rmk VR256X:$src0, VK8:$mask, addr:$src)>;
+
+def : Pat<(v2i64 (vselect VK2:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK2:$mask),
+                          VR128X:$src0)),
+          (VPBROADCASTQZ128rmk VR128X:$src0, VK2:$mask, addr:$src)>;
+def : Pat<(v4i64 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK4:$mask),
+                          VR256X:$src0)),
+          (VPBROADCASTQZ256rmk VR256X:$src0, VK4:$mask, addr:$src)>;
+
+// Versions with vselect and zero false value.
+def : Pat<(v4i32 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK4:$mask),
+                          immAllZerosV)),
+          (VPBROADCASTDZ128rmkz VK4:$mask, addr:$src)>;
+def : Pat<(v8i32 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld32 addr:$src, VK8:$mask),
+                          immAllZerosV)),
+          (VPBROADCASTDZ256rmkz VK8:$mask, addr:$src)>;
+
+def : Pat<(v2i64 (vselect VK2:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK2:$mask),
+                          immAllZerosV)),
+          (VPBROADCASTQZ128rmkz VK2:$mask, addr:$src)>;
+def : Pat<(v4i64 (vselect VK4:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK4:$mask),
+                          immAllZerosV)),
+          (VPBROADCASTQZ256rmkz VK4:$mask, addr:$src)>;
+}
+
+let Predicates = [HasAVX512] in {
+def : Pat<(v16i32 (X86masked_VBroadcastld32 addr:$src, VK16:$mask)),
+          (VPBROADCASTDZrmkz VK16:$mask, addr:$src)>;
+def : Pat<(v8i64 (X86masked_VBroadcastld64 addr:$src, VK8:$mask)),
+          (VPBROADCASTQZrmkz VK8:$mask, addr:$src)>;
+
+// Versions with vselect and non-zero false value.
+def : Pat<(v16i32 (vselect VK16:$mask,
+                           (X86masked_VBroadcastld32 addr:$src, VK16:$mask),
+                           VR512:$src0)),
+          (VPBROADCASTDZrmk VR512:$src0, VK16:$mask, addr:$src)>;
+def : Pat<(v8i64 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK8:$mask),
+                          VR512:$src0)),
+          (VPBROADCASTQZrmk VR512:$src0, VK8:$mask, addr:$src)>;
+
+// Versions with vselect and zero false value.
+def : Pat<(v16i32 (vselect VK16:$mask,
+                           (X86masked_VBroadcastld32 addr:$src, VK16:$mask),
+                           immAllZerosV)),
+          (VPBROADCASTDZrmkz VK16:$mask, addr:$src)>;
+def : Pat<(v8i64 (vselect VK8:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK8:$mask),
+                          immAllZerosV)),
+          (VPBROADCASTQZrmkz VK8:$mask, addr:$src)>;
+}
+#endif // INTEL_CUSTOMIZATION
 
 multiclass avx512_subvec_broadcast_rm<bits<8> opc, string OpcodeStr,
                           X86VectorVTInfo _Dst, X86VectorVTInfo _Src> {
@@ -11870,6 +12018,20 @@ def : Pat<(vselect (v2i1 VK2WM:$mask), (v2f64 (X86VBroadcastld64 addr:$src)),
                    immAllZerosV),
           (VMOVDDUPZ128rmkz VK2WM:$mask, addr:$src)>;
 }
+
+#if INTEL_CUSTOMIZATION
+let Predicates = [HasVLX] in
+def : Pat<(v2f64 (X86masked_VBroadcastld64 addr:$src, VK2:$mask)),
+          (VMOVDDUPZ128rmkz VK2:$mask, addr:$src)>;
+def : Pat<(v2f64 (vselect VK2:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK2:$mask),
+                          VR128X:$src0)),
+          (VMOVDDUPZ128rmk VR128X:$src0, VK2:$mask, addr:$src)>;
+def : Pat<(v2f64 (vselect VK2:$mask,
+                          (X86masked_VBroadcastld64 addr:$src, VK2:$mask),
+                          immAllZerosV)),
+          (VMOVDDUPZ128rmkz VK2:$mask, addr:$src)>;
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // AVX-512 - Unpack Instructions

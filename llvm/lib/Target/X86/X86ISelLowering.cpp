@@ -30962,6 +30962,7 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(UNPCKH)
   NODE_NAME_CASE(VBROADCAST)
   NODE_NAME_CASE(VBROADCAST_LOAD)
+  NODE_NAME_CASE(MASKED_VBROADCAST_LOAD) // INTEL
   NODE_NAME_CASE(VBROADCASTM)
   NODE_NAME_CASE(SUBV_BROADCAST)
   NODE_NAME_CASE(VPERMILPV)
@@ -47044,7 +47045,8 @@ static SDValue rebuildGatherScatter(MaskedGatherScatterSDNode *GorS,
 }
 
 static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
-                                    TargetLowering::DAGCombinerInfo &DCI) {
+                                  TargetLowering::DAGCombinerInfo &DCI, // INTEL
+                                  const X86Subtarget &Subtarget) { //INTEL
   SDLoc DL(N);
   auto *GorS = cast<MaskedGatherScatterSDNode>(N);
   SDValue Index = GorS->getIndex();
@@ -47134,7 +47136,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
   if (auto *BV = dyn_cast<BuildVectorSDNode>(Index)) {
     BitVector UndefElts;
     if (ConstantSDNode *C = BV->getConstantSplatNode(&UndefElts)) {
-      if (UndefElts.none() && isOneConstant(Scale)) {
+      if (!C->isNullValue() && UndefElts.none() && isOneConstant(Scale)) {
         SDValue SExt = DAG.getSExtOrTrunc(SDValue(C, 0), DL, PtrVT);
         Base = DAG.getNode(ISD::ADD, DL, PtrVT, Base, SExt);
         Index = DAG.getConstant(0, DL, Index.getValueType());
@@ -47156,6 +47158,42 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
       return rebuildGatherScatter(GorS, Index, Base, Scale, DAG);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // Try to convert the gather into a masked broadcast load.
+  if (auto *Gather = dyn_cast<MaskedGatherSDNode>(GorS)) {
+    const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+    if (Subtarget.hasAVX512() && TLI.isTypeLegal(N->getValueType(0)) &&
+        ISD::isBuildVectorAllZeros(Index.getNode())) {
+      MVT MemoryVT = N->getSimpleValueType(0).getVectorElementType();
+      assert(MemoryVT.getSizeInBits() >= 32 && "Only 32/64 bit supported.");
+      SDValue BcastLd;
+      if (ISD::isBuildVectorAllOnes(Mask.getNode())) {
+        // Mask is all ones so just use a VBROADCAST_LOAD.
+        SDValue Ops[] = {Gather->getChain(), Base};
+        BcastLd = DAG.getMemIntrinsicNode(X86ISD::VBROADCAST_LOAD,
+                                          DL, Gather->getVTList(),
+                                          Ops, MemoryVT,
+                                          Gather->getMemOperand());
+        return DCI.CombineTo(N, BcastLd, BcastLd.getValue(1));
+      }
+
+      // FIXME: Handle 128/256 without VLX? Need to widen op, pad mask with
+      // zeroes and extract result.
+      if (N->getSimpleValueType(0).is512BitVector() || Subtarget.hasVLX()) {
+        // Otherwise convert this gather to a MASKED_VBROADCAST_LOAD.
+        SDValue Ops[] = {Gather->getChain(), Base, Mask};
+        BcastLd = DAG.getMemIntrinsicNode(X86ISD::MASKED_VBROADCAST_LOAD,
+                                          DL, Gather->getVTList(),
+                                          Ops, MemoryVT,
+                                          Gather->getMemOperand());
+        SDValue Select = DAG.getSelect(DL, N->getValueType(0), Mask, BcastLd,
+                                       Gather->getPassThru());
+        return DCI.CombineTo(N, Select, BcastLd.getValue(1));
+      }
+    }
+  }
+#endif
 
   // With vector masks we only demand the upper bit of the mask.
   SDValue Mask = GorS->getMask();
@@ -49393,7 +49431,8 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   case X86ISD::MGATHER:
   case X86ISD::MSCATTER:    return combineX86GatherScatter(N, DAG, DCI);
   case ISD::MGATHER:
-  case ISD::MSCATTER:       return combineGatherScatter(N, DAG, DCI);
+  case ISD::MSCATTER: // INTEL
+    return combineGatherScatter(N, DAG, DCI, Subtarget); // INTEL
   case X86ISD::PCMPEQ:
   case X86ISD::PCMPGT:      return combineVectorCompare(N, DAG, Subtarget);
   case X86ISD::PMULDQ:
