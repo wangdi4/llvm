@@ -537,7 +537,6 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
           (AlignBranchType & X86::AlignBranchIndirect));
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Check if prefix can be added before instruction \p Inst.
 bool X86AsmBackend::shouldAddPrefix(const MCInst &Inst) const {
@@ -662,12 +661,8 @@ uint8_t X86AsmBackend::getMaxPrefixSize(MCObjectStreamer &OS,
 }
 
 /// Insert MCBoundaryAlignFragment before instructions to align branches.
-void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
-=======
-/// Insert BoundaryAlignFragment before instructions to align branches.
 void X86AsmBackend::emitInstructionBegin(MCObjectStreamer &OS,
->>>>>>> b1a7a245ec24ba3a1bc482897a8f735785ea5983
-                                       const MCInst &Inst) {
+                                         const MCInst &Inst) {
   if (!needAlign(OS))
     return;
 
@@ -745,17 +740,11 @@ void X86AsmBackend::emitInstructionBegin(MCObjectStreamer &OS,
     // the fused pair. Note: When there is a MCAlignFragment inserted just
     // before the first instruction in the fused pair, e.g.
     //
-<<<<<<< HEAD
     // \code
     //   .align 16
     //   cmp %rax %rcx
     //   je .Label0
     // \endcode
-=======
-    // Do nothing here since we already inserted a BoudaryAlign fragment when
-    // we met the first instruction in the fused pair and we'll tie them
-    // together in emitInstructionEnd.
->>>>>>> b1a7a245ec24ba3a1bc482897a8f735785ea5983
     //
     // We will not emit NOP before the CMP since the align directive is
     // used to align the fused pair rather than NOP.
@@ -818,15 +807,12 @@ void X86AsmBackend::emitInstructionBegin(MCObjectStreamer &OS,
   }
 }
 
-<<<<<<< HEAD
 /// Set the last fragment in the set of fragments to be aligned (which is
 /// current fragment indeed) for BF and insert a new BF to prevent further
 /// instruction from being added to the current fragment if necessary.
-void X86AsmBackend::alignBranchesEnd(MCObjectStreamer &OS, const MCInst &Inst) {
-=======
 /// Set the last fragment to be aligned for the BoundaryAlignFragment.
-void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS, const MCInst &Inst) {
->>>>>>> b1a7a245ec24ba3a1bc482897a8f735785ea5983
+void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS,
+                                       const MCInst &Inst) {
   if (!needAlign(OS))
     return;
 
