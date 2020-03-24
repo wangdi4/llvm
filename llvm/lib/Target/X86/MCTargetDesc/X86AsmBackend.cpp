@@ -537,15 +537,6 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
           (AlignBranchType & X86::AlignBranchIndirect));
 }
 
-/// Return true if this instruction has been fully relaxed into it's most
-/// general available form.
-static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
-  auto &Inst = RF.getInst();
-  auto &STI = *RF.getSubtargetInfo();
-  bool Is16BitMode = STI.getFeatureBits()[X86::Mode16Bit];
-  return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
-}
-
 #if INTEL_CUSTOMIZATION
 /// Check if prefix can be added before instruction \p Inst.
 bool X86AsmBackend::shouldAddPrefix(const MCInst &Inst) const {
@@ -1057,7 +1048,6 @@ static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
   return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
 }
 
-
 static bool shouldAddPrefix(const MCInst &Inst, const MCInstrInfo &MCII) {
   // Linker may rewrite the instruction with variant symbol operand.
   return !hasVariantSymbol(Inst);
@@ -1086,7 +1076,7 @@ static unsigned getRemainingPrefixSize(const MCInst &Inst,
 bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
                                             MCCodeEmitter &Emitter,
                                             unsigned &RemainingSize) const {
-  if (!shouldAddPrefix(RF.getInst(), *MCII))
+  if (!::shouldAddPrefix(RF.getInst(), *MCII))
     return false;
   // If the instruction isn't fully relaxed, shifting it around might require a
   // larger value for one of the fixups then can be encoded.  The outer loop
