@@ -15,11 +15,7 @@ define i32 @admiral(i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[D]], i32 927, i32 42
 ; CHECK-NEXT:    br label [[BB2]]
 ; CHECK:       bb2:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[DOT]], %bb1 ], [ 42, %0 ] ;INTEL
-=======
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 42, [[TMP0:%.*]] ], [ [[SPEC_SELECT]], [[BB1]] ]
->>>>>>> 7fe0e70eccb5945acc8fe90b8b7c8ea35ca0ae0b
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[SPEC_SELECT]], %bb1 ], [ 42, %0 ] ;INTEL
 ; CHECK-NEXT:    ret i32 [[MERGE]]
 ;
   %c = icmp sle i32 %a, %b
@@ -40,11 +36,7 @@ define i32 @ackbar(i1 %c) {
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 icmp sgt (i32 sdiv (i32 32767, i32 ptrtoint (i32* @G to i32)), i32 0), i32 42, i32 927
 ; CHECK-NEXT:    br label [[BB6]]
 ; CHECK:       bb6:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[DOT]], %bb5 ], [ 42, %0 ] ;INTEL
-=======
-; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ 42, [[TMP0:%.*]] ], [ [[SPEC_SELECT]], [[BB5]] ]
->>>>>>> 7fe0e70eccb5945acc8fe90b8b7c8ea35ca0ae0b
+; CHECK-NEXT:    [[MERGE:%.*]] = phi i32 [ [[SPEC_SELECT]], %bb5 ], [ 42, %0 ] ;INTEL
 ; CHECK-NEXT:    ret i32 [[MERGE]]
 ;
   br i1 %c, label %bb5, label %bb6
