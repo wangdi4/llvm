@@ -46916,6 +46916,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
       MVT MemoryVT = N->getSimpleValueType(0).getVectorElementType();
       assert(MemoryVT.getSizeInBits() >= 32 && "Only 32/64 bit supported.");
       SDValue BcastLd;
+      SDValue Mask = GorS->getMask();
       if (ISD::isBuildVectorAllOnes(Mask.getNode())) {
         // Mask is all ones so just use a VBROADCAST_LOAD.
         SDValue Ops[] = {Gather->getChain(), Base};
