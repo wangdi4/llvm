@@ -1,5 +1,5 @@
-; RUN: opt -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-cg -print-before=hir-loop-concatenation -print-after=hir-loop-concatenation -S 2>&1 < %s | FileCheck %s
-; RUN: opt -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-concatenation -hir-cg -print-before=hir-loop-concatenation -print-after=hir-loop-concatenation -S 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-details -enable-intel-advanced-opts -mattr=+avx2 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-loop-concatenation,print<hir-framework>,hir-cg" -S 2>&1 < %s | FileCheck %s
 
 ; Look for 16 loops with trip count of 4 before the transformation.
 
@@ -7,29 +7,29 @@
 
 ; CHECK: BEGIN REGION
 ; 1st loop is alloca write loop
-; CHECK: DO i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
 ; CHECK: (%5)[0][i1][0] =
 
 ; CHECK-NOT: BEGIN REGION
 
 ; 2nd loop is alloca write loop
-; CHECK: DO i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
 ; CHECK: %96 = (%5)[0][0][i1];
 
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
-; CHECK: DO i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
 
 
 ; Look for 4 loops with trip count of 16, 8, 8 and 4 after the transformation.
@@ -39,22 +39,26 @@
 ; CHECK: BEGIN REGION { modified }
 
 ; Check that 1st loop is fused alloca write loop
-; CHECK: DO i1 = 0, 15, 1   <DO_LOOP> <unroll>
-; CHECK: (%alloca{{.*}})[0][i1][0] =
+; CHECK: DO i64 i1 = 0, 15, 1   <DO_LOOP> <unroll>
+; CHECK: (%alloca[[NUM:.*]])[0][i1][0] =
+; CHECK-NEXT: {sb:[[ALLOCASB:.*]]}
 
 ; Check that 2nd loop is alloca initialization loop
-; CHECK: DO i1 = 0, 7, 1
+; CHECK: DO i64 i1 = 0, 7, 1
 ; CHECK: (%alloca{{.*}})[0][i1] = 0;
 
 ; Check that 3rd loop is fused alloca read loop
-; CHECK: DO i1 = 0, 7, 1
-; CHECK: %96 = (%alloca{{.*}})[0][0][i1];
+; CHECK: DO i64 i1 = 0, 7, 1
+; CHECK: %96 = (%alloca[[NUM]])[0][0][i1];
+; CHECK-NEXT: <LVAL-REG>
+; CHECK-NEXT: <RVAL-REG>
+; CHECK-SAME: {sb:[[ALLOCASB]]}
 
 ; Check that 4th loop is reduction loop
-; CHECK: DO i1 = 0, 3, 1
+; CHECK: DO i64 i1 = 0, 3, 1
 ; CHECK: %94 = %94  +  (%alloca{{.*}})[0][i1];
 
-; CHECK-NOT: DO i1
+; CHECK-NOT: DO i64 i1
 
 ; Check 'inbounds' keyword on the alloca GEP after code gen.
 ; CHECK: getelementptr inbounds [16 x [8 x i32]], [16 x [8 x i32]]*
