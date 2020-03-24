@@ -8,10 +8,10 @@ struct {
   _Quad q;
 } my_quad;
 
-// CHECK: common global fp128 0xL00000000000000000000000000000000
+// CHECK: global fp128 0xL00000000000000000000000000000000
 _Quad q1, q2, result;
 
-// CHECK: common global fp128* null
+// CHECK: global fp128* null
 _Quad *pointer;
 
 void check() {
