@@ -176,6 +176,12 @@ protected:
   /// Processor has Integer Fused Multiply Add
   bool HasIFMA = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  bool HasAVXIFMA = false;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor has RTM instructions.
   bool HasRTM = false;
 
@@ -741,6 +747,11 @@ public:
   bool hasVBMI() const { return HasVBMI; }
   bool hasVBMI2() const { return HasVBMI2; }
   bool hasIFMA() const { return HasIFMA; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  bool hasAVXIFMA() const { return HasAVXIFMA; }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
   bool hasRTM() const { return HasRTM; }
   bool hasADX() const { return HasADX; }
   bool hasSHA() const { return HasSHA; }

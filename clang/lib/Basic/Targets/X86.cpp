@@ -634,6 +634,9 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AVX_VNNI
     Features["avxvnni"] = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+    Features["avxifma"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
@@ -990,6 +993,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
       setSSELevel(Features, AVX2, Enabled);
   }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  else if (Name == "avxifma" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1219,6 +1227,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avx512convert") {
       HasAVX512CONVERT = true;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_IFMA
+    } else if (Feature == "+avxifma") {
+      HasAVXIFMA = true;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -1747,6 +1759,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512CONVERT__");
   Builder.defineMacro("__AVX512CONVERT_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  if (HasAVXIFMA)
+    Builder.defineMacro("__AVXIFMA__");
+  Builder.defineMacro("__AVXIFMA_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1927,6 +1944,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", true)
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+      .Case("avxifma", true)
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
       .Case("bmi", true)
       .Case("bmi2", true)
@@ -2062,6 +2082,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", HasAVXVNNI)
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+      .Case("avxifma", HasAVXIFMA)
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
