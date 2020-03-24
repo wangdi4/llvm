@@ -669,7 +669,6 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
     return;
   }
 
-<<<<<<< HEAD
   // Summary of inserting scheme(Two Steps):
   // Step 1:
   // If the previous instruction is the first instruction in a fusible pair
@@ -702,16 +701,6 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
       return;
     }
   }
-=======
-  if (isPrefix(PrevInst, *MCII))
-    // If this instruction follows a prefix, inserting a nop would change
-    // semantic.
-    return;
-
-  if (!isMacroFused(PrevInst, Inst))
-    // Macro fusion doesn't happen indeed, clear the pending.
-    PendingBoundaryAlign = nullptr;
->>>>>>> e6f1dd40bd013c7b9780625b19328296ff9fbb2e
 
   // Prefix or NOP shouldn't be inserted after prefix. e.g.
   //
@@ -719,7 +708,7 @@ void X86AsmBackend::alignBranchesBegin(MCObjectStreamer &OS,
   //   data16
   //   leaq  bar@tlsld(%rip), %rdi
   // \endcode
-  if (X86::isPrefix(PrevInst.getOpcode()))
+  if (isPrefix(PrevInst, *MCII))
     return;
 
   bool NeedAlignFused = AlignBranchType & X86::AlignBranchFused;
