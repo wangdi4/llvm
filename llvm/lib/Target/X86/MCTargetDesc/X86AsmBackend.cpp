@@ -761,7 +761,11 @@ void X86AsmBackend::emitInstructionBegin(MCObjectStreamer &OS,
   if (isPrefix(PrevInst, *MCII))
     return;
 
-<<<<<<< HEAD
+  if (isRightAfterData(OS.getCurrentFragment(), PrevInstPosition))
+    // If this instruction follows any data, there is no clear
+    // instruction boundary, inserting a nop would change semantic.
+    return;
+
   bool NeedAlignFused = AlignBranchType & X86::AlignBranchFused;
   //  Step 1:
   //  Handle the condition when the previous the instruction is the first
@@ -787,21 +791,6 @@ void X86AsmBackend::emitInstructionBegin(MCObjectStreamer &OS,
     // Macro fusion actually happens, so emit NOP before the first instrucion in
     // the fused pair. Note: When there is a MCAlignFragment inserted just
     // before the first instruction in the fused pair, e.g.
-=======
-  if (isRightAfterData(OS.getCurrentFragment(), PrevInstPosition))
-    // If this instruction follows any data, there is no clear
-    // instruction boundary, inserting a nop would change semantic.
-    return;
-
-  if (!isMacroFused(PrevInst, Inst))
-    // Macro fusion doesn't happen indeed, clear the pending.
-    PendingBoundaryAlign = nullptr;
-
-  if (PendingBoundaryAlign &&
-      OS.getCurrentFragment()->getPrevNode() == PendingBoundaryAlign) {
-    // Macro fusion actually happens and there is no other fragment inserted
-    // after the previous instruction.
->>>>>>> 39bcc76a9253181023e8e39af082b2f0de688b1d
     //
     // \code
     //   .align 16
@@ -880,8 +869,7 @@ void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS,
     return;
 
   PrevInst = Inst;
-<<<<<<< HEAD
-  const MCFragment *CF = OS.getCurrentFragment();
+  MCFragment *CF = OS.getCurrentFragment();
 
   if (!MCII->get(Inst.getOpcode()).isPseudo()) {
     if (auto *F = dyn_cast_or_null<MCDataFragment>(CF)) {
@@ -903,17 +891,13 @@ void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS,
       }
     }
   }
-=======
-  MCFragment *CF = OS.getCurrentFragment();
   PrevInstPosition = std::make_pair(CF, getSizeForInstFragment(CF));
->>>>>>> 39bcc76a9253181023e8e39af082b2f0de688b1d
 
   IsPrefixedInst = false;
 
   if (!needAlignInst(Inst))
     return;
 
-<<<<<<< HEAD
   for (auto *F = CF; F && F != LastFragmentToBeAligned &&
                      (F->hasInstructions() || isa<MCBoundaryAlignFragment>(F));
        F = F->getPrevNode()) {
@@ -946,18 +930,6 @@ void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS,
   // prefix to align other instruction.
   if (!isa<MCRelaxableFragment>(OS.getCurrentFragment()))
     OS.insert(new MCBoundaryAlignFragment());
-=======
-  // Tie the aligned instructions into a a pending BoundaryAlign.
-  PendingBoundaryAlign->setLastFragment(CF);
-  PendingBoundaryAlign = nullptr;
-
-  // We need to ensure that further data isn't added to the current
-  // DataFragment, so that we can get the size of instructions later in
-  // MCAssembler::relaxBoundaryAlign. The easiest way is to insert a new empty
-  // DataFragment.
-  if (isa_and_nonnull<MCDataFragment>(CF))
-    OS.insert(new MCDataFragment());
->>>>>>> 39bcc76a9253181023e8e39af082b2f0de688b1d
 
   // Update the maximum alignment on the current section if necessary.
   MCSection *Sec = OS.getCurrentSectionOnly();
