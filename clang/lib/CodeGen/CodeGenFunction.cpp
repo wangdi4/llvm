@@ -1540,14 +1540,29 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
 #if INTEL_COLLAB
-  // If we encountered this function within a target region, also treat any
-  // functions encountered during its codegen as if they are within a target
-  // region.
-  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
-      (CGM.inTargetRegion() ||
-       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD)))
-    Fn->addFnAttr("openmp-target-declare", "true");
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice) {
+    // In some cases the complete constructor/destructor is marked for the
+    // target but the not base due to aliasing. Mark these.
+    bool MarkCtorDtor = false;
+    llvm::GlobalValue *CEntry = nullptr;
+    if (isa<CXXConstructorDecl>(FD) && GD.getCtorType() == Ctor_Base) {
+      GlobalDecl CompDecl = GD.getWithCtorType(Ctor_Complete);
+      CEntry = CGM.GetGlobalValue(CGM.getMangledName(CompDecl));
+    } else if (isa<CXXDestructorDecl>(FD) && GD.getDtorType() == Dtor_Base) {
+      GlobalDecl CompDecl = GD.getWithDtorType(Dtor_Complete);
+      CEntry = CGM.GetGlobalValue(CGM.getMangledName(CompDecl));
+    }
+    if (auto *CompF = dyn_cast_or_null<llvm::Function>(CEntry))
+      if (CompF->hasFnAttribute("openmp-target-declare"))
+        MarkCtorDtor = true;
 
+    // If we encountered this function within a target region, also treat any
+    // functions encountered during its codegen as if they are within a target
+    // region.
+    if (MarkCtorDtor || CGM.inTargetRegion() ||
+        OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD))
+      Fn->addFnAttr("openmp-target-declare", "true");
+  }
   CodeGenModule::InTargetRegionRAII ITR(
       CGM, Fn->hasFnAttribute("openmp-target-declare"));
 #endif // INTEL_COLLAB
