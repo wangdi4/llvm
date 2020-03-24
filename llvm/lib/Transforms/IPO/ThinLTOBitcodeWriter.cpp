@@ -8,6 +8,7 @@
 
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
@@ -518,6 +519,7 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<ModuleSummaryIndexWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
   }
 };
 } // anonymous namespace

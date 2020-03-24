@@ -19,10 +19,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/CaptureTracking.h" // INTEL
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -63,20 +65,40 @@ class BasicAAResult : public AAResultBase<BasicAAResult> {
   LoopInfo *LI;
   PhiValues *PV;
 
+#if INTEL_CUSTOMIZATION
+  /// The maximum number of uses to explore for PointerMayBeCaptured() calls.
+  unsigned PtrCaptureMaxUses;
+
+  /// Command line option to define the maximum number of pointer uses to
+  /// explore when checking for capture. This value overrides the default if
+  /// optimization level is >= 3 or if this option was explicitly specified
+  /// in command line.
+  static cl::opt<unsigned> OptPtrMaxUsesToExplore;
+#endif // INTEL_CUSTOMIZATION
+
 public:
   BasicAAResult(const DataLayout &DL, const Function &F,
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
                 DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
-                PhiValues *PV = nullptr)
+                PhiValues *PV = nullptr, unsigned OptLevel = 2u) // INTEL
       : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), LI(LI), PV(PV)
-        {}
+#if INTEL_CUSTOMIZATION
+  {
+    PtrCaptureMaxUses =
+        OptLevel < 3 && OptPtrMaxUsesToExplore.getNumOccurrences() == 0
+            ? DefaultMaxUsesToExplore
+            : OptPtrMaxUsesToExplore;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   BasicAAResult(const BasicAAResult &Arg)
       : AAResultBase(Arg), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI), AC(Arg.AC),
-        DT(Arg.DT),  LI(Arg.LI), PV(Arg.PV) {}
+        DT(Arg.DT), LI(Arg.LI), PV(Arg.PV),         // INTEL
+        PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {} // INTEL
   BasicAAResult(BasicAAResult &&Arg)
       : AAResultBase(std::move(Arg)), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI),
-        AC(Arg.AC), DT(Arg.DT), LI(Arg.LI), PV(Arg.PV) {}
+        AC(Arg.AC), DT(Arg.DT), LI(Arg.LI), PV(Arg.PV), // INTEL
+        PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {}     // INTEL
 
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Function &Fn, const PreservedAnalyses &PA,
