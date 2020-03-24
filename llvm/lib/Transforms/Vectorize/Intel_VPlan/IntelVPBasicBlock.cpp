@@ -345,13 +345,19 @@ void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB) {
   }
 }
 
+// Unlinks the instruction from VPBasicBlock's instructions and adds in
+// UnlinkedVPInsns vector. The VPInstructions in UnlinkedVPInsns are deleted
+// when VPlan's destructor is called.
 void VPBasicBlock::eraseInstruction(VPInstruction *Instruction) {
   // We need to remove all instruction operands before erasing the
   // VPInstruction. Else this breaks the use-def chains.
   while (Instruction->getNumOperands())
     Instruction->removeOperand(0);
 
-  Instructions.erase(Instruction);
+  removeInstruction(Instruction);
+
+  VPlan *CurVPlan = getParent();
+  CurVPlan->addUnlinkedVPInst(Instruction);
 }
 
 void VPBasicBlock::execute(VPTransformState *State) {

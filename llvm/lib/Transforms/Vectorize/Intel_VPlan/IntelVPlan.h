@@ -1601,6 +1601,9 @@ private:
 
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 
+  // Holds the instructions that need to be deleted by VPlan's destructor.
+  SmallVector<std::unique_ptr<VPInstruction>, 2> UnlinkedVPInsns;
+
 public:
   VPlan(LLVMContext *Context, const DataLayout *DL);
 
@@ -1788,6 +1791,9 @@ public:
   // are consistent with the underlying IR information of each
   // VPMetadataAsValue.
   void verifyVPMetadataAsValues() const;
+
+  // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
+  void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsns.emplace_back(I); }
 
 private:
   /// Add to the given dominator tree the header block and every new basic block
