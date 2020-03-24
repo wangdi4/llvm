@@ -28,9 +28,9 @@
 namespace llvm {
 class DataLayout;
 class Function;
-class Instruction;
 class Module;
 class TargetLibraryInfo;
+class User;
 class Value;
 class raw_ostream;
 
@@ -294,7 +294,7 @@ public:
   // by the safety analysis and transformation.
   //
   // Retrieve the ValueTypeInfo object, if it exists, for V. If V is 'null' or
-  // 'undef' then the function that takes the Instruction and operand number
+  // 'undef' then the function that takes the User and operand number
   // needs to be used because in those case the type of 'null' or 'undef' is
   // going to be context specific.
   //
@@ -312,7 +312,7 @@ public:
   // separately, there could be safety violations about the types when
   // propagating type information about Value objects.
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
-  ValueTypeInfo *getValueTypeInfo(const Instruction *I, unsigned OpNum) const;
+  ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);

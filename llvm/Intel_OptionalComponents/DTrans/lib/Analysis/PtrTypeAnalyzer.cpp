@@ -182,15 +182,15 @@ public:
   // Get the ValueTypeInfo object for the Value, creating it if necessary.
   ValueTypeInfo *getOrCreateValueTypeInfo(Value *V);
 
-  // Get the ValueTypeInfo object for the specified operand of the Instruction.
+  // Get the ValueTypeInfo object for the specified operand of the User.
   // This method must be used for a Value object that represents 'null'. It may
   // be used for other Value objects, in which case it just redirects to the
   // above overload. Creates a new ValueTypeInfo object if necessary.
-  ValueTypeInfo *getOrCreateValueTypeInfo(const Instruction *I, unsigned OpNum);
+  ValueTypeInfo *getOrCreateValueTypeInfo(const User *U, unsigned OpNum);
 
   // Get the ValueTypeInfo object, if it exists.
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
-  ValueTypeInfo *getValueTypeInfo(const Instruction *I, unsigned OpNum) const;
+  ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
 
   // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
   // completely analyzed.
@@ -217,7 +217,7 @@ private:
   // The IR only has a single Value object instantiated to represent a null
   // pointer, but for the purpose of our analysis we need to track them as
   // representing different types.
-  std::map<std::pair<const Instruction *, unsigned>, ValueTypeInfo *>
+  std::map<std::pair<const User *, unsigned>, ValueTypeInfo *>
       LocalMapForConstant;
 };
 
@@ -725,7 +725,6 @@ private:
 
     // Check if there is metadata for information available to use from a called
     // function or an indirect call.
-    Function *Target = dtrans::getCalledFunction(*Call);
     if (Call->isIndirectCall()) {
       DTransType *DType = MDReader.getDTransTypeFromMD(Call);
       if (DType) {
@@ -735,6 +734,13 @@ private:
       }
       return {true, nullptr};
     }
+    Function *Target = dtrans::getCalledFunction(*Call);
+
+    // If a target function was not found, we cannot resolve the type.
+    // This can also occur as the result of the call instruction being used
+    // for an inline-asm statement.
+    if (!Target)
+      return {true, nullptr};
 
     return getFunctionReturnType(Target, GetTLI(*Call->getFunction()));
   }
@@ -958,7 +964,7 @@ private:
       return {true, nullptr};
     }
 
-    if (Call->isIndirectCall())
+    if (Call->isIndirectCall() || Call->isInlineAsm())
       return {true, nullptr};
 
     if (Target->isIntrinsic())
@@ -1092,8 +1098,11 @@ private:
       return false;
     };
 
-    Value *BasePointer = GEP.getPointerOperand();
-    ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(BasePointer);
+    // To handle the case where the pointer operand is the constant null, this
+    // needs to retrieve the value using the User & Operand number interface.
+    // For example:
+    //   %91 = getelementptr %struct.listentry, %struct.listentry* null, i64 %90
+    ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(&GEP, 0);
     if (!PointerInfo->isCompletelyAnalyzed())
       ResultInfo->setPartiallyAnalyzed();
 
@@ -1271,8 +1280,10 @@ private:
     // needs to include %struct.foo*. Therefore, we propagate whatever type info
     // was available for the source pointer to the load result, with 1 less
     // level of indirection.
-    Value *PtrOp = LI->getPointerOperand();
-    ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(PtrOp);
+    //
+    // Also, need to be able to handle the special case of:
+    //   %143 = load i64, p0 undef
+    ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(LI, 0);
     propagate(PointerInfo, ResultInfo, true, true, -1);
 
     // Update the usage type of the pointer argument based on the type
@@ -1761,19 +1772,18 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getOrCreateValueTypeInfo(Value *V) {
   return Info;
 }
 
-ValueTypeInfo *
-PtrTypeAnalyzerImpl::getOrCreateValueTypeInfo(const Instruction *I,
-                                              unsigned OpNum) {
-  ValueTypeInfo *Info = getValueTypeInfo(I, OpNum);
+ValueTypeInfo *PtrTypeAnalyzerImpl::getOrCreateValueTypeInfo(const User *U,
+                                                             unsigned OpNum) {
+  ValueTypeInfo *Info = getValueTypeInfo(U, OpNum);
   if (Info)
     return Info;
 
-  Value *V = I->getOperand(OpNum);
+  Value *V = U->getOperand(OpNum);
   if (!isCompilerConstant(V))
     return getOrCreateValueTypeInfo(V);
 
   Info = new ValueTypeInfo(nullptr);
-  LocalMapForConstant[{I, OpNum}] = Info;
+  LocalMapForConstant[{U, OpNum}] = Info;
   return Info;
 }
 
@@ -1785,11 +1795,11 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const Value *V) const {
   return It->second;
 }
 
-ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const Instruction *I,
+ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,
                                                      unsigned OpNum) const {
-  Value *V = I->getOperand(OpNum);
+  Value *V = U->getOperand(OpNum);
   if (isCompilerConstant(V)) {
-    auto It = LocalMapForConstant.find({I, OpNum});
+    auto It = LocalMapForConstant.find({U, OpNum});
     if (It == LocalMapForConstant.end())
       return nullptr;
 
@@ -1835,9 +1845,9 @@ ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const Value *V) const {
   return Impl->getValueTypeInfo(V);
 }
 
-ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const Instruction *I,
+ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const User *U,
                                                  unsigned OpNum) const {
-  return Impl->getValueTypeInfo(I, OpNum);
+  return Impl->getValueTypeInfo(U, OpNum);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
