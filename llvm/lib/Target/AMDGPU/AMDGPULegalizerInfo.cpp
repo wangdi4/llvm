@@ -3376,30 +3376,36 @@ bool AMDGPULegalizerInfo::legalizeBufferAtomic(MachineInstr &MI,
 
 /// Turn a set of s16 typed registers in \p A16AddrRegs into a dword sized
 /// vector with s16 typed elements.
-static void packImageA16AddressToDwords(MachineIRBuilder &B,
-                                        MachineInstr &MI,
+static void packImageA16AddressToDwords(MachineIRBuilder &B, MachineInstr &MI,
                                         SmallVectorImpl<Register> &PackedAddrs,
-                                        int DimIdx,
-                                        int NumVAddrs) {
+                                        int AddrIdx, int DimIdx, int NumVAddrs,
+                                        int NumGradients) {
   const LLT S16 = LLT::scalar(16);
   const LLT V2S16 = LLT::vector(2, 16);
 
-  SmallVector<Register, 8> A16AddrRegs;
-  A16AddrRegs.resize(NumVAddrs);
+  for (int I = AddrIdx; I < AddrIdx + NumVAddrs; ++I) {
+    Register AddrReg = MI.getOperand(I).getReg();
 
-  for (int I = 0; I != NumVAddrs; ++I) {
-    A16AddrRegs[I] = MI.getOperand(DimIdx + I).getReg();
-    assert(B.getMRI()->getType(A16AddrRegs[I]) == S16);
-  }
-
-  // Round to dword.
-  if (NumVAddrs % 2 != 0)
-    A16AddrRegs.push_back(B.buildUndef(S16).getReg(0));
-
-  PackedAddrs.resize(A16AddrRegs.size() / 2);
-  for (int I = 0, E = PackedAddrs.size(); I != E; ++I) {
-    PackedAddrs[I] = B.buildBuildVector(
-      V2S16, {A16AddrRegs[2 * I], A16AddrRegs[2 * I + 1]}).getReg(0);
+    if (I < DimIdx) {
+      AddrReg = B.buildBitcast(V2S16, AddrReg).getReg(0);
+      PackedAddrs.push_back(AddrReg);
+    } else {
+      // Dz/dh, dz/dv and the last odd coord are packed with undef. Also, in 1D,
+      // derivatives dx/dh and dx/dv are packed with undef.
+      if (((I + 1) >= (AddrIdx + NumVAddrs)) ||
+          ((NumGradients / 2) % 2 == 1 &&
+           (I == DimIdx + (NumGradients / 2) - 1 ||
+            I == DimIdx + NumGradients - 1))) {
+        PackedAddrs.push_back(
+            B.buildBuildVector(V2S16, {AddrReg, B.buildUndef(S16).getReg(0)})
+                .getReg(0));
+      } else {
+        PackedAddrs.push_back(
+            B.buildBuildVector(V2S16, {AddrReg, MI.getOperand(I + 1).getReg()})
+                .getReg(0));
+        ++I;
+      }
+    }
   }
 }
 
@@ -3419,15 +3425,18 @@ static void convertImageAddrToPacked(MachineIRBuilder &B, MachineInstr &MI,
     MI.getOperand(DimIdx + I).setReg(AMDGPU::NoRegister);
 }
 
-static int getImageNumVAddr(const AMDGPU::ImageDimIntrinsicInfo *ImageDimIntr,
-                            const AMDGPU::MIMGBaseOpcodeInfo *BaseOpcode) {
+/// Return number of address arguments, and the number of gradients
+static std::pair<int, int>
+getImageNumVAddr(const AMDGPU::ImageDimIntrinsicInfo *ImageDimIntr,
+                 const AMDGPU::MIMGBaseOpcodeInfo *BaseOpcode) {
   const AMDGPU::MIMGDimInfo *DimInfo
     = AMDGPU::getMIMGDimInfo(ImageDimIntr->Dim);
 
   int NumGradients = BaseOpcode->Gradients ? DimInfo->NumGradients : 0;
   int NumCoords = BaseOpcode->Coordinates ? DimInfo->NumCoords : 0;
   int NumLCM = BaseOpcode->LodOrClampOrMip ? 1 : 0;
-  return BaseOpcode->NumExtraArgs + NumGradients + NumCoords + NumLCM;
+  int NumVAddr = BaseOpcode->NumExtraArgs + NumGradients + NumCoords + NumLCM;
+  return {NumVAddr, NumGradients};
 }
 
 static int getDMaskIdx(const AMDGPU::MIMGBaseOpcodeInfo *BaseOpcode,
@@ -3461,6 +3470,8 @@ bool AMDGPULegalizerInfo::legalizeImageIntrinsic(
     MachineInstr &MI, MachineIRBuilder &B,
     GISelChangeObserver &Observer,
     const AMDGPU::ImageDimIntrinsicInfo *ImageDimIntr) const {
+  B.setInstr(MI);
+
   const int NumDefs = MI.getNumExplicitDefs();
   bool IsTFE = NumDefs == 2;
   // We are only processing the operands of d16 image operations on subtargets
@@ -3469,18 +3480,6 @@ bool AMDGPULegalizerInfo::legalizeImageIntrinsic(
   // TODO: Do we need to guard against already legalized intrinsics?
   const AMDGPU::MIMGBaseOpcodeInfo *BaseOpcode =
     AMDGPU::getMIMGBaseOpcodeInfo(ImageDimIntr->BaseOpcode);
-
-  Observer.changingInstr(MI);
-  auto ChangedInstr = make_scope_exit([&] { Observer.changedInstr(MI); });
-
-
-  unsigned NewOpcode = NumDefs == 0 ?
-    AMDGPU::G_AMDGPU_INTRIN_IMAGE_STORE : AMDGPU::G_AMDGPU_INTRIN_IMAGE_LOAD;
-
-  // Track that we legalized this
-  MI.setDesc(B.getTII().get(NewOpcode));
-
-  B.setInstr(MI);
 
   MachineRegisterInfo *MRI = B.getMRI();
   const LLT S32 = LLT::scalar(32);
@@ -3495,7 +3494,43 @@ bool AMDGPULegalizerInfo::legalizeImageIntrinsic(
   LLT AddrTy = MRI->getType(MI.getOperand(DimIdx).getReg());
   const bool IsA16 = AddrTy == S16;
 
-  const int NumVAddrs = getImageNumVAddr(ImageDimIntr, BaseOpcode);
+  int NumVAddrs, NumGradients;
+  std::tie(NumVAddrs, NumGradients) = getImageNumVAddr(ImageDimIntr, BaseOpcode);
+  const int DMaskIdx = BaseOpcode->Atomic ? -1 :
+    getDMaskIdx(BaseOpcode, NumDefs);
+  unsigned DMask = 0;
+
+  int DMaskLanes = 0;
+  if (!BaseOpcode->Atomic) {
+    DMask = MI.getOperand(DMaskIdx).getImm();
+    if (BaseOpcode->Gather4) {
+      DMaskLanes = 4;
+    } else if (DMask != 0) {
+      DMaskLanes = countPopulation(DMask);
+    } else if (!IsTFE && !BaseOpcode->Store) {
+      // If dmask is 0, this is a no-op load. This can be eliminated.
+      B.buildUndef(MI.getOperand(0));
+      MI.eraseFromParent();
+      return true;
+    }
+  }
+
+  Observer.changingInstr(MI);
+  auto ChangedInstr = make_scope_exit([&] { Observer.changedInstr(MI); });
+
+  unsigned NewOpcode = NumDefs == 0 ?
+    AMDGPU::G_AMDGPU_INTRIN_IMAGE_STORE : AMDGPU::G_AMDGPU_INTRIN_IMAGE_LOAD;
+
+  // Track that we legalized this
+  MI.setDesc(B.getTII().get(NewOpcode));
+
+  // Expecting to get an error flag since TFC is on - and dmask is 0 Force
+  // dmask to be at least 1 otherwise the instruction will fail
+  if (IsTFE && DMask == 0) {
+    DMask = 0x1;
+    DMaskLanes = 1;
+    MI.getOperand(DMaskIdx).setImm(DMask);
+  }
 
   // If the register allocator cannot place the address registers contiguously
   // without introducing moves, then using the non-sequential address encoding
@@ -3522,7 +3557,8 @@ bool AMDGPULegalizerInfo::legalizeImageIntrinsic(
 
     if (NumVAddrs > 1) {
       SmallVector<Register, 4> PackedRegs;
-      packImageA16AddressToDwords(B, MI, PackedRegs, DimIdx, NumVAddrs);
+      packImageA16AddressToDwords(B, MI, PackedRegs, AddrIdx, DimIdx, NumVAddrs,
+                                  NumGradients);
 
       if (!UseNSA && PackedRegs.size() > 1) {
         LLT PackedAddrTy = LLT::vector(2 * PackedRegs.size(), 16);
@@ -3533,38 +3569,16 @@ bool AMDGPULegalizerInfo::legalizeImageIntrinsic(
 
       const int NumPacked = PackedRegs.size();
       for (int I = 0; I != NumVAddrs; ++I) {
-        assert(MI.getOperand(DimIdx + I).getReg() != AMDGPU::NoRegister);
+        assert(MI.getOperand(AddrIdx + I).getReg() != AMDGPU::NoRegister);
 
         if (I < NumPacked)
-          MI.getOperand(DimIdx + I).setReg(PackedRegs[I]);
+          MI.getOperand(AddrIdx + I).setReg(PackedRegs[I]);
         else
-          MI.getOperand(DimIdx + I).setReg(AMDGPU::NoRegister);
+          MI.getOperand(AddrIdx + I).setReg(AMDGPU::NoRegister);
       }
     }
   } else if (!UseNSA && NumVAddrs > 1) {
-    convertImageAddrToPacked(B, MI, DimIdx, NumVAddrs);
-  }
-
-  int DMaskLanes = 0;
-  if (!BaseOpcode->Atomic) {
-    const int DMaskIdx = getDMaskIdx(BaseOpcode, NumDefs);
-    unsigned DMask = MI.getOperand(DMaskIdx).getImm();
-    if (BaseOpcode->Gather4) {
-      DMaskLanes = 4;
-    } else if (DMask != 0) {
-      DMaskLanes = countPopulation(DMask);
-    } else if (IsTFE) {
-      // Expecting to get an error flag since TFC is on - and dmask is 0 Force
-      // dmask to be at least 1 otherwise the instruction will fail
-      DMask = 0x1;
-      DMaskLanes = 1;
-      MI.getOperand(DMaskIdx).setImm(DMask);
-    } else if (!BaseOpcode->Store) {
-      // If dmask is 0, this is a no-op load. This can be eliminated.
-      B.buildUndef(MI.getOperand(0));
-      MI.eraseFromParent();
-      return true;
-    }
+    convertImageAddrToPacked(B, MI, AddrIdx, NumVAddrs);
   }
 
   if (BaseOpcode->Store) { // No TFE for stores?

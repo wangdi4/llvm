@@ -410,8 +410,10 @@ void VPInstruction::print(raw_ostream &O) const {
 }
 
 void VPInstruction::print(raw_ostream &O, VPSlotTracker &SlotTracker) const {
-  printAsOperand(O, SlotTracker);
-  O << " = ";
+  if (hasResult()) {
+    printAsOperand(O, SlotTracker);
+    O << " = ";
+  }
 
   switch (getOpcode()) {
   case VPInstruction::Not:
@@ -826,11 +828,18 @@ void VPValue::replaceAllUsesWith(VPValue *New) {
 }
 
 void VPValue::printAsOperand(raw_ostream &OS, VPSlotTracker &Tracker) const {
+  if (const Value *UV = getUnderlyingValue()) {
+    OS << "ir<";
+    UV->printAsOperand(OS, false);
+    OS << ">";
+    return;
+  }
+
   unsigned Slot = Tracker.getSlot(this);
   if (Slot == unsigned(-1))
     OS << "<badref>";
   else
-    OS << "%vp" << Tracker.getSlot(this);
+    OS << "vp<%" << Tracker.getSlot(this) << ">";
 }
 
 void VPInterleavedAccessInfo::visitRegion(VPRegionBlock *Region,
@@ -881,6 +890,13 @@ VPInterleavedAccessInfo::VPInterleavedAccessInfo(VPlan &Plan,
 
 void VPSlotTracker::assignSlot(const VPValue *V) {
   assert(Slots.find(V) == Slots.end() && "VPValue already has a slot!");
+  const Value *UV = V->getUnderlyingValue();
+  if (UV)
+    return;
+  const auto *VPI = dyn_cast<VPInstruction>(V);
+  if (VPI && !VPI->hasResult())
+    return;
+
   Slots[V] = NextSlot++;
 }
 

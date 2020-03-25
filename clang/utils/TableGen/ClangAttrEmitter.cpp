@@ -2462,7 +2462,7 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
     SemanticSpellingMap SemanticToSyntacticMap;
 
     std::string SpellingEnum;
-    if (!ElideSpelling)
+    if (Spellings.size() > 1)
       SpellingEnum = CreateSemanticSpellings(Spellings, SemanticToSyntacticMap);
     if (Header)
       OS << SpellingEnum;
