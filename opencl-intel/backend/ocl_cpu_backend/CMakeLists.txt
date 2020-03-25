@@ -270,6 +270,7 @@ set( BACKEND_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
+    AddNTAttr
 )
 
 set(UTILS_LIBS

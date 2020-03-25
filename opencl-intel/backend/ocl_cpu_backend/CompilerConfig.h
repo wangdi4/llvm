@@ -67,7 +67,8 @@ public:
                      m_loadBuiltins(true),
                      m_DumpIROptionAfter(NULL),
                      m_DumpIROptionBefore(NULL),
-                     m_dumpHeuristicIR(false) {}
+                     m_dumpHeuristicIR(false),
+                     m_streamingAlways(false) {}
 
     // CompilerConfiguration methods
     void LoadDefaults();
@@ -112,6 +113,8 @@ public:
 
     const std::string &GetStatFileBaseName() const { return m_statFileBaseName;}
 
+    bool GetStreamingAlways() const { return m_streamingAlways; }
+
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
 protected:
@@ -129,6 +132,7 @@ protected:
     bool m_dumpHeuristicIR;
     std::string m_statFileBaseName;
     int m_forcedPrivateMemorySize;
+    bool        m_streamingAlways;
     DeviceMode  m_targetDevice;
 };
 

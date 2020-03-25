@@ -326,7 +326,8 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
     m_debug(false),
     m_disableOptimization(false),
-    m_useNativeDebugger(false)
+    m_useNativeDebugger(false),
+    m_streamingAlways(config.GetStreamingAlways())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -452,7 +453,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             m_bIsEyeQEmulator,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
-                                            m_rtLoopUnrollFactor);
+                                            m_rtLoopUnrollFactor,
+                                            m_streamingAlways);
     Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
     optimizer.Optimize();
 

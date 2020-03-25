@@ -183,6 +183,7 @@ llvm::ModulePass *createSYCLPipesHackPass();
 llvm::ModulePass *createAddTLSGlobalsPass();
 llvm::ModulePass *createCoerceTypesPass();
 llvm::ModulePass *createRemoveAtExitPass();
+llvm::FunctionPass *createAddNTAttrPass();
 }
 
 using namespace intel;
@@ -668,6 +669,8 @@ static void populatePassesPostFailCheck(
   // Adding WG loops
   if (debugType == intel::None && OptLevel > 0) {
     PM.add(createDeduceMaxWGDimPass());
+    if (pConfig->GetStreamingAlways())
+      PM.add(createAddNTAttrPass());
     PM.add(createCLWGLoopCreatorPass());
   }
 

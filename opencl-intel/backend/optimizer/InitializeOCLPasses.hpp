@@ -105,5 +105,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeWeightedInstCounterPass(Registry);
     intel::initializeScalarizeFunctionPass(Registry);
     intel::initializeRemoveAtExitPass(Registry);
+    intel::initializeAddNTAttrPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H
