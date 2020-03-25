@@ -253,6 +253,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_destroy:
+  case OMPC_detach:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -493,6 +494,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_destroy:
+  case OMPC_detach:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -615,6 +617,8 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
     }
     break;
   case OMPD_task:
+    if (OpenMPVersion < 50 && CKind == OMPC_detach)
+      return false;
     switch (CKind) {
 #define OPENMP_TASK_CLAUSE(Name)                                               \
   case OMPC_##Name:                                                            \
