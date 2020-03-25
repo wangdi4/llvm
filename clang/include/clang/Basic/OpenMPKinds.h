@@ -51,6 +51,7 @@ enum OpenMPScheduleClauseModifier {
   OMPC_SCHEDULE_MODIFIER_last
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 /// OpenMP modifiers for 'dataflow' clause.
@@ -63,6 +64,14 @@ enum OpenMPDataflowClauseModifier {
 };
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+/// OpenMP modifiers for 'device' clause.
+enum OpenMPDeviceClauseModifier {
+#define OPENMP_DEVICE_MODIFIER(Name) OMPC_DEVICE_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_DEVICE_unknown,
+};
+>>>>>>> 2f8894a5b8b1248e4f847065730e255c6e69adb5
 
 /// OpenMP attributes for 'depend' clause.
 enum OpenMPDependClauseKind {
