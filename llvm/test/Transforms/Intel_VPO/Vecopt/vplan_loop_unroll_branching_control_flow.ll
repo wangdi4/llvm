@@ -49,6 +49,7 @@ define dso_local void @_Z3fooPiS_i(i32* nocapture %a, i32* nocapture %b, i32 %n)
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 42, [[BB4]] ],  [ i32 0, [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[WIDE_TRIP_COUNT0:%.*]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB7:BB[0-9]+]]
@@ -78,6 +79,7 @@ define dso_local void @_Z3fooPiS_i(i32* nocapture %a, i32* nocapture %b, i32 %n)
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB10]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_1:%.*]] = phi  [ i32 42, cloned.[[BB8]] ],  [ i32 0, cloned.[[BB9]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[WIDE_TRIP_COUNT0]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB11:BB[0-9]+]]
@@ -107,6 +109,7 @@ define dso_local void @_Z3fooPiS_i(i32* nocapture %a, i32* nocapture %b, i32 %n)
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_2:%.*]] = phi  [ i32 42, cloned.[[BB12]] ],  [ i32 0, cloned.[[BB13]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[WIDE_TRIP_COUNT0]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB14:BB[0-9]+]](i1 [[VP_EXITCOND_2]]), [[BB2]](!i1 [[VP_EXITCOND_2]])
@@ -159,6 +162,7 @@ define dso_local void @_Z3fooPiS_i(i32* nocapture %a, i32* nocapture %b, i32 %n)
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD0]], <4 x i32>* [[TMP5]], i32 4, <4 x i1> [[TMP3]])
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP10]] to <4 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[TMP6]], i32 4, <4 x i1> [[TMP2]])
+; CHECK-NEXT:    [[PREDPHI0:%.*]] = select <4 x i1> [[TMP2]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP7:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq <4 x i64> [[TMP7]], [[BROADCAST_SPLAT0]]
@@ -175,22 +179,24 @@ define dso_local void @_Z3fooPiS_i(i32* nocapture %a, i32* nocapture %b, i32 %n)
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD50]], <4 x i32>* [[TMP15]], i32 4, <4 x i1> [[TMP13]])
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD30]], <4 x i32>* [[TMP16]], i32 4, <4 x i1> [[TMP12]])
+; CHECK-NEXT:    [[PREDPHI60:%.*]] = select <4 x i1> [[TMP12]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP17:%.*]] = add nuw nsw <4 x i64> [[TMP7]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP18:%.*]] = add nuw nsw i64 [[TMP8]], 4
 ; CHECK-NEXT:    [[TMP19:%.*]] = icmp eq <4 x i64> [[TMP17]], [[BROADCAST_SPLAT0]]
-; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP18]]
-; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[SCALAR_GEP60]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD70:%.*]] = load <4 x i32>, <4 x i32>* [[TMP20]], align 4
-; CHECK-NEXT:    [[TMP21:%.*]] = and <4 x i32> [[WIDE_LOAD70]], <i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[SCALAR_GEP70:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP18]]
+; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[SCALAR_GEP70]] to <4 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD80:%.*]] = load <4 x i32>, <4 x i32>* [[TMP20]], align 4
+; CHECK-NEXT:    [[TMP21:%.*]] = and <4 x i32> [[WIDE_LOAD80]], <i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP22:%.*]] = icmp eq <4 x i32> [[TMP21]], zeroinitializer
-; CHECK-NEXT:    [[SCALAR_GEP80:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP18]]
+; CHECK-NEXT:    [[SCALAR_GEP90:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP18]]
 ; CHECK-NEXT:    [[TMP23:%.*]] = xor <4 x i1> [[TMP22]], <i1 true, i1 true, i1 true, i1 true>
-; CHECK-NEXT:    [[TMP24:%.*]] = bitcast i32* [[SCALAR_GEP80]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD90:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP24]], i32 4, <4 x i1> [[TMP23]], <4 x i32> undef)
-; CHECK-NEXT:    [[TMP25:%.*]] = bitcast i32* [[SCALAR_GEP60]] to <4 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD90]], <4 x i32>* [[TMP25]], i32 4, <4 x i1> [[TMP23]])
-; CHECK-NEXT:    [[TMP26:%.*]] = bitcast i32* [[SCALAR_GEP80]] to <4 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD70]], <4 x i32>* [[TMP26]], i32 4, <4 x i1> [[TMP22]])
+; CHECK-NEXT:    [[TMP24:%.*]] = bitcast i32* [[SCALAR_GEP90]] to <4 x i32>*
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD100:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP24]], i32 4, <4 x i1> [[TMP23]], <4 x i32> undef)
+; CHECK-NEXT:    [[TMP25:%.*]] = bitcast i32* [[SCALAR_GEP70]] to <4 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD100]], <4 x i32>* [[TMP25]], i32 4, <4 x i1> [[TMP23]])
+; CHECK-NEXT:    [[TMP26:%.*]] = bitcast i32* [[SCALAR_GEP90]] to <4 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD80]], <4 x i32>* [[TMP26]], i32 4, <4 x i1> [[TMP22]])
+; CHECK-NEXT:    [[PREDPHI110:%.*]] = select <4 x i1> [[TMP22]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP27]] = add nuw nsw <4 x i64> [[TMP17]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP28]] = add nuw nsw i64 [[TMP18]], 4
 ; CHECK-NEXT:    [[TMP29:%.*]] = icmp eq <4 x i64> [[TMP27]], [[BROADCAST_SPLAT0]]
@@ -231,6 +237,7 @@ define dso_local void @_Z3fooPiS_i(i32* nocapture %a, i32* nocapture %b, i32 %n)
 ; CHECK-NEXT:    br label [[OMP_BODY_CONTINUE0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.body.continue:
+; CHECK-NEXT:    [[PHI0:%.*]] = phi i32 [ 42, [[IF_THEN0]] ], [ 0, [[IF_ELSE0]] ]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
 ; CHECK-NEXT:    br i1 [[EXITCOND0]], label [[DIR_OMP_END_SIMD_3_LOOPEXIT0:%.*]], label [[OMP_INNER_FOR_BODY0]]
@@ -276,6 +283,7 @@ if.else:                                          ; preds = %omp.inner.for.body
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %if.then, %if.else
+  %phi = phi i32 [ 42, %if.then ], [0, %if.else ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
