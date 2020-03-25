@@ -196,11 +196,9 @@ namespace llvm {
     unsigned IntelFtzDaz : 1;
 
     /// X87Precision - Indicate how to set the precision of X87 FPU
-    /// 0: Do not set the precision
-    /// 1: Set the precision to 24-bit FP32
-    /// 2: Set the precision to 53-bit FP64
-    /// 3: Set the precision to 64-bit FP80
-    unsigned X87Precision : 2;
+    /// The value can be 0, 32, 64 and 80.
+    /// 0 means we don't change the precision.
+    unsigned X87Precision : 8;
 #endif // INTEL_CUSTOMIZATION
 
     /// GuaranteedTailCallOpt - This flag is enabled when -tailcallopt is

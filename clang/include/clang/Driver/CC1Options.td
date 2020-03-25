@@ -874,6 +874,9 @@ def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=
   HelpText<"Name of the file for communication between front-end and driver.">;
 def header_base_path : JoinedOrSeparate<["-"], "header-base-path">,
                        MetaVarName<"<directory>">;
+// CMPLRLLVM-9854: X87 default precision options
+def mx87_precision : Joined<["-"], "mx87-precision=">,
+  HelpText<"Initialize X87 floating point precision to single, double or double extended">;
 // INTEL_FEATURE_CSA
 def fcsa_visa : Flag<["-"], "fcsa-visa">,
   HelpText<"[CSA] Customize target IR for binary vISA">;

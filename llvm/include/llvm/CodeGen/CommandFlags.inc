@@ -339,12 +339,7 @@ static TargetOptions InitTargetOptionsFromCodeGenFlags() {
     Options.IntelAdvancedOptim = EnableIntelAdvancedOpts;
   if (EnableFtzDaz)
     Options.IntelFtzDaz = EnableFtzDaz;
-  switch (X87Precision) {
-    default: Options.X87Precision = 0; break;
-    case 32: Options.X87Precision = 1; break;
-    case 64: Options.X87Precision = 2; break;
-    case 80: Options.X87Precision = 3; break;
-  }
+  Options.X87Precision = X87Precision;
 #endif // INTEL_CUSTOMIZATION
   Options.EnableDebugEntryValues = EnableDebugEntryValues;
   Options.ForceDwarfFrameSection = ForceDwarfFrameSection;
