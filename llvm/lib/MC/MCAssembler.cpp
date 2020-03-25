@@ -614,20 +614,12 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
   case MCFragment::FT_BoundaryAlign: {
-    const MCBoundaryAlignFragment &BF = cast<MCBoundaryAlignFragment>(F);
-    if (BF.hasEmitNops()) {
-      if (!Asm.getBackend().writeNopData(OS, FragmentSize))
-        report_fatal_error("unable to write nop sequence of " +
-                           Twine(FragmentSize) + " bytes");
-    } else if (BF.hasValue()) {
-      for (uint64_t i = 0; i != FragmentSize; ++i)
-        OS << char(BF.getValue());
-    }
+    if (!Asm.getBackend().writeNopData(OS, FragmentSize))
+      report_fatal_error("unable to write nop sequence of " +
+                         Twine(FragmentSize) + " bytes");
     break;
   }
-#endif // INTEL_CUSTOMIZATION
 
   case MCFragment::FT_SymbolId: {
     const MCSymbolIdFragment &SF = cast<MCSymbolIdFragment>(F);
@@ -1002,54 +994,29 @@ static bool needPadding(uint64_t StartAddr, uint64_t Size,
          isAgainstBoundary(StartAddr, Size, BoundaryAlignment);
 }
 
-#if INTEL_CUSTOMIZATION
 bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
                                      MCBoundaryAlignFragment &BF) {
-  // The MCBoundaryAlignFragment that does not emit anything or not have any
-  // fragment to be aligned should not be relaxed.
-  if (!BF.hasEmitNopsOrValue() || !BF.getFragment())
+  // BoundaryAlignFragment that doesn't need to align any fragment should not be
+  // relaxed.
+  if (!BF.getLastFragment())
     return false;
 
-  // Compute the size of all the fragments in the range we're trying to align.
-  const MCFragment *TF = BF.getFragment();
-  uint64_t AlignedSize = computeFragmentSize(Layout, *TF);
-  uint64_t AlignedOffset = Layout.getFragmentOffset(TF);
-  // Note: It should be guaranteed that there is a MCBoundaryAlignFragment
-  // before TF in the same section.
-  for (auto *F = TF->getPrevNode(); !isa<MCBoundaryAlignFragment>(F);
-       F = F->getPrevNode()) {
-    assert(F->hasInstructions() &&
-           "The fragment doesn't have any instruction.");
-    uint64_t Size = computeFragmentSize(Layout, *F);
-    AlignedSize += Size;
-    AlignedOffset -= Size;
-  }
-
-  // Compute the size of all the MCBoundaryAlignFragments in the range
-  // [BF,BF.getFragment).
-  uint64_t FixedValue = 0;
-  for (const MCFragment *F = &BF; F != TF; F = F->getNextNode())
-    if (auto *MBF = dyn_cast<MCBoundaryAlignFragment>(F))
-      FixedValue += MBF->getSize();
-  AlignedOffset -= FixedValue;
+  uint64_t AlignedOffset = Layout.getFragmentOffset(&BF);
+  uint64_t AlignedSize = 0;
+  for (const MCFragment *F = BF.getLastFragment(); F != &BF;
+       F = F->getPrevNode())
+    AlignedSize += computeFragmentSize(Layout, *F);
 
   Align BoundaryAlignment = BF.getAlignment();
   uint64_t NewSize = needPadding(AlignedOffset, AlignedSize, BoundaryAlignment)
                          ? offsetToAlignment(AlignedOffset, BoundaryAlignment)
                          : 0U;
-  if (!BF.hasEmitNops()) {
-    assert(BF.getNextNode()->hasInstructions() &&
-           "The fragment doesn't have any instruction.");
-    if (NewSize > static_cast<uint64_t>(BF.getMaxBytesToEmit()))
-      NewSize = 0;
-  }
   if (NewSize == BF.getSize())
     return false;
   BF.setSize(NewSize);
   Layout.invalidateFragmentsFrom(&BF);
   return true;
 }
-#endif // INTEL_CUSTOMIZATION
 
 bool MCAssembler::relaxDwarfLineAddr(MCAsmLayout &Layout,
                                      MCDwarfLineAddrFragment &DF) {

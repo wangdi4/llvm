@@ -259,6 +259,10 @@ class MCRelaxableFragment : public MCEncodedFragmentWithFixups<8, 1> {
 
   /// The instruction this is a fragment for.
   MCInst Inst;
+#if INTEL_CUSTOMIZATION
+  /// Can we auto pad the instruction?
+  bool AllowAutoPadding = false;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   MCRelaxableFragment(const MCInst &Inst, const MCSubtargetInfo &STI,
@@ -268,6 +272,11 @@ public:
 
   const MCInst &getInst() const { return Inst; }
   void setInst(const MCInst &Value) { Inst = Value; }
+
+#if INTEL_CUSTOMIZATION
+  bool getAllowAutoPadding() const { return AllowAutoPadding; }
+  void setAllowAutoPadding(bool V) { AllowAutoPadding = V; }
+#endif // INTEL_CUSTOMIZATION
 
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_Relaxable;
@@ -517,18 +526,10 @@ public:
   }
 };
 
-#if INTEL_CUSTOMIZATION
-/// This is a placeholder fragment used to emit NOP or values to align a set of
-/// fragments within specific boundary. If we call the nearest backward
-/// MCBoundaryAlignFragment of LastFragment as NBBF, then the set of fragments
-/// to be aligned is (NBBF, LastFragment]. The fragments to be aligned should be
-/// in the same section with this fragment, and each non-BF fragment on the path
-/// from this fragment to the fragments to be aligned must have a fixed size
-/// after finite times of relaxation.
+/// Represents required padding such that a particular other set of fragments
+/// does not cross a particular power-of-two boundary. The other fragments must
+/// follow this one within the same section.
 class MCBoundaryAlignFragment : public MCFragment {
-  /// Flag to indicate that (optimal) NOPs should be emitted instead
-  /// of using the provided value.
-  bool EmitNops = false;
   /// The alignment requirement of the branch to be aligned.
   Align AlignBoundary;
   /// The last fragment in the set of fragments to be aligned.
@@ -536,20 +537,17 @@ class MCBoundaryAlignFragment : public MCFragment {
   /// The size of the fragment.  The size is lazily set during relaxation, and
   /// is not meaningful before that.
   uint64_t Size = 0;
-  /// Value to use for filling padding bytes if existing.
-  Optional<uint8_t> Value;
-  /// The maximum number of bytes to emit; if the Flag EmitNops is true,
-  /// then this constraint is ignored.
-  uint64_t MaxBytesToEmit = 0;
+
 public:
-  MCBoundaryAlignFragment(MCSection *Sec = nullptr)
-      : MCFragment(FT_BoundaryAlign, false, Sec) {}
+  MCBoundaryAlignFragment(Align AlignBoundary, MCSection *Sec = nullptr)
+      : MCFragment(FT_BoundaryAlign, false, Sec), AlignBoundary(AlignBoundary) {
+  }
 
   uint64_t getSize() const { return Size; }
   void setSize(uint64_t Value) { Size = Value; }
 
   Align getAlignment() const { return AlignBoundary; }
-  void setAlignment(Align V) { AlignBoundary = V; }
+  void setAlignment(Align Value) { AlignBoundary = Value; }
 
   const MCFragment *getLastFragment() const { return LastFragment; }
   void setLastFragment(const MCFragment *F) {
@@ -557,26 +555,10 @@ public:
     LastFragment = F;
   }
 
-  bool hasValue() const { return Value.hasValue(); }
-  uint8_t getValue() const { return Value.getValue(); }
-  void setValue(uint8_t V) { Value = V; }
-
-  bool hasEmitNops() const { return EmitNops; }
-  void setEmitNops(bool V) { EmitNops = V; }
-
-  bool hasEmitNopsOrValue() const { return EmitNops || Value.hasValue(); }
-
-  uint8_t getMaxBytesToEmit() const { return MaxBytesToEmit; }
-  void setMaxBytesToEmit(uint64_t V) { MaxBytesToEmit = V; }
-
-  const MCFragment *getFragment() const { return LastFragment; }
-  void setFragment(const MCFragment *F) { LastFragment = F; }
-
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_BoundaryAlign;
   }
 };
-#endif // INTEL_CUSTOMIZATION
 } // end namespace llvm
 
 #endif // LLVM_MC_MCFRAGMENT_H
