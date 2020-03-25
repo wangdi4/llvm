@@ -75,6 +75,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     //Serializer::SerialPrimitive<bool>(&m_dbgPrint, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
     Serializer::SerialPrimitive<bool>(&m_hasBarrier, ost);
+    Serializer::SerialPrimitive<bool>(&m_hasGlobalSync, ost);
     Serializer::SerialPrimitive<bool>(&m_hasNativeSubgroups, ost);
     Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
@@ -102,6 +103,8 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_privateMemorySize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    tmp = (unsigned long long int)m_maxPrivateMemorySize;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_reqdNumSG;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
@@ -109,15 +112,21 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_vectorizationWidth;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    tmp = (unsigned long long int)m_reqdSubGroupSize;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    Serializer::SerialString(m_kernelAttributes, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
+    Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ost);
     Serializer::SerialPrimitive<bool>(&m_canUniteWG, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_verctorizeOnDimention, ost);
+    Serializer::SerialPrimitive<bool>(&m_debugInfo, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsAutorun, ost);
     Serializer::SerialPrimitive<bool>(&m_bNeedSerializeWGs, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
     Serializer::SerialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ost);
+    Serializer::SerialPrimitive<DeviceMode>(&m_targetDevice, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -126,6 +135,7 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     //Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
     Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
     Serializer::DeserialPrimitive<bool>(&m_hasBarrier, ist);
+    Serializer::DeserialPrimitive<bool>(&m_hasGlobalSync, ist);
     Serializer::DeserialPrimitive<bool>(&m_hasNativeSubgroups, ist);
     Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
@@ -155,24 +165,32 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_privateMemorySize = (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_maxPrivateMemorySize = (size_t)tmp;
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_reqdNumSG = (size_t)tmp;
     Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_kernelExecutionLength = tmp;
+    m_kernelExecutionLength = (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_vectorizationWidth = tmp;
+    m_vectorizationWidth = (size_t)tmp;
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_reqdSubGroupSize = (size_t)tmp;
+    Serializer::DeserialString(m_kernelAttributes, ist);
     unsigned int ui_tmp;
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_minGroupSizeFactorial = ui_tmp;
+    Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_uiSizeT = ui_tmp;
     Serializer::DeserialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ist);
     Serializer::DeserialPrimitive<bool>(&m_canUniteWG, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_verctorizeOnDimention, ist);
+    Serializer::DeserialPrimitive<bool>(&m_debugInfo, ist);
     Serializer::DeserialPrimitive<bool>(&m_bIsAutorun, ist);
     Serializer::DeserialPrimitive<bool>(&m_bNeedSerializeWGs, ist);
     Serializer::DeserialPrimitive<bool>(&m_bIsTask, ist);
     Serializer::DeserialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ist);
+    Serializer::DeserialPrimitive<DeviceMode>(&m_targetDevice, ist);
 }
 
 
