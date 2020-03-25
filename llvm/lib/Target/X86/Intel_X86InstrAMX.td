@@ -902,6 +902,18 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
       def PTCVTROWD2PSErre : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, GR32:$src2),
                                     [(set VR512:$dst, (int_x86_tcvtrowd2psee timm:$src1,
                                       GR32:$src2))]>;
+      def PTCVTROWPS2BF16Erri : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, i32u8imm:$src2),
+                                      [(set VR512:$dst, (int_x86_tcvtrowps2bf16ei timm:$src1,
+                                      timm:$src2))]>;
+      def PTCVTROWPS2BF16Erre : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, GR32:$src2),
+                                      [(set VR512:$dst, (int_x86_tcvtrowps2bf16ee timm:$src1,
+                                      GR32:$src2))]>;
+      def PTCVTROWPS2PHErri : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, i32u8imm:$src2),
+                                      [(set VR512:$dst, (int_x86_tcvtrowps2phei timm:$src1,
+                                      timm:$src2))]>;
+      def PTCVTROWPS2PHErre : PseudoI<(outs VR512:$dst), (ins u8imm:$src1, GR32:$src2),
+                                      [(set VR512:$dst, (int_x86_tcvtrowps2phee timm:$src1,
+                                      GR32:$src2))]>;
     }
   }
 }

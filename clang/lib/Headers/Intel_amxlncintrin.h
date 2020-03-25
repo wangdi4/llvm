@@ -36,6 +36,14 @@
   __builtin_ia32_tcvtrowd2psei(tsrc1, src2)
 #define _tile_cvtrowd2psee(tsrc1, src2)                                        \
   __builtin_ia32_tcvtrowd2psee(tsrc1, src2)
+#define _tile_cvtrowps2bf16ei(tsrc1, src2)                                     \
+__builtin_ia32_tcvtrowps2bf16ei(tsrc1, src2)
+#define _tile_cvtrowps2bf16ee(tsrc1, src2)                                     \
+__builtin_ia32_tcvtrowps2bf16ee(tsrc1, src2)
+#define _tile_cvtrowps2phei(tsrc1, src2)                                       \
+__builtin_ia32_tcvtrowps2phei(tsrc1, src2)
+#define _tile_cvtrowps2phee(tsrc1, src2)                                       \
+__builtin_ia32_tcvtrowps2phee(tsrc1, src2)
 
 // BF16EVEX
 #define _tile_dpbf16pse(tsrc1_dst, tsrc2, tsrc3)                               \
