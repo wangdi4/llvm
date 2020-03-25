@@ -29,6 +29,29 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+bool dtrans::dtransIsCompositeType(Type *Ty) {
+  if (isa<StructType>(Ty) || isa<SequentialType>(Ty))
+    return true;
+  return false;
+}
+
+bool dtrans::dtransCompositeIndexValid(Type *Ty, unsigned Idx) {
+  assert(dtransIsCompositeType(Ty) && "Expected Composite Type");
+  if (auto *STy = dyn_cast<StructType>(Ty))
+    return Idx < STy->getNumElements();
+  // Sequential types can be indexed by any integer.
+  return true;
+}
+
+Type *dtrans::dtransCompositeGetTypeAtIndex(Type *Ty, unsigned Idx) {
+  assert(dtransIsCompositeType(Ty) && "Expected Composite Type");
+  if (auto *STy = dyn_cast<StructType>(Ty)) {
+    assert(dtransCompositeIndexValid(Ty, Idx) && "Invalid structure index!");
+    return STy->getElementType(Idx);
+  }
+  return cast<SequentialType>(Ty)->getElementType();
+}
+
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
   if (!Ty->hasName())
     return false;
@@ -358,11 +381,11 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
   // This will handle vector types, in addition to structs and arrays,
   // but I don't think we'd get here with a vector type (unless we end
   // up wanting to track vector types).
-  if (auto *CompTy = dyn_cast<CompositeType>(SrcPointeeTy)) {
+  if (dtransIsCompositeType(SrcPointeeTy)) {
     // This avoids problems with opaque types.
-    if (!CompTy->indexValid(0u))
+    if (!dtransCompositeIndexValid(SrcPointeeTy, 0u))
       return false;
-    auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+    auto *ElementZeroTy = dtransCompositeGetTypeAtIndex(SrcPointeeTy, 0u);
     // If the element zero type matches the destination pointee type,
     // this is an element zero access.
     if (DestPointeeTy == ElementZeroTy) {
@@ -421,13 +444,11 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
 }
 
 bool dtrans::isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy) {
-  auto *CompTy = dyn_cast<CompositeType>(Ty);
-  if (!CompTy)
+  if (!dtransIsCompositeType(Ty))
     return false;
-  // This avoids problems with opaque types.
-  if (!CompTy->indexValid(0u))
+  if (!dtransCompositeIndexValid(Ty, 0))
     return false;
-  auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+  Type *ElementZeroTy = dtransCompositeGetTypeAtIndex(Ty, 0);
   // If element zero is a composite type, look at its first element.
   if (ElementZeroTy->isAggregateType())
     return isElementZeroI8Ptr(ElementZeroTy, AccessedTy);

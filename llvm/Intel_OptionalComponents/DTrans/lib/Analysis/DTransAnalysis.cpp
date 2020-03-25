@@ -2672,9 +2672,8 @@ private:
                 llvm::Type::getInt8PtrTy(DestTy->getContext())->getPointerTo();
             if (DestTy == Int8PtrPtrTy) {
               Info.addPointerTypeAlias(
-                  cast<CompositeType>(AccessedTy->getPointerElementType())
-                      ->getTypeAtIndex(0u)
-                      ->getPointerTo());
+                  dtrans::dtransCompositeGetTypeAtIndex(
+                      AccessedTy->getPointerElementType(), 0)->getPointerTo());
             }
           } else if (dtrans::isPtrToPtrToElementZeroAccess(AliasTy, DestTy)) {
             // If the DestTy and the AliasTy are both pointers to pointers
@@ -7401,13 +7400,11 @@ private:
     if (!BaseTy || (!BaseTy->isStructTy() && !BaseTy->isArrayTy()))
       return false;
 
-    auto *CompositeTy = cast<CompositeType>(BaseTy);
-
     // This happens with opaque structures and zero-element arrays.
-    if (!CompositeTy->indexValid(0u))
+    if (!dtrans::dtransCompositeIndexValid(BaseTy, 0u))
       return false;
 
-    auto *ElementZeroTy = CompositeTy->getTypeAtIndex(0u);
+    auto *ElementZeroTy = dtrans::dtransCompositeGetTypeAtIndex(BaseTy, 0u);
     if (!ElementZeroTy->isArrayTy())
       return false;
 
@@ -7939,13 +7936,14 @@ private:
         setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData);
       }
 
-      if (auto *CompTy = cast<CompositeType>(ParentTy)) {
+      if (dtrans::dtransIsCompositeType(ParentTy)) {
         assert((!PointeePair.first->isStructTy() ||
                 PointeePair.second.getKind() !=
                     LocalPointerInfo::PointeeLoc::PLK_Offset) &&
                "Unexpected use of invalid element");
         size_t ElementNum = PointeePair.second.getElementNum();
-        llvm::Type *FieldTy = CompTy->getTypeAtIndex(ElementNum);
+        llvm::Type *FieldTy = dtrans::dtransCompositeGetTypeAtIndex(ParentTy,
+                                                                    ElementNum);
 
         // If this field is an aggregate, and this is not a nested
         // element zero access, mark this as a whole structure reference.

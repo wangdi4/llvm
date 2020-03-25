@@ -1140,6 +1140,15 @@ bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
 bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                    const TargetLibraryInfo &TLI);
 
+// Returns true if Ty is either StructType or SequentialType.
+bool dtransIsCompositeType(llvm::Type *Ty);
+
+// Return true if "Idx" is valid index for Ty.
+bool dtransCompositeIndexValid(llvm::Type *Ty, unsigned Idx);
+
+// Returns type at "Idx" in "Ty".
+llvm::Type *dtransCompositeGetTypeAtIndex(llvm::Type *Ty, unsigned Idx);
+
 } // namespace dtrans
 
 } // namespace llvm
