@@ -78,6 +78,11 @@ CGOPT(EABI, EABIVersion)
 CGOPT(DebuggerKind, DebuggerTuningOpt)
 CGOPT(bool, EnableStackSizeSection)
 CGOPT(bool, EnableAddrsig)
+#if INTEL_CUSTOMIZATION
+CGOPT(bool, EnableIntelAdvancedOpts)
+CGOPT(bool, EnableFtzDaz)
+CGOPT(int, X87Precision)
+#endif // INTEL_CUSTOMIZATION
 CGOPT(bool, EmitCallSiteInfo)
 CGOPT(bool, EnableDebugEntryValues)
 CGOPT(bool, ForceDwarfFrameSection)
@@ -371,6 +376,28 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(EnableAddrsig);
 
+#if INTEL_CUSTOMIZATION
+  // This option can be used to enable advanced optimizations when running opt.
+  // This option must be used with -mtriple and -mattr. For example:
+  //   opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2
+  static cl::opt<bool> EnableIntelAdvancedOpts(
+      "enable-intel-advanced-opts",
+      cl::desc("Enable Intel advanced optimizations"),
+      cl::init(false));
+  CGBINDOPT(EnableIntelAdvancedOpts);
+
+  static cl::opt<bool> EnableFtzDaz(
+      "ftz",
+      cl::desc("Enable Flush To Zero and Denormals Are Zero flags in MXCSR"),
+      cl::init(false));
+  CGBINDOPT(EnableFtzDaz);
+
+  static cl::opt<int> X87Precision(
+      "x87-precision", cl::desc("Set X87 internal precision"),
+      cl::init(0));
+  CGBINDOPT(X87Precision);
+#endif // INTEL_CUSTOMIZATION
+
   static cl::opt<bool> EmitCallSiteInfo(
       "emit-call-site-info",
       cl::desc(
@@ -447,6 +474,16 @@ TargetOptions codegen::InitTargetOptionsFromCodeGenFlags() {
   Options.ExceptionModel = getExceptionModel();
   Options.EmitStackSizeSection = getEnableStackSizeSection();
   Options.EmitAddrsig = getEnableAddrsig();
+#if INTEL_CUSTOMIZATION
+  Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
+  Options.IntelFtzDaz = getEnableFtzDaz();
+  switch (getX87Precision()) {
+    default: Options.X87Precision = 0; break;
+    case 32: Options.X87Precision = 1; break;
+    case 64: Options.X87Precision = 2; break;
+    case 80: Options.X87Precision = 3; break;
+  }
+#endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
   Options.ForceDwarfFrameSection = getForceDwarfFrameSection();

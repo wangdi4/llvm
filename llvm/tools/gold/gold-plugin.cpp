@@ -15,14 +15,10 @@
 #include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-<<<<<<< HEAD
-#include "llvm/CodeGen/CommandFlags.inc"
+#include "llvm/CodeGen/CommandFlags.h"
 #if !INTEL_CUSTOMIZATION
 // This library isn't needed with Intel customizations since we
 // supply our own plugin api.
-=======
-#include "llvm/CodeGen/CommandFlags.h"
->>>>>>> ac1d23ed7de01fb3a18b340536842a419b504d86
 #include "llvm/Config/config.h" // plugin-api.h requires HAVE_STDINT_H
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Constants.h"

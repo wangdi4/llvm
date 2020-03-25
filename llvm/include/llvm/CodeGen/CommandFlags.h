@@ -112,6 +112,15 @@ bool getEnableStackSizeSection();
 
 bool getEnableAddrsig();
 
+#if INTEL_CUSTOMIZATION
+
+bool getEnableIntelAdvancedOpts();
+
+bool getEnableFtzDaz();
+
+int getX87Precision();
+#endif // INTEL_CUSTOMIZATION
+
 bool getEmitCallSiteInfo();
 
 bool getEnableDebugEntryValues();
