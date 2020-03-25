@@ -94,6 +94,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #else
   if (CGM.getLangOpts().OpenMPLateOutline) {
 #endif // INTEL_CUSTOMIZATION
+    // Handle reprocessing VLASizeMap expressions.
+    CGVLASizeMapHandler VSMH(*this);
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       if (requiresImplicitTask(*Dir))
         return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_task);

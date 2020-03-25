@@ -1613,9 +1613,17 @@ private:
   /// \p KernelF is an outlined function of region \p W.
   void guardSideEffectStatements(WRegionNode *W, Function *KernelF);
 
+public:
   /// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-  void replacePrintfWithOCLBuiltin(Function *F) const;
+  /// \p PrintfDecl is the function printf(). \p OCLPrintfDecl is the function
+  /// _Z18__spirv_ocl_printfPU3AS2ci(). If \p PrintfDecl is null, the utility
+  /// returns without doing anything. if \p F is null, then all call
+  /// instructions to the function \p PrintfDecl are replaced.
+  static void replacePrintfWithOCLBuiltin(Function *PrintfDecl,
+                                          Function *OCLPrintfDecl,
+                                          Function *F = nullptr);
 
+private:
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.

@@ -1605,7 +1605,7 @@ void OpenMPLateOutliner::HandleImplicitVar(const Expr *E,
 OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
                                        const OMPExecutableDirective &D,
                                        OpenMPDirectiveKind Kind)
-    : CGF(CGF), C(CGF.CGM.getLLVMContext()), VSMH(CGF), Directive(D),
+    : CGF(CGF), C(CGF.CGM.getLLVMContext()), Directive(D),
       CurrentDirectiveKind(Kind) {
   // Set an attribute indicating that the routine may have OpenMP directives
   // (represented with llvm intrinsics) in the LLVM IR
@@ -1613,6 +1613,11 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
 
   if (CurrentDirectiveKind == OMPD_unknown)
     CurrentDirectiveKind = D.getDirectiveKind();
+
+  if (D.hasAssociatedStmt() && needsVLAExprEmission()) {
+    const auto *CS = cast_or_null<CapturedStmt>(D.getAssociatedStmt());
+    CGF.VLASizeMapHandler->ModifyVLASizeMap(CS);
+  }
 
   RegionEntryDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry);
@@ -2532,6 +2537,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     if (IsDeviceTarget)
       addAttrsForFuncWithTargetRegion(CurFn);
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
+    Outliner.emitVLAExpressions();
     const Stmt *CapturedStmt = S.getInnermostCapturedStmt();
     CapturedStmtInfo->EmitBody(*this, CapturedStmt);
   }
