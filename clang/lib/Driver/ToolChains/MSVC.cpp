@@ -1630,7 +1630,6 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     } else if (A->getOption().matches(options::OPT_D)) {
       // Translate -Dfoo#bar into -Dfoo=bar.
       TranslateDArg(A, *DAL, Opts);
-<<<<<<< HEAD
     }
 #if INTEL_CUSTOMIZATION
     // Add SYCL specific performance libraries.
@@ -1653,11 +1652,8 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       continue;
     }
 #endif // INTEL_CUSTOMIZATION
-    else {
-=======
-    } else if (OFK != Action::OFK_HIP) {
+    else if (OFK != Action::OFK_HIP) {
       // HIP Toolchain translates input args by itself.
->>>>>>> 6f79f80e6e473e1b28ee678cc11bc44efb2448a4
       DAL->append(A);
     }
   }
