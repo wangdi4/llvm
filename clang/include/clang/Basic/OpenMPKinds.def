@@ -348,16 +348,13 @@ OPENMP_CLAUSE(nontemporal, OMPNontemporalClause)
 OPENMP_CLAUSE(order, OMPOrderClause)
 OPENMP_CLAUSE(depobj, OMPDepobjClause)
 OPENMP_CLAUSE(destroy, OMPDestroyClause)
-<<<<<<< HEAD
+OPENMP_CLAUSE(detach, OMPDetachClause)
 #if INTEL_CUSTOMIZATION
 OPENMP_CLAUSE(tile, OMPTileClause)
 #if INTEL_FEATURE_CSA
 OPENMP_CLAUSE(dataflow, OMPDataflowClause)
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-OPENMP_CLAUSE(detach, OMPDetachClause)
->>>>>>> 0f0564bb9a3ca4527eb2333eba34643e05c315ca
 
 // Clauses allowed for OpenMP directive 'parallel'.
 OPENMP_PARALLEL_CLAUSE(if)

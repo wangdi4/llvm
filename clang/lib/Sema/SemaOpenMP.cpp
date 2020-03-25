@@ -12644,16 +12644,13 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_destroy:
-<<<<<<< HEAD
+  case OMPC_detach:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_detach:
->>>>>>> 0f0564bb9a3ca4527eb2333eba34643e05c315ca
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12871,16 +12868,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_destroy:
-<<<<<<< HEAD
+  case OMPC_detach:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_detach:
->>>>>>> 0f0564bb9a3ca4527eb2333eba34643e05c315ca
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13110,16 +13104,13 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_order:
-<<<<<<< HEAD
+  case OMPC_detach:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_detach:
->>>>>>> 0f0564bb9a3ca4527eb2333eba34643e05c315ca
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13375,16 +13366,13 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_match:
   case OMPC_order:
   case OMPC_destroy:
-<<<<<<< HEAD
+  case OMPC_detach:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_detach:
->>>>>>> 0f0564bb9a3ca4527eb2333eba34643e05c315ca
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
