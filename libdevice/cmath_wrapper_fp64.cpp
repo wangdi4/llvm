@@ -9,6 +9,12 @@
 #include "device.h"
 #include "device_math.h"
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
+
 // All exported functions in math and complex device libraries are weak
 // reference. If users provide their own math or complex functions(with
 // the prototype), functions in device libraries will be ignored and
@@ -131,3 +137,9 @@ double asinh(double x) { return __devicelib_asinh(x); }
 
 DEVICE_EXTERN_C
 double atanh(double x) { return __devicelib_atanh(x); }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB

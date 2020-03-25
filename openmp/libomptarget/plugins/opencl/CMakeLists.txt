@@ -82,4 +82,10 @@ else()
     libomptarget_say("Not building OpenCL offloading plugin: \
                       OpenCL not found in system.")
 endif()
+
+# Enable new IN_LIST operator.
+cmake_policy(SET CMP0057 NEW)
+if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(omptarget.rtl.opencl libompdevice)
+endif()
 # end INTEL_COLLAB

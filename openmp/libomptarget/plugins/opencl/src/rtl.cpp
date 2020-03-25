@@ -241,11 +241,7 @@ static const char *getCLErrorName(int error) {
 #define INVOKE_CL_RET_NULL(fn, ...) INVOKE_CL_RET(NULL, fn, __VA_ARGS__)
 
 #define OFFLOADSECTIONNAME "omp_offloading_entries"
-#ifdef _WIN32
-#define DEVICE_RTL_NAME "..\\lib\\libomptarget-opencl.spv"
-#else
 #define DEVICE_RTL_NAME "libomptarget-opencl.spv"
-#endif
 
 //#pragma OPENCL EXTENSION cl_khr_spir : enable
 
@@ -348,6 +344,41 @@ struct ExtensionsTy {
   ExtensionStatusTy HostMemAllocINTELPointer = ExtensionStatusUnknown;
   ExtensionStatusTy MemFreeINTELPointer = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
+
+  // Libdevice extensions that may be supported by device runtime.
+  struct LibdeviceExtDescTy {
+    const char *Name;
+    const char *FallbackLibName;
+    ExtensionStatusTy Status;
+  };
+
+  std::vector<LibdeviceExtDescTy> LibdeviceExtensions = {
+    {
+      "cl_intel_assert",
+      "libomp-fallback-cassert.spv",
+      ExtensionStatusUnknown
+    },
+    {
+      "cl_intel_math",
+      "libomp-fallback-cmath.spv",
+      ExtensionStatusUnknown
+    },
+    {
+      "cl_intel_math_fp64",
+      "libomp-fallback-cmath-fp64.spv",
+      ExtensionStatusUnknown
+    },
+    {
+      "cl_intel_complex",
+      "libomp-fallback-complex.spv",
+      ExtensionStatusUnknown
+    },
+    {
+      "cl_intel_complex_fp64",
+      "libomp-fallback-complex-fp64.spv",
+      ExtensionStatusUnknown
+    },
+  };
 
   // Initialize extensions' statuses for the given device.
   int32_t getExtensionsInfoForDevice(int32_t DeviceId);
@@ -742,7 +773,7 @@ static void closeRTL() {
   DP("Closed RTL successfully\n");
 }
 
-static std::string getDeviceRTLPath() {
+static std::string getDeviceRTLPath(const char *basename) {
   std::string rtl_path;
 #ifdef _WIN32
   char path[_MAX_PATH];
@@ -761,7 +792,7 @@ static std::string getDeviceRTLPath() {
   rtl_path = rtl_info.dli_fname;
 #endif
   size_t split = rtl_path.find_last_of("/\\");
-  rtl_path.replace(split + 1, std::string::npos, DEVICE_RTL_NAME);
+  rtl_path.replace(split + 1, std::string::npos, basename);
   return rtl_path;
 }
 
@@ -857,6 +888,15 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
     MemFreeINTELPointer = ExtensionStatusEnabled;
   }
 #endif  // INTEL_CUSTOMIZATION
+
+  std::for_each(LibdeviceExtensions.begin(), LibdeviceExtensions.end(),
+                [&Extensions](LibdeviceExtDescTy &Desc) {
+                  if (Desc.Status == ExtensionStatusUnknown)
+                    if (Extensions.find(Desc.Name) != std::string::npos) {
+                      Desc.Status = ExtensionStatusEnabled;
+                      DP("Extension %s enabled.\n", Desc.Name);
+                    }
+                });
 
   return CL_SUCCESS;
 }
@@ -1126,6 +1166,50 @@ static void debugPrintBuildLog(cl_program program, cl_device_id did) {
 #endif // INTEL_CUSTOMIZATION
 }
 
+static cl_program createProgramFromFile(
+    const char *basename, int32_t device_id, std::string &options) {
+  std::string device_rtl_path = getDeviceRTLPath(basename);
+  std::ifstream device_rtl(device_rtl_path, std::ios::binary);
+
+  if (device_rtl.is_open()) {
+    DP("Found device RTL: %s\n", device_rtl_path.c_str());
+    device_rtl.seekg(0, device_rtl.end);
+    int device_rtl_len = device_rtl.tellg();
+    std::string device_rtl_bin(device_rtl_len, '\0');
+    device_rtl.seekg(0);
+    if (!device_rtl.read(&device_rtl_bin[0], device_rtl_len)) {
+      DP("I/O Error: Failed to read device RTL.\n");
+      return nullptr;
+    }
+
+    dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, basename);
+
+    cl_int status;
+    cl_program program =
+        clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+                              device_rtl_bin.c_str(), device_rtl_len,
+                              &status);
+    if (status != CL_SUCCESS) {
+      DP("Error: Failed to create device RTL from IL: %d\n", status);
+      return nullptr;
+    }
+
+    status = clCompileProgram(program, 0, nullptr,
+                              options.c_str(), 0,
+                              nullptr, nullptr, nullptr, nullptr);
+    if (status != CL_SUCCESS) {
+      debugPrintBuildLog(program, DeviceInfo.deviceIDs[device_id]);
+      DP("Error: Failed to compile program: %d\n", status);
+      return nullptr;
+    }
+
+    return program;
+  }
+
+  DP("Cannot find device RTL: %s\n", device_rtl_path.c_str());
+  return nullptr;
+}
+
 EXTERN
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
@@ -1142,77 +1226,66 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   // create Program
   cl_int status;
-  cl_program program[3];
-  cl_uint num_programs = 0;
+  std::vector<cl_program> programs;
+  cl_program linked_program;
   std::string compilation_options(DeviceInfo.CompilationOptions);
   std::string linking_options(DeviceInfo.LinkingOptions);
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
 
-  if ((DeviceInfo.Flags & RTLDeviceInfoTy::LinkDeviceRTLFlag) != 0) {
-    std::string device_rtl_path = getDeviceRTLPath();
-    std::ifstream device_rtl(device_rtl_path, std::ios::binary);
-
-    if (device_rtl.is_open()) {
-      DP("Found device RTL: %s\n", device_rtl_path.c_str());
-      device_rtl.seekg(0, device_rtl.end);
-      int device_rtl_len = device_rtl.tellg();
-      std::string device_rtl_bin(device_rtl_len, '\0');
-      device_rtl.seekg(0);
-      if (!device_rtl.read(&device_rtl_bin[0], device_rtl_len)) {
-        DP("I/O Error: Failed to read device RTL.\n");
-        return NULL;
-      }
-
-      dumpImageToFile(device_rtl_bin.c_str(), device_rtl_len, "RTL");
-
-      program[1] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
-                                         device_rtl_bin.c_str(), device_rtl_len,
-                                         &status);
-      if (status != CL_SUCCESS) {
-        DP("Error: Failed to create device RTL from IL: %d\n", status);
-        return NULL;
-      }
-
-      status = clCompileProgram(program[1], 0, nullptr,
-                                compilation_options.c_str(), 0,
-                                nullptr, nullptr, nullptr, nullptr);
-      if (status != CL_SUCCESS) {
-        debugPrintBuildLog(program[1], DeviceInfo.deviceIDs[device_id]);
-        DP("Error: Failed to compile program: %d\n", status);
-        return NULL;
-      }
-      num_programs++;
-    } else {
-      DP("Cannot find device RTL: %s\n", device_rtl_path.c_str());
-    }
-  }
-
   // Create program for the target regions.
-  dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
+  // User program must be first in the link order.
   CompilationTimer.start();
-  program[0] = clCreateProgramWithIL(DeviceInfo.CTX[device_id],
-                                     image->ImageStart, ImageSize, &status);
+  dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
+  cl_program program =
+      clCreateProgramWithIL(DeviceInfo.CTX[device_id],
+                            image->ImageStart, ImageSize, &status);
   if (status != CL_SUCCESS) {
-    debugPrintBuildLog(program[0], DeviceInfo.deviceIDs[device_id]);
+    debugPrintBuildLog(program, DeviceInfo.deviceIDs[device_id]);
     DP("Error: Failed to create program: %d\n", status);
     return NULL;
   }
-  status = clCompileProgram(program[0], 0, nullptr,
+  status = clCompileProgram(program, 0, nullptr,
                             compilation_options.c_str(), 0,
                             nullptr, nullptr, nullptr, nullptr);
   if (status != CL_SUCCESS) {
-    debugPrintBuildLog(program[0], DeviceInfo.deviceIDs[device_id]);
+    debugPrintBuildLog(program, DeviceInfo.deviceIDs[device_id]);
     DP("Error: Failed to compile program: %d\n", status);
     return NULL;
   }
+  programs.push_back(program);
 
+  // Link OpenCL deviceRTL, if needed.
+  if ((DeviceInfo.Flags & RTLDeviceInfoTy::LinkDeviceRTLFlag) != 0) {
+    cl_program program =
+        createProgramFromFile(DEVICE_RTL_NAME, device_id, compilation_options);
+    if (program)
+      programs.push_back(program);
+  } else
+    DP("Skipped device RTL: %s\n", DEVICE_RTL_NAME);
+
+  // Link libdevice fallback implementations, if needed.
+  auto &libdevice_extensions =
+      DeviceInfo.Extensions[device_id].LibdeviceExtensions;
+
+  for (unsigned i = 0; i < libdevice_extensions.size(); ++i) {
+    auto &desc = libdevice_extensions[i];
+    if (desc.Status != ExtensionStatusEnabled) {
+      // Device runtime does not support this libdevice extension,
+      // so we have to link in the fallback implementation.
+      //
+      // TODO: the device image must specify which libdevice extensions
+      //       are actually required. We should link only the required
+      //       fallback implementations.
+      cl_program program =
+          createProgramFromFile(desc.FallbackLibName, device_id,
+                                compilation_options);
+      if (program)
+        programs.push_back(program);
+    } else
+      DP("Skipped device RTL: %s\n", desc.FallbackLibName);
+  }
   CompilationTimer.stop();
-
-  num_programs++;
-
-  if (num_programs < 2)
-    DP("Skipped device RTL.\n");
 
   DP("OpenCL linking options: %s\n", linking_options.c_str());
   // clLinkProgram drops the last symbol. Work this around temporarily.
@@ -1220,12 +1293,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   LinkingTimer.start();
 
-  program[2] = clLinkProgram(
+  linked_program = clLinkProgram(
       DeviceInfo.CTX[device_id], 1, &DeviceInfo.deviceIDs[device_id],
-      linking_options.c_str(), num_programs, &program[0], nullptr, nullptr,
-      &status);
+      linking_options.c_str(), programs.size(), programs.data(),
+      nullptr, nullptr, &status);
   if (status != CL_SUCCESS) {
-    debugPrintBuildLog(program[2], DeviceInfo.deviceIDs[device_id]);
+    debugPrintBuildLog(linked_program, DeviceInfo.deviceIDs[device_id]);
     DP("Error: Failed to link program: %d\n", status);
     return NULL;
   } else {
@@ -1293,7 +1366,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
         DP("Looking up global variable '%s' of size %zu bytes\n",
            Name, Size);
 
-        if (ExtCall(DeviceInfo.deviceIDs[device_id], program[2],
+        if (ExtCall(DeviceInfo.deviceIDs[device_id], linked_program,
                     Name, &DeviceSize, &TgtAddr) != CL_SUCCESS) {
           // FIXME: this may happen for static global variables,
           //        since they are not declared as Extern, thus,
@@ -1363,7 +1436,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       continue;
     }
 #endif  // _WIN32
-    kernels[i] = clCreateKernel(program[2], name, &status);
+    kernels[i] = clCreateKernel(linked_program, name, &status);
     if (status != 0) {
       DP("Error: Failed to create kernel %s, %d\n", name, status);
       return NULL;
@@ -1402,10 +1475,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   }
 
   // Release intermediate programs and store the final program.
-  for (uint32_t i = 0; i < num_programs; i++) {
-    INVOKE_CL_EXIT_FAIL(clReleaseProgram, program[i]);
+  for (uint32_t i = 0; i < programs.size(); i++) {
+    INVOKE_CL_EXIT_FAIL(clReleaseProgram, programs[i]);
   }
-  DeviceInfo.FuncGblEntries[device_id].Program = program[2];
+  DeviceInfo.FuncGblEntries[device_id].Program = linked_program;
   if (initProgram(device_id) != OFFLOAD_SUCCESS)
     return nullptr;
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[device_id].Table;

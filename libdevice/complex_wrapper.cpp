@@ -9,6 +9,12 @@
 #include "device.h"
 #include "device_complex.h"
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
+
 DEVICE_EXTERN_C
 float cimagf(float __complex__ z) { return __devicelib_cimagf(z); }
 
@@ -98,3 +104,9 @@ DEVICE_EXTERN_C
 float __complex__ __divsc3(float __a, float __b, float __c, float __d) {
   return __devicelib___divsc3(__a, __b, __c, __d);
 }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB

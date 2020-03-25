@@ -10,6 +10,12 @@
 #include "device_math.h"
 #include <cmath>
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
+
 DEVICE_EXTERN_C
 float __devicelib_crealf(float __complex__ z) { return __real__(z); }
 
@@ -427,3 +433,9 @@ float __complex__ __devicelib_catanf(float __complex__ z) {
       CMPLXF(-__devicelib_cimagf(z), __devicelib_crealf(z)));
   return CMPLXF(__devicelib_cimagf(w), -__devicelib_crealf(w));
 }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
