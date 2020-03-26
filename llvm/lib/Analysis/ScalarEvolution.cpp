@@ -9753,6 +9753,77 @@ static bool HasSameValue(const SCEV *A, const SCEV *B) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Returns true if \p Scev can be proven to not be signed/unsigned min using
+/// no-wrap flags. This is done by checking NSW/NUW flags on both Scev and
+/// (Scev - 1). Scev is allowed to be SCEVUnknown to handle cases like this-
+/// Scev: %t
+/// (Scev - 1): (-1 + %t)<nsw>
+///
+/// Example of why we need to check for no-wrap flag on Scev when applicable-
+/// Scev: 1 + (2 * %t)<nsw>
+/// (Scev - 1) : (2 * %t)<nsw>
+///
+/// Even though (Scev - 1) has nsw, the addition of 1 in Scev can wrap around
+/// and make it signed min.
+bool isNotRangeMinUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev,
+                              bool IsSignedRange) {
+
+  auto *NAryScev = dyn_cast<SCEVNAryExpr>(Scev);
+
+  if (!isa<SCEVUnknown>(Scev) &&
+      (!NAryScev || !NAryScev->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
+                                                            : SCEV::FlagNUW)))
+    return false;
+
+  // Create (Scev - 1) by passing 'any wrap' flag which is the default
+  // parameter. We will only get a better flag back if the cached value of
+  // (Scev - 1) is known to not wrap.
+  auto *ScevMinusOne =
+      SE.getAddExpr(SE.getConstant(Scev->getType(), (uint64_t)-1, true), Scev);
+
+  auto *NAryScevMinusOne = dyn_cast<SCEVNAryExpr>(ScevMinusOne);
+
+  return NAryScevMinusOne &&
+         NAryScevMinusOne->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
+                                                        : SCEV::FlagNUW);
+}
+
+/// Returns true if \p Scev can be proven to not be signed/unsigned max using
+/// no-wrap flags. This is done by checking NSW/NUW flags on both Scev and
+/// (Scev + 1). Scev is allowed to be SCEVUnknown to handle cases like this-
+/// Scev: %t
+/// (Scev + 1): (1 + %t)<nsw>
+///
+/// Example of why we need to check for no-wrap flag on Scev when applicable-
+/// Scev: -1 + (2 * %t)<nsw>
+/// (Scev - 1) : (2 * %t)<nsw>
+///
+/// Even though (Scev - 1) has nsw, the subtraction of 1 in Scev can wrap around
+/// and make it signed max.
+bool isNotRangeMaxUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev,
+                              bool IsSignedRange) {
+
+  auto *NAryScev = dyn_cast<SCEVNAryExpr>(Scev);
+
+  if (!isa<SCEVUnknown>(Scev) &&
+      (!NAryScev || !NAryScev->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
+                                                            : SCEV::FlagNUW)))
+    return false;
+
+  // Create (Scev + 1) by passing 'any wrap' flag which is the default
+  // parameter. We will only get a better flag back if the cached value of
+  // (Scev + 1) is known to not wrap.
+  auto *ScevPlusOne =
+      SE.getAddExpr(SE.getConstant(Scev->getType(), 1, true), Scev);
+
+  auto *NAryScevPlusOne = dyn_cast<SCEVNAryExpr>(ScevPlusOne);
+
+  return NAryScevPlusOne &&
+         NAryScevPlusOne->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
+                                                       : SCEV::FlagNUW);
+}
+#endif // INTEL_CUSTOMIZATION
 bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
                                            const SCEV *&LHS, const SCEV *&RHS,
                                            unsigned Depth) {
@@ -9887,12 +9958,14 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
   // adding or subtracting 1 from one of the operands.
   switch (Pred) {
   case ICmpInst::ICMP_SLE:
-    if (!getSignedRangeMax(RHS).isMaxSignedValue()) {
+    if (!getSignedRangeMax(RHS).isMaxSignedValue() || // INTEL
+        isNotRangeMaxUsingNoWrap(*this, RHS, true)) { // INTEL
       RHS = getAddExpr(getConstant(RHS->getType(), 1, true), RHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SLT;
       Changed = true;
-    } else if (!getSignedRangeMin(LHS).isMinSignedValue()) {
+    } else if (!getSignedRangeMin(LHS).isMinSignedValue() || // INTEL
+               isNotRangeMinUsingNoWrap(*this, LHS, true)) { // INTEL
       LHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), LHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SLT;
@@ -9900,12 +9973,14 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     }
     break;
   case ICmpInst::ICMP_SGE:
-    if (!getSignedRangeMin(RHS).isMinSignedValue()) {
+    if (!getSignedRangeMin(RHS).isMinSignedValue() || // INTEL
+        isNotRangeMinUsingNoWrap(*this, RHS, true)) { // INTEL
       RHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), RHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SGT;
       Changed = true;
-    } else if (!getSignedRangeMax(LHS).isMaxSignedValue()) {
+    } else if (!getSignedRangeMax(LHS).isMaxSignedValue() || // INTEL
+               isNotRangeMaxUsingNoWrap(*this, LHS, true)) { // INTEL
       LHS = getAddExpr(getConstant(RHS->getType(), 1, true), LHS,
                        SCEV::FlagNSW);
       Pred = ICmpInst::ICMP_SGT;
@@ -9913,23 +9988,27 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     }
     break;
   case ICmpInst::ICMP_ULE:
-    if (!getUnsignedRangeMax(RHS).isMaxValue()) {
+    if (!getUnsignedRangeMax(RHS).isMaxValue() ||      // INTEL
+        isNotRangeMaxUsingNoWrap(*this, RHS, false)) { // INTEL
       RHS = getAddExpr(getConstant(RHS->getType(), 1, true), RHS,
                        SCEV::FlagNUW);
       Pred = ICmpInst::ICMP_ULT;
       Changed = true;
-    } else if (!getUnsignedRangeMin(LHS).isMinValue()) {
+    } else if (!getUnsignedRangeMin(LHS).isMinValue() ||      // INTEL
+               isNotRangeMinUsingNoWrap(*this, LHS, false)) { // INTEL
       LHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), LHS);
       Pred = ICmpInst::ICMP_ULT;
       Changed = true;
     }
     break;
   case ICmpInst::ICMP_UGE:
-    if (!getUnsignedRangeMin(RHS).isMinValue()) {
+    if (!getUnsignedRangeMin(RHS).isMinValue() ||      // INTEL
+        isNotRangeMinUsingNoWrap(*this, RHS, false)) { // INTEL
       RHS = getAddExpr(getConstant(RHS->getType(), (uint64_t)-1, true), RHS);
       Pred = ICmpInst::ICMP_UGT;
       Changed = true;
-    } else if (!getUnsignedRangeMax(LHS).isMaxValue()) {
+    } else if (!getUnsignedRangeMax(LHS).isMaxValue() ||      // INTEL
+               isNotRangeMaxUsingNoWrap(*this, LHS, false)) { // INTEL
       LHS = getAddExpr(getConstant(RHS->getType(), 1, true), LHS,
                        SCEV::FlagNUW);
       Pred = ICmpInst::ICMP_UGT;
