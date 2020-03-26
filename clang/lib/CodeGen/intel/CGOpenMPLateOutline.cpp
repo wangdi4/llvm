@@ -2111,6 +2111,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_declare_mapper:
   case OMPD_requires:
   case OMPD_depobj:
+  case OMPD_scan:
     return false;
   case OMPD_unknown:
     llvm_unreachable("Unexpected directive.");
@@ -2450,6 +2451,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_allocate:
   case OMPD_requires:
   case OMPD_depobj:
+  case OMPD_scan:
     break;
 
   // These directives do not create region directives.
