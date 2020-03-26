@@ -217,7 +217,9 @@ void BitcodeCompiler::add(BitcodeFile &f) {
     //                      files and normal object files
     //   * sym->isLazy = defined in an archive but not used
     //   * sym->isShared = defined in a shared library and used
-    r.ResolvedByLinker = sym->isDefined() || sym->isLazy() || sym->isShared();
+    //   * sym->isCommon = is a common symbol
+    r.ResolvedByLinker = sym->isDefined() || sym->isLazy() ||
+        sym->isShared() || sym->isCommon();
 #endif // INTEL_CUSTOMIZATION
     if (r.Prevailing)
       sym->replace(Undefined{nullptr, sym->getName(), STB_GLOBAL, STV_DEFAULT,
