@@ -336,11 +336,14 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl
      pi_opencl
      libsycldevice
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components
      # under the existing if(INTEL_CUSTOMIZATION)
      # guard below.
 # end INTEL_CUSTOMIZATION
+=======
+>>>>>>> a083318feb5d508fecf79a317686c3ff202f8d74
 )
 
 if(INTEL_CUSTOMIZATION)
