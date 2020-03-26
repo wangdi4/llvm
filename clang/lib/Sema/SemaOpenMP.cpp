@@ -5286,16 +5286,13 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_nontemporal:
       case OMPC_order:
       case OMPC_destroy:
-<<<<<<< HEAD
+      case OMPC_inclusive:
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
       case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-      case OMPC_inclusive:
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -11406,16 +11403,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_destroy:
-<<<<<<< HEAD
+  case OMPC_inclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_inclusive:
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12694,16 +12688,13 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_nontemporal:
   case OMPC_destroy:
   case OMPC_detach:
-<<<<<<< HEAD
+  case OMPC_inclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_inclusive:
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12927,16 +12918,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_order:
   case OMPC_destroy:
   case OMPC_detach:
-<<<<<<< HEAD
+  case OMPC_inclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_inclusive:
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13167,16 +13155,13 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_detach:
-<<<<<<< HEAD
+  case OMPC_inclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_inclusive:
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -18472,7 +18457,6 @@ OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
                                       Vars);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 OMPClause *Sema::ActOnOpenMPTileClause(ArrayRef<Expr *> Sizes,
                                        SourceLocation StartLoc,
@@ -18546,7 +18530,7 @@ OMPClause *Sema::ActOnOpenMPDataflowClause(Expr *StaticChunkSize,
 }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
+
 OMPClause *Sema::ActOnOpenMPInclusiveClause(ArrayRef<Expr *> VarList,
                                             SourceLocation StartLoc,
                                             SourceLocation LParenLoc,
@@ -18574,4 +18558,3 @@ OMPClause *Sema::ActOnOpenMPInclusiveClause(ArrayRef<Expr *> VarList,
 
   return OMPInclusiveClause::Create(Context, StartLoc, LParenLoc, EndLoc, Vars);
 }
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88

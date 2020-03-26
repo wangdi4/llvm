@@ -241,16 +241,13 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_order:
   case OMPC_destroy:
   case OMPC_detach:
-<<<<<<< HEAD
+  case OMPC_inclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_inclusive:
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88
     break;
   }
 
@@ -1266,7 +1263,6 @@ void OMPNontemporalClause::setPrivateRefs(ArrayRef<Expr *> VL) {
   std::copy(VL.begin(), VL.end(), varlist_end());
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 OMPTileClause *OMPTileClause::Create(const ASTContext &C,
                                      SourceLocation StartLoc,
@@ -1305,7 +1301,7 @@ const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
   return getTrailingObjects<Expr *>()[NumLoop];
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 OMPInclusiveClause *OMPInclusiveClause::Create(const ASTContext &C,
                                                SourceLocation StartLoc,
                                                SourceLocation LParenLoc,
@@ -1323,7 +1319,6 @@ OMPInclusiveClause *OMPInclusiveClause::CreateEmpty(const ASTContext &C,
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(N));
   return new (Mem) OMPInclusiveClause(N);
 }
->>>>>>> 06dea73307e75f0227ba24cab2adf2e4dad62b88
 
 //===----------------------------------------------------------------------===//
 //  OpenMP clauses printing methods
