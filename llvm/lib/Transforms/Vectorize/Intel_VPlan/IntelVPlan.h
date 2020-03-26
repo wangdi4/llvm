@@ -873,6 +873,7 @@ public:
   /// needed.
   virtual VPPHINode *cloneImpl() const final {
     VPPHINode *Cloned = new VPPHINode(getType());
+    Cloned->setBlend(getBlend());
     for (unsigned i = 0, e = getNumIncomingValues(); i != e; ++i) {
       Cloned->addIncoming(getIncomingValue(i), getIncomingBlock(i));
     }
