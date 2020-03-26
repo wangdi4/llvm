@@ -3838,6 +3838,15 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_t2transposewt1:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  case X86::BI__builtin_ia32_tcvt2ps2bf16:
+  case X86::BI__builtin_ia32_tcvt2ps2ph:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, {2, 3}, 0, 31);
+  case X86::BI__builtin_ia32_amxconvert_tcvtd2ps:
+  case X86::BI__builtin_ia32_amxconvert_tcvtps2bf16:
+  case X86::BI__builtin_ia32_tcvtps2ph:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 2, 0, 31);
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AMX
   }
 }

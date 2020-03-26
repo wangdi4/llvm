@@ -3312,6 +3312,11 @@ def mamx_bf16_evex : Flag<["-"], "mamx-bf16-evex">, Group<m_x86_Features_Group>;
 def mno_amx_bf16_evex : Flag<["-"], "mno-amx-bf16-evex">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
 
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+def mamx_convert : Flag<["-"], "mamx-convert">, Group<m_x86_Features_Group>;
+def mno_amx_convert : Flag<["-"], "mno-amx-convert">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+
 #if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
 def mamx_convert_evex : Flag<["-"], "mamx-convert-evex">, Group<m_x86_Features_Group>;
 def mno_amx_convert_evex : Flag<["-"], "mno-amx-convert-evex">, Group<m_x86_Features_Group>;

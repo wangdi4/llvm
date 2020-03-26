@@ -742,6 +742,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FP16 */
 
+/* INTEL_FEATURE_ISA_AMX_CONVERT */
+#if defined(__AMX_CONVERT_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXCONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxconvertintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_CONVERT */
+
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 #if defined(__KEYLOCKER_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__KEYLOCKER__) || defined(__M_INTRINSIC_PROMOTE__)

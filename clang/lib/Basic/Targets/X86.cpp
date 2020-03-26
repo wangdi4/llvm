@@ -941,6 +941,9 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
     Features["amx-transpose2"] = false;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+    Features["amx-convert"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AMX
   }
   else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
@@ -987,6 +990,10 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   else if (Name == "amx-transpose2")
     Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  else if (Name == "amx-convert" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AVX_VNNI
   else if (Name == "avxvnni") {
     if (Enabled)
@@ -1215,6 +1222,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-transpose2") {
       HasAMXTRANSPOSE2 = true;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+    } else if (Feature == "+amx-convert") {
+      HasAMXCONVERT = true;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AVX_VNNI
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
@@ -1744,6 +1755,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFP16__");
   Builder.defineMacro("__AMX_FP16_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  if (HasAMXCONVERT)
+    Builder.defineMacro("__AMX_CONVERT__");
+  Builder.defineMacro("__AMX_CONVERT_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AVX_VNNI
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
@@ -1917,6 +1933,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
       .Case("amx-transpose2", true)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+      .Case("amx-convert", true)
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
@@ -2079,6 +2098,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
       .Case("amx-transpose2", HasAMXTRANSPOSE2)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+      .Case("amx-convert", HasAMXCONVERT)
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", HasAVXVNNI)
 #endif // INTEL_FEATURE_ISA_AVX_VNNI

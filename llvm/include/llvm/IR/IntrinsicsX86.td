@@ -6483,4 +6483,26 @@ let TargetPrefix = "x86" in {
                                     [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+//===----------------------------------------------------------------------===//
+let TargetPrefix = "x86" in {
+// AMX-CONVERT - Intel CONVERT AMX extensions
+  def int_x86_tcvt2ps2bf16 : GCCBuiltin<"__builtin_ia32_tcvt2ps2bf16">,
+                            Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty, llvm_i8_ty],
+                                      [ImmArg<2>, ImmArg<3>]>;
+  def int_x86_tcvt2ps2ph : GCCBuiltin<"__builtin_ia32_tcvt2ps2ph">,
+                           Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty, llvm_i8_ty],
+                                     [ImmArg<2>, ImmArg<3>]>;
+  def int_x86_amxconvert_tcvtd2ps : GCCBuiltin<"__builtin_ia32_amxconvert_tcvtd2ps">,
+                                    Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty],
+                                              [ImmArg<2>]>;
+  def int_x86_amxconvert_tcvtps2bf16 : GCCBuiltin<"__builtin_ia32_amxconvert_tcvtps2bf16">,
+                                                  Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty],
+                                                            [ImmArg<2>]>;
+  def int_x86_tcvtps2ph : GCCBuiltin<"__builtin_ia32_tcvtps2ph">,
+                          Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty],
+                                    [ImmArg<2>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION

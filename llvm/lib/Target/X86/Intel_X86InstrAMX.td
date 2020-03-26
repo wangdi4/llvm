@@ -1179,22 +1179,20 @@ let Predicates = [HasAMXCONVERT, In64BitMode] in {
                                    u8imm:$src1, u8imm:$src2), []>;
     }
 
-    def TCVTPS2BF16mr : I<0x5d, MRMDestMemFSIB, (outs opaquemem:$dst),
-                       (ins VTILE:$src),
+    def TCVTPS2BF16mr : I<0x5d, MRMDestMemFSIB, (outs),
+                       (ins opaquemem:$dst, VTILE:$src),
                        "tcvtps2bf16\t{$src, $dst|$dst, $src}",
                        []>, VEX, T8PD;
     let usesCustomInserter = 1 in {
-      def PTCVTPS2BF16mr : PseudoI<(outs opaquemem:$dst),
-                                   (ins u8imm:$src), []>;
+      def PTCVTPS2BF16mr : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
     }
 
-    def TCVTPS2PHmr : I<0x5d, MRMDestMemFSIB, (outs opaquemem:$dst),
-                      (ins VTILE:$src),
+    def TCVTPS2PHmr : I<0x5d, MRMDestMemFSIB, (outs),
+                      (ins opaquemem:$dst, VTILE:$src),
                       "tcvtps2ph\t{$src, $dst|$dst, $src}",
                       []>, VEX, T8PS;
     let usesCustomInserter = 1 in {
-      def PTCVTPS2PHmr : PseudoI<(outs opaquemem:$dst),
-                                 (ins u8imm:$src), []>;
+      def PTCVTPS2PHmr : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
     }
   }
 }
