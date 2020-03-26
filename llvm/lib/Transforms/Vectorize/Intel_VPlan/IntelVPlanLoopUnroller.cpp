@@ -22,7 +22,7 @@ static cl::opt<bool>
     VPlanPrintUnroll("vplan-print-after-unroll", cl::init(false),
                      cl::desc("Print plain dump after VPlan loop unrolling"));
 
-void VPlanLoopUnroller::run() {
+void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   assert(UF > 1 && "Can't unroll with unroll factor less than 2");
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
@@ -164,7 +164,7 @@ void VPlanLoopUnroller::run() {
     }
 
     for (auto It : InstToRemove)
-      ClonedHeader->getInstructions().remove(*It);
+      ClonedHeader->eraseInstruction(It);
 
     // Remap operands.
     VPValueMapper Mapper(BlockMap, ValueMap);
@@ -172,8 +172,13 @@ void VPlanLoopUnroller::run() {
       auto ClonedBlock = BlockMap[Block];
       assert(ClonedBlock && "All blocks expected to be successfully cloned");
 
-      for (VPInstruction &Inst : *ClonedBlock)
+      for (VPInstruction &Inst : *ClonedBlock) {
         Mapper.remapInstruction(&Inst);
+
+        // Save unrolled part number for the instruction if needed.
+        if (VPInstUnrollPart)
+          VPInstUnrollPart->insert(std::make_pair(&Inst, Part + 1));
+      }
 
       // Fix cond bit.
       if (VPValue *CondBit = Block->getCondBit())
@@ -220,7 +225,7 @@ void VPlanLoopUnroller::run() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (VPlanPrintUnroll) {
-    outs() << "After loop unrolling\n";
+    outs() << "After VPlan loop unrolling\n";
     Plan.dump(outs(), true);
   }
 #endif

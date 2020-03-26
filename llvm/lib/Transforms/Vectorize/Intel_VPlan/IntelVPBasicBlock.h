@@ -284,8 +284,13 @@ public:
     Instructions.remove(Instruction);
   }
 
-  /// Remove the instruction from VPBasicBlock's instructions and destroy
-  /// Instruction object.
+  /// Unlinks a VPInstruction from Instructions list and adds the erased
+  /// instruction in UnlinkedVPInsns vector. This happens because there was the
+  /// following problem: a VPInstruction was erased, but its pointer remained in
+  /// some data structures. There is a chance to create a new instruction with
+  /// the same pointer as the one that was erased. In this case, the data
+  /// structures might have wrong values. For this reason, we completely erase
+  /// VPInstuctions only at the end of VPlan.
   void eraseInstruction(VPInstruction *Instruction);
 
   /// The method which generates all new IR instructions that correspond to

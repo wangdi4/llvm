@@ -72,6 +72,24 @@
 ; CHECK: TMVINL: Marked switch_ TO fun00_FOR INLINING
 ; CHECK: TMVINL: Marked switch_ TO fun01_FOR INLINING
 
+; Check that the conditionals with globals are simplified.
+
+; CHECK: TMVINL: Testing       %t6 = icmp sgt i32 %t5, 5
+; CHECK: TMVINL: Against (T)   %t6 = icmp sgt i32 %t5, 5
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_mytester_
+; CHECK: TMVINL: Testing       %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINL: Against (T)   %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_myglobal_
+; CHECK: TMVINL: Testing       %t62 = icmp sge i32 %t52, 1
+; CHECK: TMVINL: Against (T)   %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_myglobal_
+; CHECK: TMVINL: Testing       %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: TMVINL: Against (T)   %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_mybool_
+; CHECK: TMVINL: Testing       %t8 = icmp eq i32 %t7, -2
+; CHECK: TMVINL: Against (F)   %t8 = icmp eq i32 %t7, -2
+; CHECK: TMVINST: Provably FALSE  GV = mymod_mp_mynnodes_
+
 ; Check that the skeleton graph shows the right tile choices.
 
 ; CHECK: TMVINL: Root: leapfrog_
@@ -118,11 +136,25 @@
 ; CHECK: .clone.tile.call:
 ; CHECK: call{{.*}}@leapfrog_.1({{.*}}){{ *$}}
 ; CHECK: define{{.*}}@leapfrog_({{.*}})
+; CHECK: %t5 = load i32, i32* @mymod_mp_mytester_, align 8
+; CHECK: icmp sgt i32 %t5, 5
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@fun0_({{.*}}) #1{{ *$}}
+; CHECK: %t51 = load i32, i32* @mymod_mp_myglobal_, align 8
+; CHECK: icmp eq i32 %t51, 1
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@fun1_({{.*}}) #1{{ *$}}
+; CHECK: %t52 = load i32, i32* @mymod_mp_myglobal_, align 8
+; CHECK: icmp sge i32 %t52, 1
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@fun2_({{.*}}) #1{{ *$}}
+; CHECK: %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@extra_({{.*}}) #1{{ *$}}
 ; CHECK: call{{.*}}@switch_({{.*}}){{ *$}}
+; CHECK: %t7 = load i32, i32* @mymod_mp_mynnodes_, align 8
+; CHECK: icmp eq i32 %t7, -2
+; CHECK: br i1 false, label %{{.*}}, label %{{.*}}
 ; CHECK: define{{.*}}@switch_({{.*}})
 ; CHECK: call{{.*}}@fun00_({{.*}}) #1{{ *$}}
 ; CHECK: call{{.*}}@fun01_({{.*}}) #1{{ *$}}

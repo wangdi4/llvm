@@ -822,11 +822,6 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
       auto *Predicate = PredTerms[0].OriginBlock->getPredicate();
       Block2Predicate[Block] = Predicate;
 
-      if (Block == Plan.getEntryBlock())
-        // Block-predicate instruction for Plan entry basic block was created
-        // when processing the Plan itself.
-        continue;
-
       if (Predicate &&
           (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
         VPBuilder::InsertPointGuard Guard(Builder);

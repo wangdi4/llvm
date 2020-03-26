@@ -59,6 +59,12 @@
 
 ; CHECK-NOT: TMVINL: Validated GVM
 
+; Check that no simplification of conditionals with globals was done.
+
+; CHECK-NOT: TMVINL: Testing
+; CHECK-NOT: Against
+; CHECK-NOT: Provably
+
 ; Check that the tile choices were not marked for inlining.
 
 ; CHECK-NOT: TMVINL: Marked

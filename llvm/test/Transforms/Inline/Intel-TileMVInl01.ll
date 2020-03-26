@@ -50,6 +50,12 @@
 
 ; CHECK: TMVINL: Validated GVM
 
+; Check that no simplification of conditionals with globals was done.
+
+; CHECK-NOT: TMVINL: Testing
+; CHECK-NOT: Against
+; CHECK-NOT: Provably
+
 ; Check that the tile choices were marked for inlining.
 
 ; CHECK: TMVINL: Marked leapfrog_ TO fun0_FOR INLINING

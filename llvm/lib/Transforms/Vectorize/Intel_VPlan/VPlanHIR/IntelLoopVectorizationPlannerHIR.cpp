@@ -30,7 +30,7 @@ static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
                                            cl::init(true), cl::Hidden,
                                            cl::desc("Force CFG linearization"));
 
-bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
+bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "VPlan not found!");
@@ -39,7 +39,7 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
 
-  bool VecLoopsInit = CG->initializeVectorLoop(BestVF);
+  bool VecLoopsInit = CG->initializeVectorLoop(BestVF, UF);
   if (!VecLoopsInit)
     return false;
   Plan->executeHIR(CG);
