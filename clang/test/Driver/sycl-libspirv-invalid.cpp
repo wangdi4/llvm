@@ -1,6 +1,10 @@
 /// Test that `-fsycl-libspirv-path=` produces a diagnostic when the library is not found.
 // REQUIRES: clang-driver
 // UNSUPPORTED: system-windows
+// INTEL_CUSTOMIZATION
+// CUDA is not supported
+// XFAIL:*
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clangxx -### -std=c++11 -target x86_64-unknown-linux-gnu -fsycl \
 // RUN: -fsycl-targets=nvptx64-nvidia-nvcl-sycldevice --cuda-path=%S/Inputs/CUDA/usr/local/cuda \
