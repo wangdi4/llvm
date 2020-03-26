@@ -125,7 +125,6 @@ def getDeviceCount(device_type):
         stdout=subprocess.PIPE)
     (output, err) = process.communicate()
     exit_code = process.wait()
-<<<<<<< HEAD
     if exit_code == 0:
         result = output.decode().replace('\n', '').split(':', 1)
         try:
@@ -144,7 +143,6 @@ def getDeviceCount(device_type):
                 TYPE=device_type, ERR=err))
         return [value,is_cuda]
     return [0, False]
-=======
     if exit_code != 0:
         print("getDeviceCount {TYPE}:Non-zero exit code {CODE}".format(
             TYPE=device_type, CODE=exit_code))
@@ -165,7 +163,6 @@ def getDeviceCount(device_type):
         print("getDeviceCount {TYPE}:{ERR}".format(
             TYPE=device_type, ERR=err))
     return [value,is_cuda]
->>>>>>> 4fbf5e01bf560e10b89fb616923f12f4b8f833a7
 
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
