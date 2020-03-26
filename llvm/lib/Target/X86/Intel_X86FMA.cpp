@@ -459,9 +459,11 @@ bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
   // Regular opcodes did not match. Check ZERO opcodes below.
   switch (Opcode) {
   case X86::FsFLD0SS:
+  case X86::AVX512_FsFLD0SS:
     VT = MVT::f32;
     break;
   case X86::FsFLD0SD:
+  case X86::AVX512_FsFLD0SD:
     VT = MVT::f64;
     break;
   case X86::V_SET0:
@@ -494,9 +496,9 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
            "Only F32 and F64 ZERO vectors/scalars are supported.");
     switch (VT.getSizeInBits()) {
     case 32:
-      return X86::FsFLD0SS;
+      return LookForAVX512 ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
     case 64:
-      return X86::FsFLD0SD;
+      return LookForAVX512 ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
     case 128:
       return X86::V_SET0;
     case 256:
