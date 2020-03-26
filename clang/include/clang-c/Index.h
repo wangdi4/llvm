@@ -2587,7 +2587,7 @@ enum CXCursorKind {
 
   CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPDepobjDirective,
+  CXCursor_LastStmt = CXCursor_OMPScanDirective,
 #endif /* INTEL_COLLAB */
 
   /**
