@@ -1132,8 +1132,10 @@ define i32 @lshr_add_nonbool(i2 %x, i1 %y) {
 define i32 @and31_add(i1 %x, i1 %y) {
 ; CHECK-LABEL: @and31_add(
 ; CHECK-NEXT:    [[XZ:%.*]] = zext i1 [[X:%.*]] to i32
-; CHECK-NEXT:    [[YS:%.*]] = sext i1 [[Y:%.*]] to i32
-; CHECK-NEXT:    [[SUB:%.*]] = add nsw i32 [[XZ]], [[YS]]
+; begin INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[Y:%.*]], i32 31, i32 0
+; CHECK-NEXT:    [[SUB:%.*]] = add nuw nsw i32 [[TMP1]], [[XZ]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[R:%.*]] = and i32 [[SUB]], 31
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
@@ -1257,9 +1259,11 @@ define i32 @lshr_add_nonbool_sexts(i2 %x, i1 %y) {
 
 define i32 @and31_add_sexts(i1 %x, i1 %y) {
 ; CHECK-LABEL: @and31_add_sexts(
-; CHECK-NEXT:    [[XS:%.*]] = sext i1 [[X:%.*]] to i32
-; CHECK-NEXT:    [[YS:%.*]] = sext i1 [[Y:%.*]] to i32
-; CHECK-NEXT:    [[SUB:%.*]] = add nsw i32 [[XS]], [[YS]]
+; begin INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP1:%.*]] = select i1 [[X:%.*]], i32 31, i32 0
+; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[Y:%.*]], i32 31, i32 0
+; CHECK-NEXT:    [[SUB:%.*]] = add nuw nsw i32 [[TMP1]], [[TMP2]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[R:%.*]] = and i32 [[SUB]], 31
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
