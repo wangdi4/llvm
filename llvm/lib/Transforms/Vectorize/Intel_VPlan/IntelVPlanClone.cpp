@@ -77,37 +77,45 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(
   if (Prefix.isTriviallyEmpty())
     Prefix.concat("cloned.");
 
-  bool EndReached = false;
-  std::function<VPBasicBlock *(VPBasicBlock *)> Cloning =
-      [&](VPBasicBlock *Block) -> VPBasicBlock * {
-    auto It = BlockMap.find(Block);
-    if (It != BlockMap.end())
-      return It->second;
+  auto Iter = df_begin(Begin);
+  auto EndIter = df_end(Begin);
+  while (Iter != EndIter) {
+    cloneBasicBlock(*Iter, Prefix.str(), BlockMap, ValueMap, DA);
+    if (*Iter == End) {
+      // Don't go outside of SESE region. It does move the iterator, so avoid
+      // usual increment.
+      Iter.skipChildren();
+      continue;
+    }
+    // Go to the next block in ordinary way.
+    ++Iter;
+  }
 
-    // Do not clone any new blocks if the end block was reached and we are
-    // finalizing the cloning process.
-    if (EndReached)
-      return nullptr;
+  // Remap successors *inside* SESE region. Once CFG is represented through
+  // terminator VPInstruction that won't be needed here and would be done as
+  // part of ordinary remap.
+  //
+  // Can't iterate over BlockMap directly because the order won't be stable
+  // resulting in unstable predecessors order.
+  Iter = df_begin(Begin);
+  while (Iter != EndIter) {
+    if (*Iter == End){
+      // Don't remap successor of the last block.
+      Iter.skipChildren();
+      continue;
+    }
 
-    VPBasicBlock *ClonedBlock =
-        cloneBasicBlock(Block, Prefix.str(), BlockMap, ValueMap, DA);
-    BlockMap.insert({Block, ClonedBlock});
+    VPBasicBlock *Orig = *Iter;
+    VPBasicBlock *Clone = BlockMap[Orig];
+    for (VPBasicBlock *OrigSucc : Orig->getSuccessors()) {
+      VPBasicBlock *CloneSucc = BlockMap[OrigSucc];
+      Clone->appendSuccessor(CloneSucc);
+      CloneSucc->appendPredecessor(Clone);
+    }
+    ++Iter;
+  }
 
-    if (Block == End)
-      EndReached = true;
-
-    for (auto &Succ : Block->getSuccessors())
-      if (VPBasicBlock *ClonedSucc = Cloning(Succ)) {
-        ClonedBlock->appendSuccessor(ClonedSucc);
-        ClonedSucc->appendPredecessor(ClonedBlock);
-      }
-
-    return ClonedBlock;
-  };
-
-  VPBasicBlock *Clone = Cloning(Begin);
-  assert(EndReached && "End block expected to be reached");
-  return Clone;
+  return BlockMap[Begin];
 }
 
 } // namespace vpo
