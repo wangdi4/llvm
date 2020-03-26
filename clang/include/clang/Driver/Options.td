@@ -3361,6 +3361,18 @@ def mno_avx512f : Flag<["-"], "mno-avx512f">, Group<m_x86_Features_Group>;
 def mavx512bf16 : Flag<["-"], "mavx512bf16">, Group<m_x86_Features_Group>;
 def mno_avx512bf16 : Flag<["-"], "mno-avx512bf16">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+def mavx512convert : Flag<["-"], "mavx512convert">, Group<m_x86_Features_Group>;
+def mno_avx512convert : Flag<["-"], "mno-avx512convert">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+def mavx512dotprod : Flag<["-"], "mavx512dotprod">, Group<m_x86_Features_Group>;
+def mno_avx512dotprod : Flag<["-"], "mno-avx512dotprod">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 def mavx512fp16 : Flag<["-"], "mavx512fp16">, Group<m_x86_Features_Group>;
 def mno_avx512fp16 : Flag<["-"], "mno-avx512fp16">, Group<m_x86_Features_Group>;
@@ -3520,7 +3532,6 @@ def mretpoline_external_thunk : Flag<["-"], "mretpoline-external-thunk">, Group<
 def mno_retpoline_external_thunk : Flag<["-"], "mno-retpoline-external-thunk">, Group<m_x86_Features_Group>;
 def mvzeroupper : Flag<["-"], "mvzeroupper">, Group<m_x86_Features_Group>;
 def mno_vzeroupper : Flag<["-"], "mno-vzeroupper">, Group<m_x86_Features_Group>;
-
 // These are legacy user-facing driver-level option spellings. They are always
 // aliases for options that are spelled using the more common Unix / GNU flag
 // style of double-dash and equals-joined flags.

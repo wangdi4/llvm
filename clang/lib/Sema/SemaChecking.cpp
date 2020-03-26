@@ -3458,6 +3458,9 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcvtqq2ph512_mask:
   case X86::BI__builtin_ia32_vcvtuqq2ph512_mask:
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  case X86::BI__builtin_ia32_vcvtbf162ph512_mask:
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
     ArgNum = 3;
     HasRC = true;
@@ -3573,6 +3576,14 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfcmulcsh_mask:
   case X86::BI__builtin_ia32_vfcmulcph512_mask:
 #endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  case X86::BI__builtin_ia32_vdpphps512_mask:
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  case X86::BI__builtin_ia32_vcvt2ps2ph512_mask:
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
     ArgNum = 4;
     HasRC = true;

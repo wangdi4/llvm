@@ -645,6 +645,12 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_FP16
     Features["avx512fp16"] = false;
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    Features["avx512dotprod"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    Features["avx512convert"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
     break;
   }
@@ -803,6 +809,19 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
         Features["avx512dq"] = true;
         Features["avx512vl"] = true;
       }
+      else {
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AMX_FP16
+        Features["amx-fp16"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+        Features["avx512convert"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+        Features["avx512dotprod"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_FP16
+      }
     }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -814,16 +833,40 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
       Features["avx512bf16"] = false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-      Features["avx512fp16"] = false;
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
 #endif // INTEL_FEATURE_ISA_FP16
     }
 #if INTEL_FEATURE_ISA_FP16
     if (Name == "avx512dq" && !Enabled)
-      Features["avx512fp16"] = false;
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
     if (Name == "avx512vl" && !Enabled)
-      Features["avx512fp16"] = false;
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    if (Name == "avx512bf16" && !Enabled)
+      Features["avx512convert"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    if (Name == "avx512dotprod" && Enabled) {
+      setFeatureEnabledImpl(Features, "avx512fp16", true);
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+      Features["avxdotprod"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    if (Name == "avx512convert" && Enabled) {
+      setFeatureEnabledImpl(Features, "avx512fp16", true);
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+      Features["avxconvert"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
   } else if (Name == "fma") {
     if (Enabled)
       setSSELevel(Features, AVX, Enabled);
@@ -1161,6 +1204,14 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    } else if (Feature == "+avx512dotprod") {
+      HasAVX512DOTPROD = true;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    } else if (Feature == "+avx512convert") {
+      HasAVX512CONVERT = true;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -1674,6 +1725,16 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVXVNNI__");
   Builder.defineMacro("__AVXVNNI_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  if (HasAVX512DOTPROD)
+    Builder.defineMacro("__AVX512DOTPROD__");
+  Builder.defineMacro("__AVX512DOTPROD_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  if (HasAVX512CONVERT)
+    Builder.defineMacro("__AVX512CONVERT__");
+  Builder.defineMacro("__AVX512CONVERT_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1929,6 +1990,14 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("xsavec", true)
       .Case("xsaves", true)
       .Case("xsaveopt", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+      .Case("avx512dotprod", true)
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+      .Case("avx512convert", true)
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
 
@@ -1999,6 +2068,14 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vbmi2", HasAVX512VBMI2)
       .Case("avx512ifma", HasAVX512IFMA)
       .Case("avx512vp2intersect", HasAVX512VP2INTERSECT)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+      .Case("avx512dotprod", HasAVX512DOTPROD)
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+      .Case("avx512convert", HasAVX512CONVERT)
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
       .Case("cldemote", HasCLDEMOTE)
