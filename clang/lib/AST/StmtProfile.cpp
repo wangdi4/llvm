@@ -925,6 +925,10 @@ void StmtProfiler::VisitOMPDepobjDirective(const OMPDepobjDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
+void StmtProfiler::VisitOMPScanDirective(const OMPScanDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
 void StmtProfiler::VisitOMPOrderedDirective(const OMPOrderedDirective *S) {
   VisitOMPExecutableDirective(S);
 }

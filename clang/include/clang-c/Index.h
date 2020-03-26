@@ -2578,6 +2578,7 @@ enum CXCursorKind {
    */
   CXCursor_OMPDepobjDirective             = 286,
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   CXCursor_OMPTargetVariantDispatchDirective = 287,
 
@@ -2585,6 +2586,13 @@ enum CXCursorKind {
 #else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPDepobjDirective,
 #endif /* INTEL_COLLAB */
+=======
+  /** OpenMP scan directive.
+   */
+  CXCursor_OMPScanDirective               = 287,
+
+  CXCursor_LastStmt = CXCursor_OMPScanDirective,
+>>>>>>> fcba7c3534f98851531095f8457eb3142e237f0b
 
   /**
    * Cursor that represents the translation unit itself.

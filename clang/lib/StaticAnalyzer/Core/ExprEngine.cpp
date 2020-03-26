@@ -1261,6 +1261,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPTaskgroupDirectiveClass:
     case Stmt::OMPFlushDirectiveClass:
     case Stmt::OMPDepobjDirectiveClass:
+    case Stmt::OMPScanDirectiveClass:
     case Stmt::OMPOrderedDirectiveClass:
     case Stmt::OMPAtomicDirectiveClass:
     case Stmt::OMPTargetDirectiveClass:

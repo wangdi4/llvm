@@ -669,6 +669,18 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
       break;
     }
     break;
+  case OMPD_scan:
+    if (OpenMPVersion < 50)
+      return false;
+    switch (CKind) {
+#define OPENMP_SCAN_CLAUSE(Name)                                               \
+  case OMPC_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+    default:
+      break;
+    }
+    break;
   case OMPD_atomic:
     if (OpenMPVersion < 50 &&
         (CKind == OMPC_acq_rel || CKind == OMPC_acquire ||
@@ -1327,6 +1339,7 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_cancel:
   case OMPD_flush:
   case OMPD_depobj:
+  case OMPD_scan:
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_declare_simd:
