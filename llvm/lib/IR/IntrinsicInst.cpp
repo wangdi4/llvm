@@ -202,7 +202,6 @@ bool ConstrainedFPIntrinsic::classof(const IntrinsicInst *I) {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Value *> Args) {
   unsigned VectorNumElem = 0;
@@ -222,7 +221,7 @@ unsigned SubscriptInst::getResultVectorNumElements(ArrayRef<Type*> ArgTys) {
   return VectorNumElem;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 ElementCount VPIntrinsic::getStaticVectorLength() const {
   auto GetVectorLengthOfType = [](const Type *T) -> ElementCount {
     auto VT = cast<VectorType>(T);
@@ -356,7 +355,6 @@ bool VPIntrinsic::canIgnoreVectorLengthParam() const {
 
   return false;
 }
->>>>>>> 733b3199487a173ac932891a9af3ba1358281162
 
 Instruction::BinaryOps BinaryOpIntrinsic::getBinaryOp() const {
   switch (getIntrinsicID()) {
