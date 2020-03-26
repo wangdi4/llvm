@@ -804,6 +804,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64 @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9showmanycEv(i8*)\n"
       "declare i32 @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv(i8*)\n"
       "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode(i8*, i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEED2Ev(i8*)\n"
       "declare void @_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare void @_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode(i8* ,i32)\n"
       "declare void @_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode(i8*, i8*, i32)\n"
