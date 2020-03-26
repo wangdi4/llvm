@@ -2546,12 +2546,6 @@ bool JumpThreadingPass::MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB,
   if (PredBB->getSinglePredecessor())
     return false;
 
-#if INTEL_CUSTOMIZATION
-  Instruction *PredTerm = PredBB->getTerminator();
-  if (PredTerm->getNumSuccessors() < 2)
-    return false;
-#endif // INTEL_CUSTOMIZATION
-
   // Don't thread through PredBB if it contains a successor edge to itself, in
   // which case we would infinite loop.  Suppose we are threading an edge from
   // PredPredBB through PredBB and BB to SuccBB with PredBB containing a
