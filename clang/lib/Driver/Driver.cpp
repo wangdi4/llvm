@@ -5685,19 +5685,14 @@ InputInfo Driver::BuildJobsForActionNoCache(
       bool IsFPGAObjLink = (JA->getType() == types::TY_Object &&
           C.getInputArgs().hasArg(options::OPT_fintelfpga) &&
           C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ));
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // We create list files for unbundling when using -foffload-static-lib.
       // This is also true for -mkl and -daal, as they imply additional
       // fat static libraries.
       if ((C.getInputArgs().hasArg(options::OPT_mkl_EQ, options::OPT_daal_EQ) ||
-          C.getInputArgs().hasArg(options::OPT_offload_lib_Group)) &&
+           C.getDriver().getOffloadStaticLibSeen()) &&
 #endif // INTEL_CUSTOMIZATION
-          ((JA->getType() == types::TY_Archive && IsMSVCEnv) ||
-=======
-      if (C.getDriver().getOffloadStaticLibSeen() &&
           (JA->getType() == types::TY_Archive ||
->>>>>>> be07751ed6e175076c27b6f3786825e3507b92fa
            (JA->getType() == types::TY_Object && !IsMSVCEnv))) {
         // Host part of the unbundled static archive is not used.
         if (UI.DependentOffloadKind == Action::OFK_Host)
