@@ -16020,7 +16020,11 @@ static void RemoveNestedImmediateInvocation(
   /// nowhere in the expression being transformed therefore will not be rebuilt.
   /// Setting AllowSkippingFirstCXXConstructExpr to false will prevent from
   /// skipping the first CXXConstructExpr.
+<<<<<<< HEAD
   if (isa<CXXConstructExpr>(It->getPointer()->IgnoreImplicit())) // INTEL
+=======
+  if (isa<CXXConstructExpr>(It->getPointer()->IgnoreImplicit()))
+>>>>>>> a4edea29be2a77a8c8c237d75563a09a61791442
     Transformer.AllowSkippingFirstCXXConstructExpr = false;
 
   ExprResult Res = Transformer.TransformExpr(It->getPointer()->getSubExpr());
