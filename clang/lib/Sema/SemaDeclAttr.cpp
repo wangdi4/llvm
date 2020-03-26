@@ -6093,17 +6093,6 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(S.Context, AL, Kind));
 }
 
-static void handleForcePow2DepthAttr(Sema &S, Decl *D,
-                                     const ParsedAttr &AL) {
-  checkForDuplicateAttribute<ForcePow2DepthAttr>(S, D, AL);
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
-    return;
-
-  S.AddOneConstantValueAttr<ForcePow2DepthAttr>(D, AL, AL.getArgAsExpr(0));
-}
-
-
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
 static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
@@ -6383,6 +6372,11 @@ static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
                                               const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
+
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGAForcePow2DepthAttr>(S, D, Attr);
 
@@ -9028,9 +9022,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_ForcePow2Depth:
-    handleForcePow2DepthAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGARegister:
     handleIntelFPGARegisterAttr(S, D, AL);

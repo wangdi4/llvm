@@ -1899,11 +1899,12 @@ def IntelFPGABankBits : Attr {
 }
 
 def IntelFPGAForcePow2Depth : Attr {
-  let Spellings = [CXX11<"intelfpga","force_pow2_depth">];
+  let Spellings = [CXX11<"intelfpga","force_pow2_depth">, // INTEL
+                   GNU<"force_pow2_depth">];              // INTEL
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
                               Field], ErrorDiag>;
-  let LangOpts = [SYCLIsDevice, SYCLIsHost];
+  let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGAForcePow2DepthAttrDocs];
   let AdditionalMembers = [{
     static unsigned getMinValue() {

@@ -12749,8 +12749,7 @@ void Sema::AddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
 
 #if INTEL_CUSTOMIZATION
   if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
-      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D)) ||
-      isa<ForcePow2DepthAttr>(TmpAttr)) {
+      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D))) {
     if (!D->hasAttr<IntelFPGAMemoryAttr>())
       D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
           Context, IntelFPGAMemoryAttr::Default));
