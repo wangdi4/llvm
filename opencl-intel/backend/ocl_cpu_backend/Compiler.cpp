@@ -37,13 +37,12 @@
 #include "lld/Common/TargetOptionsCommandFlags.h"
 #else
 #include "llvm/CodeGen/CommandFlags.h"
+static codegen::RegisterCodeGenFlags CGF;
 #endif
 
 #include <sstream>
 #include <string>
 #include <vector>
-
-static codegen::RegisterCodeGenFlags CGF;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
