@@ -180,16 +180,18 @@
 // FOFFLOAD_STATIC_LIB_SRC: 13: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {7}, "device-openmp (spir64)" {12}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 14: backend, {13}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 15: input, "[[INPUT1]]", archive
-// FOFFLOAD_STATIC_LIB_SRC: 16: clang-offload-unbundler, {9, 15}, object
-// FOFFLOAD_STATIC_LIB_SRC: 17: linker, {14, 16}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 18: llvm-spirv, {17}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: offload, "device-openmp (spir64)" {18}, image
-// FOFFLOAD_STATIC_LIB_SRC: 20: clang-offload-wrapper, {19}, ir, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 21: backend, {20}, assembler, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 22: assembler, {21}, object, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 23: linker, {0, 9, 22}, image, (host-openmp-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 24: compiler, {4}, ir, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 25: linker, {24, 16}, ir, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 26: llvm-spirv, {25}, spirv, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 27: clang-offload-wrapper, {26}, object, (device-sycl)
-// FOFFLOAD_STATIC_LIB_SRC: 28: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {23}, "device-sycl (spir64-unknown-unknown-sycldevice)" {27}, image
+// FOFFLOAD_STATIC_LIB_SRC: 16: partial-link, {9, 15}, object
+// FOFFLOAD_STATIC_LIB_SRC: 17: clang-offload-unbundler, {16}, object
+// FOFFLOAD_STATIC_LIB_SRC: 18: linker, {14, 17}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 19: llvm-spirv, {18}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 20: offload, "device-openmp (spir64)" {19}, image
+// FOFFLOAD_STATIC_LIB_SRC: 21: clang-offload-wrapper, {20}, ir, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 22: backend, {21}, assembler, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 23: assembler, {22}, object, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 24: linker, {0, 9, 23}, image, (host-openmp-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 25: compiler, {4}, ir, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 26: linker, {25, 17}, ir, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 27: llvm-spirv, {26}, spirv, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 28: clang-offload-wrapper, {27}, object, (device-sycl)
+// FOFFLOAD_STATIC_LIB_SRC: 29: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {24}, "device-sycl (spir64-unknown-unknown-sycldevice)" {28}, image
+
