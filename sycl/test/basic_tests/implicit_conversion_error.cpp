@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // RUN: %clangxx -fsyntax-only -Xclang -verify  %s -I %sycl_include -Xclang -verify-ignore-unexpected=note,warning
+=======
+// RUN: %clangxx -fsyntax-only -Xclang -verify  %s -Xclang -verify-ignore-unexpected=note,warning
+>>>>>>> d6e92ae1495b25d6cdec04f996228b6cebffa7fd
 //==-- implicit_conversion_error.cpp - Unintended implicit conversion check --==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
