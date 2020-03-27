@@ -1794,6 +1794,19 @@ pi_result L0(piKernelSetArg)(
   size_t       arg_size,
   const void * arg_value) {
 
+  // OpenCL: "the arg_value pointer can be NULL or point to a NULL value
+  // in which case a NULL value will be used as the value for the argument
+  // declared as a pointer to global or constant memory in the kernel"
+  //
+  // We don't know the type of the argument but it seems that the only time
+  // SYCL RT would send a pointer to NULL in 'arg_value' is when the argument
+  // is a NULL pointer. Treat a pointer to NULL in 'arg_value' as a NULL.
+  //
+  if (arg_size == sizeof(void*) &&
+      *(void**)(const_cast<void*>(arg_value)) == nullptr) {
+    arg_value = nullptr;
+  }
+
   // TODO: handle errors
   ZE_CALL(zeKernelSetArgumentValue(
     pi_cast<ze_kernel_handle_t>(kernel->L0Kernel),
