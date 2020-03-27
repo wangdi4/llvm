@@ -22,6 +22,22 @@ void foo_close(int ii){
   }
 }
 
+// CHECK-LABEL: foo_constexpr
+void foo_constexpr()
+{
+  constexpr int N = 100;
+  float v2[N];
+
+// CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.MAP.TO"([100 x float]* %v2, [100 x float]* %v2, i64 400, i64 33)
+// CHECK-NOT: "QUAL.OMP.MAP.TOFROM"
+// CHECK:  region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+#pragma omp target teams distribute parallel for map(to: v2)
+  for (int i = 0; i < N; ++i) {
+    v2[1] *= 2;
+  }
+}
+
 // CHECK-LABEL: foo_close_one
 void foo_close_one(int arg)
 {
