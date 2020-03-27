@@ -2922,6 +2922,9 @@ X86
 .. option:: -mgfni, -mno-gfni
 
 .. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_HRESET
+.. option:: -mhreset, -mno-hreset
+.. end INTEL_FEATURE_ISA_HRESET
 .. INTEL_FEATURE_ICECODE
 .. option:: -micecode
 .. end INTEL_FEATURE_ICECODE

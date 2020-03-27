@@ -1,0 +1,6 @@
+# REQUIRES: intel_feature_isa_hreset
+# RUN: llvm-mc --disassemble %s -triple=i686 | FileCheck %s
+# RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s
+
+# CHECK: hreset $1
+0xf3,0x0f,0x3a,0xf0,0xc0,0x01

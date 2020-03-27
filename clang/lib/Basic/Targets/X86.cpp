@@ -183,6 +183,9 @@ bool X86TargetInfo::initFeatureMap(
 #if INTEL_FEATURE_ISA_SERIALIZE
   AnonymousCPU1Features.push_back("serialize");
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  AnonymousCPU1Features.push_back("hreset");
+#endif // INTEL_FEATURE_ISA_HRESET
   AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
 #endif // INTEL_CUSTOMIZATION
 
@@ -1144,6 +1147,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+    } else if (Feature == "+hreset") {
+      HasHRESET = true;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
     } else if (Feature == "+tsxldtrk") {
       HasTSXLDTRK = true;
@@ -1653,6 +1660,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__SERIALIZE__");
   Builder.defineMacro("__SERIALIZE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  if (HasHRESET)
+    Builder.defineMacro("__HRESET__");
+  Builder.defineMacro("__HRESET_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
   if (HasTSXLDTRK)
     Builder.defineMacro("__TSXLDTRK__");
@@ -1930,6 +1942,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fsgsbase", true)
       .Case("fxsr", true)
       .Case("gfni", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_HRESET
+      .Case("hreset", true)
+#endif // INTEL_FEATURE_ISA_HRESET
+#endif // INTEL_CUSTOMIZATION
       .Case("invpcid", true)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
@@ -2091,6 +2108,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fsgsbase", HasFSGSBASE)
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_HRESET
+      .Case("hreset", HasHRESET)
+#endif // INTEL_FEATURE_ISA_HRESET
+#endif // INTEL_CUSTOMIZATION
       .Case("invpcid", HasINVPCID)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER

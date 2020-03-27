@@ -1053,6 +1053,9 @@ def HasULI : Predicate<"Subtarget->hasULI()">;
 #if INTEL_FEATURE_ISA_SERIALIZE
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
 def HasTSXLDTRK : Predicate<"Subtarget->hasTSXLDTRK()">;
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
@@ -3052,6 +3055,15 @@ def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
                   [(int_x86_serialize)]>, PS,
                   Requires<[HasSERIALIZE]>;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+
+#if INTEL_FEATURE_ISA_HRESET
+//===----------------------------------------------------------------------===//
+// HRESET Instruction
+//
+let Uses = [EAX] in
+  def HRESET : Ii8<0xF0, MRM_C0, (outs), (ins i32u8imm:$imm), "hreset\t$imm", []>,
+                   Requires<[HasHRESET]>, TAXS;
+#endif // INTEL_FEATURE_ISA_HRESET
 
 #if INTEL_FEATURE_ISA_TSXLDTRK
 //===----------------------------------------------------------------------===//

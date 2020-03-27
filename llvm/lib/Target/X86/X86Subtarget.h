@@ -419,6 +419,10 @@ protected:
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  /// Processor supports HRESET instruction
+  bool HasHRESET = false;
+#endif // INTEL_FEATURE_ISA_HRESET
 
 #if INTEL_FEATURE_ISA_TSXLDTRK
   /// Processor supports TSXLDTRK instruction
@@ -838,6 +842,9 @@ public:
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool hasSERIALIZE() const { return HasSERIALIZE; }
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  bool hasHRESET() const { return HasHRESET; }
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
 #endif // INTEL_FEATURE_ISA_TSXLDTRK

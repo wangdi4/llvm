@@ -1530,6 +1530,9 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   bool HasLeaf7Subleaf1 =
       MaxLevel >= 7 && !getX86CpuIDAndInfoEx(0x7, 0x1, &EAX, &EBX, &ECX, &EDX);
   Features["avx512bf16"] = HasLeaf7Subleaf1 && ((EAX >> 5) & 1) && HasAVX512Save;
+#if INTEL_FEATURE_ISA_HRESET
+  Features["hreset"]     = HasLeaf7Subleaf1 && ((EAX >> 22) & 1);
+#endif // INTEL_FEATURE_ISA_HRESET
 
   bool HasLeafD = MaxLevel >= 0xd &&
                   !getX86CpuIDAndInfoEx(0xd, 0x1, &EAX, &EBX, &ECX, &EDX);
