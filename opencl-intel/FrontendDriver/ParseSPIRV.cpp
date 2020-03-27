@@ -168,6 +168,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       case spv::CapabilityUnstructuredLoopControlsINTEL:
       case spv::CapabilityKernelAttributesINTEL:
       case spv::CapabilityFPGAKernelAttributesINTEL:
+      case spv::CapabilityIOPipeINTEL:
         break;
       }
     // According to logical layout defined by the SPIR-V spec. single

@@ -31,6 +31,8 @@
 
 #include "ChannelPipeTransformation/ChannelPipeUtils.h"
 
+#include <string>
+
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -69,8 +71,8 @@ static void findPipeStorageGlobals(Module *M,
   }
 }
 
-static ChannelPipeMetadata::ChannelPipeMD
-getSYCLPipeMetadata(GlobalVariable *StorageVar) {
+static void getSYCLPipeMetadata(GlobalVariable *StorageVar,
+                                ChannelPipeMetadata::ChannelPipeMD& PipeMD) {
   LLVM_DEBUG(dbgs() << "Extracting pipe metadata from: "
              << *StorageVar << "\n");
 
@@ -86,17 +88,29 @@ getSYCLPipeMetadata(GlobalVariable *StorageVar) {
   ConstantInt *Align    = cast<ConstantInt>(Initializer->getOperand(1));
   ConstantInt *Capacity = cast<ConstantInt>(Initializer->getOperand(2));
 
-  LLVM_DEBUG(dbgs() << "Got size(" << *Size << "), align(" << *Align <<
-             ") and capacity(" << *Capacity << ")\n");
+  if (MDNode *IOMetadata = StorageVar->getMetadata("io_pipe_id")) {
+    assert(IOMetadata->getNumOperands() == 1 &&
+           "IO metadata is expected to have a single argument");
+    int ID = llvm::mdconst::dyn_extract<llvm::ConstantInt>(
+        IOMetadata->getOperand(0))->getZExtValue();
+    // A better option would be just call std::to_string(ID) function here to
+    // generage I/O pipe string file name. But it appears to be, that on Windows
+    // the generated string will be replaced with ENQUIRY symbol, that points
+    // on the actual string. That can result in a crash later on.
+    char IOName[256];
+    sprintf(IOName, "%d", ID);
+    const std::string IOStrName = std::string(IOName);
+    LLVM_DEBUG(dbgs() << "IO id is(" << IOStrName << "), align("
+                      << *Align << ") and capacity(" << *Capacity << ")\n");
 
-  // IO is not handled yet: no SPIR-V <-> LLVM IR translation format is defined
-  // for IO pipes.
-  return { (int) Size->getSExtValue(),
-           (int) Align->getSExtValue(),
-           (int) Capacity->getSExtValue(),
-           /*IO*/ "" };
+    PipeMD = { (int) Size->getSExtValue(), (int) Align->getSExtValue(),
+               (int) Capacity->getSExtValue(), IOStrName };
+    return;
+  }
+
+  PipeMD =  { (int) Size->getSExtValue(), (int) Align->getSExtValue(),
+              (int) Capacity->getSExtValue(), "" };
 }
-
 
 SYCLPipesHack::SYCLPipesHack() : ModulePass(ID) {}
 
@@ -138,7 +152,8 @@ bool SYCLPipesHack::runOnModule(Module &M) {
     // Pipe parameters are hidden inside of the {i32, i32, i32} struct, so we
     // deconstruct it and set it as a metadata so other passes can check it as
     // with FPGA OpenCL pipes.
-    ChannelPipeMetadata::ChannelPipeMD PipeMD = getSYCLPipeMetadata(GV);
+    ChannelPipeMetadata::ChannelPipeMD PipeMD;
+    getSYCLPipeMetadata(GV, PipeMD);
     setPipeMetadata(RWPipeGV, PipeMD);
 
     // Program scope Pipe object has to be initialized at runtime after a
