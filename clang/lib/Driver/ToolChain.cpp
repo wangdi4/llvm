@@ -1160,7 +1160,7 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
   if (const Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
-    if (Args.hasArg(options::OPT_fsycl) &&
+    if (Args.hasArg(options::OPT__dpcpp) &&
         (A->getValue() == StringRef("cluster") ||
          (A->getValue() == StringRef("parallel") &&
           Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
@@ -1175,11 +1175,11 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     SmallVector<StringRef, 8> MKLLibs;
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                       options::OPT_fno_openmp, false))
-        MKLLibs.push_back("mkl_intel_thread");
-      else if (Args.hasArg(options::OPT_tbb))
+      if (Args.hasArg(options::OPT_tbb, options::OPT__dpcpp))
+        // Use TBB when -tbb or DPC++
         MKLLibs.push_back("mkl_tbb_thread");
+      else
+        MKLLibs.push_back("mkl_intel_thread");
     }
     if (A->getValue() == StringRef("cluster")) {
       MKLLibs.push_back("mkl_cdft_core");

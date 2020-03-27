@@ -387,7 +387,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().IsCLMode())
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ)) {
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp))) {
     getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");

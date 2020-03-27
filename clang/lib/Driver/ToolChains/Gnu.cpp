@@ -476,7 +476,8 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
     TC.AddIPPLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_mkl_EQ))
     TC.AddMKLLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_daal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
@@ -779,7 +780,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     addMKLLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_daal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT__intel) &&
       !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
