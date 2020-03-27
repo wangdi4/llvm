@@ -1987,6 +1987,47 @@ bool VPOParoptTransform::paroptTransforms() {
   return RoutineChanged;
 }
 
+// Generate calling constructor and initializer function for user-defined
+// reduction.
+void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
+                                             Value *ReductionVar,
+                                             Value *ReductionValueLoc,
+                                             Type *ScalarTy,
+                                             IRBuilder<> &Builder) {
+  VPOParoptUtils::genConstructorCall(RedI->getConstructor(), ReductionValueLoc,
+                                     Builder);
+
+  if (RedI->getInitializer() != nullptr)
+    Builder.CreateCall(RedI->getInitializer(),
+                       {ReductionValueLoc, ReductionVar}, "");
+  else {
+    // if intializer is null but constructor is not null, let constructor do
+    // default initialization. Otherwise, initialize the variable to 0.
+    if (RedI->getConstructor() != nullptr)
+      return;
+
+    Value *V = nullptr;
+    if (RedI->getIsComplex()) {
+      Constant *ValueZero =
+          ConstantFP::get(ScalarTy->getStructElementType(0), 0.0);
+      V = ConstantStruct::get(cast<StructType>(ScalarTy),
+                              {ValueZero, ValueZero});
+      Builder.CreateStore(V, ReductionValueLoc);
+    } else if (ScalarTy->isIntOrIntVectorTy() || ScalarTy->isFPOrFPVectorTy()) {
+      V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 0)
+                                         : ConstantFP::get(ScalarTy, 0.0);
+      Builder.CreateStore(V, ReductionValueLoc);
+    } else {
+      V = ConstantInt::get(Builder.getInt8Ty(), 0);
+      const DataLayout &DL =
+          cast<Instruction>(ReductionValueLoc)->getModule()->getDataLayout();
+      VPOUtils::genMemset(ReductionValueLoc, V, DL,
+                          cast<AllocaInst>(RedI->getNew())->getAlignment(),
+                          Builder);
+    }
+  }
+}
+
 Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
                                                   Type *Ty, bool IsMax) {
   Value *V = nullptr;
@@ -2203,6 +2244,24 @@ Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
   auto ConvFini = Builder.CreateSExtOrTrunc(Ext, ScalarTy);
 
   return ConvFini;
+}
+
+// Generate the fini code for user-defined reduction, which calls combiner
+// function.
+bool VPOParoptTransform::genReductionUdrFini(ReductionItem *RedI,
+                                             Value *ReductionVar,
+                                             Value *ReductionValueLoc,
+                                             IRBuilder<> &Builder) {
+  // combiner must not be null
+  assert((RedI->getCombiner() != nullptr) &&
+         "NULL combiner for user defined reduction.");
+
+  CallInst *Res = VPOParoptUtils::genCall(
+      RedI->getCombiner(), {ReductionVar, ReductionValueLoc},
+      {ReductionVar->getType(), ReductionValueLoc->getType()}, nullptr);
+  Builder.Insert(Res);
+
+  return true;
 }
 
 Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
@@ -2459,6 +2518,9 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
     return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT,
                                      NoNeedToOffsetOrDerefOldV);
 
+  if (RedI->getType() == ReductionItem::WRNReductionUdr)
+    return genReductionUdrFini(RedI, OldV, NewAI, Builder);
+
   assert((VPOUtils::canBeRegisterized(AllocaTy,
                                       InsertPt->getModule()->getDataLayout()) ||
           RedI->getIsComplex()) &&
@@ -2559,13 +2621,19 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   Value *SrcBegin = nullptr;
   Value *NumElements = nullptr;
 
-  if (IsInit)
-    genAggrReductionInitDstInfo(*RedI, AI, InsertPt, Builder, NumElements,
+  Value *SrcVal = (IsInit ? OldV : AI);
+  Value *DestVal = (IsInit ? AI : OldV);
+
+  // For reduction init loop, if the reduction is UDR with non-null initializer,
+  // Src and Dest are needed; otherwise, only Dest is needed.
+  // For reduction fini loop, both Src and Dest are needed.
+  if (SrcVal == nullptr)
+    genAggrReductionInitDstInfo(*RedI, DestVal, InsertPt, Builder, NumElements,
                                 DestBegin, DestElementTy);
   else
-    genAggrReductionFiniSrcDstInfo(*RedI, AI, OldV, InsertPt, Builder,
-                                   NumElements, SrcBegin, DestBegin,
-                                   DestElementTy, NoNeedToOffsetOrDerefOldV);
+    genAggrReductionSrcDstInfo(*RedI, SrcVal, DestVal, InsertPt, Builder,
+                               NumElements, SrcBegin, DestBegin, DestElementTy,
+                               NoNeedToOffsetOrDerefOldV);
 
   assert(DestBegin && "Null destination address for reduction init/fini.");
   assert(DestElementTy && "Null element type for reduction init/fini.");
@@ -2593,25 +2661,34 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   DestElementPHI->addIncoming(DestBegin, EntryBB);
 
   PHINode *SrcElementPHI = nullptr;
-  if (!IsInit) {
+  if (SrcBegin != nullptr) {
     SrcElementPHI =
         Builder.CreatePHI(SrcBegin->getType(), 2, "red.cpy.src.ptr");
     SrcElementPHI->addIncoming(SrcBegin, EntryBB);
   }
 
+  bool IsUDR = (RedI->getType() == ReductionItem::WRNReductionUdr);
   if (IsInit) {
-    Value *V = genReductionScalarInit(RedI, DestElementTy);
-    Builder.CreateStore(V, DestElementPHI);
+    if (IsUDR)
+      genReductionUdrInit(RedI, SrcElementPHI, DestElementPHI, DestElementTy,
+                          Builder);
+    else {
+      Value *V = genReductionScalarInit(RedI, DestElementTy);
+      Builder.CreateStore(V, DestElementPHI);
+    }
   } else {
-    NeedsKmpcCritical |=
-        genReductionScalarFini(W, RedI, DestElementPHI, SrcElementPHI,
-                               DestElementTy, Builder);
+    if (IsUDR)
+      NeedsKmpcCritical |=
+          genReductionUdrFini(RedI, DestElementPHI, SrcElementPHI, Builder);
+    else
+      NeedsKmpcCritical |= genReductionScalarFini(
+          W, RedI, DestElementPHI, SrcElementPHI, DestElementTy, Builder);
   }
 
   auto DestElementNext =
       Builder.CreateConstGEP1_32(DestElementPHI, 1, "red.cpy.dest.inc");
   Value *SrcElementNext = nullptr;
-  if (!IsInit)
+  if (SrcElementPHI != nullptr)
     SrcElementNext =
         Builder.CreateConstGEP1_32(SrcElementPHI, 1, "red.cpy.src.inc");
 
@@ -2619,7 +2696,7 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
 
   Builder.CreateCondBr(Done, DoneBB, BodyBB);
   DestElementPHI->addIncoming(DestElementNext, Builder.GetInsertBlock());
-  if (!IsInit)
+  if (SrcElementPHI != nullptr)
     SrcElementPHI->addIncoming(SrcElementNext, Builder.GetInsertBlock());
 
   if (DT) {
@@ -3148,20 +3225,35 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   //       specified).
 
   Type *ScalarTy = AllocaTy->getScalarType();
+  bool IsUDR = (RedI->getType() == ReductionItem::WRNReductionUdr);
+  bool NeedSrc = IsUDR && (RedI->getInitializer() != nullptr);
+  Value *OldV = RedI->getOrig();
+  if (NeedSrc) {
+    IRBuilder<> Builder(InsertPt);
+    // For by-refs, do a pointer dereference to reach the actual operand.
+    if (RedI->getIsByRef())
+      OldV = Builder.CreateLoad(OldV);
+  }
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector()) {
-    genRedAggregateInitOrFini(W, RedI, AI, nullptr, InsertPt, true, DT);
+    genRedAggregateInitOrFini(W, RedI, AI, NeedSrc ? OldV : nullptr, InsertPt,
+                              true, DT, true);
     return;
   }
 
 #endif // INTEL_CUSTOMIZATION
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
-    genRedAggregateInitOrFini(W, RedI, AI, nullptr, InsertPt, true, DT);
+    genRedAggregateInitOrFini(W, RedI, AI, NeedSrc ? OldV : nullptr, InsertPt,
+                              true, DT, true);
+    return;
+  }
+  IRBuilder<> Builder(InsertPt);
+  if (IsUDR) {
+    genReductionUdrInit(RedI, RedI->getOrig(), AI, ScalarTy, Builder);
     return;
   }
 
-  IRBuilder<> Builder(InsertPt);
   assert((VPOUtils::canBeRegisterized(AllocaTy,
                                       InsertPt->getModule()->getDataLayout()) ||
           RedI->getIsComplex()) &&
@@ -3365,12 +3457,12 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
     const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
     NumElements = ArrSecInfo.getSize();
     DestElementTy = ArrSecInfo.getElementType();
-    DestArrayBegin = RedI.getNew();
+    DestArrayBegin = AI;
   } else
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
     VPOParoptUtils::genF90DVReductionInitDstInfo(
-        &RedI, DestArrayBegin, DestElementTy, NumElements, InsertPt);
+        &RedI, AI, DestArrayBegin, DestElementTy, NumElements, InsertPt);
   } else
 #endif // INTEL_CUSTOMIZATION
     NumElements = VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder,
@@ -3388,27 +3480,29 @@ void VPOParoptTransform::genAggrReductionInitDstInfo(
 // For array [section] reduction finalization loop, compute the base address
 // of the source and destination arrays, number of elements, and the type of
 // destination array elements.
-void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
-    const ReductionItem &RedI, Value *AI, Value *OldV, Instruction *InsertPt,
-    IRBuilder<> &Builder, Value *&NumElements, Value *&SrcArrayBegin,
-    Value *&DestArrayBegin, Type *&DestElementTy,
+// SrcVal is not null for reduction finish code, or reduction init code of UDR
+// with user-defined initializer.
+void VPOParoptTransform::genAggrReductionSrcDstInfo(
+    const ReductionItem &RedI, Value *SrcVal, Value *DestVal,
+    Instruction *InsertPt, IRBuilder<> &Builder, Value *&NumElements,
+    Value *&SrcArrayBegin, Value *&DestArrayBegin, Type *&DestElementTy,
     bool NoNeedToOffsetOrDerefOldV) {
-
 #if INTEL_CUSTOMIZATION
   if (RedI.getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVReductionFiniSrcDstInfo(
-        &RedI, SrcArrayBegin, DestArrayBegin, DestElementTy, NumElements,
-        InsertPt);
+    VPOParoptUtils::genF90DVReductionSrcDstInfo(
+        &RedI, SrcVal, DestVal, SrcArrayBegin, DestArrayBegin, DestElementTy,
+        NumElements, InsertPt);
     return;
   }
-
 #endif // INTEL_CUSTOMIZATION
+
   bool IsArraySection = RedI.getIsArraySection();
   Type *SrcElementTy = nullptr;
 
   if (!IsArraySection) {
-    NumElements = VPOParoptUtils::genArrayLength(AI, OldV, InsertPt, Builder,
-                                                 DestElementTy, DestArrayBegin);
+    NumElements =
+        VPOParoptUtils::genArrayLength(RedI.getNew(), DestVal, InsertPt,
+                                       Builder, DestElementTy, DestArrayBegin);
     auto *DestPointerTy = DestArrayBegin->getType();
     assert(isa<PointerType>(DestPointerTy) &&
            "Reduction destination must have pointer type.");
@@ -3417,8 +3511,8 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
         PointerType::get(DestElementTy,
                          cast<PointerType>(DestPointerTy)->getAddressSpace()));
 
-    VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder, SrcElementTy,
-                                   SrcArrayBegin);
+    VPOParoptUtils::genArrayLength(RedI.getNew(), SrcVal, InsertPt, Builder,
+                                   SrcElementTy, SrcArrayBegin);
     auto *SrcPointerTy = SrcArrayBegin->getType();
     assert(isa<PointerType>(SrcPointerTy) &&
            "Reduction source must have pointer type.");
@@ -3439,7 +3533,8 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   DestElementTy = ArrSecInfo.getElementType(); // i32 for the above example
 
   SrcElementTy = DestElementTy;
-  SrcArrayBegin = RedI.getNew();
+  SrcArrayBegin = SrcVal;
+
   auto *SrcPointerTy = SrcArrayBegin->getType();
   assert(isa<PointerType>(SrcPointerTy) &&
          "Reduction source must have pointer type.");
@@ -3455,10 +3550,10 @@ void VPOParoptTransform::genAggrReductionFiniSrcDstInfo(
   //
   //   %_yarrptr.load.cast.plus.offset is the final DestArrayBegin.
   if (NoNeedToOffsetOrDerefOldV)
-      DestArrayBegin = Builder.CreateBitCast(OldV, SrcArrayBeginTy);
+    DestArrayBegin = Builder.CreateBitCast(DestVal, SrcArrayBeginTy);
   else
     DestArrayBegin = VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
-        OldV, ArrSecInfo, InsertPt);
+        DestVal, ArrSecInfo, InsertPt);
 }
 
 void VPOParoptTransform::computeArraySectionTypeOffsetSize(
@@ -4474,12 +4569,10 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
                                           InsertBeforePt);
       // else do nothing; dtor already emitted for Firstprivates above
 
-  /* TODO: emit Dtors for UDR
   if (W->canHaveReduction())
     for (ReductionItem *RI : W->getRed().items())
-      VPOParoptUtils::genDestructorCall(RI->getDestructor(), LI->getNew(),
+      VPOParoptUtils::genDestructorCall(RI->getDestructor(), RI->getNew(),
                                         InsertBeforePt);
-  */
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDestructorCode\n");
   W->resetBBSet(); // CFG changed; clear BBSet

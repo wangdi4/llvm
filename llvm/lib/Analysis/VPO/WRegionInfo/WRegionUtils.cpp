@@ -793,7 +793,11 @@ bool WRegionUtils::needsDestructors(WRegionNode *W) {
       if (LI->getDestructor() != nullptr)
         return true;
 
-  // TODO: support UDR
+  if (W->canHaveReduction())
+    for (ReductionItem *RI : W->getRed().items())
+      if (RI->getDestructor() != nullptr)
+        return true;
+
   return false;
 }
 

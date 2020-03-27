@@ -580,104 +580,112 @@ VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
 
   Function::arg_iterator ArgIt = Clone->arg_begin();
   Function::arg_iterator ArgEnd = Clone->arg_end();
+  ArrayRef<VectorKind> ParmKinds = V.getParameters();
 
   unsigned LastArg = Clone->arg_size() - 1;
   unsigned ArgIdx = 0;
 
   for (; ArgIt != ArgEnd; ++ArgIt) {
 
+    VectorType *VecType = dyn_cast<VectorType>(ArgIt->getType());
+
+    // If a original parameter is uniform and already of a vector type, then we
+    // should not widen it.
+    // This can happen in OpenCL kernels whose parameters are OpenCL built-in
+    // vector types such as char2 and int4, which corresponds to <2 x i8> and
+    // <4 x i32> in LLVM IR.
+    if (!VecType || ParmKinds[ArgIdx].isUniform()) {
+      ArgIdx++;
+      continue;
+    }
+
     User::user_iterator UserIt = ArgIt->user_begin();
     User::user_iterator UserEnd = ArgIt->user_end();
 
-    VectorType *VecType = dyn_cast<VectorType>(ArgIt->getType());
+    // Some args other than the mask may not have users, but have not been
+    // removed as dead. In those cases, just go on to the next argument.
+    // There's no need to expand non-mask parameters with no users.
+    bool MaskArg = V.isMasked() && ArgIdx == LastArg;
 
-    if (VecType) {
+    if (!(!MaskArg && ArgIt->getNumUses() == 0)) {
 
-      // Some args other than the mask may not have users, but have not been
-      // removed as dead. In those cases, just go on to the next argument.
-      // There's no need to expand non-mask parameters with no users.
-      bool MaskArg = V.isMasked() && ArgIdx == LastArg;
+      // Create a new vector alloca and bitcast to a pointer to the element
+      // type. The following is an example of what the cast should look like:
+      //
+      // %veccast = bitcast <2 x i32>* %vec_a.addr to i32*
+      //
+      // geps using the bitcast will appear in a scalar form instead of
+      // casting to an array or using vector. For example,
+      //
+      // %vecgep1 = getelementptr i32, i32* %veccast, i32 %index
+      //
+      // instead of:
+      //
+      // getelementptr inbounds [4 x i32], [4 x i32]* %a, i32 0, i64 1
+      //
+      // We do this to put the geps in a more scalar form.
 
-      if (!(!MaskArg && ArgIt->getNumUses() == 0)) {
+      const DataLayout &DL = Clone->getParent()->getDataLayout();
+      AllocaInst *VecAlloca =
+        new AllocaInst(VecType, DL.getAllocaAddrSpace(),
+                       "vec." + ArgIt->getName());
+      insertInstruction(VecAlloca, EntryBlock);
+      PointerType *ElemTypePtr =
+          PointerType::get(VecType->getElementType(),
+                           VecAlloca->getType()->getAddressSpace());
 
-        // Create a new vector alloca and bitcast to a pointer to the element
-        // type. The following is an example of what the cast should look like:
-        //
-        // %veccast = bitcast <2 x i32>* %vec_a.addr to i32*
-        //
-        // geps using the bitcast will appear in a scalar form instead of
-        // casting to an array or using vector. For example,
-        //
-        // %vecgep1 = getelementptr i32, i32* %veccast, i32 %index
-        //
-        // instead of:
-        //
-        // getelementptr inbounds [4 x i32], [4 x i32]* %a, i32 0, i64 1
-        //
-        // We do this to put the geps in a more scalar form.
+      BitCastInst *VecParmCast = nullptr;
+      if (MaskArg) {
+        Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
+      } else {
+        VecParmCast = new BitCastInst(VecAlloca, ElemTypePtr,
+                                      "vec." + ArgIt->getName() + ".cast");
+        insertInstruction(VecParmCast, EntryBlock);
+      }
 
-        const DataLayout &DL = Clone->getParent()->getDataLayout();
-        AllocaInst *VecAlloca =
-          new AllocaInst(VecType, DL.getAllocaAddrSpace(),
-                         "vec." + ArgIt->getName());
-        insertInstruction(VecAlloca, EntryBlock);
-        PointerType *ElemTypePtr =
-            PointerType::get(VecType->getElementType(),
-                             VecAlloca->getType()->getAddressSpace());
+      StoreInst *StoreUser = nullptr;
+      AllocaInst *Alloca = nullptr;
 
-        BitCastInst *VecParmCast = nullptr;
-        if (MaskArg) {
-          Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
-        } else {
-          VecParmCast = new BitCastInst(VecAlloca, ElemTypePtr,
-                                        "vec." + ArgIt->getName() + ".cast");
-          insertInstruction(VecParmCast, EntryBlock);
+      ParmRef *PRef = nullptr;
+      if (!Mask)
+        PRef = new ParmRef();
+
+      for (; UserIt != UserEnd; ++UserIt) {
+
+        StoreUser = dyn_cast<StoreInst>(*UserIt);
+
+        if (StoreUser && !Mask) {
+          // For non-mask parameters, find the initial store of the parameter
+          // to an alloca instruction. Map this alloca to the vector bitcast
+          // created above so that we can update the old scalar references.
+          Alloca = dyn_cast<AllocaInst>(UserIt->getOperand(1));
+          PRef->VectorParm = Alloca;
+          break;
         }
+      }
 
-        StoreInst *StoreUser = nullptr;
-        AllocaInst *Alloca = nullptr;
+      if (!Alloca && !Mask) {
+        // Since Mem2Reg has run, there is no existing scalar store for
+        // the parameter, but we must still pack (store) the expanded vector
+        // parameter to a new vector alloca. This store is created here and
+        // put in a container for later insertion. We cannot insert it here
+        // since this will be a new user of the parameter and we are still
+        // iterating over the original users of the parameter. This will
+        // invalidate the iterator. We also map the parameter directly to the
+        // vector bitcast so that we can later update any users of the
+        // parameter.
+        Value *ArgValue = cast<Value>(ArgIt);
+        StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
+        StoresToInsert.push_back(Store);
+        PRef->VectorParm = ArgValue;
+      }
 
-        ParmRef *PRef = nullptr;
-        if (!Mask)
-          PRef = new ParmRef();
-
-        for (; UserIt != UserEnd; ++UserIt) {
-
-          StoreUser = dyn_cast<StoreInst>(*UserIt);
-
-          if (StoreUser && !Mask) {
-            // For non-mask parameters, find the initial store of the parameter
-            // to an alloca instruction. Map this alloca to the vector bitcast
-            // created above so that we can update the old scalar references.
-            Alloca = dyn_cast<AllocaInst>(UserIt->getOperand(1));
-            PRef->VectorParm = Alloca;
-            break;
-          }
-        }
-
-        if (!Alloca && !Mask) {
-          // Since Mem2Reg has run, there is no existing scalar store for
-          // the parameter, but we must still pack (store) the expanded vector
-          // parameter to a new vector alloca. This store is created here and
-          // put in a container for later insertion. We cannot insert it here
-          // since this will be a new user of the parameter and we are still
-          // iterating over the original users of the parameter. This will
-          // invalidate the iterator. We also map the parameter directly to the
-          // vector bitcast so that we can later update any users of the
-          // parameter.
-          Value *ArgValue = cast<Value>(ArgIt);
-          StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
-          StoresToInsert.push_back(Store);
-          PRef->VectorParm = ArgValue;
-        }
-
-        if (!Mask) {
-          // Mapping not needed for the mask parameter because there will
-          // be no users of it to replace. This parameter will only be used to
-          // introduce if conditions on each mask bit.
-          PRef->VectorParmCast = VecParmCast;
-          VectorParmMap.push_back(PRef);
-        }
+      if (!Mask) {
+        // Mapping not needed for the mask parameter because there will
+        // be no users of it to replace. This parameter will only be used to
+        // introduce if conditions on each mask bit.
+        PRef->VectorParmCast = VecParmCast;
+        VectorParmMap.push_back(PRef);
       }
     }
 

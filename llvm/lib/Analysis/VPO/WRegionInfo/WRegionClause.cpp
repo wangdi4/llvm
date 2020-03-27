@@ -189,6 +189,14 @@ void ArraySectionInfo::print(raw_ostream &OS, bool PrintType) const {
 //  Args[2,3,4] hold the <LB:Size:Stride> tuple for dimesion 0
 //  Args[5,6,7] hold the <LB:Size:Stride> tuple for dimesion 1
 //  ...etc.
+//
+//  For user-defined reduction, there are 4 additional arguments at the end (L
+//  is the argument length for the array section):
+//  Args[L-4] holds initializer
+//  Args[L-3] holds combiner
+//  Args[L-2] holds constructor
+//  Args[L-1] holds destructor
+//
 // This routine populates ArraySectionDims with the tuples.
 void ArraySectionInfo::populateArraySectionDims(const Use *Args,
                                                 unsigned NumArgs) {
@@ -196,9 +204,6 @@ void ArraySectionInfo::populateArraySectionDims(const Use *Args,
          "Non-constant Value for number of array section dimensions.");
   ConstantInt *CI = cast<ConstantInt>(Args[1]);
   uint64_t NumDims = CI->getZExtValue();
-
-  assert(NumArgs == 3 * NumDims + 2 &&
-         "Unexpected number of args for array section operand.");
 
   for (unsigned I = 0; I < NumDims; ++I) {
     Value *LB = Args[3 * I + 2];
