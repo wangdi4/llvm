@@ -1070,6 +1070,9 @@ public:
   bool isImmediateInvocation() const {
     return ConstantExprBits.IsImmediateInvocation;
   }
+  bool hasAPValueResult() const {
+    return ConstantExprBits.APValueKind != APValue::None;
+  }
   APValue getAPValueResult() const;
   APValue &getResultAsAPValue() const { return APValueResult(); }
   llvm::APSInt getResultAsAPSInt() const;

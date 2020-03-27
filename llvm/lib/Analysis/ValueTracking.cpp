@@ -399,15 +399,15 @@ static void computeKnownBitsAddSub(bool Add, const Value *Op0, const Value *Op1,
                                    bool NSW, const APInt &DemandedElts,
                                    KnownBits &KnownOut, KnownBits &Known2,
                                    unsigned Depth, const Query &Q) {
-  unsigned BitWidth = KnownOut.getBitWidth();
+  computeKnownBits(Op1, DemandedElts, KnownOut, Depth + 1, Q);
 
-  // If an initial sequence of bits in the result is not needed, the
-  // corresponding bits in the operands are not needed.
-  KnownBits LHSKnown(BitWidth);
-  computeKnownBits(Op0, DemandedElts, LHSKnown, Depth + 1, Q);
-  computeKnownBits(Op1, DemandedElts, Known2, Depth + 1, Q);
+  // If one operand is unknown and we have no nowrap information,
+  // the result will be unknown independently of the second operand.
+  if (KnownOut.isUnknown() && !NSW)
+    return;
 
-  KnownOut = KnownBits::computeForAddSub(Add, NSW, LHSKnown, Known2);
+  computeKnownBits(Op0, DemandedElts, Known2, Depth + 1, Q);
+  KnownOut = KnownBits::computeForAddSub(Add, NSW, Known2, KnownOut);
 }
 
 static void computeKnownBitsMul(const Value *Op0, const Value *Op1, bool NSW,
@@ -3691,8 +3691,8 @@ Value *llvm::isBytewiseValue(Value *V, const DataLayout &DL) {
   if (isa<UndefValue>(V))
     return UndefInt8;
 
-  const uint64_t Size = DL.getTypeStoreSize(V->getType());
-  if (!Size)
+  // Return Undef for zero-sized type.
+  if (!DL.getTypeStoreSize(V->getType()).isNonZero())
     return UndefInt8;
 
   Constant *C = dyn_cast<Constant>(V);
@@ -4010,7 +4010,7 @@ bool llvm::getConstantDataArrayInfo(const Value *V,
       Array = nullptr;
     } else {
       const DataLayout &DL = GV->getParent()->getDataLayout();
-      uint64_t SizeInBytes = DL.getTypeStoreSize(GVTy);
+      uint64_t SizeInBytes = DL.getTypeStoreSize(GVTy).getFixedSize();
       uint64_t Length = SizeInBytes / (ElementSize / 8);
       if (Length <= Offset)
         return false;
@@ -6519,10 +6519,12 @@ getOffsetFromIndex(const GEPOperator *GEP, unsigned Idx, const DataLayout &DL) {
       continue;
     }
 
-    // Otherwise, we have a sequential type like an array or vector.  Multiply
-    // the index by the ElementSize.
-    uint64_t Size = DL.getTypeAllocSize(GTI.getIndexedType());
-    Offset += Size * OpC->getSExtValue();
+    // Otherwise, we have a sequential type like an array or fixed-length
+    // vector. Multiply the index by the ElementSize.
+    TypeSize Size = DL.getTypeAllocSize(GTI.getIndexedType());
+    if (Size.isScalable())
+      return None;
+    Offset += Size.getFixedSize() * OpC->getSExtValue();
   }
 
   return Offset;

@@ -357,6 +357,8 @@ llvm::APSInt ConstantExpr::getResultAsAPSInt() const {
 }
 
 APValue ConstantExpr::getAPValueResult() const {
+  assert(hasAPValueResult());
+
   switch (ConstantExprBits.ResultKind) {
   case ConstantExpr::RSK_APValue:
     return APValueResult();
@@ -2794,9 +2796,6 @@ static Expr *IgnoreParensSingleStep(Expr *E) {
       return CE->getChosenSubExpr();
   }
 
-  else if (auto *CE = dyn_cast<ConstantExpr>(E))
-    return CE->getSubExpr();
-
   return E;
 }
 
@@ -3082,6 +3081,9 @@ bool Expr::isConstantInitializer(ASTContext &Ctx, bool IsForRef,
 
   switch (getStmtClass()) {
   default: break;
+  case Stmt::ExprWithCleanupsClass:
+    return cast<ExprWithCleanups>(this)->getSubExpr()->isConstantInitializer(
+        Ctx, IsForRef, Culprit);
   case StringLiteralClass:
   case ObjCEncodeExprClass:
     return true;
