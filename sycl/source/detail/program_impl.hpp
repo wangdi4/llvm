@@ -79,10 +79,16 @@ public:
   /// Constructs a program instance from an interop raw BE program handle.
   /// TODO: BE generalization will change that to something better.
   ///
+<<<<<<< HEAD
   /// The state of the constructed program can be either
   /// program_state::compiled or program_state::linked, depending on the state
   /// of the InteropProgram. Otherwise an invalid_object_error SYCL exception is
   /// thrown.
+=======
+  /// The state of the constructed program can be either program_state::compiled
+  /// or program_state::linked, depending on the state of the InteropProgram.
+  /// Otherwise an invalid_object_error SYCL exception is thrown.
+>>>>>>> 90e4a5a4ad90175af3dc0a2986f9bafe3246b2b0
   ///
   /// The instance of the program will be retained on construction.
   ///
