@@ -1723,7 +1723,7 @@ bool VPOParoptTransform::paroptTransforms() {
             auto *LoopExitBB = getLoopExitBB(W);
             // Last value update must happen in the loop's exit block,
             // i.e. under a ZTT check, if one was created around the loop.
-//            Changed |= genLinearCode(W, LoopExitBB);
+            Changed |= genLinearCodeForVecLoop(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
           }
@@ -4066,6 +4066,89 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCode\n");
 
   W->resetBBSet(); // CFG changed; clear BBSet
+  return true;
+}
+
+// Emit privatization and copyin/copyout code for linear/linear:iv clause
+// operands on SIMD directives.
+// ----------------------------------+----------------------------------------
+//          Before                   |        After
+// ----------------------------------+----------------------------------------
+//   %0 = ["DIR.OMP.PARALLEL"]       |    %0 = ["DIR.OMP.PARALLEL"]
+//                                  (1)   %x.linear = alloca i32
+//   ...                             |    ...
+//                                   |
+//                                  (2)   %x.val = load i32, i32* %x
+//                                  (3)   store i32 %x.val, i32* %x.linear
+//   %1 = ["DIR.OMP.SIMD"]           |    %1 = ["DIR.OMP.SIMD"]
+//        ["LINEAR"(i32 *%x, i32 1) (4)        ["LINEAR"(i32 %x.linear, i32 1)
+//                                   |
+//   ...                             |    ...
+//        %x                        (4)        %x.linear
+//   ...                             |    ...
+//                                  (5)   %x.lr.val = load i32, i32* %x.linear
+//                                  (6)   store i32 %x.lr.val, i32* %x
+//   ["DIR.OMP.END.SIMD"]            |    ["DIR.OMP.END.SIMD"]
+//                                   |
+// ----------------------------------+----------------------------------------
+bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
+                                                 BasicBlock *LinearFiniBB) {
+  if (!isa<WRNVecLoopNode>(W))
+    return false;
+
+  LinearClause &LrClause = W->getLinear();
+  if (LrClause.empty())
+    return false;
+
+  assert(LinearFiniBB && "genLinearCodeForVecLoop: Null LinearFiniBB.");
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLinearCodeForVecLoop\n");
+
+  W->populateBBSet();
+  Instruction *EntryDirective = W->getEntryDirective();
+  Instruction *LinearAllocaInsertPt =
+      VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(W, F);
+
+  // Create IRBuilders for initial copyin and final copyout to/from the local
+  // copy of linear.
+  IRBuilder<> InitBuilder(EntryDirective);
+  IRBuilder<> FiniBuilder(LinearFiniBB->getTerminator());
+
+  for (LinearItem *LinearI : LrClause.items()) {
+    Value *Orig = LinearI->getOrig();
+    bool IsLinearIV = LinearI->getIsIV();
+
+    // Allocate the private copy before the region's entry directive.
+    Value *NewLinearVar = genPrivatizationAlloca( //                       (1)
+        LinearI, LinearAllocaInsertPt, IsLinearIV ? ".linear.iv" : ".linear");
+    LinearI->setNew(NewLinearVar);
+
+    // Replace original var with the new var inside the region.
+    Value *ReplacementVal =
+        getClauseItemReplacementValue(LinearI, EntryDirective);
+    genPrivatizationReplacement(W, Orig, ReplacementVal); //               (4)
+
+    // For by-refs, do a pointer dereference to reach the actual operand.
+    if (LinearI->getIsByRef())
+      Orig = InitBuilder.CreateLoad(Orig);
+
+    // For LINEAR:IV, the initialization using closed-form is inserted in each
+    // iteration of the loop by the frontend, so we don't need to do the
+    // "firstprivate copyin" to the privatized linear var.
+    if (!IsLinearIV) {
+      // Capture value of linear variable before the entry directive
+      LoadInst *LoadOrig = InitBuilder.CreateLoad(Orig); //                (2)
+      InitBuilder.CreateStore(LoadOrig, NewLinearVar);   //                (3)
+    }
+
+    // Insert the final copy-out from the private copies to the original.
+    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewLinearVar); //          (5)
+    FiniBuilder.CreateStore(FiniLoad, Orig); //                            (6)
+
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": handled '" << *Orig << "'\n");
+  }
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCodeForVecLoop\n");
   return true;
 }
 
