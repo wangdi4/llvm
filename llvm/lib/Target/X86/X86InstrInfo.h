@@ -490,7 +490,7 @@ public:
                                     unsigned OpNum,
                                     ArrayRef<MachineOperand> MOs,
                                     MachineBasicBlock::iterator InsertPt,
-                                    unsigned Size, unsigned Alignment,
+                                    unsigned Size, Align Alignment,
                                     bool AllowCommute) const;
 #endif
 

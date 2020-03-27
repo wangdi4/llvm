@@ -5462,12 +5462,11 @@ static bool shouldPreventUndefRegUpdateMemFold(MachineFunction &MF,
   return VRegDef && VRegDef->isImplicitDef();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 MachineInstr *X86InstrInfo::foldMemoryBroadcast(
     MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
     ArrayRef<MachineOperand> MOs, MachineBasicBlock::iterator InsertPt,
-    unsigned Size, unsigned Align, bool AllowCommute) const {
+    unsigned Size, Align Alignment, bool AllowCommute) const {
 
   const X86MemoryFoldTableEntry *I =
       lookupBroadcastFoldTable(MI.getOpcode(), OpNum);
@@ -5514,9 +5513,9 @@ MachineInstr *X86InstrInfo::foldMemoryBroadcast(
       }
 
       // Attempt to fold with the commuted version of the instruction.
-      MachineInstr *NewMI =
-          foldMemoryBroadcast(MF, MI, CommuteOpIdx2, MOs, InsertPt, Size, Align,
-                              /*AllowCommute=*/false);
+      MachineInstr *NewMI = foldMemoryBroadcast(MF, MI, CommuteOpIdx2, MOs,
+                                                InsertPt, Size, Alignment,
+                                                /*AllowCommute=*/false);
       if (NewMI)
         return NewMI;
 
@@ -5545,8 +5544,6 @@ MachineInstr *X86InstrInfo::foldMemoryBroadcast(
 }
 #endif
 
-=======
->>>>>>> 3ba550a05afa31e2de96a0cc8a50e0cdc73adfb3
 MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
     ArrayRef<MachineOperand> MOs, MachineBasicBlock::iterator InsertPt,
