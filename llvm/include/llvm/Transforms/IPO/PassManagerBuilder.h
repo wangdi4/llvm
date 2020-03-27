@@ -222,7 +222,6 @@ private:
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
   void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
-  void addInstructionCombiningPass(legacy::PassManagerBase &MPM) const;
 
 #if INTEL_COLLAB
   void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,

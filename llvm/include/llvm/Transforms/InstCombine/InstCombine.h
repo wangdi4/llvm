@@ -24,19 +24,27 @@ namespace llvm {
 
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
   InstCombineWorklist Worklist;
+<<<<<<< HEAD
   const bool ExpensiveCombines;
   const bool TypeLoweringOpts; // INTEL
+=======
+>>>>>>> dc81923659c26f21821aaad215ac251034566faa
   const unsigned MaxIterations;
 
 public:
   static StringRef name() { return "InstCombinePass"; }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   explicit InstCombinePass(bool ExpensiveCombines = true,
                            bool TypeLoweringOpts = true);
   explicit InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts,
                            unsigned MaxIterations);
 #endif // INTEL_CUSTOMIZATION
+=======
+  explicit InstCombinePass();
+  explicit InstCombinePass(unsigned MaxIterations);
+>>>>>>> dc81923659c26f21821aaad215ac251034566faa
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
@@ -47,19 +55,27 @@ public:
 /// will try to combine all instructions in the function.
 class InstructionCombiningPass : public FunctionPass {
   InstCombineWorklist Worklist;
+<<<<<<< HEAD
   const bool ExpensiveCombines;
   const bool TypeLoweringOpts; // INTEL
+=======
+>>>>>>> dc81923659c26f21821aaad215ac251034566faa
   const unsigned MaxIterations;
 
 public:
   static char ID; // Pass identification, replacement for typeid
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InstructionCombiningPass(bool ExpensiveCombines = true,
                            bool TypeLoweringOpts = true);
   InstructionCombiningPass(bool ExpensiveCombines, bool TypeLoweringOpts,
                            unsigned MaxInterations);
 #endif // INTEL_CUSTOMIZATION
+=======
+  explicit InstructionCombiningPass();
+  explicit InstructionCombiningPass(unsigned MaxIterations);
+>>>>>>> dc81923659c26f21821aaad215ac251034566faa
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;
@@ -77,6 +93,7 @@ public:
 // into:
 //    %Z = add int 2, %X
 //
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines = true,
                                              bool TypeLoweringOpts = true);
@@ -84,6 +101,10 @@ FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines,
                                              bool TypeLoweringOpts,
                                              unsigned MaxIterations);
 #endif // INTEL_CUSTOMIZATION
+=======
+FunctionPass *createInstructionCombiningPass();
+FunctionPass *createInstructionCombiningPass(unsigned MaxIterations);
+>>>>>>> dc81923659c26f21821aaad215ac251034566faa
 }
 
 #endif

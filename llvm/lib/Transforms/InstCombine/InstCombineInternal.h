@@ -316,6 +316,7 @@ private:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
 
+<<<<<<< HEAD
   /// Enable combines that trigger rarely but are costly in compiletime.
   const bool ExpensiveCombines;
 
@@ -323,6 +324,8 @@ private:
   /// INTEL and pointer type bitcasts
   const bool TypeLoweringOpts; // INTEL
 
+=======
+>>>>>>> dc81923659c26f21821aaad215ac251034566faa
   AliasAnalysis *AA;
 
   // Required analyses.
@@ -344,6 +347,7 @@ private:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
+<<<<<<< HEAD
                bool MinimizeSize, bool ExpensiveCombines,  // INTEL
                bool TypeLoweringOpts,                      // INTEL
                AliasAnalysis *AA,                          // INTEL
@@ -358,6 +362,15 @@ public:
         TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL
                                      nullptr, true, &TTI), // INTEL
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}        // INTEL
+=======
+               bool MinimizeSize, AliasAnalysis *AA,
+               AssumptionCache &AC, TargetLibraryInfo &TLI, DominatorTree &DT,
+               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
+               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
+      : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
+        AA(AA), AC(AC), TLI(TLI), DT(DT),
+        DL(DL), SQ(DL, &TLI, &DT, &AC), ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}
+>>>>>>> dc81923659c26f21821aaad215ac251034566faa
 
   /// Run the combiner over the entire worklist until it is empty.
   ///
