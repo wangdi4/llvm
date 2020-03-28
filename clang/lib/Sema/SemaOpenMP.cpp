@@ -7964,6 +7964,54 @@ static ExprResult buildCounterUpdate(
   return Update;
 }
 
+#if INTEL_COLLAB
+/// Build 'VarRef = Start + Iter * Step'.
+static ExprResult buildCounterUpdateByIncrement(
+    Sema &SemaRef, Scope *S, SourceLocation Loc, ExprResult VarRef,
+    ExprResult Step, bool Subtract, bool IsNonRectangularLB,
+    llvm::MapVector<const Expr *, DeclRefExpr *> *Captures = nullptr) {
+
+  if (!VarRef.isUsable() || !Step.isUsable())
+    return ExprError();
+
+  ExprResult NewStep = Step;
+  if (Captures)
+    NewStep = tryBuildCapture(SemaRef, Step.get(), *Captures);
+  if (NewStep.isInvalid())
+    return ExprError();
+
+  ExprResult Update;
+
+  // First attempt: try to build 'VarRef (+=|-=) Step'.
+  if (VarRef.get()->getType()->isOverloadableType() ||
+      NewStep.get()->getType()->isOverloadableType()) {
+    Sema::TentativeAnalysisScope Trap(SemaRef);
+
+    Update = SemaRef.BuildBinOp(S, Loc, Subtract ? BO_SubAssign : BO_AddAssign,
+                                VarRef.get(), NewStep.get());
+  }
+
+  // Second attempt: try to build 'VarRef = VarRef (+|-) Step'.
+  if (!Update.isUsable()) {
+    Update = SemaRef.BuildBinOp(S, Loc, Subtract ? BO_Sub : BO_Add,
+                                VarRef.get(), NewStep.get());
+    if (!Update.isUsable())
+      return ExprError();
+
+    if (!SemaRef.Context.hasSameType(Update.get()->getType(),
+                                     VarRef.get()->getType())) {
+      Update = SemaRef.PerformImplicitConversion(
+          Update.get(), VarRef.get()->getType(), Sema::AA_Converting, true);
+      if (!Update.isUsable())
+        return ExprError();
+    }
+
+    Update = SemaRef.BuildBinOp(S, Loc, BO_Assign, VarRef.get(), Update.get());
+  }
+  return Update;
+}
+#endif // INTEL_COLLAB
+
 /// Convert integer expression \a E to make it have at least \a Bits
 /// bits.
 static ExprResult widenIterationCount(unsigned Bits, Expr *E, Sema &SemaRef) {
@@ -8440,6 +8488,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
 #if INTEL_COLLAB
   ExprResult LateOutlineCond =
       SemaRef.BuildBinOp(CurScope, CondLoc, BO_LE, IV.get(), UB.get());
+  ExprResult LateOutlineLinearCounterStep;
+  ExprResult LateOutlineLinearCounterIncrement;
 #endif // INTEL_COLLAB
   ExprResult CombDistCond;
   if (isOpenMPLoopBoundSharingDirective(DKind)) {
@@ -8687,6 +8737,32 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
         break;
       }
 
+#if INTEL_COLLAB
+      if (NestedLoopCount == 1 && isOpenMPSimdDirective(DKind) &&
+          (CounterVar->getType()->isScalarType() ||
+           CounterVar->getType()->isPointerType())) {
+        LateOutlineLinearCounterStep =
+            tryBuildCapture(SemaRef, IS.CounterStep, Captures);
+        if (IS.Subtract) {
+          LateOutlineLinearCounterStep = SemaRef.CreateBuiltinUnaryOp(
+              UpdLoc, UO_Minus, LateOutlineLinearCounterStep.get());
+        }
+        if (!LateOutlineLinearCounterStep.isUsable()) {
+          HasErrors = true;
+          break;
+        }
+
+        // Build increment for linear counter:
+        // IS.CounterVar = IS.CounterVar + IS.Step
+        LateOutlineLinearCounterIncrement = buildCounterUpdateByIncrement(
+            SemaRef, CurScope, UpdLoc, CounterVar, IS.CounterStep, IS.Subtract,
+            IS.IsNonRectangularLB, &Captures);
+        if (!LateOutlineLinearCounterIncrement.isUsable()) {
+          HasErrors = true;
+          break;
+        }
+      }
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
      SourceLocation UCLoc = IterSpaces[Cnt].InitSrcRange.getBegin();
      VarDecl *UncollapsedIVDecl =
@@ -8816,6 +8892,9 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   Built.Cond = Cond.get();
 #if INTEL_COLLAB
   Built.LateOutlineCond = LateOutlineCond.get();
+  Built.LateOutlineLinearCounterStep = LateOutlineLinearCounterStep.get();
+  Built.LateOutlineLinearCounterIncrement =
+      LateOutlineLinearCounterIncrement.get();
 #endif // INTEL_COLLAB
   Built.Init = Init.get();
   Built.Inc = Inc.get();

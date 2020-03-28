@@ -2247,6 +2247,8 @@ void ASTStmtReader::VisitOMPLoopDirective(OMPLoopDirective *D) {
   D->setCond(Record.readSubExpr());
 #if INTEL_COLLAB
   D->setLateOutlineCond(Record.readSubExpr());
+  D->setLateOutlineLinearCounterStep(Record.readSubExpr());
+  D->setLateOutlineLinearCounterIncrement(Record.readSubExpr());
 #endif // INTEL_COLLAB
   D->setInit(Record.readSubExpr());
   D->setInc(Record.readSubExpr());
