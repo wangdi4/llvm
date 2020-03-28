@@ -1073,7 +1073,7 @@ pi_result L0(piextDeviceSelectBinary)(
   pi_device           device, // TODO: does this need to be context?
   pi_device_binary *  binaries,
   pi_uint32           num_binaries,
-  pi_device_binary *  selected_binary) {
+  pi_uint32        *  selected_binary_ind) {
 
   // TODO dummy implementation.
   // Real implementaion will use the same mechanism OpenCL ICD dispatcher
@@ -1084,7 +1084,8 @@ pi_result L0(piextDeviceSelectBinary)(
   // where context->dispatch is set to the dispatch table provided by PI
   // plugin for platform/device the ctx was created for.
 
-  *selected_binary = num_binaries > 0 ? binaries[0] : nullptr;
+  constexpr pi_uint32 invalid_ind = std::numeric_limits<pi_uint32>::max();
+  *selected_binary_ind = num_binaries > 0 ? 0 : invalid_ind;
   return PI_SUCCESS;
 }
 
@@ -3746,6 +3747,14 @@ pi_result L0(piKernelSetExecInfo)(pi_kernel kernel,
   }
 
   pi_throw("piKernelSetExecInfo: param not supported");
+}
+
+pi_result piextProgramSetSpecializationConstant(pi_program prog,
+                                                pi_uint32 spec_id,
+                                                size_t spec_size,
+                                                const void *spec_value) {
+  // TODO: implement
+  pi_throw("piextProgramSetSpecializationConstant: not implemented");
 }
 
 pi_result L0(piPluginInit)(pi_plugin *PluginInit)
