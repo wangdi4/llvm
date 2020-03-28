@@ -556,7 +556,16 @@ void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
 
 void SYCLToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
                                               ArgStringList &CC1Args) const {
+<<<<<<< HEAD
   AddSYCLIncludeArgs(getDriver(), DriverArgs, CC1Args);
+=======
+  SmallString<128> P(getDriver().getInstalledDir());
+  llvm::sys::path::append(P, "..");
+  llvm::sys::path::append(P, "include");
+  llvm::sys::path::append(P, "sycl");
+  CC1Args.push_back("-internal-isystem");
+  CC1Args.push_back(DriverArgs.MakeArgString(P));
+>>>>>>> 685f101268724832e7ac3973cee013ffd882c47c
   HostTC.AddClangSystemIncludeArgs(DriverArgs, CC1Args);
 }
 

@@ -15,9 +15,13 @@
 // RUN: %clang_cl -### -- %s 2>&1 | FileCheck %s --check-prefix=DISABLED
 
 // ENABLED: "-cc1"{{.*}} "-fsycl-is-device"
+<<<<<<< HEAD
 // ENABLED-SAME: "-sycl-std={{[-.sycl0-9]+}}"
 // ENABLED-SAME: "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"
 
+=======
+// ENABLED: "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"
+>>>>>>> 685f101268724832e7ac3973cee013ffd882c47c
 // DISABLED-NOT: "-fsycl-is-device"
 // DISABLED-NOT: "-sycl-std="
 
