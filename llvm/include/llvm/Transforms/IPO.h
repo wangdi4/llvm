@@ -342,6 +342,10 @@ ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
 /// \brief This pass multiversions for tiling and marks tiled functions for
 /// inlining.
 ModulePass *createTileMVInlMarkerLegacyPass(void);
+
+/// This pass adds noalias attribute to function arguments where it is safe
+/// to do so.
+ModulePass *createArgNoAliasPropPass(void);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

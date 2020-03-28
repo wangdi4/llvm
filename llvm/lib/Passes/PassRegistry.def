@@ -58,6 +58,7 @@ MODULE_PASS("vec-clone",VecClonePass());
 MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdExtractPass());
 #endif //INTEL_CUSTOMIZATION
 MODULE_PASS("always-inline", AlwaysInlinerPass())
+MODULE_PASS("arg-noalias-prop", ArgNoAliasPropPass()) // INTEL
 MODULE_PASS("attributor", AttributorPass())
 MODULE_PASS("called-value-propagation", CalledValuePropagationPass())
 MODULE_PASS("canonicalize-aliases", CanonicalizeAliasesPass())
