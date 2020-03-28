@@ -18,6 +18,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANINSTRUCTION_DATA_HIR_H
 
 #include "llvm/ADT/FoldingSet.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 
 namespace llvm {
@@ -70,7 +71,7 @@ private:
 
 protected:
   /// Enumeration to keep track of the concrete sub-classes of VPOperandHIR.
-  enum { VPBlobSC, VPIndVarSC };
+  enum { VPBlobSC, VPIndVarSC, VPCanonExprSC };
 
   VPOperandHIR(const unsigned char ID) : SubclassID(ID) {}
 
@@ -83,10 +84,19 @@ public:
   /// Return true if this VPBlob is structurally equal to \p U.
   virtual bool isStructurallyEqual(const VPOperandHIR *U) const = 0;
 
+  /// Return true if this operand is equal to CE.
+  virtual bool isEqual(const loopopt::CanonExpr *CE) const { return false; }
+
   /// Method to support FoldingSet's hashing.
   virtual void Profile(FoldingSetNodeID &ID) const = 0;
 
   virtual void print(raw_ostream &OS) const = 0;
+  virtual void printDetail(raw_ostream &OS) const {
+    formatted_raw_ostream FOS(OS);
+    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
+    print(OS);
+    FOS << "\n";
+  }
 
   unsigned char getSubclassID() const { return SubclassID; }
 };
@@ -120,6 +130,7 @@ public:
 
   /// Method to support FoldingSet's hashing.
   void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddPointer(nullptr);
     ID.AddInteger(OperandBlob->getSymbase());
     ID.AddInteger(0 /*IVLevel*/);
   }
@@ -162,6 +173,7 @@ public:
 
   /// Method to support FoldingSet's hashing.
   void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddPointer(nullptr);
     ID.AddInteger(0 /*Symbase*/);
     ID.AddInteger(IVLevel);
   }
@@ -171,6 +183,71 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPOperandHIR *U) {
     return U->getSubclassID() == VPIndVarSC;
+  }
+};
+
+/// Class that holds underlying HIR information for invariant canon expressions.
+class VPCanonExpr final : public VPOperandHIR {
+private:
+  // Hold invariant canon expression of the invariant operand.
+  const loopopt::CanonExpr *OperandCE;
+
+  // Hold the DDRef that this canon expression is part of. This is used
+  // at code generation time to make the generated widened ref consistent
+  // with appropriate defined at level information.
+  const loopopt::RegDDRef *DDR;
+
+public:
+  /// Construct a VPCanonExpr for the given CanonExpr. DDR points to the DDRef
+  /// containing this canon expression.
+  VPCanonExpr(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
+      : VPOperandHIR(VPCanonExprSC), OperandCE(CE), DDR(DDR) {}
+
+  /// Return true if this VPCanonExpr is structurally equal to \p U.
+  /// Structural comparision for VPCanonExprs checks if the underlying canon \
+  /// expressions are equal.
+  bool isStructurallyEqual(const VPOperandHIR *U) const override {
+    const auto *UnitCE = dyn_cast<VPCanonExpr>(U);
+    if (!UnitCE)
+      return false;
+
+    return isEqual(UnitCE->getCanonExpr());
+  }
+
+  bool isEqual(const loopopt::CanonExpr *CE) const override {
+    return CE->getCanonExprUtils().areEqual(CE, getCanonExpr());
+  }
+
+  const loopopt::CanonExpr *getCanonExpr() const {
+    assert(OperandCE && "Unexpected null canon expression in VPCanonExpr");
+    return OperandCE;
+  }
+  const loopopt::RegDDRef *getDDR() const {
+    assert(DDR && "Unexpected null DDREF in VPCanonExpr");
+    return DDR;
+  }
+
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddPointer(getCanonExpr());
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(0 /*IVLevel*/);
+  }
+
+  void print(raw_ostream &OS) const override {
+    OS << "%vp" << (unsigned short)(unsigned long long)this;
+  }
+
+  void printDetail(raw_ostream &OS) const override {
+    formatted_raw_ostream FOS(OS);
+    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
+    getCanonExpr()->print(FOS);
+    FOS << "\n";
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPOperandHIR *U) {
+    return U->getSubclassID() == VPCanonExprSC;
   }
 };
 } // namespace vpo

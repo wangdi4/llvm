@@ -838,7 +838,7 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPlan handled loop, VF = " << VF << " "
                     << Fn.getName() << "\n");
   LLVM_DEBUG(dbgs() << "Handled loop before vec codegen: \n");
-  LLVM_DEBUG(OrigLoop->dump());
+  LLVM_DEBUG(OrigLoop->dump(1));
 
   LoopsVectorized++;
   SRA->computeSafeReductionChains(OrigLoop);
@@ -2752,6 +2752,16 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
       auto *BDDR = Blob->getBlob();
       WideRef = DDRefUtilities.createSelfBlobRef(BDDR->getSelfBlobIndex(),
                                                  BDDR->getDefinedAtLevel());
+      WideRef = widenRef(WideRef, VF);
+    } else if (const auto *VPCE = dyn_cast<VPCanonExpr>(HIROperand)) {
+      auto *CE = VPCE->getCanonExpr()->clone();
+      auto *DDR = VPCE->getDDR();
+
+      WideRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
+
+      // Make wide ref consistent using defined at level information in DDR.
+      SmallVector<const RegDDRef *, 1> AuxRefs = {DDR};
+      WideRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
       WideRef = widenRef(WideRef, VF);
     } else {
       const auto *IV = cast<VPIndVar>(HIROperand);

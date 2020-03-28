@@ -652,6 +652,15 @@ public:
   FoldingSetIterator operator++(int) {        // Postincrement
     FoldingSetIterator tmp = *this; ++*this; return tmp;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Define necessary traits for STL implementations.
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = T;
+  using reference = T &;
+  using pointer = T *;
+  using difference_type = std::ptrdiff_t;
+#endif // INTEL_CUSTOMIZATION
 };
 
 //===----------------------------------------------------------------------===//

@@ -1663,6 +1663,13 @@ private:
   /// uniquely identifies each external definition.
   FoldingSet<VPExternalDef> VPExternalDefsHIR;
 
+  /// Return the iterator range for external defs in VPExternalDefsHIR.
+  decltype(auto) getVPExternalDefsHIR() const {
+    return map_range(
+        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
+        [](const VPExternalDef &Def) { return &Def; });
+  }
+
   /// Holds all the external uses in this VPlan representing an underlying
   /// Value. The key is the underlying Value that uniquely identifies each
   /// external use.
@@ -1855,6 +1862,12 @@ public:
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
+  /// Create or retrieve a VPExternalDef for the given canon expression \p CE.
+  VPExternalDef *getVPExternalDefForCanonExpr(const loopopt::CanonExpr *CE,
+                                              const loopopt::RegDDRef *DDR) {
+    return getExternalItemForCanonExpr(VPExternalDefsHIR, CE, DDR);
+  }
+
   /// Retrieve the VPExternalDef for given HIR symbase \p Symbase. If no
   /// external definition exists then a nullptr is returned.
   VPExternalDef *getVPExternalDefForSymbase(unsigned Symbase) {
@@ -1947,6 +1960,7 @@ private:
   template <typename Def>
   Def *getExternalItemForSymbase(FoldingSet<Def> &Table, unsigned Symbase) {
     FoldingSetNodeID ID;
+    ID.AddPointer(nullptr);
     ID.AddInteger(Symbase);
     ID.AddInteger(0 /*IVLevel*/);
     void *IP = nullptr;
@@ -1956,6 +1970,30 @@ private:
     return nullptr;
   }
 
+  // Create or retrieve an external item from \p Table for given HIR canon
+  // expression \p CE.
+  template <typename Def>
+  Def *getExternalItemForCanonExpr(FoldingSet<Def> &Table,
+                                   const loopopt::CanonExpr *CE,
+                                   const loopopt::RegDDRef *DDR) {
+    // Search through the table for an external def equivalent to CE and return
+    // the same if found. DDR is used to set the definedatlevel of blobs in CE
+    // during vector code generation. The canon expression that we are dealing
+    // with here is invariant at the loop level that is being vectorized.
+    // The blobs within such canon expressions will have the same definedatlevel
+    // independent of the DDR. When searching for an external def that is
+    // equivalent we do not need any DDR specific checks as a result.
+    auto Iter = llvm::find_if(Table, [CE](const Def &ExtDef) {
+      return ExtDef.getOperandHIR()->isEqual(CE);
+    });
+    if (Iter != Table.end())
+      return &*Iter;
+
+    Def *ExtDef = new Def(CE, DDR);
+    Table.InsertNode(ExtDef);
+    return ExtDef;
+  }
+
   // Create or retrieve an external item from \p Table for given HIR unitary
   // DDRef \p DDR.
   template <typename Def>
@@ -1963,6 +2001,7 @@ private:
                                const loopopt::DDRef *DDR) {
     assert(DDR->isNonDecomposable() && "Expected non-decomposable DDRef!");
     FoldingSetNodeID ID;
+    ID.AddPointer(nullptr);
     ID.AddInteger(DDR->getSymbase());
     ID.AddInteger(0 /*IVLevel*/);
     void *IP = nullptr;
@@ -1979,6 +2018,7 @@ private:
   Def *getExternalItemForIV(FoldingSet<Def> &Table, unsigned IVLevel,
                             Type *BaseTy) {
     FoldingSetNodeID ID;
+    ID.AddPointer(nullptr);
     ID.AddInteger(0 /*Symbase*/);
     ID.AddInteger(IVLevel);
     void *IP = nullptr;
