@@ -68,6 +68,9 @@ static cl::opt<unsigned> TileCandidateSubArgMin(
 static Function *uniqueCaller(Function &F) {
   Function *Caller = nullptr;
   for (User *U : F.users()) {
+    auto BCO = dyn_cast<BitCastOperator>(U);
+    if (BCO && BCO->hasNUses(0))
+      continue;
     auto CB = dyn_cast<CallInst>(U);
     if (!CB || Caller)
       return nullptr;
@@ -82,6 +85,9 @@ static Function *uniqueCaller(Function &F) {
 static CallInst *uniqueCallSite(Function &F) {
   CallInst *CISave = nullptr;
   for (User *U : F.users()) {
+    auto BCO = dyn_cast<BitCastOperator>(U);
+    if (BCO && BCO->hasNUses(0))
+      continue;
     auto CI = dyn_cast<CallInst>(U);
     if (!CI || CISave)
       return nullptr;
@@ -474,6 +480,8 @@ bool TileMVInlMarker::processLoop(Function &F, Loop &L) {
   switch (IC->getPredicate()) {
   case ICmpInst::ICMP_SLT:
   case ICmpInst::ICMP_SLE:
+  case ICmpInst::ICMP_SGT:
+  case ICmpInst::ICMP_SGE:
   case ICmpInst::ICMP_EQ:
     break;
   default:
@@ -1202,6 +1210,11 @@ bool TileMVInlMarker::validateGVM() {
               return false;
             AS.insert(SI->getFunction());
           }
+        } else if (auto CB = dyn_cast<CallBase>(V)) {
+          Function *Callee = CB->getCalledFunction();
+          if (!Callee)
+            return false;
+          AS.insert(Callee);
         } else {
           return false;
         }
@@ -1222,6 +1235,9 @@ bool TileMVInlMarker::validateGVM() {
       Function *G = Worklist.pop_back_val();
       Visited.insert(G);
       for (User *U : G->users()) {
+        auto BCO = dyn_cast<BitCastOperator>(U);
+        if (BCO && BCO->hasNUses(0))
+          continue;
         auto CB = dyn_cast<CallBase>(U);
         if (!CB || CB->getCalledFunction() != G)
           return false;
