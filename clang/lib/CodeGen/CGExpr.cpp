@@ -20,6 +20,7 @@
 #include "intel/CGOpenMPLateOutline.h"
 #endif // INTEL_COLLAB
 #include "CGRecordLayout.h"
+#include "CGSYCLRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "ConstantEmitter.h"

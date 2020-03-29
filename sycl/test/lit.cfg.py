@@ -70,9 +70,10 @@ if 'OCL_ICD_FILENAMES' in os.environ:
 # INTEL_CUSTOMIZATION
 if 'SYCL_BE' in os.environ:
     config.environment['SYCL_BE'] = os.environ['SYCL_BE']
+# end INTEL_CUSTOMIZATION
+
 if 'SYCL_DEVICE_ALLOWLIST' in os.environ:
     config.environment['SYCL_DEVICE_ALLOWLIST'] = os.environ['SYCL_DEVICE_ALLOWLIST']
-# end INTEL_CUSTOMIZATION
 
 config.substitutions.append( ('%sycl_libs_dir',  config.sycl_libs_dir ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )

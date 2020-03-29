@@ -103,6 +103,7 @@ set(SYCL_SOURCES
     "detail/scheduler/scheduler.cpp"
     "detail/scheduler/graph_processor.cpp"
     "detail/scheduler/graph_builder.cpp"
+    "detail/spec_constant_impl.cpp"
     "detail/sycl_mem_obj_t.cpp"
     "detail/usm/clusm.cpp"
     "detail/usm/usm_dispatch.cpp"
@@ -200,15 +201,14 @@ else()
 # end INTEL_CUSTOMIZATION
 endif()
 
-# INTEL_CUSTOMIZATION
-# FIXME: temporary fix for xmain. It will be fixed
-#        in intel/llvm soon.
 # Enable new IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
+
 if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
   add_dependencies(sycl libsycldevice)
 endif()
 
+# INTEL_CUSTOMIZATION
 set(SYCL_ARCHIVE_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_LIBRARY_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_RUNTIME_INSTALL_DIR "bin")
