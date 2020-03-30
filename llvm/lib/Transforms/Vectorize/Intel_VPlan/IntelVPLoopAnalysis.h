@@ -49,6 +49,7 @@ class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
 
+extern bool EnableSOAAnalysis;
 extern bool VPlanDisplaySOAAnalysisInformation;
 
 /// Base class for loop entities

@@ -3,7 +3,7 @@
 ; we capture a private-variable as unsafe on account of an intermediate bitcast,
 ; which is loop-invariant.
 
-; RUN: opt -VPlanDriver -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 ; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
 
 ; REQUIRES:asserts

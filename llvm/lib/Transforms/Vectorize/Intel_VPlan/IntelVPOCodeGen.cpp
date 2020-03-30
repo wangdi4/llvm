@@ -1229,6 +1229,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::AllocatePrivate: {
+    assert(!EnableSOAAnalysis &&
+           "SOA-aware codegen is currently not supported.");
     vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
     return;
   }
