@@ -1403,7 +1403,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
     const SYCLIntelFPGAMaxConcurrencyAttr *IntelFPGAMaxConcurrency =
       dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(Attr);
 
-<<<<<<< HEAD
     const SYCLIntelFPGALoopCoalesceAttr *IntelFPGALoopCoalesce =
         dyn_cast<SYCLIntelFPGALoopCoalesceAttr>(Attr);
     const SYCLIntelFPGADisableLoopPipeliningAttr
@@ -1416,14 +1415,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
 
     if (!IntelFPGAIVDep && !IntelFPGAII && !IntelFPGAMaxConcurrency &&
         !IntelFPGALoopCoalesce && !IntelFPGADisableLoopPipelining &&
-        !IntelFPGAMaxInterleaving && !IntelFPGASpeculatedIterations
-#if INTEL_CUSTOMIZATION
-        && !IntelFPGALegacyIVDep
-#endif // INTEL_CUSTOMIZATION
-    )
-=======
-    if (!IntelFPGAIVDep && !IntelFPGAII && !IntelFPGAMaxConcurrency)
->>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
+        !IntelFPGAMaxInterleaving && !IntelFPGASpeculatedIterations)
       continue;
 
     if (IntelFPGAIVDep) {

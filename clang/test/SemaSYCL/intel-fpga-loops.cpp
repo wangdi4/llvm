@@ -15,20 +15,7 @@ void foo() {
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
   [[intelfpga::ivdep(arr)]] int e[10];
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-<<<<<<< HEAD
-  [[intelfpga::ivdep_exp(arr, 2)]] int f[10]; // INTEL
-
-  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-  [[intelfpga::disable_loop_pipelining]] int g[10];
-  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-  [[intelfpga::loop_coalesce(2)]] int h[10];
-  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-  [[intelfpga::max_interleaving(4)]] int i[10];
-  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
-  [[intelfpga::speculated_iterations(6)]] int j[10];
-=======
   [[intelfpga::ivdep(arr, 2)]] int f[10];
->>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
 }
 
 // Test for incorrect number of arguments for Intel FPGA loop attributes
@@ -125,23 +112,9 @@ void goo() {
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
   // expected-error@+1 {{'max_concurrency' attribute requires an integer constant}}
-<<<<<<< HEAD
-  [[intelfpga::max_concurrency("test123")]] for (int i = 0; i != 10; ++i)
-      a[i] = 0;
-  // expected-error@+1 {{'loop_coalesce' attribute requires an integer constant}}
-  [[intelfpga::loop_coalesce("test123")]] for (int i = 0; i != 10; ++i)
-      a[i] = 0;
-  // expected-error@+1 {{'max_interleaving' attribute requires an integer constant}}
-  [[intelfpga::max_interleaving("test123")]] for (int i = 0; i != 10; ++i)
-      a[i] = 0;
-  // expected-error@+1 {{'speculated_iterations' attribute requires an integer constant}}
-  [[intelfpga::speculated_iterations("test123")]] for (int i = 0; i != 10; ++i)
-      a[i] = 0;
-=======
   [[intelfpga::max_concurrency("test123")]]
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
->>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
   // expected-error@+1 {{unknown argument to 'ivdep'. Expected integer or array variable}}
   [[intelfpga::ivdep("test123")]] for (int i = 0; i != 10; ++i)
       a[i] = 0;

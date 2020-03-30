@@ -1,58 +1,10 @@
 // RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
 
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// CHECK: br label %for.cond, !llvm.loop ![[MD_X:[0-9]+]]
-// CHECK: br label %for.cond, !llvm.loop ![[MD_Y:[0-9]+]]
-// end INTEL_CUSTOMIZATION
-// CHECK: br label %for.cond,   !llvm.loop ![[MD_DLP:[0-9]+]]
-// CHECK: br label %for.cond,   !llvm.loop ![[MD_II:[0-9]+]]
-// CHECK: br label %for.cond2,  !llvm.loop ![[MD_II_2:[0-9]+]]
-// CHECK: br label %for.cond,   !llvm.loop ![[MD_MC:[0-9]+]]
-// CHECK: br label %for.cond2,  !llvm.loop ![[MD_MC_2:[0-9]+]]
-// CHECK: br label %for.cond,   !llvm.loop ![[MD_LC:[0-9]+]]
-// CHECK: br label %for.cond2,  !llvm.loop ![[MD_LC_2:[0-9]+]]
-// CHECK: br label %for.cond12, !llvm.loop ![[MD_LC_3:[0-9]+]]
-// CHECK: br label %for.cond,   !llvm.loop ![[MD_MI:[0-9]+]]
-// CHECK: br label %for.cond2,  !llvm.loop ![[MD_MI_2:[0-9]+]]
-// CHECK: br label %for.cond,   !llvm.loop ![[MD_SI:[0-9]+]]
-// CHECK: br label %for.cond2,  !llvm.loop ![[MD_SI_2:[0-9]+]]
-
-// INTEL_CUSTOMIZATION
-// CHECK: ![[MD_X]] = distinct !{![[MD_X]], ![[MD_ivdep_X:[0-9]+]]}
-// CHECK-NEXT: ![[MD_ivdep_X]] = !{!"llvm.loop.ivdep.enable"}
-void bar() {
-  int a[10];
-  [[intelfpga::ivdep]]
-  for (int i = 0; i != 10; ++i)
-    a[i] = 0;
-}
-
-// CHECK: ![[MD_Y]] = distinct !{![[MD_Y]], ![[MD_ivdep_Y:[0-9]+]]}
-// CHECK-NEXT: ![[MD_ivdep_Y]] = !{!"llvm.loop.ivdep.safelen", i32 2}
-void car() {
-  int a[10];
-  [[intelfpga::ivdep(2)]]
-  for (int i = 0; i != 10; ++i)
-    a[i] = 0;
-}
-// end INTEL_CUSTOMIZATION
-
-void disable_loop_pipelining() {
-  int a[10];
-  // CHECK: ![[MD_DLP]] = distinct !{![[MD_DLP]], ![[MD_dlp:[0-9]+]]}
-  // CHECK-NEXT: ![[MD_dlp]] = !{!"llvm.loop.intel.pipelining.enable", i32 0}
-  [[intelfpga::disable_loop_pipelining]] for (int i = 0; i != 10; ++i)
-      a[i] = 0;
-}
-
-=======
 // CHECK: br label %for.cond,  !llvm.loop ![[MD_II:[0-9]+]]
 // CHECK: br label %for.cond2, !llvm.loop ![[MD_II_2:[0-9]+]]
 // CHECK: br label %for.cond,  !llvm.loop ![[MD_MC:[0-9]+]]
 // CHECK: br label %for.cond2, !llvm.loop ![[MD_MC_2:[0-9]+]]
 
->>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
 template <int A>
 void ii() {
   int a[10];
@@ -133,14 +85,6 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 
 int main() {
   kernel_single_task<class kernel_function>([]() {
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-    bar();
-    car();
-// end INTEL_CUSTOMIZATION
-    disable_loop_pipelining();
-=======
->>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
     ii<4>();
     max_concurrency<0>();
     loop_coalesce<2>();

@@ -244,15 +244,7 @@ Sema::BuildSYCLIntelFPGAIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
 template <typename FPGALoopAttrT>
 FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
                                                 Expr *E) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (!E && A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALegacyIVDep)
-    return new (Context) FPGALoopAttrT(Context, A, E);
-#endif // INTEL_CUSTOMIZATION
-  if (!E && !(A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALoopCoalesce))
-=======
   if (!E)
->>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
     return nullptr;
 
   if (E && !E->isInstantiationDependent()) {
