@@ -60,7 +60,7 @@ bool HandleVPlanMask::runOnModule(Module &M) {
         FuncNeedRemoveAttrs.insert(&F);
         const Attribute &Attr = Call->getFnAttr("call-params-num");
         StringRef AttrStr = Attr.getValueAsString();
-        int ArgSize;
+        int ArgSize = 0;
         bool status = AttrStr.getAsInteger<int>(10, ArgSize);
         (void)status;
         assert(!status && "Unexpected call-params-num attribute");
