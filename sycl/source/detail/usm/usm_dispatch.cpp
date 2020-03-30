@@ -25,15 +25,20 @@ __SYCL_INLINE_NAMESPACE(cl) {
   pfn_##_funcname = (_funcname##_fn)clGetExtensionFunctionAddressForPlatform(  \
       platform, #_funcname);
 
+#if INTEL_CUSTOMIZATION
+// TODO: How to change this now with multple BE attached?
+// The "active" BE should be queried from PI plugin of a SYCL object.
+// James Brodman: File actually no longer used anywhere and can be removed.
+static bool activeBackend(pi::Backend) {
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 USMDispatcher::USMDispatcher(cl_platform_id platform,
                              const vector_class<RT::PiDevice> &DeviceIds) {
   // Note: This function should be modified whenever a new BE is added.
   // mSupported needs to be appropriately set to properly gate USM support.
-#if INTEL_CUSTOMIZATION
-  // TODO: How to change this now with multple BE attached?
-  // James Brodman: It's actually no longer used anywhere and can be removed.
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
-#endif // INTEL_CUSTOMIZATION
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     GET_EXTENSION(clHostMemAllocINTEL);
     GET_EXTENSION(clDeviceMemAllocINTEL);
     GET_EXTENSION(clSharedMemAllocINTEL);
@@ -85,7 +90,7 @@ void *USMDispatcher::hostMemAlloc(pi_context Context,
                                   pi_result *ErrcodeRet) {
   void *RetVal = nullptr;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
 
     if (mEmulated) {
@@ -109,7 +114,7 @@ void *USMDispatcher::deviceMemAlloc(pi_context Context, pi_device Device,
                                     pi_result *ErrcodeRet) {
   void *RetVal = nullptr;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
     cl_device_id CLDevice = pi::cast<cl_device_id>(Device);
 
@@ -136,7 +141,7 @@ void *USMDispatcher::sharedMemAlloc(pi_context Context, pi_device Device,
                                     pi_result *ErrcodeRet) {
   void *RetVal = nullptr;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
     cl_device_id CLDevice = pi::cast<cl_device_id>(Device);
 
@@ -160,7 +165,7 @@ void *USMDispatcher::sharedMemAlloc(pi_context Context, pi_device Device,
 pi_result USMDispatcher::memFree(pi_context Context, void *Ptr) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
 
     if (mEmulated) {
@@ -179,7 +184,7 @@ pi_result USMDispatcher::setKernelArgMemPointer(pi_kernel Kernel,
   pi_result RetVal = PI_INVALID_OPERATION;
 
   if (mSupported) {
-    if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+    if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
       cl_kernel CLKernel = pi::cast<cl_kernel>(Kernel);
 
       if (mEmulated) {
@@ -198,7 +203,7 @@ pi_result USMDispatcher::setKernelArgMemPointer(pi_kernel Kernel,
 void USMDispatcher::setKernelIndirectAccess(pi_kernel Kernel, pi_queue Queue) {
 
   if (mSupported) {
-    if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+    if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
       cl_kernel CLKernel = pi::cast<cl_kernel>(Kernel);
       cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
       cl_bool TrueVal = CL_TRUE;
@@ -237,7 +242,7 @@ pi_result USMDispatcher::enqueueMemset(pi_queue Queue, void *Ptr,
                                        pi_event *Event) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     // Is there a better way to convert pi_event * to cl_event *?
@@ -268,7 +273,7 @@ pi_result USMDispatcher::enqueueMemcpy(pi_queue Queue, pi_bool Blocking,
                                        pi_event *Event) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     if (mEmulated) {
@@ -295,7 +300,7 @@ pi_result USMDispatcher::enqueueMigrateMem(pi_queue Queue, const void *Ptr,
                                            pi_event *Event) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     if (mEmulated) {
@@ -325,7 +330,7 @@ pi_result USMDispatcher::getMemAllocInfo(pi_context Context, const void *Ptr,
                                          size_t *ParamValueSizeRet) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
 
     if (mEmulated) {
@@ -348,7 +353,7 @@ pi_result USMDispatcher::getMemAllocInfo(pi_context Context, const void *Ptr,
 
 void USMDispatcher::memAdvise(pi_queue Queue, const void *Ptr, size_t Length,
                               int Advice, pi_event *Event) {
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     if (mEmulated) {
@@ -383,7 +388,7 @@ pi_result USMDispatcher::enqueuePrefetch(pi_queue Queue, void *Ptr, size_t Size,
                                          const plugin &Plugin) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::preferredBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     if (mEmulated) {
       // Prefetch is a hint, so ignoring it is always safe.
       RetVal = Plugin.call_nocheck<PiApiKind::piEnqueueEventsWait>(

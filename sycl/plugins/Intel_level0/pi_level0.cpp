@@ -347,7 +347,7 @@ pi_result L0(piPlatformGetInfo)(
   uint32_t ze_driver_version_minor = ZE_MINOR_VERSION(ze_driver_version);
 
   char ze_driver_version_string[255];
-  sprintf(ze_driver_version_string, "Level-Zero %d.%d\n",
+  sprintf(ze_driver_version_string, "Level-Zero %d.%d",
       ze_driver_version_major,
       ze_driver_version_minor);
   zePrint("==========================\n");

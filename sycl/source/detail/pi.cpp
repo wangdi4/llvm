@@ -124,40 +124,90 @@ std::string memFlagsToString(pi_mem_flags Flags) {
 }
 
 #if INTEL_CUSTOMIZATION
-// Check for selected BE for EnvVariable at run-time.
-// If not set, the DefaultBE is returned.
-// The BEEnvVar can be SYCL_BE or SYCL_INTEROP_BE
-static Backend getBackend(const std::string &BEEnvVar, Backend DefaultBE) {
-  // TODO: make it cached somehow
-  const char *GetEnv = std::getenv(BEEnvVar.c_str());
-  // Current default backend as SYCL_BE_PI_OPENCL
-  // Valid values of GetEnv are "PI_OPENCL", "PI_CUDA", "PI_LEVEL0" and "PI_OTHER"
-  // TODO: Currently PI_OTHER maps to SYCL_BE_PI_LEVEL0.
-  if (!GetEnv)
-    return DefaultBE;
-  const std::map<std::string, Backend> SyclBeMap{
-      {"PI_OTHER", SYCL_BE_PI_LEVEL0},
-      {"PI_LEVEL0", SYCL_BE_PI_LEVEL0},
-      // {"PI_CUDA", SYCL_BE_PI_CUDA}, // INTEL
-      {"PI_OPENCL", SYCL_BE_PI_OPENCL}};
-  auto It = SyclBeMap.find(std::string(GetEnv));
-  if (It == SyclBeMap.end())
-    pi::die("Invalid SYCL_BE/SYCL_INTEROP_BE. Valid values are PI_LEVEL0/PI_OPENCL");
-  static const Backend Use = It->second;
-  return Use;
+// A singleton class to aid that PI configuration parameters
+// are processed only once, like reading a string from environment
+// and converting it into a typed object.
+//
+template <typename T, const char *E>
+class Config {
+  static Config *m_Instance;
+  T m_Data;
+  Config();
+
+public:
+  static T get() {
+    if (!m_Instance) {
+      m_Instance = new Config();
+    }
+    return m_Instance->m_Data;
+  }
+};
+
+template <typename T, const char *E>
+Config<T, E> * Config<T, E>::m_Instance = nullptr;
+
+// Lists valid configuration environment variables.
+static constexpr char SYCL_BE[] = "SYCL_BE";
+static constexpr char SYCL_INTEROP_BE[] = "SYCL_INTEROP_BE";
+static constexpr char SYCL_PI_TRACE[] = "SYCL_PI_TRACE";
+
+// SYCL_PI_TRACE gives the mask of enabled tracing components (0 default)
+template<>
+Config<int, SYCL_PI_TRACE>::Config() {
+  const char *Env = std::getenv(SYCL_PI_TRACE);
+  m_Data = (Env ? std::atoi(Env) : 0);
 }
 
-// Checks if the BE given by SYCL_BE is the same as parameter TheBackend.
-// This API is mostly used to check if a plugin/device are of the preferred BE.
-bool preferredBackend(Backend TheBackend) {
-  // TODO: Current default is PI_LEVEL0. Change if default needs to change.
-  return TheBackend == getBackend("SYCL_BE", SYCL_BE_PI_LEVEL0);
+static const std::map<std::string, Backend> SyclBeMap{
+    {"PI_OTHER", SYCL_BE_PI_LEVEL0},
+    {"PI_LEVEL0", SYCL_BE_PI_LEVEL0},
+    // {"PI_CUDA", SYCL_BE_PI_CUDA}, // INTEL
+    {"PI_OPENCL", SYCL_BE_PI_OPENCL}};
+
+template<>
+Config<Backend, SYCL_BE>::Config() {
+  const char *BE = std::getenv(SYCL_BE);
+  if (BE) {
+    auto It = SyclBeMap.find(BE);
+    if (It == SyclBeMap.end())
+      pi::die("Invalid SYCL_BE. Valid values are PI_LEVEL0/PI_OPENCL");
+    m_Data = It->second;
+  }
+  else {
+    // Default preference is to L0 BE.
+    m_Data = SYCL_BE_PI_LEVEL0;
+  }
+}
+
+// SYCL_INTEROP_BE is a way to specify the interoperability plugin.
+// TODO: remove altogether when the interoperability BE is given
+// in the language (coming in github).
+//
+template<>
+Config<Backend, SYCL_INTEROP_BE>::Config() {
+  const char *BE = std::getenv(SYCL_INTEROP_BE);
+  if (BE) {
+    auto It = SyclBeMap.find(BE);
+    if (It == SyclBeMap.end())
+      pi::die("Invalid SYCL_INTEROP_BE. "
+              "Valid values are PI_LEVEL0/PI_OPENCL");
+    m_Data = It->second;
+  }
+  else {
+    // Default preference is to OpenCL.
+    m_Data = SYCL_BE_PI_OPENCL;
+  }
+}
+
+// Helper interface to not expose "pi::Config" outside of pi.cpp
+Backend getPreferredBE() {
+  return Config<Backend, SYCL_BE>::get();
 }
 
 #endif // INTEL_CUSTOMIZATION
 
 // GlobalPlugin is a global Plugin used with Interoperability constructors that
-// use OpenCL objects to construct SYCL class objects.
+// use low-level objects to construct SYCL class objects.
 std::shared_ptr<plugin> GlobalPlugin;
 
 // Find the plugin at the appropriate location and return the location.
@@ -213,8 +263,7 @@ bool bindPlugin(void *Library, PiPlugin *PluginInformation) {
 // TODO: open-source
 // Return true if we want to trace PI related activities.
 bool trace(TraceLevel Level) {
-  static auto TraceLevelCString = std::getenv("SYCL_PI_TRACE");
-  static int TraceLevelMask = TraceLevelCString ? std::atoi(TraceLevelCString) : 0;
+  auto TraceLevelMask = Config<int, SYCL_PI_TRACE>::get();
   return (TraceLevelMask & Level) == Level;
 }
 
@@ -239,9 +288,8 @@ vector_class<plugin> initialize() {
       std::cerr << "SYCL_PI_TRACE[-1]: Failed to bind PI APIs to the plugin: "
                 << PluginNames[I].first << std::endl;
     }
-    // Set as Global Plugin if SYCL_INTEROP_BE is set.
-    if (getBackend("SYCL_INTEROP_BE", SYCL_BE_PI_OPENCL /*default*/) ==
-        PluginNames[I].second) {
+    // Set the Global Plugin based on SYCL_INTEROP_BE.
+    if (Config<Backend, SYCL_INTEROP_BE>::get() == PluginNames[I].second) {
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, PluginNames[I].second);
     }
