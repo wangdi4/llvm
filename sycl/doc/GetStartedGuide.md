@@ -122,24 +122,7 @@ should be used.
 There is experimental support for DPC++ for CUDA devices.
 
 To enable support for CUDA devices, follow the instructions for the Linux
-<<<<<<< HEAD
 DPC++ toolchain, but add the `--cuda` flag to `configure.py`
-=======
-DPC++ toolchain, but replace the cmake command with the following one:
-
-
-```
-cmake -DCMAKE_BUILD_TYPE=Release \
--DLLVM_EXTERNAL_PROJECTS="llvm-spirv;sycl" \
--DLLVM_EXTERNAL_SYCL_SOURCE_DIR=$DPCPP_HOME/llvm/sycl \
--DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=$DPCPP_HOME/llvm/llvm-spirv \
--DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda/ \
--DLLVM_ENABLE_PROJECTS="clang;llvm-spirv;sycl;libclc" \
--DSYCL_BUILD_PI_CUDA=ON \
--DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
--DLIBCLC_TARGETS_TO_BUILD="nvptx64--;nvptx64--nvidiacl"
-```
->>>>>>> e64377f1d00f07ed35b6b06aad1e9993f1381dc9
 
 Enabling this flag requires an installation of
 [CUDA 10.1](https://developer.nvidia.com/cuda-10.1-download-archive-update2) on the system,
@@ -160,17 +143,6 @@ on the system in order to link applications to the DPC++ runtime.
 The OpenCL implementation is not used at runtime if only the CUDA backend is 
 used in the application, but must be installed.
 
-<<<<<<< HEAD
-=======
-## Using the DPC++ toolchain on CUDA platforms
-
-The DPC++ toolchain support on CUDA platforms is still in an experimental phase.
-Currently, the DPC++ toolchain relies on having a recent OpenCL implementation
-on the system in order to link applications to the DPC++ runtime.
-The OpenCL implementation is not used at runtime if only the CUDA backend is 
-used in the application, but must be installed.
-
->>>>>>> e64377f1d00f07ed35b6b06aad1e9993f1381dc9
 The OpenCL implementation provided by the CUDA SDK is OpenCL 1.2, which is
 too old to link with the DPC++ runtime and lacks some symbols.
 
@@ -181,11 +153,7 @@ Instead of installing the low level CPU runtime, it is possible to build and
 install the [Khronos ICD loader](https://github.com/KhronosGroup/OpenCL-ICD-Loader), 
 which contains all the symbols required.
 
-<<<<<<< HEAD
 ### Install low level runtime
-=======
-## Install low level runtime
->>>>>>> e64377f1d00f07ed35b6b06aad1e9993f1381dc9
 
 To run DPC++ applications on OpenCL devices, OpenCL implementation(s) must be
 present in the system.
@@ -305,11 +273,7 @@ skipped.
 If CUDA support has been built, it is tested only if there are CUDA devices 
 available.
 
-<<<<<<< HEAD
 #### Run Khronos\* SYCL\* conformance test suite (optional)
-=======
-### Run Khronos\* SYCL\* conformance test suite (optional)
->>>>>>> e64377f1d00f07ed35b6b06aad1e9993f1381dc9
 
 Khronos\* SYCL\* conformance test suite (CTS) is intended to validate
 implementation conformance to Khronos\* SYCL\* specification. DPC++ compiler is
