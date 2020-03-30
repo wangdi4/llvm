@@ -117,6 +117,24 @@ double  __attribute__((overloadable)) sub_group_scan_inclusive_max( double x );
 #endif
 #endif
 
+#if defined(cl_khr_subgroup_shuffle)
+char   __attribute__((overloadable)) sub_group_shuffle( char x, uint c );
+uchar  __attribute__((overloadable)) sub_group_shuffle( uchar x, uint c );
+short  __attribute__((overloadable)) sub_group_shuffle( short x, uint c );
+ushort __attribute__((overloadable)) sub_group_shuffle( ushort x, uint c );
+int    __attribute__((overloadable)) sub_group_shuffle( int x, uint c );
+uint   __attribute__((overloadable)) sub_group_shuffle( uint x, uint c );
+long   __attribute__((overloadable)) sub_group_shuffle( long x, uint c );
+ulong  __attribute__((overloadable)) sub_group_shuffle( ulong x, uint c );
+float  __attribute__((overloadable)) sub_group_shuffle( float x, uint c );
+#if defined(cl_khr_fp64)
+double __attribute__((overloadable)) sub_group_shuffle( double x, uint c );
+#endif
+#if defined(cl_khr_fp16)
+half __attribute__((overloadable)) sub_group_shuffle( half x, uint c );
+#endif
+#endif
+
 #if defined(cl_intel_subgroups)
 // Intel Sub Group Functions
 float   __attribute__((overloadable)) intel_sub_group_shuffle( float  x, uint c );

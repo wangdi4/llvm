@@ -566,6 +566,17 @@ foreach func_name = [ "sub_group_shuffle", "sub_group_shuffle_xor", "sub_group_s
 }
 
 //
+// AliasMap
+//
+
+foreach suffix = ["", "_avx", "_avx2", "_avx512"] in {
+  defvar types = VFType<[v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64], suffix>.Tout;
+  def subgroup_shuffle_alias#suffix : AliasMap<[
+    ["sub_group_shuffle"#suffix, "sub_group_shuffle"],
+    ["sub_group_shuffle_xor"#suffix, "sub_group_shuffle_xor"]], types>;
+}
+
+//
 // Generate VectInfo for OCLVecClone
 //
 
