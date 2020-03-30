@@ -6748,7 +6748,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     getToolChain().AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
   if (Args.hasArg(options::OPT_mkl_EQ))
     getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
   if (Args.hasArg(options::OPT_daal_EQ))
     getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
