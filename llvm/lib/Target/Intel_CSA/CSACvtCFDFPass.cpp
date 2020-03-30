@@ -2289,7 +2289,7 @@ unsigned CSACvtCFDFPass::generateLandSeq(SmallVectorImpl<unsigned> &landOpnds,
       }
       landInstr->setFlag(MachineInstr::NonSequential);
     } else {
-      if (i % 4) {
+      if ((i % 3) != 1)  {
         landInstr->addOperand(MachineOperand::CreateReg(landOpnds[i], false));
       } else {
         unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);

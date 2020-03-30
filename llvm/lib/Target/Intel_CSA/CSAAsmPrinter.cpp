@@ -762,7 +762,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
     for (unsigned i = 0; i < LMFI->getNumCSAEntryPoints(); ++i) {
       const CSAEntryPoint &CSAEP = LMFI->getCSAEntryPoint(i);
       const Function &F = CSAEP.MF->getFunction();
-      if (i != 0) EmitLinkage(&F,getSymbol(&F));
+      if (i != 0) EmitLinkage(&F,OutContext.createTempSymbol(F.getName(), false));
       EmitSimpleEntryInstruction(CSAEP.MF);
       EmitParamsResultsDecl(CSAEP.EntryMI,CSAEP.ReturnMI);
     }
@@ -952,7 +952,7 @@ void CSAAsmPrinter::EmitParamsResultsDecl(
 void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << "\t#.call\t";
+  O << "\t.call\t";
   const MachineOperand &MO = MI->getOperand(0);
   if (MO.isGlobal()) {
     const Function *F = dyn_cast<Function>(MO.getGlobal());
@@ -960,7 +960,7 @@ void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
   } else if (MO.isSymbol())
     O << MI->getOperand(0).getSymbolName();
   O << ", ";
-  EmitCSAOperands(MI,O,2,MI->getNumOperands());
+  EmitCSAOperands(MI,O,1,MI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());
 }
@@ -968,7 +968,7 @@ void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
 void CSAAsmPrinter::EmitContinueInstruction(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << "\t#.continue\t";
+  O << "\t.continue\t";
   EmitCSAOperands(MI,O,0,MI->getNumOperands());
   O << "\n";
   OutStreamer->EmitRawText(O.str());

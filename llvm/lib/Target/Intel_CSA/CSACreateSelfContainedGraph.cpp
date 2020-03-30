@@ -132,14 +132,20 @@ MachineFunction *getCalleeMachineFunction(
   return nullptr;
 }
 
+bool isProxyCall(MachineInstr &MI, Module &M, MachineModuleInfo *MMI) {
+  auto CalleeMF = getCalleeMachineFunction(MI, M, MMI);
+  if (!CalleeMF) { //proxy call
+    return true;
+  }
+  return false;
+}
+
 // Check if this type of call is supported NOW
 bool isCallSupported(MachineInstr &MI, Module &M, MachineModuleInfo *MMI) {
   auto CallerMF = MI.getParent()->getParent();
   auto CalleeMF = getCalleeMachineFunction(MI, M, MMI);
-  if (!CalleeMF) { //proxy call
-    errs() << "WARNING: Proxy calls not yet supported!"
-           << "May generate code with incomplete linkage!\n";
-    return false;
+  if (isProxyCall(MI,M,MMI)) { //proxy call
+    return true;
   }
   if (CallerMF->getSubtarget<CSASubtarget>().isSequential()
     && !CalleeMF->getSubtarget<CSASubtarget>().isSequential()) {
@@ -594,8 +600,10 @@ void CSACreateSelfContainedGraph::insertTrampolineCode(
     MachineBasicBlock::iterator I(MI);
     ++I;
     MachineInstr *ContinueMI = &*I;
-    MI->eraseFromParent();
-    ContinueMI->eraseFromParent();
+    if (!isProxyCall(*MI,*thisMod,MMI)) {
+      MI->eraseFromParent();
+      ContinueMI->eraseFromParent();
+    }
   }
   if (CalleeMF->getFunction().hasLocalLinkage() || CallInstList.size()!=0) {
     EntryInst->eraseFromParent();
