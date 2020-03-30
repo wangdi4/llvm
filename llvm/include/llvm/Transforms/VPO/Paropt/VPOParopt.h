@@ -84,15 +84,15 @@ class VPOParoptPass : public PassInfoMixin<VPOParoptPass> {
 
 public:
   explicit VPOParoptPass(unsigned MyMode = vpo::ParTrans | vpo::OmpPar |
-                                           vpo::OmpVec,
-                         unsigned OptLevel = 2);
+                                           vpo::OmpVec);
   ~VPOParoptPass(){};
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   bool
   runImpl(Module &M,
           std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
-          std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
+          std::function<TargetLibraryInfo &(Function &F)> TLIGetter,
+          unsigned OptLevel);
 
 private:
   // Paropt mode.
@@ -103,9 +103,6 @@ private:
   // framework (under -qopt-report).
   OptReportVerbosity::Level ORVerbosity;
 #endif  // INTEL_CUSTOMIZATION
-
-  // Optimization level.
-  unsigned OptLevel;
 };
 
 namespace vpo {
@@ -117,8 +114,7 @@ public:
   /// Pass Identification
   static char ID;
 
-  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec,
-                     unsigned OptLevel = 2);
+  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec);
   ~VPOParopt(){};
 
   StringRef getPassName() const override { return "VPO Paropt Pass"; }
