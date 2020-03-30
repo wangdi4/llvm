@@ -127,6 +127,8 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
     Serializer::SerialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ost);
     Serializer::SerialPrimitive<DeviceMode>(&m_targetDevice, ost);
+    tmp = (unsigned long long int)m_cpuMaxWGSize;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 }
 
 void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -191,6 +193,8 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<bool>(&m_bIsTask, ist);
     Serializer::DeserialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ist);
     Serializer::DeserialPrimitive<DeviceMode>(&m_targetDevice, ist);
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_cpuMaxWGSize = (size_t)tmp;
 }
 
 

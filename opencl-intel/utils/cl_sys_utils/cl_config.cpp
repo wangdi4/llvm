@@ -24,6 +24,7 @@
 #else
 #include "hw_utils.h"
 #endif
+
 using namespace Intel::OpenCL::Utils;
 using std::string;
 
@@ -383,6 +384,17 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 
     s_ver = GetOpenclVerByCpuModel();
     return s_ver;
+}
+
+size_t BasicCLConfigWrapper::GetCpuMaxWGSize() const {
+  size_t cpuMaxWGSize =
+      m_pConfigFile->Read<size_t>("CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE",
+                                  CPU_MAX_WORK_GROUP_SIZE);
+  if (cpuMaxWGSize < CPU_MAX_WORK_GROUP_SIZE)
+      cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
+  if (cpuMaxWGSize > CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND)
+      cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND;
+  return cpuMaxWGSize;
 }
 
 unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {

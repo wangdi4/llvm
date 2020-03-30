@@ -254,6 +254,7 @@ public:
     void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
     void SetHasDebugInfo(const bool value) { m_debugInfo = value; }
     void SetRequiredSubGroupSize(const size_t value) { m_reqdSubGroupSize = value; }
+    void SetCpuMaxWGSize(const size_t value) { m_cpuMaxWGSize = value; }
 
     unsigned int  GetOptWGSize()      const { return m_optWGSize; }
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -265,6 +266,7 @@ public:
     unsigned int  GetPointerSize()     const { return m_uiSizeT;}
     bool          GetCanUniteWG() const { return m_canUniteWG; }
     unsigned int  GetVectorizedDimention() const { return m_verctorizeOnDimention;}
+    size_t        GetCpuMaxWGSize() const { return m_cpuMaxWGSize; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -304,6 +306,7 @@ protected:
     unsigned int m_verctorizeOnDimention;
     bool m_debugInfo;
     DeviceMode m_targetDevice;
+    size_t m_cpuMaxWGSize;
 };
 
 }}}

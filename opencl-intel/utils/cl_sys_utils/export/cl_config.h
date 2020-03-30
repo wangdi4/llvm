@@ -653,6 +653,11 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         }
 
         /**
+         * @returns maximum work-group size for cpu device.
+         */
+        size_t GetCpuMaxWGSize() const;
+
+        /**
          * @returns the number of TBB workers.
          */
         unsigned GetNumTBBWorkers() const;

@@ -15,7 +15,7 @@
 #pragma once
 
 #include "PipeCommon.h"
-#include "common_dev_limits.h"
+#include "cpu_dev_limits.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "cl_user_logger.h"
@@ -48,7 +48,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_serializeWorkGroups(false),
             m_forcedPrivateMemorySize(0),
             m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
-            m_targetDevice(CPU_DEVICE)
+            m_targetDevice(CPU_DEVICE),
+            m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
@@ -73,6 +74,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 case CL_DEV_BACKEND_OPTION_DEVICE:
                 {
                     return m_targetDevice;
+                }
+                case CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE:
+                {
+                    return (int)m_cpuMaxWGSize;
                 }
                 case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
                 {
@@ -127,6 +132,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int  m_forcedPrivateMemorySize;
         int  m_channelDepthEmulationMode;
         DeviceMode  m_targetDevice;
+        size_t m_cpuMaxWGSize;
     };
 
     /**
