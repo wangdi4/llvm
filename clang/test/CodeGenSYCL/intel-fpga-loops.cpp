@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
 
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // CHECK: br label %for.cond, !llvm.loop ![[MD_X:[0-9]+]]
 // CHECK: br label %for.cond, !llvm.loop ![[MD_Y:[0-9]+]]
@@ -45,6 +46,13 @@ void disable_loop_pipelining() {
       a[i] = 0;
 }
 
+=======
+// CHECK: br label %for.cond,  !llvm.loop ![[MD_II:[0-9]+]]
+// CHECK: br label %for.cond2, !llvm.loop ![[MD_II_2:[0-9]+]]
+// CHECK: br label %for.cond,  !llvm.loop ![[MD_MC:[0-9]+]]
+// CHECK: br label %for.cond2, !llvm.loop ![[MD_MC_2:[0-9]+]]
+
+>>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
 template <int A>
 void ii() {
   int a[10];
@@ -125,11 +133,14 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 
 int main() {
   kernel_single_task<class kernel_function>([]() {
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
     bar();
     car();
 // end INTEL_CUSTOMIZATION
     disable_loop_pipelining();
+=======
+>>>>>>> 32cfd21c398f97e704d97034ddece8a95b833740
     ii<4>();
     max_concurrency<0>();
     loop_coalesce<2>();
