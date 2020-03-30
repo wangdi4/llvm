@@ -769,6 +769,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt13runtime_errorD1Ev(i8*)\n"
       "declare void @_ZNSt13runtime_errorD2Ev(i8*)\n"
       "declare void @_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode(i8*, i8*, i32)\n"
+      "declare void @_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev(i8*)\n"
       "declare void @_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev(i8*, i8*)\n"
       "declare void @_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare void @_ZNSt15basic_streambufIcSt11char_traitsIcEE5imbueERKSt6locale(i8*, i8*)\n"
