@@ -14,6 +14,14 @@ void foo() {
   int arr[10];
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
   [[intelfpga::ivdep(arr)]] int e[10];
+ // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
+  [[intelfpga::disable_loop_pipelining]] int g[10];
+  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
+  [[intelfpga::loop_coalesce(2)]] int h[10];
+  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
+  [[intelfpga::max_interleaving(4)]] int i[10];
+  // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
+  [[intelfpga::speculated_iterations(6)]] int j[10];
   // expected-error@+1 {{intelfpga loop attributes must be applied to for, while, or do statements}}
   [[intelfpga::ivdep(arr, 2)]] int f[10];
 }
