@@ -44,7 +44,7 @@ OCL_INITIALIZE_PASS_END(PipeIOTransformation, "pipe-io-transformation",
 
 namespace {
 
-typedef SmallVector<std::pair<Value *, StringRef>, 4> PipesWithMDVector;
+typedef SmallVector<std::pair<Value *, std::string>, 4> PipesWithMDVector;
 typedef SmallVector<CallInst *, 4> PipesBuiltinsVector;
 
 } // anonymous namespace
@@ -86,7 +86,7 @@ static bool isPipe(const GlobalValue *GV, const PipeTypesHelper &PipeTypes) {
 }
 
 static GlobalVariable *createGlobalTextConstant(Module &M,
-                                                const StringRef Name) {
+                                                const std::string Name) {
   ArrayType *Ty =
       ArrayType::get(Type::getInt8Ty(M.getContext()), Name.size() + 1);
   auto *ConstStringGV = new GlobalVariable(
@@ -178,7 +178,7 @@ static bool processIOPipesFromKernelArg(Module &M,
     auto *it = Kernel->arg_begin();
     for (auto &IO : IOList) {
       Value *Pipe = it++;
-      StringRef IOName = IO;
+      std::string IOName = IO;
       if (IOName.empty())
         continue;
       PipesWithMDVec.push_back(std::make_pair(Pipe, IOName));

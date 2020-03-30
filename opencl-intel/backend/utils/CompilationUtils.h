@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       int PacketSize;
       int PacketAlign;
       int Depth;
-      StringRef IO;
+      std::string IO;
     };
 
     ChannelPipeMD getChannelPipeMetadata(

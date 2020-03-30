@@ -27,7 +27,7 @@ struct GlobalVariableMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketAlignTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeDepthTy;
-  typedef NamedMDValue<llvm::StringRef, MDValueGlobalObjectStrategy> PipeIOTy;
+  typedef NamedMDValue<std::string, MDValueGlobalObjectStrategy> PipeIOTy;
 
   GlobalVariableMetadataAPI(llvm::GlobalVariable *Global) :
         DepthIsIgnored(Global, "depth_is_ignored"),
@@ -67,7 +67,7 @@ struct KernelMetadataAPI {
   typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy>
       ArgTypeQualifierListTy;
   typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy> ArgNameListTy;
-  typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy>
+  typedef NamedMDList<std::string, MDValueGlobalObjectStrategy>
       ArgIOAttributeListTy;
 
   // optional attributes
