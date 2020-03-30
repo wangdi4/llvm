@@ -14,7 +14,7 @@ declare void @llvm.directive.region.exit(token)
 ;; once this is fixed. In fact, we should fix this and add an assert in the
 ;; LoopCFU transformation for any non-LCSSA uses.
 define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
-; CHECK-LABEL:  After inner loop control flow transformation
+; CHECK-LABEL:  After Loop CFU transformation:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]

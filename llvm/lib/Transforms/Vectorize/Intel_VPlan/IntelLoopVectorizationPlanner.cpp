@@ -21,6 +21,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
+#include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
@@ -64,6 +65,19 @@ static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
 static cl::opt<bool> DumpAfterVPEntityInstructions(
     "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan after insertion of VPEntity instructions."));
+
+static cl::opt<bool>
+    PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
+                      cl::desc("Print VPlan after LoopCFU transformation."));
+
+static cl::opt<bool> PrintAfterLinearization(
+    "vplan-print-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after predication and linearization."));
+
+static cl::opt<bool> DotAfterLinearization(
+    "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after predication and linearization."));
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 using namespace llvm;
@@ -351,8 +365,41 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
+    VPLoopInfo *VPLI = VPlan->getVPLoopInfo();
+    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+           "There should be single outer loop!");
+    VPLoop *OuterLoop = *VPLI->begin();
+    // Search loops require multiple hacks. Skipping LoopCFU is one of them.
+    bool SearchLoopHack = !OuterLoop->getExitBlock();
+    if (!SearchLoopHack) {
+      assert(!VPlan->getVPlanDA()->isDivergent(
+                 *(OuterLoop)->getLoopLatch()->getCondBit()) &&
+             "Outer loop doesn't have uniform backedge!");
+      VPlanLoopCFU LoopCFU(*VPlan);
+      LoopCFU.run();
+    }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintAfterLoopCFU) {
+      outs() << "After Loop CFU transformation:\n";
+      VPlan->dump(outs(), VPlan->getVPlanDA());
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    // Predication "has" to be done even for the search loop hack. Our
+    // idiom-matching code and CG currently expect that. Note that predicator
+    // has some hacks for search loop processing inside it as well.
     VPlanPredicator VPP(*VPlan);
     VPP.predicate();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintAfterLinearization) {
+      outs() << "After predication and linearization\n";
+      VPlan->dump(outs(), true /* print DA info */);
+    }
+    if (DotAfterLinearization) {
+      outs() << *VPlan;
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     PredicatedVPlans.insert(VPlan);
   }

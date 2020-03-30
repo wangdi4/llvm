@@ -32,24 +32,7 @@
 #define DEBUG_TYPE "VPlanPredicator"
 
 using namespace llvm;
-#if INTEL_CUSTOMIZATION
 using namespace llvm::vpo;
-static cl::opt<bool> VPlanLoopCFU(
-    "vplan-loop-cfu", cl::init(true), cl::Hidden,
-    cl::desc("Perform inner loop control flow uniformity transformation"));
-#endif // INTEL_CUSTOMIZATION
-
-static cl::opt<bool>
-    PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
-                      cl::desc("Print VPlan after LoopCFU transformation."));
-
-static cl::opt<bool> PrintAfterLinearization(
-    "vplan-print-after-linearization", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after predication and linearization."));
-
-static cl::opt<bool> DotAfterLinearization(
-    "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after predication and linearization."));
 
 static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
@@ -1012,55 +995,28 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-#include "IntelVPlanLoopCFU.h"
-#endif // INTEL_CUSTOMIZATION
-
 // Entry point. The driver function for the predicator.
 void VPlanPredicator::predicate(void) {
-#if INTEL_CUSTOMIZATION
-  assert(VPLI->size() == 1 && "more than 1 loop?");
-  VPLoop *VPL = *VPLI->begin();
-  SmallVector<VPBasicBlock *, 4> Exits;
-  VPL->getExitBlocks(Exits);
+  bool SearchLoopHack = false;
+  if (VPLI->size() != 0) {
+    assert(VPLI->size() == 1 && "more than 1 loop?");
+    VPLoop *VPL = *VPLI->begin();
+    SmallVector<VPBasicBlock *, 4> Exits;
+    VPL->getExitBlocks(Exits);
 
-  // Transform inner loop control to become uniform.
-  if (VPlanLoopCFU) {
-    LLVM_DEBUG(dbgs() << "Before inner loop control flow transformation\n");
-    LLVM_DEBUG(Plan.dump());
-    handleInnerLoopBackedges(VPL);
-    LLVM_DEBUG(dbgs() << "After inner loop control flow transformation\n");
-    LLVM_DEBUG(Plan.dump());
-
-    if (PrintAfterLoopCFU) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      outs() << "After inner loop control flow transformation\n";
-      Plan.dump(outs(), true /* print DA info */);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-    }
+    if (Exits.size() != 1 )
+      SearchLoopHack = true;
   }
-#endif // INTEL_CUSTOMIZATION
+
   // Predicate the blocks within Region.
   Block2PredicateTermsAndUniformity[Plan.getEntryBlock()] = {{}, true};
 
-  predicateAndLinearizeRegionRec(Exits.size() != 1 /* SearchLoopHack */);
+  predicateAndLinearizeRegionRec(SearchLoopHack);
   fixupUniformInnerLoops();
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));
   LLVM_DEBUG(Plan.dump());
-
-  if (PrintAfterLinearization) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      outs() << "After predication and linearization\n";
-      Plan.dump(outs(), true /* print DA info */);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
-  if (DotAfterLinearization) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    outs() << Plan;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
 #endif // INTEL_CUSTOMIZATION
 }
 

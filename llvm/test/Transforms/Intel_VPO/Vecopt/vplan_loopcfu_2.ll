@@ -18,7 +18,7 @@ declare void @llvm.directive.region.exit(token)
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr #0 {
 ;
-; CHECK-LABEL:  After inner loop control flow transformation
+; CHECK-LABEL:  After Loop CFU transformation:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
