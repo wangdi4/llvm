@@ -294,6 +294,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "allocate-priv";
   case VPInstruction::Subscript:
     return "subscript";
+  case VPInstruction::Blend:
+    return "blend";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -338,6 +340,10 @@ void VPInstruction::print(raw_ostream &O,
   case Instruction::Br:
     cast<VPBranchInst>(this)->print(O);
     return;
+  case VPInstruction::Blend: {
+    cast<VPBlendInst>(this)->print(O);
+    return;
+  }
   case Instruction::GetElementPtr:
     O << getOpcodeName(getOpcode());
     if (auto *VPGEP = dyn_cast<const VPGEPInstruction>(this)) {
@@ -904,76 +910,24 @@ void VPBranchInst::print(raw_ostream &O) const {
     // FIXME: Call HGoto print.
     O << "<External Basic Block>";
 }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPPHINode::sortIncomingBlocksForBlend(
-    DenseMap<const VPBasicBlock *, int> *BlockIndexInRPOTOrNull) {
-  // Sort incoming blocks according to their order in the linearized control
-  // flow. After linearization, the HCFG coming to the codegen might be
-  // something like this:
-  //
-  //   bb0:
-  //     %def0 =
-  //   bb1:
-  //     predicate %cond0
-  //     %def1 =
-  //   bb2:
-  //     predicate %cond1    ; %cond1 = %cond0 && %something
-  //     %def2 =
-  //   bb3:
-  //     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
-  //
-  // We need to generate
-  //
-  //  %sel = select %cond0, %def1, %def0
-  //  %blend = select %cond1 %def2, %sel
-  //
-  // Note, that the order of processing needs to be [ %def0, %def1, %def2 ]
-  // for such CFG.
-
-  // FIXME: Once we get rid of hierarchical CFG, we would be able to use
-  // dominance as the comparator.
-  DenseMap<const VPBasicBlock *, int> LocalBlockIndexInRPOT;
-  DenseMap<const VPBasicBlock *, int> &BlockIndexInRPOT =
-      BlockIndexInRPOTOrNull ? *BlockIndexInRPOTOrNull : LocalBlockIndexInRPOT;
-  if (!BlockIndexInRPOTOrNull) {
-    int CurrBlockRPOTIndex = 0;
-    ReversePostOrderTraversal<VPBasicBlock *> RPOT(
-        getParent()->getParent()->getEntryBlock());
-    for (auto *BB : RPOT)
-      BlockIndexInRPOT[BB] = CurrBlockRPOTIndex++;
+void VPBlendInst::print(raw_ostream &O) const {
+  O << getOpcodeName(getOpcode());
+  auto PrintValueWithBP = [&](const unsigned i) {
+    O << " [ ";
+    getIncomingValue(i)->printAsOperand(O);
+    O << ", ";
+    getIncomingPredicate(i)->printAsOperand(O);
+    O << " ]";
+  };
+  const unsigned size = getNumIncomingValues();
+  for (unsigned i = 0; i < size; ++i) {
+    if (i > 0)
+      O << ",";
+    PrintValueWithBP(i);
   }
-
-  unsigned NumIncoming = getNumIncomingValues();
-  using PairTy = std::pair<VPValue *, VPBasicBlock *>;
-  SmallVector<PairTy, 8> SortedIncomingBlocks;
-  for (unsigned Idx = 0; Idx < NumIncoming; ++Idx) {
-    PairTy Curr(getIncomingValue(Idx), getIncomingBlock(Idx));
-
-    auto GetRPOTNumber = [&](VPBasicBlock *BB) -> unsigned {
-      if (unsigned Idx = BlockIndexInRPOT[BB])
-        return Idx;
-      llvm_unreachable("RPOT index missing!");
-    };
-
-    SortedIncomingBlocks.insert(
-        upper_bound(SortedIncomingBlocks, Curr,
-                    [&](const PairTy &Lhs, const PairTy &Rhs) {
-                      return GetRPOTNumber(Lhs.second) <
-                             GetRPOTNumber(Rhs.second);
-                    }),
-        Curr);
-  }
-  LLVM_DEBUG(dbgs() << "BlendPhi: " << *this << ": ");
-  for (unsigned Idx = 0; Idx < NumIncoming; ++Idx) {
-    setIncomingValue(Idx, SortedIncomingBlocks[Idx].first);
-    setIncomingBlock(Idx, SortedIncomingBlocks[Idx].second);
-    LLVM_DEBUG(dbgs() << SortedIncomingBlocks[Idx].second->getName() << " - "
-                      << BlockIndexInRPOT[SortedIncomingBlocks[Idx].second]
-                      << ", ");
-  }
-  LLVM_DEBUG(dbgs() << "\n");
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
                                      VPBasicBlock *VPBB, bool InvalidateIR) {

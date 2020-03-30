@@ -664,7 +664,7 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
 
   auto End = end();
 
-  while (I != End && isa<VPPHINode>(*I))
+  while (I != End && (isa<VPPHINode>(*I) || isa<VPBlendInst>(*I)))
     ++I;
 
   NewBB->Instructions.splice(NewBB->end(), Instructions, I, end());
@@ -704,12 +704,6 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
     // Iterate over all VPPHINodes in Successor. Successor can be a region so
     // we should take its entry.
     for (VPPHINode &VPN : Successor->getVPPhis()) {
-      if (VPN.getBlend() && !NewBlockHasPredicate)
-        // Don't update incoming blocks for a blend. They are needed for their
-        // predicates only, and the predicate wasn't copied into the new
-        // block.
-        continue;
-
       // Transform the VPBBUsers vector of the PHI node by replacing any
       // occurrence of BB with NewBB
       llvm::transform(VPN.blocks(), VPN.block_begin(),

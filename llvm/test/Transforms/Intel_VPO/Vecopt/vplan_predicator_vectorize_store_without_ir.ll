@@ -96,11 +96,11 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB13]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP]], [[INTERMEDIATE_BB0]] ],  [ i1 false, [[BB13]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB13]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV]], [[INTERMEDIATE_BB0]] ],  [ i64 100, [[BB13]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB13]] ],  [ i1 true, [[INTERMEDIATE_BB0]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_EXIT_ID_PHI:%.*]] = blend [ i32 0, i1 [[VP_BB15_BR_VP_SOME_CMP_NOT]] ], [ i32 1, i1 [[VP_BB15_BR_VP_SOME_CMP]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_NO_PHI_INST_USE:%.*]] = blend [ i1 false, i1 [[VP_BB15_BR_VP_SOME_CMP_NOT]] ], [ i1 [[VP_SOME_CMP]], i1 [[VP_BB15_BR_VP_SOME_CMP]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_UPDATE_USE:%.*]] = blend [ i64 100, i1 [[VP_BB15_BR_VP_SOME_CMP_NOT]] ], [ i64 [[VP_INNER_IV_NEXT]], i1 [[VP_BB15_BR_VP_SOME_CMP]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = blend [ i64 100, i1 [[VP_BB15_BR_VP_SOME_CMP_NOT]] ], [ i64 [[VP_INNER_IV]], i1 [[VP_BB15_BR_VP_SOME_CMP]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = blend [ i1 [[VP_EXITCOND]], i1 [[VP_BB15_BR_VP_SOME_CMP_NOT]] ], [ i1 true, i1 [[VP_BB15_BR_VP_SOME_CMP]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB14_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB14:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[INTERMEDIATE_BB0]]
@@ -121,9 +121,9 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_inner_loop) 
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB15]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_LCSSA:%.*]] = blend [ i64 [[VP_PHI_USE_LIVE_OUT_BLEND]], i1 [[VP_BB4_BR_VP_CMP216_NOT]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP11:%.*]] = block-predicate i1 [[VP_BB4_BR_VP_CMP216_NOT]]
-; CHECK-NEXT:     [DA: Uni] i64* [[VP_STORE_USER_GEP:%.*]] = getelementptr inbounds i64* [[A0]] i64 0
+; CHECK-NEXT:     [DA: Uni]   i64* [[VP_STORE_USER_GEP:%.*]] = getelementptr inbounds i64* [[A0]] i64 0
 ; CHECK-NEXT:     [DA: Div] store i64 [[VP_PHI_USE_LIVE_OUT_LCSSA]] i64* [[VP_STORE_USER_GEP]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]

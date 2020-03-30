@@ -373,7 +373,7 @@ define void @test_separate_blend_bb_for_2_div_plus_uniform(i32* %a, i32 %b) loca
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 3, [[BB9]] ],  [ i32 2, [[BB8]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = blend [ i32 2, i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB5_BR_VP_BB1_VARYING]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
@@ -516,7 +516,7 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BLEND_BB0]]:
-; CHECK-NEXT:         [DA: Div] i32 [[VP1:%.*]] = phi  [ i32 6, [[BB11]] ],  [ i32 5, [[BB9]] ]
+; CHECK-NEXT:         [DA: Div] i32 [[VP1:%.*]] = blend [ i32 5, i1 true ], [ i32 6, i1 [[VP_BB8_BR_VP_BB5_VARYING]] ]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
@@ -546,7 +546,7 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB1]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP4:%.*]] = phi  [ i32 2, [[BB13]] ],  [ i32 3, [[BB14]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP4:%.*]] = blend [ i32 2, i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB5_BR_VP_BB1_VARYING]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
@@ -727,7 +727,7 @@ define dso_local void @test_divergent_inner_loop_with_double_top_test(i64 %N, i6
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND]], [[BB8]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = blend [ i64 [[VP_INNER_IV_LIVE_OUT_BLEND]], i1 [[VP_BB3_BR_VP_CMP216_NOT]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
@@ -1696,7 +1696,7 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; See details below in the ASCII drawing of the linearized control flow.
 ;
 ; CHECK-NEXT:    [[BB14]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 [[VP_BB1_ADD]], [[BB5]] ],  [ i32 [[VP_BB4_ADD]], [[BB12]] ],  [ i32 [[VP_BB2_ADD]], [[BB6]] ],  [ i32 [[VP_BB3_ADD]], [[BB8]] ],  [ i32 [[VP_BB5_ADD]], [[BB10]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 [[VP_BB2_ADD]], i1 true ], [ i32 [[VP_BB3_ADD]], i1 [[VP_BB6_BR_VP_BB2_VARYING_NOT]] ], [ i32 [[VP_BB1_ADD]], i1 true ], [ i32 [[VP_BB4_ADD]], i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT]] ], [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB6_ADD:%.*]] = add i32 [[VP_LD]] i32 6
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]

@@ -520,66 +520,24 @@ bool VPOCodeGen::needScalarCode(VPInstruction *V) {
 }
 
 void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
-  // If the PHI is not being blended into a select, go ahead and create a PHI
-  // and return after adding it to the PHIsToFix map.
-  if (VPPhi->getBlend() == false) {
-    auto PhiTy = VPPhi->getType();
-    PHINode *NewPhi;
-    // FIXME: Replace with proper SVA.
-    bool EmitScalarOnly =
-        !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
-    if (needScalarCode(VPPhi) || EmitScalarOnly) {
-      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
-      VPScalarMap[VPPhi][0] = NewPhi;
-      ScalarPhisToFix[VPPhi] = NewPhi;
-    }
-    if (EmitScalarOnly)
-      return;
-    if (needVectorCode(VPPhi)) {
-      PhiTy = getWidenedType(PhiTy, VF);
-      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
-      VPWidenMap[VPPhi] = NewPhi;
-      PhisToFix[VPPhi] = NewPhi;
-    }
+  auto PhiTy = VPPhi->getType();
+  PHINode *NewPhi;
+  // FIXME: Replace with proper SVA.
+  bool EmitScalarOnly =
+      !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
+  if (needScalarCode(VPPhi) || EmitScalarOnly) {
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+    VPScalarMap[VPPhi][0] = NewPhi;
+    ScalarPhisToFix[VPPhi] = NewPhi;
+  }
+  if (EmitScalarOnly)
     return;
+  if (needVectorCode(VPPhi)) {
+    PhiTy = getWidenedType(PhiTy, VF);
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+    VPWidenMap[VPPhi] = NewPhi;
+    PhisToFix[VPPhi] = NewPhi;
   }
-
-  unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
-  assert(NumIncomingValues > 0 && "Unexpected PHI with zero values");
-  if (NumIncomingValues == 1) {
-    // Blend phis should only be encountered in the linearized control flow.
-    // However, currently some preceding transformations mark some single-value
-    // phis as blends too (and codegen is probably relying on that as well).
-    // Bail out right now because general processing of phis with multiple
-    // incoming values relies on the control flow being linearized.
-    Value *Val = getVectorValue(VPPhi->getOperand(0));
-    VPWidenMap[VPPhi] = Val;
-    return;
-  }
-
-  // Blend the PHIs using selects and incoming masks.
-  VPPhi->sortIncomingBlocksForBlend();
-
-  // Generate a sequence of selects.
-  Value *BlendVal = nullptr;
-  for (unsigned Idx = 0, End = VPPhi->getNumIncomingValues(); Idx < End;
-       ++Idx) {
-    VPBasicBlock *Block = VPPhi->getIncomingBlock(Idx);
-    Value *IncomingVecVal = getVectorValue(VPPhi->getIncomingValue(Idx));
-    if (!BlendVal) {
-      BlendVal = IncomingVecVal;
-      continue;
-    }
-
-    Value *Cond = getVectorValue(Block->getPredicate());
-    if (VPPhi->getType()->isVectorTy()) {
-      unsigned OriginalVL = VPPhi->getType()->getVectorNumElements();
-      Cond = replicateVectorElts(Cond, OriginalVL, Builder);
-    }
-    BlendVal = Builder.CreateSelect(Cond, IncomingVecVal, BlendVal, "predphi");
-  }
-
-  VPWidenMap[VPPhi] = BlendVal;
 }
 
 std::unique_ptr<VectorVariant>
@@ -773,6 +731,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
     vectorizeVPPHINode(cast<VPPHINode>(VPInst));
+    return;
+  }
+
+  case VPInstruction::Blend: {
+    vectorizeBlend(cast<VPBlendInst>(VPInst));
     return;
   }
 
@@ -3044,13 +3007,45 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
   }
 }
 
+// Widen blend instruction. The implementation here generates a sequence
+// of selects. Consider the following scalar blend in bb0:
+//      vp1 = blend [vp2, bp2] [vp3, bp3] [vp4, bp4].
+// The selects are generated as follows:
+//      select1 = bp3_vec ? vp3_vec : vp2_vec
+//      vp1_vec = bp4_vec ? vp4_vec : select1
+void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
+  unsigned NumIncomingValues = Blend->getNumIncomingValues();
+  assert(NumIncomingValues > 0 && "Unexpected blend with zero values");
+
+  // Generate a sequence of selects.
+  Value *BlendVal = nullptr;
+  for (unsigned Idx = 0, End = NumIncomingValues; Idx < End;
+       ++Idx) {
+    Value *IncomingVecVal = getVectorValue(Blend->getIncomingValue(Idx));
+    if (!BlendVal) {
+      BlendVal = IncomingVecVal;
+      continue;
+    }
+
+    VPValue *BlockPred = Blend->getIncomingPredicate(Idx);
+    assert(BlockPred && "block-predicate should not be null for select");
+    Value *Cond = getVectorValue(BlockPred);
+    if (Blend->getType()->isVectorTy()) {
+      unsigned OriginalVL = Blend->getType()->getVectorNumElements();
+      Cond = replicateVectorElts(Cond, OriginalVL, Builder);
+    }
+    BlendVal = Builder.CreateSelect(Cond, IncomingVecVal, BlendVal, "predblend");
+  }
+
+  VPWidenMap[Blend] = BlendVal;
+}
+
 void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
                                        PHINode *UnderlyingPhi) {
   Type *ScalarTy = VPPhi->getType();
   assert(!ScalarTy->isAggregateType() && "Unexpected reduction type");
   assert(VPPhi->getParent()->getNumPredecessors() == 2 &&
          "Unexpected reduction phi placement");
-  assert(!VPPhi->getBlend() && "Unexpected blend on reduction phi");
   Type *VecTy = VectorType::get(ScalarTy, VF);
   PHINode *VecPhi = PHINode::Create(VecTy, 2, "vec.phi",
                                     &*LoopVectorBody->getFirstInsertionPt());

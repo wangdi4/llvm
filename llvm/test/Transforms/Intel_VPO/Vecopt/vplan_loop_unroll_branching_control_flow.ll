@@ -50,7 +50,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    PREDECESSORS(1): [[BB4]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB6]]:
-; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 42, [[BB4]] ],  [ i32 0, [[BB5]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 42, i1 [[VP_TOBOOL_NOT]] ], [ i32 0, i1 [[VP_TOBOOL]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[WIDE_TRIP_COUNT0:%.*]]
 ; VPLAN-NEXT:    SUCCESSORS(1):cloned.[[BB7:BB[0-9]+]]
@@ -80,7 +80,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    PREDECESSORS(1): cloned.[[BB8]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB10]]:
-; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_1:%.*]] = phi  [ i32 42, cloned.[[BB8]] ],  [ i32 0, cloned.[[BB9]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_1:%.*]] = blend [ i32 42, i1 [[VP7]] ], [ i32 0, i1 [[VP_TOBOOL_1]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[WIDE_TRIP_COUNT0]]
 ; VPLAN-NEXT:    SUCCESSORS(1):cloned.[[BB11:BB[0-9]+]]
@@ -110,7 +110,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    PREDECESSORS(1): cloned.[[BB12]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB3]]:
-; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_2:%.*]] = phi  [ i32 42, cloned.[[BB12]] ],  [ i32 0, cloned.[[BB13]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_2:%.*]] = blend [ i32 42, i1 [[VP13]] ], [ i32 0, i1 [[VP_TOBOOL_2]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[WIDE_TRIP_COUNT0]]
 ; VPLAN-NEXT:    SUCCESSORS(2):[[BB14:BB[0-9]+]](i1 [[VP_EXITCOND_2]]), [[BB2]](!i1 [[VP_EXITCOND_2]])
@@ -164,7 +164,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD0]], <4 x i32>* [[TMP5]], i32 4, <4 x i1> [[TMP3]])
 ; CG-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP10]] to <4 x i32>*
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[TMP6]], i32 4, <4 x i1> [[TMP2]])
-; CG-NEXT:    [[PREDPHI0:%.*]] = select <4 x i1> [[TMP2]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
+; CG-NEXT:    [[PREDBLEND0:%.*]] = select <4 x i1> [[TMP2]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CG-NEXT:    [[TMP7:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CG-NEXT:    [[TMP9:%.*]] = icmp eq <4 x i64> [[TMP7]], [[BROADCAST_SPLAT0]]
@@ -181,7 +181,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD50]], <4 x i32>* [[TMP15]], i32 4, <4 x i1> [[TMP13]])
 ; CG-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD30]], <4 x i32>* [[TMP16]], i32 4, <4 x i1> [[TMP12]])
-; CG-NEXT:    [[PREDPHI60:%.*]] = select <4 x i1> [[TMP12]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
+; CG-NEXT:    [[PREDBLEND60:%.*]] = select <4 x i1> [[TMP12]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CG-NEXT:    [[TMP17:%.*]] = add nuw nsw <4 x i64> [[TMP7]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP18:%.*]] = add nuw nsw i64 [[TMP8]], 4
 ; CG-NEXT:    [[TMP19:%.*]] = icmp eq <4 x i64> [[TMP17]], [[BROADCAST_SPLAT0]]
@@ -198,7 +198,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_MASKED_LOAD100]], <4 x i32>* [[TMP25]], i32 4, <4 x i1> [[TMP23]])
 ; CG-NEXT:    [[TMP26:%.*]] = bitcast i32* [[SCALAR_GEP90]] to <4 x i32>*
 ; CG-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD80]], <4 x i32>* [[TMP26]], i32 4, <4 x i1> [[TMP22]])
-; CG-NEXT:    [[PREDPHI110:%.*]] = select <4 x i1> [[TMP22]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
+; CG-NEXT:    [[PREDBLEND110:%.*]] = select <4 x i1> [[TMP22]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CG-NEXT:    [[TMP27]] = add nuw nsw <4 x i64> [[TMP17]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP28]] = add nuw nsw i64 [[TMP18]], 4
 ; CG-NEXT:    [[TMP29:%.*]] = icmp eq <4 x i64> [[TMP27]], [[BROADCAST_SPLAT0]]

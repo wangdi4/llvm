@@ -55,10 +55,6 @@ static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
     cl::desc("Preserve uniform branches during linearization."));
 
-static cl::opt<bool> SortBlendPhisInPredicator(
-    "vplan-sort-blend-phis-in-predicator", cl::init(false), cl::Hidden,
-    cl::desc("Sort incoming blocks of blend phis in the predicator."));
-
 // Generate a tree of ORs for all IncomingPredicates in  WorkList.
 // Note: This function destroys the original Worklist.
 //
@@ -397,14 +393,79 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   return LiveValueMap[AtBlock];
 }
 
-static void
-turnPhisToBlends(VPBasicBlock *Block,
-                 DenseMap<const VPBasicBlock *, int> &BlockIndexInRPOT) {
-  for (VPPHINode &Phi : Block->getVPPhis()) {
-    Phi.setBlend(true);
-    if (SortBlendPhisInPredicator)
-      Phi.sortIncomingBlocksForBlend(&BlockIndexInRPOT);
+// TODO: This is a temporary hack to make sure the predicator uses the blend
+// as an operand in block-predicate instructions rather than the old phi.
+// Once the predicator is re-designed, this code should be removed.
+void VPlanPredicator::replacePhiPredicateTermWithBlend(VPPHINode *Phi,
+                                                       VPBlendInst *Blend) {
+  for (auto &It : Block2PredicateTermsAndUniformity) {
+    for (auto &PredTerm : It.second.first) {
+      VPValue *Cond = PredTerm.Condition;
+      if (Cond && Cond == Phi)
+        PredTerm.Condition = Blend;
+    }
   }
+
+  for (auto &It : PredicateTerm2UseBlocks) {
+    auto &PredTerm = It.first;
+    VPValue *Cond = PredTerm.Condition;
+    if (Cond && Cond == Phi) {
+      PredicateTerm NewTerm(PredTerm.OriginBlock, Blend, PredTerm.Negate);
+      for (auto *BB : It.second)
+        PredicateTerm2UseBlocks[NewTerm].push_back(BB);
+    }
+  }
+}
+
+void VPlanPredicator::turnPhisToBlends(
+    VPBasicBlock *Block,
+    DenseMap<const VPBasicBlock *, int> &BlockIndexInRPOT) {
+
+  VPlanDivergenceAnalysis *DA = Plan.getVPlanDA();
+  SmallVector<VPPHINode *, 2> PhisToRemove;
+  VPBasicBlock *VPBB = cast<VPBasicBlock>(Block);
+
+  for (VPPHINode &Phi : Block->getVPPhis()) {
+    // Generate a new blend instruction using the existing phi incoming values
+    // and blocks. The block-predicate instructions are not yet available, and
+    // they will be added to the blend at the end of predication.
+    VPBlendInst *Blend = new VPBlendInst(Phi.getType());
+    // Preserve instruction name for debugging and lit testing.
+    Blend->setName(Phi.getName());
+    Blend->copyUnderlyingFrom(Phi);
+
+    for (unsigned i = 0; i < Phi.getNumIncomingValues(); i++) {
+      VPBasicBlock *IncomingBlock = Phi.getIncomingBlock(i);
+      addBlendTuple(Blend, Phi.getIncomingValue(i), IncomingBlock,
+                    BlockIndexInRPOT[IncomingBlock]);
+    }
+    VPBB->addInstruction(Blend, &Phi);
+
+    // Don't invalidate users of the phi because the blend is a functionally
+    // equivalent instruction.
+    Phi.replaceAllUsesWith(Blend, false /*Invalidate IR*/);
+
+    // Update maps used when generating values for block-predicate instructions.
+    replacePhiPredicateTermWithBlend(&Phi, Blend);
+
+    // HCFGBuilder inserts a phi as the CondBit of the new loop latch block
+    // during mergeLoopExits(). This phi can be replaced with a blend here,
+    // so the CondBit must be replaced explicitly since CondBits do not show
+    // up in Def/Use chains. TODO: once CondBits are replaced by proper
+    // terminator instructions, this code must be removed.
+    VPBasicBlock *PhiParent = Phi.getParent();
+    if (PhiParent->getCondBit() == &Phi)
+      PhiParent->setCondBit(Blend);
+
+    // Remove instructions later so as to not invalidate Phi iterator.
+    PhisToRemove.push_back(&Phi);
+
+    if (DA->isDivergent(Phi))
+      DA->markDivergent(*Blend);
+  }
+
+  for (auto *Phi : PhisToRemove)
+    VPBB->eraseInstruction(Phi);
 }
 
 bool VPlanPredicator::shouldPreserveUniformBranches() const {
@@ -686,10 +747,9 @@ void VPlanPredicator::linearizeRegion(
       // Re-use IncomingBlock's position for blend phi sorting purpose.
       BlockIndexInRPOT[BlendBB] = BlockIndexInRPOT[IncomingBlock];
       for (VPPHINode &Phi : VPPhisIteratorRange) {
-        auto BlendPhi = new VPPHINode(Phi.getType());
-        BlendPhi->setBlend(true);
-        BlendBB->addInstruction(BlendPhi);
-        Plan.getVPlanDA()->markDivergent(*BlendPhi);
+        auto Blend = new VPBlendInst(Phi.getType());
+        BlendBB->addInstruction(Blend);
+        Plan.getVPlanDA()->markDivergent(*Blend);
         int NumIncoming = Phi.getNumIncomingValues();
         // Ugly loop to protect against iterator invalidation due to removal
         // of incoming values.
@@ -700,11 +760,9 @@ void VPlanPredicator::linearizeRegion(
           if (!is_contained(It.second, PhiIncBB))
             continue;
           Phi.removeIncomingValue(PhiIncBB);
-          BlendPhi->addIncoming(PhiIncVal, PhiIncBB);
+          addBlendTuple(Blend, PhiIncVal, PhiIncBB, BlockIndexInRPOT[PhiIncBB]);
         }
-        Phi.addIncoming(BlendPhi, BlendBB);
-        if (SortBlendPhisInPredicator)
-          BlendPhi->sortIncomingBlocksForBlend(&BlockIndexInRPOT);
+        Phi.addIncoming(Blend, BlendBB);
       }
     }
   }
@@ -792,6 +850,64 @@ void VPlanPredicator::computeLiveInsForIDF(
   }
 }
 
+/// Sort the incoming blocks of the blend according to their execution order
+/// in the linearized CFG. Required to be performed prior to code generation
+/// for the blends. The sorting is done on the blend -> { value, block } map
+/// kept in the predicator because at the time of blend creation, the block-
+/// predicates for the blend are not yet generated.
+///
+/// \p BlockIndexInRPOTOrNull is a parameter with the mapping of the blocks in
+/// \p this blend's parent region to that blocks' RPOT numbers. If
+/// not provided, it will be calculated inside the method.
+//
+// TODO: As an optimization, the sorting can be done once per block, but that
+// should be done at the caller side complicating the code.
+//
+// After linearization, the blends are completed based on the sorted mapping
+// and the HCFG coming to codegen might be something like this:
+//
+//   bb0:
+//     %def0 =
+//   bb1:
+//     predicate %cond0
+//     %def1 =
+//   bb2:
+//     predicate %cond1    ; %cond1 = %cond0 && %something
+//     %def2 =
+//   bb3:
+//     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
+//
+// We need to generate
+//
+//  %sel = select %cond0, %def1, %def0
+//  %blend = select %cond1 %def2, %sel
+//
+// Note, that the order of processing needs to be [ %def0, %def1, %def2 ]
+// for such CFG.
+//
+// FIXME: Once we get rid of hierarchical CFG, we would be able to use
+// dominance as the comparator.
+void VPlanPredicator::sortIncomingBlocksForBlend(
+    BlendTupleVectorTy &UnsortedIncomingBlocks,
+    BlendTupleVectorTy &SortedIncomingBlocks) {
+
+  for (unsigned Idx = 0; Idx < UnsortedIncomingBlocks.size(); ++Idx) {
+    VPValue *IncomingVal = UnsortedIncomingBlocks[Idx].getIncomingValue();
+    VPBasicBlock *IncomingBlock =
+        UnsortedIncomingBlocks[Idx].getIncomingBlock();
+    int RPOTIdx = UnsortedIncomingBlocks[Idx].getIncomingBlockRPOTIdx();
+    BlendTuple Curr(IncomingVal, IncomingBlock, RPOTIdx);
+
+    SortedIncomingBlocks.insert(
+        upper_bound(SortedIncomingBlocks, Curr,
+                    [&](const BlendTuple &Lhs, const BlendTuple &Rhs) {
+                      return (Lhs.getIncomingBlockRPOTIdx() <
+                             Rhs.getIncomingBlockRPOTIdx());
+                    }),
+        Curr);
+  }
+}
+
 // Predicate and linearize the CFG within Region.
 void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
@@ -825,7 +941,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
       if (Predicate &&
           (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
         VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPointFirstNonPhi(Block);
+        Builder.setInsertPointAfterBlends(Block);
         Block->setPredicate(Predicate);
         auto *BlockPredicateInst = Builder.createPred(Predicate);
         Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
@@ -842,7 +958,7 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
         IncomingConditions.push_back(Val);
 
     VPBuilder::InsertPointGuard Guard(Builder);
-    Builder.setInsertPointFirstNonPhi(Block);
+    Builder.setInsertPointAfterBlends(Block);
 
     auto *Predicate = genPredicateTree(IncomingConditions);
     Block2Predicate[Block] = Predicate;
@@ -854,10 +970,32 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
     }
   }
 
-  // Finally, fix the cond bits.
+  // Fix the cond bits.
   for (auto *Block : RPOT)
     if (Block->getNumSuccessors() == 1)
       Block->setCondBit(nullptr);
+
+  // At the time of blend instruction creation, the block-predicate instructions
+  // are not yet available. This code completes the blend instructions by adding
+  // operands for both the incoming value and block-predicate.
+  for (auto Blend2BlendTupleMap : Blend2BlendTupleVectorMap) {
+    VPBlendInst *Blend = Blend2BlendTupleMap.first;
+    BlendTupleVectorTy BlendTupleVector = Blend2BlendTupleMap.second;
+    BlendTupleVectorTy SortedBlendTupleVector;
+    sortIncomingBlocksForBlend(BlendTupleVector, SortedBlendTupleVector);
+    for (auto BlendTuple : SortedBlendTupleVector) {
+      VPValue *BlockPred = BlendTuple.getIncomingBlock()->getPredicate();
+      // BlockPred can be nullptr for the first block in the sorted list of
+      // incoming blocks for the blend. Since we cannot add a nullptr as an
+      // operand, just set to true. Codegen will skip this anyway and generate
+      // the first select using the block-predicate of the next incoming block.
+      if (!BlockPred) {
+        Type *Ty1 = Type::getInt1Ty(*Plan.getLLVMContext());
+        BlockPred = Plan.getVPConstant(ConstantInt::get(Ty1, 1));
+      }
+      Blend->addIncoming(BlendTuple.getIncomingValue(), BlockPred);
+    }
+  }
 }
 
 #if INTEL_CUSTOMIZATION
