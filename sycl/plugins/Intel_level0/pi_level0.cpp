@@ -308,8 +308,19 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
     ZE_DEBUG = true;
 
   // This is a good time to initialize L0.
-  ze_result_t result =
-    ZE_CALL(zeInit(ZE_INIT_FLAG_NONE));
+  ze_result_t ze_result =
+    ZE_CALL_NOTHROW(zeInit(ZE_INIT_FLAG_NONE));
+
+  // Absorb the ZE_RESULT_ERROR_UNINITIALIZED and just return 0 platforms.
+  if (ze_result == ZE_RESULT_ERROR_UNINITIALIZED) {
+    assert(num_platforms != 0);
+    *num_platforms = 0;
+    return PI_SUCCESS;
+  }
+  else {
+    // TODO: handle other errors.
+    zeCallCheck(ze_result, "piPlatformsGet");
+  }
 
   // L0 does not have concept of platforms, return a fake one.
   if (platforms && num_entries >= 1) {
@@ -318,7 +329,7 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
   if (num_platforms)
     *num_platforms = 1;
 
-  return pi_cast<pi_result>(result);
+  return pi_cast<pi_result>(ze_result);
 }
 
 pi_result L0(piPlatformGetInfo)(

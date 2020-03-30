@@ -239,8 +239,20 @@ platform_impl::get_devices(info::device_type DeviceType) const {
                        std::make_shared<device_impl>(
                            PiDevice, std::make_shared<platform_impl>(*this)));
                  });
+#if INTEL_CUSTOMIZATION
+  // TODO: open-source
+  // Add devices of type DeviceType only.
+  // TODO: get_info<> method is currently calling the piAPI which adds overhead.
+  // TODO: Copy constructors called with using push_back, delete instead.
+  vector_class<device> RetRes;
 
-  return Res;
+  for (auto Dev : Res) {
+    if (detail::match_types(Dev.get_info<info::device::device_type>(),
+                             DeviceType))
+      RetRes.push_back(Dev);
+  }
+  return RetRes;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool platform_impl::has_extension(const string_class &ExtensionName) const {

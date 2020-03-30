@@ -23,9 +23,8 @@ class plugin {
 public:
   plugin() = delete;
 
-  plugin(RT::PiPlugin Plugin) : MPlugin(Plugin) {
-    MPiEnableTrace = (std::getenv("SYCL_PI_TRACE") != nullptr);
-  }
+  plugin(RT::PiPlugin Plugin, RT::Backend UseBackend) // INTEL
+      : MPlugin(Plugin), MBackend(UseBackend) {}  //INTEL
 
   ~plugin() = default;
 
@@ -52,13 +51,13 @@ public:
   template <PiApiKind PiApiOffset, typename... ArgsT>
   RT::PiResult call_nocheck(ArgsT... Args) const {
     RT::PiFuncInfo<PiApiOffset> PiCallInfo;
-    if (MPiEnableTrace) {
+    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) { // INTEL
       std::string FnName = PiCallInfo.getFuncName();
       std::cout << "---> " << FnName << "(" << std::endl;
       RT::printArgs(Args...);
     }
     RT::PiResult R = PiCallInfo.getFuncPtr(MPlugin)(Args...);
-    if (MPiEnableTrace) {
+    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) { // INTEL
       std::cout << ") ---> ";
       RT::printArgs(R);
     }
@@ -73,11 +72,23 @@ public:
     RT::PiResult Err = call_nocheck<PiApiOffset>(Args...);
     checkPiResult(Err);
   }
+<<<<<<< HEAD
 
 private:
   RT::PiPlugin MPlugin;
   bool MPiEnableTrace;
 
+=======
+
+  RT::Backend getBackend(void) const { return MBackend; } // INTEL
+
+  // TODO: Make this private. Currently used in program_manager to create a
+  // pointer to PiProgram.
+  RT::PiPlugin MPlugin;
+
+private:
+  const RT::Backend MBackend;
+>>>>>>> 2c809968204dbf61705c305cc28f081fd73ca5fb
 }; // class plugin
 } // namespace detail
 } // namespace sycl

@@ -12,7 +12,12 @@ subject to change. Do not rely on these variables in production code.
 | Environment variable | Values | Description |
 | -------------------- | ------ | ----------- |
 | SYCL_PI_TRACE | Any(\*) | Force tracing of PI calls to stderr. |
+<<<<<<< HEAD
 | SYCL_BE | PI_OPENCL, PI_CUDA, PI_OTHER | When SYCL RT is built with PI, this controls which plugin is used by the default device selector. Default value is PI_OPENCL. |
+=======
+| SYCL_BE | PI_LEVEL0, PI_OPENCL | Controls which plugin to prefer for a device if multiple ones can handle it. Default value is PI_LEVEL0. |
+| SYCL_INTEROP_BE | PI_LEVEL0, PI_OPENCL | Controls which plugin to use for interoperability constructors. Default value is PI_OPENCL. |
+>>>>>>> 2c809968204dbf61705c305cc28f081fd73ca5fb
 | SYCL_DEVICE_TYPE | One of: CPU, GPU, ACC, HOST | Force SYCL to use the specified device type. If unset, default selection rules are applied. If set to any unlisted value, this control has no effect. If the requested device type is not found, a `cl::sycl::runtime_error` exception is thrown. If a non-default device selector is used, a device must satisfy both the selector and this control to be chosen. This control only has effect on devices created with a selector. |
 | SYCL_PROGRAM_COMPILE_OPTIONS | String of valid OpenCL compile options | Override compile options for all programs. |
 | SYCL_PROGRAM_LINK_OPTIONS | String of valid OpenCL link options | Override link options for all programs. |
