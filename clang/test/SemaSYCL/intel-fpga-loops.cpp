@@ -111,6 +111,15 @@ void goo() {
   [[intelfpga::ii("test123")]]
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
+  // expected-error@+1 {{'loop_coalesce' attribute requires an integer constant}}
+  [[intelfpga::loop_coalesce("test123")]] for (int i = 0; i != 10; ++i)
+      a[i] = 0;
+  // expected-error@+1 {{'max_interleaving' attribute requires an integer constant}}
+  [[intelfpga::max_interleaving("test123")]] for (int i = 0; i != 10; ++i)
+      a[i] = 0;
+  // expected-error@+1 {{'speculated_iterations' attribute requires an integer constant}}
+  [[intelfpga::speculated_iterations("test123")]] for (int i = 0; i != 10; ++i)
+      a[i] = 0;
   // expected-error@+1 {{'max_concurrency' attribute requires an integer constant}}
   [[intelfpga::max_concurrency("test123")]]
   for (int i = 0; i != 10; ++i)

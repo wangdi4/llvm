@@ -1,9 +1,25 @@
 // RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -fsycl-is-device -emit-llvm %s -o - | FileCheck %s
 
-// CHECK: br label %for.cond,  !llvm.loop ![[MD_II:[0-9]+]]
-// CHECK: br label %for.cond2, !llvm.loop ![[MD_II_2:[0-9]+]]
-// CHECK: br label %for.cond,  !llvm.loop ![[MD_MC:[0-9]+]]
-// CHECK: br label %for.cond2, !llvm.loop ![[MD_MC_2:[0-9]+]]
+// CHECK: br label %for.cond,   !llvm.loop ![[MD_DLP:[0-9]+]]
+// CHECK: br label %for.cond,   !llvm.loop ![[MD_II:[0-9]+]]
+// CHECK: br label %for.cond2,  !llvm.loop ![[MD_II_2:[0-9]+]]
+// CHECK: br label %for.cond,   !llvm.loop ![[MD_MC:[0-9]+]]
+// CHECK: br label %for.cond2,  !llvm.loop ![[MD_MC_2:[0-9]+]]
+// CHECK: br label %for.cond,   !llvm.loop ![[MD_LC:[0-9]+]]
+// CHECK: br label %for.cond2,  !llvm.loop ![[MD_LC_2:[0-9]+]]
+// CHECK: br label %for.cond12, !llvm.loop ![[MD_LC_3:[0-9]+]]
+// CHECK: br label %for.cond,   !llvm.loop ![[MD_MI:[0-9]+]]
+// CHECK: br label %for.cond2,  !llvm.loop ![[MD_MI_2:[0-9]+]]
+// CHECK: br label %for.cond,   !llvm.loop ![[MD_SI:[0-9]+]]
+// CHECK: br label %for.cond2,  !llvm.loop ![[MD_SI_2:[0-9]+]]
+
+void disable_loop_pipelining() {
+  int a[10];
+  // CHECK: ![[MD_DLP]] = distinct !{![[MD_DLP]], ![[MD_dlp:[0-9]+]]}
+  // CHECK-NEXT: ![[MD_dlp]] = !{!"llvm.loop.intel.pipelining.enable", i32 0}
+  [[intelfpga::disable_loop_pipelining]] for (int i = 0; i != 10; ++i)
+      a[i] = 0;
+}
 
 template <int A>
 void ii() {
@@ -85,6 +101,7 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 
 int main() {
   kernel_single_task<class kernel_function>([]() {
+    disable_loop_pipelining();
     ii<4>();
     max_concurrency<0>();
     loop_coalesce<2>();
