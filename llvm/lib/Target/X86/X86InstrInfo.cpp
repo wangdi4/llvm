@@ -6133,7 +6133,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
     case X86::AVX512_FsFLD0SH:
-      Alignment = 2;
+      Alignment = Align(2);
       break;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
