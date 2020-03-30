@@ -8,9 +8,15 @@
 // RUN: -fsycl-targets=nvptx64-nvidia-nvcl-sycldevice --cuda-path=%S/Inputs/CUDA/usr/local/cuda \
 // RUN: -fsycl-libspirv-path=%S/Inputs/SYCL/libspirv.bc %s 2>&1 \
 // RUN: | FileCheck -check-prefix=CHK-ACTIONS %s
+<<<<<<< HEAD
 // CHK-ACTIONS: "-cc1" "-triple" "nvptx64-nvidia-nvcl-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}} "-sycl-std=2017"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-mlink-builtin-bitcode" "{{.*}}libspirv.bc"{{.*}} "-mlink-builtin-bitcode" "{{.*}}libdevice{{.*}}.10.bc"{{.*}} "-target-feature" "+ptx42"{{.*}} "-target-sdk-version=[[CUDA_VERSION:[0-9.]+]]"{{.*}} "-target-cpu" "sm_30"{{.*}} "-std=c++11"{{.*}}
 // CHK-ACTIONS: clang-offload-wrapper"{{.*}} "-host=x86_64-unknown-linux-gnu" "-target=nvptx64" "-kind=sycl"{{.*}}
 // CHK-ACTIONS: "-cc1" "-triple" "nvptx64-nvidia-nvcl-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}} "-sycl-std=2017"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}}  "-mlink-builtin-bitcode" "{{.*}}libspirv.bc"{{.*}} "-mlink-builtin-bitcode" "{{.*}}libdevice{{.*}}.10.bc"{{.*}} "-target-feature" "+ptx42"{{.*}} "-target-sdk-version=[[CUDA_VERSION]]"{{.*}} "-target-cpu" "sm_30"{{.*}} "-std=c++11"{{.*}}
+=======
+// CHK-ACTIONS: "-cc1" "-triple" "nvptx64-nvidia-nvcl-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}} "-sycl-std=1.2.1"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-mlink-builtin-bitcode" "{{.*}}libspirv.bc"{{.*}} "-mlink-builtin-bitcode" "{{.*}}libdevice{{.*}}.10.bc"{{.*}} "-target-feature" "+ptx42"{{.*}} "-target-sdk-version=[[CUDA_VERSION:[0-9.]+]]"{{.*}} "-target-cpu" "sm_30"{{.*}} "-std=c++11"{{.*}}
+// CHK-ACTIONS: "-cc1" "-triple" "nvptx64-nvidia-nvcl-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}} "-sycl-std=1.2.1"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-mlink-builtin-bitcode" "{{.*}}libspirv.bc"{{.*}} "-mlink-builtin-bitcode" "{{.*}}libdevice{{.*}}.10.bc"{{.*}} "-target-feature" "+ptx42"{{.*}} "-target-sdk-version=[[CUDA_VERSION]]"{{.*}} "-target-cpu" "sm_30"{{.*}} "-std=c++11"{{.*}}
+// CHK-ACTIONS: "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-sycl-std=1.2.1"{{.*}} "-std=c++11"{{.*}} "-fsycl-is-host"{{.*}}
+>>>>>>> 0d0c31e2476e55b39a2c120b37b9aa23eafc59a5
 
 /// Check phases w/out specifying a compute capability.
 // RUN: %clangxx -ccc-print-phases -std=c++11 -target x86_64-unknown-linux-gnu -fsycl \
