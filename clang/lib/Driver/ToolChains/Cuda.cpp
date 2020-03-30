@@ -57,6 +57,11 @@ CudaInstallationDetector::CudaInstallationDetector(
     const Driver &D, const llvm::Triple &HostTriple,
     const llvm::opt::ArgList &Args)
     : D(D) {
+#if INTEL_CUSTOMIZATION
+  // DPC++ does not support Cuda, do not do the installation check.
+  if (Args.hasArg(options::OPT__dpcpp))
+    return;
+#endif // INTEL_CUSTOMIZATION
   struct Candidate {
     std::string Path;
     bool StrictChecking;
