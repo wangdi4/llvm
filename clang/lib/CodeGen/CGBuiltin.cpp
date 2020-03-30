@@ -1609,6 +1609,11 @@ static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
       RollingResult = Result;
   }
 
+  // If we never found anything to check because we are attempting to validate
+  // if you can use the 'zero feature', make sure the result is 'true'.
+  if (!RollingResult)
+    RollingResult = llvm::ConstantInt::getTrue(CGF.getLLVMContext());
+
   if (!ConvertToInt)
     return RollingResult;
 
