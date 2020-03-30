@@ -392,7 +392,6 @@ struct ProgramData {
   int Initialized = 0;
   int NumDevices = 0;
   int DeviceNum = -1;
-  int DeviceType = CL_DEVICE_TYPE_GPU;
 };
 
 /// Class containing all the device information.
@@ -774,8 +773,7 @@ static int32_t initProgram(int32_t deviceId) {
   ProgramData hostData = {
     1,                              // Initialized
     (int32_t)DeviceInfo.numDevices, // Number of devices
-    deviceId,                       // Device ID
-    (int32_t)DeviceInfo.DeviceType  // Device type
+    deviceId                        // Device ID
   };
   auto context = DeviceInfo.CTX[deviceId];
   auto queue = DeviceInfo.Queues[deviceId];

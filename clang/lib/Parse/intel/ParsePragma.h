@@ -23,4 +23,12 @@ class PragmaBlockLoopHandler : public PragmaHandler {
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                               Token &Tok);
 };
+
+// #pragma noblock_loop
+class PragmaNoBlockLoopHandler : public PragmaHandler {
+  public:
+    PragmaNoBlockLoopHandler(const char *name) : PragmaHandler(name) {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                              Token &Tok);
+};
 #endif // INTEL_CUSTOMIZATION

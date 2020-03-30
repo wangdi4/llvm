@@ -2128,6 +2128,8 @@ private:
   std::unique_ptr<PragmaHandler> VectorHandler;
   // Pragma loop_count
   std::unique_ptr<PragmaHandler> LoopCountHandler;
+  // Pragma noblock_loop
+  std::unique_ptr<PragmaHandler> NoBlockLoopHandler;
   // Pragma block_loop
   std::unique_ptr<PragmaHandler> BlockLoopHandler;
   StmtResult ParsePragmaBlockLoop(StmtVector &Stmts,

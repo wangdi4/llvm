@@ -82,16 +82,24 @@ def IntelInline : Attr {
   let Documentation = [Undocumented];
 }
 
-// Pragma block_loop
+// Pragma block_loop and noblock_loop
 def IntelBlockLoop : Attr {
-  let Spellings = [Pragma<"", "block_loop">];
+  let Spellings = [Pragma<"", "block_loop">,
+                   Pragma<"", "noblock_loop">];
   let Args = [
     VariadicExprArgument<"Factors">, VariadicIntArgument<"Levels">,
     VariadicExprArgument<"Privates">
   ];
   let AdditionalMembers = [{
   void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
-    OS << "#pragma block_loop";
+    OS << getDiagnosticName(Policy);
+  }
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+    unsigned SpellingIndex = getSpellingListIndex();
+    if (SpellingIndex == Pragma_block_loop)
+      return "#pragma block_loop";
+    else
+      return "#pragma noblock_loop";
   }
   }];
   let Documentation = [Undocumented];

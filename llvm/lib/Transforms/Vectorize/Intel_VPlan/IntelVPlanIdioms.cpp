@@ -341,10 +341,12 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
     ListItemRef = PredLhs;
 
     // Check that struct pointer size is same as loop bound's size.
-    HLNodeUtils &HNU = If->getParentLoop()->getHLNodeUtils();
+    const HLLoop *IfParLoop = If->getParentLoop();
+    assert(IfParLoop && "Expected the HLIf to have a valid parent-loop");
+    HLNodeUtils &HNU = IfParLoop->getHLNodeUtils();
     CanonExprUtils &CEU = HNU.getCanonExprUtils();
     unsigned PtrSize = CEU.getTypeSizeInBytes(PredLhsType);
-    const RegDDRef *LoopUB = If->getParentLoop()->getUpperDDRef();
+    const RegDDRef *LoopUB = IfParLoop->getUpperDDRef();
     assert(LoopUB && "Cannot find UB DDRef of loop.");
     unsigned LoopUBTypeSize = CEU.getTypeSizeInBytes(LoopUB->getDestType());
 

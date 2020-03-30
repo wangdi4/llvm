@@ -813,11 +813,15 @@ void SOAToAOSPrepCandidateInfo::simplifyCalls() {
 
   // Inline all callsites of F.
   auto InlineFunction = [InlineCS](Function *F) {
+    // Collect all uses before use list is modified.
+    SmallSetVector<CallBase *, 4> FCalls;
     for (auto *U : F->users()) {
       auto *CB = dyn_cast<CallBase>(U);
       assert(CB && "Unexpected call");
-      InlineCS(CB);
+      FCalls.insert(CB);
     }
+    for (auto *CB : FCalls)
+      InlineCS(CB);
   };
 
   DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
@@ -1269,11 +1273,17 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     F->getParent()->getFunctionList().insert(F->getIterator(), NF);
     NF->takeName(F);
 
-    // Fix callsites accordingly
-    std::vector<Value *> Args;
+    // Collect all uses before use list is modified.
+    SmallSetVector<CallBase *, 4> FCalls;
     for (auto *U : F->users()) {
       auto *CB = dyn_cast<CallBase>(U);
       assert(CB && "Expected function call");
+      FCalls.insert(CB);
+    }
+
+    // Fix callsites accordingly
+    std::vector<Value *> Args;
+    for (auto *CB : FCalls) {
       ArgAttrVec.clear();
       const AttributeList &CallParamAL = CB->getAttributes();
       // Build Args/Attr list for the call.

@@ -153,6 +153,13 @@ struct FuncOrGblEntryTy {
   ze_module_handle_t Module;
 };
 
+/// Module data to be initialized by plugin
+struct ModuleDataTy {
+  int Initialized = 0;
+  int NumDevices = 0;
+  int DeviceNum = -1;
+};
+
 /// Device information
 struct RTLDeviceInfoTy {
   uint32_t NumDevices;
@@ -276,6 +283,75 @@ static void closeRTL() {
 #endif
   delete[] DeviceInfo.Mutexes;
   DP("Closed RTL successfully\n");
+}
+
+// Template for synchronous command execution.
+static int32_t executeCommand(ze_command_list_handle_t CmdList,
+                              ze_command_queue_handle_t CmdQueue,
+                              std::mutex &Mutex) {
+  CALL_ZE_RET_FAIL_MTX(zeCommandListClose, Mutex, CmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                   nullptr /* fence for completion signaling */);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT32_MAX);
+  // Make sure the command list is ready to accept next command
+  CALL_ZE_RET_FAIL_MTX(zeCommandListReset, Mutex, CmdList);
+  return OFFLOAD_SUCCESS;
+}
+
+/// Initialize module data
+static int32_t initModule(int32_t DeviceId) {
+  // Prepare host data to copy
+  ModuleDataTy hostData = {
+    1,                              // Initialized
+    (int32_t)DeviceInfo.NumDevices, // Number of devices
+    DeviceId                        // Device ID
+  };
+
+  // Prepare device data location
+  auto driver = DeviceInfo.Driver;
+  auto device = DeviceInfo.Devices[DeviceId];
+  ze_device_mem_alloc_desc_t allocDesc = {
+    ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
+    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
+    0 /* ordinal */
+  };
+  void *deviceData = nullptr;
+  CALL_ZE_RET_FAIL(zeDriverAllocDeviceMem, driver, &allocDesc, sizeof(hostData),
+                   LEVEL0_ALIGNMENT, device, &deviceData);
+
+  // Prepare kernel to initialize data
+  auto &mutex = DeviceInfo.Mutexes[DeviceId];
+  ze_kernel_desc_t kernelDesc = {
+    ZE_KERNEL_DESC_VERSION_CURRENT,
+    ZE_KERNEL_FLAG_NONE,
+    "__kmpc_init_program"
+  };
+  auto module = DeviceInfo.FuncGblEntries[DeviceId].Module;
+  ze_kernel_handle_t initModuleData;
+  CALL_ZE_RET_FAIL(zeKernelCreate, module, &kernelDesc, &initModuleData);
+  CALL_ZE_RET_FAIL_MTX(zeKernelSetArgumentValue, mutex, initModuleData, 0,
+                       sizeof(deviceData), &deviceData);
+  ze_group_count_t groupDimensions = {1, 1, 1};
+  CALL_ZE_RET_FAIL_MTX(zeKernelSetGroupSize, mutex, initModuleData, 1, 1, 1);
+
+  // Invoke the kernel
+  auto cmdList = DeviceInfo.CmdLists[DeviceId];
+  auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
+  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList,
+                       deviceData, &hostData, sizeof(hostData), nullptr);
+  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
+                       nullptr);
+  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
+                       initModuleData, &groupDimensions, nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
+                       nullptr);
+  if (executeCommand(cmdList, cmdQueue, mutex) == OFFLOAD_FAIL)
+    return OFFLOAD_FAIL;
+
+  CALL_ZE_RET_FAIL_MTX(zeKernelDestroy, mutex, initModuleData);
+  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, mutex, driver, deviceData);
+
+  return OFFLOAD_SUCCESS;
 }
 
 EXTERN
@@ -474,6 +550,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   }
 
   DeviceInfo.FuncGblEntries[DeviceId].Module = module;
+  if (initModule(DeviceId) != OFFLOAD_SUCCESS)
+    return nullptr;
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[DeviceId].Table;
   table.EntriesBegin = &(entries.data()[0]);
   table.EntriesEnd = &(entries.data()[entries.size()]);
@@ -555,19 +633,6 @@ EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
   DP("Ptr " DPxMOD " is %sa managed memory pointer.\n", DPxPTR(Ptr),
      ret ? "" : "not ");
   return ret;
-}
-
-// Template for synchronous command execution.
-static int32_t executeCommand(ze_command_list_handle_t CmdList,
-                              ze_command_queue_handle_t CmdQueue,
-                              std::mutex &Mutex) {
-  CALL_ZE_RET_FAIL_MTX(zeCommandListClose, Mutex, CmdList);
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                   nullptr /* fence for completion signaling */);
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT32_MAX);
-  // Make sure the command list is ready to accept next command
-  CALL_ZE_RET_FAIL_MTX(zeCommandListReset, Mutex, CmdList);
-  return OFFLOAD_SUCCESS;
 }
 
 // Tasks to be done when completing an asynchronous command.
