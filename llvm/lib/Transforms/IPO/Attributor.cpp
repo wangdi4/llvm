@@ -399,8 +399,8 @@ static Value *constructPointer(Type *ResTy, Value *Ptr, int64_t Offset,
 template <typename AAType, typename StateTy>
 static bool genericValueTraversal(
     Attributor &A, IRPosition IRP, const AAType &QueryingAA, StateTy &State,
-    const function_ref<bool(Value &, StateTy &, bool)> &VisitValueCB,
-    int MaxValues = 8, const function_ref<Value *(Value *)> StripCB = nullptr) {
+    function_ref<bool(Value &, StateTy &, bool)> VisitValueCB,
+    int MaxValues = 8, function_ref<Value *(Value *)> StripCB = nullptr) {
 
   const AAIsDead *LivenessAA = nullptr;
   if (IRP.getAnchorScope())
@@ -724,7 +724,6 @@ bool IRPosition::getAttrsFromIRAttr(Attribute::AttrKind AK,
     Attrs.push_back(AttrList.getAttribute(getAttrIdx(), AK));
   return HasAttr;
 }
-
 
 void IRPosition::verify() {
   switch (KindOrArgNo) {
@@ -1274,8 +1273,8 @@ public:
 
   /// See AbstractState::checkForAllReturnedValues(...).
   bool checkForAllReturnedValuesAndReturnInsts(
-      const function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)>
-          &Pred) const override;
+      function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)> Pred)
+      const override;
 
   /// Pretty print the attribute similar to the IR representation.
   const std::string getAsStr() const override;
@@ -1319,7 +1318,7 @@ ChangeStatus AAReturnedValuesImpl::manifest(Attributor &A) {
 
   // Callback to replace the uses of CB with the constant C.
   auto ReplaceCallSiteUsersWith = [&A](CallBase &CB, Constant &C) {
-    if (CB.getNumUses() == 0 || CB.isMustTailCall())
+    if (CB.getNumUses() == 0)
       return ChangeStatus::UNCHANGED;
     if (A.changeValueAfterManifest(CB, C))
       return ChangeStatus::CHANGED;
@@ -1401,8 +1400,8 @@ AAReturnedValuesImpl::getAssumedUniqueReturnValue(Attributor &A) const {
 }
 
 bool AAReturnedValuesImpl::checkForAllReturnedValuesAndReturnInsts(
-    const function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)>
-        &Pred) const {
+    function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)> Pred)
+    const {
   if (!isValidState())
     return false;
 
@@ -3209,14 +3208,6 @@ struct AAIsDeadCallSiteReturned : public AAIsDeadFloating {
     return Changed;
   }
 
-  /// See AbstractAttribute::manifest(...).
-  ChangeStatus manifest(Attributor &A) override {
-    if (auto *CI = dyn_cast<CallInst>(&getAssociatedValue()))
-      if (CI->isMustTailCall())
-        return ChangeStatus::UNCHANGED;
-    return AAIsDeadFloating::manifest(A);
-  }
-
   /// See AbstractAttribute::trackStatistics()
   void trackStatistics() const override {
     if (IsAssumedSideEffectFree)
@@ -3266,9 +3257,6 @@ struct AAIsDeadReturned : public AAIsDeadValueImpl {
     UndefValue &UV = *UndefValue::get(getAssociatedFunction()->getReturnType());
     auto RetInstPred = [&](Instruction &I) {
       ReturnInst &RI = cast<ReturnInst>(I);
-      if (auto *CI = dyn_cast<CallInst>(RI.getReturnValue()))
-        if (CI->isMustTailCall())
-          return true;
       if (!isa<UndefValue>(RI.getReturnValue()))
         AnyChange |= A.changeUseAfterManifest(RI.getOperandUse(0), UV);
       return true;
@@ -4857,9 +4845,6 @@ struct AAValueSimplifyReturned : AAValueSimplifyImpl {
             // We can replace the AssociatedValue with the constant.
             if (&V == C || V.getType() != C->getType() || isa<UndefValue>(V))
               return true;
-            if (auto *CI = dyn_cast<CallInst>(&V))
-              if (CI->isMustTailCall())
-                return true;
 
             for (ReturnInst *RI : RetInsts) {
               if (RI->getFunction() != getAnchorScope())
@@ -4967,9 +4952,6 @@ struct AAValueSimplifyCallSiteReturned : AAValueSimplifyReturned {
 
   /// See AbstractAttribute::manifest(...).
   ChangeStatus manifest(Attributor &A) override {
-    if (auto *CI = dyn_cast<CallInst>(&getAssociatedValue()))
-      if (CI->isMustTailCall())
-        return ChangeStatus::UNCHANGED;
     return AAValueSimplifyImpl::manifest(A);
   }
 
@@ -5634,7 +5616,7 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
           createReplacementValues(
               PrivatizableType.getValue(), ACS,
               ACS.getCallArgOperand(ARI.getReplacedArg().getArgNo()),
-                                  NewArgOperands);
+              NewArgOperands);
         };
 
     // Collect the types that will replace the privatizable type in the function
@@ -6403,8 +6385,9 @@ struct AAMemoryLocationImpl : public AAMemoryLocation {
 
   /// See AAMemoryLocation::checkForAllAccessesToMemoryKind(...).
   bool checkForAllAccessesToMemoryKind(
-      const function_ref<bool(const Instruction *, const Value *, AccessKind,
-                              MemoryLocationsKind)> &Pred,
+      function_ref<bool(const Instruction *, const Value *, AccessKind,
+                        MemoryLocationsKind)>
+          Pred,
       MemoryLocationsKind RequestedMLK) const override {
     if (!isValidState())
       return false;
@@ -7153,7 +7136,7 @@ struct AAValueConstantRangeFloating : AAValueConstantRangeImpl {
     auto VisitValueCB = [&](Value &V, IntegerRangeState &T,
                             bool Stripped) -> bool {
       Instruction *I = dyn_cast<Instruction>(&V);
-      if (!I) {
+      if (!I || isa<CallBase>(I)) {
 
         // If the value is not instruction, we query AA to Attributor.
         const auto &AA =
@@ -7385,10 +7368,9 @@ bool Attributor::isAssumedDead(const IRPosition &IRP,
   return false;
 }
 
-bool Attributor::checkForAllUses(
-    const function_ref<bool(const Use &, bool &)> &Pred,
-    const AbstractAttribute &QueryingAA, const Value &V,
-    DepClassTy LivenessDepClass) {
+bool Attributor::checkForAllUses(function_ref<bool(const Use &, bool &)> Pred,
+                                 const AbstractAttribute &QueryingAA,
+                                 const Value &V, DepClassTy LivenessDepClass) {
 
   // Check the trivial case first as it catches void values.
   if (V.use_empty())
@@ -7447,10 +7429,10 @@ bool Attributor::checkForAllUses(
   return true;
 }
 
-bool Attributor::checkForAllCallSites(
-    const function_ref<bool(AbstractCallSite)> &Pred,
-    const AbstractAttribute &QueryingAA, bool RequireAllCallSites,
-    bool &AllCallSitesKnown) {
+bool Attributor::checkForAllCallSites(function_ref<bool(AbstractCallSite)> Pred,
+                                      const AbstractAttribute &QueryingAA,
+                                      bool RequireAllCallSites,
+                                      bool &AllCallSitesKnown) {
   // We can try to determine information from
   // the call sites. However, this is only possible all call sites are known,
   // hence the function has internal linkage.
@@ -7467,10 +7449,11 @@ bool Attributor::checkForAllCallSites(
                               &QueryingAA, AllCallSitesKnown);
 }
 
-bool Attributor::checkForAllCallSites(
-    const function_ref<bool(AbstractCallSite)> &Pred, const Function &Fn,
-    bool RequireAllCallSites, const AbstractAttribute *QueryingAA,
-    bool &AllCallSitesKnown) {
+bool Attributor::checkForAllCallSites(function_ref<bool(AbstractCallSite)> Pred,
+                                      const Function &Fn,
+                                      bool RequireAllCallSites,
+                                      const AbstractAttribute *QueryingAA,
+                                      bool &AllCallSitesKnown) {
   if (RequireAllCallSites && !Fn.hasLocalLinkage()) {
     LLVM_DEBUG(
         dbgs()
@@ -7552,8 +7535,7 @@ bool Attributor::checkForAllCallSites(
 }
 
 bool Attributor::checkForAllReturnedValuesAndReturnInsts(
-    const function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)>
-        &Pred,
+    function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)> Pred,
     const AbstractAttribute &QueryingAA) {
 
   const IRPosition &IRP = QueryingAA.getIRPosition();
@@ -7575,8 +7557,7 @@ bool Attributor::checkForAllReturnedValuesAndReturnInsts(
 }
 
 bool Attributor::checkForAllReturnedValues(
-    const function_ref<bool(Value &)> &Pred,
-    const AbstractAttribute &QueryingAA) {
+    function_ref<bool(Value &)> Pred, const AbstractAttribute &QueryingAA) {
 
   const IRPosition &IRP = QueryingAA.getIRPosition();
   const Function *AssociatedFunction = IRP.getAssociatedFunction();
@@ -7597,9 +7578,9 @@ bool Attributor::checkForAllReturnedValues(
 
 static bool checkForAllInstructionsImpl(
     Attributor *A, InformationCache::OpcodeInstMapTy &OpcodeInstMap,
-    const function_ref<bool(Instruction &)> &Pred,
-    const AbstractAttribute *QueryingAA, const AAIsDead *LivenessAA,
-    const ArrayRef<unsigned> &Opcodes, bool CheckBBLivenessOnly = false) {
+    function_ref<bool(Instruction &)> Pred, const AbstractAttribute *QueryingAA,
+    const AAIsDead *LivenessAA, const ArrayRef<unsigned> &Opcodes,
+    bool CheckBBLivenessOnly = false) {
   for (unsigned Opcode : Opcodes) {
     for (Instruction *I : OpcodeInstMap[Opcode]) {
       // Skip dead instructions.
@@ -7614,10 +7595,10 @@ static bool checkForAllInstructionsImpl(
   return true;
 }
 
-bool Attributor::checkForAllInstructions(
-    const llvm::function_ref<bool(Instruction &)> &Pred,
-    const AbstractAttribute &QueryingAA, const ArrayRef<unsigned> &Opcodes,
-    bool CheckBBLivenessOnly) {
+bool Attributor::checkForAllInstructions(function_ref<bool(Instruction &)> Pred,
+                                         const AbstractAttribute &QueryingAA,
+                                         const ArrayRef<unsigned> &Opcodes,
+                                         bool CheckBBLivenessOnly) {
 
   const IRPosition &IRP = QueryingAA.getIRPosition();
   // Since we need to provide instructions we have to have an exact definition.
@@ -7640,8 +7621,7 @@ bool Attributor::checkForAllInstructions(
 }
 
 bool Attributor::checkForAllReadWriteInstructions(
-    const llvm::function_ref<bool(Instruction &)> &Pred,
-    AbstractAttribute &QueryingAA) {
+    function_ref<bool(Instruction &)> Pred, AbstractAttribute &QueryingAA) {
 
   const Function *AssociatedFunction =
       QueryingAA.getIRPosition().getAssociatedFunction();
@@ -7881,6 +7861,14 @@ ChangeStatus Attributor::run() {
       Use *U = It.first;
       Value *NewV = It.second;
       Value *OldV = U->get();
+
+      // Do not replace uses in returns if the value is a must-tail call we will
+      // not delete.
+      if (isa<ReturnInst>(U->getUser()))
+        if (auto *CI = dyn_cast<CallInst>(OldV->stripPointerCasts()))
+          if (CI->isMustTailCall() && !ToBeDeletedInsts.count(CI))
+            continue;
+
       LLVM_DEBUG(dbgs() << "Use " << *NewV << " in " << *U->getUser()
                         << " instead of " << *OldV << "\n");
       U->set(NewV);
@@ -8675,9 +8663,9 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
     A.identifyDefaultAbstractAttributes(*F);
   }
 
+  Module &M = *Functions.front()->getParent();
   ChangeStatus Changed = A.run();
-  assert(!verifyModule(*Functions.front()->getParent(), &errs()) &&
-         "Module verification failed!");
+  assert(!verifyModule(M, &errs()) && "Module verification failed!");
   LLVM_DEBUG(dbgs() << "[Attributor] Done with " << Functions.size()
                     << " functions, result: " << Changed << ".\n");
   return Changed == ChangeStatus::CHANGED;
