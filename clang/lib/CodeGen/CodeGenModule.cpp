@@ -2112,6 +2112,12 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
   if (!S.empty())
     F->addFnAttr("openmp-variant", S);
 }
+
+void CodeGenModule::SetTargetRegionFunctionAttributes(llvm::Function *Fn) {
+  if (Fn && getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+      inTargetRegion())
+    Fn->addFnAttr("openmp-target-declare", "true");
+}
 #endif // INTEL_COLLAB
 
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
@@ -2190,9 +2196,7 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (getLangOpts().OpenMPLateOutline)
     addDeclareVariantAttributes(*this, FD, F);
 
-  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
-      inTargetRegion())
-    F->addFnAttr("openmp-target-declare","true");
+  SetTargetRegionFunctionAttributes(F);
 #endif // INTEL_COLLAB
 
   if (const auto *CB = FD->getAttr<CallbackAttr>()) {
@@ -3483,6 +3487,11 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
       if (FD && !FD->hasAttr<WeakAttr>())
         Entry->setLinkage(llvm::Function::ExternalLinkage);
     }
+
+#if INTEL_COLLAB
+    // If encountered in OpenMP target region, mark it.
+    SetTargetRegionFunctionAttributes(dyn_cast_or_null<llvm::Function>(Entry));
+#endif // INTEL_COLLAB
 
     // Handle dropped DLL attributes.
     if (D && !D->hasAttr<DLLImportAttr>() && !D->hasAttr<DLLExportAttr>()) {
