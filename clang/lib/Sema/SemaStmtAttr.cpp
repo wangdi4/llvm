@@ -284,16 +284,25 @@ FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
 
   return new (Context) FPGALoopAttrT(Context, A, E);
 }
-#if INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
 template SYCLIntelFPGAIIAttr *
 Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAIIAttr>(
     const AttributeCommonInfo &, Expr *);
 template SYCLIntelFPGAMaxConcurrencyAttr *
 Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(
     const AttributeCommonInfo &, Expr *);
-
+template SYCLIntelFPGALoopCoalesceAttr *
+Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGALoopCoalesceAttr>(
+    const AttributeCommonInfo &, Expr *);
+template SYCLIntelFPGAMaxInterleavingAttr *
+Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAMaxInterleavingAttr>(
+    const AttributeCommonInfo &, Expr *);
+template SYCLIntelFPGASpeculatedIterationsAttr *
+Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(
+    const AttributeCommonInfo &, Expr *);
 #endif // INTEL_CUSTOMIZATION
+
 // Filters out any attributes from the list that are either not the specified
 // type, or whose function isDependent returns true.
 template <typename T>
