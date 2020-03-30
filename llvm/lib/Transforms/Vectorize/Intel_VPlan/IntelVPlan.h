@@ -1689,12 +1689,6 @@ private:
   // Holds the instructions that need to be deleted by VPlan's destructor.
   SmallVector<std::unique_ptr<VPInstruction>, 2> UnlinkedVPInsns;
 
-  /// Get VPBasicBlocks' list.
-  const VPBasicBlockListTy &getVPBasicBlockList() const {
-    return VPBasicBlocks;
-  }
-  VPBasicBlockListTy &getVPBasicBlockList() { return VPBasicBlocks; }
-
 public:
   VPlan(LLVMContext *Context, const DataLayout *DL);
 
@@ -1790,6 +1784,11 @@ public:
            "Entry block should not have predecesors.");
     return &front();
   }
+
+  const VPBasicBlockListTy &getVPBasicBlockList() const {
+    return VPBasicBlocks;
+  }
+  VPBasicBlockListTy &getVPBasicBlockList() { return VPBasicBlocks; }
 
   void insertAtFront(VPBasicBlock *CurBB) {
     getVPBasicBlockList().push_front(CurBB);
