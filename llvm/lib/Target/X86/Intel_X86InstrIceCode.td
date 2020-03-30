@@ -22,9 +22,9 @@
 // IceCode instructions
 let Predicates = [InIceCodeMode] in {
   def LOADSEGrm : I<0xb2, MRM0m, (outs), (ins i128mem:$mem),
-                    "loadseg\t$mem", []>, TB;
-  def STORESEGmr : I<0xb4, MRM0m, (outs), (ins i128mem:$mem),
-                     "storeseg\t$mem", []>, TB;
+                    "loadseg\t$mem", []>, PS;
+  def STORESEGmr : I<0xb2, MRM0m, (outs), (ins i128mem:$mem),
+                     "storeseg\t$mem", []>, PD;
 
   def GMOVPPHYS16rm : I<0xb4, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
                         "gmovpphys{w}\t{$src, $dst|$dst, $src}",
@@ -169,6 +169,11 @@ let Predicates = [InIceCodeMode] in {
 
   def GET_EXCL_ACC : I<0xfc, RawFrm, (outs), (ins), "get_excl_acc", []>;
   def RELEASE_EXCL_ACC : I<0xfd, RawFrm, (outs), (ins), "release_excl_acc", []>;
+
+  let OpPrefix = XD, Uses = [RDX], Defs = [EAX] in
+    def PORTIN24 : I<0xad, RawFrm, (outs), (ins), "portin24", []>;
+  let OpPrefix = XD, Uses = [RDX, EAX] in
+    def PORTOUT24 : I<0xab, RawFrm, (outs), (ins), "portout24", []>;
 
   def VIRT_NUKE_POINT : I<0x01, MRM_D5, (outs), (ins), "virt_nuke_point", []>, TB;
   def INT_TRAP_POINT  : I<0x01, MRM_D0, (outs), (ins), "int_trap_point", []>, TB;

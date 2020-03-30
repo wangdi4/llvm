@@ -50,27 +50,27 @@
           loadseg %gs:(%rdx)
 
 // CHECK: storeseg %cs:(%rdx)
-// CHECK: encoding: [0x2e,0x0f,0xb4,0x02]
+// CHECK: encoding: [0x2e,0x66,0x0f,0xb2,0x02]
           storeseg %cs:(%rdx)
 
 // CHECK: storeseg %ss:(%rdx)
-// CHECK: encoding: [0x36,0x0f,0xb4,0x02]
+// CHECK: encoding: [0x36,0x66,0x0f,0xb2,0x02]
           storeseg %ss:(%rdx)
 
 // CHECK: storeseg %ds:(%rdx)
-// CHECK: encoding: [0x3e,0x0f,0xb4,0x02]
+// CHECK: encoding: [0x3e,0x66,0x0f,0xb2,0x02]
           storeseg %ds:(%rdx)
 
 // CHECK: storeseg %es:(%rdx)
-// CHECK: encoding: [0x26,0x0f,0xb4,0x02]
+// CHECK: encoding: [0x26,0x66,0x0f,0xb2,0x02]
           storeseg %es:(%rdx)
 
 // CHECK: storeseg %fs:(%rdx)
-// CHECK: encoding: [0x64,0x0f,0xb4,0x02]
+// CHECK: encoding: [0x64,0x66,0x0f,0xb2,0x02]
           storeseg %fs:(%rdx)
 
 // CHECK: storeseg %gs:(%rdx)
-// CHECK: encoding: [0x65,0x0f,0xb4,0x02]
+// CHECK: encoding: [0x65,0x66,0x0f,0xb2,0x02]
           storeseg %gs:(%rdx)
 
 // CHECK: gtranslaterd_epc (%rdx)
@@ -304,3 +304,11 @@
 // CHECK: settracker $1
 // CHECK: encoding: [0xf3,0x6a,0x01]
           settracker $1
+
+// CHECK: portin24
+// CHECK: encoding: [0xf2,0xad]
+          portin24
+
+// CHECK: portout24
+// CHECK: encoding: [0xf2,0xab]
+          portout24

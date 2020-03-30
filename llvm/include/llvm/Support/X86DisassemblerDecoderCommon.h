@@ -296,6 +296,8 @@ enum attributeBits {
   INSTRUCTION_CONTEXTS \
   ENUM_ENTRY(IC_64BIT_CE,            1,  "says the instruction applies in "     \
                                          "icecode mode but no more")            \
+  ENUM_ENTRY(IC_64BIT_OPSIZE_CE,     3,  "requires an OPSIZE prefix, so "       \
+                                         "operands change width")               \
   ENUM_ENTRY(IC_64BIT_XD_OPSIZE_CE,  3,  "Just as meaningful as IC_XD_OPSIZE")  \
   ENUM_ENTRY(IC_64BIT_XS_OPSIZE_CE,  3,  "Just as meaningful as IC_XS_OPSIZE")  \
   ENUM_ENTRY(IC_64BIT_REXW_CE,       5,  "requires a REX.W prefix, so operands "\

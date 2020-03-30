@@ -279,6 +279,18 @@ _ce_iceret_indirect(unsigned target, unsigned value) {
   __asm__ __volatile__ ("iceret_indirect %0, %1" :: "b"(value), "a"(target));
 }
 
+static __inline__ int __DEFAULT_FN_ATTRS
+_ce_portin24(unsigned long long rdx) {
+  int res;
+  __asm__ __volatile__ ("portin24" : "=a"(res) : "d"(rdx));
+  return res;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_portout24(unsigned long long rdx, int eax) {
+  __asm__ __volatile__ ("portout24" :: "a"(eax), "d"(rdx));
+}
+
 #define _ce_set_tracker(imm) __builtin_ia32_icecode_set_tracker(imm)
 
 #undef __DEFAULT_FN_ATTRS
