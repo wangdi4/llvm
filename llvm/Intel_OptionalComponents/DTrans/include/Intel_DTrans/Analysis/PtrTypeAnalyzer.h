@@ -179,12 +179,12 @@ public:
   // Indicate that the Value object could not be processed during type
   // determination. For example, a global pointer variable which should have had
   // a metadata attachment to define the type, but was missing the metadata.
-  void setUnhandled() { Unhandled = true; }
+  void setUnhandled();
   bool getUnhandled() const { return Unhandled; }
 
   // Indicate the Value object type may require information about a Value which
   // could not be processed.
-  void setDependsOnUnhandled() { DependsOnUnhandled = true; }
+  void setDependsOnUnhandled();
   bool getDependsOnUnhandled() const { return DependsOnUnhandled; }
 
   // These control the state machine that tracks the progress of analyzing the
