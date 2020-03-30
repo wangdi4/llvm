@@ -336,9 +336,6 @@ inline Value *getSplatValue(Value *V) {
 /// not limited by finding a scalar source value to a splatted vector.
 bool isSplatValue(const Value *V, int Index = -1, unsigned Depth = 0);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
 /// Scale a shuffle or target shuffle mask, replacing each mask index with the
 /// scaled sequential indices for an equivalent mask of narrowed elements.
 /// Mask elements that are less than 0 (sentinel values) are repeated in the
@@ -373,7 +370,7 @@ void scaleShuffleMask(size_t Scale, ArrayRef<T> Mask,
   }
 }
 
->>>>>>> 0eeee83d7513d1d9b5e6916c2f15cc67bd0707e2
+#if INTEL_CUSTOMIZATION
 /// Compute a map of integer instructions to their minimum legal type
 /// size.
 ///
