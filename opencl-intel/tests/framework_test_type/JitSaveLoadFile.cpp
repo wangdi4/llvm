@@ -46,17 +46,22 @@ protected:
     EXPECT_OCL_SUCCESS(err, "clReleaseContext");
   }
 
+  /// Build program from source and save program binary to file.
   void jitSave(size_t &binarySize) {
-    const char *source =
-        "__kernel void test_kernel(__global int* dst, __global int* src)"
-        "{"
-        "    size_t gid = get_global_id(0);"
-        "    dst[gid] = (int)(10.0*(sin((float)src[gid])));"
+    m_reqdWGSize = 8;
+    std::string source =
+        " __attribute__((reqd_work_group_size(" + std::to_string(m_reqdWGSize) +
+        ",1,1)))\n"
+        "__kernel void test_kernel(__global int* dst, __global int* src)\n"
+        "{\n"
+        "    size_t gid = get_global_id(0);\n"
+        "    dst[gid] = (int)(10.0*(sin((float)src[gid])));\n"
         "}";
+    const char *csource = source.c_str();
 
     // Build program
     cl_program program;
-    ASSERT_TRUE(BuildProgramSynch(m_context, 1, &source, nullptr,
+    ASSERT_TRUE(BuildProgramSynch(m_context, 1, &csource, nullptr,
                                   "-cl-denorms-are-zero", &program));
 
     // Get program binary
@@ -81,6 +86,7 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
   }
 
+  /// Load program binary from file and create new program from it.
   void jitLoad(size_t binarySize) {
     // Read binary from file
     std::ifstream ifs(m_binaryFilename, std::ios::binary);
@@ -110,9 +116,10 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
   }
 
+  /// Create and execute kernel. Verify kernel output.
   void testBinaryRun(cl_program program) {
     // Prepare buffers
-    size_t globalWorkSize = 8;
+    size_t globalWorkSize = m_reqdWGSize;
     std::vector<int> dst(globalWorkSize);
     for (size_t i = 0; i < globalWorkSize; ++i)
       dst[i] = 0;
@@ -142,13 +149,16 @@ protected:
     cl_kernel kernel = clCreateKernel(program, "test_kernel", &err);
     ASSERT_OCL_SUCCESS(err, "clCreateKernel");
 
+    // Check kernel info
+    ASSERT_NO_FATAL_FAILURE(checkKernelInfo(kernel));
+
     err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&bufDst);
     ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
     err = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&bufSrc);
     ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
 
     err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &globalWorkSize,
-                                 &globalWorkSize, 0, nullptr, nullptr);
+                                 &m_reqdWGSize, 0, nullptr, nullptr);
     ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
 
     std::vector<int> result(globalWorkSize);
@@ -169,12 +179,29 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
   }
 
+  /// Query kernel information
+  void checkKernelInfo(cl_kernel kernel) {
+    size_t attrSize;
+    cl_int err =
+        clGetKernelInfo(kernel, CL_KERNEL_ATTRIBUTES, 0, nullptr, &attrSize);
+    ASSERT_OCL_SUCCESS(err, "clGetKernelInfo");
+    std::string attributes("", attrSize);
+    err = clGetKernelInfo(kernel, CL_KERNEL_ATTRIBUTES, attrSize,
+                          &attributes[0], nullptr);
+    ASSERT_OCL_SUCCESS(err, "clGetKernelInfo");
+    std::string expected =
+        "reqd_work_group_size(" + std::to_string(m_reqdWGSize) + ",1,1)";
+    ASSERT_TRUE(attributes.find(expected) != std::string::npos)
+        << expected << " is not found in attributes (" << attributes << ")";
+  }
+
 protected:
   cl_platform_id m_platform;
   cl_device_id m_device;
   cl_context m_context;
   cl_command_queue m_queue;
   std::string m_binaryFilename;
+  size_t m_reqdWGSize;
 };
 
 TEST_F(JitSaveLoadFileTest, binaryFile) {
