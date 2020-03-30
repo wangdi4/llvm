@@ -1232,7 +1232,7 @@ public:
   /// Returns empty ArrayRef if no info exists.
   ArrayRef<RegDDRef *> getBlockingPragmaPrivates() const {
     if (BlockingInfo) {
-      BlockingInfo->Privates;
+      return BlockingInfo->Privates;
     }
     return {};
   }

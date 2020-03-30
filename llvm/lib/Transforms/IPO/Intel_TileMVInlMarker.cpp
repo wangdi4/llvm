@@ -1371,9 +1371,10 @@ void TileMVInlMarker::cloneCallToRoot() {
   BranchInst *BI = BranchInst::Create(TailBB, NewCallBB);
   BI->setDebugLoc(CI->getDebugLoc());
   Instruction *BIDbg = &OrigBB->getInstList().back();
+  const DebugLoc BIDbgLoc = BIDbg->getDebugLoc();
   OrigBB->getInstList().pop_back();
   BI = BranchInst::Create(CondBB, OrigBB);
-  BI->setDebugLoc(BIDbg->getDebugLoc());
+  BI->setDebugLoc(BIDbgLoc);
   BI = BranchInst::Create(OrigCallBB, NewCallBB, Cmp, CondBB);
   BI->setDebugLoc(Cmp->getDebugLoc());
   // If the cloned call has a return value, tie that return value and the
