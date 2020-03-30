@@ -353,6 +353,18 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
                                       cast<Constant>(Pipe), IdxList);
   }
 
+  // Temporary constant PtrToInt operator that uses channels may be created in
+  // InstCombine pass. It has no users now, but processing of this case is added
+  // for the future.
+  if (isa<Constant>(ChannelUser)) {
+    auto *CE = cast<ConstantExpr>(ChannelUser);
+    assert(CE->getOpcode() == Instruction::PtrToInt &&
+           "Unexpected constant value with channel variable");
+
+    ConstantFolder Folder;
+    return Folder.CreatePtrToInt(cast<Constant>(Pipe), CE->getType());
+  }
+
   auto *ChannelInst = cast<Instruction>(ChannelUser);
 
   if (auto *Alloca = dyn_cast<AllocaInst>(ChannelInst)) {
@@ -799,7 +811,8 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
 
       // isa<GEPOperator> returns true for instances of GetElementPtrInst class,
       // so there is an ugly if here
-      if (!isa<GEPOperator>(PipeUser) || isa<GetElementPtrInst>(PipeUser))
+      if ((!isa<GEPOperator>(PipeUser) || isa<GetElementPtrInst>(PipeUser)) &&
+          !isa<Constant>(PipeUser))
         cast<User>(PipeUser)->setOperand(OpNo, Pipe);
     }
   }
