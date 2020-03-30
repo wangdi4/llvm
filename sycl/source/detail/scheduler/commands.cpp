@@ -1649,14 +1649,10 @@ cl_int ExecCGCommand::enqueueImp() {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
         RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-<<<<<<< HEAD
-        if (RT::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_OPENCL)) {
           Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                  sizeof(RT::PiMem), &MemArg);
         } else {
-=======
-        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_LEVEL0)) {
->>>>>>> 2c809968204dbf61705c305cc28f081fd73ca5fb
           Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex,
                                                           &MemArg);
         }

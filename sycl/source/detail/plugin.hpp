@@ -72,23 +72,14 @@ public:
     RT::PiResult Err = call_nocheck<PiApiOffset>(Args...);
     checkPiResult(Err);
   }
-<<<<<<< HEAD
+
+  RT::Backend getBackend(void) const { return MBackend; } // INTEL
 
 private:
   RT::PiPlugin MPlugin;
   bool MPiEnableTrace;
 
-=======
-
-  RT::Backend getBackend(void) const { return MBackend; } // INTEL
-
-  // TODO: Make this private. Currently used in program_manager to create a
-  // pointer to PiProgram.
-  RT::PiPlugin MPlugin;
-
-private:
-  const RT::Backend MBackend;
->>>>>>> 2c809968204dbf61705c305cc28f081fd73ca5fb
+  const RT::Backend MBackend; // INTEL
 }; // class plugin
 } // namespace detail
 } // namespace sycl
