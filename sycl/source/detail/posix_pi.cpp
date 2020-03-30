@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <CL/sycl/detail/defines.hpp>
+#include <CL/sycl/detail/pi.hpp>
 
 #include <dlfcn.h>
 #include <string>
@@ -22,9 +23,9 @@ void *loadOsLibrary(const std::string &PluginPath) {
   // RTLD_DEEPBIND option when there are multiple plugins.
 #if INTEL_CUSTOMIZATION
   void *so = dlopen(PluginPath.c_str(), RTLD_NOW);
-  if (!so) {
-    std::cerr << "dlopen(" << PluginPath << ") failed with <" <<
-      dlerror() << ">" << std::endl;
+  if (!so && trace()) {
+    std::cerr << "SYCL_PI_TRACE[-1]: dlopen(" << PluginPath
+        << ") failed with <" << dlerror() << ">" << std::endl;
   }
   return so;
 #endif // INTEL_CUSTOMIZATION
