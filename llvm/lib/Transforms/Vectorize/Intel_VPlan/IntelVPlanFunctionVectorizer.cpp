@@ -17,9 +17,10 @@
 
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
 #include "IntelVPlanCFGBuilder.h"
+#include "IntelVPlanLoopCFU.h"
+#include "IntelVPlanLoopExitCanonicalization.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
-#include "IntelVPlanLoopExitCanonicalization.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils.h"
@@ -41,6 +42,11 @@ static cl::opt<bool> DumpAfterLoopExitsCanonicalization(
 static cl::opt<bool> DumpAfterDA(
     "print-after-vplan-func-vec-da",
     cl::desc("Print after DA analysis for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterLoopCFU(
+    "print-after-vplan-func-vec-loop-cfu",
+    cl::desc("Print after LoopCFU for VPlan Function vectorization "),
     cl::init(false), cl::Hidden);
 
 using namespace llvm;
@@ -89,6 +95,14 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterDA)
+      Plan->dump(outs(), true);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    VPlanLoopCFU LoopCFU(*Plan);
+    LoopCFU.run();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterLoopCFU)
       Plan->dump(outs(), true);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
