@@ -2,6 +2,7 @@ import os
 import imp
 import inspect
 import platform
+import shutil
 import sys
 import unittest
 import time
@@ -144,6 +145,31 @@ def run_tests(names = None, options=None):
     if options.logfile:
         logfile = open("dtt_log.txt", "w")
 
+    oclrt_tempdir = None
+    cdbsymstore_dir = None
+    prev_TMP_val = None
+    if os_is_windows() and options.test_client == "cdb":
+        prev_TMP_val = os.environ.get('TMP')
+        cwd = os.path.abspath(my_dir)
+        # Create a local temp dir for LLDJIT to use when creating the dlls
+        # and pdbs, otherwise it will likely use:
+        # "C:\Users\<usrname>\appdata\local\temp" with no easy way to
+        # cleanup any leftover files from test failures.
+        # Note: TMP seems to work, but TEMP and TMPDIR may also exist.
+        oclrt_tempdir = cwd + '\\oclrt_tmpdir'
+        os.environ['TMP'] = oclrt_tempdir
+        if not os.path.exists(oclrt_tempdir):
+            os.mkdir(oclrt_tempdir)
+
+        # Create a local directory to use as a cdb symbol cache, otherwise
+        # cdb will use the "sym" directory in it's install directory caching
+        # each kernel pdb file, growing in size over time, with no easy way
+        # to cleanup the files.
+        cdbsymstore_dir = cwd + '\\cdbsymstore_tmpdir'
+        os.environ['DTT_CDBSYMSTORE'] = cdbsymstore_dir
+        if not os.path.exists(cdbsymstore_dir):
+            os.mkdir(cdbsymstore_dir)
+
     #### Run!
     try:
         for i in range(options.num_jobs):
@@ -177,8 +203,26 @@ def run_tests(names = None, options=None):
                 logw("terminating worker process pid=" + str(p.pid))
                 p.terminate()
 
+    if oclrt_tempdir:
+        try:
+            if not prev_TMP_val:
+                prev_TMP_val = ""
+            os.environ['TMP'] = prev_TMP_val
+            shutil.rmtree(oclrt_tempdir)
+        except:
+            logw("\nFailed to remove tmp directory:" + oclrt_tempdir)
+
+    if cdbsymstore_dir:
+        try:
+            os.environ['DTT_CDBSYMSTORE'] = ""
+            shutil.rmtree(cdbsymstore_dir)
+        except:
+            logw("\nFailed to remove cdb symstore directory:" \
+                + cdbsymstore_dir)
+
     if options.logfile:
         logfile.close()
+
     return result_queue
 
 
