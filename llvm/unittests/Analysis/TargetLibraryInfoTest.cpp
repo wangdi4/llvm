@@ -795,6 +795,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm(i8*, i32, i32, i8*, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm(i8*, i32, i32, i8*, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc(i8*, i32, i32, i32, i8)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_(i8*, i8*, i8*)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm(i8*, i8*, i32, i32)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev(i8*)\n"
       "declare i8* @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE6setbufEPcl(i8*, i8*, i64)\n"
       "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm(i8*, i8*, i32, i32)\n"
