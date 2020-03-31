@@ -673,7 +673,9 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
     for (unsigned DimNum = RegDD->getNumDimensions() - 1; DimNum > 0;
          --DimNum) {
       unsigned Opcode;
-      if (!RegDD->isDimensionLLVMArray(DimNum) && HInst->hasLval() &&
+      if ((!RegDD->isDimensionLLVMArray(DimNum) ||
+           !RegDD->getDimensionLower(DimNum)->isZero()) &&
+          HInst->hasLval() &&
           CG->isReductionRef(HInst->getLvalDDRef(), Opcode)) {
         LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - Fortran "
                              "array accesses using llvm.subscript.intrinsic "
