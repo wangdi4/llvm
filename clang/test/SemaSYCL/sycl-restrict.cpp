@@ -64,12 +64,8 @@ struct OverloadedNewDelete {
 
 bool isa_B(A *a) {
   Check_User_Operators::Fraction f1(3, 8), f2(1, 2), f3(10, 2);
-<<<<<<< HEAD
-  if (f1 == f2) return false;
-=======
   if (f1 == f2) // expected-note 2{{called by 'isa_B'}}
     return false;
->>>>>>> e4d1da91d09655a1c792e87839ff5ac6124e5bdd
 
   Check_VLA_Restriction::restriction(7);
   int *ip = new int; // expected-error 2{{SYCL kernel cannot allocate storage}}
@@ -171,30 +167,11 @@ int use2(a_type ab, a_type *abp) {
     return 0;
   if (ab.fm()) // expected-note {{called by 'use2'}}
     return 0;
-<<<<<<< HEAD
-  // expected-error@+1 {{SYCL kernel cannot use a non-const global variable}}
-  return another_global;
-  // expected-error@+1 {{SYCL kernel cannot use a non-const global variable}}
-  return ns::glob +
-  // expected-error@+1 {{SYCL kernel cannot use a non-const global variable}}
-    AnotherNS::moar_globals;
-  // expected-note@+1 {{called by 'use2'}}
-  eh_not_ok();
-  Check_RTTI_Restriction:: A *a;
-  // expected-note@+1 2{{called by 'use2'}}
-  Check_RTTI_Restriction:: isa_B(a);
-  // expected-note@+1 {{called by 'use2'}}
-  usage(&addInt);
-  Check_User_Operators::Fraction f1(3, 8), f2(1, 2), f3(10, 2);
-  // expected-note@+1 {{called by 'use2'}}
-  if (f1 == f2) return false;
-=======
 
   return another_global; // expected-error {{SYCL kernel cannot use a non-const global variable}}
 
   return ns::glob + // expected-error {{SYCL kernel cannot use a non-const global variable}}
          AnotherNS::moar_globals; // expected-error {{SYCL kernel cannot use a non-const global variable}}
->>>>>>> e4d1da91d09655a1c792e87839ff5ac6124e5bdd
 }
 
 template <typename name, typename Func>
@@ -204,14 +181,10 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 
 int main() {
   a_type ab;
-<<<<<<< HEAD
-  kernel_single_task<class fake_kernel>([]() { usage(  &addInt ); });
-=======
   kernel_single_task<class fake_kernel>([=]() {
     usage(&addInt); // expected-note 5{{called by 'operator()'}}
     a_type *p;
     use2(ab, p); // expected-note 2{{called by 'operator()'}}
   });
->>>>>>> e4d1da91d09655a1c792e87839ff5ac6124e5bdd
   return 0;
 }
