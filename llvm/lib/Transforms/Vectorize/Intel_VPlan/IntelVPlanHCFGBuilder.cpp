@@ -467,14 +467,6 @@ void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
 //                                 \    /
 //                                  BB6
 //
-// Returns the exit block of a block.
-static VPBasicBlock *getBlocksExitBlock(VPBasicBlock *ExitingBlock, VPLoop *VPL) {
-  for (VPBasicBlock *SuccBlock : ExitingBlock->getSuccessors()) {
-    if (!VPL->contains(SuccBlock))
-      return SuccBlock;
-  }
-  return nullptr;
-}
 
 // Replaces incoming block in all phi nodes of the PhiBlock.
 static void updateBlocksPhiNode(VPBasicBlock *PhiBlock,
@@ -546,30 +538,19 @@ static bool hasVPPhiNode(VPBasicBlock *VPBB) {
   return false;
 }
 
-// Returns the first instruction of a basic block that is not a phi node.
-static VPInstruction *getFirstNonPhiVPInst(VPBasicBlock *LoopHeader) {
-  VPInstruction *NonPhiVPInst = nullptr;
-  for (VPInstruction &InstRef : *LoopHeader) {
-    VPInstruction *Inst = &InstRef;
-    if (!isa<VPPHINode>(Inst)) {
-      NonPhiVPInst = Inst;
-      break;
-    }
-  }
-  return NonPhiVPInst;
-}
-
 void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
-
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
   // Check if the loop has multiple exits. Merge loop exits transformation is
   // only applied in the inner loops of a loop nest.
   VPLoop *ParentLoop = VPL->getParentLoop();
-  SmallVector<VPBasicBlock *, 2> ExitingBlocks;
-  VPL->getExitingBlocks(ExitingBlocks);
-  if ((ExitingBlocks.size() < 2) || ParentLoop == nullptr)
+  SmallVector<VPLoop::Edge, 4> ExitEdges;
+  VPL->getExitEdges(ExitEdges);
+
+  // TODO: check uniformity of the loop preheader instead.
+  if ((ExitEdges.size() < 2) || ParentLoop == nullptr)
     return;
+
 
   // FIXME: Don't break SSA form during the transformation.
   if (!Plan->isFullLinearizationForced() // Already marked, so...
@@ -660,13 +641,12 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL) {
   bool phiIsMovedToNewLoopLatch = false;
   // For each exit block (apart from the new loop latch), a new basic block is
   // created and the ExitID is emitted.
-  for (VPBasicBlock *ExitingBlock : ExitingBlocks) {
+  for (auto &Edge : ExitEdges) {
+    VPBasicBlock *ExitingBlock = Edge.first;
+    VPBasicBlock *ExitBlock = Edge.second;
 
     if (ExitingBlock == OrigLoopLatch)
       continue;
-
-    VPBasicBlock *ExitBlock = getBlocksExitBlock(ExitingBlock, VPL);
-    assert(ExitBlock != nullptr && "Exiting block should have an exit block!");
 
     // This check is for case 2. In this case, we create a new intermediate
     // basic block only if the exiting block is the loop header. This is needed
@@ -960,7 +940,7 @@ void VPlanHCFGBuilder::singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   // Update the control-flow for the ExitingBlock, the NewLoopLatch and the
   // ExitBlock.
   VPBasicBlock *ExitingBlock = VPL->getExitingBlock();
-  VPBasicBlock *ExitBlock = getBlocksExitBlock(ExitingBlock, VPL);
+  VPBasicBlock *ExitBlock = VPL->getExitBlock();
   assert(ExitBlock && "Exiting block should have an exit block!");
   VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
   VPBlockUtils::connectBlocks(NewLoopLatch, ExitBlock);
