@@ -855,6 +855,26 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   auto *UsedVar = collectUsedGlobalVariables(M, UsedSet, false);
   auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedSet, true);
 
+  SmallPtrSet<GlobalAlias *, 16u> DeadAlias; // Keep track of dead Alias
+  for (GlobalAlias &A : M.aliases()) {
+    if (isa<GlobalValue>(A.getAliasee())) {
+      auto *F = dyn_cast<Function>(A.getAliasee());
+      if (F && !UsedSet.count(F) &&
+          !F->getAttributes().hasAttribute(
+                 AttributeList::FunctionIndex, "openmp-target-declare") &&
+          !F->getAttributes().hasAttribute(
+        AttributeList::FunctionIndex, "target.declare")) {
+        DeadAlias.insert(&A);
+      }
+    }
+  }
+
+  for (GlobalAlias *DA : DeadAlias) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << "Deleteing GlobalAlias "
+                          << DA->getName());
+    DA->eraseFromParent();
+  }
+
   std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
   for (GlobalVariable &GV : M.globals()) {
     // Special globals "llvm.used" and "llvm.compiler.used" should be preserved.
@@ -909,7 +929,6 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     // unused for now
     // bool HasTargetConstruct = F.getAttributes().hasAttribute(
     //     AttributeList::FunctionIndex, "contains-openmp-target");
-
     if (IsFETargetDeclare) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
                         << ": IsFETargetDeclare == true\n");
