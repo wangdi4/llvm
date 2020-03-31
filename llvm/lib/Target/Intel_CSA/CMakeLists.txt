@@ -52,7 +52,6 @@ add_llvm_target(CSACodeGen
   CSANameLICs.cpp
   CSANormalizeDebugPass.cpp
   CSAOptDFPass.cpp
-  CSAParseAnnotateAttributes.cpp
   CSAReassocReduc.cpp
   CSARegisterInfo.cpp
   CSAReplaceAllocaWithMalloc.cpp

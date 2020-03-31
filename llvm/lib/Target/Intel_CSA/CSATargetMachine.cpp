@@ -240,7 +240,7 @@ public:
     addPass(createCFGSimplificationPass());
 
     // Add pass to parse annotation attributes
-    addPass(createCSAParseAnnotateAttributesPass());
+    addPass(createParseAnnotateAttributesPass());
 
     // Add pass to replace alloca instructions
     addPass(createPromoteMemoryToRegisterPass(true, true));
