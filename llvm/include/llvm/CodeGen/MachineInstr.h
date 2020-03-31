@@ -314,6 +314,15 @@ public:
     AsmPrinterFlags &= ~Flag;
   }
 
+#if INTEL_CUSTOMIZATION
+  bool isFast() {
+    return ((Flags & FmNoNans) && (Flags & FmNoInfs) &&
+            (Flags & FmNsz) && (Flags & FmArcp) &&
+            (Flags & FmContract) && (Flags & FmAfn) &&
+            (Flags & FmReassoc));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Return the MI flags bitvector.
   uint16_t getFlags() const {
     return Flags;

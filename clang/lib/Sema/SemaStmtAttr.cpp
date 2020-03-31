@@ -1323,7 +1323,7 @@ CheckForIncompatibleAttributes(Sema &S,
          HintAttrs[MaxConcurrency].NumericAttr != nullptr ||
          HintAttrs[MaxInterleaving].NumericAttr != nullptr)) {
 
-      const LoopHintAttr *PrevAttr = IVDepAttr;
+      const LoopHintAttr *PrevAttr = nullptr;
       if (HintAttrs[II].NumericAttr)
         PrevAttr = HintAttrs[II].NumericAttr;
       else if (HintAttrs[MaxConcurrency].NumericAttr)
@@ -1338,6 +1338,8 @@ CheckForIncompatibleAttributes(Sema &S,
         PrevAttr = HintAttrs[SpeculatedIterations].NumericAttr;
       else if (HintAttrs[ForceHyperopt].StateAttr)
         PrevAttr = HintAttrs[ForceHyperopt].StateAttr;
+      else // IVDepAttr != nullptr.
+        PrevAttr = IVDepAttr;
       OptionLoc = LH->getRange().getBegin();
       S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
               << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)

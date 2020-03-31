@@ -13,24 +13,24 @@ define internal %struct.test01* @test01() !dtrans_type !3 {
   %st = bitcast i8* %mem to %struct.test01*
   ret %struct.test01* %st
 }
-; CHECK: @test01 - Added alias [DECL]: %struct.test01* ()*
-; CHECK: @test01 - Added alias [USE]: %struct.test01* ()*
+; CHECK: Added alias [DECL]: @test01 -- %struct.test01* ()*
+; CHECK: Added alias [USE]: @test01 -- %struct.test01* ()*
 
 
 ; Check a function definition that has a pointer type parameter
 define internal void @test02(%struct.test01* %in) !dtrans_type !4 {
   ret void
 }
-; CHECK: @test02 - Added alias [DECL]: void (%struct.test01*)*
-; CHECK: @test02 - Added alias [USE]: void (%struct.test01*)*
+; CHECK: Added alias [DECL]: @test02 -- void (%struct.test01*)*
+; CHECK: Added alias [USE]: @test02 -- void (%struct.test01*)*
 
 
 ; Check a function definition that can created without the need for metadata.
 define internal void @test03(i32 %in1, double %in2) {
   ret void
 }
-; CHECK: @test03 - Added alias [DECL]: void (i32, double)*
-; CHECK: @test03 - Added alias [USE]: void (i32, double)*
+; CHECK: Added alias [DECL]: @test03 -- void (i32, double)*
+; CHECK: Added alias [USE]: @test03 -- void (i32, double)*
 
 
 declare i8* @malloc(i64)

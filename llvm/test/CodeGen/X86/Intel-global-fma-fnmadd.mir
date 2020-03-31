@@ -32,8 +32,8 @@ body:             |
     %2:vr512 = COPY $zmm2
     %1:vr512 = COPY $zmm1
     %0:vr512 = COPY $zmm0
-    %3:vr512 = nofpexcept VMULPDZrr %0:vr512, %1:vr512, implicit $mxcsr
-    %4:vr512 = nofpexcept VSUBPDZrr %2:vr512, killed %3:vr512, implicit $mxcsr
+    %3:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPDZrr %0:vr512, %1:vr512, implicit $mxcsr
+    %4:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VSUBPDZrr %2:vr512, killed %3:vr512, implicit $mxcsr
     $zmm0 = COPY %4
     RET 0, $zmm0
 
@@ -71,8 +71,8 @@ body:             |
     %2:vr512 = COPY $zmm2
     %1:vr512 = COPY $zmm1
     %0:vr512 = COPY $zmm0
-    %3:vr512 = nofpexcept VMULPSZrr %0:vr512, %1:vr512, implicit $mxcsr
-    %4:vr512 = nofpexcept VSUBPSZrr %2:vr512, killed %3:vr512, implicit $mxcsr
+    %3:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSZrr %0:vr512, %1:vr512, implicit $mxcsr
+    %4:vr512 = nnan ninf nsz arcp contract afn reassoc nofpexcept VSUBPSZrr %2:vr512, killed %3:vr512, implicit $mxcsr
     $zmm0 = COPY %4
     RET 0, $zmm0
 

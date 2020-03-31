@@ -231,6 +231,18 @@ private:
 // important Value in the PtrTypeAnalyzer.
 class PtrTypeAnalyzerInstVisitor
     : public InstVisitor<PtrTypeAnalyzerInstVisitor> {
+
+  // This enum type is used to define how the level of indirection will be
+  // modified when propagating type aliases from one ValueTypeInfo set to
+  // another.
+  enum class DerefType {
+    DT_PointeeType,  /* Get the type of object pointed to (i.e. Decrease
+                       indirection by 1 level) */
+    DT_SameType,     /* Keep the same level of indirection */
+    DT_PointerToType /* Create a pointer to the type (i.e. Increase indirection
+                        by 1 level) */
+  };
+
 public:
   PtrTypeAnalyzerInstVisitor(
       PtrTypeAnalyzerImpl &PTA, DTransTypeManager &TM,
@@ -356,6 +368,7 @@ public:
   }
 
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
+  void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) { analyzeValue(&I); }
@@ -420,7 +433,11 @@ private:
       analyzeValueImpl(Dep, DepInfo);
     }
 
-    Info->setCompletelyAnalyzed();
+    // Do not mark the value as completely analyzed when the analysis was
+    // triggered while trying to infer some value because the types may not be
+    // complete until the inference completes.
+    if (!isInferInProgress())
+      Info->setCompletelyAnalyzed();
 
     DEBUG_WITH_TYPE(VERBOSE_TRACE, {
       dbgs() << "End analyzeValue for: ";
@@ -450,6 +467,11 @@ private:
         return;
       }
 
+      if (auto *BC = dyn_cast<BitCastOperator>(V)) {
+        analyzeBitCastOperator(BC, Info);
+        return;
+      }
+
       Info->setUnhandled();
       LLVM_DEBUG({
         dbgs() << "analyzeValueImpl not implemented for:";
@@ -471,6 +493,9 @@ private:
       break;
     case Instruction::Alloca:
       analyzeAllocaInst(cast<AllocaInst>(I), Info);
+      break;
+    case Instruction::BitCast:
+      analyzeBitCastOperator(cast<BitCastOperator>(I), Info);
       break;
     case Instruction::Call:
     case Instruction::Invoke:
@@ -498,10 +523,337 @@ private:
     }
   }
 
-  void inferTypeFromUse(Value *V, ValueTypeInfo *ResultInfo) {
-    // TODO: Implement look-ahead analysis for uses of 'V' to determine the set
-    // of potential types.
+  // Update the ResultInfo usage type alias set for ValueToInfer by looking at
+  // all the users of the ValueToInfer to determine its type.
+  void inferTypeFromUse(Value *ValueToInfer, ValueTypeInfo *ResultInfo) {
+    // Don't start another inference triggered by an analyze routine when
+    // one is already underway for the value.
+    if (InferInProgress.count(ValueToInfer))
+      return;
+
+    // If the type has already been inferred, we will use the previously
+    // collected results, rather than examining the uses again.
+    auto It = ValueToInferredTypes.find(ValueToInfer);
+    if (It == ValueToInferredTypes.end()) {
+
+      // Try to infer types for the value.
+      inferTypeFromUseImpl(ValueToInfer);
+      It = ValueToInferredTypes.find(ValueToInfer);
+    }
+
+    if (It == ValueToInferredTypes.end()) {
+      // If there were users, then a type should have been found once all the
+      // infer calls complete. However, if there are infer calls still in
+      // progress don't treat this as unhandled. The LIT test,
+      // ptrtype-icmp-infer01.ll, is an example of a case where inferring one
+      // value leads to analysis of another value that starts another inference
+      // call.
+      //
+      // (1) %tmp1008 = bitcast %struct.test01* %arg1001 to
+      //                        void (%struct.test01*, i8*)***
+      // (2) %tmp1009 = load void(%struct.test01*, i8*)**,
+      //                     void(%struct.test01*, i8*)*** %tmp1008
+      // (3) %tmp1010 = getelementptr inbounds void(%struct.test01*, i8*)*,
+      //                           void(%struct.test01*, i8*)** %tmp1009, i64 3
+      // (4) %tmp1011 = load void(%struct.test01*, i8*)*,
+      //                     void(%struct.test01*, i8*)** %tmp1010
+      // (5) %tmp1012 = bitcast void(%struct.test01*, i8*)* %tmp1011 to i8*
+      // (6) %tmp1013 = bitcast void(%struct.test01impl*, i8*)* @helper_test01
+      //                        to i8*
+      // (7) %tmp1014 = icmp eq i8* %tmp1012, %tmp1013
+      //
+      // Infer type for (1) requires examining its user (2)
+      // Examining (2) requires inferring from its user (3)
+      // Examining (3) requires inferring from its user (4)
+      // Examining (4) requires inferring from its user (5)
+      // Examining (5) requires inferring from its user (7)
+      // Examining (6) requires inferring from its user (7)
+      // (7) will attempt to analyze the dependent values (5) and (6) for
+      // types, which will trigger trying to infer the type for (5). This
+      // inference will reach this test while the original inference of (1)
+      // is still in progress.
+      if (!isInferInProgress() && !ValueToInfer->user_empty()) {
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Infer did not find any types for:"
+                          << *ValueToInfer << "\n");
+      }
+      return;
+    }
+
+    for (auto Ty : It->second)
+      ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Use, Ty);
   }
+
+  // Walk all the users of \p ValueToInfer, updating the ValueToInferredTypes
+  // mapping with types that ValueToInfer is used as.
+  void inferTypeFromUseImpl(Value *ValueToInfer) {
+    // Simple types can be directly added to the mapping.
+    llvm::Type *Ty = ValueToInfer->getType();
+    if (!dtrans::hasPointerType(Ty)) {
+      DTransType *DType = TM.getOrCreateSimpleType(Ty);
+      assert(DType && "Expected simple type");
+      addInferredType(ValueToInfer, DType);
+      return;
+    }
+
+    if (!InferInProgress.insert(ValueToInfer).second)
+      return;
+
+    DEBUG_WITH_TYPE(VERBOSE_TRACE,
+                    dbgs() << "    Begin infer for: " << *ValueToInfer << "\n");
+
+    // Try to find the type from looking at all the users. In some cases, the
+    // instruction will contain the type, such as 'load i64, p0 %x', or
+    // information can be retrieved from the metadata about call parameters. In
+    // other cases, this will require further look-ahead to examine the users of
+    // the produced value, such as for a bitcast.
+    for (auto *User : ValueToInfer->users()) {
+      DEBUG_WITH_TYPE(VERBOSE_TRACE, dbgs() << "      User: " << *User << "\n");
+
+      // TODO: Add support for users that are not instructions to handle a case
+      // such as:
+      //   getelementptr (%ty2, %ty2* (bitcast %ty1* @V to %ty2*), i64 0, i32 0)
+
+      if (auto *I = dyn_cast<Instruction>(User))
+        switch (I->getOpcode()) {
+        default: {
+          // TODO: This switch table may need to be expanded with other
+          // instructions. For now, go conservative on instructions not in this
+          // switch.
+          ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(ValueToInfer);
+          Info->setUnhandled();
+          break;
+        }
+        case Instruction::BitCast:
+        case Instruction::PHI:
+        case Instruction::Select:
+          // Look-ahead at the users.
+          inferTypeFromUseImpl(User);
+          propagateInferenceSet(User, ValueToInfer, DerefType::DT_SameType);
+          break;
+        case Instruction::Call:
+        case Instruction::Invoke:
+          inferCall(ValueToInfer, cast<CallBase>(User));
+          break;
+        case Instruction::GetElementPtr:
+          inferGetElementPtr(ValueToInfer, cast<GetElementPtrInst>(User));
+          break;
+        case Instruction::ICmp:
+          inferICmpInst(ValueToInfer, cast<ICmpInst>(User));
+          break;
+        case Instruction::Load:
+          inferLoadInst(ValueToInfer, cast<LoadInst>(User));
+          break;
+        case Instruction::Ret:
+          inferRetInst(ValueToInfer, cast<ReturnInst>(User));
+          break;
+        case Instruction::PtrToInt:
+          // Skip PtrToInt since it does not help resolve a pointer type.
+          break;
+        case Instruction::Store:
+          inferStoreInst(ValueToInfer, cast<StoreInst>(User));
+          break;
+        }
+    }
+
+    InferInProgress.erase(ValueToInfer);
+    DEBUG_WITH_TYPE(VERBOSE_TRACE,
+                    dbgs() << "    End infer for: " << *ValueToInfer << "\n");
+
+    return;
+  }
+
+  // Try to determine the type of the GEP pointer operand.
+  void inferGetElementPtr(Value *ValueToInfer, GetElementPtrInst *GEP) {
+    // GEPs that have a simple source type being indexed into are inferred as
+    // being that type.
+    //   %x = getelementptr %struct.arc, p0 %ptr, i64 0, i32
+    // %ptr is being used as a %struct.arc
+    //
+    // GEPs that are indexing with a pointer type, need to perform look-ahead
+    // for the type.
+    //   %x = getelementptr p0, p0 %ptr, i64 5
+    // May be able to infer the type of %ptr by looking at how %x gets used.
+
+    // Should only need to infer for the pointer operand.
+    if (GEP->getPointerOperand() != ValueToInfer)
+      return;
+
+    llvm::Type *SrcTy = GEP->getSourceElementType();
+    if (TM.isSimpleType(SrcTy)) {
+      DTransType *DType = TM.getOrCreateSimpleType(SrcTy);
+      assert(DType && "Expected simple type");
+      addInferredType(ValueToInfer, TM.getOrCreatePointerType(DType));
+      return;
+    }
+
+    if (GEP->getNumIndices() != 1)
+      return;
+
+    inferTypeFromUseImpl(GEP);
+    propagateInferenceSet(GEP, ValueToInfer, DerefType::DT_SameType);
+    return;
+  }
+
+  // Try to determine the type of a Value used in a call.
+  // The Value may be a parameter to the call, in which case we try to resolve
+  // the expected type of the argument. Otherwise, the Value may be the call
+  // itself for an indirect call.
+  void inferCall(Value *ValueToInfer, CallBase *Call) {
+    if (Call->getCalledOperand() == ValueToInfer) {
+      // Try to get the type from metadata attached to the call or the function.
+      // TODO: If metadata is lost, we may try to determine the type from the
+      // parameters.
+      DTransType *DType = nullptr;
+      Function *Target = dtrans::getCalledFunction(*Call);
+      if (Call->isIndirectCall())
+        DType = MDReader.getDTransTypeFromMD(Call);
+      else if (Target)
+        DType = MDReader.getDTransTypeFromMD(Target);
+
+      if (DType)
+        addInferredType(ValueToInfer, TM.getOrCreatePointerType(DType));
+
+      return;
+    }
+
+    unsigned Idx = 0;
+    for (auto &Arg : Call->args()) {
+      if (Arg == ValueToInfer) {
+        auto P = getArgumentType(Call, Idx);
+        if (P.first && P.second) {
+          // Add the type, and continue to the next argument, rather than
+          // exiting the loop, in case the ValueToInfer occurs multiple times.
+          addInferredType(ValueToInfer, P.second);
+        }
+      }
+      ++Idx;
+    }
+  }
+
+  // Try to determine a type for the returned value based on the metadata
+  // description of the function signature.
+  void inferRetInst(Value *ValueToInfer, ReturnInst *Ret) {
+    auto P =
+        getFunctionReturnType(Ret->getFunction(), GetTLI(*Ret->getFunction()));
+    if (P.first && P.second) {
+      addInferredType(ValueToInfer, P.second);
+    }
+  }
+
+  // Try to infer a type of a Value used in a comparison instruction by
+  // inferring that it should be the same type as the other operand.
+  void inferICmpInst(Value *ValueToInfer, ICmpInst *ICmp) {
+    Value *OtherOp = ICmp->getOperand(0);
+    if (OtherOp == ValueToInfer)
+      OtherOp = ICmp->getOperand(1);
+
+    // Disallow "icmp <pred> p0 %x, %x" since it should not occur, and we cannot
+    // get information about one argument by examining the other.
+    if (OtherOp == ValueToInfer)
+      return;
+
+    // Compiler constants do not provide information about the operand to be
+    // inferred, but do not return 'false' because other uses of the operand may
+    // provide the type.
+    if (isCompilerConstant(OtherOp))
+      return;
+
+    ValueTypeInfo *ValInfo = analyzeValue(OtherOp);
+    for (auto *DType : ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      addInferredType(ValueToInfer, DType);
+  }
+
+  // Try to infer the type of the pointer operand in a LoadInst based on either
+  // the loaded type (%s = load i64, p0 %x) or by looking at the uses of the
+  // loaded value (%p = load p0, p0 %y).
+  void inferLoadInst(Value *ValueToInfer, LoadInst *LI) {
+    llvm::Type *LoadType = LI->getType();
+    if (TM.isSimpleType(LoadType)) {
+      DTransType *DType = TM.getOrCreateSimpleType(LoadType);
+      assert(DType && "Expected simple type");
+      addInferredType(LI->getPointerOperand(),
+                      TM.getOrCreatePointerType(DType));
+      return;
+    }
+
+    inferTypeFromUseImpl(LI);
+    propagateInferenceSet(LI, ValueToInfer, DerefType::DT_PointerToType);
+  }
+
+  // Try to infer a type used in a StoreInst. The ValueToInfer may be either the
+  // stored valued, in which case we look at the pointer operand. Or, it may be
+  // the pointer operand, in which case we look at the value stored.
+  void inferStoreInst(Value *ValueToInfer, StoreInst *SI) {
+    // if the stored type is known, and the pointer operand is the one to be
+    // inferred, then the answer is easy. e.g. store i32, p0 %y
+    Value *ValOp = SI->getValueOperand();
+    Value *PtrOp = SI->getPointerOperand();
+    llvm::Type *StoreType = ValOp->getType();
+    if (TM.isSimpleType(StoreType)) {
+      DTransType *DType = TM.getOrCreateSimpleType(StoreType);
+      assert(DType && "Expected simple type");
+      addInferredType(ValOp, DType);
+      addInferredType(PtrOp, TM.getOrCreatePointerType(DType));
+      return;
+    }
+
+    if (PtrOp == ValueToInfer) {
+      // We cannot infer anything from a compiler constant used to
+      // represent the nullptr, so skip this use of the value, and
+      // rely on another use to infer the type.
+      if (isCompilerConstant(ValOp))
+        return;
+
+      // Value being inferred is the pointer operand, analyze the value
+      // operand to determine a type for the pointer operand
+      ValueTypeInfo *ValInfo = analyzeValue(ValOp);
+      for (auto *DType :
+           ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+        addInferredType(ValOp, DType);
+        addInferredType(PtrOp, TM.getOrCreatePointerType(DType));
+      }
+      return;
+    }
+
+    // Value being inferred is the value operand, analyze the pointer
+    // operand to determine the type being stored.
+    ValueTypeInfo *PtrInfo = analyzeValue(PtrOp);
+    for (auto *DType : PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      if (auto *PtrTy = dyn_cast<DTransPointerType>(DType)) {
+        addInferredType(ValOp, PtrTy->getPointerElementType());
+        addInferredType(PtrOp, DType);
+      }
+  }
+
+  // Helper function to copy inferred types associated with one Value to
+  // another, with an optional change in the level of indirection.
+  void propagateInferenceSet(Value *From, Value *To, DerefType DerefLevel) {
+    auto It = ValueToInferredTypes.find(From);
+    if (It == ValueToInferredTypes.end())
+      return;
+
+    for (auto Ty : It->second)
+      if (DerefLevel == DerefType::DT_SameType)
+        addInferredType(To, Ty);
+      else if (DerefLevel == DerefType::DT_PointerToType)
+        addInferredType(To, TM.getOrCreatePointerType(Ty));
+      else if (DerefLevel == DerefType::DT_PointeeType)
+        if (Ty->isPointerTy())
+          addInferredType(To, Ty->getPointerElementType());
+  }
+
+  // Add a type to the inferred set for the Value.
+  void addInferredType(Value *V, DTransType *DType) {
+    if (ValueToInferredTypes[V].insert(DType).second)
+      DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+        dbgs() << "    - Inferred: ";
+        printValue(dbgs(), V);
+        dbgs() << " as " << *DType << "\n";
+      });
+  }
+
+  bool isInferInProgress() const { return !InferInProgress.empty(); }
 
   // Build a stack of values that must be analyzed to compute the type of V.
   void populateDependencyStack(Value *V,
@@ -522,6 +874,11 @@ private:
       switch (I->getOpcode()) {
       default:
         break;
+      case Instruction::BitCast:
+        if (AddDependency(I->getOperand(0), DependentVals))
+          populateDependencyStack(I->getOperand(0), DependentVals);
+        break;
+
       case Instruction::GetElementPtr: {
         auto *GEP = cast<GetElementPtrInst>(I);
         Value *BasePtr = GEP->getPointerOperand();
@@ -665,6 +1022,35 @@ private:
 
     ResultInfo->setUnhandled();
     LLVM_DEBUG(dbgs() << "Unhandled AllocaInst:" << *AI << "\n");
+  }
+
+  void analyzeBitCastOperator(BitCastOperator *BC, ValueTypeInfo *ResultInfo) {
+    // Bitcast can be used to cast between any type that has the same underlying
+    // size. We need to process conversions that are generating a pointer
+    // types, such as:
+    //   bitcast %struct.foo* to %struct.bar*
+    //   bitcast <2 x i32*> to <2 x i64*>
+    if (!dtrans::hasPointerType(BC->getType()))
+      return;
+
+    // When pointers are fully opaque, we do not expect to see these
+    // instructions, but in order to run analysis on the current IR, we need to
+    // treat the BitCast result as just being an alias of the original variable.
+    //
+    // First set the information on the BitCast as being the same as the
+    // information of the source operand.
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BC->getOperand(0));
+    propagate(SrcInfo, ResultInfo, /*Decl=*/false, /*Use=*/true,
+              DerefType::DT_SameType);
+    if (!SrcInfo->isCompletelyAnalyzed())
+      ResultInfo->setPartiallyAnalyzed();
+
+    if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
+      ResultInfo->setDependsOnUnhandled();
+
+    // Next, perform look-ahead at the uses of the BitCast result, to infer the
+    // target type.
+    inferTypeFromUse(BC, ResultInfo);
   }
 
   // For a call that results in a pointer type, we want to update the
@@ -1176,7 +1562,8 @@ private:
     // generating the same type as the pointer operand. However, there is a
     // special case when indexed type is an i8, since it may be a
     // byte-flattened GEP that needs to be analyzed.
-    propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true, 0);
+    propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+              DerefType::DT_SameType);
 
     // TODO: Check if this is a byte-flattened GEP. We need to have bitcasts
     // analyzed before this can be implemented.
@@ -1236,7 +1623,7 @@ private:
     // source operand to the result info.
     Value *Src = ITP->getOperand(0);
     ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
-    propagate(SrcInfo, ResultInfo, true, true, 0);
+    propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
 
     if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
       ResultInfo->setDependsOnUnhandled();
@@ -1283,8 +1670,17 @@ private:
     //
     // Also, need to be able to handle the special case of:
     //   %143 = load i64, p0 undef
+    //
+    // If the load is of the form: %y = load p0, p0 %x, then only propagate a
+    // dereferenced version of %x to %y if it is a pointer type.
+    //
+    // Note: We cannot do the inverse of this to say %y = load i64, p0 %x should
+    // only propagate when the dereferenced type is not a pointer because %x
+    // could be a %struct.test** that is being loaded as an i64.
+    bool ExpectPtrType = LI->getType()->isPointerTy();
     ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(LI, 0);
-    propagate(PointerInfo, ResultInfo, true, true, -1);
+    propagate(PointerInfo, ResultInfo, true, true, DerefType::DT_PointeeType,
+              ExpectPtrType);
 
     // Update the usage type of the pointer argument based on the type
     // of the load instruction if we are loading a known type.
@@ -1308,21 +1704,18 @@ private:
   // When \p Decl is 'true', propagates declared type set.
   // When \p Use is 'true', propagates the usage type set.
   bool propagate(ValueTypeInfo *SrcInfo, ValueTypeInfo *DestInfo, bool Decl,
-                 bool Use, int DerefDelta) {
-    assert(DerefDelta >= -1 && DerefDelta <= 1 &&
-           "Expect at most one level deref difference");
-
+                 bool Use, DerefType DerefLevel, bool RequirePtr = false) {
     // Helper routine that will get/create a DTransType to represent with a
     // potential change to level of indirection by at most one level (up or
     // down).
     auto &TM = this->TM;
-    auto GetOrCreateTypeWithDerefLevel = [&TM](DTransType *Ty,
-                                               int DeltaLevel) -> DTransType * {
-      if (DeltaLevel == 0)
+    auto GetOrCreateTypeWithDerefLevel =
+        [&TM](DTransType *Ty, DerefType DerefLevel) -> DTransType * {
+      if (DerefLevel == DerefType::DT_SameType)
         return Ty;
 
       // Create a pointer to the element
-      if (DeltaLevel > 0)
+      if (DerefLevel == DerefType::DT_PointerToType)
         return TM.getOrCreatePointerType(Ty);
 
       // Return the underlying type of the pointer.
@@ -1337,7 +1730,7 @@ private:
       bool LocalChanged = false;
       for (auto *Alias : SrcInfo->getPointerTypeAliasSet(Kind)) {
         DTransType *PropAlias =
-            GetOrCreateTypeWithDerefLevel(Alias, DerefDelta);
+            GetOrCreateTypeWithDerefLevel(Alias, DerefLevel);
 
         // If all the types could be completely resolved, and there were no
         // bitcasts that changed the level of indirection, we should always be
@@ -1348,7 +1741,7 @@ private:
         // unhandled situation because it's possible that we do not have the
         // type because there was not an actual use in the IR where the value
         // gets used as the unexpected level of indirection.
-        if (PropAlias)
+        if (PropAlias && (!RequirePtr || PropAlias->isPointerTy()))
           LocalChanged |= DestInfo->addTypeAlias(Kind, PropAlias);
         else
           LLVM_DEBUG(dbgs() << "Warning: Could not create element of requested "
@@ -1362,7 +1755,7 @@ private:
       //   %z = load p0, p0 %x
       // %x contains a pointer alias type and an element pointee of a structure,
       // but %z is just being updated to be the pointee type from %x.
-      if (DerefDelta == 0)
+      if (DerefLevel == DerefType::DT_SameType)
         for (auto PointeePair : SrcInfo->getElementPointeeSet(Kind))
           if (PointeePair.second.getKind() ==
               ValueTypeInfo::PointeeLoc::PLK_Field)
@@ -1407,7 +1800,7 @@ private:
 
     // Treat the resulting object to be the same type as the source pointer
     ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
-    propagate(SrcInfo, ResultInfo, true, true, 0);
+    propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
 
     if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
       ResultInfo->setDependsOnUnhandled();
@@ -1434,7 +1827,7 @@ private:
         continue;
 
       ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(ValIn);
-      propagate(SrcInfo, ResultInfo, true, true, 0);
+      propagate(SrcInfo, ResultInfo, true, true, DerefType::DT_SameType);
 
       if (SrcInfo->getUnhandled() || SrcInfo->getDependsOnUnhandled())
         ResultInfo->setDependsOnUnhandled();
@@ -1485,6 +1878,9 @@ private:
     if (auto *GEPOp = dyn_cast<GEPOperator>(CE)) {
       analyzeGetElementPtrOperator(GEPOp, Info);
       Info->setCompletelyAnalyzed();
+    } else if (auto *BCOp = dyn_cast<BitCastOperator>(CE)) {
+      analyzeBitCastOperator(BCOp, Info);
+      Info->setCompletelyAnalyzed();
     } else {
       Info->setUnhandled();
       LLVM_DEBUG(dbgs() << "Unhandled constant expression: " << *CE << "\n");
@@ -1524,6 +1920,12 @@ private:
 
   // Representation of %struct._IO_FILE*
   dtrans::DTransPointerType *DTransIOPtrTy;
+
+  // Keep a mapping of a set of types that are inferred for a Value that is
+  // constructed when a type needs to be inferred by doing a look-ahead walk of
+  // the users of the value.
+  std::map<Value *, SmallPtrSet<DTransType *, 4>> ValueToInferredTypes;
+  SmallPtrSet<Value *, 8> InferInProgress;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1542,9 +1944,10 @@ bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind,
   bool Changed = PointerTypeAliases[Kind].insert(Ty).second;
   if (Changed) {
     DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      dbgs() << "    Added alias " << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
+             << ": ";
       printValue(dbgs(), V);
-      dbgs() << " - Added alias " << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
-             << ": " << *Ty << "\n";
+      dbgs() << " -- " << *Ty << "\n";
     });
 
     // Check to see if this is a pointer (at any level of indirection) to
@@ -1589,9 +1992,10 @@ bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
   bool Changed = ElementPointees[Kind].insert({BaseTy, Loc}).second;
   if (Changed) {
     DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      dbgs() << "    Added element:" << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
+             << ": ";
       printValue(dbgs(), V);
-      dbgs() << " - Added element:" << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
-             << ": " << *BaseTy << " @ ";
+      dbgs() << " -- " << *BaseTy << " @ ";
       if (Loc.getKind() == PointeeLoc::PLK_Field)
         dbgs() << Loc.getElementNum() << "\n";
       else
@@ -1638,6 +2042,24 @@ const char *ValueTypeInfo::LPIStateToString(LPIState S) {
   }
 
   llvm_unreachable("Exit from fully covered switch table");
+}
+
+void ValueTypeInfo::setUnhandled() {
+  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    dbgs() << " - Marked as unhandled: ";
+    printValue(dbgs(), V);
+    dbgs() << "\n";
+  });
+  Unhandled = true;
+}
+
+void ValueTypeInfo::setDependsOnUnhandled() {
+  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    dbgs() << " - Marked as depends on unhandled: ";
+    printValue(dbgs(), V);
+    dbgs() << "\n";
+  });
+  DependsOnUnhandled = true;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -45,14 +45,12 @@ declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 ; In this case, the memset call does not return pointer information, but the
 ; call should trigger the result of the bitcast instruction to be seen as
 ; an i8*.
-; TODO: When bitcasts are analyzed, this should also cause the bitcast result
-; to be treated as [2 x %struct.test02]*.
-;
+
 ; CHECK-LABEL: void @test02()
 ; CHECK-CUR:  %mem = bitcast [2 x %struct.test02]* %struct to i8*
 ; CHECK-FUT:  %mem = bitcast p0 %struct to p0
 ; CHECK:      Aliased types:
-; TODO-CHECK-NEXT:   [2 x %struct.test02]*
+; CHECK-NEXT:   [2 x %struct.test02]*
 ; CHECK-NEXT:   i8*
 ; CHECK-NEXT: No element pointees.
 

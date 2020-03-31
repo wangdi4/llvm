@@ -20,3 +20,11 @@
 // RUN:  | FileCheck -check-prefix=SUPPORT-CHECK-CL %s
 // SUPPORT-CHECK-CL: unsupported option '-openmp'
 // SUPPORT-CHECK-CL: unsupported option '-Qopenmp-targets=x86_64'
+
+// RUN: %clangxx -### --dpcpp -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycl-device %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=SUPPORT-CUDA-CHECK %s
+// SUPPORT-CUDA-CHECK: SYCL target is invalid: 'nvptx64-nvidia-cuda-sycl-device'
+
+// RUN: %clang_cl -### --dpcpp -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycl-device %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=SUPPORT-CUDA-CHECK-CL %s
+// SUPPORT-CUDA-CHECK-CL: SYCL target is invalid: 'nvptx64-nvidia-cuda-sycl-device'

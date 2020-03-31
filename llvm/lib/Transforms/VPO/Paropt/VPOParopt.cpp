@@ -35,6 +35,7 @@
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif  // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 
 #define DEBUG_TYPE "VPOParopt"
 
@@ -62,19 +63,16 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 
 char VPOParopt::ID = 0;
 
-ModulePass *llvm::createVPOParoptPass(unsigned Mode, unsigned OptLevel) {
+ModulePass *llvm::createVPOParoptPass(unsigned Mode) {
   return new VPOParopt(
-      (ParTrans | OmpPar | OmpVec | OmpTpv | OmpOffload | OmpTbb) & Mode,
-      OptLevel);
+      (ParTrans | OmpPar | OmpVec | OmpTpv | OmpOffload | OmpTbb) & Mode);
 }
 
-VPOParopt::VPOParopt(unsigned MyMode, unsigned OptLevel)
-    : ModulePass(ID), Impl(MyMode, OptLevel) {
+VPOParopt::VPOParopt(unsigned MyMode) : ModulePass(ID), Impl(MyMode) {
   initializeVPOParoptPass(*PassRegistry::getPassRegistry());
 }
 
-VPOParoptPass::VPOParoptPass(unsigned MyMode, unsigned OptLevel)
-    : Mode(MyMode), OptLevel(OptLevel) {
+VPOParoptPass::VPOParoptPass(unsigned MyMode) : Mode(MyMode) {
   LLVM_DEBUG(dbgs() << "\n\n====== Start VPO Paropt Pass ======\n\n");
 }
 
@@ -85,6 +83,7 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<OptReportOptionsPass>();
 #endif  // INTEL_CUSTOMIZATION
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addRequired<XmainOptLevelWrapperPass>();
 }
 
 bool VPOParopt::runOnModule(Module &M) {
@@ -99,11 +98,13 @@ bool VPOParopt::runOnModule(Module &M) {
     return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
 
+  auto OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
+
 #if INTEL_CUSTOMIZATION
   ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
 #endif  // INTEL_CUSTOMIZATION
 
-  return Impl.runImpl(M, WRegionInfoGetter, TLIGetter);
+  return Impl.runImpl(M, WRegionInfoGetter, TLIGetter, OptLevel);
 }
 
 PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
@@ -119,11 +120,13 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
+  auto OptLevel = AM.getResult<XmainOptLevelAnalysis>(M).getOptLevel();
+
 #if INTEL_CUSTOMIZATION
   ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(M).getVerbosity();
 #endif  // INTEL_CUSTOMIZATION
 
-  if (!runImpl(M, WRegionInfoGetter, TLIGetter))
+  if (!runImpl(M, WRegionInfoGetter, TLIGetter, OptLevel))
     return PreservedAnalyses::all();
 
   return PreservedAnalyses::none();
@@ -135,7 +138,8 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
 bool VPOParoptPass::runImpl(
     Module &M,
     std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
-    std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
+    std::function<TargetLibraryInfo &(Function &F)> TLIGetter,
+    unsigned OptLevel) {
 
   LLVM_DEBUG(dbgs() << "\n====== VPO ParoptPass ======\n\n");
 

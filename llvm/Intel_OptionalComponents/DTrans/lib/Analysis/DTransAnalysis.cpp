@@ -6987,15 +6987,27 @@ public:
       }
 
       void emitLPA(Value *V, formatted_raw_ostream &OS) {
+        std::function<void(formatted_raw_ostream &, ConstantExpr *)>
+            PrintConstantExpr =
+                [&PrintConstantExpr, this](formatted_raw_ostream &OS,
+                                           ConstantExpr *CE) -> void {
+          OS << "\n;        CE: " << *CE << "\n";
+          auto &LPI = LPA.getLocalPointerInfo(CE);
+          LPI.print(OS, 10, ";");
+
+          // There may be constant expressions nested within this CE that should
+          // be reported.
+          for (auto *Op : CE->operand_values())
+            if (auto *InnerCE = dyn_cast<ConstantExpr>(Op))
+              PrintConstantExpr(OS, InnerCE);
+        };
+
         // Check for any constant expressions being used for the instruction,
         // and report types for those, if available.
         if (auto *I = dyn_cast<Instruction>(V))
           for (auto *Op : I->operand_values())
-            if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
-              OS << "\n;        CE: " << *CE << "\n";
-              auto &LPI = LPA.getLocalPointerInfo(CE);
-              LPI.print(OS, 10, ";");
-            }
+            if (auto *CE = dyn_cast<ConstantExpr>(Op))
+              PrintConstantExpr(OS, CE);
 
         if (!LPA.isPossiblePtrValue(V))
           return;

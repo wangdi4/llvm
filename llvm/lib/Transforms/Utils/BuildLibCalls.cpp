@@ -1177,6 +1177,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
     return Changed;
+  case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev:
+    return Changed;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev:
     return Changed;
   case LibFunc_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:

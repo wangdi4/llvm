@@ -1774,7 +1774,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
     // and keeps the basic blocks with directive calls
     // consistent.
 #endif  // INTEL_CUSTOMIZATION
-    PM.add(createVPOParoptPass(RunVPOParopt, OptLevel));
+    PM.add(createVPOParoptPass(RunVPOParopt));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     if (RunCSAGraphSplitter)

@@ -50,9 +50,7 @@ define internal void @test02(%struct.test02** %arg02) !dtrans_type !5 {
 
 ; Test where input argument is declared as void*, and inference will need
 ; to be done to collect the argument type.
-; TODO: This test is a placeholder for now, because it requires analysis
-; of bitcast and inferring types from uses to be implemented to get the
-; complete results.
+
 %struct.test03 = type { i32, i32 }
 define internal void @test03(i8* %arg03) !dtrans_type !11 {
   %local = alloca i64
@@ -67,9 +65,10 @@ define internal void @helper_test03(%struct.test03* %in) !dtrans_type !8 {
 }
 ; CHECK-LABEL:  Input Parameters: test03
 ; CHECK-CUR:    Arg 0: i8* %arg03
+; CHECK-FUT:    Arg 0: p0 %arg03
 ; CHECK:    LocalPointerInfo:
 ; CHECK:      Aliased types:
-; TODO:         %struct.test03*
+; CHECK-NEXT:   %struct.test03*
 ; CHECK-NEXT:   i8*
 ; CHECK-NEXT: No element pointees.
 

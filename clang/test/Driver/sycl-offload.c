@@ -27,6 +27,13 @@
 // RUN:   %clang_cl -### -fsycl -fsycl-targets=x86_64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-INVALID-REAL-TARGET %s
 // CHK-INVALID-REAL-TARGET: error: SYCL target is invalid: 'x86_64'
+// INTEL_CUSTOMIZATION
+// RUN:   %clang -### -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-INVALID-NVPTX-TARGET %s
+// RUN:   %clang_cl -### -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-INVALID-NVPTX-TARGET %s
+// CHK-INVALID-NVPTX-TARGET: error: SYCL target is invalid: 'nvptx64-nvidia-cuda-sycldevice'
+// end INTEL_CUSTOMIZATION
 
 /// ###########################################################################
 

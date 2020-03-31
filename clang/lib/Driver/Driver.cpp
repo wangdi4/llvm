@@ -648,9 +648,12 @@ Driver::OpenMPRuntimeKind Driver::getOpenMPRuntime(const ArgList &Args) const {
 }
 
 static bool isValidSYCLTriple(llvm::Triple T) {
+  // Intel DPC++ product should not support NVIDIA devices.
+#if !INTEL_CUSTOMIZATION
   // NVPTX is valid for SYCL.
   if (T.isNVPTX())
     return true;
+#endif // !INTEL_CUSTOMIZATION
   // Check for invalid SYCL device triple values.
   // Non-SPIR arch.
   if (!T.isSPIR())
