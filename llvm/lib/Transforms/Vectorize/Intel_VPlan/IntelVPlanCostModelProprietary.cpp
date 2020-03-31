@@ -23,7 +23,9 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/PatternMatch.h"
 #include <numeric>
+#include <stack>
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
@@ -41,6 +43,7 @@ static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
              "register spilled and restored."));
 
 using namespace llvm::loopopt;
+using namespace llvm::PatternMatch;
 
 namespace llvm {
 
@@ -234,6 +237,268 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
   default:
     return VPlanCostModel::getCost(VPInst);
   }
+}
+
+// The utility below searches for patterns that form PSADBW instruction
+// semantics.  The current implementation searches for the following pattern:
+//
+// %Add1    = ZExt(A) + ZExt(B) * (-1)
+// %Add2    = ZExt(A) * (-1) + ZExt(B)
+// %Cmp     = ICmp slt/sle %Add1, 0
+// %Add3    = ZExt(A) + ZExt(B) * (-1)
+// %SelInst = %Cmp ? %Add2 : %Add3
+//
+// Returns true if pattern is detected.
+// Any outside users of instructions forming the pattern are ignored.
+// The utility captures participating intructions into PatternInsts.
+bool VPlanCostModelProprietary::checkPsadwbPattern(
+   const VPInstruction *SelInst,
+   SmallPtrSetImpl<const VPInstruction*> &PatternInsts) {
+  const VPInstruction *Cmp, *Add1, *Add2, *Add3;
+  const VPInstruction *ZExt1A, *ZExt2A, *ZExt3A;
+  const VPInstruction *ZExt1B, *ZExt2B, *ZExt3B;
+  const VPInstruction *Mul1, *Mul2, *Mul3;
+  ICmpInst::Predicate P;
+  const VPValue *A, *B;
+
+  auto MAdd1 =
+    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Bind(A)), ZExt1A),
+                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Bind(B)), ZExt1B),
+                                  m_ConstantInt<-1, VPConstantInt>()),
+                          Mul1)), Add1);
+  auto MAdd2 =
+    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Deferred(B)), ZExt2B),
+                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Deferred(A)), ZExt2A),
+                                  m_ConstantInt<-1, VPConstantInt>()),
+                          Mul2)), Add2);
+  auto MAdd3 =
+    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Deferred(A)), ZExt3A),
+                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Deferred(B)), ZExt3B),
+                                  m_ConstantInt<-1, VPConstantInt>()),
+                          Mul3)), Add3);
+  auto MSelInst =
+    m_Select(
+      m_Bind(m_c_ICmp(P, MAdd1, m_ConstantInt<0, VPConstantInt>()), Cmp),
+      MAdd2, MAdd3);
+
+  if (!match(SelInst, MSelInst))
+    return false;
+
+  if (P != CmpInst::ICMP_SLT && P != CmpInst::ICMP_SLE)
+    return false;
+
+  if (A->getType()->getScalarSizeInBits() != 8 ||
+      B->getType()->getScalarSizeInBits() != 8)
+    return false;
+
+  // Store participating instructions into PatternInsts.
+  PatternInsts.insert(SelInst);
+  PatternInsts.insert(Cmp);
+  PatternInsts.insert(Add1);
+  PatternInsts.insert(Add2);
+  PatternInsts.insert(Add3);
+
+  PatternInsts.insert(Mul1);
+  PatternInsts.insert(Mul2);
+  PatternInsts.insert(Mul3);
+
+  PatternInsts.insert(ZExt1A);
+  PatternInsts.insert(ZExt2A);
+  PatternInsts.insert(ZExt3A);
+  PatternInsts.insert(ZExt1B);
+  PatternInsts.insert(ZExt2B);
+  PatternInsts.insert(ZExt3B);
+  return true;
+}
+
+// Does all neccesary target checks and return correction to VPlan Cost for
+// possible PSADWB patterns.
+unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
+
+  // Don't apply bonus on VF != 1 plan as we exactly want to keep scalar
+  // VPlan in case psadbw pattern is found.
+  if (VF != 1)
+    return 0;
+
+  unsigned Cost = 0;
+
+  // PSADBW cost in terms of number of intructions.
+  const unsigned PsadbwCost = 1;
+  NumberOfBoolComputations = 0;
+
+  const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
+  for (const VPLoop *VPL : post_order(TopLoop)) {
+    // Check innermost loops only.
+    if (!VPL->empty())
+      continue;
+
+    VPBasicBlock *Block = VPL->getHeader();
+    VPBasicBlock *PH = VPL->getLoopPreheader();
+    VPBasicBlock *Latch = VPL->getLoopLatch();
+
+    // Loop through PHI nodes.
+    for (const VPPHINode &PhiNode : Block->getVPPhis()) {
+      assert(PhiNode.getNumIncomingValues() == 2 &&
+             "A loop header is expected to have two predecessors.");
+
+      const auto *RedInitInst =
+        dyn_cast<VPReductionInit>(PhiNode.getIncomingValue(PH));
+      if (!RedInitInst)
+        continue;
+
+      const auto *SumCarryOut =
+        dyn_cast<VPInstruction>(PhiNode.getIncomingValue(Latch));
+      if (!SumCarryOut || SumCarryOut->getOpcode() != Instruction::Add)
+        continue;
+
+      // Check that there is VPReductionFinal among users of SumCarryOut.
+      const VPReductionFinal *ReductionFinalInst = nullptr;
+      auto It = llvm::find_if(SumCarryOut->users(),
+                              [](const auto* SumVPUser) {
+                                return (isa<VPReductionFinal>(SumVPUser));
+                              });
+      if (It == SumCarryOut->users().end())
+        continue;
+
+      ReductionFinalInst = cast<VPReductionFinal>(*It);
+
+      // Now go up through ADD's operands starting from SumCarryOut and
+      // find the patterns.  We model unrolled at source level or by HIR
+      // pattern such as:
+      //
+      // acc += abs(a - b);
+      // acc += abs(c - d);
+      //
+      // We value those ADDs which have either another ADD in operands, or
+      // select inst, or PhiNode.  Other ADDs or other Insts are not a part of
+      // the pattern.
+
+      // Keeps all instructions that are part of PSADBW pattern.
+      SmallPtrSet<const VPInstruction*, 32> CurrPsadbwPatternInsts;
+      std::stack<const VPInstruction *> AddsStack;
+
+      AddsStack.push(SumCarryOut);
+
+      while (!AddsStack.empty()) {
+        const VPInstruction *AddInst = AddsStack.top();
+        AddsStack.pop();
+
+        const VPInstruction *LHS, *RHS;
+        // In case of accumulator is 64 bits there are ZExt's in operands of
+        // the ADD possible.  Go over them.
+        if (!match(AddInst, m_Add(m_ZExtOrSelf(m_Bind(LHS)),
+                                  m_ZExtOrSelf(m_Bind(RHS)))))
+          continue;
+
+        if (LHS->getOpcode() == Instruction::Add)
+          AddsStack.push(LHS);
+        if (RHS->getOpcode() == Instruction::Add)
+          AddsStack.push(RHS);
+
+        // Add PhiNode, RedInitInst, ReductionFinalInst and AddInst into
+        // the list of pattern forming instruction whenever pattern is found
+        // along LHS operand or RHS operand of the add.
+        //
+        // Make sure to run checkPsadwbPattern for LHS and RHS as there could
+        // be patterns on the both ways and we want checkPsadwbPattern() to
+        // populate CurrPsadbwPatternInsts with corresponding instructions.
+        bool PatternFound = checkPsadwbPattern(LHS, CurrPsadbwPatternInsts);
+        if (checkPsadwbPattern(RHS, CurrPsadbwPatternInsts) || PatternFound) {
+          CurrPsadbwPatternInsts.insert(&PhiNode);
+          CurrPsadbwPatternInsts.insert(RedInitInst);
+          CurrPsadbwPatternInsts.insert(AddInst);
+          CurrPsadbwPatternInsts.insert(ReductionFinalInst);
+        }
+      }
+
+      // There are some ADD instructions in VPlan which sum parts of PSADBW
+      // pattern but they are left overboard (not in CurrPsadbwPatternInsts).
+      // That may happen because of some ADD may have other ADD as their
+      // operands but no Select to make 'PatternFound' trigger for them in the
+      // loop above.
+      //
+      // Consider the following example.
+      //
+      // acc += abs(a[i + 0] - b[i + 0]
+      // acc += abs(a[i + 1] - b[i + 1]
+      // acc += abs(a[i + 2] - b[i + 2]
+      // acc += abs(a[i + 3] - b[i + 3]
+      //
+      // Such case may end up with four pattern forming select instructions
+      // that are summed:
+      // %Sel1 = select ...
+      // %Sel2 = select ...
+      // %Sel3 = select ...
+      // %Sel4 = select ...
+      // %Add1 = add i32 %Sel1, %Sel2
+      // %Add2 = add i32 %Sel3, %Sel4
+      // %Add3 = add i32 %Add1, %Add2
+      //
+      // While %Add3's operands are processed in the main loop and added to
+      // CurrPsadbwPatternInsts Add3 instruction itself is not added.
+      //
+      // Also there are possible ZExts that are not gathered in
+      // CurrPsadbwPatternInsts in case ACC is I64.
+      //
+      // Make additial post pass throughout the current block to pick them up.
+      for (const VPInstruction &VPInst : *Block) {
+        const VPInstruction *LHS, *RHS;
+        if (match(&VPInst, m_ZExt(m_Bind(LHS))) &&
+            CurrPsadbwPatternInsts.count(LHS) > 0)
+          CurrPsadbwPatternInsts.insert(&VPInst);
+        else if (match(&VPInst, m_Add(m_Bind(LHS),
+                                      m_Bind(RHS))) &&
+                 CurrPsadbwPatternInsts.count(LHS) > 0 &&
+                 CurrPsadbwPatternInsts.count(RHS) > 0)
+          CurrPsadbwPatternInsts.insert(&VPInst);
+      }
+
+      // Sum up costs of all instructions in CurrPsadbwPatternInsts.
+      // If there an instruction in the pattern has more than one use the whole
+      // pattern cost is halved.  This way we model external to pattern uses
+      // that keeps part of pattern instruction alive even if the whole pattern
+      // is going to be replace with psadbw.  On average half of the whole
+      // pattern is kept by one external use.  The more external uses the pattern
+      // has the less the gain cost of idiom recognition.
+      //
+      // Note that SumCarryOut has two uses that are both within the pattern
+      // (i.e. not external).
+      if (!CurrPsadbwPatternInsts.empty()) {
+        unsigned CurrentPatternCost = 0;
+        unsigned NumberOfExternalUses = 0;
+
+        for (const VPInstruction *VPInst : CurrPsadbwPatternInsts) {
+          unsigned InstCost = getCost(VPInst);
+          if (InstCost != UnknownCost)
+            CurrentPatternCost += InstCost;
+
+          if ((VPInst == SumCarryOut && VPInst->getNumUsers() > 2) ||
+              (VPInst != SumCarryOut && VPInst->getNumUsers() > 1))
+            NumberOfExternalUses++;
+        }
+
+        // The following additional cost models performance impact due to code
+        // size bloating if PSADBW opportunity is ignored.
+        CurrentPatternCost *= 2;
+
+        // Factor in NumberOfExternalUses:
+        // Cost = Cost / (2 ^ NumberOfExternalUses)
+        CurrentPatternCost /= (1 << NumberOfExternalUses);
+
+        if (CurrentPatternCost > PsadbwCost) {
+          Cost += CurrentPatternCost - PsadbwCost;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+          // When the pattern accepted update PsadbwPatternInsts.
+          // Currently PsadbwPatternInsts is used for debug output only.
+          PsadbwPatternInsts.insert(CurrPsadbwPatternInsts.begin(),
+                                    CurrPsadbwPatternInsts.end());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+        }
+      }
+    }
+  }
+
+  return Cost;
 }
 
 // Right now it calls for VPlanCostModel::getCost(VPBB), but later we may want
@@ -467,6 +732,14 @@ unsigned VPlanCostModelProprietary::getCost() {
   if (CheckForSLPExtraCost())
     Cost *= VF;
 
+  // getPsadwbPatternCost() can return more than we have in Cost, so check for
+  // underflow.
+  unsigned PsadwbPatternCost = getPsadwbPatternCost();
+  if (Cost > PsadwbPatternCost)
+    Cost -= PsadwbPatternCost;
+  else
+    Cost = 0;
+
   return Cost;
 }
 
@@ -576,6 +849,9 @@ void VPlanCostModelProprietary::printForVPInstruction(
     if (ProcessedOVLSGroups.count(Group) != 0)
       Attributes += "OVLS ";
 
+  if (PsadbwPatternInsts.count(VPInst) > 0)
+    Attributes += "PSADBW ";
+
   if (!Attributes.empty())
     OS << " ( " << Attributes << ")";
   OS << '\n';
@@ -611,6 +887,11 @@ void VPlanCostModelProprietary::print(
 
   if (SpillFillCost)
     OS << ", spill/fill cost: +" << SpillFillCost;
+
+  unsigned PsadbwCostAdj = getPsadwbPatternCost();
+  if (PsadbwCostAdj > 0)
+    OS << ", PSADBW pattern adjustment: -"  << PsadbwCostAdj;
+
   OS << '\n';
 
   if (CheckForSLPExtraCost())
