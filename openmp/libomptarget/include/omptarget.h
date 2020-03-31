@@ -362,6 +362,10 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj);
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value);
 
+// Update the interop object's property with given property_value.
+EXTERN int __tgt_set_interop_property(
+    void *interop_obj, int32_t property_id, void *property_value);
+
 // Set code location information
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
 
