@@ -210,7 +210,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
   BasicBlock *Header = Lp->getHeader();
-  VPlanScalarEvolutionLLVM VPSE(SE);
+  VPlanScalarEvolutionLLVM VPSE(SE, Lp);
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, &VPSE, TTI);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, &SE, TLI, TTI, DL, DT, &LVL,
                                &VLSA);

@@ -21,31 +21,12 @@
 
 using namespace llvm::vpo;
 
-/// Implementation of OVLSMemref::getConstStride. The additional parameter
-/// \p MainLoop specifies the loop being vectorized, so that we compute stride
-/// with respect to this loop.
+/// Implementation of OVLSMemref::getConstStride.
 static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
-                                            const Loop *MainLoop) {
-  if (!isa<SCEVAddRecExpr>(Expr))
-    return None;
-
-  auto *AddRec = cast<SCEVAddRecExpr>(Expr);
-
-  // FIXME: So far, computing stride for nested loop IVs is not supported. This
-  // should be fixed in future patches.
-  if (AddRec->getLoop() != MainLoop)
-    return None;
-
-  if (!AddRec->isAffine())
-    return None;
-
-  assert(AddRec->getNumOperands() == 2 &&
-         "Affine SCEV is expected to have only two operands");
-
-  if (auto *ConstStep = dyn_cast<SCEVConstant>(AddRec->getOperand(1)))
-    return ConstStep->getAPInt().getSExtValue();
-
-  return None;
+                                            VPlanScalarEvolutionLLVM &VPSE) {
+  VPlanSCEV *VPExpr = VPSE.toVPlanSCEV(Expr);
+  Optional<VPConstStepLinear> Linear = VPSE.asConstStepLinear(VPExpr);
+  return Linear.map([](auto &L) { return L.Step; });
 }
 
 static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
@@ -119,8 +100,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   if (isa<SCEVCouldNotCompute>(FromSCEV))
     return false;
 
-  const Loop *MainLoop = VLSA->getMainLoop();
-  Optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, MainLoop);
+  Optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, VPSE);
   if (!FromStride)
     return false;
 
@@ -203,7 +183,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
-  return getConstStrideImpl(ScevExpr, VLSA->getMainLoop());
+  return getConstStrideImpl(ScevExpr, VLSA->getVPSE());
 }
 
 bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {

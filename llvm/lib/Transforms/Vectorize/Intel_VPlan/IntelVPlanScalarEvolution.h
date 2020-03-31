@@ -14,6 +14,8 @@
 
 #include <llvm/Analysis/ScalarEvolution.h>
 
+#include <llvm/ADT/Optional.h>
+
 namespace llvm {
 namespace vpo {
 
@@ -21,6 +23,18 @@ class VPValue;
 
 /// Opaque SCEV-like expression.
 class VPlanSCEV;
+
+/// Linear variable represented as a uniform base and a constant step.
+struct VPConstStepLinear {
+  VPlanSCEV *UniformBase;
+  int64_t Step;
+};
+
+/// Induction variable represented as an invariant base and a constant step.
+struct VPConstStepInduction {
+  VPlanSCEV *InvariantBase;
+  int64_t Step;
+};
 
 /// SCEV-like analysis with a common interface for LLVM IR and HIR-based
 /// VPlans.
@@ -33,14 +47,30 @@ public:
 
   /// Compute VPlanSCEV expression for value \p V.
   virtual VPlanSCEV *getVPlanSCEV(const VPValue &V) = 0;
+
+  /// Check if \p Expr is a linear value. If we can prove that it is, return its
+  /// components in the corresponding data structure.
+  virtual Optional<VPConstStepLinear>
+  asConstStepLinear(VPlanSCEV *Expr) const = 0;
+
+  /// Check if \p Expr is an induction variable. If we can prove that it is,
+  /// return its components in the corresponding data structure.
+  virtual Optional<VPConstStepInduction>
+  asConstStepInduction(VPlanSCEV *Expr) const = 0;
 };
 
 /// Implementation of VPlanScalarEvolution for LLVM IR.
 class VPlanScalarEvolutionLLVM : public VPlanScalarEvolution {
 public:
-  VPlanScalarEvolutionLLVM(ScalarEvolution &SE) : SE(&SE) {}
+  VPlanScalarEvolutionLLVM(ScalarEvolution &SE, const Loop *MainLoop)
+      : SE(&SE), MainLoop(MainLoop) {}
 
   VPlanSCEV *getVPlanSCEV(const VPValue &V) override;
+
+  Optional<VPConstStepLinear> asConstStepLinear(VPlanSCEV *Expr) const override;
+
+  Optional<VPConstStepInduction>
+  asConstStepInduction(VPlanSCEV *Expr) const override;
 
   ScalarEvolution &getSE() { return *SE; }
 
@@ -54,6 +84,7 @@ public:
 
 private:
   ScalarEvolution *SE;
+  const Loop *MainLoop;
 };
 
 } // namespace vpo
