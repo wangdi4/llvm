@@ -7,6 +7,10 @@ endif()
 set(clang $<TARGET_FILE:clang>)
 
 set(compile_opts
+# INTEL_COLLAB
+  -DINTEL_COLLAB
+  -DINTEL_CUSTOMIZATION
+# end INTEL_COLLAB
   # suppress an error about SYCL_EXTERNAL being used for
   # a function with a raw pointer parameter.
   -Wno-sycl-strict

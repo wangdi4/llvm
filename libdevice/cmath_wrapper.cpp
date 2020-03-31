@@ -9,6 +9,12 @@
 #include "device.h"
 #include "device_math.h"
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
+
 DEVICE_EXTERN_C
 float scalbnf(float x, int n) { return __devicelib_scalbnf(x, n); }
 
@@ -128,3 +134,9 @@ float asinhf(float x) { return __devicelib_asinhf(x); }
 
 DEVICE_EXTERN_C
 float atanhf(float x) { return __devicelib_atanhf(x); }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB

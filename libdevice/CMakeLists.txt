@@ -8,3 +8,7 @@ set(CMAKE_MODULE_PATH
 
 # Build libdevice for SYCL.
 include(SYCLLibdevice)
+# INTEL_COLLAB
+# Build libdevice for OpenMP
+include(OMPLibdevice)
+# end INTEL_COLLAB

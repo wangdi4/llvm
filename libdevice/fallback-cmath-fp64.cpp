@@ -8,6 +8,12 @@
 
 #include "device_math.h"
 
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
+
 DEVICE_EXTERN_C
 double __devicelib_log(double x) { return __spirv_ocl_log(x); }
 
@@ -138,3 +144,9 @@ double __devicelib_asinh(double x) { return __spirv_ocl_asinh(x); }
 
 DEVICE_EXTERN_C
 double __devicelib_atanh(double x) { return __spirv_ocl_atanh(x); }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
