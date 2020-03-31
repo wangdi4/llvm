@@ -1073,32 +1073,52 @@ bool OclBuiltinDB::hasAlias(const OclBuiltin* builtin) const {
   return m_AliasMap.find(builtin) != m_AliasMap.end();
 }
 
-ArrayRef<std::string> OclBuiltinDB::getAlias(const OclBuiltin* builtin) {
-  return m_AliasMap[builtin];
+ArrayRef<std::string> OclBuiltinDB::getAliasNames(const OclBuiltin* builtin) {
+  return m_AliasMap[builtin].first;
+}
+
+const std::set<const OclType*>&
+OclBuiltinDB::getAliasTypes(const OclBuiltin* builtin) {
+  return m_AliasMap[builtin].second;
 }
 
 void OclBuiltinDB::processAliasMap(){
   const std::vector<Record*> &aliasMaps =
     m_Records.getAllDerivedDefinitions("AliasMap");
   for (const Record *pMap : aliasMaps) {
-    ListInit *aliasList = pMap->getValueAsListInit("aliasList");
+    std::set<const OclType*> aliasTypes;
+    const std::vector<Record*> &aliasTypesVec = pMap->getValueAsListOfDefs("Types");
+    for (Record *item : aliasTypesVec)
+      aliasTypes.insert(m_TypeMap[std::string(item->getName())]);
+
+    ListInit *aliasList = pMap->getValueAsListInit("AliasList");
     for (Init* const item : *aliasList) {
+      std::vector<std::string> aliasNames;
       ListInit* aliasItem = cast<ListInit>(item);
       const size_t aliasSize = aliasItem->size();
-      assert(aliasSize >= 2 && "alias item must have as least one alias name");
+      assert(aliasSize >= 2 && "Alias item must have as least one alias name");
       const std::string &builtinDefName =
-        cast<StringInit>(aliasItem->getElement(0))->getValue().str();
+        cast<StringInit>(aliasItem->getElement(0))->getAsUnquotedString();
       assert(m_ProtoMap.find(builtinDefName) != m_ProtoMap.end() &&
-             "undefined OclBuiltin record");
+             "Undefined OclBuiltin record");
       const OclBuiltin *pBuiltin = m_ProtoMap[builtinDefName];
       assert(m_AliasMap.find(pBuiltin) == m_AliasMap.end() &&
-             "builtin has more than one alias item");
-      std::vector<std::string> aliasNames;
+             "Builtin has more than one alias item");
       for (size_t i = 1; i < aliasSize; ++i) {
         aliasNames.push_back(
-          cast<StringInit>(aliasItem->getElement(i))->getValue().str());
+          cast<StringInit>(aliasItem->getElement(i))->getAsUnquotedString());
       }
-      m_AliasMap[pBuiltin] = std::move(aliasNames);
+      std::set<const OclType*> types = aliasTypes;
+      // If we don't specify any type for the alias func, we generate
+      // protos and impls for all types by default.
+      if (types.empty()) {
+        for (OclBuiltin::const_type_iterator tyIt = pBuiltin->type_begin(),
+           tyEnd =  pBuiltin->type_end(); tyIt != tyEnd; tyIt++)
+          types.insert(*tyIt);
+      }
+
+      m_AliasMap.insert(std::make_pair(pBuiltin,
+                        std::make_pair(aliasNames, types)));
     }
   }
 }
@@ -1589,17 +1609,19 @@ OclBuiltinEmitter::run(raw_ostream& OS)
     if (!GenOCLBuiltinPrototype && !P->needForwardDecl())
       continue;
 
+    bool hasAlias = m_DB.hasAlias(P);
+    const auto &aliasTypes = m_DB.getAliasTypes(P);
+    ArrayRef<std::string> aliasNames = m_DB.getAliasNames(P);
     for (OclBuiltin::const_type_iterator J = P->type_begin(), E = P->type_end(); J != E; ++J) {
       if (P->shouldGenerate()) {
         std::string cProto = P->getCProto((*J)->getName(), true);
         OS << cProto << '\n';
-        if (m_DB.hasAlias(P)) {
-          ArrayRef<std::string> aliasItem = m_DB.getAlias(P);
+        if (hasAlias && aliasTypes.count(*J)) {
           const std::string &funcName = P->getCFunc((*J)->getName());
           // Just need to replace the function name.
           size_t pos = cProto.find(funcName);
           size_t length = funcName.size();
-          for (const std::string& aliasName : aliasItem) {
+          for (const std::string& aliasName : aliasNames) {
             const std::string& rewritedAlias =
               m_DB.rewritePattern(P, *J, aliasName, nullMacro);
             OS << cProto.replace(pos, length, rewritedAlias) << '\n';
@@ -1628,6 +1650,9 @@ OclBuiltinEmitter::run(raw_ostream& OS)
       continue;
     }
 
+    bool hasAlias = m_DB.hasAlias(P);
+    auto &aliasTypes = m_DB.getAliasTypes(P);
+    ArrayRef<std::string> aliasNames = m_DB.getAliasNames(P);
     for (OclBuiltin::const_type_iterator J = P->type_begin(), E = P->type_end(); J != E; ++J) {
       std::string impl = Impl->getCImpl((*J)->getName());
       if (impl.empty()) {
@@ -1636,13 +1661,12 @@ OclBuiltinEmitter::run(raw_ostream& OS)
         continue;
       }
       OS << impl << '\n';
-      if (m_DB.hasAlias(P)) {
-        ArrayRef<std::string> aliasItem = m_DB.getAlias(P);
+      if (hasAlias && aliasTypes.count(*J)) {
         const std::string &funcName = P->getCFunc((*J)->getName());
         // Just need to replace the function name.
         size_t pos = impl.find(funcName);
         size_t length = funcName.size();
-        for (const std::string& aliasName : aliasItem) {
+        for (const std::string& aliasName : aliasNames) {
           const std::string& rewritedAlias =
             m_DB.rewritePattern(P, *J, aliasName, nullMacro);
           // Since Impl is filtered by the type J, so there is only one

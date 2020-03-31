@@ -14,8 +14,8 @@
 
 #include "OclBuiltinEmitter.h"
 #include "OclBuiltinsHeaderGen.h"
-#include "VectorizerTableGen.h"
 #include "VectInfoGenerator.h"
+#include "VectorizerTableGen.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -48,7 +48,7 @@ Action(cl::desc("Action to perform:"),
                   clEnumValN(GenOCLBuiltisnHeader, "gen-ocl-biheader",
                             "Generates a header with builtins mangled names"),
                   clEnumValN(GenVectorizationInfo, "gen-vectorization-info",
-                            "Generates the vector-variants attibute for builtins"),
+                            "Generates the vector-variant attibutes for builtins"),
                   clEnumValN(GenVectorizerMap, "gen-vectorizer-map",
                             "Generates an exeption map for the vecorizer's table")),
        cl::init(PrintRecords));
