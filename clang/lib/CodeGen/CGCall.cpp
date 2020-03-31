@@ -2138,6 +2138,13 @@ void CodeGenModule::ConstructAttributeList(
         llvm::AttributeSet::get(getLLVMContext(), Attrs);
   }
 
+#if INTEL_CUSTOMIZATION
+  // Support for X87 precision control.
+  if (CodeGenOpts.X87Precision)
+    FuncAttrs.addAttribute("x87-precision",
+                           llvm::utostr(CodeGenOpts.X87Precision));
+#endif // INTEL_CUSTOMIZATION
+
   unsigned ArgNo = 0;
   for (CGFunctionInfo::const_arg_iterator I = FI.arg_begin(),
                                           E = FI.arg_end();

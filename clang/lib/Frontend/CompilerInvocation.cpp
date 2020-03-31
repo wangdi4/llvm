@@ -1324,6 +1324,16 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // Support for '-fargument-noalias' option.
   // isIntelCompat(LangOptions::FArgumentNoalias)
   Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
+
+  // CMPLRLLVM-9854 - support for X87 precision control.
+  unsigned X87Precision = 0;
+  if (Arg *A = Args.getLastArg(OPT_mx87_precision)) {
+    StringRef Val = A->getValue();
+    if (Val != "32" && Val != "64" && Val != "80")
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
+    Val.getAsInteger(10, X87Precision);
+  }
+  Opts.X87Precision = X87Precision;
 #endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {

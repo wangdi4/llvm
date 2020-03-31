@@ -377,6 +377,11 @@ ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
 CODEGENOPT(NoAliasForPtrArgs, 1, 0)
 
 CODEGENOPT(DisableCpuDispatchIFuncs, 1, 0) ///< -disable-cpudispatch-ifuncs
+
+// CMPLRLLVM-9854
+/// Support for X87 floating point precision control, which can be set to
+/// single-precision, double-precision and double extended-precision.
+VALUE_CODEGENOPT(X87Precision, 8, 0)
 #endif // INTEL_CUSTOMIZATION
 
 /// Number of path components to strip when emitting checks. (0 == full
