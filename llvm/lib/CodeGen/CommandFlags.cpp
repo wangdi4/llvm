@@ -477,12 +477,7 @@ TargetOptions codegen::InitTargetOptionsFromCodeGenFlags() {
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
   Options.IntelFtzDaz = getEnableFtzDaz();
-  switch (getX87Precision()) {
-    default: Options.X87Precision = 0; break;
-    case 32: Options.X87Precision = 1; break;
-    case 64: Options.X87Precision = 2; break;
-    case 80: Options.X87Precision = 3; break;
-  }
+  Options.X87Precision = getX87Precision();
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();
   Options.EnableDebugEntryValues = getEnableDebugEntryValues();
