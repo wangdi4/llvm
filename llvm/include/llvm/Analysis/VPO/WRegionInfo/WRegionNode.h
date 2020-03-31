@@ -345,6 +345,8 @@ public:
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
   virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
+  virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
+  virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
   virtual bool getIsThreads()             const {WRNERROR("THREADS/SIMD");    }
   virtual void setMergeable(bool Flag)          {WRNERROR(QUAL_OMP_MERGEABLE);}

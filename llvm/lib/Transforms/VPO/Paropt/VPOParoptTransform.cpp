@@ -1894,11 +1894,23 @@ bool VPOParoptTransform::paroptTransforms() {
           debugPrintHeader(W, Mode);
           if (W->getIsDoacross()) {
             Changed |= genDoacrossWaitOrPost(cast<WRNOrderedNode>(W));
-          } else {
+            RemoveDirectives = true;
+          } else if (W->getIsThreads()) {
             Changed |= genOrderedThreadCode(W);
-          }
-
-          RemoveDirectives = true;
+            if (W->getIsSIMD()) {
+              StringRef OrderedThreadString =
+                  VPOAnalysisUtils::getClauseString(QUAL_OMP_ORDERED_THREADS);
+              CallInst *UpdatedDir =
+                  VPOParoptUtils::removeOperandBundlesFromCall(
+                      cast<CallInst>(W->getEntryDirective()),
+                      {OrderedThreadString});
+              W->setEntryDirective(UpdatedDir);
+              RemoveDirectives = false;
+            } else
+              RemoveDirectives = true;
+          } else
+            // This is ORDERED SIMD and should not be removed.
+            RemoveDirectives = false;
         }
         break;
       case WRegionNode::WRNBarrier:

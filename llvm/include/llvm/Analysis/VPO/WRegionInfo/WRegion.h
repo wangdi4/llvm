@@ -1385,9 +1385,9 @@ public:
 class WRNOrderedNode : public WRegionNode {
 private:
   bool IsDoacross;         // true iff a depend clause is seen (2nd form above)
-
-  // The following field is meaningful only if IsDoacross==false
-  bool IsThreads;          // true for "threads" (default); false for "simd"
+  // IsSIMD and IsThreads are meaningful only if IsDoacross==false
+  bool IsSIMD;
+  bool IsThreads;
 
   // The following two fields are meaningful only if IsDoacross==true
   DepSinkClause DepSink;
@@ -1402,11 +1402,13 @@ public:
 
 protected:
   void setIsDoacross(bool Flag) { IsDoacross = Flag; }
+  void setIsSIMD(bool Flag) { assertDoacrossFalse(); IsSIMD = Flag; }
   void setIsThreads(bool Flag) { assertDoacrossFalse(); IsThreads = Flag; }
 
 public:
   bool getIsDoacross() const {  return IsDoacross; }
-  bool getIsThreads() const { assertDoacrossFalse(); return IsThreads; }
+  bool getIsSIMD() const { return !IsDoacross && IsSIMD; }
+  bool getIsThreads() const { return !IsDoacross && (IsThreads || !IsSIMD); }
 
   const DepSinkClause &getDepSink() const {assertDoacrossTrue();
                                            return DepSink; }
