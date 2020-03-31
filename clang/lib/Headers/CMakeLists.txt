@@ -133,6 +133,12 @@ intel_add_file(INTEL_HEADERS
   Intel_amxtranspose2intrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+# INTEL_FEATURE_ISA_AMX_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT
+  Intel_amxconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_CONVERT
 # INTEL_FEATURE_ISA_KEYLOCKER
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER
@@ -169,6 +175,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avx512convert/avx512vlconvertintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX512_CONVERT
+# INTEL_FEATURE_ISA_AVX_IFMA
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_IFMA
+  Intel_Headers/avxifma/avxifmaintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_IFMA
 # end INTEL_CUSTOMIZATION
 
 set(files

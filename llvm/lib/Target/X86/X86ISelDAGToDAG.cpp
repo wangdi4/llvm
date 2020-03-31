@@ -4765,9 +4765,62 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       return;
     }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+    case Intrinsic::x86_tcvt2ps2ph:
+    case Intrinsic::x86_tcvt2ps2bf16: {
+      if (!Subtarget->hasAMXCONVERT())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tcvt2ps2bf16: Opc = X86::PTCVT2PS2BF16mr; break;
+      case Intrinsic::x86_tcvt2ps2ph:   Opc = X86::PTCVT2PS2PHmr;   break;
+      }
+      // FIXME: Match displacement and scale.
+      SDValue Base = Node->getOperand(2);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(3);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      unsigned TIndex = Node->getConstantOperandVal(4);
+      SDValue TReg1 = getI8Imm(TIndex, dl);
+      TIndex = Node->getConstantOperandVal(5);
+      SDValue TReg2 = getI8Imm(TIndex, dl);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg1, TReg2, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+    case Intrinsic::x86_amxconvert_tcvtd2ps:
+    case Intrinsic::x86_amxconvert_tcvtps2bf16:
+    case Intrinsic::x86_tcvtps2ph: {
+      if (!Subtarget->hasAMXCONVERT())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_amxconvert_tcvtd2ps:    Opc = X86::PTCVTD2PSmr;    break;
+      case Intrinsic::x86_amxconvert_tcvtps2bf16: Opc = X86::PTCVTPS2BF16mr; break;
+      case Intrinsic::x86_tcvtps2ph:   Opc = X86::PTCVTPS2PHmr;   break;
+      }
+      // FIXME: Match displacement and scale.
+      SDValue Base = Node->getOperand(2);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(3);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      unsigned TIndex = Node->getConstantOperandVal(4);
+      SDValue TReg = getI8Imm(TIndex, dl);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION
     }
-
     break;
   }
   case ISD::BRIND: {

@@ -7824,10 +7824,10 @@ multiclass avx512_pmadd52_common<bits<8> opc, string OpcodeStr, SDNode OpNode,
 
 defm VPMADD52LUQ : avx512_pmadd52_common<0xb4, "vpmadd52luq", x86vpmadd52l,
                                          SchedWriteVecIMul, avx512vl_i64_info>,
-                                         VEX_W;
+                                         VEX_W, NotEVEX2VEXConvertible; // INTEL
 defm VPMADD52HUQ : avx512_pmadd52_common<0xb5, "vpmadd52huq", x86vpmadd52h,
                                          SchedWriteVecIMul, avx512vl_i64_info>,
-                                         VEX_W;
+                                         VEX_W, NotEVEX2VEXConvertible; // INTEL
 
 //===----------------------------------------------------------------------===//
 // AVX-512  Scalar convert from sign integer to float/double

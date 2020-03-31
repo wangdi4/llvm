@@ -284,6 +284,15 @@ TARGET_BUILTIN(__builtin_ia32_t2transposew, "vIUcvC*zULLi", "n",
 TARGET_BUILTIN(__builtin_ia32_t2transposewt1, "vIUcvC*zULLi", "n",
                "amx-transpose2")
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+// AMX_CONVERT
+TARGET_BUILTIN(__builtin_ia32_tcvt2ps2bf16, "vv*zIUcIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_tcvt2ps2ph, "vv*zIUcIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_amxconvert_tcvtd2ps, "vv*zIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_amxconvert_tcvtps2bf16, "vv*zIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_tcvtps2ph, "vv*zIUc", "n", "amx-convert")
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

@@ -230,6 +230,16 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_IFMA */
+#if defined(__AVXIFMA_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXIFMA__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxifma/avxifmaintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_IFMA */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512IFMA__) && defined(__AVX512VL__)) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
@@ -731,6 +741,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FP16 */
+
+/* INTEL_FEATURE_ISA_AMX_CONVERT */
+#if defined(__AMX_CONVERT_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXCONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxconvertintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_CONVERT */
 
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 #if defined(__KEYLOCKER_SUPPORTED__)

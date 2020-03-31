@@ -473,7 +473,11 @@ namespace llvm {
       // NOTE: These are different than the instruction and perform
       // op0 x op1 + op2.
       VPMADD52L, VPMADD52H,
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+      VPMADD52LVEX, VPMADD52HVEX,
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
       // VNNI
       VPDPBUSD,
       VPDPBUSDS,

@@ -586,7 +586,12 @@ def SDTIFma : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisSameAs<0,1>,
                            SDTCisSameAs<1,2>, SDTCisSameAs<1,3>]>;
 def x86vpmadd52l     : SDNode<"X86ISD::VPMADD52L",     SDTIFma, [SDNPCommutative]>;
 def x86vpmadd52h     : SDNode<"X86ISD::VPMADD52H",     SDTIFma, [SDNPCommutative]>;
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+def x86vpmadd52lvex  : SDNode<"X86ISD::VPMADD52LVEX",  SDTIFma, [SDNPCommutative]>;
+def x86vpmadd52hvex  : SDNode<"X86ISD::VPMADD52HVEX",  SDTIFma, [SDNPCommutative]>;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 def x86vfmaddc     : SDNode<"X86ISD::VFMADDC",         SDTFPTernaryOp>;

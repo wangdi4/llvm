@@ -398,6 +398,20 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
     O << "\t{vex}";
   }
 #endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  switch (MI->getOpcode()) {
+  case X86:: VPMADD52HUQrr:
+  case X86:: VPMADD52HUQrm:
+  case X86:: VPMADD52HUQYrr:
+  case X86:: VPMADD52HUQYrm:
+  case X86:: VPMADD52LUQrr:
+  case X86:: VPMADD52LUQrm:
+  case X86:: VPMADD52LUQYrr:
+  case X86:: VPMADD52LUQYrm:
+    // These all require a pseudo prefix
+    O << "\t{vex}";
+  }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
 }
 
