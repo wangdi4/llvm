@@ -289,7 +289,6 @@
 // RUN:  | FileCheck -DOUTDIR=%t_dir -check-prefix=CHK-FPGA-REPORT-OPT %s
 // CHK-FPGA-REPORT-OPT: aoc{{.*}} "-sycl" {{.*}} "-output-report-folder=[[OUTDIR]]{{/|\\\\}}file.prj"
 
-<<<<<<< HEAD
 /// -fintelfpga output report file from dir/source
 /// check dependency file from dir/source
 // RUN: mkdir -p %t_dir
@@ -317,8 +316,6 @@
 // RUN:  | FileCheck -check-prefix=CHK-FPGA-REPORT-NAME %s
 // CHK-FPGA-REPORT-NAME: aoc{{.*}} "-sycl"{{.*}} "-output-report-folder=dummy2.prj"
 
-=======
->>>>>>> 84b35a52103f2365a9c792745d28ede8801578dd
 /// -fintelfpga output dep file using -Fo<dir>
 // RUN: mkdir -p %t_dir
 // RUN: %clang_cl -### -c -fsycl -fintelfpga -Fo%t_dir/ %s 2>&1 \
