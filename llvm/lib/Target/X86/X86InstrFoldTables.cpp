@@ -4372,18 +4372,46 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPCONFLICTQZ128rrk,         X86::VPCONFLICTQZ128rmk,         0 },
   { X86::VPCONFLICTQZ256rrk,         X86::VPCONFLICTQZ256rmk,         0 },
   { X86::VPCONFLICTQZrrk,            X86::VPCONFLICTQZrmk,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  { X86::VPDPBUSDSYrr,               X86::VPDPBUSDSYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
   { X86::VPDPBUSDSZ128r,             X86::VPDPBUSDSZ128m,             0 },
   { X86::VPDPBUSDSZ256r,             X86::VPDPBUSDSZ256m,             0 },
   { X86::VPDPBUSDSZr,                X86::VPDPBUSDSZm,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  { X86::VPDPBUSDSrr,                X86::VPDPBUSDSrm,                0 },
+  { X86::VPDPBUSDYrr,                X86::VPDPBUSDYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
   { X86::VPDPBUSDZ128r,              X86::VPDPBUSDZ128m,              0 },
   { X86::VPDPBUSDZ256r,              X86::VPDPBUSDZ256m,              0 },
   { X86::VPDPBUSDZr,                 X86::VPDPBUSDZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  { X86::VPDPBUSDrr,                 X86::VPDPBUSDrm,                 0 },
+  { X86::VPDPWSSDSYrr,               X86::VPDPWSSDSYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
   { X86::VPDPWSSDSZ128r,             X86::VPDPWSSDSZ128m,             0 },
   { X86::VPDPWSSDSZ256r,             X86::VPDPWSSDSZ256m,             0 },
   { X86::VPDPWSSDSZr,                X86::VPDPWSSDSZm,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  { X86::VPDPWSSDSrr,                X86::VPDPWSSDSrm,                0 },
+  { X86::VPDPWSSDYrr,                X86::VPDPWSSDYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
   { X86::VPDPWSSDZ128r,              X86::VPDPWSSDZ128m,              0 },
   { X86::VPDPWSSDZ256r,              X86::VPDPWSSDZ256m,              0 },
   { X86::VPDPWSSDZr,                 X86::VPDPWSSDZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  { X86::VPDPWSSDrr,                 X86::VPDPWSSDrm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#endif // INTEL_CUSTOMIZATION
   { X86::VPERMBZ128rrkz,             X86::VPERMBZ128rmkz,             0 },
   { X86::VPERMBZ256rrkz,             X86::VPERMBZ256rmkz,             0 },
   { X86::VPERMBZrrkz,                X86::VPERMBZrmkz,                0 },
