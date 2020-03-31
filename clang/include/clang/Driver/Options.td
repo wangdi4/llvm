@@ -3450,6 +3450,10 @@ def mno_invpcid : Flag<["-"], "mno-invpcid">, Group<m_x86_Features_Group>;
 def mgfni : Flag<["-"], "mgfni">, Group<m_x86_Features_Group>;
 def mno_gfni : Flag<["-"], "mno-gfni">, Group<m_x86_Features_Group>;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_HRESET
+def mhreset : Flag<["-"], "mhreset">, Group<m_x86_Features_Group>;
+def mno_hreset : Flag<["-"], "mno-hreset">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_KEYLOCKER
 def mkeylocker : Flag<["-"], "mkeylocker">, Group<m_x86_Features_Group>;
 def mno_keylocker : Flag<["-"], "mno-keylocker">, Group<m_x86_Features_Group>;

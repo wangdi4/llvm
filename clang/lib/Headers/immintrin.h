@@ -633,6 +633,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_SERIALIZE */
 
+/* INTEL_FEATURE_ISA_HRESET */
+#if defined(__HRESET_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <hresetintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_HRESET */
+
 /* INTEL_FEATURE_ISA_TSXLDTRK */
 #if defined(__TSXLDTRK_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__TSXLDTRK__) || defined(__M_INTRINSIC_PROMOTE__)

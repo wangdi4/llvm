@@ -208,6 +208,11 @@
 
 /* Features in %eax for leaf 7 sub-leaf 1 */
 #define bit_AVX512BF16    0x00000020
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_HRESET */
+#define bit_HRESET        0x00400000
+/* end INTEL_FEATURE_ISA_HRESET */
+/* end INTEL_CUSTOMIZATION */
 
 /* Features in %eax for leaf 13 sub-leaf 1 */
 #define bit_XSAVEOPT    0x00000001

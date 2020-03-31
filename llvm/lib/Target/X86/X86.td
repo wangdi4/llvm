@@ -433,6 +433,10 @@ def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
 def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
                                       "Has serialize instruction">;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
+                                      "Has hreset instruction">;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
 def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
                                       "Support TSXLDTRK instructions">;
