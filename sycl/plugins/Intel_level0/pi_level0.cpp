@@ -1922,16 +1922,23 @@ pi_result L0(piKernelGetGroupInfo)(
     SET_PARAM_VALUE(wg_size);
   }
   else if (param_name == PI_KERNEL_GROUP_INFO_LOCAL_MEM_SIZE) {
-    // TODO: Assume 0 for now, but follow-up on https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
+    // TODO: Assume 0 for now, replace with ze_kernel_properties_t::localMemSize once released in RT.
+    // spec issue: https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
     SET_PARAM_VALUE(pi_uint32{0});
   }
   else if (param_name == PI_KERNEL_GROUP_INFO_PREFERRED_WORK_GROUP_SIZE_MULTIPLE) {
-    // TODO: Follow-up on https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
-    pi_throw("Unsupported PI_KERNEL_GROUP_INFO_PREFERRED_WORK_GROUP_SIZE_MULTIPLE in piKernelGetInfo\n");
+    ze_device_properties_t ze_device_properties;
+    ze_device_properties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
+    ZE_CALL(zeDeviceGetProperties(
+      ze_device,
+      &ze_device_properties));
+
+    SET_PARAM_VALUE(size_t{ze_device_properties.physicalEUSimdWidth});
   }
   else if (param_name == PI_KERNEL_GROUP_INFO_PRIVATE_MEM_SIZE) {
-    // TODO: Follow-up on https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
-    pi_throw("Unsupported PI_KERNEL_GROUP_INFO_PRIVATE_MEM_SIZE in piKernelGetInfo\n");
+    // TODO: Assume 0 for now, replace with ze_kernel_properties_t::privateMemSize once released in RT.
+    // spec issue: https://gitlab.devtools.intel.com/one-api/level_zero/issues/285
+    SET_PARAM_VALUE(pi_uint32{0});
   }
   else {
     fprintf(stderr, "param_name=%d(0x%x)\n", param_name, param_name);

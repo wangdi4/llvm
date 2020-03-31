@@ -1061,6 +1061,7 @@ surround the applicable scope.
 Example:
 
 .. code-block:: c
+
   void foo(float* A, float* B, float* C) {
     #pragma loop_fuse depth(2) independent
     {
@@ -1073,11 +1074,13 @@ Example:
 
 
 AST:
+
 .. code-block:: console
 
   $ clang -cc1 -fhls -ast-dump t.c
 
 .. code-block:: text
+
   `-FunctionDecl 0x896bef8 <doc.c:1:1, line:9:1> line:1:6 foo 'void (float *, float *, float *)'
   |-ParmVarDecl 0x896bd10 <col:10, col:17> col:17 used A 'float *'
   |-ParmVarDecl 0x896bd90 <col:20, col:27> col:27 used B 'float *'
@@ -2643,7 +2646,7 @@ IR:
    @.str = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:0}\00"
    @.str.2 = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:1}\00"
 
-   define dso_local void @_Z3foov() #0 {
+   define void @_Z3foov() #0 {
    entry:
      %lc = alloca i32, align 4
      %lc1 = bitcast i32* %lc to i8*
@@ -2651,7 +2654,7 @@ IR:
      ret void
    }
 
-   define dso_local void @_Z3barv() #0 {
+   define void @_Z3barv() #0 {
    entry:
      %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @_ZL2s1, i32 0, i32 0), i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
   store i32 0, i32* %0, align 4
