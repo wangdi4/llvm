@@ -249,6 +249,12 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
   if (LoopMassagingEnabled) {
     // TODO: Bail-out loop massaging for uniform inner loops.
     for (auto *VPL : post_order(TopLoop)) {
+      if (VPL == TopLoop) {
+        // TODO: Uncomment after search loops are supported without hacks.
+        // assert(VPL->getLoopLatch() == VPL->getExitingBlock() &&
+        //        "Top level loop is expected to be in canonical form!");
+        continue;
+      }
       singleExitWhileLoopCanonicalization(VPL);
       mergeLoopExits(VPL);
       LLVM_DEBUG(Verifier->verifyLoops(Plan, VPDomTree, Plan->getVPLoopInfo()));

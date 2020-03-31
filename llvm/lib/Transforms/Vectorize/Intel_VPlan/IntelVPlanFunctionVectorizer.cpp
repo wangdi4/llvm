@@ -19,6 +19,7 @@
 #include "IntelVPlanCFGBuilder.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "IntelVPlanLoopExitCanonicalization.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils.h"
@@ -29,6 +30,12 @@
 static cl::opt<bool> DumpAfterPlainCFG(
     "print-after-vplan-func-vec-cfg-import",
     cl::desc("Print after CFG import for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterLoopExitsCanonicalization(
+    "print-after-vplan-func-vec-loop-exit-canon",
+    cl::desc("Print after Loop Exits Canonicalizaiton for VPlan Function "
+             "vectorization "),
     cl::init(false), cl::Hidden);
 
 using namespace llvm;
@@ -49,6 +56,23 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterPlainCFG)
+      Plan->dump(outs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    Plan->computeDT();
+    Plan->computePDT();
+    Plan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
+    auto *VPLInfo = Plan->getVPLoopInfo();
+    VPLInfo->analyze(*Plan->getDT());
+
+    for (auto *TopLoop : *VPLInfo)
+      for (auto *VPL : post_order(TopLoop)) {
+        singleExitWhileLoopCanonicalization(VPL);
+        mergeLoopExits(VPL);
+      }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterLoopExitsCanonicalization)
       Plan->dump(outs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

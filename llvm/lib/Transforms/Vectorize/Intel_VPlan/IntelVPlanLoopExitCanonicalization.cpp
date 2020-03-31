@@ -297,14 +297,12 @@ void mergeLoopExits(VPLoop *VPL) {
   VPlan *Plan = VPL->getHeader()->getParent();
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
-  // Check if the loop has multiple exits. Merge loop exits transformation is
-  // only applied in the inner loops of a loop nest.
-  VPLoop *ParentLoop = VPL->getParentLoop();
+  // Check if the loop has multiple exits.
   SmallVector<VPLoop::Edge, 4> ExitEdges;
   VPL->getExitEdges(ExitEdges);
 
   // TODO: check uniformity of the loop preheader instead.
-  if ((ExitEdges.size() < 2) || ParentLoop == nullptr)
+  if ((ExitEdges.size() < 2))
     return;
 
   // FIXME: Don't break SSA form during the transformation.
@@ -630,8 +628,7 @@ void singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   if (OrigLoopLatch->getNumSuccessors() > 1)
     return;
 
-  VPLoop *ParentLoop = VPL->getParentLoop();
-  if (!VPL->getExitingBlock() || ParentLoop == nullptr)
+  if (!VPL->getExitingBlock())
     return;
 
   // FIXME: Don't break SSA form during the transformation.
