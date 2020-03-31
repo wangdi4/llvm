@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSClient.cpp ---------------------------------------------===/
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -15,6 +15,7 @@
 
 #include "IntelVPlanVLSClient.h"
 
+#include "IntelVPlanScalarEvolution.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 
@@ -69,9 +70,8 @@ static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
 //        modifying IR invalidates ScalarEvolution. It'd be better to remove
 //        this method, but it is still used in canMoveTo.
 const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
-  ScalarEvolution *SE = VLSA->getSE();
-  return Val->isUnderlyingIRValid() ? SE->getSCEV(Val->getUnderlyingValue())
-                                    : SE->getCouldNotCompute();
+  auto &VPSE = VLSA->getVPSE();
+  return VPSE.toSCEV(VPSE.getVPlanSCEV(*Val));
 }
 
 VPVLSClientMemref::VPVLSClientMemref(const OVLSMemrefKind &Kind,
@@ -93,7 +93,7 @@ VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
   if (Inst->getParent() != FromInst->getParent())
     return None;
 
-  return getConstDistanceFromImpl(ScevExpr, FromScev, VLSA->getSE());
+  return getConstDistanceFromImpl(ScevExpr, FromScev, &VLSA->getVPSE().getSE());
 }
 
 // FIXME: This is an extremely naive implementation just to enable the most
@@ -111,7 +111,8 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   if (ToInst->getParent() != FromInst->getParent())
     return false;
 
-  ScalarEvolution *SE = VLSA->getSE();
+  VPlanScalarEvolutionLLVM &VPSE = VLSA->getVPSE();
+  ScalarEvolution *SE = &VPSE.getSE();
   Type *AccessType = getLoadStoreType(FromInst);
   int64_t AccessSize = VLSA->getDL().getTypeStoreSize(AccessType);
 
