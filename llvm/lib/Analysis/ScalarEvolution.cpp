@@ -10892,11 +10892,21 @@ bool ScalarEvolution::splitBinaryAdd(const SCEV *Expr,
   return true;
 }
 
-Optional<APInt> ScalarEvolution::computeConstantDifference(const SCEV *More,
-                                                           const SCEV *Less) {
+#if INTEL_CUSTOMIZATION
+Optional<APInt>
+ScalarEvolution::computeConstantDifference(const SCEV *More,
+                                           const SCEV *Less,
+                                           bool *SignedOverflow) {
+#endif // INTEL_CUSTOMIZATION
   // We avoid subtracting expressions here because this function is usually
   // fairly deep in the call stack (i.e. is called many times).
 
+#if INTEL_CUSTOMIZATION
+  if (SignedOverflow) {
+    *SignedOverflow = false;
+  }
+  APInt Zero(getTypeSizeInBits(More->getType()), 0);
+#endif // INTEL_CUSTOMIZATION
   // X - X = 0.
   if (More == Less)
     return APInt(getTypeSizeInBits(More->getType()), 0);
@@ -10925,7 +10935,7 @@ Optional<APInt> ScalarEvolution::computeConstantDifference(const SCEV *More,
   if (isa<SCEVConstant>(Less) && isa<SCEVConstant>(More)) {
     const auto &M = cast<SCEVConstant>(More)->getAPInt();
     const auto &L = cast<SCEVConstant>(Less)->getAPInt();
-    return M - L;
+    return SignedOverflow ? M.ssub_ov(L, *SignedOverflow) : M - L; // INTEL
   }
 
   SCEV::NoWrapFlags Flags;
@@ -10936,7 +10946,10 @@ Optional<APInt> ScalarEvolution::computeConstantDifference(const SCEV *More,
   if (splitBinaryAdd(Less, LLess, RLess, Flags))
     if ((C1 = dyn_cast<SCEVConstant>(LLess)))
       if (RLess == More)
-        return -(C1->getAPInt());
+#if INTEL_CUSTOMIZATION
+        return SignedOverflow ? Zero.ssub_ov(C1->getAPInt(), *SignedOverflow)
+                              : -(C1->getAPInt());
+#endif // INTEL_CUSTOMIZATION
 
   // Compare X vs (X + C2).
   if (splitBinaryAdd(More, LMore, RMore, Flags))
@@ -10946,7 +10959,11 @@ Optional<APInt> ScalarEvolution::computeConstantDifference(const SCEV *More,
 
   // Compare (X + C1) vs (X + C2).
   if (C1 && C2 && RLess == RMore)
-    return C2->getAPInt() - C1->getAPInt();
+#if INTEL_CUSTOMIZATION
+    return SignedOverflow
+               ? C2->getAPInt().ssub_ov(C1->getAPInt(), *SignedOverflow)
+               : C2->getAPInt() - C1->getAPInt();
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // Compare (C1 + X + Y + Z) vs (C2 + X + Y + Z).
@@ -10966,8 +10983,11 @@ Optional<APInt> ScalarEvolution::computeConstantDifference(const SCEV *More,
       if (!C1)
         return C2->getAPInt();
       if (!C2)
-        return -C1->getAPInt();
-      return C2->getAPInt() - C1->getAPInt();
+        return SignedOverflow ? Zero.ssub_ov(C1->getAPInt(), *SignedOverflow)
+                              : -C1->getAPInt();
+      return SignedOverflow
+                 ? C2->getAPInt().ssub_ov(C1->getAPInt(), *SignedOverflow)
+                 : C2->getAPInt() - C1->getAPInt();
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -11162,6 +11182,142 @@ bool ScalarEvolution::isImpliedViaMerge(ICmpInst::Predicate Pred,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Returns true if \p Scev can be used to compute difference in signed/unsigned
+/// form.
+static bool isValidForComputingDiff(const SCEV *Scev, bool IsSigned) {
+  // Negative constants are tricky to interpret when dealing with unsigned
+  // predicates so we give up.
+  // For example-
+  // a <u -5
+  // does not imply:
+  // (a+1)<nuw> <u 1
+  //
+  // But (LHSDiff >=s RHSDiff) returns wrong result-
+  // -1 >=s -6
+  if (auto *Const = dyn_cast<SCEVConstant>(Scev))
+    return (IsSigned || Const->getValue()->getValue().isNonNegative());
+
+  auto *NAry = dyn_cast<SCEVNAryExpr>(Scev);
+
+  // Casts/UDivs shouldn't affect computation of constant difference.
+  if (!NAry)
+    return true;
+
+  if (!NAry->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW))
+    return false;
+
+  for (auto *Op : NAry->operands())
+    if (!isValidForComputingDiff(Op, IsSigned))
+      return false;
+
+  return true;
+}
+
+/// Tries to prove condition by comparing constant difference between
+/// (FoundLHS - LHS) and (FoundRHS - RHS).
+static bool isImpliedCondOperandsViaConstantDifference(
+    ScalarEvolution &SE, ICmpInst::Predicate Pred, const SCEV *LHS,
+    const SCEV *RHS, const SCEV *FoundLHS, const SCEV *FoundRHS) {
+
+  bool IgnoreWraparound =
+      (Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_NE);
+
+  // Checks validity of computing difference in signed/unsigned range using
+  // no-wrap flags. If predicate is '==' or '!=' wraparound doesn't matter.
+  if (!IgnoreWraparound) {
+    bool IsSigned = ICmpInst::isSigned(Pred);
+
+    if (!isValidForComputingDiff(LHS, IsSigned) ||
+        !isValidForComputingDiff(RHS, IsSigned) ||
+        !isValidForComputingDiff(FoundLHS, IsSigned) ||
+        !isValidForComputingDiff(FoundRHS, IsSigned))
+      return false;
+  }
+
+  // If the difference results in signed overflow, we have to give up.
+  // For example-
+  // (%x + 101)<nsw> >s (%y - INT_MAX)<nsw>
+  // Does not imply-
+  // (%x + 1)<nsw> >s (%y + 5)<nsw>
+  //
+  // But (LHSDiff <=s RHSDiff) returns wrong result-
+  // 100 <=s (- INT_MAX - 5)
+  //
+  // This is because RHSDiff underflows to big positive number.
+  bool SignedOverflow = false;
+  Optional<APInt> LHSDiff = SE.computeConstantDifference(
+      FoundLHS, LHS, IgnoreWraparound ? nullptr : &SignedOverflow);
+
+  if (!LHSDiff || SignedOverflow)
+    return false;
+
+  Optional<APInt> RHSDiff = SE.computeConstantDifference(
+      FoundRHS, RHS, IgnoreWraparound ? nullptr : &SignedOverflow);
+
+  if (!RHSDiff || SignedOverflow)
+    return false;
+
+  switch (Pred) {
+  default:
+    llvm_unreachable("Unexpected predicate!");
+
+  case ICmpInst::ICMP_SLE:
+  case ICmpInst::ICMP_SLT:
+  case ICmpInst::ICMP_ULE:
+  case ICmpInst::ICMP_ULT:
+    // a <s b
+    // -->
+    // (a + -1)<nsw> <s (b + 1)<nsw>
+    //
+    // LHSDiff : 1
+    // RHSDiff : -1
+    //
+    // a <u b
+    // -->
+    // (a + 1)<nuw> <u (b + 2)<nuw>
+    //
+    // LHSDiff : -1
+    // RHSDiff : -2
+    return LHSDiff->sge(*RHSDiff);
+
+  case ICmpInst::ICMP_SGE:
+  case ICmpInst::ICMP_SGT:
+  case ICmpInst::ICMP_UGE:
+  case ICmpInst::ICMP_UGT:
+    // a >s b
+    // -->
+    // (a + 1)<nsw> >s (b + -1)<nsw>
+    //
+    // LHSDiff : -1
+    // RHSDiff : 1
+    //
+    // a >u b
+    // -->
+    // (a + 2)<nuw> >u (b + 1)<nuw>
+    //
+    // LHSDiff : -2
+    // RHSDiff -1
+    return LHSDiff->sle(*RHSDiff);
+
+  case ICmpInst::ICMP_EQ:
+  case ICmpInst::ICMP_NE:
+    // a == b
+    // -->
+    // (a + 1) == (b + 1)
+    //
+    // a != b
+    // -->
+    // (a + 1) != (b + 1)
+    //
+    // LHSDiff : -1
+    // RHSDiff : -1
+    return LHSDiff->eq(*RHSDiff);
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 bool ScalarEvolution::isImpliedCondOperands(ICmpInst::Predicate Pred,
                                             const SCEV *LHS, const SCEV *RHS,
                                             const SCEV *FoundLHS,
@@ -11172,6 +11328,11 @@ bool ScalarEvolution::isImpliedCondOperands(ICmpInst::Predicate Pred,
   if (isImpliedCondOperandsViaNoOverflow(Pred, LHS, RHS, FoundLHS, FoundRHS))
     return true;
 
+#if INTEL_CUSTOMIZATION
+  if (isImpliedCondOperandsViaConstantDifference(*this, Pred, LHS, RHS,
+                                                 FoundLHS, FoundRHS))
+    return true;
+#endif // INTEL_CUSTOMIZATION
   return isImpliedCondOperandsHelper(Pred, LHS, RHS,
                                      FoundLHS, FoundRHS) ||
          // ~x < ~y --> x > y
