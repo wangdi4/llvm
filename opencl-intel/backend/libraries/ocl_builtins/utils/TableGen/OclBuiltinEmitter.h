@@ -176,6 +176,8 @@ public:
 
   std::string getArgumentCName(unsigned, const std::string&) const;
 
+  std::string getCFunc() const;
+
   std::string getCFunc(const std::string&) const;
 
   std::string getNativeReturnCType(const std::string&) const;

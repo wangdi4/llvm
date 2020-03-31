@@ -658,6 +658,12 @@ OclBuiltin::getArgumentCName(unsigned i, const std::string&) const
 }
 
 std::string
+OclBuiltin::getCFunc() const
+{
+  return m_CFunc;
+}
+
+std::string
 OclBuiltin::getCFunc(const std::string& TyName) const
 {
   static std::map<std::string, std::string> nullMacro;

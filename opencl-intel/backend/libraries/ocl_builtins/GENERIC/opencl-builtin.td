@@ -1008,6 +1008,29 @@ class MapRow< list<MapCell> cl, bit is, bit ip>{
   bit isPacketaizable= ip;
 }
 
+
+class FuncProto<OclBuiltin bi, list<OclType> tys>{
+  OclBuiltin builtin = bi;
+  list<OclType> types = tys;
+}
+class ScalarFunc<OclBuiltin bi, list<OclType> tys> : FuncProto<bi, tys>;
+class VectorFunc<OclBuiltin bi, list<OclType> tys, int vf, bit wt> : FuncProto<bi, tys>{
+  let types = !if(wt, !foreach(ty, tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value)), tys);
+}
+class VF4Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 4, wt>;
+class VF8Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 8, wt>;
+class VF16Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 16, wt>;
+
+class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, OclBuiltin v16>{
+  list<OclType> Types = tys;
+  bit HandleAlias = 1;
+  bit NeedWidenTypes = 1;
+  ScalarFunc v1Func = ScalarFunc<v1, Types>;
+  VF4Variant v4Func = VF4Variant<v4, Types, NeedWidenTypes>;
+  VF8Variant v8Func = VF8Variant<v8, Types, NeedWidenTypes>;
+  VF16Variant v16Func = VF16Variant<v16, Types, NeedWidenTypes>;
+}
+
 // TargetImpl
 class TargetImpl {
   string Target = "";

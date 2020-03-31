@@ -56,6 +56,27 @@ let NeedForwardDecl = 1 in {
   }
 }
 
+//
+// VectInfo for OCLVecClone
+//
+def work_group_all_vect_info : VectInfo<[v1i32], work_group_all, work_group_all, work_group_all, work_group_all>;
+def work_group_all_mask_vect_info : VectInfo<[v1i32], work_group_all, work_group_all_mask, work_group_all_mask, work_group_all_mask>;
+def work_group_any_vect_info : VectInfo<[v1i32], work_group_any, work_group_any, work_group_any, work_group_any>;
+def work_group_any_mask_vect_info : VectInfo<[v1i32], work_group_any, work_group_any_mask, work_group_any_mask, work_group_any_mask>;
+let Types = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
+  def work_group_broadcast1d_vect_info : VectInfo<[], work_group_broadcast1d, work_group_broadcast1d, work_group_broadcast1d, work_group_broadcast1d>;
+  def work_group_broadcast2d_vect_info : VectInfo<[], work_group_broadcast2d, work_group_broadcast2d, work_group_broadcast2d, work_group_broadcast2d>;
+  def work_group_broadcast3d_vect_info : VectInfo<[], work_group_broadcast3d, work_group_broadcast3d, work_group_broadcast3d, work_group_broadcast3d>;
+  def work_group_broadcast1d_mask_vect_info : VectInfo<[], work_group_broadcast1d, work_group_broadcast1d_mask, work_group_broadcast1d_mask, work_group_broadcast1d_mask>;
+  def work_group_broadcast2d_mask_vect_info : VectInfo<[], work_group_broadcast2d, work_group_broadcast2d_mask, work_group_broadcast2d_mask, work_group_broadcast2d_mask>;
+  def work_group_broadcast3d_mask_vect_info : VectInfo<[], work_group_broadcast3d, work_group_broadcast3d_mask, work_group_broadcast3d_mask, work_group_broadcast3d_mask>;
+  foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+    foreach op = ["add", "min", "max"] in {
+     def work_group_#func#_#op#_vect_info : VectInfo<[], !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op)>;
+     def work_group_#func#_#op#_mask_vect_info : VectInfo<[], !cast<OclBuiltin>("work_group_"#func#_#op), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask"), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask"), !cast<OclBuiltin>("work_group_"#func#_#op#"_mask")>;
+    }
+  }
+}
 
 //
 // Vectorizer table for scalar and vectorized versions of work-group functions
