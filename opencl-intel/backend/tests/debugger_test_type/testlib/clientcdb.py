@@ -3,6 +3,7 @@
 import traceback
 
 import os
+import platform
 import sys
 import atexit
 
@@ -131,8 +132,28 @@ class ClientCDB(TestClient):
 
         # setup debug server arguments
         cl_file_fullpath = self.cl_abs_filename(cl_name)
-        # CDB environment variable should be set to cdb path before start of test
-        cdb_command = '"' + env["CDB"] + '"'
+
+        # Use the CDB executable from the R: drive unless user provides
+        # an override.
+        # FIXME: Get this from some configuration object.
+        cdb_exe = None
+        user_cdb = env.get('DTT_CDB')
+        if user_cdb:
+            cdb_exe = user_cdb
+        else:
+            platform_arch = platform.machine()
+            if platform_arch == "AMD64":
+                cdb_exe = "r:\\ref\\cdb\\Debuggers\\x64\\cdb.exe"
+            if platform_arch == "x86":
+                cdb_exe = "r:\\ref\\cdb\\Debuggers\\x86\\cdb.exe"
+
+        if not cdb_exe:
+            raise Exception("Path to cdb.exe is not defined.")
+        else:
+            if not os.path.exists(cdb_exe):
+                raise Exception("Debugger doesn't exist: " + cdb_exe)
+
+        cdb_command = '"' + cdb_exe + '"'
         # Direct CDB to use the specified symbol cache. Environment variable
         # DTT_CDBSYMSTORE will be set by debugger_test_driver.py
         cdb_command += ' -y \"cache*' + env["DTT_CDBSYMSTORE"] + '\"'
