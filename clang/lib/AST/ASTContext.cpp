@@ -1014,6 +1014,9 @@ ASTContext::~ASTContext() {
 
   for (APValue *Value : APValueCleanups)
     Value->~APValue();
+
+  // Destroy the OMPTraitInfo objects that life here.
+  llvm::DeleteContainerPointers(OMPTraitInfoVector);
 }
 
 void ASTContext::setTraversalScope(const std::vector<Decl *> &TopLevelDecls) {
@@ -11098,4 +11101,9 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
     Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU,
                            Target->getTargetOpts().Features);
   }
+}
+
+OMPTraitInfo &ASTContext::getNewOMPTraitInfo() {
+  OMPTraitInfoVector.push_back(new OMPTraitInfo());
+  return *OMPTraitInfoVector.back();
 }

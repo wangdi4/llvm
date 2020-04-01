@@ -5818,7 +5818,7 @@ void Sema::ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD,
                                               OMPTraitInfo &TI,
                                               SourceRange SR) {
   auto *NewAttr =
-      OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, TI, SR);
+      OMPDeclareVariantAttr::CreateImplicit(Context, VariantRef, &TI, SR);
   FD->addAttr(NewAttr);
 }
 

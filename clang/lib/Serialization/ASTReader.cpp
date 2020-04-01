@@ -12743,8 +12743,8 @@ void OMPClauseReader::VisitOMPOrderClause(OMPOrderClause *C) {
   C->setKindKwLoc(Record.readSourceLocation());
 }
 
-OMPTraitInfo ASTRecordReader::readOMPTraitInfo() {
-  OMPTraitInfo TI;
+OMPTraitInfo *ASTRecordReader::readOMPTraitInfo() {
+  OMPTraitInfo &TI = getContext().getNewOMPTraitInfo();
   TI.Sets.resize(readUInt32());
   for (auto &Set : TI.Sets) {
     Set.Kind = readEnum<llvm::omp::TraitSet>();
@@ -12759,5 +12759,5 @@ OMPTraitInfo ASTRecordReader::readOMPTraitInfo() {
         Property.Kind = readEnum<llvm::omp::TraitProperty>();
     }
   }
-  return TI;
+  return &TI;
 }
