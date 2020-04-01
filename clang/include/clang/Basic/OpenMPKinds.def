@@ -356,16 +356,13 @@ OPENMP_CLAUSE(depobj, OMPDepobjClause)
 OPENMP_CLAUSE(destroy, OMPDestroyClause)
 OPENMP_CLAUSE(detach, OMPDetachClause)
 OPENMP_CLAUSE(inclusive, OMPInclusiveClause)
-<<<<<<< HEAD
+OPENMP_CLAUSE(exclusive, OMPExclusiveClause)
 #if INTEL_CUSTOMIZATION
 OPENMP_CLAUSE(tile, OMPTileClause)
 #if INTEL_FEATURE_CSA
 OPENMP_CLAUSE(dataflow, OMPDataflowClause)
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-OPENMP_CLAUSE(exclusive, OMPExclusiveClause)
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
 
 // Clauses allowed for OpenMP directive 'scan'.
 OPENMP_SCAN_CLAUSE(inclusive)

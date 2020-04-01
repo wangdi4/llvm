@@ -243,16 +243,13 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_destroy:
   case OMPC_detach:
   case OMPC_inclusive:
-<<<<<<< HEAD
+  case OMPC_exclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_exclusive:
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
     break;
   }
 

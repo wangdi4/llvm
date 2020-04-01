@@ -2477,17 +2477,13 @@ bool Parser::ParseOpenMPSimpleVarList(
 ///       from-clause | is_device_ptr-clause | task_reduction-clause |
 ///       in_reduction-clause | allocator-clause | allocate-clause |
 ///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause |
-<<<<<<< HEAD
-///       depobj-clause | destroy-clause | detach-clause | inclusive-clause
+///       depobj-clause | destroy-clause | detach-clause | inclusive-clause |
+///       exclusive-clause
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///       | dataflow-clause
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-///       depobj-clause | destroy-clause | detach-clause | inclusive-clause |
-///       exclusive-clause
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {

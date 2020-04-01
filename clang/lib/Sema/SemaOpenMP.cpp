@@ -5209,16 +5209,13 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_order:
       case OMPC_destroy:
       case OMPC_inclusive:
-<<<<<<< HEAD
+      case OMPC_exclusive:
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
       case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-      case OMPC_exclusive:
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -11340,16 +11337,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_order:
   case OMPC_destroy:
   case OMPC_inclusive:
-<<<<<<< HEAD
+  case OMPC_exclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_exclusive:
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12630,16 +12624,13 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_destroy:
   case OMPC_detach:
   case OMPC_inclusive:
-<<<<<<< HEAD
+  case OMPC_exclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_exclusive:
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12864,16 +12855,13 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_destroy:
   case OMPC_detach:
   case OMPC_inclusive:
-<<<<<<< HEAD
+  case OMPC_exclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_exclusive:
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13105,16 +13093,13 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_order:
   case OMPC_detach:
   case OMPC_inclusive:
-<<<<<<< HEAD
+  case OMPC_exclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_exclusive:
->>>>>>> 63828a35da6f790f448b87b3eec61d294df31ccc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
