@@ -1350,7 +1350,10 @@ private:
       return {true, nullptr};
     }
 
-    if (Call->isIndirectCall() || Call->isInlineAsm())
+    // If the target could not be resolved, such as because the call is an
+    // indirect call that did not have metadata processed above, or the call
+    // is an inline-asm block, then we cannot tell the expected argument type.
+    if (!Target)
       return {true, nullptr};
 
     if (Target->isIntrinsic())
