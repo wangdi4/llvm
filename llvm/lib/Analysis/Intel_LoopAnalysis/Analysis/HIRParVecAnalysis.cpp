@@ -495,7 +495,8 @@ static bool loopInSIMD(HLLoop *Loop) {
 
 void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
                          HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
-  if (Loop->hasUnrollEnablingPragma()) {
+  if (Loop->hasCompleteUnrollEnablingPragma()) {
+    // Bail out of vectorization if complete unroll requested.
     setVecType(UNROLL_PRAGMA_LOOP);
     emitDiag();
     return;
