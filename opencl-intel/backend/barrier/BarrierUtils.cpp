@@ -245,6 +245,7 @@ namespace intel {
     }
 
     // Get the kernels using the barrier for work group loops.
+    SmallVector<Function *, 4>  KernelsWithBarrier;
     for (auto pFunc : Kernels) {
       auto kimd = KernelInternalMetadataAPI(pFunc);
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that
@@ -255,8 +256,10 @@ namespace intel {
       }
       //Add kernel to the list
       //Currently no check if kernel already added to the list!
-      m_kernelFunctions.push_back(pFunc);
+      KernelsWithBarrier.push_back(pFunc);
     }
+    m_kernelFunctions =
+      getAllKernelsAndVectorizedCounterparts(KernelsWithBarrier);
 
     // collect functions to process
     auto TodoList = getAllKernelsAndVectorizedCounterparts(Kernels.getList());
