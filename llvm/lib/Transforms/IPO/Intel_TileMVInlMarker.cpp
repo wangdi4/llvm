@@ -1368,6 +1368,7 @@ void TileMVInlMarker::cloneCallToRoot() {
   BasicBlock *CondBB = BasicBlock::Create(CI->getContext(), ".clone.tile.cond",
                                           OrigBB->getParent(), TailBB);
   Value *TAnd = makeConditionFromGlobals(CondBB);
+  assert(TAnd && "Expecting TAnd != nullptr, since CM.size() > 0");
   Constant *ConstantZero = ConstantInt::get(TAnd->getType(), 0);
   CmpInst *Cmp = CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_NE, TAnd,
                                  ConstantZero, ".clone.tile.cmp", CondBB);

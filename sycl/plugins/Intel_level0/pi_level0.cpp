@@ -347,7 +347,7 @@ pi_result L0(piPlatformGetInfo)(
   uint32_t ze_driver_version_minor = ZE_MINOR_VERSION(ze_driver_version);
 
   char ze_driver_version_string[255];
-  sprintf(ze_driver_version_string, "Level-Zero %d.%d\n",
+  sprintf(ze_driver_version_string, "Level-Zero %d.%d",
       ze_driver_version_major,
       ze_driver_version_minor);
   zePrint("==========================\n");
@@ -1794,6 +1794,19 @@ pi_result L0(piKernelSetArg)(
   pi_uint32    arg_index,
   size_t       arg_size,
   const void * arg_value) {
+
+  // OpenCL: "the arg_value pointer can be NULL or point to a NULL value
+  // in which case a NULL value will be used as the value for the argument
+  // declared as a pointer to global or constant memory in the kernel"
+  //
+  // We don't know the type of the argument but it seems that the only time
+  // SYCL RT would send a pointer to NULL in 'arg_value' is when the argument
+  // is a NULL pointer. Treat a pointer to NULL in 'arg_value' as a NULL.
+  //
+  if (arg_size == sizeof(void*) &&
+      *(void**)(const_cast<void*>(arg_value)) == nullptr) {
+    arg_value = nullptr;
+  }
 
   // TODO: handle errors
   ZE_CALL(zeKernelSetArgumentValue(

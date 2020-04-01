@@ -143,6 +143,9 @@ void RTLsTy::LoadRTLs() {
 
   // Parse environment variable OMP_TARGET_OFFLOAD (if set)
   TargetOffloadPolicy = (kmp_target_offload_kind_t) __kmpc_get_target_offload();
+  DP("TargetOffloadPolicy = %s\n",
+      (TargetOffloadPolicy == tgt_default)? "DEFAULT" :
+      (TargetOffloadPolicy == tgt_disabled)? "DISABLED" : "MANDATORY");
   if (TargetOffloadPolicy == tgt_disabled) {
     return;
   }

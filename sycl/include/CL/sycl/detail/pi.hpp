@@ -132,8 +132,8 @@ enum Backend {
                       strings for new backends*/
 };
 
-// Check for preferred BE (including manually selected with SYCL_BE).
-bool preferredBackend(Backend Backend);
+// Get the preferred BE (selected with SYCL_BE).
+Backend getPreferredBE();
 /* end INTEL_CUSTOMIZATION */
 
 // Get a string representing a _pi_platform_info enum
