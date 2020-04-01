@@ -27,6 +27,12 @@ VPlanSCEV *VPlanScalarEvolutionLLVM::getVPlanSCEV(const VPValue &V) {
   return toVPlanSCEV(Expr);
 }
 
+VPlanSCEV *VPlanScalarEvolutionLLVM::getMinusExpr(VPlanSCEV *LHS,
+                                                  VPlanSCEV *RHS) {
+  const SCEV *Minus = SE->getMinusSCEV(toSCEV(LHS), toSCEV(RHS));
+  return toVPlanSCEV(Minus);
+}
+
 Optional<VPConstStepLinear>
 VPlanScalarEvolutionLLVM::asConstStepLinear(VPlanSCEV *Expr) const {
   // FIXME: We cannot really look for linear values using llvm::ScalarEvolution.

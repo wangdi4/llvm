@@ -48,6 +48,9 @@ public:
   /// Compute VPlanSCEV expression for value \p V.
   virtual VPlanSCEV *getVPlanSCEV(const VPValue &V) = 0;
 
+  /// Return (LHS - RHS).
+  virtual VPlanSCEV *getMinusExpr(VPlanSCEV *LHS, VPlanSCEV *RHS) = 0;
+
   /// Check if \p Expr is a linear value. If we can prove that it is, return its
   /// components in the corresponding data structure.
   virtual Optional<VPConstStepLinear>
@@ -66,6 +69,8 @@ public:
       : SE(&SE), MainLoop(MainLoop) {}
 
   VPlanSCEV *getVPlanSCEV(const VPValue &V) override;
+
+  VPlanSCEV *getMinusExpr(VPlanSCEV *LHS, VPlanSCEV *RHS) override;
 
   Optional<VPConstStepLinear> asConstStepLinear(VPlanSCEV *Expr) const override;
 

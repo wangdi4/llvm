@@ -29,22 +29,24 @@ static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
   return Linear.map([](auto &L) { return L.Step; });
 }
 
-static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
-                                                  const SCEV *RHS,
-                                                  ScalarEvolution *SE) {
-  // If the types don't match, there's no sense trying to compute distance
-  // between pointers.
+static Optional<int64_t>
+getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
+                         VPlanScalarEvolutionLLVM &VPSE) {
+  // Early exit to improve compile time. If the types don't match, there's no
+  // sense trying to compute distance between pointers. Pointers to the same
+  // allocation always have the same type.
   if (LHS->getType() !=RHS->getType())
     return None;
 
-  // computeConstantDifference has a significant advantage over getMinusSCEV: it
-  // doesn't crash if LHS and RHS contain AddRecs for unrelated loops (e.g.
-  // sibling loops).
-  Optional<APInt> Difference = SE->computeConstantDifference(LHS, RHS);
-  if (!Difference)
+  VPlanSCEV *VPMinus =
+      VPSE.getMinusExpr(VPSE.toVPlanSCEV(LHS), VPSE.toVPlanSCEV(RHS));
+  const SCEV *Minus = VPSE.toSCEV(VPMinus);
+
+  auto *Const = dyn_cast<SCEVConstant>(Minus);
+  if (!Const)
     return None;
 
-  return Difference->getSExtValue();
+  return Const->getAPInt().getSExtValue();
 }
 
 // FIXME: It is not safe to call this method after we start modifying IR, as
@@ -74,7 +76,7 @@ VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
   if (Inst->getParent() != FromInst->getParent())
     return None;
 
-  return getConstDistanceFromImpl(ScevExpr, FromScev, &VLSA->getVPSE().getSE());
+  return getConstDistanceFromImpl(ScevExpr, FromScev, VLSA->getVPSE());
 }
 
 // FIXME: This is an extremely naive implementation just to enable the most
@@ -93,7 +95,6 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     return false;
 
   VPlanScalarEvolutionLLVM &VPSE = VLSA->getVPSE();
-  ScalarEvolution *SE = &VPSE.getSE();
   Type *AccessType = getLoadStoreType(FromInst);
   int64_t AccessSize = VLSA->getDL().getTypeStoreSize(AccessType);
 
@@ -157,7 +158,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
       // Constant distance between From and IterInst implies that the strides of
       // IterInst and From are the same.
       Optional<int64_t> Distance =
-          getConstDistanceFromImpl(IterSCEV, FromSCEV, SE);
+          getConstDistanceFromImpl(IterSCEV, FromSCEV, VPSE);
       if (!Distance)
         return false;
 
