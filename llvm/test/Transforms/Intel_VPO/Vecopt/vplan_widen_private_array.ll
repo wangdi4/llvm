@@ -31,7 +31,7 @@ define void @_ZGVdN8uuuu_test_fn(<4 x i8> addrspace(1)* %src) {
 ; CHECK:    [[TMP5:%.*]] = bitcast <2 x <4 x i8>*> [[MM_VECTORGEP2]] to <2 x i8*>
 ; CHECK:    [[VECBASEPTR_:%.*]] = shufflevector <2 x i8*> [[TMP5]], <2 x i8*> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:    [[ELEMBASEPTR_:%.*]] = getelementptr i8, <8 x i8*> [[VECBASEPTR_]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[REPLICATEDVAL_]], <8 x i8*> [[ELEMBASEPTR_]], i32 16, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+; CHECK:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[REPLICATEDVAL_]], <8 x i8*> [[ELEMBASEPTR_]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 ;
 entry:
   %sPrivateStorage = alloca [2 x <4 x i8>], align 16
