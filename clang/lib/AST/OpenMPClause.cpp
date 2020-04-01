@@ -716,14 +716,16 @@ void OMPReductionClause::setReductionOps(ArrayRef<Expr *> ReductionOps) {
 
 OMPReductionClause *OMPReductionClause::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
-    SourceLocation EndLoc, SourceLocation ColonLoc, ArrayRef<Expr *> VL,
+    SourceLocation ModifierLoc, SourceLocation EndLoc, SourceLocation ColonLoc,
+    OpenMPReductionClauseModifier Modifier, ArrayRef<Expr *> VL,
     NestedNameSpecifierLoc QualifierLoc, const DeclarationNameInfo &NameInfo,
     ArrayRef<Expr *> Privates, ArrayRef<Expr *> LHSExprs,
     ArrayRef<Expr *> RHSExprs, ArrayRef<Expr *> ReductionOps, Stmt *PreInit,
     Expr *PostUpdate) {
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(5 * VL.size()));
-  OMPReductionClause *Clause = new (Mem) OMPReductionClause(
-      StartLoc, LParenLoc, EndLoc, ColonLoc, VL.size(), QualifierLoc, NameInfo);
+  auto *Clause = new (Mem)
+      OMPReductionClause(StartLoc, LParenLoc, ModifierLoc, EndLoc, ColonLoc,
+                         Modifier, VL.size(), QualifierLoc, NameInfo);
   Clause->setVarRefs(VL);
   Clause->setPrivates(Privates);
   Clause->setLHSExprs(LHSExprs);
@@ -1690,6 +1692,9 @@ void OMPClausePrinter::VisitOMPSharedClause(OMPSharedClause *Node) {
 void OMPClausePrinter::VisitOMPReductionClause(OMPReductionClause *Node) {
   if (!Node->varlist_empty()) {
     OS << "reduction(";
+    if (Node->getModifierLoc().isValid())
+      OS << getOpenMPSimpleClauseTypeName(OMPC_reduction, Node->getModifier())
+         << ", ";
     NestedNameSpecifier *QualifierLoc =
         Node->getQualifierLoc().getNestedNameSpecifier();
     OverloadedOperatorKind OOK =
