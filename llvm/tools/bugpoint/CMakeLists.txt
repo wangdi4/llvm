@@ -49,6 +49,7 @@ add_llvm_tool(bugpoint
   intrinsics_gen
   SUPPORT_PLUGINS
   )
+<<<<<<< HEAD
 export_executable_symbols(bugpoint)
 
 # INTEL_CUSTOMIZATION
@@ -64,3 +65,6 @@ if (p)
 endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
+=======
+export_executable_symbols_for_plugins(bugpoint)
+>>>>>>> 896335bfb8ea2c09c361c4f1e5a9aa6fb78caf88
