@@ -223,10 +223,21 @@ bool findPlugins(vector_class<std::pair<std::string, Backend>> &PluginNames) {
   // plugin must be searched; how to identify the plugins etc. Currently the
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
-  PluginNames.push_back(std::make_pair<std::string, Backend>(
-      OPENCL_PLUGIN_NAME, SYCL_BE_PI_OPENCL));
+  //
+  // NOTE: the order of the plugins below *does* matter. Some custom platform/
+  // device selection codes, which do not distinguish different backends would
+  // (per current logic in device_selector::select_device()) select first
+  // device that fits. SYCL spec says: "If more than one device receives
+  // the high score then one of those tied devices will be returned, but
+  // which of the devices from the tied set is to be returned is not defined".
+  //
+  // By having L0 plugin seen first we give a slight and subtle preference
+  // to L0 devices.
+  //
   PluginNames.push_back(std::make_pair<std::string, Backend>(
       LEVEL0_PLUGIN_NAME, SYCL_BE_PI_LEVEL0));
+  PluginNames.push_back(std::make_pair<std::string, Backend>(
+      OPENCL_PLUGIN_NAME, SYCL_BE_PI_OPENCL));
 #if 0
   // Disabling use of CUDA plugin.
    PluginNames.push_back(std::make_pair<std::string, Backend>(
@@ -285,15 +296,23 @@ vector_class<plugin> initialize() {
   PiPlugin PluginInformation;
   for (unsigned int I = 0; I < PluginNames.size(); I++) {
     void *Library = loadPlugin(PluginNames[I].first);
-    if (!Library && trace()) {
-      std::cerr << "SYCL_PI_TRACE[-1]: Check if plugin is present. "
-                << "Failed to load plugin: "
-                << PluginNames[I].first << std::endl;
+#if INTEL_CUSTOMIZATION
+    if (!Library) {
+      if (trace()) {
+        std::cerr << "SYCL_PI_TRACE[-1]: Check if plugin is present. "
+                  << "Failed to load plugin: "
+                  << PluginNames[I].first << std::endl;
+      }
+      continue;
     }
-    if (!bindPlugin(Library, &PluginInformation) && trace()) {
-      std::cerr << "SYCL_PI_TRACE[-1]: Failed to bind PI APIs to the plugin: "
-                << PluginNames[I].first << std::endl;
+    if (!bindPlugin(Library, &PluginInformation)) {
+      if (trace()) {
+        std::cerr << "SYCL_PI_TRACE[-1]: Failed to bind PI APIs to the plugin: "
+                  << PluginNames[I].first << std::endl;
+      }
+      continue;
     }
+#endif // INTEL_CUSTOMIZATION
     // Set the Global Plugin based on SYCL_INTEROP_BE.
     if (Config<Backend, SYCL_INTEROP_BE>::get() == PluginNames[I].second) {
       GlobalPlugin =

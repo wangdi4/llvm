@@ -1814,7 +1814,7 @@ pi_result L0(piKernelSetArg)(
   // SYCL RT would send a pointer to NULL in 'arg_value' is when the argument
   // is a NULL pointer. Treat a pointer to NULL in 'arg_value' as a NULL.
   //
-  if (arg_size == sizeof(void*) &&
+  if (arg_size == sizeof(void*) && arg_value &&
       *(void**)(const_cast<void*>(arg_value)) == nullptr) {
     arg_value = nullptr;
   }
