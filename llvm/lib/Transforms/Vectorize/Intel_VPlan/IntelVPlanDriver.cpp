@@ -933,12 +933,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 
-  unsigned UF = VPlanForceUF;
+  unsigned UF = HLoop->getUnrollPragmaCount();
+  if (VPlanForceUF)
+    UF = VPlanForceUF;
   // Unroll factor set as a hint from prior LoopOpt transforms.
   if (UF == 0)
     UF = HLoop->getForcedVectorUnrollFactor();
   if (UF == 0)
     UF = 1;
+
   VPlanLoopUnroller::VPInstUnrollPartTy VPInstUnrollPart;
   LVP.unroll(*Plan, UF, &VPInstUnrollPart);
 
