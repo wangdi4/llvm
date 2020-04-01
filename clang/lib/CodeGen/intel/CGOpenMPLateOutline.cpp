@@ -1577,6 +1577,16 @@ void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+void OpenMPLateOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {
+  ClauseEmissionHelper CEH(*this, OMPC_threads);
+  addArg("QUAL.OMP.ORDERED.THREADS");
+}
+
+void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {
+  ClauseEmissionHelper CEH(*this, OMPC_simd);
+  addArg("QUAL.OMP.ORDERED.SIMD");
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -1585,8 +1595,6 @@ void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *) {assert(false);}
 void OpenMPLateOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
 void OpenMPLateOutliner::emitOMPCaptureClause(const OMPCaptureClause *) {}
 void OpenMPLateOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
-void OpenMPLateOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
-void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
 void OpenMPLateOutliner::emitOMPUnifiedAddressClause(
     const OMPUnifiedAddressClause *) {}
 void OpenMPLateOutliner::emitOMPUnifiedSharedMemoryClause(
