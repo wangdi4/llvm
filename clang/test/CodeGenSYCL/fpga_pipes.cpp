@@ -1,5 +1,11 @@
 // UNSUPPORTED: intel_opencl
 // RUN: %clang %s -S -emit-llvm -fsycl-device-only -o - | FileCheck %s
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_CSA
+// INTEL - Disable test for CSA compiler as it is flaky.
+// UNSUPPORTED: csa-registered-target
+// end INTEL_FEATURE_CSA
+// end INTEL_CUSTOMIZATION
 #include "CL/sycl.hpp"
 // CHECK: %opencl.pipe_wo_t
 // CHECK: %opencl.pipe_ro_t
