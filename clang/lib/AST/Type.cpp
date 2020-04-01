@@ -261,24 +261,20 @@ DependentSizedExtVectorType::Profile(llvm::FoldingSetNodeID &ID,
   SizeExpr->Profile(ID, Context, true);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 ArbPrecIntType::ArbPrecIntType(QualType UnderlyingType, unsigned NumBits,
                                QualType CanonType, SourceLocation Loc)
-    : Type(ArbPrecInt, CanonType, UnderlyingType->isDependentType(),
-           UnderlyingType->isInstantiationDependentType(),
-           UnderlyingType->isVariablyModifiedType(),
-           UnderlyingType->containsUnexpandedParameterPack()),
+    : Type(ArbPrecInt, CanonType, UnderlyingType->getDependence()),
       UnderlyingType(UnderlyingType), NumBits(NumBits), Loc(Loc) {}
 
 DependentSizedArbPrecIntType::DependentSizedArbPrecIntType(
     const ASTContext &Context, QualType UnderlyingType, QualType CanonType,
     Expr *NumBitsExpr, SourceLocation Loc)
-    : Type(DependentSizedArbPrecInt, CanonType, /*Dependent=*/true,
-           /*InstantationDependent=*/true,
-           UnderlyingType->isVariablyModifiedType(),
-           (UnderlyingType->containsUnexpandedParameterPack() ||
-            (NumBitsExpr && NumBitsExpr->containsUnexpandedParameterPack()))),
+    : Type(DependentSizedArbPrecInt, CanonType,
+           TypeDependence::DependentInstantiation |
+               UnderlyingType->getDependence() |
+               (NumBitsExpr ? toTypeDependence(NumBitsExpr->getDependence())
+                            : TypeDependence::None)),
       Context(Context), UnderlyingType(UnderlyingType),
       NumBitsExpr(NumBitsExpr), Loc(Loc) {}
 
@@ -291,16 +287,6 @@ void DependentSizedArbPrecIntType::Profile(llvm::FoldingSetNodeID &ID,
 }
 #endif // INTEL_CUSTOMIZATION
 
-DependentAddressSpaceType::DependentAddressSpaceType(
-    const ASTContext &Context, QualType PointeeType, QualType can,
-    Expr *AddrSpaceExpr, SourceLocation loc)
-    : Type(DependentAddressSpace, can, /*Dependent=*/true,
-           /*InstantiationDependent=*/true,
-           PointeeType->isVariablyModifiedType(),
-           (PointeeType->containsUnexpandedParameterPack() ||
-            (AddrSpaceExpr &&
-             AddrSpaceExpr->containsUnexpandedParameterPack()))),
-=======
 DependentAddressSpaceType::DependentAddressSpaceType(const ASTContext &Context,
                                                      QualType PointeeType,
                                                      QualType can,
@@ -311,7 +297,6 @@ DependentAddressSpaceType::DependentAddressSpaceType(const ASTContext &Context,
                PointeeType->getDependence() |
                (AddrSpaceExpr ? toTypeDependence(AddrSpaceExpr->getDependence())
                               : TypeDependence::None)),
->>>>>>> a2aa9970e1fec589591f7b8ac5557c47be4e8550
       Context(Context), AddrSpaceExpr(AddrSpaceExpr), PointeeType(PointeeType),
       loc(loc) {}
 

@@ -6143,12 +6143,9 @@ public:
 class ChannelType : public Type, public llvm::FoldingSetNode {
   QualType ElementType;
 
-  ChannelType(QualType elemType, QualType CanonicalPtr) :
-    Type(Channel, CanonicalPtr, elemType->isDependentType(),
-         elemType->isInstantiationDependentType(),
-         elemType->isVariablyModifiedType(),
-         elemType->containsUnexpandedParameterPack()),
-    ElementType(elemType) {}
+  ChannelType(QualType elemType, QualType CanonicalPtr)
+      : Type(Channel, CanonicalPtr, elemType->getDependence()),
+        ElementType(elemType) {}
   friend class ASTContext;  // ASTContext creates these.
 
 public:
