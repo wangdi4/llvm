@@ -614,6 +614,33 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int __tgt_set_interop_property(
+    void *interop_obj, int32_t property_id, void *property_value) {
+  DP("Call to __tgt_set_interop_property with interop_obj " DPxMOD
+     ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
+
+  if (IsOffloadDisabled() || !interop_obj || !property_value) {
+    return OFFLOAD_FAIL;
+  }
+
+  __tgt_interop_obj *interop = (__tgt_interop_obj *)interop_obj;
+  // Currently we support setting async object only
+  switch (property_id) {
+  case INTEROP_ASYNC_OBJ:
+    if (interop->async_obj) {
+       DP("Updating async obj is not allowed" PRId32 "\n");
+       return OFFLOAD_FAIL;
+    }
+    interop->async_obj = property_value;
+    break;
+  default:
+    DP("Invalid interop property name " PRId32 "\n");
+    return OFFLOAD_FAIL;
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value) {
   DP("Call to __tgt_get_interop_property with interop_obj " DPxMOD
