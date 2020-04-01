@@ -12732,8 +12732,8 @@ public:
   /// codegen'ed yet.
   bool checkSYCLDeviceFunction(SourceLocation Loc, FunctionDecl *Callee);
 
-  /// Finishes analysis of the deferred functions calls that may be declared as
-  /// host during device compilation.
+  /// Finishes analysis of the deferred functions calls that may be not
+  /// properly declared for device compilation.
   void finalizeSYCLDelayedAnalysis(const FunctionDecl *Caller,
                                    const FunctionDecl *Callee,
                                    SourceLocation Loc);
