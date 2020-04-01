@@ -28,6 +28,7 @@
 namespace llvm {
 class DataLayout;
 class Function;
+class LLVMContext;
 class Module;
 class TargetLibraryInfo;
 class User;
@@ -275,7 +276,8 @@ inline bool operator<(const ValueTypeInfo::PointeeLoc &A,
 class PtrTypeAnalyzer {
 public:
   PtrTypeAnalyzer(
-      DTransTypeManager &TM, TypeMetadataReader &MDReader, const DataLayout &DL,
+      LLVMContext &Ctx, DTransTypeManager &TM, TypeMetadataReader &MDReader,
+      const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
 
   ~PtrTypeAnalyzer();
@@ -313,6 +315,10 @@ public:
   // propagating type information about Value objects.
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
   ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
+
+  // Check whether the Value should have had pointer type information collected
+  // for it.
+  bool isPossiblePtrValue(Value *V) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);
