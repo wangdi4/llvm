@@ -284,27 +284,14 @@ vector_class<plugin> initialize() {
 
   PiPlugin PluginInformation;
   for (unsigned int I = 0; I < PluginNames.size(); I++) {
-<<<<<<< HEAD
     void *Library = loadPlugin(PluginNames[I].first);
-    if (!Library && trace()) {
-      std::cerr << "SYCL_PI_TRACE[-1]: Check if plugin is present. "
-                << "Failed to load plugin: "
-                << PluginNames[I].first << std::endl;
-=======
-    void *Library = loadPlugin(PluginNames[I]);
-
     if (!Library) {
-      if (EnableTrace) {
-        std::cerr << "Check if plugin is present. Failed to load plugin: "
-                  << PluginNames[I] << std::endl;
+      if (trace()) {
+        std::cerr << "SYCL_PI_TRACE[-1]: Check if plugin is present. "
+                  << "Failed to load plugin: " << PluginNames[I].first
+                  << std::endl;
       }
       continue;
-    }
-
-    if (!bindPlugin(Library, &PluginInformation) && EnableTrace) {
-      std::cerr << "Failed to bind PI APIs to the plugin: " << PluginNames[I]
-                << std::endl;
->>>>>>> d15de0bc493a323952f16aa9ba92605097aacf11
     }
     if (!bindPlugin(Library, &PluginInformation) && trace()) {
       std::cerr << "SYCL_PI_TRACE[-1]: Failed to bind PI APIs to the plugin: "
