@@ -2228,11 +2228,11 @@ TARGET_BUILTIN(__builtin_ia32_vdpphps512_mask, "V16fV16fV16fV16fUsIi", "ncV:512:
 TARGET_BUILTIN(__builtin_ia32_vpdpbssd512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
 TARGET_BUILTIN(__builtin_ia32_vpdpbssds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbsud512, "V16iV16iV16UiV16i", "ncV:512:", "avx512dotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsuds512, "V16iV16iV16UiV16i", "ncV:512:", "avx512dotprod")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsud512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsuds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbuud512, "V16UiV16UiV16UiV16i", "ncV:512:", "avx512dotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuuds512, "V16UiV16UiV16UiV16Ui", "ncV:512:", "avx512dotprod")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuud512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuuds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
 #endif // INTEL_CTOMIZATION
 
