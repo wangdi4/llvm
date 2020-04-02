@@ -241,6 +241,7 @@ Sema::BuildSYCLIntelFPGAIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
       SYCLIntelFPGAIVDepAttr(Context, CI, SafeLenExpr, ArrayExpr, SafelenValue);
 }
 
+<<<<<<< HEAD
 template <typename FPGALoopAttrT>
 FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
                                                 Expr *E) {
@@ -303,6 +304,8 @@ Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(
     const AttributeCommonInfo &, Expr *);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 925a5874b9b800b221ead9487460b21dadad4e22
 // Filters out any attributes from the list that are either not the specified
 // type, or whose function isDependent returns true.
 template <typename T>
