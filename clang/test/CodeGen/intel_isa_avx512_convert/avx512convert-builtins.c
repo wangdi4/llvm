@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx512_dotprod
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-unknown -target-feature +avx512convert -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -flax-vector-conversions=none -ffreestanding %s -triple=x86_64-unknown-unknown -target-feature +avx512convert -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 
