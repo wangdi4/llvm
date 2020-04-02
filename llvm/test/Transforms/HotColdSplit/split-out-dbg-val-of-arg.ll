@@ -16,7 +16,7 @@ if.then:                                          ; preds = %entry
 
 if.end:                                           ; preds = %entry
   call void @llvm.dbg.value(metadata i32 %arg1, metadata !9, metadata !DIExpression()), !dbg !11
-  call void @sink()
+  call void @sink(), !dbg !11                                           ; INTEL
   ret void
 }
 

@@ -142,22 +142,6 @@ Value *VPOUtils::stripCasts(Value *ValWithCasts,
   return ValWithCasts;
 }
 
-// Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from the Function F.
-// This is a workaround for now till CodeExtractor learns to handle these.
-void VPOUtils::stripDebugInfoInstrinsics(Function &F)
-{
-  for (auto &BB : F) {
-    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
-      Instruction *Insn = &*BI++;
-      if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(Insn)) {
-        DVI->eraseFromParent();
-      } else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
-        DDI->eraseFromParent();
-      }
-    }
-  }
-}
-
 // Return true if the given type can be registerized.
 bool VPOUtils::canBeRegisterized(Type *AllocaTy, const DataLayout &DL) {
   Type *ScalarTy = AllocaTy->getScalarType();

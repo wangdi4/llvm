@@ -33,6 +33,12 @@ protected:
     F = Function::Create(FTy, Function::ExternalLinkage, "", M.get());
     BB = BasicBlock::Create(Ctx, "", F);
 
+#if INTEL_CUSTOMIZATION
+  }
+
+  void SetupDebug() {
+#endif // INTEL_CUSTOMIZATION
+
     DIBuilder DIB(*M);
     auto File = DIB.createFile("test.dbg", "/");
     auto CU =
@@ -271,6 +277,9 @@ TEST_F(OpenMPIRBuilderTest, CreateCancelBarrier) {
 }
 
 TEST_F(OpenMPIRBuilderTest, DbgLoc) {
+#if INTEL_CUSTOMIZATION
+  SetupDebug();
+#endif // INTEL_CUSTOMIZATION
   OpenMPIRBuilder OMPBuilder(*M);
   OMPBuilder.initialize();
   F->setName("func");
@@ -312,7 +321,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelSimple) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
-  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
+  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP()});        // INTEL
 
   AllocaInst *PrivAI = nullptr;
 
@@ -409,7 +418,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelIfCond) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
-  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
+  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP()});        // INTEL
 
   AllocaInst *PrivAI = nullptr;
 
@@ -520,7 +529,7 @@ TEST_F(OpenMPIRBuilderTest, ParallelCancelBarrier) {
   F->setName("func");
   IRBuilder<> Builder(BB);
 
-  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP(), DL});
+  OpenMPIRBuilder::LocationDescription Loc({Builder.saveIP()});        // INTEL
 
   unsigned NumBodiesGenerated = 0;
   unsigned NumPrivatizedVars = 0;
