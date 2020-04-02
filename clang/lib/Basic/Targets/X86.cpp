@@ -987,7 +987,7 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-  else if (Name == "amx-transpose2")
+  else if (Name == "amx-transpose2" && Enabled)
     Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AMX_CONVERT
