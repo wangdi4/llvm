@@ -1588,6 +1588,8 @@ public:
     // Finalize analysis of OpenMP-specific constructs.
     if (Caller && S.LangOpts.OpenMP && UseStack.size() == 1)
       S.finalizeOpenMPDelayedAnalysis(Caller, FD, Loc);
+    if (Caller && S.LangOpts.SYCLIsDevice)
+      S.finalizeSYCLDelayedAnalysis(Caller, FD, Loc);
     if (Caller)
       S.DeviceKnownEmittedFns[FD] = {Caller, Loc};
     if (ShouldEmit || InOMPDeviceContext)
