@@ -38,9 +38,12 @@
 // CHK-PHASES: 20: linker, {8, 19}, image, (host-openmp-sycl)
 // CHK-PHASES: 21: compiler, {3}, ir, (device-sycl)
 // CHK-PHASES: 22: linker, {21}, ir, (device-sycl)
-// CHK-PHASES: 23: llvm-spirv, {22}, spirv, (device-sycl)
-// CHK-PHASES: 24: clang-offload-wrapper, {23}, object, (device-sycl)
-// CHK-PHASES: 25: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {20}, "device-sycl (spir64-unknown-unknown-sycldevice{{(-coff)?}})" {24}, image
+// CHK-PHASES: 23: sycl-post-link, {22}, tempfiletable, (device-sycl)
+// CHK-PHASES: 24: file-table-tform, {23}, tempfilelist, (device-sycl)
+// CHK-PHASES: 25: llvm-spirv, {24}, tempfilelist, (device-sycl)
+// CHK-PHASES: 26: file-table-tform, {23, 25}, tempfiletable, (device-sycl)
+// CHK-PHASES: 27: clang-offload-wrapper, {26}, object, (device-sycl)
+// CHK-PHASES: 28: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {20}, "device-sycl (spir64-unknown-unknown-sycldevice{{(-coff)?}})" {27}, image
 
 /// ###########################################################################
 
@@ -50,14 +53,18 @@
 // RUN:   %clang_cl -### --intel -fsycl -Qiopenmp -o %t.out --target=x86_64-pc-windows-msvc -Qopenmp-targets=spir64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-COMMANDS,CHK-COMMANDS-CL %s
 
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{(-coff)?}}" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{(-coff)?}}" "-fsycl" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
 // CHK-COMMANDS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
-// CHK-COMMANDS: llvm-spirv{{.*}} "-o" "[[SYCLSPIRV:.+\.spv]]" {{.*}} "[[SYCLLINKEDBC]]"
-// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc{{.*}}" "-target=spir64" "-kind=sycl" "[[SYCLSPIRV]]"
+// CHK-COMMANDS: sycl-post-link{{.*}} "-o" "[[TABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
+// CHK-COMMANDS: file-table-tform{{.*}} "-o" "[[FILELIST:.+\.txt]]" "[[TABLE]]"
+// CHK-COMMANDS: llvm-foreach{{.*}} "--in-file-list=[[FILELIST]]"{{.*}}"--out-file-list=[[SPVOUTPUT:[^ ]+\.txt]]"
+// CHK-COMMANDS-SAME: llvm-spirv{{.*}} "-o" "[[SPVOUTPUT]]" {{.*}} "[[FILELIST]]"
+// CHK-COMMANDS: file-table-tform{{.*}} "-o" "[[TABLEFORWRAPPER:.+\.table]]" "[[TABLE]]" "[[SPVOUTPUT]]"
+// CHK-COMMANDS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc" "-target=spir64" "-kind=sycl"{{.*}} "[[TABLEFORWRAPPER]]"
 // CHK-COMMANDS-NOCL: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJ:.+\.o]]" "[[SYCLWRAPPERBC]]"
 // CHK-COMMANDS-CL: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJCL:.+\.obj]]" "[[SYCLWRAPPERBC]]"
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT]]"
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-disable-llvm-passes" "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl" "-fsycl-is-device" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-COMMANDS-NOCL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
 // CHK-COMMANDS-CL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJCL:.+\.obj]]" "-x" "ir" "[[HOSTBC]]"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
@@ -118,9 +125,12 @@
 // CHK-UBACTIONS: 7: assembler, {6}, object, (host-openmp-sycl)
 // CHK-UBACTIONS: 8: linker, {1, 7}, image, (host-openmp-sycl)
 // CHK-UBACTIONS: 9: linker, {1}, ir, (device-sycl)
-// CHK-UBACTIONS: 10: llvm-spirv, {9}, spirv, (device-sycl)
-// CHK-UBACTIONS: 11: clang-offload-wrapper, {10}, object, (device-sycl)
-// CHK-UBACTIONS: 12: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {8}, "device-sycl (spir64-unknown-unknown-sycldevice{{(-coff)?}})" {11}, image
+// CHK-UBACTIONS: 10: sycl-post-link, {9}, tempfiletable, (device-sycl)
+// CHK-UBACTIONS: 11: file-table-tform, {10}, tempfilelist, (device-sycl)
+// CHK-UBACTIONS: 12: llvm-spirv, {11}, tempfilelist, (device-sycl)
+// CHK-UBACTIONS: 13: file-table-tform, {10, 12}, tempfiletable, (device-sycl)
+// CHK-UBACTIONS: 14: clang-offload-wrapper, {13}, object, (device-sycl)
+// CHK-UBACTIONS: 15: offload, "host-openmp-sycl (x86_64-pc-windows-msvc)" {8}, "device-sycl (spir64-unknown-unknown-sycldevice{{(-coff)?}})" {14}, image
 
 /// ###########################################################################
 
@@ -130,10 +140,10 @@
 // RUN:   %clang_cl -### --intel -fsycl -Qiopenmp -c -Fo%t.o --target=x86_64-pc-windows-msvc -Qopenmp-targets=spir64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-BUJOBS,CHK-BUJOBS-CL %s
 
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT:.+\.c]]"
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-disable-llvm-passes" "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl" "-fsycl-is-device" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT:.+\.c]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl-is-device" {{.*}} "-disable-llvm-passes" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-BUJOBS-NOCL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
 // CHK-BUJOBS-NOCL: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice,host-x86_64-pc-windows-msvc" "-outputs=[[FATOBJ:.+\.o]]" "-inputs=[[OMPBC]],[[SYCLBC]],[[HOSTOBJ]]"
 // CHK-BUJOBS-CL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJCL:.+\.obj]]" "-x" "ir" "[[HOSTBC]]"
@@ -145,8 +155,11 @@
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS %s
 // CHK-UBJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice" "-inputs=[[FATOBJ:.+\.o]]" "-outputs=[[HOSTOBJ:.+\.o]],[[OMPBC:.+\.o]],[[SYCLBC:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
-// CHK-UBJOBS: llvm-spirv{{.*}} "-o" "[[SYCLSPIRV:.+\.spv]]" {{.*}} "[[SYCLLINKEDBC]]"
-// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc{{.*}}" "-target=spir64" "-kind=sycl" "[[SYCLSPIRV]]"
+// CHK-UBJOBS: sycl-post-link{{.*}} "-symbols" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
+// CHK-UBJOBS: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
+// CHK-UBJOBS: llvm-foreach{{.*}} "--in-file-list=[[SYCLTABLEOUT]]" "--in-replace=[[SYCLTABLEOUT]]" "--out-ext=spv" "--out-file-list=[[SYCLLLVMFOROUT:.+\.txt]]" "--out-replace=[[SYCLLLVMFOROUT]]" "--" "{{.*}}llvm-spirv" "-o" "[[SYCLLLVMFOROUT]]" "-spirv-max-version=1.1" "-spirv-ext=+all" "[[SYCLTABLEOUT]]" 
+// CHK-UBJOBS: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[SYCLSPIRV:.+\.table]]" "[[SYCLTABLE]]" "[[SYCLLLVMFOROUT]]"
+// CHK-UBJOBS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc{{.*}}" "-target=spir64" "-kind=sycl" "-batch" "[[SYCLSPIRV]]"
 // CHK-UBJOBS: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJ:.+\.o]]" "[[SYCLWRAPPERBC]]"
 // CHK-UBJOBS: llvm-link{{.*}} "[[OMPBC]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[OMPLINKEDBC:.+\.out]]"
 // CHK-UBJOBS: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.out]]" "[[OMPLINKEDBC]]"
@@ -159,8 +172,11 @@
 // RUN:   | FileCheck -check-prefix=CHK-UBJOBS-CL %s
 // CHK-UBJOBS-CL: clang-offload-bundler{{.*}} "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64,sycl-spir64-unknown-unknown-sycldevice-coff" "-inputs=[[FATOBJ:.+\.o]]" "-outputs=[[HOSTOBJCL:.+\.obj]],[[OMPBCCL:.+\.obj]],[[SYCLBCCL:.+\.obj]]" "-unbundle"
 // CHK-UBJOBS-CL: llvm-link{{.*}} "[[SYCLBCCL]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
-// CHK-UBJOBS-CL: llvm-spirv{{.*}} "-o" "[[SYCLSPIRV:.+\.spv]]" {{.*}} "[[SYCLLINKEDBC]]"
-// CHK-UBJOBS-CL: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc{{.*}}" "-target=spir64" "-kind=sycl" "[[SYCLSPIRV]]"
+// CHK-UBJOBS-CL: sycl-post-link{{.*}} "-symbols" "-spec-const=rt" "-o" "[[SYCLTABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
+// CHK-UBJOBS-CL: file-table-tform{{.*}} "-extract=Code" "-drop_titles" "-o" "[[SYCLTABLEOUT:.+\.txt]]" "[[SYCLTABLE]]"
+// CHK-UBJOBS-CL: llvm-foreach{{.*}} "--in-file-list=[[SYCLTABLEOUT]]" "--in-replace=[[SYCLTABLEOUT]]" "--out-ext=spv" "--out-file-list=[[SYCLLLVMFOROUT:.+\.txt]]" "--out-replace=[[SYCLLLVMFOROUT]]" "--" "{{.*}}llvm-spirv" "-o" "[[SYCLLLVMFOROUT]]" "-spirv-max-version=1.1" "-spirv-ext=+all" "[[SYCLTABLEOUT]]" 
+// CHK-UBJOBS-CL: file-table-tform{{.*}} "-replace=Code,Code" "-o" "[[SYCLSPIRV:.+\.table]]" "[[SYCLTABLE]]" "[[SYCLLLVMFOROUT]]"
+// CHK-UBJOBS-CL: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc{{.*}}" "-target=spir64" "-kind=sycl" "-batch" "[[SYCLSPIRV]]"
 // CHK-UBJOBS-CL: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJCL:.+\.obj]]" "[[SYCLWRAPPERBC]]"
 // CHK-UBJOBS-CL: llvm-link{{.*}} "[[OMPBCCL]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[OMPLINKEDBCCL:.+\.exe]]"
 // CHK-UBJOBS-CL: llvm-spirv{{.*}} "-o" "[[OMPSPIRVCL:.+\.exe]]" "[[OMPLINKEDBCCL]]"
