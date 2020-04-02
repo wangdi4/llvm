@@ -49,6 +49,71 @@ static bool isCompilerConstant(const Value *V) {
   return isa<ConstantData>(V);
 }
 
+// Return true if the Type is something that needs to be analyzed for type
+// recovery.
+//
+// In general, this is checking for a pointer type, an array/vector of pointer
+// types, or a structure type.
+//
+static bool isTypeOfInterest(llvm::Type *Ty) {
+  if (Ty->isPointerTy())
+    return true;
+
+  if (Ty->isVectorTy() && Ty->getVectorElementType()->isPointerTy())
+    return true;
+
+  if (Ty->isArrayTy())
+    return isTypeOfInterest(Ty->getArrayElementType());
+
+  // Non-opaque named and literal structures should be types of interest.
+  if (Ty->isStructTy() && !cast<llvm::StructType>(Ty)->isOpaque())
+    return true;
+
+  return false;
+}
+
+// Check whether the DTransType \p has a pointer. This is similar to the
+// utility function dtrans::hasPointerType(llvm::Type* Ty), which operates
+// on llvm Types.
+static bool hasPointerType(dtrans::DTransType *Ty) {
+  if (Ty->isPointerTy())
+    return true;
+
+  if (auto *SeqTy = dyn_cast<DTransSequentialType>(Ty))
+    return hasPointerType(SeqTy->getElementType());
+
+  if (auto *StTy = dyn_cast<DTransStructType>(Ty)) {
+    // Check inside of literal structures because those cannot be referenced by
+    // name. However, there is no need to look inside non-literal structures
+    // because those will be referenced by their name.
+    if (StTy->isLiteralStruct())
+      for (auto &Field : StTy->getFields())
+        for (auto *ElemTy : Field.getTypes()) {
+          bool HasPointer = hasPointerType(ElemTy);
+          if (HasPointer)
+            return true;
+        }
+  }
+
+  if (auto *FnTy = dyn_cast<DTransFunctionType>(Ty)) {
+    // Check the return type and the parameter types for any possible
+    // pointer because metadata descriptions on these will be used to help
+    // recovery of opaque pointer types.
+    DTransType *RetTy = FnTy->getReturnType();
+    if (RetTy && hasPointerType(RetTy))
+      return true;
+
+    unsigned NumParams = FnTy->getNumArgs();
+    for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
+      DTransType *ParmTy = FnTy->getArgType(Idx);
+      if (ParmTy && hasPointerType(ParmTy))
+        return true;
+    }
+  }
+
+  return false;
+}
+
 // Helper to print a Value object (and optionally the name of the function it
 // belongs to, if there is one). If the Value represents a GlobalValue, such as
 // a Function or GlobalVariable, just print the object's name instead of the
@@ -138,11 +203,7 @@ public:
           PrintConstantExpr(OS, CE);
 
     // Report the information about the value produced by the instruction.
-    llvm::Type *ValueTy = V->getType();
-    bool ExpectPointerInfo = ValueTy->isPointerTy() ||
-                             (ValueTy->isVectorTy() &&
-                              ValueTy->getVectorElementType()->isPointerTy()) ||
-                             isa<PtrToIntInst>(V);
+    bool ExpectPointerInfo = Analyzer.isPossiblePtrValue(V);
 
     // The value is being produced by an instruction, so can use
     // getValueTypeInfo, without checking if it is 'null'/'undef' here.
@@ -171,9 +232,12 @@ private:
 class PtrTypeAnalyzerImpl {
 public:
   PtrTypeAnalyzerImpl(
-      DTransTypeManager &TM, TypeMetadataReader &MDReader, const DataLayout &DL,
+      LLVMContext &Ctx, DTransTypeManager &TM, TypeMetadataReader &MDReader,
+      const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
-      : TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {}
+      : TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {
+    PointerSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
+  }
 
   ~PtrTypeAnalyzerImpl();
 
@@ -195,6 +259,8 @@ public:
   // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
   // completely analyzed.
   void setDeclaredType(Value *V, DTransType *Ty);
+
+  llvm::Type *getPointerSizedIntType() const { return PointerSizedIntType; }
 
 private:
   DTransTypeManager &TM;
@@ -219,6 +285,10 @@ private:
   // representing different types.
   std::map<std::pair<const User *, unsigned>, ValueTypeInfo *>
       LocalMapForConstant;
+
+  // LLVM type for an integer that is the same size as a pointer in address
+  // space 0.
+  llvm::Type *PointerSizedIntType;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -363,7 +433,7 @@ public:
   void visitFunction(Function &F) {
     if (!F.isDeclaration())
       for (auto &A : F.args())
-        if (isPossiblePtrValue(&A))
+        if (hasPointerType(A.getType()))
           analyzeValue(&A);
   }
 
@@ -376,6 +446,16 @@ public:
   void visitPHINode(PHINode &I) { analyzeValue(&I); }
   void visitPtrToIntInst(PtrToIntInst &I) { analyzeValue(&I); }
   void visitSelectInst(SelectInst &I) { analyzeValue(&I); }
+
+  // All instructions not handled by other visit functions.
+  void visitInstruction(Instruction &I) {
+    if (!hasPointerType(I.getType()))
+      return;
+
+    ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&I);
+    Info->setUnhandled();
+    LLVM_DEBUG(dbgs() << "Unhandled instruction: " << I << "\n");
+  }
 
 private:
   ValueTypeInfo *analyzeValue(Value *V) {
@@ -949,7 +1029,7 @@ private:
   }
 
   void analyzeArgument(Argument *Arg, ValueTypeInfo *ResultInfo) {
-    if (!isPossiblePtrValue(Arg))
+    if (!hasPointerType(Arg->getType()))
       return;
 
     Function *F = Arg->getParent();
@@ -1079,7 +1159,7 @@ private:
     unsigned NumArg = Call->arg_size();
     for (unsigned AI = 0; AI < NumArg; ++AI) {
       Value *Arg = Call->getArgOperand(AI);
-      if (Arg->getType()->isPointerTy()) {
+      if (hasPointerType(Arg->getType())) {
         ValueTypeInfo *ParamInfo = PTA.getOrCreateValueTypeInfo(Call, AI);
         // Check whether the argument should have a pointer type, and the type,
         // if so.
@@ -1106,7 +1186,7 @@ private:
   //  <true, DTransType*> - Type is a pointer, of the type in the pair.
   //  <true, nullptr>     - Type is a pointer, but could not be resolved.
   std::pair<bool, DTransType *> getCallReturnType(CallBase *Call) {
-    if (!isPossiblePtrValue(Call))
+    if (!hasPointerType(Call->getType()))
       return {false, nullptr};
 
     // Check if there is metadata for information available to use from a called
@@ -1163,9 +1243,7 @@ private:
 
     // Check whether the return value will be of interest.
     llvm::Type *RetType = F->getReturnType();
-    if (!(RetType->isPointerTy() ||
-          (RetType->isVectorTy() &&
-           RetType->getVectorElementType()->isPointerTy())))
+    if (!hasPointerType(RetType))
       return {false, nullptr};
 
     // Handle functions with metadata descriptions.
@@ -1305,7 +1383,7 @@ private:
       return {true, getDTransI8Ptr()};
     };
 
-    if (!Call->getArgOperand(Idx)->getType()->isPointerTy())
+    if (!hasPointerType(Call->getArgOperand(Idx)->getType()))
       return {false, nullptr};
 
     DTransType *DType = nullptr;
@@ -1677,13 +1755,15 @@ private:
     // If the load is of the form: %y = load p0, p0 %x, then only propagate a
     // dereferenced version of %x to %y if it is a pointer type.
     //
-    // Note: We cannot do the inverse of this to say %y = load i64, p0 %x should
-    // only propagate when the dereferenced type is not a pointer because %x
-    // could be a %struct.test** that is being loaded as an i64.
-    bool ExpectPtrType = LI->getType()->isPointerTy();
+    // Note: We also need to do propagation for a load of a pointer-sized
+    // integer type, because in the instruction "%y = load i64, p0 %x", %x could
+    // be a %struct.test** that has been cast to an i64*.
+    llvm::Type *ValTy = LI->getType();
+    bool ExpectPtrType = hasPointerType(ValTy);
     ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(LI, 0);
-    propagate(PointerInfo, ResultInfo, true, true, DerefType::DT_PointeeType,
-              ExpectPtrType);
+    if (ExpectPtrType || ValTy == getPointerSizedIntType())
+      propagate(PointerInfo, ResultInfo, true, true, DerefType::DT_PointeeType,
+                ExpectPtrType);
 
     // Update the usage type of the pointer argument based on the type
     // of the load instruction if we are loading a known type.
@@ -1744,7 +1824,7 @@ private:
         // unhandled situation because it's possible that we do not have the
         // type because there was not an actual use in the IR where the value
         // gets used as the unexpected level of indirection.
-        if (PropAlias && (!RequirePtr || PropAlias->isPointerTy()))
+        if (PropAlias && (!RequirePtr || hasPointerType(PropAlias)))
           LocalChanged |= DestInfo->addTypeAlias(Kind, PropAlias);
         else
           LLVM_DEBUG(dbgs() << "Warning: Could not create element of requested "
@@ -1838,34 +1918,6 @@ private:
       if (!SrcInfo->isCompletelyAnalyzed())
         ResultInfo->setPartiallyAnalyzed();
     }
-  }
-
-  // Check whether the type for the Value object is something that needs to be
-  // analyzed for potential pointer types.
-  bool isPossiblePtrValue(Value *V) {
-    llvm::Type *ValueTy = V->getType();
-
-    // If the value is a pointer or the result of a pointer-to-int cast
-    // it definitely is a pointer.
-    if (ValueTy->isPointerTy() || isa<PtrToIntOperator>(V))
-      return true;
-
-    // A vector of pointers should be analyzed to track the pointer type.
-    if (ValueTy->isVectorTy() && ValueTy->getVectorElementType()->isPointerTy())
-      return true;
-
-    // If the value is not a pointer and is not a pointer-sized integer, it
-    // is definitely not a value we will track as a pointer.
-    if (ValueTy != getPointerSizedIntType())
-      return false;
-
-    // If it is a pointer-sized integer, we may need to analyze it if
-    // it is the result of a load, select or PHI node.
-    if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
-      return true;
-
-    // Otherwise, we don't need to analyze it as a pointer.
-    return false;
   }
 
   // Perform pointer type analysis for constant operator expressions
@@ -2234,6 +2286,36 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,
   return getValueTypeInfo(V);
 }
 
+// Check whether the type for the Value object is something that needs to be
+// analyzed for potential pointer types. This differs from just checking the
+// Type of V with isTypeOfInterest, because this also needs to consider the
+// case of a pointer converted into a pointer sized integer.
+bool PtrTypeAnalyzer::isPossiblePtrValue(Value *V) const {
+  llvm::Type *ValueTy = V->getType();
+
+  // If the value is a pointer or the result of a pointer-to-int cast
+  // it definitely is a pointer.
+  if (ValueTy->isPointerTy() || isa<PtrToIntOperator>(V))
+    return true;
+
+  // A vector of pointers should be analyzed to track the pointer type.
+  if (ValueTy->isVectorTy() && ValueTy->getVectorElementType()->isPointerTy())
+    return true;
+
+  // If the value is not a pointer and is not a pointer-sized integer, it
+  // is definitely not a value we will track as a pointer.
+  if (ValueTy != Impl->getPointerSizedIntType())
+    return false;
+
+  // If it is a pointer-sized integer, we may need to analyze it if
+  // it is the result of a load, select or PHI node.
+  if (isa<LoadInst>(V) || isa<SelectInst>(V) || isa<PHINode>(V))
+    return true;
+
+  // Otherwise, we don't need to analyze it as a pointer.
+  return false;
+}
+
 void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, dtrans::DTransType *Ty) {
   ValueTypeInfo *Info = getOrCreateValueTypeInfo(V);
   Info->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
@@ -2247,9 +2329,10 @@ void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, dtrans::DTransType *Ty) {
 ////////////////////////////////////////////////////////////////////////////////
 
 PtrTypeAnalyzer::PtrTypeAnalyzer(
-    DTransTypeManager &TM, TypeMetadataReader &MDReader, const DataLayout &DL,
+    LLVMContext &Ctx, DTransTypeManager &TM, TypeMetadataReader &MDReader,
+    const DataLayout &DL,
     std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
-  Impl = std::make_unique<PtrTypeAnalyzerImpl>(TM, MDReader, DL, GetTLI);
+  Impl = std::make_unique<PtrTypeAnalyzerImpl>(Ctx, TM, MDReader, DL, GetTLI);
 }
 
 // Declaration needed in source file to enable unique_ptr destructor to see

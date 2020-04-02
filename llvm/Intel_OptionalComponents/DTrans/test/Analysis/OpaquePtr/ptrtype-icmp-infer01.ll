@@ -61,8 +61,6 @@ define void @helper_test01(%struct.test01impl* %in1, i8* %in2) !dtrans_type !1 {
 ; CHECK-NEXT:        void (%struct.test01impl*, i8*)***
 ; CHECK-NEXT:      No element pointees.
 
-; TODO:: Because %tmp1008 was detected as a %struct.test01*, this load will
-; capture %tmp1009 as %struct.test01. See if there is some way to improve this.
 ; CHECK-CUR:  %tmp1009 = load void (%struct.test01*, i8*)**, void (%struct.test01*, i8*)*** %tmp1008
 ; CHECK-FUT:  %tmp1009 = load p0, p0 %tmp1008
 ; CHECK:    LocalPointerInfo:

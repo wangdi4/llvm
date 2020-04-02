@@ -309,27 +309,24 @@ else()
     message(STATUS "Level0 include DIR: ${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS}")
     message(STATUS "Looking for Level0 library.")
 
-    if(WIN32)
-      # Check cmake variable first
-      # TODO: doing this for Linux requires library name change to ze_loader.
-      if(L0_LIBRARY)
-        if(NOT EXISTS ${L0_LIBRARY})
-          message(FATAL_ERROR
-            "Level0 library specified with L0_LIBRARY variable \
-             (${L0_LIBRARY}) does not exist.")
-        endif()
-        set(LIBOMPTARGET_DEP_LEVEL0_LIBRARIES "${L0_LIBRARY}")
+    # Check cmake variable first
+    if(L0_LIBRARY)
+      if(NOT EXISTS ${L0_LIBRARY})
+        message(FATAL_ERROR
+          "Level0 library specified with L0_LIBRARY variable \
+           (${L0_LIBRARY}) does not exist.")
       endif()
+      set(LIBOMPTARGET_DEP_LEVEL0_LIBRARIES "${L0_LIBRARY}")
     endif()
     # Search L0 library
     if(WIN32)
       if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(LEVEL0_LIBRARY_NAME "level_zero64")
+        set(LEVEL0_LIBRARY_NAME level_zero64)
       else()
-        set(LEVEL0_LIBRARY_NAME "level_zero32")
+        set(LEVEL0_LIBRARY_NAME level_zero32)
       endif()
     else()
-      set(LEVEL0_LIBRARY_NAME "ze_loader")
+      set(LEVEL0_LIBRARY_NAME level_zero ze_loader)
     endif()
     find_library(LIBOMPTARGET_DEP_LEVEL0_LIBRARIES
       NAMES

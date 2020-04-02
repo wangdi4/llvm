@@ -251,6 +251,47 @@ getCompilerBuildLog(const CLProgramUPtr &ProgramUPtr, cl_device_id Device) {
                          CLErr);
 }
 
+#if INTEL_PRODUCT_RELEASE
+#if INTEL_CUSTOMIZATION
+class HelpPrinter {
+public:
+  explicit HelpPrinter(StringMap<cl::Option *> OptMap_)
+      : OptMap(std::move(OptMap_)) {}
+
+  void print() {
+    raw_ostream &OS = outs();
+    OS << "OVERVIEW: OpenCL ahead-of-time (AOT) compilation tool\n";
+    OS << "USAGE: opencl-aot [options] <input SPIR-V or OpenCL program binary>"
+       << "\n\n";
+    OS << "OPTIONS:\n\n";
+
+    size_t MaxArgLen = 0;
+    for (const auto &Opt : OptMap) {
+      MaxArgLen = std::max(MaxArgLen, Opt.getValue()->getOptionWidth());
+    }
+
+    for (const auto &Opt : OptMap) {
+      if (!Opt.getValue()->getOptionHiddenFlag()) {
+        Opt.getValue()->printOptionInfo(MaxArgLen);
+      }
+    }
+  }
+
+  void operator=(bool OptionWasSpecified) {
+    if (!OptionWasSpecified)
+      return;
+
+    print();
+
+    exit(0);
+  }
+
+private:
+  StringMap<cl::Option *> OptMap;
+};
+#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_PRODUCT_RELEASE
+
 int main(int Argc, char *Argv[]) {
   // step 0: set command line options
   cl::opt<std::string> OptInputBinary(
@@ -302,6 +343,19 @@ int main(int Argc, char *Argv[]) {
   cl::opt<std::string> OptBuildOptions("bo",
                                        cl::desc("Set OpenCL build options"),
                                        cl::value_desc("build options"));
+
+#if INTEL_PRODUCT_RELEASE
+#if INTEL_CUSTOMIZATION
+  // --help option implementation is disabled in LLVM CommandLine
+  // library for xmain release builds, adding custom --help implementation
+  StringMap<cl::Option *> &OptionsMap = cl::getRegisteredOptions();
+  HelpPrinter HelpPrinterInstance(OptionsMap);
+  cl::opt<HelpPrinter, true, cl::parser<bool>> OptHelp(
+      "help", cl::desc("Display available options"),
+      cl::location(HelpPrinterInstance), cl::ValueDisallowed);
+  cl::alias OptHelpA("h", cl::desc("Alias for --help"), cl::aliasopt(OptHelp));
+#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_PRODUCT_RELEASE
 
   cl::ParseCommandLineOptions(Argc, Argv,
                               "OpenCL ahead-of-time (AOT) compilation tool");
