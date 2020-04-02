@@ -16,7 +16,6 @@
 #include <memory>
 #include <string>
 #include <thread>
-#include <type_traits>
 #include <level_zero/zet_api.h>
 
 #ifdef __cplusplus
@@ -285,16 +284,15 @@ decltype(piEventCreate) L0(piEventCreate);
       *param_value_size_ret = strlen(value) + 1;                               \
   }
 
-#define SET_PARAM_VALUE_VLA(value, num_values)                                 \
+#define SET_PARAM_VALUE_VLA(value, num_values, ret_type)                       \
   {                                                                            \
-    typedef std::remove_reference<decltype(value[0])>::type T;                 \
     if (param_value) {                                                         \
       memset(param_value, 0, param_value_size);                                \
-      for (uint32_t i = 0; i < num_values; i++)                                    \
-        ((T *)param_value)[i] = value[i];                                      \
+      for (uint32_t i = 0; i < num_values; i++)                                \
+        ((ret_type *)param_value)[i] = (ret_type)value[i];                     \
     }                                                                          \
     if (param_value_size_ret)                                                  \
-      *param_value_size_ret = num_values * sizeof(T);                          \
+      *param_value_size_ret = num_values * sizeof(ret_type);                   \
   }
 
 // TODO: Figure out how to pass these objects and eliminated these globals.
@@ -1000,8 +998,10 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/338
     SET_PARAM_VALUE(pi_bool{false});
   } else if (param_name == PI_DEVICE_INFO_SUB_GROUP_SIZES_INTEL) {
+    // ze_device_compute_properties.subGroupSizes is in uint32_t whereas the
+    // expected return is size_t datatype. size_t can be 8 bytes of data.
     SET_PARAM_VALUE_VLA(ze_device_compute_properties.subGroupSizes,
-                        ze_device_compute_properties.numSubGroupSizes);
+                        ze_device_compute_properties.numSubGroupSizes, size_t);
   } else if (param_name == PI_DEVICE_INFO_IL_VERSION) {
     // Set to a space separated list of IL version strings of the form
     // <IL_Prefix>_<Major_version>.<Minor_version>.
