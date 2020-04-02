@@ -232,6 +232,10 @@ TARGET_BUILTIN(__builtin_ia32_tilemovee, "V16fIUcUi", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovex, "V16fIUcV4f", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tcvtrowd2psei, "V16fIUcIi", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tcvtrowd2psee, "V16fIUcUi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2bf16ei, "V16iIUcIi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2bf16ee, "V16iIUcUi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2phei, "V16fIUcIi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2phee, "V16fIUcUi", "n", "amx-avx512")
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 

@@ -372,3 +372,21 @@ typedef unsigned int uint32_t;
 void test_tile_cvtrowd2psee(uint32_t A) {
   _tile_cvtrowd2psee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
 }
+
+void test_tile_cvtrowps2bf16ei() {
+  _tile_cvtrowps2bf16ei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_cvtrowps2bf16ei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+void test_tile_cvtrowps2bf16ee(uint32_t A) {
+  _tile_cvtrowps2bf16ee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+}
+
+void test_tile_cvtrowps2phei() {
+  _tile_cvtrowps2phei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_cvtrowps2phei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+void test_tile_cvtrowps2phee(uint32_t A) {
+  _tile_cvtrowps2phee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+}

@@ -6328,6 +6328,18 @@ let TargetPrefix = "x86" in {
   def int_x86_tilemovex : GCCBuiltin<"__builtin_ia32_tilemovex">,
                           Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_v4f32_ty],
                                     [ImmArg<0>]>;
+  def int_x86_tcvtrowps2bf16ei : GCCBuiltin<"__builtin_ia32_tcvtrowps2bf16ei">,
+                                 Intrinsic<[llvm_v16i32_ty], [llvm_i8_ty, llvm_i32_ty],
+                                 [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtrowps2bf16ee : GCCBuiltin<"__builtin_ia32_tcvtrowps2bf16ee">,
+                                 Intrinsic<[llvm_v16i32_ty], [llvm_i8_ty, llvm_i32_ty],
+                                 [ImmArg<0>]>;
+  def int_x86_tcvtrowps2phei : GCCBuiltin<"__builtin_ia32_tcvtrowps2phei">,
+                                 Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_i32_ty],
+                                 [ImmArg<0>, ImmArg<1>]>;
+  def int_x86_tcvtrowps2phee : GCCBuiltin<"__builtin_ia32_tcvtrowps2phee">,
+                                 Intrinsic<[llvm_v16f32_ty], [llvm_i8_ty, llvm_i32_ty],
+                                 [ImmArg<0>]>;
 //AMX-MEMORY
   def int_x86_tgatherrowd
       : GCCBuiltin<"__builtin_ia32_tgatherrowd">,
