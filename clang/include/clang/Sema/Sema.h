@@ -5115,19 +5115,6 @@ public:
   ExprResult ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind);
   ExprResult ActOnIntegerConstant(SourceLocation Loc, uint64_t Val);
 
-<<<<<<< HEAD
-  ExprResult BuildUniqueStableName(SourceLocation OpLoc,
-                                   TypeSourceInfo *Operand);
-  ExprResult BuildUniqueStableName(SourceLocation OpLoc, Expr *E);
-  ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc, SourceLocation L,
-                                       SourceLocation R, ParsedType Ty);
-  ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc, SourceLocation L,
-                                       SourceLocation R, Expr *Operand);
-#if INTEL_CUSTOMIZATION
-  bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
-  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool AllowZero = false);
-#endif // INTEL_CUSTOMIZATION
-=======
   ExprResult BuildUniqueStableName(SourceLocation Loc, TypeSourceInfo *Operand);
   ExprResult BuildUniqueStableName(SourceLocation Loc, Expr *E);
   ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc,
@@ -5136,9 +5123,10 @@ public:
   ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc,
                                        SourceLocation LParen,
                                        SourceLocation RParen, Expr *Operand);
-
-  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc);
->>>>>>> fbb678c0aea94497135d18af690f99da9ff80c4b
+#if INTEL_CUSTOMIZATION
+  bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
+  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool AllowZero = false);
+#endif // INTEL_CUSTOMIZATION
 
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = nullptr);
   ExprResult ActOnCharacterConstant(const Token &Tok,
