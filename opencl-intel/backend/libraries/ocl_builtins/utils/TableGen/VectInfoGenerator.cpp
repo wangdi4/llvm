@@ -225,31 +225,41 @@ void VectInfoGenerator::run(raw_ostream &os) {
 
     auto *pV1Builtin = builtins[0];
     bool handleAlias = vectInfo.handleAlias() && m_DB.hasAlias(pV1Builtin);
-    // Hold the raw func name and alias names.
-    SVecVec funcNames;
+
+    // Hold the alias names defined in AliasMap.
+    SVecVec aliasNames;
+    // Hold the raw func name defined in OclBuiltin.
     std::vector<std::string> rawName;
-    for (auto *p : builtins)
-      rawName.push_back(p->getCFunc());
+    // Hold the OclTypes specified in AliasMap for the scalar builtin.
+    std::set<const OclType*> v1AliasTypes;
+
+    for (auto *p : builtins) rawName.push_back(p->getCFunc());
     if (handleAlias) {
-      numEntries.push_back(vectInfo.getNumOfTypes() *
-                           (1 + m_DB.getAlias(pV1Builtin).size()));
-      // Get the alias names.
+      // Get the alias names and specified types.
       SVecVec aliasArray;
       std::for_each(builtins.begin(), builtins.end(), [&](const OclBuiltin *p) {
         assert(m_DB.hasAlias(p) &&
                "Some alias are missing for vectorized funcs");
-        aliasArray.push_back(m_DB.getAlias(p));
+        aliasArray.push_back(m_DB.getAliasNames(p));
       });
-      funcNames = transpose(aliasArray);
-    } else {
-      numEntries.push_back(vectInfo.getNumOfTypes());
+      aliasNames = transpose(aliasArray);
+      v1AliasTypes = m_DB.getAliasTypes(pV1Builtin);
     }
-    funcNames.push_back(rawName);
+
+    size_t numAliasNames = m_DB.getAliasNames(pV1Builtin).size();
+    size_t numEntry = vectInfo.getNumOfTypes();
     // Generate dummy functions to get the mangled function name.
     for (VectInfo::type_iterator typeIt = vectInfo.type_begin(),
                                  typeEnd = vectInfo.type_end();
-         typeIt != typeEnd; typeIt++)
-      generateFunctions(builtins, *typeIt, funcNames);
+         typeIt != typeEnd; typeIt++) {
+      generateFunctions(builtins, *typeIt, {rawName});
+      // Note: We only check the specified types for scalar builtin here.
+      if (handleAlias && v1AliasTypes.count((*typeIt)[0])) {
+        generateFunctions(builtins, *typeIt, aliasNames);
+        numEntry += numAliasNames;
+      }
+    }
+    numEntries.push_back(numEntry);
   }
   build(m_funcStream.str(), "protos.ll");
   m_funcStream.clear();
