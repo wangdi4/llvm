@@ -2551,6 +2551,7 @@ void DAGTypeLegalizer::SoftPromoteHalfResult(SDNode *N, unsigned ResNo) {
   case ISD::FLOG10:
   case ISD::FNEARBYINT:
   case ISD::FNEG:
+  case ISD::FREEZE:
   case ISD::FRINT:
   case ISD::FROUND:
   case ISD::FSIN:
