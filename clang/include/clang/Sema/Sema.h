@@ -5122,11 +5122,17 @@ public:
                                        SourceLocation RParen, ParsedType Ty);
   ExprResult ActOnUniqueStableNameExpr(SourceLocation OpLoc,
                                        SourceLocation LParen,
+<<<<<<< HEAD
                                        SourceLocation RParen, Expr *Operand);
 #if INTEL_CUSTOMIZATION
   bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
   bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool AllowZero = false);
 #endif // INTEL_CUSTOMIZATION
+=======
+                                       SourceLocation RParen, Expr *E);
+
+  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc);
+>>>>>>> df48e3920a56b128ad691c258372c641b076f21c
 
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = nullptr);
   ExprResult ActOnCharacterConstant(const Token &Tok,
