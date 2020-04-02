@@ -20,6 +20,7 @@
 #include <vector>
 #include <ze_api.h>
 #include "omptargetplugin.h"
+#include "omptarget-tools.h"
 
 /// Host runtime routines being used
 extern "C" {
@@ -31,6 +32,12 @@ int omp_get_thread_limit(void) __attribute__((weak));
 double omp_get_wtime(void) __attribute__((weak));
 #endif
 } // extern "C"
+
+/// OMPT support
+extern thread_local OmptTraceTy *omptTracePtr;
+extern void omptInitPlugin();
+extern const char *omptDocument;
+extern ompt_interface_fn_t omptLookupEntries(const char *);
 
 #ifndef TARGET_NAME
 #define TARGET_NAME LEVEL0
@@ -47,7 +54,7 @@ double omp_get_wtime(void) __attribute__((weak));
 #define LEVEL0_MAX_GROUP_COUNT 64 // TODO: get it from HW
 
 #ifdef OMPTARGET_LEVEL0_DEBUG
-static int DebugLevel = 0;
+int DebugLevel = 0;
 #define DP(...)                                                                \
   do {                                                                         \
     if (DebugLevel > 0) {                                                      \
@@ -263,10 +270,14 @@ static void addDataTransferLatency() {
 
 /// Clean-up routine to be registered by std::atexit().
 static void closeRTL() {
-#ifndef _WIN32
   for (uint32_t i = 0; i < DeviceInfo.NumDevices; i++) {
     if (!DeviceInfo.Initialized[i])
       continue;
+    if (omptEnabled.enabled) {
+      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+    }
+#ifndef _WIN32
     DeviceInfo.Mutexes[i].lock();
     for (auto mem : DeviceInfo.OwnedMemory[i]) {
       CALL_ZE_EXIT_FAIL(zeDriverFreeMem, DeviceInfo.Driver, mem);
@@ -279,8 +290,8 @@ static void closeRTL() {
     }
     CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo.FuncGblEntries[i].Module);
     DeviceInfo.Mutexes[i].unlock();
-  }
 #endif
+  }
   delete[] DeviceInfo.Mutexes;
   DP("Closed RTL successfully\n");
 }
@@ -331,7 +342,7 @@ static int32_t initModule(int32_t DeviceId) {
   CALL_ZE_RET_FAIL(zeKernelCreate, module, &kernelDesc, &initModuleData);
   CALL_ZE_RET_FAIL_MTX(zeKernelSetArgumentValue, mutex, initModuleData, 0,
                        sizeof(deviceData), &deviceData);
-  ze_group_count_t groupDimensions = {1, 1, 1};
+  ze_group_count_t groupCounts = {1, 1, 1};
   CALL_ZE_RET_FAIL_MTX(zeKernelSetGroupSize, mutex, initModuleData, 1, 1, 1);
 
   // Invoke the kernel
@@ -342,7 +353,7 @@ static int32_t initModule(int32_t DeviceId) {
   CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
                        nullptr);
   CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
-                       initModuleData, &groupDimensions, nullptr, 0, nullptr);
+                       initModuleData, &groupCounts, nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
                        nullptr);
   if (executeCommand(cmdList, cmdQueue, mutex) == OFFLOAD_FAIL)
@@ -435,6 +446,10 @@ int32_t __tgt_rtl_number_of_devices() {
     FATAL_ERROR("Registration of clean-up function");
   }
 
+  if (DeviceInfo.NumDevices > 0) {
+    omptInitPlugin();
+  }
+
   return DeviceInfo.NumDevices;
 }
 
@@ -466,6 +481,11 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   CALL_ZE_RET_FAIL(zeCommandQueueCreate, deviceHandle, &cmdQueueDesc,
                    &DeviceInfo.CmdQueues[DeviceId]);
   DeviceInfo.Initialized[DeviceId] = true;
+
+  OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
+                DeviceInfo.DeviceProperties.name,
+                DeviceInfo.Devices[DeviceId],
+                omptLookupEntries, omptDocument);
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
   return OFFLOAD_SUCCESS;
@@ -555,6 +575,16 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[DeviceId].Table;
   table.EntriesBegin = &(entries.data()[0]);
   table.EntriesEnd = &(entries.data()[entries.size()]);
+
+  OMPT_CALLBACK(ompt_callback_device_load, DeviceId,
+                "" /* filename */,
+                -1 /* offset_in_file */,
+                nullptr /* vma_in_file */,
+                table.EntriesEnd - table.EntriesBegin /* bytes */,
+                table.EntriesBegin /* host_addr */,
+                nullptr /* device_addr */,
+                0 /* module_id */);
+
   return &table;
 }
 
@@ -930,9 +960,17 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 
   // Decide group sizes and dimensions
   uint32_t groupSizes[3];
-  ze_group_count_t groupDimensions;
+  ze_group_count_t groupCounts;
   decideGroupArguments((uint32_t )NumTeams, (uint32_t)ThreadLimit,
-                       (int64_t *)LoopDesc, groupSizes, groupDimensions);
+                       (int64_t *)LoopDesc, groupSizes, groupCounts);
+
+  if (omptEnabled.enabled) {
+    // Push current work size
+    size_t finalNumTeams = groupCounts.groupCountX * groupCounts.groupCountY *
+        groupCounts.groupCountZ;
+    size_t finalThreadLimit = groupSizes[0] * groupSizes[1] * groupSizes[2];
+    omptTracePtr->pushWorkSize(finalNumTeams, finalThreadLimit);
+  }
 
   CALL_ZE_RET_FAIL_MTX(zeKernelSetGroupSize, mutex, kernel, groupSizes[0],
                        groupSizes[1], groupSizes[2]);
@@ -946,7 +984,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
       return OFFLOAD_FAIL;
     }
     CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
-                         kernel, &groupDimensions, nullptr, 0, nullptr);
+                         kernel, &groupCounts, nullptr, 0, nullptr);
     auto fence = createFence(DeviceId);
     if (!fence) {
       DP("Error: Asynchronous execution failed -- invalid fence\n");
@@ -959,7 +997,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
        DPxPTR(TgtEntryPtr));
   } else {
     CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
-                         kernel, &groupDimensions, nullptr, 0, nullptr);
+                         kernel, &groupCounts, nullptr, 0, nullptr);
     CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
                          nullptr);
     if (executeCommand(cmdList, cmdQueue, mutex) == OFFLOAD_FAIL)
