@@ -6149,6 +6149,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-fopenmp-host-ir-file-path");
       CmdArgs.push_back(Args.MakeArgString(OpenMPDeviceInput->getFilename()));
     }
+#if INTEL_CUSTOMIZATION
+    // Add SYCL headers path to include search path
+    toolchains::SYCLToolChain::AddSYCLIncludeArgs(D, Args, CmdArgs);
+#endif //INTEL_CUSTOMIZATION
   }
 #if INTEL_COLLAB
   // fixup -paropt value
