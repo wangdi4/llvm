@@ -40,6 +40,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -53,6 +54,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 
@@ -3966,6 +3968,38 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
     // cause a use-before-def. We need to remove it from the directive.
     resetValueInOmpClauseGeneric(W, NewPrivValue);
 
+  // Locate llvm.dbg.declare instrinsics corresponding to the original value
+  // and build a new llvm.dbg.declare intrinsic for the privatized value.
+  // The storage for the newly privatized variable may be a global value
+  // (instead of a local alloca instruction) and that's okay.
+  DIBuilder DIB(*W->getEntryBBlock()->getModule(), /* AllowUnresolved */ false);
+  for (DbgVariableIntrinsic *OldDVI : FindDbgAddrUses(PrivValue)) {
+    DILocalVariable *Variable = OldDVI->getVariable();
+    if (Variable->getArg() != 0) {
+      // Create an auto variable representing the privatized parameter.
+      Variable = DIB.createAutoVariable(
+          Variable->getScope(),
+          Variable->getName(),
+          Variable->getFile(),
+          Variable->getLine(),
+          Variable->getType(),
+          false,                // AlwaysPreserve
+          Variable->getFlags(),
+          Variable->getAlignInBits());
+    }
+    DIExpression *Expression = OldDVI->getExpression();
+    DILocation *Location = OldDVI->getDebugLoc().get();
+    Instruction *Before;
+    if (Instruction *I = dyn_cast_or_null<Instruction>(NewPrivValue))
+      Before = I->getNextNonDebugInstruction();
+    else
+      Before = W->getEntryBBlock()->getTerminator();
+    assert(Variable->getScope()->getSubprogram() ==
+           Location->getScope()->getSubprogram() &&
+           "Variable and source location must be in the same subprogram!");
+    DIB.insertDeclare(NewPrivValue, Variable, Expression, Location, Before);
+  }
+
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replaced uses of '";
              PrivValue->printAsOperand(dbgs()); dbgs() << "' with '";
              NewPrivValue->printAsOperand(dbgs()); dbgs() << "'\n");
@@ -6902,6 +6936,11 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   // the function empty.
   NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
 
+  // Everything including the routine name has been moved to the new routine.
+  // Do the same with the debug information.
+  NFn->setSubprogram(Fn->getSubprogram());
+  Fn->setSubprogram(nullptr);
+
   // Loop over the argument list, transferring uses of the old arguments over
   // to the new arguments, also transferring over the names as well.
   Function::arg_iterator NewArgI = NFn->arg_begin();
@@ -6942,19 +6981,6 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
     ++TidParmNo;
   }
 
-  DenseMap<const Function *, DISubprogram *> FunctionDIs;
-
-  // Patch the pointer to LLVM function in debug info descriptor.
-  auto DI = FunctionDIs.find(Fn);
-  if (DI != FunctionDIs.end()) {
-    DISubprogram *SP = DI->second;
-    // SP->replaceFunction(NFn);
-
-    // Ensure the map is updated so it can be reused on non-varargs argument
-    // eliminations of the same function.
-    FunctionDIs.erase(DI);
-    FunctionDIs[NFn] = SP;
-  }
   return NFn;
 }
 
