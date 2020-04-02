@@ -1,4 +1,4 @@
-/*===-------- avx512vldotprodintrin.h - AVX512DOTPROD intrinsics -----------===
+/*===-------- avx512vlconvertintrin.h - AVX512CONVERT intrinsics -----------===
  *
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,7 +26,7 @@
 #endif
 
 #ifndef __AVX512VLCONVERTINTRIN_H
-#define __AVX512VLDOTPRODINTRIN_H
+#define __AVX512VLCONVERTINTRIN_H
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS256 \

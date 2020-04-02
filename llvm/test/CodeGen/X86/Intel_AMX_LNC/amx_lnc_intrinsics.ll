@@ -10,6 +10,10 @@
 ; CHECK:    tilemovrowe $9, %tmm7, %zmm{{.*}}
 ; CHECK:    tilemovrowe %{{.*}}, %tmm7, %zmm{{.*}}
 ; CHECK:    tilemovrowe %xmm{{.*}}, %tmm7, %zmm{{.*}}
+; CHECK:    tcvtrowps2bf16e $9, %tmm7, %zmm{{.*}}
+; CHECK:    tcvtrowps2bf16e %{{.*}}, %tmm7, %zmm{{.*}}
+; CHECK:    tcvtrowps2phe $9, %tmm7, %zmm{{.*}}
+; CHECK:    tcvtrowps2phe %{{.*}}, %tmm7, %zmm{{.*}}
 ; amx-transpose
 ; CHECK:    t2rpntlvw       %{{.*}}, (%{{.*}},%{{.*}}), %tmm0
 ; CHECK:    t2rpntlvwt1     %{{.*}}, (%{{.*}},%{{.*}}), %tmm2
@@ -22,6 +26,10 @@ call void @llvm.x86.tile16move(i8 4, <16 x float> %zmm, <16 x float> %zmm, <16 x
 call <16 x float> @llvm.x86.tilemovei(i8 7, i8 9)
 call <16 x float> @llvm.x86.tilemovee(i8 7, i32 %rv32)
 call <16 x float> @llvm.x86.tilemovex(i8 7, <4 x float> %xmm)
+call <16 x i32> @llvm.x86.tcvtrowps2bf16ei(i8 7, i32 9)
+call <16 x i32> @llvm.x86.tcvtrowps2bf16ee(i8 7, i32 %rv32)
+call <16 x float> @llvm.x86.tcvtrowps2phei(i8 7, i32 9)
+call <16 x float> @llvm.x86.tcvtrowps2phee(i8 7, i32 %rv32)
 ; amx-transpose
 call void @llvm.x86.t2rpntlvw  (i8 1, i8* %addr1, i64 %stride, i64 %rvalue)
 call void @llvm.x86.t2rpntlvwt1   (i8 2, i8* %addr1, i64 %stride, i64 %rvalue)
@@ -36,6 +44,10 @@ declare <16 x float> @llvm.x86.tcvtrowd2psei(i8 %tile0, i32 %src1)
 declare <16 x float> @llvm.x86.tcvtrowd2psee(i8 %tile0, i32 %rv32)
 declare <16 x float> @llvm.x86.tilemovee(i8 %tile0, i32 %rv32)
 declare <16 x float> @llvm.x86.tilemovex(i8 %tile0, <4 x float> %xmm)
+declare <16 x i32> @llvm.x86.tcvtrowps2bf16ei(i8 %tile0, i32 %src1)
+declare <16 x i32> @llvm.x86.tcvtrowps2bf16ee(i8 %tile0, i32 %rv32)
+declare <16 x float> @llvm.x86.tcvtrowps2phei(i8 %tile0, i32 %src1)
+declare <16 x float> @llvm.x86.tcvtrowps2phee(i8 %tile0, i32 %rv32)
 ; amx-transpose
 declare void @llvm.x86.t2rpntlvw     (i8 %tile1, i8* %addr1, i64 %stride, i64 %rvalue)
 declare void @llvm.x86.t2rpntlvwt1   (i8 %tile1, i8* %addr1, i64 %stride, i64 %rvalue)

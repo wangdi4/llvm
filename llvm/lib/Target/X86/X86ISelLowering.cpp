@@ -34219,6 +34219,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTCVTROWPS2BF16Erri:
+  case X86::PTCVTROWPS2PHErri:
   case X86::PTCVTROWD2PSErri:
   case X86::PTILEMOVROWErri:{
     const DebugLoc &DL = MI.getDebugLoc();
@@ -34227,6 +34229,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     default: llvm_unreachable("Unexpected instruction!");
     case X86::PTCVTROWD2PSErri: Opc = X86::TCVTROWD2PSErri; break;
     case X86::PTILEMOVROWErri: Opc = X86::TILEMOVROWErri; break;
+    case X86::PTCVTROWPS2BF16Erri: Opc = X86::TCVTROWPS2BF16Erri; break;
+    case X86::PTCVTROWPS2PHErri: Opc = X86::TCVTROWPS2PHErri; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0));
@@ -34236,6 +34240,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTCVTROWPS2BF16Erre:
+  case X86::PTCVTROWPS2PHErre:
   case X86::PTCVTROWD2PSErre:
   case X86::PTILEMOVROWErre:
   case X86::PTILEMOVROWErrx:{
@@ -34246,6 +34252,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     case X86::PTCVTROWD2PSErre: Opc = X86::TCVTROWD2PSErre; break;
     case X86::PTILEMOVROWErre: Opc = X86::TILEMOVROWErre; break;
     case X86::PTILEMOVROWErrx: Opc = X86::TILEMOVROWErrx; break;
+    case X86::PTCVTROWPS2BF16Erre: Opc = X86::TCVTROWPS2BF16Erre; break;
+    case X86::PTCVTROWPS2PHErre: Opc = X86::TCVTROWPS2PHErre; break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.add(MI.getOperand(0));
