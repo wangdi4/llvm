@@ -322,6 +322,8 @@ InstructionContext RecognizableInstr::insnContext() const {
       insnContext = IC_64BIT_XS_CE;
     else if (HasREX_WPrefix)
       insnContext = IC_64BIT_REXW_CE;
+    else if (OpPrefix == X86Local::PD)
+      insnContext = IC_64BIT_OPSIZE_CE;
     else
       insnContext = IC_64BIT_CE;
 #endif // INTEL_FEATURE_ICECODE
