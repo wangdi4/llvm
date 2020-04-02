@@ -384,12 +384,12 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Value *genPrivatizationAlloca(
+  Value *genPrivatizationAlloca(
       Value *OrigValue,
       Instruction *InsertPt,
       const Twine &NameSuffix = "",
       llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true);
+      bool PreserveAddressSpace = true) const;
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
@@ -410,11 +410,11 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Value *genPrivatizationAlloca(
+  Value *genPrivatizationAlloca(
       Item *I, Instruction *InsertPt,
       const Twine &NameSuffix = "",
       llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true);
+      bool PreserveAddressSpace = true) const;
 
   /// Returns address space that should be used for privatizing variable
   /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
@@ -512,7 +512,8 @@ private:
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
   /// some Instructions, which is done \b before \p InsertPt.
-  static Value *getClauseItemReplacementValue(Item *I, Instruction *InsertPt);
+  static Value *getClauseItemReplacementValue(const Item *I,
+                                              Instruction *InsertPt);
 
   /// Return the Value to replace the occurrences of the original Array Section
   /// Reduction operand inside the body of the associated WRegion. It may need

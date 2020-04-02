@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
 
@@ -41,6 +42,12 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParopt"
+
+#ifndef NDEBUG
+static cl::opt<bool> VerifyIRAfterParopt(
+    "vpo-paropt-verify-ir-after", cl::Hidden, cl::init(true),
+    cl::desc("Enable IR verification after Paropt."));
+#endif  // NDEBUG
 
 static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
@@ -744,6 +751,24 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     PreservedAnalyses PA = VPTL.run(M, DummyMAM);
     Changed = Changed | !PA.areAllPreserved();
   }
+
+#ifndef NDEBUG
+  if (Changed && VerifyIRAfterParopt) {
+    bool BrokenDebugInfo = false;
+
+      // Do not verify debug information for the time being.
+    if (verifyModule(M, &dbgs(), &BrokenDebugInfo)) {
+      LLVM_DEBUG(dbgs() << "ERROR: module verifier found errors "
+                 "following VPOParoptModuleTransform:\n" << M << "\n");
+      report_fatal_error("Module verifier found errors "
+                         "following VPOParoptModuleTransform.  Use -mllvm "
+                         "-debug-only=" DEBUG_TYPE " to get more information");
+    }
+
+    if (BrokenDebugInfo)
+      LLVM_DEBUG(dbgs() << "ERROR: module verifier found debug info errors.\n");
+  }
+#endif  // NDEBUG
 
   LLVM_DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
   return Changed;

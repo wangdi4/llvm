@@ -83,11 +83,13 @@ void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
                             ->getElementType())
           ->getElementType();
   Value *PointeeData = genPrivatizationAlloca(
-      ElementTy, DataSize, OrigAlignment, InsertPt, NamePrefix + ".data");
-  Type *PointeePtrTy = PointerType::getUnqual(PointeeData->getType());
-  auto *Addr0GEPCast =
-      Builder.CreatePointerBitCastOrAddrSpaceCast(Addr0GEP, PointeePtrTy);
-  Builder.CreateStore(PointeeData, Addr0GEPCast);
+      ElementTy, DataSize, OrigAlignment, InsertPt, IsTargetSPIRV,
+      NamePrefix + ".data");
+  auto *StoreVal =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(
+          PointeeData,
+          cast<GetElementPtrInst>(Addr0GEP)->getResultElementType());
+  Builder.CreateStore(StoreVal, Addr0GEP);
 
   if (!isa<ReductionItem>(I))
     return;

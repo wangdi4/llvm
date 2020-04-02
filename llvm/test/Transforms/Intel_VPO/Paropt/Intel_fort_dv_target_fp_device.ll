@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -prepare-switch-to-offload -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -prepare-switch-to-offload -switch-to-offload=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+; RUN: opt -prepare-switch-to-offload -switch-to-offload=true -lower-subscript -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
+; RUN: opt -prepare-switch-to-offload -switch-to-offload=true -passes='function(lower-subscript,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
 
 ; Test that we emit calls to f90_dv_init/firstprivate_copy inside the target
 ; region to handle the firstprivate clause on target.This is temporary until
@@ -29,10 +29,10 @@
 ; CHECK: define dso_local spir_kernel void @__omp_offloading{{.+}}MAIN__{{.+}}(%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* {{.+}})
 ; CHECK: [[MAIN_A_PRIV:%[^ ]+]] = alloca %"QNCA_a0$i32 addrspace(4)*$rank1$"
 ; CHECK: [[DV_SIZE:%[^ ]+]] = call spir_func i64 @_f90_dope_vector_init(i8 addrspace(4)* {{[^ ,]+}}, i8 addrspace(4)* %{{[^ ,]+}})
-; CHECK: [[MAIN_A_PRIV_ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* {{[^ ]+}}, i32 0, i32 0
+; CHECK: [[MAIN_A_PRIV_ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$"* {{[^ ]+}}, i32 0, i32 0
 ; CHECK: [[MAIN_A_PRIV_DATA:%[^ ]+]] = alloca i32, i64 [[DV_SIZE]]
-; CHECK: [[ADDR0_CAST:%[^ ]+]] = addrspacecast i32 addrspace(4)* addrspace(1)* [[MAIN_A_PRIV_ADDR0]] to i32**
-; CHECK: store i32* [[MAIN_A_PRIV_DATA]], i32** [[ADDR0_CAST]]
+; CHECK: [[MAIN_A_PRIV_DATA_CAST:%[^ ]+]] = addrspacecast i32* [[MAIN_A_PRIV_DATA]] to i32 addrspace(4)*
+; CHECK: store i32 addrspace(4)* [[MAIN_A_PRIV_DATA_CAST]], i32 addrspace(4)** [[MAIN_A_PRIV_ADDR0]]
 
 ; Check for call to f90_firstprivate_copy
 ; CHECK: call spir_func void @_f90_firstprivate_copy(i8 addrspace(4)* {{[^ ]+}}, i8 addrspace(4)* {{[^ ]+}})

@@ -767,10 +767,9 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
                      TmpUB, PtType->getElementType()->getPointerTo(4),
                      TmpUB->getName() + ".ascast");
         NormalizedUB = V;
-      }
-      else  
+      } else
         NormalizedUB = TmpUB;
-   
+
       StoreInst *SI = new StoreInst(UB, NormalizedUB, false, InsertPt);
       SI->setAlignment(MaybeAlign(4));
 
@@ -779,6 +778,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
     }
   }
 
+  InsertPt = InsertBB->getTerminator();
   Builder.SetInsertPoint(InsertPt);
   AllocaInst *IV =
       Builder.CreateAlloca(LoopIVType, nullptr, ".sloop.iv." + Twine(Counter));

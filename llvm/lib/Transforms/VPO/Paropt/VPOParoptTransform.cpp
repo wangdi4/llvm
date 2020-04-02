@@ -3699,7 +3699,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
 }
 
 Value *
-VPOParoptTransform::getClauseItemReplacementValue(Item *ClauseI,
+VPOParoptTransform::getClauseItemReplacementValue(const Item *ClauseI,
                                                   Instruction *InsertPt) {
 
   assert(ClauseI && "Null clause item.");
@@ -3756,6 +3756,9 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
     // (i32*), we need to create a bitcast to the type of $y. For by-refs,
     // we create this cast to the pointee of the original item.
     Value *Orig = RedI.getOrig();
+    // FIXME: Orig and New may have incompatible addrspaces here.
+    //        It is impossible to trigger that situation now, but
+    //        we will probably have to deal with it sometime.
     Type *OrigArrayType =
         RedI.getIsByRef()
             ? cast<PointerType>(Orig->getType())->getPointerElementType()
@@ -3878,7 +3881,7 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
 Value *VPOParoptTransform::genPrivatizationAlloca(
     Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix,
     llvm::Optional<unsigned> AllocaAddrSpace,
-    bool PreserveAddressSpace) {
+    bool PreserveAddressSpace) const {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
 
@@ -3891,7 +3894,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   getItemInfoFromValue(OrigValue, ElementType, NumElements, AddrSpace);
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, OrigAlignment, InsertPt,
-      OrigValue->getName() + NameSuffix, AllocaAddrSpace,
+      isTargetSPIRV(), OrigValue->getName() + NameSuffix, AllocaAddrSpace,
       !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace));
   assert(NewVal && "Failed to create local copy.");
 
@@ -3907,7 +3910,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
     Item *I, Instruction *InsertPt,
     const Twine &NameSuffix,
     llvm::Optional<unsigned> AllocaAddrSpace,
-    bool PreserveAddressSpace) {
+    bool PreserveAddressSpace) const {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
@@ -3924,7 +3927,7 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
 
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, OrigAlignment, InsertPt,
-      Orig->getName() + NameSuffix, AllocaAddrSpace,
+      isTargetSPIRV(), Orig->getName() + NameSuffix, AllocaAddrSpace,
       !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace));
   assert(NewVal && "Failed to create local copy.");
 
@@ -3948,18 +3951,128 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
 
   // Replace all USEs of each PrivValue with its NewPrivValue in the
   // W-Region (parallel loop/region/section ... etc.)
+  bool FixupIncompatibleAddrSpaces = false;
+  SmallVector<Instruction *, 8> FixupInsts;
+
+  if (auto *PrivTy = dyn_cast<PointerType>(PrivValue->getType())) {
+    auto *NewPrivTy = dyn_cast<PointerType>(NewPrivValue->getType());
+    assert(NewPrivTy &&
+           "Trying to replace pointer value with non-pointer value.");
+    // Check if the original clause item and its replacement
+    // are pointing to the same address space. If they are not, then
+    // we need to recursively find all uses of the original value
+    // and fixup their types' address spaces.
+    //
+    // For example, if the original clause item is a global variable
+    // 'i32 addrspace(1)* @X', and the replacement is
+    // 'i32 addrspace(3)* @X.priv.__local', and there is a use like:
+    //   %0 = bitcast i32 addrspace(1)* @X to i8 addrspace(1)*
+    //   store i8 10, i8 addrspace(1)* %0
+    // we cannot just relink the use of @X in the bitcast.
+    // We have to mutate the bitcast's result type to make it consistent.
+    //
+    // Note that we handle few operations, since most of the time
+    // the fixup is expected to stop at an addrspacecast to addrspace(4).
+    //
+    // For example, this IR is considered to be invalid from the beginning:
+    //   %0 = bitcast i32 addrspace(1)* @X to i8 addrspace(1)*
+    //   store i8 addrspace(1)* %0, i8 addrspace(1)** %alloca
+    // Fixing up such a store instruction will require modifying
+    // the %alloca definition and then all its uses. This is too much
+    // to handle.
+    //
+    // FEs must never generate such IR, and should use the following instead:
+    //   %0 = addrspacecast i32 addrspace(1)* @X to i32 addrspace(4)*
+    //   %1 = bitcast i32 addrspace(4)* %0 to i8 addrspace(4)*
+    //   store i8 addrspace(4)* %0, i8 addrspace(4)** %alloca
+    // The fixup walk will stop after fixing up the addrspacecast,
+    // and the IR will be valid after that.
+    if (!VPOParoptUtils::areCompatibleAddrSpaces(PrivTy->getAddressSpace(),
+                                                 NewPrivTy->getAddressSpace(),
+                                                 isTargetSPIRV()))
+      FixupIncompatibleAddrSpaces = true;
+  }
+
+  auto InstMayNeedAddrSpaceFixup =
+      [FixupIncompatibleAddrSpaces](Instruction *I) {
+        if (!FixupIncompatibleAddrSpaces)
+          return false;
+
+        // This is a list of users that we are able to fixup.
+
+        switch (I->getOpcode()) {
+        case Instruction::GetElementPtr:
+          return true;
+        case Instruction::BitCast:
+          if (isa<PointerType>(I->getType()))
+            return true;
+          LLVM_FALLTHROUGH;
+        default:
+          return false;
+        }
+      };
+
   while (!UserInsts.empty()) {
     Instruction *UI = UserInsts.pop_back_val();
     UI->replaceUsesOfWith(PrivValue, NewPrivValue);
 
+    // In case we relinked the operand we have to check
+    // whether the result type has to be mutated.
+    if (InstMayNeedAddrSpaceFixup(UI))
+      FixupInsts.push_back(UI);
+
     if (UserExprs.empty())
       continue;
 
-    // If PrivValue is a global, its uses could be in ConstantExprs
+    // If PrivValue is a ConstantExpr, its uses could be in ConstantExprs
     SmallVector<Instruction *, 2> NewInstArr;
     GeneralUtils::breakExpressions(UI, &NewInstArr, &UserExprs);
     for (Instruction *NewInst : NewInstArr)
       UserInsts.push_back(NewInst);
+  }
+
+  while (!FixupInsts.empty()) {
+    Instruction *I = FixupInsts.pop_back_val();
+    bool CollectUsers = false;
+
+    switch (I->getOpcode()) {
+    case Instruction::GetElementPtr: {
+      auto *GEPI = cast<GetElementPtrInst>(I);
+      unsigned SrcAS = GEPI->getAddressSpace();
+      auto *DstTy = cast<PointerType>(GEPI->getType());
+      unsigned DstAS = DstTy->getAddressSpace();
+      // Mutate the result type to match the address space of the operand.
+      if (SrcAS != DstAS) {
+        GEPI->mutateType(DstTy->getElementType()->getPointerTo(SrcAS));
+        CollectUsers = true;
+      }
+      break;
+    }
+    case Instruction::BitCast: {
+      auto *BCI = cast<BitCastInst>(I);
+      auto *SrcTy = cast<PointerType>(BCI->getSrcTy());
+      unsigned SrcAS = SrcTy->getAddressSpace();
+      auto *DstTy = cast<PointerType>(BCI->getDestTy());
+      unsigned DstAS = DstTy->getAddressSpace();
+      // Mutate the result type to match the address space of the operand.
+      if (SrcAS != DstAS) {
+        BCI->mutateType(DstTy->getElementType()->getPointerTo(SrcAS));
+        CollectUsers = true;
+      }
+      break;
+    }
+    default:
+      llvm_unreachable("Unexpected instruction to fix up.");
+    }
+
+    if (CollectUsers)
+      for (User *U : I->users()) {
+        auto *UI = cast<Instruction>(U);
+        assert(W->contains(UI->getParent()) &&
+               "Definition from a region is used outside of the region.");
+        if (InstMayNeedAddrSpaceFixup(UI))
+          FixupInsts.push_back(UI);
+      }
   }
 
   if (W->getIsTask())

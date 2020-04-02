@@ -33,7 +33,7 @@ entry:
 
   store i32 10, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*), align 4
 ; Check that @a is replaced with @a.priv.__local inside the teams region.
-; CHECK: i32 addrspace(1)* addrspacecast (i32 addrspace(3)* @a.priv.__local to i32 addrspace(1)*)
+; CHECK: store i32 10, i32 addrspace(3)* @a.priv.__local
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
