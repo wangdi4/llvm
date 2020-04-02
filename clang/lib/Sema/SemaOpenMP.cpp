@@ -2008,11 +2008,11 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
   D = getCanonicalDecl(D);
 
   auto *VD = dyn_cast<VarDecl>(D);
-  // Do not capture constexpr variables.
-  if (VD && VD->isConstexpr())
+
+  if (!VD || !VD->getType()->isScalarType() || VD->getType()->isPointerType())
     return false;
 
-  if (VD && DSAStack->getCurrentDirective() != OMPD_unknown &&
+  if (DSAStack->getCurrentDirective() != OMPD_unknown &&
       isInOpenMPTargetExecutionDirective()) {
     // Find the level of the Target Directive
     int Level = DSAStack->getNestingLevel();
@@ -2040,9 +2040,7 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
               return K == OMPC_reduction || K == OMPC_lastprivate ||
                      K == OMPC_linear;
             },
-            Level) &&
-        VD->getType().getCanonicalType()->isScalarType() &&
-        !VD->getType().getCanonicalType()->isPointerType())
+            Level))
       return true;
   }
   return false;

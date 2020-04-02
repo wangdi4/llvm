@@ -51,15 +51,15 @@ public:
       LLVM_DEBUG(dbgs() << "Module is not whole program safe\n");
       return;
     }
-
-    dtrans::DTransTypeManager TM(M.getContext());
+    LLVMContext &Ctx = M.getContext();
+    dtrans::DTransTypeManager TM(Ctx);
     dtrans::TypeMetadataReader Reader(TM);
     if (!Reader.initialize(M)) {
       LLVM_DEBUG(dbgs() << "Failed to initialize type metadata reader\n");
       return;
     }
     const DataLayout &DL = M.getDataLayout();
-    dtrans::PtrTypeAnalyzer Analyzer(TM, Reader, DL, GetTLI);
+    dtrans::PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
     Analyzer.run(M);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (PrintPTAResults)
