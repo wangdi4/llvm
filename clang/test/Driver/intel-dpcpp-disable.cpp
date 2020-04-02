@@ -28,3 +28,12 @@
 // RUN: %clang_cl -### --dpcpp -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycl-device %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=SUPPORT-CUDA-CHECK-CL %s
 // SUPPORT-CUDA-CHECK-CL: SYCL target is invalid: 'nvptx64-nvidia-cuda-sycl-device'
+
+// Use of --dpcpp also should not enable the Cuda installation check.  There
+// is no obvious cuda value to check, so just make sure the diagnostic we are
+// trying to suppress is not seen.
+// RUN: %clangxx -c --dpcpp -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CUDA-WARN %s
+// RUN: %clang_cl -c --dpcpp -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CUDA-WARN %s
+// CUDA-WARN-NOT: Unknown CUDA version
