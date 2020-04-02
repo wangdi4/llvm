@@ -26,8 +26,9 @@
 #include "llvm/TableGen/TableGenBackend.h"
 
 #include <map>
-#include <vector>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace llvm {
 
@@ -324,7 +325,10 @@ public:
   bool hasAlias(const OclBuiltin* builtin) const;
 
   // Return the alias name for a specific OclBuiltin record.
-  ArrayRef<std::string> getAlias(const OclBuiltin* builtin);
+  ArrayRef<std::string> getAliasNames(const OclBuiltin* builtin);
+
+  // Return the types for the alias of a specific OclBuiltin record.
+  const std::set<const OclType*>& getAliasTypes(const OclBuiltin* builtin);
 
 protected:
   RecordKeeper& m_Records;
@@ -335,7 +339,9 @@ protected:
   std::map<std::string, OclType*> m_TypeMap;
   std::map<std::string, OclBuiltin*> m_ProtoMap;
   std::map<const OclBuiltin*, OclBuiltinImpl*> m_ImplMap;
-  std::map<const OclBuiltin*, std::vector<std::string>> m_AliasMap;
+  std::map<const OclBuiltin*,
+           std::pair<std::vector<std::string>,
+                     std::set<const OclType*>>> m_AliasMap;
 };
 
 /// OclBuiltinEmitter

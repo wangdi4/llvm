@@ -910,6 +910,27 @@ def vppgentype : OclGenType<"vppgentype"> {
   list<string> Tout = !foreach(n, Tin, !strconcat("vpp", n));
 }
 
+// convert a type list to vectorized counterpart.
+class VFLength<int vf> {
+  int Length = vf;
+}
+def vf1 : VFLength<1>;
+def vf4 : VFLength<4>;
+def vf8 : VFLength<8>;
+def vf16 : VFLength<16>;
+class VFType<list<OclType> types, string suffix> {
+  string platform = suffix#"_";
+  string vfStr =
+  !subst("_", "vf1",
+  !subst("_avx_", "vf4",
+  !subst("_avx2_", "vf8",
+  !subst("_avx512_", "vf16",
+  platform))));
+  int vf = !cast<VFLength>(vfStr).Length;
+  list<OclType> Tys = types;
+  list<OclType> Tout = !foreach(ty, Tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value));
+}
+
 // OclBuiltinAttr
 class OclBuiltinAttr<string attr> {
   string Attr = attr;
@@ -988,10 +1009,11 @@ class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, co
 }
 
 // Reflection alias map
-class AliasMap<list<list<string>> AliasList>{
+class AliasMap<list<list<string>> aliasList, list<OclType> types>{
   // For every item in the aliasList, it should be a list whose first item is
   // an OclBuiltin Record name, the other items should be alias name.
-  list<list<string>> aliasList = AliasList;
+  list<list<string>> AliasList = aliasList;
+  list<OclType> Types = types;
 }
 
 //Reflection module map cell
