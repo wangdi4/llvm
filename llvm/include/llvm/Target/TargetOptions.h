@@ -120,7 +120,6 @@ namespace llvm {
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
           IntelAdvancedOptim(false),               // INTEL
           IntelLibIRCAllowed(false),               // INTEL
-          IntelFtzDaz(false),                      // INTEL
           X87Precision(0),                         // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
@@ -199,11 +198,6 @@ namespace llvm {
     /// available for the compiler to make calls to.  When false, the
     /// compiler cannot generate libirc calls.
     unsigned IntelLibIRCAllowed : 1;
-
-    /// IntelFtzDaz - When true, this indicates that enable "Flush To Zero"
-    /// and "Denormals Are Zero" flags in MXCSR. It can improve the performance
-    /// in some FP mode.
-    unsigned IntelFtzDaz : 1;
 
     /// X87Precision - Indicate how to set the precision of X87 FPU
     /// The value can be 0, 32, 64 and 80.

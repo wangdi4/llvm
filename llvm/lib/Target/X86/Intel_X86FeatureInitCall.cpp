@@ -18,6 +18,7 @@
 #include "X86Subtarget.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -128,11 +129,11 @@ public:
   //     call void @llvm.lifetime.start.p0i8(i64 4, i8* %0)
   //     call void @llvm.x86.sse.stmxcsr(i8* %0)
   //     %stmxcsr = load i32, i32* %tmp, align 4
-  //     %or = or i32 %stmxcsr, 32832
+  //     %or = or i32 %stmxcsr, <FtzDazMask>
   //     store i32 %or, i32* %tmp, align 4
   //     call void @llvm.x86.sse.ldmxcsr(i8* %0)
   //     call void @llvm.lifetime.end.p0i8(i64 4, i8* %0)
-  bool writeMXCSRFTZBits(Function &F) {
+  bool writeMXCSRFTZBits(Function &F, uint32_t FtzDaz) {
 
     // stmxcsr and ldmxcsr need sse supported.
     if (!TM->getSubtarget<X86Subtarget>(F).hasSSE1())
@@ -163,8 +164,17 @@ public:
     // %stmxcsr = load i32, i32* %tmp, align 4
     LoadInst *LI = IRB.CreateAlignedLoad(AI, Align(4), "stmxcsr");
 
-    // %or = or i32 %stmxcsr, 32832
-    ConstantInt *CInt = IRB.getInt32(0x8040);
+    // To share code, we're using the ftz_daz argument that
+    // __intel_new_feature_proc_init expects, but it must be
+    // expanded here to get the proper MXCSR mask.
+    uint32_t FtzDazMask = 0;
+    if (FtzDaz & 0b10)
+      FtzDazMask |= 0x0040; // DAZ
+    if (FtzDaz & 0b01)
+      FtzDazMask |= 0x8000; // FTZ
+
+    // %or = or i32 %stmxcsr, <FtzDazMask>
+    ConstantInt *CInt = IRB.getInt32(FtzDazMask);
     Value *Or = IRB.CreateOr(LI, CInt, "ftz_daz");
 
     //store i32 %or, i32* %tmp1, align 4
@@ -232,6 +242,20 @@ public:
     return true;
   }
 
+  uint32_t getFtzDaz(Function &F) const {
+    Attribute Attr = F.getFnAttribute("denormal-fp-math");
+    StringRef Val = Attr.getValueAsString();
+    if (Val.empty())
+      return 0;
+    DenormalMode Mode = parseDenormalFPAttribute(Val);
+    uint32_t FtzDaz = 0;
+    if (Mode.Input == DenormalMode::PreserveSign)
+      FtzDaz |= 0b10; // FTZ
+    if (Mode.Output == DenormalMode::PreserveSign)
+      FtzDaz |= 0b01; // DAZ
+    return FtzDaz;
+ }
+
   bool insertProcInitCall(Function &F) {
     // To Be Done
     // Maybe better to follow icc's behavior, which is to call the base version
@@ -255,7 +279,7 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
-    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x3 : 0x0;
+    uint32_t FtzDaz = getFtzDaz(F);
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), FtzDaz),
         ConstantInt::get(IRB.getInt64Ty(), CpuBitMap[0]),
@@ -303,11 +327,12 @@ public:
 
     bool ProcInit = insertProcInitCall(F);
     bool FTZ = false;
+    uint32_t FtzDaz = getFtzDaz(F);
 
     // If FTZ + DAZ are set by libirc call __intel_new_feature_proc_init
     // in insertProcInitCall, we should not set them again.
-    if (TM->Options.IntelFtzDaz && !ProcInit)
-      FTZ = writeMXCSRFTZBits(F);
+    if (FtzDaz && !ProcInit)
+      FTZ = writeMXCSRFTZBits(F, FtzDaz);
 
     return ProcInit || FTZ || X87PrecisionInit;
   }
