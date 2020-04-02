@@ -168,7 +168,9 @@ void VPlanPredicator::calculatePredicateTerms(VPBasicBlock *CurrBlock) {
   //         |
   //        BB1 (re-use same predicate)
   //
-  if (auto *IDomNode = VPDomTree.getNode(CurrBlock)->getIDom())
+  VPDomTreeNode *CurrBlockDT = VPDomTree.getNode(CurrBlock);
+  assert(CurrBlockDT && "Expected node in dom tree!");
+  if (auto *IDomNode = CurrBlockDT->getIDom())
     if (VPPostDomTree.dominates(CurrBlock, IDomNode->getBlock())) {
       auto *BB = IDomNode->getBlock();
       PredicateTerm Term(BB);
