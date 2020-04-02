@@ -2659,12 +2659,6 @@ void CastOperation::CheckCStyleCast() {
     return;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  if (!DestType->isScalarType() && !DestType->isVectorType() &&
-      !DestType->isArbPrecIntType()) {
-#endif // INTEL_CUSTOMIZATION
-=======
   // Allow casting a sizeless built-in type to itself.
   if (DestType->isSizelessBuiltinType() &&
       Self.Context.hasSameUnqualifiedType(DestType, SrcType)) {
@@ -2672,8 +2666,10 @@ void CastOperation::CheckCStyleCast() {
     return;
   }
 
-  if (!DestType->isScalarType() && !DestType->isVectorType()) {
->>>>>>> 856bdd01fd65002d8d88b491bbff53648b6002c1
+#if INTEL_CUSTOMIZATION
+  if (!DestType->isScalarType() && !DestType->isVectorType() &&
+      !DestType->isArbPrecIntType()) {
+#endif // INTEL_CUSTOMIZATION
     const RecordType *DestRecordTy = DestType->getAs<RecordType>();
 
     if (DestRecordTy && Self.Context.hasSameUnqualifiedType(DestType, SrcType)){
