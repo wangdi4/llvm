@@ -27,10 +27,11 @@
 
 namespace llvm {
 
-const std::string VectEntry::isaClass = "VectorVariant::ISAClass::XMM";
-const std::string VectEntry::baseName = "\"\"";
-std::string VectEntry::isMasked = "false";
-std::string VectEntry::vectorKindEncode = "";
+const VectorVariant::ISAClass VectEntry::isaClass =
+    VectorVariant::ISAClass::XMM;
+const std::string VectEntry::baseName = "";
+bool VectEntry::isMasked = false;
+std::vector<VectorKind> VectEntry::vectorKindEncode;
 
 OclBuiltinDB *VectInfo::builtinDB = nullptr;
 
@@ -95,18 +96,33 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
 }
 
 std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
-  output << "{\"" << Ent.v1FuncName << "\", {" << VectEntry::isaClass << ", "
-         << VectEntry::isMasked << ", " << 4 << ", "
-         << VectEntry::vectorKindEncode << ", " << VectEntry::baseName << ", \""
-         << Ent.v4FuncName << "\"}},\n";
-  output << "{\"" << Ent.v1FuncName << "\", {" << VectEntry::isaClass << ", "
-         << VectEntry::isMasked << ", " << 8 << ", "
-         << VectEntry::vectorKindEncode << ", " << VectEntry::baseName << ", \""
-         << Ent.v8FuncName << "\"}},\n";
-  output << "{\"" << Ent.v1FuncName << "\", {" << VectEntry::isaClass << ", "
-         << VectEntry::isMasked << ", " << 16 << ", "
-         << VectEntry::vectorKindEncode << ", " << VectEntry::baseName << ", \""
-         << Ent.v16FuncName << "\"}},\n";
+  output << "{\"" << Ent.v1FuncName << "\",\""
+         << VectorVariant{VectEntry::isaClass,
+                          VectEntry::isMasked,
+                          4,
+                          VectEntry::vectorKindEncode,
+                          VectEntry::baseName,
+                          Ent.v4FuncName}
+                .toString()
+         << "\"},\n";
+  output << "{\"" << Ent.v1FuncName << "\",\""
+         << VectorVariant{VectEntry::isaClass,
+                          VectEntry::isMasked,
+                          8,
+                          VectEntry::vectorKindEncode,
+                          VectEntry::baseName,
+                          Ent.v8FuncName}
+                .toString()
+         << "\"},\n";
+  output << "{\"" << Ent.v1FuncName << "\",\""
+         << VectorVariant{VectEntry::isaClass,
+                          VectEntry::isMasked,
+                          16,
+                          VectEntry::vectorKindEncode,
+                          VectEntry::baseName,
+                          Ent.v16FuncName}
+                .toString()
+         << "\"},\n";
   return output;
 }
 
@@ -120,10 +136,9 @@ void VectInfoGenerator::decodeParamKind(const std::string &scalarName,
   reflection::FunctionDescriptor v4Func = demangle(v4FuncName.c_str(), false);
   const auto &v1Params = v1Func.parameters;
   const auto &v4Params = v4Func.parameters;
-  std::stringstream ss;
-  ss << '{';
   size_t v1ParamsNum = v1Params.size();
-  VectEntry::isMasked = v1ParamsNum == v4Params.size() ? "false" : "true";
+  VectEntry::isMasked = v1ParamsNum == (v4Params.size() - 1);
+  VectEntry::vectorKindEncode.clear();
   for (size_t i = 0; i < v1ParamsNum; ++i) {
     const auto *v1ParamType = (const reflection::ParamType *)v1Params[i];
     const auto *v4ParamType = (const reflection::ParamType *)v4Params[i];
@@ -134,17 +149,17 @@ void VectInfoGenerator::decodeParamKind(const std::string &scalarName,
         const auto *v1VectorType =
             static_cast<const reflection::VectorType *>(v1ParamType);
         if (v1VectorType->equals(v4ParamType)) {
-          ss << "VectorKind::uniform()";
+          VectEntry::vectorKindEncode.push_back(VectorKind::uniform());
         } else {
           // Should be vector kind, do some check here.
           assert(v1VectorType->getLength() * 4 ==
                      static_cast<const reflection::VectorType *>(v4ParamType)
                          ->getLength() &&
                  "Unresolved vector kind");
-          ss << "VectorKind::vector()";
+          VectEntry::vectorKindEncode.push_back(VectorKind::vector());
         }
       } else {
-        ss << "VectorKind::uniform()";
+        VectEntry::vectorKindEncode.push_back(VectorKind::uniform());
       }
 
     } else {
@@ -154,12 +169,9 @@ void VectInfoGenerator::decodeParamKind(const std::string &scalarName,
                      ->getScalarType()
                      ->getTypeId() == v1TypeId &&
              "Unresolved vector kind");
-      ss << "VectorKind::vector()";
+      VectEntry::vectorKindEncode.push_back(VectorKind::vector());
     }
-    ss << ", ";
   }
-  ss << '}';
-  VectEntry::vectorKindEncode = ss.str();
 }
 
 void VectInfoGenerator::generateFunctions(
@@ -231,9 +243,10 @@ void VectInfoGenerator::run(raw_ostream &os) {
     // Hold the raw func name defined in OclBuiltin.
     std::vector<std::string> rawName;
     // Hold the OclTypes specified in AliasMap for the scalar builtin.
-    std::set<const OclType*> v1AliasTypes;
+    std::set<const OclType *> v1AliasTypes;
 
-    for (auto *p : builtins) rawName.push_back(p->getCFunc());
+    for (auto *p : builtins)
+      rawName.push_back(p->getCFunc());
     if (handleAlias) {
       // Get the alias names and specified types.
       SVecVec aliasArray;
