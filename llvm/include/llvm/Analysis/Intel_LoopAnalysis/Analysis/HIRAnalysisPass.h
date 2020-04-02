@@ -105,47 +105,6 @@ public:
   void printAnalysis(raw_ostream &OS) const override;
 };
 
-// TODO: Remove the HIRAnalysisPass after we change all HIR analysis passes to
-// support new pass manager.
-class HIRAnalysisPass : public FunctionPass, public HIRAnalysisBase {
-public:
-  /// \brief An enumeration to keep track of the subclasses.
-  enum HIRAnalysisVal {
-    HIRDDAnalysisVal,
-    HIRLocalityAnalysisVal,
-    HIRLoopResourceVal,
-    HIRLoopStatisticsVal,
-    HIRSafeReductionAnalysisVal,
-    HIRSparseArrayReductionAnalysisVal,
-    // Should be kept last
-    HIRPassCountVal
-  };
-
-private:
-  /// ID to differentiate between concrete subclasses.
-  const HIRAnalysisVal SubClassID;
-
-protected:
-  HIRAnalysisPass(char &ID, HIRAnalysisVal SCID)
-      : FunctionPass(ID), SubClassID(SCID) {}
-
-public:
-  /// \brief Return an ID for the concrete type of this object.
-  ///
-  /// This is used to implement the classof checks in LLVM and should't
-  /// be used for any other purpose.
-  HIRAnalysisVal getHIRAnalysisID() const { return SubClassID; }
-
-  /// Prints analysis's results in 'opt -analyze' mode. This is a lightweight
-  /// print which prints region's/loop's header/footer along with their analysis
-  /// results.
-  void printAnalysis(raw_ostream &OS) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override {
-    printAnalysis(OS);
-  }
-};
-
-
 template <typename T> using ProviderFunctionTy = std::function<T *(void)>;
 
 template <typename... AnalysisTys> class HIRAnalysisProviderBase;
