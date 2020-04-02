@@ -145,11 +145,12 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
     return nullptr;
-  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-  auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
-                                           : HInst->getLvalDDRef();
+  if (const auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
+    auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
+                                             : HInst->getLvalDDRef();
 
-  return RegDD->getTempBaseValue();
+    return RegDD->getTempBaseValue();
+  }
 #endif // INTEL_CUSTOMIZATION
 
   return nullptr;
