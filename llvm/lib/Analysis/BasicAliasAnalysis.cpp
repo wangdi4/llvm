@@ -137,9 +137,7 @@ bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
 // In the above example, the value V represents the malloc call.
 static bool isNonEscapingAllocObj(const Value *V, unsigned PtrCaptureMaxUses) {
   if (isNoAliasCall(V))
-#if INTEL_CUSTOMIZATION
     return !PointerMayBeCaptured(V, false, true, true, PtrCaptureMaxUses);
-#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
