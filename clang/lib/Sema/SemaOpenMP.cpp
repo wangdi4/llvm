@@ -4241,7 +4241,7 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
     if (ParentRegion == OMPD_unknown &&
         !isOpenMPNestingTeamsDirective(CurrentRegion) &&
         CurrentRegion != OMPD_cancellation_point &&
-        CurrentRegion != OMPD_cancel)
+        CurrentRegion != OMPD_cancel && CurrentRegion != OMPD_scan)
       return false;
     if (CurrentRegion == OMPD_cancellation_point ||
         CurrentRegion == OMPD_cancel) {
@@ -4362,7 +4362,8 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
       NestingProhibited =
           SemaRef.LangOpts.OpenMP < 50 ||
           (ParentRegion != OMPD_simd && ParentRegion != OMPD_for &&
-           ParentRegion != OMPD_for_simd);
+           ParentRegion != OMPD_for_simd && ParentRegion != OMPD_parallel_for &&
+           ParentRegion != OMPD_parallel_for_simd);
       OrphanSeen = ParentRegion == OMPD_unknown;
       Recommend = ShouldBeInLoopSimdRegion;
     }
