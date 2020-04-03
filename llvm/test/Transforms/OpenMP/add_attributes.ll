@@ -733,7 +733,7 @@ declare void @__kmpc_end_critical(%struct.ident_t*, i32, [8 x i32]*)
 ; CHECK-NEXT: declare void @__kmpc_flush(%struct.ident_t*)
 
 ; CHECK: Function Attrs: nounwind
-; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t*)
+; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
 
 ; CHECK: Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_fork_call(%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...)
@@ -997,4 +997,4 @@ declare void @__kmpc_end_critical(%struct.ident_t*, i32, [8 x i32]*)
 ; OPTIMISTIC-NEXT: declare dso_local i32 @omp_get_supported_active_levels() #1
 
 ; OPTIMISTIC: ; Function Attrs: inaccessiblememonly nofree nosync nounwind readonly
-; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t*)
+; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL

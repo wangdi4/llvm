@@ -331,7 +331,11 @@ __OMP_RTL_ATTRS(__kmpc_cancel_barrier,
 __OMP_RTL_ATTRS(__kmpc_flush,
                 AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
                 AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(), {})
+#if INTEL_CUSTOMIZATION
+__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
+                ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
+                                                     EnumAttr(ReadOnly))}))
+#endif // INTEL_CUSTOMIZATION
 __OMP_RTL_ATTRS(__kmpc_fork_call, AttributeSet(EnumAttr(NoUnwind)),
                 AttributeSet(), {})
 __OMP_RTL_ATTRS(__kmpc_omp_taskwait,
@@ -353,12 +357,7 @@ __OMP_RTL_ATTRS(__kmpc_end_serialized_parallel,
                 AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
                 AttributeSet(), {})
 
-<<<<<<< HEAD
-=======
 #if INTEL_CUSTOMIZATION
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
-                ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
-                                                     EnumAttr(ReadOnly))}))
 __OMP_RTL_ATTRS(__kmpc_for_static_fini,
                 AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)),
                 AttributeSet(),
@@ -398,7 +397,6 @@ __OMP_RTL_ATTRS(
          AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
          AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 085cedffb01d7bd88a7644cbb4706b4b05cb0e3f
 __OMP_RTL_ATTRS(omp_get_thread_num, GetterAttrs, AttributeSet(), {})
 __OMP_RTL_ATTRS(omp_get_num_threads, GetterAttrs, AttributeSet(), {})
 __OMP_RTL_ATTRS(omp_get_max_threads, GetterAttrs, AttributeSet(), {})
