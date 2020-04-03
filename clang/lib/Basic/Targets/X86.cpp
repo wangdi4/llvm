@@ -2535,6 +2535,12 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Tigerlake:
     case CK_IcelakeClient:
     case CK_IcelakeServer:
+#if INTEL_CUSTOMIZATION
+    case CK_CommonAVX512:
+#if INTEL_FEATURE_CPU_GLC
+    case CK_Goldencove:
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
     case CK_KNL:
     case CK_KNM:
     // K7
