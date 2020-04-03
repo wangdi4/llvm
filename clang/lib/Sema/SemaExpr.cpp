@@ -5980,19 +5980,17 @@ ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
   if (LangOpts.isIntelCompat(LangOptions::IntrinsicPromotion) &&
       LangOpts.IntrinsicAutoPromote)
     PromoteIntelIntrins(*this, Call);
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (LangOpts.OpenMP)
     Call = ActOnOpenMPCall(*this, Call, Scope, LParenLoc, ArgExprs, RParenLoc,
                            ExecConfig);
 
->>>>>>> befb4be3a89678cea1531d963c565cab05b731d4
   return Call;
 }
 

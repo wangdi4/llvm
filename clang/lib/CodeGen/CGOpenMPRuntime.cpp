@@ -11702,67 +11702,7 @@ Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
   return Address(Addr, Align);
 }
 
-<<<<<<< HEAD
-/// Finds the variant function that matches current context with its context
-/// selector.
-static const FunctionDecl *getDeclareVariantFunction(CodeGenModule &CGM,
-                                                     const FunctionDecl *FD) {
-  if (!FD->hasAttrs() || !FD->hasAttr<OMPDeclareVariantAttr>())
-    return FD;
 
-  SmallVector<Expr *, 8> VariantExprs;
-  SmallVector<VariantMatchInfo, 8> VMIs;
-  for (const auto *A : FD->specific_attrs<OMPDeclareVariantAttr>()) {
-    const OMPTraitInfo &TI = *A->getTraitInfos();
-    VMIs.push_back(VariantMatchInfo());
-    TI.getAsVariantMatchInfo(CGM.getContext(), VMIs.back(),
-                             /* DeviceSetOnly */ false);
-    VariantExprs.push_back(A->getVariantFuncRef());
-  }
-
-  OMPContext Ctx(CGM.getLangOpts().OpenMPIsDevice, CGM.getTriple());
-  // FIXME: Keep the context in the OMPIRBuilder so we can add constructs as we
-  //        build them.
-
-  int BestMatchIdx = getBestVariantMatchForContext(VMIs, Ctx);
-  if (BestMatchIdx < 0)
-    return FD;
-
-  return cast<FunctionDecl>(
-      cast<DeclRefExpr>(VariantExprs[BestMatchIdx]->IgnoreParenImpCasts())
-          ->getDecl());
-}
-
-bool CGOpenMPRuntime::emitDeclareVariant(GlobalDecl GD, bool IsForDefinition) {
-#if INTEL_COLLAB
-  if (CGM.getLangOpts().OpenMPLateOutline)
-#if INTEL_CUSTOMIZATION
-    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
-    return false;
-#endif // INTEL_COLLAB
-  const auto *D = cast<FunctionDecl>(GD.getDecl());
-  // If the original function is defined already, use its definition.
-  StringRef MangledName = CGM.getMangledName(GD);
-  llvm::GlobalValue *Orig = CGM.GetGlobalValue(MangledName);
-  if (Orig && !Orig->isDeclaration())
-    return false;
-  const FunctionDecl *NewFD = getDeclareVariantFunction(CGM, D);
-  // Emit original function if it does not have declare variant attribute or the
-  // context does not match.
-  if (NewFD == D)
-    return false;
-  GlobalDecl NewGD = GD.getWithDecl(NewFD);
-  if (tryEmitDeclareVariant(NewGD, GD, Orig, IsForDefinition)) {
-    DeferredVariantFunction.erase(D);
-    return true;
-  }
-  DeferredVariantFunction.insert(std::make_pair(D, std::make_pair(NewGD, GD)));
-  return true;
-}
-
-=======
->>>>>>> befb4be3a89678cea1531d963c565cab05b731d4
 CGOpenMPRuntime::NontemporalDeclsRAII::NontemporalDeclsRAII(
     CodeGenModule &CGM, const OMPLoopDirective &S)
     : CGM(CGM), NeedToPush(S.hasClausesOfKind<OMPNontemporalClause>()) {

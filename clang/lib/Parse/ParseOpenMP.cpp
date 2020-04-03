@@ -13,11 +13,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/OpenMPKinds.h"
-<<<<<<< HEAD
-#include "clang/Basic/TargetInfo.h" // INTEL
-=======
 #include "clang/Basic/TargetInfo.h"
->>>>>>> befb4be3a89678cea1531d963c565cab05b731d4
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Parse/ParseDiagnostic.h"
 #include "clang/Parse/Parser.h"
