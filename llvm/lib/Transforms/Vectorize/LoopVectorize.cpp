@@ -1719,9 +1719,10 @@ void InnerLoopVectorizer::createVectorIntOrFpInductionPHI(
   // FIXME: If the step is non-constant, we create the vector splat with
   //        IRBuilder. IRBuilder can constant-fold the multiply, but it doesn't
   //        handle a constant vector splat.
-  Value *SplatVF = isa<Constant>(Mul)
-                       ? ConstantVector::getSplat(VF, cast<Constant>(Mul))
-                       : Builder.CreateVectorSplat(VF, Mul);
+  Value *SplatVF =
+      isa<Constant>(Mul)
+          ? ConstantVector::getSplat({VF, false}, cast<Constant>(Mul))
+          : Builder.CreateVectorSplat(VF, Mul);
   Builder.restoreIP(CurrIP);
 
   // We may need to add the step a number of times, depending on the unroll
@@ -3303,7 +3304,7 @@ unsigned LoopVectorizationCostModel::getVectorIntrinsicCost(CallInst *CI,
     FMF = FPMO->getFastMathFlags();
 
   SmallVector<Value *, 4> Operands(CI->arg_operands());
-  return TTI.getIntrinsicInstrCost(ID, CI->getType(), Operands, FMF, VF);
+  return TTI.getIntrinsicInstrCost(ID, CI->getType(), Operands, FMF, VF, CI);
 }
 
 static Type *smallestIntegerVectorType(Type *T1, Type *T2) {
@@ -3733,7 +3734,7 @@ void InnerLoopVectorizer::fixReduction(PHINode *Phi) {
       // incoming scalar reduction.
       VectorStart = ReductionStartValue;
     } else {
-      Identity = ConstantVector::getSplat(VF, Iden);
+      Identity = ConstantVector::getSplat({VF, false}, Iden);
 
       // This vector is the Identity vector where the first element is the
       // incoming scalar reduction.
@@ -4356,7 +4357,7 @@ void InnerLoopVectorizer::widenInstruction(Instruction &I) {
     // The flag shows whether we use Intrinsic or a usual Call for vectorized
     // version of the instruction.
     // Is it beneficial to perform intrinsic call compared to lib call?
-    bool NeedToScalarize;
+    bool NeedToScalarize = false;
     unsigned CallCost = Cost->getVectorCallCost(CI, VF, NeedToScalarize);
     bool UseVectorIntrinsic =
         ID && Cost->getVectorIntrinsicCost(CI, VF) <= CallCost;
@@ -5903,7 +5904,7 @@ unsigned LoopVectorizationCostModel::getGatherScatterCost(Instruction *I,
   return TTI.getAddressComputationCost(VectorTy) +
          TTI.getGatherScatterOpCost(I->getOpcode(), VectorTy, Ptr,
                                     Legal->isMaskRequired(I),
-                                    Alignment ? Alignment->value() : 0);
+                                    Alignment ? Alignment->value() : 0, I);
 }
 
 unsigned LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
@@ -5932,7 +5933,7 @@ unsigned LoopVectorizationCostModel::getInterleaveGroupCost(Instruction *I,
       Group->requiresScalarEpilogue() && !isScalarEpilogueAllowed();
   unsigned Cost = TTI.getInterleavedMemoryOpCost(
       I->getOpcode(), WideVecTy, Group->getFactor(), Indices,
-      Group->getAlignment(), AS, Legal->isMaskRequired(I), UseMaskForGaps);
+      Group->getAlign().value(), AS, Legal->isMaskRequired(I), UseMaskForGaps);
 
   if (Group->isReverse()) {
     // TODO: Add support for reversed masked interleaved access.
@@ -7363,16 +7364,17 @@ Value *LoopVectorizationPlanner::VPCallbackILV::getOrCreateScalarValue(
 
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent) const {
+void VPInterleaveRecipe::print(raw_ostream &O, const Twine &Indent,
+                               VPSlotTracker &SlotTracker) const {
   O << " +\n"
     << Indent << "\"INTERLEAVE-GROUP with factor " << IG->getFactor() << " at ";
   IG->getInsertPos()->printAsOperand(O, false);
   O << ", ";
-  getAddr()->printAsOperand(O);
+  getAddr()->printAsOperand(O, SlotTracker);
   VPValue *Mask = getMask();
   if (Mask) {
     O << ", ";
-    Mask->printAsOperand(O);
+    Mask->printAsOperand(O, SlotTracker);
   }
   O << "\\l\"";
   for (unsigned i = 0; i < IG->getFactor(); ++i)

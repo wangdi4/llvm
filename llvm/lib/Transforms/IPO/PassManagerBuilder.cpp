@@ -489,20 +489,19 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
 #endif // INTEL_CUSTOMIZATION
 }
 
+#if INTEL_CUSTOMIZATION
 void PassManagerBuilder::addInstructionCombiningPass(
     legacy::PassManagerBase &PM) const {
-  bool ExpensiveCombines = OptLevel > 2;
-#if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
+  // Configure the instruction combining pass to avoid some transformations
+  // that lose type information for DTrans.
   bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
 #else
   bool GEPInstOptimizations = true;
 #endif // INTEL_INCLUDE_DTRANS
-  PM.add(
-      createInstructionCombiningPass(ExpensiveCombines,
-                                     GEPInstOptimizations));
-#endif // INTEL_CUSTOMIZATION
+  PM.add(createInstructionCombiningPass(GEPInstOptimizations));
 }
+#endif // INTEL_CUSTOMIZATION
 
 void PassManagerBuilder::populateFunctionPassManager(
     legacy::FunctionPassManager &FPM) {
@@ -589,17 +588,9 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
     MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
     MPM.add(createCFGSimplificationPass());    // Merge & remove BBs
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-    // Configure the instruction combining pass to avoid some transformations
-    // that lose type information for DTrans.
-    bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
-#else
-    bool GEPInstOptimizations = true;
+    // Combine silly seq's
+    addInstructionCombiningPass(MPM);
 #endif // INTEL_INCLUDE_DTRANS
-    MPM.add(createInstructionCombiningPass(
-        /*ExpensiveCombines=default value*/ true,
-        GEPInstOptimizations)); // Combine silly seq's
-#endif                          // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_Peephole, MPM);
   }
   if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
@@ -666,7 +657,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Combine silly seq's
   if (OptLevel > 2)
     MPM.add(createAggressiveInstCombinerPass());
-  addInstructionCombiningPass(MPM);
+  addInstructionCombiningPass(MPM);  // INTEL
   if (SizeLevel == 0 && !DisableLibCallsShrinkWrap)
     MPM.add(createLibCallsShrinkWrapPass());
   addExtensionsToPM(EP_Peephole, MPM);
@@ -709,7 +700,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // simplify-cfg. Eventually loop-simplifycfg should be enhanced to replace the
   // need for this.
   MPM.add(createCFGSimplificationPass());
-  addInstructionCombiningPass(MPM);
+  addInstructionCombiningPass(MPM);  // INTEL
   // We resume loop passes creating a second loop pipeline here.
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
@@ -759,7 +750,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
-  addInstructionCombiningPass(MPM);
+  addInstructionCombiningPass(MPM);  // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
   if (OptLevel > 1) {
     MPM.add(createJumpThreadingPass());         // Thread jumps
@@ -777,7 +768,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
   // Clean up after everything.
-  addInstructionCombiningPass(MPM);
+  addInstructionCombiningPass(MPM); // INTEL
   addExtensionsToPM(EP_Peephole, MPM);
 
   if (EnableCHR && OptLevel >= 3 &&
@@ -908,7 +899,10 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createDeadArgEliminationPass()); // Dead argument elimination
 
-  addInstructionCombiningPass(MPM); // Clean up after IPCP & DAE
+#if INTEL_CUSTOMIZATION
+  // Clean up after IPCP & DAE
+  addInstructionCombiningPass(MPM);
+#endif // INTEL_CUSTOMIZATION
   addExtensionsToPM(EP_Peephole, MPM);
   if (EarlyJumpThreading)                         // INTEL
     MPM.add(createJumpThreadingPass(-1, false));  // INTEL
@@ -1123,6 +1117,9 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
   }
 #endif // INTEL_CUSTOMIZATION
+  MPM.add(createVectorCombinePass());
+  MPM.add(createEarlyCSEPass());
+
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   MPM.add(createLoopLoadEliminationPass());
@@ -1137,8 +1134,7 @@ void PassManagerBuilder::populateModulePassManager(
   // on -O1 and no #pragma is found). Would be good to have these two passes
   // as function calls, so that we can only pass them when the vectorizer
   // changed the code.
-  MPM.add(createVectorCombinePass());
-  addInstructionCombiningPass(MPM);
+  addInstructionCombiningPass(MPM);   // INTEL
   if (OptLevel > 1 && ExtraVectorizerPasses) {
     // At higher optimization levels, try to clean up any runtime overlap and
     // alignment checks inserted by the vectorizer. We want to track correllated
@@ -1146,13 +1142,12 @@ void PassManagerBuilder::populateModulePassManager(
     // common computations, hoist loop-invariant aspects out of any outer loop,
     // and unswitch the runtime checks if possible. Once hoisted, we may have
     // dead (or speculatable) control flows or more combining opportunities.
-    MPM.add(createEarlyCSEPass());
     MPM.add(createCorrelatedValuePropagationPass());
-    addInstructionCombiningPass(MPM);
+    addInstructionCombiningPass(MPM);  // INTEL
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
     MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
     MPM.add(createCFGSimplificationPass());
-    addInstructionCombiningPass(MPM);
+    addInstructionCombiningPass(MPM);  // INTEL
   }
 
   // Cleanup after loop vectorization, etc. Simplification passes like CVP and
@@ -1164,7 +1159,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   if (SLPVectorize) {
     MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
-    MPM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       MPM.add(createLoadCoalescingPass());
@@ -1490,7 +1484,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // calls, etc, so let instcombine do this.
   if (OptLevel > 2)
     PM.add(createAggressiveInstCombinerPass());
-  addInstructionCombiningPass(PM);
+  addInstructionCombiningPass(PM);   // INTEL
   addExtensionsToPM(EP_Peephole, PM);
 
 #if INTEL_CUSTOMIZATION
@@ -1604,7 +1598,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createArgumentPromotionPass());
 
   // The IPO passes may leave cruft around.  Clean up after them.
-  addInstructionCombiningPass(PM);
+  addInstructionCombiningPass(PM);  // INTEL
   addExtensionsToPM(EP_Peephole, PM);
   PM.add(createJumpThreadingPass());
 
@@ -1682,10 +1676,16 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // we may have exposed more scalar opportunities. Run parts of the scalar
   // optimizer again at this point.
   PM.add(createVectorCombinePass());
-  addInstructionCombiningPass(PM); // Initial cleanup
+#if INTEL_CUSTOMIZATION
+  // Initial cleanup
+  addInstructionCombiningPass(PM);
+#endif // INTEL_CUSTOMIZATION
   PM.add(createCFGSimplificationPass()); // if-convert
   PM.add(createSCCPPass()); // Propagate exposed constants
-  addInstructionCombiningPass(PM); // Clean up again
+#if INTEL_CUSTOMIZATION
+  // Clean up again
+  addInstructionCombiningPass(PM);
+#endif // INTEL_CUSTOMIZATION
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
@@ -1706,7 +1706,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createAlignmentFromAssumptionsPass());
 
   // Cleanup and simplify the code after the scalar optimizations.
-  addInstructionCombiningPass(PM);
+  addInstructionCombiningPass(PM);  // INTEL
   addExtensionsToPM(EP_Peephole, PM);
 
   PM.add(createJumpThreadingPass());
@@ -1875,7 +1875,7 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   // GVN can perform alloca store forwarding thereby removing alloca loads. This
   // can expose dead alloca stores which can be cleaned up by SROA.
   PM.add(createSROAPass());
-  addInstructionCombiningPass(PM);
+  addInstructionCombiningPass(PM);  // INTEL
   PM.add(createLoopCarriedCSEPass());
   PM.add(createDeadStoreEliminationPass());
 

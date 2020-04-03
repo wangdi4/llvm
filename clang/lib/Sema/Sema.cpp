@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "UsedDeclVisitor.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTDiagnostic.h"
 #include "clang/AST/DeclCXX.h"
@@ -1004,12 +1005,9 @@ void Sema::ActOnEndOfTranslationUnitFragment(TUFragmentKind Kind) {
     if (SyclIntHeader != nullptr)
       SyclIntHeader->emit(getLangOpts().SYCLIntHeader);
     MarkDevice();
-    finalizeSYCLDelayedAnalysis();
   }
 
-  // Finalize analysis of OpenMP-specific constructs.
-  if (LangOpts.OpenMP)
-    finalizeOpenMPDelayedAnalysis();
+  emitDeferredDiags();
 
   assert(LateParsedInstantiations.empty() &&
          "end of TU template instantiation should not create more "
@@ -1490,42 +1488,202 @@ Sema::Diag(SourceLocation Loc, const PartialDiagnostic& PD) {
 }
 
 // Print notes showing how we can reach FD starting from an a priori
-// known-callable function.
-static void emitCallStackNotes(Sema &S, FunctionDecl *FD) {
+// known-callable function. If \DiagsCount is not null pointer, the number
+// of diagnostics emitted for a function is accumulated.
+static void emitCallStackNotes(Sema &S, FunctionDecl *FD,
+                               llvm::DenseMap<CanonicalDeclPtr<FunctionDecl>,
+                                              unsigned> *DiagsCount = nullptr) {
   auto FnIt = S.DeviceKnownEmittedFns.find(FD);
   while (FnIt != S.DeviceKnownEmittedFns.end()) {
     DiagnosticBuilder Builder(
         S.Diags.Report(FnIt->second.Loc, diag::note_called_by));
     Builder << FnIt->second.FD;
     Builder.setForceEmit();
+    // Count the number of deferred diagnostics directly or indirectly
+    // triggered by a function.
+    if (DiagsCount)
+      (*DiagsCount)[FnIt->second.FD]++;
 
     FnIt = S.DeviceKnownEmittedFns.find(FnIt->second.FD);
   }
 }
 
-// Emit any deferred diagnostics for FD and erase them from the map in which
-// they're stored.
-static void emitDeferredDiags(Sema &S, FunctionDecl *FD, bool ShowCallStack) {
-  auto It = S.DeviceDeferredDiags.find(FD);
-  if (It == S.DeviceDeferredDiags.end())
-    return;
-  bool HasWarningOrError = false;
-  for (PartialDiagnosticAt &PDAt : It->second) {
-    const SourceLocation &Loc = PDAt.first;
-    const PartialDiagnostic &PD = PDAt.second;
-    HasWarningOrError |= S.getDiagnostics().getDiagnosticLevel(
-                             PD.getDiagID(), Loc) >= DiagnosticsEngine::Warning;
-    DiagnosticBuilder Builder(S.Diags.Report(Loc, PD.getDiagID()));
-    Builder.setForceEmit();
-    PD.Emit(Builder);
-  }
-  S.DeviceDeferredDiags.erase(It);
+namespace {
 
-  // FIXME: Should this be called after every warning/error emitted in the loop
-  // above, instead of just once per function?  That would be consistent with
-  // how we handle immediate errors, but it also seems like a bit much.
-  if (HasWarningOrError && ShowCallStack)
-    emitCallStackNotes(S, FD);
+/// Helper class that emits deferred diagnostic messages if an entity directly
+/// or indirectly using the function that causes the deferred diagnostic
+/// messages is known to be emitted.
+///
+/// During parsing of AST, certain diagnostic messages are recorded as deferred
+/// diagnostics since it is unknown whether the functions containing such
+/// diagnostics will be emitted. A list of potentially emitted functions and
+/// variables that may potentially trigger emission of functions are also
+/// recorded. DeferredDiagnosticsEmitter recursively visits used functions
+/// by each function to emit deferred diagnostics.
+///
+/// During the visit, certain OpenMP directives or initializer of variables
+/// with certain OpenMP attributes will cause subsequent visiting of any
+/// functions enter a state which is called OpenMP device context in this
+/// implementation. The state is exited when the directive or initializer is
+/// exited. This state can change the emission states of subsequent uses
+/// of functions.
+///
+/// Conceptually the functions or variables to be visited form a use graph
+/// where the parent node uses the child node. At any point of the visit,
+/// the tree nodes traversed from the tree root to the current node form a use
+/// stack. The emission state of the current node depends on two factors:
+///    1. the emission state of the root node
+///    2. whether the current node is in OpenMP device context
+/// If the function is decided to be emitted, its contained deferred diagnostics
+/// are emitted, together with the information about the use stack.
+///
+/// The number of deferred diagnostics directly or indirectly triggered by
+/// a function is counted. A function is visited at least once to count
+/// the triggered diagnostics. For subsequent visits, if the number of deferred
+/// diagnostics triggered by the function is 0 and currently is not in OpenMP
+/// device context, the function is skipped, since the subtree starting at this
+/// node does not trigger any deferred diagnostics and does not trigger any
+/// OpenMP device context, otherwise the counter cannot be 0.
+///
+class DeferredDiagnosticsEmitter
+    : public UsedDeclVisitor<DeferredDiagnosticsEmitter> {
+public:
+  typedef UsedDeclVisitor<DeferredDiagnosticsEmitter> Inherited;
+  llvm::SmallSet<CanonicalDeclPtr<Decl>, 4> Visited;
+  llvm::SmallVector<CanonicalDeclPtr<FunctionDecl>, 4> UseStack;
+
+  // Deferred diagnostics triggered by a declaration.
+  llvm::DenseMap<CanonicalDeclPtr<FunctionDecl>, unsigned> DiagsCount;
+
+  // Emission state of the root node of the current use graph.
+  bool ShouldEmit;
+
+  // Current OpenMP device context level. It is initialized to 0 and each
+  // entering of device context increases it by 1 and each exit decreases
+  // it by 1. Non-zero value indicates it is currently in device context.
+  unsigned InOMPDeviceContext;
+
+  DeferredDiagnosticsEmitter(Sema &S)
+      : Inherited(S), ShouldEmit(false), InOMPDeviceContext(0) {}
+
+  void VisitOMPTargetDirective(OMPTargetDirective *Node) {
+    ++InOMPDeviceContext;
+    Inherited::VisitOMPTargetDirective(Node);
+    --InOMPDeviceContext;
+  }
+
+  void visitUsedDecl(SourceLocation Loc, Decl *D) {
+    if (isa<VarDecl>(D))
+      return;
+     if (auto *FD = dyn_cast<FunctionDecl>(D))
+       checkFunc(Loc, FD);
+     else
+       Inherited::visitUsedDecl(Loc, D);
+  }
+
+  void checkVar(VarDecl *VD) {
+    assert(VD->isFileVarDecl() &&
+           "Should only check file-scope variables");
+    if (auto *Init = VD->getInit()) {
+      auto DevTy = OMPDeclareTargetDeclAttr::getDeviceType(VD);
+      bool IsDev = DevTy && (*DevTy == OMPDeclareTargetDeclAttr::DT_NoHost ||
+                             *DevTy == OMPDeclareTargetDeclAttr::DT_Any);
+      if (IsDev)
+        ++InOMPDeviceContext;
+      this->Visit(Init);
+      if (IsDev)
+        --InOMPDeviceContext;
+    }
+  }
+
+  void checkFunc(SourceLocation Loc, FunctionDecl *FD) {
+    auto DiagsCountIt = DiagsCount.find(FD);
+    FunctionDecl *Caller = UseStack.empty() ? nullptr : UseStack.back();
+    auto IsKnownEmitted = S.getEmissionStatus(FD, /*Final=*/true) ==
+                          Sema::FunctionEmissionStatus::Emitted;
+    if (!Caller)
+      ShouldEmit = IsKnownEmitted;
+    if ((!ShouldEmit && !S.getLangOpts().OpenMP && !Caller) ||
+        S.shouldIgnoreInHostDeviceCheck(FD) || Visited.count(FD))
+      return;
+    // Finalize analysis of OpenMP-specific constructs.
+    if (Caller && S.LangOpts.OpenMP && UseStack.size() == 1)
+      S.finalizeOpenMPDelayedAnalysis(Caller, FD, Loc);
+    // If the number of deferred diagnostics for the function is available
+    // and is 0 and currently is not in OpenMP device context, the visit of
+    // the function and its used functions can be skipped since they
+    // will not trigger any deferred diagnostics.
+    else if (DiagsCountIt != DiagsCount.end() && DiagsCountIt->second == 0 &&
+             !InOMPDeviceContext)
+      return;
+    if (DiagsCountIt == DiagsCount.end())
+      DiagsCount[FD] = 0;
+    if (Caller && S.LangOpts.SYCLIsDevice)
+      S.finalizeSYCLDelayedAnalysis(Caller, FD, Loc);
+    if (Caller)
+      S.DeviceKnownEmittedFns[FD] = {Caller, Loc};
+    if (ShouldEmit || InOMPDeviceContext)
+      emitDeferredDiags(FD, Caller);
+    Visited.insert(FD);
+    UseStack.push_back(FD);
+    if (auto *S = FD->getBody()) {
+      this->Visit(S);
+    }
+    UseStack.pop_back();
+    Visited.erase(FD);
+  }
+
+  void checkRecordedDecl(Decl *D) {
+    if (auto *FD = dyn_cast<FunctionDecl>(D))
+      checkFunc(SourceLocation(), FD);
+    else
+      checkVar(cast<VarDecl>(D));
+  }
+
+  // Emit any deferred diagnostics for FD
+  void emitDeferredDiags(FunctionDecl *FD, bool ShowCallStack) {
+    auto It = S.DeviceDeferredDiags.find(FD);
+    if (It == S.DeviceDeferredDiags.end())
+      return;
+    bool HasWarningOrError = false;
+    bool FirstDiag = true;
+    for (PartialDiagnosticAt &PDAt : It->second) {
+      const SourceLocation &Loc = PDAt.first;
+      const PartialDiagnostic &PD = PDAt.second;
+      HasWarningOrError |=
+          S.getDiagnostics().getDiagnosticLevel(PD.getDiagID(), Loc) >=
+          DiagnosticsEngine::Warning;
+      {
+        DiagnosticBuilder Builder(S.Diags.Report(Loc, PD.getDiagID()));
+        Builder.setForceEmit();
+        PD.Emit(Builder);
+      }
+
+      DiagsCount[FD]++;
+      // Emit the note on the first diagnostic in case too many diagnostics
+      // cause the note not emitted.
+      if (FirstDiag && HasWarningOrError && ShowCallStack) {
+        emitCallStackNotes(S, FD, &DiagsCount);
+        FirstDiag = false;
+      }
+    }
+  }
+};
+} // namespace
+
+void Sema::emitDeferredDiags() {
+  if (ExternalSource)
+    ExternalSource->ReadDeclsToCheckForDeferredDiags(
+        DeclsToCheckForDeferredDiags);
+
+  if ((DeviceDeferredDiags.empty() && !LangOpts.OpenMP &&
+       !LangOpts.SYCLIsDevice) ||
+      DeclsToCheckForDeferredDiags.empty())
+    return;
+
+  DeferredDiagnosticsEmitter DDE(*this);
+  for (auto D : DeclsToCheckForDeferredDiags)
+    DDE.checkRecordedDecl(D);
 }
 
 // In CUDA, there are some constructs which may appear in semantically-valid
@@ -1598,71 +1756,6 @@ Sema::DeviceDiagBuilder::~DeviceDiagBuilder() {
   }
 }
 
-// Indicate that this function (and thus everything it transtively calls) will
-// be codegen'ed, and emit any deferred diagnostics on this function and its
-// (transitive) callees.
-void Sema::markKnownEmitted(
-    Sema &S, FunctionDecl *OrigCaller, FunctionDecl *OrigCallee,
-    SourceLocation OrigLoc,
-    const llvm::function_ref<bool(Sema &, FunctionDecl *)> IsKnownEmitted) {
-  // Nothing to do if we already know that FD is emitted.
-  if (IsKnownEmitted(S, OrigCallee)) {
-    assert(!S.DeviceCallGraph.count(OrigCallee));
-    return;
-  }
-
-  // We've just discovered that OrigCallee is known-emitted.  Walk our call
-  // graph to see what else we can now discover also must be emitted.
-
-  struct CallInfo {
-    FunctionDecl *Caller;
-    FunctionDecl *Callee;
-    SourceLocation Loc;
-  };
-  llvm::SmallVector<CallInfo, 4> Worklist = {{OrigCaller, OrigCallee, OrigLoc}};
-  llvm::SmallSet<CanonicalDeclPtr<FunctionDecl>, 4> Seen;
-  Seen.insert(OrigCallee);
-  while (!Worklist.empty()) {
-    CallInfo C = Worklist.pop_back_val();
-    assert(!IsKnownEmitted(S, C.Callee) &&
-           "Worklist should not contain known-emitted functions.");
-    S.DeviceKnownEmittedFns[C.Callee] = {C.Caller, C.Loc};
-    emitDeferredDiags(S, C.Callee, C.Caller);
-
-    // If this is a template instantiation, explore its callgraph as well:
-    // Non-dependent calls are part of the template's callgraph, while dependent
-    // calls are part of to the instantiation's call graph.
-    if (auto *Templ = C.Callee->getPrimaryTemplate()) {
-      FunctionDecl *TemplFD = Templ->getAsFunction();
-      if (!Seen.count(TemplFD) && !S.DeviceKnownEmittedFns.count(TemplFD)) {
-        Seen.insert(TemplFD);
-        Worklist.push_back(
-            {/* Caller = */ C.Caller, /* Callee = */ TemplFD, C.Loc});
-      }
-    }
-
-    // Add all functions called by Callee to our worklist.
-    auto CGIt = S.DeviceCallGraph.find(C.Callee);
-    if (CGIt == S.DeviceCallGraph.end())
-      continue;
-
-    for (std::pair<CanonicalDeclPtr<FunctionDecl>, SourceLocation> FDLoc :
-         CGIt->second) {
-      FunctionDecl *NewCallee = FDLoc.first;
-      SourceLocation CallLoc = FDLoc.second;
-      if (Seen.count(NewCallee) || IsKnownEmitted(S, NewCallee))
-        continue;
-      Seen.insert(NewCallee);
-      Worklist.push_back(
-          {/* Caller = */ C.Callee, /* Callee = */ NewCallee, CallLoc});
-    }
-
-    // C.Callee is now known-emitted, so we no longer need to maintain its list
-    // of callees in DeviceCallGraph.
-    S.DeviceCallGraph.erase(CGIt);
-  }
-}
-
 Sema::DeviceDiagBuilder Sema::targetDiag(SourceLocation Loc, unsigned DiagID) {
   if (LangOpts.OpenMP)
     return LangOpts.OpenMPIsDevice ? diagIfOpenMPDeviceCode(Loc, DiagID)
@@ -1670,9 +1763,10 @@ Sema::DeviceDiagBuilder Sema::targetDiag(SourceLocation Loc, unsigned DiagID) {
   if (getLangOpts().CUDA)
     return getLangOpts().CUDAIsDevice ? CUDADiagIfDeviceCode(Loc, DiagID)
                                       : CUDADiagIfHostCode(Loc, DiagID);
-  // TODO: analyze which usages of targetDiag could be reused for SYCL.
-  // if (getLangOpts().SYCLIsDevice)
-  //   return SYCLDiagIfDeviceCode(Loc, DiagID);
+
+  if (getLangOpts().SYCLIsDevice)
+    return SYCLDiagIfDeviceCode(Loc, DiagID);
+
   return DeviceDiagBuilder(DeviceDiagBuilder::K_Immediate, Loc, DiagID,
                            getCurFunctionDecl(), *this);
 }

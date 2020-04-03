@@ -61,7 +61,8 @@ class OMPLexicalScope : public CodeGenFunction::LexicalScope {
   static bool isCapturedVar(CodeGenFunction &CGF, const VarDecl *VD) {
     return CGF.LambdaCaptureFields.lookup(VD) ||
            (CGF.CapturedStmtInfo && CGF.CapturedStmtInfo->lookup(VD)) ||
-           (CGF.CurCodeDecl && isa<BlockDecl>(CGF.CurCodeDecl));
+           (CGF.CurCodeDecl && isa<BlockDecl>(CGF.CurCodeDecl) &&
+            cast<BlockDecl>(CGF.CurCodeDecl)->capturesVariable(VD));
   }
 
 public:
@@ -3477,6 +3478,7 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
                                     PrePostActionTy &Action) {
     // Set proper addresses for generated private copies.
     OMPPrivateScope Scope(CGF);
+    llvm::SmallVector<std::pair<const VarDecl *, Address>, 16> FirstprivatePtrs;
     if (!Data.PrivateVars.empty() || !Data.FirstprivateVars.empty() ||
         !Data.LastprivateVars.empty()) {
       llvm::FunctionType *CopyFnTy = llvm::FunctionType::get(
@@ -3503,6 +3505,7 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
             CGF.CreateMemTemp(CGF.getContext().getPointerType(E->getType()),
                               ".firstpriv.ptr.addr");
         PrivatePtrs.emplace_back(VD, PrivatePtr);
+        FirstprivatePtrs.emplace_back(VD, PrivatePtr);
         CallArgs.push_back(PrivatePtr.getPointer());
       }
       for (const Expr *E : Data.LastprivateVars) {
@@ -3533,6 +3536,14 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
       }
     }
     if (Data.Reductions) {
+      OMPPrivateScope FirstprivateScope(CGF);
+      for (const auto &Pair : FirstprivatePtrs) {
+        Address Replacement(CGF.Builder.CreateLoad(Pair.second),
+                            CGF.getContext().getDeclAlign(Pair.first));
+        FirstprivateScope.addPrivate(Pair.first,
+                                     [Replacement]() { return Replacement; });
+      }
+      (void)FirstprivateScope.Privatize();
       OMPLexicalScope LexScope(CGF, S, CapturedRegion);
       ReductionCodeGen RedCG(Data.ReductionVars, Data.ReductionCopies,
                              Data.ReductionOps);
@@ -3871,7 +3882,29 @@ void CodeGenFunction::EmitOMPFlushDirective(const OMPFlushDirective &S) {
       S.getBeginLoc(), AO);
 }
 
-void CodeGenFunction::EmitOMPDepobjDirective(const OMPDepobjDirective &S) {}
+void CodeGenFunction::EmitOMPDepobjDirective(const OMPDepobjDirective &S) {
+  const auto *DO = S.getSingleClause<OMPDepobjClause>();
+  LValue DOLVal = EmitLValue(DO->getDepobj());
+  if (const auto *DC = S.getSingleClause<OMPDependClause>()) {
+    SmallVector<std::pair<OpenMPDependClauseKind, const Expr *>, 4>
+        Dependencies;
+    for (const Expr *IRef : DC->varlists())
+      Dependencies.emplace_back(DC->getDependencyKind(), IRef);
+    Address DepAddr = CGM.getOpenMPRuntime().emitDependClause(
+        *this, Dependencies, /*ForDepobj=*/true, DC->getBeginLoc()).second;
+    EmitStoreOfScalar(DepAddr.getPointer(), DOLVal);
+    return;
+  }
+  if (const auto *DC = S.getSingleClause<OMPDestroyClause>()) {
+    CGM.getOpenMPRuntime().emitDestroyClause(*this, DOLVal, DC->getBeginLoc());
+    return;
+  }
+  if (const auto *UC = S.getSingleClause<OMPUpdateClause>()) {
+    CGM.getOpenMPRuntime().emitUpdateClause(
+        *this, DOLVal, UC->getDependencyKind(), UC->getBeginLoc());
+    return;
+  }
+}
 
 void CodeGenFunction::EmitOMPDistributeLoop(const OMPLoopDirective &S,
                                             const CodeGenLoopTy &CodeGenLoop,
@@ -4653,6 +4686,8 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_nontemporal:
   case OMPC_order:
   case OMPC_destroy:
+  case OMPC_detach:
+  case OMPC_inclusive:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -4774,9 +4809,10 @@ static void emitCommonOMPTargetDirective(CodeGenFunction &CGF,
   }
 
   // Check if we have any device clause associated with the directive.
-  const Expr *Device = nullptr;
+  llvm::PointerIntPair<const Expr *, 2, OpenMPDeviceClauseModifier> Device(
+      nullptr, OMPC_DEVICE_unknown);
   if (auto *C = S.getSingleClause<OMPDeviceClause>())
-    Device = C->getDevice();
+    Device.setPointerAndInt(C->getDevice(), C->getModifier());
 
   // Check if we have an if clause whose conditional always evaluates to false
   // or if we do not have any targets specified. If so the target region is not
@@ -5613,7 +5649,11 @@ void CodeGenFunction::EmitOMPTaskLoopBasedDirective(const OMPLoopDirective &S) {
   assert(isOpenMPTaskLoopDirective(S.getDirectiveKind()));
   // Emit outlined function for task construct.
   const CapturedStmt *CS = S.getCapturedStmt(OMPD_taskloop);
-  Address CapturedStruct = GenerateCapturedStmtArgument(*CS);
+  Address CapturedStruct = Address::invalid();
+  {
+    OMPLexicalScope Scope(*this, S, OMPD_taskloop, /*EmitPreInitStmt=*/false);
+    CapturedStruct = GenerateCapturedStmtArgument(*CS);
+  }
   QualType SharedsTy = getContext().getRecordType(CS->getCapturedRecordDecl());
   const Expr *IfCond = nullptr;
   for (const auto *C : S.getClausesOfKind<OMPIfClause>()) {
@@ -6352,16 +6392,35 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
   if (!D.hasAssociatedStmt() || !D.getAssociatedStmt())
     return;
   auto &&CodeGen = [&D](CodeGenFunction &CGF, PrePostActionTy &Action) {
+    OMPPrivateScope GlobalsScope(CGF);
+    if (isOpenMPTaskingDirective(D.getDirectiveKind())) {
+      // Capture global firstprivates to avoid crash.
+      for (const auto *C : D.getClausesOfKind<OMPFirstprivateClause>()) {
+        for (const Expr *Ref : C->varlists()) {
+          const auto *DRE = cast<DeclRefExpr>(Ref->IgnoreParenImpCasts());
+          if (!DRE)
+            continue;
+          const auto *VD = dyn_cast<VarDecl>(DRE->getDecl());
+          if (!VD || VD->hasLocalStorage())
+            continue;
+          if (!CGF.LocalDeclMap.count(VD)) {
+            LValue GlobLVal = CGF.EmitLValue(Ref);
+            GlobalsScope.addPrivate(
+                VD, [&GlobLVal, &CGF]() { return GlobLVal.getAddress(CGF); });
+          }
+        }
+      }
+    }
     if (isOpenMPSimdDirective(D.getDirectiveKind())) {
+      (void)GlobalsScope.Privatize();
       emitOMPSimdRegion(CGF, cast<OMPLoopDirective>(D), Action);
     } else {
-      OMPPrivateScope LoopGlobals(CGF);
       if (const auto *LD = dyn_cast<OMPLoopDirective>(&D)) {
         for (const Expr *E : LD->counters()) {
           const auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
           if (!VD->hasLocalStorage() && !CGF.LocalDeclMap.count(VD)) {
             LValue GlobLVal = CGF.EmitLValue(E);
-            LoopGlobals.addPrivate(
+            GlobalsScope.addPrivate(
                 VD, [&GlobLVal, &CGF]() { return GlobLVal.getAddress(CGF); });
           }
           if (isa<OMPCapturedExprDecl>(VD)) {
@@ -6385,7 +6444,7 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
           }
         }
       }
-      LoopGlobals.Privatize();
+      (void)GlobalsScope.Privatize();
       CGF.EmitStmt(D.getInnermostCapturedStmt()->getCapturedStmt());
     }
   };

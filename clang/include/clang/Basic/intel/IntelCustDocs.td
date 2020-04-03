@@ -2569,15 +2569,15 @@ IR:
    }];
 }
 
-def ForcePow2DepthDocs : Documentation {
+def IntelFPGAForcePow2DepthDocs : Documentation {
   let Category = DocCatIntelHLSAttributes;
   let BugTracker = "CMPLRLLVM-11256";
   let RegressionTest = "";
   let Owner = "zahiraam";
   let Content = [{
-The 'force_pow2_depth' attribute is applied to a variable in OpenCl and HLS.
-It takes an integer argument between 0 and 1 that determines whether the memory
-implemented for the variable should have a power-of-2 depth or not.
+The 'force_pow2_depth' attribute is applied to a variable in OpenCl, HLS and
+SYCL. It takes an integer argument between 0 and 1 that determines whether
+the memory implemented for the variable should have a power-of-2 depth or not.
 This attribute infers the 'memory' attribute, and it is illegal to apply it
 to the attribute 'register'.
 Syntax:

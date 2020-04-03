@@ -14,6 +14,7 @@
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DemandedBits.h"
+#include "llvm/Analysis/Intel_Andersens.h"            // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/InstIterator.h"
@@ -175,6 +176,8 @@ void InjectTLIMappingsLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<LoopAccessLegacyAnalysis>();
   AU.addPreserved<DemandedBitsWrapperPass>();
   AU.addPreserved<OptimizationRemarkEmitterWrapperPass>();
+  AU.addPreserved<GlobalsAAWrapperPass>();                // INTEL
+  AU.addPreserved<AndersensAAWrapperPass>();              // INTEL
 }
 
 ////////////////////////////////////////////////////////////////////////////////

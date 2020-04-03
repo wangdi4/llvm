@@ -18,6 +18,7 @@ endif()
 #
 # ``project`` should be the project name
 function (add_sphinx_target builder project)
+  cmake_parse_arguments(ARG "" "SOURCE_DIR" "" ${ARGN})
   set(SPHINX_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/${builder}")
   set(SPHINX_DOC_TREE_DIR "${CMAKE_CURRENT_BINARY_DIR}/_doctrees-${project}-${builder}")
   set(SPHINX_TARGET_NAME docs-${project}-${builder})
@@ -28,25 +29,18 @@ function (add_sphinx_target builder project)
     set(SPHINX_WARNINGS_AS_ERRORS_FLAG "")
   endif()
 
-  # INTEL_CUSTOMIZATION
-  set (SPHINX_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-  set (SPHINX_DEPENDS "")
-  if (project STREQUAL clang)
-    if (builder STREQUAL html)
-      set (SPHINX_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/copy-docs")
-      set (SPHINX_DEPENDS "prepare-docs-clang-html")
-    endif()
+  if (NOT ARG_SOURCE_DIR)
+    set(ARG_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
-  # end INTEL_CUSTOMIZATION
+
   add_custom_target(${SPHINX_TARGET_NAME}
                     COMMAND ${SPHINX_EXECUTABLE}
                             -b ${builder}
                             -d "${SPHINX_DOC_TREE_DIR}"
                             -q # Quiet: no output other than errors and warnings.
                             ${SPHINX_WARNINGS_AS_ERRORS_FLAG} # Treat warnings as errors if requested
-                            "${SPHINX_SOURCE_DIR}" # Source  INTEL
+                            "${ARG_SOURCE_DIR}" # Source
                             "${SPHINX_BUILD_DIR}" # Output
-                    DEPENDS "${SPHINX_DEPENDS}"    #         INTEL
                     COMMENT
                     "Generating ${builder} Sphinx documentation for ${project} into \"${SPHINX_BUILD_DIR}\"")
 

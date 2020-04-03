@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Basic/FileManager.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Config/config.h"

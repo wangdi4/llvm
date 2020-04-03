@@ -1,5 +1,5 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -fhls %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -fsycl-is-device %s -triple spir64-unknown-linux-sycldevice -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -fsycl -fsycl-is-device %s -triple spir64-unknown-linux-sycldevice -emit-llvm -o - | FileCheck %s
 
 // CHECK: %[[L0:[0-9]+]] = load i4, i4* %x4_u, align 1
 // CHECK: %[[L1:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4

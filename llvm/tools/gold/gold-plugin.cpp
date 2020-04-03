@@ -15,7 +15,7 @@
 #include "llvm/Analysis/Intel_WP.h" // INTEL
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/CodeGen/CommandFlags.inc"
+#include "llvm/CodeGen/CommandFlags.h"
 #if !INTEL_CUSTOMIZATION
 // This library isn't needed with Intel customizations since we
 // supply our own plugin api.
@@ -54,6 +54,8 @@
 
 using namespace llvm;
 using namespace lto;
+
+static codegen::RegisterCodeGenFlags CodeGenFlags;
 
 // FIXME: Remove when binutils 2.31 (containing gold 1.16) is the minimum
 // required version.
@@ -877,7 +879,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   ThinBackend Backend;
 
   Conf.CPU = options::mcpu;
-  Conf.Options = InitTargetOptionsFromCodeGenFlags();
+  Conf.Options = codegen::InitTargetOptionsFromCodeGenFlags();
 
 #if INTEL_CUSTOMIZATION
   Conf.Options.IntelAdvancedOptim = options::AdvOptim;
@@ -888,14 +890,14 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.Options.RelaxELFRelocations = false;
 
   // Toggle function/data sections.
-  if (FunctionSections.getNumOccurrences() == 0)
+  if (!codegen::getExplicitFunctionSections())
     Conf.Options.FunctionSections = SplitSections;
-  if (DataSections.getNumOccurrences() == 0)
+  if (!codegen::getExplicitDataSections())
     Conf.Options.DataSections = SplitSections;
 
-  Conf.MAttrs = MAttrs;
+  Conf.MAttrs = codegen::getMAttrs();
   Conf.RelocModel = RelocationModel;
-  Conf.CodeModel = getCodeModel();
+  Conf.CodeModel = codegen::getExplicitCodeModel();
   Conf.CGOptLevel = getCGOptLevel();
   Conf.DisableVerify = options::DisableVerify;
   Conf.OptLevel = options::OptLevel;

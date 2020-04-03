@@ -11,6 +11,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "gtest/gtest.h"
+#include <string>
 
 namespace llvm {
 namespace {
@@ -173,6 +174,76 @@ TEST(VPBasicBlockTest, getPlan) {
     EXPECT_EQ(&Plan, R2BB1->getPlan());
     EXPECT_EQ(&Plan, R2BB2->getPlan());
     EXPECT_EQ(&Plan, VPBB2->getPlan());
+  }
+}
+
+TEST(VPBasicBlockTest, print) {
+  VPInstruction *I1 = new VPInstruction(Instruction::Add, {});
+  VPInstruction *I2 = new VPInstruction(Instruction::Sub, {I1});
+  VPInstruction *I3 = new VPInstruction(Instruction::Br, {I1, I2});
+
+  VPBasicBlock *VPBB1 = new VPBasicBlock();
+  VPBB1->appendRecipe(I1);
+  VPBB1->appendRecipe(I2);
+  VPBB1->appendRecipe(I3);
+
+  VPInstruction *I4 = new VPInstruction(Instruction::Mul, {I2, I1});
+  VPInstruction *I5 = new VPInstruction(Instruction::Ret, {I4});
+  VPBasicBlock *VPBB2 = new VPBasicBlock();
+  VPBB2->appendRecipe(I4);
+  VPBB2->appendRecipe(I5);
+
+  VPBlockUtils::connectBlocks(VPBB1, VPBB2);
+
+  // Check printing an instruction without associated VPlan.
+  {
+    std::string I3Dump;
+    raw_string_ostream OS(I3Dump);
+    I3->print(OS);
+    OS.flush();
+    EXPECT_EQ("br <badref> <badref>", I3Dump);
+  }
+
+  VPlan Plan;
+  Plan.setEntry(VPBB1);
+  std::string FullDump;
+  raw_string_ostream(FullDump) << Plan;
+
+  EXPECT_EQ(R"(digraph VPlan {
+graph [labelloc=t, fontsize=30; label="Vectorization Plan"]
+node [shape=rect, fontname=Courier, fontsize=30]
+edge [fontname=Courier, fontsize=30]
+compound=true
+  N0 [label =
+    ":\n" +
+      "EMIT vp<%0> = add\l" +
+      "EMIT vp<%1> = sub vp<%0>\l" +
+      "EMIT br vp<%0> vp<%1>\l"
+  ]
+  N0 -> N1 [ label=""]
+  N1 [label =
+    ":\n" +
+      "EMIT vp<%2> = mul vp<%1> vp<%0>\l" +
+      "EMIT ret vp<%2>\l"
+  ]
+}
+)",
+            FullDump);
+
+  {
+    std::string I3Dump;
+    raw_string_ostream OS(I3Dump);
+    I3->print(OS);
+    OS.flush();
+    EXPECT_EQ("br vp<%0> vp<%1>", I3Dump);
+  }
+
+  {
+    std::string I4Dump;
+    raw_string_ostream OS(I4Dump);
+    OS << *I4;
+    OS.flush();
+    EXPECT_EQ("vp<%2> = mul vp<%1> vp<%0>", I4Dump);
   }
 }
 

@@ -3155,8 +3155,8 @@ FunctionDecl *FunctionDecl::getCanonicalDecl() { return getFirstDecl(); }
 unsigned FunctionDecl::getBuiltinID(bool ConsiderWrapperFunctions) const {
   unsigned BuiltinID;
 
-  if (const auto *AMAA = getAttr<ArmMveAliasAttr>()) {
-    BuiltinID = AMAA->getBuiltinName()->getBuiltinID();
+  if (const auto *ABAA = getAttr<ArmBuiltinAliasAttr>()) {
+    BuiltinID = ABAA->getBuiltinName()->getBuiltinID();
   } else {
     if (!getIdentifier())
       return 0;
@@ -3188,7 +3188,7 @@ unsigned FunctionDecl::getBuiltinID(bool ConsiderWrapperFunctions) const {
   // If the function is marked "overloadable", it has a different mangled name
   // and is not the C library function.
   if (!ConsiderWrapperFunctions && hasAttr<OverloadableAttr>() &&
-      !hasAttr<ArmMveAliasAttr>())
+      !hasAttr<ArmBuiltinAliasAttr>())
     return 0;
 
   if (!Context.BuiltinInfo.isPredefinedLibFunction(BuiltinID))
@@ -4904,7 +4904,8 @@ static unsigned getNumModuleIdentifiers(Module *Mod) {
 ImportDecl::ImportDecl(DeclContext *DC, SourceLocation StartLoc,
                        Module *Imported,
                        ArrayRef<SourceLocation> IdentifierLocs)
-  : Decl(Import, DC, StartLoc), ImportedAndComplete(Imported, true) {
+    : Decl(Import, DC, StartLoc), ImportedModule(Imported),
+      NextLocalImportAndComplete(nullptr, true) {
   assert(getNumModuleIdentifiers(Imported) == IdentifierLocs.size());
   auto *StoredLocs = getTrailingObjects<SourceLocation>();
   std::uninitialized_copy(IdentifierLocs.begin(), IdentifierLocs.end(),
@@ -4913,7 +4914,8 @@ ImportDecl::ImportDecl(DeclContext *DC, SourceLocation StartLoc,
 
 ImportDecl::ImportDecl(DeclContext *DC, SourceLocation StartLoc,
                        Module *Imported, SourceLocation EndLoc)
-  : Decl(Import, DC, StartLoc), ImportedAndComplete(Imported, false) {
+    : Decl(Import, DC, StartLoc), ImportedModule(Imported),
+      NextLocalImportAndComplete(nullptr, false) {
   *getTrailingObjects<SourceLocation>() = EndLoc;
 }
 
@@ -4942,7 +4944,7 @@ ImportDecl *ImportDecl::CreateDeserialized(ASTContext &C, unsigned ID,
 }
 
 ArrayRef<SourceLocation> ImportDecl::getIdentifierLocs() const {
-  if (!ImportedAndComplete.getInt())
+  if (!isImportComplete())
     return None;
 
   const auto *StoredLocs = getTrailingObjects<SourceLocation>();
@@ -4951,7 +4953,7 @@ ArrayRef<SourceLocation> ImportDecl::getIdentifierLocs() const {
 }
 
 SourceRange ImportDecl::getSourceRange() const {
-  if (!ImportedAndComplete.getInt())
+  if (!isImportComplete())
     return SourceRange(getLocation(), *getTrailingObjects<SourceLocation>());
 
   return SourceRange(getLocation(), getIdentifierLocs().back());

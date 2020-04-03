@@ -316,9 +316,6 @@ private:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
 
-  /// Enable combines that trigger rarely but are costly in compiletime.
-  const bool ExpensiveCombines;
-
   /// INTEL Enable optimizations like GEP merging, zero element GEP removal
   /// INTEL and pointer type bitcasts
   const bool TypeLoweringOpts; // INTEL
@@ -344,15 +341,13 @@ private:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, bool ExpensiveCombines,  // INTEL
-               bool TypeLoweringOpts,                      // INTEL
+               bool MinimizeSize, bool TypeLoweringOpts,   // INTEL
                AliasAnalysis *AA,                          // INTEL
                AssumptionCache &AC, TargetLibraryInfo &TLI,// INTEL
                TargetTransformInfo &TTI, DominatorTree &DT,// INTEL
                OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
-        ExpensiveCombines(ExpensiveCombines),          // INTEL
         TypeLoweringOpts(TypeLoweringOpts),            // INTEL
         AA(AA), AC(AC), TLI(TLI),                      // INTEL
         TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL

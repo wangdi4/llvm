@@ -2,8 +2,8 @@
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple x86_64-pc-win32 -fhls %s -emit-llvm -o - | FileCheck %s
 // RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-unknown-intelfpga -fhls %s -emit-llvm -o - | FileCheck %s
 
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-linux-sycldevice -fsycl -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang -cc1 -O3 -disable-llvm-passes -triple spir64-unknown-windows-sycldevice -fsycl -fsycl-is-device %s -emit-llvm -o - | FileCheck %s
 // Ensure that we can cast an ap_int to bool.
 
 typedef int int65_tt __attribute__((__ap_int(65)));

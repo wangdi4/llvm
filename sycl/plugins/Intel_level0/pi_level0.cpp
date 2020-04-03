@@ -633,10 +633,10 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_INFO_NAME) {
     SET_PARAM_VALUE_STR(ze_device_properties.name);
   }
-  else if (param_name == PI_DEVICE_INFO_IS_COMPILER_AVAILABLE) {
+  else if (param_name == PI_DEVICE_INFO_COMPILER_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{1});
   }
-  else if (param_name == PI_DEVICE_INFO_IS_LINKER_AVAILABLE) {
+  else if (param_name == PI_DEVICE_INFO_LINKER_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{1});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_COMPUTE_UNITS) {
@@ -700,7 +700,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_INFO_HOST_UNIFIED_MEMORY) {
     SET_PARAM_VALUE(pi_bool{ze_device_properties.unifiedMemorySupported});
   }
-  else if (param_name == PI_DEVICE_INFO_IS_AVAILABLE) {
+  else if (param_name == PI_DEVICE_INFO_AVAILABLE) {
     SET_PARAM_VALUE(pi_bool{ze_device ? true : false});
   }
   else if (param_name == PI_DEVICE_INFO_VENDOR) {
@@ -796,7 +796,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   else if (param_name == PI_DEVICE_INFO_EXECUTION_CAPABILITIES) {
     SET_PARAM_VALUE(pi_device_exec_capabilities{PI_DEVICE_EXEC_CAPABILITIES_NATIVE_KERNEL});
   }
-  else if (param_name == PI_DEVICE_INFO_IS_ENDIAN_LITTLE) {
+  else if (param_name == PI_DEVICE_INFO_ENDIAN_LITTLE) {
     SET_PARAM_VALUE(pi_bool{true});
   }
   else if (param_name == PI_DEVICE_INFO_ERROR_CORRECTION_SUPPORT) {
@@ -1095,7 +1095,7 @@ pi_result L0(piextDeviceSelectBinary)(
   pi_device           device, // TODO: does this need to be context?
   pi_device_binary *  binaries,
   pi_uint32           num_binaries,
-  pi_device_binary *  selected_binary) {
+  pi_uint32        *  selected_binary_ind) {
 
   // TODO dummy implementation.
   // Real implementaion will use the same mechanism OpenCL ICD dispatcher
@@ -1106,7 +1106,8 @@ pi_result L0(piextDeviceSelectBinary)(
   // where context->dispatch is set to the dispatch table provided by PI
   // plugin for platform/device the ctx was created for.
 
-  *selected_binary = num_binaries > 0 ? binaries[0] : nullptr;
+  constexpr pi_uint32 invalid_ind = std::numeric_limits<pi_uint32>::max();
+  *selected_binary_ind = num_binaries > 0 ? 0 : invalid_ind;
   return PI_SUCCESS;
 }
 
@@ -2164,7 +2165,7 @@ pi_result L0(piEventGetInfo)(
   void *           param_value,
   size_t *         param_value_size_ret) {
 
-  if (param_name == PI_EVENT_INFO_QUEUE) {
+  if (param_name == PI_EVENT_INFO_COMMAND_QUEUE) {
     SET_PARAM_VALUE(pi_queue{event->Queue});
   }
   else if (param_name == PI_EVENT_INFO_CONTEXT) {
@@ -2199,14 +2200,14 @@ pi_result L0(piEventGetInfo)(
 
 pi_result L0(piEventGetProfilingInfo)(
   pi_event            event,
-  cl_profiling_info   param_name, // TODO: untie from OpenCL
+  pi_profiling_info   param_name,
   size_t              param_value_size,
   void *              param_value,
   size_t *            param_value_size_ret) {
 
-  if (param_name == CL_PROFILING_COMMAND_SUBMIT ||
-      param_name == CL_PROFILING_COMMAND_START ||
-      param_name == CL_PROFILING_COMMAND_END ) {
+  if (param_name == PI_PROFILING_INFO_COMMAND_SUBMIT ||
+      param_name == PI_PROFILING_INFO_COMMAND_START ||
+      param_name == PI_PROFILING_INFO_COMMAND_END ) {
 
     // TODO: return dummy "0" until
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/290
@@ -3788,6 +3789,14 @@ pi_result L0(piKernelSetExecInfo)(pi_kernel kernel,
   }
 
   pi_throw("piKernelSetExecInfo: param not supported");
+}
+
+pi_result piextProgramSetSpecializationConstant(pi_program prog,
+                                                pi_uint32 spec_id,
+                                                size_t spec_size,
+                                                const void *spec_value) {
+  // TODO: implement
+  pi_throw("piextProgramSetSpecializationConstant: not implemented");
 }
 
 pi_result L0(piPluginInit)(pi_plugin *PluginInit)

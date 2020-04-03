@@ -490,6 +490,11 @@ void OMPClauseProfiler::VisitOMPCollapseClause(const OMPCollapseClause *C) {
     Profiler->VisitStmt(C->getNumForLoops());
 }
 
+void OMPClauseProfiler::VisitOMPDetachClause(const OMPDetachClause *C) {
+  if (Expr *Evt = C->getEventHandler())
+    Profiler->VisitStmt(Evt);
+}
+
 void OMPClauseProfiler::VisitOMPDefaultClause(const OMPDefaultClause *C) { }
 
 void OMPClauseProfiler::VisitOMPProcBindClause(const OMPProcBindClause *C) { }
@@ -808,6 +813,9 @@ void OMPClauseProfiler::VisitOMPNontemporalClause(
   for (auto *E : C->private_refs())
     Profiler->VisitStmt(E);
 }
+void OMPClauseProfiler::VisitOMPInclusiveClause(const OMPInclusiveClause *C) {
+  VisitOMPClauseList(C);
+}
 void OMPClauseProfiler::VisitOMPOrderClause(const OMPOrderClause *C) {}
 } // namespace
 
@@ -917,6 +925,10 @@ void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
 }
 
 void StmtProfiler::VisitOMPDepobjDirective(const OMPDepobjDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPScanDirective(const OMPScanDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 

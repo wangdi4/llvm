@@ -41,7 +41,6 @@ add_llvm_component_library(LLVMTransformUtils
   Intel_RegionSplitter.cpp
   Intel_VecClone.cpp                    #TODO: VEC to COLLAB
 #end INTEL_CUSTOMIZATION
-  KnowledgeRetention.cpp
   LCSSA.cpp
   LibCallsShrinkWrap.cpp
   Local.cpp

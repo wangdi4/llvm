@@ -38,6 +38,7 @@ add_clang_library(clangAST
   CommentParser.cpp
   CommentSema.cpp
   ComparisonCategories.cpp
+  ComputeDependence.cpp
   CXXInheritance.cpp
   DataCollection.cpp
   Decl.cpp

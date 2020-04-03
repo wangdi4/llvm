@@ -136,10 +136,6 @@ static cl::opt<bool>
 EnableCodeSinking("instcombine-code-sinking", cl::desc("Enable code sinking"),
                                               cl::init(true));
 
-static cl::opt<bool>
-EnableExpensiveCombines("expensive-combines",
-                        cl::desc("Enable expensive instruction combines"));
-
 static cl::opt<unsigned> LimitMaxIterations(
     "instcombine-max-iterations",
     cl::desc("Limit the maximum number of instruction combining iterations"),
@@ -1967,6 +1963,33 @@ static bool isMergedGEPInBounds(GEPOperator &GEP1, GEPOperator &GEP2) {
          (GEP2.isInBounds() || GEP2.hasAllZeroIndices());
 }
 
+/// Thread a GEP operation with constant indices through the constant true/false
+/// arms of a select.
+static Instruction *foldSelectGEP(GetElementPtrInst &GEP,
+                                  InstCombiner::BuilderTy &Builder) {
+  if (!GEP.hasAllConstantIndices())
+    return nullptr;
+
+  Instruction *Sel;
+  Value *Cond;
+  Constant *TrueC, *FalseC;
+  if (!match(GEP.getPointerOperand(), m_Instruction(Sel)) ||
+      !match(Sel,
+             m_Select(m_Value(Cond), m_Constant(TrueC), m_Constant(FalseC))))
+    return nullptr;
+
+  // gep (select Cond, TrueC, FalseC), IndexC --> select Cond, TrueC', FalseC'
+  // Propagate 'inbounds' and metadata from existing instructions.
+  // Note: using IRBuilder to create the constants for efficiency.
+  SmallVector<Value *, 4> IndexC(GEP.idx_begin(), GEP.idx_end());
+  bool IsInBounds = GEP.isInBounds();
+  Value *NewTrueC = IsInBounds ? Builder.CreateInBoundsGEP(TrueC, IndexC)
+                               : Builder.CreateGEP(TrueC, IndexC);
+  Value *NewFalseC = IsInBounds ? Builder.CreateInBoundsGEP(FalseC, IndexC)
+                                : Builder.CreateGEP(FalseC, IndexC);
+  return SelectInst::Create(Cond, NewTrueC, NewFalseC, "", nullptr, Sel);
+}
+
 Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
   Type *GEPType = GEP.getType();
@@ -2107,10 +2130,9 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
         if (J > 0) {
           if (J == 1) {
             CurTy = Op1->getSourceElementType();
-          } else if (auto *CT = dyn_cast<CompositeType>(CurTy)) {
-            CurTy = CT->getTypeAtIndex(Op1->getOperand(J));
           } else {
-            CurTy = nullptr;
+            CurTy =
+                GetElementPtrInst::getTypeAtIndex(CurTy, Op1->getOperand(J));
           }
         }
       }
@@ -2627,6 +2649,9 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     }
   }
 
+  if (Instruction *R = foldSelectGEP(GEP, Builder))
+    return R;
+
   return nullptr;
 }
 
@@ -2912,6 +2937,12 @@ Instruction *InstCombiner::visitFree(CallInst &FI) {
   return nullptr;
 }
 
+static bool isMustTailCall(Value *V) {
+  if (auto *CI = dyn_cast<CallInst>(V))
+    return CI->isMustTailCall();
+  return false;
+}
+
 Instruction *InstCombiner::visitReturnInst(ReturnInst &RI) {
   if (RI.getNumOperands() == 0) // ret void
     return nullptr;
@@ -2919,6 +2950,10 @@ Instruction *InstCombiner::visitReturnInst(ReturnInst &RI) {
   Value *ResultOp = RI.getOperand(0);
   Type *VTy = ResultOp->getType();
   if (!VTy->isIntegerTy() || isa<Constant>(ResultOp))
+    return nullptr;
+
+  // Don't replace result of musttail calls.
+  if (isMustTailCall(ResultOp))
     return nullptr;
 
   // There might be assume intrinsics dominating this return that completely
@@ -3633,26 +3668,6 @@ bool InstCombiner::run() {
       }
     }
 
-    // In general, it is possible for computeKnownBits to determine all bits in
-    // a value even when the operands are not all constants.
-    Type *Ty = I->getType();
-    if (ExpensiveCombines && !I->use_empty() && Ty->isIntOrIntVectorTy()) {
-      KnownBits Known = computeKnownBits(I, /*Depth*/0, I);
-      if (Known.isConstant()) {
-        Constant *C = ConstantInt::get(Ty, Known.getConstant());
-        LLVM_DEBUG(dbgs() << "IC: ConstFold (all bits known) to: " << *C
-                          << " from: " << *I << '\n');
-
-        // Add operands to the worklist.
-        replaceInstUsesWith(*I, C);
-        ++NumConstProp;
-        if (isInstructionTriviallyDead(I, &TLI))
-          eraseInstFromFunction(*I);
-        MadeIRChange = true;
-        continue;
-      }
-    }
-
     // See if we can trivially sink this instruction to a successor basic block.
     if (EnableCodeSinking && I->hasOneUse()) {
       BasicBlock *BB = I->getParent();
@@ -3807,8 +3822,6 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
         Constant *&FoldRes = FoldedConstants[C];
         if (!FoldRes)
           FoldRes = ConstantFoldConstant(C, DL, TLI);
-        if (!FoldRes)
-          FoldRes = C;
 
         if (FoldRes != C) {
           LLVM_DEBUG(dbgs() << "IC: ConstFold operand of: " << *Inst
@@ -3907,11 +3920,9 @@ static bool combineInstructionsOverFunction(
     AssumptionCache &AC, TargetLibraryInfo &TLI, // INTEL
     TargetTransformInfo &TTI, DominatorTree &DT, // INTEL
     OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-    ProfileSummaryInfo *PSI, bool ExpensiveCombines, unsigned MaxIterations,
+    ProfileSummaryInfo *PSI, unsigned MaxIterations, // INTEL
     bool TypeLoweringOpts, LoopInfo *LI) { // INTEL
   auto &DL = F.getParent()->getDataLayout();
-  if (EnableExpensiveCombines.getNumOccurrences())
-    ExpensiveCombines = EnableExpensiveCombines;
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
   if (DisableTypeLoweringOpts)      // INTEL
     TypeLoweringOpts = false;       // INTEL
@@ -3956,8 +3967,8 @@ static bool combineInstructionsOverFunction(
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
     InstCombiner IC(Worklist, Builder, F.hasMinSize(),            // INTEL
-                    ExpensiveCombines, TypeLoweringOpts,          // INTEL
-                    AA, AC, TLI, TTI, DT, ORE, BFI, PSI, DL, LI); // INTEL
+                    TypeLoweringOpts, AA,                         // INTEL
+                    AC, TLI, TTI, DT, ORE, BFI, PSI, DL, LI);     // INTEL
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())
@@ -3970,13 +3981,13 @@ static bool combineInstructionsOverFunction(
 }
 
 #if INTEL_CUSTOMIZATION
-InstCombinePass::InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts)
-    : ExpensiveCombines(ExpensiveCombines), TypeLoweringOpts(TypeLoweringOpts),
+InstCombinePass::InstCombinePass(bool TypeLoweringOpts)
+    : TypeLoweringOpts(TypeLoweringOpts),
       MaxIterations(LimitMaxIterations) {}
 
-InstCombinePass::InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts,
+InstCombinePass::InstCombinePass(bool TypeLoweringOpts,
                                  unsigned MaxIterations)
-    : ExpensiveCombines(ExpensiveCombines), TypeLoweringOpts(TypeLoweringOpts),
+    : TypeLoweringOpts(TypeLoweringOpts),
       MaxIterations(MaxIterations) {}
 #endif // INTEL_CUSTOMIZATION
 
@@ -4000,7 +4011,6 @@ PreservedAnalyses InstCombinePass::run(Function &F,
 
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
-                                       ExpensiveCombines,             // INTEL
                                        MaxIterations,                 // INTEL
                                        TypeLoweringOpts, LI))         // INTEL
     // No changes, all analyses are preserved.
@@ -4061,26 +4071,22 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
 
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
-                                         ExpensiveCombines,             // INTEL
                                          MaxIterations,                 // INTEL
                                          TypeLoweringOpts, LI);         // INTEL
 }
 
 char InstructionCombiningPass::ID = 0;
 
-InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines, // INTEL
-                                                   bool TypeLoweringOpts)  // INTEL
-    : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),
-      TypeLoweringOpts(TypeLoweringOpts),                                  // INTEL
+InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts)  // INTEL
+    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),                // INTEL
       MaxIterations(InstCombineDefaultMaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
-InstructionCombiningPass::InstructionCombiningPass(bool ExpensiveCombines,
-                                                   bool TypeLoweringOpts,  // INTEL
-                                                   unsigned MaxIterations)
-    : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines),
-      TypeLoweringOpts(TypeLoweringOpts), MaxIterations(MaxIterations) {   // INTEL
+InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,  // INTEL
+                                                   unsigned MaxIterations) // INTEL
+    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),                // INTEL
+      MaxIterations(MaxIterations) {   // INTEL
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -4109,16 +4115,13 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 }
 
 #if INTEL_CUSTOMIZATION
-FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
-                                                   bool TypeLoweringOpts) {
-  return new InstructionCombiningPass(ExpensiveCombines, TypeLoweringOpts);
+FunctionPass *llvm::createInstructionCombiningPass(bool TypeLoweringOpts) {
+  return new InstructionCombiningPass(TypeLoweringOpts);
 }
 
-FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines,
-                                                   bool TypeLoweringOpts,
+FunctionPass *llvm::createInstructionCombiningPass(bool TypeLoweringOpts,
                                                    unsigned MaxIterations) {
-  return new InstructionCombiningPass(ExpensiveCombines, TypeLoweringOpts,
-                                      MaxIterations);
+  return new InstructionCombiningPass(TypeLoweringOpts, MaxIterations);
 }
 #endif // INTEL_CUSTOMIZATION
 

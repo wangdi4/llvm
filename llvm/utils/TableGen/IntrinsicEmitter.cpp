@@ -586,6 +586,9 @@ struct AttributeComparator {
     if (L->isNoReturn != R->isNoReturn)
       return R->isNoReturn;
 
+    if (L->isNoSync != R->isNoSync)
+      return R->isNoSync;
+
     if (L->isWillReturn != R->isWillReturn)
       return R->isWillReturn;
 
@@ -727,8 +730,8 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
 
     if (!intrinsic.canThrow ||
         (intrinsic.ModRef != CodeGenIntrinsic::ReadWriteMem && !intrinsic.hasSideEffects) ||
-        intrinsic.isNoReturn || intrinsic.isWillReturn || intrinsic.isCold ||
-        intrinsic.isNoDuplicate || intrinsic.isConvergent ||
+        intrinsic.isNoReturn || intrinsic.isNoSync || intrinsic.isWillReturn ||
+        intrinsic.isCold || intrinsic.isNoDuplicate || intrinsic.isConvergent ||
         intrinsic.isSpeculatable) {
       OS << "      const Attribute::AttrKind Atts[] = {";
       bool addComma = false;
@@ -740,6 +743,12 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
         if (addComma)
           OS << ",";
         OS << "Attribute::NoReturn";
+        addComma = true;
+      }
+      if (intrinsic.isNoSync) {
+        if (addComma)
+          OS << ",";
+        OS << "Attribute::NoSync";
         addComma = true;
       }
       if (intrinsic.isWillReturn) {

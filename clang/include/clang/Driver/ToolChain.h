@@ -145,7 +145,9 @@ private:
   mutable std::unique_ptr<Tool> SPIRVTranslator;
   mutable std::unique_ptr<Tool> SPIRCheck;
   mutable std::unique_ptr<Tool> SYCLPostLink;
+  mutable std::unique_ptr<Tool> PartialLink;
   mutable std::unique_ptr<Tool> BackendCompiler;
+  mutable std::unique_ptr<Tool> FileTableTform;
 
   Tool *getClang() const;
   Tool *getFlang() const;
@@ -158,7 +160,9 @@ private:
   Tool *getSPIRVTranslator() const;
   Tool *getSPIRCheck() const;
   Tool *getSYCLPostLink() const;
+  Tool *getPartialLink() const;
   Tool *getBackendCompiler() const;
+  Tool *getTableTform() const;
 
   mutable std::unique_ptr<SanitizerArgs> SanitizerArguments;
   mutable std::unique_ptr<XRayArgs> XRayArguments;
@@ -305,6 +309,12 @@ public:
       const llvm::opt::DerivedArgList &Args, bool SameTripleAsHost,
       SmallVectorImpl<llvm::opt::Arg *> &AllocatedArgs,
       Action::OffloadKind DeviceOffloadKind) const;
+
+  /// Append the argument following \p A to \p DAL assuming \p A is an Xarch
+  /// argument.
+  virtual void TranslateXarchArgs(const llvm::opt::DerivedArgList &Args,
+                                  llvm::opt::Arg *&A,
+                                  llvm::opt::DerivedArgList *DAL) const;
 
   /// Choose a tool to use to handle the action \p JA.
   ///
@@ -697,8 +707,7 @@ public:
       const llvm::opt::ArgList &DriverArgs,
       Action::OffloadKind DeviceOffloadKind,
       const llvm::fltSemantics *FPType = nullptr) const {
-    // FIXME: This should be IEEE when default handling is fixed.
-    return llvm::DenormalMode::getInvalid();
+    return llvm::DenormalMode::getIEEE();
   }
 };
 

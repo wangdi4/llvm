@@ -185,7 +185,7 @@ GetFileByIndex(const llvm::DWARFDebugLine::Prologue &prologue, size_t idx,
 
   // Otherwise ask for a relative path.
   std::string rel_path;
-  auto relative = llvm::DILineInfoSpecifier::FileLineInfoKind::Default;
+  auto relative = llvm::DILineInfoSpecifier::FileLineInfoKind::RawValue;
   if (!prologue.getFileNameByIndex(idx, compile_dir, relative, rel_path, style))
     return {};
   return std::move(rel_path);
@@ -3867,7 +3867,7 @@ SymbolFileDWARFDebugMap *SymbolFileDWARF::GetDebugMapSymfile() {
     lldb::ModuleSP module_sp(m_debug_map_module_wp.lock());
     if (module_sp) {
       m_debug_map_symfile =
-          (SymbolFileDWARFDebugMap *)module_sp->GetSymbolFile();
+          static_cast<SymbolFileDWARFDebugMap *>(module_sp->GetSymbolFile());
     }
   }
   return m_debug_map_symfile;

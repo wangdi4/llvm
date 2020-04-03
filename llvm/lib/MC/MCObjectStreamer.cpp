@@ -216,17 +216,6 @@ MCObjectStreamer::getOrCreateDataFragment(const MCSubtargetInfo *STI) {
   return F;
 }
 
-#if INTEL_CUSTOMIZATION
-MCBoundaryAlignFragment *MCObjectStreamer::getOrCreateBoundaryAlignFragment() {
-  auto *F = dyn_cast_or_null<MCBoundaryAlignFragment>(getCurrentFragment());
-  if (!F || F->hasEmitNopsOrValue()) {
-    F = new MCBoundaryAlignFragment();
-    insert(F);
-  }
-  return F;
-}
-#endif // INTEL_CUSTOMIZATION
-
 void MCObjectStreamer::visitUsedSymbol(const MCSymbol &Sym) {
   Assembler->registerSymbol(Sym);
 }
@@ -379,9 +368,9 @@ bool MCObjectStreamer::mayHaveInstructions(MCSection &Sec) const {
 
 void MCObjectStreamer::emitInstruction(const MCInst &Inst,
                                        const MCSubtargetInfo &STI) {
-  getAssembler().getBackend().alignBranchesBegin(*this, Inst);
+  getAssembler().getBackend().emitInstructionBegin(*this, Inst);
   emitInstructionImpl(Inst, STI);
-  getAssembler().getBackend().alignBranchesEnd(*this, Inst);
+  getAssembler().getBackend().emitInstructionEnd(*this, Inst);
 }
 
 void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
@@ -397,10 +386,14 @@ void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
 
   // If this instruction doesn't need relaxation, just emit it as data.
   MCAssembler &Assembler = getAssembler();
-  if (!Assembler.getBackend().mayNeedRelaxation(Inst, STI)) {
+  MCAsmBackend &Backend = Assembler.getBackend();
+#if INTEL_CUSTOMIZATION
+  if (!(Backend.mayNeedRelaxation(Inst, STI) ||
+        Backend.allowEnhancedRelaxation())) {
     EmitInstToData(Inst, STI);
     return;
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, relax and emit it as data if either:
   // - The RelaxAll flag was passed

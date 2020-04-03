@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Clang.h"
+#include "AMDGPU.h"
 #include "Arch/AArch64.h"
 #include "Arch/ARM.h"
 #include "Arch/Mips.h"
@@ -15,11 +16,10 @@
 #include "Arch/Sparc.h"
 #include "Arch/SystemZ.h"
 #include "Arch/X86.h"
-#include "AMDGPU.h"
 #include "CommonArgs.h"
 #include "Hexagon.h"
-#include "MSP430.h"
 #include "InputInfo.h"
+#include "MSP430.h"
 #include "PS4CPU.h"
 #include "SYCL.h"
 #include "clang/Basic/CharInfo.h"
@@ -35,9 +35,11 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Option/ArgList.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/TargetParser.h"
@@ -1426,20 +1428,6 @@ static bool isSignedCharDefault(const llvm::Triple &Triple) {
   }
 }
 
-static bool isNoCommonDefault(const llvm::Triple &Triple) {
-  switch (Triple.getArch()) {
-  default:
-    if (Triple.isOSFuchsia())
-      return true;
-    return false;
-
-  case llvm::Triple::xcore:
-  case llvm::Triple::wasm32:
-  case llvm::Triple::wasm64:
-    return true;
-  }
-}
-
 static bool hasMultipleInvocations(const llvm::Triple &Triple,
                                    const ArgList &Args) {
   // Supported only on Darwin where we invoke the compiler multiple times
@@ -1992,6 +1980,36 @@ void Clang::AddPPCTargetArgs(const ArgList &Args,
   }
 }
 
+static void SetRISCVSmallDataLimit(const ToolChain &TC, const ArgList &Args,
+                                   ArgStringList &CmdArgs) {
+  const Driver &D = TC.getDriver();
+  const llvm::Triple &Triple = TC.getTriple();
+  // Default small data limitation is eight.
+  const char *SmallDataLimit = "8";
+  // Get small data limitation.
+  if (Args.getLastArg(options::OPT_shared, options::OPT_fpic,
+                      options::OPT_fPIC)) {
+    // Not support linker relaxation for PIC.
+    SmallDataLimit = "0";
+    if (Args.hasArg(options::OPT_G)) {
+      D.Diag(diag::warn_drv_unsupported_sdata);
+    }
+  } else if (Args.getLastArgValue(options::OPT_mcmodel_EQ)
+                 .equals_lower("large") &&
+             (Triple.getArch() == llvm::Triple::riscv64)) {
+    // Not support linker relaxation for RV64 with large code model.
+    SmallDataLimit = "0";
+    if (Args.hasArg(options::OPT_G)) {
+      D.Diag(diag::warn_drv_unsupported_sdata);
+    }
+  } else if (Arg *A = Args.getLastArg(options::OPT_G)) {
+    SmallDataLimit = A->getValue();
+  }
+  // Forward the -msmall-data-limit= option.
+  CmdArgs.push_back("-msmall-data-limit");
+  CmdArgs.push_back(SmallDataLimit);
+}
+
 void Clang::AddRISCVTargetArgs(const ArgList &Args,
                                ArgStringList &CmdArgs) const {
   const llvm::Triple &Triple = getToolChain().getTriple();
@@ -1999,6 +2017,8 @@ void Clang::AddRISCVTargetArgs(const ArgList &Args,
 
   CmdArgs.push_back("-target-abi");
   CmdArgs.push_back(ABIName.data());
+
+  SetRISCVSmallDataLimit(getToolChain(), Args, CmdArgs);
 }
 
 void Clang::AddSparcTargetArgs(const ArgList &Args,
@@ -2566,8 +2586,13 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       ReciprocalMath = false;
       SignedZeros = true;
       // -fno_fast_math restores default denormal and fpcontract handling
-      DenormalFPMath = DefaultDenormalFPMath;
       FPContract = "";
+      DenormalFPMath = llvm::DenormalMode::getIEEE();
+
+      // FIXME: The target may have picked a non-IEEE default mode here based on
+      // -cl-denorms-are-zero. Should the target consider -fp-model interaction?
+      DenormalFP32Math = llvm::DenormalMode::getIEEE();
+
       StringRef Val = A->getValue();
       if (OFastEnabled && !Val.equals("fast")) {
           // Only -ffp-model=fast is compatible with OFast, ignore.
@@ -2742,9 +2767,10 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       SignedZeros = true;
       TrappingMath = true;
       FPExceptionBehavior = "strict";
-      // -fno_unsafe_math_optimizations restores default denormal handling
-      DenormalFPMath = DefaultDenormalFPMath;
-      DenormalFP32Math = DefaultDenormalFP32Math;
+
+      // The target may have opted to flush by default, so force IEEE.
+      DenormalFPMath = llvm::DenormalMode::getIEEE();
+      DenormalFP32Math = llvm::DenormalMode::getIEEE();
       break;
 
     case options::OPT_Ofast:
@@ -2778,18 +2804,19 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       RoundingFPMath = false;
       // -fno_fast_math restores default denormal and fpcontract handling
       DenormalFPMath = DefaultDenormalFPMath;
-      DenormalFP32Math = DefaultDenormalFP32Math;
+      DenormalFP32Math = llvm::DenormalMode::getIEEE();
       FPContract = "";
       break;
     }
     if (StrictFPModel) {
       // If -ffp-model=strict has been specified on command line but
       // subsequent options conflict then emit warning diagnostic.
-      // TODO: How should this interact with DenormalFP32Math?
       if (HonorINFs && HonorNaNs &&
         !AssociativeMath && !ReciprocalMath &&
         SignedZeros && TrappingMath && RoundingFPMath &&
-        (FPContract.equals("off") || FPContract.empty()))
+        (FPContract.equals("off") || FPContract.empty()) &&
+        DenormalFPMath == llvm::DenormalMode::getIEEE() &&
+        DenormalFP32Math == llvm::DenormalMode::getIEEE())
         // OK: Current Arg doesn't conflict with -ffp-model=strict
         ;
       else {
@@ -2835,15 +2862,16 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   } else if (TrappingMathPresent)
     CmdArgs.push_back("-fno-trapping-math");
 
-  // TODO: Omit flag for the default IEEE instead
-  if (DenormalFPMath.isValid()) {
+  // The default is IEEE.
+  if (DenormalFPMath != llvm::DenormalMode::getIEEE()) {
     llvm::SmallString<64> DenormFlag;
     llvm::raw_svector_ostream ArgStr(DenormFlag);
     ArgStr << "-fdenormal-fp-math=" << DenormalFPMath;
     CmdArgs.push_back(Args.MakeArgString(ArgStr.str()));
   }
 
-  if (DenormalFP32Math.isValid()) {
+  // Add f32 specific denormal mode flag if it's different.
+  if (DenormalFP32Math != DenormalFPMath) {
     llvm::SmallString<64> DenormFlag;
     llvm::raw_svector_ostream ArgStr(DenormFlag);
     ArgStr << "-fdenormal-fp-math-f32=" << DenormalFP32Math;
@@ -4011,7 +4039,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  const llvm::Triple *AuxTriple = (IsSYCL || IsCuda) ? TC.getAuxTriple() : nullptr;
+  const llvm::Triple *AuxTriple =
+      (IsSYCL || IsCuda) ? TC.getAuxTriple() : nullptr;
   bool IsWindowsMSVC = RawTriple.isWindowsMSVCEnvironment();
   bool IsIAMCU = RawTriple.isOSIAMCU();
   bool IsSYCLDevice = (RawTriple.getEnvironment() == llvm::Triple::SYCLDevice);
@@ -4095,7 +4124,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (UseSYCLTriple) {
     // We want to compile sycl kernels.
+    CmdArgs.push_back("-fsycl");
     CmdArgs.push_back("-fsycl-is-device");
+    CmdArgs.push_back("-fdeclare-spirv-builtins");
     // Pass the triple of host when doing SYCL
     auto AuxT = llvm::Triple(llvm::sys::getProcessTriple());
     std::string NormalizedTriple = AuxT.normalize();
@@ -4119,27 +4150,25 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       }
     }
 
-    if (Triple.isSPIR()) {
-      CmdArgs.push_back("-disable-llvm-passes");
-    }
-
     if (Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
                      options::OPT_fno_sycl_allow_func_ptr, false)) {
       CmdArgs.push_back("-fsycl-allow-func-ptr");
     }
   }
 
-  if (Arg *A = Args.getLastArg(options::OPT_sycl_std_EQ)) {
-    A->render(Args, CmdArgs);
-    CmdArgs.push_back("-fsycl-std-layout-kernel-params");
-  } else if (IsSYCL) {
-    // Ensure the default version in SYCL mode is 1.2.1
-    CmdArgs.push_back("-sycl-std=1.2.1");
-    // The user had not pass SYCL version, thus we'll employ no-sycl-strict
-    // to allow address-space unqualified pointers in function params/return
-    // along with marking the same function with explicit SYCL_EXTERNAL
-    CmdArgs.push_back("-Wno-sycl-strict");
-  }
+    if (IsSYCL) {
+    if (Arg *A = Args.getLastArg(options::OPT_sycl_std_EQ)) {
+      A->render(Args, CmdArgs);
+      CmdArgs.push_back("-fsycl-std-layout-kernel-params");
+    } else {
+      // Ensure the default version in SYCL mode is 1.2.1 (aka 2017)
+      CmdArgs.push_back("-sycl-std=2017");
+      // The user had not pass SYCL version, thus we'll employ no-sycl-strict
+      // to allow address-space unqualified pointers in function params/return
+      // along with marking the same function with explicit SYCL_EXTERNAL
+      CmdArgs.push_back("-Wno-sycl-strict");
+    }
+    }
 
   if (IsOpenMPDevice) {
     // We have to pass the triple of the host if compiling for an OpenMP device.
@@ -4691,6 +4720,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   RenderFloatingPointOptions(TC, D, OFastEnabled, Args, CmdArgs,
                              JA.getOffloadingDeviceKind());
+
+  if (Arg *A = Args.getLastArg(options::OPT_mdouble_EQ)) {
+    if (TC.getArch() == llvm::Triple::avr)
+      A->render(Args, CmdArgs);
+    else
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << A->getAsString(Args) << TripleStr;
+  }
 
   if (Arg *A = Args.getLastArg(options::OPT_LongDouble_Group)) {
     if (TC.getTriple().isX86())
@@ -5799,11 +5836,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasFlag(options::OPT_Qy, options::OPT_Qn, true))
     CmdArgs.push_back("-Qn");
 
-  // -fcommon is the default unless compiling kernel code or the target says so
-  bool NoCommonDefault = KernelOrKext || isNoCommonDefault(RawTriple);
-  if (!Args.hasFlag(options::OPT_fcommon, options::OPT_fno_common,
-                    !NoCommonDefault))
-    CmdArgs.push_back("-fno-common");
+  // -fno-common is the default, set -fcommon only when that flag is set.
+  if (Args.hasFlag(options::OPT_fcommon, options::OPT_fno_common, false))
+    CmdArgs.push_back("-fcommon");
 
   // -fsigned-bitfields is default, and clang doesn't yet support
   // -funsigned-bitfields.
@@ -6086,6 +6121,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(IntHeaderPath);
       // Let the FE know we are doing a SYCL offload compilation, but we are
       // doing the host pass.
+      CmdArgs.push_back("-fsycl");
       CmdArgs.push_back("-fsycl-is-host");
     }
     if (IsSYCLOffloadDevice && JA.getType() == types::TY_SYCL_Header) {
@@ -6639,6 +6675,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                            codegenoptions::DebugInfoKind *DebugInfoKind,
                            bool *EmitCodeView) const {
   unsigned RTOptionID = options::OPT__SLASH_MT;
+  bool isNVPTX = getToolChain().getTriple().isNVPTX();
 
   if (Args.hasArg(options::OPT__SLASH_LDd))
     // The /LDd option implies /MTd. The dependent lib part can be overridden,
@@ -6737,8 +6774,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 
   // This controls whether or not we emit stack-protector instrumentation.
   // In MSVC, Buffer Security Check (/GS) is on by default.
-  if (Args.hasFlag(options::OPT__SLASH_GS, options::OPT__SLASH_GS_,
-                   /*Default=*/true)) {
+  if (!isNVPTX && Args.hasFlag(options::OPT__SLASH_GS, options::OPT__SLASH_GS_,
+                               /*Default=*/true)) {
     CmdArgs.push_back("-stack-protector");
     CmdArgs.push_back(Args.MakeArgString(Twine(LangOptions::SSPStrong)));
   }
@@ -6758,7 +6795,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 
   const Driver &D = getToolChain().getDriver();
   EHFlags EH = parseClangCLEHFlags(D, Args);
-  if (EH.Synch || EH.Asynch) {
+  if (!isNVPTX && (EH.Synch || EH.Asynch)) {
     if (types::isCXX(InputType))
       CmdArgs.push_back("-fcxx-exceptions");
     CmdArgs.push_back("-fexceptions");
@@ -6827,7 +6864,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                           options::OPT__SLASH_Gregcall)) {
     unsigned DCCOptId = CCArg->getOption().getID();
     const char *DCCFlag = nullptr;
-    bool ArchSupported = true;
+    bool ArchSupported = !isNVPTX;
     llvm::Triple::ArchType Arch = getToolChain().getArch();
     switch (DCCOptId) {
     case options::OPT__SLASH_Gd:
@@ -7310,55 +7347,14 @@ void OffloadBundler::ConstructJobMultipleOutputs(
       C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
   types::ID InputType(Input.getType());
   bool IsFPGADepUnbundle = (JA.getType() == types::TY_FPGA_Dependencies);
+  bool IsArchiveUnbundle =
+      (!IsMSVCEnv && C.getDriver().getOffloadStaticLibSeen() &&
+       (types::isArchive(InputType) || InputType == types::TY_Object));
 
-  // For Linux, we have initial support for fat archives (archives which
-  // contain bundled objects). We will perform partial linking against the
-  // specific offload target archives which will be sent to the unbundler to
-  // produce a list of target objects.
-  // FIXME: This should be a separate job in the toolchain.
-  if (!IsMSVCEnv && TCArgs.hasArg(options::OPT_offload_lib_Group) &&
-      (types::isArchive(InputType) || InputType == types::TY_Object)) {
+  if (IsArchiveUnbundle)
     TypeArg = "oo";
-    ArgStringList LinkArgs;
-    LinkArgs.push_back("-r");
-    LinkArgs.push_back("-o");
-    std::string TmpName =
-      C.getDriver().GetTemporaryPath(
-          llvm::sys::path::stem(Input.getFilename()).str() + "-prelink", "o");
-    InputFileName = C.addTempFile(C.getArgs().MakeArgString(TmpName));
-    LinkArgs.push_back(InputFileName);
-    const ToolChain *HTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
-    // Add crt objects
-    LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crt1.o")));
-    LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crti.o")));
-    // Add -L<dir> search directories.
-    TCArgs.AddAllArgs(LinkArgs, options::OPT_L);
-
-    // TODO - We can potentially go through the args and add the known linker
-    // pass through args of --whole-archive and --no-whole-archive.  This
-    // would allow to support user commands like: -Wl,--whole-archive
-    // -foffload-static-lib=<lib> -Wl,--no-whole-archive
-    // Input files consist of fat libraries and the object(s) to be unbundled.
-    bool IsWholeArchive = false;
-    for (const auto &I : Inputs) {
-      if (I.getType() == types::TY_WholeArchive && !IsWholeArchive) {
-        LinkArgs.push_back("--whole-archive");
-        IsWholeArchive = true;
-      } else if (I.getType() == types::TY_Archive && IsWholeArchive) {
-        LinkArgs.push_back("--no-whole-archive");
-        IsWholeArchive = false;
-      }
-      LinkArgs.push_back(I.getFilename());
-    }
-    // Disable whole archive if it was enabled for the previous inputs.
-    if (IsWholeArchive)
-      LinkArgs.push_back("--no-whole-archive");
-    // Add crt objects
-    LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crtn.o")));
-    const char *Exec = TCArgs.MakeArgString(getToolChain().GetLinkerPath());
-    C.addCommand(std::make_unique<Command>(JA, *this, Exec, LinkArgs, Inputs));
-  } else if (InputType == types::TY_FPGA_AOCX ||
-             InputType == types::TY_FPGA_AOCR) {
+  else if (InputType == types::TY_FPGA_AOCX ||
+           InputType == types::TY_FPGA_AOCR) {
     // Override type with archive object
     if (getToolChain().getTriple().getSubArch() ==
         llvm::Triple::SPIRSubArch_fpga)
@@ -7403,10 +7399,9 @@ void OffloadBundler::ConstructJobMultipleOutputs(
         Triples += Dep.DependentToolChain->getTriple().normalize();
       }
       continue;
-    } else if (types::isArchive(InputType) || (InputType == types::TY_Object &&
-               ((!IsMSVCEnv && TCArgs.hasArg(options::OPT_offload_lib_Group)) ||
-                (TCArgs.hasArg(options::OPT_fintelfpga) &&
-                 TCArgs.hasArg(options::OPT_fsycl_link_EQ))))) {
+    } else if (InputType == types::TY_Archive || IsArchiveUnbundle ||
+               (TCArgs.hasArg(options::OPT_fintelfpga) &&
+                TCArgs.hasArg(options::OPT_fsycl_link_EQ))) {
       // Do not extract host part if we are unbundling archive on Windows
       // because it is not needed. Static offload libraries are added to the
       // host link command just as normal libraries.  Do not extract the host
@@ -7574,70 +7569,23 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     }
 #endif // INTEL_CUSTOMIZATION
 
-    ArgStringList ForeachArgs;
+    assert((Inputs.size() > 0) && "no inputs for clang-offload-wrapper");
+    assert(((Inputs[0].getType() != types::TY_Tempfiletable) ||
+            (Inputs.size() == 1)) &&
+           "wrong usage of clang-offload-wrapper with SYCL");
+    const InputInfo &I = Inputs[0];
+    assert(I.isFilename() && "Invalid input.");
 
-    for (const InputInfo &I : Inputs) {
-      assert(I.isFilename() && "Invalid input.");
-      std::string FileName(I.getFilename());
-      if (I.getType() == types::TY_Tempfilelist ||
-          I.getType() == types::TY_TempEntriesfilelist) {
-        ForeachArgs.push_back(
-            C.getArgs().MakeArgString("--in-file-list=" + FileName));
-        ForeachArgs.push_back(
-            C.getArgs().MakeArgString("--in-replace=" + FileName));
-
-        if (I.getType() == types::TY_TempEntriesfilelist) {
-          WrapperArgs.push_back(
-              C.getArgs().MakeArgString("-entries=" + FileName));
-          continue;
-        }
-      }
-      WrapperArgs.push_back(C.getArgs().MakeArgString(FileName));
-    }
+    if (I.getType() == types::TY_Tempfiletable)
+      // wrapper actual input files are passed via the batch job file table:
+      WrapperArgs.push_back(C.getArgs().MakeArgString("-batch"));
+    WrapperArgs.push_back(C.getArgs().MakeArgString(I.getFilename()));
 
     auto Cmd = std::make_unique<Command>(
         JA, *this,
         TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
         WrapperArgs, None);
-    if (!ForeachArgs.empty()) {
-      std::string ForeachOutName =
-          C.getDriver().GetTemporaryPath("wrapper-linker", "txt");
-      const char *ForeachOutput = C.addTempFile(
-          C.getArgs().MakeArgString(ForeachOutName), types::TY_Tempfilelist);
-      SmallString<128> OutOpt("--out-file-list=");
-      OutOpt += ForeachOutput;
-
-      // Construct llvm-foreach command.
-      // The llvm-foreach command looks like this:
-      // llvm-foreach --in-file-list=a.list --in-replace='{}' -- echo '{}'
-      ForeachArgs.push_back(C.getArgs().MakeArgString(OutOpt));
-      ForeachArgs.push_back(
-          C.getArgs().MakeArgString("--out-replace=" + OutTmpName));
-      ForeachArgs.push_back(C.getArgs().MakeArgString("--"));
-
-      ForeachArgs.push_back(Cmd->getExecutable());
-      for (auto &Arg : WrapperArgs)
-        ForeachArgs.push_back(Arg);
-
-      SmallString<128> ForeachPath(C.getDriver().Dir);
-      llvm::sys::path::append(ForeachPath, "llvm-foreach");
-      const char *Foreach = C.getArgs().MakeArgString(ForeachPath);
-      C.addCommand(
-          std::make_unique<Command>(JA, *this, Foreach, ForeachArgs, None));
-
-      // Construct llvm-link command.
-      SmallString<128> InOpt("@");
-      InOpt += ForeachOutName;
-      ArgStringList LLVMLinkArgs{C.getArgs().MakeArgString("-o"),
-                                 WrapperFileName,
-                                 C.getArgs().MakeArgString(InOpt)};
-      SmallString<128> LLVMLinkPath(C.getDriver().Dir);
-      llvm::sys::path::append(LLVMLinkPath, "llvm-link");
-      const char *LLVMLink = C.getArgs().MakeArgString(LLVMLinkPath);
-      C.addCommand(
-          std::make_unique<Command>(JA, *this, LLVMLink, LLVMLinkArgs, None));
-    } else
-      C.addCommand(std::move(Cmd));
+    C.addCommand(std::move(Cmd));
 
     // Construct llc command.
     // The output is an object file
@@ -7659,7 +7607,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     const char *Llc = C.getArgs().MakeArgString(LlcPath);
     C.addCommand(std::make_unique<Command>(JA, *this, Llc, LlcArgs, None));
     return;
-  }
+  } // end of SYCL flavor of offload wrapper command creation
 
   ArgStringList CmdArgs;
 
@@ -7808,6 +7756,19 @@ void SPIRCheck::ConstructJob(Compilation &C, const JobAction &JA,
   C.addCommand(std::move(Cmd));
 }
 
+static void addArgs(ArgStringList &DstArgs, const llvm::opt::ArgList &Alloc,
+                    ArrayRef<StringRef> SrcArgs) {
+  for (const auto Arg : SrcArgs) {
+    DstArgs.push_back(Alloc.MakeArgString(Arg));
+  }
+}
+
+// sycl-post-link tool normally outputs a file table (see the tool sources for
+// format description) which lists all the other output files associated with
+// the device LLVMIR bitcode. This is basically a triple of bitcode, symbols
+// and specialization constant files. Single LLVM IR output can be generated as
+// well under an option.
+//
 void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
                              const InputInfo &Output,
                              const InputInfoList &Inputs,
@@ -7815,38 +7776,163 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
                              const char *LinkingOutput) const {
   // Construct sycl-post-link command.
   assert(isa<SYCLPostLinkJobAction>(JA) && "Expecting SYCL post link job!");
-
-  // Variants of split command look like this:
-  // sycl-post-link input_file.bc -ir-files-list=ir.txt -o base_output - for
-  // IR files generation.
-  // sycl-post-link input_file.bc -txt-files-list=files.txt -o base_output - for
-  // entries files generation.
-
   ArgStringList CmdArgs;
-  InputInfo Input = Inputs.front();
-  const char *InputFileName = Input.getFilename();
 
-  CmdArgs.push_back(InputFileName);
+  // See if device code splitting is requested
+  if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ)) {
+    if (StringRef(A->getValue()) == "per_kernel")
+      addArgs(CmdArgs, TCArgs, {"-split=kernel"});
+    else if (StringRef(A->getValue()) == "per_source")
+      addArgs(CmdArgs, TCArgs, {"-split=source"});
+    else
+      // split must be off
+      assert(StringRef(A->getValue()) == "off");
+  }
+  // OPT_fsycl_device_code_split is not checked as it is an alias to
+  // -fsycl-device-code-split=per_source
+
+  if (JA.getType() == types::TY_LLVM_BC) {
+    // single file output requested - this means only perform necessary IR
+    // transformations (like specialization constant intrinsic lowering) and
+    // output LLVMIR
+    addArgs(CmdArgs, TCArgs, {"-ir-output-only"});
+  } else {
+    assert(JA.getType() == types::TY_Tempfiletable);
+    // Symbol file and specialization constant info generation is mandatory -
+    // add options unconditionally
+    addArgs(CmdArgs, TCArgs, {"-symbols"});
+  }
+  // specialization constants processing is mandatory
+  if (llvm::dyn_cast<SYCLPostLinkJobAction>(&JA)->getRTSetsSpecConstants())
+    addArgs(CmdArgs, TCArgs, {"-spec-const=rt"});
+  else
+    addArgs(CmdArgs, TCArgs, {"-spec-const=default"});
+
+  // Add output file table file option
+  assert(Output.isFilename() && "output must be a filename");
+  addArgs(CmdArgs, TCArgs, {"-o", Output.getFilename()});
+
+  // Add input file
+  assert(Inputs.size() == 1 && Inputs.front().isFilename() &&
+         "single input file expected");
+  addArgs(CmdArgs, TCArgs, {Inputs.front().getFilename()});
   std::string OutputFileName(Output.getFilename());
-  if (Output.getType() == types::TY_Tempfilelist)
-    CmdArgs.push_back(TCArgs.MakeArgString("-ir-files-list=" + OutputFileName));
-  else if (Output.getType() == types::TY_TempEntriesfilelist)
-    CmdArgs.push_back(
-        TCArgs.MakeArgString("-txt-files-list=" + OutputFileName));
-  SmallString<128> TmpName;
-  llvm::sys::fs::createUniquePath("split-%%%%%%", TmpName,
-                                  /*MakeAbsolute*/ true);
-  CmdArgs.push_back(TCArgs.MakeArgString("-o"));
-  CmdArgs.push_back(TCArgs.MakeArgString(TmpName));
-
-  if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ))
-    if (A->getValue() == StringRef("per_kernel"))
-      CmdArgs.push_back("-one-kernel");
 
   // All the inputs are encoded as commands.
   C.addCommand(std::make_unique<Command>(
       JA, *this,
       TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
-      CmdArgs, None));
+      CmdArgs, Inputs));
 }
 
+// Transforms the abstract representation (JA + Inputs + Outputs) of a file
+// table transformation action to concrete command line (job) with actual
+// inputs/outputs/options, and adds it to given compilation object.
+void FileTableTform::ConstructJob(Compilation &C, const JobAction &JA,
+                                  const InputInfo &Output,
+                                  const InputInfoList &Inputs,
+                                  const llvm::opt::ArgList &TCArgs,
+                                  const char *LinkingOutput) const {
+
+  const auto &TformJob = *llvm::dyn_cast<FileTableTformJobAction>(&JA);
+  ArgStringList CmdArgs;
+
+  // don't try to assert here whether the number of inputs is OK, argumnets are
+  // OK, etc. - better invoke the tool and see good error diagnostics
+
+  // 1) add transformations
+  for (const auto &Tf : TformJob.getTforms()) {
+    switch (Tf.TheKind) {
+    case FileTableTformJobAction::Tform::EXTRACT:
+    case FileTableTformJobAction::Tform::EXTRACT_DROP_TITLE: {
+      SmallString<128> Arg("-extract=");
+      Arg += Tf.TheArgs[0];
+
+      for (unsigned I = 1; I < Tf.TheArgs.size(); ++I) {
+        Arg += ",";
+        Arg += Tf.TheArgs[I];
+      }
+      addArgs(CmdArgs, TCArgs, {Arg});
+
+      if (Tf.TheKind == FileTableTformJobAction::Tform::EXTRACT_DROP_TITLE)
+        addArgs(CmdArgs, TCArgs, {"-drop_titles"});
+      break;
+    }
+    case FileTableTformJobAction::Tform::REPLACE: {
+      assert(Tf.TheArgs.size() == 2 && "from/to column names expected");
+      SmallString<128> Arg("-replace=");
+      Arg += Tf.TheArgs[0];
+      Arg += ",";
+      Arg += Tf.TheArgs[1];
+      addArgs(CmdArgs, TCArgs, {Arg});
+      break;
+    }
+    default:
+      llvm_unreachable("unknown file table transformation kind");
+    }
+  }
+  // 2) add output option
+  assert(Output.isFilename() && "table tform output must be a file");
+  addArgs(CmdArgs, TCArgs, {"-o", Output.getFilename()});
+
+  // 3) add inputs
+  for (const auto &Input : Inputs) {
+    assert(Input.isFilename() && "table tform input must be a file");
+    addArgs(CmdArgs, TCArgs, {Input.getFilename()});
+  }
+  // 4) finally construct and add a command to the compilation
+  C.addCommand(std::make_unique<Command>(
+      JA, *this,
+      TCArgs.MakeArgString(getToolChain().GetProgramPath(getShortName())),
+      CmdArgs, Inputs));
+}
+
+// For Linux, we have initial support for fat archives (archives which
+// contain bundled objects). We will perform partial linking against the
+// specific offload target archives which will be sent to the unbundler to
+// produce a list of target objects.
+void PartialLink::ConstructJob(Compilation &C, const JobAction &JA,
+                               const InputInfo &Output,
+                               const InputInfoList &Inputs,
+                               const llvm::opt::ArgList &TCArgs,
+                               const char *LinkingOutput) const {
+  // Construct simple partial link command.
+  assert(isa<PartialLinkJobAction>(JA) && "Expecting Partial Link job!");
+
+  // The partial linking command resembles this:
+  // ld -r -o <output> <inputs>
+  ArgStringList LinkArgs;
+  LinkArgs.push_back("-r");
+  LinkArgs.push_back("-o");
+  LinkArgs.push_back(Output.getFilename());
+
+  const ToolChain *HTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+  // Add crt objects
+  LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crt1.o")));
+  LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crti.o")));
+  // Add -L<dir> search directories.
+  TCArgs.AddAllArgs(LinkArgs, options::OPT_L);
+  HTC->AddFilePathLibArgs(TCArgs, LinkArgs);
+
+  // Input files consist of fat libraries and the object(s) to be unbundled.
+  // We add the needed --whole-archive/--no-whole-archive when appropriate.
+  bool IsWholeArchive = false;
+  for (const auto &I : Inputs) {
+    if (I.getType() == types::TY_WholeArchive && !IsWholeArchive) {
+      LinkArgs.push_back("--whole-archive");
+      IsWholeArchive = true;
+    } else if (I.getType() == types::TY_Archive && IsWholeArchive) {
+      LinkArgs.push_back("--no-whole-archive");
+      IsWholeArchive = false;
+    }
+    LinkArgs.push_back(I.getFilename());
+  }
+  // Disable whole archive if it was enabled for the previous inputs.
+  if (IsWholeArchive)
+    LinkArgs.push_back("--no-whole-archive");
+
+  // Add crt objects
+  LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crtn.o")));
+  const char *Exec = TCArgs.MakeArgString(getToolChain().GetLinkerPath());
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, LinkArgs, Inputs));
+}

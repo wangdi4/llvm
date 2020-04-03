@@ -7,19 +7,18 @@ endif()
 
 set(binary_dir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 if (WIN32)
-  set(omp_compile_opts
-    -Qiopenmp -Qopenmp-targets=spir64 -c
-    )
+  set(omp_compile_opts -Qiopenmp)
+  set(omp_target_opts -Qopenmp-targets=spir64)
   set(objext .obj)
-  set(cmplr_obj_out -Fo)
+  set(cmplr_obj_out -c -Fo)
 else()
-  set(omp_compile_opts
-    -fiopenmp -fopenmp-targets=spir64 -c
-    )
+  set(omp_compile_opts -fiopenmp)
+  set(omp_target_opts -fopenmp-targets=spir64)
   set(objext .o)
-  set(cmplr_obj_out -o)
+  set(cmplr_obj_out -c -o)
 endif()
 
+set(clang_opts -fdeclare-spirv-builtins)
 list(APPEND omp_compile_opts
   -DOMP_LIBDEVICE
   -DINTEL_COLLAB
@@ -44,21 +43,23 @@ function(add_obj_file src dst)
     # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
     #        the same way icx does.
     set(cmplr $<TARGET_FILE:icx>)
+    set(clang_opts -Xclang ${clang_opts})
   else(INTEL_CUSTOMIZATION)
     set(cmplr $<TARGET_FILE:clang>)
   endif(INTEL_CUSTOMIZATION)
 
   add_custom_command(OUTPUT ${dst}
-                     COMMAND ${cmplr} ${omp_compile_opts}
-                             ${src} ${cmplr_obj_out}${dst}
-                     MAIN_DEPENDENCY ${src}
-                     DEPENDS device_complex.h device.h
-                             ${ARG_DEPENDS}
-                             clang clang-offload-bundler
+    COMMAND ${cmplr} ${omp_compile_opts} ${clang_opts}
+            ${omp_target_opts}="${clang_opts}"
+            ${src} ${cmplr_obj_out}${dst}
+    MAIN_DEPENDENCY ${src}
+    DEPENDS device_complex.h device.h
+            ${ARG_DEPENDS}
+            clang clang-offload-bundler
 # INTEL_CUSTOMIZATION
-                             icx
+            icx
 # end INTEL_CUSTOMIZATION
-                     VERBATIM)
+    )
 
   list(APPEND omplib_objs ${dst})
   set(omplib_objs ${omplib_objs} PARENT_SCOPE)
@@ -71,6 +72,7 @@ function(add_spv_file src dst)
     # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
     #        the same way icx does.
     set(cmplr $<TARGET_FILE:icx>)
+    set(clang_opts -Xclang ${clang_opts})
   else(INTEL_CUSTOMIZATION)
     set(cmplr $<TARGET_FILE:clang>)
   endif(INTEL_CUSTOMIZATION)
@@ -78,20 +80,20 @@ function(add_spv_file src dst)
   set(clang_offload_bundler $<TARGET_FILE:clang-offload-bundler>)
 
   add_custom_command(OUTPUT ${dst}
-                     COMMAND ${cmplr} ${omp_compile_opts}
-                             ${src} ${cmplr_obj_out}${dst}${objext}
-                     COMMAND ${clang_offload_bundler} -type=o -unbundle
-                             -targets=openmp-spir64
-                             -inputs=${dst}${objext} -outputs=${dst}.target.bc
-                     COMMAND ${llvm_spirv} -spirv-ext=+all ${dst}.target.bc
-                             -o ${dst}
-                     MAIN_DEPENDENCY ${src}
-                     DEPENDS ${ARG_DEPENDS}
-                             clang llvm-spirv clang-offload-bundler
+    COMMAND ${cmplr} ${omp_compile_opts} ${clang_opts}
+            ${omp_target_opts}="${clang_opts}"
+            ${src} ${cmplr_obj_out}${dst}${objext}
+    COMMAND ${clang_offload_bundler} -type=o -unbundle
+            -targets=openmp-spir64
+            -inputs=${dst}${objext} -outputs=${dst}.target.bc
+    COMMAND ${llvm_spirv} -spirv-ext=+all ${dst}.target.bc -o ${dst}
+    MAIN_DEPENDENCY ${src}
+    DEPENDS ${ARG_DEPENDS}
+            clang llvm-spirv clang-offload-bundler
 # INTEL_CUSTOMIZATION
-                             icx
+            icx
 # end INTEL_CUSTOMIZATION
-                     VERBATIM)
+    )
 
   list(APPEND omplib_spvs ${dst})
   set(omplib_spvs ${omplib_spvs} PARENT_SCOPE)

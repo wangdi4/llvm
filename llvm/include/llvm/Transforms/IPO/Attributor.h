@@ -103,6 +103,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -636,6 +637,9 @@ private:
   /// The underlying CGSCC, or null if not available.
   SetVector<Function *> *CGSCC;
 
+  /// Set of inlineable functions
+  SmallPtrSet<const Function *, 8> InlineableFunctions;
+
   /// Give the Attributor access to the members so
   /// Attributor::identifyDefaultAbstractAttributes(...) can initialize them.
   friend struct Attributor;
@@ -789,6 +793,14 @@ struct Attributor {
   /// through the information cache interface *prior* to looking at them.
   void initializeInformationCache(Function &F);
 
+  /// Determine whether the function \p F is IPO amendable
+  ///
+  /// If a function is exactly defined or it has alwaysinline attribute
+  /// and is viable to be inlined, we say it is IPO amendable
+  bool isFunctionIPOAmendable(const Function &F) {
+    return F.hasExactDefinition() || InfoCache.InlineableFunctions.count(&F);
+  }
+
   /// Mark the internal function \p F as live.
   ///
   /// This will trigger the identification and initialization of attributes for
@@ -882,7 +894,7 @@ struct Attributor {
   ///
   /// This method will evaluate \p Pred on all (transitive) uses of the
   /// associated value and return true if \p Pred holds every time.
-  bool checkForAllUses(const function_ref<bool(const Use &, bool &)> &Pred,
+  bool checkForAllUses(function_ref<bool(const Use &, bool &)> Pred,
                        const AbstractAttribute &QueryingAA, const Value &V,
                        DepClassTy LivenessDepClass = DepClassTy::OPTIONAL);
 
@@ -994,7 +1006,7 @@ struct Attributor {
   /// all call sites are known, hence the function has internal linkage.
   /// If true is returned, \p AllCallSitesKnown is set if all possible call
   /// sites of the function have been visited.
-  bool checkForAllCallSites(const function_ref<bool(AbstractCallSite)> &Pred,
+  bool checkForAllCallSites(function_ref<bool(AbstractCallSite)> Pred,
                             const AbstractAttribute &QueryingAA,
                             bool RequireAllCallSites, bool &AllCallSitesKnown);
 
@@ -1005,22 +1017,21 @@ struct Attributor {
   /// matched with their respective return instructions. Returns true if \p Pred
   /// holds on all of them.
   bool checkForAllReturnedValuesAndReturnInsts(
-      const function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)>
-          &Pred,
+      function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)> Pred,
       const AbstractAttribute &QueryingAA);
 
   /// Check \p Pred on all values potentially returned by the function
   /// associated with \p QueryingAA.
   ///
   /// This is the context insensitive version of the method above.
-  bool checkForAllReturnedValues(const function_ref<bool(Value &)> &Pred,
+  bool checkForAllReturnedValues(function_ref<bool(Value &)> Pred,
                                  const AbstractAttribute &QueryingAA);
 
   /// Check \p Pred on all instructions with an opcode present in \p Opcodes.
   ///
   /// This method will evaluate \p Pred on all instructions with an opcode
   /// present in \p Opcode and return true if \p Pred holds on all of them.
-  bool checkForAllInstructions(const function_ref<bool(Instruction &)> &Pred,
+  bool checkForAllInstructions(function_ref<bool(Instruction &)> Pred,
                                const AbstractAttribute &QueryingAA,
                                const ArrayRef<unsigned> &Opcodes,
                                bool CheckBBLivenessOnly = false);
@@ -1028,9 +1039,8 @@ struct Attributor {
   /// Check \p Pred on all call-like instructions (=CallBased derived).
   ///
   /// See checkForAllCallLikeInstructions(...) for more information.
-  bool
-  checkForAllCallLikeInstructions(const function_ref<bool(Instruction &)> &Pred,
-                                  const AbstractAttribute &QueryingAA) {
+  bool checkForAllCallLikeInstructions(function_ref<bool(Instruction &)> Pred,
+                                       const AbstractAttribute &QueryingAA) {
     return checkForAllInstructions(Pred, QueryingAA,
                                    {(unsigned)Instruction::Invoke,
                                     (unsigned)Instruction::CallBr,
@@ -1042,9 +1052,8 @@ struct Attributor {
   /// This method will evaluate \p Pred on all instructions that read or write
   /// to memory present in the information cache and return true if \p Pred
   /// holds on all of them.
-  bool checkForAllReadWriteInstructions(
-      const llvm::function_ref<bool(Instruction &)> &Pred,
-      AbstractAttribute &QueryingAA);
+  bool checkForAllReadWriteInstructions(function_ref<bool(Instruction &)> Pred,
+                                        AbstractAttribute &QueryingAA);
 
   /// Return the data layout associated with the anchor scope.
   const DataLayout &getDataLayout() const { return InfoCache.DL; }
@@ -1057,7 +1066,7 @@ private:
   /// all call sites are known, hence the function has internal linkage.
   /// If true is returned, \p AllCallSitesKnown is set if all possible call
   /// sites of the function have been visited.
-  bool checkForAllCallSites(const function_ref<bool(AbstractCallSite)> &Pred,
+  bool checkForAllCallSites(function_ref<bool(AbstractCallSite)> Pred,
                             const Function &Fn, bool RequireAllCallSites,
                             const AbstractAttribute *QueryingAA,
                             bool &AllCallSitesKnown);
@@ -1337,6 +1346,13 @@ struct IntegerStateBase : public AbstractState {
   /// this one afterwards.
   void operator^=(const IntegerStateBase<base_t, BestState, WorstState> &R) {
     handleNewAssumedValue(R.getAssumed());
+  }
+
+  /// "Clamp" this state with \p R. The result is subtype dependent but it is
+  /// intended that information known in either state will be known in
+  /// this one afterwards.
+  void operator+=(const IntegerStateBase<base_t, BestState, WorstState> &R) {
+    handleNewKnownValue(R.getKnown());
   }
 
   void operator|=(const IntegerStateBase<base_t, BestState, WorstState> &R) {
@@ -1712,7 +1728,7 @@ struct IRAttribute : public IRPosition, public Base {
     // TODO: We could always determine abstract attributes and if sufficient
     //       information was found we could duplicate the functions that do not
     //       have an exact definition.
-    if (IsFnInterface && (!FnScope || !FnScope->hasExactDefinition()))
+    if (IsFnInterface && (!FnScope || !A.isFunctionIPOAmendable(*FnScope)))
       this->getState().indicatePessimisticFixpoint();
   }
 
@@ -1899,8 +1915,8 @@ struct AAReturnedValues
   /// Note: Unlike the Attributor::checkForAllReturnedValuesAndReturnInsts
   /// method, this one will not filter dead return instructions.
   virtual bool checkForAllReturnedValuesAndReturnInsts(
-      const function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)>
-          &Pred) const = 0;
+      function_ref<bool(Value &, const SmallSetVector<ReturnInst *, 4> &)> Pred)
+      const = 0;
 
   using iterator =
       MapVector<Value *, SmallSetVector<ReturnInst *, 4>>::iterator;
@@ -2291,6 +2307,13 @@ struct DerefState : AbstractState {
   DerefState operator^=(const DerefState &R) {
     DerefBytesState ^= R.DerefBytesState;
     GlobalState ^= R.GlobalState;
+    return *this;
+  }
+
+  /// See IntegerStateBase::operator+=
+  DerefState operator+=(const DerefState &R) {
+    DerefBytesState += R.DerefBytesState;
+    GlobalState += R.GlobalState;
     return *this;
   }
 
@@ -2697,8 +2720,9 @@ struct AAMemoryLocation
   /// underlying accessed memory pointer) and it will return true if \p Pred
   /// holds every time.
   virtual bool checkForAllAccessesToMemoryKind(
-      const function_ref<bool(const Instruction *, const Value *, AccessKind,
-                              MemoryLocationsKind)> &Pred,
+      function_ref<bool(const Instruction *, const Value *, AccessKind,
+                        MemoryLocationsKind)>
+          Pred,
       MemoryLocationsKind MLK) const = 0;
 
   /// Create an abstract attribute view for the position \p IRP.
@@ -2748,7 +2772,8 @@ struct AAValueConstantRange : public IntegerRangeState,
   /// Return an assumed constant for the assocaited value a program point \p
   /// CtxI.
   Optional<ConstantInt *>
-  getAssumedConstantInt(Attributor &A, const Instruction *CtxI = nullptr) const {
+  getAssumedConstantInt(Attributor &A,
+                        const Instruction *CtxI = nullptr) const {
     ConstantRange RangeV = getAssumedConstantRange(A, CtxI);
     if (auto *C = RangeV.getSingleElement())
       return cast<ConstantInt>(

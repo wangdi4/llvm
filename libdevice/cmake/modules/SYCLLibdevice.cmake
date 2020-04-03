@@ -17,6 +17,9 @@ set(compile_opts
   # Disable warnings for the host compilation, where
   # we declare all functions as 'static'.
   -Wno-undefined-internal
+  # Force definition of CL_SYCL_LANGUAGE_VERSION, as long as
+  # SYCL specific code is guarded by it.
+  -sycl-std=2017
   )
 
 if (WIN32)

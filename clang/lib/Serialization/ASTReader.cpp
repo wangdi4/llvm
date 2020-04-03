@@ -3773,6 +3773,11 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
       }
       break;
     }
+
+    case DECLS_TO_CHECK_FOR_DEFERRED_DIAGS:
+      for (unsigned I = 0, N = Record.size(); I != N; ++I)
+        DeclsToCheckForDeferredDiags.push_back(getGlobalDeclID(F, Record[I]));
+      break;
     }
   }
 }
@@ -4502,7 +4507,7 @@ ASTReader::ReadASTCore(StringRef FileName,
     if (ShouldFinalizePCM)
       MC.finalizePCM(FileName);
     else
-      MC.tryToRemovePCM(FileName);
+      MC.tryToDropPCM(FileName);
   });
   ModuleFile &F = *M;
   BitstreamCursor &Stream = F.Stream;
@@ -8212,6 +8217,19 @@ void ASTReader::ReadUnusedLocalTypedefNameCandidates(
   UnusedLocalTypedefNameCandidates.clear();
 }
 
+void ASTReader::ReadDeclsToCheckForDeferredDiags(
+    llvm::SmallVector<Decl *, 4> &Decls) {
+  for (unsigned I = 0, N = DeclsToCheckForDeferredDiags.size(); I != N;
+       ++I) {
+    auto *D = dyn_cast_or_null<Decl>(
+        GetDecl(DeclsToCheckForDeferredDiags[I]));
+    if (D)
+      Decls.push_back(D);
+  }
+  DeclsToCheckForDeferredDiags.clear();
+}
+
+
 void ASTReader::ReadReferencedSelectors(
        SmallVectorImpl<std::pair<Selector, SourceLocation>> &Sels) {
   if (ReferencedSelectorsData.empty())
@@ -8523,10 +8541,10 @@ unsigned ASTReader::getModuleFileID(ModuleFile *F) {
   return (I - PCHModules.end()) << 1;
 }
 
-llvm::Optional<ExternalASTSource::ASTSourceDescriptor>
+llvm::Optional<ASTSourceDescriptor>
 ASTReader::getSourceDescriptor(unsigned ID) {
   if (const Module *M = getSubmodule(ID))
-    return ExternalASTSource::ASTSourceDescriptor(*M);
+    return ASTSourceDescriptor(*M);
 
   // If there is only a single PCH, return it instead.
   // Chained PCH are not supported.
@@ -8535,8 +8553,8 @@ ASTReader::getSourceDescriptor(unsigned ID) {
     ModuleFile &MF = ModuleMgr.getPrimaryModule();
     StringRef ModuleName = llvm::sys::path::filename(MF.OriginalSourceFileName);
     StringRef FileName = llvm::sys::path::filename(MF.FileName);
-    return ASTReader::ASTSourceDescriptor(ModuleName, MF.OriginalDir, FileName,
-                                          MF.Signature);
+    return ASTSourceDescriptor(ModuleName, MF.OriginalDir, FileName,
+                               MF.Signature);
   }
   return None;
 }
@@ -11866,11 +11884,17 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_nontemporal:
     C = OMPNontemporalClause::CreateEmpty(Context, Record.readInt());
     break;
+  case OMPC_inclusive:
+    C = OMPInclusiveClause::CreateEmpty(Context, Record.readInt());
+    break;
   case OMPC_order:
     C = new (Context) OMPOrderClause();
     break;
   case OMPC_destroy:
     C = new (Context) OMPDestroyClause();
+    break;
+  case OMPC_detach:
+    C = new (Context) OMPDetachClause();
     break;
   }
   assert(C && "Unknown OMPClause type");
@@ -11984,6 +12008,11 @@ void OMPClauseReader::VisitOMPOrderedClause(OMPOrderedClause *C) {
     C->setLoopNumIterations(I, Record.readSubExpr());
   for (unsigned I = 0, E = C->NumberOfLoops; I < E; ++I)
     C->setLoopCounter(I, Record.readSubExpr());
+  C->setLParenLoc(Record.readSourceLocation());
+}
+
+void OMPClauseReader::VisitOMPDetachClause(OMPDetachClause *C) {
+  C->setEventHandler(Record.readSubExpr());
   C->setLParenLoc(Record.readSourceLocation());
 }
 
@@ -12345,7 +12374,9 @@ void OMPClauseReader::VisitOMPDependClause(OMPDependClause *C) {
 
 void OMPClauseReader::VisitOMPDeviceClause(OMPDeviceClause *C) {
   VisitOMPClauseWithPreInit(C);
+  C->setModifier(Record.readEnum<OpenMPDeviceClauseModifier>());
   C->setDevice(Record.readSubExpr());
+  C->setModifierLoc(Record.readSourceLocation());
   C->setLParenLoc(Record.readSourceLocation());
 }
 
@@ -12681,6 +12712,16 @@ void OMPClauseReader::VisitOMPNontemporalClause(OMPNontemporalClause *C) {
   for (unsigned i = 0; i != NumVars; ++i)
     Vars.push_back(Record.readSubExpr());
   C->setPrivateRefs(Vars);
+}
+
+void OMPClauseReader::VisitOMPInclusiveClause(OMPInclusiveClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
 }
 
 void OMPClauseReader::VisitOMPOrderClause(OMPOrderClause *C) {

@@ -1720,11 +1720,16 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_nontemporal_store:
     return SemaBuiltinNontemporalOverloaded(TheCallResult);
   case Builtin::BI__builtin_memcpy_inline: {
-    // __builtin_memcpy_inline size argument is a constant by definition.
-    if (TheCall->getArg(2)->EvaluateKnownConstInt(Context).isNullValue())
+    clang::Expr *SizeOp = TheCall->getArg(2);
+    // We warn about copying to or from `nullptr` pointers when `size` is
+    // greater than 0. When `size` is value dependent we cannot evaluate its
+    // value so we bail out.
+    if (SizeOp->isValueDependent())
       break;
-    CheckNonNullArgument(*this, TheCall->getArg(0), TheCall->getExprLoc());
-    CheckNonNullArgument(*this, TheCall->getArg(1), TheCall->getExprLoc());
+    if (!SizeOp->EvaluateKnownConstInt(Context).isNullValue()) {
+      CheckNonNullArgument(*this, TheCall->getArg(0), TheCall->getExprLoc());
+      CheckNonNullArgument(*this, TheCall->getArg(1), TheCall->getExprLoc());
+    }
     break;
   }
 #define BUILTIN(ID, TYPE, ATTRS)
@@ -1914,6 +1919,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
       return ExprError();
     break;
   case Builtin::BI__builtin_os_log_format:
+    Cleanup.setExprNeedsCleanups(true);
+    LLVM_FALLTHROUGH;
   case Builtin::BI__builtin_os_log_format_buffer_size:
     if (SemaBuiltinOSLogFormat(TheCall))
       return ExprError();
@@ -1960,6 +1967,17 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_return_address:
     if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 0xFFFF))
       return ExprError();
+
+    // -Wframe-address warning if non-zero passed to builtin
+    // return/frame address.
+    Expr::EvalResult Result;
+    if (TheCall->getArg(0)->EvaluateAsInt(Result, getASTContext()) &&
+        Result.Val.getInt() != 0)
+      Diag(TheCall->getBeginLoc(), diag::warn_frame_address)
+          << ((BuiltinID == Builtin::BI__builtin_return_address)
+                  ? "__builtin_return_address"
+                  : "__builtin_frame_address")
+          << TheCall->getSourceRange();
     break;
   }
 
@@ -2193,6 +2211,45 @@ bool Sema::CheckMVEBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   }
 }
 
+bool Sema::CheckCDEBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+  bool Err = false;
+  switch (BuiltinID) {
+  default:
+    return false;
+#include "clang/Basic/arm_cde_builtin_sema.inc"
+  }
+
+  if (Err)
+    return true;
+
+  return CheckARMCoprocessorImmediate(TheCall->getArg(0), /*WantCDE*/ true);
+}
+
+bool Sema::CheckARMCoprocessorImmediate(const Expr *CoprocArg, bool WantCDE) {
+  if (isConstantEvaluated())
+    return false;
+
+  // We can't check the value of a dependent argument.
+  if (CoprocArg->isTypeDependent() || CoprocArg->isValueDependent())
+    return false;
+
+  llvm::APSInt CoprocNoAP;
+  bool IsICE = CoprocArg->isIntegerConstantExpr(CoprocNoAP, Context);
+  (void)IsICE;
+  assert(IsICE && "Coprocossor immediate is not a constant expression");
+  int64_t CoprocNo = CoprocNoAP.getExtValue();
+  assert(CoprocNo >= 0 && "Coprocessor immediate must be non-negative");
+
+  uint32_t CDECoprocMask = Context.getTargetInfo().getARMCDECoprocMask();
+  bool IsCDECoproc = CoprocNo <= 7 && (CDECoprocMask & (1 << CoprocNo));
+
+  if (IsCDECoproc != WantCDE)
+    return Diag(CoprocArg->getBeginLoc(), diag::err_arm_invalid_coproc)
+           << (int)CoprocNo << (int)WantCDE << CoprocArg->getSourceRange();
+
+  return false;
+}
+
 bool Sema::CheckARMBuiltinExclusiveCall(unsigned BuiltinID, CallExpr *TheCall,
                                         unsigned MaxWidth) {
   assert((BuiltinID == ARM::BI__builtin_arm_ldrex ||
@@ -2335,6 +2392,8 @@ bool Sema::CheckARMBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     return true;
   if (CheckMVEBuiltinFunctionCall(BuiltinID, TheCall))
     return true;
+  if (CheckCDEBuiltinFunctionCall(BuiltinID, TheCall))
+    return true;
 
   // For intrinsics which take an immediate value as part of the instruction,
   // range check them here.
@@ -2357,6 +2416,26 @@ bool Sema::CheckARMBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   case ARM::BI__builtin_arm_isb:
   case ARM::BI__builtin_arm_dbg:
     return SemaBuiltinConstantArgRange(TheCall, 0, 0, 15);
+  case ARM::BI__builtin_arm_cdp:
+  case ARM::BI__builtin_arm_cdp2:
+  case ARM::BI__builtin_arm_mcr:
+  case ARM::BI__builtin_arm_mcr2:
+  case ARM::BI__builtin_arm_mrc:
+  case ARM::BI__builtin_arm_mrc2:
+  case ARM::BI__builtin_arm_mcrr:
+  case ARM::BI__builtin_arm_mcrr2:
+  case ARM::BI__builtin_arm_mrrc:
+  case ARM::BI__builtin_arm_mrrc2:
+  case ARM::BI__builtin_arm_ldc:
+  case ARM::BI__builtin_arm_ldcl:
+  case ARM::BI__builtin_arm_ldc2:
+  case ARM::BI__builtin_arm_ldc2l:
+  case ARM::BI__builtin_arm_stc:
+  case ARM::BI__builtin_arm_stcl:
+  case ARM::BI__builtin_arm_stc2:
+  case ARM::BI__builtin_arm_stc2l:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 15) ||
+           CheckARMCoprocessorImmediate(TheCall->getArg(0), /*WantCDE*/ false);
   }
 }
 

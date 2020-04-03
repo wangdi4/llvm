@@ -16,6 +16,19 @@ def StdC : StandardSpec<"stdc"> {
 
   PtrType IntPtr = PtrType<IntType>;
 
+  NamedType SigHandlerT = NamedType<"__sighandler_t">;
+
+  HeaderSpec Assert = HeaderSpec<
+      "assert.h",
+      [
+          Macro<"static_assert">,
+          Macro<"assert">,
+      ],
+      [], // Types
+      [], // Enumerations
+      []
+  >;
+
   HeaderSpec String = HeaderSpec<
       "string.h",
       [
@@ -178,6 +191,17 @@ def StdC : StandardSpec<"stdc"> {
       ]
   >;
 
+  HeaderSpec StdLib = HeaderSpec<
+      "stdlib.h",
+      [], // Macros
+      [], // Types
+      [], // Enumerations
+      [
+          FunctionSpec<"abort", RetValSpec<NoReturn>, [ArgSpec<VoidType>]>,
+          FunctionSpec<"_Exit", RetValSpec<NoReturn>, [ArgSpec<IntType>]>,
+      ]
+  >;
+
   HeaderSpec Errno = HeaderSpec<
       "errno.h",
       [
@@ -203,12 +227,17 @@ def StdC : StandardSpec<"stdc"> {
         Macro<"SIGTERM">
       ],
       [
-        NamedType<"sigset_t">,
         SizeTType,
+        SigHandlerT,
       ],
       [], // Enumerations
       [
         FunctionSpec<"raise", RetValSpec<IntType>, [ArgSpec<IntType>]>,
+        FunctionSpec<
+          "signal",
+          RetValSpec<SigHandlerT>,
+          [ArgSpec<IntType>, ArgSpec<SigHandlerT>]
+        >,
       ]
   >;
 
@@ -274,10 +303,12 @@ def StdC : StandardSpec<"stdc"> {
   >;
 
   let Headers = [
+    Assert,
     Errno,
     Math,
     String,
     StdIO,
+    StdLib,
     Signal,
     Threads,
   ];

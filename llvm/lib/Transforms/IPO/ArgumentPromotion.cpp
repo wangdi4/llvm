@@ -359,7 +359,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
               if (auto *ElPTy = dyn_cast<PointerType>(ElTy))
                 ElTy = ElPTy->getElementType();
               else
-                ElTy = cast<CompositeType>(ElTy)->getTypeAtIndex(II);
+                ElTy = GetElementPtrInst::getTypeAtIndex(ElTy, II);
             }
             // And create a GEP to extract those indices.
             V = IRB.CreateGEP(ArgIndex.first, V, Ops, V->getName() + ".idx");
@@ -926,7 +926,7 @@ bool ArgumentPromotionPass::isDenselyPacked(Type *type, const DataLayout &DL) {
   if (DL.getTypeSizeInBits(type) != DL.getTypeAllocSizeInBits(type))
     return false;
 
-  if (!isa<CompositeType>(type))
+  if (!isa<StructType>(type) && !isa<SequentialType>(type))
     return true;
 
   // For homogenous sequential types, check for padding within members.

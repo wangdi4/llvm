@@ -147,11 +147,12 @@
 // FOFFLOAD_STATIC_LIB_SRC: 9: offload, "host-openmp (x86_64-unknown-linux-gnu)" {3}, "device-openmp (spir64)" {8}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 10: backend, {9}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 11: input, "[[INPUT1]]", archive
-// FOFFLOAD_STATIC_LIB_SRC: 12: clang-offload-unbundler, {5, 11}, object
-// FOFFLOAD_STATIC_LIB_SRC: 13: linker, {10, 12}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 14: llvm-spirv, {13}, image, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 15: offload, "device-openmp (spir64)" {14}, image
-// FOFFLOAD_STATIC_LIB_SRC: 16: clang-offload-wrapper, {15}, ir, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 17: backend, {16}, assembler, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 18: assembler, {17}, object, (host-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: linker, {0, 5, 18}, image, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 12: partial-link, {5, 11}, object
+// FOFFLOAD_STATIC_LIB_SRC: 13: clang-offload-unbundler, {12}, object
+// FOFFLOAD_STATIC_LIB_SRC: 14: linker, {10, 13}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 15: llvm-spirv, {14}, image, (device-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 16: offload, "device-openmp (spir64)" {15}, image
+// FOFFLOAD_STATIC_LIB_SRC: 17: clang-offload-wrapper, {16}, ir, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 18: backend, {17}, assembler, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 19: assembler, {18}, object, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 20: linker, {0, 5, 19}, image, (host-openmp)
