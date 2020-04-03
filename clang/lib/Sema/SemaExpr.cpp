@@ -5980,12 +5980,19 @@ ExprResult Sema::ActOnCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // IntrinsicPromotion implementation.
   if (LangOpts.isIntelCompat(LangOptions::IntrinsicPromotion) &&
       LangOpts.IntrinsicAutoPromote)
     PromoteIntelIntrins(*this, Call);
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (LangOpts.OpenMP)
+    Call = ActOnOpenMPCall(*this, Call, Scope, LParenLoc, ArgExprs, RParenLoc,
+                           ExecConfig);
+
+>>>>>>> befb4be3a89678cea1531d963c565cab05b731d4
   return Call;
 }
 
@@ -16580,9 +16587,6 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
 
     Func->markUsed(Context);
   }
-
-  if (LangOpts.OpenMP)
-    markOpenMPDeclareVariantFuncsReferenced(Loc, Func, MightBeOdrUse);
 }
 
 /// Directly mark a variable odr-used. Given a choice, prefer to use

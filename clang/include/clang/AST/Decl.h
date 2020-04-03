@@ -4542,6 +4542,17 @@ inline bool IsEnumDeclComplete(EnumDecl *ED) {
 inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
+<<<<<<< HEAD
+=======
+
+/// OpenMP variants are mangled early based on their OpenMP context selector.
+/// The new name looks likes this:
+///  <name> + OpenMPVariantManglingSeparatorStr + <mangled OpenMP context>
+static constexpr StringRef getOpenMPVariantManglingSeparatorStr() {
+  return ".ompvariant";
+}
+
+>>>>>>> befb4be3a89678cea1531d963c565cab05b731d4
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_DECL_H

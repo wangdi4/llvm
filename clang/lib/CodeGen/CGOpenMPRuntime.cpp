@@ -1280,52 +1280,6 @@ CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM, StringRef FirstSeparator,
   loadOffloadInfoMetadata();
 }
 
-bool CGOpenMPRuntime::tryEmitDeclareVariant(const GlobalDecl &NewGD,
-                                            const GlobalDecl &OldGD,
-                                            llvm::GlobalValue *OrigAddr,
-                                            bool IsForDefinition) {
-  // Emit at least a definition for the aliasee if the the address of the
-  // original function is requested.
-  if (IsForDefinition || OrigAddr)
-    (void)CGM.GetAddrOfGlobal(NewGD);
-  StringRef NewMangledName = CGM.getMangledName(NewGD);
-  llvm::GlobalValue *Addr = CGM.GetGlobalValue(NewMangledName);
-  if (Addr && !Addr->isDeclaration()) {
-    const auto *D = cast<FunctionDecl>(OldGD.getDecl());
-    const CGFunctionInfo &FI = CGM.getTypes().arrangeGlobalDeclaration(NewGD);
-    llvm::Type *DeclTy = CGM.getTypes().GetFunctionType(FI);
-
-    // Create a reference to the named value.  This ensures that it is emitted
-    // if a deferred decl.
-    llvm::GlobalValue::LinkageTypes LT = CGM.getFunctionLinkage(OldGD);
-
-    // Create the new alias itself, but don't set a name yet.
-    auto *GA =
-        llvm::GlobalAlias::create(DeclTy, 0, LT, "", Addr, &CGM.getModule());
-
-    if (OrigAddr) {
-      assert(OrigAddr->isDeclaration() && "Expected declaration");
-
-      GA->takeName(OrigAddr);
-      OrigAddr->replaceAllUsesWith(
-          llvm::ConstantExpr::getBitCast(GA, OrigAddr->getType()));
-      OrigAddr->eraseFromParent();
-    } else {
-      GA->setName(CGM.getMangledName(OldGD));
-    }
-
-    // Set attributes which are particular to an alias; this is a
-    // specialization of the attributes which may be set on a global function.
-    if (D->hasAttr<WeakAttr>() || D->hasAttr<WeakRefAttr>() ||
-        D->isWeakImported())
-      GA->setLinkage(llvm::Function::WeakAnyLinkage);
-
-    CGM.SetCommonAttributes(OldGD, GA);
-    return true;
-  }
-  return false;
-}
-
 void CGOpenMPRuntime::clear() {
   InternalVars.clear();
   // Clean non-target variable declarations possibly used only in debug info.
@@ -1338,14 +1292,6 @@ void CGOpenMPRuntime::clear() {
     if (!GV->isDeclaration() || GV->getNumUses() > 0)
       continue;
     GV->eraseFromParent();
-  }
-  // Emit aliases for the deferred aliasees.
-  for (const auto &Pair : DeferredVariantFunction) {
-    StringRef MangledName = CGM.getMangledName(Pair.second.second);
-    llvm::GlobalValue *Addr = CGM.GetGlobalValue(MangledName);
-    // If not able to emit alias, just emit original declaration.
-    (void)tryEmitDeclareVariant(Pair.second.first, Pair.second.second, Addr,
-                                /*IsForDefinition=*/false);
   }
 }
 
@@ -11756,6 +11702,7 @@ Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
   return Address(Addr, Align);
 }
 
+<<<<<<< HEAD
 /// Finds the variant function that matches current context with its context
 /// selector.
 static const FunctionDecl *getDeclareVariantFunction(CodeGenModule &CGM,
@@ -11814,6 +11761,8 @@ bool CGOpenMPRuntime::emitDeclareVariant(GlobalDecl GD, bool IsForDefinition) {
   return true;
 }
 
+=======
+>>>>>>> befb4be3a89678cea1531d963c565cab05b731d4
 CGOpenMPRuntime::NontemporalDeclsRAII::NontemporalDeclsRAII(
     CodeGenModule &CGM, const OMPLoopDirective &S)
     : CGM(CGM), NeedToPush(S.hasClausesOfKind<OMPNontemporalClause>()) {

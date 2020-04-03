@@ -13,7 +13,11 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/OpenMPKinds.h"
+<<<<<<< HEAD
 #include "clang/Basic/TargetInfo.h" // INTEL
+=======
+#include "clang/Basic/TargetInfo.h"
+>>>>>>> befb4be3a89678cea1531d963c565cab05b731d4
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Parse/ParseDiagnostic.h"
 #include "clang/Parse/Parser.h"
@@ -1821,8 +1825,10 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     OMPContext OMPCtx(ASTCtx.getLangOpts().OpenMPIsDevice,
                       ASTCtx.getTargetInfo().getTriple());
 
-    if (isVariantApplicableInContext(VMI, OMPCtx))
+    if (isVariantApplicableInContext(VMI, OMPCtx)) {
+      Actions.ActOnOpenMPBeginDeclareVariant(Loc, TI);
       break;
+    }
 
     // Elide all the code till the matching end declare variant was found.
     unsigned Nesting = 1;
@@ -1846,11 +1852,14 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
       return nullptr;
     break;
   }
-  case OMPD_end_declare_variant:
-    // FIXME: With the sema changes we will keep track of nesting and be able to
-    // diagnose unmatchend OMPD_end_declare_variant.
+  case OMPD_end_declare_variant: {
+    if (Actions.isInOpenMPDeclareVariantScope())
+      Actions.ActOnOpenMPEndDeclareVariant();
+    else
+      Diag(Loc, diag::err_expected_begin_declare_variant);
     ConsumeToken();
     break;
+  }
   case OMPD_declare_variant:
   case OMPD_declare_simd: {
     // The syntax is:
