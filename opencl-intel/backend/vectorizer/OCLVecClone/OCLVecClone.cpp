@@ -352,15 +352,20 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
   updateMetadata(F, Clone);
 
-  static ContainerTy VecInfo = {
-    {"intel_sub_group_ballot", {VectorVariant::ISAClass::XMM, true, 4,
-     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf4"}},
-    {"intel_sub_group_ballot", {VectorVariant::ISAClass::XMM, true, 8,
-     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf8"}},
-    {"intel_sub_group_ballot", {VectorVariant::ISAClass::XMM, true, 16,
-     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf16"}},
+  std::vector<std::pair<const char*, std::string>> VectInfoStr = {
     #include "VectInfo.gen"
+    {"intel_sub_group_ballot", VectorVariant{VectorVariant::ISAClass::XMM, true, 4,
+     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf4"}.toString()},
+    {"intel_sub_group_ballot", VectorVariant{VectorVariant::ISAClass::XMM, true, 8,
+     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf8"}.toString()},
+    {"intel_sub_group_ballot", VectorVariant{VectorVariant::ISAClass::XMM, true, 16,
+     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf16"}.toString()},
   };
+  ContainerTy VectInfo;
+  for (auto &vi : VectInfoStr) {
+    VectInfo.emplace_back(vi.first, std::move(vi.second));
+  }
+  static ContainerTy VecInfo = std::move(VectInfo);
 
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);

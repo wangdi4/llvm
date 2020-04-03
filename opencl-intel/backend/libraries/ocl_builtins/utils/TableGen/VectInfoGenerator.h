@@ -16,6 +16,9 @@
 #define __VECT_INFO_GENERATOR_H__
 
 #include "OclBuiltinEmitter.h"
+
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
+
 #include <algorithm>
 #include <sstream>
 
@@ -31,9 +34,9 @@ struct VectEntry {
   const std::string &v4FuncName;
   const std::string &v8FuncName;
   const std::string &v16FuncName;
-  static std::string vectorKindEncode;
-  static std::string isMasked;
-  const static std::string isaClass;
+  static std::vector<VectorKind> vectorKindEncode;
+  static bool isMasked;
+  const static VectorVariant::ISAClass isaClass;
   const static std::string baseName;
 };
 
