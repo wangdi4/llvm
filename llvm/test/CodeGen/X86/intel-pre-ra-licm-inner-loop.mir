@@ -1,0 +1,294 @@
+# RUN: llc -mtriple=x86_64-pc-linux -start-before=early-machinelicm -enable-intel-advanced-opts -O3 -o - %s | FileCheck %s
+# test Pre-RA LICM hoist inner-loop broadcast to outer-loop
+--- |
+  ; ModuleID = 'intel-pre-ra-licm-inner-loop.ll'
+  source_filename = "intel-pre-ra-licm-inner-loop.mir.ll"
+  target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+  target triple = "x86_64-unknown-linux-gnu"
+
+  ; Function Attrs: nofree norecurse nounwind uwtable
+  define dso_local void @test(double* noalias nocapture readonly %a, double* noalias nocapture readonly %b, double* noalias nocapture %c, i64 %n1, i64 %n2) local_unnamed_addr #0 {
+  entry:
+    %cmp19 = icmp sgt i64 %n1, 0
+    br i1 %cmp19, label %for.cond1.preheader.lr.ph, label %for.end8
+
+  for.cond1.preheader.lr.ph:                        ; preds = %entry
+    %cmp217 = icmp sgt i64 %n2, 0
+    %0 = add i64 %n2, -1
+    %xtraiter = and i64 %n2, 7
+    %unroll_iter = sub i64 %n2, %xtraiter
+    br i1 %cmp217, label %for.cond1.preheader.us.preheader, label %for.end8
+
+  for.cond1.preheader.us.preheader:                 ; preds = %for.cond1.preheader.lr.ph
+    br label %for.cond1.preheader.us
+
+  for.cond1.preheader.us:                           ; preds = %for.cond1.preheader.us.preheader, %for.inc6.us
+    %j.020.us = phi i64 [ %inc7.us, %for.inc6.us ], [ 0, %for.cond1.preheader.us.preheader ]
+    %1 = icmp ult i64 %0, 7
+    %arrayidx.us = getelementptr inbounds double, double* %a, i64 %j.020.us
+    %2 = load double, double* %arrayidx.us, align 8, !tbaa !2
+    br i1 %1, label %for.inc6.loopexit.unr-lcssa.us, label %for.body3.us.preheader
+
+  for.body3.us.preheader:                           ; preds = %for.cond1.preheader.us
+    %3 = insertelement <4 x double> undef, double %2, i32 0
+    %4 = shufflevector <4 x double> %3, <4 x double> undef, <4 x i32> zeroinitializer
+    br label %for.body3.us
+
+  for.body3.us:                                     ; preds = %for.body3.us, %for.body3.us.preheader
+    %i.018.us = phi i64 [ %inc.7.us, %for.body3.us ], [ 0, %for.body3.us.preheader ]
+    %sunkaddr = mul i64 %i.018.us, 8
+    %5 = bitcast double* %b to i8*
+    %sunkaddr17 = getelementptr i8, i8* %5, i64 %sunkaddr
+    %6 = bitcast i8* %sunkaddr17 to <4 x double>*
+    %7 = load <4 x double>, <4 x double>* %6, align 8, !tbaa !2
+    %8 = fmul <4 x double> %4, %7
+    %sunkaddr18 = mul i64 %i.018.us, 8
+    %9 = bitcast double* %c to i8*
+    %sunkaddr19 = getelementptr i8, i8* %9, i64 %sunkaddr18
+    %10 = bitcast i8* %sunkaddr19 to <4 x double>*
+    store <4 x double> %8, <4 x double>* %10, align 8, !tbaa !2
+    %sunkaddr20 = mul i64 %i.018.us, 8
+    %11 = bitcast double* %b to i8*
+    %sunkaddr21 = getelementptr i8, i8* %11, i64 %sunkaddr20
+    %sunkaddr22 = getelementptr i8, i8* %sunkaddr21, i64 32
+    %12 = bitcast i8* %sunkaddr22 to <4 x double>*
+    %13 = load <4 x double>, <4 x double>* %12, align 8, !tbaa !2
+    %14 = fmul <4 x double> %4, %13
+    %sunkaddr23 = mul i64 %i.018.us, 8
+    %15 = bitcast double* %c to i8*
+    %sunkaddr24 = getelementptr i8, i8* %15, i64 %sunkaddr23
+    %sunkaddr25 = getelementptr i8, i8* %sunkaddr24, i64 32
+    %16 = bitcast i8* %sunkaddr25 to <4 x double>*
+    store <4 x double> %14, <4 x double>* %16, align 8, !tbaa !2
+    %inc.7.us = add nuw nsw i64 %i.018.us, 8
+    %niter.ncmp.7.us = icmp eq i64 %unroll_iter, %inc.7.us
+    br i1 %niter.ncmp.7.us, label %for.inc6.loopexit.unr-lcssa.us, label %for.body3.us
+
+  for.inc6.loopexit.unr-lcssa.us:                   ; preds = %for.body3.us, %for.cond1.preheader.us
+    %i.018.unr.us = phi i64 [ 0, %for.cond1.preheader.us ], [ %inc.7.us, %for.body3.us ]
+    %17 = icmp eq i64 %xtraiter, 0
+    br i1 %17, label %for.inc6.us, label %for.body3.epil.us.preheader
+
+  for.body3.epil.us.preheader:                      ; preds = %for.inc6.loopexit.unr-lcssa.us
+    %scevgep13 = getelementptr double, double* %c, i64 %i.018.unr.us
+    %scevgep15 = getelementptr double, double* %b, i64 %i.018.unr.us
+    br label %for.body3.epil.us
+
+  for.body3.epil.us:                                ; preds = %for.body3.epil.us.preheader, %for.body3.epil.us
+    %lsr.iv = phi i64 [ 0, %for.body3.epil.us.preheader ], [ %lsr.iv.next, %for.body3.epil.us ]
+    %scevgep16 = getelementptr double, double* %scevgep15, i64 %lsr.iv
+    %18 = load double, double* %scevgep16, align 8, !tbaa !2
+    %mul.epil.us = fmul double %2, %18
+    %scevgep14 = getelementptr double, double* %scevgep13, i64 %lsr.iv
+    store double %mul.epil.us, double* %scevgep14, align 8, !tbaa !2
+    %lsr.iv.next = add nuw nsw i64 %lsr.iv, 1
+    %epil.iter.cmp.us = icmp eq i64 %xtraiter, %lsr.iv.next
+    br i1 %epil.iter.cmp.us, label %for.inc6.us, label %for.body3.epil.us, !llvm.loop !6
+
+  for.inc6.us:                                      ; preds = %for.body3.epil.us, %for.inc6.loopexit.unr-lcssa.us
+    %inc7.us = add nuw nsw i64 %j.020.us, 1
+    %exitcond22.us = icmp eq i64 %inc7.us, %n1
+    br i1 %exitcond22.us, label %for.end8, label %for.cond1.preheader.us
+
+  for.end8:                                         ; preds = %for.inc6.us, %for.cond1.preheader.lr.ph, %entry
+    ret void
+  }
+
+  attributes #0 = { nofree norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "denormal-fp-math"="ieee,ieee" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="false" "use-soft-float"="false" }
+
+  !llvm.module.flags = !{!0}
+  !llvm.ident = !{!1}
+
+  !0 = !{i32 1, !"wchar_size", i32 4}
+  !1 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+  !2 = !{!3, !3, i64 0}
+  !3 = !{!"double", !4, i64 0}
+  !4 = !{!"omnipotent char", !5, i64 0}
+  !5 = !{!"Simple C/C++ TBAA"}
+  !6 = distinct !{!6, !7}
+  !7 = !{!"llvm.loop.unroll.disable"}
+
+...
+---
+name:            test
+alignment:       16
+exposesReturnsTwice: false
+legalized:       false
+regBankSelected: false
+selected:        false
+failedISel:      false
+tracksRegLiveness: true
+hasWinCFI:       false
+registers:
+  - { id: 0, class: gr64, preferred-register: '' }
+  - { id: 1, class: gr64, preferred-register: '' }
+  - { id: 2, class: gr64, preferred-register: '' }
+  - { id: 3, class: gr64_nosp, preferred-register: '' }
+  - { id: 4, class: fr64, preferred-register: '' }
+  - { id: 5, class: vr256, preferred-register: '' }
+  - { id: 6, class: gr64_nosp, preferred-register: '' }
+  - { id: 7, class: gr64, preferred-register: '' }
+  - { id: 8, class: gr64_nosp, preferred-register: '' }
+  - { id: 9, class: gr64, preferred-register: '' }
+  - { id: 10, class: gr64, preferred-register: '' }
+  - { id: 11, class: gr64_nosp, preferred-register: '' }
+  - { id: 12, class: gr64, preferred-register: '' }
+  - { id: 13, class: gr64, preferred-register: '' }
+  - { id: 14, class: gr64, preferred-register: '' }
+  - { id: 15, class: gr64, preferred-register: '' }
+  - { id: 16, class: gr64, preferred-register: '' }
+  - { id: 17, class: gr64, preferred-register: '' }
+  - { id: 18, class: gr64, preferred-register: '' }
+  - { id: 19, class: gr32, preferred-register: '' }
+  - { id: 20, class: gr32, preferred-register: '' }
+  - { id: 21, class: gr64, preferred-register: '' }
+  - { id: 22, class: gr32, preferred-register: '' }
+  - { id: 23, class: gr64, preferred-register: '' }
+  - { id: 24, class: gr32, preferred-register: '' }
+  - { id: 25, class: gr64, preferred-register: '' }
+  - { id: 26, class: gr64, preferred-register: '' }
+  - { id: 27, class: vr128, preferred-register: '' }
+  - { id: 28, class: gr32, preferred-register: '' }
+  - { id: 29, class: vr256, preferred-register: '' }
+  - { id: 30, class: vr256, preferred-register: '' }
+  - { id: 31, class: gr64, preferred-register: '' }
+  - { id: 32, class: gr64, preferred-register: '' }
+  - { id: 33, class: gr32, preferred-register: '' }
+  - { id: 34, class: fr64, preferred-register: '' }
+  - { id: 35, class: gr64, preferred-register: '' }
+  - { id: 36, class: gr64, preferred-register: '' }
+liveins:
+  - { reg: '$rdi', virtual-reg: '%14' }
+  - { reg: '$rsi', virtual-reg: '%15' }
+  - { reg: '$rdx', virtual-reg: '%16' }
+  - { reg: '$rcx', virtual-reg: '%17' }
+  - { reg: '$r8', virtual-reg: '%18' }
+frameInfo:
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    1
+  adjustsStack:    false
+  hasCalls:        false
+  stackProtector:  ''
+  maxCallFrameSize: 4294967295
+  cvBytesOfCalleeSavedRegisters: 0
+  hasOpaqueSPAdjustment: false
+  hasVAStart:      false
+  hasMustTailInVarArgFunc: false
+  localFrameSize:  0
+  savePoint:       ''
+  restorePoint:    ''
+fixedStack:      []
+stack:           []
+callSites:       []
+constants:       []
+machineFunctionInfo: {}
+body:             |
+  bb.0.entry:
+    successors: %bb.1(0x50000000), %bb.10(0x30000000)
+    liveins: $rdi, $rsi, $rdx, $rcx, $r8
+
+    %18:gr64 = COPY $r8
+    %17:gr64 = COPY $rcx
+    %16:gr64 = COPY $rdx
+    %15:gr64 = COPY $rsi
+    %14:gr64 = COPY $rdi
+    TEST64rr %17, %17, implicit-def $eflags
+    JCC_1 %bb.10, 14, implicit $eflags
+    JMP_1 %bb.1
+
+  bb.1.for.cond1.preheader.lr.ph:
+    successors: %bb.2(0x50000000), %bb.10(0x30000000)
+
+    %0:gr64 = DEC64r %18, implicit-def dead $eflags
+    %19:gr32 = COPY %18.sub_32bit
+    %20:gr32 = AND32ri8 %19, 7, implicit-def dead $eflags
+    %2:gr64 = AND64ri8 %18, -8, implicit-def dead $eflags
+    TEST64rr %18, %18, implicit-def $eflags
+    %1:gr64 = SUBREG_TO_REG 0, killed %20, %subreg.sub_32bit
+    JCC_1 %bb.10, 14, implicit $eflags
+    JMP_1 %bb.2
+
+  bb.2.for.cond1.preheader.us.preheader:
+    successors: %bb.3(0x80000000)
+
+    %22:gr32 = MOV32r0 implicit-def dead $eflags
+    %21:gr64 = SUBREG_TO_REG 0, killed %22, %subreg.sub_32bit
+
+  bb.3.for.cond1.preheader.us:
+    successors: %bb.6(0x40000000), %bb.4(0x40000000)
+
+    %3:gr64_nosp = PHI %21, %bb.2, %13, %bb.9
+    %24:gr32 = MOV32r0 implicit-def dead $eflags
+    %25:gr64 = SUB64ri8 %0, 7, implicit-def $eflags
+    %4:fr64 = VMOVSDrm_alt %14, 8, %3, 0, $noreg :: (load 8 from %ir.arrayidx.us, !tbaa !2)
+    %23:gr64 = SUBREG_TO_REG 0, killed %24, %subreg.sub_32bit
+    JCC_1 %bb.6, 2, implicit $eflags
+    JMP_1 %bb.4
+
+  ; CHECK: vbroadcastsd    %xmm0, %ymm1
+  ; CHECK-NEXT: xorl    %eax, %eax
+  bb.4.for.body3.us.preheader:
+    successors: %bb.5(0x80000000)
+
+    %28:gr32 = MOV32r0 implicit-def dead $eflags
+    %26:gr64 = SUBREG_TO_REG 0, killed %28, %subreg.sub_32bit
+
+  bb.5.for.body3.us:
+    successors: %bb.6(0x04000000), %bb.5(0x7c000000)
+
+    %6:gr64_nosp = PHI %26, %bb.4, %7, %bb.5
+    %27:vr128 = COPY %4
+    %5:vr256 = VBROADCASTSDYrr killed %27
+    %29:vr256 = nofpexcept VMULPDYrm %5, %15, 8, %6, 0, $noreg, implicit $mxcsr :: (load 32 from %ir.6, align 8, !tbaa !2)
+    VMOVUPDYmr %16, 8, %6, 0, $noreg, killed %29 :: (store 32 into %ir.10, align 8, !tbaa !2)
+    %30:vr256 = nofpexcept VMULPDYrm %5, %15, 8, %6, 32, $noreg, implicit $mxcsr :: (load 32 from %ir.12, align 8, !tbaa !2)
+    VMOVUPDYmr %16, 8, %6, 32, $noreg, killed %30 :: (store 32 into %ir.16, align 8, !tbaa !2)
+    %7:gr64 = nuw nsw ADD64ri8 %6, 8, implicit-def dead $eflags
+    %31:gr64 = SUB64rr %2, %7, implicit-def $eflags
+    JCC_1 %bb.5, 5, implicit $eflags
+    JMP_1 %bb.6
+
+  bb.6.for.inc6.loopexit.unr-lcssa.us:
+    successors: %bb.9(0x30000000), %bb.7(0x50000000)
+
+    %8:gr64_nosp = PHI %23, %bb.3, %7, %bb.5
+    TEST64rr %1, %1, implicit-def $eflags
+    JCC_1 %bb.9, 4, implicit $eflags
+    JMP_1 %bb.7
+
+  bb.7.for.body3.epil.us.preheader:
+    successors: %bb.8(0x80000000)
+
+    %9:gr64 = LEA64r %16, 8, %8, 0, $noreg
+    %10:gr64 = LEA64r %15, 8, %8, 0, $noreg
+    %33:gr32 = MOV32r0 implicit-def dead $eflags
+    %32:gr64 = SUBREG_TO_REG 0, killed %33, %subreg.sub_32bit
+
+  bb.8.for.body3.epil.us:
+    successors: %bb.9(0x04000000), %bb.8(0x7c000000)
+
+    %11:gr64_nosp = PHI %32, %bb.7, %12, %bb.8
+    %34:fr64 = nofpexcept VMULSDrm %4, %10, 8, %11, 0, $noreg, implicit $mxcsr :: (load 8 from %ir.scevgep16, !tbaa !2)
+    VMOVSDmr %9, 8, %11, 0, $noreg, killed %34 :: (store 8 into %ir.scevgep14, !tbaa !2)
+    %12:gr64 = nuw nsw INC64r %11, implicit-def dead $eflags
+    %35:gr64 = SUB64rr %1, %12, implicit-def $eflags
+    JCC_1 %bb.8, 5, implicit $eflags
+    JMP_1 %bb.9
+
+  bb.9.for.inc6.us:
+    successors: %bb.10(0x04000000), %bb.3(0x7c000000)
+
+    %13:gr64 = nuw nsw INC64r %3, implicit-def dead $eflags
+    %36:gr64 = SUB64rr %13, %17, implicit-def $eflags
+    JCC_1 %bb.3, 5, implicit $eflags
+    JMP_1 %bb.10
+
+  bb.10.for.end8:
+    RET 0
+
+...
