@@ -24,6 +24,7 @@ extern "C" {
 #endif // __cplusplus
 
 #include <stdio.h>
+#include <string.h>
 #include <stdarg.h>
 
 // Some opencl extensions we know are supported by all Level0 devices.
@@ -642,8 +643,12 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_uint32 max_compute_units =
         ze_device_properties.numEUsPerSubslice *
         ze_device_properties.numSubslicesPerSlice *
+#ifdef _WIN32 // TODO: remove this fragmentation after Windows drivers are updated
         ze_device_properties.numSlicesPerTile *
         (ze_device_properties.numTiles > 0 ? ze_device_properties.numTiles : 1);
+#else
+        ze_device_properties.numSlices;
+#endif // _WIN32
     SET_PARAM_VALUE(pi_uint32{max_compute_units});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_WORK_ITEM_DIMENSIONS) {
@@ -719,7 +724,13 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR(version.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_PARTITION_MAX_SUB_DEVICES) {
+#ifdef _WIN32 // TODO: remove this fragmentation after Windows drivers are updated
     SET_PARAM_VALUE(pi_uint32{ze_device_properties.numTiles});
+#else
+    uint32_t ze_sub_device_count = 0;
+    ZE_CALL(zeDeviceGetSubDevices(ze_device, &ze_sub_device_count, nullptr));
+    SET_PARAM_VALUE(pi_uint32{ze_sub_device_count});
+#endif // _WIN32
   }
   else if (param_name == PI_DEVICE_INFO_REFERENCE_COUNT) {
     SET_PARAM_VALUE(pi_uint32{device->RefCount});
