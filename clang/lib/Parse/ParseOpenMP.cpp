@@ -108,13 +108,10 @@ static unsigned getOpenMPDirectiveKindEx(StringRef S) {
       .Case("update", OMPD_update)
       .Case("mapper", OMPD_mapper)
       .Case("variant", OMPD_variant)
-<<<<<<< HEAD
+      .Case("begin", OMPD_begin)
 #if INTEL_COLLAB
       .Case("dispatch", OMPD_dispatch)
 #endif // INTEL_COLLAB
-=======
-      .Case("begin", OMPD_begin)
->>>>>>> 095cecbe0ded16f2e66435d938fdc3cb1869713f
       .Default(OMPD_unknown);
 }
 
@@ -1387,7 +1384,7 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
     return;
   }
 
-  OMPTraitInfo TI;
+  OMPTraitInfo &TI = Actions.getASTContext().getNewOMPTraitInfo();
   if (parseOMPDeclareVariantMatchClause(Loc, TI))
     return;
 
