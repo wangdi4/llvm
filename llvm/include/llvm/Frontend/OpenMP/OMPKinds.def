@@ -93,6 +93,8 @@ __OMP_DIRECTIVE_EXT(parallel_master_taskloop_simd,
                     "parallel master taskloop simd")
 __OMP_DIRECTIVE(depobj)
 __OMP_DIRECTIVE(scan)
+__OMP_DIRECTIVE_EXT(begin_declare_variant, "begin declare variant")
+__OMP_DIRECTIVE_EXT(end_declare_variant, "end declare variant")
 
 #if INTEL_COLLAB
 __OMP_DIRECTIVE_EXT(target_variant_dispatch, "target variant dispatch")
