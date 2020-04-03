@@ -27,6 +27,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/TypeSize.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
@@ -1138,7 +1139,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
-    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+    vecWidthVal = ConstantVector::getSplat(ElementCount(m_packetWidth, false),
+                                           vecWidthVal);
     std::vector<Constant *> laneVec;
     for (unsigned int i=0; i < m_packetWidth; ++i) {
       laneVec.push_back(ConstantInt::get(indexType, i));
@@ -1172,7 +1174,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
-    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+    vecWidthVal = ConstantVector::getSplat(ElementCount(m_packetWidth, false),
+                                           vecWidthVal);
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
 
     PointerType *elemType = PointerType::get(ElemTy, 0);
@@ -1218,7 +1221,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   if (MO.type == PREFETCH && vectorWidth == 16 && BaseTy->getElementType()->getPrimitiveSizeInBits() == 64) {
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
-    vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
+    vecVal =
+        ConstantVector::getSplat(ElementCount(m_packetWidth, false), vecVal);
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
     VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
         SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
@@ -1901,7 +1905,8 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       obtainVectorizedValue(&maskV, mask, CI);
     } else {
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(1,1));
-      maskV = ConstantVector::getSplat(m_packetWidth, mask);
+      maskV =
+          ConstantVector::getSplat(ElementCount(m_packetWidth, false), mask);
     }
     newArgs.push_back(maskV);
   }
@@ -2010,7 +2015,8 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     } else {
       // 0xffffffff means that mask is active
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(32,-1));
-      maskV = ConstantVector::getSplat(m_packetWidth, mask);
+      maskV =
+          ConstantVector::getSplat(ElementCount(m_packetWidth, false), mask);
     }
     // VPlan style mask is the last argument.
     newArgs.push_back(maskV);
@@ -2135,8 +2141,8 @@ bool PacketizeFunction::handleReturnValueSOAVPlanStyle(CallInst *CI,
   unsigned numElements = aosType->getNumElements();
   SmallVector<Instruction *, MAX_INPUT_VECTOR_WIDTH> scalars;
   for (unsigned i = 0; i < numElements; i++) {
-    Value *InsertInst =
-        ConstantVector::getSplat(m_packetWidth, UndefValue::get(elementType));
+    Value *InsertInst = ConstantVector::getSplat(
+        ElementCount(m_packetWidth, false), UndefValue::get(elementType));
     for (unsigned j = 0; j < m_packetWidth; j++) {
       unsigned index = j * numElements + i;
       Constant *indexVal =

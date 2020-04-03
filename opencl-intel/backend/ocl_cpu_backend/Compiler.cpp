@@ -36,7 +36,8 @@
 #ifdef _WIN32
 #include "lld/Common/TargetOptionsCommandFlags.h"
 #else
-#include "llvm/CodeGen/CommandFlags.inc"
+#include "llvm/CodeGen/CommandFlags.h"
+static codegen::RegisterCodeGenFlags CGF;
 #endif
 
 #include <sstream>
@@ -50,7 +51,7 @@ TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
     // We only link to LLD on Windows
     return lld::initTargetOptionsFromCodeGenFlags();
 #else
-    return InitTargetOptionsFromCodeGenFlags();
+    return codegen::InitTargetOptionsFromCodeGenFlags();
 #endif
 }
 
