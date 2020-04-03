@@ -647,7 +647,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
         ze_device_properties.numSlicesPerTile *
         (ze_device_properties.numTiles > 0 ? ze_device_properties.numTiles : 1);
 #else
-        ze_device_properties.numSlices;
+        ze_device_properties.numTiles;
 #endif // _WIN32
     SET_PARAM_VALUE(pi_uint32{max_compute_units});
   }
