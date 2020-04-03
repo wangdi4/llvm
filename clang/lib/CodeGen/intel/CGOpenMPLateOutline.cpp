@@ -1338,12 +1338,48 @@ void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
 void OpenMPLateOutliner::emitOMPDefaultmapClause(
     const OMPDefaultmapClause *Cl) {
 
-  if (Cl->getDefaultmapModifier() != OMPC_DEFAULTMAP_MODIFIER_tofrom ||
-      Cl->getDefaultmapKind() != OMPC_DEFAULTMAP_scalar)
-    llvm_unreachable("Unsupported defaultmap clause");
-
   ClauseEmissionHelper CEH(*this, OMPC_defaultmap);
-  addArg("QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  CSB.add("QUAL.OMP.DEFAULTMAP.");
+  switch (Cl->getDefaultmapModifier()) {
+  case OMPC_DEFAULTMAP_MODIFIER_alloc:
+    CSB.add("ALLOC");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_to:
+    CSB.add("TO");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_from:
+    CSB.add("FROM");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_tofrom:
+    CSB.add("TOFROM");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_default:
+    CSB.add("DEFAULT");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_none:
+    CSB.add("NONE");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_firstprivate:
+    CSB.add("FIRSTPRIVATE");
+    break;
+  default:
+     llvm_unreachable("Unexpected defaultmap modifier");
+  }
+  switch (Cl->getDefaultmapKind()) {
+  case OMPC_DEFAULTMAP_scalar:
+    CSB.add(":SCALAR");
+    break;
+  case OMPC_DEFAULTMAP_aggregate:
+    CSB.add(":AGGREGATE");
+    break;
+  case OMPC_DEFAULTMAP_pointer:
+    CSB.add(":POINTER");
+    break;
+  default:
+     llvm_unreachable("Unexpected defaultmap kind");
+  }
+  addArg(CSB.getString());
 }
 
 void OpenMPLateOutliner::emitOMPNowaitClause(const OMPNowaitClause *Cl) {

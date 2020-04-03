@@ -17,6 +17,13 @@
 ; amx-transpose
 ; CHECK:    t2rpntlvw       %{{.*}}, (%{{.*}},%{{.*}}), %tmm0
 ; CHECK:    t2rpntlvwt1     %{{.*}}, (%{{.*}},%{{.*}}), %tmm2
+; CHECK:    t2rpntlvwz0     (%{{.*}},%{{.*}}), %tmm0
+; CHECK:    t2rpntlvwz0t1   (%{{.*}},%{{.*}}), %tmm2
+; CHECK:    t2rpntlvwz1     (%{{.*}},%{{.*}}), %tmm0
+; CHECK:    t2rpntlvwz1t1   (%{{.*}},%{{.*}}), %tmm2
+; CHECK:    ttdpbf16ps      %tmm3, %tmm2, %tmm1
+; CHECK:    ttdpfp16ps      %tmm6, %tmm5, %tmm4
+; CHECK:    ttransposed     %tmm3, %tmm1
 
 define void @test_amx(i64 %addr, i64 %addrx, i32 %rv32, i64 %stride, i64 %rvalue, i8* %addr1,i8* %addr2, <16 x float> %zmm, <4 x float> %xmm) {
 ; amx-avx512
@@ -33,6 +40,13 @@ call <16 x float> @llvm.x86.tcvtrowps2phee(i8 7, i32 %rv32)
 ; amx-transpose
 call void @llvm.x86.t2rpntlvw  (i8 1, i8* %addr1, i64 %stride, i64 %rvalue)
 call void @llvm.x86.t2rpntlvwt1   (i8 2, i8* %addr1, i64 %stride, i64 %rvalue)
+call void @llvm.x86.t2rpntlvwz0(i8 1, i8* %addr1, i64 %stride)
+call void @llvm.x86.t2rpntlvwz0t1(i8 2, i8* %addr1, i64 %stride)
+call void @llvm.x86.t2rpntlvwz1(i8 1, i8* %addr1, i64 %stride)
+call void @llvm.x86.t2rpntlvwz1t1(i8 2, i8* %addr1, i64 %stride)
+call void @llvm.x86.ttdpbf16ps(i8 1, i8 2, i8 3)
+call void @llvm.x86.ttdpfp16ps(i8 4, i8 5, i8 6)
+call void @llvm.x86.ttransposed(i8 1, i8 3)
 
 ret void
 }
@@ -51,3 +65,10 @@ declare <16 x float> @llvm.x86.tcvtrowps2phee(i8 %tile0, i32 %rv32)
 ; amx-transpose
 declare void @llvm.x86.t2rpntlvw     (i8 %tile1, i8* %addr1, i64 %stride, i64 %rvalue)
 declare void @llvm.x86.t2rpntlvwt1   (i8 %tile1, i8* %addr1, i64 %stride, i64 %rvalue)
+declare void @llvm.x86.t2rpntlvwz0(i8 %tile1, i8* %addr1, i64 %stride)
+declare void @llvm.x86.t2rpntlvwz0t1(i8 %tile1, i8* %addr1, i64 %stride)
+declare void @llvm.x86.t2rpntlvwz1(i8 %tile1, i8* %addr1, i64 %stride)
+declare void @llvm.x86.t2rpntlvwz1t1(i8 %tile1, i8* %addr1, i64 %stride)
+declare void @llvm.x86.ttdpbf16ps(i8 %tile0, i8 %tile1, i8 %tile2)
+declare void @llvm.x86.ttdpfp16ps(i8 %tile0, i8 %tile1, i8 %tile2)
+declare void @llvm.x86.ttransposed(i8 %tile0, i8 %tile1)

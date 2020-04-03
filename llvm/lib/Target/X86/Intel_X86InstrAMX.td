@@ -1028,8 +1028,8 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
                         "ttdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                         []>, VEX_4V, T8XD;
 
-    def TTRANSPOSED : I<0x5f, MRMSrcReg, (outs VTILEX:$dst),
-                     (ins VTILEX:$src),
+    def TTRANSPOSED : I<0x5f, MRMSrcReg, (outs VTILE:$dst),
+                     (ins VTILE:$src),
                      "ttransposed\t{$src, $dst|$dst, $src}",
                      []>, VEX, T8XS;
 
@@ -1047,10 +1047,15 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
       def PT2RPNTLVWZ1T1 : PseudoI<(outs), (ins u8imm:$dst,
                                    i8mem:$src1), []>;
       def PTTDPBF16PS : PseudoI<(outs), (ins u8imm:$src1,
-                                u8imm:$src2, u8imm:$src3), []>;
+                                u8imm:$src2, u8imm:$src3),
+                                [(int_x86_ttdpbf16ps timm:$src1,
+                                  timm:$src2, timm:$src3)]>;
       def PTTDPFP16PS : PseudoI<(outs), (ins u8imm:$src1,
-                                u8imm:$src2, u8imm:$src3), []>;
-      def PTTRANSPOSED : PseudoI<(outs), (ins u8imm:$dst, u8imm:$src), []>;
+                                u8imm:$src2, u8imm:$src3),
+                                [(int_x86_ttdpfp16ps timm:$src1,
+                                  timm:$src2, timm:$src3)]>;
+      def PTTRANSPOSED : PseudoI<(outs), (ins u8imm:$dst, u8imm:$src),
+                                 [(int_x86_ttransposed timm:$dst, timm:$src)]>;
     }
   }
 } // HasAMXTILE, HasAMXTRANSPOSE
