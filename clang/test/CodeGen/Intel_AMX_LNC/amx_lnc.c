@@ -18,6 +18,51 @@ void test_tile_2rpntlvwt1(const void *A, size_t B, size_t C) {
   _tile_2rpntlvwt1(1, A, B, C);
 }
 
+void test_tile_2rpntlvwz0(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_2rpntlvwz0
+  // CHECK: call void @llvm.x86.t2rpntlvwz0(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  _tile_2rpntlvwz0(1, A, B);
+}
+
+void test_tile_2rpntlvwz0t1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_2rpntlvwz0t1
+  // CHECK: call void @llvm.x86.t2rpntlvwz0t1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  _tile_2rpntlvwz0t1(1, A, B);
+}
+
+void test_tile_2rpntlvwz1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_2rpntlvwz1
+  // CHECK: call void @llvm.x86.t2rpntlvwz1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  _tile_2rpntlvwz1(1, A, B);
+}
+
+void test_tile_2rpntlvwz1t1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_2rpntlvwz1t1
+  // CHECK: call void @llvm.x86.t2rpntlvwz1t1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  _tile_2rpntlvwz1t1(1, A, B);
+}
+
+void test_tile_tdpbf16ps()
+{
+  // CHECK-LABEL: @test_tile_tdpbf16ps
+  // CHECK: call void @llvm.x86.ttdpbf16ps(i8 1, i8 2, i8 3)
+  _tile_tdpbf16ps(1, 2, 3);
+}
+
+void test_tile_tdpfp16ps()
+{
+  // CHECK-LABEL: @test_tile_tdpfp16ps
+  // CHECK: call void @llvm.x86.ttdpfp16ps(i8 4, i8 5, i8 6)
+  _tile_tdpfp16ps(4, 5, 6);
+}
+
+void test_tile_transposed()
+{
+  // CHECK-LABEL: @test_tile_transposed
+  // CHECK: call void @llvm.x86.ttransposed(i8 1, i8 2)
+  _tile_transposed(1, 2);
+}
+
 typedef float __m512 __attribute__((__vector_size__(64)));
 // Tile to AVX512
 void test_tile_mov16zmm(__m512 tsrc1, __m512 tsrc2, __m512 tsrc3, __m512 tsrc4,

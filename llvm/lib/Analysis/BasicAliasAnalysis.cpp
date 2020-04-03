@@ -20,8 +20,8 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryLocation.h"
@@ -52,7 +52,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/KnownBits.h"
 #include <cassert>
@@ -78,9 +77,10 @@ static cl::opt<bool> DoubleCalcBits("basicaa-double-calc-bits",
                                     cl::Hidden, cl::init(false));
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<unsigned> PtrCaptureMaxUses("basicaa-ptr-max-uses",
-                                           cl::ReallyHidden,
-                                           cl::init(DefaultMaxUsesToExplore));
+cl::opt<unsigned> BasicAAResult::OptPtrMaxUsesToExplore(
+    "basicaa-opt-ptr-max-uses", cl::Hidden, cl::init(80u),
+    cl::desc(
+        "Maximum number of pointer uses to explore when checking for capture"));
 #endif // INTEL_CUSTOMIZATION
 
 /// SearchLimitReached / SearchTimes shows how often the limit of
@@ -135,11 +135,9 @@ bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
 // The utility returns true if the value V which is malloc call
 // does not assign to anywhere except the no-alias argument pointer.
 // In the above example, the value V represents the malloc call.
-static bool isNonEscapingAllocObj(const Value *V) {
+static bool isNonEscapingAllocObj(const Value *V, unsigned PtrCaptureMaxUses) {
   if (isNoAliasCall(V))
-#if INTEL_CUSTOMIZATION
     return !PointerMayBeCaptured(V, false, true, true, PtrCaptureMaxUses);
-#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -168,6 +166,7 @@ static bool isEscapeArgDereference(const Value *V) {
 /// escapes from the function.
 static bool isNonEscapingLocalObject(
     const Value *V,
+    unsigned PtrCaptureMaxUses, // INTEL
     SmallDenseMap<const Value *, bool, 8> *IsCapturedCache = nullptr) {
   SmallDenseMap<const Value *, bool, 8>::iterator CacheIt;
   if (IsCapturedCache) {
@@ -1050,7 +1049,8 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
   if (!isa<Constant>(Object) && Call != Object &&
-      isNonEscapingLocalObject(Object, &AAQI.IsCapturedCache)) {
+      isNonEscapingLocalObject(Object, PtrCaptureMaxUses, // INTEL
+                               &AAQI.IsCapturedCache)) {  // INTEL
 
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
@@ -2166,10 +2166,12 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-        isNonEscapingLocalObject(O2, &AAQI.IsCapturedCache))
+        isNonEscapingLocalObject(O2, PtrCaptureMaxUses,  // INTEL
+                                 &AAQI.IsCapturedCache)) // INTEL
       return NoAlias;
     if (isEscapeSource(O2) &&
-        isNonEscapingLocalObject(O1, &AAQI.IsCapturedCache))
+        isNonEscapingLocalObject(O1, PtrCaptureMaxUses,  // INTEL
+                                 &AAQI.IsCapturedCache)) // INTEL
       return NoAlias;
 
 #if INTEL_CUSTOMIZATION
@@ -2179,9 +2181,11 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // which is not marked with no-alias, the compiler should conclude
     // that *p and *q does not overlap.
     //
-    if (isEscapeArgDereference(O1) && isNonEscapingAllocObj(O2))
+    if (isEscapeArgDereference(O1) &&                 // INTEL
+        isNonEscapingAllocObj(O2, PtrCaptureMaxUses)) // INTEL
       return NoAlias;
-    if (isEscapeArgDereference(O2) && isNonEscapingAllocObj(O1))
+    if (isEscapeArgDereference(O2) &&                 // INTEL
+        isNonEscapingAllocObj(O1, PtrCaptureMaxUses)) // INTEL
       return NoAlias;
 
     // Return NoAlias if O1 and O2 are PHINodes and they point to two
@@ -2471,13 +2475,15 @@ bool BasicAAResult::constantOffsetHeuristic(
 AnalysisKey BasicAA::Key;
 
 BasicAAResult BasicAA::run(Function &F, FunctionAnalysisManager &AM) {
+  auto &XOL = AM.getResult<XmainOptLevelAnalysis>(F); // INTEL
   return BasicAAResult(F.getParent()->getDataLayout(),
                        F,
                        AM.getResult<TargetLibraryAnalysis>(F),
                        AM.getResult<AssumptionAnalysis>(F),
                        &AM.getResult<DominatorTreeAnalysis>(F),
                        AM.getCachedResult<LoopAnalysis>(F),
-                       AM.getCachedResult<PhiValuesAnalysis>(F));
+                       AM.getCachedResult<PhiValuesAnalysis>(F), // INTEL
+                       XOL.getOptLevel());                       // INTEL
 }
 
 BasicAAWrapperPass::BasicAAWrapperPass() : FunctionPass(ID) {
@@ -2494,6 +2500,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basicaa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
 
@@ -2507,12 +2514,14 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
   auto *LIWP = getAnalysisIfAvailable<LoopInfoWrapperPass>();
   auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>();
+  auto &XOL = getAnalysis<XmainOptLevelWrapperPass>(); // INTEL
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
                                  &DTWP.getDomTree(),
                                  LIWP ? &LIWP->getLoopInfo() : nullptr,
-                                 PVWP ? &PVWP->getResult() : nullptr));
+                                 PVWP ? &PVWP->getResult() : nullptr, // INTEL
+                                 XOL.getOptLevel()));                 // INTEL
 
   return false;
 }
@@ -2523,11 +2532,14 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
   AU.addUsedIfAvailable<PhiValuesWrapperPass>();
+  AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }
 
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
   return BasicAAResult(
       F.getParent()->getDataLayout(), F,
       P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-      P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F));
+      P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), // INTEL
+      nullptr, nullptr, nullptr,                                     // INTEL
+      P.getAnalysis<XmainOptLevelWrapperPass>().getOptLevel());      // INTEL
 }

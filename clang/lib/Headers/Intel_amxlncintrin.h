@@ -22,6 +22,20 @@
   __builtin_ia32_t2rpntlvw(tdst, base, stride, src)
 #define _tile_2rpntlvwt1(tdst, base, stride, src)                              \
   __builtin_ia32_t2rpntlvwt1(tdst, base, stride, src)
+#define _tile_2rpntlvwz0(tdst, base, stride)                                   \
+  __builtin_ia32_t2rpntlvwz0(tdst, base, stride)
+#define _tile_2rpntlvwz0t1(tdst, base, stride)                                 \
+  __builtin_ia32_t2rpntlvwz0t1(tdst, base, stride)
+#define _tile_2rpntlvwz1(tdst, base, stride)                                   \
+  __builtin_ia32_t2rpntlvwz1(tdst, base, stride)
+#define _tile_2rpntlvwz1t1(tdst, base, stride)                                 \
+  __builtin_ia32_t2rpntlvwz1t1(tdst, base, stride)
+#define _tile_tdpbf16ps(tsrc1_dst, tsrc2, tsrc3)                               \
+  __builtin_ia32_ttdpbf16ps(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_tdpfp16ps(tsrc1_dst, tsrc2, tsrc3)                               \
+  __builtin_ia32_ttdpfp16ps(tsrc1_dst, tsrc2, tsrc3)
+#define _tile_transposed(dst, tsrc)                                            \
+  __builtin_ia32_ttransposed(dst, tsrc)
 
 // AMX_LNC AVX512
 #define _tile_tile16move(tdst, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6, tsrc7,\

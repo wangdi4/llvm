@@ -6375,6 +6375,34 @@ let TargetPrefix = "x86" in {
       : GCCBuiltin<"__builtin_ia32_t2rpntlvwt1">,
         Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty],
                   [ImmArg<0>]>;
+  def int_x86_t2rpntlvwz0
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz0">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t2rpntlvwz0t1
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz0t1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t2rpntlvwz1
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t2rpntlvwz1t1
+      : GCCBuiltin<"__builtin_ia32_t2rpntlvwz1t1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_ttdpbf16ps
+      : GCCBuiltin<"__builtin_ia32_ttdpbf16ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_ttdpfp16ps
+      : GCCBuiltin<"__builtin_ia32_ttdpfp16ps">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_ttransposed
+      : GCCBuiltin<"__builtin_ia32_ttransposed">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 

@@ -2252,30 +2252,68 @@ static bool worthyDoubleInternalCallSite(CallBase &CB,
     worthyDoubleCallSite3(CB, ILIC);
 }
 
-
+//
 // Check that loop has normalized structure and constant trip count.
+//
 static bool isConstantTripCount(Loop *L) {
-  // Get canonical IV.
+
+  //
+  // Test that 'PHIN' is a PHINode with two incoming values, one which is
+  // a ConstantInt 'Start' and the other which is a BinaryOperator. If it
+  // is, return the BinaryOperator.
+  //
+  auto GetBOFromPHI = [](PHINode *PHIN, int64_t Start) -> BinaryOperator * {
+    if (!PHIN)
+      return nullptr;
+    unsigned NumIn = PHIN->getNumIncomingValues();
+    if (NumIn != 2)
+      return nullptr;
+    ConstantInt *CI = nullptr;
+    BinaryOperator *BO = nullptr;
+    for (unsigned I = 0; I < NumIn; ++I) {
+      Value *V = PHIN->getIncomingValue(I);
+      if (auto CITest = dyn_cast<ConstantInt>(V)) {
+        if (CI || CITest->getSExtValue() != Start)
+          return nullptr;
+        CI = CITest;
+        continue;
+      }
+      if (auto BOTest = dyn_cast<BinaryOperator>(V)) {
+        if (BO)
+          return nullptr;
+        BO = BOTest;
+        continue;
+      }
+      return nullptr;
+    }
+    return BO && CI ? BO : nullptr;
+  };
+
+  //
+  // Test that 'BO' is a BinaryOperator whose operands are a PHINode and
+  // a ConstantInt 'Step'. If it is, return the PHINode.
+  //
+  auto GetPHIFromBO = [](BinaryOperator *BO, int64_t Step) -> PHINode * {
+    if (!BO)
+      return nullptr;
+    Value *PHITest = nullptr;
+    ConstantInt *CITest = nullptr;
+    if (!match(BO, m_Add(m_Value(PHITest), m_ConstantInt(CITest))))
+      return nullptr;
+    if (CITest->getSExtValue() != Step)
+      return nullptr;
+    auto PHIGood = dyn_cast<PHINode>(PHITest);
+    return PHIGood;
+  };
+
+  // Test that canonical induction variable exists, and that Loop bottom
+  // test has the right form.
   PHINode *IV = L->getCanonicalInductionVariable();
-  if (!IV) {
+  if (!IV)
     return false;
-  }
-
   ICmpInst *CInst = getLoopBottomTest(L);
-  if (!CInst) {
+  if (!CInst || !CInst->isIntPredicate() || CInst->getNumOperands() != 2)
     return false;
-  }
-
-  if (!CInst->isIntPredicate()) {
-    return false;
-  }
-
-  int NumOps = CInst->getNumOperands();
-  if (NumOps != 2) {
-    return false;
-  }
-
-  // Check that condition is <, <= or ==.
   ICmpInst::Predicate Pred = CInst->getPredicate();
   if (!(Pred == ICmpInst::ICMP_EQ || Pred == ICmpInst::ICMP_ULT ||
         Pred == ICmpInst::ICMP_ULE || Pred == ICmpInst::ICMP_SLT ||
@@ -2283,35 +2321,23 @@ static bool isConstantTripCount(Loop *L) {
     return false;
   }
 
-  // First operand should be IV. Second should be positive int constant.
-  Value *IVInc = CInst->getOperand(0);
+  // Use fixed constant values for the Loop induction variable's Start, Step,
+  // and Stop. These can be generalized if we want a more general heuristic.
+  int64_t Start = 0;
+  int64_t Step = 1;
+  int64_t Stop = 4;
   ConstantInt *Const = dyn_cast<ConstantInt>(CInst->getOperand(1));
-
-  if (!IVInc || !Const) {
-    // IV or TC are not available - return false
+  if (!Const || Const->getSExtValue() != Stop)
     return false;
-  }
-
-  const APInt &ConstValue = Const->getValue();
-  if (!ConstValue.isStrictlyPositive()) {
-    // non-positive TC - return false
-    return false;
-  }
-
-  uint64_t LimTC = ConstValue.getLimitedValue();
-  // Currently allow only TC=4.
-  if (LimTC != 4) {
-    return false;
-  }
-
-  unsigned IncomingValuesCnt = IV->getNumIncomingValues();
-  for (unsigned i = 0; i < IncomingValuesCnt; ++i) {
-    if (IVInc == IV->getIncomingValue(i)) {
-      // Found IV in bottom test - return true
-      return true;
-    }
-  }
-
+  // Test that the loop increment appears in a definition cycle with a
+  // PHINode and BinaryOperator increment.
+  Value *IVLeft = CInst->getOperand(0);
+  auto PHITest = dyn_cast<PHINode>(IVLeft);
+  if (PHITest)
+     return GetPHIFromBO(GetBOFromPHI(PHITest, Start), Step) == PHITest;
+  auto BOTest = dyn_cast<BinaryOperator>(IVLeft);
+  if (BOTest)
+     return GetBOFromPHI(GetPHIFromBO(BOTest, Step), Start) == BOTest;
   return false;
 }
 

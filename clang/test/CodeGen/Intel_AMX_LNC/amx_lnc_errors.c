@@ -14,6 +14,48 @@ void test_tile_2rpntlvwt1(const void *A, size_t B, unsigned short C) {
   _tile_2rpntlvwt1(16, A, B, C); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
 }
 
+void test_tile_2rpntlvwz0(const void *A, size_t B) {
+  _tile_2rpntlvwz0(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+}
+
+void test_tile_2rpntlvwz0t1(const void *A, size_t B) {
+  _tile_2rpntlvwz0t1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+}
+
+void test_tile_2rpntlvwz1(const void *A, size_t B) {
+  _tile_2rpntlvwz1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+}
+
+void test_tile_2rpntlvwz1t1(const void *A, size_t B) {
+  _tile_2rpntlvwz1t1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+}
+
+void test_tile_tdpbf16ps()
+{
+  _tile_tdpbf16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpbf16ps(1, 16, 3); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpbf16ps(1, 2, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpbf16ps(1, 1, 3);  // expected-error {{tmul arguments must refer to different tiles}}
+  _tile_tdpbf16ps(1, 2, 1);  // expected-error {{tmul arguments must refer to different tiles}}
+  _tile_tdpbf16ps(1, 2, 2);  // expected-error {{tmul arguments must refer to different tiles}}
+}
+
+void test_tile_tdpfp16ps()
+{
+  _tile_tdpfp16ps(16, 5, 6); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpfp16ps(1, 16, 6); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpfp16ps(1, 5, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpfp16ps(1, 1, 3);  // expected-error {{tmul arguments must refer to different tiles}}
+  _tile_tdpfp16ps(1, 2, 1);  // expected-error {{tmul arguments must refer to different tiles}}
+  _tile_tdpfp16ps(1, 2, 2);  // expected-error {{tmul arguments must refer to different tiles}}
+}
+
+void test_tile_transposed()
+{
+  _tile_transposed(16, 2); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_transposed(1, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+}
+
 // Reduce
 void test_tile_coladdbcastps() {
   _tile_coladdbcastps(1, 1); // expected-error {{tmul arguments must refer to different tiles}}

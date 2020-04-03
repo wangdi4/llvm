@@ -1722,6 +1722,15 @@ void CodeExtractor::updateDebugInfo(
     LLVM_DEBUG(dbgs() << "  Variable: " << *Variable << "\n");
     LLVM_DEBUG(dbgs() << "  Location: " << *Location << "\n");
 
+    if (Storage == nullptr) {
+      // Errors in passes may result in DVI's with a NULL storage location.
+      // We can't even fix these up by making them UndefValue because we don't
+      // know the value type. We should fix these but guard against them here.
+      LLVM_DEBUG(dbgs() << "  Removing DVI with NULL storage!\n");
+      DVI->eraseFromParent();
+      continue;
+    }
+
     if (inputs.count(Storage)) {
       LLVM_DEBUG(dbgs() << "  Storage is input to new routine.\n");
 

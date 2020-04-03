@@ -311,7 +311,7 @@ int main(int argc, char **argv) {
     int z = 3, y = 9;
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET"()
 // CHECK-SAME: "QUAL.OMP.DEVICE"(i32 4),
-// CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR"()
+// CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM:SCALAR"()
 // CHECK-SAME: "QUAL.OMP.NOWAIT"()
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK: region.exit(token {{.*}} [ "DIR.OMP.END.TASK"() ]
@@ -360,7 +360,7 @@ int main(int argc, char **argv) {
     {
       s4.i = 1;
     }
-// CHECK: [[TARG4_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}DEFAULTMAP.TOFROM.SCALAR{{.*}}MAP.TOFROM{{.*}}glob_int{{.*}}MAP.TOFROM{{.*}}local_int
+// CHECK: [[TARG4_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET{{.*}}DEFAULTMAP.TOFROM:SCALAR{{.*}}MAP.TOFROM{{.*}}glob_int{{.*}}MAP.TOFROM{{.*}}local_int
 // CHECK: region.exit(token [[TARG4_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
     #pragma omp target defaultmap(tofrom:scalar)
     {

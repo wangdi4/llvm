@@ -57,6 +57,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_WP.h" // INTEL
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -808,6 +809,7 @@ struct WholeProgramDevirt : public ModulePass {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>(); // INTEL
     AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
+    AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
   }
 };
 
