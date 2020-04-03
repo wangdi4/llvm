@@ -350,14 +350,17 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ntohs);
 #if INTEL_CUSTOMIZATION
     // This function should be available on Windows.
-    //TLI.setUnavailable(LibFunc_open);
+    // TLI.setUnavailable(LibFunc_open);
 #endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_opendir);
     TLI.setUnavailable(LibFunc_pclose);
     TLI.setUnavailable(LibFunc_popen);
     TLI.setUnavailable(LibFunc_pread);
     TLI.setUnavailable(LibFunc_pwrite);
-    TLI.setUnavailable(LibFunc_read);
+#if INTEL_CUSTOMIZATION
+    // This function should be available on Windows.
+    // TLI.setUnavailable(LibFunc_read);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_readlink);
     TLI.setUnavailable(LibFunc_realpath);
     TLI.setUnavailable(LibFunc_rmdir);
@@ -835,6 +838,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_difftime64);
     TLI.setUnavailable(LibFunc_under_getcwd);
     TLI.setUnavailable(LibFunc_under_purecall);
+    TLI.setUnavailable(LibFunc_under_read);
     TLI.setUnavailable(LibFunc_under_set_errno);
     TLI.setUnavailable(LibFunc_under_setmode);
     TLI.setUnavailable(LibFunc_under_stat64i32);
@@ -1181,8 +1185,20 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 2 && FTy.getReturnType() == PCharTy &&
             FTy.getParamType(0) == FTy.getReturnType() &&
             IsSizeTTy(FTy.getParamType(1)));
+#if INTEL_CUSTOMIZATION
+#ifndef _WIN32
   case LibFunc_read:
     return (NumParams == 3 && FTy.getParamType(1)->isPointerTy());
+#else
+  // NOTE: The libfunc read is an alias to _read in Windows (LibFunc_under_read)
+  case LibFunc_read:
+#endif // _WIN32
+  case LibFunc_under_read:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_rewind:
   case LibFunc_rmdir:
   case LibFunc_remove:

@@ -1248,6 +1248,9 @@ TLI_DEFINE_STRING_INTERNAL("_obstack_newchunk")
 /// void _purecall();
 TLI_DEFINE_ENUM_INTERNAL(under_purecall)
 TLI_DEFINE_STRING_INTERNAL("_purecall")
+/// int _read(int const fd, void * const buffer, unsigned const buffer_size)
+TLI_DEFINE_ENUM_INTERNAL(under_read)
+TLI_DEFINE_STRING_INTERNAL("_read")
 /// errno_t _set_errno(int error_value)
 TLI_DEFINE_ENUM_INTERNAL(under_set_errno)
 TLI_DEFINE_STRING_INTERNAL("_set_errno")
@@ -2422,7 +2425,13 @@ TLI_DEFINE_ENUM_INTERNAL(rand)
 TLI_DEFINE_STRING_INTERNAL("rand")
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
+/// int read(int const fd, void * const buffer, unsigned const buffer_size);
+#else
 /// ssize_t read(int fildes, void *buf, size_t nbyte);
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 TLI_DEFINE_ENUM_INTERNAL(read)
 TLI_DEFINE_STRING_INTERNAL("read")
 

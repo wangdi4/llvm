@@ -394,7 +394,14 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @popen(i8*, i8*)\n"
       "declare i64 @pread(i32, i8*, i64, i64)\n"
       "declare i64 @pwrite(i32, i8*, i64, i64)\n"
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
+      // NOTE: The libfunc read is an alias to _read in Windows (Libfunc_under_read)
+      "declare i32 @read(i32, i8*, i32)\n"
+#else
       "declare i64 @read(i32, i8*, i64)\n"
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
       "declare i8* @realpath(i8*, i8*)\n"
       "declare i32 @stat(i8*, %struct*)\n"
       "declare double @strtod(i8*, i8**)\n"
@@ -694,6 +701,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @_obstack_memory_used(i8*)\n"
       "declare i32 @_obstack_newchunk(i8*, i32)\n"
       "declare void @_purecall()\n"
+      "declare i32 @_read(i32, i8*, i32)\n"
       "declare i32 @_set_errno(i32)\n"
       "declare i32 @_setjmp(i8*)\n"
       "declare i32 @_setmode(i32, i32)\n"
