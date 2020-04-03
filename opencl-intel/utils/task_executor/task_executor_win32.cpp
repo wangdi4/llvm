@@ -166,11 +166,16 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:		
-		if (g_pTaskExecutor) 
+// We disable the release of this object temporarily.
+// TODO: We will refine the OpenCL runtime shutdown mechanism to
+// avoid library and object dependency conflict.
+#if 0
+		if (g_pTaskExecutor)
 		{
 			delete ((PTR_CAST*)g_pTaskExecutor);
 			g_pTaskExecutor = nullptr;						
 		}
+#endif
 #ifdef _DEBUG
         FiniSharedPts();
 #endif
