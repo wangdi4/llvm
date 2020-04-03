@@ -91,10 +91,14 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86FlagsCopyLoweringPassPass(PR);
   initializeX86CondBrFoldingPassPass(PR);
   initializeX86OptimizeLEAPassPass(PR);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeX86GlobalFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
+=======
+  initializeX86PartialReductionPass(PR);
+>>>>>>> 9f7d4150b9ec638a048c183c21a355195fdc4942
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -412,8 +416,10 @@ void X86PassConfig::addIRPasses() {
 
   TargetPassConfig::addIRPasses();
 
-  if (TM->getOptLevel() != CodeGenOpt::None)
+  if (TM->getOptLevel() != CodeGenOpt::None) {
     addPass(createInterleavedAccessPass());
+    addPass(createX86PartialReductionPass());
+  }
 
   // Add passes that handle indirect branch removal and insertion of a retpoline
   // thunk. These will be a no-op unless a function subtarget has the retpoline
