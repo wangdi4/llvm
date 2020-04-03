@@ -1,7 +1,7 @@
 //==--- MapIntrinToIml.cpp - Legalize svml calls and apply IMF -*- C++ -*---==//
 //                           attributes.
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -140,46 +140,6 @@ unsigned MapIntrinToImlImpl::calculateNumReturns(TargetTransformInfo *TTI,
   return NumRet;
 }
 
-void MapIntrinToImlImpl::splitArg(ArrayRef<Value *> Args,
-                                  SmallVectorImpl<Value *> &NewArgs,
-                                  unsigned Part, unsigned TargetVL) {
-  for (unsigned I = 0; I < Args.size(); I++) {
-    // Use shuffle instructions to split the parameters into pseudo-registers
-    // of size TargetVL. For example, if the logical VL = 8, and TargetVL = 4,
-    // then the vector parameter can be split into two parts, where the shuffle
-    // masks correspond to the following:
-    //
-    // Shuffle Mask for Part 1:
-    // <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-    //
-    // Shuffle Mask for Part 2:
-    // <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-    //
-    // The resulting registers will hold the elements corresponding to the
-    // masks.
-    //
-
-    SmallVector<Constant *, 8> Splat;
-    unsigned StartElemIdx = Part * TargetVL;
-    unsigned ElemIdx = StartElemIdx;
-
-    for (unsigned K = 0; K < TargetVL; K++) {
-      Constant *ConstVal =
-          ConstantInt::get(Type::getInt32Ty(Func->getContext()), ElemIdx);
-      Splat.push_back(ConstVal);
-      ++ElemIdx;
-      }
-
-      Value *Undef = UndefValue::get(Args[I]->getType());
-      Value *Mask = ConstantVector::get(Splat);
-
-      Value *ShuffleInst =
-          Builder.CreateShuffleVector(Args[I], Undef, Mask, "shuffle");
-
-      NewArgs.push_back(ShuffleInst);
-  }
-}
-
 void MapIntrinToImlImpl::createImfAttributeList(CallInst *CI, ImfAttr **List) {
 
   // Tail of the linked list of IMF attributes. The head of the list is
@@ -296,152 +256,223 @@ FunctionType *MapIntrinToImlImpl::legalizeFunctionTypes(
   Type *ReturnType =
       legalizeArgumentOrReturnType(FT->getReturnType(), TargetVL);
 
-  VectorType *VectorReturn = dyn_cast<VectorType>(FT->getReturnType());
-  if (VectorReturn && FuncName.startswith("__svml_sincos"))
-    ReturnType = VectorType::get(VectorReturn->getElementType(), TargetVL * 2);
-
   FunctionType *LegalFT = FunctionType::get(ReturnType, NewArgTypes, false);
   return LegalFT;
 }
 
-void MapIntrinToImlImpl::generateMathLibCalls(unsigned NumRet,
-                                              unsigned TargetVL,
-                                              FunctionCallee Func,
-                                              ArrayRef<Value *> Args,
-                                              SmallVectorImpl<Value *> &Calls) {
-  // Insert the new shuffle instructions that split the original vector
-  // parameter and generate the call to the svml function.
+void MapIntrinToImlImpl::splitMathLibCalls(
+    unsigned NumRet, unsigned TargetVL, FunctionCallee Func,
+    ArrayRef<Value *> Args, SmallVectorImpl<Value *> &SplitCalls) {
   LLVM_DEBUG(dbgs() << "Splitting Args to match legal VL:\n";
              for (const Value *A : Args)
                dbgs() << "Arg Value: " << *A << "\n"
                       << "Arg Type: " << *A->getType() << "\n");
 
-  for (unsigned I = 0; I < NumRet; I++) {
+  // Use shuffle instructions to split the parameters into pseudo-registers
+  // of size TargetVL. For example, if the logical VL = 8, and TargetVL = 4,
+  // then the vector parameter can be split into two parts, where the
+  // shuffle masks correspond to the following:
+  //
+  // Shuffle Mask for Part 1:
+  // <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  //
+  // Shuffle Mask for Part 2:
+  // <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  //
+  // The resulting registers will hold the elements corresponding to the
+  // masks.
+  //
+  //
+  // If an parameter is a struct of vectors, each field needs to be extracted
+  // and shuffled individually, these split fields then form the new struct
+  // parameters.
+  // The example below demonstrates a hypothetical case splitting VF=8 to VF=4,
+  // with both struct and vector parameters present (struct parameter only
+  // occurs for VF=16 variant of masked sincosf, a short VF is used here just
+  // for the sake of brevity):
+  //
+  // %src.sin = extractvalue { <8 x float>, <8 x float> } %src, 0
+  // %src.cos = extractvalue { <8 x float>, <8 x float> } %src, 1
+  // %src.part1.sin = shufflevector <8 x float> %src.sin, <8 x float> undef,
+  //                                <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %src.part1.tmp = insertvalue { <4 x float>, <4 x float> } undef,
+  //                              <4 x float> %src.part1.sin, 0
+  // %src.part1.cos = shufflevector <8 x float> %src.cos, <8 x float> undef,
+  //                                <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %src.part1 = insertvalue { <4 x float>, <4 x float> } %src.part1.tmp,
+  //                          <4 x float> %src.part1.cos, 1
+  // %mask.part1 = shufflevector <8 x i1> %mask, <8 x i1> undef,
+  //                             <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %arg.part1 = shufflevector <8 x float> %arg, <8 x float> undef,
+  //                            <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %result.part1 = call svml_cc { <4 x float>, <4 x float> }
+  //                      @__svml_sincosf4_ha_mask(
+  //                        { <4 x float>, <4 x float> } %src.part1,
+  //                        <4 x i1> %mask.part1, <4 x float> %arg.part1)
+  // %src.part2.sin = shufflevector <8 x float> %src.sin, <8 x float> undef,
+  //                                <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // %src.part2.tmp = insertvalue { <4 x float>, <4 x float> } undef,
+  //                              <4 x float> %src.part2.sin, 0
+  // %src.part2.cos = shufflevector <8 x float> %src.cos, <8 x float> undef,
+  //                                <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // %src.part2 = insertvalue { <4 x float>, <4 x float> } %src.part2.tmp,
+  //                          <4 x float> %src2.cos, 1
+  // %mask.part2 = shufflevector <8 x i1> %mask, <8 x i1> undef,
+  //                             <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // %arg.part2 = shufflevector <8 x float> %arg, <8 x float> undef,
+  //                            <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+  // %result.part2 = call svml_cc { <4 x float>, <4 x float> }
+  //                      @__svml_sincosf4_ha_mask(
+  //                        { <4 x float>, <4 x float> } %src.part2,
+  //                        <4 x i1> %mask.part2, <4 x float> %arg.part2)
+
+  // Extract all fields in struct parameters (if any) and cache them to ensure
+  // these extractvalue instructions are emitted only once.
+  SmallVector<SmallVector<Value *, 2>, 4> StructFields;
+  StructFields.resize(Args.size());
+  for (unsigned I = 0; I < Args.size(); I++) {
+    Value *Arg = Args[I];
+    StructType *ArgStructType = dyn_cast<StructType>(Args[I]->getType());
+    if (!ArgStructType)
+      continue;
+    for (unsigned J = 0; J < ArgStructType->getNumElements(); J++)
+      StructFields[I].push_back(
+          Builder.CreateExtractValue(Arg, J, "extract.split"));
+  }
+
+  for (unsigned Part = 0; Part < NumRet; Part++) {
     SmallVector<Value *, 8> NewArgs;
-    splitArg(Args, NewArgs, I, TargetVL);
+
+    for (unsigned ArgIdx = 0; ArgIdx < Args.size(); ArgIdx++) {
+      Value *Arg = Args[ArgIdx];
+      Type *ArgType = Args[ArgIdx]->getType();
+
+      if (ArgType->isVectorTy()) {
+        NewArgs.push_back(generateExtractSubVector(Arg, Part, NumRet, Builder));
+        continue;
+      }
+
+      assert(ArgType->isStructTy() &&
+             "SVML functions only accept vector or struct of vector arguments");
+
+      Value *LegalArg =
+          UndefValue::get(Func.getFunctionType()->getParamType(ArgIdx));
+      for (unsigned FieldIdx = 0; FieldIdx < ArgType->getStructNumElements();
+           ++FieldIdx) {
+        Value *ExtractInst = StructFields[ArgIdx][FieldIdx];
+        assert(
+            ExtractInst &&
+            "An extractfield instruction should be pre-created but not found");
+        assert(ExtractInst->getType()->isVectorTy() &&
+               "Expect all elements in struct argument to be vectors");
+        Value *ShuffleInst =
+            generateExtractSubVector(ExtractInst, Part, NumRet, Builder);
+        LegalArg = Builder.CreateInsertValue(LegalArg, ShuffleInst, FieldIdx,
+                                             "insert.arg");
+      }
+      NewArgs.push_back(LegalArg);
+    }
+
     CallInst *NewCI = Builder.CreateCall(Func, NewArgs, "vcall");
     NewCI->setCallingConv(CallingConv::SVML);
-    Calls.push_back(NewCI);
+    SplitCalls.push_back(NewCI);
   }
 }
 
-LoadStoreMode
-MapIntrinToImlImpl::getLoadStoreModeForArg(AttributeList &AL, unsigned ArgNo,
-                                           StringRef &AttrValStr) {
-
-  AttributeSet ParamAttrs = AL.getParamAttributes(ArgNo);
-  if (ParamAttrs.hasAttribute("stride")) {
-    Attribute Attr = ParamAttrs.getAttribute("stride");
-    AttrValStr = Attr.getValueAsString();
-  } else {
-    AttrValStr = "indirect";
+/// Join a list of vectors into a single vector, and optionally merge it with
+/// \p SourceValue using \p Mask, if both of them are present. If \p SourceValue
+/// is nullptr, \p Mask is ignored.
+static Value *joinVectorsWithMask(ArrayRef<Value *> VectorsToJoin,
+                                  Value *SourceValue, Value *Mask,
+                                  IRBuilder<> &Builder, const Twine &Name) {
+  Value *Result = joinVectors(VectorsToJoin, Builder, Name);
+  if (SourceValue && Mask) {
+    assert(SourceValue->getType()->getVectorNumElements() ==
+               Result->getType()->getVectorNumElements() &&
+           Mask->getType()->getVectorNumElements() ==
+               Result->getType()->getVectorNumElements() &&
+           "Inconsistent vector length");
+    assert(SourceValue->getType()->getVectorElementType() ==
+               Result->getType()->getVectorElementType() &&
+           "Vector element type mismatch");
+    Result = Builder.CreateSelect(Mask, Result, SourceValue, "select.merge");
   }
-
-  if (AttrValStr == "indirect") {
-    return INDIRECT;
-  } else if (AttrValStr == "1") {
-    return UNIT_STRIDE;
-  } else {
-    // No strided load/store support right now, so revert to scalar mode.
-    // return NON_UNIT_STRIDE;
-    return SCALAR;
-  }
+  return Result;
 }
 
-void MapIntrinToImlImpl::generateSinCosStore(
-    CallInst *VectorCall, Value *ResultVector, unsigned NumElemsToStore,
-    unsigned TargetVL, unsigned StorePtrIdx) {
+Value *MapIntrinToImlImpl::joinSplitCallResults(unsigned NumRet,
+                                                ArrayRef<Value *> SplitCalls,
+                                                FunctionType *FT,
+                                                Value *SourceValue,
+                                                Value *Mask) {
 
-  // For __svml_sincos calls, the result vector is always 2x that of the input
-  // vector.
-  unsigned NumResultVectors = 2;
+  Type *CallType = SplitCalls[0]->getType();
+  assert((CallType->isVectorTy() ||
+          (CallType->isStructTy() &&
+           CallType->getStructElementType(0)->isVectorTy())) &&
+         "Invalid type of result of SVML call");
+  assert((!(SourceValue && Mask) ||
+          (Mask->getType()->isVectorTy() &&
+           Mask->getType()->getVectorElementType()->isIntegerTy(1))) &&
+         "Invalid mask type");
 
-  AttributeList AttrList = VectorCall->getAttributes();
-  // For Arg 2, I = 0. Attributes are at position 2
-  // For Arg 3, I = 1. Attributes are at position 3
+  // Again, we need to handle 2 cases: the return value is a vector,
+  // or a structure of vectors.
+  // If it's a vector, just join them together with shufflevector instruction.
+  if (CallType->isVectorTy())
+    return joinVectorsWithMask(SplitCalls, SourceValue, Mask, Builder,
+                               "shuffle.comb");
 
-  for (unsigned I = 0; I < NumResultVectors; ++I) {
+  assert(CallType->isStructTy() &&
+         "SVML functions only returns vector or struct");
 
-    // Name used to distinguish what is going into registers.
-    // Iteration 0 is sin
-    // Iteration 1 is cos
-    StringRef ResultName = I == 0 ? "sin" : "cos";
+  // For the structure case, individual fields are collected from structures
+  // returned by the split calls with extractvalue instructions, then several
+  // shufflevector instructions are generated to combine them into one field,
+  // which are then populated into the result structure with insertvalue.
+  //
+  // Take sincos as an example:
+  //
+  // ; extract and combine sin field of the return values
+  // %sin.part1 = extractvalue { <2 x float>, <2 x float> } %call.1, 0
+  // %sin.part2 = extractvalue { <2 x float>, <2 x float> } %call.2, 0
+  // %sin.combined = shufflevector <2 x float> %sin.part1,
+  //                               <2 x float> %sin.part2,
+  //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %result.tmp = insertvalue { <4 x float>, <4 x float> } undef,
+  //                           <4 x float> %sin.combined, 0
+  //
+  // ; extract and combine cos field of the return values
+  // %cos.part1 = extractvalue { <2 x float>, <2 x float> } %call.1, 1
+  // %cos.part2 = extractvalue { <2 x float>, <2 x float> } %call.2, 1
+  // %cos.combined = shufflevector <2 x float> %cos.part1,
+  //                               <2 x float> %cos.part2,
+  //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // %result = insertvalue { <4 x float>, <4 x float> } %result.tmp,
+  //                       <4 x float> %cos.combined, 1
+  StructType *CallStructType = cast<StructType>(CallType);
+  Value *CombinedInsert = UndefValue::get(FT->getReturnType());
+  for (unsigned I = 0; I < CallStructType->getNumElements(); I++) {
+    SmallVector<Value *, 4> Parts;
+    for (unsigned J = 0; J < NumRet; J++)
+      Parts.push_back(
+          Builder.CreateExtractValue(SplitCalls[J], I, "extract.result"));
 
-    // This represents the address to where we will store the sin/cos results.
-    // Either arg 2 or 3 from the vector sincos call.
-    Value *SvmlArg = VectorCall->getArgOperand(I + 1);
+    Value *SourceField = nullptr;
+    if (SourceValue)
+      SourceField =
+          Builder.CreateExtractValue(SourceValue, I, "extract.source");
 
-    // The resulting value of a sincos call should not be null, but assert just
-    // in case.
-    assert(ResultVector && "sincos result null?");
-    Value *ShuffleInst =
-        generateExtractSubVector(ResultVector, I, NumResultVectors, Builder);
-
-    VectorType *ShuffleType = cast<VectorType>(ShuffleInst->getType());
-    unsigned NumElems = ShuffleType->getNumElements();
-
-    StringRef StrideValStr;
-    LoadStoreMode Mode = getLoadStoreModeForArg(AttrList, I + 2, StrideValStr);
-
-    if (Mode == SCALAR) {
-      // Store a single element at a time.
-      unsigned PtrIdx = StorePtrIdx;
-      for (unsigned Idx = 0; Idx < NumElems; ++Idx, ++PtrIdx) {
-        Constant *ElmIdx =
-            ConstantInt::get(Type::getInt32Ty(Func->getContext()), Idx);
-
-        Constant *ElmIdxPtr =
-            ConstantInt::get(Type::getInt32Ty(Func->getContext()), PtrIdx);
-
-        // Extract the sin/cos result from the vector register.
-        Value *ElemToStore = Builder.CreateExtractElement(
-            ShuffleInst, ElmIdx, ResultName + ".elem");
-
-        // Extract the pointer from the vector of pointers argument from the
-        // original call.
-        Value *ElemToStorePtr = Builder.CreateExtractElement(
-            SvmlArg, ElmIdxPtr, ResultName + ".elem.ptr");
-
-        // Store the sin/cos element to the pointer.
-        Builder.CreateStore(ElemToStore, ElemToStorePtr);
-      }
-    } else if (Mode == UNIT_STRIDE) {
-      // Generate unit stride store. Here, we just need to extract the 1st
-      // address of the argument vector from the original call because this will
-      // represent the base address for the vector store. If there are multiple
-      // returns, the index into the pointer of vectors on the call arg needs
-      // to advance by the number of elements being stored. E.g.,
-      //
-      // call void @llvm.sincos.v8f32.p0v8f32.p0v8f32(
-      //   <8 x float> %wide.load,
-      //   <8 x float*> "stride"="1" %32,
-      //   <8 x float*> "stride"="1" %48)
-      //
-      // where NumRet = 2 and VL = 4, so for the first call the based pointers
-      // are %32[0] and %48[0]. For the second call, the base pointers are
-      // %32[4] and %48[4]. These addresses are then used to store the results
-      // of the __svml_sincos calls.
-      Constant *Index =
-          ConstantInt::get(Type::getInt32Ty(Func->getContext()), StorePtrIdx);
-
-      Value *StorePtr =
-          Builder.CreateExtractElement(SvmlArg, Index, ResultName + ".ptr");
-
-      // Cast the scalar pointer type to a vector one. The vector pointer is
-      // what is used for the store.
-      PointerType *PtrElemType = dyn_cast<PointerType>(StorePtr->getType());
-      assert(PtrElemType &&
-             "Expected element type of svml arg to be a pointer");
-
-      PointerType *VecPtrType = PointerType::get(
-          ShuffleInst->getType(), PtrElemType->getAddressSpace());
-      Value *BitCast =
-          Builder.CreateBitCast(StorePtr, VecPtrType, ResultName + ".ptr.cast");
-
-      // Store the vector of sin/cos elements to the vector pointer.
-      Builder.CreateStore(ShuffleInst, BitCast);
-    }
+    Value *Combined =
+        joinVectorsWithMask(Parts, SourceField, Mask, Builder, "shuffle.comb");
+    // TODO: In most cases, the fields inserted to the returned structure will
+    // soon be extracted again, and the structure is almost never used as a
+    // whole. Consider optimizing out the insertvalues used for reconstructing
+    // the structure and feed vectors to users directly.
+    CombinedInsert =
+        Builder.CreateInsertValue(CombinedInsert, Combined, I, "insert.result");
   }
+  return CombinedInsert;
 }
 
 bool MapIntrinToImlImpl::isLessThanFullVector(Type *ValType, Type *LegalType) {
@@ -604,13 +635,6 @@ Value *MapIntrinToImlImpl::extractLowerPart(Value *V, unsigned ExtractingVL,
 // since it is 2x the size of the return. Case 2 will work as is.
 
 VectorType *MapIntrinToImlImpl::getCallType(CallInst *CI) {
-
-  Function *CalledFunc = CI->getCalledFunction();
-  StringRef FuncName = CalledFunc->getName();
-  if (isSincosRefArg(FuncName, CI->getFunctionType())) {
-    return dyn_cast<VectorType>(CI->getArgOperand(0)->getType());
-  }
-
   FunctionType *CallFT = CI->getFunctionType();
   Type *CallRetType = CallFT->getReturnType();
   auto *RetStructTy = dyn_cast_or_null<StructType>(CallRetType);
@@ -696,16 +720,6 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
     // the vector that has all of the scalar call results.
     CI->replaceAllUsesWith(InsertVector);
   }
-}
-
-// The vectorizer may generate an intermediate-form SVML sincos with
-// a void return type and reference args (number depending on mask, etc.):
-//  call void @__svml_sincosf4( <4 x float>, <4 x float*>, <4 x float*>)
-// This pass must convert to the actual SVML call with a wide-vector return.
-bool MapIntrinToImlImpl::isSincosRefArg(StringRef FuncName, FunctionType *FT) {
-  if (!FuncName.startswith("__svml_sincos"))
-    return false;
-  return FT->getReturnType()->isVoidTy() && (FT->getNumParams() > 1);
 }
 
 const char *MapIntrinToImlImpl::findX86Variant(CallInst *CI, StringRef FuncName,
@@ -860,16 +874,10 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
         // support the vector length of the integer division instruction.
 
         // Generate SVML call for each part of the split operands
-        SmallVector<Value *, 8> WorkList;
-        for (unsigned I = 0; I < NumRet; I++) {
-          SmallVector<Value *, 8> NewArgs;
-          splitArg(Args, NewArgs, I, TargetVL);
-          CallInst *CI = Builder.CreateCall(Func, NewArgs);
-          CI->setCallingConv(CallingConv::SVML);
-          WorkList.push_back(CI);
-        }
+        SmallVector<Value *, 8> SplitCalls;
+        splitMathLibCalls(NumRet, TargetVL, Func, Args, SplitCalls);
 
-        Result = joinVectors(WorkList, Builder, "shuffle.comb");
+        Result = joinVectors(SplitCalls, Builder, "shuffle.comb");
       } else {
         // generateNewArgsFromPartialVectors() duplicates the low elements
         // into the upper part of the vector so the math library call operates
@@ -1094,27 +1102,7 @@ bool MapIntrinToImlImpl::runImpl() {
                         << "\n\n");
 
       // Original arguments to the vector call.
-      SmallVector<Value *, 8> Args;
-
-      FunctionType *FT;
-
-      if (X86Target && isSincosRefArg(FuncName, CI->getFunctionType())) {
-        // We have to do some special handling for sincos calls on X86
-        // because 'void sincos(<vl x type>, <vl x type*>, <vl x type*>)'
-        // must be transformed to:
-        // '<vl x 2 x type> __svml_sincos(<vl x type>)'
-        Args.push_back(CI->getArgOperand(0));
-        VectorType *RetType =
-            VectorType::getDoubleElementsVectorType(VecCallType);
-        FT = FunctionType::get(RetType, VecCallType, false);
-      } else {
-        unsigned NumArgs = CI->getNumArgOperands();
-        for (unsigned I = 0; I < NumArgs; I++) {
-          Value *Arg = CI->getArgOperand(I);
-          Args.push_back(Arg);
-        }
-        FT = CI->getFunctionType();
-      }
+      SmallVector<Value *, 8> Args(CI->arg_begin(), CI->arg_end());
 
       // Masked SVML functions with 512-bit VL differs from other functions
       // in position and type of mask argument, they also have a source
@@ -1135,85 +1123,31 @@ bool MapIntrinToImlImpl::runImpl() {
       // FT will point to the legal FunctionType based on target register
       // size requirements. This FunctionType is used to create the call
       // to the svml function.
-      FT = legalizeFunctionTypes(FT, Args, TargetVL, FuncName);
+      FunctionType *FT = legalizeFunctionTypes(CI->getFunctionType(), Args,
+                                               TargetVL, FuncName);
       FunctionCallee FCache = M->getOrInsertFunction(VariantFuncNameRef, FT);
 
-      // WorkList contains the instructions that are the results of math
+      // SplitCalls contains the instructions that are the results of math
       // library calls. This could be the call instructions themselves, or
       // the results of shuffles for cases like calls to sincos, or calls to
       // functions that are less than full vector.
-      SmallVector<Value *, 8> WorkList;
+      SmallVector<Value *, 8> SplitCalls;
 
       if (NumRet > 1) {
 
         // NumRet > 1 means that multiple library calls are required to
         // support the vector length of the call.
 
-        generateMathLibCalls(NumRet, TargetVL, FCache, Args, WorkList);
+        splitMathLibCalls(NumRet, TargetVL, FCache, Args, SplitCalls);
 
-        if (auto *StrType = dyn_cast<StructType>(CI->getType())) {
-          // The original call was:
-          // %struct_2el = svml_big(); // 2-element struct
-          // %a = extractvalue %struct_2el , 0
-          // %b = extractvalue %struct_2el , 1
-          //
-          // After splitting, the worklist is:
-          // { a0, b0 } = svml0();
-          // { a1, b1 } = svml1();
-          // { a2, b2 } = svml2();
-          // { a3, b3 } = svml3();
-          // Generate extracts of each field. Then generate shufflevector
-          // combines, to combine the fields like this:
-          // [a0,a1,a2,a3]
-          //  => combine back to %a
-          // then
-          // [b0,b1,b2,b3]
-          //  => combine back to %b
-          // Replace the original %a and %b extractvalues with the
-          // combined results.
-          unsigned numFields = StrType->getNumElements();
-          // For each field position ("a", "b", etc.)
-          for (unsigned FieldIdx = 0; FieldIdx < numFields; ++FieldIdx) {
-            // Extract this field from each of the calls in the worklist, and
-            // combine these fields.
-            SmallVector<Value *, 8> WorkListStripe;
-            for (auto *NewCall : WorkList) {
-#ifndef NDEBUG
-              auto *NewCallTy = dyn_cast<StructType>(NewCall->getType());
-              assert(NewCallTy && NewCallTy->getNumElements() == numFields);
-#endif // NDEBUG
-              auto *Extract = Builder.CreateExtractValue(NewCall, {FieldIdx});
-              WorkListStripe.push_back(Extract);
-            }
-            // WorkListStripe contains [a0,a1,a2,a3] (for example). Call
-            // joinVectors to generate shufflevectors which combine these
-            // vectors into a single big vector.
-            Value *CombineResult =
-                joinVectors(WorkListStripe, Builder, "shuffle.comb");
+        // If the split calls are 512-bit (i.e. it has source argument), then
+        // the merge in final join is redundant.
+        Value *SourceArgForJoin = NewCallIsAVX512 ? nullptr : SourceArg;
+        Value *FinalResult =
+            joinSplitCallResults(NumRet, SplitCalls, CI->getFunctionType(),
+                                 SourceArgForJoin, MaskArg);
 
-            // Replace the original extract with the combined result.
-            Instruction *OrigExtract = findExtract(CI, FieldIdx);
-            OrigExtract->replaceAllUsesWith(CombineResult);
-            OrigExtract->eraseFromParent();
-            WorkListStripe.clear();
-            // Process the next set of fields b0,b1,etc.
-          }
-          // Original CI gets removed later
-        } else if (!isSincosRefArg(FuncName, CI->getFunctionType())) {
-          // There will be no users of sincos because it's a void function.
-          // Because of this, we have to generate the store instructions
-          // explicitly. See generateSinCosStore().
-          Value *FinalResult = joinVectors(WorkList, Builder, "shuffle.comb");
-
-          // If a masked AVX512 call is split to non-AVX512 calls (which don't
-          // have source argument), the source have to be combined into the
-          // result explicitly.
-          if (SourceArg && MaskArg && !NewCallIsAVX512)
-            FinalResult = Builder.CreateSelect(MaskArg, FinalResult, SourceArg,
-                                               "select.merge");
-
-          CI->replaceAllUsesWith(FinalResult);
-        }
+        CI->replaceAllUsesWith(FinalResult);
       } else {
         // NumRet = 1
 
@@ -1267,36 +1201,18 @@ bool MapIntrinToImlImpl::runImpl() {
         NewCI->setCallingConv(CallingConv::SVML);
         Value *CallResult = NewCI;
 
-        if (!isSincosRefArg(FuncName, CI->getFunctionType())) {
-          bool LessThanFullVector = isLessThanFullVector(
-              CI->getFunctionType()->getReturnType(), FT->getReturnType());
+        bool LessThanFullVector = isLessThanFullVector(
+            CI->getFunctionType()->getReturnType(), FT->getReturnType());
 
-          if (LessThanFullVector) {
-            // Extract the number of elements specified by the partial vector
-            // return type of the call (indicated by LogicalVL). The NewCI
-            // return type will indicate the size of the vector extracted from.
-            // Start extracting from position 0.
-            CallResult = extractLowerPart(NewCI, LogicalVL, TargetVL);
-          }
-
-          CI->replaceAllUsesWith(CallResult);
-        } else {
-          WorkList.push_back(NewCI);
+        if (LessThanFullVector) {
+          // Extract the number of elements specified by the partial vector
+          // return type of the call (indicated by LogicalVL). The NewCI
+          // return type will indicate the size of the vector extracted from.
+          // Start extracting from position 0.
+          CallResult = extractLowerPart(NewCI, LogicalVL, TargetVL);
         }
-      }
 
-      if (X86Target && isSincosRefArg(FuncName, CI->getFunctionType())) {
-        unsigned StorePtrIdx = 0;
-        // For partial register cases, we only want to extract the partial
-        // number of elements from the results. Otherwise, extract the full
-        // legal register width number of elements.
-        unsigned NumElemsToStore =
-            LogicalVL < TargetVL ? LogicalVL : TargetVL;
-        for (unsigned I = 0; I < NumRet; ++I) {
-          generateSinCosStore(CI, WorkList[I], NumElemsToStore, TargetVL,
-                              StorePtrIdx);
-          StorePtrIdx += NumElemsToStore;
-        }
+        CI->replaceAllUsesWith(CallResult);
       }
 
       InstToRemove.push_back(CI);
