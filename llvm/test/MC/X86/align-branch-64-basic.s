@@ -103,27 +103,6 @@ test_indirect:
 bar:
   retq
 
-<<<<<<< HEAD
-  # CHECK: <test_pad_via_relax>:
-  # CHECK: 200: testq
-  # CHECK: 203: jne
-  # CHECK: 209: int3
-  # note 6 byte jne which could be a 2 byte jne, but is instead
-  # expanded for padding purposes
-  # CHECK: 21f: nop
-  # CHECK: 220: callq
-  .global test_pad_via_relax
-  .p2align  5
-test_pad_via_relax:
-  testq %rax, %rax
-  jnz bar
-  .rept 23
-  int3
-  .endr
-  callq bar
-
-=======
->>>>>>> 1fb4f99a215e4e912aa662fdb6e67c28e31051f0
   # This case looks really tempting to pad, but doing so for the call causes
   # the jmp to be misaligned.
   # CHECK: <test_pad_via_relax_neg1>:

@@ -969,7 +969,6 @@ bool X86AsmBackend::padInstructionEncoding(MCRelaxableFragment &RF,
   return Changed;
 }
 
-#if INTEL_CUSTOMIZATION
 void X86AsmBackend::finishLayout(MCAssembler const &Asm,
                                  MCAsmLayout &Layout) const {
   // See if we can further relax some instructions to cut down on the number of
@@ -1092,7 +1091,6 @@ void X86AsmBackend::finishLayout(MCAssembler const &Asm,
     Asm.computeFragmentSize(Layout, *Section.getFragmentList().rbegin());
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 /// Write a sequence of optimal nops to the output, covering \p Count
 /// bytes.
