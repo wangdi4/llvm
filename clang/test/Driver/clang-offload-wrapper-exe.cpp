@@ -1,4 +1,4 @@
-// REQUIRES: system-linux || system-windows
+// REQUIRES: system-linux
 
 // End-to-end clang-offload-wrapper executable test: check that -batch options
 // works, and that the tool generates data properly accessible at runtime.
