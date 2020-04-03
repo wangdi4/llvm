@@ -158,19 +158,33 @@ private:
   // Recursively iterates a loop and its subloops and attempts expansions.
   void recurseLoops(Loop *, BasicBlock *dummy_exit);
 
-  // Checks whether a particular instruction is a loop intrinsic that might need
-  // expansion. Returns a pointer to it as an IntrinsicInst if so; otherwise
-  // returns nullptr.
-  IntrinsicInst *asLoopIntrinsic(Instruction &) const;
+  // Checks whether a particular instruction is a parallel loop intrinsic.
+  // If so, returns a pointer to it as an IntrinsicInst; otherwise returns nullptr.
+  IntrinsicInst *isParLoopIntrinsic(Instruction &) const;
 
-  // Looks for a parallel loop/SPMDization intrinsic in the blocks before the
-  // loop. If none is found this will return nullptr and this loop should
-  // probably be left alone.
-  IntrinsicInst *detectIntrinsic(Loop *) const;
+  // Checks whether a particular instruction is a local_cache intrinsic.
+  // If so, returns a pointer to it as an IntrinsicInst; otherwise returns nullptr.
+  IntrinsicInst *isLocalCacheIntrinsic(Instruction &) const;
+
+  // Looks for a pipelining/parallel loop/SPMDization intrinsic in the
+  // blocks before the loop. If none is found this will return nullptr.
+  IntrinsicInst *detectParLoopIntrinsic(Loop *) const;
+
+  // Looks for a local cache intrinsic in the blocks before the loop.
+  // If none is found this will return nullptr.
+  IntrinsicInst *detectLocalCacheIntrinsic(Loop *) const;
+
+  // Looks for the specified IID intrinsic in the blocks before the loop.
+  // If none is found, this will return nullptr.
+  IntrinsicInst *detectIntrinsic(Loop *, Intrinsic::ID IID) const;
 
   // Attempts to expand a given loop. Returns true if it succeeded, false if it
   // ran into issues.
-  bool expandLoop(Loop *, IntrinsicInst *parloop, BasicBlock *dummy_exit);
+  bool expandParLoopIntrinsic(Loop *, IntrinsicInst *intr, IntrinsicInst *lcache_intr, BasicBlock *dummy_exit);
+
+  // Attempts to expand a given loop. Returns true if it succeeded, false if it
+  // ran into issues.
+  bool expandLocalCacheIntrinsic(Loop *, IntrinsicInst *intr);
 
   // Attempts to expand the section to include a given block. If that is not
   // possible, this will return false.
@@ -230,32 +244,33 @@ void CSALoopIntrinsicExpander::recurseLoops(Loop *L, BasicBlock *dummy_exit) {
     return;
   }
 
-  // Only handle loops marked with a loop intrinsic.
-  IntrinsicInst *const found_parloop = detectIntrinsic(L);
-  if (not found_parloop)
-    return;
-
   // If the loop should be expanded, expand it or complain if there's something
   // wrong with it.
-  if (not expandLoop(L, found_parloop, dummy_exit)) {
-    errs() << "\n";
-    errs().changeColor(raw_ostream::BLUE, true);
-    errs() << "!! WARNING: COULD NOT PARALLELIZE LOOP !!";
-    errs().resetColor();
+  IntrinsicInst *parloop_intr = detectParLoopIntrinsic(L);
+  IntrinsicInst *lcache_intr  = detectLocalCacheIntrinsic(L);
+
+  if (parloop_intr) {
+    // There is a parallel loop intrisics on the loop.
+    bool ret = expandParLoopIntrinsic(L, parloop_intr, lcache_intr, dummy_exit);
+    if (not ret) {
+      errs() << "\n";
+      errs().changeColor(raw_ostream::BLUE, true);
+      errs() << "!! WARNING: COULD NOT PARALLELIZE LOOP !!";
+      errs().resetColor();
 #if RAVI
-    const DebugLoc& loc = found_parloop->getDebugLoc();
-    if (loc) {
-      errs() << R"help(
+      const DebugLoc& loc = parloop_intrinsic->getDebugLoc();
+      if (loc) {
+        errs() << R"help(
 We were unable to automatically identify a unique section for the loop at
 )help";
-      loc.print(errs());
-    } else {
-      errs() << R"help(
+        loc.print(errs());
+      } else {
+        errs() << R"help(
 We were unable to automatically identify a unique section for a loop marked
 with a CSA loop builtin. Use -g for location information.)help";
-    }
+      }
 #endif
-    errs() << R"help(
+      errs() << R"help(
 
 This was likely caused by either having multiple loop exits or by having memory
 operations in the loop control. Please mark the regions and sections for this
@@ -263,12 +278,18 @@ loop explicitly with __builtin_csa_parallel_{region,section}_{entry,exit}()
 instead.
 
 )help";
-    return;
+      return;
+    }
+  }
+  else if (lcache_intr) {
+  // There are no parallel loop intrisics on the loop, but there
+  // is a local cache intrinsic, expand the local cache intrinsic.
+    expandLocalCacheIntrinsic(L, lcache_intr);
   }
 }
 
 IntrinsicInst *
-CSALoopIntrinsicExpander::asLoopIntrinsic(Instruction &inst) const {
+CSALoopIntrinsicExpander::isParLoopIntrinsic(Instruction &inst) const {
   IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&inst);
   if (intr_inst and
       (intr_inst->getIntrinsicID() == Intrinsic::csa_parallel_loop or
@@ -279,7 +300,35 @@ CSALoopIntrinsicExpander::asLoopIntrinsic(Instruction &inst) const {
   return nullptr;
 }
 
-IntrinsicInst *CSALoopIntrinsicExpander::detectIntrinsic(Loop *L) const {
+IntrinsicInst *
+CSALoopIntrinsicExpander::isLocalCacheIntrinsic(Instruction &inst) const {
+  IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&inst);
+  if (intr_inst and
+      intr_inst->getIntrinsicID() == Intrinsic::csa_local_cache)
+    return intr_inst;
+  return nullptr;
+}
+
+IntrinsicInst *CSALoopIntrinsicExpander::detectParLoopIntrinsic(Loop *L) const {
+
+  // Start iterating backwards at the preheader.
+  for (BasicBlock *cur_block = L->getLoopPreheader();
+       cur_block and
+       LI->getLoopFor(cur_block) == LI->getLoopFor(L->getLoopPreheader());
+       cur_block = cur_block->getSinglePredecessor()) {
+
+    // Look for an intrinsic call with one of the right IDs.
+    for (Instruction &inst : *cur_block) {
+      if (IntrinsicInst *const intr_inst = isParLoopIntrinsic(inst)) {
+        return intr_inst;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
+IntrinsicInst *CSALoopIntrinsicExpander::detectLocalCacheIntrinsic(Loop *L) const {
 
   // Start iterating backwards at the preheader
   for (BasicBlock *cur_block = L->getLoopPreheader();
@@ -287,9 +336,31 @@ IntrinsicInst *CSALoopIntrinsicExpander::detectIntrinsic(Loop *L) const {
        LI->getLoopFor(cur_block) == LI->getLoopFor(L->getLoopPreheader());
        cur_block = cur_block->getSinglePredecessor()) {
 
-    // Look for intrinsic calls with one of the right IDs.
+    // Look for an intrinsic call with the right ID.
     for (Instruction &inst : *cur_block) {
-      if (IntrinsicInst *const intr_inst = asLoopIntrinsic(inst)) {
+      if (IntrinsicInst *const intr_inst = isLocalCacheIntrinsic(inst)) {
+        return intr_inst;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
+
+IntrinsicInst *CSALoopIntrinsicExpander::detectIntrinsic(Loop *L, Intrinsic::ID IID) const {
+
+  // Start iterating backwards at the preheader.
+  for (BasicBlock *cur_block = L->getLoopPreheader();
+       cur_block and
+       LI->getLoopFor(cur_block) == LI->getLoopFor(L->getLoopPreheader());
+       cur_block = cur_block->getSinglePredecessor()) {
+
+    // Look for IID intrinsic call.
+    for (Instruction &inst : *cur_block) {
+      IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&inst);
+      if (intr_inst and
+          (intr_inst->getIntrinsicID() == IID)) {
         return intr_inst;
       }
     }
@@ -303,7 +374,8 @@ bool CSALoopIntrinsicExpander::removeIntrinsics(Function &F) {
   bool removed_any = false;
   for (BasicBlock &cur_block : F) {
     for (auto it = begin(cur_block); it != end(cur_block);) {
-      if (asLoopIntrinsic(*it)) {
+      if ((isParLoopIntrinsic(*it)) ||
+          (isLocalCacheIntrinsic(*it))) {
         it          = it->eraseFromParent();
         removed_any = true;
       } else
@@ -313,14 +385,28 @@ bool CSALoopIntrinsicExpander::removeIntrinsics(Function &F) {
   return removed_any;
 }
 
-bool CSALoopIntrinsicExpander::expandLoop(Loop *L, IntrinsicInst *intr,
-                                          BasicBlock *dummy_exit) {
+bool CSALoopIntrinsicExpander::expandParLoopIntrinsic(Loop *L, 
+                                                      IntrinsicInst *intr,
+                                                      IntrinsicInst *lcache_intr,
+                                                      BasicBlock *dummy_exit) {
   using namespace std;
 
   LLVMContext &context = L->getHeader()->getContext();
   Module *module       = L->getHeader()->getParent()->getParent();
 
-  // If this is a pipelining intrinsic, it needs to have its own entry and exit
+  // Check whether there is a local cache intrinsic on the loop, in
+  // addition to the intrinsic (intr) being handled now.
+  Value *lcache_size;
+  Value *lcache_id;
+  CallInst *lcache_region_begin;
+
+  if (lcache_intr) {
+    assert(lcache_intr->getNumArgOperands() == 1 && "Bad local cache intrinsic?");
+    lcache_size = lcache_intr->getArgOperand(0);
+    lcache_id   = ConstantInt::get(IntegerType::get(context, 32), 0);
+  }
+
+  // If intr is a pipelining intrinsic, it needs to have its own entry and exit
   // inserted for the prep pass later. We don't need to find a parallel section
   // for it.
   if (intr->getIntrinsicID() == Intrinsic::csa_pipeline_loop) {
@@ -366,16 +452,30 @@ to see more location information.
       Intrinsic::getDeclaration(module, Intrinsic::csa_pipeline_loop_entry),
       intr->getArgOperand(0), "ilpl_entry");
     SmallVector<BasicBlock *, 2> exits;
+
+    if (lcache_intr) {
+      lcache_region_begin =  IRBuilder<>{preheader_terminator}.CreateCall(
+         Intrinsic::getDeclaration(module, Intrinsic::csa_local_cache_region_begin),
+         {lcache_size, lcache_id}, "lcache_region_begin");
+    }
+
     L->getExitBlocks(exits);
     for (BasicBlock *const exit : exits) {
       IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
         Intrinsic::getDeclaration(module, Intrinsic::csa_pipeline_loop_exit),
         ilpl_entry);
+
+      if (lcache_intr) {
+        IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
+            Intrinsic::getDeclaration(module, Intrinsic::csa_local_cache_region_end),
+            {lcache_region_begin, lcache_id});
+      }
     }
+
     // This is all that is needed for marking pipeline loops.
     ++NumILPLIntrinsicExpansions;
     return true;
-  }
+  } // if (intr->getIntrinsicID() == Intrinsic::csa_pipeline_loop)
 
   cur_section_begin = cur_section_end = nullptr;
   cur_loop                            = L;
@@ -420,7 +520,7 @@ to see more location information.
     }
   }
 
-  // If this is an SPMDization intrinsic, it needs to have its own entry and
+  // If intr is an SPMDization intrinsic, it needs to have its own entry and
   // exit inserted for the SPMDization pass later.
   if (intr->getIntrinsicID() == Intrinsic::csa_spmdization ||
       intr->getIntrinsicID() == Intrinsic::csa_spmd) {
@@ -480,6 +580,7 @@ to see more location information.
     } else {
       chunk_size = intr->getOperand(1);
     }
+
     CallInst *const spmdization_entry =
       IRBuilder<>{preheader_terminator}.CreateCall(
             Intrinsic::getDeclaration(module, Intrinsic::csa_spmdization_entry),
@@ -493,11 +594,20 @@ to see more location information.
         spmdization_entry);
     }
 
+    // If there is a local cache intrinsic on the loop (in addition to
+    // the SPMDization intrinsic), then add csa_spmdization_local_cache
+    // instrinsic which will be expanded in LoopSPMDization.cpp
+    if (lcache_intr) {
+      IRBuilder<>{preheader_terminator}.CreateCall(
+         Intrinsic::getDeclaration(module, Intrinsic::csa_spmdization_local_cache),
+         {spmdization_entry, lcache_size});
+    }
+
     // If there wasn't any memory use in the loop, the parallel region/section
     // expansion can just be ignored.
     if (not cur_section_begin or not cur_section_end)
       return true;
-  }
+  } // end if (intr->getIntrinsicID() == Intrinsic::csa_spmdization ...
 
   // If this is a parallel loop intrinsic, it doesn't make much sense to expand
   // it if there weren't any memory references. Just emit a warning about that.
@@ -526,7 +636,7 @@ Re-run with -g to see more location information.
     }
 
     return true;
-  }
+  } // end if (not cur_section_begin or not cur_section_end)
 
   // There should be enough information at this point to finish the expansion;
   // go ahead and update the statistic.
@@ -537,12 +647,19 @@ Re-run with -g to see more location information.
   // The csa.parallel.region.entry intrinsic goes at the end of the preheader.
   Instruction *const preheader_terminator =
     L->getLoopPreheader()->getTerminator();
+
   CallInst *const region_entry = IRBuilder<>{preheader_terminator}.CreateCall(
     Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_region_entry),
     ConstantInt::get(IntegerType::get(context, 32), 0), "clie_pre");
   const int region_token = context.getMDKindID(region_entry->getName()) + 1000;
   region_entry->setOperand(
     0, ConstantInt::get(IntegerType::get(context, 32), region_token));
+
+  if (lcache_intr && (intr->getIntrinsicID() == Intrinsic::csa_parallel_loop)) {
+    lcache_region_begin = IRBuilder<>{preheader_terminator}.CreateCall(
+       Intrinsic::getDeclaration(module, Intrinsic::csa_local_cache_region_begin),
+       {lcache_size, lcache_id}, "lcache_region_begin");
+  }
 
   // The csa.parallel.region.exit intrinsic goes at the first merge point after
   // all the exits.
@@ -552,14 +669,28 @@ Re-run with -g to see more location information.
     BasicBlock *CommonPostDom = exits[0];
     for (BasicBlock *Exit : exits)
       CommonPostDom = PDT->findNearestCommonDominator(Exit, CommonPostDom);
+
     if (CommonPostDom) {
       IRBuilder<>{CommonPostDom->getFirstNonPHI()}.CreateCall(
         Intrinsic::getDeclaration(module, Intrinsic::csa_parallel_region_exit),
         region_entry);
+
+      if (lcache_intr && (intr->getIntrinsicID() == Intrinsic::csa_parallel_loop)) {
+        IRBuilder<>{CommonPostDom->getFirstNonPHI()}.CreateCall(
+            Intrinsic::getDeclaration(module, Intrinsic::csa_local_cache_region_end),
+            {lcache_region_begin, lcache_id});
+      }
     } else {
-      for (BasicBlock * Exit : exits)
+      for (BasicBlock * Exit : exits) {
         IRBuilder<>{Exit->getFirstNonPHI()}.CreateIntrinsic(
           Intrinsic::csa_parallel_region_exit, {}, region_entry);
+
+        if (lcache_intr && (intr->getIntrinsicID() == Intrinsic::csa_parallel_loop)) {
+          IRBuilder<>{Exit->getFirstNonPHI()}.CreateCall(
+              Intrinsic::getDeclaration(module, Intrinsic::csa_local_cache_region_end),
+              {lcache_region_begin, lcache_id});
+	}
+      }
     }
   }
 
@@ -588,6 +719,35 @@ Re-run with -g to see more location information.
 
   // The loop intrinsic has now been expanded.
   return true;
+}
+
+// If this is a CSA local cache intrinsic, and the loop doesn't have
+// any other intrinsic, then expand the local cache intrinsic here.
+bool CSALoopIntrinsicExpander::expandLocalCacheIntrinsic(Loop *L, IntrinsicInst *intr) {
+  using namespace std;
+
+  LLVMContext &context = L->getHeader()->getContext();
+  Module *module       = L->getHeader()->getParent()->getParent();
+
+  assert(intr->getNumArgOperands() == 1 && "Bad local_cache intrinsic?");
+  Value *lcache_size = intr->getArgOperand(0);
+  Value *lcache_id   = ConstantInt::get(IntegerType::get(context, 32), 0);
+
+  Instruction *const preheader_terminator = L->getLoopPreheader()->getTerminator();
+  CallInst *const lcache_region_begin =
+    IRBuilder<>{preheader_terminator}.CreateCall(
+	 Intrinsic::getDeclaration(module, Intrinsic::csa_local_cache_region_begin),
+         {lcache_size, lcache_id}, "lcache_region_begin");
+
+  SmallVector<BasicBlock *, 2> exits;
+  L->getExitBlocks(exits);
+  for (BasicBlock *const exit : exits) {
+     IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
+          Intrinsic::getDeclaration(module, Intrinsic::csa_local_cache_region_end),
+          {lcache_region_begin, lcache_id});
+   }
+
+   return true;
 }
 
 bool CSALoopIntrinsicExpander::makeSectionInclude(BasicBlock *BB) {
@@ -641,3 +801,5 @@ static RegisterPass<CSALoopIntrinsicExpander> rpinst{
 Pass *llvm::createCSALoopIntrinsicExpanderPass() {
   return new CSALoopIntrinsicExpander();
 }
+
+

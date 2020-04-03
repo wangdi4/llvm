@@ -2208,6 +2208,7 @@ BUILTIN(__builtin_csa_spmdization, "vicC*", "n")
 BUILTIN(__builtin_csa_spmd, "vii", "n")
 BUILTIN(__builtin_csa_spmd_worker_num, "i", "n")
 BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
+BUILTIN(__builtin_csa_local_cache, "vi", "n")
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 

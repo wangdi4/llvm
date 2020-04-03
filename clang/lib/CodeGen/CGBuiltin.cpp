@@ -13757,7 +13757,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_parallel_loop:
   case X86::BI__builtin_csa_spmdization:
   case X86::BI__builtin_csa_spmd:
-  case X86::BI__builtin_csa_spmd_worker_num: {
+  case X86::BI__builtin_csa_spmd_worker_num:
+  case X86::BI__builtin_csa_local_cache:
+  {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
 #endif  // INTEL_FEATURE_CSA
@@ -13941,7 +13943,12 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
                                      X->getType());
     return Builder.CreateCall(Callee, X);
   }
-
+  case CSA::BI__builtin_csa_local_cache: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_local_cache,
+                                     X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
   case CSA::BI__builtin_csa_lic_init: {
     Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)), Int8Ty);
     Value *Y =  Builder.CreateZExt(EmitScalarExpr(E->getArg(1)), Int64Ty);

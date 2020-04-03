@@ -33,6 +33,9 @@ BUILTIN(__builtin_csa_spmd_worker_num, "i", "n")
 
 BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
 
+// CSA local cache
+BUILTIN(__builtin_csa_local_cache, "vi", "n")
+
 // SIMD ops
 BUILTIN(__builtin_csa_addss8x8,    "V8cV8cV8c",          "ncV:64:")
 BUILTIN(__builtin_csa_addsu8x8,    "V8cV8cV8c",          "ncV:64:")
