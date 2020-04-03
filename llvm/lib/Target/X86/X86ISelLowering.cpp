@@ -7628,15 +7628,20 @@ static bool getFauxShuffleMask(SDValue N, const APInt &DemandedElts,
       }
     }
 
+    // Peek through trunc/aext/zext.
+    // TODO: aext shouldn't require SM_SentinelZero padding.
+    // TODO: handle shift of scalars.
+    while (Scl.getOpcode() == ISD::TRUNCATE ||
+           Scl.getOpcode() == ISD::ANY_EXTEND ||
+           Scl.getOpcode() == ISD::ZERO_EXTEND)
+      Scl = Scl.getOperand(0);
+
     // Attempt to find the source vector the scalar was extracted from.
-    // TODO: Handle truncate/zext/shift of scalars.
     SDValue SrcExtract;
-    if ((Scl.getOpcode() == ISD::EXTRACT_VECTOR_ELT &&
-         Scl.getOperand(0).getValueType() == VT) ||
-        (Scl.getOpcode() == X86ISD::PEXTRW &&
-         Scl.getOperand(0).getValueType() == MVT::v8i16) ||
-        (Scl.getOpcode() == X86ISD::PEXTRB &&
-         Scl.getOperand(0).getValueType() == MVT::v16i8)) {
+    if ((Scl.getOpcode() == ISD::EXTRACT_VECTOR_ELT ||
+         Scl.getOpcode() == X86ISD::PEXTRW ||
+         Scl.getOpcode() == X86ISD::PEXTRB) &&
+        Scl.getOperand(0).getValueSizeInBits() == NumSizeInBits) {
       SrcExtract = Scl;
     }
     if (!SrcExtract || !isa<ConstantSDNode>(SrcExtract.getOperand(1)))
@@ -7648,8 +7653,7 @@ static bool getFauxShuffleMask(SDValue N, const APInt &DemandedElts,
     unsigned NumZeros =
         std::max<int>((NumBitsPerElt / SrcVT.getScalarSizeInBits()) - 1, 0);
 
-    if (SrcVT.getSizeInBits() != VT.getSizeInBits() ||
-        (NumSrcElts % NumElts) != 0)
+    if ((NumSrcElts % NumElts) != 0)
       return false;
 
     unsigned SrcIdx = SrcExtract.getConstantOperandVal(1);
@@ -15110,6 +15114,10 @@ static SDValue lowerV16I8Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                               Zeroable, Subtarget, DAG))
     return V;
 
+  // Check for compaction patterns.
+  bool IsSingleInput = V2.isUndef();
+  int NumEvenDrops = canLowerByDroppingEvenElements(Mask, IsSingleInput);
+
   // Check for SSSE3 which lets us lower all v16i8 shuffles much more directly
   // with PSHUFB. It is important to do this before we attempt to generate any
   // blends but after all of the single-input lowerings. If the single input
@@ -15120,10 +15128,13 @@ static SDValue lowerV16I8Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
   // and there are *very* few patterns that would actually be faster than the
   // PSHUFB approach because of its ability to zero lanes.
   //
+  // If the mask is a binary compaction, we can more efficiently perform this
+  // as a PACKUS(AND(),AND()) - which is quicker than UNPACK(PSHUFB(),PSHUFB()).
+  //
   // FIXME: The only exceptions to the above are blends which are exact
   // interleavings with direct instructions supporting them. We currently don't
   // handle those well here.
-  if (Subtarget.hasSSSE3()) {
+  if (Subtarget.hasSSSE3() && (IsSingleInput || NumEvenDrops != 1)) {
     bool V1InUse = false;
     bool V2InUse = false;
 
@@ -15181,8 +15192,7 @@ static SDValue lowerV16I8Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
   // We special case these as they can be particularly efficiently handled with
   // the PACKUSB instruction on x86 and they show up in common patterns of
   // rearranging bytes to truncate wide elements.
-  bool IsSingleInput = V2.isUndef();
-  if (int NumEvenDrops = canLowerByDroppingEvenElements(Mask, IsSingleInput)) {
+  if (NumEvenDrops) {
     // NumEvenDrops is the power of two stride of the elements. Another way of
     // thinking about it is that we need to drop the even elements this many
     // times to get the original input.
@@ -15190,23 +15200,23 @@ static SDValue lowerV16I8Shuffle(const SDLoc &DL, ArrayRef<int> Mask,
     // First we need to zero all the dropped bytes.
     assert(NumEvenDrops <= 3 &&
            "No support for dropping even elements more than 3 times.");
-    SmallVector<SDValue, 16> ByteClearOps(16, DAG.getConstant(0, DL, MVT::i8));
-    for (unsigned i = 0; i != 16; i += 1 << NumEvenDrops)
-      ByteClearOps[i] = DAG.getConstant(0xFF, DL, MVT::i8);
-    SDValue ByteClearMask = DAG.getBuildVector(MVT::v16i8, DL, ByteClearOps);
-    V1 = DAG.getNode(ISD::AND, DL, MVT::v16i8, V1, ByteClearMask);
+    SmallVector<SDValue, 8> WordClearOps(8, DAG.getConstant(0, DL, MVT::i16));
+    for (unsigned i = 0; i != 8; i += 1 << (NumEvenDrops - 1))
+      WordClearOps[i] = DAG.getConstant(0xFF, DL, MVT::i16);
+    SDValue WordClearMask = DAG.getBuildVector(MVT::v8i16, DL, WordClearOps);
+    V1 = DAG.getNode(ISD::AND, DL, MVT::v8i16, DAG.getBitcast(MVT::v8i16, V1),
+                     WordClearMask);
     if (!IsSingleInput)
-      V2 = DAG.getNode(ISD::AND, DL, MVT::v16i8, V2, ByteClearMask);
+      V2 = DAG.getNode(ISD::AND, DL, MVT::v8i16, DAG.getBitcast(MVT::v8i16, V2),
+                       WordClearMask);
 
     // Now pack things back together.
-    V1 = DAG.getBitcast(MVT::v8i16, V1);
-    V2 = IsSingleInput ? V1 : DAG.getBitcast(MVT::v8i16, V2);
-    SDValue Result = DAG.getNode(X86ISD::PACKUS, DL, MVT::v16i8, V1, V2);
+    SDValue Result = DAG.getNode(X86ISD::PACKUS, DL, MVT::v16i8, V1,
+                                 IsSingleInput ? V1 : V2);
     for (int i = 1; i < NumEvenDrops; ++i) {
       Result = DAG.getBitcast(MVT::v8i16, Result);
       Result = DAG.getNode(X86ISD::PACKUS, DL, MVT::v16i8, Result, Result);
     }
-
     return Result;
   }
 

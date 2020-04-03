@@ -2567,6 +2567,7 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Generic:
       return None;
   }
+  return None;
 }
 
 bool X86TargetInfo::validateOutputSize(const llvm::StringMap<bool> &FeatureMap,
