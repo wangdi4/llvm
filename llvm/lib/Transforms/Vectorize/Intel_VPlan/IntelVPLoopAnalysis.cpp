@@ -1684,8 +1684,9 @@ bool VPLoopEntityList::VPSOAAnalysis::memoryEscapes(
   // Clear the 'PotentiallyUnsafeInsts' dense-set.
   PotentiallyUnsafeInsts.clear();
 
-  // Clear the WorkList of contents of the earlier run.
+  // Clear the WorkList and AnalyzedInsts of contents of the earlier run.
   WL.clear();
+  AnalyzedInsts.clear();
 
   // If this is a scalar-private, just return. The real memory layout for simple
   // scalars is identical for both SOA and AOS, it's just vector of elements.
@@ -1722,6 +1723,12 @@ bool VPLoopEntityList::VPSOAAnalysis::memoryEscapes(
 
   while (!WL.empty()) {
     const VPInstruction *CurrentI = WL.pop_back_val();
+
+    // If the UseInst has already been analyzed, skip.
+    if (AnalyzedInsts.count(CurrentI))
+      continue;
+
+    AnalyzedInsts.insert(CurrentI);
     // Analyze the users of the current-instruction.
     for (VPValue *User : CurrentI->users()) {
       const VPInstruction *UseInst = dyn_cast<VPInstruction>(User);
