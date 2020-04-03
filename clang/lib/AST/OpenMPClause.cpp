@@ -24,6 +24,8 @@
 #include <cassert>
 
 using namespace clang;
+using namespace llvm;
+using namespace omp;
 
 OMPClause::child_range OMPClause::children() {
   switch (getClauseKind()) {
@@ -1348,7 +1350,7 @@ OMPExclusiveClause *OMPExclusiveClause::CreateEmpty(const ASTContext &C,
 
 void OMPClausePrinter::VisitOMPIfClause(OMPIfClause *Node) {
   OS << "if(";
-  if (Node->getNameModifier() != llvm::omp::OMPD_unknown)
+  if (Node->getNameModifier() != OMPD_unknown)
     OS << getOpenMPDirectiveName(Node->getNameModifier()) << ": ";
   Node->getCondition()->printPretty(OS, nullptr, Policy, 0);
   OS << ")";
@@ -1962,24 +1964,24 @@ void OMPClausePrinter::VisitOMPExclusiveClause(OMPExclusiveClause *Node) {
 }
 
 void OMPTraitInfo::getAsVariantMatchInfo(
-    ASTContext &ASTCtx, llvm::omp::VariantMatchInfo &VMI) const {
+    ASTContext &ASTCtx, VariantMatchInfo &VMI) const {
   for (const OMPTraitSet &Set : Sets) {
     for (const OMPTraitSelector &Selector : Set.Selectors) {
 
       // User conditions are special as we evaluate the condition here.
-      if (Selector.Kind == llvm::omp::TraitSelector::user_condition) {
+      if (Selector.Kind == TraitSelector::user_condition) {
         assert(Selector.ScoreOrCondition &&
                "Ill-formed user condition, expected condition expression!");
         assert(Selector.Properties.size() == 1 &&
                Selector.Properties.front().Kind ==
-                   llvm::omp::TraitProperty::user_condition_unknown &&
+                   TraitProperty::user_condition_unknown &&
                "Ill-formed user condition, expected unknown trait property!");
 
         llvm::APInt CondVal =
             Selector.ScoreOrCondition->EvaluateKnownConstInt(ASTCtx);
         VMI.addTrait(CondVal.isNullValue()
-                         ? llvm::omp::TraitProperty::user_condition_false
-                         : llvm::omp::TraitProperty::user_condition_true);
+                         ? TraitProperty::user_condition_false
+                         : TraitProperty::user_condition_true);
         continue;
       }
 
@@ -1992,13 +1994,13 @@ void OMPTraitInfo::getAsVariantMatchInfo(
       for (const OMPTraitProperty &Property : Selector.Properties)
         VMI.addTrait(Set.Kind, Property.Kind, ScorePtr);
 
-      if (Set.Kind != llvm::omp::TraitSet::construct)
+      if (Set.Kind != TraitSet::construct)
         continue;
 
       // TODO: This might not hold once we implement SIMD properly.
       assert(Selector.Properties.size() == 1 &&
              Selector.Properties.front().Kind ==
-                 llvm::omp::getOpenMPContextTraitPropertyForSelector(
+                 getOpenMPContextTraitPropertyForSelector(
                      Selector.Kind) &&
              "Ill-formed construct selector!");
 
@@ -2014,25 +2016,25 @@ void OMPTraitInfo::print(llvm::raw_ostream &OS,
     if (!FirstSet)
       OS << ", ";
     FirstSet = false;
-    OS << llvm::omp::getOpenMPContextTraitSetName(Set.Kind) << "={";
+    OS << getOpenMPContextTraitSetName(Set.Kind) << "={";
 
     bool FirstSelector = true;
     for (const OMPTraitInfo::OMPTraitSelector &Selector : Set.Selectors) {
       if (!FirstSelector)
         OS << ", ";
       FirstSelector = false;
-      OS << llvm::omp::getOpenMPContextTraitSelectorName(Selector.Kind);
+      OS << getOpenMPContextTraitSelectorName(Selector.Kind);
 
       bool AllowsTraitScore = false;
       bool RequiresProperty = false;
-      llvm::omp::isValidTraitSelectorForTraitSet(
+      isValidTraitSelectorForTraitSet(
           Selector.Kind, Set.Kind, AllowsTraitScore, RequiresProperty);
 
       if (!RequiresProperty)
         continue;
 
       OS << "(";
-      if (Selector.Kind == llvm::omp::TraitSelector::user_condition) {
+      if (Selector.Kind == TraitSelector::user_condition) {
         Selector.ScoreOrCondition->printPretty(OS, nullptr, Policy);
       } else {
 
@@ -2048,7 +2050,7 @@ void OMPTraitInfo::print(llvm::raw_ostream &OS,
           if (!FirstProperty)
             OS << ", ";
           FirstProperty = false;
-          OS << llvm::omp::getOpenMPContextTraitPropertyName(Property.Kind);
+          OS << getOpenMPContextTraitPropertyName(Property.Kind);
         }
       }
       OS << ")";
