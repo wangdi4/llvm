@@ -42,6 +42,8 @@
 
 #define OCL_EXT_INTEL_GLOBAL_VARIABLE_POINTER   "cl_intel_global_variable_pointers_preview"
 
+#define OCL_EXT_KHR_SUBGROUP_SHUFFLE            "cl_khr_subgroup_shuffle"
+
 #define OCL_EXT_INTEL_SUBGROUPS                 "cl_intel_subgroups"
 #define OCL_EXT_INTEL_SUBGROUPS_CHAR            "cl_intel_subgroups_char"
 #define OCL_EXT_INTEL_SUBGROUPS_SHORT           "cl_intel_subgroups_short"
