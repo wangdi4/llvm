@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_avx_ifma
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxifma -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -flax-vector-conversions=none -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avxifma -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 
