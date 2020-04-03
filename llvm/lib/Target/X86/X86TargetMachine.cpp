@@ -91,14 +91,11 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86FlagsCopyLoweringPassPass(PR);
   initializeX86CondBrFoldingPassPass(PR);
   initializeX86OptimizeLEAPassPass(PR);
-<<<<<<< HEAD
+  initializeX86PartialReductionPass(PR);
 #if INTEL_CUSTOMIZATION
   initializeX86GlobalFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
-=======
-  initializeX86PartialReductionPass(PR);
->>>>>>> 9f7d4150b9ec638a048c183c21a355195fdc4942
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
