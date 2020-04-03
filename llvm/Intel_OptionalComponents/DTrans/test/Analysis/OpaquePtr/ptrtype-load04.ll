@@ -30,12 +30,14 @@ define internal void @test01(%struct.test01* %in) !dtrans_type !4 {
   ret void
 }
 ; CHECK-LABEL: define internal void @test01
+
+; We do not expect pointer info to be emitted for this load
+; because there is not a pointer or aggregate type alias.
 ; CHECK-CUR: %v0 = load i64, i64* %f0
 ; CHECK-FUT: %v0 = load i64, p0 %f0
-; CHECK:    LocalPointerInfo:
-; CHECK-NEXT: No aliased types.
-; CHECK-NEXT: No element pointees.
-
+; CHECK-NOT:    LocalPointerInfo:
+; CHECK-CUR: %f1 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 1
+; CHECK-FUT: %f1 = getelementptr %struct.test01, p0 %in, i64 0, i32 1
 
 ; CHECK-CUR:  %bc = bitcast %struct.test01** %f1 to i64*
 ; CHECK-FUT:  %bc = bitcast p0 %f1 to p0
@@ -46,6 +48,7 @@ define internal void @test01(%struct.test01* %in) !dtrans_type !4 {
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 1
 
+; This case should have info reported because there is a pointer alias.
 ; CHECK-CUR:  %v1 = load i64, i64* %bc
 ; CHECK-FUT:  %v1 = load i64, p0 %bc
 ; CHECK:    LocalPointerInfo:

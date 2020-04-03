@@ -31,6 +31,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/ObjCARCAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
@@ -1023,4 +1024,5 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>();        // INTEL
   AU.addUsedIfAvailable<ExternalAAWrapperPass>();
+  AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }

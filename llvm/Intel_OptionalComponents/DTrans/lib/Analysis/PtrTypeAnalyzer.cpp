@@ -203,7 +203,8 @@ public:
           PrintConstantExpr(OS, CE);
 
     // Report the information about the value produced by the instruction.
-    bool ExpectPointerInfo = Analyzer.isPossiblePtrValue(V);
+    bool ExpectPointerInfo =
+      isTypeOfInterest(V->getType()) || isa<PtrToIntInst>(V);
 
     // The value is being produced by an instruction, so can use
     // getValueTypeInfo, without checking if it is 'null'/'undef' here.
