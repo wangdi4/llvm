@@ -1475,7 +1475,7 @@ private:
     unsigned TC : 8;
 
     /// Store information on the type dependency.
-    /*TypeDependence*/ unsigned Dependence : TypeDependenceBits;
+    unsigned Dependence : llvm::BitWidth<TypeDependence>;
 
     /// True if the cache (i.e. the bitfields here starting with
     /// 'Cache') is valid.
@@ -1504,7 +1504,7 @@ private:
       return CachedLocalOrUnnamed;
     }
   };
-  enum { NumTypeBits = 8 + TypeDependenceBits + 6 };
+  enum { NumTypeBits = 8 + llvm::BitWidth<TypeDependence> + 6 };
 
 protected:
   // These classes allow subclasses to somewhat cleanly pack bitfields
