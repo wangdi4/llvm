@@ -355,12 +355,8 @@ multiclass AVX512_maskable<bits<8> O, Format F, X86VectorVTInfo _,
                            dag RHS,
                            bit IsCommutable = 0, bit IsKCommutable = 0,
                            bit IsKZCommutable = IsCommutable,
-<<<<<<< HEAD
-                           SDNode Select = vselect, // INTEL
+                           SDPatternOperator Select = vselect_mask, // INTEL
                            string ClobberConstraint = ""> : // INTEL
-=======
-                           SDPatternOperator Select = vselect_mask> :
->>>>>>> cdd1cd712087377b69aee1c9f13be7cd73fb340d
    AVX512_maskable_common<O, F, _, Outs, Ins,
                           !con((ins _.RC:$src0, _.KRCWM:$mask), Ins),
                           !con((ins _.KRCWM:$mask), Ins),
