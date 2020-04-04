@@ -49,7 +49,7 @@ device device_selector::select_device() const {
   const device *res = nullptr;
   for (const auto &dev : devices) {
     int dev_score = operator()(dev);
-    if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_BASIC)) {
+    if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_ALL)) { // INTEL
       std::cout
         << "SYCL_PI_TRACE[1]: select_device(): -> score = " << dev_score << std::endl
         << "SYCL_PI_TRACE[1]:   platform: "
