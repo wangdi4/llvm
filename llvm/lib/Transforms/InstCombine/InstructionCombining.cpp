@@ -2169,7 +2169,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 
     GEP.getParent()->getInstList().insert(
         GEP.getParent()->getFirstInsertionPt(), NewGEP);
-    GEP.setOperand(0, NewGEP);
+    replaceOperand(GEP, 0, NewGEP);
     PtrOp = NewGEP;
   }
 
@@ -2269,10 +2269,15 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       // Update the GEP in place if possible.
       if (Src->getNumOperands() == 2) {
         GEP.setIsInBounds(isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP)));
+<<<<<<< HEAD
         GEP.setOperand(0, Src->getOperand(0));
         GEP.setOperand(1, Sum);
         // TODO: INTEL: Should we drop all the metadata and upstream?
         GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr); // INTEL
+=======
+        replaceOperand(GEP, 0, Src->getOperand(0));
+        replaceOperand(GEP, 1, Sum);
+>>>>>>> 30d712103faa8c78e8b1dbc9cc6c9b831bb20e4c
         return &GEP;
       }
       Indices.append(Src->op_begin()+1, Src->op_end()-1);
@@ -2396,9 +2401,8 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
             // array.  Because the array type is never stepped over (there
             // is a leading zero) we can fold the cast into this GEP.
             if (StrippedPtrTy->getAddressSpace() == GEP.getAddressSpace()) {
-              GEP.setOperand(0, StrippedPtr);
               GEP.setSourceElementType(XATy);
-              return &GEP;
+              return replaceOperand(GEP, 0, StrippedPtr);
             }
             // Cannot replace the base pointer directly because StrippedPtr's
             // address space is different. Instead, create a new GEP followed by
