@@ -601,8 +601,8 @@ private:
         // Clone the MMO and unset the store flag.
         LoadMMOs.push_back(MF.getMachineMemOperand(
             MMO->getPointerInfo(),
-            MMO->getFlags() & ~MachineMemOperand::MOStore,
-            MMO->getSize(), MMO->getBaseAlignment(), MMO->getAAInfo(), nullptr,
+            MMO->getFlags() & ~MachineMemOperand::MOStore, MMO->getSize(),
+            MMO->getBaseAlign().value(), MMO->getAAInfo(), nullptr,
             MMO->getSyncScopeID(), MMO->getOrdering(),
             MMO->getFailureOrdering()));
       }

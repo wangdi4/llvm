@@ -3847,7 +3847,8 @@ void X86InstrInfo::loadRegFromAddr(
     SmallVectorImpl<MachineInstr *> &NewMIs) const {
   const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
   unsigned Alignment = std::max<uint32_t>(TRI.getSpillSize(*RC), 16);
-  bool isAligned = !MMOs.empty() && MMOs.front()->getAlignment() >= Alignment;
+  bool isAligned =
+      !MMOs.empty() && MMOs.front()->getAlign() >= Align(Alignment);
   unsigned Opc = getLoadRegOpcode(DestReg, RC, isAligned, Subtarget);
   DebugLoc DL;
   MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc), DestReg);
