@@ -509,6 +509,9 @@ public:
     // The running worklist of all the instructions which we want to track.
     WorkList WL;
 
+    // Set to avoid repeat-processing in case of cyclic Use-Def chains.
+    DenseSet<const VPInstruction *> AnalyzedInsts;
+
     // The list of potentially unsafe instructions. The users of these
     // instructions have to be analyzed for any unsafe behavior.
     DenseSet<const VPValue *> PotentiallyUnsafeInsts;

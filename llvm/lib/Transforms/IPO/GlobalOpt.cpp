@@ -1595,6 +1595,12 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
           GV->getInitializer()->getType()->getPointerAddressSpace())) {
     if (Constant *SOVC = dyn_cast<Constant>(StoredOnceVal)) {
       if (GV->getInitializer()->getType() != SOVC->getType())
+#if INTEL_CUSTOMIZATION
+        if (SOVC->getType()->isIntegerTy())
+          SOVC =
+              ConstantExpr::getIntToPtr(SOVC, GV->getInitializer()->getType());
+        else
+#endif // INTEL_CUSTOMIZATION
         SOVC = ConstantExpr::getBitCast(SOVC, GV->getInitializer()->getType());
 
       // Optimize away any trapping uses of the loaded value.
