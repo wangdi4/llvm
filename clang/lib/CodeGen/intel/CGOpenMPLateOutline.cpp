@@ -2152,6 +2152,8 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_declare_variant:
+  case OMPD_begin_declare_variant:
+  case OMPD_end_declare_variant:
   case OMPD_target_variant_dispatch:
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -2504,6 +2506,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_declare_variant:
+  case OMPD_begin_declare_variant:
+  case OMPD_end_declare_variant:
   case OMPD_threadprivate:
   case OMPD_declare_reduction:
   case OMPD_declare_simd:
