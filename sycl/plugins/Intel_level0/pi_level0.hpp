@@ -33,6 +33,10 @@ struct _pi_device {
   // command list when no longer needed.
   //
   ze_command_list_handle_t createCommandList();
+
+  // Cache of the immutable device properties.
+  ze_device_properties_t L0DeviceProperties;
+  ze_device_compute_properties_t L0DeviceComputeProperties;
 };
 
 struct _pi_context {
