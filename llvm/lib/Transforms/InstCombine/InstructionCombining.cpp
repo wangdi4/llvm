@@ -2269,15 +2269,10 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       // Update the GEP in place if possible.
       if (Src->getNumOperands() == 2) {
         GEP.setIsInBounds(isMergedGEPInBounds(*Src, *cast<GEPOperator>(&GEP)));
-<<<<<<< HEAD
-        GEP.setOperand(0, Src->getOperand(0));
-        GEP.setOperand(1, Sum);
-        // TODO: INTEL: Should we drop all the metadata and upstream?
-        GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr); // INTEL
-=======
         replaceOperand(GEP, 0, Src->getOperand(0));
         replaceOperand(GEP, 1, Sum);
->>>>>>> 30d712103faa8c78e8b1dbc9cc6c9b831bb20e4c
+        // TODO: INTEL: Should we drop all the metadata and upstream?
+        GEP.setMetadata(LLVMContext::MD_intel_tbaa, nullptr); // INTEL
         return &GEP;
       }
       Indices.append(Src->op_begin()+1, Src->op_end()-1);
