@@ -1026,16 +1026,23 @@ void VPOParoptModuleTransform::processDeviceTriples() {
 //      int32_t    flags;      // Flags of the entry.
 //      int32_t    reserved;   // Reserved by the runtime library.
 // };
-StructType *VPOParoptModuleTransform::getTgOffloadEntryTy() {
-  if (TgOffloadEntryTy)
-    return TgOffloadEntryTy;
+StructType *VPOParoptModuleTransform::getTgtOffloadEntryTy() {
+  if (TgtOffloadEntryTy)
+    return TgtOffloadEntryTy;
 
-  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-                    GeneralUtils::getSizeTTy(&M), Type::getInt32Ty(C),
-                    Type::getInt32Ty(C)};
-  TgOffloadEntryTy =
-      StructType::get(C, TyArgs, /* "struct.__tgt_offload_entry"*/false);
-  return TgOffloadEntryTy;
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
+
+  Type *TyArgs[] = {
+    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0),
+    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0),
+    GeneralUtils::getSizeTTy(&M),
+    Type::getInt32Ty(C),
+    Type::getInt32Ty(C)
+  };
+
+  TgtOffloadEntryTy =
+      StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
+  return TgtOffloadEntryTy;
 }
 
 void VPOParoptModuleTransform::loadOffloadMetadata() {
@@ -1189,9 +1196,6 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
 
   bool Changed = false;
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
-  Type *VoidStarTy = Type::getInt8PtrTy(C);
-  Type *SizeTy = GeneralUtils::getSizeTTy(&M);
-  Type *Int32Ty = Type::getInt32Ty(C);
 
   for (auto *E : OffloadEntries) {
     if (auto *Var = dyn_cast<VarEntry>(E))
@@ -1221,23 +1225,31 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
 
     GlobalVariable *Str = new GlobalVariable(
         M, StrInit->getType(), /*isConstant=*/true,
-        GlobalValue::InternalLinkage, StrInit, ".omp_offloading.entry_name");
+        GlobalValue::InternalLinkage, StrInit,
+        ".omp_offloading.entry_name", /* InsertBefore */ nullptr,
+        GlobalValue::ThreadLocalMode::NotThreadLocal,
+        IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0);
     Str->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
     Str->setTargetDeclare(true);
+
+    auto *EntryTy = getTgtOffloadEntryTy();
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
     if (!IsTargetSPIRV && EntryAddress)
       EntryInitBuffer.push_back(
-        ConstantExpr::getBitCast(EntryAddress, VoidStarTy));
+          ConstantExpr::getBitCast(EntryAddress, EntryTy->getElementType(0)));
     else
-      EntryInitBuffer.push_back(Constant::getNullValue(VoidStarTy));
-    EntryInitBuffer.push_back(ConstantExpr::getBitCast(Str, VoidStarTy));
-    EntryInitBuffer.push_back(ConstantInt::get(SizeTy, E->getSize()));
-    EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, E->getFlags()));
-    EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, 0));
+      EntryInitBuffer.push_back(
+          Constant::getNullValue(EntryTy->getElementType(0)));
+    EntryInitBuffer.push_back(
+        ConstantExpr::getBitCast(Str, EntryTy->getElementType(1)));
+    EntryInitBuffer.push_back(
+        ConstantInt::get(EntryTy->getElementType(2), E->getSize()));
+    EntryInitBuffer.push_back(
+        ConstantInt::get(EntryTy->getElementType(3), E->getFlags()));
+    EntryInitBuffer.push_back(ConstantInt::get(EntryTy->getElementType(4), 0));
 
-    Constant *EntryInit =
-        ConstantStruct::get(getTgOffloadEntryTy(), EntryInitBuffer);
+    Constant *EntryInit = ConstantStruct::get(EntryTy, EntryInitBuffer);
 
     GlobalVariable *Entry =
         new GlobalVariable(M, EntryInit->getType(),
