@@ -42,11 +42,11 @@ entry:
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.CANCEL"(), "QUAL.OMP.CANCEL.PARALLEL"(), "QUAL.OMP.IF"(i32 %conv) ]
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.CANCEL"() ]
 
-  ; CHECK: %[[CANCEL:[^ ]+]] = call i32 @__kmpc_cancel(%struct.ident_t* @{{[^ ]+}}, i32 %{{[^ ]+}}, i32 1)
+  ; CHECK: %[[CANCEL:[^ ]+]] = call i32 @__kmpc_cancel(%__struct.ident_t* @{{[^ ]+}}, i32 %{{[^ ]+}}, i32 1)
   ; CHECK: %[[CHECK1:[^ ]+]] = icmp ne i32 %[[CANCEL]], 0
   ; CHECK: br i1 %[[CHECK1]], label %[[CANCELLED:[^ ]+]], label %{{[^ ]+}}
 
-  ; CHECK: %[[CP:[^ ]+]] = call i32 @__kmpc_cancellationpoint(%struct.ident_t* @{{[^ ]+}}, i32 %{{[^ ]+}}, i32 1)
+  ; CHECK: %[[CP:[^ ]+]] = call i32 @__kmpc_cancellationpoint(%__struct.ident_t* @{{[^ ]+}}, i32 %{{[^ ]+}}, i32 1)
   ; CHECK: %[[CHECK2:[^ ]+]] = icmp ne i32 %[[CP]], 0
   ; CHECK: br i1 %[[CHECK2]], label %[[CANCELLED]], label %{{[^ ]+}}
 

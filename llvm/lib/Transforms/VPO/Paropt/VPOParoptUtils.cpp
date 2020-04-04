@@ -146,7 +146,7 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
                          Type::getInt32Ty(C),    // reserved_3
                          Type::getInt8PtrTy(C)}; // *psource
 
-  return VPOParoptUtils::getOrCreateStructType(F, "struct.ident_t",
+  return VPOParoptUtils::getOrCreateStructType(F, "__struct.ident_t",
                                                IdentTyArgs);
 }
 

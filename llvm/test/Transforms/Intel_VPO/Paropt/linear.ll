@@ -57,7 +57,7 @@ entry:
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i16, i16* @y
 ; CHECK: store i16 [[LOAD1]], i16* [[LINEAR_INIT:%[a-zA-Z._0-9]+]]
 ; CHECK: call void @__kmpc_barrier{{.*}}
-; CHECK: call void @__kmpc_for_static_init_8(%struct.ident_t* @{{[^, ]+}}, i32 %{{[^, ]+}}, i32 34, i32* %{{[^, ]+}}, i64* [[CHUNK_LB_PTR:%[^, ]+]]{{.*}}
+; CHECK: call void @__kmpc_for_static_init_8(%__struct.ident_t* @{{[^, ]+}}, i32 %{{[^, ]+}}, i32 34, i32* %{{[^, ]+}}, i64* [[CHUNK_LB_PTR:%[^, ]+]]{{.*}}
 
 ; Initialization of linear var per chunk
 ; CHECK: [[CHUNK_LB:%[^ ]+]] = load i64, i64* [[CHUNK_LB_PTR]]
