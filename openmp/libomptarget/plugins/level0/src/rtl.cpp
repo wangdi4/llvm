@@ -152,6 +152,17 @@ int DebugLevel = 0;
   Fn(ZE_RESULT_ERROR_OVERLAPPING_REGIONS)                                      \
   Fn(ZE_RESULT_ERROR_UNKNOWN)
 
+#ifdef OMPTARGET_LEVEL0_DEBUG
+#define CASE_TO_STRING(Num) case Num: return #Num;
+static const char *getZeErrorName(int32_t Error) {
+  switch (Error) {
+    FOREACH_ZE_ERROR_CODE(CASE_TO_STRING)
+  default:
+    return "ZE_RESULT_ERROR_UNKNOWN";
+  }
+}
+#endif // OMPTARGET_LEVEL0_DEBUG
+
 /// Per-device global entry table
 struct FuncOrGblEntryTy {
   __tgt_target_table Table;
@@ -167,6 +178,50 @@ struct ModuleDataTy {
   int DeviceNum = -1;
 };
 
+/// Handles to be created for each threads
+struct PrivateHandlesTy {
+  ze_command_list_handle_t CmdList = nullptr;
+  ze_command_queue_handle_t CmdQueue = nullptr;
+};
+
+thread_local PrivateHandlesTy ThreadLocalHandles;
+
+/// Create a command list
+static ze_command_list_handle_t createCmdList(ze_device_handle_t device) {
+  ze_command_list_desc_t cmdListDesc = {
+    ZE_COMMAND_LIST_DESC_VERSION_CURRENT,
+    ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY
+  };
+  ze_command_list_handle_t cmdList;
+  CALL_ZE_RET_NULL(zeCommandListCreate, device, &cmdListDesc, &cmdList);
+  return cmdList;
+}
+
+/// Create a command queue
+static ze_command_queue_handle_t createCmdQueue(ze_device_handle_t device) {
+  ze_command_queue_desc_t cmdQueueDesc = {
+    ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT,
+    ZE_COMMAND_QUEUE_FLAG_NONE,
+    ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
+    ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
+    0 // ordinal
+  };
+  ze_command_queue_handle_t cmdQueue;
+  CALL_ZE_RET_NULL(zeCommandQueueCreate, device, &cmdQueueDesc, &cmdQueue);
+  return cmdQueue;
+}
+
+/// Create a fence
+static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
+  ze_fence_desc_t fenceDesc = {
+    ZE_FENCE_DESC_VERSION_CURRENT,
+    ZE_FENCE_FLAG_NONE
+  };
+  ze_fence_handle_t fence;
+  CALL_ZE_RET(0, zeFenceCreate, cmdQueue, &fenceDesc, &fence);
+  return fence;
+}
+
 /// Device information
 struct RTLDeviceInfoTy {
   uint32_t NumDevices;
@@ -178,12 +233,14 @@ struct RTLDeviceInfoTy {
   ze_device_compute_properties_t ComputeProperties;
 
   std::vector<ze_device_handle_t> Devices;
-  std::vector<ze_command_list_handle_t> CmdLists;
-  std::vector<ze_command_queue_handle_t> CmdQueues;
+  // Use per-thread command list/queue
+  std::vector<std::vector<ze_command_list_handle_t>> CmdLists;
+  std::vector<std::vector<ze_command_queue_handle_t>> CmdQueues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
   std::vector<std::vector<void *>> OwnedMemory; // Memory owned by the plugin
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
+  std::mutex *DataMutexes; // For internal data
 
   /// Flags, parameters, options
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -232,6 +289,30 @@ struct RTLDeviceInfoTy {
     if (char *env = getenv("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
       CompilationOptions += env;
   }
+
+  ze_command_list_handle_t getCmdList(int32_t DeviceId) {
+    if (!ThreadLocalHandles.CmdList) {
+      auto cmdList = createCmdList(Devices[DeviceId]);
+      // Store it in the global list for clean up
+      DataMutexes[DeviceId].lock();
+      CmdLists[DeviceId].push_back(cmdList);
+      DataMutexes[DeviceId].unlock();
+      ThreadLocalHandles.CmdList = cmdList;
+    }
+    return ThreadLocalHandles.CmdList;
+  }
+
+  ze_command_queue_handle_t getCmdQueue(int32_t DeviceId) {
+    if (!ThreadLocalHandles.CmdQueue) {
+      auto cmdQueue = createCmdQueue(Devices[DeviceId]);
+      // Store it in the global list for clean up
+      DataMutexes[DeviceId].lock();
+      CmdQueues[DeviceId].push_back(cmdQueue);
+      DataMutexes[DeviceId].unlock();
+      ThreadLocalHandles.CmdQueue = cmdQueue;
+    }
+    return ThreadLocalHandles.CmdQueue;
+  }
 };
 
 /// Libomptarget-defined handler and argument.
@@ -248,17 +329,6 @@ typedef struct {
 } TgtLoopDescTy;
 
 static RTLDeviceInfoTy DeviceInfo;
-
-#ifdef OMPTARGET_LEVEL0_DEBUG
-#define CASE_TO_STRING(Num) case Num: return #Num;
-static const char *getZeErrorName(int32_t Error) {
-  switch (Error) {
-    FOREACH_ZE_ERROR_CODE(CASE_TO_STRING)
-  default:
-    return "ZE_RESULT_ERROR_UNKNOWN";
-  }
-}
-#endif // OMPTARGET_LEVEL0_DEBUG
 
 static void addDataTransferLatency() {
   if (DeviceInfo.DataTransferLatency == 0)
@@ -282,8 +352,10 @@ static void closeRTL() {
     for (auto mem : DeviceInfo.OwnedMemory[i]) {
       CALL_ZE_EXIT_FAIL(zeDriverFreeMem, DeviceInfo.Driver, mem);
     }
-    CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, DeviceInfo.CmdQueues[i]);
-    CALL_ZE_EXIT_FAIL(zeCommandListDestroy, DeviceInfo.CmdLists[i]);
+    for (auto cmdQueue : DeviceInfo.CmdQueues[i])
+      CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, cmdQueue);
+    for (auto cmdList : DeviceInfo.CmdLists[i])
+      CALL_ZE_EXIT_FAIL(zeCommandListDestroy, cmdList);
     for (auto kernel : DeviceInfo.FuncGblEntries[i].Kernels) {
       if (kernel)
         CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
@@ -293,20 +365,8 @@ static void closeRTL() {
 #endif
   }
   delete[] DeviceInfo.Mutexes;
+  delete[] DeviceInfo.DataMutexes;
   DP("Closed RTL successfully\n");
-}
-
-// Template for synchronous command execution.
-static int32_t executeCommand(ze_command_list_handle_t CmdList,
-                              ze_command_queue_handle_t CmdQueue,
-                              std::mutex &Mutex) {
-  CALL_ZE_RET_FAIL_MTX(zeCommandListClose, Mutex, CmdList);
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                   nullptr /* fence for completion signaling */);
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT32_MAX);
-  // Make sure the command list is ready to accept next command
-  CALL_ZE_RET_FAIL_MTX(zeCommandListReset, Mutex, CmdList);
-  return OFFLOAD_SUCCESS;
 }
 
 /// Initialize module data
@@ -327,11 +387,13 @@ static int32_t initModule(int32_t DeviceId) {
     0 /* ordinal */
   };
   void *deviceData = nullptr;
+
+  std::unique_lock<std::mutex> kernelLock(DeviceInfo.Mutexes[DeviceId]);
+
   CALL_ZE_RET_FAIL(zeDriverAllocDeviceMem, driver, &allocDesc, sizeof(hostData),
                    LEVEL0_ALIGNMENT, device, &deviceData);
 
   // Prepare kernel to initialize data
-  auto &mutex = DeviceInfo.Mutexes[DeviceId];
   ze_kernel_desc_t kernelDesc = {
     ZE_KERNEL_DESC_VERSION_CURRENT,
     ZE_KERNEL_FLAG_NONE,
@@ -340,27 +402,27 @@ static int32_t initModule(int32_t DeviceId) {
   auto module = DeviceInfo.FuncGblEntries[DeviceId].Module;
   ze_kernel_handle_t initModuleData;
   CALL_ZE_RET_FAIL(zeKernelCreate, module, &kernelDesc, &initModuleData);
-  CALL_ZE_RET_FAIL_MTX(zeKernelSetArgumentValue, mutex, initModuleData, 0,
-                       sizeof(deviceData), &deviceData);
+  CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, initModuleData, 0,
+                   sizeof(deviceData), &deviceData);
   ze_group_count_t groupCounts = {1, 1, 1};
-  CALL_ZE_RET_FAIL_MTX(zeKernelSetGroupSize, mutex, initModuleData, 1, 1, 1);
+  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, initModuleData, 1, 1, 1);
 
   // Invoke the kernel
-  auto cmdList = DeviceInfo.CmdLists[DeviceId];
-  auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
-  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList,
-                       deviceData, &hostData, sizeof(hostData), nullptr);
-  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
-                       nullptr);
-  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
-                       initModuleData, &groupCounts, nullptr, 0, nullptr);
-  CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
-                       nullptr);
-  if (executeCommand(cmdList, cmdQueue, mutex) == OFFLOAD_FAIL)
-    return OFFLOAD_FAIL;
-
-  CALL_ZE_RET_FAIL_MTX(zeKernelDestroy, mutex, initModuleData);
-  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, mutex, driver, deviceData);
+  auto cmdList = DeviceInfo.getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, deviceData,
+                   &hostData, sizeof(hostData), nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, initModuleData,
+                   &groupCounts, nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+                   nullptr);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+  CALL_ZE_RET_FAIL(zeKernelDestroy, initModuleData);
+  CALL_ZE_RET_FAIL(zeDriverFreeMem, driver, deviceData);
 
   return OFFLOAD_SUCCESS;
 }
@@ -431,6 +493,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.OwnedMemory.resize(DeviceInfo.NumDevices);
   DeviceInfo.Initialized.resize(DeviceInfo.NumDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.NumDevices];
+  DeviceInfo.DataMutexes = new std::mutex[DeviceInfo.NumDevices];
 
   ze_device_compute_properties_t computeProperties = {};
   computeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
@@ -460,26 +523,6 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     return OFFLOAD_FAIL;
   }
 
-  auto deviceHandle = DeviceInfo.Devices[DeviceId];
-
-  // Create a command list
-  ze_command_list_desc_t cmdListDesc = {
-    ZE_COMMAND_LIST_DESC_VERSION_CURRENT,
-    ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY
-  };
-  CALL_ZE_RET_FAIL(zeCommandListCreate, deviceHandle, &cmdListDesc,
-                   &DeviceInfo.CmdLists[DeviceId]);
-
-  // Create a command queue
-  ze_command_queue_desc_t cmdQueueDesc = {
-    ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT,
-    ZE_COMMAND_QUEUE_FLAG_NONE,
-    ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS,
-    ZE_COMMAND_QUEUE_PRIORITY_NORMAL,
-    0 // ordinal
-  };
-  CALL_ZE_RET_FAIL(zeCommandQueueCreate, deviceHandle, &cmdQueueDesc,
-                   &DeviceInfo.CmdQueues[DeviceId]);
   DeviceInfo.Initialized[DeviceId] = true;
 
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
@@ -513,7 +556,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   CALL_ZE_RET_NULL(zeModuleCreate, DeviceInfo.Devices[DeviceId], &moduleDesc,
                    &module, nullptr /* build log */);
 
-  auto &mutex = DeviceInfo.Mutexes[DeviceId];
   auto &entries = DeviceInfo.FuncGblEntries[DeviceId].Entries;
   auto &kernels = DeviceInfo.FuncGblEntries[DeviceId].Kernels;
   entries.resize(numEntries);
@@ -532,9 +574,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       if (!tgtAddr) {
         tgtAddr = __tgt_rtl_data_alloc(DeviceId, size, hstAddr);
         __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
-        mutex.lock();
+        DeviceInfo.DataMutexes[DeviceId].lock();
         DeviceInfo.OwnedMemory[DeviceId].push_back(tgtAddr);
-        mutex.unlock();
+        DeviceInfo.DataMutexes[DeviceId].unlock();
       }
       entries[i].addr = tgtAddr;
       entries[i].name = name;
@@ -590,6 +632,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
 static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
                        void *HstBase, int32_t IsImplicitArg) {
+  // TODO: this seems necessary for now -- check with L0 driver team for details
+  std::unique_lock<std::mutex> allocLock(DeviceInfo.Mutexes[DeviceId]);
+
   intptr_t offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   size_t size = (offset < 0 && ABS(offset) >= Size) ? ABS(offset) + 1 : Size;
 
@@ -602,8 +647,8 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
     0 /* ordinal */
   };
   void *base = nullptr;
-  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo.Driver, &allocDesc,
-                   size, LEVEL0_ALIGNMENT, DeviceInfo.Devices[DeviceId], &base);
+  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo.Driver, &allocDesc, size,
+                   LEVEL0_ALIGNMENT, DeviceInfo.Devices[DeviceId], &base);
   void *mem = (void *)((intptr_t)base + offset);
 
 #ifdef OMPTARGET_LEVEL0_DEBUG
@@ -688,16 +733,16 @@ static void endAsyncCommand(AsyncEventTy *Event,
 // We use a dedicated command list and a fence to invoke an asynchronous task.
 // A separate detached thread submits commands to the queue, waits until the
 // attached fence is signaled, and then invokes the clean-up routine.
+// Two threads **cannot** call this function simultaneously.
 static int32_t beginAsyncCommand(ze_command_list_handle_t CmdList,
                                  ze_command_queue_handle_t CmdQueue,
-                                 std::mutex &Mutex, AsyncEventTy *Event,
-                                 ze_fence_handle_t Fence) {
+                                 AsyncEventTy *Event, ze_fence_handle_t Fence) {
   if (!Event || !Event->Handler || !Event->Arg) {
     DP("Error: Failed to start asynchronous command -- invalid argument\n");
     return OFFLOAD_FAIL;
   }
 
-  CALL_ZE_RET_FAIL_MTX(zeCommandListClose, Mutex, CmdList);
+  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
 
   // Spawn waiting thread
   std::thread waiter([](AsyncEventTy *event, ze_command_list_handle_t cmdList,
@@ -717,30 +762,6 @@ static int32_t beginAsyncCommand(ze_command_list_handle_t CmdList,
   return OFFLOAD_SUCCESS;
 }
 
-// Create a fence
-static ze_fence_handle_t createFence(int32_t DeviceId) {
-  ze_fence_desc_t fenceDesc = {
-    ZE_FENCE_DESC_VERSION_CURRENT,
-    ZE_FENCE_FLAG_NONE
-  };
-  auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
-  ze_fence_handle_t fence;
-  CALL_ZE_RET(0, zeFenceCreate, cmdQueue, &fenceDesc, &fence);
-  return fence;
-}
-
-// Create a command list
-static ze_command_list_handle_t createCmdList(int32_t DeviceId) {
-  ze_command_list_desc_t cmdListDesc = {
-    ZE_COMMAND_LIST_DESC_VERSION_CURRENT,
-    ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY
-  };
-  ze_command_list_handle_t cmdList;
-  auto deviceHandle = DeviceInfo.Devices[DeviceId];
-  CALL_ZE_RET(0, zeCommandListCreate, deviceHandle, &cmdListDesc, &cmdList);
-  return cmdList;
-}
-
 static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                           int64_t Size, void *AsyncEvent) {
   if (Size == 0)
@@ -749,35 +770,39 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  auto cmdList = DeviceInfo.CmdLists[DeviceId];
-  auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
-  auto &mutex = DeviceInfo.Mutexes[DeviceId];
+  std::unique_lock<std::mutex> copyLock(DeviceInfo.Mutexes[DeviceId]);
+
+  auto cmdList = DeviceInfo.getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceId);
+    cmdList = createCmdList(DeviceInfo.Devices[DeviceId]);
     if (!cmdList) {
       DP("Error: Asynchronous data submit failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, TgtPtr,
-                         HstPtr, Size, nullptr);
-    auto fence = createFence(DeviceId);
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
+                     Size, nullptr);
+    auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous data submit failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
-    if (beginAsyncCommand(cmdList, cmdQueue, mutex,
+    if (beginAsyncCommand(cmdList, cmdQueue,
         static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
        DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
   } else {
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, TgtPtr,
-                         HstPtr, Size, nullptr /* event handle */);
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
-                         nullptr);
-    if (executeCommand(cmdList, cmdQueue, mutex) == OFFLOAD_FAIL)
-      return OFFLOAD_FAIL;
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
+                     Size, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+                     nullptr);
+    copyLock.unlock();
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
     DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtr), DPxPTR(TgtPtr));
   }
@@ -806,35 +831,39 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  auto cmdList = DeviceInfo.CmdLists[DeviceId];
-  auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
-  auto &mutex = DeviceInfo.Mutexes[DeviceId];
+  std::unique_lock<std::mutex> copyLock(DeviceInfo.Mutexes[DeviceId]);
+
+  auto cmdList = DeviceInfo.getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceId);
+    cmdList = createCmdList(DeviceInfo.Devices[DeviceId]);
     if (!cmdList) {
       DP("Error: Asynchronous data retrieve failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, HstPtr,
-                         TgtPtr, Size, nullptr);
-    auto fence = createFence(DeviceId);
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
+                     Size, nullptr);
+    auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous data retrieve failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
-    if (beginAsyncCommand(cmdList, cmdQueue, mutex,
+    if (beginAsyncCommand(cmdList, cmdQueue,
         static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
        DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
   } else {
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendMemoryCopy, mutex, cmdList, HstPtr,
-                         TgtPtr, Size, nullptr /* event handle */);
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
-                         nullptr);
-    if (executeCommand(cmdList, cmdQueue, mutex) == OFFLOAD_FAIL)
-      return OFFLOAD_FAIL;
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
+                     Size, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+                     nullptr);
+    copyLock.unlock();
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
     DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
        DPxPTR(TgtPtr), DPxPTR(HstPtr));
   }
@@ -944,15 +973,17 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
   DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
+  // Protect from kernel preparation to submission as kernels are shared
+  std::unique_lock<std::mutex> kernelLock(DeviceInfo.Mutexes[DeviceId]);
+
   ze_kernel_handle_t kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
-  auto &mutex = DeviceInfo.Mutexes[DeviceId];
 
   // Set arguments
   std::vector<void *> args(NumArgs);
   for (int32_t i = 0; i < NumArgs; i++) {
     args[i] = (void *)((intptr_t)TgtArgs[i] + TgtOffsets[i]);
-    CALL_ZE_RET_FAIL_MTX(zeKernelSetArgumentValue, mutex, kernel, i,
-                         sizeof(void *), &args[i]);
+    CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(void *),
+                     &args[i]);
     DP("Kernel argument %" PRId32 " (value: " DPxMOD ") was set successfully\n",
        i, DPxPTR(args[i]));
   }
@@ -972,36 +1003,41 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     omptTracePtr->pushWorkSize(finalNumTeams, finalThreadLimit);
   }
 
-  CALL_ZE_RET_FAIL_MTX(zeKernelSetGroupSize, mutex, kernel, groupSizes[0],
-                       groupSizes[1], groupSizes[2]);
-  auto cmdList = DeviceInfo.CmdLists[DeviceId];
-  auto cmdQueue = DeviceInfo.CmdQueues[DeviceId];
+  CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
+                   groupSizes[2]);
+  auto cmdList = DeviceInfo.getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceId);
+    cmdList = createCmdList(DeviceInfo.Devices[DeviceId]);
     if (!cmdList) {
       DP("Error: Asynchronous execution failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
-                         kernel, &groupCounts, nullptr, 0, nullptr);
-    auto fence = createFence(DeviceId);
+    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
+                     &groupCounts, nullptr, 0, nullptr);
+    auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous execution failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
-    if (beginAsyncCommand(cmdList, cmdQueue, mutex,
+    if (beginAsyncCommand(cmdList, cmdQueue,
         static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous execution started for kernel " DPxMOD "\n",
        DPxPTR(TgtEntryPtr));
   } else {
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendLaunchKernel, mutex, cmdList,
-                         kernel, &groupCounts, nullptr, 0, nullptr);
-    CALL_ZE_RET_FAIL_MTX(zeCommandListAppendBarrier, mutex, cmdList, nullptr, 0,
-                         nullptr);
-    if (executeCommand(cmdList, cmdQueue, mutex) == OFFLOAD_FAIL)
-      return OFFLOAD_FAIL;
+    CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
+                     &groupCounts, nullptr, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
+
+    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
+                     nullptr);
+    kernelLock.unlock();
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+    // Make sure the command list is ready to accept next command
+    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   }
 
   DP("Executed a kernel " DPxMOD "\n", DPxPTR(TgtEntryPtr));
