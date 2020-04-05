@@ -4545,6 +4545,8 @@ static bool ExpandMOVImmSExti8(MachineInstrBuilder &MIB,
     BuildMI(MBB, I, DL, TII.get(X86::PUSH32i8)).addImm(Imm);
     MIB->setDesc(TII.get(X86::POP32r));
   }
+  MIB->RemoveOperand(1);
+  MIB->addImplicitDefUseOperands(*MBB.getParent());
 
   // Build CFI if necessary.
   MachineFunction &MF = *MBB.getParent();
@@ -4575,7 +4577,7 @@ static void expandLoadStackGuard(MachineInstrBuilder &MIB,
                MachineMemOperand::MODereferenceable |
                MachineMemOperand::MOInvariant;
   MachineMemOperand *MMO = MBB.getParent()->getMachineMemOperand(
-      MachinePointerInfo::getGOT(*MBB.getParent()), Flags, 8, 8);
+      MachinePointerInfo::getGOT(*MBB.getParent()), Flags, 8, Align(8));
   MachineBasicBlock::iterator I = MIB.getInstr();
 
   BuildMI(MBB, I, DL, TII.get(X86::MOV64rm), Reg).addReg(X86::RIP).addImm(1)

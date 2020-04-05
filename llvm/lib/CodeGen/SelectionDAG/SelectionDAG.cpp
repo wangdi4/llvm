@@ -6851,8 +6851,8 @@ SDValue SelectionDAG::getLoad(ISD::MemIndexedMode AM, ISD::LoadExtType ExtType,
 
   uint64_t Size = MemoryLocation::getSizeOrUnknown(MemVT.getStoreSize());
   MachineFunction &MF = getMachineFunction();
-  MachineMemOperand *MMO = MF.getMachineMemOperand(
-      PtrInfo, MMOFlags, Size, Alignment.value(), AAInfo, Ranges);
+  MachineMemOperand *MMO = MF.getMachineMemOperand(PtrInfo, MMOFlags, Size,
+                                                   Alignment, AAInfo, Ranges);
   return getLoad(AM, ExtType, VT, dl, Chain, Ptr, Offset, MemVT, MMO);
 }
 
@@ -6972,8 +6972,8 @@ SDValue SelectionDAG::getStore(SDValue Chain, const SDLoc &dl, SDValue Val,
   MachineFunction &MF = getMachineFunction();
   uint64_t Size =
       MemoryLocation::getSizeOrUnknown(Val.getValueType().getStoreSize());
-  MachineMemOperand *MMO = MF.getMachineMemOperand(PtrInfo, MMOFlags, Size,
-                                                   Alignment.value(), AAInfo);
+  MachineMemOperand *MMO =
+      MF.getMachineMemOperand(PtrInfo, MMOFlags, Size, Alignment, AAInfo);
   return getStore(Chain, dl, Val, Ptr, MMO);
 }
 
@@ -7023,7 +7023,7 @@ SDValue SelectionDAG::getTruncStore(SDValue Chain, const SDLoc &dl, SDValue Val,
 
   MachineFunction &MF = getMachineFunction();
   MachineMemOperand *MMO = MF.getMachineMemOperand(
-      PtrInfo, MMOFlags, SVT.getStoreSize(), Alignment.value(), AAInfo);
+      PtrInfo, MMOFlags, SVT.getStoreSize(), Alignment, AAInfo);
   return getTruncStore(Chain, dl, Val, Ptr, SVT, MMO);
 }
 
