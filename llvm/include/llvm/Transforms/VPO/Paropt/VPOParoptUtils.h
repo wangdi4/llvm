@@ -803,9 +803,16 @@ public:
   static Value *
   genPrivatizationAlloca(Type *ElementType, Value *NumElements,
                          MaybeAlign OrigAlignment, Instruction *InsertPt,
-                         const Twine &VarName = "",
+                         bool IsTargetSPIRV, const Twine &VarName = "",
                          llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
                          llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
+
+  /// Return true if address spaces \p AS1 and \p AS2 are compatible
+  /// for the current compilation target. Address spaces are compatible,
+  /// if it is legal to addrspacecast from one address space to another
+  /// and vice versa.
+  static bool areCompatibleAddrSpaces(unsigned AS1, unsigned AS2,
+                                      bool IsTargetSPIRV);
 
 #if INTEL_CUSTOMIZATION
   /// \name Utilities specific to Fortran dope vectors.
@@ -1462,6 +1469,12 @@ public:
   /// is already used in a llvm.directive.region.entry (checked by assertion).
   static bool addPrivateToEnclosingRegion(Instruction *I, Instruction *PosInst,
                                           DominatorTree &DT);
+
+#ifndef NDEBUG
+  /// Run some Paropt related verifications to make sure IR after FE
+  /// will not cause problems deep in Paropt.
+  static void verifyFunctionForParopt(const Function &F, bool IsTargetSPIRV);
+#endif  // NDEBUG
   /// @}
 
 private:

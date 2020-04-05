@@ -25,6 +25,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
@@ -49,6 +50,12 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParoptPrepare"
+
+#ifndef NDEBUG
+static cl::opt<bool> VerifyIRBeforeParopt(
+    "vpo-paropt-verify-ir-before", cl::Hidden, cl::init(true),
+    cl::desc("Enable IR verification before Paropt."));
+#endif  // NDEBUG
 
 static cl::opt<bool> PrepareSwitchToOffload(
     "prepare-switch-to-offload", cl::Hidden, cl::init(false),
@@ -143,6 +150,21 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI,
 
   LLVM_DEBUG(
       dbgs() << "\n === VPOParoptPreparePass before Transformation === \n");
+
+#ifndef NDEBUG
+  if (VerifyIRBeforeParopt) {
+    // Run Paropt specific verification, first.
+    VPOParoptUtils::verifyFunctionForParopt(
+        F, VPOAnalysisUtils::isTargetSPIRV(F.getParent()));
+    if (verifyFunction(F, &dbgs())) {
+      LLVM_DEBUG(dbgs() << "ERROR: function verifier found errors "
+                 "before VPOParoptPrepare:\n" << F << "\n");
+      report_fatal_error("Function verifier found errors "
+                         "before VPOParoptPrepare.  Use -mllvm "
+                         "-debug-only=" DEBUG_TYPE " to get more information");
+    }
+  }
+#endif  // NDEBUG
 
   // Disable offload constructs if -fopenmp-targets was not used on command line
   if (F.getParent()->getTargetDevices().empty())

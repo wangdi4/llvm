@@ -14,7 +14,7 @@
 ; END PROGRAM test_target_enter_data_components_alloc
 
 ; Check that firsrprivatization for an addressspacecasted GEP works:
-; CHECK: define dso_local spir_kernel void @__omp_offloading_805_73_test_target_enter_data_components_alloc_IP_test_map_derived_type_alloc__l6(i32* addrspace(1)*{{[^,]*}}, i32 addrspace(1)*{{[^,]*}})
+; CHECK: define dso_local spir_kernel void @__omp_offloading_805_73_test_target_enter_data_components_alloc_IP_test_map_derived_type_alloc__l6(i32 addrspace(4)* addrspace(1)*{{[^,]*}}, i32 addrspace(1)*{{[^,]*}})
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
@@ -26,10 +26,10 @@ alloca:
   %"var$1" = alloca [8 x i64], align 8
   %uplevel_rec = alloca %uplevel_type.0
   %ul_loc_0.0_var = getelementptr inbounds %uplevel_type.0, %uplevel_type.0* %uplevel_rec, i32 0, i32 0
-  %0 = addrspacecast i32* %ul_loc_0.0_var to i32 addrspace(1)*
-  %"test_target_enter_data_components_alloc_$MYPTR" = bitcast i32 addrspace(1)* %0 to i32* addrspace(1)*
+  %0 = addrspacecast i32* %ul_loc_0.0_var to i32 addrspace(4)*
+  %"test_target_enter_data_components_alloc_$MYPTR" = bitcast i32 addrspace(4)* %0 to i32 addrspace(4)* addrspace(4)*
   %ul_loc_1.1_var = getelementptr inbounds %uplevel_type.0, %uplevel_type.0* %uplevel_rec, i32 0, i32 1
-  %1 = addrspacecast i32* %ul_loc_1.1_var to i32 addrspace(1)*
+  %1 = addrspacecast i32* %ul_loc_1.1_var to i32 addrspace(4)*
   br label %bb1
 
 bb1:                                              ; preds = %alloca
@@ -39,22 +39,19 @@ define void @test_target_enter_data_components_alloc_IP_test_map_derived_type_al
 alloca:
   %"var$2" = alloca [8 x i64], align 8
   %ul_loc_0.2_var = getelementptr inbounds %uplevel_type.0, %uplevel_type.0* %uplevel_ptr0, i32 0, i32 0
-  %0 = addrspacecast i32* %ul_loc_0.2_var to i32 addrspace(1)*
-  %"test_map_derived_type_alloc$MYPTR$_0" = bitcast i32 addrspace(1)* %0 to i32* addrspace(1)*
+  %0 = addrspacecast i32* %ul_loc_0.2_var to i32 addrspace(4)*
+  %"test_map_derived_type_alloc$MYPTR$_0" = bitcast i32 addrspace(4)* %0 to i32 addrspace(4)* addrspace(4)*
   %ul_loc_1.3_var = getelementptr inbounds %uplevel_type.0, %uplevel_type.0* %uplevel_ptr0, i32 0, i32 1
-  %1 = addrspacecast i32* %ul_loc_1.3_var to i32 addrspace(1)*
-  %2 = addrspacecast i32 addrspace(1)* %1 to i32 addrspace(4)*
+  %1 = addrspacecast i32* %ul_loc_1.3_var to i32 addrspace(4)*
   br label %bb3
 
 bb3:                                              ; preds = %alloca
-  %3 = addrspacecast i32* addrspace(1)* %"test_map_derived_type_alloc$MYPTR$_0" to i32* addrspace(4)*
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.ALLOC"(i32* addrspace(4)* %3), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %2) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.ALLOC"(i32 addrspace(4)* addrspace(4)* %"test_map_derived_type_alloc$MYPTR$_0"), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %1) ]
   br label %bb4
 
 bb4:                                              ; preds = %bb3
-  %5 = addrspacecast i32 addrspace(4)* %2 to i32*
-  store i32* %5, i32* addrspace(4)* %3
-  call void @llvm.directive.region.exit(token %4) [ "DIR.OMP.END.TARGET"() ]
+  store i32 addrspace(4)* %1, i32 addrspace(4)* addrspace(4)* %"test_map_derived_type_alloc$MYPTR$_0"
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
   br label %bb2
 
 bb2:                                              ; preds = %bb4

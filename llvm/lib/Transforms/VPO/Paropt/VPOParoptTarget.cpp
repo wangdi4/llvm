@@ -631,7 +631,8 @@ void VPOParoptTransform::guardSideEffectStatements(
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
           StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
-          StartI->getName() + ".broadcast.ptr", vpo::ADDRESS_SPACE_LOCAL);
+          isTargetSPIRV(), StartI->getName() + ".broadcast.ptr",
+          vpo::ADDRESS_SPACE_LOCAL);
 
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
         MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (2)

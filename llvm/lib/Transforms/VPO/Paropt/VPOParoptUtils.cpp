@@ -3705,7 +3705,7 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 // size NumElements, and name VarName.
 Value *VPOParoptUtils::genPrivatizationAlloca(
     Type *ElementType, Value *NumElements, MaybeAlign OrigAlignment,
-    Instruction *InsertPt, const Twine &VarName,
+    Instruction *InsertPt, bool IsTargetSPIRV, const Twine &VarName,
     llvm::Optional<unsigned> AllocaAddrSpace,
     llvm::Optional<unsigned> ValueAddrSpace) {
   assert(ElementType && "Null element type.");
@@ -3714,6 +3714,20 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   Module *M = InsertPt->getModule();
   const DataLayout &DL = M->getDataLayout();
   IRBuilder<> Builder(InsertPt);
+
+  auto AddrSpaceCastValue = [IsTargetSPIRV](
+      IRBuilder<> &Builder, Value *V, PointerType *T) {
+    unsigned SrcAS = cast<PointerType>(V->getType())->getAddressSpace();
+    unsigned DstAS = T->getAddressSpace();
+
+    if (VPOParoptUtils::areCompatibleAddrSpaces(SrcAS, DstAS, IsTargetSPIRV))
+      return Builder.CreateAddrSpaceCast(V, T, V->getName() + ".ascast");
+
+    // By returning a value of incompatible addrspace here we let
+    // the uses relinking code know that more fixups have to be done
+    // during the relinking.
+    return V;
+  };
 
   assert((!AllocaAddrSpace ||
           AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
@@ -3746,11 +3760,8 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     if (!ValueAddrSpace)
       return GV;
 
-    auto *ASCI = Builder.CreateAddrSpaceCast(
-        GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),
-        GV->getName() + ".ascast");
-
-    return ASCI;
+    return AddrSpaceCastValue(
+        Builder, GV, ElementType->getPointerTo(ValueAddrSpace.getValue()));
   }
 
   auto *AI = Builder.CreateAlloca(
@@ -3764,14 +3775,36 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     return AI;
 
   auto *ASCI = dyn_cast<Instruction>(
-      Builder.CreateAddrSpaceCast(
-          AI, AI->getAllocatedType()->getPointerTo(ValueAddrSpace.getValue()),
-          AI->getName() + ".ascast"));
+      AddrSpaceCastValue(Builder, AI,
+          AI->getAllocatedType()->getPointerTo(ValueAddrSpace.getValue())));
 
   assert(ASCI && "genPrivatizationAlloca: AddrSpaceCast for an AllocaInst "
          "must be an Instruction.");
 
   return ASCI;
+}
+
+bool VPOParoptUtils::areCompatibleAddrSpaces(
+    unsigned AS1, unsigned AS2, bool IsTargetSPIRV) {
+  assert((IsTargetSPIRV || (AS1 == AS2 && AS1 == 0)) &&
+         "Non-default address space used for non-SPIR target.");
+
+  if (AS1 == AS2)
+    return true;
+
+  // AS1 is not equal to AS2 here.
+
+  // All address spaces, except ADDRESS_SPACE_CONSTANT,
+  // may only be casted to ADDRESS_SPACE_GENERIC and vice versa.
+  if (AS1 == vpo::ADDRESS_SPACE_CONSTANT ||
+      AS2 == vpo::ADDRESS_SPACE_CONSTANT)
+    return false;
+
+  if (AS1 == vpo::ADDRESS_SPACE_GENERIC ||
+      AS2 == vpo::ADDRESS_SPACE_GENERIC)
+    return true;
+
+  return false;
 }
 
 // Computes the OpenMP loop upper bound so that the iteration space can be
@@ -4487,4 +4520,37 @@ bool VPOParoptUtils::isOMPCritical(
 
   return false;
 }
+
+#ifndef NDEBUG
+void VPOParoptUtils::verifyFunctionForParopt(
+    const Function &F, bool IsTargetSPIRV) {
+  uint64_t Errors = 0;
+
+  auto InstFailed =
+      [&Errors](const Instruction *I) {
+        LLVM_DEBUG(dbgs() <<
+                   "ERROR: Instruction failed Paropt verification:\n" << *I <<
+                   "\n");
+        ++Errors;
+      };
+
+  for (auto &I : instructions(F))
+    if (auto *ASCI = dyn_cast<AddrSpaceCastInst>(&I)) {
+      auto *SrcTy = cast<PointerType>(ASCI->getSrcTy());
+      unsigned SrcAS = SrcTy->getAddressSpace();
+      auto *DstTy = cast<PointerType>(ASCI->getDestTy());
+      unsigned DstAS = DstTy->getAddressSpace();
+      if (!areCompatibleAddrSpaces(SrcAS, DstAS, IsTargetSPIRV))
+        InstFailed(ASCI);
+    }
+
+  if (Errors > 0) {
+    LLVM_DEBUG(dbgs() << "ERROR: Paropt found " << Errors <<
+               " errors in function:\n" << F << "\n");
+    report_fatal_error("Function failed Paropt verification.  "
+                       "Use -mllvm -debug-only=" DEBUG_TYPE " to get more "
+                       "information.");
+  }
+}
+#endif // NDEBUG
 #endif // INTEL_COLLAB
