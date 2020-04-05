@@ -790,19 +790,8 @@ public:
   /// Produce widened copies of all Ingredients.
   void execute(VPTransformState &State) override;
 
-<<<<<<< HEAD
-  /// Augment the recipe to include Instr, if it lies at its End.
-  bool appendInstruction(Instruction *Instr) {
-    if (End != Instr->getIterator())
-      return false;
-    End++;
-    return true;
-  }
-
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-=======
->>>>>>> 49d00824bbbb8945b92c0f592c6951a881a6242f
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent,
              VPSlotTracker &SlotTracker) const override;
