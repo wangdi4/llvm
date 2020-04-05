@@ -16216,7 +16216,8 @@ Sema::ActOnOpenMPDependClause(OpenMPDependClauseKind DepKind,
             (OMPDependTFound &&
              DSAStack->getOMPDependT().getTypePtr() == ExprTy.getTypePtr())) {
           Diag(ELoc, diag::err_omp_expected_addressable_lvalue_or_array_item)
-              << 1 << RefExpr->getSourceRange();
+              << (LangOpts.OpenMP >= 50 ? 1 : 0) << 1
+              << RefExpr->getSourceRange();
           continue;
         }
 
@@ -16229,6 +16230,7 @@ Sema::ActOnOpenMPDependClause(OpenMPDependClauseKind DepKind,
                   ->isPointerType() &&
              !ASE->getBase()->getType().getNonReferenceType()->isArrayType())) {
           Diag(ELoc, diag::err_omp_expected_addressable_lvalue_or_array_item)
+              << (LangOpts.OpenMP >= 50 ? 1 : 0)
               << (LangOpts.OpenMP >= 50 ? 1 : 0) << RefExpr->getSourceRange();
           continue;
         }
@@ -16239,8 +16241,10 @@ Sema::ActOnOpenMPDependClause(OpenMPDependClauseKind DepKind,
           Res = CreateBuiltinUnaryOp(ELoc, UO_AddrOf,
                                      RefExpr->IgnoreParenImpCasts());
         }
-        if (!Res.isUsable() && !isa<OMPArraySectionExpr>(SimpleExpr)) {
+        if (!Res.isUsable() && !isa<OMPArraySectionExpr>(SimpleExpr) &&
+            !isa<OMPArrayShapingExpr>(SimpleExpr)) {
           Diag(ELoc, diag::err_omp_expected_addressable_lvalue_or_array_item)
+              << (LangOpts.OpenMP >= 50 ? 1 : 0)
               << (LangOpts.OpenMP >= 50 ? 1 : 0) << RefExpr->getSourceRange();
           continue;
         }
