@@ -948,6 +948,19 @@ void PassManagerBuilder::populateModulePassManager(
     addVPOPasses(MPM, false, /* Simplify= */ true);
   }
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  // Argument promotion pass was originally added after passes which compute
+  // attribues for functions and arguments, but such ordering is not good
+  // because argument promotion changes function arguments. As a result
+  // promoted arguments do not get any attributes. Reordering argument
+  // promotion pass and the passes computing attributes fixes this problem.
+  // Additionally adding SROA after the argument promotion to cleanup allocas
+  // allows to get more accurate attributes for the promoted arguments.
+  if (OptLevel > 2) {
+    MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
+    MPM.add(createSROALegacyCGSCCAdaptorPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
   MPM.add(createAttributorCGSCCLegacyPass());
@@ -958,8 +971,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createOpenMPOptLegacyPass());
 
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
-  if (OptLevel > 2)
-    MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
 
   addExtensionsToPM(EP_CGSCCOptimizerLate, MPM);
   addFunctionSimplificationPasses(MPM);

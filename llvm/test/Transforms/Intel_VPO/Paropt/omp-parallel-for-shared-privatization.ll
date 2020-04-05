@@ -259,20 +259,20 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* [[BBASE:%.+]], float* [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
+; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly [[BBASE:%.+]], float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
 ; CHECK: omp.inner.for.body:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
 ; CHECK:   %{{.+}} = load float, float* [[BADDR]]
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV]]
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
 
-; CHECK: define internal void [[OUTLINED_BAR2]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
+; CHECK: define internal void [[OUTLINED_BAR2]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
 ; CHECK:   %{{.+}} = load float, float* [[AADDR]]
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
 
-; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
+; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]

@@ -40,6 +40,7 @@ class AllocaSliceRewriter;
 class AllocaSlices;
 class Partition;
 class SROALegacyPass;
+class SROALegacyCGSCCAdaptorPass; // INTEL
 
 } // end namespace sroa
 
@@ -117,6 +118,7 @@ public:
 private:
   friend class sroa::AllocaSliceRewriter;
   friend class sroa::SROALegacyPass;
+  friend class sroa::SROALegacyCGSCCAdaptorPass; // INTEL
 
   /// Helper used by both the public run method and by the legacy pass.
   PreservedAnalyses runImpl(Function &F, DominatorTree &RunDT,

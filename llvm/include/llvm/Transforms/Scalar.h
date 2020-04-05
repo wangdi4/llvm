@@ -124,6 +124,11 @@ FunctionPass *createBitTrackingDCEPass();
 //
 FunctionPass *createSROAPass();
 
+#if INTEL_CUSTOMIZATION
+// CallGraphSCC adaptor for SROA function pass.
+Pass *createSROALegacyCGSCCAdaptorPass();
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //
 // InductiveRangeCheckElimination - Transform loops to elide range checks on
