@@ -4021,11 +4021,8 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::BuiltinFn:
     case BuiltinType::NullPtr:
     case BuiltinType::OMPArraySection:
-<<<<<<< HEAD
-    case BuiltinType::VAArgPack: // INTEL
-=======
     case BuiltinType::OMPArrayShaping:
->>>>>>> 7ac9efb0c322bacd4f09e6aed82466116b685892
+    case BuiltinType::VAArgPack: // INTEL
       return false;
     }
     llvm_unreachable("unknown builtin type");
