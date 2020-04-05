@@ -54,7 +54,7 @@ Pass *createCSAInnerLoopPrepPass();
 Pass *createCSALowerScratchpadsPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);
 Pass *createCSAMemopOrderingPass(const CSATargetMachine &TM);
-Pass *createCSAParseAnnotateAttributesPass();
+Pass *createParseAnnotateAttributesPass();
 
 void initializeCSAMemopOrderingPasses(PassRegistry &);
 void initializeCSAStreamingMemoryPass(PassRegistry &);

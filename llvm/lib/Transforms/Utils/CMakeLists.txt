@@ -39,6 +39,7 @@ add_llvm_component_library(LLVMTransformUtils
 # end INTEL_COLLAB
 # INTEL_CUSTOMIZATION
   Intel_RegionSplitter.cpp
+  Intel_ParseAnnotateAttributes.cpp
   Intel_VecClone.cpp                    #TODO: VEC to COLLAB
 #end INTEL_CUSTOMIZATION
   LCSSA.cpp
