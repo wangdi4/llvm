@@ -2939,9 +2939,9 @@ pi_result L0(piEnqueueMemBufferMap)(
 
   ze_result_t ze_result;
 
- // TODO: implement read-only, write-only
-  pi_assert((map_flags & CL_MAP_READ) != 0);
-  pi_assert((map_flags & CL_MAP_WRITE) != 0);
+  // TODO: we don't implement read-only or write-only, always read-write.
+  // pi_assert((map_flags & CL_MAP_READ) != 0);
+  // pi_assert((map_flags & CL_MAP_WRITE) != 0);
 
   // Get a new command list to be used on this call
   ze_command_list_handle_t ze_command_list =
