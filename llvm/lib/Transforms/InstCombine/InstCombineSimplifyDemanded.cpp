@@ -1319,10 +1319,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
     auto *II = dyn_cast<IntrinsicInst>(Inst);
     Value *Op = II ? II->getArgOperand(OpNum) : Inst->getOperand(OpNum);
     if (Value *V = SimplifyDemandedVectorElts(Op, Demanded, Undef, Depth + 1)) {
-      if (II)
-        II->setArgOperand(OpNum, V);
-      else
-        Inst->setOperand(OpNum, V);
+      replaceOperand(*Inst, OpNum, V);
       MadeChange = true;
     }
   };
