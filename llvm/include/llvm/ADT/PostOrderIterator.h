@@ -102,7 +102,10 @@ class po_iterator
 
   // VisitStack - Used to maintain the ordering.  Top = current block
   // First element is basic block pointer, second is the 'next child' to visit
-  SmallVector<std::pair<NodeRef, ChildItTy>, 8> VisitStack;
+#if INTEL_CUSTOMIZATION
+  // TODO: Revert this back to SmallVector after VPlan code is fixed.
+  std::vector<std::pair<NodeRef, ChildItTy>> VisitStack;
+#endif // INTEL_CUSTOMIZATION
 
   po_iterator(NodeRef BB) {
     this->insertEdge(Optional<NodeRef>(), BB);
