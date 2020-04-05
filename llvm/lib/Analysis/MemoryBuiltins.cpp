@@ -52,24 +52,16 @@ using namespace llvm;
 enum AllocType : uint8_t {
   OpNewLike          = 1<<0, // allocates; never returns null
   MallocLike         = 1<<1 | OpNewLike, // allocates; may return null
-<<<<<<< HEAD
-  CallocLike         = 1<<2, // allocates + bzero
-  ReallocLike        = 1<<3, // reallocates
-  StrDupLike         = 1<<4,
-#if INTEL_CUSTOMIZATION
-  FreeLike = 1 << 5,   // free
-  DeleteLike = 1 << 6, // delete
-#endif //INTEL_CUSTOMIZATION
-  MallocOrCallocLike = MallocLike | CallocLike,
-  AllocLike          = MallocLike | CallocLike | StrDupLike,
-=======
   AlignedAllocLike   = 1<<2, // allocates with alignment; may return null
   CallocLike         = 1<<3, // allocates + bzero
   ReallocLike        = 1<<4, // reallocates
   StrDupLike         = 1<<5,
+#if INTEL_CUSTOMIZATION
+  FreeLike = 1 << 6,   // free
+  DeleteLike = 1 << 7, // delete
+#endif //INTEL_CUSTOMIZATION
   MallocOrCallocLike = MallocLike | CallocLike | AlignedAllocLike,
   AllocLike          = MallocOrCallocLike | StrDupLike,
->>>>>>> c0955edfd6ec51e9a3720f9bfc90bac2e511c06d
   AnyAlloc           = AllocLike | ReallocLike
 };
 

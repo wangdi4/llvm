@@ -1301,7 +1301,9 @@ TLI_DEFINE_STRING_INTERNAL("acoshl")
 /// long double acosl(long double x);
 TLI_DEFINE_ENUM_INTERNAL(acosl)
 TLI_DEFINE_STRING_INTERNAL("acosl")
-<<<<<<< HEAD
+/// void *aligned_alloc(size_t alignment, size_t size);
+TLI_DEFINE_ENUM_INTERNAL(aligned_alloc)
+TLI_DEFINE_STRING_INTERNAL("aligned_alloc")
 
 #if INTEL_CUSTOMIZATION
 /// int alphasort(const void **a, const void **b);
@@ -1312,11 +1314,6 @@ TLI_DEFINE_ENUM_INTERNAL(asctime)
 TLI_DEFINE_STRING_INTERNAL("asctime")
 #endif // INTEL_CUSTOMIZATION
 
-=======
-/// void *aligned_alloc(size_t alignment, size_t size);
-TLI_DEFINE_ENUM_INTERNAL(aligned_alloc)
-TLI_DEFINE_STRING_INTERNAL("aligned_alloc")
->>>>>>> c0955edfd6ec51e9a3720f9bfc90bac2e511c06d
 /// double asin(double x);
 TLI_DEFINE_ENUM_INTERNAL(asin)
 TLI_DEFINE_STRING_INTERNAL("asin")
