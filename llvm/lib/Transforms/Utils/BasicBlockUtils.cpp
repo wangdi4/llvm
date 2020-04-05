@@ -1140,9 +1140,7 @@ Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
 
   return CommonPredBr->getCondition();
 }
-<<<<<<< HEAD
 #endif //INTEL_CUSTOMIZATION
-=======
 
 // After creating a control flow hub, the operands of PHINodes in an outgoing
 // block Out no longer match the predecessors of that block. Predecessors of Out
@@ -1363,4 +1361,3 @@ BasicBlock *llvm::CreateControlFlowHub(
 
   return FirstGuardBlock;
 }
->>>>>>> 3cbbded68c260ea5574798ca444b3feecfbbcd70
