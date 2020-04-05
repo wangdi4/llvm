@@ -771,7 +771,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     case CL_DEV_KERNEL_WG_SIZE:
         // TODO: Current implementation uses constants and it's OK with allocated on the stack dynamic local buffers.
         //       But take it into account if the available stack frame size is known at RT. I.e.:
-        //          GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
+        //          GetMaxWorkGroupSize(GetCpuMaxWGSize(), stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
         {
             size_t maxPrivateMemSize =
               (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
@@ -785,7 +785,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             else
             {
                 ullValue = pKernelProps->GetMaxWorkGroupSize(
-                    CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+                    m_pCPUConfig->GetCpuMaxWGSize(), maxPrivateMemSize);
             }
             // According to OpenCL spec, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
             // query should be less then or equal to CL_KERNEL_WORK_GROUP_SIZE query.
@@ -873,7 +873,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             {
                 pKernelProps->GetLocalSizeForSubGroupCount(
                     desiredSGCount,
-                    CPU_MAX_WORK_GROUP_SIZE,
+                    m_pCPUConfig->GetCpuMaxWGSize(),
                     maxPrivateMemSize,
                     &vValues[0],
                     dim);
@@ -890,7 +890,8 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         }
         else
         {
-            ullValue = pKernelProps->GetMaxNumSubGroups(CPU_MAX_WORK_GROUP_SIZE);
+            ullValue = pKernelProps->GetMaxNumSubGroups(
+                m_pCPUConfig->GetCpuMaxWGSize());
         }
         stValSize = sizeof(size_t);
         break;

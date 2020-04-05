@@ -151,7 +151,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
                                : CPU_DEV_MAX_WG_PRIVATE_SIZE;
   size_t maxWorkGroupSize = (m_pProps->TargetDevice() == FPGA_EMU_DEVICE)
                             ? FPGA_MAX_WORK_GROUP_SIZE
-                            : CPU_MAX_WORK_GROUP_SIZE;
+                            : m_pProps->GetCpuMaxWGSize();
 
   bool UseAutoGroupSize = true;
   for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {

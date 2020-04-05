@@ -107,6 +107,7 @@ protected:
     bool m_serializeWorkGroups;
     DeviceMode m_targetDevice;
     int m_forcedPrivateMemorySize;
+    size_t m_cpuMaxWGSize;
 
 private:
     /// @brief Dump stats collected for module if requested

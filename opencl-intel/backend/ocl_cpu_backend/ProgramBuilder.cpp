@@ -130,6 +130,7 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
     m_serializeWorkGroups(config.GetSerializeWorkGroups()),
     m_targetDevice(config.TargetDevice()),
     m_forcedPrivateMemorySize(config.GetForcedPrivateMemorySize()),
+    m_cpuMaxWGSize(config.GetCpuMaxWGSize()),
     m_statFileBaseName(config.GetStatFileBaseName())
 {
     // prepare default base file name for stat file in the following cases:
@@ -544,6 +545,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   //
   pProps->SetTargetDevice(m_targetDevice);
+
+  pProps->SetCpuMaxWGSize(m_cpuMaxWGSize);
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=

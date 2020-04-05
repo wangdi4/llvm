@@ -1238,6 +1238,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 switch (m_CPUDeviceConfig.GetDeviceMode())
                 {
                     case CPU_DEVICE:
+                        *(size_t*)paramVal = m_CPUDeviceConfig.GetCpuMaxWGSize();
+                        break;
                     case EYEQ_EMU_DEVICE:
                         *(size_t*)paramVal = CPU_MAX_WORK_GROUP_SIZE;
                         break;
@@ -1263,6 +1265,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 switch (m_CPUDeviceConfig.GetDeviceMode())
                 {
                     case CPU_DEVICE:
+                    {
+                        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
+                        const size_t cpuMaxWISizes[CPU_MAX_WORK_ITEM_DIMENSIONS] =
+                            {cpuMaxWGSize, cpuMaxWGSize, cpuMaxWGSize};
+                        MEMCPY_S(paramVal, valSize, cpuMaxWISizes,
+                                 *pinternalRetunedValueSize);
+                        break;
+                    }
                     case EYEQ_EMU_DEVICE:
                         MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
                                  *pinternalRetunedValueSize);
@@ -1880,8 +1890,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                         // This value depends on pipe algorithm limitations,
                         // max. compute units and max. work-group size.
                         cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
+                        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
                         *(cl_uint*)paramVal = totalPerPipeReservationsLimit /
-                          (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
+                          (GetNumberOfProcessors() * cpuMaxWGSize);
                         break;
                     }
                     case FPGA_EMU_DEVICE:
