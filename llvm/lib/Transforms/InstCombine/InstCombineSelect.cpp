@@ -1463,7 +1463,6 @@ Instruction *InstCombiner::foldSelectInstWithICmp(SelectInst &SI,
   if (Instruction *NewSel = canonicalizeMinMaxWithConstant(SI, *ICI, *this))
     return NewSel;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // if canonicalization is not possible then try to transform to min/max
   if (Value *NewSel = transformToMinMax(SI.getTrueValue(), SI.getFalseValue(), ICI, Builder)) {
@@ -1471,10 +1470,7 @@ Instruction *InstCombiner::foldSelectInstWithICmp(SelectInst &SI,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (Instruction *NewAbs = canonicalizeAbsNabs(SI, *ICI, Builder))
-=======
   if (Instruction *NewAbs = canonicalizeAbsNabs(SI, *ICI, *this))
->>>>>>> 1e363023b823d399a4eac311e846a078cb329ceb
     return NewAbs;
 
   if (Instruction *NewAbs = canonicalizeClampLike(SI, *ICI, Builder))
