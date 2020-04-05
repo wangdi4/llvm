@@ -5738,6 +5738,9 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
   if (Instruction *Res = foldICmpBinOp(I, Q))
     return Res;
 
+  if (Instruction *R = foldICmpWithCastOp(I))
+    return R;
+
   if (Instruction *Res = foldICmpUsingKnownBits(I))
     return Res;
 
@@ -5817,6 +5820,7 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
   if (Instruction *Res = foldICmpBitCast(I, Builder))
     return Res;
 
+<<<<<<< HEAD
   if (Instruction *R = foldICmpWithCastOp(I))
     return R;
 
@@ -5826,6 +5830,8 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
     return R;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> f2fbdf76d8d07f6a0fbd97825cbc533660d64a37
   if (Instruction *Res = foldICmpWithMinMax(I))
     return Res;
 
