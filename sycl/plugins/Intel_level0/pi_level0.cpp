@@ -2227,6 +2227,12 @@ pi_result L0(piEventGetProfilingInfo)(
     context_end *= L0TimerResolution;
     SET_PARAM_VALUE(uint64_t{context_end});
   }
+  else if (param_name == PI_PROFILING_INFO_COMMAND_QUEUED ||
+           param_name == PI_PROFILING_INFO_COMMAND_SUBMIT) {
+    // TODO: Support these when L0 supported is added.
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373
+    SET_PARAM_VALUE(uint64_t{0});
+  }
   else {
     pi_throw("piEventGetProfilingInfo: not supported param_name");
   }
