@@ -877,6 +877,7 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
 
   llvm::Type *ReplTy = NewGV->getValueType();
   SmallVector<GEPOperator *, 4> GEPsToErase;
+
   for (auto *U : OrigGV->users()) {
     // Instructions will be processed elsewhere.
     if (isa<Instruction>(U))
@@ -903,7 +904,16 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
           // Skip non-struct types
           if (IndexedType->isStructTy()) {
             uint64_t FieldIdx = cast<ConstantInt>(Idx)->getLimitedValue();
-            uint64_t NewFieldIdx = FieldIdxMap[IndexedType][FieldIdx];
+            uint64_t NewFieldIdx = 0;
+
+            // If the entry IndexedType in the FieldIdxMap map is empty,
+            // then it means that the current structure (IndexedType) wasn't
+            // modified, in this case we don't need to change the current
+            // index (FieldIdx) for the GEP.
+            if (FieldIdxMap[IndexedType].empty())
+              NewFieldIdx = FieldIdx;
+            else
+              NewFieldIdx = FieldIdxMap[IndexedType][FieldIdx];
 
             // Although each operator GEP looks like it appears directly in an
             // instruction and therefore should have a single use, there is
