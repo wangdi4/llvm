@@ -1,3 +1,8 @@
+// The kernel is used for testing builtin representation option.
+__kernel void test_atomic_load(__global int *obj, __global int *val) {
+  *val = atomic_load_explicit((volatile atomic_int *)obj, memory_order_relaxed);
+}
+
 __kernel void dot_product(__global float4 *a, __global float4 *b, __global float* res)
 {
 	size_t tid = get_global_id(0);

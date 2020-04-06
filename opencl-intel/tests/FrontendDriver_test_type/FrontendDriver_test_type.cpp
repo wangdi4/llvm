@@ -357,6 +357,50 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
     }
 }
 
+TEST_F(ClangCompilerTestType, Test_SPIRV_BIsRepresentation) {
+  // Without -cl-std=CL2.0 option, the SPIR-V will be converted to IR with
+  // OpenCL 1.2 builtins. The atomic_load_explicit builtin is not defined in
+  // OpenCL 1.2 spec, and it's converted to atomic_add builtin as workaround.
+  const char *default_build_options = "";
+  FESPIRVProgramDescriptor spirvDesc =
+      GetTestFESPIRVProgramDescriptor(default_build_options);
+  int err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
+  ASSERT_FALSE(err) << "Cannot parse SPIR-V binary.\nThe log:"
+                    << m_binary_result->GetErrorLog() << "\n";
+  const char *IRBuffer =
+      reinterpret_cast<const char *>(m_binary_result->GetIR());
+  const int IRSize = m_binary_result->GetIRSize();
+  std::string IRString(IRBuffer, IRSize);
+  ASSERT_TRUE(IRString.find("_Z10atomic_addPU3AS4Vii") != std::string::npos)
+      << "Cannot find expected atomic builtins" << std::endl;
+  auto pModuleOrError = ExtractModule(m_binary_result);
+  ASSERT_TRUE(bool(pModuleOrError))
+      << "Module LLVM error: " << pModuleOrError.getError().value() << "\n"
+      << "            message: " << pModuleOrError.getError().message() << "\n";
+
+  // With -cl-std=CL2.0 option, the SPIR-V will be converted to IR with OpenCL
+  // 2.0 builtins. The atomic_load_explicit builtin is defined in OpenCL 2.0
+  // spec, and it's converted to the same builtin.
+  const char *cl20_build_options = "-cl-std=CL2.0";
+  spirvDesc = GetTestFESPIRVProgramDescriptor(cl20_build_options);
+  err = GetFECompiler()->ParseSPIRV(&spirvDesc, &m_binary_result);
+  ASSERT_FALSE(err) << "Could not parse SPIR-V binary.\nThe log:"
+                    << m_binary_result->GetErrorLog() << "\n";
+  const char *CL20IRBuffer =
+      reinterpret_cast<const char *>(m_binary_result->GetIR());
+  const int CL20IRSize = m_binary_result->GetIRSize();
+  std::string CL20IRString(CL20IRBuffer, CL20IRSize);
+  ASSERT_TRUE(CL20IRString.find(
+                  "_Z20atomic_load_explicitPU3AS4VU7_Atomici12memory_order") !=
+              std::string::npos)
+      << "Cannot find correct atomic builtins" << std::endl;
+
+  pModuleOrError = ExtractModule(m_binary_result);
+  ASSERT_TRUE(bool(pModuleOrError))
+      << "Module LLVM error: " << pModuleOrError.getError().value() << "\n"
+      << "            message: " << pModuleOrError.getError().message() << "\n";
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
