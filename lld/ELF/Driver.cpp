@@ -877,20 +877,6 @@ static void readConfigs(opt::InputArgList &args) {
       args.hasFlag(OPT_fatal_warnings, OPT_no_fatal_warnings, false);
   errorHandler().vsDiagnostics =
       args.hasArg(OPT_visual_studio_diagnostics_format, false);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
-  // process in Windows unless the user specifies it. This is to avoid
-  // exhausting the memory and flaky failures.
-#if defined(_WIN32)
-  if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
-    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, false);
-  else
-#endif // _WIN32
-    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, true);
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> eb4663d8c6add351d758748383f1a9fc231e5e64
 
   config->allowMultipleDefinition =
       args.hasFlag(OPT_allow_multiple_definition,
@@ -1082,6 +1068,16 @@ static void readConfigs(opt::InputArgList &args) {
     parallel::strategy = hardware_concurrency(threads);
     config->thinLTOJobs = v;
   }
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
+  // process in Windows unless the user specifies it. This is to avoid
+  // exhausting the memory and flaky failures.
+#if defined(_WIN32)
+  else if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
+    parallel::strategy = hardware_concurrency(1);
+  else
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
   if (auto *arg = args.getLastArg(OPT_thinlto_jobs))
     config->thinLTOJobs = arg->getValue();
 

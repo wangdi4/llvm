@@ -370,20 +370,6 @@ static void readConfigs(opt::InputArgList &args) {
       "--thinlto-cache-policy: invalid cache policy");
   errorHandler().verbose = args.hasArg(OPT_verbose);
   LLVM_DEBUG(errorHandler().verbose = true);
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
-  // process in Windows unless the user specifies it. This is to avoid
-  // exhausting the memory and flaky failures.
-#if defined(_WIN32)
-  if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
-    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, false);
-  else
-#endif // _WIN32
-    threadsEnabled = args.hasFlag(OPT_threads, OPT_no_threads, true);
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> eb4663d8c6add351d758748383f1a9fc231e5e64
 
   config->initialMemory = args::getInteger(args, OPT_initial_memory, 0);
   config->globalBase = args::getInteger(args, OPT_global_base, 1024);
@@ -406,6 +392,15 @@ static void readConfigs(opt::InputArgList &args) {
     parallel::strategy = hardware_concurrency(threads);
     config->thinLTOJobs = v;
   }
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
+  // process in Windows unless the user specifies it. This is to avoid
+  // exhausting the memory and flaky failures.
+#if defined(_WIN32)
+  else if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
+    parallel::strategy = hardware_concurrency(1);
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
   if (auto *arg = args.getLastArg(OPT_thinlto_jobs))
     config->thinLTOJobs = arg->getValue();
 
