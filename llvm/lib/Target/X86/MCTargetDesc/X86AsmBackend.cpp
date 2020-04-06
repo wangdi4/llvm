@@ -143,23 +143,11 @@ class X86AsmBackend : public MCAsmBackend {
 
   bool needAlign(MCObjectStreamer &OS) const;
   bool needAlignInst(const MCInst &Inst) const;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  bool allowAutoPaddingForInst(const MCInst &Inst, MCObjectStreamer &OS) const;
-#endif // INTEL_CUSTOMIZATION
-  MCInst PrevInst;
-  MCBoundaryAlignFragment *PendingBoundaryAlign = nullptr;
-  std::pair<MCFragment *, size_t> PrevInstPosition;
-#if INTEL_CUSTOMIZATION
-  bool AllowAutoPaddingForInst;
-#endif // INTEL_CUSTOMIZATION
-=======
   bool allowAutoPaddingForInst(const MCInst &Inst, MCObjectStreamer &OS) const;
   MCInst PrevInst;
   MCBoundaryAlignFragment *PendingBoundaryAlign = nullptr;
   std::pair<MCFragment *, size_t> PrevInstPosition;
   bool AllowAutoPaddingForInst;
->>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
 
 public:
   X86AsmBackend(const Target &T, const MCSubtargetInfo &STI)
@@ -583,10 +571,6 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
           (AlignBranchType & X86::AlignBranchIndirect));
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
 /// Return true if we can insert NOP or prefixes automatically before the
 /// the instruction to be emitted.
 bool X86AsmBackend::allowAutoPaddingForInst(const MCInst &Inst,
@@ -696,7 +680,6 @@ void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS, const MCInst &Inst)
   if (AlignBoundary.value() > Sec->getAlignment())
     Sec->setAlignment(AlignBoundary);
 }
-#endif // INTEL_CUSTOMIZATION
 
 Optional<MCFixupKind> X86AsmBackend::getFixupKind(StringRef Name) const {
   if (STI.getTargetTriple().isOSBinFormatELF()) {
@@ -881,14 +864,6 @@ static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
   return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
 }
 
-<<<<<<< HEAD
-static bool shouldAddPrefix(const MCInst &Inst, const MCInstrInfo &MCII) {
-  // Linker may rewrite the instruction with variant symbol operand.
-  return !hasVariantSymbol(Inst);
-}
-
-=======
->>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
 static unsigned getRemainingPrefixSize(const MCInst &Inst,
                                        const MCSubtargetInfo &STI,
                                        MCCodeEmitter &Emitter) {
@@ -918,13 +893,8 @@ static unsigned getRemainingPrefixSize(const MCInst &Inst,
 bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
                                             MCCodeEmitter &Emitter,
                                             unsigned &RemainingSize) const {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
   if (!RF.getAllowAutoPadding())
     return false;
-#endif // INTEL_CUSTOMIZATION
 
   // If the instruction isn't fully relaxed, shifting it around might require a
   // larger value for one of the fixups then can be encoded.  The outer loop
