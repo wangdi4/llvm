@@ -175,11 +175,11 @@ template <> inline void print<>(PiPlatform val) {
 
 /* INTEL_CUSTOMIZATION */
 template <> inline void print<>(PiEvent val) {
-  std::cout << "pi_event : " << val;
+  std::cout << "pi_event : " << val << std::endl;
 }
 
 template <> inline void print<>(PiMem val) {
-  std::cout << "pi_mem : " << val;
+  std::cout << "pi_mem : " << val << std::endl;
 }
 
 template <> inline void print<>(PiEvent *val) {
@@ -187,6 +187,7 @@ template <> inline void print<>(PiEvent *val) {
   if (val) {
     std::cout << "[ " << *val << " ... ]";
   }
+  std::cout << std::endl;
 }
 
 template <> inline void print<>(const PiEvent *val) {
@@ -194,6 +195,7 @@ template <> inline void print<>(const PiEvent *val) {
   if (val) {
     std::cout << "[ " << *val << " ... ]";
   }
+  std::cout << std::endl;
 }
 /* end INTEL_CUSTOMIZATION */
 
