@@ -143,6 +143,7 @@ class X86AsmBackend : public MCAsmBackend {
 
   bool needAlign(MCObjectStreamer &OS) const;
   bool needAlignInst(const MCInst &Inst) const;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool allowAutoPaddingForInst(const MCInst &Inst, MCObjectStreamer &OS) const;
 #endif // INTEL_CUSTOMIZATION
@@ -152,6 +153,13 @@ class X86AsmBackend : public MCAsmBackend {
 #if INTEL_CUSTOMIZATION
   bool AllowAutoPaddingForInst;
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool allowAutoPaddingForInst(const MCInst &Inst, MCObjectStreamer &OS) const;
+  MCInst PrevInst;
+  MCBoundaryAlignFragment *PendingBoundaryAlign = nullptr;
+  std::pair<MCFragment *, size_t> PrevInstPosition;
+  bool AllowAutoPaddingForInst;
+>>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
 
 public:
   X86AsmBackend(const Target &T, const MCSubtargetInfo &STI)
@@ -560,13 +568,8 @@ static size_t getSizeForInstFragment(const MCFragment *F) {
   }
 }
 
-/// Check if the instruction operand needs to be aligned. Padding is disabled
-/// before intruction which may be rewritten by linker(e.g. TLSCALL).
+/// Check if the instruction operand needs to be aligned.
 bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
-  // Linker may rewrite the instruction with variant symbol operand.
-  if (hasVariantSymbol(Inst))
-    return false;
-
   const MCInstrDesc &InstDesc = MCII->get(Inst.getOpcode());
   return (InstDesc.isConditionalBranch() &&
           (AlignBranchType & X86::AlignBranchJcc)) ||
@@ -580,7 +583,10 @@ bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
           (AlignBranchType & X86::AlignBranchIndirect));
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
 /// Return true if we can insert NOP or prefixes automatically before the
 /// the instruction to be emitted.
 bool X86AsmBackend::allowAutoPaddingForInst(const MCInst &Inst,
@@ -875,11 +881,14 @@ static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
   return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
 }
 
+<<<<<<< HEAD
 static bool shouldAddPrefix(const MCInst &Inst, const MCInstrInfo &MCII) {
   // Linker may rewrite the instruction with variant symbol operand.
   return !hasVariantSymbol(Inst);
 }
 
+=======
+>>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
 static unsigned getRemainingPrefixSize(const MCInst &Inst,
                                        const MCSubtargetInfo &STI,
                                        MCCodeEmitter &Emitter) {
@@ -909,7 +918,10 @@ static unsigned getRemainingPrefixSize(const MCInst &Inst,
 bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
                                             MCCodeEmitter &Emitter,
                                             unsigned &RemainingSize) const {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> d0efd7bfcf689c2a72664265e59dd7a3e1a52762
   if (!RF.getAllowAutoPadding())
     return false;
 #endif // INTEL_CUSTOMIZATION
