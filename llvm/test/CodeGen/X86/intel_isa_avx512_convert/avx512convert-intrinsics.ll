@@ -53,24 +53,45 @@ define <32 x half>@test_int_x86_avx512_mask_vcvtbf162ph_512(<32 x i16> %x0, <32 
 
 declare <32 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.512(<32 x half>, <32 x i16>, i32)
 
+define <32 x i16>@test_int_x86_avx512_vcvtneph2bf16_512(<32 x half> %x0) {
+; CHECK-LABEL: test_int_x86_avx512_vcvtneph2bf16_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtneph2bf16 %zmm0, %zmm0 # encoding: [0x62,0xf2,0x7f,0x48,0x67,0xc0]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = call <32 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.512(<32 x half> %x0, <32 x i16> undef, i32 -1)
+  ret <32 x i16> %res
+}
+
 define <32 x i16>@test_int_x86_avx512_mask_vcvtneph2bf16_512(<32 x half> %x0, <32 x i16> %x1, i32 %x2) {
 ; X86-LABEL: test_int_x86_avx512_mask_vcvtneph2bf16_512:
 ; X86:       # %bb.0:
 ; X86-NEXT:    kmovd {{[0-9]+}}(%esp), %k1 # encoding: [0xc4,0xe1,0xf9,0x90,0x4c,0x24,0x04]
 ; X86-NEXT:    vcvtneph2bf16 %zmm0, %zmm1 {%k1} # encoding: [0x62,0xf2,0x7f,0x49,0x67,0xc8]
-; X86-NEXT:    vcvtneph2bf16 %zmm0, %zmm0 # encoding: [0x62,0xf2,0x7f,0x48,0x67,0xc0]
-; X86-NEXT:    vpaddw %zmm0, %zmm1, %zmm0 # encoding: [0x62,0xf1,0x75,0x48,0xfd,0xc0]
+; X86-NEXT:    vmovaps %zmm1, %zmm0 # encoding: [0x62,0xf1,0x7c,0x48,0x28,0xc1]
 ; X86-NEXT:    retl # encoding: [0xc3]
 ;
 ; X64-LABEL: test_int_x86_avx512_mask_vcvtneph2bf16_512:
 ; X64:       # %bb.0:
 ; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
 ; X64-NEXT:    vcvtneph2bf16 %zmm0, %zmm1 {%k1} # encoding: [0x62,0xf2,0x7f,0x49,0x67,0xc8]
-; X64-NEXT:    vcvtneph2bf16 %zmm0, %zmm0 # encoding: [0x62,0xf2,0x7f,0x48,0x67,0xc0]
-; X64-NEXT:    vpaddw %zmm0, %zmm1, %zmm0 # encoding: [0x62,0xf1,0x75,0x48,0xfd,0xc0]
+; X64-NEXT:    vmovaps %zmm1, %zmm0 # encoding: [0x62,0xf1,0x7c,0x48,0x28,0xc1]
 ; X64-NEXT:    retq # encoding: [0xc3]
   %res =  call <32 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.512(<32 x half> %x0, <32 x i16> %x1, i32 %x2)
-  %res1 = call <32 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.512(<32 x half> %x0, <32 x i16> %x1, i32 -1)
-  %res2 = add <32 x i16> %res, %res1
-  ret <32 x i16> %res2
+  ret <32 x i16> %res
+}
+
+define <32 x i16>@test_int_x86_avx512_maskz_vcvtneph2bf16_512(<32 x half> %x0, i32 %x2) {
+; X86-LABEL: test_int_x86_avx512_maskz_vcvtneph2bf16_512:
+; X86:       # %bb.0:
+; X86-NEXT:    kmovd {{[0-9]+}}(%esp), %k1 # encoding: [0xc4,0xe1,0xf9,0x90,0x4c,0x24,0x04]
+; X86-NEXT:    vcvtneph2bf16 %zmm0, %zmm0 {%k1} {z} # encoding: [0x62,0xf2,0x7f,0xc9,0x67,0xc0]
+; X86-NEXT:    retl # encoding: [0xc3]
+;
+; X64-LABEL: test_int_x86_avx512_maskz_vcvtneph2bf16_512:
+; X64:       # %bb.0:
+; X64-NEXT:    kmovd %edi, %k1 # encoding: [0xc5,0xfb,0x92,0xcf]
+; X64-NEXT:    vcvtneph2bf16 %zmm0, %zmm0 {%k1} {z} # encoding: [0x62,0xf2,0x7f,0xc9,0x67,0xc0]
+; X64-NEXT:    retq # encoding: [0xc3]
+  %res =  call <32 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.512(<32 x half> %x0, <32 x i16> zeroinitializer, i32 %x2)
+  ret <32 x i16> %res
 }

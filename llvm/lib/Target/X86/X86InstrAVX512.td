@@ -6141,7 +6141,7 @@ multiclass avx512_fp_round_packed<bits<8> opc, string OpcodeStr,
                   (ins _.RC:$src1, _.RC:$src2, AVX512RC:$rc), OpcodeStr##suffix,
                   "$rc, $src2, $src1", "$src1, $src2, $rc",
                   (_.VT (OpNodeRnd _.RC:$src1, _.RC:$src2, (i32 timm:$rc))),
-                  0, 0, 0, vselect, ClobberConstraint>,
+                  0, 0, 0, vselect_mask, ClobberConstraint>,
                   EVEX_4V, EVEX_B, EVEX_RC, Sched<[sched]>;
 }
 #endif // INTEL_CUSTOMIZATION
