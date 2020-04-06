@@ -360,6 +360,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetDoesNotAlias(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  // NOTE: The libfunc read is an alias to _read in Windows (LibFunc_under_read)
+  case LibFunc_under_read:
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_read:
     // May throw; "read" is a valid pthread cancellation point.
     Changed |= setDoesNotCapture(F, 1);

@@ -10,6 +10,7 @@
 
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 
+#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
@@ -689,7 +690,11 @@ private:
     // other cases, this will require further look-ahead to examine the users of
     // the produced value, such as for a bitcast.
     for (auto *User : ValueToInfer->users()) {
-      DEBUG_WITH_TYPE(VERBOSE_TRACE, dbgs() << "      User: " << *User << "\n");
+      DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+        dbgs() << "      User: ";
+        printValue(dbgs(), User);
+        dbgs() << "\n";
+      });
 
       // TODO: Add support for users that are not instructions to handle a case
       // such as:
@@ -1155,6 +1160,18 @@ private:
         LLVM_DEBUG(dbgs() << "Unknown return type for call: " << *Call);
       }
     }
+
+    // Perform look-ahead analysis on the Value produced by an allocation
+    // function to identify the type the result gets used as.
+    //
+    // TODO: Extend this for user allocation functions, if needed. Currently,
+    // the user alloc functionality relies on pattern matching of bitcast
+    // instructions that won't exist once there are opaque pointers and
+    // getPointerElementType() so cannot be used yet.
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    auto AllocKind = dtrans::getAllocFnKind(Call, TLI);
+    if (AllocKind != dtrans::AK_NotAlloc)
+      inferTypeFromUse(Call, ResultInfo);
 
     // Set the usage type for the call arguments.
     unsigned NumArg = Call->arg_size();
