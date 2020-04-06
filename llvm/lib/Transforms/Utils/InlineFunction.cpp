@@ -95,13 +95,6 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
-<<<<<<< HEAD
-static cl::opt<unsigned> InlinerAttributeWindow(
-    "inliner-attribute-window", cl::Hidden,
-    cl::desc("the maximum number of instructions analyzed for may throw during "
-             "attribute inference in inlined body"),
-    cl::init(4));
-
 #if INTEL_CUSTOMIZATION
 
 namespace llvm {
@@ -123,12 +116,6 @@ InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
   InlineReason Reason = NinlrNoReason;
   return InlineFunction(CallSite(CB), IFI, nullptr, nullptr, &Reason,
                         CalleeAAR, InsertLifetime);
-=======
-llvm::InlineResult llvm::InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
-                                        AAResults *CalleeAAR,
-                                        bool InsertLifetime) {
-  return InlineFunction(CallSite(CB), IFI, CalleeAAR, InsertLifetime);
->>>>>>> 58a05675daf46b2e9c336dd13ae6ac6dbfdc2c72
 }
 
 InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
