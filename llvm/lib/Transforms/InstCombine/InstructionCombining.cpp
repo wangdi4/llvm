@@ -1608,7 +1608,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
       "Drilled down when more than one use!"); // INTEL
   assert(Op != Parent.first->getOperand(Parent.second) &&
          "Descaling was a no-op?");
-  Parent.first->setOperand(Parent.second, Op);
+  replaceOperand(*Parent.first, Parent.second, Op);
   Worklist.push(Parent.first);
 
   // Now work back up the expression correcting nsw flags.  The logic is based
