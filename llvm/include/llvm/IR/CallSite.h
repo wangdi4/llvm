@@ -784,6 +784,13 @@ public:
   static void getCallbackUses(ImmutableCallSite ICS,
                               SmallVectorImpl<const Use *> &CBUses);
 
+#if INTEL_CUSTOMIZATION
+  /// Return callback function argument for the \p ICS call argument \p ArgNo
+  /// if \p ICS is a callback call site which forwards this argument to the
+  /// callback function or null otherwise.
+  static Argument *getCallbackArg(ImmutableCallSite ICS, unsigned ArgNo);
+#endif // INTEL_CUSTOMIZATION
+
   /// Conversion operator to conveniently check for a valid/initialized ACS.
   explicit operator bool() const { return (bool)CS; }
 
