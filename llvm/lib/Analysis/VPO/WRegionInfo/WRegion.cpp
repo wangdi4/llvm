@@ -285,7 +285,6 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setIf(nullptr);
   setDevice(nullptr);
   setNowait(false);
-  setDefaultmapTofromScalar(false);
   setParLoopNdInfoAlloca(nullptr);
   setOffloadEntryIdx(-1);
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
@@ -979,11 +978,35 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
   if (!isa<WRNTargetDataNode>(W))
     vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
 
-  // Only WRNTarget can have the defaultmap(tofrom:scalar) clause
+  // Only WRNTarget can have the defaultmap(<behavior> [:<category]) clause
   if (isa<WRNTargetNode>(W)) {
-    StringRef Str = W->getDefaultmapTofromScalar() ?
-                    "TOFROM:SCALAR" : "UNSPECIFIED";
-    vpo::printStr("DEFAULTMAP", Str, OS, Indent, Verbosity);
+    bool Printed = false;
+    auto printDefaultmapBehaviorForCategory =
+        [&Printed, &W, &OS, &Indent](WRNDefaultmapCategory Category) {
+          WRNDefaultmapBehavior Behavior = W->getDefaultmap(Category);
+          if (Behavior != WRNDefaultmapAbsent) {
+            StringRef BehaviorName = WRNDefaultmapBehaviorName[Behavior];
+            StringRef CategoryName = WRNDefaultmapCategoryName[Category];
+            OS.indent(Indent) << "DEFAULTMAP: " << BehaviorName << " : "
+                              << CategoryName << "\n";
+            Printed = true;
+          }
+        };
+
+    printDefaultmapBehaviorForCategory(WRNDefaultmapAggregate);
+#if INTEL_CUSTOMIZATION
+    printDefaultmapBehaviorForCategory(WRNDefaultmapAllocatable);
+#endif // INTEL_CUSTOMIZATION
+    printDefaultmapBehaviorForCategory(WRNDefaultmapPointer);
+    printDefaultmapBehaviorForCategory(WRNDefaultmapScalar);
+
+    if (!Printed) {
+      // if there's no defaulmap with category specified,
+      // then handle defaultmap without category, which applies to all vars.
+      WRNDefaultmapBehavior Behavior = W->getDefaultmap(WRNDefaultmapAllVars);
+      StringRef BehaviorName = WRNDefaultmapBehaviorName[Behavior];
+      vpo::printStr("DEFAULTMAP", BehaviorName, OS, Indent, Verbosity);
+    }
 
     int EntryIdx = W->getOffloadEntryIdx();
     vpo::printInt("OFFLOAD_ENTRY_IDX", EntryIdx, OS, Indent, Verbosity, 0);

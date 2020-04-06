@@ -118,6 +118,16 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifiers = "ALWAYS" and "CLOSE"
 ///      Id = QUAL_OMP_MAP
 ///
+#if INTEL_CUSTOMIZATION
+/// *  AGGREGATE, ALLOCATABLE, POINTER, SCALAR defaultmap categories. Example:
+#else
+/// *  AGGREGATE, POINTER, SCALAR defaultmap categories. Example:
+#endif // INTEL_CUSTOMIZATION
+///      FullName = "QUAL.OMP.DEFAULTMAP.TO:SCALAR"
+///      BaseName = "QUAL.OMP.DEFAULTMAP.TO"
+///      Modifier = "SCALAR"
+///      Id = QUAL_OMP_DEFAULTMAP_TO
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -135,7 +145,11 @@ private:
 #if INTEL_CUSTOMIZATION
   bool IsF90DopeVector:1;
   bool IsWILocal:1;
+  bool IsAllocatable:1;
 #endif // INTEL_CUSTOMIZATION
+  bool IsAggregate:1;
+  bool IsPointer:1;
+  bool IsScalar:1;
   bool IsAlways:1;
   bool IsClose:1;
   bool IsPresent:1;
@@ -181,6 +195,9 @@ public:
   void setIsMapAggrHead()          { IsMapAggrHead = true; }
   void setIsMapAggr()              { IsMapAggr = true; }
   void setIsMapChainLink()         { IsMapChainLink = true; }
+  void setIsAggregate()            { IsAggregate = true; }
+  void setIsPointer()              { IsPointer = true; }
+  void setIsScalar()               { IsScalar = true; }
   void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
 
@@ -208,7 +225,12 @@ public:
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
   void setIsWILocal() { IsWILocal = true; }
   bool getIsWILocal() const { return IsWILocal; }
+  void setIsAllocatable() { IsAllocatable = true; }
+  bool getIsAllocatable() const { return IsAllocatable; }
 #endif // INTEL_CUSTOMIZATION
+  bool getIsAggregate() const { return IsAggregate; }
+  bool getIsPointer() const { return IsPointer; }
+  bool getIsScalar() const { return IsScalar; }
   bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }
 };
@@ -354,6 +376,9 @@ public:
 
     /// True for MAP, TO, or FROM clauses
     static bool isMapClause(int ClauseID);
+
+    /// True for DEFAULTMAP clauses
+    static bool isDefaultmapClause(int ClauseID);
 
     /// Return 0, 1, or 2 based on the number of arguments that the
     /// clause can take:

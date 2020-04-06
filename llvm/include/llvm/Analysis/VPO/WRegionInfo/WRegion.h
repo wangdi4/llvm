@@ -572,7 +572,8 @@ private:
   EXPR Device;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
-  bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
+  WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
+      {WRNDefaultmapAbsent};
   int OffloadEntryIdx;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
   SmallVector<Value *, 3> UncollapsedNDRange;
@@ -584,7 +585,9 @@ protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setDefaultmapTofromScalar(bool Flag) { DefaultmapTofromScalar = Flag; }
+  void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) {
+    Defaultmap[C] = B;
+  }
   void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
   void addUncollapsedNDRangeDimension(Value *V) {
     UncollapsedNDRange.push_back(V);
@@ -604,7 +607,9 @@ public:
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
-  bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
+  WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const {
+    return Defaultmap[C];
+  }
   int getOffloadEntryIdx() const { return OffloadEntryIdx; }
   const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
     return DirectlyUsedNonPointerValues;
