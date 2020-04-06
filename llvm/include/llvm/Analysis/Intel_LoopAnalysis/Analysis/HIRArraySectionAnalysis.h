@@ -31,6 +31,17 @@ namespace llvm {
 namespace loopopt {
 
 class ArraySectionInfo {
+public:
+  enum UDFlagTy : unsigned char {
+    UNKNOWN = 0,
+    USE = 1,
+    DEF = 2
+  };
+
+private:
+  UDFlagTy UDFlag = UDFlagTy::UNKNOWN;
+
+  // Note: Lowers and Uppers are always have the same size.
   SmallVector<CanonExpr *, 4> Lowers;
   SmallVector<CanonExpr *, 4> Uppers;
 
@@ -53,6 +64,7 @@ public:
   void clear() {
     Lowers.clear();
     Uppers.clear();
+    UDFlag = UDFlagTy::UNKNOWN;
   }
 
   unsigned getNumDimensions() const { return Lowers.size(); }
@@ -71,6 +83,12 @@ public:
     dbgs() << "\n";
   }
 #endif
+
+  UDFlagTy getUseDefFlags() const { return UDFlag; }
+  bool isUse() const { return UDFlag & UDFlagTy::USE; }
+  bool isDef() const { return UDFlag & UDFlagTy::DEF; }
+  void setUse() { UDFlag = static_cast<UDFlagTy>(UDFlag | UDFlagTy::USE); }
+  void setDef() { UDFlag = static_cast<UDFlagTy>(UDFlag | UDFlagTy::DEF); }
 };
 
 class ArraySectionAnalysisResult {

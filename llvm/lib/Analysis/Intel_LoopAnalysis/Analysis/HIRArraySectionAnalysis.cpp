@@ -101,6 +101,20 @@ void ArraySectionInfo::print(raw_ostream &OS) const {
     return;
   }
 
+  OS << "(";
+  auto UseDef = getUseDefFlags();
+  if (UseDef == UDFlagTy::UNKNOWN) {
+    OS << "UNKNOWN";
+  } else {
+    if (isUse()) {
+      OS << "USE";
+    }
+    if (isDef()) {
+      OS << "DEF";
+    }
+  }
+  OS << ") ";
+
   OS << "L: ";
   printCEArray(OS, Lowers);
   OS << ", U: ";
@@ -110,6 +124,8 @@ void ArraySectionInfo::print(raw_ostream &OS) const {
 
 ArraySectionInfo ArraySectionInfo::clone() const {
   ArraySectionInfo CloneInfo;
+
+  CloneInfo.UDFlag = UDFlag;
 
   auto CloneCE = [](const CanonExpr *CE) { return CE ? CE->clone() : nullptr; };
 
@@ -149,6 +165,19 @@ computeSectionsFromGroup(ArrayRef<const RegDDRef *> Group,
                          unsigned OuterLoopLevel) {
   const RegDDRef *SeedRef = Group.front();
   ArraySectionInfo Info(SeedRef->getNumDimensions());
+
+  // Classify group with USE/DEF.
+  for (auto *Ref : Group) {
+    if (Info.isUse() && Info.isDef()) {
+      break;
+    }
+
+    if (Ref->isLval()) {
+      Info.setDef();
+    } else {
+      Info.setUse();
+    }
+  }
 
   // Find MinCE and MaxCE across every dimension within a group.
   for (int I = 0, E = SeedRef->getNumDimensions(); I < E; ++I) {
@@ -242,29 +271,36 @@ static void mergeResult(ArraySectionAnalysisResult &OutResult,
     ArraySectionInfo InSectionClone = InResult.get(BaseIndex)->clone();
     replaceIVInSection(InSectionClone, Loop);
 
-    auto *Section = OutResult.get(BaseIndex);
+    auto *OutSection = OutResult.get(BaseIndex);
 
     // If no section for BaseIndex exist in OutResult then just use
     // InSectionClone.
-    if (!Section) {
+    if (!OutSection) {
       OutResult.create(BaseIndex) = std::move(InSectionClone);
       continue;
     }
 
     // Now merge incoming section with outgoing.
+    if (InSectionClone.isDef()) {
+      OutSection->setDef();
+    }
+
+    if (InSectionClone.isUse()) {
+      OutSection->setUse();
+    }
 
     // If incoming section is not consistent with current section, clear the
     // section to provide conservative answer.
-    if (InSectionClone.getNumDimensions() != Section->getNumDimensions()) {
-      Section->clear();
+    if (InSectionClone.getNumDimensions() != OutSection->getNumDimensions()) {
+      OutSection->clear();
       continue;
     }
 
     // For each dimension select new lower and upper CE.
-    for (unsigned I = 0, E = Section->getNumDimensions(); I < E; ++I) {
+    for (unsigned I = 0, E = OutSection->getNumDimensions(); I < E; ++I) {
       int64_t Distance;
 
-      auto *&LCE1 = Section->lowers()[I];
+      auto *&LCE1 = OutSection->lowers()[I];
       auto *LCE2 = InSectionClone.lowers()[I];
 
       if (LCE1 != nullptr && LCE2 != nullptr &&
@@ -276,7 +312,7 @@ static void mergeResult(ArraySectionAnalysisResult &OutResult,
         LCE1 = nullptr;
       }
 
-      auto *&UCE1 = Section->uppers()[I];
+      auto *&UCE1 = OutSection->uppers()[I];
       auto *UCE2 = InSectionClone.uppers()[I];
 
       if (UCE1 != nullptr && UCE2 != nullptr &&
@@ -363,15 +399,13 @@ HIRArraySectionAnalysis::getOrCompute(const HLLoop *Loop) {
 
   auto Result = std::make_unique<ArraySectionAnalysisResult>();
   for (auto &Group : Groups) {
-    ArraySectionInfo Info;
+    ArraySectionInfo &Info =
+        Result->create(Group.front()->getBasePtrBlobIndex());
 
     // Check that group is consistent across references.
     if (!InvalidBaseIndices.count(Group.front()->getBasePtrBlobIndex())) {
       Info = computeSectionsFromGroup(Group, LoopLevel);
     }
-
-    // Store computed Info
-    Result->create(Group.front()->getBasePtrBlobIndex()) = std::move(Info);
   }
 
   // Merge results of children loops into the Result.

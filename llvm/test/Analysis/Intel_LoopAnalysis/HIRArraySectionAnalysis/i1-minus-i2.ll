@@ -11,9 +11,9 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:    + DO i1 = 0, 1, 1   <DO_LOOP>
-; CHECK:    %p: L: [ -99 ], U: [ 1 ]
+; CHECK:    %p: (DEF) L: [ -99 ], U: [ 1 ]
 ; CHECK:    |   + DO i2 = 0, 99, 1   <DO_LOOP>
-; CHECK:    |   %p: L: [ i1 + -99 ], U: [ i1 ]
+; CHECK:    |   %p: (DEF) L: [ i1 + -99 ], U: [ i1 ]
 ; CHECK:    |   + END LOOP
 ; CHECK:    + END LOOP
 ; CHECK: END REGION
