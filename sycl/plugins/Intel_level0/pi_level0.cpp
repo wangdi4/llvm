@@ -1193,9 +1193,14 @@ pi_result L0(piQueueCreate)(
   ze_device_handle_t        ze_device;
   ze_command_queue_handle_t ze_command_queue;
 
-  pi_assert(device == context->Device);
-  ze_device = device->L0Device;
+  if (!context) {
+    return PI_INVALID_CONTEXT;
+  }
+  if (context->Device != device) {
+    return PI_INVALID_DEVICE;
+  }
 
+  ze_device = device->L0Device;
   ze_command_queue_desc_t ze_command_queue_desc =
     {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
   ze_command_queue_desc.ordinal = 0;
