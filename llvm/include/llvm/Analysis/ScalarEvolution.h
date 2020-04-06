@@ -1906,9 +1906,13 @@ private: // INTEL
   /// frugal here since we just bail out of actually constructing and
   /// canonicalizing an expression in the cases where the result isn't going
   /// to be a constant.
-public: // INTEL
-  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS);
-private: // INTEL
+#if INTEL_CUSTOMIZATION
+public:
+  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
+                                            bool *SignedOverflow = nullptr);
+
+private:
+#endif // INTEL_CUSTOMIZATION
 
   /// Drop memoized information computed for S.
   void forgetMemoizedResults(const SCEV *S);

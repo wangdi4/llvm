@@ -16,7 +16,7 @@
 
 using namespace cl::sycl;
 
-TEST_F(SchedulerTest, MemObjCommandCleanup) {
+TEST_F(SchedulerTest, DISABLED_MemObjCommandCleanup) {
   TestScheduler TS;
   buffer<int, 1> BufA(range<1>(1));
   buffer<int, 1> BufB(range<1>(1));

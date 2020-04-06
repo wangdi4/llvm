@@ -2690,40 +2690,22 @@ static pi_result enqueueMemCopyRectHelper(
   uint32_t height = pi_cast<uint32_t>(region[1]);
   uint32_t depth = pi_cast<uint32_t>(region[2]);
 
-  char *source_ptr = src_buffer + srcOriginZ;
-  char *destination_ptr = dst_buffer + dstOriginZ;
+  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, srcOriginZ, width, height, depth};
+  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, dstOriginZ, width, height, depth};
 
-  //
-  // Command List is Created for handling all enqueued Memory Copy Regions
-  // and 1 Barrier. Once command_queue->executeCommandList() is called the
-  // command list is closed & no more commands are added to this
-  // command list such that the barrier only blocks the Memory Copy Regions enqueued.
-  //
-  // Until L0 Spec issue https://gitlab.devtools.intel.com/one-api/level_zero/issues/300
-  // is resolved 3D buffer copies must be split into multiple 2D buffer copies in the
-  // sycl plugin.
-  //
-  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, 0, width, height, 0};
-  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, 0, width, height, 0};
+  ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
+    ze_command_list,
+    dst_buffer,
+    &dstRegion,
+    dstPitch,
+    dst_slice_pitch,
+    src_buffer,
+    &srcRegion,
+    srcPitch,
+    src_slice_pitch,
+    nullptr
+  ));
 
-  // TODO: Remove the for loop and use the slice pitches.
-  for (uint32_t i = 0; i < depth; i++) {
-    ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
-      ze_command_list,
-      destination_ptr,
-      &dstRegion,
-      dstPitch,
-      0, /* dstSlicePitch */
-      source_ptr,
-      &srcRegion,
-      srcPitch,
-      0, /* srcSlicePitch */
-      nullptr
-    ));
-
-    destination_ptr += dst_slice_pitch;
-    source_ptr += src_slice_pitch;
-  }
   zePrint("calling zeCommandListAppendMemoryCopyRegion()\n");
 
   ze_result = ZE_CALL(zeCommandListAppendBarrier(

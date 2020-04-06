@@ -325,6 +325,20 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_DOTPROD */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVXDOTPROD_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVXDOTPROD__) && defined(__AVX512FP16__)
+#include <avxdotprod/avxdotprodintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_DOTPROD */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX512_DOTPROD */
 /*
  * FIXME: When _Float16 type is supported, this should be:
@@ -339,6 +353,20 @@
 #include <avx512dotprod/avx512vldotprodintrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_CONVERT */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVXCONVERT_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVXCONVERT__) && defined(__AVX512FP16__)
+#include <avxconvert/avxconvertintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_CONVERT */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */

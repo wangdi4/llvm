@@ -3430,6 +3430,14 @@ def mno_avx512vp2intersect : Flag<["-"], "mno-avx512vp2intersect">, Group<m_x86_
 def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
 def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+def mavxconvert : Flag<["-"], "mavxconvert">, Group<m_x86_Features_Group>;
+def mno_avxconvert : Flag<["-"], "mno-avxconvert">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+def mavxdotprod : Flag<["-"], "mavxdotprod">, Group<m_x86_Features_Group>;
+def mno_avxdotprod : Flag<["-"], "mno-avxdotprod">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #if INTEL_FEATURE_ISA_AVX_VNNI
 def mavxvnni : Flag<["-"], "mavxvnni">, Group<m_x86_Features_Group>;
 def mno_avxvnni : Flag<["-"], "mno-avxvnni">, Group<m_x86_Features_Group>;

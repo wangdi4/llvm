@@ -140,13 +140,16 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
   assert(F && "Null function pointer.");
 
   LLVMContext &C = F->getContext();
-  Type *IdentTyArgs[] = {Type::getInt32Ty(C),    // reserved_1
-                         Type::getInt32Ty(C),    // flags
-                         Type::getInt32Ty(C),    // reserved_2
-                         Type::getInt32Ty(C),    // reserved_3
-                         Type::getInt8PtrTy(C)}; // *psource
+  unsigned AS = VPOAnalysisUtils::isTargetSPIRV(F->getParent())
+                    ? vpo::ADDRESS_SPACE_GENERIC
+                    : 0;
+  Type *IdentTyArgs[] = {Type::getInt32Ty(C),        // reserved_1
+                         Type::getInt32Ty(C),        // flags
+                         Type::getInt32Ty(C),        // reserved_2
+                         Type::getInt32Ty(C),        // reserved_3
+                         Type::getInt8PtrTy(C, AS)}; // *psource
 
-  return VPOParoptUtils::getOrCreateStructType(F, "__struct.ident_t",
+  return VPOParoptUtils::getOrCreateStructType(F, "struct.ident_t",
                                                IdentTyArgs);
 }
 
@@ -2255,6 +2258,9 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   Constant *Zeros[] = {ValueZero, ValueZero};
   Constant *LocStringPtr =
       ConstantExpr::getGetElementPtr(nullptr, LocStringVar, Zeros);
+  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+    LocStringPtr = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+        LocStringPtr, Type::getInt8PtrTy(C, vpo::ADDRESS_SPACE_GENERIC));
 
   unsigned SLine =
       (Loc1 != nullptr && Mode != SRC_LOC_NONE) ? Loc1->getLine() : 0;

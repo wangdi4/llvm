@@ -181,6 +181,18 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxifma/avxifmaintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_IFMA
+# INTEL_FEATURE_ISA_AVX_DOTPROD
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD
+  Intel_Headers/avxdotprod/avxdotprodintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_DOTPROD
+# INTEL_FEATURE_ISA_AVX_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_CONVERT
+  Intel_Headers/avxconvert/avxconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_CONVERT
 # end INTEL_CUSTOMIZATION
 
 set(files
