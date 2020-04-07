@@ -24782,7 +24782,6 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       return DAG.getNode(IntrData->Opc0, dl, VT,Src2, Src1);
     }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     case FMA_OP_MASKZ:
     case FMA_OP_MASK: {
       SDValue Src1 = Op.getOperand(1);
@@ -24790,35 +24789,28 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       SDValue Src3 = Op.getOperand(3);
       SDValue Mask = Op.getOperand(4);
       MVT VT = Op.getSimpleValueType();
-      SDValue PassThru = Src1;
 
-      // set PassThru element
+      SDValue PassThru = Src1;
       if (IntrData->Type == FMA_OP_MASKZ)
         PassThru = getZeroVector(VT, Subtarget, DAG, dl);
-      else
-        PassThru = Src1;
 
       // We add rounding mode to the Node when
       //   - RC Opcode is specified and
       //   - RC is not "current direction".
-      unsigned IntrWithRoundingModeOpcode = IntrData->Opc1;
-      if (IntrWithRoundingModeOpcode != 0) {
+      SDValue NewOp;
+      if (IntrData->Opc1 != 0) {
         SDValue Rnd = Op.getOperand(5);
         unsigned RC = 0;
         if (isRoundModeSAEToX(Rnd, RC))
-          return getVectorMaskingNode(
-              DAG.getNode(IntrWithRoundingModeOpcode, dl, Op.getValueType(),
-                          Src1, Src2, Src3, DAG.getTargetConstant(RC, dl,
-                                                                  MVT::i32)),
-              Mask, PassThru, Subtarget, DAG);
-        if (!isRoundModeCurDirection(Rnd))
+          NewOp = DAG.getNode(IntrData->Opc1, dl, VT, Src1, Src2, Src3,
+                              DAG.getTargetConstant(RC, dl, MVT::i32));
+        else if (!isRoundModeCurDirection(Rnd))
           return SDValue();
       }
-      return getVectorMaskingNode(DAG.getNode(IntrData->Opc0, dl, VT,
-                                              Src1, Src2, Src3),
-                                  Mask, PassThru, Subtarget, DAG);
+      if (!NewOp)
+        NewOp = DAG.getNode(IntrData->Opc0, dl, VT, Src1, Src2, Src3);
+      return getVectorMaskingNode(NewOp, Mask, PassThru, Subtarget, DAG);
     }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     case IFMA_OP:
       // NOTE: We need to swizzle the operands to pass the multiply operands
@@ -25089,33 +25081,6 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       return DAG.getNode(IntrData->Opc1, dl, Op.getValueType(), Src, PassThru,
                          Mask);
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
-    case INTR_TYPE_3OP_MASK: {
-      SDValue PassThru = Op.getOperand(1);
-      SDValue Src1 = Op.getOperand(2);
-      SDValue Src2 = Op.getOperand(3);
-      SDValue Mask = Op.getOperand(4);
-
-      // We add rounding mode to the Node when
-      //   - RC Opcode is specified and
-      //   - RC is not "current direction".
-      SDValue NewOp;
-      if (IntrData->Opc1 != 0) {
-        SDValue Rnd = Op.getOperand(5);
-        unsigned RC = 0;
-        if (isRoundModeSAEToX(Rnd, RC))
-          NewOp = DAG.getNode(IntrData->Opc1, dl, VT, PassThru, Src1, Src2,
-                              DAG.getTargetConstant(RC, dl, MVT::i32));
-        else if (!isRoundModeCurDirection(Rnd))
-          return SDValue();
-      }
-      if (!NewOp)
-        NewOp = DAG.getNode(IntrData->Opc0, dl, VT, PassThru, Src1, Src2);
-      return getVectorMaskingNode(NewOp, Mask, PassThru, Subtarget, DAG);
-    }
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#endif // INTEL_CUSTOMIZATION
     default:
       break;
     }
