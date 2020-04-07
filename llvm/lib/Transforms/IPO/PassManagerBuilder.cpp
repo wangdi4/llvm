@@ -2081,6 +2081,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
         PM.add(createHIRConditionalTempSinkingPass());
         PM.add(createHIROptPredicatePass(OptLevel == 3, true));
+        if (OptLevel > 2) {
+          PM.add(createHIRStoreResultIntoTempArrayPass());
+        }
         PM.add(createHIRAosToSoaPass());
         PM.add(createHIRRuntimeDDPass());
         PM.add(createHIRMVForConstUBPass());

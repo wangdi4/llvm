@@ -303,6 +303,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRStoreResultIntoTempArray.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
