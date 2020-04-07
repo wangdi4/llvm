@@ -30,6 +30,7 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
+#include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #if INTEL_CUSTOMIZATION
@@ -918,7 +919,7 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
       if (GV.use_empty() && GV.hasInitializer()) {
         Constant *Init = GV.getInitializer();
         GV.setInitializer(nullptr);
-        if (!isa<GlobalValue>(Init) && !isa<ConstantData>(Init))
+        if (isSafeToDestroyConstant(Init))
           Init->destroyConstant();
       }
     }
