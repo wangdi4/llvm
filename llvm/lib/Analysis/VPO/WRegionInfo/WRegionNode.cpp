@@ -15,6 +15,7 @@
 
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
@@ -27,7 +28,7 @@ using namespace llvm::vpo;
 
 unsigned WRegionNode::UniqueNum(0);
 
-std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
+DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNParallel, "parallel"},
     {WRegionNode::WRNParallelLoop, "parallel loop"},
     {WRegionNode::WRNParallelSections, "parallel sections"},
@@ -473,7 +474,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   if (ClauseNumArgs == 0) {
     // The clause takes no arguments
     assert(NumArgs == 0 && "This clause takes no arguments.");
-    handleQual(ClauseID);
+    handleQual(ClauseInfo);
   } else if (ClauseNumArgs == 1) {
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
@@ -492,7 +493,8 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
 
-void WRegionNode::handleQual(int ClauseID) {
+void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
+  int ClauseID = ClauseInfo.getId();
   switch (ClauseID) {
   case QUAL_OMP_DEFAULT_NONE:
     setDefault(WRNDefaultNone);
@@ -506,9 +508,36 @@ void WRegionNode::handleQual(int ClauseID) {
   case QUAL_OMP_DEFAULT_FIRSTPRIVATE:
     setDefault(WRNDefaultFirstprivate);
     break;
-  case QUAL_OMP_DEFAULTMAP_TOFROM_SCALAR:
-    setDefaultmapTofromScalar(true);
+  case QUAL_OMP_DEFAULTMAP_ALLOC:
+  case QUAL_OMP_DEFAULTMAP_TO:
+  case QUAL_OMP_DEFAULTMAP_FROM:
+  case QUAL_OMP_DEFAULTMAP_TOFROM:
+  case QUAL_OMP_DEFAULTMAP_FIRSTPRIVATE:
+  case QUAL_OMP_DEFAULTMAP_NONE:
+  case QUAL_OMP_DEFAULTMAP_DEFAULT:
+  case QUAL_OMP_DEFAULTMAP_PRESENT:
+  {
+    WRNDefaultmapBehavior Behavior =
+        WRNDefaultmapBehaviorFromClauseID[ClauseID];
+    WRNDefaultmapCategory Category;
+
+    if (ClauseInfo.getIsAggregate())
+      Category = WRNDefaultmapAggregate;
+#if INTEL_CUSTOMIZATION
+    else if (ClauseInfo.getIsAllocatable())
+      Category = WRNDefaultmapAllocatable;
+#endif // INTEL_CUSTOMIZATION
+    else if (ClauseInfo.getIsPointer())
+      Category = WRNDefaultmapPointer;
+    else if (ClauseInfo.getIsScalar())
+      Category = WRNDefaultmapScalar;
+    else
+      // No category specified means implicit behavior applies to all vars
+      Category = WRNDefaultmapAllVars;
+
+    setDefaultmap(Category, Behavior);
     break;
+  }
   case QUAL_OMP_NOWAIT:
     setNowait(true);
     break;

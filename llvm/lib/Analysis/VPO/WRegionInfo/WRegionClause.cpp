@@ -11,13 +11,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 
 namespace llvm {
 
 namespace vpo {
 
-std::unordered_map<int, StringRef> WRNDefaultName = {
+DenseMap<int, WRNDefaultmapBehavior> WRNDefaultmapBehaviorFromClauseID = {
+    {QUAL_OMP_DEFAULTMAP_ALLOC,   WRNDefaultmapBehavior::WRNDefaultmapAlloc},
+    {QUAL_OMP_DEFAULTMAP_TO,      WRNDefaultmapBehavior::WRNDefaultmapTo},
+    {QUAL_OMP_DEFAULTMAP_FROM,    WRNDefaultmapBehavior::WRNDefaultmapFrom},
+    {QUAL_OMP_DEFAULTMAP_TOFROM,  WRNDefaultmapBehavior::WRNDefaultmapToFrom},
+    {QUAL_OMP_DEFAULTMAP_FIRSTPRIVATE,
+                              WRNDefaultmapBehavior::WRNDefaultmapFirstprivate},
+    {QUAL_OMP_DEFAULTMAP_NONE,    WRNDefaultmapBehavior::WRNDefaultmapNone},
+    {QUAL_OMP_DEFAULTMAP_DEFAULT, WRNDefaultmapBehavior::WRNDefaultmapDefault},
+    {QUAL_OMP_DEFAULTMAP_PRESENT, WRNDefaultmapBehavior::WRNDefaultmapPresent}};
+
+DenseMap<int, StringRef> WRNDefaultName = {
     {WRNDefaultKind::WRNDefaultAbsent,       "UNSPECIFIED"},
     {WRNDefaultKind::WRNDefaultNone,         "NONE"},
     {WRNDefaultKind::WRNDefaultShared,       "SHARED"},
@@ -25,37 +37,57 @@ std::unordered_map<int, StringRef> WRNDefaultName = {
     {WRNDefaultKind::WRNDefaultFirstprivate, "FIRSTPRIVATE"},
     {WRNDefaultKind::WRNDefaultAbsent,       "LASTPRIVATE"}};
 
-std::unordered_map<int, StringRef> WRNAtomicName = {
+DenseMap<int, StringRef> WRNDefaultmapBehaviorName = {
+    {WRNDefaultmapBehavior::WRNDefaultmapAbsent,       "UNSPECIFIED"},
+    {WRNDefaultmapBehavior::WRNDefaultmapAlloc,        "ALLOC"},
+    {WRNDefaultmapBehavior::WRNDefaultmapTo,           "TO"},
+    {WRNDefaultmapBehavior::WRNDefaultmapFrom,         "FROM"},
+    {WRNDefaultmapBehavior::WRNDefaultmapToFrom,       "TOFROM"},
+    {WRNDefaultmapBehavior::WRNDefaultmapFirstprivate, "FIRSTPRIVATE"},
+    {WRNDefaultmapBehavior::WRNDefaultmapNone,         "NONE"},
+    {WRNDefaultmapBehavior::WRNDefaultmapDefault,      "DEFAULT"},
+    {WRNDefaultmapBehavior::WRNDefaultmapPresent,      "PRESENT"}};
+
+DenseMap<int, StringRef> WRNDefaultmapCategoryName = {
+    {WRNDefaultmapCategory::WRNDefaultmapAllVars,      "UNSPECIFIED"},
+    {WRNDefaultmapCategory::WRNDefaultmapAggregate,    "AGGREGATE"},
+#if INTEL_CUSTOMIZATION
+    {WRNDefaultmapCategory::WRNDefaultmapAllocatable,  "ALLOCATABLE"},
+#endif // INTEL_CUSTOMIZATION
+    {WRNDefaultmapCategory::WRNDefaultmapPointer,      "POINTER"},
+    {WRNDefaultmapCategory::WRNDefaultmapScalar,       "SCALAR"}};
+
+DenseMap<int, StringRef> WRNAtomicName = {
     {WRNAtomicKind::WRNAtomicUpdate,  "UPDATE"},
     {WRNAtomicKind::WRNAtomicRead,    "READ"},
     {WRNAtomicKind::WRNAtomicWrite,   "WRITE"},
     {WRNAtomicKind::WRNAtomicCapture, "CAPTURE"}};
 
-std::unordered_map<int, StringRef> WRNCancelName = {
+DenseMap<int, StringRef> WRNCancelName = {
     {WRNCancelKind::WRNCancelError,    "ERROR"},  // not optional
     {WRNCancelKind::WRNCancelParallel, "PARALLEL"},
     {WRNCancelKind::WRNCancelLoop,     "LOOP"},
     {WRNCancelKind::WRNCancelSections, "SECTIONS"},
     {WRNCancelKind::WRNCancelTaskgroup,"TASKGROUP"}};
 
-std::unordered_map<int, StringRef> WRNProcBindName = {
+DenseMap<int, StringRef> WRNProcBindName = {
     {WRNProcBindKind::WRNProcBindAbsent, "UNSPECIFIED"},
     {WRNProcBindKind::WRNProcBindTrue,   "TRUE"},
     {WRNProcBindKind::WRNProcBindMaster, "MASTER"},
     {WRNProcBindKind::WRNProcBindClose,  "CLOSE"},
     {WRNProcBindKind::WRNProcBindSpread, "SPREAD"}};
 
-std::unordered_map<int, StringRef> WRNLoopBindName = {
+DenseMap<int, StringRef> WRNLoopBindName = {
     {WRNLoopBindKind::WRNLoopBindAbsent, "UNSPECIFIED"},
     {WRNLoopBindKind::WRNLoopBindTeams, "TEAMS"},
     {WRNLoopBindKind::WRNLoopBindParallel, "PARALLEL"},
     {WRNLoopBindKind::WRNLoopBindThread, "THREAD"}};
 
-std::unordered_map<int, StringRef> WRNLoopOrderName = {
+DenseMap<int, StringRef> WRNLoopOrderName = {
     {WRNLoopOrderKind::WRNLoopOrderAbsent, "UNSPECIFIED"},
     {WRNLoopOrderKind::WRNLoopOrderConcurrent, "CONCURRENT"}};
 
-std::unordered_map<int, StringRef> WRNScheduleName = {
+DenseMap<int, StringRef> WRNScheduleName = {
     {WRNScheduleKind::WRNScheduleCrewloop, "Crew Loop"},
     {WRNScheduleKind::WRNScheduleStatic, "Static"},
     {WRNScheduleKind::WRNScheduleStaticEven, "Static Even"},

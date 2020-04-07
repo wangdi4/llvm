@@ -15,6 +15,7 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 #define LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
@@ -54,12 +55,14 @@ template <IRKind IR>
 #endif // INTEL_CUSTOMIZATION
 
 // Tables used for debug printing
-extern std::unordered_map<int, StringRef> WRNDefaultName;
-extern std::unordered_map<int, StringRef> WRNAtomicName;
-extern std::unordered_map<int, StringRef> WRNCancelName;
-extern std::unordered_map<int, StringRef> WRNProcBindName;
-extern std::unordered_map<int, StringRef> WRNLoopBindName;
-extern std::unordered_map<int, StringRef> WRNLoopOrderName;
+extern DenseMap<int, StringRef> WRNDefaultName;
+extern DenseMap<int, StringRef> WRNDefaultmapBehaviorName;
+extern DenseMap<int, StringRef> WRNDefaultmapCategoryName;
+extern DenseMap<int, StringRef> WRNAtomicName;
+extern DenseMap<int, StringRef> WRNCancelName;
+extern DenseMap<int, StringRef> WRNProcBindName;
+extern DenseMap<int, StringRef> WRNLoopBindName;
+extern DenseMap<int, StringRef> WRNLoopOrderName;
 
 //
 // Classes below represent list items used in many OMP clauses
@@ -1328,6 +1331,34 @@ typedef enum WRNDefaultKind {
     WRNDefaultPrivate,        // default(private) // Fortran only
     WRNDefaultFirstprivate    // default(firstprivate) //Fortran only
 } WRNDefaultKind;
+
+typedef enum WRNDefaultmapBehavior {
+    WRNDefaultmapAbsent = 0,      // defaultmap clause not present
+    WRNDefaultmapAlloc,           // defaultmap(alloc        [:<category>] )
+    WRNDefaultmapTo,              // defaultmap(to           [:<category>] )
+    WRNDefaultmapFrom,            // defaultmap(from         [:<category>] )
+    WRNDefaultmapToFrom,          // defaultmap(tofrom       [:<category>] )
+    WRNDefaultmapFirstprivate,    // defaultmap(firstprivate [:<category>] )
+    WRNDefaultmapNone,            // defaultmap(none         [:<category>] )
+    WRNDefaultmapDefault,         // defaultmap(default      [:<category>] )
+    WRNDefaultmapPresent          // defaultmap(present      [:<category>] )
+} WRNDefaultmapBehavior;
+
+// Table to get defaultmap behavior from ClauseID QUAL_OMP_DEFAULTMAP_<behavior>
+extern DenseMap<int, WRNDefaultmapBehavior> WRNDefaultmapBehaviorFromClauseID;
+
+typedef enum WRNDefaultmapCategory {
+    WRNDefaultmapAllVars = 0,     // defaultmap(<behavior>) with no category
+                                  // specified; <behavior> applies to all vars
+    WRNDefaultmapAggregate,       // defaultmap(<behavior>:aggregate)
+#if INTEL_CUSTOMIZATION
+    // Fortran only
+    WRNDefaultmapAllocatable,     // defaultmap(<behavior>:allocatable)
+#endif // INTEL_CUSTOMIZATION
+    WRNDefaultmapPointer,         // defaultmap(<behavior>:pointer)
+    WRNDefaultmapScalar,          // defaultmap(<behavior>:scalar)
+    WRNDefaultmapCategorySize     // last entry in enum
+} WRNDefaultmapCategory;
 
 typedef enum WRNAtomicKind {
     WRNAtomicUpdate = 0,
