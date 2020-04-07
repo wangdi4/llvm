@@ -536,18 +536,18 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
   // splatted and this shufflevector won't change length.
   if (const ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(I)) {
     Value *Op0;
-    Constant *M;
-    if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Constant(M))))
+    ArrayRef<int> M;
+    if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Mask(M))))
       return false;
 
     if (SV->changesLength())
       return false;
 
-    if (!M->getSplatValue())
+    if (!is_splat(M))
       return false;
 
     unsigned NumElmts = Op0->getType()->getVectorNumElements();
-    int64_t Index = M->getUniqueInteger().getSExtValue();
+    int64_t Index = M[0];
 
     if (Index < 0 || Index >= NumElmts)
       return false;
@@ -795,6 +795,8 @@ void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
                                                            unsigned Depth) {
   VectorType *VTy = cast<VectorType>(I->getType());
   VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
+  // FIXME: the line below is incorrect. Mask is not should be accessed via
+  // getShuffleMask and it is represented via ArrayRef<int>
   Constant *M = cast<Constant>(I->getOperand(2));
   VectorType *Op2VTy = cast<VectorType>(M->getType());
   VectorType *Op2HVTy = Op2VTy->getHalfElementsVectorType(Op2VTy);
@@ -1276,8 +1278,8 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
                              SimpleInstCombiner::BuilderTy &Builder,
                              const TargetTransformInfo *TTI) {
   Instruction *Cmp;
-  Constant *M;
-  if (!match(SV, m_ShuffleVector(m_Instruction(Cmp), m_Undef(), m_Constant(M))))
+  ArrayRef<int> M;
+  if (!match(SV, m_ShuffleVector(m_Instruction(Cmp), m_Undef(), m_Mask(M))))
     return nullptr;
 
   if (SV->changesLength())
@@ -1304,10 +1306,9 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
     }
   }
 
-  Constant *ScalarM = M->getSplatValue(false);
   Constant *ScalarC = C->getSplatValue(false);
 
-  if (HasAnd && ScalarM && ScalarC) {
+  if (HasAnd && is_splat(M) && ScalarC) {
     Value *NewSV =
         Builder.CreateShuffleVector(LHS, UndefValue::get(LHS->getType()), M);
 
@@ -1324,8 +1325,8 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
 // Return true if SV is same as the first operand of SV.
 static bool isBridgeShuffleVector(const ShuffleVectorInst *SV) {
   Value *Op0;
-  Constant *M;
-  if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Constant(M))))
+  ArrayRef<int> M;
+  if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Mask(M))))
     return false;
 
   if (SV->changesLength())
@@ -1372,8 +1373,9 @@ foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
     return nullptr;
 
   Value *SVOp0, *SVOp1;
+  ArrayRef<int> M;
   if (!match(VectorOp,
-             m_ShuffleVector(m_Value(SVOp0), m_Value(SVOp1), m_Constant())))
+             m_ShuffleVector(m_Value(SVOp0), m_Value(SVOp1), m_Mask(M))))
     return nullptr;
 
   ShuffleVectorInst *SV = cast<ShuffleVectorInst>(VectorOp);
