@@ -246,16 +246,10 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::OMPArrayShaping:
     ID = PREDEF_TYPE_OMP_ARRAY_SHAPING;
     break;
-<<<<<<< HEAD
-  case BuiltinType::OMPIterator:
-    ID = PREDEF_TYPE_OMP_ITERATOR;
-    break;
 #if INTEL_CUSTOMIZATION
   case BuiltinType::VAArgPack:
     llvm_unreachable("VAArgPack Type Serialization not implemented");
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> c028472fa1f0e20cc87cfa47d87fe0dd65fea830
   }
 
   return TypeIdx(ID);
