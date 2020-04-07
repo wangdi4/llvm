@@ -1193,9 +1193,14 @@ pi_result L0(piQueueCreate)(
   ze_device_handle_t        ze_device;
   ze_command_queue_handle_t ze_command_queue;
 
-  pi_assert(device == context->Device);
-  ze_device = device->L0Device;
+  if (!context) {
+    return PI_INVALID_CONTEXT;
+  }
+  if (context->Device != device) {
+    return PI_INVALID_DEVICE;
+  }
 
+  ze_device = device->L0Device;
   ze_command_queue_desc_t ze_command_queue_desc =
     {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
   ze_command_queue_desc.ordinal = 0;
@@ -2227,6 +2232,12 @@ pi_result L0(piEventGetProfilingInfo)(
     context_end *= L0TimerResolution;
     SET_PARAM_VALUE(uint64_t{context_end});
   }
+  else if (param_name == PI_PROFILING_INFO_COMMAND_QUEUED ||
+           param_name == PI_PROFILING_INFO_COMMAND_SUBMIT) {
+    // TODO: Support these when L0 supported is added.
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373
+    SET_PARAM_VALUE(uint64_t{0});
+  }
   else {
     pi_throw("piEventGetProfilingInfo: not supported param_name");
   }
@@ -2939,9 +2950,9 @@ pi_result L0(piEnqueueMemBufferMap)(
 
   ze_result_t ze_result;
 
- // TODO: implement read-only, write-only
-  pi_assert((map_flags & CL_MAP_READ) != 0);
-  pi_assert((map_flags & CL_MAP_WRITE) != 0);
+  // TODO: we don't implement read-only or write-only, always read-write.
+  // pi_assert((map_flags & CL_MAP_READ) != 0);
+  // pi_assert((map_flags & CL_MAP_WRITE) != 0);
 
   // Get a new command list to be used on this call
   ze_command_list_handle_t ze_command_list =
@@ -3760,29 +3771,28 @@ pi_result L0(piKernelSetExecInfo)(pi_kernel kernel,
                                   pi_kernel_exec_info param_name,
                                   size_t param_value_size,
                                   const void *param_value) {
-
   if (param_name == PI_USM_INDIRECT_ACCESS &&
       *(static_cast<const pi_bool *>(param_value)) == PI_TRUE) {
-    // TODO: enable when this is resolved:
-    // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/
-    // issues/45
-    //
-#if 0
     // The whole point for users really was to not need to know anything
     // about the types of allocations kernel uses. So in DPC++ we always
     // just set all 3 modes for each kernel.
     //
+    bool ze_indirect_value = true;
     ZE_CALL(zeKernelSetAttribute(
-      kernel->L0Kernel, ZE_KERNEL_SET_ATTR_INDIRECT_SHARED_ACCESS, 1));
+      kernel->L0Kernel, ZE_KERNEL_ATTR_INDIRECT_SHARED_ACCESS,
+        sizeof(bool), &ze_indirect_value));
     ZE_CALL(zeKernelSetAttribute(
-      kernel->L0Kernel, ZE_KERNEL_SET_ATTR_INDIRECT_DEVICE_ACCESS, 1));
+      kernel->L0Kernel, ZE_KERNEL_ATTR_INDIRECT_DEVICE_ACCESS,
+        sizeof(bool), &ze_indirect_value));
     ZE_CALL(zeKernelSetAttribute(
-      kernel->L0Kernel, ZE_KERNEL_SET_ATTR_INDIRECT_HOST_ACCESS, 1));
-#endif // 0
-    return PI_SUCCESS;
+      kernel->L0Kernel, ZE_KERNEL_ATTR_INDIRECT_HOST_ACCESS,
+        sizeof(bool), &ze_indirect_value));
+  }
+  else {
+    pi_throw("piKernelSetExecInfo: unsupported param_name");
   }
 
-  pi_throw("piKernelSetExecInfo: param not supported");
+  return PI_SUCCESS;
 }
 
 pi_result piextProgramSetSpecializationConstant(pi_program prog,

@@ -50,13 +50,13 @@ device device_selector::select_device() const {
   for (const auto &dev : devices) {
     int dev_score = operator()(dev);
     if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_ALL)) { // INTEL
+      auto platform_name = dev.get_info<info::device::platform>().
+          get_info<info::platform::version>();
+      auto device_name = dev.get_info<info::device::name>() ;
       std::cout
         << "SYCL_PI_TRACE[1]: select_device(): -> score = " << dev_score << std::endl
-        << "SYCL_PI_TRACE[1]:   platform: "
-        << dev.get_info<info::device::platform>().
-            get_info<info::platform::version>() << std::endl
-        << "SYCL_PI_TRACE[1]:   device: "
-        << dev.get_info<info::device::name>() << std::endl;
+        << "SYCL_PI_TRACE[1]:   platform: " << platform_name << std::endl
+        << "SYCL_PI_TRACE[1]:   device: " << device_name << std::endl;
     }
 
     if (score < dev_score) {
@@ -68,13 +68,13 @@ device device_selector::select_device() const {
 #ifdef INTEL_CUSTOMIZATION
   if (res != nullptr) {
     if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_BASIC)) {
+      auto platform_name = res->get_info<info::device::platform>().
+          get_info<info::platform::version>();
+      auto device_name = res->get_info<info::device::name>() ;
       std::cout
         << "SYCL_PI_TRACE[1]: select_device(): ->" << std::endl
-        << "SYCL_PI_TRACE[1]:   platform: "
-        << res->get_info<info::device::platform>().
-            get_info<info::platform::version>() << std::endl
-        << "SYCL_PI_TRACE[1]:   device: "
-        << res->get_info<info::device::name>() << std::endl;
+        << "SYCL_PI_TRACE[1]:   platform: " << platform_name << std::endl
+        << "SYCL_PI_TRACE[1]:   device: " << device_name << std::endl;
     }
     return *res;
   }

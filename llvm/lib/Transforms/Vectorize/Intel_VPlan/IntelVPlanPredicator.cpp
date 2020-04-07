@@ -464,6 +464,8 @@ void VPlanPredicator::turnPhisToBlends(
 
     if (DA->isDivergent(Phi))
       DA->markDivergent(*Blend);
+    else
+      DA->markUniform(*Blend);
   }
 
   for (auto *Phi : PhisToRemove)
@@ -487,6 +489,16 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
                    Block->getSuccessors()[1]->getNumPredecessors() ==
                3 &&
            "Not in loop-simplified form?");
+    assert(!Plan.getVPlanDA()->isDivergent(*Block->getCondBit()) &&
+           "Backedge has divergent condition!");
+    // TODO: Curreently we handle "uniform" loops under divergent toptest in
+    // VPlanPredicator::fixupUniformInnerLoops. The proper solution is going to
+    // be an all-zero-based SESE region bypass. In case if it will be running
+    // before the predicator, the following assert would be needed.
+    //
+    // assert(
+    //     (LoopItselfIsUnmasked || isAllZeroCheckBased(BackEdgeCondtion)) &&
+    //     "Even uniform loops under a divergent top test need special care!");
 
     return true;
   }
