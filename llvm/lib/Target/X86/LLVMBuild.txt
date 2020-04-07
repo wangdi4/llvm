@@ -30,5 +30,7 @@ has_jit = 1
 type = Library
 name = X86CodeGen
 parent = X86
-required_libraries = Analysis AsmPrinter CodeGen Core MC SelectionDAG Support Target X86Desc X86Info X86Utils GlobalISel ProfileData CFGuard Scalar
+required_libraries = Analysis AsmPrinter CodeGen Core MC SelectionDAG Support Target X86Desc X86Info X86Utils GlobalISel ProfileData CFGuard Scalar TransformUtils
+
+; ***INTEL: TransformUtils
 add_to_library_groups = X86
