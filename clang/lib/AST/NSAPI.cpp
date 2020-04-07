@@ -484,8 +484,11 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
   case BuiltinType::BuiltinFn:
   case BuiltinType::OMPArraySection:
   case BuiltinType::OMPArrayShaping:
+<<<<<<< HEAD
   case BuiltinType::OMPIterator:
   case BuiltinType::VAArgPack:// INTEL
+=======
+>>>>>>> c028472fa1f0e20cc87cfa47d87fe0dd65fea830
     break;
   }
 

@@ -2991,8 +2991,6 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "<OpenMP array section type>";
   case OMPArrayShaping:
     return "<OpenMP array shaping type>";
-  case OMPIterator:
-    return "<OpenMP iterator type>";
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   case Id: \
     return #ExtType;
@@ -4024,8 +4022,11 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::NullPtr:
     case BuiltinType::OMPArraySection:
     case BuiltinType::OMPArrayShaping:
+<<<<<<< HEAD
     case BuiltinType::OMPIterator:
     case BuiltinType::VAArgPack: // INTEL
+=======
+>>>>>>> c028472fa1f0e20cc87cfa47d87fe0dd65fea830
       return false;
     }
     llvm_unreachable("unknown builtin type");
