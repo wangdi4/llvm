@@ -52,6 +52,9 @@ public:
 
   void printPrioOrderOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                             const char *Modifier = nullptr);
+
+  void printLCacheOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
+                          const char *Modifier = nullptr);
 };
 } // namespace llvm
 

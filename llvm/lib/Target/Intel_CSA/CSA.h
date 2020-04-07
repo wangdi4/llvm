@@ -56,10 +56,12 @@ Pass *createCSALowerScratchpadsPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);
 Pass *createCSAMemopOrderingPass(const CSATargetMachine &TM);
 Pass *createCSAParseAnnotateAttributesPass();
+Pass *createCSACacheLocalizerPass();
 
 void initializeCSAMemopOrderingPasses(PassRegistry &);
 void initializeCSAStreamingMemoryPass(PassRegistry &);
 void initializeCSACreateSelfContainedGraphPass(PassRegistry &);
+void initializeCSACacheLocalizerPass(PassRegistry &);
 
 bool shouldRunDataflowPass(const MachineFunction &MF);
 

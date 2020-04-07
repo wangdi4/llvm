@@ -114,6 +114,17 @@ def PrioOrderOperand : OperandWithDefaultOps<i1, (ops (i1 0))> {
   let PrintMethod = "printPrioOrderOperand";
 }
 
+// Local cache ID operands.
+def LCacheAsmOperand : AsmOperandClass {
+  let Name = "LCache";
+  let IsOptional = 1;
+}
+def LCacheOperand : OperandWithDefaultOps <i32, (ops (i32 0))>
+{
+  let PrintMethod = "printLCacheOperand";
+  let ParserMatchClass = LCacheAsmOperand;
+}
+
 // Operands for floating-point comparison operators
 foreach Kind = [ "FPOrdered", "FPSignaling" ] in {
   def Kind ## AsmOperand : AsmOperandClass {
@@ -782,23 +793,23 @@ multiclass LdOp<string opStr, CSAOpInfo t,
     let Predicates = [HasIndex] in {
       def X : FMTGEN<LDX, t, // indexed reg+reg
         (outs t.RC:$res, MemOrdDef:$outord),
-        (ins ADDR_RX:$addr, MEMLVL:$memlvl, MemOrdUse:$inord),
-        !strconcat(opStr, "x\t$res, $addr, $outord, $inord, $memlvl"),
+        (ins ADDR_RX:$addr, MEMLVL:$memlvl, LCacheOperand:$cache, MemOrdUse:$inord),
+        !strconcat(opStr, "x\t$res, $addr, $outord, $inord, $memlvl, %ign$cache"),
         []>;
     }
 
     let Predicates = [HasDispl] in {
       def D : FMTGEN<LDD, t, // normal literal displacement form (val+k)
         (outs t.RC:$res, MemOrdDef:$outord),
-        (ins ADDR_RI:$addr, MEMLVL:$memlvl, MemOrdUse:$inord),
-        !strconcat(opStr, "d\t$res, $addr, $outord, $inord, $memlvl"),
+        (ins ADDR_RI:$addr, MEMLVL:$memlvl, LCacheOperand:$cache, MemOrdUse:$inord),
+        !strconcat(opStr, "d\t$res, $addr, $outord, $inord, $memlvl, %ign$cache"),
         []>;
     }
 
     def "" : FMTGEN<LD, t, // normal addrreg form
       (outs t.RC:$res, MemOrdDef:$outord),
-      (ins ADDR_R:$addr, MEMLVL:$memlvl, MemOrdDef:$inord),
-      !strconcat(opStr, "\t$res, $addr, $outord, $inord, $memlvl"),
+      (ins ADDR_R:$addr, MEMLVL:$memlvl, LCacheOperand:$cache, MemOrdDef:$inord),
+      !strconcat(opStr, "\t$res, $addr, $outord, $inord, $memlvl, %ign$cache"),
       []>;
 
     def SP : FMTGEN<LDSP, t,
@@ -822,23 +833,23 @@ multiclass StOp<string opStr, CSAOpInfo t,
     let Predicates = [HasIndex] in {
       def X : FMTGEN<STX, t,
         (outs MemOrdDef:$outord),
-        (ins ADDR_RX:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdUse:$inord),
-        !strconcat(opStr, "x\t$addr, $val, $outord, $inord, $memlvl"),
+        (ins ADDR_RX:$addr, t.RCL:$val, MEMLVL:$memlvl, LCacheOperand:$cache, MemOrdUse:$inord),
+        !strconcat(opStr, "x\t$addr, $val, $outord, $inord, $memlvl, %ign$cache"),
         []>;
     }
 
     let Predicates = [HasDispl] in {
       def D : FMTGEN<STD, t,
         (outs MemOrdDef:$outord),
-        (ins ADDR_RI:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdUse:$inord),
-        !strconcat(opStr, "d\t$addr, $val, $outord, $inord, $memlvl"),
+        (ins ADDR_RI:$addr, t.RCL:$val, MEMLVL:$memlvl, LCacheOperand:$cache, MemOrdUse:$inord),
+        !strconcat(opStr, "d\t$addr, $val, $outord, $inord, $memlvl, %ign$cache"),
         []>;
     }
 
     def "" : FMTGEN<ST, t,
       (outs MemOrdDef:$outord),
-      (ins ADDR_R:$addr, t.RCL:$val, MEMLVL:$memlvl, MemOrdDef:$inord),
-      !strconcat(opStr, "\t$addr, $val, $outord, $inord, $memlvl"),
+      (ins ADDR_R:$addr, t.RCL:$val, MEMLVL:$memlvl, LCacheOperand:$cache, MemOrdDef:$inord),
+      !strconcat(opStr, "\t$addr, $val, $outord, $inord, $memlvl, %ign$cache"),
       []>;
 
     def SP : FMTGEN<STSP, t,
@@ -2363,6 +2374,20 @@ def CSA_PIPELINE_DEPTH_TOKEN_RETURN : PseudoInstCSA<
     (ins ADDR_R:$token_pool, I64:$token, MemOrdUse:$inord),
     "# .csa_pipeline_depth_token_return",
     []>;
+
+let isCodeGenOnly=1 in {
+def CSA_LOCAL_CACHE_REGION_BEGIN : PseudoInstCSA<
+    (outs I32:$dummy, MemOrdDef:$outord),
+    (ins I32:$size, LCacheOperand:$cache, MemOrdUse:$inord),
+    ".cache ${cache:name}[$size]\n\tlfence\t$outord, $inord${cache}",
+    []>;
+
+def CSA_LOCAL_CACHE_REGION_END : PseudoInstCSA<
+    (outs MemOrdDef:$outord),
+    (ins I32:$dummy, LCacheOperand:$cache, MemOrdUse:$inord),
+    "lfence\t$outord, $inord${cache}",
+    []>;
+}
 
 // Arbitrary immediate support
 def : Pat<(i1 imm:$imm),    (MOV1 imm:$imm)>;

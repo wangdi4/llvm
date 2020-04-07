@@ -146,3 +146,30 @@ void CSAInstPrinter::printPrioOrderOperand(const MCInst *MI, unsigned OpNo,
   }
 }
 
+void CSAInstPrinter::printLCacheOperand(const MCInst *MI, unsigned OpNo,
+                                           raw_ostream &O,
+                                          const char *Modifier) {
+  // This operand is optional. Since it is always the last operand,
+  // we take care of the emission of the operand separator here
+  // so that the printing of the instruction stops at the previous
+  // operand if this operand is 0.
+  //
+  // Modifiers supported:
+  // name: Prints the cache name only.
+  // None/default: Prints a comma, and then the cache name.
+  bool NameOnly = Modifier && !std::strcmp(Modifier, "name");
+
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  int64_t imm = Op.getImm();
+
+  if (imm != 0) {
+    if (not NameOnly) {
+      O << ", ";
+    }
+
+    O << "cache"; // This should be replaced with the enclosing function name.
+    printOperand(MI, OpNo, O, nullptr);
+  }
+}
+

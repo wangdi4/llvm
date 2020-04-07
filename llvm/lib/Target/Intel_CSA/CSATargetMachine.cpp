@@ -83,6 +83,7 @@ extern "C" void LLVMInitializeCSATarget() {
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeCSAAllocUnitPassPass(PR);
+  initializeCSACacheLocalizerPass(PR);
   initializeCSACreateSelfContainedGraphPass(PR);
   initializeCSACvtCFDFPassPass(PR);
   initializeCSADataflowCanonicalizationPassPass(PR);
@@ -253,6 +254,9 @@ public:
     // simplify loop has to be run last, data flow converter assume natural loop
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
+
+    // Assign IDs to local cache regions.
+    addPass(createCSACacheLocalizerPass());
 
     // Add ordering edges to memops.
     addPass(createCSAMemopOrderingPass(getCSATargetMachine()));

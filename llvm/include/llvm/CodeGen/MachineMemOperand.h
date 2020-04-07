@@ -174,6 +174,12 @@ private:
   AAMDNodes AAInfo;
   const MDNode *Ranges;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  int LocalCacheID;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 public:
   /// Construct a MachineMemOperand object with the specified PtrInfo, flags,
   /// size, and base alignment. For atomic operations the synchronization scope
@@ -315,7 +321,21 @@ public:
                          const MachineMemOperand &RHS) {
     return !(LHS == RHS);
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  bool isLocalCaching()  const { return LocalCacheID > 0; }
+  int  getLocalCacheID() const { return LocalCacheID; }
+  void setLocalCacheID(int ID) { LocalCacheID = ID; }
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 };
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  extern const char *CSA_LOCAL_CACHE_METADATA_KEY;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 } // End llvm namespace
 

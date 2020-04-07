@@ -41,6 +41,7 @@ class CSAAsmParser : public MCTargetAsmParser {
   std::unique_ptr<CSAOperand> default##Asm##Operands();
 #include "AsmOperands.h"
   std::unique_ptr<CSAOperand> defaultPrioOrderOperands();
+  std::unique_ptr<CSAOperand> defaultLCacheOperands();
 
   bool parsePrePost(StringRef Type, int *OffsetValue);
 
@@ -174,6 +175,8 @@ public:
 
   bool isPrioOrder() const { return isImm(); }
 
+  bool isLCache() const { return isImm(); }
+
   bool isMem() const { llvm_unreachable("No isMem"); }
 
   void print(raw_ostream &OS) const override {
@@ -267,6 +270,10 @@ public:
     addExpr(Inst, getImm());
   }
 
+  void addLCacheOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
 };
 
 bool CSAAsmParser::ParseDirective(AsmToken /*DirectiveId*/) { return true; }
@@ -413,6 +420,12 @@ std::unique_ptr<CSAOperand> CSAAsmParser::defaultOptionalRegOperands() {
 #include "AsmOperands.h"
 
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultPrioOrderOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createImm(
+    MCConstantExpr::create(0, getContext()), loc, loc);
+}
+
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultLCacheOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
     MCConstantExpr::create(0, getContext()), loc, loc);

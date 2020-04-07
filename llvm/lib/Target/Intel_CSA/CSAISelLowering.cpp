@@ -792,7 +792,8 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   // * ORD: copy from/to the input/output ordering edge
   // * LEVEL: choose a memlvl value based on the MachineMemOperand
   // * SPAD: the scratchpad base and index values.
-  enum OpndSourceType { OPND, ORD, LEVEL, SPAD };
+  // * LCACHE: the local cache ID.
+  enum OpndSourceType { OPND, ORD, LEVEL, SPAD, LCACHE };
 
   // A record denoting how to translate a particular use/def operand for the
   // MachineInstr representation of a memop. See OpndSourceType above for
@@ -833,12 +834,12 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
     {
       ISD::LOAD, CSA::Generic::LD, 0,
       {{OPND, 0}, ORD},
-      {{OPND, 1}, LEVEL, ORD}
+      {{OPND, 1}, LEVEL, LCACHE, ORD}
     },
     {
       ISD::STORE, CSA::Generic::ST, 2,
       {ORD},
-      {{OPND, 2}, {OPND, 1}, LEVEL, ORD}
+      {{OPND, 2}, {OPND, 1}, LEVEL, LCACHE, ORD}
     },
     {
       ISD::ATOMIC_CMP_SWAP, CSA::Generic::ATMCMPXCHG, 0,
@@ -934,6 +935,16 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {ORD},
       {{OPND, 2}, {OPND, 3}, ORD}
     },
+    {
+      Intrinsic::csa_local_cache_region_begin, CSA::Generic::LD, -1,
+      {{OPND, 0}, ORD},
+      {{OPND, 2}, {OPND, 3}, ORD}
+    },
+    {
+      Intrinsic::csa_local_cache_region_end, CSA::Generic::LD, -1,
+      {ORD},
+      {{OPND, 2}, {OPND, 3}, ORD}
+    },
   };
 
   SDNode *const MemopNode       = Op.getNode();
@@ -1010,6 +1021,11 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
         MemOperand->isNonTemporal() ? CSA::MEMLEVEL_NTA : CSA::MEMLEVEL_T0, DL,
         MVT::i64));
       break;
+    case LCACHE:
+      assert(MemOperand);
+      Opnds.push_back(DAG.getTargetConstant(
+        MemOperand->getLocalCacheID(), DL, MVT::i32));
+      break;
     case SPAD: {
       // Find the base from the appropriate GV.
       unsigned AS = MemOperand->getAddrSpace();
@@ -1047,6 +1063,12 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
         break;
       case Intrinsic::csa_pipeline_depth_token_return:
         Opcode = CSA::CSA_PIPELINE_DEPTH_TOKEN_RETURN;
+        break;
+      case Intrinsic::csa_local_cache_region_begin:
+        Opcode = CSA::CSA_LOCAL_CACHE_REGION_BEGIN;
+        break;
+      case Intrinsic::csa_local_cache_region_end:
+        Opcode = CSA::CSA_LOCAL_CACHE_REGION_END;
         break;
       default:
         llvm_unreachable("Add cases here for non-generic intrinsic memops");
@@ -1324,6 +1346,8 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
   case Intrinsic::csa_stream_store:
   case Intrinsic::csa_pipeline_depth_token_take:
   case Intrinsic::csa_pipeline_depth_token_return:
+  case Intrinsic::csa_local_cache_region_begin:
+  case Intrinsic::csa_local_cache_region_end:
     return LowerMemop(Op, DAG);
 
   case Intrinsic::csa_cmp8x8:

@@ -3998,6 +3998,24 @@ void SelectionDAGBuilder::visitAlloca(const AllocaInst &I) {
   assert(FuncInfo.MF->getFrameInfo().hasVarSizedObjects());
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+const char *llvm::CSA_LOCAL_CACHE_METADATA_KEY = "CSA.Local.Cache.ID";
+static void setLocalCacheID(const Instruction &I, SDValue &L) {
+  // Add the local cache ID info to MachineMemOperand if specified.
+  const char *Key = CSA_LOCAL_CACHE_METADATA_KEY;
+  if (I.hasMetadata(Key)) {
+    MemSDNode *MSD = dyn_cast<MemSDNode>(L.getNode());
+    if (MSD) {
+      auto Val = dyn_cast<ConstantAsMetadata>(I.getMetadata(Key)->getOperand(0))->getValue();
+      auto ID = dyn_cast<ConstantInt>(Val)->getSExtValue();
+      MSD->getMemOperand()->setLocalCacheID(ID);
+    }
+  }
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
 void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   if (I.isAtomic())
     return visitAtomicLoad(I);
@@ -4104,6 +4122,13 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
     SDValue L = DAG.getLoad(MemVTs[i], dl, Root, A,
                             MachinePointerInfo(SV, Offsets[i]), Alignment,
                             MMOFlags, AAInfo, Ranges);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    setLocalCacheID(I, L);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
     Chains[ChainI] = L.getValue(1);
 
     if (MemVTs[i] != ValueVTs[i])
@@ -4256,6 +4281,13 @@ void SelectionDAGBuilder::visitStore(const StoreInst &I) {
     SDValue St =
         DAG.getStore(Root, dl, Val, Add, MachinePointerInfo(PtrV, Offsets[i]),
                      Alignment, MMOFlags, AAInfo);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    setLocalCacheID(I, St);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
     Chains[ChainI] = St;
   }
 

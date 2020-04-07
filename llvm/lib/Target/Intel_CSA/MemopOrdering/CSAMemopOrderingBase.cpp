@@ -66,6 +66,8 @@ static bool isOrderableIntrinsic(Intrinsic::ID ID) {
   case Intrinsic::prefetch:
   case Intrinsic::csa_pipeline_depth_token_take:
   case Intrinsic::csa_pipeline_depth_token_return:
+  case Intrinsic::csa_local_cache_region_begin:
+  case Intrinsic::csa_local_cache_region_end:
   case Intrinsic::trap:
     return true;
   default:

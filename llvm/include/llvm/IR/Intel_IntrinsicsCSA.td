@@ -76,6 +76,10 @@ def int_csa_spmdization_entry : GCCBuiltin<"__builtin_csa_spmdization_entry">,
 def int_csa_spmdization_exit : GCCBuiltin<"__builtin_csa_spmdization_exit">,
     Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
+// llvm.csa.spmdization_local_cache
+def int_csa_spmdization_local_cache : GCCBuiltin<"__builtin_csa_spmdization_local_cache">,
+    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
 // llvm.csa.pipeline_loop
 def int_csa_pipeline_loop : GCCBuiltin<"__builtin_csa_pipeline_loop">,
     Intrinsic<[], [llvm_i32_ty], [IntrArgMemOnly]>;
@@ -92,6 +96,18 @@ def int_csa_pipeline_loop_exit :
 // llvm.csa.pipelineable_loop
 def int_csa_pipelineable_loop_marker :
     Intrinsic<[], [llvm_i64_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
+// llvm.csa.local_cache
+def int_csa_local_cache : GCCBuiltin<"__builtin_csa_local_cache">,
+    Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
+// llvm.csa.local_cache_region_begin
+def int_csa_local_cache_region_begin :
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
+// llvm.csa.local_cache_region_end
+def int_csa_local_cache_region_end :
+    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
 // Scalar intrinsics
 def int_csa_clxmul8 : GCCBuiltin<"__builtin_csa_clxmul8">,
@@ -411,7 +427,6 @@ def int_csa_pipeline_depth_token_take :
 def int_csa_pipeline_depth_token_return :
     Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
     [IntrInaccessibleMemOrArgMemOnly]>;
-
 }
 
 #endif // INTEL_FEATURE_CSA

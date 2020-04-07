@@ -1033,6 +1033,12 @@ MachineMemOperand::MachineMemOperand(MachinePointerInfo ptrinfo, Flags f,
   assert(getOrdering() == Ordering && "Value truncated");
   AtomicInfo.FailureOrdering = static_cast<unsigned>(FailureOrdering);
   assert(getFailureOrdering() == FailureOrdering && "Value truncated");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  // ID 0 means no local caching.
+  LocalCacheID = 0;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Profile - Gather unique data for the object.
