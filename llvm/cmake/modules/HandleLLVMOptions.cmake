@@ -1284,38 +1284,55 @@ if(INTEL_CUSTOMIZATION)
       # We only add the linker flag(s) here, since -fPIC objects can be used
       # to build Position Independent Executables.
       intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
+
+      intel_add_sdl_linker_flag("-Wl,-Map=swlc_ip.map" MAP
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
     elseif(MSVC)
       if (LLVM_ENABLE_WERROR)
         # Force warnings as errors for link:
-        intel_add_sdl_linker_flag("/WX" LINKERWX CMAKE_EXE_LINKER_FLAGS)
+        intel_add_sdl_linker_flag("/WX" LINKERWX
+          CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+          CMAKE_SHARED_LINKER_FLAGS)
       endif()
 
       # Dynamic Base (ASLR) (strongly recommended):
       intel_add_sdl_linker_flag(
-        "/DYNAMICBASE" DYNAMICBASE CMAKE_EXE_LINKER_FLAGS)
+        "/DYNAMICBASE" DYNAMICBASE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # High Entropy VA (strongly recommended):
       # This is not strictly required, since MSVC seems to enable
       # it by default. Adding it here will result in an appropriate
       # message in the build log, which is convenient:
       intel_add_sdl_linker_flag(
-        "/HIGHENTROPYVA" HIGHENTROPYVA CMAKE_EXE_LINKER_FLAGS)
+        "/HIGHENTROPYVA" HIGHENTROPYVA
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
       intel_add_sdl_linker_flag(
-        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE CMAKE_EXE_LINKER_FLAGS)
+        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Force Integrity (recommended):
       # Disabled now, because xmain parts (e.g. libraries) may be used
       # with not signed user parts. Moreover, executables built with this
       # option will not run from U4Win.
       intel_add_sdl_linker_flag(
-        "/INTEGRITYCHECK" INTEGRITYCHECK CMAKE_EXE_LINKER_FLAGS FUTURE)
+        "/INTEGRITYCHECK" INTEGRITYCHECK FUTURE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Namespace Isolation (strongly recommended):
       intel_add_sdl_linker_flag(
-        "/ALLOWISOLATION" ALLOWISOLATION CMAKE_EXE_LINKER_FLAGS)
+        "/ALLOWISOLATION" ALLOWISOLATION
+        CMAKE_EXE_LINKER_FLAGS)
 
       # DEP (NX) (strongly recommended):
-      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT CMAKE_EXE_LINKER_FLAGS)
+      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Control Flow Guard (recommended):
       # Microsoft claims small performance impact, but this has to be
@@ -1327,11 +1344,15 @@ if(INTEL_CUSTOMIZATION)
         intel_add_sdl_flag("/guard:cf" GUARDCF FUTURE)
       endif()
       intel_add_sdl_linker_flag(
-        "/GUARD:CF" LINKGUARDCF CMAKE_EXE_LINKER_FLAGS FUTURE)
+        "/GUARD:CF" LINKGUARDCF FUTURE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Safe SEH (recommended, 32-bit only):
       if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH CMAKE_EXE_LINKER_FLAGS)
+        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH
+          CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+          CMAKE_SHARED_LINKER_FLAGS)
       endif()
 
       # Stack Canaries (strongly recommended):
@@ -1351,6 +1372,10 @@ if(INTEL_CUSTOMIZATION)
       else()
         intel_add_sdl_flag("/Qspectre" QSPECTRE FUTURE)
       endif()
+
+      intel_add_sdl_linker_flag("/MAP:swlc_ip.map" MAP
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
     else()
       message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
     endif()
