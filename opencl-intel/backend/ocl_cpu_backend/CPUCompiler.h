@@ -59,11 +59,6 @@ public:
     // Create LLJIT instance
     std::unique_ptr<LLJIT2> CreateLLJIT() override;
 
-    // Allocate a module key for a new module or object file to add to LLJIT.
-    // This is to track module keys in order to notify m_gdbListener of freeing.
-    // FIXME Remove this once LLJIT supports JITEventListener.
-    llvm::orc::VModuleKey allocateVModule() override;
-
     void SetObjectCache(ObjectCodeCache* pCache) override;
 
     void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures) override;
@@ -82,9 +77,6 @@ private:
     llvm::ExecutionEngine*  m_pExecEngine;
 
     llvm::JITEventListener* m_pVTuneListener;
-    llvm::JITEventListener *m_gdbListener;
-
-    std::vector<llvm::orc::VModuleKey> m_moduleKeys;
 };
 
 }}}
