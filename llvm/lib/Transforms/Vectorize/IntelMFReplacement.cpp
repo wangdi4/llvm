@@ -366,9 +366,9 @@ static bool rewriteVSinCosCall(CallInst *Call, StringRef SVMLSinCosPrefix) {
          "Only float vector sincos supported."); // TODO, double
 
   // Create the call to svml_sincosfNN.
-  Type *RetStrTy = StructType::create({AngleType, AngleType}, "sincosret");
-  IRBuilder<> B(Call);
   Module *M = Call->getParent()->getModule();
+  Type *RetStrTy = StructType::get(M->getContext(), {AngleType, AngleType});
+  IRBuilder<> B(Call);
   std::string SVMLSinCosName = SVMLSinCosPrefix.str() + "f" +
                                std::to_string(AngleType->getElementCount().Min);
   // Set nounwind, readnone
