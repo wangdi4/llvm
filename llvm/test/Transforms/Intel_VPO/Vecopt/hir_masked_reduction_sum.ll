@@ -17,7 +17,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-hcfg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-hcfg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; Check that reduction is imported as VPEntity.
 ; CHECK-LABEL: Reduction list
