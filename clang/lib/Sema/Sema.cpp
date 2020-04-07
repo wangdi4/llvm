@@ -1575,11 +1575,10 @@ public:
   void visitUsedDecl(SourceLocation Loc, Decl *D) {
     if (isa<VarDecl>(D))
       return;
-<<<<<<< HEAD
-     if (auto *FD = dyn_cast<FunctionDecl>(D))
-       checkFunc(Loc, FD);
-     else
-       Inherited::visitUsedDecl(Loc, D);
+    if (auto *FD = dyn_cast<FunctionDecl>(D))
+      checkFunc(Loc, FD);
+    else
+      Inherited::visitUsedDecl(Loc, D);
   }
 
   void checkVar(VarDecl *VD) {
@@ -1668,64 +1667,6 @@ public:
         FirstDiag = false;
       }
     }
-=======
-    if (auto *FD = dyn_cast<FunctionDecl>(D))
-      checkFunc(Loc, FD);
-    else
-      Inherited::visitUsedDecl(Loc, D);
->>>>>>> d9dbe8169badf5e37defa1f9ca5793b12ff7e38c
-  }
-
-  void checkVar(VarDecl *VD) {
-    if (S.LangOpts.SYCLIsDevice)
-      return;
-    assert(VD->isFileVarDecl() &&
-           "Should only check file-scope variables");
-    if (auto *Init = VD->getInit()) {
-      auto DevTy = OMPDeclareTargetDeclAttr::getDeviceType(VD);
-      bool IsDev = DevTy && (*DevTy == OMPDeclareTargetDeclAttr::DT_NoHost ||
-                             *DevTy == OMPDeclareTargetDeclAttr::DT_Any);
-      if (IsDev)
-        ++InOMPDeviceContext;
-      this->Visit(Init);
-      if (IsDev)
-        --InOMPDeviceContext;
-    }
-  }
-
-  void checkFunc(SourceLocation Loc, FunctionDecl *FD) {
-    FunctionDecl *Caller = UseStack.empty() ? nullptr : UseStack.back();
-    auto IsKnownEmitted = S.getEmissionStatus(FD, /*Final=*/true) ==
-                          Sema::FunctionEmissionStatus::Emitted;
-    if (!Caller)
-      ShouldEmit = IsKnownEmitted;
-    if ((!ShouldEmit && !S.getLangOpts().OpenMP && !Caller) ||
-        S.shouldIgnoreInHostDeviceCheck(FD) || Visited.count(FD))
-      return;
-    // Finalize analysis of OpenMP-specific constructs.
-    if (Caller && S.LangOpts.OpenMP && UseStack.size() == 1)
-      S.finalizeOpenMPDelayedAnalysis(Caller, FD, Loc);
-    // Finalize analysis of SYCL-specific constructs.
-    if (Caller && S.LangOpts.SYCLIsDevice)
-      S.finalizeSYCLDelayedAnalysis(Caller, FD, Loc);
-    if (Caller)
-      S.DeviceKnownEmittedFns[FD] = {Caller, Loc};
-    if (ShouldEmit || InOMPDeviceContext)
-      S.emitDeferredDiags(FD, Caller);
-    Visited.insert(FD);
-    UseStack.push_back(FD);
-    if (auto *S = FD->getBody()) {
-      this->Visit(S);
-    }
-    UseStack.pop_back();
-    Visited.erase(FD);
-  }
-
-  void checkRecordedDecl(Decl *D) {
-    if (auto *FD = dyn_cast<FunctionDecl>(D))
-      checkFunc(SourceLocation(), FD);
-    else
-      checkVar(cast<VarDecl>(D));
   }
 };
 } // namespace
