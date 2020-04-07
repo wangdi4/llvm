@@ -18,7 +18,6 @@
 ; CHECK: |   |      @_Z6printbj(%5);
 ; CHECK: |   |      %v_qf.0160 = i1 + 1;
 ; CHECK: |   |   }
-; CHECK: |   |   %.pre-phi = i1 + 1;
 ; CHECK: |   |   if (2 * i2 <=u i1 + 1)
 ; CHECK: |   |   {
 ; CHECK: |   |      %g_t.promoted = (@g_t)[0];
@@ -30,9 +29,8 @@
 ; CHECK: |   |
 ; CHECK: |   |      (@a1_sur)[0][i1 + 1] = 21;
 ; CHECK: |   |      (@g_t)[0] = %mul27156;
-; CHECK: |   |      %.pre-phi = i1 + 1;
 ; CHECK: |   |   }
-; CHECK: |   |   @_Z6printbj(%.pre-phi);
+; CHECK: |   |   @_Z6printbj(i1 + 1);
 ; CHECK: |   |   %v_pl.0157 = 2 * i2 + 2;
 ; CHECK: |   + END LOOP
 ; CHECK: |
