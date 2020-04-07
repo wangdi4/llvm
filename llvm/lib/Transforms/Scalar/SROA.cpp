@@ -4921,3 +4921,59 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(SROALegacyPass, "sroa", "Scalar Replacement Of Aggregates",
                     false, false)
+
+#if INTEL_CUSTOMIZATION
+// Call graph SCC adaptor for the SROA pass which runs SROA for each function
+// in SCC.
+class llvm::sroa::SROALegacyCGSCCAdaptorPass : public CallGraphSCCPass {
+public:
+  static char ID;
+
+  SROALegacyCGSCCAdaptorPass() : CallGraphSCCPass(ID) {
+    initializeSROALegacyCGSCCAdaptorPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnSCC(CallGraphSCC &SCC) override {
+    if (skipSCC(SCC))
+      return false;
+
+    bool Changed = false;
+    for (CallGraphNode *CGN : SCC)
+      if (Function *F = CGN->getFunction()) {
+        if (F->isDeclaration() || F->hasOptNone())
+          continue;
+
+        // Have to compute dominator tree explicitly because CG SCC pass manager
+        // has problems with scheduling DominatorTree analysis. An attempt to
+        // get it from the legacy pass manager triggers llvm_unreachable().
+        DominatorTree DT(*F);
+        auto PA = SROA().runImpl(
+            *F, DT,
+            getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F));
+        Changed |= !PA.areAllPreserved();
+      }
+    return Changed;
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<AssumptionCacheTracker>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+    AU.addPreserved<InlineAggressiveWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
+    AU.setPreservesCFG();
+  }
+};
+
+char SROALegacyCGSCCAdaptorPass::ID = 0;
+
+INITIALIZE_PASS_BEGIN(SROALegacyCGSCCAdaptorPass, "sroa-cgscc",
+                      "CallGraphSCC adaptor for SROA", false, false)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_END(SROALegacyCGSCCAdaptorPass, "sroa-cgscc",
+                    "CallGraphSCC adaptor for SROA", false, false)
+
+Pass *llvm::createSROALegacyCGSCCAdaptorPass() {
+  return new SROALegacyCGSCCAdaptorPass();
+}
+#endif // INTEL_CUSTOMIZATION

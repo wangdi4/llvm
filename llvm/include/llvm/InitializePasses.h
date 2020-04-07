@@ -419,6 +419,7 @@ void initializeSCCPLegacyPassPass(PassRegistry&);
 void initializeSCEVAAWrapperPassPass(PassRegistry&);
 void initializeSLPVectorizerPass(PassRegistry&);
 void initializeSROALegacyPassPass(PassRegistry&);
+void initializeSROALegacyCGSCCAdaptorPassPass(PassRegistry &); // INTEL
 void initializeSafeStackLegacyPassPass(PassRegistry&);
 void initializeSafepointIRVerifierPass(PassRegistry&);
 void initializeSampleProfileLoaderLegacyPassPass(PassRegistry&);
