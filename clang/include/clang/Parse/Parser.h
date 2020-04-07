@@ -3214,6 +3214,11 @@ private:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
+  /// Parses and creates OpenMP 5.0 iterators expression:
+  /// <iterators> = 'iterator' '(' { [ <iterator-type> ] identifier =
+  /// <range-specification> }+ ')'
+  ExprResult ParseOpenMPIteratorsExpr();
+
 public:
   /// Parses simple expression in parens for single-expression clauses of OpenMP
   /// constructs.
@@ -3223,7 +3228,7 @@ public:
 
   /// Data used for parsing list of variables in OpenMP clauses.
   struct OpenMPVarListDataTy {
-    Expr *TailExpr = nullptr;
+    Expr *DepModOrTailExpr = nullptr;
     SourceLocation ColonLoc;
     SourceLocation RLoc;
     CXXScopeSpec ReductionOrMapperIdScopeSpec;

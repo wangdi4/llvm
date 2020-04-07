@@ -1019,6 +1019,9 @@ namespace serialization {
       /// The placeholder type for OpenMP array shaping operation.
       PREDEF_TYPE_OMP_ARRAY_SHAPING = 70,
 
+      /// The placeholder type for OpenMP iterator expression.
+      PREDEF_TYPE_OMP_ITERATOR = 71,
+
       /// OpenCL image types with auto numeration
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
       PREDEF_TYPE_##Id##_ID,
@@ -1875,6 +1878,7 @@ namespace serialization {
 #endif // INTEL_COLLAB
       EXPR_OMP_ARRAY_SECTION,
       EXPR_OMP_ARRAY_SHAPING,
+      EXPR_OMP_ITERATOR,
 
       // ARC
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
