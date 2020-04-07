@@ -22,6 +22,11 @@ def cl_ignored_Group : OptionGroup<"<clang-cl ignored options>">,
 class CLFlag<string name> : Option<["/", "-"], name, KIND_FLAG>,
   Group<cl_Group>, Flags<[CLOption, DriverOption]>;
 
+#if INTEL_CUSTOMIZATION
+class CLFlagNoDpcpp<string name> : Option<["/", "-"], name, KIND_FLAG>,
+  Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported]>;
+#endif // INTEL_CUSTOMIZATION
+
 class CLCompileFlag<string name> : Option<["/", "-"], name, KIND_FLAG>,
   Group<cl_compile_Group>, Flags<[CLOption, DriverOption]>;
 
@@ -46,6 +51,14 @@ class CLCompileJoinedOrSeparate<string name> : Option<["/", "-"], name,
 
 class CLRemainingArgsJoined<string name> : Option<["/", "-"], name,
   KIND_REMAINING_ARGS_JOINED>, Group<cl_Group>, Flags<[CLOption, DriverOption]>;
+
+#if INTEL_CUSTOMIZATION
+class CLCommaJoined<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
+  Group<cl_Group>, Flags<[CLOption, DriverOption]>;
+
+class CLCommaJoinedNoDpcpp<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
+  Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported]>;
+#endif // INTEL_CUSTOMIZATION
 
 // Aliases:
 // (We don't put any of these in cl_compile_Group as the options they alias are
@@ -163,8 +176,15 @@ def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
   HelpText<"Enable LTO in 'full' mode">;
 def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
-def _SLASH_Qopenmp : CLFlag<"Qopenmp">, Alias<fopenmp>,
+def _SLASH_Qnextgen : CLFlag<"Qnextgen">, Alias<_intel>;
+def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
+def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
+  Alias<fopenmp_targets_EQ>;
+def _SLASH_Qopenmp_targets_COL : CLCommaJoinedNoDpcpp<"Qopenmp-targets:">,
+  Alias<fopenmp_targets_EQ>, HelpText<"Specify comma-separated list of triples"
+  " OpenMP offloading targets to be supported">;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
@@ -200,12 +220,15 @@ def _SLASH_Qdaal_EQ : CLJoined<"Qdaal=">, Alias<daal_EQ>,
   "libraries and bring in the associated headers">;
 def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<daal_EQ>;
 def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_Qm32 : CLFlag<"Qm32">, Alias<m32>;
+def _SLASH_Qm64 : CLFlag<"Qm64">, Alias<m64>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
-  HelpText<"Print info about included files to stderr">,
-  Alias<show_includes>;
+  HelpText<"Print info about included files to stderr">;
+def _SLASH_showIncludes_user : CLFlag<"showIncludes:user">,
+  HelpText<"Like /showIncludes but omit system headers">;
 def _SLASH_showFilenames : CLFlag<"showFilenames">,
   HelpText<"Print the name of each compiled file">;
 def _SLASH_showFilenames_ : CLFlag<"showFilenames-">,
@@ -304,13 +327,15 @@ def _SLASH_Zp_flag : CLFlag<"Zp">,
   Alias<fpack_struct_EQ>, AliasArgs<["1"]>;
 def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Syntax-check only">,
   Alias<fsyntax_only>;
-def _SLASH_openmp_ : CLFlag<"openmp-">,
+#if INTEL_CUSTOMIZATION
+def _SLASH_openmp_ : CLFlagNoDpcpp<"openmp-">,
   HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
-def _SLASH_openmp : CLFlag<"openmp">, HelpText<"Enable OpenMP support">,
+def _SLASH_openmp : CLFlagNoDpcpp<"openmp">, HelpText<"Enable OpenMP support">,
   Alias<fopenmp>;
-def _SLASH_openmp_experimental : CLFlag<"openmp:experimental">,
+def _SLASH_openmp_experimental : CLFlagNoDpcpp<"openmp:experimental">,
   HelpText<"Enable OpenMP support with experimental SIMD support">,
   Alias<fopenmp>;
+#endif // INTEL_CUSTOMIZATION
 
 // Non-aliases:
 
@@ -506,6 +531,8 @@ def _SLASH_Qpar : CLFlag<"Qpar">;
 def _SLASH_Qpar_report : CLJoined<"Qpar-report">;
 def _SLASH_Qsafe_fp_loads : CLFlag<"Qsafe_fp_loads">;
 def _SLASH_Qspectre : CLFlag<"Qspectre">;
+def _SLASH_Qspectre_load : CLFlag<"Qspectre-load">;
+def _SLASH_Qspectre_load_cf : CLFlag<"Qspectre-load-cf">;
 def _SLASH_Qvec_report : CLJoined<"Qvec-report">;
 def _SLASH_u : CLFlag<"u">;
 def _SLASH_V : CLFlag<"V">;

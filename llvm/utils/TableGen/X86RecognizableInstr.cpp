@@ -322,6 +322,8 @@ InstructionContext RecognizableInstr::insnContext() const {
       insnContext = IC_64BIT_XS_CE;
     else if (HasREX_WPrefix)
       insnContext = IC_64BIT_REXW_CE;
+    else if (OpPrefix == X86Local::PD)
+      insnContext = IC_64BIT_OPSIZE_CE;
     else
       insnContext = IC_64BIT_CE;
 #endif // INTEL_FEATURE_ICECODE
@@ -501,6 +503,8 @@ void RecognizableInstr::emitInstructionSpecifier() {
 
   switch (Form) {
   default: llvm_unreachable("Unhandled form");
+  case X86Local::PrefixByte:
+    return;
   case X86Local::RawFrmSrc:
     HANDLE_OPERAND(relocation);
     return;
@@ -558,6 +562,16 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(roRegister)
     HANDLE_OPTIONAL(immediate)
     break;
+#if INTEL_CUSTOMIZATION
+  case X86Local::MRMDestMem4VOp2FSIB:
+    // Operand 1 is a sibmem operand
+    // Operand 2 is a mod/r
+    // Operand 3 is VEX.vvvv
+    HANDLE_OPERAND(memory)
+    HANDLE_OPERAND(roRegister)
+    HANDLE_OPERAND(vvvvRegister)
+    break;
+#endif
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB: // INTEL
     // Operand 1 is a memory operand (possibly SIB-extended)
@@ -808,6 +822,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::RawFrmImm8:
   case X86Local::RawFrmImm16:
   case X86Local::AddCCFrm:
+  case X86Local::PrefixByte:
     filter = std::make_unique<DumbFilter>();
     break;
   case X86Local::MRMDestReg:
@@ -819,6 +834,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMXr:
     filter = std::make_unique<ModFilter>(true);
     break;
+  case X86Local::MRMDestMem4VOp2FSIB: // INTEL
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB: // INTEL
 #if INTEL_CUSTOMIZATION
@@ -931,6 +947,7 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   TYPE("i32u4imm",            TYPE_UIMM8)
+  TYPE("i32u32imm",           TYPE_IMM)
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
   TYPE("i32u8imm",            TYPE_UIMM8)
@@ -1341,6 +1358,11 @@ RecognizableInstr::relocationEncodingFromString(const std::string &s,
   ENCODING("i16imm",             ENCODING_Iv)
   ENCODING("i16i8imm",           ENCODING_IB)
   ENCODING("i32imm",             ENCODING_Iv)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  ENCODING("i32u32imm",          ENCODING_Iv)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   ENCODING("i32i8imm",           ENCODING_IB)
   ENCODING("i64i32imm",          ENCODING_ID)
   ENCODING("i64i8imm",           ENCODING_IB)

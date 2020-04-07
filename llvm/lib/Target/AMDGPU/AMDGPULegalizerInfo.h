@@ -81,14 +81,41 @@ public:
                              MachineIRBuilder &B) const;
   bool legalizeFlog(MachineInstr &MI, MachineIRBuilder &B,
                     double Log2BaseInverted) const;
-  Register getLiveInRegister(MachineRegisterInfo &MRI,
-                             Register Reg, LLT Ty) const;
+  bool legalizeFExp(MachineInstr &MI, MachineIRBuilder &B) const;
+  bool legalizeFPow(MachineInstr &MI, MachineIRBuilder &B) const;
+  bool legalizeFFloor(MachineInstr &MI, MachineRegisterInfo &MRI,
+                      MachineIRBuilder &B) const;
 
+  bool legalizeBuildVector(MachineInstr &MI, MachineRegisterInfo &MRI,
+                           MachineIRBuilder &B) const;
+
+  Register getLiveInRegister(MachineIRBuilder &B, MachineRegisterInfo &MRI,
+                             Register PhyReg, LLT Ty,
+                             bool InsertLiveInCopy = true) const;
+  Register insertLiveInCopy(MachineIRBuilder &B, MachineRegisterInfo &MRI,
+                            Register LiveIn, Register PhyReg) const;
+  const ArgDescriptor *
+  getArgDescriptor(MachineIRBuilder &B,
+                   AMDGPUFunctionArgInfo::PreloadedValue ArgType) const;
   bool loadInputValue(Register DstReg, MachineIRBuilder &B,
                       const ArgDescriptor *Arg) const;
   bool legalizePreloadedArgIntrin(
     MachineInstr &MI, MachineRegisterInfo &MRI, MachineIRBuilder &B,
     AMDGPUFunctionArgInfo::PreloadedValue ArgType) const;
+
+  bool legalizeUDIV_UREM(MachineInstr &MI, MachineRegisterInfo &MRI,
+                         MachineIRBuilder &B) const;
+
+  void legalizeUDIV_UREM32Impl(MachineIRBuilder &B,
+                               Register DstReg, Register Num, Register Den,
+                               bool IsRem) const;
+  bool legalizeUDIV_UREM32(MachineInstr &MI, MachineRegisterInfo &MRI,
+                           MachineIRBuilder &B) const;
+
+  bool legalizeSDIV_SREM32(MachineInstr &MI, MachineRegisterInfo &MRI,
+                           MachineIRBuilder &B) const;
+  bool legalizeSDIV_SREM(MachineInstr &MI, MachineRegisterInfo &MRI,
+                         MachineIRBuilder &B) const;
 
   bool legalizeFDIV(MachineInstr &MI, MachineRegisterInfo &MRI,
                     MachineIRBuilder &B) const;
@@ -134,8 +161,17 @@ public:
       GISelChangeObserver &Observer,
       const AMDGPU::ImageDimIntrinsicInfo *ImageDimIntr) const;
 
+  bool legalizeSBufferLoad(
+    MachineInstr &MI, MachineIRBuilder &B,
+    GISelChangeObserver &Observer) const;
+
   bool legalizeAtomicIncDec(MachineInstr &MI,  MachineIRBuilder &B,
                             bool IsInc) const;
+
+  bool legalizeTrapIntrinsic(MachineInstr &MI, MachineRegisterInfo &MRI,
+                             MachineIRBuilder &B) const;
+  bool legalizeDebugTrapIntrinsic(MachineInstr &MI, MachineRegisterInfo &MRI,
+                                  MachineIRBuilder &B) const;
 
   bool legalizeIntrinsic(MachineInstr &MI, MachineIRBuilder &B,
                          GISelChangeObserver &Observer) const override;

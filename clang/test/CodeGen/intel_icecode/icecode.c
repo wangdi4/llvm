@@ -94,6 +94,8 @@ void test_icecode() {
 // CHECK: call void asm sideeffect "iceret
 // CHECK: call void asm sideeffect "iceret_indirect
 // CHECK: call void @llvm.x86.icecode.set.tracker(i32 0)
+// CHECK: call i32 asm sideeffect "portin24", "={ax},{dx},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
+// CHECK: call void asm sideeffect "portout24", "{ax},{dx},~{dirflag},~{fpsr},~{flags}"(i32 %{{.*}}, i64 %{{.*}})
   _ce_creg_xchg32(reg, data32);
   _ce_creg_xchg64(reg, data64);
   _ce_fscp_xchg32(reg, data32);
@@ -125,4 +127,6 @@ void test_icecode() {
   _ce_iceret(reg);
   _ce_iceret_indirect(reg, reg);
   _ce_set_tracker(0);
+  _ce_portin24(data64);
+  _ce_portout24(data64, data32);
 }

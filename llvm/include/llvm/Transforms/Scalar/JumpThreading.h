@@ -128,6 +128,7 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
 #endif
 
   unsigned BBDupThreshold;
+  unsigned DefaultBBDupThreshold;
 
 #if INTEL_CUSTOMIZATION
   // Jump threading performs several CFG simplifications that are not
@@ -199,6 +200,11 @@ public:
                                                Preference, RecursionSet, CxtI); // INTEL
   }
 
+  Constant *EvaluateOnPredecessorEdge(BasicBlock *BB, BasicBlock *PredPredBB,
+                                      Value *cond);
+  bool MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB, Value *Cond);
+  void ThreadThroughTwoBasicBlocks(BasicBlock *PredPredBB, BasicBlock *PredBB,
+                                   BasicBlock *BB, BasicBlock *SuccBB);
   bool ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                               jumpthreading::ConstantPreference Preference,
                               Instruction *CxtI = nullptr);

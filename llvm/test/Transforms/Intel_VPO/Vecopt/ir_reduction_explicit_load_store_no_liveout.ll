@@ -20,41 +20,38 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
-; CHECK-EMPTY:
-; CHECK-EMPTY:
-; CHECK-NEXT:  SOASafe = float* [[X0]]
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
+; CHECK:       SOASafe = float* [[X0]]
 ; CHECK-NEXT:    [[BB1:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Divergent] float* [[VP_X]] = allocate-priv float*
-; CHECK-NEXT:     [DA: Divergent] float [[VP_X_RED_INIT]] = reduction-init float 0.000000e+00
-; CHECK-NEXT:     [DA: Divergent] store float [[VP_X_RED_INIT]] float* [[VP_X]]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Div] float* [[VP_X]] = allocate-priv float*
+; CHECK-NEXT:     [DA: Div] float [[VP_X_RED_INIT]] = reduction-init float 0.000000e+00
+; CHECK-NEXT:     [DA: Div] store float [[VP_X_RED_INIT]] float* [[VP_X]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB0]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]:
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Divergent] float [[VP_ADD7]] = phi  [ float [[VP_X_RED_INIT]], [[BB2]] ],  [ float [[VP_ADD]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Divergent] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Divergent] float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]]
-; CHECK-NEXT:     [DA: Divergent] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
-; CHECK-NEXT:     [DA: Divergent] store float [[VP_ADD]] float* [[VP_X]]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1000
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
+; CHECK-NEXT:     [DA: Div] float [[VP_ADD7]] = phi  [ float [[VP_X_RED_INIT]], [[BB2]] ],  [ float [[VP_ADD]], [[BB0]] ]
+; CHECK-NEXT:     [DA: Div] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]]
+; CHECK-NEXT:     [DA: Div] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_ADD]] float* [[VP_X]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1000
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB0]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Divergent] float [[VP1:%.*]] = load float* [[VP_X]]
-; CHECK-NEXT:     [DA: Uniform]   float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP1]] float [[X_PROMOTED0]]
-; CHECK-NEXT:     [DA: Uniform]   store float [[VP_X_RED_FINAL]] float* [[X0]]
-; CHECK-NEXT:     [DA: Uniform]   i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] float [[VP1:%.*]] = load float* [[VP_X]]
+; CHECK-NEXT:     [DA: Uni] float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP1]] float [[X_PROMOTED0]]
+; CHECK-NEXT:     [DA: Uni] store float [[VP_X_RED_FINAL]] float* [[X0]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
@@ -63,11 +60,10 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
-
+;
 ; Check generated vector code.
-; CHECK:       define float @load_store_reduction_add
-; CHECK:       vector.ph:
+; CHECK:  define float @load_store_reduction_add(float* nocapture [[A0]]) {
+; CHECK:  vector.ph:
 ; CHECK-NEXT:    store <8 x float> zeroinitializer, <8 x float>* [[X_VEC0:%.*]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
@@ -80,7 +76,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP0]] to <8 x float>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x float>, <8 x float>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1]] = fadd <8 x float> [[VEC_PHI10]], [[WIDE_LOAD0]]
-; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0:%.*]], align 4
+; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <8 x i64> [[TMP2]], <i64 1000, i64 1000, i64 1000, i64 1000, i64 1000, i64 1000, i64 1000, i64 1000>
@@ -93,7 +89,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    [[WIDE_LOAD20:%.*]] = load <8 x float>, <8 x float>* [[X_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float [[X_PROMOTED0]], <8 x float> [[WIDE_LOAD20]])
 ; CHECK-NEXT:    store float [[TMP6]], float* [[X0]], align 1
-
+; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 entry:
   %x = alloca float, align 4
   store float 2.000000e+00, float* %x, align 4

@@ -1158,6 +1158,23 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
       }
     }
 
+    // Update debug variable intrinsics with the value change.
+    if (V->isUsedByMetadata()) {
+      if (auto *VAMD = ValueAsMetadata::getIfExists(V)) {
+        if (auto *MDAV = MetadataAsValue::getIfExists(V->getContext(), VAMD)) {
+          ValueAsMetadata *NewVAMD = ValueAsMetadata::get(NewV);
+          Value *NewMDAV = MetadataAsValue::get(NewV->getContext(), NewVAMD);
+          Value::use_iterator I, E, Next;
+          for (I = MDAV->use_begin(), E = MDAV->use_end(); I != E;) {
+            Use &U = *I;
+            if (isa<DbgVariableIntrinsic>(U.getUser()))
+              U.set(NewMDAV);
+            I = skipToNextUser(I, E);
+          }
+        }
+      }
+    }
+
     if (V->use_empty()) {
       if (Instruction *I = dyn_cast<Instruction>(V))
         DeadInstructions.push_back(I);

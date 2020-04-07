@@ -332,6 +332,12 @@ private:
   bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB,
                      Instruction *OMPLBForLinearClosedForm = nullptr);
 
+  /// Emit privatization and copyin/copyout code for linear/linear:iv clause
+  /// operands on SIMD directives. Initial copyin is generated for "linear"
+  /// operands but not for "linear:iv" operands. The final copyout is done for
+  /// both "linear" and "linear:iv" operands.
+  bool genLinearCodeForVecLoop(WRegionNode *W, BasicBlock *LinearFiniBB);
+
   /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 
@@ -378,12 +384,12 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Value *genPrivatizationAlloca(
+  Value *genPrivatizationAlloca(
       Value *OrigValue,
       Instruction *InsertPt,
       const Twine &NameSuffix = "",
       llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true);
+      bool PreserveAddressSpace = true) const;
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
@@ -404,11 +410,11 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Value *genPrivatizationAlloca(
+  Value *genPrivatizationAlloca(
       Item *I, Instruction *InsertPt,
       const Twine &NameSuffix = "",
       llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true);
+      bool PreserveAddressSpace = true) const;
 
   /// Returns address space that should be used for privatizing variable
   /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
@@ -450,12 +456,12 @@ private:
                                    Value *&NumElements, Value *&DestArrayBegin,
                                    Type *&DestElementTy);
 
-  /// For array [section] reduction finalization loop, compute the base address
-  /// of the source and destination arrays, number of elements, and the type of
-  /// destination array elements.
+  /// For array [section] reduction init (for UDR with non-null initializer) or
+  /// finalization loop, compute the base address of the source and destination
+  /// arrays, number of elements, and the type of destination array elements.
   /// \param [in] ReductionItem Reduction Item.
-  /// \param [in] AI Local Value for the reduction operand.
-  /// \param [in] OldV Original reduction operand Value.
+  /// \param [in] SrcVal Source Value for the reduction operand.
+  /// \param [in] DestVal Destination Value for the reduction operand.
   /// \param [in] InsertPt Insert point for any Instructions to be inserted.
   /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
   /// \param [out] NumElements Number of elements in the array [section].
@@ -467,13 +473,12 @@ private:
   /// OldV has already been pre-processed to include any pointer
   /// dereference/offset, and can be used directly as the destination base
   /// pointer. (default = false)
-  void genAggrReductionFiniSrcDstInfo(const ReductionItem &RedI, Value *AI,
-                                      Value *OldV, Instruction *InsertPt,
-                                      IRBuilder<> &Builder, Value *&NumElements,
-                                      Value *&SrcArrayBegin,
-                                      Value *&DestArrayBegin,
-                                      Type *&DestElementTy,
-                                      bool NoNeedToOffsetOrDerefOldV = false);
+  void genAggrReductionSrcDstInfo(const ReductionItem &RedI, Value *SrcVal,
+                                  Value *DestVal, Instruction *InsertPt,
+                                  IRBuilder<> &Builder, Value *&NumElements,
+                                  Value *&SrcArrayBegin, Value *&DestArrayBegin,
+                                  Type *&DestElementTy,
+                                  bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
   /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
@@ -507,7 +512,8 @@ private:
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
   /// some Instructions, which is done \b before \p InsertPt.
-  static Value *getClauseItemReplacementValue(Item *I, Instruction *InsertPt);
+  static Value *getClauseItemReplacementValue(const Item *I,
+                                              Instruction *InsertPt);
 
   /// Return the Value to replace the occurrences of the original Array Section
   /// Reduction operand inside the body of the associated WRegion. It may need
@@ -533,6 +539,12 @@ private:
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
 
+  /// Generate calling reduction initialization function for user-defined
+  /// reduction.
+  void genReductionUdrInit(ReductionItem *RedI, Value *ReductionVar,
+                           Value *ReductionValueLoc, Type *ScalarTy,
+                           IRBuilder<> &Builder);
+
   /// Generate the reduction intialization instructions.
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
@@ -556,6 +568,10 @@ private:
   /// Generate the reduction update instructions for min/max.
   Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
+
+  /// Generate calling reduction update function for user-defined reduction.
+  bool genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
+                           Value *ReductionValueLoc, IRBuilder<> &Builder);
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
@@ -1596,6 +1612,13 @@ private:
   /// Add alias_scope and no_alias metadata to improve the alias
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
+
+  /// Promote shared items to firstprivate (effectively) if we can prove that
+  /// item is not modified inside the region. Such items remain 'shared' on the
+  /// directive bundle, but a private instance is allocated and initialized
+  /// inside the region and all references to the original instance are replaced
+  /// with the private one.
+  bool privatizeSharedItems(WRegionNode *W);
 #endif  // INTEL_CUSTOMIZATION
 
   /// Guard each instruction that has a side effect with master thread id
@@ -1606,9 +1629,17 @@ private:
   /// \p KernelF is an outlined function of region \p W.
   void guardSideEffectStatements(WRegionNode *W, Function *KernelF);
 
+public:
   /// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-  void replacePrintfWithOCLBuiltin(Function *F) const;
+  /// \p PrintfDecl is the function printf(). \p OCLPrintfDecl is the function
+  /// _Z18__spirv_ocl_printfPU3AS2ci(). If \p PrintfDecl is null, the utility
+  /// returns without doing anything. if \p F is null, then all call
+  /// instructions to the function \p PrintfDecl are replaced.
+  static void replacePrintfWithOCLBuiltin(Function *PrintfDecl,
+                                          Function *OCLPrintfDecl,
+                                          Function *F = nullptr);
 
+private:
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.
@@ -1660,7 +1691,7 @@ private:
                                  AllocaInst *LowerBnd, AllocaInst *UpperBnd,
                                  AllocaInst *TeamLowerBnd,
                                  AllocaInst *TeamUpperBnd,
-                                 AllocaInst *SchedStride);
+                                 AllocaInst *&SchedStride);
 
   /// Generate the loop update code for DistParLoop under OpenCL.
   /// \param [in]  W            OpenMP distribute region node.

@@ -13,6 +13,7 @@
 ///
 //==------------------------------------------------------------------------==//
 
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #define DEBUG_TYPE "vpo-paropt-utils"
@@ -33,12 +34,16 @@ CallInst *VPOParoptUtils::genF90DVSizeCall(Value *DV,
 }
 
 CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
-                                           Instruction *InsertBefore) {
+                                           Instruction *InsertBefore,
+                                           bool IsTargetSPIRV) {
   IRBuilder<> Builder(InsertBefore);
 
-  Type *Int8PtrTy = Builder.getInt8PtrTy();
-  auto *NewDVCast = Builder.CreateBitCast(NewDV, Int8PtrTy);
-  auto *OrigDVCast = Builder.CreateBitCast(OrigDV, Int8PtrTy);
+  Type *Int8PtrTy =
+      Builder.getInt8PtrTy(IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0);
+  auto *NewDVCast =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(NewDV, Int8PtrTy);
+  auto *OrigDVCast =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(OrigDV, Int8PtrTy);
   CallInst *DataSize =
       genCall(InsertBefore->getModule(), "_f90_dope_vector_init",
               Builder.getInt64Ty(), {NewDVCast, OrigDVCast});
@@ -47,7 +52,8 @@ CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
   return DataSize;
 }
 
-void VPOParoptUtils::genF90DVInitCode(Item *I) {
+void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
+                                      bool IsTargetSPIRV) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   Value *NewV = I->getNew();
@@ -58,11 +64,15 @@ void VPOParoptUtils::genF90DVInitCode(Item *I) {
       isa<StructType>(cast<PointerType>(OrigV->getType())->getElementType()) &&
       "Clause item is expected to be a struct for F90 DVs.");
 
-  Instruction *InsertPt =
-      (cast<Instruction>(NewV))->getParent()->getTerminator();
+  if (!GeneralUtils::isOMPItemGlobalVAR(NewV))
+    InsertPt = (cast<Instruction>(NewV))->getParent()->getTerminator();
+
   IRBuilder<> Builder(InsertPt);
 
-  CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt);
+  MaybeAlign OrigAlignment =
+      OrigV->getPointerAlignment(InsertPt->getModule()->getDataLayout());
+  CallInst *DataSize = genF90DVInitCall(OrigV, NewV, InsertPt, IsTargetSPIRV);
+  setFuncCallingConv(DataSize, IsTargetSPIRV);
 
   // Get base address from the dope vector.
   auto *Zero = Builder.getInt32(0);
@@ -72,9 +82,14 @@ void VPOParoptUtils::genF90DVInitCode(Item *I) {
       cast<PointerType>(cast<PointerType>(Addr0GEP->getType()->getScalarType())
                             ->getElementType())
           ->getElementType();
-  Value *PointeeData = genPrivatizationAlloca(ElementTy, DataSize, InsertPt,
-                                              NamePrefix + ".data");
-  Builder.CreateStore(PointeeData, Addr0GEP);
+  Value *PointeeData = genPrivatizationAlloca(
+      ElementTy, DataSize, OrigAlignment, InsertPt, IsTargetSPIRV,
+      NamePrefix + ".data");
+  auto *StoreVal =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(
+          PointeeData,
+          cast<GetElementPtrInst>(Addr0GEP)->getResultElementType());
+  Builder.CreateStore(StoreVal, Addr0GEP);
 
   if (!isa<ReductionItem>(I))
     return;
@@ -127,39 +142,44 @@ void VPOParoptUtils::genF90DVInitForItemsInTaskPrivatesThunk(
 }
 
 void VPOParoptUtils::genF90DVFirstOrLastprivateCopyCallImpl(
-    StringRef FnName, Value *NewV, Value *OrigV, Instruction *InsertBefore) {
+    StringRef FnName, Value *NewV, Value *OrigV, Instruction *InsertBefore,
+    bool IsTargetSPIRV) {
 
   IRBuilder<> Builder(InsertBefore);
 
-  Type *Int8PtrTy = Builder.getInt8PtrTy();
-  auto *NewVCast = Builder.CreateBitCast(NewV, Int8PtrTy);
-  auto *OrigVCast = Builder.CreateBitCast(OrigV, Int8PtrTy);
+  Type *Int8PtrTy =
+      Builder.getInt8PtrTy(IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0);
+  auto *NewVCast = Builder.CreatePointerBitCastOrAddrSpaceCast(NewV, Int8PtrTy);
+  auto *OrigVCast =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(OrigV, Int8PtrTy);
   CallInst *F90DVCopy = genCall(InsertBefore->getModule(), FnName,
                                 Builder.getVoidTy(), {NewVCast, OrigVCast});
+  setFuncCallingConv(F90DVCopy, IsTargetSPIRV);
   F90DVCopy->insertBefore(InsertBefore);
 }
 
 void VPOParoptUtils::genF90DVFirstprivateCopyCall(Value *NewV, Value *OrigV,
-                                                  Instruction *InsertBefore) {
+                                                  Instruction *InsertBefore,
+                                                  bool IsTargetSPIRV) {
   genF90DVFirstOrLastprivateCopyCallImpl("_f90_firstprivate_copy", NewV, OrigV,
-                                         InsertBefore);
+                                         InsertBefore, IsTargetSPIRV);
 }
 
 void VPOParoptUtils::genF90DVLastprivateCopyCall(Value *NewV, Value *OrigV,
-                                                 Instruction *InsertBefore) {
+                                                 Instruction *InsertBefore,
+                                                 bool IsTargetSPIRV) {
   genF90DVFirstOrLastprivateCopyCallImpl("_f90_lastprivate_copy", NewV, OrigV,
-                                         InsertBefore);
+                                         InsertBefore, IsTargetSPIRV);
 }
 
-void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I,
-                                                 Value *&DestArrayBeginOut,
-                                                 Type *&DestElementTyOut,
-                                                 Value *&NumElementsOut,
-                                                 Instruction *InsertBefore) {
+void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
+                                                  Value *&DestArrayBeginOut,
+                                                  Type *&DestElementTyOut,
+                                                  Value *&NumElementsOut,
+                                                  Instruction *InsertBefore) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   IRBuilder<> Builder(InsertBefore);
-  Value *NewV = I->getNew();
   StringRef NamePrefix = NewV->getName();
 
   // Get base address from the dope vector.
@@ -173,26 +193,24 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I,
   NumElementsOut = I->getF90DVNumElements();
 }
 
-void VPOParoptUtils::genF90DVReductionFiniSrcDstInfo(const Item *I,
-                                                    Value *&SrcArrayBeginOut,
-                                                    Value *&DestArrayBeginOut,
-                                                    Type *&DestElementTyOut,
-                                                    Value *&NumElementsOut,
-                                                    Instruction *InsertBefore) {
+void VPOParoptUtils::genF90DVReductionSrcDstInfo(
+    const Item *I, Value *&SrcVal, Value *&DestVal, Value *&SrcArrayBeginOut,
+    Value *&DestArrayBeginOut, Type *&DestElementTyOut, Value *&NumElementsOut,
+    Instruction *InsertBefore) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   // Destination on reduction init code (local array) is the source for the
   // finish code.
-  VPOParoptUtils::genF90DVReductionInitDstInfo(
-      I, SrcArrayBeginOut, DestElementTyOut, NumElementsOut, InsertBefore);
+  VPOParoptUtils::genF90DVReductionInitDstInfo(I, SrcVal, SrcArrayBeginOut,
+                                               DestElementTyOut, NumElementsOut,
+                                               InsertBefore);
 
   IRBuilder<> Builder(InsertBefore);
-  Value *OrigV = I->getOrig();
-  StringRef NamePrefix = OrigV->getName();
+  StringRef NamePrefix = DestVal->getName();
 
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP =
-      Builder.CreateInBoundsGEP(OrigV, {Zero, Zero}, NamePrefix + ".addr0");
+      Builder.CreateInBoundsGEP(DestVal, {Zero, Zero}, NamePrefix + ".addr0");
   DestArrayBeginOut = Builder.CreateLoad(Addr0GEP, NamePrefix + ".data");
 }
 #endif // INTEL_CUSTOMIZATION

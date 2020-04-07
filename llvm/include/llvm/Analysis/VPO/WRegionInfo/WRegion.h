@@ -572,7 +572,8 @@ private:
   EXPR Device;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
-  bool DefaultmapTofromScalar;        // defaultmap(tofrom:scalar)
+  WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
+      {WRNDefaultmapAbsent};
   int OffloadEntryIdx;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
   SmallVector<Value *, 3> UncollapsedNDRange;
@@ -584,7 +585,9 @@ protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
-  void setDefaultmapTofromScalar(bool Flag) { DefaultmapTofromScalar = Flag; }
+  void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) {
+    Defaultmap[C] = B;
+  }
   void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
   void addUncollapsedNDRangeDimension(Value *V) {
     UncollapsedNDRange.push_back(V);
@@ -604,7 +607,9 @@ public:
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
-  bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
+  WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const {
+    return Defaultmap[C];
+  }
   int getOffloadEntryIdx() const { return OffloadEntryIdx; }
   const SmallVectorImpl<Value *> &getDirectlyUsedNonPointerValues() const {
     return DirectlyUsedNonPointerValues;
@@ -1380,9 +1385,9 @@ public:
 class WRNOrderedNode : public WRegionNode {
 private:
   bool IsDoacross;         // true iff a depend clause is seen (2nd form above)
-
-  // The following field is meaningful only if IsDoacross==false
-  bool IsThreads;          // true for "threads" (default); false for "simd"
+  // IsSIMD and IsThreads are meaningful only if IsDoacross==false
+  bool IsSIMD;
+  bool IsThreads;
 
   // The following two fields are meaningful only if IsDoacross==true
   DepSinkClause DepSink;
@@ -1397,11 +1402,13 @@ public:
 
 protected:
   void setIsDoacross(bool Flag) { IsDoacross = Flag; }
+  void setIsSIMD(bool Flag) { assertDoacrossFalse(); IsSIMD = Flag; }
   void setIsThreads(bool Flag) { assertDoacrossFalse(); IsThreads = Flag; }
 
 public:
   bool getIsDoacross() const {  return IsDoacross; }
-  bool getIsThreads() const { assertDoacrossFalse(); return IsThreads; }
+  bool getIsSIMD() const { return !IsDoacross && IsSIMD; }
+  bool getIsThreads() const { return !IsDoacross && (IsThreads || !IsSIMD); }
 
   const DepSinkClause &getDepSink() const {assertDoacrossTrue();
                                            return DepSink; }
@@ -1536,7 +1543,14 @@ public:
 /// \endcode
 class WRNGenericLoopNode : public WRegionNode {
 private:
+  // Shared and Firstprivate clauses are not allowed for loop construct as in
+  // OpenMP spec 5.0, but they're needed for outlining logic in backend. Backend
+  // maps the loop construct to the underlying loop-related directive, checks
+  // the clauses are needed by the underlying directive, and decides to keep or
+  // drop the clauses.
+  SharedClause Shared;
   PrivateClause Priv;
+  FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
   int Collapse;
@@ -1555,7 +1569,9 @@ protected:
   void setCollapse(int N) { Collapse = N; }
 
 public:
+  DEFINE_GETTER(SharedClause, getShared, Shared)
   DEFINE_GETTER(PrivateClause, getPriv, Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv, Fpriv)
   DEFINE_GETTER(LastprivateClause, getLpriv, Lpriv)
   DEFINE_GETTER(ReductionClause, getRed, Reduction)
   DEFINE_GETTER(WRNLoopInfo, getWRNLoopInfo, WRNLI)

@@ -1011,7 +1011,7 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
     assert(Tok.isNot(tok::kw_decltype) && Tok.isNot(tok::kw___super));
     return ParseCastExpression(ParseKind, isAddressOfOperand, isTypeCast,
                                isVectorLiteral, NotPrimaryExpression);
-      
+
   case tok::identifier: {      // primary-expression: identifier
                                // unqualified-id: identifier
                                // constant: enumeration-constant
@@ -1546,7 +1546,8 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
         // type, translate it into a type and continue parsing as a
         // cast expression.
         CXXScopeSpec SS;
-        ParseOptionalCXXScopeSpecifier(SS, nullptr,
+        ParseOptionalCXXScopeSpecifier(SS, /*ObjectType=*/nullptr,
+                                       /*ObjectHadErrors=*/false,
                                        /*EnteringContext=*/false);
         AnnotateTemplateIdTokenAsType(SS);
         return ParseCastExpression(ParseKind, isAddressOfOperand, NotCastExpr,
@@ -2000,9 +2001,9 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         if (LHS.isInvalid())
           break;
 
-        ParseOptionalCXXScopeSpecifier(SS, ObjectType,
-                                       /*EnteringContext=*/false,
-                                       &MayBePseudoDestructor);
+        ParseOptionalCXXScopeSpecifier(
+            SS, ObjectType, LHS.get() && LHS.get()->containsErrors(),
+            /*EnteringContext=*/false, &MayBePseudoDestructor);
         if (SS.isNotEmpty())
           ObjectType = nullptr;
       }
@@ -2062,14 +2063,13 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         IdentifierInfo *Id = Tok.getIdentifierInfo();
         SourceLocation Loc = ConsumeToken();
         Name.setIdentifier(Id, Loc);
-      } else if (ParseUnqualifiedId(SS,
-                                    /*EnteringContext=*/false,
-                                    /*AllowDestructorName=*/true,
-                                    /*AllowConstructorName=*/
-                                    getLangOpts().MicrosoftExt &&
-                                        SS.isNotEmpty(),
-                                    /*AllowDeductionGuide=*/false,
-                                    ObjectType, &TemplateKWLoc, Name)) {
+      } else if (ParseUnqualifiedId(
+                     SS, ObjectType, LHS.get() && LHS.get()->containsErrors(),
+                     /*EnteringContext=*/false,
+                     /*AllowDestructorName=*/true,
+                     /*AllowConstructorName=*/
+                     getLangOpts().MicrosoftExt && SS.isNotEmpty(),
+                     /*AllowDeductionGuide=*/false, &TemplateKWLoc, Name)) {
         (void)Actions.CorrectDelayedTyposInExpr(LHS);
         LHS = ExprError();
       }
@@ -2714,7 +2714,8 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool stopIfCastExpr,
 
       // If the substmt parsed correctly, build the AST node.
       if (!Stmt.isInvalid()) {
-        Result = Actions.ActOnStmtExpr(OpenLoc, Stmt.get(), Tok.getLocation());
+        Result = Actions.ActOnStmtExpr(getCurScope(), OpenLoc, Stmt.get(),
+                                       Tok.getLocation());
       } else {
         Actions.ActOnStmtExprError();
       }
@@ -2749,7 +2750,7 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool stopIfCastExpr,
 
     PreferredType.enterTypeCast(Tok.getLocation(), Ty.get().get());
     ExprResult SubExpr = ParseCastExpression(AnyCastExpr);
-    
+
     if (Ty.isInvalid() || SubExpr.isInvalid())
       return ExprError();
 

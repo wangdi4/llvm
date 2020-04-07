@@ -43,5 +43,5 @@ target_compile_definitions (pi_opencl PRIVATE CL_USE_DEPRECATED_OPENCL_1_2_APIS)
 #end INTEL_CUSTOMIZATION
 
 install(TARGETS pi_opencl
-    LIBRARY DESTINATION "lib" COMPONENT pi_opencl
+    LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT pi_opencl
     RUNTIME DESTINATION "bin" COMPONENT pi_opencl)

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef liblldb_Target_h_
-#define liblldb_Target_h_
+#ifndef LLDB_TARGET_TARGET_H
+#define LLDB_TARGET_TARGET_H
 
 #include <list>
 #include <map>
@@ -35,6 +35,8 @@
 #include "lldb/lldb-public.h"
 
 namespace lldb_private {
+
+class ClangModulesDeclVendor;
 
 OptionEnumValues GetDynamicValueTypes();
 
@@ -209,6 +211,8 @@ public:
 
   bool GetAutoInstallMainExecutable() const;
 
+  void UpdateLaunchInfoFromProperties();
+
 private:
   // Callbacks for m_launch_info.
   void Arg0ValueChangedCallback();
@@ -221,9 +225,12 @@ private:
   void DisableASLRValueChangedCallback();
   void DisableSTDIOValueChangedCallback();
 
+  Environment ComputeEnvironment() const;
+
   // Member variables.
   ProcessLaunchInfo m_launch_info;
   std::unique_ptr<TargetExperimentalProperties> m_experimental_properties_up;
+  Target *m_target;
 };
 
 class EvaluateExpressionOptions {
@@ -1302,7 +1309,7 @@ protected:
   typedef std::map<lldb::LanguageType, lldb::REPLSP> REPLMap;
   REPLMap m_repl_map;
 
-  lldb::ClangModulesDeclVendorUP m_clang_modules_decl_vendor_up;
+  std::unique_ptr<ClangModulesDeclVendor> m_clang_modules_decl_vendor_up;
 
   lldb::SourceManagerUP m_source_manager_up;
 
@@ -1363,4 +1370,4 @@ private:
 
 } // namespace lldb_private
 
-#endif // liblldb_Target_h_
+#endif // LLDB_TARGET_TARGET_H

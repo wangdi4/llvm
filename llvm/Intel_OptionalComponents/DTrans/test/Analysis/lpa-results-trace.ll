@@ -110,3 +110,29 @@ define internal void @test02() {
 ; CHECK:      Aliased types:
 ; CHECK:        %struct.test*
 ; CHECK:      No element pointees.
+
+
+; Test that constant expressions contained within other constant expressions are
+; printed.
+%struct.test03 = type { i64*, %struct.test03* }
+@test_var03 = internal global %struct.test03 zeroinitializer
+define internal void @test03() {
+  %local = alloca i64
+  store i64 ptrtoint (%struct.test03** getelementptr (%struct.test03, %struct.test03* @test_var03, i64 0, i32 1) to i64), i64* %local
+  ret void
+}
+; CHECK-LABEL: void @test03()
+; CHECK: store i64 ptrtoint (%struct.test03** getelementptr inbounds (%struct.test03, %struct.test03* @test_var03, i64 0, i32 1) to i64), i64* %local
+; CHECK:        CE: i64 ptrtoint (%struct.test03** getelementptr inbounds (%struct.test03, %struct.test03* @test_var03, i64 0, i32 1) to i64)
+; CHECK:          LocalPointerInfo:
+; CHECK:            Aliased types:
+; CHECK:              %struct.test03**
+; CHECK:            Element pointees:
+; CHECK:              %struct.test03 @ 1
+
+; CHECK:        CE: %struct.test03** getelementptr inbounds (%struct.test03, %struct.test03* @test_var03, i64 0, i32 1)
+; CHECK:          LocalPointerInfo:
+; CHECK:            Aliased types:
+; CHECK:              %struct.test03**
+; CHECK:            Element pointees:
+; CHECK:              %struct.test03 @ 1

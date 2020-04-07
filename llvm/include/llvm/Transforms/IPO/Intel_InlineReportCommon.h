@@ -138,6 +138,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has callsites with dummy args"},
     // InlrArrayStructArgs
     {InlPrtCost, "Callee has callsites with array struct args"},
+    // InlrPreferTileChoice
+    {InlPrtCost, "Callsite inlined to enable tiling"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,

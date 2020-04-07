@@ -55,7 +55,8 @@
 // CHECK: PragmaBlockLoop
 // CHECK-NEXT: ===============
 // CHECK-NEXT: The ``block_loop`` pragma lets you exert greater control over optimizations on
-// CHECK-NEXT: a specific loop inside a nested loop.
+// CHECK-NEXT: a specific loop inside a nested loop. The ``noblock_loop`` pragma lets you tune
+// CHECK-NEXT: the performance by disabling loop blocking for nested loops.
 
 // CHECK: PragmaFusion
 // CHECK-NEXT: ============

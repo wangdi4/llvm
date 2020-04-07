@@ -24,7 +24,6 @@ namespace llvm {
 
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
   InstCombineWorklist Worklist;
-  const bool ExpensiveCombines;
   const bool TypeLoweringOpts; // INTEL
   const unsigned MaxIterations;
 
@@ -32,9 +31,8 @@ public:
   static StringRef name() { return "InstCombinePass"; }
 
 #if INTEL_CUSTOMIZATION
-  explicit InstCombinePass(bool ExpensiveCombines = true,
-                           bool TypeLoweringOpts = true);
-  explicit InstCombinePass(bool ExpensiveCombines, bool TypeLoweringOpts,
+  explicit InstCombinePass(bool TypeLoweringOpts = true);
+  explicit InstCombinePass(bool TypeLoweringOpts,
                            unsigned MaxIterations);
 #endif // INTEL_CUSTOMIZATION
 
@@ -47,7 +45,6 @@ public:
 /// will try to combine all instructions in the function.
 class InstructionCombiningPass : public FunctionPass {
   InstCombineWorklist Worklist;
-  const bool ExpensiveCombines;
   const bool TypeLoweringOpts; // INTEL
   const unsigned MaxIterations;
 
@@ -55,9 +52,8 @@ public:
   static char ID; // Pass identification, replacement for typeid
 
 #if INTEL_CUSTOMIZATION
-  InstructionCombiningPass(bool ExpensiveCombines = true,
-                           bool TypeLoweringOpts = true);
-  InstructionCombiningPass(bool ExpensiveCombines, bool TypeLoweringOpts,
+  InstructionCombiningPass(bool TypeLoweringOpts = true);
+  InstructionCombiningPass(bool TypeLoweringOpts,
                            unsigned MaxInterations);
 #endif // INTEL_CUSTOMIZATION
 
@@ -78,10 +74,8 @@ public:
 //    %Z = add int 2, %X
 //
 #if INTEL_CUSTOMIZATION
-FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines = true,
-                                             bool TypeLoweringOpts = true);
-FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines,
-                                             bool TypeLoweringOpts,
+FunctionPass *createInstructionCombiningPass(bool TypeLoweringOpts = true);
+FunctionPass *createInstructionCombiningPass(bool TypeLoweringOpts,
                                              unsigned MaxIterations);
 #endif // INTEL_CUSTOMIZATION
 }

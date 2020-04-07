@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/QuantOps/QuantOps.h"
-#include "mlir/Dialect/QuantOps/QuantTypes.h"
+#include "mlir/Dialect/Quant/QuantOps.h"
+#include "mlir/Dialect/Quant/QuantTypes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/Quantizer/Configurations/FxpMathConfig.h"
 #include "mlir/Quantizer/Support/Configuration.h"
@@ -281,6 +281,11 @@ std::unique_ptr<OpPassBase<ModuleOp>>
 mlir::quantizer::createInferQuantizedTypesPass(
     SolverContext &solverContext, const TargetConfiguration &config) {
   return std::make_unique<InferQuantizedTypesPass>(solverContext, config);
+}
+void mlir::quantizer::registerInferQuantizedTypesPass() {
+  // Do nothing, this will be enough to force link this file and the static
+  // registration will kick-in. This is temporary while we're refactoring pass
+  // registration to move away from static constructors.
 }
 
 static PassRegistration<InferQuantizedTypesPass>

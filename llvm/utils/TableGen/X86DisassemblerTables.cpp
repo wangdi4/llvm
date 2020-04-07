@@ -112,6 +112,7 @@ static inline bool inheritsFrom(InstructionContext child,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   case IC_64BIT_CE:
+  case IC_64BIT_OPSIZE_CE:
   case IC_64BIT_XD_CE:
   case IC_64BIT_XS_CE:
   case IC_64BIT_REXW_CE:
@@ -1028,6 +1029,8 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
       o << "IC_64BIT_XD_CE";
     else if ((index & ATTR_64BIT) && (index & ATTR_XS) && (index & ATTR_CE))
       o << "IC_64BIT_XS_CE";
+    else if ((index & ATTR_64BIT) && (index & ATTR_OPSIZE) && (index & ATTR_CE))
+      o << "IC_64BIT_OPSIZE_CE";
     else if ((index & ATTR_64BIT) && (index & ATTR_CE))
       o << "IC_64BIT_CE";
 #endif // INTEL_FEATURE_ICECODE

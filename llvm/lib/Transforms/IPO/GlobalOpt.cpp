@@ -145,7 +145,7 @@ static bool isLeakCheckerRoot(GlobalVariable *GV) {
                  E = STy->element_end(); I != E; ++I) {
           Type *InnerTy = *I;
           if (isa<PointerType>(InnerTy)) return true;
-          if (isa<CompositeType>(InnerTy))
+          if (isa<StructType>(InnerTy) || isa<SequentialType>(InnerTy))
             Types.push_back(InnerTy);
         }
         break;
@@ -1598,6 +1598,12 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
           GV->getInitializer()->getType()->getPointerAddressSpace())) {
     if (Constant *SOVC = dyn_cast<Constant>(StoredOnceVal)) {
       if (GV->getInitializer()->getType() != SOVC->getType())
+#if INTEL_CUSTOMIZATION
+        if (SOVC->getType()->isIntegerTy())
+          SOVC =
+              ConstantExpr::getIntToPtr(SOVC, GV->getInitializer()->getType());
+        else
+#endif // INTEL_CUSTOMIZATION
         SOVC = ConstantExpr::getBitCast(SOVC, GV->getInitializer()->getType());
 
       // Optimize away any trapping uses of the loaded value.
@@ -2617,7 +2623,7 @@ OptimizeGlobalVars(Module &M,
         // for that optional parameter, since we don't have a Function to
         // provide GetTLI anyway.
         Constant *New = ConstantFoldConstant(C, DL, /*TLI*/ nullptr);
-        if (New && New != C)
+        if (New != C)
           GV->setInitializer(New);
       }
 

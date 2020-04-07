@@ -330,10 +330,22 @@ Tool *ToolChain::getSYCLPostLink() const {
   return SYCLPostLink.get();
 }
 
+Tool *ToolChain::getPartialLink() const {
+  if (!PartialLink)
+    PartialLink.reset(new tools::PartialLink(*this));
+  return PartialLink.get();
+}
+
 Tool *ToolChain::getBackendCompiler() const {
   if (!BackendCompiler)
     BackendCompiler.reset(buildBackendCompiler());
   return BackendCompiler.get();
+}
+
+Tool *ToolChain::getTableTform() const {
+  if (!FileTableTform)
+    FileTableTform.reset(new tools::FileTableTform(*this));
+  return FileTableTform.get();
 }
 
 Tool *ToolChain::getTool(Action::ActionClass AC) const {
@@ -381,8 +393,14 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::SYCLPostLinkJobClass:
     return getSYCLPostLink();
 
+  case Action::PartialLinkJobClass:
+    return getPartialLink();
+
   case Action::BackendCompileJobClass:
     return getBackendCompiler();
+
+  case Action::FileTableTformJobClass:
+    return getTableTform();
   }
 
   llvm_unreachable("Invalid tool kind.");
@@ -1160,7 +1178,7 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
   if (const Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
-    if (Args.hasArg(options::OPT_fsycl) &&
+    if (Args.hasArg(options::OPT__dpcpp) &&
         (A->getValue() == StringRef("cluster") ||
          (A->getValue() == StringRef("parallel") &&
           Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
@@ -1175,11 +1193,11 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     SmallVector<StringRef, 8> MKLLibs;
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                       options::OPT_fno_openmp, false))
-        MKLLibs.push_back("mkl_intel_thread");
-      else if (Args.hasArg(options::OPT_tbb))
+      if (Args.hasArg(options::OPT_tbb, options::OPT__dpcpp))
+        // Use TBB when -tbb or DPC++
         MKLLibs.push_back("mkl_tbb_thread");
+      else
+        MKLLibs.push_back("mkl_intel_thread");
     }
     if (A->getValue() == StringRef("cluster")) {
       MKLLibs.push_back("mkl_cdft_core");
@@ -1228,28 +1246,35 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool ToolChain::AddFastMathRuntimeIfAvailable(const ArgList &Args,
-                                              ArgStringList &CmdArgs) const {
+bool ToolChain::isFastMathRuntimeAvailable(const ArgList &Args,
+                                           std::string &Path) const {
   // Do not check for -fno-fast-math or -fno-unsafe-math when -Ofast passed
   // (to keep the linker options consistent with gcc and clang itself).
   if (!isOptimizationLevelFast(Args)) {
     // Check if -ffast-math or -funsafe-math.
     Arg *A =
-        Args.getLastArg(options::OPT_ffast_math, options::OPT_fno_fast_math,
-                        options::OPT_funsafe_math_optimizations,
-                        options::OPT_fno_unsafe_math_optimizations);
+      Args.getLastArg(options::OPT_ffast_math, options::OPT_fno_fast_math,
+                      options::OPT_funsafe_math_optimizations,
+                      options::OPT_fno_unsafe_math_optimizations);
 
     if (!A || A->getOption().getID() == options::OPT_fno_fast_math ||
         A->getOption().getID() == options::OPT_fno_unsafe_math_optimizations)
       return false;
   }
   // If crtfastmath.o exists add it to the arguments.
-  std::string Path = GetFilePath("crtfastmath.o");
-  if (Path == "crtfastmath.o") // Not found.
-    return false;
+  Path = GetFilePath("crtfastmath.o");
+  return (Path != "crtfastmath.o"); // Not found.
+}
 
-  CmdArgs.push_back(Args.MakeArgString(Path));
-  return true;
+bool ToolChain::addFastMathRuntimeIfAvailable(const ArgList &Args,
+                                              ArgStringList &CmdArgs) const {
+  std::string Path;
+  if (isFastMathRuntimeAvailable(Args, Path)) {
+    CmdArgs.push_back(Args.MakeArgString(Path));
+    return true;
+  }
+
+  return false;
 }
 
 SanitizerMask ToolChain::getSupportedSanitizers() const {
@@ -1450,4 +1475,34 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
 
   delete DAL;
   return nullptr;
+}
+
+void ToolChain::TranslateXarchArgs(const llvm::opt::DerivedArgList &Args,
+                                   llvm::opt::Arg *&A,
+                                   llvm::opt::DerivedArgList *DAL) const {
+  const OptTable &Opts = getDriver().getOpts();
+  unsigned Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
+  unsigned Prev = Index;
+  std::unique_ptr<llvm::opt::Arg> XarchArg(Opts.ParseOneArg(Args, Index));
+
+  // If the argument parsing failed or more than one argument was
+  // consumed, the -Xarch_ argument's parameter tried to consume
+  // extra arguments. Emit an error and ignore.
+  //
+  // We also want to disallow any options which would alter the
+  // driver behavior; that isn't going to work in our model. We
+  // use isDriverOption() as an approximation, although things
+  // like -O4 are going to slip through.
+  if (!XarchArg || Index > Prev + 1) {
+    getDriver().Diag(diag::err_drv_invalid_Xarch_argument_with_args)
+        << A->getAsString(Args);
+    return;
+  } else if (XarchArg->getOption().hasFlag(options::DriverOption)) {
+    getDriver().Diag(diag::err_drv_invalid_Xarch_argument_isdriver)
+        << A->getAsString(Args);
+    return;
+  }
+  XarchArg->setBaseArg(A);
+  A = XarchArg.release();
+  DAL->AddSynthesizedArg(A);
 }

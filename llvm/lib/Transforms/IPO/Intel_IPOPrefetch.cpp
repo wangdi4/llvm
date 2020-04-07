@@ -41,7 +41,7 @@
 // A prefetch function computes DL address(es), and generates 1 or 2 prefetch
 // instruction(s) on the DL address(es)
 //
-//define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) {
+// define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) {
 // ...
 // ... compute address of DL[0], result in %18 ...
 // call void @llvm.prefetch.p0i8(i8* %18, i32 0, i32 3, i32 1) ; 1st prefetch
@@ -69,10 +69,10 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
@@ -86,201 +86,185 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils.h"
 
 #include <cstdarg>
 
 using namespace llvm;
 
 #define PASS_NAME_STR "ipo-prefetch"
-#define DEBUG_TYPE "ipoprefetch"
+#define DEBUG_TYPE "ipo-prefetch"
 
 STATISTIC(NumIPOPrefetch, "Number of IPO Prefetches");
 
 // Option to enable IPO Prefetch pass, default to true.
-static cl::opt<bool> EnableIPOPrefetch(
-    PASS_NAME_STR "-enable", cl::init(true), cl::ReallyHidden,
-    cl::desc("enable ipo prefetching"));
+static cl::opt<bool> EnableIPOPrefetch(PASS_NAME_STR "-enable", cl::init(true),
+                                       cl::ReallyHidden,
+                                       cl::desc("enable ipo prefetching"));
 
 // Option to enable code generation of the 2nd prefetch instruction.
 // Experiments show that allowing to generate the 2nd prefetch instruction can
 // further improve performance. As a result, default is set to true (1).
-static cl::opt<bool> Generate2ndPrefetchInst(
-    PASS_NAME_STR "-gen-2ndprefetchinst", cl::init(true),
-    cl::ReallyHidden,
-    cl::desc("Generate the 2nd prefetch instruction"
-    ));
+static cl::opt<bool>
+    Generate2ndPrefetchInst(PASS_NAME_STR "-gen-2ndprefetchinst",
+                            cl::init(true), cl::ReallyHidden,
+                            cl::desc("Generate the 2nd prefetch instruction"));
 
 // Option to suppress Inline Report for IPO Prefetch, default to false.
-static cl::opt<bool> SuppressInlineReport(
-    PASS_NAME_STR "-suppress-inline-report",
-    cl::init(true), cl::ReallyHidden,
-    cl::desc("suppress inline report for ipo prefetch"));
+static cl::opt<bool>
+    SuppressInlineReport(PASS_NAME_STR "-suppress-inline-report",
+                         cl::init(true), cl::ReallyHidden,
+                         cl::desc("suppress inline report for ipo prefetch"));
 
 // Min Expected # of arguments in a function that a Delinquent Load (DL) may
 // reside
 static cl::opt<unsigned> DLFuncMinExpectedArgs(
-    PASS_NAME_STR "-dlf-min-expected-args", cl::init(10),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-min-expected-args", cl::init(10), cl::ReallyHidden,
     cl::desc("Min Expected # of arguments in a function that a Delinquent Load "
              "(DL) may reside"));
 
 // Max Expected # of arguments in a function that a Delinquent Load (DL) may
 // reside
 static cl::opt<unsigned> DLFuncMaxExpectedArgs(
-    PASS_NAME_STR "-dlf-max-expected-args", cl::init(10),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-max-expected-args", cl::init(10), cl::ReallyHidden,
     cl::desc("Max Expected # of arguments in a function that a Delinquent Load "
              "(DL) may reside"));
 
 // Min Expected # of integer arguments in a function that a Delinquent Load
 // (DL) may reside
 static cl::opt<unsigned> DLFuncMinIntArgs(
-    PASS_NAME_STR "-dlf-min-int-args", cl::init(3),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-min-int-args", cl::init(3), cl::ReallyHidden,
     cl::desc("Min Expected # of integer arguments in a function that a "
              "Delinquent Load (DL) may reside"));
 
 // Max Expected # of integer arguments in a function that a Delinquent Load
 // (DL) may reside
 static cl::opt<unsigned> DLFuncMaxIntArgs(
-    PASS_NAME_STR "-dlf-max-int-args", cl::init(3),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-max-int-args", cl::init(3), cl::ReallyHidden,
     cl::desc("Max Expected # of integer arguments in a function that a "
              "Delinquent Load (DL) may reside"));
 
 // Min Expected # of integer ptr arguments in a function that a Delinquent Load
 // (DL) may reside
 static cl::opt<unsigned> DLFuncMinIntPtrArgs(
-    PASS_NAME_STR "-dlf-min-intptr-args", cl::init(7),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-min-intptr-args", cl::init(7), cl::ReallyHidden,
     cl::desc("Min Expected # of integer pointer arguments in a function that "
              "a Delinquent Load (DL) may reside"));
 
 // Max Expected # of integer ptr arguments in a function that a Delinquent Load
 // (DL) may reside
 static cl::opt<unsigned> DLFuncMaxIntPtrArgs(
-    PASS_NAME_STR "-dlf-max-intptr-args", cl::init(7),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-max-intptr-args", cl::init(7), cl::ReallyHidden,
     cl::desc("Max Expected # of integer pointer arguments in a function that "
              "a Delinquent Load (DL) may reside"));
 
 // Min Expected # of double integer ptr (int**) arguments in a function that
 // a Delinquent Load (DL) may reside
 static cl::opt<unsigned> DLFuncMinDltIntPtrArgs(
-    PASS_NAME_STR "-dlf-min-dblintptr-args", cl::init(0),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-min-dblintptr-args", cl::init(0), cl::ReallyHidden,
     cl::desc("Min Expected # of double integer pointer arguments in a function "
              "that a Delinquent Load (DL) may reside"));
 
 // Max Expected # of double integer ptr (int**) arguments in a function that
 // a Delinquent Load (DL) may reside
 static cl::opt<unsigned> DLFuncMaxDltIntPtrArgs(
-    PASS_NAME_STR "-dlf-max-dblintptr-args", cl::init(0),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dlf-max-dblintptr-args", cl::init(0), cl::ReallyHidden,
     cl::desc("Max Expected # of double integer pointer arguments in a function "
              "that a Delinquent Load (DL) may reside"));
 
 // Number of expected function(s) that has delinquent load(s)
-static cl::opt<unsigned> ExpectedNumDLFunctions(
-    PASS_NAME_STR "-expected-num-dl-funcs", cl::init(1),
-    cl::ReallyHidden,
-    cl::desc("Expected Number of DL Functions "));
+static cl::opt<unsigned>
+    ExpectedNumDLFunctions(PASS_NAME_STR "-expected-num-dl-funcs", cl::init(1),
+                           cl::ReallyHidden,
+                           cl::desc("Expected Number of DL Functions "));
 
 // Number of expected positions where a call to prefetch function will be
 // inserted
 static cl::opt<unsigned> ExpectedNumPrefetchInsertPositions(
     PASS_NAME_STR "-expected-num-prefetch-insert-positions", cl::init(2),
-    cl::ReallyHidden,
-    cl::desc("Expected Number of Prefetch Insert Positions"));
+    cl::ReallyHidden, cl::desc("Expected Number of Prefetch Insert Positions"));
 
 // Max Expected # of arguments in a function that will host prefetch function
 static cl::opt<unsigned> DL0HostFuncMaxArgs(
-    PASS_NAME_STR "-dl0-host-max-args", cl::init(5),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl0-host-max-args", cl::init(5), cl::ReallyHidden,
     cl::desc("Max Expected # of max arguments in a DL host0 function"));
 
 // Min Expected # of arguments in a function that will host prefetch function
 static cl::opt<unsigned> DL0HostFuncMinArgs(
-    PASS_NAME_STR "-dl0-host-min-args", cl::init(5),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl0-host-min-args", cl::init(5), cl::ReallyHidden,
     cl::desc("Min Expected # of max arguments in a DL host0 function"));
 
-// Max Expected # of integer arguments in a function that will host prefetch function
+// Max Expected # of integer arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL0HostFuncMaxIntArgs(
-    PASS_NAME_STR "-dl0-host-max-int-args", cl::init(4),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl0-host-max-int-args", cl::init(4), cl::ReallyHidden,
     cl::desc("Max Expected # of max integer arguments in a DL host0 function"));
 
-// Min Expected # of integer arguments in a function that will host prefetch function
+// Min Expected # of integer arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL0HostFuncMinIntArgs(
-    PASS_NAME_STR "-dl0-host-min-int-args", cl::init(4),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl0-host-min-int-args", cl::init(4), cl::ReallyHidden,
     cl::desc("Min Expected # of max integer arguments in a DL host0 function"));
 
-// Max Expected # of int* arguments in a function that will host prefetch function
+// Max Expected # of int* arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL0HostFuncMaxIntPtrArgs(
-    PASS_NAME_STR "-dl0-host-max-intptr-args", cl::init(1),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl0-host-max-intptr-args", cl::init(1), cl::ReallyHidden,
     cl::desc("Max Expected # of max int* arguments in a DL host0 function"));
 
-// Min Expected # of int* arguments in a function that will host prefetch function
+// Min Expected # of int* arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL0HostFuncMinIntPtrArgs(
-    PASS_NAME_STR "-dl0-host-min-intptr-args", cl::init(1),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl0-host-min-intptr-args", cl::init(1), cl::ReallyHidden,
     cl::desc("Min Expected # of max int* arguments in a DL host0 function"));
 
 // Max Expected # of arguments in a function that will host prefetch function
 static cl::opt<unsigned> DL1HostFuncMaxArgs(
-    PASS_NAME_STR "-dl1-host-max-args", cl::init(6),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl1-host-max-args", cl::init(6), cl::ReallyHidden,
     cl::desc("Max Expected # of max arguments in a DL host1 function"));
 
 // Min Expected # of arguments in a function that will host prefetch function
 static cl::opt<unsigned> DL1HostFuncMinArgs(
-    PASS_NAME_STR "-dl1-host-min-args", cl::init(6),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl1-host-min-args", cl::init(6), cl::ReallyHidden,
     cl::desc("Min Expected # of max arguments in a DL host1 function"));
 
-// Max Expected # of integer arguments in a function that will host prefetch function
+// Max Expected # of integer arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL1HostFuncMaxIntArgs(
-    PASS_NAME_STR "-dl1-host-max-int-args", cl::init(5),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl1-host-max-int-args", cl::init(5), cl::ReallyHidden,
     cl::desc("Max Expected # of max integer arguments in a DL host1 function"));
 
-// Min Expected # of integer arguments in a function that will host prefetch function
+// Min Expected # of integer arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL1HostFuncMinIntArgs(
-    PASS_NAME_STR "-dl1-host-min-int-args", cl::init(5),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl1-host-min-int-args", cl::init(5), cl::ReallyHidden,
     cl::desc("Min Expected # of max integer arguments in a DL host1 function"));
 
-// Max Expected # of int* arguments in a function that will host prefetch function
+// Max Expected # of int* arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL1HostFuncMaxIntPtrArgs(
-    PASS_NAME_STR "-dl1-host-max-intptr-args", cl::init(1),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl1-host-max-intptr-args", cl::init(1), cl::ReallyHidden,
     cl::desc("Max Expected # of max int* arguments in a DL host1 function"));
 
-// Min Expected # of int* arguments in a function that will host prefetch function
+// Min Expected # of int* arguments in a function that will host prefetch
+// function
 static cl::opt<unsigned> DL1HostFuncMinIntPtrArgs(
-    PASS_NAME_STR "-dl1-host-min-intptr-args", cl::init(1),
-    cl::ReallyHidden,
+    PASS_NAME_STR "-dl1-host-min-intptr-args", cl::init(1), cl::ReallyHidden,
     cl::desc("Min Expected # of max int* arguments in a DL host1 function"));
 
 // Flag to do fine-tune control with LIT test
-static cl::opt<bool> BeLITFriendly(
-    PASS_NAME_STR "-be-lit-friendly", cl::init(false),
-    cl::ReallyHidden,
-    cl::desc("Be LIT Friendly"));
+static cl::opt<bool> BeLITFriendly(PASS_NAME_STR "-be-lit-friendly",
+                                   cl::init(false), cl::ReallyHidden,
+                                   cl::desc("Be LIT Friendly"));
 
 // Number of items in an array for applicable test once 2 expected struct types
-// are identified. This value will be used to compute the stride distance leading
-// to generating the 2nd prefetch intrinsic.
-static cl::opt<unsigned> AppTestArraySize(
-    PASS_NAME_STR "-AppTestArraySize", cl::init(4),
-    cl::ReallyHidden,
-    cl::desc("App Test Array Size"));
+// are identified. This value will be used to compute the stride distance
+// leading to generating the 2nd prefetch intrinsic.
+static cl::opt<unsigned> AppTestArraySize(PASS_NAME_STR "-AppTestArraySize",
+                                          cl::init(4), cl::ReallyHidden,
+                                          cl::desc("App Test Array Size"));
 
 // BasicBlock size thresholds:
 // - small bb:   [1  ..  5]
@@ -290,24 +274,29 @@ static cl::opt<unsigned> AppTestArraySize(
 
 // Threshold for the number of instructions in a BasicBlock, such that the
 // BasicBlock can be classified as "small".
-static cl::opt<unsigned> SmallBBThreshold(
-    PASS_NAME_STR "-smallbb-threshold", cl::init(5),
-    cl::ReallyHidden,
-    cl::desc("Small Basic-block size threadhold"));
+static cl::opt<unsigned>
+    SmallBBThreshold(PASS_NAME_STR "-smallbb-threshold", cl::init(5),
+                     cl::ReallyHidden,
+                     cl::desc("Small Basic-block size threadhold"));
 
 // Threshold for the number of instructions in a BasicBlock, such that the
 // BasicBlock can be classified as "regular".
-static cl::opt<unsigned> RegularBBThreshold(
-    PASS_NAME_STR "-regularbb-threshold", cl::init(12),
-    cl::ReallyHidden,
-    cl::desc("Regular Basic-block size threadhold"));
+static cl::opt<unsigned>
+    RegularBBThreshold(PASS_NAME_STR "-regularbb-threshold", cl::init(12),
+                       cl::ReallyHidden,
+                       cl::desc("Regular Basic-block size threadhold"));
 
 // Threshold for the number of instructions in a BasicBlock, such that the
 // BasicBlock can be classified as "large".
-static cl::opt<unsigned> LargeBBThreshold(
-    PASS_NAME_STR "-largebb-threshold", cl::init(25),
-    cl::ReallyHidden,
-    cl::desc("Large Basic-block size threadhold"));
+static cl::opt<unsigned>
+    LargeBBThreshold(PASS_NAME_STR "-largebb-threshold", cl::init(25),
+                     cl::ReallyHidden,
+                     cl::desc("Large Basic-block size threadhold"));
+
+// Flag to print the progress log in detailed mode
+static cl::opt<bool> DetailedLog(PASS_NAME_STR "-detail-log", cl::init(false),
+                                 cl::ReallyHidden,
+                                 cl::desc("Progress log in detailed mode"));
 
 namespace {
 
@@ -318,11 +307,11 @@ void dumpInstVec(SmallVectorImpl<Instruction *> &InstV, StringRef Msg) {
   dbgs() << Msg << ": <" << InstV.size() << ">:\n";
 
   unsigned Count = 0;
-  for (auto I: InstV) {
+  for (auto I : InstV) {
     LLVM_DEBUG(dbgs() << Count++ << "\t" << *I << "\n";);
-    (void) I;
+    (void)I;
   }
-  (void) Count;
+  (void)Count;
 }
 
 static bool verifyModule(Module &M, StringRef Msg) {
@@ -339,42 +328,113 @@ static bool verifyFunction(Function *F, StringRef Msg) {
 }
 #endif
 
+// Data structure that tracks progress of IPO Prefetch.
+class ProgressLog {
+  bool PassCollection, PassAnalysis, PassTransformation;
+
+public:
+  enum Stage {
+    Collection = 0,
+    Analysis,
+    Transform,
+    Stage_Last,
+  };
+
+  ProgressLog()
+      : PassCollection(false), PassAnalysis(false), PassTransformation(false) {}
+
+  void setStage(Stage TheStage) {
+    switch (TheStage) {
+    case Collection:
+      PassCollection = true;
+      break;
+    case Analysis:
+      PassAnalysis = true;
+      break;
+    case Transform:
+      PassTransformation = true;
+      break;
+    default:
+      break;
+    }
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // To check if IPO prefetch triggers or not, do the following:
+  //
+  // option: -debug-only=ipo-prefetch
+  // search "IPO Prefetch Triggered" or "IPO Prefetch NOT Triggered" in the
+  // debug output.
+  //
+  // In case IPO Prefetch does not trigger, and there is a need to know which
+  // stage the pass bailed out, do the following:
+  //
+  // options: -debug-only=ipo-prefetch -mllvm -ipo-prefetch-detail-log=1
+  // search for the following strings in the output:
+  // "IPO Prefetch collection", "IPO Prefetch analysis", and/or
+  // "IPO Prefetch transformation"
+  //
+  // E.g. the following strings will be available if IPO Prefetch triggers:
+  //  IPO Prefetch collection:  good
+  //  IPO Prefetch analysis:  good
+  //  IPO Prefetch transformation:  good
+  //  IPO Prefetch Triggered
+  //
+  LLVM_DUMP_METHOD void dump(void) {
+    const StringRef PassName = "IPO Prefetch ";
+    if (DetailedLog) {
+      dbgs() << PassName << "collection: " << (PassCollection ? "" : "NOT")
+             << " good\n";
+      dbgs() << PassName << "analysis: " << (PassAnalysis ? "" : "NOT")
+             << " good\n";
+      dbgs() << PassName
+             << "transformation: " << (PassTransformation ? "" : "NOT")
+             << " good\n";
+    }
+
+    bool Summary = PassCollection && PassAnalysis && PassTransformation;
+    StringRef Msg = Summary ? "Triggered " : "NOT Triggered";
+    dbgs() << PassName << Msg << "\n";
+  }
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+};
+
 // Enumeration of Index Range:
 enum BasicBlockIndexRange {
-  BBIR_Unknown = 0,     // unknown category (default place holder)
-  BBIR_1stQuarter,      // 1/4 of all BBs in Function
-  BBIR_2ndQuarter,      // 2/4
-  BBIR_3rdQuarter,      // 3/4
-  BBIR_4thQuarter,      // 4/4
+  BBIR_Unknown = 0, // unknown category (default place holder)
+  BBIR_1stQuarter,  // 1/4 of all BBs in Function
+  BBIR_2ndQuarter,  // 2/4
+  BBIR_3rdQuarter,  // 3/4
+  BBIR_4thQuarter,  // 4/4
   BBIR_Last,
 };
 
 enum BasicBlockSizeCategory {
-  BBSC_Unknown = 0,  // unknown category
-  BBSC_Small,        // Small BB:   [ 1 ..  5] instructions
-  BBSC_Regular,      // Regular BB: [ 6 .. 12] instructions
-  BBSC_Large,        // Large BB:   [13 .. 25] instructions
-  BBSC_Huge,         // Huge BB:    [26 ..  +) instructions
-  BBSC_Last,         // end marker
+  BBSC_Unknown = 0, // unknown category
+  BBSC_Small,       // Small BB:   [ 1 ..  5] instructions
+  BBSC_Regular,     // Regular BB: [ 6 .. 12] instructions
+  BBSC_Large,       // Large BB:   [13 .. 25] instructions
+  BBSC_Huge,        // Huge BB:    [26 ..  +) instructions
+  BBSC_Last,        // end marker
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 StringRef BasicBlockIndexRangeNames[] = {
-    "BBIR_Unknown",     // unknown category (default place holder)
-    "BBIR_1stQuarter",  // 1/4
-    "BBIR_2ndQuarter",  // 2/4
-    "BBIR_3rdQuarter",  // 3/4
-    "BBIR_4thQuarter",  // 4/4
+    "BBIR_Unknown",    // unknown category (default place holder)
+    "BBIR_1stQuarter", // 1/4
+    "BBIR_2ndQuarter", // 2/4
+    "BBIR_3rdQuarter", // 3/4
+    "BBIR_4thQuarter", // 4/4
     "BBIR_Last",
 };
 
 StringRef BasicBlockSizeCategoryNames[] = {
-    "BBSC_Unknown",  // unknown category
-    "BBSC_Small",    // Small BB:   [ 1 ..  5] instructions
-    "BBSC_Regular",  // Regular BB: [ 6 .. 12] instructions
-    "BBSC_Large",    // Large BB:   [13 .. 25] instructions
-    "BBSC_Huge",     // Huge BB:    [26 ..  +) instructions
-    "BBSC_Last",     // end marker
+    "BBSC_Unknown", // unknown category
+    "BBSC_Small",   // Small BB:   [ 1 ..  5] instructions
+    "BBSC_Regular", // Regular BB: [ 6 .. 12] instructions
+    "BBSC_Large",   // Large BB:   [13 .. 25] instructions
+    "BBSC_Huge",    // Huge BB:    [26 ..  +) instructions
+    "BBSC_Last",    // end marker
 };
 #endif
 
@@ -407,16 +467,15 @@ public:
                  BasicBlockSizeCategory SizeCategory,
                  BasicBlockIndexRange IndexRange)
       : BB(BB), BBIndex(BBIndex), NumInst(NumInst), NumPred(NumPred),
-        NumSucc(NumSucc),
-        SizeCategory(SizeCategory), IndexRange(IndexRange) {}
+        NumSucc(NumSucc), SizeCategory(SizeCategory), IndexRange(IndexRange) {}
 
   BasicBlock *getBasicBlock(void) const { return BB; }
   Instruction *getInsertPos(void) const { return &*(BB->begin()); }
 
-  //Count number of Debug Intrinsic(s) in the BB
+  // Count number of Debug Intrinsic(s) in the BB
   unsigned CountDgbInfoIntrinsic(void) {
     unsigned Count = 0;
-    for (auto &I: *BB) {
+    for (auto &I : *BB) {
       if (isa<DbgInfoIntrinsic>(I))
         ++Count;
     }
@@ -426,7 +485,7 @@ public:
   // Obtain the N-th load instruction
   Instruction *getLoad(const unsigned NumLoad) {
     unsigned Count = 0;
-    for (auto &I: *BB) {
+    for (auto &I : *BB) {
       if (isa<LoadInst>(I))
         ++Count;
       if (NumLoad == Count)
@@ -439,12 +498,10 @@ public:
   void classifySizeCategory(void) {
     if (IPOUtils::isInRange<unsigned>(NumInst, 1, SmallBBThreshold))
       SizeCategory = BBSC_Small;
-    else if (IPOUtils::isInRange<unsigned>(NumInst,
-                                           SmallBBThreshold + 1,
+    else if (IPOUtils::isInRange<unsigned>(NumInst, SmallBBThreshold + 1,
                                            RegularBBThreshold))
       SizeCategory = BBSC_Regular;
-    else if (IPOUtils::isInRange<unsigned>(NumInst,
-                                           RegularBBThreshold + 1,
+    else if (IPOUtils::isInRange<unsigned>(NumInst, RegularBBThreshold + 1,
                                            LargeBBThreshold))
       SizeCategory = BBSC_Large;
     else
@@ -457,21 +514,18 @@ public:
     unsigned NumBBs = BB->getParent()->size();
     assert(NumBBs && "Expect NO empty function");
 
-    unsigned
-        IndexRangeData[4] = {NumBBs/4, NumBBs*2/4, NumBBs*3/4, NumBBs};
+    unsigned IndexRangeData[4] = {NumBBs / 4, NumBBs * 2 / 4, NumBBs * 3 / 4,
+                                  NumBBs};
 
     if (IPOUtils::isInRange<unsigned>(BBIndex, 1, IndexRangeData[0]))
       IndexRange = BBIR_1stQuarter;
-    else if (IPOUtils::isInRange<unsigned>(BBIndex,
-                                           IndexRangeData[0] + 1,
+    else if (IPOUtils::isInRange<unsigned>(BBIndex, IndexRangeData[0] + 1,
                                            IndexRangeData[1]))
       IndexRange = BBIR_2ndQuarter;
-    else if (IPOUtils::isInRange<unsigned>(BBIndex,
-                                           IndexRangeData[1] + 1,
+    else if (IPOUtils::isInRange<unsigned>(BBIndex, IndexRangeData[1] + 1,
                                            IndexRangeData[2]))
       IndexRange = BBIR_3rdQuarter;
-    else if (IPOUtils::isInRange<unsigned>(BBIndex,
-                                           IndexRangeData[2] + 1,
+    else if (IPOUtils::isInRange<unsigned>(BBIndex, IndexRangeData[2] + 1,
                                            IndexRangeData[3]))
       IndexRange = BBIR_4thQuarter;
 
@@ -488,41 +542,55 @@ public:
     NumSucc = std::distance(succ_begin(BB), succ_end(BB));
 
     // apply 2 classifiers:
-    classifySizeCategory();// size
-    classifyIndexRange();  // index
+    classifySizeCategory(); // size
+    classifyIndexRange();   // index
 
     LLVM_DEBUG({
-                 if (PrintFlag)
-                   dump();
-               });
+      if (PrintFlag)
+        dump();
+    });
 
     return true;
   }
 
-  //Overload == operator: compare 2 BasicBlockInfo objects
-  //Note: don't compare NumInst
+  // Overload == operator: compare 2 BasicBlockInfo objects
+  // [Note]
+  // - don't compare NumInst
+  // - the following fields are being compared:
+  //   BBIndex, NumPred, NumSucc, SizeCategory, and IndexRange
   bool operator==(BasicBlockInfo &BBI) {
-    return (BBIndex == BBI.BBIndex)
-        && (NumPred == BBI.NumPred)
-        && (NumSucc == BBI.NumSucc)
-        && (SizeCategory == BBI.SizeCategory)
-        && (IndexRange == BBI.IndexRange);
+    return (BBIndex == BBI.BBIndex) && (NumPred == BBI.NumPred) &&
+           (NumSucc == BBI.NumSucc) && (SizeCategory == BBI.SizeCategory) &&
+           (IndexRange == BBI.IndexRange);
+  }
+
+  // Overload ^= operator: compare 2 BasicBlockInfo objects
+  // [Note]
+  // - the following fields are being compared:
+  //   NumPred, NumSucc, SizeCategory, and IndexRange
+  // - compare with == operator: BBIndex is being relaxed
+  bool operator^=(BasicBlockInfo &BBI) {
+    return (NumPred == BBI.NumPred) && (NumSucc == BBI.NumSucc) &&
+           (SizeCategory == BBI.SizeCategory) && (IndexRange == BBI.IndexRange);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump(bool PrintDetail = false) {
-    dbgs() << "BasicBlocInfo:\n"
+    dbgs() << "BasicBlockInfo:\n"
            << "\t#BBIndex: " << BBIndex << "\n"
            << "\t#NumInst: " << NumInst << "\n"
            << "\t#Pred: " << NumPred << "\n"
            << "\t#Succ: " << NumSucc << "\n"
            << "\tSizeCategory: " << BasicBlockSizeCategoryNames[SizeCategory]
            << "\n"
-           << "\tIndexRange: " << BasicBlockIndexRangeNames[IndexRange] << "\n";
+           << "\tIndexRange: " << BasicBlockIndexRangeNames[IndexRange] << "\n"
+           << "\tBB: " << BB << "\n";
 
-    // print the full BB only if being requested
-    if (PrintDetail && BB)
+    // print the full BB only if being requested:
+    if (PrintDetail && BB) {
       BB->dump();
+      dbgs() << "\n";
+    }
   }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
@@ -536,8 +604,9 @@ class BasicBlockPositionDescription {
   SmallVector<BasicBlockInfo, 4> BBIVec;
 
 public:
-  BasicBlockPositionDescription(Function *F)
-      : F(F) { BBIVec.resize(F->size()); }
+  BasicBlockPositionDescription(Function *F) : F(F) {
+    BBIVec.resize(F->size());
+  }
 
   void saveBBInfo(BasicBlock *BB, unsigned Index, BasicBlockInfo &BBI) {
     assert((Index < F->size()) && "BBIndex out of bound\n");
@@ -548,27 +617,30 @@ public:
   bool findTargetBB(BasicBlockInfo &Heuristic, BasicBlockInfo &ResultBBI) {
     // search BBs using heuristic:
     SmallVector<BasicBlockInfo, 4> ResultBBIVec;
-    unsigned Count = 0;
-    for (auto &BBI: BBIVec) {
-      if (BBI == Heuristic) {
+    unsigned BBCount = 0;
+
+    for (auto &BBI : BBIVec) {
+      // ^= is a relaxed comparator for BBInfo type,
+      // == is a more strict comparator.
+      // Decided to relax == into ^= for better tolerance with new pulldowns.
+      if (BBI ^= Heuristic) {
         LLVM_DEBUG({
-                     dbgs() << "Match: TRUE!!\nCount: " << Count
-                            << "\n *** Matched *** ";
-                     BBI.dump();
-                   });
+          dbgs() << "Match: TRUE!!\nBBCount: " << BBCount
+                 << "\n *** Matched *** ";
+          BBI.dump(true);
+        });
         ResultBBIVec.push_back(BBI);
       }
-      ++Count;
+      ++BBCount;
     }
 
     // see what we have after search:
-    const unsigned ResultSize = ResultBBIVec.size();
+    unsigned ResultSize = ResultBBIVec.size();
     LLVM_DEBUG({
-                 dbgs() << "#Items in result vec after search: " << ResultSize
-                        << "\n";
-                 for (auto &BBI: ResultBBIVec)
-                   BBI.dump();
-               });
+      dbgs() << "#Items in result vec after search: " << ResultSize << "\n";
+      for (auto &BBI : ResultBBIVec)
+        BBI.dump();
+    });
 
     // If there is just 1 result item, we are done!
     const unsigned ExpectedNumRes = 1;
@@ -577,18 +649,82 @@ public:
       return true;
     }
 
-    // Abnormal cases: msg only!
+    // Info on abnormal cases:
     LLVM_DEBUG({
-                 if (ResultSize < ExpectedNumRes) //case1: no result found!
-                   dbgs()
-                       << "Expect to have 1 result. Surprise: 0 result found\n";
-                 else
-                   // case2: 2+ results, need to trim!
-                   dbgs()
-                       << "Expect to have 1 result. Surprise: 2+ result found\n";
-               });
+      // case1: no result found!
+      if (ResultSize < ExpectedNumRes)
+        dbgs() << "Expect to have 1 result. Surprise: 0 result found!\n";
+      else
+        // case2: 2+ results, need to trim!
+        dbgs() << "\nExpect to have 1 result. Surprise!!\t" << ResultSize
+               << " results found. Need to trim.\n";
+    });
+
+    // If there are more than expected # of results: filter false positives.
+    if ((ResultSize > ExpectedNumRes) &&
+        filterResult(Heuristic, ResultBBIVec, ExpectedNumRes)) {
+      ResultSize = ResultBBIVec.size();
+
+      LLVM_DEBUG({
+        dbgs() << "#Items in result after filtering: " << ResultSize << "\n";
+        for (auto &BBI : ResultBBIVec)
+          BBI.dump();
+      });
+
+      if (ResultSize == ExpectedNumRes) {
+        ResultBBI = ResultBBIVec[0];
+        return true;
+      }
+    }
 
     return false;
+  }
+
+  // Filter ResultBBI vector having more than expected # of result.
+  // Remove the false positives by searching the following special pattern(s)
+  // inside the basic block:
+  // - 3-consecutive Loads;
+  bool filterResult(BasicBlockInfo &Heuristic,
+                    SmallVectorImpl<BasicBlockInfo> &ResultBBIVec,
+                    unsigned ExpectedNumRes) {
+
+    // Check if a BB has at least 1 sequence of 3-adjacent Loads.
+    // Note:
+    // - allow DbgInfoIntrinsic(s) between the 3 loads
+    auto Has3ContLoads = [](BasicBlock &BB) {
+      for (Instruction &I : BB)
+        if (isa<LoadInst>(&I)) {
+          BasicBlock::iterator IT(&I);
+
+          // Check: next is a LoadInst, skip any DbgIntrinsic
+          BasicBlock::iterator N1IT = std::next(IT, 1);
+          while (isa<DbgInfoIntrinsic>(N1IT))
+            ++N1IT;
+          if (!isa<LoadInst>(N1IT))
+            return false;
+
+          // Check: next (again) is a LoadInst, skip any DbgIntrinsic
+          BasicBlock::iterator N2IT = std::next(N1IT, 1);
+          while (isa<DbgInfoIntrinsic>(N2IT))
+            ++N2IT;
+          if (!isa<LoadInst>(N2IT))
+            return false;
+
+          LLVM_DEBUG(dbgs() << *IT << "\tleads 3 adjacent loads\n";);
+          return true;
+        }
+      return false;
+    };
+
+    // *** Begin Function: filterResult(.) *** //
+    SmallVector<BasicBlockInfo, 4> TempBBIVec;
+    TempBBIVec.swap(ResultBBIVec);
+
+    for (auto &BBI : TempBBIVec)
+      if (Has3ContLoads(*BBI.getBasicBlock()))
+        ResultBBIVec.push_back(BBI);
+
+    return (ResultBBIVec.size() == ExpectedNumRes);
   }
 
   // Identity Insertion Position using BasicBlock Signature matching.
@@ -602,13 +738,13 @@ public:
                               bool PrintFunction = false) {
     // show Function details on BasicBlock level:
     LLVM_DEBUG({
-                 if (PrintFunction)
-                   printFunction();
-               });
+      if (PrintFunction)
+        printFunction();
+    });
 
     // Collect + analyze each basic block:
     unsigned Count = 0;
-    for (auto &BB: *F) {
+    for (auto &BB : *F) {
       // Analyze the current BB, and record its analysis result:
       BasicBlockInfo BBI(&BB, Count);
       BBI.analyze();
@@ -619,33 +755,33 @@ public:
     // Find targetBB:
     if (!findTargetBB(Heuristic, Result)) {
       LLVM_DEBUG({
-                   dbgs() << "Fail to find target BB\n" << "Heuristic: ";
-                   Heuristic.dump(true);
-                 });
+        dbgs() << "Fail to find target BB\n"
+               << "Heuristic: ";
+        Heuristic.dump(true);
+      });
       return false;
     }
 
     LLVM_DEBUG({
-                 if (PrintFunction)
-                   dump();
-               });
+      if (PrintFunction)
+        dump();
+    });
     return true;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void printFunction(void) {
-    LLVM_DEBUG(
-        {
-          unsigned Count = 0;
-          for (auto &BB : *F) {
-            // obtain #pred and #succ:
-            unsigned NumPred = std::distance(pred_begin(&BB), pred_end(&BB));
-            unsigned NumSucc = std::distance(succ_begin(&BB), succ_end(&BB));
-            dbgs() << "BB#: " << Count++ << " : "
-                   << "#Pred: " << NumPred << "\t#Succ: " << NumSucc << "\n"
-                   << BB << "\n";
-          }
-        });
+    LLVM_DEBUG({
+      unsigned Count = 0;
+      for (auto &BB : *F) {
+        // obtain #pred and #succ:
+        unsigned NumPred = std::distance(pred_begin(&BB), pred_end(&BB));
+        unsigned NumSucc = std::distance(succ_begin(&BB), succ_end(&BB));
+        dbgs() << "BB#: " << Count++ << " : "
+               << "#Pred: " << NumPred << "\t#Succ: " << NumSucc << "\n"
+               << BB << "\n";
+      }
+    });
   }
 
   LLVM_DUMP_METHOD void dump(bool PrintDetail = false) {
@@ -657,13 +793,12 @@ public:
     // print the analysis results:
     dbgs() << BBIVec.size() << "  BasicBlockInfo collected\n";
     if (PrintDetail) {
-      for (auto &BBI: BBIVec)
+      for (auto &BBI : BBIVec)
         BBI.dump();
     }
-
   }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-};
+};     // namespace
 
 // This class analyzes the current module to ensure that the struct types
 // equivalent to the following two exist on the module level:
@@ -677,7 +812,8 @@ public:
 //
 class TypeAnalyzer {
   const Module &M;
-  const IntegerType *IntegerTypeVec[5] = { //index
+  const IntegerType *IntegerTypeVec[5] = {
+      // index
       Type::getInt1Ty(M.getContext()),  //  0
       Type::getInt8Ty(M.getContext()),  //  1
       Type::getInt16Ty(M.getContext()), //  2
@@ -693,26 +829,26 @@ public:
     // Unpack the variadic arguments into SmallVector FieldTypeIdxVec
     SmallVector<unsigned, 8> FieldTypeIdxVec;
     va_list arguments;
-    va_start (arguments, NumFields);
+    va_start(arguments, NumFields);
     for (unsigned I = 0; I < NumFields; ++I) {
-      unsigned Val = va_arg (arguments, unsigned);
+      unsigned Val = va_arg(arguments, unsigned);
       FieldTypeIdxVec.push_back(Val);
       LLVM_DEBUG(dbgs() << "Val: " << Val << "\n";);
-      (void) I;
+      (void)I;
     }
-    va_end (arguments);
+    va_end(arguments);
 
     LLVM_DEBUG({
-                 dbgs() << "FieldTypeIdxVec:\n";
-                 for (auto V: FieldTypeIdxVec)
-                   dbgs() << V << ", ";
-                 dbgs() << "\n";
-               });
+      dbgs() << "FieldTypeIdxVec:\n";
+      for (auto V : FieldTypeIdxVec)
+        dbgs() << V << ", ";
+      dbgs() << "\n";
+    });
 
     // try to match the TTBucketType:
     // %struct.ttbucket_t = type { i32, i16, i16, i8, i8 } type
     // index:                      3    2    2    1   1
-    for (StructType *StructT: M.getIdentifiedStructTypes())
+    for (StructType *StructT : M.getIdentifiedStructTypes())
       if (matchStructType(StructT, NumFields, FieldTypeIdxVec)) {
         MatchedType = StructT;
         return true;
@@ -746,29 +882,29 @@ public:
     // |2   | StructType*| TTBucketTy* | array element type  |
     // ------------------------------------------------------
     va_list arguments;
-    va_start (arguments, NumFields);
+    va_start(arguments, NumFields);
     LLVM_DEBUG(dbgs() << "Index: 0, NumFields: " << NumFields << "\n";);
 
     // index 1: unsigned, array size
-    const unsigned ArraySize = va_arg (arguments, unsigned);
+    const unsigned ArraySize = va_arg(arguments, unsigned);
     LLVM_DEBUG(dbgs() << "Index: 1, ArraySize: " << ArraySize << "\n";);
 
     // index 2: StructType *, TTBucketType *
-    StructType *ArrayElemTy = va_arg (arguments, StructType*);
+    StructType *ArrayElemTy = va_arg(arguments, StructType *);
     LLVM_DEBUG(dbgs() << "Index: 2, ArrayElemTy: " << *ArrayElemTy << "\n";);
 
-    va_end (arguments);
+    va_end(arguments);
 
     LLVM_DEBUG({
-                 dbgs() << "3 Unpacked Items (from VA-ARG list):\n"
-                        << "NumFields: " << NumFields << "\n"
-                        << "ArraySize: " << ArraySize << "\n"
-                        << "ArrayElemTy: " << *ArrayElemTy << "\n";
-               });
+      dbgs() << "3 Unpacked Items (from VA-ARG list):\n"
+             << "NumFields: " << NumFields << "\n"
+             << "ArraySize: " << ArraySize << "\n"
+             << "ArrayElemTy: " << *ArrayElemTy << "\n";
+    });
 
     // try to match the TTEntryType *:
     // %struct.ttentry_t = type { [4 x %struct.ttbucket_t] }
-    for (StructType *StructT: M.getIdentifiedStructTypes())
+    for (StructType *StructT : M.getIdentifiedStructTypes())
       if (matchStructType(StructT, NumFields, ArraySize, ArrayElemTy)) {
         MatchedType = StructT;
         return true;
@@ -784,12 +920,11 @@ public:
     // Check: the only ArrayType field
     Type *Ty = StructT->getElementType(0);
     ArrayType *ArrTy = dyn_cast<ArrayType>(Ty);
-    if (!ArrTy || (ArrTy->getArrayNumElements() != ArraySize)
-        || (ArrTy->getArrayElementType() != ArrayElemTy))
+    if (!ArrTy || (ArrTy->getArrayNumElements() != ArraySize) ||
+        (ArrTy->getArrayElementType() != ArrayElemTy))
       return false;
     return true;
   }
-
 };
 
 // This class is designed to conduct IPO-based prefetching for Delinquent Loads
@@ -812,7 +947,7 @@ private:
   DenseMap<Function *, SmallVector<BasicBlockInfo, 4>> PrefetchPositions;
   Function *PrefetchFunction = nullptr; // Place holder for prefetch function
   Module &M;
-  LoadInst *DL = nullptr; // the delinquent load
+  LoadInst *DL = nullptr;    // the delinquent load
   Function *MainF = nullptr; // the main function from the module
   function_ref<TargetLibraryInfo &(Function &)> GetTLI;
   function_ref<DominatorTree &(Function &)> LookupDomTree;
@@ -823,16 +958,16 @@ private:
   // %struct.ttentry_t = type { [4 x %struct.ttbucket_t] }
   // expect ArrayElemSize: 12 (B), NumArrayElem: 4
   WholeProgramInfo &WPInfo;
+  ProgressLog Tracer;
 
 public:
-  IPOPrefetcher(Module &M,
-                function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+  IPOPrefetcher(Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI,
                 function_ref<DominatorTree &(Function &)> LookupDomTree,
                 function_ref<PostDominatorTree &(Function &)> LookupPostDomTree,
                 WholeProgramInfo &WPInfo)
       : M(M), GetTLI(GetTLI), LookupDomTree(LookupDomTree),
-        LookupPostDomTree(LookupPostDomTree), ArrayElemSize(0),
-        NumArrayElem(0), WPInfo(WPInfo) {}
+        LookupPostDomTree(LookupPostDomTree), ArrayElemSize(0), NumArrayElem(0),
+        WPInfo(WPInfo) {}
 
   bool run(Module &M);
 
@@ -873,8 +1008,8 @@ private:
   //   calling prefetch. (case3)
   //
   bool isLegal(void);
-  bool isDominateProper(void);  // implementation of case1 and case2
-  bool isAddrDereferenced(void);// implementation of case3
+  bool isDominateProper(void);   // implementation of case1 and case2
+  bool isAddrDereferenced(void); // implementation of case3
 
   // On the module level, 2 struct types are directly related to computing
   // the prefetch distance and generating the 2nd prefetch intrinsic inside
@@ -890,20 +1025,20 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dumpDLCandidate(void) {
     dbgs() << "DLCandidates: <" << DLCandidates.size() << "> \n";
-    for (auto F: DLCandidates)
+    for (auto F : DLCandidates)
       dbgs() << F->getName() << "(), ";
     dbgs() << "\n";
   }
 
   LLVM_DUMP_METHOD void dumpPrefetchPositions(void) {
     dbgs() << "Prefetch Position(s): " << PrefetchPositions.size() << "\n";
-    for (auto Pair: PrefetchPositions) {
+    for (auto Pair : PrefetchPositions) {
       Function *F = Pair.first;
       auto &PosDesVec = Pair.second;
       dbgs() << F->getName() << "(): -> \n";
 
       unsigned Count = 0;
-      for (auto PosDes: PosDesVec) {
+      for (auto PosDes : PosDesVec) {
         dbgs() << "\t" << Count++;
         PosDes.dump();
       }
@@ -924,6 +1059,7 @@ public:
     dumpPrefetchPositions();
     dumpPrefetchFunction();
   }
+
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
 
@@ -938,30 +1074,38 @@ bool IPOPrefetcher::run(Module &M) {
   }
 
   // Collect DL-resident function(s) and potential DL-host functions
-  if (!doCollection())
+  if (!doCollection()) {
+    LLVM_DEBUG(Tracer.dump(););
     return false;
+  }
+  Tracer.setStage(ProgressLog::Collection);
 
   // Analyze current module to ensure that the transformation is
   // -legal: correct and won't trigger any core-dump/seg fault issues,
   // -applicable: can generate the 2nd prefetch intrinsic.
-  if (!doAnalysis())
+  if (!doAnalysis()) {
+    LLVM_DEBUG(Tracer.dump(););
     return false;
+  }
+  Tracer.setStage(ProgressLog::Analysis);
 
   // Transform the module to generate a fully optimized prefetch function,
   // and generate calls to the prefetch function in host function(s).
-  if (!doTransformation())
+  if (!doTransformation()) {
+    LLVM_DEBUG(Tracer.dump(););
     return false;
+  }
+  Tracer.setStage(ProgressLog::Transform);
 
   // Ensure the module is good after transformation
   LLVM_DEBUG({
-               if (!verifyModule(M,
-                                 "Module verifier failed after IPOPrefetch "))
-                 return false;
-             });
+    if (!verifyModule(M, "Module verifier failed after IPOPrefetch "))
+      return false;
+    // Dump trace info:
+    Tracer.dump();
+  });
 
   NumIPOPrefetch += DLCandidates.size();
-  LLVM_DEBUG(dbgs() << "IPO Prefetch Triggered\n";);
-
   return true;
 }
 
@@ -973,10 +1117,10 @@ bool IPOPrefetcher::doCollection() {
   }
 
   // Identify any DL-insert location
-  for (auto *F: DLCandidates) {
+  for (auto *F : DLCandidates) {
     if (!identifyPrefetchPositions(F)) {
-      LLVM_DEBUG(dbgs() << "identifyPrefetchPosition failed on "
-                        << F->getName() << "()\n";);
+      LLVM_DEBUG(dbgs() << "identifyPrefetchPosition failed on " << F->getName()
+                        << "()\n";);
       return false;
     }
   }
@@ -989,8 +1133,8 @@ bool IPOPrefetcher::doCollection() {
 
   // marker for IPO-Prefetch LIT test
   if (BeLITFriendly)
-    LLVM_DEBUG(
-        dbgs() << PrefetchFunctionName << " prefetch function identified\n";);
+    LLVM_DEBUG(dbgs() << PrefetchFunctionName
+                      << " prefetch function identified\n";);
 
   return true;
 }
@@ -1045,16 +1189,15 @@ bool IPOPrefetcher::isLegal(void) {
 //
 // E.g.
 // define internal i32 @foo(%struct.state_t* nocapture %0) {
-//  %11 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0, i32 11, !intel-tbaa !24
-//  %12 = load i32, i32* %11, align 4, !tbaa !24
-//  %13 = icmp eq i32 %12, 0
+//  %11 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0,
+//  i32 11, !intel-tbaa !24 %12 = load i32, i32* %11, align 4, !tbaa !24 %13 =
+//  icmp eq i32 %12, 0
 // ...
 //
 // For the above partial function, there is at least 1 load that uses address
 // from arg0 (%0: arg index 0). The load is %12, the address GEP is %11.
 //
-static bool getLoadsFromArg(Function *F,
-                            const unsigned ArgIdx,
+static bool getLoadsFromArg(Function *F, const unsigned ArgIdx,
                             SmallVectorImpl<LoadInst *> &LoadVecFromArg) {
   SmallVector<Instruction *, 8> InstVecUseArg;
   if (ArgIdx >= F->arg_size()) {
@@ -1067,7 +1210,7 @@ static bool getLoadsFromArg(Function *F,
       LLVM_DEBUG(dbgs() << "valid instruction: " << *Inst << "\n";);
       InstVecUseArg.push_back(Inst);
     }
-  if (InstVecUseArg.empty()) {// if Arg is not used, it can't dominate anything
+  if (InstVecUseArg.empty()) { // if Arg is not used, it can't dominate anything
     LLVM_DEBUG(dbgs() << "Arg: " << *Arg << "is not used inside function\n";);
     return false;
   }
@@ -1147,12 +1290,12 @@ bool IPOPrefetcher::isAddrDereferenced(void) {
   if (!PrefetchPositions.size())
     return false;
 
-  for (auto Pair: PrefetchPositions) {
+  for (auto Pair : PrefetchPositions) {
     Function *F = Pair.first;
     auto &PosDesVec = Pair.second;
     DominatorTree &DT = LookupDomTree(*F);
 
-    for (auto Pos: PosDesVec) {
+    for (auto Pos : PosDesVec) {
       Instruction *InsertPos = Pos.getInsertPos();
       if (!InsertPos) {
         LLVM_DEBUG(dbgs() << "Fail to obtain insert position on host: "
@@ -1180,18 +1323,19 @@ bool IPOPrefetcher::isAddrDereferenced(void) {
       // dominates the projected insert position of a call to the prefetch
       // function?
       bool FindDominance = false;
-      for (auto *LI: LoadVecFromArg)
+      for (auto *LI : LoadVecFromArg)
         if (DT.dominates(LI, InsertPos)) {
-          LLVM_DEBUG(dbgs() << "Has dominating relationship between "
-                            << *LI << "\nand\n" << *InsertPos << "\n";);
+          LLVM_DEBUG(dbgs() << "Has dominating relationship between " << *LI
+                            << "\nand\n"
+                            << *InsertPos << "\n";);
           FindDominance = true;
           break;
         }
 
       if (!FindDominance)
         return false;
-    } //end: for loop on Pos
-  } //end: for loop on Pair
+    } // end: for loop on Pos
+  }   // end: for loop on Pair
   return true;
 }
 
@@ -1208,7 +1352,7 @@ bool IPOPrefetcher::isDominateProper(void) {
   // Collect all prefetch hosts:
   SmallVector<Function *, 4> PrefetchHosts;
 
-  for (auto Pair: PrefetchPositions) {
+  for (auto Pair : PrefetchPositions) {
     Function *F = Pair.first;
     LLVM_DEBUG(dbgs() << "Function: " << F->getName() << "() : \n";);
     PrefetchHosts.push_back(F);
@@ -1219,7 +1363,7 @@ bool IPOPrefetcher::isDominateProper(void) {
 
   AllocFreeAnalyzer MFA(M, MainF, GetTLI, LookupDomTree, LookupPostDomTree);
 
-  for (auto *F: PrefetchHosts) {
+  for (auto *F : PrefetchHosts) {
     if (!MFA.analyzeForAlloc(F)) {
       LLVM_DEBUG(dbgs() << "analysis for malloc dominates host " << F->getName()
                         << "() failed";);
@@ -1227,9 +1371,8 @@ bool IPOPrefetcher::isDominateProper(void) {
     }
 
     if (!MFA.analyzeForFree(F)) {
-      LLVM_DEBUG(
-          dbgs() << "analysis for free post dominates host " << F->getName()
-                 << "() failed";);
+      LLVM_DEBUG(dbgs() << "analysis for free post dominates host "
+                        << F->getName() << "() failed";);
       return false;
     }
   }
@@ -1280,11 +1423,9 @@ bool IPOPrefetcher::isApplicable(void) {
 
   // Identify TTEntry Type:
   // %struct.ttentry_t = type { [4 x %struct.ttbucket_t] }
-  StructType *TTEntryTy = nullptr;  // matched EntryType
+  StructType *TTEntryTy = nullptr; // matched EntryType
   const unsigned ArraySize = AppTestArraySize;
-  Result = TA.searchArrayType(TTEntryTy,
-                              1 /* NumFields */,
-                              ArraySize /*: 4*/,
+  Result = TA.searchArrayType(TTEntryTy, 1 /* NumFields */, ArraySize /*: 4*/,
                               TTBucketTy /* ArrayElemTy */);
   if (!Result || !TTEntryTy) {
     LLVM_DEBUG(dbgs() << "Fail to find TTEntryTy\n");
@@ -1365,21 +1506,19 @@ bool IPOPrefetcher::doTransformation(void) {
 //   ret:          i32
 //
 bool IPOPrefetcher::identifyDLFunctions(void) {
-  static const FunctionSignatureMatcher
-      DLFuncMatcher = FunctionSignatureMatcher(
-      DLFuncMinExpectedArgs /* MinNumArg: 10 */,
-      DLFuncMaxExpectedArgs /* MaxNumArg: 10*/,
-      DLFuncMaxIntArgs   /* MinNumIntArg: 3 */,
-      DLFuncMinIntArgs   /* MaxNumIntArg: 3 */,
-      DLFuncMinIntPtrArgs   /* NumMinPtrArg: 7 */,
-      DLFuncMaxIntPtrArgs   /* NumMaxPtrArg: 7 */,
-      DLFuncMinDltIntPtrArgs   /* MinNumDoublePtrArgs: 0 */,
-      DLFuncMaxDltIntPtrArgs   /* MaxNumDoublePtrArgs: 0 */,
-      false /* LeafFunc */); // make it false for debugging only!
+  static const FunctionSignatureMatcher DLFuncMatcher =
+      FunctionSignatureMatcher(
+          DLFuncMinExpectedArgs /* MinNumArg: 10 */,
+          DLFuncMaxExpectedArgs /* MaxNumArg: 10*/,
+          DLFuncMaxIntArgs /* MinNumIntArg: 3 */,
+          DLFuncMinIntArgs /* MaxNumIntArg: 3 */,
+          DLFuncMinIntPtrArgs /* NumMinPtrArg: 7 */,
+          DLFuncMaxIntPtrArgs /* NumMaxPtrArg: 7 */,
+          DLFuncMinDltIntPtrArgs /* MinNumDoublePtrArgs: 0 */,
+          DLFuncMaxDltIntPtrArgs /* MaxNumDoublePtrArgs: 0 */,
+          false /* LeafFunc */); // make it false for debugging only!
 
-  auto isDLFunction = [&](Function *F) {
-    return DLFuncMatcher.match(F);
-  };
+  auto isDLFunction = [&](Function *F) { return DLFuncMatcher.match(F); };
 
   for (auto &F : M.functions())
     if (isDLFunction(&F))
@@ -1395,9 +1534,9 @@ bool IPOPrefetcher::identifyDLFunctions(void) {
              });
 
   LLVM_DEBUG({
-               dbgs() << " Check collected Function order\n";
-               dumpDLCandidate();
-             });
+    dbgs() << " Check collected Function order\n";
+    dumpDLCandidate();
+  });
 
   return (DLCandidates.size() == ExpectedNumDLFunctions);
 }
@@ -1416,33 +1555,31 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
   // expected host functions to insert the prefetch function, one prefetch each.
   //
   static const FunctionSignatureMatcher FSMA[] = {
-      FunctionSignatureMatcher(
-          DL0HostFuncMinArgs    /* MinNumArg: 5 */,
-          DL0HostFuncMaxArgs    /* MaxNumArg: 5*/,
-          DL0HostFuncMinIntArgs /* MinNumIntArg: 4 */,
-          DL0HostFuncMaxIntArgs /* MaxNumIntArg: 4 */,
-          DL0HostFuncMinIntPtrArgs  /* NumPtrArg0: 1 */,
-          DL0HostFuncMaxIntPtrArgs   /* NumPtrArg1: 1 */,
-          0   /* MinNumDoublePtrArgs: 0 */,
-          0   /* MaxNumDoublePtrArgs: 0 */,
-          false /* LeafFunc */),
+      FunctionSignatureMatcher(DL0HostFuncMinArgs /* MinNumArg: 5 */,
+                               DL0HostFuncMaxArgs /* MaxNumArg: 5*/,
+                               DL0HostFuncMinIntArgs /* MinNumIntArg: 4 */,
+                               DL0HostFuncMaxIntArgs /* MaxNumIntArg: 4 */,
+                               DL0HostFuncMinIntPtrArgs /* NumPtrArg0: 1 */,
+                               DL0HostFuncMaxIntPtrArgs /* NumPtrArg1: 1 */,
+                               0 /* MinNumDoublePtrArgs: 0 */,
+                               0 /* MaxNumDoublePtrArgs: 0 */,
+                               false /* LeafFunc */),
 
-      FunctionSignatureMatcher(
-          DL1HostFuncMinArgs      /* MinNumArg: 6 */,
-          DL1HostFuncMaxArgs      /* MaxNumArg: 6*/,
-          DL1HostFuncMinIntArgs   /* MinNumIntArg: 5 */,
-          DL1HostFuncMaxIntArgs   /* MaxNumIntArg: 5 */,
-          DL1HostFuncMinIntPtrArgs /* NumPtrArg0: 1 */,
-          DL1HostFuncMaxIntPtrArgs /* NumPtrArg1: 1 */,
-          0      /* MinNumDoublePtrArgs: 0 */,
-          0      /* MaxNumDoublePtrArgs: 0 */,
-          false /* LeafFunc */),
+      FunctionSignatureMatcher(DL1HostFuncMinArgs /* MinNumArg: 6 */,
+                               DL1HostFuncMaxArgs /* MaxNumArg: 6*/,
+                               DL1HostFuncMinIntArgs /* MinNumIntArg: 5 */,
+                               DL1HostFuncMaxIntArgs /* MaxNumIntArg: 5 */,
+                               DL1HostFuncMinIntPtrArgs /* NumPtrArg0: 1 */,
+                               DL1HostFuncMaxIntPtrArgs /* NumPtrArg1: 1 */,
+                               0 /* MinNumDoublePtrArgs: 0 */,
+                               0 /* MaxNumDoublePtrArgs: 0 */,
+                               false /* LeafFunc */),
   };
 
   // Check: can any of the provided FunctionSignatureMatcher objects match
   // a given function?
   auto IsSuitableDLCaller = [&](Function *F) {
-    for (unsigned I = 0, E = sizeof(FSMA)/sizeof(FunctionSignatureMatcher);
+    for (unsigned I = 0, E = sizeof(FSMA) / sizeof(FunctionSignatureMatcher);
          I < E; ++I)
       if (FSMA[I].match(F))
         return true;
@@ -1450,8 +1587,8 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
   };
 
   // Functor: compare function by its #args
-  struct CompareFunctionPtr :
-      public std::binary_function<Function *, Function *, bool> {
+  struct CompareFunctionPtr
+      : public std::binary_function<Function *, Function *, bool> {
     bool operator()(const Function *lhs, const Function *rhs) const {
       if (lhs == nullptr || rhs == nullptr)
         return lhs < rhs;
@@ -1477,71 +1614,70 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
   }
 
   LLVM_DEBUG({
-               dbgs() << "DLCallers: <" << DLCallers.size() << ">\n";
-               for (auto *F: DLCallers)
-                 dbgs() << F->getName() << "() \n";
-             });
+    dbgs() << "DLCallers: <" << DLCallers.size() << ">\n";
+    for (auto *F : DLCallers)
+      dbgs() << F->getName() << "() \n";
+  });
 
   // 2 BasicBlockInfo Target Heuristics, each needs precise customization
   static BasicBlockInfo Heuristics[] = {
       // entry0:
-      BasicBlockInfo(nullptr,      /* BasicBlock * BB  */
-                     69,       /* unsigned BBIndex  */
-                     23,       /* unsigned NumInst  */
-                     1,       /* unsigned NumPred  */
-                     2,       /* unsigned NumSucc  */
-                     BBSC_Large, /* BasicBlockSizeCategory  */
+      BasicBlockInfo(nullptr,        /* BasicBlock * BB  */
+                     60,             /* unsigned BBIndex  */
+                     23,             /* unsigned NumInst  */
+                     1,              /* unsigned NumPred  */
+                     2,              /* unsigned NumSucc  */
+                     BBSC_Large,     /* BasicBlockSizeCategory  */
                      BBIR_4thQuarter /*BasicBlockIndexRange */
-      ),
+                     ),
       // entry1:
-      BasicBlockInfo(nullptr,      /* BasicBlock * BB  */
-                     136,      /* unsigned Index   */
-                     29,       /* unsigned NumInst */
-                     3,       /* unsigned NumPred */
-                     2,       /* unsigned NumSucc */
-                     BBSC_Huge, /* BasicBlockSizeCategory SizeCategory */
+      BasicBlockInfo(nullptr,        /* BasicBlock * BB  */
+                     136,            /* unsigned Index   */
+                     29,             /* unsigned NumInst */
+                     3,              /* unsigned NumPred */
+                     2,              /* unsigned NumSucc */
+                     BBSC_Huge,      /* BasicBlockSizeCategory SizeCategory */
                      BBIR_4thQuarter /*BasicBlockIndexRange IndexRange)*/
-      ),
+                     ),
   };
 
   // Identify the insert position for each identified DL Function:
   unsigned Count = 0;
-  for (auto HostF: DLCallers) {
+  for (auto HostF : DLCallers) {
     BasicBlockPositionDescription PD(HostF);
     BasicBlockInfo &Heuristic = Heuristics[Count++];
     BasicBlockInfo ResultBBI;
 
     if (PD.identifyInsertPosition(Heuristic, ResultBBI)) {
       LLVM_DEBUG({
-                   dbgs() << "Precise InsertPosition Identified:\t"
-                          << HostF->getName() << "():\n";
-                   PD.dump();
-                 });
+        dbgs() << "Precise InsertPosition Identified:\t" << HostF->getName()
+               << "():\n";
+        PD.dump();
+        ResultBBI.dump(true);
+      });
 
       // Record the per-function analysis result:
       PrefetchPositions[HostF].push_back(ResultBBI);
     } else {
       LLVM_DEBUG({
-                   dbgs() << "Precise InsertPosition NOT Identified:\t"
-                          << HostF->getName() << "():\n";
-                 });
+        dbgs() << "Precise InsertPosition NOT Identified:\t" << HostF->getName()
+               << "():\n";
+      });
     }
   }
 
-  LLVM_DEBUG(
-      {
-        for (auto &Pair: PrefetchPositions) {
-          Function *F = Pair.first;
-          auto &BBIV = Pair.second;
-          dbgs() << "Func: " << F->getName() << "\t# BBIs: " << BBIV.size()
-                 << "\n";
-          unsigned Count = 0;
-          for (auto &BBI: BBIV) {
-            dbgs() << Count++ << "\t";
-            BBI.dump();
-          }
-        }
-      });
+  LLVM_DEBUG({
+    for (auto &Pair : PrefetchPositions) {
+      Function *F = Pair.first;
+      auto &BBIV = Pair.second;
+      dbgs() << "Func: " << F->getName() << "\t# BBIs: " << BBIV.size() << "\n";
+      unsigned BBCount = 0;
+      for (auto &BBI : BBIV) {
+        dbgs() << BBCount++ << "\t";
+        BBI.dump();
+      }
+    }
+  });
 
   return (PrefetchPositions.size() == ExpectedNumPrefetchInsertPositions);
 }
@@ -1600,8 +1736,8 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   // a new set of parameter attributes to correspond. Skip the first parameter
   // attribute, since that belongs to the return value.
   unsigned i = 0;
-  for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
-       I != E; ++I, ++i) {
+  for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
+       ++I, ++i) {
     if (I->getNumUses()) {
       Params.push_back(I->getType());
       ArgAlive[i] = true;
@@ -1609,8 +1745,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
       HasLiveReturnedArg |= PAL.hasParamAttribute(i, Attribute::Returned);
     } else {
       ++NumArgumentsEliminated;
-      LLVM_DEBUG(dbgs() << "Removing argument "
-                        << i << " (" << I->getName()
+      LLVM_DEBUG(dbgs() << "Removing argument " << i << " (" << I->getName()
                         << ") from " << F->getName() << "()\n");
     }
   }
@@ -1669,7 +1804,8 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   // the new arguments, also transferring over the names as well.
   i = 0;
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(),
-           I2 = NF->arg_begin(); I != E; ++I, ++i)
+                              I2 = NF->arg_begin();
+       I != E; ++I, ++i)
     if (ArgAlive[i]) {
       // If this is a live argument, move the name and users over to the new
       // version.
@@ -1714,7 +1850,8 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
 // The creation of the prefetch function follows a sequence of actions:
 // - Clone from DL function:
 //   Have a full clone of the function where DL resides. (ProbeTT). This builds
-//   the initial PrefetchFunction. This serves the basis for the remaining steps.
+//   the initial PrefetchFunction. This serves the basis for the remaining
+//   steps.
 //
 // Prepare for cleanup:
 // - Insert a ret:
@@ -1785,14 +1922,12 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
       ++NumNewArgs;
     }
 
-    FunctionType
-        *NewFTy = FunctionType::get(FTy->getReturnType(), Tys, FTy->isVarArg());
+    FunctionType *NewFTy =
+        FunctionType::get(FTy->getReturnType(), Tys, FTy->isVarArg());
 
     // Do the cloning:
-    Function *Clone = Function::Create(NewFTy,
-                                       F->getLinkage(),
-                                       PrefetchFunctionName,
-                                       F->getParent());
+    Function *Clone = Function::Create(NewFTy, F->getLinkage(),
+                                       PrefetchFunctionName, F->getParent());
     Clone->setAttributes(NewAttrs);
     Clone->setCallingConv(F->getCallingConv());
 
@@ -1857,12 +1992,12 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     // Locate the DL:
     // Delinquent Load Position Description (on BB level):
     static BasicBlockInfo DLPDHeuristic(
-        nullptr,      /* BasicBlock*BB    */
-        2,        /* unsigned BBIndex  */
-        6,        /* unsigned NumInst */
-        2,       /* unsigned NumPred */
-        2,       /* unsigned NumSucc */
-        BBSC_Regular, /* BasicBlockSizeCategory  */
+        nullptr,        /* BasicBlock*BB    */
+        2,              /* unsigned BBIndex  */
+        6,              /* unsigned NumInst */
+        2,              /* unsigned NumPred */
+        2,              /* unsigned NumSucc */
+        BBSC_Regular,   /* BasicBlockSizeCategory  */
         BBIR_1stQuarter /*BasicBlockIndexRange */
     );
     BasicBlockPositionDescription PD(F);
@@ -1870,9 +2005,9 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
 
     if (!PD.identifyInsertPosition(DLPDHeuristic, ResultBBI)) {
       LLVM_DEBUG({
-                   dbgs() << "Fail to identify Insert Position in "
-                          << F->getName() << "():\n";
-                 });
+        dbgs() << "Fail to identify Insert Position in " << F->getName()
+               << "():\n";
+      });
       return false;
     }
 
@@ -1898,15 +2033,15 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     LLVM_DEBUG(dbgs() << "BB: " << *BB << "\n";);
 
     LLVM_DEBUG({
-                 if (!verifyFunction(F,
-                                     "Function verification failed after insert ret inst"))
-                   return false;
-                 dbgs() << "Clone after replace cond_br with a ret\n" << *F
-                        << "\n";
-               });
+      if (!verifyFunction(F,
+                          "Function verification failed after insert ret inst"))
+        return false;
+      dbgs() << "Clone after replace cond_br with a ret\n" << *F << "\n";
+    });
 
     // Simplify the prefetch function by calling existing scalar optimization
-    // passes. In particular, the following ScalarOpt passes are called in order:
+    // passes. In particular, the following ScalarOpt passes are called in
+    // order:
     // - Simplify CFG
     // - Early CSE
     //
@@ -1923,11 +2058,11 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     FPM.doFinalization();
 
     LLVM_DEBUG({
-                 if (!verifyFunction(F, "Function verification failed after "
-                                        "simplifications"))
-                   return false;
-                 dbgs() << "Clone after simplification work\n" << *F << "\n";
-               });
+      if (!verifyFunction(F, "Function verification failed after "
+                             "simplifications"))
+        return false;
+      dbgs() << "Clone after simplification work\n" << *F << "\n";
+    });
 
     return true;
   };
@@ -1959,9 +2094,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
 
     LLVM_DEBUG(dumpInstVec(NonLocalStoreV, "All Non-Loacl Stores "););
 
-    for (auto *I: NonLocalStoreV) {
-      LLVM_DEBUG(
-          dbgs() << "To DeleteLocalStoreChain: " << *I << "\n";);
+    for (auto *I : NonLocalStoreV) {
+      LLVM_DEBUG(dbgs() << "To DeleteLocalStoreChain: " << *I << "\n";);
       I->eraseFromParent();
     }
 
@@ -1973,18 +2107,17 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     FPM.doFinalization();
 
     if (HasChanges)
-      LLVM_DEBUG(
-          dbgs() << "Clone after simplification work\n: " << *F << "\n";);
-    (void) HasChanges;
+      LLVM_DEBUG(dbgs() << "Clone after simplification work\n: " << *F
+                        << "\n";);
+    (void)HasChanges;
 
     // Remove all dead arguments and change the function's return type to void,
     // so as any ret instruction.
     unsigned NumArgumentsEliminated = 0;
     Function *NF = nullptr;
     if (!RemoveDeadThingsFromFunction(F, NF, NumArgumentsEliminated)) {
-      LLVM_DEBUG(
-          dbgs() << "Failure in RemoveDeadThingsFromFunction(.): "
-                 << F->getName() << "()\n";);
+      LLVM_DEBUG(dbgs() << "Failure in RemoveDeadThingsFromFunction(.): "
+                        << F->getName() << "()\n";);
       return false;
     }
 
@@ -1992,38 +2125,45 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     F = NF;
 
     LLVM_DEBUG({
-                 if (!verifyFunction(F,
-                                     "Function verification failed after simplifyAgain"))
-                   return false;
+      if (!verifyFunction(F,
+                          "Function verification failed after simplifyAgain"))
+        return false;
 
-                 dbgs() << "After dead-arg removal: " << F->getName() << "()\n"
-                        << *F << "\n";
-               });
+      dbgs() << "After dead-arg removal: " << F->getName() << "()\n"
+             << *F << "\n";
+    });
 
     return true;
   };
 
-  //At this point, the prefetch function will look like:
+  // At this point, the prefetch function will look like:
   //; Function Attrs: alwaysinline nofree norecurse nounwind uwtable
-  // define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #19 {
-  //    %2 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0, i32 11, !intel-tbaa !24
-  //    %3 = load i32, i32* %2, align 4, !tbaa !24
-  //    %4 = icmp eq i32 %3, 0
-  //    %5 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0, i32 16
-  //    %6 = load i64, i64* %5, align 8, !tbaa !61
-  //    %7 = zext i1 %4 to i64
-  //    %8 = add i64 %6, %7
-  //    %9 = trunc i64 %8 to i32
-  //    %10 = load %struct.ttentry_t*, %struct.ttentry_t** @TTable, align 8, !tbaa !179
-  //    %11 = load i32, i32* @TTSize, align 4, !tbaa !50
-  //    %12 = urem i32 %9, %11
-  //    %13 = zext i32 %12 to i64
-  //    %14 = getelementptr inbounds %struct.ttentry_t, %struct.ttentry_t* %10, i64 %13
-  //    %15 = getelementptr inbounds %struct.ttentry_t, %struct.ttentry_t* %14, i64 0, i32 0, !intel-tbaa !181
-  //    %16 = getelementptr inbounds [4 x %struct.ttbucket_t], [4 x %struct.ttbucket_t]* %15, i64 0, i64 0, !intel-tbaa !185
-  //    %17 = getelementptr inbounds %struct.ttbucket_t, %struct.ttbucket_t* %16, i64 0, i32 0, !intel-tbaa !213
-  //    %18 = load i32, i32* %17, align 4, !tbaa !214
-  //    ret void
+  // define internal void @Prefetch.Backbone(%struct.state_t* nocapture %0) #19{
+  //   %2 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0,
+  //        i32 11, !intel-tbaa !24
+  //   %3 = load i32, i32* %2, align 4, !tbaa !24
+  //   %4 = icmp eq i32 %3, 0
+  //   %5 = getelementptr inbounds %struct.state_t, %struct.state_t* %0, i64 0,
+  //        i32 16
+  //   %6 = load i64, i64* %5, align 8, !tbaa !61
+  //   %7 = zext i1 %4 to i64
+  //   %8 = add i64 %6, %7
+  //   %9 = trunc i64 %8 to i32
+  //   %10 = load %struct.ttentry_t*, %struct.ttentry_t** @TTable, align 8,
+  //         !tbaa !179
+  //   %11 = load i32, i32* @TTSize, align 4, !tbaa !50
+  //   %12 = urem i32 %9, %11
+  //   %13 = zext i32 %12 to i64
+  //   %14 = getelementptr inbounds %struct.ttentry_t, %struct.ttentry_t* %10,
+  //         i64 %13
+  //   %15 = getelementptr inbounds %struct.ttentry_t, %struct.ttentry_t* %14,
+  //         i64 0, i32 0, !intel-tbaa !181
+  //   %16 = getelementptr inbounds [4 x %struct.ttbucket_t],
+  //         [4 x %struct.ttbucket_t]* %15, i64 0, i64 0, !intel-tbaa !185
+  //   %17 = getelementptr inbounds %struct.ttbucket_t, %struct.ttbucket_t* %16,
+  //         i64 0, i32 0, !intel-tbaa !213
+  //   %18 = load i32, i32* %17, align 4, !tbaa !214
+  //   ret void
   // }
   //
   // Insert a prefetch intrinsic instruction and replace the original DL.
@@ -2053,101 +2193,99 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
       assert(0 && "reached end of BB");
 
     Builder.SetInsertPoint(&*It);
-    Value *PrefetchAddr = Builder.CreateBitCast(DLInst->getPointerOperand(),
-                                                Type::getInt8PtrTy(M.getContext()),
-                                                "bitcast-for-prefetch0");
+    Value *PrefetchAddr = Builder.CreateBitCast(
+        DLInst->getPointerOperand(), Type::getInt8PtrTy(M.getContext()),
+        "bitcast-for-prefetch0");
 
     // insert a prefetch(addr,3) intrinsic: prefetch into L3 cache
     Type *I32 = Type::getInt32Ty(M.getContext());
     Type *I64 = Type::getInt64Ty(M.getContext());
-    Function *PrefetchFunc = Intrinsic::getDeclaration(
-        &M, Intrinsic::prefetch, PrefetchAddr->getType());
+    Function *PrefetchFunc = Intrinsic::getDeclaration(&M, Intrinsic::prefetch,
+                                                       PrefetchAddr->getType());
 
     CallInst *PrefetchInst = Builder.CreateCall(
-        PrefetchFunc,
-        {PrefetchAddr,            // prefetch address
-         ConstantInt::get(I32, 0),// rw: 0 for read
-         ConstantInt::get(I32, 3),// L3
-         ConstantInt::get(I32, 1) // 1: data cache
-        });
+        PrefetchFunc, {
+                          PrefetchAddr,             // prefetch address
+                          ConstantInt::get(I32, 0), // rw: 0 for read
+                          ConstantInt::get(I32, 3), // L3
+                          ConstantInt::get(I32, 1)  // 1: data cache
+                      });
 
     LLVM_DEBUG({
-                 dbgs() << "PrefetchInst: " << *PrefetchInst << "\n"
-                        << "BasicBlock:\n" << *PrefetchInst->getParent() << "\n"
-                        << "Function:\n" << *F << "\n";
-               });
-    (void) PrefetchInst;
+      dbgs() << "PrefetchInst: " << *PrefetchInst << "\n"
+             << "BasicBlock:\n"
+             << *PrefetchInst->getParent() << "\n"
+             << "Function:\n"
+             << *F << "\n";
+    });
+    (void)PrefetchInst;
 
     // Insert 2nd (optional) prefetch intrinsic
     if (Generate2ndPrefetchInst) {
-      // Generate the prefetchaddr + offset address using the following sequence,
-      // assuming prefetchaddr is in %10:
+      // Generate the prefetchaddr + offset address using the following
+      // sequence, assuming prefetchaddr is in %10:
       //
       // %11 = ptr2int %10 to i64
       // %12 = add  i64 %11, offset
       // %13 = int2ptr i64 %12 to i8*
       //
-      Value *Ptr2Int =
-          Builder.CreatePtrToInt(PrefetchAddr,
-                                 Type::getInt64Ty(M.getContext()),
-                                 "ptr2i32");
+      Value *Ptr2Int = Builder.CreatePtrToInt(
+          PrefetchAddr, Type::getInt64Ty(M.getContext()), "ptr2i32");
       const unsigned NumArrayElem = getNumArrayElem();
       const unsigned ArrayElemSize = getArrayElemSize();
       if (!NumArrayElem || !ArrayElemSize) {
         LLVM_DEBUG(dbgs() << "Incorrect NumArrayElem or ArrayElemSize\n";);
         return false;
       }
-      unsigned Offset = (NumArrayElem - 1)*ArrayElemSize;
-      Value *IntPlusOffset = Builder.CreateAdd(Ptr2Int,
-                                               ConstantInt::get(I64, Offset),
-                                               "intplusoffset");
+      unsigned Offset = (NumArrayElem - 1) * ArrayElemSize;
+      Value *IntPlusOffset = Builder.CreateAdd(
+          Ptr2Int, ConstantInt::get(I64, Offset), "intplusoffset");
 
-      Value *PrefetchAddr2 =
-          Builder.CreateIntToPtr(IntPlusOffset,
-                                 Type::getInt8PtrTy(M.getContext()),
-                                 "prefetch2-addr");
+      Value *PrefetchAddr2 = Builder.CreateIntToPtr(
+          IntPlusOffset, Type::getInt8PtrTy(M.getContext()), "prefetch2-addr");
 
       // insert the 2nd prefetch(addr2,3) intrinsic:
       CallInst *PrefetchInst2 = Builder.CreateCall(
-          PrefetchFunc,
-          {PrefetchAddr2,           // prefetch address
-           ConstantInt::get(I32, 0),// rw: 0 for read
-           ConstantInt::get(I32, 3),// L3
-           ConstantInt::get(I32, 1) // 1: data cache
-          });
+          PrefetchFunc, {
+                            PrefetchAddr2,            // prefetch address
+                            ConstantInt::get(I32, 0), // rw: 0 for read
+                            ConstantInt::get(I32, 3), // L3
+                            ConstantInt::get(I32, 1)  // 1: data cache
+                        });
 
-      LLVM_DEBUG(
-          {
-            dbgs() << "PrefetchInst2: " << *PrefetchInst2 << "\n"
-                   << "BasicBlock:\n" << *PrefetchInst2->getParent() << "\n"
-                   << "Function:\n" << *F << "\n";
-          });
-      (void) PrefetchInst2;
+      LLVM_DEBUG({
+        dbgs() << "PrefetchInst2: " << *PrefetchInst2 << "\n"
+               << "BasicBlock:\n"
+               << *PrefetchInst2->getParent() << "\n"
+               << "Function:\n"
+               << *F << "\n";
+      });
+      (void)PrefetchInst2;
     }
 
     // Remove the original DL
     DL->eraseFromParent();
 
     LLVM_DEBUG({
-                 dbgs() << "F:\t" << F->getName() << "()\n" << *F << "\n";
-                 if (!verifyFunction(F, "Function verification failed after "
-                                        "insertPrefetchInst"))
-                   return false;
-                 dbgs() << "After generating prefetch intrinsic(s): "
-                        << F->getName() << "()\n" << *F << "\n";
-               });
+      dbgs() << "F:\t" << F->getName() << "()\n" << *F << "\n";
+      if (!verifyFunction(F, "Function verification failed after "
+                             "insertPrefetchInst"))
+        return false;
+      dbgs() << "After generating prefetch intrinsic(s): " << F->getName()
+             << "()\n"
+             << *F << "\n";
+    });
 
     return true;
   };
 
-// Attach a metadata node onto a function
+  // Attach a metadata node onto a function
   auto MarkFunctionNoInlineReport = [&](Function *F) -> bool {
     LLVM_DEBUG(dbgs() << "Inside: " << F->getName() << "\n";);
     LLVMContext &C = F->getContext();
-    MDNode *Node = MDNode::get(C,
-                               ConstantAsMetadata::get(
-                                   ConstantInt::get(Type::getInt32Ty(C),
-                                                    SuppressInlineReport)));
+    MDNode *Node =
+        MDNode::get(C, ConstantAsMetadata::get(ConstantInt::get(
+                           Type::getInt32Ty(C), SuppressInlineReport)));
     F->setMetadata(IPOUtils::getSuppressInlineReportStringRef(), Node);
     return true;
   };
@@ -2196,16 +2334,15 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
       return false;
     }
 
-  LLVM_DEBUG(
-      {
-        if (!verifyFunction(PrefetchFunction,
-                            "Function verification failed after "
-                            "IPOPrefetcher::createPrefetchFunction(void)\n"))
-          return false;
-        dbgs() << "After IPOPrefetcher::createPrefetchFunction(void): \n"
-               << PrefetchFunction->getName() << "()\n"
-               << *PrefetchFunction << "\n";
-      });
+  LLVM_DEBUG({
+    if (!verifyFunction(PrefetchFunction,
+                        "Function verification failed after "
+                        "IPOPrefetcher::createPrefetchFunction(void)\n"))
+      return false;
+    dbgs() << "After IPOPrefetcher::createPrefetchFunction(void): \n"
+           << PrefetchFunction->getName() << "()\n"
+           << *PrefetchFunction << "\n";
+  });
 
   return true;
 }
@@ -2216,10 +2353,9 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
   // Attach a metadata node onto a Call
   auto MarkCallNoInlineReport = [&](CallBase *CB) -> bool {
     LLVMContext &C = CB->getFunction()->getContext();
-    MDNode *Node = MDNode::get(C,
-                               ConstantAsMetadata::get(
-                                   ConstantInt::get(Type::getInt32Ty(C),
-                                                    SuppressInlineReport)));
+    MDNode *Node =
+        MDNode::get(C, ConstantAsMetadata::get(ConstantInt::get(
+                           Type::getInt32Ty(C), SuppressInlineReport)));
     CB->setMetadata(IPOUtils::getSuppressInlineReportStringRef(), Node);
     return true;
   };
@@ -2227,12 +2363,12 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
   LLVM_DEBUG({ dumpPrefetchPositions(); });
   IRBuilder<> Builder(M.getContext());
 
-  for (auto Pair: PrefetchPositions) {
+  for (auto Pair : PrefetchPositions) {
     Function *F = Pair.first;
     auto &BBIVec = Pair.second;
     Function *Caller = F;
 
-    for (auto BBI: BBIVec) {
+    for (auto BBI : BBIVec) {
       Instruction *InsertPos = BBI.getInsertPos();
       if (!InsertPos) {
         LLVM_DEBUG(dbgs() << "Fail to identify prefetch insert position in "
@@ -2272,11 +2408,11 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
 
     // Check the entire revised caller:
     LLVM_DEBUG({
-                 dbgs() << *Caller << "\n";
-                 if (!verifyFunction(F, "Function verification failed after "
-                                        "InsertPrefetchFunction()"))
-                   return false;
-               });
+      dbgs() << *Caller << "\n";
+      if (!verifyFunction(F, "Function verification failed after "
+                             "InsertPrefetchFunction()"))
+        return false;
+    });
   }
 
   return true;
@@ -2287,8 +2423,7 @@ class IntelIPOPrefetchWrapperPass : public ModulePass {
 public:
   static char ID;
   IntelIPOPrefetchWrapperPass() : ModulePass(ID) {
-    initializeIntelIPOPrefetchWrapperPassPass(
-        *PassRegistry::getPassRegistry());
+    initializeIntelIPOPrefetchWrapperPassPass(*PassRegistry::getPassRegistry());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -2309,7 +2444,8 @@ public:
     };
 
     auto LookupPostDomTree = [this](Function &F) -> PostDominatorTree & {
-      return this->getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+      return this->getAnalysis<PostDominatorTreeWrapperPass>(F)
+          .getPostDomTree();
     };
 
     auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
@@ -2323,8 +2459,7 @@ public:
 
     auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
 
-    IPOPrefetcher Impl(M, GetTLI, LookupDomTree,
-                       LookupPostDomTree, WPInfo);
+    IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree, WPInfo);
     return Impl.run(M);
   }
 };
@@ -2332,14 +2467,12 @@ public:
 } // End anonymous namespace
 
 char IntelIPOPrefetchWrapperPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IntelIPOPrefetchWrapperPass,
-                      "intel-ipoprefetch", "Intel IPO Prefetch",
-                      false, false)
-  INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-  INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-  INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(IntelIPOPrefetchWrapperPass,
-                    "intel-ipoprefetch",
+INITIALIZE_PASS_BEGIN(IntelIPOPrefetchWrapperPass, "intel-ipoprefetch",
+                      "Intel IPO Prefetch", false, false)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
+INITIALIZE_PASS_END(IntelIPOPrefetchWrapperPass, "intel-ipoprefetch",
                     "Intel IPO Prefetch", false, false)
 
 namespace llvm {
@@ -2367,8 +2500,7 @@ PreservedAnalyses IntelIPOPrefetchPass::run(Module &M,
   }
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
 
-  IPOPrefetcher Impl(M, GetTLI, LookupDomTree,
-                     LookupPostDomTree, WPInfo);
+  IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree, WPInfo);
 
   bool Changed = Impl.run(M);
   if (!Changed)

@@ -202,6 +202,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(declStmt);
   REGISTER_MATCHER(declaratorDecl);
   REGISTER_MATCHER(decltypeType);
+  REGISTER_MATCHER(deducedTemplateSpecializationType);
   REGISTER_MATCHER(defaultStmt);
   REGISTER_MATCHER(dependentSizedArrayType);
   REGISTER_MATCHER(designatedInitExpr);
@@ -242,6 +243,8 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(hasAnyConstructorInitializer);
   REGISTER_MATCHER(hasAnyDeclaration);
   REGISTER_MATCHER(hasAnyName);
+  REGISTER_MATCHER(hasAnyOperatorName);
+  REGISTER_MATCHER(hasAnyOverloadedOperatorName);
   REGISTER_MATCHER(hasAnyParameter);
   REGISTER_MATCHER(hasAnyPlacementArg);
   REGISTER_MATCHER(hasAnySelector);
@@ -356,6 +359,7 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(isClass);
   REGISTER_MATCHER(isClassMessage);
   REGISTER_MATCHER(isClassMethod);
+  REGISTER_MATCHER(isComparisonOperator);
   REGISTER_MATCHER(isConst);
   REGISTER_MATCHER(isConstQualified);
   REGISTER_MATCHER(isConstexpr);
@@ -394,7 +398,6 @@ RegistryMaps::RegistryMaps() {
   REGISTER_MATCHER(isNoReturn);
   REGISTER_MATCHER(isNoThrow);
   REGISTER_MATCHER(isNoneKind);
-  REGISTER_MATCHER(isOMPStructuredBlock);
   REGISTER_MATCHER(isOverride);
   REGISTER_MATCHER(isPrivate);
   REGISTER_MATCHER(isProtected);

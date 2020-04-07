@@ -45,11 +45,10 @@ inner.exit:
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[WIDE_LOAD]], <i64 42, i64 42>
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[VEC_PHI1:%.*]] = phi <2 x i64> [ [[BROADCAST_SPLAT:%.*]], [[VPLANNEDBB]] ], [ zeroinitializer, [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI1_EXTRACT_0_:%.*]] = extractelement <2 x i64> [[VEC_PHI1]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = add i64 [[VEC_PHI1_EXTRACT_0_]], 1
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ [[TMP2:%.*]], [[VPLANNEDBB]] ], [ 0, [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI1]], 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> undef, i64 [[TMP2]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT]], <2 x i64> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT]], <2 x i64> undef, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i64> [[BROADCAST_SPLAT]], <i64 72, i64 72>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i1> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = and <2 x i1> [[TMP1]], [[TMP1]]

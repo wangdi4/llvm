@@ -54,6 +54,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/KnowledgeRetention.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
@@ -976,7 +977,7 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
   SmallVector<const Argument *, 4> NoAliasArgs;
 
   for (const Argument &Arg : CalledFunc->args())
-    if (Arg.hasNoAliasAttr() && !Arg.use_empty())
+    if (CS.paramHasAttr(Arg.getArgNo(), Attribute::NoAlias) && !Arg.use_empty())
       NoAliasArgs.push_back(&Arg);
 
 #if INTEL_CUSTOMIZATION
@@ -1430,12 +1431,16 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
   // pointer inside the callee).
   Alignment = max(Alignment, MaybeAlign(ByValAlignment));
 
+#if INTEL_COLLAB
   Value *NewAlloca = new AllocaInst(
       AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment, Arg->getName(),
-#if INTEL_COLLAB
       VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
-#endif // INTEL_COLLAB
                                                &*Caller->begin()->begin());
+#else //INTEL_COLLAB
+  Value *NewAlloca =
+      new AllocaInst(AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment,
+                     Arg->getName(), &*Caller->begin()->begin());
+#endif // INTEL_COLLAB
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
   // Uses of the argument in the function should use our new alloca
@@ -2085,10 +2090,15 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       VMap[&*I] = ActualArg;
     }
 
+    // TODO: Remove this when users have been updated to the assume bundles.
     // Add alignment assumptions if necessary. We do this before the inlined
     // instructions are actually cloned into the caller so that we can easily
     // check what will be known at the start of the inlined code.
     AddAlignmentAssumptions(CS, IFI);
+
+    /// Preserve all attributes on of the call and its parameters.
+    if (Instruction *Assume = BuildAssumeFromInst(CS.getInstruction()))
+      Assume->insertBefore(CS.getInstruction());
 
     // We want the inliner to prune the code as it copies.  We would LOVE to
     // have no dead or constant instructions leftover after inlining occurs
@@ -2246,10 +2256,6 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       Caller->getEntryBlock().getInstList().splice(
           InsertPoint, FirstNewBlock->getInstList(), AI->getIterator(), I);
     }
-    // Move any dbg.declares describing the allocas into the entry basic block.
-    DIBuilder DIB(*Caller->getParent());
-    for (auto &AI : IFI.StaticAllocas)
-      replaceDbgDeclareForAlloca(AI, AI, DIB, DIExpression::ApplyOffset, 0);
   }
   SmallVector<Value*,4> VarArgsToForward;
   SmallVector<AttributeSet, 4> VarArgsAttrs;

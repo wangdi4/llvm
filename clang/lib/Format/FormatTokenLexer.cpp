@@ -82,7 +82,7 @@ void FormatTokenLexer::tryMergePreviousTokens() {
       return;
     if (tryMergeCSharpDoubleQuestion())
       return;
-    if (tryMergeCSharpNullConditionals())
+    if (tryMergeCSharpNullConditional())
       return;
     if (tryTransformCSharpForEach())
       return;
@@ -275,6 +275,13 @@ bool FormatTokenLexer::tryMergeCSharpStringLiteral() {
   return true;
 }
 
+// Valid C# attribute targets:
+// https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/attributes/#attribute-targets
+const llvm::StringSet<> FormatTokenLexer::CSharpAttributeTargets = {
+    "assembly", "module",   "field",  "event", "method",
+    "param",    "property", "return", "type",
+};
+
 bool FormatTokenLexer::tryMergeCSharpDoubleQuestion() {
   if (Tokens.size() < 2)
     return false;
@@ -282,12 +289,38 @@ bool FormatTokenLexer::tryMergeCSharpDoubleQuestion() {
   auto &SecondQuestion = *(Tokens.end() - 1);
   if (!FirstQuestion->is(tok::question) || !SecondQuestion->is(tok::question))
     return false;
-  FirstQuestion->Tok.setKind(tok::question);
+  FirstQuestion->Tok.setKind(tok::question); // no '??' in clang tokens.
   FirstQuestion->TokenText = StringRef(FirstQuestion->TokenText.begin(),
                                        SecondQuestion->TokenText.end() -
                                            FirstQuestion->TokenText.begin());
   FirstQuestion->ColumnWidth += SecondQuestion->ColumnWidth;
   FirstQuestion->Type = TT_CSharpNullCoalescing;
+  Tokens.erase(Tokens.end() - 1);
+  return true;
+}
+
+// Merge '?[' and '?.' pairs into single tokens.
+bool FormatTokenLexer::tryMergeCSharpNullConditional() {
+  if (Tokens.size() < 2)
+    return false;
+  auto &Question = *(Tokens.end() - 2);
+  auto &PeriodOrLSquare = *(Tokens.end() - 1);
+  if (!Question->is(tok::question) ||
+      !PeriodOrLSquare->isOneOf(tok::l_square, tok::period))
+    return false;
+  Question->TokenText =
+      StringRef(Question->TokenText.begin(),
+                PeriodOrLSquare->TokenText.end() - Question->TokenText.begin());
+  Question->ColumnWidth += PeriodOrLSquare->ColumnWidth;
+
+  if (PeriodOrLSquare->is(tok::l_square)) {
+    Question->Tok.setKind(tok::question); // no '?[' in clang tokens.
+    Question->Type = TT_CSharpNullConditionalLSquare;
+  } else {
+    Question->Tok.setKind(tok::question); // no '?.' in clang tokens.
+    Question->Type = TT_CSharpNullConditional;
+  }
+
   Tokens.erase(Tokens.end() - 1);
   return true;
 }
@@ -307,23 +340,6 @@ bool FormatTokenLexer::tryMergeCSharpKeywordVariables() {
                             Keyword->TokenText.end() - At->TokenText.begin());
   At->ColumnWidth += Keyword->ColumnWidth;
   At->Type = Keyword->Type;
-  Tokens.erase(Tokens.end() - 1);
-  return true;
-}
-
-// In C# merge the Identifier and the ? together e.g. arg?.
-bool FormatTokenLexer::tryMergeCSharpNullConditionals() {
-  if (Tokens.size() < 2)
-    return false;
-  auto &Identifier = *(Tokens.end() - 2);
-  auto &Question = *(Tokens.end() - 1);
-  if (!Identifier->isOneOf(tok::r_square, tok::identifier) ||
-      !Question->is(tok::question))
-    return false;
-  Identifier->TokenText =
-      StringRef(Identifier->TokenText.begin(),
-                Question->TokenText.end() - Identifier->TokenText.begin());
-  Identifier->ColumnWidth += Question->ColumnWidth;
   Tokens.erase(Tokens.end() - 1);
   return true;
 }
@@ -537,7 +553,7 @@ void FormatTokenLexer::handleCSharpVerbatimAndInterpolatedStrings() {
   size_t LastBreak = LiteralText.rfind('\n');
   if (LastBreak != StringRef::npos) {
     CSharpStringLiteral->IsMultiline = true;
-    unsigned StartColumn = 0; // The template tail spans the entire line.
+    unsigned StartColumn = 0;
     CSharpStringLiteral->LastLineColumnWidth = encoding::columnWidthWithTabs(
         LiteralText.substr(LastBreak + 1, LiteralText.size()), StartColumn,
         Style.TabWidth, Encoding);

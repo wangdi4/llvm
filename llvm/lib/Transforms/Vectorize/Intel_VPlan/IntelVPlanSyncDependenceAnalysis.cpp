@@ -120,7 +120,7 @@ namespace vpo {
 
 ConstBlockSet SyncDependenceAnalysis::EmptyBlockSet;
 
-SyncDependenceAnalysis::SyncDependenceAnalysis(const VPBlockBase *RegionEntry,
+SyncDependenceAnalysis::SyncDependenceAnalysis(const VPBasicBlock *RegionEntry,
                                                const VPDominatorTree &DT,
                                                const VPPostDominatorTree &PDT,
                                                const VPLoopInfo &LI)
@@ -131,7 +131,7 @@ SyncDependenceAnalysis::SyncDependenceAnalysis(const VPBlockBase *RegionEntry,
 
 SyncDependenceAnalysis::~SyncDependenceAnalysis() {}
 
-using RegionRPOT = ReversePostOrderTraversal<const VPBlockBase *>;
+using RegionRPOT = ReversePostOrderTraversal<const VPBasicBlock *>;
 
 // divergence propagator for reducible CFGs
 struct DivergencePropagator {
@@ -144,17 +144,17 @@ struct DivergencePropagator {
   std::unique_ptr<ConstBlockSet> JoinBlocks;
 
   // reached loop exits (by a path disjoint to a path to the loop header)
-  SmallPtrSet<const VPBlockBase *, 4> ReachedLoopExits;
+  SmallPtrSet<const VPBasicBlock *, 4> ReachedLoopExits;
 
   // if DefMap[B] == C then C is the dominating definition at block B
   // if DefMap[B] ~ undef then we haven't seen B yet
   // if DefMap[B] == B then B is a join point of disjoint paths from X or B is
   // an immediate successor of X (initial value).
-  using DefiningBlockMap = std::map<const VPBlockBase *, const VPBlockBase *>;
+  using DefiningBlockMap = std::map<const VPBasicBlock *, const VPBasicBlock *>;
   DefiningBlockMap DefMap;
 
   // all blocks with pending visits
-  std::unordered_set<const VPBlockBase *> PendingUpdates;
+  std::unordered_set<const VPBasicBlock *> PendingUpdates;
 
   DivergencePropagator(RegionRPOT &RegRPOT, const VPDominatorTree &DT,
                        const VPPostDominatorTree &PDT, const VPLoopInfo &LI)
@@ -162,7 +162,7 @@ struct DivergencePropagator {
         JoinBlocks(new ConstBlockSet) {}
 
   // set the definition at @Block and mark @Block as pending for a visit
-  void addPending(const VPBlockBase &Block, const VPBlockBase &DefBlock) {
+  void addPending(const VPBasicBlock &Block, const VPBasicBlock &DefBlock) {
     bool WasAdded = DefMap.emplace(&Block, &DefBlock).second;
     if (WasAdded)
       PendingUpdates.insert(&Block);
@@ -185,8 +185,8 @@ struct DivergencePropagator {
 
   // process @SuccBlock with reaching definition @DefBlock
   // the original divergent branch was in @ParentLoop (if any)
-  void visitSuccessor(const VPBlockBase &SuccBlock, const VPLoop *ParentLoop,
-                      const VPBlockBase &DefBlock) {
+  void visitSuccessor(const VPBasicBlock &SuccBlock, const VPLoop *ParentLoop,
+                      const VPBasicBlock &DefBlock) {
 
     // @SuccBlock is a loop exit (i.e., ParentLoop->getExitBlock())
     //
@@ -290,8 +290,8 @@ struct DivergencePropagator {
   // is passed into this function. The community uses an iterable range of
   // successors (succ_const_range), while we just use a SmallVector.
   std::unique_ptr<ConstBlockSet>
-  computeJoinPoints(const VPBlockBase &RootBlock,
-                    const SmallVectorImpl<VPBlockBase *> &NodeSuccessors,
+  computeJoinPoints(const VPBasicBlock &RootBlock,
+                    const SmallVectorImpl<VPBasicBlock *> &NodeSuccessors,
                     const VPLoop *ParentLoop) {
 
     assert(JoinBlocks &&
@@ -299,7 +299,7 @@ struct DivergencePropagator {
            "That analysis should finish before calling this function again");
 
     // immediate post dominator (no join block beyond that block)
-    const auto *PdNode = PDT.getNode(const_cast<VPBlockBase *>(&RootBlock));
+    const auto *PdNode = PDT.getNode(&RootBlock);
     assert(PdNode && "Immediate post dominator node is null.");
     const auto *IpdNode = PdNode->getIDom();
     const auto *PdBoundBlock = IpdNode ? IpdNode->getBlock() : nullptr;
@@ -381,7 +381,7 @@ struct DivergencePropagator {
         //                  (Join Point)  -----------
         //
         //
-        SmallVector<VPBlockBase *, 4> BlockLoopExits;
+        SmallVector<VPBasicBlock *, 4> BlockLoopExits;
         BlockLoop->getExitBlocks(BlockLoopExits);
         for (const auto *BlockLoopExit : BlockLoopExits)
           visitSuccessor(*BlockLoopExit, ParentLoop, *DefBlock);
@@ -460,7 +460,7 @@ struct DivergencePropagator {
     //                -----
     //
     //
-    const VPBlockBase *ParentLoopHeader =
+    const VPBasicBlock *ParentLoopHeader =
         ParentLoop ? ParentLoop->getHeader() : nullptr;
     if (ParentLoop && ParentLoop->contains(PdBoundBlock))
       DefMap[ParentLoopHeader] = DefMap[PdBoundBlock];
@@ -620,7 +620,7 @@ struct DivergencePropagator {
 };
 
 const ConstBlockSet &SyncDependenceAnalysis::joinBlocks(const VPLoop &Loop) {
-  using LoopExitVec = SmallVector<VPBlockBase *, 4>;
+  using LoopExitVec = SmallVector<VPBasicBlock *, 4>;
   LoopExitVec LoopExits;
   Loop.getExitBlocks(LoopExits);
   if (LoopExits.size() < 1)
@@ -642,7 +642,7 @@ const ConstBlockSet &SyncDependenceAnalysis::joinBlocks(const VPLoop &Loop) {
 }
 
 const ConstBlockSet &
-SyncDependenceAnalysis::joinBlocks(const VPBlockBase &TermBlock) {
+SyncDependenceAnalysis::joinBlocks(const VPBasicBlock &TermBlock) {
   // trivial case
   if (TermBlock.getNumSuccessors() < 1)
     return EmptyBlockSet;

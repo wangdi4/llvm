@@ -11,7 +11,7 @@
 ///
 /// \file
 /// This file defines VPLoopInfo analysis and VPLoop class. VPLoopInfo is a
-/// specialization of LoopInfoBase for VPBlockBase. VPLoops is a specialization
+/// specialization of LoopInfoBase for VPBasicBlock. VPLoops is a specialization
 /// of LoopBase that is used to hold loop metadata from VPLoopInfo. Further
 /// information can be found in VectorizationPlanner.rst.
 ///
@@ -24,7 +24,6 @@
 
 namespace llvm {
 namespace vpo {
-class VPBlockBase;
 class VPBasicBlock;
 class VPValue;
 class VPInstruction;
@@ -48,32 +47,22 @@ struct TripCountInfo {
   }
 };
 
-/// VPLoopInfo provides analysis of natural loop for VPBlockBase-based
-/// Hierarchical CFG. It is a specialization of LoopInfoBase class.
+/// VPLoopInfo provides analysis of natural loop for VPlan. It is a
+/// specialization of LoopInfoBase class.
 class VPLoopInfo;
 class VPDominatorTree;
 
 /// A VPLoop holds analysis information for every loop detected by VPLoopInfo.
 /// It is an instantiation of LoopBase.
-class VPLoop : public LoopBase<VPBlockBase, VPLoop> {
+class VPLoop : public LoopBase<VPBasicBlock, VPLoop> {
 private:
-  friend class LoopInfoBase<VPBlockBase, VPLoop>;
-  explicit VPLoop() : LoopBase<VPBlockBase, VPLoop>() {}
-  explicit VPLoop(VPBlockBase *VPB) : LoopBase<VPBlockBase, VPLoop>(VPB) {}
+  friend class LoopInfoBase<VPBasicBlock, VPLoop>;
+  explicit VPLoop() : LoopBase<VPBasicBlock, VPLoop>() {}
+  explicit VPLoop(VPBasicBlock *VPB) : LoopBase<VPBasicBlock, VPLoop>(VPB) {}
 
 public:
-  bool isLiveIn(const VPValue* VPVal) const;
-  bool isLiveOut(const VPValue* VPVal) const;
-
-  using LoopBase<VPBlockBase, VPLoop>::contains;
-
-  // LoopBase doesn't expect different types of VPBlockBase's and treats
-  // VPBasicBlock as a template type parameter for an Instruction version. Need
-  // to process these manually.
-  bool contains(const VPBasicBlock *BB) const;
-  // LoopBase's contains isn't virtual so its I->getParent can't call our
-  // overload, have to re-implement it too.
-  bool contains(const VPInstruction *I) const;
+  bool isLiveIn(const VPValue *VPVal) const;
+  bool isLiveOut(const VPValue *VPVal) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
@@ -97,8 +86,8 @@ public:
     setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
   }
 };
-class VPLoopInfo : public LoopInfoBase<VPBlockBase, VPLoop> {
-  using Base = LoopInfoBase<VPBlockBase, VPLoop>;
+class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
+  using Base = LoopInfoBase<VPBasicBlock, VPLoop>;
 
   // Remove interface from public. We prohibit VPLoop's recalculating because
   // they are used as keys in multiple maps. That is needed because we want to
@@ -116,13 +105,9 @@ template <> struct GraphTraits<vpo::VPLoop *> {
 
   static NodeRef getEntryNode(NodeRef N) { return N; }
 
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->begin();
-  }
+  static inline ChildIteratorType child_begin(NodeRef N) { return N->begin(); }
 
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->end();
-  }
+  static inline ChildIteratorType child_end(NodeRef N) { return N->end(); }
 };
 
 template <> struct GraphTraits<const vpo::VPLoop *> {
@@ -131,13 +116,9 @@ template <> struct GraphTraits<const vpo::VPLoop *> {
 
   static NodeRef getEntryNode(NodeRef N) { return N; }
 
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->begin();
-  }
+  static inline ChildIteratorType child_begin(NodeRef N) { return N->begin(); }
 
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->end();
-  }
+  static inline ChildIteratorType child_end(NodeRef N) { return N->end(); }
 };
 
 } // namespace llvm

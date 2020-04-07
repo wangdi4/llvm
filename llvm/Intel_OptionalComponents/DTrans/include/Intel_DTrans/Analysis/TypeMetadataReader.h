@@ -31,6 +31,7 @@ namespace dtrans {
 class DTransType;
 class DTransStructType;
 class DTransTypeManager;
+class TypeMetadataTester;
 
 // This class parses metadata descriptions of types for DTrans. Refer to the
 // DTrans .rst documentation files for a description of the metadata format.
@@ -51,6 +52,10 @@ class DTransTypeManager;
 //
 // Type 2 information can be decoded by calls to decodeMDNode.
 class TypeMetadataReader {
+  // Allow the TypeMetadataTester direct access to the decodeMDNode. All other
+  // clients should not know about the specific metadata tags, and therefore
+  // need to use the getDTransTypeFromMD interface.
+  friend class TypeMetadataTester;
 public:
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
@@ -60,11 +65,15 @@ public:
   // structure types were able to be resolved.
   bool initialize(Module &M);
 
+  // If the Value has DTrans type metadata that can be decoded, return the
+  // DTransType, otherwise nullptr.
+  DTransType *getDTransTypeFromMD(Value *V);
+
+private:
   // This method returns a DTransType* by decoding the information in the
   // metadata node. Returns nullptr, if an error occurs during decoding.
   DTransType *decodeMDNode(MDNode *MD);
 
-private:
   // Internal methods to help with decoding.
   DTransType *decodeMDFunctionNode(MDNode *MD);
   DTransType *decodeMDVoidNode(MDNode *MD);

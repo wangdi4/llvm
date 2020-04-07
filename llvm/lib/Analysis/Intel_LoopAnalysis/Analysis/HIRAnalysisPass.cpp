@@ -62,15 +62,3 @@ void HIRAnalysis::printAnalysis(raw_ostream &OS) const {
   PrintVisitor PV(HAP, OS);
   HIRF.getHLNodeUtils().visitAll(PV);
 }
-
-void HIRAnalysisPass::printAnalysis(raw_ostream &OS) const {
-  // Remove constness as HIR analyses are on-demand and have to compute results
-  // for printing.
-  HIRAnalysisPass &HAP = *const_cast<HIRAnalysisPass *>(this);
-
-  PrintVisitor PV(HAP, OS);
-  auto *HIRA = getAnalysisIfAvailable<HIRFrameworkWrapperPass>();
-  assert(HIRA && "HIRFramework not available!");
-
-  HIRA->getHIR().getHLNodeUtils().visitAll(PV);
-}

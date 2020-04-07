@@ -5,7 +5,20 @@
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
-; Test checks that inlining happens for all foo() call sites. The inlining is supposed to be followed by loop fusion and vectorization.
+; Test checks that inlining happens for all foo() call sites. The inlining is
+; supposed to be followed by loop fusion and vectorization.
+
+; Check that the IR has calls only in @baz when we are done. All calls to
+; @foo in @bar will be inlined out. (In the NEW case, the IR is dumped
+; BEFORE the inlining report.)
+
+; CHECK-NEW: define{{.*}}@foo
+; CHECK-NEW-NOT: call
+; CHECK-NEW: define{{.*}}@bar
+; CHECK-NEW-NOT: call
+; CHECK-NEW: define{{.*}}@baz
+; CHECK-NEW: call i32 @foo
+; CHECK-NEW: call i32 @foo
 
 ; Check for old pass manager with old inline report and new pass manager with
 ; old and metadata inline report
@@ -40,6 +53,18 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
 ; CHECK-NEW-NEXT: INLINE{{.*}}foo{{.*}}Callee has multiple callsites with loops that could be fused
+
+; Check that the IR has calls only in @baz when we are done. All calls to
+; @foo in @bar will be inlined out. (In the OLD case, the IR is dumped
+; AFTER the inlining report.)
+
+; CHECK-OLD: define{{.*}}@foo
+; CHECK-OLD-NOT: call
+; CHECK-OLD: define{{.*}}@bar
+; CHECK-OLD-NOT: call
+; CHECK-OLD: define{{.*}}@baz
+; CHECK-OLD: call i32 @foo
+; CHECK-OLD: call i32 @foo
 
 target triple = "x86_64-unknown-linux-gnu"
 

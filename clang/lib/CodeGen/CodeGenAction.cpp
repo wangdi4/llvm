@@ -32,11 +32,13 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LLVMRemarkStreamer.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/RemarkStreamer.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Pass.h"
+#include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TimeProfiler.h"
@@ -86,15 +88,15 @@ namespace clang {
                                    const CodeGenOptions CodeGenOpts) {
     handleAllErrors(
         std::move(E),
-      [&](const RemarkSetupFileError &E) {
+      [&](const LLVMRemarkSetupFileError &E) {
           Diags.Report(diag::err_cannot_open_file)
               << CodeGenOpts.OptRecordFile << E.message();
         },
-      [&](const RemarkSetupPatternError &E) {
+      [&](const LLVMRemarkSetupPatternError &E) {
           Diags.Report(diag::err_drv_optimization_remark_pattern)
               << E.message() << CodeGenOpts.OptRecordPasses;
         },
-      [&](const RemarkSetupFormatError &E) {
+      [&](const LLVMRemarkSetupFormatError &E) {
           Diags.Report(diag::err_drv_optimization_remark_format)
               << CodeGenOpts.OptRecordFormat;
         });
@@ -309,7 +311,7 @@ namespace clang {
         CodeGenOpts, this));
 
       Expected<std::unique_ptr<llvm::ToolOutputFile>> OptRecordFileOrErr =
-          setupOptimizationRemarks(
+          setupLLVMOptimizationRemarks(
               Ctx, CodeGenOpts.OptRecordFile, CodeGenOpts.OptRecordPasses,
               CodeGenOpts.OptRecordFormat, CodeGenOpts.DiagnosticsWithHotness,
               CodeGenOpts.DiagnosticsHotnessThreshold);
@@ -325,6 +327,17 @@ namespace clang {
       if (OptRecordFile &&
           CodeGenOpts.getProfileUse() != CodeGenOptions::ProfileNone)
         Ctx.setDiagnosticsHotnessRequested(true);
+
+      // The parallel_for_work_group legalization pass can emit calls to
+      // builtins function. Definitions of those builtins can be provided in
+      // LinkModule. We force the pass to legalize the code before the link
+      // happens.
+      if (LangOpts.SYCLIsDevice) {
+        PrettyStackTraceString CrashInfo("Pre-linking SYCL passes");
+        legacy::PassManager PreLinkingSyclPasses;
+        PreLinkingSyclPasses.add(llvm::createSYCLLowerWGScopePass());
+        PreLinkingSyclPasses.run(*getModule());
+      }
 
       // Link each LinkModule into our module.
       if (LinkInModules())
@@ -1150,11 +1163,14 @@ void CodeGenAction::ExecuteAction() {
                            CI.getTargetOpts(), CI.getLangOpts(),
                            CI.getFrontendOpts().ShowTimers,
                            std::move(LinkModules), *VMContext, nullptr);
+    // PR44896: Force DiscardValueNames as false. DiscardValueNames cannot be
+    // true here because the valued names are needed for reading textual IR.
+    Ctx.setDiscardValueNames(false);
     Ctx.setDiagnosticHandler(
         std::make_unique<ClangDiagnosticHandler>(CodeGenOpts, &Result));
 
     Expected<std::unique_ptr<llvm::ToolOutputFile>> OptRecordFileOrErr =
-        setupOptimizationRemarks(
+        setupLLVMOptimizationRemarks(
             Ctx, CodeGenOpts.OptRecordFile, CodeGenOpts.OptRecordPasses,
             CodeGenOpts.OptRecordFormat, CodeGenOpts.DiagnosticsWithHotness,
             CodeGenOpts.DiagnosticsHotnessThreshold);

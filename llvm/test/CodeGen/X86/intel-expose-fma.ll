@@ -20,12 +20,12 @@ define i1 @basic_test(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY) "u
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
+; CHECK-NEXT:    seta %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
@@ -225,12 +225,12 @@ define i1 @swap_operands1(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
+; CHECK-NEXT:    seta %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
@@ -257,12 +257,12 @@ define i1 @swap_operands2(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
+; CHECK-NEXT:    seta %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
@@ -289,12 +289,12 @@ define i1 @swap_operands3(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
-; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
+; CHECK-NEXT:    seta %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
@@ -321,12 +321,12 @@ define i1 @swap_operands4(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
+; CHECK-NEXT:    seta %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
@@ -353,12 +353,12 @@ define i1 @swap_operands5(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
+; CHECK-NEXT:    seta %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
@@ -385,12 +385,12 @@ define i1 @swap_operands6(float* %ptrA, float* %ptrB, float* %ptrX, float* %ptrY
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm0 = (xmm0 * mem) - xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm0 = -(xmm0 * mem) + xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    setb %al
+; CHECK-NEXT:    seta %al
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
@@ -449,10 +449,10 @@ define i1 @mixed_sub_and_add(float* %ptrA, float* %ptrB, float* %ptrX, float* %p
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss (%rdx), %xmm0, %xmm1
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
-; CHECK-NEXT:    vfmsub132ss {{.*#+}} xmm2 = (xmm2 * xmm0) - xmm1
+; CHECK-NEXT:    vfnmadd132ss {{.*#+}} xmm2 = -(xmm2 * xmm0) + xmm1
 ; CHECK-NEXT:    vfmadd132ss {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    setb %cl
+; CHECK-NEXT:    seta %cl
 ; CHECK-NEXT:    vucomiss {{.*}}(%rip), %xmm0
 ; CHECK-NEXT:    setb %al
 ; CHECK-NEXT:    orb %cl, %al

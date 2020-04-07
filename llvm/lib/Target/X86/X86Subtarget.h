@@ -176,6 +176,12 @@ protected:
   /// Processor has Integer Fused Multiply Add
   bool HasIFMA = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  bool HasAVXIFMA = false;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor has RTM instructions.
   bool HasRTM = false;
 
@@ -256,6 +262,10 @@ protected:
   /// True if vzeroupper instructions should be inserted after code that uses
   /// ymm or zmm registers.
   bool InsertVZEROUPPER = false;
+
+  /// True if there is no performance penalty for writing NOPs with up to
+  /// 7 bytes.
+  bool HasFast7ByteNOP = false;
 
   /// True if there is no performance penalty for writing NOPs with up to
   /// 11 bytes.
@@ -360,6 +370,13 @@ protected:
   /// Processor has AVX-512 bfloat16 floating-point extensions
   bool HasBF16 = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+  /// Processor has AVX bfloat16 floating-point extensions
+  bool HasAVXBF16 = false;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor supports ENQCMD instructions
   bool HasENQCMD = false;
 
@@ -412,6 +429,10 @@ protected:
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  /// Processor supports HRESET instruction
+  bool HasHRESET = false;
+#endif // INTEL_FEATURE_ISA_HRESET
 
 #if INTEL_FEATURE_ISA_TSXLDTRK
   /// Processor supports TSXLDTRK instruction
@@ -446,6 +467,9 @@ protected:
 #if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
   bool HasAMXCONVERTEVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  bool HasAMXCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
   bool HasAMXINT8EVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
@@ -456,9 +480,23 @@ protected:
   bool HasAMXTRANSPOSE2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  bool HasCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  bool HasAVXCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  bool HasDOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  bool HasAVXDOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #endif // INTEL_CUSTOMIZATION
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -713,6 +751,11 @@ public:
   bool hasVBMI() const { return HasVBMI; }
   bool hasVBMI2() const { return HasVBMI2; }
   bool hasIFMA() const { return HasIFMA; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  bool hasAVXIFMA() const { return HasAVXIFMA; }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
   bool hasRTM() const { return HasRTM; }
   bool hasADX() const { return HasADX; }
   bool hasSHA() const { return HasSHA; }
@@ -783,6 +826,11 @@ public:
   bool hasPKU() const { return HasPKU; }
   bool hasVNNI() const { return HasVNNI; }
   bool hasBF16() const { return HasBF16; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+  bool hasAVXBF16() const { return HasAVXBF16; }
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
   bool hasVP2INTERSECT() const { return HasVP2INTERSECT; }
   bool hasBITALG() const { return HasBITALG; }
   bool hasSHSTK() const { return HasSHSTK; }
@@ -809,6 +857,9 @@ public:
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool hasSERIALIZE() const { return HasSERIALIZE; }
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  bool hasHRESET() const { return HasHRESET; }
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
@@ -845,6 +896,9 @@ public:
 #if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
   bool hasAMXCONVERTEVEX() const { return HasAMXCONVERTEVEX; }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  bool hasAMXCONVERT() const { return HasAMXCONVERT; }
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
   bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
@@ -857,6 +911,18 @@ public:
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  bool hasDOTPROD() const { return HasDOTPROD; }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  bool hasAVXDOTPROD() const { return HasAVXDOTPROD; }
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  bool hasCONVERT() const { return HasCONVERT; }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  bool hasAVXCONVERT() const { return HasAVXCONVERT; }
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
   bool preferMaskRegisters() const { return PreferMaskRegisters; }

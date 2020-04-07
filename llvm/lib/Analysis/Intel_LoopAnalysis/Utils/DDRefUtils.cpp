@@ -585,8 +585,9 @@ void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
 
 bool DDRefUtils::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
                                  SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
-                                 SmallVectorImpl<BlobTy> *DimSizes) {
+                                 SmallVectorImpl<BlobTy> *DimSizes,
+                                 bool AllowSExt) {
   assert(!GepRefs.empty() && "Empty input container");
   return GepRefs.front()->getDDRefUtils().getHIRParser().delinearizeRefs(
-      GepRefs, OutRefs, DimSizes);
+      GepRefs, OutRefs, DimSizes, AllowSExt);
 }

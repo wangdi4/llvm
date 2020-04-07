@@ -1,6 +1,6 @@
 ; Test that we can build VPlan in stress test mode for a loop not in LCSSA form.
 ; RUN: opt -S -VPlanDriver -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes="lcssa,vplan-driver" -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 ; CHECK: Vectorization Plan{{.*}} After building HCFG
 ; CHECK-LABEL: @foo(

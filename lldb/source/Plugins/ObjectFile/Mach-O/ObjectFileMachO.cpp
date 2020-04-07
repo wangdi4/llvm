@@ -66,6 +66,8 @@ using namespace lldb;
 using namespace lldb_private;
 using namespace llvm::MachO;
 
+LLDB_PLUGIN_DEFINE(ObjectFileMachO)
+
 // Some structure definitions needed for parsing the dyld shared cache files
 // found on iOS devices.
 
@@ -1148,6 +1150,7 @@ AddressClass ObjectFileMachO::GetAddressClass(lldb::addr_t file_addr) {
         case eSectionTypeDWARFDebugStrDwo:
         case eSectionTypeDWARFDebugStrOffsets:
         case eSectionTypeDWARFDebugStrOffsetsDwo:
+        case eSectionTypeDWARFDebugTuIndex:
         case eSectionTypeDWARFDebugTypes:
         case eSectionTypeDWARFDebugTypesDwo:
         case eSectionTypeDWARFAppleNames:
@@ -3503,8 +3506,8 @@ size_t ObjectFileMachO::ParseSymtab() {
                               N_FUN_addr_to_sym_idx.equal_range(nlist.n_value);
                           if (range.first != range.second) {
                             bool found_it = false;
-                            for (const auto pos = range.first;
-                                 pos != range.second; ++pos) {
+                            for (auto pos = range.first; pos != range.second;
+                                 ++pos) {
                               if (sym[sym_idx].GetMangled().GetName(
                                       lldb::eLanguageTypeUnknown,
                                       Mangled::ePreferMangled) ==
@@ -3548,8 +3551,8 @@ size_t ObjectFileMachO::ParseSymtab() {
                               nlist.n_value);
                           if (range.first != range.second) {
                             bool found_it = false;
-                            for (const auto pos = range.first;
-                                 pos != range.second; ++pos) {
+                            for (auto pos = range.first; pos != range.second;
+                                 ++pos) {
                               if (sym[sym_idx].GetMangled().GetName(
                                       lldb::eLanguageTypeUnknown,
                                       Mangled::ePreferMangled) ==

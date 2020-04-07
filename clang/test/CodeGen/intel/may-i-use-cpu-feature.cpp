@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -O0 -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
 
 #define FEAT_1 1U << 7
 #define FEAT_2 1U << 8
@@ -104,4 +104,38 @@ bool usage_str_1() {
   // CHECK: %[[CHECK2:[A-Za-z0-9_-]+]] = icmp eq i64 %[[JOIN2]], 9
   // CHECK: %[[AND_BOTH:[A-Za-z0-9_-]+]] = and i1 %[[CHECK]], %[[CHECK2]]
   // CHECK: ret i1 %[[AND_BOTH]]
+}
+
+// CMPLRLLVM-11744: Handle a case where a zero feature is given, it would
+// previously cause a null-dereference, but should simply always return
+// 1 for 'true'.
+bool zero_features_0() {
+  if (_may_i_use_cpu_feature(0)) {
+  }
+  // CHECK: call void @__intel_cpu_features_init_x()
+  // CHECK: br i1 true
+
+  return _may_i_use_cpu_feature(0);
+  // CHECK: ret i1 true
+}
+
+
+bool zero_features_1() {
+  if (_may_i_use_cpu_feature_ext(0, 0)) {
+  }
+  // CHECK: call void @__intel_cpu_features_init_x()
+  // CHECK: br i1 true
+
+  return _may_i_use_cpu_feature_ext(0, 0);
+  // CHECK: ret i1 true
+}
+
+bool zero_features_2() {
+  if (_may_i_use_cpu_feature_ext(0, 1)) {
+  }
+  // CHECK: call void @__intel_cpu_features_init_x()
+  // CHECK: br i1 true
+
+  return _may_i_use_cpu_feature_ext(0, 1);
+  // CHECK: ret i1 true
 }

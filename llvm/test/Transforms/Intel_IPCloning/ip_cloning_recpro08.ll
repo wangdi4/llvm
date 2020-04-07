@@ -1,5 +1,5 @@
-; RUN: opt < %s -ip-cloning -inline -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -inline -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
 
 ; Test that after @foo is cloned as a recursive progression clone 8 times and
 ; all of those clones are inlined into @MAIN__, that @MAIN__ has the

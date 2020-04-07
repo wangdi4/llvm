@@ -14,7 +14,7 @@
 ; CHECK: Function
 ;
 ; CHECK:  BEGIN REGION { }
-; CHECK:        + DO i1 = 0, %ITER.0 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+; CHECK:        + DO i1 = 0, %ITER.0 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>
 ; CHECK:        |   + DO i2 = 0, 300, 1   <DO_LOOP>
 ; CHECK:        |   |   (@flags1)[0][i2] = i2 + 70000;
 ; CHECK:        |   |   %1 = (@flags1)[0][i2];
@@ -39,7 +39,7 @@
 ;
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, %ITER.0 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
+; CHECK:        + DO i1 = 0, %ITER.0 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>
 ; CHECK:        |   + DO i2 = 0, 300, 1   <DO_LOOP>
 ; CHECK:        |   |   %scalarepl = i2 + 70000;
 ; CHECK:        |   |   %1 = %scalarepl;

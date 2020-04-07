@@ -394,6 +394,7 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
     OS << "\n       ";
     OS << " Inst:";
     F->getInst().dump_pretty(OS);
+    OS << " (" << F->getContents().size() << " bytes)";
     break;
   }
   case MCFragment::FT_Org:  {
@@ -422,20 +423,14 @@ LLVM_DUMP_METHOD void MCFragment::dump() const {
     OS << " Value:" << LF->getValue() << " Signed:" << LF->isSigned();
     break;
   }
-#if INTEL_CUSTOMIZATION
   case MCFragment::FT_BoundaryAlign: {
     const auto *BF = cast<MCBoundaryAlignFragment>(this);
-    if (BF->hasEmitNops())
-      OS << " (emit nops)";
     OS << "\n       ";
-    if (BF->hasValue())
-      OS << " Value:" << hexdigit(BF->getValue());
     OS << " BoundarySize:" << BF->getAlignment().value()
-       << " MaxBytesToEmit:" << BF->getMaxBytesToEmit()
+       << " LastFragment:" << BF->getLastFragment()
        << " Size:" << BF->getSize();
     break;
   }
-#endif // INTEL_CUSTOMIZATION
   case MCFragment::FT_SymbolId: {
     const auto *F = cast<MCSymbolIdFragment>(this);
     OS << "\n       ";

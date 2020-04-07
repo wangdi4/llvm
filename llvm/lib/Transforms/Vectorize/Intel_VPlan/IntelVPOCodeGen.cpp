@@ -427,25 +427,6 @@ void VPOCodeGen::updateAnalysis() {
   // LLVM_DEBUG(DT->verifyDomTree());
 }
 
-Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
-  // We need to place the broadcast of invariant variables outside the loop.
-  Instruction *Instr = dyn_cast<Instruction>(V);
-  bool NewInstr = (Instr && NewLoop->contains(Instr));
-  bool Invariant = OrigLoop->isLoopInvariant(V) && !NewInstr;
-
-  auto OldIP = Builder.saveIP();
-  // Place the code for broadcasting invariant variables in the new preheader.
-  IRBuilder<>::InsertPointGuard Guard(Builder);
-  if (Invariant)
-    Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
-
-  // Broadcast the scalar into all locations in the vector.
-  Value *Shuf = Builder.CreateVectorSplat(VF, V, "broadcast");
-
-  Builder.restoreIP(OldIP);
-  return Shuf;
-}
-
 /// Reverse vector \p Vec. \p OriginalVL specifies the original vector length
 /// of the value before vectorization.
 /// If the original value was scalar, a vector <A0, A1, A2, A3> will be just
@@ -539,61 +520,24 @@ bool VPOCodeGen::needScalarCode(VPInstruction *V) {
 }
 
 void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
-  // If the PHI is not being blended into a select, go ahead and create a PHI
-  // and return after adding it to the PHIsToFix map.
-  if (VPPhi->getBlend() == false) {
-    auto PhiTy = VPPhi->getType();
-    PHINode *NewPhi;
-    if (needScalarCode(VPPhi)) {
-      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
-      VPScalarMap[VPPhi][0] = NewPhi;
-      ScalarPhisToFix[VPPhi] = NewPhi;
-    }
-    if (needVectorCode(VPPhi)) {
-      PhiTy = getWidenedType(PhiTy, VF);
-      NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
-      VPWidenMap[VPPhi] = NewPhi;
-      PhisToFix[VPPhi] = NewPhi;
-    }
+  auto PhiTy = VPPhi->getType();
+  PHINode *NewPhi;
+  // FIXME: Replace with proper SVA.
+  bool EmitScalarOnly =
+      !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
+  if (needScalarCode(VPPhi) || EmitScalarOnly) {
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+    VPScalarMap[VPPhi][0] = NewPhi;
+    ScalarPhisToFix[VPPhi] = NewPhi;
+  }
+  if (EmitScalarOnly)
     return;
+  if (needVectorCode(VPPhi)) {
+    PhiTy = getWidenedType(PhiTy, VF);
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+    VPWidenMap[VPPhi] = NewPhi;
+    PhisToFix[VPPhi] = NewPhi;
   }
-
-  unsigned NumIncomingValues = VPPhi->getNumIncomingValues();
-  assert(NumIncomingValues > 0 && "Unexpected PHI with zero values");
-  if (NumIncomingValues == 1) {
-    // Blend phis should only be encountered in the linearized control flow.
-    // However, currently some preceding transformations mark some single-value
-    // phis as blends too (and codegen is probably relying on that as well).
-    // Bail out right now because general processing of phis with multiple
-    // incoming values relies on the control flow being linearized.
-    Value *Val = getVectorValue(VPPhi->getOperand(0));
-    VPWidenMap[VPPhi] = Val;
-    return;
-  }
-
-  // Blend the PHIs using selects and incoming masks.
-  VPPhi->sortIncomingBlocksForBlend();
-
-  // Generate a sequence of selects.
-  Value *BlendVal = nullptr;
-  for (unsigned Idx = 0, End = VPPhi->getNumIncomingValues(); Idx < End;
-       ++Idx) {
-    VPBasicBlock *Block = VPPhi->getIncomingBlock(Idx);
-    Value *IncomingVecVal = getVectorValue(VPPhi->getIncomingValue(Idx));
-    if (!BlendVal) {
-      BlendVal = IncomingVecVal;
-      continue;
-    }
-
-    Value *Cond = getVectorValue(Block->getPredicate());
-    if (VPPhi->getType()->isVectorTy()) {
-      unsigned OriginalVL = VPPhi->getType()->getVectorNumElements();
-      Cond = replicateVectorElts(Cond, OriginalVL, Builder);
-    }
-    BlendVal = Builder.CreateSelect(Cond, IncomingVecVal, BlendVal, "predphi");
-  }
-
-  VPWidenMap[VPPhi] = BlendVal;
 }
 
 std::unique_ptr<VectorVariant>
@@ -787,6 +731,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
     vectorizeVPPHINode(cast<VPPHINode>(VPInst));
+    return;
+  }
+
+  case VPInstruction::Blend: {
+    vectorizeBlend(cast<VPBlendInst>(VPInst));
     return;
   }
 
@@ -1003,6 +952,20 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
 
   case Instruction::ICmp: {
+    // FIXME: Proper SVA-driven scalar ICMP codegen.
+    if (!MaskValue &&
+        !Plan->getVPlanDA()->isDivergent(*VPInst)
+        // DA forces icmp corresponding to the original loop exit condition to
+        // be treated as uniform, which is wrong. Don't emit scalar icmp for it.
+        && (!Plan->getVPlanDA()->isDivergent(*VPInst->getOperand(0)) &&
+            !Plan->getVPlanDA()->isDivergent(*VPInst->getOperand(1)))) {
+      Value *A = getScalarValue(VPInst->getOperand(0), 0);
+      Value *B = getScalarValue(VPInst->getOperand(1), 0);
+      auto *Cmp = cast<VPCmpInst>(VPInst);
+      VPScalarMap[VPInst][0] = Builder.CreateICmp(Cmp->getPredicate(), A, B);
+      return;
+    }
+
     Value *A = getVectorValue(VPInst->getOperand(0));
     Value *B = getVectorValue(VPInst->getOperand(1));
     auto *Cmp = cast<VPCmpInst>(VPInst);
@@ -1207,7 +1170,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         Builder.CreateICmpEQ(BitCastInst, Constant::getNullValue(IntTy));
 
     // Broadcast the compare and set as the widened value.
-    auto *V = getBroadcastInstrs(CmpInst);
+    auto *V = Builder.CreateVectorSplat(VF, CmpInst, "broadcast");
     VPWidenMap[VPInst] = V;
     return;
   }
@@ -2583,12 +2546,24 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
 
     Value *VectorValue = nullptr;
     IRBuilder<>::InsertPointGuard Guard(Builder);
-    if (IsUniform) {
-      Value *ScalarValue = VPScalarMap[V][0];
+
+    auto UpdateInsertPoint = [=](Value *ScalarValue) -> void {
       // ScalarValue can be a constant, so insertion point setting is not needed
       // for that case.
-      if (isa<Instruction>(ScalarValue))
-        Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
+      auto *ScalarInst = dyn_cast<Instruction>(ScalarValue);
+      if (!ScalarInst)
+        return;
+      auto It = ++(ScalarInst->getIterator());
+
+      while (isa<PHINode>(*It))
+        ++It;
+
+      Builder.SetInsertPoint(ScalarInst->getParent(), It);
+    };
+
+    if (IsUniform) {
+      Value *ScalarValue = VPScalarMap[V][0];
+      UpdateInsertPoint(ScalarValue);
       if (ScalarValue->getType()->isVectorTy()) {
         VectorValue =
             replicateVector(ScalarValue, VF, Builder,
@@ -2607,7 +2582,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       Value *ScalarValue = VPScalarMap[V][VF - 1];
       assert(isa<Instruction>(ScalarValue) &&
              "Expected instruction for scalar value");
-      Builder.SetInsertPoint((cast<Instruction>(ScalarValue))->getNextNode());
+      UpdateInsertPoint(ScalarValue);
       VectorValue = joinVectors(Parts, Builder);
     } else {
       VectorValue = UndefValue::get(VectorType::get(V->getType(), VF));
@@ -2634,7 +2609,12 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   assert(UnderlyingV && "VPExternalDefs and VPConstants are expected to have "
                         "underlying IR value set.");
 
+  // Place the code for broadcasting invariant variables in the new preheader.
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
+
   // Broadcast V and save the value for future uses.
+  Value *Widened;
   if (V->getType()->isVectorTy()) {
     assert(V->getType()->getVectorElementType()->isSingleValueType() &&
            "Re-vectorization is supported for simple vectors only");
@@ -2645,12 +2625,14 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
     //                             |
     //                             V
     //          <i32 0, i32 1,i32 0, i32 1,i32 0, i32 1,i32 0, i32 1>
-    VPWidenMap[V] = replicateVector(UnderlyingV, VF, Builder,
+    Widened = replicateVector(UnderlyingV, VF, Builder,
                                     "replicatedVal." + UnderlyingV->getName());
-  } else
-    VPWidenMap[V] = getBroadcastInstrs(UnderlyingV);
+  } else {
+    Widened = Builder.CreateVectorSplat(VF, UnderlyingV, "broadcast");
+  }
+  VPWidenMap[V] = Widened;
 
-  return VPWidenMap[V];
+  return Widened;
 }
 
 Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
@@ -3025,13 +3007,45 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
   }
 }
 
+// Widen blend instruction. The implementation here generates a sequence
+// of selects. Consider the following scalar blend in bb0:
+//      vp1 = blend [vp2, bp2] [vp3, bp3] [vp4, bp4].
+// The selects are generated as follows:
+//      select1 = bp3_vec ? vp3_vec : vp2_vec
+//      vp1_vec = bp4_vec ? vp4_vec : select1
+void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
+  unsigned NumIncomingValues = Blend->getNumIncomingValues();
+  assert(NumIncomingValues > 0 && "Unexpected blend with zero values");
+
+  // Generate a sequence of selects.
+  Value *BlendVal = nullptr;
+  for (unsigned Idx = 0, End = NumIncomingValues; Idx < End;
+       ++Idx) {
+    Value *IncomingVecVal = getVectorValue(Blend->getIncomingValue(Idx));
+    if (!BlendVal) {
+      BlendVal = IncomingVecVal;
+      continue;
+    }
+
+    VPValue *BlockPred = Blend->getIncomingPredicate(Idx);
+    assert(BlockPred && "block-predicate should not be null for select");
+    Value *Cond = getVectorValue(BlockPred);
+    if (Blend->getType()->isVectorTy()) {
+      unsigned OriginalVL = Blend->getType()->getVectorNumElements();
+      Cond = replicateVectorElts(Cond, OriginalVL, Builder);
+    }
+    BlendVal = Builder.CreateSelect(Cond, IncomingVecVal, BlendVal, "predblend");
+  }
+
+  VPWidenMap[Blend] = BlendVal;
+}
+
 void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
                                        PHINode *UnderlyingPhi) {
   Type *ScalarTy = VPPhi->getType();
   assert(!ScalarTy->isAggregateType() && "Unexpected reduction type");
   assert(VPPhi->getParent()->getNumPredecessors() == 2 &&
          "Unexpected reduction phi placement");
-  assert(!VPPhi->getBlend() && "Unexpected blend on reduction phi");
   Type *VecTy = VectorType::get(ScalarTy, VF);
   PHINode *VecPhi = PHINode::Create(VecTy, 2, "vec.phi",
                                     &*LoopVectorBody->getFirstInsertionPt());

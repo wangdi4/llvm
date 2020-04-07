@@ -72,8 +72,8 @@ protected:
                                       const unsigned VF) const;
 
 private:
-  void collectMemrefs(const VPRegionBlock *Region,
-                      OVLSMemrefVector &MemrefVector, unsigned VF);
+  void collectMemrefs(OVLSMemrefVector &MemrefVector, const VPlan *Plan,
+                      unsigned VF);
 
   /// To call OptVLSInterface, vectorizer has to pass maximum physical
   /// vector length for a given target. From vectorization point of view,

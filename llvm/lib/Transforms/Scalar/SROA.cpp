@@ -134,7 +134,7 @@ namespace {
 
 /// A custom IRBuilder inserter which prefixes all names, but only in
 /// Assert builds.
-class IRBuilderPrefixedInserter : public IRBuilderDefaultInserter {
+class IRBuilderPrefixedInserter final : public IRBuilderDefaultInserter {
   std::string Prefix;
 
   const Twine getNameWithPrefix(const Twine &Name) const {
@@ -144,9 +144,8 @@ class IRBuilderPrefixedInserter : public IRBuilderDefaultInserter {
 public:
   void SetNamePrefix(const Twine &P) { Prefix = P.str(); }
 
-protected:
   void InsertHelper(Instruction *I, const Twine &Name, BasicBlock *BB,
-                    BasicBlock::iterator InsertPt) const {
+                    BasicBlock::iterator InsertPt) const override {
     IRBuilderDefaultInserter::InsertHelper(I, getNameWithPrefix(Name), BB,
                                            InsertPt);
   }
@@ -2559,7 +2558,8 @@ public:
     Instruction *OldUserI = cast<Instruction>(OldUse->getUser());
     IRB.SetInsertPoint(OldUserI);
     IRB.SetCurrentDebugLocation(OldUserI->getDebugLoc());
-    IRB.SetNamePrefix(Twine(NewAI.getName()) + "." + Twine(BeginOffset) + ".");
+    IRB.getInserter().SetNamePrefix(
+        Twine(NewAI.getName()) + "." + Twine(BeginOffset) + ".");
 
     CanSROA &= visit(cast<Instruction>(OldUse->getUser()));
     if (VecTy || IntTy)
@@ -2710,6 +2710,8 @@ private:
         NewLI->setAAMetadata(AATags);
       if (LI.isVolatile())
         NewLI->setAtomic(LI.getOrdering(), LI.getSyncScopeID());
+      if (NewLI->isAtomic())
+        NewLI->setAlignment(LI.getAlign());
 
       // Any !nonnull metadata or !range metadata on the old load is also valid
       // on the new load. This is even true in some cases even when the loads
@@ -2900,6 +2902,8 @@ private:
       NewSI->setAAMetadata(AATags);
     if (SI.isVolatile())
       NewSI->setAtomic(SI.getOrdering(), SI.getSyncScopeID());
+    if (NewSI->isAtomic())
+      NewSI->setAlignment(SI.getAlign());
     Pass.DeadInsts.insert(&SI);
     deleteIfTriviallyDead(OldOp);
 
@@ -3346,14 +3350,14 @@ private:
     // as local as possible to the PHI. To do that, we re-use the location of
     // the old pointer, which necessarily must be in the right position to
     // dominate the PHI.
-    IRBuilderTy PtrBuilder(IRB);
+    IRBuilderBase::InsertPointGuard Guard(IRB);
     if (isa<PHINode>(OldPtr))
-      PtrBuilder.SetInsertPoint(&*OldPtr->getParent()->getFirstInsertionPt());
+      IRB.SetInsertPoint(&*OldPtr->getParent()->getFirstInsertionPt());
     else
-      PtrBuilder.SetInsertPoint(OldPtr);
-    PtrBuilder.SetCurrentDebugLocation(OldPtr->getDebugLoc());
+      IRB.SetInsertPoint(OldPtr);
+    IRB.SetCurrentDebugLocation(OldPtr->getDebugLoc());
 
-    Value *NewPtr = getNewAllocaSlicePtr(PtrBuilder, OldPtr->getType());
+    Value *NewPtr = getNewAllocaSlicePtr(IRB, OldPtr->getType());
     // Replace the operands which were using the old pointer.
     std::replace(PN.op_begin(), PN.op_end(), cast<Value>(OldPtr), NewPtr);
 
@@ -4884,3 +4888,59 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(SROALegacyPass, "sroa", "Scalar Replacement Of Aggregates",
                     false, false)
+
+#if INTEL_CUSTOMIZATION
+// Call graph SCC adaptor for the SROA pass which runs SROA for each function
+// in SCC.
+class llvm::sroa::SROALegacyCGSCCAdaptorPass : public CallGraphSCCPass {
+public:
+  static char ID;
+
+  SROALegacyCGSCCAdaptorPass() : CallGraphSCCPass(ID) {
+    initializeSROALegacyCGSCCAdaptorPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnSCC(CallGraphSCC &SCC) override {
+    if (skipSCC(SCC))
+      return false;
+
+    bool Changed = false;
+    for (CallGraphNode *CGN : SCC)
+      if (Function *F = CGN->getFunction()) {
+        if (F->isDeclaration() || F->hasOptNone())
+          continue;
+
+        // Have to compute dominator tree explicitly because CG SCC pass manager
+        // has problems with scheduling DominatorTree analysis. An attempt to
+        // get it from the legacy pass manager triggers llvm_unreachable().
+        DominatorTree DT(*F);
+        auto PA = SROA().runImpl(
+            *F, DT,
+            getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F));
+        Changed |= !PA.areAllPreserved();
+      }
+    return Changed;
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<AssumptionCacheTracker>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addPreserved<AndersensAAWrapperPass>();
+    AU.addPreserved<InlineAggressiveWrapperPass>();
+    AU.addPreserved<WholeProgramWrapperPass>();
+    AU.setPreservesCFG();
+  }
+};
+
+char SROALegacyCGSCCAdaptorPass::ID = 0;
+
+INITIALIZE_PASS_BEGIN(SROALegacyCGSCCAdaptorPass, "sroa-cgscc",
+                      "CallGraphSCC adaptor for SROA", false, false)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_END(SROALegacyCGSCCAdaptorPass, "sroa-cgscc",
+                    "CallGraphSCC adaptor for SROA", false, false)
+
+Pass *llvm::createSROALegacyCGSCCAdaptorPass() {
+  return new SROALegacyCGSCCAdaptorPass();
+}
+#endif // INTEL_CUSTOMIZATION

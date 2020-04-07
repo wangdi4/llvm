@@ -190,9 +190,14 @@ void *__tgt_rtl_create_offload_pipe(int32_t ID, bool IsAsync);
 EXTERN
 int32_t __tgt_rtl_release_offload_pipe(int32_t ID, void *Pipe);
 
-// Checks if the specified memory location is managed.
-EXTERN
-int32_t __tgt_rtl_is_managed_data(int32_t ID, void *HostPtr);
+// Allocate a managed memory object.
+EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
+
+// Delete a managed memory object.
+EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t ID, void *Ptr);
+
+// Check if the pointer belongs to a managed memory address range.
+EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t ID, void *Ptr);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

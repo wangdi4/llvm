@@ -3384,19 +3384,15 @@ __m512h test_mm512_maskz_fmsubadd_round_ph(__mmask32 __U, __m512h __A, __m512h _
 
 __m512h test_mm512_fmaddsub_ph(__m512h __A, __m512h __B, __m512h __C) {
   // CHECK-LABEL: @test_mm512_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: shufflevector <32 x half> [[SUB]], <32 x half> [[ADD]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK-NOT: fneg
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4)
   return _mm512_fmaddsub_ph(__A, __B, __C);
 }
 
 __m512h test_mm512_mask_fmaddsub_ph(__m512h __A, __mmask32 __U, __m512h __B, __m512h __C) {
   // CHECK-LABEL: @test_mm512_mask_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: shufflevector <32 x half> [[SUB]], <32 x half> [[ADD]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK-NOT: fneg
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4)
   // CHECK: bitcast i32 %{{.*}} to <32 x i1>
   // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}
   return _mm512_mask_fmaddsub_ph(__A, __U, __B, __C);
@@ -3404,10 +3400,8 @@ __m512h test_mm512_mask_fmaddsub_ph(__m512h __A, __mmask32 __U, __m512h __B, __m
 
 __m512h test_mm512_mask3_fmaddsub_ph(__m512h __A, __m512h __B, __m512h __C, __mmask32 __U) {
   // CHECK-LABEL: @test_mm512_mask3_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: shufflevector <32 x half> [[SUB]], <32 x half> [[ADD]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK-NOT: fneg
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4)
   // CHECK: bitcast i32 %{{.*}} to <32 x i1>
   // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}
   return _mm512_mask3_fmaddsub_ph(__A, __B, __C, __U);
@@ -3415,10 +3409,8 @@ __m512h test_mm512_mask3_fmaddsub_ph(__m512h __A, __m512h __B, __m512h __C, __mm
 
 __m512h test_mm512_maskz_fmaddsub_ph(__mmask32 __U, __m512h __A, __m512h __B, __m512h __C) {
   // CHECK-LABEL: @test_mm512_maskz_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: shufflevector <32 x half> [[SUB]], <32 x half> [[ADD]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK-NOT: fneg
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 4)
   // CHECK: bitcast i32 %{{.*}} to <32 x i1>
   // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> zeroinitializer
   return _mm512_maskz_fmaddsub_ph(__U, __A, __B, __C);
@@ -3427,18 +3419,14 @@ __m512h test_mm512_maskz_fmaddsub_ph(__mmask32 __U, __m512h __A, __m512h __B, __
 __m512h test_mm512_fmsubadd_ph(__m512h __A, __m512h __B, __m512h __C) {
   // CHECK-LABEL: @test_mm512_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: shufflevector <32 x half> [[ADD]], <32 x half> [[SUB]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> [[NEG]], i32 4)
   return _mm512_fmsubadd_ph(__A, __B, __C);
 }
 
 __m512h test_mm512_mask_fmsubadd_ph(__m512h __A, __mmask32 __U, __m512h __B, __m512h __C) {
   // CHECK-LABEL: @test_mm512_mask_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: shufflevector <32 x half> [[ADD]], <32 x half> [[SUB]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> [[NEG]], i32 4)
   // CHECK: bitcast i32 %{{.*}} to <32 x i1>
   // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}
   return _mm512_mask_fmsubadd_ph(__A, __U, __B, __C);
@@ -3447,9 +3435,7 @@ __m512h test_mm512_mask_fmsubadd_ph(__m512h __A, __mmask32 __U, __m512h __B, __m
 __m512h test_mm512_maskz_fmsubadd_ph(__mmask32 __U, __m512h __A, __m512h __B, __m512h __C) {
   // CHECK-LABEL: @test_mm512_maskz_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: shufflevector <32 x half> [[ADD]], <32 x half> [[SUB]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> [[NEG]], i32 4)
   // CHECK: bitcast i32 %{{.*}} to <32 x i1>
   // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> zeroinitializer
   return _mm512_maskz_fmsubadd_ph(__U, __A, __B, __C);
@@ -3485,9 +3471,7 @@ __m512h test_mm512_mask3_fmsubadd_round_ph(__m512h __A, __m512h __B, __m512h __C
 __m512h test_mm512_mask3_fmsubadd_ph(__m512h __A, __m512h __B, __m512h __C, __mmask32 __U) {
   // CHECK-LABEL: @test_mm512_mask3_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half>
-  // CHECK: [[ADD:%.+]] = call <32 x half> @llvm.fma.v32f16(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}})
-  // CHECK: shufflevector <32 x half> [[ADD]], <32 x half> [[SUB]], <32 x i32> <i32 0, i32 33, i32 2, i32 35, i32 4, i32 37, i32 6, i32 39, i32 8, i32 41, i32 10, i32 43, i32 12, i32 45, i32 14, i32 47, i32 16, i32 49, i32 18, i32 51, i32 20, i32 53, i32 22, i32 55, i32 24, i32 57, i32 26, i32 59, i32 28, i32 61, i32 30, i32 63>
+  // CHECK: call <32 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, <32 x half> [[NEG]], i32 4)
   // CHECK: bitcast i32 %{{.*}} to <32 x i1>
   // CHECK: select <32 x i1> %{{.*}}, <32 x half> %{{.*}}, <32 x half> %{{.*}}
   return _mm512_mask3_fmsubadd_ph(__A, __B, __C, __U);

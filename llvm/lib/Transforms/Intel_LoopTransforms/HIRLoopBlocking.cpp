@@ -87,9 +87,9 @@ static cl::opt<bool>
                       cl::ReallyHidden,
                       cl::desc("Print loops affected by " OPT_DESC " pass"));
 
-static cl::opt<bool>
-    PrintDiagFlag(OPT_SWITCH "-print-diag", cl::init(false), cl::ReallyHidden,
-                  cl::desc("Print Diag why " OPT_DESC " did not happen."));
+static cl::opt<unsigned>
+    PrintDiagLevel(OPT_SWITCH "-diag-level", cl::init(0), cl::ReallyHidden,
+                   cl::desc("Print Diag why " OPT_DESC " did not happen."));
 
 static cl::opt<std::string> PrintDiagFunc(
     OPT_SWITCH "-print-diag-func", cl::ReallyHidden,
@@ -172,11 +172,15 @@ enum DiagMsg {
   MAX_DIMS_LESS_THAN_LOOP_NEST_DEPTH_2,
   NO_STRIPMINE_APPL,
   NO_INTERCHANGE,
+  NO_KANDR,
+  NO_KANDR_DEPTH_TEST_1,
+  NO_KANDR_DEPTH_TEST_2,
   MULTIVERSIONED_FALLBACK_LOOP,
   NO_STENCIL_LOOP,
   NO_STENCIL_LOOP_BODY,
   NO_STENCIL_MEM_REFS,
   SUCCESS_NON_SIV,
+  SUCCESS_NON_SIV_OR_NON_ADVANCED,
   SUCCESS_BASIC_SIV,
   SUCCESS_STENCIL,
 
@@ -197,11 +201,15 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
       "max dims <= consecutive loop nest depth.";
   Map[NO_STRIPMINE_APPL] = "Stripmining is not possible.";
   Map[NO_INTERCHANGE] = "Interchange is not possible.";
+  Map[NO_KANDR] = "KandR did not work.";
+  Map[NO_KANDR_DEPTH_TEST_1] = "Failed KandR depth test 1.";
+  Map[NO_KANDR_DEPTH_TEST_2] = "Failed KandR depth test 2.";
   Map[MULTIVERSIONED_FALLBACK_LOOP] = "The loop is mv fallback loop.";
   Map[NO_STENCIL_LOOP] = "The loop body is not a stencil function.";
   Map[NO_STENCIL_LOOP_BODY] = "Operations for stencil is missing.";
   Map[NO_STENCIL_MEM_REFS] = "Memrefs are not of stencil pattern.";
   Map[SUCCESS_NON_SIV] = "Non-Siv loop.";
+  Map[SUCCESS_NON_SIV_OR_NON_ADVANCED] = "Non-Siv loop or Non-advanced.";
   Map[SUCCESS_BASIC_SIV] = "Basic algorithm.";
   Map[SUCCESS_STENCIL] = "Stencil pattern.";
 
@@ -212,9 +220,9 @@ static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
 
 // TODO: Loop Interchange has the same function. Consolidate.
 void printDiag(DiagMsg Msg, StringRef FuncName, const HLLoop *Loop = nullptr,
-               StringRef Header = "No Blocking: ") {
+               StringRef Header = "No Blocking: ", unsigned Level = 1) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (!PrintDiagFlag)
+  if (Level > PrintDiagLevel)
     return;
   if (!PrintDiagFunc.empty() && !FuncName.equals(PrintDiagFunc)) {
     return;
@@ -359,6 +367,12 @@ inline bool isNonByStripLoop(const HLLoop *Loop, const LoopMapTy &LoopMap) {
   // Return true for a non-byStrip loop.
   auto MapIt = LoopMap.find(Loop);
   return MapIt == LoopMap.end() || MapIt->second != BY_STRIP_LOOP_VAL;
+}
+
+inline bool isBlockedLoop(const HLLoop *Loop, const LoopMapTy &LoopMap) {
+  // Return true for a non-byStrip loop.
+  auto MapIt = LoopMap.find(Loop);
+  return MapIt != LoopMap.end() && MapIt->second != BY_STRIP_LOOP_VAL;
 }
 
 inline void markAsToStripmine(const HLLoop *LoopToStripmine,
@@ -974,7 +988,8 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap) {
 // Checks whether memrefs with missing loop induction variables exist.
 class KAndRChecker {
 public:
-  KAndRChecker(MemRefGatherer::VectorTy &Refs) : Refs(Refs) {
+  KAndRChecker(const MemRefGatherer::VectorTy &Refs, StringRef Func)
+      : Refs(Refs), Func(Func) {
     NumRefsWithSmallStrides.resize(MaxLoopNestLevel + 1, 0);
     NumRefsMissingAtLevel.resize(MaxLoopNestLevel + 1, 0);
     countProBlockingRefs(Refs);
@@ -999,6 +1014,8 @@ public:
       if (LoopNestDepth <= MaxDimension) {
         LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < LoopNestDepth "
                           << MaxDimension << "," << LoopNestDepth << "\n");
+        printDiag(NO_KANDR_DEPTH_TEST_1, Func, OutermostLoop,
+                  "No Blocking: ", 2);
         // No more innerloop nest.
         return;
       }
@@ -1007,6 +1024,7 @@ public:
     if (ConsecutiveDepth <= MaxDimension) {
       LLVM_DEBUG(dbgs() << "Failed: at MaxDimension < ConsecutiveDepth "
                         << MaxDimension << "," << ConsecutiveDepth << "\n");
+      printDiag(NO_KANDR_DEPTH_TEST_2, Func, OutermostLoop, "No Blocking: ", 2);
       // No more innerloop nest.
       return;
     }
@@ -1178,7 +1196,9 @@ private:
   }
 
 private:
-  MemRefGatherer::VectorTy &Refs;
+  const MemRefGatherer::VectorTy &Refs;
+  // Used only for diagnosis or debug purposes.
+  StringRef Func;
   SmallVector<int, MaxLoopNestLevel + 1> NumRefsWithSmallStrides;
   SmallVector<int, MaxLoopNestLevel + 1> NumRefsMissingAtLevel;
 };
@@ -1345,6 +1365,29 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
   return nullptr;
 }
 
+HLLoop *tryKAndRWithFixedStripmineSizes(
+    const MemRefGatherer::VectorTy &Refs, const LoopNestTCTy &LoopNestTC,
+    HLLoop *InnermostLoop, HLLoop *OutermostLoop, unsigned ConsecutiveDepth,
+    HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, StringRef Func,
+    LoopMapTy &LoopMap) {
+
+  // Try K&R + fixed stripmine sizes
+  // Just use existing logic for now to avoid regression
+  KAndRChecker KAndRProfitability(Refs, Func);
+  LoopMapTy StripmineSizes;
+  adjustBlockSize(LoopNestTC, StripmineSizes);
+
+  StripmineSizeExplorerByDefault StripmineExplorer(StripmineSizes);
+  HLLoop *ValidOutermost = exploreLoopNest(
+      InnermostLoop, OutermostLoop, ConsecutiveDepth, KAndRProfitability,
+      StripmineExplorer, DDA, SRA, Func, LoopMap);
+  if (ValidOutermost) {
+    return ValidOutermost;
+  }
+
+  return nullptr;
+}
+
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
 HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
@@ -1420,6 +1463,18 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   if (!CommandLineBlockSize && RefAnalyzer::isSIV(RefKind) &&
       (!OldVersion || Advanced)) {
 
+    // Try K&R as default.
+    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
+        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
+        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
+
+    if (ValidOutermost) {
+      printDiag(SUCCESS_BASIC_SIV, Func, AdjustedHighestAncestor, "SUCCESS");
+      return ValidOutermost;
+    } else {
+      printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
+    }
+
     // Grouping Refs for memory foot print and for stencil
     RefGrouper Grouping(Refs);
 
@@ -1434,7 +1489,7 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     }
 
     // TODO: memoization of isLegalToInterchange could help compile-time.
-    HLLoop *ValidOutermost =
+    ValidOutermost =
         exploreLoopNest(InnermostLoop, AdjustedHighestAncestor,
                         StencilProfitability, DDA, SRA, Func, LoopMap);
     if (ValidOutermost) {
@@ -1450,17 +1505,16 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
 
     // Try K&R + fixed stripmine sizes
     // Just use existing logic for now to avoid regression
-    KAndRChecker KAndRProfitability(Refs);
-    LoopMapTy StripmineSizes;
-    adjustBlockSize(LoopNestTC, StripmineSizes);
+    HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
+        Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
+        ConsecutiveDepth, DDA, SRA, Func, LoopMap);
 
-    StripmineSizeExplorerByDefault StripmineExplorer(StripmineSizes);
-    HLLoop *ValidOutermost = exploreLoopNest(
-        InnermostLoop, AdjustedHighestAncestor, ConsecutiveDepth,
-        KAndRProfitability, StripmineExplorer, DDA, SRA, Func, LoopMap);
     if (ValidOutermost) {
-      printDiag(SUCCESS_NON_SIV, Func, ValidOutermost, "SUCCESS");
+      printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
+                "SUCCESS");
       return ValidOutermost;
+    } else {
+      printDiag(NO_KANDR, Func, AdjustedHighestAncestor);
     }
   }
 
@@ -1605,16 +1659,15 @@ void doTransformation(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
     CurLoopNests.push_back(Lp);
   });
 
-  // Add OptReport after permutation.
-  // ToStripmines knows which loops are blocked in terms of the level
-  // before the permutation happens.
+  // Add OptReport after permutation to get the correct information.
   LoopOptReportBuilder &LORBuilder =
       CurLoopNests.front()->getHLNodeUtils().getHIRFramework().getLORBuilder();
   for (auto Lp : CurLoopNests) {
     const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
         Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
-    if (isNonByStripLoop(OrigLoop, LoopMap)) {
-      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop is blocked");
+    if (isBlockedLoop(OrigLoop, LoopMap)) {
+      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "blocked by %d",
+                                LoopMap[OrigLoop]);
     }
   }
 

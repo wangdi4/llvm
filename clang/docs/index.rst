@@ -19,7 +19,7 @@ Intel-only Features and Customizations
    :maxdepth: 1
 
    Intel/ArbitraryPrecisionIntegers
-   Intel/IntelCustomizations
+   IntelCustomizations
 
 .. end INTEL_CUSTOMIZATION
 

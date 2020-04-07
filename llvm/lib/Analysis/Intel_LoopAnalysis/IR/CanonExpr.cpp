@@ -16,6 +16,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/TypeSize.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -343,8 +344,8 @@ bool CanonExpr::isIntVectorConstant(Constant **Val) const {
       Constant *ConstVal;
 
       ConstVal = ConstantInt::get(getDestType()->getScalarType(), ConstIntVal);
-      *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
-                                      ConstVal);
+      *Val = ConstantVector::getSplat(
+          ElementCount(getDestType()->getVectorNumElements(), false), ConstVal);
     }
 
     return true;
@@ -366,8 +367,8 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
       Constant *ConstVal;
 
       ConstVal = ConstFPVal;
-      *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
-                                      ConstVal);
+      *Val = ConstantVector::getSplat(
+          ElementCount(getDestType()->getVectorNumElements(), false), ConstVal);
     }
 
     return true;

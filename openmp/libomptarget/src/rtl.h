@@ -13,6 +13,7 @@
 #ifndef _OMPTARGET_RTL_H
 #define _OMPTARGET_RTL_H
 
+#include "omptarget.h"
 #include <list>
 #include <map>
 #include <mutex>
@@ -61,16 +62,18 @@ struct RTLInfoTy {
                                              int32_t, uint64_t, void *);
   typedef void *(create_offload_pipe_ty)(int32_t, bool);
   typedef int32_t(release_offload_pipe_ty)(int32_t, void *);
-  typedef int32_t(is_managed_data_ty)(int32_t, void *);
+  typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
+  typedef int32_t(data_delete_managed_ty)(int32_t, void *);
+  typedef int32_t(is_managed_ptr_ty)(int32_t, void *);
 #endif // INTEL_COLLAB
 
-  int32_t Idx;                     // RTL index, index is the number of devices
-                                   // of other RTLs that were registered before,
-                                   // i.e. the OpenMP index of the first device
-                                   // to be registered with this RTL.
-  int32_t NumberOfDevices;         // Number of devices this RTL deals with.
+  int32_t Idx = -1;             // RTL index, index is the number of devices
+                                // of other RTLs that were registered before,
+                                // i.e. the OpenMP index of the first device
+                                // to be registered with this RTL.
+  int32_t NumberOfDevices = -1; // Number of devices this RTL deals with.
 
-  void *LibraryHandler;
+  void *LibraryHandler = nullptr;
 
 #ifdef OMPTARGET_DEBUG
   std::string RTLName;
@@ -81,37 +84,39 @@ struct RTLInfoTy {
 #endif  // INTEL_COLLAB
 
   // Functions implemented in the RTL.
-  is_valid_binary_ty *is_valid_binary;
-  number_of_devices_ty *number_of_devices;
-  init_device_ty *init_device;
-  load_binary_ty *load_binary;
-  data_alloc_ty *data_alloc;
-  data_submit_ty *data_submit;
-  data_retrieve_ty *data_retrieve;
-  data_delete_ty *data_delete;
-  run_region_ty *run_region;
-  run_team_region_ty *run_team_region;
-  init_requires_ty *init_requires;
+  is_valid_binary_ty *is_valid_binary = nullptr;
+  number_of_devices_ty *number_of_devices = nullptr;
+  init_device_ty *init_device = nullptr;
+  load_binary_ty *load_binary = nullptr;
+  data_alloc_ty *data_alloc = nullptr;
+  data_submit_ty *data_submit = nullptr;
+  data_retrieve_ty *data_retrieve = nullptr;
+  data_delete_ty *data_delete = nullptr;
+  run_region_ty *run_region = nullptr;
+  run_team_region_ty *run_team_region = nullptr;
+  init_requires_ty *init_requires = nullptr;
 #if INTEL_COLLAB
-  data_submit_nowait_ty *data_submit_nowait;
-  data_retrieve_nowait_ty *data_retrieve_nowait;
-  manifest_data_for_region_ty *manifest_data_for_region;
-  data_alloc_base_ty *data_alloc_base;
-  data_alloc_user_ty *data_alloc_user;
-  create_buffer_ty *create_buffer;
-  get_device_name_ty *get_device_name;
-  release_buffer_ty *release_buffer;
-  run_team_nd_region_ty *run_team_nd_region;
-  run_team_nd_region_nowait_ty *run_team_nd_region_nowait;
-  run_region_nowait_ty *run_region_nowait;
-  run_team_region_nowait_ty *run_team_region_nowait;
-  create_offload_pipe_ty *create_offload_pipe;
-  release_offload_pipe_ty *release_offload_pipe;
-  is_managed_data_ty *is_managed_data;
+  data_submit_nowait_ty *data_submit_nowait = nullptr;
+  data_retrieve_nowait_ty *data_retrieve_nowait = nullptr;
+  manifest_data_for_region_ty *manifest_data_for_region = nullptr;
+  data_alloc_base_ty *data_alloc_base = nullptr;
+  data_alloc_user_ty *data_alloc_user = nullptr;
+  create_buffer_ty *create_buffer = nullptr;
+  get_device_name_ty *get_device_name = nullptr;
+  release_buffer_ty *release_buffer = nullptr;
+  run_team_nd_region_ty *run_team_nd_region = nullptr;
+  run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
+  run_region_nowait_ty *run_region_nowait = nullptr;
+  run_team_region_nowait_ty *run_team_region_nowait = nullptr;
+  create_offload_pipe_ty *create_offload_pipe = nullptr;
+  release_offload_pipe_ty *release_offload_pipe = nullptr;
+  data_alloc_managed_ty *data_alloc_managed = nullptr;
+  data_delete_managed_ty *data_delete_managed = nullptr;
+  is_managed_ptr_ty *is_managed_ptr = nullptr;
 #endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
-  bool isUsed;
+  bool isUsed = false;
 
   // Mutex for thread-safety when calling RTL interface functions.
   // It is easier to enforce thread-safety at the libomptarget level,
@@ -120,28 +125,9 @@ struct RTLInfoTy {
 
   // The existence of the mutex above makes RTLInfoTy non-copyable.
   // We need to provide a copy constructor explicitly.
-  RTLInfoTy()
-      : Idx(-1), NumberOfDevices(-1), LibraryHandler(0),
-#ifdef OMPTARGET_DEBUG
-        RTLName(),
-#endif
-        is_valid_binary(0), number_of_devices(0), init_device(0),
-        load_binary(0), data_alloc(0), data_submit(0), data_retrieve(0),
-        data_delete(0), run_region(0), run_team_region(0),
-#if INTEL_COLLAB
-        init_requires(0),
-        data_submit_nowait(0), data_retrieve_nowait(0),
-        manifest_data_for_region(0), data_alloc_base(0), data_alloc_user(0),
-        create_buffer(0), get_device_name(0), release_buffer(0),
-        run_team_nd_region(0), run_team_nd_region_nowait(0),
-        run_region_nowait(0), run_team_region_nowait(0), create_offload_pipe(0),
-        release_offload_pipe(0),
-        is_managed_data(0), isUsed(false), Mtx() {}
-#else
-        init_requires(0), isUsed(false), Mtx() {}
-#endif // INTEL_COLLAB
+  RTLInfoTy() = default;
 
-  RTLInfoTy(const RTLInfoTy &r) : Mtx() {
+  RTLInfoTy(const RTLInfoTy &r) {
     Idx = r.Idx;
     NumberOfDevices = r.NumberOfDevices;
     LibraryHandler = r.LibraryHandler;
@@ -177,7 +163,9 @@ struct RTLInfoTy {
     run_team_region_nowait = r.run_team_region_nowait;
     create_offload_pipe = r.create_offload_pipe;
     release_offload_pipe = r.release_offload_pipe;
-    is_managed_data = r.is_managed_data;
+    data_alloc_managed = r.data_alloc_managed;
+    data_delete_managed = r.data_delete_managed;
+    is_managed_ptr = r.is_managed_ptr;
 #endif // INTEL_COLLAB
     isUsed = r.isUsed;
   }
@@ -199,9 +187,13 @@ public:
   // binaries.
   std::vector<RTLInfoTy *> UsedRTLs;
 
+#if INTEL_COLLAB
+  int64_t RequiresFlags = OMP_REQ_UNDEFINED;
+#else  // INTEL_COLLAB
   int64_t RequiresFlags;
+#endif // INTEL_COLLAB
 
-  explicit RTLsTy() {}
+  explicit RTLsTy() = default;
 
   // Register the clauses of the requires directive.
   void RegisterRequires(int64_t flags);
@@ -212,8 +204,8 @@ public:
   // Unregister a shared library from all RTLs.
   void UnregisterLib(__tgt_bin_desc *desc);
 };
-extern RTLsTy RTLs;
-extern std::mutex RTLsMtx;
+extern RTLsTy *RTLs;
+extern std::mutex *RTLsMtx;
 
 
 /// Map between the host entry begin and the translation table. Each
@@ -231,19 +223,19 @@ struct TranslationTable {
 };
 typedef std::map<__tgt_offload_entry *, TranslationTable>
     HostEntriesBeginToTransTableTy;
-extern HostEntriesBeginToTransTableTy HostEntriesBeginToTransTable;
-extern std::mutex TrlTblMtx;
+extern HostEntriesBeginToTransTableTy *HostEntriesBeginToTransTable;
+extern std::mutex *TrlTblMtx;
 
 /// Map between the host ptr and a table index
 struct TableMap {
-  TranslationTable *Table; // table associated with the host ptr.
-  uint32_t Index; // index in which the host ptr translated entry is found.
-  TableMap() : Table(0), Index(0) {}
+  TranslationTable *Table = nullptr; // table associated with the host ptr.
+  uint32_t Index = 0; // index in which the host ptr translated entry is found.
+  TableMap() = default;
   TableMap(TranslationTable *table, uint32_t index)
       : Table(table), Index(index) {}
 };
 typedef std::map<void *, TableMap> HostPtrToTableMapTy;
-extern HostPtrToTableMapTy HostPtrToTableMap;
-extern std::mutex TblMapMtx;
+extern HostPtrToTableMapTy *HostPtrToTableMap;
+extern std::mutex *TblMapMtx;
 
 #endif

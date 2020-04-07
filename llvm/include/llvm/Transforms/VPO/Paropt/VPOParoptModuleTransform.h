@@ -62,7 +62,7 @@ public:
         ORVerbosity(OptReportVerbosity::Low),
 #endif  // INTEL_CUSTOMIZATION
         OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
-        DisableOffload(DisableOffload), TgOffloadEntryTy(nullptr),
+        DisableOffload(DisableOffload), TgtOffloadEntryTy(nullptr),
         TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
         DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
 
@@ -125,7 +125,7 @@ private:
   ///      int32_t    flags;      // Flags of the entry.
   ///      int32_t    reserved;   // Reserved by the runtime library.
   /// };
-  StructType *TgOffloadEntryTy;
+  StructType *TgtOffloadEntryTy;
 
   /// Hold the struct type as follows.
   /// struct __tgt_device_image{
@@ -327,7 +327,7 @@ private:
   bool genOffloadEntries();
 
   /// Return/Create the struct type __tgt_offload_entry.
-  StructType *getTgOffloadEntryTy();
+  StructType *getTgtOffloadEntryTy();
 };
 
 } /// namespace vpo

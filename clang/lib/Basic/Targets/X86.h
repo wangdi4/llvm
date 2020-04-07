@@ -103,6 +103,11 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVX512VL = false;
   bool HasAVX512VBMI = false;
   bool HasAVX512VBMI2 = false;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  bool HasAVXIFMA = false;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
   bool HasAVX512IFMA = false;
   bool HasAVX512VP2INTERSECT = false;
   bool HasSHA = false;
@@ -144,6 +149,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_SERIALIZE
   bool HasSERIALIZE = false;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  bool HasHRESET = false;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
   bool HasTSXLDTRK = false;
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
@@ -183,9 +191,24 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   bool HasAMXTRANSPOSE2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  bool HasAMXCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  bool HasAVX512DOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  bool HasAVX512CONVERT = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  bool HasAVXDOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  bool HasAVXCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
 
 protected:
@@ -228,6 +251,10 @@ public:
   }
 
   ArrayRef<TargetInfo::AddlRegName> getGCCAddlRegNames() const override;
+
+  bool isSPRegName(StringRef RegName) const override {
+    return RegName.equals("esp") || RegName.equals("rsp");
+  }
 
   bool validateCpuSupports(StringRef Name) const override;
 

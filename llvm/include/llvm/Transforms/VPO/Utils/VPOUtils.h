@@ -161,6 +161,11 @@ public:
   static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
                              unsigned Align, Instruction *InsertPt);
 
+  /// Generate a memset call with the pointer argument \p P and the value
+  /// argument \p V.
+  static CallInst *genMemset(Value *P, Value *V, const DataLayout &DL,
+                             unsigned Align, IRBuilder<> &MemsetBuilder);
+
   /// Return true if the type can be registerized.
   static bool canBeRegisterized(Type *ScalarTy, const DataLayout &DL);
 

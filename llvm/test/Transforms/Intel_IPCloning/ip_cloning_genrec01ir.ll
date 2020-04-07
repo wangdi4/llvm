@@ -1,5 +1,5 @@
-; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -print-ip-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-rec-callsites=4 -S 2>&1 | FileCheck %s
 
 ; Test that foo is selected for generic cloning of a recursive routine.
 ; This is the same test as ip_cloning_genrec01.ll, but checks for IR without

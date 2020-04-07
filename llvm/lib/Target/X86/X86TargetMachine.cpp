@@ -72,6 +72,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
 #endif // INTEL_CUSTOMIZATION
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializeX86SplitVectorValueTypePass(PR);  // INTEL
   initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
   initializeFixupBWInstPassPass(PR);
@@ -85,11 +86,13 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86ExecutionDomainFixPass(PR);
   initializeX86DomainReassignmentPass(PR);
   initializeX86AvoidSFBPassPass(PR);
+  initializeX86AvoidTrailingCallPassPass(PR);
   initializeX86SpeculativeLoadHardeningPassPass(PR);
   initializeX86FlagsCopyLoweringPassPass(PR);
   initializeX86CondBrFoldingPassPass(PR);
   initializeX86OptimizeLEAPassPass(PR);
 #if INTEL_CUSTOMIZATION
+  initializeX86GlobalFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -101,19 +104,9 @@ static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
     return std::make_unique<TargetLoweringObjectFileMachO>();
   }
 
-  if (TT.isOSFreeBSD())
-    return std::make_unique<X86FreeBSDTargetObjectFile>();
-  if (TT.isOSLinux() || TT.isOSNaCl() || TT.isOSIAMCU())
-    return std::make_unique<X86LinuxNaClTargetObjectFile>();
-  if (TT.isOSSolaris())
-    return std::make_unique<X86SolarisTargetObjectFile>();
-  if (TT.isOSFuchsia())
-    return std::make_unique<X86FuchsiaTargetObjectFile>();
-  if (TT.isOSBinFormatELF())
-    return std::make_unique<X86ELFTargetObjectFile>();
   if (TT.isOSBinFormatCOFF())
     return std::make_unique<TargetLoweringObjectFileCOFF>();
-  llvm_unreachable("unknown subtarget type");
+  return std::make_unique<X86ELFTargetObjectFile>();
 }
 
 static std::string computeDataLayout(const Triple &TT) {
@@ -239,6 +232,9 @@ X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
   }
 
   setMachineOutliner(true);
+
+  // x86 supports the debug entry values.
+  setSupportsDebugEntryValues(true);
 
   initAsmInfo();
 }
@@ -488,6 +484,9 @@ bool X86PassConfig::addPreISel() {
   if (TT.isOSWindows() && TT.getArch() == Triple::x86)
     addPass(createX86WinEHStatePass());
 #if INTEL_CUSTOMIZATION
+  if (getOptLevel() >= CodeGenOpt::Default &&
+      TM->Options.IntelAdvancedOptim)
+    addPass(createX86SplitVectorValueTypePass());
   if (getOptLevel() == CodeGenOpt::Aggressive &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86CiscizationHelperPass());

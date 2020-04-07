@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
 #include "../IntelVPlanIdioms.h"
+#include "../IntelVPlanLoopUnroller.h"
 #include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
@@ -54,18 +55,20 @@ public:
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef)
+                const RegDDRef *SearchLoopPeelArrayRef,
+                const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
+        TripCount(0), VF(0), UF(1), LORBuilder(LORB), WVecNode(WRLp),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()) {
+        HLNodeUtilities(Loop->getHLNodeUtils()),
+        VPInstUnrollPart(VPInstUnrollPart) {
     assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
     VLoop = *(Plan->getVPLoopInfo()->begin());
   }
@@ -85,7 +88,7 @@ public:
 
   // Setup vector loop to perform the actual loop widening (vectorization) using
   // VF as the vectorization factor.
-  bool initializeVectorLoop(unsigned int VF);
+  bool initializeVectorLoop(unsigned int VF, unsigned int UF);
 
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
@@ -357,6 +360,10 @@ public:
   // if one is not found.
   RegDDRef *widenRef(const VPValue *VPVal, unsigned VF);
 
+  // Returns the expression IV + <0, 1, .., VF-1> where IV is the current loop's
+  // main induction variable.
+  RegDDRef *generateLoopInductionRef(Type *RefDestTy);
+
   // Given a widened ref corresponding to the pointer operand of
   // a load/store instruction, setup and return the pointer operand
   // for use in generating the load/store HLInst.
@@ -471,6 +478,9 @@ private:
   // to operate on this number of operands.
   unsigned VF;
 
+  // Unroll factor which was applied to VPlan before code generation.
+  unsigned UF;
+
   LoopOptReportBuilder &LORBuilder;
 
   // Map of DDRef symbase and widened ref
@@ -529,6 +539,10 @@ private:
   // Map of VPValues and their corresponding HIR induction variable used inside
   // the generated vector loop.
   DenseMap<const VPValue *, RegDDRef *> InductionRefs;
+  // Collection of VPInstructions inside the loop that correspond to main loop
+  // IV. This is expected to contain the PHI and incrementing add
+  // instruction(s).
+  SmallPtrSet<const VPValue *, 8> MainLoopIVInsts;
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
   // created to represent within vector loop.
   DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
@@ -548,6 +562,12 @@ private:
   // Map from a basic block to its starting label.
   SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
 
+  // Mapping of VPInstructions to their unrolled part numbers.
+  const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart;
+
+  // Unrolled part number for the VPInstruction currently being processed.
+  unsigned CurrentVPInstUnrollPart;
+
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
@@ -555,6 +575,7 @@ private:
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVF(unsigned V) { VF = V; }
+  void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
   void insertReductionInit(HLInst *Inst) {
     HLNodeUtils::insertBefore(RedInitInsertPoint, Inst);
@@ -577,9 +598,9 @@ private:
   // the lookup.
   void eraseLoopIntrinsImpl(bool BeginDir);
 
-  /// \brief Analyzes the memory references of \p OrigCall to determine
-  /// stride. The resulting stride information is attached to the arguments
-  /// of \p WideCall in the form of attributes.
+  /// Analyzes the memory references of \p OrigCall to determine stride. The
+  /// resulting stride information is attached to the arguments of \p WideCall
+  /// in the form of attributes.
   void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
                                       SmallVectorImpl<RegDDRef *> &Args);
 
@@ -619,6 +640,9 @@ private:
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                      const OVLSGroup *Group, int64_t InterleaveFactor,
                      int64_t InterleaveIndex, const HLInst *GrpStartInst);
+
+  // Implementation of blend widening.
+  void widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask);
 
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);

@@ -728,7 +728,7 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
-    if (isa<CompositeType>(SrcType)) {
+    if (isa<StructType>(SrcType) || isa<SequentialType>(SrcType)) {
       // We should be generating a GEP for a pointer base with an offset. For
       // struct types, we need to follow the structure layout.
       assert("Pointer base with offset not handled!");

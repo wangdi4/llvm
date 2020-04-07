@@ -33,6 +33,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
+#include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/FPEnv.h"
@@ -104,6 +105,14 @@ CodeGenFunction::~CodeGenFunction() {
     destroyBlockInfos(FirstBlockInfo);
   if (getLangOpts().OpenMP && CurFn)
     CGM.getOpenMPRuntime().functionFinished(*this);
+
+  // If we have an OpenMPIRBuilder we want to finalize functions (incl.
+  // outlining etc) at some point. Doing it once the function codegen is done
+  // seems to be a reasonable spot. We do it here, as opposed to the deletion
+  // time of the CodeGenModule, because we have to ensure the IR has not yet
+  // been "emitted" to the outside, thus, modifications are still sensible.
+  if (llvm::OpenMPIRBuilder *OMPBuilder = CGM.getOpenMPIRBuilder())
+    OMPBuilder->finalize();
 }
 
 // Map the LangOption for rounding mode into
@@ -491,13 +500,15 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
   // Scan function arguments for vector width.
   for (llvm::Argument &A : CurFn->args())
     if (auto *VT = dyn_cast<llvm::VectorType>(A.getType()))
-      LargestVectorWidth = std::max((uint64_t)LargestVectorWidth,
-                                   VT->getPrimitiveSizeInBits().getFixedSize());
+      LargestVectorWidth =
+          std::max((uint64_t)LargestVectorWidth,
+                   VT->getPrimitiveSizeInBits().getKnownMinSize());
 
   // Update vector width based on return type.
   if (auto *VT = dyn_cast<llvm::VectorType>(CurFn->getReturnType()))
-    LargestVectorWidth = std::max((uint64_t)LargestVectorWidth,
-                                  VT->getPrimitiveSizeInBits().getFixedSize());
+    LargestVectorWidth =
+        std::max((uint64_t)LargestVectorWidth,
+                 VT->getPrimitiveSizeInBits().getKnownMinSize());
 
   // Add the required-vector-width attribute. This contains the max width from:
   // 1. min-vector-width attribute used in the source program.
@@ -726,15 +737,10 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
-  if (const SYCLIntelUsesGlobalWorkOffsetAttr *A =
-          FD->getAttr<SYCLIntelUsesGlobalWorkOffsetAttr>()) {
-    bool IsEnabled = A->getEnabled();
-    if (!IsEnabled) {
-      llvm::Metadata *AttrMDArgs[] = {
-          llvm::ConstantAsMetadata::get(Builder.getInt32(IsEnabled))};
-      Fn->setMetadata("uses_global_work_offset",
-                      llvm::MDNode::get(Context, AttrMDArgs));
-    }
+  if (const SYCLIntelNoGlobalWorkOffsetAttr *A =
+          FD->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
+    if (A->getEnabled())
+      Fn->setMetadata("no_global_work_offset", llvm::MDNode::get(Context, {}));
   }
 }
 
@@ -914,23 +920,25 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
           if (ShouldXRayInstrumentFunction())
             Fn->addFnAttr("xray-log-args",
                           llvm::utostr(LogArgs->getArgumentCount()));
-        if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-                XRayInstrKind::FunctionExit)) {
-          Fn->addFnAttr("xray-skip-exit");
-        }
-        if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-                XRayInstrKind::FunctionEntry)) {
-          Fn->addFnAttr("xray-skip-entry");
-        }
       }
     } else {
       if (ShouldXRayInstrumentFunction() && !CGM.imbueXRayAttrs(Fn, Loc))
         Fn->addFnAttr(
             "xray-instruction-threshold",
             llvm::itostr(CGM.getCodeGenOpts().XRayInstructionThreshold));
-      if (CGM.getCodeGenOpts().XRayIgnoreLoops) {
+    }
+
+    if (ShouldXRayInstrumentFunction()) {
+      if (CGM.getCodeGenOpts().XRayIgnoreLoops)
         Fn->addFnAttr("xray-ignore-loops");
-      }
+
+      if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
+              XRayInstrKind::FunctionExit))
+        Fn->addFnAttr("xray-skip-exit");
+
+      if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
+              XRayInstrKind::FunctionEntry))
+        Fn->addFnAttr("xray-skip-entry");
     }
 
     unsigned Count, Offset;
@@ -1026,10 +1034,20 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   // If we're in C++ mode and the function name is "main", it is guaranteed
   // to be norecurse by the standard (3.6.1.3 "The function main shall not be
   // used within a program").
-  if (getLangOpts().CPlusPlus)
-    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-      if (FD->isMain())
-        Fn->addFnAttr(llvm::Attribute::NoRecurse);
+  //
+  // OpenCL C 2.0 v2.2-11 s6.9.i:
+  //     Recursion is not supported.
+  //
+  // SYCL v1.2.1 s3.10:
+  //     kernels cannot include RTTI information, exception classes,
+  //     recursive code, virtual functions or make use of C++ libraries that
+  //     are not compiled for the device.
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
+    if ((getLangOpts().CPlusPlus && FD->isMain()) || getLangOpts().OpenCL ||
+        getLangOpts().SYCLIsDevice ||
+        (getLangOpts().CUDA && FD->hasAttr<CUDAGlobalAttr>()))
+      Fn->addFnAttr(llvm::Attribute::NoRecurse);
+  }
 
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
     if (FD->usesFPIntrin())
@@ -1524,14 +1542,29 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
 #if INTEL_COLLAB
-  // If we encountered this function within a target region, also treat any
-  // functions encountered during its codegen as if they are within a target
-  // region.
-  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
-      (CGM.inTargetRegion() ||
-       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD)))
-    Fn->addFnAttr("openmp-target-declare", "true");
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice) {
+    // In some cases the complete constructor/destructor is marked for the
+    // target but the not base due to aliasing. Mark these.
+    bool MarkCtorDtor = false;
+    llvm::GlobalValue *CEntry = nullptr;
+    if (isa<CXXConstructorDecl>(FD) && GD.getCtorType() == Ctor_Base) {
+      GlobalDecl CompDecl = GD.getWithCtorType(Ctor_Complete);
+      CEntry = CGM.GetGlobalValue(CGM.getMangledName(CompDecl));
+    } else if (isa<CXXDestructorDecl>(FD) && GD.getDtorType() == Dtor_Base) {
+      GlobalDecl CompDecl = GD.getWithDtorType(Dtor_Complete);
+      CEntry = CGM.GetGlobalValue(CGM.getMangledName(CompDecl));
+    }
+    if (auto *CompF = dyn_cast_or_null<llvm::Function>(CEntry))
+      if (CompF->hasFnAttribute("openmp-target-declare"))
+        MarkCtorDtor = true;
 
+    // If we encountered this function within a target region, also treat any
+    // functions encountered during its codegen as if they are within a target
+    // region.
+    if (MarkCtorDtor || CGM.inTargetRegion() ||
+        OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(FD))
+      Fn->addFnAttr("openmp-target-declare", "true");
+  }
   CodeGenModule::InTargetRegionRAII ITR(
       CGM, Fn->hasFnAttribute("openmp-target-declare"));
 #endif // INTEL_COLLAB
@@ -2409,7 +2442,7 @@ void CodeGenFunction::unprotectFromPeepholes(PeepholeProtection protection) {
   protection.Inst->eraseFromParent();
 }
 
-void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
+void CodeGenFunction::emitAlignmentAssumption(llvm::Value *PtrValue,
                                               QualType Ty, SourceLocation Loc,
                                               SourceLocation AssumptionLoc,
                                               llvm::Value *Alignment,
@@ -2418,12 +2451,12 @@ void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
   llvm::Instruction *Assumption = Builder.CreateAlignmentAssumption(
       CGM.getDataLayout(), PtrValue, Alignment, OffsetValue, &TheCheck);
   if (SanOpts.has(SanitizerKind::Alignment)) {
-    EmitAlignmentAssumptionCheck(PtrValue, Ty, Loc, AssumptionLoc, Alignment,
+    emitAlignmentAssumptionCheck(PtrValue, Ty, Loc, AssumptionLoc, Alignment,
                                  OffsetValue, TheCheck, Assumption);
   }
 }
 
-void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
+void CodeGenFunction::emitAlignmentAssumption(llvm::Value *PtrValue,
                                               const Expr *E,
                                               SourceLocation AssumptionLoc,
                                               llvm::Value *Alignment,
@@ -2433,7 +2466,7 @@ void CodeGenFunction::EmitAlignmentAssumption(llvm::Value *PtrValue,
   QualType Ty = E->getType();
   SourceLocation Loc = E->getExprLoc();
 
-  EmitAlignmentAssumption(PtrValue, Ty, Loc, AssumptionLoc, Alignment,
+  emitAlignmentAssumption(PtrValue, Ty, Loc, AssumptionLoc, Alignment,
                           OffsetValue);
 }
 
@@ -2782,7 +2815,7 @@ void CodeGenFunction::EmitMultiVersionResolver(
 //  Loc), the diagnostic will additionally point a "Note:" to this location.
 //  It should be the location where the __attribute__((assume_aligned))
 //  was written e.g.
-void CodeGenFunction::EmitAlignmentAssumptionCheck(
+void CodeGenFunction::emitAlignmentAssumptionCheck(
     llvm::Value *Ptr, QualType Ty, SourceLocation Loc,
     SourceLocation SecondaryLoc, llvm::Value *Alignment,
     llvm::Value *OffsetValue, llvm::Value *TheCheck,

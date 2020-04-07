@@ -53,7 +53,7 @@ private:
   // block.
   struct PredicateTerm {
     // Its predicate will affect this term.
-    VPBlockBase *OriginBlock;
+    VPBasicBlock *OriginBlock;
     // Needed if currect block that has this PredicateTerm is affected by the
     // conditional branch terminator in the OriginBlock.
     VPValue *Condition;
@@ -62,12 +62,12 @@ private:
     // Condition is nullptr.
     bool Negate;
 
-    PredicateTerm(VPBlockBase *OriginBlock, VPValue *Condition, bool Negate)
+    PredicateTerm(VPBasicBlock *OriginBlock, VPValue *Condition, bool Negate)
         : OriginBlock(OriginBlock), Condition(Condition), Negate(Negate) {
       assert((Condition || !Negate) && "Can't negate missing condition!");
     }
 
-    PredicateTerm(VPBlockBase *OriginBlock)
+    PredicateTerm(VPBasicBlock *OriginBlock)
         : PredicateTerm(OriginBlock, nullptr, false) {}
 
     PredicateTerm(const PredicateTerm &) = default;
@@ -82,12 +82,12 @@ private:
 
   // Mapping from the block to its complete set of PredicateTerms affecting this
   // block's predicates.
-  DenseMap<VPBlockBase *, std::pair<PredicateTermsSet, bool>>
+  DenseMap<VPBasicBlock *, std::pair<PredicateTermsSet, bool>>
       Block2PredicateTermsAndUniformity;
-  std::map<PredicateTerm, SmallVector<VPBlockBase *, 4>>
+  std::map<PredicateTerm, SmallVector<VPBasicBlock *, 4>>
       PredicateTerm2UseBlocks;
 
-  std::map<PredicateTerm, DenseMap<VPBlockBase *, VPValue *>>
+  std::map<PredicateTerm, DenseMap<VPBasicBlock *, VPValue *>>
       PredicateTerm2LiveInMap;
 
   // Map from condition bits to their's negation. Needed to avoid duplicate
@@ -96,11 +96,42 @@ private:
 
   // Set of blocks that were already split to insert "AND" calculation for
   // PredicateTerms.
-  SmallPtrSet<VPBlockBase *, 16> SplitBlocks;
+  SmallPtrSet<VPBasicBlock *, 16> SplitBlocks;
 
   // We don't emit block predicates for uniform blocks, thus need store the
   // predicate in a separate map.
-  DenseMap<VPBlockBase *, VPValue *> Block2Predicate;
+  DenseMap<VPBasicBlock *, VPValue *> Block2Predicate;
+
+  // The struct corresponding to the blend consists of an incoming value,
+  // incoming block, and the RPOT Idx calculated during linearization. This
+  // index will be used to sort the operands of the blend.
+  struct BlendTuple {
+    VPValue *IncomingValue;
+    VPBasicBlock *IncomingBlock;
+    int IncomingBlockRPOTIdx;
+
+    BlendTuple(VPValue *Val, VPBasicBlock *Block, int Idx) :
+        IncomingValue(Val), IncomingBlock(Block), IncomingBlockRPOTIdx(Idx) {}
+
+    VPValue *getIncomingValue() const { return IncomingValue; }
+    VPBasicBlock *getIncomingBlock() const { return IncomingBlock; }
+    int getIncomingBlockRPOTIdx() const { return IncomingBlockRPOTIdx; }
+  };
+  using BlendTupleVectorTy = SmallVector<BlendTuple, 2>;
+  using Blend2BlendTupleVectorMapTy =
+      DenseMap<VPBlendInst *, BlendTupleVectorTy>;
+
+  // Map of blend instruction to its corresponding vector of
+  // { incoming value, incoming block, RPOT idx } tuple. This map will be used
+  // to fill in the correct block-predicate value in the blend when it becomes
+  // available.
+  Blend2BlendTupleVectorMapTy Blend2BlendTupleVectorMap;
+
+  // Add an std::tuple<Val, BB, RPOT idx> for \p Blend.
+  void addBlendTuple(VPBlendInst *Blend, VPValue *Val, VPBasicBlock *BB,
+                     int RPOTIdx) {
+    Blend2BlendTupleVectorMap[Blend].emplace_back(Val, BB, RPOTIdx);
+  }
 
   /// Returns the negation of the \p Cond inserted at the end of the block
   /// defining it or at VPlan's entry. Avoids creating duplicates by caching
@@ -109,13 +140,13 @@ private:
 
   // Fill in the information about PredicateTerms of the predicate of the
   // \p CurrBlock.
-  void calculatePredicateTerms(VPBlockBase *CurrBlock);
+  void calculatePredicateTerms(VPBasicBlock *CurrBlock);
 
   /// Helper method to prepare data for Iterated Dominance Frontier calculation
   /// that is needed to determine where SSA phis need to be inserted in the
   /// updated CFG to preserve SSA form for the values calculating predicates.
   void computeLiveInsForIDF(PredicateTerm Term,
-                            SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks);
+                            SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks);
 
   /// Helper for getOrCreateValueForPredicateTerm. Only creates the defining
   /// value for the \p PredTerm, without any SSA phi insertion.
@@ -143,34 +174,52 @@ private:
   /// PredTerm.OriginBlock to \p AtBlock. and false for others.
   ///
   /// At the first query for a given \p PredTerm both the Val and the
-  /// required phi-nodes to preserve SSA-form are created/inserted and recorded in
-  /// internal map. Subsequent queries return pre-calculated values.
+  /// required phi-nodes to preserve SSA-form are created/inserted and recorded
+  /// in internal map. Subsequent queries return pre-calculated values.
   VPValue *getOrCreateValueForPredicateTerm(PredicateTerm PredTerm,
-                                            VPBlockBase *AtBlock);
+                                            VPBasicBlock *AtBlock);
 
   /// Generate and return the result of ORing all the predicate VPValues in \p
   /// Worklist. Uses the current insertion point of Builder member.
   VPValue *genPredicateTree(std::list<VPValue *> &Worklist);
 
   /// Predicate and linearize the CFG within \p Region, recursively.
-  void predicateAndLinearizeRegionRec(VPRegionBlock *Region,
-                                      bool SearchLoopHack);
+  void predicateAndLinearizeRegionRec(bool SearchLoopHack);
 
-  /// Linearize \p Region (without recursion) and mark PHIs in the linearized
-  /// blocks as blended. It does *NOT* update condition bits for the blocks,
+  /// Linearize \p Region (without recursion) and replace PHIs in the linearized
+  /// blocks with blends. It does *NOT* update condition bits for the blocks,
   /// this information is needed for block predicate insertion after
   /// linearization.
   void
-  linearizeRegion(const ReversePostOrderTraversal<VPBlockBase *> &RegionRPOT);
+  linearizeRegion(const ReversePostOrderTraversal<VPBasicBlock *> &RegionRPOT);
 
   // Add an additional all-zero-check for inner loops with uniform backedge
   // condition on a divergent path. Temporary workaround untill proper region
   // bypass infrastructure is implemented.
   void fixupUniformInnerLoops();
 
+  /// Transforms phi to an explicit blend instruction and replaces all phi
+  /// users with the new blend instruction. After this function executes, the
+  /// blend instruction is not "complete" in that it does not yet contain the
+  /// incoming values and block-predicates. Once the block-predicates are
+  /// available after linearization, then they are added as operands to the
+  /// blend.
+  void turnPhisToBlends(VPBasicBlock *Block,
+                        DenseMap<const VPBasicBlock *, int> &BlockIndexInRPOT);
+
+  /// Sorts the incoming value/block-predicate operands of Blend instructions
+  /// in RPOT order to ensure correct select generation in codegen.
+  void sortIncomingBlocksForBlend(BlendTupleVectorTy &UnsortedIncomingBlocks,
+                                  BlendTupleVectorTy &SortedIncomingBlocks);
+
   bool shouldPreserveUniformBranches() const;
 
-  bool shouldPreserveOutgoingEdges(VPBlockBase *Block);
+  bool shouldPreserveOutgoingEdges(VPBasicBlock *Block);
+
+  /// Updates maps used to generate block-predicate instructions to use
+  /// the blend instruction that replaced the phi.
+  void replacePhiPredicateTermWithBlend(VPPHINode *Phi,
+                                        VPBlendInst *Blend);
 
 #if INTEL_CUSTOMIZATION
   void handleInnerLoopBackedges(VPLoop *VPL);

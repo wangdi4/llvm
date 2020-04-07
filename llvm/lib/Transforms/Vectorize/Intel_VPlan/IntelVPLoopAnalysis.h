@@ -37,7 +37,6 @@ class LoopInfo;
 namespace vpo {
 
 class VPValue;
-class VPLoopRegion;
 class VPlan;
 class IntelVPlanUtils;
 class VPLoop;
@@ -46,13 +45,10 @@ class VPValue;
 class VPConstant;
 class VPInstruction;
 class VPPHINode;
-class VPBlockBase;
 class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
 
-extern bool LoopEntityImportEnabled;
-extern bool VPlanUseVPEntityInstructions;
 extern bool VPlanDisplaySOAAnalysisInformation;
 
 /// Base class for loop entities
@@ -455,7 +451,7 @@ public:
   void insertVPInstructions(VPBuilder &Builder);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS, const VPBlockBase *LoopHeader = nullptr) const;
+  void dump(raw_ostream &OS, const VPBasicBlock *LoopHeader = nullptr) const;
   void dump() const { dump(errs()); }
 #endif
   const VPLoop &getLoop() const { return Loop; }
@@ -512,6 +508,9 @@ public:
 
     // The running worklist of all the instructions which we want to track.
     WorkList WL;
+
+    // Set to avoid repeat-processing in case of cyclic Use-Def chains.
+    DenseSet<const VPInstruction *> AnalyzedInsts;
 
     // The list of potentially unsafe instructions. The users of these
     // instructions have to be analyzed for any unsafe behavior.

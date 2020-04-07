@@ -7,12 +7,13 @@
 // ===--------------------------------------------------------------------=== //
 
 #include <CL/sycl/detail/pi.hpp>
-#include <CL/sycl/detail/usm_dispatch.hpp>
+#include <detail/plugin.hpp>
+#include <detail/usm/usm_dispatch.hpp>
 
-__SYCL_INLINE namespace cl {
-namespace sycl {
-namespace detail {
-namespace usm {
+__SYCL_INLINE_NAMESPACE(cl) {
+  namespace sycl {
+  namespace detail {
+  namespace usm {
 
 /***
 
@@ -24,12 +25,20 @@ namespace usm {
   pfn_##_funcname = (_funcname##_fn)clGetExtensionFunctionAddressForPlatform(  \
       platform, #_funcname);
 
+#if INTEL_CUSTOMIZATION
+// TODO: How to change this now with multple BE attached?
+// The "active" BE should be queried from PI plugin of a SYCL object.
+// James Brodman: File actually no longer used anywhere and can be removed.
+static bool activeBackend(pi::Backend) {
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 USMDispatcher::USMDispatcher(cl_platform_id platform,
                              const vector_class<RT::PiDevice> &DeviceIds) {
   // Note: This function should be modified whenever a new BE is added.
   // mSupported needs to be appropriately set to properly gate USM support.
-  
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     GET_EXTENSION(clHostMemAllocINTEL);
     GET_EXTENSION(clDeviceMemAllocINTEL);
     GET_EXTENSION(clSharedMemAllocINTEL);
@@ -81,7 +90,7 @@ void *USMDispatcher::hostMemAlloc(pi_context Context,
                                   pi_result *ErrcodeRet) {
   void *RetVal = nullptr;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
 
     if (mEmulated) {
@@ -105,7 +114,7 @@ void *USMDispatcher::deviceMemAlloc(pi_context Context, pi_device Device,
                                     pi_result *ErrcodeRet) {
   void *RetVal = nullptr;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
     cl_device_id CLDevice = pi::cast<cl_device_id>(Device);
 
@@ -132,7 +141,7 @@ void *USMDispatcher::sharedMemAlloc(pi_context Context, pi_device Device,
                                     pi_result *ErrcodeRet) {
   void *RetVal = nullptr;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
     cl_device_id CLDevice = pi::cast<cl_device_id>(Device);
 
@@ -156,7 +165,7 @@ void *USMDispatcher::sharedMemAlloc(pi_context Context, pi_device Device,
 pi_result USMDispatcher::memFree(pi_context Context, void *Ptr) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
 
     if (mEmulated) {
@@ -175,7 +184,7 @@ pi_result USMDispatcher::setKernelArgMemPointer(pi_kernel Kernel,
   pi_result RetVal = PI_INVALID_OPERATION;
 
   if (mSupported) {
-    if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+    if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
       cl_kernel CLKernel = pi::cast<cl_kernel>(Kernel);
 
       if (mEmulated) {
@@ -194,7 +203,7 @@ pi_result USMDispatcher::setKernelArgMemPointer(pi_kernel Kernel,
 void USMDispatcher::setKernelIndirectAccess(pi_kernel Kernel, pi_queue Queue) {
 
   if (mSupported) {
-    if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+    if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
       cl_kernel CLKernel = pi::cast<cl_kernel>(Kernel);
       cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
       cl_bool TrueVal = CL_TRUE;
@@ -233,7 +242,7 @@ pi_result USMDispatcher::enqueueMemset(pi_queue Queue, void *Ptr,
                                        pi_event *Event) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     // Is there a better way to convert pi_event * to cl_event *?
@@ -264,7 +273,7 @@ pi_result USMDispatcher::enqueueMemcpy(pi_queue Queue, pi_bool Blocking,
                                        pi_event *Event) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     if (mEmulated) {
@@ -291,17 +300,18 @@ pi_result USMDispatcher::enqueueMigrateMem(pi_queue Queue, const void *Ptr,
                                            pi_event *Event) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     if (mEmulated) {
       // We could check for OpenCL 2.1 and call the SVM migrate
       // functions, but for now we'll just enqueue a marker.
+      // TODO: Implement a PI call for this openCL API
       RetVal = pi::cast<pi_result>(clEnqueueMarkerWithWaitList(
           CLQueue, NumEventsInWaitList,
           reinterpret_cast<const cl_event *>(EventWaitList),
           reinterpret_cast<cl_event *>(Event)));
-      pi::checkPiResult(RetVal);
+      RT::GlobalPlugin->checkPiResult(RetVal);
     } else {
       RetVal = pi::cast<pi_result>(pfn_clEnqueueMigrateMemINTEL(
           CLQueue, Ptr, Size, Flags, NumEventsInWaitList,
@@ -320,7 +330,7 @@ pi_result USMDispatcher::getMemAllocInfo(pi_context Context, const void *Ptr,
                                          size_t *ParamValueSizeRet) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_context CLContext = pi::cast<cl_context>(Context);
 
     if (mEmulated) {
@@ -343,25 +353,27 @@ pi_result USMDispatcher::getMemAllocInfo(pi_context Context, const void *Ptr,
 
 void USMDispatcher::memAdvise(pi_queue Queue, const void *Ptr, size_t Length,
                               int Advice, pi_event *Event) {
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     cl_command_queue CLQueue = pi::cast<cl_command_queue>(Queue);
 
     if (mEmulated) {
       // memAdvise does nothing here
       // TODO: Implement a PI call for this openCL API
-      RT::checkPiResult(RT::cast<RT::PiResult>(clEnqueueMarkerWithWaitList(
-          CLQueue, 0, nullptr, reinterpret_cast<cl_event *>(Event))));
+      RT::GlobalPlugin->checkPiResult(
+          RT::cast<RT::PiResult>(clEnqueueMarkerWithWaitList(
+              CLQueue, 0, nullptr, reinterpret_cast<cl_event *>(Event))));
     } else {
       // Temporary until driver supports
       // memAdvise doesn't do anything on an iGPU anyway
       // TODO: Implement a PI call for this openCL API
-      RT::checkPiResult(RT::cast<RT::PiResult>(clEnqueueMarkerWithWaitList(
-          CLQueue, 0, nullptr, reinterpret_cast<cl_event *>(Event))));
+      RT::GlobalPlugin->checkPiResult(
+          RT::cast<RT::PiResult>(clEnqueueMarkerWithWaitList(
+              CLQueue, 0, nullptr, reinterpret_cast<cl_event *>(Event))));
       /*
       // Enable once this is supported in the driver
       auto CLAdvice = *reinterpret_cast<cl_mem_advice_intel *>(&Advice);
       // TODO: Implement a PI call for this openCL API
-      RT::checkPiResult(RT::cast<RT::PiResult>(pfn_clEnqueueMemAdviseINTEL(
+      RT::GlobalPlugin->checkPiResult(RT::cast<RT::PiResult>(pfn_clEnqueueMemAdviseINTEL(
           CLQueue, Ptr, Length, CLAdvice, 0, nullptr,
           reinterpret_cast<cl_event *>(Event))));
       */
@@ -372,19 +384,20 @@ void USMDispatcher::memAdvise(pi_queue Queue, const void *Ptr, size_t Length,
 pi_result USMDispatcher::enqueuePrefetch(pi_queue Queue, void *Ptr, size_t Size,
                                          pi_uint32 NumEventsInWaitList,
                                          const pi_event *EventWaitList,
-                                         pi_event *Event) {
+                                         pi_event *Event,
+                                         const plugin &Plugin) {
   pi_result RetVal = PI_INVALID_OPERATION;
 
-  if (pi::useBackend(pi::Backend::SYCL_BE_PI_OPENCL)) {
+  if (activeBackend(pi::Backend::SYCL_BE_PI_OPENCL)) { // INTEL
     if (mEmulated) {
       // Prefetch is a hint, so ignoring it is always safe.
-      RetVal = PI_CALL_NOCHECK(piEnqueueEventsWait)(Queue, NumEventsInWaitList,
-                                                    EventWaitList, Event);
+      RetVal = Plugin.call_nocheck<PiApiKind::piEnqueueEventsWait>(
+          Queue, NumEventsInWaitList, EventWaitList, Event);
     } else {
       // TODO: Replace this with real prefetch support when the driver enables
       // it.
-      RetVal = PI_CALL_NOCHECK(piEnqueueEventsWait)(Queue, NumEventsInWaitList,
-                                                    EventWaitList, Event);
+      RetVal = Plugin.call_nocheck<PiApiKind::piEnqueueEventsWait>(
+          Queue, NumEventsInWaitList, EventWaitList, Event);
     }
   }
 
@@ -394,4 +407,4 @@ pi_result USMDispatcher::enqueuePrefetch(pi_queue Queue, void *Ptr, size_t Size,
 } // namespace usm
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

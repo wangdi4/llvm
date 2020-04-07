@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef liblldb_ClangExpressionVariable_h_
-#define liblldb_ClangExpressionVariable_h_
+#ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGEXPRESSIONVARIABLE_H
+#define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGEXPRESSIONVARIABLE_H
 
 #include <signal.h>
 #include <stdint.h>
@@ -19,7 +19,6 @@
 
 #include "llvm/Support/Casting.h"
 
-#include "lldb/Core/ClangForward.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Expression/ExpressionVariable.h"
 #include "lldb/Symbol/TaggedASTType.h"
@@ -28,6 +27,10 @@
 
 namespace llvm {
 class Value;
+}
+
+namespace clang {
+class NamedDecl;
 }
 
 namespace lldb_private {
@@ -199,4 +202,4 @@ public:
 
 } // namespace lldb_private
 
-#endif // liblldb_ClangExpressionVariable_h_
+#endif // LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_CLANGEXPRESSIONVARIABLE_H

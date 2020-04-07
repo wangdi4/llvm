@@ -90,10 +90,6 @@
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
 #endif
 
-/// Device types -- use the same definitions in cl.h
-#define CL_DEVICE_TYPE_CPU (1 << 1)
-#define CL_DEVICE_TYPE_GPU (1 << 2)
-
 /// OP definitions for atomic/reduction entries
 #define OP_MIN(X, Y, DT) ((X) < (Y) ? (X) : (Y))
 #define OP_MAX(X, Y, DT) ((X) > (Y) ? (X) : (Y))
@@ -268,6 +264,8 @@ typedef struct kmp_local_state {
   ushort num_threads;
   kmp_shared_data_t shared_data;
   kmp_barrier_counting_t work_barrier;
+  // Data for ad-hoc simple SPMD mode
+  ushort spmd_num_threads;
 } kmp_local_state_t;
 
 /// Host data -- misc. data that are copied from host
@@ -275,7 +273,6 @@ typedef struct kmp_program_data {
   int initialized;
   int num_devices;
   int device_num;
-  int device_type;
 } kmp_program_data_t;
 
 /// Global state
@@ -359,6 +356,9 @@ EXTERN short __kmpc_parallel_level(ident_t *loc, uint gtid);
 
 /// Push num_threads for the next parallel region
 EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads);
+
+/// Pop num_threads
+EXTERN void __kmpc_pop_num_threads(ident_t *loc, int tid);
 
 /// Push simd_limit for the next region
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);

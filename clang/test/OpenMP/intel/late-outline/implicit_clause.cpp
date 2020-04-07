@@ -174,7 +174,7 @@ struct MyClass {
 
 void MyClass::execute() {
 // CHECK: region.entry{{.*}}"DIR.OMP.TARGET"
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"{{.*}}this
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"{{.*}}this1
 // CHECK: region.entry{{.*}}"DIR.OMP.PARALLEL"
 // CHECK-SAME: "QUAL.OMP.SHARED"{{.*}}this
   #pragma omp target

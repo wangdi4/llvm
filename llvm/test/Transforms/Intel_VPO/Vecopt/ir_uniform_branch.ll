@@ -1,5 +1,15 @@
-; RUN: opt -vplan-force-vf=4 -S -VPlanDriver -disable-vplan-predicator < %s | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -S -VPlanDriver < %s | FileCheck %s
 
+;void foo(int *A, int *B, int N, int c) {
+;  for (int i=0: N) {
+;    if (c != 0)
+;      tmp = B[i];
+;    else
+;      tmp = 6;
+;    A[i] += tmp;
+;  }
+;}
+define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %c) local_unnamed_addr #0 {
 ; CHECK-LABEL: foo
 ; CHECK:   vector.body
 ; CHECK:      %index = phi i64 [ 0, %vector.ph ], [ %index.next, %[[VPBB1:.*]] ]
@@ -17,16 +27,6 @@
 ; CHECK:      [[VEC_NDX]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT: [[SCAL_NDX]] = add nuw nsw i64 [[SCAL_PHI]], 4
 ;
-;void foo(int *A, int *B, int N, int c) {
-;  for (int i=0: N) {
-;    if (c != 0)
-;      tmp = B[i];
-;    else
-;      tmp = 6;
-;    A[i] += tmp;
-;  }
-;}
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %c) local_unnamed_addr #0 {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %L1

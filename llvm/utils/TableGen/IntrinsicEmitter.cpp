@@ -244,10 +244,11 @@ enum IIT_Info {
   IIT_SCALABLE_VEC = 43,
   IIT_SUBDIVIDE2_ARG = 44,
   IIT_SUBDIVIDE4_ARG = 45,
-  IIT_VEC_OF_BITCASTS_TO_INT = 46
+  IIT_VEC_OF_BITCASTS_TO_INT = 46,
+  IIT_V128  = 47
 #if INTEL_CUSTOMIZATION
   ,
-  IIT_STRUCT9 = 47
+  IIT_STRUCT9 = 48
 #endif  // INTEL_CUSTOMIZATION
 };
 
@@ -384,6 +385,7 @@ static void EncodeFixedType(Record *R, std::vector<unsigned char> &ArgCodes,
     case 16: Sig.push_back(IIT_V16); break;
     case 32: Sig.push_back(IIT_V32); break;
     case 64: Sig.push_back(IIT_V64); break;
+    case 128: Sig.push_back(IIT_V128); break;
     case 512: Sig.push_back(IIT_V512); break;
     case 1024: Sig.push_back(IIT_V1024); break;
     }
@@ -584,6 +586,9 @@ struct AttributeComparator {
     if (L->isNoReturn != R->isNoReturn)
       return R->isNoReturn;
 
+    if (L->isNoSync != R->isNoSync)
+      return R->isNoSync;
+
     if (L->isWillReturn != R->isWillReturn)
       return R->isWillReturn;
 
@@ -725,8 +730,8 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
 
     if (!intrinsic.canThrow ||
         (intrinsic.ModRef != CodeGenIntrinsic::ReadWriteMem && !intrinsic.hasSideEffects) ||
-        intrinsic.isNoReturn || intrinsic.isWillReturn || intrinsic.isCold ||
-        intrinsic.isNoDuplicate || intrinsic.isConvergent ||
+        intrinsic.isNoReturn || intrinsic.isNoSync || intrinsic.isWillReturn ||
+        intrinsic.isCold || intrinsic.isNoDuplicate || intrinsic.isConvergent ||
         intrinsic.isSpeculatable) {
       OS << "      const Attribute::AttrKind Atts[] = {";
       bool addComma = false;
@@ -738,6 +743,12 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
         if (addComma)
           OS << ",";
         OS << "Attribute::NoReturn";
+        addComma = true;
+      }
+      if (intrinsic.isNoSync) {
+        if (addComma)
+          OS << ",";
+        OS << "Attribute::NoSync";
         addComma = true;
       }
       if (intrinsic.isWillReturn) {

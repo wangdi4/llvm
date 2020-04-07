@@ -137,6 +137,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare float @cabsf([2 x float])\n"
       "declare x86_fp80 @cabsl([2 x x86_fp80])\n"
       "declare double @cos(double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @cosd(double)\n"
+      "declare float @cosdf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @cosf(float)\n"
       "declare double @cosh(double)\n"
       "declare float @coshf(float)\n"
@@ -265,6 +269,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64 @readlink(i8*, i8*, i64)\n"
       "declare i8* @realloc(i8*, i64)\n"
       "declare i8* @reallocf(i8*, i64)\n"
+      "declare double @remainder(double, double)\n"
+      "declare float @remainderf(float, float)\n"
+      "declare x86_fp80 @remainderl(x86_fp80, x86_fp80)\n"
       "declare i32 @remove(i8*)\n"
       "declare i32 @rename(i8*, i8*)\n"
       "declare void @rewind(%struct*)\n"
@@ -280,6 +287,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @setitimer(i32, %struct*, %struct*)\n"
       "declare i32 @setvbuf(%struct*, i8*, i32, i64)\n"
       "declare double @sin(double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @sind(double)\n"
+      "declare float @sindf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @sinf(float)\n"
       "declare double @sinh(double)\n"
       "declare float @sinhf(float)\n"
@@ -324,6 +335,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64 @strtoull(i8*, i8**, i32)\n"
       "declare i64 @strxfrm(i8*, i8*, i64)\n"
       "declare double @tan(double)\n"
+#if INTEL_CUSTOMIZATION
+      "declare double @tand(double)\n"
+      "declare float @tandf(float)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare float @tanf(float)\n"
       "declare double @tanh(double)\n"
       "declare float @tanhf(float)\n"
@@ -379,7 +394,14 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @popen(i8*, i8*)\n"
       "declare i64 @pread(i32, i8*, i64, i64)\n"
       "declare i64 @pwrite(i32, i8*, i64, i64)\n"
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
+      // NOTE: The libfunc read is an alias to _read in Windows (Libfunc_under_read)
+      "declare i32 @read(i32, i8*, i32)\n"
+#else
       "declare i64 @read(i32, i8*, i64)\n"
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
       "declare i8* @realpath(i8*, i8*)\n"
       "declare i32 @stat(i8*, %struct*)\n"
       "declare double @strtod(i8*, i8**)\n"
@@ -493,6 +515,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @__sprintf_chk(i8*, i32, i64, i8*, ...)\n"
       "declare i8* @__strcat_chk(i8*, i8*, i64)\n"
       "declare i64 @__strlcat_chk(i8*, i8*, i64, i64)\n"
+      "declare i64 @__strlen_chk(i8*, i64)\n"
       "declare i8* @__strncat_chk(i8*, i8*, i64, i64)\n"
       "declare i64 @__strlcpy_chk(i8*, i8*, i64, i64)\n"
       "declare i32 @__vsnprintf_chk(i8*, i64, i32, i64, i8*, %struct*)\n"
@@ -678,6 +701,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @_obstack_memory_used(i8*)\n"
       "declare i32 @_obstack_newchunk(i8*, i32)\n"
       "declare void @_purecall()\n"
+      "declare i32 @_read(i32, i8*, i32)\n"
       "declare i32 @_set_errno(i32)\n"
       "declare i32 @_setjmp(i8*)\n"
       "declare i32 @_setmode(i32, i32)\n"
@@ -753,6 +777,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt13runtime_errorD1Ev(i8*)\n"
       "declare void @_ZNSt13runtime_errorD2Ev(i8*)\n"
       "declare void @_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode(i8*, i8*, i32)\n"
+      "declare void @_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev(i8*)\n"
       "declare void @_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev(i8*, i8*)\n"
       "declare void @_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare void @_ZNSt15basic_streambufIcSt11char_traitsIcEE5imbueERKSt6locale(i8*, i8*)\n"
@@ -778,6 +803,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm(i8*, i32, i32, i8*, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEmmPKcm(i8*, i32, i32, i8*, i32)\n"
       "declare i8* @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc(i8*, i32, i32, i32, i8)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_(i8*, i8*, i8*)\n"
+      "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm(i8*, i8*, i32, i32)\n"
       "declare void @_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev(i8*)\n"
       "declare i8* @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE6setbufEPcl(i8*, i8*, i64)\n"
       "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE7_M_syncEPcmm(i8*, i8*, i32, i32)\n"
@@ -788,6 +815,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i64 @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9showmanycEv(i8*)\n"
       "declare i32 @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv(i8*)\n"
       "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode(i8*, i8*, i32)\n"
+      "declare void @_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEED2Ev(i8*)\n"
       "declare void @_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode(i8*, i8*, i32)\n"
       "declare void @_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ESt13_Ios_Openmode(i8* ,i32)\n"
       "declare void @_ZNSt7__cxx1119basic_istringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode(i8*, i8*, i32)\n"

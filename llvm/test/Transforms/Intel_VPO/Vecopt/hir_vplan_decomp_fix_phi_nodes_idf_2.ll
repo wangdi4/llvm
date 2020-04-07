@@ -48,7 +48,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]]
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -97,8 +96,6 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
   %1 = load i64, i64* @time_ago, align 8
   %conv1 = trunc i64 %1 to i32

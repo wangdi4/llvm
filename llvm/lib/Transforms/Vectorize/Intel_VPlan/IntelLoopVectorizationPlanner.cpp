@@ -19,6 +19,7 @@
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPlanCostModel.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanPredicator.h"
 #include "llvm/ADT/DenseSet.h"
@@ -156,20 +157,27 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
-    if (VPlanUseVPEntityInstructions) {
-      VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
-      // Loop entities may be not created in some cases.
-      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
-      VPBuilder VPIRBuilder;
-      LE->insertVPInstructions(VPIRBuilder);
-      LE->doSOAAnalysis();
+    VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+    // Loop entities may be not created in some cases.
+    VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+    VPBuilder VPIRBuilder;
+    LE->insertVPInstructions(VPIRBuilder);
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    Plan->setVPlanDA(std::move(VPDA));
+    auto *VPLInfo = Plan->getVPLoopInfo();
+    VPLoop *CandidateLoop = *VPLInfo->begin();
+    Plan->computeDT();
+    Plan->computePDT();
+    Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
+                                *Plan->getDT(), *Plan->getPDT(),
+                                false /*Not in LCSSA form*/);
+    LE->doSOAAnalysis();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      if (DumpAfterVPEntityInstructions) {
-        outs() << "After insertion VPEntities instructions:\n";
-        Plan->dump(outs(), Plan->getVPlanDA());
-      }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    if (DumpAfterVPEntityInstructions) {
+      outs() << "After insertion VPEntities instructions:\n";
+      Plan->dump(outs(), Plan->getVPlanDA());
     }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
@@ -350,10 +358,12 @@ void LoopVectorizationPlanner::predicate() {
   }
 }
 
-void LoopVectorizationPlanner::unroll(VPlan &Plan, unsigned UF) {
+void LoopVectorizationPlanner::unroll(
+    VPlan &Plan, unsigned UF,
+    VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
-    Unroller.run();
+    Unroller.run(VPInstUnrollPart);
   }
 }
 
@@ -440,10 +450,6 @@ void LoopVectorizationPlanner::EnterExplicitData(
     WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
 #if INTEL_CUSTOMIZATION
   constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
-  if (Kind == IRKind::LLVMIR)
-    VPlanUseVPEntityInstructions = true;
-  if (Kind == IRKind::HIR)
-    VPlanUseVPEntityInstructions = true;
 #endif
   // Collect any SIMD loop private information
   if (WRLp) {

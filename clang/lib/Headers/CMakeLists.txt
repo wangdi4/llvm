@@ -62,6 +62,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/serializeintrin.h
   )
 # end INTEL_FEATURE_ISA_SERIALIZE
+# INTEL_FEATURE_ISA_HRESET
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET
+  Intel_Headers/hresetintrin.h
+  )
+# end INTEL_FEATURE_ISA_HRESET
 # INTEL_FEATURE_ISA_TSXLDTRK
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_TSXLDTRK
@@ -127,6 +133,12 @@ intel_add_file(INTEL_HEADERS
   Intel_amxtranspose2intrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+# INTEL_FEATURE_ISA_AMX_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT
+  Intel_amxconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_CONVERT
 # INTEL_FEATURE_ISA_KEYLOCKER
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER
@@ -149,6 +161,38 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxvnni/avxvnniintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_VNNI
+# INTEL_FEATURE_ISA_AVX512_DOTPROD
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD
+  Intel_Headers/avx512dotprod/avx512dotprodintrin.h
+  Intel_Headers/avx512dotprod/avx512vldotprodintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD
+# INTEL_FEATURE_ISA_AVX512_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_CONVERT
+  Intel_Headers/avx512convert/avx512convertintrin.h
+  Intel_Headers/avx512convert/avx512vlconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_CONVERT
+# INTEL_FEATURE_ISA_AVX_IFMA
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_IFMA
+  Intel_Headers/avxifma/avxifmaintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_IFMA
+# INTEL_FEATURE_ISA_AVX_DOTPROD
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD
+  Intel_Headers/avxdotprod/avxdotprodintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_DOTPROD
+# INTEL_FEATURE_ISA_AVX_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_CONVERT
+  Intel_Headers/avxconvert/avxconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_CONVERT
 # end INTEL_CUSTOMIZATION
 
 set(files
@@ -303,6 +347,7 @@ set(openmp_wrapper_files
   openmp_wrappers/cmath
   openmp_wrappers/__clang_openmp_math.h
   openmp_wrappers/__clang_openmp_math_declares.h
+  openmp_wrappers/new
 )
 
 set(output_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
@@ -363,8 +408,12 @@ endif(INTEL_CUSTOMIZATION)
 clang_generate_header(-gen-arm-neon arm_neon.td arm_neon.h)
 # Generate arm_fp16.h
 clang_generate_header(-gen-arm-fp16 arm_fp16.td arm_fp16.h)
+# Generate arm_sve.h
+clang_generate_header(-gen-arm-sve-header arm_sve.td arm_sve.h)
 # Generate arm_mve.h
 clang_generate_header(-gen-arm-mve-header arm_mve.td arm_mve.h)
+# Generate arm_cde.h
+clang_generate_header(-gen-arm-cde-header arm_cde.td arm_cde.h)
 
 add_custom_target(clang-resource-headers ALL DEPENDS ${out_files})
 set_target_properties(clang-resource-headers PROPERTIES

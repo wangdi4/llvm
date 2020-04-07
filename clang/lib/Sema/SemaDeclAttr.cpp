@@ -226,8 +226,7 @@ static bool checkAttributeAtMostNumArgs(Sema &S, const ParsedAttr &AL,
 /// A helper function to provide Attribute Location for the Attr types
 /// AND the ParsedAttr.
 template <typename AttrInfo>
-static typename std::enable_if<std::is_base_of<Attr, AttrInfo>::value,
-                               SourceLocation>::type
+static std::enable_if_t<std::is_base_of<Attr, AttrInfo>::value, SourceLocation>
 getAttrLoc(const AttrInfo &AL) {
   return AL.getLocation();
 }
@@ -1101,7 +1100,7 @@ static void handleNoBuiltinAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
         AddBuiltinName(BuiltinName);
       else
         S.Diag(LiteralLoc, diag::warn_attribute_no_builtin_invalid_builtin_name)
-            << BuiltinName << AL.getAttrName()->getName();
+            << BuiltinName << AL;
     }
 
   // Repeating the same attribute is fine.
@@ -1112,7 +1111,7 @@ static void handleNoBuiltinAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (HasWildcard && Names.size() > 1)
     S.Diag(D->getLocation(),
            diag::err_attribute_no_builtin_wildcard_or_builtin_name)
-        << AL.getAttrName()->getName();
+        << AL;
 
   if (D->hasAttr<NoBuiltinAttr>())
     D->dropAttr<NoBuiltinAttr>();
@@ -1178,8 +1177,7 @@ static bool checkForConsumableClass(Sema &S, const CXXMethodDecl *MD,
 
   if (const CXXRecordDecl *RD = ThisType->getAsCXXRecordDecl()) {
     if (!RD->hasAttr<ConsumableAttr>()) {
-      S.Diag(AL.getLoc(), diag::warn_attr_on_unconsumable_class) <<
-        RD->getNameAsString();
+      S.Diag(AL.getLoc(), diag::warn_attr_on_unconsumable_class) << RD;
 
       return false;
     }
@@ -3793,7 +3791,7 @@ static bool checkSYCLWorkGroupSizeValues(Sema &S, Decl *D,        // INTEL
   if (const auto *A = D->getAttr<SYCLIntelMaxGlobalWorkDimAttr>())
     if (A->getNumber() == 0)
       Result &= checkZeroDim(A, WGSize[0], WGSize[1], WGSize[2],
-                             /*ReverseAttrs=*/ true);
+                             /*ReverseAttrs=*/true);
 
   if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
     if (!(WGSize[0] <= A->getXDim() && WGSize[1] <= A->getYDim() &&
@@ -3830,22 +3828,27 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
 #endif // INTEL_CUSTOMIZATION
 
   uint32_t WGSize[3];
+  if (AL.getKind() == ParsedAttr::AT_ReqdWorkGroupSize &&
+      AL.getAttributeSpellingListIndex() ==
+          ReqdWorkGroupSizeAttr::CXX11_intel_reqd_work_group_size) {
+    WGSize[1] = ReqdWorkGroupSizeAttr::DefaultYDim;
+    WGSize[2] = ReqdWorkGroupSizeAttr::DefaultZDim;
+  } else if (!checkAttributeNumArgs(S, AL, 3))
+    return;
+
   for (unsigned i = 0; i < 3; ++i) {
-    const Expr *E = AL.getArgAsExpr(i);
-    if (!checkUInt32Argument(S, AL, E, WGSize[i], i,
+    if (i < AL.getNumArgs() &&
+        !checkUInt32Argument(S, AL, AL.getArgAsExpr(i), WGSize[i], i,
                              /*StrictlyUnsigned=*/true))
       return;
     if (WGSize[i] == 0) {
       S.Diag(AL.getLoc(), diag::err_attribute_argument_is_zero)
-          << AL << E->getSourceRange();
+          << AL << AL.getArgAsExpr(i)->getSourceRange();
       return;
     }
   }
 
 #if INTEL_CUSTOMIZATION
-  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
-    return;
-
   if (D->hasAttr<AutorunAttr>()) {
     long long int N = 1ll << 32ll;
     if (N % WGSize[0] != 0 || N % WGSize[1] != 0 || N % WGSize[2] != 0) {
@@ -3855,14 +3858,23 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize)) // INTEL
-    return;
+  // For a SYCLDevice WorkGroupAttr arguments are reversed
+  if (S.getLangOpts().SYCLIsDevice) {
+    std::swap(WGSize[0], WGSize[2]);
+  }
 
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
-  if (Existing && !(Existing->getXDim() == WGSize[0] &&
-                    Existing->getYDim() == WGSize[1] &&
-                    Existing->getZDim() == WGSize[2]))
+  if (Existing &&
+      !(Existing->getXDim() == WGSize[0] && Existing->getYDim() == WGSize[1] &&
+        Existing->getZDim() == WGSize[2]))
     S.Diag(AL.getLoc(), diag::warn_duplicate_attribute) << AL;
+
+#if INTEL_CUSTOMIZATION
+  if (!checkSYCLWorkGroupSizeValues(S, D, AL, WGSize))
+    return;
+#endif // INTEL_CUSTOMIZATION
+  if (!checkWorkGroupSizeValues(S, D, AL, WGSize))
+    return;
 
   D->addAttr(::new (S.Context)
                  WorkGroupAttr(S.Context, AL, WGSize[0], WGSize[1], WGSize[2]));
@@ -4719,7 +4731,7 @@ void Sema::AddAlignValueAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E) {
   if (!T->isDependentType() && !T->isAnyPointerType() &&
       !T->isReferenceType() && !T->isMemberPointerType()) {
     Diag(AttrLoc, diag::warn_attribute_pointer_or_reference_only)
-      << &TmpAttr /*TmpAttr.getName()*/ << T << D->getSourceRange();
+      << &TmpAttr << T << D->getSourceRange();
     return;
   }
 
@@ -4769,81 +4781,6 @@ static void handleAlignedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
 
   S.AddAlignedAttr(D, AL, E, AL.isPackExpansion());
-}
-
-template <typename AttrType>
-void Sema::IntelFPGAAddOneConstantValueAttr(Decl *D,
-                                            const AttributeCommonInfo &CI,
-                                            Expr *E) {
-  AttrType TmpAttr(Context, CI, E);
-
-  if (!E->isValueDependent()) {
-    ExprResult ICE;
-    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
-      return;
-    E = ICE.get();
-  }
-
-  if (IntelFPGAPrivateCopiesAttr::classof(&TmpAttr)) {
-    if (!D->hasAttr<IntelFPGAMemoryAttr>())
-      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-          Context, IntelFPGAMemoryAttr::Default));
-  }
-
-#if INTEL_CUSTOMIZATION
-  if (isa<IntelFPGAMaxReplicatesAttr>(TmpAttr) ||
-      (isa<MaxConcurrencyAttr>(TmpAttr) && isa<VarDecl>(D)) ||
-      isa<ForcePow2DepthAttr>(TmpAttr)) {
-    if (!D->hasAttr<IntelFPGAMemoryAttr>())
-      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-          Context, IntelFPGAMemoryAttr::Default));
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  D->addAttr(::new (Context) AttrType(Context, CI, E));
-}
-
-template <typename AttrType>
-void Sema::IntelFPGAAddOneConstantPowerTwoValueAttr(
-    Decl *D, const AttributeCommonInfo &CI, Expr *E) {
-  AttrType TmpAttr(Context, CI, E);
-
-  if (!E->isValueDependent()) {
-    ExprResult ICE;
-    if (checkRangedIntegralArgument<AttrType>(E, &TmpAttr, ICE))
-      return;
-    Expr::EvalResult Result;
-    E->EvaluateAsInt(Result, Context);
-    llvm::APSInt Value = Result.Val.getInt();
-    if (!Value.isPowerOf2()) {
-      Diag(CI.getLoc(), diag::err_attribute_argument_not_power_of_two)
-          << &TmpAttr;
-      return;
-    }
-    if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
-      if (auto *BBA = D->getAttr<IntelFPGABankBitsAttr>()) {
-        unsigned NumBankBits = BBA->args_size();
-        if (NumBankBits != Value.ceilLogBase2()) {
-          Diag(TmpAttr.getLocation(), diag::err_bankbits_numbanks_conflicting);
-          return;
-        }
-      }
-    }
-    E = ICE.get();
-  }
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        Context, IntelFPGAMemoryAttr::Default));
-
-  // We are adding a user NumBanks, drop any implicit default.
-  if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
-    if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
-      if (NBA->isImplicit())
-        D->dropAttr<IntelFPGANumBanksAttr>();
-  }
-
-  D->addAttr(::new (Context) AttrType(Context, CI, E));
 }
 
 void Sema::AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
@@ -4986,6 +4923,7 @@ void Sema::CheckAlignasUnderalignment(Decl *D) {
   //   not specify an alignment that is less strict than the alignment that
   //   would otherwise be required for the entity being declared.
   AlignedAttr *AlignasAttr = nullptr;
+  AlignedAttr *LastAlignedAttr = nullptr;
   unsigned Align = 0;
   for (auto *I : D->specific_attrs<AlignedAttr>()) {
     if (I->isAlignmentDependent())
@@ -4993,9 +4931,13 @@ void Sema::CheckAlignasUnderalignment(Decl *D) {
     if (I->isAlignas())
       AlignasAttr = I;
     Align = std::max(Align, I->getAlignment(Context));
+    LastAlignedAttr = I;
   }
 
-  if (AlignasAttr && Align) {
+  if (Align && DiagTy->isSizelessType()) {
+    Diag(LastAlignedAttr->getLocation(), diag::err_attribute_sizeless_type)
+        << LastAlignedAttr << DiagTy;
+  } else if (AlignasAttr && Align) {
     CharUnits RequestedAlign = Context.toCharUnitsFromBits(Align);
     CharUnits NaturalAlign = Context.getTypeAlignInChars(UnderlyingTy);
     if (NaturalAlign > RequestedAlign)
@@ -5028,8 +4970,7 @@ bool Sema::checkMSInheritanceAttrOnDefinition(
 
   Diag(Range.getBegin(), diag::err_mismatched_ms_inheritance)
       << 0 /*definition*/;
-  Diag(RD->getDefinition()->getLocation(), diag::note_defined_here)
-      << RD->getNameAsString();
+  Diag(RD->getDefinition()->getLocation(), diag::note_defined_here) << RD;
   return true;
 }
 
@@ -5399,13 +5340,7 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 static void handleSYCLDeviceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   auto *FD = cast<FunctionDecl>(D);
   if (!FD->isExternallyVisible()) {
-    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here)
-        << AL << 0 /* static function or anonymous namespace */;
-    return;
-  }
-  if (isa<CXXMethodDecl>(FD)) {
-    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here)
-        << AL << 1 /* class member function */;
+    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here) << AL;
     return;
   }
   if (FD->getReturnType()->isPointerType()) {
@@ -5418,7 +5353,6 @@ static void handleSYCLDeviceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
           << AL << 1 /* function with a raw pointer parameter type */;
     }
 
-  S.addSyclDeviceDecl(D);
   handleSimpleAttribute<SYCLDeviceAttr>(S, D, AL);
 }
 
@@ -5426,17 +5360,10 @@ static void handleSYCLDeviceIndirectlyCallableAttr(Sema &S, Decl *D,
                                                    const ParsedAttr &AL) {
   auto *FD = cast<FunctionDecl>(D);
   if (!FD->isExternallyVisible()) {
-    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here)
-        << AL << 0 /* static function or anonymous namespace */;
-    return;
-  }
-  if (isa<CXXMethodDecl>(FD)) {
-    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here)
-        << AL << 1 /* class member function */;
+    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here) << AL;
     return;
   }
 
-  S.addSyclDeviceDecl(D);
   D->addAttr(SYCLDeviceAttr::CreateImplicit(S.Context));
   handleSimpleAttribute<SYCLDeviceIndirectlyCallableAttr>(S, D, AL);
 }
@@ -6084,24 +6011,26 @@ static void handleTypeTagForDatatypeAttr(Sema &S, Decl *D,
       AL.getMustBeNull()));
 }
 
-static void handleSYCLUsesGlobalWorkOffsetAttr(Sema &S, Decl *D,         // INTEL
-                                               const ParsedAttr &Attr) { // INTEL
+static void handleNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
+                                         const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
 
-  checkForDuplicateAttribute<SYCLIntelUsesGlobalWorkOffsetAttr>(S, D, Attr);
+  checkForDuplicateAttribute<SYCLIntelNoGlobalWorkOffsetAttr>(S, D, Attr);
 
-  uint32_t Enabled;
-  const Expr *E = Attr.getArgAsExpr(0);
-  if (!checkUInt32Argument(S, Attr, E, Enabled, 0,
-                           /*StrictlyUnsigned=*/true))
-    return;
+  uint32_t Enabled = 1;
+  if (Attr.getNumArgs()) {
+    const Expr *E = Attr.getArgAsExpr(0);
+    if (!checkUInt32Argument(S, Attr, E, Enabled, 0,
+                             /*StrictlyUnsigned=*/true))
+      return;
+  }
   if (Enabled > 1)
     S.Diag(Attr.getLoc(), diag::warn_boolean_attribute_argument_is_not_valid)
         << Attr;
 
   D->addAttr(::new (S.Context)
-                 SYCLIntelUsesGlobalWorkOffsetAttr(S.Context, Attr, Enabled));
+                 SYCLIntelNoGlobalWorkOffsetAttr(S.Context, Attr, Enabled));
 }
 
 /// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]] attributes.
@@ -6172,18 +6101,6 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) IntelFPGAMemoryAttr(S.Context, AL, Kind));
 }
 
-static void handleForcePow2DepthAttr(Sema &S, Decl *D,
-                                     const ParsedAttr &AL) {
-  checkForDuplicateAttribute<ForcePow2DepthAttr>(S, D, AL);
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
-    return;
-
-  S.IntelFPGAAddOneConstantValueAttr<ForcePow2DepthAttr>(D, AL,
-                                                         AL.getArgAsExpr(0));
-}
-
-
 /// Check for and diagnose attributes incompatible with register.
 /// return true if any incompatible attributes exist.
 static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
@@ -6221,6 +6138,8 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
     InCompat = true;
   if (checkAttrMutualExclusion<IntelFPGABankBitsAttr>(S, D, Attr))
     InCompat = true;
+  if (checkAttrMutualExclusion<IntelFPGAForcePow2DepthAttr>(S, D, Attr))
+    InCompat = true;
 
   return InCompat;
 }
@@ -6250,8 +6169,7 @@ static void handleIntelFPGARegisterAttr(Sema &S, Decl *D,
 /// The numbanks and bank_bits attributes are related.  If bank_bits exists
 /// when handling numbanks they are checked for consistency.
 template <typename AttrType>
-static void
-handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
+static void handleOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
                                             const ParsedAttr &Attr) {
   if (S.LangOpts.SYCLIsHost)
     return;
@@ -6264,7 +6182,7 @@ handleIntelFPGAOneConstantPowerTwoValueAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantPowerTwoValueAttr<AttrType>(
+  S.AddOneConstantPowerTwoValueAttr<AttrType>(
       D, Attr, Attr.getArgAsExpr(0));
 }
 
@@ -6304,8 +6222,8 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
-      D, Attr, Attr.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(D, Attr,
+                                                        Attr.getArgAsExpr(0));
 }
 
 /// Handle the merge attribute.
@@ -6454,8 +6372,31 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
     return;
 
-  S.IntelFPGAAddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
-      D, Attr, Attr.getArgAsExpr(0));
+  S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(D, Attr,
+                                                        Attr.getArgAsExpr(0));
+}
+
+static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
+                                              const ParsedAttr &Attr) {
+  if (S.LangOpts.SYCLIsHost)
+    return;
+
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, Attr))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
+  checkForDuplicateAttribute<IntelFPGAForcePow2DepthAttr>(S, D, Attr);
+
+  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
+    return;
+
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        S.Context, IntelFPGAMemoryAttr::Default));
+
+  S.AddOneConstantValueAttr<IntelFPGAForcePow2DepthAttr>(D, Attr,
+                                                         Attr.getArgAsExpr(0));
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -6490,13 +6431,99 @@ static void handlePatchableFunctionEntryAttr(Sema &S, Decl *D,
                  PatchableFunctionEntryAttr(S.Context, AL, Count, Offset));
 }
 
-static bool ArmMveAliasValid(unsigned BuiltinID, StringRef AliasName) {
-  if (AliasName.startswith("__arm_"))
-    AliasName = AliasName.substr(6);
-#include "clang/Basic/arm_mve_builtin_aliases.inc"
+void Sema::addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &Attr,
+                                  Expr *E) {
+  VarDecl *VD = cast<VarDecl>(D);
+  QualType Ty = VD->getType();
+  // TODO: Applicable only on pipe storages. Currently they are defined
+  // as structures inside of SYCL headers. Add a check for pipe_storage_t
+  // when it is ready.
+  if (!Ty->isStructureType()) {
+    Diag(Attr.getLoc(), diag::err_attribute_wrong_decl_type_str)
+        << Attr.getAttrName() << "SYCL pipe storage declaration";
+    return;
+  }
+
+  if (!E->isInstantiationDependent()) {
+    llvm::APSInt ArgVal(32);
+    if (!E->isIntegerConstantExpr(ArgVal, getASTContext())) {
+      Diag(E->getExprLoc(), diag::err_attribute_argument_type)
+          << Attr.getAttrName() << AANT_ArgumentIntegerConstant
+          << E->getSourceRange();
+      return;
+    }
+    int32_t ArgInt = ArgVal.getSExtValue();
+    if (ArgInt < 0) {
+      Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+          << Attr.getAttrName() << /*non-negative*/ 1;
+      return;
+    }
+  }
+
+  D->addAttr(::new (Context) SYCLIntelPipeIOAttr(Context, Attr, E));
 }
 
-static void handleArmMveAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+static void handleSYCLIntelPipeIOAttr(Sema &S, Decl *D,
+                                      const ParsedAttr &Attr) {
+  if (D->isInvalidDecl())
+    return;
+
+  Expr *E = Attr.getArgAsExpr(0);
+  S.addSYCLIntelPipeIOAttr(D, Attr, E);
+}
+
+namespace {
+struct IntrinToName {
+  uint32_t Id;
+  int32_t FullName;
+  int32_t ShortName;
+};
+} // unnamed namespace
+
+static bool ArmBuiltinAliasValid(unsigned BuiltinID, StringRef AliasName,
+                                 ArrayRef<IntrinToName> Map,
+                                 const char *IntrinNames) {
+  if (AliasName.startswith("__arm_"))
+    AliasName = AliasName.substr(6);
+  const IntrinToName *It = std::lower_bound(
+      Map.begin(), Map.end(), BuiltinID,
+      [](const IntrinToName &L, unsigned Id) { return L.Id < Id; });
+  if (It == Map.end() || It->Id != BuiltinID)
+    return false;
+  StringRef FullName(&IntrinNames[It->FullName]);
+  if (AliasName == FullName)
+    return true;
+  if (It->ShortName == -1)
+    return false;
+  StringRef ShortName(&IntrinNames[It->ShortName]);
+  return AliasName == ShortName;
+}
+
+static bool ArmMveAliasValid(unsigned BuiltinID, StringRef AliasName) {
+#include "clang/Basic/arm_mve_builtin_aliases.inc"
+  // The included file defines:
+  // - ArrayRef<IntrinToName> Map
+  // - const char IntrinNames[]
+  return ArmBuiltinAliasValid(BuiltinID, AliasName, Map, IntrinNames);
+}
+
+static bool ArmCdeAliasValid(unsigned BuiltinID, StringRef AliasName) {
+#include "clang/Basic/arm_cde_builtin_aliases.inc"
+  return ArmBuiltinAliasValid(BuiltinID, AliasName, Map, IntrinNames);
+}
+
+static bool ArmSveAliasValid(unsigned BuiltinID, StringRef AliasName) {
+  switch (BuiltinID) {
+  default:
+    return false;
+#define GET_SVE_BUILTINS
+#define BUILTIN(name, types, attr) case SVE::BI##name:
+#include "clang/Basic/arm_sve_builtins.inc"
+    return true;
+  }
+}
+
+static void handleArmBuiltinAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!AL.isArgIdent(0)) {
     S.Diag(AL.getLoc(), diag::err_attribute_argument_n_type)
         << AL << 1 << AANT_ArgumentIdentifier;
@@ -6505,14 +6532,17 @@ static void handleArmMveAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 
   IdentifierInfo *Ident = AL.getArgAsIdent(0)->Ident;
   unsigned BuiltinID = Ident->getBuiltinID();
+  StringRef AliasName = cast<FunctionDecl>(D)->getIdentifier()->getName();
 
-  if (!ArmMveAliasValid(BuiltinID,
-                        cast<FunctionDecl>(D)->getIdentifier()->getName())) {
-    S.Diag(AL.getLoc(), diag::err_attribute_arm_mve_alias);
+  bool IsAArch64 = S.Context.getTargetInfo().getTriple().isAArch64();
+  if ((IsAArch64 && !ArmSveAliasValid(BuiltinID, AliasName)) ||
+      (!IsAArch64 && !ArmMveAliasValid(BuiltinID, AliasName) &&
+       !ArmCdeAliasValid(BuiltinID, AliasName))) {
+    S.Diag(AL.getLoc(), diag::err_attribute_arm_builtin_alias);
     return;
   }
 
-  D->addAttr(::new (S.Context) ArmMveAliasAttr(S.Context, AL, Ident));
+  D->addAttr(::new (S.Context) ArmBuiltinAliasAttr(S.Context, AL, Ident));
 }
 
 //===----------------------------------------------------------------------===//
@@ -8114,7 +8144,9 @@ static void handleObjCExternallyRetainedAttr(Sema &S, Decl *D,
 
   // If D is a function-like declaration (method, block, or function), then we
   // make every parameter psuedo-strong.
-  for (unsigned I = 0, E = getFunctionOrMethodNumParams(D); I != E; ++I) {
+  unsigned NumParams =
+      hasFunctionProto(D) ? getFunctionOrMethodNumParams(D) : 0;
+  for (unsigned I = 0; I != NumParams; ++I) {
     auto *PVD = const_cast<ParmVarDecl *>(getFunctionOrMethodParam(D, I));
     QualType Ty = PVD->getType();
 
@@ -8258,6 +8290,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   switch (AL.getKind()) {
   default:
+    if (AL.getInfo().handleDeclAttribute(S, D, AL) != ParsedAttrInfo::NotHandled)
+      break;
     if (!AL.isStmtAttr()) {
       // Type attributes are handled elsewhere; silently move on.
       assert(AL.isTypeAttr() && "Non-type attribute not handled");
@@ -8280,14 +8314,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSimpleAttributeWithExclusions<Mips16Attr, MicroMipsAttr,
                                         MipsInterruptAttr>(S, D, AL);
     break;
-  case ParsedAttr::AT_NoMips16:
-    handleSimpleAttribute<NoMips16Attr>(S, D, AL);
-    break;
   case ParsedAttr::AT_MicroMips:
     handleSimpleAttributeWithExclusions<MicroMipsAttr, Mips16Attr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoMicroMips:
-    handleSimpleAttribute<NoMicroMipsAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_MipsLongCall:
     handleSimpleAttributeWithExclusions<MipsLongCallAttr, MipsShortCallAttr>(
@@ -8324,9 +8352,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_WebAssemblyImportName:
     handleWebAssemblyImportNameAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_IBAction:
-    handleSimpleAttribute<IBActionAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_IBOutlet:
     handleIBOutlet(S, D, AL);
     break;
@@ -8350,9 +8375,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_AlwaysInline:
     handleAlwaysInlineAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_Artificial:
-    handleSimpleAttribute<ArtificialAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_AnalyzerNoReturn:
     handleAnalyzerNoReturnAttr(S, D, AL);
@@ -8385,9 +8407,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Constructor:
     handleConstructorAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_CXX11NoReturn:
-    handleSimpleAttribute<CXX11NoReturnAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_Deprecated:
     handleDeprecatedAttr(S, D, AL);
     break;
@@ -8414,9 +8433,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_OptimizeNone:
     handleOptimizeNoneAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_FlagEnum:
-    handleSimpleAttribute<FlagEnumAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_EnumExtensibility:
     handleEnumExtensibilityAttr(S, D, AL);
@@ -8470,26 +8486,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Restrict:
     handleRestrictAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_LifetimeBound:
-    handleSimpleAttribute<LifetimeBoundAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_MayAlias:
-    handleSimpleAttribute<MayAliasAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_Mode:
     handleModeAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoAlias:
-    handleSimpleAttribute<NoAliasAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoCommon:
-    handleSimpleAttribute<NoCommonAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoSplitStack:
-    handleSimpleAttribute<NoSplitStackAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoUniqueAddress:
-    handleSimpleAttribute<NoUniqueAddressAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NonNull:
     if (auto *PVD = dyn_cast<ParmVarDecl>(D))
@@ -8508,9 +8506,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_AllocAlign:
     handleAllocAlignAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_Overloadable:
-    handleSimpleAttribute<OverloadableAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_Ownership:
     handleOwnershipAttr(S, D, AL);
@@ -8567,9 +8562,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_ObjCRuntimeName:
     handleObjCRuntimeName(S, D, AL);
     break;
-  case ParsedAttr::AT_ObjCRuntimeVisible:
-    handleSimpleAttribute<ObjCRuntimeVisibleAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_ObjCBoxable:
     handleObjCBoxable(S, D, AL);
     break;
@@ -8586,12 +8578,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_OSConsumed:
     S.AddXConsumedAttr(D, AL, parsedAttrToRetainOwnershipKind(AL),
                        /*IsTemplateInstantiation=*/false);
-    break;
-  case ParsedAttr::AT_NSConsumesSelf:
-    handleSimpleAttribute<NSConsumesSelfAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_OSConsumesThis:
-    handleSimpleAttribute<OSConsumesThisAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_OSReturnsRetainedOnZero:
     handleSimpleAttributeOrDiagnose<OSReturnsRetainedOnZeroAttr>(
@@ -8632,14 +8618,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim:
     handleSYCLMaxGlobalWorkDimAttr(S, D, AL); // INTEL
     break;
-  case ParsedAttr::AT_SYCLIntelUsesGlobalWorkOffset:
-    handleSYCLUsesGlobalWorkOffsetAttr(S, D, AL); // INTEL
+  case ParsedAttr::AT_SYCLIntelNoGlobalWorkOffset:
+    handleNoGlobalWorkOffsetAttr(S, D, AL);
     break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
-    break;
-  case ParsedAttr::AT_ConstInit:
-    handleSimpleAttribute<ConstInitAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_InitPriority:
     handleInitPriorityAttr(S, D, AL);
@@ -8671,12 +8654,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Unavailable:
     handleAttrWithMessage<UnavailableAttr>(S, D, AL);
     break;
-  case ParsedAttr::AT_ArcWeakrefUnavailable:
-    handleSimpleAttribute<ArcWeakrefUnavailableAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_ObjCRootClass:
-    handleSimpleAttribute<ObjCRootClassAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_ObjCDirect:
     handleObjCDirectAttr(S, D, AL);
     break;
@@ -8684,26 +8661,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleObjCDirectMembersAttr(S, D, AL);
     handleSimpleAttribute<ObjCDirectMembersAttr>(S, D, AL);
     break;
-  case ParsedAttr::AT_ObjCNonLazyClass:
-    handleSimpleAttribute<ObjCNonLazyClassAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_ObjCSubclassingRestricted:
-    handleSimpleAttribute<ObjCSubclassingRestrictedAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_ObjCClassStub:
-    handleSimpleAttribute<ObjCClassStubAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_ObjCExplicitProtocolImpl:
     handleObjCSuppresProtocolAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_ObjCRequiresPropertyDefs:
-    handleSimpleAttribute<ObjCRequiresPropertyDefsAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_Unused:
     handleUnusedAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_ReturnsTwice:
-    handleSimpleAttribute<ReturnsTwiceAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NotTailCalled:
     handleSimpleAttributeWithExclusions<NotTailCalledAttr, AlwaysInlineAttr>(
@@ -8713,23 +8675,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSimpleAttributeWithExclusions<DisableTailCallsAttr, NakedAttr>(S, D,
                                                                          AL);
     break;
-  case ParsedAttr::AT_Used:
-    handleSimpleAttribute<UsedAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_Visibility:
     handleVisibilityAttr(S, D, AL, false);
     break;
   case ParsedAttr::AT_TypeVisibility:
     handleVisibilityAttr(S, D, AL, true);
     break;
-  case ParsedAttr::AT_WarnUnused:
-    handleSimpleAttribute<WarnUnusedAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_WarnUnusedResult:
     handleWarnUnusedResult(S, D, AL);
-    break;
-  case ParsedAttr::AT_Weak:
-    handleSimpleAttribute<WeakAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_WeakRef:
     handleWeakRefAttr(S, D, AL);
@@ -8739,9 +8692,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_TransparentUnion:
     handleTransparentUnionAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_ObjCException:
-    handleSimpleAttribute<ObjCExceptionAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_ObjCMethodFamily:
     handleObjCMethodFamilyAttr(S, D, AL);
@@ -8758,36 +8708,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Sentinel:
     handleSentinelAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_Const:
-    handleSimpleAttribute<ConstAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_Pure:
-    handleSimpleAttribute<PureAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_Cleanup:
     handleCleanupAttr(S, D, AL);
     break;
   case ParsedAttr::AT_NoDebug:
     handleNoDebugAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoDuplicate:
-    handleSimpleAttribute<NoDuplicateAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_Convergent:
-    handleSimpleAttribute<ConvergentAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoInline:
-    handleSimpleAttribute<NoInlineAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoInstrumentFunction: // Interacts with -pg.
-    handleSimpleAttribute<NoInstrumentFunctionAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoStackProtector:
-    // Interacts with -fstack-protector options.
-    handleSimpleAttribute<NoStackProtectorAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_CFICanonicalJumpTable:
-    handleSimpleAttribute<CFICanonicalJumpTableAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_StdCall:
   case ParsedAttr::AT_CDecl:
@@ -8817,9 +8742,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Pointer:
     handleLifetimeCategoryAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_OpenCLKernel:
-    handleSimpleAttribute<OpenCLKernelAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_OpenCLAccess:
     handleOpenCLAccessAttr(S, D, AL);
     break;
@@ -8838,37 +8760,16 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_InternalLinkage:
     handleInternalLinkageAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_ExcludeFromExplicitInstantiation:
-    handleSimpleAttribute<ExcludeFromExplicitInstantiationAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_LTOVisibilityPublic:
-    handleSimpleAttribute<LTOVisibilityPublicAttr>(S, D, AL);
-    break;
 
   // Microsoft attributes:
-  case ParsedAttr::AT_EmptyBases:
-    handleSimpleAttribute<EmptyBasesAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_LayoutVersion:
     handleLayoutVersion(S, D, AL);
-    break;
-  case ParsedAttr::AT_TrivialABI:
-    handleSimpleAttribute<TrivialABIAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_MSNoVTable:
-    handleSimpleAttribute<MSNoVTableAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_MSStruct:
-    handleSimpleAttribute<MSStructAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_Uuid:
     handleUuidAttr(S, D, AL);
     break;
   case ParsedAttr::AT_MSInheritance:
     handleMSInheritanceAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_SelectAny:
-    handleSimpleAttribute<SelectAnyAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_Thread:
     handleDeclspecThreadAttr(S, D, AL);
@@ -8888,23 +8789,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_AssertSharedLock:
     handleAssertSharedLockAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_GuardedVar:
-    handleSimpleAttribute<GuardedVarAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_PtGuardedVar:
     handlePtGuardedVarAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_ScopedLockable:
-    handleSimpleAttribute<ScopedLockableAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NoSanitize:
     handleNoSanitizeAttr(S, D, AL);
     break;
   case ParsedAttr::AT_NoSanitizeSpecific:
     handleNoSanitizeSpecificAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_NoThreadSafetyAnalysis:
-    handleSimpleAttribute<NoThreadSafetyAnalysisAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_GuardedBy:
     handleGuardedByAttr(S, D, AL);
@@ -8957,12 +8849,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Consumable:
     handleConsumableAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_ConsumableAutoCast:
-    handleSimpleAttribute<ConsumableAutoCastAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_ConsumableSetOnRead:
-    handleSimpleAttribute<ConsumableSetOnReadAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_CallableWhen:
     handleCallableWhenAttr(S, D, AL);
     break;
@@ -8999,17 +8885,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_ForcePow2Depth:
-    handleForcePow2DepthAttr(S, D, AL);
-    break;
   case ParsedAttr::AT_IntelFPGARegister:
     handleIntelFPGARegisterAttr(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGABankWidth:
-    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
+    handleOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGANumBanks:
-    handleIntelFPGAOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
+    handleOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGAPrivateCopies:
     handleIntelFPGAPrivateCopiesAttr(S, D, AL);
@@ -9132,31 +9015,20 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_IntelFPGABankBits:
     handleIntelFPGABankBitsAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_IntelFPGAForcePow2Depth:
+    handleIntelFPGAForcePow2DepthAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLIntelPipeIO:
+    handleSYCLIntelPipeIOAttr(S, D, AL);
+    break;
 
-  case ParsedAttr::AT_AnyX86NoCallerSavedRegisters:
-    handleSimpleAttribute<AnyX86NoCallerSavedRegistersAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_RenderScriptKernel:
-    handleSimpleAttribute<RenderScriptKernelAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_SYCLIntelKernelArgsRestrict:
-    handleSimpleAttribute<SYCLIntelKernelArgsRestrictAttr>(S, D, AL);
-    break;
   // XRay attributes.
-  case ParsedAttr::AT_XRayInstrument:
-    handleSimpleAttribute<XRayInstrumentAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_XRayLogArgs:
     handleXRayLogArgsAttr(S, D, AL);
     break;
 
   case ParsedAttr::AT_PatchableFunctionEntry:
     handlePatchableFunctionEntryAttr(S, D, AL);
-    break;
-
-  // Move semantics attribute.
-  case ParsedAttr::AT_Reinitializes:
-    handleSimpleAttribute<ReinitializesAttr>(S, D, AL);
     break;
 
   case ParsedAttr::AT_AlwaysDestroy:
@@ -9166,6 +9038,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   case ParsedAttr::AT_Uninitialized:
     handleUninitializedAttr(S, D, AL);
+    break;
+
+  case ParsedAttr::AT_LoaderUninitialized:
+    handleSimpleAttribute<LoaderUninitializedAttr>(S, D, AL);
     break;
 
   case ParsedAttr::AT_ObjCExternallyRetained:
@@ -9180,8 +9056,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleMSAllocatorAttr(S, D, AL);
     break;
 
-  case ParsedAttr::AT_ArmMveAlias:
-    handleArmMveAliasAttr(S, D, AL);
+  case ParsedAttr::AT_ArmBuiltinAlias:
+    handleArmBuiltinAliasAttr(S, D, AL);
     break;
 
   case ParsedAttr::AT_AcquireHandle:
@@ -9236,10 +9112,6 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
-      Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
-      D->setInvalidDecl();
-    } else if (const auto *A =
-                   D->getAttr<SYCLIntelUsesGlobalWorkOffsetAttr>()) {
       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
       D->setInvalidDecl();
     } else if (const auto *A = D->getAttr<VecTypeHintAttr>()) {

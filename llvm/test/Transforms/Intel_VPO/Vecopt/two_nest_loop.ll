@@ -21,12 +21,12 @@
 ; CHECK-LABEL: After predication and linearization
 ; CHECK:        i1 [[ALLZERO_1:%vp.*]] = all-zero-check
 ; CHECK-NEXT: SUCCESSORS(1)
-; CHECK:      Condition({{BB[0-9]+}}): [DA: Uniform] i1  [[ALLZERO_1]] = all-zero-check
+; CHECK:      Condition({{BB[0-9]+}}): [DA: Uni] i1  [[ALLZERO_1]] = all-zero-check
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[ALLZERO_1]]), {{BB[0-9]+}}(!i1 [[ALLZERO_1]])
 ; CHECK:        i1 [[ALLZERO_2:%vp.*]] = all-zero-check
 ; CHECK-NEXT:   i1 [[NOTCOND:%vp.*]] = not i1 [[ALLZERO_2]]
 ; CHECK-NEXT: SUCCESSORS(1)
-; CHECK:      Condition({{BB[0-9]+}}): [DA: Uniform] i1  [[NOTCOND]] = not i1 [[ALLZERO_2]]
+; CHECK:      Condition({{BB[0-9]+}}): [DA: Uni] i1  [[NOTCOND]] = not i1 [[ALLZERO_2]]
 ; CHECK-NEXT: SUCCESSORS(2):{{BB[0-9]+}}(i1 [[NOTCOND]]), {{BB[0-9]+}}(!i1 [[NOTCOND]])
 ;
 

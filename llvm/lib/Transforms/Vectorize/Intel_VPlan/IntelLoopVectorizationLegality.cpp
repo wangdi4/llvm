@@ -20,6 +20,7 @@
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Intrinsics.h"
@@ -91,8 +92,8 @@ static bool isSupportedInstructionType(Type *Ty) {
   return !Ty->isVectorTy() || Ty->getVectorElementType()->isSingleValueType();
 }
 
-/// \brief Check that the instruction has outside loop users and is not an
-/// identified reduction variable.
+/// Check that the instruction has outside loop users and is not an identified
+/// reduction variable.
 static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
                                SmallPtrSetImpl<Value *> &AllowedExit) {
   // Reduction and Induction instructions are allowed to have exit users. All
@@ -484,24 +485,11 @@ bool VPOVectorizationLegality::canVectorize() {
           return false;
         }
 
-        if (isExplicitReductionPhi(Phi)) {
-          if (!VPlanUseVPEntityInstructions) {
-            LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions without "
-                                 "VPLoopEntities.\n");
-            return false;
-          }
-
+        if (isExplicitReductionPhi(Phi))
           continue;
-        }
 
         RecurrenceDescriptor RedDes;
         if (RecurrenceDescriptor::isReductionPHI(Phi, TheLoop, RedDes)) {
-          if (!VPlanUseVPEntityInstructions) {
-            LLVM_DEBUG(dbgs() << "VPVALCG: Not handling reductions without "
-                                 "VPLoopEntities.\n");
-            return false;
-          }
-
           AllowedExit.insert(RedDes.getLoopExitInstr());
           Reductions[Phi] = RedDes;
           continue;
@@ -538,6 +526,18 @@ bool VPOVectorizationLegality::canVectorize() {
         Function *F = Call->getCalledFunction();
         if (!F)
           continue;
+
+        if (vpo::VPOAnalysisUtils::isBeginDirective(Call)) {
+          // Most probably DIR.OMP.ORDERED, which we have to support in future.
+          // But even any other directive is unexpected here, so be safe.
+          LLVM_DEBUG(dbgs()
+                     << (VPOAnalysisUtils::getDirectiveID(Call) ==
+                                 DIR_OMP_ORDERED
+                             ? "LV: Unimplemented omp simd ordered support."
+                             : "LV: Unsupported nested region directive.")
+                     << *Call << "\n");
+          return false;
+        }
 
         if ((isOpenCLReadChannel(F->getName()) ||
              isOpenCLWriteChannel(F->getName())) &&

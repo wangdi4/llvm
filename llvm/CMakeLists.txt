@@ -65,7 +65,7 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;llgo;mlir;openmp;parallel-libs;polly;pstl")
+set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;parallel-libs;polly;pstl")
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 	"Semicolon-separated list of projects to build (${LLVM_ALL_PROJECTS}), or \"all\".")
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
@@ -295,6 +295,7 @@ set(LLVM_ALL_TARGETS
   AArch64
   AMDGPU
   ARM
+  AVR
   BPF
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_CSA
@@ -358,13 +359,7 @@ option(LLVM_ENABLE_LIBPFM "Use libpfm for performance counters if available." ON
 
 option(LLVM_ENABLE_THREADS "Use threads if available." ON)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-  set(zlib_DEFAULT "OFF")
-else()
-  set(zlib_DEFAULT "ON")
-endif()
-
-set(LLVM_ENABLE_ZLIB "${zlib_DEFAULT}" CACHE STRING "Use zlib for compression/decompression if available. Can be ON, OFF, or FORCE_ON")
+set(LLVM_ENABLE_ZLIB "ON" CACHE STRING "Use zlib for compression/decompression if available. Can be ON, OFF, or FORCE_ON")
 
 set(LLVM_Z3_INSTALL_DIR "" CACHE STRING "Install directory of the Z3 solver.")
 
@@ -426,6 +421,17 @@ endif()
 
 option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks" OFF)
 
+# While adding scalable vector support to LLVM, we temporarily want to
+# allow an implicit conversion of TypeSize to uint64_t. This CMake flag
+# enables a more strict conversion where it asserts that the type is not
+# a scalable vector type.
+#
+# Enabling this flag makes it easier to find cases where the compiler makes
+# assumptions on the size being 'fixed size', when building tests for
+# SVE/SVE2 or other scalable vector architectures.
+option(LLVM_ENABLE_STRICT_FIXED_SIZE_VECTORS
+       "Enable assertions that type is not scalable in implicit conversion from TypeSize to uint64_t" OFF)
+
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")
 
@@ -482,7 +488,7 @@ option(LLVM_USE_SPLIT_DWARF
 
 # Define an option controlling whether we should build for 32-bit on 64-bit
 # platforms, where supported.
-if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
+if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT (WIN32 OR ${CMAKE_SYSTEM_NAME} MATCHES "AIX"))
   # TODO: support other platforms and toolchains.
   option(LLVM_BUILD_32_BITS "Build 32 bits executables and libraries." OFF)
 endif()
@@ -872,6 +878,11 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE)
 # end INTEL_FEATURE_ISA_SERIALIZE
 
+# INTEL_FEATURE_ISA_HRESET
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET)
+# end INTEL_FEATURE_ISA_HRESET
+
 # INTEL_FEATURE_ISA_TSXLDTRK
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_TSXLDTRK)
@@ -892,6 +903,11 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_LNC)
 # end INTEL_FEATURE_ISA_AMX_LNC
 
+# INTEL_FEATURE_ISA_AMX_AVX512
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_AVX512)
+# end INTEL_FEATURE_ISA_AMX_AVX512
+
 # INTEL_FEATURE_ISA_AMX_FP16
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP16)
@@ -902,6 +918,11 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMORY2)
 # end INTEL_FEATURE_ISA_AMX_MEMORY2
 
+# INTEL_FEATURE_ISA_AMX_MEMORY
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMORY)
+# end INTEL_FEATURE_ISA_AMX_MEMORY
+
 # INTEL_FEATURE_ISA_AMX_BF16_EVEX
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF16_EVEX)
@@ -911,6 +932,11 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT_EVEX)
 # end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+# INTEL_FEATURE_ISA_AMX_CONVERT
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT)
+# end INTEL_FEATURE_ISA_AMX_CONVERT
 
 # INTEL_FEATURE_ISA_AMX_INT8_EVEX
       list(APPEND features_enabled_by_default
@@ -927,6 +953,11 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TRANSPOSE2)
 # end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
+# INTEL_FEATURE_ISA_AMX_TRANSPOSE
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TRANSPOSE)
+# end INTEL_FEATURE_ISA_AMX_TRANSPOSE
+
 # INTEL_FEATURE_ISA_KEYLOCKER
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER)
@@ -941,6 +972,36 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI)
 # end INTEL_FEATURE_ISA_AVX_VNNI
+
+# INTEL_FEATURE_ISA_AVX512_DOTPROD
+list(APPEND features_enabled_by_default
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD)
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD
+
+# INTEL_FEATURE_ISA_AVX_DOTPROD
+list(APPEND features_enabled_by_default
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD)
+# end INTEL_FEATURE_ISA_AVX_DOTPROD
+
+# INTEL_FEATURE_ISA_AVX512_CONVERT
+    list(APPEND features_enabled_by_default
+         ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_CONVERT)
+# end INTEL_FEATURE_ISA_AVX512_CONVERT
+
+# INTEL_FEATURE_ISA_AVX_CONVERT
+list(APPEND features_enabled_by_default
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_CONVERT)
+# end INTEL_FEATURE_ISA_AVX_CONVERT
+
+# INTEL_FEATURE_ISA_AVX_BF16
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_BF16)
+# end INTEL_FEATURE_ISA_AVX_BF16
+
+# INTEL_FEATURE_ISA_AVX_IFMA
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_IFMA)
+# end INTEL_FEATURE_ISA_AVX_IFMA
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1383,6 +1444,7 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
       add_dependencies(llvm-libraries ${lib})
       if (NOT LLVM_ENABLE_IDE)
         add_dependencies(install-llvm-libraries install-${lib})
+        add_dependencies(install-llvm-libraries-stripped install-${lib}-stripped)
       endif()
     endforeach()
   endif()
@@ -1392,6 +1454,7 @@ endif()
 # after all targets are created.
 include(LLVMDistributionSupport)
 llvm_distribution_add_targets()
+process_llvm_pass_plugins(GEN_CONFIG)
 
 # This allows us to deploy the Universal CRT DLLs by passing -DCMAKE_INSTALL_UCRT_LIBRARIES=ON to CMake
 if (MSVC AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_INSTALL_UCRT_LIBRARIES)
@@ -1417,8 +1480,6 @@ if (LLVM_INCLUDE_UTILS AND LLVM_INCLUDE_TOOLS)
   add_subdirectory(utils/llvm-locstats)
 endif()
 
-process_llvm_pass_plugins()
-
 if (INTEL_CUSTOMIZATION)
   if (INTEL_CMAKE_DEPLOY)
 
@@ -1434,13 +1495,13 @@ if (INTEL_CUSTOMIZATION)
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
       clang-resource-headers
       # XDEV components
-      xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom
+      xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom xdev-fort-target-rtl
       xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
       xdev-support-scripts
       # OpenMP components
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
-      llvm-level0-ompplugin
+      llvm-level0-ompplugin libompdevice
       # SYCL components
       khronos-icd-loader opencl-aot
     )

@@ -1,6 +1,6 @@
 //===- StructOfArraysInfoImpl.h - common for SOAToAOS and MemInitTrimDown -===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,6 +19,8 @@
 #define INTEL_DTRANS_TRANSFORMS_STRUCTOFARRAYSINFOIMPL_H
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
+
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 

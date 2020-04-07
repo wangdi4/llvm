@@ -22,7 +22,7 @@ static cl::opt<bool>
     VPlanPrintUnroll("vplan-print-after-unroll", cl::init(false),
                      cl::desc("Print plain dump after VPlan loop unrolling"));
 
-void VPlanLoopUnroller::run() {
+void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   assert(UF > 1 && "Can't unroll with unroll factor less than 2");
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
@@ -35,28 +35,25 @@ void VPlanLoopUnroller::run() {
 
   // Collect loop live-out users to process them after the unroll.
   DenseMap<VPUser *, VPInstruction *> LiveOutUsers;
-  for (VPBlockBase *Block : VPL->blocks())
-    if (VPBasicBlock *BasicBlock = dyn_cast<VPBasicBlock>(Block))
-      for (VPInstruction &Inst : BasicBlock->getInstructions())
-        for (VPUser *User : Inst.users())
-          if (isa<VPExternalUse>(User)) {
+  for (VPBasicBlock *Block : VPL->blocks())
+    for (VPInstruction &Inst : *Block)
+      for (VPUser *User : Inst.users())
+        if (isa<VPExternalUse>(User)) {
+          assert(LiveOutUsers.find(User) == LiveOutUsers.end() &&
+                 "Only one instruction for a live-out user is supported");
+          LiveOutUsers[User] = &Inst;
+        } else if (auto UseInst = dyn_cast<VPInstruction>(User))
+          if (!VPL->contains(UseInst)) {
             assert(LiveOutUsers.find(User) == LiveOutUsers.end() &&
                    "Only one instruction for a live-out user is supported");
             LiveOutUsers[User] = &Inst;
           }
-          else if (auto UseInst = dyn_cast<VPInstruction>(User))
-            if (!VPL->contains(UseInst))
-            {
-              assert(LiveOutUsers.find(User) == LiveOutUsers.end() &&
-                     "Only one instruction for a live-out user is supported");
-              LiveOutUsers[User] = &Inst;
-            }
 
-  VPBlockBase *Header = VPL->getHeader();
+  VPBasicBlock *Header = VPL->getHeader();
   assert(Header && "Expected single header block");
-  VPBlockBase *Latch = VPL->getLoopLatch();
+  VPBasicBlock *Latch = VPL->getLoopLatch();
   assert(Latch && "Expected single latch block");
-  VPBlockBase *CurrentLatch = Latch;
+  VPBasicBlock *CurrentLatch = Latch;
 
   struct CloneData {
     VPCloneUtils::Block2BlockMapTy BlockMap;
@@ -112,10 +109,10 @@ void VPlanLoopUnroller::run() {
     assert(ReverseMap.size() == ValueMap.size() &&
            "Expecting unique values only in ValueMap");
 
-    VPBasicBlock *ClonedHeader = dyn_cast<VPBasicBlock>(BlockMap[Header]);
+    VPBasicBlock *ClonedHeader = BlockMap[Header];
     assert(ClonedHeader && "Header expected to be successfully cloned");
 
-    VPBasicBlock *ClonedLatch = dyn_cast<VPBasicBlock>(BlockMap[Latch]);
+    VPBasicBlock *ClonedLatch = BlockMap[Latch];
     assert(ClonedLatch && "Latch expected to be successfully cloned");
 
     // Process induction/reduction PHI nodes.
@@ -148,9 +145,8 @@ void VPlanLoopUnroller::run() {
 
       // Update the unrolled loop header PHI's incoming block
       // to cloned loop latch.
-      OrigInst->setIncomingBlock(
-          OrigInst->getBlockIndex(dyn_cast<VPBasicBlock>(CurrentLatch)),
-          ClonedLatch);
+      OrigInst->setIncomingBlock(OrigInst->getBlockIndex(CurrentLatch),
+                                 ClonedLatch);
 
       // For the current iteration replace a clone of the original PHI with
       // the current last update instruction.
@@ -168,17 +164,21 @@ void VPlanLoopUnroller::run() {
     }
 
     for (auto It : InstToRemove)
-      ClonedHeader->getInstructions().remove(*It);
+      ClonedHeader->eraseInstruction(It);
 
     // Remap operands.
     VPValueMapper Mapper(BlockMap, ValueMap);
-    for (VPBlockBase *Block : VPL->blocks()) {
+    for (VPBasicBlock *Block : VPL->blocks()) {
       auto ClonedBlock = BlockMap[Block];
       assert(ClonedBlock && "All blocks expected to be successfully cloned");
 
-      if (VPBasicBlock *BasicBlock = dyn_cast<VPBasicBlock>(ClonedBlock))
-        for (auto &Inst : BasicBlock->getInstructions())
-          Mapper.remapInstruction(&Inst);
+      for (VPInstruction &Inst : *ClonedBlock) {
+        Mapper.remapInstruction(&Inst);
+
+        // Save unrolled part number for the instruction if needed.
+        if (VPInstUnrollPart)
+          VPInstUnrollPart->insert(std::make_pair(&Inst, Part + 1));
+      }
 
       // Fix cond bit.
       if (VPValue *CondBit = Block->getCondBit())
@@ -225,7 +225,7 @@ void VPlanLoopUnroller::run() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (VPlanPrintUnroll) {
-    outs() << "After loop unrolling\n";
+    outs() << "After VPlan loop unrolling\n";
     Plan.dump(outs(), true);
   }
 #endif

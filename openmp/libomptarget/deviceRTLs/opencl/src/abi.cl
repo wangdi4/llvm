@@ -139,6 +139,7 @@ void __kmpc_init_runtime() {
 /// Initialize program data
 kernel void __kmpc_init_program(global void *data) {
   GLOBAL.program_data = *(kmp_program_data_t *)data;
+  __kmp_init_locals();
 }
 
 

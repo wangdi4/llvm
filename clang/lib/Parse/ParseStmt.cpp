@@ -2567,11 +2567,14 @@ bool Parser::ParseSYCLLoopAttributes(ParsedAttributes &Attrs) {
     return true;
 
   if (Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAIVDep &&
-#if INTEL_CUSTOMIZATION
-      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGALegacyIVDep &&
-#endif // INTEL_CUSTOMIZATION
       Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAII &&
       Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency &&
+      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGALoopCoalesce &&
+      Attrs.begin()->getKind() !=
+          ParsedAttr::AT_SYCLIntelFPGADisableLoopPipelining &&
+      Attrs.begin()->getKind() != ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving &&
+      Attrs.begin()->getKind() !=
+          ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations &&
       Attrs.begin()->getKind() != ParsedAttr::AT_LoopUnrollHint)
     return true;
 

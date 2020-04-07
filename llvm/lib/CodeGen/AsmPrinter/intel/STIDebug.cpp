@@ -8,8 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "STIDebug.h"
-#include "STI.h"
-#include "STIIR.h"
 #include "pdbInterface.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PointerUnion.h" // dyn_cast
@@ -30,6 +28,9 @@
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
+
+#include "STIIR.h"
+#include "STI.h"
 
 #include <map>
 #include <vector>
@@ -790,12 +791,12 @@ void STIAsmWriter::emitInt32(int32_t value) {
 }
 
 void STIAsmWriter::emitString(StringRef string) {
-  ASM()->OutStreamer->EmitBytes(string);
+  ASM()->OutStreamer->emitBytes(string);
   ASM()->emitInt8(0);
 }
 
 void STIAsmWriter::emitBytes(size_t size, const char* data) {
-  ASM()->OutStreamer->EmitBytes(StringRef(data, size));
+  ASM()->OutStreamer->emitBytes(StringRef(data, size));
 }
 
 void STIAsmWriter::emitFill(size_t size, const uint8_t byte) {
@@ -807,11 +808,11 @@ void STIAsmWriter::emitComment(StringRef comment) {
 }
 
 void STIAsmWriter::emitLabel(MCSymbol *symbol) {
-  ASM()->OutStreamer->EmitLabel(symbol);
+  ASM()->OutStreamer->emitLabel(symbol);
 }
 
 void STIAsmWriter::emitValue(const MCExpr *value, unsigned int sizeInBytes) {
-  ASM()->OutStreamer->EmitValue(value, sizeInBytes);
+  ASM()->OutStreamer->emitValue(value, sizeInBytes);
 }
 
 void STIAsmWriter::idBegin(const STIType* type) {
@@ -5052,7 +5053,7 @@ void STIDebugImpl::emitSubsection(STISubsectionID id) const {
 }
 
 void STIDebugImpl::emitAlign(unsigned int byteAlignment) const {
-  ASM()->OutStreamer->EmitValueToAlignment(byteAlignment);
+  ASM()->OutStreamer->emitValueToAlignment(byteAlignment);
 }
 
 void STIDebugImpl::idBegin(const STIType* type) const {

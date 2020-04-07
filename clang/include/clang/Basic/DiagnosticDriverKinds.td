@@ -64,6 +64,9 @@ def warn_drv_unknown_cuda_version: Warning<
   "Unknown CUDA version %0. Assuming the latest supported version %1">,
   InGroup<CudaUnknownVersion>;
 def err_drv_cuda_host_arch : Error<"unsupported architecture '%0' for host compilation.">;
+def err_drv_no_sycl_libspirv : Error<
+  "cannot find `libspirv-nvptx64--nvidiacl.bc`. Provide path to libspirv library via "
+  "-fsycl-libspirv-path, or pass -fno-sycl-libspirv to build without linking with libspirv.">;
 def err_drv_mix_cuda_hip : Error<"Mixed Cuda and HIP compilation is not supported.">;
 def err_drv_invalid_thread_model_for_target : Error<
   "invalid thread model '%0' in '%1' for this target">;
@@ -284,6 +287,9 @@ def warn_drv_unsupported_debug_info_opt_for_target : Warning<
   InGroup<UnsupportedTargetOpt>;
 def warn_c_kext : Warning<
   "ignoring -fapple-kext which is valid for C++ and Objective-C++ only">;
+def warn_ignoring_fdiscard_for_bitcode : Warning<
+  "ignoring -fdiscard-value-names for LLVM Bitcode">,
+  InGroup<UnusedCommandLineArgument>;
 def warn_drv_input_file_unused : Warning<
   "%0: '%1' input unused%select{ when '%3' is present|}2">,
   InGroup<UnusedCommandLineArgument>;
@@ -318,6 +324,8 @@ def warn_drv_treating_input_as_cxx : Warning<
   InGroup<Deprecated>;
 def warn_drv_pch_not_first_include : Warning<
   "precompiled header '%0' was ignored because '%1' is not first '-include'">;
+def warn_drv_existing_archive_append: Warning<
+  "appending to an existing archive '%0'">, InGroup<DiagGroup<"archive-append">>;
 def warn_missing_sysroot : Warning<"no such sysroot directory: '%0'">,
   InGroup<DiagGroup<"missing-sysroot">>;
 def warn_incompatible_sysroot : Warning<"using sysroot for '%0' but targeting '%1'">,
@@ -332,6 +340,8 @@ def warn_drv_object_size_disabled_O0 : Warning<
   InGroup<InvalidCommandLineArgument>, DefaultWarnNoWerror;
 def err_invalid_branch_protection: Error <
   "invalid branch protection option '%0' in '%1'">;
+def warn_drv_deprecated_option : Warning<
+  "option '%0' is deprecated, use '%1' directly instead">, InGroup<Deprecated>;
 
 def note_drv_command_failed_diag_msg : Note<
   "diagnostic msg: %0">;
@@ -409,6 +419,9 @@ def warn_drv_unsupported_gpopt : Warning<
   "ignoring '-mgpopt' option as it cannot be used with %select{|the implicit"
   " usage of }0-mabicalls">,
   InGroup<UnsupportedGPOpt>;
+def warn_drv_unsupported_sdata : Warning<
+  "ignoring '-msmall-data-limit=' with -mcmodel=large for -fpic or RV64">,
+  InGroup<OptionIgnored>;
 def warn_drv_unsupported_longcalls : Warning<
   "ignoring '-mlong-calls' option as it is not currently supported with "
   "%select{|the implicit usage of }0-mabicalls">,

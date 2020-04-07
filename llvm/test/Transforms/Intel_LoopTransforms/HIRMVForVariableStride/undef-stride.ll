@@ -31,7 +31,7 @@
 ; CHECK:               + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK:               |   + DO i2 = 0, 8, 1   <DO_MULTI_EXIT_LOOP>
 ; CHECK:               |   |   %indvars.iv.out = i2 + 2;
-; CHECK:               |   |   if ((null)[-1 * undef + 4][i2 + -1 * undef + 2] > %"bcint_$NBCT[]_fetch")
+; CHECK:               |   |   if ((null)[4][i2 + 2] > %"bcint_$NBCT[]_fetch")
 ; CHECK:               |   |   {
 ; CHECK:               |   |      goto bb37_then;
 ; CHECK:               |   |   }
@@ -43,7 +43,7 @@
 ; CHECK:               |   %int_sext23 = 4294967296 * %indvars.iv.out + -4294967296  >>  32;
 ; CHECK:               |   
 ; CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
-; CHECK:               |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + -1 * undef + 1][-1 * undef + %int_sext23];
+; CHECK:               |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + 1][%int_sext23];
 ; CHECK:               |   + END LOOP
 ; CHECK:               |   
 ; CHECK:               |   bb3:
@@ -56,7 +56,7 @@
 ; CHECK:              + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK:              |   + DO i2 = 0, 8, 1   <DO_MULTI_EXIT_LOOP>
 ; CHECK:              |   |   %indvars.iv.out = i2 + 2;
-; CHECK:              |   |   if ((null)[-1 * undef + 4][i2 + -1 * undef + 2] > %"bcint_$NBCT[]_fetch")
+; CHECK:              |   |   if ((null)[4][i2 + 2] > %"bcint_$NBCT[]_fetch")
 ; CHECK:              |   |   {
 ; CHECK:              |   |      goto bb37_then;
 ; CHECK:              |   |   }
@@ -68,7 +68,7 @@
 ; CHECK:              |   %int_sext23 = 4294967296 * %indvars.iv.out + -4294967296  >>  32;
 ; CHECK:              |   
 ; CHECK:              |   + DO i2 = 0, 2, 1   <DO_LOOP>
-; CHECK:              |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + -1 * undef + 1][-1 * undef + %int_sext23];
+; CHECK:              |   |   (%"bcint_$BC")[i2 + 2][%"bcint_$NBCT[]11_fetch"] = (null)[i2 + 1][%int_sext23];
 ; CHECK:              |   + END LOOP
 ; CHECK:              |   
 ; CHECK:              |   bb3:

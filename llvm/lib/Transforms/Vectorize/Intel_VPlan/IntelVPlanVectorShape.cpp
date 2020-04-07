@@ -32,6 +32,9 @@ VPVectorShape VPVectorShape::joinShapes(VPVectorShape Shape1,
   if (shapesHaveSameStride(Shape1, Shape2)) {
     if (Shape1.isUniform())
       return {VPVectorShape::Uni, Shape1.getStride()};
+
+    if (Shape1.isUnitStride())
+      return {VPVectorShape::Seq, Shape1.getStride()};
     else
       return {VPVectorShape::Str, Shape1.getStride()};
   }

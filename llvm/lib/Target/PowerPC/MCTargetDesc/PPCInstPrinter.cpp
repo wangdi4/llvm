@@ -418,9 +418,14 @@ void PPCInstPrinter::printBranchOperand(const MCInst *MI, unsigned OpNo,
   if (!MI->getOperand(OpNo).isImm())
     return printOperand(MI, OpNo, O);
 
-  // Branches can take an immediate operand.  This is used by the branch
-  // selection pass to print .+8, an eight byte displacement from the PC.
-  O << ".";
+  // Branches can take an immediate operand. This is used by the branch
+  // selection pass to print, for example `.+8` (for ELF) or `$+8` (for AIX) to
+  // express an eight byte displacement from the program counter.
+  if (!TT.isOSAIX())
+    O << ".";
+  else
+    O << "$";
+
   int32_t Imm = SignExtend32<32>((unsigned)MI->getOperand(OpNo).getImm() << 2);
   if (Imm >= 0)
     O << "+";
@@ -469,7 +474,7 @@ void PPCInstPrinter::printMemRegImm34PCRel(const MCInst *MI, unsigned OpNo,
                                            raw_ostream &O) {
   printS34ImmOperand(MI, OpNo, O);
   O << '(';
-  printImmZeroOperand(MI, OpNo+1, O);
+  printImmZeroOperand(MI, OpNo + 1, O);
   O << ')';
 }
 
@@ -477,7 +482,7 @@ void PPCInstPrinter::printMemRegImm34(const MCInst *MI, unsigned OpNo,
                                         raw_ostream &O) {
   printS34ImmOperand(MI, OpNo, O);
   O << '(';
-  printOperand(MI, OpNo+1, O);
+  printOperand(MI, OpNo + 1, O);
   O << ')';
 }
 

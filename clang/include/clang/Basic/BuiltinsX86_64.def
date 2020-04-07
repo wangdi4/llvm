@@ -225,6 +225,14 @@ TARGET_BUILTIN(__builtin_ia32_t2rpntlvw, "vIUcvC*zULLi", "n",
                "amx-transpose")
 TARGET_BUILTIN(__builtin_ia32_t2rpntlvwt1, "vIUcvC*zULLi", "n",
                "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz0, "vIUcvC*z", "n", "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz0t1, "vIUcvC*z", "n","amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz1, "vIUcvC*z", "n", "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz1t1, "vIUcvC*z", "n","amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_ttdpbf16ps, "vIUcIUcIUc", "n", "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_ttdpfp16ps, "vIUcIUcIUc", "n", "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_ttransposed, "vIUcIUc", "n", "amx-transpose")
+
 // AMX_LNC AVX512
 TARGET_BUILTIN(__builtin_ia32_tile16move, "vIUcV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16fV16f", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovei, "V16fIUcIUc", "n", "amx-avx512")
@@ -232,6 +240,10 @@ TARGET_BUILTIN(__builtin_ia32_tilemovee, "V16fIUcUi", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tilemovex, "V16fIUcV4f", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tcvtrowd2psei, "V16fIUcIi", "n", "amx-avx512")
 TARGET_BUILTIN(__builtin_ia32_tcvtrowd2psee, "V16fIUcUi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2bf16ei, "V16iIUcIi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2bf16ee, "V16iIUcUi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2phei, "V16fIUcIi", "n", "amx-avx512")
+TARGET_BUILTIN(__builtin_ia32_tcvtrowps2phee, "V16fIUcUi", "n", "amx-avx512")
 
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
@@ -284,6 +296,15 @@ TARGET_BUILTIN(__builtin_ia32_t2transposew, "vIUcvC*zULLi", "n",
 TARGET_BUILTIN(__builtin_ia32_t2transposewt1, "vIUcvC*zULLi", "n",
                "amx-transpose2")
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+// AMX_CONVERT
+TARGET_BUILTIN(__builtin_ia32_tcvt2ps2bf16, "vv*zIUcIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_tcvt2ps2ph, "vv*zIUcIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_amxconvert_tcvtd2ps, "vv*zIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_amxconvert_tcvtps2bf16, "vv*zIUc", "n", "amx-convert")
+TARGET_BUILTIN(__builtin_ia32_tcvtps2ph, "vv*zIUc", "n", "amx-convert")
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

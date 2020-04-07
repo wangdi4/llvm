@@ -17,7 +17,7 @@
 #define STRINGIFY_LINE_HELP(s) #s
 #define STRINGIFY_LINE(s) STRINGIFY_LINE_HELP(s)
 
-__SYCL_INLINE namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
@@ -113,7 +113,7 @@ void dumpConfig() {
 #undef CONFIG
 }
 
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)
 } // namespace sycl
 } // namespace detail
 

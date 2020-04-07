@@ -100,11 +100,14 @@ void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
+void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeAttributorLegacyPassPass(PassRegistry&);
+void initializeAttributorCGSCCLegacyPassPass(PassRegistry &);
+void initializeBBSectionsPreparePass(PassRegistry &);
 void initializeBDCELegacyPassPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAAWrapperPassPass(PassRegistry&);
@@ -416,6 +419,7 @@ void initializeSCCPLegacyPassPass(PassRegistry&);
 void initializeSCEVAAWrapperPassPass(PassRegistry&);
 void initializeSLPVectorizerPass(PassRegistry&);
 void initializeSROALegacyPassPass(PassRegistry&);
+void initializeSROALegacyCGSCCAdaptorPassPass(PassRegistry &); // INTEL
 void initializeSafeStackLegacyPassPass(PassRegistry&);
 void initializeSafepointIRVerifierPass(PassRegistry&);
 void initializeSampleProfileLoaderLegacyPassPass(PassRegistry&);
@@ -451,6 +455,7 @@ void initializeStripNonDebugSymbolsPass(PassRegistry&);
 void initializeStripNonLineTableDebugInfoPass(PassRegistry&);
 void initializeStripSymbolsPass(PassRegistry&);
 void initializeStructurizeCFGPass(PassRegistry&);
+void initializeSYCLLowerWGScopeLegacyPassPass(PassRegistry &);
 void initializeTailCallElimPass(PassRegistry&);
 void initializeTailDuplicatePass(PassRegistry&);
 void initializeTargetLibraryInfoWrapperPassPass(PassRegistry&);
@@ -464,6 +469,7 @@ void initializeUnifyFunctionExitNodesPass(PassRegistry&);
 void initializeUnpackMachineBundlesPass(PassRegistry&);
 void initializeUnreachableBlockElimLegacyPassPass(PassRegistry&);
 void initializeUnreachableMachineBlockElimPass(PassRegistry&);
+void initializeVectorCombineLegacyPassPass(PassRegistry&);
 void initializeVerifierLegacyPassPass(PassRegistry&);
 void initializeVirtRegMapPass(PassRegistry&);
 void initializeVirtRegRewriterPass(PassRegistry&);
@@ -507,6 +513,8 @@ void initializeTransformFPGARegPass(PassRegistry &);
 void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
 // Multiversioning and inline marking for tiled functions
 void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
+// Converting annotation attribute to function attribute
+void initializeParseAnnotateAttributesLegacyPass(PassRegistry&);
 // HIR Passes
 void initializeHIRRegionIdentificationWrapperPassPass(PassRegistry&);
 void initializeHIRSCCFormationWrapperPassPass(PassRegistry&);

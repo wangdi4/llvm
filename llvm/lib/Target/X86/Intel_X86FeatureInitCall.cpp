@@ -193,9 +193,10 @@ public:
 
     short Imm = 0;
     switch (X87Precision) {
-    case 1: Imm = 0x107f; break; // PC = 00 (SP)
-    case 2: Imm = 0x127f; break; // PC = 10 (DP)
-    case 3: Imm = 0x137f; break; // PC = 11 (DEP)
+    default: llvm_unreachable("Bad X87 precision value");
+    case 32: Imm = 0x107f; break; // PC = 00 (SP)
+    case 64: Imm = 0x127f; break; // PC = 10 (DP)
+    case 80: Imm = 0x137f; break; // PC = 11 (DEP)
     }
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
@@ -254,7 +255,7 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
-    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x11 : 0x0;
+    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x3 : 0x0;
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), FtzDaz),
         ConstantInt::get(IRB.getInt64Ty(), CpuBitMap[0]),
@@ -290,9 +291,15 @@ public:
     // 64/53/24-bit precision (FP80/FP64/FP32).
     // We add the same support in Xmain.
     bool X87PrecisionInit = false;
+    int X87Precision = TM->Options.X87Precision;
 
-    if (TM->Options.X87Precision)
-      X87PrecisionInit = setX87Precision(F, TM->Options.X87Precision);
+    if (X87Precision == 0)
+      F.getFnAttribute("x87-precision")
+          .getValueAsString()
+          .getAsInteger(10, X87Precision);
+
+    if (X87Precision)
+      X87PrecisionInit = setX87Precision(F, X87Precision);
 
     bool ProcInit = insertProcInitCall(F);
     bool FTZ = false;

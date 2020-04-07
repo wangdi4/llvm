@@ -531,17 +531,6 @@ static void ParseCommentArgs(CommentOptions &Opts, ArgList &Args) {
   Opts.ParseAllComments = Args.hasArg(OPT_fparse_all_comments);
 }
 
-static StringRef getCodeModel(ArgList &Args, DiagnosticsEngine &Diags) {
-  if (Arg *A = Args.getLastArg(OPT_mcode_model)) {
-    StringRef Value = A->getValue();
-    if (Value == "small" || Value == "kernel" || Value == "medium" ||
-        Value == "large" || Value == "tiny")
-      return Value;
-    Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Value;
-  }
-  return "default";
-}
-
 static llvm::Reloc::Model getRelocModel(ArgList &Args,
                                         DiagnosticsEngine &Diags) {
   if (Arg *A = Args.getLastArg(OPT_mrelocation_model)) {
@@ -807,7 +796,10 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
           Args.getLastArg(OPT_emit_llvm_uselists, OPT_no_emit_llvm_uselists))
     Opts.EmitLLVMUseLists = A->getOption().getID() == OPT_emit_llvm_uselists;
 
-  Opts.DisableLLVMPasses = Args.hasArg(OPT_disable_llvm_passes);
+  Opts.DisableLLVMPasses =
+      Args.hasArg(OPT_disable_llvm_passes) ||
+      (Args.hasArg(OPT_fsycl_is_device) && Triple.isSPIR() &&
+       !Args.hasArg(OPT_fsycl_enable_optimizations));
   Opts.DisableLifetimeMarkers = Args.hasArg(OPT_disable_lifetimemarkers);
 
   const llvm::Triple::ArchType DebugEntryValueArchs[] = {
@@ -817,7 +809,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   llvm::Triple T(TargetOpts.Triple);
   if (Opts.OptimizationLevel > 0 && Opts.hasReducedDebugInfo() &&
       llvm::is_contained(DebugEntryValueArchs, T.getArch()))
-    Opts.EnableDebugEntryValues = Args.hasArg(OPT_femit_debug_entry_values);
+    Opts.EmitCallSiteInfo = true;
 
   Opts.DisableO0ImplyOptNone = Args.hasArg(OPT_disable_O0_optnone);
   Opts.DisableRedZone = Args.hasArg(OPT_disable_red_zone);
@@ -837,7 +829,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.RecordCommandLine =
       std::string(Args.getLastArgValue(OPT_record_command_line));
   Opts.MergeAllConstants = Args.hasArg(OPT_fmerge_all_constants);
-  Opts.NoCommon = Args.hasArg(OPT_fno_common);
+  Opts.NoCommon = !Args.hasArg(OPT_fcommon);
   Opts.NoInlineLineTables = Args.hasArg(OPT_gno_inline_line_tables);
   Opts.NoImplicitFloat = Args.hasArg(OPT_no_implicit_float);
   Opts.OptimizeSize = getOptimizationLevelSize(Args);
@@ -949,6 +941,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.NoZeroInitializedInBSS = Args.hasArg(OPT_mno_zero_initialized_in_bss);
   Opts.NumRegisterParameters = getLastArgIntValue(Args, OPT_mregparm, 0, Diags);
   Opts.NoExecStack = Args.hasArg(OPT_mno_exec_stack);
+  Opts.SmallDataLimit =
+      getLastArgIntValue(Args, OPT_msmall_data_limit, 0, Diags);
   Opts.FatalWarnings = Args.hasArg(OPT_massembler_fatal_warnings);
   Opts.NoWarn = Args.hasArg(OPT_massembler_no_warn);
   Opts.EnableSegmentedStacks = Args.hasArg(OPT_split_stacks);
@@ -1116,8 +1110,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasArg(OPT_fxray_always_emit_typedevents);
   Opts.XRayInstructionThreshold =
       getLastArgIntValue(Args, OPT_fxray_instruction_threshold_EQ, 200, Diags);
-  Opts.XRayIgnoreLoops =
-      Args.hasArg(OPT_fxray_ignore_loops, OPT_fno_xray_ignore_loops, false);
+  Opts.XRayIgnoreLoops = Args.hasArg(OPT_fxray_ignore_loops);
 
   auto XRayInstrBundles =
       Args.getAllArgValues(OPT_fxray_instrumentation_bundle);
@@ -1255,6 +1248,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.NoStackArgProbe = Args.hasArg(OPT_mno_stack_arg_probe);
 
+  Opts.StackClashProtector = Args.hasArg(OPT_fstack_clash_protection);
+
   if (Arg *A = Args.getLastArg(OPT_fobjc_dispatch_method_EQ)) {
     StringRef Name = A->getValue();
     unsigned Method = llvm::StringSwitch<unsigned>(Name)
@@ -1329,19 +1324,29 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   // Support for '-fargument-noalias' option.
   // isIntelCompat(LangOptions::FArgumentNoalias)
   Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
+
+  // CMPLRLLVM-9854 - support for X87 precision control.
+  unsigned X87Precision = 0;
+  if (Arg *A = Args.getLastArg(OPT_mx87_precision)) {
+    StringRef Val = A->getValue();
+    if (Val != "32" && Val != "64" && Val != "80")
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
+    Val.getAsInteger(10, X87Precision);
+  }
+  Opts.X87Precision = X87Precision;
 #endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
     StringRef Val = A->getValue();
     Opts.FPDenormalMode = llvm::parseDenormalFPAttribute(Val);
-    if (Opts.FPDenormalMode == llvm::DenormalMode::Invalid)
+    if (!Opts.FPDenormalMode.isValid())
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
   }
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_f32_EQ)) {
     StringRef Val = A->getValue();
     Opts.FP32DenormalMode = llvm::parseDenormalFPAttribute(Val);
-    if (Opts.FP32DenormalMode == llvm::DenormalMode::Invalid)
+    if (!Opts.FP32DenormalMode.isValid())
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
   }
 
@@ -1485,6 +1490,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.SymbolPartition =
       std::string(Args.getLastArgValue(OPT_fsymbol_partition_EQ));
 
+  Opts.ForceAAPCSBitfieldLoad = Args.hasArg(OPT_ForceAAPCSBitfieldLoad);
   return Success;
 }
 
@@ -1964,6 +1970,11 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.ModulesEmbedAllFiles = Args.hasArg(OPT_fmodules_embed_all_files);
   Opts.IncludeTimestamps = !Args.hasArg(OPT_fno_pch_timestamp);
   Opts.UseTemporary = !Args.hasArg(OPT_fno_temp_file);
+  Opts.IsSystemModule = Args.hasArg(OPT_fsystem_module);
+
+  if (Opts.ProgramAction != frontend::GenerateModule && Opts.IsSystemModule)
+    Diags.Report(diag::err_drv_argument_only_allowed_with) << "-fsystem-module"
+                                                           << "-emit-module";
 
   Opts.CodeCompleteOpts.IncludeMacros
     = Args.hasArg(OPT_code_completion_macros);
@@ -1981,6 +1992,10 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   Opts.OverrideRecordLayoutsFile =
       std::string(Args.getLastArgValue(OPT_foverride_record_layout_EQ));
   Opts.AuxTriple = std::string(Args.getLastArgValue(OPT_aux_triple));
+  if (Args.hasArg(OPT_aux_target_cpu))
+    Opts.AuxTargetCPU = std::string(Args.getLastArgValue(OPT_aux_target_cpu));
+  if (Args.hasArg(OPT_aux_target_feature))
+    Opts.AuxTargetFeatures = Args.getAllArgValues(OPT_aux_target_feature);
   Opts.StatsFile = std::string(Args.getLastArgValue(OPT_stats_file));
 
   if (const Arg *A = Args.getLastArg(OPT_arcmt_check,
@@ -2116,12 +2131,16 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
         DashX = IK;
     }
 
+    bool IsSystem = false;
+
     // The -emit-module action implicitly takes a module map.
     if (Opts.ProgramAction == frontend::GenerateModule &&
-        IK.getFormat() == InputKind::Source)
+        IK.getFormat() == InputKind::Source) {
       IK = IK.withFormat(InputKind::ModuleMap);
+      IsSystem = Opts.IsSystemModule;
+    }
 
-    Opts.Inputs.emplace_back(std::move(Inputs[i]), IK);
+    Opts.Inputs.emplace_back(std::move(Inputs[i]), IK, IsSystem);
   }
 
   return DashX;
@@ -2325,7 +2344,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
       if (T.isPS4())
         LangStd = LangStandard::lang_gnu99;
       else
-        LangStd = LangStandard::lang_gnu11;
+        LangStd = LangStandard::lang_gnu17;
 #endif
       break;
     case Language::ObjC:
@@ -2615,26 +2634,35 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       LangStd = OpenCLLangStd;
   }
 
-  // -sycl-std applies to any SYCL source, not only those containing kernels,
-  // but also those using the SYCL API
-  if(const Arg  *A = Args.getLastArg(OPT_sycl_std_EQ)) {
-    Opts.setSYCLVersion(llvm::StringSwitch<LangOptions::SYCLVersionList>(A->getValue())
-      .Cases("1.2.1",  "121", "sycl-1.2.1", LangOptions::SYCLVersionList::sycl_1_2_1)
-      .Default(LangOptions::SYCLVersionList::undefined));
+  Opts.SYCL = Args.hasArg(options::OPT_fsycl);
 
-    if (Opts.getSYCLVersion() == LangOptions::SYCLVersionList::undefined) {
-      // User has passed an invalid value to the flag, this is an error
-      Diags.Report(diag::err_drv_invalid_value) 
-          << A->getAsString(Args) << A->getValue();
+  if (Opts.SYCL) {
+    Opts.SYCLIsDevice = Args.hasArg(options::OPT_fsycl_is_device);
+    Opts.SYCLIsHost = Args.hasArg(options::OPT_fsycl_is_host);
+    Opts.SYCLAllowFuncPtr =
+        Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
+                     options::OPT_fno_sycl_allow_func_ptr, false);
+    Opts.SYCLStdLayoutKernelParams =
+        Args.hasArg(options::OPT_fsycl_std_layout_kernel_params);
+    Opts.SYCLUnnamedLambda = Args.hasArg(options::OPT_fsycl_unnamed_lambda);
+    // -sycl-std applies to any SYCL source, not only those containing kernels,
+    // but also those using the SYCL API
+    if (const Arg *A = Args.getLastArg(OPT_sycl_std_EQ)) {
+      Opts.SYCLVersion = llvm::StringSwitch<unsigned>(A->getValue())
+                             .Cases("2017", "1.2.1", "121", "sycl-1.2.1", 2017)
+                             .Default(0U);
+
+      if (Opts.SYCLVersion == 0U) {
+        // User has passed an invalid value to the flag, this is an error
+        Diags.Report(diag::err_drv_invalid_value)
+            << A->getAsString(Args) << A->getValue();
+      }
     }
-  } else if (Args.hasArg(options::OPT_fsycl_is_device) 
-                         || Args.hasArg(options::OPT_fsycl_is_host)
-                         || Args.hasArg(options::OPT_fsycl)) {
-    Opts.setSYCLVersion(LangOptions::SYCLVersionList::sycl_1_2_1);
   }
 
   Opts.IncludeDefaultHeader = Args.hasArg(OPT_finclude_default_header);
   Opts.DeclareOpenCLBuiltins = Args.hasArg(OPT_fdeclare_opencl_builtins);
+  Opts.DeclareSPIRVBuiltins = Args.hasArg(OPT_fdeclare_spirv_builtins);
 
   llvm::Triple T(TargetOpts.Triple);
   CompilerInvocation::setLangDefaults(Opts, IK, T, PPOpts, LangStd);
@@ -2978,6 +3006,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Args.hasArg(OPT_fno_threadsafe_statics))
     Opts.ThreadsafeStatics = 0;
   Opts.Exceptions = Args.hasArg(OPT_fexceptions);
+  Opts.IgnoreExceptions = Args.hasArg(OPT_fignore_exceptions);
   Opts.ObjCExceptions = Args.hasArg(OPT_fobjc_exceptions);
   Opts.CXXExceptions = Args.hasArg(OPT_fcxx_exceptions);
 
@@ -3113,6 +3142,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PackStruct = getLastArgIntValue(Args, OPT_fpack_struct_EQ, 0, Diags);
   Opts.MaxTypeAlign = getLastArgIntValue(Args, OPT_fmax_type_align_EQ, 0, Diags);
   Opts.AlignDouble = Args.hasArg(OPT_malign_double);
+  Opts.DoubleSize = getLastArgIntValue(Args, OPT_mdouble_EQ, 0, Diags);
   Opts.LongDoubleSize = Args.hasArg(OPT_mlong_double_128)
                             ? 128
                             : Args.hasArg(OPT_mlong_double_64) ? 64 : 0;
@@ -3251,9 +3281,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setDefaultCallingConv(DefaultCC);
   }
 
-  // -fsemantic-interposition
-  Opts.SemanticInterposition =
-      Args.hasArg(OPT_fsemantic_interposition) && Opts.PICLevel && !Opts.PIE;
+  Opts.SemanticInterposition = Args.hasArg(OPT_fsemantic_interposition);
 
   // -mrtd option
   if (Arg *A = Args.getLastArg(OPT_mrtd)) {
@@ -3423,14 +3451,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Diags.Report(diag::err_drv_omp_host_ir_file_not_found)
           << Opts.OMPHostIRFile;
   }
-
-  Opts.SYCLIsDevice   = Args.hasArg(options::OPT_fsycl_is_device);
-  Opts.SYCLIsHost   = Args.hasArg(options::OPT_fsycl_is_host);
-  Opts.SYCLAllowFuncPtr = Args.hasFlag(options::OPT_fsycl_allow_func_ptr,
-                                  options::OPT_fno_sycl_allow_func_ptr, false);
-  Opts.SYCLStdLayoutKernelParams =
-      Args.hasArg(options::OPT_fsycl_std_layout_kernel_params);
-  Opts.SYCLUnnamedLambda = Args.hasArg(options::OPT_fsycl_unnamed_lambda);
 
   // Set CUDA mode for OpenMP target NVPTX if specified in options
   Opts.OpenMPCUDAMode = Opts.OpenMPIsDevice && T.isNVPTX() &&
@@ -3610,7 +3630,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.CompleteMemberPointers = Args.hasArg(OPT_fcomplete_member_pointers);
   Opts.BuildingPCHWithObjectFile = Args.hasArg(OPT_building_pch_with_obj);
 
-  Opts.MaxTokens = getLastArgIntValue(Args, OPT_fmax_tokens, 0, Diags);
+  Opts.MaxTokens = getLastArgIntValue(Args, OPT_fmax_tokens_EQ, 0, Diags);
 }
 
 static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
@@ -3762,6 +3782,7 @@ static void ParsePreprocessorArgs(PreprocessorOptions &Opts, ArgList &Args,
     Opts.LexEditorPlaceholders = false;
 
   Opts.SetUpStaticAnalyzer = Args.hasArg(OPT_setup_static_analyzer);
+  Opts.DisablePragmaDebugCrash = Args.hasArg(OPT_disable_pragma_debug_crash);
 }
 
 static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
@@ -3784,7 +3805,7 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
 
 static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
                             DiagnosticsEngine &Diags) {
-  Opts.CodeModel = std::string(getCodeModel(Args, Diags));
+  Opts.CodeModel = std::string(Args.getLastArgValue(OPT_mcmodel_EQ, "default"));
   Opts.ABI = std::string(Args.getLastArgValue(OPT_target_abi));
   if (Arg *A = Args.getLastArg(OPT_meabi)) {
     StringRef Value = A->getValue();

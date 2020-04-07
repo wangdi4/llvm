@@ -365,6 +365,10 @@ private:
   /// Current block predicate - null if the block does not need a predicate.
   VPValue *Predicate = nullptr;
 
+  /// VPlan containing the block. Can only be set on the entry block of the
+  /// plan.
+  VPlan *Plan = nullptr;
+
   /// Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Successor) {
     assert(Successor && "Cannot add nullptr successor!");
@@ -417,6 +421,14 @@ public:
 
   VPRegionBlock *getParent() { return Parent; }
   const VPRegionBlock *getParent() const { return Parent; }
+
+  /// \return A pointer to the plan containing the current block.
+  VPlan *getPlan();
+  const VPlan *getPlan() const;
+
+  /// Sets the pointer of the plan containing the block. The block must be the
+  /// entry block into the VPlan.
+  void setPlan(VPlan *ParentPlan);
 
   void setParent(VPRegionBlock *P) { Parent = P; }
 
@@ -627,7 +639,9 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
-  virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
+  void print(raw_ostream &O, const Twine &Indent);
+  virtual void print(raw_ostream &O, const Twine &Indent,
+                     VPSlotTracker &SlotTracker) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -717,10 +731,12 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the Recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+  void print(raw_ostream &O, VPSlotTracker &SlotTracker) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -730,6 +746,26 @@ public:
     //       modifications.
     return Opcode == Instruction::Store || Opcode == Instruction::Call ||
            Opcode == Instruction::Invoke || Opcode == SLPStore;
+  }
+
+  bool hasResult() const {
+    // CallInst may or may not have a result, depending on the called function.
+    // Conservatively return calls have results for now.
+    switch (getOpcode()) {
+    case Instruction::Ret:
+    case Instruction::Br:
+    case Instruction::Store:
+    case Instruction::Switch:
+    case Instruction::IndirectBr:
+    case Instruction::Resume:
+    case Instruction::CatchRet:
+    case Instruction::Unreachable:
+    case Instruction::Fence:
+    case Instruction::AtomicRMW:
+      return false;
+    default:
+      return true;
+    }
   }
 };
 
@@ -770,7 +806,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -804,7 +841,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -833,7 +871,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -858,7 +897,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -893,7 +933,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -937,7 +978,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -991,7 +1033,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -1019,10 +1062,11 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override {
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override {
     O << " +\n" << Indent << "\"BRANCH-ON-MASK ";
     if (User)
-      O << *User->getOperand(0);
+      User->getOperand(0)->print(O, SlotTracker);
     else
       O << " All-One";
     O << "\\l\"";
@@ -1058,7 +1102,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -1102,7 +1147,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -1392,6 +1438,7 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
   }
 };
 
+class VPSlotTracker;
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost. VPlan holds a
@@ -1399,6 +1446,7 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
 /// VPBlock.
 class VPlan {
   friend class VPlanPrinter;
+  friend class VPSlotTracker;
 
 private:
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
@@ -1432,7 +1480,10 @@ private:
   SmallVector<VPValue *, 4> VPCBVs;
 
 public:
-  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
+  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {
+    if (Entry)
+      Entry->setPlan(this);
+  }
 
   ~VPlan() {
     if (Entry)
@@ -1454,7 +1505,11 @@ public:
   VPBlockBase *getEntry() { return Entry; }
   const VPBlockBase *getEntry() const { return Entry; }
 
-  VPBlockBase *setEntry(VPBlockBase *Block) { return Entry = Block; }
+  VPBlockBase *setEntry(VPBlockBase *Block) {
+    Entry = Block;
+    Block->setPlan(this);
+    return Entry;
+  }
 
   /// The backedge taken count of the original loop.
   VPValue *getOrCreateBackedgeTakenCount() {
@@ -1485,7 +1540,7 @@ public:
   void addVPValue(Value *V) {
     assert(V && "Trying to add a null Value to VPlan");
     assert(!Value2VPValue.count(V) && "Value already exists in VPlan");
-    Value2VPValue[V] = new VPValue();
+    Value2VPValue[V] = new VPValue(V);
   }
 
   VPValue *getVPValue(Value *V) {
@@ -1534,7 +1589,10 @@ private:
   unsigned BID = 0;
   SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
 
-  VPlanPrinter(raw_ostream &O, const VPlan &P) : OS(O), Plan(P) {}
+  VPSlotTracker SlotTracker;
+
+  VPlanPrinter(raw_ostream &O, const VPlan &P)
+      : OS(O), Plan(P), SlotTracker(&P) {}
 
   /// Handle indentation.
   void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }

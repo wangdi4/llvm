@@ -24,7 +24,7 @@
 ; RUN: opt < %s -VPlanDriver -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 ; Check DA results
-; CHECK: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 [[IV_ADD:%vp.*]], {{.*}} ],  [ i64 0, {{.*}} ]
+; CHECK: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 [[IV_ADD:%vp.*]], {{.*}} ],  [ i64 [[IND_INIT:%vp.*]], {{.*}} ]
 ; The first GEP from the GEP split should be unit strided and the next one should be strided.
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] [100 x double]* [[BASE:%vp.*]] = getelementptr inbounds [100 x [100 x double]]* %arr i64 [[IINDEX:%.*]] i64 [[IV]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 800] double* [[ELEMENT:%vp.*]] = getelementptr inbounds [100 x double]* [[BASE]] i64 0 i64 [[JINDEX:%.*]]

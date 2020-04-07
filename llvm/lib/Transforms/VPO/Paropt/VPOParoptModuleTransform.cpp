@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
 
@@ -41,6 +42,12 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "VPOParopt"
+
+#ifndef NDEBUG
+static cl::opt<bool> VerifyIRAfterParopt(
+    "vpo-paropt-verify-ir-after", cl::Hidden, cl::init(true),
+    cl::desc("Enable IR verification after Paropt."));
+#endif  // NDEBUG
 
 static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
@@ -615,9 +622,11 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     if (F->isDeclaration()) { // if(!F->hasOpenMPDirective()))
       if (IsTargetSPIRV) {
         auto FuncName = F->getName();
-        if (FuncName == "printf")
+        if (FuncName == "printf") {
           createOCLPrintfDecl(&*F);
-        else if (FuncName == "sincos")
+          VPOParoptTransform::replacePrintfWithOCLBuiltin(&*F,
+                                                          getOCLPrintfDecl());
+        } else if (FuncName == "sincos")
           replaceSincosWithOCLBuiltin(&*F, true);  // double sincos
         else if (FuncName == "sincosf")
           replaceSincosWithOCLBuiltin(&*F, false); // float sincosf
@@ -743,6 +752,24 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     Changed = Changed | !PA.areAllPreserved();
   }
 
+#ifndef NDEBUG
+  if (Changed && VerifyIRAfterParopt) {
+    bool BrokenDebugInfo = false;
+
+      // Do not verify debug information for the time being.
+    if (verifyModule(M, &dbgs(), &BrokenDebugInfo)) {
+      LLVM_DEBUG(dbgs() << "ERROR: module verifier found errors "
+                 "following VPOParoptModuleTransform:\n" << M << "\n");
+      report_fatal_error("Module verifier found errors "
+                         "following VPOParoptModuleTransform.  Use -mllvm "
+                         "-debug-only=" DEBUG_TYPE " to get more information");
+    }
+
+    if (BrokenDebugInfo)
+      LLVM_DEBUG(dbgs() << "ERROR: module verifier found debug info errors.\n");
+  }
+#endif  // NDEBUG
+
   LLVM_DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
   return Changed;
 }
@@ -853,6 +880,26 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   auto *UsedVar = collectUsedGlobalVariables(M, UsedSet, false);
   auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedSet, true);
 
+  SmallPtrSet<GlobalAlias *, 16u> DeadAlias; // Keep track of dead Alias
+  for (GlobalAlias &A : M.aliases()) {
+    if (isa<GlobalValue>(A.getAliasee())) {
+      auto *F = dyn_cast<Function>(A.getAliasee());
+      if (F && !UsedSet.count(F) &&
+          !F->getAttributes().hasAttribute(
+                 AttributeList::FunctionIndex, "openmp-target-declare") &&
+          !F->getAttributes().hasAttribute(
+        AttributeList::FunctionIndex, "target.declare")) {
+        DeadAlias.insert(&A);
+      }
+    }
+  }
+
+  for (GlobalAlias *DA : DeadAlias) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << "Deleteing GlobalAlias "
+                          << DA->getName());
+    DA->eraseFromParent();
+  }
+
   std::vector<GlobalVariable *> DeadGlobalVars; // Keep track of dead globals
   for (GlobalVariable &GV : M.globals()) {
     // Special globals "llvm.used" and "llvm.compiler.used" should be preserved.
@@ -907,7 +954,6 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     // unused for now
     // bool HasTargetConstruct = F.getAttributes().hasAttribute(
     //     AttributeList::FunctionIndex, "contains-openmp-target");
-
     if (IsFETargetDeclare) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
                         << ": IsFETargetDeclare == true\n");
@@ -980,16 +1026,23 @@ void VPOParoptModuleTransform::processDeviceTriples() {
 //      int32_t    flags;      // Flags of the entry.
 //      int32_t    reserved;   // Reserved by the runtime library.
 // };
-StructType *VPOParoptModuleTransform::getTgOffloadEntryTy() {
-  if (TgOffloadEntryTy)
-    return TgOffloadEntryTy;
+StructType *VPOParoptModuleTransform::getTgtOffloadEntryTy() {
+  if (TgtOffloadEntryTy)
+    return TgtOffloadEntryTy;
 
-  Type *TyArgs[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
-                    GeneralUtils::getSizeTTy(&M), Type::getInt32Ty(C),
-                    Type::getInt32Ty(C)};
-  TgOffloadEntryTy =
-      StructType::get(C, TyArgs, /* "struct.__tgt_offload_entry"*/false);
-  return TgOffloadEntryTy;
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
+
+  Type *TyArgs[] = {
+    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0),
+    Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0),
+    GeneralUtils::getSizeTTy(&M),
+    Type::getInt32Ty(C),
+    Type::getInt32Ty(C)
+  };
+
+  TgtOffloadEntryTy =
+      StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
+  return TgtOffloadEntryTy;
 }
 
 void VPOParoptModuleTransform::loadOffloadMetadata() {
@@ -1143,9 +1196,6 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
 
   bool Changed = false;
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
-  Type *VoidStarTy = Type::getInt8PtrTy(C);
-  Type *SizeTy = GeneralUtils::getSizeTTy(&M);
-  Type *Int32Ty = Type::getInt32Ty(C);
 
   for (auto *E : OffloadEntries) {
     if (auto *Var = dyn_cast<VarEntry>(E))
@@ -1175,23 +1225,31 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
 
     GlobalVariable *Str = new GlobalVariable(
         M, StrInit->getType(), /*isConstant=*/true,
-        GlobalValue::InternalLinkage, StrInit, ".omp_offloading.entry_name");
+        GlobalValue::InternalLinkage, StrInit,
+        ".omp_offloading.entry_name", /* InsertBefore */ nullptr,
+        GlobalValue::ThreadLocalMode::NotThreadLocal,
+        IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0);
     Str->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
     Str->setTargetDeclare(true);
+
+    auto *EntryTy = getTgtOffloadEntryTy();
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
     if (!IsTargetSPIRV && EntryAddress)
       EntryInitBuffer.push_back(
-        ConstantExpr::getBitCast(EntryAddress, VoidStarTy));
+          ConstantExpr::getBitCast(EntryAddress, EntryTy->getElementType(0)));
     else
-      EntryInitBuffer.push_back(Constant::getNullValue(VoidStarTy));
-    EntryInitBuffer.push_back(ConstantExpr::getBitCast(Str, VoidStarTy));
-    EntryInitBuffer.push_back(ConstantInt::get(SizeTy, E->getSize()));
-    EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, E->getFlags()));
-    EntryInitBuffer.push_back(ConstantInt::get(Int32Ty, 0));
+      EntryInitBuffer.push_back(
+          Constant::getNullValue(EntryTy->getElementType(0)));
+    EntryInitBuffer.push_back(
+        ConstantExpr::getBitCast(Str, EntryTy->getElementType(1)));
+    EntryInitBuffer.push_back(
+        ConstantInt::get(EntryTy->getElementType(2), E->getSize()));
+    EntryInitBuffer.push_back(
+        ConstantInt::get(EntryTy->getElementType(3), E->getFlags()));
+    EntryInitBuffer.push_back(ConstantInt::get(EntryTy->getElementType(4), 0));
 
-    Constant *EntryInit =
-        ConstantStruct::get(getTgOffloadEntryTy(), EntryInitBuffer);
+    Constant *EntryInit = ConstantStruct::get(EntryTy, EntryInitBuffer);
 
     GlobalVariable *Entry =
         new GlobalVariable(M, EntryInit->getType(),

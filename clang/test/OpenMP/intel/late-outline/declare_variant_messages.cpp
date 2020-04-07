@@ -60,19 +60,27 @@ void bar();
 #pragma omp declare variant(42) match(construct={target variant dispatch})
 void bar();
 
-// Community code does not diagnose unknown selector set, so we won't for now
+// expected-warning@+3 {{'onstruct' is not a valid context set in a `declare variant`}}
+// expected-note@+2 {{context set options are}}
+// expected-note@+1 {{the ignored set spans until here}}
 #pragma omp declare variant(foo) match(onstruct={target variant dispatch})
 void bar(int);
 
-// expected-error@+1 {{unknown or unsupported 'construct' context selector, expecting 'target variant dispatch'}}
+// expected-warning@+3 {{'arget' is not a valid context selector}}
+// expected-note@+2 {{context selector options are}}
+// expected-note@+1 {{the ignored selector spans until here}}
 #pragma omp declare variant(foo) match(construct={arget})
 void bar(int);
 
-// expected-warning@+1 {{unknown context selector in 'device' context selector set of 'omp declare variant' directive, ignored}}
+// expected-warning@+3 {{'rch' is not a valid context selector for the context set 'device'}}
+// expected-note@+2 {{context selector options are}}
+// expected-note@+1 {{the ignored selector spans until here}}
 #pragma omp declare variant(foo) match(construct={target variant dispatch},device={rch(gen)})
 void bar(int);
 
-// expected-error@+1 {{unknown or unsupported 'arch' selector, expecting 'gen'}}
+// expected-warning@+3 {{'en' is not a valid context property for the context selector 'arch' and the context set 'device'}}
+// expected-note@+2 {{context property options are}}
+// expected-note@+1 {{the ignored property spans until here}}
 #pragma omp declare variant(foo) match(construct={target variant dispatch},device={arch(en)})
 void bar(int);
 
@@ -88,8 +96,12 @@ void testit() {
   disp_call();
 }
 
-// expected-error@+3 {{unknown or unsupported 'construct' context selector, expecting 'target variant dispatch'}}
-// expected-error@+3 {{unknown or unsupported 'arch' selector, expecting 'gen'}}
+// expected-warning@+7 {{'arget' is not a valid context selector for the context set 'construct'}}
+// expected-note@+6 {{context selector options are}}
+// expected-note@+5 {{the ignored selector spans}}
+// expected-warning@+5 {{'foobar' is not a valid context property for the context selector 'arch' and the context set 'device'}}
+// expected-note@+4 {{context property options are}}
+// expected-note@+3 {{the ignored property spans}}
 #pragma omp declare variant(foo) match(\
    construct={arget},\
    device={arch(gen,foobar)})

@@ -82,16 +82,24 @@ def IntelInline : Attr {
   let Documentation = [Undocumented];
 }
 
-// Pragma block_loop
+// Pragma block_loop and noblock_loop
 def IntelBlockLoop : Attr {
-  let Spellings = [Pragma<"", "block_loop">];
+  let Spellings = [Pragma<"", "block_loop">,
+                   Pragma<"", "noblock_loop">];
   let Args = [
     VariadicExprArgument<"Factors">, VariadicIntArgument<"Levels">,
     VariadicExprArgument<"Privates">
   ];
   let AdditionalMembers = [{
   void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
-    OS << "#pragma block_loop";
+    OS << getDiagnosticName(Policy);
+  }
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+    unsigned SpellingIndex = getSpellingListIndex();
+    if (SpellingIndex == Pragma_block_loop)
+      return "#pragma block_loop";
+    else
+      return "#pragma noblock_loop";
   }
   }];
   let Documentation = [Undocumented];
@@ -530,23 +538,6 @@ def ReadWriteMode : Attr {
   let Documentation = [ReadWriteModeDocs];
 }
 
-def ForcePow2Depth : Attr {
-  let Spellings = [GNU<"force_pow2_depth">];
-  let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [ForcePow2DepthDocs];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 0;
-    }
-    static unsigned getMaxValue() {
-      return 1;
-    }
-  }];
-}
-
 def HLSLocalStaticVar : SubsetSubject<Var,
                               [{S->getStorageClass() == SC_Static &&
                                 S->getKind() != Decl::ImplicitParam &&
@@ -576,7 +567,7 @@ def ArbPrecInt : TypeAttr {
   let Spellings = [Clang<"__ap_int">];
   let Subjects = SubjectList<[TypedefName], ErrorDiag>;
   let Args = [ExprArgument<"NumBits">];
-  let LangOpts = [OpenCL, HLS];
+  let LangOpts = [OpenCL, HLS, SYCLIsDevice];
   let Documentation = [ArbPrecIntDocs];
   let ASTNode = 0;
 }

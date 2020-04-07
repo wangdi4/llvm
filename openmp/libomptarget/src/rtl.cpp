@@ -23,6 +23,7 @@
 #if INTEL_CUSTOMIZATION
 // FIXME: temporary solution for LIBDL on Windows.
 #ifdef _WIN32
+#include <windows.h>
 #include <intel_win_dlfcn.h>
 #else  // !_WIN32
 #include <dlfcn.h>
@@ -63,14 +64,75 @@ static const char *RTLNames[] = {
     /* CUDA target    */ "libomptarget.rtl.cuda.so",
     /* AArch64 target */ "libomptarget.rtl.aarch64.so"};
 
-RTLsTy RTLs;
-std::mutex RTLsMtx;
+RTLsTy *RTLs;
+std::mutex *RTLsMtx;
 
-HostEntriesBeginToTransTableTy HostEntriesBeginToTransTable;
-std::mutex TrlTblMtx;
+HostEntriesBeginToTransTableTy *HostEntriesBeginToTransTable;
+std::mutex *TrlTblMtx;
 
-HostPtrToTableMapTy HostPtrToTableMap;
-std::mutex TblMapMtx;
+HostPtrToTableMapTy *HostPtrToTableMap;
+std::mutex *TblMapMtx;
+
+#ifdef INTEL_CUSTOMIZATION
+#ifdef _WIN32
+#define __ATTRIBUTE__(X)
+#else
+#define __ATTRIBUTE__(X)  __attribute__((X))
+#endif
+#endif // INTEL_CUSTOMIZATION
+
+__ATTRIBUTE__(constructor(101)) void init() { // INTEL
+  DP("Init target library!\n");
+  RTLs = new RTLsTy();
+  RTLsMtx = new std::mutex();
+  HostEntriesBeginToTransTable = new HostEntriesBeginToTransTableTy();
+  TrlTblMtx = new std::mutex();
+  HostPtrToTableMap = new HostPtrToTableMapTy();
+  TblMapMtx = new std::mutex();
+}
+
+__ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
+  DP("Deinit target library!\n");
+  delete RTLs;
+  delete RTLsMtx;
+  delete HostEntriesBeginToTransTable;
+  delete TrlTblMtx;
+  delete HostPtrToTableMap;
+  delete TblMapMtx;
+}
+
+#if INTEL_CUSTOMIZATION
+#if _WIN32
+extern "C" BOOL WINAPI
+DllMain(HINSTANCE const instance, // handle to DLL module
+        DWORD const reason,       // reason for calling function
+        LPVOID const reserved)    // reserved
+{
+  // Perform actions based on the reason for calling.
+  switch (reason) {
+  case DLL_PROCESS_ATTACH:
+    // Initialize once for each new process.
+    // Return FALSE to fail DLL load.
+    init();
+    break;
+
+  case DLL_THREAD_ATTACH:
+    // Do thread-specific initialization.
+    break;
+
+  case DLL_THREAD_DETACH:
+    // Do thread-specific cleanup.
+    break;
+
+  case DLL_PROCESS_DETACH:
+    // Perform any necessary cleanup.
+    deinit();
+    break;
+  }
+  return TRUE; // Successful DLL_PROCESS_ATTACH.
+}
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 
 void RTLsTy::LoadRTLs() {
 #ifdef OMPTARGET_DEBUG
@@ -81,6 +143,9 @@ void RTLsTy::LoadRTLs() {
 
   // Parse environment variable OMP_TARGET_OFFLOAD (if set)
   TargetOffloadPolicy = (kmp_target_offload_kind_t) __kmpc_get_target_offload();
+  DP("TargetOffloadPolicy = %s\n",
+      (TargetOffloadPolicy == tgt_default)? "DEFAULT" :
+      (TargetOffloadPolicy == tgt_disabled)? "DISABLED" : "MANDATORY");
   if (TargetOffloadPolicy == tgt_disabled) {
     return;
   }
@@ -232,9 +297,15 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.release_offload_pipe) =
               dlsym(dynlib_handle, "__tgt_rtl_release_offload_pipe")))
       DP("Optional interface: __tgt_rtl_release_offload_pipe\n");
-    if ((*((void **)&R.is_managed_data) =
-              dlsym(dynlib_handle, "__tgt_rtl_is_managed_data")))
-      DP("Optional interface: __tgt_rtl_is_managed_data\n");
+    if ((*((void **)&R.data_alloc_managed) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_managed")))
+      DP("Optional interface: __tgt_rtl_data_alloc_managed\n");
+    if ((*((void **)&R.data_delete_managed) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_delete_managed")))
+      DP("Optional interface: __tgt_rtl_data_delete_managed\n");
+    if ((*((void **)&R.is_managed_ptr) =
+              dlsym(dynlib_handle, "__tgt_rtl_is_managed_ptr")))
+      DP("Optional interface: __tgt_rtl_is_managed_ptr\n");
 #endif // INTEL_COLLAB
 
     // Optional functions
@@ -377,7 +448,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
   // Attempt to load all plugins available in the system.
   std::call_once(initFlag, &RTLsTy::LoadRTLs, this);
 
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   // Register the images with the RTLs that understand them, if any.
   for (int32_t i = 0; i < desc->NumDeviceImages; ++i) {
     // Obtain the image.
@@ -387,7 +458,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
 
     // Scan the RTLs that have associated images until we find one that supports
     // the current image.
-    for (auto &R : RTLs.AllRTLs) {
+    for (auto &R : AllRTLs) {
       if (!R.is_valid_binary(img)) {
         DP("Image " DPxMOD " is NOT compatible with RTL %s!\n",
             DPxPTR(img->ImageStart), R.RTLName.c_str());
@@ -412,35 +483,34 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
         }
 
         // Initialize the index of this RTL and save it in the used RTLs.
-        R.Idx = (RTLs.UsedRTLs.empty())
+        R.Idx = (UsedRTLs.empty())
                     ? 0
-                    : RTLs.UsedRTLs.back()->Idx +
-                          RTLs.UsedRTLs.back()->NumberOfDevices;
+                    : UsedRTLs.back()->Idx + UsedRTLs.back()->NumberOfDevices;
         assert((size_t) R.Idx == start &&
             "RTL index should equal the number of devices used so far.");
         R.isUsed = true;
-        RTLs.UsedRTLs.push_back(&R);
+        UsedRTLs.push_back(&R);
 
         DP("RTL " DPxMOD " has index %d!\n", DPxPTR(R.LibraryHandler), R.Idx);
       }
 
       // Initialize (if necessary) translation table for this library.
-      TrlTblMtx.lock();
-      if(!HostEntriesBeginToTransTable.count(desc->HostEntriesBegin)){
+      TrlTblMtx->lock();
+      if(!HostEntriesBeginToTransTable->count(desc->HostEntriesBegin)){
         TranslationTable &tt =
-            HostEntriesBeginToTransTable[desc->HostEntriesBegin];
+            (*HostEntriesBeginToTransTable)[desc->HostEntriesBegin];
         tt.HostTable.EntriesBegin = desc->HostEntriesBegin;
         tt.HostTable.EntriesEnd = desc->HostEntriesEnd;
       }
 
       // Retrieve translation table for this library.
       TranslationTable &TransTable =
-          HostEntriesBeginToTransTable[desc->HostEntriesBegin];
+          (*HostEntriesBeginToTransTable)[desc->HostEntriesBegin];
 
       DP("Registering image " DPxMOD " with RTL %s!\n",
           DPxPTR(img->ImageStart), R.RTLName.c_str());
       RegisterImageIntoTranslationTable(TransTable, R, img);
-      TrlTblMtx.unlock();
+      TrlTblMtx->unlock();
       FoundRTL = &R;
 
       // Load ctors/dtors for static objects
@@ -454,7 +524,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
       DP("No RTL found for image " DPxMOD "!\n", DPxPTR(img->ImageStart));
     }
   }
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
 
 
   DP("Done registering entries!\n");
@@ -463,7 +533,7 @@ void RTLsTy::RegisterLib(__tgt_bin_desc *desc) {
 void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
   DP("Unloading target library!\n");
 
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   // Find which RTL understands each image, if any.
   for (int32_t i = 0; i < desc->NumDeviceImages; ++i) {
     // Obtain the image.
@@ -473,7 +543,7 @@ void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
 
     // Scan the RTLs that have associated images until we find one that supports
     // the current image. We only need to scan RTLs that are already being used.
-    for (auto *R : RTLs.UsedRTLs) {
+    for (auto *R : UsedRTLs) {
 
       assert(R->isUsed && "Expecting used RTLs.");
 
@@ -519,28 +589,28 @@ void RTLsTy::UnregisterLib(__tgt_bin_desc *desc) {
           DPxPTR(img->ImageStart));
     }
   }
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
   DP("Done unregistering images!\n");
 
   // Remove entries from HostPtrToTableMap
-  TblMapMtx.lock();
+  TblMapMtx->lock();
   for (__tgt_offload_entry *cur = desc->HostEntriesBegin;
       cur < desc->HostEntriesEnd; ++cur) {
-    HostPtrToTableMap.erase(cur->addr);
+    HostPtrToTableMap->erase(cur->addr);
   }
 
   // Remove translation table for this descriptor.
-  auto tt = HostEntriesBeginToTransTable.find(desc->HostEntriesBegin);
-  if (tt != HostEntriesBeginToTransTable.end()) {
+  auto tt = HostEntriesBeginToTransTable->find(desc->HostEntriesBegin);
+  if (tt != HostEntriesBeginToTransTable->end()) {
     DP("Removing translation table for descriptor " DPxMOD "\n",
         DPxPTR(desc->HostEntriesBegin));
-    HostEntriesBeginToTransTable.erase(tt);
+    HostEntriesBeginToTransTable->erase(tt);
   } else {
     DP("Translation table for descriptor " DPxMOD " cannot be found, probably "
         "it has been already removed.\n", DPxPTR(desc->HostEntriesBegin));
   }
 
-  TblMapMtx.unlock();
+  TblMapMtx->unlock();
 
   // TODO: Remove RTL and the devices it manages if it's not used anymore?
   // TODO: Write some RTL->unload_image(...) function?

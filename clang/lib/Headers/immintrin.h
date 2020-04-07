@@ -230,6 +230,16 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_IFMA */
+#if defined(__AVXIFMA_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXIFMA__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxifma/avxifmaintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_IFMA */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512IFMA__) && defined(__AVX512VL__)) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
@@ -313,6 +323,68 @@
 /* end INTEL_CUSTOMIZATION */
 #include <gfniintrin.h>
 #endif
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_DOTPROD */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVXDOTPROD_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVXDOTPROD__) && defined(__AVX512FP16__)
+#include <avxdotprod/avxdotprodintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_DOTPROD */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVX512DOTPROD_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVX512DOTPROD__)
+#include <avx512dotprod/avx512dotprodintrin.h>
+#endif
+#if defined(__AVX512VL__) && defined(__AVX512DOTPROD__)
+#include <avx512dotprod/avx512vldotprodintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_CONVERT */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVXCONVERT_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVXCONVERT__) && defined(__AVX512FP16__)
+#include <avxconvert/avxconvertintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_CONVERT */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_CONVERT */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVX512CONVERT_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVX512CONVERT__)
+#include <avx512convert/avx512convertintrin.h>
+#endif
+#if defined(__AVX512VL__) && defined(__AVX512CONVERT__)
+#include <avx512convert/avx512vlconvertintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_CONVERT */
+/* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
@@ -599,6 +671,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_SERIALIZE */
 
+/* INTEL_FEATURE_ISA_HRESET */
+#if defined(__HRESET_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <hresetintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_HRESET */
+
 /* INTEL_FEATURE_ISA_TSXLDTRK */
 #if defined(__TSXLDTRK_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__TSXLDTRK__) || defined(__M_INTRINSIC_PROMOTE__)
@@ -689,6 +769,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FP16 */
+
+/* INTEL_FEATURE_ISA_AMX_CONVERT */
+#if defined(__AMX_CONVERT_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXCONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxconvertintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_CONVERT */
 
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 #if defined(__KEYLOCKER_SUPPORTED__)

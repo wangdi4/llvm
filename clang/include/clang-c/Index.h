@@ -2574,12 +2574,20 @@ enum CXCursorKind {
    */
   CXCursor_OMPParallelMasterDirective      = 285,
 
+  /** OpenMP depobj directive.
+   */
+  CXCursor_OMPDepobjDirective             = 286,
+
+  /** OpenMP scan directive.
+   */
+  CXCursor_OMPScanDirective               = 287,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 286,
+  CXCursor_OMPTargetVariantDispatchDirective = 288,
 
   CXCursor_LastStmt = CXCursor_OMPTargetVariantDispatchDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPParallelMasterDirective,
+  CXCursor_LastStmt = CXCursor_OMPScanDirective,
 #endif /* INTEL_COLLAB */
 
   /**
@@ -3755,7 +3763,7 @@ CINDEX_LINKAGE unsigned clang_Type_getNumObjCProtocolRefs(CXType T);
 CINDEX_LINKAGE CXCursor clang_Type_getObjCProtocolDecl(CXType T, unsigned i);
 
 /**
- * Retreive the number of type arguments associated with an ObjC object.
+ * Retrieve the number of type arguments associated with an ObjC object.
  *
  * If the type is not an ObjC object, 0 is returned.
  */

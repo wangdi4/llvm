@@ -199,10 +199,15 @@ declare i64 @llvm.x86.icecode.fscp.xchg.64(i32, i64)
 define i32 @creg_xchg32(i32 %reg, i32 %v) {
 ; CHECK-LABEL: creg_xchg32:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    # kill: def $esi killed $esi def $rsi
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    creg_xchgl %edi, %eax
+; CHECK-NEXT:    creg_xchgl $4660, %esi # imm = 0x1234
+; CHECK-NEXT:    addl %esi, %eax
 ; CHECK-NEXT:    retq
-  %res = call i32 @llvm.x86.icecode.creg.xchg.32(i32 %reg, i32 %v)
+  %res1 = call i32 @llvm.x86.icecode.creg.xchg.32(i32 %reg, i32 %v)
+  %res2 = call i32 @llvm.x86.icecode.creg.xchg.32(i32 4660, i32 %v)
+  %res = add i32 %res1, %res2
   ret i32 %res
 }
 
@@ -211,18 +216,27 @@ define i64 @creg_xchg64(i32 %reg, i64 %v) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movq %rsi, %rax
 ; CHECK-NEXT:    creg_xchgq %edi, %rax
+; CHECK-NEXT:    creg_xchgq $4660, %rsi # imm = 0x1234
+; CHECK-NEXT:    addq %rsi, %rax
 ; CHECK-NEXT:    retq
-  %res = call i64 @llvm.x86.icecode.creg.xchg.64(i32 %reg, i64 %v)
+  %res1 = call i64 @llvm.x86.icecode.creg.xchg.64(i32 %reg, i64 %v)
+  %res2 = call i64 @llvm.x86.icecode.creg.xchg.64(i32 4660, i64 %v)
+  %res = add i64 %res1, %res2
   ret i64 %res
 }
 
 define i32 @fscp_xchg32(i32 %reg, i32 %v) {
 ; CHECK-LABEL: fscp_xchg32:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    # kill: def $esi killed $esi def $rsi
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    fscp_xchgl %edi, %eax
+; CHECK-NEXT:    fscp_xchgl $4660, %esi # imm = 0x1234
+; CHECK-NEXT:    addl %esi, %eax
 ; CHECK-NEXT:    retq
-  %res = call i32 @llvm.x86.icecode.fscp.xchg.32(i32 %reg, i32 %v)
+  %res1 = call i32 @llvm.x86.icecode.fscp.xchg.32(i32 %reg, i32 %v)
+  %res2 = call i32 @llvm.x86.icecode.fscp.xchg.32(i32 4660, i32 %v)
+  %res = add i32 %res1, %res2
   ret i32 %res
 }
 
@@ -231,8 +245,12 @@ define i64 @fscp_xchg64(i32 %reg, i64 %v) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    movq %rsi, %rax
 ; CHECK-NEXT:    fscp_xchgq %edi, %rax
+; CHECK-NEXT:    fscp_xchgq $4660, %rsi # imm = 0x1234
+; CHECK-NEXT:    addq %rsi, %rax
 ; CHECK-NEXT:    retq
-  %res = call i64 @llvm.x86.icecode.fscp.xchg.64(i32 %reg, i64 %v)
+  %res1 = call i64 @llvm.x86.icecode.fscp.xchg.64(i32 %reg, i64 %v)
+  %res2 = call i64 @llvm.x86.icecode.fscp.xchg.64(i32 4660, i64 %v)
+  %res = add i64 %res1, %res2
   ret i64 %res
 }
 
@@ -244,36 +262,52 @@ declare i64 @llvm.x86.icecode.fscp.read.64(i32)
 define i32 @creg_read32(i32 %reg) {
 ; CHECK-LABEL: creg_read32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    creg_readl %edi, %eax
+; CHECK-NEXT:    creg_readl %edi, %ecx
+; CHECK-NEXT:    creg_readl $4660, %eax # imm = 0x1234
+; CHECK-NEXT:    addl %ecx, %eax
 ; CHECK-NEXT:    retq
-  %res = call i32 @llvm.x86.icecode.creg.read.32(i32 %reg)
+  %res1 = call i32 @llvm.x86.icecode.creg.read.32(i32 %reg)
+  %res2 = call i32 @llvm.x86.icecode.creg.read.32(i32 4660)
+  %res = add i32 %res1, %res2
   ret i32 %res
 }
 
 define i64 @creg_read64(i32 %reg) {
 ; CHECK-LABEL: creg_read64:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    creg_readq %edi, %rax
+; CHECK-NEXT:    creg_readq %edi, %rcx
+; CHECK-NEXT:    creg_readq $4660, %rax # imm = 0x1234
+; CHECK-NEXT:    addq %rcx, %rax
 ; CHECK-NEXT:    retq
-  %res = call i64 @llvm.x86.icecode.creg.read.64(i32 %reg)
+  %res1 = call i64 @llvm.x86.icecode.creg.read.64(i32 %reg)
+  %res2 = call i64 @llvm.x86.icecode.creg.read.64(i32 4660)
+  %res = add i64 %res1, %res2
   ret i64 %res
 }
 
 define i32 @fscp_read32(i32 %reg) {
 ; CHECK-LABEL: fscp_read32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    fscp_readl %edi, %eax
+; CHECK-NEXT:    fscp_readl %edi, %ecx
+; CHECK-NEXT:    fscp_readl $4660, %eax # imm = 0x1234
+; CHECK-NEXT:    addl %ecx, %eax
 ; CHECK-NEXT:    retq
-  %res = call i32 @llvm.x86.icecode.fscp.read.32(i32 %reg)
+  %res1 = call i32 @llvm.x86.icecode.fscp.read.32(i32 %reg)
+  %res2 = call i32 @llvm.x86.icecode.fscp.read.32(i32 4660)
+  %res = add i32 %res1, %res2
   ret i32 %res
 }
 
 define i64 @fscp_read64(i32 %reg) {
 ; CHECK-LABEL: fscp_read64:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    fscp_readq %edi, %rax
+; CHECK-NEXT:    fscp_readq %edi, %rcx
+; CHECK-NEXT:    fscp_readq $4660, %rax # imm = 0x1234
+; CHECK-NEXT:    addq %rcx, %rax
 ; CHECK-NEXT:    retq
-  %res = call i64 @llvm.x86.icecode.fscp.read.64(i32 %reg)
+  %res1 = call i64 @llvm.x86.icecode.fscp.read.64(i32 %reg)
+  %res2 = call i64 @llvm.x86.icecode.fscp.read.64(i32 4660)
+  %res = add i64 %res1, %res2
   ret i64 %res
 }
 

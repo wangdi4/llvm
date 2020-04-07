@@ -305,12 +305,41 @@ static bool isCompareFunction(Function *CompareFunc) {
     return 0;
   };
 
+  // Returns true if "Val" is SelectInst that returns either 1 or -1
+  // based on argument comparison condition.
+  // Ex:
+  //     %21 = icmp sgt i32 %16, %20
+  //     %22 = select i1 %21, i32 1, i32 -1
+  auto CheckSelect = [&, IsValidCompare, GetConstantOne](
+                         Value *Val, unsigned *MaxSgtP, unsigned *MaxSltP) {
+    auto *SelInst = dyn_cast<SelectInst>(Val);
+    if (!SelInst)
+      return false;
+    int FalseConst = GetConstantOne(SelInst->getFalseValue());
+    int TrueConst = GetConstantOne(SelInst->getTrueValue());
+
+    // Each side is either -1 or 1
+    if (FalseConst == 0 || TrueConst == 0)
+      return false;
+    // Both sides are the same
+    if (FalseConst == TrueConst)
+      return false;
+    // The condition must use values pointing to the arguments
+    Value *Cond = SelInst->getCondition();
+    if (!IsValidCompare(Cond, Arg0, Arg1, MaxSgtP, MaxSltP))
+      return false;
+    return true;
+  };
+
   // There will be one use for each argument
   if (!Arg0->hasOneUse() || !Arg1->hasOneUse())
     return false;
 
   unsigned MaxSgt = 0;
   unsigned MaxSlt = 0;
+  bool FoundOne = false;
+  bool FoundMinusOne = false;
+  bool FoundSelect = false;
 
   for (auto &BB : *CompareFunc) {
     Instruction *Terminator = BB.getTerminator();
@@ -336,6 +365,18 @@ static bool isCompareFunction(Function *CompareFunc) {
 
     else if (ReturnInst *Ret = dyn_cast<ReturnInst>(Terminator)) {
 
+      // The below two patterns are allowed for ReturnInst.
+      // Pattern 1:
+      //      %21 = icmp sgt i32 %16, %20
+      //      %22 = select i1 %21, i32 1, i32 -1
+      //      ret i32 %22
+      //
+      //    23:
+      //      %24 = phi i32 [ 1, %2 ], [ -1, %10 ]
+      //      ret i32 %24
+      //
+      //
+      // Pattern 2:
       // The Value returned comes from a PHI Node that checks for
       // 1, -1 or a Select instruction. For example:
       //
@@ -346,69 +387,42 @@ static bool isCompareFunction(Function *CompareFunc) {
       //   23:
       //     %24 = phi i32 [ 1, %2 ], [ -1, %10 ], [ %22, %12 ]
       //     ret i32 %24
-      PHINode *RetPHI = dyn_cast_or_null<PHINode>(Ret->getReturnValue());
+      Value *RVal = Ret->getReturnValue();
+      if (!RVal)
+        return false;
+      if (!FoundSelect && CheckSelect(RVal, &MaxSgt, &MaxSlt)) {
+        FoundSelect = true;
+        continue;
+      }
+
+      PHINode *RetPHI = dyn_cast<PHINode>(RVal);
 
       if (!RetPHI)
         return false;
 
       unsigned NumIncomingValues = RetPHI->getNumIncomingValues();
 
-      if (NumIncomingValues != 3)
+      if (NumIncomingValues > 3)
         return false;
 
-      bool FoundOne = false;
-      bool FoundMinusOne = false;
-      bool FoundSelect = false;
       for (unsigned Entry = 0; Entry < NumIncomingValues; Entry++) {
-
-        if (!FoundOne &&
-            GetConstantOne(RetPHI->getIncomingValue(Entry)) == 1) {
+        Value *Val = RetPHI->getIncomingValue(Entry);
+        if (!FoundOne && GetConstantOne(Val) == 1)
           FoundOne = true;
-        }
-        else if (!FoundMinusOne &&
-            GetConstantOne(RetPHI->getIncomingValue(Entry)) == -1) {
+        else if (!FoundMinusOne && GetConstantOne(Val) == -1)
           FoundMinusOne = true;
-        }
-
-        // Entry in the PHI Node is a Select instructions (%22 from the
-        // above example).
-        else if (!FoundSelect &&
-            isa<SelectInst>(RetPHI->getIncomingValue(Entry))) {
-
-          SelectInst *SelInst =
-              cast<SelectInst>(RetPHI->getIncomingValue(Entry));
-
-          int FalseConst = GetConstantOne(SelInst->getFalseValue());
-          int TrueConst = GetConstantOne(SelInst->getTrueValue());
-
-          // One of the sides is not -1
-          if (FalseConst == 0 || TrueConst == 0)
-            return false;
-
-          // Both sides are the same
-          if (FalseConst == TrueConst)
-            return false;
-
-          // The condition must use values pointing to the arguments
-          Value *Cond = SelInst->getCondition();
-
-          if (!IsValidCompare(Cond, Arg0, Arg1, &MaxSgt, &MaxSlt))
-            return false;
-
+        else if (!FoundSelect && CheckSelect(Val, &MaxSgt, &MaxSlt))
           FoundSelect = true;
-        } else {
-           return false;
-        }
+        else
+          return false;
       }
-
-      if (!FoundOne || !FoundMinusOne || !FoundSelect)
-        return false;
-
     } else {
       return false;
     }
   }
 
+  if (!FoundOne || !FoundMinusOne || !FoundSelect)
+    return false;
   // Make sure that we found the correct number of "less than" and "greater
   // than" operations.
   if (MaxSgt == 2 && MaxSlt == 1)

@@ -87,9 +87,8 @@ CompletionItemKind toCompletionItemKind(index::SymbolKind Kind) {
     return CompletionItemKind::Text;
   case SK::Enum:
     return CompletionItemKind::Enum;
-  // FIXME(ioeric): use LSP struct instead of class when it is suppoted in the
-  // protocol.
   case SK::Struct:
+    return CompletionItemKind::Struct;
   case SK::Class:
   case SK::Protocol:
   case SK::Extension:
@@ -102,18 +101,16 @@ CompletionItemKind toCompletionItemKind(index::SymbolKind Kind) {
   case SK::Using:
     return CompletionItemKind::Reference;
   case SK::Function:
-  // FIXME(ioeric): this should probably be an operator. This should be fixed
-  // when `Operator` is support type in the protocol.
   case SK::ConversionFunction:
     return CompletionItemKind::Function;
   case SK::Variable:
   case SK::Parameter:
+  case SK::NonTypeTemplateParm:
     return CompletionItemKind::Variable;
   case SK::Field:
     return CompletionItemKind::Field;
-  // FIXME(ioeric): use LSP enum constant when it is supported in the protocol.
   case SK::EnumConstant:
-    return CompletionItemKind::Value;
+    return CompletionItemKind::EnumMember;
   case SK::InstanceMethod:
   case SK::ClassMethod:
   case SK::StaticMethod:
@@ -125,6 +122,9 @@ CompletionItemKind toCompletionItemKind(index::SymbolKind Kind) {
     return CompletionItemKind::Property;
   case SK::Constructor:
     return CompletionItemKind::Constructor;
+  case SK::TemplateTypeParm:
+  case SK::TemplateTemplateParm:
+    return CompletionItemKind::TypeParameter;
   }
   llvm_unreachable("Unhandled clang::index::SymbolKind.");
 }
@@ -489,6 +489,9 @@ llvm::Optional<SymbolID> getSymbolID(const CodeCompletionResult &R,
   switch (R.Kind) {
   case CodeCompletionResult::RK_Declaration:
   case CodeCompletionResult::RK_Pattern: {
+    // Computing USR caches linkage, which may change after code completion.
+    if (hasUnstableLinkage(R.Declaration))
+      return llvm::None;
     return clang::clangd::getSymbolID(R.Declaration);
   }
   case CodeCompletionResult::RK_Macro:
@@ -1001,10 +1004,12 @@ private:
     ScoredSignature Result;
     Result.Signature = std::move(Signature);
     Result.Quality = Signal;
-    Result.IDForDoc =
-        Result.Signature.documentation.empty() && Candidate.getFunction()
-            ? clangd::getSymbolID(Candidate.getFunction())
-            : None;
+    const FunctionDecl *Func = Candidate.getFunction();
+    if (Func && Result.Signature.documentation.empty()) {
+      // Computing USR caches linkage, which may change after code completion.
+      if (!hasUnstableLinkage(Func))
+        Result.IDForDoc = clangd::getSymbolID(Func);
+    }
     return Result;
   }
 
@@ -1368,8 +1373,8 @@ public:
     //  - accessible scopes are determined heuristically.
     //  - all-scopes query if no qualifier was typed (and it's allowed).
     SpecifiedScope Scopes;
-    Scopes.AccessibleScopes =
-        visibleNamespaces(Content.take_front(Offset), Style);
+    Scopes.AccessibleScopes = visibleNamespaces(
+        Content.take_front(Offset), format::getFormattingLangOpts(Style));
     for (std::string &S : Scopes.AccessibleScopes)
       if (!S.empty())
         S.append("::"); // visibleNamespaces doesn't include trailing ::.
@@ -1468,6 +1473,7 @@ private:
     }
     Output.HasMore = Incomplete;
     Output.Context = CCContextKind;
+    Output.CompletionRange = ReplacedRange;
     return Output;
   }
 
@@ -1654,6 +1660,10 @@ private:
                                ? Scores.Total / Relevance.NameMatch
                                : Scores.Quality;
 
+    if (Opts.RecordCCResult)
+      Opts.RecordCCResult(toCodeCompletion(Bundle), Quality, Relevance,
+                          Scores.Total);
+
     dlog("CodeComplete: {0} ({1}) = {2}\n{3}{4}\n", First.Name,
          llvm::to_string(Origin), Scores.Total, llvm::to_string(Quality),
          llvm::to_string(Relevance));
@@ -1766,8 +1776,7 @@ SignatureHelp signatureHelp(PathRef FileName,
   Options.IncludeBriefComments = false;
   IncludeStructure PreambleInclusions; // Unused for signatureHelp
   semaCodeComplete(
-      std::make_unique<SignatureHelpCollector>(Options, Index, Result),
-      Options,
+      std::make_unique<SignatureHelpCollector>(Options, Index, Result), Options,
       {FileName, Command, Preamble, Contents, *Offset, std::move(VFS)});
   return Result;
 }
@@ -1843,6 +1852,8 @@ CompletionItem CodeCompletion::render(const CodeCompleteOptions &Opts) const {
                                              : InsertTextFormat::PlainText;
   if (InsertInclude && InsertInclude->Insertion)
     LSP.additionalTextEdits.push_back(*InsertInclude->Insertion);
+
+  LSP.score = Score.ExcludingName;
 
   return LSP;
 }

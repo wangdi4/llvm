@@ -121,6 +121,7 @@ INLINE void __kmp_release_lock(int *lock) {
 INLINE void __kmp_init_local(kmp_local_state_t *local_state) {
   atomic_init(&local_state->work_barrier.count, 0);
   atomic_init(&local_state->work_barrier.go, 0);
+  local_state->spmd_num_threads = 0xffff;
 }
 
 /// Access local data

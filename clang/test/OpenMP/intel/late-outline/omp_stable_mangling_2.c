@@ -4,7 +4,7 @@
 // expected-no-diagnostics
 
 // CHECK: [[VAR_X:@x_[0-9a-f]+]] = internal target_declare global i32 0,
-// CHECK: [[VAR_Y:@y]] = common hidden target_declare global float 0.000000e+00,
+// CHECK: [[VAR_Y:@y]] = hidden target_declare global float 0.000000e+00,
 #pragma omp declare target
 static int x;
 float y;

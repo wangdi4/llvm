@@ -31,6 +31,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/ObjCARCAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
@@ -716,16 +717,14 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
 
 /// Return information about whether a particular call site modifies
 /// or reads the specified memory location \p MemLoc before instruction \p I
-/// in a BasicBlock. An ordered basic block \p OBB can be used to speed up
-/// instruction-ordering queries inside the BasicBlock containing \p I.
+/// in a BasicBlock.
 /// FIXME: this is really just shoring-up a deficiency in alias analysis.
 /// BasicAA isn't willing to spend linear time determining whether an alloca
 /// was captured before or after this particular call, while we are. However,
 /// with a smarter AA in place, this test is just wasting compile time.
 ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
                                          const MemoryLocation &MemLoc,
-                                         DominatorTree *DT,
-                                         OrderedBasicBlock *OBB) {
+                                         DominatorTree *DT) {
   if (!DT)
     return ModRefInfo::ModRef;
 
@@ -741,8 +740,7 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
 
   if (PointerMayBeCapturedBefore(Object, /* ReturnCaptures */ true,
                                  /* StoreCaptures */ true, I, DT,
-                                 /* include Object */ true,
-                                 /* OrderedBasicBlock */ OBB))
+                                 /* include Object */ true))
     return ModRefInfo::ModRef;
 
   unsigned ArgNo = 0;
@@ -1026,4 +1024,5 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<CFLSteensAAWrapperPass>();
   AU.addUsedIfAvailable<AndersensAAWrapperPass>();        // INTEL
   AU.addUsedIfAvailable<ExternalAAWrapperPass>();
+  AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }

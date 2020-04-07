@@ -90,7 +90,14 @@ enum InteropPropertyTy : int32_t {
   INTEROP_IS_ASYNC,
   INTEROP_ASYNC_OBJ,
   INTEROP_ASYNC_CALLBACK,
-  INTEROP_OFFLOAD_PIPE
+  INTEROP_OFFLOAD_PIPE,
+  INTEROP_PLUGIN_INTERFACE
+};
+
+enum InteropPluginInterfaceTy : int32_t {
+  INTEROP_PLUGIN_OPENCL = 1,
+  INTEROP_PLUGIN_LEVEL0,
+  INTEROP_PLUGIN_X86_64
 };
 
 struct __tgt_interop_obj {
@@ -99,6 +106,7 @@ struct __tgt_interop_obj {
   void *async_obj; // Pointer to the asynchronous object
   void (*async_handler)(void *); // Callback function for asynchronous operation
   void *pipe; // Opaque handle to device-dependent offload pipe
+  int32_t plugin_interface; // Plugin selector
 };
 #endif // INTEL_COLLAB
 
@@ -354,11 +362,18 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj);
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value);
 
+// Update the interop object's property with given property_value.
+EXTERN int __tgt_set_interop_property(
+    void *interop_obj, int32_t property_id, void *property_value);
+
 // Set code location information
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
 
 // Return OMPT trace object
 EXTERN void *__tgt_get_ompt_trace(void);
+
+// Return number of devices
+EXTERN int __tgt_get_num_devices(void);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

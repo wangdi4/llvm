@@ -166,6 +166,13 @@ def FeatureVBMI     : SubtargetFeature<"avx512vbmi", "HasVBMI", "true",
 def FeatureVBMI2    : SubtargetFeature<"avx512vbmi2", "HasVBMI2", "true",
                       "Enable AVX-512 further Vector Byte Manipulation Instructions",
                                       [FeatureBWI]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+def FeatureAVXIFMA    : SubtargetFeature<"avxifma", "HasAVXIFMA", "true",
+                           "Enable AVX-IFMA",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
 def FeatureIFMA     : SubtargetFeature<"avx512ifma", "HasIFMA", "true",
                       "Enable AVX-512 Integer Fused Multiple-Add",
                                       [FeatureAVX512]>;
@@ -184,6 +191,14 @@ def FeatureAVXVNNI    : SubtargetFeature<"avxvnni", "HasAVXVNNI", "true",
 def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
                            "Support bfloat16 floating point",
                                       [FeatureBWI]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+def FeatureAVXBF16  : SubtargetFeature<"avxbf16", "HasAVXBF16", "true",
+                           "Support bfloat16 floating point",
+                                      [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
 def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
@@ -202,6 +217,30 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+def FeatureAVXDOTPROD    : SubtargetFeature<"avxdotprod", "HasAVXDOTPROD", "true",
+                           "Enable AVX-DOTPROD",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
+                           "Enable AVX512-DOTPROD",
+                           [FeatureAVXDOTPROD, FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+def FeatureAVXCONVERT  : SubtargetFeature<"avxconvert", "HasAVXCONVERT", "true",
+                           "Enable AVX-CONVERT",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+def FeatureCONVERT    : SubtargetFeature<"avx512convert", "HasCONVERT", "true",
+                           "Enable AVX512-CONVERT",
+                           [FeatureAVXCONVERT, FeatureBF16, FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
+
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
                          "Enable packed carry-less multiplication instructions",
                                [FeatureSSE2]>;
@@ -332,6 +371,13 @@ def FeatureAMXCONVERTEVEX     : SubtargetFeature<"amx-convert-evex", "HasAMXCONV
 
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
 
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+def FeatureAMXCONVERT         : SubtargetFeature<"amx-convert", "HasAMXCONVERT", "true",
+                                      "Support AMX amx-convert instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
 def FeatureAMXINT8EVEX     : SubtargetFeature<"amx-int8-evex", "HasAMXINT8EVEX", "true",
                                       "Support AMX amx-int8-evex instructions",
@@ -394,6 +440,10 @@ def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
 def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
                                       "Has serialize instruction">;
 #endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
+                                      "Has hreset instruction">;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
 def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
                                       "Support TSXLDTRK instructions">;
@@ -455,6 +505,11 @@ def FeatureFastLZCNT
     : SubtargetFeature<
           "fast-lzcnt", "HasFastLZCNT", "true",
           "LZCNT instructions are as fast as most simple integer ops">;
+// If the target can efficiently decode NOPs upto 7-bytes in length.
+def FeatureFast7ByteNOP
+    : SubtargetFeature<
+          "fast-7bytenop", "HasFast7ByteNOP", "true",
+          "Target can quickly decode up to 7 byte NOPs">;
 // If the target can efficiently decode NOPs upto 11-bytes in length.
 def FeatureFast11ByteNOP
     : SubtargetFeature<
@@ -680,7 +735,8 @@ def ProcessorFeatures {
 #endif // INTEL_CUSTOMIZATION
                                                   FeatureFastScalarFSQRT,
                                                   FeatureFastSHLDRotate,
-                                                  FeatureMergeToThreeWayBranch];
+                                                  FeatureMergeToThreeWayBranch,
+                                                  FeatureFast15ByteNOP];
   list<SubtargetFeature> SNBSpecificFeatures = [FeatureSlowUAMem32,
                                                 FeaturePOPCNTFalseDeps];
   list<SubtargetFeature> SNBInheritableFeatures =
@@ -897,6 +953,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> SLMSpecificFeatures = [ProcIntelSLM,
                                                 FeatureSlowDivide64,
                                                 FeatureSlowPMULLD,
+                                                FeatureFast7ByteNOP,
                                                 FeaturePOPCNTFalseDeps];
   list<SubtargetFeature> SLMInheritableFeatures =
     !listconcat(AtomInheritableFeatures, SLMAdditionalFeatures);

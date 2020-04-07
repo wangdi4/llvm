@@ -20,12 +20,14 @@
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/Support/AtomicOrdering.h"
 
 namespace llvm {
 class ArrayType;
@@ -83,11 +85,10 @@ public:
   template <typename Callable>
   RegionCodeGenTy(
       Callable &&CodeGen,
-      typename std::enable_if<
-          !std::is_same<typename std::remove_reference<Callable>::type,
-                        RegionCodeGenTy>::value>::type * = nullptr)
+      std::enable_if_t<!std::is_same<std::remove_reference_t<Callable>,
+                                     RegionCodeGenTy>::value> * = nullptr)
       : CodeGen(reinterpret_cast<intptr_t>(&CodeGen)),
-        Callback(CallbackFn<typename std::remove_reference<Callable>::type>),
+        Callback(CallbackFn<std::remove_reference_t<Callable>>),
         PrePostAction(nullptr) {}
   void setAction(PrePostActionTy &Action) const { PrePostAction = &Action; }
   void operator()(CodeGenFunction &CGF) const;
@@ -712,6 +713,9 @@ private:
   /// directive is present.
   bool HasRequiresUnifiedSharedMemory = false;
 
+  /// Atomic ordering from the omp requires directive.
+  llvm::AtomicOrdering RequiresAtomicOrdering = llvm::AtomicOrdering::Monotonic;
+
   /// Flag for keeping track of weather a target region has been emitted.
   bool HasEmittedTargetRegion = false;
 
@@ -865,6 +869,14 @@ private:
                                         StringRef UniqueDeclName, LValue LVal,
                                         SourceLocation Loc);
 
+  /// Returns the number of the elements and the address of the depobj
+  /// dependency array.
+  /// \return Number of elements in depobj array and the pointer to the array of
+  /// dependencies.
+  std::pair<llvm::Value *, LValue> getDepobjElements(CodeGenFunction &CGF,
+                                                     LValue DepobjLVal,
+                                                     SourceLocation Loc);
+
 public:
   explicit CGOpenMPRuntime(CodeGenModule &CGM)
       : CGOpenMPRuntime(CGM, ".", ".") {}
@@ -872,15 +884,20 @@ public:
   virtual void clear();
 
 #if INTEL_COLLAB
-  struct MapInfo {
+  struct LOMapInfo {
     llvm::Value *Base;
     llvm::Value *Pointer;
     llvm::Value *Size;
+    llvm::Value *Type;
+    SmallVector<OpenMPMapModifierKind, 1> Modifiers;
+    OpenMPMapClauseKind MapType;
+    const VarDecl *Var;
+    bool IsChain;
   };
 
   static void getLOMapInfo(const OMPExecutableDirective &Dir,
-                           CodeGenFunction &CGF, const OMPMapClause *C,
-                           const Expr *E, SmallVector<MapInfo, 4> &Info);
+                           CodeGenFunction &CGF,
+                           SmallVectorImpl<LOMapInfo> *Info);
 #endif // INTEL_COLLAB
 
   /// Emits code for OpenMP 'if' clause using specified \a CodeGen
@@ -1271,7 +1288,7 @@ public:
   /// Emit flush of the variables specified in 'omp flush' directive.
   /// \param Vars List of variables to flush.
   virtual void emitFlush(CodeGenFunction &CGF, ArrayRef<const Expr *> Vars,
-                         SourceLocation Loc);
+                         SourceLocation Loc, llvm::AtomicOrdering AO);
 
   /// Emit task region for the task directive. The task region is
   /// emitted in several steps:
@@ -1529,16 +1546,16 @@ public:
   /// \param IfCond Expression evaluated in if clause associated with the target
   /// directive, or null if no if clause is used.
   /// \param Device Expression evaluated in device clause associated with the
-  /// target directive, or null if no device clause is used.
+  /// target directive, or null if no device clause is used and device modifier.
   /// \param SizeEmitter Callback to emit number of iterations for loop-based
   /// directives.
-  virtual void
-  emitTargetCall(CodeGenFunction &CGF, const OMPExecutableDirective &D,
-                 llvm::Function *OutlinedFn, llvm::Value *OutlinedFnID,
-                 const Expr *IfCond, const Expr *Device,
-                 llvm::function_ref<llvm::Value *(CodeGenFunction &CGF,
-                                                  const OMPLoopDirective &D)>
-                     SizeEmitter);
+  virtual void emitTargetCall(
+      CodeGenFunction &CGF, const OMPExecutableDirective &D,
+      llvm::Function *OutlinedFn, llvm::Value *OutlinedFnID, const Expr *IfCond,
+      llvm::PointerIntPair<const Expr *, 2, OpenMPDeviceClauseModifier> Device,
+      llvm::function_ref<llvm::Value *(CodeGenFunction &CGF,
+                                       const OMPLoopDirective &D)>
+          SizeEmitter);
 
   /// Emit the target regions enclosed in \a GD function definition or
   /// the function itself in case it is a valid device function. Returns true if
@@ -1737,7 +1754,10 @@ public:
 
   /// Perform check on requires decl to ensure that target architecture
   /// supports unified addressing
-  virtual void checkArchForUnifiedAddressing(const OMPRequiresDecl *D);
+  virtual void processRequiresDirective(const OMPRequiresDecl *D);
+
+  /// Gets default memory ordering as specified in requires directive.
+  llvm::AtomicOrdering getDefaultMemoryOrdering() const;
 
   /// Checks if the variable has associated OMPAllocateDeclAttr attribute with
   /// the predefined allocator and translates it into the corresponding address
@@ -1806,6 +1826,27 @@ public:
                                                      LValue PrivLVal,
                                                      const VarDecl *VD,
                                                      SourceLocation Loc);
+
+  /// Emits list of dependecies based on the provided data (array of
+  /// dependence/expression pairs).
+  /// \param ForDepobj true if the memory for depencies is alloacted for depobj
+  /// directive. In this case, the variable is allocated in dynamically.
+  /// \returns Pointer to the first element of the array casted to VoidPtr type.
+  std::pair<llvm::Value *, Address> emitDependClause(
+      CodeGenFunction &CGF,
+      ArrayRef<std::pair<OpenMPDependClauseKind, const Expr *>> Dependencies,
+      bool ForDepobj, SourceLocation Loc);
+
+  /// Emits the code to destroy the dependency object provided in depobj
+  /// directive.
+  void emitDestroyClause(CodeGenFunction &CGF, LValue DepobjLVal,
+                         SourceLocation Loc);
+
+  /// Updates the dependency kind in the specified depobj object.
+  /// \param DepobjLVal LValue for the main depobj object.
+  /// \param NewDepKind New dependency kind.
+  void emitUpdateClause(CodeGenFunction &CGF, LValue DepobjLVal,
+                        OpenMPDependClauseKind NewDepKind, SourceLocation Loc);
 };
 
 /// Class supports emissionof SIMD-only code.
@@ -2070,7 +2111,7 @@ public:
   /// Emit flush of the variables specified in 'omp flush' directive.
   /// \param Vars List of variables to flush.
   void emitFlush(CodeGenFunction &CGF, ArrayRef<const Expr *> Vars,
-                 SourceLocation Loc) override;
+                 SourceLocation Loc, llvm::AtomicOrdering AO) override;
 
   /// Emit task region for the task directive. The task region is
   /// emitted in several steps:
@@ -2276,14 +2317,14 @@ public:
   /// \param IfCond Expression evaluated in if clause associated with the target
   /// directive, or null if no if clause is used.
   /// \param Device Expression evaluated in device clause associated with the
-  /// target directive, or null if no device clause is used.
-  void
-  emitTargetCall(CodeGenFunction &CGF, const OMPExecutableDirective &D,
-                 llvm::Function *OutlinedFn, llvm::Value *OutlinedFnID,
-                 const Expr *IfCond, const Expr *Device,
-                 llvm::function_ref<llvm::Value *(CodeGenFunction &CGF,
-                                                  const OMPLoopDirective &D)>
-                     SizeEmitter) override;
+  /// target directive, or null if no device clause is used and device modifier.
+  void emitTargetCall(
+      CodeGenFunction &CGF, const OMPExecutableDirective &D,
+      llvm::Function *OutlinedFn, llvm::Value *OutlinedFnID, const Expr *IfCond,
+      llvm::PointerIntPair<const Expr *, 2, OpenMPDeviceClauseModifier> Device,
+      llvm::function_ref<llvm::Value *(CodeGenFunction &CGF,
+                                       const OMPLoopDirective &D)>
+          SizeEmitter) override;
 
   /// Emit the target regions enclosed in \a GD function definition or
   /// the function itself in case it is a valid device function. Returns true if

@@ -395,6 +395,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt13runtime_errorD2Ev")
 TLI_DEFINE_ENUM_INTERNAL(ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode")
 /// std::basic_ifstream<char, std::char_traits<char> >::~basic_ifstream()
+TLI_DEFINE_ENUM_INTERNAL(ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev")
+/// std::basic_ifstream<char, std::char_traits<char> >::~basic_ifstream()
 TLI_DEFINE_ENUM_INTERNAL(ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev")
 /// std::basic_ofstream<char, std::char_traits<char> >::basic_ofstream(char const*, std::_Ios_Openmode)
@@ -469,6 +472,12 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcE
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::_M_mutate(unsigned long, unsigned long, char const*, unsigned long)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_mutateEmmPKcm")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, std::allocator<char> const&)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_")
+/// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, unsigned long, unsigned long)
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm")
 /// std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::~basic_string()
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev")
@@ -499,6 +508,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESa
 /// std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::basic_stringbuf(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::_Ios_Openmode)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode")
+/// std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::~basic_stringbuf()
+TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEED2Ev)
+TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEED2Ev")
 /// std::__cxx11::basic_stringstream<char, std::char_traits<char>, std::allocator<char> >::basic_stringstream(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, std::_Ios_Openmode)
 TLI_DEFINE_ENUM_INTERNAL(ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode)
 TLI_DEFINE_STRING_INTERNAL("_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode")
@@ -1162,6 +1174,9 @@ TLI_DEFINE_STRING_INTERNAL("__strlcat_chk")
 ///                      size_t dstsize);
 TLI_DEFINE_ENUM_INTERNAL(strlcpy_chk)
 TLI_DEFINE_STRING_INTERNAL("__strlcpy_chk")
+/// char *__strlen_chk(const char *s1, size_t s1size);
+TLI_DEFINE_ENUM_INTERNAL(strlen_chk)
+TLI_DEFINE_STRING_INTERNAL("__strlen_chk")
 /// char *strncat_chk(char *s1, const char *s2, size_t n, size_t s1size);
 TLI_DEFINE_ENUM_INTERNAL(strncat_chk)
 TLI_DEFINE_STRING_INTERNAL("__strncat_chk")
@@ -1233,6 +1248,9 @@ TLI_DEFINE_STRING_INTERNAL("_obstack_newchunk")
 /// void _purecall();
 TLI_DEFINE_ENUM_INTERNAL(under_purecall)
 TLI_DEFINE_STRING_INTERNAL("_purecall")
+/// int _read(int const fd, void * const buffer, unsigned const buffer_size)
+TLI_DEFINE_ENUM_INTERNAL(under_read)
+TLI_DEFINE_STRING_INTERNAL("_read")
 /// errno_t _set_errno(int error_value)
 TLI_DEFINE_ENUM_INTERNAL(under_set_errno)
 TLI_DEFINE_STRING_INTERNAL("_set_errno")
@@ -1462,6 +1480,14 @@ TLI_DEFINE_STRING_INTERNAL("copysignl")
 /// double cos(double x);
 TLI_DEFINE_ENUM_INTERNAL(cos)
 TLI_DEFINE_STRING_INTERNAL("cos")
+#if INTEL_CUSTOMIZATION
+/// double cosd(double x);
+TLI_DEFINE_ENUM_INTERNAL(cosd)
+TLI_DEFINE_STRING_INTERNAL("cosd")
+/// float cosdf(float x);
+TLI_DEFINE_ENUM_INTERNAL(cosdf)
+TLI_DEFINE_STRING_INTERNAL("cosdf")
+#endif // INTEL_CUSTOMIZATION
 /// float cosf(float x);
 TLI_DEFINE_ENUM_INTERNAL(cosf)
 TLI_DEFINE_STRING_INTERNAL("cosf")
@@ -2399,7 +2425,13 @@ TLI_DEFINE_ENUM_INTERNAL(rand)
 TLI_DEFINE_STRING_INTERNAL("rand")
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#ifdef _WIN32
+/// int read(int const fd, void * const buffer, unsigned const buffer_size);
+#else
 /// ssize_t read(int fildes, void *buf, size_t nbyte);
+#endif // _WIN32
+#endif // INTEL_CUSTOMIZATION
 TLI_DEFINE_ENUM_INTERNAL(read)
 TLI_DEFINE_STRING_INTERNAL("read")
 
@@ -2440,6 +2472,15 @@ TLI_DEFINE_STRING_INTERNAL("regexec")
 TLI_DEFINE_ENUM_INTERNAL(regfree)
 TLI_DEFINE_STRING_INTERNAL("regfree")
 #endif // INTEL_CUSTOMIZATION
+/// double remainder(double x, double y);
+TLI_DEFINE_ENUM_INTERNAL(remainder)
+TLI_DEFINE_STRING_INTERNAL("remainder")
+/// float remainderf(float x, float y);
+TLI_DEFINE_ENUM_INTERNAL(remainderf)
+TLI_DEFINE_STRING_INTERNAL("remainderf")
+/// long double remainderl(long double x, long double y);
+TLI_DEFINE_ENUM_INTERNAL(remainderl)
+TLI_DEFINE_STRING_INTERNAL("remainderl")
 /// int remove(const char *path);
 TLI_DEFINE_ENUM_INTERNAL(remove)
 TLI_DEFINE_STRING_INTERNAL("remove")
@@ -2538,6 +2579,12 @@ TLI_DEFINE_STRING_INTERNAL("sincos")
 /// void sincosf(float x, float *y, float *z);
 TLI_DEFINE_ENUM_INTERNAL(sincosf)
 TLI_DEFINE_STRING_INTERNAL("sincosf")
+/// double sind(double x);
+TLI_DEFINE_ENUM_INTERNAL(sind)
+TLI_DEFINE_STRING_INTERNAL("sind")
+/// float sindf(float x);
+TLI_DEFINE_ENUM_INTERNAL(sindf)
+TLI_DEFINE_STRING_INTERNAL("sindf")
 #endif // INTEL_CUSTOMIZATION
 
 /// float sinf(float x);
@@ -2739,6 +2786,14 @@ TLI_DEFINE_STRING_INTERNAL("system")
 /// double tan(double x);
 TLI_DEFINE_ENUM_INTERNAL(tan)
 TLI_DEFINE_STRING_INTERNAL("tan")
+#if INTEL_CUSTOMIZATION
+/// double tand(double x);
+TLI_DEFINE_ENUM_INTERNAL(tand)
+TLI_DEFINE_STRING_INTERNAL("tand")
+/// float tandf(float x);
+TLI_DEFINE_ENUM_INTERNAL(tandf)
+TLI_DEFINE_STRING_INTERNAL("tandf")
+#endif // INTEL_CUSTOMIZATION
 /// float tanf(float x);
 TLI_DEFINE_ENUM_INTERNAL(tanf)
 TLI_DEFINE_STRING_INTERNAL("tanf")

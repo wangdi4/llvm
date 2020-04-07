@@ -316,9 +316,6 @@ private:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
 
-  /// Enable combines that trigger rarely but are costly in compiletime.
-  const bool ExpensiveCombines;
-
   /// INTEL Enable optimizations like GEP merging, zero element GEP removal
   /// INTEL and pointer type bitcasts
   const bool TypeLoweringOpts; // INTEL
@@ -344,15 +341,13 @@ private:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, bool ExpensiveCombines,  // INTEL
-               bool TypeLoweringOpts,                      // INTEL
+               bool MinimizeSize, bool TypeLoweringOpts,   // INTEL
                AliasAnalysis *AA,                          // INTEL
                AssumptionCache &AC, TargetLibraryInfo &TLI,// INTEL
                TargetTransformInfo &TTI, DominatorTree &DT,// INTEL
                OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
-        ExpensiveCombines(ExpensiveCombines),          // INTEL
         TypeLoweringOpts(TypeLoweringOpts),            // INTEL
         AA(AA), AC(AC), TLI(TLI),                      // INTEL
         TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL
@@ -477,8 +472,7 @@ public:
   Instruction *visitShuffleVectorInst(ShuffleVectorInst &SVI);
   Instruction *visitExtractValueInst(ExtractValueInst &EV);
   Instruction *visitLandingPadInst(LandingPadInst &LI);
-  Instruction *visitVAStartInst(VAStartInst &I);
-  Instruction *visitVACopyInst(VACopyInst &I);
+  Instruction *visitVAEndInst(VAEndInst &I);
   Instruction *visitFreeze(FreezeInst &I);
 
   /// Specify what to return for unhandled instructions.
@@ -698,7 +692,7 @@ public:
            "New instruction already inserted into a basic block!");
     BasicBlock *BB = Old.getParent();
     BB->getInstList().insert(Old.getIterator(), New); // Insert inst
-    Worklist.Add(New);
+    Worklist.push(New);
     return New;
   }
 
@@ -719,7 +713,7 @@ public:
     // no changes were made to the program.
     if (I.use_empty()) return nullptr;
 
-    Worklist.AddUsersToWorkList(I); // Add all modified instrs to worklist.
+    Worklist.pushUsersToWorkList(I); // Add all modified instrs to worklist.
 
     // If we are replacing the instruction with itself, this must be in a
     // segment of unreachable code, so just clobber the instruction.
@@ -730,6 +724,13 @@ public:
                       << "    with " << *V << '\n');
 
     I.replaceAllUsesWith(V);
+    return &I;
+  }
+
+  /// Replace operand of instruction and add old operand to the worklist.
+  Instruction *replaceOperand(Instruction &I, unsigned OpNum, Value *V) {
+    Worklist.addValue(I.getOperand(OpNum));
+    I.setOperand(OpNum, V);
     return &I;
   }
 
@@ -768,9 +769,9 @@ public:
     if (I.getNumOperands() < 8) {
       for (Use &Operand : I.operands())
         if (auto *Inst = dyn_cast<Instruction>(Operand))
-          Worklist.Add(Inst);
+          Worklist.add(Inst);
     }
-    Worklist.Remove(&I);
+    Worklist.remove(&I);
     I.eraseFromParent();
     MadeIRChange = true;
     return nullptr; // Don't do anything with FI

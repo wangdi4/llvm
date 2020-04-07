@@ -11,7 +11,7 @@
 ///
 /// \file
 /// This file defines VPLoopInfo analysis and VPLoop class. VPLoopInfo is a
-/// specialization of LoopInfoBase for VPBlockBase. VPLoops is a specialization
+/// specialization of LoopInfoBase for VPBasicBlock. VPLoops is a specialization
 /// of LoopBase that is used to hold loop metadata from VPLoopInfo. Further
 /// information can be found in VectorizationPlanner.rst.
 ///
@@ -60,7 +60,7 @@ bool VPLoop::isLiveIn(const VPValue* VPVal) const {
   if (isa<VPExternalDef>(VPVal))
     return true;
   if (auto *VPInst = dyn_cast<VPInstruction>(VPVal)) {
-    const VPBlockBase* Block = VPInst->getParent();
+    const VPBasicBlock* Block = VPInst->getParent();
     return !contains(Block);
   }
   return false;
@@ -71,7 +71,7 @@ bool VPLoop::isLiveOut(const VPValue* VPVal) const {
     if (isa<VPExternalUse>(U))
       return true;
     if (auto *UseInst = dyn_cast<VPInstruction>(U)) {
-      const VPBlockBase* Block = UseInst->getParent();
+      const VPBasicBlock* Block = UseInst->getParent();
       if (!contains(Block))
         return true;
     }
@@ -79,26 +79,18 @@ bool VPLoop::isLiveOut(const VPValue* VPVal) const {
   return false;
 }
 
-bool VPLoop::contains(const VPBasicBlock *BB) const {
-  return contains(static_cast<const VPBlockBase *>(BB));
-}
-
-bool VPLoop::contains(const VPInstruction *I) const {
-  return contains(I->getParent());
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
                        const VPlanDivergenceAnalysis *DA) const {
   ReversePostOrderTraversal<
       const VPLoop *, VPLoopBodyTraits,
-      std::set<std::pair<const VPLoop *, const VPBlockBase *>>>
+      std::set<std::pair<const VPLoop *, const VPBasicBlock *>>>
       RPOT(this);
 
   auto *Header = getHeader();
 
-  for (std::pair<const VPLoop *, const VPBlockBase *> Pair : RPOT) {
-    const VPBlockBase *BB = Pair.second;
+  for (std::pair<const VPLoop *, const VPBasicBlock *> Pair : RPOT) {
+    const VPBasicBlock *BB = Pair.second;
     SmallString<32> NamePrefix;
     if (BB == Header)
       NamePrefix += "<header>";
@@ -121,12 +113,12 @@ void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 void VPLoop::setTripCountInfo(TripCountInfo TCInfo) {
-  auto *Latch = cast<VPBasicBlock>(getLoopLatch());
+  VPBasicBlock *Latch = getLoopLatch();
   Latch->setTripCountInfo(std::make_unique<TripCountInfo>(TCInfo));
 }
 
 TripCountInfo VPLoop::getTripCountInfo() {
-  auto *Latch = cast<VPBasicBlock>(getLoopLatch());
+  VPBasicBlock *Latch = getLoopLatch();
   if (TripCountInfo *TCInfoPtr = Latch->getTripCountInfo())
     return *TCInfoPtr;
 

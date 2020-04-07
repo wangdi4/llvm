@@ -328,8 +328,8 @@ const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::AVX512Opcodes[] = {
   { X86::VFNMADD213PDZ128r, X86::VFNMADD213PDZ128m, MVT::v2f64,  FNMA213Opc },
   { X86::VFNMADD213PSZ256r, X86::VFNMADD213PSZ256m, MVT::v8f32,  FNMA213Opc },
   { X86::VFNMADD213PDZ256r, X86::VFNMADD213PDZ256m, MVT::v4f64,  FNMA213Opc },
-  { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v8f32,  FNMA213Opc },
-  { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v4f64,  FNMA213Opc },
+  { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v16f32, FNMA213Opc },
+  { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v8f64,  FNMA213Opc },
   // FNMS213
   { X86::VFNMSUB213SSZr,    X86::VFNMSUB213SSZm,    MVT::f32,    FNMS213Opc },
   { X86::VFNMSUB213SDZr,    X86::VFNMSUB213SDZm,    MVT::f64,    FNMS213Opc },
@@ -459,9 +459,11 @@ bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
   // Regular opcodes did not match. Check ZERO opcodes below.
   switch (Opcode) {
   case X86::FsFLD0SS:
+  case X86::AVX512_FsFLD0SS:
     VT = MVT::f32;
     break;
   case X86::FsFLD0SD:
+  case X86::AVX512_FsFLD0SD:
     VT = MVT::f64;
     break;
   case X86::V_SET0:
@@ -494,9 +496,9 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
            "Only F32 and F64 ZERO vectors/scalars are supported.");
     switch (VT.getSizeInBits()) {
     case 32:
-      return X86::FsFLD0SS;
+      return LookForAVX512 ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
     case 64:
-      return X86::FsFLD0SD;
+      return LookForAVX512 ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
     case 128:
       return X86::V_SET0;
     case 256:
@@ -525,17 +527,19 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
 /// efficient equivalents.
 class X86GlobalFMA final : public GlobalFMA {
 public:
+  /// Pass identification, replacement for typeid.
+  static char ID;
+
   X86GlobalFMA()
-      : GlobalFMA(ID), MF(nullptr), ST(nullptr), TII(nullptr), MRI(nullptr) {}
+      : GlobalFMA(ID), MF(nullptr), ST(nullptr), TII(nullptr), MRI(nullptr) {
+    initializeX86GlobalFMAPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override { return "X86 GlobalFMA"; }
 
   bool runOnMachineFunction(MachineFunction &MFunc) override;
 
 private:
-  /// Pass identification, replacement for typeid.
-  static char ID;
-
   /// A reference to the function being currently compiled.
   MachineFunction *MF;
 
@@ -668,8 +672,6 @@ private:
   unsigned selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
                                   const TargetRegisterClass **RC) const;
 };
-
-char X86GlobalFMA::ID = 0;
 
 /// X86 specific variant of the immediate term.
 class X86FMAImmediateTerm final : public FMAImmediateTerm {
@@ -849,6 +851,12 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
     if (!FMAOpcodesInfo::recognizeOpcode(Opcode, LookForAVX512, VT, OpcodeKind,
                                          IsMem, MulSign, AddSign))
       continue;
+    // Sometimes the fast flags lost during the instruction lowering.
+    // Sometimes non fast fp instruction is inlined, so there is mixed
+    // instruction that have fast flags and non fast flags. We only
+    // optimize thoes that have fast flags declared.
+    if (!MI.isFast())
+      continue;
 
     std::array<FMANode *, 3u> Ops;
     FMATerm *MemTerm = IsMem ? createMemoryTerm(VT, &MI) : nullptr;
@@ -954,48 +962,9 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   if (!ST->hasFMA())
     return false;
 
-  // Compilation options must allow FP contraction and FP expression
-  // re-association.
-  const TargetOptions &Options = MF->getTarget().Options;
-  if (Options.AllowFPOpFusion != FPOpFusion::Fast || !Options.UnsafeFPMath)
-    return false;
-
   // Don't optimize StrictFP functions.
   if (MF->getFunction().hasFnAttribute(Attribute::StrictFP))
     return false;
-
-  // Even though the compilation switches allow the Global FMA optimization it
-  // still may be unsafe to do it as some of MUL/ADD/SUB/etc machine
-  // instructions could be generated for LLVM IR operations with unset
-  // 'fast-math' attributes. Such LLVM IR operations may be added to the
-  // currently compiled function by the inlining optimization controlled by
-  // -flto switch.
-  // The 'fast-math' attributes get lost after LLVM IR to MachineInstr
-  // translation. So, it is generally incorrect to do any unsafe algebra
-  // transformations at the MachineInstr IR level.
-  // FIXME: The ideal solution for this problem would be to have 'fast-math'
-  // attributes defined for individual MachineInstr operations.
-  // The currently used solution is rather temporary.
-  //
-  // Check the LLVM IR function. If there are some instructions in it with
-  // attributes not allowing unsafe algebra, then exit.
-  for (auto &I : instructions(MF->getFunction())) {
-    // isa<FPMathOperator>(&I) returns true for any operation having FP result.
-    // In particular, it returns true for FP loads, which never have
-    // the Fast-Math attributes set. Thus this opcode check is needed to
-    // avoid mess with FP loads and other FMA opt unrelated operations.
-    unsigned Opcode = I.getOpcode();
-    bool CheckedOp =
-        Opcode == Instruction::FAdd || Opcode == Instruction::FSub ||
-        Opcode == Instruction::FMul || Opcode == Instruction::FDiv ||
-        Opcode == Instruction::FRem || Opcode == Instruction::FCmp ||
-        Opcode == Instruction::Call;
-    if (CheckedOp && isa<FPMathOperator>(&I) && !I.hasAllowReassoc()) {
-      LLVM_DEBUG(FMADbg::dbgs()
-                     << "Exit because found mixed fast-math settings.\n");
-      return false;
-    }
-  }
 
   // The patterns storage initialization code is not cheap, so it is better
   // to call it only when FMA instructions have a chance to be generated.
@@ -1053,7 +1022,7 @@ X86GlobalFMA::genInstruction(unsigned Opcode, unsigned DstReg,
                              const SmallVectorImpl<MachineOperand> &MOs,
                              const DebugLoc &DL) {
   const MCInstrDesc &MCID = TII->get(Opcode);
-  MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, true);
+  MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, false);
   MachineInstrBuilder MIB(*MF, NewMI);
 
   MIB.add(MachineOperand::CreateReg(DstReg, true));
@@ -1313,13 +1282,13 @@ X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
   switch (VecBitSize) {
   case 128:
     *RC = &X86::VR128RegClass;
-    return IsF32 ? X86::VPBROADCASTDrZ128r : X86::VPBROADCASTQrZ128r;
+    return IsF32 ? X86::VPBROADCASTDrZ128rr : X86::VPBROADCASTQrZ128rr;
   case 256:
     *RC = &X86::VR256RegClass;
-    return IsF32 ? X86::VPBROADCASTDrZ256r : X86::VPBROADCASTQrZ256r;
+    return IsF32 ? X86::VPBROADCASTDrZ256rr : X86::VPBROADCASTQrZ256rr;
   case 512:
     *RC = &X86::VR512RegClass;
-    return IsF32 ? X86::VPBROADCASTDrZr : X86::VPBROADCASTQrZr;
+    return IsF32 ? X86::VPBROADCASTDrZrr : X86::VPBROADCASTQrZrr;
   default:
     break;
   }
@@ -1548,5 +1517,10 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
 }
 
 } // End anonymous namespace.
+
+char X86GlobalFMA::ID = 0;
+
+INITIALIZE_PASS(X86GlobalFMA, DEBUG_TYPE, "Global FMA",
+                false, false)
 
 FunctionPass *llvm::createX86GlobalFMAPass() { return new X86GlobalFMA(); }

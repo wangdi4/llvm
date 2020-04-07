@@ -61,8 +61,32 @@ kernel void test_pointers(volatile global void *global_p, global const int4 *a) 
   atom_cmpxchg((volatile __global unsigned int *)global_p, ui, ui);
 }
 
-kernel void basic_conversion(global float4 *buf, global int4 *res) {
-  res[0] = convert_int4(buf[0]);
+kernel void basic_conversion() {
+  double d;
+  float f;
+  char2 c2;
+  long2 l2;
+  float4 f4;
+  int4 i4;
+
+  f = convert_float(d);
+  d = convert_double_rtp(f);
+  l2 = convert_long2_rtz(c2);
+  i4 = convert_int4_sat(f4);
+}
+
+kernel void basic_conversion_neg() {
+  int i;
+  float f;
+
+  f = convert_float_sat(i);
+#if !defined(__OPENCL_CPP_VERSION__)
+  // expected-error@-2{{implicit declaration of function 'convert_float_sat' is invalid in OpenCL}}
+  // expected-error@-3{{implicit conversion from 'int' to 'float' may lose precision}}
+#else
+  // expected-error@-5{{use of undeclared identifier 'convert_float_sat'; did you mean 'convert_float'?}}
+  // expected-note@-6{{'convert_float' declared here}}
+#endif
 }
 
 char4 test_int(char c, char4 c4) {

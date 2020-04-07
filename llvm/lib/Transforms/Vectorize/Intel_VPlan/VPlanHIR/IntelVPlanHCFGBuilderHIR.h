@@ -324,8 +324,7 @@ private:
   /// Loop header VPBasicBlock to HLLoop map.
   SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
 
-  std::unique_ptr<VPRegionBlock>
-  buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
+  void buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
 
   void populateVPLoopMetadata(VPLoopInfo *VPLInfo) override;
 

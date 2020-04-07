@@ -137,21 +137,21 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   }
 }
 
-// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
-  Function *PrintfDecl = MT->getPrintfDecl();
+// Replace printf() calls in F with _Z18__spirv_ocl_printfPU3AS2ci()
+void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
+                                                     Function *OCLPrintfDecl,
+                                                     Function *F) {
   if (!PrintfDecl)
-    // no printf() found in the module
     return;
 
-  Function *OCLPrintfDecl = MT->getOCLPrintfDecl();
+  SmallVector<Instruction *, 4> InstsToDelete;
   assert(OCLPrintfDecl != nullptr && "OCLPrintfDecl not initialized");
 
   // find all printf's in this function and replace them with the OCL version
   for (User *U : PrintfDecl->users())
     if (CallInst *OldCall = dyn_cast<CallInst>(U)) {
 
-      if (OldCall->getParent()->getParent() != F)
+      if (F && OldCall->getParent()->getParent() != F)
         // ignore printfs that are not in this function
         continue;
 
@@ -169,16 +169,31 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
       //     to i8 addrspace(4)*)
       //       , ...)
       //
-      // The OCL printf does not expect that address space.
-      // We must remove the addrspacecast, resulting in:
+      // The OCL printf expects addrspace(1). So, we must cast it to
+      // addrspace(1):
       //
       //   call i32 (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //     i8 addrspace(1)* addrspacecast (
+      //     i8 addrspace(4)* addrspacecast (
       //       i8 addrspace(1)* getelementptr inbounds
       //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //     to i8 addrspace(4)*)
+      //     to i8 addrspace(1)*)
       //       , ...)
-      if (auto *FirstParm = dyn_cast<ConstantExpr>(FnArgs[0]))
-        if (FirstParm->getOpcode() == Instruction::AddrSpaceCast)
-          FnArgs[0] = cast<Value>(FirstParm->getOperand(0));
+      Type* FirstParmTy = FnArgs[0]->getType();
+      assert(isa<PointerType>(FirstParmTy) &&
+             "First argument to printf should be a pointer.");
+
+      if (FirstParmTy->getPointerAddressSpace() == vpo::ADDRESS_SPACE_GENERIC) {
+        IRBuilder<> Builder(OldCall);
+        FnArgs[0] = Builder.CreateAddrSpaceCast(
+            FnArgs[0], FirstParmTy->getPointerElementType()->getPointerTo(
+                           vpo::ADDRESS_SPACE_GLOBAL));
+      } else
+        assert(
+            FirstParmTy->getPointerAddressSpace() ==
+                vpo::ADDRESS_SPACE_GLOBAL &&
+            "First argument to ocl_printf should have global address space.");
 
       // Create the new call based on OCLPrintfDecl and
       // insert it before the old call
@@ -194,9 +209,12 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) const {
         if (Instruction *I = dyn_cast<Instruction>(OldU))
           I->replaceUsesOfWith(OldCall, NewCall);
 
-      // Remove the old call
-      OldCall->eraseFromParent();
+      // Mark old call for deletion
+      InstsToDelete.push_back(OldCall);
     }
+
+  for (Instruction *I: InstsToDelete)
+    I->eraseFromParent();
 }
 
 Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
@@ -229,6 +247,11 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   NFn->takeName(Fn);
   NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
 
+  // Everything including the routine name has been moved to the new routine.
+  // Do the same with the debug information.
+  NFn->setSubprogram(Fn->getSubprogram());
+  Fn->setSubprogram(nullptr);
+
   IRBuilder<> Builder(NFn->getEntryBlock().getFirstNonPHI());
   Function::arg_iterator NewArgI = NFn->arg_begin();
   for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
@@ -260,35 +283,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
 
-  DenseMap<const Function *, DISubprogram *> FunctionDIs;
-
-  auto DI = FunctionDIs.find(Fn);
-  if (DI != FunctionDIs.end()) {
-    DISubprogram *SP = DI->second;
-
-    FunctionDIs.erase(DI);
-    FunctionDIs[NFn] = SP;
-  }
   InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
-
-  // We intentionally call the function below after InferAddrSpaces() to have
-  // the latter restructure addrspacecasts hidden inside GEP expressions.
-  // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
-  // addrspacecast in the printf's first argument would fail to find the cast.
-  // For example:
-  //   BEFORE:
-  //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
-  //     addrspace(4)* addrspacecast (
-  //       [25 x i8] addrspace(1)* @.str to
-  //       [25 x i8] addrspace(4)*
-  //     ), i64 0, i64 0)
-  //   AFTER:
-  //     i8 addrspace(4)* addrspacecast (
-  //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
-  //       addrspace(1)* @.str, i64 0, i64 0)
-  //     to i8 addrspace(4)*)
-  //
-  replacePrintfWithOCLBuiltin(NFn);
 
   return NFn;
 }
@@ -369,7 +364,11 @@ static bool ignoreSpecialOperands(const Instruction *I) {
       "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
       "_Z14get_num_groupsj", "_Z12get_group_idj",   "_Z18work_group_barrierj",
       "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
-      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
+#if INTEL_CUSTOMIZATION
+      "_f90_dope_vector_init", "_f90_firstprivate_copy",
+      "_f90_dope_vector_size", "_f90_lastprivate_copy",
+#endif // INTEL_CUSTOMIZATION
+      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num"};
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
@@ -625,10 +624,15 @@ void VPOParoptTransform::guardSideEffectStatements(
     //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
     //
     Value *TeamLocalVal = nullptr;
+    MaybeAlign Alignment =
+        StartI->getType()->isPointerTy()
+            ? StartI->getPointerAlignment(StartI->getModule()->getDataLayout())
+            : llvm::None;
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
-          StartI->getType(), nullptr, TargetDirectiveBegin,
-          StartI->getName() + ".broadcast.ptr", vpo::ADDRESS_SPACE_LOCAL);
+          StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
+          isTargetSPIRV(), StartI->getName() + ".broadcast.ptr",
+          vpo::ADDRESS_SPACE_LOCAL);
 
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
         MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (2)
@@ -855,23 +859,20 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
       useUpdatedUseDevicePtrsInTgtDataRegion(W, NewCall);
+      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
+        NewF->removeFnAttr(Attribute::NoInline);
+        NewF->addFnAttr(Attribute::AlwaysInline);
+      }
     } else if (isa<WRNTargetEnterDataNode>(W) ||
                isa<WRNTargetExitDataNode>(W) ||
                isa<WRNTargetUpdateNode>(W)) {
-      NewCall->eraseFromParent();
-      // We cannot erase the function right now, because it now contains
-      // the region's entry/exit calls, which we will try to erase later.
-
-#if INTEL_CUSTOMIZATION
-      // TEMPORARY to address JIRA  CMPLRLLVM-10758.
-#endif // INTEL_CUSTOMIZATION
-      // Cannot just disconnect from parent as some passes
-      // walk all functions and encounters this function without
-      // a module and asserts.
-      // TODO Fix WRN's entry/exit BB to null and modify VPOUtils
-      // VPOUtils::stripDirectives to accept and ignore null BBs
-      // and remove the NewF completely.
-      // NewF->removeFromParent();
+      // We cannot delete the outlined functions, because they
+      // may contain some meaningful code (e.g. InstCombine may put
+      // something into the initially empty blocks).
+      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
+        NewF->removeFnAttr(Attribute::NoInline);
+        NewF->addFnAttr(Attribute::AlwaysInline);
+      }
     }
   }
 
@@ -941,6 +942,9 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
 
   if (MapI->getIsMapAlways())
     Res |= TGT_MAP_ALWAYS;
+
+  if (MapI->getIsMapClose())
+    Res |= TGT_MAP_CLOSE;
 
   // Memberof is given by the 16 MSB of the flag, so rotate by 48 bits.
   // It is workaroud. Need more work.
@@ -2019,6 +2023,19 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // We need this for private F90 DVs as well, as we pass in the original
+  // DV into the target region as a parameter of the outlined function.
+  if (W->canHavePrivate()) {
+    PrivateClause &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      if (!PrivI->getIsF90DopeVector())
+        continue;
+      VNew = createRenamedValueForGlobalsAndConstExprs(PrivI->getOrig());
+      PrivI->setOrig(VNew);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (W->canHaveIsDevicePtr()) {
     IsDevicePtrClause &IsDevPtrClause = W->getIsDevicePtr();
     for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {

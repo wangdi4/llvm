@@ -22,50 +22,25 @@ void VPValueMapper::remapInstruction(VPInstruction *Inst) {
 
   if (auto Phi = dyn_cast<VPPHINode>(Inst)) {
     for (auto &B : Phi->blocks()) {
-      B = cast<VPBasicBlock>(remapValue(Block2BlockMap, B));
+      B = remapValue(Block2BlockMap, B);
     }
   }
-}
-
-/// Generic function that accepts any \p Block and clones it.
-/// Remapping happens later by VPValueMapper which must be called by user.
-VPBlockBase *VPCloneUtils::cloneBlockBase(VPBlockBase *Block,
-                                          std::string Prefix,
-                                          Block2BlockMapTy &BlockMap,
-                                          Value2ValueMapTy &ValueMap,
-                                          VPlanDivergenceAnalysis *DA) {
-  VPBlockBase *ClonedBlock = nullptr;
-
-  Prefix = Prefix == "" ? "cloned." : Prefix;
-  std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
-
-  if (auto BasicBlock = dyn_cast<VPBasicBlock>(Block)) {
-    ClonedBlock = cloneBasicBlock(BasicBlock, Name, ValueMap, DA);
-  } else {
-    llvm_unreachable("Unknown way to clone.");
-  }
-  BlockMap.insert({Block, ClonedBlock});
-  if (auto CondBit = Block->getCondBit()) {
-    VPValue *ClonedCondBit = CondBit;
-    if (auto CondBitInst = dyn_cast<VPInstruction>(CondBit)) {
-      ClonedCondBit = CondBitInst->clone();
-      // Parent of the cloned condition bit will be updated later by
-      // VPValueMapper.
-      cast<VPInstruction>(ClonedCondBit)->Parent = CondBitInst->getParent();
-    }
-    ClonedBlock->setCondBit(ClonedCondBit);
-    ValueMap.insert({CondBit, ClonedCondBit});
-  }
-  return ClonedBlock;
 }
 
 /// Clone \p Block and its instructions.
 /// Remapping happens later by VPValueMapper which must be called by user.
 VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
                                             std::string Prefix,
+                                            Block2BlockMapTy &BlockMap,
                                             Value2ValueMapTy &ValueMap,
                                             VPlanDivergenceAnalysis *DA) {
+  Prefix = Prefix == "" ? "cloned." : Prefix;
+  std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
   VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix);
+  ClonedBlock->setName(Name);
+  VPlan *Plan = Block->getParent();
+  ClonedBlock->setParent(Plan);
+  Plan->setSize(Plan->getSize() + 1);
 
   for (auto &Inst : *Block) {
     auto ClonedInst = Inst.clone();
@@ -78,48 +53,69 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     }
   }
 
+  BlockMap.insert({Block, ClonedBlock});
+  if (auto CondBit = Block->getCondBit()) {
+    VPValue *ClonedCondBit = CondBit;
+    if (auto CondBitInst = dyn_cast<VPInstruction>(CondBit)) {
+      ClonedCondBit = CondBitInst->clone();
+      // Parent of the cloned condition bit will be updated later by
+      // VPValueMapper.
+      cast<VPInstruction>(ClonedCondBit)->Parent = CondBitInst->getParent();
+    }
+    ClonedBlock->setCondBit(ClonedCondBit);
+    ValueMap.insert({CondBit, ClonedCondBit});
+  }
+
   return ClonedBlock;
 }
 
 /// Clone given blocks from Begin to End
 /// Remapping happens later by VPValueMapper which must be called by user.
-VPBlockBase *VPCloneUtils::cloneBlocksRange(
-    VPBlockBase *Begin, VPBlockBase *End, Block2BlockMapTy &BlockMap,
+VPBasicBlock *VPCloneUtils::cloneBlocksRange(
+    VPBasicBlock *Begin, VPBasicBlock *End, Block2BlockMapTy &BlockMap,
     Value2ValueMapTy &ValueMap, VPlanDivergenceAnalysis *DA, Twine Prefix) {
   if (Prefix.isTriviallyEmpty())
     Prefix.concat("cloned.");
 
-  bool EndReached = false;
-  std::function<VPBlockBase *(VPBlockBase *)> Cloning =
-      [&](VPBlockBase *Block) -> VPBlockBase * {
-    auto It = BlockMap.find(Block);
-    if (It != BlockMap.end())
-      return It->second;
+  auto Iter = df_begin(Begin);
+  auto EndIter = df_end(Begin);
+  while (Iter != EndIter) {
+    cloneBasicBlock(*Iter, Prefix.str(), BlockMap, ValueMap, DA);
+    if (*Iter == End) {
+      // Don't go outside of SESE region. It does move the iterator, so avoid
+      // usual increment.
+      Iter.skipChildren();
+      continue;
+    }
+    // Go to the next block in ordinary way.
+    ++Iter;
+  }
 
-    // Do not clone any new blocks if the end block was reached and we are
-    // finalizing the cloning process.
-    if (EndReached)
-      return nullptr;
+  // Remap successors *inside* SESE region. Once CFG is represented through
+  // terminator VPInstruction that won't be needed here and would be done as
+  // part of ordinary remap.
+  //
+  // Can't iterate over BlockMap directly because the order won't be stable
+  // resulting in unstable predecessors order.
+  Iter = df_begin(Begin);
+  while (Iter != EndIter) {
+    if (*Iter == End){
+      // Don't remap successor of the last block.
+      Iter.skipChildren();
+      continue;
+    }
 
-    VPBlockBase *ClonedBlock =
-        cloneBlockBase(Block, Prefix.str(), BlockMap, ValueMap, DA);
-    BlockMap.insert({Block, ClonedBlock});
+    VPBasicBlock *Orig = *Iter;
+    VPBasicBlock *Clone = BlockMap[Orig];
+    for (VPBasicBlock *OrigSucc : Orig->getSuccessors()) {
+      VPBasicBlock *CloneSucc = BlockMap[OrigSucc];
+      Clone->appendSuccessor(CloneSucc);
+      CloneSucc->appendPredecessor(Clone);
+    }
+    ++Iter;
+  }
 
-    if (Block == End)
-      EndReached = true;
-
-    for (auto &Succ : Block->getSuccessors())
-      if (VPBlockBase *ClonedSucc = Cloning(Succ)) {
-        ClonedBlock->appendSuccessor(ClonedSucc);
-        ClonedSucc->appendPredecessor(ClonedBlock);
-      }
-
-    return ClonedBlock;
-  };
-
-  VPBlockBase *Clone = Cloning(Begin);
-  assert(EndReached && "End block expected to be reached");
-  return Clone;
+  return BlockMap[Begin];
 }
 
 } // namespace vpo

@@ -86,8 +86,7 @@ protected:
   // of the new loop, so the old one can become dead.
   // SmallPtrSet<Instruction *, 4> DeadInstructions;
 
-  virtual std::unique_ptr<VPRegionBlock>
-  buildPlainCFG(VPLoopEntityConverterList &Cvts);
+  virtual void buildPlainCFG(VPLoopEntityConverterList &Cvts);
 
   /// Translate loop metadata from underlying IR to VPLoop data structure.
   virtual void populateVPLoopMetadata(VPLoopInfo *VPLInfo);

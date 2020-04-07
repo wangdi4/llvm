@@ -36,10 +36,7 @@ DIR.OMP.PARALLEL.1:                               ; preds = %entry
 
 DIR.OMP.PARALLEL.11:                              ; preds = %DIR.OMP.PARALLEL.1
 
-; The llvm.dbg.declare/value intrinsics are currently being
-; removed to prevent IR verification failures after code extraction.
-
-; CHECK-NOT: call void @llvm.dbg.declare(metadata i32* %x
+; CHECK: call void @llvm.dbg.declare(metadata i32* %x{{.*}}, metadata [[VAR:![0-9]+]]
   call void @llvm.dbg.declare(metadata i32* %x, metadata !14, metadata !DIExpression()), !dbg !12
   store i32 0, i32* %x, align 4, !dbg !12
   %1 = load i32, i32* %x, align 4, !dbg !16
@@ -89,6 +86,9 @@ attributes #3 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !11 = !DILocation(line: 4, column: 9, scope: !8)
 !12 = !DILocation(line: 6, column: 9, scope: !13)
 !13 = distinct !DILexicalBlock(scope: !8, file: !1, line: 5, column: 3)
+; CHECK: [[SUB:![0-9]+]] = distinct !DISubprogram(name: "foo{{.*}}PARALLEL
+; CHECK: [[VAR]] = !DILocalVariable(name: "x", scope: [[LB1:![0-9]+]],
+; CHECK: [[LB1]] = {{.*}}!DILexicalBlock(scope: [[SUB]]
 !14 = !DILocalVariable(name: "x", scope: !13, file: !1, line: 6, type: !15)
 !15 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !16 = !DILocation(line: 7, column: 25, scope: !13)

@@ -33,7 +33,6 @@ class raw_ostream;
 namespace vpo {
 class VPlan;
 class VPBasicBlock;
-class VPBlockBase;
 class VPInstruction;
 
 #if INTEL_CUSTOMIZATION
@@ -99,8 +98,7 @@ protected:
   std::shared_ptr<VPlanVLSCostModel> VLSCM;
 #endif // INTEL_CUSTOMIZATION
 
-  void printForVPBlockBase(raw_ostream &OS, const VPBlockBase *VPBlock) const;
-  virtual unsigned getCost(const VPBlockBase *VPBlock) const;
+  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock) const;
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in

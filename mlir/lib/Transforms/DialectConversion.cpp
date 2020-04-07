@@ -51,9 +51,11 @@ computeConversionSet(iterator_range<Region::iterator> region,
                                  : Optional<ConversionTarget::LegalOpDetails>();
       if (legalityInfo && legalityInfo->isRecursivelyLegal)
         continue;
-      for (auto &region : op.getRegions())
-        computeConversionSet(region.getBlocks(), region.getLoc(), toConvert,
-                             target);
+      for (auto &region : op.getRegions()) {
+        if (failed(computeConversionSet(region.getBlocks(), region.getLoc(),
+                                        toConvert, target)))
+          return failure();
+      }
     }
 
     // Recurse to children that haven't been visited.
@@ -250,7 +252,7 @@ void ArgConverter::notifyOpRemoved(Operation *op) {
       // Check if this block was converted.
       auto it = conversionInfo.find(&block);
       if (it == conversionInfo.end())
-        return;
+        continue;
 
       // Drop all uses of the original arguments and delete the original block.
       Block *origBlock = it->second.origBlock;
@@ -401,8 +403,7 @@ Block *ArgConverter::applySignatureConversion(
     auto replArgs = newArgs.slice(inputMap->inputNo, inputMap->size);
     Operation *cast = typeConverter->materializeConversion(
         rewriter, origArg.getType(), replArgs, loc);
-    assert(cast->getNumResults() == 1 &&
-           cast->getNumOperands() == replArgs.size());
+    assert(cast->getNumResults() == 1);
     mapping.map(origArg, cast->getResult(0));
     info.argInfo[i] =
         ConvertedArgInfo(inputMap->inputNo, inputMap->size, cast->getResult(0));
@@ -812,7 +813,7 @@ void ConversionPatternRewriterImpl::notifyRegionIsBeingInlinedBefore(
     Region &region, Region &parent, Region::iterator before) {
   for (auto &pair : llvm::enumerate(region)) {
     Block &block = pair.value();
-    unsigned position = pair.index();
+    Region::iterator::difference_type position = pair.index();
     blockActions.push_back(BlockAction::getMove(&block, {&region, position}));
   }
 }
@@ -988,6 +989,17 @@ void ConversionPatternRewriter::cancelRootUpdate(Operation *op) {
   rootUpdates.erase(rootUpdates.begin() + (rootUpdates.rend() - it));
 }
 
+/// PatternRewriter hook for notifying match failure reasons.
+LogicalResult ConversionPatternRewriter::notifyMatchFailure(
+    Operation *op, function_ref<void(Diagnostic &)> reasonCallback) {
+  LLVM_DEBUG({
+    Diagnostic diag(op->getLoc(), DiagnosticSeverity::Remark);
+    reasonCallback(diag);
+    impl->logger.startLine() << "** Failure : " << diag.str() << "\n";
+  });
+  return failure();
+}
+
 /// Return a reference to the internal implementation.
 detail::ConversionPatternRewriterImpl &ConversionPatternRewriter::getImpl() {
   return *impl;
@@ -998,39 +1010,13 @@ detail::ConversionPatternRewriterImpl &ConversionPatternRewriter::getImpl() {
 //===----------------------------------------------------------------------===//
 
 /// Attempt to match and rewrite the IR root at the specified operation.
-PatternMatchResult
+LogicalResult
 ConversionPattern::matchAndRewrite(Operation *op,
                                    PatternRewriter &rewriter) const {
   SmallVector<Value, 4> operands;
   auto &dialectRewriter = static_cast<ConversionPatternRewriter &>(rewriter);
   dialectRewriter.getImpl().remapValues(op->getOperands(), operands);
-
-  // If this operation has no successors, invoke the rewrite directly.
-  if (op->getNumSuccessors() == 0)
-    return matchAndRewrite(op, operands, dialectRewriter);
-
-  // Otherwise, we need to remap the successors.
-  SmallVector<Block *, 2> destinations;
-  destinations.reserve(op->getNumSuccessors());
-
-  SmallVector<ArrayRef<Value>, 2> operandsPerDestination;
-  unsigned firstSuccessorOperand = op->getSuccessorOperandIndex(0);
-  for (unsigned i = 0, seen = 0, e = op->getNumSuccessors(); i < e; ++i) {
-    destinations.push_back(op->getSuccessor(i));
-
-    // Lookup the successors operands.
-    unsigned n = op->getNumSuccessorOperands(i);
-    operandsPerDestination.push_back(
-        llvm::makeArrayRef(operands.data() + firstSuccessorOperand + seen, n));
-    seen += n;
-  }
-
-  // Rewrite the operation.
-  return matchAndRewrite(
-      op,
-      llvm::makeArrayRef(operands.data(),
-                         operands.data() + firstSuccessorOperand),
-      destinations, operandsPerDestination, dialectRewriter);
+  return matchAndRewrite(op, operands, dialectRewriter);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1109,10 +1095,12 @@ bool OperationLegalizer::isIllegal(Operation *op) const {
 LogicalResult
 OperationLegalizer::legalize(Operation *op,
                              ConversionPatternRewriter &rewriter) {
+#ifndef NDEBUG
   const char *logLineComment =
       "//===-------------------------------------------===//\n";
 
   auto &rewriterImpl = rewriter.getImpl();
+#endif
   LLVM_DEBUG({
     auto &os = rewriterImpl.logger;
     os.getOStream() << "\n";
@@ -1120,16 +1108,24 @@ OperationLegalizer::legalize(Operation *op,
     os.startLine() << "Legalizing operation : '" << op->getName() << "'(" << op
                    << ") {\n";
     os.indent();
+
+    // If the operation has no regions, just print it here.
+    if (op->getNumRegions() == 0) {
+      op->print(os.startLine(), OpPrintingFlags().printGenericOpForm());
+      os.getOStream() << "\n\n";
+    }
   });
 
   // Check if this operation is legal on the target.
   if (auto legalityInfo = target.isLegal(op)) {
-    logSuccess(
-        rewriterImpl.logger, "operation marked legal by the target{0}",
-        legalityInfo->isRecursivelyLegal
-            ? "; NOTE: operation is recursively legal; skipping internals"
-            : "");
-    LLVM_DEBUG(rewriterImpl.logger.startLine() << logLineComment);
+    LLVM_DEBUG({
+      logSuccess(
+          rewriterImpl.logger, "operation marked legal by the target{0}",
+          legalityInfo->isRecursivelyLegal
+              ? "; NOTE: operation is recursively legal; skipping internals"
+              : "");
+      rewriterImpl.logger.startLine() << logLineComment;
+    });
 
     // If this operation is recursively legal, mark its children as ignored so
     // that we don't consider them for legalization.
@@ -1140,9 +1136,11 @@ OperationLegalizer::legalize(Operation *op,
 
   // Check to see if the operation is ignored and doesn't need to be converted.
   if (rewriter.getImpl().isOpIgnored(op)) {
-    logSuccess(rewriterImpl.logger,
-               "operation marked 'ignored' during conversion");
-    LLVM_DEBUG(rewriterImpl.logger.startLine() << logLineComment);
+    LLVM_DEBUG({
+      logSuccess(rewriterImpl.logger,
+                 "operation marked 'ignored' during conversion");
+      rewriterImpl.logger.startLine() << logLineComment;
+    });
     return success();
   }
 
@@ -1150,30 +1148,38 @@ OperationLegalizer::legalize(Operation *op,
   // TODO(riverriddle) Should we always try to do this, even if the op is
   // already legal?
   if (succeeded(legalizeWithFold(op, rewriter))) {
-    logSuccess(rewriterImpl.logger, "operation was folded");
-    LLVM_DEBUG(rewriterImpl.logger.startLine() << logLineComment);
+    LLVM_DEBUG({
+      logSuccess(rewriterImpl.logger, "operation was folded");
+      rewriterImpl.logger.startLine() << logLineComment;
+    });
     return success();
   }
 
   // Otherwise, we need to apply a legalization pattern to this operation.
   auto it = legalizerPatterns.find(op->getName());
   if (it == legalizerPatterns.end()) {
-    logFailure(rewriterImpl.logger, "no known legalization path");
-    LLVM_DEBUG(rewriterImpl.logger.startLine() << logLineComment);
+    LLVM_DEBUG({
+      logFailure(rewriterImpl.logger, "no known legalization path");
+      rewriterImpl.logger.startLine() << logLineComment;
+    });
     return failure();
   }
 
   // The patterns are sorted by expected benefit, so try to apply each in-order.
   for (auto *pattern : it->second) {
     if (succeeded(legalizePattern(op, pattern, rewriter))) {
-      logSuccess(rewriterImpl.logger, "");
-      LLVM_DEBUG(rewriterImpl.logger.startLine() << logLineComment);
+      LLVM_DEBUG({
+        logSuccess(rewriterImpl.logger, "");
+        rewriterImpl.logger.startLine() << logLineComment;
+      });
       return success();
     }
   }
 
-  logFailure(rewriterImpl.logger, "no matched legalization pattern");
-  LLVM_DEBUG(rewriterImpl.logger.startLine() << logLineComment);
+  LLVM_DEBUG({
+    logFailure(rewriterImpl.logger, "no matched legalization pattern");
+    rewriterImpl.logger.startLine() << logLineComment;
+  });
   return failure();
 }
 
@@ -1192,7 +1198,7 @@ OperationLegalizer::legalizeWithFold(Operation *op,
   SmallVector<Value, 2> replacementValues;
   rewriter.setInsertionPoint(op);
   if (failed(rewriter.tryFold(op, replacementValues))) {
-    logFailure(rewriterImpl.logger, "unable to fold");
+    LLVM_DEBUG(logFailure(rewriterImpl.logger, "unable to fold"));
     return failure();
   }
 
@@ -1204,14 +1210,15 @@ OperationLegalizer::legalizeWithFold(Operation *op,
        i != e; ++i) {
     Operation *cstOp = rewriterImpl.createdOps[i];
     if (failed(legalize(cstOp, rewriter))) {
-      logFailure(rewriterImpl.logger, "generated constant '{0}' was illegal",
-                 cstOp->getName());
+      LLVM_DEBUG(logFailure(rewriterImpl.logger,
+                            "generated constant '{0}' was illegal",
+                            cstOp->getName()));
       rewriterImpl.resetState(curState);
       return failure();
     }
   }
 
-  logSuccess(rewriterImpl.logger, "");
+  LLVM_DEBUG(logSuccess(rewriterImpl.logger, ""));
   return success();
 }
 
@@ -1233,7 +1240,7 @@ OperationLegalizer::legalizePattern(Operation *op, RewritePattern *pattern,
   // TODO(riverriddle) We could eventually converge, but that requires more
   // complicated analysis.
   if (!appliedPatterns.insert(pattern).second) {
-    logFailure(rewriterImpl.logger, "pattern was already applied");
+    LLVM_DEBUG(logFailure(rewriterImpl.logger, "pattern was already applied"));
     return failure();
   }
 
@@ -1247,13 +1254,13 @@ OperationLegalizer::legalizePattern(Operation *op, RewritePattern *pattern,
 
   // Try to rewrite with the given pattern.
   rewriter.setInsertionPoint(op);
-  auto matchedPattern = pattern->matchAndRewrite(op, rewriter);
+  LogicalResult matchedPattern = pattern->matchAndRewrite(op, rewriter);
 #ifndef NDEBUG
   assert(rewriterImpl.pendingRootUpdates.empty() && "dangling root updates");
 #endif
 
-  if (!matchedPattern) {
-    logFailure(rewriterImpl.logger, "pattern failed to match");
+  if (failed(matchedPattern)) {
+    LLVM_DEBUG(logFailure(rewriterImpl.logger, "pattern failed to match"));
     return cleanupFailure();
   }
 
@@ -1270,7 +1277,8 @@ OperationLegalizer::legalizePattern(Operation *op, RewritePattern *pattern,
 
     // Convert the block signature.
     if (failed(rewriterImpl.convertBlockSignature(action.block))) {
-      logFailure(rewriterImpl.logger, "failed to convert types of moved block");
+      LLVM_DEBUG(logFailure(rewriterImpl.logger,
+                            "failed to convert types of moved block"));
       return cleanupFailure();
     }
   }
@@ -1306,8 +1314,9 @@ OperationLegalizer::legalizePattern(Operation *op, RewritePattern *pattern,
        i != e; ++i) {
     auto &state = rewriterImpl.rootUpdates[i];
     if (failed(legalize(state.getOperation(), rewriter))) {
-      logFailure(rewriterImpl.logger,
-                 "operation updated in-place '{0}' was illegal", op->getName());
+      LLVM_DEBUG(logFailure(rewriterImpl.logger,
+                            "operation updated in-place '{0}' was illegal",
+                            op->getName()));
       return cleanupFailure();
     }
   }
@@ -1317,14 +1326,14 @@ OperationLegalizer::legalizePattern(Operation *op, RewritePattern *pattern,
        i != e; ++i) {
     Operation *op = rewriterImpl.createdOps[i];
     if (failed(legalize(op, rewriter))) {
-      logFailure(rewriterImpl.logger,
-                 "generated operation '{0}'({1}) was illegal", op->getName(),
-                 op);
+      LLVM_DEBUG(logFailure(rewriterImpl.logger,
+                            "generated operation '{0}'({1}) was illegal",
+                            op->getName(), op));
       return cleanupFailure();
     }
   }
 
-  logSuccess(rewriterImpl.logger, "pattern applied successfully");
+  LLVM_DEBUG(logSuccess(rewriterImpl.logger, "pattern applied successfully"));
   appliedPatterns.erase(pattern);
   return success();
 }
@@ -1630,11 +1639,24 @@ void TypeConverter::SignatureConversion::remapInput(unsigned origInputNo,
 /// This hooks allows for converting a type.
 LogicalResult TypeConverter::convertType(Type t,
                                          SmallVectorImpl<Type> &results) {
-  if (auto newT = convertType(t)) {
-    results.push_back(newT);
-    return success();
-  }
+  // Walk the added converters in reverse order to apply the most recently
+  // registered first.
+  for (ConversionCallbackFn &converter : llvm::reverse(conversions))
+    if (Optional<LogicalResult> result = converter(t, results))
+      return *result;
   return failure();
+}
+
+/// This hook simplifies defining 1-1 type conversions. This function returns
+/// the type to convert to on success, and a null type on failure.
+Type TypeConverter::convertType(Type t) {
+  // Use the multi-type result version to convert the type.
+  SmallVector<Type, 1> results;
+  if (failed(convertType(t, results)))
+    return nullptr;
+
+  // Check to ensure that only one type was produced.
+  return results.size() == 1 ? results.front() : nullptr;
 }
 
 /// Convert the given set of types, filling 'results' as necessary. This
@@ -1689,7 +1711,7 @@ struct FuncOpSignatureConversion : public OpConversionPattern<FuncOp> {
       : OpConversionPattern(ctx), converter(converter) {}
 
   /// Hook for derived classes to implement combined matching and rewriting.
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(FuncOp funcOp, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
     FunctionType type = funcOp.getType();
@@ -1698,12 +1720,12 @@ struct FuncOpSignatureConversion : public OpConversionPattern<FuncOp> {
     TypeConverter::SignatureConversion result(type.getNumInputs());
     for (unsigned i = 0, e = type.getNumInputs(); i != e; ++i)
       if (failed(converter.convertSignatureArg(i, type.getInput(i), result)))
-        return matchFailure();
+        return failure();
 
     // Convert the original function results.
     SmallVector<Type, 1> convertedResults;
     if (failed(converter.convertTypes(type.getResults(), convertedResults)))
-      return matchFailure();
+      return failure();
 
     // Update the function signature in-place.
     rewriter.updateRootInPlace(funcOp, [&] {
@@ -1711,7 +1733,7 @@ struct FuncOpSignatureConversion : public OpConversionPattern<FuncOp> {
                                        convertedResults, funcOp.getContext()));
       rewriter.applySignatureConversion(&funcOp.getBody(), result);
     });
-    return matchSuccess();
+    return success();
   }
 
   /// The type converter to use when rewriting the signature.

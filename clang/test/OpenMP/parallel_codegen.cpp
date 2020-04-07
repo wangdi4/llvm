@@ -1,9 +1,9 @@
 // RUN: %clang_cc1 -verify -fopenmp -x c++ -emit-llvm %s -triple %itanium_abi_triple -fexceptions -fcxx-exceptions -o - | FileCheck %s --check-prefixes=ALL,CHECK
 // RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-pch -o %t %s
 // RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -debug-info-kind=limited -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefixes=ALL-DEBUG,CHECK-DEBUG %s
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-enable-irbuilder -x c++ -emit-llvm %s -triple %itanium_abi_triple -fexceptions -fcxx-exceptions -o - | FileCheck %s --check-prefixes=ALL,IRBUILDER
+// RUN: %clang_cc1 -verify -fopenmp -fopenmp-enable-irbuilder -x c++ -emit-llvm %s -triple %itanium_abi_triple -fexceptions -fcxx-exceptions -o - -mllvm -intel-codeextractor-debug=false | FileCheck %s --check-prefixes=ALL,IRBUILDER  ;INTEL
 // RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -x c++ -std=c++11 -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -debug-info-kind=limited -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefixes=ALL-DEBUG,IRBUILDER-DEBUG %s
+// RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -debug-info-kind=limited -std=c++11 -include-pch %t -verify %s -emit-llvm -o - -mllvm -intel-codeextractor-debug=false | FileCheck --check-prefixes=ALL-DEBUG,IRBUILDER-DEBUG %s               ;INTEL
 
 // RUN: %clang_cc1 -verify -fopenmp-simd -x c++ -emit-llvm %s -triple %itanium_abi_triple -fexceptions -fcxx-exceptions -o - | FileCheck --check-prefix SIMD-ONLY0 %s
 // RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -emit-pch -o %t %s
@@ -60,8 +60,7 @@ int main (int argc, char **argv) {
 // ALL-DEBUG-LABEL: define i32 @main(i32 %argc, i8** %argv)
 // CHECK-DEBUG:       [[LOC_2_ADDR:%.+]] = alloca %struct.ident_t
 // CHECK-DEBUG:       [[KMPC_LOC_VOIDPTR:%.+]] = bitcast %struct.ident_t* [[LOC_2_ADDR]] to i8*
-// CHECK-DEBUG-NEXT:  [[KMPC_DEFAULT_LOC_VOIDPTR:%.+]] = bitcast %struct.ident_t* [[DEF_LOC_2]] to i8*
-// CHECK-DEBUG-NEXT:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[KMPC_LOC_VOIDPTR]], i8* align 8 [[KMPC_DEFAULT_LOC_VOIDPTR]], i64 24, i1 false)
+// CHECK-DEBUG-NEXT:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[KMPC_LOC_VOIDPTR]], i8* align 8 bitcast (%struct.ident_t* [[DEF_LOC_2]] to i8*), i64 24, i1 false)
 // ALL-DEBUG:       store i32 %argc, i32* [[ARGC_ADDR:%.+]],
 // ALL-DEBUG:       [[VLA:%.+]] = alloca i32, i64 [[VLA_SIZE:%[^,]+]],
 // CHECK-DEBUG:       [[KMPC_LOC_PSOURCE_REF:%.+]] = getelementptr inbounds %struct.ident_t, %struct.ident_t* [[LOC_2_ADDR]], i32 0, i32 4
@@ -118,8 +117,7 @@ int main (int argc, char **argv) {
 // ALL-DEBUG:       define linkonce_odr i32 [[TMAIN]](i8** %argc)
 // CHECK-DEBUG-DAG:   [[LOC_2_ADDR:%.+]] = alloca %struct.ident_t
 // CHECK-DEBUG:       [[KMPC_LOC_VOIDPTR:%.+]] = bitcast %struct.ident_t* [[LOC_2_ADDR]] to i8*
-// CHECK-DEBUG-NEXT:  [[KMPC_DEFAULT_LOC_VOIDPTR:%.+]] = bitcast %struct.ident_t* [[DEF_LOC_2]] to i8*
-// CHECK-DEBUG-NEXT:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[KMPC_LOC_VOIDPTR]], i8* align 8 [[KMPC_DEFAULT_LOC_VOIDPTR]], i64 24, i1 false)
+// CHECK-DEBUG-NEXT:   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[KMPC_LOC_VOIDPTR]], i8* align 8 bitcast (%struct.ident_t* [[DEF_LOC_2]] to i8*), i64 24, i1 false)
 // CHECK-DEBUG-NEXT:  store i8** %argc, i8*** [[ARGC_ADDR:%.+]],
 // CHECK-DEBUG:  [[KMPC_LOC_PSOURCE_REF:%.+]] = getelementptr inbounds %struct.ident_t, %struct.ident_t* [[LOC_2_ADDR]], i32 0, i32 4
 // CHECK-DEBUG-NEXT:  store i8* getelementptr inbounds ([{{.+}} x i8], [{{.+}} x i8]* [[LOC2]], i32 0, i32 0), i8** [[KMPC_LOC_PSOURCE_REF]]

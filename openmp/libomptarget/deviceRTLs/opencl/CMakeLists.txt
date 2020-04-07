@@ -85,9 +85,20 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     VERBATIM
   )
 
-  install(FILES ${opencl_device_rtl} ${opencl_device_rtl_bc}
+  set(install_dest lib${LIBOMPTARGET_LIBDIR_SUFFIX})
+
+  install(FILES ${opencl_device_rtl_bc}
     COMPONENT omptarget-opencl-rtl
-    DESTINATION lib${LIBOMPTARGET_LIBDIR_SUFFIX}
+    DESTINATION ${install_dest}
+  )
+
+  if (WIN32)
+    set(install_dest bin)
+  endif(WIN32)
+
+  install(FILES ${opencl_device_rtl}
+    COMPONENT omptarget-opencl-rtl
+    DESTINATION ${install_dest}
   )
 else()
   libomptarget_say("Not building OpenCL offloading device RTL: OpenCL SDK not found")

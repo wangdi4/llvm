@@ -1,10 +1,11 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dtrans-outofboundsok=true -dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
-; RUN: opt < %s -dtrans-outofboundsok=true -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dtrans-outofboundsok=true -dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -dtrans-outofboundsok=true -passes=dtrans-aostosoa -debug-only=dtrans-aostosoa -dtrans-aostosoa-heur-override=struct.test01 -whole-program-assume 2>&1 | FileCheck %s
 
-; This test verifies that passing the address of a field within a dependent
-; data structure, but inhibit the AOS-to-SOA transformation when not using
-; the rule for -dtrans-outofboundsok=false.
+; This test verifies that when a dependent type has the "field address
+; taken" safety bit cascaded to the candidate type (due to the pointer
+; carried safety with -dtrans-outofboundsok=true), the candidate gets
+; rejected for the AOS-to-SOA transformation.
 
 %struct.test01 = type { i64, i64 }
 %struct.test01dep = type { [200 x i8], %struct.test01*, %struct.test01** }
@@ -26,7 +27,7 @@ define i32 @main(i32 %argc, i8** %argv) {
   ret i32 0
 }
 
-; CHECK: Disqualifying type: struct.test01 based on safety conditions of dependent type: struct.test01dep
+; CHECK: DTRANS-AOSTOSOA: Rejecting -- Unsupported safety data: struct.test01
 
 declare i8* @calloc(i64, i64)
 declare i8* @strcpy(i8*, i8*)

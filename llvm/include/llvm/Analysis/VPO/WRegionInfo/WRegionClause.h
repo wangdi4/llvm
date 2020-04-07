@@ -15,6 +15,7 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 #define LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
@@ -54,12 +55,14 @@ template <IRKind IR>
 #endif // INTEL_CUSTOMIZATION
 
 // Tables used for debug printing
-extern std::unordered_map<int, StringRef> WRNDefaultName;
-extern std::unordered_map<int, StringRef> WRNAtomicName;
-extern std::unordered_map<int, StringRef> WRNCancelName;
-extern std::unordered_map<int, StringRef> WRNProcBindName;
-extern std::unordered_map<int, StringRef> WRNLoopBindName;
-extern std::unordered_map<int, StringRef> WRNLoopOrderName;
+extern DenseMap<int, StringRef> WRNDefaultName;
+extern DenseMap<int, StringRef> WRNDefaultmapBehaviorName;
+extern DenseMap<int, StringRef> WRNDefaultmapCategoryName;
+extern DenseMap<int, StringRef> WRNAtomicName;
+extern DenseMap<int, StringRef> WRNCancelName;
+extern DenseMap<int, StringRef> WRNProcBindName;
+extern DenseMap<int, StringRef> WRNLoopBindName;
+extern DenseMap<int, StringRef> WRNLoopOrderName;
 
 //
 // Classes below represent list items used in many OMP clauses
@@ -535,14 +538,17 @@ public:
 
     // TODO: Combiner and Initializer are Function*'s from UDR.
     //       We should change Value* to Function* below.
-    Value *Combiner;
-    Value *Initializer;
+    RDECL Combiner;
+    RDECL Initializer;
+    RDECL Constructor;
+    RDECL Destructor;
     ArraySectionInfo ArrSecInfo;
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
-          IsInReduction(false), Combiner(nullptr), Initializer(nullptr) {}
+          IsInReduction(false), Combiner(nullptr), Initializer(nullptr),
+          Constructor(nullptr), Destructor(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -634,14 +640,19 @@ public:
     void setIsUnsigned(bool B)        { IsUnsigned = B;      }
     void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
-    void setCombiner(Value *Comb)     { Combiner = Comb;     }
-    void setInitializer(Value *Init)  { Initializer = Init;  }
+    void setCombiner(RDECL Comb)      { Combiner = Comb;     }
+    void setInitializer(RDECL Init)   { Initializer = Init;  }
+    void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
+    void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
     bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
-    Value *getCombiner()       const { return Combiner;      }
-    Value *getInitializer()    const { return Initializer;   }
+    RDECL getCombiner()        const { return Combiner;      }
+    RDECL getInitializer()     const { return Initializer;   }
+    RDECL getConstructor()     const { return Constructor;   }
+    RDECL getDestructor()      const { return Destructor;    }
+
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
     bool getIsArraySection() const {
@@ -844,14 +855,19 @@ private:
 public:
   enum WRNMapKind {
     WRNMapNone       = 0x0000,
+    // map types:
     WRNMapTo         = 0x0001,
     WRNMapFrom       = 0x0002,
-    WRNMapAlways     = 0x0004,
-    WRNMapDelete     = 0x0008,
-    WRNMapAlloc      = 0x0010,
-    WRNMapRelease    = 0x0020,
-    WRNMapUpdateTo   = 0x0040,
-    WRNMapUpdateFrom = 0x0080,
+    WRNMapAlloc      = 0x0004,
+    WRNMapRelease    = 0x0008,
+    WRNMapDelete     = 0x0010,
+    // update to/from clauses:
+    WRNMapUpdateTo   = 0x0020,
+    WRNMapUpdateFrom = 0x0040,
+    // map-type modifiers:
+    WRNMapAlways     = 0x0080,
+    WRNMapClose      = 0x0100,
+    WRNMapPresent    = 0x0200,
   } WRNMapKind;
 
   MapItem(VAR Orig)
@@ -936,11 +952,13 @@ public:
   void setMapKind(unsigned MK) { MapKind = MK; }
   void setIsMapTo()      { MapKind |= WRNMapTo; }
   void setIsMapFrom()    { MapKind |= WRNMapFrom; }
-  void setIsMapTofrom() { MapKind |= WRNMapFrom | WRNMapTo; }
+  void setIsMapTofrom()  { MapKind |= WRNMapFrom | WRNMapTo; }
   void setIsMapAlloc()   { MapKind |= WRNMapAlloc; }
   void setIsMapRelease() { MapKind |= WRNMapRelease; }
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
+  void setIsMapClose()   { MapKind |= WRNMapClose; }
+  void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
@@ -955,6 +973,8 @@ public:
   bool getIsMapRelease()    const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()     const { return MapKind & WRNMapDelete; }
   bool getIsMapAlways()     const { return MapKind & WRNMapAlways; }
+  bool getIsMapClose()      const { return MapKind & WRNMapClose; }
+  bool getIsMapPresent()    const { return MapKind & WRNMapPresent; }
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
@@ -1311,6 +1331,34 @@ typedef enum WRNDefaultKind {
     WRNDefaultPrivate,        // default(private) // Fortran only
     WRNDefaultFirstprivate    // default(firstprivate) //Fortran only
 } WRNDefaultKind;
+
+typedef enum WRNDefaultmapBehavior {
+    WRNDefaultmapAbsent = 0,      // defaultmap clause not present
+    WRNDefaultmapAlloc,           // defaultmap(alloc        [:<category>] )
+    WRNDefaultmapTo,              // defaultmap(to           [:<category>] )
+    WRNDefaultmapFrom,            // defaultmap(from         [:<category>] )
+    WRNDefaultmapToFrom,          // defaultmap(tofrom       [:<category>] )
+    WRNDefaultmapFirstprivate,    // defaultmap(firstprivate [:<category>] )
+    WRNDefaultmapNone,            // defaultmap(none         [:<category>] )
+    WRNDefaultmapDefault,         // defaultmap(default      [:<category>] )
+    WRNDefaultmapPresent          // defaultmap(present      [:<category>] )
+} WRNDefaultmapBehavior;
+
+// Table to get defaultmap behavior from ClauseID QUAL_OMP_DEFAULTMAP_<behavior>
+extern DenseMap<int, WRNDefaultmapBehavior> WRNDefaultmapBehaviorFromClauseID;
+
+typedef enum WRNDefaultmapCategory {
+    WRNDefaultmapAllVars = 0,     // defaultmap(<behavior>) with no category
+                                  // specified; <behavior> applies to all vars
+    WRNDefaultmapAggregate,       // defaultmap(<behavior>:aggregate)
+#if INTEL_CUSTOMIZATION
+    // Fortran only
+    WRNDefaultmapAllocatable,     // defaultmap(<behavior>:allocatable)
+#endif // INTEL_CUSTOMIZATION
+    WRNDefaultmapPointer,         // defaultmap(<behavior>:pointer)
+    WRNDefaultmapScalar,          // defaultmap(<behavior>:scalar)
+    WRNDefaultmapCategorySize     // last entry in enum
+} WRNDefaultmapCategory;
 
 typedef enum WRNAtomicKind {
     WRNAtomicUpdate = 0,

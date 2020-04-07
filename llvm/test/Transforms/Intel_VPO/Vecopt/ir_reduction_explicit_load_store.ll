@@ -2,15 +2,9 @@
 ; reduction variable inside the loop and a loop invariant load for starting value, while reduction
 ; is performed in register (using PHI node).
 
-; RUN: opt -VPlanDriver -vplan-print-after-hcfg -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -S < %s | FileCheck %s
 
-; Check that reduction is imported as VPReduction.
-; CHECK-LABEL: Reduction list
-; CHECK-NEXT:  (+) Start: float %x.promoted Exit: float [[EXIT_VPINST:%vp.*]]
-; CHECK-NEXT: Linked values: float [[VPPHI:%.*]], float [[EXIT_VPINST]]
-; CHECK-NEXT:  Memory: float* [[X:%.*]]
-
-; Check generated code.
+define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-LABEL: @load_store_reduction_add(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
@@ -31,10 +25,9 @@
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.experimental.vector.reduce.v2.fadd.f32.v8f32(float %x.promoted, <8 x float> [[TMP1]])
-; CHECK-NEXT:    store float [[TMP6]], float* [[X]], align 1
+; CHECK-NEXT:    store float [[TMP6]], float* [[X:%.*]], align 1
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
-
-define float @load_store_reduction_add(float* nocapture %a) {
+;
 entry:
   %x = alloca float, align 4
   store float 2.000000e+00, float* %x, align 4

@@ -407,6 +407,10 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
     }
   } else {
     assert(E->isGLValue());
+    const auto *DRE = dyn_cast<DeclRefExpr>(E);
+    const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
+    if (VD && CGF.isMappedRefTemp(VD))
+      IsRef = true;
     llvm::Value *V = CGF.EmitLValue(E).getPointer(CGF);
     if (IsRef) {
       auto *LI = dyn_cast<llvm::LoadInst>(V);
@@ -539,9 +543,6 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   case ICK_shared:
     addArg("QUAL.OMP.SHARED");
     break;
-  case ICK_map_tofrom:
-    addArg("QUAL.OMP.MAP.TOFROM");
-    break;
   case ICK_normalized_iv:
     addArg("QUAL.OMP.NORMALIZED.IV");
     break;
@@ -612,12 +613,30 @@ bool OpenMPLateOutliner::isImplicit(const VarDecl *V) {
   return ImplicitMap.find(V) != ImplicitMap.end();
 }
 
-bool OpenMPLateOutliner::isExplicit(const VarDecl *V) {
-  return ExplicitRefs.find(V) != ExplicitRefs.end();
-}
-
-bool OpenMPLateOutliner::hasMapClause(const VarDecl *V) {
-  return MapRefs.find(V) != MapRefs.end();
+/// Returns true if an explicit clause was added to the Directive for
+/// the variable V that is compatible for the DKind. This is used to
+/// prevent the addition of implicit clauses where an explicit clause
+/// applies, but still allows implicit clauses on parts of combined
+/// directives.
+bool OpenMPLateOutliner::isExplicitForDirective(const VarDecl *V,
+                                                OpenMPDirectiveKind DKind) {
+  const auto &It = ExplicitRefs.find(V);
+  if (It == ExplicitRefs.end())
+    return false;
+  // Only need to check the actual clauses if this is a combined directive.
+  if (DKind == Directive.getDirectiveKind())
+    return true;
+  const auto &ExplicitKinds = (*It).second;
+  const auto CIt = std::find_if(
+      ExplicitKinds.begin(), ExplicitKinds.end(),
+      [this, DKind](OpenMPClauseKind CK) {
+        // isAllowedClauseForDirective does work for
+        // target/reduction case.
+        if (DKind == OMPD_target && CK == OMPC_reduction)
+          return false;
+        return isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP);
+      });
+  return CIt != ExplicitKinds.end();
 }
 
 bool OpenMPLateOutliner::alreadyHandled(llvm::Value *V) {
@@ -632,7 +651,7 @@ void OpenMPLateOutliner::addImplicitClauses() {
     return;
 
   for (const auto *VD : VarRefs) {
-    if (isExplicit(VD))
+    if (isExplicitForDirective(VD, CurrentDirectiveKind))
       continue;
     if (isImplicit(VD)) {
       emitImplicit(VD, ImplicitMap[VD]);
@@ -651,11 +670,10 @@ void OpenMPLateOutliner::addImplicitClauses() {
         emitImplicit(VD, ICK_private);
       }
     } else if (CurrentDirectiveKind == OMPD_target) {
-      if (!VD->getType()->isScalarType() ||
-          Directive.hasClausesOfKind<OMPDefaultmapClause>())
-        emitImplicit(VD, ICK_map_tofrom);
-      else
-        emitImplicit(VD, ICK_firstprivate);
+      // Normally all variables used in a target region are captured and
+      // produce map clauses. We've disabled the captures for non-pointer
+      // scalar variables so they will become firstprivate instead.
+      emitImplicit(VD, ICK_firstprivate);
     } else if (isImplicitTask(OMPD_task)) {
       emitImplicit(VD, ICK_firstprivate);
     } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
@@ -720,8 +738,8 @@ void OpenMPLateOutliner::addRefsToOuter() {
         continue;
       CGF.CapturedStmtInfo->recordVariableReference(VD);
     }
-    for (const auto *VD : ExplicitRefs) {
-      CGF.CapturedStmtInfo->recordVariableReference(VD);
+    for (const auto &It : ExplicitRefs) {
+      CGF.CapturedStmtInfo->recordVariableReference(It.first);
     }
     for (llvm::WeakTrackingVH &VH : DefinedValues) {
       if (VH.pointsToAliveValue())
@@ -765,7 +783,7 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     }
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in shared clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_shared);
     ClauseEmissionHelper CEH(*this, OMPC_shared);
     addArg("QUAL.OMP.SHARED");
     addArg(E);
@@ -777,7 +795,7 @@ void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in private clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_private);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
@@ -806,7 +824,7 @@ void OpenMPLateOutliner::emitOMPLastprivateClause(
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in lastprivate clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_lastprivate);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
@@ -837,7 +855,7 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in linear clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_linear);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     ClauseEmissionHelper CEH(*this, OMPC_linear, "QUAL.OMP.LINEAR");
@@ -862,7 +880,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     const VarDecl *PVD = getExplicitVarDecl(E);
     auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
     assert(PVD && "expected VarDecl in reduction clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_reduction);
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     llvm::Value *InitFn = nullptr, *CombinerFn  = nullptr;
@@ -1087,7 +1105,7 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     ClauseStringBuilder &CSB = CEH.getBuilder();
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in firstprivate clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_firstprivate);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
@@ -1113,7 +1131,7 @@ void OpenMPLateOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
       CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in copyin clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_copyin);
     addArg(E);
   }
 }
@@ -1156,13 +1174,13 @@ void OpenMPLateOutliner::emitOMPDataflowClause(const OMPDataflowClause *Cl) {
 void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_default);
   switch (Cl->getDefaultKind()) {
-  case OMPC_DEFAULT_none:
+  case OMP_DEFAULT_none:                               // INTEL
     addArg("QUAL.OMP.DEFAULT.NONE");
     break;
-  case OMPC_DEFAULT_shared:
+  case OMP_DEFAULT_shared:                             // INTEL
     addArg("QUAL.OMP.DEFAULT.SHARED");
     break;
-  case OMPC_DEFAULT_unknown:
+  case OMP_DEFAULT_unknown:                            // INTEL
     llvm_unreachable("Unknown default clause");
   }
 }
@@ -1312,7 +1330,7 @@ void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in is_device_ptr clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_is_device_ptr);
     addArg(E);
   }
 }
@@ -1320,12 +1338,48 @@ void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
 void OpenMPLateOutliner::emitOMPDefaultmapClause(
     const OMPDefaultmapClause *Cl) {
 
-  if (Cl->getDefaultmapModifier() != OMPC_DEFAULTMAP_MODIFIER_tofrom ||
-      Cl->getDefaultmapKind() != OMPC_DEFAULTMAP_scalar)
-    llvm_unreachable("Unsupported defaultmap clause");
-
   ClauseEmissionHelper CEH(*this, OMPC_defaultmap);
-  addArg("QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  CSB.add("QUAL.OMP.DEFAULTMAP.");
+  switch (Cl->getDefaultmapModifier()) {
+  case OMPC_DEFAULTMAP_MODIFIER_alloc:
+    CSB.add("ALLOC");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_to:
+    CSB.add("TO");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_from:
+    CSB.add("FROM");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_tofrom:
+    CSB.add("TOFROM");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_default:
+    CSB.add("DEFAULT");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_none:
+    CSB.add("NONE");
+    break;
+  case OMPC_DEFAULTMAP_MODIFIER_firstprivate:
+    CSB.add("FIRSTPRIVATE");
+    break;
+  default:
+     llvm_unreachable("Unexpected defaultmap modifier");
+  }
+  switch (Cl->getDefaultmapKind()) {
+  case OMPC_DEFAULTMAP_scalar:
+    CSB.add(":SCALAR");
+    break;
+  case OMPC_DEFAULTMAP_aggregate:
+    CSB.add(":AGGREGATE");
+    break;
+  case OMPC_DEFAULTMAP_pointer:
+    CSB.add(":POINTER");
+    break;
+  default:
+     llvm_unreachable("Unexpected defaultmap kind");
+  }
+  addArg(CSB.getString());
 }
 
 void OpenMPLateOutliner::emitOMPNowaitClause(const OMPNowaitClause *Cl) {
@@ -1339,30 +1393,6 @@ void OpenMPLateOutliner::emitOMPUseDevicePtrClause(
   addArg("QUAL.OMP.USE_DEVICE_PTR");
   for (auto *E : Cl->varlists())
     addArg(E);
-}
-
-void OpenMPLateOutliner::emitOMPToClause(const OMPToClause *Cl) {
-  for (auto *E : Cl->varlists()) {
-    ClauseEmissionHelper CEH(*this, OMPC_to, "QUAL.OMP.TO");
-    ClauseStringBuilder &CSB = CEH.getBuilder();
-    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
-        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
-      CSB.setArrSect();
-    addArg(CSB.getString());
-    addArg(E);
-  }
-}
-
-void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *Cl) {
-  for (auto *E : Cl->varlists()) {
-    ClauseEmissionHelper CEH(*this, OMPC_from, "QUAL.OMP.FROM");
-    ClauseStringBuilder &CSB = CEH.getBuilder();
-    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
-        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
-      CSB.setArrSect();
-    addArg(CSB.getString());
-    addArg(E);
-  }
 }
 
 void OpenMPLateOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *Cl) {
@@ -1420,7 +1450,7 @@ void OpenMPLateOutliner::emitOMPCopyprivateClause(
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in copyprivate clause");
-    addExplicit(PVD);
+    addExplicit(PVD, OMPC_copyprivate);
     if (!IsPODType)
       CSB.setNonPod();
     addArg(CSB.getString());
@@ -1441,19 +1471,12 @@ void OpenMPLateOutliner::emitOMPHintClause(const OMPHintClause *Cl) {
   addArg(CGF.EmitScalarExpr(Cl->getHint()));
 }
 
-void OpenMPLateOutliner::buildMapQualifier(ClauseStringBuilder &CSB,
-                                           const OMPMapClause *C) {
+void OpenMPLateOutliner::buildMapQualifier(
+   ClauseStringBuilder &CSB,
+   OpenMPMapClauseKind MapType,
+   const SmallVector<OpenMPMapModifierKind, 1>  Modifiers) {
   CSB.add("QUAL.OMP.MAP.");
-  for (unsigned I = 0; I < OMPMapClause::NumberOfModifiers; ++I) {
-    if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_always) {
-      CSB.add("ALWAYS.");
-      break;
-    } else if (C->getMapTypeModifier(I) == OMPC_MAP_MODIFIER_unknown)
-      break;
-    else
-      llvm_unreachable("Unexpected map modifier");
-  }
-  switch (C->getMapType()) {
+  switch (MapType) {
   case OMPC_MAP_alloc:
     CSB.add("ALLOC");
     break;
@@ -1474,64 +1497,74 @@ void OpenMPLateOutliner::buildMapQualifier(ClauseStringBuilder &CSB,
     CSB.add("RELEASE");
     break;
   }
+  bool IsFirstModifier = true;
+  for (auto MD : Modifiers) {
+    if (IsFirstModifier)
+      CSB.add(":");
+    else
+      CSB.add(".");
+    IsFirstModifier = false;
+    switch (MD) {
+      case OMPC_MAP_MODIFIER_always:
+        CSB.add("ALWAYS");
+        break;
+      case OMPC_MAP_MODIFIER_close:
+        CSB.add("CLOSE");
+        break;
+      case OMPC_MAP_MODIFIER_unknown:
+        break;
+      default:
+        llvm_unreachable("Unexpected map modifier");
+    }
+  }
 }
 
-void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *C) {
-  llvm::SmallPtrSet<const VarDecl *, 2> ProcessedPtrVarDecls;
-  for (const auto *E : C->varlists()) {
-    // When there is a map-chain in the IR for the the map clause, the
-    //  computations for various expressions used in the map-chain are to be
-    //  emitted after the implicit task, and before the target directive
-    if (const VarDecl *ExplicitVar = getExplicitVarDecl(E)) {
-      if (isImplicitTask(OMPD_task)) {
-        ImplicitMap.insert(std::make_pair(ExplicitVar, ICK_shared));
-        continue;
-      } else {
-        addExplicit(ExplicitVar, /*IsMap=*/true);
+void OpenMPLateOutliner::emitOMPAllMapClauses() {
+  for (const auto *C : Directive.getClausesOfKind<OMPMapClause>()) {
+    for (const auto *E : C->varlists()) {
+      // When there is a map-chain in the IR for the the map clause, the
+      // computations for various expressions used in the map-chain are to be
+      // emitted after the implicit task, and before the target directive
+      if (const VarDecl *ExplicitVar = getExplicitVarDecl(E)) {
+        if (isImplicitTask(OMPD_task)) {
+          ImplicitMap.insert(std::make_pair(ExplicitVar, ICK_shared));
+          continue;
+        } else {
+          addExplicit(ExplicitVar, OMPC_map);
+        }
       }
     }
-    while (const auto *OASE = dyn_cast<OMPArraySectionExpr>(E))
-      E = OASE->getBase()->IgnoreParenImpCasts();
-    while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
-      E = ASE->getBase()->IgnoreParenImpCasts();
-    while (const auto *ME = dyn_cast<MemberExpr>(E))
-      E = ME->getBase()->IgnoreParenImpCasts();
-    const VarDecl *BaseVar = getExplicitVarDecl(E);
-    QualType Ty = E->getType().getNonReferenceType();
-    // The partial struct case, like p->x and p->y, all pieces
-    // are emitted when processing 'p' the first time.
-    if (BaseVar && Ty->isAnyPointerType() &&
-        !ProcessedPtrVarDecls.insert(BaseVar).second)
-      continue;
-    SmallVector<CGOpenMPRuntime::MapInfo, 4> Info;
-    {
-      // Generate map values and emit outside the current directive.
-      ClauseEmissionHelper CEH(*this, OMPC_map, /*InitStr=*/"",
-                               /*EmitClause=*/false);
-      CGOpenMPRuntime::getLOMapInfo(Directive, CGF, C, E, Info);
+  }
+  SmallVector<CGOpenMPRuntime::LOMapInfo, 4> Info;
+  {
+    // Generate map values and emit outside the current directive.
+    ClauseEmissionHelper CEH(*this, OMPC_map, /*InitStr=*/"",
+                             /*EmitClause=*/false);
+    CGOpenMPRuntime::getLOMapInfo(Directive, CGF, &Info);
+  }
+  for (const auto &I : Info) {
+    OpenMPClauseKind CK = OMPC_map;
+    if (CurrentDirectiveKind == OMPD_target_update)
+      CK = I.MapType == OMPC_MAP_to ? OMPC_to : OMPC_from;
+    ClauseEmissionHelper CEH(*this, CK);
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    buildMapQualifier(CSB, I.MapType, I.Modifiers);
+    if (I.IsChain)
+      CSB.add(":CHAIN");
+    else if (I.Var) {
+      QualType Ty = I.Var->getType();
+      if (!isImplicitTask(OMPD_task))
+        addExplicit(I.Var, OMPC_map);
+      if (CurrentDirectiveKind == OMPD_target)
+        if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
+            !I.Base->hasName())
+          MapTemps.emplace_back(I.Base, I.Var);
     }
-    if (BaseVar && CurrentDirectiveKind == OMPD_target)
-      if (Ty->isAnyPointerType() && !Info[0].Base->hasName())
-        MapTemps.emplace_back(Info[0].Base, BaseVar);
-    if (Info.size() == 1 && Info[0].Base == Info[0].Pointer) {
-      // This is the simple non-aggregate case.
-      ClauseEmissionHelper CEH(*this, OMPC_map);
-      ClauseStringBuilder &CSB = CEH.getBuilder();
-      buildMapQualifier(CSB, C);
-      addArg(CSB.getString());
-      addArg(Info[0].Base);
-      continue;
-    }
-    for (auto I = Info.begin(), E = Info.end(); I != E; ++I) {
-      ClauseEmissionHelper CEH(*this, OMPC_map);
-      ClauseStringBuilder &CSB = CEH.getBuilder();
-      buildMapQualifier(CSB, C);
-      CSB.add(I == Info.begin() ? ":AGGRHEAD" : ":AGGR");
-      addArg(CSB.getString());
-      addArg(I->Base);
-      addArg(I->Pointer);
-      addArg(I->Size);
-    }
+    addArg(CSB.getString());
+    addArg(I.Base);
+    addArg(I.Pointer);
+    addArg(I.Size);
+    addArg(I.Type);
   }
 }
 
@@ -1544,13 +1577,24 @@ void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+void OpenMPLateOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {
+  ClauseEmissionHelper CEH(*this, OMPC_threads);
+  addArg("QUAL.OMP.ORDERED.THREADS");
+}
+
+void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {
+  ClauseEmissionHelper CEH(*this, OMPC_simd);
+  addArg("QUAL.OMP.ORDERED.SIMD");
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
+void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
+void OpenMPLateOutliner::emitOMPToClause(const OMPToClause *) {assert(false);}
+void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *) {assert(false);}
 void OpenMPLateOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
 void OpenMPLateOutliner::emitOMPCaptureClause(const OMPCaptureClause *) {}
 void OpenMPLateOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
-void OpenMPLateOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
-void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
 void OpenMPLateOutliner::emitOMPUnifiedAddressClause(
     const OMPUnifiedAddressClause *) {}
 void OpenMPLateOutliner::emitOMPUnifiedSharedMemoryClause(
@@ -1564,6 +1608,15 @@ void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
+void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *) {}
+void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
+void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
+void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
+void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
+void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
+void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *) {}
+void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
+void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
@@ -1598,7 +1651,7 @@ void OpenMPLateOutliner::HandleImplicitVar(const Expr *E,
 OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
                                        const OMPExecutableDirective &D,
                                        OpenMPDirectiveKind Kind)
-    : CGF(CGF), C(CGF.CGM.getLLVMContext()), VSMH(CGF), Directive(D),
+    : CGF(CGF), C(CGF.CGM.getLLVMContext()), Directive(D),
       CurrentDirectiveKind(Kind) {
   // Set an attribute indicating that the routine may have OpenMP directives
   // (represented with llvm intrinsics) in the LLVM IR
@@ -1606,6 +1659,11 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
 
   if (CurrentDirectiveKind == OMPD_unknown)
     CurrentDirectiveKind = D.getDirectiveKind();
+
+  if (D.hasAssociatedStmt() && needsVLAExprEmission()) {
+    const auto *CS = cast_or_null<CapturedStmt>(D.getAssociatedStmt());
+    CGF.VLASizeMapHandler->ModifyVLASizeMap(CS);
+  }
 
   RegionEntryDirective =
       CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry);
@@ -1700,6 +1758,8 @@ OpenMPLateOutliner::~OpenMPLateOutliner() {
   MarkerInstruction->eraseFromParent();
 
   addRefsToOuter();
+  if (CurrentDirectiveKind == OMPD_target)
+    CGF.clearMappedRefTemps();
 }
 
 void OpenMPLateOutliner::emitOMPParallelDirective() {
@@ -1955,6 +2015,9 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     OpenMPClauseKind ClauseKind = C->getClauseKind();
     if (shouldSkipExplicitClause(ClauseKind))
       continue;
+    if (ClauseKind == OMPC_map || ClauseKind == OMPC_to ||
+        ClauseKind == OMPC_from)
+      continue;
     switch (ClauseKind) {
 #define OPENMP_CLAUSE(Name, Class)                                             \
   case OMPC_##Name:                                                            \
@@ -1969,26 +2032,12 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
       llvm_unreachable("Clause not allowed");
     }
   }
+  if (!shouldSkipExplicitClause(OMPC_map) ||
+      !shouldSkipExplicitClause(OMPC_from) ||
+      !shouldSkipExplicitClause(OMPC_to))
+    emitOMPAllMapClauses();
   CurrentClause = nullptr;
   return *this;
-}
-
-// OpenMP spec 5.0, sec 2.19.7:
-// If a list item appears in a reduction, lastprivate or linear clause on a
-// combined target construct then it is treated as if it also appears in a
-// map clause with a map-type of tofrom.
-void OpenMPLateOutliner::emitCombinedTargetMapClauses() {
-  // Add to the target of a combined target construct.
-  if (CurrentDirectiveKind != OMPD_target ||
-      Directive.getDirectiveKind() == OMPD_target)
-    return;
-
-  for (const auto *C : Directive.getClausesOfKind<OMPReductionClause>())
-    AddMapToFromClauses(C);
-  for (const auto *C : Directive.getClausesOfKind<OMPLastprivateClause>())
-    AddMapToFromClauses(C);
-  for (const auto *C : Directive.getClausesOfKind<OMPLinearClause>())
-    AddMapToFromClauses(C);
 }
 
 bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
@@ -2106,6 +2155,8 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_requires:
+  case OMPD_depobj:
+  case OMPD_scan:
     return false;
   case OMPD_unknown:
     llvm_unreachable("Unexpected directive.");
@@ -2444,6 +2495,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   // These directives are not yet implemented.
   case OMPD_allocate:
   case OMPD_requires:
+  case OMPD_depobj:
+  case OMPD_scan:
     break;
 
   // These directives do not create region directives.
@@ -2491,7 +2544,6 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     llvm_unreachable("Combined directives not handled here");
   }
   Outliner << S.clauses();
-  Outliner.emitCombinedTargetMapClauses();
   Outliner.insertMarker();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
@@ -2533,6 +2585,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     if (IsDeviceTarget)
       addAttrsForFuncWithTargetRegion(CurFn);
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
+    Outliner.emitVLAExpressions();
     const Stmt *CapturedStmt = S.getInnermostCapturedStmt();
     CapturedStmtInfo->EmitBody(*this, CapturedStmt);
   }

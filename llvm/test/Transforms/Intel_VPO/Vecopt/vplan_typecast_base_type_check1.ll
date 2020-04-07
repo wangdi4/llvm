@@ -1,7 +1,7 @@
 ; Verify that we have correct types for 'zext' instruction and the subsequent operations
 ; Input LLVM IR is generated for below code with command:  icx -O2 -mllvm -print-module-before-loopopt
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Source code
 ; #define N 1600

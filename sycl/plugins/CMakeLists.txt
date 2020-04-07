@@ -1,3 +1,7 @@
+if(SYCL_BUILD_PI_CUDA)
+ add_subdirectory(cuda)
+endif()
+
 add_subdirectory(opencl)
 # INTEL_CUSTOMIZATION
 if (CMAKE_SYCL_USE_LEVEL0)

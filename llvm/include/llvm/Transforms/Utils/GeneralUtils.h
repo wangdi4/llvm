@@ -62,16 +62,22 @@ public:
                            SmallVectorImpl<BasicBlock *> &BBSet);
   /// \brief Breaks up the instruction recursively for all the constant
   /// expression operands. If NewInstArr is not null, put the newly created
-  /// instructions in *NewInstArr.
-  static void breakExpressions(Instruction *Inst,
-                           SmallVectorImpl<Instruction *> *NewInstArr=nullptr);
+  /// instructions in *NewInstArr. If \p ExprsToBreak is provided, only Exprs in
+  /// that list are broken from \p Inst. Otherwise, all Exprs in \p Inst are
+  /// broken.
+  static void
+  breakExpressions(Instruction *Inst,
+                   SmallVectorImpl<Instruction *> *NewInstArr = nullptr,
+                   SmallPtrSetImpl<ConstantExpr *> *ExprsToBreak = nullptr);
 
   /// \brief Breaks up the instruction recursively for the gvien constant
   /// expression operand. If NewInstArr is not null, put the newly created
-  /// instructions in *NewInstArr.
-  static void breakExpressionsHelper(ConstantExpr* Expr, unsigned OperandIndex,
-                           Instruction* User,
-                           SmallVectorImpl<Instruction *> *NewInstArr=nullptr);
+  /// instructions in *NewInstArr. If \p ExprsToBreak is provided, \p Expr is
+  /// broken only if it's in that list.
+  static void breakExpressionsHelper(
+      ConstantExpr *Expr, unsigned OperandIndex, Instruction *User,
+      SmallVectorImpl<Instruction *> *NewInstArr = nullptr,
+      SmallPtrSetImpl<ConstantExpr *> *ExprsToBreak = nullptr);
 
   /// \brief Returns false if I's next instruction is terminator instruction.
   /// Otherwise returns true.

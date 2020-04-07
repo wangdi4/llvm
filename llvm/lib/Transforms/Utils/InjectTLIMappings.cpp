@@ -14,6 +14,7 @@
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DemandedBits.h"
+#include "llvm/Analysis/Intel_Andersens.h"            // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/InstIterator.h"
@@ -56,15 +57,6 @@ static std::string mangleTLIName(StringRef VectorName, const CallInst &CI,
     Out << "v";
   Out << "_" << CI.getCalledFunction()->getName() << "(" << VectorName << ")";
   return std::string(Out.str());
-}
-
-/// A helper function for converting Scalar types to vector types.
-/// If the incoming type is void, we return void. If the VF is 1, we return
-/// the scalar type.
-static Type *ToVectorTy(Type *Scalar, unsigned VF, bool isScalable = false) {
-  if (Scalar->isVoidTy() || VF == 1)
-    return Scalar;
-  return VectorType::get(Scalar, {VF, isScalable});
 }
 
 /// A helper function that adds the vector function declaration that
@@ -184,6 +176,8 @@ void InjectTLIMappingsLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<LoopAccessLegacyAnalysis>();
   AU.addPreserved<DemandedBitsWrapperPass>();
   AU.addPreserved<OptimizationRemarkEmitterWrapperPass>();
+  AU.addPreserved<GlobalsAAWrapperPass>();                // INTEL
+  AU.addPreserved<AndersensAAWrapperPass>();              // INTEL
 }
 
 ////////////////////////////////////////////////////////////////////////////////

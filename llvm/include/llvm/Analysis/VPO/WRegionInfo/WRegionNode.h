@@ -15,6 +15,7 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONNODE_H
 #define LLVM_ANALYSIS_VPO_WREGIONNODE_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -33,7 +34,6 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 
 #include <set>
-#include <unordered_map>
 
 namespace llvm {
 #if INTEL_CUSTOMIZATION
@@ -47,7 +47,7 @@ class HLLoop;
 
 namespace vpo {
 
-extern std::unordered_map<int, StringRef> WRNName;
+extern DenseMap<int, StringRef> WRNName;
 
 typedef VPOSmallVectorBB WRegionBBSetTy;
 
@@ -189,7 +189,7 @@ protected:
                    unsigned NumArgs);
 
   /// Update WRN for clauses with no operands.
-  void handleQual(int ClauseID);
+  void handleQual(const ClauseSpecifier &ClauseInfo);
 
   /// Update WRN for clauses with one operand.
   void handleQualOpnd(int ClauseID, Value *V);
@@ -329,8 +329,10 @@ public:
   virtual int getCollapse()               const {WRNERROR(QUAL_OMP_COLLAPSE); }
   virtual void setDefault(WRNDefaultKind T)     {WRNERROR("DEFAULT");         }
   virtual WRNDefaultKind getDefault()     const {WRNERROR("DEFAULT");         }
-  virtual void setDefaultmapTofromScalar(bool F) {WRNERROR("DEFAULTMAP");     }
-  virtual bool getDefaultmapTofromScalar() const {WRNERROR("DEFAULTMAP");     }
+  virtual void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B)
+                                                {WRNERROR("DEFAULTMAP");      }
+  virtual WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const
+                                                {WRNERROR("DEFAULTMAP");      }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual void setFinal(EXPR E)                 {WRNERROR(QUAL_OMP_FINAL);    }
@@ -343,6 +345,8 @@ public:
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
   virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
+  virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
+  virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
   virtual bool getIsThreads()             const {WRNERROR("THREADS/SIMD");    }
   virtual void setMergeable(bool Flag)          {WRNERROR(QUAL_OMP_MERGEABLE);}

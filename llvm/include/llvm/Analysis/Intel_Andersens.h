@@ -276,6 +276,9 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // is done.
   bool WholeProgramSafeDetected = false;
 
+  // Indicates the size of pointer.
+  unsigned PointerSizeInBits = 0;
+
   std::set<unsigned> PossibleSourceOfPointsToInfo;
 
   std::vector<CallSite> IndirectCallList;

@@ -224,6 +224,7 @@ bool MCAssembler::evaluateFixup(const MCAsmLayout &Layout,
     return getBackend().evaluateTargetFixup(*this, Layout, Fixup, DF, Target,
                                             Value, WasForced);
 
+  unsigned FixupFlags = getBackendPtr()->getFixupKindInfo(Fixup.getKind()).Flags;
   bool IsPCRel = getBackendPtr()->getFixupKindInfo(Fixup.getKind()).Flags &
                  MCFixupKindInfo::FKF_IsPCRel;
 
@@ -239,8 +240,9 @@ bool MCAssembler::evaluateFixup(const MCAsmLayout &Layout,
       if (A->getKind() != MCSymbolRefExpr::VK_None || SA.isUndefined()) {
         IsResolved = false;
       } else if (auto *Writer = getWriterPtr()) {
-        IsResolved = Writer->isSymbolRefDifferenceFullyResolvedImpl(
-            *this, SA, *DF, false, true);
+        IsResolved = (FixupFlags & MCFixupKindInfo::FKF_Constant) ||
+                     Writer->isSymbolRefDifferenceFullyResolvedImpl(
+                         *this, SA, *DF, false, true);
       }
     }
   } else {
@@ -612,20 +614,12 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
   case MCFragment::FT_BoundaryAlign: {
-    const MCBoundaryAlignFragment &BF = cast<MCBoundaryAlignFragment>(F);
-    if (BF.hasEmitNops()) {
-      if (!Asm.getBackend().writeNopData(OS, FragmentSize))
-        report_fatal_error("unable to write nop sequence of " +
-                           Twine(FragmentSize) + " bytes");
-    } else if (BF.hasValue()) {
-      for (uint64_t i = 0; i != FragmentSize; ++i)
-        OS << char(BF.getValue());
-    }
+    if (!Asm.getBackend().writeNopData(OS, FragmentSize))
+      report_fatal_error("unable to write nop sequence of " +
+                         Twine(FragmentSize) + " bytes");
     break;
   }
-#endif // INTEL_CUSTOMIZATION
 
   case MCFragment::FT_SymbolId: {
     const MCSymbolIdFragment &SF = cast<MCSymbolIdFragment>(F);
@@ -791,9 +785,15 @@ void MCAssembler::layout(MCAsmLayout &Layout) {
   }
 
   // Layout until everything fits.
-  while (layoutOnce(Layout))
+  while (layoutOnce(Layout)) {
     if (getContext().hadError())
       return;
+    // Size of fragments in one section can depend on the size of fragments in
+    // another. If any fragment has changed size, we have to re-layout (and
+    // as a result possibly further relax) all.
+    for (MCSection &Sec : *this)
+      Layout.invalidateFragmentsFrom(&*Sec.begin());
+  }
 
   DEBUG_WITH_TYPE("mc-dump", {
       errs() << "assembler backend - post-relaxation\n--\n";
@@ -1000,54 +1000,29 @@ static bool needPadding(uint64_t StartAddr, uint64_t Size,
          isAgainstBoundary(StartAddr, Size, BoundaryAlignment);
 }
 
-#if INTEL_CUSTOMIZATION
 bool MCAssembler::relaxBoundaryAlign(MCAsmLayout &Layout,
                                      MCBoundaryAlignFragment &BF) {
-  // The MCBoundaryAlignFragment that does not emit anything or not have any
-  // fragment to be aligned should not be relaxed.
-  if (!BF.hasEmitNopsOrValue() || !BF.getFragment())
+  // BoundaryAlignFragment that doesn't need to align any fragment should not be
+  // relaxed.
+  if (!BF.getLastFragment())
     return false;
 
-  // Compute the size of all the fragments in the range we're trying to align.
-  const MCFragment *TF = BF.getFragment();
-  uint64_t AlignedSize = computeFragmentSize(Layout, *TF);
-  uint64_t AlignedOffset = Layout.getFragmentOffset(TF);
-  // Note: It should be guaranteed that there is a MCBoundaryAlignFragment
-  // before TF in the same section.
-  for (auto *F = TF->getPrevNode(); !isa<MCBoundaryAlignFragment>(F);
-       F = F->getPrevNode()) {
-    assert(F->hasInstructions() &&
-           "The fragment doesn't have any instruction.");
-    uint64_t Size = computeFragmentSize(Layout, *F);
-    AlignedSize += Size;
-    AlignedOffset -= Size;
-  }
+  uint64_t AlignedOffset = Layout.getFragmentOffset(&BF);
+  uint64_t AlignedSize = 0;
+  for (const MCFragment *F = BF.getLastFragment(); F != &BF;
+       F = F->getPrevNode())
+    AlignedSize += computeFragmentSize(Layout, *F);
 
-  // Compute the size of all the MCBoundaryAlignFragments in the range
-  // [BF,BF.getFragment).
-  uint64_t FixedValue = 0;
-  for (const MCFragment *F = &BF; F != TF; F = F->getNextNode())
-    if (auto *MBF = dyn_cast<MCBoundaryAlignFragment>(F))
-      FixedValue += MBF->getSize();
-
-  AlignedOffset -= FixedValue;
   Align BoundaryAlignment = BF.getAlignment();
   uint64_t NewSize = needPadding(AlignedOffset, AlignedSize, BoundaryAlignment)
                          ? offsetToAlignment(AlignedOffset, BoundaryAlignment)
                          : 0U;
-  if (!BF.hasEmitNops()) {
-    assert(BF.getNextNode()->hasInstructions() &&
-           "The fragment doesn't have any instruction.");
-    if (NewSize > static_cast<uint64_t>(BF.getMaxBytesToEmit()))
-      NewSize = 0;
-  }
   if (NewSize == BF.getSize())
     return false;
   BF.setSize(NewSize);
   Layout.invalidateFragmentsFrom(&BF);
   return true;
 }
-#endif // INTEL_CUSTOMIZATION
 
 bool MCAssembler::relaxDwarfLineAddr(MCAsmLayout &Layout,
                                      MCDwarfLineAddrFragment &DF) {
@@ -1134,6 +1109,30 @@ bool MCAssembler::relaxCVDefRange(MCAsmLayout &Layout,
   return OldSize != F.getContents().size();
 }
 
+bool MCAssembler::relaxFragment(MCAsmLayout &Layout, MCFragment &F) {
+  switch(F.getKind()) {
+  default:
+    return false;
+  case MCFragment::FT_Relaxable:
+    assert(!getRelaxAll() &&
+           "Did not expect a MCRelaxableFragment in RelaxAll mode");
+    return relaxInstruction(Layout, cast<MCRelaxableFragment>(F));
+  case MCFragment::FT_Dwarf:
+    return relaxDwarfLineAddr(Layout, cast<MCDwarfLineAddrFragment>(F));
+  case MCFragment::FT_DwarfFrame:
+    return relaxDwarfCallFrameFragment(Layout,
+                                       cast<MCDwarfCallFrameFragment>(F));
+  case MCFragment::FT_LEB:
+    return relaxLEB(Layout, cast<MCLEBFragment>(F));
+  case MCFragment::FT_BoundaryAlign:
+    return relaxBoundaryAlign(Layout, cast<MCBoundaryAlignFragment>(F));
+  case MCFragment::FT_CVInlineLines:
+    return relaxCVInlineLineTable(Layout, cast<MCCVInlineLineTableFragment>(F));
+  case MCFragment::FT_CVDefRange:
+    return relaxCVDefRange(Layout, cast<MCCVDefRangeFragment>(F));
+  }
+}
+
 bool MCAssembler::layoutSectionOnce(MCAsmLayout &Layout, MCSection &Sec) {
   // Holds the first fragment which needed relaxing during this layout. It will
   // remain NULL if none were relaxed.
@@ -1142,43 +1141,11 @@ bool MCAssembler::layoutSectionOnce(MCAsmLayout &Layout, MCSection &Sec) {
   MCFragment *FirstRelaxedFragment = nullptr;
 
   // Attempt to relax all the fragments in the section.
-  for (MCSection::iterator I = Sec.begin(), IE = Sec.end(); I != IE; ++I) {
+  for (MCFragment &Frag : Sec) {
     // Check if this is a fragment that needs relaxation.
-    bool RelaxedFrag = false;
-    switch(I->getKind()) {
-    default:
-      break;
-    case MCFragment::FT_Relaxable:
-      assert(!getRelaxAll() &&
-             "Did not expect a MCRelaxableFragment in RelaxAll mode");
-      RelaxedFrag = relaxInstruction(Layout, *cast<MCRelaxableFragment>(I));
-      break;
-    case MCFragment::FT_Dwarf:
-      RelaxedFrag = relaxDwarfLineAddr(Layout,
-                                       *cast<MCDwarfLineAddrFragment>(I));
-      break;
-    case MCFragment::FT_DwarfFrame:
-      RelaxedFrag =
-        relaxDwarfCallFrameFragment(Layout,
-                                    *cast<MCDwarfCallFrameFragment>(I));
-      break;
-    case MCFragment::FT_LEB:
-      RelaxedFrag = relaxLEB(Layout, *cast<MCLEBFragment>(I));
-      break;
-    case MCFragment::FT_BoundaryAlign:
-      RelaxedFrag =
-          relaxBoundaryAlign(Layout, *cast<MCBoundaryAlignFragment>(I));
-      break;
-    case MCFragment::FT_CVInlineLines:
-      RelaxedFrag =
-          relaxCVInlineLineTable(Layout, *cast<MCCVInlineLineTableFragment>(I));
-      break;
-    case MCFragment::FT_CVDefRange:
-      RelaxedFrag = relaxCVDefRange(Layout, *cast<MCCVDefRangeFragment>(I));
-      break;
-    }
+    bool RelaxedFrag = relaxFragment(Layout, Frag);
     if (RelaxedFrag && !FirstRelaxedFragment)
-      FirstRelaxedFragment = &*I;
+      FirstRelaxedFragment = &Frag;
   }
   if (FirstRelaxedFragment) {
     Layout.invalidateFragmentsFrom(FirstRelaxedFragment);
@@ -1191,8 +1158,7 @@ bool MCAssembler::layoutOnce(MCAsmLayout &Layout) {
   ++stats::RelaxationSteps;
 
   bool WasRelaxed = false;
-  for (iterator it = begin(), ie = end(); it != ie; ++it) {
-    MCSection &Sec = *it;
+  for (MCSection &Sec : *this) {
     while (layoutSectionOnce(Layout, Sec))
       WasRelaxed = true;
   }

@@ -88,6 +88,7 @@ protected:
   AssumptionCacheTracker *ACT;
   InliningLoopInfoCache *ILIC; // INTEL
   ProfileSummaryInfo *PSI;
+  std::function<const TargetLibraryInfo &(Function &)> GetTLI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
   SmallSet<CallBase *, 20> CallSitesForFusion; // INTEL
   SmallSet<Function *, 20> FuncsForDTrans; // INTEL

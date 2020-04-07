@@ -897,7 +897,29 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(uint64_t TSFlags, unsigned &CurByte,
     llvm_unreachable("Unexpected form in emitVEXOpcodePrefix!");
   case X86II::MRM_C0: // INTEL
   case X86II::RawFrm:
+  case X86II::PrefixByte:
     break;
+#if INTEL_CUSTOMIZATION
+  case X86II::MRMDestMem4VOp2FSIB: {
+    //  MemAddr, src1(ModR/M), src2(VEX_4V)
+    unsigned BaseRegEnc = getX86RegEncoding(MI, MemOperand + X86::AddrBaseReg);
+    VEX_B = ~(BaseRegEnc >> 3) & 1;
+    unsigned IndexRegEnc =
+        getX86RegEncoding(MI, MemOperand + X86::AddrIndexReg);
+    VEX_X = ~(IndexRegEnc >> 3) & 1;
+
+    CurOp += X86::AddrNumOperands;
+
+    unsigned RegEnc = getX86RegEncoding(MI, CurOp++);
+    VEX_R = ~(RegEnc >> 3) & 1;
+    EVEX_R2 = ~(RegEnc >> 4) & 1;
+
+    unsigned VRegEnc = getX86RegEncoding(MI, CurOp++);
+    VEX_4V = ~VRegEnc & 0xf;
+    EVEX_V2 = ~(VRegEnc >> 4) & 1;
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRMDestMemFSIB: // INTEL
   case X86II::MRMDestMem: {
     // MRMDestMem instructions forms:
@@ -1264,7 +1286,6 @@ uint8_t X86MCCodeEmitter::determineREXPrefix(const MCInst &MI, uint64_t TSFlags,
     REX |= isREXExtendedReg(MI, CurOp++) << 0; // REX.B
     REX |= isREXExtendedReg(MI, CurOp++) << 2; // REX.R
     break;
-  case X86II::MRMDestMemFSIB: // INTEL
   case X86II::MRMDestMem:
     REX |= isREXExtendedReg(MI, MemOperand + X86::AddrBaseReg) << 0;  // REX.B
     REX |= isREXExtendedReg(MI, MemOperand + X86::AddrIndexReg) << 1; // REX.X
@@ -1300,6 +1321,10 @@ uint8_t X86MCCodeEmitter::determineREXPrefix(const MCInst &MI, uint64_t TSFlags,
   case X86II::MRMr0:
     REX |= isREXExtendedReg(MI, CurOp++) << 2; // REX.R
     break;
+  case X86II::MRMSrcMem4VOp3FSIB:
+  case X86II::MRMDestMem4VOp2FSIB:
+  case X86II::MRMDestMemFSIB:
+    llvm_unreachable("FSIB format never need REX prefix!");
 #endif // INTEL_CUSTOMIZATION
   }
   if (REX && UsesHighByteReg)
@@ -1315,30 +1340,8 @@ void X86MCCodeEmitter::emitSegmentOverridePrefix(unsigned &CurByte,
                                                  const MCInst &MI,
                                                  raw_ostream &OS) const {
   // Check for explicit segment override on memory operand.
-  switch (MI.getOperand(SegOperand).getReg()) {
-  default:
-    llvm_unreachable("Unknown segment register!");
-  case 0:
-    break;
-  case X86::CS:
-    emitByte(0x2E, CurByte, OS);
-    break;
-  case X86::SS:
-    emitByte(0x36, CurByte, OS);
-    break;
-  case X86::DS:
-    emitByte(0x3E, CurByte, OS);
-    break;
-  case X86::ES:
-    emitByte(0x26, CurByte, OS);
-    break;
-  case X86::FS:
-    emitByte(0x64, CurByte, OS);
-    break;
-  case X86::GS:
-    emitByte(0x65, CurByte, OS);
-    break;
-  }
+  if (unsigned Reg = MI.getOperand(SegOperand).getReg())
+    emitByte(X86::getSegmentOverridePrefixForReg(Reg), CurByte, OS);
 }
 
 /// Emit all instruction prefixes prior to the opcode.
@@ -1477,6 +1480,7 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
   case X86II::RawFrmDstSrc:
   case X86II::RawFrmSrc:
   case X86II::RawFrmDst:
+  case X86II::PrefixByte:
     emitByte(BaseOpcode, CurByte, OS);
     break;
   case X86II::AddCCFrm: {
@@ -1540,6 +1544,16 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     CurOp = SrcRegNum + 1;
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case X86II::MRMDestMem4VOp2FSIB: {
+    emitByte(BaseOpcode, CurByte, OS);
+    unsigned SrcRegNum = CurOp + X86::AddrNumOperands;
+    emitMemModRMByte(MI, CurOp, getX86RegNum(MI.getOperand(SrcRegNum)), TSFlags,
+                     Rex, CurByte, OS, Fixups, STI, true);
+    CurOp = SrcRegNum + 2; // skip VEX_V4
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRMDestMemFSIB: // INTEL
   case X86II::MRMDestMem: {
     emitByte(BaseOpcode, CurByte, OS);

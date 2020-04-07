@@ -99,6 +99,10 @@ void CompilerInstance::setVerboseOutputStream(std::unique_ptr<raw_ostream> Value
 void CompilerInstance::setTarget(TargetInfo *Value) { Target = Value; }
 void CompilerInstance::setAuxTarget(TargetInfo *Value) { AuxTarget = Value; }
 
+llvm::vfs::FileSystem &CompilerInstance::getVirtualFileSystem() const {
+  return getFileManager().getVirtualFileSystem();
+}
+
 void CompilerInstance::setFileManager(FileManager *Value) {
   FileMgr = Value;
 }
@@ -140,7 +144,7 @@ std::unique_ptr<Sema> CompilerInstance::takeSema() {
 IntrusiveRefCntPtr<ASTReader> CompilerInstance::getASTReader() const {
   return TheASTReader;
 }
-void CompilerInstance::setModuleManager(IntrusiveRefCntPtr<ASTReader> Reader) {
+void CompilerInstance::setASTReader(IntrusiveRefCntPtr<ASTReader> Reader) {
   assert(ModuleCache.get() == &Reader->getModuleManager().getModuleCache() &&
          "Expected ASTReader to use the same PCM cache");
   TheASTReader = std::move(Reader);
@@ -381,7 +385,7 @@ static void InitializeFileRemapping(DiagnosticsEngine &Diags,
 void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
   const PreprocessorOptions &PPOpts = getPreprocessorOpts();
 
-  // The module manager holds a reference to the old preprocessor (if any).
+  // The AST reader holds a reference to the old preprocessor (if any).
   TheASTReader.reset();
 
   // Create the Preprocessor.
@@ -925,6 +929,10 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
       !getFrontendOpts().AuxTriple.empty()) {
     auto TO = std::make_shared<TargetOptions>();
     TO->Triple = llvm::Triple::normalize(getFrontendOpts().AuxTriple);
+    if (getFrontendOpts().AuxTargetCPU)
+      TO->CPU = getFrontendOpts().AuxTargetCPU.getValue();
+    if (getFrontendOpts().AuxTargetFeatures)
+      TO->FeaturesAsWritten = getFrontendOpts().AuxTargetFeatures.getValue();
     TO->HostTriple = getTarget().getTriple().str();
     setAuxTarget(TargetInfo::CreateTargetInfo(getDiagnostics(), TO));
   }
@@ -1632,15 +1640,15 @@ enum ModuleSource {
 
 /// Select a source for loading the named module and compute the filename to
 /// load it from.
-static ModuleSource
-selectModuleSource(Module *M, StringRef ModuleName, std::string &ModuleFilename,
-                   const std::map<std::string, std::string> &BuiltModules,
-                   HeaderSearch &HS) {
+static ModuleSource selectModuleSource(
+    Module *M, StringRef ModuleName, std::string &ModuleFilename,
+    const std::map<std::string, std::string, std::less<>> &BuiltModules,
+    HeaderSearch &HS) {
   assert(ModuleFilename.empty() && "Already has a module source?");
 
   // Check to see if the module has been built as part of this compilation
   // via a module build pragma.
-  auto BuiltModuleIt = BuiltModules.find(std::string(ModuleName));
+  auto BuiltModuleIt = BuiltModules.find(ModuleName);
   if (BuiltModuleIt != BuiltModules.end()) {
     ModuleFilename = BuiltModuleIt->second;
     return MS_ModuleBuildPragma;

@@ -10,6 +10,7 @@
 
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
@@ -28,46 +29,6 @@ const char *MDStructTypesTag = "dtrans_types";
 // The tag name used for variables and instructions marked with DTrans type
 // information for pointer type recovery.
 const char *MDDTransTypeTag = "dtrans_type";
-
-// Helper function to check whether \p Ty is a pointer type, or contains a
-// reference to a pointer type.
-static bool hasPointerType(llvm::Type *Ty) {
-  if (Ty->isPointerTy())
-    return true;
-
-  if (auto *SeqTy = dyn_cast<SequentialType>(Ty))
-    return hasPointerType(SeqTy->getElementType());
-
-  if (auto *StTy = dyn_cast<StructType>(Ty)) {
-    // Check inside of literal structs because those cannot be referenced by
-    // name. However, there is no need to look inside non-literal structures
-    // because those will be referenced by their name.
-    if (StTy->isLiteral())
-      for (auto *ElemTy : StTy->elements()) {
-        bool HasPointer = hasPointerType(ElemTy);
-        if (HasPointer)
-          return true;
-      }
-  }
-
-  if (auto *FnTy = dyn_cast<FunctionType>(Ty)) {
-    // Check the return type and the parameter types for any possible
-    // pointer because metadata descriptions on these will be used to help
-    // recovery of opaque pointer types.
-    Type *RetTy = FnTy->getReturnType();
-    if (hasPointerType(RetTy))
-      return true;
-
-    unsigned NumParams = FnTy->getNumParams();
-    for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
-      Type *ParmTy = FnTy->getParamType(Idx);
-      if (hasPointerType(ParmTy))
-        return true;
-    }
-  }
-
-  return false;
-}
 
 bool TypeMetadataReader::initialize(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
@@ -345,6 +306,22 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
   });
 
   return StTy;
+}
+
+// This method is the publicly visible method that will check whether a Value
+// has DTransType metadata, and returns it if available.
+// Otherwise, returns nullptr.
+DTransType *TypeMetadataReader::getDTransTypeFromMD(Value *V) {
+  MDNode *MDNode = nullptr;
+  if (auto *I = dyn_cast<Instruction>(V))
+    MDNode = I->getMetadata(MDDTransTypeTag);
+  else if (auto *G = dyn_cast<GlobalObject>(V))
+    MDNode = G->getMetadata(MDDTransTypeTag);
+
+  if (MDNode)
+    return decodeMDNode(MDNode);
+
+  return nullptr;
 }
 
 // This method returns a DTransType* by decoding the information the metadata
@@ -631,10 +608,11 @@ void TypeMetadataReader::cacheMDDecoding(MDNode *MD, DTransType *DTTy) {
 } // end namespace dtrans
 } // end namespace llvm
 
-using namespace llvm;
-
 #if !INTEL_PRODUCT_RELEASE
-namespace {
+
+namespace llvm {
+namespace dtrans {
+
 class TypeMetadataTester {
 private:
   dtrans::DTransTypeManager TM;
@@ -768,6 +746,10 @@ public:
     return !ErrorsFound;
   }
 };
+} // end namespace dtrans
+} // end namespace llvm
+
+using namespace llvm;
 
 // This pass is just for testing the TypeMetadataReader class. This pass will
 // not be part of the compiler pipeline.
@@ -782,7 +764,7 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    TypeMetadataTester Tester(M.getContext());
+    dtrans::TypeMetadataTester Tester(M.getContext());
     Tester.runTest(M);
     return false;
   }
@@ -791,7 +773,6 @@ public:
     AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
-} // end anonymous namespace
 
 char DTransTypeMetadataReaderTestWrapper::ID = 0;
 INITIALIZE_PASS(DTransTypeMetadataReaderTestWrapper,

@@ -1048,6 +1048,19 @@ public:
                               SmallVectorImpl<const SCEV *> &Subscripts,
                               SmallVectorImpl<const SCEV *> &Sizes);
 
+  /// Gathers the individual index expressions from a GEP instruction.
+  ///
+  /// This function optimistically assumes the GEP references into a fixed size
+  /// array. If this is actually true, this function returns a list of array
+  /// subscript expressions in \p Subscripts and a list of integers describing
+  /// the size of the individual array dimensions in \p Sizes. Both lists have
+  /// either equal length or the size list is one element shorter in case there
+  /// is no known size available for the outermost array dimension. Returns true
+  /// if successful and false otherwise.
+  bool getIndexExpressionsFromGEP(const GetElementPtrInst *GEP,
+                                  SmallVectorImpl<const SCEV *> &Subscripts,
+                                  SmallVectorImpl<int> &Sizes);
+
   /// Split this SCEVAddRecExpr into two vectors of SCEVs representing the
   /// subscripts and sizes of an array access.
   ///
@@ -1758,7 +1771,10 @@ private: // INTEL
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                              bool isSigned, bool ControlsExit,
-                             bool AllowPredicates = false);
+#if INTEL_CUSTOMIZATION
+                             bool AllowPredicates = false,
+                             bool IVMaxValIsUB = false);
+#endif // INTEL_CUSTOMIZATION
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
@@ -1890,9 +1906,13 @@ private: // INTEL
   /// frugal here since we just bail out of actually constructing and
   /// canonicalizing an expression in the cases where the result isn't going
   /// to be a constant.
-public: // INTEL
-  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS);
-private: // INTEL
+#if INTEL_CUSTOMIZATION
+public:
+  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
+                                            bool *SignedOverflow = nullptr);
+
+private:
+#endif // INTEL_CUSTOMIZATION
 
   /// Drop memoized information computed for S.
   void forgetMemoizedResults(const SCEV *S);
@@ -1974,7 +1994,9 @@ private: // INTEL
   /// assert these preconditions so please be careful.
   const SCEV *computeMaxBECountForLT(const SCEV *Start, const SCEV *Stride,
                                      const SCEV *End, unsigned BitWidth,
-                                     bool IsSigned);
+#if INTEL_CUSTOMIZATION
+                                     bool IsSigned, bool IVMaxValIsUB = false);
+#endif // INTEL_CUSTOMIZATION
 
   /// Verify if an linear IV with positive stride can overflow when in a
   /// less-than comparison, knowing the invariant term of the comparison,
@@ -2023,7 +2045,7 @@ private: // INTEL
   /// otherwise.  The second component is the `FoldingSetNodeID` that was
   /// constructed to look up the SCEV and the third component is the insertion
   /// point.
-  std::tuple<const SCEV *, FoldingSetNodeID, void *>
+  std::tuple<SCEV *, FoldingSetNodeID, void *>
   findExistingSCEVInCache(int SCEVType, ArrayRef<const SCEV *> Ops);
 
   FoldingSet<SCEV> UniqueSCEVs;

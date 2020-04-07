@@ -43,6 +43,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
@@ -101,6 +102,7 @@ namespace {
       (void) llvm::createAggressiveDCEPass();
       (void) llvm::createAggressiveInstCombinerPass();
       (void) llvm::createBitTrackingDCEPass();
+      (void) llvm::createOpenMPOptLegacyPass();
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
@@ -250,11 +252,13 @@ namespace {
       (void) llvm::createInstructionNamerPass();
       (void) llvm::createMetaRenamerPass();
       (void) llvm::createAttributorLegacyPass();
+      (void) llvm::createAttributorCGSCCLegacyPass();
       (void) llvm::createPostOrderFunctionAttrsLegacyPass();
       (void) llvm::createReversePostOrderFunctionAttrsPass();
       (void) llvm::createMergeFunctionsPass();
       (void) llvm::createMergeICmpsLegacyPass();
       (void) llvm::createExpandMemCmpPass();
+      (void)llvm::createSYCLLowerWGScopePass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -273,6 +277,7 @@ namespace {
       (void) llvm::createVPlanDriverPass();
       (void) llvm::createVPlanDriverHIRPass();
 #endif // INTEL_CUSTOMIZATION
+      (void) llvm::createVectorCombinePass();
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();

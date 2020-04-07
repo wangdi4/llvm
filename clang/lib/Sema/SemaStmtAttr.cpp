@@ -13,6 +13,7 @@
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Basic/TargetInfo.h" // INTEL
 #include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/ScopeInfo.h"
@@ -134,17 +135,31 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
 
   if (NumArgs == 0) {
     if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAII ||
-        A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency) {
+        A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency ||
+        A.getKind() == ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving ||
+        A.getKind() == ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations) {
       S.Diag(A.getLoc(), diag::warn_attribute_too_few_arguments) << A << 1;
       return nullptr;
     }
-#if INTEL_CUSTOMIZATION
-    else if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGALegacyIVDep)
-      return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(A, nullptr);
-#endif // INTEL_CUSTOMIZATION
   }
 
-  return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(A, A.getArgAsExpr(0));
+  return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
+      A, A.getNumArgs() ? A.getArgAsExpr(0) : nullptr);
+}
+
+template <>
+Attr *handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
+    Sema &S, const ParsedAttr &A) {
+  if (S.LangOpts.SYCLIsHost)
+    return nullptr;
+
+  unsigned NumArgs = A.getNumArgs();
+  if (NumArgs > 0) {
+    S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 0;
+    return nullptr;
+  }
+
+  return new (S.Context) SYCLIntelFPGADisableLoopPipeliningAttr(S.Context, A);
 }
 
 static bool checkSYCLIntelFPGAIVDepSafeLen(Sema &S, llvm::APSInt &Value,
@@ -229,14 +244,10 @@ Sema::BuildSYCLIntelFPGAIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
 template <typename FPGALoopAttrT>
 FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
                                                 Expr *E) {
-#if INTEL_CUSTOMIZATION
-  if (!E && A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALegacyIVDep)
-    return new (Context) FPGALoopAttrT(Context, A, E);
-#endif // INTEL_CUSTOMIZATION
-  if (!E)
+  if (!E && !(A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALoopCoalesce))
     return nullptr;
 
-  if (!E->isInstantiationDependent()) {
+  if (E && !E->isInstantiationDependent()) {
     llvm::APSInt ArgVal(32);
 
     if (!E->isIntegerConstantExpr(ArgVal, getASTContext())) {
@@ -248,27 +259,24 @@ FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
 
     int Val = ArgVal.getSExtValue();
 
-    if (A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGAII) {
+    if (A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGAII ||
+        A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALoopCoalesce) {
       if (Val <= 0) {
         Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-            << "'ii'" << /* positive */ 0;
+            << A.getAttrName() << /* positive */ 0;
         return nullptr;
       }
     } else if (A.getParsedKind() ==
-               ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency) {
+                   ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency ||
+               A.getParsedKind() ==
+                   ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving ||
+               A.getParsedKind() ==
+                   ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations) {
       if (Val < 0) {
         Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-            << "'max_concurrency'" << /* non-negative */ 1;
+            << A.getAttrName() << /* non-negative */ 1;
         return nullptr;
       }
-#if INTEL_CUSTOMIZATION
-    } else if (A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALegacyIVDep) {
-      if (Val <= 0) {
-        Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-            << "'ivdep'" << /* positive */ 0;
-        return nullptr;
-      }
-#endif // INTEL_CUSTOMIZATION
     } else {
       llvm_unreachable("unknown sycl fpga loop attr");
     }
@@ -276,19 +284,25 @@ FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
 
   return new (Context) FPGALoopAttrT(Context, A, E);
 }
-#if INTEL_CUSTOMIZATION
 
-template SYCLIntelFPGALegacyIVDepAttr *
-Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGALegacyIVDepAttr>(
-    const AttributeCommonInfo &, Expr *);
+#if INTEL_CUSTOMIZATION
 template SYCLIntelFPGAIIAttr *
 Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAIIAttr>(
     const AttributeCommonInfo &, Expr *);
 template SYCLIntelFPGAMaxConcurrencyAttr *
 Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(
     const AttributeCommonInfo &, Expr *);
-
+template SYCLIntelFPGALoopCoalesceAttr *
+Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGALoopCoalesceAttr>(
+    const AttributeCommonInfo &, Expr *);
+template SYCLIntelFPGAMaxInterleavingAttr *
+Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAMaxInterleavingAttr>(
+    const AttributeCommonInfo &, Expr *);
+template SYCLIntelFPGASpeculatedIterationsAttr *
+Sema::BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(
+    const AttributeCommonInfo &, Expr *);
 #endif // INTEL_CUSTOMIZATION
+
 // Filters out any attributes from the list that are either not the specified
 // type, or whose function isDependent returns true.
 template <typename T>
@@ -706,8 +720,10 @@ static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
       St->getStmtClass() != Stmt::ForStmtClass &&
       St->getStmtClass() != Stmt::CXXForRangeStmtClass &&
       St->getStmtClass() != Stmt::WhileStmtClass) {
+    SmallString<24> DiagStr("#pragma ");
+    DiagStr += AA.getArgAsIdent(0)->Ident->getName();
     S.Diag(St->getBeginLoc(), diag::err_pragma_loop_precedes_nonloop)
-        << "#pragma block_loop";
+        << DiagStr;
     return nullptr;
   }
 
@@ -767,7 +783,7 @@ static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
   }
   const IntelBlockLoopAttr *BL = IntelBlockLoopAttr::CreateImplicit(
       S.Context, Factors.data(), Factors.size(), Levels.data(), Levels.size(),
-      Privates.data(), Privates.size(), AA.getRange());
+      Privates.data(), Privates.size(), AA);
   if (!S.CheckIntelBlockLoopAttribute(BL))
     return nullptr;
   return const_cast<IntelBlockLoopAttr *>(BL);
@@ -1307,7 +1323,7 @@ CheckForIncompatibleAttributes(Sema &S,
          HintAttrs[MaxConcurrency].NumericAttr != nullptr ||
          HintAttrs[MaxInterleaving].NumericAttr != nullptr)) {
 
-      const LoopHintAttr *PrevAttr = IVDepAttr;
+      const LoopHintAttr *PrevAttr = nullptr;
       if (HintAttrs[II].NumericAttr)
         PrevAttr = HintAttrs[II].NumericAttr;
       else if (HintAttrs[MaxConcurrency].NumericAttr)
@@ -1322,6 +1338,8 @@ CheckForIncompatibleAttributes(Sema &S,
         PrevAttr = HintAttrs[SpeculatedIterations].NumericAttr;
       else if (HintAttrs[ForceHyperopt].StateAttr)
         PrevAttr = HintAttrs[ForceHyperopt].StateAttr;
+      else // IVDepAttr != nullptr.
+        PrevAttr = IVDepAttr;
       OptionLoc = LH->getRange().getBegin();
       S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
               << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)
@@ -1360,17 +1378,56 @@ static void CheckForDuplicationSYCLLoopAttribute(
   }
 }
 
+/// Diagnose mutually exclusive attributes when present on a given
+/// declaration. Returns true if diagnosed.
+template <typename LoopAttrT, typename LoopAttrT2>
+static void CheckMutualExclusionSYCLLoopAttribute(
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
+  const LoopAttrT *LoopAttr = nullptr;
+  const LoopAttrT2 *LoopAttr2 = nullptr;
+
+  for (const auto *I : Attrs) {
+    if (isa<LoopAttrT>(I))
+      LoopAttr = cast<LoopAttrT>(I);
+    if (isa<LoopAttrT2>(I))
+      LoopAttr2 = cast<LoopAttrT2>(I);
+    if (LoopAttr && LoopAttr2) {
+      S.Diag(Range.getBegin(), diag::err_attributes_are_not_compatible)
+          << LoopAttr->getSpelling() << LoopAttr2->getSpelling();
+    }
+  }
+}
+
 static void CheckForIncompatibleSYCLLoopAttributes(
     Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
-#if INTEL_CUSTOMIZATION
-  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGALegacyIVDepAttr>(S, Attrs,
-                                                                     Range);
-#endif // INTEL_CUSTOMIZATION
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAIIAttr>(S, Attrs, Range);
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxConcurrencyAttr>(
       S, Attrs, Range);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGALoopCoalesceAttr>(S, Attrs,
+                                                                      Range);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr>(
+      S, Attrs, Range);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGAMaxInterleavingAttr>(
+      S, Attrs, Range);
+  CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGASpeculatedIterationsAttr>(
+      S, Attrs, Range);
   CheckForDuplicationSYCLLoopAttribute<LoopUnrollHintAttr>(S, Attrs, Range,
                                                            false);
+  CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
+                                        SYCLIntelFPGAMaxInterleavingAttr>(
+      S, Attrs, Range);
+  CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
+                                        SYCLIntelFPGASpeculatedIterationsAttr>(
+      S, Attrs, Range);
+  CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
+                                        SYCLIntelFPGAIIAttr>(S, Attrs, Range);
+  CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
+                                        SYCLIntelFPGAIVDepAttr>(S, Attrs,
+                                                                Range);
+  CheckMutualExclusionSYCLLoopAttribute<SYCLIntelFPGADisableLoopPipeliningAttr,
+                                        SYCLIntelFPGAMaxConcurrencyAttr>(
+      S, Attrs, Range);
+
   CheckRedundantSYCLIntelFPGAIVDepAttrs(S, Attrs);
 }
 
@@ -1479,8 +1536,6 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleIntelInlineAttr(S, St, A, Range);
   case ParsedAttr::AT_IntelBlockLoop:
     return handleIntelBlockLoopAttr(S, St, A, AL, Range);
-  case ParsedAttr::AT_SYCLIntelFPGALegacyIVDep:
-    return handleIntelFPGALoopAttr<SYCLIntelFPGALegacyIVDepAttr>(S, A);
   case ParsedAttr::AT_LoopFuse:
     return handleLoopFuseAttr(S, St, A, Range);
 #endif // INTEL_CUSTOMIZATION
@@ -1494,6 +1549,15 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleIntelFPGALoopAttr<SYCLIntelFPGAIIAttr>(S, A);
   case ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency:
     return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxConcurrencyAttr>(S, A);
+  case ParsedAttr::AT_SYCLIntelFPGALoopCoalesce:
+    return handleIntelFPGALoopAttr<SYCLIntelFPGALoopCoalesceAttr>(S, A);
+  case ParsedAttr::AT_SYCLIntelFPGADisableLoopPipelining:
+    return handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(S,
+                                                                           A);
+  case ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving:
+    return handleIntelFPGALoopAttr<SYCLIntelFPGAMaxInterleavingAttr>(S, A);
+  case ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations:
+    return handleIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(S, A);
   case ParsedAttr::AT_OpenCLUnrollHint:
   case ParsedAttr::AT_LoopUnrollHint:
     return handleLoopUnrollHint(S, St, A, Range);

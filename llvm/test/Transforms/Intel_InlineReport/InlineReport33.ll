@@ -1,5 +1,5 @@
-; RUN: opt < %s -ip-cloning -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
-; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
+; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
+; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
 
 ; Test that the first n-1 recursive progression clones are inlined, while
 ; the n-th is not.

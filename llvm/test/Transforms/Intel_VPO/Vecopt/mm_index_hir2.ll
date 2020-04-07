@@ -1,7 +1,7 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 ;
 ; Test for min/max+index is not recognized.
 ;

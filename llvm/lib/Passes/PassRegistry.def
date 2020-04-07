@@ -82,6 +82,8 @@ MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
 MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 MODULE_PASS("dtrans-typemetadatareader",                         // INTEL
             dtrans::DTransTypeMetadataReaderTestPass())          // INTEL
+MODULE_PASS("dtrans-ptrtypeanalyzertest",                        // INTEL
+            dtrans::DTransPtrTypeAnalyzerTestPass())             // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
@@ -150,6 +152,7 @@ MODULE_PASS("tsan-module", ThreadSanitizerPass())
 MODULE_PASS("kasan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/true, false, true, false))
 MODULE_PASS("sancov-module", ModuleSanitizerCoveragePass())
 MODULE_PASS("poison-checking", PoisonCheckingPass())
+MODULE_PASS("stack-safety-annotator", StackSafetyGlobalAnnotatorPass())
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
@@ -175,7 +178,10 @@ CGSCC_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 CGSCC_PASS("argpromotion", ArgumentPromotionPass())
 CGSCC_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 CGSCC_PASS("function-attrs", PostOrderFunctionAttrsPass())
+CGSCC_PASS("attributor-cgscc", AttributorCGSCCPass())
 CGSCC_PASS("inline", InlinerPass())
+CGSCC_PASS("openmpopt", OpenMPOptPass())
+CGSCC_PASS("coro-split", CoroSplitPass())
 CGSCC_PASS("no-op-cgscc", NoOpCGSCCPass())
 #undef CGSCC_PASS
 
@@ -257,6 +263,7 @@ FUNCTION_PASS("aa-eval", AAEvaluator())
 FUNCTION_PASS("adce", ADCEPass())
 FUNCTION_PASS("add-discriminators", AddDiscriminatorsPass())
 FUNCTION_PASS("aggressive-instcombine", AggressiveInstCombinePass())
+FUNCTION_PASS("assume-builder", AssumeBuilderPass())
 FUNCTION_PASS("alignment-from-assumptions", AlignmentFromAssumptionsPass())
 FUNCTION_PASS("bdce", BDCEPass())
 FUNCTION_PASS("bounds-checking", BoundsCheckingPass())
@@ -267,6 +274,9 @@ FUNCTION_PASS("cleanup-fakeloads", CleanupFakeLoadsPass()) // INTEL
 FUNCTION_PASS("consthoist", ConstantHoistingPass())
 FUNCTION_PASS("chr", ControlHeightReductionPass())
 FUNCTION_PASS("convert-to-subscript", ConvertGEPToSubscriptIntrinsicPass()) // INTEL
+FUNCTION_PASS("coro-early", CoroEarlyPass())
+FUNCTION_PASS("coro-elide", CoroElidePass())
+FUNCTION_PASS("coro-cleanup", CoroCleanupPass())
 FUNCTION_PASS("correlated-propagation", CorrelatedValuePropagationPass())
 FUNCTION_PASS("dce", DCEPass())
 FUNCTION_PASS("div-rem-pairs", DivRemPairsPass())
@@ -284,6 +294,7 @@ FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false
 FUNCTION_PASS("instcombine", InstCombinePass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
 FUNCTION_PASS("invalidate<all>", InvalidateAllAnalysesPass())
+FUNCTION_PASS("irce", IRCEPass())
 FUNCTION_PASS("float2int", Float2IntPass())
 FUNCTION_PASS("no-op-function", NoOpFunctionPass())
 FUNCTION_PASS("libcalls-shrinkwrap", LibCallsShrinkWrapPass())
@@ -341,6 +352,7 @@ FUNCTION_PASS("sroa", SROA())
 FUNCTION_PASS("tailcallelim", TailCallElimPass())
 FUNCTION_PASS("unreachableblockelim", UnreachableBlockElimPass())
 FUNCTION_PASS("unroll-and-jam", LoopUnrollAndJamPass())
+FUNCTION_PASS("vector-combine", VectorCombinePass())
 FUNCTION_PASS("verify", VerifierPass())
 FUNCTION_PASS("verify<domtree>", DominatorTreeVerifierPass())
 FUNCTION_PASS("verify<loops>", LoopVerifierPass())
@@ -498,11 +510,11 @@ LOOP_PASS("loop-deletion", LoopDeletionPass())
 LOOP_PASS("simplify-cfg", LoopSimplifyCFGPass())
 LOOP_PASS("strength-reduce", LoopStrengthReducePass())
 LOOP_PASS("indvars", IndVarSimplifyPass())
-LOOP_PASS("irce", IRCEPass())
 LOOP_PASS("unroll-full", LoopFullUnrollPass())
 LOOP_PASS("print-access-info", LoopAccessInfoPrinterPass(dbgs()))
 LOOP_PASS("print<ddg>", DDGAnalysisPrinterPass(dbgs()))
 LOOP_PASS("print<ivusers>", IVUsersPrinterPass(dbgs()))
+LOOP_PASS("print<loopnest>", LoopNestPrinterPass(dbgs()))
 LOOP_PASS("print<loop-cache-cost>", LoopCachePrinterPass(dbgs()))
 LOOP_PASS("loop-predication", LoopPredicationPass())
 LOOP_PASS("guard-widening", GuardWideningPass())

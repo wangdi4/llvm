@@ -114,13 +114,14 @@ class MapIntrinToImlImpl {
                                          unsigned TargetVL,
                                          SmallVectorImpl<Value *> &NewArgs);
 
-  /// \brief Extracts \p NumElems from vector register \p Vector and returns an
-  /// extract instruction.
-  Value *extractElemsFromVector(Value *Vector, unsigned StartPos,
-                                unsigned NumElems);
+  /// Extract the lower part of \p ExtractingVL length from vector \p V which is
+  /// of length SourceVL. The incoming value can be either a vector or a
+  /// structure of vectors.
+  Value *extractLowerPart(Value *V, unsigned ExtractingVL, unsigned SourceVL);
 
-  /// \brief Checks if both types are vectors and if \p ValType width is less
-  /// than \p LegalType width. If yes, the function returns true.
+  /// \brief Checks if both types are vectors or struct of vectors and if \p
+  /// ValType width is less than \p LegalType width. If yes, the function
+  /// returns true.
   bool isLessThanFullVector(Type *ValType, Type *LegalType);
 
   /// \brief Returns the largest vector type represented in the call
@@ -139,13 +140,6 @@ class MapIntrinToImlImpl {
   /// \brief Returns true if \p FuncName and \p FT refer to an SVML 3-argument
   /// sincos call.
   bool isSincosRefArg(StringRef FuncName, FunctionType *FT);
-
-  /// Create a single instruction calling SVML for integer division. Opcode must
-  /// be one of sdiv/srem/udiv/urem. V0 and V1 must have the same integer vector
-  /// type, and their vector length need to be legal. Returns the newly created
-  /// call instruction.
-  CallInst *generateSVMLIDivOrRemCall(Instruction::BinaryOps Opcode, Value *V0,
-                                      Value *V1);
 
   /// Legalize and convert some vector integer divisions in a function to SVML
   /// call to avoid serialization in the CodeGen. Returns true if the

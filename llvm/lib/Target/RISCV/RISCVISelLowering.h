@@ -74,6 +74,8 @@ public:
   bool isTruncateFree(EVT SrcVT, EVT DstVT) const override;
   bool isZExtFree(SDValue Val, EVT VT2) const override;
   bool isSExtCheaperThanZExt(EVT SrcVT, EVT DstVT) const override;
+  bool isFPImmLegal(const APFloat &Imm, EVT VT,
+                    bool ForCodeSize) const override;
 
   bool hasBitPreservingFPLogic(EVT VT) const override;
 
@@ -181,6 +183,7 @@ private:
                                          Type *Ty) const override {
     return true;
   }
+  bool mayBeEmittedAsTailCall(const CallInst *CI) const override;
 
   template <class NodeTy>
   SDValue getAddr(NodeTy *N, SelectionDAG &DAG, bool IsLocal = true) const;

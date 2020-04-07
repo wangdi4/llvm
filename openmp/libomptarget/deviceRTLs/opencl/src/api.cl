@@ -69,8 +69,10 @@ EXTERN int omp_get_thread_num(void) {
 }
 
 EXTERN int omp_get_num_threads(void) {
-  if (GLOBAL.assume_simple_spmd_mode)
-    return __kmp_get_local_size();
+  if (GLOBAL.assume_simple_spmd_mode) {
+    kmp_local_state_t *local_state = __kmp_get_local_state();
+    return OP_MIN(__kmp_get_local_size(), local_state->spmd_num_threads, 0);
+  }
 
   return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());
 }

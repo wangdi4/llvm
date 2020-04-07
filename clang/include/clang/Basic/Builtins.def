@@ -36,6 +36,7 @@
 //  a -> __builtin_va_list
 //  A -> "reference" to __builtin_va_list
 //  V -> Vector, followed by the number of elements and the base type.
+//  q -> Scalable vector, followed by the number of elements and the base type.
 //  E -> ext_vector, followed by the number of elements and the base type.
 //  X -> _Complex, followed by the base type.
 //  Y -> ptrdiff_t
@@ -526,6 +527,7 @@ BUILTIN(__builtin_fprintf, "iv*cC*.", "Fp:1:")
 BUILTIN(__builtin_memchr, "v*vC*iz", "nF")
 BUILTIN(__builtin_memcmp, "ivC*vC*z", "nF")
 BUILTIN(__builtin_memcpy, "v*v*vC*z", "nF")
+BUILTIN(__builtin_memcpy_inline, "vv*vC*Iz", "nt")
 BUILTIN(__builtin_memmove, "v*v*vC*z", "nF")
 BUILTIN(__builtin_mempcpy, "v*v*vC*z", "nF")
 BUILTIN(__builtin_memset, "v*v*iz", "nF")
@@ -987,10 +989,6 @@ BUILTIN(__memory_barrier, "v", "n")
 BUILTIN(__notify_intrinsic, "vcC*vCD*", "n")
 BUILTIN(__notify_zc_intrinsic, "vcC*vCD*", "n")
 #endif  // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-BUILTIN(__assume_aligned, "v.", "tn")
-#endif // INTEL_CUSTOMIZATION
 
 // OpenCL 2.0 atomic builtins.
 ATOMIC_BUILTIN(__opencl_atomic_init, "v.", "t")

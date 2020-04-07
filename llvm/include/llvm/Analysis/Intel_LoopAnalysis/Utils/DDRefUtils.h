@@ -323,7 +323,8 @@ public:
   ///                (0 <= k <  n) && (0 <= j < m*n) && (0 <= i)
   static bool delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
                               SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
-                              SmallVectorImpl<BlobTy> *SizesPtr = nullptr);
+                              SmallVectorImpl<BlobTy> *SizesPtr = nullptr,
+                              bool AllowSExt = false);
 };
 
 } // End namespace loopopt

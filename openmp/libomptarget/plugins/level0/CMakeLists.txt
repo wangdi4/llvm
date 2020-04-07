@@ -33,7 +33,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
 
     include_directories(${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS})
     include_directories(${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS})
-    add_library(omptarget.rtl.level0 SHARED src/rtl.cpp)
+    add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
 
     if(NOT OPENMP_STANDALONE_BUILD)
       # We have to disable EH for Windows compilation.
@@ -56,11 +56,18 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
 
     if(CMAKE_SYSTEM_NAME MATCHES "Linux")
       target_link_libraries(omptarget.rtl.level0
-          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE} pthread
+          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE} pthread dl
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
     elseif(CMAKE_SYSTEM_NAME MATCHES "Windows")
+      # Full path to the L0 library is recognized as a linker option, so we
+      # separate directory and file name
+      get_filename_component(LEVEL0_LIBRARY_PATH
+          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} DIRECTORY)
+      get_filename_component(LEVEL0_LIBRARY_NAME
+          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} NAME)
       target_link_libraries(omptarget.rtl.level0
-          ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE})
+          ${LEVEL0_LIBRARY_NAME} ${LIBOMP_LIB_FILE}
+          -LIBPATH:${LEVEL0_LIBRARY_PATH})
     else()
       message(FATAL_ERROR "Missing platfrom support.")
     endif()

@@ -370,6 +370,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ))
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-defaultlib:") + A->getValue()));
+  for (const auto *A : Args.filtered(options::OPT_foffload_whole_static_lib_EQ))
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
 #if INTEL_CUSTOMIZATION
   // Add Intel performance libraries. Only add the lib when not in CL-mode as
@@ -384,7 +387,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().IsCLMode())
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ)) {
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp))) {
     getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");
@@ -1587,7 +1591,8 @@ static void TranslateDArg(Arg *A, llvm::opt::DerivedArgList &DAL,
 
 llvm::opt::DerivedArgList *
 MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
-                             StringRef BoundArch, Action::OffloadKind) const {
+                             StringRef BoundArch,
+                             Action::OffloadKind OFK) const {
   DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
   const OptTable &Opts = getDriver().getOpts();
 
@@ -1648,7 +1653,8 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       continue;
     }
 #endif // INTEL_CUSTOMIZATION
-    else {
+    else if (OFK != Action::OFK_HIP) {
+      // HIP Toolchain translates input args by itself.
       DAL->append(A);
     }
   }

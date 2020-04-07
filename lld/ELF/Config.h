@@ -90,6 +90,7 @@ struct Configuration {
   uint32_t andFeatures = 0;
   llvm::CachePruningPolicy thinLTOCachePolicy;
   llvm::StringMap<uint64_t> sectionStartMap;
+  llvm::StringRef bfdname;
   llvm::StringRef chroot;
   llvm::StringRef dynamicLinker;
   llvm::StringRef dwoDir;
@@ -152,7 +153,6 @@ struct Configuration {
   bool exportDynamic;
   bool fixCortexA53Errata843419;
   bool fixCortexA8;
-  bool forceBTI;
   bool formatBinary = false;
   bool gcSections;
   bool gdbIndex;
@@ -179,7 +179,6 @@ struct Configuration {
   bool oFormatBinary;
   bool omagic;
   bool optRemarksWithHotness;
-  bool pacPlt;
   bool picThunk;
   bool pie;
   bool printGcSections;
@@ -187,6 +186,7 @@ struct Configuration {
   bool relocatable;
   bool relrPackDynRelocs;
   bool saveTemps;
+  llvm::Optional<uint32_t> shuffleSectionSeed;
   bool singleRoRx;
   bool shared;
   bool isStatic = false;
@@ -195,8 +195,10 @@ struct Configuration {
   bool trace;
   bool thinLTOEmitImportsFiles;
   bool thinLTOIndexOnly;
+  bool timeTraceEnabled;
   bool tocOptimize;
   bool undefinedVersion;
+  bool unique;
   bool useAndroidRelrTags = false;
   bool warnBackrefs;
   bool warnCommon;
@@ -206,6 +208,7 @@ struct Configuration {
   bool writeAddends;
   bool zCombreloc;
   bool zCopyreloc;
+  bool zForceBti;
   bool zForceIbt;
   bool zGlobal;
   bool zHazardplt;
@@ -218,6 +221,7 @@ struct Configuration {
   bool zNodlopen;
   bool zNow;
   bool zOrigin;
+  bool zPacPlt;
   bool zRelro;
   bool zRodynamic;
   bool zShstk;
@@ -246,6 +250,7 @@ struct Configuration {
   unsigned ltoo;
   unsigned optimize;
   unsigned thinLTOJobs;
+  unsigned timeTraceGranularity;
   int32_t splitStackAdjustSize;
 
   // The following config options do not directly correspond to any

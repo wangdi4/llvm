@@ -503,11 +503,15 @@ class HIRParser {
   /// Updates OldBlob by NewBlob in the blob table and returns the blob index.
   unsigned updateTempBlob(BlobTy OldBlob, BlobTy NewBlob, unsigned Symbase);
 
-  // Adds an lval or rval fake ref to \p HInst formed by cloning \p AddressRef.
+  /// Adds an lval or rval fake ref to \p HInst formed by cloning \p AddressRef.
   void addFakeRef(HLInst *HInst, const RegDDRef *AddressRef, bool IsRval);
 
-  // Clears all the per-region data structures.
+  /// Clears all the per-region data structures.
   void clearRegionData();
+
+  /// Processes a block_loop begin directive by copying over information to the
+  /// relevant loop.
+  void processBlockLoopBeginDirective(HLInst *HInst);
 
   // ---------------------------------------------------------------------
   // External interface follows. The following functions are called by the
@@ -756,7 +760,8 @@ public:
   /// Refer to DDRefUtils::delinearizeRefs().
   bool delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
                        SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
-                       SmallVectorImpl<BlobTy> *DimSizes = nullptr);
+                       SmallVectorImpl<BlobTy> *DimSizes = nullptr,
+                       bool AllowSExt = false);
 };
 
 } // End namespace loopopt

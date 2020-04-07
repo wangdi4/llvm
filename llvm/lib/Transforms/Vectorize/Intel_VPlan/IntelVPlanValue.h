@@ -22,6 +22,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -552,7 +553,7 @@ private:
   std::unique_ptr<VPOperandHIR> HIROperand;
 
   // Construct a VPExternalUse given a Value \p ExtVal.
-  VPExternalUse(Value *ExtVal)
+  VPExternalUse(PHINode *ExtVal)
       : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
     setUnderlyingValue(*ExtVal);
   }
@@ -578,8 +579,7 @@ public:
   VPExternalUse(const VPExternalUse &) = delete;
   VPExternalUse &operator=(const VPExternalUse &) = delete;
 
-  /// \brief Methods for supporting type inquiry through isa, cast, and
-  /// dyn_cast:
+  /// Methods for supporting type inquiry through isa, cast, and dyn_cast:
   static bool classof(const VPValue *V) {
     return V->getVPValueID() == VPExternalUseSC;
   }

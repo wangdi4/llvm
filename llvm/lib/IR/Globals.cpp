@@ -449,6 +449,10 @@ findBaseObject(const Constant *C, DenseSet<const GlobalAlias *> &Aliases) {
   if (auto *GA = dyn_cast<GlobalAlias>(C))
     if (Aliases.insert(GA).second)
       return findBaseObject(GA->getOperand(0), Aliases);
+#if INTEL_CUSTOMIZATION
+  if (auto *GI = dyn_cast<GlobalIFunc>(C))
+    return findBaseObject(GI->getOperand(0), Aliases);
+#endif // INTEL_CUSTOMIZATION
   if (auto *CE = dyn_cast<ConstantExpr>(C)) {
     switch (CE->getOpcode()) {
     case Instruction::Add: {

@@ -7,8 +7,9 @@
 static int i;
 
 void foo() {
-// CHECK: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]), "QUAL.OMP.FIRSTPRIVATE"(i32* [[VAR_I]]) ]
-// CHECK: store i32 3, i32* [[VAR_I]],
+// CHECK: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]),
+// CHECK-SAME "QUAL.OMP.FIRSTPRIVATE"(i32* [[VAR_I]]) ]
+// CHECK: store i32 3, i32* [[VAR_I]]
 // CHECK: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
 
 #pragma omp target

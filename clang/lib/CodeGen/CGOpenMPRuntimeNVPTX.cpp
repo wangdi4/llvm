@@ -786,6 +786,8 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_taskgroup:
     case OMPD_atomic:
     case OMPD_flush:
+    case OMPD_depobj:
+    case OMPD_scan:
     case OMPD_teams:
     case OMPD_target_data:
     case OMPD_target_exit_data:
@@ -865,6 +867,8 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_taskgroup:
   case OMPD_atomic:
   case OMPD_flush:
+  case OMPD_depobj:
+  case OMPD_scan:
   case OMPD_teams:
   case OMPD_target_data:
   case OMPD_target_exit_data:
@@ -1037,6 +1041,8 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_taskgroup:
     case OMPD_atomic:
     case OMPD_flush:
+    case OMPD_depobj:
+    case OMPD_scan:
     case OMPD_teams:
     case OMPD_target_data:
     case OMPD_target_exit_data:
@@ -1122,6 +1128,8 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_taskgroup:
   case OMPD_atomic:
   case OMPD_flush:
+  case OMPD_depobj:
+  case OMPD_scan:
   case OMPD_teams:
   case OMPD_target_data:
   case OMPD_target_exit_data:
@@ -4974,7 +4982,7 @@ static CudaArch getCudaArch(CodeGenModule &CGM) {
 
 /// Check to see if target architecture supports unified addressing which is
 /// a restriction for OpenMP requires clause "unified_shared_memory".
-void CGOpenMPRuntimeNVPTX::checkArchForUnifiedAddressing(
+void CGOpenMPRuntimeNVPTX::processRequiresDirective(
     const OMPRequiresDecl *D) {
   for (const OMPClause *Clause : D->clauselists()) {
     if (Clause->getClauseKind() == OMPC_unified_shared_memory) {
@@ -5029,7 +5037,7 @@ void CGOpenMPRuntimeNVPTX::checkArchForUnifiedAddressing(
       }
     }
   }
-  CGOpenMPRuntime::checkArchForUnifiedAddressing(D);
+  CGOpenMPRuntime::processRequiresDirective(D);
 }
 
 /// Get number of SMs and number of blocks per SM.

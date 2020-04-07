@@ -31,11 +31,7 @@ FunctionPass *createVPOParoptLoopCollapsePass();
 FunctionPass *createVPOParoptPreparePass(unsigned Mode = 0x5u);
 FunctionPass *createVPORestoreOperandsPass();
 // 0x6 is equivalent to ParTrans | OmpPar
-ModulePass   *createVPOParoptPass(unsigned Mode = 0x6u, unsigned OptLevel = 2);
-  // The default value of OptLevel is set to 2 so that the test case in
-  // the llvm-lit tests can pass. Currently there is no mechanism
-  // to pass the vaule of OptLevel into the VPOParoptTrasnform from the opt
-  // command line.
+ModulePass   *createVPOParoptPass(unsigned Mode = 0x6u);
 }
 
 #endif // LLVM_TRANSFORMS_VPO_VPOPASSES_H

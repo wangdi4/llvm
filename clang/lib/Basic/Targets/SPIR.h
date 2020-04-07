@@ -276,6 +276,7 @@ public:
   WindowsX86_64_SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
                                           const TargetOptions &Opts)
       : WindowsTargetInfo<SPIR64INTELFpgaTargetInfo>(Triple, Opts) {
+    LongWidth = LongAlign = 32;
     SizeType = UnsignedLongLong;
     WCharType = SignedInt; // To match cllib's rule: wchar_size = 4 in SPIR
   }

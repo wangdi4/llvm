@@ -681,6 +681,7 @@ AndersensAAResult::AndersenSetResult
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   SkipAndersensAnalysis = false;
+  PointerSizeInBits = DL.getPointerSizeInBits();
   IndirectCallList.clear();
   DirectCallList.clear();
   IdentifyObjects(M);
@@ -1006,10 +1007,27 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
     return false;
   };
 
-  // Returns true if N is pointing to calls that return NoAlias pointers.
-  auto IsAllocPtr = [this] (Node *N) {
+  // Returns true if N represents either NoAlias call or internal global
+  // variable.
+  auto IsLocalMemoryNode = [] (Node *N) {
+    Value *V = N->getValue();
+    if (!V)
+      return false;
+    if (isNoAliasCall(V))
+      return true;
+    GlobalVariable *GV = dyn_cast<GlobalVariable>(V);
+    if (GV && GV->hasInternalLinkage())
+      return true;
+    return false;
+  };
+
+  // Returns true if N is pointing to calls that return NoAlias pointers or
+  // internal global variables.
+  auto IsLocalAllocPtr = [this, IsLocalMemoryNode] (Node *N) {
     if (N == &GraphNodes[UniversalSet])
       return false;
+    if (IsLocalMemoryNode(N))
+      return true;
     bool AllocFound = false;
     for (auto Bi : *N->PointsTo) {
       Node *N1 = &GraphNodes[Bi];
@@ -1017,8 +1035,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
         return false;
       if (N1 == &GraphNodes[NullPtr] || N1 == &GraphNodes[NullObject])
         continue;
-      Value *V = N1->getValue();
-      if (!V || !isNoAliasCall(V))
+      if (!IsLocalMemoryNode(N1))
         return false;
       AllocFound = true;
     }
@@ -1057,10 +1074,10 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   // Return NoAlias if one pointer is "stdout" and other pointer is
   // a return value of NoAliasCall when WholeProgram is safe.
   if (WholeProgramSafeDetected &&
-      ((IsStdoutFilePtr(V1) && IsAllocPtr(N2)) ||
-      (IsStdoutFilePtr(V2) && IsAllocPtr(N1)))) {
+      ((IsStdoutFilePtr(V1) && IsLocalAllocPtr(N2)) ||
+      (IsStdoutFilePtr(V2) && IsLocalAllocPtr(N1)))) {
     if (PrintAndersAliasQueries) {
-      dbgs() << " Result: NoAlias -- Local Alloc Ptr and stdout\n";
+      dbgs() << " Result: NoAlias -- Local Memory Ptr and stdout\n";
       dbgs() << " Alias_End \n";
     }
     return NoAlias;
@@ -2084,6 +2101,39 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 }
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
+
+  // Returns true if "V" is LoadInst that loads pointer value as
+  // integer.
+  //   Ex:
+  //      %5 = bitcast %struct.p** %0 to i64*
+  //      %6 = load i64, i64* %5
+  //
+  auto IsLoadingPtrAsInt = [this](Value *V) {
+    auto *LI = dyn_cast<LoadInst>(V);
+    // Make sure load has single use to simplify the implementation.
+    if (!LI || !LI->getType()->isIntegerTy() || !LI->hasOneUse())
+      return false;
+    auto *BC = dyn_cast<BitCastInst>(LI->getPointerOperand());
+    if (!BC)
+      return false;
+    // Check source type of Bitcast is pointer to pointer to some type.
+    if (!BC->getSrcTy()->isPointerTy() ||
+       !BC->getSrcTy()->getPointerElementType()->isPointerTy())
+      return false;
+    return true;
+  };
+
+  // Returns true if Ty can be used to hold pointer value.
+  // For now, returns false if Ty is either floating point type
+  // or integer type that is smaller than size of pointer.
+  auto IsPtrCompatibleTy = [this](Type *Ty) {
+    if (Ty->isFloatingPointTy())
+      return false;
+    if (Ty->isIntegerTy() && Ty->getIntegerBitWidth() < PointerSizeInBits)
+      return false;
+    return true;
+  };
+
   ConstantExpr *CE;
   if (Constant *C = dyn_cast<Constant>(SI.getOperand(0))) {
     if (!isPointsToType(SI.getOperand(0)->getType()) &&
@@ -2130,9 +2180,30 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   // TODO: Analysis needs to be improved to compute more accurate
   // points-to info by analyzing the non-pointer value that is being
   // stored.
-  if (!isPointsToType(SI.getOperand(0)->getType()))
-    CreateConstraint(Constraint::Store, getNode(SI.getOperand(1)),
-                     UniversalSet);
+  Value *ValOp = SI.getValueOperand();
+  if (!isPointsToType(ValOp->getType())) {
+    if (IsLoadingPtrAsInt(ValOp)) {
+      //      %5 = bitcast %struct.p** %0 to i64*
+      //      %6 = load i64, i64* %5
+      //      store i64 %6, i64* bitcast (%struct.p** @pr to i64*)
+      LoadInst *LI = cast<LoadInst>(ValOp);
+      unsigned LN;
+      if (NonPointerAssignments.count(LI))
+        LN = getNode(LI);
+      else
+        LN = getNodeValue(*LI);
+      CreateConstraint(Constraint::Load, LN, getNode(LI->getPointerOperand()));
+      CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()), LN);
+    } else {
+      Type *Ty = ValOp->getType();
+      // Some stores can be ignored based on type of stored value.
+      // Assuming that pointers are not converted to floating point
+      // types or integer types that are smaller than pointer size.
+      if (IsPtrCompatibleTy(Ty))
+        CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()),
+                         UniversalSet);
+    }
+  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {

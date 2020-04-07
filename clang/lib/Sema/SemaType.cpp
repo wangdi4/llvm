@@ -1536,13 +1536,17 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       Result = Context.Int128Ty;
     break;
   case DeclSpec::TST_float16:
-    // CUDA host and device may have different _Float16 support, therefore
-    // do not diagnose _Float16 usage to avoid false alarm.
-    // ToDo: more precise diagnostics for CUDA.
-    if (!S.Context.getTargetInfo().hasFloat16Type() && !S.getLangOpts().CUDA &&
-        !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice))
-      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
-        << "_Float16";
+    {
+      // CUDA host and device may have different _Float16 support, therefore
+      // do not diagnose _Float16 usage to avoid false alarm.
+      // ToDo: more precise diagnostics for CUDA.
+      auto IsSYCLDeviceCuda =
+        S.getLangOpts().SYCLIsDevice && S.Context.getTargetInfo().getTriple().isNVPTX();
+      if (!S.Context.getTargetInfo().hasFloat16Type() && !S.getLangOpts().CUDA &&
+          !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice) && !IsSYCLDeviceCuda)
+        S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
+          << "_Float16";
+    }
     Result = Context.Float16Ty;
     break;
   case DeclSpec::TST_half:    Result = Context.HalfTy; break;
@@ -2323,7 +2327,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
     }
 
     if (T->isVoidType() || T->isIncompleteArrayType()) {
-      Diag(Loc, diag::err_illegal_decl_array_incomplete_type) << T;
+      Diag(Loc, diag::err_array_incomplete_or_sizeless_type) << 0 << T;
       return QualType();
     }
 
@@ -2341,9 +2345,14 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   } else {
     // C99 6.7.5.2p1: If the element type is an incomplete or function type,
     // reject it (e.g. void ary[7], struct foo ary[7], void ary[7]())
-    if (RequireCompleteType(Loc, T,
-                            diag::err_illegal_decl_array_incomplete_type))
+    if (RequireCompleteSizedType(Loc, T,
+                                 diag::err_array_incomplete_or_sizeless_type))
       return QualType();
+  }
+
+  if (T->isSizelessType()) {
+    Diag(Loc, diag::err_array_incomplete_or_sizeless_type) << 1 << T;
+    return QualType();
   }
 
   if (T->isFunctionType()) {
@@ -2438,6 +2447,12 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
             << ArraySize->getSourceRange();
         ASM = ArrayType::Normal;
       }
+
+      // Zero length arrays are disallowed in SYCL device code.
+      if (getLangOpts().SYCLIsDevice)
+        SYCLDiagIfDeviceCode(ArraySize->getBeginLoc(),
+                             diag::err_typecheck_zero_array_size)
+            << ArraySize->getSourceRange();
     } else if (!T->isDependentType() && !T->isVariablyModifiedType() &&
                !T->isIncompleteType() && !T->isUndeducedType()) {
       // Is the array too large?
@@ -5998,7 +6013,7 @@ namespace {
       }
 
       // Finally fill in MemberPointerLocInfo fields.
-      TL.setStarLoc(Chunk.Loc);
+      TL.setStarLoc(SourceLocation::getFromRawEncoding(Chunk.Mem.StarLoc));
       TL.setClassTInfo(ClsTInfo);
     }
     void VisitLValueReferenceTypeLoc(LValueReferenceTypeLoc TL) {
@@ -6410,7 +6425,7 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       Attr.setInvalid();
   } else {
     // The keyword-based type attributes imply which address space to use.
-    ASIdx = S.getLangOpts().SYCLIsDevice ? 
+    ASIdx = S.getLangOpts().SYCLIsDevice ?
                 Attr.asSYCLLangAS() : Attr.asOpenCLLangAS();
     if (ASIdx == LangAS::Default)
       llvm_unreachable("Invalid address space");
@@ -6746,6 +6761,7 @@ namespace {
       Desugar,
       Attributed,
       Parens,
+      Array,
       Pointer,
       BlockPointer,
       Reference,
@@ -6766,6 +6782,10 @@ namespace {
         } else if (isa<ParenType>(Ty)) {
           T = cast<ParenType>(Ty)->getInnerType();
           Stack.push_back(Parens);
+        } else if (isa<ConstantArrayType>(Ty) || isa<VariableArrayType>(Ty) ||
+                   isa<IncompleteArrayType>(Ty)) {
+          T = cast<ArrayType>(Ty)->getElementType();
+          Stack.push_back(Array);
         } else if (isa<PointerType>(Ty)) {
           T = cast<PointerType>(Ty)->getPointeeType();
           Stack.push_back(Pointer);
@@ -6842,6 +6862,27 @@ namespace {
 
       case MacroQualified:
         return wrap(C, cast<MacroQualifiedType>(Old)->getUnderlyingType(), I);
+
+      case Array: {
+        if (const auto *CAT = dyn_cast<ConstantArrayType>(Old)) {
+          QualType New = wrap(C, CAT->getElementType(), I);
+          return C.getConstantArrayType(New, CAT->getSize(), CAT->getSizeExpr(),
+                                        CAT->getSizeModifier(),
+                                        CAT->getIndexTypeCVRQualifiers());
+        }
+
+        if (const auto *VAT = dyn_cast<VariableArrayType>(Old)) {
+          QualType New = wrap(C, VAT->getElementType(), I);
+          return C.getVariableArrayType(
+              New, VAT->getSizeExpr(), VAT->getSizeModifier(),
+              VAT->getIndexTypeCVRQualifiers(), VAT->getBracketsRange());
+        }
+
+        const auto *IAT = cast<IncompleteArrayType>(Old);
+        QualType New = wrap(C, IAT->getElementType(), I);
+        return C.getIncompleteArrayType(New, IAT->getSizeModifier(),
+                                        IAT->getIndexTypeCVRQualifiers());
+      }
 
       case Pointer: {
         QualType New = wrap(C, cast<PointerType>(Old)->getPointeeType(), I);
@@ -7678,7 +7719,8 @@ static void HandleExtVectorTypeAttr(QualType &CurType, const ParsedAttr &Attr,
 static void HandleArbPrecIntAttr(QualType &CurType, const ParsedAttr &Attr,
                                  Sema &S) {
   // Warning message handled later, but prevent changing of the type.
-  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL)
+  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL &&
+      !S.getLangOpts().SYCLIsDevice)
     return;
 
   // check the attribute arguments.
@@ -8209,12 +8251,14 @@ void Sema::completeExprArrayBound(Expr *E) {
 /// case of a reference type, the referred-to type).
 ///
 /// \param E The expression whose type is required to be complete.
+/// \param Kind Selects which completeness rules should be applied.
 /// \param Diagnoser The object that will emit a diagnostic if the type is
 /// incomplete.
 ///
 /// \returns \c true if the type of \p E is incomplete and diagnosed, \c false
 /// otherwise.
-bool Sema::RequireCompleteExprType(Expr *E, TypeDiagnoser &Diagnoser) {
+bool Sema::RequireCompleteExprType(Expr *E, CompleteTypeKind Kind,
+                                   TypeDiagnoser &Diagnoser) {
   QualType T = E->getType();
 
   // Incomplete array types may be completed by the initializer attached to
@@ -8229,12 +8273,12 @@ bool Sema::RequireCompleteExprType(Expr *E, TypeDiagnoser &Diagnoser) {
   // FIXME: Are there other cases which require instantiating something other
   // than the type to complete the type of an expression?
 
-  return RequireCompleteType(E->getExprLoc(), T, Diagnoser);
+  return RequireCompleteType(E->getExprLoc(), T, Kind, Diagnoser);
 }
 
 bool Sema::RequireCompleteExprType(Expr *E, unsigned DiagID) {
   BoundTypeDiagnoser<> Diagnoser(DiagID);
-  return RequireCompleteExprType(E, Diagnoser);
+  return RequireCompleteExprType(E, CompleteTypeKind::Default, Diagnoser);
 }
 
 /// Ensure that the type T is a complete type.
@@ -8252,11 +8296,14 @@ bool Sema::RequireCompleteExprType(Expr *E, unsigned DiagID) {
 ///
 /// @param T  The type that this routine is examining for completeness.
 ///
+/// @param Kind Selects which completeness rules should be applied.
+///
 /// @returns @c true if @p T is incomplete and a diagnostic was emitted,
 /// @c false otherwise.
 bool Sema::RequireCompleteType(SourceLocation Loc, QualType T,
+                               CompleteTypeKind Kind,
                                TypeDiagnoser &Diagnoser) {
-  if (RequireCompleteTypeImpl(Loc, T, &Diagnoser))
+  if (RequireCompleteTypeImpl(Loc, T, Kind, &Diagnoser))
     return true;
   if (const TagType *Tag = T->getAs<TagType>()) {
     if (!Tag->getDecl()->isCompleteDefinitionRequired()) {
@@ -8405,6 +8452,7 @@ static void assignInheritanceModel(Sema &S, CXXRecordDecl *RD) {
 
 /// The implementation of RequireCompleteType
 bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
+                                   CompleteTypeKind Kind,
                                    TypeDiagnoser *Diagnoser) {
   // FIXME: Add this assertion to make sure we always get instantiation points.
   //  assert(!Loc.isInvalid() && "Invalid location in RequireCompleteType");
@@ -8418,7 +8466,7 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
     if (!MPTy->getClass()->isDependentType()) {
       if (getLangOpts().CompleteMemberPointers &&
           !MPTy->getClass()->getAsCXXRecordDecl()->isBeingDefined() &&
-          RequireCompleteType(Loc, QualType(MPTy->getClass(), 0),
+          RequireCompleteType(Loc, QualType(MPTy->getClass(), 0), Kind,
                               diag::err_memptr_incomplete))
         return true;
 
@@ -8432,7 +8480,9 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
   }
 
   NamedDecl *Def = nullptr;
-  bool Incomplete = T->isIncompleteType(&Def);
+  bool AcceptSizeless = (Kind == CompleteTypeKind::AcceptSizeless);
+  bool Incomplete = (T->isIncompleteType(&Def) ||
+                     (!AcceptSizeless && T->isSizelessBuiltinType()));
 
   // Check that any necessary explicit specializations are visible. For an
   // enum, we just need the declaration, so don't check this.
@@ -8486,7 +8536,7 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
       // If the external source completed the type, go through the motions
       // again to ensure we're allowed to use the completed type.
       if (!T->isIncompleteType())
-        return RequireCompleteTypeImpl(Loc, T, Diagnoser);
+        return RequireCompleteTypeImpl(Loc, T, Kind, Diagnoser);
     }
   }
 
@@ -8538,7 +8588,7 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
       // instantiation produced an error, so that repeated calls to this
       // function give consistent answers.
       if (!T->isIncompleteType())
-        return RequireCompleteTypeImpl(Loc, T, Diagnoser);
+        return RequireCompleteTypeImpl(Loc, T, Kind, Diagnoser);
     }
   }
 
@@ -8571,9 +8621,9 @@ bool Sema::RequireCompleteTypeImpl(SourceLocation Loc, QualType T,
 }
 
 bool Sema::RequireCompleteType(SourceLocation Loc, QualType T,
-                               unsigned DiagID) {
+                               CompleteTypeKind Kind, unsigned DiagID) {
   BoundTypeDiagnoser<> Diagnoser(DiagID);
-  return RequireCompleteType(Loc, T, Diagnoser);
+  return RequireCompleteType(Loc, T, Kind, Diagnoser);
 }
 
 /// Get diagnostic %select index for tag kind for
@@ -8873,9 +8923,11 @@ QualType Sema::BuildAtomicType(QualType T, SourceLocation Loc) {
       DisallowedKind = 4;
     else if (T.hasQualifiers())
       DisallowedKind = 5;
+    else if (T->isSizelessType())
+      DisallowedKind = 6;
     else if (!T.isTriviallyCopyableType(Context))
       // Some other non-trivially-copyable type (probably a C++ class)
-      DisallowedKind = 6;
+      DisallowedKind = 7;
 
     if (DisallowedKind != -1) {
       Diag(Loc, diag::err_atomic_specifier_bad_type) << DisallowedKind << T;

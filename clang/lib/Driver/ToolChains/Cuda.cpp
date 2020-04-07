@@ -18,6 +18,7 @@
 #include "clang/Driver/Options.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
@@ -33,30 +34,39 @@ using namespace llvm::opt;
 
 // Parses the contents of version.txt in an CUDA installation.  It should
 // contain one line of the from e.g. "CUDA Version 7.5.2".
-static CudaVersion ParseCudaVersionFile(const Driver &D, llvm::StringRef V) {
+void CudaInstallationDetector::ParseCudaVersionFile(llvm::StringRef V) {
+  Version = CudaVersion::UNKNOWN;
   if (!V.startswith("CUDA Version "))
-    return CudaVersion::UNKNOWN;
+    return;
   V = V.substr(strlen("CUDA Version "));
   SmallVector<StringRef,4> VersionParts;
   V.split(VersionParts, '.');
   if (VersionParts.size() < 2)
-    return CudaVersion::UNKNOWN;
-  std::string MajorMinor = join_items(".", VersionParts[0], VersionParts[1]);
-  CudaVersion Version = CudaStringToVersion(MajorMinor);
+    return;
+  DetectedVersion = join_items(".", VersionParts[0], VersionParts[1]);
+  Version = CudaStringToVersion(DetectedVersion);
   if (Version != CudaVersion::UNKNOWN)
-    return Version;
+    return;
 
-  // Issue a warning and assume that the version we've found is compatible with
-  // the latest version we support.
-  D.Diag(diag::warn_drv_unknown_cuda_version)
-      << MajorMinor << CudaVersionToString(CudaVersion::LATEST);
-  return CudaVersion::LATEST;
+  Version = CudaVersion::LATEST;
+  DetectedVersionIsNotSupported = true;
+}
+
+void CudaInstallationDetector::WarnIfUnsupportedVersion() {
+  if (DetectedVersionIsNotSupported)
+    D.Diag(diag::warn_drv_unknown_cuda_version)
+        << DetectedVersion << CudaVersionToString(Version);
 }
 
 CudaInstallationDetector::CudaInstallationDetector(
     const Driver &D, const llvm::Triple &HostTriple,
     const llvm::opt::ArgList &Args)
     : D(D) {
+#if INTEL_CUSTOMIZATION
+  // DPC++ does not support Cuda, do not do the installation check.
+  if (Args.hasArg(options::OPT__dpcpp))
+    return;
+#endif // INTEL_CUSTOMIZATION
   struct Candidate {
     std::string Path;
     bool StrictChecking;
@@ -149,7 +159,7 @@ CudaInstallationDetector::CudaInstallationDetector(
       // version.txt isn't present.
       Version = CudaVersion::CUDA_70;
     } else {
-      Version = ParseCudaVersionFile(D, (*VersionFile)->getBuffer());
+      ParseCudaVersionFile((*VersionFile)->getBuffer());
     }
 
     if (Version >= CudaVersion::CUDA_90) {
@@ -567,8 +577,10 @@ CudaToolChain::CudaToolChain(const Driver &D, const llvm::Triple &Triple,
                              const Action::OffloadKind OK)
     : ToolChain(D, Triple, Args), HostTC(HostTC),
       CudaInstallation(D, HostTC.getTriple(), Args), OK(OK) {
-  if (CudaInstallation.isValid())
+  if (CudaInstallation.isValid()) {
+    CudaInstallation.WarnIfUnsupportedVersion();
     getProgramPaths().push_back(std::string(CudaInstallation.getBinPath()));
+  }
   // Lookup binaries into the driver directory, this is used to
   // discover the clang-offload-bundler executable.
   getProgramPaths().push_back(getDriver().Dir);
@@ -597,8 +609,9 @@ void CudaToolChain::addClangTargetOptions(
   StringRef GpuArch = DriverArgs.getLastArgValue(options::OPT_march_EQ);
   assert(!GpuArch.empty() && "Must have an explicit GPU arch.");
   assert((DeviceOffloadingKind == Action::OFK_OpenMP ||
+          DeviceOffloadingKind == Action::OFK_SYCL ||
           DeviceOffloadingKind == Action::OFK_Cuda) &&
-         "Only OpenMP or CUDA offloading kinds are supported for NVIDIA GPUs.");
+         "Only OpenMP, SYCL or CUDA offloading kinds are supported for NVIDIA GPUs.");
 
   if (DeviceOffloadingKind == Action::OFK_Cuda) {
     CC1Args.push_back("-fcuda-is-device");
@@ -610,6 +623,53 @@ void CudaToolChain::addClangTargetOptions(
     if (DriverArgs.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
                            false))
       CC1Args.push_back("-fgpu-rdc");
+  }
+
+  if (DeviceOffloadingKind == Action::OFK_SYCL) {
+    toolchains::SYCLToolChain::AddSYCLIncludeArgs(getDriver(), DriverArgs,
+                                                  CC1Args);
+  }
+
+  auto NoLibSpirv = DriverArgs.hasArg(options::OPT_fno_sycl_libspirv);
+  if (DeviceOffloadingKind == Action::OFK_SYCL && !NoLibSpirv) {
+    std::string LibSpirvFile;
+
+    if (DriverArgs.hasArg(clang::driver::options::OPT_fsycl_libspirv_path_EQ)) {
+      auto ProvidedPath =
+        DriverArgs.getLastArgValue(clang::driver::options::OPT_fsycl_libspirv_path_EQ).str();
+      if (llvm::sys::fs::exists(ProvidedPath))
+        LibSpirvFile = ProvidedPath;
+    } else {
+      SmallVector<StringRef, 8> LibraryPaths;
+
+      // Expected path w/out install.
+      SmallString<256> WithoutInstallPath(getDriver().ResourceDir);
+      llvm::sys::path::append(WithoutInstallPath, Twine("../../clc"));
+      LibraryPaths.emplace_back(WithoutInstallPath.c_str());
+
+      // Expected path w/ install.
+      SmallString<256> WithInstallPath(getDriver().ResourceDir);
+      llvm::sys::path::append(WithInstallPath, Twine("../../../share/clc"));
+      LibraryPaths.emplace_back(WithInstallPath.c_str());
+
+      std::string LibSpirvTargetName = "libspirv-nvptx64--nvidiacl.bc";
+      for (StringRef LibraryPath : LibraryPaths) {
+        SmallString<128> LibSpirvTargetFile(LibraryPath);
+        llvm::sys::path::append(LibSpirvTargetFile, LibSpirvTargetName);
+        if (llvm::sys::fs::exists(LibSpirvTargetFile)) {
+          LibSpirvFile = std::string(LibSpirvTargetFile.str());
+          break;
+        }
+      }
+    }
+
+    if (LibSpirvFile.empty()) {
+      getDriver().Diag(diag::err_drv_no_sycl_libspirv);
+      return;
+    }
+
+    CC1Args.push_back("-mlink-builtin-bitcode");
+    CC1Args.push_back(DriverArgs.MakeArgString(LibSpirvFile));
   }
 
   if (DriverArgs.hasArg(options::OPT_nogpulib))
@@ -711,11 +771,11 @@ llvm::DenormalMode CudaToolChain::getDefaultDenormalModeForType(
         DriverArgs.hasFlag(options::OPT_fcuda_flush_denormals_to_zero,
                            options::OPT_fno_cuda_flush_denormals_to_zero,
                            false))
-      return llvm::DenormalMode::PreserveSign;
+      return llvm::DenormalMode::getPreserveSign();
   }
 
   assert(DeviceOffloadKind != Action::OFK_Host);
-  return llvm::DenormalMode::IEEE;
+  return llvm::DenormalMode::getIEEE();
 }
 
 bool CudaToolChain::supportsDebugInfoOption(const llvm::opt::Arg *A) const {
@@ -797,31 +857,7 @@ CudaToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       // Skip this argument unless the architecture matches BoundArch
       if (BoundArch.empty() || A->getValue(0) != BoundArch)
         continue;
-
-      unsigned Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
-      unsigned Prev = Index;
-      std::unique_ptr<Arg> XarchArg(Opts.ParseOneArg(Args, Index));
-
-      // If the argument parsing failed or more than one argument was
-      // consumed, the -Xarch_ argument's parameter tried to consume
-      // extra arguments. Emit an error and ignore.
-      //
-      // We also want to disallow any options which would alter the
-      // driver behavior; that isn't going to work in our model. We
-      // use isDriverOption() as an approximation, although things
-      // like -O4 are going to slip through.
-      if (!XarchArg || Index > Prev + 1) {
-        getDriver().Diag(diag::err_drv_invalid_Xarch_argument_with_args)
-            << A->getAsString(Args);
-        continue;
-      } else if (XarchArg->getOption().hasFlag(options::DriverOption)) {
-        getDriver().Diag(diag::err_drv_invalid_Xarch_argument_isdriver)
-            << A->getAsString(Args);
-        continue;
-      }
-      XarchArg->setBaseArg(A);
-      A = XarchArg.release();
-      DAL->AddSynthesizedArg(A);
+      TranslateXarchArgs(Args, A, DAL);
     }
     DAL->append(A);
   }
@@ -840,7 +876,20 @@ Tool *CudaToolChain::buildAssembler() const {
 Tool *CudaToolChain::buildLinker() const {
   if (OK == Action::OFK_OpenMP)
     return new tools::NVPTX::OpenMPLinker(*this);
+  if (OK == Action::OFK_SYCL)
+    return new tools::NVPTX::SYCLLinker(*this);
   return new tools::NVPTX::Linker(*this);
+}
+
+Tool *CudaToolChain::SelectTool(const JobAction &JA) const {
+  if (OK == Action::OFK_SYCL) {
+    if (JA.getKind() == Action::LinkJobClass &&
+        JA.getType() == types::TY_LLVM_BC) {
+      return static_cast<tools::NVPTX::SYCLLinker *>(ToolChain::SelectTool(JA))
+          ->GetSYCLToolChainLinker();
+    }
+  }
+  return ToolChain::SelectTool(JA);
 }
 
 void CudaToolChain::addClangWarningOptions(ArgStringList &CC1Args) const {
@@ -854,6 +903,10 @@ CudaToolChain::GetCXXStdlibType(const ArgList &Args) const {
 
 void CudaToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
                                               ArgStringList &CC1Args) const {
+  if (DriverArgs.hasArg(options::OPT_fsycl)) {
+    toolchains::SYCLToolChain::AddSYCLIncludeArgs(getDriver(), DriverArgs,
+                                                  CC1Args);
+  }
   HostTC.AddClangSystemIncludeArgs(DriverArgs, CC1Args);
 }
 

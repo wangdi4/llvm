@@ -15,24 +15,24 @@
 ; CHECK-DAG: i64 {{%vp.*}}
 ; CHECK-DAG: i64 {{%vp.*}}
 ; CHECK-DAG: i64 {{%vp.*}}
-; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB3
-; CHECK-DAG: i64* %k livein in the loops:  BB3
-; CHECK-DAG: i64* %k livein in the loops:  BB3
-; CHECK-DAG: i64* %ub livein in the loops:  BB3
-; CHECK-DAG: i64 %n livein in the loops:  BB3
-; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB5
-; CHECK-DAG: i1 {{%vp.*}} liveout in the loop: BB5
-; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB5
-; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB5
-; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB5
-; CHECK-DAG: [101 x float]* %a livein in the loops:  BB5 BB3
-; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB3
-; CHECK-DAG: i64 %n livein in the loops:  BB3
-; CHECK-DAG: [101 x float]* %B livein in the loops:  BB3
-; CHECK-DAG: [101 x float]* %B livein in the loops:  BB3
-; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB3
-; CHECK-DAG: i64 %4 livein in the loops:  BB3
-; CHECK-DAG: i64* %k livein in the loops:  BB3
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
+; CHECK-DAG: i64* %k livein in the loops:  BB2
+; CHECK-DAG: i64* %k livein in the loops:  BB2
+; CHECK-DAG: i64* %ub livein in the loops:  BB2
+; CHECK-DAG: i64 %n livein in the loops:  BB2
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
+; CHECK-DAG: i1 {{%vp.*}} liveout in the loop: BB4
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
+; CHECK-DAG: [101 x float]* %a livein in the loops:  BB4 BB2
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
+; CHECK-DAG: i64 %n livein in the loops:  BB2
+; CHECK-DAG: [101 x float]* %B livein in the loops:  BB2
+; CHECK-DAG: [101 x float]* %B livein in the loops:  BB2
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
+; CHECK-DAG: i64 %4 livein in the loops:  BB2
+; CHECK-DAG: i64* %k livein in the loops:  BB2
 ; CHECK-NEXT:Live-in and Live-out info end
 ;
 ; Function Attrs: nounwind uwtable

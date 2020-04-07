@@ -77,19 +77,19 @@ static void HandleTargetOutcome(bool success) {
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
 EXTERN void __tgt_register_requires(int64_t flags) {
-  RTLs.RegisterRequires(flags);
+  RTLs->RegisterRequires(flags);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// adds a target shared library to the target execution image
 EXTERN void __tgt_register_lib(__tgt_bin_desc *desc) {
-  RTLs.RegisterLib(desc);
+  RTLs->RegisterLib(desc);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// unloads a target shared library
 EXTERN void __tgt_unregister_lib(__tgt_bin_desc *desc) {
-  RTLs.UnregisterLib(desc);
+  RTLs->UnregisterLib(desc);
 }
 
 /// creates host-to-target data mapping, stores it in the
@@ -159,9 +159,9 @@ EXTERN void __tgt_target_data_end(int64_t device_id, int32_t arg_num,
     device_id = omp_get_default_device();
   }
 
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
   if (Devices_size <= (size_t)device_id) {
     DP("Device ID  %" PRId64 " does not have a matching RTL.\n", device_id);
     HandleTargetOutcome(false);
@@ -379,10 +379,10 @@ EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
 
   DP("__kmpc_push_target_tripcount(%" PRId64 ", %" PRIu64 ")\n", device_id,
       loop_tripcount);
-  TblMapMtx.lock();
+  TblMapMtx->lock();
   Devices[device_id].LoopTripCnt.emplace(__kmpc_global_thread_num(NULL),
                                          loop_tripcount);
-  TblMapMtx.unlock();
+  TblMapMtx->unlock();
 }
 
 #if INTEL_COLLAB
@@ -423,11 +423,16 @@ EXTERN void *__tgt_create_buffer(int64_t device_num, void *host_ptr) {
 
   if (!host_ptr) {
     DP("Call to __tgt_create_buffer with invalid host_ptr\n");
+    HandleTargetOutcome(false);
     return NULL;
   }
 
   DeviceTy &Device = Devices[device_num];
   void *ret = Device.create_buffer(host_ptr);
+  if (!ret) {
+    DP("Call to __tgt_create_buffer with no associated device_ptr\n");
+    HandleTargetOutcome(false);
+  }
   DP("__tgt_create_buffer returns " DPxMOD "\n", DPxPTR(ret));
 
   return ret;
@@ -562,6 +567,19 @@ EXTERN void *__tgt_create_interop_obj(
 
   DeviceTy &Device = Devices[device_id];
 
+  auto &rtl_name = Device.RTL->RTLName;
+  int32_t plugin;
+  if (rtl_name.find("opencl") != std::string::npos) {
+    plugin = INTEROP_PLUGIN_OPENCL;
+  } else if (rtl_name.find("level0") != std::string::npos) {
+    plugin = INTEROP_PLUGIN_LEVEL0;
+  } else if (rtl_name.find("x86_64") != std::string::npos) {
+    plugin = INTEROP_PLUGIN_X86_64;
+  } else {
+    DP("%s does not support interop interface\n", rtl_name.c_str());
+    return NULL;
+  }
+
   __tgt_interop_obj *obj =
       (__tgt_interop_obj *)malloc(sizeof(__tgt_interop_obj));
   if (!obj) {
@@ -574,6 +592,7 @@ EXTERN void *__tgt_create_interop_obj(
   obj->async_obj = async_obj;
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
   obj->pipe = Device.create_offload_pipe(is_async);
+  obj->plugin_interface = plugin;
 
   return obj;
 }
@@ -591,6 +610,33 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
   DeviceTy &Device = Devices[obj->device_id];
   Device.release_offload_pipe(obj->pipe);
   free(interop_obj);
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int __tgt_set_interop_property(
+    void *interop_obj, int32_t property_id, void *property_value) {
+  DP("Call to __tgt_set_interop_property with interop_obj " DPxMOD
+     ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
+
+  if (IsOffloadDisabled() || !interop_obj || !property_value) {
+    return OFFLOAD_FAIL;
+  }
+
+  __tgt_interop_obj *interop = (__tgt_interop_obj *)interop_obj;
+  // Currently we support setting async object only
+  switch (property_id) {
+  case INTEROP_ASYNC_OBJ:
+    if (interop->async_obj) {
+       DP("Updating async obj is not allowed" PRId32 "\n");
+       return OFFLOAD_FAIL;
+    }
+    interop->async_obj = property_value;
+    break;
+  default:
+    DP("Invalid interop property name " PRId32 "\n");
+    return OFFLOAD_FAIL;
+  }
 
   return OFFLOAD_SUCCESS;
 }
@@ -621,6 +667,9 @@ EXTERN int __tgt_get_interop_property(
   case INTEROP_OFFLOAD_PIPE:
     *property_value = interop->pipe;
     break;
+  case INTEROP_PLUGIN_INTERFACE:
+    *property_value = (void *)&interop->plugin_interface;
+    break;
   default:
     DP("Invalid interop property name " PRId32 "\n");
     return OFFLOAD_FAIL;
@@ -635,5 +684,13 @@ EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
 
 EXTERN void *__tgt_get_ompt_trace(void) {
   return &omptTrace;
+}
+
+EXTERN int __tgt_get_num_devices(void) {
+  RTLsMtx->lock();
+  size_t Devices_size = Devices.size();
+  RTLsMtx->unlock();
+  DP("Call to omp_get_num_devices returning %zd\n", Devices_size);
+  return Devices_size;
 }
 #endif // INTEL_COLLAB

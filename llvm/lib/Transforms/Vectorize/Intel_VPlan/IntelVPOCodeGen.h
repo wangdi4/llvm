@@ -54,6 +54,7 @@ class VPLoopEntity;
 class VPReduction;
 class VPInduction;
 class VPGEPInstruction;
+class VPBlendInst;
 
 // LVCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
@@ -283,9 +284,9 @@ private:
   /// Get an index of last written lane using Mask value.
   Value *getLastLaneFromMask(Value *MaskPtr);
 
-  /// \brief The Loop exit block may have single value PHI nodes where the
-  /// incoming value is 'Undef'. While vectorizing we only handled real values
-  /// that were defined inside the loop. Here we fix the 'undef case'.
+  /// The Loop exit block may have single value PHI nodes where the incoming
+  /// value is 'Undef'. While vectorizing we only handled real values that were
+  /// defined inside the loop. Here we fix the 'undef case'.
   void fixLCSSAPHIs();
 
   /// Insert the new loop to the loop hierarchy and pass manager
@@ -301,13 +302,6 @@ private:
   /// to each vector element of Val. The sequence starts at StartIndex.
   Value *getStepVector(Value *Val, int StartIdx, Value *Step,
                        Instruction::BinaryOps BinOp);
-
-  /// Create a broadcast instruction. This method generates a broadcast
-  /// instruction (shuffle) for loop invariant values and for the induction
-  /// value. If this is the induction variable then we extend it to N, N+1, ...
-  /// this is needed because each iteration in the loop corresponds to a SIMD
-  /// element.
-  Value *getBroadcastInstrs(Value *V);
 
   /// Widen Phi node, which is not an induction variable. This Phi node
   /// is a result of merging blocks ruled out by uniform branch.
@@ -364,6 +358,9 @@ private:
   /// Create a new widened alloca in the function entry BB. We allocate VF
   /// elements of the private element type.
   void vectorizeAllocatePrivate(VPAllocatePrivate *V);
+
+  /// Vectorize blend instructions using selects.
+  void vectorizeBlend(VPBlendInst *Blend);
 
   /// The original loop.
   Loop *OrigLoop;

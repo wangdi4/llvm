@@ -23,25 +23,20 @@ namespace vpo {
 class VPCloneUtils {
 public:
   using Value2ValueMapTy = DenseMap<VPValue *, VPValue *>;
-  using Block2BlockMapTy = DenseMap<VPBlockBase *, VPBlockBase *>;
-
-  /// Generic function that accepts any \p Block and clones it.
-  static VPBlockBase *cloneBlockBase(VPBlockBase *Block, std::string Prefix,
-                                     Block2BlockMapTy &BlockMap,
-                                     Value2ValueMapTy &ValueMap,
-                                     VPlanDivergenceAnalysis *DA = nullptr);
+  using Block2BlockMapTy = DenseMap<VPBasicBlock *, VPBasicBlock *>;
 
   /// Clone given VPBasicBlock \p Block.
   static VPBasicBlock *cloneBasicBlock(VPBasicBlock *Block, std::string Prefix,
+                                       Block2BlockMapTy &BlockMap,
                                        Value2ValueMapTy &ValueMap,
                                        VPlanDivergenceAnalysis *DA = nullptr);
 
   /// Clone given blocks from Begin to End
-  static VPBlockBase *cloneBlocksRange(VPBlockBase *Begin, VPBlockBase *End,
-                                       Block2BlockMapTy &BlockMap,
-                                       Value2ValueMapTy &ValueMap,
-                                       VPlanDivergenceAnalysis *DA = nullptr,
-                                       Twine Prefix = Twine());
+  static VPBasicBlock *cloneBlocksRange(VPBasicBlock *Begin, VPBasicBlock *End,
+                                        Block2BlockMapTy &BlockMap,
+                                        Value2ValueMapTy &ValueMap,
+                                        VPlanDivergenceAnalysis *DA = nullptr,
+                                        Twine Prefix = Twine());
 };
 
 /// VPValueMapper is responsible to remap instructions within
@@ -56,8 +51,8 @@ private:
 
   bool AssertForNonCloned;
 
-  /// As long as our VPBlockBase is not derived from VPValue, we cannot have
-  /// single function to remap VPValue and VPBlockBase, like
+  /// As long as our VPBasicBlock is not derived from VPValue, we cannot have
+  /// single function to remap VPValue and VPBasicBlock, like
   /// ValueMapper::remapValue.
   /// Thus templatization of remapValue and additional argument for a Map are
   /// necessary now.

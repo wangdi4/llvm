@@ -57,6 +57,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_WP.h" // INTEL
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -93,6 +94,7 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/GlobPattern.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
@@ -175,6 +177,29 @@ cl::opt<bool> DisableWholeProgramVisibility(
     "disable-whole-program-visibility", cl::init(false), cl::Hidden,
     cl::ZeroOrMore,
     cl::desc("Disable whole program visibility (overrides enabling options)"));
+
+/// Provide way to prevent certain function from being devirtualized
+cl::list<std::string>
+    SkipFunctionNames("wholeprogramdevirt-skip",
+                      cl::desc("Prevent function(s) from being devirtualized"),
+                      cl::Hidden, cl::ZeroOrMore, cl::CommaSeparated);
+
+namespace {
+struct PatternList {
+  std::vector<GlobPattern> Patterns;
+  template <class T> void init(const T &StringList) {
+    for (const auto &S : StringList)
+      if (Expected<GlobPattern> Pat = GlobPattern::create(S))
+        Patterns.push_back(std::move(*Pat));
+  }
+  bool match(StringRef S) {
+    for (const GlobPattern &P : Patterns)
+      if (P.match(S))
+        return true;
+    return false;
+  }
+};
+} // namespace
 
 // Find the minimum offset that we may store a value of size Size bits at. If
 // IsAfter is set, look for an offset before the object, otherwise look for an
@@ -511,6 +536,7 @@ struct DevirtModule {
   // eliminate the type check by RAUWing the associated llvm.type.test call with
   // true.
   std::map<CallInst *, unsigned> NumUnsafeUsesForTypeTest;
+  PatternList FunctionsToSkip;
 
   DevirtModule(Module &M, function_ref<AAResults &(Function &)> AARGetter,
                function_ref<OptimizationRemarkEmitter &(Function *)> OREGetter,
@@ -528,6 +554,7 @@ struct DevirtModule {
         RemarksEnabled(areRemarksEnabled()), OREGetter(OREGetter),    // INTEL
         IsWholeProgramSafe(IsWholeProgramSafe) {                      // INTEL
     assert(!(ExportSummary && ImportSummary));
+    FunctionsToSkip.init(SkipFunctionNames);
   }
 
   bool areRemarksEnabled();
@@ -700,12 +727,16 @@ struct DevirtIndex {
 
   MapVector<VTableSlotSummary, VTableSlotInfo> CallSlots;
 
+  PatternList FunctionsToSkip;
+
   DevirtIndex(
       ModuleSummaryIndex &ExportSummary,
       std::set<GlobalValue::GUID> &ExportedGUIDs,
       std::map<ValueInfo, std::vector<VTableSlotSummary>> &LocalWPDTargetsMap)
       : ExportSummary(ExportSummary), ExportedGUIDs(ExportedGUIDs),
-        LocalWPDTargetsMap(LocalWPDTargetsMap) {}
+        LocalWPDTargetsMap(LocalWPDTargetsMap) {
+    FunctionsToSkip.init(SkipFunctionNames);
+  }
 
   bool tryFindVirtualCallTargets(std::vector<ValueInfo> &TargetsForSlot,
                                  const TypeIdCompatibleVtableInfo TIdInfo,
@@ -778,6 +809,7 @@ struct WholeProgramDevirt : public ModulePass {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<WholeProgramWrapperPass>(); // INTEL
     AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
+    AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
   }
 };
 
@@ -1037,6 +1069,9 @@ bool DevirtModule::tryFindVirtualCallTargets(
     if (!Fn)
       return false;
 
+    if (FunctionsToSkip.match(Fn->getName()))
+      return false;
+
     // We can disregard __cxa_pure_virtual as a possible call target, as
     // calls to pure virtuals are UB.
     if (Fn->getName() == "__cxa_pure_virtual")
@@ -1234,6 +1269,11 @@ bool DevirtIndex::trySingleImplDevirt(MutableArrayRef<ValueInfo> TargetsForSlot,
   // Don't devirtualize if we don't have target definition.
   auto Size = TheFn.getSummaryList().size();
   if (!Size)
+    return false;
+
+  // Don't devirtualize function if we're told to skip it
+  // in -wholeprogramdevirt-skip.
+  if (FunctionsToSkip.match(TheFn.name()))
     return false;
 
   // If the summary list contains multiple summaries where at least one is
@@ -2620,7 +2660,7 @@ void DevirtModule::scanTypeTestUsers(Function *TypeTestFunc) {
 #if INTEL_CUSTOMIZATION
     Value *PtrCast = CI->getArgOperand(0);
     BitCastInst *PtrInst = dyn_cast<BitCastInst>(PtrCast);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
     // We no longer need the assumes or the type test.
     for (auto Assume : Assumes)
@@ -2831,6 +2871,7 @@ bool DevirtModule::run() {
   // Find the possible places where a downcasting can occur
   filterDowncasting(AssumeFunc);
 #endif // INTEL_CUSTOMIZATION
+
   if (TypeTestFunc && AssumeFunc)
     scanTypeTestUsers(TypeTestFunc);
 

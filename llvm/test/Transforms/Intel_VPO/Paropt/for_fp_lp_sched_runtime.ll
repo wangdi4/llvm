@@ -30,7 +30,7 @@ entry:
   store i32 9, i32* %.omp.ub, align 4
 
 ; Check that the ident_t flag has bits for OpenMP version 5.0
-; CHECK: @{{[^ ]+}} = private unnamed_addr global %__struct.ident_t { i32 0, i32 838860802, {{[^}]+}}
+; CHECK: @{{[^ ]+}} = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, {{[^}]+}}
 
 ; Initialization of y's local copy
 ; CHECK: [[LOAD1:%[a-zA-Z._0-9]+]] = load i32, i32* @y

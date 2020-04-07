@@ -1,6 +1,6 @@
 // RUN: %clang %s -fsyntax-only -fsycl-device-only -DTRIGGER_ERROR -Xclang -verify
 // RUN: %clang %s -fsyntax-only -Xclang -ast-dump -fsycl-device-only | FileCheck %s
-// RUN: %clang_cc1 -fsycl-is-host -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fsycl -fsycl-is-host -fsyntax-only -verify %s
 
 // INTEL_CUSTOMIZATION
 // UNSUPPORTED: intel_opencl && i686-pc-windows
@@ -86,8 +86,8 @@ int main() {
   kernel<class test_kernel5>(
       TRIFuncObjGood2());
   // CHECK-LABEL: FunctionDecl {{.*}} _ZTSZ4mainE12test_kernel5
-  // CHECK:       ReqdWorkGroupSizeAttr {{.*}} 4 1 1
-  // CHECK:       SYCLIntelMaxWorkGroupSizeAttr {{.*}} 8 1 1
+  // CHECK:       ReqdWorkGroupSizeAttr {{.*}} 1 1 4
+  // CHECK:       SYCLIntelMaxWorkGroupSizeAttr {{.*}} 1 1 8
   // CHECK:       SYCLIntelMaxGlobalWorkDimAttr {{.*}} 3
 
 #ifdef TRIGGER_ERROR

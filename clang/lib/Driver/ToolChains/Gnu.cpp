@@ -314,7 +314,7 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   }
 }
 
-static bool getPIE(const ArgList &Args, const toolchains::Linux &ToolChain) {
+static bool getPIE(const ArgList &Args, const ToolChain &TC) {
   if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_static) ||
       Args.hasArg(options::OPT_r) || Args.hasArg(options::OPT_static_pie))
     return false;
@@ -322,23 +322,23 @@ static bool getPIE(const ArgList &Args, const toolchains::Linux &ToolChain) {
   Arg *A = Args.getLastArg(options::OPT_pie, options::OPT_no_pie,
                            options::OPT_nopie);
   if (!A)
-    return ToolChain.isPIEDefault();
+    return TC.isPIEDefault();
   return A->getOption().matches(options::OPT_pie);
 }
 
 #if INTEL_CUSTOMIZATION
 static void addIntelLibPaths(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // Add Intel specific library search locations
   // TODO: This is a rudimentary way to add the library search locations
-  if (ToolChain.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
+  if (TC.getEffectiveTriple().getArch() == llvm::Triple::x86_64) {
     // deploy
     CmdArgs.push_back(Args.MakeArgString("-L" +
-        ToolChain.getDriver().Dir + "/../compiler/lib/intel64_lin"));
+        TC.getDriver().Dir + "/../compiler/lib/intel64_lin"));
   } else {
     // deploy
     CmdArgs.push_back(Args.MakeArgString("-L" +
-        ToolChain.getDriver().Dir + "/../compiler/lib/ia32_lin"));
+        TC.getDriver().Dir + "/../compiler/lib/ia32_lin"));
   }
   // IA32ROOT
   const char * IA32Root = getenv("IA32ROOT");
@@ -379,7 +379,7 @@ static bool isStaticLinkState(ArgStringList &CmdArgs) {
 
 // Add IPP libraries
 static void addIPPLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is statically link
   bool linkStatic = true;
   if (const Arg *IL = Args.getLastArg(options::OPT_ipp_link_EQ)) {
@@ -395,7 +395,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
     CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
-  ToolChain.AddIPPLibArgs(Args, CmdArgs, "-l");
+  TC.AddIPPLibArgs(Args, CmdArgs, "-l");
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   if (!curStaticLinkState && isStaticLinkState(CmdArgs))
@@ -404,7 +404,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
 
 // Add MKL libraries
 static void addMKLLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
   bool linkStatic = false;
 
@@ -417,7 +417,7 @@ static void addMKLLibs(ArgStringList &CmdArgs,
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   CmdArgs.push_back(Args.MakeArgString("--start-group"));
-  ToolChain.AddMKLLibArgs(Args, CmdArgs, "-l");
+  TC.AddMKLLibArgs(Args, CmdArgs, "-l");
   CmdArgs.push_back(Args.MakeArgString("--end-group"));
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
@@ -427,7 +427,7 @@ static void addMKLLibs(ArgStringList &CmdArgs,
 
 // Add TBB libraries
 static void addTBBLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
   bool linkStatic = false;
 
@@ -439,7 +439,7 @@ static void addTBBLibs(ArgStringList &CmdArgs,
     CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
-  ToolChain.AddTBBLibArgs(Args, CmdArgs, "-l");
+  TC.AddTBBLibArgs(Args, CmdArgs, "-l");
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   if (!curStaticLinkState && isStaticLinkState(CmdArgs))
@@ -448,7 +448,7 @@ static void addTBBLibs(ArgStringList &CmdArgs,
 
 // Add DAAL libraries
 static void addDAALLibs(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
   bool linkStatic = false;
 
@@ -461,7 +461,7 @@ static void addDAALLibs(ArgStringList &CmdArgs,
   if (!curStaticLinkState && linkStatic)
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   CmdArgs.push_back(Args.MakeArgString("--start-group"));
-  ToolChain.AddDAALLibArgs(Args, CmdArgs, "-l");
+  TC.AddDAALLibArgs(Args, CmdArgs, "-l");
   CmdArgs.push_back(Args.MakeArgString("--end-group"));
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
@@ -471,15 +471,16 @@ static void addDAALLibs(ArgStringList &CmdArgs,
 
 // Add performance library search paths.
 static void addPerfLibPaths(ArgStringList &CmdArgs,
-    const llvm::opt::ArgList &Args, const toolchains::Linux &ToolChain) {
+    const llvm::opt::ArgList &Args, const ToolChain &TC) {
   if (Args.hasArg(options::OPT_ipp_EQ))
-    ToolChain.AddIPPLibPath(Args, CmdArgs, "-L");
+    TC.AddIPPLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_mkl_EQ))
-    ToolChain.AddMKLLibPath(Args, CmdArgs, "-L");
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
-    ToolChain.AddTBBLibPath(Args, CmdArgs, "-L");
+    TC.AddMKLLibPath(Args, CmdArgs, "-L");
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+    TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_daal_EQ))
-    ToolChain.AddDAALLibPath(Args, CmdArgs, "-L");
+    TC.AddDAALLibPath(Args, CmdArgs, "-L");
 }
 
 // Intel libraries are added in statically by default
@@ -503,13 +504,12 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
     CmdArgs.push_back("-Bdynamic");
 }
 #endif // INTEL_CUSTOMIZATION
-static bool getStaticPIE(const ArgList &Args,
-                         const toolchains::Linux &ToolChain) {
+static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
   bool HasStaticPIE = Args.hasArg(options::OPT_static_pie);
   // -no-pie is an alias for -nopie. So, handling -nopie takes care of
   // -no-pie as well.
   if (HasStaticPIE && Args.hasArg(options::OPT_nopie)) {
-    const Driver &D = ToolChain.getDriver();
+    const Driver &D = TC.getDriver();
     const llvm::opt::OptTable &Opts = D.getOpts();
     const char *StaticPIEName = Opts.getOptionName(options::OPT_static_pie);
     const char *NoPIEName = Opts.getOptionName(options::OPT_nopie);
@@ -530,7 +530,12 @@ void tools::gnutools::Linker::constructLLVMARCommand(
     const InputInfoList &Input, const ArgList &Args) const {
   ArgStringList CmdArgs;
   CmdArgs.push_back("cr");
-  CmdArgs.push_back(Output.getFilename());
+  const char *OutputFilename = Output.getFilename();
+  if (llvm::sys::fs::exists(OutputFilename)) {
+    C.getDriver().Diag(clang::diag::warn_drv_existing_archive_append)
+        << OutputFilename;
+  }
+  CmdArgs.push_back(OutputFilename);
   for (const auto &II : Input) {
     if (II.getType() == types::TY_Tempfilelist) {
       // Take the list file and pass it in with '@'.
@@ -554,8 +559,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                            const InputInfoList &Inputs,
                                            const ArgList &Args,
                                            const char *LinkingOutput) const {
-  const toolchains::Linux &ToolChain =
-      static_cast<const toolchains::Linux &>(getToolChain());
+  // FIXME: The Linker class constructor takes a ToolChain and not a
+  // Generic_ELF, so the static_cast might return a reference to a invalid
+  // instance (see PR45061). Ideally, the Linker constructor needs to take a
+  // Generic_ELF instead.
+  const toolchains::Generic_ELF &ToolChain =
+      static_cast<const toolchains::Generic_ELF &>(getToolChain());
   const Driver &D = ToolChain.getDriver();
 
   const llvm::Triple &Triple = getToolChain().getEffectiveTriple();
@@ -632,8 +641,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (isAndroid)
       CmdArgs.push_back("--warn-shared-textrel");
 
-  for (const auto &Opt : ToolChain.ExtraOpts)
-    CmdArgs.push_back(Opt.c_str());
+  ToolChain.addExtraOpts(CmdArgs);
 
   CmdArgs.push_back("--eh-frame-hdr");
 
@@ -716,22 +724,22 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
 
     // Add crtfastmath.o if available and fast math is enabled.
-    ToolChain.AddFastMathRuntimeIfAvailable(Args, CmdArgs);
+    ToolChain.addFastMathRuntimeIfAvailable(Args, CmdArgs);
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
-  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel))
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
+  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
-    AddGoldPlugin(ToolChain, Args, CmdArgs, Output, Inputs[0],
+    addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
                   D.getLTOMode() == LTOK_Thin);
   }
 
@@ -772,7 +780,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     addMKLLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_daal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ))
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT__intel) &&
       !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
@@ -1817,7 +1826,7 @@ static void findRISCVBareMetalMultilibs(const Driver &D,
   };
   // currently only support the set of multilibs like riscv-gnu-toolchain does.
   // TODO: support MULTILIB_REUSE
-  SmallVector<RiscvMultilib, 8> RISCVMultilibSet = {
+  constexpr RiscvMultilib RISCVMultilibSet[] = {
       {"rv32i", "ilp32"},     {"rv32im", "ilp32"},     {"rv32iac", "ilp32"},
       {"rv32imac", "ilp32"},  {"rv32imafc", "ilp32f"}, {"rv64imac", "lp64"},
       {"rv64imafdc", "lp64d"}};
@@ -2380,6 +2389,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
   static const char *const RISCV64Triples[] = {"riscv64-unknown-linux-gnu",
                                                "riscv64-linux-gnu",
                                                "riscv64-unknown-elf",
+                                               "riscv64-redhat-linux",
                                                "riscv64-suse-linux"};
 
   static const char *const SPARCv8LibDirs[] = {"/lib32", "/lib"};
