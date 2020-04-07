@@ -589,7 +589,7 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
     break;
   case QUAL_OMP_ORDERED_SIMD:
     setIsDoacross(false);
-    setIsThreads(false);
+    setIsSIMD(true);
     break;
   case QUAL_OMP_CANCEL_PARALLEL:
     setCancelKind(WRNCancelParallel);

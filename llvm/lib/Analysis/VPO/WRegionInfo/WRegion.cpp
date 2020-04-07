@@ -723,7 +723,8 @@ WRNMasterNode::WRNMasterNode(BasicBlock *BB)
 WRNOrderedNode::WRNOrderedNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNOrdered, BB) {
   setIsDoacross(false);
-  setIsThreads(true);
+  setIsThreads(false);
+  setIsSIMD(false);
   LLVM_DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
 }
 

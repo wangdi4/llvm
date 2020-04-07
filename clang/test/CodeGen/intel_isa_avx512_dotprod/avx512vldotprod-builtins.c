@@ -10,6 +10,12 @@ __m128 test_mm_mask_vdpphps_ps(__m128 __W, __mmask8 __U, __m128h __A, __m128h __
   return _mm_mask_vdpphps_ps(__W, __U, __A, __B);
 }
 
+__m128 test_mm_maskz_vdpphps_ps(__mmask8 __U, __m128 __W, __m128h __A, __m128h __B) {
+  // CHECK-LABEL: @test_mm_maskz_vdpphps_ps(
+  // CHECK:     call <4 x float> @llvm.x86.avx512.maskz.vdpphps.128
+  return _mm_maskz_vdpphps_ps(__U, __W, __A, __B);
+}
+
 __m128i test_mm_mask_vpdpbssd_epi32(__m128i __W, __mmask8 __U, __m128i __A, __m128i __B) {
   // CHECK-LABEL: @test_mm_mask_vpdpbssd_epi32
   // CHECK: @llvm.x86.avx2.vpdpbssd.128
@@ -98,6 +104,12 @@ __m128i test_mm_maskz_vpdpbuuds_epi32(__mmask8 __U, __m128i __W, __m128i __A, __
 // CHECK:     call <8 x float> @llvm.x86.avx512.mask.vdpphps.256
 __m256 test_mm256_mask_vdpphps_ps(__m256 __W, __mmask8 __U, __m256h __A, __m256h __B) {
   return _mm256_mask_vdpphps_ps(__W, __U,  __A, __B);
+}
+
+// CHECK-LABEL: @test_mm256_maskz_vdpphps_ps(
+// CHECK:     call <8 x float> @llvm.x86.avx512.maskz.vdpphps.256
+__m256 test_mm256_maskz_vdpphps_ps(__mmask8 __U, __m256 __W, __m256h __A, __m256h __B) {
+  return _mm256_maskz_vdpphps_ps(__U, __W, __A, __B);
 }
 
 __m256i test_mm256_mask_vpdpbssd_epi32(__m256i __W, __mmask8 __U, __m256i __A, __m256i __B) {
