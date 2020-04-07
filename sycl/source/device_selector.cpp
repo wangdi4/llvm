@@ -120,18 +120,17 @@ int default_selector::operator()(const device &dev) const {
     Score = 50;
 
   // override always wins
-  if (dev.get_info<info::device::device_type>() == detail::get_forced_type())
-    return 1000;
+  if (dev.get_info<info::device::device_type>() == detail::get_forced_type()) {
+    Score += 1000;
+    return Score;
+  }
 
   if (dev.is_gpu())
     Score += 500;
 
-<<<<<<< HEAD
   if (dev.is_accelerator())
     Score += 400;
 
-=======
->>>>>>> b217bc5b22064d074dc75a01657593323efc9c71
   if (dev.is_cpu())
     Score += 300;
 
