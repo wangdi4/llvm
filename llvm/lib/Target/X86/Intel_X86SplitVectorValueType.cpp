@@ -795,14 +795,11 @@ void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
                                                            unsigned Depth) {
   VectorType *VTy = cast<VectorType>(I->getType());
   VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
-  // FIXME: the line below is incorrect. Mask is not should be accessed via
-  // getShuffleMask and it is represented via ArrayRef<int>
-  Constant *M = cast<Constant>(I->getOperand(2));
-  VectorType *Op2VTy = cast<VectorType>(M->getType());
-  VectorType *Op2HVTy = Op2VTy->getHalfElementsVectorType(Op2VTy);
+  ArrayRef<int> M = I->getShuffleMask();
+  assert(is_splat(M));
 
   unsigned NumElmts = VTy->getNumElements();
-  unsigned SVIndex = M->getUniqueInteger().getZExtValue();
+  unsigned SVIndex = M[0];
   unsigned Idx = SVIndex * 2 / NumElmts;
   unsigned NewSVIndex = SVIndex % (NumElmts / 2);
 
@@ -810,7 +807,11 @@ void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
   NI->mutateType(HVTy);
   setOperandOfSplitInst(I, NI, 0, Idx);
   setOperandOfSplitInst(I, NI, 1, Idx);
-  NI->setOperand(2, ConstantInt::get(Op2HVTy, NewSVIndex));
+  SmallVector<int, 16> NewMask(M.begin(), M.begin() + (NumElmts / 2));
+  for (int &El : NewMask) {
+    El = static_cast<int>(NewSVIndex);
+  }
+  cast<ShuffleVectorInst>(NI)->setShuffleMask(NewMask);
   setInstName(I, NI, Idx);
 
   // Insert NI before I.
