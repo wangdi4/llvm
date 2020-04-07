@@ -375,6 +375,7 @@ namespace {
       // DPCPP Kernel Transformations
       (void) llvm::createDPCPPKernelVecClonePass();
       (void) llvm::createDPCPPKernelPostVecPass();
+      (void) llvm::createDPCPPKernelWGLoopCreatorPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

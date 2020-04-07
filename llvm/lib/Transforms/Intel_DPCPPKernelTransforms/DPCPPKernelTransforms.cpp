@@ -15,5 +15,6 @@ using namespace llvm;
 void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDPCPPKernelVecClonePass(Registry);
   initializeDPCPPKernelPostVecPass(Registry);
+  initializeDPCPPKernelWGLoopCreatorLegacyPassPass(Registry);
 }
 

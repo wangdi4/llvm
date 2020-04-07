@@ -16,6 +16,7 @@ class ModulePass;
 
 ModulePass* createDPCPPKernelVecClonePass();
 ModulePass* createDPCPPKernelPostVecPass();
+ModulePass* createDPCPPKernelWGLoopCreatorPass();
 
 } // namespace llvm
 
