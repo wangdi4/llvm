@@ -1228,7 +1228,7 @@ static bool isLiveAtPHI(const Instruction * Inst,
     const DataLayout &DL = PN.getModule()->getDataLayout();
 
     uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
-    uint64_t Size = DL.getTypeStoreSize(LI->getType());
+    uint64_t Size = DL.getTypeStoreSize(LI->getType()).getFixedSize();
     MaxAlign = std::max(MaxAlign, MaybeAlign(LI->getAlignment()));
     MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
 
@@ -1295,14 +1295,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
       return false;
 
-<<<<<<< HEAD
     HasLoad = true;
-=======
-    uint64_t Size = DL.getTypeStoreSize(LI->getType()).getFixedSize();
-    MaxAlign = std::max(MaxAlign, MaybeAlign(LI->getAlignment()));
-    MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
-    HaveLoad = true;
->>>>>>> 84aa6cf1a9fe7c2d1c35b27ba6fbf1ee36a09a71
   }
 
   if (!HasLoad)
