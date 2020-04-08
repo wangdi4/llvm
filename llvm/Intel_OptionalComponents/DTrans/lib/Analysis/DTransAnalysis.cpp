@@ -3851,6 +3851,29 @@ public:
   // Return true if \p Call represents an indirect call, and there is a
   // an address taken external function that matches it.
   bool hasICMatch(CallBase *Call) {
+    //
+    // If 'F' is only used in a single BitCastOperator, return the
+    // FunctionType to which it is bit cast. This can arise when a
+    // function like getenv() is declared with an incomplete prototype:
+    //    char *getenv();
+    // but is then used in a single specific context as:
+    //    char *getenv(char *);
+    // In this case, due to the incomplete prototype, it will incorrectly
+    // appear as varargs.
+    //
+    auto FindUniqueFunctionType = [](Function &F) -> FunctionType * {
+      if (!F.hasOneUse())
+        return nullptr;
+      auto BCO = dyn_cast<BitCastOperator>(F.user_back());
+      if (!BCO)
+        return nullptr;
+      Type *BCOTy = BCO->getDestTy();
+      if (!BCOTy->isPointerTy())
+        return nullptr;
+      Type *BCOTyE = BCOTy->getPointerElementType();
+      return dyn_cast<FunctionType>(BCOTyE);
+    };
+
     // No point in doing this if the C language compatibility rule is not
     // enforced.
     if (!DTransUseCRuleCompat)
@@ -3859,8 +3882,51 @@ public:
     if (isa<Function>(Call->getCalledValue()))
       return false;
     // Look for a matching address taken external call.
-    for (auto &F : Call->getModule()->functions())
-      if (F.hasAddressTaken() && F.isDeclaration())
+    for (auto &F : Call->getModule()->functions()) {
+      if (F.hasAddressTaken() && F.isDeclaration()) {
+        if (F.isVarArg()) {
+          // Screen out cases of false varargs if the a unique
+          // FunctionType can be determined for F.
+          FunctionType *FT = nullptr;
+          auto it = UniqueFunctionTypeMap.find(&F);
+          if (it != UniqueFunctionTypeMap.end()) {
+            FT = it->second;
+          } else {
+            FunctionType *FTTest = FindUniqueFunctionType(F);
+            if (FTTest) {
+              FT = FTTest;
+              UniqueFunctionTypeMap[&F] = FTTest;
+            }
+          }
+          if (FT) {
+            // Found a unique FunctionType for F.  Use it in the
+            // test for an indirect call match.
+            unsigned PC = FT->getNumParams();
+            if ((PC == Call->getNumArgOperands()) ||
+                (FT->isVarArg() && (PC <= Call->getNumArgOperands()))) {
+              unsigned I = 0;
+              bool IsFunctionMatch = true;
+              for (; I < PC; ++I) {
+                Type *FTT = FT->getParamType(I);
+                Type *CTT = Call->getArgOperand(I)->getType();
+                if (!typesMayBeCRuleCompatible(FTT, CTT)) {
+                  IsFunctionMatch = false;
+                  break;
+                }
+              }
+              if (IsFunctionMatch) {
+                LLVM_DEBUG({
+                  dbgs() << "dtrans-ic-match: ";
+                  F.printAsOperand(dbgs());
+                  dbgs() << ":: " << I << "\n";
+                });
+                return true;
+              }
+            }
+            continue;
+          }
+        }
+        // The standard test for an indirect call match.
         if ((F.arg_size() == Call->getNumArgOperands()) ||
             (F.isVarArg() && (F.arg_size() <= Call->getNumArgOperands()))) {
           unsigned I = 0;
@@ -3882,6 +3948,8 @@ public:
             return true;
           }
         }
+      }
+    }
     return false;
   }
 
@@ -5775,6 +5843,14 @@ private:
       std::tuple<llvm::Type *, llvm::Type *, dtrans::SafetyData>;
   SetVector<DeferredInfo, std::vector<DeferredInfo>, SmallSet<DeferredInfo, 16>>
       DeferredCastingSafetyCascades;
+  // A map to store a unique FunctionType of a Function with an incomplete
+  // prototype declaration. For example, getenv() could be declared as:
+  //    char *getenv();
+  // but then used in a single specific context as:
+  //    char *getenv(char *);
+  // So, in the UniqueFunctionTypeMap, getenv() would be mapped to:
+  //    i8* (i8 *)*
+  DenseMap<Function *, FunctionType *> UniqueFunctionTypeMap;
 
   // We need these types often enough that it's worth keeping them around.
   llvm::Type *Int8PtrTy;
