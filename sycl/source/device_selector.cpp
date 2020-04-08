@@ -128,9 +128,6 @@ int default_selector::operator()(const device &dev) const {
   if (dev.is_gpu())
     Score += 500;
 
-  if (dev.is_accelerator())
-    Score += 400;
-
   if (dev.is_cpu())
     Score += 300;
 
