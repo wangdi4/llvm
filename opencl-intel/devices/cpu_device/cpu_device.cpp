@@ -20,6 +20,8 @@
 #include "task_dispatcher.h"
 
 #include <CL/cl_ext.h>
+#include <CL/cl_ext_intel.h>
+#include <CL/cl_fpga_ext.h>
 #include <buildversion.h>
 #include <builtin_kernels.h>
 #include <cl_cpu_detect.h>

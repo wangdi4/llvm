@@ -19,6 +19,8 @@
 #include <ocl_itt.h>
 #include <cl_objects_map.h>
 #include <cl_shared_ptr.hpp>
+#include <CL/cl_gvp_ext.h>
+#include <CL/cl_fpga_ext.h>
 
 #include "cl_framework.h"
 #include "framework_proxy.h"

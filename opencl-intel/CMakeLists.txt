@@ -76,6 +76,9 @@ if( BUILD_OPENCL_21 )
   add_definitions( -DBUILD_OPENCL_21 )
 endif( BUILD_OPENCL_21 )
 
+# Set default version to suppress warnings from cl_version.h
+add_definitions( -DCL_TARGET_OPENCL_VERSION=220 )
+
 add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}"
                  -D__TBB_NO_IMPLICIT_LINKAGE=1
                  -DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
@@ -327,6 +330,8 @@ SET_UNICODE_OFF()
 # paths
 
 set( TBB_INCLUDE_DIRS externals/tbb/include externals/tbb/enhancements )
+set( CL_API_HEADERS ${OpenCL_INCLUDE_DIR}
+                    ${OCL_SOURCE_DIR}/framework/inc )
 
 include_directories( BEFORE
         utils/cl_logger/export
@@ -339,13 +344,25 @@ include_directories( BEFORE
 # Framework IDE Folders Names
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 set( FRAMEWORK_FOLDER_NAME      Framework )
-set( CL_API_HEADERS             ${OCL_SOURCE_DIR}/framework/icd/inc)
 set( API_FOLDER_NAME            ${FRAMEWORK_FOLDER_NAME}/API )
 set( DEVICES_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Devices )
 set( RUNTIME_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Runtime )
 set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
+
+# For standalone OpenCL product we must deploy ICD loader ourselves.
+if (INTEL_OPENCL_STANDALONE_PRODUCT)
+  # FIXME: Cmake doesn't allow to install IMPORTED libraries before 3.13 version.
+  # So, we install ICD loader library files as ocl-OpenCL component.
+  get_filename_component( ICD_LOADER_OUTPUT_DIR ${OpenCL_LIBRARY} DIRECTORY )
+  file( GLOB ICD_LOADER
+      "${ICD_LOADER_OUTPUT_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL*" )
+  install_to( ${ICD_LOADER}
+      DESTINATION lib/${OUTPUT_ARCH_SUFF}
+      COMPONENT ocl-OpenCL
+  )
+endif()
 
 if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")

@@ -15,7 +15,7 @@
 #include "FrameworkTest.h"
 #include "TestsHelpClasses.h"
 #include <CL/cl.h>
-#include <CL/cl_ext.h>
+#include <CL/cl_gvp_ext.h>
 #include <gtest/gtest.h>
 #include <time.h>
 
