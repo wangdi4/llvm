@@ -1089,16 +1089,6 @@ void ArgumentAlignment::applyTransformation() {
 
 bool ArgumentAlignment::runImpl() {
 
-  // Check for AVX2 or higher
-  auto TTIOptLevel = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-  if (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLevel)) {
-    LLVM_DEBUG({
-      dbgs() << "Candidates for argument alignment: 0\n";
-      dbgs() << "Reason: NOT AVX2\n";
-    });
-    return false;
-  }
-
   // Check if whole program is safe
   if (!WPInfo->isWholeProgramSafe()) {
     LLVM_DEBUG({

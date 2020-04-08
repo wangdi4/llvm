@@ -1,20 +1,29 @@
-; This test checks that the argument alignment didn't run because there is
-; no AVX2.
+; This test checks that the argument alignment runs correctly.
+; This test is same as argument_align_1.ll except return address
+; of calloc is passed to "foo" as first argument indirectly.
 
 ; RUN: opt < %s -intel-argument-alignment -whole-program-assume -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -S 2>&1
+; RUN: opt < %s -passes='module(intel-argument-alignment)' -whole-program-assume -S 2>&1
 
+; Check that the constants were removed
 ; CHECK: void @foo
-
-; Check that first AND wasn't converted
-; CHECK-NOT: and i64 8, 7
-; CHECK: and i64 %2, 7
-
-; Check that second AND wasn't converted
-; CHECK-NOT: and i64 8, 7
-; CHECK: and i64 %9, 7
+; CHECK-NEXT: entry:
+; CHECK-NEXT: br label %if_bb
+; CHECK-EMPTY:
+; CHECK-NEXT: if_bb:
+; CHECK-NEXT:  %2 = phi i8* [ %0, %entry ], [ %4, %if_bb ]
+; CHECK-NEXT:  %3 = sub i64 0, %1
+; CHECK-NEXT:  %4 = getelementptr inbounds i8, i8* %2, i64 %3
+; CHECK-NEXT:  %5 = lshr i64 %3, 3
+; CHECK-NEXT:  %6 = icmp ult i64 %5, 7
+; CHECK-NEXT:  br i1 %6, label %if_bb, label %end
+; CHECK-EMPTY:
+; CHECK-NEXT: end:
+; CHECK-NEXT:  ret void
+; CHECK-NEXT: }
 
 declare noalias i8* @calloc(i64, i64)
+declare noalias i8* @malloc(i64)
 
 define internal fastcc void @foo(i8*, i64) {
 entry:
@@ -44,7 +53,13 @@ end:
 
 define void @bar(i64, i64) {
 entry:
-  %2 = tail call noalias i8* @calloc(i64 %0, i64 8)
-  tail call fastcc void @foo(i8* %2, i64 %1)
+  %call0 = tail call noalias i8* @calloc(i64 %0, i64 8)
+  %call1 = tail call noalias i8* @malloc(i64 8)
+  %bc1 = bitcast i8* %call1 to i64**
+  %bc2 = bitcast i8* %call0 to i64*
+  store i64* %bc2, i64** %bc1, align 8
+  %val = load i64*, i64** %bc1, align 8
+  %bc3 = bitcast i64* %val to i8*
+  tail call fastcc void @foo(i8* %bc3, i64 %1)
   ret void
 }
