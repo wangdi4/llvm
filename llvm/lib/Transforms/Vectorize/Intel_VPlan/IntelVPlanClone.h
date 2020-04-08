@@ -29,6 +29,7 @@ public:
   static VPBasicBlock *cloneBasicBlock(VPBasicBlock *Block, std::string Prefix,
                                        Block2BlockMapTy &BlockMap,
                                        Value2ValueMapTy &ValueMap,
+                                       VPlan::iterator InsertBefore,
                                        VPlanDivergenceAnalysis *DA = nullptr);
 
   /// Clone given blocks from Begin to End

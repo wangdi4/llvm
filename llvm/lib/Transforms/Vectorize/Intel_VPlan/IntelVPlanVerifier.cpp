@@ -86,7 +86,7 @@ void VPlanVerifier::verifyLoops(
     ++BBNum;
   }
 
-  assert(Plan->getSize() == BBNum && "Plan has wrong size!");
+  assert(Plan->size() == BBNum && "Plan has wrong size!");
 
   if (!VPLInfo)
     return;

@@ -87,6 +87,8 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
          "Inconsistent Loop information");
 }
 
+VPlanHCFGBuilder::~VPlanHCFGBuilder() = default;
+
 // Split loops' preheader block that are not in canonical form
 void VPlanHCFGBuilder::splitLoopsPreheader(VPLoop *VPL) {
 
@@ -938,8 +940,7 @@ VPBasicBlock *PlainCFGBuilder::getOrCreateVPBB(BasicBlock *BB) {
     VPBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
     BB2VPBB[BB] = VPBB;
     VPBB->setOriginalBB(BB);
-    VPBB->setParent(Plan);
-    Plan->setSize(Plan->getSize() + 1);
+    Plan->insertAtBack(VPBB);
   } else {
     // Retrieve existing VPBB
     VPBB = BlockIt->second;
@@ -1214,23 +1215,19 @@ void PlainCFGBuilder::buildPlainCFG() {
   // VPlan operands.
   fixPhiNodes();
 
-  // 4. Final Top Region setup.
-  // Create a dummy block as Top Region's entry
+  // 4. Set the EntryBlock and the ExitBlock of SESE region.
+  // Create EntryBlock.
   VPBasicBlock *PlanEntryBB =
       new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  Plan->setSize(Plan->getSize() + 1);
-  PlanEntryBB->setParent(Plan);
-  Plan->setEntryBlock(PlanEntryBB);
+  Plan->insertAtFront(PlanEntryBB);
   VPBlockUtils::connectBlocks(PlanEntryBB, PreheaderVPBB);
 
-  // Create a dummy block as Top Region's exit
+  // Create ExitBlock.
   VPBasicBlock *NewPlanExitBB =
       new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-  Plan->setSize(Plan->getSize() + 1);
-  NewPlanExitBB->setParent(Plan);
-  Plan->setExitBlock(NewPlanExitBB);
+  Plan->insertAtBack(NewPlanExitBB);
 
-  // Connect dummy Top Region's exit.
+  // Update CFG for ExitBlock.
   if (LoopExits.size() == 1) {
     VPBasicBlock *LoopExitVPBB = BB2VPBB[LoopExits.front()];
     VPBlockUtils::connectBlocks(LoopExitVPBB, NewPlanExitBB);
@@ -1241,8 +1238,7 @@ void PlainCFGBuilder::buildPlainCFG() {
 
     VPBasicBlock *LandingPad =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    Plan->setSize(Plan->getSize() + 1);
-    LandingPad->setParent(Plan);
+    LandingPad->moveBefore(NewPlanExitBB);
 
     // Connect multiple exits to landing pad
     for (auto ExitBB : make_range(LoopExits.begin(), LoopExits.end())) {
@@ -1250,7 +1246,7 @@ void PlainCFGBuilder::buildPlainCFG() {
       VPBlockUtils::connectBlocks(ExitVPBB, LandingPad);
     }
 
-    // Connect landing pad to Top Region's exit
+    // Connect landing pad to ExitBlock.
     VPBlockUtils::connectBlocks(LandingPad, NewPlanExitBB);
   }
 
