@@ -95,7 +95,16 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
-<<<<<<< HEAD
+static cl::opt<bool> UpdateReturnAttributes(
+        "update-return-attrs", cl::init(true), cl::Hidden,
+            cl::desc("Update return attributes on calls within inlined body"));
+
+static cl::opt<unsigned> InlinerAttributeWindow(
+    "max-inst-checked-for-throw-during-inlining", cl::Hidden,
+    cl::desc("the maximum number of instructions analyzed for may throw during "
+             "attribute inference in inlined body"),
+    cl::init(4));
+
 #if INTEL_CUSTOMIZATION
 
 namespace llvm {
@@ -117,22 +126,6 @@ InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
   InlineReason Reason = NinlrNoReason;
   return InlineFunction(CallSite(CB), IFI, nullptr, nullptr, &Reason,
                         CalleeAAR, InsertLifetime);
-=======
-static cl::opt<bool> UpdateReturnAttributes(
-        "update-return-attrs", cl::init(true), cl::Hidden,
-            cl::desc("Update return attributes on calls within inlined body"));
-
-static cl::opt<unsigned> InlinerAttributeWindow(
-    "max-inst-checked-for-throw-during-inlining", cl::Hidden,
-    cl::desc("the maximum number of instructions analyzed for may throw during "
-             "attribute inference in inlined body"),
-    cl::init(4));
-
-llvm::InlineResult llvm::InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
-                                        AAResults *CalleeAAR,
-                                        bool InsertLifetime) {
-  return InlineFunction(CallSite(CB), IFI, CalleeAAR, InsertLifetime);
->>>>>>> bf7a16a768719355976b3acde37884f0fcf1bf4d
 }
 
 InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
