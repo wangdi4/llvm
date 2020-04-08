@@ -7,8 +7,8 @@
 ; Note that the functions don't have any valid IR or meaning.
 
 ; REQUIRES: asserts
-; RUN: opt < %s  -deadarrayopselimination -dead-array-ops-functions="s_qsort,491" -debug-only=deadarrayopselimination  -mtriple=i686-- -mattr=+avx2 -whole-program-assume  -enable-intel-advanced-opts -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s  -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,491" -debug-only=deadarrayopselimination  -mtriple=i686-- -mattr=+avx2 -whole-program-assume  -enable-intel-advanced-opts -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s  -deadarrayopselimination -dead-array-ops-functions="s_qsort,491" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s  -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,491" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
