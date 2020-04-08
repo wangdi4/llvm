@@ -3076,7 +3076,7 @@ OMPClause *Parser::ParseOpenMPExprListClause(OpenMPClauseKind Kind,
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
   if (T.expectAndConsume(diag::err_expected_lparen_after,
-                         getOpenMPClauseName(Kind).data()))
+                         getOpenMPClauseName(Kind)))
     return nullptr;
 
   bool IsComma = false;
@@ -3613,7 +3613,7 @@ OMPClause *Parser::ParseOpenMPDataflowClause(OpenMPClauseKind Kind,
   // Parse '('.
   BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
   if (T.expectAndConsume(diag::err_expected_lparen_after,
-                         getOpenMPClauseName(Kind).data()))
+                         getOpenMPClauseName(Kind)))
     return nullptr;
 
   SmallVector<ExprResult, OMPC_DATAFLOW_MODIFIER_last> Val;

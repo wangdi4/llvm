@@ -2020,14 +2020,17 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
         ClauseKind == OMPC_from)
       continue;
     switch (ClauseKind) {
-#define OMP_CLAUSE_CLASS(Enum, Str, Class)                                     \
-  case llvm::omp::Clause::Enum:                                                \
+#define OPENMP_CLAUSE(Name, Class)                                             \
+  case OMPC_##Name:                                                            \
     emit##Class(cast<Class>(C));                                               \
     break;
-#define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
-  case llvm::omp::Clause::Enum:                                                \
+#include "clang/Basic/OpenMPKinds.def"
+    case OMPC_match:
+    case OMPC_device_type:
+    case OMPC_uniform:
+    case OMPC_threadprivate:
+    case OMPC_unknown:
       llvm_unreachable("Clause not allowed");
-#include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
   }
   if (!shouldSkipExplicitClause(OMPC_map) ||

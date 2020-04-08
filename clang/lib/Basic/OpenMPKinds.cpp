@@ -20,7 +20,6 @@
 using namespace clang;
 using namespace llvm::omp;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
   switch (DKind) {
@@ -55,7 +54,7 @@ bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
   }
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
   // 'flush' clause cannot be specified explicitly, because this is an implicit
   // clause for 'flush' directive. If the 'flush' clause is explicitly specified
@@ -99,7 +98,6 @@ const char *clang::getOpenMPClauseName(OpenMPClauseKind Kind) {
   }
   llvm_unreachable("Invalid OpenMP clause kind");
 }
->>>>>>> 1858f4b50dd35c28b377ba5dbc572fed43a5d38a
 
 unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
                                           StringRef Str) {

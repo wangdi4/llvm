@@ -229,7 +229,6 @@
 #define OPENMP_REDUCTION_MODIFIER(Name)
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #ifndef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE
 #define OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(Name)
@@ -293,7 +292,7 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(sections)
 OPENMP_DIRECTIVE_SPIR_SUBSET(section)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_simd)
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // OpenMP clauses.
 OPENMP_CLAUSE(allocator, OMPAllocatorClause)
 OPENMP_CLAUSE(if, OMPIfClause)
@@ -361,7 +360,12 @@ OPENMP_CLAUSE(destroy, OMPDestroyClause)
 OPENMP_CLAUSE(detach, OMPDetachClause)
 OPENMP_CLAUSE(inclusive, OMPInclusiveClause)
 OPENMP_CLAUSE(exclusive, OMPExclusiveClause)
->>>>>>> 1858f4b50dd35c28b377ba5dbc572fed43a5d38a
+#if INTEL_CUSTOMIZATION
+OPENMP_CLAUSE(tile, OMPTileClause)
+#if INTEL_FEATURE_CSA
+OPENMP_CLAUSE(dataflow, OMPDataflowClause)
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 // Clauses allowed for OpenMP directive 'scan'.
 OPENMP_SCAN_CLAUSE(inclusive)
