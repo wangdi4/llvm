@@ -86,7 +86,9 @@ public:
     return false;
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
 
 class DTransImmutableAnalysis

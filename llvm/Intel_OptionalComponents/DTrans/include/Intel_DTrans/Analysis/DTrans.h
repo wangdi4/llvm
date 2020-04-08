@@ -569,7 +569,9 @@ public:
   void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
   void clearSafetyData() { SafetyInfo = 0; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printSafetyData();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   CRuleTypeKind getCRuleTypeKind() { return CRTypeKind; }
   void setCRuleTypeKind(CRuleTypeKind K) { CRTypeKind = K; }
@@ -1055,8 +1057,10 @@ bool isSystemObjectType(llvm::StructType *Ty);
 /// we are unwilling to attempts dtrans optimizations.
 unsigned getMaxFieldsInStruct();
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Get the transformation printable name.
 StringRef getStringForTransform(dtrans::Transform Trans);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Get the safety conditions for the transformation.
 dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans,
                                              bool DTransOutOfBoundsOK);

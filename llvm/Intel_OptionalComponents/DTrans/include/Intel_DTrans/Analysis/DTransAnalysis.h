@@ -1,6 +1,6 @@
 //===----------------- DTransAnalysis.h - DTrans Analysis -----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -278,6 +278,7 @@ public:
                                  unsigned &StructIndex) const;
 
 private:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
   void printFieldInfo(dtrans::FieldInfo &FI,
@@ -286,6 +287,7 @@ private:
   // Prints the list of transformations for which the type was marked as
   // ignored in command line option.
   void printIgnoreTransListForStructure(dtrans::StructInfo *SI);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
   void destructCallInfo(dtrans::CallInfo *Info);

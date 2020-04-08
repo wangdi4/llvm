@@ -387,6 +387,7 @@ Type *dtrans::unwrapType(Type *Ty) {
   return BaseTy;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
   assert(countPopulation(SafetyInfo) == 1 &&
          "More than one safety type detected\n");
@@ -543,6 +544,7 @@ void dtrans::TypeInfo::printSafetyData() {
   dbgs() << "  Safety data: ";
   printSafetyInfo(SafetyInfo, dbgs());
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   SafetyInfo |= Conditions;
@@ -751,7 +753,6 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
     ElementTypes.print(OS);
   }
 }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Returns StringRef with the name of the transformation
 StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
@@ -785,6 +786,7 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Returns safety conditions for the transformation
 dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,

@@ -75,6 +75,7 @@ using namespace llvm::PatternMatch;
 // Debug type for verbose bad casting analysis output.
 #define DTRANS_BCA "dtrans-bca"
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
 
@@ -84,6 +85,7 @@ static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
 static cl::opt<bool>
     DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
                                       cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // BlockFrequencyInfo is ignored while computing field frequency info
 // if this flag is true.
 // TODO: Disable this flag by default after doing more experiments and
@@ -5336,10 +5338,12 @@ public:
     // all of the necessary types as we add complete information about them
     // but in lit tests a type with few uses and no safety issues might not
     // be added to the type info map.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DTransPrintAnalyzedTypes)
       for (auto &Arg : F.args())
         if (DTInfo.isTypeOfInterest(Arg.getType()))
           (void)DTInfo.getOrCreateTypeInfo(Arg.getType());
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     // Get BFI if available.
     BFI = (!F.isDeclaration()) ? &(GetBFI(F)) : nullptr;
@@ -6484,8 +6488,10 @@ private:
     // If the value is cast to multiple types, mark them all as bad casting.
     bool WasCastToMultipleTypes = LPI.pointsToMultipleAggregateTypes();
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DTransPrintAllocations && WasCastToMultipleTypes)
       dbgs() << "dtrans: Detected allocation cast to multiple types.\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     // We expect to only see one type, but we loop to keep the code general.
     for (auto *Ty : AliasSet) {
@@ -6514,12 +6520,14 @@ private:
       // Add this to our type info list.
       (void)DTInfo.getOrCreateTypeInfo(Ty);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       if (DTransPrintAllocations) {
         dbgs() << "dtrans: Detected allocation cast to pointer type\n";
         dbgs() << "  " << *Call << "\n";
         dbgs() << "    Detected type: " << *(Ty->getPointerElementType())
                << "\n";
       }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
       if (Kind == dtrans::AK_Calloc) {
         auto *TI = DTInfo.getOrCreateTypeInfo(Ty->getPointerElementType());
@@ -9388,6 +9396,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   DTransAnalysisRan = true;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedTypes) {
     // This is really ugly, but it is only used during testing.
     // The type infos are stored in a map with pointer keys, and so the
@@ -9424,6 +9433,7 @@ bool DTransAnalysisInfo::analyzeModule(
     dbgs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
     dbgs().flush();
   }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // Copy type info which can be passed to downstream passes without worrying
   // about invalidation into the immutable pass.
@@ -9450,6 +9460,7 @@ bool DTransAnalysisInfo::analyzeModule(
   return false;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
   dbgs() << "DTRANS_StructInfo:\n";
   dbgs() << "  LLVMType: " << *(SI->getLLVMType()) << "\n";
@@ -9590,6 +9601,7 @@ void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
                                 : (Field.isRWComputed() ? "computed" : "top"))
          << "\n";
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Interface routine to check if the field that is supposed to be loaded in the
 // instruction is only read and its parent structure has no safety data
@@ -9712,6 +9724,7 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
   return !IsIncomplete;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransAnalysisInfo::printIgnoreTransListForStructure(
     dtrans::StructInfo *SI) {
   std::string Output;
@@ -9733,6 +9746,7 @@ void DTransAnalysisInfo::printIgnoreTransListForStructure(
     dbgs() << "  (will be ignored in" << Output << ")\n";
   }
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
