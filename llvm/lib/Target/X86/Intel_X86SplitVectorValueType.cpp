@@ -807,10 +807,7 @@ void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
   NI->mutateType(HVTy);
   setOperandOfSplitInst(I, NI, 0, Idx);
   setOperandOfSplitInst(I, NI, 1, Idx);
-  SmallVector<int, 16> NewMask(M.begin(), M.begin() + (NumElmts / 2));
-  for (int &El : NewMask) {
-    El = static_cast<int>(NewSVIndex);
-  }
+  SmallVector<int, 16> NewMask(NumElmts / 2, static_cast<int>(NewSVIndex));
   cast<ShuffleVectorInst>(NI)->setShuffleMask(NewMask);
   setInstName(I, NI, Idx);
 
