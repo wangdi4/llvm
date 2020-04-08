@@ -1171,13 +1171,15 @@ void ArchiveFile::fetch(const Archive::Symbol &sym) {
 
 #if INTEL_CUSTOMIZATION
   // If the parent is a thin archive and the child is an archive that
-  // isn't ELF then there is a possibility that is an archive with a
-  // GNU LTO member. In this case we just pull that archive and parse
-  // it.
+  // isn't ELF or Bitcode file then there is a possibility that is an
+  // archive with a GNU LTO member. In this case we just pull that
+  // archive and parse it.
   //
   // Note: Archives within archives are not permitted, only thin archives
   // with archives.
-  if (c.getParent()->isThin() && !mb.getBuffer().startswith(ElfMagic)) {
+  if (c.getParent()->isThin() &&
+      !mb.getBuffer().startswith(ElfMagic) &&
+      !isBitcode(mb)) {
     auto binaryOrErr = CHECK(createBinary(mb), ": could not get the buffer "
                              "for the archive");
     Binary *bin = binaryOrErr.get();
