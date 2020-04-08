@@ -448,6 +448,9 @@ public:
   virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
 #endif //INTEL_CUSTOMIZATION
 
+  virtual void setSPIRVSIMDWidth(unsigned) {WRNERROR("SPIRVSIMDWidth");}
+  virtual unsigned getSPIRVSIMDWidth() const {WRNERROR("SPIRVSIMDWidth");}
+
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
   friend class WRegionCollection;  //temporary

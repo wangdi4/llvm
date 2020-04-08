@@ -269,7 +269,7 @@ def note_intrinsic_promote : Note<"Intrinsic called here">;
 
 // OpenMP
 def warn_omp_simdlen_in_target_spir: Warning<
-  "simdlen clause is not supported for this target">,
+  "simdlen clause is not fully supported for this target">,
   InGroup<SimdUnsupported>;
 def warn_collapse_ignored_with_tile : Warning<
   "'collapse' clause ignored when using 'tile' clause">, InGroup<OpenMPClauses>;

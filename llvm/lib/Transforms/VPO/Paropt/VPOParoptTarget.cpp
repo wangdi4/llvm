@@ -276,9 +276,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     ++NewArgI;
   }
 
-  if (FixedSIMDWidth > 0) {
+  if (W->getSPIRVSIMDWidth() > 0) {
     Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(FixedSIMDWidth)) };
+        ConstantAsMetadata::get(Builder.getInt32(W->getSPIRVSIMDWidth())) };
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
@@ -2950,5 +2950,51 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   W->resetBBSet(); // Invalidate BBSet after transformations
   return true;
+}
+
+// Set SIMD widening width for the target region based
+// on simdlen() clauses of the enclosed SIMD loops (if any).
+void VPOParoptTransform::propagateSPIRVSIMDWidth() const {
+  for (auto *WT : WRegionList) {
+    if (!isa<WRNTargetNode>(WT))
+      continue;
+
+    if (FixedSIMDWidth > 0) {
+      // Override the SIMD width with an option.
+      WT->setSPIRVSIMDWidth(FixedSIMDWidth);
+      continue;
+    }
+
+    // Choose minimum SIMD width, if there are multiple SIMD loops.
+    unsigned MinSIMDLen = 0;
+    SmallVector<WRegionNode*, 32> WorkList{WT};
+    while (!WorkList.empty()) {
+      unsigned CurSIMDLen = 0;
+      auto *W = WorkList.pop_back_val();
+
+      if (W != WT && isa<WRNTargetNode>(W))
+        // If this is an enclosed target region, then
+        // we have already processed it and we can take its
+        // SIMD width without processing the children.
+        CurSIMDLen = W->getSPIRVSIMDWidth();
+      else if (!isa<WRNVecLoopNode>(W)) {
+        WorkList.insert(
+            WorkList.end(), W->wrn_child_begin(), W->wrn_child_end());
+        continue;
+      } else
+        CurSIMDLen = W->getSimdlen();
+
+      if (CurSIMDLen == 0 ||
+          // Ignore unsupported SIMD widths.
+          (CurSIMDLen != 8 && CurSIMDLen != 16 && CurSIMDLen != 32))
+        continue;
+      if (MinSIMDLen == 0 ||
+          MinSIMDLen > CurSIMDLen)
+        MinSIMDLen = CurSIMDLen;
+    }
+
+    if (MinSIMDLen != 0)
+      WT->setSPIRVSIMDWidth(MinSIMDLen);
+  }
 }
 #endif // INTEL_COLLAB

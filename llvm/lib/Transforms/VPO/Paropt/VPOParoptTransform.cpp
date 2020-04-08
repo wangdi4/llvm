@@ -1293,6 +1293,9 @@ bool VPOParoptTransform::paroptTransforms() {
     }
 #endif  // INTEL_CUSTOMIZATION
 
+  if ((Mode & ParTrans) && !DisableOffload && isTargetSPIRV())
+    propagateSPIRVSIMDWidth();
+
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NeedTID)
