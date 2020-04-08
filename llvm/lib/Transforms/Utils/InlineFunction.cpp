@@ -64,12 +64,9 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"  // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"  // INTEL
-=======
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
->>>>>>> c00cb76274fdcc529335f55b0d19e6bc42ea9d8d
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
