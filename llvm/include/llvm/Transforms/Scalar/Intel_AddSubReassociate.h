@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -399,17 +400,14 @@ private:
         return T.get();
     return nullptr;
   }
-  /// Recusive routine to compute distance between \p V1 and \p V2.
-  /// If both V1 and V2 are load instructions return distance between loaded pointers
-  /// otherwise recursively step down through operands seeking for load instructions.
-  /// Return false when unable to compute the distance
-  /// or at some point of recursion V1 and/or V2 or their operands turn out
-  /// not instructions or their opcodes do not match
-  /// or \p MaxDepth recursion level is reached.
-  /// Otherwise return true and \p Distance is updated.
-  /// TODO: Get rid of recursion.
-  bool getDistance_rec(Value *V1, Value *V2, int MaxDepth,
-                       int64_t &Distance) const;
+  /// Routine to compute distance between \p V1 and \p V2.
+  /// If both V1 and V2 are load instructions return distance between
+  /// pointers otherwise step down through operands seeking for load
+  /// instructions until the operands remain instructions with same opcode.
+  /// Search for loads as far as \p MaxDepth.
+  /// Return distance if able to compute it.
+  Optional<int64_t> findLoadDistance(Value *V1, Value *V2,
+                                     unsigned MaxDepth = 2) const;
   /// Returns the sum of the absolute distances of G1 and G2.
   int64_t getSumAbsDistances(const CanonForm &G1, const CanonForm &G2);
   /// Recursive function to explore the different orderings of G1's leaves
