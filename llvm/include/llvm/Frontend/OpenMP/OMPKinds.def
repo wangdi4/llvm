@@ -109,6 +109,7 @@ __OMP_DIRECTIVE(unknown)
 
 ///}
 
+<<<<<<< HEAD
 /// OpenMP Clauses
 ///
 ///{
@@ -226,6 +227,8 @@ __OMP_IMPLICIT_CLAUSE_NO_CLASS(unknown, "unknown")
 
 ///}
 
+=======
+>>>>>>> 1858f4b50dd35c28b377ba5dbc572fed43a5d38a
 /// Types used in runtime structs or runtime functions
 ///
 ///{
@@ -392,10 +395,8 @@ __OMP_RTL(omp_set_max_active_levels, false, Void, Int32)
 __OMP_RTL(__kmpc_master, false, Int32, IdentPtr, Int32)
 __OMP_RTL(__kmpc_end_master, false, Void, IdentPtr, Int32)
 __OMP_RTL(__kmpc_critical, false, Void, IdentPtr, Int32, KmpCriticalNamePtrTy)
-__OMP_RTL(__kmpc_critical_with_hint, false, Void, IdentPtr, Int32,
-          KmpCriticalNamePtrTy, Int32)
-__OMP_RTL(__kmpc_end_critical, false, Void, IdentPtr, Int32,
-          KmpCriticalNamePtrTy)
+__OMP_RTL(__kmpc_critical_with_hint, false, Void, IdentPtr, Int32, KmpCriticalNamePtrTy, Int32)
+__OMP_RTL(__kmpc_end_critical, false, Void, IdentPtr, Int32, KmpCriticalNamePtrTy)
 
 __OMP_RTL(__last, false, Void, )
 
