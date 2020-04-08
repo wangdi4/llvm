@@ -405,7 +405,11 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::BuiltinFn:
   case BuiltinType::OMPArraySection:
   case BuiltinType::OMPArrayShaping:
+<<<<<<< HEAD
   case BuiltinType::VAArgPack:// INTEL
+=======
+  case BuiltinType::OMPIterator:
+>>>>>>> 13a1504ffb9a9a4f82dc1b60d9e8cbb173c7d030
     return TST_unspecified;
   }
 
