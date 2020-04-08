@@ -139,6 +139,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasPTWRITE = false;
   bool HasINVPCID = false;
   bool HasENQCMD = false;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
@@ -210,6 +211,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVXCONVERT = false;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool HasSERIALIZE = false;
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 
 protected:
   /// Enumeration of all of the X86 CPUs supported by Clang.

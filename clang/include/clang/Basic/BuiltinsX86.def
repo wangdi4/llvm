@@ -2141,6 +2141,7 @@ TARGET_BUILTIN(__builtin_ia32_invpcid, "vUiv*", "nc", "invpcid")
 TARGET_BUILTIN(__builtin_ia32_enqcmd, "Ucv*vC*", "n", "enqcmd")
 TARGET_BUILTIN(__builtin_ia32_enqcmds, "Ucv*vC*", "n", "enqcmd")
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 #if INTEL_FEATURE_ISA_KEYLOCKER
@@ -2175,6 +2176,10 @@ TARGET_BUILTIN(__builtin_ia32_xsusldtrk, "v", "n", "tsxldtrk")
 TARGET_BUILTIN(__builtin_ia32_xresldtrk, "v", "n", "tsxldtrk")
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+=======
+// SERIALIZE
+TARGET_BUILTIN(__builtin_ia32_serialize, "v", "n", "serialize")
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 
 // MSVC
 TARGET_HEADER_BUILTIN(_BitScanForward, "UcUNi*UNi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")

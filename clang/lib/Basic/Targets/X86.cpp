@@ -1168,6 +1168,7 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasINVPCID = true;
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
     } else if (Feature == "+uli") {
@@ -1266,6 +1267,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVXCONVERT = true;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+=======
+    } else if (Feature == "+serialize") {
+      HasSERIALIZE = true;
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
@@ -1695,6 +1700,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__INVPCID__");
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   if (HasULI)
@@ -1825,6 +1831,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (HasSERIALIZE)
+    Builder.defineMacro("__SERIALIZE__");
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -2043,6 +2053,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("rdseed", true)
       .Case("rtm", true)
       .Case("sahf", true)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_SERIALIZE
       .Case("serialize", true)
@@ -2051,6 +2062,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("tsxldtrk", true)
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("serialize", true)
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
       .Case("sgx", true)
       .Case("sha", true)
       .Case("shstk", true)
@@ -2230,6 +2244,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("retpoline-external-thunk", HasRetpolineExternalThunk)
       .Case("rtm", HasRTM)
       .Case("sahf", HasLAHFSAHF)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_SERIALIZE
       .Case("serialize", HasSERIALIZE)
@@ -2238,6 +2253,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("tsxldtrk", HasTSXLDTRK)
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("serialize", HasSERIALIZE)
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
       .Case("shstk", HasSHSTK)

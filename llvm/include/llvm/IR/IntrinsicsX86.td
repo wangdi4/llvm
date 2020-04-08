@@ -5203,6 +5203,7 @@ let TargetPrefix = "x86" in {
               Intrinsic<[llvm_i8_ty], [llvm_ptr_ty, llvm_ptr_ty], []>;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 //===----------------------------------------------------------------------===//
@@ -5277,6 +5278,8 @@ let TargetPrefix = "x86" in {
 #endif // INTEL_FEATURE_ISA_ULI
 
 #if INTEL_FEATURE_ISA_SERIALIZE
+=======
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 //===----------------------------------------------------------------------===//
 // SERIALIZE - Serialize instruction fetch and execution
 
@@ -5284,6 +5287,7 @@ let TargetPrefix = "x86" in {
   def int_x86_serialize : GCCBuiltin<"__builtin_ia32_serialize">,
               Intrinsic<[], [], []>;
 }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_SERIALIZE
 
 #if INTEL_FEATURE_ISA_TSXLDTRK
@@ -6602,3 +6606,5 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22

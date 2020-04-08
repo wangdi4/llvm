@@ -3220,11 +3220,15 @@ X86
 
 .. option:: -msahf, -mno-sahf
 
+<<<<<<< HEAD
 .. INTEL_CUSTOMIZATION
 .. INTEL_FEATURE_ISA_SERIALIZE
 .. option:: -mserialize, -mno-serialize
 .. end INTEL_FEATURE_ISA_SERIALIZE
 .. end INTEL_CUSTOMIZATION
+=======
+.. option:: -mserialize, -mno-serialize
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 
 .. option:: -msgx, -mno-sgx
 

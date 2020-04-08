@@ -417,6 +417,7 @@ protected:
   /// Processor supports PCONFIG instruction
   bool HasPCONFIG = false;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
   /// Processor support Keylocker instructions
@@ -498,6 +499,11 @@ protected:
   bool HasAVXDOTPROD = false;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Processor supports SERIALIZE instruction
+  bool HasSERIALIZE = false;
+
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
 
@@ -847,6 +853,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
   bool hasKeyLocker() const { return HasKeyLocker; }
@@ -864,6 +871,9 @@ public:
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool hasSERIALIZE() const { return HasSERIALIZE; }
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;

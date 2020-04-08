@@ -1502,6 +1502,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["movdir64b"]       = HasLeaf7 && ((ECX >> 28) & 1);
   Features["enqcmd"]          = HasLeaf7 && ((ECX >> 29) & 1);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   Features["uli"]             = HasLeaf7 && ((EDX >> 5) & 1);
@@ -1514,6 +1515,9 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
 
+=======
+  Features["serialize"]       = HasLeaf7 && ((EDX >> 14) & 1);
+>>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
   // There are two CPUID leafs which information associated with the pconfig
   // instruction:
   // EAX=0x7, ECX=0x0 indicates the availability of the instruction (via the 18th
