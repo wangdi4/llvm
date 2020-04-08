@@ -1282,7 +1282,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
       assert(AuxRef && "Unexpected nullptr ref");
 
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
-        if (getCanonExprUtils().hasNonLinearSemantics(DefLevel, NewLevel)) {
+        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
           BRef->setNonLinear();
         } else {
           BRef->setDefinedAtLevel(DefLevel);
@@ -1295,6 +1295,26 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
     (void)Found;
     assert(Found && "Blob was not found in any auxiliary DDRef!");
+  }
+
+  // Set level of the self-blob if present in AuxRefs.
+  if (isSelfBlob()) {
+    unsigned DefLevel = 0;
+    unsigned Index = getSelfBlobIndex();
+
+    for (auto *AuxRef : AuxRefs) {
+      if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
+        CanonExpr *CE = getSingleCanonExpr();
+
+        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
+          CE->setNonLinear();
+        } else {
+          CE->setDefinedAtLevel(DefLevel);
+        }
+
+        break;
+      }
+    }
   }
 
   updateDefLevelInternal(NewLevel);
