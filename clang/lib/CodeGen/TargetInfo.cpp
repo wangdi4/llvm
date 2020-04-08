@@ -5278,9 +5278,11 @@ public:
     if (!FD)
       return;
 
-    CodeGenOptions::SignReturnAddressScope Scope = CGM.getCodeGenOpts().getSignReturnAddress();
-    CodeGenOptions::SignReturnAddressKeyValue Key = CGM.getCodeGenOpts().getSignReturnAddressKey();
-    bool BranchTargetEnforcement = CGM.getCodeGenOpts().BranchTargetEnforcement;
+    LangOptions::SignReturnAddressScopeKind Scope =
+        CGM.getLangOpts().getSignReturnAddressScope();
+    LangOptions::SignReturnAddressKeyKind Key =
+        CGM.getLangOpts().getSignReturnAddressKey();
+    bool BranchTargetEnforcement = CGM.getLangOpts().BranchTargetEnforcement;
     if (const auto *TA = FD->getAttr<TargetAttr>()) {
       ParsedTargetAttr Attr = TA->parse();
       if (!Attr.BranchProtection.empty()) {
@@ -5296,14 +5298,14 @@ public:
     }
 
     auto *Fn = cast<llvm::Function>(GV);
-    if (Scope != CodeGenOptions::SignReturnAddressScope::None) {
+    if (Scope != LangOptions::SignReturnAddressScopeKind::None) {
       Fn->addFnAttr("sign-return-address",
-                    Scope == CodeGenOptions::SignReturnAddressScope::All
+                    Scope == LangOptions::SignReturnAddressScopeKind::All
                         ? "all"
                         : "non-leaf");
 
       Fn->addFnAttr("sign-return-address-key",
-                    Key == CodeGenOptions::SignReturnAddressKeyValue::AKey
+                    Key == LangOptions::SignReturnAddressKeyKind::AKey
                         ? "a_key"
                         : "b_key");
     }
