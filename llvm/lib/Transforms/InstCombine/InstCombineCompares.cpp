@@ -5817,11 +5817,15 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
   if (Instruction *Res = foldICmpBitCast(I, Builder))
     return Res;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Optimize the size of ICmp and eliminate unnecessary instructions.
   if (Instruction *R = OptimizeICmpInstSize(I, Op0, Op1))
     return R;
 #endif // INTEL_CUSTOMIZATION
+=======
+  // TODO: Hoist this above the min/max bailout.
+>>>>>>> 12fcbcecffe1d84c9e0aa4c980f9053aad91c8e5
   if (Instruction *R = foldICmpWithCastOp(I))
     return R;
 
