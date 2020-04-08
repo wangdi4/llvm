@@ -44,17 +44,10 @@ define internal void @t0_callback_callee(i32* %is_not_null, i32* %ptr, i32* %a, 
 ; CHECK-LABEL: define {{[^@]+}}@t0_callback_callee
 ; CHECK-SAME: (i32* nocapture nonnull writeonly align 4 dereferenceable(4) [[IS_NOT_NULL:%.*]], i32* nocapture nonnull readonly align 8 dereferenceable(4) [[PTR:%.*]], i32* align 256 [[A:%.*]], i64 [[B:%.*]], i32** noalias nocapture nonnull readonly align 64 dereferenceable(8) [[C:%.*]])
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[PTR_VAL:%.*]] = load i32, i32* [[PTR:%.*]], align 8
-; CHECK-NEXT:    store i32 [[PTR_VAL]], i32* [[IS_NOT_NULL:%.*]]
-; CHECK-NEXT:    [[TMP0:%.*]] = load i32*, i32** [[C:%.*]], align 64
-; CHECK-NEXT:    tail call void @t0_check(i32* align 256 [[A:%.*]], i64 99, i32* [[TMP0]])
-=======
 ; CHECK-NEXT:    [[PTR_VAL:%.*]] = load i32, i32* [[PTR]], align 8
 ; CHECK-NEXT:    store i32 [[PTR_VAL]], i32* [[IS_NOT_NULL]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32*, i32** [[C]], align 64
 ; CHECK-NEXT:    tail call void @t0_check(i32* align 256 [[A]], i64 99, i32* [[TMP0]])
->>>>>>> 9e19693994dce2f3f897ee90aa25296bc0e786c0
 ; CHECK-NEXT:    ret void
 ;
 entry:
