@@ -1048,7 +1048,6 @@ def HasCmpxchg8b : Predicate<"Subtarget->hasCmpxchg8b()">;
 def HasCmpxchg16b: Predicate<"Subtarget->hasCmpxchg16b()">;
 def HasPCONFIG   : Predicate<"Subtarget->hasPCONFIG()">;
 def HasENQCMD    : Predicate<"Subtarget->hasENQCMD()">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 def HasKeyLocker : Predicate<"Subtarget->hasKeyLocker()">;
@@ -1056,9 +1055,6 @@ def HasKeyLocker : Predicate<"Subtarget->hasKeyLocker()">;
 #if INTEL_FEATURE_ISA_ULI
 def HasULI : Predicate<"Subtarget->hasULI()">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
 def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
 #endif // INTEL_FEATURE_ISA_HRESET
@@ -1112,9 +1108,7 @@ def HasAMXTILEEVEX    : Predicate<"Subtarget->hasAMXTILEEVEX()">;
 def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
-=======
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
->>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -3055,15 +3049,6 @@ let Predicates = [HasULI, In64BitMode] in {
                    [(set EFLAGS, (X86testui))]>, XS;
 }
 #endif // INTEL_FEATURE_ISA_ULI
-
-#if INTEL_FEATURE_ISA_SERIALIZE
-//===----------------------------------------------------------------------===//
-// SERIALIZE Instruction
-//
-def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
-                  [(int_x86_serialize)]>, PS,
-                  Requires<[HasSERIALIZE]>;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 
 #if INTEL_FEATURE_ISA_HRESET
 //===----------------------------------------------------------------------===//

@@ -182,21 +182,15 @@
 /* Features in %edx for leaf 7 sub-leaf 0 */
 #define bit_AVX5124VNNIW  0x00000004
 #define bit_AVX5124FMAPS  0x00000008
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_ULI */
 #define bit_ULI           0x00000020
 /* end INTEL_FEATURE_ISA_ULI */
-/* INTEL_FEATURE_ISA_SERIALIZE */
-#define bit_SERIALIZE     0x00004000
-/* end INTEL_FEATURE_ISA_SERIALIZE */
 /* INTEL_FEATURE_ISA_TSXLDTRK */
 #define bit_TSXLDTRK      0x00010000
 /* end INTEL_FEATURE_ISA_TSXLDTRK */
 /* end INTEL_CUSTOMIZATION */
-=======
 #define bit_SERIALIZE     0x00004000
->>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 #define bit_PCONFIG       0x00040000
 #define bit_IBT           0x00100000
 /* INTEL_CUSTOMIZATION */

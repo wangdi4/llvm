@@ -426,7 +426,6 @@ def FeatureWAITPKG  : SubtargetFeature<"waitpkg", "HasWAITPKG", "true",
                                       "Wait and pause enhancements">;
 def FeatureENQCMD : SubtargetFeature<"enqcmd", "HasENQCMD", "true",
                                      "Has ENQCMD instructions">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
@@ -437,10 +436,6 @@ def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
-                                      "Has serialize instruction">;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
 def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
                                       "Has hreset instruction">;
@@ -450,10 +445,8 @@ def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
                                       "Support TSXLDTRK instructions">;
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
-=======
 def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
                                         "Has serialize instruction">;
->>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
 // On some processors, instructions that implicitly take two memory operands are
 // slow. In practice, this means that CALL, PUSH, and POP with memory operands
 // should be avoided in favor of a MOV + register CALL/PUSH/POP.
@@ -911,9 +904,6 @@ def ProcessorFeatures {
     FeatureAMXINT8,
     FeatureAMXBF16,
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_SERIALIZE
-    FeatureSERIALIZE,
-#endif // INTEL_FEATURE_ISA_SERIALIZE
     FeaturePCONFIG,
     FeatureWBNOINVD,
     FeatureHasFastGather

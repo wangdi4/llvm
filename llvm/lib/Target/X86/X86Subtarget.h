@@ -417,7 +417,6 @@ protected:
   /// Processor supports PCONFIG instruction
   bool HasPCONFIG = false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
   /// Processor support Keylocker instructions
@@ -426,10 +425,6 @@ protected:
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-  /// Processor supports SERIALIZE instruction
-  bool HasSERIALIZE = false;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
   /// Processor supports HRESET instruction
   bool HasHRESET = false;
@@ -499,11 +494,9 @@ protected:
   bool HasAVXDOTPROD = false;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #endif // INTEL_CUSTOMIZATION
-=======
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 
->>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
 
@@ -853,7 +846,6 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
   bool hasKeyLocker() const { return HasKeyLocker; }
@@ -861,9 +853,6 @@ public:
 #if INTEL_FEATURE_ISA_ULI
   bool hasULI() const { return HasULI; }
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-  bool hasSERIALIZE() const { return HasSERIALIZE; }
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
   bool hasHRESET() const { return HasHRESET; }
 #endif // INTEL_FEATURE_ISA_HRESET
@@ -871,9 +860,7 @@ public:
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
-=======
   bool hasSERIALIZE() const { return HasSERIALIZE; }
->>>>>>> d08fadd6628a061bca66d37d6e0de2c51249ad22
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;
