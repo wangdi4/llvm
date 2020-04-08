@@ -2,10 +2,6 @@
 # Extra parameters for `tblgen' may come after `ofn' parameter.
 # Adds the name of the generated file to TABLEGEN_OUTPUT.
 
-<<<<<<< HEAD
-if(LLVM_MAIN_INCLUDE_DIR)
-  set(LLVM_TABLEGEN_FLAGS -I ${LLVM_MAIN_INCLUDE_DIR})
-endif()
 if(INTEL_CUSTOMIZATION)
   list(APPEND LLVM_TABLEGEN_FLAGS ${LLVM_INTEL_TABLEGEN_FLAGS})
 endif()
@@ -14,8 +10,6 @@ if(INTEL_COLLAB)
   list(APPEND LLVM_TABLEGEN_FLAGS -DINTEL_COLLAB)
 endif()
 
-=======
->>>>>>> ae044c5b0caa095602b6ef4cca40d57efc26a8f6
 function(tablegen project ofn)
   # Validate calling context.
   if(NOT ${project}_TABLEGEN_EXE)
