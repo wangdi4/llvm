@@ -5738,9 +5738,6 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
   if (Instruction *Res = foldICmpBinOp(I, Q))
     return Res;
 
-  if (Instruction *R = foldICmpWithCastOp(I))
-    return R;
-
   if (Instruction *Res = foldICmpUsingKnownBits(I))
     return Res;
 
@@ -5820,11 +5817,16 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
   if (Instruction *Res = foldICmpBitCast(I, Builder))
     return Res;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Optimize the size of ICmp and eliminate unnecessary instructions.
   if (Instruction *R = OptimizeICmpInstSize(I, Op0, Op1))
     return R;
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (Instruction *R = foldICmpWithCastOp(I))
+    return R;
+>>>>>>> 1008435f3d47ac0f49690c52cb8ae3af6e3b9c4b
 
   if (Instruction *Res = foldICmpWithMinMax(I))
     return Res;
