@@ -469,7 +469,13 @@ bool X86AsmBackend::allowAutoPadding() const {
 
 #if INTEL_CUSTOMIZATION
 bool X86AsmBackend::allowEnhancedRelaxation() const {
-  return allowAutoPadding() && X86PadMaxPrefixSize != 0 && X86PadForBranchAlign;
+  unsigned TargetPrefixMax;
+  if (X86AlignBranchWithin32BBoundaries &&
+      !X86PadMaxPrefixSize.getNumOccurrences())
+    TargetPrefixMax = 5;
+  else
+    TargetPrefixMax = X86PadMaxPrefixSize;
+  return allowAutoPadding() && TargetPrefixMax != 0 && X86PadForBranchAlign;
 }
 #endif // INTEL_CUSTOMIZATION
 
