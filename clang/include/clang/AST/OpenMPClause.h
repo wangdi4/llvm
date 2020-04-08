@@ -705,9 +705,10 @@ public:
   /// \param EndLoc Ending location of the clause.
   OMPDataflowClause(Expr *StaticChunkSize, Expr *NumWorkersNum,
                     Expr *PipelineDepth, Stmt *HelperS,
-                    OpenMPDirectiveKind CaptureRegion,
-                    SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_dataflow, StartLoc, EndLoc), OMPClauseWithPreInit(this) {
+                    OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
+                    SourceLocation EndLoc)
+      : OMPClause(llvm::omp::OMPC_dataflow, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this) {
     DataflowModifiers[STATIC] = StaticChunkSize;
     DataflowModifiers[NUMWORKERS] = NumWorkersNum;
     DataflowModifiers[PIPELINE] = PipelineDepth;
@@ -716,9 +717,8 @@ public:
 
   /// Build an empty clause.
   explicit OMPDataflowClause()
-      : OMPClause(OMPC_dataflow, SourceLocation(), SourceLocation()),
-        OMPClauseWithPreInit(this) {
-  }
+      : OMPClause(llvm::omp::OMPC_dataflow, SourceLocation(), SourceLocation()),
+        OMPClauseWithPreInit(this) {}
 
   /// Get static chunk size.
   Expr *getStaticChunkSize() const { return DataflowModifiers[STATIC]; }
@@ -736,7 +736,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_dataflow;
+    return T->getClauseKind() == llvm::omp::OMPC_dataflow;
   }
 };
 #endif // INTEL_FEATURE_CSA
@@ -772,14 +772,14 @@ class OMPTileClause final
   /// clause.
   OMPTileClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                 SourceLocation EndLoc, unsigned NumLoops)
-      : OMPClause(OMPC_tile, StartLoc, EndLoc), NumLoops(NumLoops) {}
+      : OMPClause(llvm::omp::OMPC_tile, StartLoc, EndLoc), NumLoops(NumLoops) {}
 
   /// Build an empty clause.
   ///
   /// \param NumLoops Number of loops that is associated with this tile
   /// clause.
   explicit OMPTileClause(unsigned NumLoops)
-      : OMPClause(OMPC_tile, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_tile, SourceLocation(), SourceLocation()),
         NumLoops(NumLoops) {}
 
   /// Fetches list of expressions associated with this clause.
@@ -862,7 +862,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_tile;
+    return T->getClauseKind() == llvm::omp::OMPC_tile;
   }
 };
 #endif // INTEL_CUSTOMIZATION
