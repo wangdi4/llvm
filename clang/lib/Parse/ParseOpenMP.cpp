@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/OpenMPClause.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/TargetInfo.h"
@@ -885,7 +886,7 @@ static bool checkForDuplicates(Parser &P, StringRef Name,
 } // namespace
 
 void Parser::parseOMPTraitPropertyKind(
-    OMPTraitInfo::OMPTraitProperty &TIProperty, llvm::omp::TraitSet Set,
+    OMPTraitProperty &TIProperty, llvm::omp::TraitSet Set,
     llvm::omp::TraitSelector Selector, llvm::StringMap<SourceLocation> &Seen) {
   TIProperty.Kind = TraitProperty::invalid;
 
@@ -954,14 +955,14 @@ void Parser::parseOMPTraitPropertyKind(
       << CONTEXT_TRAIT_LVL << listOpenMPContextTraitProperties(Set, Selector);
 }
 
-void Parser::parseOMPContextProperty(OMPTraitInfo::OMPTraitSelector &TISelector,
+void Parser::parseOMPContextProperty(OMPTraitSelector &TISelector,
                                      llvm::omp::TraitSet Set,
                                      llvm::StringMap<SourceLocation> &Seen) {
   assert(TISelector.Kind != TraitSelector::user_condition &&
          "User conditions are special properties not handled here!");
 
   SourceLocation PropertyLoc = Tok.getLocation();
-  OMPTraitInfo::OMPTraitProperty TIProperty;
+  OMPTraitProperty TIProperty;
   parseOMPTraitPropertyKind(TIProperty, Set, TISelector.Kind, Seen);
 
   // If we have an invalid property here we already issued a warning.
@@ -995,7 +996,7 @@ void Parser::parseOMPContextProperty(OMPTraitInfo::OMPTraitSelector &TISelector,
 }
 
 void Parser::parseOMPTraitSelectorKind(
-    OMPTraitInfo::OMPTraitSelector &TISelector, llvm::omp::TraitSet Set,
+    OMPTraitSelector &TISelector, llvm::omp::TraitSet Set,
     llvm::StringMap<SourceLocation> &Seen) {
   TISelector.Kind = TraitSelector::invalid;
 
@@ -1091,7 +1092,7 @@ static ExprResult parseContextScore(Parser &P) {
 ///
 /// <trait-selector-name> ['('[<trait-score>] <trait-property> [, <t-p>]* ')']
 void Parser::parseOMPContextSelector(
-    OMPTraitInfo::OMPTraitSelector &TISelector, llvm::omp::TraitSet Set,
+    OMPTraitSelector &TISelector, llvm::omp::TraitSet Set,
     llvm::StringMap<SourceLocation> &SeenSelectors) {
   unsigned short OuterPC = ParenCount;
 
@@ -1197,7 +1198,7 @@ void Parser::parseOMPContextSelector(
   BDT.consumeClose();
 }
 
-void Parser::parseOMPTraitSetKind(OMPTraitInfo::OMPTraitSet &TISet,
+void Parser::parseOMPTraitSetKind(OMPTraitSet &TISet,
                                   llvm::StringMap<SourceLocation> &Seen) {
   TISet.Kind = TraitSet::invalid;
 
@@ -1261,7 +1262,7 @@ void Parser::parseOMPTraitSetKind(OMPTraitInfo::OMPTraitSet &TISet,
 ///
 /// <trait-set-selector-name> '=' '{' <trait-selector> [, <trait-selector>]* '}'
 void Parser::parseOMPContextSelectorSet(
-    OMPTraitInfo::OMPTraitSet &TISet,
+    OMPTraitSet &TISet,
     llvm::StringMap<SourceLocation> &SeenSets) {
   auto OuterBC = BraceCount;
 
@@ -1316,7 +1317,7 @@ void Parser::parseOMPContextSelectorSet(
 
   llvm::StringMap<SourceLocation> SeenSelectors;
   do {
-    OMPTraitInfo::OMPTraitSelector TISelector;
+    OMPTraitSelector TISelector;
     parseOMPContextSelector(TISelector, TISet.Kind, SeenSelectors);
     if (TISelector.Kind != TraitSelector::invalid &&
         !TISelector.Properties.empty())
@@ -1338,10 +1339,10 @@ void Parser::parseOMPContextSelectorSet(
 /// Parse OpenMP context selectors:
 ///
 /// <trait-set-selector> [, <trait-set-selector>]*
-bool Parser::parseOMPContextSelectors(SourceLocation Loc, OMPTraitInfo &TI) {
+bool Parser::parseOMPContextSelectors(SourceLocation Loc, OMPTraitInfo& TI) {
   llvm::StringMap<SourceLocation> SeenSets;
   do {
-    OMPTraitInfo::OMPTraitSet TISet;
+    OMPTraitSet TISet;
     parseOMPContextSelectorSet(TISet, SeenSets);
     if (TISet.Kind != TraitSet::invalid && !TISet.Selectors.empty())
       TI.Sets.push_back(TISet);
