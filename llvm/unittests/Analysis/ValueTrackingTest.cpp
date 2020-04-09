@@ -493,6 +493,7 @@ TEST_F(MatchSelectPatternTest, DoubleCastBad) {
   expectPattern({SPF_UNKNOWN, SPNB_NA, false});
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 TEST_F(MatchSaturationAddSubTest, SignedSatAddi8) {
   parseAssembly(
@@ -740,6 +741,55 @@ TEST_F(MatchSaturationAddSubTest, OutOfRangeSignedSatAddv2i8) {
   expectPattern(false);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+TEST_F(MatchSelectPatternTest, NotNotSMin) {
+  parseAssembly(
+      "define i8 @test(i8 %a, i8 %b) {\n"
+      "  %cmp = icmp sgt i8 %a, %b\n"
+      "  %an = xor i8 %a, -1\n"
+      "  %bn = xor i8 %b, -1\n"
+      "  %A = select i1 %cmp, i8 %an, i8 %bn\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern({SPF_UNKNOWN, SPNB_NA, false});
+}
+
+TEST_F(MatchSelectPatternTest, NotNotSMinSwap) {
+  parseAssembly(
+      "define i8 @test(i8 %a, i8 %b) {\n"
+      "  %cmp = icmp slt i8 %a, %b\n"
+      "  %an = xor i8 %a, -1\n"
+      "  %bn = xor i8 %b, -1\n"
+      "  %A = select i1 %cmp, i8 %bn, i8 %an\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern({SPF_UNKNOWN, SPNB_NA, false});
+}
+
+TEST_F(MatchSelectPatternTest, NotNotSMax) {
+  parseAssembly(
+      "define i8 @test(i8 %a, i8 %b) {\n"
+      "  %cmp = icmp slt i8 %a, %b\n"
+      "  %an = xor i8 %a, -1\n"
+      "  %bn = xor i8 %b, -1\n"
+      "  %A = select i1 %cmp, i8 %an, i8 %bn\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern({SPF_UNKNOWN, SPNB_NA, false});
+}
+
+TEST_F(MatchSelectPatternTest, NotNotSMaxSwap) {
+  parseAssembly(
+      "define i8 @test(i8 %a, i8 %b) {\n"
+      "  %cmp = icmp sgt i8 %a, %b\n"
+      "  %an = xor i8 %a, -1\n"
+      "  %bn = xor i8 %b, -1\n"
+      "  %A = select i1 %cmp, i8 %bn, i8 %an\n"
+      "  ret i8 %A\n"
+      "}\n");
+  expectPattern({SPF_UNKNOWN, SPNB_NA, false});
+}
+>>>>>>> 6d3437404353b3fc4bb53b8b110f7802be1b7227
 
 TEST(ValueTracking, GuaranteedToTransferExecutionToSuccessor) {
   StringRef Assembly =
