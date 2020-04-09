@@ -1434,24 +1434,6 @@ void VPOCodeGen::predicateInstructions() {
   }
 }
 
-Value *VPOCodeGen::getLastLaneFromMask(Value *MaskPtr) {
-
-  Value *MaskValue = Builder.CreateLoad(MaskPtr);
-  assert(MaskValue->getType()->isIntegerTy() &&
-         "Mask should be an integer value");
-  // Count leading zeroes. Since we always write non-zero mask,
-  // the number of leading zeroes should be smaller than VF.
-  Module *M = LoopMiddleBlock->getParent()->getParent();
-  Value *F =
-      Intrinsic::getDeclaration(M, Intrinsic::ctlz, MaskValue->getType());
-  Value *LeadingZeroes =
-      Builder.CreateCall(F, {MaskValue, Builder.getTrue()}, "ctlz");
-
-  // Last written lane is most-significant '1' in the mask.
-  return Builder.CreateSub(ConstantInt::get(MaskValue->getType(), VF - 1),
-                           LeadingZeroes, "LaneToCopyFrom");
-}
-
 SmallVector<int, 16>
 VPOCodeGen::getVPShuffleOriginalMask(const VPInstruction *VPI) {
   assert(VPI->getOpcode() == Instruction::ShuffleVector &&

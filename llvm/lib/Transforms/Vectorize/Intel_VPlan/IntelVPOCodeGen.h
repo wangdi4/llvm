@@ -281,9 +281,6 @@ private:
   /// Fix up induction last value.
   void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
 
-  /// Get an index of last written lane using Mask value.
-  Value *getLastLaneFromMask(Value *MaskPtr);
-
   /// The Loop exit block may have single value PHI nodes where the incoming
   /// value is 'Undef'. While vectorizing we only handled real values that were
   /// defined inside the loop. Here we fix the 'undef case'.
