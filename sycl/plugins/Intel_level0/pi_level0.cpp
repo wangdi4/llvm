@@ -682,13 +682,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     pi_uint32 max_compute_units =
         device->L0DeviceProperties.numEUsPerSubslice *
         device->L0DeviceProperties.numSubslicesPerSlice *
-#ifdef _WIN32 // TODO: remove this fragmentation after Windows drivers are updated
-        device->L0DeviceProperties.numSlicesPerTile *
-        (device->L0DeviceProperties.numTiles > 0 ?
-         device->L0DeviceProperties.numTiles : 1);
-#else
         device->L0DeviceProperties.numSlices;
-#endif // _WIN32
     SET_PARAM_VALUE(pi_uint32{max_compute_units});
   }
   else if (param_name == PI_DEVICE_INFO_MAX_WORK_ITEM_DIMENSIONS) {
@@ -763,13 +757,9 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR(version.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_PARTITION_MAX_SUB_DEVICES) {
-#ifdef _WIN32 // TODO: remove this fragmentation after Windows drivers are updated
-    SET_PARAM_VALUE(pi_uint32{device->L0DeviceProperties.numTiles});
-#else
     uint32_t ze_sub_device_count = 0;
     ZE_CALL(zeDeviceGetSubDevices(ze_device, &ze_sub_device_count, nullptr));
     SET_PARAM_VALUE(pi_uint32{ze_sub_device_count});
-#endif // _WIN32
   }
   else if (param_name == PI_DEVICE_INFO_REFERENCE_COUNT) {
     SET_PARAM_VALUE(pi_uint32{device->RefCount});
@@ -2743,44 +2733,6 @@ static pi_result enqueueMemCopyRectHelper(
   uint32_t height = pi_cast<uint32_t>(region[1]);
   uint32_t depth = pi_cast<uint32_t>(region[2]);
 
-// TODO: remove when Windows driver will be updated to the version where copying
-// of 3D regions is supported.
-#ifdef _WIN32
-  char *source_ptr = src_buffer + srcOriginZ;
-  char *destination_ptr = dst_buffer + dstOriginZ;
-
-  //
-  // Command List is Created for handling all enqueued Memory Copy Regions
-  // and 1 Barrier. Once command_queue->executeCommandList() is called the
-  // command list is closed & no more commands are added to this
-  // command list such that the barrier only blocks the Memory Copy Regions enqueued.
-  //
-  // Until L0 Spec issue https://gitlab.devtools.intel.com/one-api/level_zero/issues/300
-  // is resolved 3D buffer copies must be split into multiple 2D buffer copies in the
-  // sycl plugin.
-  //
-  const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, 0, width, height, 0};
-  const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, 0, width, height, 0};
-
-  // TODO: Remove the for loop and use the slice pitches.
-  for (uint32_t i = 0; i < depth; i++) {
-    ze_result = ZE_CALL(zeCommandListAppendMemoryCopyRegion(
-      ze_command_list,
-      destination_ptr,
-      &dstRegion,
-      dstPitch,
-      0, /* dstSlicePitch */
-      source_ptr,
-      &srcRegion,
-      srcPitch,
-      0, /* srcSlicePitch */
-      nullptr
-    ));
-
-    destination_ptr += dst_slice_pitch;
-    source_ptr += src_slice_pitch;
-  }
-#else
   const ze_copy_region_t srcRegion = {srcOriginX, srcOriginY, srcOriginZ, width, height, depth};
   const ze_copy_region_t dstRegion = {dstOriginX, dstOriginY, dstOriginZ, width, height, depth};
 
@@ -2796,7 +2748,6 @@ static pi_result enqueueMemCopyRectHelper(
     src_slice_pitch,
     nullptr
   ));
-#endif
 
   zePrint("calling zeCommandListAppendMemoryCopyRegion()\n");
 
