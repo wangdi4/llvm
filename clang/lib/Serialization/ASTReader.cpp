@@ -11673,21 +11673,17 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_num_threads:
     C = new (Context) OMPNumThreadsClause();
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  case OMPC_tile:
+  case llvm::omp::OMPC_tile:
     C = OMPTileClause::CreateEmpty(Context, Record.readInt());
     break;
 #if INTEL_FEATURE_CSA
-  case OMPC_dataflow:
+  case llvm::omp::OMPC_dataflow:
     C = new (Context) OMPDataflowClause();
     break;
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-  case OMPC_safelen:
-=======
   case llvm::omp::OMPC_safelen:
->>>>>>> 419a559c5a73f13578d891feb1299cada08d581e
     C = new (Context) OMPSafelenClause();
     break;
   case llvm::omp::OMPC_simdlen:

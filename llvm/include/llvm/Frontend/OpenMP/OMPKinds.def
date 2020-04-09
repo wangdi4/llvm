@@ -200,6 +200,12 @@ __OMP_CLAUSE(destroy, OMPDestroyClause)
 __OMP_CLAUSE(detach, OMPDetachClause)
 __OMP_CLAUSE(inclusive, OMPInclusiveClause)
 __OMP_CLAUSE(exclusive, OMPExclusiveClause)
+#if INTEL_CUSTOMIZATION
+__OMP_CLAUSE(tile, OMPTileClause)
+#if INTEL_FEATURE_CSA
+__OMP_CLAUSE(dataflow, OMPDataflowClause)
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 __OMP_CLAUSE_NO_CLASS(uniform)
 __OMP_CLAUSE_NO_CLASS(device_type)
