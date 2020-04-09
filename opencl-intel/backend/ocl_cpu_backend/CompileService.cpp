@@ -142,7 +142,7 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
     try
     {
         const BitCodeContainer* pContainer = static_cast<const BitCodeContainer*>(pCodeContainer);
-        llvm::Module* pModule = (llvm::Module*)pContainer->GetModule();
+        llvm::Module* pModule = pContainer->GetModule();
         assert(pModule);
 
         std::string fname = pOptions->GetStringValue( CL_DEV_BACKEND_OPTION_DUMPFILE, "");
@@ -158,7 +158,7 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
                                       llvm::sys::fs::FA_Write);
             if(!ec)
             {
-                ((llvm::Module*)pContainer->GetModule())->print(ostr, 0);
+                pContainer->GetModule()->print(ostr, 0);
             }
             else
             {

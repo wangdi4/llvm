@@ -17,9 +17,9 @@
 #include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
 #include "ICompilerConfig.h"
-#include "LLJIT2.h"
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <string>
@@ -169,8 +169,9 @@ public:
     /**
      * Build the given program using the supplied build options
      */
-    llvm::Module* BuildProgram(llvm::Module*, const char* pBuildOpts,
-                               ProgramBuildResult* pResult);
+    llvm::Module* BuildProgram(
+        llvm::Module*, const char* pBuildOpts, ProgramBuildResult* pResult,
+        std::unique_ptr<llvm::TargetMachine> &targetMachine);
 
     const CPUId &GetCpuId() const { return m_CpuId; }
 
@@ -181,7 +182,9 @@ public:
     virtual void *GetExecutionEngine() = 0;
 
     // Create LLJIT instance
-    virtual std::unique_ptr<LLJIT2> CreateLLJIT() = 0;
+    virtual std::unique_ptr<llvm::orc::LLJIT> CreateLLJIT(
+        llvm::Module *M, std::unique_ptr<llvm::TargetMachine> TM,
+        ObjectCodeCache *ObjCache) = 0;
 
     // Get Function Address Resolver
     virtual void *GetFunctionAddressResolver() { return NULL; }
@@ -189,7 +192,7 @@ public:
     // Returns a list of pointers to the RTL libraries
     virtual llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const = 0;
 
-    llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+    std::unique_ptr<llvm::Module> ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
     const std::string GetBitcodeTargetTriple(const void* pBinary, size_t uiBinarySize) const;
 
@@ -200,6 +203,11 @@ public:
     virtual std::string& getBuiltinInitLog() {
         return m_builtinInitLog;
     }
+
+    void materializeSpirTriple(llvm::Module *M);
+
+    virtual bool useLLDJITForExecution(llvm::Module* pModule) const = 0;
+
 protected:
     void LoadBuiltinModules(BuiltinLibrary* pLibrary,
       llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;

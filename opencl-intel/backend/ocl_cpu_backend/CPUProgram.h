@@ -41,15 +41,20 @@ public:
 
     llvm::ExecutionEngine* GetExecutionEngine() { return m_pExecutionEngine; }
 
-    void SetLLJIT(std::unique_ptr<LLJIT2> LLJIT) override {
+    void SetLLJIT(std::unique_ptr<llvm::orc::LLJIT> LLJIT) override {
         m_LLJIT = std::move(LLJIT);
     }
 
-    LLJIT2* GetLLJIT() override { return m_LLJIT.get(); }
+    // Get LLJIT instance
+    llvm::orc::LLJIT* GetLLJIT() override { return m_LLJIT.get(); }
 
     void ReleaseExecutionEngine();
 
-    void* GetPointerToFunction(llvm::Function* F);
+    // Return the address of a function.
+    void* GetPointerToFunction(llvm::StringRef Name) const;
+
+    // Return the address of a global value
+    void* GetPointerToGlobalValue(llvm::StringRef Name) const;
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -66,7 +71,7 @@ public:
 
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
-    std::unique_ptr<LLJIT2> m_LLJIT;
+    std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;
     std::auto_ptr<ObjectCodeCache> m_ObjectCodeCache;
 

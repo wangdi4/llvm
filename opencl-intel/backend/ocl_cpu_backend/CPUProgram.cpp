@@ -37,7 +37,7 @@ void CPUProgram::ReleaseExecutionEngine()
 
         if (m_pIRCodeContainer->GetModule())
         {
-            m_pExecutionEngine->removeModule(static_cast<llvm::Module*>(m_pIRCodeContainer->GetModule()));
+            m_pExecutionEngine->removeModule(m_pIRCodeContainer->GetModule());
         }
 
         delete m_pExecutionEngine;
@@ -52,12 +52,42 @@ CPUProgram::~CPUProgram()
     ReleaseExecutionEngine();
 }
 
-void* CPUProgram::GetPointerToFunction(llvm::Function* F) {
-    return reinterpret_cast<void*>(m_pExecutionEngine->getFunctionAddress(F->getName().str()));
+void* CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
+    assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
+    uintptr_t Addr;
+    if (m_LLJIT) {
+        auto Sym = m_LLJIT->lookup(Name);
+        if (llvm::Error Err = Sym.takeError()) {
+            llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+            throw Exceptions::CompilerException("Failed to lookup symbol " +
+                                                Name.str());
+        }
+        Addr = static_cast<uintptr_t>(Sym->getAddress());
+    } else
+        Addr = static_cast<uintptr_t>(
+            m_pExecutionEngine->getGlobalValueAddress(Name.str()));
+    return reinterpret_cast<void *>(Addr);
+}
+
+void* CPUProgram::GetPointerToFunction(llvm::StringRef Name) const {
+    assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
+    uintptr_t Addr;
+    if (m_LLJIT) {
+        auto Sym = m_LLJIT->lookup(Name);
+        if (llvm::Error Err = Sym.takeError()) {
+            llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+            throw Exceptions::CompilerException("Failed to lookup symbol " +
+                                                Name.str());
+        }
+        Addr = static_cast<uintptr_t>(Sym->getAddress());
+    } else
+        Addr = static_cast<uintptr_t>(
+            m_pExecutionEngine->getFunctionAddress(Name.str()));
+    return reinterpret_cast<void *>(Addr);
 }
 
 cl_ulong CPUProgram::GetFunctionPointerFor(const char *FunctionName) const {
-    return (cl_ulong)(m_pExecutionEngine->getFunctionAddress(FunctionName));
+    return (cl_ulong)(GetPointerToFunction(FunctionName));
 }
 
 void CPUProgram::GetGlobalVariablePointers(const cl_prog_gv **GVs,
