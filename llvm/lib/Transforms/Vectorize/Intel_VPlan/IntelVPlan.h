@@ -651,7 +651,7 @@ public:
   bool mayHaveSideEffects() const;
 #endif // INTEL_CUSTOMIZATION
 
-  // ilist should have access VPInstruction node.
+  // ilist should have access to VPInstruction node.
   friend struct ilist_traits<VPInstruction>;
   friend struct ilist_traits<VPBasicBlock>;
 
