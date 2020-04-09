@@ -22,6 +22,7 @@
 #include "IntelVPlanIdioms.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/DemandedBits.h" // INTEL
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
