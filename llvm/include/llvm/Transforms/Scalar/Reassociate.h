@@ -25,11 +25,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SetVector.h"
-<<<<<<< HEAD
 #include "llvm/IR/CFG.h" // INTEL
-#include "llvm/IR/IRBuilder.h"
-=======
->>>>>>> ebd5a1b0498ff0c7cf790f6d980db5a8a3e2bbb9
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
 #include <deque>
