@@ -14,11 +14,13 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   Intel_LoadCoalescing.cpp
   IntelMFReplacement.cpp
-  Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelLoopVectorizationLegality.cpp
   Intel_VPlan/IntelLoopVectorizationPlanner.cpp
   Intel_VPlan/IntelVPBasicBlock.cpp
+  Intel_VPlan/IntelVPLoopAnalysis.cpp
+  Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelVPlan.cpp
+  Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
   Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp
@@ -26,22 +28,21 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanHCFGBuilder.cpp
   Intel_VPlan/IntelVPlanIdioms.cpp
   Intel_VPlan/IntelVPlanLoopCFU.cpp
+  Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp
+  Intel_VPlan/IntelVPlanLoopInfo.cpp
   Intel_VPlan/IntelVPlanLoopUnroller.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
-  Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp
-  Intel_VPlan/IntelVPlanLoopInfo.cpp
-  Intel_VPlan/IntelVPLoopAnalysis.cpp
   Intel_VPlan/IntelVPlanVectorShape.cpp
+  Intel_VPlan/IntelVPlanVerifier.cpp
   Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
-  Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp
-  Intel_VPlan/IntelVPlanClone.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
 # end INTEL_CUSTOMIZATION
 
   ADDITIONAL_HEADER_DIRS

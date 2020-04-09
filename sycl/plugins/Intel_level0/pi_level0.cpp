@@ -295,9 +295,6 @@ decltype(piEventCreate) L0(piEventCreate);
       *param_value_size_ret = num_values * sizeof(ret_type);                   \
   }
 
-// TODO: Figure out how to pass these objects and eliminated these globals.
-ze_driver_handle_t ze_driver_global = {0};
-
 pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
                              pi_platform *   platforms,
                              pi_uint32 *     num_platforms) {
@@ -312,7 +309,7 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
 
   // Absorb the ZE_RESULT_ERROR_UNINITIALIZED and just return 0 platforms.
   if (ze_result == ZE_RESULT_ERROR_UNINITIALIZED) {
-    assert(num_platforms != 0);
+    pi_assert(num_platforms != 0);
     *num_platforms = 0;
     return PI_SUCCESS;
   }
@@ -321,14 +318,32 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
     zeCallCheck(ze_result, "piPlatformsGet");
   }
 
-  // L0 does not have concept of platforms, return a fake one.
-  if (platforms && num_entries >= 1) {
-    *platforms = pi_cast<pi_platform>(&ze_driver_global);
+  // L0 does not have concept of platforms, but L0 driver is the
+  // closest match.
+  //
+  if (platforms && num_entries > 0) {
+    uint32_t ze_driver_count = 0;
+    ZE_CALL(zeDriverGet(&ze_driver_count, nullptr));
+    if (ze_driver_count == 0) {
+      pi_assert(num_platforms != 0);
+      *num_platforms = 0;
+      return PI_SUCCESS;
+    }
+
+    ze_driver_handle_t ze_driver;
+    pi_assert(ze_driver_count == 1);
+    ZE_CALL(zeDriverGet(&ze_driver_count, &ze_driver));
+
+    // TODO: figure out how/when to release this memory
+    auto L0PiPlatform = new _pi_platform();
+    L0PiPlatform->L0Driver = ze_driver;
+    *platforms = L0PiPlatform;
   }
+
   if (num_platforms)
     *num_platforms = 1;
 
-  return pi_cast<pi_result>(ze_result);
+  return PI_SUCCESS;
 }
 
 pi_result L0(piPlatformGetInfo)(
@@ -338,9 +353,8 @@ pi_result L0(piPlatformGetInfo)(
   void *            param_value,
   size_t *          param_value_size_ret) {
 
-  pi_assert(ze_driver_global != nullptr);
   ze_driver_properties_t ze_driver_properties;
-  ZE_CALL(zeDriverGetProperties(ze_driver_global, &ze_driver_properties));
+  ZE_CALL(zeDriverGetProperties(platform->L0Driver, &ze_driver_properties));
   uint32_t ze_driver_version = ze_driver_properties.driverVersion;
   uint32_t ze_driver_version_major = ZE_MAJOR_VERSION(ze_driver_version);
   uint32_t ze_driver_version_minor = ZE_MINOR_VERSION(ze_driver_version);
@@ -421,22 +435,7 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
                            pi_uint32 *      num_devices) {
 
   ze_result_t ze_res;
-  uint32_t ze_driver_count = 0;
-  ze_res = ZE_CALL(zeDriverGet(&ze_driver_count, nullptr));
-  if (ze_res || (ze_driver_count == 0)) {
-    return pi_cast<pi_result>(ze_res);
-  }
-
-  ze_driver_count = 1;
-  ze_driver_handle_t ze_driver;
-  ze_res = ZE_CALL(zeDriverGet(&ze_driver_count, &ze_driver));
-  if (ze_res) {
-    return pi_cast<pi_result>(ze_res);
-  }
-  ze_driver_global = ze_driver;
-
-  // L0 does not have platforms, expect fake pointer here
-  pi_assert(platform == pi_cast<pi_platform>(&ze_driver_global));
+  ze_driver_handle_t ze_driver = platform->L0Driver;
 
   // Get number of devices supporting L0
   uint32_t ze_device_count = 0;
@@ -460,6 +459,7 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
     if (i < num_entries) {
       auto L0PiDevice = new _pi_device();
       L0PiDevice->L0Device = ze_devices[i];
+      L0PiDevice->Platform = platform;
       L0PiDevice->IsSubDevice = false;
       L0PiDevice->RefCount = 1;
 
@@ -578,8 +578,7 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE(pi_device{0});
   }
   else if (param_name == PI_DEVICE_INFO_PLATFORM) {
-    // This is our fake platform.
-    SET_PARAM_VALUE(pi_cast<pi_platform>(&ze_driver_global));
+    SET_PARAM_VALUE(device->Platform);
   }
   else if (param_name == PI_DEVICE_INFO_VENDOR_ID) {
     SET_PARAM_VALUE(pi_uint32{device->L0DeviceProperties.vendorId});
@@ -710,9 +709,8 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR("Intel");
   }
   else if (param_name == PI_DEVICE_INFO_DRIVER_VERSION) {
-    pi_assert(ze_driver_global != nullptr);
     ze_driver_properties_t ze_driver_properties;
-    ZE_CALL(zeDriverGetProperties(ze_driver_global, &ze_driver_properties));
+    ZE_CALL(zeDriverGetProperties(device->Platform->L0Driver, &ze_driver_properties));
     uint32_t ze_driver_version = ze_driver_properties.driverVersion;
     std::string driver_version =
         std::to_string(ZE_MAJOR_VERSION(ze_driver_version)) +
@@ -1087,6 +1085,7 @@ pi_result L0(piDevicePartition)(
   for (uint32_t i = 0; i < count; ++i) {
     auto L0PiDevice = new _pi_device();
     L0PiDevice->L0Device = ze_subdevices[i];
+    L0PiDevice->Platform = device->Platform;
     L0PiDevice->IsSubDevice = true;
     L0PiDevice->RefCount = 1;
     out_devices[i] = L0PiDevice;
@@ -1293,7 +1292,7 @@ pi_result piMemBufferCreate(
   ze_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_desc.ordinal = 0;
   ZE_CALL(zeDriverAllocDeviceMem(
-    ze_driver_global,
+    context->Device->Platform->L0Driver,
     &ze_desc,
     size,
     1, // TODO: alignment
@@ -1316,6 +1315,7 @@ pi_result piMemBufferCreate(
 
   auto L0PiMem = new _pi_mem();
   L0PiMem->L0Mem = pi_cast<char*>(ptr);
+  L0PiMem->Platform = context->Device->Platform;
   L0PiMem->RefCount = 1;
   L0PiMem->IsMemImage = false;
   L0PiMem->SubBuffer.Parent = nullptr;
@@ -1348,7 +1348,7 @@ pi_result L0(piMemRelease)(pi_mem mem) {
     }
     else {
       if (!mem->SubBuffer.Parent) {
-        ZE_CALL(zeDriverFreeMem(ze_driver_global, mem->L0Mem));
+        ZE_CALL(zeDriverFreeMem(mem->Platform->L0Driver, mem->L0Mem));
       }
     }
     delete mem;
@@ -1480,6 +1480,7 @@ pi_result L0(piMemImageCreate)(
 
   auto L0PiImage = new _pi_mem();
   L0PiImage->L0Image = hImage;
+  L0PiImage->Platform = context->Device->Platform;
   L0PiImage->RefCount = 1;
   L0PiImage->IsMemImage = true;
   L0PiImage->SubBuffer.Parent = nullptr;
@@ -2130,7 +2131,7 @@ pi_result L0(piEventCreate)(
   ze_event_pool_handle_t ze_event_pool;
   ze_device_handle_t ze_device = context->Device->L0Device;
   ze_res = ZE_CALL(zeEventPoolCreate(
-    ze_driver_global,
+    context->Device->Platform->L0Driver,
     &ze_event_pool_desc,
     1,
     &ze_device,
@@ -2363,7 +2364,8 @@ pi_result L0(piEventRelease)(pi_event event) {
     if (event->CommandType == PI_COMMAND_TYPE_MEM_BUFFER_UNMAP &&
         event->CommandData) {
       // Free the memory allocated in the piEnqueueMemBufferMap.
-      ZE_CALL(zeDriverFreeMem(ze_driver_global, event->CommandData));
+      ZE_CALL(zeDriverFreeMem(
+          event->Queue->Context->Device->Platform->L0Driver, event->CommandData));
       event->CommandData = nullptr;
     }
 
@@ -3037,7 +3039,7 @@ pi_result L0(piEnqueueMemBufferMap)(
     ze_host_mem_alloc_desc_t ze_desc;
     ze_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
     ZE_CALL(zeDriverAllocHostMem(
-      ze_driver_global,
+      queue->Context->Device->Platform->L0Driver,
       &ze_desc,
       size,
       1, // TODO: alignment
@@ -3428,6 +3430,7 @@ pi_result L0(piMemBufferPartition)(
 
   auto L0PiMem = new _pi_mem();
   L0PiMem->L0Mem = pi_cast<char*>(buffer->L0Mem + region->origin);
+  L0PiMem->Platform = buffer->Platform;
   L0PiMem->RefCount = 1;
   L0PiMem->IsMemImage = false;
   L0PiMem->MapHostPtr = nullptr;
@@ -3476,7 +3479,7 @@ pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
   ze_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
   // TODO: translate PI properties to L0 flags
   ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocHostMem(
-    ze_driver_global,
+    context->Device->Platform->L0Driver,
     &ze_desc,
     size,
     alignment,
@@ -3504,7 +3507,7 @@ pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
   ze_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_desc.ordinal = 0;
   ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocDeviceMem(
-    ze_driver_global,
+    context->Device->Platform->L0Driver,
     &ze_desc,
     size,
     alignment,
@@ -3538,7 +3541,7 @@ pi_result L0(piextUSMSharedAlloc)(
   ze_dev_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_dev_desc.ordinal = 0;
   ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocSharedMem(
-    ze_driver_global,
+    context->Device->Platform->L0Driver,
     &ze_dev_desc,
     &ze_host_desc,
     size,
@@ -3560,7 +3563,7 @@ pi_result L0(piextUSMSharedAlloc)(
 
 pi_result L0(piextUSMFree)(pi_context context, void *ptr)
 {
-  ZE_CALL(zeDriverFreeMem(ze_driver_global, ptr));
+  ZE_CALL(zeDriverFreeMem(context->Device->Platform->L0Driver, ptr));
   return PI_SUCCESS;
 }
 
@@ -3767,7 +3770,7 @@ pi_result L0(piextUSMGetMemAllocInfo)(
   };
 
   ZE_CALL(zeDriverGetMemAllocProperties(
-    ze_driver_global,
+    context->Device->Platform->L0Driver,
     ptr,
     &ze_memory_allocation_properties,
     &ze_device_handle));
@@ -3792,12 +3795,14 @@ pi_result L0(piextUSMGetMemAllocInfo)(
   }
   else if (param_name == PI_MEM_ALLOC_BASE_PTR) {
     void * base;
-    ZE_CALL(zeDriverGetMemAddressRange(ze_driver_global, ptr, &base, nullptr));
+    ZE_CALL(zeDriverGetMemAddressRange(
+        context->Device->Platform->L0Driver, ptr, &base, nullptr));
     SET_PARAM_VALUE(base);
   }
   else if (param_name == PI_MEM_ALLOC_SIZE) {
     size_t size;
-    ZE_CALL(zeDriverGetMemAddressRange(ze_driver_global, ptr, nullptr, &size));
+    ZE_CALL(zeDriverGetMemAddressRange(
+        context->Device->Platform->L0Driver, ptr, nullptr, &size));
     SET_PARAM_VALUE(size);
   }
   else {
