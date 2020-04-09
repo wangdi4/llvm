@@ -1,3 +1,5 @@
+; CMPLRLLVM-18914:
+; UNSUPPORTED: system-windows
 ; RUN: opt < %s -prepare-switch-to-offload=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-implicit-multiple-teams=true -S | FileCheck -check-prefix=TRUE %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -prepare-switch-to-offload=true -switch-to-offload -vpo-implicit-multiple-teams=true -S | FileCheck -check-prefix=TRUE %s
 ; RUN: opt < %s -prepare-switch-to-offload=true -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-implicit-multiple-teams=false -S | FileCheck -check-prefix=FALSE %s
