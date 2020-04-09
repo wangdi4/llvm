@@ -1722,7 +1722,7 @@ static bool collectMultiplyFactors(SmallVectorImpl<ValueEntry> &Ops,
 }
 
 /// Build a tree of multiplies, computing the product of Ops.
-static Value *buildMultiplyTree(IRBuilder<> &Builder,
+static Value *buildMultiplyTree(IRBuilderBase &Builder,
                                 SmallVectorImpl<Value*> &Ops) {
   if (Ops.size() == 1)
     return Ops.back();
@@ -1745,7 +1745,7 @@ static Value *buildMultiplyTree(IRBuilder<> &Builder,
 /// DAG of multiplies to compute the final product, and return that product
 /// value.
 Value *
-ReassociatePass::buildMinimalMultiplyDAG(IRBuilder<> &Builder,
+ReassociatePass::buildMinimalMultiplyDAG(IRBuilderBase &Builder,
                                          SmallVectorImpl<Factor> &Factors) {
   assert(Factors[0].Power);
   SmallVector<Value *, 4> OuterProduct;
