@@ -187,9 +187,6 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
       // Fix cond predicate.
       if (VPValue *Predicate = Block->getPredicate())
         ClonedBlock->setPredicate(ValueMap[Predicate]);
-
-      // Fix parent.
-      ClonedBlock->setParent(Header->getParent());
     }
 
     // Insert cloned blocks into the loop.

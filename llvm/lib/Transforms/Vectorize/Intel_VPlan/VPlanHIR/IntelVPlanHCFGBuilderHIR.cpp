@@ -354,8 +354,7 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
   auto createVPBB = [&]() -> VPBasicBlock * {
     VPBasicBlock *NewVPBB =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    NewVPBB->setParent(Plan);
-    Plan->setSize(Plan->getSize() + 1);
+    Plan->insertAtBack(NewVPBB);
     return NewVPBB;
   };
 
@@ -674,7 +673,6 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as Plan's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
   updateActiveVPBB();
-  Plan->setEntryBlock(ActiveVPBB);
 
   // Trigger the visit of the loop nest.
   visit(TheLoop);
@@ -682,7 +680,6 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as Plan's Exit.
   ActiveVPBB = nullptr;
   updateActiveVPBB();
-  Plan->setExitBlock(ActiveVPBB);
 
   // At this point, all the VPBasicBlocks have been built and all the
   // VPInstructions have been created for the loop nest. It's time to fix

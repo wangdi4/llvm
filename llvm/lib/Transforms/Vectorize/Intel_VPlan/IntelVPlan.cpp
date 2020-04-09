@@ -67,6 +67,24 @@ raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+// When a VPBasicBlock is added in VPlan, the parent pointer needs to be
+// updated.
+void ilist_traits<VPBasicBlock>::addNodeToList(VPBasicBlock *VPBB) {
+  assert(!VPBB->getParent() && "VPBasicBlock already in VPlan");
+  VPBB->setParent(getListOwner<VPlan, VPBasicBlock>(this));
+}
+
+// When we remove a VPBasicBlock from VPlan, we need to update its parent
+// pointer.
+void ilist_traits<VPBasicBlock>::removeNodeFromList(VPBasicBlock *VPBB) {
+  assert(VPBB->getParent() && "VPBasicBlock not in VPlan");
+  VPBB->setParent(nullptr);
+}
+
+// TODO: Update deleteNode once adding an erasefromparent() function for
+// VPBasicBlock.
+void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {}
+
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
@@ -436,20 +454,6 @@ void VPInstruction::print(raw_ostream &O,
 #if INTEL_CUSTOMIZATION
 VPlan::VPlan(LLVMContext *Context, const DataLayout *DL)
     : Context(Context), DL(DL) {}
-
-VPlan::~VPlan() {
-  SmallVector<VPBasicBlock *, 8> Blocks;
-  for (VPBasicBlock *BB : depth_first(getEntryBlock()))
-    Blocks.push_back(BB);
-
-  for (VPBasicBlock *BB : Blocks)
-    delete BB;
-}
-
-void VPlan::recomputeSize() {
-  Size = std::distance(df_iterator<const VPBasicBlock *>::begin(EntryBB),
-                       df_iterator<const VPBasicBlock *>::end(ExitBB));
-}
 
 void VPlan::computeDT(void) {
   if (!PlanDT)

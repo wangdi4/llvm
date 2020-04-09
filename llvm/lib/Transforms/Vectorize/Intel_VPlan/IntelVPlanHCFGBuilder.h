@@ -96,7 +96,7 @@ public:
                    const DataLayout &DL, const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal);
 
-  virtual ~VPlanHCFGBuilder() = default;
+  virtual ~VPlanHCFGBuilder();
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();

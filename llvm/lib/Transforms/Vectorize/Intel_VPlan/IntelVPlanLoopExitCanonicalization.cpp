@@ -414,8 +414,7 @@ void mergeLoopExits(VPLoop *VPL) {
         IntermediateBB =
             new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
         VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
-        IntermediateBB->setParent(Plan);
-        Plan->setSize(Plan->getSize() + 1);
+        IntermediateBB->moveBefore(ExitBlock);
         VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, IntermediateBB);
         IntermediateBB->appendSuccessor(NewLoopLatch);
         NewLoopLatch->appendPredecessor(IntermediateBB);
@@ -470,8 +469,7 @@ void mergeLoopExits(VPLoop *VPL) {
 
       VPBasicBlock *IntermediateBB =
           new VPBasicBlock(VPlanUtils::createUniqueName("intermediate.bb"));
-      IntermediateBB->setParent(Plan);
-      Plan->setSize(Plan->getSize() + 1);
+      IntermediateBB->moveBefore(ExitBlock);
       VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
       // Remove ExitBlock from ExitingBlock's successors and add a new
       // intermediate block to its successors. ExitBlock's predecessor will be
@@ -588,8 +586,7 @@ void mergeLoopExits(VPLoop *VPL) {
     if (CascadedIfBlockParentLoop)
       CascadedIfBlockParentLoop->addBasicBlockToLoop(CurrentCascadedIfBlock,
                                                      *VPLInfo);
-    CurrentCascadedIfBlock->setParent(Plan);
-    Plan->setSize(Plan->getSize() + 1);
+    CurrentCascadedIfBlock->moveAfter(NewLoopLatch);
   }
 
   Plan->computeDT();
