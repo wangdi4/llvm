@@ -1690,8 +1690,8 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles,
-        "", CI);
+      auto NewI = CallInst::Create(CI->getFunctionType(), CI->getCalledValue(),
+          Args, OpBundles, "", CI);
       if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
       if (MDIR && MDIR->isMDIREnabled())
@@ -1716,8 +1716,9 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = InvokeInst::Create(CI->getCalledValue(),
-        CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
+      auto NewI = InvokeInst::Create(CI->getFunctionType(),
+        CI->getCalledValue(), CI->getNormalDest(), CI->getUnwindDest(), Args,
+        OpBundles, "", CI);
       if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
       if (MDIR && MDIR->isMDIREnabled())
