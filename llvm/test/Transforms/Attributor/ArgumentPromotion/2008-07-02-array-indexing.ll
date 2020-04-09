@@ -8,11 +8,7 @@ define internal i32 @callee(i1 %C, i32* %A) {
 ; CHECK-LABEL: define {{[^@]+}}@callee
 ; CHECK-SAME: (i32* nocapture nofree nonnull readonly align 4 dereferenceable(4) [[A:%.*]])
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[A_0:%.*]] = load i32, i32* null
-=======
 ; CHECK-NEXT:    [[A_0:%.*]] = load i32, i32* %A
->>>>>>> f3dd3a66d3d5643a5e6f46bb18dee3be3a5898cd
 ; CHECK-NEXT:    br label [[F:%.*]]
 ; CHECK:       T:
 ; CHECK-NEXT:    unreachable
