@@ -1,6 +1,7 @@
 ; It checks anders-aa helps to detect a and b pointers in _Z3bazv never overlap 
 ; since they are allocated with two different new calls.
 ; RUN: opt < %s -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -anders-aa -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 @p1 = internal unnamed_addr global i32* null, align 8
 @p2 = internal global i32* null, align 8
