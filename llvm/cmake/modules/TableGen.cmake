@@ -2,6 +2,7 @@
 # Extra parameters for `tblgen' may come after `ofn' parameter.
 # Adds the name of the generated file to TABLEGEN_OUTPUT.
 
+<<<<<<< HEAD
 if(LLVM_MAIN_INCLUDE_DIR)
   set(LLVM_TABLEGEN_FLAGS -I ${LLVM_MAIN_INCLUDE_DIR})
 endif()
@@ -14,6 +15,8 @@ if(INTEL_COLLAB)
   list(APPEND LLVM_TABLEGEN_FLAGS -DINTEL_COLLAB)
 endif()
 
+=======
+>>>>>>> 0c0831f74b7181268a777a39ee087c9337ffa0c5
 function(tablegen project ofn)
   # Validate calling context.
   if(NOT ${project}_TABLEGEN_EXE)
@@ -88,6 +91,14 @@ function(tablegen project ofn)
     set(tblgen_change_flag "--write-if-changed")
   endif()
 
+  # With CMake 3.12 this can be reduced to:
+  # get_directory_property(tblgen_includes "INCLUDE_DIRECTORIES")
+  # list(TRANSFORM tblgen_includes PREPEND -I)
+  set(tblgen_includes)
+  get_directory_property(includes "INCLUDE_DIRECTORIES")
+  foreach(include ${includes})
+    list(APPEND tblgen_includes -I ${include})
+  endforeach()
   # We need both _TABLEGEN_TARGET and _TABLEGEN_EXE in the  DEPENDS list
   # (both the target and the file) to have .inc files rebuilt on
   # a tablegen change, as cmake does not propagate file-level dependencies
@@ -99,6 +110,7 @@ function(tablegen project ofn)
   # but lets us having smaller and cleaner code here.
   add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
     COMMAND ${${project}_TABLEGEN_EXE} ${ARGN} -I ${CMAKE_CURRENT_SOURCE_DIR}
+    ${tblgen_includes}
     ${LLVM_TABLEGEN_FLAGS}
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
     ${tblgen_change_flag}
