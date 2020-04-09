@@ -410,7 +410,6 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
                     << "\nOCL sincos decl: " << *OCLSincosDecl << "\n");
 
   // Then, replace all calls to the old function with calls to the OCL built-in
-
   for (User *U : SincosDecl->users())
     if (CallInst *OldCall = dyn_cast<CallInst>(U)) {
 
@@ -424,7 +423,7 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
       // arg[0]: Opnd;  arg[1]: SineVar;  arg[2]: CosineVar
 
       CallInst *NewCall = CallInst::Create(
-          OCLSincosDecl, {FnArgs[0], FnArgs[2]}, "sine", OldCall);
+          FnTy, OCLSincosDecl, {FnArgs[0], FnArgs[2]}, "sine", OldCall);
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": OCL sincos: " << *NewCall
                         << "\n");

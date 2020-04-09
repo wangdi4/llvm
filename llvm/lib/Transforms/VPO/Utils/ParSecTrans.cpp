@@ -454,7 +454,8 @@ void VPOUtils::insertSectionRecursive(
 
     Instruction *I = &Node->EntryBB->front();
 
-    CallInst *DirEntryCI = CallInst::Create(DirEntry, Arg, EntryOpBundle, "");
+    CallInst *DirEntryCI = CallInst::Create(DirEntry->getFunctionType(),
+                                            DirEntry, Arg, EntryOpBundle, "");
 
     DirEntryCI->insertAfter(I);
 
@@ -475,7 +476,8 @@ void VPOUtils::insertSectionRecursive(
 
     I = &Node->ExitBB->front();
 
-    CallInst *DirExitCI = CallInst::Create(DirExit, ArgIn, ExitOpBundle, "");
+    CallInst *DirExitCI = CallInst::Create(DirExit->getFunctionType(), DirExit,
+                                           ArgIn, ExitOpBundle, "");
     DirExitCI->insertBefore(I);
 
     BasicBlock *SecExitSucc = SplitBlock(Node->ExitBB, I, DT, nullptr);
@@ -773,8 +775,9 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
       StoreInst *SI = new StoreInst(UB, NormalizedUB, false, InsertPt);
       SI->setAlignment(MaybeAlign(4));
 
+      Type *I32Ty = Type::getInt32Ty(Context);
       InsertPt = PreHeaderBB->getTerminator();
-      UpperBnd = new LoadInst(NormalizedUB, "sloop.ub", false, InsertPt);
+      UpperBnd = new LoadInst(I32Ty, NormalizedUB, "sloop.ub", false, InsertPt);
     }
   }
 

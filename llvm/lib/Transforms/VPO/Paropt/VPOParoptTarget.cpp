@@ -198,7 +198,8 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
       // Create the new call based on OCLPrintfDecl and
       // insert it before the old call
       CallInst *NewCall =
-          CallInst::Create(OCLPrintfDecl, FnArgs, "oclPrint", OldCall);
+          CallInst::Create(OCLPrintfDecl->getFunctionType(), OCLPrintfDecl,
+                           FnArgs, "oclPrint", OldCall);
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": new OCL printf(): " << *NewCall
                         << "\n");
@@ -701,7 +702,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), None);
   // The following call clones the original directive call
   // with just the directive name in the operand bundles.
-  auto *NewEntryDir = CallInst::Create(KernelEntryDir, { B }, KernelEntryDir);
+  auto *NewEntryDir = CallInst::Create(KernelEntryDir, {B}, KernelEntryDir);
   KernelEntryDir->replaceAllUsesWith(NewEntryDir);
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);
