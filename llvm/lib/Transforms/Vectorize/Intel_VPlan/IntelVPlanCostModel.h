@@ -130,6 +130,10 @@ protected:
 
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   virtual bool isUnitStrideLoadStore(const VPInstruction *VPInst) const;
+
+  // The utility checks whether the Cost Model can assume that 32-bit indexes
+  // will be used instead of 64-bit indexes for gather/scatter HW instructions.
+  unsigned getLoadStoreIndexSize(const VPInstruction *VPInst) const;
 };
 
 } // namespace vpo

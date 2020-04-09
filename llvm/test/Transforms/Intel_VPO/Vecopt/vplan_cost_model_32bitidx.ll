@@ -8,17 +8,17 @@
 
 define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-LABEL:  HIR Cost Model for VPlan test_fit_32bitindex_gather.21 with VF = 8:
-; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 24
+; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 22
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
-; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 24
+; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 22
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP2:%.*]] = mul i32 3 i32 [[VP0]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i64 [[VP3:%.*]] = sext i32 [[VP2]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP4:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 12 for i32 [[VP5:%.*]] = load i32* [[VP4]]
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 10 for i32 [[VP5:%.*]] = load i32* [[VP4]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i64 [[VP6:%.*]] = sext i32 [[VP5]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32* [[VP7:%.*]] = inttoptr i64 [[VP6]] to i32*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 12 for i32 [[VP8:%.*]] = load i32* [[VP7]]
