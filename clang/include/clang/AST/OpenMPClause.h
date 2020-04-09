@@ -285,12 +285,13 @@ public:
   /// \param EndLoc Ending location of the clause.
   OMPAllocatorClause(Expr *A, SourceLocation StartLoc, SourceLocation LParenLoc,
                      SourceLocation EndLoc)
-      : OMPClause(OMPC_allocator, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Allocator(A) {}
+      : OMPClause(llvm::omp::OMPC_allocator, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Allocator(A) {}
 
   /// Build an empty clause.
   OMPAllocatorClause()
-      : OMPClause(OMPC_allocator, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_allocator, SourceLocation(),
+                  SourceLocation()) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -315,7 +316,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_allocator;
+    return T->getClauseKind() == llvm::omp::OMPC_allocator;
   }
 };
 
@@ -350,17 +351,17 @@ class OMPAllocateClause final
   OMPAllocateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                     Expr *Allocator, SourceLocation ColonLoc,
                     SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPAllocateClause>(OMPC_allocate, StartLoc, LParenLoc,
-                                            EndLoc, N),
+      : OMPVarListClause<OMPAllocateClause>(llvm::omp::OMPC_allocate, StartLoc,
+                                            LParenLoc, EndLoc, N),
         Allocator(Allocator), ColonLoc(ColonLoc) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPAllocateClause(unsigned N)
-      : OMPVarListClause<OMPAllocateClause>(OMPC_allocate, SourceLocation(),
+      : OMPVarListClause<OMPAllocateClause>(llvm::omp::OMPC_allocate,
                                             SourceLocation(), SourceLocation(),
-                                            N) {}
+                                            SourceLocation(), N) {}
 
   /// Sets location of ':' symbol in clause.
   void setColonLoc(SourceLocation CL) { ColonLoc = CL; }
@@ -412,7 +413,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_allocate;
+    return T->getClauseKind() == llvm::omp::OMPC_allocate;
   }
 };
 
@@ -470,15 +471,16 @@ public:
               OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
               SourceLocation LParenLoc, SourceLocation NameModifierLoc,
               SourceLocation ColonLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_if, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), Condition(Cond), ColonLoc(ColonLoc),
-        NameModifier(NameModifier), NameModifierLoc(NameModifierLoc) {
+      : OMPClause(llvm::omp::OMPC_if, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), Condition(Cond),
+        ColonLoc(ColonLoc), NameModifier(NameModifier),
+        NameModifierLoc(NameModifierLoc) {
     setPreInitStmt(HelperCond, CaptureRegion);
   }
 
   /// Build an empty clause.
   OMPIfClause()
-      : OMPClause(OMPC_if, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_if, SourceLocation(), SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -512,7 +514,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_if;
+    return T->getClauseKind() == llvm::omp::OMPC_if;
   }
 };
 
@@ -548,14 +550,14 @@ public:
   OMPFinalClause(Expr *Cond, Stmt *HelperCond,
                  OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
                  SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_final, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), Condition(Cond) {
+      : OMPClause(llvm::omp::OMPC_final, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), Condition(Cond) {
     setPreInitStmt(HelperCond, CaptureRegion);
   }
 
   /// Build an empty clause.
   OMPFinalClause()
-      : OMPClause(OMPC_final, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_final, SourceLocation(), SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -580,7 +582,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_final;
+    return T->getClauseKind() == llvm::omp::OMPC_final;
   }
 };
 
@@ -618,7 +620,7 @@ public:
                       OpenMPDirectiveKind CaptureRegion,
                       SourceLocation StartLoc, SourceLocation LParenLoc,
                       SourceLocation EndLoc)
-      : OMPClause(OMPC_num_threads, StartLoc, EndLoc),
+      : OMPClause(llvm::omp::OMPC_num_threads, StartLoc, EndLoc),
         OMPClauseWithPreInit(this), LParenLoc(LParenLoc),
         NumThreads(NumThreads) {
     setPreInitStmt(HelperNumThreads, CaptureRegion);
@@ -626,7 +628,8 @@ public:
 
   /// Build an empty clause.
   OMPNumThreadsClause()
-      : OMPClause(OMPC_num_threads, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_num_threads, SourceLocation(),
+                  SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -652,7 +655,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_num_threads;
+    return T->getClauseKind() == llvm::omp::OMPC_num_threads;
   }
 };
 
@@ -896,12 +899,13 @@ public:
   /// \param EndLoc Ending location of the clause.
   OMPSafelenClause(Expr *Len, SourceLocation StartLoc, SourceLocation LParenLoc,
                    SourceLocation EndLoc)
-      : OMPClause(OMPC_safelen, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Safelen(Len) {}
+      : OMPClause(llvm::omp::OMPC_safelen, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Safelen(Len) {}
 
   /// Build an empty clause.
   explicit OMPSafelenClause()
-      : OMPClause(OMPC_safelen, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_safelen, SourceLocation(), SourceLocation()) {
+  }
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -926,7 +930,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_safelen;
+    return T->getClauseKind() == llvm::omp::OMPC_safelen;
   }
 };
 
@@ -961,12 +965,13 @@ public:
   /// \param EndLoc Ending location of the clause.
   OMPSimdlenClause(Expr *Len, SourceLocation StartLoc, SourceLocation LParenLoc,
                    SourceLocation EndLoc)
-      : OMPClause(OMPC_simdlen, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Simdlen(Len) {}
+      : OMPClause(llvm::omp::OMPC_simdlen, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Simdlen(Len) {}
 
   /// Build an empty clause.
   explicit OMPSimdlenClause()
-      : OMPClause(OMPC_simdlen, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_simdlen, SourceLocation(), SourceLocation()) {
+  }
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -991,7 +996,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_simdlen;
+    return T->getClauseKind() == llvm::omp::OMPC_simdlen;
   }
 };
 
@@ -1027,12 +1032,13 @@ public:
   /// \param EndLoc Ending location of the clause.
   OMPCollapseClause(Expr *Num, SourceLocation StartLoc,
                     SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_collapse, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        NumForLoops(Num) {}
+      : OMPClause(llvm::omp::OMPC_collapse, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), NumForLoops(Num) {}
 
   /// Build an empty clause.
   explicit OMPCollapseClause()
-      : OMPClause(OMPC_collapse, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_collapse, SourceLocation(),
+                  SourceLocation()) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -1057,7 +1063,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_collapse;
+    return T->getClauseKind() == llvm::omp::OMPC_collapse;
   }
 };
 
@@ -1101,12 +1107,13 @@ public:
   OMPDefaultClause(llvm::omp::DefaultKind A, SourceLocation ALoc,
                    SourceLocation StartLoc, SourceLocation LParenLoc,
                    SourceLocation EndLoc)
-      : OMPClause(OMPC_default, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Kind(A), KindKwLoc(ALoc) {}
+      : OMPClause(llvm::omp::OMPC_default, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Kind(A), KindKwLoc(ALoc) {}
 
   /// Build an empty clause.
   OMPDefaultClause()
-      : OMPClause(OMPC_default, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_default, SourceLocation(), SourceLocation()) {
+  }
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -1136,7 +1143,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_default;
+    return T->getClauseKind() == llvm::omp::OMPC_default;
   }
 };
 
@@ -1182,12 +1189,13 @@ public:
   OMPProcBindClause(llvm::omp::ProcBindKind A, SourceLocation ALoc,
                     SourceLocation StartLoc, SourceLocation LParenLoc,
                     SourceLocation EndLoc)
-      : OMPClause(OMPC_proc_bind, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Kind(A), KindKwLoc(ALoc) {}
+      : OMPClause(llvm::omp::OMPC_proc_bind, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Kind(A), KindKwLoc(ALoc) {}
 
   /// Build an empty clause.
   OMPProcBindClause()
-      : OMPClause(OMPC_proc_bind, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_proc_bind, SourceLocation(),
+                  SourceLocation()) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -1217,7 +1225,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_proc_bind;
+    return T->getClauseKind() == llvm::omp::OMPC_proc_bind;
   }
 };
 
@@ -1237,11 +1245,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPUnifiedAddressClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_unified_address, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_unified_address, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPUnifiedAddressClause()
-      : OMPClause(OMPC_unified_address, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_unified_address, SourceLocation(),
+                  SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1259,7 +1268,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_unified_address;
+    return T->getClauseKind() == llvm::omp::OMPC_unified_address;
   }
 };
 
@@ -1279,11 +1288,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPUnifiedSharedMemoryClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_unified_shared_memory, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_unified_shared_memory, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPUnifiedSharedMemoryClause()
-      : OMPClause(OMPC_unified_shared_memory, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_unified_shared_memory, SourceLocation(),
+                  SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1301,7 +1311,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_unified_shared_memory;
+    return T->getClauseKind() == llvm::omp::OMPC_unified_shared_memory;
   }
 };
 
@@ -1321,11 +1331,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPReverseOffloadClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_reverse_offload, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_reverse_offload, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPReverseOffloadClause()
-      : OMPClause(OMPC_reverse_offload, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_reverse_offload, SourceLocation(),
+                  SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1343,7 +1354,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_reverse_offload;
+    return T->getClauseKind() == llvm::omp::OMPC_reverse_offload;
   }
 };
 
@@ -1363,12 +1374,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPDynamicAllocatorsClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_dynamic_allocators, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_dynamic_allocators, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPDynamicAllocatorsClause()
-      : OMPClause(OMPC_dynamic_allocators, SourceLocation(), SourceLocation()) {
-  }
+      : OMPClause(llvm::omp::OMPC_dynamic_allocators, SourceLocation(),
+                  SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1386,7 +1397,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_dynamic_allocators;
+    return T->getClauseKind() == llvm::omp::OMPC_dynamic_allocators;
   }
 };
 
@@ -1438,12 +1449,12 @@ public:
                                  SourceLocation ALoc, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
                                  SourceLocation EndLoc)
-      : OMPClause(OMPC_atomic_default_mem_order, StartLoc, EndLoc),
+      : OMPClause(llvm::omp::OMPC_atomic_default_mem_order, StartLoc, EndLoc),
         LParenLoc(LParenLoc), Kind(A), KindKwLoc(ALoc) {}
 
   /// Build an empty clause.
   OMPAtomicDefaultMemOrderClause()
-      : OMPClause(OMPC_atomic_default_mem_order, SourceLocation(),
+      : OMPClause(llvm::omp::OMPC_atomic_default_mem_order, SourceLocation(),
                   SourceLocation()) {}
 
   /// Sets the location of '('.
@@ -1476,7 +1487,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_atomic_default_mem_order;
+    return T->getClauseKind() == llvm::omp::OMPC_atomic_default_mem_order;
   }
 };
 
@@ -1595,9 +1606,9 @@ public:
                     Expr *ChunkSize, Stmt *HelperChunkSize,
                     OpenMPScheduleClauseModifier M1, SourceLocation M1Loc,
                     OpenMPScheduleClauseModifier M2, SourceLocation M2Loc)
-      : OMPClause(OMPC_schedule, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), Kind(Kind), KindLoc(KLoc), CommaLoc(CommaLoc),
-        ChunkSize(ChunkSize) {
+      : OMPClause(llvm::omp::OMPC_schedule, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), Kind(Kind),
+        KindLoc(KLoc), CommaLoc(CommaLoc), ChunkSize(ChunkSize) {
     setPreInitStmt(HelperChunkSize);
     Modifiers[FIRST] = M1;
     Modifiers[SECOND] = M2;
@@ -1607,7 +1618,7 @@ public:
 
   /// Build an empty clause.
   explicit OMPScheduleClause()
-      : OMPClause(OMPC_schedule, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_schedule, SourceLocation(), SourceLocation()),
         OMPClauseWithPreInit(this) {
     Modifiers[FIRST] = OMPC_SCHEDULE_MODIFIER_unknown;
     Modifiers[SECOND] = OMPC_SCHEDULE_MODIFIER_unknown;
@@ -1669,7 +1680,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_schedule;
+    return T->getClauseKind() == llvm::omp::OMPC_schedule;
   }
 };
 
@@ -1704,12 +1715,12 @@ class OMPOrderedClause final
   /// \param EndLoc Ending location of the clause.
   OMPOrderedClause(Expr *Num, unsigned NumLoops, SourceLocation StartLoc,
                    SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_ordered, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        NumForLoops(Num), NumberOfLoops(NumLoops) {}
+      : OMPClause(llvm::omp::OMPC_ordered, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), NumForLoops(Num), NumberOfLoops(NumLoops) {}
 
   /// Build an empty clause.
   explicit OMPOrderedClause(unsigned NumLoops)
-      : OMPClause(OMPC_ordered, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_ordered, SourceLocation(), SourceLocation()),
         NumberOfLoops(NumLoops) {}
 
   /// Set the number of associated for-loops.
@@ -1765,7 +1776,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_ordered;
+    return T->getClauseKind() == llvm::omp::OMPC_ordered;
   }
 };
 
@@ -1782,11 +1793,11 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPNowaitClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_nowait, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_nowait, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPNowaitClause()
-      : OMPClause(OMPC_nowait, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_nowait, SourceLocation(), SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1804,7 +1815,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_nowait;
+    return T->getClauseKind() == llvm::omp::OMPC_nowait;
   }
 };
 
@@ -1821,11 +1832,11 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPUntiedClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_untied, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_untied, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPUntiedClause()
-      : OMPClause(OMPC_untied, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_untied, SourceLocation(), SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1843,7 +1854,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_untied;
+    return T->getClauseKind() == llvm::omp::OMPC_untied;
   }
 };
 
@@ -1861,11 +1872,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPMergeableClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_mergeable, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_mergeable, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPMergeableClause()
-      : OMPClause(OMPC_mergeable, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_mergeable, SourceLocation(),
+                  SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1883,7 +1895,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_mergeable;
+    return T->getClauseKind() == llvm::omp::OMPC_mergeable;
   }
 };
 
@@ -1900,10 +1912,11 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPReadClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_read, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_read, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
-  OMPReadClause() : OMPClause(OMPC_read, SourceLocation(), SourceLocation()) {}
+  OMPReadClause()
+      : OMPClause(llvm::omp::OMPC_read, SourceLocation(), SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1921,7 +1934,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_read;
+    return T->getClauseKind() == llvm::omp::OMPC_read;
   }
 };
 
@@ -1938,11 +1951,11 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPWriteClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_write, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_write, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPWriteClause()
-      : OMPClause(OMPC_write, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_write, SourceLocation(), SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -1960,7 +1973,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_write;
+    return T->getClauseKind() == llvm::omp::OMPC_write;
   }
 };
 
@@ -2020,11 +2033,12 @@ class OMPUpdateClause final
   /// \param EndLoc Ending location of the clause.
   OMPUpdateClause(SourceLocation StartLoc, SourceLocation EndLoc,
                   bool IsExtended)
-      : OMPClause(OMPC_update, StartLoc, EndLoc), IsExtended(IsExtended) {}
+      : OMPClause(llvm::omp::OMPC_update, StartLoc, EndLoc),
+        IsExtended(IsExtended) {}
 
   /// Build an empty clause.
   OMPUpdateClause(bool IsExtended)
-      : OMPClause(OMPC_update, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_update, SourceLocation(), SourceLocation()),
         IsExtended(IsExtended) {}
 
 public:
@@ -2094,7 +2108,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_update;
+    return T->getClauseKind() == llvm::omp::OMPC_update;
   }
 };
 
@@ -2112,11 +2126,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPCaptureClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_capture, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_capture, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPCaptureClause()
-      : OMPClause(OMPC_capture, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_capture, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -2134,7 +2149,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_capture;
+    return T->getClauseKind() == llvm::omp::OMPC_capture;
   }
 };
 
@@ -2152,11 +2167,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPSeqCstClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_seq_cst, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_seq_cst, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPSeqCstClause()
-      : OMPClause(OMPC_seq_cst, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_seq_cst, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -2174,7 +2190,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_seq_cst;
+    return T->getClauseKind() == llvm::omp::OMPC_seq_cst;
   }
 };
 
@@ -2192,11 +2208,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPAcqRelClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_acq_rel, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_acq_rel, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPAcqRelClause()
-      : OMPClause(OMPC_acq_rel, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_acq_rel, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -2214,7 +2231,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_acq_rel;
+    return T->getClauseKind() == llvm::omp::OMPC_acq_rel;
   }
 };
 
@@ -2232,11 +2249,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPAcquireClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_acquire, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_acquire, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPAcquireClause()
-      : OMPClause(OMPC_acquire, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_acquire, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -2254,7 +2272,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_acquire;
+    return T->getClauseKind() == llvm::omp::OMPC_acquire;
   }
 };
 
@@ -2272,11 +2290,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPReleaseClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_release, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_release, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPReleaseClause()
-      : OMPClause(OMPC_release, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_release, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -2294,7 +2313,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_release;
+    return T->getClauseKind() == llvm::omp::OMPC_release;
   }
 };
 
@@ -2312,11 +2331,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPRelaxedClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_relaxed, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_relaxed, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPRelaxedClause()
-      : OMPClause(OMPC_relaxed, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_relaxed, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -2334,7 +2354,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_relaxed;
+    return T->getClauseKind() == llvm::omp::OMPC_relaxed;
   }
 };
 
@@ -2360,16 +2380,16 @@ class OMPPrivateClause final
   /// \param N Number of the variables in the clause.
   OMPPrivateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                    SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPPrivateClause>(OMPC_private, StartLoc, LParenLoc,
-                                           EndLoc, N) {}
+      : OMPVarListClause<OMPPrivateClause>(llvm::omp::OMPC_private, StartLoc,
+                                           LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPPrivateClause(unsigned N)
-      : OMPVarListClause<OMPPrivateClause>(OMPC_private, SourceLocation(),
+      : OMPVarListClause<OMPPrivateClause>(llvm::omp::OMPC_private,
                                            SourceLocation(), SourceLocation(),
-                                           N) {}
+                                           SourceLocation(), N) {}
 
   /// Sets the list of references to private copies with initializers for
   /// new private variables.
@@ -2439,7 +2459,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_private;
+    return T->getClauseKind() == llvm::omp::OMPC_private;
   }
 };
 
@@ -2467,8 +2487,8 @@ class OMPFirstprivateClause final
   /// \param N Number of the variables in the clause.
   OMPFirstprivateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                         SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPFirstprivateClause>(OMPC_firstprivate, StartLoc,
-                                                LParenLoc, EndLoc, N),
+      : OMPVarListClause<OMPFirstprivateClause>(llvm::omp::OMPC_firstprivate,
+                                                StartLoc, LParenLoc, EndLoc, N),
         OMPClauseWithPreInit(this) {}
 
   /// Build an empty clause.
@@ -2476,7 +2496,7 @@ class OMPFirstprivateClause final
   /// \param N Number of variables.
   explicit OMPFirstprivateClause(unsigned N)
       : OMPVarListClause<OMPFirstprivateClause>(
-            OMPC_firstprivate, SourceLocation(), SourceLocation(),
+            llvm::omp::OMPC_firstprivate, SourceLocation(), SourceLocation(),
             SourceLocation(), N),
         OMPClauseWithPreInit(this) {}
 
@@ -2580,7 +2600,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_firstprivate;
+    return T->getClauseKind() == llvm::omp::OMPC_firstprivate;
   }
 };
 
@@ -2633,8 +2653,8 @@ class OMPLastprivateClause final
                        SourceLocation EndLoc, OpenMPLastprivateModifier LPKind,
                        SourceLocation LPKindLoc, SourceLocation ColonLoc,
                        unsigned N)
-      : OMPVarListClause<OMPLastprivateClause>(OMPC_lastprivate, StartLoc,
-                                               LParenLoc, EndLoc, N),
+      : OMPVarListClause<OMPLastprivateClause>(llvm::omp::OMPC_lastprivate,
+                                               StartLoc, LParenLoc, EndLoc, N),
         OMPClauseWithPostUpdate(this), LPKind(LPKind), LPKindLoc(LPKindLoc),
         ColonLoc(ColonLoc) {}
 
@@ -2643,7 +2663,7 @@ class OMPLastprivateClause final
   /// \param N Number of variables.
   explicit OMPLastprivateClause(unsigned N)
       : OMPVarListClause<OMPLastprivateClause>(
-            OMPC_lastprivate, SourceLocation(), SourceLocation(),
+            llvm::omp::OMPC_lastprivate, SourceLocation(), SourceLocation(),
             SourceLocation(), N),
         OMPClauseWithPostUpdate(this) {}
 
@@ -2819,7 +2839,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_lastprivate;
+    return T->getClauseKind() == llvm::omp::OMPC_lastprivate;
   }
 };
 
@@ -2844,16 +2864,16 @@ class OMPSharedClause final
   /// \param N Number of the variables in the clause.
   OMPSharedClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPSharedClause>(OMPC_shared, StartLoc, LParenLoc,
-                                          EndLoc, N) {}
+      : OMPVarListClause<OMPSharedClause>(llvm::omp::OMPC_shared, StartLoc,
+                                          LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPSharedClause(unsigned N)
-      : OMPVarListClause<OMPSharedClause>(OMPC_shared, SourceLocation(),
+      : OMPVarListClause<OMPSharedClause>(llvm::omp::OMPC_shared,
                                           SourceLocation(), SourceLocation(),
-                                          N) {}
+                                          SourceLocation(), N) {}
 
 public:
   /// Creates clause with a list of variables \a VL.
@@ -2891,7 +2911,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_shared;
+    return T->getClauseKind() == llvm::omp::OMPC_shared;
   }
 };
 
@@ -2942,8 +2962,8 @@ class OMPReductionClause final
                      OpenMPReductionClauseModifier Modifier, unsigned N,
                      NestedNameSpecifierLoc QualifierLoc,
                      const DeclarationNameInfo &NameInfo)
-      : OMPVarListClause<OMPReductionClause>(OMPC_reduction, StartLoc,
-                                             LParenLoc, EndLoc, N),
+      : OMPVarListClause<OMPReductionClause>(llvm::omp::OMPC_reduction,
+                                             StartLoc, LParenLoc, EndLoc, N),
         OMPClauseWithPostUpdate(this), Modifier(Modifier),
         ModifierLoc(ModifierLoc), ColonLoc(ColonLoc),
         QualifierLoc(QualifierLoc), NameInfo(NameInfo) {}
@@ -2952,9 +2972,9 @@ class OMPReductionClause final
   ///
   /// \param N Number of variables.
   explicit OMPReductionClause(unsigned N)
-      : OMPVarListClause<OMPReductionClause>(OMPC_reduction, SourceLocation(),
+      : OMPVarListClause<OMPReductionClause>(llvm::omp::OMPC_reduction,
                                              SourceLocation(), SourceLocation(),
-                                             N),
+                                             SourceLocation(), N),
         OMPClauseWithPostUpdate(this) {}
 
   /// Sets reduction modifier.
@@ -3151,7 +3171,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_reduction;
+    return T->getClauseKind() == llvm::omp::OMPC_reduction;
   }
 };
 
@@ -3193,8 +3213,8 @@ class OMPTaskReductionClause final
                          SourceLocation ColonLoc, SourceLocation EndLoc,
                          unsigned N, NestedNameSpecifierLoc QualifierLoc,
                          const DeclarationNameInfo &NameInfo)
-      : OMPVarListClause<OMPTaskReductionClause>(OMPC_task_reduction, StartLoc,
-                                                 LParenLoc, EndLoc, N),
+      : OMPVarListClause<OMPTaskReductionClause>(
+            llvm::omp::OMPC_task_reduction, StartLoc, LParenLoc, EndLoc, N),
         OMPClauseWithPostUpdate(this), ColonLoc(ColonLoc),
         QualifierLoc(QualifierLoc), NameInfo(NameInfo) {}
 
@@ -3203,7 +3223,7 @@ class OMPTaskReductionClause final
   /// \param N Number of variables.
   explicit OMPTaskReductionClause(unsigned N)
       : OMPVarListClause<OMPTaskReductionClause>(
-            OMPC_task_reduction, SourceLocation(), SourceLocation(),
+            llvm::omp::OMPC_task_reduction, SourceLocation(), SourceLocation(),
             SourceLocation(), N),
         OMPClauseWithPostUpdate(this) {}
 
@@ -3383,7 +3403,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_task_reduction;
+    return T->getClauseKind() == llvm::omp::OMPC_task_reduction;
   }
 };
 
@@ -3424,8 +3444,8 @@ class OMPInReductionClause final
                        SourceLocation ColonLoc, SourceLocation EndLoc,
                        unsigned N, NestedNameSpecifierLoc QualifierLoc,
                        const DeclarationNameInfo &NameInfo)
-      : OMPVarListClause<OMPInReductionClause>(OMPC_in_reduction, StartLoc,
-                                               LParenLoc, EndLoc, N),
+      : OMPVarListClause<OMPInReductionClause>(llvm::omp::OMPC_in_reduction,
+                                               StartLoc, LParenLoc, EndLoc, N),
         OMPClauseWithPostUpdate(this), ColonLoc(ColonLoc),
         QualifierLoc(QualifierLoc), NameInfo(NameInfo) {}
 
@@ -3434,7 +3454,7 @@ class OMPInReductionClause final
   /// \param N Number of variables.
   explicit OMPInReductionClause(unsigned N)
       : OMPVarListClause<OMPInReductionClause>(
-            OMPC_in_reduction, SourceLocation(), SourceLocation(),
+            llvm::omp::OMPC_in_reduction, SourceLocation(), SourceLocation(),
             SourceLocation(), N),
         OMPClauseWithPostUpdate(this) {}
 
@@ -3638,7 +3658,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_in_reduction;
+    return T->getClauseKind() == llvm::omp::OMPC_in_reduction;
   }
 };
 
@@ -3684,8 +3704,8 @@ class OMPLinearClause final
                   OpenMPLinearClauseKind Modifier, SourceLocation ModifierLoc,
                   SourceLocation ColonLoc, SourceLocation EndLoc,
                   unsigned NumVars)
-      : OMPVarListClause<OMPLinearClause>(OMPC_linear, StartLoc, LParenLoc,
-                                          EndLoc, NumVars),
+      : OMPVarListClause<OMPLinearClause>(llvm::omp::OMPC_linear, StartLoc,
+                                          LParenLoc, EndLoc, NumVars),
         OMPClauseWithPostUpdate(this), Modifier(Modifier),
         ModifierLoc(ModifierLoc), ColonLoc(ColonLoc) {}
 
@@ -3693,9 +3713,9 @@ class OMPLinearClause final
   ///
   /// \param NumVars Number of variables.
   explicit OMPLinearClause(unsigned NumVars)
-      : OMPVarListClause<OMPLinearClause>(OMPC_linear, SourceLocation(),
+      : OMPVarListClause<OMPLinearClause>(llvm::omp::OMPC_linear,
                                           SourceLocation(), SourceLocation(),
-                                          NumVars),
+                                          SourceLocation(), NumVars),
         OMPClauseWithPostUpdate(this) {}
 
   /// Gets the list of initial values for linear variables.
@@ -3915,7 +3935,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_linear;
+    return T->getClauseKind() == llvm::omp::OMPC_linear;
   }
 };
 
@@ -3950,17 +3970,17 @@ class OMPAlignedClause final
   OMPAlignedClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                    SourceLocation ColonLoc, SourceLocation EndLoc,
                    unsigned NumVars)
-      : OMPVarListClause<OMPAlignedClause>(OMPC_aligned, StartLoc, LParenLoc,
-                                           EndLoc, NumVars),
+      : OMPVarListClause<OMPAlignedClause>(llvm::omp::OMPC_aligned, StartLoc,
+                                           LParenLoc, EndLoc, NumVars),
         ColonLoc(ColonLoc) {}
 
   /// Build an empty clause.
   ///
   /// \param NumVars Number of variables.
   explicit OMPAlignedClause(unsigned NumVars)
-      : OMPVarListClause<OMPAlignedClause>(OMPC_aligned, SourceLocation(),
+      : OMPVarListClause<OMPAlignedClause>(llvm::omp::OMPC_aligned,
                                            SourceLocation(), SourceLocation(),
-                                           NumVars) {}
+                                           SourceLocation(), NumVars) {}
 
 public:
   /// Creates clause with a list of variables \a VL and alignment \a A.
@@ -4014,7 +4034,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_aligned;
+    return T->getClauseKind() == llvm::omp::OMPC_aligned;
   }
 };
 
@@ -4053,16 +4073,16 @@ class OMPCopyinClause final
   /// \param N Number of the variables in the clause.
   OMPCopyinClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPCopyinClause>(OMPC_copyin, StartLoc, LParenLoc,
-                                          EndLoc, N) {}
+      : OMPVarListClause<OMPCopyinClause>(llvm::omp::OMPC_copyin, StartLoc,
+                                          LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPCopyinClause(unsigned N)
-      : OMPVarListClause<OMPCopyinClause>(OMPC_copyin, SourceLocation(),
+      : OMPVarListClause<OMPCopyinClause>(llvm::omp::OMPC_copyin,
                                           SourceLocation(), SourceLocation(),
-                                          N) {}
+                                          SourceLocation(), N) {}
 
   /// Set list of helper expressions, required for proper codegen of the
   /// clause. These expressions represent source expression in the final
@@ -4190,7 +4210,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_copyin;
+    return T->getClauseKind() == llvm::omp::OMPC_copyin;
   }
 };
 
@@ -4217,15 +4237,16 @@ class OMPCopyprivateClause final
   /// \param N Number of the variables in the clause.
   OMPCopyprivateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                        SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPCopyprivateClause>(OMPC_copyprivate, StartLoc,
-                                               LParenLoc, EndLoc, N) {}
+      : OMPVarListClause<OMPCopyprivateClause>(llvm::omp::OMPC_copyprivate,
+                                               StartLoc, LParenLoc, EndLoc, N) {
+  }
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPCopyprivateClause(unsigned N)
       : OMPVarListClause<OMPCopyprivateClause>(
-            OMPC_copyprivate, SourceLocation(), SourceLocation(),
+            llvm::omp::OMPC_copyprivate, SourceLocation(), SourceLocation(),
             SourceLocation(), N) {}
 
   /// Set list of helper expressions, required for proper codegen of the
@@ -4353,7 +4374,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_copyprivate;
+    return T->getClauseKind() == llvm::omp::OMPC_copyprivate;
   }
 };
 
@@ -4383,16 +4404,16 @@ class OMPFlushClause final
   /// \param N Number of the variables in the clause.
   OMPFlushClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                  SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPFlushClause>(OMPC_flush, StartLoc, LParenLoc,
-                                         EndLoc, N) {}
+      : OMPVarListClause<OMPFlushClause>(llvm::omp::OMPC_flush, StartLoc,
+                                         LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPFlushClause(unsigned N)
-      : OMPVarListClause<OMPFlushClause>(OMPC_flush, SourceLocation(),
+      : OMPVarListClause<OMPFlushClause>(llvm::omp::OMPC_flush,
                                          SourceLocation(), SourceLocation(),
-                                         N) {}
+                                         SourceLocation(), N) {}
 
 public:
   /// Creates clause with a list of variables \a VL.
@@ -4430,7 +4451,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_flush;
+    return T->getClauseKind() == llvm::omp::OMPC_flush;
   }
 };
 
@@ -4462,12 +4483,13 @@ class OMPDepobjClause final : public OMPClause {
   /// \param EndLoc Ending location of the clause.
   OMPDepobjClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc)
-      : OMPClause(OMPC_depobj, StartLoc, EndLoc), LParenLoc(LParenLoc) {}
+      : OMPClause(llvm::omp::OMPC_depobj, StartLoc, EndLoc),
+        LParenLoc(LParenLoc) {}
 
   /// Build an empty clause.
   ///
   explicit OMPDepobjClause()
-      : OMPClause(OMPC_depobj, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_depobj, SourceLocation(), SourceLocation()) {}
 
   void setDepobj(Expr *E) { Depobj = E; }
 
@@ -4516,7 +4538,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_depobj;
+    return T->getClauseKind() == llvm::omp::OMPC_depobj;
   }
 };
 
@@ -4557,8 +4579,9 @@ class OMPDependClause final
   /// clause.
   OMPDependClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc, unsigned N, unsigned NumLoops)
-      : OMPVarListClause<OMPDependClause>(OMPC_depend, StartLoc, LParenLoc,
-                                          EndLoc, N), NumLoops(NumLoops) {}
+      : OMPVarListClause<OMPDependClause>(llvm::omp::OMPC_depend, StartLoc,
+                                          LParenLoc, EndLoc, N),
+        NumLoops(NumLoops) {}
 
   /// Build an empty clause.
   ///
@@ -4566,9 +4589,9 @@ class OMPDependClause final
   /// \param NumLoops Number of loops that is associated with this depend
   /// clause.
   explicit OMPDependClause(unsigned N, unsigned NumLoops)
-      : OMPVarListClause<OMPDependClause>(OMPC_depend, SourceLocation(),
+      : OMPVarListClause<OMPDependClause>(llvm::omp::OMPC_depend,
                                           SourceLocation(), SourceLocation(),
-                                          N),
+                                          SourceLocation(), N),
         NumLoops(NumLoops) {}
 
   /// Set dependency kind.
@@ -4656,7 +4679,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_depend;
+    return T->getClauseKind() == llvm::omp::OMPC_depend;
   }
 };
 
@@ -4709,15 +4732,15 @@ public:
                   OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
                   SourceLocation LParenLoc, SourceLocation ModifierLoc,
                   SourceLocation EndLoc)
-      : OMPClause(OMPC_device, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), Modifier(Modifier), ModifierLoc(ModifierLoc),
-        Device(E) {
+      : OMPClause(llvm::omp::OMPC_device, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), Modifier(Modifier),
+        ModifierLoc(ModifierLoc), Device(E) {
     setPreInitStmt(HelperE, CaptureRegion);
   }
 
   /// Build an empty clause.
   OMPDeviceClause()
-      : OMPClause(OMPC_device, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_device, SourceLocation(), SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -4752,7 +4775,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_device;
+    return T->getClauseKind() == llvm::omp::OMPC_device;
   }
 };
 
@@ -4769,11 +4792,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPThreadsClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_threads, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_threads, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPThreadsClause()
-      : OMPClause(OMPC_threads, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_threads, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -4791,7 +4815,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_threads;
+    return T->getClauseKind() == llvm::omp::OMPC_threads;
   }
 };
 
@@ -4808,10 +4832,11 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPSIMDClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_simd, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_simd, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
-  OMPSIMDClause() : OMPClause(OMPC_simd, SourceLocation(), SourceLocation()) {}
+  OMPSIMDClause()
+      : OMPClause(llvm::omp::OMPC_simd, SourceLocation(), SourceLocation()) {}
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -4829,7 +4854,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_simd;
+    return T->getClauseKind() == llvm::omp::OMPC_simd;
   }
 };
 
@@ -5505,8 +5530,8 @@ private:
                         OpenMPMapClauseKind MapType, bool MapTypeIsImplicit,
                         SourceLocation MapLoc, const OMPVarListLocTy &Locs,
                         const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_map, Locs, Sizes, &MapperQualifierLoc,
-                                  &MapperIdInfo),
+      : OMPMappableExprListClause(llvm::omp::OMPC_map, Locs, Sizes,
+                                  &MapperQualifierLoc, &MapperIdInfo),
         MapType(MapType), MapTypeIsImplicit(MapTypeIsImplicit), MapLoc(MapLoc) {
     assert(llvm::array_lengthof(MapTypeModifiers) == MapModifiers.size() &&
            "Unexpected number of map type modifiers.");
@@ -5526,7 +5551,8 @@ private:
   /// 3) NumComponentLists: number of component lists in this clause; and 4)
   /// NumComponents: total number of expression components in the clause.
   explicit OMPMapClause(const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_map, OMPVarListLocTy(), Sizes) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_map, OMPVarListLocTy(),
+                                  Sizes) {}
 
   /// Set map-type-modifier for the clause.
   ///
@@ -5673,7 +5699,7 @@ public:
 
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_map;
+    return T->getClauseKind() == llvm::omp::OMPC_map;
   }
 };
 
@@ -5712,14 +5738,15 @@ public:
   OMPNumTeamsClause(Expr *E, Stmt *HelperE, OpenMPDirectiveKind CaptureRegion,
                     SourceLocation StartLoc, SourceLocation LParenLoc,
                     SourceLocation EndLoc)
-      : OMPClause(OMPC_num_teams, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), NumTeams(E) {
+      : OMPClause(llvm::omp::OMPC_num_teams, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), NumTeams(E) {
     setPreInitStmt(HelperE, CaptureRegion);
   }
 
   /// Build an empty clause.
   OMPNumTeamsClause()
-      : OMPClause(OMPC_num_teams, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_num_teams, SourceLocation(),
+                  SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -5748,7 +5775,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_num_teams;
+    return T->getClauseKind() == llvm::omp::OMPC_num_teams;
   }
 };
 
@@ -5788,14 +5815,15 @@ public:
                        OpenMPDirectiveKind CaptureRegion,
                        SourceLocation StartLoc, SourceLocation LParenLoc,
                        SourceLocation EndLoc)
-      : OMPClause(OMPC_thread_limit, StartLoc, EndLoc),
+      : OMPClause(llvm::omp::OMPC_thread_limit, StartLoc, EndLoc),
         OMPClauseWithPreInit(this), LParenLoc(LParenLoc), ThreadLimit(E) {
     setPreInitStmt(HelperE, CaptureRegion);
   }
 
   /// Build an empty clause.
   OMPThreadLimitClause()
-      : OMPClause(OMPC_thread_limit, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_thread_limit, SourceLocation(),
+                  SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -5824,7 +5852,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_thread_limit;
+    return T->getClauseKind() == llvm::omp::OMPC_thread_limit;
   }
 };
 
@@ -5863,14 +5891,14 @@ public:
   OMPPriorityClause(Expr *Priority, Stmt *HelperPriority,
                     OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
                     SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_priority, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), Priority(Priority) {
+      : OMPClause(llvm::omp::OMPC_priority, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), Priority(Priority) {
     setPreInitStmt(HelperPriority, CaptureRegion);
   }
 
   /// Build an empty clause.
   OMPPriorityClause()
-      : OMPClause(OMPC_priority, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_priority, SourceLocation(), SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -5898,7 +5926,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_priority;
+    return T->getClauseKind() == llvm::omp::OMPC_priority;
   }
 };
 
@@ -5934,14 +5962,15 @@ public:
   OMPGrainsizeClause(Expr *Size, Stmt *HelperSize,
                      OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
                      SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_grainsize, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), Grainsize(Size) {
+      : OMPClause(llvm::omp::OMPC_grainsize, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), Grainsize(Size) {
     setPreInitStmt(HelperSize, CaptureRegion);
   }
 
   /// Build an empty clause.
   explicit OMPGrainsizeClause()
-      : OMPClause(OMPC_grainsize, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_grainsize, SourceLocation(),
+                  SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -5966,7 +5995,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_grainsize;
+    return T->getClauseKind() == llvm::omp::OMPC_grainsize;
   }
 };
 
@@ -5983,11 +6012,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPNogroupClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_nogroup, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_nogroup, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPNogroupClause()
-      : OMPClause(OMPC_nogroup, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_nogroup, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -6005,7 +6035,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_nogroup;
+    return T->getClauseKind() == llvm::omp::OMPC_nogroup;
   }
 };
 
@@ -6041,14 +6071,15 @@ public:
   OMPNumTasksClause(Expr *Size, Stmt *HelperSize,
                     OpenMPDirectiveKind CaptureRegion, SourceLocation StartLoc,
                     SourceLocation LParenLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_num_tasks, StartLoc, EndLoc), OMPClauseWithPreInit(this),
-        LParenLoc(LParenLoc), NumTasks(Size) {
+      : OMPClause(llvm::omp::OMPC_num_tasks, StartLoc, EndLoc),
+        OMPClauseWithPreInit(this), LParenLoc(LParenLoc), NumTasks(Size) {
     setPreInitStmt(HelperSize, CaptureRegion);
   }
 
   /// Build an empty clause.
   explicit OMPNumTasksClause()
-      : OMPClause(OMPC_num_tasks, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_num_tasks, SourceLocation(),
+                  SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Sets the location of '('.
@@ -6073,7 +6104,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_num_tasks;
+    return T->getClauseKind() == llvm::omp::OMPC_num_tasks;
   }
 };
 
@@ -6105,11 +6136,12 @@ public:
   /// \param EndLoc Ending location of the clause.
   OMPHintClause(Expr *Hint, SourceLocation StartLoc, SourceLocation LParenLoc,
                 SourceLocation EndLoc)
-      : OMPClause(OMPC_hint, StartLoc, EndLoc), LParenLoc(LParenLoc),
+      : OMPClause(llvm::omp::OMPC_hint, StartLoc, EndLoc), LParenLoc(LParenLoc),
         Hint(Hint) {}
 
   /// Build an empty clause.
-  OMPHintClause() : OMPClause(OMPC_hint, SourceLocation(), SourceLocation()) {}
+  OMPHintClause()
+      : OMPClause(llvm::omp::OMPC_hint, SourceLocation(), SourceLocation()) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -6134,7 +6166,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_hint;
+    return T->getClauseKind() == llvm::omp::OMPC_hint;
   }
 };
 
@@ -6206,7 +6238,7 @@ public:
                         SourceLocation EndLoc,
                         OpenMPDistScheduleClauseKind Kind, Expr *ChunkSize,
                         Stmt *HelperChunkSize)
-      : OMPClause(OMPC_dist_schedule, StartLoc, EndLoc),
+      : OMPClause(llvm::omp::OMPC_dist_schedule, StartLoc, EndLoc),
         OMPClauseWithPreInit(this), LParenLoc(LParenLoc), Kind(Kind),
         KindLoc(KLoc), CommaLoc(CommaLoc), ChunkSize(ChunkSize) {
     setPreInitStmt(HelperChunkSize);
@@ -6214,7 +6246,8 @@ public:
 
   /// Build an empty clause.
   explicit OMPDistScheduleClause()
-      : OMPClause(OMPC_dist_schedule, SourceLocation(), SourceLocation()),
+      : OMPClause(llvm::omp::OMPC_dist_schedule, SourceLocation(),
+                  SourceLocation()),
         OMPClauseWithPreInit(this) {}
 
   /// Get kind of the clause.
@@ -6253,7 +6286,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_dist_schedule;
+    return T->getClauseKind() == llvm::omp::OMPC_dist_schedule;
   }
 };
 
@@ -6323,12 +6356,14 @@ public:
                       SourceLocation MLoc, SourceLocation KLoc,
                       SourceLocation EndLoc, OpenMPDefaultmapClauseKind Kind,
                       OpenMPDefaultmapClauseModifier M)
-      : OMPClause(OMPC_defaultmap, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Modifier(M), ModifierLoc(MLoc), Kind(Kind), KindLoc(KLoc) {}
+      : OMPClause(llvm::omp::OMPC_defaultmap, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Modifier(M), ModifierLoc(MLoc), Kind(Kind),
+        KindLoc(KLoc) {}
 
   /// Build an empty clause.
   explicit OMPDefaultmapClause()
-      : OMPClause(OMPC_defaultmap, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_defaultmap, SourceLocation(),
+                  SourceLocation()) {}
 
   /// Get kind of the clause.
   OpenMPDefaultmapClauseKind getDefaultmapKind() const { return Kind; }
@@ -6365,7 +6400,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_defaultmap;
+    return T->getClauseKind() == llvm::omp::OMPC_defaultmap;
   }
 };
 
@@ -6403,8 +6438,8 @@ class OMPToClause final : public OMPMappableExprListClause<OMPToClause>,
                        DeclarationNameInfo MapperIdInfo,
                        const OMPVarListLocTy &Locs,
                        const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_to, Locs, Sizes, &MapperQualifierLoc,
-                                  &MapperIdInfo) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_to, Locs, Sizes,
+                                  &MapperQualifierLoc, &MapperIdInfo) {}
 
   /// Build an empty clause.
   ///
@@ -6414,7 +6449,8 @@ class OMPToClause final : public OMPMappableExprListClause<OMPToClause>,
   /// 3) NumComponentLists: number of component lists in this clause; and 4)
   /// NumComponents: total number of expression components in the clause.
   explicit OMPToClause(const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_to, OMPVarListLocTy(), Sizes) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_to, OMPVarListLocTy(),
+                                  Sizes) {}
 
   /// Define the sizes of each trailing object array except the last one. This
   /// is required for TrailingObjects to work properly.
@@ -6482,7 +6518,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_to;
+    return T->getClauseKind() == llvm::omp::OMPC_to;
   }
 };
 
@@ -6521,8 +6557,8 @@ class OMPFromClause final
                          DeclarationNameInfo MapperIdInfo,
                          const OMPVarListLocTy &Locs,
                          const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_from, Locs, Sizes, &MapperQualifierLoc,
-                                  &MapperIdInfo) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_from, Locs, Sizes,
+                                  &MapperQualifierLoc, &MapperIdInfo) {}
 
   /// Build an empty clause.
   ///
@@ -6532,7 +6568,8 @@ class OMPFromClause final
   /// 3) NumComponentLists: number of component lists in this clause; and 4)
   /// NumComponents: total number of expression components in the clause.
   explicit OMPFromClause(const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_from, OMPVarListLocTy(), Sizes) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_from, OMPVarListLocTy(),
+                                  Sizes) {}
 
   /// Define the sizes of each trailing object array except the last one. This
   /// is required for TrailingObjects to work properly.
@@ -6600,7 +6637,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_from;
+    return T->getClauseKind() == llvm::omp::OMPC_from;
   }
 };
 
@@ -6634,7 +6671,8 @@ class OMPUseDevicePtrClause final
   /// NumComponents: total number of expression components in the clause.
   explicit OMPUseDevicePtrClause(const OMPVarListLocTy &Locs,
                                  const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_use_device_ptr, Locs, Sizes) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_use_device_ptr, Locs, Sizes) {
+  }
 
   /// Build an empty clause.
   ///
@@ -6644,8 +6682,8 @@ class OMPUseDevicePtrClause final
   /// 3) NumComponentLists: number of component lists in this clause; and 4)
   /// NumComponents: total number of expression components in the clause.
   explicit OMPUseDevicePtrClause(const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_use_device_ptr, OMPVarListLocTy(),
-                                  Sizes) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_use_device_ptr,
+                                  OMPVarListLocTy(), Sizes) {}
 
   /// Define the sizes of each trailing object array except the last one. This
   /// is required for TrailingObjects to work properly.
@@ -6763,7 +6801,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_use_device_ptr;
+    return T->getClauseKind() == llvm::omp::OMPC_use_device_ptr;
   }
 };
 
@@ -6797,7 +6835,7 @@ class OMPIsDevicePtrClause final
   /// NumComponents: total number of expression components in the clause.
   explicit OMPIsDevicePtrClause(const OMPVarListLocTy &Locs,
                                 const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_is_device_ptr, Locs, Sizes) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_is_device_ptr, Locs, Sizes) {}
 
   /// Build an empty clause.
   ///
@@ -6807,8 +6845,8 @@ class OMPIsDevicePtrClause final
   /// 3) NumComponentLists: number of component lists in this clause; and 4)
   /// NumComponents: total number of expression components in the clause.
   explicit OMPIsDevicePtrClause(const OMPMappableExprListSizeTy &Sizes)
-      : OMPMappableExprListClause(OMPC_is_device_ptr, OMPVarListLocTy(),
-                                  Sizes) {}
+      : OMPMappableExprListClause(llvm::omp::OMPC_is_device_ptr,
+                                  OMPVarListLocTy(), Sizes) {}
 
   /// Define the sizes of each trailing object array except the last one. This
   /// is required for TrailingObjects to work properly.
@@ -6866,7 +6904,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_is_device_ptr;
+    return T->getClauseKind() == llvm::omp::OMPC_is_device_ptr;
   }
 };
 
@@ -6892,15 +6930,16 @@ class OMPNontemporalClause final
   /// \param N Number of the variables in the clause.
   OMPNontemporalClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                        SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPNontemporalClause>(OMPC_nontemporal, StartLoc,
-                                               LParenLoc, EndLoc, N) {}
+      : OMPVarListClause<OMPNontemporalClause>(llvm::omp::OMPC_nontemporal,
+                                               StartLoc, LParenLoc, EndLoc, N) {
+  }
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPNontemporalClause(unsigned N)
       : OMPVarListClause<OMPNontemporalClause>(
-            OMPC_nontemporal, SourceLocation(), SourceLocation(),
+            llvm::omp::OMPC_nontemporal, SourceLocation(), SourceLocation(),
             SourceLocation(), N) {}
 
   /// Get the list of privatied copies if the member expression was captured by
@@ -6962,7 +7001,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_nontemporal;
+    return T->getClauseKind() == llvm::omp::OMPC_nontemporal;
   }
 };
 
@@ -7006,12 +7045,12 @@ public:
   OMPOrderClause(OpenMPOrderClauseKind A, SourceLocation ALoc,
                  SourceLocation StartLoc, SourceLocation LParenLoc,
                  SourceLocation EndLoc)
-      : OMPClause(OMPC_order, StartLoc, EndLoc), LParenLoc(LParenLoc), Kind(A),
-        KindKwLoc(ALoc) {}
+      : OMPClause(llvm::omp::OMPC_order, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Kind(A), KindKwLoc(ALoc) {}
 
   /// Build an empty clause.
   OMPOrderClause()
-      : OMPClause(OMPC_order, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_order, SourceLocation(), SourceLocation()) {}
 
   /// Sets the location of '('.
   void setLParenLoc(SourceLocation Loc) { LParenLoc = Loc; }
@@ -7041,7 +7080,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_order;
+    return T->getClauseKind() == llvm::omp::OMPC_order;
   }
 };
 
@@ -7059,11 +7098,12 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param EndLoc Ending location of the clause.
   OMPDestroyClause(SourceLocation StartLoc, SourceLocation EndLoc)
-      : OMPClause(OMPC_destroy, StartLoc, EndLoc) {}
+      : OMPClause(llvm::omp::OMPC_destroy, StartLoc, EndLoc) {}
 
   /// Build an empty clause.
   OMPDestroyClause()
-      : OMPClause(OMPC_destroy, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_destroy, SourceLocation(), SourceLocation()) {
+  }
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
@@ -7081,7 +7121,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_destroy;
+    return T->getClauseKind() == llvm::omp::OMPC_destroy;
   }
 };
 
@@ -7116,12 +7156,12 @@ public:
   /// \param EndLoc Ending location of the clause.
   OMPDetachClause(Expr *Evt, SourceLocation StartLoc, SourceLocation LParenLoc,
                   SourceLocation EndLoc)
-      : OMPClause(OMPC_detach, StartLoc, EndLoc), LParenLoc(LParenLoc),
-        Evt(Evt) {}
+      : OMPClause(llvm::omp::OMPC_detach, StartLoc, EndLoc),
+        LParenLoc(LParenLoc), Evt(Evt) {}
 
   /// Build an empty clause.
   OMPDetachClause()
-      : OMPClause(OMPC_detach, SourceLocation(), SourceLocation()) {}
+      : OMPClause(llvm::omp::OMPC_detach, SourceLocation(), SourceLocation()) {}
 
   /// Returns the location of '('.
   SourceLocation getLParenLoc() const { return LParenLoc; }
@@ -7143,7 +7183,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_detach;
+    return T->getClauseKind() == llvm::omp::OMPC_detach;
   }
 };
 
@@ -7169,16 +7209,16 @@ class OMPInclusiveClause final
   /// \param N Number of the variables in the clause.
   OMPInclusiveClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                      SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPInclusiveClause>(OMPC_inclusive, StartLoc,
-                                             LParenLoc, EndLoc, N) {}
+      : OMPVarListClause<OMPInclusiveClause>(llvm::omp::OMPC_inclusive,
+                                             StartLoc, LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPInclusiveClause(unsigned N)
-      : OMPVarListClause<OMPInclusiveClause>(OMPC_inclusive, SourceLocation(),
+      : OMPVarListClause<OMPInclusiveClause>(llvm::omp::OMPC_inclusive,
                                              SourceLocation(), SourceLocation(),
-                                             N) {}
+                                             SourceLocation(), N) {}
 
 public:
   /// Creates clause with a list of variables \a VL.
@@ -7217,7 +7257,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_inclusive;
+    return T->getClauseKind() == llvm::omp::OMPC_inclusive;
   }
 };
 
@@ -7243,16 +7283,16 @@ class OMPExclusiveClause final
   /// \param N Number of the variables in the clause.
   OMPExclusiveClause(SourceLocation StartLoc, SourceLocation LParenLoc,
                      SourceLocation EndLoc, unsigned N)
-      : OMPVarListClause<OMPExclusiveClause>(OMPC_exclusive, StartLoc,
-                                             LParenLoc, EndLoc, N) {}
+      : OMPVarListClause<OMPExclusiveClause>(llvm::omp::OMPC_exclusive,
+                                             StartLoc, LParenLoc, EndLoc, N) {}
 
   /// Build an empty clause.
   ///
   /// \param N Number of variables.
   explicit OMPExclusiveClause(unsigned N)
-      : OMPVarListClause<OMPExclusiveClause>(OMPC_exclusive, SourceLocation(),
+      : OMPVarListClause<OMPExclusiveClause>(llvm::omp::OMPC_exclusive,
                                              SourceLocation(), SourceLocation(),
-                                             N) {}
+                                             SourceLocation(), N) {}
 
 public:
   /// Creates clause with a list of variables \a VL.
@@ -7291,7 +7331,7 @@ public:
   }
 
   static bool classof(const OMPClause *T) {
-    return T->getClauseKind() == OMPC_exclusive;
+    return T->getClauseKind() == llvm::omp::OMPC_exclusive;
   }
 };
 
@@ -7304,17 +7344,20 @@ public:
 #define DISPATCH(CLASS) \
   return static_cast<ImplClass*>(this)->Visit##CLASS(static_cast<PTR(CLASS)>(S))
 
-#define OPENMP_CLAUSE(Name, Class)                              \
+#define OMP_CLAUSE_CLASS(Enum, Str, Class) \
   RetTy Visit ## Class (PTR(Class) S) { DISPATCH(Class); }
-#include "clang/Basic/OpenMPKinds.def"
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
 
   RetTy Visit(PTR(OMPClause) S) {
     // Top switch clause: visit each OMPClause.
     switch (S->getClauseKind()) {
-    default: llvm_unreachable("Unknown clause kind!");
-#define OPENMP_CLAUSE(Name, Class)                              \
-    case OMPC_ ## Name : return Visit ## Class(static_cast<PTR(Class)>(S));
-#include "clang/Basic/OpenMPKinds.def"
+#define OMP_CLAUSE_CLASS(Enum, Str, Class)                                     \
+  case llvm::omp::Clause::Enum:                                                \
+    return Visit##Class(static_cast<PTR(Class)>(S));
+#define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
+  case llvm::omp::Clause::Enum:                                                \
+    break;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
   }
   // Base case, ignore it. :)
@@ -7343,8 +7386,9 @@ public:
   OMPClausePrinter(raw_ostream &OS, const PrintingPolicy &Policy)
       : OS(OS), Policy(Policy) {}
 
-#define OPENMP_CLAUSE(Name, Class) void Visit##Class(Class *S);
-#include "clang/Basic/OpenMPKinds.def"
+#define OMP_CLAUSE_CLASS(Enum, Str, Class)                                     \
+  void Visit##Class(Class *S);
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
 };
 
 struct OMPTraitProperty {

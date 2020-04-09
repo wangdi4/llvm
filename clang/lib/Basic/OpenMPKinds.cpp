@@ -20,6 +20,7 @@
 using namespace clang;
 using namespace llvm::omp;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
   switch (DKind) {
@@ -99,6 +100,8 @@ const char *clang::getOpenMPClauseName(OpenMPClauseKind Kind) {
   llvm_unreachable("Invalid OpenMP clause kind");
 }
 
+=======
+>>>>>>> 419a559c5a73f13578d891feb1299cada08d581e
 unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
                                           StringRef Str) {
   switch (Kind) {

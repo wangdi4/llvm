@@ -229,6 +229,7 @@
 #define OPENMP_REDUCTION_MODIFIER(Name)
 #endif
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #ifndef OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE
 #define OPENMP_TARGET_VARIANT_DISPATCH_CLAUSE(Name)
@@ -367,6 +368,8 @@ OPENMP_CLAUSE(dataflow, OMPDataflowClause)
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 419a559c5a73f13578d891feb1299cada08d581e
 // Clauses allowed for OpenMP directive 'scan'.
 OPENMP_SCAN_CLAUSE(inclusive)
 OPENMP_SCAN_CLAUSE(exclusive)
