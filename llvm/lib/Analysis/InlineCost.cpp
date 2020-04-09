@@ -1630,15 +1630,25 @@ constexpr static unsigned CopyArrElemsMinimumFields = 6;
 static bool preferToDelayInlineForCopyArrElems(CallBase &CB, bool PrepareForLTO,
                                                InliningLoopInfoCache &ILIC) {
 
-  // Returns true if type of first argument of "F" is pointer to struct.
+  // Returns true if type of the first argument of "F" is pointer to struct.
+  // Gets type of the argument from its uses. Returns false if use of
+  // the argument is any instruction other than GetElementPtrInst.
   // This routine assumes "F" has at least one argument.
   auto IsFirstArgPtrToStruct = [](Function *F) {
-    Type *ArgType = F->getArg(0)->getType();
-    if (auto *PTy = dyn_cast<PointerType>(ArgType))
-      if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
-        if (STy->getNumElements() > CopyArrElemsMinimumFields)
-          return true;
-    return false;
+    bool ArgUsedInGEP = false;
+    Argument *Arg = F->getArg(0);
+    for (User *V : Arg->users()) {
+      auto GEP = dyn_cast<GetElementPtrInst>(V);
+      if (!GEP || GEP->getPointerOperand() != Arg)
+        return false;
+      auto *STy = dyn_cast<StructType>(GEP->getSourceElementType());
+      if (!STy)
+        return false;
+      if (STy->getNumElements() <= CopyArrElemsMinimumFields)
+        return false;
+      ArgUsedInGEP = true;
+    }
+    return ArgUsedInGEP;
   };
 
   // Returns true if "V" is address of an element in first argument array
