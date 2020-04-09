@@ -20,6 +20,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPLoopAnalysis.cpp
   Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelVPlan.cpp
+  Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp
   Intel_VPlan/IntelVPlanCFGBuilder.cpp
   Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
