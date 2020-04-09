@@ -1868,7 +1868,16 @@ TARGET_BUILTIN(__builtin_ia32_dpbf16ps_128, "V4fV4fV4iV4i", "ncV:128:", "avx512b
 TARGET_BUILTIN(__builtin_ia32_dpbf16ps_256, "V8fV8fV8iV8i", "ncV:256:", "avx512bf16,avx512vl")
 TARGET_BUILTIN(__builtin_ia32_dpbf16ps_512, "V16fV16fV16iV16i", "ncV:512:", "avx512bf16")
 TARGET_BUILTIN(__builtin_ia32_cvtsbf162ss_32, "fUs", "nc", "avx512bf16")
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16vex128, "V8sV4fV4f", "ncV:128:", "avxbf16")
+TARGET_BUILTIN(__builtin_ia32_cvtne2ps2bf16vex256, "V16sV8fV8f", "ncV:256:", "avxbf16")
+TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16vex128, "V8sV4f", "ncV:128:", "avxbf16")
+TARGET_BUILTIN(__builtin_ia32_cvtneps2bf16vex256, "V8sV8f", "ncV:256:", "avxbf16")
+TARGET_BUILTIN(__builtin_ia32_dpbf16psvex128, "V4fV4fV4iV4i", "ncV:128:", "avxbf16")
+TARGET_BUILTIN(__builtin_ia32_dpbf16psvex256, "V8fV8fV8iV8i", "ncV:256:", "avxbf16")
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_vp2intersect_q_512, "vV8OiV8OiUc*Uc*", "nV:512:", "avx512vp2intersect")
 TARGET_BUILTIN(__builtin_ia32_vp2intersect_q_256, "vV4OiV4OiUc*Uc*", "nV:256:", "avx512vp2intersect,avx512vl")
 TARGET_BUILTIN(__builtin_ia32_vp2intersect_q_128, "vV2OiV2OiUc*Uc*", "nV:128:", "avx512vp2intersect,avx512vl")

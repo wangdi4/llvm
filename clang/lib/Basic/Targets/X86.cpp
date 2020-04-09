@@ -643,6 +643,9 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AVX_CONVERT
     Features["avxconvert"] = false;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_BF16
+    Features["avxbf16"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
@@ -1020,6 +1023,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   else if (Name == "avxdotprod" && Enabled)
     setSSELevel(Features, AVX2, Enabled);
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_BF16
+  else if (Name == "avxbf16" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1265,6 +1273,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avxconvert") {
       HasAVXCONVERT = true;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_BF16
+    } else if (Feature == "+avxbf16") {
+      HasAVXBF16 = true;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -1813,6 +1825,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVXCONVERT__");
   Builder.defineMacro("__AVXCONVERT_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_BF16
+  if (HasAVXBF16)
+    Builder.defineMacro("__AVXBF16__");
+  Builder.defineMacro("__AVXBF16_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1976,6 +1993,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vpopcntdq", true)
       .Case("avx512vnni", true)
       .Case("avx512bf16", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+      .Case("avxbf16", true)
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
       .Case("avx512er", true)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -2145,6 +2167,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX_IFMA
       .Case("avxifma", HasAVXIFMA)
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_BF16
+      .Case("avxbf16", HasAVXBF16)
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)

@@ -5191,6 +5191,32 @@ let TargetPrefix = "x86" in {
               GCCBuiltin<"__builtin_ia32_dpbf16ps_512">,
               Intrinsic<[llvm_v16f32_ty],
               [llvm_v16f32_ty, llvm_v16i32_ty, llvm_v16i32_ty], [IntrNoMem]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+  def int_x86_avx2bf16_cvtne2ps2bf16_128:
+              GCCBuiltin<"__builtin_ia32_cvtne2ps2bf16vex128">,
+              Intrinsic<[llvm_v8i16_ty], [llvm_v4f32_ty, llvm_v4f32_ty],
+              [IntrNoMem]>;
+  def int_x86_avx2bf16_cvtne2ps2bf16_256:
+              GCCBuiltin<"__builtin_ia32_cvtne2ps2bf16vex256">,
+              Intrinsic<[llvm_v16i16_ty], [llvm_v8f32_ty, llvm_v8f32_ty],
+              [IntrNoMem]>;
+  def int_x86_avx2bf16_cvtneps2bf16_128:
+              GCCBuiltin<"__builtin_ia32_cvtneps2bf16vex128">,
+              Intrinsic<[llvm_v8i16_ty], [llvm_v4f32_ty], [IntrNoMem]>;
+  def int_x86_avx2bf16_cvtneps2bf16_256:
+              GCCBuiltin<"__builtin_ia32_cvtneps2bf16vex256">,
+              Intrinsic<[llvm_v8i16_ty], [llvm_v8f32_ty], [IntrNoMem]>;
+  def int_x86_avx2bf16_dpbf16ps_128:
+              GCCBuiltin<"__builtin_ia32_dpbf16psvex128">,
+              Intrinsic<[llvm_v4f32_ty],
+              [llvm_v4f32_ty, llvm_v4i32_ty, llvm_v4i32_ty], [IntrNoMem]>;
+  def int_x86_avx2bf16_dpbf16ps_256:
+              GCCBuiltin<"__builtin_ia32_dpbf16psvex256">,
+              Intrinsic<[llvm_v8f32_ty],
+              [llvm_v8f32_ty, llvm_v8i32_ty, llvm_v8i32_ty], [IntrNoMem]>;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
 }
 
 //===----------------------------------------------------------------------===//

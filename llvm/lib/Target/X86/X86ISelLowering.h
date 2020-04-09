@@ -572,6 +572,11 @@ namespace llvm {
       // Dot product of BF16 pairs to accumulated into
       // packed single precision.
       DPBF16PS,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+      CVTNE2PS2BF16VEX, CVTNEPS2BF16VEX, DPBF16PSVEX,
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
 
       // Save xmm argument registers to the stack, according to %al. An operator
       // is needed so that this can be expanded with control flow.

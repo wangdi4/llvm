@@ -193,6 +193,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxconvert/avxconvertintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_CONVERT
+# INTEL_FEATURE_ISA_AVX_BF16
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_BF16
+  Intel_Headers/avxbf16/avxbf16intrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_BF16
 # end INTEL_CUSTOMIZATION
 
 set(files
