@@ -69,14 +69,14 @@ void VPBlockUtils::insertBlockBefore(VPBasicBlock *NewBB,
                                      VPBasicBlock *BlockPtr,
                                      SmallVectorImpl<VPBasicBlock *> &Preds) {
   movePredecessors(BlockPtr, NewBB, Preds);
-  NewBB->moveBefore(BlockPtr);
+  NewBB->insertBefore(BlockPtr);
   connectBlocks(NewBB, BlockPtr);
 }
 
 void VPBlockUtils::insertBlockAfter(VPBasicBlock *NewBB,
                                     VPBasicBlock *BlockPtr) {
   moveSuccessors(BlockPtr, NewBB);
-  NewBB->moveAfter(BlockPtr);
+  NewBB->insertAfter(BlockPtr);
   connectBlocks(BlockPtr, NewBB);
 }
 
@@ -325,14 +325,14 @@ void VPBasicBlock::setPredecessors(ArrayRef<VPBasicBlock *> NewPreds) {
     appendPredecessor(Pred);
 }
 
-void VPBasicBlock::moveBefore(VPBasicBlock *MovePos) {
-  VPlan *CurPlan = MovePos->getParent();
-  CurPlan->insertBefore(this, MovePos);
+void VPBasicBlock::insertBefore(VPBasicBlock *InsertPos) {
+  VPlan *CurPlan = InsertPos->getParent();
+   CurPlan->insertBefore(this, InsertPos);
 }
 
-void VPBasicBlock::moveAfter(VPBasicBlock *MovePos) {
-  VPlan *CurPlan = MovePos->getParent();
-  CurPlan->insertAfter(this, MovePos);
+void VPBasicBlock::insertAfter(VPBasicBlock *InsertPos) {
+  VPlan *CurPlan = InsertPos->getParent();
+   CurPlan->insertAfter(this, InsertPos);
 }
 
 void VPBasicBlock::insert(VPInstruction *Instruction, iterator InsertPt) {

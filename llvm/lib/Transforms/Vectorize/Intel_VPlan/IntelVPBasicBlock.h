@@ -218,9 +218,8 @@ public:
     CondBit = nullptr;
   }
 
-  void moveBefore(VPBasicBlock *MovePos);
-
-  void moveAfter(VPBasicBlock *MovePos);
+  void insertBefore(VPBasicBlock *MovePos);
+  void insertAfter(VPBasicBlock *MovePos);
 
   auto getVPPhis() {
     auto AsVPPHINode = [](VPInstruction &Instruction) -> VPPHINode & {
