@@ -5692,7 +5692,7 @@ void Sema::ActOnFinishedFunctionDefinitionInOpenMPDeclareVariantScope(
   BaseFD->setImplicit(true);
 }
 
-ExprResult Sema::ActOnOpenMPCall(Sema &S, ExprResult Call, Scope *Scope,
+ExprResult Sema::ActOnOpenMPCall(ExprResult Call, Scope *Scope,
                                  SourceLocation LParenLoc,
                                  MultiExprArg ArgExprs,
                                  SourceLocation RParenLoc, Expr *ExecConfig) {
@@ -5709,8 +5709,8 @@ ExprResult Sema::ActOnOpenMPCall(Sema &S, ExprResult Call, Scope *Scope,
   if (!CalleeFnDecl->hasAttr<OMPDeclareVariantAttr>())
     return Call;
 
-  ASTContext &Context = S.getASTContext();
-  OMPContext OMPCtx(S.getLangOpts().OpenMPIsDevice,
+  ASTContext &Context = getASTContext();
+  OMPContext OMPCtx(getLangOpts().OpenMPIsDevice,
                     Context.getTargetInfo().getTriple());
 
   SmallVector<Expr *, 4> Exprs;
@@ -5758,12 +5758,12 @@ ExprResult Sema::ActOnOpenMPCall(Sema &S, ExprResult Call, Scope *Scope,
       if (auto *SpecializedMethod = dyn_cast<CXXMethodDecl>(BestDecl)) {
         auto *MemberCall = dyn_cast<CXXMemberCallExpr>(CE);
         BestExpr = MemberExpr::CreateImplicit(
-            S.Context, MemberCall->getImplicitObjectArgument(),
-            /* IsArrow */ false, SpecializedMethod, S.Context.BoundMemberTy,
+            Context, MemberCall->getImplicitObjectArgument(),
+            /* IsArrow */ false, SpecializedMethod, Context.BoundMemberTy,
             MemberCall->getValueKind(), MemberCall->getObjectKind());
       }
-      NewCall = S.BuildCallExpr(Scope, BestExpr, LParenLoc, ArgExprs, RParenLoc,
-                                ExecConfig);
+      NewCall = BuildCallExpr(Scope, BestExpr, LParenLoc, ArgExprs, RParenLoc,
+                              ExecConfig);
       if (NewCall.isUsable())
         break;
     }
@@ -5774,7 +5774,6 @@ ExprResult Sema::ActOnOpenMPCall(Sema &S, ExprResult Call, Scope *Scope,
 
   if (!NewCall.isUsable())
     return Call;
-
   return PseudoObjectExpr::Create(Context, CE, {NewCall.get()}, 0);
 }
 
