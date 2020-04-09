@@ -830,6 +830,11 @@ __OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, num_threads)
 __OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, default)
 __OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, proc_bind)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+__OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, dataflow)
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 __OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, private)
 __OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, firstprivate)
 __OMP_DIRECTIVE_CLAUSE(parallel, 1, ~0, shared)
@@ -855,6 +860,12 @@ __OMP_DIRECTIVE_CLAUSE(for, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(for, 1, ~0, firstprivate)
 __OMP_DIRECTIVE_CLAUSE(for, 1, ~0, reduction)
 __OMP_DIRECTIVE_CLAUSE(for, 1, ~0, collapse)
+#if INTEL_CUSTOMIZATION
+__OMP_DIRECTIVE_CLAUSE(for, 1, ~0, tile)
+#if INTEL_FEATURE_CSA
+__OMP_DIRECTIVE_CLAUSE(for, 1, ~0, dataflow)
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 __OMP_DIRECTIVE_CLAUSE(for, 1, ~0, schedule)
 __OMP_DIRECTIVE_CLAUSE(for, 1, ~0, ordered)
 __OMP_DIRECTIVE_CLAUSE(for, 1, ~0, nowait)
@@ -868,6 +879,7 @@ __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, reduction)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, schedule)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, nowait)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, safelen)
 __OMP_DIRECTIVE_CLAUSE(for_simd, 1, ~0, simdlen)
@@ -905,6 +917,7 @@ __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, reduction)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, copyin)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, schedule)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~1, ordered)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, linear)
@@ -922,6 +935,7 @@ __OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, reduction)
 __OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, copyin)
 __OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, schedule)
 __OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, safelen)
 __OMP_DIRECTIVE_CLAUSE(parallel_for_simd, 1, ~0, simdlen)
@@ -1000,6 +1014,12 @@ __OMP_DIRECTIVE_CLAUSE(requires, 1, ~0, atomic_default_mem_order)
 
 __OMP_DIRECTIVE_CLAUSE(allocate, 1, ~0, allocator)
 
+#if INTEL_COLLAB
+__OMP_DIRECTIVE_CLAUSE(target_variant_dispatch, 1, ~0, device)
+__OMP_DIRECTIVE_CLAUSE(target_variant_dispatch, 1, ~0, use_device_ptr)
+__OMP_DIRECTIVE_CLAUSE(target_variant_dispatch, 1, ~0, nowait)
+
+#endif // INTEL_COLLAB
 __OMP_DIRECTIVE_CLAUSE(target_data, 1, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(target_data, 1, ~0, device)
 __OMP_DIRECTIVE_CLAUSE(target_data, 1, ~0, map)
@@ -1048,6 +1068,7 @@ __OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~0, proc_bind)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~0, shared)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~0, reduction)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~0, schedule)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~1, ordered)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for, 1, ~0, linear)
@@ -1217,6 +1238,7 @@ __OMP_DIRECTIVE_CLAUSE(distribute, 1, ~0, allocate)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 1, ~0, firstprivate)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 1, ~0, dist_schedule)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 1, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 1, ~0, num_threads)
@@ -1233,6 +1255,7 @@ __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for, 50, ~0, order)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for_simd, 1, ~0, firstprivate)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for_simd, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for_simd, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(distribute_parallel_for_simd, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for_simd, 1, ~0, dist_schedule)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for_simd, 1, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(distribute_parallel_for_simd, 1, ~0, num_threads)
@@ -1281,6 +1304,7 @@ __OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~0, proc_bind)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~0, shared)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~0, reduction)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~0, schedule)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~1, ordered)
 __OMP_DIRECTIVE_CLAUSE(target_parallel_for_simd, 1, ~0, linear)
@@ -1346,6 +1370,7 @@ __OMP_DIRECTIVE_CLAUSE(teams_distribute_simd, 50, ~0, order)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 1, ~0, firstprivate)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 1, ~0, dist_schedule)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 1, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 1, ~0, num_threads)
@@ -1368,6 +1393,7 @@ __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for_simd, 50, ~0, order)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for, 1, ~0, firstprivate)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for, 1, ~0, tile) // INTEL
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for, 1, ~0, dist_schedule)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for, 1, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(teams_distribute_parallel_for, 1, ~0, num_threads)
@@ -1437,6 +1463,9 @@ __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for, 1, ~0,
                        thread_limit)
 __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for, 1, ~0, collapse)
+#if INTEL_CUSTOMIZATION
+__OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for, 1, ~0, tile)
+#endif // INTEL_CUSTOMIZATION
 __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for, 1, ~0,
                        dist_schedule)
 __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for, 1, ~0, num_threads)
@@ -1471,6 +1500,9 @@ __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for_simd, 1, ~0,
                        lastprivate)
 __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for_simd, 1, ~0,
                        collapse)
+#if INTEL_CUSTOMIZATION
+__OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for_simd, 1, ~0, tile)
+#endif // INTEL_CUSTOMIZATION
 __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for_simd, 1, ~0,
                        dist_schedule)
 __OMP_DIRECTIVE_CLAUSE(target_teams_distribute_parallel_for_simd, 1, ~0,
