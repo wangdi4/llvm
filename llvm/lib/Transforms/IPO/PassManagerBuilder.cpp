@@ -365,6 +365,11 @@ static cl::opt<bool>
     EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
                  cl::desc("Enable lowering of the matrix intrinsics"));
 
+cl::opt<bool> DisableAttributor(
+    "attributor-disable", cl::Hidden,
+    cl::desc("Disable the attributor inter-procedural deduction pass."),
+    cl::init(true));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -883,7 +888,8 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createInferFunctionAttrsLegacyPass());
 
   // Infer attributes on declarations, call sites, arguments, etc.
-  MPM.add(createAttributorLegacyPass());
+  if (!DisableAttributor)
+    MPM.add(createAttributorLegacyPass());
 
   addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
 
@@ -963,7 +969,8 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
-  MPM.add(createAttributorCGSCCLegacyPass());
+  if (!DisableAttributor)
+    MPM.add(createAttributorCGSCCLegacyPass());
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
@@ -1427,7 +1434,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createCalledValuePropagationPass());
 
     // Infer attributes on declarations, call sites, arguments, etc.
-    PM.add(createAttributorLegacyPass());
+    if (!DisableAttributor)
+      PM.add(createAttributorLegacyPass());
   }
 
   // Infer attributes about definitions. The readnone attribute in particular is
@@ -1553,7 +1561,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addPGOInstrPasses(PM, /* IsCS */ true);
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
-  PM.add(createAttributorCGSCCLegacyPass());
+  if (!DisableAttributor)
+    PM.add(createAttributorCGSCCLegacyPass());
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.

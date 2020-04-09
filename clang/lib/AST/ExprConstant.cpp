@@ -8326,6 +8326,12 @@ bool PointerExprEvaluator::VisitCallExpr(const CallExpr *E) {
   return visitNonBuiltinCallExpr(E);
 }
 
+// Determine if T is a character type for which we guarantee that
+// sizeof(T) == 1.
+static bool isOneByteCharacterType(QualType T) {
+  return T->isCharType() || T->isChar8Type();
+}
+
 bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
                                                 unsigned BuiltinOp) {
   switch (BuiltinOp) {
@@ -8476,7 +8482,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     }
     // Give up on byte-oriented matching against multibyte elements.
     // FIXME: We can compare the bytes in the correct order.
-    if (IsRawByte && !CharTy->isCharType()) {
+    if (IsRawByte && !isOneByteCharacterType(CharTy)) {
       Info.FFDiag(E, diag::note_constexpr_memchr_unsupported)
           << (std::string("'") + Info.Ctx.BuiltinInfo.getName(BuiltinOp) + "'")
           << CharTy;
@@ -11188,9 +11194,10 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
                 CharTy1, E->getArg(0)->getType()->getPointeeType()) &&
             Info.Ctx.hasSameUnqualifiedType(CharTy1, CharTy2)));
 
-    // For memcmp, allow comparing any arrays of '[[un]signed] char',
-    // but no other types.
-    if (IsRawByte && !(CharTy1->isCharType() && CharTy2->isCharType())) {
+    // For memcmp, allow comparing any arrays of '[[un]signed] char' or
+    // 'char8_t', but no other types.
+    if (IsRawByte &&
+        !(isOneByteCharacterType(CharTy1) && isOneByteCharacterType(CharTy2))) {
       // FIXME: Consider using our bit_cast implementation to support this.
       Info.FFDiag(E, diag::note_constexpr_memcmp_unsupported)
           << (std::string("'") + Info.Ctx.BuiltinInfo.getName(BuiltinOp) + "'")
