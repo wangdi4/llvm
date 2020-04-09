@@ -481,7 +481,14 @@ public:
                                   const Instruction *I = nullptr) {
     return 1;
   }
-
+#if INTEL_CUSTOMIZATION
+  unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                  unsigned IndexSize, bool VariableMask,
+                                  unsigned Alignment, unsigned AddressSpace,
+                                  const Instruction *I = nullptr) {
+    return 1;
+  }
+#endif // INTEL_CUSTOMIZATION
   unsigned getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
                                       unsigned Factor,
                                       ArrayRef<unsigned> Indices,

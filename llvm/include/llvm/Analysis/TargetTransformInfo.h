@@ -972,7 +972,22 @@ public:
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, Value *Ptr,
                              bool VariableMask, unsigned Alignment,
                              const Instruction *I = nullptr) const;
-
+#if INTEL_CUSTOMIZATION
+  /// \return The cost of Gather or Scatter operation
+  /// \p Opcode - is a type of memory access Load or Store
+  /// \p DataTy - a vector type of the data to be loaded or stored
+  /// \p IndexSize - Size of Index[es] in bits
+  /// \p VariableMask - true when the memory access is predicated with a mask
+  ///                   that is not a compile-time constant
+  /// \p Alignment - alignment of single element
+  /// \p AddressSpace - address space of data
+  /// \p I - the optional original context instruction, if one exists, e.g. the
+  ///        load/store to transform or the call to the gather/scatter intrinsic
+  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
+                             bool VariableMask, unsigned Alignment,
+                             unsigned AddressSpace,
+                             const Instruction *I = nullptr) const;
+#endif // INTEL_CUSTOMIZATION
   /// \return The cost of the interleaved memory operation.
   /// \p Opcode is the memory operation code
   /// \p VecTy is the vector type of the interleaved access.
@@ -1400,6 +1415,12 @@ public:
                              ArrayRef<unsigned> Indices, unsigned Alignment,
                              unsigned AddressSpace, bool UseMaskForCond = false,
                              bool UseMaskForGaps = false) = 0;
+#if INTEL_CUSTOMIZATION
+  virtual int getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                     unsigned IndexSize, bool VariableMask,
+                                     unsigned Alignment, unsigned AddressSpace,
+                                     const Instruction *I = nullptr) = 0;
+#endif // INTEL_CUSTOMIZATION
   virtual int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
                                          bool IsPairwiseForm) = 0;
   virtual int getMinMaxReductionCost(Type *Ty, Type *CondTy,
@@ -1825,6 +1846,15 @@ public:
     return Impl.getGatherScatterOpCost(Opcode, DataTy, Ptr, VariableMask,
                                        Alignment, I);
   }
+#if INTEL_CUSTOMIZATION
+  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
+                             bool VariableMask, unsigned Alignment,
+                             unsigned AddressSpace,
+                             const Instruction *I = nullptr) override {
+    return Impl.getGatherScatterOpCost(Opcode, DataTy, IndexSize, VariableMask,
+                                       Alignment, AddressSpace, I);
+  }
+#endif // INTEL_CUSTOMIZATION
   int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
                                  ArrayRef<unsigned> Indices, unsigned Alignment,
                                  unsigned AddressSpace, bool UseMaskForCond,

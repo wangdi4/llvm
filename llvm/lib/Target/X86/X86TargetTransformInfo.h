@@ -145,6 +145,11 @@ public:
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, Value *Ptr,
                              bool VariableMask, unsigned Alignment,
                              const Instruction *I);
+#if INTEL_CUSTOMIZATION
+  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
+                             bool VariableMask, unsigned Alignment,
+                             unsigned AddressSpace, const Instruction *I);
+#endif // INTEL_CUSTOMIZATION
   int getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
                                 const SCEV *Ptr);
 
@@ -224,10 +229,11 @@ private:
   int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
                       bool VariableMask, unsigned Alignment,
                       unsigned AddressSpace);
+  int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
+                      unsigned Alignment, unsigned AddressSpace);
 #endif // INTEL_CUSTOMIZATION
   int getGSVectorCost(unsigned Opcode, Type *DataTy, Value *Ptr,
                       unsigned Alignment, unsigned AddressSpace);
-
   /// @}
 };
 
