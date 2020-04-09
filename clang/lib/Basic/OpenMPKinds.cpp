@@ -486,6 +486,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   llvm_unreachable("Invalid OpenMP simple clause kind");
 }
 
+<<<<<<< HEAD
 bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
                                         OpenMPClauseKind CKind,
                                         unsigned OpenMPVersion) {
@@ -1073,6 +1074,8 @@ bool clang::isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
   return false;
 }
 
+=======
+>>>>>>> 931c0cd713ee9b082389727bed1b518c6a44344f
 bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
   return DKind == OMPD_simd || DKind == OMPD_for || DKind == OMPD_for_simd ||
          DKind == OMPD_parallel_for || DKind == OMPD_parallel_for_simd ||
