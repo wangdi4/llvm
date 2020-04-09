@@ -612,6 +612,7 @@ void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 void initializeDPCPPKernelVecClonePass(PassRegistry&);
 void initializeDPCPPKernelPostVecPass(PassRegistry&);
 void initializeDPCPPKernelWGLoopCreatorLegacyPassPass(PassRegistry&);
+void initializeDPCPPKernelAnalysisPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

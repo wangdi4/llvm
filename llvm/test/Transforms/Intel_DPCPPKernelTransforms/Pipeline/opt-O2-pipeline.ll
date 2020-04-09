@@ -6,6 +6,7 @@
 ; CHECK-LABEL: Pass Arguments:
 ; CHECK:         ModulePass Manager
 ; CHECK:           Parse annotations and add a corresponding function attribute
+; CHECK-NEXT:      DPCPPKernelAnalysis
 ; CHECK-NEXT:      DPCPPKernelVecClone pass
 ; CHECK-NEXT:      FunctionPass Manager
 ; CHECK:             VPlan Vectorization Driver

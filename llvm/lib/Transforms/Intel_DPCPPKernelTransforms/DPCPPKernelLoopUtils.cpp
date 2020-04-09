@@ -128,5 +128,70 @@ LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
   return LoopRegion(PreHead, Exit);
 }
 
+void fillFuncUsersSet(FuncSet &Roots,
+                      FuncSet &UserFuncs) {
+  FuncSet NewUsers1, NewUsers2;
+  FuncSet *NewUsersPtr = &NewUsers1;
+  FuncSet *RootsPtr = &NewUsers2;
+  // First Get the direct users of the roots.
+  fillDirectUsers(&Roots, &UserFuncs, NewUsersPtr);
+  while (NewUsersPtr->size()) {
+    // Iteratively swap between the new users sets, and use the current
+    // as the roots for the new direct users.
+    std::swap(NewUsersPtr, RootsPtr);
+    NewUsersPtr->clear();
+    fillDirectUsers(RootsPtr, &UserFuncs, NewUsersPtr);
+  }
+}
+
+void fillDirectUsers(FuncSet *Funcs,
+                     FuncSet *UserFuncs,
+                     FuncSet *NewUsers) {
+  // Go through all of the Funcs.
+  SmallVector<Instruction *, 8> UserInst;
+  for (Function *F : *Funcs) {
+    if (!F)
+      continue;
+
+    // Get the instruction users of the function, and insert their
+    // parent functions to the UserFuncs set.
+    UserInst.clear();
+    fillInstructionUsers(F, UserInst);
+    for (Instruction *I : UserInst) {
+      Function *UserFunc = I->getParent()->getParent();
+      assert(UserFunc && "NULL parent function ?");
+      // If the user is a call add the function contains it to UserFuncs.
+      if (UserFuncs->insert(UserFunc)) {
+        // If the function is new update the new user set.
+        NewUsers->insert(UserFunc);
+      }
+    }
+  }
+}
+
+void fillInstructionUsers(Function *F,
+                          SmallVectorImpl<Instruction *> &UserInsts) {
+  // Holds values to check.
+  SmallVector<Value *, 8> WorkList(F->users());
+  // Holds values that already been checked, in order to prevent
+  // inifinite loops.
+  SetVector<Value *> Visited;
+  while (WorkList.size()) {
+    Value *User = WorkList.back();
+    WorkList.pop_back();
+    if (!Visited.insert(User))
+      continue;
+
+    // New value if it is an Instruction add to it to usedInsts Vec,
+    // otherwise check all it's users.
+    Instruction *I = dyn_cast<Instruction>(User);
+    if (I) {
+      UserInsts.push_back(I);
+    } else {
+      WorkList.append(User->user_begin(), User->user_end());
+    }
+  }
+}
+
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm
