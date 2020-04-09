@@ -493,7 +493,6 @@ TEST_F(MatchSelectPatternTest, DoubleCastBad) {
   expectPattern({SPF_UNKNOWN, SPNB_NA, false});
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 TEST_F(MatchSaturationAddSubTest, SignedSatAddi8) {
   parseAssembly(
@@ -741,7 +740,7 @@ TEST_F(MatchSaturationAddSubTest, OutOfRangeSignedSatAddv2i8) {
   expectPattern(false);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 TEST_F(MatchSelectPatternTest, NotNotSMin) {
   parseAssembly(
       "define i8 @test(i8 %a, i8 %b) {\n"
@@ -789,7 +788,6 @@ TEST_F(MatchSelectPatternTest, NotNotSMaxSwap) {
       "}\n");
   expectPattern({SPF_UNKNOWN, SPNB_NA, false});
 }
->>>>>>> 6d3437404353b3fc4bb53b8b110f7802be1b7227
 
 TEST(ValueTracking, GuaranteedToTransferExecutionToSuccessor) {
   StringRef Assembly =
