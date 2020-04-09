@@ -58,6 +58,21 @@ struct _pi_context {
 
   // L0 doesn't do the reference counting, so we have to do.
   pi_uint32 RefCount;
+
+  // Following member variables are used to manage assignment of events
+  // to event pools.
+  // TODO: These variables may be moved to pi_device and pi_platform
+  // if appropriate
+  // Event pool to which events are being added to
+  ze_event_pool_handle_t L0EventPool;
+  // This map will be used to determine if a pool is full or not
+  // by storing number of empty slots available in the pool
+  std::map<ze_event_pool_handle_t, pi_uint32> NumEventsAvailableInEventPool;
+  // This map will be used to determine number of live events in the pool
+  // We use separate maps for number of event slots available in the pool
+  // number of events live in the pool live
+  // This will help when we try to make the code thread-safe
+  std::map<ze_event_pool_handle_t, pi_uint32> NumEventsLiveInEventPool;
 };
 
 struct _pi_queue {
@@ -154,6 +169,10 @@ struct _pi_event {
   // These are NULL for the user events.
   pi_queue Queue;
   pi_command_type CommandType;
+  // Provide direct access to Context, instead of going via queue
+  // Not every PI event has a queue, and we need a handle to Context
+  // to get to event pool related information
+  pi_context Context;
 
   // Opaque data to hold any data needed for CommandType.
   void * CommandData;

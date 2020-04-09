@@ -1184,7 +1184,7 @@ pi_result L0(piContextCreate)(
   auto L0PiContext = new _pi_context();
   L0PiContext->Device = *devices;
   L0PiContext->RefCount = 1;
-
+  L0PiContext->L0EventPool = nullptr;
   *ret_context = L0PiContext;
   return PI_SUCCESS;
 }
@@ -2168,32 +2168,46 @@ pi_result L0(piEventCreate)(
   pi_event *    ret_event)
 {
   ze_result_t ze_res;
+  ze_event_pool_handle_t ze_event_pool = context->L0EventPool;
+  auto index = 0;
 
-  ze_event_pool_desc_t ze_event_pool_desc = {};
-  ze_event_pool_desc.count = 1;
-  ze_event_pool_desc.flags = ZE_EVENT_POOL_FLAG_TIMESTAMP;
-  ze_event_pool_desc.version = ZE_EVENT_POOL_DESC_VERSION_CURRENT;
+  // Maximum number of events that can be present in an event pool is captured here
+  // Setting it to 256 gave best possible performance for several benchmarks
+  static const char *getEnv = std::getenv("MAX_NUMBER_OF_EVENTS_PER_EVENT_POOL");
+  static const pi_uint32 MaxNumEventsPerPool = (getEnv) ? std::atoi(getEnv) : 256;
 
-  // TODO: see if we can employ larger event pools for better efficency
-  ze_event_pool_handle_t ze_event_pool;
-  ze_device_handle_t ze_device = context->Device->L0Device;
-  ze_res = ZE_CALL(zeEventPoolCreate(
-    context->Device->Platform->L0Driver,
-    &ze_event_pool_desc,
-    1,
-    &ze_device,
-    &ze_event_pool));
+  // Create one event pool per MaxNumEventsPerPool events
+  // TODO: ensure this is thread-safe.
+  if ((ze_event_pool == nullptr) ||
+      (context->NumEventsAvailableInEventPool[ze_event_pool] == 0)) {
+    ze_event_pool_desc_t ze_event_pool_desc;
+    ze_event_pool_desc.count = MaxNumEventsPerPool;
+    ze_event_pool_desc.flags = ZE_EVENT_POOL_FLAG_TIMESTAMP;
+    ze_event_pool_desc.version = ZE_EVENT_POOL_DESC_VERSION_CURRENT;
 
-  if (ze_res) {
-    return pi_cast<pi_result>(ze_res);
+    ze_device_handle_t ze_device = context->Device->L0Device;
+    ze_res = ZE_CALL(zeEventPoolCreate(
+      context->Device->Platform->L0Driver,
+      &ze_event_pool_desc,
+      1,
+      &ze_device,
+      &ze_event_pool));
+    context->L0EventPool = ze_event_pool;
+    context->NumEventsAvailableInEventPool[ze_event_pool] = MaxNumEventsPerPool-1;
+    context->NumEventsLiveInEventPool[ze_event_pool] = MaxNumEventsPerPool;
+    if (ze_res) {
+      return pi_cast<pi_result>(ze_res);
+    }
+  } else {
+    index = MaxNumEventsPerPool - context->NumEventsAvailableInEventPool[ze_event_pool];
+    --context->NumEventsAvailableInEventPool[ze_event_pool];
   }
-
   ze_event_handle_t ze_event;
   ze_event_desc_t ze_event_desc = {};
   ze_event_desc.signal = ZE_EVENT_SCOPE_FLAG_NONE;
   ze_event_desc.wait = ZE_EVENT_SCOPE_FLAG_NONE;
   ze_event_desc.version = ZE_EVENT_DESC_VERSION_CURRENT;
-  ze_event_desc.index = 0;
+  ze_event_desc.index = index;
 
   ze_res = ZE_CALL(zeEventCreate(
     ze_event_pool,
@@ -2211,7 +2225,7 @@ pi_result L0(piEventCreate)(
   PiEvent->CommandType = PI_COMMAND_TYPE_USER;   // TODO: verify
   PiEvent->L0CommandList = nullptr;
   PiEvent->RefCount = 1;
-
+  PiEvent->Context = context;
   *ret_event = PiEvent;
   return PI_SUCCESS;
 }
@@ -2415,9 +2429,13 @@ pi_result L0(piEventRelease)(pi_event event) {
           event->Queue->Context->Device->Platform->L0Driver, event->CommandData));
       event->CommandData = nullptr;
     }
-
     ZE_CALL(zeEventDestroy(event->L0Event));
-    ZE_CALL(zeEventPoolDestroy(event->L0EventPool));
+    auto context = event->Context;
+    // TODO: ensure this is thread-safe.
+    --context->NumEventsLiveInEventPool[event->L0EventPool];
+    if (context->NumEventsLiveInEventPool[event->L0EventPool] == 0) {
+      ZE_CALL(zeEventPoolDestroy(event->L0EventPool));
+    }
     delete event;
   }
   return PI_SUCCESS;
