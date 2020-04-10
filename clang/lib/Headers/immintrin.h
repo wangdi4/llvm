@@ -307,6 +307,16 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_BF16 */
+#if defined(__AVXBF16_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxbf16/avxbf16intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_BF16 */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <pkuintrin.h>
