@@ -67,10 +67,13 @@
 // CHECK-NEXT: FlagEnum (SubjectMatchRule_enum)
 // CHECK-NEXT: Flatten (SubjectMatchRule_function)
 // CHECK-NEXT: GNUInline (SubjectMatchRule_function)
+<<<<<<< HEAD
 // CHECK-NEXT: HIPPinnedShadow (SubjectMatchRule_variable)
 // if INTEL_CUSTOMIZATION
 // CHECK-NEXT: HLSDevice (SubjectMatchRule_function)
 // endif INTEL_CUSTOMIZATION
+=======
+>>>>>>> ebdffb7030b317372d3ae1af6b4ea38b3008a04b
 // CHECK-NEXT: Hot (SubjectMatchRule_function)
 // CHECK-NEXT: IBAction (SubjectMatchRule_objc_method_is_instance)
 // CHECK-NEXT: IFunc (SubjectMatchRule_function)
