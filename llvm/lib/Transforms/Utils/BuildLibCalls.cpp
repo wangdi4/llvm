@@ -563,6 +563,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  case LibFunc_under_unlink:
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_unlink:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -977,6 +980,14 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_under_Getctype:
     return Changed;
   case LibFunc_under_Getcvt:
+    return Changed;
+  // Get working directory in Windows can throw an exception
+  // compared to the Linux version (LibFunc_getcwd)
+  case LibFunc_under_getcwd:
+  case LibFunc_under_getdcwd:
+    return Changed;
+  case LibFunc_under_getdrive:
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_under_Tolower:
     Changed |= setOnlyAccessesArgMemory(F);
@@ -1433,7 +1444,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getcwd:
-  case LibFunc_under_getcwd:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getegid:
@@ -1452,6 +1462,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_under_getpid:
   case LibFunc_getpid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
