@@ -180,6 +180,7 @@ bool X86TargetInfo::initFeatureMap(
   AnonymousCPU1Features.push_back("amx-int8");
   AnonymousCPU1Features.push_back("amx-bf16");
 #endif // INTEL_FEATURE_ISA_AMX
+  AnonymousCPU1Features.push_back("serialize");
 #if INTEL_FEATURE_ISA_HRESET
   AnonymousCPU1Features.push_back("hreset");
 #endif // INTEL_FEATURE_ISA_HRESET
