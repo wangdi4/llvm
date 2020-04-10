@@ -913,6 +913,7 @@ def ProcessorFeatures {
     FeatureAMXINT8,
     FeatureAMXBF16,
 #endif // INTEL_FEATURE_ISA_AMX
+    FeatureSERIALIZE,
     FeaturePCONFIG,
     FeatureWBNOINVD,
     FeatureHasFastGather
