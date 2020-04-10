@@ -96,11 +96,8 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
   bitcodeFiles.clear();
   objectFiles.clear();
   sharedFiles.clear();
-<<<<<<< HEAD
   gNULTOFiles.clear();  // INTEL
-=======
   backwardReferences.clear();
->>>>>>> 03c825c224420c498f3f7aef8ad4fb005d62b8ec
 
   config = make<Configuration>();
   driver = make<LinkerDriver>();
