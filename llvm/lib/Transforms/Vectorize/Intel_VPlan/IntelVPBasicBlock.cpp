@@ -446,13 +446,6 @@ void VPBasicBlock::execute(VPTransformState *State) {
     // Temporarily terminate with unreachable until CFG is rewired.
     UnreachableInst *Terminator = State->Builder.CreateUnreachable();
     State->Builder.SetInsertPoint(Terminator);
-    // Register NewBB in its loop. In innermost loops its the same for all
-    // BB's.
-    // TODO: We need mechanism for correct updating of inner loops: their
-    // creation and basic block placement.
-    Loop *L = State->LI->getLoopFor(State->CFG.InsertBefore);
-    assert(L && "Unexpected null loop for Last BasicBlock");
-    L->addBasicBlockToLoop(NewBB, *State->LI);
     State->CFG.PrevBB = NewBB;
   }
 

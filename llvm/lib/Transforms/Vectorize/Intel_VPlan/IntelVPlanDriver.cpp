@@ -174,7 +174,17 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                                   WRNVecLoopNode *WRLp) {
 #endif // INTEL_CUSTOMIZATION
-  PredicatedScalarEvolution PSE(*SE, *Lp);
+  // TODO: Not sure if that's the correct long-term solution. If ScalarEvolution
+  // can consume on-the-fly updates to the LoopInfo analysis, then we might be
+  // able to use a single ScalarEvolution object. If not, then creating new
+  // SE/PSE for each loop processed would be the correct solution in long-term
+  // too.
+  //
+  // Not a question right now because we recalculate LoopInfo from scratch and
+  // ScalarEvolution definitely can't work with that - all the SE's internal
+  // maps with Loop's as keys would be stale.
+  ScalarEvolution SE(Fn, *TLI, *AC, *DT, *LI);
+  PredicatedScalarEvolution PSE(SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, &Fn);
 
   // Send explicit data from WRLoop to the Legality.
@@ -199,8 +209,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
   BasicBlock *Header = Lp->getHeader();
-  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, SE, TTI);
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, SE, TLI, TTI, DL, DT, &LVL, &VLSA);
+  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, &SE, TTI);
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, &SE, TLI, TTI, DL, DT, &LVL,
+                               &VLSA);
 
 #if INTEL_CUSTOMIZATION
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
@@ -312,6 +323,12 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // TODO: Emit reason for bailing out
   if (!ModifiedLoop)
     VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
+
+  if (ModifiedLoop) {
+    DT->recalculate(Fn);
+    LI->releaseMemory();
+    LI->analyze(*DT);
+  }
 
   return ModifiedLoop;
 }
@@ -429,9 +446,15 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
 }
 
 #if INTEL_CUSTOMIZATION
-// Copy templated implementation into this explicit specialization. Will be
-// modified in the next commit, needed to make the review/history easier to
-// understand.
+// We recalculate LoopInfo after each loop processed (see processLoop) so can't
+// use Loop* from WRNVecLoopNode as in the default implementation. Make an
+// explicit specialization to workaround that fact.
+//
+// Note that We have an issue with WRNVecLoopNode storing the stale Loop after
+// our LoopInfo recompute. It doesn't seem to cause any issue for now but might
+// be a source for some hidden bugs. Anyway, proper on-the-fly LoopInfo update
+// is a long-term solution, the below is simply "good enough" workaround for
+// now.
 template <>
 bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
 
@@ -439,25 +462,15 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
 
   isEmitKernelOptRemarks = true;
 
-#if INTEL_CUSTOMIZATION
   IRKind IR = IRKind::LLVMIR;
-  if (std::is_same<Loop, HLLoop>::value)
-    IR = IRKind::HIR;
   WR->buildWRGraph(IR);
-#else
-  WR->buildWRGraph();
-#endif // INTEL_CUSTOMIZATION
   WRContainerImpl *WRGraph = WR->getWRGraph();
 
   LLVM_DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
-
-  bool ModifiedFunc = false;
+  SmallVector<std::pair<BasicBlock *, WRNVecLoopNode *>, 8> LoopsToVectorize;
   for (auto WRNode : *WRGraph) {
-
     if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
       Loop *Lp = WRLp->getTheLoop<Loop>();
-      //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
-      //      formLCSSARecursively(*Lp, *DT, LI, SE);
 
       if (!Lp) {
         LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
@@ -469,11 +482,17 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
         continue;
       }
 
-      LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
-      LLVM_DEBUG(WRNode->dump());
-
-      ModifiedFunc |= processLoop(Lp, Fn, WRLp);
+      LoopsToVectorize.emplace_back(Lp->getHeader(), WRLp);
     }
+  }
+
+  bool ModifiedFunc = false;
+  for (auto It : LoopsToVectorize) {
+    Loop *Lp = LI->getLoopFor(It.first);
+    LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
+    LLVM_DEBUG(It.second->dump());
+
+    ModifiedFunc |= processLoop(Lp, Fn, It.second);
   }
 
   return ModifiedFunc;
