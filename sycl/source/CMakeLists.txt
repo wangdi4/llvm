@@ -154,13 +154,7 @@ if (MSVC)
     string(REGEX REPLACE "/MTd" "" ${flag_var} "${${flag_var}}")
   endforeach()
 
-  if (SYCL_ENABLE_XPTI_TRACING)
-    add_sycl_rt_library(sycld XPTI_LIB xptid COMPILE_OPTIONS "/MDd" SOURCES ${SYCL_SOURCES})
-  else()
-    add_sycl_rt_library(sycld COMPILE_OPTIONS "/MDd" SOURCES ${SYCL_SOURCES})
-  endif()
-<<<<<<< HEAD
-  target_compile_options(sycld PRIVATE ${SYCL_CXX_FLAGS_DEBUG})
+  set(SYCL_EXTRA_OPTS "/MD")
 # INTEL_CUSTOMIZATION
 else()
 # Don't use libcxx library to build sycl library if it is not explicitly stated to do so
@@ -172,27 +166,25 @@ else()
   string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
   string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
   string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
-
-# Workaround for bug in GCC version 5 and higher.
-# More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
-      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
-    target_link_libraries(sycl PRIVATE gcc_s gcc)
-  endif()
-
 # end INTEL_CUSTOMIZATION
-=======
-
-  set(SYCL_EXTRA_OPTS "/MD")
-
 endif()
 
 if (SYCL_ENABLE_XPTI_TRACING)
   add_sycl_rt_library(sycl XPTI_LIB xpti COMPILE_OPTIONS ${SYCL_EXTRA_OPTS}  SOURCES ${SYCL_SOURCES})
 else()
   add_sycl_rt_library(sycl COMPILE_OPTIONS ${SYCL_EXTRA_OPTS} SOURCES ${SYCL_SOURCES})
->>>>>>> 12805544848a37e009cd1e5c67942930d70f83e2
 endif()
+
+# INTEL_CUSTOMIZATION
+if (NOT MSVC)
+# Workaround for bug in GCC version 5 and higher.
+# More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
+    target_link_libraries(sycl PRIVATE gcc_s gcc)
+  endif()
+endif()
+# end INTEL_CUSTOMIZATION
 
 # Enable new IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
