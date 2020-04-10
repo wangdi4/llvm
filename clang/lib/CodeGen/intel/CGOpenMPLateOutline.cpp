@@ -872,8 +872,6 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
 template <typename RedClause>
 void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
                                                       StringRef QualName) {
-  OverloadedOperatorKind OOK =
-      Cl->getNameInfo().getName().getCXXOverloadedOperator();
   auto I = Cl->reduction_ops().begin();
   auto IPriv = Cl->privates().begin();
   for (auto *E : Cl->varlists()) {
@@ -893,6 +891,9 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       InitFn = InitCombiner.second;
     }
     assert(CombinerFn || isa<BinaryOperator>((*I)->IgnoreImpCasts()));
+    OverloadedOperatorKind OOK =
+        CombinerFn ? OO_None
+                   : Cl->getNameInfo().getName().getCXXOverloadedOperator();
     ClauseEmissionHelper CEH(*this, Cl->getClauseKind(), "QUAL.OMP.");
     ClauseStringBuilder &CSB = CEH.getBuilder();
     CSB.add(QualName);
