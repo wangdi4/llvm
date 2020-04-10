@@ -1,6 +1,6 @@
 //===- Intel_AddSubReassociate.cpp - Reassociate AddSub expressions -------===//
 //
-// Copyright (C) 2018 - 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 - 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -296,7 +296,7 @@ LLVM_DUMP_METHOD static const char *getOpcodeSymbol(unsigned Opcode) {
   case 0:
     return " ";
   }
-  llvm_unreachable("Bad Opcode");
+  return "!Bad Opcode!";
 }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -320,6 +320,7 @@ static inline bool isAllowedAssocInstr(const Value *V) {
   return isa<Instruction>(V) && isAllowedAssocInstr(cast<Instruction>(V));
 }
 
+// TODO: find better name for this routine as it does not reflect what it does.
 static bool isAddSubInstr(const Instruction *I, const DataLayout &DL) {
   switch (I->getOpcode()) {
   case Instruction::Add:
@@ -352,19 +353,6 @@ static bool isFMulDivInstr(const Instruction *I, const DataLayout &DL) {
   }
 }
 
-// Binary operation represented by \p Opcode is positive if the following holds:
-// A Opcode B == B Opcode A
-static bool isPositiveOpcode(unsigned Opcode) {
-  switch (Opcode) {
-  case Instruction::Add:
-  case Instruction::Or:
-  case Instruction::FAdd:
-  case Instruction::FMul:
-    return true;
-  }
-  return false;
-}
-
 // Returns positive counterpart of \p Opcode.
 static unsigned getPositiveOpcode(unsigned Opcode) {
   switch (Opcode) {
@@ -383,8 +371,8 @@ static unsigned getPositiveOpcode(unsigned Opcode) {
   }
 }
 
-// Binary operation represented by \p Opcode is negative if the following holds:
-// A Opcode B == -(B Opcode A)
+// Binary operation represented by \p Opcode is anticommutative if the following
+// holds: A Opcode B == -(B Opcode A)
 static unsigned getNegativeOpcode(unsigned Opcode) {
   switch (Opcode) {
   case Instruction::Add:
@@ -423,24 +411,19 @@ static Constant *getIdentityValue(Type *Ty, unsigned Opcode) {
   }
 }
 
-// Returns true if 'V1' and 'I2' are in the same BB, or if V1 not an
-// instruction.
-static bool areInSameBB(Value *V1, Instruction *I2) {
-  Instruction *I1 = dyn_cast<Instruction>(V1);
-  return !I1 || I1->getParent() == I2->getParent();
-}
-
-// Returns true if 'V1' along with its immediate predecessors are in the same BB
-// as 'I2'.
-static bool arePredsInSameBB(Value *V1, Instruction *I2) {
-  Instruction *I1 = dyn_cast<Instruction>(V1);
+// Return true if I1 and its operands that are instructions are all in
+// the same BB as I2. I2 must be an instruction.
+// I1 can be dyn_cast<Instruction> in which case it returns
+// true if it turns out not an instruction.
+static bool areInSameBB(Instruction *I1, Instruction *I2) {
   if (!I1)
     return true;
-  if (!areInSameBB(I1, I2))
+  if (I1->getParent() != I2->getParent())
     return false;
-  for (int OpI = 0, e = I1->getNumOperands(); OpI != e; ++OpI) {
-    Value *Op = I1->getOperand(OpI);
-    if (!areInSameBB(Op, I2))
+  for (int OpI = 0, E = I1->getNumOperands(); OpI != E; ++OpI) {
+    auto *Op = dyn_cast<Instruction>(I1->getOperand(OpI));
+    // don't care about non-instructions
+    if (Op && Op->getParent() != I2->getParent())
       return false;
   }
   return true;
@@ -534,16 +517,22 @@ CanonForm::NodeItTy CanonForm::findLeaf(const NodeItTy It, const Value *Leaf,
   return end();
 }
 
-/// Tries to ensure that the last node has "positive" opcode
-/// (see isPositiveOpcode) by reordering nodes if required.
+/// Tries to ensure that the last node has commutative op (referenced
+/// here as "positive") by reordering nodes if required.
 bool CanonForm::simplify() {
   if (empty())
     return true;
 
+  // TODO: can we employ Instruction::isCommutative some way?
+  auto isCommutativeOp = [](unsigned Opcode) -> bool {
+    return Opcode == Instruction::Add || Opcode == Instruction::Or ||
+           Opcode == Instruction::FAdd || Opcode == Instruction::FMul;
+  };
+
   // Find first positive opcode and move it to beginning if required (using
   // reverse order).
   for (auto It = rbegin(); It != rend(); ++It) {
-    if (isPositiveOpcode(It->getOpcodeData().getOpcode())) {
+    if (isCommutativeOp(It->getOpcodeData().getOpcode())) {
       if (It != rbegin()) {
         swapLeaves(It.base() - 1, rbegin().base() - 1);
         return true;
@@ -650,7 +639,7 @@ Value *CanonForm::generateCode(Instruction *IP, bool GenTopZero) const {
   Res = BottomI;
 
   // Check if it's legal to omit generation of top "zero".
-  if (!GenTopZero && isPositiveOpcode(TopI->getOpcode())) {
+  if (!GenTopZero && TopI->isCommutative()) {
     // Reconnect operand #1 of TopI to appropriate location and remove TopI.
     if (PrevI != nullptr)
       PrevI->setOperand(0, TopI->getOperand(1));
@@ -685,8 +674,7 @@ LLVM_DUMP_METHOD void CanonForm::dump() const {
 
 // Begin of AddSubReassociatePass::Tree
 
-bool Tree::isAllowedTrunkInstr(const Value *V) const {
-  auto *I = dyn_cast<Instruction>(V);
+bool Tree::isAllowedTrunkInstr(const Instruction *I) const {
   if (!I)
     return false;
 
@@ -711,9 +699,9 @@ bool Tree::hasTrunkInstruction(const Instruction *I) const {
     if (I == TreeI)
       return true;
     for (int i = 0, e = TreeI->getNumOperands(); i != e; ++i) {
-      Instruction *Op = dyn_cast<Instruction>(TreeI->getOperand(i));
-      if (Op != nullptr && isAllowedTrunkInstr(Op) &&
-          findLeaf(begin(), Op) == end() && checkTreeRec(Op))
+      auto *Op = dyn_cast<Instruction>(TreeI->getOperand(i));
+      if (isAllowedTrunkInstr(Op) && findLeaf(begin(), Op) == end() &&
+          checkTreeRec(Op))
         return true;
     }
     return false;
@@ -876,63 +864,40 @@ void Group::sort() {
   llvm::sort(*this, valuesCmp);
 }
 
-void Group::flipOpcodes() { CanonForm::flipOpcodes(); }
-
 // Begin of AddSubReassociatePass
 
-Tree *AddSubReassociate::findEnclosingTree(TreeVecTy &AllTrees,
-                                           const Instruction *I) {
-  for (auto &TreePtr : AllTrees)
-    if (TreePtr->hasTrunkInstruction(I))
-      return TreePtr.get();
-  return nullptr;
-}
-
-Tree *AddSubReassociate::findTreeWithRoot(TreeVecTy &AllTrees,
-                                          const Instruction *Root,
-                                          const Tree *skipTree) {
-  for (auto &TreePtr : AllTrees)
-    if (TreePtr.get() != skipTree && TreePtr->getRoot() == Root)
-      return TreePtr.get();
-  return nullptr;
-}
-
-// Returns true if we were able to compute distance of V1 and V2 or one of their
-// operands, false otherwise.
-bool AddSubReassociate::getValDistance(Value *V1, Value *V2, int MaxDepth,
-                                       int64_t &Distance) {
+bool AddSubReassociate::getDistance_rec(Value *V1, Value *V2, int MaxDepth,
+                                        int64_t &Distance) const {
   if (MaxDepth == 0)
     return false;
-  Instruction *I1 = dyn_cast<Instruction>(V1);
-  Instruction *I2 = dyn_cast<Instruction>(V2);
-  if ((I1 && !I2) || (!I1 && I2))
+  auto *I1 = dyn_cast<Instruction>(V1);
+  auto *I2 = dyn_cast<Instruction>(V2);
+  if (!I1 || !I2) // Both must be instructions
     return false;
-  if (I1 && I2) {
-    if (I1->getOpcode() != I2->getOpcode())
-      return false;
 
-    LoadInst *LI1 = dyn_cast<LoadInst>(I1);
-    LoadInst *LI2 = dyn_cast<LoadInst>(I2);
-    if (LI1 && LI2) {
-      if (LI1->getPointerAddressSpace() != LI2->getPointerAddressSpace())
-        return false;
-      // Check pointers
-      Value *Ptr1 = LI1->getPointerOperand();
-      Value *Ptr2 = LI2->getPointerOperand();
-      const SCEV *Scev1 = SE->getSCEV(Ptr1);
-      const SCEV *Scev2 = SE->getSCEV(Ptr2);
-      const SCEV *Diff = SE->getMinusSCEV(Scev1, Scev2);
-      if (const SCEVConstant *DiffConst = dyn_cast<SCEVConstant>(Diff)) {
-        Distance = DiffConst->getAPInt().getSExtValue();
-        return true;
-      }
-    }
-    for (unsigned I = 0, e = I1->getNumOperands(); I != e; ++I) {
-      if (getValDistance(I1->getOperand(I), I2->getOperand(I), MaxDepth - 1,
-                         Distance))
-        return true;
-    }
+  if (I1->getOpcode() != I2->getOpcode())
     return false;
+
+  auto *LI1 = dyn_cast<LoadInst>(I1);
+  auto *LI2 = dyn_cast<LoadInst>(I2);
+  if (LI1 && LI2) {
+    if (LI1->getPointerAddressSpace() != LI2->getPointerAddressSpace())
+      return false;
+    // Check pointers
+    Value *Ptr1 = LI1->getPointerOperand();
+    Value *Ptr2 = LI2->getPointerOperand();
+    const SCEV *Scev1 = SE->getSCEV(Ptr1);
+    const SCEV *Scev2 = SE->getSCEV(Ptr2);
+    const SCEV *Diff = SE->getMinusSCEV(Scev1, Scev2);
+    if (const auto *DiffConst = dyn_cast<SCEVConstant>(Diff)) {
+      Distance = DiffConst->getAPInt().getSExtValue();
+      return true;
+    }
+  }
+  for (unsigned I = 0, E = I1->getNumOperands(); I != E; ++I) {
+    if (getDistance_rec(I1->getOperand(I), I2->getOperand(I), MaxDepth - 1,
+                        Distance))
+      return true;
   }
   return false;
 }
@@ -947,7 +912,7 @@ int64_t AddSubReassociate::getSumAbsDistances(const CanonForm &G1,
     Value *V1 = G1It->getLeaf();
     Value *V2 = G2It->getLeaf();
     int64_t AbsDist = 0;
-    if (getValDistance(V1, V2, 2, AbsDist))
+    if (getDistance_rec(V1, V2, 2, AbsDist))
       Sum += std::abs(AbsDist);
     else
       return MAX_DISTANCE;
@@ -962,7 +927,7 @@ int64_t AddSubReassociate::getSumAbsDistances(const CanonForm &G1,
 // against the first leaf in G2Leaves. The best ordering is held in
 // BestSortedG1Leaves and the best score in BestScore.
 // It returns the best score in post-order.
-int64_t AddSubReassociate::getBestSortedScoreRec(
+int64_t AddSubReassociate::getBestSortedScore_rec(
     const Group &G1, const Group &G2, CanonForm G1Leaves, CanonForm G2Leaves,
     CanonForm &LastSortedG1Leaves, CanonForm &BestSortedG1Leaves,
     int64_t &BestScore) {
@@ -980,7 +945,7 @@ int64_t AddSubReassociate::getBestSortedScoreRec(
   SmallVector<CanonNode, 4> Matches;
   int64_t Distance = 0;
   for (auto &G1Leaf : G1Leaves)
-    if (getValDistance(G2LeafV, G1Leaf.getLeaf(), 2, Distance))
+    if (getDistance_rec(G2LeafV, G1Leaf.getLeaf(), 2, Distance))
       Matches.push_back(G1Leaf);
   // Early exit if no match.
   if (Matches.empty())
@@ -993,10 +958,9 @@ int64_t AddSubReassociate::getBestSortedScoreRec(
     SortedG1LeavesCopy.appendLeaf(G1Leaf.getLeaf(), G1Leaf.getOpcodeData());
     CanonForm G1LeavesCopy = G1Leaves;
     G1LeavesCopy.removeLeaf(llvm::find(G1LeavesCopy, G1Leaf));
-    // Get the score by recursively calling self.
-    int64_t Score = getBestSortedScoreRec(G1, G2, G1LeavesCopy, G2Leaves,
-                                          SortedG1LeavesCopy,
-                                          BestSortedG1Leaves, BestScore);
+    int64_t Score = getBestSortedScore_rec(G1, G2, G1LeavesCopy, G2Leaves,
+                                           SortedG1LeavesCopy,
+                                           BestSortedG1Leaves, BestScore);
     // Keep the best scores.
     if (Score < BestScore) {
       BestScore = Score;
@@ -1008,15 +972,15 @@ int64_t AddSubReassociate::getBestSortedScoreRec(
   return BestScore;
 }
 
-// Entry point for getBestSortedScoreRec().
+// Entry point for getBestSortedScore_rec().
 // Returns false if we did not manage to get a good ordering that matches G2.
 bool AddSubReassociate::getBestSortedLeaves(const Group &G1, const Group &G2,
                                             CanonForm &BestSortedG1Leaves) {
   int64_t BestScore = MAX_DISTANCE;
   CanonForm DummyG1SortedLeaves;
 
-  getBestSortedScoreRec(G1, G2, G1, G2, DummyG1SortedLeaves, BestSortedG1Leaves,
-                        BestScore);
+  getBestSortedScore_rec(G1, G2, G1, G2, DummyG1SortedLeaves,
+                         BestSortedG1Leaves, BestScore);
   if (BestSortedG1Leaves.size() != G1.size())
     return false;
   assert(std::is_permutation(BestSortedG1Leaves.begin(),
@@ -1128,7 +1092,7 @@ LLVM_DUMP_METHOD void dumpGroupAndTrees(const Group &G,
 }
 #endif
 
-// Scans all trees in \p TreeCluster and tries to find common leaves used across
+// Scans all trees in \p Cluster and tries to find common leaves used across
 // trees (referred as a Group later on). Group G can be applied to tree T if
 // for any leaf G and T have the same operation or opposite one. For example,
 // consider two trees T1=A1+B+C and T2=A2-B-C. For these trees we can build a
@@ -1144,11 +1108,11 @@ LLVM_DUMP_METHOD void dumpGroupAndTrees(const Group &G,
 // Thus if addition of a leaf to a group will result in decrease of group's
 // width then we prefer to build another group which is narrow than the current
 // one.
-void AddSubReassociate::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
+void AddSubReassociate::buildMaxReuseGroups(const TreeArrayTy &Cluster,
                                             GroupTreesVecTy &BestGroups) {
   constexpr int MaxNumTrees = 16;
 
-  if (TreeCluster.empty())
+  if (Cluster.empty())
     return;
 
   LLVM_DEBUG(dbgs() << "==== Start building groups ===\n");
@@ -1192,20 +1156,20 @@ void AddSubReassociate::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
   };
   // Build initial map.
   HistogramTableT LeafHistTable;
-  for (const TreePtr &Tptr : TreeCluster) {
+  for (const auto &T : Cluster) {
     // Traverse in reverse order just to match legacy behavior.
-    for (auto &LUPair : llvm::reverse(*Tptr)) {
+    for (auto &LUPair : llvm::reverse(*T)) {
       TreeCollectionTy &Trees = LeafHistTable[LUPair.getLeaf()];
 
       // Find current tree.
       auto TreeAndOpcodesIt = find_if(
           Trees, [&](const TreeAndOpcodesTy &elem) -> bool {
-            return elem.first == Tptr.get();
+            return elem.first == T.get();
           });
 
       // Add current tree to the list if doesn't exist.
       if (TreeAndOpcodesIt == Trees.end()) {
-        Trees.push_back({Tptr.get(), OpcodesTy()});
+        Trees.push_back({T.get(), OpcodesTy()});
         TreeAndOpcodesIt = Trees.end() - 1;
       }
 
@@ -1250,7 +1214,7 @@ void AddSubReassociate::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
     // Iterate through all leaves in sorted table.
     for (auto TableIt = LeafHistVec.begin(); TableIt != LeafHistVec.end();
          ++TableIt) {
-      // TODO:
+      // TODO: what?
       auto &TableElem = *TableIt;
       TreeCollectionTy &CandidateTrees = TableElem.second;
       const size_t CandidateTreesNum = CandidateTrees.size();
@@ -1341,15 +1305,14 @@ void AddSubReassociate::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
     };
 
     // Populate list of trees current group is applicable to. Please note that
-    // we have to preserve incoming order (order in 'TreeCluster') since code
-    // generation assumes that later tree in 'TreeCluster' appears earlier in
+    // we have to preserve incoming order (order in Cluster) since code
+    // generation assumes that later tree in Cluster appears earlier in
     // program order.
     TreeSignVecTy GroupTreeVec;
-    for (const TreePtr &TreePtr : TreeCluster) {
-      auto It = FoundTrees.find(TreePtr.get());
-      if (It != FoundTrees.end()) {
+    for (const auto &T : Cluster) {
+      auto It = FoundTrees.find(T.get());
+      if (It != FoundTrees.end())
         GroupTreeVec.push_back({It->first, It->second});
-      }
     }
 
     // Remove current group from the 'LeafHistVec'.
@@ -1401,14 +1364,6 @@ void AddSubReassociate::buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
   LLVM_DEBUG(dbgs() << "==== End building groups ===\n");
 }
 
-// Remove all instructions from OldRootI all the way to the leaves.
-void AddSubReassociate::removeOldTrees(
-    const ArrayRef<Tree *> AffectedTrees) const {
-  for (Tree *T : AffectedTrees) {
-    T->removeTreeFromIR();
-  }
-}
-
 void AddSubReassociate::removeGroupFromTree(GroupTreesVecTy &Groups) const {
   // Loop over all groups.
   for (auto &GroupAndTrees : Groups) {
@@ -1451,7 +1406,7 @@ void AddSubReassociate::generateCode(
   // 1. Generate the code for each group.
   for (auto &GroupAndTreesPair : Groups) {
     Group &G = GroupAndTreesPair.first;
-    TreeSignVecTy &TreeCluster = GroupAndTreesPair.second;
+    TreeSignVecTy &Cluster = GroupAndTreesPair.second;
 
     if (G.empty())
       continue;
@@ -1459,16 +1414,16 @@ void AddSubReassociate::generateCode(
     // Simplify the instruction chains to get rid of redundancies like
     // '0 + Val' from the top of the chain.
     if (SimplifyChains)
-      G.simplify(TreeCluster);
+      G.simplify(Cluster);
 
     // Here we implicitly assumes that last tree in a cluster is a lexically
     // first in the IR. We will use its root as an insertion point for the
     // group.
-    Instruction *IP = TreeCluster.rbegin()->first->getRoot();
+    Instruction *IP = Cluster.rbegin()->first->getRoot();
     Value *GroupChain = G.generateCode(IP, !SimplifyChains);
 
     // Link generated group to all affected trees.
-    for (auto It = TreeCluster.rbegin(); It != TreeCluster.rend(); ++It)
+    for (auto It = Cluster.rbegin(); It != Cluster.rend(); ++It)
       linkGroup(GroupChain, *It);
   }
 
@@ -1527,12 +1482,11 @@ LLVM_DUMP_METHOD void AddSubReassociate::dumpTreeArrayVec(
 }
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Returns true if T1 and T2 contain similar values.
-// This is linear to the size of the trees.
-// TODO: Ideally this should be a constant time calculation.
 bool AddSubReassociate::treesMatch(const Tree *T1, const Tree *T2) const {
-  SmallPtrSet<Value *, 8> T1Values;
+  // TODO: Complexity is linear to the size of the trees.
+  // Ideally this should be a constant time calculation.
 
+  SmallPtrSet<Value *, 8> T1Values;
   if (!T1->isAllowedTrunkInstr(T2->getRoot()))
     return false;
 
@@ -1548,22 +1502,21 @@ bool AddSubReassociate::treesMatch(const Tree *T1, const Tree *T2) const {
   return (Matches * 100) / T1Values.size() > TreeMatchThreshold;
 }
 
-// Form clusters of Trees with similar i) size, ii) values.
-// This is currently quadratic to AllTrees size.
-// TODO: Tune the clustering heuristics.
-// TODO: Reduce complexity by sorting based on size?
 void AddSubReassociate::clusterTrees(
-    TreeVecTy &AllTrees, SmallVectorImpl<TreeArrayTy> &TreeClusters) {
-  TreeArrayTy TreeVecArray(AllTrees);
+    TreeVecTy &Trees, SmallVectorImpl<TreeArrayTy> &Clusters) {
+  // TODO: (1) Tune the clustering heuristics.
+  //       (2) This is currently quadratic to Trees size.
+  //           Reduce complexity by sorting (based on size?)
+  TreeArrayTy TreeVecArray(Trees);
   unsigned ClusterSize = 1;
-  for (size_t i = 0, e = AllTrees.size(); i != e; i += ClusterSize) {
-    const Tree *T1 = AllTrees[i].get();
-    // Now look for other trees within AllTrees.
+  for (size_t i = 0, e = Trees.size(); i != e; i += ClusterSize) {
+    const Tree *T1 = Trees[i].get();
+    // Now look for other trees within Trees.
     ClusterSize = 1;
     // Break quadratic complexity by reducing the maximum search.
     int EndOfSearch = std::min(e, i + 1 + MaxClusterSearch);
     for (int j = i + 1; j != EndOfSearch; ++j) {
-      Tree *T2 = AllTrees[j].get();
+      Tree *T2 = Trees[j].get();
       // If i)  size difference is within limits.
       //    ii) the trees share a min number of values.
       if ((std::abs((int64_t)T2->size() - (int64_t)T1->size()) /
@@ -1571,8 +1524,8 @@ void AddSubReassociate::clusterTrees(
            MaxTreeSizeDiffForCluster) &&
           treesMatch(T2, T1)) {
         // Move this element next to the last member of the cluster.
-        auto First = AllTrees.begin() + i + ClusterSize;
-        auto Middle = AllTrees.begin() + j;
+        auto First = Trees.begin() + i + ClusterSize;
+        auto Middle = Trees.begin() + j;
         auto Last = Middle + 1;
         std::rotate(First, Middle, Last);
         // Reduce complexity by placing a cap on the size of the cluster
@@ -1583,30 +1536,28 @@ void AddSubReassociate::clusterTrees(
     // Create a cluster only if the size is adequate.
     if (ClusterSize >= MinClusterSize) {
       TreeArrayTy Cluster = TreeVecArray.slice(i, ClusterSize);
-      TreeClusters.push_back(Cluster);
+      Clusters.push_back(Cluster);
     }
   }
 }
 
-// Try to grow the tree upwards, towards the definitions.
-// Returns true if new nodes have been added to the tree.
-bool AddSubReassociate::growTree(TreeVecTy &AllTrees, Tree *T,
+bool AddSubReassociate::growTree(TreeVecTy &Trees, Tree *T,
                                  WorkListTy &&WorkList) {
-  unsigned SizeBefore = T->size();
-  unsigned CntAssociations = 0;
+  unsigned OrigSize = T->size();
+  unsigned NumAssociations = 0;
 
   // Keep trying to grow tree until the WorkList is empty.
   while (!WorkList.empty()) {
     auto LastOp = WorkList.pop_back_val();
+    auto *I = cast<Instruction>(LastOp.getLeaf());
 
-    assert(T->isAllowedTrunkInstr(LastOp.getLeaf()) &&
+    assert(T->isAllowedTrunkInstr(I) &&
            "Work list item can't be trunk instruction.");
-    Instruction *I = cast<Instruction>(LastOp.getLeaf());
 
     // If current instruction starts another tree then just clear that tree
     // since it will become part of the growing tree.
-    if (Tree *ATree = findTreeWithRoot(AllTrees, I, T)) {
-      ATree->clear();
+    if (auto *Tree = findTreeWithRoot(Trees, I, T)) {
+      Tree->clear();
     }
 
     bool IsAllowedAssocInstrI = isAllowedAssocInstr(I);
@@ -1640,7 +1591,7 @@ bool AddSubReassociate::growTree(TreeVecTy &AllTrees, Tree *T,
       //  Root
       // The canonicalized opcodes are: L1:'+', L2:'-', L3:'+'.
       OpcodeData OpCanonOpcode;
-      if (!isPositiveOpcode(I->getOpcode()) && OpIdx != 0) {
+      if (!I->isCommutative() && OpIdx != 0) {
         // We flip the opcode when we cross the RHS of a SUB.
         OpCanonOpcode = LastOp.getOpcodeData().getFlipped();
       } else {
@@ -1648,108 +1599,107 @@ bool AddSubReassociate::growTree(TreeVecTy &AllTrees, Tree *T,
         OpCanonOpcode = LastOp.getOpcodeData();
       }
 
-      if ( // Keep the size of a tree below a maximum value.
-          T->size() + 2 * WorkList.size() < MaxTreeSize && Op->hasOneUse() &&
-          arePredsInSameBB(Op, I) &&
-          (T->isAllowedTrunkInstr(Op) &&
-           (!isAllowedAssocInstr(Op) ||
-            // Check number of allowed assoc instruction.
-            (++CntAssociations <= MaxUnaryAssociations)))) {
+      if (isa<Instruction>(Op) && Op->hasOneUse() &&
+          // Keep the size of a tree below a maximum value.
+          T->size() + 2 * WorkList.size() < MaxTreeSize &&
+          areInSameBB(cast<Instruction>(Op), I) &&
+          T->isAllowedTrunkInstr(cast<Instruction>(Op)) &&
+          (!isAllowedAssocInstr(Op) ||
+           // Check number of allowed assoc instruction.
+           (++NumAssociations <= MaxUnaryAssociations))) {
         // Push the operand to the WorkList to continue the walk up the code.
         WorkList.push_back(CanonNode(Op, OpCanonOpcode));
       } else {
-        // 'Op' is a leaf node, so stop growing and add it into T's leaves.
+        // Op is a leaf node, so stop growing and add it into T's leaves.
         T->appendLeaf(Op, OpCanonOpcode);
-        // If 'Op' is an add/sub and it is shared (maybe across trees maybe
+        // If Op is an add/sub and it is shared (maybe across trees maybe
         // not),
         // then this tree is a candidate for growing towards the shared
-        // leaves. This is performed by 'extendTrees()'.
-        if (T->isAllowedTrunkInstr(Op) && Op->getNumUses() > 1)
+        // leaves. This is performed by extendTrees().
+        if (T->isAllowedTrunkInstr(dyn_cast<Instruction>(Op)) &&
+            Op->getNumUses() > 1)
           T->setSharedLeafCandidate(true);
       }
     }
   }
-  bool Changed = SizeBefore != T->size();
-  return Changed;
+  return OrigSize != T->size();
 }
 
 bool AddSubReassociate::areAllUsesInsideTreeCluster(
-    TreeArrayTy &TreeCluster, const Value *Leaf,
+    TreeArrayTy &Cluster, const Value *Leaf,
     SmallVectorImpl<std::pair<Tree *, CanonForm::NodeItTy>> &WorkList) const {
   unsigned UseCount = 0;
-  for (TreePtr &Tptr : TreeCluster) {
-    auto *T = Tptr.get();
-    auto It = T->findLeaf(T->begin(), Leaf);
-    while (It != T->end()) {
-      WorkList.push_back(std::make_pair(T, It));
+  for (auto &T : Cluster) {
+    auto *Tree = T.get();
+    auto It = Tree->findLeaf(Tree->begin(), Leaf);
+    while (It != Tree->end()) {
+      WorkList.push_back(std::make_pair(Tree, It));
       ++UseCount;
-      It = T->findLeaf(It + 1, Leaf);
+      It = Tree->findLeaf(It + 1, Leaf);
     }
   }
   return Leaf->hasNUses(UseCount);
 }
 
-bool AddSubReassociate::getSharedLeave(
-    TreeArrayTy &TreeCluster,
+bool AddSubReassociate::getSharedLeaves(
+    TreeArrayTy &Cluster,
     SmallVectorImpl<std::pair<Tree *, CanonForm::NodeItTy>> &WorkList) {
   WorkList.clear();
 
-  for (auto &Tptr : TreeCluster) {
-    Tree *ATree = Tptr.get();
+  for (auto &T : Cluster) {
+    auto *Tree = T.get();
 
-    if (!ATree->hasSharedLeafCandidate())
+    if (!Tree->hasSharedLeafCandidate())
       continue;
 
-    for (auto &TV : *ATree) {
+    for (auto &TV : *Tree) {
       Value *LeafV = TV.getLeaf();
-      Instruction *SharedLeaf = dyn_cast<Instruction>(LeafV);
+      auto *I = dyn_cast<Instruction>(LeafV);
 
       // Need to clear WorkList since it may be polluted with data from
       // previous iteration.
       WorkList.clear();
 
       // Only Add/Sub leaves can become parts of trees once replicated.
-      if (SharedLeaf && ATree->isAllowedTrunkInstr(SharedLeaf) &&
-          SharedLeaf->getNumUses() > 1 &&
-          arePredsInSameBB(SharedLeaf, ATree->getRoot()) &&
-          areAllUsesInsideTreeCluster(TreeCluster, SharedLeaf, WorkList))
+      if (Tree->isAllowedTrunkInstr(I) && I->getNumUses() > 1 &&
+          areInSameBB(I, Tree->getRoot()) &&
+          areAllUsesInsideTreeCluster(Cluster, I, WorkList))
         return true;
     }
-    ATree->setSharedLeafCandidate(false);
+    Tree->setSharedLeafCandidate(false);
   }
   return false;
 }
 
-void AddSubReassociate::extendTrees(TreeVecTy &AllTrees,
-                                    TreeArrayTy &TreeCluster) {
+void AddSubReassociate::extendTrees(TreeVecTy &Trees, TreeArrayTy &Cluster) {
   int MaxAttempts = MaxSharedNodesIterations;
 
   SmallVector<std::pair<Tree *, CanonForm::NodeItTy>, 8> SharedUsers;
-  while (--MaxAttempts >= 0 && getSharedLeave(TreeCluster, SharedUsers)) {
+  while (--MaxAttempts >= 0 && getSharedLeaves(Cluster, SharedUsers)) {
     size_t SharedLeavesNum = 0;
     // Important note! Call to 'removeLeaf' invalidates all iterators pointing
     // after the removed one. For that reason we need to delete in reverse
     // order. That's not the most efficient thing to do but we expect, one leaf
     // to be used multiple times by the tree, to be a rare case.
     for (auto &SharedUser : llvm::reverse(SharedUsers)) {
-      Tree *ATree = SharedUser.first;
+      Tree *T = SharedUser.first;
       CanonNode LUPair = *SharedUser.second;
-      ATree->removeLeaf(SharedUser.second);
-      size_t OrigLeavesNum = ATree->size();
-      growTree(AllTrees, ATree, SmallVector<CanonNode, 8>({LUPair}));
+      T->removeLeaf(SharedUser.second);
+      size_t OrigLeavesNum = T->size();
+      growTree(Trees, T, SmallVector<CanonNode, 8>({LUPair}));
       if (SharedLeavesNum == 0) {
-        assert((ATree->size() - OrigLeavesNum) > 0 && "No leaves unshared?");
-        SharedLeavesNum = ATree->size() - OrigLeavesNum;
+        assert((T->size() - OrigLeavesNum) > 0 && "No leaves unshared?");
+        SharedLeavesNum = T->size() - OrigLeavesNum;
       } else {
-        assert((ATree->size() - OrigLeavesNum) == SharedLeavesNum &&
+        assert((T->size() - OrigLeavesNum) == SharedLeavesNum &&
                "Inconsistent number of unshared leaves across trees.");
-        ATree->adjustSharedLeavesCount(SharedLeavesNum);
+        T->adjustSharedLeavesCount(SharedLeavesNum);
       }
     }
   }
 }
 
-void AddSubReassociate::buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees) {
+void AddSubReassociate::buildInitialTrees(BasicBlock *BB, TreeVecTy &Trees) {
   // Returns true if 'I' is a candidate for a tree root.
   auto isRootCandidate = [&](const Instruction *I) -> bool {
     // Conditions:
@@ -1760,7 +1710,7 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees) {
     return (isAddSubInstr(I, DL) ||
             ((isFAddSubInstr(I, DL) || isFMulDivInstr(I, DL)) &&
              cast<FPMathOperator>(I)->getFastMathFlags().isFast())) &&
-           !findEnclosingTree(AllTrees, I);
+           !findEnclosingTree(Trees, I);
   };
 
   // Scan the BB in reverse and build a tree.
@@ -1768,7 +1718,7 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees) {
     // Check that number of built trees doesn't exceed specified limits.
     // '0' means "unlimited" unless it is set by the user.
     if ((MaxTreeCount.getNumOccurrences() > 0 || MaxTreeCount > 0) &&
-        AllTrees.size() >= (unsigned)MaxTreeCount)
+        Trees.size() >= (unsigned)MaxTreeCount)
       break;
 
     // A tree is rooted at an Add/Sub instruction that is not already in a
@@ -1779,7 +1729,7 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees) {
     TreePtr UTree = std::make_unique<Tree>(DL);
     Tree *T = UTree.get();
     T->setRoot(&I);
-    growTree(AllTrees, T,
+    growTree(Trees, T,
              SmallVector<CanonNode, 8>(
                  {CanonNode(&I, getPositiveOpcode(I.getOpcode()))}));
 
@@ -1788,20 +1738,20 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees) {
 
     // Skip trivial trees.
     if (T->size() > 1)
-      AllTrees.push_back(std::move(UTree));
+      Trees.push_back(std::move(UTree));
   }
 }
 
 // Build Add/Sub trees with instructions from BB.
-void AddSubReassociate::buildTrees(BasicBlock *BB, TreeVecTy &AllTrees,
+void AddSubReassociate::buildTrees(BasicBlock *BB, TreeVecTy &Trees,
                                    SmallVector<TreeArrayTy, 8> &Clusters,
                                    bool UnshareLeaves) {
   // 1. Scan the code in BB and build initial trees.
-  buildInitialTrees(BB, AllTrees);
-  if (AllTrees.empty())
+  buildInitialTrees(BB, Trees);
+  if (Trees.empty())
     return;
 
-  // 2. Create clusters of trees out of the trees in AllTrees. Each cluster
+  // 2. Create clusters of trees out of the trees in Trees. Each cluster
   // contains trees that: i.  share leaf nodes, and ii. have similar sizes.
   // The trees in a cluster are good candidates for AddSub reassociation.
   //
@@ -1814,58 +1764,57 @@ void AddSubReassociate::buildTrees(BasicBlock *BB, TreeVecTy &AllTrees,
   // and one before the group formation with different heuristics/parameters
   // each.
   //
-  // NOTE: This reorders the elements in AllTrees.
-  clusterTrees(AllTrees, Clusters);
+  // NOTE: This reorders the elements in Trees.
+  clusterTrees(Trees, Clusters);
 
   // 3. Try to extend the trees by including leaves with multiple uses across
   // multiple trees.
   if (EnableSharedLeaves && UnshareLeaves) {
     for (TreeArrayTy &Cluster : Clusters)
-      extendTrees(AllTrees, Cluster);
+      extendTrees(Trees, Cluster);
   }
 }
 
 // Entry point for AddSub reassociation.
 // Returns true if we need to invalidate analysis.
 bool AddSubReassociate::run() {
-  bool Changed = false;
-  ReversePostOrderTraversal<Function *> RPOT(F);
 
   if (!AddSubReassocEnable)
     return false;
 
+  bool Changed = false;
+  ReversePostOrderTraversal<Function *> RPOT(F);
+
   // Scan the code for opportunities of AddSub reassociation.
   // Make a "pairmap" of how often each operand pair occurs.
   for (BasicBlock *BB : RPOT) {
-    bool IsBBChanged = true;
-    bool IsFirstPass = true;
-    unsigned Iter = 0;
-    while (IsBBChanged && Iter++ < MaxBBIters) {
+    bool KeepTrying = true;
+    for (unsigned I = 0; KeepTrying && I < MaxBBIters; ++I) {
 
-      TreeVecTy AllTrees;
-      SmallVector<TreeArrayTy, 8> TreeClusters;
+      TreeVecTy Trees;
+      SmallVector<TreeArrayTy, 8> Clusters;
 
-      IsBBChanged = false;
+      KeepTrying = false;
 
       // 1. Build as many trees as we can find in BB. We need to perform leaves
       // unsharing on the first iteration only since all consequent iterations
       // will observe already unshared leaves from the first iteration.
-      buildTrees(BB, AllTrees, TreeClusters, IsFirstPass);
+      buildTrees(BB, Trees, Clusters, I == 0);
       // We did not collect any clusters. Continue looking for more trees.
-      if (TreeClusters.empty())
+      if (Clusters.empty())
         continue;
 
-      for (TreeArrayTy &TreeCluster : TreeClusters) {
+      for (TreeArrayTy &Cluster : Clusters) {
         // 2. Form groups of nodes that reduce divergence
         GroupTreesVecTy BestGroups;
-        buildMaxReuseGroups(TreeCluster, BestGroups);
+        buildMaxReuseGroups(Cluster, BestGroups);
         if (BestGroups.empty())
           continue;
 
-        // The score is the instruction count savings (# before  - # after).
+        // The score is the instruction count savings (# before - # after).
         // If we apply group G, we are:
         //  i. introducing G.size()-1 new instructions (for the tmp value), and
-        //  ii. removing G.size()*TreeCluster.size() instructions from the trees
+        //  ii. removing G.size()*Cluster.size() instructions from the trees
         // Example:
         //  Group: (+ A + B)
         //     B     B           tmp = A + B
@@ -1878,16 +1827,16 @@ bool AddSubReassociate::run() {
 
         // First take total number of cloned instructions into account.
         // But first we need to find out all affected trees.
-        SmallSetVector<Tree *, 16> AllAffectedTrees;
+        SmallSetVector<Tree *, 16> AffectedTrees;
         for (auto &GroupAndTrees : BestGroups)
           for (auto &TreeAndSign : GroupAndTrees.second)
-            AllAffectedTrees.insert(TreeAndSign.first);
+            AffectedTrees.insert(TreeAndSign.first);
 
         int Score = 0;
-        for (auto *T : AllAffectedTrees)
+        for (auto *T : AffectedTrees)
           Score -= T->getSharedLeavesCount();
 
-        // Compute instruction difference for each group.
+        // Compute difference in instruction count for each group.
         for (auto &GroupAndTreesPair : BestGroups) {
           Group &G = GroupAndTreesPair.first;
           auto AssocInstCnt = G.getAssocInstrCnt();
@@ -1899,7 +1848,7 @@ bool AddSubReassociate::run() {
 
         // Original tree (before canonicalization) could have one instruction
         // less. Lets be conservative and assume this is always the case.
-        Score -= AllAffectedTrees.size();
+        Score -= AffectedTrees.size();
 
         // Check if transformation is profitable.
         if (Score < 0) {
@@ -1909,16 +1858,17 @@ bool AddSubReassociate::run() {
 
         LLVM_DEBUG(dbgs() << "Applying groups. Score=" << Score << "\n");
 
-        removeOldTrees(AllAffectedTrees.getArrayRef());
+        // For each tree in AffectedTrees remove its IR representation.
+        for (Tree *T : AffectedTrees)
+            T->removeTreeFromIR();
         removeGroupFromTree(BestGroups);
 
         // 4. Now that we've got the best groups we can generate code.
-        generateCode(BestGroups, AllAffectedTrees.getArrayRef());
+        generateCode(BestGroups, AffectedTrees.getArrayRef());
 
-        IsBBChanged = true;
+        KeepTrying = true;
         Changed = true;
       }
-      IsFirstPass = false;
     }
   }
   return Changed;
