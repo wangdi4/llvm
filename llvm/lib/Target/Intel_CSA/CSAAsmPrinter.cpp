@@ -1019,9 +1019,11 @@ void CSAAsmPrinter::EmitScratchpad(MCSymbol *Sym, bool IsConstant,
       ValueTy = Type::getInt64Ty(ValueTy->getContext());
     else
       ValueTy = Type::getInt8Ty(ValueTy->getContext());
-  } else if (auto SeqTy = dyn_cast<SequentialType>(ValueTy)) {
     // Arrays and vectors: look through the array type.
-    ValueTy = SeqTy->getElementType();
+  } else if (ValueTy->isArrayTy()) {
+    ValueTy = ValueTy->getArrayElementType();
+  } else if (ValueTy->isVectorTy()) {
+    ValueTy = ValueTy->getVectorElementType();
   }
 
   if (ValueTy->isPointerTy()) {

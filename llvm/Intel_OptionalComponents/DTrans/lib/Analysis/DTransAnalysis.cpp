@@ -6317,11 +6317,15 @@ private:
       }
       // If one of the fields is a vector or array, check for a contained
       // structure type.
-      if (auto *SeqTy = dyn_cast<SequentialType>(ElementTy)) {
+      if (ElementTy->isArrayTy() || ElementTy->isVectorTy()) {
         // Look through multiple layers of arrays or vectors if necessary.
-        llvm::Type *NestedTy = SeqTy;
-        while (isa<SequentialType>(NestedTy))
-          NestedTy = NestedTy->getSequentialElementType();
+        llvm::Type *NestedTy = ElementTy;
+        while (NestedTy->isArrayTy() || NestedTy->isVectorTy()) {
+          if (NestedTy->isArrayTy())
+            NestedTy = NestedTy->getArrayElementType();
+          else
+            NestedTy = NestedTy->getVectorElementType();
+        }
         // If this was an array/vector of structures, set the nested type
         // safety conditions.
         if (NestedTy->isStructTy()) {

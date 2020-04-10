@@ -532,11 +532,9 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
   }
 
   // Array and vector types are Sequential types
-  if (SequentialType *FPSeqType = dyn_cast<SequentialType>(FPType)) {
-
+  if (isa<VectorType>(FPType) || isa<ArrayType>(FPType)) {
     // The target is also sequential type
-    if (SequentialType *TargetSeqType = dyn_cast<SequentialType>(TargetType)) {
-
+    if (isa<VectorType>(TargetType) || isa<ArrayType>(TargetType)) {
       // If the function pointer is array type, then the target must
       // be array type. Also, if the function pointer is vector type
       // then the target must be vector type.
@@ -551,15 +549,22 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
         VectorType *TargetVector = cast<VectorType>(TargetType);
         if (FPVector->getBitWidth() != TargetVector->getBitWidth())
           return false;
+
+        // Check that the number of elements and their types match
+        if (FPVector->getNumElements() != TargetVector->getNumElements())
+          return false;
+        return isSimilarType(FPVector->getElementType(),
+                             TargetVector->getElementType(), TypesUsed);
       }
 
-     // Check that the number of elements match
-      if (FPSeqType->getNumElements() != TargetSeqType->getNumElements())
-        return false;
+      ArrayType *FPArray = cast<ArrayType>(FPType);
+      ArrayType *TargetArray = cast<ArrayType>(TargetType);
 
-      // Check that the type of the elements match
-      return isSimilarType(FPSeqType->getElementType(),
-                        TargetSeqType->getElementType(), TypesUsed);
+      // Check that the number of elements and their types match
+      if (FPArray->getNumElements() != TargetArray->getNumElements())
+        return false;
+      return isSimilarType(FPArray->getElementType(),
+                           TargetArray->getElementType(), TypesUsed);
     }
 
     // Sequential type mismatch

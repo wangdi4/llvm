@@ -30,7 +30,7 @@ using namespace dtrans;
 #define DEBUG_TYPE "dtransanalysis"
 
 bool dtrans::dtransIsCompositeType(Type *Ty) {
-  if (isa<StructType>(Ty) || isa<SequentialType>(Ty))
+  if (isa<StructType>(Ty) || isa<ArrayType>(Ty) || isa<VectorType>(Ty))
     return true;
   return false;
 }
@@ -49,7 +49,7 @@ Type *dtrans::dtransCompositeGetTypeAtIndex(Type *Ty, unsigned Idx) {
     assert(dtransCompositeIndexValid(Ty, Idx) && "Invalid structure index!");
     return STy->getElementType(Idx);
   }
-  return cast<SequentialType>(Ty)->getElementType();
+  return GetElementPtrInst::getTypeAtIndex(Ty, Idx);
 }
 
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
@@ -382,8 +382,10 @@ Type *dtrans::unwrapType(Type *Ty) {
   while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy())
     if (BaseTy->isPointerTy())
       BaseTy = BaseTy->getPointerElementType();
-    else
-      BaseTy = BaseTy->getSequentialElementType();
+    else if (BaseTy->isArrayTy())
+      BaseTy = BaseTy->getArrayElementType();
+    else if (BaseTy->isVectorTy())
+      BaseTy = BaseTy->getVectorElementType();
   return BaseTy;
 }
 
@@ -949,8 +951,10 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
   if (Ty->isPointerTy())
     return true;
 
-  if (auto *SeqTy = dyn_cast<SequentialType>(Ty))
-    return hasPointerType(SeqTy->getElementType());
+  if (Ty->isArrayTy())
+    return hasPointerType(Ty->getArrayElementType());
+  if (Ty->isVectorTy())
+    return hasPointerType(Ty->getVectorElementType());
 
   if (auto *StTy = dyn_cast<StructType>(Ty)) {
     // Check inside of literal structs because those cannot be referenced by
