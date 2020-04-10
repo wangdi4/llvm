@@ -26,7 +26,5 @@
 ; UN_SUPPORTED-NOT: [[MD8]] = !{i32 8}
 ; UN_SUPPORTED-NOT: [[MD16]] = !{i32 16}
 
-; UNSUPPORTED_LOG: Warning! Specified vectorization width for kernel <kernel8> is not supported by the architecture. Fall back to autovectorization mode.
-; UNSUPPORTED_LOG-NEXT: Kernel <kernel8> was successfully vectorized (4)
-; UNSUPPORTED_LOG: Warning! Specified vectorization width for kernel <kernel16> is not supported by the architecture. Fall back to autovectorization mode.
-; UNSUPPORTED_LOG-NEXT: Kernel <kernel16> was successfully vectorized (4)
+; UNSUPPORTED_LOG: Kernel <kernel8> was successfully vectorized (4)
+; UNSUPPORTED_LOG: Kernel <kernel16> was successfully vectorized (4)

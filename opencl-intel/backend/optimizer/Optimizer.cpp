@@ -103,6 +103,8 @@ static cl::opt<bool>
                                 cl::Hidden,
                                 cl::desc("Enable native subgroup functionality"));
 
+using TStringToVFState = Intel::OpenCL::DeviceBackend::TStringToVFState;
+
 extern "C"{
 
 void *createInstToFuncCallPass(bool);
@@ -113,6 +115,8 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
 llvm::Pass *createOCLVecClonePass(const intel::OptimizerConfig *pConfig);
+llvm::Pass *createOCLVPOCheckVFPass(const intel::OptimizerConfig &Config,
+                                    TStringToVFState &kernelVFStates);
 llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
@@ -478,7 +482,8 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops,
-    bool EnableInferAS, bool UseVplan) {
+    bool EnableInferAS, bool UseVplan,
+    TStringToVFState &kernelVFStates) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   bool HasGatherScatterPrefetch = pConfig->GetCpuId().HasGatherScatterPrefetch();
@@ -582,6 +587,9 @@ static void populatePassesPostFailCheck(
         // Calculate VL.
         PM.add(createWeightedInstCounter(true, pConfig->GetCpuId()));
 
+        // Do all vectorization factor checks here.
+        PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
+
         // Prepare Function for VecClone and call VecClone
         PM.add(createOCLVecClonePass(pConfig));
         PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
@@ -617,6 +625,10 @@ static void populatePassesPostFailCheck(
                                pConfig->GetDumpIRDir()));
     }
 
+  } else {
+    // When forced VF equals 1 or in O0 case, check subgroup semantics.
+    if (UseVplan && EnableNativeOpenCLSubgroups)
+      PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
   }
 #ifdef _DEBUG
   PM.add(llvm::createVerifierPass());
@@ -889,7 +901,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
                               OptLevel, pConfig, m_undefinedExternalFunctions,
                               isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-                              UnrollLoops, EnableInferAS, UseVplan);
+                              UnrollLoops, EnableInferAS, UseVplan,
+                              m_kernelToVFState);
 }
 
 void Optimizer::Optimize() {
@@ -918,6 +931,10 @@ void Optimizer::Optimize() {
   }
 
   m_PostFailCheckPM.run(*m_pModule);
+}
+
+const TStringToVFState& Optimizer::GetKernelVFStates() const {
+  return m_kernelToVFState;
 }
 
 bool Optimizer::hasUndefinedExternals() const {

@@ -41,6 +41,9 @@ ExecuteIterations;
 extern llvm::cl::opt<uint32_t>
 BuildIterations;
 
+extern llvm::cl::opt<bool>
+NativeSubgroups;
+
 extern llvm::cl::opt<VectorizerType>
 OptVectorizerType;
 
@@ -130,7 +133,8 @@ namespace Validation
         m_DumpJIT(::DumpJIT),
         m_TimePasses(::TimePasses),
         m_dumpHeuristcIR(::DumpHeuristicIR),
-        m_vectorizerType(::OptVectorizerType)
+        m_vectorizerType(::OptVectorizerType),
+        m_nativeSubgroups(::NativeSubgroups)
     {
     }
 
@@ -159,6 +163,8 @@ namespace Validation
             return m_stopBeforeJIT;
         case RC_BR_DUMP_HEURISTIC_IR :
             return m_dumpHeuristcIR;
+        case RC_BR_NATIVE_SUBGROUPS :
+            return m_nativeSubgroups;
         default:
             return defaultValue;
         }
@@ -316,6 +322,7 @@ namespace Validation
         m_dumpHeuristcIR = ::DumpHeuristicIR;
         m_verbose = ::Verbose;
         m_vectorizerType = ::OptVectorizerType;
+        m_nativeSubgroups = ::NativeSubgroups;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():

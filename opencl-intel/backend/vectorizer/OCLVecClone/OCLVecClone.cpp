@@ -110,11 +110,7 @@ static void updateMetadata(Function &F, Function *Clone) {
   auto KMD = KernelMetadataAPI(&F);
   auto CloneMD = KernelInternalMetadataAPI(Clone);
   // Get VL from the metadata from the original kernel.
-  unsigned VectorLength;
-  if (KMD.hasVecLength()) // check for forced vector length
-    VectorLength = KMD.getVecLength();
-  else
-    VectorLength = FMD.OclRecommendedVectorLength.get();
+  unsigned VectorLength = FMD.OclRecommendedVectorLength.get();
   // Set the "vector_width" metadata to the cloned kernel.
   CloneMD.VectorizedKernel.set(nullptr);
   CloneMD.VectorizedWidth.set(VectorLength);
@@ -538,24 +534,9 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
   }
 
   for (Function *F : Kernels) {
-    auto MD = KernelMetadataAPI(F);
-    auto VecTypeHint = MD.VecTypeHint;
-    bool EnableVect = true;
-
-    if (isSimpleFunction(F))
-      EnableVect = false;
-
-    // Looks for vector type in metadata.
-    if (!MD.hasVecLength() && VecTypeHint.hasValue()) {
-      Type *VTHTy = VecTypeHint.getType();
-      if (!VTHTy->isFloatTy() && !VTHTy->isDoubleTy() &&
-          !VTHTy->isIntegerTy(8) && !VTHTy->isIntegerTy(16) &&
-          !VTHTy->isIntegerTy(32) && !VTHTy->isIntegerTy(64)) {
-        EnableVect = false;
-      }
-    }
-
-    if (EnableVect)
+    auto FMD = KernelInternalMetadataAPI(F);
+    unsigned VectorLength = FMD.OclRecommendedVectorLength.get();
+    if (VectorLength > 1)
       PK.run(F);
   }
 }

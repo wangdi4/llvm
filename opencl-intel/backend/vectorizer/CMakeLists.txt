@@ -35,6 +35,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/name_mangling
   ${BACKEND_ROOT_DIR}/utils/LoopUtils
+  ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${BACKEND_ROOT_DIR}/passes
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
@@ -70,6 +71,7 @@ set(TARGET_INCLUDE_FILES
   OCLVecClone/OCLPrepareKernelForVecClone.h
   OCLVecClone/OCLVecClone.h
   OCLVecClone/OCLPostVect.h
+  OCLVPOCheckVF/OCLVPOCheckVF.h
   Packetizer/Packetizer.h
   PostDominanceFrontier/PostDominanceFrontier.h
   Predication/Linearizer.h
@@ -107,6 +109,7 @@ set(TARGET_SOURCE_FILES
   OCLVecClone/OCLPrepareKernelForVecClone.cpp
   OCLVecClone/OCLVecClone.cpp
   OCLVecClone/OCLPostVect.cpp
+  OCLVPOCheckVF/OCLVPOCheckVF.cpp
   Packetizer/Packetizer.cpp
   Packetizer/PacketizerInstData.cpp
   PostDominanceFrontier/PostDominanceFrontier.cpp

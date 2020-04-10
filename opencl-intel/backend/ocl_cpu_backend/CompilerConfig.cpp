@@ -152,8 +152,8 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     }
 
     bool EnableNativeSubgroups =
-        static_cast<bool>(pBackendOptions->GetIntValue(
-            (int)CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS, false));
+      pBackendOptions->GetBooleanValue(
+        (int)CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS, false);
     if (EnableNativeSubgroups) {
         m_LLVMOptions += " -enable-native-opencl-subgroups";
     }

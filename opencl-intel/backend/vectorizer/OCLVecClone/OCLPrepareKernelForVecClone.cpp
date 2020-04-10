@@ -159,11 +159,7 @@ void OCLPrepareKernelForVecClone::addVectorVariantAttrsToKernel(Function *F) {
   auto KMD = KernelMetadataAPI(F);
   V_ASSERT(MD.OclRecommendedVectorLength.hasValue() &&
            "Vector Length was not set!");
-  unsigned VectorLength;
-  if (KMD.hasVecLength()) // Check for forced vector length
-    VectorLength = KMD.getVecLength();
-  else
-    VectorLength = MD.OclRecommendedVectorLength.get();
+  unsigned VectorLength = MD.OclRecommendedVectorLength.get();
 
   // Use "uniform" parameter for all arguments.
   SmallVector<ParamAttrTy, 3> ParamsVec;
