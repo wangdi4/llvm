@@ -362,93 +362,71 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
 
 // Submit data to device
 int32_t DeviceTy::data_submit(void *TgtPtrBegin, void *HstPtrBegin,
-<<<<<<< HEAD
-    int64_t Size) {
+                              int64_t Size, __tgt_async_info *AsyncInfoPtr) {
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
-  int32_t ret = RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
+  int32_t ret = RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
+                          AsyncInfoPtr);
   OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   return ret;
 #else // INTEL_COLLAB
-  return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
-#endif // INTEL_COLLAB
-=======
-                              int64_t Size, __tgt_async_info *AsyncInfoPtr) {
-
   return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
                           AsyncInfoPtr);
->>>>>>> 32ed29271fd8c56abee8616e5a16a3c9e58f4741
+#endif // INTEL_COLLAB
 }
 
 // Retrieve data from device
 int32_t DeviceTy::data_retrieve(void *HstPtrBegin, void *TgtPtrBegin,
-<<<<<<< HEAD
-    int64_t Size) {
+                                int64_t Size, __tgt_async_info *AsyncInfoPtr) {
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
-  int32_t ret = RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
+  int32_t ret = RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
+                                   AsyncInfoPtr);
   OMPT_TRACE(
       targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   return ret;
 #else // INTEL_COLLAB
-  return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
-#endif // INTEL_COLLAB
-=======
-                                int64_t Size, __tgt_async_info *AsyncInfoPtr) {
   return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
                             AsyncInfoPtr);
->>>>>>> 32ed29271fd8c56abee8616e5a16a3c9e58f4741
+#endif // INTEL_COLLAB
 }
 
 // Run region on device
 int32_t DeviceTy::run_region(void *TgtEntryPtr, void **TgtVarsPtr,
-<<<<<<< HEAD
-    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize) {
+                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                             __tgt_async_info *AsyncInfo) {
 #if INTEL_COLLAB
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize);
+                                TgtOffsets, TgtVarsSize, AsyncInfo);
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
   return ret;
 #else // INTEL_COLLAB
   return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-      TgtVarsSize);
-#endif // INTEL_COLLAB
-=======
-                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                             __tgt_async_info *AsyncInfo) {
-  return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                          TgtVarsSize, AsyncInfo);
->>>>>>> 32ed29271fd8c56abee8616e5a16a3c9e58f4741
+#endif // INTEL_COLLAB
 }
 
 // Run team region on device.
 int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
-<<<<<<< HEAD
-    ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
-    int32_t ThreadLimit, uint64_t LoopTripCount) {
-#if INTEL_COLLAB
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
-  int32_t ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                     TgtOffsets, TgtVarsSize, NumTeams,
-                                     ThreadLimit, LoopTripCount);
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
-  return ret;
-#else // INTEL_COLLAB
-  return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-      TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount);
-#endif // INTEL_COLLAB
-=======
                                   ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                   int32_t NumTeams, int32_t ThreadLimit,
                                   uint64_t LoopTripCount,
                                   __tgt_async_info *AsyncInfo) {
+#if INTEL_COLLAB
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
+  int32_t ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                     TgtOffsets, TgtVarsSize, NumTeams,
+                                     ThreadLimit, LoopTripCount, AsyncInfo);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
+  return ret;
+#else // INTEL_COLLAB
   return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                               TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount,
                               AsyncInfo);
->>>>>>> 32ed29271fd8c56abee8616e5a16a3c9e58f4741
+#endif // INTEL_COLLAB
 }
 
 #if INTEL_COLLAB

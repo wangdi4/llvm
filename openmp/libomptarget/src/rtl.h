@@ -41,7 +41,7 @@ struct RTLInfoTy {
                                       int32_t, int32_t, int32_t, uint64_t,
                                       __tgt_async_info *);
   typedef int64_t(init_requires_ty)(int64_t);
-<<<<<<< HEAD
+  typedef int64_t(synchronize_ty)(int64_t, __tgt_async_info *);
 #if INTEL_COLLAB
   typedef int32_t(data_submit_nowait_ty)(int32_t, void *, void *, int64_t,
                                          void *);
@@ -70,9 +70,6 @@ struct RTLInfoTy {
   typedef int32_t(data_delete_managed_ty)(int32_t, void *);
   typedef int32_t(is_managed_ptr_ty)(int32_t, void *);
 #endif // INTEL_COLLAB
-=======
-  typedef int64_t(synchronize_ty)(int64_t, __tgt_async_info *);
->>>>>>> 32ed29271fd8c56abee8616e5a16a3c9e58f4741
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
                                 // of other RTLs that were registered before,
@@ -102,7 +99,7 @@ struct RTLInfoTy {
   run_region_ty *run_region = nullptr;
   run_team_region_ty *run_team_region = nullptr;
   init_requires_ty *init_requires = nullptr;
-<<<<<<< HEAD
+  synchronize_ty *synchronize = nullptr;
 #if INTEL_COLLAB
   data_submit_nowait_ty *data_submit_nowait = nullptr;
   data_retrieve_nowait_ty *data_retrieve_nowait = nullptr;
@@ -122,9 +119,6 @@ struct RTLInfoTy {
   data_delete_managed_ty *data_delete_managed = nullptr;
   is_managed_ptr_ty *is_managed_ptr = nullptr;
 #endif // INTEL_COLLAB
-=======
-  synchronize_ty *synchronize = nullptr;
->>>>>>> 32ed29271fd8c56abee8616e5a16a3c9e58f4741
 
   // Are there images associated with this RTL.
   bool isUsed = false;

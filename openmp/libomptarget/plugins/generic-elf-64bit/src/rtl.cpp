@@ -317,20 +317,14 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   return OFFLOAD_SUCCESS;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
-    void **tgt_args, ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
-    int32_t thread_limit, uint64_t loop_tripcount /*not used*/) {
-=======
 int32_t __tgt_rtl_run_target_team_region(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
     int32_t thread_limit, uint64_t loop_tripcount /*not used*/,
     __tgt_async_info *async_info /*not used*/) {
->>>>>>> 32ed29271fd8c56abee8616e5a16a3c9e58f4741
   // ignore team num and thread limit.
 
   // Use libffi to launch execution.
@@ -375,6 +369,9 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
                                           async_info_ptr);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_synchronize(int32_t device_id,
                               __tgt_async_info *async_info_ptr) {
   return OFFLOAD_SUCCESS;

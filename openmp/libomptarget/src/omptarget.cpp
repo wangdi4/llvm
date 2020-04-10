@@ -889,11 +889,11 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
                                    TgtNDLoopDesc);
   else if (IsTeamConstruct)
     rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
-                                argsPtr, offsetsPtr, tgt_args.size(),
-                                team_num, thread_limit, ltc);
+                                argsPtr, offsetsPtr, tgt_args.size(), team_num,
+                                thread_limit, ltc, &AsyncInfo);
   else
     rc = Device.run_region(TargetTable->EntriesBegin[TM->Index].addr,
-                           argsPtr, offsetsPtr, tgt_args.size());
+                           argsPtr, offsetsPtr, tgt_args.size(), &AsyncInfo);
 #else  // INTEL_COLLAB
   if (IsTeamConstruct) {
     rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
