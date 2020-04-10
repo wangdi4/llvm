@@ -128,8 +128,13 @@ enum Backend {
   SYCL_BE_PI_OPENCL,
   SYCL_BE_PI_LEVEL0,
   SYCL_BE_PI_CUDA,
-  SYCL_BE_PI_OTHER /*TODO: Remove it since LEVEL0 string is added. Add specific
-                      strings for new backends*/
+  SYCL_BE_DEFAULT =
+  // Our default preferred BE is L0 on Linux, but OCL on Windows.
+#ifdef _WIN32
+      SYCL_BE_PI_OPENCL
+#else
+      SYCL_BE_PI_LEVEL0
+#endif // _WIN32
 };
 
 // Get the preferred BE (selected with SYCL_BE).

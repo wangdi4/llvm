@@ -165,7 +165,7 @@ Config<int, SYCL_PI_TRACE>::Config() {
 }
 
 static const std::map<std::string, Backend> SyclBeMap{
-    {"PI_OTHER", SYCL_BE_PI_LEVEL0},
+    {"PI_OTHER", SYCL_BE_PI_LEVEL0}, // INTEL: remove once no others
     {"PI_LEVEL0", SYCL_BE_PI_LEVEL0},
     // {"PI_CUDA", SYCL_BE_PI_CUDA}, // INTEL
     {"PI_OPENCL", SYCL_BE_PI_OPENCL}};
@@ -180,8 +180,7 @@ Config<Backend, SYCL_BE>::Config() {
     m_Data = It->second;
   }
   else {
-    // Default preference is to L0 BE.
-    m_Data = SYCL_BE_PI_LEVEL0;
+    m_Data = SYCL_BE_DEFAULT;
   }
 }
 
@@ -224,20 +223,10 @@ bool findPlugins(vector_class<std::pair<std::string, Backend>> &PluginNames) {
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
-  // NOTE: the order of the plugins below *does* matter. Some custom platform/
-  // device selection codes, which do not distinguish different backends would
-  // (per current logic in device_selector::select_device()) select first
-  // device that fits. SYCL spec says: "If more than one device receives
-  // the high score then one of those tied devices will be returned, but
-  // which of the devices from the tied set is to be returned is not defined".
-  //
-  // By having L0 plugin seen first we give a slight and subtle preference
-  // to L0 devices.
-  //
-  PluginNames.push_back(std::make_pair<std::string, Backend>(
-      LEVEL0_PLUGIN_NAME, SYCL_BE_PI_LEVEL0));
   PluginNames.push_back(std::make_pair<std::string, Backend>(
       OPENCL_PLUGIN_NAME, SYCL_BE_PI_OPENCL));
+  PluginNames.push_back(std::make_pair<std::string, Backend>(
+      LEVEL0_PLUGIN_NAME, SYCL_BE_PI_LEVEL0));
 #if 0
   // Disabling use of CUDA plugin.
    PluginNames.push_back(std::make_pair<std::string, Backend>(

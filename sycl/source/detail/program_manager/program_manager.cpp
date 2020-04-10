@@ -263,9 +263,8 @@ static bool isDeviceBinaryTypeSupported(const context &C,
 
 #if INTEL_CUSTOMIZATION
   pi::Backend CBackend = (detail::getSyclObjImpl(C)->getPlugin()).getBackend();
-  // Assume all versions of the "other" backend have a compiler.
   // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
-  if ((CBackend == pi::SYCL_BE_PI_OTHER) || (CBackend == pi::SYCL_BE_PI_LEVEL0))
+  if (CBackend == pi::SYCL_BE_PI_LEVEL0)
     return true;
 #endif // INTEL_CUSTOMIZATION
 
