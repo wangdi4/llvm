@@ -46,6 +46,10 @@
 #include "clang/Sema/SemaFixItUtils.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
+#if INTEL_CUSTOMIZATION
+// Needed for llvm::join
+#include "llvm/ADT/StringExtras.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/SaveAndRestore.h"
 using namespace clang;
