@@ -114,6 +114,7 @@ struct Configuration {
   llvm::StringRef sysroot;
   llvm::StringRef thinLTOCacheDir;
   llvm::StringRef thinLTOIndexOnlyArg;
+  llvm::StringRef ltoBasicBlockSections;
   std::pair<llvm::StringRef, llvm::StringRef> thinLTOObjectSuffixReplace;
   std::pair<llvm::StringRef, llvm::StringRef> thinLTOPrefixReplace;
   std::string rpath;
@@ -168,6 +169,7 @@ struct Configuration {
   bool ltoCSProfileGenerate;
   bool ltoDebugPassManager;
   bool ltoNewPassManager;
+  bool ltoUniqueBBSectionNames;
   bool ltoWholeProgramVisibility;
   bool mergeArmExidx;
   bool mipsN32Abi = false;
@@ -178,6 +180,7 @@ struct Configuration {
   bool nostdlib;
   bool oFormatBinary;
   bool omagic;
+  bool optimizeBBJumps;
   bool optRemarksWithHotness;
   bool picThunk;
   bool pie;
