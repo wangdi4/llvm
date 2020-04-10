@@ -1119,6 +1119,13 @@ pi_result L0(piDevicePartition)(
     L0PiDevice->IsSubDevice = true;
     L0PiDevice->RefCount = 1;
     out_devices[i] = L0PiDevice;
+
+    // Cache device properties
+    L0PiDevice->L0DeviceProperties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
+    ZE_CALL(zeDeviceGetProperties(ze_subdevices[i], &L0PiDevice->L0DeviceProperties));
+
+    L0PiDevice->L0DeviceComputeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
+    ZE_CALL(zeDeviceGetComputeProperties(ze_subdevices[i], &L0PiDevice->L0DeviceComputeProperties));
   }
   delete[] ze_subdevices;
 
