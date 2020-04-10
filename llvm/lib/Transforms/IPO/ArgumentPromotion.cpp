@@ -393,14 +393,17 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     CS.getOperandBundlesAsDefs(OpBundles);
 
     CallSite NewCS;
-    Value *NewF = ACS.isCallbackCall() ? CS.getCalledFunction() : NF; // INTEL
+#if INTEL_CUSTOMIZATION
+    Function *NewF = ACS.isCallbackCall() ? CS.getCalledFunction() : NF;
+    FunctionType *FType = NewF->getFunctionType();
+#endif // INTEL_CUSTOMIZATION
     if (InvokeInst *II = dyn_cast<InvokeInst>(Call)) {
-      NewCS = InvokeInst::Create(NewF, II->getNormalDest(), // INTEL
-                                 II->getUnwindDest(),       // INTEL
-                                 Args, OpBundles, "", Call);
+      NewCS =
+          InvokeInst::Create(FType, NewF, II->getNormalDest(), // INTEL
+                             II->getUnwindDest(), Args, OpBundles, "", Call);
     } else {
-      auto *NewCall =                                        // INTEL
-          CallInst::Create(NewF, Args, OpBundles, "", Call); // INTEL
+      auto *NewCall =
+          CallInst::Create(FType, NewF, Args, OpBundles, "", Call); // INTEL
       NewCall->setTailCallKind(cast<CallInst>(Call)->getTailCallKind());
       NewCS = NewCall;
     }

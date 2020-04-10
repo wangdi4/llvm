@@ -24,7 +24,7 @@ target device_triples = "spir64"
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
 
-!0 = !{i32 1, !"global_x", i32 0, i32 0}
+!0 = !{i32 1, !"global_x", i32 0, i32 0, i32 addrspace(1)* @global_x}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{}
 !3 = !{!"clang version 9.0.0"}

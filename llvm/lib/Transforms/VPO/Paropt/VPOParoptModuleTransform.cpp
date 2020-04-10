@@ -1026,6 +1026,8 @@ void VPOParoptModuleTransform::processDeviceTriples() {
 //                             // zero if it is entry point.
 //      int32_t    flags;      // Flags of the entry.
 //      int32_t    reserved;   // Reserved by the runtime library.
+//      size_t     name_size;  // SPIR-V specific: size of 'name' string,
+//                             // including terminating null.
 // };
 StructType *VPOParoptModuleTransform::getTgtOffloadEntryTy() {
   if (TgtOffloadEntryTy)
@@ -1033,13 +1035,16 @@ StructType *VPOParoptModuleTransform::getTgtOffloadEntryTy() {
 
   bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
 
-  Type *TyArgs[] = {
+  SmallVector<Type *, 6> TyArgs = {
     Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_GENERIC : 0),
     Type::getInt8PtrTy(C, IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0),
     GeneralUtils::getSizeTTy(&M),
     Type::getInt32Ty(C),
     Type::getInt32Ty(C)
   };
+
+  if (IsTargetSPIRV)
+    TyArgs.push_back(GeneralUtils::getSizeTTy(&M));
 
   TgtOffloadEntryTy =
       StructType::create(C, TyArgs, "struct.__tgt_offload_entry", false);
@@ -1073,6 +1078,13 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
     auto && getMDString = [Node](unsigned I) {
       auto *V = cast<MDString>(Node->getOperand(I));
       return V->getString();
+    };
+
+    auto && getMDVar = [Node](unsigned I) -> GlobalVariable * {
+      if (I >= Node->getNumOperands())
+        return nullptr;
+      auto *V = cast<ConstantAsMetadata>(Node->getOperand(I));
+      return cast<GlobalVariable>(V->getValue());
     };
 
     switch (getMDInt(0)) {
@@ -1110,8 +1122,8 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
         auto Name = getMDString(1u);
         auto Flags = getMDInt(2u);
         auto Idx = getMDInt(3u);
+        auto *Var = getMDVar(4u);
 
-        auto *Var = M.getGlobalVariable(Name, true);
         assert(Var && "no global variable with given name");
         assert(Var->isTargetDeclare() && "must be a target declare variable");
 
@@ -1125,7 +1137,7 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
             Var->getLinkage() == GlobalValue::InternalLinkage)
           Var->setLinkage(GlobalValue::ExternalLinkage);
 
-        addEntry(new VarEntry(Var, Flags), Idx);
+        addEntry(new VarEntry(Var, Name, Flags), Idx);
         break;
       }
       default:
@@ -1236,9 +1248,10 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
     auto *EntryTy = getTgtOffloadEntryTy();
 
     SmallVector<Constant *, 5u> EntryInitBuffer;
-    if (!IsTargetSPIRV && EntryAddress)
+    if ((!IsTargetSPIRV || isa<VarEntry>(E)) && EntryAddress)
       EntryInitBuffer.push_back(
-          ConstantExpr::getBitCast(EntryAddress, EntryTy->getElementType(0)));
+          ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+              EntryAddress, EntryTy->getElementType(0)));
     else
       EntryInitBuffer.push_back(
           Constant::getNullValue(EntryTy->getElementType(0)));
@@ -1249,6 +1262,18 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
     EntryInitBuffer.push_back(
         ConstantInt::get(EntryTy->getElementType(3), E->getFlags()));
     EntryInitBuffer.push_back(ConstantInt::get(EntryTy->getElementType(4), 0));
+
+    if (IsTargetSPIRV) {
+      // We need to know the length of the entry's name string
+      // to be able to transfer it from the device to host.
+      // We cannot change representation of the entry on the host,
+      // since it will be incompatible with other implementations.
+      auto *NameStrTy = Str->getValueType();
+      uint64_t NameStrSize = NameStrTy->getArrayNumElements() *
+          M.getDataLayout().getTypeAllocSize(NameStrTy->getArrayElementType());
+      EntryInitBuffer.push_back(
+          ConstantInt::get(EntryTy->getElementType(5), NameStrSize));
+    }
 
     Constant *EntryInit = ConstantStruct::get(EntryTy, EntryInitBuffer);
 

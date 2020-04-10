@@ -264,8 +264,8 @@ private:
     };
 
   public:
-    explicit VarEntry(GlobalVariable *Var, uint32_t Flags)
-      : OffloadEntry(VarKind, Var->getName(), Flags) {
+    explicit VarEntry(GlobalVariable *Var, StringRef Name, uint32_t Flags)
+      : OffloadEntry(VarKind, Name, Flags) {
       setAddress(Var);
     }
 

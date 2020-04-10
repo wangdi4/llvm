@@ -79,8 +79,8 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(
   auto Iter = df_begin(Begin);
   auto EndIter = df_end(Begin);
   while (Iter != EndIter) {
-    cloneBasicBlock(*Iter, Prefix.str(), BlockMap, ValueMap, End->getIterator(),
-                    DA);
+    cloneBasicBlock(*Iter, Prefix.str(), BlockMap, ValueMap,
+                    ++End->getIterator(), DA);
     if (*Iter == End) {
       // Don't go outside of SESE region. It does move the iterator, so avoid
       // usual increment.

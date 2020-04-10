@@ -2154,6 +2154,7 @@ public:
         if (!FCalled)
           return false;
         auto *StrType = getStructTypeOfMethod(*FCalled);
+        assert(StrType && "Expected class type for array method");
         assert(std::find(Arrays.begin(), Arrays.end(), StrType) !=
                    Arrays.end() &&
                "Unexpected instruction");

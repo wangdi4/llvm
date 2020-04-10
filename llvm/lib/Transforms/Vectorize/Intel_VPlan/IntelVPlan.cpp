@@ -81,7 +81,7 @@ void ilist_traits<VPBasicBlock>::removeNodeFromList(VPBasicBlock *VPBB) {
   VPBB->setParent(nullptr);
 }
 
-// TODO: Update deleteNode once adding an erasefromparent() function for
+// TODO: Update deleteNode once adding an eraseFromParent() function for
 // VPBasicBlock.
 void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {}
 

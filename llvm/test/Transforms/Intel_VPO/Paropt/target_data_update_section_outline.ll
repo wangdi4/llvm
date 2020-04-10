@@ -71,5 +71,5 @@ attributes #2 = { nounwind }
 !omp_offload.info = !{!0}
 !llvm.module.flags = !{!1}
 
-!0 = !{i32 1, !"a", i32 0, i32 0}
+!0 = !{i32 1, !"a", i32 0, i32 0, [100 x i32]* @a}
 !1 = !{i32 1, !"wchar_size", i32 4}

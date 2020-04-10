@@ -2678,7 +2678,20 @@ static void getTargetEntryUniqueInfo(ASTContext &C, SourceLocation Loc,
   FileID = ID.getFile();
   LineNum = PLoc.getLine();
 }
-
+#if INTEL_COLLAB
+/// Generate Itanium ABI mangled name for the given variable
+/// declaration.
+static std::string getItaniumABIMangledName(const VarDecl *VD) {
+  auto &Context = VD->getASTContext();
+  std::unique_ptr<MangleContext> MC{
+      ItaniumMangleContext::create(Context, Context.getDiagnostics())};
+  SmallString<256> Buffer;
+  llvm::raw_svector_ostream Out(Buffer);
+  MC->mangleName(VD, Out);
+  assert(!Buffer.empty() && "Itanium name mangling failed.");
+  return std::string(Buffer.str());
+}
+#endif  // INTEL_COLLAB
 Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
   if (CGM.getLangOpts().OpenMPSimd)
     return Address::invalid();
@@ -4179,6 +4192,9 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   // Create function that emits metadata for each device global variable entry;
   auto &&DeviceGlobalVarMetadataEmitter =
       [&C, &OrderedEntries, &GetMDInt, &GetMDString,
+#if INTEL_COLLAB
+       &CGM = CGM,
+#endif  // INTEL_COLLAB
        MD](StringRef MangledName,
            const OffloadEntriesInfoManagerTy::OffloadEntryInfoDeviceGlobalVar
                &E) {
@@ -4189,9 +4205,19 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
         // - Entry 2 -> Declare target kind.
         // - Entry 3 -> Order the entry was created.
         // The first element of the metadata node is the kind.
+#if INTEL_COLLAB
+        SmallVector<llvm::Metadata *, 5> Ops = {
+            GetMDInt(E.getKind()), GetMDString(MangledName),
+            GetMDInt(E.getFlags()), GetMDInt(E.getOrder())};
+
+        if (CGM.getLangOpts().OpenMPLateOutline)
+          // - Entry 4 -> The variable address (GlobalVariable).
+          Ops.push_back(llvm::ConstantAsMetadata::get(E.getAddress()));
+#else  // INTEL_COLLAB
         llvm::Metadata *Ops[] = {
             GetMDInt(E.getKind()), GetMDString(MangledName),
             GetMDInt(E.getFlags()), GetMDInt(E.getOrder())};
+#endif  // INTEL_COLLAB
 
         // Save this entry in the right position of the ordered entries array.
         OrderedEntries[E.getOrder()] =
@@ -10353,10 +10379,19 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   StringRef VarName;
   CharUnits VarSize;
   llvm::GlobalValue::LinkageTypes Linkage;
+#if INTEL_COLLAB
+  std::string ItaniumMangledName;
+#endif  // INTEL_COLLAB
 
   if (*Res == OMPDeclareTargetDeclAttr::MT_To &&
       !HasRequiresUnifiedSharedMemory) {
     Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo;
+#if INTEL_COLLAB
+    if (CGM.getLangOpts().OpenMPLateOutline) {
+      ItaniumMangledName = getItaniumABIMangledName(VD);
+      VarName = ItaniumMangledName;
+    } else
+#endif // INTEL_COLLAB
     VarName = CGM.getMangledName(VD);
     if (VD->hasDefinition(CGM.getContext()) != VarDecl::DeclarationOnly) {
       VarSize = CGM.getContext().getTypeSizeInChars(VD->getType());

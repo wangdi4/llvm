@@ -56,7 +56,7 @@ void ilist_traits<VPInstruction>::transferNodesFromList(ilist_traits &FromList,
 }
 
 void ilist_traits<VPInstruction>::deleteNode(VPInstruction *VPInst) {
-  assert(!VPInst->getParent() && "MI is still in a block!");
+  assert(!VPInst->getParent() && "VPInstruction is still in a block!");
   getListOwner<VPBasicBlock, VPInstruction>(this)->eraseInstruction(VPInst);
 }
 

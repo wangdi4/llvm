@@ -12642,7 +12642,6 @@ OMPClause *Sema::ActOnOpenMPSimdlenClause(Expr *Len, SourceLocation StartLoc,
   if (T.getArch() == llvm::Triple::spir64 ||
       T.getArch() == llvm::Triple::spir) {
     Diag(StartLoc, diag::warn_omp_simdlen_in_target_spir);
-    return nullptr;
   }
 #endif // INTEL_CUSTOMIZATION
   return new (Context)
