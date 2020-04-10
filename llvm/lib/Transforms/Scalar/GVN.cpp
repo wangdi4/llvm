@@ -1458,7 +1458,7 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
 
     auto *NewLoad = new LoadInst(
         LI->getType(), LoadPtr, LI->getName() + ".pre", LI->isVolatile(),
-        MaybeAlign(LI->getAlignment()), LI->getOrdering(), LI->getSyncScopeID(),
+        LI->getAlign(), LI->getOrdering(), LI->getSyncScopeID(),
         UnavailablePred->getTerminator());
     NewLoad->setDebugLoc(LI->getDebugLoc());
 

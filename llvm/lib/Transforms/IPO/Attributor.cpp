@@ -5654,7 +5654,7 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
             constructPointer(PointeeTy->getPointerTo(), Base,
                              PrivStructLayout->getElementOffset(u), IRB, DL);
         LoadInst *L = new LoadInst(PointeeTy, Ptr, "", IP);
-        L->setAlignment(MaybeAlign(1));
+        L->setAlignment(Align(1));
         ReplacementValues.push_back(L);
       }
     } else if (auto *PrivArrayType = dyn_cast<ArrayType>(PrivType)) {
@@ -5665,12 +5665,12 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
         Value *Ptr =
             constructPointer(PointeePtrTy, Base, u * PointeeTySize, IRB, DL);
         LoadInst *L = new LoadInst(PointeePtrTy, Ptr, "", IP);
-        L->setAlignment(MaybeAlign(1));
+        L->setAlignment(Align(1));
         ReplacementValues.push_back(L);
       }
     } else {
       LoadInst *L = new LoadInst(PrivType, Base, "", IP);
-      L->setAlignment(MaybeAlign(1));
+      L->setAlignment(Align(1));
       ReplacementValues.push_back(L);
     }
   }
