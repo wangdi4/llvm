@@ -25,7 +25,6 @@
 ; }
 ;
 ;
-; CHECK: call {{.+}} @__kmpc_ok_to_fork
 ; CHECK: call {{.+}} @__kmpc_fork_call
 
 ; ModuleID = 'parallel_exit.c'

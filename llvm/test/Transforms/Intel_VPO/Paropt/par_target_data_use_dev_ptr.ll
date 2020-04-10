@@ -44,7 +44,7 @@ entry:
   %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx1)
 
 ; Check that only %array_device is passed into the outlined function for DIR.OMP.PARALLEL
-; CHECK:  call void @main.DIR.OMP.PARALLEL{{.+}}(i32* %{{.+}}, i32* %{{.+}}, i32** %array_device)
+; CHECK:  call void {{.+}} @__kmpc_fork_call(%struct.ident_t* {{.+}}, i32 1, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i32**)* @main.DIR.OMP.PARALLEL{{.+}} to void (i32*, i32*, ...)*), i32** %array_device)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.NUM_THREADS"(i32 1), "QUAL.OMP.SHARED"(i32** %array_device) ]
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %array_device) ]

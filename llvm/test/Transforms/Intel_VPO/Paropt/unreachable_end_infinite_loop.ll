@@ -60,7 +60,7 @@ entry:
 ; After transform, there should be no directives left, and if we don't comp-fail,
 ; then it means we're fine.
 ; TFORM-NOT:  call token @llvm.directive.region.entry()
-; TFORM: tail call i32 @__kmpc_ok_to_fork
+; TFORM: call void {{.+}} @__kmpc_fork_call
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* %tid) ]
 
