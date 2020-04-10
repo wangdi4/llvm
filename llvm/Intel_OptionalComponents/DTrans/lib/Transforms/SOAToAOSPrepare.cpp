@@ -1981,16 +1981,15 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       if (NewClassI->getArrayField() == Idx)
         continue;
       SmallVector<Value *, 8> Indices;
+      Value *SVal = SI->getOperand(0);
       Indices.append(GEP->idx_begin(), GEP->idx_end());
       auto *NewGEP = GetElementPtrInst::Create(GEP->getSourceElementType(),
                                                CopyArg, Indices, "", GEP);
-      auto *Ld = new LoadInst(NewGEP, "", GEP);
-      if (isa<Argument>(SI->getOperand(0))) {
-        Value *V = SI->getValueOperand();
-        V->replaceAllUsesWith(Ld);
-      } else {
+      auto *Ld = new LoadInst(SVal->getType(), NewGEP, "", GEP);
+      if (isa<Argument>(SVal))
+        SVal->replaceAllUsesWith(Ld);
+      else
         SI->setOperand(0, Ld);
-      }
       DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
         dbgs() << "  Transformed to : " << *NewGEP << "\n";
         dbgs() << "                   " << *Ld << "\n";
@@ -2030,7 +2029,8 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
                                     GetElementPtrInst *GEP) {
     GetElementPtrInst *NewGEP = cast<GetElementPtrInst>(GEP->clone());
     NewGEP->insertBefore(CtorCB);
-    LoadInst *NewLd = new LoadInst(NewGEP, "", CtorCB);
+    LoadInst *NewLd = new LoadInst(NewCCtor->getArg(1)->getType(), NewGEP, "",
+                                   CtorCB);
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "  Replacing Ctor call with CCtor call: \n";
       dbgs() << " GEP: " << *NewGEP << "\n";
@@ -2286,7 +2286,8 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
       // Generate load instruction to get element.
       Argument *Arg = &*I;
       auto *SI = cast<StoreInst>(Arg->user_back());
-      Value *LI = new LoadInst(&*I2, "", SI);
+      Value *SVal = SI->getValueOperand();
+      Value *LI = new LoadInst(SVal->getType(), &*I2, "", SI);
       SI->setOperand(0, LI);
     } else {
       I->replaceAllUsesWith(&*I2);

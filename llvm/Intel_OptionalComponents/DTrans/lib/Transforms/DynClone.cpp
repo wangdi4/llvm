@@ -2472,7 +2472,7 @@ void DynCloneImpl::transformInitRoutine(void) {
         AllocaInst *AI = TypeAllocIMap[Ty];
         assert(AI && "Expected Local var for Ty");
 
-        Value *LI = new LoadInst(AI, "d.ld", Inst);
+        Value *LI = new LoadInst(AI->getAllocatedType(), AI, "d.ld", Inst);
         Value *SOp = Inst->getValueOperand();
         ICmpInst *ICmp = new ICmpInst(Inst, Pred, LI, SOp, "d.cmp");
         SelectInst *Sel = SelectInst::Create(ICmp, LI, SOp, "d.sel", Inst);
@@ -2505,7 +2505,7 @@ void DynCloneImpl::transformInitRoutine(void) {
       [&GenerateFinalCondWithLIValue](AllocaInst *AI, Value *V,
                                       CmpInst::Predicate Pred, Value *PrevCond,
                                       ReturnInst *RI) -> Value * {
-    LoadInst *LI = new LoadInst(AI, "d.ld", RI);
+    LoadInst *LI = new LoadInst(AI->getAllocatedType(), AI, "d.ld", RI);
     LLVM_DEBUG(dbgs() << "      " << *LI << "\n");
     return GenerateFinalCondWithLIValue(LI, V, Pred, PrevCond, RI);
   };
@@ -2845,7 +2845,8 @@ void DynCloneImpl::transformInitRoutine(void) {
         new AllocaInst(Val->getType(), DL.getAllocaAddrSpace(), nullptr,
                        "dyn.alloc", &InitRoutine->getEntryBlock().front());
     StoreInst *SI = new StoreInst(Val, AI, CI->getNextNode());
-    LoadInst *LI = new LoadInst(AI, "dyn.alloc.ld", InsertBefore);
+    LoadInst *LI = new LoadInst(AI->getAllocatedType(), AI, "dyn.alloc.ld",
+                                InsertBefore);
     (void)SI;
     LLVM_DEBUG(dbgs() << " Save and Restore: " << *Val << "\n");
     LLVM_DEBUG(dbgs() << "    " << *AI << "\n"
@@ -3797,7 +3798,7 @@ void DynCloneImpl::transformIR(void) {
     Type *PNewTy = NewTy->getPointerTo();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
     Instruction *NewLI =
-        new LoadInst(NewSrcOp, "", LI->isVolatile(),
+        new LoadInst(NewTy, NewSrcOp, "", LI->isVolatile(),
                      MaybeAlign(DL.getABITypeAlignment(NewTy)),
                      LI->getOrdering(), LI->getSyncScopeID(), LI);
 
