@@ -1495,15 +1495,21 @@ static void emitCallStackNotes(Sema &S, FunctionDecl *FD,
                                               unsigned> *DiagsCount = nullptr) {
   auto FnIt = S.DeviceKnownEmittedFns.find(FD);
   while (FnIt != S.DeviceKnownEmittedFns.end()) {
+    // Respect error limit.
+    if (S.Diags.hasFatalErrorOccurred())
+      return;
     DiagnosticBuilder Builder(
         S.Diags.Report(FnIt->second.Loc, diag::note_called_by));
     Builder << FnIt->second.FD;
+<<<<<<< HEAD
     Builder.setForceEmit();
     // Count the number of deferred diagnostics directly or indirectly
     // triggered by a function.
     if (DiagsCount)
       (*DiagsCount)[FnIt->second.FD]++;
 
+=======
+>>>>>>> 2c31aa2de13a23a00ced87123b92e905f2929c7b
     FnIt = S.DeviceKnownEmittedFns.find(FnIt->second.FD);
   }
 }
@@ -1537,6 +1543,7 @@ namespace {
 /// If the function is decided to be emitted, its contained deferred diagnostics
 /// are emitted, together with the information about the use stack.
 ///
+<<<<<<< HEAD
 /// The number of deferred diagnostics directly or indirectly triggered by
 /// a function is counted. A function is visited at least once to count
 /// the triggered diagnostics. For subsequent visits, if the number of deferred
@@ -1545,10 +1552,13 @@ namespace {
 /// node does not trigger any deferred diagnostics and does not trigger any
 /// OpenMP device context, otherwise the counter cannot be 0.
 ///
+=======
+>>>>>>> 2c31aa2de13a23a00ced87123b92e905f2929c7b
 class DeferredDiagnosticsEmitter
     : public UsedDeclVisitor<DeferredDiagnosticsEmitter> {
 public:
   typedef UsedDeclVisitor<DeferredDiagnosticsEmitter> Inherited;
+<<<<<<< HEAD
   llvm::SmallSet<CanonicalDeclPtr<Decl>, 4> Visited;
   llvm::SmallVector<CanonicalDeclPtr<FunctionDecl>, 4> UseStack;
 
@@ -1557,6 +1567,23 @@ public:
 
   // Emission state of the root node of the current use graph.
   bool ShouldEmit;
+=======
+
+  // Whether the function is already in the current use-path.
+  llvm::SmallSet<CanonicalDeclPtr<Decl>, 4> InUsePath;
+
+  // The current use-path.
+  llvm::SmallVector<CanonicalDeclPtr<FunctionDecl>, 4> UsePath;
+
+  // Whether the visiting of the function has been done. Done[0] is for the
+  // case not in OpenMP device context. Done[1] is for the case in OpenMP
+  // device context. We need two sets because diagnostics emission may be
+  // different depending on whether it is in OpenMP device context.
+  llvm::SmallSet<CanonicalDeclPtr<Decl>, 4> DoneMap[2];
+
+  // Emission state of the root node of the current use graph.
+  bool ShouldEmitRootNode;
+>>>>>>> 2c31aa2de13a23a00ced87123b92e905f2929c7b
 
   // Current OpenMP device context level. It is initialized to 0 and each
   // entering of device context increases it by 1 and each exit decreases
@@ -1564,7 +1591,7 @@ public:
   unsigned InOMPDeviceContext;
 
   DeferredDiagnosticsEmitter(Sema &S)
-      : Inherited(S), ShouldEmit(false), InOMPDeviceContext(0) {}
+      : Inherited(S), ShouldEmitRootNode(false), InOMPDeviceContext(0) {}
 
   void VisitOMPTargetDirective(OMPTargetDirective *Node) {
     ++InOMPDeviceContext;
@@ -1597,6 +1624,7 @@ public:
   }
 
   void checkFunc(SourceLocation Loc, FunctionDecl *FD) {
+<<<<<<< HEAD
     auto DiagsCountIt = DiagsCount.find(FD);
     FunctionDecl *Caller = UseStack.empty() ? nullptr : UseStack.back();
     auto IsKnownEmitted = S.getEmissionStatus(FD, /*Final=*/true) ==
@@ -1605,9 +1633,15 @@ public:
       ShouldEmit = IsKnownEmitted;
     if ((!ShouldEmit && !S.getLangOpts().OpenMP && !Caller) ||
         S.shouldIgnoreInHostDeviceCheck(FD) || Visited.count(FD))
+=======
+    auto &Done = DoneMap[InOMPDeviceContext];
+    FunctionDecl *Caller = UsePath.empty() ? nullptr : UsePath.back();
+    if ((!ShouldEmitRootNode && !S.getLangOpts().OpenMP && !Caller) ||
+        S.shouldIgnoreInHostDeviceCheck(FD) || InUsePath.count(FD))
+>>>>>>> 2c31aa2de13a23a00ced87123b92e905f2929c7b
       return;
     // Finalize analysis of OpenMP-specific constructs.
-    if (Caller && S.LangOpts.OpenMP && UseStack.size() == 1)
+    if (Caller && S.LangOpts.OpenMP && UsePath.size() == 1)
       S.finalizeOpenMPDelayedAnalysis(Caller, FD, Loc);
     // If the number of deferred diagnostics for the function is available
     // and is 0 and currently is not in OpenMP device context, the visit of
@@ -1622,21 +1656,38 @@ public:
       S.finalizeSYCLDelayedAnalysis(Caller, FD, Loc);
     if (Caller)
       S.DeviceKnownEmittedFns[FD] = {Caller, Loc};
+<<<<<<< HEAD
     if (ShouldEmit || InOMPDeviceContext)
       emitDeferredDiags(FD, Caller);
     Visited.insert(FD);
     UseStack.push_back(FD);
+=======
+    // Always emit deferred diagnostics for the direct users. This does not
+    // lead to explosion of diagnostics since each user is visited at most
+    // twice.
+    if (ShouldEmitRootNode || InOMPDeviceContext)
+      emitDeferredDiags(FD, Caller);
+    // Do not revisit a function if the function body has been completely
+    // visited before.
+    if (Done.count(FD))
+      return;
+    InUsePath.insert(FD);
+    UsePath.push_back(FD);
+>>>>>>> 2c31aa2de13a23a00ced87123b92e905f2929c7b
     if (auto *S = FD->getBody()) {
       this->Visit(S);
     }
-    UseStack.pop_back();
-    Visited.erase(FD);
+    UsePath.pop_back();
+    InUsePath.erase(FD);
+    Done.insert(FD);
   }
 
   void checkRecordedDecl(Decl *D) {
-    if (auto *FD = dyn_cast<FunctionDecl>(D))
+    if (auto *FD = dyn_cast<FunctionDecl>(D)) {
+      ShouldEmitRootNode = S.getEmissionStatus(FD, /*Final=*/true) ==
+                           Sema::FunctionEmissionStatus::Emitted;
       checkFunc(SourceLocation(), FD);
-    else
+    } else
       checkVar(cast<VarDecl>(D));
   }
 
@@ -1648,6 +1699,12 @@ public:
     bool HasWarningOrError = false;
     bool FirstDiag = true;
     for (PartialDiagnosticAt &PDAt : It->second) {
+<<<<<<< HEAD
+=======
+      // Respect error limit.
+      if (S.Diags.hasFatalErrorOccurred())
+        return;
+>>>>>>> 2c31aa2de13a23a00ced87123b92e905f2929c7b
       const SourceLocation &Loc = PDAt.first;
       const PartialDiagnostic &PD = PDAt.second;
       HasWarningOrError |=
@@ -1655,6 +1712,7 @@ public:
           DiagnosticsEngine::Warning;
       {
         DiagnosticBuilder Builder(S.Diags.Report(Loc, PD.getDiagID()));
+<<<<<<< HEAD
         Builder.setForceEmit();
         PD.Emit(Builder);
       }
@@ -1664,6 +1722,14 @@ public:
       // cause the note not emitted.
       if (FirstDiag && HasWarningOrError && ShowCallStack) {
         emitCallStackNotes(S, FD, &DiagsCount);
+=======
+        PD.Emit(Builder);
+      }
+      // Emit the note on the first diagnostic in case too many diagnostics
+      // cause the note not emitted.
+      if (FirstDiag && HasWarningOrError && ShowCallStack) {
+        emitCallStackNotes(S, FD);
+>>>>>>> 2c31aa2de13a23a00ced87123b92e905f2929c7b
         FirstDiag = false;
       }
     }
