@@ -161,6 +161,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include <algorithm>
 #include <cassert>
+#include <tuple>
 #include <utility>
 
 using namespace llvm;
@@ -865,41 +866,44 @@ void Group::sort() {
 }
 
 // Begin of AddSubReassociatePass
+Optional<int64_t> AddSubReassociate::findLoadDistance(Value *V1, Value *V2,
+                                                      unsigned MaxDepth) const {
 
-bool AddSubReassociate::getDistance_rec(Value *V1, Value *V2, int MaxDepth,
-                                        int64_t &Distance) const {
-  if (MaxDepth == 0)
-    return false;
-  auto *I1 = dyn_cast<Instruction>(V1);
-  auto *I2 = dyn_cast<Instruction>(V2);
-  if (!I1 || !I2) // Both must be instructions
-    return false;
+  SmallVector<std::tuple<Value *, Value *, unsigned>, 4> Stack(1, {V1, V2, 0});
 
-  if (I1->getOpcode() != I2->getOpcode())
-    return false;
+  while (!Stack.empty()) {
+    Value *Left;
+    Value *Right;
+    unsigned Depth;
+    std::tie(Left, Right, Depth) = Stack.pop_back_val();
 
-  auto *LI1 = dyn_cast<LoadInst>(I1);
-  auto *LI2 = dyn_cast<LoadInst>(I2);
-  if (LI1 && LI2) {
-    if (LI1->getPointerAddressSpace() != LI2->getPointerAddressSpace())
-      return false;
-    // Check pointers
-    Value *Ptr1 = LI1->getPointerOperand();
-    Value *Ptr2 = LI2->getPointerOperand();
-    const SCEV *Scev1 = SE->getSCEV(Ptr1);
-    const SCEV *Scev2 = SE->getSCEV(Ptr2);
-    const SCEV *Diff = SE->getMinusSCEV(Scev1, Scev2);
-    if (const auto *DiffConst = dyn_cast<SCEVConstant>(Diff)) {
-      Distance = DiffConst->getAPInt().getSExtValue();
-      return true;
+    auto *I1 = dyn_cast<Instruction>(Left);
+    auto *I2 = dyn_cast<Instruction>(Right);
+    // Both must be instructions with same opcode
+    if (!I1 || !I2 || I1->getOpcode() != I2->getOpcode())
+      continue;
+    auto *LI1 = dyn_cast<LoadInst>(I1);
+    auto *LI2 = dyn_cast<LoadInst>(I2);
+    if (LI1 && LI2) {
+      if (LI1->getPointerAddressSpace() != LI2->getPointerAddressSpace())
+        continue;
+      // Check pointers
+      Value *Ptr1 = LI1->getPointerOperand();
+      Value *Ptr2 = LI2->getPointerOperand();
+      const SCEV *Scev1 = SE->getSCEV(Ptr1);
+      const SCEV *Scev2 = SE->getSCEV(Ptr2);
+      const SCEV *Diff = SE->getMinusSCEV(Scev1, Scev2);
+      if (const auto *DiffConst = dyn_cast<SCEVConstant>(Diff))
+        return DiffConst->getAPInt().getSExtValue();
+      continue;
     }
+    if (Depth == MaxDepth)
+      continue;
+    ++Depth;
+    for (int I = I1->getNumOperands() - 1; I >= 0; --I)
+      Stack.emplace_back(I1->getOperand(I), I2->getOperand(I), Depth);
   }
-  for (unsigned I = 0, E = I1->getNumOperands(); I != E; ++I) {
-    if (getDistance_rec(I1->getOperand(I), I2->getOperand(I), MaxDepth - 1,
-                        Distance))
-      return true;
-  }
-  return false;
+  return None;
 }
 
 // Returns the sum of the absolute distances of SortedLeaves and G2.
@@ -911,9 +915,9 @@ int64_t AddSubReassociate::getSumAbsDistances(const CanonForm &G1,
        ++G1It, ++G2It) {
     Value *V1 = G1It->getLeaf();
     Value *V2 = G2It->getLeaf();
-    int64_t AbsDist = 0;
-    if (getDistance_rec(V1, V2, 2, AbsDist))
-      Sum += std::abs(AbsDist);
+    Optional<int64_t> Distance = findLoadDistance(V1, V2);
+    if (Distance)
+      Sum += std::abs(Distance.getValue());
     else
       return MAX_DISTANCE;
   }
@@ -943,9 +947,8 @@ int64_t AddSubReassociate::getBestSortedScore_rec(
 
   // Go through the remaining G1 leaves looking for matches with G2LeafV.
   SmallVector<CanonNode, 4> Matches;
-  int64_t Distance = 0;
   for (auto &G1Leaf : G1Leaves)
-    if (getDistance_rec(G2LeafV, G1Leaf.getLeaf(), 2, Distance))
+    if (findLoadDistance(G2LeafV, G1Leaf.getLeaf()))
       Matches.push_back(G1Leaf);
   // Early exit if no match.
   if (Matches.empty())

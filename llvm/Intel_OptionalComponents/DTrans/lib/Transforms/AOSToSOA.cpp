@@ -933,18 +933,22 @@ public:
   // \p FieldNumVal is a constant integer for the field number.
   // Instructions are inserted before \p InsertBefore
   //
-  // Generates:
+  // For example, if the 'PeelType' is: { i64*, i32*, struct.foo** }
+  // and the array for field 1 is desired. This generates the following
+  // to load the base address for that array:
   //    %peel_base = getelementptr % __soa_struct.t, %__soa_struct.t*
   //                     @__soa_struct.t, i64 0, i32 1
   //    %soa_addr = load i32*, i32** %peel_base
-  Instruction *createPeelFieldLoad(llvm::Type *PeelType, Value *PeelVar,
+  Instruction *createPeelFieldLoad(llvm::StructType *PeelType, Value *PeelVar,
                                    Value *FieldNumVal,
                                    Instruction *InsertBefore) {
+    unsigned FieldIdx = cast<ConstantInt>(FieldNumVal)->getLimitedValue();
     GetElementPtrInst *PeelBase = GetElementPtrInst::Create(
         PeelType, PeelVar,
         {Constant::getNullValue(getPtrSizedIntType()), FieldNumVal}, "",
         InsertBefore);
-    LoadInst *SOAAddr = new LoadInst(PeelBase);
+    llvm::Type *FieldType = PeelType->getElementType(FieldIdx);
+    LoadInst *SOAAddr = new LoadInst(FieldType, PeelBase);
 
     // Mark the load of the structure of arrays field member as being invariant.
     // When the memory allocation for the object was done, the address of each
@@ -1076,9 +1080,9 @@ public:
     // valid, so set it to the ABI default for the type that the load will be
     // once remapping occurs.
     unsigned int Alignment = DL.getABITypeAlignment(RemapTy);
-    Instruction *NewLI =
-        new LoadInst(NewPtrOp, "", LI->isVolatile(), MaybeAlign(Alignment),
-                     LI->getOrdering(), LI->getSyncScopeID(), LI);
+    Instruction *NewLI = new LoadInst(RemapTy, NewPtrOp, "", LI->isVolatile(),
+                                      MaybeAlign(Alignment), LI->getOrdering(),
+                                      LI->getSyncScopeID(), LI);
 
     // Determine the type of conversion needed to match the type of the users
     // for the original load instruction.

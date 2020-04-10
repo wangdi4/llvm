@@ -23,6 +23,10 @@
 
 let Predicates = [HasAMXTILE, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
+    let Defs = [TMM0,TMM1,TMM2,TMM3,TMM4,TMM5,TMM6,TMM7,
+                TMM8,TMM9,TMM10,TMM11,TMM12,TMM13,TMM14,TMM15,
+                TMM16,TMM17,TMM18,TMM19,TMM20,TMM21,TMM22,TMM23,
+                TMM24,TMM25,TMM26,TMM27,TMM28,TMM29,TMM30,TMM31] in
     def LDTILECFG : I <0x49, MRM0m, (outs), (ins opaquemem:$src),
                        "ldtilecfg\t$src",
                        [(int_x86_ldtilecfg addr:$src)]>, VEX, T8PS;
@@ -37,6 +41,10 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
                         (ins opaquemem:$src),
                         "tileloaddt1\t{$src, $dst|$dst, $src}", []>,
                         VEX, T8PD;
+    let Defs = [TMM0,TMM1,TMM2,TMM3,TMM4,TMM5,TMM6,TMM7,
+                TMM8,TMM9,TMM10,TMM11,TMM12,TMM13,TMM14,TMM15,
+                TMM16,TMM17,TMM18,TMM19,TMM20,TMM21,TMM22,TMM23,
+                TMM24,TMM25,TMM26,TMM27,TMM28,TMM29,TMM30,TMM31] in
     def TILERELEASE : I<0x49, MRM_C0, (outs), (ins),
                         "tilerelease", [(int_x86_tilerelease)]>, VEX, T8PS;
     def TILESTORED : I<0x4b, MRMDestMemFSIB, (outs),
