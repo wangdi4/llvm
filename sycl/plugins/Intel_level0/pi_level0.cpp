@@ -295,6 +295,38 @@ decltype(piEventCreate) L0(piEventCreate);
       *param_value_size_ret = num_values * sizeof(ret_type);                   \
   }
 
+
+#ifndef _WIN32
+// Recover from Linux SIGSEGV signal.
+// We can't reliably catch C++ exceptions thrown from signal
+// handler so use setjmp/longjmp.
+//
+#include <signal.h>
+#include <setjmp.h>
+jmp_buf return_here;
+static void piSignalHandler(int signum) {
+  // We are somewhere the signall was raised, so go back to
+  // where we started tracking.
+  longjmp (return_here, 0);
+}
+// Only handle segfault now, but can be extended.
+#define __TRY()                       \
+  signal(SIGSEGV, &piSignalHandler);  \
+  if (!setjmp(return_here)) {
+#define __CATCH()                     \
+  } else {
+#define __FINALLY()                   \
+  } signal(SIGSEGV, SIG_DFL);
+
+#else // _WIN32
+  // TODO: on Windows we could use structured exception handling.
+  // Just dummy implementation now (meaning no error handling).
+#define __TRY()     if (true) {
+#define __CATCH()   } else {
+#define __FINALLY() }
+#endif // _WIN32
+
+
 pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
                              pi_platform *   platforms,
                              pi_uint32 *     num_platforms) {
@@ -304,8 +336,16 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
     ZE_DEBUG = true;
 
   // This is a good time to initialize L0.
-  ze_result_t ze_result =
-    ZE_CALL_NOTHROW(zeInit(ZE_INIT_FLAG_NONE));
+  // We can still safely recover if something goes wrong during the init.
+  ze_result_t ze_result;
+  __TRY() {
+    ze_result = ZE_CALL_NOTHROW(zeInit(ZE_INIT_FLAG_NONE));
+  }
+  __CATCH() {
+    zePrint("L0 raised segfault: assume no platforms");
+    ze_result = ZE_RESULT_ERROR_UNINITIALIZED;
+  }
+  __FINALLY()
 
   // Absorb the ZE_RESULT_ERROR_UNINITIALIZED and just return 0 platforms.
   if (ze_result == ZE_RESULT_ERROR_UNINITIALIZED) {
