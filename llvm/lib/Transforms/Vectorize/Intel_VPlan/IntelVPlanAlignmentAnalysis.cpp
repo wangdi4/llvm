@@ -65,3 +65,30 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
       TargetAlignment(TargetAlignment),
       Multiplier(computeMultiplierForDynamicPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
+
+void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
+  for (auto &VPBB : Plan)
+    for (auto &VPInst : VPBB) {
+      // Ignore Loads for now. Aligning Stores is more profitable.
+      if (VPInst.getOpcode() != Instruction::Store)
+        continue;
+      auto *Pointer = VPInst.getOperand(1);
+      auto *Expr = VPSE->getVPlanSCEV(*Pointer);
+      Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
+      if (Ind) {
+        Memref = &VPInst;
+        AccessAddress = *Ind;
+        return;
+      }
+    }
+}
+
+std::unique_ptr<VPlanPeelingVariant>
+VPlanPeelingAnalysis::selectBestPeelingVariant(int VF) {
+  if (!Memref)
+    return std::make_unique<VPlanStaticPeeling>(0);
+
+  Align TargetAlignment(VF * MinAlign(0, AccessAddress.Step));
+  return std::make_unique<VPlanDynamicPeeling>(Memref, AccessAddress,
+                                               TargetAlignment);
+}

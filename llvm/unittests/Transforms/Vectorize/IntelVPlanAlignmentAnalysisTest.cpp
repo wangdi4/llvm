@@ -11,6 +11,8 @@
 
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.h"
 
+#include "IntelVPlanTestBase.h"
+
 #include "gtest/gtest.h"
 
 using namespace llvm;
@@ -62,6 +64,97 @@ TEST_F(VPlanPeelingVariantTest, DynamicPeelingParameters) {
   auto P5 = mkPeeling(18, Align{8});
   EXPECT_EQ(P5.requiredAlignment(), 2);
   EXPECT_EQ(P5.multiplier(), 3);
+}
+
+class VPlanPeelingAnalysisTest : public vpo::VPlanTestBase {};
+
+TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
+  const char *ModuleString =
+    "declare void @bar(i32)\n"
+    "define void @foo(i32* %src, i64 %size) {\n"
+    "entry:\n"
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
+    "  %src.val = load i32, i32* %src.ptr, align 4\n"
+    "  call void @bar(i32 %src.val)\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, %size\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n";
+
+  Module &M = parseModule(ModuleString);
+  Function *F = M.getFunction("foo");
+  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
+  std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
+
+  VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
+  VPlanPeelingAnalysis VPPA(VPSE);
+  VPPA.collectMemrefs(*Plan);
+
+  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA.selectBestPeelingVariant(16);
+
+  ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
+  VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
+  EXPECT_EQ(SP4.peelCount(), 0);
+
+  ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
+  VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
+  EXPECT_EQ(SP16.peelCount(), 0);
+}
+
+TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling) {
+  const char *ModuleString =
+      "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
+      "entry:\n"
+      "  br label %for.body\n"
+      "for.body:\n"
+      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+      "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
+      "  %src.val = load i32, i32* %src.ptr, align 4\n"
+      "  %dst.val = add i32 %src.val, 42\n"
+      "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter\n"
+      "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
+      "  %counter.next = add nsw i64 %counter, 1\n"
+      "  %exitcond = icmp sge i64 %counter.next, %size\n"
+      "  br i1 %exitcond, label %exit, label %for.body\n"
+      "exit:\n"
+      "  ret void\n"
+      "}\n";
+
+  Module &M = parseModule(ModuleString);
+  Function *F = M.getFunction("foo");
+  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
+  std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
+
+  VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
+  VPlanSCEV *DstScev = VPSE.toVPlanSCEV(SE->getSCEV(F->getArg(0)));
+
+  VPlanPeelingAnalysis VPPA(VPSE);
+  VPPA.collectMemrefs(*Plan);
+
+  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA.selectBestPeelingVariant(16);
+
+  ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
+  VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
+  EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Store);
+  EXPECT_EQ(DP4.invariantBase(), DstScev);
+  EXPECT_EQ(DP4.requiredAlignment(), 4);
+  EXPECT_EQ(DP4.targetAlignment(), 16);
+  EXPECT_EQ(DP4.multiplier(), 3);
+
+  ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
+  VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
+  EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Store);
+  EXPECT_EQ(DP16.invariantBase(), DstScev);
+  EXPECT_EQ(DP16.requiredAlignment(), 4);
+  EXPECT_EQ(DP16.targetAlignment(), 64);
+  EXPECT_EQ(DP16.multiplier(), 15);
 }
 
 } // namespace

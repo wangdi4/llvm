@@ -17,6 +17,7 @@
 namespace llvm {
 namespace vpo {
 
+class VPlan;
 class VPInstruction;
 
 /// Supported peeling kinds.
@@ -97,6 +98,28 @@ private:
 
   /// Magic number. See the formula above.
   int Multiplier;
+};
+
+/// Peeling Analysis finds the best peeling variant according to the given cost
+/// model.
+class VPlanPeelingAnalysis final {
+public:
+  VPlanPeelingAnalysis(VPlanScalarEvolution &VPSE) : VPSE(&VPSE) {}
+  VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
+  VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
+
+  /// Find and analyze all the memory references in \p VPlan.
+  /// This method must be called before selecting a peeling variant, and it
+  /// must be called only once.
+  void collectMemrefs(VPlan &Plan);
+
+  /// Find the most profitable peeling variant for a particular \p VF.
+  std::unique_ptr<VPlanPeelingVariant> selectBestPeelingVariant(int VF);
+
+private:
+  VPlanScalarEvolution *VPSE;
+  VPInstruction *Memref = nullptr;
+  VPConstStepInduction AccessAddress = {nullptr, 0};
 };
 
 } // namespace vpo
