@@ -4438,17 +4438,11 @@ void InnerLoopVectorizer::widenCallInstruction(CallInst &I) {
 
       VectorLoopValueMap.setVectorValue(&I, Part, V);
       addMetadata(V, &I);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       analyzeCallArgMemoryReferences(
           CI, cast<CallInst>(VectorLoopValueMap.getVectorValue(&I, Part)), TLI,
           PSE.getSE(), OrigLoop);
 #endif // INTEL_CUSTOMIZATION
-    }
-
-    break;
-=======
->>>>>>> 90be3c24a7162a488f68f7cce159017c10408133
   }
 }
 
