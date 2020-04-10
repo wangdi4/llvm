@@ -1669,7 +1669,7 @@ void CodeGenFunction::EmitOMPInnerLoop(
         AttrRef =  AS->getAttrs();
       }
     }
-    LoopStack.push(CondBlock, CGM.getContext(), AttrRef,
+    LoopStack.push(CondBlock, CGM.getContext(), CGM.getCodeGenOpts(), AttrRef,
                    SourceLocToDebugLoc(R.getBegin()),
                    SourceLocToDebugLoc(R.getEnd()));
   } else
