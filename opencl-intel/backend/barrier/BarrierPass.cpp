@@ -89,7 +89,7 @@ namespace intel {
           UndefValue::get(m_LocalIdArrayTy), "LocalIds", nullptr,
           GlobalValue::GeneralDynamicTLSModel);
       m_LocalIds->setAlignment(
-          M.getDataLayout().getPreferredAlignment(m_LocalIds));
+          MaybeAlign(M.getDataLayout().getPreferredAlignment(m_LocalIds)));
     }
 
     //Find all functions that call synchronize instructions
@@ -348,8 +348,9 @@ namespace intel {
             // create copy to work item buffer (from stack)
             builder.SetInsertPoint(insertBefore);
             builder.CreateMemCpy(
-                pAddrInSpecialBufferCopyOut, pAllocaInst->getAlignment(),
-                pAllocaInst, pAllocaInst->getAlignment(), pSizeToCopy, false);
+                pAddrInSpecialBufferCopyOut,
+                MaybeAlign(pAllocaInst->getAlignment()), pAllocaInst,
+                MaybeAlign(pAllocaInst->getAlignment()), pSizeToCopy, false);
           }
 
           if (insertBeforeEnd) {
@@ -358,10 +359,10 @@ namespace intel {
 
             // create copy to stack (from work item buffer)
             builder.SetInsertPoint(insertBeforeEnd);
-            builder.CreateMemCpy(pAllocaInst, pAllocaInst->getAlignment(),
-                                 pAddrInSpecialBufferCopyIn,
-                                 pAllocaInst->getAlignment(), pSizeToCopy,
-                                 false);
+            builder.CreateMemCpy(
+                pAllocaInst, MaybeAlign(pAllocaInst->getAlignment()),
+                pAddrInSpecialBufferCopyIn,
+                MaybeAlign(pAllocaInst->getAlignment()), pSizeToCopy, false);
           }
         } else {
           if (insertBefore) {

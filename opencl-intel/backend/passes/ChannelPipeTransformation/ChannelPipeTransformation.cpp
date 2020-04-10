@@ -120,7 +120,8 @@ static GlobalVariable *createGlobalPipeScalar(Module &M, Type *PipeTy,
       Utils::OCLAddressSpace::Global);
 
   PipeGV->setInitializer(ConstantPointerNull::get(cast<PointerType>(PipeTy)));
-  PipeGV->setAlignment(M.getDataLayout().getPreferredAlignment(PipeGV));
+  PipeGV->setAlignment(
+      MaybeAlign(M.getDataLayout().getPreferredAlignment(PipeGV)));
   return PipeGV;
 }
 
@@ -137,7 +138,8 @@ static GlobalVariable *createGlobalPipeArray(Module &M, Type *PipeTy,
       Utils::OCLAddressSpace::Global);
 
   PipeGV->setInitializer(ConstantAggregateZero::get(PipeArrayTy));
-  PipeGV->setAlignment(M.getDataLayout().getPreferredAlignment(PipeGV));
+  PipeGV->setAlignment(
+      MaybeAlign(M.getDataLayout().getPreferredAlignment(PipeGV)));
   return PipeGV;
 }
 

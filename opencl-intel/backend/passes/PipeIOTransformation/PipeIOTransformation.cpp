@@ -96,7 +96,7 @@ static GlobalVariable *createGlobalTextConstant(Module &M,
 
   ConstStringGV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
   const auto &DL = M.getDataLayout();
-  ConstStringGV->setAlignment(DL.getPrefTypeAlignment(Ty));
+  ConstStringGV->setAlignment(MaybeAlign(DL.getPrefTypeAlignment(Ty)));
   return ConstStringGV;
 }
 

@@ -143,7 +143,8 @@ bool SYCLPipesHack::runOnModule(Module &M) {
         GlobalValue::ThreadLocalMode::NotThreadLocal,
         Utils::OCLAddressSpace::Global);
     RWPipeGV->setInitializer(ConstantPointerNull::get(cast<PointerType>(RWPipeTy)));
-    RWPipeGV->setAlignment(M.getDataLayout().getPreferredAlignment(RWPipeGV));
+    RWPipeGV->setAlignment(
+        MaybeAlign(M.getDataLayout().getPreferredAlignment(RWPipeGV)));
 
     // Pipe parameters are hidden inside of the {i32, i32, i32} struct, so we
     // deconstruct it and set it as a metadata so other passes can check it as
