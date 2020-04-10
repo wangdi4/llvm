@@ -28,9 +28,7 @@ define void @foo_c(%Struct* %a) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] <3 x i32>* [[VP_PTR1:%.*]] = getelementptr inbounds %Struct* [[VP_BASE]] i32 0 i32 0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
-;
-; FIXME: This is wrong - the [[VP_CMP]] is divergent so the strideness can't be propagated.
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] <3 x i32>* [[VP_PHI:%.*]] = phi  [ <3 x i32>* [[VP_PTR1]], [[BB2]] ],  [ <3 x i32>* [[VP_PTR2]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] <3 x i32>* [[VP_PHI:%.*]] = phi  [ <3 x i32>* [[VP_PTR1]], [[BB2]] ],  [ <3 x i32>* [[VP_PTR2]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store <3 x i32> [[VP_LD]] <3 x i32>* [[VP_PHI]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
