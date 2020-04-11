@@ -19,13 +19,7 @@
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/ValueTracking.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"            // INTEL
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/CFG.h"
-=======
->>>>>>> 0985554b709fe6856a2cb77f3739cdeb1bbf9ba5
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/NoFolder.h"
 #include "llvm/IR/Verifier.h"
