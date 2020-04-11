@@ -788,7 +788,7 @@ X86RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
   // Determine base register and offset.
   int FIOffset;
-  unsigned BasePtr;
+  Register BasePtr;
   if (MI.isReturn()) {
     assert((!needsStackRealignment(MF) ||
            MF.getFrameInfo().isFixedObjectIndex(FrameIndex)) &&
