@@ -932,6 +932,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_kmpc_global_thread_num:
     return Changed;
+  case LibFunc_kmpc_ok_to_fork:
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setOnlyReadsMemory(F, 0);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_kmpc_push_num_threads:
     return Changed;
   case LibFunc_kmpc_reduce_nowait:
