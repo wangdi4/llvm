@@ -387,7 +387,10 @@ void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
   // If this instruction doesn't need relaxation, just emit it as data.
   MCAssembler &Assembler = getAssembler();
   MCAsmBackend &Backend = Assembler.getBackend();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 916044d819c8e383fe1cd99190e3ff572d80f48f
   if (!(Backend.mayNeedRelaxation(Inst, STI) ||
         Backend.allowEnhancedRelaxation())) {
     EmitInstToData(Inst, STI);

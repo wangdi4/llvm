@@ -171,9 +171,13 @@ public:
   }
 
   bool allowAutoPadding() const override;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool allowEnhancedRelaxation() const override;
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool allowEnhancedRelaxation() const override;
+>>>>>>> 916044d819c8e383fe1cd99190e3ff572d80f48f
   void emitInstructionBegin(MCObjectStreamer &OS, const MCInst &Inst) override;
   void emitInstructionEnd(MCObjectStreamer &OS, const MCInst &Inst) override;
 
@@ -467,6 +471,7 @@ bool X86AsmBackend::allowAutoPadding() const {
   return (AlignBoundary != Align(1) && AlignBranchType != X86::AlignBranchNone);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool X86AsmBackend::allowEnhancedRelaxation() const {
   unsigned TargetPrefixMax;
@@ -478,6 +483,11 @@ bool X86AsmBackend::allowEnhancedRelaxation() const {
   return allowAutoPadding() && TargetPrefixMax != 0 && X86PadForBranchAlign;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+bool X86AsmBackend::allowEnhancedRelaxation() const {
+  return allowAutoPadding() && X86PadMaxPrefixSize != 0 && X86PadForBranchAlign;
+}
+>>>>>>> 916044d819c8e383fe1cd99190e3ff572d80f48f
 
 bool X86AsmBackend::needAlign(MCObjectStreamer &OS) const {
   if (!OS.getAllowAutoPadding())
