@@ -1109,6 +1109,7 @@ def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
+def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -3078,6 +3079,16 @@ let Predicates = [HasTSXLDTRK] in {
 def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
                   [(int_x86_serialize)]>, PS,
                   Requires<[HasSERIALIZE]>;
+
+//===----------------------------------------------------------------------===//
+// TSXLDTRK - TSX Suspend Load Address Tracking
+//
+let Predicates = [HasTSXLDTRK] in {
+  def XSUSLDTRK : I<0x01, MRM_E8, (outs), (ins), "xsusldtrk",
+                    [(int_x86_xsusldtrk)]>, XD;
+  def XRESLDTRK : I<0x01, MRM_E9, (outs), (ins), "xresldtrk",
+                    [(int_x86_xresldtrk)]>, XD;
+}
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.

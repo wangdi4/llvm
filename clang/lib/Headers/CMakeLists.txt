@@ -307,6 +307,7 @@ set(files
   tbmintrin.h
   tgmath.h
   tmmintrin.h
+  tsxldtrkintrin.h
   unwind.h
   vadefs.h
   vaesintrin.h

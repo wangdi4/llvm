@@ -5237,6 +5237,7 @@ let TargetPrefix = "x86" in {
               Intrinsic<[], [], []>;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 //===----------------------------------------------------------------------===//
@@ -5311,6 +5312,8 @@ let TargetPrefix = "x86" in {
 #endif // INTEL_FEATURE_ISA_ULI
 
 #if INTEL_FEATURE_ISA_TSXLDTRK
+=======
+>>>>>>> a3dc9490004ce1601fb1bc67cf218b86a6fdf652
 //===----------------------------------------------------------------------===//
 // TSXLDTRK - TSX Suspend Load Address Tracking
 
@@ -5320,6 +5323,7 @@ let TargetPrefix = "x86" in {
   def int_x86_xresldtrk : GCCBuiltin<"__builtin_ia32_xresldtrk">,
               Intrinsic<[], [], []>;
 }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 
 #if INTEL_FEATURE_ISA_FP16
@@ -6626,3 +6630,5 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> a3dc9490004ce1601fb1bc67cf218b86a6fdf652

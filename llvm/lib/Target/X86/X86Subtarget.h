@@ -497,6 +497,9 @@ protected:
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
 
+  /// Processor supports TSXLDTRK instruction
+  bool HasTSXLDTRK = false;
+
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
 
@@ -867,6 +870,7 @@ public:
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
   bool hasSERIALIZE() const { return HasSERIALIZE; }
+  bool hasTSXLDTRK() const { return HasTSXLDTRK; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;

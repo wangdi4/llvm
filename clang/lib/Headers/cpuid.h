@@ -191,6 +191,7 @@
 /* end INTEL_FEATURE_ISA_TSXLDTRK */
 /* end INTEL_CUSTOMIZATION */
 #define bit_SERIALIZE     0x00004000
+#define bit_TSXLDTRK      0x00010000
 #define bit_PCONFIG       0x00040000
 #define bit_IBT           0x00100000
 /* INTEL_CUSTOMIZATION */

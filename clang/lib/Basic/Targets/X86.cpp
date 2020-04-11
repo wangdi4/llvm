@@ -1274,6 +1274,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
+    } else if (Feature == "+tsxldtrk") {
+      HasTSXLDTRK = true;
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
@@ -1835,6 +1837,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif // INTEL_CUSTOMIZATION
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
+  if (HasTSXLDTRK)
+    Builder.defineMacro("__TSXLDTRK__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -2076,11 +2080,15 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("sse4.2", true)
       .Case("sse4a", true)
       .Case("tbm", true)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
       .Case("uli", true)
 #endif // INTEL_FEATURE_ISA_ULI
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("tsxldtrk", true)
+>>>>>>> a3dc9490004ce1601fb1bc67cf218b86a6fdf652
       .Case("vaes", true)
       .Case("vpclmulqdq", true)
       .Case("wbnoinvd", true)
@@ -2263,11 +2271,15 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4.2", SSELevel >= SSE42)
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
       .Case("uli", HasULI)
 #endif // INTEL_FEATURE_ISA_ULI
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("tsxldtrk", HasTSXLDTRK)
+>>>>>>> a3dc9490004ce1601fb1bc67cf218b86a6fdf652
       .Case("vaes", HasVAES)
       .Case("vpclmulqdq", HasVPCLMULQDQ)
       .Case("wbnoinvd", HasWBNOINVD)
