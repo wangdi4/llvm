@@ -16,6 +16,7 @@
 #define __FLOATOPERATIONS_H__
 
 #include "dxfloat.h"
+#include <cmath> // Needed for ::fabs
 #include <limits>
 #include <stdio.h>
 #include <stdlib.h>
