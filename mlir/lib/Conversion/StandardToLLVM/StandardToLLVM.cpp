@@ -1241,8 +1241,6 @@ static bool isSupportedMemRefType(MemRefType type) {
 /// Lowering for AllocOp and AllocaOp.
 template <typename AllocLikeOp>
 struct AllocLikeOpLowering : public ConvertOpToLLVMPattern<AllocLikeOp> {
-  using ConvertOpToLLVMPattern<AllocLikeOp>::ConvertOpToLLVMPattern;
-  using Base = AllocLikeOpLowering<AllocLikeOp>;
   using ConvertOpToLLVMPattern<AllocLikeOp>::createIndexConstant;
   using ConvertOpToLLVMPattern<AllocLikeOp>::getIndexType;
   using ConvertOpToLLVMPattern<AllocLikeOp>::typeConverter;
@@ -1602,9 +1600,7 @@ struct AllocOpLowering : public AllocLikeOpLowering<AllocOp> {
       : AllocLikeOpLowering<AllocOp>(converter, useAlignedAlloc) {}
 };
 
-struct AllocaOpLowering : public AllocLikeOpLowering<AllocaOp> {
-  using Base::Base;
-};
+using AllocaOpLowering = AllocLikeOpLowering<AllocaOp>;
 
 // A CallOp automatically promotes MemRefType to a sequence of alloca/store and
 // passes the pointer to the MemRef across function boundaries.
