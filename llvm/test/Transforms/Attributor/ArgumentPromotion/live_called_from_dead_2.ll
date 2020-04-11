@@ -11,43 +11,6 @@ define internal void @dead() {
 }
 
 define internal i32 @test(i32* %X, i32* %Y) {
-<<<<<<< HEAD
-; OLDPM_MODULE-LABEL: define {{[^@]+}}@test
-; OLDPM_MODULE-SAME: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
-; OLDPM_MODULE-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
-; OLDPM_MODULE:       live:
-; OLDPM_MODULE:    store i32 0, i32* [[X]], align 4
-; OLDPM_MODULE-NEXT:    ret i32 undef
-; OLDPM_MODULE:       dead:
-; OLDPM_MODULE-NEXT:    unreachable
-;
-; OLDPM_CGSCC-LABEL: define {{[^@]+}}@test
-; OLDPM_CGSCC-SAME: (i32* nocapture nofree writeonly [[X:%.*]])
-; OLDPM_CGSCC-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
-; OLDPM_CGSCC:       live:
-; OLDPM_CGSCC-NEXT:    store i32 0, i32* [[X]]
-; OLDPM_CGSCC-NEXT:    ret i32 undef
-; OLDPM_CGSCC:       dead:
-; OLDPM_CGSCC-NEXT:    unreachable
-;
-; NEWPM_MODULE-LABEL: define {{[^@]+}}@test
-; NEWPM_MODULE: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
-; NEWPM_MODULE-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
-; NEWPM_MODULE:       live:
-; NEWPM_MODULE-NEXT:    store i32 0, i32* [[X]], align 4
-; NEWPM_MODULE-NEXT:    ret i32 undef
-; NEWPM_MODULE:       dead:
-; NEWPM_MODULE-NEXT:    unreachable
-;
-; NEWPM_CGSCC-LABEL: define {{[^@]+}}@test
-; NEWPM_CGSCC-SAME: (i32* nocapture nofree writeonly [[X:%.*]])
-; NEWPM_CGSCC-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
-; NEWPM_CGSCC:       live:
-; NEWPM_CGSCC-NEXT:    store i32 0, i32* [[X]]
-; NEWPM_CGSCC-NEXT:    ret i32 undef
-; NEWPM_CGSCC:       dead:
-; NEWPM_CGSCC-NEXT:    unreachable
-=======
 ; IS__TUNIT____-LABEL: define {{[^@]+}}@test
 ; IS__TUNIT____-SAME: (i32* noalias nocapture nofree writeonly align 4 [[X:%.*]])
 ; IS__TUNIT____-NEXT:    br i1 true, label [[LIVE:%.*]], label [[DEAD:%.*]]
@@ -65,7 +28,6 @@ define internal i32 @test(i32* %X, i32* %Y) {
 ; IS__CGSCC____-NEXT:    ret i32 undef
 ; IS__CGSCC____:       dead:
 ; IS__CGSCC____-NEXT:    unreachable
->>>>>>> 2bcf5793e14577ed3c9f15a77a35179ae544fff4
 ;
   br i1 true, label %live, label %dead
 live:

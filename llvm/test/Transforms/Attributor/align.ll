@@ -578,8 +578,6 @@ define void @test12-6(i32* align 4 %p) {
   ret void
 }
 
-<<<<<<< HEAD
-=======
 define void @test13(i1 %c, i32* align 32 %dst) #0 {
 ; CHECK-LABEL: define {{[^@]+}}@test13
 ; CHECK-SAME: (i1 [[C:%.*]], i32* nocapture nofree writeonly align 32 [[DST:%.*]])
@@ -676,7 +674,6 @@ end:
   ret void
 }
 
->>>>>>> 2bcf5793e14577ed3c9f15a77a35179ae544fff4
 ; Don't crash on ptr2int/int2ptr uses.
 define i64 @ptr2int(i32* %p) {
 ; CHECK-LABEL: define {{[^@]+}}@ptr2int
