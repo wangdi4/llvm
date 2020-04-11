@@ -1978,11 +1978,8 @@ void OMPClausePrinter::VisitOMPExclusiveClause(OMPExclusiveClause *Node) {
 }
 
 void OMPTraitInfo::getAsVariantMatchInfo(ASTContext &ASTCtx,
-                                         VariantMatchInfo &VMI,
-                                         bool DeviceSetOnly) const {
+                                         VariantMatchInfo &VMI) const {
   for (const OMPTraitSet &Set : Sets) {
-    if (DeviceSetOnly && Set.Kind != TraitSet::device)
-      continue;
     for (const OMPTraitSelector &Selector : Set.Selectors) {
 
       // User conditions are special as we evaluate the condition here.
@@ -1994,20 +1991,25 @@ void OMPTraitInfo::getAsVariantMatchInfo(ASTContext &ASTCtx,
                    TraitProperty::user_condition_unknown &&
                "Ill-formed user condition, expected unknown trait property!");
 
-        llvm::APInt CondVal =
-            Selector.ScoreOrCondition->EvaluateKnownConstInt(ASTCtx);
-        VMI.addTrait(CondVal.isNullValue()
-                         ? TraitProperty::user_condition_false
-                         : TraitProperty::user_condition_true);
+        llvm::APSInt CondVal;
+        if (Selector.ScoreOrCondition->isIntegerConstantExpr(CondVal, ASTCtx))
+          VMI.addTrait(CondVal.isNullValue()
+                          ? TraitProperty::user_condition_false
+                          : TraitProperty::user_condition_true);
+        else
+          VMI.addTrait(TraitProperty::user_condition_false);
         continue;
       }
 
-      llvm::APInt Score;
+      llvm::APSInt Score;
       llvm::APInt *ScorePtr = nullptr;
       if (Selector.ScoreOrCondition) {
-        Score = Selector.ScoreOrCondition->EvaluateKnownConstInt(ASTCtx);
-        ScorePtr = &Score;
+        if (Selector.ScoreOrCondition->isIntegerConstantExpr(Score, ASTCtx))
+          ScorePtr = &Score;
+        else
+          VMI.addTrait(TraitProperty::user_condition_false);
       }
+
       for (const OMPTraitProperty &Property : Selector.Properties)
         VMI.addTrait(Set.Kind, Property.Kind, ScorePtr);
 
