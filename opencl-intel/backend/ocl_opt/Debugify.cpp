@@ -205,9 +205,9 @@ struct CheckDebugifyPass : public ModulePass {
 } // end anonymous namespace
 
 char DebugifyPass::ID = 0;
-static RegisterPass<DebugifyPass> X("debugify",
+static RegisterPass<DebugifyPass> X("debugify-legacy", // INTEL
                                     "Attach debug info to everything");
 
 char CheckDebugifyPass::ID = 0;
-static RegisterPass<CheckDebugifyPass> Y("check-debugify",
+static RegisterPass<CheckDebugifyPass> Y("check-debugify-legacy", // INTEL
                                          "Check debug info from -debugify");
