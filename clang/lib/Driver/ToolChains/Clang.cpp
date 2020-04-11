@@ -6383,6 +6383,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_intel_mno_intrinsic_promote, false))
     CmdArgs.push_back("-mintrinsic-promote");
 
+  auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
+    if (OptArg.getOption().matches(Opt) &&
+        x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
+      CmdArgs.push_back("-fintel-advanced-optim");
+  };
+  // Given -x, turn on advanced optimizations
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+    addAdvancedOptimFlag(*A, options::OPT_x);
+  // Additional handling for /arch and /Qx
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                      options::OPT__SLASH_Qx))
+    addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
 #endif // INTEL_CUSTOMIZATION
 
   // Add the "-o out -x type src.c" flags last. This is done primarily to make
