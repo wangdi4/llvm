@@ -182,7 +182,8 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
   FnKmpcBeginArgs.push_back(KmpcLoc);
   FnKmpcBeginArgs.push_back(ValueZero);
 
-  CallInst *KmpcBeginCall = CallInst::Create(FnKmpcBegin, FnKmpcBeginArgs);
+  CallInst *KmpcBeginCall =
+      CallInst::Create(FnC.getFunctionType(), FnKmpcBegin, FnKmpcBeginArgs);
   KmpcBeginCall->setCallingConv(CallingConv::C);
 
   return KmpcBeginCall;
@@ -212,7 +213,8 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
   std::vector<Value *> FnKmpcEndArgs;
   FnKmpcEndArgs.push_back(KmpcLoc);
 
-  CallInst *KmpcEndCall = CallInst::Create(FnKmpcEnd, FnKmpcEndArgs);
+  CallInst *KmpcEndCall =
+      CallInst::Create(FnC.getFunctionType(), FnKmpcEnd, FnKmpcEndArgs);
   KmpcEndCall->setCallingConv(CallingConv::C);
 
   return KmpcEndCall;
@@ -249,8 +251,8 @@ CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
   std::vector<Value *> FnForkTestArgs;
   FnForkTestArgs.push_back(Loc);
 
-  CallInst *ForkTestCall = CallInst::Create(FnForkTest, FnForkTestArgs,
-                                            "fork.test", InsertPt);
+  CallInst *ForkTestCall = CallInst::Create(
+      FnForkTestTy, FnForkTest, FnForkTestArgs, "fork.test", InsertPt);
   ForkTestCall->setCallingConv(CallingConv::C);
   ForkTestCall->setTailCall(true);
 
@@ -534,7 +536,7 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
   }
 
   CallInst *RedGetNthDataCall =
-      CallInst::Create(FnRedGetNthData, RedGetNthDataArgs, "", InsertPt);
+      CallInst::Create(FnTy, FnRedGetNthData, RedGetNthDataArgs, "", InsertPt);
   RedGetNthDataCall->setCallingConv(CallingConv::C);
   RedGetNthDataCall->setTailCall(false);
 
@@ -569,7 +571,8 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
     FnTaskWait->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskWaitCall = CallInst::Create(FnTaskWait, TaskArgs, "", InsertPt);
+  CallInst *TaskWaitCall =
+      CallInst::Create(FnTy, FnTaskWait, TaskArgs, "", InsertPt);
   TaskWaitCall->setCallingConv(CallingConv::C);
   TaskWaitCall->setTailCall(false);
 
@@ -1213,7 +1216,7 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
     FnTask->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskCall = CallInst::Create(FnTask, TaskArgs, "", InsertPt);
+  CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
   TaskCall->setCallingConv(CallingConv::C);
   TaskCall->setTailCall(false);
 
@@ -1249,7 +1252,7 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
     FnTask->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskCall = CallInst::Create(FnTask, TaskArgs, "", InsertPt);
+  CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
   TaskCall->setCallingConv(CallingConv::C);
   TaskCall->setTailCall(false);
 
@@ -1391,7 +1394,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
   }
 
   CallInst *TaskLoopCall =
-      CallInst::Create(FnTaskLoop, TaskLoopArgs, "", InsertPt);
+      CallInst::Create(FnTy, FnTaskLoop, TaskLoopArgs, "", InsertPt);
   TaskLoopCall->setCallingConv(CallingConv::C);
   TaskLoopCall->setTailCall(false);
 
@@ -1429,8 +1432,8 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
     FnTaskRedInit->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskRedInitCall = CallInst::Create(FnTaskRedInit, TaskRedInitArgs,
-                                               "task.reduction.init", InsertPt);
+  CallInst *TaskRedInitCall = CallInst::Create(
+      FnTy, FnTaskRedInit, TaskRedInitArgs, "task.reduction.init", InsertPt);
   TaskRedInitCall->setCallingConv(CallingConv::C);
   TaskRedInitCall->setTailCall(false);
 
@@ -1482,7 +1485,7 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   }
 
   CallInst *TaskAllocCall =
-      CallInst::Create(FnTaskAlloc, AllocArgs, "", InsertPt);
+      CallInst::Create(FnTy, FnTaskAlloc, AllocArgs, "", InsertPt);
   TaskAllocCall->setCallingConv(CallingConv::C);
   TaskAllocCall->setTailCall(false);
 
@@ -1655,8 +1658,8 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
   FnTeamStaticInitArgs.push_back(Inc);
   FnTeamStaticInitArgs.push_back(Chunk);
 
-  CallInst *TeamStaticInitCall = CallInst::Create(FnTeamStaticInit,
-                                           FnTeamStaticInitArgs, "", InsertPt);
+  CallInst *TeamStaticInitCall = CallInst::Create(
+      FnTy, FnTeamStaticInit, FnTeamStaticInitArgs, "", InsertPt);
   TeamStaticInitCall->setCallingConv(CallingConv::C);
   TeamStaticInitCall->setTailCall(false);
 
@@ -1944,8 +1947,8 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   FnDispatchInitArgs.push_back(ST);
   FnDispatchInitArgs.push_back(Chunk);
 
-  CallInst *DispatchInitCall = CallInst::Create(FnDispatchInit,
-                                         FnDispatchInitArgs, "", InsertPt);
+  CallInst *DispatchInitCall =
+      CallInst::Create(FnTy, FnDispatchInit, FnDispatchInitArgs, "", InsertPt);
   DispatchInitCall->setCallingConv(CallingConv::C);
   DispatchInitCall->setTailCall(false);
 
@@ -2020,8 +2023,8 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
   FnDispatchNextArgs.push_back(UB);
   FnDispatchNextArgs.push_back(ST);
 
-  CallInst *DispatchNextCall = CallInst::Create(FnDispatchNext,
-                                         FnDispatchNextArgs, "", InsertPt);
+  CallInst *DispatchNextCall =
+      CallInst::Create(FnTy, FnDispatchNext, FnDispatchNextArgs, "", InsertPt);
   DispatchNextCall->setCallingConv(CallingConv::C);
   DispatchNextCall->setTailCall(false);
   return DispatchNextCall;
@@ -2149,7 +2152,8 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
   std::vector<Value *> FnGetTidArgs;
   FnGetTidArgs.push_back(KmpcLoc);
 
-  CallInst *GetTidCall = CallInst::Create(FnGetTid, FnGetTidArgs, "tid.val");
+  CallInst *GetTidCall =
+      CallInst::Create(FnGetTidTy, FnGetTid, FnGetTidArgs, "tid.val");
   GetTidCall->setCallingConv(CallingConv::C);
   GetTidCall->setTailCall(true);
 
@@ -2410,7 +2414,7 @@ CallInst *VPOParoptUtils::genSpmdKernelInit(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2437,7 +2441,7 @@ CallInst *VPOParoptUtils::genSpmdKernelFini(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2463,7 +2467,7 @@ CallInst *VPOParoptUtils::genKernelInit(WRegionNode *W, Instruction *InsertPt,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2489,7 +2493,7 @@ CallInst *VPOParoptUtils::genKernelFini(WRegionNode *W, Instruction *InsertPt,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2516,7 +2520,7 @@ CallInst *VPOParoptUtils::genGetSharingVariables(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2565,7 +2569,7 @@ CallInst *VPOParoptUtils::genKernelParallel(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2613,7 +2617,7 @@ CallInst *VPOParoptUtils::genBeginSharingVariables(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2657,7 +2661,8 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     Loc = genKmpcLocforImplicitBarrier(W, InsertPt, IdentTy, B);
 
   // Create the arg for Tid
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  Type *I32Ty = Type::getInt32Ty(C);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Create the argument list
@@ -2734,7 +2739,8 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
   // We have the Intrinsic name, its return type and other function args. The
   // loc argument is obtained using the IdentTy struct inside genKmpcCall. But
   // we need a valid Tid, which we can load from memory using TidPtr.
-  LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
+  Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
+  LoadInst *LoadTid = new LoadInst(I32Ty, TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2787,8 +2793,9 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
     FnName = "__kmpc_end_taskgroup";
 
   RetTy = Type::getVoidTy(C);
+  Type *I32Ty = Type::getInt32Ty(C);
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2813,11 +2820,12 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
   LLVMContext &C = F->getContext();
 
   Type *RetTy = nullptr;
+  Type *I32Ty = Type::getInt32Ty(C);
   StringRef FnName;
 
   if (IsMasterStart) {
     FnName = "__kmpc_master";
-    RetTy = Type::getInt32Ty(C);
+    RetTy = I32Ty;
   }
   else {
     FnName = "__kmpc_end_master";
@@ -2832,7 +2840,7 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
     return MasterOrEndCall;
   }
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2859,6 +2867,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
 
   Type *RetTy = nullptr;
   StringRef FnName;
+  Type *I32Ty = Type::getInt32Ty(C);
 
   if (IsSingleStart) {
     FnName = "__kmpc_single";
@@ -2869,7 +2878,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
     RetTy = Type::getVoidTy(C);
   }
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2895,6 +2904,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
   LLVMContext &C = F->getContext();
 
   Type *RetTy = Type::getVoidTy(C);
+  Type *I32Ty = Type::getInt32Ty(C);
 
   StringRef FnName;
 
@@ -2903,7 +2913,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
   else
     FnName = "__kmpc_end_ordered";
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -3185,7 +3195,8 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
                                   Instruction *InsertPt,
                                   bool IsTail, bool IsVarArg) {
   assert(Fn != nullptr && "Function Declaration is null.");
-  CallInst *Call = CallInst::Create(Fn, FnArgs, "", InsertPt);
+  FunctionType *FnTy = Fn->getFunctionType();
+  CallInst *Call = CallInst::Create(FnTy, Fn, FnArgs, "", InsertPt);
   // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
   assert(Call != nullptr && "Failed to generate Function Call");
 
@@ -3374,9 +3385,8 @@ CallInst *VPOParoptUtils::genEmptyCall(Module *M, StringRef FnName,
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
   FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
-  Function *Fn = cast<Function>(FnC.getCallee());
 
-  CallInst *Call = CallInst::Create(Fn, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnC, "", InsertPt);
   return Call;
 }
 
@@ -3610,11 +3620,12 @@ void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   if (Ctor == nullptr)
     return;
 
-  Type *ArgTy = Ctor->getFunctionType()->getParamType(0);
+  FunctionType *FnTy = Ctor->getFunctionType();
+  Type *ArgTy = FnTy->getParamType(0);
   Type *ValType = V->getType();
   if (ArgTy != ValType)
     V = Builder.CreateBitCast(V, ArgTy);
-  Builder.CreateCall(Ctor, {V}, "");
+  Builder.CreateCall(FnTy, Ctor, {V}, "");
 }
 
 // Emit Constructor call and insert it after PrivAlloca
@@ -3952,7 +3963,9 @@ CallInst *VPOParoptUtils::addOperandBundlesInCall(
     OpBundles.push_back(B);
   }
 
-  auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, "", CI);
+  FunctionType *FnTy = CI->getFunctionType();
+  Value *Fn = CI->getCalledOperand();
+  auto NewI = CallInst::Create(FnTy, Fn, Args, OpBundles, "", CI);
 
   NewI->takeName(CI);
   NewI->setCallingConv(CI->getCallingConv());

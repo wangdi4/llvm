@@ -202,7 +202,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   Value *Src = LprivI->getNew();
   Value *Dst = LprivI->getOrigGEP();
   if (LprivI->getIsByRef())
-    Dst = new LoadInst(Dst, "", InsertPt);
+    Dst = new LoadInst(Src->getType(), Dst, "", InsertPt);
 
 #if INTEL_CUSTOMIZATION
   if (LprivI->getIsF90DopeVector()) {
@@ -1683,7 +1683,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
     MTFnArgs.push_back((*I));
   }
-  CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
+  CallInst *MTFnCI =
+      CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
   MTFnCI->setCallingConv(CS.getCallingConv());
 
   // Copy isTailCall attribute
@@ -1778,7 +1779,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
       MTFnArgs.push_back(ElseBuilder.CreateBitCast(
           TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
-      CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
+      CallInst *SeqCI = CallInst::Create(MTFn->getFunctionType(), MTFn,
+                                         MTFnArgs, "", ElseTerm);
       SeqCI->setCallingConv(CS.getCallingConv());
       SeqCI->takeName(NewCall);
       SeqCI->setDebugLoc(NewCall->getDebugLoc());
