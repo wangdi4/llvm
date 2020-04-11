@@ -109,13 +109,6 @@ cl::opt<unsigned> X86PadMaxPrefixSize(
     "x86-pad-max-prefix-size", cl::init(0),
     cl::desc("Maximum number of prefixes to use for padding"));
 
-#if INTEL_CUSTOMIZATION
-cl::alias
-    X86AlignBranchPrefixSize("x86-align-branch-prefix-size",
-                             cl::desc("Alias for -x86-pad-max-prefix-size"),
-                             cl::aliasopt(X86PadMaxPrefixSize));
-#endif // INTEL_CUSTOMIZATION
-
 cl::opt<bool> X86PadForAlign(
     "x86-pad-for-align", cl::init(true), cl::Hidden,
     cl::desc("Pad previous instructions to implement align directives"));
@@ -171,13 +164,7 @@ public:
   }
 
   bool allowAutoPadding() const override;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   bool allowEnhancedRelaxation() const override;
-#endif // INTEL_CUSTOMIZATION
-=======
-  bool allowEnhancedRelaxation() const override;
->>>>>>> 916044d819c8e383fe1cd99190e3ff572d80f48f
   void emitInstructionBegin(MCObjectStreamer &OS, const MCInst &Inst) override;
   void emitInstructionEnd(MCObjectStreamer &OS, const MCInst &Inst) override;
 
@@ -471,7 +458,6 @@ bool X86AsmBackend::allowAutoPadding() const {
   return (AlignBoundary != Align(1) && AlignBranchType != X86::AlignBranchNone);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool X86AsmBackend::allowEnhancedRelaxation() const {
   unsigned TargetPrefixMax;
@@ -483,11 +469,6 @@ bool X86AsmBackend::allowEnhancedRelaxation() const {
   return allowAutoPadding() && TargetPrefixMax != 0 && X86PadForBranchAlign;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
-bool X86AsmBackend::allowEnhancedRelaxation() const {
-  return allowAutoPadding() && X86PadMaxPrefixSize != 0 && X86PadForBranchAlign;
-}
->>>>>>> 916044d819c8e383fe1cd99190e3ff572d80f48f
 
 bool X86AsmBackend::needAlign(MCObjectStreamer &OS) const {
   if (!OS.getAllowAutoPadding())
