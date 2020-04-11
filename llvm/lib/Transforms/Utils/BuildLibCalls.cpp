@@ -190,6 +190,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_strtoll:
   case LibFunc_strtold:
   case LibFunc_strtoull:
+  case LibFunc_under_strtoi64:              // INTEL
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
@@ -347,6 +348,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetDoesNotAlias(F);
     return Changed;
   case LibFunc_mkdir:
+  case LibFunc_under_mkdir:                   // INTEL
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
@@ -730,12 +732,20 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_stat64:
   case LibFunc_lstat64:
   case LibFunc_statvfs64:
-  case LibFunc_under_stat64i32:   // INTEL
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  // stat and its other form can throw an exception handler in Windows
+  case LibFunc_under_stat64:
+  case LibFunc_under_stat64i32:
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 0);
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_dunder_isoc99_sscanf:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -1002,7 +1012,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_under_chdir:
+    return Changed;
   case LibFunc_under_errno:
+    return Changed;
+  case LibFunc_under_fseeki64:
+    Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_under_fstat64i32:
     Changed |= setDoesNotThrow(F);
@@ -1011,6 +1026,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_under_fileno:
+    return Changed;
+  case LibFunc_under_ftelli64:
+    Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
@@ -1561,6 +1579,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_isxdigit:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_j0:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1817,6 +1838,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_Sleep:
+  case LibFunc_under_sleep:
   case LibFunc_sleep:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1873,6 +1896,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_time:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  // _ftime64 validates the parameters, it can throw
+  // an exception
+  case LibFunc_under_ftime64:
     return Changed;
   case LibFunc_under_time64:
     Changed |= setDoesNotThrow(F);
