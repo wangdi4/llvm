@@ -32,10 +32,13 @@ declare double @exp2(double) #0
 declare float @exp2f(float) #0
 declare double @llvm.exp2.f64(double) #0
 declare float @llvm.exp2.f32(float) #0
+<<<<<<< HEAD
 ;INTEL_CUSTOMIZATION
 ;declare double @__exp2_finite(double) #0
 ;declare float @__exp2f_finite(float) #0
 ; end INTEL_CUSTOMIZATION
+=======
+>>>>>>> ca376782ff8649d1a5405123f06a742e0e94b701
 
 define void @sin_f64(double* nocapture %varray) {
 ; CHECK-LABEL: @sin_f64(
@@ -597,6 +600,7 @@ for.end:
   ret void
 }
 
+<<<<<<< HEAD
 ;INTEL_CUSTOMIZATION
 ;define void @exp2f_finite(float* nocapture %varray) {
 ; C;HECK-LABEL: @exp2f_finite(
@@ -645,4 +649,6 @@ for.end:
 ;}
 ;end INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> ca376782ff8649d1a5405123f06a742e0e94b701
 attributes #0 = { nounwind readnone }
