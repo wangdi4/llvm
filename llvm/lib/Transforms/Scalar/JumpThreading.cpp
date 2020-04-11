@@ -745,13 +745,8 @@ static bool matchingRegionInfo(const ThreadRegionInfo &RegionInfo1,
 /// This returns true if there were any known values.
 bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
     Value *V, BasicBlock *BB, PredValueInfo &Result,
-<<<<<<< HEAD
     ThreadRegionInfo &RegionInfo,       // INTEL
-    ConstantPreference Preference,
-    DenseSet<std::pair<Value *, BasicBlock *>> &RecursionSet,
-=======
     ConstantPreference Preference, DenseSet<Value *> &RecursionSet,
->>>>>>> 91eb442fdef0aacb996442042d2eeed52d71270b
     Instruction *CxtI) {
   // This method walks up use-def chains recursively.  Because of this, we could
   // get into an infinite loop going around loops in the use-def chain.  To

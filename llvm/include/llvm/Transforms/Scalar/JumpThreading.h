@@ -194,15 +194,9 @@ public:
                                   jumpthreading::ThreadRegionInfo &RegionInfo, // INTEL
                                   jumpthreading::ConstantPreference Preference,
                                   Instruction *CxtI = nullptr) {
-<<<<<<< HEAD
-    DenseSet<std::pair<Value *, BasicBlock *>> RecursionSet;
+    DenseSet<Value *> RecursionSet;
     return ComputeValueKnownInPredecessorsImpl(V, BB, Result, RegionInfo,       // INTEL
                                                Preference, RecursionSet, CxtI); // INTEL
-=======
-    DenseSet<Value *> RecursionSet;
-    return ComputeValueKnownInPredecessorsImpl(V, BB, Result, Preference,
-                                               RecursionSet, CxtI);
->>>>>>> 91eb442fdef0aacb996442042d2eeed52d71270b
   }
 
   Constant *EvaluateOnPredecessorEdge(BasicBlock *BB, BasicBlock *PredPredBB,
