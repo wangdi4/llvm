@@ -153,6 +153,7 @@ void initializeDataFlowSanitizerPass(PassRegistry&);
 void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&); // INTEL
 void initializeDeadInstEliminationPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
+void initializeDebugifyMachineModulePass(PassRegistry &);
 void initializeDelinearizationPass(PassRegistry&);
 void initializeDemandedBitsWrapperPassPass(PassRegistry&);
 void initializeDependenceAnalysisPass(PassRegistry&);
