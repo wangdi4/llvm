@@ -3250,15 +3250,12 @@ X86
 
 .. option:: -mtbm, -mno-tbm
 
-<<<<<<< HEAD
+.. option:: -mtsxldtrk, -mno-tsxldtrk
 .. INTEL_CUSTOMIZATION
 .. INTEL_FEATURE_ISA_ULI
 .. option:: -muli, -mno-uli
 .. end INTEL_FEATURE_ISA_ULI
 .. end INTEL_CUSTOMIZATION
-=======
-.. option:: -mtsxldtrk, -mno-tsxldtrk
->>>>>>> a3dc9490004ce1601fb1bc67cf218b86a6fdf652
 
 .. option:: -mvaes, -mno-vaes
 

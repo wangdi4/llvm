@@ -681,14 +681,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_HRESET */
 
-/* INTEL_FEATURE_ISA_TSXLDTRK */
-#if defined(__TSXLDTRK_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__TSXLDTRK__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <tsxldtrkintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_TSXLDTRK */
-
 /* INTEL_FEATURE_ISA_AMX */
 #if defined(__AMX_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)

@@ -2172,13 +2172,8 @@ TARGET_BUILTIN(__builtin_ia32_aesdecwide128kl,
 TARGET_BUILTIN(__builtin_ia32_aesdecwide256kl,
                "UcvC*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2Oi*V2OiV2OiV2OiV2OiV2OiV2OiV2OiV2Oi", "nV:128:", "keylocker")
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-
-#if INTEL_FEATURE_ISA_TSXLDTRK
-// TSXLDTRK
-TARGET_BUILTIN(__builtin_ia32_xsusldtrk, "v", "n", "tsxldtrk")
-TARGET_BUILTIN(__builtin_ia32_xresldtrk, "v", "n", "tsxldtrk")
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+
 // SERIALIZE
 TARGET_BUILTIN(__builtin_ia32_serialize, "v", "n", "serialize")
 

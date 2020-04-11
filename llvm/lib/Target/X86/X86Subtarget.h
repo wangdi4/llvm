@@ -430,11 +430,6 @@ protected:
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
 
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  /// Processor supports TSXLDTRK instruction
-  bool HasTSXLDTRK = false;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
-
 #if INTEL_FEATURE_ISA_AMX
   /// Processor has AMX support
   bool HasAMXTILE = false;
@@ -865,9 +860,6 @@ public:
 #if INTEL_FEATURE_ISA_HRESET
   bool hasHRESET() const { return HasHRESET; }
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  bool hasTSXLDTRK() const { return HasTSXLDTRK; }
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
   bool hasSERIALIZE() const { return HasSERIALIZE; }
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }

@@ -1058,9 +1058,6 @@ def HasULI : Predicate<"Subtarget->hasULI()">;
 #if INTEL_FEATURE_ISA_HRESET
 def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-def HasTSXLDTRK : Predicate<"Subtarget->hasTSXLDTRK()">;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
 def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
@@ -3059,18 +3056,6 @@ let Uses = [EAX] in
   def HRESET : Ii8<0xF0, MRM_C0, (outs), (ins i32u8imm:$imm), "hreset\t$imm", []>,
                    Requires<[HasHRESET]>, TAXS;
 #endif // INTEL_FEATURE_ISA_HRESET
-
-#if INTEL_FEATURE_ISA_TSXLDTRK
-//===----------------------------------------------------------------------===//
-// TSXLDTRK - TSX Suspend Load Address Tracking
-//
-let Predicates = [HasTSXLDTRK] in {
-  def XSUSLDTRK : I<0x01, MRM_E8, (outs), (ins), "xsusldtrk",
-                    [(int_x86_xsusldtrk)]>, XD;
-  def XRESLDTRK : I<0x01, MRM_E9, (outs), (ins), "xresldtrk",
-                    [(int_x86_xresldtrk)]>, XD;
-}
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

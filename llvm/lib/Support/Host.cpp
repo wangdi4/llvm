@@ -1506,9 +1506,6 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
 #if INTEL_FEATURE_ISA_ULI
   Features["uli"]             = HasLeaf7 && ((EDX >> 5) & 1);
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  Features["tsxldtrk"]        = HasLeaf7 && ((EDX >> 16) & 1);
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
 
   Features["serialize"]       = HasLeaf7 && ((EDX >> 14) & 1);
