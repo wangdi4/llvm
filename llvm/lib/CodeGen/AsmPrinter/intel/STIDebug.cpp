@@ -4144,13 +4144,12 @@ STISymbolVariable *STIDebugImpl::createSymbolVariableFromFrameIndex(
     const DILocalVariable *DIV,
     int frameIndex) {
   STILocation *location = nullptr;
-  unsigned int regnum;
+  Register regnum;
   int          offset;
 
   const TargetFrameLowering *TFL =
       ASM()->MF->getSubtarget().getFrameLowering();
 
-  regnum = 0;
   offset = TFL->getFrameIndexReference(*ASM()->MF, frameIndex, regnum);
 
   location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset);
