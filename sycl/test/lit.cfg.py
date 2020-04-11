@@ -36,6 +36,7 @@ config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
 # Propagate some variables from the host environment.
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAME', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
+llvm_config.with_system_environment(['SYCL_BE']) # INTEL
 
 # Configure LD_LIBRARY_PATH or corresponding os-specific alternatives
 if platform.system() == "Linux":
@@ -55,21 +56,7 @@ elif platform.system() == "Darwin":
     llvm_config.with_environment('CPATH', "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/", append_path=True)
     llvm_config.with_environment('DYLD_LIBRARY_PATH', config.sycl_libs_dir)
 
-<<<<<<< HEAD
-# propagate the environment variable OCL_ICD_FILANEMES to use proper runtime.
-if 'OCL_ICD_FILENAMES' in os.environ:
-    config.environment['OCL_ICD_FILENAMES'] = os.environ['OCL_ICD_FILENAMES']
-
-# INTEL_CUSTOMIZATION
-if 'SYCL_BE' in os.environ:
-    config.environment['SYCL_BE'] = os.environ['SYCL_BE']
-# end INTEL_CUSTOMIZATION
-
-if 'SYCL_DEVICE_ALLOWLIST' in os.environ:
-    config.environment['SYCL_DEVICE_ALLOWLIST'] = os.environ['SYCL_DEVICE_ALLOWLIST']
-=======
 llvm_config.with_environment('PATH', config.sycl_tools_dir, append_path=True)
->>>>>>> ff9f544f320ee04c2330135a7f233cf07da41b1e
 
 config.substitutions.append( ('%sycl_libs_dir',  config.sycl_libs_dir ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
@@ -90,23 +77,11 @@ else:
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 
-<<<<<<< HEAD
-tools = ['llvm-spirv']
-tool_dirs = [config.sycl_tools_dir]
-llvm_config.add_tool_substitutions(tools, tool_dirs)
-
 # INTEL_CUSTOMIZATION
 # Ask llvm-config about assertions.
 llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
 # end INTEL_CUSTOMIZATION
-
-if "opencl-aot" in config.llvm_enable_projects:
-    if 'PATH' in os.environ:
-        print("Adding path to opencl-aot tool to PATH")
-        os.environ['PATH'] = os.path.pathsep.join((os.getenv('PATH'), config.sycl_tools_dir))
-=======
 llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
->>>>>>> ff9f544f320ee04c2330135a7f233cf07da41b1e
 
 # TODO: Change default to PI_LEVEL0
 backend=lit_config.params.get('SYCL_BE', "PI_OPENCL")
@@ -127,28 +102,7 @@ def getDeviceCount(device_type):
         stdout=subprocess.PIPE)
     (output, err) = process.communicate()
     exit_code = process.wait()
-<<<<<<< HEAD
-    if exit_code == 0:
-        result = output.decode().replace('\n', '').split(':', 1)
-        try:
-            value = int(result[0])
-        except ValueError:
-            value = 0
-            print("getDeviceCount {TYPE}:Cannot get value from output.".format(
-                TYPE=device_type))
-        if len(result) > 1 and len(result[1]):
-            print("getDeviceCount {TYPE}:{MSG}".format(
-                TYPE=device_type, MSG=result[1]))
-            if re.match(r".*cuda", result[1]):
-                is_cuda = True;
-        if err:
-            print("getDeviceCount {TYPE}:{ERR}".format(
-                TYPE=device_type, ERR=err))
-        return [value,is_cuda]
-    return [0, False]
-=======
 
->>>>>>> ff9f544f320ee04c2330135a7f233cf07da41b1e
     if exit_code != 0:
         lit_config.error("getDeviceCount {TYPE} {BACKEND}: Non-zero exit code {CODE}".format(
             TYPE=device_type, BACKEND=backend, CODE=exit_code))
@@ -176,18 +130,13 @@ def getDeviceCount(device_type):
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
 
-<<<<<<< HEAD
-# INTEL_CUSTOMIZATION
-=======
 # Configure device-specific substitutions based on availability of corresponding
 # devices/runtimes
 
 found_at_least_one_device = False
 
->>>>>>> ff9f544f320ee04c2330135a7f233cf07da41b1e
 cpu_run_substitute = "true"
 cpu_run_on_linux_substitute = "true "
-# end INTEL_CUSTOMIZATION
 cpu_check_substitute = ""
 cpu_check_on_linux_substitute = ""
 
@@ -258,11 +207,6 @@ config.substitutions.append( ('%ACC_CHECK_PLACEHOLDER',  acc_check_substitute) )
 if not cuda and found_at_least_one_device:
     config.available_features.add('opencl')
 
-<<<<<<< HEAD
-path = config.environment['PATH']
-path = os.path.pathsep.join((config.sycl_tools_dir, path))
-config.environment['PATH'] = path
-=======
 if cuda:
     config.substitutions.append( ('%sycl_triple',  "nvptx64-nvidia-cuda-sycldevice" ) )
 else:
@@ -272,7 +216,6 @@ if "opencl-aot" in config.llvm_enable_projects:
     lit_config.note("Using opencl-aot version which is built as part of the project")
     config.available_features.add("opencl-aot")
     llvm_config.add_tool_substitutions(['opencl-aot'], [config.sycl_tools_dir])
->>>>>>> ff9f544f320ee04c2330135a7f233cf07da41b1e
 
 # Device AOT compilation tools aren't part of the SYCL project,
 # so they need to be pre-installed on the machine

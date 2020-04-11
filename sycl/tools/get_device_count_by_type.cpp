@@ -67,15 +67,10 @@ int main(int argc, char* argv[]) {
       if (type == "gpu") {
         deviceCount = 1;
         msg = "cuda";
-        std::cout << deviceCount << " : " << msg << std::endl;
-	return 0;
+        std::cout << deviceCount << ":" << msg << std::endl;
+        return 0;
       }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
-      std::cout << deviceCount << ":" << msg << std::endl;
-      return 0;
->>>>>>> ff9f544f320ee04c2330135a7f233cf07da41b1e
     }
 #endif  // USE_PI_CUDA
 
