@@ -19,11 +19,11 @@
 #include <string>   // INTEL
 
 static const std::string help =
-"   Help\n"
-"   Example: ./get_device_count_by_type cpu opencl\n"
-"   Support types: cpu/gpu/accelerator/default/all\n"
-"   Support backends: cuda/opencl \n"
-"   Output format: <number_of_devices>:<additional_Information>";
+    "   Help\n"
+    "   Example: ./get_device_count_by_type cpu opencl\n"
+    "   Supported device types: cpu/gpu/accelerator/default/all\n"
+    "   Supported backends: PI_CUDA/PI_OPENCL \n"
+    "   Output format: <number_of_devices>:<additional_Information>";
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
@@ -59,7 +59,8 @@ int main(int argc, char* argv[]) {
 
       auto err = cuDriverGetVersion(&runtime_version);
       if (runtime_version < 9020 || err != CUDA_SUCCESS) {
-        std::cout << deviceCount << " :Unsupported CUDA Runtime " << std::endl;
+        std::cout << deviceCount << ":Unsupported CUDA Runtime " << std::endl;
+        return 1;
       }
 
 #if INTEL_CUSTOMIZATION
@@ -69,7 +70,12 @@ int main(int argc, char* argv[]) {
         std::cout << deviceCount << " : " << msg << std::endl;
 	return 0;
       }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+      std::cout << deviceCount << ":" << msg << std::endl;
+      return 0;
+>>>>>>> ff9f544f320ee04c2330135a7f233cf07da41b1e
     }
 #endif  // USE_PI_CUDA
 
@@ -120,7 +126,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::cout << deviceCount << ":" << backend << std::endl;
+    std::cout << deviceCount << ":" << std::endl;
 
     return 0;
 }
