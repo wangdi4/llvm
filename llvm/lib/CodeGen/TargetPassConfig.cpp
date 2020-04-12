@@ -943,18 +943,12 @@ void TargetPassConfig::addMachinePasses() {
   // Run post-ra passes.
   addPostRegAlloc();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   if (EnableRAReport)
     addPass(&RAReportEmitterID, false);
 #endif  // !INTEL_PRODUCT_RELEASE
 #endif //INTEL_CUSTOMIZATION
-  if (UseRegistersForDeoptValues)
-    addPass(&FixupStatepointCallerSavedID);
-
-=======
->>>>>>> 44f0d7f13647b5e155ab39295c78afd7486a5875
   // Insert prolog/epilog code.  Eliminate abstract frame index references...
   if (getOptLevel() != CodeGenOpt::None) {
     addPass(&PostRAMachineSinkingID);
