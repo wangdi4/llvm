@@ -2423,7 +2423,9 @@ private:
     IRBuilder<> Builder(Context);
     // Insert at the end of BasicBlock.
     Builder.SetInsertPoint(NewAppend->getParent()->getTerminator());
-    Builder.CreateCall(NewAppend->getCalledValue(), NewArgs);
+    auto *NewF = NewAppend->getCalledFunction();
+    assert(NewF && "Expected direct call");
+    Builder.CreateCall(NewF->getFunctionType(), NewF, NewArgs);
 
     for (auto *CI : OldAppends) {
       auto *NewCI = cast<CallInst>((Value *)VMap[CI]);

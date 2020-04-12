@@ -1,6 +1,6 @@
 //===- Intel_IndirectCallConv.cpp - Indirect call Conv transformation -===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -131,7 +131,8 @@ CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
 
     std::vector<Value *> Args(CI->op_begin(), CI->op_end() - 1);
     New_Name = CI->hasName() ? CI->getName().str() + ".indconv" : "";
-    New_CI = CallInst::Create(FuncName, Args, New_Name, Insert_BB);
+    New_CI = CallInst::Create(CS.getFunctionType(), FuncName, Args,
+                              New_Name, Insert_BB);
 
     New_CI->setDebugLoc(CI->getDebugLoc());
     New_CI->setCallingConv(CI->getCallingConv());
@@ -144,8 +145,9 @@ CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
 
     std::vector<Value *> Args(II->op_begin(), II->op_end() - 3);
     New_Name = II->hasName() ? II->getName().str() + ".indconv" : "";
-    New_II = InvokeInst::Create(FuncName, II->getNormalDest(),
-                                II->getUnwindDest(), Args, New_Name, Insert_BB);
+    New_II = InvokeInst::Create(CS.getFunctionType(), FuncName,
+                                II->getNormalDest(), II->getUnwindDest(), Args,
+                                New_Name, Insert_BB);
 
     New_II->setDebugLoc(II->getDebugLoc());
     New_II->setCallingConv(II->getCallingConv());
