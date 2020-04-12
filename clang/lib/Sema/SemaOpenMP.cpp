@@ -671,6 +671,16 @@ public:
   }
   /// Check whether the implicit-behavior has been set in defaultmap
   bool checkDefaultmapCategory(OpenMPDefaultmapClauseKind VariableCategory) {
+    if (VariableCategory == OMPC_DEFAULTMAP_unknown)
+      return getTopOfStack()
+                     .DefaultmapMap[OMPC_DEFAULTMAP_aggregate]
+                     .ImplicitBehavior != OMPC_DEFAULTMAP_MODIFIER_unknown ||
+             getTopOfStack()
+                     .DefaultmapMap[OMPC_DEFAULTMAP_scalar]
+                     .ImplicitBehavior != OMPC_DEFAULTMAP_MODIFIER_unknown ||
+             getTopOfStack()
+                     .DefaultmapMap[OMPC_DEFAULTMAP_pointer]
+                     .ImplicitBehavior != OMPC_DEFAULTMAP_MODIFIER_unknown;
     return getTopOfStack().DefaultmapMap[VariableCategory].ImplicitBehavior !=
            OMPC_DEFAULTMAP_MODIFIER_unknown;
   }
@@ -18199,7 +18209,8 @@ OMPClause *Sema::ActOnOpenMPDefaultmapClause(
     }
   } else {
     bool isDefaultmapModifier = (M != OMPC_DEFAULTMAP_MODIFIER_unknown);
-    bool isDefaultmapKind = (Kind != OMPC_DEFAULTMAP_unknown);
+    bool isDefaultmapKind = (Kind != OMPC_DEFAULTMAP_unknown) ||
+                            (LangOpts.OpenMP >= 50 && KindLoc.isInvalid());
     if (!isDefaultmapKind || !isDefaultmapModifier) {
       std::string ModifierValue = "'alloc', 'from', 'to', 'tofrom', "
                                   "'firstprivate', 'none', 'default'";
@@ -18227,7 +18238,14 @@ OMPClause *Sema::ActOnOpenMPDefaultmapClause(
       return nullptr;
     }
   }
-  DSAStack->setDefaultDMAAttr(M, Kind, StartLoc);
+  if (Kind == OMPC_DEFAULTMAP_unknown) {
+    // Variable category is not specified - mark all categories.
+    DSAStack->setDefaultDMAAttr(M, OMPC_DEFAULTMAP_aggregate, StartLoc);
+    DSAStack->setDefaultDMAAttr(M, OMPC_DEFAULTMAP_scalar, StartLoc);
+    DSAStack->setDefaultDMAAttr(M, OMPC_DEFAULTMAP_pointer, StartLoc);
+  } else {
+    DSAStack->setDefaultDMAAttr(M, Kind, StartLoc);
+  }
 
   return new (Context)
       OMPDefaultmapClause(StartLoc, LParenLoc, MLoc, KindLoc, EndLoc, Kind, M);
