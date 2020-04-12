@@ -2504,6 +2504,11 @@ EXTERN char *__tgt_rtl_get_device_name(
   return buffer;
 }
 
+EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
+                                     __tgt_async_info *async_info_ptr) {
+  return OFFLOAD_SUCCESS;
+}
+
 #ifdef __cplusplus
 }
 #endif

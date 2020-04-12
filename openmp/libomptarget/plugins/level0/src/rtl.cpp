@@ -1132,4 +1132,9 @@ EXTERN void *__tgt_rtl_create_buffer(int32_t DeviceId, void *TgtPtr) {
 EXTERN int32_t __tgt_rtl_release_buffer(void *TgtPtr) {
   return OFFLOAD_SUCCESS;
 }
+
+EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
+                                     __tgt_async_info *async_info_ptr) {
+  return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_CUSTOMIZATION
