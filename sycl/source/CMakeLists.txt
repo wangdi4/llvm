@@ -154,7 +154,14 @@ if (MSVC)
     string(REGEX REPLACE "/MTd" "" ${flag_var} "${${flag_var}}")
   endforeach()
 
+  if (SYCL_ENABLE_XPTI_TRACING)
+    add_sycl_rt_library(sycld XPTI_LIB xptid COMPILE_OPTIONS "/MDd" SOURCES ${SYCL_SOURCES})
+  else()
+    add_sycl_rt_library(sycld COMPILE_OPTIONS "/MDd" SOURCES ${SYCL_SOURCES})
+  endif()
+
   set(SYCL_EXTRA_OPTS "/MD")
+
 # INTEL_CUSTOMIZATION
 else()
 # Don't use libcxx library to build sycl library if it is not explicitly stated to do so
