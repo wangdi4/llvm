@@ -143,21 +143,3 @@ void bar15() {
 __attribute__((scheduler_target_fmax_mhz(0)))
 void bar16() {
 }
-
-void bar17() {
-    int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
-    int __attribute__((__internal_max_block_ram_depth__(64))) s;
-    int __attribute__((__internal_max_block_ram_depth__("sch"))) s1; // expected-error{{integral constant expression must have integral or unscoped enumeration type, not 'const char [4]'}}
-    int __attribute__((__internal_max_block_ram_depth__(0))) s2;
-    int __attribute__((__internal_max_block_ram_depth__(-64))) s3; // expected-error{{'internal_max_block_ram_depth' attribute requires integer constant between 0 and 1048576 inclusive}}
-    // expected-error@+1{{attributes are not compatible}}
-    int __attribute__((__internal_max_block_ram_depth__(64))) __attribute__((register)) s4;
-// expected-note@-1{{conflicting attribute is here}}
-    // expected-error@+1{{attributes are not compatible}}
-    int __attribute__((register)) __attribute__((__internal_max_block_ram_depth__(64))) s5;
-// expected-note@-1{{conflicting attribute is here}}
-}
-
-__attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__internal_max_block_ram_depth__' attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-void bar18() {
-}

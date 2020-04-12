@@ -173,18 +173,6 @@ static void instantiateDependentAlignValueAttr(
     S.AddAlignValueAttr(New, *Aligned, Result.getAs<Expr>());
 }
 #if INTEL_CUSTOMIZATION
-static void instantiateDependentInternalMaxBlockRamDepthAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const InternalMaxBlockRamDepthAttr *Max, Decl *New) {
-  // The __internal_max_block_ram_depth__ expression is a constant expression.
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result =
-      S.SubstExpr(Max->getInternalMaxBlockRamDepth(), TemplateArgs);
-  if (!Result.isInvalid())
-    S.AddInternalMaxBlockRamDepthAttr(New, *Max, Result.getAs<Expr>());
-}
-
 static void instantiateDependentSchedulerTargetFmaxMHzAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const SchedulerTargetFmaxMHzAttr *STFM, Decl *New) {
@@ -749,13 +737,6 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     if (STFM) {
       instantiateDependentSchedulerTargetFmaxMHzAttr(*this, TemplateArgs,
                                                            STFM, New);
-      continue;
-    }
-    const InternalMaxBlockRamDepthAttr *IMBRDA =
-        dyn_cast<InternalMaxBlockRamDepthAttr>(TmplAttr);
-    if (IMBRDA) {
-      instantiateDependentInternalMaxBlockRamDepthAttr(*this, TemplateArgs,
-                                                       IMBRDA, New);
       continue;
     }
     const IntelFPGAMaxReplicatesAttr *MRA =
