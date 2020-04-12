@@ -154,6 +154,7 @@ public:
       AlignBranchType.addKind(X86::AlignBranchFused);
       AlignBranchType.addKind(X86::AlignBranchJcc);
       AlignBranchType.addKind(X86::AlignBranchJmp);
+      TargetPrefixMax = 5;
     }
     // Allow overriding defaults set by master flag
     if (X86AlignBranchBoundary.getNumOccurrences())
@@ -460,14 +461,6 @@ bool X86AsmBackend::allowAutoPadding() const {
 }
 
 bool X86AsmBackend::allowEnhancedRelaxation() const {
-#if INTEL_CUSTOMIZATION
-  unsigned TargetPrefixMax;
-  if (X86AlignBranchWithin32BBoundaries &&
-      !X86PadMaxPrefixSize.getNumOccurrences())
-    TargetPrefixMax = 5;
-  else
-    TargetPrefixMax = X86PadMaxPrefixSize;
-#endif // INTEL_CUSTOMIZATION
   return allowAutoPadding() && TargetPrefixMax != 0 && X86PadForBranchAlign;
 }
 
@@ -887,13 +880,6 @@ bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
     // stalls with too many prefixes.  For testing purposes, we set the value
     // externally for the moment.
     unsigned ExistingPrefixSize = Code.size();
-#if INTEL_CUSTOMIZATION
-  unsigned TargetPrefixMax;
-  if (X86AlignBranchWithin32BBoundaries && !X86PadMaxPrefixSize.getNumOccurrences())
-    TargetPrefixMax = 5;
-  else
-    TargetPrefixMax = X86PadMaxPrefixSize;
-#endif // INTEL_CUSTOMIZATION
     if (TargetPrefixMax <= ExistingPrefixSize)
       return 0;
     return TargetPrefixMax - ExistingPrefixSize;
