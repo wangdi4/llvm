@@ -1058,8 +1058,8 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
               // Otherwise, we need to load the value from the gep first before
               // using it. This effectively loads the particular element from
               // the vector parameter.
-              LoadInst *ParmElemLoad =
-                new LoadInst(VecGep, "vec." + Parm->getName() + ".elem"); 
+              LoadInst *ParmElemLoad = new LoadInst(
+                  PointeeType, VecGep, "vec." + Parm->getName() + ".elem");
               ParmElemLoad->insertAfter(VecGep);
               User->setOperand(I, ParmElemLoad);
             }
@@ -1411,6 +1411,7 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // vector was bitcast to a pointer to the element type, we must bitcast to
   // vector before returning.
   Instruction *Return;
+  Type *RetValTy;
   if (dyn_cast<BitCastInst>(ExpandedReturn)) {
       // Operand 0 is the actual alloc reference in the bitcast.
       AllocaInst *Alloca = cast<AllocaInst>(ExpandedReturn->getOperand(0));
@@ -1422,11 +1423,13 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
                         "vec." + ExpandedReturn->getName(),
                         ReturnBlock);
       Return = BitCast;
+      RetValTy = Clone->getReturnType();
   } else {
       Return = ExpandedReturn;
+      RetValTy = cast<PointerType>(Return->getType())->getElementType();
   }
 
-  LoadInst *VecReturn = new LoadInst(Return, "vec.ret", ReturnBlock);
+  LoadInst *VecReturn = new LoadInst(RetValTy, Return, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
   LLVM_DEBUG(dbgs() << "After Return Block Update\n");
@@ -1467,7 +1470,8 @@ static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
                                       BasicBlock *LoopPreHeader) {
   // Emit the load in the simd.loop.preheader block.
   IRBuilder<> Builder(&*LoopPreHeader->begin());
-  LoadInst *Load = Builder.CreateLoad(Alloca, "load." + ArgValue->getName());
+  LoadInst *Load = Builder.CreateLoad(Alloca->getAllocatedType(), Alloca,
+                                      "load." + ArgValue->getName());
   ArgValue->replaceAllUsesWith(Load);
   // After updating the uses of the function parameter with its stack variable,
   // we emit the store.
@@ -1666,7 +1670,7 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
       GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
                                 LoopBlock->getTerminator());
 
-  LoadInst *MaskLoad = new LoadInst(MaskGep, "mask.parm",
+  LoadInst *MaskLoad = new LoadInst(PointeeType, MaskGep, "mask.parm",
                                     LoopBlock->getTerminator());
 
   Type *CompareTy = MaskLoad->getType();

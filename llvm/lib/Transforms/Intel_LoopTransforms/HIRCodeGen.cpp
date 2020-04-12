@@ -1879,7 +1879,8 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
       FuncVal = Ops.pop_back_val();
     }
 
-    CallInst *ResCall = Builder.CreateCall(FuncVal, Ops, Bundles);
+    CallInst *ResCall =
+        Builder.CreateCall(Call->getFunctionType(), FuncVal, Ops, Bundles);
 
     // TODO: Copy parameter attributes as well.
     ResCall->setCallingConv(Call->getCallingConv());
