@@ -745,8 +745,7 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
       return Op1;
     }
 
-    Known0.Zero |= Known1.Zero;
-    Known0.One &= Known1.One;
+    Known0 &= Known1;
     if (Known0.isConstant())
       return ConstantInt::get(Op0->getType(), Known0.getConstant());
   }
@@ -1847,10 +1846,8 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
     case Intrinsic::experimental_constrained_nearbyint:
     case Intrinsic::experimental_constrained_rint: {
       auto CI = cast<ConstrainedFPIntrinsic>(Call);
-      Optional<fp::RoundingMode> RMOp = CI->getRoundingMode();
-      if (RMOp)
-        RM = getAPFloatRoundingMode(*RMOp);
-      if (!RM)
+      RM = CI->getRoundingMode();
+      if (!RM || RM.getValue() == RoundingMode::Dynamic)
         return nullptr;
       break;
     }
