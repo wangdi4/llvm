@@ -459,36 +459,16 @@ bool X86AsmBackend::allowAutoPadding() const {
   return (AlignBoundary != Align(1) && AlignBranchType != X86::AlignBranchNone);
 }
 
-#if INTEL_CUSTOMIZATION
 bool X86AsmBackend::allowEnhancedRelaxation() const {
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
   unsigned TargetPrefixMax;
   if (X86AlignBranchWithin32BBoundaries &&
       !X86PadMaxPrefixSize.getNumOccurrences())
     TargetPrefixMax = 5;
   else
     TargetPrefixMax = X86PadMaxPrefixSize;
-  return allowAutoPadding() && TargetPrefixMax != 0 && X86PadForBranchAlign;
-}
 #endif // INTEL_CUSTOMIZATION
-
-bool X86AsmBackend::needAlign(MCObjectStreamer &OS) const {
-  if (!OS.getAllowAutoPadding())
-    return false;
-  assert(allowAutoPadding() && "incorrect initialization!");
-
-  // To be Done: Currently don't deal with Bundle cases.
-  if (OS.getAssembler().isBundlingEnabled())
-    return false;
-
-  // Branches only need to be aligned in 32-bit or 64-bit mode.
-  if (!(STI.hasFeature(X86::Mode64Bit) || STI.hasFeature(X86::Mode32Bit)))
-    return false;
-
-  return true;
-=======
   return allowAutoPadding() && TargetPrefixMax != 0 && X86PadForBranchAlign;
->>>>>>> 2477cec2ac26377b57bf5c5e6c97e2e46a4b820f
 }
 
 /// X86 has certain instructions which enable interrupts exactly one
@@ -877,35 +857,6 @@ static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
   return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
 }
 
-<<<<<<< HEAD
-static unsigned getRemainingPrefixSize(const MCInst &Inst,
-                                       const MCSubtargetInfo &STI,
-                                       MCCodeEmitter &Emitter) {
-  SmallString<256> Code;
-  raw_svector_ostream VecOS(Code);
-  Emitter.emitPrefix(Inst, VecOS, STI);
-  assert(Code.size() < 15 && "The number of prefixes must be less than 15.");
-
-  // TODO: It turns out we need a decent amount of plumbing for the target
-  // specific bits to determine number of prefixes its safe to add.  Various
-  // targets (older chips mostly, but also Atom family) encounter decoder
-  // stalls with too many prefixes.  For testing purposes, we set the value
-  // externally for the moment.
-  unsigned ExistingPrefixSize = Code.size();
-#if INTEL_CUSTOMIZATION
-  unsigned TargetPrefixMax;
-  if (X86AlignBranchWithin32BBoundaries && !X86PadMaxPrefixSize.getNumOccurrences())
-    TargetPrefixMax = 5;
-  else
-    TargetPrefixMax = X86PadMaxPrefixSize;
-#endif // INTEL_CUSTOMIZATION
-  if (TargetPrefixMax <= ExistingPrefixSize)
-    return 0;
-  return TargetPrefixMax - ExistingPrefixSize;
-}
-
-=======
->>>>>>> 2477cec2ac26377b57bf5c5e6c97e2e46a4b820f
 bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
                                             MCCodeEmitter &Emitter,
                                             unsigned &RemainingSize) const {
@@ -936,6 +887,13 @@ bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
     // stalls with too many prefixes.  For testing purposes, we set the value
     // externally for the moment.
     unsigned ExistingPrefixSize = Code.size();
+#if INTEL_CUSTOMIZATION
+  unsigned TargetPrefixMax;
+  if (X86AlignBranchWithin32BBoundaries && !X86PadMaxPrefixSize.getNumOccurrences())
+    TargetPrefixMax = 5;
+  else
+    TargetPrefixMax = X86PadMaxPrefixSize;
+#endif // INTEL_CUSTOMIZATION
     if (TargetPrefixMax <= ExistingPrefixSize)
       return 0;
     return TargetPrefixMax - ExistingPrefixSize;
