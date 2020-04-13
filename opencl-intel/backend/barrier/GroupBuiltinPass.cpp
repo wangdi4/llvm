@@ -396,7 +396,9 @@ namespace intel {
           pRetType->isVectorTy()) {
 
         // a. Load 'alloca' value of the accumulated result
-        LoadInst *pLoadResult = new LoadInst(pResult, "LoadWGFinalResult", pWgCallInst);
+        LoadInst *pLoadResult =
+            new LoadInst(pResult->getAllocatedType(), pResult,
+                         "LoadWGFinalResult", pWgCallInst);
 
         // b. Create finalization function object:
         //    --- parameter list

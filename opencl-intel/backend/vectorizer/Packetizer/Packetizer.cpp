@@ -1270,7 +1270,7 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   switch (MO.type) {
   case LOAD: {
     // Create a "vectorized" load
-    return new LoadInst(bitCastPtr, MO.Orig->getName(), false,
+    return new LoadInst(vectorElementType, bitCastPtr, MO.Orig->getName(), false,
                         MaybeAlign(MO.Alignment), MO.Orig);
   }
   case STORE: {
@@ -2195,7 +2195,8 @@ bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) 
     Value *ptr = newCall->getArgOperand(i + firstPtr);
     if (!ptr) return false;
     V_ASSERT(ptr->getType()->isPointerTy() && "bad signature");
-    Instruction* LI = new LoadInst(ptr, "", CI);
+    Type *Ty = cast<PointerType>(ptr->getType())->getElementType();
+    Instruction* LI = new LoadInst(Ty, ptr, "", CI);
     V_ASSERT(LI->getType()->isVectorTy() && "bad signature");
     V_ASSERT(cast<VectorType>(LI->getType()) ==
      VectorType::get(vTy->getElementType(), m_packetWidth) && "bad signature");

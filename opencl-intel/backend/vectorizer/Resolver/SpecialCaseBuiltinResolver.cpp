@@ -141,12 +141,17 @@ Value *SpecialCaseBuiltinResolver::obtainReturnValueArgsPtr(ArgsVector &resolved
     // assembled to the output into array of vectors and set retVal
     retVal = UndefValue::get(m_wrraperRetAttr.arrType);
     for (unsigned i=0; i<m_wrraperRetAttr.nVals; ++i) {
-      LoadInst *LI = new LoadInst(resolvedArgs[retPointerInd + i] , "load_ret" , loc );
+      Type *Ty = cast<PointerType>(resolvedArgs[retPointerInd + i]->getType())
+                     ->getElementType();
+      LoadInst *LI =
+          new LoadInst(Ty, resolvedArgs[retPointerInd + i], "load_ret", loc);
       retVal = InsertValueInst::Create(retVal , LI, i, "ret_agg" , loc);
     }
   } else  {
     // just load the only pointer for output and set retVal
-    retVal =  new LoadInst(resolvedArgs[retPointerInd] , "load_ret" , loc );
+    Type *Ty = cast<PointerType>(resolvedArgs[retPointerInd]->getType())
+                   ->getElementType();
+    retVal = new LoadInst(Ty, resolvedArgs[retPointerInd], "load_ret", loc);
   }
   return retVal;
 }

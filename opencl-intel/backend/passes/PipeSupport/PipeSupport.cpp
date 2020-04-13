@@ -179,7 +179,8 @@ static Value *getPipeCallRetcode(const PipeCallInfo &PC) {
   if (PC.Kind.Access == PipeKind::READ && !PC.Kind.SimdSuffix.empty()) {
     auto *RetcodePtr = PC.Call->getArgOperand(1);
 
-    return new LoadInst(RetcodePtr, "", PC.Call->getNextNode());
+    Type *Ty = cast<PointerType>(RetcodePtr->getType())->getElementType();
+    return new LoadInst(Ty, RetcodePtr, "", PC.Call->getNextNode());
   }
 
   // all others just return it directly

@@ -131,9 +131,11 @@ namespace intel{
       }
 
       CallInst *pNewCall = CallInst::Create(
-          IsDirectCall ? pCall->getCalledFunction() : pCall->getCalledValue(),
+          FunctionCallee(pCall->getFunctionType(), pCall->getCalledOperand()),
           ArrayRef<Value *>(params), "", pCall);
       pNewCall->setCallingConv(pCall->getCallingConv());
+      pNewCall->setTailCall(pCall->getTailCallKind());
+      pNewCall->setDebugLoc(pCall->getDebugLoc());
       // Copy attributes from the callee which contains aligment for parameters
       if (IsDirectCall)
         pNewCall->setAttributes(pCall->getCalledFunction()->getAttributes());

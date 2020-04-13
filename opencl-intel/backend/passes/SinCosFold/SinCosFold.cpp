@@ -85,7 +85,8 @@ namespace intel {
     args.push_back(cos); //pointer to cosval
 
     CallInst * sincos = CallInst::Create(f,args,"sinPtr", iData->firstCallInst);
-    LoadInst * cosLoad = new LoadInst(cos,"cosVal", iData->firstCallInst);
+    LoadInst *cosLoad =
+        new LoadInst(val->getType(), cos, "cosVal", iData->firstCallInst);
 
     sincos->setDebugLoc(iData->firstCallInst->getDebugLoc());
     cosLoad->setDebugLoc(iData->cosInst->getDebugLoc());

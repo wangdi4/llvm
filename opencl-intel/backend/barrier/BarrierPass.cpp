@@ -369,7 +369,8 @@ namespace intel {
             pAddrInSpecialBufferCopyOut = getAddressInSpecialBuffer(
                 offset, pAllocaInst->getType(), insertBefore, nullptr);
             // create copy to work item buffer (from stack)
-            LoadInst *pLDInstCopyOut = new LoadInst(pAllocaInst, "CopyOut", insertBefore);
+            LoadInst *pLDInstCopyOut =
+                new LoadInst(pAllocaType, pAllocaInst, "CopyOut", insertBefore);
             new StoreInst(pLDInstCopyOut, pAddrInSpecialBufferCopyOut, insertBefore);
           }
 
@@ -378,7 +379,9 @@ namespace intel {
                 offset, pAllocaInst->getType(), insertBeforeEnd, nullptr);
 
             // create copy to stack (from work item buffer)
-            LoadInst *pLDInstCopyIn = new LoadInst(pAddrInSpecialBufferCopyIn, "CopyIn", insertBeforeEnd);
+            LoadInst *pLDInstCopyIn =
+                new LoadInst(pAllocaType, pAddrInSpecialBufferCopyIn, "CopyIn",
+                             insertBeforeEnd);
             new StoreInst(pLDInstCopyIn, pAllocaInst, insertBeforeEnd);
           }
         }
@@ -497,7 +500,8 @@ namespace intel {
           const DebugLoc& DB = pUserInst->getDebugLoc();
           //Calculate the pointer of the current special in the special buffer
           Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(offset, pType, pInsertBefore, &DB);
-          Instruction *pLoadedValue = new LoadInst(pAddrInSpecialBuffer, "loadedValue", pInsertBefore);
+          Instruction *pLoadedValue = new LoadInst(
+              pTypeInSP, pAddrInSpecialBuffer, "loadedValue", pInsertBefore);
           Instruction *pRealValue = !oneBitBaseType ? pLoadedValue :
             CastInst::CreateTruncOrBitCast(pLoadedValue, pInst->getType(), "Trunc-i1Toi32", pInsertBefore);
           pLoadedValue->setDebugLoc(DB);
@@ -550,7 +554,9 @@ namespace intel {
             continue;
           }
           //Calculate the pointer of the current special in the special buffer
-          Instruction *pLoadedValue = new LoadInst(pAllocaInst, "loadedValue", pInsertBefore);
+          Instruction *pLoadedValue =
+              new LoadInst(pAllocaInst->getAllocatedType(), pAllocaInst,
+                           "loadedValue", pInsertBefore);
           pLoadedValue->setDebugLoc(pUserInst->getDebugLoc());
           //Replace the use of old value with the new loaded value from special buffer
           pUserInst->replaceUsesOfWith(pInst, pLoadedValue);
@@ -1113,7 +1119,8 @@ namespace intel {
       Value *pAddrInSpecialBuffer =
           getAddressInSpecialBuffer(offsetArg, pType, pInsertBefore, nullptr);
       Value *pLoadedValue =
-          new LoadInst(pAddrInSpecialBuffer, "loadedValue", pInsertBefore);
+          new LoadInst(pOriginalArg->getType(), pAddrInSpecialBuffer,
+                       "loadedValue", pInsertBefore);
       pUserInst->replaceUsesOfWith(pOriginalArg, pLoadedValue);
     }
   }
@@ -1191,7 +1198,8 @@ namespace intel {
     PointerType *pType = pCallToFix->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
     Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(offset, pType, pNextInst, &DB);
     //Add Load instruction from special buffer at function offset
-    LoadInst *pLoadedValue = new LoadInst(pAddrInSpecialBuffer, "loadedValue", pNextInst);
+    LoadInst *pLoadedValue = new LoadInst(
+        pCallToFix->getType(), pAddrInSpecialBuffer, "loadedValue", pNextInst);
     pLoadedValue->setDebugLoc(DB);
 
     if ( m_pDataPerValue->hasOffset(pCallToFix) ) {

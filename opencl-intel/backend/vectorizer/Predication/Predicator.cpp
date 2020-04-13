@@ -337,7 +337,8 @@ void Predicator::LinearizeBlock(BasicBlock* block, BasicBlock* next,
     //is replaced by a conditional branch with edges to the header and the next
     //block in the list with the exit mask of the block as the branch condition.
     Value* loop_mask_p = m_inMask[loop->getHeader()];
-    Value* loop_mask   = new LoadInst(loop_mask_p, "loop_mask", block);
+    Type *Ty = cast<PointerType>(loop_mask_p->getType())->getElementType();
+    Value* loop_mask   = new LoadInst(Ty, loop_mask_p, "loop_mask", block);
     V_ASSERT(m_allzero && "Unable to find allzero func");
     CallInst *call_allzero =
       CallInst::Create(m_allzero, loop_mask, "leave", block);
@@ -619,7 +620,8 @@ void Predicator::convertPhiToSelect(BasicBlock* BB) {
     Value* edge_mask_p =
       m_outMask[std::make_pair(phi->getIncomingBlock(0), BB)];
 
-    Instruction* edge_mask = new LoadInst(
+    Type *Ty = cast<PointerType>(edge_mask_p->getType())->getElementType();
+    Instruction* edge_mask = new LoadInst(Ty,
       edge_mask_p, "emask", place);
 
     place->moveBefore(edge_mask);
@@ -936,8 +938,10 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
 
   // Load the predicate value and place the select
   // We will place them in the correct place in the next section
-  Instruction* predicate  = new LoadInst(pred,"predicate");
-  Instruction* prev_value  = new LoadInst(prev_ptr, "prev_value");
+  Type *Ty = cast<PointerType>(pred->getType())->getElementType();
+  Instruction* predicate  = new LoadInst(Ty, pred,"predicate");
+  Ty = cast<PointerType>(prev_ptr->getType())->getElementType();
+  Instruction* prev_value  = new LoadInst(Ty, prev_ptr, "prev_value");
   SelectInst* select = SelectInst::Create(predicate, inst, prev_value, "out_sel");
   Instruction* store  = new StoreInst(select,prev_ptr);
   VectorizerUtils::SetDebugLocBy(select, inst);
@@ -1009,7 +1013,8 @@ void Predicator::predicateSideEffectInstructions() {
 
     V_PRINT(predicate, "F-Predicating "<<**it<<"\n");
     // Load the mask
-    Value* load_pred = new LoadInst(pred, "loda_pred", *it);
+    Type *Ty = cast<PointerType>(pred->getType())->getElementType();
+    Value* load_pred = new LoadInst(Ty, pred, "loda_pred", *it);
     // Use the value of the mask to predicate using a function call
     predicateInstruction(*it, load_pred);
   }// for
@@ -1200,7 +1205,8 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
 
   // Get incoming mask for the block.
   Value* entry_mask_p = m_inMask[BB];
-  Value* entry_mask   = new LoadInst(entry_mask_p, "entry_mask", br);
+  Type *Ty = cast<PointerType>(entry_mask_p->getType())->getElementType();
+  Value* entry_mask   = new LoadInst(Ty, entry_mask_p, "entry_mask", br);
 
   /// Handles the out mask for the edge inside the loop.
   Value* local_edge_mask_p = new AllocaInst(
@@ -1242,7 +1248,8 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
       &*BB->getParent()->getEntryBlock().begin());
     // Zero the exit edge mask before entering the loop.
     new StoreInst(m_zero, exit_edge_mask_p, preHeader->getTerminator());
-    Value* exit_edge_mask = new LoadInst(exit_edge_mask_p,  "exit_mask", br);
+    Type *Ty = cast<AllocaInst>(exit_edge_mask_p)->getAllocatedType();
+    Value* exit_edge_mask = new LoadInst(Ty, exit_edge_mask_p,  "exit_mask", br);
     BinaryOperator* who_ever_left_edge = BinaryOperator::Create(Instruction::Or,
                 exit_edge_mask, who_left_tr, "ever_left_loop", br);
     new StoreInst(who_ever_left_edge, exit_edge_mask_p, br);
@@ -1264,7 +1271,8 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
       // mask with negation of exit edge.
       Value* who_left_tr_not =
           BinaryOperator::CreateNot(who_left_tr, "who_left_tr_not", br);
-      Value* loopMask   = new LoadInst(loopMask_p, "loop_mask", br);
+      Type *Ty = cast<PointerType>(loopMask_p->getType())->getElementType();
+      Value* loopMask   = new LoadInst(Ty, loopMask_p, "loop_mask", br);
       newLoopMask = BinaryOperator::Create(
       Instruction::And, loopMask, who_left_tr_not, "loop_mask", br);
     }
@@ -1334,7 +1342,8 @@ void Predicator::maskOutgoing_fork(BasicBlock *BB) {
   if (m_WIA->isDivergentBlock(BB)) {
     V_ASSERT(m_inMask.find(BB) != m_inMask.end() && "BB has no in-mask");
     Value* incoming = m_inMask[BB];
-    Value  *l_incoming   = new LoadInst(incoming, "l_inc", br);
+    Type *Ty = cast<PointerType>(incoming->getType())->getElementType();
+    Value  *l_incoming   = new LoadInst(Ty, incoming, "l_inc", br);
 
     MFalse = BinaryOperator::Create(
       Instruction::And, l_incoming, notCond,
@@ -1781,7 +1790,8 @@ void Predicator::maskIncoming_optimized(BasicBlock *BB, BasicBlock* pred) {
   Value* pred_in = m_inMask[pred];
 
   Instruction* place = BB->getFirstNonPHI();
-  LoadInst* ld = new LoadInst(pred_in, "opt", place);
+  Type *Ty = cast<PointerType>(pred_in->getType())->getElementType();
+  LoadInst* ld = new LoadInst(Ty, pred_in, "opt", place);
   Instruction* st = new StoreInst(ld, old_in, place);
   m_inInst[BB] = st;
 }
@@ -1799,7 +1809,8 @@ void Predicator::maskIncoming_singlePred(BasicBlock *BB, BasicBlock* pred) {
   V_ASSERT(new_mask && "New mask is NULL");
 
   Instruction* place = BB->getFirstNonPHI();
-  LoadInst* ld = new LoadInst(new_mask, "l_newmask", place);
+  Type *Ty = cast<PointerType>(new_mask->getType())->getElementType();
+  LoadInst* ld = new LoadInst(Ty, new_mask, "l_newmask", place);
   Instruction* st = new StoreInst(ld, old_in, place);
   m_inInst[BB] = st;
 }
@@ -1808,7 +1819,10 @@ void Predicator::maskIncoming_loopHeader(BasicBlock *BB, BasicBlock* preheader){
   /// Find the old dummy mask
   V_ASSERT(m_inMask.count(BB) && m_inMask.count(preheader) && "no in masks");
   Instruction *loc = preheader->getTerminator();
-  Value *preHeadMask =  new LoadInst(m_inMask[preheader], "prehead_mask", loc);
+  Type *Ty =
+      cast<PointerType>(m_inMask[preheader]->getType())->getElementType();
+  Value *preHeadMask =
+      new LoadInst(Ty, m_inMask[preheader], "prehead_mask", loc);
   new StoreInst(preHeadMask, m_inMask[BB], loc);
 
   // updating of the in mask when exiting the loop is done when dealing with
@@ -1834,7 +1848,8 @@ void Predicator::maskIncoming_simpleMerge(BasicBlock *BB) {
   Value* in_mask = m_outMask[edge];
   // Place to insert all new instructions
   Instruction* place = BB->getFirstNonPHI();
-  Value  *l_in_mask   = new LoadInst(in_mask, "l_in_mask", place);
+  Type *Ty = cast<PointerType>(in_mask->getType())->getElementType();
+  Value  *l_in_mask   = new LoadInst(Ty, in_mask, "l_in_mask", place);
 
   /// Create a big Or of all incoming values.
   for (pred_iterator it = pred_begin(BB), e = pred_end(BB); it != e; ++it) {
@@ -1842,7 +1857,8 @@ void Predicator::maskIncoming_simpleMerge(BasicBlock *BB) {
     V_ASSERT(m_outMask.find(edge) != m_outMask.end() && "Edge has no out-mask");
     // edge from inBB to this BB
     Value* mask = m_outMask[edge];
-    Value  *l_mask   = new LoadInst(mask, "l_mask", place);
+    Type *Ty = cast<PointerType>(mask->getType())->getElementType();
+    Value  *l_mask   = new LoadInst(Ty, mask, "l_mask", place);
     l_in_mask  = BinaryOperator::Create(
       Instruction::Or, l_in_mask, l_mask, BB->getName() + "_Min", place);
   }
@@ -2336,7 +2352,8 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
 
   // Create conditional branch to the original and cloned UCF entry BBs
   allOnesBeginBB->getTerminator()->eraseFromParent();
-  LoadInst* loadMask = new LoadInst(ucfMask, "ucf_region_mask", allOnesBeginBB);
+  Type *Ty = cast<PointerType>(ucfMask->getType())->getElementType();
+  LoadInst* loadMask = new LoadInst(Ty, ucfMask, "ucf_region_mask", allOnesBeginBB);
   CallInst* isAllOnesTest = CallInst::Create(m_allone, loadMask, "isAllOnes", allOnesBeginBB);
   BasicBlock * postEntryCloneBB = cast<BasicBlock>(clonesMap[postEntryBB]);
   BranchInst::Create(postEntryCloneBB, postEntryBB, isAllOnesTest, allOnesBeginBB);
@@ -2434,7 +2451,8 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
   //    (which is not predicated), or to entry2, leading to original.
   V_ASSERT(m_inMask.count(original) && "missing in mask");
   Value* mask = m_inMask[original];
-  LoadInst* loadMask = new LoadInst(mask, "block_mask", entry);
+  Type *Ty = cast<PointerType>(mask->getType())->getElementType();
+  LoadInst* loadMask = new LoadInst(Ty, mask, "block_mask", entry);
   CallInst* isAllOnes = CallInst::Create(m_allone, loadMask, "isAllOnes", entry);
   BranchInst::Create(allOnes, entry2, isAllOnes, entry);
 
@@ -2885,7 +2903,8 @@ void Predicator::insertAllOnesBypasses() {
       //    (which is not predicated), or to original (which is predicated).
       V_ASSERT(m_inMask.count(original) && "missing in mask");
       Value* mask = m_inMask[original];
-      LoadInst* loadMask = new LoadInst(mask, "block_mask", entry);
+      Type *Ty = cast<PointerType>(mask->getType())->getElementType();
+      LoadInst* loadMask = new LoadInst(Ty, mask, "block_mask", entry);
       CallInst* isAllOnes = CallInst::Create(m_allone, loadMask, "isAllOnes", entry);
       BranchInst::Create(allOnes, original, isAllOnes, entry);
 
