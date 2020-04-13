@@ -8060,6 +8060,14 @@ public:
               I->getAssociatedExpression()->getType());
           Address HB = CGF.Builder.CreateConstGEP(
               CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(LB,
+#if INTEL_COLLAB
+                  CGF.CGM.getLangOpts().OpenMPLateOutline
+                      ? llvm::PointerType::get(CGF.VoidPtrTy->getElementType(),
+                                               LB.getPointer()
+                                                   ->getType()
+                                                   ->getPointerAddressSpace())
+                      :
+#endif  // INTEL_COLLAB
                                                               CGF.VoidPtrTy),
               TypeSize.getQuantity() - 1);
           PartialStruct.HighestElem = {
