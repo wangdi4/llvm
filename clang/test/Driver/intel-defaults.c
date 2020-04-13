@@ -2,6 +2,7 @@
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // RUN: %clang -### -c -qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
+// CHECK-INTEL: "-fveclib=SVML"
 // CHECK-INTEL: "-O2"
 // CHECK-INTEL: "-fintel-compatibility"
 // CHECK-INTEL: "-mllvm" "-intel-libirc-allowed"
@@ -32,3 +33,8 @@
 // CHECK-INTEL-LIBS32: "-L{{.*}}../compiler/lib/ia32_lin"
 // CHECK-INTEL-LIBS32: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS32: "-Bstatic" "-lsvml" "-Bdynamic"
+
+// -fveclib=SVML can be overridden
+// RUN: %clang -### -c --intel -fveclib=none %s 2>&1 | FileCheck -check-prefix CHECK-VECLIB %s
+// CHECK-VECLIB: "-fveclib=none"
+// CHECK-VECLIB-NOT: "-fveclib=SVML"
