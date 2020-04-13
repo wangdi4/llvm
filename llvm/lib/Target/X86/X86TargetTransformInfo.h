@@ -160,6 +160,8 @@ public:
   int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
                                  bool IsPairwiseForm);
 
+  int getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned);
+
   int getMinMaxReductionCost(Type *Ty, Type *CondTy, bool IsPairwiseForm,
                              bool IsUnsigned);
 
