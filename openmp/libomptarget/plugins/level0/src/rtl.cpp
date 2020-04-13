@@ -573,7 +573,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       //CALL_ZE_RET_NULL(zeModuleGetGlobalPointer, module, name, &tgtAddr);
       if (!tgtAddr) {
         tgtAddr = __tgt_rtl_data_alloc(DeviceId, size, hstAddr);
-        __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size, nullptr);
+        __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
         DeviceInfo.DataMutexes[DeviceId].lock();
         DeviceInfo.OwnedMemory[DeviceId].push_back(tgtAddr);
         DeviceInfo.DataMutexes[DeviceId].unlock();
@@ -812,8 +812,15 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
 EXTERN
 int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
-                              int64_t Size,
-                              __tgt_async_info *AsyncInfoPtr /*not used*/) {
+                              int64_t Size) {
+  return submitData(DeviceId, TgtPtr, HstPtr, Size, nullptr);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_data_submit_async(int32_t DeviceId, void *TgtPtr, void *HstPtr,
+                            int64_t Size,
+                            __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return submitData(DeviceId, TgtPtr, HstPtr, Size, nullptr);
 }
 
@@ -874,8 +881,15 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 
 EXTERN
 int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
-                                int64_t Size,
-                                __tgt_async_info *AsyncInfoPtr /*not used*/) {
+                                int64_t Size) {
+  return retrieveData(DeviceId, HstPtr, TgtPtr, Size, nullptr);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_data_retrieve_async(int32_t DeviceId, void *HstPtr, void *TgtPtr,
+                              int64_t Size,
+                              __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return retrieveData(DeviceId, HstPtr, TgtPtr, Size, nullptr);
 }
 
@@ -1065,7 +1079,17 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
 }
 
 EXTERN
-int32_t __tgt_rtl_run_target_team_region(
+int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
+                                         void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                         int32_t NumArgs, int32_t NumTeams,
+                                         int32_t ThreadLimit,
+                                         uint64_t LoopTripCount) {
+  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                             NumArgs, NumTeams, ThreadLimit, nullptr, nullptr);
+}
+
+EXTERN
+int32_t __tgt_rtl_run_target_team_region_async(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
     uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr /*not used*/) {
@@ -1084,8 +1108,16 @@ int32_t __tgt_rtl_run_target_team_region_nowait(
 }
 
 EXTERN
+int32_t __tgt_rtl_run_target_region(int32_t DeviceId, void *TgtEntryPtr,
+                                    void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                    int32_t NumArgs) {
+  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                             NumArgs, 1, 0, nullptr, nullptr);
+}
+
+EXTERN
 int32_t
-__tgt_rtl_run_target_region(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
+__tgt_rtl_run_target_region_async(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
                             ptrdiff_t *TgtOffsets, int32_t NumArgs,
                             __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,

@@ -187,8 +187,8 @@ struct DeviceTy {
   int32_t run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
                           ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                           int32_t NumTeams, int32_t ThreadLimit,
-<<<<<<< HEAD
-                          uint64_t LoopTripCount, __tgt_async_info *AsyncInfo);
+                          uint64_t LoopTripCount,
+                          __tgt_async_info *AsyncInfoPtr);
 #if INTEL_COLLAB
   int32_t manifest_data_for_region(void *TgtEntryPtr);
   void *create_buffer(void *HstPtr);
@@ -221,11 +221,7 @@ struct DeviceTy {
   int32_t data_delete_managed(void *Ptr);
   int32_t is_managed_ptr(void *Ptr);
 #endif // INTEL_COLLAB
-=======
-                          uint64_t LoopTripCount,
-                          __tgt_async_info *AsyncInfoPtr);
 
->>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
 private:
   // Call to RTL
   void init(); // To be called only via DeviceTy::initOnce()

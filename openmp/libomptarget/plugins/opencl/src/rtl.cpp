@@ -1409,7 +1409,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       //        that we allocate here.
       if (DeviceSize == 0) {
         TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
-        __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size, nullptr);
+        __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
       }
 
       DP("Global variable allocated: Name = %s, Size = %zu"
@@ -1868,6 +1868,13 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
 
 EXTERN
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
+                              int64_t size) {
+  return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
+                                      nullptr);
+}
+
+EXTERN
+int32_t __tgt_rtl_data_submit_async(int32_t device_id, void *tgt_ptr, void *hst_ptr,
                               int64_t size,
                               __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
@@ -1955,8 +1962,16 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
 
 EXTERN
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                                int64_t size,
-                                __tgt_async_info *AsyncInfoPtr /*not used*/) {
+                                int64_t size) {
+  return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
+                                        nullptr);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr, void *tgt_ptr,
+                              int64_t size,
+                              __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
                                         nullptr);
 }
@@ -2473,7 +2488,19 @@ int32_t __tgt_rtl_run_target_region_nowait(int32_t device_id,
 }
 
 EXTERN
-int32_t __tgt_rtl_run_target_team_region(
+int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
+                                         void **tgt_args,
+                                         ptrdiff_t *tgt_offsets,
+                                         int32_t arg_num, int32_t team_num,
+                                         int32_t thread_limit,
+                                         uint64_t loop_tripcount /*not used*/) {
+  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
+                                   tgt_offsets, arg_num, team_num, thread_limit,
+                                   nullptr, nullptr);
+}
+
+EXTERN
+int32_t __tgt_rtl_run_target_team_region_async(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
     int32_t thread_limit, uint64_t loop_tripcount /*not used*/,
@@ -2484,15 +2511,23 @@ int32_t __tgt_rtl_run_target_team_region(
 }
 
 EXTERN
-int32_t
-__tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
-                            void **tgt_args, ptrdiff_t *tgt_offsets,
-                            int32_t arg_num,
-                            __tgt_async_info *AsyncInfoPtr /*not used*/) {
+int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
+                                    void **tgt_args, ptrdiff_t *tgt_offsets,
+                                    int32_t arg_num) {
   // use one team!
   return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
-                                          tgt_offsets, arg_num, 1, 0, 0,
-                                          nullptr);
+                                          tgt_offsets, arg_num, 1, 0, 0);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_run_target_region_async(int32_t device_id, void *tgt_entry_ptr,
+                                  void **tgt_args, ptrdiff_t *tgt_offsets,
+                                  int32_t arg_num,
+                                  __tgt_async_info *AsyncInfoPtr /*not used*/) {
+  // use one team!
+  return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
+                                          tgt_offsets, arg_num, 1, 0, 0);
 }
 
 EXTERN char *__tgt_rtl_get_device_name(

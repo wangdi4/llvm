@@ -756,28 +756,16 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
   return __tgt_rtl_synchronize(device_id, &async_info);
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                                int64_t size,
-                                __tgt_async_info *async_info_ptr) {
-  // The function dataRetrieve is always asynchronous. Considering some data
-  // transfer must be synchronous, we assume if async_info_ptr is nullptr, the
-  // transfer will be synchronous by creating a temporary async info and then
-  // synchronizing after call dataRetrieve; otherwise, it is asynchronous.
-  if (async_info_ptr)
-    return dataRetrieve(device_id, hst_ptr, tgt_ptr, size, async_info_ptr);
-=======
 int32_t __tgt_rtl_data_submit_async(int32_t device_id, void *tgt_ptr,
                                     void *hst_ptr, int64_t size,
                                     __tgt_async_info *async_info_ptr) {
   assert(async_info_ptr && "async_info_ptr is nullptr");
   return dataSubmit(device_id, tgt_ptr, hst_ptr, size, async_info_ptr);
 }
->>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
   __tgt_async_info async_info;
@@ -789,11 +777,9 @@ int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
   return __tgt_rtl_synchronize(device_id, &async_info);
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-=======
 int32_t __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr,
                                       void *tgt_ptr, int64_t size,
                                       __tgt_async_info *async_info_ptr) {
@@ -801,7 +787,9 @@ int32_t __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr,
   return dataRetrieve(device_id, hst_ptr, tgt_ptr, size, async_info_ptr);
 }
 
->>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   // Set the context we are using.
   CUresult err = cuCtxSetCurrent(DeviceInfo.Contexts[device_id]);

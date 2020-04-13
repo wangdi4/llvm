@@ -251,9 +251,8 @@ void RTLsTy::LoadRTLs() {
     if (!(*((void **)&R.run_region) =
               dlsym(dynlib_handle, "__tgt_rtl_run_target_region")))
       continue;
-<<<<<<< HEAD
-    if (!(*((void**) &R.run_team_region) = dlsym(
-              dynlib_handle, "__tgt_rtl_run_target_team_region")))
+    if (!(*((void **)&R.run_team_region) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region")))
       continue;
 #if INTEL_COLLAB
     if ((*((void **)&R.data_submit_nowait) =
@@ -308,12 +307,6 @@ void RTLsTy::LoadRTLs() {
               dlsym(dynlib_handle, "__tgt_rtl_is_managed_ptr")))
       DP("Optional interface: __tgt_rtl_is_managed_ptr\n");
 #endif // INTEL_COLLAB
-    if (!(*((void**) &R.synchronize) = dlsym(
-              dynlib_handle, "__tgt_rtl_synchronize")))
-=======
-    if (!(*((void **)&R.run_team_region) =
-              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region")))
->>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
       continue;
 
     // Optional functions
