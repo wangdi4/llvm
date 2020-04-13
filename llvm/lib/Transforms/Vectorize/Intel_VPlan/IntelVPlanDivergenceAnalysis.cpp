@@ -542,10 +542,6 @@ void VPlanDivergenceAnalysis::computeImpl() {
         !getVectorShape(&I).isUndefined())
       continue;
 
-      // TODO: Early continue for divergent VPInstruction might be needed here
-      // when computation is done separately for divergence property and vector
-      // shape property. Check CMPLRLLVM-9230.
-
 #if INTEL_CUSTOMIZATION
     // Branch instructions are not explicitly represented in VPlan, so check
     // to see if the current instruction is the same as the VPCondBit of the
@@ -598,17 +594,6 @@ void VPlanDivergenceAnalysis::computeImpl() {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-bool VPlanDivergenceAnalysis::isUniformLoopEntity(const VPValue *V) const {
-  if (isa<VPExternalDef>(V) &&
-      !(RegionLoopEntities->getReduction(V) ||
-        RegionLoopEntities->getInduction(V) ||
-        RegionLoopEntities->getPrivate(V)))
-    return true;
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
 
   if (UniformOverrides.find(&V) != UniformOverrides.end() ||
@@ -620,15 +605,7 @@ bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   // hoisting them outside of the inserted loop. As such, it adds the
   // appropriate stride to any users. Thus, here we treat these calls as uniform
   // because the added instructions by OCL VecClone to calculate stride will
-  // cause DA to propagate the correct stride as is. The call to
-  // isUniformLoopEntity has been commented out because of this since support
-  // has now been added to make these calls VPInduction objects. If this line is
-  // uncommented, the incorrect stride will be propagated. Later, we can always
-  // allow DA to use this call instead of VecClone treating the calls as linear.
-  // Either way is correct.
-  //
-  // if (isUniformLoopEntity(&V))
-  //   return true;
+  // cause DA to propagate the correct stride as is.
 
   auto *VPInst = dyn_cast<VPInstruction>(&V);
 
@@ -1303,12 +1280,12 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   return NewShape;
 }
 
-void VPlanDivergenceAnalysis::initializePhiShapes(VPLoop *CandidateLoop) {
+void VPlanDivergenceAnalysis::initializePhiShapes() {
   // Initialize all outer loop phi induction nodes using the appropriate
   // strides. We could also initialize VPExternalDefs to uniform here, but
   // we can do that only the fly in computeVectorShapes() to avoid an
   // additional iteration over the instructions in the VPlan.
-  for (const auto &Phi : CandidateLoop->getHeader()->getVPPhis()) {
+  for (const auto &Phi : RegionLoop->getHeader()->getVPPhis()) {
     VPVectorShape NewShape = VPVectorShape::getUndef();
     auto getInduction = [](const auto &Phi) -> VPInductionInit * {
       for (auto *PhiArg : Phi.incoming_values())
@@ -1372,9 +1349,9 @@ void VPlanDivergenceAnalysis::initializeShapesForConstOpInsts() {
 // Push users of instructions with non-deterministic results on to the
 // Worklist. These include instructions which can have side-effects and/or
 // instructions with no input operands.
-void VPlanDivergenceAnalysis::pushNonDeterministicInsts(VPLoop *CandidateLoop) {
+void VPlanDivergenceAnalysis::pushNonDeterministicInsts() {
   // Collect instructions that may possibly have non-deterministic result.
-  for (VPBasicBlock *VPBB : CandidateLoop->getBlocks()) {
+  for (VPBasicBlock *VPBB : RegionLoop->getBlocks()) {
     for (const auto &VPInst : *VPBB)
       if (!hasDeterministicResult(VPInst) || VPInst.getNumOperands() == 0)
         pushToWorklist(VPInst);
@@ -1390,11 +1367,11 @@ void VPlanDivergenceAnalysis::pushNonDeterministicInsts(VPLoop *CandidateLoop) {
 }
 
 // Mark Loop-exit condition as uniforms.
-void VPlanDivergenceAnalysis::markLoopExitsAsUniforms(VPLoop *CandidateLoop) {
+void VPlanDivergenceAnalysis::markLoopExitsAsUniforms() {
   // After the scalar remainder loop is extracted, the loop exit condition will
   // be uniform. Source of code divergence here away from community - no
   // getTerminator() interface.
-  VPBasicBlock *ExitingBlock = CandidateLoop->getExitingBlock();
+  VPBasicBlock *ExitingBlock = RegionLoop->getExitingBlock();
   if (ExitingBlock) {
     auto LoopExitCond = ExitingBlock->getCondBit();
     assert(LoopExitCond && "Loop exit condition not found");
@@ -1409,8 +1386,7 @@ void VPlanDivergenceAnalysis::markLoopExitsAsUniforms(VPLoop *CandidateLoop) {
 // Mark instructions in the Preheader and other non-loop blocks with
 // appropriate shapes. These instructions are not visited during the core
 // algorithm.
-void VPlanDivergenceAnalysis::initializeShapesForLoopInvariantCode(
-    VPLoop *RegionLoop) {
+void VPlanDivergenceAnalysis::initializeShapesForLoopInvariantCode() {
 
   // Mark instructions in the Preheader with appropriate shapes.
   VPBasicBlock *LoopPreheader = RegionLoop->getLoopPreheader();
@@ -1440,18 +1416,18 @@ void VPlanDivergenceAnalysis::init() {
 #if INTEL_CUSTOMIZATION
   // We are running DA after materialization of VPEntities.
   // Set shapes for instructions in the non-loop blocks.
-  initializeShapesForLoopInvariantCode(RegionLoop);
+  initializeShapesForLoopInvariantCode();
 #endif // INTEL_CUSTOMIZATION
 
   // Push instructions with non-deterministic results to Worklist.
-  pushNonDeterministicInsts(RegionLoop);
+  pushNonDeterministicInsts();
 
   // Mark the loop-exits are uniform.
-  markLoopExitsAsUniforms(RegionLoop);
+  markLoopExitsAsUniforms();
 
   // Initialize the shapes of the Phis corresponding to the loop being
   // vectorized.
-  initializePhiShapes(RegionLoop);
+  initializePhiShapes();
 
   // Initialize the shapes of operands of instructions which have constant or
   // uniform operands.
@@ -1470,12 +1446,11 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 
   Plan = P;
   RegionLoop = CandidateLoop;
-  RegionLoopEntities = Plan->getOrCreateLoopEntities(CandidateLoop);
   VPLI = VPLInfo;
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
-  SDA = new SyncDependenceAnalysis(CandidateLoop->getHeader(), VPDomTree,
+  SDA = new SyncDependenceAnalysis(RegionLoop->getHeader(), VPDomTree,
                                    VPPostDomTree, *VPLInfo);
 
   // Initialize the shapes of instructions which can be determined statically.
@@ -1489,13 +1464,13 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
   if (VPlanVerifyDA)
-    verifyVectorShapes(CandidateLoop);
+    verifyVectorShapes(RegionLoop);
 
 #endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DumpDA)
-    print(dbgs(), CandidateLoop);
+    print(dbgs(), RegionLoop);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
