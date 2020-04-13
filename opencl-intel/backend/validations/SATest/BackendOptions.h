@@ -33,6 +33,8 @@ public:
     {
         m_TimePasses = runConfig.GetValue<std::string>(RC_BR_TIME_PASSES, "");
         m_DisableStackDump = runConfig.GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false);
+        m_vectorizerType =
+          runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
     }
 
 
@@ -61,7 +63,13 @@ public:
 
     virtual int GetIntValue( int optionId, int defaultValue) const
     {
-        return defaultValue;
+        switch(optionId)
+        {
+        case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
+            return m_vectorizerType;
+        default:
+            return defaultValue;
+        }
     }
 
     virtual bool GetValue(int optionId, void* Value, size_t* pSize) const
@@ -72,6 +80,7 @@ public:
 private:
     std::string m_TimePasses;
     bool        m_DisableStackDump;
+    VectorizerType m_vectorizerType;
 };
 
 
@@ -97,6 +106,7 @@ public:
         m_deviceMode = static_cast<DeviceMode>(runConfig.GetValue<int>(RC_BR_DEVICE_MODE, CPU_DEVICE));
         m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
         m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, false);
+        m_vectorizerType = runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -124,6 +134,8 @@ public:
             return m_deviceMode;
         case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
             return m_transposeSize;
+        case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
+            return m_vectorizerType;
         default:
              return defaultValue;
         }
@@ -174,6 +186,7 @@ protected:
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_DumpIRDir;
     bool m_dumpHeuristcIR;
+    VectorizerType m_vectorizerType;
 };
 
 
@@ -250,7 +263,6 @@ public:
             if(*pSize < m_targetDescSize) return false;
             memcpy(Value, m_pTargetDesc, m_targetDescSize);
             return true;
-            
         default:
             return CPUBackendOptions::GetValue(optionId, Value, pSize);
         }
