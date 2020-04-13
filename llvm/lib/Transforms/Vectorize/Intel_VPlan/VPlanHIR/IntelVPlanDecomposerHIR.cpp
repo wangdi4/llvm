@@ -116,10 +116,20 @@ VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
 VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
                                         int64_t BlobCoeff) {
   BlobTy Blob = RDDR->getBlobUtils().getBlob(BlobIdx);
+  VPValue *DecompBlob;
 
-  // Decompose Blob.
-  VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
-  VPValue *DecompBlob = BlobDecomp.visit(Blob);
+  // Avoid invariant blob decomposition if the same is enabled. However, for
+  // constant data blobs, and standalone blobs continue regular decomposition.
+  if (VPlanForceInvariantDecomposition ||
+      RDDR->getBlobUtils().isConstantDataBlob(Blob) ||
+      RDDR->isNonDecomposable() || RDDR->getBlobDDRef(BlobIdx) ||
+      RDDR->findMaxBlobLevel(BlobIdx) >= OutermostHLp->getNestingLevel()) {
+    // Decompose Blob.
+    VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
+    DecompBlob = BlobDecomp.visit(Blob);
+  } else
+    DecompBlob = Plan->getVPExternalDefForBlob(RDDR, BlobIdx);
+
   assert(DecompBlob && "Blob was not decomposed into valid VPValues");
 
   if (BlobCoeff != 1) {

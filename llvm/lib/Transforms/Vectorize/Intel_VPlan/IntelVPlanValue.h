@@ -507,6 +507,12 @@ private:
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
 
+  // Construct a VPExternalDef for blob with index \p BI in \p DDR. \p BType
+  // specifies the blob type.
+  VPExternalDef(const loopopt::RegDDRef *DDR, unsigned BI, Type *BType)
+      : VPValue(VPValue::VPExternalDefSC, BType),
+        HIROperand(new VPBlob(DDR, BI)) {}
+
   // Construct a VPExternalDef given an underlying CanonExpr \p CE.
   VPExternalDef(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, CE->getDestType()),
