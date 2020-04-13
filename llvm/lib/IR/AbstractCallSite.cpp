@@ -52,6 +52,27 @@ void AbstractCallSite::getCallbackUses(ImmutableCallSite ICS,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+Argument *AbstractCallSite::getCallbackArg(ImmutableCallSite ICS,
+                                           unsigned ArgNo) {
+  SmallVector<const Use *, 4u> CallbackUses;
+  AbstractCallSite::getCallbackUses(ICS, CallbackUses);
+  for (auto *U : CallbackUses) {
+    AbstractCallSite ACS(U);
+    assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+
+    if (Function *Callback = ACS.getCalledFunction())
+      for (Argument &CallbackArg : Callback->args()) {
+        int CallArgNo = ACS.getCallArgOperandNo(CallbackArg);
+        if (CallArgNo < 0 || unsigned(CallArgNo) != ArgNo)
+          continue;
+        return &CallbackArg;
+      }
+  }
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Create an abstract call site from a use.
 AbstractCallSite::AbstractCallSite(const Use *U) : CS(U->getUser()) {
 

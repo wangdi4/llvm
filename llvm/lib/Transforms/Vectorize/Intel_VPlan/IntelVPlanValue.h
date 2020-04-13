@@ -504,6 +504,11 @@ private:
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
 
+  // Construct a VPExternalDef given an underlying CanonExpr \p CE.
+  VPExternalDef(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
+      : VPValue(VPValue::VPExternalDefSC, CE->getDestType()),
+        HIROperand(new VPCanonExpr(CE, DDR)) {}
+
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
       : VPValue(VPValue::VPExternalDefSC, BaseTy),
@@ -530,6 +535,13 @@ public:
       getType()->print(OS);
       OS << " ";
       HIROperand->print(OS);
+    }
+  }
+  void printDetail(raw_ostream &OS) const {
+    if (getUnderlyingValue())
+      getUnderlyingValue()->printAsOperand(OS);
+    else {
+      HIROperand->printDetail(OS);
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

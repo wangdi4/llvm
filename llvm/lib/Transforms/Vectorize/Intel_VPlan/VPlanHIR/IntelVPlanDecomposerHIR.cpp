@@ -1,6 +1,6 @@
 //===-- VPlanDecomposeHIR.cpp ---------------------------------------------===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -22,12 +22,17 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
 
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+static cl::opt<bool> VPlanForceInvariantDecomposition(
+    "vplan-force-invariant-decomposition", cl::init(true), cl::Hidden,
+    cl::desc("Force decomposition of invariants"));
 
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
 // VPPhi instruction to the front of the list
@@ -177,7 +182,6 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   int64_t IVConstCoeff;
   unsigned IVBlobIndex;
   CE->getIVCoeff(IVLevel, &IVBlobIndex, &IVConstCoeff);
-
   VPValue *DecompIV = nullptr;
 
   if (IVBlobIndex != InvalidBlobIndex)
@@ -225,25 +229,110 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
 
-  // Decompose blobs.
-  for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
-    unsigned BlobIdx = CE->getBlobIndex(BlobIt);
-    assert(BlobIdx != InvalidBlobIndex && "Invalid blob index!");
+  // Return true if we want to force regular decomposition of given
+  // canon expression.
+  auto forceRegularDecomposition = [](CanonExpr *CE, unsigned VecLoopLevel) {
+    // Do regular decomposition if invariant decomposition is forced.
+    if (VPlanForceInvariantDecomposition)
+      return true;
 
-    int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
-    assert(BlobCoeff != 0 && "Invalid blob coefficient!");
+    // We want to force regular decomposition for canon expressions that are
+    // constants or self blobs once we ignore the IV at vectorization loop
+    // level. Remove IV if needed and mark for later restore of IV.
+    bool RestoreIV = false, UseRegular = false;
+    int64_t IVConstCoeff;
+    unsigned IVBlobIndex;
+    CE->getIVCoeff(VecLoopLevel, &IVBlobIndex, &IVConstCoeff);
+    if (IVConstCoeff) {
+      RestoreIV = true;
+      CE->removeIV(VecLoopLevel);
+    }
 
-    VPValue *DecompBlob = decomposeBlobImplicitConv(
-        decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
-    DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
-                                  Instruction::Add);
+    // Avoid creating an external def for constants - continue generating a
+    // VPConstant.
+    if (CE->isConstant())
+      UseRegular = true;
+
+    // Continue creating a VPBlob external def for self blob canon expressions
+    if (CE->isSelfBlob())
+      UseRegular = true;
+
+    // Restore IV at vectorization loop level if needed.
+    if (RestoreIV)
+      CE->addIV(VecLoopLevel, IVBlobIndex, IVConstCoeff);
+
+    return UseRegular;
+  };
+
+  unsigned VecLoopLevel = OutermostHLp->getNestingLevel();
+  bool ForceRegularDecomposition = forceRegularDecomposition(CE, VecLoopLevel);
+
+  // Avoid decomposing invariant canon expressions.
+  if (!ForceRegularDecomposition && CE->isInvariantAtLevel(VecLoopLevel))
+    return Plan->getVPExternalDefForCanonExpr(CE, RDDR);
+
+  // Check to see if we can avoid decomposition of canon expression portion
+  // after removing the IV at level being vectorized. Boolean flag is set to
+  // true if we can do so. TODO - revisit for multi level vectorization when
+  // we support this in future.
+  bool InvariantWithoutIV = false;
+
+  // The canon expression is a candidate if we are not forcing regular
+  // decomposition for this canon expression, it is linear at vec loop level and
+  // invariant at any inner loop level.
+  if (!ForceRegularDecomposition && CE->isLinearAtLevel(VecLoopLevel) &&
+      CE->isInvariantAtLevel(VecLoopLevel + 1)) {
+    auto *CEClone = CE->clone();
+    CEClone->removeIV(VecLoopLevel);
+
+    // Consider the following canon expressions where %n1 and %n2 are invariant:
+    //     (i1 + %n1 + %n2)  /  9 (source and dest types are i64)
+    //     i1 + %n1 + %n2         (source type is i64 and dest type is i32)
+    // In the above case, we want to create one invariant for %n1 + %n2. Also,
+    // the correct decomposition for the first case would be:
+    //   vp1 = add i64 invariant, i1
+    //   vp2 = sdiv i64 vp1, 9
+    // The correct decomposition for the second case would be
+    //   vp3 = add i64 invariant, i1
+    //   vp4 = trunc i64 vp3 to i32
+    // In order for this to happen, we force the
+    // clone destination type to same as source type and any needed conversion
+    // is applied later. Similarly we force the denominator to 1 and any needed
+    // division is applied later.
+    CEClone->setDestType(CEClone->getSrcType());
+    CEClone->setDenominator(1);
+    assert(CEClone->isInvariantAtLevel(VecLoopLevel) &&
+           "Expected invariant CEClone");
+
+    DecompDef = Plan->getVPExternalDefForCanonExpr(CEClone, RDDR);
+    InvariantWithoutIV = true;
   }
 
-  // Decompose IV expression.
+  // If the canon expression is invariant once we ignore IV at the vectorization
+  // level, we do not need to decompose blobs.
+  if (!InvariantWithoutIV)
+    // Decompose blobs.
+    for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
+      unsigned BlobIdx = CE->getBlobIndex(BlobIt);
+      assert(BlobIdx != InvalidBlobIndex && "Invalid blob index!");
+
+      int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
+      assert(BlobCoeff != 0 && "Invalid blob coefficient!");
+
+      VPValue *DecompBlob = decomposeBlobImplicitConv(
+          decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
+      DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
+                                    Instruction::Add);
+    }
+
+  // Decompose IV expression. If the canon expression is invariant without
+  // vectorization level IV, we only need to decompose vectorization level
+  // IV.
   for (auto IVIt = CE->iv_begin(), E = CE->iv_end(); IVIt != E; ++IVIt) {
     int64_t IVConstCoeff = CE->getIVConstCoeff(IVIt);
-
-    if (IVConstCoeff != 0) {
+    if (IVConstCoeff != 0 &&
+        (!InvariantWithoutIV ||
+         CE->getLevel(IVIt) == OutermostHLp->getNestingLevel())) {
       VPValue *DecompIV =
           decomposeIV(RDDR, CE, CE->getLevel(IVIt), CE->getSrcType());
       DecompDef = combineDecompDefs(DecompDef, DecompIV, CE->getSrcType(),
@@ -251,14 +340,18 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     }
   }
 
-  // Decompose constant additive. If it's 0, we ignore it when the CE has more
-  // components (e.g., X + 0). Otherwise, CE is representing the constant 0 and
-  // we have to generate a VPValue for it.
-  int64_t AddCoeff = CE->getConstant();
-  if (AddCoeff != 0 || !DecompDef) {
-    VPValue *DecompCoeff = decomposeCoeff(AddCoeff, CE->getSrcType());
-    DecompDef = combineDecompDefs(DecompDef, DecompCoeff, CE->getSrcType(),
-                                  Instruction::Add);
+  // If the canon expression is invariant without vectorization level IV,
+  // the constant additive will be part of the invariant and should be skipped.
+  if (!InvariantWithoutIV) {
+    // Decompose constant additive. If it's 0, we ignore it when the CE has more
+    // components (e.g., X + 0). Otherwise, CE is representing the constant 0
+    // and we have to generate a VPValue for it.
+    int64_t AddCoeff = CE->getConstant();
+    if (AddCoeff != 0 || !DecompDef) {
+      VPValue *DecompCoeff = decomposeCoeff(AddCoeff, CE->getSrcType());
+      DecompDef = combineDecompDefs(DecompDef, DecompCoeff, CE->getSrcType(),
+                                    Instruction::Add);
+    }
   }
 
   // Decompose denominator.

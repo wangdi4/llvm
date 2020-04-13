@@ -32,6 +32,12 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Print VPlan entities"));
 
+// Flag to enable SOA-analysis.
+static cl::opt<bool, true>
+    EnableSOAAnalysisOpt("vplan-enable-soa", cl::Hidden,
+                         cl::location(EnableSOAAnalysis),
+                         cl::desc("Enable VPlan SOAAnalysis."));
+
 // Flag to enable printing of SOA-analysis information.
 static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
     "vplan-dump-soa-info", cl::Hidden,
@@ -40,6 +46,7 @@ static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
 
 namespace llvm {
 namespace vpo {
+bool EnableSOAAnalysis = false;
 bool VPlanDisplaySOAAnalysisInformation = false;
 } // namespace vpo.
 } // namespace llvm.
@@ -319,6 +326,10 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
 
 // Do SOA-analysis on loop-entities.
 void VPLoopEntityList::doSOAAnalysis() {
+  // Run SOA Analysis only when it is enabled.
+  if (!EnableSOAAnalysis)
+    return;
+
   VPSOAAnalysis VPSOAA(Plan, getLoop());
   VPSOAA.doSOAAnalysis();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
