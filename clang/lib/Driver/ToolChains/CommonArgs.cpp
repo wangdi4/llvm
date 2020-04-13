@@ -508,6 +508,16 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (!StatsFile.empty())
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-plugin-opt=stats-file=") + StatsFile));
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel)) {
+    CmdArgs.push_back("-plugin-opt=-intel-libirc-allowed");
+    if (Arg * A = Args.getLastArg(options::OPT_fveclib))
+      Args.MakeArgString(Twine("-plugin-opt=-vector-library=") + A->getValue());
+  }
+  // All -mllvm flags as provided by the user will be passed through.
+  for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+    CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
