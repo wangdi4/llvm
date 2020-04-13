@@ -19,6 +19,24 @@ entry:
   ret <32 x i32> %res
 }
 
+; CMPLRLLVM-18547: Test for ConstantExpr split fail bug.
+@array0 = global [64 x i32] zeroinitializer
+@array1 = global [64 x i32] zeroinitializer
+define <16 x i32*> @constantExprSplitTest(i64 %val) {
+; CHECK-LABEL: constantExprSplitTest
+; CHECK:       %cmp0 = icmp eq <16 x i64>
+; CHECK-NEXT:  %cmp1 = icmp sgt <16 x i64>
+entry:
+  %splatinsert = insertelement <16 x i64> undef, i64 %val, i32 0
+  %splat = shufflevector <16 x i64> %splatinsert, <16 x i64> undef, <16 x i32> zeroinitializer
+  %arrayIdx = getelementptr inbounds [64 x i32], <16 x [64 x i32]*> <[64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0, [64 x i32]* @array0>, <16 x i64> zeroinitializer, <16 x i64> %splat
+  %cmp0 = icmp eq <16 x i64> %splat, <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>
+  %cmp1 = icmp sgt <16 x i64> %splat, zeroinitializer
+  %cond = and <16 x i1> %cmp0, %cmp1
+  %res = select <16 x i1> %cond, <16 x i32*> %arrayIdx, <16 x i32*> getelementptr ([64 x i32], <16 x [64 x i32]*> <[64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1>, <16 x i64> zeroinitializer, <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>)
+  ret <16 x i32*> %res
+}
+
 define <32 x i1> @insertelementSplitTest(<32 x i32>* %data_ptr, i32 %val1, i32 %val2) {
 ; CHECK-LABEL:  insertelementSplitTest
 ; CHECK:        %x0.h = insertelement <16 x i32> %data.h, i32 %val1, i32 4
