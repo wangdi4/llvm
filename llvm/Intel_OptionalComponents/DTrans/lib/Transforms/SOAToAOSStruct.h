@@ -2154,6 +2154,7 @@ public:
         if (!FCalled)
           return false;
         auto *StrType = getStructTypeOfMethod(*FCalled);
+        assert(StrType && "Expected class type for array method");
         assert(std::find(Arrays.begin(), Arrays.end(), StrType) !=
                    Arrays.end() &&
                "Unexpected instruction");
@@ -2422,7 +2423,9 @@ private:
     IRBuilder<> Builder(Context);
     // Insert at the end of BasicBlock.
     Builder.SetInsertPoint(NewAppend->getParent()->getTerminator());
-    Builder.CreateCall(NewAppend->getCalledValue(), NewArgs);
+    auto *NewF = NewAppend->getCalledFunction();
+    assert(NewF && "Expected direct call");
+    Builder.CreateCall(NewF->getFunctionType(), NewF, NewArgs);
 
     for (auto *CI : OldAppends) {
       auto *NewCI = cast<CallInst>((Value *)VMap[CI]);

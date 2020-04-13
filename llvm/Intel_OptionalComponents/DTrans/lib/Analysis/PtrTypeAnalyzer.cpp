@@ -31,8 +31,62 @@
 // Trace message about information collected for dependent values.
 #define VERBOSE_DEP_TRACE "dtrans-pta-dep-verbose"
 
+// A predicate test version of the DEBUG_WITH_TYPE macro, where the
+// DEBUG_WITH_TYPE will only be executed when the predicate is 'true'. This is
+// to enable verbose traces to be enabled/disabled based on the function being
+// processed.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#define DEBUG_WITH_TYPE_P(PRED, TYPE, X)                                       \
+  if (PRED()) {                                                                \
+    DEBUG_WITH_TYPE(TYPE, X);                                                  \
+  }
+#else
+#define DEBUG_WITH_TYPE_P(PRED, TYPE, X)                                       \
+  do {                                                                         \
+  } while (false)
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 namespace llvm {
 namespace dtrans {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// This is not using an anonymous namespace to allow access to this declaration
+// from within the debugger to allow performing conditional breakpoints based on
+// the value of the 'Enabled' member of the DebugFilter class.
+namespace ptr_type_analyzer_debug {
+
+// Predicate class for use with DEBUG_WITH_TYPE_P macro to control
+// verbose message output.
+class DebugFilter {
+public:
+  void reset() { setEnabled(true); }
+  void setEnabled(bool Val) { Enabled = Val; }
+
+  // predicate function for DEBUG_WITH_TYPE_P macro.
+  bool operator()() { return Enabled; }
+
+private:
+  // Default to always emit. If message filtering is enabled,
+  // calls to setEnabled will turn this on and off as needed.
+  bool Enabled = true;
+};
+
+// A trace filter that will be enabled/disabled based on the function name.
+static DebugFilter FNFilter;
+} // end namespace ptr_type_analyzer_debug
+
+using namespace ptr_type_analyzer_debug;
+
+// Comma separated list of function names that the verbose debug output should
+// be reported for. If empty, all verbose messages are generated when the
+// appropriate -debug-only value is set. Otherwise, messages are only emitted
+// when processing functions matching the name of an entry in the list.
+static cl::list<std::string> DTransPTAFilterPrintFuncs(
+    "dtrans-pta-filter-print-funcs", cl::CommaSeparated, cl::ReallyHidden,
+    cl::desc(
+        "Filter emission of verbose debug messages to specific functions"));
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Control whether the 'declared' type and 'usage' type sets are reported
 // separately (false), or combined into a single set (true) when dumping the
@@ -338,6 +392,12 @@ public:
   }
 
   void visitModule(Module &M) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // Reset the state of the trace filter to the default value in case another
+    // call to visitModule is started.
+    FNFilter.reset();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
     // Get the type for all the Function definitions.
     for (auto &F : M) {
       // TODO: Currently, we do not have information about declarations that are
@@ -433,6 +493,20 @@ public:
   }
 
   void visitFunction(Function &F) {
+    LLVM_DEBUG(dbgs() << "visitFunction: " << F.getName() << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // Check and enable for verbose filter predicate, if necessary.
+    if (!DTransPTAFilterPrintFuncs.empty()) {
+      FNFilter.setEnabled(false);
+      for (auto &N : DTransPTAFilterPrintFuncs)
+        if (F.getName() == N) {
+          FNFilter.setEnabled(true);
+          break;
+        }
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
     if (!F.isDeclaration())
       for (auto &A : F.args())
         if (hasPointerType(A.getType()))
@@ -465,7 +539,7 @@ private:
     if (Info->isCompletelyAnalyzed())
       return Info;
 
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "--\n";
       dbgs() << "Begin analyzeValue for: ";
       printValue(dbgs(), V);
@@ -477,7 +551,8 @@ private:
     SmallVector<Value *, 16> DependentVals;
     DependentVals.push_back(V);
     populateDependencyStack(V, DependentVals);
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, dumpDependencyStack(V, DependentVals));
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                      dumpDependencyStack(V, DependentVals));
 
     while (!DependentVals.empty()) {
       Value *Dep = DependentVals.back();
@@ -496,7 +571,7 @@ private:
         continue;
 
       ValueTypeInfo *DepInfo = PTA.getOrCreateValueTypeInfo(Dep);
-      DEBUG_WITH_TYPE(VERBOSE_DEP_TRACE, {
+      DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_DEP_TRACE, {
         dbgs() << "  Dependent: ";
         printValue(dbgs(), Dep);
         dbgs() << "\n";
@@ -505,7 +580,7 @@ private:
 
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo->isCompletelyAnalyzed()) {
-        DEBUG_WITH_TYPE(VERBOSE_DEP_TRACE, {
+        DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_DEP_TRACE, {
           dbgs() << "  Already analyzed: ";
           printValue(dbgs(), Dep);
           dbgs() << "\n";
@@ -521,7 +596,7 @@ private:
     if (!isInferInProgress())
       Info->setCompletelyAnalyzed();
 
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "End analyzeValue for: ";
       printValue(dbgs(), V);
       dbgs() << "\n";
@@ -531,7 +606,7 @@ private:
   }
 
   void analyzeValueImpl(Value *V, ValueTypeInfo *Info) {
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "  Analyzing: ";
       printValue(dbgs(), V);
       dbgs() << "\n";
@@ -681,8 +756,9 @@ private:
     if (!InferInProgress.insert(ValueToInfer).second)
       return;
 
-    DEBUG_WITH_TYPE(VERBOSE_TRACE,
-                    dbgs() << "    Begin infer for: " << *ValueToInfer << "\n");
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                      dbgs()
+                          << "    Begin infer for: " << *ValueToInfer << "\n");
 
     // Try to find the type from looking at all the users. In some cases, the
     // instruction will contain the type, such as 'load i64, p0 %x', or
@@ -690,7 +766,7 @@ private:
     // other cases, this will require further look-ahead to examine the users of
     // the produced value, such as for a bitcast.
     for (auto *User : ValueToInfer->users()) {
-      DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
         dbgs() << "      User: ";
         printValue(dbgs(), User);
         dbgs() << "\n";
@@ -743,8 +819,8 @@ private:
     }
 
     InferInProgress.erase(ValueToInfer);
-    DEBUG_WITH_TYPE(VERBOSE_TRACE,
-                    dbgs() << "    End infer for: " << *ValueToInfer << "\n");
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                      dbgs() << "    End infer for: " << *ValueToInfer << "\n");
 
     return;
   }
@@ -932,7 +1008,7 @@ private:
   // Add a type to the inferred set for the Value.
   void addInferredType(Value *V, DTransType *DType) {
     if (ValueToInferredTypes[V].insert(DType).second)
-      DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
         dbgs() << "    - Inferred: ";
         printValue(dbgs(), V);
         dbgs() << " as " << *DType << "\n";
@@ -1940,6 +2016,8 @@ private:
 
   // Perform pointer type analysis for constant operator expressions
   void analyzeConstantExpr(ConstantExpr *CE) {
+    // This verbose trace is not using the filtering predicate test because
+    // constant expressions are at the module level, not function level.
     DEBUG_WITH_TYPE(VERBOSE_TRACE, {
       dbgs() << "--\n";
       dbgs() << "Begin analyzeConstantExpr for: ";
@@ -2016,7 +2094,7 @@ bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind,
 
   bool Changed = PointerTypeAliases[Kind].insert(Ty).second;
   if (Changed) {
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "    Added alias " << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
              << ": ";
       printValue(dbgs(), V);
@@ -2064,7 +2142,7 @@ bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
                                           PointeeLoc &Loc) {
   bool Changed = ElementPointees[Kind].insert({BaseTy, Loc}).second;
   if (Changed) {
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "    Added element:" << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
              << ": ";
       printValue(dbgs(), V);
@@ -2090,7 +2168,7 @@ void ValueTypeInfo::setPartiallyAnalyzed() {
 
 void ValueTypeInfo::setCompletelyAnalyzed() {
   AnalysisState = LPIS_CompletelyAnalyzed;
-  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
     printValue(dbgs(), V);
     dbgs() << " - Marked completely analyzed\n";
   });
@@ -2118,7 +2196,7 @@ const char *ValueTypeInfo::LPIStateToString(LPIState S) {
 }
 
 void ValueTypeInfo::setUnhandled() {
-  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
     dbgs() << " - Marked as unhandled: ";
     printValue(dbgs(), V);
     dbgs() << "\n";
@@ -2127,7 +2205,7 @@ void ValueTypeInfo::setUnhandled() {
 }
 
 void ValueTypeInfo::setDependsOnUnhandled() {
-  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
     dbgs() << " - Marked as depends on unhandled: ";
     printValue(dbgs(), V);
     dbgs() << "\n";

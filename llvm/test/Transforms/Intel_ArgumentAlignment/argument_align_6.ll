@@ -6,8 +6,8 @@
 ; This test is the same as argument_alignment.ll, but checks that the debug
 ; messages are printed correctly.
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=intel-argument-alignment -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=intel-argument-alignment  -S 2>&1
+; RUN: opt < %s -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment  -S 2>&1
 
 ; CHECK: Candidates for argument alignment: 1
 ; CHECK-NEXT: Aligning by: 8

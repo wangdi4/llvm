@@ -1,6 +1,6 @@
 //===- AddSubReassociate.h - Reassociate add/sub expressions ----*- C++ -*-===//
 //
-// Copyright (C) 2018 - 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 - 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -14,7 +14,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -52,22 +52,19 @@ public:
   unsigned getOpcode() const { return Opcode; }
   Constant *getConst() const { return Const; }
   hash_code getHash() const { return hash_combine(Opcode, Const); }
-  bool operator==(const AssocOpcodeData &Data2) const {
-    return Opcode == Data2.Opcode && Const == Data2.Const;
+  bool operator==(const AssocOpcodeData &Other) const {
+    return Opcode == Other.Opcode && Const == Other.Const;
   }
-  bool operator!=(const AssocOpcodeData &Data2) const {
-    return !(*this == Data2);
+  bool operator!=(const AssocOpcodeData &Other) const {
+    return !(*this == Other);
   }
   // Comparator used for sorting.
-  bool operator<(const AssocOpcodeData &Data2) const {
-    if (Opcode != Data2.Opcode)
-      return Opcode < Data2.Opcode;
-    if (Const != Data2.Const)
-      return Const < Data2.Const;
-    return false;
+  bool operator<(const AssocOpcodeData &Other) const {
+    return std::tie(Opcode, Const) < std::tie(Other.Opcode, Other.Const);
   }
-  // For debugging.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
+#endif
 };
 
 class OpcodeData {
@@ -116,11 +113,12 @@ public:
   void appendAssocInstr(Instruction *I) {
     AssocOpcodeVec.push_back(AssocOpcodeData(I));
   }
-  // For debugging.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
+#endif
 };
 
-/// This is a single node of a canonical from (see CanonForm for more details).
+/// This is a single node of a canonical form (see CanonForm for more details).
 /// It represents incoming value called a leaf and an operation used to link it
 /// to a canonical form.
 class CanonNode {
@@ -146,8 +144,9 @@ public:
   /// we don't take opcode into account.
   bool operator==(const CanonNode &Pair2) const { return Leaf == Pair2.Leaf; }
 
-  // Debug print.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(const unsigned Padding) const;
+#endif
 };
 
 /// Canonical form is a special form of a binary tree where one (say left)
@@ -176,7 +175,6 @@ private:
   // Vector of all the nodes.
   NodeVecTy Leaves;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // TODO:
   std::string Name;
 #endif
 
@@ -223,6 +221,7 @@ public:
                     const OpcodeData &Opcode = OpcodeData()) const;
 
   /// Performs massaging aimed at more optimal code generation.
+  // TODO: describe what exactly it does.
   bool simplify();
   /// Emits IR representation of the canonical form by inserting new
   /// instructions before \p IP. If \p GenZero controls if we need putting
@@ -233,9 +232,9 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getName() const { return Name; }
   void setName(const Twine &N) { Name = N.str(); }
-#endif
 
   void dump() const;
+#endif
 
 protected:
   /// Generates binary instruction and inserts it before \p IP. Generated
@@ -256,8 +255,6 @@ protected:
 /// and ending at leaves handled by \p CanonFrom.
 class Tree : public CanonForm {
   const DataLayout &DL;
-  // Unique tree identifier. Used only for debugging.
-  int Id = 0;
   // The root instruction of the tree.
   Instruction *Root = nullptr;
   // Set to true if this tree contains shared leaves candidates.
@@ -266,12 +263,14 @@ class Tree : public CanonForm {
   // Number of shared leaves became part of a trunk. In other words,
   // that many leaves have been unshared during tree constructions.
   int SharedLeavesCount = 0;
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  int Id = 0;
+#endif
 public:
   Tree(const DataLayout &DL) : CanonForm(), DL(DL) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     static std::atomic<int> IdCnt;
     Id = IdCnt++;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setName((Twine("Trunk_") + Twine(Id) + Twine("_")).str());
 #endif
   }
@@ -281,9 +280,9 @@ public:
   void setRoot(Instruction *R) { Root = R; }
   /// Returns tree root.
   Instruction *getRoot() const { return Root; }
-  /// Returns true if \p V is an instruction and valid to be part of the tree
+  /// Returns true if \p I is not null and is valid to be part of the tree
   /// trunk.
-  bool isAllowedTrunkInstr(const Value *V) const;
+  bool isAllowedTrunkInstr(const Instruction *I) const;
   /// Returns true if \p I belongs to truck of the tree in IR representation.
   /// Please note that canonical representation has no trunk instructions.
   bool hasTrunkInstruction(const Instruction *I) const;
@@ -307,8 +306,9 @@ public:
   /// Generates IR representation from canonical representation. After this call
   /// IR and canonical representations are semantically equivalent.
   Value *generateCode();
-  /// Debug print.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
+#endif
 };
 
 using TreeSignTy = std::pair<Tree *, bool>;
@@ -317,14 +317,14 @@ using TreeSignVecTy = SmallVector<TreeSignTy, 16>;
 /// Essentially Group is a canonical form with a number of specific operations
 /// like sorting.
 class Group : public CanonForm {
-  // Unique identifier. Used only for debugging.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   int Id = 0;
-
+#endif
 public:
   Group() {
-    static std::atomic<int> IdCnt;
-    Id = IdCnt++;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    static std::atomic<int> IdCnt; // really need atomic?
+    Id = IdCnt++;
     setName(Twine("Chain_") + Twine(Id) + Twine("_"));
 #endif
   }
@@ -354,7 +354,7 @@ public:
   /// Canonicalize the group by sorting by opcode.
   void sort();
   /// Flips opcodes of entire group.
-  void flipOpcodes();
+  void flipOpcodes() { CanonForm::flipOpcodes(); }
 };
 
 /// This pass reassociates add-sub chains to improve expression reuse
@@ -369,6 +369,8 @@ class AddSubReassociate {
   using WorkListTy = SmallVectorImpl<CanonNode>;
   using GroupTreesVecTy = SmallVector<std::pair<Group, TreeSignVecTy>, 4>;
 
+  // TODO: The class encapsulates too few data.
+  // Data seems mostly shared via function arguments.
   const DataLayout &DL;
   ScalarEvolution *SE;
   Function *F;
@@ -381,24 +383,40 @@ public:
   bool run();
 
 private:
-  /// Scans through \p AllTrees and returns the first one which containing \p I.
-  static Tree *findEnclosingTree(TreeVecTy &AllTrees, const Instruction *I);
-  /// Scans through \p AllTrees and returns the first one which has root \p I.
-  static Tree *findTreeWithRoot(TreeVecTy &AllTrees, const Instruction *I,
-                                const Tree *skipTree);
-
-  /// Returns true if we were able to compute distance of V1 and V2 or one of
-  /// their operands, false otherwise.
-  bool getValDistance(Value *V1, Value *V2, int MaxDepth, int64_t &Distance);
+  /// Scans through \p Trees and returns the first one which containing \p I.
+  /// Return nullptr if not found.
+  Tree *findEnclosingTree(TreeVecTy &Trees, const Instruction *I) const {
+    for (auto &T : Trees)
+      if (T->hasTrunkInstruction(I))
+        return T.get();
+    return nullptr;
+  }
+  /// Find a tree amongst \p Trees which has root \p I ignoring \p Ignore.
+  /// Return nullptr if not found.
+  Tree *findTreeWithRoot(TreeVecTy &Trees, const Instruction *I,
+                         const Tree *Ignore) const {
+    for (auto &T : Trees)
+      if (T.get() != Ignore && T->getRoot() == I)
+        return T.get();
+    return nullptr;
+  }
+  /// Routine to compute distance between \p V1 and \p V2.
+  /// If both V1 and V2 are load instructions return distance between
+  /// pointers otherwise step down through operands seeking for load
+  /// instructions until the operands remain instructions with same opcode.
+  /// Search for loads as far as \p MaxDepth.
+  /// Return distance if able to compute it.
+  Optional<int64_t> findLoadDistance(Value *V1, Value *V2,
+                                     unsigned MaxDepth = 2) const;
   /// Returns the sum of the absolute distances of G1 and G2.
   int64_t getSumAbsDistances(const CanonForm &G1, const CanonForm &G2);
-  /// Recursively calls itself to explore the different orderings of G1's leaves
-  /// in order to match them best against G2.
-  int64_t getBestSortedScoreRec(const Group &G1, const Group &G2,
-                                CanonForm G1Leaves, CanonForm G2Leaves,
-                                CanonForm &SortedG1Leaves,
-                                CanonForm &BestSortedG1Leaves,
-                                int64_t &BestScore);
+  /// Recursive function to explore the different orderings of G1's leaves
+  /// in order to match best one against G2.
+  int64_t getBestSortedScore_rec(const Group &G1, const Group &G2,
+                                 CanonForm G1Leaves, CanonForm G2Leaves,
+                                 CanonForm &SortedG1Leaves,
+                                 CanonForm &BestSortedG1Leaves,
+                                 int64_t &BestScore);
   /// Returns false if we did not manage to get a good ordering that matches G2.
   bool getBestSortedLeaves(const Group &G1, const Group &G2,
                            CanonForm &BestSortedG1Leaves);
@@ -409,11 +427,9 @@ private:
   /// Canonicalize 'G' based on 'BestGroups' memory accesses and opcodes.
   bool memCanonicalizeGroup(Group &G, TreeSignVecTy &GroupTreeVec,
                             GroupTreesVecTy &BestGroups);
-  /// Form groups of nodes that reduce divergence across trees in TreeCluster.
-  void buildMaxReuseGroups(const TreeArrayTy &TreeCluster,
-                           GroupTreesVecTy &AllBestGroups);
-  /// For each tree in \p AffectedTrees removes its IR representation.
-  void removeOldTrees(const ArrayRef<Tree *> AffectedTrees) const;
+  /// Form groups of nodes that reduce divergence across trees in Cluster.
+  void buildMaxReuseGroups(const TreeArrayTy &Cluster,
+                           GroupTreesVecTy &BestGroups);
   /// Removes all nodes common for group and affected tree(s) from the tree(s).
   /// This is done using canonical representation of the group and tree(s).
   /// Note that this may invalidate IR representation of the tree(s).
@@ -426,38 +442,43 @@ private:
   /// trees given by \p AffectedTrees.
   void generateCode(GroupTreesVecTy &Groups,
                     const ArrayRef<Tree *> AffectedTrees) const;
-  /// Returns true if T1 and T2 contain similar values.
+  /// Return true if more than TreeMatchThreshold per cent of
+  /// leaves do match in T1 and in T2.
   bool treesMatch(const Tree *T1, const Tree *T2) const;
-  /// Create clusters of the trees in AllTrees.
-  void clusterTrees(TreeVecTy &AllTrees,
-                    SmallVectorImpl<TreeArrayTy> &TreeClusters);
-  /// Grow the tree upwards, towards the definitions.
-  bool growTree(TreeVecTy &AllTrees, Tree *T, WorkListTy &&WorkList);
+  /// Find clusters amongst \p Trees with similar i) size, ii) values
+  /// and populate \p Clusters.
+  void clusterTrees(TreeVecTy &Trees, SmallVectorImpl<TreeArrayTy> &Clusters);
+  /// Try to grow tree \p T up toward definitions.
+  /// Returns true if new nodes have been added to the tree.
+  bool growTree(TreeVecTy &Trees, Tree *T, WorkListTy &&WorkList);
+
   /// Returns true if all uses of a \p Leaf are from one of a tree in
-  /// \p TreeCluster, false otherwise. Additionally for each such use a Tree *
+  /// \p Cluster, false otherwise. Additionally for each such use a Tree*
   /// and Leaf index pair is put to \p WorkList.
   bool areAllUsesInsideTreeCluster(
-      TreeArrayTy &TreeCluster, const Value *Leaf,
+      TreeArrayTy &Cluster, const Value *Leaf,
       SmallVectorImpl<std::pair<Tree *, Tree::NodeItTy>> &WorkList) const;
-  /// Returns true if we were able to find a leaf with multiple uses from trees
-  /// in \p TreeCluster only, false otherwise. Each found use is pushed to a \p
-  /// WorkList as a LinearTree* and Leaf index pair.
+
+  /// Returns true if we were able to find a leaf with multiple uses from
+  /// trees in \p Cluster only, false otherwise. Each found use is pushed
+  /// to a \p WorkList as a LinearTree* and Leaf index pair.
   bool
-  getSharedLeave(TreeArrayTy &TreeCluster,
-                 SmallVectorImpl<std::pair<Tree *, Tree::NodeItTy>> &WorkList);
-  /// Enlarge trees in \p TreeCluster by growing them towards shared leaves.
-  void extendTrees(TreeVecTy &AllTrees, TreeArrayTy &TreeCluster);
-  /// Build initial trees from code in \p BB and put them to \p AllTrees.
-  void buildInitialTrees(BasicBlock *BB, TreeVecTy &AllTrees);
+  getSharedLeaves(TreeArrayTy &Cluster,
+                  SmallVectorImpl<std::pair<Tree *, Tree::NodeItTy>> &WorkList);
+  /// Enlarge trees in \p Cluster by growing them towards shared leaves.
+  void extendTrees(TreeVecTy &Trees, TreeArrayTy &Cluster);
+  /// Build initial trees from code in \p BB and put them to \p Trees.
+  void buildInitialTrees(BasicBlock *BB, TreeVecTy &Trees);
   /// Build all trees within \p BB.
-  void buildTrees(BasicBlock *BB, TreeVecTy &AllTrees,
+  void buildTrees(BasicBlock *BB, TreeVecTy &Trees,
                   SmallVector<TreeArrayTy, 8> &Clusters, bool UnshareLeaves);
 
-  /// Debug print functions.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpTreeVec(const TreeVecTy &TreeVec) const;
   void dumpTreeArray(const TreeArrayTy &TreeVec) const;
   void dumpTreeArrayVec(SmallVectorImpl<TreeArrayTy> &Clusters) const;
   void dumpGroups(const GroupTreesVecTy &Groups) const;
+#endif
 };
 } // end namespace intel_addsubreassoc
 

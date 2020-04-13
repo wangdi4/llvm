@@ -1229,6 +1229,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::AllocatePrivate: {
+    assert(!EnableSOAAnalysis &&
+           "SOA-aware codegen is currently not supported.");
     vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
     return;
   }
@@ -1432,24 +1434,6 @@ void VPOCodeGen::predicateInstructions() {
       Phi->addIncoming(IncomingTrue, I->getParent());
     }
   }
-}
-
-Value *VPOCodeGen::getLastLaneFromMask(Value *MaskPtr) {
-
-  Value *MaskValue = Builder.CreateLoad(MaskPtr);
-  assert(MaskValue->getType()->isIntegerTy() &&
-         "Mask should be an integer value");
-  // Count leading zeroes. Since we always write non-zero mask,
-  // the number of leading zeroes should be smaller than VF.
-  Module *M = LoopMiddleBlock->getParent()->getParent();
-  Value *F =
-      Intrinsic::getDeclaration(M, Intrinsic::ctlz, MaskValue->getType());
-  Value *LeadingZeroes =
-      Builder.CreateCall(F, {MaskValue, Builder.getTrue()}, "ctlz");
-
-  // Last written lane is most-significant '1' in the mask.
-  return Builder.CreateSub(ConstantInt::get(MaskValue->getType(), VF - 1),
-                           LeadingZeroes, "LaneToCopyFrom");
 }
 
 SmallVector<int, 16>
@@ -1841,14 +1825,32 @@ Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
     return Align(1);
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
-  // For store instructions alignment is determined by type of value operand.
-  Type *OrigTy = VPInst->getOpcode() == Instruction::Load
-                     ? VPInst->getType()
-                     : VPInst->getOperand(0)->getType();
+  Type *OrigTy = getLoadStoreType(VPInst);
 
   // Absence of alignment means target abi alignment. We need to use the
   // scalar's target abi alignment in such a case.
   return DL.getValueOrABITypeAlignment(getLoadStoreAlignment(UV), OrigTy);
+}
+
+Align VPOCodeGen::getAlignmentForGatherScatter(const VPInstruction *VPInst) {
+  assert((VPInst->getOpcode() == Instruction::Load ||
+          VPInst->getOpcode() == Instruction::Store) &&
+         "Alignment helper called on non load/store instruction.");
+
+  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
+
+  Type *OrigTy = getLoadStoreType(VPInst);
+  VectorType *VectorTy = dyn_cast<VectorType>(OrigTy);
+  if (!VectorTy)
+    return Alignment;
+
+  const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
+  Type *EltTy = VectorTy->getVectorElementType();
+  assert(DL.getTypeSizeInBits(EltTy).isByteSized() &&
+         "Only types with multiples of 8 bits are supported.");
+  Align EltAlignment(DL.getTypeSizeInBits(EltTy).getFixedSize() / 8);
+
+  return std::min(EltAlignment, Alignment);
 }
 
 Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
@@ -2019,7 +2021,6 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   unsigned OriginalVL =
       LoadType->isVectorTy() ? LoadType->getVectorNumElements() : 1;
 
-  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
   Value *NewLI = nullptr;
 
   // Try to handle consecutive loads without VLS.
@@ -2052,6 +2053,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
       RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                          "replicatedMaskElts.");
     Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
+    Align Alignment = getAlignmentForGatherScatter(VPInst);
     NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
                                        nullptr, "wide.masked.gather");
   }
@@ -2188,7 +2190,6 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
-  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
 
   if (auto *Underlying = VPInst->getUnderlyingValue())
     if (!cast<StoreInst>(Underlying)->isSimple())
@@ -2211,6 +2212,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   if (isVPValueUniform(Ptr, Plan) && !MaskValue) {
     Value *ScalarPtr = getScalarValue(Ptr, 0);
     VPValue *DataOp = VPInst->getOperand(0);
+    Align Alignment = getOriginalLoadStoreAlignment(VPInst);
     // Extract last lane of data operand to generate scalar store. For uniform
     // data operand, the same value is present on all lanes.
     Builder.CreateAlignedStore(getScalarValue(DataOp, VF - 1), ScalarPtr,
@@ -2262,6 +2264,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   if (MaskValue)
     RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                        "replicatedMaskElts.");
+  Align Alignment = getAlignmentForGatherScatter(VPInst);
   Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
 }
 

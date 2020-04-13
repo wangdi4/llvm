@@ -1832,6 +1832,14 @@ private:
   /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
 
+  /// For SPIR-V target propagate simdlen() from SIMD loops
+  /// to the enclosing target region. If there are multiple
+  /// SIMD loops with different simdlen() values, then the minimum
+  /// value will be propagated. During the propagation, simdlen()
+  /// values not equal to 8, 16 or 32 are ignored.
+  /// The propagated value will be used to specify SPIR-V widening
+  /// width for the outlined target region.
+  void propagateSPIRVSIMDWidth() const;
 };
 
 } /// namespace vpo

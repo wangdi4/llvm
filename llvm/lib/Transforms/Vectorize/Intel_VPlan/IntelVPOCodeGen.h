@@ -281,9 +281,6 @@ private:
   /// Fix up induction last value.
   void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
 
-  /// Get an index of last written lane using Mask value.
-  Value *getLastLaneFromMask(Value *MaskPtr);
-
   /// The Loop exit block may have single value PHI nodes where the incoming
   /// value is 'Undef'. While vectorizing we only handled real values that were
   /// defined inside the loop. Here we fix the 'undef case'.
@@ -474,6 +471,20 @@ private:
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.
   Align getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
+
+  // Get alignment for the gather/scatter intrinsic when widening load/store
+  // VPInstruction \p VPInst.
+  // When we widen a load/store to gather/scatter, if the value to load/store
+  // is a vector, then the alignment for gather/scatter should be adjusted
+  // according to the alignment of the vector element. E.g., given VF=2,
+  //   store <3 x i32> %val, <3 x i32>* %ptr, align 16
+  // can be widened to
+  //   call void @llvm.scatter(<6 x i32> %wide.val, <6 x i32*> %wide.ptr, ...)
+  // Note that there is no <2 x <3 x i32>>, so %wide.ptr is firstly casted
+  // from <2 x <3 x i32>*> to <6 x i32*>, i.e., two 16-byte aligned stores are
+  // split to six 4-byte ones. And thus, the alignment for the scatter should
+  // be adjusted to 4.
+  Align getAlignmentForGatherScatter(const VPInstruction *VPInst);
 
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support

@@ -13,9 +13,33 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/simple_ilist.h"
 #include "llvm/Analysis/LoopInfoImpl.h"
 
 namespace llvm {
+
+namespace vpo {
+class VPBasicBlock;
+class VPInstruction;
+} // namespace vpo
+
+template <> struct ilist_traits<vpo::VPInstruction> {
+private:
+  friend class vpo::VPBasicBlock; // Set by the owning VPBasicBlock.
+
+  vpo::VPBasicBlock *Parent;
+
+  using instr_iterator =
+      simple_ilist<vpo::VPInstruction, ilist_sentinel_tracking<true>>::iterator;
+
+public:
+  void addNodeToList(vpo::VPInstruction *VPInst);
+  void removeNodeFromList(vpo::VPInstruction *VPInst);
+  void transferNodesFromList(ilist_traits &FromList, instr_iterator First,
+                             instr_iterator Last);
+  void deleteNode(vpo::VPInstruction *VPInst);
+};
+
 namespace vpo {
 
 class VPlan;
@@ -23,7 +47,6 @@ class VPlanDivergenceAnalysis;
 class VPLoopInfo;
 class VPValue;
 class VPDominatorTree;
-class VPInstruction;
 class VPOCodeGenHIR;
 class VPPostDominatorTree;
 class VPPHINode;
@@ -36,11 +59,14 @@ struct TripCountInfo;
 /// control-flow edges with successor and predecessor VPBasicBlocks directly,
 /// rather than through a Terminator branch or through predecessor branches that
 /// "use" the VPBasicBlock.
-class VPBasicBlock {
+class VPBasicBlock
+    : public ilist_node_with_parent<VPBasicBlock, VPlan,
+                                    ilist_sentinel_tracking<true>> {
   friend class VPBlockUtils;
 
 public:
-  using VPInstructionListTy = iplist<VPInstruction>;
+  using VPInstructionListTy =
+      ilist<VPInstruction, ilist_sentinel_tracking<true>>;
 
 private:
   /// The list of VPInstructions, held in order of instructions to generate.
@@ -192,6 +218,9 @@ public:
     CondBit = nullptr;
   }
 
+  void insertBefore(VPBasicBlock *MovePos);
+  void insertAfter(VPBasicBlock *MovePos);
+
   auto getVPPhis() {
     auto AsVPPHINode = [](VPInstruction &Instruction) -> VPPHINode & {
       return cast<VPPHINode>(Instruction);
@@ -231,11 +260,12 @@ public:
       : Name(Name), CBlock(nullptr), TBlock(nullptr), FBlock(nullptr),
         OriginalBB(nullptr) {}
 
-  ~VPBasicBlock() { Instructions.clear(); }
-
   const std::string &getName() const { return Name; }
 
   void setName(const Twine &newName) { Name = newName.str(); }
+
+  // ilist should have access to VPBasicBlock node.
+  friend struct ilist_traits<VPBasicBlock>;
 
   VPlan *getParent() { return Parent; }
   const VPlan *getParent() const { return Parent; }

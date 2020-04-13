@@ -11,6 +11,13 @@
 // utilities are:
 // - module splitter to split a big input module into smaller ones
 // - specialization constant intrinsic transformation
+#if INTEL_COLLAB
+// - OpenMP offload entries processing:
+//     * combining of multiple OpenMP offload entry symbols into one table
+//     * sorting of the resulting OpenMP offload entry table by entry name
+//     * making OpenMP declare target variables, referenced by OpenMP offload
+//       table, static (i.e. with internal linkage)
+#endif // INTEL_COLLAB
 //===----------------------------------------------------------------------===//
 
 #include "SpecConstants.h"
@@ -102,6 +109,26 @@ static cl::opt<SpecConstMode> SpecConstLower{
         clEnumValN(SC_USE_DEFAULT_VAL, "default",
                    "set spec constants to C++ defaults")),
     cl::cat(PostLinkCat)};
+
+#if INTEL_COLLAB
+static cl::opt<std::string> OmpOffloadEntriesSymbol(
+    "ompoffload-link-entries", cl::ValueOptional,
+    cl::init("__omp_offloading_entries_table"),
+    cl::desc("link OpenMP offload entries into one table"),
+    cl::value_desc("symbol-name"), cl::cat(PostLinkCat));
+
+static cl::opt<bool> SortOmpOffloadEntries(
+    "ompoffload-sort-entries", cl::init(true),
+    cl::desc("sort OpenMP offload entries by name. "
+             "Does nothing without -ompoffload-link-entries"),
+    cl::cat(PostLinkCat));
+
+static cl::opt<bool>
+    MakeOmpGlobalsStatic("ompoffload-make-globals-static", cl::init(false),
+                         cl::desc("make OpenMP global variables referenced "
+                                  "in the offload table static."),
+                         cl::cat(PostLinkCat));
+#endif // INTEL_COLLAB
 
 static void error(const Twine &Msg) {
   errs() << "sycl-post-link: " << Msg << '\n';
@@ -262,6 +289,143 @@ static std::string makeResultFileName(Twine Ext, int I) {
           std::to_string(I) + Ext)
       .str();
 }
+#if INTEL_COLLAB
+static void processOmpOffloadEntries(Module &M, bool DoLink, bool DoSort,
+                                     bool DoStatic) {
+  Type *EntryTy = nullptr;
+  unsigned AddrSpace = 0;
+  StringRef SectionName = "omp_offloading_entries";
+  StringRef NewSymbolName =
+      OmpOffloadEntriesSymbol.empty()
+          ? OmpOffloadEntriesSymbol.getDefault().getValue()
+          : OmpOffloadEntriesSymbol;
+  SmallVector<Constant *, 32> InitializerData;
+  SmallVector<GlobalVariable *, 32> OrigEntries;
+
+  if (DoLink && M.getGlobalVariable(NewSymbolName))
+    error("global variable " + Twine(NewSymbolName) + " already exists");
+
+  // Look for OpenMP offload entry symbols and collect
+  // their initializers.
+  Triple TT(M.getTargetTriple());
+
+  for (auto &GV : M.globals()) {
+    if (GV.getSection() != SectionName &&
+        // The section has "$..." suffix on Windows.
+        (!TT.isOSWindows() ||
+         !GV.getSection().startswith(SectionName.str() + "$")))
+      continue;
+
+    if (!EntryTy) {
+      EntryTy = GV.getValueType();
+      AddrSpace = GV.getAddressSpace();
+    }
+
+    if (EntryTy != GV.getValueType() || AddrSpace != GV.getAddressSpace())
+      error("symbols in " + Twine(SectionName) +
+            " section have different types");
+
+    if (!GV.isConstant())
+      error("non-constant symbol in " + Twine(SectionName) + " section");
+
+    if (!GV.hasInitializer())
+      error("uninitialized symbol in " + Twine(SectionName) + " section");
+
+    Constant *Init = GV.getInitializer();
+    InitializerData.push_back(Init);
+    OrigEntries.push_back(&GV);
+
+    if (!DoStatic)
+      continue;
+
+    // OpenMP global variable is in the first field.
+    // Find the variable and make it internal.
+    Constant *EntryVarInit = Init->getAggregateElement(0u);
+    if (!EntryVarInit)
+      error("unsupported OpenMP offload structure type");
+
+    auto *OMPVar = dyn_cast<GlobalVariable>(EntryVarInit->stripPointerCasts());
+    if (!OMPVar)
+      // Skip Functions.
+      continue;
+
+    if (OMPVar->isDeclaration())
+      error("unexpected declaration referenced "
+            "in OpenMP offload entries table");
+
+    OMPVar->setLinkage(GlobalValue::InternalLinkage);
+    OMPVar->setVisibility(GlobalValue::DefaultVisibility);
+  }
+
+  if (InitializerData.empty() || !DoLink)
+    return;
+
+  if (DoSort) {
+    // Sort entries by their names, which are assumed
+    // to be in the second field of the entry structure.
+    auto &&CompareEntries = [](const Constant *E1, const Constant *E2) -> bool {
+      Constant *NamesInit[2] = {E1->getAggregateElement(1),
+                                E2->getAggregateElement(1)};
+      StringRef Names[2];
+
+      for (unsigned I = 0; I < 2; ++I) {
+        if (!NamesInit[I])
+          error("OpenMP offload entry has no name");
+        const auto *NameGEP = dyn_cast<ConstantExpr>(NamesInit[I]);
+        // Assert getelementptr (@GV, 0, 0) initializer.
+        if (!NameGEP || NameGEP->getOpcode() != Instruction::GetElementPtr ||
+            NameGEP->getNumOperands() != 3 ||
+            !NameGEP->getOperand(1)->isNullValue() ||
+            !NameGEP->getOperand(2)->isNullValue())
+          error("unsupported initializer for OpenMP offload entry");
+
+        const auto *GV = dyn_cast<GlobalVariable>(NameGEP->getOperand(0));
+        if (!GV || !GV->isConstant() || !GV->hasInitializer())
+          error("unsupported initializer for OpenMP offload entry");
+
+        const auto *Init =
+            dyn_cast_or_null<ConstantDataArray>(GV->getInitializer());
+        if (!Init)
+          error("unsupported initializer for OpenMP offload entry name");
+
+        Names[I] = Init->getAsString();
+      }
+
+      return Names[0] < Names[1];
+    };
+
+    llvm::sort(InitializerData, CompareEntries);
+  }
+
+  // Create a new array of OpenMP offload entries.
+  auto *InitTy = ArrayType::get(EntryTy, InitializerData.size());
+  auto *Initializer = ConstantArray::get(InitTy, InitializerData);
+  auto *TableGV = new GlobalVariable(
+      M, Initializer->getType(), /*isConstant=*/true,
+      // Make the new symbol external to make sure no two
+      // post-linked modules are linked together.
+      GlobalValue::ExternalLinkage, Initializer, NewSymbolName,
+      /*InsertBefore=*/nullptr, GlobalValue::ThreadLocalMode::NotThreadLocal,
+      AddrSpace);
+
+  // Create a variable holding size of the new entries table.
+  uint64_t TableSize = TableGV->getValueType()->getArrayNumElements() *
+                       M.getDataLayout().getTypeAllocSize(
+                           TableGV->getValueType()->getArrayElementType());
+
+  Initializer = ConstantInt::get(Type::getInt64Ty(M.getContext()), TableSize);
+  new GlobalVariable(M, Initializer->getType(), /*isConstant=*/true,
+                     GlobalVariable::ExternalLinkage, Initializer,
+                     NewSymbolName + Twine("_size"), /*InsertBefore=*/nullptr,
+                     GlobalValue::ThreadLocalMode::NotThreadLocal, AddrSpace);
+
+  // Delete the original entry symbols.
+  for (auto *GV : OrigEntries)
+    if (GV->use_empty())
+      // There should not be any uses, but check it for safety.
+      GV->eraseFromParent();
+}
+#endif // INTEL_COLLAB
 
 static void saveModule(Module &M, StringRef OutFilename) {
   std::error_code EC;
@@ -355,6 +519,24 @@ int main(int argc, char **argv) {
       "- Specialization constant intrinsic transformer. Replaces symbolic\n"
       "  ID-based intrinsics to integer ID-based ones to make them friendly\n"
       "  for the SPIRV translator\n"
+#if INTEL_COLLAB
+      "- OpenMP offload entries processing:\n"
+      "    * if -" + OmpOffloadEntriesSymbol.ArgStr.str() + " is specified\n"
+      "      all global variables in omp_offloading_entries section\n"
+      "      will be combined into one global array (or table) named\n"
+      "      " + OmpOffloadEntriesSymbol.getDefault().getValue() + ".\n"
+      "      The final table's size will be kept in another global variable\n"
+      "      named the same and with '_size' suffix.\n"
+      "      The default table name may be overridden by specifying a valid\n"
+      "      symbol name after the option.\n"
+      "    * if the above table creation is enabled, specifying\n"
+      "      -" + SortOmpOffloadEntries.ArgStr.str() + " will sort entries\n"
+      "      in the table by the entries' names alphabetically\n"
+      "      in ascending order.\n"
+      "    * if -" + MakeOmpGlobalsStatic.ArgStr.str() + " is specified\n"
+      "      all OpenMP declare target global variables will be made\n"
+      "      static (internal linkage).\n"
+#endif // INTEL_COLLAB
       "Normally, the tool generates a number of files and \"file table\"\n"
       "file listing all generated files in a table manner. For example, if\n"
       "the input file 'example.bc' contains two kernels, then the command\n"
@@ -373,8 +555,25 @@ int main(int argc, char **argv) {
 
   bool DoSplit = SplitMode.getNumOccurrences() > 0;
   bool DoSpecConst = SpecConstLower.getNumOccurrences() > 0;
+#if INTEL_COLLAB
+  bool DoLinkOmpOffloadEntries =
+      OmpOffloadEntriesSymbol.getNumOccurrences() > 0;
+  bool DoMakeOmpGlobalsStatic = MakeOmpGlobalsStatic.getNumOccurrences() > 0;
+  bool DoSortOmpOffloadEntries = SortOmpOffloadEntries.getNumOccurrences() > 0;
 
+  if (DoLinkOmpOffloadEntries && !IROutputOnly)
+    // OpenMP offload works with IR output only currently.
+    error(Twine("-") + OmpOffloadEntriesSymbol.ArgStr +
+          Twine(" can only be used with -") + IROutputOnly.ArgStr);
+  if (SortOmpOffloadEntries && !DoLinkOmpOffloadEntries)
+    errs() << "warning: -" << SortOmpOffloadEntries.ArgStr
+           << " ignored without -" << OmpOffloadEntriesSymbol.ArgStr << "\n";
+
+  if (!DoSplit && !DoSpecConst && !DoSymGen && !DoLinkOmpOffloadEntries &&
+      !DoMakeOmpGlobalsStatic) {
+#else  // INTEL_COLLAB
   if (!DoSplit && !DoSpecConst && !DoSymGen) {
+#endif // INTEL_COLLAB
     errs() << "no actions specified; try --help for usage info\n";
     return 1;
   }
@@ -430,6 +629,11 @@ int main(int argc, char **argv) {
     PreservedAnalyses Res = RunSpecConst.run(*MPtr, MAM);
     SpecConstsMet = !Res.areAllPreserved();
   }
+#if INTEL_COLLAB
+  if (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic)
+    processOmpOffloadEntries(*MPtr, DoLinkOmpOffloadEntries,
+                             DoSortOmpOffloadEntries, DoMakeOmpGlobalsStatic);
+#endif // INTEL_COLLAB
   if (IROutputOnly) {
     // the result is the transformed input LLVMIR file rather than a file table
     saveModule(*MPtr, OutputFilename);

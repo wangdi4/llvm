@@ -56,6 +56,10 @@ static cl::opt<bool>
     EnableNames("vplan-enable-names", cl::init(false), cl::Hidden,
                 cl::desc("Print VP Operands using VPValue's Name member."));
 
+static cl::opt<bool> DumpExternalDefsHIR("vplan-dump-external-defs-hir",
+                                         cl::init(false), cl::Hidden,
+                                         cl::desc("Print HIR VPExternalDefs."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
@@ -66,6 +70,24 @@ raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
+
+// When a VPBasicBlock is added in VPlan, the parent pointer needs to be
+// updated.
+void ilist_traits<VPBasicBlock>::addNodeToList(VPBasicBlock *VPBB) {
+  assert(!VPBB->getParent() && "VPBasicBlock already in VPlan");
+  VPBB->setParent(getListOwner<VPlan, VPBasicBlock>(this));
+}
+
+// When we remove a VPBasicBlock from VPlan, we need to update its parent
+// pointer.
+void ilist_traits<VPBasicBlock>::removeNodeFromList(VPBasicBlock *VPBB) {
+  assert(VPBB->getParent() && "VPBasicBlock not in VPlan");
+  VPBB->setParent(nullptr);
+}
+
+// TODO: Update deleteNode once adding an eraseFromParent() function for
+// VPBasicBlock.
+void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {}
 
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
@@ -437,20 +459,6 @@ void VPInstruction::print(raw_ostream &O,
 VPlan::VPlan(LLVMContext *Context, const DataLayout *DL)
     : Context(Context), DL(DL) {}
 
-VPlan::~VPlan() {
-  SmallVector<VPBasicBlock *, 8> Blocks;
-  for (VPBasicBlock *BB : depth_first(getEntryBlock()))
-    Blocks.push_back(BB);
-
-  for (VPBasicBlock *BB : Blocks)
-    delete BB;
-}
-
-void VPlan::recomputeSize() {
-  Size = std::distance(df_iterator<const VPBasicBlock *>::begin(EntryBB),
-                       df_iterator<const VPBasicBlock *>::end(ExitBB));
-}
-
 void VPlan::computeDT(void) {
   if (!PlanDT)
     PlanDT.reset(new VPDominatorTree);
@@ -564,6 +572,8 @@ void VPlan::execute(VPTransformState *State) {
 #if INTEL_CUSTOMIZATION
 void VPlan::executeHIR(VPOCodeGenHIR *CG) {
   CG->createAndMapLoopEntityRefs();
+  assert(!EnableSOAAnalysis &&
+         "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   const VPLoop *VLoop = CG->getVPLoop();
 
@@ -620,6 +630,14 @@ void VPlan::verifyVPExternalDefsHIR() const {
       unsigned Symbase = Blob->getBlob()->getSymbase();
       assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
       SymbaseSet.insert(Symbase);
+    } else if (isa<VPCanonExpr>(HIROperand)) {
+      assert(
+          llvm::count_if(VPExternalDefsHIR,
+                         [HIROperand](const VPExternalDef &ExtDef) {
+                           return ExtDef.getOperandHIR()->isStructurallyEqual(
+                               HIROperand);
+                         }) == 1 &&
+          "Repeated CanonExpr VPExternalDef!");
     } else {
       // For IVs we check that the IV levels are unique.
       const auto *IV = cast<VPIndVar>(HIROperand);
@@ -716,6 +734,13 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
+  if (DumpExternalDefsHIR) {
+    FOS << "External Defs Start:\n";
+    for (auto &Def : VPExternalDefsHIR)
+      Def.printDetail(OS);
+    FOS << "External Defs End:\n";
+  }
+
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
     VPLoopEntityList *E = EIter->second.get();

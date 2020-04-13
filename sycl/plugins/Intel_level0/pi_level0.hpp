@@ -7,9 +7,19 @@
 
 // Define the types that are opaque in pi.h in a manner suitabale for L0 plugin
 
+struct _pi_platform {
+  // L0 lacks the notion of a platform, but thert is a driver, which is a
+  // pretty good fit to keep here.
+  //
+  ze_driver_handle_t L0Driver;
+};
+
 struct _pi_device {
   // L0 device handle.
   ze_device_handle_t L0Device;
+
+  // PI platform to which this device belongs.
+  pi_platform Platform;
 
   // Immediate L0 command list for this device, to be used for initializations.
   // To be created as:
@@ -79,6 +89,11 @@ struct _pi_mem {
     // L0 image handle.
     ze_image_handle_t L0Image;
   };
+
+  // Keeps the PI platform of this memory handle.
+  // NOTE: it is coming *after* the native handle because the code in
+  // piextKernelSetArgMemObj needs it to be so.
+  pi_platform Platform;
 
   // TODO: as this only affects buffers and not images reorganize to
   // not waste memory. Even for buffers this should better be a pointer

@@ -44,5 +44,5 @@ entry:
 ; Check that offload metadata is removed after outlining.
 ; CHECK-NOT: !omp_offload.info
 !omp_offload.info = !{!0, !1}
-!0 = !{i32 1, !"Var", i32 0, i32 0}
+!0 = !{i32 1, !"Var", i32 0, i32 0, %struct.S* @Var}
 !1 = !{i32 0, i32 50, i32 -677969451, !"__omp_offloading__32_d79701d5_Var_l5_ctor", i32 5, i32 1, i32 2}

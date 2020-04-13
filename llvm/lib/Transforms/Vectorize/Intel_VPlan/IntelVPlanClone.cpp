@@ -33,14 +33,13 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
                                             std::string Prefix,
                                             Block2BlockMapTy &BlockMap,
                                             Value2ValueMapTy &ValueMap,
+                                            VPlan::iterator InsertBefore,
                                             VPlanDivergenceAnalysis *DA) {
   Prefix = Prefix == "" ? "cloned." : Prefix;
   std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
   VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix);
   ClonedBlock->setName(Name);
-  VPlan *Plan = Block->getParent();
-  ClonedBlock->setParent(Plan);
-  Plan->setSize(Plan->getSize() + 1);
+  Block->getParent()->insertBefore(ClonedBlock, InsertBefore);
 
   for (auto &Inst : *Block) {
     auto ClonedInst = Inst.clone();
@@ -80,7 +79,8 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(
   auto Iter = df_begin(Begin);
   auto EndIter = df_end(Begin);
   while (Iter != EndIter) {
-    cloneBasicBlock(*Iter, Prefix.str(), BlockMap, ValueMap, DA);
+    cloneBasicBlock(*Iter, Prefix.str(), BlockMap, ValueMap,
+                    ++End->getIterator(), DA);
     if (*Iter == End) {
       // Don't go outside of SESE region. It does move the iterator, so avoid
       // usual increment.

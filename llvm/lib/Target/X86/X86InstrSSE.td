@@ -8198,13 +8198,13 @@ multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
 }  // Constraints = "$src1 = $dst"
 
   defm VDPBF16PS       : VDPBF16PS_rm<0x52, "vdpbf16ps", v4f32, VR128, loadv4i32,
-                                    f128mem, X86dpbf16ps>, T8XS;
+                                    f128mem, X86dpbf16psvex>, T8XS;
   defm VDPBF16PSY      : VDPBF16PS_rm<0x52, "vdpbf16ps", v8f32, VR256, loadv8i32,
-                                    f256mem, X86dpbf16ps>, VEX_L, T8XS;
+                                    f256mem, X86dpbf16psvex>, VEX_L, T8XS;
   defm VCVTNE2PS2BF16  : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v8i16, VR128, loadv4f32,
-                                    f128mem, X86cvtne2ps2bf16>, T8XD;
+                                    f128mem, X86cvtne2ps2bf16vex>, T8XD;
   defm VCVTNE2PS2BF16Y : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v16i16, VR256, loadv8f32,
-                                    f256mem, X86cvtne2ps2bf16>, VEX_L, T8XD;
+                                    f256mem, X86cvtne2ps2bf16vex>, VEX_L, T8XD;
 
 multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                           X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode> {
@@ -8219,9 +8219,9 @@ multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
 }
 
   defm VCVTNEPS2BF16  : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR128,
-                                    f128mem,  loadv4f32 ,X86cvtneps2bf16>, T8XS;
+                                    f128mem,  loadv4f32 ,X86cvtneps2bf16vex>, T8XS;
   defm VCVTNEPS2BF16Y : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR256,
-                                    f256mem, loadv8f32, X86cvtneps2bf16>, VEX_L, T8XS;
+                                    f256mem, loadv8f32, X86cvtneps2bf16vex>, VEX_L, T8XS;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
 

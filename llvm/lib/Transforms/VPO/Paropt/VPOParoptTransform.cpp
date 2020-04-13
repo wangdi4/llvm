@@ -786,8 +786,9 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
   BasicBlock *TeamDispHeaderBB = SplitBlock(TeamInitBB, TeamLB, DT, LI);
   TeamDispHeaderBB->setName("team.dispatch.header");
 
+  Type *UBTy = UpperBndVal->getType();
   // Generate a upper bound load instruction at top of TeamDispHeaderBB
-  LoadInst *TmpUB = new LoadInst(TeamUpperBnd, "team.ub.tmp", TeamLB);
+  LoadInst *TmpUB = new LoadInst(UBTy, TeamUpperBnd, "team.ub.tmp", TeamLB);
 
   // Generate a upper bound load instruction at top of TeamDispHeaderBB
   Value *TmpUD = UpperBndVal;
@@ -841,7 +842,7 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
   IRBuilder<> Builder(TermInst);
 
   LoadInst *TeamStrideVal =
-      Builder.CreateLoad(TeamStride, false, "team.st.inc");
+      Builder.CreateLoad(UBTy, TeamStride, false, "team.st.inc");
 
   // Generate team.inc.lb = team.new.lb + team.new.st
   BinaryOperator *IncLB =
@@ -920,13 +921,14 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
   // around the loop during lowering. Split its block so that
   // both LoadLB and LoadUB and the ZTT are in a new "dispatch" block.
   StaticInitBB = LoadLB->getParent();
+  Type *UBTy = UpperBndVal->getType();
 
   // Generate dispatch header BBlock
   BasicBlock *DispatchHeaderBB = SplitBlock(StaticInitBB, LoadLB, DT, LI);
   DispatchHeaderBB->setName("dispatch.header");
 
   // Generate a upper bound load instruction at top of DispatchHeaderBB
-  LoadInst *TmpUB = new LoadInst(UpperBnd, "ub.tmp", LoadLB);
+  LoadInst *TmpUB = new LoadInst(UBTy, UpperBnd, "ub.tmp", LoadLB);
 
   BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
   DispatchBodyBB->setName("dispatch.body");
@@ -957,15 +959,15 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
   IRBuilder<> Builder(TermInst);
 
   // Load Stride value to st.new
-  LoadInst *StrideVal = Builder.CreateLoad(SchedStride, false, "st.inc");
+  LoadInst *StrideVal = Builder.CreateLoad(UBTy, SchedStride, false, "st.inc");
 
   // Generate inc.lb.new = lb.new + st.new
-  auto IncLB =
-      Builder.CreateAdd(Builder.CreateLoad(LowerBnd), StrideVal, "lb.inc");
+  auto IncLB = Builder.CreateAdd(Builder.CreateLoad(UBTy, LowerBnd), StrideVal,
+                                 "lb.inc");
 
   // Generate inc.lb.new = lb.new + st.new
-  auto IncUB =
-      Builder.CreateAdd(Builder.CreateLoad(UpperBnd), StrideVal, "ub.inc");
+  auto IncUB = Builder.CreateAdd(Builder.CreateLoad(UBTy, UpperBnd), StrideVal,
+                                 "ub.inc");
 
   Builder.CreateStore(IncLB, LowerBnd);
   Builder.CreateStore(IncUB, UpperBnd);
@@ -1292,6 +1294,9 @@ bool VPOParoptTransform::paroptTransforms() {
       W->resetBBSet();
     }
 #endif  // INTEL_CUSTOMIZATION
+
+  if ((Mode & ParTrans) && !DisableOffload && isTargetSPIRV())
+    propagateSPIRVSIMDWidth();
 
   Type *Int32Ty = Type::getInt32Ty(C);
 
@@ -2011,10 +2016,11 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
   VPOParoptUtils::genConstructorCall(RedI->getConstructor(), ReductionValueLoc,
                                      Builder);
 
-  if (RedI->getInitializer() != nullptr)
-    Builder.CreateCall(RedI->getInitializer(),
-                       {ReductionValueLoc, ReductionVar}, "");
-  else {
+  if (RedI->getInitializer() != nullptr) {
+    Function *Fn = RedI->getInitializer();
+    FunctionType *FnTy = Fn->getFunctionType();
+    Builder.CreateCall(FnTy, Fn, {ReductionValueLoc, ReductionVar}, "");
+  } else {
     // if intializer is null but constructor is not null, let constructor do
     // default initialization. Otherwise, initialize the variable to 0.
     if (RedI->getConstructor() != nullptr)
@@ -2746,7 +2752,7 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 #if INTEL_CUSTOMIZATION
   if (FprivI->getIsF90DopeVector()) {
     if (FprivI->getIsByRef())
-      OldV = new LoadInst(OldV, "", InsertPt);
+      OldV = new LoadInst(FprivI->getNew()->getType(), OldV, "", InsertPt);
     VPOParoptUtils::genF90DVFirstprivateCopyCall(NewV, OldV, InsertPt,
                                                  isTargetSPIRV());
     return;
@@ -2789,7 +2795,7 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
   Value *OldV = LprivI->getOrig();
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (LprivI->getIsByRef())
-    OldV = new LoadInst(OldV, "", InsertPt);
+    OldV = new LoadInst(NewV->getType(), OldV, "", InsertPt);
 
 #if INTEL_CUSTOMIZATION
   if (LprivI->getIsF90DopeVector()) {
@@ -4093,36 +4099,39 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
     // cause a use-before-def. We need to remove it from the directive.
     resetValueInOmpClauseGeneric(W, NewPrivValue);
 
-  // Locate llvm.dbg.declare instrinsics corresponding to the original value
-  // and build a new llvm.dbg.declare intrinsic for the privatized value.
-  // The storage for the newly privatized variable may be a global value
-  // (instead of a local alloca instruction) and that's okay.
-  DIBuilder DIB(*W->getEntryBBlock()->getModule(), /* AllowUnresolved */ false);
-  for (DbgVariableIntrinsic *OldDVI : FindDbgAddrUses(PrivValue)) {
-    DILocalVariable *Variable = OldDVI->getVariable();
-    if (Variable->getArg() != 0) {
-      // Create an auto variable representing the privatized parameter.
-      Variable = DIB.createAutoVariable(
-          Variable->getScope(),
-          Variable->getName(),
-          Variable->getFile(),
-          Variable->getLine(),
-          Variable->getType(),
-          false,                // AlwaysPreserve
-          Variable->getFlags(),
-          Variable->getAlignInBits());
+  if (isa<AllocaInst>(PrivValue)) {
+    // Locate llvm.dbg.declare instrinsics corresponding to the original value
+    // and build a new llvm.dbg.declare intrinsic for the privatized value.
+    // The storage for the newly privatized variable may be a global value
+    // (instead of a local alloca instruction) and that's okay.
+    DIBuilder DIB(
+        *W->getEntryBBlock()->getModule(), /* AllowUnresolved */ false);
+    for (DbgVariableIntrinsic *OldDVI : FindDbgAddrUses(PrivValue)) {
+      DILocalVariable *Variable = OldDVI->getVariable();
+      if (Variable->getArg() != 0) {
+        // Create an auto variable representing the privatized parameter.
+        Variable = DIB.createAutoVariable(
+            Variable->getScope(),
+            Variable->getName(),
+            Variable->getFile(),
+            Variable->getLine(),
+            Variable->getType(),
+            false,                // AlwaysPreserve
+            Variable->getFlags(),
+            Variable->getAlignInBits());
+      }
+      DIExpression *Expression = OldDVI->getExpression();
+      DILocation *Location = OldDVI->getDebugLoc().get();
+      Instruction *Before;
+      if (Instruction *I = dyn_cast_or_null<Instruction>(NewPrivValue))
+        Before = I->getNextNonDebugInstruction();
+      else
+        Before = W->getEntryBBlock()->getTerminator();
+      assert(Variable->getScope()->getSubprogram() ==
+             Location->getScope()->getSubprogram() &&
+             "Variable and source location must be in the same subprogram!");
+      DIB.insertDeclare(NewPrivValue, Variable, Expression, Location, Before);
     }
-    DIExpression *Expression = OldDVI->getExpression();
-    DILocation *Location = OldDVI->getDebugLoc().get();
-    Instruction *Before;
-    if (Instruction *I = dyn_cast_or_null<Instruction>(NewPrivValue))
-      Before = I->getNextNonDebugInstruction();
-    else
-      Before = W->getEntryBBlock()->getTerminator();
-    assert(Variable->getScope()->getSubprogram() ==
-           Location->getScope()->getSubprogram() &&
-           "Variable and source location must be in the same subprogram!");
-    DIB.insertDeclare(NewPrivValue, Variable, Expression, Location, Before);
   }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replaced uses of '";
@@ -4253,7 +4262,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     NewLinearVar = genPrivatizationAlloca(LinearI, NewLinearInsertPt,
                                           ".linear"); //                   (2)
     LinearI->setNew(NewLinearVar);
-
+    Type *NewVTy = NewLinearVar->getType();
     // Create a copy of the linear variable to capture its starting value (1)
     LinearStartVar =
         genPrivatizationAlloca(LinearI, NewLinearInsertPt); //             (1)
@@ -4266,16 +4275,21 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
 
     // For by-refs, do a pointer dereference to reach the actual operand.
     if (LinearI->getIsByRef())
-      Orig = new LoadInst(Orig, "", NewLinearInsertPt);
+      Orig = new LoadInst(NewVTy, Orig, "", NewLinearInsertPt);
+
+    if (auto *NewVAlloca = dyn_cast<AllocaInst>(NewLinearVar))
+        NewVTy = NewVAlloca->getAllocatedType();
+    else
+      NewVTy = cast<GlobalValue>(NewLinearVar)->getValueType();
 
     // (B) Capture value of linear variable before entering the loop
-    LoadInst *LoadOrig = CaptureBuilder.CreateLoad(Orig);               // (3)
+    LoadInst *LoadOrig = CaptureBuilder.CreateLoad(NewVTy, Orig);       // (3)
     CaptureBuilder.CreateStore(LoadOrig, LinearStartVar);               // (4)
 
     // (C) Initialize the linear variable using closed form inside the loop
     // body: %y.linear = %y.linear.start + %omp.iv * %step
 
-    Value *LinearStart = InitBuilder.CreateLoad(LinearStartVar);        // (5)
+    Value *LinearStart = InitBuilder.CreateLoad(NewVTy, LinearStartVar); // (5)
     Type *LinearTy = LinearStart->getType();
 
     Value *Step = LinearI->getStep();
@@ -4311,7 +4325,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     InitBuilder.CreateStore(Add, NewLinearVar);                         // (11)
 
     // (D) Insert the final linear copy-out from local vars to the original.
-    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewLinearVar);          // (12)
+    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewVTy, NewLinearVar);  // (12)
     FiniBuilder.CreateStore(FiniLoad, Orig);                            // (13)
 
     LLVM_DEBUG(dbgs() << "genLinearCode: generated " << *Orig << "\n");
@@ -4382,21 +4396,26 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
         getClauseItemReplacementValue(LinearI, EntryDirective);
     genPrivatizationReplacement(W, Orig, ReplacementVal); //               (4)
 
+    Type *NewVTy = NewLinearVar->getType();
     // For by-refs, do a pointer dereference to reach the actual operand.
     if (LinearI->getIsByRef())
-      Orig = InitBuilder.CreateLoad(Orig);
+      Orig = InitBuilder.CreateLoad(NewVTy, Orig);
 
+    if (auto *NewVAlloca = dyn_cast<AllocaInst>(NewLinearVar))
+        NewVTy = NewVAlloca->getAllocatedType();
+    else
+      NewVTy = cast<GlobalValue>(NewLinearVar)->getValueType();
     // For LINEAR:IV, the initialization using closed-form is inserted in each
     // iteration of the loop by the frontend, so we don't need to do the
     // "firstprivate copyin" to the privatized linear var.
     if (!IsLinearIV) {
       // Capture value of linear variable before the entry directive
-      LoadInst *LoadOrig = InitBuilder.CreateLoad(Orig); //                (2)
+      LoadInst *LoadOrig = InitBuilder.CreateLoad(NewVTy, Orig); //        (2)
       InitBuilder.CreateStore(LoadOrig, NewLinearVar);   //                (3)
     }
 
     // Insert the final copy-out from the private copies to the original.
-    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewLinearVar); //          (5)
+    LoadInst *FiniLoad = FiniBuilder.CreateLoad(NewVTy, NewLinearVar); //  (5)
     FiniBuilder.CreateStore(FiniLoad, Orig); //                            (6)
 
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": handled '" << *Orig << "'\n");
@@ -6122,8 +6141,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   }
 
   // Initialize arguments for loop sharing init call.
-  LoadInst *LoadTid =
-      PHBuilder.CreateAlignedLoad(TidPtrHolder, Align(4), "my.tid");
+  LoadInst *LoadTid = PHBuilder.CreateAlignedLoad(
+      PHBuilder.getInt32Ty(), TidPtrHolder, Align(4), "my.tid");
 
   // Cast the original lower bound value to the type of the induction
   // variable.
@@ -6230,11 +6249,14 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     // If we generate dispatch loop for team distribute, TeamLB
     // will be the splitting point, where the team dispatch header
     // will start.
-    TeamLB = PHBuilder.CreateAlignedLoad(TeamLowerBnd, Align(4), "team.new.lb");
-    TeamUB = PHBuilder.CreateAlignedLoad(TeamUpperBnd, Align(4), "team.new.ub");
-    TeamST = PHBuilder.CreateAlignedLoad(TeamStride, Align(4), "team.new.st");
-    auto *TeamUD =
-        PHBuilder.CreateAlignedLoad(TeamUpperBnd, Align(4), "team.new.ud");
+    TeamLB = PHBuilder.CreateAlignedLoad(IndValTy, TeamLowerBnd, Align(4),
+                                         "team.new.lb");
+    TeamUB = PHBuilder.CreateAlignedLoad(IndValTy, TeamUpperBnd, Align(4),
+                                         "team.new.ub");
+    TeamST = PHBuilder.CreateAlignedLoad(IndValTy, TeamStride, Align(4),
+                                         "team.new.st");
+    auto *TeamUD = PHBuilder.CreateAlignedLoad(IndValTy, TeamUpperBnd, Align(4),
+                                               "team.new.ud");
 
     // Store the team bounds as the loop's initial bounds
     // for further work sharing.
@@ -6277,8 +6299,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       // the value of upperD returned by the run-time.  It will be used
       // by genDispatchLoopForStatic() below.
       PHBuilder.SetInsertPoint(PHTerm);
-      UpperBndVal =
-          PHBuilder.CreateAlignedLoad(UpperD, Align(4), "static.upperD");
+      UpperBndVal = PHBuilder.CreateAlignedLoad(IndValTy, UpperD, Align(4),
+                                                "static.upperD");
     }
   } else {
     // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
@@ -6287,10 +6309,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     // with the team's bounds.  We could have used TeamLB and TeamUB
     // here directly, but having the explicit loads makes unit testing
     // easier.
-    auto *DispInitLB =
-        PHBuilder.CreateAlignedLoad(LowerBnd, Align(4), "disp.init.lb");
-    auto *DispInitUB =
-        PHBuilder.CreateAlignedLoad(UpperBnd, Align(4), "disp.init.ub");
+    auto *DispInitLB = PHBuilder.CreateAlignedLoad(IndValTy, LowerBnd, Align(4),
+                                                   "disp.init.lb");
+    auto *DispInitUB = PHBuilder.CreateAlignedLoad(IndValTy, UpperBnd, Align(4),
+                                                   "disp.init.ub");
     KmpcInitCI =
         VPOParoptUtils::genKmpcDispatchInit(W, IdentTy, LoadTid, SchedType,
                                             IsLastVal, DispInitLB, DispInitUB,
@@ -6322,8 +6344,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   // First, load the bounds initialized with run-time values.
   // NOTE: LoadLB is used as a split point for dispatch.
-  LoadInst *LoadLB = PHBuilder.CreateAlignedLoad(LowerBnd, Align(4), "lb.new");
-  LoadInst *LoadUB = PHBuilder.CreateAlignedLoad(UpperBnd, Align(4), "ub.new");
+  LoadInst *LoadLB =
+      PHBuilder.CreateAlignedLoad(IndValTy, LowerBnd, Align(4), "lb.new");
+  LoadInst *LoadUB =
+      PHBuilder.CreateAlignedLoad(IndValTy, UpperBnd, Align(4), "ub.new");
 
   // Fixup the induction variable's PHI to take the initial value
   // from the value of the lower bound returned by the run-time init.
@@ -6649,7 +6673,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     }
   }
 
-  CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
+  CallInst *MTFnCI =
+      CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
   MTFnCI->setCallingConv(CS.getCallingConv());
 
   // Copy isTailCall attribute
@@ -6766,7 +6791,8 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NumThreads = W->getNumThreads();
 
   if (NumThreads || NumTeams) {
-    LoadInst *Tid = new LoadInst(TidPtrHolder, "my.tid", ForkCI);
+    Type *I32Ty = Type::getInt32Ty(F->getParent()->getContext());
+    LoadInst *Tid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", ForkCI);
     Tid->setAlignment(MaybeAlign(4));
     if (W->getIsTeams())
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
@@ -6885,7 +6911,8 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
     Params.push_back((*I));
   }
 
-  CallInst *ForkCallInst = CallInst::Create(ForkCallFn, Params, "", CI);
+  CallInst *ForkCallInst = CallInst::Create(ForkCallFn->getFunctionType(),
+                                            ForkCallFn, Params, "", CI);
 
   // CI->replaceAllUsesWith(NewCI);
 
@@ -7534,11 +7561,10 @@ bool VPOParoptTransform::genLastIterationCheck(
 
   // Next, we insert the branching code before InsertBefore.
   IRBuilder<> Builder(InsertBefore);
-
-  LoadInst *LastLoad = Builder.CreateLoad(IsLastVal);                   // (1)
-  ConstantInt *ValueZero =
-      ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
-  Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero);       // (2)
+  IntegerType *I32Ty = Type::getInt32Ty(F->getContext());
+  LoadInst *LastLoad = Builder.CreateLoad(I32Ty, IsLastVal); //              (1)
+  ConstantInt *ValueZero = ConstantInt::getSigned(I32Ty, 0);
+  Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero); //         (2)
 
   Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, InsertBefore,
                                                 false, nullptr, DT, LI);
@@ -8063,7 +8089,8 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
       CancelExitBBWithStaticFini = SplitEdge(OrgBB, CancelExitBB, DT, LI);
       auto *InsertPt = CancelExitBBWithStaticFini->getTerminator();
 
-      LoadInst *LoadTid = new LoadInst(TidPtrHolder, "my.tid", InsertPt);
+      Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
+      LoadInst *LoadTid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", InsertPt);
       LoadTid->setAlignment(MaybeAlign(4));
       VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
 
@@ -8465,7 +8492,9 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     NewAI->insertBefore(InsPt);
 
     // Copy variable value from the original location to the private instance.
-    new StoreInst(new LoadInst(AI, AI->getName() + ".v", InsPt), NewAI, InsPt);
+    new StoreInst(
+        new LoadInst(AI->getAllocatedType(), AI, AI->getName() + ".v", InsPt),
+        NewAI, InsPt);
 
     // And replace all uses of the original variable in the region with the
     // private one.

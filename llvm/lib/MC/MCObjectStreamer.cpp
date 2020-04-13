@@ -402,8 +402,9 @@ void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
   //   fragment.
   if (Assembler.getRelaxAll() ||
       (Assembler.isBundlingEnabled() && Sec->isBundleLocked())) {
-    MCInst Relaxed;
-    getAssembler().getBackend().relaxInstruction(Inst, STI, Relaxed);
+#if INTEL_CUSTOMIZATION
+    MCInst Relaxed = Inst;
+#endif // INTEL_CUSTOMIZATION
     while (getAssembler().getBackend().mayNeedRelaxation(Relaxed, STI))
       getAssembler().getBackend().relaxInstruction(Relaxed, STI, Relaxed);
     EmitInstToData(Relaxed, STI);

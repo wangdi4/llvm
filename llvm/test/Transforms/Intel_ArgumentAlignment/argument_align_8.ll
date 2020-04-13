@@ -1,16 +1,17 @@
 ; REQUIRES: assert
-; This test checks that the argument alignment identifies that there is no
-; no AVX2 and prints the proper debug messages.
+; This test checks that the argument alignment didn't pass the analysis process
+; and prints the proper debug messages.
+; This test is same as argument_align_4.ll except "null" is also stored into
+; the malloced location in addition to return address of "calloc".
 
-; This test is the same as argument_align_4.ll.
-
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -S 2>&1
+; RUN: opt < %s -intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=intel-argument-alignment -whole-program-assume -debug-only=intel-argument-alignment -disable-output 2>&1
 
 ; CHECK: Candidates for argument alignment: 0
-; CHECK-NEXT: Reason: NOT AVX2
+; CHECK-NEXT: Reason: Candidates didn't pass analysis
 
 declare noalias i8* @calloc(i64, i64)
+declare noalias i8* @malloc(i64)
 
 define internal fastcc void @foo(i8*, i64) {
 entry:
@@ -40,7 +41,14 @@ end:
 
 define void @bar(i64, i64) {
 entry:
-  %2 = tail call noalias i8* @calloc(i64 %0, i64 8)
-  tail call fastcc void @foo(i8* %2, i64 %1)
+  %call0 = tail call noalias i8* @calloc(i64 %0, i64 8)
+  %call1 = tail call noalias i8* @malloc(i64 8)
+  %bc1 = bitcast i8* %call1 to i64**
+  %bc2 = bitcast i8* %call0 to i64*
+  store i64* null, i64** %bc1, align 8
+  store i64* %bc2, i64** %bc1, align 8
+  %val = load i64*, i64** %bc1, align 8
+  %bc3 = bitcast i64* %val to i8*
+  tail call fastcc void @foo(i8* %bc3, i64 %1)
   ret void
 }

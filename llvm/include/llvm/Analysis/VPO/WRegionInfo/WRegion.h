@@ -577,6 +577,7 @@ private:
   int OffloadEntryIdx;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
   SmallVector<Value *, 3> UncollapsedNDRange;
+  unsigned SPIRVSIMDWidth = 0;
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -620,6 +621,14 @@ public:
 
   const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
     return UncollapsedNDRange;
+  }
+
+  void setSPIRVSIMDWidth(unsigned Width) {
+    SPIRVSIMDWidth = Width;
+  }
+
+  unsigned getSPIRVSIMDWidth() const {
+    return SPIRVSIMDWidth;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

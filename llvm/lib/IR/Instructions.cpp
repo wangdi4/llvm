@@ -335,8 +335,24 @@ bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
 
   if (Attrs.hasParamAttribute(ArgNo, Kind))
     return true;
-  if (const Function *F = getCalledFunction())
-    return F->getAttributes().hasParamAttribute(ArgNo, Kind);
+#if INTEL_CUSTOMIZATION
+  if (const Function *F = getCalledFunction()) {
+    if (F->getAttributes().hasParamAttribute(ArgNo, Kind))
+      return true;
+
+    // If we are dealing with a callback call site check if callback function
+    // argument has given attribute if broker function forwards it to the
+    // callback and this attribute can be legaly propagated to the caller.
+    if (Kind == Attribute::ByVal || Kind == Attribute::ImmArg ||
+        Kind == Attribute::NoAlias || Kind == Attribute::NoCapture ||
+        Kind == Attribute::NoFree || Kind == Attribute::NonNull ||
+        Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
+        Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
+      if (Argument *CallbackArg =
+              AbstractCallSite::getCallbackArg(ImmutableCallSite(this), ArgNo))
+        return CallbackArg->hasAttribute(Kind);
+  }
+#endif // INTEL_CUSTOMIZATION
   return false;
 }
 
