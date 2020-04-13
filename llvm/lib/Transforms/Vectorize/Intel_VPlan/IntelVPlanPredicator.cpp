@@ -737,7 +737,7 @@ void VPlanPredicator::linearizeRegion(
       auto *VLoop = VPLI->getLoopFor(CurrBlock);
       assert(VLoop && "VLoop is expected");
       VLoop->addBasicBlockToLoop(BlendBB, *VPLI);
-      BlendBB->moveBefore(CurrBlock);
+      BlendBB->insertBefore(CurrBlock);
       VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
       VPBlockUtils::connectBlocks(BlendBB, CurrBlock);
       CurrBlock->removePredecessor(IncomingBlock);

@@ -1238,7 +1238,7 @@ void PlainCFGBuilder::buildPlainCFG() {
 
     VPBasicBlock *LandingPad =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    LandingPad->moveBefore(NewPlanExitBB);
+    LandingPad->insertBefore(NewPlanExitBB);
 
     // Connect multiple exits to landing pad
     for (auto ExitBB : make_range(LoopExits.begin(), LoopExits.end())) {
