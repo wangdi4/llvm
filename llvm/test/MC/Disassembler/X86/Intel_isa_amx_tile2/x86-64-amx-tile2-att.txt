@@ -1,0 +1,9 @@
+# REQUIRES: intel_feature_isa_amx_tile2
+# RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s
+
+# CHECK:      tilemov %tmm5, %tmm6
+0xc4,0xe2,0x7b,0x4b,0xf5
+
+# CHECK:      tilemov %tmm2, %tmm3
+0xc4,0xe2,0x7b,0x4b,0xda
+

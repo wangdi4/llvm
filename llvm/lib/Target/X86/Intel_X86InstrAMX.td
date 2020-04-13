@@ -1363,3 +1363,16 @@ let Predicates = [HasAMXFP16, In64BitMode] in {
 } // HasAMXTILE, HasAMXFP16
 
 // end INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_TILE2
+let Predicates = [HasAMXTILE2, In64BitMode] in {
+    def TILEMOV : I<0x4b, MRMSrcReg, (outs VTILE:$dst),
+                    (ins VTILE:$src),
+                    "tilemov\t{$src, $dst|$dst, $src}",
+                    []>, VEX, T8XD;
+
+let usesCustomInserter = 1 in
+    def PTILEMOV : PseudoI<(outs), (ins u8imm:$dst, u8imm:$src),
+                           [(int_x86_tilemov timm:$dst, timm:$src)]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
