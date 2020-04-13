@@ -1931,6 +1931,7 @@ static void addVectLibAttributes(llvm::AttrBuilder &FuncAttrs,
     FuncAttrs.addAttribute(AttributeName, "SVML");
     break;
   case CodeGenOptions::NoLibrary:
+  case CodeGenOptions::Libmvec: // INTEL
     break;
   }
 }

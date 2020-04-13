@@ -359,32 +359,8 @@ static void addMemTagOptimizationPasses(const PassManagerBuilder &Builder,
   PM.add(createStackSafetyGlobalInfoWrapperPass(/*SetMetadata=*/true));
 }
 
-<<<<<<< HEAD
-static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
-                                         const CodeGenOptions &CodeGenOpts) {
-  TargetLibraryInfoImpl *TLII = new TargetLibraryInfoImpl(TargetTriple);
-
-  switch (CodeGenOpts.getVecLib()) {
-  case CodeGenOptions::Accelerate:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::Accelerate);
-    break;
-  case CodeGenOptions::MASSV:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::MASSV);
-    break;
-  case CodeGenOptions::SVML:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SVML);
-    break;
-  case CodeGenOptions::Libmvec:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::Libmvec);
-    break;
-  default:
-    break;
-  }
-  return TLII;
-=======
 static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple) {
   return new TargetLibraryInfoImpl(TargetTriple);
->>>>>>> 60c642e74be6af86906d9f3d982728be7bd4329f
 }
 
 static void addSymbolRewriterPass(const CodeGenOptions &Opts,
