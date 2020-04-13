@@ -174,8 +174,8 @@ struct DeviceTy {
   int32_t initOnce();
   __tgt_target_table *load_binary(void *Img);
 
-  // Asynchronous data transfer. When AsyncInfoPtr is nullptr, the transfer will
-  // be synchronous.
+  // Data transfer. When AsyncInfoPtr is nullptr, the transfer will be
+  // synchronous.
   int32_t data_submit(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
                       __tgt_async_info *AsyncInfoPtr);
   int32_t data_retrieve(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size,
@@ -183,10 +183,11 @@ struct DeviceTy {
 
   int32_t run_region(void *TgtEntryPtr, void **TgtVarsPtr,
                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                     __tgt_async_info *AsyncInfo);
+                     __tgt_async_info *AsyncInfoPtr);
   int32_t run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
                           ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                           int32_t NumTeams, int32_t ThreadLimit,
+<<<<<<< HEAD
                           uint64_t LoopTripCount, __tgt_async_info *AsyncInfo);
 #if INTEL_COLLAB
   int32_t manifest_data_for_region(void *TgtEntryPtr);
@@ -220,6 +221,11 @@ struct DeviceTy {
   int32_t data_delete_managed(void *Ptr);
   int32_t is_managed_ptr(void *Ptr);
 #endif // INTEL_COLLAB
+=======
+                          uint64_t LoopTripCount,
+                          __tgt_async_info *AsyncInfoPtr);
+
+>>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
 private:
   // Call to RTL
   void init(); // To be called only via DeviceTy::initOnce()

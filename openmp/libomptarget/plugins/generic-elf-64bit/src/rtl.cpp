@@ -295,7 +295,7 @@ void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
 EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
-                              int64_t size, __tgt_async_info *) {
+                              int64_t size) {
   memcpy(tgt_ptr, hst_ptr, size);
   return OFFLOAD_SUCCESS;
 }
@@ -304,7 +304,7 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
 EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
-                                int64_t size, __tgt_async_info *) {
+                                int64_t size) {
   memcpy(hst_ptr, tgt_ptr, size);
   return OFFLOAD_SUCCESS;
 }
@@ -317,6 +317,7 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   return OFFLOAD_SUCCESS;
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
@@ -325,6 +326,14 @@ int32_t __tgt_rtl_run_target_team_region(
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
     int32_t thread_limit, uint64_t loop_tripcount /*not used*/,
     __tgt_async_info *async_info /*not used*/) {
+=======
+int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
+                                         void **tgt_args,
+                                         ptrdiff_t *tgt_offsets,
+                                         int32_t arg_num, int32_t team_num,
+                                         int32_t thread_limit,
+                                         uint64_t loop_tripcount /*not used*/) {
+>>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
   // ignore team num and thread limit.
 
   // Use libffi to launch execution.
@@ -361,10 +370,10 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
                                     void **tgt_args, ptrdiff_t *tgt_offsets,
-                                    int32_t arg_num,
-                                    __tgt_async_info *async_info_ptr) {
+                                    int32_t arg_num) {
   // use one team and one thread.
   return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
+<<<<<<< HEAD
                                           tgt_offsets, arg_num, 1, 1, 0,
                                           async_info_ptr);
 }
@@ -375,6 +384,9 @@ EXTERN
 int32_t __tgt_rtl_synchronize(int32_t device_id,
                               __tgt_async_info *async_info_ptr) {
   return OFFLOAD_SUCCESS;
+=======
+                                          tgt_offsets, arg_num, 1, 1, 0);
+>>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
 }
 
 #ifdef __cplusplus

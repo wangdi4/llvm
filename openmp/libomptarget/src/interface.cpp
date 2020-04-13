@@ -114,21 +114,25 @@ EXTERN void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
     return;
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterBegin(device_id));
 #endif // INTEL_COLLAB
   DeviceTy& Device = Devices[device_id];
+=======
+  DeviceTy &Device = Devices[device_id];
+>>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
 
 #ifdef OMPTARGET_DEBUG
-  for (int i=0; i<arg_num; ++i) {
+  for (int i = 0; i < arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-        ", Type=0x%" PRIx64 "\n", i, DPxPTR(args_base[i]), DPxPTR(args[i]),
-        arg_sizes[i], arg_types[i]);
+       ", Type=0x%" PRIx64 "\n",
+       i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i]);
   }
 #endif
 
-  int rc = target_data_begin(Device, arg_num, args_base,
-      args, arg_sizes, arg_types);
+  int rc = target_data_begin(Device, arg_num, args_base, args, arg_sizes,
+                             arg_types, nullptr);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterEnd(device_id));
@@ -183,11 +187,16 @@ EXTERN void __tgt_target_data_end(int64_t device_id, int32_t arg_num,
   }
 #endif
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitBegin(device_id));
 #endif // INTEL_COLLAB
   int rc = target_data_end(Device, arg_num, args_base,
       args, arg_sizes, arg_types);
+=======
+  int rc = target_data_end(Device, arg_num, args_base, args, arg_sizes,
+                           arg_types, nullptr);
+>>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));

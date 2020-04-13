@@ -76,6 +76,7 @@ EXTERN
 #endif  // INTEL_COLLAB
 void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HostPtr);
 
+<<<<<<< HEAD
 // Pass the data content to the target device using the target address. If
 // AsyncInfoPtr is nullptr, it is synchronous; otherwise it is asynchronous.
 // However, AsyncInfoPtr may be ignored on some platforms, like x86_64. In that
@@ -84,9 +85,14 @@ void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HostPtr);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
+=======
+// Pass the data content to the target device using the target address. In case
+// of success, return zero. Otherwise, return an error code.
+>>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
 int32_t __tgt_rtl_data_submit(int32_t ID, void *TargetPtr, void *HostPtr,
-                              int64_t Size, __tgt_async_info *AsyncInfoPtr);
+                              int64_t Size);
 
+<<<<<<< HEAD
 // Retrieve the data content from the target device using its address. If
 // AsyncInfoPtr is nullptr, it is synchronous; otherwise it is asynchronous.
 // However, AsyncInfoPtr may be ignored on some platforms, like x86_64. In that
@@ -95,8 +101,21 @@ int32_t __tgt_rtl_data_submit(int32_t ID, void *TargetPtr, void *HostPtr,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
+=======
+int32_t __tgt_rtl_data_submit_async(int32_t ID, void *TargetPtr, void *HostPtr,
+                                    int64_t Size,
+                                    __tgt_async_info *AsyncInfoPtr);
+
+// Retrieve the data content from the target device using its address. In case
+// of success, return zero. Otherwise, return an error code.
+>>>>>>> 03ff643d2e9ebbf319d71b3a17d2ed0320a6a25b
 int32_t __tgt_rtl_data_retrieve(int32_t ID, void *HostPtr, void *TargetPtr,
-                                int64_t Size, __tgt_async_info *AsyncInfoPtr);
+                                int64_t Size);
+
+// Asynchronous version of __tgt_rtl_data_retrieve
+int32_t __tgt_rtl_data_retrieve_async(int32_t ID, void *HostPtr,
+                                      void *TargetPtr, int64_t Size,
+                                      __tgt_async_info *AsyncInfoPtr);
 
 // De-allocate the data referenced by target ptr on the device. In case of
 // success, return zero. Otherwise, return an error code.
@@ -116,8 +135,12 @@ int32_t __tgt_rtl_data_delete(int32_t ID, void *TargetPtr);
 EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_region(int32_t ID, void *Entry, void **Args,
-                                    ptrdiff_t *Offsets, int32_t NumArgs,
-                                    __tgt_async_info *AsyncInfoPtr);
+                                    ptrdiff_t *Offsets, int32_t NumArgs);
+
+// Asynchronous version of __tgt_rtl_run_target_region
+int32_t __tgt_rtl_run_target_region_async(int32_t ID, void *Entry, void **Args,
+                                          ptrdiff_t *Offsets, int32_t NumArgs,
+                                          __tgt_async_info *AsyncInfoPtr);
 
 // Similar to __tgt_rtl_run_target_region, but additionally specify the
 // number of teams to be created and a number of threads in each team. If
@@ -130,8 +153,13 @@ EXTERN
 int32_t __tgt_rtl_run_target_team_region(int32_t ID, void *Entry, void **Args,
                                          ptrdiff_t *Offsets, int32_t NumArgs,
                                          int32_t NumTeams, int32_t ThreadLimit,
-                                         uint64_t loop_tripcount,
-                                         __tgt_async_info *AsyncInfoPtr);
+                                         uint64_t loop_tripcount);
+
+// Asynchronous version of __tgt_rtl_run_target_team_region
+int32_t __tgt_rtl_run_target_team_region_async(
+    int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
+    int32_t NumTeams, int32_t ThreadLimit, uint64_t loop_tripcount,
+    __tgt_async_info *AsyncInfoPtr);
 
 // Device synchronization. In case of success, return zero. Otherwise, return an
 // error code.
