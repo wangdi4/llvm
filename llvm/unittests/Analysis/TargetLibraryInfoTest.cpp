@@ -662,6 +662,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__kmpc_for_static_init_8(i8*, i32, i32, i8*, i8*, i8*, i8*, i32, i32)\n"
       "declare void @__kmpc_fork_call(i8*, i32, i8*)\n"
       "declare i32 @__kmpc_global_thread_num(i8*)\n"
+      "declare i32 @__kmpc_ok_to_fork(i8*)\n"
       "declare void @__kmpc_push_num_threads(i8*, i32, i32)\n"
       "declare i32 @__kmpc_reduce_nowait(i8*, i32, i32, i32, i8*, i8*, i8*)\n"
       "declare void @__kmpc_serialized_parallel(i8*, i32)\n"

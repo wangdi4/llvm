@@ -982,6 +982,9 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_global_thread_num")
 /// int32_t __kmpc_master(kmp_Indent *loc, int32_t global_tid)
 TLI_DEFINE_ENUM_INTERNAL(kmpc_master)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_master")
+/// kmp_int32 __kmpc_ok_to_fork(ident_t * loc);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_ok_to_fork)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_ok_to_fork")
 /// void __kmpc_push_num_threads(ident_t * loc, kmp_int32 global_tid, kmp_int32 num_threads);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_push_num_threads)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_push_num_threads")
