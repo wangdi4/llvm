@@ -3781,6 +3781,28 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
         Builder, GV, ElementType->getPointerTo(ValueAddrSpace.getValue()));
   }
 
+  // Some targets do not support array allocas, so we have to
+  // generate new alloca instruction of an array type to overcome that.
+  // For example, if the requested privatization allocation is
+  // 10 elements of type i32, then we will generate:
+  //   %0 = alloca [10 x i32], instead of
+  //   %0 = alloca i32, i64 10
+  //
+  // To make the resulting privatization value's type consistent
+  // with the expectations, we have to create an additional GEP
+  // with result type i32*:
+  //   %1 = getelementptr inbounds ([10 x i32], [10 x i32]* %0, i32 0, i32 0)
+  bool MimicArrayAllocation = false;
+
+  if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
+    // TODO: use ConstantFoldInstruction to discover more constant values.
+    uint64_t Size = CI->getZExtValue();
+    assert(Size > 0 && "Invalid size for new alloca.");
+    ElementType = ArrayType::get(ElementType, Size);
+    NumElements = nullptr;
+    MimicArrayAllocation = true;
+  }
+
   auto *AI = Builder.CreateAlloca(
       ElementType,
       AllocaAddrSpace ?
@@ -3788,12 +3810,37 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
       NumElements, VarName);
   AI->setAlignment(OrigAlignment);
 
-  if (!ValueAddrSpace)
-    return AI;
+  if (IsTargetSPIRV && AI->isArrayAllocation()) {
+    LLVM_DEBUG(dbgs() <<
+               "Requested privatization alloca with non-constant size:\n" <<
+               "\tElementType:\n" << *AI->getAllocatedType() << "\n" <<
+               "\tSize:\n" << *AI->getArraySize() << "\n");
+#if INTEL_CUSTOMIZATION
+#if 0
+    // FIXME: either re-enable this or come up with a solution.
+    report_fatal_error("VLA alloca is not supported for this target.");
+#endif
+#endif  // INTEL_CUSTOMIZATION
+  }
 
+  Value *V = AI;
+  if (MimicArrayAllocation) {
+    assert(AI->getAllocatedType()->isArrayTy() &&
+           "Expected ArrayType alloca.");
+    assert(!AI->isArrayAllocation() &&
+           "Unexpected array alloca with array type.");
+    V = Builder.CreateInBoundsGEP(
+        AI, {Builder.getInt32(0), Builder.getInt32(0)},
+        AI->getName() + Twine(".gep"));
+  }
+
+  if (!ValueAddrSpace)
+    return V;
+
+  auto *CastTy = cast<PointerType>(V->getType())->getPointerElementType()->
+      getPointerTo(ValueAddrSpace.getValue());
   auto *ASCI = dyn_cast<Instruction>(
-      AddrSpaceCastValue(Builder, AI,
-          AI->getAllocatedType()->getPointerTo(ValueAddrSpace.getValue())));
+      AddrSpaceCastValue(Builder, V, CastTy));
 
   assert(ASCI && "genPrivatizationAlloca: AddrSpaceCast for an AllocaInst "
          "must be an Instruction.");
