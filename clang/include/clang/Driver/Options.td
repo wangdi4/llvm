@@ -3358,6 +3358,11 @@ def mno_amx_tile_evex : Flag<["-"], "mno-amx-tile-evex">, Group<m_x86_Features_G
 def mamx_transpose2 : Flag<["-"], "mamx-transpose2">, Group<m_x86_Features_Group>;
 def mno_amx_transpose2 : Flag<["-"], "mno-amx-transpose2">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+
+#if INTEL_FEATURE_ISA_AMX_TILE2
+def mamx_tile2 : Flag<["-"], "mamx-tile2">, Group<m_x86_Features_Group>;
+def mno_amx_tile2 : Flag<["-"], "mno-amx-tile2">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
 def msse : Flag<["-"], "msse">, Group<m_x86_Features_Group>;
 def mno_sse : Flag<["-"], "mno-sse">, Group<m_x86_Features_Group>;
