@@ -1235,7 +1235,7 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
 
   NewRedInst->replaceAllUsesWith(SrcArg);
 
-  cast<AllocaInst>(NewRedInst)->eraseFromParent();
+  cast<Instruction>(NewRedInst)->eraseFromParent();
 
   return FnTaskLoopRedComb;
 }
