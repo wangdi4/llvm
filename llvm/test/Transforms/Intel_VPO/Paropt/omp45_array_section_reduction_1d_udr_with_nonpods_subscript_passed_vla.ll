@@ -489,7 +489,7 @@ entry:
 ; CHECK: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
 ; CHECK: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
 ; CHECK: call void @__kmpc_end_critical({{.*}})
-; CHECK: call void @_ZTS9my_struct.omp.destr(%struct.my_struct* %ypas.addr.red)
+; CHECK: call void @_ZTS9my_struct.omp.destr(%struct.my_struct* %ypas.addr{{[a-zA-Z._0-9]*}})
 
   %4 = load i64, i64* %omp.vla.tmp, align 8
   %5 = load i32, i32* %.omp.lb, align 4

@@ -2041,9 +2041,10 @@ void VPOParoptTransform::genReductionUdrInit(ReductionItem *RedI,
       V = ConstantInt::get(Builder.getInt8Ty(), 0);
       const DataLayout &DL =
           cast<Instruction>(ReductionValueLoc)->getModule()->getDataLayout();
-      VPOUtils::genMemset(ReductionValueLoc, V, DL,
-                          cast<AllocaInst>(RedI->getNew())->getAlignment(),
-                          Builder);
+      unsigned Alignment = 0;
+      if (auto *AI = dyn_cast<AllocaInst>(RedI->getNew()->stripPointerCasts()))
+        Alignment = AI->getAlignment();
+      VPOUtils::genMemset(ReductionValueLoc, V, DL, Alignment, Builder);
     }
   }
 }
