@@ -51,13 +51,9 @@
 #include "ToolChains/TCE.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
-<<<<<<< HEAD
-=======
-#include "ToolChains/SYCL.h"
 #if INTEL_CUSTOMIZATION
 #include "ToolChains/Arch/X86.h"
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 26b10c280624a5a0729db1220c0169947846a4b2
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Action.h"
