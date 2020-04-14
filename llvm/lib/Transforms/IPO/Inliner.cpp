@@ -306,14 +306,9 @@ static void mergeInlinedArrayAllocas(
 /// available from other functions inlined into the caller.  If we are able to
 /// inline this call site we attempt to reuse already available allocas or add
 /// any new allocas to the set if not possible.
-<<<<<<< HEAD
-static InlineResult InlineCallIfPossible(
+static InlineResult inlineCallIfPossible(
     CallBase &CS, InlineFunctionInfo &IFI, InlineReport *IRep,    // INTEL
     InlineReportBuilder *MDIRep,    // INTEL
-=======
-static InlineResult inlineCallIfPossible(
-    CallBase &CS, InlineFunctionInfo &IFI,
->>>>>>> f62335b5347c7ab66e921048c24559870643ad91
     InlinedArrayAllocasTy &InlinedArrayAllocas, int InlineHistory,
     bool InsertLifetime, function_ref<AAResults &(Function &)> &AARGetter,
     ImportedFunctionsInliningStatistics &ImportedFunctionsStats, // INTEL
@@ -851,13 +846,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // infinitely inline.
         InlineHistoryID = CallSites[CSi].second;
         if (InlineHistoryID != -1 &&
-<<<<<<< HEAD
-            InlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
+            inlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
           IR.setReasonNotInlined(CallSite(&CS), NinlrRecursive);      // INTEL
           llvm::setMDReasonNotInlined(CallSite(&CS), NinlrRecursive); // INTEL
-=======
-            inlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
->>>>>>> f62335b5347c7ab66e921048c24559870643ad91
           setInlineRemark(CS, "recursive");
           continue;
         }
@@ -904,7 +895,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
         // Attempt to inline the function.
         using namespace ore;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         IR.beginUpdate(CallSite(&CS));
         MDIR.beginUpdate(CallSite(&CS));
@@ -918,7 +908,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         unsigned RecursiveCallCountOld = 0;
         if (Caller == Callee)
           RecursiveCallCountOld = recursiveCallCount(*Caller);
-        InlineResult LIR = InlineCallIfPossible(CS, InlineInfo, &IR, &MDIR,
+        InlineResult LIR = inlineCallIfPossible(CS, InlineInfo, &IR, &MDIR,
                                                InlinedArrayAllocas,
                                                InlineHistoryID, InsertLifetime,
                                                AARGetter,
@@ -930,14 +920,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           MDIR.endUpdate();
           llvm::setMDReasonNotInlined(CallSite(&CS), Reason);
           setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " +
-=======
-
-        InlineResult IR = inlineCallIfPossible(
-            CS, InlineInfo, InlinedArrayAllocas, InlineHistoryID,
-            InsertLifetime, AARGetter, ImportedFunctionsStats);
-        if (!IR.isSuccess()) {
-          setInlineRemark(CS, std::string(IR.getFailureReason()) + "; " +
->>>>>>> f62335b5347c7ab66e921048c24559870643ad91
                                   inlineCostStr(*OIC));
           if (CallSitesForFusion) {
             CallSitesForFusion->clear();
@@ -1074,24 +1056,15 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
     return ACT->getAssumptionCache(F);
   };
-<<<<<<< HEAD
-  CG.registerCGReport(&Report); // INTEL
   CG.registerCGReport(&MDReport); // INTEL
   bool rv = inlineCallsImpl(      // INTEL
-      SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime, // INTEL
-      [this](CallBase &CS) { return getInlineCost(CS); },
-      LegacyAARGetter(*this), ImportedFunctionsStats, ILIC, // INTEL
-      getReport(),                                          // INTEL
-      getMDReport(), &CallSitesForFusion, &FuncsForDTrans); // INTEL
+      SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
+      [&](CallBase &CS) { return getInlineCost(CS); }, LegacyAARGetter(*this),
+      ImportedFunctionsStats, ILIC, getReport(), getMDReport(), // INTEL
+      &CallSitesForFusion, &FuncsForDTrans);                    // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
-=======
-  return inlineCallsImpl(
-      SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
-      [&](CallBase &CS) { return getInlineCost(CS); }, LegacyAARGetter(*this),
-      ImportedFunctionsStats);
->>>>>>> f62335b5347c7ab66e921048c24559870643ad91
 }
 
 /// Remove now-dead linkonce functions at the end of
@@ -1428,12 +1401,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     for (; I < (int)Calls.size() && Calls[I].first->getCaller() == &F; ++I) {
       int InlineHistoryID;
       CallBase *CS = nullptr;
-<<<<<<< HEAD
-      std::tie(CS, InlineHistoryID) = Calls[i];
-      Function &Caller = *CS->getCaller();  // INTEL
-=======
       std::tie(CS, InlineHistoryID) = Calls[I];
->>>>>>> f62335b5347c7ab66e921048c24559870643ad91
+      Function &Caller = *CS->getCaller();  // INTEL
       Function &Callee = *CS->getCalledFunction();
 
       if (InlineHistoryID != -1 &&
