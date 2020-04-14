@@ -30,38 +30,12 @@ static const std::string help =
     "   Supported backends: PI_CUDA/PI_OPENCL \n"
     "   Output format: <number_of_devices>:<additional_Information>";
 
-<<<<<<< HEAD
-int main(int argc, char* argv[]) {
-    if (argc < 3) {
-        std::cout  
-            << "0:Please set a device type and backend to find" << std::endl
-            << help << std::endl;
-        return 0;
-    }
-
-    std::string type = argv[1];
-
-#if INTEL_CUSTOMIZATION
-    std::string backend{argv[2]};
-    // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
-    // TODO: Remove PI_OTHER, if it does not may to Level0.
-    // TODO: Use a Level0 low level API. 
-    if (backend == "PI_LEVEL0" || backend == "PI_OTHER") {
-        if (type == "gpu") {
-          std::cout << "1:L0 GPU assumed under SYCL_BE=PI_LEVEL0" << std::endl;
-	  return 0;
-        }
-    }
-#endif // INTEL_CUSTOMIZATION
-
-=======
 // Return the string with all characters translated to lower case.
 std::string lowerString(const std::string &str) {
   std::string result(str);
   std::transform(result.begin(), result.end(), result.begin(), ::tolower);
   return result;
 }
->>>>>>> 6f7cd955cf8ce2b46d8f229ec2d03a03c5676050
 
 const char *deviceTypeToString(cl_device_type deviceType) {
   const char *str = "unknown";
@@ -92,28 +66,6 @@ const char *deviceTypeToString(cl_device_type deviceType) {
   return str;
 }
 
-<<<<<<< HEAD
-#ifdef USE_PI_CUDA
-    if (backend == "PI_CUDA") {
-      std::string msg{""};
-
-      int runtime_version = 0;
-
-      auto err = cuDriverGetVersion(&runtime_version);
-      if (runtime_version < 9020 || err != CUDA_SUCCESS) {
-        std::cout << deviceCount << ":Unsupported CUDA Runtime " << std::endl;
-        return 1;
-      }
-
-#if INTEL_CUSTOMIZATION
-      if (type == "gpu") {
-        deviceCount = 1;
-        msg = "cuda";
-        std::cout << deviceCount << ":" << msg << std::endl;
-        return 0;
-      }
-#endif // INTEL_CUSTOMIZATION
-=======
 static bool queryOpenCL(cl_device_type deviceType, cl_uint &deviceCount,
                         std::string &msg) {
   deviceCount = 0u;
@@ -129,7 +81,6 @@ static bool queryOpenCL(cl_device_type deviceType, cl_uint &deviceCount,
       stream << "ERROR: OpenCL error calling clGetPlatformIDs " << iRet
              << std::endl;
       msg = stream.str();
->>>>>>> 6f7cd955cf8ce2b46d8f229ec2d03a03c5676050
     }
     return false;
   }
@@ -235,6 +186,18 @@ int main(int argc, char *argv[]) {
   // Normalize all arguments to lower case.
   std::string type{lowerString(argv[1])};
   std::string backend{lowerString(argv[2])};
+
+#if INTEL_CUSTOMIZATION
+  // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
+  // TODO: Remove PI_OTHER, if it does not may to Level0.
+  // TODO: Use a Level0 low level API.
+  if (backend == "pi_level0" || backend == "pi_other") {
+    if (type == "gpu") {
+      std::cout << "1:L0 GPU assumed under SYCL_BE=PI_LEVEL0" << std::endl;
+      return EXIT_SUCCESS;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
   if (type == "cpu") {
