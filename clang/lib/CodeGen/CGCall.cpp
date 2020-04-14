@@ -1917,28 +1917,6 @@ static void addNoBuiltinAttributes(llvm::AttrBuilder &FuncAttrs,
   llvm::for_each(NBA->builtinNames(), AddNoBuiltinAttr);
 }
 
-<<<<<<< HEAD
-static void addVectLibAttributes(llvm::AttrBuilder &FuncAttrs,
-                                 const CodeGenOptions &CodeGenOpts) {
-  StringRef AttributeName = "veclib";
-  switch (CodeGenOpts.getVecLib()) {
-  case CodeGenOptions::Accelerate:
-    FuncAttrs.addAttribute(AttributeName, "Accelerate");
-    break;
-  case CodeGenOptions::MASSV:
-    FuncAttrs.addAttribute(AttributeName, "MASSV");
-    break;
-  case CodeGenOptions::SVML:
-    FuncAttrs.addAttribute(AttributeName, "SVML");
-    break;
-  case CodeGenOptions::NoLibrary:
-  case CodeGenOptions::Libmvec: // INTEL
-    break;
-  }
-}
-
-=======
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
 void CodeGenModule::ConstructAttributeList(
     StringRef Name, const CGFunctionInfo &FI, CGCalleeInfo CalleeInfo,
     llvm::AttributeList &AttrList, unsigned &CallingConv, bool AttrOnCallSite) {

@@ -790,7 +790,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_nvvm_reflect);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Windows specific
   if (!T.isOSWindows()) {
@@ -854,10 +853,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  TLI.addAllVectorizableFunctions();
-=======
   TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary);
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
 }
 
 TargetLibraryInfoImpl::TargetLibraryInfoImpl() {
@@ -1918,23 +1914,16 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_ctype_toupper_loc:
     return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
 
-<<<<<<< HEAD
   case LibFunc_cxa_allocate_exception:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
   case LibFunc_cxa_bad_cast:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
-=======
-void TargetLibraryInfoImpl::addVectorizableFunctions(ArrayRef<VecDesc> Fns) {
-  VectorDescs.insert(VectorDescs.end(), Fns.begin(), Fns.end());
-  llvm::sort(VectorDescs, compareByScalarFnName);
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
 
   case LibFunc_cxa_bad_typeid:
     return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
-<<<<<<< HEAD
   case LibFunc_cxa_begin_catch:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -3790,17 +3779,7 @@ static bool compareWithVectorFnName(const VecDesc &LHS, StringRef S) {
   return LHS.VectorFnName < S;
 }
 
-void TargetLibraryInfoImpl::addAllVectorizableFunctions() {
-  addVectorizableFunctionsFromVecLib(Accelerate, VecLibDescs[Accelerate]);
-  addVectorizableFunctionsFromVecLib(MASSV, VecLibDescs[MASSV]);
-  addVectorizableFunctionsFromVecLib(SVML, VecLibDescs[SVML]);
-  addVectorizableFunctionsFromVecLib(Libmvec, VecLibDescs[Libmvec]); // INTEL
-}
-
-void TargetLibraryInfoImpl::addVectorizableFunctions(
-    ArrayRef<VecDesc> Fns, VectorLibraryDescriptors &VecLibDesc) {
-  auto &VectorDescs = VecLibDesc.VectorDescs;
-  auto &ScalarDescs = VecLibDesc.ScalarDescs;
+void TargetLibraryInfoImpl::addVectorizableFunctions(ArrayRef<VecDesc> Fns) {
   VectorDescs.insert(VectorDescs.end(), Fns.begin(), Fns.end());
   llvm::sort(VectorDescs, compareByScalarFnName);
 
@@ -3808,84 +3787,6 @@ void TargetLibraryInfoImpl::addVectorizableFunctions(
   llvm::sort(ScalarDescs, compareByVectorFnName);
 }
 
-void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
-    enum VectorLibrary VecLib, VectorLibraryDescriptors &VetLibDesc) {
-  switch (VecLib) {
-  case Accelerate: {
-    const VecDesc VecFuncs[] = {
-    #define TLI_DEFINE_ACCELERATE_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-    };
-    addVectorizableFunctions(VecFuncs, VetLibDesc);
-    break;
-  }
-  case MASSV: {
-    const VecDesc VecFuncs[] = {
-    #define TLI_DEFINE_MASSV_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-    };
-    addVectorizableFunctions(VecFuncs, VetLibDesc);
-    break;
-  }
-  case SVML: {
-    const VecDesc VecFuncs[] = {
-#if INTEL_CUSTOMIZATION
-#define GET_SVML_VARIANTS
-#include "llvm/IR/Intel_SVML.gen"
-#undef GET_SVML_VARIANTS
-#else
-    #define TLI_DEFINE_SVML_VECFUNCS
-    #include "llvm/Analysis/VecFuncs.def"
-#endif // INTEL_CUSTOMIZATION
-    };
-    addVectorizableFunctions(VecFuncs, VetLibDesc);
-    break;
-  }
-#if INTEL_CUSTOMIZATION
-  case Libmvec: {
-    const VecDesc VecFuncs[] = {
-#define GET_LIBMVEC_VARIANTS
-#include "llvm/IR/Intel_Libmvec.gen"
-#undef GET_LIBMVEC_VARIANTS
-    };
-    addVectorizableFunctions(VecFuncs, VetLibDesc);
-    break;
-  }
-#endif // INTEL_CUSTOMIZATION
-  default:
-    llvm_unreachable("Unexpected vector library");
-    break;
-  }
-}
-
-bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
-                                                   VectorLibrary vecLib,
-                                       /* INTEL */ bool IsMasked) const {
-  funcName = sanitizeFunctionName(funcName);
-  if (funcName.empty() || vecLib >= NumVecLibs)
-    return false;
-
-  auto &VectorDescs = VecLibDescs[vecLib].VectorDescs;
-  std::vector<VecDesc>::const_iterator I =
-      llvm::lower_bound(VectorDescs, funcName, compareWithScalarFnName);
-#if INTEL_CUSTOMIZATION
-  // A masked version of a function can be used in unmasked calling context.
-  // Hence we return 'true' in this case.
-  while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == funcName) {
-    if (I->Masked || !IsMasked)
-      return true;
-    ++I;
-  }
-  return false;
-#endif
-}
-
-
-StringRef
-TargetLibraryInfoImpl::getVectorizedFunction(StringRef F, unsigned VF,
-                                             VectorLibrary vecLib,
-                                 /* INTEL */ bool Masked) const {
-=======
 void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     enum VectorLibrary VecLib) {
   switch (VecLib) {
@@ -3907,30 +3808,58 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
   }
   case SVML: {
     const VecDesc VecFuncs[] = {
+#if INTEL_CUSTOMIZATION
+#define GET_SVML_VARIANTS
+#include "llvm/IR/Intel_SVML.gen"
+#undef GET_SVML_VARIANTS
+#else
     #define TLI_DEFINE_SVML_VECFUNCS
     #include "llvm/Analysis/VecFuncs.def"
+#endif // INTEL_CUSTOMIZATION
     };
     addVectorizableFunctions(VecFuncs);
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case Libmvec: {
+    const VecDesc VecFuncs[] = {
+#define GET_LIBMVEC_VARIANTS
+#include "llvm/IR/Intel_Libmvec.gen"
+#undef GET_LIBMVEC_VARIANTS
+    };
+    addVectorizableFunctions(VecFuncs);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case NoLibrary:
     break;
   }
 }
 
-bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName) const {
+bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
+                                       /* INTEL */ bool IsMasked) const {
   funcName = sanitizeFunctionName(funcName);
   if (funcName.empty())
     return false;
 
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, funcName, compareWithScalarFnName);
-  return I != VectorDescs.end() && StringRef(I->ScalarFnName) == funcName;
+#if INTEL_CUSTOMIZATION
+  // A masked version of a function can be used in unmasked calling context.
+  // Hence we return 'true' in this case.
+  while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == funcName) {
+    if (I->Masked || !IsMasked)
+      return true;
+    ++I;
+  }
+  return false;
+#endif
 }
 
-StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
-                                                       unsigned VF) const {
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
+
+StringRef
+TargetLibraryInfoImpl::getVectorizedFunction(StringRef F, unsigned VF,
+                                             bool Masked) const { // INTEL
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;

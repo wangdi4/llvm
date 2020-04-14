@@ -51,29 +51,6 @@ struct VecDesc {
 class TargetLibraryInfoImpl {
   friend class TargetLibraryInfo;
 
-<<<<<<< HEAD
-public:
-  /// List of known vector-functions libraries.
-  ///
-  /// The vector-functions library defines, which functions are vectorizable
-  /// and with which factor. The library can be specified by either frontend,
-  /// or a commandline option, and then used by
-  /// addVectorizableFunctionsFromVecLib for filling up the tables of
-  /// vectorizable functions.
-  enum VectorLibrary {
-    Accelerate, // Use Accelerate framework.
-    MASSV,      // IBM MASS vector library.
-    SVML,       // Intel short vector math library.
-#if INTEL_CUSTOMIZATION
-    Libmvec,    // Glibc vector math library.
-#endif
-    NumVecLibs, // Number of supported vector libraries.
-    NoLibrary   // Don't use any vector library.
-  };
-
-private:
-=======
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
   unsigned char AvailableArray[(NumLibFuncs+3)/4];
   llvm::DenseMap<unsigned, std::string> CustomNames;
   static StringLiteral const StandardNames[NumLibFuncs];
@@ -115,7 +92,10 @@ public:
     NoLibrary,  // Don't use any vector library.
     Accelerate, // Use Accelerate framework.
     MASSV,      // IBM MASS vector library.
-    SVML        // Intel short vector math library.
+    SVML,       // Intel short vector math library.
+#if INTEL_CUSTOMIZATION
+    Libmvec,    // Glibc vector math library.
+#endif
   };
 
   TargetLibraryInfoImpl();
@@ -177,39 +157,22 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Return true if the function F has a vector equivalent with vectorization
-<<<<<<< HEAD
   /// factor VF and 'IsMasked' property. For any function 'F' \p true is
   /// returned if and only if a vector version for a particular VF
   /// and appropriate 'IsMasked' property exists.
-  bool isFunctionVectorizable(StringRef F, unsigned VF, VectorLibrary vecLib,
-                              bool IsMasked) const {
-    return !getVectorizedFunction(F, VF, vecLib, IsMasked).empty();
-=======
-  /// factor VF.
-  bool isFunctionVectorizable(StringRef F, unsigned VF) const {
-    return !getVectorizedFunction(F, VF).empty();
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
+  bool isFunctionVectorizable(StringRef F, unsigned VF, bool IsMasked) const {
+    return !getVectorizedFunction(F, VF, IsMasked).empty();
   }
 #endif
 
   /// Return true if the function F has a vector equivalent with any
   /// vectorization factor.
-<<<<<<< HEAD
-  bool isFunctionVectorizable(StringRef F, VectorLibrary vecLib,
-                              bool IsMasked) const; // INTEL
+  bool isFunctionVectorizable(StringRef F, bool IsMasked) const; // INTEL
 
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
-                                  VectorLibrary vecLib,
                                   bool Masked = false) const; // INTEL
-=======
-  bool isFunctionVectorizable(StringRef F) const;
-
-  /// Return the name of the equivalent of F, vectorized with factor VF. If no
-  /// such mapping exists, return the empty string.
-  StringRef getVectorizedFunction(StringRef F, unsigned VF) const;
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
 
   /// Return true if the function F has a scalar equivalent, and set VF to be
   /// the vectorization factor.
@@ -364,11 +327,10 @@ public:
   bool has(LibFunc F) const {
     return getState(F) != TargetLibraryInfoImpl::Unavailable;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool isFunctionVectorizable(StringRef F, unsigned VF,
                               bool IsMasked = false) const {
-    return Impl->isFunctionVectorizable(F, VF, VectLibrary, IsMasked);
+    return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
 #endif
 
@@ -377,22 +339,12 @@ public:
   /// callsites which do not necessarily care about the availability of
   /// masked or unmasked version of a function, unchanged.
   bool isFunctionVectorizable(StringRef F, bool IsMasked = false) const {
-    return Impl->isFunctionVectorizable(F, VectLibrary, IsMasked);
+    return Impl->isFunctionVectorizable(F, IsMasked);
   }
 #endif
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
                                   bool Masked=false) const { // INTEL
-    return Impl->getVectorizedFunction(F, VF, VectLibrary, Masked); // INTEL
-=======
-  bool isFunctionVectorizable(StringRef F, unsigned VF) const {
-    return Impl->isFunctionVectorizable(F, VF);
-  }
-  bool isFunctionVectorizable(StringRef F) const {
-    return Impl->isFunctionVectorizable(F);
-  }
-  StringRef getVectorizedFunction(StringRef F, unsigned VF) const {
-    return Impl->getVectorizedFunction(F, VF);
->>>>>>> ed03d9485eb5b502708f8a21ce34fa6da05a9ca5
+    return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
   }
 
   /// Tests if the function is both available and a candidate for optimized code
