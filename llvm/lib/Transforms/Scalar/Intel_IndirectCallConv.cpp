@@ -91,10 +91,10 @@ struct IndirectCallConvImpl {
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo)
       : AnderPointsTo(AnderPointsTo){};
 #endif // INTEL_INCLUDE_DTRANS
-  static bool isNotDirectCall(CallSite CS);
-  static CallSite createDirectCallSite(CallSite CS, Value *F,
-                                       BasicBlock *In_BB);
-  bool convert(CallSite CS);
+  static bool isNotDirectCall(CallBase *Call);
+  static CallBase *createDirectCallSite(CallBase *Call, Value *F,
+                                        BasicBlock *In_BB);
+  bool convert(CallBase *CS);
   bool run(Function &F);
 
 private:
@@ -105,10 +105,10 @@ private:
 };
 } // namespace
 
-// Return true if CS is not a direct call.
+// Return true if Call is not a direct call.
 //
-bool IndirectCallConvImpl::isNotDirectCall(CallSite CS) {
-  Value *func = CS.getCalledValue();
+bool IndirectCallConvImpl::isNotDirectCall(CallBase *Call) {
+  Value *func = Call->getCalledValue();
   func = func->stripPointerCasts();
   if (isa<Function>(func)) {
     return false;
@@ -116,50 +116,49 @@ bool IndirectCallConvImpl::isNotDirectCall(CallSite CS) {
   return true;
 }
 
-// Creates new CallInst/InvokeInst that is exactly same as 'CS' but
+// Creates new CallInst/InvokeInst that is exactly same as 'Call' but
 // 'FuncName' is used as function name and inserted it into 'Insert_BB'.
 //
-CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
-                                                    Value *FuncName,
-                                                    BasicBlock *Insert_BB) {
-  CallSite New_CS;
+CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
+                                                     Value *FuncName,
+                                                     BasicBlock *Insert_BB) {
+  CallBase *NewCall;
 
-  if (isa<CallInst>(CS.getInstruction())) {
-    CallInst *New_CI;
-    std::string New_Name;
-    CallInst *CI = cast<CallInst>(CS.getInstruction());
+  if (isa<CallInst>(Call)) {
+    CallInst *NewCI;
+    std::string NewName;
 
-    std::vector<Value *> Args(CI->op_begin(), CI->op_end() - 1);
-    New_Name = CI->hasName() ? CI->getName().str() + ".indconv" : "";
-    New_CI = CallInst::Create(CS.getFunctionType(), FuncName, Args,
-                              New_Name, Insert_BB);
+    std::vector<Value *> Args(Call->op_begin(), Call->op_end() - 1);
+    NewName = Call->hasName() ? Call->getName().str() + ".indconv" : "";
+    NewCI = CallInst::Create(Call->getFunctionType(), FuncName, Args, NewName,
+                             Insert_BB);
 
-    New_CI->setDebugLoc(CI->getDebugLoc());
-    New_CI->setCallingConv(CI->getCallingConv());
-    New_CI->setAttributes(CI->getAttributes());
-    New_CS = CallSite(New_CI);
-  } else if (isa<InvokeInst>(CS.getInstruction())) {
-    InvokeInst *New_II;
-    std::string New_Name;
-    InvokeInst *II = cast<InvokeInst>(CS.getInstruction());
+    NewCI->setDebugLoc(Call->getDebugLoc());
+    NewCI->setCallingConv(Call->getCallingConv());
+    NewCI->setAttributes(Call->getAttributes());
+    NewCall = NewCI;
+  } else if (isa<InvokeInst>(Call)) {
+    InvokeInst *NewII;
+    std::string NewName;
+    InvokeInst *II = cast<InvokeInst>(Call);
 
     std::vector<Value *> Args(II->op_begin(), II->op_end() - 3);
-    New_Name = II->hasName() ? II->getName().str() + ".indconv" : "";
-    New_II = InvokeInst::Create(CS.getFunctionType(), FuncName,
-                                II->getNormalDest(), II->getUnwindDest(), Args,
-                                New_Name, Insert_BB);
+    NewName = II->hasName() ? II->getName().str() + ".indconv" : "";
+    NewII =
+        InvokeInst::Create(II->getFunctionType(), FuncName, II->getNormalDest(),
+                           II->getUnwindDest(), Args, NewName, Insert_BB);
 
-    New_II->setDebugLoc(II->getDebugLoc());
-    New_II->setCallingConv(II->getCallingConv());
-    New_II->setAttributes(II->getAttributes());
-    New_CS = CallSite(New_II);
+    NewII->setDebugLoc(II->getDebugLoc());
+    NewII->setCallingConv(II->getCallingConv());
+    NewII->setAttributes(II->getAttributes());
+    NewCall = NewII;
   } else {
     llvm_unreachable("Expecting call/invoke instruction");
   }
-  return New_CS;
+  return NewCall;
 }
 
-// Convert indirect call 'CS' to direct call if possible.
+// Convert indirect call 'Call' to a direct call if possible.
 //
 //  Ex (Complete Set):
 //   Before:
@@ -190,30 +189,30 @@ CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
 //     }
 //     ...
 //
-bool IndirectCallConvImpl::convert(CallSite CS) {
+bool IndirectCallConvImpl::convert(CallBase *Call) {
   AndersensAAResult::AndersenSetResult
       IsComplete = AndersensAAResult::AndersenSetResult::Incomplete;
   unsigned NumPossibleTargets = 0;
 
   if (IndCallConvTrace) {
     errs() << "Call-Site:  ";
-    errs() << *(CS.getInstruction()) << "\n";
+    errs() << *Call << "\n";
   }
 
-  // Get possible targets for 'CS' using points-to info.
+  // Get possible targets for 'Call' using points-to info.
   std::vector<llvm::Value *> PossibleTargets;
-  Value *call_fptr = CS.getCalledValue()->stripPointerCasts();
+  Value *call_fptr = Call->getCalledValue()->stripPointerCasts();
 #if INTEL_INCLUDE_DTRANS
   if (DTransInfo && DTransInfo->useDTransAnalysis()) {
     if (DTransInfo->GetFuncPointerPossibleTargets(
-        call_fptr, PossibleTargets, CS, IndCallConvTrace))
+        call_fptr, PossibleTargets, Call, IndCallConvTrace))
       IsComplete = AndersensAAResult::AndersenSetResult::Complete;
   }
 #endif // INTEL_INCLUDE_DTRANS
   if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete
       && AnderPointsTo)
     IsComplete = AnderPointsTo->GetFuncPointerPossibleTargets(
-        call_fptr, PossibleTargets, CS, IndCallConvTrace);
+        call_fptr, PossibleTargets, Call, IndCallConvTrace);
   if (IsComplete !=
       AndersensAAResult::AndersenSetResult::Complete) {
     if (IndCallConvTrace) {
@@ -297,9 +296,9 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
     // If there is only one possible target and it is complete, just
     // replace function pointer with direct call.
     auto FirstElement = PossibleTargets.front();
-    CS.setCalledFunction(FirstElement);
+    Call->setCalledFunction(cast<Function>(FirstElement));
     if (IndCallConvTrace) {
-      errs() << "    Replaced with Direct call" << *(CS.getInstruction())
+      errs() << "    Replaced with Direct call" << *Call
              << "\n";
     }
     return true;
@@ -307,9 +306,9 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
 
   // Get BasicBlock of indirect call
   Instruction *SplitPt = nullptr;
-  if (CallInst *CI = dyn_cast<CallInst>(CS.getInstruction())) {
+  if (CallInst *CI = dyn_cast<CallInst>(Call)) {
     SplitPt = CI;
-  } else if (InvokeInst *CI = dyn_cast<InvokeInst>(CS.getInstruction())) {
+  } else if (InvokeInst *CI = dyn_cast<InvokeInst>(Call)) {
     SplitPt = CI;
   }
   assert(SplitPt != nullptr && "Expected Call/Invoke Inst");
@@ -341,14 +340,14 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   std::vector<BasicBlock *> NewCondStmtBBs;
 
   // List of newly created direct call stmts
-  std::vector<CallSite> NewDirectCalls;
+  std::vector<CallBase *> NewDirectCalls;
 
   // List of newly created conditional stmts
   std::vector<CmpInst *> NewCondStmts;
 
   unsigned index = 0;
   BasicBlock *Cond_BB;
-  CallSite New_CS;
+  CallBase *NewCall;
   CmpInst *Comp;
 
   for (auto F1 = PossibleTargets.begin(), E1 = PossibleTargets.end(); F1 != E1;
@@ -392,11 +391,11 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
                                              OrigBlock->getParent(), Tail_BB);
 
     // Create direct call and insert into Call_BB
-    New_CS = createDirectCallSite(CS, *F1, Call_BB);
+    NewCall = createDirectCallSite(Call, *F1, Call_BB);
 
     // Add new call inst and call BasicBlock to NewDirectCalls and
     // NewDirectCallBBs to fix CFG later.
-    NewDirectCalls.push_back(New_CS);
+    NewDirectCalls.push_back(NewCall);
     NewDirectCallBBs.push_back(Call_BB);
 
     // Create unconditional branch to tail BB
@@ -417,11 +416,11 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
     BasicBlock *Call_BB = BasicBlock::Create(call_fptr->getContext(), BB_Str,
                                              OrigBlock->getParent(), Tail_BB);
 
-    New_CS = createDirectCallSite(CS, CS.getCalledValue(), Call_BB);
+    NewCall = createDirectCallSite(Call, Call->getCalledValue(), Call_BB);
 
     // Add them to NewDirectCallBBs and NewDirectCalls list
     NewDirectCallBBs.push_back(Call_BB);
-    NewDirectCalls.push_back(New_CS);
+    NewDirectCalls.push_back(NewCall);
 
     // Create unconditional branch to tail BB
     BranchInst *BI = BranchInst::Create(Tail_BB, Call_BB);
@@ -454,13 +453,13 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   //                            [ %call.i.indconv10, %.indconv.call.subtract],
   //                            [ %call.i.indconv11, %.indconv.call.multiply]
   //
-  if (!CS->getType()->isVoidTy()) {
-    PHINode *RPHI = PHINode::Create(CS->getType(), NumPossibleTargets,
+  if (!Call->getType()->isVoidTy()) {
+    PHINode *RPHI = PHINode::Create(Call->getType(), NumPossibleTargets,
                                     ".indconv.ret", &Tail_BB->front());
 
     for (unsigned i = 0; i < NumPossibleTargets; i++) {
-      CallSite CS2 = NewDirectCalls[i];
-      RPHI->addIncoming(CS2.getInstruction(), NewDirectCallBBs[i]);
+      CallBase *Call2 = NewDirectCalls[i];
+      RPHI->addIncoming(Call2, NewDirectCallBBs[i]);
     }
     RPHI->setDebugLoc(SplitPt->getDebugLoc());
     // Fix UI for newly created PHI_NODE
@@ -485,14 +484,14 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
 }
 
 bool IndirectCallConvImpl::run(Function &F) {
-  std::vector<CallSite> candidates;
+  std::vector<CallBase *> candidates;
   // Collect Indirect calls in current routine.
   for (inst_iterator II = inst_begin(F), EE = inst_end(F); II != EE; ++II) {
     if (isa<CallInst>(&*II) ||
         (IndCallConvAllowInvoke && isa<InvokeInst>(&*II))) {
-      CallSite CS = CallSite(&*II);
-      if (isNotDirectCall(CS)) {
-        candidates.push_back(CS);
+      CallBase *Call = cast<CallBase>(&*II);
+      if (isNotDirectCall(Call)) {
+        candidates.push_back(Call);
       }
     }
   }

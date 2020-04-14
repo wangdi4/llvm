@@ -470,8 +470,9 @@ public:
               CallGraph &CG, WholeProgramInfo *WPInfo);
 
   // Interface routine to get possible targets of function pointers
-  AndersenSetResult GetFuncPointerPossibleTargets(Value *FP, 
-              std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace);
+  AndersenSetResult GetFuncPointerPossibleTargets(Value *FP,
+                                                  std::vector<Value *> &Targets,
+                                                  CallBase *, bool Trace);
 
   //------------------------------------------------
   // Implement the AliasAnalysis API
