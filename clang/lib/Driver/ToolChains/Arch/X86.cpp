@@ -20,9 +20,73 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+#if INTEL_CUSTOMIZATION
+const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple) {
+  const char *CPU = nullptr;
+  if (Triple.getArch() == llvm::Triple::x86) { // 32-bit-only
+    CPU = llvm::StringSwitch<const char *>(Arch)
+              .CaseLower("sse2", "pentium4")
+              .Default(nullptr);
+  }
+  if (CPU == nullptr) { // 32-bit and 64-bit
+    CPU = llvm::StringSwitch<const char *>(Arch)
+              .CaseLower("sse3", "nocona")
+              .CaseLower("ssse3", "core2")
+              .CaseLower("sse4.1", "penryn")
+              .CaseLower("sse4.2", "corei7")
+              .CasesLower("avx", "sandybridge", "corei7-avx")
+              .CasesLower("core-avx2", "core_avx2", "haswell", "core-avx2")
+              .CasesLower("core-avx-i", "core_avx_i", "ivybridge", "core-avx-i")
+              .CasesLower("atom-ssse3", "atom_ssse3", "atom")
+              .CasesLower("atom-sse4.2", "atom_sse4.2", "silvermont",
+                          "silvermont")
+              .CaseLower("goldmont", "goldmont")
+              .CasesLower("goldmont-plus", "goldmont_plus", "goldmont-plus")
+              .CaseLower("tremont", "tremont")
+              .CasesLower("mic-avx512", "mic_avx512", "knl", "knl")
+              .CaseLower("knm", "knm")
+              .CasesLower("skylake", "kabylake", "coffeelake", "skylake")
+              .CasesLower("amberlake", "whiskeylake", "skylake")
+              .CasesLower("core-avx512", "core_avx512", "skylake-avx512",
+                          "skylake_avx512", "skylake-avx512")
+              .CasesLower("common-avx512", "common_avx512", "common-avx512")
+              .CaseLower("broadwell", "broadwell")
+              .CaseLower("cannonlake", "cannonlake")
+              .CasesLower("icelake", "icelake-client", "icelake_client",
+                          "icelake-client")
+              .CasesLower("icelake-server", "icelake_server", "icelake-server")
+              .CaseLower("cascadelake", "cascadelake")
+              .Default(nullptr);
+  }
+  if (!CPU) {
+    // No match found.  Instead of erroring out with a bad language type, we
+    // will pass the arg to the compiler to validate.
+    if (!types::lookupTypeForTypeSpecifier(Arch.data()))
+      CPU = Arch.data();
+  }
+  return CPU;
+}
+
+bool x86::isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple) {
+  return getCPUForIntel(CPU, Triple) != nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 const char *x86::getX86TargetCPU(const ArgList &Args,
                                  const llvm::Triple &Triple) {
-  if (const Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ)) {
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(options::OPT_march_EQ, options::OPT_x)) {
+    if (A->getOption().matches(options::OPT_x)) {
+      // -x<code> handling for Intel Processors.
+      StringRef Arch = A->getValue();
+      const char *CPU = nullptr;
+      CPU = getCPUForIntel(Arch, Triple);
+      if (CPU)
+        return CPU;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(options::OPT_march_EQ)) {
     if (StringRef(A->getValue()) != "native")
       return A->getValue();
 
@@ -36,6 +100,21 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
       return Args.MakeArgString(CPU);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                            options::OPT__SLASH_Qx)) {
+    if (A->getOption().matches(options::OPT__SLASH_Qx)) {
+      // /Qx<code> handling for Intel Processors.
+      StringRef Arch = A->getValue();
+      const char *CPU = nullptr;
+      CPU = getCPUForIntel(Arch, Triple);
+      if (CPU) {
+        A->claim();
+        return CPU;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch)) {
     // Mapping built by looking at lib/Basic's X86TargetInfo::initFeatureMap().
     StringRef Arch = A->getValue();

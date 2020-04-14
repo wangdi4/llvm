@@ -222,6 +222,9 @@ def _SLASH_Qdaal_COL : CLJoined<"Qdaal:">, Alias<daal_EQ>;
 def _SLASH_Qdaal : CLFlag<"Qdaal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
 def _SLASH_Qm32 : CLFlag<"Qm32">, Alias<m32>;
 def _SLASH_Qm64 : CLFlag<"Qm64">, Alias<m64>;
+def _SLASH_Qx : CLJoined<"Qx">,
+  HelpText<"Generate specialized code to run exclusively on processors "
+  "indicated by <code>.">, MetaVarName<"<code>">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

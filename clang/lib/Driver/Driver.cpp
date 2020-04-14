@@ -51,6 +51,13 @@
 #include "ToolChains/TCE.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
+<<<<<<< HEAD
+=======
+#include "ToolChains/SYCL.h"
+#if INTEL_CUSTOMIZATION
+#include "ToolChains/Arch/X86.h"
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> 26b10c280624a5a0729db1220c0169947846a4b2
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Action.h"
@@ -2528,6 +2535,16 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       // options. Its not clear why we shouldn't just revert to unknown; but
       // this isn't very important, we might as well be bug compatible.
       if (!InputType) {
+#if INTEL_CUSTOMIZATION
+        // Here we hijack the -x options to parse for Intel specific codes.
+        // We have to do this as -x<code> is a common usage model even though
+        // it conflicts with -x <language>.  Check for matching codes and
+        // if one is not found, fallthrough to the error for -x <language>.
+        if (tools::x86::isValidIntelCPU(A->getValue(), TC.getTriple())) {
+          InputType = types::TY_Nothing;
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
         Diag(clang::diag::err_drv_unknown_language) << A->getValue();
         InputType = types::TY_Object;
       }
