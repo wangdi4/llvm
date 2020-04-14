@@ -150,22 +150,6 @@ __attribute__((scheduler_target_fmax_mhz(0)))
 __kernel void kernel_7e() {
 }
 
-__kernel void kernel_7f() {
-    int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
-    int __attribute__((__internal_max_block_ram_depth__(64))) s;
-    int __attribute__((__internal_max_block_ram_depth__("sch"))) s1; // expected-error{{expression is not an integer constant expression}}
-    int __attribute__((__internal_max_block_ram_depth__(0))) s2;
-    int __attribute__((__internal_max_block_ram_depth__(-64))) s3; // expected-error{{'internal_max_block_ram_depth' attribute requires integer constant between 0 and 1048576 inclusive}}
-    int __attribute__((__internal_max_block_ram_depth__(64))) __attribute__((register)) s4; // expected-error{{'register' and 'internal_max_block_ram_depth' attributes are not compatible}}
-// expected-note@-1{{conflicting attribute is here}}
-    int __attribute__((register)) __attribute__((__internal_max_block_ram_depth__(64))) s5; // expected-error{{'__internal_max_block_ram_depth__' and 'register' attributes are not compatible}}
-// expected-note@-1{{conflicting attribute is here}}
-}
-
-__attribute__((__internal_max_block_ram_depth__(64))) // expected-error{{'__internal_max_block_ram_depth__' attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__kernel void kernel_7g() {
-}
-
 __attribute__((max_work_group_size(1, -1, 1))) // expected-error{{'max_work_group_size' attribute requires a non-negative integral compile time constant expression}}
 __kernel void kernel_8a() {}
 
