@@ -333,7 +333,6 @@ release:
   - The following attributes are supported:
     - stall_free
     - scheduler_pipelining_effort_pct
-    - internal_max_block_ram_depth
     - optimize_fmax
     - register
     - optimize_ram_usage
