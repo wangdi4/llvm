@@ -28,13 +28,9 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-<<<<<<< HEAD
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
-#include "llvm/Analysis/ConstantFolding.h"
-=======
-#include "llvm/Analysis/InstructionSimplify.h"
->>>>>>> 1a02aaeaa4f8675490da38ee8cb0d4a6d39815dd
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueLattice.h"
 #include "llvm/Analysis/ValueLatticeUtils.h"
