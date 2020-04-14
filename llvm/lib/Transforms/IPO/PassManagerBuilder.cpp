@@ -981,7 +981,7 @@ void PassManagerBuilder::populateModulePassManager(
   // simplification passes. That will propagate constant values down to callback
   // functions which represent outlined OpenMP parallel loops where possible.
   if (RunVPOParopt && OptLevel > 2)
-    MPM.add(createIPConstantPropagationPass());
+    MPM.add(createIPSCCPPass());
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC

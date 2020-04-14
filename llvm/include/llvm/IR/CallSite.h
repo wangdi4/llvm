@@ -931,6 +931,20 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
+/// Apply function Func to each Call's callback call site.
+template <typename CallType, typename UnaryFunction>
+void for_each_callback_callsite(CallType Call, UnaryFunction Func) {
+  SmallVector<const Use *, 4u> CallbackUses;
+  AbstractCallSite::getCallbackUses(ImmutableCallSite(Call), CallbackUses);
+  for (const Use *U : CallbackUses) {
+    AbstractCallSite ACS(U);
+    assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+    Func(ACS);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <> struct DenseMapInfo<CallSite> {
   using BaseInfo = DenseMapInfo<decltype(CallSite::I)>;
 
