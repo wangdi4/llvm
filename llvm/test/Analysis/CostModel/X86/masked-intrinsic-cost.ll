@@ -361,7 +361,6 @@ define i32 @masked_gather() {
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V4I64 = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> undef, i32 1, <4 x i1> undef, <4 x i64> undef)
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V2I64 = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> undef, i32 1, <2 x i1> undef, <2 x i64> undef)
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V1I64 = call <1 x i64> @llvm.masked.gather.v1i64.v1p0i64(<1 x i64*> undef, i32 1, <1 x i1> undef, <1 x i64> undef)
-<<<<<<< HEAD
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: %V16I32 = call <16 x i32> @llvm.masked.gather.v16i32.v16p0i32(<16 x i32*> undef, i32 1, <16 x i1> undef, <16 x i32> undef)
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 48 for instruction: %V8I32 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> undef, i32 1, <8 x i1> undef, <8 x i32> undef)
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V4I32 = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> undef, i32 1, <4 x i1> undef, <4 x i32> undef)
@@ -373,21 +372,7 @@ define i32 @masked_gather() {
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 1088 for instruction: %V64I8 = call <64 x i8> @llvm.masked.gather.v64i8.v64p0i8(<64 x i8*> undef, i32 1, <64 x i1> undef, <64 x i8> undef)
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 544 for instruction: %V32I8 = call <32 x i8> @llvm.masked.gather.v32i8.v32p0i8(<32 x i8*> undef, i32 1, <32 x i1> undef, <32 x i8> undef)
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 272 for instruction: %V16I8 = call <16 x i8> @llvm.masked.gather.v16i8.v16p0i8(<16 x i8*> undef, i32 1, <16 x i1> undef, <16 x i8> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 136 for instruction: %V8I8 = call <8 x i8> @llvm.masked.gather.v8i8.v8p0i8(<8 x i8*> undef, i32 1, <8 x i1> undef, <8 x i8> undef)
-=======
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V16I32 = call <16 x i32> @llvm.masked.gather.v16i32.v16p0i32(<16 x i32*> undef, i32 1, <16 x i1> undef, <16 x i32> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V8I32 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> undef, i32 1, <8 x i1> undef, <8 x i32> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V4I32 = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> undef, i32 1, <4 x i1> undef, <4 x i32> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V2I32 = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> undef, i32 1, <2 x i1> undef, <2 x i32> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V32I16 = call <32 x i16> @llvm.masked.gather.v32i16.v32p0i16(<32 x i16*> undef, i32 1, <32 x i1> undef, <32 x i16> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V16I16 = call <16 x i16> @llvm.masked.gather.v16i16.v16p0i16(<16 x i16*> undef, i32 1, <16 x i1> undef, <16 x i16> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V8I16 = call <8 x i16> @llvm.masked.gather.v8i16.v8p0i16(<8 x i16*> undef, i32 1, <8 x i1> undef, <8 x i16> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V4I16 = call <4 x i16> @llvm.masked.gather.v4i16.v4p0i16(<4 x i16*> undef, i32 1, <4 x i1> undef, <4 x i16> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 960 for instruction: %V64I8 = call <64 x i8> @llvm.masked.gather.v64i8.v64p0i8(<64 x i8*> undef, i32 1, <64 x i1> undef, <64 x i8> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 480 for instruction: %V32I8 = call <32 x i8> @llvm.masked.gather.v32i8.v32p0i8(<32 x i8*> undef, i32 1, <32 x i1> undef, <32 x i8> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 240 for instruction: %V16I8 = call <16 x i8> @llvm.masked.gather.v16i8.v16p0i8(<16 x i8*> undef, i32 1, <16 x i1> undef, <16 x i8> undef)
-; SSE2-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %V8I8 = call <8 x i8> @llvm.masked.gather.v8i8.v8p0i8(<8 x i8*> undef, i32 1, <8 x i1> undef, <8 x i8> undef)
->>>>>>> 91bc50c0d7a35a589f30fbec180cc7cea1288779
+; SSE2-NEXT:  Cost Model: Found an estimated cost of 88 for instruction: %V8I8 = call <8 x i8> @llvm.masked.gather.v8i8.v8p0i8(<8 x i8*> undef, i32 1, <8 x i1> undef, <8 x i8> undef)
 ; SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 0
 ;
 ; SSE42-LABEL: 'masked_gather'
