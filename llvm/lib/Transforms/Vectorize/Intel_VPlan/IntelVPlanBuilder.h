@@ -33,6 +33,11 @@ private:
   VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
                                    ArrayRef<VPValue *> Operands,
                                    const Twine &Name = "") {
+    assert((!Instruction::isBinaryOp(Opcode) || Operands.size() == 2) &&
+           "Expected 2 operands");
+    assert((!Instruction::isUnaryOp(Opcode) || Operands.size() == 1) &&
+           "Expected 1 operand");
+
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     if (BB)
       BB->insert(Instr, InsertPt);
