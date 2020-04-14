@@ -1,6 +1,12 @@
+<<<<<<< HEAD:llvm/test/MC/X86/align-branch-64-general.s
   # RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp --x86-pad-max-prefix-size=5 %s -o %t1 ;INTEL
   # RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu --x86-branches-within-32B-boundaries %s -o %t2
   # RUN: cmp %t1 %t2
+=======
+# RUN: llvm-mc -filetype=obj -triple x86_64 --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp %s -o %t1
+# RUN: llvm-mc -filetype=obj -triple x86_64 --x86-branches-within-32B-boundaries %s -o %t2
+# RUN: cmp %t1 %t2
+>>>>>>> 7ad46cfe41554627caa9e91313682ad9dd4b9c3a:llvm/test/MC/X86/align-branch-general.s
 
   # Check the general option --x86-branches-within-32B-boundaries is equivelent
   # to the fined options --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp --x86-pad-max-prefix-size=5. ;INTEL
