@@ -877,13 +877,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // size.  This happens because IPSCCP propagates the result out of the
       // call and then we're left with the dead call.
       if (IsTriviallyDead) {
-<<<<<<< HEAD
-        LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << *Instr << "\n");
+        LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << CS << "\n");
         IR.setReasonNotInlined(CallSite(&CS), NinlrDeleted);      // INTEL
         llvm::setMDReasonNotInlined(CallSite(&CS), NinlrDeleted); // INTEL
-=======
-        LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << CS << "\n");
->>>>>>> da9bcdaad9b603de4f0eea4509c38f30b1f4dc36
         // Update the call graph by deleting the edge from Callee to Caller.
         setInlineRemark(CS, "trivially dead");
         CG[Caller]->removeCallEdgeFor(CS);
@@ -1400,16 +1396,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // call graph and prepare the context of that new caller.
     bool DidInline = false;
     for (; I < (int)Calls.size() && Calls[I].first->getCaller() == &F; ++I) {
-<<<<<<< HEAD
-      int InlineHistoryID;
-      CallBase *CS = nullptr;
-      std::tie(CS, InlineHistoryID) = Calls[I];
-      Function &Caller = *CS->getCaller();  // INTEL
-=======
       auto &P = Calls[I];
       CallBase *CS = P.first;
       const int InlineHistoryID = P.second;
->>>>>>> da9bcdaad9b603de4f0eea4509c38f30b1f4dc36
+      Function &Caller = *CS->getCaller();  // INTEL
       Function &Callee = *CS->getCalledFunction();
 
       if (InlineHistoryID != -1 &&
