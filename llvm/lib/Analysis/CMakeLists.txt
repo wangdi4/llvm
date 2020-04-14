@@ -88,6 +88,7 @@ add_llvm_component_library(LLVMAnalysis
   MemorySSA.cpp
   MemorySSAUpdater.cpp
   ModuleDebugInfoPrinter.cpp
+  ModuleSummaryAnalysis.cpp
   MustExecute.cpp
   ObjCARCAliasAnalysis.cpp
   ObjCARCAnalysisUtils.cpp
