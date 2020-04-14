@@ -18,6 +18,9 @@ namespace sycl {
 
 #ifdef INTEL_CUSTOMIZATION
 // Utility function to check if device is of the preferred SYCL_BE.
+// TODO: this should be changed to just quering the backend of the
+// device's plugin.
+//
 static bool isDeviceOfPreferredSyclBe(const device &Device) {
   // Taking the version information from the platform gives us more useful
   // information than the driver_version of the device.
@@ -60,13 +63,20 @@ device device_selector::select_device() const {
         << "SYCL_PI_TRACE[1]:   device: " << device_name << std::endl;
     }
 
-    if (score < dev_score) {
+#ifdef INTEL_CUSTOMIZATION
+    //
+    // SYCL spec says: "If more than one device receives the high score then
+    // one of those tied devices will be returned, but which of the devices
+    // from the tied set is to be returned is not defined". Here we give a
+    // preference to the device of the preferred BE.
+    //
+    if (score < dev_score ||
+        (score == dev_score && isDeviceOfPreferredSyclBe(dev))) {
       res = &dev;
       score = dev_score;
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION
   if (res != nullptr) {
     if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_BASIC)) {
       auto platform_name = res->get_info<info::device::platform>().

@@ -658,8 +658,11 @@ void X86SplitVectorValueType::createShufVecInstToFuse(Instruction *I,
 }
 
 bool X86SplitVectorValueType::createSplitConstant(Constant *C, unsigned Depth) {
-  if (!isa<ConstantVector>(C) && !isa<ConstantData>(C))
+  if (!isa<ConstantVector>(C) && !isa<ConstantData>(C)) {
+    LLVM_DEBUG(indentedDbgs(Depth)
+               << "Unsupported Constant to split: " << *C << "\n");
     return false;
+  }
 
   // Skip Constant which has been split.
   if (ConstantMap.count(C))
@@ -1401,7 +1404,7 @@ SimpleInstCombiner::visitExtractElementInst(ExtractElementInst *I) {
 }
 
 void SimpleInstCombiner::run() {
-  LLVM_DEBUG(dbgs() << "\nSimple Instruction Combiner:\n");
+  LLVM_DEBUG(dbgs() << "Simple Instruction Combiner:\n");
 
   while (Instruction *I = SICWorkList.getNextEntry()) {
     if (recursivelyEraseDeadInst(I))

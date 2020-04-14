@@ -1058,8 +1058,10 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
               // Otherwise, we need to load the value from the gep first before
               // using it. This effectively loads the particular element from
               // the vector parameter.
+              Type *LoadTy = VecGep->getResultElementType();
               LoadInst *ParmElemLoad =
-                new LoadInst(VecGep, "vec." + Parm->getName() + ".elem"); 
+                new LoadInst(LoadTy, VecGep,
+                             "vec." + Parm->getName() + ".elem");
               ParmElemLoad->insertAfter(VecGep);
               User->setOperand(I, ParmElemLoad);
             }
@@ -1410,23 +1412,29 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // Pack up the elements into a vector temp and return it. If the return
   // vector was bitcast to a pointer to the element type, we must bitcast to
   // vector before returning.
-  Instruction *Return;
-  if (dyn_cast<BitCastInst>(ExpandedReturn)) {
-      // Operand 0 is the actual alloc reference in the bitcast.
-      AllocaInst *Alloca = cast<AllocaInst>(ExpandedReturn->getOperand(0));
-      PointerType *PtrVecType =
-          PointerType::get(Clone->getReturnType(),
-                           Alloca->getType()->getAddressSpace());
-      BitCastInst *BitCast =
-        new BitCastInst(ExpandedReturn, PtrVecType,
-                        "vec." + ExpandedReturn->getName(),
-                        ReturnBlock);
-      Return = BitCast;
-  } else {
-      Return = ExpandedReturn;
-  }
+  // Operand 0 is the actual alloc reference in the bitcast.
+  AllocaInst *Alloca = cast<AllocaInst>(ExpandedReturn->getOperand(0));
+  PointerType *PtrVecType =
+      PointerType::get(Clone->getReturnType(),
+                       Alloca->getType()->getAddressSpace());
+  BitCastInst *BitCast =
+    new BitCastInst(ExpandedReturn, PtrVecType,
+                    "vec." + ExpandedReturn->getName(),
+                    ReturnBlock);
 
-  LoadInst *VecReturn = new LoadInst(Return, "vec.ret", ReturnBlock);
+  // Return can't be void here due to early exit at the top of this function.
+  // Return is expected to be a bitcast instruction because we always create
+  // a vector alloca for the return value and cast that to a scalar pointer.
+  // for use within the loop. I.e., this cast is used with the loop index to
+  // reference a specific vector element. At the point of the function return,
+  // the scalar cast is converted back to vector and we load from that to the
+  // return vector.
+  // TODO: this can actually be simplified further by just returning Alloca
+  // from above. There doesn't seem to be a good reason to do this extra
+  // casting. Leaving for now because this change is NFC.
+  PointerType *VecPtr = cast<PointerType>(BitCast->getDestTy());
+  Type *ReturnTy = VecPtr->getElementType();
+  LoadInst *VecReturn = new LoadInst(ReturnTy, BitCast, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
   LLVM_DEBUG(dbgs() << "After Return Block Update\n");
@@ -1666,7 +1674,8 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
       GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
                                 LoopBlock->getTerminator());
 
-  LoadInst *MaskLoad = new LoadInst(MaskGep, "mask.parm",
+  Type *LoadTy = MaskGep->getResultElementType();
+  LoadInst *MaskLoad = new LoadInst(LoadTy, MaskGep, "mask.parm",
                                     LoopBlock->getTerminator());
 
   Type *CompareTy = MaskLoad->getType();
