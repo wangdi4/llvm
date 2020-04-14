@@ -82,18 +82,6 @@ void HIRArraySectionAnalysis::print(formatted_raw_ostream &OS,
 #endif
 }
 
-static void printCEArray(raw_ostream &OS, ArrayRef<const CanonExpr *> CEs) {
-  for (auto &CE : reverse(CEs)) {
-    OS << "[ ";
-    if (CE) {
-      CE->print(OS, false);
-    } else {
-      OS << "*";
-    }
-    OS << " ]";
-  }
-}
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void ArraySectionInfo::print(raw_ostream &OS) const {
   if (Lowers.empty()) {
@@ -115,10 +103,25 @@ void ArraySectionInfo::print(raw_ostream &OS) const {
   }
   OS << ") ";
 
-  OS << "L: ";
-  printCEArray(OS, Lowers);
-  OS << ", U: ";
-  printCEArray(OS, Uppers);
+  for (auto Pair : reverse(zip(Lowers, Uppers))) {
+    OS << "[";
+    auto *LCE = std::get<0>(Pair);
+    if (LCE) {
+      LCE->print(OS, false);
+    } else {
+      OS << "*";
+    }
+
+    OS << ":";
+
+    auto *UCE = std::get<1>(Pair);
+    if (UCE) {
+      UCE->print(OS, false);
+    } else {
+      OS << "*";
+    }
+    OS << "]";
+  }
 }
 #endif
 
@@ -143,7 +146,7 @@ static bool replaceIVsByBound(CanonExpr *CE, unsigned Level,
     return true;
   }
 
-  if (CE->hasIVBlobCoeff(Level)) {
+  if (ParentLoop->isUnknown() || CE->hasIVBlobCoeff(Level)) {
     return false;
   }
 
