@@ -21,7 +21,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/LiveRangeCalc.h"
+#include "llvm/CodeGen/LiveIntervalCalc.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
@@ -102,9 +102,7 @@ LiveIntervals::LiveIntervals() : MachineFunctionPass(ID) {
   initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
 }
 
-LiveIntervals::~LiveIntervals() {
-  delete LRCalc;
-}
+LiveIntervals::~LiveIntervals() { delete LICalc; }
 
 void LiveIntervals::releaseMemory() {
   // Free the live intervals themselves.
@@ -132,8 +130,8 @@ bool LiveIntervals::runOnMachineFunction(MachineFunction &fn) {
   Indexes = &getAnalysis<SlotIndexes>();
   DomTree = &getAnalysis<MachineDominatorTree>();
 
-  if (!LRCalc)
-    LRCalc = new LiveRangeCalc();
+  if (!LICalc)
+    LICalc = new LiveIntervalCalc();
 
   // Allocate space for all virtual registers.
   VirtRegIntervals.resize(MRI->getNumVirtRegs());
@@ -193,10 +191,10 @@ LiveInterval* LiveIntervals::createInterval(unsigned reg) {
 
 /// Compute the live interval of a virtual register, based on defs and uses.
 bool LiveIntervals::computeVirtRegInterval(LiveInterval &LI) {
-  assert(LRCalc && "LRCalc not initialized.");
+  assert(LICalc && "LICalc not initialized.");
   assert(LI.empty() && "Should only compute empty intervals.");
-  LRCalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
-  LRCalc->calculate(LI, MRI->shouldTrackSubRegLiveness(LI.reg));
+  LICalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
+  LICalc->calculate(LI, MRI->shouldTrackSubRegLiveness(LI.reg));
   return computeDeadValues(LI, nullptr);
 }
 
@@ -267,8 +265,8 @@ void LiveIntervals::computeRegMasks() {
 /// aliasing registers.  The range should be empty, or contain only dead
 /// phi-defs from ABI blocks.
 void LiveIntervals::computeRegUnitRange(LiveRange &LR, unsigned Unit) {
-  assert(LRCalc && "LRCalc not initialized.");
-  LRCalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
+  assert(LICalc && "LICalc not initialized.");
+  LICalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
 
   // The physregs aliasing Unit are the roots and their super-registers.
   // Create all values as dead defs before extending to uses. Note that roots
@@ -282,7 +280,7 @@ void LiveIntervals::computeRegUnitRange(LiveRange &LR, unsigned Unit) {
          Super.isValid(); ++Super) {
       unsigned Reg = *Super;
       if (!MRI->reg_empty(Reg))
-        LRCalc->createDeadDefs(LR, Reg);
+        LICalc->createDeadDefs(LR, Reg);
       // A register unit is considered reserved if all its roots and all their
       // super registers are reserved.
       if (!MRI->isReserved(Reg))
@@ -301,7 +299,7 @@ void LiveIntervals::computeRegUnitRange(LiveRange &LR, unsigned Unit) {
            Super.isValid(); ++Super) {
         unsigned Reg = *Super;
         if (!MRI->reg_empty(Reg))
-          LRCalc->extendToUses(LR, Reg);
+          LICalc->extendToUses(LR, Reg);
       }
     }
   }
@@ -625,10 +623,10 @@ void LiveIntervals::shrinkToUses(LiveInterval::SubRange &SR, unsigned Reg) {
 void LiveIntervals::extendToIndices(LiveRange &LR,
                                     ArrayRef<SlotIndex> Indices,
                                     ArrayRef<SlotIndex> Undefs) {
-  assert(LRCalc && "LRCalc not initialized.");
-  LRCalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
+  assert(LICalc && "LICalc not initialized.");
+  LICalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
   for (SlotIndex Idx : Indices)
-    LRCalc->extend(LR, Idx, /*PhysReg=*/0, Undefs);
+    LICalc->extend(LR, Idx, /*PhysReg=*/0, Undefs);
 }
 
 void LiveIntervals::pruneValue(LiveRange &LR, SlotIndex Kill,
@@ -1680,7 +1678,7 @@ void LiveIntervals::splitSeparateComponents(LiveInterval &LI,
 }
 
 void LiveIntervals::constructMainRangeFromSubranges(LiveInterval &LI) {
-  assert(LRCalc && "LRCalc not initialized.");
-  LRCalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
-  LRCalc->constructMainRangeFromSubranges(LI);
+  assert(LICalc && "LICalc not initialized.");
+  LICalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
+  LICalc->constructMainRangeFromSubranges(LI);
 }

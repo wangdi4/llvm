@@ -630,7 +630,7 @@ CallInst *IRBuilderBase::CreateMaskedGather(Value *Ptrs, Align Alignment,
                                             const Twine &Name) {
   auto PtrsTy = cast<VectorType>(Ptrs->getType());
   auto PtrTy = cast<PointerType>(PtrsTy->getElementType());
-  unsigned NumElts = PtrsTy->getVectorNumElements();
+  unsigned NumElts = PtrsTy->getNumElements();
   Type *DataTy = VectorType::get(PtrTy->getElementType(), NumElts);
 
   if (!Mask)
@@ -660,11 +660,11 @@ CallInst *IRBuilderBase::CreateMaskedScatter(Value *Data, Value *Ptrs,
                                              Align Alignment, Value *Mask) {
   auto PtrsTy = cast<VectorType>(Ptrs->getType());
   auto DataTy = cast<VectorType>(Data->getType());
-  unsigned NumElts = PtrsTy->getVectorNumElements();
+  unsigned NumElts = PtrsTy->getNumElements();
 
 #ifndef NDEBUG
   auto PtrTy = cast<PointerType>(PtrsTy->getElementType());
-  assert(NumElts == DataTy->getVectorNumElements() &&
+  assert(NumElts == DataTy->getNumElements() &&
          PtrTy->getElementType() == DataTy->getElementType() &&
          "Incompatible pointer and data types");
 #endif
