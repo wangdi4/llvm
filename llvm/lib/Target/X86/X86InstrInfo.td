@@ -1122,9 +1122,9 @@ def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
 def NotIceCodeMode : Predicate<"!Subtarget->isIceCode()">,
-                               AssemblerPredicate<"!ModeIceCode", "Not IceCode mode">;
+                               AssemblerPredicate<(all_of (not ModeIceCode)), "Not IceCode mode">;
 def InIceCodeMode  : Predicate<"Subtarget->isIceCode()">,
-                               AssemblerPredicate<"ModeIceCode", "IceCode mode">;
+                               AssemblerPredicate<(all_of ModeIceCode), "IceCode mode">;
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 def IsLP64  : Predicate<"Subtarget->isTarget64BitLP64()">;
