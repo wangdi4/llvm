@@ -13,6 +13,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <fstream>
 #include <limits>
 #include <mutex>
 #include <string>
@@ -553,8 +554,27 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     nullptr /* pointer to specialization constants */
   };
   ze_module_handle_t module;
-  CALL_ZE_RET_NULL(zeModuleCreate, DeviceInfo.Devices[DeviceId], &moduleDesc,
-                   &module, nullptr /* build log */);
+  ze_module_build_log_handle_t buildLog;
+  if (zeModuleCreate(DeviceInfo.Devices[DeviceId], &moduleDesc, &module,
+                     &buildLog) != ZE_RESULT_SUCCESS) {
+#ifdef OMPTARGET_LEVEL0_DEBUG
+    if (DebugLevel > 0) {
+      size_t logSize;
+      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
+      std::vector<char> logString(logSize);
+      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
+                       logString.data());
+      const char *logFileName = "module_build_log.txt";
+      std::ofstream logFile(logFileName);
+      logFile << logString.data() << std::endl;
+      logFile.close();
+      DP("Error: module creation failed -- see %s for details.\n", logFileName);
+    }
+#endif
+    CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
+    return nullptr;
+  }
+  CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
 
   auto &entries = DeviceInfo.FuncGblEntries[DeviceId].Entries;
   auto &kernels = DeviceInfo.FuncGblEntries[DeviceId].Kernels;
