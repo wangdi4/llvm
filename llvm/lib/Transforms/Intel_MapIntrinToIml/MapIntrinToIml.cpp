@@ -371,6 +371,9 @@ void MapIntrinToImlImpl::generateSinCosStore(
     // Either arg 2 or 3 from the vector sincos call.
     Value *SvmlArg = VectorCall->getArgOperand(I + 1);
 
+    // The resulting value of a sincos call should not be null, but assert just
+    // in case.
+    assert(ResultVector && "sincos result null?");
     Value *ShuffleInst =
         generateExtractSubVector(ResultVector, I, NumResultVectors, Builder);
 
@@ -743,7 +746,7 @@ const char *MapIntrinToImlImpl::findX86Variant(CallInst *CI, StringRef FuncName,
   // Note: this does not remove the attributes from the instruction, only the
   // internal data structure used to query the iml interface.
   deleteAttributeList(&AttrList);
-  delete ParentFuncName;
+  delete[] ParentFuncName;
 
   return VariantFuncName;
 }
