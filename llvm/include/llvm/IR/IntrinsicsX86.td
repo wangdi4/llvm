@@ -6623,4 +6623,15 @@ let TargetPrefix = "x86" in {
                                     [ImmArg<2>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
+
+#if INTEL_FEATURE_ISA_AMX_TILE2
+//===----------------------------------------------------------------------===//
+let TargetPrefix = "x86" in {
+// AMX-TILE2 - Intel TILE2 AMX extensions
+  def int_x86_tilemov
+      : GCCBuiltin<"__builtin_ia32_tilemov">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION

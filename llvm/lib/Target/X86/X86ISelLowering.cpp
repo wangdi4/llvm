@@ -34795,6 +34795,22 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+  case X86::PTILEMOV:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTILEMOV: Opc = X86::TILEMOV ; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
   }
 }
