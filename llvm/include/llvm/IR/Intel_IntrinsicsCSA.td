@@ -109,18 +109,6 @@ def int_csa_local_cache_region_begin :
 def int_csa_local_cache_region_end :
     Intrinsic<[], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
-// llvm.csa.local_cache
-def int_csa_local_cache : GCCBuiltin<"__builtin_csa_local_cache">,
-    Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
-
-// llvm.csa.local_cache_region_begin
-def int_csa_local_cache_region_begin :
-    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
-
-// llvm.csa.local_cache_region_end
-def int_csa_local_cache_region_end :
-    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
-
 // Scalar intrinsics
 def int_csa_clxmul8 : GCCBuiltin<"__builtin_csa_clxmul8">,
     Intrinsic<[llvm_i16_ty], [llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
