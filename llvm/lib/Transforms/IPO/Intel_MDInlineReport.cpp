@@ -264,17 +264,17 @@ bool CallSiteInliningReport::isCallSiteInliningReportMetadata(
   return S->getString() == CallSiteTag;
 }
 
-void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC) {
+void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC) {
   InlineReason Reason = IC.getInlineReason();
   assert(IsNotInlinedReason(Reason));
-  llvm::setMDReasonNotInlined(CS, Reason);
-  Metadata *CSMD = CS->getMetadata(CallSiteTag);
+  llvm::setMDReasonNotInlined(Call, Reason);
+  Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
-  LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
+  LLVMContext &Ctx = Call->getContext();
   std::string InlineCostStr = "inlineCost: ";
   InlineCostStr.append(std::to_string(IC.getCost()));
   auto InlineCostMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, InlineCostStr));
@@ -295,32 +295,32 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC) {
   CSIR->replaceOperandWith(CSMDIR_EarlyExitThreshold, EEThresholdMD);
 }
 
-void llvm::setMDReasonNotInlined(const CallSite CS, InlineReason Reason) {
+void llvm::setMDReasonNotInlined(CallBase *Call, InlineReason Reason) {
   assert(IsNotInlinedReason(Reason));
-  Metadata *CSMD = CS->getMetadata(CallSiteTag);
+  Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
-  LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
+  LLVMContext &Ctx = Call->getContext();
   std::string ReasonStr = "reason: ";
   ReasonStr.append(std::to_string(Reason));
   auto ReasonMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
   CSIR->replaceOperandWith(CSMDIR_InlineReason, ReasonMD);
 }
 
-void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC,
+void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC,
                                  int TotalSecondaryCost) {
   assert(IC.getInlineReason() == NinlrOuterInlining);
-  llvm::setMDReasonNotInlined(CS, IC);
-  Metadata *CSMD = CS->getMetadata(CallSiteTag);
+  llvm::setMDReasonNotInlined(Call, IC);
+  Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
-  LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
+  LLVMContext &Ctx = Call->getContext();
   std::string OuterInlineCostStr = "outerInlineCost: ";
   OuterInlineCostStr.append(std::to_string(TotalSecondaryCost));
   auto OuterInlineCostMD =
@@ -329,15 +329,15 @@ void llvm::setMDReasonNotInlined(const CallSite CS, const InlineCost &IC,
 }
 
 // Set inlining reason
-void llvm::setMDReasonIsInlined(const CallSite CS, InlineReason Reason) {
+void llvm::setMDReasonIsInlined(CallBase *Call, InlineReason Reason) {
   assert(IsInlinedReason(Reason));
-  Metadata *CSMD = CS->getMetadata(CallSiteTag);
+  Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
-  LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
+  LLVMContext &Ctx = Call->getContext();
   std::string ReasonStr = "reason: ";
   ReasonStr.append(std::to_string(Reason));
   auto ReasonMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, ReasonStr));
@@ -345,17 +345,17 @@ void llvm::setMDReasonIsInlined(const CallSite CS, InlineReason Reason) {
 }
 
 // Set inlining reason
-void llvm::setMDReasonIsInlined(const CallSite CS, const InlineCost &IC) {
+void llvm::setMDReasonIsInlined(CallBase *Call, const InlineCost &IC) {
   InlineReason Reason = IC.getInlineReason();
   assert(IsInlinedReason(Reason));
-  llvm::setMDReasonIsInlined(CS, Reason);
-  Metadata *CSMD = CS->getMetadata(CallSiteTag);
+  llvm::setMDReasonIsInlined(Call, Reason);
+  Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
-  LLVMContext &Ctx = CS->getParent()->getParent()->getParent()->getContext();
+  LLVMContext &Ctx = Call->getContext();
   std::string InlineCostStr = "inlineCost: ";
   InlineCostStr.append(std::to_string(IC.getCost()));
   auto InlineCostMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, InlineCostStr));
