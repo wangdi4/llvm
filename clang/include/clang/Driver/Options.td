@@ -387,6 +387,9 @@ def daal_EQ : Joined<["-"], "daal=">,
   HelpText<"Link Intel(R) Data Analytics Acceleration Library (Intel(R) DAAL) "
   "libraries and bring in the associated headers">;
 def daal : Flag<["-"], "daal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
+def x_intel : Joined<["-"], "x">, Flags<[DriverOption]>,
+  HelpText<"Generate specialized code to run exclusively on processors "
+  "indicated by <code>.">, MetaVarName<"<code>">;
 #endif // INTEL_CUSTOMIZATION
 
 def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[DriverOption, CoreOption]>,
