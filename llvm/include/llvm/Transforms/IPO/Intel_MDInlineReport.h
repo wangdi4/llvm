@@ -148,10 +148,10 @@ public:
   }
 
   // Setup initial values for the single inlining step
-  void beginUpdate(CallSite CS) {
-    CurrentCallee = CS.getCalledFunction();
-    CurrentCallInstReport = CS->getMetadata(MDInliningReport::CallSiteTag);
-    CurrentCallInstr = CS.getInstruction();
+  void beginUpdate(CallBase *Call) {
+    CurrentCallee = Call->getCalledFunction();
+    CurrentCallInstReport = Call->getMetadata(MDInliningReport::CallSiteTag);
+    CurrentCallInstr = Call;
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
   }
@@ -360,13 +360,13 @@ public:
 };
 
 // Set of functions which set not-inlined reason to call site
-void setMDReasonNotInlined(const CallSite CS, InlineReason Reason);
-void setMDReasonNotInlined(const CallSite CS, const InlineCost &IC);
-void setMDReasonNotInlined(const CallSite CS, const InlineCost &IC,
+void setMDReasonNotInlined(CallBase *Call, InlineReason Reason);
+void setMDReasonNotInlined(CallBase *Call, const InlineCost &IC);
+void setMDReasonNotInlined(CallBase *Call, const InlineCost &IC,
                            int TotalSecondaryCost);
 // Set of functions which set inlined reason to call site
-void setMDReasonIsInlined(const CallSite CS, InlineReason Reason);
-void setMDReasonIsInlined(const CallSite CS, const InlineCost &IC);
+void setMDReasonIsInlined(CallBase *Call, InlineReason Reason);
+void setMDReasonIsInlined(CallBase *Call, const InlineCost &IC);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_MDINLINEREPORT_H
