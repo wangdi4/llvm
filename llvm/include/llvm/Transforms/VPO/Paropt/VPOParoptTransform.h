@@ -1670,21 +1670,24 @@ private:
   bool renameAndReplaceLibatomicCallsForSPIRV(Function *F);
 
   /// Generate the placeholders for the loop lower bound and upper bound.
-  /// \param [in]  W            OpenMP loop region node.
-  /// \param [in]  Idx          dimension number.
-  /// \param [out] LowerBnd     stack variable holding the loop's lower bound.
-  /// \param [out] UpperBnd     stack variable holding the loop's upper bound.
-  /// \param [out] SchedStride  stack variable holding the loop's stride.
-  /// \param [out] TeamLowerBnd stack variable holding the team's lower bound.
-  /// \param [out] TeamUpperBnd stack variable holding the team's upper bound.
-  /// \param [out] TeamStride   stack variable holding the team's stride.
-  /// \param [out] UpperBndVal  orginal loop bound value.
+  /// \param [in]  W             OpenMP loop region node.
+  /// \param [in]  Idx           dimension number.
+  /// \param [out] LowerBnd      stack variable holding the loop's lower bound.
+  /// \param [out] UpperBnd      stack variable holding the loop's upper bound.
+  /// \param [out] SchedStride   stack variable holding the loop's stride.
+  /// \param [out] TeamLowerBnd  stack variable holding the team's lower bound.
+  /// \param [out] TeamUpperBnd  stack variable holding the team's upper bound.
+  /// \param [out] TeamStride    stack variable holding the team's stride.
+  /// \param [out] UpperBndVal   orginal loop bound value.
+  /// \param [in]  ChunkForTeams initialize TeamLowerBnd, TeamUpperBnd
+  ///                            and TeamStride output values.
   void genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
                               AllocaInst *&LowerBnd, AllocaInst *&UpperBnd,
                               AllocaInst *&SchedStride,
                               AllocaInst *&TeamLowerBnd,
                               AllocaInst *&TeamUpperBnd,
-                              AllocaInst *&TeamStride, Value *&UpperBndVal);
+                              AllocaInst *&TeamStride, Value *&UpperBndVal,
+                              bool ChunkForTeams);
 
   /// Generate the OCL loop bound update code.
   void genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
@@ -1694,21 +1697,21 @@ private:
                                  AllocaInst *&SchedStride);
 
   /// Generate the loop update code for DistParLoop under OpenCL.
-  /// \param [in]  W            OpenMP distribute region node.
-  /// \param [in]  Idx          dimension number.
-  /// \param [in]  LowerBnd     stack variable holding the loop's lower bound.
-  /// \param [in]  UpperBnd     stack variable holding the loop's upper bound.
-  /// \param [in]  TeamLowerBnd stack variable holding the team's lower bound.
-  /// \param [in]  TeamUpperBnd stack variable holding the team's upper bound.
-  /// \param [in]  TeamStride   stack variable holding the team's stride.
-  /// \param [out] DistSchedKind team schedule kind.
-  /// \param [out] TeamLB       team's lower bound value.
-  /// \param [out] TeamUB       team's upper bound value.
-  /// \param [out] TeamST       team's stride value.
+  /// \param [in]  W             OpenMP distribute region node.
+  /// \param [in]  Idx           dimension number.
+  /// \param [in]  LowerBnd      stack variable holding the loop's lower bound.
+  /// \param [in]  UpperBnd      stack variable holding the loop's upper bound.
+  /// \param [in]  TeamLowerBnd  stack variable holding the team's lower bound.
+  /// \param [in]  TeamUpperBnd  stack variable holding the team's upper bound.
+  /// \param [in]  TeamStride    stack variable holding the team's stride.
+  /// \param [in]  DistSchedKind team schedule kind.
+  /// \param [out] TeamLB        team's lower bound value.
+  /// \param [out] TeamUB        team's upper bound value.
+  /// \param [out] TeamST        team's stride value.
   void genOCLDistParLoopBoundUpdateCode(
       WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
-      AllocaInst *TeamStride, WRNScheduleKind &DistSchedKind,
+      AllocaInst *TeamStride, WRNScheduleKind DistSchedKind,
       Instruction *&TeamLB, Instruction *&TeamUB, Instruction *&TeamST);
 
   /// \breif Generate the OCL loop scheduling code.
@@ -1721,7 +1724,7 @@ private:
   /// \param [in] TeamUpperBnd  stack variable holding the team's upper bound.
   /// \param [in] TeamStride    stack variable holding the team's stride.
   /// \param [in] UpperBndVal   original loop upper bound value.
-  /// \param [in] DistSchedKind team schedule kind.
+  /// \param [in] GenDispLoop   create team dispatch loop.
   /// \param [in] TeamLB        team's lower bound value.
   /// \param [in] TeamUB        team's upper bound value.
   /// \param [in] TeamST        team's stride value.
@@ -1730,8 +1733,9 @@ private:
                           AllocaInst *UpperBnd, AllocaInst *SchedStride,
                           AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
                           AllocaInst *TeamStride, Value *UpperBndVal,
-                          WRNScheduleKind DistSchedKind, Instruction *TeamLB,
-                          Instruction *TeamUB, Instruction *TeamST);
+                          bool GenTeamDistDispatchLoop,
+                          Instruction *TeamLB, Instruction *TeamUB,
+                          Instruction *TeamST);
 
   // Generate dispatch loop for static chunk.
   /// \param [in] L               loop.
@@ -1770,7 +1774,7 @@ private:
   ///                              remain inside the team distribute loop.
   ///                              If it is nullptr, then all instructions
   ///                              from TeamExitBB will be outside of the loop.
-  Loop *genDispatchLoopForTeamDistirbute(
+  Loop *genDispatchLoopForTeamDistribute(
       Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
       AllocaInst *TeamStride, Value *UpperBndVal, BasicBlock *LoopExitBB,
@@ -1780,11 +1784,12 @@ private:
   /// Initialize the incoming array Arg with the constant Idx.
   void initArgArray(SmallVectorImpl<Value *> *Arg, unsigned Idx);
 
-  /// The compiler sets DistSchedKind to be TargetScheduleKind for the case of
-  /// multi-level loop nest.
-  void setSchedKindForMultiLevelLoops(WRegionNode *W,
-                                      WRNScheduleKind &ScheduleKind,
-                                      WRNScheduleKind TargetScheduleKind);
+  /// If the given region \p W represent a multi-level loop nest, then
+  /// the method returns \p TargetScheduleKind, otherwise, it returns
+  /// \p SchedKind.
+  WRNScheduleKind getSchedKindForMultiLevelLoops(
+      WRegionNode *W, WRNScheduleKind ScheduleKind,
+      WRNScheduleKind TargetScheduleKind);
 
 #if 0
   /// Return original global variable if the value Orig is the return value

@@ -153,7 +153,8 @@ static void debugPrintHeader(WRegionNode *W, int Mode) {
 void VPOParoptTransform::genLoopBoundUpdatePrep(
     WRegionNode *W, unsigned Idx, AllocaInst *&LowerBnd, AllocaInst *&UpperBnd,
     AllocaInst *&SchedStride, AllocaInst *&TeamLowerBnd,
-    AllocaInst *&TeamUpperBnd, AllocaInst *&TeamStride, Value *&UpperBndVal) {
+    AllocaInst *&TeamUpperBnd, AllocaInst *&TeamStride, Value *&UpperBndVal,
+    bool ChunkForTeams) {
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L->isLoopSimplifyForm() &&
          "genLoopBoundUpdatePrep: Expect the loop is in SimplifyForm.");
@@ -178,12 +179,7 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
 
   SchedStride = Builder.CreateAlloca(IndValTy, nullptr, "sched.inc");
 
-  bool IsDistParLoop = isa<WRNDistributeParLoopNode>(W);
-  bool IsDistForLoop = isa<WRNDistributeNode>(W);
-
-  if ((IsDistParLoop || IsDistForLoop) &&
-      // No team partitioning for SPMD mode.
-      (IsDistForLoop || !VPOParoptUtils::useSPMDMode(W))) {
+  if (ChunkForTeams) {
     TeamLowerBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.lb");
 
     TeamUpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.ub");
@@ -233,16 +229,17 @@ void VPOParoptTransform::initArgArray(SmallVectorImpl<Value *> *Arg,
 // For this case, the compiler simply sets the
 // DistSchedKind to be TargetScheduleKind in order
 // to simplify the transformation under OpenCL based OMP offloading.
-void VPOParoptTransform::
-  setSchedKindForMultiLevelLoops(WRegionNode *W,
-                                 WRNScheduleKind &SchedKind,
-                                 WRNScheduleKind TargetScheduleKind) {
-  if (W->getWRNLoopInfo().getNormIVSize() > 1) {
-    if (SchedKind != TargetScheduleKind)
-      LLVM_DEBUG(dbgs() << "DistSchedKind is forced to be StaticEven."
-                        << "\n");
-    SchedKind = TargetScheduleKind;
-  }
+WRNScheduleKind VPOParoptTransform::getSchedKindForMultiLevelLoops(
+    WRegionNode *W, WRNScheduleKind SchedKind,
+    WRNScheduleKind TargetScheduleKind) {
+  if (W->getWRNLoopInfo().getNormIVSize() <= 1)
+    return SchedKind;
+
+  if (SchedKind == TargetScheduleKind)
+    return SchedKind;
+
+  LLVM_DEBUG(dbgs() << "DistSchedKind is forced to be StaticEven." << "\n");
+  return TargetScheduleKind;
 }
 
 // #pragma omp target teams distribute
@@ -262,14 +259,12 @@ void VPOParoptTransform::
 void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
     AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd, AllocaInst *TeamStride,
-    WRNScheduleKind &DistSchedKind, Instruction *&TeamLB, Instruction *&TeamUB,
+    WRNScheduleKind DistSchedKind, Instruction *&TeamLB, Instruction *&TeamUB,
     Instruction *&TeamST) {
-  if (!W->getIsDistribute() ||
-      // Each iteration of the original distribute parallel loop is executed
-      // by a single WI, and we rely on OpenCL paritioning of WIs across WGs.
-      // Thus, there is no need to compute the team bounds.
-      (isa<WRNDistributeParLoopNode>(W) && VPOParoptUtils::useSPMDMode(W)))
-    return;
+  assert(!TeamLowerBnd == !TeamUpperBnd &&
+         !TeamUpperBnd == !TeamStride &&
+         "genOCLDistParLoopBoundUpdateCode: team's lower/upper bounds "
+         "and stride must be created together.");
   assert(W->getIsOmpLoop() &&
          "genOCLDistParLoopBoundUpdateCode: W is not a loop-type WRN");
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
@@ -301,11 +296,6 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   // is a non-negative value.
   Value *ItSpace = Builder.CreateSub(UB, LB);
 
-  DistSchedKind = VPOParoptUtils::getDistLoopScheduleKind(W);
-
-  setSchedKindForMultiLevelLoops(W, DistSchedKind,
-                                 WRNScheduleDistributeStaticEven);
-
   // Compute team_chunk_size
   Value *Chunk = nullptr;
   Value *NumGroups = Builder.CreateZExtOrTrunc(NumGroupsCall, ItSpaceType);
@@ -319,10 +309,13 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
     llvm_unreachable(
         "Unsupported distribute schedule type in OpenCL based offloading!");
   Chunk = Builder.CreateSExtOrTrunc(Chunk, ItSpaceType);
-  // FIXME: this multiplication may actually overflow,
-  //        if big chunk size is specified in the schedule() clause.
-  Value *TeamStrideVal = Builder.CreateMul(NumGroups, Chunk);
-  Builder.CreateStore(TeamStrideVal, TeamStride);
+
+  if (TeamStride) {
+    // FIXME: this multiplication may actually overflow,
+    //        if big chunk size is specified in the schedule() clause.
+    Value *TeamStrideVal = Builder.CreateMul(NumGroups, Chunk);
+    Builder.CreateStore(TeamStrideVal, TeamStride);
+  }
 
   // get_group_id returns a value of type size_t by specification,
   // and the return value is non-negative.
@@ -338,8 +331,10 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   Value *LBDiff = Builder.CreateMul(GroupId, Chunk);
   LB = Builder.CreateAdd(LB, LBDiff);
   Builder.CreateStore(LB, LowerBnd);
-  Builder.CreateStore(LB, TeamLowerBnd);
-  Builder.CreateStore(UB, TeamUpperBnd);
+  if (TeamLowerBnd) {
+    Builder.CreateStore(LB, TeamLowerBnd);
+    Builder.CreateStore(UB, TeamUpperBnd);
+  }
 
   // Compute new_team_ub
   ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
@@ -363,12 +358,15 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   IRBuilder<> BuilderThen(ThenBB);
   BuilderThen.SetInsertPoint(ThenBB->getTerminator());
   BuilderThen.CreateStore(NewUB, UpperBnd);
-  BuilderThen.CreateStore(NewUB, TeamUpperBnd);
 
-  Builder.SetInsertPoint(InsertPt);
-  TeamLB = Builder.CreateLoad(TeamLowerBnd);
-  TeamUB = Builder.CreateLoad(TeamUpperBnd);
-  TeamST = Builder.CreateLoad(TeamStride);
+  if (TeamLowerBnd) {
+    BuilderThen.CreateStore(NewUB, TeamUpperBnd);
+
+    Builder.SetInsertPoint(InsertPt);
+    TeamLB = Builder.CreateLoad(TeamLowerBnd);
+    TeamUB = Builder.CreateLoad(TeamUpperBnd);
+    TeamST = Builder.CreateLoad(TeamStride);
+  }
 }
 
 // Generate the OCL loop bound update code.
@@ -425,8 +423,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // Map the innermost loop to the 1st ND-range dimension.
   initArgArray(&Arg, NumLoops - Idx - 1);
 
-  assert(((TeamLowerBnd && TeamUpperBnd) ||
-          (!TeamLowerBnd && !TeamUpperBnd)) &&
+  assert(!TeamLowerBnd == !TeamUpperBnd &&
          "genOCLLoopBoundUpdateCode: team lower/upper bounds "
          "must be created together.");
 
@@ -445,9 +442,8 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     UB = Builder.CreateLoad(UpperBnd);
   }
 
-  WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
-
-  setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
+  WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
+      W, VPOParoptUtils::getLoopScheduleKind(W), WRNScheduleStaticEven);
 
   bool MayHaveOMPCritical = W->mayHaveOMPCritical();
   // There are two ways to process iterations of the chunk
@@ -659,9 +655,16 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 void VPOParoptTransform::genOCLLoopPartitionCode(
     WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
     AllocaInst *SchedStride, AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
-    AllocaInst *TeamStride, Value *UpperBndVal, WRNScheduleKind DistSchedKind,
+    AllocaInst *TeamStride, Value *UpperBndVal, bool GenDispLoop,
     Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST) {
 
+  assert(!TeamLowerBnd == !TeamUpperBnd &&
+         !TeamLowerBnd == !TeamStride &&
+         !TeamLowerBnd == !TeamLB &&
+         !TeamLowerBnd == !TeamUB &&
+         !TeamLowerBnd == !TeamST &&
+         "genOCLLoopPartitionCode: team distribution related values "
+         "must be created together.");
   assert(W->getIsOmpLoop() && "genOCLLoopPartitionCode: W is not a loop-type WRN");
 
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
@@ -707,9 +710,8 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
       BranchInst::Create(PreHdrInst->getSuccessor(0), LoopExitBB, CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
-  WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
-
-  setSchedKindForMultiLevelLoops(W, SchedKind, WRNScheduleStaticEven);
+  WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
+      W, VPOParoptUtils::getLoopScheduleKind(W), WRNScheduleStaticEven);
 
   if (SchedKind == WRNScheduleStaticEven ||
       // Default to static even scheduling, when we use SPMD mode.
@@ -735,11 +737,12 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
     llvm_unreachable(
         "Unsupported loop schedule type in OpenCL based offloading!");
 
-  if (DistSchedKind == WRNScheduleDistributeStatic &&
-      // No team paritioning for SPMD mode.
-      !VPOParoptUtils::useSPMDMode(W)) {
+  if (GenDispLoop) {
+    assert(TeamLowerBnd && TeamUpperBnd && TeamStride &&
+           TeamLB && TeamUB && TeamST &&
+           "genOCLLoopPartitionCode: uninitialized team bounds.");
 
-    Loop *OuterLoop = genDispatchLoopForTeamDistirbute(
+    Loop *OuterLoop = genDispatchLoopForTeamDistribute(
         L, TeamLB, TeamUB, TeamST, TeamLowerBnd, TeamUpperBnd, TeamStride,
         UpperBndVal, LoopExitBB, LoopRegionExitBB, TeamST->getParent(),
         LoopExitBB, nullptr);
@@ -751,7 +754,7 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
 }
 
 // Generate dispatch loop for teams distriubte.
-Loop *VPOParoptTransform::genDispatchLoopForTeamDistirbute(
+Loop *VPOParoptTransform::genDispatchLoopForTeamDistribute(
     Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
     AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd, AllocaInst *TeamStride,
     Value *UpperBndVal, BasicBlock *LoopExitBB, BasicBlock *LoopRegionExitBB,
@@ -1018,30 +1021,47 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
 //
 bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
-  AllocaInst *LowerBnd, *UpperBnd, *SchedStride;
-  AllocaInst *TeamLowerBnd, *TeamUpperBnd, *TeamStride;
-  Value *UpperBndVal;
-  WRNScheduleKind DistSchedKind;
-  Instruction *TeamLB, *TeamUB, *TeamST;
+  AllocaInst *LowerBnd = nullptr;
+  AllocaInst *UpperBnd = nullptr;
+  AllocaInst *SchedStride = nullptr;
+  AllocaInst *TeamLowerBnd = nullptr;
+  AllocaInst *TeamUpperBnd = nullptr;
+  AllocaInst *TeamStride = nullptr;
+  Value *UpperBndVal = nullptr;
+  Instruction *TeamLB = nullptr;
+  Instruction *TeamUB = nullptr;
+  Instruction *TeamST = nullptr;
+  const WRNScheduleKind DistSchedKind = getSchedKindForMultiLevelLoops(
+      W, VPOParoptUtils::getDistLoopScheduleKind(W),
+      WRNScheduleDistributeStaticEven);;
 
-  LowerBnd = nullptr;
-  UpperBnd = nullptr;
-  SchedStride = nullptr;
-  TeamLowerBnd = nullptr;
-  TeamUpperBnd = nullptr;
-  TeamStride = nullptr;
-  UpperBndVal = nullptr;
-  TeamLB = nullptr;
-  TeamUB = nullptr;
-  TeamST = nullptr;
+  bool ChunkForTeams =
+      (W->getIsDistribute() &&
+       // Each iteration of the original distribute parallel loop is executed
+       // by a single WI, and we rely on OpenCL paritioning of WIs across WGs.
+       // Thus, there is no need to compute the team bounds.
+       (isa<WRNDistributeNode>(W) || !VPOParoptUtils::useSPMDMode(W)));
+
+  bool GenTeamDistDispatchLoop =
+      // Team distribute dispatch loop is only needed for chunked
+      // distribution.
+      (DistSchedKind == WRNScheduleDistributeStatic && ChunkForTeams);
+
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
     genLoopBoundUpdatePrep(W, I - 1, LowerBnd, UpperBnd, SchedStride,
-                           TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal);
+                           TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,
+                           ChunkForTeams);
 
-    genOCLDistParLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, TeamLowerBnd,
-                                     TeamUpperBnd, TeamStride, DistSchedKind,
-                                     TeamLB, TeamUB, TeamST);
+    if (ChunkForTeams)
+      // Loop chunking must be done for distribute constructs.
+      // Note that this does not necessarily means generating
+      // the team distribution dispatch loop. Even if we do not
+      // generate the dispatch loop, we have to update the lower/upper
+      // bounds so that each team computes its chunk of work.
+      genOCLDistParLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd,
+                                       TeamLowerBnd, TeamUpperBnd, TeamStride,
+                                       DistSchedKind, TeamLB, TeamUB, TeamST);
 
     if (isa<WRNParallelSectionsNode>(W) || isa<WRNDistributeParLoopNode>(W) ||
         isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W) ||
@@ -1051,7 +1071,7 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
     genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,
                             TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,
-                            DistSchedKind, TeamLB, TeamUB, TeamST);
+                            GenTeamDistDispatchLoop, TeamLB, TeamUB, TeamST);
   }
 
   W->resetBBSet(); // CFG changed; clear BBSet
@@ -6585,7 +6605,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   if (IsDistChunkedParLoop) {
     // FIXME: clean-up this function's parameters.
-    Loop *OuterLoop = genDispatchLoopForTeamDistirbute(
+    Loop *OuterLoop = genDispatchLoopForTeamDistribute(
         L, TeamLB, TeamUB, TeamST, TeamLowerBnd, TeamUpperBnd, TeamStride,
         UpperBndVal, LoopExitBB, LoopRegionExitBB, KmpcTeamInitCI->getParent(),
         LoopExitBB, KmpcFiniCI);
