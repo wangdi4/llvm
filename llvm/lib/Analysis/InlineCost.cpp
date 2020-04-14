@@ -143,9 +143,10 @@ static cl::opt<bool> OptComputeFullInlineCost(
     cl::desc("Compute the full inline cost of a call site even when the cost "
              "exceeds the threshold."));
 
-static cl::opt<bool> InlineCallerSupersetTLI(
-    "inline-caller-superset-tli", cl::Hidden, cl::init(true), cl::ZeroOrMore,
-    cl::desc("Allow inlining when caller has a superset of callee's TLI "
+static cl::opt<bool> InlineCallerSupersetNoBuiltin(
+    "inline-caller-superset-nobuiltin", cl::Hidden, cl::init(true),
+    cl::ZeroOrMore,
+    cl::desc("Allow inlining when caller has a superset of callee's nobuiltin "
              "attributes."));
 
 #if INTEL_CUSTOMIZATION
@@ -5322,7 +5323,7 @@ static bool functionsHaveCompatibleAttributes(
   auto CalleeTLI = GetTLI(*Callee);
   return TTI.areInlineCompatible(Caller, Callee) &&
          GetTLI(*Caller).areInlineCompatible(CalleeTLI,
-                                             InlineCallerSupersetTLI) &&
+                                             InlineCallerSupersetNoBuiltin) &&
          AttributeFuncs::areInlineCompatible(*Caller, *Callee);
 }
 
