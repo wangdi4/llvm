@@ -221,14 +221,13 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
-  assert(IVNode && "Could not find loop IV!");
+  auto *IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
 
-  auto IVType = IVNode->getType();
+  auto *IVType = IVNode ? IVNode->getType() : nullptr;
 
   // If the IVType is not an integer, assign it an integer type which is able to
   // represent the address space.
-  if (!IVType->isIntegerTy()) {
+  if (!IVType || !IVType->isIntegerTy()) {
     IVType = Type::getIntNTy(
         Func->getContext(),
         Func->getParent()->getDataLayout().getPointerSizeInBits());

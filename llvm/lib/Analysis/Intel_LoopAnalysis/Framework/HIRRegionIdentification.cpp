@@ -1661,15 +1661,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  auto IVNode = findIVDefInHeader(Lp, LatchCmpInst);
+  auto *IVNode = findIVDefInHeader(Lp, LatchCmpInst);
 
-  if (!IVNode) {
-    // TODO: remove this restriction
-    printOptReportRemark(&Lp, "Loop without IV not supported.");
-    return false;
-  }
-
-  if (IVNode->getType()->getPrimitiveSizeInBits() == 1) {
+  if (IVNode && (IVNode->getType()->getPrimitiveSizeInBits() == 1)) {
     // The following loop with i1 type IV has a trip count of 2 which is
     // outside its range. This is a quirk of SSA. CG will generate an infinite
     // loop for this case if we let it through.
