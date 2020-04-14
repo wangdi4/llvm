@@ -1203,6 +1203,14 @@ pi_result L0(piContextGetInfo)(
   return PI_SUCCESS;
 }
 
+// FIXME: Dummy implementation to prevent link fail
+pi_result piextContextSetExtendedDeleter(pi_context context,
+                                         pi_context_extended_deleter function,
+                                         void *user_data) {
+  pi_throw("piextContextSetExtendedDeleter: not supported");
+  return PI_SUCCESS;
+}
+
 pi_result L0(piContextRetain)(
   pi_context context) {
 
