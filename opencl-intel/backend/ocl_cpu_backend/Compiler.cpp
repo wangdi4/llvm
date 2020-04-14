@@ -341,7 +341,7 @@ Compiler::~Compiler()
     delete m_pLLVMContext;
 }
 
-static void materializeSpirTriple(llvm::Module *M) {
+void Compiler::materializeSpirTriple(llvm::Module *M) {
   assert((llvm::StringRef(M->getTargetTriple())).startswith("spir")
     && "Triple is not spir!");
 
@@ -397,9 +397,10 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   return TargetMachine;
 }
 
-llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
-                                     const char* pBuildOptions,
-                                     ProgramBuildResult* pResult)
+llvm::Module *
+Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
+                       ProgramBuildResult *pResult,
+                       std::unique_ptr<llvm::TargetMachine> &targetMachine)
 {
     assert(pModule && "pModule parameter must not be nullptr");
     assert(pResult && "Build results pointer must not be nullptr");
@@ -427,7 +428,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
 
     materializeSpirTriple(pModule);
 
-    std::unique_ptr<TargetMachine> targetMachine(GetTargetMachine(pModule));
+    targetMachine.reset(GetTargetMachine(pModule));
 
     pModule->setDataLayout(targetMachine->createDataLayout());
 
@@ -501,17 +502,21 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     //
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 
-    // Execution Engine depends on module configuration and should
-    // be created per module.
-    // The object that owns module, should own the execution engine
-    // as well and be responsible for release, of course.
+    if (useLLDJITForExecution(pModule)) {
+        // Execution Engine depends on module configuration and should
+        // be created per module.
+        // The object that owns module, should own the execution engine
+        // as well and be responsible for release, of course.
 
-    // Compiler creates execution engine but only keeps a pointer to the latest
-    CreateExecutionEngine(pModule);
+        // Compiler creates execution engine but only keeps a pointer to the
+        // latest
+        CreateExecutionEngine(pModule);
+    }
     return pModule;
 }
 
-llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
+std::unique_ptr<llvm::Module>
+Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
     // Parse the module IR
     llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr =
@@ -522,7 +527,7 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
         throw Exceptions::CompilerException(std::string("Failed to parse IR: ")
               + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
     }
-    return pModuleOrErr.get().release();
+    return std::move(pModuleOrErr.get());
 }
 
 // RTL builtin modules consist of two libraries.

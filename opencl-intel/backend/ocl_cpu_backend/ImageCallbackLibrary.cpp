@@ -13,6 +13,7 @@
 // License.
 
 #include "BitCodeContainer.h"
+#include "CompilationUtils.h"
 #include "CompiledModule.h"
 #include "Compiler.h"
 #include "exceptions.h"
@@ -271,20 +272,34 @@ void ImageCallbackLibrary::Load()
 
     // read IR into a Module
     m_pRtlBuffer.reset(rtlBufferOrErr.get().release());
-    llvm::Module* M = m_Compiler->ParseModuleIR(m_pRtlBuffer.get());
-
-    // create an execution engine (which assumes ownership of M)
-    m_Compiler->CreateExecutionEngine(M);
-    std::unique_ptr<llvm::ExecutionEngine> EE (
-      static_cast<llvm::ExecutionEngine*>(m_Compiler->GetExecutionEngine()));
+    std::unique_ptr<llvm::Module> M =
+        m_Compiler->ParseModuleIR(m_pRtlBuffer.get());
 
     // initialize the object cache with the path to the pre-compiled image
     // callback library object.
-    m_pLoader->addLocation(M, getLibraryObjectName());
-    EE->setObjectCache(m_pLoader.get());
+    m_pLoader->addLocation(M.get(), getLibraryObjectName());
 
-    // put the module and the execution engine in a container
-    m_pCompiledModule.reset(new CompiledModule(M, EE.release()));
+    if (m_Compiler->useLLDJITForExecution(M.get())) {
+        // create an execution engine (which assumes ownership of M)
+        m_Compiler->CreateExecutionEngine(M.get());
+        std::unique_ptr<llvm::ExecutionEngine> EE(
+            static_cast<llvm::ExecutionEngine*>(
+                m_Compiler->GetExecutionEngine()));
+        EE->setObjectCache(m_pLoader.get());
+        // put the module and the execution engine in a container
+        m_pCompiledModule.reset(new CompiledModule(M.release(), std::move(EE)));
+    } else {
+        std::unique_ptr<llvm::orc::LLJIT> LLJIT =
+            m_Compiler->CreateLLJIT(M.get(), nullptr, nullptr);
+        if (auto Err = LLJIT->addObjectFile(
+                std::move(m_pLoader->getObject(M.get())))) {
+            llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+            throw Exceptions::CompilerException("Failed to addObjectFile");
+        }
+        // put the module and JIT in a container (which assumes ownership of M)
+        m_pCompiledModule.reset(
+            new CompiledModule(M.release(), std::move(LLJIT)));
+    }
 }
 
 void ImageCallbackLibrary::Build()

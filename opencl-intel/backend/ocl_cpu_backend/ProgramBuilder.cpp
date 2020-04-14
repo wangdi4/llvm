@@ -225,12 +225,12 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
              return CL_DEV_SUCCESS;
         }
         Compiler* pCompiler = GetCompiler();
-        llvm::Module* pModule = (llvm::Module*)pProgram->GetModule();
+        llvm::Module* pModule = pProgram->GetModule();
 
         if(!pModule)
         {
             ParseProgram(pProgram);
-            pModule = (llvm::Module*)pProgram->GetModule();
+            pModule = pProgram->GetModule();
         }
         assert(pModule && "Module parsing has failed without exception. Strange");
 
@@ -257,14 +257,10 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
            (CompilationUtils::getDebugFlagFromMetadata(pModule)))
              MergeOptions.append(" -g");
 
-        pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult);
-        // ObjectCodeCache structure will be filled by a callback after JIT
-        // happens.
-        std::unique_ptr<ObjectCodeCache>
-          pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
-        pCompiler->SetObjectCache(pObjectCodeCache.get());
+        std::unique_ptr<llvm::TargetMachine> targetMachine;
+        pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult,
+                                targetMachine);
 
-        pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
         pProgram->SetBuiltinModule(pCompiler->GetBuiltinModuleList());
 
         // init refcounted runtime service shared storage between program
@@ -279,15 +275,22 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         DumpModuleStats(pModule, /*isEqualizerStats = */ false);
 #endif // INTEL_PRODUCT_RELEASE
 
-        PostOptimizationProcessing(pProgram, pModule, pOptions);
+        PostOptimizationProcessing(pProgram);
+
+        // ObjectCodeCache structure will be filled by a callback after JIT
+        // happens.
+        std::unique_ptr<ObjectCodeCache>
+            objCache(new ObjectCodeCache(nullptr, nullptr, 0));
 
         if (!(pOptions && pOptions->
               GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
+            JitProcessing(pProgram, pOptions, std::move(targetMachine),
+                          objCache.get());
+
             // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
             // L"Start iterating over kernels");
             KernelSet* pKernels = CreateKernels( pProgram,
-                                                 pModule,
                                                  MergeOptions.c_str(),
                                                  buildResult);
             // update kernels with RuntimeService
@@ -297,9 +300,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         }
 
         // call post build method
-        PostBuildProgramStep( pProgram, pModule, pOptions );
+        PostBuildProgramStep( pProgram, pOptions );
 
-        BuildProgramCachedExecutable(pObjectCodeCache.get(), pProgram);
+        BuildProgramCachedExecutable(objCache.get(), pProgram);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {

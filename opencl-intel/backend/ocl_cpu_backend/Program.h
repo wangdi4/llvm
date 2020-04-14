@@ -19,11 +19,11 @@
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 #include "ICLDevBackendProgram.h"
-#include "LLJIT2.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include <string>
 #include <memory>
 
@@ -223,19 +223,36 @@ public:
     KernelSet* GetKernelSet() { return m_kernels.get(); }
 
     /**
-     * Store the given LLVM module (as a plain pointer)
-     * into the program
+     * Store the given LLVM module into the program
      *
      * Note: will take ownership on passed module
      */
-    void SetModule( void* pModule);
+    void SetModule(std::unique_ptr<llvm::Module> M);
+
+    /**
+     * Store the given LLVM module into the program
+     *
+     * Note: will take ownership on passed module
+     */
+    void SetModule(llvm::orc::ThreadSafeModule TSM);
+
+    /**
+     * Returns the LLVM module pointer
+     */
+    llvm::Module* GetModule();
+
+    /**
+     * Returns the LLVM module owner (smart pointer)
+     */
+    std::unique_ptr<llvm::Module> GetModuleOwner();
+
     virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module*, 2> bltnFuncList) {}
 
     virtual void SetExecutionEngine(void *eE) {}
 
-    virtual void SetLLJIT(std::unique_ptr<LLJIT2> LLJIT) = 0;
+    virtual void SetLLJIT(std::unique_ptr<llvm::orc::LLJIT> LLJIT) = 0;
 
-    virtual LLJIT2* GetLLJIT() = 0;
+    virtual llvm::orc::LLJIT* GetLLJIT() = 0;
 
     /// get runtime service
     RuntimeServiceSharedPtr GetRuntimeService() const{
@@ -246,11 +263,6 @@ public:
     void SetRuntimeService(const RuntimeServiceSharedPtr& rs ) {
       m_RuntimeService = rs;
     }
-
-    /**
-     * Returns the LLVM module (as a plain pointer)
-     */
-    void* GetModule();
 
     /**
      * Serialization methods for the class (used by the serialization service)

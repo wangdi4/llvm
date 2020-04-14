@@ -21,8 +21,7 @@
 #include "EyeQBuiltinLibrary.h"
 #include "FPGAEmuBuiltinLibrary.h"
 
-llvm::Error RegisterCPUBIFunctions(
-    Intel::OpenCL::DeviceBackend::LLJIT2* LLJIT = nullptr);
+llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT* LLJIT = nullptr);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -44,9 +43,7 @@ void BuiltinModuleManager::Init()
     assert(!s_pInstance);
     s_pInstance = new BuiltinModuleManager();
     // TODO: need to move this function from the Manager Initialization
-    auto Err = RegisterCPUBIFunctions();
-    if (Err)
-        assert(false && "RegisterCPUBIFunctions failed");
+    llvm::consumeError(RegisterCPUBIFunctions());
 }
 
 void BuiltinModuleManager::Terminate()
@@ -100,7 +97,7 @@ BuiltinLibrary* BuiltinModuleManager::GetOrLoadFPGAEmuLibrary(Intel::CPUId cpuId
 }
 
 llvm::Error BuiltinModuleManager::RegisterCPUBIFunctionsToLLJIT(
-    LLJIT2 *LLJIT)
+    llvm::orc::LLJIT *LLJIT)
 {
     return RegisterCPUBIFunctions(LLJIT);
 }

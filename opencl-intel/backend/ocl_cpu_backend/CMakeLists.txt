@@ -97,7 +97,6 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     ImageCallbackServices.h
     Kernel.h
     KernelProperties.h
-    LLJIT2.h
     Program.h
     ProgramBuilder.h
     RuntimeService.h
