@@ -129,8 +129,7 @@ enum Backend {
   SYCL_BE_PI_OPENCL,
   SYCL_BE_PI_LEVEL0,
   SYCL_BE_PI_CUDA,
-  SYCL_BE_PI_OTHER /*TODO: Remove it since LEVEL0 string is added. Add specific
-                      strings for new backends*/
+  SYCL_BE_DEFAULT = SYCL_BE_PI_LEVEL0
 };
 
 // Get the preferred BE (selected with SYCL_BE).

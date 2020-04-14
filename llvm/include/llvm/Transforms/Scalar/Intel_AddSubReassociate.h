@@ -202,7 +202,9 @@ public:
   NodeRItTy rend() const { return Leaves.rend(); }
 
   /// Adds new node with \p Leaf and \Opcode as the last one to the form.
-  void appendLeaf(Value *Leaf, const OpcodeData &Opcode);
+  void appendLeaf(Value *Leaf, const OpcodeData &Opcode) {
+    Leaves.emplace_back(Leaf, Opcode);
+  }
   /// Removes node from the form specified by iterator \p It.
   /// NOTE: All iterators pointing after removed node are invalidated.
   NodeItTy removeLeaf(NodeItTy It) { return Leaves.erase(It); }
@@ -362,20 +364,9 @@ public:
 /// For example: X = A - B - C  -->  X = A - (B + C)
 ///              Y = A + B + C  -->  Y = A + (B + C)
 class AddSubReassociate {
-  // Typedefs.
-  using TreePtr = std::unique_ptr<Tree>;
-  using TreeVecTy = SmallVector<TreePtr, 16>;
-  using TreeArrayTy = MutableArrayRef<TreePtr>;
-  using WorkListTy = SmallVectorImpl<CanonNode>;
-  using GroupTreesVecTy = SmallVector<std::pair<Group, TreeSignVecTy>, 4>;
-
-  // TODO: The class encapsulates too few data.
-  // Data seems mostly shared via function arguments.
-  const DataLayout &DL;
-  ScalarEvolution *SE;
-  Function *F;
-
 public:
+  using TreePtr = std::unique_ptr<Tree>;
+
   AddSubReassociate(const DataLayout &DL, ScalarEvolution *SE, Function *F)
       : DL(DL), SE(SE), F(F){};
 
@@ -383,18 +374,27 @@ public:
   bool run();
 
 private:
-  /// Scans through \p Trees and returns the first one which containing \p I.
-  /// Return nullptr if not found.
-  Tree *findEnclosingTree(TreeVecTy &Trees, const Instruction *I) const {
+  const DataLayout &DL;
+  ScalarEvolution *SE;
+  Function *F;
+
+  // Trees and tree clusters are built for single basic block
+  // (one that is currently processed)
+  SmallVector<TreePtr, 16> Trees;
+  SmallVector<MutableArrayRef<TreePtr>, 8> Clusters;
+  // Group of trees most profitable for reassosiation.
+  SmallVector<std::pair<Group, TreeSignVecTy>, 4> BestGroups;
+
+  /// Scans through Trees and returns the first one which containing \p I.
+  Tree *findEnclosingTree(const Instruction *I) {
     for (auto &T : Trees)
       if (T->hasTrunkInstruction(I))
         return T.get();
     return nullptr;
   }
-  /// Find a tree amongst \p Trees which has root \p I ignoring \p Ignore.
-  /// Return nullptr if not found.
-  Tree *findTreeWithRoot(TreeVecTy &Trees, const Instruction *I,
-                         const Tree *Ignore) const {
+
+  /// Find a tree amongst Trees which has root \p I ignoring \p Ignore.
+  Tree *findTreeWithRoot(const Instruction *I, const Tree *Ignore) {
     for (auto &T : Trees)
       if (T.get() != Ignore && T->getRoot() == I)
         return T.get();
@@ -424,60 +424,50 @@ private:
   /// to match the ones in G2.
   bool memCanonicalizeGroupBasedOn(Group &G1, const Group &G2,
                                    ScalarEvolution *SE);
-  /// Canonicalize 'G' based on 'BestGroups' memory accesses and opcodes.
-  bool memCanonicalizeGroup(Group &G, TreeSignVecTy &GroupTreeVec,
-                            GroupTreesVecTy &BestGroups);
-  /// Form groups of nodes that reduce divergence across trees in Cluster.
-  void buildMaxReuseGroups(const TreeArrayTy &Cluster,
-                           GroupTreesVecTy &BestGroups);
-  /// Removes all nodes common for group and affected tree(s) from the tree(s).
-  /// This is done using canonical representation of the group and tree(s).
-  /// Note that this may invalidate IR representation of the tree(s).
-  void removeGroupFromTree(GroupTreesVecTy &Groups) const;
+  /// Canonicalize group \p G based on BestGroups memory accesses and opcodes.
+  bool memCanonicalizeGroup(Group &G, TreeSignVecTy &GroupTreeVec);
+
+  /// Form groups of nodes in BestGroups that reduce divergence across trees in
+  /// given \p Cluster.
+  void buildMaxReuseGroups(const MutableArrayRef<TreePtr> &Cluster);
+
+  /// Traverses BestGroups and removes all nodes common for a group and affected
+  /// tree(s) from the tree(s). This is done using canonical representation of
+  /// the group and tree(s). Note that this may invalidate IR representation of
+  /// the tree(s).
+  void removeCommonNodes();
+
   /// Adds additional node to the canonical representation of the tree given by
   /// \p TreeAndSign where \p GroupChain becomes a new leaf and opcode is
   /// determined by sign coming from \p TreeAndSign.
   void linkGroup(Value *GroupChain, TreeSignTy &TreeAndSign) const;
-  /// Generates IR representation for all groups in \p Groups and all affected
-  /// trees given by \p AffectedTrees.
-  void generateCode(GroupTreesVecTy &Groups,
-                    const ArrayRef<Tree *> AffectedTrees) const;
-  /// Return true if more than TreeMatchThreshold per cent of
-  /// leaves do match in T1 and in T2.
-  bool treesMatch(const Tree *T1, const Tree *T2) const;
-  /// Find clusters amongst \p Trees with similar i) size, ii) values
-  /// and populate \p Clusters.
-  void clusterTrees(TreeVecTy &Trees, SmallVectorImpl<TreeArrayTy> &Clusters);
+
+  /// Generates IR representation for all groups in BestGroups and all affected
+  /// trees in \p AffectedTrees.
+  void generateCode(const ArrayRef<Tree *> AffectedTrees);
+
+  /// Find clusters amongst Trees with similar i) size, ii) values
+  /// and populate Clusters.
+  void clusterTrees();
+
   /// Try to grow tree \p T up toward definitions.
   /// Returns true if new nodes have been added to the tree.
-  bool growTree(TreeVecTy &Trees, Tree *T, WorkListTy &&WorkList);
+  bool growTree(Tree *T, SmallVectorImpl<CanonNode> &&WorkList);
 
-  /// Returns true if all uses of a \p Leaf are from one of a tree in
-  /// \p Cluster, false otherwise. Additionally for each such use a Tree*
-  /// and Leaf index pair is put to \p WorkList.
-  bool areAllUsesInsideTreeCluster(
-      TreeArrayTy &Cluster, const Value *Leaf,
-      SmallVectorImpl<std::pair<Tree *, Tree::NodeItTy>> &WorkList) const;
+  /// Enlarge trees in Clusters by growing them towards shared leaves.
+  void extendTrees();
 
-  /// Returns true if we were able to find a leaf with multiple uses from
-  /// trees in \p Cluster only, false otherwise. Each found use is pushed
-  /// to a \p WorkList as a LinearTree* and Leaf index pair.
-  bool
-  getSharedLeaves(TreeArrayTy &Cluster,
-                  SmallVectorImpl<std::pair<Tree *, Tree::NodeItTy>> &WorkList);
-  /// Enlarge trees in \p Cluster by growing them towards shared leaves.
-  void extendTrees(TreeVecTy &Trees, TreeArrayTy &Cluster);
-  /// Build initial trees from code in \p BB and put them to \p Trees.
-  void buildInitialTrees(BasicBlock *BB, TreeVecTy &Trees);
+  /// Build initial trees from IR in \p BB
+  void buildInitialTrees(BasicBlock *BB);
+
   /// Build all trees within \p BB.
-  void buildTrees(BasicBlock *BB, TreeVecTy &Trees,
-                  SmallVector<TreeArrayTy, 8> &Clusters, bool UnshareLeaves);
+  void buildTrees(BasicBlock *BB, bool UnshareLeaves);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dumpTreeVec(const TreeVecTy &TreeVec) const;
-  void dumpTreeArray(const TreeArrayTy &TreeVec) const;
-  void dumpTreeArrayVec(SmallVectorImpl<TreeArrayTy> &Clusters) const;
-  void dumpGroups(const GroupTreesVecTy &Groups) const;
+  void dumpTrees() const;
+  void dumpCluster(const MutableArrayRef<TreePtr> &Cluster) const;
+  void dumpClusters() const;
+  void dumpGroups() const;
 #endif
 };
 } // end namespace intel_addsubreassoc
