@@ -41,12 +41,6 @@ __attribute__((__merge__("mrg1", "depth"))) constant int global_const10 = 1;
 //CHECK: MergeAttr{{.*}}"mrg1" "width"{{$}}
 __attribute__((__merge__("mrg1", "width"))) constant int global_const11 = 1;
 
-//CHECK: VarDecl{{.*}}global_const12
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: InternalMaxBlockRamDepthAttr
-//CHECK: IntegerLiteral{{.*}}32{{$}}
-__attribute__((internal_max_block_ram_depth(32))) constant int global_const12 = 1;
-
 //CHECK: VarDecl{{.*}}global_const15
 //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
 //CHECK: IntegerLiteral{{.*}}16{{$}}
@@ -655,7 +649,6 @@ kernel void foo2(
   __constant int __attribute__((merge("mrg", "depth"))) local_const9 = 1;
   __constant int __attribute__((merge("mrg", "width"))) local_const10 = 1;
   __constant int __attribute__((memory)) local_const11 = 1;
-  __constant int __attribute__((internal_max_block_ram_depth(32))) local_const12 = 1;
   __constant int __attribute__((bank_bits(2, 3, 4, 5))) local_const15 = 1;
   __constant int __attribute__((__force_pow2_depth__(0))) local_const16 = 1;
    __constant int __attribute__((__force_pow2_depth__(1))) local_const17 = 1;
@@ -785,13 +778,6 @@ struct foo {
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   __attribute__((__bank_bits__(2, 3), __bankwidth__(16))) unsigned int v_thirteen[64];
-
-  //CHECK: FieldDecl{{.*}}G0
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: InternalMaxBlockRamDepthAttr
-  //CHECK: IntegerLiteral{{.*}}32{{$}}
-  int __attribute__((internal_max_block_ram_depth(32))) G0;
-
 
   //CHECK: FieldDecl{{.*}}v_fourteen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit

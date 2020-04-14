@@ -4358,12 +4358,6 @@ void CodeGenModule::generateHLSAnnotation(const Decl *D,
     llvm::APSInt MCAInt = MCA->getValue()->EvaluateKnownConstInt(getContext());
     Out << '{' << MCA->getSpelling() << ':' << MCAInt << '}';
   }
-  if (const auto *IMDA = D->getAttr<InternalMaxBlockRamDepthAttr>()) {
-    llvm::APSInt IMDAInt =
-        IMDA->getInternalMaxBlockRamDepth()->EvaluateKnownConstInt(
-            getContext());
-    Out << '{' << IMDA->getSpelling() << ':' << IMDAInt << '}';
-  }
   if (const auto *RWA = D->getAttr<ReadWriteModeAttr>()) {
     Out << '{' << "readwritememory:" << RWA->getType().upper() << '}';
   }

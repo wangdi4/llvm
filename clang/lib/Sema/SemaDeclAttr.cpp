@@ -3214,55 +3214,6 @@ void Sema::AddSchedulerTargetFmaxMHzAttr(Decl *D, const AttributeCommonInfo &CI,
   D->addAttr(::new (Context) SchedulerTargetFmaxMHzAttr(Context, CI, E));
 }
 
-static void handleHLSInternalMaxBlockRamDepthAttr(Sema &S, Decl *D,
-                                               const ParsedAttr &Attr) {
-  checkForDuplicateAttribute<InternalMaxBlockRamDepthAttr>(S, D, Attr);
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, Attr))
-    return;
-
-  if (D->isInvalidDecl())
-    return;
-
-  if (!S.getLangOpts().HLS &&
-      !S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
-    S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr;
-    return;
-  }
-
-  if (!checkAttributeNumArgs(S, Attr, /*NumArgsExpected=*/1))
-    return;
-
-  if (const auto *AIA = D->getAttr<ArgumentInterfaceAttr>()) {
-    if (AIA->getType() == ArgumentInterfaceAttr::Slave) {
-      (void)checkAttrMutualExclusion<ArgumentInterfaceAttr>(
-          S, D, Attr);
-      return;
-    }
-  }
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
-  S.AddInternalMaxBlockRamDepthAttr(D, Attr, Attr.getArgAsExpr(0));
-}
-
-void Sema::AddInternalMaxBlockRamDepthAttr(Decl *D,
-                                           const AttributeCommonInfo &CI,
-                                           Expr *E) {
-  InternalMaxBlockRamDepthAttr TmpAttr(Context, CI, E);
-
-  if (!E->isValueDependent()) {
-    ExprResult ICE;
-    if (checkRangedIntegralArgument<InternalMaxBlockRamDepthAttr>(E, &TmpAttr,
-                                                                  ICE))
-      return;
-    E = ICE.get();
-  }
-  D->addAttr(::new (Context) InternalMaxBlockRamDepthAttr(Context, CI, E));
-}
-
 static void handleOpenCLBlockingAttr(Sema &S, Decl *D,
                                      const ParsedAttr &Attr) {
   if (D->isInvalidDecl())
@@ -3559,10 +3510,6 @@ static void handleArgumentInterfaceAttr(Sema & S, Decl * D,
     S.Diag(D->getLocation(), diag::err_attribute_interface_invalid_type)
         << Attr << ValidStrings;
     return;
-  }
-  if (Type == ArgumentInterfaceAttr::Slave) {
-    if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
-      return;
   }
 
   D->addAttr(::new (S.Context) ArgumentInterfaceAttr(S.Context, Attr, Type));
@@ -6140,8 +6087,6 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
   if (checkAttrMutualExclusion<MaxConcurrencyAttr>(S, D, Attr))
     InCompat = true;
   if (checkAttrMutualExclusion<StaticArrayResetAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<InternalMaxBlockRamDepthAttr>(S, D, Attr))
     InCompat = true;
 #endif // INTEL_CUSTOMIZATION
   if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
@@ -8967,9 +8912,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SchedulerTargetFmaxMHz:
     handleSchedulerTargetFmaxMHzAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_InternalMaxBlockRamDepth:
-    handleHLSInternalMaxBlockRamDepthAttr(S, D, AL);
-    break;
   case ParsedAttr::AT_Cluster:
     handleClusterAttr(S, D, AL);
     break;
@@ -9225,7 +9167,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     if (diagnoseMemoryAttrs<
             IntelFPGAMemoryAttr, IntelFPGANumBanksAttr, IntelFPGABankWidthAttr,
             IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr,
-            IntelFPGABankBitsAttr, InternalMaxBlockRamDepthAttr>(*this, D))
+            IntelFPGABankBitsAttr>(*this, D))
       D->setInvalidDecl();
   }
 #endif // INTEL_CUSTOMIZATION
