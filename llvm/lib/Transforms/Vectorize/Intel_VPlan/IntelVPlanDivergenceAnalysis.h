@@ -17,14 +17,9 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
-#include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
 #include <queue>
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {
@@ -32,6 +27,7 @@ namespace vpo {
 class VPValue;
 class VPInstruction;
 class VPLoop;
+class VPLoopInfo;
 class SyncDependenceAnalysis;
 #if INTEL_CUSTOMIZATION
 class VPVectorShape;
@@ -65,9 +61,6 @@ public:
   void compute(VPlan *Plan, VPLoop *RegionLoop, VPLoopInfo *VPLI,
                VPDominatorTree &DT, VPPostDominatorTree &PDT,
                bool IsLCSSA = true);
-
-  /// The loop that defines the analyzed region (if any).
-  const VPLoop *getRegionLoop() const { return RegionLoop; }
 
   /// Mark \p DivVal as a value that is always divergent.
   void markDivergent(const VPValue &DivVal);
@@ -124,13 +117,13 @@ private:
 
   /// Push users of instructions with non-deterministic results on to the
   /// Worklist.
-  void pushNonDeterministicInsts(VPLoop *CandidateLoop);
+  void pushNonDeterministicInsts();
 
   /// Set shapes for instructions with loop-invariant operands.
   void initializeShapesForConstOpInsts();
 
   /// Mark Loop-exit condition as uniforms.
-  void markLoopExitsAsUniforms(VPLoop *CandidateLoop);
+  void markLoopExitsAsUniforms();
 
   /// Push the instruction to the Worklist.
   bool pushToWorklist(const VPInstruction &I);
@@ -140,6 +133,7 @@ private:
 
   /// Whether \p BB is part of the region.
   bool inRegion(const VPBasicBlock &BB) const;
+
   /// Whether \p I is part of the region.
   bool inRegion(const VPInstruction &I) const;
 
@@ -246,10 +240,10 @@ private:
 #if INTEL_CUSTOMIZATION
 
   /// Initialize shapes for LoopHeader.
-  void initializeShapesForLoopInvariantCode(VPLoop *RegionLoop);
+  void initializeShapesForLoopInvariantCode();
 
   /// Initialize shapes before propagation.
-  void initializePhiShapes(VPLoop *CandidateLoop);
+  void initializePhiShapes();
 
   /// Returns true if OldShape is not equal to NewShape.
   bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
@@ -315,9 +309,6 @@ private:
   /// Returns a VPConstant of \p Val.
   VPConstant* getConstantInt(int64_t Val);
 
-  /// Returns true if \p V is a uniform VPValue.
-  bool isUniformLoopEntity(const VPValue *V) const;
-
   /// Push operands of \p I to the worklist. Used when some operands vector
   /// shapes are needed to compute the vector shape of \p I.
   bool pushMissingOperands(const VPInstruction &I);
@@ -335,9 +326,6 @@ private:
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
   // Otw, analyze the whole function
   VPLoop *RegionLoop;
-
-  // Provides information on uniform, linear, private(vector), etc.
-  VPLoopEntityList *RegionLoopEntities;
 
   // Shape information of divergent values.
   DenseMap<const VPValue *, VPVectorShape> VectorShapes;
