@@ -285,6 +285,9 @@ TEST_F(GVPointerExtensionTest, singleProgramUnreferencedGlobal) {
       << "clGetDeviceGlobalVariablePointerINTEL must return a non-nullptr "
          "value via global_variable_pointer_ret on success";
   EXPECT_EQ(sizeof(cl_uchar), gvSize);
+
+  // Test JIT save/load
+  ASSERT_NO_FATAL_FAILURE(TestProgramWithBinary(program, "x", gvSize, "y"));
 }
 
 // Static global variable has internal linkage and should not be queryable by

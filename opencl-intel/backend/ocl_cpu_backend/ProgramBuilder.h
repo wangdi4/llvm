@@ -67,10 +67,14 @@ protected:
     virtual Compiler* GetCompiler() = 0;
     virtual const Compiler* GetCompiler() const = 0;
 
-    virtual void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const = 0;
+    virtual void PostOptimizationProcessing(Program* pProgram) const = 0;
+
+    virtual void JitProcessing(
+        Program* program, const ICLDevBackendOptions* options,
+        std::unique_ptr<llvm::TargetMachine> targetMachine,
+        ObjectCodeCache *objCache) = 0;
 
     virtual KernelSet* CreateKernels(Program* pProgram,
-                             llvm::Module* pModule,
                              const char* pBuildOpts,
                              ProgramBuildResult& buildResult) const = 0;
 
@@ -89,7 +93,7 @@ protected:
     /// @brief abstract factory method to create mapper from block to Kernel.
     /// Can be implemented differently for CPU and MIC.
     /// MIC will probably call this inside deserialization step
-    /// CPU calls it inside PostOptimizationProcessing step
+    /// CPU calls it inside PostBuildProgramStep step
     /// When Block static resolution pass is ready we can implement is std::vector storage
     /// this will increase mapping performance in comparison to std::map
     /// @param pProgram
@@ -98,7 +102,7 @@ protected:
     virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const = 0;
 
     /// @brief Post build step. Called inside BuildProgram() before exit
-    virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
+    virtual void PostBuildProgramStep(Program* pProgram,
       const ICLDevBackendOptions* pOptions) const = 0;
 
     // pointer to the containers factory (not owned by this class)

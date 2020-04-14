@@ -15,10 +15,10 @@
 
 #include "ExecutionContext.h"
 #include "ICLDevBackendServiceFactory.h"
-#include "LLJIT2.h"
 #include "cpu_dev_limits.h"
 #include "SystemInfo.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/DataTypes.h"
 
@@ -132,7 +132,7 @@ class IBlockToKernelMapper;
     llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name),                \
                                          (void *)(intptr_t)ptr);               \
   }
-llvm::Error RegisterCPUBIFunctions(Intel::OpenCL::DeviceBackend::LLJIT2 *LLJIT)
+llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT *LLJIT)
 {
     llvm::JITSymbolFlags flag;
 

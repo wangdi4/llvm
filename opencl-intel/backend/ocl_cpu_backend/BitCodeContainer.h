@@ -17,6 +17,8 @@
 #include "cl_dev_backend_api.h"
 #include "cl_types.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
+#include "llvm/IR/Module.h"
 
 #include <memory>
 
@@ -44,12 +46,22 @@ public:
     /**
      * Get ownership on passed module
      */
-    void   SetModule( void* pModule);
+    void SetModule(std::unique_ptr<llvm::Module> M);
 
     /**
-     * Return the LLVM Module as a plain pointer
+     * Get ownership on passed ThreadSafeModule
      */
-    void*  GetModule() const;
+    void SetModule(llvm::orc::ThreadSafeModule TSM);
+
+    /**
+     * Return the LLVM Module pointer
+     */
+    llvm::Module* GetModule() const;
+
+    /**
+     * Return the LLVM Module with ownership
+     */
+    std::unique_ptr<llvm::Module> GetModuleOwner();
 
     /**
      * Returns the serialized bitcode buffer as a plain pointer (convert to LLVM MemoryBuffer)
@@ -62,7 +74,10 @@ public:
     void Release();
 
 private:
-    void*  m_pModule;
+    // Module is owned by either m_M or m_TSM
+    std::unique_ptr<llvm::Module> m_M;
+    llvm::orc::ThreadSafeModule m_TSM;
+
     std::unique_ptr<llvm::MemoryBuffer> m_pBuffer;
 
     // Klockwork Issue

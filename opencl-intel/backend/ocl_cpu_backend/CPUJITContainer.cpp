@@ -85,17 +85,7 @@ void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
     CPUProgram* pProgram = (CPUProgram*)stats->GetPointerMark("pProgram");
     if(pProgram && m_pFuncCode && m_pFunction)
-    {
-        auto sym = pProgram->GetLLJIT()->lookupLinkerMangled(name);
-        if (llvm::Error err = sym.takeError())
-        {
-            llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
-            throw Exceptions::CompilerException(
-                "Failed to get address of kernel " + name);
-        }
-        m_pFuncCode = reinterpret_cast<const void*>(
-            static_cast<uintptr_t>(sym->getAddress()));
-    }
+        m_pFuncCode = pProgram->GetPointerToFunction(name);
 }
 
 }}} // namespace

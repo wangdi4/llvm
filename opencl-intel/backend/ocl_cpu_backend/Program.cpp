@@ -156,16 +156,27 @@ void Program::SetKernelSet( KernelSet* pKernels)
     m_kernels.reset(pKernels);
 }
 
-void Program::SetModule( void* pModule)
+void Program::SetModule(std::unique_ptr<llvm::Module> M)
 {
     assert(m_pIRCodeContainer && "code container should be initialized by now");
-    m_pIRCodeContainer->SetModule(pModule);
+    m_pIRCodeContainer->SetModule(std::move(M));
 }
 
-void* Program::GetModule()
+void Program::SetModule(llvm::orc::ThreadSafeModule TSM) {
+    assert(m_pIRCodeContainer && "code container should be initialized by now");
+    m_pIRCodeContainer->SetModule(std::move(TSM));
+}
+
+llvm::Module* Program::GetModule()
 {
     assert(m_pIRCodeContainer && "code container should be initialized by now");
     return m_pIRCodeContainer->GetModule();
+}
+
+std::unique_ptr<llvm::Module> Program::GetModuleOwner()
+{
+    assert(m_pIRCodeContainer && "code container should be initialized by now");
+    return std::move(m_pIRCodeContainer->GetModuleOwner());
 }
 
 void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const

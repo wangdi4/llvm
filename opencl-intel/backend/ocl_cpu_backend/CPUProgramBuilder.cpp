@@ -156,16 +156,21 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     std::unique_ptr<llvm::MemoryBuffer> Buffer = llvm::MemoryBuffer::getMemBufferCopy(data);
 
     Compiler* pCompiler = GetCompiler();
-    llvm::Module* pModule = pCompiler->ParseModuleIR(Buffer.get());
-
-    // create cache manager
-    pProgram->SetModule(pModule);
-
-    ObjectCodeCache* pCache = new ObjectCodeCache((llvm::Module*)pProgram->GetModule(), objectBuffer, objectSize);
-    static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
+    std::unique_ptr<llvm::Module> M = pCompiler->ParseModuleIR(Buffer.get());
+    pCompiler->materializeSpirTriple(M.get());
 
     // create LLJIT
-    std::unique_ptr<LLJIT2> LLJIT = pCompiler->CreateLLJIT();
+    std::unique_ptr<llvm::orc::LLJIT> LLJIT =
+        pCompiler->CreateLLJIT(M.get(), nullptr, nullptr);
+
+    // create cache manager
+    pProgram->SetModule(std::move(M));
+
+    ObjectCodeCache* pCache = new ObjectCodeCache(pProgram->GetModule(),
+                                                  objectBuffer, objectSize);
+    static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
+
+    // add object buffer to LLJIT
     if (llvm::Error err = LLJIT->addObjectFile(pCache->getObject(nullptr))) {
         llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
         throw Exceptions::CompilerException("Failed to add object to LLJIT");
@@ -190,7 +195,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
 
     // update kernel mapper (OCL2.0) and run global ctors
-    PostBuildProgramStep( pProgram, pModule, nullptr );
+    PostBuildProgramStep( pProgram, nullptr );
     return true;
 }
 
@@ -210,7 +215,6 @@ Kernel *CPUProgramBuilder::CreateKernel(llvm::Function *pFunc,
 }
 
 KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
-                                    llvm::Module* pModule,
                                     const char* pBuildOpts,
                                     ProgramBuildResult& buildResult) const
 {
@@ -218,6 +222,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
     std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
+    llvm::Module* pModule = pProgram->GetModule();
     for (auto *pFunc : KernelList(pModule))
     {
         // Obtain kernel function from annotation
@@ -248,7 +253,6 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
         // We want the JIT of the wrapper function to be called
         AddKernelJIT(static_cast<CPUProgram*>(pProgram),
                      spKernel.get(),
-                     pModule,
                      pWrapperFunc,
                      spKernelJITProps.release());
 
@@ -287,7 +291,6 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                 spKernelProps->SetMinGroupSizeFactorial(vecSize);
                 AddKernelJIT(static_cast<CPUProgram*>(pProgram),
                               spKernel.get(),
-                              pModule,
                               pWrapperVecFunc,
                               spVKernelJITProps.release());
             }
@@ -350,36 +353,18 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
     return spKernels.release();
 }
 
-void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule,
+void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel,
                                      llvm::Function* pFunc, KernelJITProperties* pProps) const
 {
-    IKernelJITContainer* pJIT = new CPUJITContainer( pProgram->GetPointerToFunction(pFunc),
-                                                     pFunc,
-                                                     pModule,
-                                                     pProps );
+    IKernelJITContainer *pJIT =
+        new CPUJITContainer(pProgram->GetPointerToFunction(pFunc->getName()),
+                            pFunc, pProgram->GetModule(), pProps);
     pKernel->AddKernelJIT( pJIT );
 }
 
-void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
+void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram) const
 {
-    char*  pInjectedObjStart = nullptr;
-    size_t injectedObjSize;
-
-    // Check if we are going to do injection
-    if (pOptions
-        && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStart, &injectedObjSize)
-        && pInjectedObjStart != nullptr)
-    {
-        std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
-        // Build the MemoryBuffer object from the supplied options
-        std::unique_ptr<llvm::MemoryBuffer> pInjectedObj =
-            llvm::MemoryBuffer::getMemBuffer( llvm::StringRef(pInjectedObjStart, injectedObjSize));
-
-        pObjectLoader->addPreCompiled(spModule, pInjectedObj.release());
-        // Add the injected object to the execution engine cache
-        CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
-        pCPUProgram->GetExecutionEngine()->setObjectCache(pObjectLoader.release());
-    }
+    llvm::Module* spModule = pProgram->GetModule();
 
     // Collect sizes of global variables
     if (!spModule->global_empty())
@@ -416,15 +401,98 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     pProgram->RecordCtorDtors(*spModule);
 }
 
+void CPUProgramBuilder::JitProcessing(
+    Program *program, const ICLDevBackendOptions *options,
+    std::unique_ptr<llvm::TargetMachine> targetMachine,
+    ObjectCodeCache *objCache) {
+  // Get/create JIT instance
+  llvm::Module *module = program->GetModule();
+  bool useLLDJIT = m_compiler.useLLDJITForExecution(module);
+  if (useLLDJIT) {
+    m_compiler.SetObjectCache(objCache);
+    program->SetExecutionEngine(m_compiler.GetExecutionEngine());
+  } else {
+    auto LLJIT =
+        m_compiler.CreateLLJIT(module, std::move(targetMachine), objCache);
+    llvm::orc::IRCompileLayer::NotifyCompiledFunction notifyCompiled =
+        [&](llvm::orc::VModuleKey K, llvm::orc::ThreadSafeModule TSM) -> void {
+      program->SetModule(std::move(TSM));
+    };
+    LLJIT->getIRCompileLayer().setNotifyCompiled(std::move(notifyCompiled));
+    program->SetLLJIT(std::move(LLJIT));
+  }
+
+  // Check if we are going to do injection
+  char *injectedObjStart = nullptr;
+  size_t injectedObjSize;
+  if (options &&
+      options->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT,
+                        &injectedObjStart, &injectedObjSize) &&
+      injectedObjStart != nullptr) {
+    // Build the MemoryBuffer object from the supplied options
+    std::unique_ptr<llvm::MemoryBuffer> injectedObj =
+        llvm::MemoryBuffer::getMemBuffer(
+            llvm::StringRef(injectedObjStart, injectedObjSize));
+
+    if (useLLDJIT) {
+      std::auto_ptr<StaticObjectLoader> objectLoader(new StaticObjectLoader());
+      objectLoader->addPreCompiled(module, injectedObj.release());
+      // Add the injected object to the execution engine cache
+      static_cast<CPUProgram *>(program)->GetExecutionEngine()->setObjectCache(
+          objectLoader.release());
+    } else {
+      llvm::orc::LLJIT *LLJIT = program->GetLLJIT();
+      if (auto Err = LLJIT->addObjectFile(std::move(injectedObj))) {
+        llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+        throw Exceptions::CompilerException("Fail to add object file");
+      }
+    }
+  }
+
+  if (useLLDJIT)
+    return;
+
+  // Record kernel names and trigger JIT compilation of kernels
+  std::vector<std::string> kernelNames;
+  for (auto *pFunc : Intel::MetadataAPI::KernelList(module)) {
+    auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(pFunc);
+    assert(kimd.KernelWrapper.hasValue() &&
+           "Always expect a kernel wrapper to be present");
+    llvm::Function *pWrapperFunc = kimd.KernelWrapper.get();
+    kernelNames.push_back(pWrapperFunc->getName().str());
+  }
+  llvm::orc::LLJIT *LLJIT = program->GetLLJIT();
+  if (!kernelNames.empty()) {
+    if (auto err = LLJIT->addIRModule(llvm::orc::ThreadSafeModule(
+            std::move(program->GetModuleOwner()),
+            std::make_unique<llvm::LLVMContext>()))) {
+      llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+      throw Exceptions::CompilerException("Failed to add IR Module");
+    }
+    CPUProgram *cpuProgram = static_cast<CPUProgram *>(program);
+    for (std::string &kernelName : kernelNames)
+      (void)cpuProgram->GetPointerToFunction(kernelName);
+  } else {
+    // There are no kernels to lookup and LLJIT won't be triggered.
+    // So we need to compile the module into object buffer.
+    if (auto err = LLJIT->addObjectFile(
+            std::move(m_compiler.SimpleCompile(module, objCache)))) {
+      llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+      throw Exceptions::CompilerException("Failed to add object file");
+    }
+  }
+}
+
 IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
 {
     return new CPUBlockToKernelMapper(pProgram, pModule);
 }
 
-void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
-  const ICLDevBackendOptions* pOptions) const
+void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, const ICLDevBackendOptions* pOptions) const
 {
-  assert(pProgram && pModule && "inputs are NULL");
+  assert(pProgram && "Invalid program");
+  llvm::Module* pModule = pProgram->GetModule();
+  assert(pModule && "Invalid module");
 
   // create block to kernel mapper
   IBlockToKernelMapper * pMapper = CreateBlockToKernelMapper(pProgram, pModule);
@@ -436,7 +504,7 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
   // Run static constructors
   CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
   llvm::ExecutionEngine *executionEngine = pCPUProgram->GetExecutionEngine();
-  LLJIT2 *LLJIT = pCPUProgram->GetLLJIT();
+  llvm::orc::LLJIT *LLJIT = pCPUProgram->GetLLJIT();
   assert(((executionEngine && !LLJIT) || (!executionEngine && LLJIT)) &&
     "Only one of MCJIT and LLJIT should be enabled");
   if (executionEngine) {
@@ -444,33 +512,25 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
     executionEngine->runStaticConstructorsDestructors(/*isDtors=*/false);
   }
   else {
-    llvm::Error err = pProgram->HasCachedExecutable()
-                          ? LLJIT->initialize(pProgram->GetGlobalCtors())
-                          : LLJIT->initialize();
-    if (err) {
-      llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
-      throw Exceptions::CompilerException("Failed to run LLJIT initialize");
+    if (pProgram->HasCachedExecutable()) {
+      using CtorTy = void (*)();
+      for (const std::string &name : pProgram->GetGlobalCtors()) {
+        auto ctor =
+            reinterpret_cast<CtorTy>(pCPUProgram->GetPointerToFunction(name));
+        ctor();
+      }
+    } else {
+      llvm::Error err = LLJIT->initialize(LLJIT->getMainJITDylib());
+      if (err) {
+        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+        throw Exceptions::CompilerException("Failed to run LLJIT initialize");
+      }
     }
   }
 
   // Get pointer of global variables
   std::vector<cl_prog_gv> &globalVariables = pProgram->GetGlobalVariables();
-  for (auto &gv : globalVariables) {
-    std::string name(gv.name);
-    uintptr_t addr;
-    if (executionEngine) {
-      addr =
-          static_cast<uintptr_t>(executionEngine->getGlobalValueAddress(name));
-    } else {
-      auto sym = LLJIT->lookupLinkerMangled(name);
-      if (llvm::Error err = sym.takeError()) {
-        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
-        throw Exceptions::CompilerException(
-            "Failed to get address of global variable " + name);
-      }
-      addr = static_cast<uintptr_t>(sym->getAddress());
-    }
-    gv.pointer = reinterpret_cast<void *>(addr);
-  }
+  for (auto &gv : globalVariables)
+    gv.pointer = pCPUProgram->GetPointerToGlobalValue(gv.name);
 }
 }}} // namespace

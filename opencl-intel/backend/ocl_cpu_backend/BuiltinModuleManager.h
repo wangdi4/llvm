@@ -15,7 +15,7 @@
 #pragma once
 #include <map>
 #include "CPUDetect.h"
-#include "LLJIT2.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 
 namespace llvm
 {
@@ -72,7 +72,7 @@ public:
     /**
      * Register symbols of CPU builtins to LLJIT.
      */
-    llvm::Error RegisterCPUBIFunctionsToLLJIT(LLJIT2 *LLJIT);
+    llvm::Error RegisterCPUBIFunctionsToLLJIT(llvm::orc::LLJIT *LLJIT);
 
 private:
     template <typename DeviceBuiltinLibrary>

@@ -36,7 +36,6 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MemoryBuffer.h"
 
 #include <string>
 
@@ -294,17 +293,6 @@ CPUCompiler::~CPUCompiler()
     delete m_pVTuneListener;
 }
 
-void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
-{
-    llvm::Module *pM = pf->getParent();
-
-    // Perform codegen if needed (by constructing an EE for the module)
-    if(!m_pExecEngine)
-      m_pExecEngine = CreateCPUExecutionEngine(pM);
-
-    return reinterpret_cast<void*>(m_pExecEngine->getFunctionAddress(pf->getName().str()));
-}
-
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )
 {
     Intel::ECPU selectedCpuId = Utils::GetOrDetectCpuId( cpuName );
@@ -390,12 +378,35 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
 }
 
-std::unique_ptr<LLJIT2> CPUCompiler::CreateLLJIT() {
+std::unique_ptr<llvm::orc::LLJIT>
+CPUCompiler::CreateLLJIT(llvm::Module *M,
+                         std::unique_ptr<llvm::TargetMachine> TM,
+                         ObjectCodeCache *ObjCache) {
+    // TargetMachine builder
+    llvm::orc::JITTargetMachineBuilder
+        JTMB((llvm::Triple(M->getTargetTriple())));
+    if (!TM) {
+        auto TMDefault = JTMB.createTargetMachine();
+        if (!TMDefault)
+            throw Exceptions::CompilerException("createTargetMachine failed");
+        TM = std::move(*TMDefault);
+    }
+
     // Create LLJIT instance
-    Expected<std::unique_ptr<LLJIT2>> LLJITOrErr = LLJIT2Builder().create();
+    Expected<std::unique_ptr<llvm::orc::LLJIT>> LLJITOrErr =
+        llvm::orc::LLJITBuilder()
+            .setJITTargetMachineBuilder(std::move(JTMB))
+            .setCompileFunctionCreator(
+                [&](llvm::orc::JITTargetMachineBuilder JTMB)
+                    -> Expected<std::unique_ptr<
+                        llvm::orc::IRCompileLayer::IRCompiler>> {
+                    return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+                        std::move(TM), ObjCache);
+                })
+            .create();
     if (!LLJITOrErr)
         throw Exceptions::CompilerException("Failed to create LLJIT");
-    std::unique_ptr<LLJIT2> &LLJIT = LLJITOrErr.get();
+    std::unique_ptr<llvm::orc::LLJIT> &LLJIT = LLJITOrErr.get();
 
     // Register JITEventListener
     llvm::orc::RTDyldObjectLinkingLayer &LL =
@@ -407,10 +418,10 @@ std::unique_ptr<LLJIT2> CPUCompiler::CreateLLJIT() {
         LL.registerJITEventListener(*m_pVTuneListener);
 
     // Enable searching for symbols in the current process.
-    char GlobalPrefix = '\0';
+    const llvm::DataLayout &DL = LLJIT->getDataLayout();
     auto Generator =
         llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
-            GlobalPrefix);
+            DL.getGlobalPrefix());
     if (!Generator)
         throw Exceptions::CompilerException(
             "Failed to create DynamicLibrarySearchGenerator");
@@ -428,6 +439,7 @@ std::unique_ptr<LLJIT2> CPUCompiler::CreateLLJIT() {
 }
 
 bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
+#ifdef _WIN32
     bool hasCUs =
         (pModule->debug_compile_units_begin() !=
          pModule->debug_compile_units_end());
@@ -438,48 +450,42 @@ bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
         intel::Native;
   
     return useLLDJIT;
+#else
+    return false;
+#endif
 }
 
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule) const
 {
-    llvm::ExecutionEngine* pExecEngine;
+    llvm::ExecutionEngine* pExecEngine = nullptr;
 #ifdef _WIN32
-    if (useLLDJITForExecution(pModule))
-    {
-        LLDJITBuilder::prepareModuleForLLD(pModule);
-        auto TargetMachine = GetTargetMachine(pModule);
-        pExecEngine = LLDJITBuilder::CreateExecutionEngine(pModule, TargetMachine);
-    }
-    else
-#endif
-    {
-        std::string strErr;
-
-        std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
-
-        llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
-        builder.setEngineKind(llvm::EngineKind::JIT);
-        builder.setErrorStr(&strErr);
-        builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
-            new SectionMemoryManager()));
-
-        auto TargetMachine = GetTargetMachine(pModule);
-        pExecEngine = builder.create(TargetMachine);
-    }
+    LLDJITBuilder::prepareModuleForLLD(pModule);
+    auto TargetMachine = GetTargetMachine(pModule);
+    pExecEngine = LLDJITBuilder::CreateExecutionEngine(pModule, TargetMachine);
     if ( nullptr == pExecEngine )
-    {
         throw Exceptions::CompilerException("Failed to create execution engine");
-    }
 
     if (m_pVTuneListener)
         pExecEngine->RegisterJITEventListener(m_pVTuneListener);
-
+#endif
     return pExecEngine;
 }
 
 llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
 {
     return m_pBuiltinModule->GetBuiltinModuleList();
+}
+
+std::unique_ptr<MemoryBuffer>
+CPUCompiler::SimpleCompile(llvm::Module *module, ObjectCodeCache *objCache)
+{
+    llvm::TargetMachine* targetMachine = GetTargetMachine(module);
+    llvm::orc::SimpleCompiler simpleCompiler(*targetMachine, objCache);
+    auto objBuffer = simpleCompiler(*module);
+    if (!objBuffer)
+        throw Exceptions::CompilerException(
+            "Failed to compile module using SimpleCompiler");
+    return std::move(*objBuffer);
 }
 
 void CPUCompiler::SetObjectCache(ObjectCodeCache* pCache)

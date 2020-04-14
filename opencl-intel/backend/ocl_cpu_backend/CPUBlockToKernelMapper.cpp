@@ -54,9 +54,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
              "Cannot find block invoke kernel in the module");
 
       // obtain CPUProgram
-      CPUProgram * pCpuProgram = static_cast<CPUProgram*>(pProgram);
+      CPUProgram *pCpuProgram = static_cast<CPUProgram*>(pProgram);
       // obtain entry point of block_invoke function
-      const void * entry = pCpuProgram->GetPointerToFunction(pBlockInvokeFunc);
+      const void *entry =
+          pCpuProgram->GetPointerToFunction(pBlockInvokeFunc->getName());
       assert(entry && "pointer to JIT of block_invoke is NULL");
       // insert pair <key, Kernel object)
       m_map[entry] = pKernel;
