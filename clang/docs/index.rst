@@ -19,6 +19,7 @@ Intel-only Features and Customizations
    :maxdepth: 1
 
    Intel/ArbitraryPrecisionIntegers
+   Intel/SIMDFunctionPointers
    IntelCustomizations
 
 .. end INTEL_CUSTOMIZATION
