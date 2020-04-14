@@ -2086,6 +2086,9 @@ void Parser::skipUnsupportedTargetDirectives() {
       Diag(getCurToken().getLocation(),
          diag::warn_pragma_omp_ignored_for_target)
           << getOpenMPDirectiveName(NewDKind) << T.getArchName();
+      Diags.OptReportHandler.AddIgnoredPragma(
+          Actions.getCurFunctionDecl(), getOpenMPDirectiveName(NewDKind),
+          getCurToken().getLocation());
       SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch);
       TPA.Commit();
     } else {
@@ -2190,6 +2193,9 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
       if (!isAllowedInSPIRSubset(DKind)) {
         Diag(Tok, diag::warn_pragma_omp_ignored_for_target)
             << getOpenMPDirectiveName(DKind) << T.getArchName();
+        Diags.OptReportHandler.AddIgnoredPragma(
+            Actions.getCurFunctionDecl(), getOpenMPDirectiveName(DKind),
+            getCurToken().getLocation());
         SkipUntil(tok::annot_pragma_openmp_end);
         return Directive;
       }

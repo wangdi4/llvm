@@ -30,21 +30,6 @@
 using namespace clang;
 using namespace CodeGen;
 
-#if INTEL_CUSTOMIZATION
-static bool useFrontEndOutlining(CodeGenModule &CGM, const Stmt *S) {
-  if (S->getStmtClass() == Stmt::OMPTargetDirectiveClass)
-    return !CGM.getLangOpts().OpenMPLateOutlineTarget;
-
-  if (S->getStmtClass() == Stmt::OMPAtomicDirectiveClass) {
-    if (CGM.getLangOpts().OpenMPLateOutlineAtomic)
-      return false;
-    return true;
-  }
-
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 //                              Statement Emission
 //===----------------------------------------------------------------------===//
@@ -90,7 +75,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().OpenMPLateOutline && !useFrontEndOutlining(CGM, S)) {
+  if (CGM.getLangOpts().OpenMPLateOutline && !useFrontEndOutlining(S)) {
 #else
   if (CGM.getLangOpts().OpenMPLateOutline) {
 #endif // INTEL_CUSTOMIZATION

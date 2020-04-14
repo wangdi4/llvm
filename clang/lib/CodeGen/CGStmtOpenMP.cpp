@@ -26,6 +26,7 @@
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/AST/StmtVisitor.h" // INTEL
+#include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 #include "clang/Basic/PrettyStackTrace.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/Constants.h"
@@ -6581,3 +6582,39 @@ void CodeGenFunction::EmitSimpleOMPExecutableDirective(
   // Check for outer lastprivate conditional update.
   checkForLastprivateConditionalUpdate(*this, D);
 }
+
+#if INTEL_CUSTOMIZATION
+bool CodeGenFunction::useFrontEndOutlining(const Stmt *S) {
+  switch (S->getStmtClass()) {
+  case Stmt::OMPTargetDirectiveClass:
+    return !CGM.getLangOpts().OpenMPLateOutlineTarget;
+  case Stmt::OMPAtomicDirectiveClass: {
+    if (CGM.getLangOpts().OpenMPLateOutlineAtomic)
+      return false;
+    const auto *Dir = cast<OMPAtomicDirective>(S);
+    OpenMPDirectiveKind DirKind = Dir->getDirectiveKind();
+    OpenMPClauseKind Kind = OMPC_update;
+    for (const auto *C : Dir->clauses()) {
+      if (C->getClauseKind() == OMPC_read || C->getClauseKind() == OMPC_write ||
+          C->getClauseKind() == OMPC_update ||
+          C->getClauseKind() == OMPC_capture) {
+        Kind = C->getClauseKind();
+        break;
+      }
+    }
+    llvm::OptimizationRemarkEmitter ORE(CurFn);
+    llvm::DiagnosticLocation DL = SourceLocToDebugLoc(S->getBeginLoc());
+    llvm::OptimizationRemark R("openmp", "Region", DL, &CurFn->getEntryBlock());
+    R << llvm::ore::NV("Construct",
+                       std::string(getOpenMPDirectiveName(DirKind)) + ' ' +
+                           std::string(getOpenMPClauseName(Kind)))
+      << " construct handled by clang";
+    ORE.emit(R);
+    return true;
+  }
+  default:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
