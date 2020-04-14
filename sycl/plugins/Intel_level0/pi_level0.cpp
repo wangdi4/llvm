@@ -205,7 +205,7 @@ ze_command_list_handle_t _pi_device::createCommandList()
   // for each PI command, if that appears to be important.
   //
   ze_command_list_handle_t ze_command_list = nullptr;
-  ze_command_list_desc_t ze_command_list_desc;
+  ze_command_list_desc_t ze_command_list_desc = {};
   ze_command_list_desc.version = ZE_COMMAND_LIST_DESC_VERSION_CURRENT;
 
   // TODO: can we just reset the command-list created when an earlier
@@ -507,8 +507,8 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
       // Created as synchronous so level-zero performs implicit synchronization and
       // there is no need to query for completion in the plugin
       ze_device_handle_t ze_device = L0PiDevice->L0Device;
-      ze_command_queue_desc_t ze_command_queue_desc =
-          {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
+      ze_command_queue_desc_t ze_command_queue_desc = {};
+      ze_command_queue_desc.version = ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT;
       ze_command_queue_desc.ordinal = 0;
       ze_command_queue_desc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
       ZE_CALL(zeCommandListCreateImmediate(ze_device, &ze_command_queue_desc,
@@ -1119,6 +1119,13 @@ pi_result L0(piDevicePartition)(
     L0PiDevice->IsSubDevice = true;
     L0PiDevice->RefCount = 1;
     out_devices[i] = L0PiDevice;
+
+    // Cache device properties
+    L0PiDevice->L0DeviceProperties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
+    ZE_CALL(zeDeviceGetProperties(ze_subdevices[i], &L0PiDevice->L0DeviceProperties));
+
+    L0PiDevice->L0DeviceComputeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
+    ZE_CALL(zeDeviceGetComputeProperties(ze_subdevices[i], &L0PiDevice->L0DeviceComputeProperties));
   }
   delete[] ze_subdevices;
 
@@ -1230,8 +1237,8 @@ pi_result L0(piQueueCreate)(
   }
 
   ze_device = device->L0Device;
-  ze_command_queue_desc_t ze_command_queue_desc =
-    {ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT};
+  ze_command_queue_desc_t ze_command_queue_desc = {};
+  ze_command_queue_desc.version = ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT;
   ze_command_queue_desc.ordinal = 0;
   ze_command_queue_desc.mode = ZE_COMMAND_QUEUE_MODE_ASYNCHRONOUS;
 
@@ -1318,7 +1325,7 @@ pi_result piMemBufferCreate(
   ze_device_handle_t ze_device = context->Device->L0Device;
 
   // TODO: translate errors
-  ze_device_mem_alloc_desc_t ze_desc;
+  ze_device_mem_alloc_desc_t ze_desc = {};
   ze_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_desc.ordinal = 0;
   ZE_CALL(zeDriverAllocDeviceMem(
@@ -1565,7 +1572,7 @@ pi_result L0(piProgramCreate)(
 
   ze_device_handle_t ze_device = context->Device->L0Device;
 
-  ze_module_desc_t ze_module_desc;
+  ze_module_desc_t ze_module_desc = {};
   ze_module_desc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ze_module_desc.format = ZE_MODULE_FORMAT_IL_SPIRV;
   ze_module_desc.inputSize = length;
@@ -1609,7 +1616,7 @@ pi_result L0(piclProgramCreateWithBinary)(
   size_t length = lengths[0];
   auto binary = pi_cast<const uint8_t*>(binaries[0]);
 
-  ze_module_desc_t ze_module_desc;
+  ze_module_desc_t ze_module_desc = {};
   ze_module_desc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ze_module_desc.format = ZE_MODULE_FORMAT_NATIVE;
   ze_module_desc.inputSize = length;
@@ -1820,7 +1827,7 @@ pi_result L0(piKernelCreate)(
   const char *    kernel_name,
   pi_kernel *     ret_kernel) {
 
-  ze_kernel_desc_t ze_kernel_desc;
+  ze_kernel_desc_t ze_kernel_desc = {};
   ze_kernel_desc.version = ZE_KERNEL_DESC_VERSION_CURRENT;
   ze_kernel_desc.flags = ZE_KERNEL_FLAG_NONE;
   ze_kernel_desc.pKernelName = kernel_name;
@@ -2152,7 +2159,7 @@ pi_result L0(piEventCreate)(
 {
   ze_result_t ze_res;
 
-  ze_event_pool_desc_t ze_event_pool_desc;
+  ze_event_pool_desc_t ze_event_pool_desc = {};
   ze_event_pool_desc.count = 1;
   ze_event_pool_desc.flags = ZE_EVENT_POOL_FLAG_TIMESTAMP;
   ze_event_pool_desc.version = ZE_EVENT_POOL_DESC_VERSION_CURRENT;
@@ -2172,7 +2179,7 @@ pi_result L0(piEventCreate)(
   }
 
   ze_event_handle_t ze_event;
-  ze_event_desc_t ze_event_desc;
+  ze_event_desc_t ze_event_desc = {};
   ze_event_desc.signal = ZE_EVENT_SCOPE_FLAG_NONE;
   ze_event_desc.wait = ZE_EVENT_SCOPE_FLAG_NONE;
   ze_event_desc.version = ZE_EVENT_DESC_VERSION_CURRENT;
@@ -2417,8 +2424,8 @@ pi_result L0(piSamplerCreate)(
   ze_device_handle_t ze_device = context->Device->L0Device;
 
   ze_sampler_handle_t ze_sampler;
-  ze_sampler_desc_t ze_sampler_desc =
-    {ZE_SAMPLER_DESC_VERSION_CURRENT};
+  ze_sampler_desc_t ze_sampler_desc = {};
+  ze_sampler_desc.version = ZE_SAMPLER_DESC_VERSION_CURRENT;
 
   // Set the default values for the ze_sampler_desc.
   ze_sampler_desc.isNormalized = PI_TRUE;
@@ -3027,7 +3034,7 @@ pi_result L0(piEnqueueMemBufferMap)(
     *ret_map = buffer->MapHostPtr + offset;
   }
   else {
-    ze_host_mem_alloc_desc_t ze_desc;
+    ze_host_mem_alloc_desc_t ze_desc = {};
     ze_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
     ZE_CALL(zeDriverAllocHostMem(
       queue->Context->Device->Platform->L0Driver,
@@ -3466,7 +3473,7 @@ pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
                                 pi_usm_mem_properties *properties, size_t size,
                                 pi_uint32 alignment) {
 
-  ze_host_mem_alloc_desc_t ze_desc;
+  ze_host_mem_alloc_desc_t ze_desc = {};
   ze_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
   // TODO: translate PI properties to L0 flags
   ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocHostMem(
@@ -3494,7 +3501,7 @@ pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
                                   size_t size, pi_uint32 alignment) {
 
   // TODO: translate PI properties to L0 flags
-  ze_device_mem_alloc_desc_t ze_desc;
+  ze_device_mem_alloc_desc_t ze_desc = {};
   ze_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_desc.ordinal = 0;
   ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocDeviceMem(
@@ -3526,9 +3533,9 @@ pi_result L0(piextUSMSharedAlloc)(
   pi_uint32               alignment) {
 
   // TODO: translate PI properties to L0 flags
-  ze_host_mem_alloc_desc_t ze_host_desc;
+  ze_host_mem_alloc_desc_t ze_host_desc = {};
   ze_host_desc.flags = ZE_HOST_MEM_ALLOC_FLAG_DEFAULT;
-  ze_device_mem_alloc_desc_t ze_dev_desc;
+  ze_device_mem_alloc_desc_t ze_dev_desc = {};
   ze_dev_desc.flags = ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT;
   ze_dev_desc.ordinal = 0;
   ze_result_t ze_result = ZE_CALL_NOTHROW(zeDriverAllocSharedMem(

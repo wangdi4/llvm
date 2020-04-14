@@ -448,9 +448,13 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 #endif
 
 #if INTEL_CUSTOMIZATION
-  // The Intel compiler defaults to -O2
-  if (Args.hasArg(options::OPT__intel) && !Args.hasArg(options::OPT_O_Group)) {
-    DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
+  if (Args.hasArg(options::OPT__intel)) {
+    // The Intel compiler defaults to -O2
+    if (!Args.hasArg(options::OPT_O_Group))
+      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
+    // -fveclib=SVML default.
+    if (!Args.hasArg(options::OPT_fveclib))
+      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
   }
 #endif // INTEL_CUSTOMIZATION
 

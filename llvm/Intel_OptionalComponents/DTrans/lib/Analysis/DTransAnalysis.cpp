@@ -654,6 +654,10 @@ public:
     ElementPointees.insert(std::make_pair(Base, Loc));
   }
 
+  void addElementZeroAlias(llvm::Type *Ty) {
+    ElementZeroAliases.insert(Ty);
+  }
+
   bool typesCompatible(llvm::Type *T1, llvm::Type *T2) {
     if (T1 == nullptr || T2 == nullptr)
       return false;
@@ -785,6 +789,7 @@ public:
 
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
+  PointerTypeAliasSetRef getElementZeroAliasSet() { return ElementZeroAliases; }
 
   void merge(const LocalPointerInfo &Other) {
     // This routine is called during analysis, so don't change AnalysisState.
@@ -888,6 +893,27 @@ private:
   bool AliasesToAggregatePointer;
   PointerTypeAliasSet PointerTypeAliases;
   ElementPointeeSet ElementPointees;
+
+  // When the first element of a structure is an i8 (or array of i8 types), or
+  // ptr-to-ptr type, a bitcast of a pointer to the structure to an i8* captures
+  // the result in the ElementPointee set as being element 0 of the innermost
+  // nested type of the aggregate. However, the result of the bitcast could also
+  // be used for a byte flattened GEP. This list is to maintain the set of other
+  // possible aggregate types the address is equivalent to for being able to
+  // determine the field if the bitcast result ends up being used for a
+  // byte-flattened GEP.
+  //
+  // For example:
+  //   %class.C = type { i32 (...)**, i32 }
+  //   %class.B = type{ %class.C }
+  //   %bc = bitcast %class.B* to i8*
+  //
+  // %bc could be being used for the vtable address in %class.C, or for a
+  // byte-flatted GEP.
+  // ElementPointees will record the result of %bc as %class.C @ 0.
+  // ElementZeroAliases will record the result of %bc as coming from %class.B.
+  PointerTypeAliasSet ElementZeroAliases;
+
   bool IsPartialPtrLoadStore;
 };
 
@@ -1382,6 +1408,18 @@ private:
                dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
                                           &AccessedTy))) {
             Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
+
+            // Capture the original type to allow for evaluating the pointer as
+            // a potential byte-flattened GEP.
+            // For example:
+            //   struct.test = type { [256 x i8], i64 }
+            //   %y = bitcast %struct.test* %x to i8*
+            // This will have captured [258 x i8] @ 0 as the element pointee,
+            // and i8* as the aliased type. However, %y could be get used as a
+            // byte-flattened GEP, capture the aggregate type for use during
+            // byte-flattened GEP analysis.
+            Info.addElementZeroAlias(AliasTy->getPointerElementType());
+
             IsElementZeroAccess = true;
             // If the bitcast is to an i8** and element zero of the accessed
             // type is a pointer, we need to add the type of that pointer
@@ -1542,6 +1580,21 @@ private:
   // TODO: add special processing for constant offsets which are multiples of
   // structure size.
   bool analyzeByteFlattenedGEPAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
+
+    // Return 'true' and update 'LocalInfo' with the elements addressed by a
+    // byte flattened GEP, if all the Offsets match element boundaries.
+    // Otherwise, return false.
+    auto CheckIfAllOffsetsValid = [this](GEPOperator *GEP, llvm::Type *CurrType,
+                                         const SmallVectorImpl<APInt> &APOffset,
+                                         LocalPointerInfo &LocalInfo) {
+      for (auto &APOffsetVal : APOffset)
+        if (!analyzePossibleOffsetAggregateAccess(
+                GEP, CurrType, APOffsetVal.getLimitedValue(), LocalInfo))
+          return false;
+
+      return true;
+    };
+
     Value *BasePointer = GEP->getPointerOperand();
     // The caller should have checked this.
     assert(BasePointer->getType() ==
@@ -1595,23 +1648,27 @@ private:
         continue;
       }
       if (!HasPtrToPtrAlias) {
-        // Try all possible offsets one by one.
-        uint32_t Res = 0;
         auto *CurrType = AliasTy->getPointerElementType();
         LocalPointerInfo LocalInfo;
-        for (auto &APOffsetVal : APOffset) {
-          if (analyzePossibleOffsetAggregateAccess(
-                  GEP, CurrType, APOffsetVal.getLimitedValue(), LocalInfo))
-            Res++;
-        }
-        // If all offsets are appropriate - add those element pointees and
-        // return true.
-        if (Res == APOffset.size()) {
+        if (CheckIfAllOffsetsValid(GEP, CurrType, APOffset, LocalInfo)) {
           Info.merge(LocalInfo);
           return true;
         }
       }
     }
+
+    // If a match was not found in the pointer alias set, it's still possible
+    // that a pointer to an aggregate was bitcast to a i8*, which is treated as
+    // an element zero access. Check if the offset is a valid offset from a type
+    // the value was bitcast from to an i8*.
+    for (auto *CurrType : BaseLPI.getElementZeroAliasSet()) {
+      LocalPointerInfo LocalInfo;
+      if (CheckIfAllOffsetsValid(GEP, CurrType, APOffset, LocalInfo)) {
+        Info.merge(LocalInfo);
+        return true;
+      }
+    }
+
     if (HasPtrToPtrAlias)
       return true;
     // If none of the aliased types was a match, we can't identify any field
@@ -4875,14 +4932,57 @@ public:
 
         auto *DomTy = SrcLPI.getDominantAggregateTy();
         llvm::Type *DomAggTy = nullptr;
-        if (DomTy && DomTy->isPointerTy())
+        if (DomTy && DomTy->isPointerTy()) {
           DomAggTy = DomTy->getPointerElementType();
+        } else {
+
+          // If there was no dominant type for the GEP pointer source, it may be
+          // due to it being a element zero access. In this case, search for
+          // a structure type in the element zero set. This is necessary because
+          // a bitcast of a type that starts with a ptr-to-ptr, i8*, or array of
+          // i8 elements does not have the type added to the alias set.
+          for (auto *CurrType : SrcLPI.getElementZeroAliasSet()) {
+            // TODO: Array aggregates are ignored for now because we don't need
+            // byte-flattened GEP information about them.
+            if (!CurrType->isStructTy())
+              continue;
+            if (DomAggTy) {
+              DomAggTy = nullptr;
+              break;
+            }
+            DomAggTy = DomTy;
+          }
+        }
 
         if (DomAggTy && DomAggTy->isStructTy() && Offset > 0 &&
-            static_cast<uint64_t>(Offset) < DL.getTypeStoreSize(DomAggTy) &&
-            OnlyUsedForMemset(I)) {
-          // Record the access offset to allow the memset analyzer to check it.
-          GEPLPI.addElementPointeeByOffset(DomAggTy, Offset);
+            static_cast<uint64_t>(Offset) < DL.getTypeStoreSize(DomAggTy)) {
+          if (OnlyUsedForMemset(I)) {
+            // Record the access offset to allow the memset analyzer to check
+            // it.
+            GEPLPI.addElementPointeeByOffset(DomAggTy, Offset);
+          } else {
+            // We know "Offset" is positive from the above test. Convert it to
+            // an unsigned type to avoid sign mismatch compiler warnings during
+            // comparisons.
+            uint64_t UOffset = static_cast<uint64_t>(Offset);
+            auto *SL = DL.getStructLayout(cast<llvm::StructType>(DomAggTy));
+            bool Matched = false;
+            if (UOffset < SL->getSizeInBytes()) {
+              unsigned IdxAtOffset = SL->getElementContainingOffset(UOffset);
+              uint64_t ElementOffset = SL->getElementOffset(IdxAtOffset);
+              if (UOffset == ElementOffset) {
+                GEPLPI.addElementPointee(DomAggTy, IdxAtOffset);
+                std::pair<llvm::Type *, size_t> Pointee(DomAggTy, IdxAtOffset);
+                DTInfo.addByteFlattenedGEPMapping(I, Pointee);
+                Matched = true;
+              }
+            }
+            if (!Matched) {
+              LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
+                                << "  " << *I << "\n");
+              setBaseTypeInfoSafetyData(DomAggTy, dtrans::BadPtrManipulation);
+            }
+          }
         } else {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                             << "  " << *I << "\n");
@@ -5327,6 +5427,41 @@ public:
       analyzeStructureType(TI);
   }
 
+  // Identify the call graph information that collects the outermost type that a
+  // method operates upon.
+  // Note: This function needs to be run after the local pointer analyzer
+  // visitor has completed because it can cause analyzeValue to be run on
+  // elements during the check of "isValueOfInterest" that have not been visited
+  // yet. Unfortunately, with the current implementation of the "visit"
+  // functions, differences may occur when analyzeValue is called for a Value
+  // prior to the corresponding "visit" function being executed.
+  void collectCallGraphInfo(Module &M) {
+    for (auto &F : M) {
+      for (auto It = inst_begin(&F), E = inst_end(&F); It != E; ++It) {
+        Instruction &I = *It;
+        if (isValueOfInterest(&I)) {
+          DEBUG_WITH_TYPE(
+              DTRANS_CG, dbgs()
+                             << "dtrans-cg: CGraph update for Instruction -- \n"
+                             << "  " << I << "\n");
+          setBaseTypeCallGraph(I.getType(), &F);
+        }
+
+        for (Value *Arg : I.operands()) {
+          if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
+            continue;
+          if (isValueOfInterest(Arg)) {
+            DEBUG_WITH_TYPE(DTRANS_CG,
+                            dbgs()
+                                << "dtrans-cg: CGraph update for Operand  -- \n"
+                                << "  " << *Arg << "\n");
+            setBaseTypeCallGraph(Arg->getType(), &F);
+          }
+        }
+      }
+    }
+  }
+
   void visitFunction(Function &F) {
     // There's nothing that needs to be done here. The argument uses will be
     // analyzed as the instructions are visited, but when we are running
@@ -5350,32 +5485,6 @@ public:
 
     // Call the base class to visit the instructions in the function.
     InstVisitor<DTransInstVisitor>::visitFunction(F);
-  }
-
-  void visitBasicBlock(BasicBlock &BB) {
-    InstVisitor<DTransInstVisitor>::visitBasicBlock(BB);
-
-    auto &F = *BB.getParent();
-    for (auto &I : BB) {
-      if (isValueOfInterest(&I)) {
-        DEBUG_WITH_TYPE(DTRANS_CG,
-                        dbgs()
-                            << "dtrans-cg: CGraph update for Instruction -- \n"
-                            << "  " << I << "\n");
-        setBaseTypeCallGraph(I.getType(), &F);
-      }
-
-      for (Value *Arg : I.operands()) {
-        if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
-          continue;
-        if (isValueOfInterest(Arg)) {
-          DEBUG_WITH_TYPE(
-              DTRANS_CG, dbgs() << "dtrans-cg: CGraph update for Operand  -- \n"
-                                << "  " << *Arg << "\n");
-          setBaseTypeCallGraph(Arg->getType(), &F);
-        }
-      }
-    }
   }
 
   // Accumulate field frequency of \p FI that is accessed in \p I.
@@ -9335,6 +9444,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
+  Visitor.collectCallGraphInfo(M);
   DEBUG_WITH_TYPE(DTRANS_LPA_RESULTS, Visitor.dump(M));
   Visitor.processDeferredPointerCarriedSafetyData();
   DTBCA.analyzeAfterVisit();
