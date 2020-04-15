@@ -289,7 +289,6 @@ bool VPlanDivergenceAnalysis::isTemporalDivergent(
 VPVectorShape
 VPlanDivergenceAnalysis::getObservedShape(const VPBasicBlock &ObserverBlock,
                                           const VPValue &Val) {
-
   if (isTemporalDivergent(ObserverBlock, Val))
     return getRandomVectorShape();
 
@@ -637,6 +636,14 @@ bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
 
 #if INTEL_CUSTOMIZATION
 VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
+  auto *NonConstDA = const_cast<VPlanDivergenceAnalysis *>(this);
+  if (isAlwaysUniform(*V))
+    return NonConstDA->getUniformVectorShape();
+
+  // FIXME: This needs an explicit vector IV.
+  if (RegionLoop->getLoopLatch()->getCondBit() == V)
+    return NonConstDA->getUniformVectorShape();
+
   auto ShapeIter = VectorShapes.find(V);
   if (ShapeIter != VectorShapes.end())
     return ShapeIter->second;
@@ -1453,10 +1460,13 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   SDA = new SyncDependenceAnalysis(RegionLoop->getHeader(), VPDomTree,
                                    VPPostDomTree, *VPLInfo);
 
-  // Initialize the shapes of instructions which can be determined statically.
-  init();
+  // Push everything to the worklist.
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
+  for (auto *BB : RPOT)
+    for (auto &Inst : *BB)
+      pushToWorklist(Inst);
 
-  // Compute the shapes of instructions.
+  // Compute the shapes of instructions - iterate until fixed point is reached.
   computeImpl();
 
 #if INTEL_CUSTOMIZATION

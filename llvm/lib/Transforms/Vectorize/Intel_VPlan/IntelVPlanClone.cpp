@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanClone.h"
+#include "IntelVPBasicBlock.h"
 
 namespace llvm {
 namespace vpo {
@@ -22,7 +23,7 @@ void VPValueMapper::remapInstruction(VPInstruction *Inst) {
 
   if (auto Phi = dyn_cast<VPPHINode>(Inst)) {
     for (auto &B : Phi->blocks()) {
-      B = remapValue(Block2BlockMap, B);
+      B = cast<VPBasicBlock>(remapValue(Value2ValueMap, B));
     }
   }
 }
@@ -30,14 +31,12 @@ void VPValueMapper::remapInstruction(VPInstruction *Inst) {
 /// Clone \p Block and its instructions.
 /// Remapping happens later by VPValueMapper which must be called by user.
 VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
-                                            std::string Prefix,
-                                            Block2BlockMapTy &BlockMap,
+                                            const Twine &Prefix,
                                             Value2ValueMapTy &ValueMap,
                                             VPlan::iterator InsertBefore,
                                             VPlanDivergenceAnalysis *DA) {
-  Prefix = Prefix == "" ? "cloned." : Prefix;
+  VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix, Block->getParent());
   std::string Name = VPlanUtils::createUniqueName((Prefix + Block->getName()));
-  VPBasicBlock *ClonedBlock = new VPBasicBlock(Prefix);
   ClonedBlock->setName(Name);
   Block->getParent()->insertBefore(ClonedBlock, InsertBefore);
 
@@ -52,7 +51,7 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     }
   }
 
-  BlockMap.insert({Block, ClonedBlock});
+  ValueMap.insert({Block, ClonedBlock});
   if (auto CondBit = Block->getCondBit()) {
     VPValue *ClonedCondBit = CondBit;
     if (auto CondBitInst = dyn_cast<VPInstruction>(CondBit)) {
@@ -70,17 +69,16 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
 
 /// Clone given blocks from Begin to End
 /// Remapping happens later by VPValueMapper which must be called by user.
-VPBasicBlock *VPCloneUtils::cloneBlocksRange(
-    VPBasicBlock *Begin, VPBasicBlock *End, Block2BlockMapTy &BlockMap,
-    Value2ValueMapTy &ValueMap, VPlanDivergenceAnalysis *DA, Twine Prefix) {
-  if (Prefix.isTriviallyEmpty())
-    Prefix.concat("cloned.");
+VPBasicBlock *VPCloneUtils::cloneBlocksRange(VPBasicBlock *Begin,
+                                             VPBasicBlock *End,
+                                             Value2ValueMapTy &ValueMap,
+                                             VPlanDivergenceAnalysis *DA,
+                                             const Twine &Prefix) {
 
   auto Iter = df_begin(Begin);
   auto EndIter = df_end(Begin);
   while (Iter != EndIter) {
-    cloneBasicBlock(*Iter, Prefix.str(), BlockMap, ValueMap,
-                    ++End->getIterator(), DA);
+    cloneBasicBlock(*Iter, Prefix.str(), ValueMap, ++End->getIterator(), DA);
     if (*Iter == End) {
       // Don't go outside of SESE region. It does move the iterator, so avoid
       // usual increment.
@@ -106,16 +104,16 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(
     }
 
     VPBasicBlock *Orig = *Iter;
-    VPBasicBlock *Clone = BlockMap[Orig];
+    auto *Clone = cast<VPBasicBlock>(ValueMap[Orig]);
     for (VPBasicBlock *OrigSucc : Orig->getSuccessors()) {
-      VPBasicBlock *CloneSucc = BlockMap[OrigSucc];
+      auto *CloneSucc = cast<VPBasicBlock>(ValueMap[OrigSucc]);
       Clone->appendSuccessor(CloneSucc);
       CloneSucc->appendPredecessor(Clone);
     }
     ++Iter;
   }
 
-  return BlockMap[Begin];
+  return cast<VPBasicBlock>(ValueMap[Begin]);
 }
 
 } // namespace vpo

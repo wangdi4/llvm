@@ -281,8 +281,7 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
   Val = Builder.createAnd(Predicate, Val,
-                          VPValue::getVPNamePrefix() + Block->getName() +
-                              ".br." + Val->getName());
+                          Block->getName() + ".br." + Val->getName());
   Plan.getVPlanDA()->updateDivergence(*Val);
   return Val;
 }
@@ -733,7 +732,8 @@ void VPlanPredicator::linearizeRegion(
     for (auto &It : EdgeToBlendBBs) {
       auto *IncomingBlock = It.first;
       IncomingBlock->getSuccessors().clear();
-      auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("blend.bb"));
+      auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("blend.bb"),
+                                      IncomingBlock->getParent());
       auto *VLoop = VPLI->getLoopFor(CurrBlock);
       assert(VLoop && "VLoop is expected");
       VLoop->addBasicBlockToLoop(BlendBB, *VPLI);

@@ -32,7 +32,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP6]] i32* [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp i64 [[VP8]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = icmp i64 [[VP8]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:

@@ -152,6 +152,7 @@ public:
     VPMetadataAsValueSC,
     VPExternalUseSC,
     VPPrivateMemorySC,
+    VPBasicBlockSC,
   };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
@@ -193,10 +194,12 @@ public:
   }
   /// Return the VPNamePrefix to clients so that proper VPValue-names can be
   /// generated.
-  static StringRef getVPNamePrefix() {
+  StringRef getVPNamePrefix() const {
     // FIXME: Define the VPNamePrefix in some analogue of the
     // llvm::Context just like we plan for the 'Name' field.
     static std::string VPNamePrefix = "vp.";
+    if (isa<VPBasicBlock>(this))
+      return "";
     return VPNamePrefix;
   }
 

@@ -353,7 +353,7 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
   // Plan and increases Plan's size.
   auto createVPBB = [&]() -> VPBasicBlock * {
     VPBasicBlock *NewVPBB =
-        new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
+        new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
     Plan->insertAtBack(NewVPBB);
     return NewVPBB;
   };

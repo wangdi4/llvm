@@ -2110,7 +2110,7 @@ public:
   VPlanUtils() = delete;
 
   /// Create a unique name for a new VPlan entity such as a VPBasicBlock.
-  static std::string createUniqueName(const llvm::StringRef &Prefix) {
+  static std::string createUniqueName(const llvm::Twine &Prefix) {
     std::string S;
     raw_string_ostream RSO(S);
     RSO << Prefix << NextOrdinal++;

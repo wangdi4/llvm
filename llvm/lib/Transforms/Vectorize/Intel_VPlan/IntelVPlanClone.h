@@ -23,21 +23,18 @@ namespace vpo {
 class VPCloneUtils {
 public:
   using Value2ValueMapTy = DenseMap<VPValue *, VPValue *>;
-  using Block2BlockMapTy = DenseMap<VPBasicBlock *, VPBasicBlock *>;
 
   /// Clone given VPBasicBlock \p Block.
-  static VPBasicBlock *cloneBasicBlock(VPBasicBlock *Block, std::string Prefix,
-                                       Block2BlockMapTy &BlockMap,
+  static VPBasicBlock *cloneBasicBlock(VPBasicBlock *Block, const Twine &Prefix,
                                        Value2ValueMapTy &ValueMap,
                                        VPlan::iterator InsertBefore,
                                        VPlanDivergenceAnalysis *DA = nullptr);
 
   /// Clone given blocks from Begin to End
   static VPBasicBlock *cloneBlocksRange(VPBasicBlock *Begin, VPBasicBlock *End,
-                                        Block2BlockMapTy &BlockMap,
                                         Value2ValueMapTy &ValueMap,
                                         VPlanDivergenceAnalysis *DA = nullptr,
-                                        Twine Prefix = Twine());
+                                        const Twine &Prefix = "cloned.");
 };
 
 /// VPValueMapper is responsible to remap instructions within
@@ -47,38 +44,26 @@ public:
 /// to update VPLoopInfo/HCFG wihtout it.
 class VPValueMapper {
 private:
-  VPCloneUtils::Block2BlockMapTy &Block2BlockMap;
   VPCloneUtils::Value2ValueMapTy &Value2ValueMap;
 
   bool AssertForNonCloned;
 
-  /// As long as our VPBasicBlock is not derived from VPValue, we cannot have
-  /// single function to remap VPValue and VPBasicBlock, like
-  /// ValueMapper::remapValue.
-  /// Thus templatization of remapValue and additional argument for a Map are
-  /// necessary now.
-  template <typename MapTy>
-  typename MapTy::mapped_type remapValue(MapTy &Map,
-                                         typename MapTy::key_type Value) {
+  VPValue *remapValue(VPCloneUtils::Value2ValueMapTy &Map, VPValue *Value) {
     auto It = Map.find(Value);
     if (It != Map.end()) {
       return It->second;
     }
-    if (std::is_same<typename MapTy::value_type, VPValue *>::value) {
-      assert(!AssertForNonCloned &&
-             "Either VPBB or VPInstruction was not cloned. Remapping is not "
-             "possible.");
-      return Value;
-    }
-    return Map[Value] = Value;
+    assert(!AssertForNonCloned &&
+           "Either VPBB or VPInstruction was not cloned. Remapping is not "
+           "possible.");
+    Map[Value] = Value;
+    return Value;
   }
 
 public:
-  explicit VPValueMapper(VPCloneUtils::Block2BlockMapTy &BlockMap,
-                         VPCloneUtils::Value2ValueMapTy &ValueMap,
+  explicit VPValueMapper(VPCloneUtils::Value2ValueMapTy &ValueMap,
                          const bool AssertForNonCloned = false)
-      : Block2BlockMap(BlockMap), Value2ValueMap(ValueMap),
-        AssertForNonCloned(AssertForNonCloned) {}
+      : Value2ValueMap(ValueMap), AssertForNonCloned(AssertForNonCloned) {}
 
   void remapInstruction(VPInstruction *Inst);
 };

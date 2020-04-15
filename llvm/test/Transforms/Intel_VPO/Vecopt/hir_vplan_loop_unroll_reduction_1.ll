@@ -35,7 +35,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = load i32* [[VP6]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = add i32 [[VP7]] i32 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP9:%.*]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP10:%.*]] = icmp i64 [[VP9]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP10:%.*]] = icmp i64 [[VP9]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
