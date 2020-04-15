@@ -542,33 +542,10 @@ public:
           return nullptr;
         }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
-  return elf_check_machine(image, 190); // EM_CUDA = 190.
-}
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int32_t __tgt_rtl_number_of_devices() { return DeviceInfo.NumberOfDevices; }
-
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
-  DP("Init requires flags to %ld\n", RequiresFlags);
-  DeviceInfo.RequiresFlags = RequiresFlags;
-  return RequiresFlags;
-}
-
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_init_device(int32_t device_id) {
-=======
         if (CUSize != E->size) {
           DP("Loading global '%s' - size mismatch (%zd != %zd)\n", E->name,
              CUSize, E->size);
@@ -603,7 +580,6 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
 
         continue;
       }
->>>>>>> 4031bb982b7a9bf8603851516ad72374ccc09a6f
 
       CUfunction Func;
       Err = cuModuleGetFunction(&Func, Module, E->name);
@@ -692,20 +668,6 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
           return nullptr;
         }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-__tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
-    __tgt_device_image *image) {
-
-  // Set the context we are using.
-  CUresult err = cuCtxSetCurrent(DeviceInfo.Contexts[device_id]);
-  if (err != CUDA_SUCCESS) {
-    DP("Error when setting a CUDA context for device %d\n", device_id);
-    CUDA_ERR_STRING(err);
-    return NULL;
-=======
         DP("Sending global device environment data %zu bytes\n", CUSize);
       } else {
         DP("Finding global device environment '%s' - symbol missing.\n",
@@ -716,7 +678,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
 
     return getOffloadEntriesTable(DeviceId);
->>>>>>> 4031bb982b7a9bf8603851516ad72374ccc09a6f
   }
 
   void *dataAlloc(const int DeviceId, const int64_t Size) const {
@@ -931,34 +892,39 @@ DeviceRTLTy DeviceRTL;
 extern "C" {
 #endif
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
   return elf_check_machine(image, /* EM_CUDA */ 190);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_number_of_devices() { return DeviceRTL.getNumOfDevices(); }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
   DP("Init requires flags to %ld\n", RequiresFlags);
   DeviceRTL.setRequiresFlag(RequiresFlags);
   return RequiresFlags;
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
-  if (size == 0) {
-    return NULL;
-  }
-=======
 int32_t __tgt_rtl_init_device(int32_t device_id) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
->>>>>>> 4031bb982b7a9bf8603851516ad72374ccc09a6f
 
   return DeviceRTL.initDevice(device_id);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
@@ -966,6 +932,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   return DeviceRTL.loadBinary(device_id, image);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
 
@@ -988,6 +957,9 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
   return __tgt_rtl_synchronize(device_id, &async_info);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_submit_async(int32_t device_id, void *tgt_ptr,
                                     void *hst_ptr, int64_t size,
                                     __tgt_async_info *async_info_ptr) {
@@ -1057,6 +1029,9 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   return __tgt_rtl_synchronize(device_id, &async_info);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_team_region_async(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
@@ -1086,6 +1061,9 @@ int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
   return __tgt_rtl_synchronize(device_id, &async_info);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_region_async(int32_t device_id,
                                           void *tgt_entry_ptr, void **tgt_args,
                                           ptrdiff_t *tgt_offsets,
@@ -1099,6 +1077,9 @@ int32_t __tgt_rtl_run_target_region_async(int32_t device_id,
       async_info_ptr);
 }
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_synchronize(int32_t device_id,
                               __tgt_async_info *async_info_ptr) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
