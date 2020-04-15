@@ -5776,13 +5776,123 @@ const SCEV *ScalarEvolution::createNodeFromSelectLikePHI(PHINode *PN) {
     if (BI && BI->isConditional() &&
         BrPHIToSelect(DT, BI, PN, Cond, LHS, RHS) &&
         IsAvailableOnEntry(L, DT, getSCEV(LHS), PN->getParent()) &&
-        IsAvailableOnEntry(L, DT, getSCEV(RHS), PN->getParent()))
-      return createNodeForSelectOrPHI(PN, Cond, LHS, RHS);
+#if INTEL_CUSTOMIZATION
+        IsAvailableOnEntry(L, DT, getSCEV(RHS), PN->getParent())) {
+      auto *S = createNodeForSelectOrPHI(PN, Cond, LHS, RHS);
+      // Avoid returning a conservative answer to allow the caller to try other
+      // things.
+      return (S != getUnknown(PN)) ? S : nullptr;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+const SCEV *ScalarEvolution::createNodeForIdenticalOperandsPHI(PHINode *PN) {
+  // Checks if all operands of phi have identical Scevs, if so return this Scev
+  // for phi.
+
+  // Check whether we hit a cycle for PN.
+  // For the first detected cycle, we just update the boolean in the map to true
+  // rather than giving up. This is because we want to allow the AddRec possibly
+  // associated with PN to be formed no matter what order getSCEV() calls were
+  // made in-
+  //
+  // a)
+  // getSCEV(PN)
+  // getSCEV(AddRecPhi)
+  //
+  // b)
+  // getSCEV(AddRecPhi)
+  // getSCEV(PN)
+  //
+  // AddRec requires a cycle of its own because it conservatively sets its SCEV
+  // to getUnknown() and then updates it after cycling to obtain the step.
+  //
+  // Here's an example-
+  //
+  // loop:
+  //  %iv = phi [ 0, %entry ], [ %iv.next, %latch ]  ;AddRecPhi
+  //  br %cmp1, %then, %else
+  //
+  // then:
+  //  %inc.then = add %iv, 1
+  //  br %latch
+  //
+  // else:
+  //  %inc.else = add %iv, 1
+  //  br %latch
+  //
+  // latch:
+  //  %iv.next = phi [ %inc.then, %then ], [ %inc.else, %else ] ;PN
+  auto It = PhiSimplificationCandidates.find(PN);
+
+  if (It != PhiSimplificationCandidates.end()) {
+    if (It->second == false) {
+      It->second = true;
+    } else {
+      return getUnknown(PN);
+    }
+  }
+
+  auto *FirstIncomingVal = PN->getIncomingValue(0);
+  unsigned NumOperands = PN->getNumIncomingValues();
+
+  if ((NumOperands > 1) && (FirstIncomingVal != PN) &&
+      LI.replacementPreservesLCSSAForm(PN, FirstIncomingVal)) {
+
+    PhiSimplificationCandidates.insert({PN, false});
+
+    const SCEV *FirstIncomingScev = getSCEV(FirstIncomingVal);
+    bool IdenticalScevs = true;
+
+    for (unsigned I = 1, E = NumOperands; I != E; ++I) {
+      auto *IncomingVal = PN->getIncomingValue(I);
+      // Give up on self-cyclic phi.
+      if (PN == IncomingVal) {
+        IdenticalScevs = false;
+        break;
+      }
+
+      const SCEV *IncomingScev = getSCEV(IncomingVal);
+
+      if (IncomingScev != FirstIncomingScev) {
+        IdenticalScevs = false;
+        break;
+      }
+    }
+
+    PhiSimplificationCandidates.erase(PN);
+
+    // Check whether we have a cached value of PN due to cycling and discard it.
+    HIRValueExprMapType::iterator HIt;
+    ValueExprMapType::iterator It;
+    bool Found = false;
+
+    if (HIRInfo.isValid()) {
+      HIt = HIRValueExprMap.find_as(PN);
+      Found = (HIt != HIRValueExprMap.end());
+    } else {
+      It = ValueExprMap.find_as(PN);
+      Found = (It != ValueExprMap.end());
+    }
+
+    if (Found) {
+      const SCEV *Old = HIRInfo.isValid() ? HIt->second : It->second;
+      forgetMemoizedResults(Old);
+      eraseValueFromMap(PN);
+    }
+
+    if (IdenticalScevs) {
+      return FirstIncomingScev;
+    }
+  }
+
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
 const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
 #if INTEL_CUSTOMIZATION
   // Web of PHIs and arithmetic ops, need to limit recursion.
@@ -5810,6 +5920,10 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
     if (LI.replacementPreservesLCSSAForm(PN, V))
       return getSCEV(V);
 
+#if INTEL_CUSTOMIZATION
+  if (const SCEV *S = createNodeForIdenticalOperandsPHI(PN))
+    return S;
+#endif // INTEL_CUSTOMIZATION
   // If it's not a loop phi, we can't handle it yet.
   return getUnknown(PN);
 }
