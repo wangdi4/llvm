@@ -348,6 +348,8 @@ static void addIntelLibPaths(ArgStringList &CmdArgs,
     llvm::sys::path::append(P, "lib_lin");
     CmdArgs.push_back(Args.MakeArgString(P));
   }
+  // Add 'lib' directory (same level as 'bin').
+  CmdArgs.push_back(Args.MakeArgString("-L" + TC.getDriver().Dir + "/../lib"));
 }
 
 // Goes through the CmdArgs, checking for known strings which set the library
