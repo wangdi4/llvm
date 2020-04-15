@@ -1228,8 +1228,8 @@ public:
       if (RetTy->isVectorTy()) {
         if (ScalarizationCostPassed == std::numeric_limits<unsigned>::max())
           ScalarizationCost = getScalarizationOverhead(RetTy, true, false);
-        ScalarCalls = std::max(
-            ScalarCalls, (unsigned)cast<VectorType>(RetTy)->getNumElements());
+        ScalarCalls =
+            std::max(ScalarCalls, cast<VectorType>(RetTy)->getNumElements());
         ScalarRetTy = RetTy->getScalarType();
       }
       SmallVector<Type *, 4> ScalarTys;
@@ -1238,8 +1238,8 @@ public:
         if (Ty->isVectorTy()) {
           if (ScalarizationCostPassed == std::numeric_limits<unsigned>::max())
             ScalarizationCost += getScalarizationOverhead(Ty, false, true);
-          ScalarCalls = std::max(
-              ScalarCalls, (unsigned)cast<VectorType>(Ty)->getNumElements());
+          ScalarCalls =
+              std::max(ScalarCalls, cast<VectorType>(Ty)->getNumElements());
           Ty = Ty->getScalarType();
         }
         ScalarTys.push_back(Ty);
@@ -1586,8 +1586,7 @@ public:
           if (ScalarizationCostPassed == std::numeric_limits<unsigned>::max())
             ScalarizationCost += getScalarizationOverhead(Tys[i], false, true);
           ScalarCalls =
-              std::max(ScalarCalls,
-                       (unsigned)cast<VectorType>(Tys[i])->getNumElements());
+              std::max(ScalarCalls, cast<VectorType>(Tys[i])->getNumElements());
         }
       }
 
