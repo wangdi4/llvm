@@ -319,8 +319,12 @@ static InlineResult inlineCallIfPossible(
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
+<<<<<<< HEAD
   InlineResult IR = InlineFunction(&CS, IFI, IRep, MDIRep, IIR, &AAR, // INTEL
                                    InsertLifetime);                   // INTEL
+=======
+  InlineResult IR = InlineFunction(CS, IFI, &AAR, InsertLifetime);
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
   if (!IR.isSuccess())
     return IR;
 
@@ -1449,6 +1453,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       using namespace ore;
 
+<<<<<<< HEAD
       Report.beginUpdate(CallSite(CS));    // INTEL
       MDReport->beginUpdate(CallSite(CS)); // INTEL
       InlineReason Reason = NinlrNoReason; // INTEL
@@ -1461,6 +1466,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
       InlineResult IR = InlineFunction(CS, IFI, &Report, MDReport, // INTEL
                                        &Reason);                   // INTEL
+=======
+      InlineResult IR = InlineFunction(*CS, IFI);
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
       if (!IR.isSuccess()) {
         setInlineRemark(*CS, std::string(IR.getFailureReason()) + "; " +
                                  inlineCostStr(*OIC));

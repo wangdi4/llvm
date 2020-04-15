@@ -15,7 +15,6 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Instructions.h"
@@ -60,23 +59,24 @@ public:
 
   static char ID; // Pass identification, replacement for typeid
 
-  InlineCost getInlineCost(CallSite CS) override {
-    Function *Callee = CS.getCalledFunction();
+  InlineCost getInlineCost(CallBase &CB) override {
+    Function *Callee = CB.getCalledFunction();
     TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
 
     bool RemarksEnabled = false;
-    const auto &BBs = CS.getCaller()->getBasicBlockList();
+    const auto &BBs = CB.getCaller()->getBasicBlockList();
     if (!BBs.empty()) {
       auto DI = OptimizationRemark(DEBUG_TYPE, "", DebugLoc(), &BBs.front());
       if (DI.isEnabled())
         RemarksEnabled = true;
     }
-    OptimizationRemarkEmitter ORE(CS.getCaller());
+    OptimizationRemarkEmitter ORE(CB.getCaller());
 
     std::function<AssumptionCache &(Function &)> GetAssumptionCache =
         [&](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
     };
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
@@ -89,6 +89,11 @@ public:
         cast<CallBase>(*CS.getInstruction()), Params, TTI, GetAssumptionCache,
         /*GetBFI=*/None, GetTLI, ILIC, AggI, &CallSitesForFusion,     // INTEL
         &FuncsForDTrans, PSI, RemarksEnabled ? &ORE : nullptr);       // INTEL
+=======
+    return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache,
+                               /*GetBFI=*/None, GetTLI, PSI,
+                               RemarksEnabled ? &ORE : nullptr);
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

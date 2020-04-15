@@ -13,8 +13,11 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+<<<<<<< HEAD
 #include "llvm/ADT/SmallSet.h"    // INTEL
 #include "llvm/IR/CallSite.h"
+=======
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
@@ -54,15 +57,7 @@ struct LegacyInlinerBase : public CallGraphSCCPass {
   /// This method must be implemented by the subclass to determine the cost of
   /// inlining the specified call site.  If the cost returned is greater than
   /// the current inline threshold, the call site is not inlined.
-  // FIXME(mtrofin): remove this in favor of the CallBase-based one
-  virtual InlineCost getInlineCost(CallSite CS) = 0;
-
-  /// This method must be implemented by the subclass to determine the cost of
-  /// inlining the specified call site.  If the cost returned is greater than
-  /// the current inline threshold, the call site is not inlined.
-  virtual InlineCost getInlineCost(CallBase &CB) {
-    return getInlineCost(CallSite(&CB));
-  }
+  virtual InlineCost getInlineCost(CallBase &CB) = 0;
 
   /// Remove dead functions.
   ///

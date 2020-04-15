@@ -23,7 +23,6 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -68,9 +67,9 @@ public:
 
   static char ID; // Pass identification, replacement for typeid
 
-  unsigned getInlineThreshold(CallSite CS) const;
+  unsigned getInlineThreshold(CallBase &CB) const;
 
-  InlineCost getInlineCost(CallSite CS) override;
+  InlineCost getInlineCost(CallBase &CB) override;
 
   bool runOnSCC(CallGraphSCC &SCC) override;
 
@@ -107,13 +106,13 @@ void AMDGPUInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   LegacyInlinerBase::getAnalysisUsage(AU);
 }
 
-unsigned AMDGPUInliner::getInlineThreshold(CallSite CS) const {
+unsigned AMDGPUInliner::getInlineThreshold(CallBase &CB) const {
   int Thres = Params.DefaultThreshold;
 
-  Function *Caller = CS.getCaller();
+  Function *Caller = CB.getCaller();
   // Listen to the inlinehint attribute when it would increase the threshold
   // and the caller does not need to minimize its size.
-  Function *Callee = CS.getCalledFunction();
+  Function *Callee = CB.getCalledFunction();
   bool InlineHint = Callee && !Callee->isDeclaration() &&
     Callee->hasFnAttribute(Attribute::InlineHint);
   if (InlineHint && Params.HintThreshold && Params.HintThreshold > Thres
@@ -130,7 +129,7 @@ unsigned AMDGPUInliner::getInlineThreshold(CallSite CS) const {
   // Increase the inline threshold to allow inliniting in this case.
   uint64_t AllocaSize = 0;
   SmallPtrSet<const AllocaInst *, 8> AIVisited;
-  for (Value *PtrArg : CS.args()) {
+  for (Value *PtrArg : CB.args()) {
     PointerType *Ty = dyn_cast<PointerType>(PtrArg->getType());
     if (!Ty || (Ty->getAddressSpace() != AMDGPUAS::PRIVATE_ADDRESS &&
                 Ty->getAddressSpace() != AMDGPUAS::FLAT_ADDRESS))
@@ -157,8 +156,8 @@ unsigned AMDGPUInliner::getInlineThreshold(CallSite CS) const {
 
 // Check if call is just a wrapper around another call.
 // In this case we only have call and ret instructions.
-static bool isWrapperOnlyCall(CallSite CS) {
-  Function *Callee = CS.getCalledFunction();
+static bool isWrapperOnlyCall(CallBase &CB) {
+  Function *Callee = CB.getCalledFunction();
   if (!Callee || Callee->size() != 1)
     return false;
   const BasicBlock &BB = Callee->getEntryBlock();
@@ -175,24 +174,29 @@ static bool isWrapperOnlyCall(CallSite CS) {
   return false;
 }
 
-InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
-  Function *Callee = CS.getCalledFunction();
-  Function *Caller = CS.getCaller();
+InlineCost AMDGPUInliner::getInlineCost(CallBase &CB) {
+  Function *Callee = CB.getCalledFunction();
+  Function *Caller = CB.getCaller();
 
   if (!Callee || Callee->isDeclaration())
     return llvm::InlineCost::getNever("undefined callee");
 
-  if (CS.isNoInline())
+  if (CB.isNoInline())
     return llvm::InlineCost::getNever("noinline");
 
   TargetTransformInfo &TTI = TTIWP->getTTI(*Callee);
   if (!TTI.areInlineCompatible(Caller, Callee))
     return llvm::InlineCost::getNever("incompatible");
 
+<<<<<<< HEAD
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     auto IsViable = isInlineViable(*Callee, Reason);
+=======
+  if (CB.hasFnAttr(Attribute::AlwaysInline)) {
+    auto IsViable = isInlineViable(*Callee);
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
     if (IsViable.isSuccess())
       return llvm::InlineCost::getAlways("alwaysinline viable");
     return llvm::InlineCost::getNever(IsViable.getFailureReason());
@@ -205,11 +209,11 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (isWrapperOnlyCall(CS))
+  if (isWrapperOnlyCall(CB))
     return llvm::InlineCost::getAlways("wrapper-only call");
 
   InlineParams LocalParams = Params;
-  LocalParams.DefaultThreshold = (int)getInlineThreshold(CS);
+  LocalParams.DefaultThreshold = (int)getInlineThreshold(CB);
   bool RemarksEnabled = false;
   const auto &BBs = Caller->getBasicBlockList();
   if (!BBs.empty()) {
@@ -224,10 +228,16 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
     return ACT->getAssumptionCache(F);
   };
 
+<<<<<<< HEAD
   auto IC = llvm::getInlineCost(cast<CallBase>(*CS.getInstruction()), Callee,
                              LocalParams, TTI, GetAssumptionCache, // INTEL
                              None, GetTLI, nullptr, nullptr, nullptr, // INTEL
                              PSI, RemarksEnabled ? &ORE : nullptr);
+=======
+  auto IC =
+      llvm::getInlineCost(CB, Callee, LocalParams, TTI, GetAssumptionCache,
+                          None, GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 
   if (IC && !IC.isAlways() && !Callee->hasFnAttribute(Attribute::InlineHint)) {
     // Single BB does not increase total BB amount, thus subtract 1

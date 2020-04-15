@@ -16,7 +16,6 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Instructions.h"
@@ -53,7 +52,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
   };
   InlineFunctionInfo IFI(/*cg=*/nullptr, &GetAssumptionCache);
 
-  SmallSetVector<CallSite, 16> Calls;
+  SmallSetVector<CallBase *, 16> Calls;
   bool Changed = false;
   SmallVector<Function *, 16> InlinedFunctions;
   InlineReason Reason; // INTEL
@@ -63,16 +62,20 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
       Calls.clear();
 
       for (User *U : F.users())
-        if (auto CS = CallSite(U))
-          if (CS.getCalledFunction() == &F)
-            Calls.insert(CS);
+        if (auto *CB = dyn_cast<CallBase>(U))
+          if (CB->getCalledFunction() == &F)
+            Calls.insert(CB);
 
-      for (CallSite CS : Calls)
+      for (CallBase *CB : Calls)
         // FIXME: We really shouldn't be able to fail to inline at this point!
         // We should do something to log or check the inline failures here.
         Changed |=
+<<<<<<< HEAD
             InlineFunction(CS, IFI, &getReport(), &getMDReport(), // INTEL
                   &Reason, /*CalleeAAR=*/nullptr, InsertLifetime)   // INTEL
+=======
+            InlineFunction(*CB, IFI, /*CalleeAAR=*/nullptr, InsertLifetime)
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
                 .isSuccess();
 
       // Remember to try and delete this function afterward. This both avoids
@@ -132,7 +135,7 @@ public:
 
   static char ID; // Pass identification, replacement for typeid
 
-  InlineCost getInlineCost(CallSite CS) override;
+  InlineCost getInlineCost(CallBase &CB) override;
 
   using llvm::Pass::doFinalization;
   bool doFinalization(CallGraph &CG) override {
@@ -186,8 +189,8 @@ Pass *llvm::createUnskippableAlwaysInlinerLegacyPass(bool InsertLifetime) {
 /// computed here, but as we only expect to do this for relatively few and
 /// small functions which have the explicit attribute to force inlining, it is
 /// likely not worth it in practice.
-InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
-  Function *Callee = CS.getCalledFunction();
+InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
+  Function *Callee = CB.getCalledFunction();
 
   // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining.
@@ -199,9 +202,14 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallSite CS) {
   if (Callee->isDeclaration())
     return InlineCost::getNever("no definition", NinlrNotAlwaysInline); // INTEL
 
+<<<<<<< HEAD
   if (!CS.hasFnAttr(Attribute::AlwaysInline))
     return InlineCost::getNever("no alwaysinline attribute",  // INTEL
                                 NinlrNotAlwaysInline); // INTEL
+=======
+  if (!CB.hasFnAttr(Attribute::AlwaysInline))
+    return InlineCost::getNever("no alwaysinline attribute");
+>>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 
   auto IsViable = isInlineViable(*Callee, Reason);  // INTEL
   if (!IsViable.isSuccess())
