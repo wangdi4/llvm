@@ -8,7 +8,7 @@
 void test_hreset(int a)
 {
 // CHECK-LABEL: test_hreset
-// CHECK: call void asm sideeffect "hreset $0", "i,{ax},~{dirflag},~{fpsr},~{flags}"(i32 1, i32 %0)
-  _hreset(1, a);
+// CHECK: call void asm sideeffect "hreset $$0", "{ax},~{dirflag},~{fpsr},~{flags}"(i32 %0)
+  _hreset(a);
 }
 // end INTEL_FEATURE_ISA_HRESET

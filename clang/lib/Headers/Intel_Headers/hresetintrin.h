@@ -16,8 +16,8 @@
 #ifndef __INTEL_HRESETINTRIN_H
 #define __INTEL_HRESETINTRIN_H
 
-#define _hreset(IMM, EAX) \
-  __asm__ __volatile__ ("hreset %0" :: "i"(IMM), "a"(EAX))
+#define _hreset(EAX) \
+  __asm__ __volatile__ ("hreset $0" :: "a"(EAX))
 
 #endif /* __INTEL_HRESETINTRIN_H */
 /* end INTEL_FEATURE_ISA_HRESET */
