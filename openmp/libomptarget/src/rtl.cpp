@@ -44,6 +44,9 @@ static const char *RTLNames[] = {
 #if INTEL_COLLAB
 #if _WIN32
     /* OpenCL target  */ "omptarget.rtl.opencl.dll",
+#if INTEL_CUSTOMIZATION
+    /* Level0 target  */ "omptarget.rtl.level0.dll",
+#endif // INTEL_CUSTOMIZATION
 #else  // !_WIN32
     /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #if INTEL_CUSTOMIZATION
@@ -162,19 +165,23 @@ void RTLsTy::LoadRTLs() {
     std::string pluginName(envStr);
     if (pluginName == "OPENCL" || pluginName == "opencl") {
 #if _WIN32
-      RTLChecked.push_back("libomptarget.rtl.opencl.dll");
+      RTLChecked.push_back("omptarget.rtl.opencl.dll");
 #else
       RTLChecked.push_back("libomptarget.rtl.opencl.so");
 #endif
 #if INTEL_CUSTOMIZATION
     } else if (pluginName == "LEVEL0" || pluginName == "level0") {
+#if _WIN32
+      RTLChecked.push_back("omptarget.rtl.level0.dll");
+#else
       RTLChecked.push_back("libomptarget.rtl.level0.so");
+#endif
 #endif // INTEL_CUSTOMIZATION
     } else if (pluginName == "CUDA" || pluginName == "cuda") {
       RTLChecked.push_back("libomptarget.rtl.cuda.so");
     } else if (pluginName == "X86_64" || pluginName == "x86_64") {
 #if _WIN32
-      RTLChecked.push_back("libomptarget.rtl.x86_64.dll");
+      RTLChecked.push_back("omptarget.rtl.x86_64.dll");
 #else
       RTLChecked.push_back("libomptarget.rtl.x86_64.so");
 #endif
