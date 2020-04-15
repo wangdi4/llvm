@@ -681,6 +681,29 @@ public:
 // Convert data from Privates list
 class PrivatesListCvt : public VPEntityConverterBase {
 
+  bool AliasesWithinLoopImpl(Instruction *Inst,
+                             SmallPtrSetImpl<Value *> &Visited) {
+    // Here we use \p Visited to avoid infinite loop on reference-cycles. E.g.,
+    //    %0 = phi i1 [ %1, ... ], ...
+    //    %1 = phi i1 [ %0, ... ], ...
+    if (!Visited.insert(Inst).second)
+      return false;
+
+    return llvm::any_of(Inst->users(), [&](Value *User) {
+      Instruction *Inst = cast<Instruction>(User);
+      return Builder.loopContains(Inst) ||
+            (isTrivialPointerAliasingInst(Inst) &&
+             AliasesWithinLoopImpl(Inst, Visited));
+    });
+  }
+
+  // Helper to recursively evaluate if there is any user of an alias \p Inst or
+  // any user of nested aliases *based on* this alias is inside the loop-region.
+  bool AliasesWithinLoop(Instruction *Inst) {
+    SmallPtrSet<Value *, 8> Visited;
+    return AliasesWithinLoopImpl(Inst, Visited);
+  }
+
   // This method collects aliases that lie outside the loop-region. We are not
   // concerned with aliases within the loop as they would be acquired
   // when required (e.g., escape analysis).
@@ -706,13 +729,8 @@ class PrivatesListCvt : public VPEntityConverterBase {
         // https://llvm.org/docs/LangRef.html#pointer-aliasing-rules
         Instruction *Inst = cast<Instruction>(Use);
 
-        // Lambda which determines if the 'User' is within the loop.
-        bool AliasesWithinLoop = llvm::any_of(Inst->users(), [=](Value *User) {
-          return Builder.loopContains(cast<Instruction>(User));
-        });
-
         if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
-            AliasesWithinLoop) {
+            AliasesWithinLoop(Inst)) {
           auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
           assert((isa<VPExternalDef>(NewVPOperand) ||
                   isa<VPInstruction>(NewVPOperand)) &&
@@ -991,7 +1009,7 @@ void PlainCFGBuilder::addExternalUses(Value *Val, VPValue *NewVPInst) {
 }
 
 // Create a new VPValue or retrieve an existing one for the Instruction's
-// operand \p IROp. This function must only be used to create/retrieve VPValues
+// operand \p IRVal. This function must only be used to create/retrieve VPValues
 // for *Instruction's operands* and not to create regular VPInstruction's. For
 // the latter, please, look at 'createVPInstructionsForVPBB'.
 VPValue *PlainCFGBuilder::getOrCreateVPOperand(Value *IRVal) {
