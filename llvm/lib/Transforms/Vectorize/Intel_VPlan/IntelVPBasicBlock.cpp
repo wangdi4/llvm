@@ -268,6 +268,14 @@ VPBasicBlock *VPBlockUtils::splitBlockEnd(VPBasicBlock *BB, VPLoopInfo *VPLInfo,
   return splitBlock(BB, BB->end(), VPLInfo, DomTree, PostDomTree);
 }
 
+VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
+    : VPValue(VPBasicBlockSC, Type::getLabelTy(*Plan->getLLVMContext())),
+      // We don't insert the VPBB into the Plan's VPBasicBlockList here,
+      // so do NOT set parent.
+      Parent(nullptr) {
+  setName(Name);
+}
+
 void VPBasicBlock::appendSuccessor(VPBasicBlock *Successor) {
   assert(Successor && "Cannot add nullptr successor!");
   Successors.push_back(Successor);
@@ -700,7 +708,7 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
   if (NewName.empty())
     NewName = VPlanUtils::createUniqueName("BB");
 
-  VPBasicBlock *NewBB = new VPBasicBlock(NewName);
+  VPBasicBlock *NewBB = new VPBasicBlock(NewName, Parent);
   moveConditionalEOBTo(NewBB);
   NewBB->moveTripCountInfoFrom(this);
   VPBlockUtils::insertBlockAfter(NewBB, this);

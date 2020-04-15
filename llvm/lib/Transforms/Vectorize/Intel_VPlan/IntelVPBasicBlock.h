@@ -10,6 +10,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPBASICBLOCK_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPBASICBLOCK_H
 
+#include "IntelVPlanValue.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
@@ -61,7 +62,8 @@ struct TripCountInfo;
 /// "use" the VPBasicBlock.
 class VPBasicBlock
     : public ilist_node_with_parent<VPBasicBlock, VPlan,
-                                    ilist_sentinel_tracking<true>> {
+                                    ilist_sentinel_tracking<true>>,
+      public VPValue {
   friend class VPBlockUtils;
 
 public:
@@ -71,8 +73,6 @@ public:
 private:
   /// The list of VPInstructions, held in order of instructions to generate.
   VPInstructionListTy Instructions;
-
-  std::string Name;
 
   // The parent of each VPBasicBlock is its Plan.
   VPlan *Parent = nullptr;
@@ -89,6 +89,17 @@ private:
   /// Current block predicate - null if the block does not need a predicate.
   VPValue *Predicate = nullptr;
 
+  BasicBlock *CBlock = nullptr;
+  BasicBlock *TBlock = nullptr;
+  BasicBlock *FBlock = nullptr;
+  BasicBlock *OriginalBB = nullptr;
+
+  // TODO: Not sure what other types of loop metadata we'd need. Most probably,
+  // we need some abstraction on top of TripCountInfo (and maybe that struct
+  // itself should be split in some way). The idea about this field is to have
+  // something similar to LLVM IR's loop metadata on the backedge branch
+  // instruction, so it will be filled for the latches only.
+  std::unique_ptr<TripCountInfo> TCInfo;
 public:
   /// Instruction iterators...
   using iterator = VPInstructionListTy::iterator;
@@ -256,13 +267,7 @@ public:
     return map_range(make_range(begin(), It), AsVPPHINode);
   }
 
-  VPBasicBlock(const std::string &Name)
-      : Name(Name), CBlock(nullptr), TBlock(nullptr), FBlock(nullptr),
-        OriginalBB(nullptr) {}
-
-  const std::string &getName() const { return Name; }
-
-  void setName(const Twine &newName) { Name = newName.str(); }
+  VPBasicBlock(const Twine &Name, VPlan *Plan);
 
   // ilist should have access to VPBasicBlock node.
   friend struct ilist_traits<VPBasicBlock>;
@@ -339,6 +344,10 @@ public:
   /// in the VPBasicBlock.
   iterator_range<const_iterator> getNonPredicateInstructions() const;
 
+  static bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPBasicBlockSC;
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, bool PrintType) const {
     (void)PrintType;
@@ -394,18 +403,6 @@ private:
   /// Blends, incoming blocks are updated in such a way that the block
   /// containing the block-predicate instruction after the split is used.
   VPBasicBlock *splitBlock(iterator I, const Twine &NewBBName = "");
-
-  BasicBlock *CBlock;
-  BasicBlock *TBlock;
-  BasicBlock *FBlock;
-  BasicBlock *OriginalBB;
-
-  // TODO: Not sure what other types of loop metadata we'd need. Most probably,
-  // we need some abstraction on top of TripCountInfo (and maybe that struct
-  // itself should be split in some way). The idea about this field is to have
-  // something similar to LLVM IR's loop metadata on the backedge branch
-  // instruction, so it will be filled for the latches only.
-  std::unique_ptr<TripCountInfo> TCInfo;
 };
 
 /// Class that provides utilities for VPBasicBlocks in VPlan.
