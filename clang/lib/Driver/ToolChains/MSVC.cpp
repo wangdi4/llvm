@@ -375,6 +375,13 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
 #if INTEL_CUSTOMIZATION
+  // Add other Intel specific libraries (libirc, svml, libdecimal)
+  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT__intel) &&
+      !C.getDriver().IsCLMode()) {
+    CmdArgs.push_back("-defaultlib:libirc");
+    CmdArgs.push_back("-defaultlib:svml_dispmt");
+    CmdArgs.push_back("-defaultlib:libdecimal");
+  }
   // Add Intel performance libraries. Only add the lib when not in CL-mode as
   // they have already been added via directive in the compilation
   if (Args.hasArg(options::OPT_ipp_EQ)) {

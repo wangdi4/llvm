@@ -6700,6 +6700,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   StringRef FlagForCRT;
 #if INTEL_CUSTOMIZATION
   StringRef FlagForIntelMathLib;
+  StringRef FlagForIntelSVMLLib;
 #endif // INTEL_CUSTOMIZATION
   switch (RTOptionID) {
   case options::OPT__SLASH_MD:
@@ -6710,6 +6711,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     FlagForCRT = "--dependent-lib=msvcrt";
 #if INTEL_CUSTOMIZATION
     FlagForIntelMathLib = "--dependent-lib=libmmd";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmd";
 #endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MDd:
@@ -6719,6 +6721,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     FlagForCRT = "--dependent-lib=msvcrtd";
 #if INTEL_CUSTOMIZATION
     FlagForIntelMathLib = "--dependent-lib=libmmdd";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmd";
 #endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MT:
@@ -6729,6 +6732,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     FlagForCRT = "--dependent-lib=libcmt";
 #if INTEL_CUSTOMIZATION
     FlagForIntelMathLib = "--dependent-lib=libmmt";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmt";
 #endif // INTEL_CUSTOMIZATION
     break;
   case options::OPT__SLASH_MTd:
@@ -6738,6 +6742,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     FlagForCRT = "--dependent-lib=libcmtd";
 #if INTEL_CUSTOMIZATION
     FlagForIntelMathLib = "--dependent-lib=libmmt";
+    FlagForIntelSVMLLib = "--dependent-lib=svml_dispmt";
 #endif // INTEL_CUSTOMIZATION
     break;
   default:
@@ -6749,6 +6754,11 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   } else {
     CmdArgs.push_back(FlagForCRT.data());
 #if INTEL_CUSTOMIZATION
+    if (Args.hasArg(options::OPT__intel)) {
+      CmdArgs.push_back("--dependent-lib=libirc");
+      CmdArgs.push_back(FlagForIntelSVMLLib.data());
+      CmdArgs.push_back("--dependent-lib=libdecimal");
+    }
     CmdArgs.push_back(FlagForIntelMathLib.data());
 #endif // INTEL_CUSTOMIZATION
 
