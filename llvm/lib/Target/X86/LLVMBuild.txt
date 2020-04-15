@@ -15,7 +15,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = AsmParser Disassembler MCTargetDesc TargetInfo Utils
+subdirectories = AsmParser Disassembler MCTargetDesc TargetInfo
 
 [component_0]
 type = TargetGroup
@@ -30,7 +30,11 @@ has_jit = 1
 type = Library
 name = X86CodeGen
 parent = X86
+<<<<<<< HEAD
 required_libraries = Analysis AsmPrinter CodeGen Core MC SelectionDAG Support Target X86Desc X86Info X86Utils GlobalISel ProfileData CFGuard Scalar TransformUtils
 
 ; ***INTEL: TransformUtils
+=======
+required_libraries = Analysis AsmPrinter CodeGen Core MC SelectionDAG Support Target X86Desc X86Info GlobalISel ProfileData CFGuard
+>>>>>>> 6dbf1a1229ba65f65784af1fd9ca2a780f0dc8b2
 add_to_library_groups = X86
