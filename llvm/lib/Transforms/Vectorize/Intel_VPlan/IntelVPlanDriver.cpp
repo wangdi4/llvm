@@ -428,6 +428,58 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
   return ModifiedFunc;
 }
 
+#if INTEL_CUSTOMIZATION
+// Copy templated implementation into this explicit specialization. Will be
+// modified in the next commit, needed to make the review/history easier to
+// understand.
+template <>
+bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
+
+  LLVM_DEBUG(dbgs() << "VD: Stardard Vectorization mode\n");
+
+  isEmitKernelOptRemarks = true;
+
+#if INTEL_CUSTOMIZATION
+  IRKind IR = IRKind::LLVMIR;
+  if (std::is_same<Loop, HLLoop>::value)
+    IR = IRKind::HIR;
+  WR->buildWRGraph(IR);
+#else
+  WR->buildWRGraph();
+#endif // INTEL_CUSTOMIZATION
+  WRContainerImpl *WRGraph = WR->getWRGraph();
+
+  LLVM_DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
+
+  bool ModifiedFunc = false;
+  for (auto WRNode : *WRGraph) {
+
+    if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
+      Loop *Lp = WRLp->getTheLoop<Loop>();
+      //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
+      //      formLCSSARecursively(*Lp, *DT, LI, SE);
+
+      if (!Lp) {
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
+        continue;
+      }
+
+      if (!VPlanForceBuild && !isSupported(Lp)) {
+        LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
+      LLVM_DEBUG(WRNode->dump());
+
+      ModifiedFunc |= processLoop(Lp, Fn, WRLp);
+    }
+  }
+
+  return ModifiedFunc;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Construction Stress Testing Mode: builds the H-CFG for any loop in the
 /// function.
 #if INTEL_CUSTOMIZATION
