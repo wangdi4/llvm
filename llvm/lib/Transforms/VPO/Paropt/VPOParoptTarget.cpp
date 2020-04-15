@@ -581,8 +581,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  // Add "target.entry" attribute to the outlined function.
-  NewF->addFnAttr("omp.target.entry");
+  if (isTargetCSA()) {
+    // Add "target.entry" attribute to the outlined function.
+    NewF->addFnAttr("omp.target.entry");
+    NewF->setLinkage(GlobalValue::WeakAnyLinkage);
+  }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
