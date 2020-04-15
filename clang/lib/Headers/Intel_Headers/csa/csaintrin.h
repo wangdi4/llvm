@@ -650,6 +650,30 @@ static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_abs_epi16(__m64i a)
   return (__m64i)__builtin_csa_abs16x4((__v4hu)a);
 }
 
+/* Compute the average of packed 8-bit integers in a and b, and return the results. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_avg_epi8(__m64i a, __m64i b)
+{
+  return (__m64i)__builtin_csa_avgs8x8((__v8qi)a, (__v8qi)b);
+}
+
+/* Compute the average of packed unsigned 8-bit integers in a and b, and return the results. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_avg_epu8(__m64i a, __m64i b)
+{
+  return (__m64i)__builtin_csa_avgu8x8((__v8qu)a, (__v8qu)b);
+}
+
+/* Compute the average of packed 16-bit integers in a and b, and return the results. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_avg_epi16(__m64i a, __m64i b)
+{
+  return (__m64i)__builtin_csa_avgs16x4((__v4hi)a, (__v4hi)b);
+}
+
+/* Compute the average of packed unsigned 16-bit integers in a and b, and return the results. */
+static __inline__ __m64i __DEFAULT_FN_ATTRS _mm64_avg_epu16(__m64i a, __m64i b)
+{
+  return (__m64i)__builtin_csa_avgu16x4((__v4hu)a, (__v4hu)b);
+}
+
 /* Create mask from the most significant bit of each 8-bit element in a, and return the result. */
 static __inline__ int __DEFAULT_FN_ATTRS _mm64_movemask_epi8(__m64i a)
 {
@@ -796,6 +820,26 @@ static __inline__ int __DEFAULT_FN_ATTRS _mm64_extract_epi32(__m64i a, int i)
     ((IMM8) & 0xc) >> 2,   \
     ((IMM8) & 0x30) >> 4,  \
     ((IMM8) & 0xc0) >> 6)))
+
+/* Return a new vector which is composed of 8-bit slices from the two input vectors.
+   Each of the selectors determine the corresponding lane on in the input,
+   with sel0 determining the low 8 bits and sel7 the highest 8 bits. */
+#define _mm64_shufi8x8(A, B, M, N, O, P, Q, R, S, T)                     \
+  ((__m64i)(__builtin_shufflevector((__v8qi)(A), (__v8qi)(B), (M), (N), (O), (P), \
+    (Q), (R), (S), (T))))
+
+/* Shuffle 8-bit integers in A using the control in IMM32, and return the
+   shuffled vector. Every 3 bits of IMM32 are used to control the output. */
+#define _mm64_shuffle_epi8(A, IMM32) \
+  ((__m64i) (__builtin_shufflevector((__v8qi)(A), (__v8qi) _mm64_set1_epi8(0), \
+    (IMM32)         & 0x7,  \
+    ((IMM32) >> 3)  & 0x7,  \
+    ((IMM32) >> 6)  & 0x7,  \
+    ((IMM32) >> 9)  & 0x7,  \
+    ((IMM32) >> 12) & 0x7,  \
+    ((IMM32) >> 15) & 0x7,  \
+    ((IMM32) >> 18) & 0x7,  \
+    ((IMM32) >> 21) & 0x7)))
 
 /* Blend packed 8-bit integers from a and b using the bits in mask. Each element is picked
    from a if its corresponding bit in the mask is 0, and from b if it is 1. */
