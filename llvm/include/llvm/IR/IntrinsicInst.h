@@ -63,6 +63,7 @@ namespace llvm {
     }
   };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// This is the common base class for var.annotation intrinsic.
   class VarAnnotIntrinsic : public IntrinsicInst {
@@ -84,6 +85,20 @@ namespace llvm {
     /// @}
   };
 #endif  //INTEL_CUSTOMIZATION
+=======
+  /// Check if \p ID corresponds to a debug info intrinsic.
+  static inline bool isDbgInfoIntrinsic(Intrinsic::ID ID) {
+    switch (ID) {
+    case Intrinsic::dbg_declare:
+    case Intrinsic::dbg_value:
+    case Intrinsic::dbg_addr:
+    case Intrinsic::dbg_label:
+      return true;
+    default:
+      return false;
+    }
+  }
+>>>>>>> 122a6bfb07eb1ec7332ad1ee2e1a2136cc54a9c6
 
   /// This is the common base class for debug info intrinsics.
   class DbgInfoIntrinsic : public IntrinsicInst {
@@ -91,14 +106,7 @@ namespace llvm {
     /// \name Casting methods
     /// @{
     static bool classof(const IntrinsicInst *I) {
-      switch (I->getIntrinsicID()) {
-      case Intrinsic::dbg_declare:
-      case Intrinsic::dbg_value:
-      case Intrinsic::dbg_addr:
-      case Intrinsic::dbg_label:
-        return true;
-      default: return false;
-      }
+      return isDbgInfoIntrinsic(I->getIntrinsicID());
     }
     static bool classof(const Value *V) {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
