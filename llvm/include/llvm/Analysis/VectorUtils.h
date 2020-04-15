@@ -350,9 +350,6 @@ bool isSplatValue(const Value *V, int Index = -1, unsigned Depth = 0);
 void narrowShuffleMaskElts(int Scale, ArrayRef<int> Mask,
                            SmallVectorImpl<int> &ScaledMask);
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
 /// Try to transform a shuffle mask by replacing elements with the scaled index
 /// for an equivalent mask of widened elements. If all mask elements that would
 /// map to a wider element of the new mask are the same negative number
@@ -371,7 +368,7 @@ void narrowShuffleMaskElts(int Scale, ArrayRef<int> Mask,
 bool widenShuffleMaskElts(int Scale, ArrayRef<int> Mask,
                           SmallVectorImpl<int> &ScaledMask);
 
->>>>>>> c23cbefd9d73e8551b0c8b6cc3f14bb6b067ca92
+#if INTEL_CUSTOMIZATION
 /// Compute a map of integer instructions to their minimum legal type
 /// size.
 ///
