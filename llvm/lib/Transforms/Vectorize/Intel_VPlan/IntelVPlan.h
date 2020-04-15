@@ -1791,17 +1791,6 @@ public:
     return &front();
   }
 
-  VPBasicBlock *getExitBlock() {
-    assert(back().getNumSuccessors() == 0 &&
-           "Exit block should not have succesors.");
-    return &back();
-  }
-  const VPBasicBlock *getExitBlock() const {
-    assert(back().getNumSuccessors() == 0 &&
-           "Exit block should not have succesors.");
-    return &back();
-  }
-
   void insertAtFront(VPBasicBlock *CurBB) {
     getVPBasicBlockList().push_front(CurBB);
   }
@@ -2235,7 +2224,7 @@ struct GraphTraits<vpo::VPlan *> : public GraphTraits<vpo::VPBasicBlock *> {
 
   static inline nodes_iterator nodes_end(vpo::VPlan *Plan) {
     // df_iterator returns an empty iterator so the node used doesn't matter.
-    return nodes_iterator::end(Plan->getExitBlock());
+    return nodes_iterator::end(Plan->getEntryBlock());
   }
 
   static size_t size(vpo::VPlan *Plan) { return Plan->size(); }
