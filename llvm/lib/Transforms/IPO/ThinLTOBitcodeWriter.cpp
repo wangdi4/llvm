@@ -8,11 +8,7 @@
 
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
-#include "llvm/Analysis/ModuleSummaryAnalysis.h"
-=======
->>>>>>> 10df1563d608323a3144afc5f6038ecb81869b92
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
