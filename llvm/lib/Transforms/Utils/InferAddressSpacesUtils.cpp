@@ -1164,13 +1164,9 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
         if (auto *MDAV = MetadataAsValue::getIfExists(V->getContext(), VAMD)) {
           ValueAsMetadata *NewVAMD = ValueAsMetadata::get(NewV);
           Value *NewMDAV = MetadataAsValue::get(NewV->getContext(), NewVAMD);
-          Value::use_iterator I, E, Next;
-          for (I = MDAV->use_begin(), E = MDAV->use_end(); I != E;) {
-            Use &U = *I;
-            if (isa<DbgVariableIntrinsic>(U.getUser()))
-              U.set(NewMDAV);
-            I = skipToNextUser(I, E);
-          }
+          MDAV->replaceUsesWithIf(NewMDAV, [](Use &U) {
+              return isa<DbgVariableIntrinsic>(U.getUser());
+              });
         }
       }
     }
