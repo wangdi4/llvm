@@ -23,11 +23,7 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"   // INTEL
-#include "llvm/IR/CallSite.h"
-=======
->>>>>>> d2f1cd5d9712276730f09745825fb6d71c51e639
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
@@ -341,7 +337,7 @@ Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
     Type *Int64Ty = Type::getInt64Ty(M->getContext());
     Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Count));
     // Create intel_profx metadata for the new direct call
-    NewInst->setMetadata(LLVMContext::MD_intel_profx,
+    NewInst.setMetadata(LLVMContext::MD_intel_profx,
         MDNode::get(M->getContext(), Vals));
     // Ensure that no wraparound occurs when calculating the difference.
     uint64_t Diff = CallSiteCount >= Count ? CallSiteCount - Count : 0;
