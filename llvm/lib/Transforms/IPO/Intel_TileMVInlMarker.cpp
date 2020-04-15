@@ -467,6 +467,45 @@ bool TileMVInlMarker::processLoopCaseFoundBoth(Function &F,
 }
 
 bool TileMVInlMarker::processLoop(Function &F, Loop &L) {
+
+  //
+  // Return 'true' if a proper loop can be identified in 'F' with 'IC' as
+  // the loop latch comparision. 'IsLeft' is 'true' if the induction variable
+  // is expected on the left-hand side of 'IC'.
+  //
+  auto IsProperLoop = [this](Function &F, ICmpInst *IC, bool IsLeft) {
+    Value *BOV = IC->getOperand(IsLeft ? 0 : 1);
+    auto TI = dyn_cast<TruncInst>(BOV);
+    if (TI)
+      BOV = TI->getOperand(0);
+    // Load the state machine with the initial value.
+    TestStack.push(std::make_tuple(BOV, nullptr, TS_Start));
+    // Attempt to find the loop index and pre-index value.
+    while (1) {
+      if (TestStack.empty())
+        return false;
+      auto Item = TestStack.top();
+      TestStack.pop();
+      switch (std::get<2>(Item)) {
+      case TS_Start:
+        if (processLoopCaseStart(F, Item, BOV))
+          return true;
+        break;
+      case TS_FoundInc:
+        if (processLoopCaseFoundInc(F, Item, BOV))
+          return true;
+        break;
+      case TS_FoundPHI:
+        return processLoopCaseFoundPHI(F, Item, BOV);
+      case TS_FoundBoth:
+        return processLoopCaseFoundBoth(F, Item, BOV);
+      default:
+        assert(false && "No default case");
+      }
+    }
+    return false;
+  };
+
   // Check the left side of a branch conditional for a loop index
   BasicBlock *BB = L.getLoopLatch();
   if (!BB)
@@ -487,32 +526,10 @@ bool TileMVInlMarker::processLoop(Function &F, Loop &L) {
   default:
     return false;
   }
-  Value *BOV = IC->getOperand(0);
-  // Load the state machine with the initial value.
-  TestStack.push(std::make_tuple(BOV, nullptr, TS_Start));
-  // Attempt to find the loop index and pre-index value.
-  while (1) {
-    if (TestStack.empty())
-      return false;
-    auto Item = TestStack.top();
-    TestStack.pop();
-    switch (std::get<2>(Item)) {
-    case TS_Start:
-      if (processLoopCaseStart(F, Item, BOV))
-        return true;
-      break;
-    case TS_FoundInc:
-      if (processLoopCaseFoundInc(F, Item, BOV))
-        return true;
-      break;
-    case TS_FoundPHI:
-      return processLoopCaseFoundPHI(F, Item, BOV);
-    case TS_FoundBoth:
-      return processLoopCaseFoundBoth(F, Item, BOV);
-    default:
-      assert(false && "No default case");
-    }
-  }
+  if (IsProperLoop(F, IC, true))
+    return true;
+  if (IsProperLoop(F, IC, false))
+    return true;
   return false;
 }
 
