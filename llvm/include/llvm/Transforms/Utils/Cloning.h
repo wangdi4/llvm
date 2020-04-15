@@ -23,7 +23,6 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <functional>
@@ -204,7 +203,7 @@ public:
   /// 'InlineFunction' fills this in by scanning the inlined instructions, and
   /// only if CG is null. If CG is non-null, instead the value handle
   /// `InlinedCalls` above is used.
-  SmallVector<CallSite, 8> InlinedCallSites;
+  SmallVector<CallBase *, 8> InlinedCallSites;
 
   void reset() {
     StaticAllocas.clear();

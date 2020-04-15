@@ -23,8 +23,11 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"   // INTEL
 #include "llvm/IR/CallSite.h"
+=======
+>>>>>>> d2f1cd5d9712276730f09745825fb6d71c51e639
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
@@ -219,6 +222,7 @@ public:
 
 // Indirect-call promotion heuristic. The direct targets are sorted based on
 // the count. Stop at the first target that is not promoted.
+// FIXME(callsite): the Instruction* parameter can be changed to CallBase
 std::vector<ICallPromotionFunc::PromotionCandidate>
 ICallPromotionFunc::getPromotionCandidatesForCallSite(
     Instruction *Inst, const ArrayRef<InstrProfValueData> &ValueDataRef,
@@ -278,7 +282,7 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     }
 
     const char *Reason = nullptr;
-    if (!isLegalToPromote(CallSite(Inst), TargetFunction, &Reason)) {
+    if (!isLegalToPromote(*cast<CallBase>(Inst), TargetFunction, &Reason)) {
       using namespace ore;
 
       ORE.emit([&]() {
@@ -296,6 +300,8 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
   return Ret;
 }
 
+// FIXME(callsite): the Instruction* parameter and return can be changed to
+// CallBase
 Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
                                             Function *DirectCallee,
                                             uint64_t Count, uint64_t TotalCount,
@@ -309,12 +315,12 @@ Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
   MDNode *BranchWeights = MDB.createBranchWeights(
       scaleBranchCount(Count, Scale), scaleBranchCount(ElseCount, Scale));
 
-  Instruction *NewInst =
-      promoteCallWithIfThenElse(CallSite(Inst), DirectCallee, BranchWeights);
+  CallBase &NewInst = promoteCallWithIfThenElse(*cast<CallBase>(Inst),
+                                                DirectCallee, BranchWeights);
 
   if (AttachProfToDirectCall) {
-    MDBuilder MDB(NewInst->getContext());
-    NewInst->setMetadata(
+    MDBuilder MDB(NewInst.getContext());
+    NewInst.setMetadata(
         LLVMContext::MD_prof,
         MDB.createBranchWeights({static_cast<uint32_t>(Count)}));
   }
@@ -354,7 +360,7 @@ Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
              << " with count " << NV("Count", Count) << " out of "
              << NV("TotalCount", TotalCount);
     });
-  return NewInst;
+  return &NewInst;
 }
 
 // Promote indirect-call to conditional direct-call for one callsite.
