@@ -357,6 +357,10 @@ def ccc_ : Joined<["-"], "ccc-">, Group<internal_Group>, Flags<[Unsupported]>;
 #if INTEL_CUSTOMIZATION
 def _intel : Flag<["--"], "intel">, Flags<[DriverOption, CoreOption]>,
   HelpText<"Run in Intel Compiler mode">;
+def shared_intel : Flag<["-"], "shared-intel">, Flags<[DriverOption]>,
+  HelpText<"link Intel provided libraries dynamically">;
+def static_intel : Flag<["-"], "static-intel">, Flags<[DriverOption]>,
+  HelpText<"link Intel provided libraries statically">;
 def qnextgen : Flag<["-"], "qnextgen">, Flags<[DriverOption]>, Alias<_intel>;
 def extended_float_types : Flag<["--"], "extended_float_types">, Flags<[CC1Option]>;
 def fintel_long_double_size_EQ : Joined<["-"], "fintel-long-double-size=">,

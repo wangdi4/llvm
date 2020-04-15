@@ -498,12 +498,31 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
   // assuming that the rest of the libs are linked in dynamically.  This will
   // need to be expanded to dynamically evaluate the linker command line
   // to catch user -Wl additions
-  bool isStatic = Args.hasArg(options::OPT_static);
-  if (!isStatic)
+  bool isCurrentStateStatic = 0;
+  bool isSharedIntel = 0;
+
+  // FIXME: add support to -dy, -dn, -dynamiclib as required
+  if (const Arg *A = Args.getLastArg(options::OPT_static, options::OPT_shared,
+                                     options::OPT_dynamic))
+    isCurrentStateStatic = A->getOption().matches(options::OPT_static);
+
+  if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
+                                     options::OPT_static_intel))
+    isSharedIntel = A->getOption().matches(options::OPT_shared_intel);
+
+  if (!isCurrentStateStatic && !isSharedIntel)
     CmdArgs.push_back("-Bstatic");
-  CmdArgs.push_back(IntelLibName);
-  if (!isStatic)
+
+  if (isCurrentStateStatic && isSharedIntel)
     CmdArgs.push_back("-Bdynamic");
+
+  CmdArgs.push_back(IntelLibName);
+
+  if (!isCurrentStateStatic && !isSharedIntel)
+    CmdArgs.push_back("-Bdynamic");
+
+  if (isCurrentStateStatic && isSharedIntel)
+    CmdArgs.push_back("-Bstatic");
 }
 #endif // INTEL_CUSTOMIZATION
 static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
