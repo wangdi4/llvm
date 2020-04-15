@@ -63,7 +63,6 @@ namespace llvm {
     }
   };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// This is the common base class for var.annotation intrinsic.
   class VarAnnotIntrinsic : public IntrinsicInst {
@@ -85,7 +84,7 @@ namespace llvm {
     /// @}
   };
 #endif  //INTEL_CUSTOMIZATION
-=======
+
   /// Check if \p ID corresponds to a debug info intrinsic.
   static inline bool isDbgInfoIntrinsic(Intrinsic::ID ID) {
     switch (ID) {
@@ -98,7 +97,6 @@ namespace llvm {
       return false;
     }
   }
->>>>>>> 122a6bfb07eb1ec7332ad1ee2e1a2136cc54a9c6
 
   /// This is the common base class for debug info intrinsics.
   class DbgInfoIntrinsic : public IntrinsicInst {
