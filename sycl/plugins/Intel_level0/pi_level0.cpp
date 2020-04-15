@@ -335,14 +335,24 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
   if (getEnv)
     ZE_DEBUG = true;
 
+  ze_result_t ze_result;
   // This is a good time to initialize L0.
   // We can still safely recover if something goes wrong during the init.
-  ze_result_t ze_result;
+  //
+  // NOTE: for some reason only first segfault is reliably handled,
+  // so remember it, and avoid calling zeInit again.
+  //
+  // TODO: we should not call zeInit multiples times ever, so
+  // this code should be changed.
+  //
+  static bool segfault = false;
   __TRY() {
-    ze_result = ZE_CALL_NOTHROW(zeInit(ZE_INIT_FLAG_NONE));
+    ze_result = segfault ? ZE_RESULT_ERROR_UNINITIALIZED :
+        ZE_CALL_NOTHROW(zeInit(ZE_INIT_FLAG_NONE));
   }
   __CATCH() {
-    zePrint("L0 raised segfault: assume no platforms");
+    segfault = true;
+    zePrint("L0 raised segfault: assume no platforms\n");
     ze_result = ZE_RESULT_ERROR_UNINITIALIZED;
   }
   __FINALLY()
