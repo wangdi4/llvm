@@ -77,12 +77,12 @@ public:
                  const TargetTransformInfo *TTI, const DataLayout *DL)
       : Plan(Plan), VF(VF), TTI(TTI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
-  virtual unsigned getCost(const VPInstruction *VPInst) const;
-  virtual unsigned getCost(const VPBasicBlock *VPBB) const;
-  virtual unsigned getCost() const;
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) const;
+  virtual unsigned getCost(const VPInstruction *VPInst);
+  virtual unsigned getCost(const VPBasicBlock *VPBB);
+  virtual unsigned getCost();
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const std::string &Header) const;
+  void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   virtual ~VPlanCostModel() {}
 
@@ -105,9 +105,9 @@ protected:
     return std::to_string(Cost);
   };
   void printForVPInstruction(
-    raw_ostream &OS, const VPInstruction *VPInst) const;
+    raw_ostream &OS, const VPInstruction *VPInst);
   void printForVPBasicBlock(
-    raw_ostream &OS, const VPBasicBlock *VPBlock) const;
+    raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // These utilities are private for the class instead of being defined as

@@ -39,29 +39,47 @@ namespace llvm {
 
 namespace vpo {
 
-unsigned
-VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
-                                            const bool UseVLSCost) const {
+unsigned VPlanCostModelProprietary::getLoadStoreCost(
+  const VPInstruction *VPInst, const bool UseVLSCost) {
   unsigned Cost = VPlanCostModel::getLoadStoreCost(VPInst);
 
-  if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)
-    if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
-      if (Group->size() > 1) {
-        unsigned VLSCost =
-            OptVLSInterface::getGroupCost(*Group, *VLSCM) / Group->size();
-        if (VLSCost < Cost) {
-          LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
-                     dbgs() << " from " << Cost << " to " << VLSCost << '\n');
-          return VLSCost;
-        } else
-          LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
-                     dbgs() << " was not reduced from " << Cost << " to "
-                            << VLSCost << '\n');
-      }
-  return Cost;
+  if (!UseOVLSCM || !VLSCM || !UseVLSCost || VF == 1)
+    return Cost;
+
+  OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst);
+  if (!Group || Group->size() <= 1)
+    return Cost;
+
+  if (ProcessedOVLSGroups.count(Group) != 0) {
+    // Group cost has already been assigned.
+    LLVM_DEBUG(dbgs() << "Group cost for "; VPInst->print(dbgs());
+               dbgs() << " has already been taken into account.\n");
+    return ProcessedOVLSGroups[Group] ? 0 : Cost;
+  }
+
+  unsigned VLSGroupCost = OptVLSInterface::getGroupCost(*Group, *VLSCM);
+  unsigned TTIGroupCost = 0;
+  for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
+    TTIGroupCost += VPlanCostModel::getLoadStoreCost(
+      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction());
+
+  if (VLSGroupCost >= TTIGroupCost) {
+    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
+               dbgs() << " was not reduced from " << Cost <<
+               " (TTI group cost " << TTIGroupCost <<
+               ") to group cost " << VLSGroupCost << '\n');
+    ProcessedOVLSGroups[Group] = false;
+    return Cost;
+  }
+
+  LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
+             dbgs() << " from " << Cost << " (TTI group cost " <<
+             TTIGroupCost << " to group cost " << VLSGroupCost << '\n');
+  ProcessedOVLSGroups[Group] = true;
+  return VLSGroupCost;
 }
 
-unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
+unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
   if (VPInst->getType()->isIntegerTy(1))
     ++NumberOfBoolComputations;
 
@@ -81,12 +99,13 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
 
 // Right now it calls for VPlanCostModel::getCost(VPBB), but later we may want
 // to have more precise cost estimation for VPBB.
-unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) const {
+unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) {
   return VPlanCostModel::getCost(VPBB);
 }
 
-unsigned VPlanCostModelProprietary::getCost() const {
+unsigned VPlanCostModelProprietary::getCost() {
   NumberOfBoolComputations = 0;
+  ProcessedOVLSGroups.clear();
   unsigned Cost = VPlanCostModel::getCost();
 
   // Array ref which needs to be aligned via loop peeling, if any.
@@ -132,21 +151,33 @@ unsigned VPlanCostModelProprietary::getCost() const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanCostModelProprietary::printForVPInstruction(
-  raw_ostream &OS, const VPInstruction *VPInst) const {
+  raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
   VPInst->print(OS);
   // TODO: Attributes yet to be populated.
   std::string Attributes = "";
+
+  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
+    if (ProcessedOVLSGroups.count(Group) != 0)
+      Attributes += "OVLS ";
+
   if (!Attributes.empty())
-    OS << "(" << Attributes << ")";
+    OS << " ( " << Attributes << ")";
   OS << '\n';
 }
 
 void VPlanCostModelProprietary::printForVPBasicBlock(
-  raw_ostream &OS, const VPBasicBlock *VPBB) const {
-  // Additional stuff for proprietary CM to be printed here.
+  raw_ostream &OS, const VPBasicBlock *VPBB) {
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
     getCostNumberString(getCost(VPBB)) << '\n';
+
+  // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.
+  // TODO: The code should be revisited once the assumption is changed.
+  // Clearing before Instruction traversal is required to allow Instruction
+  // dumping function to print out correct Costs and not required for CM to
+  // work properly.
+  ProcessedOVLSGroups.clear();
+
   for (const VPInstruction &VPInst : *VPBB)
     printForVPInstruction(OS, &VPInst);
 }
