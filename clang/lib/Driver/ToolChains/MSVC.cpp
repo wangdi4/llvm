@@ -587,6 +587,28 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Linker.equals_lower("lld"))
     Linker = "lld-link";
 
+#if INTEL_CUSTOMIZATION
+  // TODO: Create a more streamlined and centralized way to add the additional
+  // llvm options that are set.  i.e. set once and use for both Linux and
+  // Windows compilation paths.
+  if (Linker.equals_lower("lld-link") && (C.getDriver().isUsingLTO())) {
+    // Handle flags for selecting CPU variants.
+    std::string CPU = getCPUName(Args, C.getDefaultToolChain().getTriple());
+    if (!CPU.empty())
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-mcpu=") + CPU));
+    // Add any Intel defaults.
+    if (Args.hasArg(options::OPT__intel)) {
+      CmdArgs.push_back("-mllvm:-intel-libirc-allowed");
+      if (Arg * A = Args.getLastArg(options::OPT_fveclib))
+        Args.MakeArgString(Twine("-mllvm:-vector-library=") + A->getValue());
+    }
+    // Using lld-link and -flto, we need to add any additional -mllvm options
+    // and implied options.
+    for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (Linker.equals_lower("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
     // from the program PATH, because other environments like GnuWin32 install
