@@ -778,7 +778,6 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
   return TTIImpl->getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool TargetTransformInfo::isAdvancedOptEnabled(AdvancedOptLevel AO) const {
   return TTIImpl->isAdvancedOptEnabled(AO);
@@ -802,17 +801,9 @@ bool TargetTransformInfo::isAggressiveVLSProfitable() const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Type *TargetTransformInfo::getMemcpyLoopLoweringType(LLVMContext &Context,
-                                                     Value *Length,
-                                                     unsigned SrcAddrSpace,
-                                                     unsigned DestAddrSpace,
-                                                     unsigned SrcAlign,
-                                                     unsigned DestAlign) const {
-=======
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(
     LLVMContext &Context, Value *Length, unsigned SrcAddrSpace,
     unsigned DestAddrSpace, unsigned SrcAlign, unsigned DestAlign) const {
->>>>>>> 2a0a26bd9891ad75861d166fe6ccc5aaf798339b
   return TTIImpl->getMemcpyLoopLoweringType(Context, Length, SrcAddrSpace,
                                             DestAddrSpace, SrcAlign, DestAlign);
 }
