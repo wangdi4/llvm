@@ -294,10 +294,6 @@ if (SYCL_ENABLE_XPTI_TRACING)
   endif()
 endif()
 
-if (NOT DEFINED LLVM_INCLUDE_TESTS)
-  set(LLVM_INCLUDE_TESTS ON)
-endif()
-
 option(SYCL_INCLUDE_TESTS
   "Generate build targets for the SYCL unit tests."
   ${LLVM_INCLUDE_TESTS})
@@ -344,6 +340,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # end INTEL_CUSTOMIZATION
 )
 
+<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   # Add xmain specific deploy components here.
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
@@ -352,6 +349,8 @@ if(INTEL_CUSTOMIZATION)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
+=======
+>>>>>>> 3b8dd546b334636919cb460671477a0248d92490
 if(SYCL_BUILD_PI_CUDA)
   # Ensure that libclc is enabled.
   list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
@@ -363,7 +362,6 @@ if(SYCL_BUILD_PI_CUDA)
   add_dependencies(sycl-toolchain libspirv-builtins pi_cuda)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_cuda)
 endif()
-
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it
