@@ -77,11 +77,8 @@ class ObjCAtThrowStmt;
 class ObjCAtSynchronizedStmt;
 class ObjCAutoreleasePoolStmt;
 class ReturnsNonNullAttr;
-<<<<<<< HEAD
 class IntelInlineAttr; // INTEL
-=======
 class SVETypeFlags;
->>>>>>> c8a5b30bac695e9fbb592cf77364a60ebd6e0dbd
 
 namespace analyze_os_log {
 class OSLogBufferLayout;
