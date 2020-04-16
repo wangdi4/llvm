@@ -402,7 +402,8 @@ pi_result OCL(piProgramCreate)(pi_context context, const void *il,
 }
 
 pi_result OCL(piextProgramCreateWithNativeHandle)(pi_native_handle nativeHandle,
-                                                  pi_program *piProgram) {
+                                                  pi_program *piProgram,
+                                                  pi_context) { // INTEL
   assert(piProgram != nullptr);
   *piProgram = reinterpret_cast<pi_program>(nativeHandle);
   return PI_SUCCESS;

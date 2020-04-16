@@ -2521,7 +2521,8 @@ pi_result cuda_piextProgramGetNativeHandle(pi_program program,
 ///
 /// \return TBD
 pi_result cuda_piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                                  pi_program *program) {
+                                                  pi_program *program,
+                                                  pi_context) { // INTEL
   cl::sycl::detail::pi::die(
       "Creation of PI program from native handle not implemented");
   return {};
