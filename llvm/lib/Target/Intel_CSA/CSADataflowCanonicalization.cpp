@@ -91,6 +91,10 @@ private:
   /// The following mini pass pushes literals as late as possible.
   bool stopPipingLiterals(MachineInstr *MI);
 
+  /// The following mini pass optimizes picks of literal 1/0 values which are
+  /// equivalent to movs/nots of the control input.
+  bool convertLiteralMovNotPicks(MachineInstr *MI);
+
   MachineInstr *getDefinition(const MachineOperand &MO) const;
   void getUses(const MachineOperand &MO,
                SmallVectorImpl<MachineInstr *> &uses) const;
@@ -143,8 +147,8 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(
     &CSADataflowCanonicalizationPass::createFilterOps,
     &CSADataflowCanonicalizationPass::invertIgnoredSwitches,
     &CSADataflowCanonicalizationPass::stopPipingLiterals,
-    &CSADataflowCanonicalizationPass::createOncountFromFilter
-  };
+    &CSADataflowCanonicalizationPass::convertLiteralMovNotPicks,
+    &CSADataflowCanonicalizationPass::createOncountFromFilter};
   for (auto func : functions) {
     if (func == &CSADataflowCanonicalizationPass::invertIgnoredSwitches &&
         DisableSwitchInversion)
@@ -594,4 +598,59 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   MI->getOperand(0).setReg(0);
   to_delete.push_back(MI);
   return true;
+}
+
+bool CSADataflowCanonicalizationPass::convertLiteralMovNotPicks(
+  MachineInstr *MI) {
+  if (!MI->getFlag(MachineInstr::NonSequential))
+    return false;
+
+  // Only look at picks.
+  if (TII->getGenericOpcode(MI->getOpcode()) != CSA::Generic::PICK)
+    return false;
+
+  // The inputs to the pick must both be literals.
+  if (!MI->getOperand(2).isImm() || !MI->getOperand(3).isImm())
+    return false;
+
+  // Drop any unused bits in the pick inputs.
+  const unsigned LicSize = TII->getLicSize(MI->getOpcode());
+  if (LicSize < 64) {
+    const uint64_t UsedInputBits = (1ull << LicSize) - 1;
+    MI->getOperand(2).setImm(MI->getOperand(2).getImm() & UsedInputBits);
+    MI->getOperand(3).setImm(MI->getOperand(3).getImm() & UsedInputBits);
+  }
+
+  // If the false input is 0 and the true input is 1, this pick is equivalent to
+  // a mov; replace it with one.
+  if (MI->getOperand(2).getImm() == 0 && MI->getOperand(3).getImm() == 1) {
+    auto Mov =
+      BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::MOV1))
+        .add(MI->getOperand(0))
+        .add(MI->getOperand(1));
+    Mov->setFlag(MachineInstr::NonSequential);
+
+    MI->getOperand(0).setReg(0);
+    to_delete.push_back(MI);
+    eliminateMovInsts(Mov);
+    return true;
+  }
+
+  // If the false input is 1 and the true input is 0, this pick is equivalent to
+  // a not; replace it with one.
+  if (MI->getOperand(2).getImm() == 1 && MI->getOperand(3).getImm() == 0) {
+    auto Not =
+      BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::NOT1))
+        .add(MI->getOperand(0))
+        .add(MI->getOperand(1));
+    Not->setFlag(MachineInstr::NonSequential);
+
+    MI->getOperand(0).setReg(0);
+    to_delete.push_back(MI);
+    for (auto &Use : MRI->use_nodbg_instructions(Not->getOperand(0).getReg()))
+      eliminateNotPicks(&Use);
+    return true;
+  }
+
+  return false;
 }

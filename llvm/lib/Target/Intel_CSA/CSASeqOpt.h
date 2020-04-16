@@ -158,7 +158,9 @@ private:
     // is one of the inputs to an eligible operation.
     // Op2Merge is a section where an eligible operation's output
     // is one of the inputs to a merge instruction.
-    enum SectionType { If, Loop, MergeOp, OpMerge };
+    // Merge is a section where the merge instruction's other input is not
+    // dependent on the loop-carried value.
+    enum SectionType { If, Loop, MergeOp, OpMerge, Merge, Logical };
 
     class Section {
     public:
@@ -168,15 +170,19 @@ private:
       //   'Loop' when the backedge index is 1.
       //   'MergeOp' when the identity of the op is operand 2.
       //   'OpMerge' when the output the op feeds into operand 2 of merge.
+      //   'Merge' when non-dependent op is the second merge input.
+      //   'Logical' when the op is an or1.
       // Canonical is false otherwise.
       bool Canonical;
       // HeadInstr is a switch instruction for 'If'
       //                pick               for 'Loop'
-      //                merge              for 'MergeOp' and 'OpMerge'
+      //                merge              for 'MergeOp', 'OpMerge', and 'Merge'
+      //                or1/and1           for 'Logical'
       MachineInstr *HeadInstr;
       // TailInstr is a pick   instruction for 'If'
       //                switch             for 'Loop'
-      //                op                 for 'MergeOp' and 'OpMerge'
+      //                op                 for 'MergeOp', 'OpMerge', and 'Merge'
+      //                or1/and1           for 'Logical'
       MachineInstr *TailInstr;
       // This is the predicate that drives the original if/loop/merge.
       unsigned Predicate;
@@ -196,12 +202,12 @@ private:
           SwitchToOp(SwitchToOp), OpIdx(OpIdx) {}
     };
 
-    enum Operation { TransformOutermostIfLoop,
-                     TransformOutermostLoop,
-                     TransformInnerIf,
-                     TransformInnerLoop,
-                     TransformInnerMergeOp,
-                     TransformInnerOpMerge };
+    enum Operation {
+      TransformOutermostIfLoop,
+      TransformOutermostLoop,
+      TransformInnerIf,
+      TransformInnerLoop
+    };
 
     class Region {
     public:
@@ -270,6 +276,14 @@ private:
     // false otherwise.
     bool sharingPredicate(Region &Region1, Region &Region2);
 
+    // Fixes up certain types of sections involving merges to complete merge-if
+    // conversion and other related transforms.
+    void fixupInnerSections(Region &);
+    void fixupInnerMergeOp(Section &);
+    void fixupInnerOpMerge(Section &);
+    void fixupInnerMerge(Section &);
+    void fixupInnerLogical(Section &);
+
     MachineInstr *generatePredicate(Region &Region);
 
     // The following transform functions emit the code for
@@ -277,8 +291,6 @@ private:
     MachineInstr *transformOutermostIfLoop(Section &IfSection, Section &LoopSection);
     MachineInstr *transformOutermostLoop(Section &Section);
     MachineInstr *transformInnerIf(MachineInstr *Instr, Section &Section);
-    MachineInstr *transformInnerMergeOp(MachineInstr *Instr, Section &Section);
-    MachineInstr *transformInnerOpMerge(MachineInstr *Instr, Section &Section);
     MachineInstr *transformInnerLoop(MachineInstr *Instr, Section &Section);
     MachineInstr *transformLoopPredicate(MachineInstr *LoopTail, bool Canonical);
 

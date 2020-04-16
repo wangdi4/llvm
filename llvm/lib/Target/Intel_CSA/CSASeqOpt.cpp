@@ -1986,12 +1986,24 @@ bool CSASeqOpt::LccCanvas::addInnerIf() {
   auto isMerge = [this](MachineInstr *MI) {
     return TII->getGenericOpcode(MI->getOpcode()) == CSA::Generic::MERGE;
   };
+  const auto isLogical = [](const MachineInstr *MI) {
+    switch (MI->getOpcode()) {
+    case CSA::OR1:
+    case CSA::AND1:
+      return true;
+    default:
+      return false;
+    }
+  };
 
   LLVM_DEBUG(dbgs() << "addInnerIf:\n");
 
   if (CurrentRegion.Sections.back().Type == MergeOp ||
-      CurrentRegion.Sections.back().Type == OpMerge) {
-    LLVM_DEBUG(dbgs() << "  false- The innermost construct is a merge.\n");
+      CurrentRegion.Sections.back().Type == OpMerge ||
+      CurrentRegion.Sections.back().Type == Merge ||
+      CurrentRegion.Sections.back().Type == Logical) {
+    LLVM_DEBUG(
+      dbgs() << "  false- The innermost construct is a merge or logical.\n");
     return false;
   }
 
@@ -2005,9 +2017,10 @@ bool CSASeqOpt::LccCanvas::addInnerIf() {
 
   unsigned OuterTailInput = CurrentRegion.Y;
 
-  MachineInstr *IfTail = getSrcIfMatches(MRI,
-    OuterTailInput, [this, isMerge](MachineInstr *MI) {
-      return TII->isPick(MI) || isMerge(MI) || isOperationWithIdentity(MI);
+  MachineInstr *IfTail = getSrcIfMatches(
+    MRI, OuterTailInput, [this, isMerge, isLogical](MachineInstr *MI) {
+      return TII->isPick(MI) || isMerge(MI) || isLogical(MI) ||
+             isOperationWithIdentity(MI);
     });
 
   if (!IfTail) {
@@ -2093,58 +2106,120 @@ bool CSASeqOpt::LccCanvas::addInnerIf() {
       }
     }
 
-    // Ensure that the other input to the merge is a stateless op.
-    MachineInstr *Op = getSrcIfMatches(MRI,
-      Merge->getOperand(Idx == 2 ? 3 : 2), [this](MachineInstr *MI) {
-        return isOperationStateless(MI);
-      });
+    // If the merge is the only user of OuterHead, this is the InnerMerge case.
+    if (MRI->hasOneNonDBGUse(Merge->getOperand(Idx).getReg())) {
 
-    if (!Op) {
-        LLVM_DEBUG(dbgs() << "  The merge doesn't consume from a stateless op.\n");
+      // TailInstr should point at the other operand, unless it's a literal.
+      // Then it should point at the merge instead.
+      const MachineOperand &OtherInput = Merge->getOperand(Idx == 2 ? 3 : 2);
+      MachineInstr *const TailInstr =
+        OtherInput.isReg() ? MRI->getUniqueVRegDef(OtherInput.getReg()) : Merge;
+
+      // Set up the transform information. Y will be re-routed to a new filter
+      // in fixupInnerMerge.
+      CurrentRegion.Y = Merge->getOperand(0).getReg();
+      CurrentRegion.Z = Merge->getOperand(Idx).getReg();
+      CurrentRegion.Sections.emplace_back(SectionType::Merge, Idx == 2, Merge,
+                                          TailInstr,
+                                          Merge->getOperand(1).getReg());
+      CurrentRegion.Operations.push_back(TransformInnerIf);
+
+    } else {
+
+      // Otherwise, ensure that the other input to the merge is a stateless op.
+      MachineInstr *Op = getSrcIfMatches(
+        MRI, Merge->getOperand(Idx == 2 ? 3 : 2),
+        [this](MachineInstr *MI) { return isOperationStateless(MI); });
+
+      if (!Op) {
+        LLVM_DEBUG(
+          dbgs() << "  The merge doesn't consume from a stateless op.\n");
         return false;
+      }
+
+      LLVM_DEBUG(dbgs() << "  See op: " << *Op);
+
+      // Op's output needs to be one-use.
+      if (!MRI->hasOneNonDBGUse(Op->getOperand(0).getReg())) {
+        LLVM_DEBUG(dbgs() << "  Op's output has multiple uses\n");
+        return false;
+      }
+
+      // Ensure the reg in 1. is also used by op.
+      Register X = Merge->getOperand(Idx).getReg();
+      int XIdx   = Op->findRegisterUseOperandIdx(X);
+      if (XIdx == -1) {
+        LLVM_DEBUG(dbgs() << "  The op doesn't consume from OuterHead\n");
+        return false;
+      }
+
+      // Ensure that reg in 1. has exactly two uses.
+      unsigned XUses =
+        std::distance(MRI->use_nodbg_begin(X), MRI->use_nodbg_end());
+
+      if (XUses != 2) {
+        LLVM_DEBUG(dbgs() << "  OuterHead's output doesn't have 2 exact uses; "
+                          << XUses << " found\n");
+        return false;
+      }
+
+      // The LIC group for this is done in fixupInnerOpMerge.
+      const TargetRegisterClass *TRC =
+        TII->getRegisterClass(Op->getOperand(XIdx).getReg(), *MRI);
+      unsigned SwitchToOp = LMFI->allocateLIC(TRC);
+
+      // Y should be Op->getOperand(0).getReg(), but
+      // usually it's Merge->getOperand(0).getReg() associated
+      // with a variable in the source program. Therefore,
+      // we use the latter, and adjust it at the codegen stage.
+      CurrentRegion.Y = Merge->getOperand(0).getReg();
+      CurrentRegion.Z = SwitchToOp;
+
+      CurrentRegion.Sections.emplace_back(OpMerge, Idx == 2, Merge, Op,
+                                          Merge->getOperand(1).getReg(),
+                                          SwitchToOp, XIdx);
+      CurrentRegion.Operations.emplace_back(TransformInnerIf);
     }
+  } else if (isLogical(IfTail)) {
 
-    LLVM_DEBUG(dbgs() << "  See op: " << *Op);
-
-    // Op's output needs to be one-use.
-    if (!MRI->hasOneNonDBGUse(Op->getOperand(0).getReg())) {
-      LLVM_DEBUG(dbgs() << "  Op's output has multiple uses\n");
+    // Ensure that the logical op is a direct user of OuterHead.
+    unsigned HeadIdx;
+    for (HeadIdx = 1; HeadIdx <= 2; ++HeadIdx) {
+      const MachineInstr *const FoundHead = getSrcIfMatches(
+        MRI, IfTail->getOperand(HeadIdx),
+        [OuterHead](const MachineInstr *MI) { return MI == OuterHead; });
+      if (FoundHead)
+        break;
+    }
+    if (HeadIdx > 2) {
+      LLVM_DEBUG(
+        dbgs() << "  The logical op doesn't consume from OuterHead.\n");
       return false;
     }
 
-    // Ensure the reg in 1. is also used by op.
-    Register X = Merge->getOperand(Idx).getReg();
-    int XIdx = Op->findRegisterUseOperandIdx(X);
-    if (XIdx == -1) {
-      LLVM_DEBUG(dbgs() << "  The op doesn't consume from OuterHead\n");
+    // And that it's the only user.
+    if (!MRI->hasOneNonDBGUse(IfTail->getOperand(HeadIdx).getReg())) {
+      LLVM_DEBUG(
+        dbgs() << "  The logical op isn't the only user of OuterHead.\n");
       return false;
     }
 
-    // Ensure that reg in 1. has exactly two uses.
-    unsigned XUses = std::distance(MRI->use_nodbg_begin(X),
-                                   MRI->use_nodbg_end());
-
-    if (XUses != 2) {
-      LLVM_DEBUG(dbgs() << "  OuterHead's output doesn't have 2 exact uses; " << XUses << " found\n");
+    // And that the other input isn't a literal.
+    const unsigned PredIdx = (HeadIdx == 1) ? 2 : 1;
+    if (!IfTail->getOperand(PredIdx).isReg()) {
+      LLVM_DEBUG(dbgs() << "  The logical op's pred input isn't a channel.\n");
       return false;
     }
 
-    // The LIC group for this is done in transformInnerMerge.
-    const TargetRegisterClass *TRC =
-      TII->getRegisterClass(Op->getOperand(XIdx).getReg(), *MRI);
-    unsigned SwitchToOp  = LMFI->allocateLIC(TRC);
+    // Set up the transform information. Y will be re-routed to a mov of a
+    // literal in fixupInnerLogical.
+    CurrentRegion.Y = IfTail->getOperand(0).getReg();
+    CurrentRegion.Z = IfTail->getOperand(HeadIdx).getReg();
+    CurrentRegion.Sections.emplace_back(
+      Logical, IfTail->getOpcode() == CSA::OR1, IfTail, IfTail,
+      IfTail->getOperand(PredIdx).getReg());
+    CurrentRegion.Operations.push_back(TransformInnerIf);
 
-    // Y should be Op->getOperand(0).getReg(), but
-    // usually it's Merge->getOperand(0).getReg() associated
-    // with a variable in the source program. Therefore,
-    // we use the latter, and adjust it at the codegen stage.
-    CurrentRegion.Y = Merge->getOperand(0).getReg();
-    CurrentRegion.Z = SwitchToOp;
-
-    CurrentRegion.Sections.emplace_back(OpMerge, Idx == 2, Merge, Op,
-                                        Merge->getOperand(1).getReg(),
-                                        SwitchToOp, XIdx);
-    CurrentRegion.Operations.emplace_back(TransformInnerOpMerge);
   } else {
     // We may be dealing with merge.
     MachineInstr *OpInstr = IfTail;
@@ -2191,7 +2266,7 @@ bool CSASeqOpt::LccCanvas::addInnerIf() {
     unsigned IdIdx;
     if (!getIdIdx(Instr, OpInstr, IdIdx)) return false;
 
-    // The LIC group for this is done in transformInnerMerge.
+    // The LIC group for this is done in fixupInnerMergeOp.
     const TargetRegisterClass *TRC =
       TII->getRegisterClass(OpInstr->getOperand(OpIdx).getReg(), *MRI);
     unsigned SwitchToOp  = LMFI->allocateLIC(TRC);
@@ -2202,7 +2277,7 @@ bool CSASeqOpt::LccCanvas::addInnerIf() {
     CurrentRegion.Sections.emplace_back(MergeOp, IdIdx == 2, Instr, OpInstr,
                                         Instr->getOperand(1).getReg(),
                                         SwitchToOp, OpIdx);
-    CurrentRegion.Operations.emplace_back(TransformInnerMergeOp);
+    CurrentRegion.Operations.emplace_back(TransformInnerIf);
   }
 
   return true;
@@ -2212,8 +2287,8 @@ bool CSASeqOpt::LccCanvas::addInnerLoop(const CSALoopInfo& Loop) {
   LLVM_DEBUG(dbgs() << "addInnerLoop:\n");
 
   auto &Section = CurrentRegion.Sections.back();
-  if (Section.Type == MergeOp ||
-      Section.Type == OpMerge) {
+  if (Section.Type == MergeOp || Section.Type == OpMerge ||
+      Section.Type == Merge || Section.Type == Logical) {
     LLVM_DEBUG(dbgs() << "  false- The innermost construct is a merge.\n");
     return false;
   }
@@ -2315,6 +2390,27 @@ bool CSASeqOpt::LccCanvas::addInnerLoop(const CSALoopInfo& Loop) {
   return true;
 }
 
+void CSASeqOpt::LccCanvas::fixupInnerSections(
+  CSASeqOpt::LccCanvas::Region &Region) {
+
+  // Get the innermost section for this region.
+  Section &InnermostSection = Region.Sections.back();
+
+  // Call the appropriate fixupInner* method depending on its type.
+  switch (InnermostSection.Type) {
+  case MergeOp:
+    return fixupInnerMergeOp(InnermostSection);
+  case OpMerge:
+    return fixupInnerOpMerge(InnermostSection);
+  case Merge:
+    return fixupInnerMerge(InnermostSection);
+  case Logical:
+    return fixupInnerLogical(InnermostSection);
+  default:
+    return; // No fixup needed for any other types of sections.
+  }
+}
+
 MachineInstr* CSASeqOpt::LccCanvas::generatePredicate(CSASeqOpt::LccCanvas::Region &Region) {
   // This is a very simplistic way to generate the predicate stream.
   // An improvement would be to group the consecutive loops and ifs,
@@ -2334,12 +2430,6 @@ MachineInstr* CSASeqOpt::LccCanvas::generatePredicate(CSASeqOpt::LccCanvas::Regi
       break;
     case TransformInnerIf:
       LeadingInstr = transformInnerIf(LeadingInstr, *Section);
-      break;
-    case TransformInnerMergeOp:
-      LeadingInstr = transformInnerMergeOp(LeadingInstr, *Section);
-      break;
-    case TransformInnerOpMerge:
-      LeadingInstr = transformInnerOpMerge(LeadingInstr, *Section);
       break;
     case TransformInnerLoop:
       LeadingInstr = transformInnerLoop(LeadingInstr, *Section);
@@ -2604,8 +2694,20 @@ MachineInstr *CSASeqOpt::LccCanvas::transformInnerIf(MachineInstr *Instr,
   unsigned APredReg = Instr->getOperand(0).getReg();
   auto LicGroupA = LMFI->getLICGroup(APredReg);
 
-  unsigned FallThrough =
-    Section.HeadInstr->getOperand((Section.Canonical) ? 0 : 1).getReg();
+  unsigned FallThrough;
+  switch (TII->getGenericOpcode(Section.HeadInstr->getOpcode())) {
+  case CSA::Generic::MERGE:
+  case CSA::Generic::OR:
+  case CSA::Generic::AND:
+    FallThrough = Section.HeadInstr->getOperand(1).getReg();
+    break;
+  case CSA::Generic::SWITCH:
+    FallThrough =
+      Section.HeadInstr->getOperand((Section.Canonical) ? 0 : 1).getReg();
+    break;
+  default:
+    llvm_unreachable("Unexpected head instr opcode");
+  }
   auto LicGroupFT = LMFI->getLICGroup(FallThrough);
 
   unsigned LccPredReg = LMFI->allocateLIC(&CSA::CI1RegClass, "lcc.if.pred");
@@ -2630,11 +2732,10 @@ MachineInstr *CSASeqOpt::LccCanvas::transformInnerIf(MachineInstr *Instr,
   return Result;
 }
 
-MachineInstr *CSASeqOpt::LccCanvas::transformInnerMergeOp(
-  MachineInstr *Instr,
+void CSASeqOpt::LccCanvas::fixupInnerMergeOp(
   CSASeqOpt::LccCanvas::Section &Section) {
 
-  LLVM_DEBUG(dbgs() << "transformInnerMergeOp:\n");
+  LLVM_DEBUG(dbgs() << "fixupInnerMergeOp:\n");
   MachineInstr *MergeInstr = Section.HeadInstr;
   MachineInstr *OpInstr = Section.TailInstr;
   auto LicGroup = LMFI->getLICGroup(MergeInstr->getOperand(0).getReg());
@@ -2680,15 +2781,12 @@ MachineInstr *CSASeqOpt::LccCanvas::transformInnerMergeOp(
   OpInstr->getOperand(OpIdx == 1 ? 2 : 1).setReg(FilterToOp);
 
   LLVM_DEBUG(dbgs() << "  Re-routed op: " << *OpInstr);
-
-  return transformInnerIf(Instr, Section);
 }
 
-MachineInstr *CSASeqOpt::LccCanvas::transformInnerOpMerge(
-  MachineInstr *Instr,
+void CSASeqOpt::LccCanvas::fixupInnerOpMerge(
   CSASeqOpt::LccCanvas::Section &Section) {
 
-  LLVM_DEBUG(dbgs() << "transformInnerOpMerge:\n");
+  LLVM_DEBUG(dbgs() << "fixupInnerOpMerge:\n");
   MachineInstr *MergeInstr = Section.HeadInstr;
   MachineInstr *OpInstr = Section.TailInstr;
 
@@ -2764,8 +2862,49 @@ MachineInstr *CSASeqOpt::LccCanvas::transformInnerOpMerge(
   OpInstr->getOperand(0).setReg(MergeInstr->getOperand(0).getReg());
 
   LLVM_DEBUG(dbgs() << "  Re-routed op: " << *OpInstr);
+}
 
-  return transformInnerIf(Instr, Section);
+void CSASeqOpt::LccCanvas::fixupInnerMerge(
+  CSASeqOpt::LccCanvas::Section &Section) {
+
+  LLVM_DEBUG(dbgs() << "fixupInnerMerge:\n");
+
+  // Replace the merge with a filter to get the correct value for Y.
+  const unsigned FilterCtl = Section.Canonical
+                               ? Section.Predicate
+                               : Parent->negateRegister(Section.Predicate);
+  const auto Filter =
+    BuildMI(*Section.HeadInstr->getParent(), Section.HeadInstr,
+            Section.HeadInstr->getDebugLoc(),
+            TII->get(TII->adjustOpcode(Section.HeadInstr->getOpcode(),
+                                       CSA::Generic::FILTER)),
+            Section.HeadInstr->getOperand(0).getReg())
+      .addUse(FilterCtl)
+      .add(Section.HeadInstr->getOperand(Section.Canonical ? 3 : 2))
+      .setMIFlag(MachineInstr::NonSequential);
+  Section.HeadInstr->getOperand(0).setReg(CSA::IGN);
+
+  (void)Filter;
+  LLVM_DEBUG(dbgs() << "  New filter: " << *Filter);
+}
+
+void CSASeqOpt::LccCanvas::fixupInnerLogical(
+  CSASeqOpt::LccCanvas::Section &Section) {
+
+  LLVM_DEBUG(dbgs() << "fixupInnerLogical:\n");
+
+  // Replace the logical op with a mov of the corresponding literal.
+  const bool LiteralVal = (Section.HeadInstr->getOpcode() == CSA::OR1);
+  const auto Mov =
+    BuildMI(*Section.HeadInstr->getParent(), Section.HeadInstr,
+            Section.HeadInstr->getDebugLoc(), TII->get(CSA::MOV1),
+            Section.HeadInstr->getOperand(0).getReg())
+      .addImm(LiteralVal)
+      .setMIFlag(MachineInstr::NonSequential);
+  Section.HeadInstr->getOperand(0).setReg(CSA::IGN);
+
+  (void)Mov;
+  LLVM_DEBUG(dbgs() << "  New mov: " << *Mov);
 }
 
 // Should this take a CSALoopInfo as an argument instead?
@@ -2962,6 +3101,10 @@ void CSASeqOpt::LccCanvas::finalize() {
     LoopInfo.setPickBackedgeIndex(0);
     LoopInfo.addExit(0);
 
+    // Fixup any sections that need it.
+    for (auto RegionIdx : Group)
+      fixupInnerSections(Regions[RegionIdx]);
+
     // Use the first region in the group to derive the predicate stream.
     MachineInstr *PredInstr = generatePredicate(Regions[Group[0]]);
 
@@ -3018,7 +3161,11 @@ void CSASeqOpt::LccCanvas::finalize() {
         break;
       case MergeOp:
       case OpMerge:
+      case Merge:
         ORE.emit(SubRemark << " Merge");
+        break;
+      case Logical:
+        ORE.emit(SubRemark << " Logical");
         break;
       }
     }
@@ -3027,10 +3174,12 @@ void CSASeqOpt::LccCanvas::finalize() {
   // Erase the dead instructions.
   for (auto Region : Regions) {
     for (auto Section : Region.Sections) {
-      Section.HeadInstr->eraseFromParent();
-      // Do not erase the TailInstr for Merge-- It's an operator.
-      if (Section.Type != MergeOp && Section.Type != OpMerge)
-        Section.TailInstr->eraseFromParent();
+      Section.HeadInstr->eraseFromParentAndMarkDBGValuesForRemoval();
+      // Do not erase the TailInstr for Merge/Logical-- It's an operator or has
+      // already been erased.
+      if (Section.Type != MergeOp && Section.Type != OpMerge &&
+          Section.Type != Merge && Section.Type != Logical)
+        Section.TailInstr->eraseFromParentAndMarkDBGValuesForRemoval();
     }
   }
 }
