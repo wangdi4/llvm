@@ -48,7 +48,8 @@ enum cl_dev_backend_options                            // Description           
     CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE,             //!< Select vectorizer                   |VectorizerType          | VOLCANO_VECTORIZER,VPO_VECTORIZER
     CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS,            //!< Enable native subgroups             |boolean                 |
     CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS,       //!< Serialize work-groups execution     |boolean
-    CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE              //!< Max work-group size for cpu device  |size_t
+    CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE,             //!< Max work-group size for cpu device  |size_t
+    CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS             //!< Use Non-Temporal instruction        |boolean
 };
 
 /*! \enum cl_dev_backend_dump_options

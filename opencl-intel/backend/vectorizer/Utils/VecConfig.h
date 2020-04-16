@@ -44,7 +44,8 @@ public:
             bool eyeqEmulator,
             bool heuristicIR,
             int  APFLevel,
-            int rtLoopUnrollFactor):
+            int rtLoopUnrollFactor,
+            bool streamingAlways):
       m_cpuId(cpuId),
       m_transposeSize(tranposeSize),
       m_dumpIROptionsAfter(dumpIROptionAfter),
@@ -61,7 +62,8 @@ public:
       m_eyeqEmulator(eyeqEmulator),
       m_dumpHeuristicIR(heuristicIR),
       m_APFLevel(APFLevel),
-      m_rtLoopUnrollFactor(rtLoopUnrollFactor)
+      m_rtLoopUnrollFactor(rtLoopUnrollFactor),
+      m_streamingAlways(streamingAlways)
     {}
 
     const Intel::CPUId &GetCpuId() const { return m_cpuId; }
@@ -82,6 +84,7 @@ public:
     int GetRTLoopUnrollFactor() const { return m_rtLoopUnrollFactor; }
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
     int  GetAPFLevel() const { return m_APFLevel; }
+    bool GetStreamingAlways() const { return m_streamingAlways; }
 
 private:
     Intel::CPUId m_cpuId;
@@ -107,6 +110,7 @@ private:
     int  m_APFLevel;
 
     int m_rtLoopUnrollFactor;
+    bool m_streamingAlways;
 };
 
 

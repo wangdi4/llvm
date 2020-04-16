@@ -662,6 +662,15 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
          */
         unsigned GetNumTBBWorkers() const;
 
+        /**
+         * @returns use streaming always or not
+         */
+        bool GetStreamingAlways() const
+        {
+            return m_pConfigFile->Read<bool>(
+                "CL_CONFIG_CPU_STREAMING_ALWAYS", false);
+        }
+
     private:
         BasicCLConfigWrapper(const BasicCLConfigWrapper&);
         BasicCLConfigWrapper& operator=(const BasicCLConfigWrapper&);
