@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
 ; Disabled temporarily as explained in CMPLRLLVM-19188.
-; XFAIL: windows-gnu, windows-msvc
+; UNSUPPORTED: windows-gnu, windows-msvc
 ; end INTEL_CUSTOMIZATION
 ; REQUIRES: x86
 ; RUN: rm -fr %T/thinlto
