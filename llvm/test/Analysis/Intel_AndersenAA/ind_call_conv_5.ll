@@ -5,8 +5,8 @@
 ; when the limit of targets is reached. The goal of this test is to make sure
 ; that the trace is printed correctly.
 
-; RUN: opt < %s -intel-ind-call-force-andersen -print-indirect-call-conv -anders-aa -indirectcallconv 2>&1 | FileCheck %s
-; RUN: opt < %s -intel-ind-call-force-andersen -print-indirect-call-conv -passes='require<anders-aa>,function(indirectcallconv)' 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ind-call-force-andersen -debug-only=intel-ind-call-conv -anders-aa -indirectcallconv 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ind-call-force-andersen -debug-only=intel-ind-call-conv -passes='require<anders-aa>,function(indirectcallconv)' 2>&1 | FileCheck %s
 
 %struct.A = type { %struct.A* ()*, i32 }
 %struct.A.01 = type { {}*, i32 }
@@ -14,7 +14,7 @@
 @glob = external global i32, align 4
 @fptr = internal global %struct.A* (i32)* null, align 8
 
-define %struct.A.01* @add_fun(i32 %val)  {
+define %struct.A.01* @add_fun(i32 %val) {
 entry:
   %val.addr = alloca i32, align 4
   %ret = alloca %struct.A.01, align 4
@@ -26,7 +26,7 @@ entry:
   ret %struct.A.01* %ret
 }
 
-define %struct.A* @sub_fun(i32 %val)  {
+define %struct.A* @sub_fun(i32 %val) {
 entry:
   %val.addr = alloca i32, align 4
   %ret = alloca %struct.A, align 4
@@ -38,7 +38,7 @@ entry:
   ret %struct.A* %ret
 }
 
-define %struct.A* @mult_fun(i32 %val)  {
+define %struct.A* @mult_fun(i32 %val) {
 entry:
   %val.addr = alloca i32, align 4
   %ret = alloca %struct.A, align 4
@@ -50,7 +50,7 @@ entry:
   ret %struct.A* %ret
 }
 
-define i32 @func(i32 %in_val)  {
+define i32 @func(i32 %in_val) {
 entry:
   %0 = load i32, i32* @glob, align 4
   %tobool = icmp ne i32 %0, 0

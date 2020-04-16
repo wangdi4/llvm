@@ -60,10 +60,6 @@ using namespace llvm;
 static cl::opt<unsigned> IndCallConvMaxTarget("intel-ind-call-conv-max-target",
                                               cl::ReallyHidden, cl::init(2));
 
-// Option to trace indirect call conversion transformation
-static cl::opt<bool> IndCallConvTrace("print-indirect-call-conv",
-                                      cl::ReallyHidden);
-
 // Option to control allowing InvokeInst for IndCallConv transformation
 static cl::opt<bool> IndCallConvAllowInvoke("intel-ind-call-conv-allow-invoke",
                                             cl::init(false), cl::ReallyHidden);
@@ -190,62 +186,54 @@ CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
 //     ...
 //
 bool IndirectCallConvImpl::convert(CallBase *Call) {
-  AndersensAAResult::AndersenSetResult
-      IsComplete = AndersensAAResult::AndersenSetResult::Incomplete;
+  AndersensAAResult::AndersenSetResult IsComplete =
+      AndersensAAResult::AndersenSetResult::Incomplete;
   unsigned NumPossibleTargets = 0;
 
-  if (IndCallConvTrace) {
-    errs() << "Call-Site:  ";
-    errs() << *Call << "\n";
-  }
+  LLVM_DEBUG(dbgs() << "Call-Site:  " << *Call << "\n");
 
   // Get possible targets for 'Call' using points-to info.
   std::vector<llvm::Value *> PossibleTargets;
   Value *call_fptr = Call->getCalledValue()->stripPointerCasts();
+  bool TraceOn = false;
+  LLVM_DEBUG( TraceOn = true; );
 #if INTEL_INCLUDE_DTRANS
   if (DTransInfo && DTransInfo->useDTransAnalysis()) {
     if (DTransInfo->GetFuncPointerPossibleTargets(
-        call_fptr, PossibleTargets, Call, IndCallConvTrace))
+            call_fptr, PossibleTargets, Call, TraceOn))
       IsComplete = AndersensAAResult::AndersenSetResult::Complete;
   }
 #endif // INTEL_INCLUDE_DTRANS
-  if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete
-      && AnderPointsTo)
+  if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete &&
+      AnderPointsTo)
     IsComplete = AnderPointsTo->GetFuncPointerPossibleTargets(
-        call_fptr, PossibleTargets, Call, IndCallConvTrace);
-  if (IsComplete !=
-      AndersensAAResult::AndersenSetResult::Complete) {
-    if (IndCallConvTrace) {
+        call_fptr, PossibleTargets, Call, TraceOn);
+  if (IsComplete != AndersensAAResult::AndersenSetResult::Complete) {
+    LLVM_DEBUG({
       if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
-        errs() << "    (Incomplete set) \n";
+        dbgs() << "    (Incomplete set) \n";
       else
-        errs() << "    (Partially complete set) \n";
-    }
+        dbgs() << "    (Partially complete set) \n";
+    });
     // If not complete, increment NumPossibleTargets by 1 since indirect call
     // will be generated as Fallback case.
     NumPossibleTargets++;
   } else {
-    if (IndCallConvTrace) {
-      errs() << "    (Complete set) \n";
-    }
+    LLVM_DEBUG(dbgs() << "    (Complete set) \n");
   }
   // No possible targets ... skip them
   if (!PossibleTargets.size()) {
-    if (IndCallConvTrace) {
-      errs() << "    No possible targets \n";
-    }
+    LLVM_DEBUG(dbgs() << "    No possible targets \n");
     return false;
   }
 
   NumPossibleTargets += PossibleTargets.size();
 
-  if (IndCallConvTrace) {
+  LLVM_DEBUG({
     for (auto F1 = PossibleTargets.begin(), E1 = PossibleTargets.end();
-         F1 != E1; ++F1) {
-      Function *Fun = dyn_cast<Function>(*F1);
-      errs() << "    " << Fun->getName() << "\n";
-    }
-  }
+         F1 != E1; ++F1)
+      dbgs() << "    " << cast<Function>(*F1)->getName() << "\n";
+  });
 
   // If we have a partially complete set then it means that all the targets
   // are available, but the type of some of the targets aren't exactly the
@@ -272,16 +260,15 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   // case because we want to be able to directly call the possible targets
   // found with the fallback case. In the incomplete set case we can have
   // unsafe targets and the fallback case will be added automatically.
-  unsigned ActualMaxTargets = (IsComplete ==
-      AndersensAAResult::AndersenSetResult::PartiallyComplete) ?
-      IndCallConvMaxTarget + 1 : IndCallConvMaxTarget;
+  unsigned ActualMaxTargets =
+      (IsComplete == AndersensAAResult::AndersenSetResult::PartiallyComplete)
+          ? IndCallConvMaxTarget + 1
+          : IndCallConvMaxTarget;
 
   // It is not converted if number of possible targets exceeds
   // IndCallConvMaxTarget.
   if (NumPossibleTargets > ActualMaxTargets) {
-    if (IndCallConvTrace) {
-      errs() << "    Number of possible targets exceeds Limit\n";
-    }
+    LLVM_DEBUG(dbgs() << "    Number of possible targets exceeds Limit\n");
     return false;
   }
 
@@ -297,10 +284,7 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
     // replace function pointer with direct call.
     auto FirstElement = PossibleTargets.front();
     Call->setCalledFunction(cast<Function>(FirstElement));
-    if (IndCallConvTrace) {
-      errs() << "    Replaced with Direct call" << *Call
-             << "\n";
-    }
+    LLVM_DEBUG(dbgs() << "    Replaced with Direct call" << *Call << "\n");
     return true;
   }
 
@@ -315,11 +299,8 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
 
   BasicBlock *OrigBlock = SplitPt->getParent();
 
-  if (IndCallConvTrace) {
-    errs() << " \n BasicBlocks before transformation \n";
-    errs() << *OrigBlock;
-    errs() << "\n\n";
-  }
+  LLVM_DEBUG(dbgs() << " \n BasicBlocks before transformation \n"
+                    << *OrigBlock << "\n\n");
 
   std::string BB_Str = ".indconv.sink.";
   // Split BasicBlock that the indirect call lives in.
@@ -469,17 +450,15 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   // Eliminate original indirect call
   SplitPt->eraseFromParent();
 
-  if (IndCallConvTrace) {
-    errs() << " BasicBlocks after transformation \n";
+  LLVM_DEBUG({
+    dbgs() << " BasicBlocks after transformation \n";
     for (index = 0; index < NumPossibleTargets; index++) {
-      if (index < NumberCondStmts) {
-        errs() << *NewCondStmtBBs[index];
-      }
-      errs() << *NewDirectCallBBs[index];
+      if (index < NumberCondStmts)
+        dbgs() << *NewCondStmtBBs[index];
+      dbgs() << *NewDirectCallBBs[index];
     }
-    errs() << *Tail_BB;
-    errs() << "\n\n";
-  }
+    dbgs() << *Tail_BB << "\n\n";
+  });
   return true;
 }
 
@@ -500,11 +479,8 @@ bool IndirectCallConvImpl::run(Function &F) {
     return false;
   }
 
-  if (IndCallConvTrace) {
-    errs() << "IntelIndCallConv for ";
-    errs() << F.getName() << "\n";
-    errs() << "--------------------------\n";
-  }
+  LLVM_DEBUG(dbgs() << "IntelIndCallConv for " << F.getName() << "\n"
+                    << "--------------------------\n");
 
   // Walk through the candidates and try to convert each indirect call
   bool Changed = false;
@@ -512,9 +488,7 @@ bool IndirectCallConvImpl::run(Function &F) {
     Changed |= convert(cs);
   }
 
-  if (IndCallConvTrace) {
-    errs() << "End IntelIndCallConv\n\n";
-  }
+  LLVM_DEBUG(dbgs() << "End IntelIndCallConv\n\n");
   return Changed;
 }
 
@@ -522,8 +496,7 @@ namespace {
 // IndirectCallConv legacy pass implementation
 struct IndirectCallConvLegacyPass : public FunctionPass {
   static char ID; // Pass identification, replacement for typeid
-  IndirectCallConvLegacyPass(bool UseAndersen = false,
-                             bool UseDTrans = false);
+  IndirectCallConvLegacyPass(bool UseAndersen = false, bool UseDTrans = false);
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
