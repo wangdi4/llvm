@@ -195,6 +195,16 @@ def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
   Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
+def _SLASH_Qopt_mem_layout_trans_EQ : CLJoined<"Qopt-mem-layout-trans=">,
+  Alias<qopt_mem_layout_trans_EQ>;
+def _SLASH_Qopt_mem_layout_trans : CLFlag<"Qopt-mem-layout-trans">,
+  Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["2"]>;
+def _SLASH_Qopt_mem_layout_trans_COL : CLJoined<"Qopt-mem-layout-trans:">,
+  Alias<qopt_mem_layout_trans_EQ>, HelpText<"Control the level of memory "
+  " layout transformations performed by the compiler">;
+def _SLASH_Qopt_mem_layout_trans_ : CLFlag<"Qopt-mem-layout-trans-">,
+  Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["0"]>,
+  HelpText<"Disable memory layout transformations">;
 def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
