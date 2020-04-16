@@ -12,7 +12,7 @@
 ; upper bound.  The check below is not very robust, because
 ; it relies on temp/block names:
 ; CHECK: define{{.*}}@__omp_offloading_804_{{[0-9a-f]+}}_foo_l3
-; CHECK: %[[TEAM_UB:.*]] = load i32, i32* %team.ub
+; CHECK: %[[TEAM_UB:.*]] = load i32, i32* %loop0.team.ub
 ; CHECK: dispatch.header:
 ; CHECK: %[[UB_TMP:.*]] = load i32, i32*
 ; CHECK: %[[UB_MIN:.*]] = icmp sle i32 %[[UB_TMP]], %[[TEAM_UB]]
