@@ -64,6 +64,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -145,6 +146,7 @@ deleteDeadInstruction(Instruction *I, BasicBlock::iterator *BBI,
 
     // Try to preserve debug information attached to the dead instruction.
     salvageDebugInfoOrMarkUndef(*DeadInst);
+    salvageKnowledge(DeadInst);
 
     // This instruction is dead, zap it, in stages.  Start by removing it from
     // MemDep, which needs to know the operands and needs it to be in the
@@ -1730,6 +1732,7 @@ struct DSEState {
 
       // Try to preserve debug information attached to the dead instruction.
       salvageDebugInfo(*DeadInst);
+      salvageKnowledge(DeadInst);
 
       // Remove the Instruction from MSSA.
       if (MemoryAccess *MA = MSSA.getMemoryAccess(DeadInst)) {
