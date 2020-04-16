@@ -606,10 +606,10 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     VectorType* ResType = dyn_cast<VectorType>(I->getType());
     assert(OpType && "Shuffle with a non-vector type!");
 
-    Value* Mask = I->getOperand(2);
+    ArrayRef<int> Mask = cast<ShuffleVectorInst>(I)->getShuffleMask();
     // Check whether this shuffle is a part of a broadcast sequence.
     // If it is, the price is 0, since we already paid for the insert.
-    if (isa<ConstantAggregateZero>(Mask))
+    if (all_of(Mask, [](int Elt) { return Elt == 0; }))
       return BROADCAST_WEIGHT;
 
     // A shuffle between different types won't be cheap, even if
@@ -659,8 +659,9 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     if (insertInst->hasOneUse()) {
       User * userInst = insertInst->user_back();
       if(ShuffleVectorInst * shuffleInst = dyn_cast<ShuffleVectorInst>(userInst)) {
-        if (isa<ConstantAggregateZero>(shuffleInst->getMask()))
-           return NOOP_WEIGHT;
+        if (all_of(shuffleInst->getShuffleMask(),
+                   [](int Elt) { return Elt == 0; }))
+          return NOOP_WEIGHT;
       }
     }
 

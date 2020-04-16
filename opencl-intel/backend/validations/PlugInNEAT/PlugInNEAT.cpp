@@ -1289,11 +1289,17 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
   NEATGenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   NEATGenericValue Dest;
 
-  GenericValue MaskGV = m_pInterp->getOperandValueAdapter(I.getOperand(2), m_pECStack->back());
+  ArrayRef<int> ShuffleMask = I.getShuffleMask();
+  size_t ShuffleMaskSize = ShuffleMask.size();
+  assert(ShuffleMaskSize > 1);
   std::vector<unsigned> mask_vec;
-  for (unsigned i = 0; i < MaskGV.AggregateVal.size(); ++i)
+  for (unsigned i = 0; i < ShuffleMaskSize; ++i)
   {
-    mask_vec.push_back((unsigned)(MaskGV.AggregateVal[i].IntVal.getZExtValue()));
+    if (ShuffleMask[i] == UndefMaskElem) {
+      // Use safe value (0). The result will be overwritten below with NEATValue::ANY.
+      mask_vec.push_back(0);
+    } else
+      mask_vec.push_back((unsigned)(ShuffleMask[i]));
   }
 
   Dest.NEATVec = NEAT_WRAP::shufflevector_fd(Src1.NEATVec, Src2.NEATVec, mask_vec);
@@ -1301,31 +1307,23 @@ void NEATPlugIn::visitShuffleVectorInst( ShuffleVectorInst &I )
   // mask vector is an integer vector got from interpreter
   // The shuffle mask operand is required to be a constant vector
   // with either constant integer or undef values
-  Constant *CPV = dyn_cast<Constant>(I.getOperand(2));
-  assert(CPV != NULL);
-  assert(CPV->getType()->getTypeID() == Type::VectorTyID);
-  if(ConstantVector *CV = dyn_cast<ConstantVector>(CPV)) {
-      VectorType* VTy = dyn_cast<VectorType>(CPV->getType());
-      assert(VTy->getElementType()->isIntegerTy());
-      unsigned elemNum = VTy->getNumElements();
-      std::vector<unsigned> undef_vec(elemNum,0);
+  std::vector<unsigned> undef_vec(ShuffleMaskSize,0);
 
-      bool isAnyUndef = false;
-      for (unsigned i = 0; i < elemNum; ++i){
-          if (isa<UndefValue>(CV->getOperand(i))) {
-              isAnyUndef = true;
-              undef_vec[i] = 1; // mark undef values
-          }
+  bool isAnyUndef = false;
+  for (unsigned i = 0; i < ShuffleMaskSize; ++i){
+      if (ShuffleMask[i] == UndefMaskElem) {
+          isAnyUndef = true;
+          undef_vec[i] = 1; // mark undef values
       }
+  }
 
-      if(isAnyUndef) {
-          if( elemNum != (unsigned)(Dest.NEATVec.GetSize()) ) {
-              throw Exception::NEATTrackFailure("NEATPlugin::shufflevector. Wrong mask vector size");
-          }
-          for (unsigned i = 0; i < (unsigned)(Dest.NEATVec.GetSize()); ++i) {
-              if(undef_vec[i]) {
-                  Dest.NEATVec[i] = NEATValue(NEATValue::ANY);
-              }
+  if(isAnyUndef) {
+      if( ShuffleMaskSize != Dest.NEATVec.GetSize() ) {
+          throw Exception::NEATTrackFailure("NEATPlugin::shufflevector. Wrong mask vector size");
+      }
+      for (unsigned i = 0; i < (unsigned)(Dest.NEATVec.GetSize()); ++i) {
+          if(undef_vec[i]) {
+              Dest.NEATVec[i] = NEATValue(NEATValue::ANY);
           }
       }
   }
