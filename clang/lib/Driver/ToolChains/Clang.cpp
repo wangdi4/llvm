@@ -2734,8 +2734,15 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
           << Args.MakeArgString("-ffp-exception-behavior=" + FPExceptionBehavior)
           << Args.MakeArgString("-ffp-exception-behavior=" + Val);
       TrappingMath = TrappingMathPresent = false;
-      if (Val.equals("ignore") || Val.equals("maytrap"))
+#if INTEL_CUSTOMIZATION
+      if ((Val.equals("ignore")) || (Val.equals("fast"))) {
+        Val = "ignore";
         FPExceptionBehavior = Val;
+      } else if ((Val.equals("safe")) || (Val.equals("maytrap"))) {
+        Val = "maytrap";
+        FPExceptionBehavior = Val;
+      }
+#endif // INTEL_CUSTOMIZATION
       else if (Val.equals("strict")) {
         FPExceptionBehavior = Val;
         TrappingMath = TrappingMathPresent = true;

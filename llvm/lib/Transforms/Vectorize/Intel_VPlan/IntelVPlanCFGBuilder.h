@@ -108,6 +108,21 @@ public:
   void buildCFG();
 };
 
+class VPlanFunctionCFGBuilder
+    : public VPlanCFGBuilderBase<VPlanFunctionCFGBuilder> {
+  Function &F;
+
+public:
+  bool contains(Instruction *Inst) const {
+    assert(Inst->getParent()->getParent() == &F && "Use from another function?");
+    return true;
+  }
+
+  VPlanFunctionCFGBuilder(VPlan *Plan, Function &F)
+      : VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>(Plan), F(F) {}
+
+  void buildCFG();
+};
 } // namespace vpo
 } // namespace llvm
 #endif

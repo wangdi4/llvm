@@ -31,6 +31,7 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeMathLibraryFunctionsReplacementLegacyPassPass(Registry);
   initializeVPlanDriverPass(Registry);
   initializeVPlanDriverHIRPass(Registry);
+  initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
 #endif
   initializeVectorCombineLegacyPassPass(Registry);
 }

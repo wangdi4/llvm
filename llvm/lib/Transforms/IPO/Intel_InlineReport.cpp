@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.cpp - Inline report ------- ---------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -272,7 +272,7 @@ InlineReportFunction *InlineReport::addFunction(Function *F, Module *M) {
   return IRF;
 }
 
-InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
+InlineReportCallSite *InlineReport::addCallSite(Function *F, CallBase *Call,
                                                 Module *M) {
   if (!isClassicIREnabled())
     return nullptr;
@@ -280,18 +280,16 @@ InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
     return nullptr;
 
   bool SuppressInlRpt = false;
-  if (Instruction *Inst = CS.getInstruction())
-    if (Inst->getMetadata(IPOUtils::getSuppressInlineReportStringRef())) {
-      LLVM_DEBUG(dbgs() << "Suppress inline report on: \n" << *Inst << "\n";);
-      SuppressInlRpt = true;
-    }
+  if (Call->getMetadata(IPOUtils::getSuppressInlineReportStringRef())) {
+    LLVM_DEBUG(dbgs() << "Suppress inline report on: \n" << *Call << "\n";);
+    SuppressInlRpt = true;
+  }
 
-  Instruction *I = CS.getInstruction();
-  DebugLoc DLoc = CS.getInstruction()->getDebugLoc();
+  DebugLoc DLoc = Call->getDebugLoc();
   InlineReportFunctionMap::const_iterator MapIt = IRFunctionMap.find(F);
   assert(MapIt != IRFunctionMap.end());
   InlineReportFunction *IRF = MapIt->second;
-  Function *Callee = CS.getCalledFunction();
+  Function *Callee = Call->getCalledFunction();
   InlineReportFunction *IRFC = nullptr;
   if (Callee != nullptr) {
     InlineReportFunctionMap::const_iterator MapItC = IRFunctionMap.find(Callee);
@@ -300,21 +298,21 @@ InlineReportCallSite *InlineReport::addCallSite(Function *F, CallSite CS,
   }
   InlineReportCallSite *IRCS =
       new InlineReportCallSite(IRFC, false, NinlrNoReason, M, &DLoc,
-                               I, SuppressInlRpt);
+                               Call, SuppressInlRpt);
   IRF->addCallSite(IRCS);
-  IRInstructionCallSiteMap.insert(std::make_pair(I, IRCS));
-  addCallback(I);
+  IRInstructionCallSiteMap.insert(std::make_pair(Call, IRCS));
+  addCallback(Call);
   return IRCS;
 }
 
-InlineReportCallSite *InlineReport::addNewCallSite(Function *F, CallSite CS,
+InlineReportCallSite *InlineReport::addNewCallSite(Function *F, CallBase *Call,
                                                    Module *M) {
   if (!isClassicIREnabled())
     return nullptr;
-  InlineReportCallSite *IRCS = getCallSite(CS);
+  InlineReportCallSite *IRCS = getCallSite(Call);
   if (IRCS != nullptr)
     return IRCS;
-  return addCallSite(F, CS, M);
+  return addCallSite(F, Call, M);
 }
 
 void InlineReport::beginSCC(CallGraph &CG, CallGraphSCC &SCC) {
@@ -344,25 +342,25 @@ void InlineReport::beginFunction(Function *F) {
   assert(IRF != nullptr);
   for (BasicBlock &BB : *F) {
     for (Instruction &I : BB) {
-      CallSite CS(cast<Value>(&I));
+      CallBase *Call = dyn_cast<CallBase>(&I);
       // If this isn't a call, or it is a call to an intrinsic, it can
       // never be inlined.
-      if (!CS)
+      if (!Call)
         continue;
       if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
           shouldSkipIntrinsic(cast<IntrinsicInst>(&I)))
         continue;
-      addNewCallSite(F, CS, M);
+      addNewCallSite(F, Call, M);
       if (isa<IntrinsicInst>(I)) {
-        setReasonNotInlined(CS, NinlrIntrinsic);
+        setReasonNotInlined(Call, NinlrIntrinsic);
         continue;
       }
       // If this is a direct call to an external function, we can never
       // inline it.  If it is an indirect call, inlining may resolve it to be
       // a direct call, so we keep it.
-      if (Function *Callee = CS.getCalledFunction())
+      if (Function *Callee = Call->getCalledFunction())
         if (Callee->isDeclaration()) {
-          setReasonNotInlined(CS, NinlrExtern);
+          setReasonNotInlined(Call, NinlrExtern);
           continue;
         }
     }
@@ -450,13 +448,12 @@ void InlineReport::inlineCallSite() {
   ActiveIRCS->setCall(nullptr);
 }
 
-void InlineReport::setReasonIsInlined(const CallSite CS, InlineReason Reason) {
+void InlineReport::setReasonIsInlined(CallBase *Call, InlineReason Reason) {
   if (!isClassicIREnabled())
     return;
   assert(IsInlinedReason(Reason));
-  Instruction *NI = CS.getInstruction();
   InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(NI);
+      IRInstructionCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
   if (MapIt == IRInstructionCallSiteMap.end())
     return;
@@ -464,14 +461,13 @@ void InlineReport::setReasonIsInlined(const CallSite CS, InlineReason Reason) {
   IRCS->setReason(Reason);
 }
 
-void InlineReport::setReasonIsInlined(const CallSite CS,
+void InlineReport::setReasonIsInlined(CallBase *Call,
                                       const InlineCost &IC) {
   if (!isClassicIREnabled())
     return;
   assert(IsInlinedReason(IC.getInlineReason()));
-  Instruction *NI = CS.getInstruction();
   InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(NI);
+      IRInstructionCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
   if (MapIt == IRInstructionCallSiteMap.end())
     return;
@@ -481,14 +477,13 @@ void InlineReport::setReasonIsInlined(const CallSite CS,
   IRCS->setInlineThreshold(IC.getCost() + IC.getCostDelta());
 }
 
-void InlineReport::setReasonNotInlined(const CallSite CS,
+void InlineReport::setReasonNotInlined(CallBase *Call,
                                        InlineReason Reason) {
   if (!isClassicIREnabled())
     return;
   assert(IsNotInlinedReason(Reason));
-  Instruction *NI = CS.getInstruction();
   InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(NI);
+      IRInstructionCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
   if (MapIt == IRInstructionCallSiteMap.end())
     return;
@@ -496,15 +491,14 @@ void InlineReport::setReasonNotInlined(const CallSite CS,
   IRCS->setReason(Reason);
 }
 
-void InlineReport::setReasonNotInlined(const CallSite CS,
+void InlineReport::setReasonNotInlined(CallBase *Call,
                                        const InlineCost &IC) {
   if (!isClassicIREnabled())
     return;
   InlineReason Reason = IC.getInlineReason();
   assert(IsNotInlinedReason(Reason));
-  Instruction *NI = CS.getInstruction();
   InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(NI);
+      IRInstructionCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
   if (MapIt == IRInstructionCallSiteMap.end())
     return;
@@ -516,15 +510,14 @@ void InlineReport::setReasonNotInlined(const CallSite CS,
   IRCS->setEarlyExitInlineThreshold(IC.getEarlyExitThreshold());
 }
 
-void InlineReport::setReasonNotInlined(const CallSite CS, const InlineCost &IC,
+void InlineReport::setReasonNotInlined(CallBase *Call, const InlineCost &IC,
                                        int TotalSecondaryCost) {
   if (!isClassicIREnabled())
     return;
   assert(IC.getInlineReason() == NinlrOuterInlining);
-  setReasonNotInlined(CS, IC);
-  Instruction *NI = CS.getInstruction();
+  setReasonNotInlined(Call, IC);
   InlineReportInstructionCallSiteMap::const_iterator MapIt =
-      IRInstructionCallSiteMap.find(NI);
+      IRInstructionCallSiteMap.find(Call);
   // The new call site may have already been deleted by dead code elimination.
   if (MapIt == IRInstructionCallSiteMap.end())
     return;
@@ -667,20 +660,19 @@ void InlineReport::makeCurrent(Module *M, Function *F) {
   }
   for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-      CallSite CS(cast<Value>(I));
-      if (!CS) {
+      CallBase *Call = dyn_cast<CallBase>(I);
+      if (!Call) {
         continue;
       }
       if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
           shouldSkipIntrinsic(cast<IntrinsicInst>(I)))
         continue;
-      Instruction *NI = CS.getInstruction();
       InlineReportInstructionCallSiteMap::const_iterator MapItICS;
-      MapItICS = IRInstructionCallSiteMap.find(NI);
+      MapItICS = IRInstructionCallSiteMap.find(Call);
       if (MapItICS != IRInstructionCallSiteMap.end()) {
         continue;
       }
-      InlineReportCallSite *IRCS = addCallSite(F, CS, M);
+      InlineReportCallSite *IRCS = addCallSite(F, Call, M);
       assert(IRCS != nullptr);
       IRCS->setReason(NinlrNewlyCreated);
     }
@@ -716,12 +708,11 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
   addCallback(NewFunction);
 }
 
-InlineReportCallSite *InlineReport::getCallSite(CallSite CS) {
+InlineReportCallSite *InlineReport::getCallSite(CallBase *Call) {
   if (!isClassicIREnabled())
     return nullptr;
-  Instruction *NI = CS.getInstruction();
   InlineReportInstructionCallSiteMap::const_iterator MapItC =
-      IRInstructionCallSiteMap.find(NI);
+      IRInstructionCallSiteMap.find(Call);
   if (MapItC == IRInstructionCallSiteMap.end())
     return nullptr;
   return MapItC->second;

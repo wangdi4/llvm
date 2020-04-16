@@ -150,6 +150,19 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
     return nullptr;
   }
 
+  if (auto *Call = dyn_cast<CallInst>(Inst)) {
+    if (Function *F = Call->getCalledFunction()) {
+      if (F->getName() == "llvm.vplan.laneid") {
+        LLVMContext &Ctx = F->getContext();
+        auto *Zero = ConstantInt::getSigned(Type::getInt32Ty(Ctx), 0);
+        auto *One = ConstantInt::getSigned(Type::getInt32Ty(Ctx), 1);
+        return VPIRBuilder.createInductionInit(
+            getOrCreateVPOperand(Zero), getOrCreateVPOperand(One),
+            Instruction::Add, Call->getName());
+      }
+    }
+  }
+
   VPInstruction *NewVPInst{nullptr};
   if (auto *Phi = dyn_cast<PHINode>(Inst)) {
     // Phi node's operands may have not been visited at this point. We create
@@ -258,6 +271,8 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
     VPBB->setTBlock(TI->getSuccessor(0));
     VPBB->setFBlock(TI->getSuccessor(1));
 
+  } else if (NumSuccs == 0) {
+    assert(!cast<ReturnInst>(TI)->getReturnValue() && "Expected void return!");
   } else {
     llvm_unreachable("Number of successors not supported");
   }
@@ -352,8 +367,38 @@ void VPlanLoopCFGBuilder::buildCFG() {
   return;
 }
 
+void VPlanFunctionCFGBuilder::buildCFG() {
+  ReversePostOrderTraversal<BasicBlock *> RPOT(&F.getEntryBlock());
+  assert(count_if(F,
+                  [](const BasicBlock &BB) {
+                    return !isa<BranchInst>(BB.getTerminator());
+                  }) == 1 &&
+         "Unsupported function for region vectorization!");
+
+  for (BasicBlock *BB : RPOT)
+    processBB(BB);
+
+  fixPhiNodes();
+
+  // Fix exit block location.
+  for (auto &BB : F) {
+    if (isa<ReturnInst>(BB.getTerminator())) {
+      assert(cast<ReturnInst>(BB.getTerminator())->getNumOperands() == 0 &&
+             "Only void return is supported for region vectorization!");
+      VPBasicBlock *VPBB = BB2VPBB[&F.getEntryBlock()];
+
+      Plan->getVPBasicBlockList().remove(VPBB->getIterator());
+      Plan->insertAtBack(VPBB);
+      break;
+    }
+  }
+
+  return;
+}
+
 // Implicit instantiation above only creates definitions for methods used in
 // this compilation unit, but others that are supposed to be available through
 // the derived class' interface have to be forced through explicit
 // instantiation.
 template class llvm::vpo::VPlanCFGBuilderBase<VPlanLoopCFGBuilder>;
+template class llvm::vpo::VPlanCFGBuilderBase<VPlanFunctionCFGBuilder>;

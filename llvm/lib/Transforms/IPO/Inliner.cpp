@@ -477,8 +477,8 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
     if (CS.hasFnAttr("inline-list"))
       Reason = InlrInlineList;
     if (IR != nullptr)
-      IR->setReasonIsInlined(CS, Reason);
-    llvm::setMDReasonIsInlined(CS, Reason);
+      IR->setReasonIsInlined(cast<CallBase>(CS.getInstruction()), Reason);
+    llvm::setMDReasonIsInlined(cast<CallBase>(CS.getInstruction()), Reason);
 #endif // INTEL_CUSTOMIZATION
     return IC;
   }
@@ -497,8 +497,8 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
     if (CS.hasFnAttr("noinline-list"))
       Reason = NinlrNoinlineList;
     if (IR != nullptr)
-      IR->setReasonNotInlined(CS, Reason);
-    llvm::setMDReasonNotInlined(CS, Reason);
+      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
+    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
 #endif // INTEL_CUSTOMIZATION
     return IC;
   }
@@ -511,9 +511,11 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
              << NV("Callee", Callee) << " not inlined into "
              << NV("Caller", Caller) << " because too costly to inline " << IC;
     });
-    if (IR != nullptr)                 // INTEL
-      IR->setReasonNotInlined(CS, IC); // INTEL
-    llvm::setMDReasonNotInlined(CS, IC); // INTEL
+#if INTEL_CUSTOMIZATION
+    if (IR != nullptr)
+      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC);
+    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC);
+#endif // INTEL_CUSTOMIZATION
     return IC;
   }
 
@@ -532,18 +534,24 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
 
     // IC does not bool() to false, so get an InlineCost that will.
     // This will not be inspected to make an error message.
-    IC.setInlineReason(NinlrOuterInlining);               // INTEL
-    if (IR != nullptr)                                    // INTEL
-      IR->setReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL
-    llvm::setMDReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL
+#if INTEL_CUSTOMIZATION
+    IC.setInlineReason(NinlrOuterInlining);
+    if (IR != nullptr)
+      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC,
+                              TotalSecondaryCost);
+    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC,
+                                TotalSecondaryCost);
+#endif // INTEL_CUSTOMIZATION
     return None;
   }
 
   LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC)
                     << ", Call: " << *CS.getInstruction() << '\n');
-  if (IR != nullptr)                                    // INTEL
-    IR->setReasonIsInlined(CS, IC); // INTEL
-  llvm::setMDReasonIsInlined(CS, IC); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (IR != nullptr)
+    IR->setReasonIsInlined(cast<CallBase>(CS.getInstruction()), IC);
+  llvm::setMDReasonIsInlined(cast<CallBase>(CS.getInstruction()), IC);
+#endif // INTEL_CUSTOMIZATION
   return IC;
 }
 
@@ -823,13 +831,17 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       if (!Callee || Callee->isDeclaration()) { // INTEL
 #if INTEL_CUSTOMIZATION
         if (!Callee) {
-          IR.setReasonNotInlined(CS, NinlrIndirect);
-          llvm::setMDReasonNotInlined(CS, NinlrIndirect);
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                 NinlrIndirect);
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      NinlrIndirect);
           continue;
         }
         if (Callee->isDeclaration()) {
-          IR.setReasonNotInlined(CS, NinlrExtern);
-          llvm::setMDReasonNotInlined(CS, NinlrExtern);
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                 NinlrExtern);
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      NinlrExtern);
           continue;
         }
 #endif // INTEL_CUSTOMIZATION
@@ -851,8 +863,12 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         InlineHistoryID = CallSites[CSi].second;
         if (InlineHistoryID != -1 &&
             InlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
-          IR.setReasonNotInlined(CS, NinlrRecursive);      // INTEL
-          llvm::setMDReasonNotInlined(CS, NinlrRecursive);   // INTEL
+#if INTEL_CUSTOMIZATION
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                 NinlrRecursive);
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      NinlrRecursive);
+#endif // INTEL_CUSTOMIZATION
           setInlineRemark(CS, "recursive");
           continue;
         }
@@ -885,8 +901,12 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // call and then we're left with the dead call.
       if (IsTriviallyDead) {
         LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << *Instr << "\n");
-        IR.setReasonNotInlined(CS, NinlrDeleted); // INTEL
-        llvm::setMDReasonNotInlined(CS, NinlrDeleted); // INTEL
+#if INTEL_CUSTOMIZATION
+        IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                               NinlrDeleted);
+        llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                    NinlrDeleted);
+#endif // INTEL_CUSTOMIZATION
         // Update the call graph by deleting the edge from Callee to Caller.
         setInlineRemark(CS, "trivially dead");
         CG[Caller]->removeCallEdgeFor(*cast<CallBase>(CS.getInstruction()));
@@ -900,8 +920,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // Attempt to inline the function.
         using namespace ore;
 #if INTEL_CUSTOMIZATION
-        IR.beginUpdate(CS);
-        MDIR.beginUpdate(CS);
+        IR.beginUpdate(cast<CallBase>(CS.getInstruction()));
+        MDIR.beginUpdate(cast<CallBase>(CS.getInstruction()));
         InlineReason Reason = NinlrNoReason;
         bool IsAlwaysInlineRecursive =
             CS.hasFnAttr("always-inline-recursive");
@@ -920,9 +940,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                                                &Reason);
         if (!LIR.isSuccess()) {
           IR.endUpdate();
-          IR.setReasonNotInlined(CS, Reason);
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
           MDIR.endUpdate();
-          llvm::setMDReasonNotInlined(CS, Reason);
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      Reason);
           setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " +
                                   inlineCostStr(*OIC));
           if (CallSitesForFusion) {
@@ -1461,8 +1482,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       using namespace ore;
 
-      Report.beginUpdate(CS);  // INTEL
-      MDReport->beginUpdate(CS); // INTEL
+      Report.beginUpdate(cast<CallBase>(CS.getInstruction()));  // INTEL
+      MDReport->beginUpdate(cast<CallBase>(CS.getInstruction())); // INTEL
       InlineReason Reason = NinlrNoReason; // INTEL
 #if INTEL_CUSTOMIZATION
       // For a recursive call, save the number of the Callee's recursive
@@ -1482,10 +1503,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                  << NV("Caller", &F) << ": "
                  << NV("Reason", LIR.getFailureReason()); // INTEL
         });
-        Report.endUpdate(); // INTEL
-        Report.setReasonNotInlined(CS, Reason); // INTEL
-        MDReport->endUpdate(); // INTEL
-        llvm::setMDReasonNotInlined(CS, Reason); // INTEL
+#if INTEL_CUSTOMIZATION
+        Report.endUpdate();
+        Report.setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
+        MDReport->endUpdate();
+        llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                    Reason);
+#endif // INTEL_CUSTOMIZATION
         continue;
       }
       DidInline = true;

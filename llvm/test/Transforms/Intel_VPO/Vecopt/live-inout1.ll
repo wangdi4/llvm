@@ -5,22 +5,23 @@
 ; verify live-in and live-out analysis
 ; CHECK: Live-in and Live-out info:
 ; CHECK-NEXT:External defs:
-; CHECK-DAG: i64* %k
-; CHECK-DAG: [101 x float]* %B
-; CHECK-DAG: i64 %add13
-; CHECK-DAG: i64 %n
 ; CHECK-DAG: i8* %4
-; CHECK-DAG: [101 x float]* %a
+; CHECK-DAG: i64* %k
 ; CHECK-DAG: i64* %ub
+; CHECK-DAG: [101 x float]* %a
+; CHECK-DAG: i64 %n
+; CHECK-DAG: i64 %add13
+; CHECK-DAG: [101 x float]* %B
 ; CHECK-DAG: i64 %3
 ; CHECK-DAG: i64* %ret
-; CHECK-NEXT: Used externally
+; CHECK:      Used externally
 ; CHECK-DAG: i64 {{%vp.*}}
 ; CHECK-DAG: i64 {{%vp.*}}
 ; CHECK-DAG: i64 {{%vp.*}}
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
 ; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB1
-; CHECK-DAG: i8* %4 livein in the loops:  BB1
-; CHECK-DAG: i64* %k livein in the loops:  BB1
+; CHECK-DAG: i8* {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64* {{%vp.*}} livein in the loops:  BB1
 ; CHECK-DAG: i64* %ub livein in the loops:  BB1
 ; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB8
 ; CHECK-DAG: i1 {{%vp.*}} liveout in the loop: BB8
@@ -31,10 +32,10 @@
 ; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB1
 ; CHECK-DAG: i64 %add13 livein in the loops:  BB1
 ; CHECK-DAG: [101 x float]* %B livein in the loops:  BB1
-; CHECK-DAG: i8* %4 livein in the loops:  BB1
-; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB1
+; CHECK-DAG: i8* {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
 ; CHECK-DAG: i64 %3 livein in the loops:  BB1
-; CHECK-NEXT:Live-in and Live-out info end
+; CHECK:     Live-in and Live-out info end
 
 ; Function Attrs: nounwind uwtable
 define dso_local i64 @_Z3foolPlS_PA101_fS1_(i64 %n, i64* nocapture readnone %lb, i64* nocapture readonly %ub, [101 x float]* nocapture %a, [101 x float]* nocapture %B) local_unnamed_addr #0 {

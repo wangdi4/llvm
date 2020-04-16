@@ -423,6 +423,7 @@ FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
 FUNCTION_PASS("vplan-driver", vpo::VPlanDriverPass());
 FUNCTION_PASS("vplan-driver-hir", vpo::VPlanDriverHIRPass());
+FUNCTION_PASS("vplan-func-vec", vpo::VPlanFunctionVectorizerPass());
 FUNCTION_PASS("vpo-directive-cleanup", VPODirectiveCleanupPass())
 FUNCTION_PASS("map-intrin-to-iml",vpo::MapIntrinToImlPass())
 FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())

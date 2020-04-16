@@ -166,6 +166,8 @@ Pass *createVPlanDriverPass();
 // VPlan HIR Vectorizer - Create a VPlan Driver pass for HIR.
 //
 Pass *createVPlanDriverHIRPass();
+
+Pass *createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
