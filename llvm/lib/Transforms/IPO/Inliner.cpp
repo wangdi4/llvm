@@ -472,13 +472,8 @@ shouldInline(CallBase &CS, function_ref<InlineCost(CallBase &CS)> GetInlineCost,
     if (CS.hasFnAttr("inline-list"))
       Reason = InlrInlineList;
     if (IR != nullptr)
-<<<<<<< HEAD
       IR->setReasonIsInlined(&CS, Reason);
     llvm::setMDReasonIsInlined(&CS, Reason);
-=======
-      IR->setReasonIsInlined(cast<CallBase>(CS.getInstruction()), Reason);
-    llvm::setMDReasonIsInlined(cast<CallBase>(CS.getInstruction()), Reason);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
     return IC;
   }
@@ -497,13 +492,8 @@ shouldInline(CallBase &CS, function_ref<InlineCost(CallBase &CS)> GetInlineCost,
     if (CS.hasFnAttr("noinline-list"))
       Reason = NinlrNoinlineList;
     if (IR != nullptr)
-<<<<<<< HEAD
       IR->setReasonNotInlined(&CS, Reason);
     llvm::setMDReasonNotInlined(&CS, Reason);
-=======
-      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
-    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
     return IC;
   }
@@ -518,13 +508,8 @@ shouldInline(CallBase &CS, function_ref<InlineCost(CallBase &CS)> GetInlineCost,
     });
 #if INTEL_CUSTOMIZATION
     if (IR != nullptr)
-<<<<<<< HEAD
       IR->setReasonNotInlined(&CS, IC);
     llvm::setMDReasonNotInlined(&CS, IC);
-=======
-      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC);
-    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
     return IC;
   }
@@ -547,34 +532,18 @@ shouldInline(CallBase &CS, function_ref<InlineCost(CallBase &CS)> GetInlineCost,
 #if INTEL_CUSTOMIZATION
     IC.setInlineReason(NinlrOuterInlining);
     if (IR != nullptr)
-<<<<<<< HEAD
       IR->setReasonNotInlined(&CS, IC, TotalSecondaryCost);
     llvm::setMDReasonNotInlined(&CS, IC, TotalSecondaryCost);
-=======
-      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC,
-                              TotalSecondaryCost);
-    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC,
-                                TotalSecondaryCost);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
     return None;
   }
 
-<<<<<<< HEAD
   LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC) << ", Call: " << CS
                     << '\n');
 #if INTEL_CUSTOMIZATION
   if (IR != nullptr)
     IR->setReasonIsInlined(&CS, IC);
   llvm::setMDReasonIsInlined(&CS, IC);
-=======
-  LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC)
-                    << ", Call: " << *CS.getInstruction() << '\n');
-#if INTEL_CUSTOMIZATION
-  if (IR != nullptr)
-    IR->setReasonIsInlined(cast<CallBase>(CS.getInstruction()), IC);
-  llvm::setMDReasonIsInlined(cast<CallBase>(CS.getInstruction()), IC);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
   return IC;
 }
@@ -857,7 +826,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       if (!Callee || Callee->isDeclaration()) { // INTEL
 #if INTEL_CUSTOMIZATION
         if (!Callee) {
-<<<<<<< HEAD
           IR.setReasonNotInlined(&CS, NinlrIndirect);
           llvm::setMDReasonNotInlined(&CS, NinlrIndirect);
           continue;
@@ -865,19 +833,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         if (Callee->isDeclaration()) {
           IR.setReasonNotInlined(&CS, NinlrExtern);
           llvm::setMDReasonNotInlined(&CS, NinlrExtern);
-=======
-          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                 NinlrIndirect);
-          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                      NinlrIndirect);
-          continue;
-        }
-        if (Callee->isDeclaration()) {
-          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                 NinlrExtern);
-          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                      NinlrExtern);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
           continue;
         }
 #endif // INTEL_CUSTOMIZATION
@@ -893,19 +848,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // which would provide the same callsites, which would cause us to
         // infinitely inline.
         if (InlineHistoryID != -1 &&
-<<<<<<< HEAD
             inlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
 #if INTEL_CUSTOMIZATION
           IR.setReasonNotInlined(&CS, NinlrRecursive);
           llvm::setMDReasonNotInlined(&CS, NinlrRecursive);
-=======
-            InlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
-#if INTEL_CUSTOMIZATION
-          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                 NinlrRecursive);
-          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                      NinlrRecursive);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
           setInlineRemark(CS, "recursive");
           continue;
@@ -938,19 +884,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // size.  This happens because IPSCCP propagates the result out of the
       // call and then we're left with the dead call.
       if (IsTriviallyDead) {
-<<<<<<< HEAD
         LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << CS << "\n");
 #if INTEL_CUSTOMIZATION
         IR.setReasonNotInlined(&CS, NinlrDeleted);
         llvm::setMDReasonNotInlined(&CS, NinlrDeleted);
-=======
-        LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << *Instr << "\n");
-#if INTEL_CUSTOMIZATION
-        IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                               NinlrDeleted);
-        llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                    NinlrDeleted);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
         // Update the call graph by deleting the edge from Callee to Caller.
         setInlineRemark(CS, "trivially dead");
@@ -965,13 +902,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // Attempt to inline the function.
         using namespace ore;
 #if INTEL_CUSTOMIZATION
-<<<<<<< HEAD
         IR.beginUpdate(&CS);
         MDIR.beginUpdate(&CS);
-=======
-        IR.beginUpdate(cast<CallBase>(CS.getInstruction()));
-        MDIR.beginUpdate(cast<CallBase>(CS.getInstruction()));
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
         InlineReason Reason = NinlrNoReason;
         bool IsAlwaysInlineRecursive =
             CS.hasFnAttr("always-inline-recursive");
@@ -990,16 +922,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                                                &Reason);
         if (!LIR.isSuccess()) {
           IR.endUpdate();
-<<<<<<< HEAD
           IR.setReasonNotInlined(&CS, Reason);
           MDIR.endUpdate();
           llvm::setMDReasonNotInlined(&CS, Reason);
-=======
-          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
-          MDIR.endUpdate();
-          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                      Reason);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
           setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " +
                                   inlineCostStr(*OIC));
           if (CallSitesForFusion) {
@@ -1534,13 +1459,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       using namespace ore;
 
-<<<<<<< HEAD
       Report.beginUpdate(CS);    // INTEL
       MDReport->beginUpdate(CS); // INTEL
-=======
-      Report.beginUpdate(cast<CallBase>(CS.getInstruction()));  // INTEL
-      MDReport->beginUpdate(cast<CallBase>(CS.getInstruction())); // INTEL
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
       InlineReason Reason = NinlrNoReason; // INTEL
 #if INTEL_CUSTOMIZATION
       // For a recursive call, save the number of the Callee's recursive
@@ -1562,16 +1482,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         });
 #if INTEL_CUSTOMIZATION
         Report.endUpdate();
-<<<<<<< HEAD
         Report.setReasonNotInlined(CS, Reason);
         MDReport->endUpdate();
         llvm::setMDReasonNotInlined(CS, Reason);
-=======
-        Report.setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
-        MDReport->endUpdate();
-        llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
-                                    Reason);
->>>>>>> af71d0daaed0ef68d135c22a5a7dfd989c02ed22
 #endif // INTEL_CUSTOMIZATION
         continue;
       }
