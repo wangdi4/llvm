@@ -367,7 +367,7 @@ namespace {
     }
 
     void writeDump(raw_ostream &OS) const override {
-      if (type == "FunctionDecl *" || type == "NamedDecl *") {
+      if (StringRef(type).endswith("Decl *")) {
         OS << "    OS << \" \";\n";
         OS << "    dumpBareDeclRef(SA->get" << getUpperName() << "());\n";
       } else if (type == "IdentifierInfo *") {
@@ -1357,10 +1357,9 @@ createArgument(const Record &Arg, StringRef Attr,
     Ptr = std::make_unique<EnumArgument>(Arg, Attr);
   else if (ArgName == "ExprArgument")
     Ptr = std::make_unique<ExprArgument>(Arg, Attr);
-  else if (ArgName == "FunctionArgument")
-    Ptr = std::make_unique<SimpleArgument>(Arg, Attr, "FunctionDecl *");
-  else if (ArgName == "NamedArgument")
-    Ptr = std::make_unique<SimpleArgument>(Arg, Attr, "NamedDecl *");
+  else if (ArgName == "DeclArgument")
+    Ptr = std::make_unique<SimpleArgument>(
+        Arg, Attr, (Arg.getValueAsDef("Kind")->getName() + "Decl *").str());
   else if (ArgName == "IdentifierArgument")
     Ptr = std::make_unique<SimpleArgument>(Arg, Attr, "IdentifierInfo *");
   else if (ArgName == "DefaultBoolArgument")
