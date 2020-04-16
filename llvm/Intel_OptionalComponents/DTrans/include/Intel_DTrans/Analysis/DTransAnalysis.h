@@ -200,9 +200,8 @@ public:
   // invalid targets to 'Targets' vector and returns false if there are any
   // unknown/invalid targets.
   //
-  bool GetFuncPointerPossibleTargets(llvm::Value *FP,
-                                     std::vector<llvm::Value *> &Targets,
-                                     llvm::CallSite, bool);
+  bool GetFuncPointerPossibleTargets(Value *FP, std::vector<Value *> &Targets,
+                                     CallBase *, bool);
 
   // A helper routine to retrieve structure type - field index pair from a
   // GEPOperator. The helper routine can handle GEPOperators in both normal form

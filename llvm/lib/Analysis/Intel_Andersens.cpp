@@ -370,39 +370,42 @@ void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty,
   Constraints.push_back(Constraint(Ty, D, S, O));
 }
 
-// Returns false if 'Target' is unsafe possible target for 'CS', which is
+// Returns false if 'Target' is unsafe possible target for 'Call', which is
 // indirect call with 'FP' as function pointer.
 //
-static bool safePossibleTarget(Value *FP, Value* Target, CallSite CS) {
+static bool safePossibleTarget(Value *FP, Value* Target, CallBase *Call) {
 
   // Go conservative for now when possible target is non-function
   if (!isa<Function>(Target)) return false;
 
   FunctionType *CalleeTy = cast<Function>(Target)->getFunctionType();
-  FunctionType *FTy = CS.getFunctionType();
+  FunctionType *FTy = Call->getFunctionType();
   // Treat varargs as unsafe targets for now. If required, it can be
   // allowed as safe target later by checking number of actual arguments
-  // at CallSite, number of formals of possible targets, argument types
-  // of CallSite, and formal param types of possible target.
+  // at call site, number of formals of possible targets, argument types
+  // of call site, and formal param types of possible target.
   if (FTy->isVarArg() || CalleeTy->isVarArg()) return false;
 
   if (FP->getType() == Target->getType()) {
     // If signatures of call and possible target are same, makes sure
     // args and formals do match. Treat the target as unsafe if they
     // don't match.
-    if (CS.arg_size() != FTy->getNumParams()) return false;
+    if (Call->arg_size() != FTy->getNumParams()) return false;
 
     // Not sure whether we need to check for some of Function/Parameter
     // attributes to treat target as unsafe. Skipping those checks for
     // now.
     //
+    auto *Args = Call->arg_begin();
     for (unsigned I = 0, E = FTy->getNumParams(); I != E; ++I) {
       // Check types of param and arg
-      if (CS.getArgument(I)->getType() != FTy->getParamType(I)) return false;
+      auto *Arg = Args++;
+      if ((*Arg)->getType() != FTy->getParamType(I))
+        return false;
     }
 
     // This check may not be needed.
-    if (CS.getCallingConv() != cast<Function>(Target)->getCallingConv())
+    if (Call->getCallingConv() != cast<Function>(Target)->getCallingConv())
       return false;
   }
 
@@ -593,8 +596,9 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
 //   AndersenSetResult::Incomplete = Not all targets were found
 //
 AndersensAAResult::AndersenSetResult
-  AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
-                 std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace) {
+AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
+                                                 std::vector<Value *> &Targets,
+                                                 CallBase *Call, bool Trace) {
 
   Targets.clear();
   if (ValueNodes.size() == 0) {
@@ -633,7 +637,7 @@ AndersensAAResult::AndersenSetResult
     Value *V = N->getValue();
   
     // Set IsComplete to AndersenSetResult::Incomplete if V is unsafe target.
-    if (!safePossibleTarget(FP, V, CS)) {
+    if (!safePossibleTarget(FP, V, Call)) {
       if (Trace) {
         if (Function *Fn = dyn_cast<Function>(V)) {
           dbgs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";

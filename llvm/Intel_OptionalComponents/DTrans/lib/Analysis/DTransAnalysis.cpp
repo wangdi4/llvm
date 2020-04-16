@@ -9799,8 +9799,7 @@ DTransAnalysisInfo::getInfoFromLoad(LoadInst *Load) {
 }
 
 bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
-    llvm::Value *FP, std::vector<llvm::Value *> &Targets, llvm::CallSite,
-    bool) {
+    Value *FP, std::vector<Value *> &Targets, CallBase *, bool) {
   // TODO: add a support for PHI instruction with function pointer type.
 
   Targets.clear();
