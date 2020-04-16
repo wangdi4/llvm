@@ -1931,7 +1931,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
            "Overflow in array type bit size evaluation");
     Width = EltInfo.Width * Size;
 #if INTEL_CUSTOMIZATION
-    if (CAT->getElementType()->isArbPrecIntType() &&
+    if (cast<ArrayType>(T)->getElementType()->isArbPrecIntType() &&
         !llvm::isPowerOf2_64(EltInfo.Width))
       Width = llvm::alignTo(EltInfo.Width,
                             EltInfo.Align) *
