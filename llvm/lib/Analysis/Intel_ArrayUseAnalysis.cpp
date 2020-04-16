@@ -157,16 +157,24 @@ class PointerUseHelper : public PtrUseVisitor<PointerUseHelper> {
     Uses.push_back(&SI);
   }
 
-  void visitCallSite(CallSite CS) {
+  void visitCallInst(CallInst &I) {
+    processCallBase(&I);
+  }
+
+  void visitInvokeInst(InvokeInst &I) {
+    processCallBase(&I);
+  }
+
+  void processCallBase(CallBase *Call) {
     // Special-handle qsort.
-    if (CS.hasFnAttr("is-qsort")) {
-      Uses.push_back(CS.getInstruction());
+    if (Call->hasFnAttr("is-qsort")) {
+      Uses.push_back(Call);
       return;
     }
 
     // All other cases, treat this as escaping. We could check for capture
     // read/only information, but that doesn't buy us anything yet.
-    PI.setEscaped(CS.getInstruction());
+    PI.setEscaped(Call);
   }
 
   void visitInstruction(Instruction &I) {
