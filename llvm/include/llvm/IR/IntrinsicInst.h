@@ -116,33 +116,6 @@ public:
     return cast<MetadataAsValue>(getArgOperand(1))->getMetadata();
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  /// This is the common base class for var.annotation intrinsic.
-  class VarAnnotIntrinsic : public IntrinsicInst {
-  public:
-    /// \brief Return true if the register attribute is set for var.annotation.
-    ///
-    /// When the HLS feature is on, var.annotation intrinsic is annotated with
-    /// a string which indicates whether the register attribute is set or not.
-    bool hasRegisterAttributeSet() const;
-
-    /// \name Casting methods
-    /// @{
-    static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::var_annotation;
-    }
-    static bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
-    /// @}
-  };
-#endif  //INTEL_CUSTOMIZATION
-
-  /// Check if \p ID corresponds to a debug info intrinsic.
-  static inline bool isDbgInfoIntrinsic(Intrinsic::ID ID) {
-    switch (ID) {
-=======
   Metadata *getRawExpression() const {
     return cast<MetadataAsValue>(getArgOperand(2))->getMetadata();
   }
@@ -155,7 +128,6 @@ public:
   /// @{
   static bool classof(const IntrinsicInst *I) {
     switch (I->getIntrinsicID()) {
->>>>>>> 2eeb6ca7acef0fa6466896e45d853ebd20858c4c
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_addr:
@@ -852,7 +824,6 @@ public:
   }
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   class AddressInst : public IntrinsicInst {
   public:
@@ -953,18 +924,29 @@ public:
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
     }
   };
-#endif // INTEL_CUSTOMIZATION
 
-  /// This represents the llvm.va_start intrinsic.
-  class VAStartInst : public IntrinsicInst {
+  /// This is the common base class for var.annotation intrinsic.
+  class VarAnnotIntrinsic : public IntrinsicInst {
   public:
+    /// \brief Return true if the register attribute is set for var.annotation.
+    ///
+    /// When the HLS feature is on, var.annotation intrinsic is annotated with
+    /// a string which indicates whether the register attribute is set or not.
+    bool hasRegisterAttributeSet() const;
+
+    /// \name Casting methods
+    /// @{
     static bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::vastart;
+      return I->getIntrinsicID() == Intrinsic::var_annotation;
     }
     static bool classof(const Value *V) {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
     }
-=======
+    /// @}
+  };
+
+#endif // INTEL_CUSTOMIZATION
+
 /// This represents the llvm.va_start intrinsic.
 class VAStartInst : public IntrinsicInst {
 public:
@@ -974,7 +956,6 @@ public:
   static bool classof(const Value *V) {
     return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
   }
->>>>>>> 2eeb6ca7acef0fa6466896e45d853ebd20858c4c
 
   Value *getArgList() const { return const_cast<Value *>(getArgOperand(0)); }
 };
