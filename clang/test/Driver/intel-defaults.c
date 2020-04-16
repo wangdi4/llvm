@@ -28,6 +28,19 @@
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
 
+// default libs with --intel (Windows)
+// RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN %s
+// CHECK-INTEL-LIBS-WIN: "--dependent-lib=libirc"
+// CHECK-INTEL-LIBS-WIN: "--dependent-lib=svml_dispmt"
+// CHECK-INTEL-LIBS-WIN: "--dependent-lib=libdecimal"
+
+// default libs with --intel (Windows)
+// RUN: touch %t.obj
+// RUN: %clang -### -target x86_64-pc-windows-msvc --intel %t.obj 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN2 %s
+// CHECK-INTEL-LIBS-WIN2: "-defaultlib:libirc"
+// CHECK-INTEL-LIBS-WIN2: "-defaultlib:svml_dispmt"
+// CHECK-INTEL-LIBS-WIN2: "-defaultlib:libdecimal"
+
 // RUN: touch %t.o
 // RUN: %clang -### --intel -target i386-unknown-linux-gnu %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS32 %s
 // CHECK-INTEL-LIBS32: "-L{{.*}}../compiler/lib/ia32_lin" "-L{{.*}}bin/../lib"
