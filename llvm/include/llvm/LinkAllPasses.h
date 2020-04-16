@@ -273,9 +273,10 @@ namespace {
       (void) llvm::createLoopVectorizePass();
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
-#if INTEL_CUSTOMIZATION //TODO: VEC to COLLAB
+#if INTEL_CUSTOMIZATION
       (void) llvm::createVPlanDriverPass();
       (void) llvm::createVPlanDriverHIRPass();
+      (void) llvm::createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createVectorCombinePass();
       (void) llvm::createPartiallyInlineLibCallsPass();

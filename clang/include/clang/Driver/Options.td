@@ -1052,6 +1052,12 @@ def ffp_model_EQ : Joined<["-"], "ffp-model=">, Group<f_Group>, Flags<[DriverOpt
   HelpText<"Controls the semantics of floating-point calculations.">;
 def ffp_exception_behavior_EQ : Joined<["-"], "ffp-exception-behavior=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
+#if INTEL_CUSTOMIZATION
+def fp_model_EQ : Joined<["-"], "fp-model=">, Alias<ffp_model_EQ>,
+  HelpText<"Controls the semantics of floating-point calculations.">;
+def fp_speculation_EQ : Joined<["-"], "fp-speculation=">,Alias<ffp_exception_behavior_EQ>,
+  HelpText<"Specifies the exception behavior of floating-point operations.">;
+#endif // INTEL_CUSTOMIZATION
 def ffast_math : Flag<["-"], "ffast-math">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Allow aggressive, lossy floating-point optimizations">;
 def fno_fast_math : Flag<["-"], "fno-fast-math">, Group<f_Group>;

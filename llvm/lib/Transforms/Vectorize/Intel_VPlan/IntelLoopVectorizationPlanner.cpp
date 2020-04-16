@@ -62,10 +62,6 @@ static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
              "VF. For testing/debug purposes only."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<bool> DumpAfterVPEntityInstructions(
-    "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after insertion of VPEntity instructions."));
-
 static cl::opt<bool>
     PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
                       cl::desc("Print VPlan after LoopCFU transformation."));
@@ -171,11 +167,6 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
-    VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
-    // Loop entities may be not created in some cases.
-    VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
-    VPBuilder VPIRBuilder;
-    LE->insertVPInstructions(VPIRBuilder);
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
     auto *VPLInfo = Plan->getVPLoopInfo();
@@ -185,14 +176,6 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
-    LE->doSOAAnalysis();
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterVPEntityInstructions) {
-      outs() << "After insertion VPEntities instructions:\n";
-      Plan->dump(outs(), Plan->getVPlanDA());
-    }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
 

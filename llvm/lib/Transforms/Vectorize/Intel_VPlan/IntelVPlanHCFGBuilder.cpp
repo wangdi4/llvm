@@ -74,7 +74,12 @@ static cl::opt<bool> VPlanDotLoopMassaging(
     cl::desc("Print VPlan digraph after loop massaging."));
 
 extern cl::opt<bool> EnableVPValueCodegen;
-#endif
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> DumpAfterVPEntityInstructions(
+    "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after insertion of VPEntity instructions."));
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
                                    const DataLayout &DL,
@@ -368,6 +373,26 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif /* INTEL_CUSTOMIZATION */
+
+  // FIXME: Split Move everything after initial CFG construction into separate
+  // transformation "passes" and schedule them in the planner/driver instead. We
+  // want to lower LoopEntites early in the pipeline so have to call them in
+  // this file for the time being awaiting VPlan pipeline refactoring.
+  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+  VPBuilder VPIRBuilder;
+  LE->insertVPInstructions(VPIRBuilder);
+  // FIXME: SOA Analysis should be decoupled from the LoopEntities and be done
+  // solely on VPInstructions giving us ability to schedule it later in pipeline
+  // (we don't really want to use LoopEntities beyond this point).
+  LE->doSOAAnalysis();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterVPEntityInstructions) {
+      outs() << "After insertion VPEntities instructions:\n";
+      Plan->dump(outs(), Plan->getVPlanDA());
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();

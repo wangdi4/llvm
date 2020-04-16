@@ -601,6 +601,7 @@ void initializeMultiVersioningWrapperPass(PassRegistry&);
 void initializeVPlanDriverPass(PassRegistry&);
 // VPO VPlan Vectorizer HIR Pass
 void initializeVPlanDriverHIRPass(PassRegistry&);
+void initializeVPlanFunctionVectorizerLegacyPassPass(PassRegistry&);
 // OpenCL Passes
 void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
