@@ -1083,7 +1083,6 @@ static void readConfigs(opt::InputArgList &args) {
 #if defined(_WIN32)
   else if (StringRef(getenv("INTEL_LLD_IN_TEST")) == "1")
     parallel::strategy = hardware_concurrency(1);
-  else
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
   if (auto *arg = args.getLastArg(OPT_thinlto_jobs))
