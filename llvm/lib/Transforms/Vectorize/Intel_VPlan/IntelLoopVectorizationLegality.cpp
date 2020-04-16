@@ -507,8 +507,8 @@ bool VPOVectorizationLegality::canVectorize() {
 
       // Check for handled shuffles
       if (auto ShufInst = dyn_cast<ShuffleVectorInst>(&I)) {
-        if (getSplatValue(ShufInst) ||
-            isa<ConstantAggregateZero>(ShufInst->getMask()))
+        if (getSplatValue(ShufInst) || all_of(ShufInst->getShuffleMask(),
+                                              [](int Elt) { return Elt == 0; }))
           continue;
 
         LLVM_DEBUG(dbgs() << "LV: Unsupported shufflevector instruction."

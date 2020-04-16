@@ -1618,6 +1618,7 @@ void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
 void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *) {}
 void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
 void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *) {}
+void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
@@ -2152,6 +2153,8 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_declare_variant:
+  case OMPD_begin_declare_variant:
+  case OMPD_end_declare_variant:
   case OMPD_target_variant_dispatch:
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -2504,6 +2507,8 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_declare_variant:
+  case OMPD_begin_declare_variant:
+  case OMPD_end_declare_variant:
   case OMPD_threadprivate:
   case OMPD_declare_reduction:
   case OMPD_declare_simd:

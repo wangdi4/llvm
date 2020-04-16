@@ -1575,10 +1575,10 @@ public:
   void visitUsedDecl(SourceLocation Loc, Decl *D) {
     if (isa<VarDecl>(D))
       return;
-     if (auto *FD = dyn_cast<FunctionDecl>(D))
-       checkFunc(Loc, FD);
-     else
-       Inherited::visitUsedDecl(Loc, D);
+    if (auto *FD = dyn_cast<FunctionDecl>(D))
+      checkFunc(Loc, FD);
+    else
+      Inherited::visitUsedDecl(Loc, D);
   }
 
   void checkVar(VarDecl *VD) {

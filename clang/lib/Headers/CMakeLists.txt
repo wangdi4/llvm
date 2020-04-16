@@ -56,12 +56,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/uliintrin.h
   )
 # end INTEL_FEATURE_ISA_ULI
-# INTEL_FEATURE_ISA_SERIALIZE
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
-  Intel_Headers/serializeintrin.h
-  )
-# end INTEL_FEATURE_ISA_SERIALIZE
 # INTEL_FEATURE_ISA_HRESET
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET
@@ -247,6 +241,7 @@ set(files
   bmi2intrin.h
   bmiintrin.h
   __clang_cuda_builtin_vars.h
+  __clang_cuda_math.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h
   __clang_cuda_device_functions.h
@@ -303,6 +298,7 @@ set(files
   ptwriteintrin.h
   rdseedintrin.h
   rtmintrin.h
+  serializeintrin.h
   sgxintrin.h
   s390intrin.h
   shaintrin.h
@@ -325,6 +321,7 @@ set(files
   vecintrin.h
   vpclmulqdqintrin.h
   waitpkgintrin.h
+  wasm_simd128.h
   wbnoinvdintrin.h
   wmmintrin.h
   __wmmintrin_aes.h

@@ -212,7 +212,7 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     OS << ")";
   }
   OS << " match(";
-  traitInfos.print(OS, Policy);
+  traitInfos->print(OS, Policy);
   OS << ")";
 }
 

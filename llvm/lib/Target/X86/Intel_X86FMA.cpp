@@ -601,8 +601,8 @@ private:
         // Clone the MMO and unset the store flag.
         LoadMMOs.push_back(MF.getMachineMemOperand(
             MMO->getPointerInfo(),
-            MMO->getFlags() & ~MachineMemOperand::MOStore,
-            MMO->getSize(), MMO->getBaseAlignment(), MMO->getAAInfo(), nullptr,
+            MMO->getFlags() & ~MachineMemOperand::MOStore, MMO->getSize(),
+            MMO->getBaseAlign(), MMO->getAAInfo(), nullptr,
             MMO->getSyncScopeID(), MMO->getOrdering(),
             MMO->getFailureOrdering()));
       }
@@ -1489,6 +1489,7 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   // Create the load from the constant pool.
   MachineConstantPool *MCP = MF->getConstantPool();
   unsigned Align = VT.getSizeInBits() / 8;
+  MaybeAlign Alignment(Align);
   Constant *FPOne = ConstantFP::get(Ty, 1.0);
   unsigned CPI = MCP->getConstantPoolIndex(FPOne, Align);
   const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
@@ -1509,7 +1510,8 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   }
   MachineMemOperand *MMO = MF->getMachineMemOperand(
       MachinePointerInfo::getConstantPool(*MF),
-      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, Align, Align);
+      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, Align,
+      *Alignment);
   ArrayRef<MachineMemOperand *> ARMMOs(MMO);
   auto MMOs = extractLoadMMOs(ARMMOs, *MF);
   MIB.setMemRefs(MMOs);

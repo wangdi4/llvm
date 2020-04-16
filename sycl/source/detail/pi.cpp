@@ -285,15 +285,15 @@ vector_class<plugin> initialize() {
   PiPlugin PluginInformation;
   for (unsigned int I = 0; I < PluginNames.size(); I++) {
     void *Library = loadPlugin(PluginNames[I].first);
-#if INTEL_CUSTOMIZATION
     if (!Library) {
       if (trace()) {
         std::cerr << "SYCL_PI_TRACE[-1]: Check if plugin is present. "
-                  << "Failed to load plugin: "
-                  << PluginNames[I].first << std::endl;
+                  << "Failed to load plugin: " << PluginNames[I].first
+                  << std::endl;
       }
       continue;
     }
+#if INTEL_CUSTOMIZATION
     if (!bindPlugin(Library, &PluginInformation)) {
       if (trace()) {
         std::cerr << "SYCL_PI_TRACE[-1]: Failed to bind PI APIs to the plugin: "

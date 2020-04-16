@@ -974,8 +974,21 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           int NewHistoryID = InlineHistory.size();
           InlineHistory.push_back(std::make_pair(Callee, InlineHistoryID));
 
-#if INTEL_CUSTOMIZATION
+#ifndef NDEBUG
+          // Make sure no dupplicates in the inline candidates. This could
+          // happen when a callsite is simpilfied to reusing the return value
+          // of another callsite during function cloning, thus the other
+          // callsite will be reconsidered here.
+          DenseSet<CallSite> DbgCallSites;
+          for (auto &II : CallSites)
+            DbgCallSites.insert(II.first);
+#endif
+
           for (Value *Ptr : InlineInfo.InlinedCalls) {
+#ifndef NDEBUG
+            assert(DbgCallSites.count(CallSite(Ptr)) == 0);
+#endif
+#if INTEL_CUSTOMIZATION
             auto CB = cast<CallBase>(Ptr);
             if (IsAlwaysInlineRecursive)
                 CB->addAttribute(AttributeList::FunctionIndex,
@@ -983,9 +996,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             if (IsInlineHintRecursive)
                 CB->addAttribute(AttributeList::FunctionIndex,
                      "inline-hint-recursive");
+#endif // INTEL_CUSTOMIZATION
             CallSites.push_back(std::make_pair(CallSite(Ptr), NewHistoryID));
           }
-#endif // INTEL_CUSTOMIZATION
         }
       }
 

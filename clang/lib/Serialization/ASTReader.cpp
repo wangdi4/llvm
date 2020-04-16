@@ -6974,6 +6974,12 @@ QualType ASTReader::GetType(TypeID ID) {
     case PREDEF_TYPE_OMP_ARRAY_SECTION:
       T = Context.OMPArraySectionTy;
       break;
+    case PREDEF_TYPE_OMP_ARRAY_SHAPING:
+      T = Context.OMPArraySectionTy;
+      break;
+    case PREDEF_TYPE_OMP_ITERATOR:
+      T = Context.OMPIteratorTy;
+      break;
 #define SVE_TYPE(Name, Id, SingletonId) \
     case PREDEF_TYPE_##Id##_ID: \
       T = Context.SingletonId; \
@@ -8543,7 +8549,7 @@ unsigned ASTReader::getModuleFileID(ModuleFile *F) {
 
 llvm::Optional<ASTSourceDescriptor>
 ASTReader::getSourceDescriptor(unsigned ID) {
-  if (const Module *M = getSubmodule(ID))
+  if (Module *M = getSubmodule(ID))
     return ASTSourceDescriptor(*M);
 
   // If there is only a single PCH, return it instead.
@@ -11887,6 +11893,9 @@ OMPClause *OMPClauseReader::readClause() {
   case OMPC_inclusive:
     C = OMPInclusiveClause::CreateEmpty(Context, Record.readInt());
     break;
+  case OMPC_exclusive:
+    C = OMPExclusiveClause::CreateEmpty(Context, Record.readInt());
+    break;
   case OMPC_order:
     C = new (Context) OMPOrderClause();
     break;
@@ -12149,7 +12158,9 @@ void OMPClauseReader::VisitOMPSharedClause(OMPSharedClause *C) {
 void OMPClauseReader::VisitOMPReductionClause(OMPReductionClause *C) {
   VisitOMPClauseWithPostUpdate(C);
   C->setLParenLoc(Record.readSourceLocation());
+  C->setModifierLoc(Record.readSourceLocation());
   C->setColonLoc(Record.readSourceLocation());
+  C->setModifier(Record.readEnum<OpenMPReductionClauseModifier>());
   NestedNameSpecifierLoc NNSL = Record.readNestedNameSpecifierLoc();
   DeclarationNameInfo DNI = Record.readDeclarationNameInfo();
   C->setQualifierLoc(NNSL);
@@ -12358,6 +12369,7 @@ void OMPClauseReader::VisitOMPDepobjClause(OMPDepobjClause *C) {
 
 void OMPClauseReader::VisitOMPDependClause(OMPDependClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
+  C->setModifier(Record.readSubExpr());
   C->setDependencyKind(
       static_cast<OpenMPDependClauseKind>(Record.readInt()));
   C->setDependencyLoc(Record.readSourceLocation());
@@ -12724,14 +12736,24 @@ void OMPClauseReader::VisitOMPInclusiveClause(OMPInclusiveClause *C) {
   C->setVarRefs(Vars);
 }
 
+void OMPClauseReader::VisitOMPExclusiveClause(OMPExclusiveClause *C) {
+  C->setLParenLoc(Record.readSourceLocation());
+  unsigned NumVars = C->varlist_size();
+  SmallVector<Expr *, 16> Vars;
+  Vars.reserve(NumVars);
+  for (unsigned i = 0; i != NumVars; ++i)
+    Vars.push_back(Record.readSubExpr());
+  C->setVarRefs(Vars);
+}
+
 void OMPClauseReader::VisitOMPOrderClause(OMPOrderClause *C) {
   C->setKind(Record.readEnum<OpenMPOrderClauseKind>());
   C->setLParenLoc(Record.readSourceLocation());
   C->setKindKwLoc(Record.readSourceLocation());
 }
 
-OMPTraitInfo ASTRecordReader::readOMPTraitInfo() {
-  OMPTraitInfo TI;
+OMPTraitInfo *ASTRecordReader::readOMPTraitInfo() {
+  OMPTraitInfo &TI = getContext().getNewOMPTraitInfo();
   TI.Sets.resize(readUInt32());
   for (auto &Set : TI.Sets) {
     Set.Kind = readEnum<llvm::omp::TraitSet>();
@@ -12746,5 +12768,5 @@ OMPTraitInfo ASTRecordReader::readOMPTraitInfo() {
         Property.Kind = readEnum<llvm::omp::TraitProperty>();
     }
   }
-  return TI;
+  return &TI;
 }

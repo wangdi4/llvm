@@ -180,9 +180,7 @@ bool X86TargetInfo::initFeatureMap(
   AnonymousCPU1Features.push_back("amx-int8");
   AnonymousCPU1Features.push_back("amx-bf16");
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_SERIALIZE
   AnonymousCPU1Features.push_back("serialize");
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
   AnonymousCPU1Features.push_back("hreset");
 #endif // INTEL_FEATURE_ISA_HRESET
@@ -1188,10 +1186,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+uli") {
       HasULI = true;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-    } else if (Feature == "+serialize") {
-      HasSERIALIZE = true;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
     } else if (Feature == "+hreset") {
       HasHRESET = true;
@@ -1289,6 +1283,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVXBF16 = true;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
+    } else if (Feature == "+serialize") {
+      HasSERIALIZE = true;
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
@@ -1724,11 +1720,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__ULI__");
   Builder.defineMacro("__ULI_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-  if (HasSERIALIZE)
-    Builder.defineMacro("__SERIALIZE__");
-  Builder.defineMacro("__SERIALIZE_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
   if (HasHRESET)
     Builder.defineMacro("__HRESET__");
@@ -1858,6 +1849,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  if (HasSERIALIZE)
+    Builder.defineMacro("__SERIALIZE__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -2085,13 +2078,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("rtm", true)
       .Case("sahf", true)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_SERIALIZE
-      .Case("serialize", true)
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_TSXLDTRK
       .Case("tsxldtrk", true)
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+      .Case("serialize", true)
       .Case("sgx", true)
       .Case("sha", true)
       .Case("shstk", true)
@@ -2278,13 +2269,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("rtm", HasRTM)
       .Case("sahf", HasLAHFSAHF)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_SERIALIZE
-      .Case("serialize", HasSERIALIZE)
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_TSXLDTRK
       .Case("tsxldtrk", HasTSXLDTRK)
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+      .Case("serialize", HasSERIALIZE)
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
       .Case("shstk", HasSHSTK)
@@ -2545,6 +2534,126 @@ bool X86TargetInfo::validateAsmConstraint(
     }
     return false;
   }
+}
+
+// Below is based on the following information:
+// +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+// |           Processor Name           | Cache Line Size (Bytes) |                                                                            Source                                                                            |
+// +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+// | i386                               |                      64 | https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-optimization-manual.pdf                                          |
+// | i486                               |                      16 | "four doublewords" (doubleword = 32 bits, 4 bits * 32 bits = 16 bytes) https://en.wikichip.org/w/images/d/d3/i486_MICROPROCESSOR_HARDWARE_REFERENCE_MANUAL_%281990%29.pdf and http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.126.4216&rep=rep1&type=pdf (page 29) |
+// | i586/Pentium MMX                   |                      32 | https://www.7-cpu.com/cpu/P-MMX.html                                                                                                                         |
+// | i686/Pentium                       |                      32 | https://www.7-cpu.com/cpu/P6.html                                                                                                                            |
+// | Netburst/Pentium4                  |                      64 | https://www.7-cpu.com/cpu/P4-180.html                                                                                                                        |
+// | Atom                               |                      64 | https://www.7-cpu.com/cpu/Atom.html                                                                                                                          |
+// | Westmere                           |                      64 | https://en.wikichip.org/wiki/intel/microarchitectures/sandy_bridge_(client) "Cache Architecture"                                                             |
+// | Sandy Bridge                       |                      64 | https://en.wikipedia.org/wiki/Sandy_Bridge and https://www.7-cpu.com/cpu/SandyBridge.html                                                                    |
+// | Ivy Bridge                         |                      64 | https://blog.stuffedcow.net/2013/01/ivb-cache-replacement/ and https://www.7-cpu.com/cpu/IvyBridge.html                                                      |
+// | Haswell                            |                      64 | https://www.7-cpu.com/cpu/Haswell.html                                                                                                                       |
+// | Boadwell                           |                      64 | https://www.7-cpu.com/cpu/Broadwell.html                                                                                                                     |
+// | Skylake (including skylake-avx512) |                      64 | https://www.nas.nasa.gov/hecc/support/kb/skylake-processors_550.html "Cache Hierarchy"                                                                       |
+// | Cascade Lake                       |                      64 | https://www.nas.nasa.gov/hecc/support/kb/cascade-lake-processors_579.html "Cache Hierarchy"                                                                  |
+// | Skylake                            |                      64 | https://en.wikichip.org/wiki/intel/microarchitectures/kaby_lake "Memory Hierarchy"                                                                           |
+// | Ice Lake                           |                      64 | https://www.7-cpu.com/cpu/Ice_Lake.html                                                                                                                      |
+// | Knights Landing                    |                      64 | https://software.intel.com/en-us/articles/intel-xeon-phi-processor-7200-family-memory-management-optimizations "The Intel® Xeon Phi™ Processor Architecture" |
+// | Knights Mill                       |                      64 | https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf?countrylabel=Colombia "2.5.5.2 L1 DCache "       |
+// +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
+  switch (CPU) {
+    // i386
+    case CK_i386:
+    // i486
+    case CK_i486:
+    case CK_WinChipC6:
+    case CK_WinChip2:
+    case CK_C3:
+    // Lakemont
+    case CK_Lakemont:
+      return 16;
+
+    // i586
+    case CK_i586:
+    case CK_Pentium:
+    case CK_PentiumMMX:
+    // i686
+    case CK_PentiumPro:
+    case CK_i686:
+    case CK_Pentium2:
+    case CK_Pentium3:
+    case CK_PentiumM:
+    case CK_C3_2:
+    // K6
+    case CK_K6:
+    case CK_K6_2:
+    case CK_K6_3:
+    // Geode
+    case CK_Geode:
+      return 32;
+
+    // Netburst
+    case CK_Pentium4:
+    case CK_Prescott:
+    case CK_Nocona:
+    // Atom
+    case CK_Bonnell:
+    case CK_Silvermont:
+    case CK_Goldmont:
+    case CK_GoldmontPlus:
+    case CK_Tremont:
+
+    case CK_Westmere:
+    case CK_SandyBridge:
+    case CK_IvyBridge:
+    case CK_Haswell:
+    case CK_Broadwell:
+    case CK_SkylakeClient:
+    case CK_SkylakeServer:
+    case CK_Cascadelake:
+    case CK_Nehalem:
+    case CK_Cooperlake:
+    case CK_Cannonlake:
+    case CK_Tigerlake:
+    case CK_IcelakeClient:
+    case CK_IcelakeServer:
+#if INTEL_CUSTOMIZATION
+    case CK_CommonAVX512:
+#if INTEL_FEATURE_CPU_GLC
+    case CK_Goldencove:
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
+    case CK_KNL:
+    case CK_KNM:
+    // K7
+    case CK_Athlon:
+    case CK_AthlonXP:
+    // K8
+    case CK_K8:
+    case CK_K8SSE3:
+    case CK_AMDFAM10:
+    // Bobcat
+    case CK_BTVER1:
+    case CK_BTVER2:
+    // Bulldozer
+    case CK_BDVER1:
+    case CK_BDVER2:
+    case CK_BDVER3:
+    case CK_BDVER4:
+    // Zen
+    case CK_ZNVER1:
+    case CK_ZNVER2:
+    // Deprecated
+    case CK_x86_64:
+    case CK_Yonah:
+    case CK_Penryn:
+    case CK_Core2:
+      return 64;
+
+    // The following currently have unknown cache line sizes (but they are probably all 64):
+    // Core
+    case CK_Generic:
+      return None;
+  }
+  llvm_unreachable("Unknown CPU kind");
 }
 
 bool X86TargetInfo::validateOutputSize(const llvm::StringMap<bool> &FeatureMap,

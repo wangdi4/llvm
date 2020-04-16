@@ -2911,6 +2911,12 @@ class OMPReductionClause final
   friend OMPVarListClause;
   friend TrailingObjects;
 
+  /// Reduction modifier.
+  OpenMPReductionClauseModifier Modifier = OMPC_REDUCTION_unknown;
+
+  /// Reduction modifier location.
+  SourceLocation ModifierLoc;
+
   /// Location of ':'.
   SourceLocation ColonLoc;
 
@@ -2924,18 +2930,22 @@ class OMPReductionClause final
   ///
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
-  /// \param EndLoc Ending location of the clause.
+  /// \param ModifierLoc Modifier location.
   /// \param ColonLoc Location of ':'.
+  /// \param EndLoc Ending location of the clause.
   /// \param N Number of the variables in the clause.
   /// \param QualifierLoc The nested-name qualifier with location information
   /// \param NameInfo The full name info for reduction identifier.
   OMPReductionClause(SourceLocation StartLoc, SourceLocation LParenLoc,
-                     SourceLocation ColonLoc, SourceLocation EndLoc, unsigned N,
+                     SourceLocation ModifierLoc, SourceLocation ColonLoc,
+                     SourceLocation EndLoc,
+                     OpenMPReductionClauseModifier Modifier, unsigned N,
                      NestedNameSpecifierLoc QualifierLoc,
                      const DeclarationNameInfo &NameInfo)
       : OMPVarListClause<OMPReductionClause>(OMPC_reduction, StartLoc,
                                              LParenLoc, EndLoc, N),
-        OMPClauseWithPostUpdate(this), ColonLoc(ColonLoc),
+        OMPClauseWithPostUpdate(this), Modifier(Modifier),
+        ModifierLoc(ModifierLoc), ColonLoc(ColonLoc),
         QualifierLoc(QualifierLoc), NameInfo(NameInfo) {}
 
   /// Build an empty clause.
@@ -2946,6 +2956,12 @@ class OMPReductionClause final
                                              SourceLocation(), SourceLocation(),
                                              N),
         OMPClauseWithPostUpdate(this) {}
+
+  /// Sets reduction modifier.
+  void setModifier(OpenMPReductionClauseModifier M) { Modifier = M; }
+
+  /// Sets location of the modifier.
+  void setModifierLoc(SourceLocation Loc) { ModifierLoc = Loc; }
 
   /// Sets location of ':' symbol in clause.
   void setColonLoc(SourceLocation CL) { ColonLoc = CL; }
@@ -3016,6 +3032,7 @@ public:
   ///
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
+  /// \param ModifierLoc Modifier location.
   /// \param ColonLoc Location of ':'.
   /// \param EndLoc Ending location of the clause.
   /// \param VL The variables in the clause.
@@ -3046,8 +3063,9 @@ public:
   /// OpenMP region with this clause.
   static OMPReductionClause *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
-         SourceLocation ColonLoc, SourceLocation EndLoc, ArrayRef<Expr *> VL,
-         NestedNameSpecifierLoc QualifierLoc,
+         SourceLocation ModifierLoc, SourceLocation ColonLoc,
+         SourceLocation EndLoc, OpenMPReductionClauseModifier Modifier,
+         ArrayRef<Expr *> VL, NestedNameSpecifierLoc QualifierLoc,
          const DeclarationNameInfo &NameInfo, ArrayRef<Expr *> Privates,
          ArrayRef<Expr *> LHSExprs, ArrayRef<Expr *> RHSExprs,
          ArrayRef<Expr *> ReductionOps, Stmt *PreInit, Expr *PostUpdate);
@@ -3057,6 +3075,12 @@ public:
   /// \param C AST context.
   /// \param N The number of variables.
   static OMPReductionClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  /// Returns modifier.
+  OpenMPReductionClauseModifier getModifier() const { return Modifier; }
+
+  /// Returns modifier location.
+  SourceLocation getModifierLoc() const { return ModifierLoc; }
 
   /// Gets location of ':' symbol in clause.
   SourceLocation getColonLoc() const { return ColonLoc; }
@@ -4556,6 +4580,9 @@ class OMPDependClause final
   /// Set colon location.
   void setColonLoc(SourceLocation Loc) { ColonLoc = Loc; }
 
+  /// Sets optional dependency modifier.
+  void setModifier(Expr *DepModifier);
+
 public:
   /// Creates clause with a list of variables \a VL.
   ///
@@ -4571,7 +4598,7 @@ public:
   /// clause.
   static OMPDependClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                  SourceLocation LParenLoc,
-                                 SourceLocation EndLoc,
+                                 SourceLocation EndLoc, Expr *DepModifier,
                                  OpenMPDependClauseKind DepKind,
                                  SourceLocation DepLoc, SourceLocation ColonLoc,
                                  ArrayRef<Expr *> VL, unsigned NumLoops);
@@ -4587,6 +4614,12 @@ public:
 
   /// Get dependency type.
   OpenMPDependClauseKind getDependencyKind() const { return DepKind; }
+
+  /// Return optional depend modifier.
+  Expr *getModifier();
+  const Expr *getModifier() const {
+    return const_cast<OMPDependClause *>(this)->getModifier();
+  }
 
   /// Get dependency type location.
   SourceLocation getDependencyLoc() const { return DepLoc; }
@@ -7193,6 +7226,80 @@ public:
   }
 };
 
+/// This represents clause 'exclusive' in the '#pragma omp scan' directive.
+///
+/// \code
+/// #pragma omp scan exclusive(a,b)
+/// \endcode
+/// In this example directive '#pragma omp scan' has clause 'exclusive'
+/// with the variables 'a' and 'b'.
+class OMPExclusiveClause final
+    : public OMPVarListClause<OMPExclusiveClause>,
+      private llvm::TrailingObjects<OMPExclusiveClause, Expr *> {
+  friend class OMPClauseReader;
+  friend OMPVarListClause;
+  friend TrailingObjects;
+
+  /// Build clause with number of variables \a N.
+  ///
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param N Number of the variables in the clause.
+  OMPExclusiveClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+                     SourceLocation EndLoc, unsigned N)
+      : OMPVarListClause<OMPExclusiveClause>(OMPC_exclusive, StartLoc,
+                                             LParenLoc, EndLoc, N) {}
+
+  /// Build an empty clause.
+  ///
+  /// \param N Number of variables.
+  explicit OMPExclusiveClause(unsigned N)
+      : OMPVarListClause<OMPExclusiveClause>(OMPC_exclusive, SourceLocation(),
+                                             SourceLocation(), SourceLocation(),
+                                             N) {}
+
+public:
+  /// Creates clause with a list of variables \a VL.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the clause.
+  /// \param LParenLoc Location of '('.
+  /// \param EndLoc Ending location of the clause.
+  /// \param VL List of references to the original variables.
+  static OMPExclusiveClause *Create(const ASTContext &C,
+                                    SourceLocation StartLoc,
+                                    SourceLocation LParenLoc,
+                                    SourceLocation EndLoc, ArrayRef<Expr *> VL);
+
+  /// Creates an empty clause with the place for \a N variables.
+  ///
+  /// \param C AST context.
+  /// \param N The number of variables.
+  static OMPExclusiveClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+  child_range children() {
+    return child_range(reinterpret_cast<Stmt **>(varlist_begin()),
+                       reinterpret_cast<Stmt **>(varlist_end()));
+  }
+
+  const_child_range children() const {
+    auto Children = const_cast<OMPExclusiveClause *>(this)->children();
+    return const_child_range(Children.begin(), Children.end());
+  }
+
+  child_range used_children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range used_children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  static bool classof(const OMPClause *T) {
+    return T->getClauseKind() == OMPC_exclusive;
+  }
+};
+
 /// This class implements a simple visitor for OMPClause
 /// subclasses.
 template<class ImplClass, template <typename> class Ptr, typename RetTy>
@@ -7250,22 +7357,30 @@ public:
 /// collection of selector sets, each with an associated kind and an ordered
 /// collection of selectors. A selector has a kind, an optional score/condition,
 /// and an ordered collection of properties.
-struct OMPTraitInfo {
+class OMPTraitInfo {
+  /// Private constructor accesible only by ASTContext.
+  OMPTraitInfo() {}
+  friend class ASTContext;
+
+public:
+  /// Reconstruct a (partial) OMPTraitInfo object from a mangled name.
+  OMPTraitInfo(StringRef MangledName);
+
   struct OMPTraitProperty {
     llvm::omp::TraitProperty Kind = llvm::omp::TraitProperty::invalid;
   };
   struct OMPTraitSelector {
     Expr *ScoreOrCondition = nullptr;
     llvm::omp::TraitSelector Kind = llvm::omp::TraitSelector::invalid;
-    llvm::SmallVector<OMPTraitProperty, 4> Properties;
+    llvm::SmallVector<OMPTraitProperty, 1> Properties;
   };
   struct OMPTraitSet {
     llvm::omp::TraitSet Kind = llvm::omp::TraitSet::invalid;
-    llvm::SmallVector<OMPTraitSelector, 4> Selectors;
+    llvm::SmallVector<OMPTraitSelector, 2> Selectors;
   };
 
   /// The outermost level of selector sets.
-  llvm::SmallVector<OMPTraitSet, 4> Sets;
+  llvm::SmallVector<OMPTraitSet, 2> Sets;
 
   bool anyScoreOrCondition(
       llvm::function_ref<bool(Expr *&, bool /* IsScore */)> Cond) {
@@ -7283,14 +7398,20 @@ struct OMPTraitInfo {
   /// former is a flat representation the actual main difference is that the
   /// latter uses clang::Expr to store the score/condition while the former is
   /// independent of clang. Thus, expressions and conditions are evaluated in
-  /// this method.
+  /// this method. If \p DeviceSetOnly is true, only the device selector set, if
+  /// present, is put in \p VMI, otherwise all selector sets are put in \p VMI.
   void getAsVariantMatchInfo(ASTContext &ASTCtx,
-                             llvm::omp::VariantMatchInfo &VMI) const;
+                             llvm::omp::VariantMatchInfo &VMI,
+                             bool DeviceSetOnly) const;
+
+  /// Return a string representation identifying this context selector.
+  std::string getMangledName() const;
 
   /// Print a human readable representation into \p OS.
   void print(llvm::raw_ostream &OS, const PrintingPolicy &Policy) const;
 };
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const OMPTraitInfo &TI);
+llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const OMPTraitInfo *TI);
 
 } // namespace clang
 

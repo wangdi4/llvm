@@ -1055,9 +1055,6 @@ def HasKeyLocker : Predicate<"Subtarget->hasKeyLocker()">;
 #if INTEL_FEATURE_ISA_ULI
 def HasULI : Predicate<"Subtarget->hasULI()">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
 def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
 #endif // INTEL_FEATURE_ISA_HRESET
@@ -1115,6 +1112,7 @@ def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
 def HasAMXTILE2    : Predicate<"Subtarget->hasAMXTILE2()">;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
+def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -1171,8 +1169,8 @@ def HasFastLZCNT : Predicate<"Subtarget->hasFastLZCNT()">;
 def HasFastSHLDRotate : Predicate<"Subtarget->hasFastSHLDRotate()">;
 def HasERMSB : Predicate<"Subtarget->hasERMSB()">;
 def HasMFence    : Predicate<"Subtarget->hasMFence()">;
-def UseRetpolineIndirectCalls : Predicate<"Subtarget->useRetpolineIndirectCalls()">;
-def NotUseRetpolineIndirectCalls : Predicate<"!Subtarget->useRetpolineIndirectCalls()">;
+def UseIndirectThunkCalls : Predicate<"Subtarget->useIndirectThunkCalls()">;
+def NotUseIndirectThunkCalls : Predicate<"!Subtarget->useIndirectThunkCalls()">;
 
 //===----------------------------------------------------------------------===//
 // X86 Instruction Format Definitions.
@@ -3056,15 +3054,6 @@ let Predicates = [HasULI, In64BitMode] in {
 }
 #endif // INTEL_FEATURE_ISA_ULI
 
-#if INTEL_FEATURE_ISA_SERIALIZE
-//===----------------------------------------------------------------------===//
-// SERIALIZE Instruction
-//
-def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
-                  [(int_x86_serialize)]>, PS,
-                  Requires<[HasSERIALIZE]>;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
-
 #if INTEL_FEATURE_ISA_HRESET
 //===----------------------------------------------------------------------===//
 // HRESET Instruction
@@ -3086,6 +3075,13 @@ let Predicates = [HasTSXLDTRK] in {
 }
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+// SERIALIZE Instruction
+//
+def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
+                  [(int_x86_serialize)]>, PS,
+                  Requires<[HasSERIALIZE]>;
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.

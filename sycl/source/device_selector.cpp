@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <CL/sycl/detail/force_device.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/exception.hpp>
@@ -128,11 +129,14 @@ int default_selector::operator()(const device &dev) const {
   if (isDeviceOfPreferredSyclBe(dev))
     Score = 50;
 
+  // override always wins
+  if (dev.get_info<info::device::device_type>() == detail::get_forced_type()) {
+    Score += 1000;
+    return Score;
+  }
+
   if (dev.is_gpu())
     Score += 500;
-
-  if (dev.is_accelerator())
-    Score += 400;
 
   if (dev.is_cpu())
     Score += 300;

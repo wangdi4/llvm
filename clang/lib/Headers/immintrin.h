@@ -673,14 +673,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_ULI */
 
-/* INTEL_FEATURE_ISA_SERIALIZE */
-#if defined(__SERIALIZE_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SERIALIZE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <serializeintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_SERIALIZE */
-
 /* INTEL_FEATURE_ISA_HRESET */
 #if defined(__HRESET_SUPPORTED__)
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
@@ -821,6 +813,10 @@ _storebe_i64(void * __P, long long __D) {
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__ENQCMD__)
 #include <enqcmdintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SERIALIZE__)
+#include <serializeintrin.h>
 #endif
 
 #if defined(_MSC_VER) && __has_extension(gnu_asm)

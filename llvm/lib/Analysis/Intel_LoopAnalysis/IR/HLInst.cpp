@@ -403,6 +403,14 @@ unsigned HLInst::getNumOperandsInternal() const {
     ++NumOp;
   }
 
+  // ShuffleVectorInst gains an extra operand due to inclusion of the
+  // shuffle mask. ShuffleVectorInst stores the mask as a vector of
+  // integers internally instead of as an operand. The mask value
+  // is converted to a vector in the ShuffleVectorInst constructor.
+  if (isa<ShuffleVectorInst>(Inst)) {
+    ++NumOp;
+  }
+
   return NumOp;
 }
 

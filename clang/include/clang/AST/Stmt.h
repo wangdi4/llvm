@@ -21,6 +21,7 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
@@ -310,10 +311,10 @@ protected:
 
     unsigned ValueKind : 2;
     unsigned ObjectKind : 3;
-    unsigned /*ExprDependence*/ Dependent : ExprDependenceBits;
+    unsigned /*ExprDependence*/ Dependent : llvm::BitWidth<ExprDependence>;
     unsigned IsCondition : 1; // INTEL
   };
-  enum { NumExprBits = NumStmtBits + 6 + ExprDependenceBits }; // INTEL
+  enum { NumExprBits = NumStmtBits + 6 +llvm::BitWidth<ExprDependence>};// INTEL
 
   class ConstantExprBitfields {
     friend class ASTStmtReader;

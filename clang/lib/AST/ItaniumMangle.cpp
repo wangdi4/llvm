@@ -127,9 +127,6 @@ class ItaniumMangleContextImpl : public ItaniumMangleContext {
 
 public:
   explicit ItaniumMangleContextImpl(ASTContext &Context,
-                                    DiagnosticsEngine &Diags)
-      : ItaniumMangleContext(Context, Diags) {}
-  explicit ItaniumMangleContextImpl(ASTContext &Context,
                                     DiagnosticsEngine &Diags,
                                     bool IsUniqueNameMangler)
       : ItaniumMangleContext(Context, Diags, IsUniqueNameMangler) {}
@@ -1779,10 +1776,10 @@ void CXXNameMangler::mangleTemplateParamDecl(const NamedDecl *Decl) {
   }
 }
 
-// Handles the __unique_stable_name feature for lambdas. Instead of the ordinal
-// of the lambda in its function, this does line/column to uniquely and reliably
-// identify the lambda.  Additionally, Macro expansions are expanded as well to
-// prevent macros causing duplicates.
+// Handles the __builtin_unique_stable_name feature for lambdas.  Instead of the
+// ordinal of the lambda in its mangling, this does line/column to uniquely and
+// reliably identify the lambda.  Additionally, macro expansions are expressed
+// as well to prevent macros causing duplicates.
 static void mangleUniqueNameLambda(CXXNameMangler &Mangler, SourceManager &SM,
                                    raw_ostream &Out,
                                    const CXXRecordDecl *Lambda) {
@@ -1793,20 +1790,20 @@ static void mangleUniqueNameLambda(CXXNameMangler &Mangler, SourceManager &SM,
   Out << "->";
   Mangler.mangleNumber(PLoc.getColumn());
 
-  while (Loc.isMacroID()) {
-    SourceLocation ToPrint = Loc;
+  while(Loc.isMacroID()) {
+    SourceLocation SLToPrint = Loc;
     if (SM.isMacroArgExpansion(Loc))
-      ToPrint = SM.getImmediateExpansionRange(Loc).getBegin();
+      SLToPrint = SM.getImmediateExpansionRange(Loc).getBegin();
 
-    Loc = SM.getImmediateMacroCallerLoc(Loc);
-    if (Loc.isFileID())
-      Loc = SM.getImmediateMacroCallerLoc(ToPrint);
-
-    PresumedLoc PLoc = SM.getPresumedLoc(SM.getSpellingLoc(ToPrint));
-    Out << '~';
+    PLoc = SM.getPresumedLoc(SM.getSpellingLoc(SLToPrint));
+    Out << "~";
     Mangler.mangleNumber(PLoc.getLine());
     Out << "->";
     Mangler.mangleNumber(PLoc.getColumn());
+
+    Loc = SM.getImmediateMacroCallerLoc(Loc);
+    if (Loc.isFileID())
+      Loc = SM.getImmediateMacroCallerLoc(SLToPrint);
   }
 }
 
@@ -1841,8 +1838,8 @@ void CXXNameMangler::mangleLambda(const CXXRecordDecl *Lambda) {
   Out << "E";
 
   if (Context.isUniqueNameMangler()) {
-    mangleUniqueNameLambda(*this, Context.getASTContext().getSourceManager(),
-                           Out, Lambda);
+    mangleUniqueNameLambda(
+        *this, Context.getASTContext().getSourceManager(), Out, Lambda);
     return;
   }
 
@@ -3749,8 +3746,11 @@ recurse:
   case Expr::LambdaExprClass:
   case Expr::MSPropertyRefExprClass:
   case Expr::MSPropertySubscriptExprClass:
-  case Expr::TypoExprClass:  // This should no longer exist in the AST by now.
+  case Expr::TypoExprClass: // This should no longer exist in the AST by now.
+  case Expr::RecoveryExprClass:
   case Expr::OMPArraySectionExprClass:
+  case Expr::OMPArrayShapingExprClass:
+  case Expr::OMPIteratorExprClass:
   case Expr::CXXInheritedCtorInitExprClass:
     llvm_unreachable("unexpected statement kind");
 
@@ -5285,11 +5285,6 @@ void ItaniumMangleContextImpl::mangleLambdaSig(const CXXRecordDecl *Lambda,
                                                raw_ostream &Out) {
   CXXNameMangler Mangler(*this, Out);
   Mangler.mangleLambdaSig(Lambda);
-}
-
-ItaniumMangleContext *
-ItaniumMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
-  return new ItaniumMangleContextImpl(Context, Diags);
 }
 
 ItaniumMangleContext *ItaniumMangleContext::create(ASTContext &Context,

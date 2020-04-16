@@ -259,10 +259,8 @@ class MCRelaxableFragment : public MCEncodedFragmentWithFixups<8, 1> {
 
   /// The instruction this is a fragment for.
   MCInst Inst;
-#if INTEL_CUSTOMIZATION
   /// Can we auto pad the instruction?
   bool AllowAutoPadding = false;
-#endif // INTEL_CUSTOMIZATION
 
 public:
   MCRelaxableFragment(const MCInst &Inst, const MCSubtargetInfo &STI,
@@ -273,10 +271,8 @@ public:
   const MCInst &getInst() const { return Inst; }
   void setInst(const MCInst &Value) { Inst = Value; }
 
-#if INTEL_CUSTOMIZATION
   bool getAllowAutoPadding() const { return AllowAutoPadding; }
   void setAllowAutoPadding(bool V) { AllowAutoPadding = V; }
-#endif // INTEL_CUSTOMIZATION
 
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_Relaxable;

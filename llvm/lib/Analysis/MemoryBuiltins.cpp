@@ -52,15 +52,16 @@ using namespace llvm;
 enum AllocType : uint8_t {
   OpNewLike          = 1<<0, // allocates; never returns null
   MallocLike         = 1<<1 | OpNewLike, // allocates; may return null
-  CallocLike         = 1<<2, // allocates + bzero
-  ReallocLike        = 1<<3, // reallocates
-  StrDupLike         = 1<<4,
+  AlignedAllocLike   = 1<<2, // allocates with alignment; may return null
+  CallocLike         = 1<<3, // allocates + bzero
+  ReallocLike        = 1<<4, // reallocates
+  StrDupLike         = 1<<5,
 #if INTEL_CUSTOMIZATION
-  FreeLike = 1 << 5,   // free
-  DeleteLike = 1 << 6, // delete
+  FreeLike = 1 << 6,   // free
+  DeleteLike = 1 << 7, // delete
 #endif //INTEL_CUSTOMIZATION
-  MallocOrCallocLike = MallocLike | CallocLike,
-  AllocLike          = MallocLike | CallocLike | StrDupLike,
+  MallocOrCallocLike = MallocLike | CallocLike | AlignedAllocLike,
+  AllocLike          = MallocOrCallocLike | StrDupLike,
   AnyAlloc           = AllocLike | ReallocLike
 };
 
@@ -104,6 +105,7 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
   {LibFunc_msvc_new_array_int_nothrow, {MallocLike,  2, 0,  -1}}, // new[](unsigned int, nothrow)
   {LibFunc_msvc_new_array_longlong,         {OpNewLike,   1, 0,  -1}}, // new[](unsigned long long)
   {LibFunc_msvc_new_array_longlong_nothrow, {MallocLike,  2, 0,  -1}}, // new[](unsigned long long, nothrow)
+  {LibFunc_aligned_alloc,       {AlignedAllocLike, 2, 1,  -1}},
   {LibFunc_calloc,              {CallocLike,  2, 0,   1}},
   {LibFunc_realloc,             {ReallocLike, 2, 1,  -1}},
   {LibFunc_reallocf,            {ReallocLike, 2, 1,  -1}},
@@ -323,6 +325,20 @@ bool llvm::isMallocLikeFn(const Function *F, const TargetLibraryInfo *TLI) {
   return getAllocationDataForFunction(F, MallocLike, TLI).hasValue();
 }
 #endif
+
+/// Tests if a value is a call or invoke to a library function that
+/// allocates uninitialized memory with alignment (such as aligned_alloc).
+bool llvm::isAlignedAllocLikeFn(const Value *V, const TargetLibraryInfo *TLI,
+                                bool LookThroughBitCast) {
+  return getAllocationData(V, AlignedAllocLike, TLI, LookThroughBitCast)
+      .hasValue();
+}
+bool llvm::isAlignedAllocLikeFn(
+    const Value *V, function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+    bool LookThroughBitCast) {
+  return getAllocationData(V, AlignedAllocLike, GetTLI, LookThroughBitCast)
+      .hasValue();
+}
 
 /// Tests if a value is a call or invoke to a library function that
 /// allocates zero-filled memory (such as calloc).

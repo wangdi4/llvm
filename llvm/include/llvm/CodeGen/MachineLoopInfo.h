@@ -76,11 +76,6 @@ public:
   /// then null is returned.
   MDNode *getLoopID() const;
 #endif  // INTEL_CUSTOMIZATION
-
-  /// Returns true if a machine loop has blocks that have static profiling
-  /// information---e.g. from '__builtin_expect()'.
-  bool hasStaticProfInfo() const;
-
   void dump() const;
 
 private:

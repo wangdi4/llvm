@@ -181,6 +181,12 @@ struct OpenMPScheduleTy final {
   OpenMPScheduleClauseModifier M2 = OMPC_SCHEDULE_MODIFIER_unknown;
 };
 
+/// OpenMP modifiers for 'reduction' clause.
+enum OpenMPReductionClauseModifier {
+#define OPENMP_REDUCTION_MODIFIER(Name) OMPC_REDUCTION_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_REDUCTION_unknown,
+};
 #if INTEL_CUSTOMIZATION
 bool isAllowedInSimdSubset(OpenMPDirectiveKind DKind);
 bool isAllowedInTBBSubset(OpenMPDirectiveKind DKind);

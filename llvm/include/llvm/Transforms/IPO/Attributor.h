@@ -29,7 +29,7 @@
 // automatically capture a potential dependence from Q to P. This dependence
 // will cause P to be reevaluated whenever Q changes in the future.
 //
-// The Attributor will only reevaluated abstract attributes that might have
+// The Attributor will only reevaluate abstract attributes that might have
 // changed since the last iteration. That means that the Attribute will not
 // revisit all instructions/blocks/functions in the module but only query
 // an update from a subset of the abstract attributes.
@@ -101,6 +101,7 @@
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AssumeBundleQueries.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineCost.h"
@@ -111,10 +112,12 @@
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Support/Allocator.h"
 #include "llvm/Transforms/Utils/CallGraphUpdater.h"
 
 namespace llvm {
 
+struct Attributor;
 struct AbstractAttribute;
 struct InformationCache;
 struct AAIsDead;
@@ -152,8 +155,8 @@ struct IRPosition {
 
   /// The positions we distinguish in the IR.
   ///
-  /// The values are chosen such that the KindOrArgNo member has a value >= 1
-  /// if it is an argument or call site argument while a value < 1 indicates the
+  /// The values are chosen such that the KindOrArgNo member has a value >= 0
+  /// if it is an argument or call site argument while a value < 0 indicates the
   /// respective kind of that value.
   enum Kind : int {
     IRP_INVALID = -6, ///< An invalid position.
@@ -273,18 +276,11 @@ struct IRPosition {
 
   /// Return the associated function, if any.
   Function *getAssociatedFunction() const {
-    if (auto *CB = dyn_cast<CallBase>(AnchorVal))
-      return CB->getCalledFunction();
     assert(KindOrArgNo != IRP_INVALID &&
            "Invalid position does not have an anchor scope!");
-    Value &V = getAnchorValue();
-    if (isa<Function>(V))
-      return &cast<Function>(V);
-    if (isa<Argument>(V))
-      return cast<Argument>(V).getParent();
-    if (isa<Instruction>(V))
-      return cast<Instruction>(V).getFunction();
-    return nullptr;
+    if (auto *CB = dyn_cast<CallBase>(AnchorVal))
+      return CB->getCalledFunction();
+    return getAnchorScope();
   }
 
   /// Return the associated argument, if any.
@@ -398,7 +394,8 @@ struct IRPosition {
   ///                                 e.g., the function position if this is an
   ///                                 argument position, should be ignored.
   bool hasAttr(ArrayRef<Attribute::AttrKind> AKs,
-               bool IgnoreSubsumingPositions = false) const;
+               bool IgnoreSubsumingPositions = false,
+               Attributor *A = nullptr) const;
 
   /// Return the attributes of any kind in \p AKs existing in the IR at a
   /// position that will affect this one. While each position can only have a
@@ -410,7 +407,8 @@ struct IRPosition {
   ///                                 argument position, should be ignored.
   void getAttrs(ArrayRef<Attribute::AttrKind> AKs,
                 SmallVectorImpl<Attribute> &Attrs,
-                bool IgnoreSubsumingPositions = false) const;
+                bool IgnoreSubsumingPositions = false,
+                Attributor *A = nullptr) const;
 
   /// Remove the attribute of kind \p AKs existing in the IR at this position.
   void removeAttrs(ArrayRef<Attribute::AttrKind> AKs) const {
@@ -470,11 +468,20 @@ private:
   bool getAttrsFromIRAttr(Attribute::AttrKind AK,
                           SmallVectorImpl<Attribute> &Attrs) const;
 
+  /// Return the attributes of kind \p AK existing in the IR as operand bundles
+  /// of an llvm.assume.
+  bool getAttrsFromAssumes(Attribute::AttrKind AK,
+                           SmallVectorImpl<Attribute> &Attrs,
+                           Attributor &A) const;
+
 protected:
   /// The value this position is anchored at.
   Value *AnchorVal;
 
-  /// The argument number, if non-negative, or the position "kind".
+  /// If AnchorVal is Argument or CallBase then this number should be
+  /// non-negative and it denotes the argument or call site argument index
+  /// respectively. Otherwise, it denotes the kind of this IRPosition according
+  /// to Kind above.
   int KindOrArgNo;
 };
 
@@ -595,6 +602,13 @@ struct InformationCache {
     return AG.getAnalysis<AAManager>(F);
   }
 
+  /// Return true if \p Arg is involved in a must-tail call, thus the argument
+  /// of the caller or callee.
+  bool isInvolvedInMustTailCall(const Argument &Arg) const {
+    return FunctionsCalledViaMustTail.count(Arg.getParent()) ||
+           FunctionsWithMustTailCall.count(Arg.getParent());
+  }
+
   /// Return the analysis result from a pass \p AP for function \p F.
   template <typename AP>
   typename AP::Result *getAnalysisResultForFunction(const Function &F) {
@@ -611,6 +625,9 @@ struct InformationCache {
   /// Return datalayout used in the module.
   const DataLayout &getDL() { return DL; }
 
+  /// Return the map conaining all the knowledge we have from `llvm.assume`s.
+  const RetainedKnowledgeMap &getKnowledgeMap() const { return KnowledgeMap; }
+
 private:
   /// A map type from functions to opcode to instruction maps.
   using FuncInstOpcodeMapTy = DenseMap<const Function *, OpcodeInstMapTy>;
@@ -625,11 +642,20 @@ private:
   /// A map from functions to their instructions that may read or write memory.
   FuncRWInstsMapTy FuncRWInstsMap;
 
+  /// Functions called by a `musttail` call.
+  SmallPtrSet<Function *, 8> FunctionsCalledViaMustTail;
+
+  /// Functions containing a `musttail` call.
+  SmallPtrSet<Function *, 8> FunctionsWithMustTailCall;
+
   /// The datalayout used in the module.
   const DataLayout &DL;
 
   /// MustBeExecutedContextExplorer
   MustBeExecutedContextExplorer Explorer;
+
+  /// A map with knowledge retained in `llvm.assume` instructions.
+  RetainedKnowledgeMap KnowledgeMap;
 
   /// Getters for analysis.
   AnalysisGetter &AG;
@@ -688,11 +714,7 @@ struct Attributor {
       : Functions(Functions), InfoCache(InfoCache), CGUpdater(CGUpdater),
         DepRecomputeInterval(DepRecomputeInterval), Whitelist(Whitelist) {}
 
-  ~Attributor() {
-    DeleteContainerPointers(AllAbstractAttributes);
-    for (auto &It : ArgumentReplacementMap)
-      DeleteContainerPointers(It.second);
-  }
+  ~Attributor();
 
   /// Run the analyses until a fixpoint is reached or enforced (timeout).
   ///
@@ -1057,6 +1079,9 @@ struct Attributor {
 
   /// Return the data layout associated with the anchor scope.
   const DataLayout &getDataLayout() const { return InfoCache.DL; }
+
+  /// The allocator used to allocate memory, e.g. for `AbstractAttribute`s.
+  BumpPtrAllocator Allocator;
 
 private:
   /// Check \p Pred on all call sites of \p Fn.
@@ -1714,7 +1739,8 @@ struct IRAttribute : public IRPosition, public Base {
   /// See AbstractAttribute::initialize(...).
   virtual void initialize(Attributor &A) override {
     const IRPosition &IRP = this->getIRPosition();
-    if (isa<UndefValue>(IRP.getAssociatedValue()) || hasAttr(getAttrKind())) {
+    if (isa<UndefValue>(IRP.getAssociatedValue()) ||
+        hasAttr(getAttrKind(), /* IgnoreSubsumingPositions */ false, &A)) {
       this->getState().indicateOptimisticFixpoint();
       return;
     }
@@ -2288,7 +2314,8 @@ struct DerefState : AbstractState {
 
   /// Add accessed bytes to the map.
   void addAccessedBytes(int64_t Offset, uint64_t Size) {
-    AccessedBytesMap[Offset] = std::max(AccessedBytesMap[Offset], Size);
+    uint64_t &AccessedBytes = AccessedBytesMap[Offset];
+    AccessedBytes = std::max(AccessedBytes, Size);
 
     // Known bytes might increase.
     computeKnownDerefBytesFromAccessedMap();

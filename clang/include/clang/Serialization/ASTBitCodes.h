@@ -1016,6 +1016,12 @@ namespace serialization {
       /// \brief The '_Sat unsigned long _Fract' type
       PREDEF_TYPE_SAT_ULONG_FRACT_ID = 69,
 
+      /// The placeholder type for OpenMP array shaping operation.
+      PREDEF_TYPE_OMP_ARRAY_SHAPING = 70,
+
+      /// The placeholder type for OpenMP iterator expression.
+      PREDEF_TYPE_OMP_ITERATOR = 71,
+
       /// OpenCL image types with auto numeration
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
       PREDEF_TYPE_##Id##_ID,
@@ -1634,6 +1640,9 @@ namespace serialization {
       /// An AtomicExpr record.
       EXPR_ATOMIC,
 
+      /// A RecoveryExpr record.
+      EXPR_RECOVERY,
+
       // Objective-C
 
       /// An ObjCStringLiteral record.
@@ -1868,6 +1877,8 @@ namespace serialization {
       STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE,
 #endif // INTEL_COLLAB
       EXPR_OMP_ARRAY_SECTION,
+      EXPR_OMP_ARRAY_SHAPING,
+      EXPR_OMP_ITERATOR,
 
       // ARC
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
