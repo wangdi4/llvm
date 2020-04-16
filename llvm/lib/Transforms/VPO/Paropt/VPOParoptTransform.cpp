@@ -1070,8 +1070,8 @@ bool VPOParoptTransform::genOCLParallelLoop(
       // distribution.
       (DistSchedKind == WRNScheduleDistributeStatic && ChunkForTeams);
 
-  BasicBlock *AllocaBB = createAllocaBB(W);
-  IRBuilder<> AllocaBuilder(&AllocaBB->front());
+  IRBuilder<> AllocaBuilder(
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/false));
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
 
@@ -3341,41 +3341,20 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   Builder.CreateStore(V, AI);
 }
 
-// Find a basic block for AllocaInst placements for the given region.
-// New allocas must be inserted at the beginning of the returned block.
-BasicBlock *VPOParoptTransform::createAllocaBB(WRegionNode *W) const {
-  while (W && !W->needsOutlining())
-    W = W->getParent();
-
-  BasicBlock *EntryBB = W ? W->getEntryBBlock() : &F->front();
-  Instruction *SplitPt = W ?
-      W->getEntryDirective()->getNextNonDebugInstruction() :
-      F->front().getTerminator();
-  assert(SplitPt->getParent() == EntryBB &&
-         "Split point instructions does not belong to block.");
-  // Note that this never invalidates the WRGraph consistency,
-  // e.g. regions' entry blocks remain valid.
-  return SplitBlock(EntryBB, SplitPt, DT, LI);
-}
-
 // Prepare the empty basic block for the array reduction initialization.
-BasicBlock *VPOParoptTransform::createEmptyPrvInitBB(WRegionNode *W) const {
+BasicBlock *VPOParoptTransform::createEmptyPrivInitBB(WRegionNode *W) const {
   BasicBlock *EntryBB = W->getEntryBBlock();
   return SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
 }
 
 // Prepare the empty basic block for the array reduction update.
-void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
-                                               BasicBlock *&PrivEntryBB,
-                                               bool HonorZTT) {
+BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
+                                                      bool HonorZTT) {
   BasicBlock *ExitBlock = W->getExitBBlock();
-  BasicBlock *PrivExitBB;
-  if (W->getIsOmpLoop()) {
-    // If the loop has ztt block, the compiler has to generate the lastprivate
-    // update code at the exit block of the loop.
-    BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB();
-
-    if (ZttBlock && HonorZTT) {
+  // If the loop has ztt block, the compiler has to generate the lastprivate
+  // update code at the exit block of the loop.
+  if (HonorZTT && W->getIsOmpLoop())
+    if (BasicBlock *ZttBlock = W->getWRNLoopInfo().getZTTBB()) {
       while (distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
         ExitBlock = *pred_begin(ExitBlock);
       assert(distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
@@ -3391,14 +3370,14 @@ void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
         LoopExitBB = Pred1;
       else
         llvm_unreachable("createEmptyPrivFiniBB: unsupported exit block");
-      PrivExitBB = SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
-      PrivEntryBB = PrivExitBB;
-      return;
+
+      return SplitBlock(LoopExitBB, LoopExitBB->getTerminator(), DT, LI);
     }
-  }
-  PrivExitBB = SplitBlock(ExitBlock, ExitBlock->getFirstNonPHI(), DT, LI);
+
+  BasicBlock *PrivExitBB =
+      SplitBlock(ExitBlock, ExitBlock->getFirstNonPHI(), DT, LI);
   W->setExitBBlock(PrivExitBB);
-  PrivEntryBB = ExitBlock;
+  return ExitBlock;
 }
 
 // Generate the reduction code for reduction clause.
@@ -3417,13 +3396,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     bool NeedsKmpcCritical = false;
     BasicBlock *RedInitEntryBB = nullptr;
-    BasicBlock *RedUpdateEntryBB = nullptr;
     // Insert reduction update at the region's exit block
     // for SPIRV target, so that potential __kmpc_[end_]critical
     // calls are executed the same number of times for all work
     // items. The results should be the same, as long as the reduction
     // variable is initialized at the region's entry block.
-    createEmptyPrivFiniBB(W, RedUpdateEntryBB, !isTargetSPIRV());
+    BasicBlock *RedUpdateEntryBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
 
     for (ReductionItem *RedI : RedClause.items()) {
       Value *NewRedInst;
@@ -3448,11 +3426,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         VPOParoptUtils::genF90DVInitCode(RedI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
 
-      RedInitEntryBB = createEmptyPrvInitBB(W);
+      RedInitEntryBB = createEmptyPrivInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
 
-      BasicBlock *BeginBB;
-      createEmptyPrivFiniBB(W, BeginBB, !isTargetSPIRV());
+      BasicBlock *BeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
       NeedsKmpcCritical |= genReductionFini(W, RedI, RedI->getOrig(),
                                             BeginBB->getTerminator(), DT);
 
@@ -3471,8 +3448,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // would work for scalar reduction but not for array reduction, in which
       // case the end_critical() would get emitted before the copy-out loop that
       // the critical section is trying to guard.
-      BasicBlock *EndBB;
-      createEmptyPrivFiniBB(W, EndBB, !isTargetSPIRV());
+      BasicBlock *EndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
       VPOParoptUtils::genKmpcCriticalSection(
           W, IdentTy, TidPtrHolder,
           dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
@@ -4302,7 +4278,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
   Value *LinearStartVar = nullptr;
 
   // Create empty BBlocks for capturing linear operand's starting value.
-  BasicBlock *LinearInitBB = createEmptyPrvInitBB(W);
+  BasicBlock *LinearInitBB = createEmptyPrivInitBB(W);
   assert(LinearInitBB && "genLinearCode: Couldn't create LinearInitBB.");
   IRBuilder<> CaptureBuilder(LinearInitBB->getTerminator());
 
@@ -4449,7 +4425,7 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
   W->populateBBSet();
   Instruction *EntryDirective = W->getEntryDirective();
   Instruction *LinearAllocaInsertPt =
-      VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(W, F);
+      VPOParoptUtils::getInsertionPtForAllocas(W, F);
 
   // Create IRBuilders for initial copyin and final copyout to/from the local
   // copy of linear.
@@ -4593,7 +4569,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // Otherwise the lastprivate var replacement will mess up the
         // copy instructions.
 
-        PrivInitEntryBB = createEmptyPrvInitBB(W);
+        PrivInitEntryBB = createEmptyPrivInitBB(W);
         if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
             // is also lastprivate.
@@ -4799,8 +4775,7 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDestructorCode\n");
 
   // Create a BB before ExitBB in which to insert dtor calls
-  BasicBlock *NewBB = nullptr;
-  createEmptyPrivFiniBB(W, NewBB);
+  BasicBlock *NewBB = createEmptyPrivFiniBB(W);
   Instruction* InsertBeforePt = NewBB->getTerminator();
 
   // Destructors for privates
@@ -5093,7 +5068,7 @@ Value *VPOParoptTransform::genRegionPrivateValue(
     // Copy value from the original "variable" to the new one.
     // We have to create an empty block after the region entry
     // directive to simplify the insertion.
-    BasicBlock *PrivInitEntryBB = createEmptyPrvInitBB(W);
+    BasicBlock *PrivInitEntryBB = createEmptyPrivInitBB(W);
     genFprivInit(&FprivI, PrivInitEntryBB->getTerminator());
   }
 
@@ -5767,7 +5742,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           // For tasks, call the destructor at the end of the region.
           // For non-tasks, genDestructorCode takes care of this.
           if (!DestrBlock)
-            createEmptyPrivFiniBB(W, DestrBlock);
+            DestrBlock = createEmptyPrivFiniBB(W);
           VPOParoptUtils::genDestructorCall(PrivI->getDestructor(),
                                             PrivI->getNew(),
                                             DestrBlock->getTerminator());
@@ -7310,8 +7285,7 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
   // Note: InsertEndPt should not be ExitBB->rbegin() because the
   // _kmpc_end_single() should be emitted above the END SINGLE directive, not
   // after it.
-  BasicBlock *NewBB = nullptr;
-  createEmptyPrivFiniBB(W, NewBB);
+  BasicBlock *NewBB = createEmptyPrivFiniBB(W);
   Instruction *InsertEndPt = NewBB->getTerminator();
 
   if (!CprivClause.empty()) {
@@ -7624,9 +7598,8 @@ bool VPOParoptTransform::genLastIterationCheck(
   assert(!IsLastLocs.empty() && "genLastIterationCheck: IsLastLocs is null.");
 
   if (!InsertBefore) {
-    BasicBlock *ExitBBPredecessor = nullptr;
     // First, create an empty predecessor BBlock for ExitBB of the WRegion.  (3)
-    createEmptyPrivFiniBB(W, ExitBBPredecessor);
+    BasicBlock *ExitBBPredecessor = createEmptyPrivFiniBB(W);
     assert(ExitBBPredecessor && "genLoopLastIterationCheck: Couldn't create "
                                 "empty BBlock before the exit BB.");
     InsertBefore = ExitBBPredecessor->getTerminator();
@@ -7681,8 +7654,7 @@ bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit,
   if (!InsertPtProvided) {
     // Create a new BB split from W's ExitBB to be used as InsertPt.
     // Reuse the util that does this for Reduction and Lastprivate fini code.
-    BasicBlock *NewBB = nullptr;
-    createEmptyPrivFiniBB(W, NewBB);
+    BasicBlock *NewBB = createEmptyPrivFiniBB(W);
     InsertBefore = NewBB->getTerminator();
   }
 
@@ -8021,8 +7993,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
   //           +-------+--------+
   //           |  region.exit() |
   //           +----------------+
-  BasicBlock *CancelExitBB = nullptr;
-  createEmptyPrivFiniBB(W, CancelExitBB);
+  BasicBlock *CancelExitBB = createEmptyPrivFiniBB(W);
 
   assert(CancelExitBB &&
          "genCancellationBranchingCode: Failed to create Cancel Exit BB");
@@ -8564,6 +8535,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
   Instruction *InsPt = NewBB->getTerminator();
+  Instruction *AllocaInsPt =
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/false);
 
   // Create private instances for variables collected earlier.
   for (ItemData &P : ToPrivatize) {
@@ -8574,7 +8547,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     // Allocate space for the private copy.
     auto *NewAI = cast<AllocaInst>(AI->clone());
     NewAI->setName(AI->getName() + ".fp");
-    NewAI->insertBefore(InsPt);
+    NewAI->insertBefore(AllocaInsPt);
 
     // Copy variable value from the original location to the private instance.
     new StoreInst(

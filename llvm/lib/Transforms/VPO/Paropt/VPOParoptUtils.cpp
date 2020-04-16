@@ -4089,28 +4089,36 @@ bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
   return true;
 }
 
-Instruction *VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(WRegionNode *W,
-                                                                 Function *F) {
-  assert(W && "Null WRegion.");
+Instruction *VPOParoptUtils::getInsertionPtForAllocas(
+    WRegionNode *W, Function *F, bool OutsideRegion) {
+  assert(W && "Null WRegionNode.");
+  assert(F && "Null Function.");
 
-  WRegionNode *FirstParentWhichDoesOutlining = nullptr;
+  auto *WTemp = W;
 
-  for (W = W->getParent(); W != nullptr; W = W->getParent()) {
-    if (!W->needsOutlining())
-      continue;
+  if (OutsideRegion)
+    WTemp = WTemp->getParent();
 
-    FirstParentWhichDoesOutlining = W;
-    break;
-  }
+  while (WTemp && !WTemp->needsOutlining())
+    WTemp = WTemp->getParent();
 
-  if (!FirstParentWhichDoesOutlining)
+  if (!WTemp)
     return F->getEntryBlock().getFirstNonPHI();
 
-  BasicBlock *SecondBB =
-      FirstParentWhichDoesOutlining->getEntryBBlock()->getSingleSuccessor();
-  assert(SecondBB && "Couldn't find second BB of Wregion.");
+  if (WTemp == W) {
+    assert(!OutsideRegion && "Allocas requested inside region.");
+    // Allocas will be inserted inside the region.
+    // If they are used to relink some uses inside the region,
+    // we have to make sure that the allocas dominate all
+    // current instructions in the region. So we want to insert
+    // them right before the region's entry directive.
+    return WTemp->getEntryDirective();
+  }
 
-  return SecondBB->getFirstNonPHI();
+  BasicBlock *BB = WTemp->getEntryBBlock()->getSingleSuccessor();
+  assert(BB && "Couldn't find single successor of the region entry block.");
+
+  return BB->getFirstNonPHI();
 }
 
 // Find the first directive that dominates "PosInst" and which supports

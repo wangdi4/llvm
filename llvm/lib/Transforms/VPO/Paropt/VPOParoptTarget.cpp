@@ -1506,8 +1506,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
 
   IRBuilder<> Builder(TgtDataOutlinedFunctionCall);
   Function *F = TgtDataOutlinedFunctionCall->getFunction();
-  Instruction *AllocaInsertPt =
-      VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(W, F);
+  Instruction *AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
 
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
     MapItem *MapI = UDPI->getInMap();
