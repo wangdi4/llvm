@@ -151,10 +151,11 @@ static void debugPrintHeader(WRegionNode *W, int Mode) {
 
 // Generate the placeholders for the loop lower bound and upper bound.
 void VPOParoptTransform::genLoopBoundUpdatePrep(
-    WRegionNode *W, unsigned Idx, AllocaInst *&LowerBnd, AllocaInst *&UpperBnd,
+    WRegionNode *W, unsigned Idx, IRBuilder<> &AllocaBuilder,
+    AllocaInst *&LowerBnd, AllocaInst *&UpperBnd,
     AllocaInst *&SchedStride, AllocaInst *&TeamLowerBnd,
-    AllocaInst *&TeamUpperBnd, AllocaInst *&TeamStride, Value *&UpperBndVal,
-    bool ChunkForTeams) {
+    AllocaInst *&TeamUpperBnd, AllocaInst *&TeamStride,
+    Value *&IsLastLoc, Value *&UpperBndVal, bool ChunkForTeams) {
   Loop *L = W->getWRNLoopInfo().getLoop(Idx);
   assert(L->isLoopSimplifyForm() &&
          "genLoopBoundUpdatePrep: Expect the loop is in SimplifyForm.");
@@ -171,35 +172,44 @@ void VPOParoptTransform::genLoopBoundUpdatePrep(
 
   Instruction *InsertPt =
       cast<Instruction>(L->getLoopPreheader()->getTerminator());
-
   IRBuilder<> Builder(InsertPt);
-  LowerBnd = Builder.CreateAlloca(IndValTy, nullptr, "lower.bnd");
 
-  UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
+  LowerBnd = AllocaBuilder.CreateAlloca(IndValTy, nullptr,
+                                        "loop" + Twine(Idx) + ".lower.bnd");
 
-  SchedStride = Builder.CreateAlloca(IndValTy, nullptr, "sched.inc");
+  UpperBnd = AllocaBuilder.CreateAlloca(IndValTy, nullptr,
+                                        "loop" + Twine(Idx) + ".upper.bnd");
+
+  SchedStride = AllocaBuilder.CreateAlloca(IndValTy, nullptr,
+                                           "loop" + Twine(Idx) + ".sched.inc");
+
+  IsLastLoc = AllocaBuilder.CreateAlloca(AllocaBuilder.getInt32Ty(), nullptr,
+                                         "loop" + Twine(Idx) + ".is.last");
+  // Initialize with 'false' at the allocation.
+  // If a WI does not execute an iteration of the inner loop,
+  // e.g. because of ZTT for the outer loop, the value still
+  // has to be initialized, since we read it outside of the
+  // outermost loop.
+  AllocaBuilder.CreateStore(AllocaBuilder.getInt32(0), IsLastLoc);
 
   if (ChunkForTeams) {
-    TeamLowerBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.lb");
+    TeamLowerBnd = AllocaBuilder.CreateAlloca(IndValTy, nullptr,
+                                              "loop" + Twine(Idx) + ".team.lb");
 
-    TeamUpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "team.ub");
+    TeamUpperBnd = AllocaBuilder.CreateAlloca(IndValTy, nullptr,
+                                              "loop" + Twine(Idx) + ".team.ub");
 
-    TeamStride = Builder.CreateAlloca(IndValTy, nullptr, "team.inc");
+    TeamStride = AllocaBuilder.CreateAlloca(IndValTy, nullptr,
+                                            "loop" + Twine(Idx) + ".team.inc");
   }
 
-  if (InitVal->getType()->getIntegerBitWidth() !=
-      IndValTy->getIntegerBitWidth())
-    InitVal = Builder.CreateSExtOrTrunc(InitVal, IndValTy);
-
+  InitVal = Builder.CreateSExtOrTrunc(InitVal, IndValTy);
   Builder.CreateStore(InitVal, LowerBnd);
 
   UpperBndVal =
-      VPOParoptUtils::computeOmpUpperBound(W, Idx, InsertPt, ".for.update");
-
-  if (UpperBndVal->getType()->getIntegerBitWidth() !=
-      IndValTy->getIntegerBitWidth())
-    UpperBndVal = Builder.CreateSExtOrTrunc(UpperBndVal, IndValTy);
-
+      VPOParoptUtils::computeOmpUpperBound(W, Idx, InsertPt,
+                                           ".loop" + Twine(Idx) + ".orig.ub");
+  UpperBndVal = Builder.CreateSExtOrTrunc(UpperBndVal, IndValTy);
   Builder.CreateStore(UpperBndVal, UpperBnd);
 }
 
@@ -235,10 +245,10 @@ WRNScheduleKind VPOParoptTransform::getSchedKindForMultiLevelLoops(
   if (W->getWRNLoopInfo().getNormIVSize() <= 1)
     return SchedKind;
 
-  if (SchedKind == TargetScheduleKind)
-    return SchedKind;
+  if (SchedKind != TargetScheduleKind)
+    LLVM_DEBUG(dbgs() <<
+               "SchedKind is forced to be " << TargetScheduleKind << "\n");
 
-  LLVM_DEBUG(dbgs() << "DistSchedKind is forced to be StaticEven." << "\n");
   return TargetScheduleKind;
 }
 
@@ -655,8 +665,9 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 void VPOParoptTransform::genOCLLoopPartitionCode(
     WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
     AllocaInst *SchedStride, AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
-    AllocaInst *TeamStride, Value *UpperBndVal, bool GenDispLoop,
-    Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST) {
+    AllocaInst *TeamStride, Value *UpperBndVal, Value *IsLastLoc,
+    bool GenDispLoop, Instruction *TeamLB, Instruction *TeamUB,
+    Instruction *TeamST) {
 
   assert(!TeamLowerBnd == !TeamUpperBnd &&
          !TeamLowerBnd == !TeamStride &&
@@ -689,8 +700,19 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
 
   BasicBlock *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
 
-  ICmpInst *CompInst =
-      new ICmpInst(InsertPt, ICmpInst::ICMP_SLE, LoadLB, LoadUB, "");
+  Value *ZTTPredicate = Builder.CreateICmpSLE(LoadLB, LoadUB, "");
+  // If the above ZTT is true, and the computed loop's upper bound
+  // is equal to the original loop upper bound, then this WI will execute
+  // the last iteration of the whole loop. Set IsLast accordingly.
+  // Note that all uses of this IsLast value are expected to be
+  // after this loop finishes, where the last iteration actually
+  // has applied all its effects.
+  Value *LastIterPredicate = Builder.CreateICmpEQ(LoadUB,
+      Builder.CreateSExtOrTrunc(UpperBndVal, LoadUB->getType()));
+  LastIterPredicate = Builder.CreateAnd(ZTTPredicate, LastIterPredicate);
+  LastIterPredicate =
+      Builder.CreateZExtOrTrunc(LastIterPredicate, Builder.getInt32Ty());
+  Builder.CreateStore(LastIterPredicate, IsLastLoc);
 
   VPOParoptUtils::updateOmpPredicateAndUpperBound(W, Idx, LoadUB, InsertPt);
 
@@ -700,14 +722,14 @@ void VPOParoptTransform::genOCLLoopPartitionCode(
 
   BasicBlock *LoopRegionExitBB =
       SplitBlock(LoopExitBB, LoopExitBB->getFirstNonPHI(), DT, LI);
-  LoopRegionExitBB->setName("loop.region.exit");
+  LoopRegionExitBB->setName("loop" + Twine(Idx) + ".region.exit");
 
   if (LoopExitBB == W->getExitBBlock())
     W->setExitBBlock(LoopRegionExitBB);
 
   std::swap(LoopExitBB, LoopRegionExitBB);
   Instruction *NewTermInst =
-      BranchInst::Create(PreHdrInst->getSuccessor(0), LoopExitBB, CompInst);
+      BranchInst::Create(PreHdrInst->getSuccessor(0), LoopExitBB, ZTTPredicate);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
   WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
@@ -1019,7 +1041,8 @@ Loop *VPOParoptTransform::genDispatchLoopForStatic(
 // Here we assume the global_size is equal to local_size, which means
 // there is only one workgroup.
 //
-bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
+bool VPOParoptTransform::genOCLParallelLoop(
+    WRegionNode *W, SmallVectorImpl<Value *> &IsLastLocs) {
 
   AllocaInst *LowerBnd = nullptr;
   AllocaInst *UpperBnd = nullptr;
@@ -1047,11 +1070,17 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
       // distribution.
       (DistSchedKind == WRNScheduleDistributeStatic && ChunkForTeams);
 
+  BasicBlock *AllocaBB = createAllocaBB(W);
+  IRBuilder<> AllocaBuilder(&AllocaBB->front());
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
-    genLoopBoundUpdatePrep(W, I - 1, LowerBnd, UpperBnd, SchedStride,
-                           TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,
-                           ChunkForTeams);
+
+    IsLastLocs.push_back(nullptr);
+
+    genLoopBoundUpdatePrep(W, I - 1, AllocaBuilder,
+                           LowerBnd, UpperBnd, SchedStride,
+                           TeamLowerBnd, TeamUpperBnd, TeamStride,
+                           IsLastLocs.back(), UpperBndVal, ChunkForTeams);
 
     if (ChunkForTeams)
       // Loop chunking must be done for distribute constructs.
@@ -1071,7 +1100,8 @@ bool VPOParoptTransform::genOCLParallelLoop(WRegionNode *W) {
 
     genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,
                             TeamLowerBnd, TeamUpperBnd, TeamStride, UpperBndVal,
-                            GenTeamDistDispatchLoop, TeamLB, TeamUB, TeamST);
+                            IsLastLocs.back(), GenTeamDistDispatchLoop,
+                            TeamLB, TeamUB, TeamST);
   }
 
   W->resetBBSet(); // CFG changed; clear BBSet
@@ -1480,8 +1510,12 @@ bool VPOParoptTransform::paroptTransforms() {
           // The compiler does not need to generate the outlined function
           // for omp parallel for loop.
           if (isTargetSPIRV()) {
-            Changed |= genOCLParallelLoop(W);
+            SmallVector<Value *, 3> IsLastLocs;
+            BasicBlock *IfLastIterBB = nullptr;
+            Changed |= genOCLParallelLoop(W, IsLastLocs);
             Changed |= genPrivatizationCode(W);
+            Changed |= genLastIterationCheck(W, IsLastLocs, IfLastIterBB);
+            Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
             Changed |= genReductionCode(W);
           } else {
@@ -1513,7 +1547,7 @@ bool VPOParoptTransform::paroptTransforms() {
                                       OMPLBForLinearClosedForm, OMPZtt);
             // Privatization is enabled for Transform pass
             Changed |= genPrivatizationCode(W);
-            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
+            Changed |= genLastIterationCheck(W, {IsLastVal}, IfLastIterBB,
                                              InsertLastIterCheckBefore);
             Changed |= genLinearCode(W, IfLastIterBB, OMPLBForLinearClosedForm);
             // Must be in this order, if vars are both FP and LP
@@ -1559,7 +1593,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genBarrierForFpLpAndLinears(W);
-          Changed |= genLastIterationCheck(W, LastIterGep, IfLastIterBB);
+          Changed |= genLastIterationCheck(W, {LastIterGep}, IfLastIterBB);
           Changed |= genLastPrivatizationCode(W, IfLastIterBB);
           Changed |= genSharedCodeForTaskGeneric(W);
           Changed |= genRedCodeForTaskGeneric(W);
@@ -1584,7 +1618,7 @@ bool VPOParoptTransform::paroptTransforms() {
               genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                   LBPtr, UBPtr, STPtr, LastIterGep);
           Changed |= genPrivatizationCode(W);
-          Changed |= genLastIterationCheck(W, LastIterGep, IfLastIterBB);
+          Changed |= genLastIterationCheck(W, {LastIterGep}, IfLastIterBB);
           Changed |= genLastPrivatizationCode(W, IfLastIterBB);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genSharedCodeForTaskGeneric(W);
@@ -1815,8 +1849,12 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= constructNDRangeInfo(W);
 
           if (isTargetSPIRV()) {
-            Changed |= genOCLParallelLoop(W);
+            SmallVector<Value *, 3> IsLastLocs;
+            BasicBlock *IfLastIterBB = nullptr;
+            Changed |= genOCLParallelLoop(W, IsLastLocs);
             Changed |= genPrivatizationCode(W);
+            Changed |= genLastIterationCheck(W, IsLastLocs, IfLastIterBB);
+            Changed |= genLastPrivatizationCode(W, IfLastIterBB);
             Changed |= genFirstPrivatizationCode(W);
             if (!W->getIsDistribute())
               Changed |= genReductionCode(W);
@@ -1841,7 +1879,7 @@ bool VPOParoptTransform::paroptTransforms() {
                 genLoopSchedulingCode(W, IsLastVal, InsertLastIterCheckBefore,
                                       OMPLBForLinearClosedForm, OMPZtt);
             Changed |= genPrivatizationCode(W);
-            Changed |= genLastIterationCheck(W, IsLastVal, IfLastIterBB,
+            Changed |= genLastIterationCheck(W, {IsLastVal}, IfLastIterBB,
                                              InsertLastIterCheckBefore);
             Changed |= genLinearCode(W, IfLastIterBB, OMPLBForLinearClosedForm);
             Changed |= genLastPrivatizationCode(
@@ -3303,11 +3341,27 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   Builder.CreateStore(V, AI);
 }
 
+// Find a basic block for AllocaInst placements for the given region.
+// New allocas must be inserted at the beginning of the returned block.
+BasicBlock *VPOParoptTransform::createAllocaBB(WRegionNode *W) const {
+  while (W && !W->needsOutlining())
+    W = W->getParent();
+
+  BasicBlock *EntryBB = W ? W->getEntryBBlock() : &F->front();
+  Instruction *SplitPt = W ?
+      W->getEntryDirective()->getNextNonDebugInstruction() :
+      F->front().getTerminator();
+  assert(SplitPt->getParent() == EntryBB &&
+         "Split point instructions does not belong to block.");
+  // Note that this never invalidates the WRGraph consistency,
+  // e.g. regions' entry blocks remain valid.
+  return SplitBlock(EntryBB, SplitPt, DT, LI);
+}
+
 // Prepare the empty basic block for the array reduction initialization.
-void VPOParoptTransform::createEmptyPrvInitBB(WRegionNode *W,
-                                              BasicBlock *&PrivBB) {
+BasicBlock *VPOParoptTransform::createEmptyPrvInitBB(WRegionNode *W) const {
   BasicBlock *EntryBB = W->getEntryBBlock();
-  PrivBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
+  return SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
 }
 
 // Prepare the empty basic block for the array reduction update.
@@ -3394,7 +3448,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         VPOParoptUtils::genF90DVInitCode(RedI, InsertPt, isTargetSPIRV());
 #endif // INTEL_CUSTOMIZATION
 
-      createEmptyPrvInitBB(W, RedInitEntryBB);
+      RedInitEntryBB = createEmptyPrvInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
 
       BasicBlock *BeginBB;
@@ -4243,13 +4297,12 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
 
   W->populateBBSet();
   BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *LinearInitBB = nullptr;
   BasicBlock *LoopBodyBB = nullptr;
   Value *NewLinearVar = nullptr;
   Value *LinearStartVar = nullptr;
 
   // Create empty BBlocks for capturing linear operand's starting value.
-  createEmptyPrvInitBB(W, LinearInitBB);
+  BasicBlock *LinearInitBB = createEmptyPrvInitBB(W);
   assert(LinearInitBB && "genLinearCode: Couldn't create LinearInitBB.");
   IRBuilder<> CaptureBuilder(LinearInitBB->getTerminator());
 
@@ -4540,7 +4593,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         // Otherwise the lastprivate var replacement will mess up the
         // copy instructions.
 
-        createEmptyPrvInitBB(W, PrivInitEntryBB);
+        PrivInitEntryBB = createEmptyPrvInitBB(W);
         if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
             // is also lastprivate.
@@ -5040,8 +5093,7 @@ Value *VPOParoptTransform::genRegionPrivateValue(
     // Copy value from the original "variable" to the new one.
     // We have to create an empty block after the region entry
     // directive to simplify the insertion.
-    BasicBlock *PrivInitEntryBB;
-    createEmptyPrvInitBB(W, PrivInitEntryBB);
+    BasicBlock *PrivInitEntryBB = createEmptyPrvInitBB(W);
     genFprivInit(&FprivI, PrivInitEntryBB->getTerminator());
   }
 
@@ -7557,8 +7609,8 @@ Instruction *VPOParoptTransform::genBarrierForConditionalLP(WRegionNode *W) {
 // llvm.region.exit(...)    |   llvm.region.exit(...)
 //                          |
 bool VPOParoptTransform::genLastIterationCheck(
-    WRegionNode *W, Value *IsLastVal, BasicBlock *&IfLastIterOut,
-    Instruction *InsertBefore) {
+    WRegionNode *W, const ArrayRef<Value *> IsLastLocs,
+    BasicBlock *&IfLastIterOut, Instruction *InsertBefore) {
 
   // No need to emit the branch if W doesn't have any linear or non-conditional
   // lastprivate var.
@@ -7569,7 +7621,7 @@ bool VPOParoptTransform::genLastIterationCheck(
       (!W->canHaveLinear() || (W->getLinear()).empty()))
     return false;
 
-  assert(IsLastVal && "genLastIterationCheck: IsLastVal is null.");
+  assert(!IsLastLocs.empty() && "genLastIterationCheck: IsLastLocs is null.");
 
   if (!InsertBefore) {
     BasicBlock *ExitBBPredecessor = nullptr;
@@ -7581,11 +7633,23 @@ bool VPOParoptTransform::genLastIterationCheck(
   }
 
   // Next, we insert the branching code before InsertBefore.
+
+  // Logically and all IsLast values.
   IRBuilder<> Builder(InsertBefore);
-  IntegerType *I32Ty = Type::getInt32Ty(F->getContext());
-  LoadInst *LastLoad = Builder.CreateLoad(I32Ty, IsLastVal); //              (1)
-  ConstantInt *ValueZero = ConstantInt::getSigned(I32Ty, 0);
-  Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero); //         (2)
+  Value *IsLastPredicate = nullptr;
+
+  for (auto *Ptr : IsLastLocs) {
+    auto *V = Builder.CreateLoad(Builder.getInt32Ty(), Ptr); //              (1)
+
+    if (!IsLastPredicate) {
+      IsLastPredicate = V;
+      continue;
+    }
+
+    IsLastPredicate = Builder.CreateAnd(IsLastPredicate, V);
+  }
+  Value *LastCompare =
+      Builder.CreateICmpNE(IsLastPredicate, Builder.getInt32(0)); //         (2)
 
   Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, InsertBefore,
                                                 false, nullptr, DT, LI);
