@@ -1152,6 +1152,18 @@ pi_result L0(piextDeviceSelectBinary)(
   return PI_SUCCESS;
 }
 
+pi_result piextDeviceGetNativeHandle(pi_device device,
+                                     pi_native_handle *nativeHandle) {
+  pi_throw("piextDeviceGetNativeHandle: not supported");
+  return PI_SUCCESS;
+}
+
+pi_result piextDeviceCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                            pi_device *device) {
+  pi_throw("piextDeviceCreateWithNativeHandle: not supported");
+  return PI_SUCCESS;
+}
+
 pi_result L0(piContextCreate)(
   const cl_context_properties * properties,
   pi_uint32         num_devices,
@@ -1208,6 +1220,18 @@ pi_result piextContextSetExtendedDeleter(pi_context context,
                                          pi_context_extended_deleter function,
                                          void *user_data) {
   pi_throw("piextContextSetExtendedDeleter: not supported");
+  return PI_SUCCESS;
+}
+
+pi_result piextContextGetNativeHandle(pi_context context,
+                                      pi_native_handle *nativeHandle) {
+  pi_throw("piextContextGetNativeHandle: not supported");
+  return PI_SUCCESS;
+}
+
+pi_result piextContextCreateWithNativeHandle(pi_native_handle nativeHandle,
+    pi_context *context) {
+  pi_throw("piextContextCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -1316,6 +1340,18 @@ pi_result L0(piQueueFinish)(pi_queue command_queue)
   // Wait until command lists attached to the command queue are executed.
   ZE_CALL(zeCommandQueueSynchronize(
     command_queue->L0CommandQueue, UINT32_MAX));
+  return PI_SUCCESS;
+}
+
+pi_result piextQueueGetNativeHandle(pi_queue queue,
+                                    pi_native_handle *nativeHandle) {
+  pi_throw("piextQueueGetNativeHandle: not supported");
+  return PI_SUCCESS;
+}
+
+pi_result piextQueueCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                           pi_queue *queue) {
+  pi_throw("piextQueueCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -1541,6 +1577,17 @@ pi_result L0(piMemImageCreate)(
   }
 
   *ret_image = L0PiImage;
+  return PI_SUCCESS;
+}
+
+pi_result piextMemGetNativeHandle(pi_mem mem, pi_native_handle *nativeHandle) {
+  pi_throw("piextMemGetNativeHandle: not supported");
+  return PI_SUCCESS;
+}
+
+pi_result piextMemCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                         pi_mem *mem) {
+  pi_throw("piextMemCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -1827,6 +1874,18 @@ pi_result L0(piProgramRelease)(pi_program program) {
     // TODO: call zeModuleDestroy for non-interop L0 modules
     delete program;
   }
+  return PI_SUCCESS;
+}
+
+pi_result piextProgramGetNativeHandle(pi_program program,
+                                      pi_native_handle *nativeHandle) {
+  pi_throw("piextProgramGetNativeHandle: not supported");
+  return PI_SUCCESS;
+}
+
+pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                             pi_program *program) {
+  pi_throw("piextProgramCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -2418,6 +2477,18 @@ pi_result L0(piEventRelease)(pi_event event) {
     ZE_CALL(zeEventPoolDestroy(event->L0EventPool));
     delete event;
   }
+  return PI_SUCCESS;
+}
+
+pi_result piextEventGetNativeHandle(pi_event event,
+                                    pi_native_handle *nativeHandle) {
+  pi_throw("piextEventGetNativeHandle: not supported");
+  return PI_SUCCESS;
+}
+
+pi_result piextEventCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                           pi_event *event) {
+  pi_throw("piextEventCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
