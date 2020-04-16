@@ -88,6 +88,10 @@ public:
   // flow such that the scalar loop is skipped.
   void createEmptyLoop();
 
+  // Set current debug location for vector loop's IRBuilder. This location is
+  // set for all instructions that are subsequently created using the Builder.
+  void setBuilderDebugLoc(DebugLoc L) { Builder.SetCurrentDebugLocation(L); }
+
   // Widen the given instruction to VF wide vector instruction
   void vectorizeInstruction(VPInstruction *VPInst);
 

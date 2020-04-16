@@ -170,7 +170,6 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
     // been built.
     NewVPInst = cast<VPInstruction>(VPIRBuilder.createPhiInstruction(Inst));
     PhisToFix.push_back(Phi);
-    return NewVPInst;
   } else {
     // Translate LLVM-IR operands into VPValue operands and set them in the
     // new VPInstruction.
@@ -195,6 +194,9 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
       NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
           Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
   }
+
+  // Import underlying debug location attached to this instruction.
+  NewVPInst->setDebugLocation(Inst->getDebugLoc());
   return NewVPInst;
 }
 
