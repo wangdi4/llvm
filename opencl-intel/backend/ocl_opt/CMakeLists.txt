@@ -53,6 +53,7 @@ set(OCL_BE_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
+    AddNTAttr
 )
 
 # Dependencies of the passes

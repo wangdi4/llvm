@@ -117,6 +117,7 @@ void initializeCoerceTypesPass(llvm::PassRegistry &);
 void initializeWeightedInstCounterPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeRemoveAtExitPass(llvm::PassRegistry &);
+void initializeAddNTAttrPass(llvm::PassRegistry &);
 }
 
 #endif

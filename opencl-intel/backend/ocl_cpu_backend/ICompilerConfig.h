@@ -79,6 +79,7 @@ public:
     virtual std::string GetDumpIRDir() const = 0;
     virtual bool GetDumpHeuristicIRFlag() const = 0;
     virtual const std::string &GetStatFileBaseName() const = 0;
+    virtual bool GetStreamingAlways() const = 0;
 
     virtual DeviceMode TargetDevice() const = 0;
 };
