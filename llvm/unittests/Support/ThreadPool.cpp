@@ -196,11 +196,26 @@ void ThreadPoolTest::TestAllThreads(ThreadPoolStrategy S) {
 }
 
 TEST_F(ThreadPoolTest, AllThreads_UseAllRessources) {
+#if INTEL_CUSTOMIZATION
+  // Disable this on Windows until community resolves ThreadPool issues:
+  // https://bugs.llvm.org/show_bug.cgi?id=45556, CMPLRLLVM-19188.
+  Triple Host(Triple::normalize(sys::getProcessTriple()));
+  if (Host.isOSWindows())
+    return;
+#endif // INTEL_CUSTOMIZATION
   CHECK_UNSUPPORTED();
   TestAllThreads({});
 }
 
 TEST_F(ThreadPoolTest, AllThreads_OneThreadPerCore) {
+#if INTEL_CUSTOMIZATION
+  // Disable this on Windows until community resolves ThreadPool issues:
+  // https://bugs.llvm.org/show_bug.cgi?id=45556, CMPLRLLVM-19188.
+  Triple Host(Triple::normalize(sys::getProcessTriple()));
+  if (Host.isOSWindows())
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   CHECK_UNSUPPORTED();
   TestAllThreads(llvm::heavyweight_hardware_concurrency());
 }
