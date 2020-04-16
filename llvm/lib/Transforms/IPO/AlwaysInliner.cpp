@@ -70,12 +70,8 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
         // FIXME: We really shouldn't be able to fail to inline at this point!
         // We should do something to log or check the inline failures here.
         Changed |=
-<<<<<<< HEAD
-            InlineFunction(CS, IFI, &getReport(), &getMDReport(), // INTEL
-                  &Reason, /*CalleeAAR=*/nullptr, InsertLifetime)   // INTEL
-=======
-            InlineFunction(*CB, IFI, /*CalleeAAR=*/nullptr, InsertLifetime)
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
+            InlineFunction(*CB, IFI, &getReport(), &getMDReport(), // INTEL
+                  &Reason, /*CalleeAAR=*/nullptr, InsertLifetime)  // INTEL
                 .isSuccess();
 
       // Remember to try and delete this function afterward. This both avoids
@@ -202,14 +198,9 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
   if (Callee->isDeclaration())
     return InlineCost::getNever("no definition", NinlrNotAlwaysInline); // INTEL
 
-<<<<<<< HEAD
-  if (!CS.hasFnAttr(Attribute::AlwaysInline))
+  if (!CB.hasFnAttr(Attribute::AlwaysInline))
     return InlineCost::getNever("no alwaysinline attribute",  // INTEL
                                 NinlrNotAlwaysInline); // INTEL
-=======
-  if (!CB.hasFnAttr(Attribute::AlwaysInline))
-    return InlineCost::getNever("no alwaysinline attribute");
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 
   auto IsViable = isInlineViable(*Callee, Reason);  // INTEL
   if (!IsViable.isSuccess())

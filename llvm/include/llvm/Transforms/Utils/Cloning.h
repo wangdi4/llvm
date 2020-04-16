@@ -240,13 +240,7 @@ InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 /// The Intel version computes the InlineReason indicating the principal
 /// reason the function was or was not inlined.
 ///
-InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
-                            InlineReport *IR,
-                            InlineReportBuilder *MDIR,
-                            InlineReportTypes::InlineReason* Reason,
-                            AAResults *CalleeAAR = nullptr,
-                            bool InsertLifetime = true);
-InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             InlineReport *IR,
                             InlineReportBuilder *MDIR,
                             InlineReportTypes::InlineReason* Reason,

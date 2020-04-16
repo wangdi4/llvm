@@ -13,11 +13,7 @@
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
-<<<<<<< HEAD
 #include "llvm/ADT/SmallSet.h"    // INTEL
-#include "llvm/IR/CallSite.h"
-=======
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL

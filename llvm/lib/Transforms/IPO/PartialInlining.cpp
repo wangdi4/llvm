@@ -341,7 +341,6 @@ private:
     return nullptr;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If the input function is a target of a virtual function
   // then check if there is at least one user. This function
@@ -361,19 +360,16 @@ private:
   }
 #endif
 
-  static CallSite getOneCallSiteTo(Function *F) {
+  static CallBase *getOneCallSiteTo(Function *F) {
 
 #if INTEL_CUSTOMIZATION
     // If the function is a target of a virtual function,
     // then return the first user
     User *VirtualFuncUser = getOneDirectCallSiteUser(F);
     if (VirtualFuncUser)
-      return getCallSite(VirtualFuncUser);
+      return getSupportedCallBase(VirtualFuncUser);
 #endif
 
-=======
-  static CallBase *getOneCallSiteTo(Function *F) {
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
     User *User = *F->user_begin();
     return getSupportedCallBase(User);
   }
@@ -889,18 +885,11 @@ bool PartialInlinerImpl::shouldPartialInline(
   bool RemarksEnabled =
       Callee->getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
           DEBUG_TYPE);
-<<<<<<< HEAD
-  assert(Call && "invalid callsite for partial inline");
-  InlineCost IC = getInlineCost(cast<CallBase>(*Call), getInlineParams(),
-                                CalleeTTI, *GetAssumptionCache,   // INTEL
+  InlineCost IC =
+      getInlineCost(CB, getInlineParams(), CalleeTTI, *GetAssumptionCache,
                                 GetBFI, *GetTLI, ILIC,            // INTEL
                                 nullptr, nullptr, nullptr, PSI,   // INTEL
                                 RemarksEnabled ? &ORE : nullptr);
-=======
-  InlineCost IC =
-      getInlineCost(CB, getInlineParams(), CalleeTTI, *GetAssumptionCache,
-                    GetBFI, *GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 
   if (IC.isAlways()) {
     ORE.emit([&]() {
@@ -1078,7 +1067,6 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
   };
 
   for (User *User : Users) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // When performing partial inlining for functions that were devirtualized,
     // ignore uses that are not calls. These uses are for comparing the address
@@ -1089,12 +1077,8 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
     if (IsVirtualTarget && !isa<CallBase>(User))
       continue;
 #endif
-    CallSite CS = getCallSite(User);
-    Function *Caller = CS.getCaller();
-=======
     CallBase *CB = getSupportedCallBase(User);
     Function *Caller = CB->getCaller();
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
     if (CurrentCaller != Caller) {
       CurrentCaller = Caller;
       ComputeCurrBFI(Caller);
@@ -1411,8 +1395,8 @@ bool PartialInlinerImpl::allCallSitesAreDirect(Function *Func) {
 
   for (User *FuncUser : Func->users()) {
     if (isa<CallInst>(FuncUser) || isa<InvokeInst>(FuncUser)) {
-      CallSite CS = getCallSite(FuncUser);
-      Function *CallFunc = CS.getCalledFunction();
+      CallBase *CB = getSupportedCallBase(FuncUser);
+      Function *CallFunc = CB->getCalledFunction();
       if (!CallFunc || CallFunc != Func)
         return false;
 
@@ -1651,7 +1635,6 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
 
   bool AnyInline = false;
   for (User *User : Users) {
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // If the function is a virtual target then, there may be users that
@@ -1661,10 +1644,7 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
       continue;
 #endif
 
-    CallSite CS = getCallSite(User);
-=======
     CallBase *CB = getSupportedCallBase(User);
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 
     if (IsLimitReached())
       continue;
@@ -1682,13 +1662,9 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     InlineFunctionInfo IFI(nullptr, GetAssumptionCache, PSI);
     // We can only forward varargs when we outlined a single region, else we
     // bail on vararg functions.
-<<<<<<< HEAD
     InlineReason Reason = NinlrNoReason; // INTEL
-    if (!InlineFunction(CS, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
-                        true,                                        // INTEL
-=======
-    if (!InlineFunction(*CB, IFI, nullptr, true,
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
+    if (!InlineFunction(*CB, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
+                        true,                                         // INTEL
                         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
                                          : nullptr))
              .isSuccess())

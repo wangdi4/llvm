@@ -806,7 +806,7 @@ void SOAToAOSPrepCandidateInfo::simplifyCalls() {
     InlineFunctionInfo IFI;
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
                     { dbgs() << "  Inlining Call: " << *CB << "\n"; });
-    bool InlineStatus = InlineFunction(CB, IFI).isSuccess();
+    bool InlineStatus = InlineFunction(*CB, IFI).isSuccess();
     assert(InlineStatus && "inline must succeed");
     (void)InlineStatus;
   };

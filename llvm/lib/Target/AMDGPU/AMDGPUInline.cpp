@@ -188,20 +188,15 @@ InlineCost AMDGPUInliner::getInlineCost(CallBase &CB) {
   if (!TTI.areInlineCompatible(Caller, Callee))
     return llvm::InlineCost::getNever("incompatible");
 
-<<<<<<< HEAD
-  if (CS.hasFnAttr(Attribute::AlwaysInline)) {
+  if (CB.hasFnAttr(Attribute::AlwaysInline)) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     auto IsViable = isInlineViable(*Callee, Reason);
-=======
-  if (CB.hasFnAttr(Attribute::AlwaysInline)) {
-    auto IsViable = isInlineViable(*Callee);
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
     if (IsViable.isSuccess())
       return llvm::InlineCost::getAlways("alwaysinline viable");
     return llvm::InlineCost::getNever(IsViable.getFailureReason());
   }
-  if (CS.hasFnAttr("always-inline-recursive")) {
+  if (CB.hasFnAttr("always-inline-recursive")) {
     InlineReason Reason = InlrNoReason;
     if (isInlineViable(*Callee, Reason))
       return llvm::InlineCost::getAlways("alwaysinline recursive viable");
@@ -228,16 +223,10 @@ InlineCost AMDGPUInliner::getInlineCost(CallBase &CB) {
     return ACT->getAssumptionCache(F);
   };
 
-<<<<<<< HEAD
-  auto IC = llvm::getInlineCost(cast<CallBase>(*CS.getInstruction()), Callee,
-                             LocalParams, TTI, GetAssumptionCache, // INTEL
-                             None, GetTLI, nullptr, nullptr, nullptr, // INTEL
-                             PSI, RemarksEnabled ? &ORE : nullptr);
-=======
   auto IC =
       llvm::getInlineCost(CB, Callee, LocalParams, TTI, GetAssumptionCache,
-                          None, GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
+                             None, GetTLI, nullptr, nullptr, nullptr, // INTEL
+                             PSI, RemarksEnabled ? &ORE : nullptr);   // INTEL
 
   if (IC && !IC.isAlways() && !Callee->hasFnAttribute(Attribute::InlineHint)) {
     // Single BB does not increase total BB amount, thus subtract 1

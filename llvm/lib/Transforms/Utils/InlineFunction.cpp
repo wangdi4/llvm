@@ -108,36 +108,15 @@ static cl::opt<unsigned> InlinerAttributeWindow(
              "attribute inference in inlined body"),
     cl::init(4));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 namespace llvm {
 
-
-InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
-                            InlineReport *IR,
-                            InlineReportBuilder *MDIR,
-                            InlineReason *Reason,
-                            AAResults *CalleeAAR,
-                            bool InsertLifetime) {
-  return InlineFunction(CallSite(CB), IFI, IR, MDIR, Reason, CalleeAAR,
-                        InsertLifetime);
-}
-
-InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
-                            AAResults *CalleeAAR,
-                            bool InsertLifetime) {
-  InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CallSite(CB), IFI, nullptr, nullptr, &Reason,
-                        CalleeAAR, InsertLifetime);
-}
-
-InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-                            AAResults *CalleeAAR,
-                            bool InsertLifetime,
+InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
+                            AAResults *CalleeAAR, bool InsertLifetime,
                             Function *ForwardVarArgsTo) {
   InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CS, IFI, nullptr, nullptr, &Reason, CalleeAAR,
+  return InlineFunction(CB, IFI, nullptr, nullptr, &Reason, CalleeAAR,
                         InsertLifetime, ForwardVarArgsTo);
 }
 
@@ -145,8 +124,6 @@ InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
 namespace {
 
   /// A class for recording information about inlining a landing pad.
@@ -992,7 +969,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
       NoAliasArgs.push_back(&Arg);
 
 #if INTEL_CUSTOMIZATION
-  MDNode *ArgAliasScopeList = CS->getMetadata("intel.args.alias.scope");
+  MDNode *ArgAliasScopeList = CB.getMetadata("intel.args.alias.scope");
 #endif // INTEL_CUSTOMIZATION
 
   if (NoAliasArgs.empty() && !ArgAliasScopeList) // INTEL
@@ -1151,11 +1128,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         // completely describe the aliasing properties using alias.scope
         // metadata (and, thus, won't add any).
         if (const Argument *A = dyn_cast<Argument>(V)) {
-<<<<<<< HEAD
           if (NewScopes.count(A) == 0) // INTEL
-=======
-          if (!CB.paramHasAttr(A->getArgNo(), Attribute::NoAlias))
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
             UsesAliasingPtr = true;
         } else {
           UsesAliasingPtr = true;
@@ -1393,19 +1366,19 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
 /// In case of new callsites appearing in the inlined code we need to have
 /// a list of original callsites and inlined callsites for correct transfer
 /// of inline report information.
-static void UpdateIFIWithoutCG(CallSite OrigCS, ValueToValueMapTy &VMap,
+static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
                                InlineFunctionInfo &IFI, InlineReport *IR,
                                InlineReportBuilder *MDIR) {
   if (IFI.CG && !(IR && IR->isClassicIREnabled()) &&
       !(MDIR && MDIR->isMDIREnabled()))
     return;
-  Function *Caller = OrigCS.getCalledFunction();
+  Function *Caller = OrigCB.getCalledFunction();
   if (!Caller)
     return;
 
   for (Instruction &I : instructions(Caller)) {
-    CallSite OldCS(&I);
-    if (!OldCS)
+    auto *OldCB = dyn_cast<CallBase>(&I);
+    if (!OldCB)
       continue;
     // Skip varargpack and vaargpacklen intrinsics, they will be converted
     // using a formula based on the actual arguments.
@@ -1770,15 +1743,15 @@ static bool TestVaArgPackAndLen(const Function &F)
 //
 // Handle varargs builtins "llvm.va_arg_pack" and "llvm.va_arg_pack_len".
 //
-static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
+static void HandleVaArgPackAndLen(CallBase& CB, Function::iterator FI,
                                   InlineReport *IR, InlineReportBuilder *MDIR)
 {
-  Function* Caller = CS.getCaller();
-  Function* CalledFunc = CS.getCalledFunction();
+  Function* Caller = CB.getCaller();
+  Function* CalledFunc = CB.getCalledFunction();
 
   // Find all instances of "llvm.va_arg_pack" and "llvm.va_arg_pack_len"
   SmallVector<Value*, 8>
-  VarArgs(CS.arg_begin() + CalledFunc->arg_size(), CS.arg_end());
+  VarArgs(CB.arg_begin() + CalledFunc->arg_size(), CB.arg_end());
   SmallVector<CallInst*, 8> VaPkVec;
   SmallVector<CallInst*, 8> VaPkLnVec;
   for (BasicBlock &BB : make_range(FI->getIterator(), Caller->end())) {
@@ -1872,7 +1845,7 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
   // Handle "llvm.va_arg_pack_len" by replacing it with the number of varags.
   for (auto I = VaPkLnVec.begin(), E = VaPkLnVec.end(); I != E; I++) {
     CallInst *II = *I;
-    uint64_t Ln = CS.arg_size() - CalledFunc->arg_size();
+    uint64_t Ln = CB.arg_size() - CalledFunc->arg_size();
     auto VaPkLn = ConstantInt::get(II->getType(), Ln);
     II->replaceAllUsesWith(VaPkLn);
     II->eraseFromParent();
@@ -2022,18 +1995,14 @@ bool isTargetSPIRV(Function *F) {
 /// instruction 'call B' is inlined, and 'B' calls 'C', then the call to 'C' now
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
-<<<<<<< HEAD
 ///
 /// INTEL The Intel version computes the principal reason the function was or
 /// INTEL was not inlined at the call site.
 ///
-llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                         InlineReport *IR,     // INTEL
                                         InlineReportBuilder *MDIR, // INTEL
                                         InlineReason *Reason, // INTEL
-=======
-llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
                                         AAResults *CalleeAAR,
                                         bool InsertLifetime,
                                         Function *ForwardVarArgsTo) {
@@ -2324,13 +2293,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // Update the callgraph if requested.
 #if INTEL_CUSTOMIZATION
     if (IFI.CG)
-<<<<<<< HEAD
-      UpdateCallGraphAfterInlining(CS, FirstNewBlock, VMap, IFI);
-    UpdateIFIWithoutCG(CS, VMap, IFI, IR, MDIR);
-#endif // INTEL_CUSTOMIZATION
-=======
       UpdateCallGraphAfterInlining(CB, FirstNewBlock, VMap, IFI);
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
+    UpdateIFIWithoutCG(CB, VMap, IFI, IR, MDIR);
+#endif // INTEL_CUSTOMIZATION
 
     // For 'nodebug' functions, the associated DISubprogram is always null.
     // Conservatively avoid propagating the callsite debug location to
@@ -2361,7 +2326,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
               (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
         }
 
-    HandleVaArgPackAndLen(CS, FirstNewBlock, IR, MDIR); // INTEL
+    HandleVaArgPackAndLen(CB, FirstNewBlock, IR, MDIR); // INTEL
   }
 
   // If there are any alloca instructions in the block that used to be the entry

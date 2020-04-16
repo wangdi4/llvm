@@ -319,12 +319,8 @@ static InlineResult inlineCallIfPossible(
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-<<<<<<< HEAD
-  InlineResult IR = InlineFunction(&CS, IFI, IRep, MDIRep, IIR, &AAR, // INTEL
-                                   InsertLifetime);                   // INTEL
-=======
-  InlineResult IR = InlineFunction(CS, IFI, &AAR, InsertLifetime);
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
+  InlineResult IR = InlineFunction(CS, IFI, IRep, MDIRep, IIR, &AAR, // INTEL
+                                   InsertLifetime);                  // INTEL
   if (!IR.isSuccess())
     return IR;
 
@@ -1464,11 +1460,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       if (&Caller == &Callee)
         RecursiveCallCountOld = recursiveCallCount(Caller);
 #endif // INTEL_CUSTOMIZATION
-      InlineResult IR = InlineFunction(CS, IFI, &Report, MDReport, // INTEL
-                                       &Reason);                   // INTEL
-=======
-      InlineResult IR = InlineFunction(*CS, IFI);
->>>>>>> 48ec8fc28aa380536aff8023c1fd8d15b1b7afeb
+      InlineResult IR = InlineFunction(*CS, IFI, &Report, MDReport, // INTEL
+                                       &Reason);                    // INTEL
       if (!IR.isSuccess()) {
         setInlineRemark(*CS, std::string(IR.getFailureReason()) + "; " +
                                  inlineCostStr(*OIC));
