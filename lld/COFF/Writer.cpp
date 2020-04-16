@@ -636,6 +636,9 @@ void Writer::run() {
 
   writeLLDMapFile(outputSections);
   writeMapFile(outputSections);
+#ifdef INTEL_CUSTOMIZATION
+  outputSections.clear();
+#endif // INTEL_CUSTOMIZATION
 
   if (errorCount())
     return;
