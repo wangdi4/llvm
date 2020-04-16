@@ -6,12 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: *
+// REQUIRES: verify-support
 
-// Make sure the test DOES NOT pass if it fails at compile-time, but the
-// expected-error is wrong.
+// Make sure the test passes if the expected diagnostic is correct.
 
 struct Foo { };
-typedef Foo::x x; // expected-error{{this is not found in the errors}}
-
-int main() { }
+typedef Foo::x x; // expected-error{{no type named 'x' in 'Foo'}}

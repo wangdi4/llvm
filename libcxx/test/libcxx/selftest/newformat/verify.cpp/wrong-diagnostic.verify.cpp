@@ -1,4 +1,3 @@
-// -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -7,8 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-// ADDITIONAL_COMPILE_FLAGS: -fobjc-arc
+// REQUIRES: verify-support
 
-#if __has_feature(objc_arc)
-#error This test should not compile.
-#endif
+// XFAIL: *
+
+// Make sure the test DOES NOT pass if the expected diagnostic is wrong.
+
+struct Foo { };
+typedef Foo::x x; // expected-error{{this is not found in the errors}}

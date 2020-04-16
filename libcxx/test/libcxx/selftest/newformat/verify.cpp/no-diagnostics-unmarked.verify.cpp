@@ -6,11 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-// REQUIRES: objective-c++
+// REQUIRES: verify-support
 
-// Make sure the test passes if it fails at compile-time, with verify
+// XFAIL: *
 
-struct Foo { };
-typedef Foo::x x; // expected-error{{no type named 'x' in 'Foo'}}
+// Make sure the test DOES NOT pass if there are no diagnostics, but we didn't
+// use the 'expected-no-diagnostics' markup.
+//
+// Note: For the purpose of this test, make sure the file would otherwise
+//       compile to make sure we really fail due to a lack of markup.
 
 int main() { }

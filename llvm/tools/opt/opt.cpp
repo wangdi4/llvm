@@ -203,11 +203,6 @@ DisableLoopUnrolling("disable-loop-unrolling",
                      cl::desc("Disable loop unrolling in all relevant passes"),
                      cl::init(false));
 
-static cl::opt<bool>
-DisableSLPVectorization("disable-slp-vectorization",
-                        cl::desc("Disable the slp vectorization pass"),
-                        cl::init(false));
-
 static cl::opt<bool> EmitSummaryIndex("module-summary",
                                       cl::desc("Emit module summary index"),
                                       cl::init(false));
@@ -432,18 +427,9 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
 #endif // INTEL_CUSTOMIZATION
 
-  // Check if vectorization is explicitly disabled via -vectorize-loops=false.
-  // The flag enables vectorization in the LoopVectorize pass, it is on by
-  // default, and if it was disabled, leave it disabled here.
-  // Another flag that exists: -loop-vectorize, controls adding the pass to the
-  // pass manager. If set, the pass is added, and there is no additional check
-  // here for it.
-  if (Builder.LoopVectorize)
-    Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
+  Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
 
-  // When #pragma vectorize is on for SLP, do the same as above
-  Builder.SLPVectorize =
-      DisableSLPVectorization ? false : OptLevel > 1 && SizeLevel < 2;
+  Builder.SLPVectorize = OptLevel > 1 && SizeLevel < 2;
 
   if (TM)
     TM->adjustPassManager(Builder);

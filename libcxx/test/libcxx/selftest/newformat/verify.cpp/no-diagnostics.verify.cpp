@@ -6,11 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// REQUIRES: objective-c++
+// REQUIRES: verify-support
 
-// Make sure the test passes if it fails at compile-time, without verify
+// Make sure the test passes if we expected no diagnostics
 
-struct Foo { };
-typedef Foo::x x;
-
-int main() { }
+// expected-no-diagnostics
