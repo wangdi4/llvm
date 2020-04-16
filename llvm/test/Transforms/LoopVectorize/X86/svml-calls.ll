@@ -32,13 +32,6 @@ declare double @exp2(double) #0
 declare float @exp2f(float) #0
 declare double @llvm.exp2.f64(double) #0
 declare float @llvm.exp2.f32(float) #0
-<<<<<<< HEAD
-=======
-;INTEL_CUSTOMIZATION
-;declare double @__exp2_finite(double) #0
-;declare float @__exp2f_finite(float) #0
-; end INTEL_CUSTOMIZATION
->>>>>>> 0ca11363657d0624bffb1ebf19a731fb62164820
 
 define void @sin_f64(double* nocapture %varray) {
 ; CHECK-LABEL: @sin_f64(
@@ -600,55 +593,4 @@ for.end:
   ret void
 }
 
-<<<<<<< HEAD
-=======
-;INTEL_CUSTOMIZATION
-;define void @exp2f_finite(float* nocapture %varray) {
-; C;HECK-LABEL: @exp2f_finite(
-; C;HECK:    [[TMP5:%.*]] = call <4 x float> @__svml_exp2f4(<4 x float> [[TMP4:%.*]])
-; C;HECK:    ret void
-;
-;entry:
-;  br label %for.body
-
-;for.body:
-;  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
-;  %tmp = trunc i64 %iv to i32
-;  %conv = sitofp i32 %tmp to float
-;  %call = tail call float @__exp2f_finite(float %conv)
-;  %arrayidx = getelementptr inbounds float, float* %varray, i64 %iv
-;  store float %call, float* %arrayidx, align 4
-;  %iv.next = add nuw nsw i64 %iv, 1
-;  %exitcond = icmp eq i64 %iv.next, 1000
-;  br i1 %exitcond, label %for.end, label %for.body
-
-;for.end:
-;  ret void
-;}
-
-;define void @exp2_finite(double* nocapture %varray) {
-; C;HECK-LABEL: @exp2_finite(
-; C;HECK:    [[TMP5:%.*]] = call <4 x double> @__svml_exp24(<4 x double> [[TMP4:%.*]])
-; C;HECK:    ret void
-;
-;entry:
-;  br label %for.body
-
-;for.body:
-;  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
-;  %tmp = trunc i64 %iv to i32
-;  %conv = sitofp i32 %tmp to double
-;  %call = tail call double @__exp2_finite(double %conv)
-;  %arrayidx = getelementptr inbounds double, double* %varray, i64 %iv
-;  store double %call, double* %arrayidx, align 4
-;  %iv.next = add nuw nsw i64 %iv, 1
-;  %exitcond = icmp eq i64 %iv.next, 1000
-;  br i1 %exitcond, label %for.end, label %for.body
-
-;for.end:
-;  ret void
-;}
-;end INTEL_CUSTOMIZATION
-
->>>>>>> 0ca11363657d0624bffb1ebf19a731fb62164820
 attributes #0 = { nounwind readnone }
