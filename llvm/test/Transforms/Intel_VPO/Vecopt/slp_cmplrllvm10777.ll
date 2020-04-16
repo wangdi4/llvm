@@ -1,6 +1,5 @@
 ; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP -slp-look-ahead-users-budget=100 < %s 2>&1 | FileCheck %s -check-prefix=CHECK_HI_LIMIT
-; RUN: not --crash opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP < %s > %t.out 2>&1
-; RUN: FileCheck %s -check-prefix=CHECK_DEFAULT_LIMIT < %t.out
+; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP < %s 2>&1 | FileCheck %s -check-prefix=CHECK_DEFAULT_LIMIT
 
 ; REQUIRES: asserts
 
@@ -14,13 +13,13 @@
 ; CHECK_HI_LIMIT:  SLP: Total Cost = 7.
 ; CHECK_HI_LIMIT:  SLP: Total Cost = 0.
 
-; FIXME: Fix intended to add determinism to SLP behavior so cost can change a bit with it.
-; Important thing is that for first and third attempts cost must be same
-; and second time cost is bigger.
+; With limited users budget cost can change.
+; Important thing is that for the first and third attempts cost must be same
+; (and second time cost is bigger: that is actually a condition to make 3d run).
 
 ; CHECK_DEFAULT_LIMIT:  SLP: Total Cost = 0.
 ; CHECK_DEFAULT_LIMIT:  SLP: Total Cost = 7.
-; CHECK_DEFAULT_LIMIT:  SLP: Total Cost = 6.
+; CHECK_DEFAULT_LIMIT:  SLP: Total Cost = 0.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
