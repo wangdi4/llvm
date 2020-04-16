@@ -760,21 +760,6 @@ public:
 
   /// The various kinds of shuffle patterns for vector queries.
   enum ShuffleKind {
-<<<<<<< HEAD
-    SK_Broadcast,       ///< Broadcast element 0 to all other elements.
-    SK_Reverse,         ///< Reverse the order of the vector.
-    SK_Select,          ///< Selects elements from the corresponding lane of
-                        ///< either source operand. This is equivalent to a
-                        ///< vector select with a constant condition operand.
-    SK_Transpose,       ///< Transpose two vectors.
-    SK_InsertSubvector, ///< InsertSubvector. Index indicates start offset.
-    SK_ExtractSubvector,///< ExtractSubvector Index indicates start offset.
-    SK_PermuteTwoSrc,   ///< Merge elements from two source vectors into one
-                        ///< with any shuffle mask.
-    SK_PermuteSingleSrc,///< Shuffle elements of single source vector with any
-                        ///< shuffle mask.
-    SK_TargetSpecific   ///< Defines target-specific shuffle kind. // INTEL
-=======
     SK_Broadcast,        ///< Broadcast element 0 to all other elements.
     SK_Reverse,          ///< Reverse the order of the vector.
     SK_Select,           ///< Selects elements from the corresponding lane of
@@ -785,9 +770,11 @@ public:
     SK_ExtractSubvector, ///< ExtractSubvector Index indicates start offset.
     SK_PermuteTwoSrc,    ///< Merge elements from two source vectors into one
                          ///< with any shuffle mask.
-    SK_PermuteSingleSrc  ///< Shuffle elements of single source vector with any
+#if INTEL_CUSTOMIZATION
+    SK_PermuteSingleSrc, ///< Shuffle elements of single source vector with any
                          ///< shuffle mask.
->>>>>>> b310daea219b2fb2fe50362f7eec8c0b4ff79a29
+    SK_TargetSpecific    ///< Defines target-specific shuffle kind. // INTEL
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// Additional information about an operand's possible values.
