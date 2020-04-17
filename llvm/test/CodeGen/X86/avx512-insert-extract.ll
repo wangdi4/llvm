@@ -2216,13 +2216,12 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; KNL-NEXT:    kmovw %k0, %edi ;INTEL
 ; KNL-NEXT:    kmovw %k1, %ecx
 ; KNL-NEXT:    xorl %eax, %eax
-; KNL-NEXT:    testb $1, %dil ;INTEL
-; KNL-NEXT:    movl $0, %edi ;INTEL
+; KNL-NEXT:    testb $1, %cl
+; KNL-NEXT:    movl $0, %ecx
 ; KNL-NEXT:    je LBB85_2
 ; KNL-NEXT:  ## %bb.1:
 ; KNL-NEXT:    movzwl 2(%rsi), %ecx
 ; KNL-NEXT:  LBB85_2:
-; KNL-NEXT:    kmovw %k0, %edi
 ; KNL-NEXT:    testb $1, %dil
 ; KNL-NEXT:    je LBB85_4
 ; KNL-NEXT:  ## %bb.3:
@@ -2264,6 +2263,7 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; SKX-NEXT:    korw %k1, %k2, %k1
 ; SKX-NEXT:    kandw %k1, %k0, %k0
 ; SKX-NEXT:    kshiftrb $1, %k0, %k1
+; SKX-NEXT:    kmovd %k0, %edi ;INTEL
 ; SKX-NEXT:    kmovd %k1, %ecx
 ; SKX-NEXT:    xorl %eax, %eax
 ; SKX-NEXT:    testb $1, %cl
@@ -2272,7 +2272,6 @@ define void @test_concat_v2i1(<2 x half>* %arg, <2 x half>* %arg1, <2 x half>* %
 ; SKX-NEXT:  ## %bb.1:
 ; SKX-NEXT:    movzwl 2(%rsi), %ecx
 ; SKX-NEXT:  LBB85_2:
-; SKX-NEXT:    kmovd %k0, %edi
 ; SKX-NEXT:    testb $1, %dil
 ; SKX-NEXT:    je LBB85_4
 ; SKX-NEXT:  ## %bb.3:
