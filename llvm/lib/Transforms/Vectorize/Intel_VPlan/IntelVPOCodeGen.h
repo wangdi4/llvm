@@ -16,6 +16,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
+#include "IntelVPlan.h"
+
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
@@ -36,25 +38,7 @@ class OVLSGroup;
 
 namespace vpo {
 
-class VPValue;
-class VPInstruction;
-class VPPHINode;
 class VPlanVLSAnalysis;
-struct VPTransformState;
-class VPOVectorizationLegality;
-class VPlan;
-class VPReductionFinal;
-class VPPrivateMemory;
-class VPInductionInit;
-class VPInductionInitStep;
-class VPInductionFinal;
-class VPAllocatePrivate;
-class VPLoopEntityList;
-class VPLoopEntity;
-class VPReduction;
-class VPInduction;
-class VPGEPInstruction;
-class VPBlendInst;
 
 // LVCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
@@ -71,6 +55,7 @@ public:
         Legal(LVL), VLSA(VLSA), Plan(Plan), VPEntities(nullptr),
         TripCount(nullptr), VectorTripCount(nullptr), Induction(nullptr),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
+        PreferredPeeling(Plan->getPreferredPeeling(VF)),
         LoopVectorPreHeader(nullptr), LoopScalarPreHeader(nullptr),
         LoopMiddleBlock(nullptr), LoopExitBlock(nullptr),
         LoopVectorBody(nullptr), LoopScalarBody(nullptr), MaskValue(nullptr) {}
@@ -99,6 +84,13 @@ public:
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
   // instructions.
   void serializeInstruction(VPInstruction *VPInst);
+
+  // Attach metadata to \p Memref instruction to indicate that for the best
+  // performance it needs to be aligned by at least \p PreferredAlignment bytes.
+  // The main purpose of the metadata is to let OpenCL compiler peel kernel
+  // iterations for the best memory access alignment.
+  void attachPreferredAlignmentMetadata(Instruction *Memref,
+                                        Align PreferredAlignment);
 
   IRBuilder<> &getBuilder() { return Builder; }
 
@@ -448,6 +440,9 @@ private:
 
   // Holds finalization VPInstructions generated for loop entities.
   MapVector<const VPLoopEntity *, VPInstruction *> EntitiesFinalVPInstMap;
+
+  // The selected peeling variant for the current VPlan and VF.
+  VPlanPeelingVariant *PreferredPeeling = nullptr;
 
   // --- Vectorization state ---
 
