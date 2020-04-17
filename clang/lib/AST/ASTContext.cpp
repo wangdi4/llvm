@@ -1461,18 +1461,16 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   // Builtin type used to help define __builtin_va_list.
   VaListTagDecl = nullptr;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Type for __builtin_va_arg_pack
   InitBuiltinType(VAArgPackTy, BuiltinType::VAArgPack);
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // MSVC predeclares struct _GUID, and we need it to create MSGuidDecls.
   if (LangOpts.MicrosoftExt || LangOpts.Borland) {
     MSGuidTagDecl = buildImplicitRecord("_GUID");
     TUDecl->addDecl(MSGuidTagDecl);
   }
->>>>>>> bab6df86aefc5ea4aa3895da7cf46be37add676d
 }
 
 DiagnosticsEngine &ASTContext::getDiagnostics() const {

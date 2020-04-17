@@ -1624,7 +1624,6 @@ private:
   /// .gcda files in a way that persists in .bc files.
   void EmitCoverageFile();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// \brief Emit Intel-specific debug info as llvm.dbg.intel.* metadata nodes.
   void EmitIntelDebugInfoMetadata();
@@ -1633,11 +1632,6 @@ private:
   void EmitMSDebugInfoMetadata();
 #endif // INTEL_CUSTOMIZATION
 
-  /// Emits the initializer for a uuidof string.
-  llvm::Constant *EmitUuidofInitializer(StringRef uuidstr);
-
-=======
->>>>>>> bab6df86aefc5ea4aa3895da7cf46be37add676d
   /// Determine whether the definition must be emitted; if this returns \c
   /// false, the definition can be emitted lazily if it's used.
   bool MustBeEmitted(const ValueDecl *D);
