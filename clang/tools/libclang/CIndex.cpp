@@ -6350,6 +6350,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::Field:
   case Decl::Binding:
   case Decl::MSProperty:
+  case Decl::MSGuid:
   case Decl::IndirectField:
   case Decl::ObjCIvar:
   case Decl::ObjCAtDefsField:

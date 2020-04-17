@@ -876,8 +876,8 @@ public:
   /// Get the address of the RTTI descriptor for the given type.
   llvm::Constant *GetAddrOfRTTIDescriptor(QualType Ty, bool ForEH = false);
 
-  /// Get the address of a uuid descriptor .
-  ConstantAddress GetAddrOfUuidDescriptor(const CXXUuidofExpr* E);
+  /// Get the address of a GUID.
+  ConstantAddress GetAddrOfMSGuidDecl(const MSGuidDecl *GD);
 
   /// Get the address of the thunk for the given global decl.
   llvm::Constant *GetAddrOfThunk(StringRef Name, llvm::Type *FnTy,
@@ -1624,6 +1624,7 @@ private:
   /// .gcda files in a way that persists in .bc files.
   void EmitCoverageFile();
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// \brief Emit Intel-specific debug info as llvm.dbg.intel.* metadata nodes.
   void EmitIntelDebugInfoMetadata();
@@ -1635,6 +1636,8 @@ private:
   /// Emits the initializer for a uuidof string.
   llvm::Constant *EmitUuidofInitializer(StringRef uuidstr);
 
+=======
+>>>>>>> bab6df86aefc5ea4aa3895da7cf46be37add676d
   /// Determine whether the definition must be emitted; if this returns \c
   /// false, the definition can be emitted lazily if it's used.
   bool MustBeEmitted(const ValueDecl *D);

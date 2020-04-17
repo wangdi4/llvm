@@ -1461,10 +1461,18 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   // Builtin type used to help define __builtin_va_list.
   VaListTagDecl = nullptr;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Type for __builtin_va_arg_pack
   InitBuiltinType(VAArgPackTy, BuiltinType::VAArgPack);
 #endif // INTEL_CUSTOMIZATION
+=======
+  // MSVC predeclares struct _GUID, and we need it to create MSGuidDecls.
+  if (LangOpts.MicrosoftExt || LangOpts.Borland) {
+    MSGuidTagDecl = buildImplicitRecord("_GUID");
+    TUDecl->addDecl(MSGuidTagDecl);
+  }
+>>>>>>> bab6df86aefc5ea4aa3895da7cf46be37add676d
 }
 
 DiagnosticsEngine &ASTContext::getDiagnostics() const {
@@ -10826,6 +10834,23 @@ ASTContext::getPredefinedStringLiteralFromCache(StringRef Key) const {
         /*Pascal*/ false, getStringLiteralArrayType(CharTy, Key.size()),
         SourceLocation());
   return Result;
+}
+
+MSGuidDecl *
+ASTContext::getMSGuidDecl(MSGuidDecl::Parts Parts) const {
+  assert(MSGuidTagDecl && "building MS GUID without MS extensions?");
+
+  llvm::FoldingSetNodeID ID;
+  MSGuidDecl::Profile(ID, Parts);
+
+  void *InsertPos;
+  if (MSGuidDecl *Existing = MSGuidDecls.FindNodeOrInsertPos(ID, InsertPos))
+    return Existing;
+
+  QualType GUIDType = getMSGuidType().withConst();
+  MSGuidDecl *New = MSGuidDecl::Create(*this, GUIDType, Parts);
+  MSGuidDecls.InsertNode(New, InsertPos);
+  return New;
 }
 
 bool ASTContext::AtomicUsesUnsupportedLibcall(const AtomicExpr *E) const {
