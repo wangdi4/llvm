@@ -120,7 +120,7 @@ private:
 
   template <bool Force = true> struct TopSorter;
 
-  template <typename T> void checkHLLoopTy() {
+  template <typename T> static void checkHLLoopTy() {
     // Assert to check that the type is HLLoop. Type can be const or non-const.
     static_assert(std::is_same<typename std::remove_const<
                                    typename std::remove_pointer<T>::type>::type,
@@ -135,15 +135,13 @@ private:
   /// Visitor to gather loops with specified level.
   template <typename T, VisitKind VL>
   struct LoopLevelVisitor final : public HLNodeVisitorBase {
-    HLNodeUtils &HNU;
     SmallVectorImpl<T> &LoopContainer;
     const HLNode *SkipNode;
     unsigned Level;
 
-    LoopLevelVisitor(HLNodeUtils &HNU, SmallVectorImpl<T> &Loops,
-                     unsigned Lvl = 0)
-        : HNU(HNU), LoopContainer(Loops), SkipNode(nullptr), Level(Lvl) {
-      HNU.checkHLLoopTy<T>();
+    LoopLevelVisitor(SmallVectorImpl<T> &Loops, unsigned Lvl = 0)
+        : LoopContainer(Loops), SkipNode(nullptr), Level(Lvl) {
+      checkHLLoopTy<T>();
       bool IsLevelVisit = (VL == VisitKind::Level);
       (void)IsLevelVisit;
       assert((!IsLevelVisit || CanonExprUtils::isValidLoopLevel(Level)) &&
@@ -1360,7 +1358,7 @@ public:
   void gatherInnermostLoops(SmallVectorImpl<HLLoop *> &Loops,
                             HLNode *Node = nullptr) {
 
-    LoopLevelVisitor<HLLoop *, VisitKind::Innermost> LoopVisit(*this, Loops);
+    LoopLevelVisitor<HLLoop *, VisitKind::Innermost> LoopVisit(Loops);
     if (Node) {
       visit(LoopVisit, Node);
     } else {
@@ -1371,8 +1369,7 @@ public:
   void gatherInnermostLoops(SmallVectorImpl<const HLLoop *> &Loops,
                             const HLNode *Node = nullptr) {
 
-    LoopLevelVisitor<const HLLoop *, VisitKind::Innermost> LoopVisit(*this,
-                                                                     Loops);
+    LoopLevelVisitor<const HLLoop *, VisitKind::Innermost> LoopVisit(Loops);
     if (Node) {
       visit(LoopVisit, Node);
     } else {
@@ -1384,15 +1381,15 @@ public:
   /// across regions and stores them into the loop vector.
   template <typename T> void gatherOutermostLoops(SmallVectorImpl<T> &Loops) {
     // Level 1 denotes outermost loops
-    LoopLevelVisitor<T, VisitKind::Level> LoopVisit(*this, Loops, 1);
+    LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, 1);
     visitAll(LoopVisit);
   }
 
   /// Gathers loops inside the Node with specified Level and stores them in the
   /// Loops vector.
   template <typename T>
-  void gatherLoopsWithLevel(HLNode *Node, SmallVectorImpl<T> &Loops,
-                            unsigned Level) {
+  static void gatherLoopsWithLevel(HLNode *Node, SmallVectorImpl<T> &Loops,
+                                   unsigned Level) {
     assert(Node && " Node is null.");
     HLLoop *Loop = dyn_cast<HLLoop>(Node);
     (void)Loop;
@@ -1400,13 +1397,13 @@ public:
            " Gathering loops inside innermost loop.");
     assert(CanonExprUtils::isValidLoopLevel(Level) &&
            " Level is out of range.");
-    LoopLevelVisitor<T, VisitKind::Level> LoopVisit(*this, Loops, Level);
+    LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, Level);
     visit(LoopVisit, Node);
   }
 
   /// Constant Node version of gatherLoopsWithLevel.
   template <typename T>
-  void gatherLoopsWithLevel(const HLNode *Node, SmallVectorImpl<T> &Loops,
+  static void gatherLoopsWithLevel(const HLNode *Node, SmallVectorImpl<T> &Loops,
                             unsigned Level) {
     static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
                   "Type of SmallVector parameter should be const HLLoop *.");
@@ -1415,7 +1412,7 @@ public:
 
   /// Gathers all the loops across regions and stores them in the Loops vector.
   template <typename T> void gatherAllLoops(SmallVectorImpl<T> &Loops) {
-    LoopLevelVisitor<T, VisitKind::All> LoopVisit(*this, Loops);
+    LoopLevelVisitor<T, VisitKind::All> LoopVisit(Loops);
     visitAll(LoopVisit);
   }
 
@@ -1423,7 +1420,7 @@ public:
   template <typename T>
   void gatherAllLoops(HLNode *Node, SmallVectorImpl<T> &Loops) {
     assert(Node && " Node is null.");
-    LoopLevelVisitor<T, VisitKind::All> LoopVisit(*this, Loops);
+    LoopLevelVisitor<T, VisitKind::All> LoopVisit(Loops);
     visit(LoopVisit, Node);
   }
 

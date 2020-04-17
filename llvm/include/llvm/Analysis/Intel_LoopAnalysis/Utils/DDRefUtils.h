@@ -273,6 +273,12 @@ public:
   static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
                                     bool RelaxedMode);
 
+  /// Returns true if \p Ref1 and \p Ref2 have equal base and shape and
+  /// distances in each pair of dimension indices are constants.
+  static bool haveConstDimensionDistances(const RegDDRef *Ref1,
+                                          const RegDDRef *Ref2,
+                                          bool RelaxedMode);
+
   // Sorting comparator operator for two Mem-RegDDRef, placing LVals before
   // RVals.
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);

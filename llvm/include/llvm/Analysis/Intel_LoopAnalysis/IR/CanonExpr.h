@@ -257,7 +257,7 @@ public:
   /// Dumps CanonExpr in a simple format.
   void dump() const;
   /// Prints CanonExpr.
-  void print(formatted_raw_ostream &OS, bool Detailed = false) const;
+  void print(raw_ostream &OS, bool Detailed = false) const;
 
   /// Returns the src type of this canon expr.
   Type *getSrcType() const { return SrcTy; }

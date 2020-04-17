@@ -361,38 +361,10 @@ static void replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
   }
 }
 
-static bool hasConstDimensionDistances(const RegDDRef *Ref1,
-                                       const RegDDRef *Ref2) {
-  // Dealing with GEP refs only
-  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
-         "Both refs are expected to be memrefs");
-
-  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, false)) {
-    return false;
-  }
-
-  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
-    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
-    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
-
-    // Do not allow different offsets in outer dimensions.
-    if (I != 1 && DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
-      return false;
-    }
-
-    bool Res = CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, nullptr, false);
-
-    if (!Res) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 static bool sortRefsInSingleGroup(RefGroupTy &Group) {
   for (int I = 0, E = Group.size() - 1; I < E; ++I) {
-    if (!hasConstDimensionDistances(Group[I], Group[I + 1])) {
+    if (!DDRefUtils::haveConstDimensionDistances(Group[I], Group[I + 1],
+                                                 false)) {
       return false;
     }
   }
