@@ -107,7 +107,7 @@
 /// Check that driver forces -O0 for device compilation with --intel
 // RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 --intel -c %s -o %t.o 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-DEVICE-O0 %s
-// CHK-DEVICE-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
+// CHK-DEVICE-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-mlong-double-64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
 
 /// ###########################################################################
 

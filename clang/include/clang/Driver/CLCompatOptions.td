@@ -241,6 +241,9 @@ def _SLASH_Qm64 : CLFlag<"Qm64">, Alias<m64>;
 def _SLASH_Qx : CLJoined<"Qx">,
   HelpText<"Generate specialized code to run exclusively on processors "
   "indicated by <code>.">, MetaVarName<"<code>">;
+def _SLASH_Qlong_double : CLFlag<"Qlong-double">,
+  HelpText<"Enable 80-bit long double">;
+def _SLASH_Qlong_double_ : CLFlag<"Qlong-double-">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
