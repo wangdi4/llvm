@@ -42,8 +42,8 @@ EnableSpecialization("specialize", cl::init(true), cl::Hidden,
 /// callIsSmall - If a call is likely to lower to a single target instruction,
 /// or is otherwise deemed small return true.
 /// TODO: Perhaps calls like memcpy, strcpy, etc?
-static bool estimateCallIsSmall(ImmutableCallSite CS) {
-  if (isa<IntrinsicInst>(CS.getInstruction()))
+static bool estimateCallIsSmall(const CallBase &CS) {
+  if (isa<IntrinsicInst>(&CS))
     return true;
 
   const Function *F = CS.getCalledFunction();
@@ -128,11 +128,11 @@ static unsigned estimateNumInsts(const BasicBlock *BB) {
 
     // Special handling for calls.
     if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
-      ImmutableCallSite CS(cast<Instruction>(I));
+      auto *CB = cast<CallBase>(I);
 
-      if (!estimateCallIsSmall(CS)) {
+      if (!estimateCallIsSmall(*CB)) {
         // Each argument to a call takes on average one instruction to set up.
-        NumInsts += CS.arg_size();
+        NumInsts += CB->arg_size();
       }
     }
 
