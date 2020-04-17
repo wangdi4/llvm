@@ -11,7 +11,7 @@
 // Check both the new and old PMs.
 //
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc -fexperimental-new-pass-manager 2>&1 | FileCheck %s --check-prefix=O2-LPV
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-LPV
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc -mllvm -enable-lv 2>&1 | FileCheck %s --check-prefix=O2-LPV ;INTEL
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -vectorize-loops=false -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc -fexperimental-new-pass-manager 2>&1 | FileCheck %s --check-prefix=O2-NOLPV
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O2 -vectorize-loops -mllvm -vectorize-loops=false -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc 2>&1 | FileCheck %s --check-prefix=O2-NOLPV
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-obj -O0 -vectorize-loops -mllvm -force-vector-width=2 -mllvm -force-vector-interleave=1 -emit-llvm -o - -x ir %t.o -fthinlto-index=%t.thinlto.bc -fexperimental-new-pass-manager 2>&1 | FileCheck %s --check-prefix=O0-LPV
