@@ -20,6 +20,7 @@
 #include <cassert>
 #include <fstream>
 #include <memory>
+#include <mutex>
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
@@ -379,6 +380,7 @@ private:
 
   RT::PiProgram MProgram = nullptr;
   program_state MState = program_state::none;
+  std::mutex MMutex;
   ContextImplPtr MContext;
   bool MLinkable = false;
   vector_class<device> MDevices;
