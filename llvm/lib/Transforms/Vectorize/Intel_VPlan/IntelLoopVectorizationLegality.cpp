@@ -89,7 +89,8 @@ static bool checkCombinerOp(Value *CombinerV,
 }
 
 static bool isSupportedInstructionType(Type *Ty) {
-  return !Ty->isVectorTy() || Ty->getVectorElementType()->isSingleValueType();
+  auto *VecTy = dyn_cast<VectorType>(Ty);
+  return !VecTy || VecTy->getElementType()->isSingleValueType();
 }
 
 /// Check that the instruction has outside loop users and is not an identified

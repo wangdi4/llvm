@@ -94,8 +94,9 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 
 // TODO: ideally this function should be moved into utils.
 Type *VPlanCostModel::getVectorizedType(const Type *BaseTy, unsigned VF) {
-  if (BaseTy->isVectorTy())
-    VF *= BaseTy->getVectorNumElements();
+  auto *BaseVecTy = dyn_cast<VectorType>(BaseTy);
+  if (BaseVecTy)
+    VF *= BaseVecTy->getNumElements();
 
   return VectorType::get(BaseTy->getScalarType(), VF);
 }

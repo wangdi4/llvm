@@ -119,7 +119,7 @@ static cl::opt<std::string> OmpOffloadEntriesSymbol(
     cl::value_desc("symbol-name"), cl::cat(PostLinkCat));
 
 static cl::opt<bool> SortOmpOffloadEntries(
-    "ompoffload-sort-entries", cl::init(true),
+    "ompoffload-sort-entries", cl::init(false),
     cl::desc("sort OpenMP offload entries by name. "
              "Does nothing without -ompoffload-link-entries"),
     cl::cat(PostLinkCat));

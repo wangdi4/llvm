@@ -90,8 +90,9 @@ static cl::opt<bool> EnablePeelMEVec(
     cl::desc("Enable peel loop for vectorized multi-exit loops."));
 
 // Force full VPValue based code generation.
-static cl::opt<bool> EnableVPValueCodegenHIR(
-    "enable-vp-value-codegen-hir", cl::init(false), cl::Hidden,
+static cl::opt<bool, true> EnableVPValueCodegenHIROpt(
+    "enable-vp-value-codegen-hir", cl::Hidden,
+    cl::location(EnableVPValueCodegenHIR),
     cl::desc("Enable VPValue based codegen for HIR vectorizer"));
 
 extern cl::opt<bool> AllowMemorySpeculation;
@@ -107,6 +108,12 @@ static cl::opt<bool> VPlanAssumeMaskedFabsProfitable(
     "vplan-assume-masked-fabs-profitable", cl::init(false), cl::Hidden,
     cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic assuming "
              "profitability."));
+
+namespace llvm {
+namespace vpo {
+bool EnableVPValueCodegenHIR = false;
+} // namespace vpo
+} // namespace llvm
 
 namespace llvm {
 
@@ -132,6 +139,32 @@ static bool refIsUnit(unsigned Level, const RegDDRef *Ref, VPOCodeGenHIR *CG) {
     return false;
 
   CG->addUnitStrideRef(Ref);
+  return true;
+}
+
+// Utility to check if a given VPPHINode has been deconstructed via copies. A
+// PHI is deconstructed if all its incoming values are copy instructions that
+// are tagged with the same origin PHI ID.
+static bool isDeconstructedPhi(const VPPHINode *VPPhi) {
+  bool PhiBlendsOnlyCopyInsts =
+      llvm::all_of(VPPhi->incoming_values(),
+                   [](VPValue *V) { return isa<VPHIRCopyInst>(V); });
+
+  if (!PhiBlendsOnlyCopyInsts)
+    return false;
+
+  int PhiId = cast<VPHIRCopyInst>(VPPhi->getOperand(0))->getOriginPhiId();
+  if (PhiId == -1)
+    return false;
+
+  // Check if all incoming copy insts have same PHI ID.
+  for (unsigned I = 1; I < VPPhi->getNumOperands(); ++I) {
+    int Id = cast<VPHIRCopyInst>(VPPhi->getOperand(I))->getOriginPhiId();
+    if (Id != PhiId)
+      return false;
+  }
+
+  // All checks passed.
   return true;
 }
 
@@ -2881,9 +2914,6 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
 }
 
 // Widen PHI instruction.
-// The implementation here assumes that PHI is the loop IV and widens it by
-// generating the ref i1 + <0, 1, 2, .. VF-1>. This assumption needs to change
-// when we start handling reductions/linears.
 void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   // Check if PHI corresponds to a reduction, if yes just use the corresponding
   // reduction ref as its widened ref.
@@ -2892,11 +2922,24 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
     return;
   }
 
-  // Assuming remaining PHIs to be loop induction - this will change with
-  // support for live-outs.
-  auto RefDestTy = VPPhi->getType();
-  auto *NewRef = generateLoopInductionRef(RefDestTy);
-  addVPValueWideRefMapping(VPPhi, NewRef);
+  // Check if  PHI is the main loop IV and widen it by generating the ref i1 +
+  // <0, 1, 2, .. VF-1>. TODO: Need to handle all IVs in general here, for now
+  // HIR is expected to have main loop IV only.
+  if (MainLoopIVInsts.count(VPPhi)) {
+    auto RefDestTy = VPPhi->getType();
+    auto *NewRef = generateLoopInductionRef(RefDestTy);
+    addVPValueWideRefMapping(VPPhi, NewRef);
+    return;
+  }
+
+  assert(isDeconstructedPhi(VPPhi) &&
+         "Non-reduction/induction PHI was not deconstructed.");
+  // PHI that was deconstructed via copies during SSA deconstruction is mapped
+  // to the common Lval temp that the copies write into.
+  int OriginPhiId = cast<VPHIRCopyInst>(VPPhi->getOperand(0))->getOriginPhiId();
+  RegDDRef *PhiTemp = getLValTempForPhiId(OriginPhiId);
+  assert(PhiTemp && "Deconstructed PHI does not have a LVal temp.");
+  addVPValueWideRefMapping(VPPhi, PhiTemp);
 }
 
 RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
@@ -3250,6 +3293,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
       addVPValueWideRefMapping(VPInst, WideOps[0]);
       return;
     }
+
     WInst = HLNodeUtilities.createCastHLInst(VecRefDestTy, VPInst->getOpcode(),
                                              WideOps[0], ".vec");
     break;
@@ -3365,6 +3409,28 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     // set the current mask value.
     setCurMaskValue(WideOps[0]);
     return;
+
+  case VPInstruction::HIRCopy: {
+    int OriginPhiId = cast<VPHIRCopyInst>(VPInst)->getOriginPhiId();
+    RegDDRef *LValTmp = nullptr;
+    if (OriginPhiId != -1) {
+      if (auto *ExistingTmp = getLValTempForPhiId(OriginPhiId)) {
+        // If a HIR temp was already created for this PHI ID, then re-use it
+        // as Lval.
+        LValTmp = ExistingTmp->clone();
+      } else {
+        // First occurrence of PHI ID, create a new HIR temp to be used as
+        // Lval for all copies. TODO: Use SVA in future to decide between
+        // vector/scalar type here.
+        LValTmp = HLNodeUtilities.createTemp(
+            VectorType::get(VPInst->getType(), getVF()), "phi.temp");
+        PhiIdLValTempsMap[OriginPhiId] = LValTmp;
+      }
+    }
+
+    WInst = HLNodeUtilities.createCopyInst(WideOps[0], ".copy", LValTmp);
+    break;
+  }
 
   default:
     LLVM_DEBUG(VPInst->dump());
@@ -3575,6 +3641,10 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
       }
     }
 
+    assert((isa<VPBlendInst>(VPInst) ||
+            !isDeconstructedPhi(cast<VPPHINode>(VPInst))) &&
+           "A PHI which was deconstructed via copies is being ignored in mixed "
+           "CG.");
     // PHI/Blend need not be widened since all users have valid underlying HIR.
     LLVM_DEBUG(dbgs() << "Skipping unecessary PHI/Blend in mixed mode:"
                       << *VPInst << "\n");

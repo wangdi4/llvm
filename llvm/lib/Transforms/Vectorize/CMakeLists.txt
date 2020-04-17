@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanLoopInfo.cpp
   Intel_VPlan/IntelVPlanLoopUnroller.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
+  Intel_VPlan/IntelVPlanSSADeconstruction.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp

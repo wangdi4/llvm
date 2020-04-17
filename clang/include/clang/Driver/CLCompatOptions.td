@@ -195,6 +195,16 @@ def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
   Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
+def _SLASH_Qopt_mem_layout_trans_EQ : CLJoined<"Qopt-mem-layout-trans=">,
+  Alias<qopt_mem_layout_trans_EQ>;
+def _SLASH_Qopt_mem_layout_trans : CLFlag<"Qopt-mem-layout-trans">,
+  Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["2"]>;
+def _SLASH_Qopt_mem_layout_trans_COL : CLJoined<"Qopt-mem-layout-trans:">,
+  Alias<qopt_mem_layout_trans_EQ>, HelpText<"Control the level of memory "
+  " layout transformations performed by the compiler">;
+def _SLASH_Qopt_mem_layout_trans_ : CLFlag<"Qopt-mem-layout-trans-">,
+  Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["0"]>,
+  HelpText<"Disable memory layout transformations">;
 def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
@@ -231,6 +241,9 @@ def _SLASH_Qm64 : CLFlag<"Qm64">, Alias<m64>;
 def _SLASH_Qx : CLJoined<"Qx">,
   HelpText<"Generate specialized code to run exclusively on processors "
   "indicated by <code>.">, MetaVarName<"<code>">;
+def _SLASH_Qlong_double : CLFlag<"Qlong-double">,
+  HelpText<"Enable 80-bit long double">;
+def _SLASH_Qlong_double_ : CLFlag<"Qlong-double-">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

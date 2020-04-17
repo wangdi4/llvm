@@ -1455,12 +1455,19 @@ public:
 
   /// Returns the Instruction which can be used as an insertion point for
   /// any alloca which needs to be inserted before the entry directive of \p W.
-  /// The utility looks at parent WRegions of \p W, and if it finds any that
-  /// would be outlined, then it returns the first non-PHI of its first basic
+  /// If \p OutsideRegion is true, then the utility looks at parent
+  /// WRegions of \p W, and if it finds any that would be outlined,
+  /// then it returns the first non-PHI of its first basic
   /// block. If no such parent is found, then the first non-PHI of the
   /// function \p F is returned.
-  static Instruction *getInsertionPtForAllocaBeforeRegion(WRegionNode *W,
-                                                          Function *F);
+  /// If \p OutsideRegion is false, and \p W will not be outlined, then
+  /// the behavior is the same as with \p OutsideRegion equal to true.
+  /// If \p OutsideRegion is false, and \p W will be outlined, then
+  /// the utility returns \p W region's entry directive making sure
+  /// that the inserted alloca will be outlined along with the region.
+  static Instruction *getInsertionPtForAllocas(WRegionNode *W,
+                                               Function *F,
+                                               bool OutsideRegion = true);
 
   /// Find the first directive that supports the private clause, that dominates
   /// \p PosInst. Add a private clause for \p I into that directive.

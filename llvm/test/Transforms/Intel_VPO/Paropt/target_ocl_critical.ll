@@ -36,18 +36,18 @@
 ; CHECK-LABEL: define{{.*}}@__omp_offloading_804_356a5e8_test1_l10
 ; CHECK-DAG: call spir_func i32 @_Z18get_num_sub_groupsv
 ; CHECK-DAG: call spir_func i32 @_Z16get_sub_group_idv
-; CHECK-NOT: call spir_func i64 @_Z14get_local_sizej
-; CHECK-NOT: call spir_func i64 @_Z12get_local_idj
-; CHECK-NOT: call void @__kmpc_atomic_fixed4_add
-; CHECK-NOT: call double @_Z20sub_group_reduce_addd
+; CHECK-NOT: call{{.*}}@_Z14get_local_sizej
+; CHECK-NOT: call{{.*}}@_Z12get_local_idj
+; CHECK-NOT: call{{.*}}@__kmpc_atomic_fixed4_add
+; CHECK-NOT: call{{.*}}@_Z20sub_group_reduce_addd
 
 ; Check that SPMD execution scheme is not applied (due to
 ; unknown call to ext_func):
 ; CHECK-LABEL: define{{.*}}@__omp_offloading_804_356a5e8_test2_l18
 ; CHECK-DAG: call spir_func i32 @_Z18get_num_sub_groupsv
 ; CHECK-DAG: call spir_func i32 @_Z16get_sub_group_idv
-; CHECK-NOT: call spir_func i64 @_Z14get_local_sizej
-; CHECK-NOT: call spir_func i64 @_Z12get_local_idj
+; CHECK-NOT: call{{.*}}@_Z14get_local_sizej
+; CHECK-NOT: call{{.*}}@_Z12get_local_idj
 
 ; Check that SPMD execution scheme is applied (since sinf()
 ; is a known LibFunc call):

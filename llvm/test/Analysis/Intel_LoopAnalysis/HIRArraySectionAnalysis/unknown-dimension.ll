@@ -13,7 +13,7 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:    + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:    %p: (DEF) L: [ 0 ][ * ], U: [ 99 ][ * ]
+; CHECK:    %p: (DEF) [0:99][*:*]
 ; CHECK:    + END LOOP
 ; CHECK: END REGION
 

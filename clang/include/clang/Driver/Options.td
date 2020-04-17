@@ -1070,12 +1070,6 @@ def fno_signaling_math : Flag<["-"], "fno-signaling-math">, Group<f_Group>;
 def fjump_tables : Flag<["-"], "fjump-tables">, Group<f_Group>;
 def fno_jump_tables : Flag<["-"], "fno-jump-tables">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Do not use jump tables for lowering switches">;
-#if INTEL_CUSTOMIZATION
-def qopt_jump_tables : Flag<["-"], "qopt-jump-tables">,Alias<fjump_tables>,
-HelpText<"Control the generation of jump tables">;
-def qno_opt_jump_tables : Flag<["-"], "qno-opt-jump-tables">,Alias<fno_jump_tables>,
-HelpText<"Do not use jump tables for lowering switches">;
-#endif //INTEL_CUSTOMIZATION
 def fforce_enable_int128 : Flag<["-"], "fforce-enable-int128">,
   Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Enable support for int128_t type">;
@@ -3620,6 +3614,20 @@ def Z_reserved_lib_stdcxx : Flag<["-"], "Z-reserved-lib-stdc++">,
     Flags<[LinkerInput, NoArgumentUnused, Unsupported]>, Group<reserved_lib_Group>;
 def Z_reserved_lib_cckext : Flag<["-"], "Z-reserved-lib-cckext">,
     Flags<[LinkerInput, NoArgumentUnused, Unsupported]>, Group<reserved_lib_Group>;
+
+#if INTEL_CUSTOMIZATION
+// -q Intel options
+def qopt_jump_tables : Flag<["-"], "qopt-jump-tables">,Alias<fjump_tables>,
+  HelpText<"Control the generation of jump tables">;
+def qno_opt_jump_tables : Flag<["-"], "qno-opt-jump-tables">,Alias<fno_jump_tables>,
+  HelpText<"Do not use jump tables for lowering switches">;
+def qopt_mem_layout_trans_EQ : Joined<["-"], "qopt-mem-layout-trans=">, Values<"0,1,2,3">,
+  HelpText<"Control the level of memory layout transformations performed by the compiler">;
+def qopt_mem_layout_trans : Flag<["-"], "qopt-mem-layout-trans">, Alias<qopt_mem_layout_trans_EQ>,
+  AliasArgs<["2"]>;
+def qno_opt_mem_layout_trans : Flag<["-"], "qno-opt-mem-layout-trans">, Alias<qopt_mem_layout_trans_EQ>,
+  AliasArgs<["0"]>, HelpText<"Disable memory layout transformations">;
+#endif // INTEL_CUSTOMIZATION
 
 // Ignored options
 // FIXME: multiclasess produce suffixes, not prefixes. This is fine for now

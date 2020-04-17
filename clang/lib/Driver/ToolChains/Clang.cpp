@@ -3973,6 +3973,34 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
 #endif // INTEL_CUSTOMIZATION
 }
 
+#if INTEL_CUSTOMIZATION
+static void RenderIntelOptimizationArgs(const Driver &D, const ArgList &Args,
+                                        ArgStringList &CmdArgs) {
+  auto addllvmOption = [&](const char *Opt) {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(Opt);
+  };
+  if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
+    StringRef Val(A->getValue());
+    if (Val == "1" || Val == "2" || Val == "3") {
+      addllvmOption("-enable-dtrans");
+      addllvmOption("-enable-npm-dtrans");
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back(
+          Args.MakeArgString(Twine("-dtrans-mem-layout-level=") + Val));
+      addllvmOption("-dtrans-outofboundsok=false");
+      addllvmOption("-dtrans-usecrulecompat=true");
+      addllvmOption("-dtrans-inline-heuristics=true");
+      addllvmOption("-dtrans-partial-inline=true");
+      addllvmOption("-irmover-type-merging=false");
+      addllvmOption("-spill-freq-boost=true");
+    } else if (Val != "0")
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << Val << A->getOption().getName();
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                          const InputInfo &Output, const InputInfoList &Inputs,
                          const ArgList &Args, const char *LinkingOutput) const {
@@ -4757,7 +4785,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     else
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << A->getAsString(Args) << TripleStr;
+  #if INTEL_CUSTOMIZATION
+  } else if (Args.hasArg(options::OPT__intel) && IsOpenMPDevice &&
+             Triple.isSPIR()) {
+    // -mlong-double-64 is set for spir64 offload
+    CmdArgs.push_back("-mlong-double-64");
   }
+
+  if (Args.hasFlag(options::OPT__SLASH_Qlong_double,
+                   options::OPT__SLASH_Qlong_double_, false))
+    CmdArgs.push_back("-fintel-long-double-size=80");
+  #endif // INTEL_CUSTOMIZATION
 
   // Decide whether to use verbose asm. Verbose assembly is the default on
   // toolchains which have the integrated assembler on by default.
@@ -6419,6 +6457,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
+  RenderIntelOptimizationArgs(D, Args, CmdArgs);
 #endif // INTEL_CUSTOMIZATION
 
   // Add the "-o out -x type src.c" flags last. This is done primarily to make

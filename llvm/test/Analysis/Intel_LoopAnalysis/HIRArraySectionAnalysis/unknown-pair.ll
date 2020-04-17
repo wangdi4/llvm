@@ -12,8 +12,8 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:    + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MVTag: 14>
-; CHECK:    %q: (USE) L: [ 0 ], U: [ %n + -1 ]
-; CHECK:    %p: (DEF) L: [ 0 ], U: [ %n + -1 ]
+; CHECK:    %q: (USE) [0:%n + -1]
+; CHECK:    %p: (DEF) [0:%n + -1]
 ; CHECK:    + END LOOP
 ; CHECK:    + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:    %q: *

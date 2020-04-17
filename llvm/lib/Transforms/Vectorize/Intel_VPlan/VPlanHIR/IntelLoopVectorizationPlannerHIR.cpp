@@ -15,7 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlannerHIR.h"
+#include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
+#include "IntelVPlanBuilderHIR.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlannerHIR"
 
@@ -34,6 +36,16 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "VPlan not found!");
+
+  // Deconstruct SSA for final VPlan that will be lowered to HIR.
+  VPlanSSADeconstruction SSADeconstructor(*Plan);
+  SSADeconstructor.run();
+  if (PrintAfterSSADeconstruction) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    outs() << "After VPlan SSA deconstruction\n";
+    Plan->dump(outs(), true);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  }
 
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();
@@ -64,3 +76,4 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
     Plan->markFullLinearizationForced();
   return SharedPlan;
 }
+

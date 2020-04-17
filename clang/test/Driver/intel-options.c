@@ -108,3 +108,6 @@
 // CHECK-STRICT: "-ffp-exception-behavior=strict"
 // CHECK-IGNORE: "-ffp-exception-behavior=ignore"
 // CHECK-FAST: "-ffp-contract=fast"
+
+// RUN: %clang_cl -### -Qlong-double -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
+// LONG_DOUBLE: clang{{.*}} "-fintel-long-double-size=80"
