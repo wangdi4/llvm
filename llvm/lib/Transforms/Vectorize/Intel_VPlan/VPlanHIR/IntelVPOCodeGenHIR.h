@@ -120,8 +120,12 @@ public:
   // instructions can be placed.
   HLLoop *findRednHoistInsertionPoint(HLLoop *Lp);
 
-  // Propagate metadata from memory references in the group to the new DDRef.
-  void propagateMetadata(const OVLSGroup *Group, RegDDRef *NewRef);
+  // Propagate metadata from memory references in either the group or old DDRef
+  // to the new DDRef. If Group is non-null, references in Group are used to set
+  // NewRef's metadata. Otherwise, OldRef is expected to be non-null and the
+  // same is used to set NewRef's metadata.
+  void propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group = nullptr,
+                         const RegDDRef *OldRef = nullptr);
 
   // Widen the given VPInstruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the

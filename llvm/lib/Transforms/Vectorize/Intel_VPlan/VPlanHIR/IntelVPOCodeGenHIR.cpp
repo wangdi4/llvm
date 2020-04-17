@@ -1370,11 +1370,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   if (WideRef->hasGEPInfo()) {
     auto AddressSpace = Ref->getPointerAddressSpace();
 
-    // Omit the range metadata as is done in loop vectorize which does
-    // not propagate the same. We get a compile time error otherwise about
-    // type mismatch for range values.
-    WideRef->setMetadata(LLVMContext::MD_range, nullptr);
-
+    propagateMetadata(WideRef, nullptr /*VLS Group*/, Ref);
     if (WideRef->isAddressOf()) {
       WideRef->setBitCastDestType(VecRefDestTy);
     } else {
@@ -1791,19 +1787,38 @@ static Constant *createSequentialMask(unsigned Start, unsigned NumInts,
   return ConstantVector::get(Mask);
 }
 
-void VPOCodeGenHIR::propagateMetadata(const OVLSGroup *Group,
-                                      RegDDRef *NewRef) {
+void VPOCodeGenHIR::propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group,
+                                      const RegDDRef *OldRef) {
+  SmallVector<unsigned, 6> PreservedMDKinds = {
+      LLVMContext::MD_tbaa,        LLVMContext::MD_alias_scope,
+      LLVMContext::MD_noalias,     LLVMContext::MD_fpmath,
+      LLVMContext::MD_nontemporal, LLVMContext::MD_invariant_load};
+
+  // Start out by clearing all non-debug related metadata. The metadata for
+  // kinds in the preserved set is added later.
+  RegDDRef::MDNodesTy MDs;
+  NewRef->getAllMetadataOtherThanDebugLoc(MDs);
+  for (auto It : MDs) {
+    LLVM_DEBUG(dbgs() << "Cleared metadata kind: " << It.first << "\n");
+    NewRef->setMetadata(It.first, nullptr);
+  }
+
+  // TODO - we need to ensure that metadata is being set properly with
+  // VPValue based code generation.
   SmallVector<const RegDDRef *, 4> MemDDRefVec;
-  for (int64_t Index = 0, Size = Group->size(); Index < Size; ++Index) {
-    auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
-    MemDDRefVec.push_back(Memref->getRegDDRef());
+  if (Group)
+    for (int64_t Index = 0, Size = Group->size(); Index < Size; ++Index) {
+      auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
+      MemDDRefVec.push_back(Memref->getRegDDRef());
+    }
+  else {
+    assert(OldRef && "Expected non null reference");
+    assert(OldRef->hasGEPInfo() && "Expected reference with GEP info");
+    MemDDRefVec.push_back(OldRef);
   }
 
   const RegDDRef *R0 = MemDDRefVec[0];
-  for (auto Kind :
-       {LLVMContext::MD_tbaa, LLVMContext::MD_alias_scope,
-        LLVMContext::MD_noalias, LLVMContext::MD_fpmath,
-        LLVMContext::MD_nontemporal, LLVMContext::MD_invariant_load}) {
+  for (auto Kind : PreservedMDKinds) {
     MDNode *MD = R0->getMetadata(Kind);
 
     for (int J = 1, E = MemDDRefVec.size(); MD && J != E; ++J) {
@@ -1988,7 +2003,7 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
       RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
       HLInst *WideLoad =
           HLNodeUtilities.createLoad(WMemRef, CurInst->getName() + ".vls.load");
-      propagateMetadata(Grp, WMemRef);
+      propagateMetadata(WMemRef, Grp);
 
       addInst(WideLoad, Mask);
 
@@ -2042,7 +2057,7 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
       WideInst =
           createInterleavedStore(StoreValRefs, GrpStartInst->getOperandDDRef(0),
                                  InterleaveFactor, Mask);
-      propagateMetadata(Grp, WideInst->getOperandDDRef(0));
+      propagateMetadata(WideInst->getOperandDDRef(0), Grp);
 
       DEBUG_WITH_TYPE("ovls",
                       dbgs() << "Emitted a group-wide vector STORE for Group#"
