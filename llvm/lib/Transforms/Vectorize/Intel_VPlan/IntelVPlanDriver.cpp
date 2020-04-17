@@ -86,12 +86,6 @@ static cl::opt<bool>
                     cl::desc("Construct VPlan even if loop is not supported "
                              "(only for development)"));
 
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool>
-    VPlanPrintInit("vplan-print-after-init", cl::init(false),
-                   cl::desc("Print plain dump after initial VPlan generated"));
-#endif //INTEL_CUSTOMIZATION
-
 static cl::opt<unsigned> VPlanVectCand(
     "vplan-build-vect-candidates", cl::init(0),
     cl::desc(
@@ -100,14 +94,23 @@ static cl::opt<unsigned> VPlanVectCand(
 static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
+static cl::opt<bool> EnableAllZeroBypass(
+    "vplan-enable-all-zero-bypass", cl::init(false), cl::Hidden,
+    cl::desc("Enable all-zero bypass insertion for VPlan."));
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool>
+    VPlanPrintInit("vplan-print-after-init", cl::init(false),
+                   cl::desc("Print plain dump after initial VPlan generated"));
+
 static cl::opt<bool> VPlanPrintAfterSingleTripCountOpt(
     "vplan-print-after-single-trip-count-opt", cl::init(false),
     cl::desc("Print after backedge branch rewrite for single trip count vector "
              "loop"));
-
-static cl::opt<bool> EnableAllZeroBypass(
-    "vplan-enable-all-zero-bypass", cl::init(false), cl::Hidden,
-    cl::desc("Enable all-zero bypass insertion for VPlan."));
+#else
+static constexpr bool VPlanPrintInit = false;
+static constexpr bool VPlanPrintAfterSingleTripCountOpt = false;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
@@ -266,14 +269,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
              RSO << "VD: Initial VPlan for VF=" << VF; RSO.flush();
              Plan->setName(PlanName); dbgs() << *Plan);
 
-#if INTEL_CUSTOMIZATION
-  if (VPlanPrintInit) {
-    errs() << "Print initial VPlan for VF=" << VF << "\n";
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump(errs());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
-#endif //INTEL_CUSTOMIZATION
+  VPLAN_DUMP(VPlanPrintInit,
+             "initial VPlan for VF=" + std::to_string(VF) + "\n", Plan);
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
@@ -308,12 +305,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                                   : ConstantInt::getTrue(Context);
       auto *VPCond = Plan->getVPConstant(Cond);
       Latch->setCondBit(VPCond);
-      if (VPlanPrintAfterSingleTripCountOpt) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-        outs() << "VPlan after single iteration optimization:\n";
-        Plan->dump(outs(), true /* Print DA */);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-      }
+      VPLAN_DUMP(VPlanPrintAfterSingleTripCountOpt,
+                 "single iteration optimization", Plan);
     }
 
   if (DisableCodeGen)
@@ -1049,12 +1042,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
 
-  if (VPlanPrintInit) {
-    errs() << "Print initial VPlan for VF=" << VF << "\n";
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump(errs());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
+  VPLAN_DUMP(VPlanPrintInit,
+             "initial VPlan for VF=" + std::to_string(VF) + "\n", Plan);
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.

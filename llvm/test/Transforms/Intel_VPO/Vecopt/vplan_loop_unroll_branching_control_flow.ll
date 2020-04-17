@@ -13,7 +13,7 @@
 ; }
 
 define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture %b, i32 %n) local_unnamed_addr #0 {
-; VPLAN-LABEL:  After VPlan loop unrolling
+; VPLAN-LABEL:  VPlan after loop unrolling
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]:
 ; VPLAN-NEXT:     <Empty Block>
 ; VPLAN-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -304,7 +304,7 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 }
 
 define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b, i32 %n) local_unnamed_addr #0 {
-; VPLAN-LABEL:  After VPlan loop unrolling
+; VPLAN-LABEL:  VPlan after loop unrolling
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]:
 ; VPLAN-NEXT:     <Empty Block>
 ; VPLAN-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]

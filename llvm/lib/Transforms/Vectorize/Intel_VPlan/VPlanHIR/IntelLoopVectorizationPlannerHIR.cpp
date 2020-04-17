@@ -40,12 +40,7 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   // Deconstruct SSA for final VPlan that will be lowered to HIR.
   VPlanSSADeconstruction SSADeconstructor(*Plan);
   SSADeconstructor.run();
-  if (PrintAfterSSADeconstruction) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    outs() << "After VPlan SSA deconstruction\n";
-    Plan->dump(outs(), true);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
+  VPLAN_DUMP(PrintAfterSSADeconstruction, "SSA deconstruction", Plan);
 
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();

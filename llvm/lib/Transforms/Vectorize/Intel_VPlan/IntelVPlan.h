@@ -2749,6 +2749,38 @@ public:
                  Args &&... args);
 };
 
+// Several inline functions to hide the #if machinery from the callers.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+inline void VPLAN_DUMP(bool Cond, const VPlan &Plan) {
+  if (!Cond)
+    return;
+  Plan.dump(outs(), true);
+}
+inline void VPLAN_DUMP(bool Cond, const VPlan *Plan) {
+  VPLAN_DUMP(Cond, *Plan);
+}
+
+inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan &Plan) {
+  if (!Cond)
+    return;
+  outs() << "VPlan after " << Transformation << ":\n";
+  Plan.dump(outs(), true);
+}
+inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
+  return VPLAN_DUMP(Cond, Transformation, *Plan);
+}
+
+inline void VPLAN_DOT(bool Cond, const VPlan &Plan) {
+  if (!Cond)
+    return;
+  outs() << Plan;
+}
+inline void VPLAN_DOT(bool Cond, const VPlan *Plan) { VPLAN_DOT(Cond, *Plan); }
+#else
+template <class... Args> inline void VPLAN_DUMP(const Args &...) {}
+template <class... Args> inline void VPLAN_DOT(const Args &...) {}
+#endif
+
 } // namespace vpo
 
 //===----------------------------------------------------------------------===//

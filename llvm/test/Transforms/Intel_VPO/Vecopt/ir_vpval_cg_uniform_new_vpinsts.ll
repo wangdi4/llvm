@@ -4,7 +4,7 @@
 
 ; RUN: opt -VPlanDriver -vplan-print-after-linearization -vplan-force-vf=2 %s < %s -S | FileCheck %s --check-prefixes=CHECK-PREDICATOR,CHECK
 
-; CHECK-PREDICATOR-LABEL: After predication and linearization
+; CHECK-PREDICATOR-LABEL: VPlan after predication and linearization
 ; CHECK-PREDICATOR-NOT: {{Divergent.* and}}
 ; CHECK-PREDICATOR-NOT: {{Divergent.* or}}
 
