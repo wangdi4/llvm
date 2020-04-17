@@ -2,6 +2,7 @@
 #include <cassert>
 #include <iostream>
 #include <map>
+#include <atomic>
 
 #include <level_zero/ze_api.h>
 
@@ -36,7 +37,8 @@ struct _pi_device {
   bool IsSubDevice;
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 
   // Create a new command list for executing on this device.
   // It's caller's responsibility to remember and destroy the created
@@ -57,7 +59,8 @@ struct _pi_context {
   pi_device Device;
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 
   // Following member variables are used to manage assignment of events
   // to event pools.
@@ -83,7 +86,8 @@ struct _pi_queue {
   pi_context Context;
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 
   // Attach a command list to this queue, close, and execute it.
   // Note that this command list cannot be appended to after this.
@@ -135,7 +139,8 @@ struct _pi_mem {
 #endif // !NDEBUG
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 
   // Supplementary data to keep track of the mappings of this memory
   // created with piEnqueueMemBufferMap and piEnqueueMemImageMap.
@@ -178,7 +183,8 @@ struct _pi_event {
   void * CommandData;
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 
   // Methods for translating PI events list into L0 events list
   static ze_event_handle_t * createL0EventList(pi_uint32, const pi_event *);
@@ -194,7 +200,8 @@ struct _pi_program {
   pi_context Context;
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 };
 
 struct _pi_kernel {
@@ -205,7 +212,8 @@ struct _pi_kernel {
   pi_program Program;
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 };
 
 struct _pi_sampler {
@@ -213,7 +221,8 @@ struct _pi_sampler {
   ze_sampler_handle_t L0Sampler;
 
   // L0 doesn't do the reference counting, so we have to do.
-  pi_uint32 RefCount;
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
 };
 
 template<class To, class From>
