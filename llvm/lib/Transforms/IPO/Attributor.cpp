@@ -1649,13 +1649,8 @@ void InformationCache::initializeInformationCache(const Function &CF,
 
   InlineReason Reason;                                 // INTEL
   if (F.hasFnAttribute(Attribute::AlwaysInline) &&
-<<<<<<< HEAD
       isInlineViable(F, Reason).isSuccess())           // INTEL
-    InfoCache.InlineableFunctions.insert(&F);
-=======
-      isInlineViable(F).isSuccess())
     InlineableFunctions.insert(&F);
->>>>>>> 898bbc252a72b950cae138c3cad1e0ec4e17c902
 }
 
 void Attributor::recordDependence(const AbstractAttribute &FromAA,
