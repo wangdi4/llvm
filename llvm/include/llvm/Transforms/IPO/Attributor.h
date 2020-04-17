@@ -875,11 +875,14 @@ struct Attributor {
   }
 
   /// Helper function to replace all uses of \p V with \p NV. Return true if
-  /// there is any change.
-  bool changeValueAfterManifest(Value &V, Value &NV) {
+  /// there is any change. The flag \p ChangeDroppable indicates if dropppable
+  /// uses should be changed too.
+  bool changeValueAfterManifest(Value &V, Value &NV,
+                                bool ChangeDroppable = true) {
     bool Changed = false;
     for (auto &U : V.uses())
-      Changed |= changeUseAfterManifest(U, NV);
+      if (ChangeDroppable || !U.getUser()->isDroppable())
+        Changed |= changeUseAfterManifest(U, NV);
 
     return Changed;
   }
@@ -1192,9 +1195,11 @@ private:
 
     // Lookup the abstract attribute of type AAType. If found, return it after
     // registering a dependence of QueryingAA on the one returned attribute.
-    const auto &KindToAbstractAttributeMap = AAMap.lookup(IRP);
+    auto KindToAbstractAttributeMapIt = AAMap.find(IRP);
+    if ( KindToAbstractAttributeMapIt == AAMap.end())
+      return nullptr;
     if (AAType *AA = static_cast<AAType *>(
-            KindToAbstractAttributeMap.lookup(&AAType::ID))) {
+            KindToAbstractAttributeMapIt->second.lookup(&AAType::ID))) {
       // Do not register a dependence on an attribute with an invalid state.
       if (TrackDependence && AA->getState().isValidState())
         recordDependence(*AA, const_cast<AbstractAttribute &>(*QueryingAA),

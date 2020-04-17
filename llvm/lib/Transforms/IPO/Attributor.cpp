@@ -1170,6 +1170,7 @@ ChangeStatus Attributor::run() {
 
     for (auto &V : ToBeDeletedInsts) {
       if (Instruction *I = dyn_cast_or_null<Instruction>(V)) {
+        I->dropDroppableUses();
         CGModifiedFunctions.insert(I->getFunction());
         if (!I->getType()->isVoidTy())
           I->replaceAllUsesWith(UndefValue::get(I->getType()));
@@ -1248,6 +1249,14 @@ ChangeStatus Attributor::run() {
     llvm_unreachable("The fixpoint was not reached with exactly the number of "
                      "specified iterations!");
   }
+
+#ifdef EXPENSIVE_CHECKS
+  for (Function *F : Functions) {
+    if (ToBeDeletedFunctions.count(F))
+      continue;
+    assert(!verifyFunction(*F, &errs()) && "Module verification failed!");
+  }
+#endif
 
   return ManifestChange;
 }
@@ -1800,54 +1809,58 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
     // users. The return value might be dead if there are no live users.
     getOrCreateAAFor<AAIsDead>(CSRetPos);
 
-    if (Function *Callee = CS.getCalledFunction()) {
-      // Skip declerations except if annotations on their call sites were
-      // explicitly requested.
-      if (!AnnotateDeclarationCallSites && Callee->isDeclaration() &&
-          !Callee->hasMetadata(LLVMContext::MD_callback))
-        return true;
+    Function *Callee = CS.getCalledFunction();
+    // TODO: Even if the callee is not known now we might be able to simplify
+    //       the call/callee.
+    if (!Callee)
+      return true;
 
-      if (!Callee->getReturnType()->isVoidTy() && !CS->use_empty()) {
+    // Skip declarations except if annotations on their call sites were
+    // explicitly requested.
+    if (!AnnotateDeclarationCallSites && Callee->isDeclaration() &&
+        !Callee->hasMetadata(LLVMContext::MD_callback))
+      return true;
 
-        IRPosition CSRetPos = IRPosition::callsite_returned(CS);
+    if (!Callee->getReturnType()->isVoidTy() && !CS->use_empty()) {
 
-        // Call site return integer values might be limited by a constant range.
-        if (Callee->getReturnType()->isIntegerTy())
-          getOrCreateAAFor<AAValueConstantRange>(CSRetPos);
-      }
+      IRPosition CSRetPos = IRPosition::callsite_returned(CS);
 
-      for (int i = 0, e = CS.getNumArgOperands(); i < e; i++) {
+      // Call site return integer values might be limited by a constant range.
+      if (Callee->getReturnType()->isIntegerTy())
+        getOrCreateAAFor<AAValueConstantRange>(CSRetPos);
+    }
 
-        IRPosition CSArgPos = IRPosition::callsite_argument(CS, i);
+    for (int i = 0, e = CS.getNumArgOperands(); i < e; i++) {
 
-        // Every call site argument might be dead.
-        getOrCreateAAFor<AAIsDead>(CSArgPos);
+      IRPosition CSArgPos = IRPosition::callsite_argument(CS, i);
 
-        // Call site argument might be simplified.
-        getOrCreateAAFor<AAValueSimplify>(CSArgPos);
+      // Every call site argument might be dead.
+      getOrCreateAAFor<AAIsDead>(CSArgPos);
 
-        if (!CS.getArgument(i)->getType()->isPointerTy())
-          continue;
+      // Call site argument might be simplified.
+      getOrCreateAAFor<AAValueSimplify>(CSArgPos);
 
-        // Call site argument attribute "non-null".
-        getOrCreateAAFor<AANonNull>(CSArgPos);
+      if (!CS.getArgument(i)->getType()->isPointerTy())
+        continue;
 
-        // Call site argument attribute "no-alias".
-        getOrCreateAAFor<AANoAlias>(CSArgPos);
+      // Call site argument attribute "non-null".
+      getOrCreateAAFor<AANonNull>(CSArgPos);
 
-        // Call site argument attribute "dereferenceable".
-        getOrCreateAAFor<AADereferenceable>(CSArgPos);
+      // Call site argument attribute "no-alias".
+      getOrCreateAAFor<AANoAlias>(CSArgPos);
 
-        // Call site argument attribute "align".
-        getOrCreateAAFor<AAAlign>(CSArgPos);
+      // Call site argument attribute "dereferenceable".
+      getOrCreateAAFor<AADereferenceable>(CSArgPos);
 
-        // Call site argument attribute
-        // "readnone/readonly/writeonly/..."
-        getOrCreateAAFor<AAMemoryBehavior>(CSArgPos);
+      // Call site argument attribute "align".
+      getOrCreateAAFor<AAAlign>(CSArgPos);
 
-        // Call site argument attribute "nofree".
-        getOrCreateAAFor<AANoFree>(CSArgPos);
-      }
+      // Call site argument attribute
+      // "readnone/readonly/writeonly/..."
+      getOrCreateAAFor<AAMemoryBehavior>(CSArgPos);
+
+      // Call site argument attribute "nofree".
+      getOrCreateAAFor<AANoFree>(CSArgPos);
     }
     return true;
   };
@@ -1984,10 +1997,7 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
     A.identifyDefaultAbstractAttributes(*F);
   }
 
-  Module &M = *Functions.front()->getParent();
-  (void)M;
   ChangeStatus Changed = A.run();
-  assert(!verifyModule(M, &errs()) && "Module verification failed!");
   LLVM_DEBUG(dbgs() << "[Attributor] Done with " << Functions.size()
                     << " functions, result: " << Changed << ".\n");
   return Changed == ChangeStatus::CHANGED;
