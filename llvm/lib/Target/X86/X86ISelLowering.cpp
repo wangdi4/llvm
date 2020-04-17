@@ -17770,7 +17770,9 @@ static SDValue lower512BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
                                                   Subtarget, DAG))
     return Broadcast;
 
-<<<<<<< HEAD
+  if ((VT == MVT::v32i16 || VT == MVT::v64i8) && !Subtarget.hasBWI())
+    return splitAndLowerShuffle(DL, VT, V1, V2, Mask, DAG);
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   if (VT == MVT::v32f16) {
@@ -17781,10 +17783,6 @@ static SDValue lower512BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
   }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-=======
-  if ((VT == MVT::v32i16 || VT == MVT::v64i8) && !Subtarget.hasBWI())
-    return splitAndLowerShuffle(DL, VT, V1, V2, Mask, DAG);
->>>>>>> 8dfb9627b7be27e7b37ab4200c60f65f5af95256
 
   // Dispatch to each element type for lowering. If we don't have support for
   // specific element type shuffles at 512 bits, immediately split them and

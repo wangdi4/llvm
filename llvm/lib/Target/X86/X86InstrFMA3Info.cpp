@@ -191,8 +191,8 @@ static void verifyTables() {
            llvm::is_sorted(BroadcastGroups) && "FMA3 tables not sorted!");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-    assert(std::is_sorted(FP16Groups) && std::is_sorted(FP16RoundGroups) &&
-           std::is_sorted(FP16BroadcastGroups) &&
+    assert(llvm::is_sorted(FP16Groups) && llvm::is_sorted(FP16RoundGroups) &&
+           llvm::is_sorted(FP16BroadcastGroups) &&
            "FP16 FMA3 tables not sorted!");
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
