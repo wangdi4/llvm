@@ -1,3 +1,6 @@
+# INTEL_CUSTOMIZATION
+@LIT_SITE_CFG_IN_HEADER@
+# end INTEL_CUSTOMIZATION
 @AUTO_GEN_COMMENT@
 
 config.test_c_compiler = "@OPENMP_TEST_C_COMPILER@"
@@ -14,6 +17,12 @@ config.libomptarget_all_targets = "@LIBOMPTARGET_ALL_TARGETS@".split()
 config.libomptarget_system_targets = "@LIBOMPTARGET_SYSTEM_TARGETS@".split()
 config.libomptarget_filecheck = "@OPENMP_FILECHECK_EXECUTABLE@"
 config.libomptarget_debug = @LIBOMPTARGET_DEBUG@
+
+# INTEL_CUSTOMIZATION
+config.lit_tools_dir = path("@LLVM_LIT_TOOLS_DIR@")
+import lit.llvm
+lit.llvm.initialize(lit_config, config)
+# end INTEL_CUSTOMIZATION
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@CMAKE_CURRENT_SOURCE_DIR@/lit.cfg")
