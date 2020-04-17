@@ -610,11 +610,10 @@ bool InlineReport::validateFunction(Function *F) {
     Vec[I]->loadCallsToMap(OriginalCalls);
   for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-      CallSite CS(cast<Value>(I));
-      if (!CS) {
+      auto *Call = dyn_cast<CallBase>(&*I);
+      if (!Call)
         continue;
-      }
-      Instruction *NI = CS.getInstruction();
+      Instruction *NI = Call;
       std::map<Instruction *, bool>::const_iterator MapIt;
       MapIt = OriginalCalls.find(NI);
       if (MapIt == OriginalCalls.end()) {
