@@ -75,6 +75,12 @@ STATISTIC(IPNumInstRemoved, "Number of instructions removed by IPSCCP");
 STATISTIC(IPNumArgsElimed ,"Number of arguments constant propagated by IPSCCP");
 STATISTIC(IPNumGlobalConst, "Number of globals found to be constant by IPSCCP");
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EnableCallbacks("sccp-enable-callbacks", cl::init(true), cl::Hidden,
+                    cl::desc("propagate constants to callback calls"));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 // Helper to check if \p LV is either a constant or a constant
@@ -1198,34 +1204,51 @@ void SCCPSolver::handleCallOverdefined(CallSite CS) {
 }
 
 void SCCPSolver::handleCallArguments(CallSite CS) {
-  Function *F = CS.getCalledFunction();
-  // If this is a local function that doesn't have its address taken, mark its
-  // entry block executable and merge in the actual arguments to the call into
-  // the formal arguments of the function.
-  if (!TrackingIncomingArguments.empty() &&
-      TrackingIncomingArguments.count(F)) {
-    MarkBlockExecutable(&F->front());
+#if INTEL_CUSTOMIZATION
+  auto HandleArgs = [this](auto CS, auto GetArgOperand) {
+    Function *F = CS.getCalledFunction();
+    // If this is a local function that doesn't have its address taken, mark its
+    // entry block executable and merge in the actual arguments to the call into
+    // the formal arguments of the function.
+    if (!TrackingIncomingArguments.empty() &&
+        TrackingIncomingArguments.count(F)) {
+      MarkBlockExecutable(&F->front());
 
-    // Propagate information from this call site into the callee.
-    CallSite::arg_iterator CAI = CS.arg_begin();
-    for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end(); AI != E;
-         ++AI, ++CAI) {
-      // If this argument is byval, and if the function is not readonly, there
-      // will be an implicit copy formed of the input aggregate.
-      if (AI->hasByValAttr() && !F->onlyReadsMemory()) {
-        markOverdefined(&*AI);
-        continue;
-      }
-
-      if (auto *STy = dyn_cast<StructType>(AI->getType())) {
-        for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-          ValueLatticeElement CallArg = getStructValueState(*CAI, i);
-          mergeInValue(getStructValueState(&*AI, i), &*AI, CallArg);
+      // Propagate information from this call site into the callee.
+      for (Argument &A : F->args()) {
+        Value *V = GetArgOperand(A);
+        if (!V) {
+          markOverdefined(&A);
+          continue;
         }
-      } else
-        mergeInValue(&*AI, getValueState(*CAI), false);
+
+        // If this argument is byval, and if the function is not readonly, there
+        // will be an implicit copy formed of the input aggregate.
+        if (A.hasByValAttr() && !F->onlyReadsMemory()) {
+          markOverdefined(&A);
+          continue;
+        }
+
+        if (auto *STy = dyn_cast<StructType>(A.getType())) {
+          for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
+            ValueLatticeElement CallArg = getStructValueState(V, i);
+            mergeInValue(getStructValueState(&A, i), &A, CallArg);
+          }
+        } else
+          mergeInValue(&A, getValueState(V), false);
+      }
     }
-  }
+  };
+
+  // First handle arguments for the direct/indirect call site.
+  HandleArgs(CS, [&CS](Argument &A) { return CS.getArgOperand(A.getArgNo()); });
+
+  // Then do the same for the callback call sites if enabled.
+  if (EnableCallbacks)
+    for_each_callback_callsite(CS, [&HandleArgs](AbstractCallSite &ACS) {
+      HandleArgs(ACS, [&ACS](Argument &A) { return ACS.getCallArgOperand(A); });
+    });
+#endif // INTEL_CUSTOMIZATION
 }
 
 void SCCPSolver::handleCallResult(CallSite CS) {
@@ -1744,6 +1767,18 @@ static void findReturnsToZap(Function &F,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Cannot do this if function is used as a callback.
+  if (EnableCallbacks && any_of(F.uses(), [](const Use &U) {
+        AbstractCallSite ACS(&U);
+        return ACS && ACS.isCallbackCall();
+      })) {
+    LLVM_DEBUG(dbgs() << "Can't zap returns of the function : " << F.getName()
+                      << " because it is used as a callback\n");
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   assert(
       all_of(F.users(),
              [&Solver](User *U) {
@@ -1836,7 +1871,7 @@ bool llvm::runIPSCCP(
 
     // Determine if we can track the function's arguments. If so, add the
     // function to the solver's set of argument-tracked functions.
-    if (canTrackArgumentsInterprocedurally(&F)) {
+    if (canTrackArgumentsInterprocedurally(&F, EnableCallbacks)) { // INTEL
       Solver.AddArgumentTrackedFunction(&F);
       continue;
     }

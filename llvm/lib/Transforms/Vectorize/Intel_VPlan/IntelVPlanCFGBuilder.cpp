@@ -385,7 +385,7 @@ void VPlanFunctionCFGBuilder::buildCFG() {
     if (isa<ReturnInst>(BB.getTerminator())) {
       assert(cast<ReturnInst>(BB.getTerminator())->getNumOperands() == 0 &&
              "Only void return is supported for region vectorization!");
-      VPBasicBlock *VPBB = BB2VPBB[&F.getEntryBlock()];
+      VPBasicBlock *VPBB = BB2VPBB[&BB];
 
       Plan->getVPBasicBlockList().remove(VPBB->getIterator());
       Plan->insertAtBack(VPBB);
