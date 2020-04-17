@@ -40,6 +40,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPBasicBlock.h"
 #include "IntelVPLoopAnalysis.h"
+#include "IntelVPlanAlignmentAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanLoopInfo.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
@@ -1781,6 +1782,9 @@ private:
   /// Holds the name of the VPlan, for printing.
   std::string Name;
 
+  /// Map: VF -> PreferredPeeling.
+  std::map<unsigned, std::unique_ptr<VPlanPeelingVariant>> PreferredPeelingMap;
+
   /// Holds all the VPConstants created for this VPlan.
   DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
@@ -1963,6 +1967,19 @@ public:
   const std::string &getName() const { return Name; }
 
   void setName(const Twine &newName) { Name = newName.str(); }
+
+  void setPreferredPeeling(unsigned VF,
+                           std::unique_ptr<VPlanPeelingVariant> Peeling) {
+    PreferredPeelingMap[VF] = std::move(Peeling);
+  }
+
+  /// Returns preferred peeling or nullptr.
+  VPlanPeelingVariant *getPreferredPeeling(unsigned VF) const {
+    auto Iter = PreferredPeelingMap.find(VF);
+    if (Iter == PreferredPeelingMap.end())
+      return nullptr;
+    return Iter->second.get();
+  }
 
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.
