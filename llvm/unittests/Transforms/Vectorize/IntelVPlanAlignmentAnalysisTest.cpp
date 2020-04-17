@@ -69,16 +69,19 @@ TEST_F(VPlanPeelingVariantTest, DynamicPeelingParameters) {
 class VPlanPeelingAnalysisTest : public vpo::VPlanTestBase {};
 
 TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
+  // Function without any unit-strided store in the loop.
   const char *ModuleString =
-    "declare void @bar(i32)\n"
-    "define void @foo(i32* %src, i64 %size) {\n"
+    "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
     "entry:\n"
     "  br label %for.body\n"
     "for.body:\n"
     "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
     "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
     "  %src.val = load i32, i32* %src.ptr, align 4\n"
-    "  call void @bar(i32 %src.val)\n"
+    "  %dst.val = add i32 %src.val, 42\n"
+    "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
+    "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter_times_two\n"
+    "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
     "  %counter.next = add nsw i64 %counter, 1\n"
     "  %exitcond = icmp sge i64 %counter.next, %size\n"
     "  br i1 %exitcond, label %exit, label %for.body\n"
@@ -92,7 +95,7 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
   std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
 
   VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
-  VPlanPeelingAnalysis VPPA(VPSE);
+  VPlanPeelingAnalysis VPPA(VPSE, *DL);
   VPPA.collectMemrefs(*Plan);
 
   std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
@@ -134,7 +137,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling) {
   VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
   VPlanSCEV *DstScev = VPSE.toVPlanSCEV(SE->getSCEV(F->getArg(0)));
 
-  VPlanPeelingAnalysis VPPA(VPSE);
+  VPlanPeelingAnalysis VPPA(VPSE, *DL);
   VPPA.collectMemrefs(*Plan);
 
   std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);

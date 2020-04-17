@@ -72,14 +72,24 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
       // Ignore Loads for now. Aligning Stores is more profitable.
       if (VPInst.getOpcode() != Instruction::Store)
         continue;
+
       auto *Pointer = VPInst.getOperand(1);
       auto *Expr = VPSE->getVPlanSCEV(*Pointer);
       Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
-      if (Ind) {
-        Memref = &VPInst;
-        AccessAddress = *Ind;
-        return;
-      }
+
+      // Skip if access address is not an induction variable.
+      if (!Ind)
+        continue;
+
+      // Skip accesses that are not unit-strided.
+      Type *EltTy = cast<PointerType>(Pointer->getType())->getElementType();
+      if (Ind->Step != (int64_t) DL->getTypeAllocSize(EltTy))
+        continue;
+
+      // Found a candidate for peeling (unit-strided store). Stop iterating.
+      Memref = &VPInst;
+      AccessAddress = *Ind;
+      return;
     }
 }
 

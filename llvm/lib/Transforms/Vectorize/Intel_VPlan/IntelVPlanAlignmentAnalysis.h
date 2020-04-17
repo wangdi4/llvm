@@ -14,6 +14,8 @@
 
 #include "IntelVPlanScalarEvolution.h"
 
+#include <llvm/IR/DataLayout.h>
+
 namespace llvm {
 namespace vpo {
 
@@ -104,7 +106,8 @@ private:
 /// model.
 class VPlanPeelingAnalysis final {
 public:
-  VPlanPeelingAnalysis(VPlanScalarEvolution &VPSE) : VPSE(&VPSE) {}
+  VPlanPeelingAnalysis(VPlanScalarEvolution &VPSE, const DataLayout &DL)
+      : VPSE(&VPSE), DL(&DL) {}
   VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
 
@@ -118,6 +121,7 @@ public:
 
 private:
   VPlanScalarEvolution *VPSE;
+  const DataLayout *DL;
   VPInstruction *Memref = nullptr;
   VPConstStepInduction AccessAddress = {nullptr, 0};
 };
