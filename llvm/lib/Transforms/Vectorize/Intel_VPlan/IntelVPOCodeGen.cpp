@@ -1946,8 +1946,8 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   auto *GroupLeaderVecTy = dyn_cast<VectorType>(GroupLeaderTy);
   unsigned OriginalVL =
       GroupLeaderVecTy ? GroupLeaderVecTy->getNumElements() : 1;
-  Constant *ShuffleMask = createVectorStrideMask(
-      Builder, InterleaveIndex, InterleaveFactor, VF, OriginalVL);
+  SmallVector<int, 64> ShuffleMask =
+      createVectorStrideMask(InterleaveIndex, InterleaveFactor, VF, OriginalVL);
   Value *GroupShuffle = Builder.CreateShuffleVector(
       GroupLoad, UndefValue::get(GroupLoad->getType()), ShuffleMask,
       "groupShuffle");
@@ -2119,8 +2119,8 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
 
     // Shuffle values into the correct order. A bit more sophisticated shuffle
     // mask is required if the original type is itself a vector type.
-    Constant *ShuffleMask =
-        createVectorInterleaveMask(Builder, VF, InterleaveFactor, OriginalVL);
+    SmallVector<int, 64> ShuffleMask =
+        createVectorInterleaveMask(VF, InterleaveFactor, OriginalVL);
     StoredValue = Builder.CreateShuffleVector(
         ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
         "groupShuffle");

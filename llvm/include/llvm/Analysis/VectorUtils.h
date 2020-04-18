@@ -630,8 +630,8 @@ llvm::SmallVector<int, 16> createStrideMask(unsigned Start, unsigned Stride,
 ///      (3, 4, 5), (15, 16, 17), (27, 28, 29),
 ///      (6, 7, 8), (18, 19, 20), (30, 31, 32),
 ///      (9, 10, 11), (21, 22, 23), (33, 34, 35)>.
-Constant *createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
-                                     unsigned NumVecs, unsigned VecWidth);
+SmallVector<int, 64> createVectorInterleaveMask(unsigned VF, unsigned NumVecs,
+                                                unsigned VecWidth);
 
 /// Create a stride shuffle mask for a "vector of vectors".
 ///
@@ -646,9 +646,8 @@ Constant *createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
 /// <12 x <3 x float>> starting with the second element (Start=1) is:
 ///
 ///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
-Constant *createVectorStrideMask(IRBuilderBase &Builder, unsigned Start,
-                                 unsigned Stride, unsigned VF,
-                                 unsigned VecWidth);
+SmallVector<int, 64> createVectorStrideMask(unsigned Start, unsigned Stride,
+                                            unsigned VF, unsigned VecWidth);
 #endif /* INTEL_CUSTOMIZATION */
 
 /// Create a sequential shuffle mask.

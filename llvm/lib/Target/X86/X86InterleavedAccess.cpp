@@ -199,8 +199,8 @@ class X86InterleavedAccessGroup {
     for (unsigned i = 0; i < NumSubVectors; ++i)
       DecomposedVectors.push_back(new ShuffleVectorInst(
           Op0, Op1,
-          createSequentialMask(Builder, Indices[i],
-                               SubVecTy->getVectorNumElements(), 0)));
+          createSequentialMask(Indices[i], SubVecTy->getVectorNumElements(),
+                               0)));
   }
 
   /// Keeps mapping of a shufflevector to its OVLSMemref which ultimately helps

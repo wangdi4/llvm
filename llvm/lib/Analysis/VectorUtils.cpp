@@ -984,8 +984,8 @@ Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
          "TargetLength should be greater than or equal to VectorElts");
   if (VectorElts == TargetLength)
     return OrigVal;
-  Constant *ShufMask = createSequentialMask(
-      Builder, 0, VectorElts, TargetLength - VectorElts /*No. of undef's*/);
+  auto ShufMask = createSequentialMask(
+      0, VectorElts, TargetLength - VectorElts /*No. of undef's*/);
   return Builder.CreateShuffleVector(OrigVal, UndefValue::get(OrigTy), ShufMask,
                                      "extended." + Name);
 }
@@ -994,8 +994,8 @@ Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
                                  IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
-  Value *ShuffleMask = createReplicatedMask(
-      Builder, OriginalVL, OrigVal->getType()->getVectorNumElements());
+  auto ShuffleMask = createReplicatedMask(
+      OriginalVL, OrigVal->getType()->getVectorNumElements());
   return Builder.CreateShuffleVector(OrigVal,
                                      UndefValue::get(OrigVal->getType()),
                                      ShuffleMask, Name + OrigVal->getName());
@@ -1251,41 +1251,36 @@ llvm::createStrideMask(unsigned Start, unsigned Stride, unsigned VF) {
   return Mask;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-Constant *llvm::createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
-                                           unsigned NumVecs,
-                                           unsigned VecWidth) {
-  SmallVector<Constant *, 64> Mask;
+llvm::SmallVector<int, 64> llvm::createVectorInterleaveMask(unsigned VF,
+                                                            unsigned NumVecs,
+                                                            unsigned VecWidth) {
+  SmallVector<int, 64> Mask;
   for (unsigned i = 0; i < VF; i++)
     for (unsigned j = 0; j < NumVecs; j++)
       for (unsigned k = 0; k < VecWidth; k++)
-        Mask.push_back(Builder.getInt32((j * VF + i) * VecWidth + k));
+        Mask.push_back((j * VF + i) * VecWidth + k);
 
-  return ConstantVector::get(Mask);
+  return Mask;
 }
 
-Constant *llvm::createVectorStrideMask(IRBuilderBase &Builder, unsigned Start,
-                                       unsigned Stride, unsigned VF,
-                                       unsigned VecWidth) {
-  SmallVector<Constant *, 64> Mask;
+llvm::SmallVector<int, 64> llvm::createVectorStrideMask(unsigned Start,
+                                                        unsigned Stride,
+                                                        unsigned VF,
+                                                        unsigned VecWidth) {
+  SmallVector<int, 64> Mask;
   for (unsigned i = 0; i < VF; i++)
     for (unsigned j = 0; j < VecWidth; j++)
-      Mask.push_back(Builder.getInt32((Start + i * Stride) * VecWidth + j));
+      Mask.push_back((Start + i * Stride) * VecWidth + j);
 
-  return ConstantVector::get(Mask);
+  return Mask;
 }
 #endif // INTEL_CUSTOMIZATION
 
-Constant *llvm::createSequentialMask(IRBuilderBase &Builder, unsigned Start,
-                                     unsigned NumInts, unsigned NumUndefs) {
-  SmallVector<Constant *, 16> Mask;
-=======
 llvm::SmallVector<int, 16> llvm::createSequentialMask(unsigned Start,
                                                       unsigned NumInts,
                                                       unsigned NumUndefs) {
   SmallVector<int, 16> Mask;
->>>>>>> 166467e8221d202ad3e7b8c156e99f7a6def35e0
   for (unsigned i = 0; i < NumInts; i++)
     Mask.push_back(Start + i);
 
