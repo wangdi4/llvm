@@ -3566,7 +3566,6 @@ void CXXNameMangler::mangleType(const PipeType *T) {
   Out << "8ocl_pipe";
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void CXXNameMangler::mangleType(const ChannelType *T) {
   // <type> ::= 11ocl_channel
@@ -3587,30 +3586,6 @@ void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-void CXXNameMangler::mangleType(const ExtIntType *T) {
-  Out << "U7_ExtInt";
-  llvm::APSInt BW(32, true);
-  BW = T->getNumBits();
-  TemplateArgument TA(Context.getASTContext(), BW, getASTContext().IntTy);
-  mangleTemplateArgs(&TA, 1);
-  if (T->isUnsigned())
-    Out << "j";
-  else
-    Out << "i";
-}
-
-void CXXNameMangler::mangleType(const DependentExtIntType *T) {
-  Out << "U7_ExtInt";
-  TemplateArgument TA(T->getNumBitsExpr());
-  mangleTemplateArgs(&TA, 1);
-  if (T->isUnsigned())
-    Out << "j";
-  else
-    Out << "i";
-}
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {
   //  <expr-primary> ::= L <type> <value number> E # integer literal

@@ -719,17 +719,11 @@ public:
   bool SetTypePipe(bool isPipe, SourceLocation Loc,
                        const char *&PrevSpec, unsigned &DiagID,
                        const PrintingPolicy &Policy);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool SetTypeChannel(bool isChannel, SourceLocation Loc,
                       const char *&PrevSpec, unsigned &DiagID,
                       const PrintingPolicy &Policy);
 #endif // INTEL_CUSTOMIZATION
-  bool SetExtIntType(SourceLocation KWLoc, Expr *BitWidth,
-                     const char *&PrevSpec, unsigned &DiagID,
-                     const PrintingPolicy &Policy);
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   bool SetTypeSpecSat(SourceLocation Loc, const char *&PrevSpec,
                       unsigned &DiagID);
   bool SetTypeSpecError();

@@ -4132,7 +4132,6 @@ QualType ASTContext::getWritePipeType(QualType T) const {
   return getPipeType(T, false);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Return channel type for the specified type.
 QualType ASTContext::getChannelType(QualType T) const {
@@ -4225,41 +4224,6 @@ ASTContext::getDependentSizedArbPrecIntType(QualType Type, Expr *NumBitsExpr,
 }
 #endif // INTEL_CUSTOMIZATION
 
-QualType ASTContext::getExtIntType(bool IsUnsigned, unsigned NumBits) const {
-  llvm::FoldingSetNodeID ID;
-  ExtIntType::Profile(ID, IsUnsigned, NumBits);
-
-  void *InsertPos = nullptr;
-  if (ExtIntType *EIT = ExtIntTypes.FindNodeOrInsertPos(ID, InsertPos))
-    return QualType(EIT, 0);
-
-  auto *New = new (*this, TypeAlignment) ExtIntType(IsUnsigned, NumBits);
-  ExtIntTypes.InsertNode(New, InsertPos);
-  Types.push_back(New);
-  return QualType(New, 0);
-}
-
-QualType ASTContext::getDependentExtIntType(bool IsUnsigned,
-                                            Expr *NumBitsExpr) const {
-  assert(NumBitsExpr->isInstantiationDependent() && "Only good for dependent");
-  llvm::FoldingSetNodeID ID;
-  DependentExtIntType::Profile(ID, *this, IsUnsigned, NumBitsExpr);
-
-  void *InsertPos = nullptr;
-  if (DependentExtIntType *Existing =
-          DependentExtIntTypes.FindNodeOrInsertPos(ID, InsertPos))
-    return QualType(Existing, 0);
-
-  auto *New = new (*this, TypeAlignment)
-      DependentExtIntType(*this, IsUnsigned, NumBitsExpr);
-  DependentExtIntTypes.InsertNode(New, InsertPos);
-
-  Types.push_back(New);
-  return QualType(New, 0);
-}
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 #ifndef NDEBUG
 static bool NeedsInjectedClassNameType(const RecordDecl *D) {
   if (!isa<CXXRecordDecl>(D)) return false;

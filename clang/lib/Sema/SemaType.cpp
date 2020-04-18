@@ -2205,7 +2205,6 @@ QualType Sema::BuildWritePipeType(QualType T, SourceLocation Loc) {
   return Context.getWritePipeType(T);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Build a Channel type.
 ///
@@ -2270,47 +2269,6 @@ QualType Sema::BuildArbPrecIntType(QualType T, Expr *NumBitsExpr,
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// Build a extended int type.
-///
-/// \param IsUnsigned Boolean representing the signedness of the type.
-///
-/// \param BitWidth Size of this int type in bits, or an expression representing
-/// that.
-///
-/// \param Loc Location of the keyword.
-QualType Sema::BuildExtIntType(bool IsUnsigned, Expr *BitWidth,
-                               SourceLocation Loc) {
-  if (BitWidth->isInstantiationDependent())
-    return Context.getDependentExtIntType(IsUnsigned, BitWidth);
-
-  llvm::APSInt Bits(32);
-  ExprResult ICE = VerifyIntegerConstantExpression(BitWidth, &Bits);
-
-  if (ICE.isInvalid())
-    return QualType();
-
-  int64_t NumBits = Bits.getSExtValue();
-  if (!IsUnsigned && NumBits < 2) {
-    Diag(Loc, diag::err_ext_int_bad_size) << 0;
-    return QualType();
-  }
-
-  if (IsUnsigned && NumBits < 1) {
-    Diag(Loc, diag::err_ext_int_bad_size) << 1;
-    return QualType();
-  }
-
-  if (NumBits > llvm::IntegerType::MAX_INT_BITS) {
-    Diag(Loc, diag::err_ext_int_max_size) << IsUnsigned
-                                          << llvm::IntegerType::MAX_INT_BITS;
-    return QualType();
-  }
-
-  return Context.getExtIntType(IsUnsigned, NumBits);
-}
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 /// Check whether the specified array size makes the array type a VLA.  If so,
 /// return true, if not, return the size of the array in SizeVal.
 static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
@@ -5964,7 +5922,6 @@ namespace {
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void VisitChannelTypeLoc(ChannelTypeLoc TL) {
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
@@ -5975,16 +5932,6 @@ namespace {
     }
 #endif // INTEL_CUSTOMIZATION
 
-    void VisitExtIntTypeLoc(ExtIntTypeLoc TL) {
-      TL.setNameLoc(DS.getTypeSpecTypeLoc());
-    }
-
-    void VisitDependentExtIntTypeLoc(DependentExtIntTypeLoc TL) {
-      TL.setNameLoc(DS.getTypeSpecTypeLoc());
-    }
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
     void VisitTypeLoc(TypeLoc TL) {
       // FIXME: add other typespec types and change this to an assert.
       TL.initialize(Context, DS.getTypeSpecTypeLoc());

@@ -833,7 +833,6 @@ let Class = PipeType in {
     return ctx.getPipeType(elementType, isReadOnly);
   }]>;
 }
-<<<<<<< HEAD
 
 // INTEL_CUSTOMIZATION
 let Class = ChannelType in {
@@ -879,30 +878,3 @@ let Class = DependentSizedArbPrecIntType in {
   }]>;
 }
 // end INTEL_CUSTOMIZATION
-
-let Class = ExtIntType in {
-  def : Property<"isUnsigned", Bool> {
-    let Read = [{ node->isUnsigned() }];
-  }
-  def : Property <"numBits", UInt32> {
-    let Read = [{ node->getNumBits() }];
-  }
-
-  def : Creator<[{
-    return ctx.getExtIntType(isUnsigned, numBits);
-  }]>;
-}
-
-let Class = DependentExtIntType in {
-  def : Property<"isUnsigned", Bool> {
-    let Read = [{ node->isUnsigned() }];
-  }
-  def : Property <"numBitsExpr", ExprRef> {
-    let Read = [{ node->getNumBitsExpr() }];
-  }
-  def : Creator<[{
-    return ctx.getDependentExtIntType(isUnsigned, numBitsExpr);
-  }]>;
-}
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec

@@ -1862,33 +1862,23 @@ bool Type::isIntegralType(const ASTContext &Ctx) const {
     if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif // INTEL_CUSTOMIZATION
-  return isExtIntType();
-=======
   return false;
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 }
 
 bool Type::isIntegralOrUnscopedEnumerationType() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
            BT->getKind() <= BuiltinType::Int128;
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
-  if (isExtIntType())
-    return true;
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return isUnscopedEnumerationType();
 }
 
@@ -1969,17 +1959,11 @@ bool Type::isSignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isSignedIntegerType();
 #endif // INTEL_CUSTOMIZATION
 
-  if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
-    return IT->isSigned();
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 
@@ -1994,18 +1978,11 @@ bool Type::isSignedIntegerOrEnumerationType() const {
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isSignedIntegerOrEnumerationType();
 #endif // INTEL_CUSTOMIZATION
 
-  if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
-    return IT->isSigned();
-
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 
@@ -2032,17 +2009,11 @@ bool Type::isUnsignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isUnsignedIntegerType();
 #endif // INTEL_CUSTOMIZATION
 
-  if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
-    return IT->isUnsigned();
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 
@@ -2057,17 +2028,11 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isUnsignedIntegerOrEnumerationType();
 #endif // INTEL_CUSTOMIZATION
 
-  if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
-    return IT->isUnsigned();
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 

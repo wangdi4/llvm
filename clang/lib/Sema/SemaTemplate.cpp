@@ -5998,7 +5998,6 @@ bool UnnamedLocalNoLinkageFinder::VisitPipeType(const PipeType* T) {
   return false;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool UnnamedLocalNoLinkageFinder::VisitChannelType(const ChannelType* T) {
   return false;
@@ -6014,17 +6013,6 @@ bool UnnamedLocalNoLinkageFinder::VisitDependentSizedArbPrecIntType(
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool UnnamedLocalNoLinkageFinder::VisitExtIntType(const ExtIntType *T) {
-  return false;
-}
-
-bool UnnamedLocalNoLinkageFinder::VisitDependentExtIntType(
-    const DependentExtIntType *T) {
-  return false;
-}
-
-=======
->>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 bool UnnamedLocalNoLinkageFinder::VisitTagDecl(const TagDecl *Tag) {
   if (Tag->getDeclContext()->isFunctionOrMethod()) {
     S.Diag(SR.getBegin(),
