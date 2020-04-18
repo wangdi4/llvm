@@ -1721,6 +1721,7 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX512-NEXT:    vptestnmd %zmm0, %zmm0, %k0
 ; AVX512-NEXT:    kshiftlw $8, %k0, %k0
 ; AVX512-NEXT:    kshiftrw $8, %k0, %k1
+<<<<<<< HEAD
 ; AVX512-NEXT:    vpxor   %xmm0, %xmm0, %xmm0 ;INTEL
 ; AVX512-NEXT:    vpbroadcastd {{.*#+}} zmm1 = [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3] ;INTEL
 ; AVX512-NEXT:    vpxor   %xmm2, %xmm2, %xmm2 ;INTEL
@@ -1730,6 +1731,14 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX512-NEXT:    vpgatherdd c+28(,%zmm0), %zmm1 {%k1} ;INTEL
 ; AVX512-NEXT:    vpaddd %ymm1, %ymm1, %ymm0 ;INTEL
 ; AVX512-NEXT:    vpaddd %ymm0, %ymm2, %ymm0 ;INTEL
+=======
+; AVX512-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512-NEXT:    kmovw %k1, %k2
+; AVX512-NEXT:    vpgatherdd c+12(,%zmm0), %zmm1 {%k2}
+; AVX512-NEXT:    vpgatherdd c+28(,%zmm0), %zmm2 {%k1}
+; AVX512-NEXT:    vpaddd %ymm2, %ymm2, %ymm0
+; AVX512-NEXT:    vpaddd %ymm0, %ymm1, %ymm0
+>>>>>>> 944cc5e0ab5c1323e6cd9c3a72e8de89bd8a67b0
 ; AVX512-NEXT:    retq
   %1 = insertelement <8 x %struct.a*> undef, %struct.a* @c, i32 0
   %2 = shufflevector <8 x %struct.a*> %1, <8 x %struct.a*> undef, <8 x i32> zeroinitializer
