@@ -114,7 +114,7 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
   if (Ty->isPointerTy())
     return true;
 
-  if (Ty->isVectorTy() && Ty->getVectorElementType()->isPointerTy())
+  if (Ty->isVectorTy() && cast<VectorType>(Ty)->getElementType()->isPointerTy())
     return true;
 
   if (Ty->isArrayTy())
@@ -2395,7 +2395,8 @@ bool PtrTypeAnalyzer::isPossiblePtrValue(Value *V) const {
     return true;
 
   // A vector of pointers should be analyzed to track the pointer type.
-  if (ValueTy->isVectorTy() && ValueTy->getVectorElementType()->isPointerTy())
+  if (ValueTy->isVectorTy() &&
+      cast<VectorType>(ValueTy)->getElementType()->isPointerTy())
     return true;
 
   // If the value is not a pointer and is not a pointer-sized integer, it
