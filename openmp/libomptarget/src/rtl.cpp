@@ -314,7 +314,6 @@ void RTLsTy::LoadRTLs() {
               dlsym(dynlib_handle, "__tgt_rtl_is_managed_ptr")))
       DP("Optional interface: __tgt_rtl_is_managed_ptr\n");
 #endif // INTEL_COLLAB
-      continue;
 
     // Optional functions
     *((void **)&R.init_requires) =
