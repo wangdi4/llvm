@@ -1188,6 +1188,7 @@ public:
   QualType RebuildPipeType(QualType ValueType, SourceLocation KWLoc,
                            bool isReadPipe);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Build a new channel type given its value type.
   QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
@@ -1206,6 +1207,8 @@ public:
   QualType RebuildDependentExtIntType(bool IsUnsigned, Expr *NumBitsExpr,
                                       SourceLocation Loc);
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   /// Build a new template name given a nested name specifier, a flag
   /// indicating whether the "template" keyword was provided, and the template
   /// that the template name refers to.
@@ -6173,6 +6176,7 @@ QualType TreeTransform<Derived>::TransformPipeType(TypeLocBuilder &TLB,
   return Result;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
 QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
@@ -6307,6 +6311,8 @@ QualType TreeTransform<Derived>::TransformDependentExtIntType(
   return Result;
 }
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   /// Simple iterator that traverses the template arguments in a
   /// container that provides a \c getArgLoc() member function.
   ///
@@ -14016,6 +14022,7 @@ QualType TreeTransform<Derived>::RebuildPipeType(QualType ValueType,
                     : SemaRef.BuildWritePipeType(ValueType, KWLoc);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
 QualType TreeTransform<Derived>::RebuildChannelType(QualType ValueType,
@@ -14057,6 +14064,8 @@ QualType TreeTransform<Derived>::RebuildDependentExtIntType(
   return SemaRef.BuildExtIntType(IsUnsigned, NumBitsExpr, Loc);
 }
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 template<typename Derived>
 TemplateName
 TreeTransform<Derived>::RebuildTemplateName(CXXScopeSpec &SS,

@@ -319,39 +319,6 @@ VectorType::VectorType(TypeClass tc, QualType vecType, unsigned nElements,
   VectorTypeBits.NumElements = nElements;
 }
 
-ExtIntType::ExtIntType(bool IsUnsigned, unsigned NumBits)
-    : Type(ExtInt, QualType{}, TypeDependence::None), IsUnsigned(IsUnsigned),
-      NumBits(NumBits) {}
-
-DependentExtIntType::DependentExtIntType(const ASTContext &Context,
-                                         bool IsUnsigned, Expr *NumBitsExpr)
-    : Type(DependentExtInt, QualType{},
-           ((NumBitsExpr->isValueDependent() || NumBitsExpr->isTypeDependent())
-                ? TypeDependence::Dependent
-                : TypeDependence::None) |
-               (NumBitsExpr->isInstantiationDependent()
-                    ? TypeDependence::Instantiation
-                    : TypeDependence::None) |
-               (NumBitsExpr->containsUnexpandedParameterPack()
-                    ? TypeDependence::VariablyModified
-                    : TypeDependence::None)),
-      Context(Context), ExprAndUnsigned(NumBitsExpr, IsUnsigned) {}
-
-bool DependentExtIntType::isUnsigned() const {
-  return ExprAndUnsigned.getInt();
-}
-
-clang::Expr *DependentExtIntType::getNumBitsExpr() const {
-  return ExprAndUnsigned.getPointer();
-}
-
-void DependentExtIntType::Profile(llvm::FoldingSetNodeID &ID,
-                                  const ASTContext &Context, bool IsUnsigned,
-                                  Expr *NumBitsExpr) {
-  ID.AddBoolean(IsUnsigned);
-  NumBitsExpr->Profile(ID, Context, true);
-}
-
 /// getArrayElementTypeNoTypeQual - If this is an array type, return the
 /// element type of the array, potentially with type qualifiers missing.
 /// This method should never be used when type qualifiers are meaningful.
@@ -1895,17 +1862,22 @@ bool Type::isIntegralType(const ASTContext &Ctx) const {
     if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete();
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif // INTEL_CUSTOMIZATION
   return isExtIntType();
+=======
+  return false;
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 }
 
 bool Type::isIntegralOrUnscopedEnumerationType() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
            BT->getKind() <= BuiltinType::Int128;
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
@@ -1915,6 +1887,8 @@ bool Type::isIntegralOrUnscopedEnumerationType() const {
   if (isExtIntType())
     return true;
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return isUnscopedEnumerationType();
 }
 
@@ -1995,6 +1969,7 @@ bool Type::isSignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isSignedIntegerType();
@@ -2003,6 +1978,8 @@ bool Type::isSignedIntegerType() const {
   if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
     return IT->isSigned();
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 
@@ -2017,6 +1994,7 @@ bool Type::isSignedIntegerOrEnumerationType() const {
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isSignedIntegerOrEnumerationType();
@@ -2026,6 +2004,8 @@ bool Type::isSignedIntegerOrEnumerationType() const {
     return IT->isSigned();
 
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 
@@ -2052,6 +2032,7 @@ bool Type::isUnsignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isUnsignedIntegerType();
@@ -2060,6 +2041,8 @@ bool Type::isUnsignedIntegerType() const {
   if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
     return IT->isUnsigned();
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 
@@ -2074,6 +2057,7 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
     return AP->getUnderlyingType()->isUnsignedIntegerOrEnumerationType();
@@ -2082,6 +2066,8 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
   if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
     return IT->isUnsigned();
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   return false;
 }
 
@@ -2129,7 +2115,7 @@ bool Type::isRealType() const {
            BT->getKind() <= BuiltinType::Float128;
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
-  return isExtIntType();
+  return false;
 }
 
 bool Type::isArithmeticType() const {
@@ -2148,7 +2134,7 @@ bool Type::isArithmeticType() const {
     // false for scoped enumerations since that will disable any
     // unwanted implicit conversions.
     return !ET->getDecl()->isScoped() && ET->getDecl()->isComplete();
-  return isa<ComplexType>(CanonicalType) || isExtIntType();
+  return isa<ComplexType>(CanonicalType);
 }
 
 Type::ScalarTypeKind Type::getScalarTypeKind() const {
@@ -2181,8 +2167,6 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
     if (CT->getElementType()->isRealFloatingType())
       return STK_FloatingComplex;
     return STK_IntegralComplex;
-  } else if (isExtIntType()) {
-    return STK_Integral;
   }
 
   llvm_unreachable("unknown scalar type");
@@ -2352,7 +2336,6 @@ bool QualType::isCXX98PODType(const ASTContext &Context) const {
   case Type::MemberPointer:
   case Type::Vector:
   case Type::ExtVector:
-  case Type::ExtInt:
     return true;
 
   case Type::Enum:
@@ -3788,7 +3771,6 @@ static CachedProperties computeCachedProperties(const Type *T) {
     // here in error recovery.
     return CachedProperties(ExternalLinkage, false);
 
-  case Type::ExtInt:
   case Type::Builtin:
     // C++ [basic.link]p8:
     //   A type is said to have linkage if and only if:
@@ -3892,7 +3874,6 @@ LinkageInfo LinkageComputer::computeTypeLinkageInfo(const Type *T) {
     assert(T->isInstantiationDependentType());
     return LinkageInfo::external();
 
-  case Type::ExtInt:
   case Type::Builtin:
     return LinkageInfo::external();
 
@@ -4113,8 +4094,6 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
   case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
-  case Type::ExtInt:
-  case Type::DependentExtInt:
     return false;
   }
   llvm_unreachable("bad type kind!");

@@ -2116,7 +2116,6 @@ public:
   bool isArbPrecIntType() const;                // Arbitrary Precision Int type
 #endif // INTEL_CUSTOMIZATION
   bool isPipeType() const;                      // OpenCL pipe type
-  bool isExtIntType() const;                    // Extended Int Type
   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
 
   /// Determines if this type, which must satisfy
@@ -6142,6 +6141,7 @@ public:
   bool isReadOnly() const { return isRead; }
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// ChannelType - Intel OpenCL FPGA extension.
 class ChannelType : public Type, public llvm::FoldingSetNode {
@@ -6303,6 +6303,8 @@ public:
   }
 };
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 /// A qualifier set is used to build a set of qualifiers.
 class QualifierCollector : public Qualifiers {
 public:
@@ -6822,10 +6824,6 @@ inline bool Type::isPipeType() const {
   return isa<PipeType>(CanonicalType);
 }
 
-inline bool Type::isExtIntType() const {
-  return isa<ExtIntType>(CanonicalType);
-}
-
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   inline bool Type::is##Id##Type() const { \
     return isSpecificBuiltinType(BuiltinType::Id); \
@@ -6931,6 +6929,7 @@ inline bool Type::isIntegerType() const {
     return IsEnumDeclComplete(ET->getDecl()) &&
       !IsEnumDeclScoped(ET->getDecl());
   }
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
@@ -6938,6 +6937,9 @@ inline bool Type::isIntegerType() const {
 #endif // INTEL_CUSTOMIZATION
 
   return isExtIntType();
+=======
+  return false;
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 }
 
 inline bool Type::isFixedPointType() const {
@@ -6994,9 +6996,13 @@ inline bool Type::isScalarType() const {
          isa<BlockPointerType>(CanonicalType) ||
          isa<MemberPointerType>(CanonicalType) ||
          isa<ComplexType>(CanonicalType) ||
+<<<<<<< HEAD
          isa<ArbPrecIntType>(CanonicalType) || // INTEL
          isa<ObjCObjectPointerType>(CanonicalType) ||
          isExtIntType();
+=======
+         isa<ObjCObjectPointerType>(CanonicalType);
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 }
 
 inline bool Type::isIntegralOrEnumerationType() const {
@@ -7009,12 +7015,16 @@ inline bool Type::isIntegralOrEnumerationType() const {
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     return IsEnumDeclComplete(ET->getDecl());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
   return isExtIntType();
+=======
+  return false;
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 }
 
 inline bool Type::isBooleanType() const {

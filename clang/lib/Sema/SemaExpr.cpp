@@ -1504,11 +1504,6 @@ QualType Sema::UsualArithmeticConversions(ExprResult &LHS, ExprResult &RHS,
   if (LHSType == RHSType)
     return LHSType;
 
-  // ExtInt types aren't subject to conversions between them or normal integers,
-  // so this fails. 
-  if(LHSType->isExtIntType() || RHSType->isExtIntType())
-    return QualType();
-
   // At this point, we have two different arithmetic types.
 
   // Diagnose attempts to convert between __float128 and long double where
@@ -4306,7 +4301,6 @@ static void captureVariablyModifiedType(ASTContext &Context, QualType T,
     case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
-    case Type::ExtInt:
       llvm_unreachable("type class is never variably-modified!");
     case Type::Adjusted:
       T = cast<AdjustedType>(Ty)->getOriginalType();
@@ -10830,19 +10824,14 @@ static void DiagnoseBadShiftValues(Sema& S, ExprResult &LHS, ExprResult &RHS,
                             << RHS.get()->getSourceRange());
     return;
   }
-
-  QualType LHSExprType = LHS.get()->getType();
-  uint64_t LeftSize = LHSExprType->isExtIntType()
-                          ? S.Context.getIntWidth(LHSExprType)
-                          : S.Context.getTypeSize(LHSExprType);
-  llvm::APInt LeftBits(Right.getBitWidth(), LeftSize);
+  llvm::APInt LeftBits(Right.getBitWidth(),
+                       S.Context.getTypeSize(LHS.get()->getType()));
   if (Right.uge(LeftBits)) {
     S.DiagRuntimeBehavior(Loc, RHS.get(),
                           S.PDiag(diag::warn_shift_gt_typewidth)
                             << RHS.get()->getSourceRange());
     return;
   }
-
   if (Opc != BO_Shl)
     return;
 

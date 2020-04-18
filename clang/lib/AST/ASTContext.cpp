@@ -2221,15 +2221,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     Align = toBits(Layout.getAlignment());
     break;
   }
-  case Type::ExtInt: {
-    const auto *EIT = cast<ExtIntType>(T);
-    Align =
-        std::min(static_cast<unsigned>(std::max(
-                     getCharWidth(), llvm::PowerOf2Ceil(EIT->getNumBits()))),
-                 Target->getLongLongAlign());
-    Width = llvm::alignTo(EIT->getNumBits(), Align);
-    break;
-  }
   case Type::Record:
   case Type::Enum: {
     const auto *TT = cast<TagType>(T);
@@ -3442,8 +3433,6 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::Auto:
   case Type::DeducedTemplateSpecialization:
   case Type::PackExpansion:
-  case Type::ExtInt:
-  case Type::DependentExtInt:
     llvm_unreachable("type should never be variably-modified");
 
   // These types can be variably-modified but should never need to
@@ -4143,6 +4132,7 @@ QualType ASTContext::getWritePipeType(QualType T) const {
   return getPipeType(T, false);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Return channel type for the specified type.
 QualType ASTContext::getChannelType(QualType T) const {
@@ -4268,6 +4258,8 @@ QualType ASTContext::getDependentExtIntType(bool IsUnsigned,
   return QualType(New, 0);
 }
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 #ifndef NDEBUG
 static bool NeedsInjectedClassNameType(const RecordDecl *D) {
   if (!isa<CXXRecordDecl>(D)) return false;
@@ -6108,11 +6100,6 @@ unsigned ASTContext::getIntegerRank(const Type *T) const {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Results in this 'losing' to any type of the same size, but winning if
-  // larger.
-  if (const auto *EIT = dyn_cast<ExtIntType>(T))
-    return 0 + (EIT->getNumBits() << 3);
-
   switch (cast<BuiltinType>(T)->getKind()) {
   default: llvm_unreachable("getIntegerRank(): not a built-in integer");
   case BuiltinType::Bool:
@@ -7502,7 +7489,6 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
   case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
-  case Type::ExtInt:
 #define ABSTRACT_TYPE(KIND, BASE)
 #define TYPE(KIND, BASE)
 #define DEPENDENT_TYPE(KIND, BASE) \
@@ -9645,21 +9631,6 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     assert(LHS != RHS &&
            "Equivalent pipe types should have already been handled!");
     return {};
-  case Type::ExtInt: {
-    // Merge two ext-int types, while trying to preserve typedef info.
-    bool LHSUnsigned  = LHS->castAs<ExtIntType>()->isUnsigned();
-    bool RHSUnsigned = RHS->castAs<ExtIntType>()->isUnsigned();
-    unsigned LHSBits = LHS->castAs<ExtIntType>()->getNumBits();
-    unsigned RHSBits = RHS->castAs<ExtIntType>()->getNumBits();
-
-    // Like unsigned/int, shouldn't have a type if they dont match.
-    if (LHSUnsigned != RHSUnsigned)
-      return {};
-
-    if (LHSBits != RHSBits)
-      return {};
-    return LHS;
-  }
   }
 
   llvm_unreachable("Invalid Type::Class!");
@@ -9800,8 +9771,6 @@ unsigned ASTContext::getIntWidth(QualType T) const {
     T = ET->getDecl()->getIntegerType();
   if (T->isBooleanType())
     return 1;
-  if(const auto *EIT = T->getAs<ExtIntType>())
-    return EIT->getNumBits();
   // For builtin types, just use the standard type sizing method
   return (unsigned)getTypeSize(T);
 }

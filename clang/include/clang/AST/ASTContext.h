@@ -224,6 +224,7 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<AtomicType> AtomicTypes;
   llvm::FoldingSet<AttributedType> AttributedTypes;
   mutable llvm::FoldingSet<PipeType> PipeTypes;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   mutable llvm::FoldingSet<ChannelType> ChannelTypes;
   mutable llvm::FoldingSet<ArbPrecIntType> ArbPrecIntTypes;
@@ -232,6 +233,8 @@ class ASTContext : public RefCountedBase<ASTContext> {
 #endif // INTEL_CUSTOMIZATION
   mutable llvm::FoldingSet<ExtIntType> ExtIntTypes;
   mutable llvm::FoldingSet<DependentExtIntType> DependentExtIntTypes;
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
@@ -1223,6 +1226,7 @@ public:
   /// Return a write_only pipe type for the specified type.
   QualType getWritePipeType(QualType T) const;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   QualType getChannelType(QualType T) const;
   QualType getArbPrecIntType(QualType Type, unsigned NumBits,
@@ -1239,6 +1243,8 @@ public:
   /// bit count.
   QualType getDependentExtIntType(bool Unsigned, Expr *BitsExpr) const;
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
   /// Gets the struct used to keep track of the extended descriptor for
   /// pointer to blocks.
   QualType getBlockDescriptorExtendedType() const;

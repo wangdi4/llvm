@@ -833,6 +833,7 @@ let Class = PipeType in {
     return ctx.getPipeType(elementType, isReadOnly);
   }]>;
 }
+<<<<<<< HEAD
 
 // INTEL_CUSTOMIZATION
 let Class = ChannelType in {
@@ -903,3 +904,5 @@ let Class = DependentExtIntType in {
     return ctx.getDependentExtIntType(isUnsigned, numBitsExpr);
   }]>;
 }
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec

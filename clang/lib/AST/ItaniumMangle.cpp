@@ -2104,8 +2104,6 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::MacroQualified:
-  case Type::ExtInt:
-  case Type::DependentExtInt:
     llvm_unreachable("type is illegal as a nested name specifier");
 
   case Type::SubstTemplateTypeParmPack:
@@ -3568,6 +3566,7 @@ void CXXNameMangler::mangleType(const PipeType *T) {
   Out << "8ocl_pipe";
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void CXXNameMangler::mangleType(const ChannelType *T) {
   // <type> ::= 11ocl_channel
@@ -3610,6 +3609,8 @@ void CXXNameMangler::mangleType(const DependentExtIntType *T) {
     Out << "i";
 }
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {
   //  <expr-primary> ::= L <type> <value number> E # integer literal

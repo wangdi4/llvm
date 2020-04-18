@@ -11353,9 +11353,6 @@ struct IntRange {
                         false/*NonNegative*/);
     }
 
-    if (const auto *EIT = dyn_cast<ExtIntType>(T))
-      return IntRange(EIT->getNumBits(), EIT->isUnsigned());
-
     const BuiltinType *BT = cast<BuiltinType>(T);
     assert(BT->isInteger());
 
@@ -11383,9 +11380,6 @@ struct IntRange {
       return IntRange(AP->getNumBits(),
                       AP->isUnsignedIntegerOrEnumerationType());
 #endif // INTEL_CUSTOMIZATION
-
-    if (const auto *EIT = dyn_cast<ExtIntType>(T))
-      return IntRange(EIT->getNumBits(), EIT->isUnsigned());
 
     const BuiltinType *BT = cast<BuiltinType>(T);
     assert(BT->isInteger());

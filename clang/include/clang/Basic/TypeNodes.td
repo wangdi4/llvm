@@ -109,5 +109,3 @@ def DependentSizedArbPrecIntType : TypeNode<Type>, AlwaysDependent;
 #endif // INTEL_CUSTOMIZATION
 def PipeType : TypeNode<Type>;
 def AtomicType : TypeNode<Type>;
-def ExtIntType : TypeNode<Type>;
-def DependentExtIntType : TypeNode<Type>, AlwaysDependent;

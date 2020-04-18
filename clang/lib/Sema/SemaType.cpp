@@ -35,7 +35,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace clang;
@@ -1481,15 +1480,6 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     }
     break;
   }
-  case DeclSpec::TST_extint: {
-    Result = S.BuildExtIntType(DS.getTypeSpecSign() == TSS_unsigned,
-                               DS.getRepAsExpr(), DS.getBeginLoc());
-    if (Result.isNull()) {
-      Result = Context.IntTy;
-      declarator.setInvalidType(true);
-    }
-    break;
-  }
   case DeclSpec::TST_accum: {
     switch (DS.getTypeSpecWidth()) {
       case DeclSpec::TSW_short:
@@ -2215,6 +2205,7 @@ QualType Sema::BuildWritePipeType(QualType T, SourceLocation Loc) {
   return Context.getWritePipeType(T);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Build a Channel type.
 ///
@@ -2318,6 +2309,8 @@ QualType Sema::BuildExtIntType(bool IsUnsigned, Expr *BitWidth,
   return Context.getExtIntType(IsUnsigned, NumBits);
 }
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
 /// Check whether the specified array size makes the array type a VLA.  If so,
 /// return true, if not, return the size of the array in SizeVal.
 static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
@@ -5971,6 +5964,7 @@ namespace {
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void VisitChannelTypeLoc(ChannelTypeLoc TL) {
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
@@ -5989,6 +5983,8 @@ namespace {
       TL.setNameLoc(DS.getTypeSpecTypeLoc());
     }
 
+=======
+>>>>>>> a4b88c044980337bb14390be654fe76864aa60ec
     void VisitTypeLoc(TypeLoc TL) {
       // FIXME: add other typespec types and change this to an assert.
       TL.initialize(Context, DS.getTypeSpecTypeLoc());
@@ -6114,9 +6110,6 @@ namespace {
     void VisitPipeTypeLoc(PipeTypeLoc TL) {
       assert(Chunk.Kind == DeclaratorChunk::Pipe);
       TL.setKWLoc(Chunk.Loc);
-    }
-    void VisitExtIntTypeLoc(ExtIntTypeLoc TL) {
-      TL.setNameLoc(Chunk.Loc);
     }
     void VisitMacroQualifiedTypeLoc(MacroQualifiedTypeLoc TL) {
       TL.setExpansionLoc(Chunk.Loc);
@@ -9009,12 +9002,6 @@ QualType Sema::BuildAtomicType(QualType T, SourceLocation Loc) {
     else if (!T.isTriviallyCopyableType(Context))
       // Some other non-trivially-copyable type (probably a C++ class)
       DisallowedKind = 7;
-    else if (auto *ExtTy = T->getAs<ExtIntType>()) {
-      if (ExtTy->getNumBits() < 8)
-        DisallowedKind = 8;
-      else if (!llvm::isPowerOf2_32(ExtTy->getNumBits()))
-        DisallowedKind = 9;
-    }
 
     if (DisallowedKind != -1) {
       Diag(Loc, diag::err_atomic_specifier_bad_type) << DisallowedKind << T;
