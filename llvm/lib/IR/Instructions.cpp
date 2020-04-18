@@ -346,7 +346,7 @@ bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
         Kind == Attribute::ReadNone || Kind == Attribute::ReadOnly ||
         Kind == Attribute::StructRet || Kind == Attribute::WriteOnly)
       if (Argument *CallbackArg =
-              AbstractCallSite::getCallbackArg(ImmutableCallSite(this), ArgNo))
+              AbstractCallSite::getCallbackArg(*this, ArgNo))
         return CallbackArg->hasAttribute(Kind);
   }
 #endif // INTEL_CUSTOMIZATION

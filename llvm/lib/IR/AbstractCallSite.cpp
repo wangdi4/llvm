@@ -54,10 +54,9 @@ void AbstractCallSite::getCallbackUses(const CallBase &CB,
 }
 
 #if INTEL_CUSTOMIZATION
-Argument *AbstractCallSite::getCallbackArg(ImmutableCallSite ICS,
-                                           unsigned ArgNo) {
+Argument *AbstractCallSite::getCallbackArg(const CallBase &CB, unsigned ArgNo) {
   SmallVector<const Use *, 4u> CallbackUses;
-  AbstractCallSite::getCallbackUses(ICS, CallbackUses);
+  AbstractCallSite::getCallbackUses(CB, CallbackUses);
   for (auto *U : CallbackUses) {
     AbstractCallSite ACS(U);
     assert(ACS && ACS.isCallbackCall() && "must be a callback call");

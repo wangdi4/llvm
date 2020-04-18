@@ -806,10 +806,10 @@ public:
                               SmallVectorImpl<const Use *> &CallbackUses);
 
 #if INTEL_CUSTOMIZATION
-  /// Return callback function argument for the \p ICS call argument \p ArgNo
-  /// if \p ICS is a callback call site which forwards this argument to the
+  /// Return callback function argument for the \p CB call argument \p ArgNo
+  /// if \p CB is a callback call site which forwards this argument to the
   /// callback function or null otherwise.
-  static Argument *getCallbackArg(ImmutableCallSite ICS, unsigned ArgNo);
+  static Argument *getCallbackArg(const CallBase &CB, unsigned ArgNo);
 #endif // INTEL_CUSTOMIZATION
 
   /// Conversion operator to conveniently check for a valid/initialized ACS.
@@ -848,17 +848,13 @@ public:
     assert(!CI.ParameterEncoding.empty() &&
            "Callback without parameter encoding!");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (auto *CE = dyn_cast<ConstantExpr>(U->getUser()))
       if (CE->getNumUses() == 1 && CE->isCast())
         U = &*CE->use_begin();
 #endif // INTEL_CUSTOMIZATION
 
-    return (int)CS.getArgumentNo(U) == CI.ParameterEncoding[0];
-=======
     return (int)CB->getArgOperandNo(U) == CI.ParameterEncoding[0];
->>>>>>> 798b262c3c9d4a8603dc6c6bbbe0a7ffb82eadbc
   }
 
   /// Return the number of parameters of the callee.
@@ -934,10 +930,10 @@ public:
 
 #if INTEL_CUSTOMIZATION
 /// Apply function Func to each Call's callback call site.
-template <typename CallType, typename UnaryFunction>
-void for_each_callback_callsite(CallType Call, UnaryFunction Func) {
+template <typename UnaryFunction>
+void for_each_callback_callsite(const CallBase &CB, UnaryFunction Func) {
   SmallVector<const Use *, 4u> CallbackUses;
-  AbstractCallSite::getCallbackUses(ImmutableCallSite(Call), CallbackUses);
+  AbstractCallSite::getCallbackUses(CB, CallbackUses);
   for (const Use *U : CallbackUses) {
     AbstractCallSite ACS(U);
     assert(ACS && ACS.isCallbackCall() && "must be a callback call");

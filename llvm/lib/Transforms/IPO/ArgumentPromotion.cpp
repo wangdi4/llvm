@@ -254,7 +254,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 #if INTEL_CUSTOMIZATION
     AbstractCallSite ACS(&*F->use_begin());
     assert(ACS.getCalledFunction() == F);
-    CallSite CS = ACS.getCallSite();
+    CallSite CS = CallSite(ACS.getInstruction());
 #endif // INTEL_CUSTOMIZATION
     Instruction *Call = CS.getInstruction();
     const AttributeList &CallPAL = CS.getAttributes();
@@ -997,7 +997,7 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     AbstractCallSite CS(&U); // INTEL
     if (!CS)
       return false;
-    const Function *Caller = CS.getCallSite().getCaller(); // INTEL
+    const Function *Caller = CS.getInstruction()->getCaller(); // INTEL
     const Function *Callee = CS.getCalledFunction();
     if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
         !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
@@ -1061,7 +1061,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     if (CS.isDirectCall()) {
       // Can't change signature of musttail callee
-      if (CS.getCallSite().isMustTailCall())
+      if (CS.getInstruction()->isMustTailCall())
         return nullptr;
 
       if (CS.getInstruction()->getParent()->getParent() == F)
@@ -1117,7 +1117,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
             // And it should be passed to the broker as a vararg argument.
             // Otherwise we would need to change broker function signature.
-            Function *Broker = ACS.getCallSite().getCalledFunction();
+            Function *Broker = ACS.getInstruction()->getCalledFunction();
             assert(Broker && "Expecting broker function");
             if (!Broker->isVarArg() ||
                 static_cast<unsigned>(ArgNo) < Broker->arg_size())

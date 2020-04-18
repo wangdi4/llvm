@@ -1244,10 +1244,14 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
   HandleArgs(CS, [&CS](Argument &A) { return CS.getArgOperand(A.getArgNo()); });
 
   // Then do the same for the callback call sites if enabled.
-  if (EnableCallbacks)
-    for_each_callback_callsite(CS, [&HandleArgs](AbstractCallSite &ACS) {
-      HandleArgs(ACS, [&ACS](Argument &A) { return ACS.getCallArgOperand(A); });
-    });
+  if (EnableCallbacks) {
+    for_each_callback_callsite(cast<CallBase>(*CS.getInstruction()),
+                               [&HandleArgs](AbstractCallSite &ACS) {
+                                 HandleArgs(ACS, [&ACS](Argument &A) {
+                                   return ACS.getCallArgOperand(A);
+                                 });
+                               });
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 

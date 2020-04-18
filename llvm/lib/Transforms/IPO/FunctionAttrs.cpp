@@ -525,7 +525,7 @@ determinePointerReadAttrs(Argument *A,
 
 #if INTEL_CUSTOMIZATION
       if (UseIndex >= F->arg_size() && !IsOperandBundleUse &&
-          !AbstractCallSite::getCallbackArg(ImmutableCallSite(I), UseIndex)) {
+          !AbstractCallSite::getCallbackArg(cast<CallBase>(*I), UseIndex)) {
 #endif // INTEL_CUSTOMIZATION
         assert(F->isVarArg() && "More params than args in non-varargs call");
         return Attribute::None;
