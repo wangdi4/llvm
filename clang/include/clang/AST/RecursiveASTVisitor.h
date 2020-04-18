@@ -1128,6 +1128,10 @@ DEF_TRAVERSE_TYPE(DependentSizedArbPrecIntType, {
 
 DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
 
+DEF_TRAVERSE_TYPE(ExtIntType, {})
+DEF_TRAVERSE_TYPE(DependentExtIntType,
+                  { TRY_TO(TraverseStmt(T->getNumBitsExpr())); })
+
 #undef DEF_TRAVERSE_TYPE
 
 // ----------------- TypeLoc traversal -----------------
@@ -1411,6 +1415,11 @@ DEF_TRAVERSE_TYPELOC(DependentSizedArbPrecIntType, {
 #endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+
+DEF_TRAVERSE_TYPELOC(ExtIntType, {})
+DEF_TRAVERSE_TYPELOC(DependentExtIntType, {
+  TRY_TO(TraverseStmt(TL.getTypePtr()->getNumBitsExpr()));
+})
 
 #undef DEF_TRAVERSE_TYPELOC
 

@@ -489,6 +489,14 @@ void TypeLocWriter::VisitDependentSizedArbPrecIntTypeLoc(
 }
 #endif // INTEL_CUSTOMIZATION
 
+void TypeLocWriter::VisitExtIntTypeLoc(clang::ExtIntTypeLoc TL) {
+  Record.AddSourceLocation(TL.getNameLoc());
+}
+void TypeLocWriter::VisitDependentExtIntTypeLoc(
+    clang::DependentExtIntTypeLoc TL) {
+  Record.AddSourceLocation(TL.getNameLoc());
+}
+
 void ASTWriter::WriteTypeAbbrevs() {
   using namespace llvm;
 

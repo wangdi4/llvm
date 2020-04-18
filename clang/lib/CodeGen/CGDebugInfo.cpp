@@ -844,6 +844,17 @@ llvm::DIType *CGDebugInfo::CreateType(const AutoType *Ty) {
   return DBuilder.createUnspecifiedType("auto");
 }
 
+llvm::DIType *CGDebugInfo::CreateType(const ExtIntType *Ty) {
+
+  StringRef Name = Ty->isUnsigned() ? "unsigned _ExtInt" : "_ExtInt";
+  llvm::dwarf::TypeKind Encoding = Ty->isUnsigned()
+                                       ? llvm::dwarf::DW_ATE_unsigned
+                                       : llvm::dwarf::DW_ATE_signed;
+
+  return DBuilder.createBasicType(Name, CGM.getContext().getTypeSize(Ty),
+                                  Encoding);
+}
+
 llvm::DIType *CGDebugInfo::CreateType(const ComplexType *Ty) {
   // Bit size and offset of the type.
   llvm::dwarf::TypeKind Encoding = llvm::dwarf::DW_ATE_complex_float;
@@ -3231,6 +3242,7 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
   case Type::Atomic:
     return CreateType(cast<AtomicType>(Ty), Unit);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     return CreateType(cast<ChannelType>(Ty), Unit);
@@ -3238,6 +3250,10 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
     return CreateType(cast<ArbPrecIntType>(Ty), Unit);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+  case Type::ExtInt:
+    return CreateType(cast<ExtIntType>(Ty));
+>>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
   case Type::Pipe:
     return CreateType(cast<PipeType>(Ty), Unit);
 
