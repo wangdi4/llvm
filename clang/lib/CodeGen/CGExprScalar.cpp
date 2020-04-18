@@ -760,21 +760,16 @@ public:
                                                   llvm::Value *Zero,bool isDiv);
   // Common helper for getting how wide LHS of shift is.
   static Value *GetWidthMinusOneValue(Value* LHS,Value* RHS);
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   // Used for OpenCL/IntelCOmpat modes, will constrain the RHS of a shift to
   // avoid poisonable shift-results (shifting greater-than the bitcount of the
   // LHS).
-  Value *ConstrainShiftValue(QualType OpTy, Value *LHS, Value *RHS,
-                             const Twine &Name);
 #endif // INTEL_CUSTOMIZATION
-=======
-
   // Used for shifting constraints for OpenCL, do mask for powers of 2, URem for
   // non powers of two.
   Value *ConstrainShiftValue(Value *LHS, Value *RHS, const Twine &Name);
 
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
   Value *EmitDiv(const BinOpInfo &Ops);
   Value *EmitRem(const BinOpInfo &Ops);
   Value *EmitAdd(const BinOpInfo &Ops);
@@ -3891,36 +3886,20 @@ Value *ScalarExprEmitter::GetWidthMinusOneValue(Value* LHS,Value* RHS) {
   return llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth() - 1);
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-Value *ScalarExprEmitter::ConstrainShiftValue(QualType OpTy, Value *LHS,
-                                              Value *RHS, const Twine &Name) {
-  llvm::IntegerType *Ty;
-  if (const auto *VT = dyn_cast<llvm::VectorType>(LHS->getType()))
-=======
 Value *ScalarExprEmitter::ConstrainShiftValue(Value *LHS, Value *RHS,
                                               const Twine &Name) {
   llvm::IntegerType *Ty;
   if (auto *VT = dyn_cast<llvm::VectorType>(LHS->getType()))
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
     Ty = cast<llvm::IntegerType>(VT->getElementType());
   else
     Ty = cast<llvm::IntegerType>(LHS->getType());
 
   if (llvm::isPowerOf2_64(Ty->getBitWidth()))
-<<<<<<< HEAD
-    return Builder.CreateAnd(RHS, GetWidthMinusOneValue(LHS, RHS), Name);
-=======
         return Builder.CreateAnd(RHS, GetWidthMinusOneValue(LHS, RHS), Name);
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 
   return Builder.CreateURem(
       RHS, llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth()), Name);
 }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 
 Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
@@ -3936,14 +3915,10 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   bool SanitizeExponent = CGF.SanOpts.has(SanitizerKind::ShiftExponent);
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // FIXME: Fix the sanitizer code in the else-if below to use similar logic.
-    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shl.mask");
 #endif // INTEL_CUSTOMIZATION
-=======
     RHS = ConstrainShiftValue(Ops.LHS, RHS, "shl.mask");
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
   else if ((SanitizeBase || SanitizeExponent) &&
            isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
@@ -4005,14 +3980,10 @@ Value *ScalarExprEmitter::EmitShr(const BinOpInfo &Ops) {
 
   // OpenCL 6.3j: shift values are effectively % word size of LHS.
   if (CGF.getLangOpts().OpenCL)
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // FIXME: Fix the sanitizer code in the else-if below to use similar logic.
-    RHS = ConstrainShiftValue(Ops.Ty, Ops.LHS, RHS, "shr.mask");
 #endif // INTEL_CUSTOMIZATION
-=======
     RHS = ConstrainShiftValue(Ops.LHS, RHS, "shr.mask");
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
   else if (CGF.SanOpts.has(SanitizerKind::ShiftExponent) &&
            isa<llvm::IntegerType>(Ops.LHS->getType())) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);

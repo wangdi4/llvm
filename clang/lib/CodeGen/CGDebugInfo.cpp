@@ -3242,7 +3242,6 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
   case Type::Atomic:
     return CreateType(cast<AtomicType>(Ty), Unit);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     return CreateType(cast<ChannelType>(Ty), Unit);
@@ -3250,10 +3249,8 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
     return CreateType(cast<ArbPrecIntType>(Ty), Unit);
 #endif // INTEL_CUSTOMIZATION
 
-=======
   case Type::ExtInt:
     return CreateType(cast<ExtIntType>(Ty));
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
   case Type::Pipe:
     return CreateType(cast<PipeType>(Ty), Unit);
 

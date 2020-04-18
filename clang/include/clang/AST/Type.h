@@ -6142,7 +6142,6 @@ public:
   bool isReadOnly() const { return isRead; }
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// ChannelType - Intel OpenCL FPGA extension.
 class ChannelType : public Type, public llvm::FoldingSetNode {
@@ -6195,27 +6194,11 @@ public:
   QualType getUnderlyingType() const { return UnderlyingType; }
   unsigned getNumBits() const { return NumBits; }
   SourceLocation getAttributeLoc() const { return Loc; }
-=======
-/// A fixed int type of a specified bitwidth.
-class ExtIntType final : public Type, public llvm::FoldingSetNode {
-  friend class ASTContext;
-  unsigned IsUnsigned : 1;
-  unsigned NumBits : 24;
-
-protected:
-  ExtIntType(bool isUnsigned, unsigned NumBits);
-
-public:
-  bool isUnsigned() const { return IsUnsigned; }
-  bool isSigned() const { return !IsUnsigned; }
-  unsigned getNumBits() const { return NumBits; }
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 
   bool isSugared() const { return false; }
   QualType desugar() const { return QualType(this, 0); }
 
   void Profile(llvm::FoldingSetNodeID &ID) {
-<<<<<<< HEAD
     Profile(ID, getUnderlyingType(), getNumBits());
   }
 
@@ -6245,7 +6228,41 @@ public:
   QualType getUnderlyingType() const { return UnderlyingType; }
   Expr *getNumBitsExpr() const { return NumBitsExpr; }
   SourceLocation getAttributeLoc() const { return Loc; }
-=======
+
+  bool isSugared() const { return false; }
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, Context, getUnderlyingType(), getNumBitsExpr());
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
+                      QualType UnderlyingType, Expr *NumBitsExpr);
+
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == DependentSizedArbPrecInt;
+  }
+};
+#endif // INTEL_CUSTOMIZATION
+
+/// A fixed int type of a specified bitwidth.
+class ExtIntType final : public Type, public llvm::FoldingSetNode {
+  friend class ASTContext;
+  unsigned IsUnsigned : 1;
+  unsigned NumBits : 24;
+
+protected:
+  ExtIntType(bool isUnsigned, unsigned NumBits);
+
+public:
+  bool isUnsigned() const { return IsUnsigned; }
+  bool isSigned() const { return !IsUnsigned; }
+  unsigned getNumBits() const { return NumBits; }
+
+  bool isSugared() const { return false; }
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
     Profile(ID, isUnsigned(), getNumBits());
   }
 
@@ -6271,25 +6288,11 @@ public:
   bool isUnsigned() const;
   bool isSigned() const { return !isUnsigned(); }
   Expr *getNumBitsExpr() const;
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 
   bool isSugared() const { return false; }
   QualType desugar() const { return QualType(this, 0); }
 
   void Profile(llvm::FoldingSetNodeID &ID) {
-<<<<<<< HEAD
-    Profile(ID, Context, getUnderlyingType(), getNumBitsExpr());
-  }
-
-  static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
-                      QualType UnderlyingType, Expr *NumBitsExpr);
-
-  static bool classof(const Type *T) {
-    return T->getTypeClass() == DependentSizedArbPrecInt;
-  }
-};
-#endif // INTEL_CUSTOMIZATION
-=======
     Profile(ID, Context, isUnsigned(), getNumBitsExpr());
   }
   static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
@@ -6299,7 +6302,6 @@ public:
     return T->getTypeClass() == DependentExtInt;
   }
 };
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 
 /// A qualifier set is used to build a set of qualifiers.
 class QualifierCollector : public Qualifiers {
@@ -6929,17 +6931,13 @@ inline bool Type::isIntegerType() const {
     return IsEnumDeclComplete(ET->getDecl()) &&
       !IsEnumDeclScoped(ET->getDecl());
   }
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
-  return false;
-=======
   return isExtIntType();
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 }
 
 inline bool Type::isFixedPointType() const {
@@ -6996,13 +6994,9 @@ inline bool Type::isScalarType() const {
          isa<BlockPointerType>(CanonicalType) ||
          isa<MemberPointerType>(CanonicalType) ||
          isa<ComplexType>(CanonicalType) ||
-<<<<<<< HEAD
          isa<ArbPrecIntType>(CanonicalType) || // INTEL
-         isa<ObjCObjectPointerType>(CanonicalType);
-=======
          isa<ObjCObjectPointerType>(CanonicalType) ||
          isExtIntType();
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 }
 
 inline bool Type::isIntegralOrEnumerationType() const {
@@ -7015,16 +7009,12 @@ inline bool Type::isIntegralOrEnumerationType() const {
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     return IsEnumDeclComplete(ET->getDecl());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
-  return false;
-=======
   return isExtIntType();
->>>>>>> 61ba1481e200b5b35baa81ffcff81acb678e8508
 }
 
 inline bool Type::isBooleanType() const {
