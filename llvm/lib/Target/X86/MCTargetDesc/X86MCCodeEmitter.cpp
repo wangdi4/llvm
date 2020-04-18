@@ -1575,7 +1575,7 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     emitByte(BaseOpcode, CurByte, OS);
     unsigned SrcRegNum = CurOp + X86::AddrNumOperands;
     emitMemModRMByte(MI, CurOp, getX86RegNum(MI.getOperand(SrcRegNum)), TSFlags,
-                     Rex, CurByte, OS, Fixups, STI, true);
+                     HasREX, CurByte, OS, Fixups, STI, true);
     CurOp = SrcRegNum + 2; // skip VEX_V4
     break;
   }
@@ -1594,12 +1594,8 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
 #if INTEL_CUSTOMIZATION
     bool BFSIB = (Form == X86II::MRMDestMemFSIB);
     emitMemModRMByte(MI, CurOp, getX86RegNum(MI.getOperand(SrcRegNum)), TSFlags,
-<<<<<<< HEAD
-                     Rex, CurByte, OS, Fixups, STI, BFSIB);
+                     HasREX, CurByte, OS, Fixups, STI, BFSIB);
 #endif // INTEL_CUSTOMIZATION
-=======
-                     HasREX, CurByte, OS, Fixups, STI);
->>>>>>> 3017580c7961397f96e9481abf82bbf874bb2633
     CurOp = SrcRegNum + 1;
     break;
   }
@@ -1675,12 +1671,8 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
 #if INTEL_CUSTOMIZATION
     bool BFSIB = (Form == X86II::MRMSrcMemFSIB);
     emitMemModRMByte(MI, FirstMemOp, getX86RegNum(MI.getOperand(CurOp)),
-<<<<<<< HEAD
-                     TSFlags, Rex, CurByte, OS, Fixups, STI, BFSIB);
+                     TSFlags, HasREX, CurByte, OS, Fixups, STI, BFSIB);
 #endif // INTEL_CUSTOMIZATION
-=======
-                     TSFlags, HasREX, CurByte, OS, Fixups, STI);
->>>>>>> 3017580c7961397f96e9481abf82bbf874bb2633
     CurOp = FirstMemOp + X86::AddrNumOperands;
     if (HasVEX_I8Reg)
       I8RegNum = getX86RegEncoding(MI, CurOp++);
@@ -1695,12 +1687,8 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
 #if INTEL_CUSTOMIZATION
     bool BFSIB = (Form == X86II::MRMSrcMem4VOp3FSIB);
     emitMemModRMByte(MI, FirstMemOp, getX86RegNum(MI.getOperand(CurOp)),
-<<<<<<< HEAD
-                     TSFlags, Rex, CurByte, OS, Fixups, STI, BFSIB);
+                     TSFlags, HasREX, CurByte, OS, Fixups, STI, BFSIB);
 #endif // INTEL_CUSTOMIZATION
-=======
-                     TSFlags, HasREX, CurByte, OS, Fixups, STI);
->>>>>>> 3017580c7961397f96e9481abf82bbf874bb2633
     CurOp = FirstMemOp + X86::AddrNumOperands;
     ++CurOp; // Encoded in VEX.VVVV.
     break;
