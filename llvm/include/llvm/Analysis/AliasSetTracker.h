@@ -185,6 +185,10 @@ class AliasSet : public ilist_node<AliasSet> {
   };
   unsigned Alias : 1;
 
+#ifdef INTEL_CUSTOMIZATION
+  const bool RequiresLoopCarried = false;
+#endif // INTEL_CUSTOMIZATION
+
   unsigned SetSize = 0;
 
   void addRef() { ++RefCount; }
@@ -273,6 +277,22 @@ private:
   AliasSet()
       : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false), Access(NoAccess),
         Alias(SetMustAlias) {}
+#ifdef INTEL_CUSTOMIZATION
+  // This constructor allows one to specify whether or not "loopCarriedAlias"
+  // disambiguation is will be used instead of the usual "alias"
+  // disambiguation.
+  AliasSet(bool WillRequireLoopCarried)
+      : PtrListEnd(&PtrList), RefCount(0), AliasAny(false), Access(NoAccess),
+        Alias(SetMustAlias), RequiresLoopCarried(WillRequireLoopCarried) {}
+
+  // This wraps all pairwise AA queries made by the AST and ensures that we use
+  // the expected type of disambiguation.
+  AliasResult queryAA(AliasAnalysis &AA, const MemoryLocation &LocA,
+                      const MemoryLocation &LocB) const {
+    return RequiresLoopCarried ? AA.loopCarriedAlias(LocA, LocB)
+                               : AA.alias(LocA, LocB);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   PointerRec *getSomePointer() const {
     return PtrList;
@@ -347,6 +367,9 @@ class AliasSetTracker {
   MemorySSA *MSSA = nullptr;
   Loop *L = nullptr;
   ilist<AliasSet> AliasSets;
+#ifdef INTEL_CUSTOMIZATION
+  const bool LoopCarriedDisam = false;
+#endif // INTEL_CUSTOMIZATION
 
   using PointerMapType = DenseMap<ASTCallbackVH, AliasSet::PointerRec *,
                                   ASTCallbackVHDenseMapInfo>;
@@ -361,6 +384,12 @@ public:
   explicit AliasSetTracker(AliasAnalysis &aa, MemorySSA *mssa, Loop *l)
       : AA(aa), MSSA(mssa), L(l) {}
   ~AliasSetTracker() { clear(); }
+#ifdef INTEL_CUSTOMIZATION
+  explicit AliasSetTracker(AliasAnalysis &aa, bool NeedsLoopCarried)
+      : AA(aa), LoopCarriedDisam(NeedsLoopCarried) {}
+  bool getLoopCarriedDisam() { return LoopCarriedDisam; }
+#endif // INTEL_CUSTOMIZATION
+
 
   /// These methods are used to add different types of instructions to the alias
   /// sets. Adding a new instruction can result in one of three actions
@@ -456,6 +485,59 @@ private:
 
   AliasSet *findAliasSetForUnknownInst(Instruction *Inst);
 };
+
+#ifdef INTEL_CUSTOMIZATION
+// This class is a simple wrapper for a normal AST, but it always uses
+// loopCarriedAlias for disambiguation.
+class LoopCarriedAliasSetTracker : public AliasSetTracker {
+public:
+  explicit LoopCarriedAliasSetTracker(AliasAnalysis &AA)
+      : AliasSetTracker(AA, true) {}
+};
+
+// This class wraps parallel ASTs; one with alias semantics, and one with
+// loopCarriedAlias semantics. The 'add' method accepts an additional parameter
+// which specifies whether or not we've encountered a pointer which requires
+// the stronger 'loopCarriedAlias' semantics for disambiguation. At any point,
+// the AliasSets available reflect the minimal required semantics.
+class HybridAliasSetTracker : private LoopCarriedAliasSetTracker {
+  // "AliasAST" is an AST using "alias" semantics, while the class instance
+  // is a LoopCarriedAliasSetTracker using "loopCarriedAlias" semantics.
+  AliasSetTracker AliasAST;
+  bool NeedLoopCarried = false;
+
+private:
+  AliasSetTracker &getAliasSetTracker() {
+    return NeedLoopCarried ? *this : AliasAST;
+  }
+
+public:
+  explicit HybridAliasSetTracker(AliasAnalysis &AA)
+      : LoopCarriedAliasSetTracker(AA), AliasAST(AA) {}
+  void add(Value *Ptr, LocationSize Size, const AAMDNodes &AAInfo,
+           bool LoopCarried = false) {
+    // If we're transitioning from the "alias" AST to the "loopCarriedAlias"
+    // AST, populate the latter with everything added to the former. This will
+    // happen at most once.
+    if (LoopCarried && !NeedLoopCarried) {
+      AliasSetTracker::add(AliasAST);
+      AliasAST.clear();
+      NeedLoopCarried = true;
+    }
+    // Choose the AST to add Ptr to according to our current state.
+    if (NeedLoopCarried)
+      AliasSetTracker::add(Ptr, Size, AAInfo);
+    else
+      AliasAST.add(Ptr, Size, AAInfo);
+  }
+  const ilist<AliasSet> &getAliasSets() {
+    return getAliasSetTracker().getAliasSets();
+  }
+
+  iterator begin() { return getAliasSetTracker().begin(); }
+  iterator end() { return getAliasSetTracker().end(); }
+};
+#endif // INTEL_CUSTOMIZATION
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSetTracker &AST) {
   AST.print(OS);
