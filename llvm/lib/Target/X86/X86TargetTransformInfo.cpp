@@ -926,7 +926,6 @@ int X86TTIImpl::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
   return BaseT::getArithmeticInstrCost(Opcode, Ty, Op1Info, Op2Info);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Currently, under target specific category we are only looking for
 /// alternate-lane shuffle mask such as, <0, 4, 2, 6>([v]unpck[l,h]pd) or
@@ -976,10 +975,7 @@ bool X86TTIImpl::isAggressiveVLSProfitable() const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
-=======
 int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *BaseTp, int Index,
->>>>>>> dd24fb388ba82fec4bf610b19e9cf3d1e3535a16
                                Type *SubTp) {
   auto *Tp = cast<VectorType>(BaseTp);
   // 64-bit packed float vectors (v2f32) are widened to type v4f32.
@@ -3768,12 +3764,8 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
 int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
                                 bool VariableMask, unsigned Alignment,
                                 unsigned AddressSpace) {
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-  unsigned VF = SrcVTy->getVectorNumElements();
-=======
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
->>>>>>> dd24fb388ba82fec4bf610b19e9cf3d1e3535a16
 
   int MaskUnpackCost = 0;
   if (VariableMask) {
