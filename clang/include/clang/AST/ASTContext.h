@@ -224,12 +224,17 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<AtomicType> AtomicTypes;
   llvm::FoldingSet<AttributedType> AttributedTypes;
   mutable llvm::FoldingSet<PipeType> PipeTypes;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   mutable llvm::FoldingSet<ChannelType> ChannelTypes;
   mutable llvm::FoldingSet<ArbPrecIntType> ArbPrecIntTypes;
   mutable llvm::FoldingSet<DependentSizedArbPrecIntType>
       DependentSizedArbPrecIntTypes;
 #endif // INTEL_CUSTOMIZATION
+=======
+  mutable llvm::FoldingSet<ExtIntType> ExtIntTypes;
+  mutable llvm::FoldingSet<DependentExtIntType> DependentExtIntTypes;
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
@@ -1221,6 +1226,7 @@ public:
   /// Return a write_only pipe type for the specified type.
   QualType getWritePipeType(QualType T) const;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   QualType getChannelType(QualType T) const;
   QualType getArbPrecIntType(QualType Type, unsigned NumBits,
@@ -1229,6 +1235,16 @@ public:
                                           Expr *BitsExpr,
                                           SourceLocation AttrLoc) const;
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Return an extended integer type with the specified signedness and bit
+  /// count.
+  QualType getExtIntType(bool Unsigned, unsigned NumBits) const;
+
+  /// Return a dependent extended integer type with the specified signedness and
+  /// bit count.
+  QualType getDependentExtIntType(bool Unsigned, Expr *BitsExpr) const;
+
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
   /// Gets the struct used to keep track of the extended descriptor for
   /// pointer to blocks.
   QualType getBlockDescriptorExtendedType() const;

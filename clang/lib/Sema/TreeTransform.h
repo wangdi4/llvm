@@ -1188,6 +1188,7 @@ public:
   QualType RebuildPipeType(QualType ValueType, SourceLocation KWLoc,
                            bool isReadPipe);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Build a new channel type given its value type.
   QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
@@ -1197,6 +1198,16 @@ public:
                                                Expr *NumBitsExpr,
                                                SourceLocation Loc);
 #endif // INTEL_CUSTOMIZATION
+=======
+   /// Build an extended int given its value type.
+  QualType RebuildExtIntType(bool IsUnsigned, unsigned NumBits,
+                             SourceLocation Loc);
+
+  /// Build a dependent extended int given its value type.
+  QualType RebuildDependentExtIntType(bool IsUnsigned, Expr *NumBitsExpr,
+                                      SourceLocation Loc);
+
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
   /// Build a new template name given a nested name specifier, a flag
   /// indicating whether the "template" keyword was provided, and the template
   /// that the template name refers to.
@@ -6164,6 +6175,7 @@ QualType TreeTransform<Derived>::TransformPipeType(TypeLocBuilder &TLB,
   return Result;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
 QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
@@ -6198,17 +6210,34 @@ QualType TreeTransform<Derived>::TransformArbPrecIntType(TypeLocBuilder &TLB,
       UnderlyingType != T->getUnderlyingType()) {
     Result = getDerived().RebuildArbPrecIntType(UnderlyingType, T->getNumBits(),
                                                 T->getAttributeLoc());
+=======
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformExtIntType(TypeLocBuilder &TLB,
+                                                     ExtIntTypeLoc TL) {
+  const ExtIntType *EIT = TL.getTypePtr();
+  QualType Result = TL.getType();
+
+  if (getDerived().AlwaysRebuild()) {
+    Result = getDerived().RebuildExtIntType(EIT->isUnsigned(),
+                                            EIT->getNumBits(), TL.getNameLoc());
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
     if (Result.isNull())
       return QualType();
   }
 
+<<<<<<< HEAD
   ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
   NewTL.setNameLoc(TL.getNameLoc());
 
+=======
+  ExtIntTypeLoc NewTL = TLB.push<ExtIntTypeLoc>(Result);
+  NewTL.setNameLoc(TL.getNameLoc());
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
   return Result;
 }
 
 template <typename Derived>
+<<<<<<< HEAD
 QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
     TypeLocBuilder &TLB, DependentSizedArbPrecIntTypeLoc TL) {
   const DependentSizedArbPrecIntType *T = TL.getTypePtr();
@@ -6230,10 +6259,31 @@ QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
       NumBits.get() != T->getNumBitsExpr()) {
     Result = getDerived().RebuildDependentSizedArbPrecIntType(
         UnderlyingType, NumBits.get(), T->getAttributeLoc());
+=======
+QualType TreeTransform<Derived>::TransformDependentExtIntType(
+    TypeLocBuilder &TLB, DependentExtIntTypeLoc TL) {
+  const DependentExtIntType *EIT = TL.getTypePtr();
+
+  EnterExpressionEvaluationContext Unevaluated(
+      SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult BitsExpr = getDerived().TransformExpr(EIT->getNumBitsExpr());
+  BitsExpr = SemaRef.ActOnConstantExpression(BitsExpr);
+
+  if (BitsExpr.isInvalid())
+    return QualType();
+
+  QualType Result = TL.getType();
+
+  if (getDerived().AlwaysRebuild() || BitsExpr.get() != EIT->getNumBitsExpr()) {
+    Result = getDerived().RebuildDependentExtIntType(
+        EIT->isUnsigned(), BitsExpr.get(), TL.getNameLoc());
+
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
     if (Result.isNull())
       return QualType();
   }
 
+<<<<<<< HEAD
   if (isa<DependentSizedArbPrecIntType>(Result)) {
     DependentSizedArbPrecIntTypeLoc NewTL =
         TLB.push<DependentSizedArbPrecIntTypeLoc>(Result);
@@ -6246,6 +6296,17 @@ QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
   return Result;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (isa<DependentExtIntType>(Result)) {
+    DependentExtIntTypeLoc NewTL = TLB.push<DependentExtIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  } else {
+    ExtIntTypeLoc NewTL = TLB.push<ExtIntTypeLoc>(Result);
+    NewTL.setNameLoc(TL.getNameLoc());
+  }
+  return Result;
+}
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
 
   /// Simple iterator that traverses the template arguments in a
   /// container that provides a \c getArgLoc() member function.
@@ -13956,6 +14017,7 @@ QualType TreeTransform<Derived>::RebuildPipeType(QualType ValueType,
                     : SemaRef.BuildWritePipeType(ValueType, KWLoc);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
 QualType TreeTransform<Derived>::RebuildChannelType(QualType ValueType,
@@ -13979,6 +14041,24 @@ QualType TreeTransform<Derived>::RebuildDependentSizedArbPrecIntType(
   return SemaRef.BuildArbPrecIntType(ElementType, NumExpr, AttributeLoc);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildExtIntType(bool IsUnsigned,
+                                                   unsigned NumBits,
+                                                   SourceLocation Loc) {
+  llvm::APInt NumBitsAP(SemaRef.Context.getIntWidth(SemaRef.Context.IntTy),
+                        NumBits, true);
+  IntegerLiteral *Bits = IntegerLiteral::Create(SemaRef.Context, NumBitsAP,
+                                                SemaRef.Context.IntTy, Loc);
+  return SemaRef.BuildExtIntType(IsUnsigned, Bits, Loc);
+}
+
+template <typename Derived>
+QualType TreeTransform<Derived>::RebuildDependentExtIntType(
+    bool IsUnsigned, Expr *NumBitsExpr, SourceLocation Loc) {
+  return SemaRef.BuildExtIntType(IsUnsigned, NumBitsExpr, Loc);
+}
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
 
 template<typename Derived>
 TemplateName

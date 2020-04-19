@@ -2104,6 +2104,8 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::MacroQualified:
+  case Type::ExtInt:
+  case Type::DependentExtInt:
     llvm_unreachable("type is illegal as a nested name specifier");
 
   case Type::SubstTemplateTypeParmPack:
@@ -3566,6 +3568,7 @@ void CXXNameMangler::mangleType(const PipeType *T) {
   Out << "8ocl_pipe";
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void CXXNameMangler::mangleType(const ChannelType *T) {
   // <type> ::= 11ocl_channel
@@ -3585,6 +3588,29 @@ void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
   mangleType(T->getUnderlyingType());
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+void CXXNameMangler::mangleType(const ExtIntType *T) {
+  Out << "U7_ExtInt";
+  llvm::APSInt BW(32, true);
+  BW = T->getNumBits();
+  TemplateArgument TA(Context.getASTContext(), BW, getASTContext().IntTy);
+  mangleTemplateArgs(&TA, 1);
+  if (T->isUnsigned())
+    Out << "j";
+  else
+    Out << "i";
+}
+
+void CXXNameMangler::mangleType(const DependentExtIntType *T) {
+  Out << "U7_ExtInt";
+  TemplateArgument TA(T->getNumBitsExpr());
+  mangleTemplateArgs(&TA, 1);
+  if (T->isUnsigned())
+    Out << "j";
+  else
+    Out << "i";
+}
+>>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
 
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {
