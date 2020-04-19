@@ -3568,7 +3568,6 @@ void CXXNameMangler::mangleType(const PipeType *T) {
   Out << "8ocl_pipe";
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void CXXNameMangler::mangleType(const ChannelType *T) {
   // <type> ::= 11ocl_channel
@@ -3588,7 +3587,7 @@ void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
   mangleType(T->getUnderlyingType());
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 void CXXNameMangler::mangleType(const ExtIntType *T) {
   Out << "U7_ExtInt";
   llvm::APSInt BW(32, true);
@@ -3610,7 +3609,6 @@ void CXXNameMangler::mangleType(const DependentExtIntType *T) {
   else
     Out << "i";
 }
->>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
 
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {

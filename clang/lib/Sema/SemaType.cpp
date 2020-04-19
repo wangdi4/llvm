@@ -2215,7 +2215,6 @@ QualType Sema::BuildWritePipeType(QualType T, SourceLocation Loc) {
   return Context.getWritePipeType(T);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Build a Channel type.
 ///
@@ -2279,7 +2278,7 @@ QualType Sema::BuildArbPrecIntType(QualType T, Expr *NumBitsExpr,
   return Context.getDependentSizedArbPrecIntType(T, NumBitsExpr, AttrLoc);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Build a extended int type.
 ///
 /// \param IsUnsigned Boolean representing the signedness of the type.
@@ -2318,7 +2317,6 @@ QualType Sema::BuildExtIntType(bool IsUnsigned, Expr *BitWidth,
 
   return Context.getExtIntType(IsUnsigned, NumBits);
 }
->>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
 
 /// Check whether the specified array size makes the array type a VLA.  If so,
 /// return true, if not, return the size of the array in SizeVal.
@@ -5973,7 +5971,6 @@ namespace {
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void VisitChannelTypeLoc(ChannelTypeLoc TL) {
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
@@ -5983,7 +5980,7 @@ namespace {
       TL.getValueLoc().initializeFullCopy(TInfo->getTypeLoc());
     }
 #endif // INTEL_CUSTOMIZATION
-=======
+
     void VisitExtIntTypeLoc(ExtIntTypeLoc TL) {
       TL.setNameLoc(DS.getTypeSpecTypeLoc());
     }
@@ -5991,7 +5988,6 @@ namespace {
     void VisitDependentExtIntTypeLoc(DependentExtIntTypeLoc TL) {
       TL.setNameLoc(DS.getTypeSpecTypeLoc());
     }
->>>>>>> 5f0903e9bec97e67bf34d887bcbe9d05790de934
 
     void VisitTypeLoc(TypeLoc TL) {
       // FIXME: add other typespec types and change this to an assert.
