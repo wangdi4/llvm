@@ -21,6 +21,7 @@ ModulePass* createDPCPPKernelWGLoopCreatorPass();
 ModulePass* createDPCPPKernelAnalysisPass();
 FunctionPass* createPhiCanonicalizationPass();
 FunctionPass* createRedundantPhiNodePass();
+ModulePass* createSplitBBonBarrierPass();
 
 } // namespace llvm
 
