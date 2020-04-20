@@ -66,6 +66,9 @@
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
+#if INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
@@ -106,6 +109,9 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
+#if INTEL_COLLAB
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#endif // INTEL_COLLAB
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
@@ -116,6 +122,9 @@
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
+#if INTEL_COLLAB
+using namespace llvm::vpo;
+#endif // INTEL_COLLAB
 
 #define DEBUG_TYPE "instcombine"
 
@@ -3599,6 +3608,20 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock) {
       if (Scan->mayWriteToMemory())
         return false;
   }
+#ifdef INTEL_COLLAB
+
+  // If the function has OpenMP directives, do not move I across a directive.
+  // This prevents moving code into or out of an OpenMP region.
+  Function *F = SrcBlock->getParent();
+  if (VPOAnalysisUtils::mayHaveOpenmpDirective(*F))
+    for (BasicBlock::iterator Scan = I->getIterator(),
+                              E = I->getParent()->end();
+         Scan != E; ++Scan)
+      if (IntrinsicUtils::isDirective(&*Scan)) {
+        // LLVM_DEBUG(dbgs() << "IC found directive: " << *Scan << '\n');
+        return false;
+      }
+#endif // INTEL_COLLAB
 
   I->dropDroppableUses([DestBlock](const Use *U) {
     if (auto *I = dyn_cast<Instruction>(U->getUser()))

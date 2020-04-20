@@ -1673,6 +1673,13 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::LongDouble:
     if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)
+#if INTEL_COLLAB
+      // AuxTarget does not call 'adjust' to pull in command-line changes
+      // for -mlong-double-64 (that may be considered the real bug). For now
+      // expect that options that change the long double properties will be
+      // passed to the target compile and handled in the Target instead.
+      if (!getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
       return AuxTarget->getLongDoubleFormat();
     return Target->getLongDoubleFormat();
   case BuiltinType::Float128:
