@@ -422,8 +422,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     int vecSize = 1;
 
     if (VTHTy->isVectorTy()) {
-      vecSize = VTHTy->getVectorNumElements();
-      VTHTy = VTHTy->getVectorElementType();
+      vecSize = cast<VectorType>(VTHTy)->getNumElements();
+      VTHTy = cast<VectorType>(VTHTy)->getElementType();
     }
 
     kernelAttributes << "vec_type_hint(";

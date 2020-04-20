@@ -1121,9 +1121,10 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   }
 
   Type *IndexTy = MO.Index->getType();
-  if (IndexTy->isVectorTy() && IndexTy->getVectorElementType()->isIntegerTy()) {
+  if (IndexTy->isVectorTy() &&
+      cast<VectorType>(IndexTy)->getElementType()->isIntegerTy()) {
     // Index is already a ready-to-use vector of indices
-    IndexTy = IndexTy->getVectorElementType();
+    IndexTy = cast<VectorType>(IndexTy)->getElementType();
   } else {
     obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
   }
@@ -1930,9 +1931,12 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       if (calleeName.contains("14ocl_image2d") &&
           calleeName.contains("intel_sub_group_block") &&
           argIndex == 1){
-        V_ASSERT(curScalarArgType->getVectorNumElements() == 2 &&
-                 curScalarArgType->getVectorElementType()->isIntegerTy(32) &&
-                 "The second argument must be byte coordinate for image block r/w");
+        V_ASSERT(
+            cast<VectorType>(curScalarArgType)->getNumElements() == 2 &&
+            cast<VectorType>(curScalarArgType)
+                ->getElementType()
+                ->isIntegerTy(32) &&
+            "The second argument must be byte coordinate for image block r/w");
         newArgs.push_back(curScalarArg);
       } else {
         operand = handleParamSOAVPlanStyle(CI, curScalarArg);
