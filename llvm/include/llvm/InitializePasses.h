@@ -73,6 +73,10 @@ void initializeIntel_LoopTransforms(PassRegistry&);
 // Intel_OpenCLTransforms library
 void initializeIntel_OpenCLTransforms(PassRegistry&);
 
+// initializeIntel_DPCPPKernelTransforms - Initialize all passes linked into the
+// Intel_DPCPPKernelTransforms
+void initializeIntel_DPCPPKernelTransforms(PassRegistry&);
+
 void initializeInlineListsPass(PassRegistry&);
 void initializeInlineReportSetupPass(PassRegistry&);
 void initializeInlineReportEmitterPass(PassRegistry&);
@@ -608,6 +612,10 @@ void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
+// DPCPP Kernel Transformation passes
+void initializeDPCPPKernelVecClonePass(PassRegistry&);
+void initializeDPCPPKernelPostVecPass(PassRegistry&);
+void initializeDPCPPKernelWGLoopCreatorLegacyPassPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

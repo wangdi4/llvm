@@ -24,6 +24,7 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   Passes
 # INTEL_CUSTOMIZATION
+  Intel_DPCPPKernelTransforms
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml

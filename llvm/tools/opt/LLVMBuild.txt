@@ -27,6 +27,7 @@ required_libraries =
  IPO
  Instrumentation
  Scalar
+ Intel_DPCPPKernelTransforms
  Intel_LoopAnalysis
  Intel_LoopTransforms
  Intel_MapIntrinToIml
@@ -38,4 +39,4 @@ required_libraries =
  all-targets
 
 ; ***INTEL: Intel_LoopAnalysis, Intel_LoopTransforms, Intel_MapIntrinToIml,
-;           VPOAnalysis, VPOTransforms, Intel_OptReport
+;           VPOAnalysis, VPOTransforms, Intel_OptReport, Intel_DPCPPKernelTransforms
