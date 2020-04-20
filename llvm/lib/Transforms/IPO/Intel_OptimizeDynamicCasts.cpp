@@ -1,6 +1,6 @@
 //===--- Intel_OptimizeDynamicCasts.cpp - Optimize dynamic_cast calls. ----===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -166,7 +166,7 @@ static bool isTypeInfoGlobalForFinalClass(GlobalVariable *TypeInfoGlobal) {
 /// Check that all users of the call instruction are compare instructions with
 /// EQ or NE predicate.
 static bool allUsersICmpEQorNE(CallInst *Call) {
-  ICmpInst::Predicate Pred;
+  ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
   Value *ICmpLHS;
   for (auto U : Call->users()) {
     if (!match(U, m_ICmp(Pred, m_Value(ICmpLHS), m_Zero())))

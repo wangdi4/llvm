@@ -1,6 +1,6 @@
 //===------- Intel_QsortRecognizer.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1233,7 +1233,7 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
     if (!CmpSel)
       return false;
 
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     Value *ICmpLHS = nullptr;
     if (!match(CmpSel, m_ICmp(Pred, m_Value(ICmpLHS), m_Zero())))
       return false;
@@ -1274,7 +1274,7 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
 
     // Compare if (pa - a) < (pb - pa)
     Value *CmprLT = SubPa->getNextNonDebugInstruction();
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     if (!match(CmprLT, m_ICmp(Pred, m_Specific(SubA), m_Specific(SubPa))))
       return false;
 
@@ -1369,7 +1369,7 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
 
     // Compare if (pd - pc) < (pn - pd - 8)
     Value *CmprLT = AddMinus8->getNextNonDebugInstruction();
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     if (!match(CmprLT, m_ICmp(Pred,
         m_Specific(SubPdPc), m_Specific(AddMinus8))) ||
         Pred != ICmpInst::ICMP_SLT)
@@ -2821,7 +2821,7 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
     auto BI = dyn_cast<BranchInst>(BBExit->getTerminator());
     if (!BI || BI->isUnconditional())
       return false;
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     Value *VPHIN0 = nullptr;
     if (!match(BI->getCondition(), m_ICmp(Pred, m_Value(VPHIN0), m_Zero())))
       return false;
@@ -2987,7 +2987,7 @@ static bool isQsort(Function *F) {
     auto BI = dyn_cast<BranchInst>(BBExit->getTerminator());
     if (!BI || BI->isUnconditional())
       return false;
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     Value *V0 = nullptr;
     ConstantInt *C0 = nullptr;
     ConstantInt *C1 = nullptr;
