@@ -206,6 +206,7 @@ const char* CPUDeviceConfig::GetExtensions() const
         // the conformance test fully (meaning that masked kernel is integrated).
         if (GetUseNativeSubgroups()) {
             m_extensions += OCL_EXT_KHR_SUBGROUP_SHUFFLE " ";
+            m_extensions += OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC " ";
             m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
             m_extensions += OCL_EXT_INTEL_SUBGROUPS_CHAR " ";
             m_extensions += OCL_EXT_INTEL_SUBGROUPS_SHORT " ";
