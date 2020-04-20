@@ -9,9 +9,12 @@ if (MSVC)
   set_source_files_properties(SemaExprCXX.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaSYCL.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaTemplate.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   set_source_files_properties(SemaDeclCXX.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 # end INTEL_CUSTOMIZATION
+=======
+>>>>>>> 50511a406df4475984e5c51feadada2c92aaf97a
   set_source_files_properties(SemaTemplateDeduction.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()
 
