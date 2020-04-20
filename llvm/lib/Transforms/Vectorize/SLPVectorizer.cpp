@@ -741,6 +741,44 @@ public:
   int getTreeCost();
 
 #if INTEL_CUSTOMIZATION
+  /// InstNumerator is a helper class that serves to work around existing
+  /// limitation of current PSLP and MultiNodes implementation. Basically
+  /// initial issue is that both may alter IR during analysis for
+  /// vectorization profitability when running for PSLP attempt
+  /// (this in all cases is the second attempt to build vectorizable tree).
+  /// When it turns out profitable - no issues, we just vectorize tree with
+  /// IR changes made. But when it appears not profitable we undo IR changes
+  /// and try to build vectorization tree again (that will be the 3d attempt)
+  /// and we do expect that cost will match one from the 1st attempt.
+  /// But here is a caveat: although IR seems looks exactly same (if we try
+  /// to dump it) there is some difference in internal data structures.
+  /// Specifically users of some instructions may change their order and
+  /// since we have brute force to control compile time issues via limiting
+  /// number of users to take into account (for details see
+  /// VLOperands::getExternalUsesCost) we may end up with different
+  /// vectorizable tree and as a consequence of that its different cost.
+  class InstNumerator {
+    DenseMap<Instruction *, unsigned> InstNumMap;
+  public:
+    void Enumerate(Function *F) {
+      InstNumMap.clear();
+      unsigned Counter = 0;
+      for (BasicBlock &B : *F)
+        for (Instruction &I : B)
+          InstNumMap[&I] = ++Counter;
+    }
+    unsigned getNum(const Instruction *I) const {
+      auto It = InstNumMap.find(I);
+      if (It != InstNumMap.end())
+        return It->second;
+      return 0;
+    }
+  } InstNumerator;
+
+  void EnumerateInstructions() {
+        InstNumerator.Enumerate(F);
+  }
+
   /// Initializations for PSLP.
   void PSLPInit(void);
 
@@ -1080,7 +1118,17 @@ public:
         int Ln = std::min(LHS.second, RHS.second) + Idx;
         assert(Ln >= 0 && "Bad lane calculation");
         unsigned UsersBudget = LookAheadUsersBudget;
-        for (User *U : V->users()) {
+#if INTEL_CUSTOMIZATION
+        SmallVector<User *, 2> Users(V->users());
+        if (PSLPEnabled && Users.size() > UsersBudget)
+          std::partial_sort(
+              Users.begin(), Users.begin() + UsersBudget, Users.end(),
+              [&](User *U1, User *U2) {
+                return R.InstNumerator.getNum(dyn_cast<Instruction>(U1)) >
+                       R.InstNumerator.getNum(dyn_cast<Instruction>(U2));
+              });
+        for (User *U : Users) {
+#endif // INTEL_CUSTOMIZATION
           if (const TreeEntry *UserTE = R.getTreeEntry(U)) {
             // The user is in the VectorizableTree. Check if we need to insert.
             auto It = llvm::find(UserTE->Scalars, U);
@@ -8661,6 +8709,20 @@ bool SLPVectorizerPass::runImpl(Function &F, ScalarEvolution *SE_,
   // Use the bottom up slp vectorizer to construct chains that start with
   // store instructions.
   BoUpSLP R(&F, SE, TTI, TLI, AA, LI, DT, AC, DB, DL, ORE_);
+
+#if INTEL_CUSTOMIZATION
+  // We enumerate instructions once per function per pass run and do not keep
+  // it updated when we add new instructions or delete existing. The reason for
+  // that is we do not care about consistent ordering. We only need ability to
+  // order instructions with something different than their pointer in order to
+  // have run to run determinism. Instructions that inserted during SLP
+  // vectorization won't go into another vectorizable trees (as we do
+  // vectorize scalars only) so we do not ever expect to differentiate them.
+  // Deleted instructions are not expected to be users of those not deleted.
+  // If that ever happen that simply means there is some fundamental issue.
+  if (PSLPEnabled)
+      R.EnumerateInstructions();
+#endif // INTEL_CUSTOMIZATION
 
   // A general note: the vectorizer must use BoUpSLP::eraseInstruction() to
   // delete instructions.
