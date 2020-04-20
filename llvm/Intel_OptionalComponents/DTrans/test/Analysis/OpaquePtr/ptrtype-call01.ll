@@ -28,8 +28,9 @@ define internal void @test01() {
 ; CHECK-LABEL: void @test01()
 ; CHECK-CUR:   %struct2 = call %struct.test01a* @test01get(%struct.test01* %struct1)
 ; CHECK-FUT:   %struct2 = call p0 @test01get(p0 %struct1)
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test01a*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01a*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -49,9 +50,10 @@ declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
 ; CHECK-LABEL: void @test02()
 ; CHECK-CUR:  %mem = bitcast [2 x %struct.test02]* %struct to i8*
 ; CHECK-FUT:  %mem = bitcast p0 %struct to p0
-; CHECK:      Aliased types:
-; CHECK-NEXT:   [2 x %struct.test02]*
-; CHECK-NEXT:   i8*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   [2 x %struct.test02]*{{ *$}}
+; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -70,8 +72,9 @@ declare %struct._IO_FILE* @fopen(i8*, i8*)
 ; CHECK-LABEL: void @test03()
 ; CHECK-CUR:  %handle = call %struct._IO_FILE* @fopen(i8* %name, i8* %mode)
 ; CHECK-FUT:  %handle = call p0 @fopen(p0 %name, p0 %mode)
-; CHECK:      Aliased types:
-; CHECK-NEXT:    %struct._IO_FILE*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:    %struct._IO_FILE*{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
 
@@ -83,9 +86,9 @@ ret void
 }
 ; CHECK-CUR: %r = call i8* %f(i8* %c)
 ; CHECK-FUT: %r = call p0 %f(p0 %c)
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i8*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 

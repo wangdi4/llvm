@@ -26,7 +26,7 @@ define internal void @test01(%class.test01base* %in, i32 %x) !dtrans_type !7 {
 }
 ; CHECK-CUR: %vtable_ptr = bitcast %class.test01base* %in to void (%class.test01base*, i32)***
 ; CHECK-FUT: %vtable_ptr = bitcast p0 %in to p0
-; CHECK: LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %class.test01base*{{ *$}}
 ; CHECK-NEXT:   void (%class.test01base*, i32)***{{ *$}}
@@ -34,21 +34,21 @@ define internal void @test01(%class.test01base* %in, i32 %x) !dtrans_type !7 {
 
 ; CHECK-CUR: %vtable = load void (%class.test01base*, i32)**, void (%class.test01base*, i32)*** %vtable_ptr
 ; CHECK-FUT: %vtable = load p0, p0 %vtable_ptr
-; CHECK: LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   void (%class.test01base*, i32)**{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %vfn = getelementptr void (%class.test01base*, i32)*, void (%class.test01base*, i32)** %vtable, i64 1
 ; CHECK-FUT: %vfn = getelementptr p0, p0 %vtable, i64 1
-; CHECK: LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   void (%class.test01base*, i32)**{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %fptr = load void (%class.test01base*, i32)*, void (%class.test01base*, i32)** %vfn
 ; CHECK-FUT: %fptr = load p0, p0 %vfn
-; CHECK: LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   void (%class.test01base*, i32)*{{ *$}}
 ; CHECK-NEXT: No element pointees.

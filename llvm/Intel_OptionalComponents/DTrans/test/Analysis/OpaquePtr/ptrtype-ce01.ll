@@ -28,7 +28,7 @@ define internal void @test01() {
 ; CHECK-FUT:         CE: p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 0)
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        i64*
+; CHECK-NEXT:        i64*{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ 0
 
@@ -38,7 +38,7 @@ define internal void @test01() {
 ; CHECK-FUT:         CE: p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 1)
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        double*
+; CHECK-NEXT:        double*{{ *$}}
 ; CHECK-NEXT:      Element pointees:
 ; CHECK-NEXT:        %struct.test01 @ 1
 
@@ -48,7 +48,7 @@ define internal void @test01() {
 ; CHECK-FUT:         CE: p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 2, i32 0)
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        i8*
+; CHECK-NEXT:        i8*{{ *$}}
 ; CHECK-NEXT:     Element pointees:
 ; CHECK-NEXT:        [25 x i8] @ 0
 
@@ -73,7 +73,7 @@ define internal void @test02() {
 ; CHECK-FUT:     CE: p0 getelementptr inbounds (%struct.test02, p0 @test_var02, i64 0, i32 1)
 ; CHECK-NEXT:       LocalPointerInfo:
 ; CHECK-NEXT:          Aliased types:
-; CHECK-NEXT:            %struct.test02**
+; CHECK-NEXT:            %struct.test02**{{ *$}}
 ; CHECK-NEXT:          Element pointees:
 ; CHECK-NEXT:            %struct.test02 @ 1
 

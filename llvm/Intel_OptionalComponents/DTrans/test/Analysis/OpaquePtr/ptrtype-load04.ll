@@ -41,19 +41,19 @@ define internal void @test01(%struct.test01* %in) !dtrans_type !4 {
 
 ; CHECK-CUR:  %bc = bitcast %struct.test01** %f1 to i64*
 ; CHECK-FUT:  %bc = bitcast p0 %f1 to p0
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
-; CHECK-NEXT:   %struct.test01**
-; CHECK-NEXT:   i64*
+; CHECK-NEXT:   %struct.test01**{{ *$}}
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 1
 
 ; This case should have info reported because there is a pointer alias.
 ; CHECK-CUR:  %v1 = load i64, i64* %bc
 ; CHECK-FUT:  %v1 = load i64, p0 %bc
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
-; CHECK-NEXT:   %struct.test01*
+; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
