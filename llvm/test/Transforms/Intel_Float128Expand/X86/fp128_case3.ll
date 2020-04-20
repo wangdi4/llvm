@@ -11,30 +11,58 @@ define dso_local i32 @main2(fp128 %x) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = alloca fp128, align 16
 ; CHECK-NEXT:    [[TMP4:%.*]] = alloca fp128, align 16
 ; CHECK-NEXT:    [[TMP5:%.*]] = alloca fp128, align 16
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast fp128* [[TMP5]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP6]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP5]], align 16
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i32 0, 1
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i32 0, 1
 ; CHECK-NEXT:    br i1 undef, label [[BB2:%.*]], label [[BB3:%.*]]
 ; CHECK:       bb2:
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP8]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP1]], fp128* [[TMP5]], fp128* [[TMP5]])
-; CHECK-NEXT:    [[TMP7:%.*]] = load fp128, fp128* [[TMP1]], align 16
+; CHECK-NEXT:    [[TMP9:%.*]] = load fp128, fp128* [[TMP1]], align 16
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP10]])
 ; CHECK-NEXT:    br i1 undef, label [[BB4:%.*]], label [[BB5:%.*]]
 ; CHECK:       bb3:
+; CHECK-NEXT:    [[TMP11:%.*]] = bitcast fp128* [[TMP4]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP11]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP4]], fp128* [[TMP5]], fp128* [[TMP5]])
-; CHECK-NEXT:    [[TMP8:%.*]] = load fp128, fp128* [[TMP4]], align 16
+; CHECK-NEXT:    [[TMP12:%.*]] = load fp128, fp128* [[TMP4]], align 16
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast fp128* [[TMP4]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP13]])
 ; CHECK-NEXT:    br i1 undef, label [[BB6:%.*]], label [[BB7:%.*]]
 ; CHECK:       bb4:
+; CHECK-NEXT:    [[TMP14:%.*]] = bitcast fp128* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP14]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP0]], fp128* [[TMP5]], fp128* [[TMP5]])
-; CHECK-NEXT:    [[TMP9:%.*]] = load fp128, fp128* [[TMP0]], align 16
+; CHECK-NEXT:    [[TMP15:%.*]] = bitcast fp128* [[TMP5]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP15]])
+; CHECK-NEXT:    [[TMP16:%.*]] = load fp128, fp128* [[TMP0]], align 16
+; CHECK-NEXT:    [[TMP17:%.*]] = bitcast fp128* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP17]])
 ; CHECK-NEXT:    ret i32 0
 ; CHECK:       bb5:
 ; CHECK-NEXT:    ret i32 1
 ; CHECK:       bb6:
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast fp128* [[TMP2]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP18]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP2]], fp128* [[TMP5]], fp128* [[TMP5]])
-; CHECK-NEXT:    [[TMP10:%.*]] = load fp128, fp128* [[TMP2]], align 16
+; CHECK-NEXT:    [[TMP19:%.*]] = bitcast fp128* [[TMP5]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP19]])
+; CHECK-NEXT:    [[TMP20:%.*]] = load fp128, fp128* [[TMP2]], align 16
+; CHECK-NEXT:    [[TMP21:%.*]] = bitcast fp128* [[TMP2]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP21]])
 ; CHECK-NEXT:    ret i32 2
 ; CHECK:       bb7:
+; CHECK-NEXT:    [[TMP22:%.*]] = bitcast fp128* [[TMP3]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP22]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP3]], fp128* [[TMP5]], fp128* [[TMP5]])
-; CHECK-NEXT:    [[TMP11:%.*]] = load fp128, fp128* [[TMP3]], align 16
+; CHECK-NEXT:    [[TMP23:%.*]] = bitcast fp128* [[TMP5]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP23]])
+; CHECK-NEXT:    [[TMP24:%.*]] = load fp128, fp128* [[TMP3]], align 16
+; CHECK-NEXT:    [[TMP25:%.*]] = bitcast fp128* [[TMP3]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP25]])
 ; CHECK-NEXT:    ret i32 3
 ;
 bb1:

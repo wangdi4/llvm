@@ -15,30 +15,48 @@ define dso_local i32 @main(fp128 %x) #0 personality i8* bitcast (i32 (...)* @__C
 ; CHECK-NEXT:    [[TMP:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[I:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[I3:%.*]] = alloca i32, align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128* [[TMP3]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP4]])
 ; CHECK-NEXT:    store fp128 [[X:%.*]], fp128* [[TMP3]], align 16
 ; CHECK-NEXT:    store i32 0, i32* [[RETVAL]], align 4
 ; CHECK-NEXT:    store i32 1, i32* [[TMP]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP]] to i8*
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[TMP]] to i8*
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast fp128* [[TMP2]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP6]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP2]], fp128* [[TMP3]], fp128* [[TMP3]])
-; CHECK-NEXT:    [[TMP5:%.*]] = load fp128, fp128* [[TMP2]], align 16
-; CHECK-NEXT:    invoke void @_CxxThrowException(i8* [[TMP4]], %eh.ThrowInfo* null)
+; CHECK-NEXT:    [[TMP7:%.*]] = load fp128, fp128* [[TMP2]], align 16
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast fp128* [[TMP2]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP8]])
+; CHECK-NEXT:    invoke void @_CxxThrowException(i8* [[TMP5]], %eh.ThrowInfo* null)
 ; CHECK-NEXT:    to label [[UNREACHABLE:%.*]] unwind label [[CATCH_DISPATCH:%.*]]
 ; CHECK:       catch.dispatch:
-; CHECK-NEXT:    [[TMP6:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH1:%.*]]
+; CHECK-NEXT:    [[TMP9:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH1:%.*]]
 ; CHECK:       catch.dispatch1:
-; CHECK-NEXT:    [[TMP7:%.*]] = catchswitch within none [label %catch2] unwind to caller
+; CHECK-NEXT:    [[TMP10:%.*]] = catchswitch within none [label %catch2] unwind to caller
 ; CHECK:       catch2:
-; CHECK-NEXT:    [[TMP8:%.*]] = catchpad within [[TMP7]] [i32 0, i32* %i3]
+; CHECK-NEXT:    [[TMP11:%.*]] = catchpad within [[TMP10]] [i32 0, i32* %i3]
 ; CHECK-NEXT:    store i32 2, i32* [[RETVAL]], align 4
+; CHECK-NEXT:    [[TMP12:%.*]] = bitcast fp128* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP12]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP0]], fp128* [[TMP3]], fp128* [[TMP3]])
-; CHECK-NEXT:    [[TMP9:%.*]] = load fp128, fp128* [[TMP0]], align 16
-; CHECK-NEXT:    catchret from [[TMP8]] to label [[CATCHRET_DEST4:%.*]]
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast fp128* [[TMP3]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP13]])
+; CHECK-NEXT:    [[TMP14:%.*]] = load fp128, fp128* [[TMP0]], align 16
+; CHECK-NEXT:    [[TMP15:%.*]] = bitcast fp128* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP15]])
+; CHECK-NEXT:    catchret from [[TMP11]] to label [[CATCHRET_DEST4:%.*]]
 ; CHECK:       catch:
-; CHECK-NEXT:    [[TMP10:%.*]] = catchpad within [[TMP6]] [i32 0, i32* %i]
+; CHECK-NEXT:    [[TMP16:%.*]] = catchpad within [[TMP9]] [i32 0, i32* %i]
 ; CHECK-NEXT:    store i32 1, i32* [[RETVAL]], align 4
+; CHECK-NEXT:    [[TMP17:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[TMP17]])
 ; CHECK-NEXT:    call void @__addq(fp128* [[TMP1]], fp128* [[TMP3]], fp128* [[TMP3]])
-; CHECK-NEXT:    [[TMP11:%.*]] = load fp128, fp128* [[TMP1]], align 16
-; CHECK-NEXT:    catchret from [[TMP10]] to label [[CATCHRET_DEST:%.*]]
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast fp128* [[TMP3]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP18]])
+; CHECK-NEXT:    [[TMP19:%.*]] = load fp128, fp128* [[TMP1]], align 16
+; CHECK-NEXT:    [[TMP20:%.*]] = bitcast fp128* [[TMP1]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[TMP20]])
+; CHECK-NEXT:    catchret from [[TMP16]] to label [[CATCHRET_DEST:%.*]]
 ; CHECK:       catchret.dest:
 ; CHECK-NEXT:    br label [[RETURN:%.*]]
 ; CHECK:       try.cont:
@@ -49,8 +67,8 @@ define dso_local i32 @main(fp128 %x) #0 personality i8* bitcast (i32 (...)* @__C
 ; CHECK-NEXT:    store i32 0, i32* [[RETVAL]], align 4
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[RETVAL]], align 4
-; CHECK-NEXT:    ret i32 [[TMP12]]
+; CHECK-NEXT:    [[TMP21:%.*]] = load i32, i32* [[RETVAL]], align 4
+; CHECK-NEXT:    ret i32 [[TMP21]]
 ; CHECK:       unreachable:
 ; CHECK-NEXT:    unreachable
 ;
