@@ -1885,6 +1885,13 @@ public:
     return getExternalItemForDDRef(VPExternalDefsHIR, DDR);
   }
 
+  /// Create or retrieve a VPExternalDef for the blob with index \p BlobIndex in
+  /// \p DDR.
+  VPExternalDef *getVPExternalDefForBlob(const loopopt::RegDDRef *DDR,
+                                         unsigned BlobIndex) {
+    return getExternalItemForBlob(VPExternalDefsHIR, DDR, BlobIndex);
+  }
+
   /// Create or retrieve a VPExternalDef for the given canon expression \p CE.
   VPExternalDef *getVPExternalDefForCanonExpr(const loopopt::CanonExpr *CE,
                                               const loopopt::RegDDRef *DDR) {
@@ -1991,6 +1998,28 @@ private:
       return ExtDef;
     // No Def found in table
     return nullptr;
+  }
+
+  /// Create or retrieve an external item from \p Table for the blob with index
+  /// \p BlobIndex in \p DDR.
+  template <typename Def>
+  Def *getExternalItemForBlob(FoldingSet<Def> &Table,
+                              const loopopt::RegDDRef *DDR,
+                              unsigned BlobIndex) {
+    FoldingSetNodeID ID;
+
+    // The blob(SCEV expression) with index BlobIndex is the folding set key.
+    const loopopt::BlobTy BlobExpr = DDR->getBlobUtils().getBlob(BlobIndex);
+    ID.AddPointer(BlobExpr);
+    ID.AddInteger(0 /*SymBase*/);
+    ID.AddInteger(0 /*IVLevel*/);
+    void *IP = nullptr;
+    if (Def *ExtDef = Table.FindNodeOrInsertPos(ID, IP))
+      return ExtDef;
+
+    Def *ExtDef = new Def(DDR, BlobIndex, BlobExpr->getType());
+    Table.InsertNode(ExtDef);
+    return ExtDef;
   }
 
   // Create or retrieve an external item from \p Table for given HIR canon

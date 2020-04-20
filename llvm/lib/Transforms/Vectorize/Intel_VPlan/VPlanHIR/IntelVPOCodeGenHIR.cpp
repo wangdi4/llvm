@@ -2797,9 +2797,24 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
     const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
 
     if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
-      auto *BDDR = Blob->getBlob();
-      WideRef = DDRefUtilities.createSelfBlobRef(BDDR->getSelfBlobIndex(),
-                                                 BDDR->getDefinedAtLevel());
+      const auto *BlobRef = Blob->getBlob();
+      if (BlobRef->isSelfBlob())
+        WideRef = DDRefUtilities.createSelfBlobRef(
+            BlobRef->getSelfBlobIndex(), BlobRef->getDefinedAtLevel());
+      else {
+        unsigned BlobIndex = Blob->getBlobIndex();
+        const RegDDRef *RDDR = cast<RegDDRef>(BlobRef);
+
+        // Create a RegDDREF containing blob with index BlobIndex.
+        auto *CE = CanonExprUtilities.createCanonExpr(VPExtDef->getType());
+        CE->addBlob(BlobIndex, 1);
+        WideRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
+
+        // Use RDDR to set proper defined at level for blob in WideRef.
+        SmallVector<const RegDDRef *, 1> AuxRefs = {RDDR};
+        WideRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+      }
+
       WideRef = widenRef(WideRef, VF);
     } else if (const auto *VPCE = dyn_cast<VPCanonExpr>(HIROperand)) {
       auto *CE = VPCE->getCanonExpr()->clone();
