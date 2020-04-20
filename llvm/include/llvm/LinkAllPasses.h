@@ -379,6 +379,7 @@ namespace {
       (void) llvm::createDPCPPKernelWGLoopCreatorPass();
       (void) llvm::createDPCPPKernelAnalysisPass();
       (void) llvm::createPhiCanonicalizationPass();
+      (void) llvm::createRedundantPhiNodePass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
