@@ -180,6 +180,13 @@ else()
 endif()
 
 # INTEL_CUSTOMIZATION
+if (MSVC)
+  add_sycl_rt_library(syclmt XPTI_LIB xptimt COMPILE_OPTIONS "/MT" SOURCES ${SYCL_SOURCES})
+  add_sycl_rt_library(syclmtd XPTI_LIB xptimtd COMPILE_OPTIONS "/MTd" SOURCES ${SYCL_SOURCES})
+endif()
+# end INTEL_CUSTOMIZATION
+
+# INTEL_CUSTOMIZATION
 if (NOT MSVC)
 # Workaround for bug in GCC version 5 and higher.
 # More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899

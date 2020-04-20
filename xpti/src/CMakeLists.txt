@@ -14,6 +14,10 @@ if (MSVC)
   target_compile_options(xpti PRIVATE ${XPTI_CXX_FLAGS_RELEASE})
 # INTEL_CUSTOMIZATION
   add_definitions(-D_HAS_EXCEPTIONS=0)
+  add_library(xptimt STATIC ${SOURCES})
+  target_compile_options(xptimt PRIVATE /MT)
+  add_library(xptimtd STATIC ${SOURCES})
+  target_compile_options(xptimtd PRIVATE /MTd)
 else()
 # Don't use libcxx library to build sycl library if it is not explicitly stated to do so
   string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )

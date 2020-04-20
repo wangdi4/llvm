@@ -4,7 +4,9 @@ set_target_properties(SYCLUnitTests PROPERTIES FOLDER "SYCL tests")
 foreach(flag_var
     CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
     CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
+# INTEL_CUSTOMIZATION
+string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+# end INTEL_CUSTOMIZATION
 endforeach()
 
 # add_sycl_unittest(test_dirname SHARED|OBJECT file1.cpp, file2.cpp ...)
@@ -15,9 +17,14 @@ function(add_sycl_unittest test_dirname link_variant)
   # Enable exception handling for these unit tests
   set(LLVM_REQUIRES_EH 1)
 
+# INTEL_CUSTOMIZATION
   if (MSVC AND CMAKE_BUILD_TYPE MATCHES "Debug")
-    set(sycl_obj_target "sycld_object")
-    set(sycl_so_target "sycld")
+    set(sycl_obj_target "syclmtd_object")
+    set(sycl_so_target "syclmtd")
+  elseif (MSVC)
+    set(sycl_obj_target "syclmt_object")
+    set(sycl_so_target "syclmt")
+#end INTEL_CUSTOMIZATION
   else()
     set(sycl_obj_target "sycl_object")
     set(sycl_so_target "sycl")
