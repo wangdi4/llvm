@@ -141,11 +141,12 @@ public:
     params.push_back(ConstantInt::get(Type::getInt32Ty(C), 0));
     params.push_back(ConstantInt::get(Type::getInt32Ty(C), RecordID));
     params.push_back(Dimension);
-    Value *pAddr = Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params));
+    auto *pAddr = cast<GEPOperator>(
+        Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(RecordID));
     AppendWithDimension(Name, Dimension);
-    //return Builder.CreateAlignedLoad(pAddr, 1, Name);
-    return Builder.CreateLoad(pAddr, Name);
+    return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr),
+                          Name);
   }
   Value *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo,
                                     IRBuilder<> &Builder) {
@@ -154,10 +155,11 @@ public:
     Type *Int32Ty = Type::getInt32Ty(C);
     params.push_back(ConstantInt::get(Int32Ty, 0));
     params.push_back(ConstantInt::get(Int32Ty, RecordID));
-    Value *pAddr = Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params));
+    auto *pAddr = cast<GEPOperator>(
+        Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(RecordID));
-    //Value *V = Builder.CreateAlignedLoad(pAddr);
-    Value *V = Builder.CreateLoad(pAddr);
+    Value *V = Builder.Insert(
+        new LoadInst(pAddr->getResultElementType(), pAddr), Name);
     if (V->getType() != Int32Ty && RecordID == NDInfo::WORK_DIM)
       V = Builder.CreateTrunc(V, Int32Ty);
     V->setName(Name);
@@ -230,10 +232,12 @@ private:
     params.push_back(ConstantInt::get(Type::getInt32Ty(C), NDInfo::LOCAL_SIZE));
     params.push_back(LocalSizeIdx);
     params.push_back(Dimension);
-    Value *pAddr = Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params));
+    auto *pAddr = cast<GEPOperator>(
+        Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(NDInfo::LOCAL_SIZE));
     AppendWithDimension(Name, Dimension);
-    return Builder.CreateLoad(pAddr, Name);
+    return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr),
+                          Name);
   }
 
 public:
@@ -245,10 +249,11 @@ public:
   }
   Value *GenerateGetGroupID(Value *GroupID, Value *Dimension,
                                   IRBuilder<> &Builder) {
-    Value *pIdAddr = Builder.CreateGEP(GroupID, Dimension);
+    auto *pIdAddr = cast<GEPOperator>(Builder.CreateGEP(GroupID, Dimension));
     std::string Name("GroupID_");
     AppendWithDimension(Name, Dimension);
-    return Builder.CreateLoad(pIdAddr, Name);
+    return Builder.Insert(
+        new LoadInst(pIdAddr->getResultElementType(), pIdAddr), Name);
   }
 
   Value *GenerateGetBaseGlobalID(Value *BaseGlobalID, Value *Dimension,
@@ -270,8 +275,9 @@ public:
       std::vector<Value *> Indices;
       Indices.push_back(ConstantInt::get(IntegerType::get(C, 32), 0));
       Indices.push_back(Dimension);
-      Value *GEP = Builder.CreateGEP(A, Indices);
-      return Builder.CreateLoad(GEP, Name);
+      auto *GEP = cast<GEPOperator>(Builder.CreateGEP(A, Indices));
+      return Builder.Insert(new LoadInst(GEP->getResultElementType(), GEP),
+                            Name);
     }
   }
   static char ID; // Pass identification, replacement for typeid
