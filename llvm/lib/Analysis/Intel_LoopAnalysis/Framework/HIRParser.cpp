@@ -2995,10 +2995,10 @@ void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
     assert(isa<GEPOperator>(GEPOp) && "Only GEP operators expected here");
 
     if (CurTy->isArrayTy()) {
-      CurTy = CurTy->getArrayElementType();
+      CurTy = cast<ArrayType>(CurTy)->getElementType();
       Offsets.push_back(-1);
     } else if (CurTy->isVectorTy()) {
-      CurTy = CurTy->getVectorElementType();
+      CurTy = cast<VectorType>(CurTy)->getElementType();
       Offsets.push_back(-1);
     } else {
       assert(isa<StructType>(CurTy) && "Unexpected type encountered!");

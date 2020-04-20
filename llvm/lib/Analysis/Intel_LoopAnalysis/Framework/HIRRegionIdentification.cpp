@@ -512,9 +512,9 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
             Lp, "GEP related vector types currently not supported.");
         return false;
       }
-      Ty = Ty->getVectorElementType();
+      Ty = cast<VectorType>(Ty)->getElementType();
     } else if (Ty->isArrayTy()) {
-      Ty = Ty->getArrayElementType();
+      Ty = cast<ArrayType>(Ty)->getElementType();
     } else {
       Ty = Ty->getPointerElementType();
     }

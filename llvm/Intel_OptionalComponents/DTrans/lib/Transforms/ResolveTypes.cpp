@@ -917,11 +917,11 @@ private:
         SrcBaseTy = SrcBaseTy->getPointerElementType();
         DestBaseTy = DestBaseTy->getPointerElementType();
       } else if (SrcBaseTy->isArrayTy()) {
-        SrcBaseTy = SrcBaseTy->getArrayElementType();
-        DestBaseTy = DestBaseTy->getArrayElementType();
+        SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
       } else if (SrcBaseTy->isVectorTy()) {
-        SrcBaseTy = SrcBaseTy->getVectorElementType();
-        DestBaseTy = DestBaseTy->getVectorElementType();
+        SrcBaseTy = cast<VectorType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<VectorType>(DestBaseTy)->getElementType();
       }
     }
 
@@ -1396,9 +1396,9 @@ bool ResolveTypesImpl::resolveNestedTypes(
     auto *BaseTy = Ty;
     while (BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
       if (BaseTy->isArrayTy())
-        BaseTy = BaseTy->getArrayElementType();
+        BaseTy = cast<ArrayType>(BaseTy)->getElementType();
       else
-        BaseTy = BaseTy->getVectorElementType();
+        BaseTy = cast<VectorType>(BaseTy)->getElementType();
     }
     return dyn_cast<StructType>(BaseTy);
   };
@@ -1597,11 +1597,11 @@ void ResolveTypesImpl::collectDependentTypeMappings(
         SrcBaseTy = SrcBaseTy->getPointerElementType();
         DestBaseTy = DestBaseTy->getPointerElementType();
       } else if (SrcBaseTy->isArrayTy()) {
-        SrcBaseTy = SrcBaseTy->getArrayElementType();
-        DestBaseTy = DestBaseTy->getArrayElementType();
+        SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
       } else if (SrcBaseTy->isVectorTy()) {
-        SrcBaseTy = SrcBaseTy->getVectorElementType();
-        DestBaseTy = DestBaseTy->getVectorElementType();
+        SrcBaseTy = cast<VectorType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<VectorType>(DestBaseTy)->getElementType();
       }
     }
     assert(SrcBaseTy != DestBaseTy &&
@@ -1850,23 +1850,23 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
         }
         // Both types must have the same number of elements.
         if (ElemATy->isArrayTy()) {
-          if (ElemATy->getArrayNumElements() !=
-              ElemBTy->getArrayNumElements()) {
+          if (cast<ArrayType>(ElemATy)->getNumElements() !=
+              cast<ArrayType>(ElemBTy)->getNumElements()) {
             DEBUG_WITH_TYPE(DTRT_VERBOSE,
                             dbgs() << "Element count mismatch @ " << i << "\n");
             return CompareResult::Distinct;
           }
-          ElemATy = ElemATy->getArrayElementType();
-          ElemBTy = ElemBTy->getArrayElementType();
+          ElemATy = cast<ArrayType>(ElemATy)->getElementType();
+          ElemBTy = cast<ArrayType>(ElemBTy)->getElementType();
         } else {
-          if (ElemATy->getVectorNumElements() !=
-              ElemBTy->getVectorNumElements()) {
+          if (cast<VectorType>(ElemATy)->getNumElements() !=
+              cast<VectorType>(ElemBTy)->getNumElements()) {
             DEBUG_WITH_TYPE(DTRT_VERBOSE,
                             dbgs() << "Element count mismatch @ " << i << "\n");
             return CompareResult::Distinct;
           }
-          ElemATy = ElemATy->getVectorElementType();
-          ElemBTy = ElemBTy->getVectorElementType();
+          ElemATy = cast<VectorType>(ElemATy)->getElementType();
+          ElemBTy = cast<VectorType>(ElemBTy)->getElementType();
         }
         ComparingPointerElements = false;
       }

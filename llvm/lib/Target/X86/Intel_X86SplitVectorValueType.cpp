@@ -546,7 +546,7 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
     if (!is_splat(M))
       return false;
 
-    unsigned NumElmts = Op0->getType()->getVectorNumElements();
+    unsigned NumElmts = cast<VectorType>(Op0->getType())->getNumElements();
     int64_t Index = M[0];
 
     if (Index < 0 || Index >= NumElmts)
@@ -558,7 +558,7 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
   // InsertElementInst with constant index could be split.
   if (isa<InsertElementInst>(I)) {
     ConstantInt *Op2 = dyn_cast<ConstantInt>(I->getOperand(2));
-    unsigned NumElmts = I->getType()->getVectorNumElements();
+    unsigned NumElmts = cast<VectorType>(I->getType())->getNumElements();
     int64_t Index = Op2->getSExtValue();
 
     if (Index < 0 || Index >= NumElmts)
@@ -1105,7 +1105,8 @@ bool X86SplitVectorValueType::isCandidate(const Instruction *I) const {
     return false;
 
   Type *Ty = I->getType();
-  if (!Ty->isVectorTy() || !isPowerOf2_64(Ty->getVectorNumElements()))
+  if (!Ty->isVectorTy() ||
+      !isPowerOf2_64(cast<VectorType>(Ty)->getNumElements()))
     return false;
 
   if (TTI->getNumberOfParts(I->getOperand(0)->getType()) < 2)
@@ -1368,7 +1369,7 @@ foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
   if (!match(I, m_ExtractElement(m_Value(VectorOp), m_ConstantInt(IndexOp))))
     return nullptr;
 
-  unsigned NumElmts = VectorOp->getType()->getVectorNumElements();
+  unsigned NumElmts = cast<VectorType>(VectorOp->getType())->getNumElements();
   int64_t Index = IndexOp->getSExtValue();
   if (Index < 0 || Index >= NumElmts)
     return nullptr;

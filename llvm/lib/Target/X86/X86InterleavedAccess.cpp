@@ -199,8 +199,7 @@ class X86InterleavedAccessGroup {
     for (unsigned i = 0; i < NumSubVectors; ++i)
       DecomposedVectors.push_back(new ShuffleVectorInst(
           Op0, Op1,
-          createSequentialMask(Indices[i], SubVecTy->getVectorNumElements(),
-                               0)));
+          createSequentialMask(Indices[i], SubVecTy->getNumElements(), 0)));
   }
 
   /// Keeps mapping of a shufflevector to its OVLSMemref which ultimately helps
@@ -224,8 +223,8 @@ class X86InterleavedAccessGroup {
       assert(Shuffles.size() == 1 && "Unexpected Shuffle Instruction.");
       SmallVector<Instruction *, 4> DecomposedVectors;
       VectorType *VecTy = Shuffles[0]->getType();
-      Type *ShuffleEltTy = VecTy->getVectorElementType();
-      unsigned NumSubVecElems = VecTy->getVectorNumElements() / Factor;
+      Type *ShuffleEltTy = VecTy->getElementType();
+      unsigned NumSubVecElems = VecTy->getNumElements() / Factor;
       decomposeInterleavedShuffle(Shuffles[0], Factor,
                                   VectorType::get(ShuffleEltTy, NumSubVecElems),
                                   StoreShuffles);
@@ -235,17 +234,17 @@ class X86InterleavedAccessGroup {
 
     // Create OVLSMemref for each shuffle.
     for (unsigned i = 0; i < Shuffles.size(); ++i) {
-      VectorType *VecTy = Shuffles[i]->getType();
-      Type *ShuffleEltTy = VecTy->getVectorElementType();
+      VectorType *VecTy = cast<VectorType>(Shuffles[i]->getType());
+      Type *ShuffleEltTy = VecTy->getElementType();
       unsigned EltSizeInByte = DL.getTypeSizeInBits(ShuffleEltTy) / 8;
-      unsigned NumElements = VecTy->getVectorNumElements();
+      unsigned NumElements = VecTy->getNumElements();
       int Dist = isa<StoreInst>(Inst)
                      ? ((Indices[i] / NumElements) * EltSizeInByte)
                      : Indices[i] * EltSizeInByte;
       OVLSAccessKind AKind =
           isa<StoreInst>(Inst) ? OVLSAccessKind::SStore : OVLSAccessKind::SLoad;
       OVLSMemref *Mrf = new X86InterleavedClientMemref(
-          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(), AKind,
+          i + 1, Dist, ShuffleEltTy, VecTy->getNumElements(), AKind,
           Factor * EltSizeInByte);
       Memrefs.push_back(Mrf);
       ShuffleToMemrefMap.insert(
@@ -287,7 +286,7 @@ public:
     VectorType *VecTy = Shuffles[0]->getType();
 
     // There is nothing to optimize further, this pattern is already optimized.
-    if (VecTy->getVectorNumElements() <= 2)
+    if (VecTy->getNumElements() <= 2)
       return false;
 
     // FIXME: Support all other types.
@@ -366,12 +365,13 @@ public:
         unsigned Alignment = 0;
         if (auto *LI = dyn_cast<LoadInst>(Inst)) {
           Addr = LI->getPointerOperand();
-          ElemTy = LI->getType()->getVectorElementType();
+          ElemTy = cast<VectorType>(LI->getType())->getElementType();
           Alignment = LI->getAlignment();
         } else {
           auto *SI = cast<StoreInst>(Inst);
           Addr = SI->getPointerOperand();
-          ElemTy = SI->getValueOperand()->getType()->getVectorElementType();
+          ElemTy = cast<VectorType>(SI->getValueOperand()->getType())
+                       ->getElementType();
           Alignment = SI->getAlignment();
         }
         // Translate the optimized-sequence(from OVLS-pseudo instruction type )
@@ -1133,7 +1133,7 @@ bool X86TargetLowering::lowerInterleavedStore(StoreInst *SI,
   // Factor = 4.
   // This is not a valid candidate for InterleavedAccessPass.
   // This should be recognized in function isReInterleaveMask().
-  if (SVI->getType()->getVectorNumElements() == Factor)
+  if (cast<VectorType>(SVI->getType())->getNumElements() == Factor)
     return false;
 
   // Check if there are any undefs in the Masks in ShuffleVectorInstruction.

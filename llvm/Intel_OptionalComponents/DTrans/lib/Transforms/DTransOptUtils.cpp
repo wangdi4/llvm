@@ -335,9 +335,9 @@ llvm::StructType *getContainedStructTy(llvm::Type *Ty) {
     if (BaseTy->isPointerTy())
       BaseTy = BaseTy->getPointerElementType();
     else if (BaseTy->isArrayTy())
-      BaseTy = BaseTy->getArrayElementType();
+      BaseTy = cast<ArrayType>(BaseTy)->getElementType();
     else
-      BaseTy = BaseTy->getVectorElementType();
+      BaseTy = cast<VectorType>(BaseTy)->getElementType();
   }
   return dyn_cast<StructType>(BaseTy);
 }

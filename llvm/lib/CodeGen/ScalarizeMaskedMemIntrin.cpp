@@ -395,7 +395,7 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
       // We have some kind of non-splat vector.
       if (auto *C = dyn_cast<Constant>(GEPIdx)) {
         // If all elements are ConstantInts, use the Constant for this element.
-        unsigned NumElts = C->getType()->getVectorNumElements();
+        unsigned NumElts = cast<VectorType>(C->getType())->getNumElements();
         for (unsigned j = 0; j != NumElts; ++j) {
           Constant *Elt = C->getAggregateElement(j);
           if (!Elt || !isa<ConstantInt>(Elt))

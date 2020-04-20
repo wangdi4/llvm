@@ -383,9 +383,9 @@ Type *dtrans::unwrapType(Type *Ty) {
     if (BaseTy->isPointerTy())
       BaseTy = BaseTy->getPointerElementType();
     else if (BaseTy->isArrayTy())
-      BaseTy = BaseTy->getArrayElementType();
+      BaseTy = cast<ArrayType>(BaseTy)->getElementType();
     else if (BaseTy->isVectorTy())
-      BaseTy = BaseTy->getVectorElementType();
+      BaseTy = cast<VectorType>(BaseTy)->getElementType();
   return BaseTy;
 }
 
@@ -952,9 +952,9 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
     return true;
 
   if (Ty->isArrayTy())
-    return hasPointerType(Ty->getArrayElementType());
+    return hasPointerType(cast<ArrayType>(Ty)->getElementType());
   if (Ty->isVectorTy())
-    return hasPointerType(Ty->getVectorElementType());
+    return hasPointerType(cast<VectorType>(Ty)->getElementType());
 
   if (auto *StTy = dyn_cast<StructType>(Ty)) {
     // Check inside of literal structs because those cannot be referenced by

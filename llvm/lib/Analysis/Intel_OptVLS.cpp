@@ -109,7 +109,7 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<uint32_t> &Mask,
                                        Type *Tp) const {
   int index = 0;
   unsigned NumSubVecElems = 0;
-  unsigned NumVecElems = Tp->getVectorNumElements();
+  unsigned NumVecElems = cast<VectorType>(Tp)->getNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
   if (isExtractSubvectorMask(Mask)) {

@@ -435,7 +435,7 @@ Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 /// Helper function that returns widened type of given type \p Ty.
 inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
   unsigned NumElts =
-      Ty->isVectorTy() ? Ty->getVectorNumElements() * VF : VF;
+      Ty->isVectorTy() ? cast<VectorType>(Ty)->getNumElements() * VF : VF;
   return VectorType::get(Ty->getScalarType(), NumElts);
 }
 

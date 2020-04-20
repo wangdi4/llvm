@@ -6431,9 +6431,9 @@ private:
         llvm::Type *NestedTy = ElementTy;
         while (NestedTy->isArrayTy() || NestedTy->isVectorTy()) {
           if (NestedTy->isArrayTy())
-            NestedTy = NestedTy->getArrayElementType();
+            NestedTy = cast<ArrayType>(NestedTy)->getElementType();
           else
-            NestedTy = NestedTy->getVectorElementType();
+            NestedTy = cast<VectorType>(NestedTy)->getElementType();
         }
         // If this was an array/vector of structures, set the nested type
         // safety conditions.
