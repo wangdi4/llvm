@@ -17,6 +17,7 @@
 #include "OCLPassSupport.h"
 
 #include "llvm/ADT/SCCIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -43,7 +44,8 @@ bool DetectRecursion::runOnModule(Module &M) {
   // for each function
   Module::FunctionListType &FL = M.getFunctionList();
   for (auto &F : FL) {
-    if (DetectRecursionInFunction(&F)) {
+    if (!isDbgInfoIntrinsic(F.getIntrinsicID())
+        && DetectRecursionInFunction(&F)) {
       FunctionMetadataAPI(&F).RecursiveCall.set(true);
       m_recursionExists = true;
     }
