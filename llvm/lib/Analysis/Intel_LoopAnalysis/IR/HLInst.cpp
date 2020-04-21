@@ -184,6 +184,8 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
     OS << "(";
   } else if (Inst->getOpcode() == Instruction::FNeg) {
     OS << " - ";
+  } else if (isa<FreezeInst>(Inst)) {
+    OS << "freeze(";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
              !isa<GEPOrSubsOperator>(Inst) && !isa<CmpInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";
@@ -193,7 +195,8 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
 
 void HLInst::printEndOpcode(formatted_raw_ostream &OS) const {
 #if !INTEL_PRODUCT_RELEASE
-  if (isCallInst() || (isa<CastInst>(Inst) && !isCopyInst())) {
+  if (isCallInst() || isa<FreezeInst>(Inst) ||
+      (isa<CastInst>(Inst) && !isCopyInst())) {
     OS << ")";
   }
 #endif // !INTEL_PRODUCT_RELEASE
