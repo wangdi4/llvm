@@ -3984,7 +3984,7 @@ static void RenderIntelOptimizationArgs(const Driver &D, const ArgList &Args,
   };
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
     StringRef Val(A->getValue());
-    if (Val == "1" || Val == "2" || Val == "3") {
+    if (Val == "1" || Val == "2" || Val == "3" || Val == "4") {
       addllvmOption("-enable-dtrans");
       addllvmOption("-enable-npm-dtrans");
       CmdArgs.push_back("-mllvm");
