@@ -494,6 +494,8 @@ void initializeStdContainerOptPass(PassRegistry &);
 void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
+// Pass for function recognition
+void initializeFunctionRecognizerLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
 void initializeIndirectCallConvLegacyPassPass(PassRegistry &);
 // Pass for SnodeInfo analysis
