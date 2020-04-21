@@ -159,7 +159,7 @@ public:
         Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(RecordID));
     Value *V = Builder.Insert(
-        new LoadInst(pAddr->getResultElementType(), pAddr), Name);
+        new LoadInst(pAddr->getResultElementType(), pAddr));
     if (V->getType() != Int32Ty && RecordID == NDInfo::WORK_DIM)
       V = Builder.CreateTrunc(V, Int32Ty);
     V->setName(Name);
