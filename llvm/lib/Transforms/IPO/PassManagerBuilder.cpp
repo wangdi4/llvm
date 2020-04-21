@@ -60,6 +60,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
@@ -69,6 +70,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -302,6 +304,12 @@ static cl::opt<bool> EnableCSAPasses("enable-csa-passes",
   cl::init(false), cl::ReallyHidden, cl::ZeroOrMore,
   cl::desc("Enable extra passes for CSA target."));
 #endif  // INTEL_FEATURE_CSA
+
+// DPCPP Kernel transformations
+static cl::opt<bool>
+  EnableDPCPPKernelTransforms("enable-dpcpp-kernel-transforms",
+  cl::init(false), cl::Hidden, cl::ZeroOrMore,
+  cl::desc("Enable extra passes for DPCPP WGLoopCreator/Barrier approach."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -839,6 +847,10 @@ void PassManagerBuilder::populateModulePassManager(
       // new unnamed globals.
       MPM.add(createNameAnonGlobalPass());
     }
+#if INTEL_CUSTOMIZATION
+    if (EnableDPCPPKernelTransforms && !PrepareForLTO)
+      MPM.add(createParseAnnotateAttributesPass());
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
     if (RunVPOOpt) {
       #if INTEL_CUSTOMIZATION
@@ -850,6 +862,12 @@ void PassManagerBuilder::populateModulePassManager(
       addVPOPasses(MPM, true);
     }
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+    if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
+      MPM.add(createUnifyFunctionExitNodesPass());
+      MPM.add(createDPCPPKernelWGLoopCreatorPass());
+    }
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -1118,10 +1136,29 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
+    MPM.add(createParseAnnotateAttributesPass());
+    MPM.add(createDPCPPKernelVecClonePass());
+  }
+
   // In LTO mode, loopopt needs to run in link phase along with community
   // vectorizer and unroll after it until they are phased out.
   if (!PrepareForLTO || !isLoopOptEnabled()) {
     addLoopOptAndAssociatedVPOPasses(MPM, false);
+
+    if (EnableDPCPPKernelTransforms) {
+      MPM.add(createDPCPPKernelPostVecPass());
+      MPM.add(createVPODirectiveCleanupPass());
+      MPM.add(createInstructionCombiningPass());
+      MPM.add(createCFGSimplificationPass());
+      MPM.add(createPromoteMemoryToRegisterPass());
+      MPM.add(createAggressiveDCEPass());
+      MPM.add(createUnifyFunctionExitNodesPass());
+      MPM.add(createDPCPPKernelWGLoopCreatorPass());
+
+      MPM.add(createLICMPass());
+      MPM.add(createCFGSimplificationPass());
+    }
 #endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
