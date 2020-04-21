@@ -16,7 +16,46 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <mutex>
+
 #include <level_zero/zet_api.h>
+
+// Controls L0 calls serialization to w/a of L0 driver being not MT ready.
+// Recognized values (can be used as a bit mask):
+enum {
+  ZE_SERIALIZE_NONE  = 0, // no locking or blocking (except when SYCL RT requested blocking)
+  ZE_SERIALIZE_LOCK  = 1, // locking around each ZE_CALL
+  ZE_SERIALIZE_BLOCK = 2, // blocking ZE calls, where supported (usually in enqueue commands)
+};
+pi_uint32 ZE_SERIALIZE = 0;
+
+// This class encapsulates actions taken along with a call to L0 API.
+class ZeCall {
+private:
+  // The global mutex that is used for total serialization of L0 calls.
+  static std::mutex globalLock;
+
+public:
+
+  ZeCall() {
+    if ((ZE_SERIALIZE & ZE_SERIALIZE_LOCK) != 0) {
+      globalLock.lock();
+    }
+  }
+  ~ZeCall() {
+    if ((ZE_SERIALIZE & ZE_SERIALIZE_LOCK) != 0) {
+      globalLock.unlock();
+    }
+  }
+
+  static ze_result_t check(ze_result_t ze_result, const char *call_str, bool nothrow = false);
+
+  // The non-static version just calls static one.
+  ze_result_t checkthis(ze_result_t ze_result, const char *call_str, bool nothrow = false) {
+    return ZeCall::check(ze_result, call_str, nothrow);
+  }
+};
+std::mutex ZeCall::globalLock;
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,6 +69,7 @@ extern "C" {
 #define L0_SUPPORTED_EXTENSIONS                                                \
   "cl_khr_il_program cl_khr_subgroups cl_intel_subgroups "                     \
   "cl_intel_subgroups_short cl_intel_required_subgroup_size "
+// Controls L0 calls tracing in zePrint.
 bool ZE_DEBUG = false;
 
 // Forward declarations
@@ -176,7 +216,7 @@ inline void zeParseError(ze_result_t error, std::string &errorString)
     }
 }
 
-static ze_result_t zeCallCheck(ze_result_t ze_result, const char *call_str, bool nothrow = false)
+ze_result_t ZeCall::check(ze_result_t ze_result, const char *call_str, bool nothrow)
 {
   zePrint("ZE ---> %s\n", call_str);
 
@@ -192,8 +232,8 @@ static ze_result_t zeCallCheck(ze_result_t ze_result, const char *call_str, bool
   return ze_result;
 }
 
-#define ZE_CALL(call)         zeCallCheck(call, #call, false)
-#define ZE_CALL_NOTHROW(call) zeCallCheck(call, #call, true)
+#define ZE_CALL(call)         ZeCall().checkthis(call, #call, false)
+#define ZE_CALL_NOTHROW(call) ZeCall().checkthis(call, #call, true)
 
 // Crate a new command list to be used in a PI call
 ze_command_list_handle_t _pi_device::createCommandList()
@@ -228,8 +268,8 @@ void _pi_queue::executeCommandList(ze_command_list_handle_t ze_command_list,
   ZE_CALL(zeCommandQueueExecuteCommandLists(
     L0CommandQueue, 1, &ze_command_list, nullptr));
 
-  // TODO: add a global control to make every command blocking for debugging.
-  if (is_blocking) {
+  // Check global control to make every command blocking for debugging.
+  if (is_blocking || (ZE_SERIALIZE & ZE_SERIALIZE_BLOCK) != 0) {
     // Wait until command lists attached to the command queue are executed.
     ZE_CALL(zeCommandQueueSynchronize(L0CommandQueue, UINT32_MAX));
   }
@@ -331,9 +371,13 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
                              pi_platform *   platforms,
                              pi_uint32 *     num_platforms) {
 
-  static const char *getEnv = std::getenv("ZE_DEBUG");
-  if (getEnv)
+  static const char *getEnv1 = std::getenv("ZE_DEBUG");
+  if (getEnv1)
     ZE_DEBUG = true;
+
+  static const char *getEnv2 = std::getenv("ZE_SERIALIZE");
+  static const pi_uint32 valEnv2 = getEnv2 ? std::atoi(getEnv2) : 0;
+  ZE_SERIALIZE = valEnv2;
 
   ze_result_t ze_result;
   // This is a good time to initialize L0.
@@ -365,7 +409,7 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
   }
   else {
     // TODO: handle other errors.
-    zeCallCheck(ze_result, "piPlatformsGet");
+    ZeCall::check(ze_result, "piPlatformsGet");
   }
 
   // L0 does not have concept of platforms, but L0 driver is the
@@ -3519,7 +3563,7 @@ pi_result L0(piextUSMHostAlloc)(void **result_ptr, pi_context context,
   }
   else {
     // TODO: handle other errors.
-    zeCallCheck(ze_result, "zeDriverAllocHostMem");
+    ZeCall::check(ze_result, "zeDriverAllocHostMem");
   }
 
   return PI_SUCCESS;
@@ -3548,7 +3592,7 @@ pi_result L0(piextUSMDeviceAlloc)(void **result_ptr, pi_context context,
   }
   else {
     // TODO: handle other errors.
-    zeCallCheck(ze_result, "zeDriverAllocDeviceMem");
+    ZeCall::check(ze_result, "zeDriverAllocDeviceMem");
   }
 
   return PI_SUCCESS;
@@ -3583,7 +3627,7 @@ pi_result L0(piextUSMSharedAlloc)(
   }
   else {
     // TODO: handle other errors.
-    zeCallCheck(ze_result, "zeDriverAllocSharedMem");
+    ZeCall::check(ze_result, "zeDriverAllocSharedMem");
   }
 
   return PI_SUCCESS;
