@@ -1197,7 +1197,7 @@ void SCCPSolver::handleCallOverdefined(CallSite CS) {
 
 void SCCPSolver::handleCallArguments(CallSite CS) {
 #if INTEL_CUSTOMIZATION
-  auto HandleArgs = [this](auto CS, auto GetArgOperand) {
+  auto HandleArgs = [this](auto CS, bool IsCallback, auto GetArgOperand) {
     Function *F = CS.getCalledFunction();
     // If this is a local function that doesn't have its address taken, mark its
     // entry block executable and merge in the actual arguments to the call into
@@ -1221,6 +1221,14 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
           continue;
         }
 
+        // Thread dependent values cannot be propagated to callbacks.
+        if (IsCallback)
+          if (auto *C = dyn_cast<Constant>(V))
+            if (C->isThreadDependent()) {
+              markOverdefined(&A);
+              continue;
+            }
+
         if (auto *STy = dyn_cast<StructType>(A.getType())) {
           for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
             ValueLatticeElement CallArg = getStructValueState(V, i);
@@ -1233,9 +1241,11 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
   };
 
   // First handle arguments for the direct/indirect call site.
-  HandleArgs(CS, [&CS](Argument &A) { return CS.getArgOperand(A.getArgNo()); });
+  HandleArgs(CS, /*IsCallback=*/false,
+             [&CS](Argument &A) { return CS.getArgOperand(A.getArgNo()); });
 
   // Then do the same for the callback call sites if enabled.
+<<<<<<< HEAD
   if (EnableCallbacks) {
     for_each_callback_callsite(cast<CallBase>(*CS.getInstruction()),
                                [&HandleArgs](AbstractCallSite &ACS) {
@@ -1244,6 +1254,13 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
                                  });
                                });
   }
+=======
+  if (EnableCallbacks)
+    for_each_callback_callsite(CS, [&HandleArgs](AbstractCallSite &ACS) {
+      HandleArgs(ACS, /*IsCallback=*/true,
+                 [&ACS](Argument &A) { return ACS.getCallArgOperand(A); });
+    });
+>>>>>>> 12a7c3822ff2424b3820e68ecd7fc383ba732d76
 #endif // INTEL_CUSTOMIZATION
 }
 
