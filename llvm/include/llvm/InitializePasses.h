@@ -624,6 +624,7 @@ void initializeDPCPPKernelAnalysisPass(PassRegistry&);
 void initializePhiCanonicalizationPass(PassRegistry&);
 void initializeRedundantPhiNodePass(PassRegistry&);
 void initializeSplitBBonBarrierPass(PassRegistry&);
+void initializeWIRelatedValuePass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

@@ -47,5 +47,18 @@ void getAllSyncInstructions(Module &M, InstVector &SyncInsts) {
     SyncInsts.push_back(I);
 }
 
+/// Find all functions directly calling sync instructions.
+void getAllFunctionsWithSynchronization(Module &M, FuncSet &SyncFuncs) {
+  SyncFuncs.clear();
+
+  InstVector SyncInsts;
+  // Initialize m_syncInstructions
+  getAllSyncInstructions(M, SyncInsts);
+
+  for (auto *I : SyncInsts) {
+    SyncFuncs.insert(I->getFunction());
+  }
+}
+
 } // namespace DPCPPKernelBarrierUtils
 } // namespace llvm
