@@ -2348,6 +2348,10 @@ pi_result L0(piEventSetCallback)(
                           void *   user_data),
   void *      user_data) {
 
+  // Increment the pi_event's reference counter to avoid destroying the event before all
+  // callbacks are executed.
+  piEventRetain(event);
+
   // TODO: Can we support CL_SUBMITTED and CL_RUNNING?
   // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/243
   //
@@ -2357,10 +2361,7 @@ pi_result L0(piEventSetCallback)(
 
   // Execute the wait and callback trigger in a side thread to not
   // block the main host thread.
-  //
-  // TODO: we should probably remember the callback within
-  //       the pi_event to not destroy the event before all
-  //       are executed.
+  // TODO: We should use a single thread to serve all callbacks.
   //
   std::thread wait_thread([](pi_event    event,
                              pi_int32    command_exec_callback_type,
@@ -2379,6 +2380,7 @@ pi_result L0(piEventSetCallback)(
 
     // Call the callback.
     pfn_notify(event, command_exec_callback_type, user_data);
+    piEventRelease(event);
 
   }, event, command_exec_callback_type, pfn_notify, user_data);
 
