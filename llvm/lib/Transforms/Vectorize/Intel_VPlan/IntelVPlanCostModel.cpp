@@ -123,8 +123,16 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
   const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
-  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
-    return ::getMemInstAddressSpace(Inst);
+  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
+    if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))
+      return ::getMemInstAddressSpace(Inst);
+
+    // Handle cases such as a[i] = b + c, the store to a[i] will be the master
+    // VPInst. However, Inst will be an add instruction.
+    const RegDDRef *LvalRef = DDNode->getLvalDDRef();
+    if (LvalRef && LvalRef->isMemRef())
+      return LvalRef->getPointerAddressSpace();
+  }
 #endif // INTEL_CUSTOMIZATION
 
   return 0; // CHECKME: Is that correct?
@@ -173,9 +181,19 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
 #if INTEL_CUSTOMIZATION
   if (VPInst->HIR.isMaster()) {
     const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
-    if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
-      if (unsigned Align = ::getMemInstAlignment(Inst))
-        return Align;
+    if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
+      if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+        if (unsigned Align = ::getMemInstAlignment(Inst))
+          return Align;
+      } else {
+        // Handle cases such as a[i] = b + c, the store to a[i] will be the
+        // master VPInst. However, Inst will be an add instruction.
+        const RegDDRef *LvalRef = DDNode->getLvalDDRef();
+        if (LvalRef && LvalRef->isMemRef())
+          if (unsigned Align = LvalRef->getAlignment())
+            return Align;
+      }
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 

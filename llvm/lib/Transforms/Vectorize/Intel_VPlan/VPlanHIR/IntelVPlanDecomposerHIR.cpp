@@ -722,13 +722,16 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert(!HLDef2VPValue.count(DDNode) && "Node shouldn't have been visited.");
 
-  if (auto *HInst = dyn_cast<HLInst>(Node)) {
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
-
+  // Generate a VPInstruction using LLVMInst opcode and the operands in
+  // VPOperands. DDNode if non-null will be used to setup the underlying
+  // node. HInst is used to obtain instruction specific information when
+  // needed.
+  auto genVPInst = [this](const Instruction *LLVMInst, HLDDNode *DDNode,
+                          HLInst *HInst, ArrayRef<VPValue *> VPOperands) {
+    VPInstruction *NewVPInst;
     if (isa<CmpInst>(LLVMInst)) {
       assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
+      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HInst);
       NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
                                         VPOperands[1], DDNode);
     } else if (isa<SelectInst>(LLVMInst)) {
@@ -744,8 +747,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Decompose first 2 operands into a CmpInst used as predicate for select
       VPCmpInst *Pred =
           Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
-      // Set underlying DDNode for the select VPInstruction since it's the
-      // master VPInstruction
+      // Set underlying DDNode for the select VPInstruction since it may be the
+      // master VPInstruction which will be the case if DDNode is non-null.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           Instruction::Select, {Pred, TVal, FVal}, TVal->getType(), DDNode));
     } else if (isa<LoadInst>(LLVMInst)) {
@@ -757,9 +760,10 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = cast<VPInstruction>(VPOperands.back());
       assert(NewVPInst->getOpcode() == Instruction::Load &&
              "Incorrect instruction added for load.");
-      // Set the underlying DDNode for the load instruction since it will be
-      // master VPI for this node
-      NewVPInst->HIR.setUnderlyingNode(DDNode);
+      // Set the underlying DDNode for the load instruction since it may be
+      // master VPI for this node which will be the case if DDNode is non-null.
+      if (DDNode)
+        NewVPInst->HIR.setUnderlyingNode(DDNode);
     } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
@@ -776,7 +780,40 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
 
-    if (RegDDRef *LvalDDR = HInst->getLvalDDRef()) {
+    return NewVPInst;
+  };
+
+  if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    const Instruction *LLVMInst = HInst->getLLVMInstruction();
+    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
+
+    // Any LLVM instruction which semantically has a terminal lval/rval can
+    // alternatively contain a memref operand in HIR. For example, an add
+    // instruction can look like the following in HIR:
+    //        A[i] = B[i] + C[i].
+    // Rval memory references are handled properly when we create corresponding
+    // VPOperands. However, instructions such as the above, need to be
+    // decomposed into two separate instructions. In this case, LLVMInst will be
+    // an add instruction and VPOperands will contain VPValues corresponding to
+    // B[i], C[i], and &A[i]. We generate an add instruction using the first two
+    // VPValues. The result of add becomes the value being stored and we
+    // generate a store instruction using the result of the add and the VPValue
+    // corresponding to &A[i]. The generated store instruction is set as the
+    // master instruction.
+    RegDDRef *LvalDDR = HInst->getLvalDDRef();
+
+    if (LvalDDR && LvalDDR->isMemRef() &&
+        LLVMInst->getOpcode() != Instruction::Store) {
+      VPInstruction *StoreVal =
+          genVPInst(LLVMInst, nullptr /* DDNode is only set on master */, HInst,
+                    VPOperands.drop_back() /* Omit last operand */);
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          Instruction::Store, {StoreVal, VPOperands.back()},
+          Type::getVoidTy(*Plan->getLLVMContext()), DDNode));
+    } else
+      NewVPInst = genVPInst(LLVMInst, DDNode, HInst, VPOperands);
+
+    if (LvalDDR) {
       // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
       // standalone loads.
       NewVPInst->HIR.setOperandDDR(LvalDDR);
