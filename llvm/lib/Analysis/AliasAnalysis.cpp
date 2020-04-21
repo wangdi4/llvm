@@ -141,13 +141,14 @@ bool AAResults::escapes(const Value *V) {
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB) {
-  AAQueryInfo AAQIP;
+  AAQueryInfo AAQIP(true);
   return loopCarriedAlias(LocA, LocB, AAQIP);
 }
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB,
                                         AAQueryInfo &AAQI) {
+  assert(AAQI.NeedLoopCarried && "Unexpectedly missing loopCarried query flag");
   for (const auto &AA : AAs) {
     auto Result = AA->loopCarriedAlias(LocA, LocB, AAQI);
     if (Result != MayAlias)

@@ -340,6 +340,14 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
 /// where safe (due to the IR not changing), use a `BatchAAResults` wrapper.
 /// The information stored in an `AAQueryInfo` is currently limitted to the
 /// caches used by BasicAA, but can further be extended to fit other AA needs.
+/// INTEL:
+/// We also use this class to note when a query requires "loopCarriedAlias"
+/// semantics as opposed to "alias" semantics. This should always be redundant
+/// with the knowledge that a query is being made via the "loopCarriedAlias"
+/// interface. Storing it here allows an analysis to share some implementation
+/// between the "alias" and "loopCarriedAlias" implementations, checking the
+/// AAQI to determine which interface it's responding to. Currently only
+/// BasicAA uses the `NeedLoopCarried` flag.
 class AAQueryInfo {
 public:
   using LocPair = std::pair<MemoryLocation, MemoryLocation>;
@@ -348,6 +356,13 @@ public:
 
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
   IsCapturedCacheT IsCapturedCache;
+
+#ifdef INTEL_CUSTOMIZATION
+  // Remember if this is a "loopCarriedAlias" query.
+  const bool NeedLoopCarried = false;
+  AAQueryInfo(bool LoopCarried)
+      : AliasCache(), IsCapturedCache(), NeedLoopCarried(LoopCarried) {}
+#endif // INTEL_CUSTOMIZATION
 
   AAQueryInfo() : AliasCache(), IsCapturedCache() {}
 };
@@ -1051,6 +1066,8 @@ public:
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB,
                                AAQueryInfo &AAQI) override {
+    assert(AAQI.NeedLoopCarried &&
+           "Unexpectedly missing loopCarried query flag");
     return Result.loopCarriedAlias(LocA, LocB, AAQI);
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1154,6 +1171,8 @@ protected:
     AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                  const MemoryLocation &LocB,
                                  AAQueryInfo &AAQI) {
+      assert(AAQI.NeedLoopCarried &&
+             "Unexpectedly missing loopCarried query flag");
       return AAR ? AAR->loopCarriedAlias(LocA, LocB, AAQI)
                  : CurrentResult.loopCarriedAlias(LocA, LocB, AAQI);
     }
@@ -1232,6 +1251,8 @@ public:
   // and precision may be worse.
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI) {
+    assert(AAQI.NeedLoopCarried &&
+           "Unexpectedly missing loopCarried query flag");
     return MayAlias;
   }
 #endif // INTEL_CUSTOMIZATION

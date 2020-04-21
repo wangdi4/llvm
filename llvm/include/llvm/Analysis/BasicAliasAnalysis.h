@@ -107,6 +107,11 @@ public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI);
 
+#if INTEL_CUSTOMIZATION
+  AliasResult loopCarriedAlias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB, AAQueryInfo &AAQI);
+#endif // INTEL_CUSTOMIZATION
+
   ModRefInfo getModRefInfo(const CallBase *Call, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
 
