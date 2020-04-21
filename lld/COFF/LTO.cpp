@@ -168,7 +168,10 @@ void BitcodeCompiler::add(BitcodeFile &f) {
 
 // Merge all the bitcode files we have seen, codegen the result
 // and return the resulting objects.
-std::vector<InputFile *> BitcodeCompiler::compile() {
+#if INTEL_CUSTOMIZATION
+std::vector<InputFile *>
+BitcodeCompiler::compile(std::vector<StringRef> *buffersOut) {
+#endif // INTEL_CUSTOMIZATION
   unsigned maxTasks = ltoObj->getMaxTasks();
   buf.resize(maxTasks);
   files.resize(maxTasks);
@@ -245,6 +248,10 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
     if (config->saveTemps)
       saveBuffer(buf[i], ltoObjName);
     ret.push_back(make<ObjFile>(MemoryBufferRef(objBuf, ltoObjName)));
+#if INTEL_CUSTOMIZATION
+    if (buffersOut)
+      buffersOut->push_back(objBuf);
+#endif // INTEL_CUSTOMIZATION
   }
 
   return ret;

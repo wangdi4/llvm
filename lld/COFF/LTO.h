@@ -45,7 +45,10 @@ public:
   ~BitcodeCompiler();
 
   void add(BitcodeFile &f);
-  std::vector<InputFile *> compile();
+#if INTEL_CUSTOMIZATION
+  std::vector<InputFile *>
+  compile(std::vector<StringRef> *buffersOut = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 private:
   std::unique_ptr<llvm::lto::LTO> ltoObj;

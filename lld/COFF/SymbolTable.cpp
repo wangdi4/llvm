@@ -486,6 +486,20 @@ Symbol *SymbolTable::addUndefined(StringRef name, InputFile *f,
   return s;
 }
 
+#if INTEL_CUSTOMIZATION
+// The original version of this function was removed in the community in D78221.
+// This is kept here so as to support calling runMSVCLinker from Driver.cpp.
+std::vector<StringRef> SymbolTable::compileBitcodeFiles() {
+  lto.reset(new BitcodeCompiler);
+  for (BitcodeFile *f : BitcodeFile::instances)
+    lto->add(*f);
+
+  std::vector<StringRef> objFiles;
+  lto->compile(&objFiles);
+  return objFiles;
+}
+#endif //  INTEL_CUSTOMIZATION
+
 void SymbolTable::addLazyArchive(ArchiveFile *f, const Archive::Symbol &sym) {
   StringRef name = sym.getName();
   Symbol *s;
