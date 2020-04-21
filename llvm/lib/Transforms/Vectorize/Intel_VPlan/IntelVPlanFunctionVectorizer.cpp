@@ -16,9 +16,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
+
 #include "IntelVPlanCFGBuilder.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanLoopExitCanonicalization.h"
+#include "IntelVPlanPredicator.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/InitializePasses.h"
@@ -47,6 +49,11 @@ static cl::opt<bool> DumpAfterDA(
 static cl::opt<bool> DumpAfterLoopCFU(
     "print-after-vplan-func-vec-loop-cfu",
     cl::desc("Print after LoopCFU for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterPredicator(
+    "print-after-vplan-func-vec-predicator",
+    cl::desc("Print after Predication for VPlan Function vectorization "),
     cl::init(false), cl::Hidden);
 
 using namespace llvm;
@@ -103,6 +110,14 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterLoopCFU)
+      Plan->dump(outs(), true);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    VPlanPredicator Predicator(*Plan.get());
+    Predicator.predicate();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterPredicator)
       Plan->dump(outs(), true);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
