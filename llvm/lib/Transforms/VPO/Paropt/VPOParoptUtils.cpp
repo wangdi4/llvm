@@ -2679,8 +2679,10 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
 // `__kmpc_end_critical` after `EndInst`.
 bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                             Constant *TidPtr,
+                                            DominatorTree *DT,
+                                            LoopInfo *LI,
                                             bool IsTargetSPIRV,
-                                            const StringRef LockNameSuffix) {
+                                            const Twine &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2709,8 +2711,8 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
-  assert(EntryBB->size() >= 2 && "Entry BBlock has invalid size.");
-  assert(ExitBB->size() >= 2 && "Exit BBlock has invalid size.");
+  assert(EntryBB->size() <= 2 && "Entry BBlock has invalid size.");
+  assert(ExitBB->size() <= 2 && "Exit BBlock has invalid size.");
 
   // BeginInst: `br label %BB1` (EntryBB) in the above example.
   Instruction *BeginInst = &(*(EntryBB->rbegin()));
@@ -2721,7 +2723,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(EndInst != nullptr && "EndInst is null.");
 
   return genKmpcCriticalSection(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                IsTargetSPIRV, LockNameSuffix);
+                                DT, LI, IsTargetSPIRV, LockNameSuffix);
 }
 
 // Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
@@ -3428,19 +3430,17 @@ SmallString<64> VPOParoptUtils::getKmpcCriticalLockNamePrefix(WRegionNode *W) {
 
 
 // Returns the lock variable to be used in KMPC critical calls.
-GlobalVariable *
-VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
-                                       const StringRef LockNameSuffix,
-                                       bool IsTargetSPIRV) {
+GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
+    WRegionNode *W, const Twine &LockNameSuffix, bool IsTargetSPIRV) {
 
-  assert(W != nullptr && "WRegionNode is null.");
+  assert(W && "WRegionNode is null.");
 
   // We first get the lock name prefix for the lock var based on the target.
   SmallString<64> LockName = getKmpcCriticalLockNamePrefix(W);
-  LockName += LockNameSuffix;
+  LockName += LockNameSuffix.str();
   LockName += ".var";
 
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << ".\n");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << "\n");
 
   // Now, the type for lock variable is an array of eight 32-bit integers.
   BasicBlock *BB = W->getEntryBBlock();
@@ -3452,13 +3452,11 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
   ArrayType *LockVarTy = ArrayType::get(Type::getInt32Ty(C), 8);
 
   // See if a lock object already exists, if so, reuse it.
-  GlobalVariable *GV =
-      M->getGlobalVariable(LockName);
-  if (GV != nullptr) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Reusing existig lock var: " << *GV
-                      << ".\n");
+  if (GlobalVariable *GV = M->getGlobalVariable(LockName)) {
+    LLVM_DEBUG(dbgs() <<
+               __FUNCTION__ << ": Reusing existig lock var: " << *GV << "\n");
 
-    assert(GV->getType()->getContainedType(0) == LockVarTy &&
+    assert(GV->getValueType() == LockVarTy &&
            "Lock variable name conflicts with an existing variable.");
     return GV;
   }
@@ -3468,39 +3466,44 @@ VPOParoptUtils::genKmpcCriticalLockVar(WRegionNode *W,
   // one at link time.
   //
   // Note that the lock variable must be declared as __global for OpenCL.
-  GV = new GlobalVariable(*M, LockVarTy, false, GlobalValue::CommonLinkage,
-                          ConstantAggregateZero::get(LockVarTy), LockName,
-                          nullptr,
-                          GlobalValue::ThreadLocalMode::NotThreadLocal,
-                          IsTargetSPIRV ?
-                              vpo::ADDRESS_SPACE_GLOBAL :
-                              vpo::ADDRESS_SPACE_PRIVATE);
+  GlobalVariable *GV =
+      new GlobalVariable(*M, LockVarTy, false, GlobalValue::CommonLinkage,
+                         ConstantAggregateZero::get(LockVarTy), LockName,
+                         nullptr, GlobalValue::ThreadLocalMode::NotThreadLocal,
+                         IsTargetSPIRV ?
+                             vpo::ADDRESS_SPACE_GLOBAL :
+                             vpo::ADDRESS_SPACE_PRIVATE);
 
-  assert(GV != nullptr && "Unable to generate Kmpc critical lock var.");
-  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV
-                    << ".\n");
+  assert(GV && "Unable to generate Kmpc critical lock var.");
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV << "\n");
 
   return GV;
 }
 
 // Generates a critical section around Instructions `begin` and `end`.
-bool VPOParoptUtils::genKmpcCriticalSectionImpl(
-    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
-    Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar,
-    bool IsTargetSPIRV) {
+bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
+                                                StructType *IdentTy,
+                                                Constant *TidPtr,
+                                                Instruction *BeginInst,
+                                                Instruction *EndInst,
+                                                GlobalVariable *LockVar,
+                                                DominatorTree *DT,
+                                                LoopInfo *LI,
+                                                bool IsTargetSPIRV) {
 
-  assert(W != nullptr && "WRegionNode is null.");
-  assert(IdentTy != nullptr && "IdentTy is null.");
-  assert(TidPtr != nullptr && "TidPtr is null.");
-  assert(BeginInst != nullptr && "BeginInst is null.");
-  assert(EndInst != nullptr && "EndInst is null.");
-  assert(LockVar != nullptr && "LockVar is null.");
+  assert(W && "WRegionNode is null.");
+  assert(IdentTy && "IdentTy is null.");
+  assert(TidPtr && "TidPtr is null.");
+  assert(BeginInst && "BeginInst is null.");
+  assert(EndInst && "EndInst is null.");
+  assert(LockVar && "LockVar is null.");
 
   auto *RetTy = Type::getVoidTy(BeginInst->getContext());
 
   StringRef BeginName = "__kmpc_critical";
   CallInst *BeginCritical = nullptr;
   Value *Arg = LockVar;
+  Module *M = BeginInst->getModule();
 
   if (IsTargetSPIRV)
     // OpenCL version of __kmpc_critical takes a generic address space
@@ -3509,32 +3512,25 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
                                            vpo::ADDRESS_SPACE_GENERIC);
 
   if (IsTargetSPIRV)
-    BeginCritical =
-        genCall(BeginInst->getModule(), BeginName, RetTy, { Arg });
+    BeginCritical = genCall(M, BeginName, RetTy, { Arg });
   else
     BeginCritical =
         genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
                            RetTy, { Arg });
 
-  assert(BeginCritical != nullptr && "Could not call __kmpc_critical");
-
-  if (BeginCritical == nullptr)
-      return false;
+  assert(BeginCritical && "Could not call __kmpc_critical");
 
   StringRef EndName = "__kmpc_end_critical";
   CallInst *EndCritical = nullptr;
 
   if (IsTargetSPIRV)
-    EndCritical = genCall(EndInst->getModule(), EndName, RetTy, { Arg });
+    EndCritical = genCall(M, EndName, RetTy, { Arg });
   else
     EndCritical =
         genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, "__kmpc_end_critical",
                            RetTy, { Arg });
 
-  assert(EndCritical != nullptr && "Could not call __kmpc_end_critical");
-
-  if (BeginCritical == nullptr)
-      return false;
+  assert(EndCritical && "Could not call __kmpc_end_critical");
 
   // Now insert the calls in the IR.
   if (IsTargetSPIRV) {
@@ -3551,7 +3547,252 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
   else
     EndCritical->insertAfter(EndInst);
 
+  if (IsTargetSPIRV)
+    genCriticalLoopForSPIR(BeginInst, EndCritical, DT, LI);
+
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
+  return true;
+}
+
+// Wrap lane-by-lane loop around BeginInst and EndInst:
+//   for (int id = 0; id < get_sub_group_size(); ++id) {
+//     if (id != get_sub_group_local_id())
+//       continue;
+//     <BeginInst>
+//     ...
+//     <EndInst>
+//   }
+bool VPOParoptUtils::genCriticalLoopForSPIR(Instruction *BeginInst,
+                                            Instruction *EndInst,
+                                            DominatorTree *DT,
+                                            LoopInfo *LI) {
+  assert(BeginInst && EndInst && "Invalid begin and end instructions.");
+
+  Module *M = BeginInst->getModule();
+  // It does not matter, but usually BeginInst is the next node
+  // after @__kmpc_critical call, and EndInst is @__kmpc_end_critical
+  // call.
+  BasicBlock *PreheaderBB = BeginInst->getParent();
+  BasicBlock *LoopIncBB = EndInst->getParent();
+  assert(PreheaderBB != LoopIncBB &&
+         "Begin and end instructions must be in different blocks.");
+  // Assertion below will trigger on critical regions with
+  // early exits, e.g.:
+  //   #pragma omp critical
+  //     exit(1);
+  // These are not supported for SPIR targets.
+  assert((!DT ||
+          (DT->getNode(PreheaderBB) && DT->getNode(LoopIncBB) &&
+           DT->dominates(BeginInst->getParent(), EndInst->getParent()))) &&
+         "Malformed critical region.");
+  BasicBlock *HeaderBB = SplitBlock(PreheaderBB, BeginInst, DT, LI);
+  BasicBlock *LoopExitBB = SplitBlock(LoopIncBB, EndInst, DT, LI);
+
+  // The current CFG:
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   br label %LoopExitBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  IRBuilder<> PreheaderBuilder(PreheaderBB->getTerminator());
+  Type *IVTy = PreheaderBuilder.getInt32Ty();
+  ConstantInt *ZeroVal = PreheaderBuilder.getInt32(0);
+  ConstantInt *OneVal = PreheaderBuilder.getInt32(1);
+  CallInst *SGSize = genCall(M, "_Z18get_sub_group_sizev", IVTy, {},
+                             &*PreheaderBuilder.GetInsertPoint());
+  setFuncCallingConv(SGSize, true);
+
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   ...
+  IRBuilder<> HeaderBuilder(&HeaderBB->front());
+  PHINode *IVPHI = HeaderBuilder.CreatePHI(IVTy, 2, "simdlane.id");
+  IVPHI->addIncoming(ZeroVal, PreheaderBB);
+  Value *ExitPred = HeaderBuilder.CreateICmpUGE(IVPHI, SGSize, "exit.pred");
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
+  //
+  // JumpToExitBB:
+  //   br label %LoopExitBB
+  //
+  // LoopBody:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   br label %LoopExitBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+  Instruction *SplitPt = &*HeaderBuilder.GetInsertPoint();
+  Instruction *ThenTerm =
+    SplitBlockAndInsertIfThen(ExitPred, SplitPt,
+                              /*Unreachable=*/false,
+                              /*BranchWeights=*/nullptr,
+                              DT, LI);
+  BasicBlock *JumpToExitBB = ThenTerm->getParent();
+  ThenTerm->setSuccessor(0, LoopExitBB);
+  if (DT)
+    DT->changeImmediateDominator(LoopExitBB, HeaderBB);
+
+  BasicBlock *LoopBodyBB = SplitPt->getParent();
+  Instruction *LoopBodyInsertPt = &LoopBodyBB->front();
+  // LoopBody:
+  //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
+  //   %skip.pred = icmp ne i32 %simdlane.id, %1
+  //   ...
+  CallInst *SGLocalId =
+    genCall(M, "_Z22get_sub_group_local_idv", IVTy, {}, LoopBodyInsertPt);
+  setFuncCallingConv(SGLocalId, true);
+  Value *SkipPred = new ICmpInst(LoopBodyInsertPt, ICmpInst::ICMP_NE,
+                                 IVPHI, SGLocalId, "skip.pred");
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, %PreheaderBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
+  //
+  // JumpToExitBB:
+  //   br label %LoopExitBB
+  //
+  // LoopBody:
+  //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
+  //   %skip.pred = icmp ne i32 %simdlane.id, %1
+  //   br i1 %skip.pred, label %JumpToIncBB, label %CritBody
+  //
+  // JumpToIncBB:
+  //   br label %LoopIncBB
+  //
+  // CritBody:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   br label %LoopExitBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+  ThenTerm = SplitBlockAndInsertIfThen(SkipPred, LoopBodyInsertPt,
+                                       /*Unreachable=*/false,
+                                       /*BranchWeights=*/nullptr,
+                                       DT, LI);
+  ThenTerm->setSuccessor(0, LoopIncBB);
+  if (DT)
+    DT->changeImmediateDominator(LoopIncBB, LoopBodyBB);
+
+  // PreheaderBB:
+  //   call spir_func void @__kmpc_critical
+  //   %0 = call spir_func i32 @_Z18get_sub_group_size
+  //   br label %HeaderBB
+  //
+  // HeaderBB:
+  //   %simdlane.id = phi i32 [ 0, PreheaderBB ], [ %2, %LoopIncBB ]
+  //   %exit.pred = icmp uge i32 %simdlane.id, %0
+  //   br i1 %exit.pred, label %JumpToExitBB, label %LoopBody
+  //
+  // JumpToExitBB:
+  //   br label %LoopExitBB
+  //
+  // LoopBody:
+  //   %1 = call spir_func i32 @_Z22get_sub_group_local_id
+  //   %skip.pred = icmp ne i32 %simdlane.id, %1
+  //   br i1 %skip.pred, label %JumpToIncBB, label %CritBody
+  //
+  // JumpToIncBB:
+  //   br label %LoopIncBB
+  //
+  // CritBody:
+  //   ...
+  //
+  // LoopIncBB:
+  //   ...
+  //   %2 = add nuw nsw i32 %simdlane.id, 1
+  //   br label %HeaderBB
+  //
+  // LoopExitBB:
+  //   call spir_func void @__kmpc_end_critical
+  IRBuilder<> IncBuilder(LoopIncBB->getTerminator());
+  Value *Increment =
+      IncBuilder.CreateAdd(IVPHI, OneVal, "simdlane.id.inc", true, true);
+  IVPHI->addIncoming(Increment, LoopIncBB);
+  assert(LoopIncBB->getTerminator()->getNumSuccessors() == 1 &&
+         "Unexpected number of successors for LoopIncBB.");
+  LoopIncBB->getTerminator()->setSuccessor(0, HeaderBB);
+  // JumpToExitBB is now the only predecessor of LoopExitBB,
+  // and also its immediate dominator.
+  if (DT)
+    DT->changeImmediateDominator(LoopExitBB, JumpToExitBB);
+
+#ifndef NDEBUG
+  assert((!DT || DT->verify()) && "DominatorTree is invalid.");
+#endif  // NDEBUG
+
+  if (LI) {
+    // Collect blocks for the newly created loop.
+    SmallVector<BasicBlock *, 32> WorkList{HeaderBB};
+    SmallPtrSet<BasicBlock *, 32> Visited;
+    while (!WorkList.empty()) {
+      BasicBlock *BB = WorkList.pop_back_val();
+      Visited.insert(BB);
+      // If the assertion triggers, this probably means we
+      // escaped the critical section somehow.
+      assert(BB->getTerminator()->getNumSuccessors() > 0 &&
+             "Block inside critical section has zero successors.");
+      for (auto *SBB : successors(BB))
+        if (SBB != JumpToExitBB && Visited.count(SBB) == 0)
+          WorkList.push_back(SBB);
+    }
+
+    Loop *ParentLoop = LI->getLoopFor(LoopExitBB);
+    Loop *NewLoop = LI->AllocateLoop();
+    if (ParentLoop)
+      ParentLoop->addChildLoop(NewLoop);
+    else
+      LI->addTopLevelLoop(NewLoop);
+    for (auto *BB : Visited) {
+      NewLoop->addBlockEntry(BB);
+      LI->changeLoopFor(BB, NewLoop);
+    }
+    NewLoop->moveToHeader(HeaderBB);
+  }
+
+#ifndef NDEBUG
+#if 0
+  // CodeExtractor does not preserve LoopInfo, so verification may fail.
+  // FIXME: pass LoopInfo to CodeExtractor and update it there.
+  if (LI && DT)
+    LI->verify(*DT);
+#endif
+#endif  // NDEBUG
+
   return true;
 }
 
@@ -3562,8 +3803,10 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                             Constant *TidPtr,
                                             Instruction *BeginInst,
                                             Instruction *EndInst,
+                                            DominatorTree *DT,
+                                            LoopInfo *LI,
                                             bool IsTargetSPIRV,
-                                            const StringRef LockNameSuffix) {
+                                            const Twine &LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -3576,7 +3819,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(Lock != nullptr && "Could not create critical section lock variable.");
 
   return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                    Lock, IsTargetSPIRV);
+                                    Lock, DT, LI, IsTargetSPIRV);
 }
 
 // Generates and inserts a 'kmpc_cancel[lationpoint]' CallInst.
@@ -4540,10 +4783,6 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
 bool VPOParoptUtils::mayUseSPMDMode(WRegionNode *W) {
   // Check if SPMD mode is allowed by the options.
   if (VPOParoptUtils::getSPIRExecutionScheme() != spirv::ImplicitSIMDSPMDES)
-    return false;
-
-  // We cannot support SPMD execution scheme with SIMD1 emulation.
-  if (W->mayHaveOMPCritical())
     return false;
 
   // Reductions require global locks. With SPMD mode there will be

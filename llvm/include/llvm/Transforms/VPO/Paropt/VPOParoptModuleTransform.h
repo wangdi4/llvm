@@ -179,18 +179,6 @@ private:
   /// Replaces calls to sincos/sincosf with _Z6sincosdPd/_Z6sincosfPf
   void replaceSincosWithOCLBuiltin(Function *F, bool IsDouble);
 
-  /// Routine to identify Functions that may use "omp critical"
-  /// either directly or down the call stack.
-  void collectMayHaveOMPCriticalFunctions(
-      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
-
-  /// A set of Functions identified by collectMayHaveOMPCriticalFunctions()
-  /// to potentially "invoke" "omp critical".
-  SmallPtrSet<Function *, 32> MayHaveOMPCritical;
-
-  /// Returns true for Functions marked by collectMayHaveOMPCriticalFunctions().
-  bool mayHaveOMPCritical(const Function *F) const;
-
   /// Clones functions that are both "declare target" and contain "target"
   /// region(s). If F is the original function, then the method clones it
   /// into NewF and does the following:
