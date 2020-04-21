@@ -22,16 +22,16 @@ define internal void @test01(%struct.test01* %in) !dtrans_type !1 {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR:  %i = ptrtoint %struct.test01* %in to i64
 ; CHECK-FUT:  %i = ptrtoint p0 %in to i64
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test01*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %p = inttoptr i64 %i to %struct.test01*
 ; CHECK-FUT:  %p = inttoptr i64 %i to p0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test01*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -49,16 +49,16 @@ define internal void @test02(%struct.test02* %in) !dtrans_type !5 {
 ; CHECK-LABEL: void @test02
 ; CHECK-CUR:  %i = ptrtoint %struct.test02* %in to i8
 ; CHECK-FUT:  %i = ptrtoint p0 %in to i8
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:    %struct.test02*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:    %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %p = inttoptr i8 %i to %struct.test02*
 ; CHECK-FUT:  %p = inttoptr i8 %i to p0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -81,14 +81,14 @@ define internal void @test03(%struct.test03* %in) !dtrans_type !8 {
 ; CHECK-LABEL: void @test03
 ; CHECK-CUR:  %i = ptrtoint %struct.test03* %in to i64
 ; CHECK-FUT:  %i = ptrtoint p0 %in to i64
-; CHECK:     LocalPointerInfo:
-; CHECK:       Aliased types:
-; CHECK-NEXT:   %struct.test03*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test03*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %p = inttoptr i64 %a8 to %struct.test03*
 ; CHECK-FUT:  %p = inttoptr i64 %a8 to p0
-; CHECK:     LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: <UNHANDLED>
 
 

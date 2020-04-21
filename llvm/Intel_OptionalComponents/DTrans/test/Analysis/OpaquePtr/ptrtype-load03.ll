@@ -31,28 +31,28 @@ define internal void @test01() {
 ; CHECK-LABEL: define internal void @test01
 ; CHECK-CUR: %val_p32 = load i32*, i32** %p32
 ; CHECK-FUT: %val_p32 = load p0, p0 %p32
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   i32*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %val_vp16 = load <2 x i16*>, <2 x i16*>* %vp16
 ; CHECK-FUT:  %val_vp16 = load <2 x p0>, p0 %vp16
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT: <2 x i16*>{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %val_ap16 = load [2 x i16*], [2 x i16*]* %ap16
 ; CHECK-FUT: %val_ap16 = load [2 x p0], p0 %ap16
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT: [2 x i16*]{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %val_litp9 = load { i16*, i16* }, { i16*, i16* }* %litp
 ; CHECK-FUT: %val_litp9 = load { p0, p0 }, p0 %litp
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT: { i16*, i16* }{{ *$}}
 ; CHECK-NEXT: No element pointees.

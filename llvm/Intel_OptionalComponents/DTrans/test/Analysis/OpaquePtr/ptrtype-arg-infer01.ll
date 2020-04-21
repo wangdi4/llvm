@@ -22,7 +22,7 @@ define void @test01(i8* %arg) !dtrans_type !1 {
 ; CHECK-LABEL: Input Parameters: test01
 ; CHECK-CUR:    Arg 0: i8* %arg
 ; CHECK-FUT:    Arg 0: p0 %arg
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:        %struct.test01*{{ *$}}
 ; CHECK-NEXT:        i8*{{ *$}}
@@ -30,7 +30,7 @@ define void @test01(i8* %arg) !dtrans_type !1 {
 
 ; CHECK-CUR:  %cast = bitcast i8* %arg to %struct.test01*
 ; CHECK-FUT:  %cast = bitcast p0 %arg to p0
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -51,7 +51,7 @@ define void @test02(i8* %arg) !dtrans_type !1 {
 ; CHECK-LABEL: Input Parameters: test02
 ; CHECK-CUR:    Arg 0: i8* %arg
 ; CHECK-FUT:    Arg 0: p0 %arg
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test02*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -59,7 +59,7 @@ define void @test02(i8* %arg) !dtrans_type !1 {
 
 ; CHECK-CUR:  %cast = bitcast i8* %arg to %struct.test02*
 ; CHECK-FUT:  %cast = bitcast p0 %arg to p0
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:    %struct.test02*{{ *$}}
 ; CHECK-NEXT:    i8*{{ *$}}
@@ -79,14 +79,14 @@ define i1 @test03(%struct.test03* %arg0, i8* %arg1) !dtrans_type !5 {
 ; CHECK-LABEL:  Input Parameters: test03
 ; CHECK-CUR:    Arg 0: %struct.test03* %arg0
 ; CHECK-FUT:    Arg 0: p0 %arg0
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test03*
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:    Arg 1: i8* %arg1
 ; CHECK-FUT:    Arg 1: p0 %arg1
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test03**{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -94,7 +94,7 @@ define i1 @test03(%struct.test03* %arg0, i8* %arg1) !dtrans_type !5 {
 
 ; CHECK-CUR: cast = bitcast i8* %arg1 to %struct.test03**
 ; CHECK-FUT: cast = bitcast p0 %arg1 to p0
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test03**{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -138,7 +138,7 @@ define void @test04use(%struct.test04* %in) !dtrans_type !9 {
 ; CHECK-LABEL:  Input Parameters: test04
 ; CHECK-CUR:    Arg 0: i8* %arg
 ; CHECK-FUT:    Arg 0: p0 %arg
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test04*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -146,7 +146,7 @@ define void @test04use(%struct.test04* %in) !dtrans_type !9 {
 
 ; CHECK-CUR:  %tmp1 = ptrtoint i8* %arg to i64
 ; CHECK-FUT:  %tmp1 = ptrtoint p0 %arg to i64
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test04*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -192,7 +192,7 @@ define void @test05use(%struct.test05* %in) !dtrans_type !12 {
 ; CHECK-LABEL:  Input Parameters: test05
 ; CHECK-CUR:    Arg 0: i8* %arg
 ; CHECK-FUT:    Arg 0: p0 %arg
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test05*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -200,7 +200,7 @@ define void @test05use(%struct.test05* %in) !dtrans_type !12 {
 
 ; CHECK-CUR:  %tmp1 = ptrtoint i8* %arg to i64
 ; CHECK-FUT:  %tmp1 = ptrtoint p0 %arg to i64
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test05*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -219,7 +219,7 @@ define void @test06(i8* %arg) !dtrans_type !1 {
 ; CHECK-LABEL:  Input Parameters: test06
 ; CHECK-CUR:    Arg 0: i8* %arg
 ; CHECK-FUT:    Arg 0: p0 %arg
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test06**{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -227,7 +227,7 @@ define void @test06(i8* %arg) !dtrans_type !1 {
 
 ; CHECK-CUR:  %cast = bitcast i8* %arg to %struct.test06**
 ; CHECK-FUT:  %cast = bitcast p0 %arg to p0
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test06**{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -258,7 +258,7 @@ exit:
 ; CHECK-LABEL:  Input Parameters: test07
 ; CHECK-CUR:    Arg 0: i8* %arg
 ; CHECK-FUT:    Arg 0: p0 %arg
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test07**{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -266,7 +266,7 @@ exit:
 
 ; CHECK-CUR:  %cast = bitcast i8* %arg to %struct.test07**
 ; CHECK-FUT:  %cast = bitcast p0 %arg to p0
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test07**{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}

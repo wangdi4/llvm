@@ -62,16 +62,16 @@ define internal void @test02() {
 ; CHECK-LABEL: void @test02
 ; CHECK-CUR:  %c0 = select i1 undef, %struct.test02* %v0, %struct.test02* %v1
 ; CHECK-FUT:  %c0 = select i1 undef, p0 %v0, p0 %v1
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %c1 = select i1 undef, %struct.test02* %c0, %struct.test02* null
 ; CHECK-FUT:  %c1 = select i1 undef, p0 %c0, p0 null
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 

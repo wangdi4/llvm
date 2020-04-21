@@ -27,7 +27,7 @@ define internal void @test01() {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR: %mem_i8 = call i8* @malloc(i64 16)
 ; CHECK-FUT: %mem_i8 = call p0 @malloc(i64 16)
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:  %struct.testmember01*{{ *$}}
 ; CHECK-NEXT:  i8*{{ *$}}
@@ -45,7 +45,7 @@ define internal void @test02(i64 %count) {
 ; CHECK-LABEL: void @test02
 ; CHECK-CUR: %mem_i8 = call i8* @malloc(i64 %size)
 ; CHECK-FUT: %mem_i8 = call p0 @malloc(i64 %size)
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:  double*{{ *$}}
 ; CHECK-NEXT:  i8*{{ *$}}

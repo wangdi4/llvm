@@ -29,9 +29,9 @@ define internal void @test01(i64 %offset) {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR:  %null_offset = getelementptr %struct.listentry, %struct.listentry* null, i64 %offset
 ; CHECK-FUT:  %null_offset = getelementptr %struct.listentry, p0 null, i64 %offset
-; CHECK:    LocalPointerInfo:
-; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        %struct.listentry*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:        %struct.listentry*{{ *$}}
 ; CHECK-NEXT:      No element pointees.
 
 

@@ -22,7 +22,7 @@ define internal i32 @call_directly01(i8* %obj1, i8* %obj2) !dtrans_type !2 {
 ; CHECK-LABEL: Input Parameters: call_directly01
 ; CHECK-CUR:    Arg 0: i8* %obj1
 ; CHECK-FUT:    Arg 0: p0 %obj1
-; CHECK: LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
@@ -30,15 +30,15 @@ define internal i32 @call_directly01(i8* %obj1, i8* %obj2) !dtrans_type !2 {
 
 ; CHECK-CUR: Arg 1: i8* %obj2
 ; CHECK-FUT: Arg 1: p0 %obj2
-; CHECK: LocalPointerInfo:
-; CHECK-NEXT:   Aliased types:
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %res1 = call i32 bitcast (i32 (%struct.test01*, %struct.test01*)* @indirect01 to i32 (i8*, i8*)*)(i8* %obj1, i8* %obj2)
 ; CHECK-CUR:   CE: i32 (i8*, i8*)* bitcast (i32 (%struct.test01*, %struct.test01*)* @indirect01 to i32 (i8*, i8*)*)
-; CHECK-CUR:     LocalPointerInfo:
+; CHECK-CUR-NEXT:  LocalPointerInfo:
 ; CHECK-CUR-NEXT:  Aliased types:
 ; CHECK-CUR-NEXT:    i32 (%struct.test01*, %struct.test01*)*{{ *$}}
 ; CHECK-CUR-NEXT:    i32 (i8*, i8*)*{{ *$}}
@@ -61,7 +61,7 @@ define internal void @test01() {
 ; CHECK-LABEL: void @test01() {
 ; CHECK-CUR: call void @call_indirect01(i32 (i8*, i8*)* bitcast (i32 (%struct.test01*, %struct.test01*)* @indirect01 to i32 (i8*, i8*)*), i8* %tmp1, i8* %tmp2)
 ; CHECK-CUR:   CE: i32 (i8*, i8*)* bitcast (i32 (%struct.test01*, %struct.test01*)* @indirect01 to i32 (i8*, i8*)*)
-; CHECK-CUR: LocalPointerInfo:
+; CHECK-CUR-NEXT: LocalPointerInfo:
 ; CHECK-CUR-NEXT: Aliased types:
 ; CHECK-CUR-NEXT:   i32 (%struct.test01*, %struct.test01*)*{{ *$}}
 ; CHECK-CUR-NEXT:   i32 (i8*, i8*)*{{ *$}}

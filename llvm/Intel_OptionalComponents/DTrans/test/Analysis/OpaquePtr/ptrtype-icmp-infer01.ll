@@ -48,53 +48,53 @@ define void @helper_test01(%struct.test01impl* %in1, i8* %in2) !dtrans_type !1 {
 ; CHECK-LABEL:  Input Parameters: test01
 ; CHECK-CUR:    Arg 0: %struct.test01* %arg1001
 ; CHECK-FUT:    Arg 0: p0 %arg1001
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:        %struct.test01*
-; CHECK-NEXT:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01*{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %tmp1008 = bitcast %struct.test01* %arg1001 to void (%struct.test01*, i8*)***
 ; CHECK-FUT:  %tmp1008 = bitcast p0 %arg1001 to p0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:        %struct.test01*
-; CHECK-NEXT:        void (%struct.test01impl*, i8*)***
-; CHECK-NEXT:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01*{{ *$}}
+; CHECK-NEXT:   void (%struct.test01impl*, i8*)***{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %tmp1009 = load void (%struct.test01*, i8*)**, void (%struct.test01*, i8*)*** %tmp1008
 ; CHECK-FUT:  %tmp1009 = load p0, p0 %tmp1008
-; CHECK:    LocalPointerInfo:
-; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        void (%struct.test01impl*, i8*)**
-; CHECK-NEXT:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   void (%struct.test01impl*, i8*)**{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %tmp1010 = getelementptr inbounds void (%struct.test01*, i8*)*, void (%struct.test01*, i8*)** %tmp1009, i64 3
 ; CHECK-FUT:  %tmp1010 = getelementptr inbounds p0, p0 %tmp1009, i64 3
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:        void (%struct.test01impl*, i8*)**
-; CHECK-NEXT:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   void (%struct.test01impl*, i8*)**{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %tmp1011 = load void (%struct.test01*, i8*)*, void (%struct.test01*, i8*)** %tmp1010
 ; CHECK-FUT:  %tmp1011 = load p0, p0 %tmp1010
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:        void (%struct.test01impl*, i8*)*
-; CHECK-NEXT:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   void (%struct.test01impl*, i8*)*{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %tmp1012 = bitcast void (%struct.test01*, i8*)* %tmp1011 to i8*
 ; CHECK-FUT:  %tmp1012 = bitcast p0 %tmp1011 to p0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:        void (%struct.test01impl*, i8*)*
-; CHECK-NEXT:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   void (%struct.test01impl*, i8*)*{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %tmp1013 = bitcast void (%struct.test01impl*, i8*)* @helper_test01 to i8*
 ; CHECK-FUT:  %tmp1013 = bitcast p0 @helper_test01 to p0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:        void (%struct.test01impl*, i8*)*
-; CHECK-NEXT:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   void (%struct.test01impl*, i8*)*{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 
 !1 = !{!"F", i1 false, i32 2, !2, !3, !5}  ; void (%struct.test01impl*, i8*)
