@@ -425,6 +425,24 @@ struct ProgramData {
   int DeviceNum = -1;
 };
 
+/// RTL flags
+struct RTLFlagsTy {
+  uint64_t LinkDeviceRTL : 1;
+  uint64_t CollectDataTransferLatency : 1;
+  uint64_t EnableProfile : 1;
+  uint64_t UseInteropQueueInorderAsync : 1;
+  uint64_t UseInteropQueueInorderSharedSync : 1;
+  // Add new flags here
+  uint64_t Reserved : 59;
+  RTLFlagsTy() :
+      LinkDeviceRTL(0),
+      CollectDataTransferLatency(0),
+      EnableProfile(0),
+      UseInteropQueueInorderAsync(0),
+      UseInteropQueueInorderSharedSync(0),
+      Reserved(0) {}
+};
+
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
 
@@ -454,7 +472,7 @@ public:
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
 
-  uint64_t Flags;
+  RTLFlagsTy Flags;
   int32_t DataTransferLatency;
   int32_t DataTransferMethod;
   int64_t ProfileResolution;
@@ -482,13 +500,8 @@ public:
   // for the execution, based on the HW characteristics.
   size_t SubscriptionRate = 4;
 #endif  // INTEL_CUSTOMIZATION
-  static const uint64_t LinkDeviceRTLFlag                    = 1ULL << 0;
-  static const uint64_t CollectDataTransferLatencyFlag       = 1ULL << 1;
-  static const uint64_t EnableProfileFlag                    = 1ULL << 2;
-  static const uint64_t UseInteropQueueInorderAsyncFlag      = 1ULL << 3;
-  static const uint64_t UseInteropQueueInorderSharedSyncFlag = 1ULL << 4;
 
-  RTLDeviceInfoTy() : numDevices(0), Flags(0), DataTransferLatency(0),
+  RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
 #ifdef OMPTARGET_OPENCL_DEBUG
     if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
@@ -517,7 +530,7 @@ public:
     if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
       std::string value(env);
       if (value.substr(0, 2) == "T,") {
-        Flags |= CollectDataTransferLatencyFlag;
+        Flags.CollectDataTransferLatency = 1;
         int32_t usec = std::stoi(value.substr(2).c_str());
         DataTransferLatency = (usec > 0) ? usec : 0;
       }
@@ -557,7 +570,7 @@ public:
 
     if (env = std::getenv("LIBOMPTARGET_LINK_OPENCL_DEVICE_RTL"))
       if (std::stoi(env) != 0)
-        Flags |= LinkDeviceRTLFlag;
+        Flags.LinkDeviceRTL = 1;
 
     // Read LIBOMPTARGET_PROFILE
     ProfileResolution = 1000;
@@ -566,7 +579,7 @@ public:
       std::string token;
       while (std::getline(value, token, ',')) {
         if (token == "T" || token == "1")
-          Flags |= EnableProfileFlag;
+          Flags.EnableProfile = 1;
         else if (token == "unit_usec" || token == "usec")
           ProfileResolution = 1000000;
       }
@@ -584,10 +597,10 @@ public:
       DP("LIBOMPTARGET_INTEROP_PIPE=%s was set\n", env);
       while (std::getline(value, token, ',')) {
         if (token == "inorder_async") {
-          Flags |= UseInteropQueueInorderAsyncFlag;
+          Flags.UseInteropQueueInorderAsync = 1;
           DP("    enabled in-order asynchronous separate queue\n");
         } else if (token == "inorder_shared_sync") {
-          Flags |= UseInteropQueueInorderSharedSyncFlag;
+          Flags.UseInteropQueueInorderSharedSync = 1;
           DP("    enabled in-order synchronous shared queue\n");
         }
       }
@@ -705,7 +718,7 @@ public:
   ProfileIntervalTy(const char *Name, int32_t DeviceId)
     : Name(Name), DeviceId(DeviceId),
       ClDeviceId(DeviceInfo->deviceIDs[DeviceId]) {
-    if (DeviceInfo->Flags & RTLDeviceInfoTy::EnableProfileFlag)
+    if (DeviceInfo->Flags.EnableProfile)
       // Start the interval paused.
       Status = TimerStatusTy::Paused;
     else
@@ -799,7 +812,7 @@ static void closeRTL() {
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
-    if (DeviceInfo->Flags & RTLDeviceInfoTy::EnableProfileFlag)
+    if (DeviceInfo->Flags.EnableProfile)
       DeviceInfo->Profiles[i].printData(i, DeviceInfo->Names[i].data(),
                                        DeviceInfo->ProfileResolution);
 #ifndef _WIN32
@@ -887,7 +900,7 @@ extern "C" {
 #endif
 
 static inline void addDataTransferLatency() {
-  if ((DeviceInfo->Flags & RTLDeviceInfoTy::CollectDataTransferLatencyFlag) != 0)
+  if (!DeviceInfo->Flags.CollectDataTransferLatency)
     return;
   double goal = omp_get_wtime() + 1e-6 * DeviceInfo->DataTransferLatency;
   // Naive spinning should be enough
@@ -1082,7 +1095,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   }
 
   cl_queue_properties qprops[3] = {CL_QUEUE_PROPERTIES, 0, 0};
-  if (DeviceInfo->Flags & RTLDeviceInfoTy::EnableProfileFlag)
+  if (DeviceInfo->Flags.EnableProfile)
     qprops[1] = CL_QUEUE_PROFILING_ENABLE;
 
   auto deviceID = DeviceInfo->deviceIDs[device_id];
@@ -1308,7 +1321,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   programs.push_back(program);
 
   // Link OpenCL deviceRTL, if needed.
-  if ((DeviceInfo->Flags & RTLDeviceInfoTy::LinkDeviceRTLFlag) != 0) {
+  if (DeviceInfo->Flags.LinkDeviceRTL) {
     cl_program program =
         createProgramFromFile(DEVICE_RTL_NAME, device_id, compilation_options);
     if (program)
@@ -1571,7 +1584,7 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
       }
     }
 
-    if (DeviceInfo->Flags & RTLDeviceInfoTy::EnableProfileFlag) {
+    if (DeviceInfo->Flags.EnableProfile) {
       const char *event_name;
       switch (cmd) {
       case CL_COMMAND_NDRANGE_KERNEL:
@@ -1627,8 +1640,7 @@ int32_t __tgt_rtl_manifest_data_for_region(
 
 EXTERN void *__tgt_rtl_create_offload_pipe(int32_t device_id, bool is_async) {
   // Return a shared in-order queue for synchronous case if requested
-  if (!is_async && DeviceInfo->Flags &
-                   RTLDeviceInfoTy::UseInteropQueueInorderSharedSyncFlag) {
+  if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
     DP("%s returns the shared in-order queue " DPxMOD "\n", __func__,
        DPxPTR(DeviceInfo->Queues[device_id]));
     return (void *)DeviceInfo->Queues[device_id];
@@ -1640,8 +1652,7 @@ EXTERN void *__tgt_rtl_create_offload_pipe(int32_t device_id, bool is_async) {
   auto context = DeviceInfo->CTX[device_id];
 
   // Return a shared out-of-order queue for asynchronous case by default
-  if (is_async &&
-      !(DeviceInfo->Flags & RTLDeviceInfoTy::UseInteropQueueInorderAsyncFlag)) {
+  if (is_async && !DeviceInfo->Flags.UseInteropQueueInorderAsync) {
     queue = DeviceInfo->QueuesOOO[device_id];
     if (!queue) {
       cl_queue_properties qprops[3] =
@@ -1853,9 +1864,6 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  uint64_t profile_enabled =
-      DeviceInfo->Flags & RTLDeviceInfoTy::EnableProfileFlag;
-
   AsyncDataTy *async_data = nullptr;
   if (async_event && ((AsyncEventTy *)async_event)->handler) {
     async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
@@ -1885,7 +1893,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     } else {
       INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
                          size, 0, nullptr, &event);
-      if (profile_enabled)
+      if (DeviceInfo->Flags.EnableProfile)
         DeviceInfo->Profiles[device_id].update("DATA-WRITE", event);
     }
   } break;
@@ -1910,7 +1918,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       INVOKE_CL_RET_FAIL(clEnqueueWriteBuffer, queue, mem, CL_TRUE, 0, size,
                          hst_ptr, 0, nullptr, &event);
       INVOKE_CL_RET_FAIL(clReleaseMemObject, mem);
-      if (profile_enabled)
+      if (DeviceInfo->Flags.EnableProfile)
         DeviceInfo->Profiles[device_id].update("DATA-WRITE", event);
     }
   }
@@ -1938,9 +1946,6 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
-
-  uint64_t profile_enabled =
-      DeviceInfo->Flags & RTLDeviceInfoTy::EnableProfileFlag;
 
   AsyncDataTy *async_data = nullptr;
   if (async_event && ((AsyncEventTy *)async_event)->handler) {
@@ -1971,7 +1976,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     } else {
       INVOKE_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
                          size, 0, nullptr, &event);
-      if (profile_enabled)
+      if (DeviceInfo->Flags.EnableProfile)
         DeviceInfo->Profiles[device_id].update("DATA-READ", event);
     }
   } break;
@@ -1996,7 +2001,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       INVOKE_CL_RET_FAIL(clEnqueueReadBuffer, queue, mem, CL_TRUE, 0, size,
                          hst_ptr, 0, nullptr, &event);
       INVOKE_CL_RET_FAIL(clReleaseMemObject, mem);
-      if (profile_enabled)
+      if (DeviceInfo->Flags.EnableProfile)
         DeviceInfo->Profiles[device_id].update("DATA-READ", event);
     }
   }
@@ -2460,7 +2465,7 @@ static inline int32_t run_target_team_nd_region(
                          DeviceInfo->Queues[device_id], 0, nullptr, nullptr);
     }
   } else {
-    if (DeviceInfo->Flags & RTLDeviceInfoTy::EnableProfileFlag) {
+    if (DeviceInfo->Flags.EnableProfile) {
       std::vector<char> buf;
       size_t buf_size;
       INVOKE_CL_RET_FAIL(clWaitForEvents, 1, &event);
