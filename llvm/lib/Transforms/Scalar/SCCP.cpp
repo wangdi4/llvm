@@ -1186,11 +1186,10 @@ void SCCPSolver::handleCallOverdefined(CallBase &CB) {
   return (void)markOverdefined(&CB);
 }
 
-<<<<<<< HEAD
-void SCCPSolver::handleCallArguments(CallSite CS) {
+void SCCPSolver::handleCallArguments(CallBase &CB) {
 #if INTEL_CUSTOMIZATION
-  auto HandleArgs = [this](auto CS, bool IsCallback, auto GetArgOperand) {
-    Function *F = CS.getCalledFunction();
+  auto HandleArgs = [this](auto &CB, bool IsCallback, auto GetArgOperand) {
+    Function *F = CB.getCalledFunction();
     // If this is a local function that doesn't have its address taken, mark its
     // entry block executable and merge in the actual arguments to the call into
     // the formal arguments of the function.
@@ -1205,27 +1204,6 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
           markOverdefined(&A);
           continue;
         }
-=======
-void SCCPSolver::handleCallArguments(CallBase &CB) {
-  Function *F = CB.getCalledFunction();
-  // If this is a local function that doesn't have its address taken, mark its
-  // entry block executable and merge in the actual arguments to the call into
-  // the formal arguments of the function.
-  if (!TrackingIncomingArguments.empty() &&
-      TrackingIncomingArguments.count(F)) {
-    MarkBlockExecutable(&F->front());
-
-    // Propagate information from this call site into the callee.
-    auto CAI = CB.arg_begin();
-    for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end(); AI != E;
-         ++AI, ++CAI) {
-      // If this argument is byval, and if the function is not readonly, there
-      // will be an implicit copy formed of the input aggregate.
-      if (AI->hasByValAttr() && !F->onlyReadsMemory()) {
-        markOverdefined(&*AI);
-        continue;
-      }
->>>>>>> 53ee8fbc23f6973598b8dfe531612d76750ddcd0
 
         // If this argument is byval, and if the function is not readonly, there
         // will be an implicit copy formed of the input aggregate.
@@ -1256,17 +1234,15 @@ void SCCPSolver::handleCallArguments(CallBase &CB) {
   };
 
   // First handle arguments for the direct/indirect call site.
-  HandleArgs(CS, /*IsCallback=*/false,
-             [&CS](Argument &A) { return CS.getArgOperand(A.getArgNo()); });
+  HandleArgs(CB, /*IsCallback=*/false,
+             [&CB](Argument &A) { return CB.getArgOperand(A.getArgNo()); });
 
   // Then do the same for the callback call sites if enabled.
   if (EnableCallbacks)
-    for_each_callback_callsite(
-        cast<CallBase>(*CS.getInstruction()),
-        [&HandleArgs](AbstractCallSite &ACS) {
-          HandleArgs(ACS, /*IsCallback=*/true,
-                     [&ACS](Argument &A) { return ACS.getCallArgOperand(A); });
-        });
+    for_each_callback_callsite(CB, [&HandleArgs](AbstractCallSite &ACS) {
+      HandleArgs(ACS, /*IsCallback=*/true,
+                 [&ACS](Argument &A) { return ACS.getCallArgOperand(A); });
+    });
 #endif // INTEL_CUSTOMIZATION
 }
 
