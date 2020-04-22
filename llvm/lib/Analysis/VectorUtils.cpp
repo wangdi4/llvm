@@ -1731,6 +1731,8 @@ void InterleavedAccessInfo::invalidateGroupsRequiringScalarEpilogue() {
     if (Group->requiresScalarEpilogue())
       DelSet.insert(Group);
   }
+  assert(!DelSet.empty() && "At least one group must be invalidated, as a "
+                            "scalar epilogue was required");
   for (auto *Ptr : DelSet) {
     LLVM_DEBUG(
         dbgs()
