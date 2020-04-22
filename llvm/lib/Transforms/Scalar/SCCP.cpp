@@ -1215,7 +1215,6 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
           markOverdefined(&A);
           continue;
         }
-<<<<<<< HEAD
 
         // Thread dependent values cannot be propagated to callbacks.
         if (IsCallback)
@@ -1231,13 +1230,10 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
             mergeInValue(getStructValueState(&A, i), &A, CallArg);
           }
         } else
-          mergeInValue(&A, getValueState(V), false);
+          mergeInValue(
+              &A, getValueState(V),
+              ValueLatticeElement::MergeOptions().setCheckWiden(false));
       }
-=======
-      } else
-        mergeInValue(&*AI, getValueState(*CAI),
-                     ValueLatticeElement::MergeOptions().setCheckWiden(false));
->>>>>>> 6ba0695c600a41950336cc1abdc2c78c2a777d93
     }
   };
 
