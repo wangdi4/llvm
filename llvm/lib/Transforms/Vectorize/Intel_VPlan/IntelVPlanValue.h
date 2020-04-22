@@ -64,6 +64,7 @@ class VPValue {
   friend class VPVectorShape;
   friend class VPInstruction;
   friend class VPVLSClientMemref;
+  friend class VPlanScalarEvolutionLLVM;
 #endif
 
 private:
