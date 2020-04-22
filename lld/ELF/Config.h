@@ -17,6 +17,7 @@
 #include "llvm/Support/CachePruning.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/GlobPattern.h"
 #include <atomic>
 #include <vector>
 
@@ -204,6 +205,7 @@ struct Configuration {
   bool unique;
   bool useAndroidRelrTags = false;
   bool warnBackrefs;
+  std::vector<llvm::GlobPattern> warnBackrefsExclude;
   bool warnCommon;
   bool warnIfuncTextrel;
   bool warnMissingEntry;

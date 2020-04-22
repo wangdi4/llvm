@@ -312,6 +312,7 @@ namespace llvm {
     bool ParseTopLevelEntities();
     bool ValidateEndOfModule();
     bool ValidateEndOfIndex();
+    bool ParseTargetDefinitions();
     bool ParseTargetDefinition();
     bool ParseModuleAsm();
     bool ParseSourceFileName();

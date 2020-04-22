@@ -9755,8 +9755,8 @@ public:
                                          QualType DestType, QualType SrcType,
                                          Expr *&SrcExpr, bool Diagnose = true);
 
-  bool ConversionToObjCStringLiteralCheck(QualType DstType, Expr *&SrcExpr,
-                                          bool Diagnose = true);
+  bool CheckConversionToObjCLiteral(QualType DstType, Expr *&SrcExpr,
+                                    bool Diagnose = true);
 
   bool checkInitMethod(ObjCMethodDecl *method, QualType receiverTypeIfCall);
 
