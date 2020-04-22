@@ -55,7 +55,6 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -108,8 +107,12 @@ using IndicesVector = std::vector<uint64_t>;
 static Function *
 doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
             SmallPtrSetImpl<Argument *> &ByValArgsToTransform,
+<<<<<<< HEAD
             bool isCallback, // INTEL
             Optional<function_ref<void(CallSite OldCS, CallSite NewCS)>>
+=======
+            Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
                 ReplaceCallSite) {
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
@@ -251,6 +254,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   //
   SmallVector<Value *, 16> Args;
   while (!F->use_empty()) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     AbstractCallSite ACS(&*F->use_begin());
     assert(ACS.getCalledFunction() == F);
@@ -259,6 +263,12 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     Instruction *Call = CS.getInstruction();
     const AttributeList &CallPAL = CS.getAttributes();
     IRBuilder<NoFolder> IRB(Call);
+=======
+    CallBase &CB = cast<CallBase>(*F->user_back());
+    assert(CB.getCalledFunction() == F);
+    const AttributeList &CallPAL = CB.getAttributes();
+    IRBuilder<NoFolder> IRB(&CB);
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
 
 #if INTEL_CUSTOMIZATION
     // Build mapping between actual and formal arguments for the call site.
@@ -285,6 +295,10 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 
     // Loop over the operands, inserting GEP and loads in the caller as
     // appropriate.
+<<<<<<< HEAD
+=======
+    auto AI = CB.arg_begin();
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
     ArgNo = 0;
 #if INTEL_CUSTOMIZATION
     for (CallSite::arg_iterator AI = CS.arg_begin(), E = CS.arg_end(); AI != E;
@@ -387,11 +401,20 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           ArgAttrVec.push_back(AttributeSet());
         }
       }
+<<<<<<< HEAD
+=======
+
+    // Push any varargs arguments on the list.
+    for (; AI != CB.arg_end(); ++AI, ++ArgNo) {
+      Args.push_back(*AI);
+      ArgAttrVec.push_back(CallPAL.getParamAttributes(ArgNo));
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
     }
 
     SmallVector<OperandBundleDef, 1> OpBundles;
-    CS.getOperandBundlesAsDefs(OpBundles);
+    CB.getOperandBundlesAsDefs(OpBundles);
 
+<<<<<<< HEAD
     CallSite NewCS;
 #if INTEL_CUSTOMIZATION
     Function *NewF = ACS.isCallbackCall() ? CS.getCalledFunction() : NF;
@@ -405,15 +428,24 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       auto *NewCall =
           CallInst::Create(FType, NewF, Args, OpBundles, "", Call); // INTEL
       NewCall->setTailCallKind(cast<CallInst>(Call)->getTailCallKind());
+=======
+    CallBase *NewCS = nullptr;
+    if (InvokeInst *II = dyn_cast<InvokeInst>(&CB)) {
+      NewCS = InvokeInst::Create(NF, II->getNormalDest(), II->getUnwindDest(),
+                                 Args, OpBundles, "", &CB);
+    } else {
+      auto *NewCall = CallInst::Create(NF, Args, OpBundles, "", &CB);
+      NewCall->setTailCallKind(cast<CallInst>(&CB)->getTailCallKind());
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
       NewCS = NewCall;
     }
-    NewCS.setCallingConv(CS.getCallingConv());
-    NewCS.setAttributes(
+    NewCS->setCallingConv(CB.getCallingConv());
+    NewCS->setAttributes(
         AttributeList::get(F->getContext(), CallPAL.getFnAttributes(),
                            CallPAL.getRetAttributes(), ArgAttrVec));
-    NewCS->setDebugLoc(Call->getDebugLoc());
+    NewCS->setDebugLoc(CB.getDebugLoc());
     uint64_t W;
-    if (Call->extractProfTotalWeight(W))
+    if (CB.extractProfTotalWeight(W))
       NewCS->setProfWeight(W);
 #if INTEL_CUSTOMIZATION
     MDNode *MD = Call->getMetadata(LLVMContext::MD_intel_profx);
@@ -425,15 +457,16 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 
     // Update the callgraph to know that the callsite has been transformed.
     if (ReplaceCallSite)
-      (*ReplaceCallSite)(CS, NewCS);
+      (*ReplaceCallSite)(CB, *NewCS);
 
-    if (!Call->use_empty()) {
-      Call->replaceAllUsesWith(NewCS.getInstruction());
-      NewCS->takeName(Call);
+    if (!CB.use_empty()) {
+      CB.replaceAllUsesWith(NewCS);
+      NewCS->takeName(&CB);
     }
 
     // Finally, remove the old call from the program, reducing the use-count of
     // F.
+<<<<<<< HEAD
     Call->eraseFromParent();
 
 #if INTEL_CUSTOMIZATION
@@ -441,6 +474,9 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     // removing the call.
     F->removeDeadConstantUsers();
 #endif // INTEL_CUSTOMIZATION
+=======
+    CB.eraseFromParent();
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
   }
 
 #if INTEL_CUSTOMIZATION
@@ -614,6 +650,7 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg, Type *Ty) {
 
 #if INTEL_CUSTOMIZATION
   // Look at all call sites of the function.  At this point we know we only have
+<<<<<<< HEAD
   // direct or callback callees.
   for (const Use &U : Callee->uses()) {
     AbstractCallSite CS(&U);
@@ -621,6 +658,13 @@ static bool allCallersPassValidPointerForArgument(Argument *Arg, Type *Ty) {
            "Should only have direct or callback calls!");
 
     if (!isDereferenceablePointer(CS.getCallArgOperand(ArgNo), Ty, DL))
+=======
+  // direct callees.
+  for (User *U : Callee->users()) {
+    CallBase &CB = cast<CallBase>(*U);
+
+    if (!isDereferenceablePointer(CB.getArgOperand(ArgNo), Ty, DL))
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
       return false;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -994,11 +1038,19 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     SmallPtrSetImpl<Argument *> &ArgsToPromote,
     SmallPtrSetImpl<Argument *> &ByValArgsToTransform) {
   for (const Use &U : F.uses()) {
+<<<<<<< HEAD
     AbstractCallSite CS(&U); // INTEL
     if (!CS)
       return false;
     const Function *Caller = CS.getInstruction()->getCaller(); // INTEL
     const Function *Callee = CS.getCalledFunction();
+=======
+    CallBase *CB = dyn_cast<CallBase>(U.getUser());
+    if (!CB)
+      return false;
+    const Function *Caller = CB->getCaller();
+    const Function *Callee = CB->getCalledFunction();
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
     if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
         !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
       return false;
@@ -1013,7 +1065,7 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
 static Function *
 promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                  unsigned MaxElements,
-                 Optional<function_ref<void(CallSite OldCS, CallSite NewCS)>>
+                 Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                      ReplaceCallSite,
                  const TargetTransformInfo &TTI) {
   // Don't perform argument promotion for naked functions; otherwise we can end
@@ -1053,6 +1105,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
   bool isSelfRecursive = false;
   bool isCallback = false; // INTEL
   for (Use &U : F->uses()) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     AbstractCallSite CS(&U);
     // Must be a direct or a callback call.
@@ -1071,6 +1124,19 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     if (CS.isCallbackCall())
       isCallback = true;
 #endif // INTEL_CUSTOMIZATION
+=======
+    CallBase *CB = dyn_cast<CallBase>(U.getUser());
+    // Must be a direct call.
+    if (CB == nullptr || !CB->isCallee(&U))
+      return nullptr;
+
+    // Can't change signature of musttail callee
+    if (CB->isMustTailCall())
+      return nullptr;
+
+    if (CB->getParent()->getParent() == F)
+      isSelfRecursive = true;
+>>>>>>> c2d86e1f3044abb295796c8267c7b9057f54a067
   }
 
   // Can't change signature of musttail caller
@@ -1097,9 +1163,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       F->removeParamAttr(ArgNo, Attribute::StructRet);
       F->addParamAttr(ArgNo, Attribute::NoAlias);
       for (Use &U : F->uses()) {
-        CallSite CS(U.getUser());
-        CS.removeParamAttr(ArgNo, Attribute::StructRet);
-        CS.addParamAttr(ArgNo, Attribute::NoAlias);
+        CallBase &CB = cast<CallBase>(*U.getUser());
+        CB.removeParamAttr(ArgNo, Attribute::StructRet);
+        CB.addParamAttr(ArgNo, Attribute::NoAlias);
       }
     }
 
@@ -1331,14 +1397,13 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
       if (!OldF)
         continue;
 
-      auto ReplaceCallSite = [&](CallSite OldCS, CallSite NewCS) {
-        Function *Caller = OldCS.getInstruction()->getParent()->getParent();
+      auto ReplaceCallSite = [&](CallBase &OldCS, CallBase &NewCS) {
+        Function *Caller = OldCS.getParent()->getParent();
         CallGraphNode *NewCalleeNode =
             CG.getOrInsertFunction(NewCS.getCalledFunction());
         CallGraphNode *CallerNode = CG[Caller];
-        CallerNode->replaceCallEdge(*cast<CallBase>(OldCS.getInstruction()),
-                                    *cast<CallBase>(NewCS.getInstruction()),
-                                    NewCalleeNode);
+        CallerNode->replaceCallEdge(cast<CallBase>(OldCS),
+                                    cast<CallBase>(NewCS), NewCalleeNode);
       };
 
       const TargetTransformInfo &TTI =
