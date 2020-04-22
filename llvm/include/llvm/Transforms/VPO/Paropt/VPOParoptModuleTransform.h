@@ -191,6 +191,14 @@ private:
   /// Returns true for Functions marked by collectMayHaveOMPCriticalFunctions().
   bool mayHaveOMPCritical(const Function *F) const;
 
+  /// Clones functions that are both "declare target" and contain "target"
+  /// region(s). If F is the original function, then the method clones it
+  /// into NewF and does the following:
+  ///   1. Removes all target directives from F.
+  ///   2. Resets "contains-openmp-target" attrbiute for F.
+  ///   3. Resets "openmp-target-declare" attribute for NewF.
+  bool cloneDeclareTargetFunctions() const;
+
   /// Base class for offload entries. It is not supposed to be instantiated.
   class OffloadEntry {
   public:
