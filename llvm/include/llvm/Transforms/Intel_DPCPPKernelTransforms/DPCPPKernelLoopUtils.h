@@ -11,11 +11,11 @@
 #ifndef __DPCPP_KERNEL_LOOP_UTILS_H__
 #define __DPCPP_KERNEL_LOOP_UTILS_H__
 
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
-#include <set>
 
 using namespace llvm;
 
@@ -25,6 +25,7 @@ namespace llvm {
 using ValueVec = SmallVector<Value *, 4>;
 using InstVec = SmallVector<Instruction *, 4>;
 using InstVecVec = SmallVector<InstVec, 4>;
+using FuncSet = DPCPPKernelCompilationUtils::FuncSet;
 
 /// Struct that represent loop Region in the CFG.
 struct LoopRegion {
@@ -69,6 +70,30 @@ Type *getIntTy(Module *M);
 /// TidCalls - array of get_***_id call to fill.
 /// F - kernel to collect information for.
 void collectTIDCallInst(const char *TIDName, InstVecVec &TidCalls, Function *F);
+
+/// Fills the users function through call instructions of roots
+///       (also indirect users) into userFuncs.
+/// Roots - function to obtain their user functions.
+/// UserFuncs - set to fill with users of roots
+void fillFuncUsersSet(FuncSet &Roots,
+                      FuncSet &UserFuncs);
+
+/// Fills direct user functions through instructions of functions in
+///       funcs set into userFuncs. If a function is introduced into
+///       userFuncs for the first time it will be inserted into newUsers.
+/// Funcs - function to obtain direct users.
+/// UserFuncs - set of users functions to fills.
+/// NewUsers - set of newly found users.
+void fillDirectUsers(FuncSet *Funcs,
+                     FuncSet *UserFuncs,
+                     FuncSet *NewUsers);
+
+/// Fill the user instructions (including users via other values)
+///        of the input Function into the input vector.
+/// F function to get user instructions.
+/// UserInsts vector to fill.
+void fillInstructionUsers(Function *F,
+                          SmallVectorImpl<Instruction *> &UserInsts);
 
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm

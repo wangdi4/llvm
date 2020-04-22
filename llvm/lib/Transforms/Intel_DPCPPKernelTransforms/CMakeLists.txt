@@ -6,6 +6,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelCompilationUtils.cpp
   DPCPPKernelLoopUtils.cpp
   DPCPPKernelWGLoopCreator.cpp
+  DPCPPKernelAnalysis.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms

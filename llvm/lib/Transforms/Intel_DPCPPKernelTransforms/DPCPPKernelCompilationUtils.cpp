@@ -13,6 +13,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
 
 using namespace llvm;
 
@@ -40,6 +41,18 @@ void DPCPPKernelCompilationUtils::moveAllocaToEntry(BasicBlock *FromBB,
   for (auto *AI : Allocas) {
     AI->moveBefore(InsPt);
   }
+}
+
+void DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(FuncSet &FuncSet,
+                                                          Module *M) {
+  // Clear old collected data!
+  FuncSet.clear();
+
+  // TODO: port handling of WG collectives here as well
+  auto *F = M->getFunction("__builtin_dpcpp_kernel_barrier");
+
+  if (F && F->isDeclaration())
+    FuncSet.insert(F);
 }
 
 } // end namespace llvm

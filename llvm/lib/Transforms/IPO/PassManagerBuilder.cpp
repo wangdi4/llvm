@@ -848,8 +848,10 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createNameAnonGlobalPass());
     }
 #if INTEL_CUSTOMIZATION
-    if (EnableDPCPPKernelTransforms && !PrepareForLTO)
+    if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
       MPM.add(createParseAnnotateAttributesPass());
+      MPM.add(createDPCPPKernelAnalysisPass());
+    }
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
     if (RunVPOOpt) {
@@ -1138,6 +1140,7 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
     MPM.add(createParseAnnotateAttributesPass());
+    MPM.add(createDPCPPKernelAnalysisPass());
     MPM.add(createDPCPPKernelVecClonePass());
   }
 
