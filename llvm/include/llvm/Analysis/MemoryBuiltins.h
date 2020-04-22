@@ -326,13 +326,8 @@ public:
   // compute() should be used by external users.
   SizeOffsetType visitAllocaInst(AllocaInst &I);
   SizeOffsetType visitArgument(Argument &A);
-<<<<<<< HEAD
-  SizeOffsetType visitCallSite(CallSite CS);
-  SizeOffsetType visitConstantPointerNull(ConstantPointerNull &);
-=======
   SizeOffsetType visitCallBase(CallBase &CB);
   SizeOffsetType visitConstantPointerNull(ConstantPointerNull&);
->>>>>>> 252873879ee896baddb0fddb1c623f07966b7046
   SizeOffsetType visitExtractElementInst(ExtractElementInst &I);
   SizeOffsetType visitExtractValueInst(ExtractValueInst &I);
   SizeOffsetType visitGEPOperator(GEPOperator &GEP);
