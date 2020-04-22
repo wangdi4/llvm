@@ -226,8 +226,9 @@ private:
   bool propagateJoinDivergence(const VPBasicBlock &JoinBlock,
                                const VPLoop *TermLoop);
 
-  /// Propagate induced value divergence due to control divergence in \p Term.
-  void propagateBranchDivergence(const VPValue &Cond); // INTEL
+  /// Propagate induced value divergence due to control divergence in the
+  /// CondBit of \p CondBlock.
+  void propagateBranchDivergence(const VPBasicBlock *CondBlock); // INTEL
 
   /// Propagate divergent caused by a divergent loop exit.
   ///
@@ -362,6 +363,10 @@ private:
   // Internal list of values with 'pinned' values.
   DenseSet<const VPValue *> Pinned;
 
+  // Keep track of instructions that form CondBits and the actual block(s)
+  // containing the CondBit.
+  using BlockVectorTy = SmallVector<const VPBasicBlock *, 4>;
+  DenseMap<const VPValue *, BlockVectorTy> CondBit2BlockMap;
 };
 
 } // namespace vpo

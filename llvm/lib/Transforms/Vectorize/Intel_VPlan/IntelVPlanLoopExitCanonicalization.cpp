@@ -323,6 +323,7 @@ void mergeLoopExits(VPLoop *VPL) {
   SmallVector<std::pair<VPBasicBlock *, VPConstant *>, 2> ExitBlockIDPairs;
   SmallDenseMap<VPBasicBlock *, VPBasicBlock *> ExitExitingBlocksMap;
   VPBasicBlock *OrigLoopLatch = VPL->getLoopLatch();
+  assert(OrigLoopLatch && "Transformation assumes single loop latch.");
   VPBasicBlock *LoopHeader = VPL->getHeader();
   // If the loop is a while loop (case 5), then it might not have a fall-through
   // edge. Therefore, in this case, the LatchExitBlock will be null.
@@ -625,6 +626,7 @@ void mergeLoopExits(VPLoop *VPL) {
 void singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPlan *Plan = VPL->getHeader()->getParent();
   VPBasicBlock *OrigLoopLatch = VPL->getLoopLatch();
+  assert(OrigLoopLatch && "Transformation assumes single loop latch.");
   if (OrigLoopLatch->getNumSuccessors() > 1)
     return;
 

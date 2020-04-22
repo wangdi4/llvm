@@ -1963,6 +1963,9 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (Inst->getOpcode() == Instruction::FNeg) {
     StoreVal = Builder.CreateFNeg(Ops[1], "fneg");
 
+  } else if (isa<FreezeInst>(Inst)) {
+    StoreVal = Builder.CreateFreeze(Ops[1], "freeze");
+
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
