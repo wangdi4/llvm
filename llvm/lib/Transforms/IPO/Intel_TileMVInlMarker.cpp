@@ -32,6 +32,14 @@ using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "tilemvinlmarker"
 
+//
+// Actually mark the tile candidates for inlining. This needs to be false
+// until the actual tiling is performed, as the inlining alone will produce
+// a performance regression.
+//
+static cl::opt<bool> TileCandidateMark("tile-candidate-mark", cl::init(false),
+                                       cl::ReallyHidden);
+
 // Enable the optimization for testing purposes
 static cl::opt<bool> TileCandidateTest("tile-candidate-test", cl::init(false),
                                        cl::ReallyHidden);
@@ -269,7 +277,7 @@ private:
 
   // Refine the initial set of tile choices by removing some of them for the
   // set.
-  void siftTileChoices(Function *F);
+  void siftTileChoices(Function *Root, Function *SubRoot);
 
   // Find the non-tile choices. These are functions that should not be tiled
   // and should not be called in the high performace version of the code.
@@ -303,8 +311,8 @@ private:
   // is called from the clone of 'MainRoot'.
   void cloneCallToRoot();
 
-  // Simplify the conditionals in 'MainRoot' using the 'GVM' and 'CM' maps.
-  void simplifyConditionalsInRoot();
+  // Simplify the conditionals in 'F' using the 'GVM' and 'CM' maps.
+  void simplifyConditionals(Function &F);
 
   // Mark the calls to the TileChoices in the high performance version of
   // the code.
@@ -692,6 +700,8 @@ void TileMVInlMarker::makeTileChoices(Function *Root, Function *SubRoot) {
       TileChoices.insert(Callee);
     }
   }
+  if (SubRoot)
+    TileChoices.insert(SubRoot);
 }
 
 //
@@ -709,8 +719,8 @@ static Function *getTargetCall(BasicBlock *BB) {
   return CB->getCalledFunction();
 }
 
-void TileMVInlMarker::siftTileChoices(Function *F) {
-  for (auto &BB : *F) {
+void TileMVInlMarker::siftTileChoices(Function *Root, Function *SubRoot) {
+  for (auto &BB : *Root) {
     auto BI = dyn_cast<BranchInst>(BB.getTerminator());
     if (!BI || BI->isUnconditional())
       continue;
@@ -723,7 +733,8 @@ void TileMVInlMarker::siftTileChoices(Function *F) {
     Function *FalseF = getTargetCall(BI->getSuccessor(1));
     if (!FalseF || !TileChoices.count(FalseF))
       continue;
-    TileChoices.remove(FalseF);
+    if (FalseF != SubRoot)
+      TileChoices.remove(FalseF);
   }
 }
 
@@ -1424,7 +1435,7 @@ void TileMVInlMarker::cloneCallToRoot() {
   FixSubRootCall(*NewMainRoot, *SubRoot, *NewSubRoot);
 }
 
-void TileMVInlMarker::simplifyConditionalsInRoot() {
+void TileMVInlMarker::simplifyConditionals(Function &F) {
 
   //
   // Return the ICmpInst in the 'CM' which has a 'LV' as its LoadInst
@@ -1614,9 +1625,9 @@ void TileMVInlMarker::simplifyConditionalsInRoot() {
   };
 
   //
-  // Main code for TileMVInlMarker::simplifyConditionalsInRoot.
+  // Main code for TileMVInlMarker::simplifyConditionals.
   //
-  for (auto &I : instructions(*MainRoot)) {
+  for (auto &I : instructions(F)) {
     auto LI = dyn_cast<LoadInst>(&I);
     if (LI) {
       auto GV = dyn_cast<GlobalVariable>(LI->getPointerOperand());
@@ -1660,10 +1671,12 @@ void TileMVInlMarker::markTileChoicesForInlining() {
       auto CB = dyn_cast<CallBase>(U);
       if (CB && CB->getCalledFunction() == F &&
           (CB->getCaller() == MainRoot || CB->getCaller() == SubRoot)) {
-        CB->addAttribute(llvm::AttributeList::FunctionIndex,
-                         "prefer-inline-tile-choice");
-        LLVM_DEBUG(dbgs() << "TMVINL: Marked " << CB->getCaller()->getName()
-                          << " TO " << F->getName() << "FOR INLINING\n");
+        if (TileCandidateMark) {
+          CB->addAttribute(llvm::AttributeList::FunctionIndex,
+                           "prefer-inline-tile-choice");
+          LLVM_DEBUG(dbgs() << "TMVINL: Marked " << CB->getCaller()->getName()
+                            << " TO " << F->getName() << " FOR INLINING\n");
+        }
       }
     }
 }
@@ -1694,8 +1707,8 @@ bool TileMVInlMarker::runImpl() {
   }
   makeTileChoices(MainRoot, SubRoot);
   makeTileChoices(SubRoot, nullptr);
-  siftTileChoices(MainRoot);
-  siftTileChoices(SubRoot);
+  siftTileChoices(MainRoot, SubRoot);
+  siftTileChoices(SubRoot, nullptr);
   makeNonTileChoices(*MainRoot);
   LLVM_DEBUG(dumpTileChoices());
   LLVM_DEBUG(dumpNonTileChoices());
@@ -1710,7 +1723,8 @@ bool TileMVInlMarker::runImpl() {
   if (CM.size())
     cloneCallToRoot();
   markTileChoicesForInlining();
-  simplifyConditionalsInRoot();
+  simplifyConditionals(*MainRoot);
+  simplifyConditionals(*SubRoot);
   LLVM_DEBUG(dumpKeyFunctionNamesAndCalls());
   LLVM_DEBUG(dbgs() << "TMVINL: Multiversioning complete\n");
   return true;
