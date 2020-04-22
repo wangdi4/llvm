@@ -2,6 +2,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# TODO: move each tool in its own sub-directory
+
 add_executable(get_device_count_by_type get_device_count_by_type.cpp)
 add_dependencies(get_device_count_by_type ocl-headers ocl-icd)
 
@@ -15,6 +17,7 @@ target_compile_definitions(get_device_count_by_type
   PRIVATE
     $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:USE_PI_CUDA>
 )
+<<<<<<< HEAD
 
 add_executable(sycl-check sycl-check.cpp)
 add_dependencies(sycl-check sycl)
@@ -41,3 +44,5 @@ target_compile_options (sycl-check PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/WX->
 )
 #end INTEL_CUSTOMIZATION
+=======
+>>>>>>> 1d54cbb0d8ace28faf7740c613719f2aa3b61910
