@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang -fsycl-device-only -S -emit-llvm %s -o - | FileCheck %s
-=======
 // RUN: %clang -fsycl-device-only -S -Xclang -disable-llvm-passes -emit-llvm %s -o - | FileCheck %s
->>>>>>> 988d8cd0c5d840f907d3a61915e641748a634d29
 #include <algorithm>
 
 void test() {

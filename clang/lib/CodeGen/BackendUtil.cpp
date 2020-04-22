@@ -606,26 +606,11 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
          CodeGenOpts.PrepareForThinLTO), CodeGenOpts.PrepareForLTO); // INTEL
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   PMBuilder.DisableIntelProprietaryOpts =
     CodeGenOpts.DisableIntelProprietaryOpts;
 #endif // INTEL_CUSTOMIZATION
 
-  PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
-  PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
-  PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
-  PMBuilder.LoopVectorize = CodeGenOpts.VectorizeLoop;
-
-  PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
-  // Loop interleaving in the loop vectorizer has historically been set to be
-  // enabled when loop unrolling is enabled.
-  PMBuilder.LoopsInterleaved = CodeGenOpts.UnrollLoops;
-  PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
-  PMBuilder.PrepareForThinLTO = CodeGenOpts.PrepareForThinLTO;
-  PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
-  PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
-=======
   // FIXME: This code is a workaround for a number of problems with optimized
   // SYCL code for the SPIR target. This change trying to balance between doing
   // too few and too many optimizations. The current approach is to disable as
@@ -671,7 +656,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
     PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
   }
->>>>>>> 988d8cd0c5d840f907d3a61915e641748a634d29
 
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
 
