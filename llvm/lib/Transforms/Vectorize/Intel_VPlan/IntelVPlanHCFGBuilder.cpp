@@ -409,7 +409,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              dbgs() << *Plan;);
 
   VPLAN_DUMP(VPlanPrintHCFG, "building H-CFG", Plan);
-  LLVM_DEBUG(Plan->dumpLivenessInfo(dbgs()));
 }
 
 class PrivatesListCvt;

@@ -46,12 +46,9 @@ using namespace llvm::vpo;
 std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
 #if INTEL_CUSTOMIZATION
 // Replace dot print output with plain print.
-static cl::opt<bool> DumpPlainVPlanIR("vplan-plain-dump", cl::init(false),
-                                      cl::Hidden,
-                                      cl::desc("Print plain VPlan IR"));
-static cl::opt<int>
-    DumpVPlanLiveness("vplan-dump-liveness", cl::init(0), cl::Hidden,
-                      cl::desc("Print VPlan instructions' liveness info"));
+static cl::opt<bool>
+    DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
+                       cl::desc("Print plain VPlan IR"));
 
 static cl::opt<bool>
     EnableNames("vplan-enable-names", cl::init(false), cl::Hidden,
@@ -774,96 +771,6 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
 }
 
 void VPlan::dump() const { dump(dbgs(), true); }
-
-void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
-  if (DumpVPlanLiveness == 0 || !VPLInfo)
-    return;
-  OS << "Live-in and Live-out info:\n";
-  if (!VPExternalDefs.empty()) {
-    OS << "External defs:\n";
-    for (auto DI = VPExternalDefs.begin(); DI != VPExternalDefs.end(); DI++)
-      OS << *(*DI) << "\n";
-  }
-  if (!VPExternalDefsHIR.empty()) {
-    OS << "External defs:\n";
-    for (auto DI = VPExternalDefsHIR.begin(); DI != VPExternalDefsHIR.end();
-         DI++)
-      OS << *DI << "\n";
-  }
-  if (!VPExternalUses.empty()) {
-    OS << "Used externally:\n";
-    for (auto UI = VPExternalUses.begin(); UI != VPExternalUses.end(); UI++) {
-      const VPValue *Op = UI->second->getOperand(0);
-      Op->printAsOperand(OS);
-      if (DumpVPlanLiveness > 1 && UI->second->getUnderlyingValue())
-        OS << " (used by " << *(UI->second->getUnderlyingValue()) << ")\n";
-      else
-        OS << "\n";
-    }
-  }
-  if (!VPExternalUsesHIR.empty()) {
-    OS << "Used externally:\n";
-    for (auto UI = VPExternalUsesHIR.begin(); UI != VPExternalUsesHIR.end();
-         UI++) {
-      const VPValue *Op = UI->getOperand(0);
-      Op->printAsOperand(OS);
-      if (DumpVPlanLiveness > 1 && UI->getUnderlyingValue())
-        OS << " (used by " << *(UI->getUnderlyingValue()) << ")\n";
-      else
-        OS << "\n";
-    }
-  }
-  std::function<void(const VPBasicBlock *)> dumpBlockLiveness =
-      [&](const VPBasicBlock *BB) {
-        // For each live-in or live-out instruction in the Block print the
-        // corresponding comment
-        const VPLoop *Loop = VPLInfo->getLoopFor(BB);
-        if (DumpVPlanLiveness > 2)
-          OS << "Liveness for BBlock: " << BB->getName() << "\n";
-        if (Loop == nullptr) {
-          if (DumpVPlanLiveness > 2)
-            OS << "no loop found\n";
-          return;
-        }
-        for (const VPInstruction &Inst : *BB) {
-          const auto *VPInst = &Inst;
-          if (DumpVPlanLiveness > 2)
-            OS << "Instruction: " << *VPInst << "\n";
-          for (const VPValue *Op : VPInst->operands()) {
-            SmallVector<const VPLoop *, 4> LoopList;
-            const VPLoop *ParentLoop = Loop;
-            while (ParentLoop) {
-              if (!ParentLoop->isLiveIn(Op))
-                break;
-              LoopList.push_back(ParentLoop);
-              ParentLoop = ParentLoop->getParentLoop();
-            }
-            if (LoopList.size()) {
-              Op->printAsOperand(OS);
-              OS << " livein in the loops: ";
-              for (const VPLoop *L : LoopList)
-                OS << " " << L->getLoopPreheader()->getName();
-              OS << "\n";
-            }
-          }
-          if (Loop->isLiveOut(VPInst)) {
-            VPInst->printAsOperand(OS);
-            OS << " liveout in the loop: "
-               << Loop->getLoopPreheader()->getName() << "\n";
-          }
-        }
-      };
-
-  std::function<void(const VPBasicBlock *)> dumpLiveness =
-      [&](const VPBasicBlock *VPBB) {
-        for (const VPBasicBlock *BB : depth_first(VPBB))
-          // Print liveness information for a basic block
-          dumpBlockLiveness(BB);
-      };
-
-  dumpLiveness(getEntryBlock());
-  OS << "Live-in and Live-out info end\n";
-}
 
 void VPlanPrinter::dump() {
 #if INTEL_CUSTOMIZATION
