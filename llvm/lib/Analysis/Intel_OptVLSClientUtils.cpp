@@ -113,7 +113,8 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     // (such as loading indices).
     // FIXME 2: Extend the LLVM TTI interface for shuffles.
     // FORNOW: temporary dummy implementation.
-    Cost = TTI.getShuffleCost(TargetTransformInfo::SK_Select, VecTy);
+    Cost = TTI.getShuffleCost(TargetTransformInfo::SK_Select,
+                              cast<VectorType>(VecTy));
     return Cost;
   }
 

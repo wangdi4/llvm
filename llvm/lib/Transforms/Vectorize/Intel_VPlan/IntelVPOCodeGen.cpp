@@ -2729,7 +2729,8 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
       ShufMask.push_back(StartIdx);
 
     Value *Shuff = Builder.CreateShuffleVector(
-        VecV, UndefValue::get(VecV->getType()), ShufMask, "extractsubvec.");
+        VecV, UndefValue::get(cast<VectorType>(VecV->getType())), ShufMask,
+        "extractsubvec.");
 
     VPScalarMap[V][Lane] = Shuff;
 

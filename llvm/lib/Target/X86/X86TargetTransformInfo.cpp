@@ -926,7 +926,6 @@ int X86TTIImpl::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
   return BaseT::getArithmeticInstrCost(Opcode, Ty, Op1Info, Op2Info);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Currently, under target specific category we are only looking for
 /// alternate-lane shuffle mask such as, <0, 4, 2, 6>([v]unpck[l,h]pd) or
@@ -976,13 +975,8 @@ bool X86TTIImpl::isAggressiveVLSProfitable() const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *BaseTp, int Index,
-                               Type *SubTp) {
-  auto *Tp = cast<VectorType>(BaseTp);
-=======
 int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, VectorType *BaseTp,
                                int Index, VectorType *SubTp) {
->>>>>>> e3056ae9a05b823b77a8a32e245d5dea7b9fcef1
   // 64-bit packed float vectors (v2f32) are widened to type v4f32.
   // 64-bit packed integer vectors (v2i32) are widened to type v4i32.
   std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, BaseTp);
@@ -1001,7 +995,7 @@ int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, VectorType *BaseTp,
 
     // The backend knows how to generate [v]unpck[l,h]pds for 64bit
     // element if the target supports SSE2 and above.
-    if (ST->hasSSE2() && Tp->getScalarSizeInBits() == 64)
+    if (ST->hasSSE2() && BaseTp->getScalarSizeInBits() == 64)
       return LT.first;
 
     // For non-64bit, we can generate 2 [v]pshuf[b,d,ps].
