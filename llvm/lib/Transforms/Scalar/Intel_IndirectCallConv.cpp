@@ -124,7 +124,7 @@ CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
     CallInst *NewCI;
     std::string NewName;
 
-    std::vector<Value *> Args(Call->op_begin(), Call->op_end() - 1);
+    std::vector<Value *> Args(Call->arg_begin(), Call->arg_end());
     NewName = Call->hasName() ? Call->getName().str() + ".indconv" : "";
     NewCI = CallInst::Create(Call->getFunctionType(), FuncName, Args, NewName,
                              Insert_BB);
@@ -138,7 +138,7 @@ CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
     std::string NewName;
     InvokeInst *II = cast<InvokeInst>(Call);
 
-    std::vector<Value *> Args(II->op_begin(), II->op_end() - 3);
+    std::vector<Value *> Args(II->arg_begin(), II->arg_end());
     NewName = II->hasName() ? II->getName().str() + ".indconv" : "";
     NewII =
         InvokeInst::Create(II->getFunctionType(), FuncName, II->getNormalDest(),
