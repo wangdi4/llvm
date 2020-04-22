@@ -39,7 +39,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST:%.*]] = icmp i64 [[N0:%.*]] i64 0
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_TOP_TEST_NOT:%.*]] = not i1 [[VP_UNIFORM_TOP_TEST]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3]](i1 [[VP_UNIFORM_TOP_TEST]]), [[BB4:BB[0-9]+]](!i1 [[VP_UNIFORM_TOP_TEST]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -50,7 +50,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB6:BB[0-9]+]] ],  [ i64 0, [[BB4]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):all.zero.bypass.begin13
-; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB4]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      all.zero.bypass.begin13:
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_LOOP_MASK]]
@@ -88,7 +88,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB2]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_OUTER_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1

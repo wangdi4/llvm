@@ -107,14 +107,16 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
 
   SmallVector<const VPInstruction *, 1> Insts(
       map_range(*Block, [](const VPInstruction &Inst) { return &Inst; }));
-  if (Insts.size() != 1)
+  if (Insts.size() != 2)
     return false;
   if (Insts[0]->getOpcode() != Instruction::And)
+    return false;
+  if (Insts[1]->getOpcode() != VPInstruction::Terminator)
     return false;
 
   SmallVector<const VPInstruction *, 4> PredInsts(
       map_range(*SinglePred, [](const VPInstruction &Inst) { return &Inst; }));
-  if (PredInsts.size() != 4)
+  if (PredInsts.size() != 5)
     return false;
   if (PredInsts[0]->getOpcode() != VPInstruction::Pred)
     return false;
@@ -123,6 +125,8 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
   if (PredInsts[2]->getOpcode() != Instruction::ICmp)
     return false;
   if (PredInsts[3]->getOpcode() != VPInstruction::Not)
+    return false;
+  if (PredInsts[4]->getOpcode() != VPInstruction::Terminator)
     return false;
 
   return true;
@@ -143,6 +147,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
+        isa<const VPTerminator>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
@@ -272,6 +277,7 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
+        isa<const VPTerminator>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
@@ -446,6 +452,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       continue;
 
     if (isa<const VPBranchInst>(VPInst) ||
+        isa<const VPTerminator>(VPInst) ||
         (VPInst.HIR.isDecomposed() && VPInst.isUnderlyingIRValid()))
       continue;
 

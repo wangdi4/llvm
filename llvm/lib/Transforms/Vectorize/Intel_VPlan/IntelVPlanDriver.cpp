@@ -283,7 +283,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
              Plan->setName(PlanName); dbgs() << *Plan);
 
   VPLAN_DUMP(VPlanPrintInit,
-             "initial VPlan for VF=" + std::to_string(VF) + "\n", Plan);
+             "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
@@ -1068,7 +1068,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
 
   VPLAN_DUMP(VPlanPrintInit,
-             "initial VPlan for VF=" + std::to_string(VF) + "\n", Plan);
+             "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.

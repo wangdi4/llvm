@@ -376,6 +376,9 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   // This is a no-op - used to mark block predicate.
   case VPInstruction::Pred:
     return 0;
+  // No-op terminator instruction.
+  case VPInstruction::Terminator:
+    return 0;
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
@@ -517,7 +520,8 @@ void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
     getCostNumberString(getCost(VPBB)) << '\n';
   for (const VPInstruction &VPInst : *VPBB)
-    printForVPInstruction(OS, &VPInst);
+    if (PrintTerminatorInst || !isa<VPTerminator>(VPInst))
+      printForVPInstruction(OS, &VPInst);
 }
 
 void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {

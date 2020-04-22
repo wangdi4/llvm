@@ -51,7 +51,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_add
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):all.zero.bypass.end11
-; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB3]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.end11:
 ; CHECK-NEXT:     <Empty Block>

@@ -477,9 +477,8 @@ void VPlanPredicator::linearizeRegion() {
           }
           // TODO: This code should turn to just dropping the terminator and
           // creating a new one.
-          for (VPBasicBlock *Succ : Src->getSuccessors())
-            VPBlockUtils::disconnectBlocks(Src, Succ);
-          VPBlockUtils::connectBlocks(Src, TargetToKeep);
+          Src->clearSuccessors();
+          Src->appendSuccessor(TargetToKeep);
         };
 
     for (auto *Pred : RemainingDivergentEdges) {
@@ -664,7 +663,8 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
       OrigPhiToMergeMap[OrigPhi] = MergePhi;
     }
 
-    for (VPBasicBlock *PredBB : BBForMerge->getPredecessors()) {
+    SmallVector<VPBasicBlock *, 8> Preds(BBForMerge->getPredecessors());
+    for (VPBasicBlock *PredBB : Preds) {
       // For each incoming edge, see what incoming values of the original phi
       // have to be blended over that edge.
       SmallVector<VPBasicBlock *, 4> BBToBlend;

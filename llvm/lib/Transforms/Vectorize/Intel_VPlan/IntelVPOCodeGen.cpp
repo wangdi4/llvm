@@ -1205,6 +1205,9 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(VTCCalc->getUF() == UF && "Mismatch in UFs!");
     return;
   }
+  case VPInstruction::Terminator:
+    // Do nothing.
+    return;
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");

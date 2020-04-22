@@ -39,12 +39,12 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i32 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB5:BB[0-9]+]] ],  [ i32 undef, [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LIVE_OUT_PREV:%.*]] = phi  [ i32 undef, [[BB3]] ],  [ i32 [[VP_PHI_USE_LIVE_OUT_BLEND:%.*]], [[BB5:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_NEXT:%.*]], [[BB5]] ],  [ i32 0, [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT_1]], [[BB3]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB3]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB3_BR_VP_CMP216_NOT]] i1 [[VP_LOOP_MASK]]
