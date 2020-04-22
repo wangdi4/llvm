@@ -100,6 +100,8 @@ public:
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();
+
+  virtual void emitVectorLoopIV();
 };
 
 } // namespace vpo

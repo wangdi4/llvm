@@ -25,13 +25,12 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
-
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
-
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
@@ -314,7 +313,8 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
 // To support the SPIRV target compilation stage of the OpenMP compilation
 // offloading to GPUs, we must translate the name of math functions (left
 // column in OCLBuiltin) to their OCL builtin counterparts.
-static void replaceMathFnWithOCLBuiltin(Function &F) {
+static bool replaceMathFnWithOCLBuiltin(Function &F) {
+  bool Changed = false;
   StringRef OldName = F.getName();
   auto Map = OCLBuiltin.find(std::string(OldName));
   if (Map != OCLBuiltin.end()) {
@@ -322,7 +322,10 @@ static void replaceMathFnWithOCLBuiltin(Function &F) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
                       << NewName << '\n');
     F.setName(NewName);
+    Changed = true;
   }
+
+  return Changed;
 }
 
 // Given the original printf() declaration \p F coming in from clang:
@@ -592,7 +595,20 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     loadOffloadMetadata();
   }
 
-  if (IsTargetSPIRV)
+  if (IsTargetSPIRV) {
+    // If Function F contains a "target" region, it will be extracted
+    // as a SPIR kernel function. If F is also "declare target", then
+    // its body will have to stay in IR, but calling the SPIR kernel
+    // from it is illegal. Moreover, even if we outline the "target"
+    // region as a normal SPIR function, the outlining will happen
+    // after all code generation done for the "target" region,
+    // which is only correct for "target" region, and invalid
+    // for a "declare target" function compiled as if there is no
+    // target region inside it. Here we create clones of Functions
+    // that contain "target" region and are "declare target" themselves.
+    // See details inside cloneDeclareTargetFunctions().
+    Changed |= cloneDeclareTargetFunctions();
+
     // For SPIR targets we have to know which functions may contain
     // "omp critical" inside them. We use this information to check
     // if an OpenMP region may call such a function.
@@ -612,6 +628,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     // use OpenMP critical, so the computed may-have-openmp-critical
     // information is not affected by the renaming.
     collectMayHaveOMPCriticalFunctions(TLIGetter);
+  }
 
   /// As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -626,12 +643,15 @@ bool VPOParoptModuleTransform::doParoptTransforms(
           createOCLPrintfDecl(&*F);
           VPOParoptTransform::replacePrintfWithOCLBuiltin(&*F,
                                                           getOCLPrintfDecl());
-        } else if (FuncName == "sincos")
+          Changed = true;
+        } else if (FuncName == "sincos") {
           replaceSincosWithOCLBuiltin(&*F, true);  // double sincos
-        else if (FuncName == "sincosf")
+          Changed = true;
+        } else if (FuncName == "sincosf") {
           replaceSincosWithOCLBuiltin(&*F, false); // float sincosf
-        else
-          replaceMathFnWithOCLBuiltin(*F);
+          Changed = true;
+        } else
+          Changed |= replaceMathFnWithOCLBuiltin(*F);
       }
       continue;
     }
@@ -1320,5 +1340,40 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
 
 bool VPOParoptModuleTransform::mayHaveOMPCritical(const Function *F) const {
   return MayHaveOMPCritical.find(F) != MayHaveOMPCritical.end();
+}
+
+bool VPOParoptModuleTransform::cloneDeclareTargetFunctions() const {
+  bool Changed = false;
+
+  SmallVector<Function *, 128> FuncList;
+  for (auto &F : M.functions())
+    if (!F.isDeclaration())
+      FuncList.push_back(&F);
+
+  for (auto F : FuncList) {
+    StringRef ContainsOmpTargetAttrName = "contains-openmp-target";
+    StringRef OmpTargetDeclareAttrName = "openmp-target-declare";
+    bool HasTargetConstruct = F->hasFnAttribute(ContainsOmpTargetAttrName);
+    bool IsFETargetDeclare = F->hasFnAttribute(OmpTargetDeclareAttrName);
+
+    if (!HasTargetConstruct || !IsFETargetDeclare)
+      continue;
+
+    // Function is both "declare target" and contains "target" region(s).
+    ValueToValueMapTy VMap;
+    Function *NewF = CloneFunction(F, VMap);
+    // The new Function is just a placeholder for the "target" region(s),
+    // and it should be removed from the Module after outlining.
+    // Clear "openmp-target-declare" attribute from it.
+    NewF->removeFnAttr(OmpTargetDeclareAttrName);
+    // The original Function may be invoked from "target" region(s),
+    // so we should compile it without "target" regions enclosed
+    // into it.
+    F->removeFnAttr(ContainsOmpTargetAttrName);
+    VPOUtils::stripDirectives(*F, { DIR_OMP_TARGET, DIR_OMP_END_TARGET });
+    Changed = true;
+  }
+
+  return Changed;
 }
 #endif // INTEL_COLLAB

@@ -527,6 +527,8 @@ public:
       Subscript,
       Blend,
       HIRCopy,
+      OrigTripCountCalculation,
+      VectorTripCountCalculation,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -1594,6 +1596,81 @@ private:
   bool Signed;
 };
 
+/// Instruction representing trip count of the scalar loop (OrigLoop member).
+class VPOrigTripCountCalculation : public VPInstruction {
+public:
+  /// The interface here assumes the outermost loop being vectorized because
+  /// that's the only scenario where we can guarantee empty VPOperand list of
+  /// such calculation (inner loops' trip count might depend on defs from the
+  /// outer loop). It also happens to be an assumption used in many other places
+  /// of the vectorizer.
+  ///
+  /// As such, introduce an explicit \p VPL parameter that is used purely for the
+  /// assert below.
+  VPOrigTripCountCalculation(Loop *OrigLoop, const VPLoop *VPL, Type *Ty)
+      : VPInstruction(VPInstruction::OrigTripCountCalculation, Ty, {}),
+        OrigLoop(OrigLoop) {
+    (void)VPL;
+    // TODO: For inner loop vectorization, that loop's trip count might be
+    // dependent on VPInstructions defined in the outer loop, so we need to
+    // determine which ones affect the trip count and pass to VPInstruction
+    // operands.
+    assert(VPL->getParentLoop() == nullptr &&
+           "Only outermost loop vectorization is supported so far!");
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::OrigTripCountCalculation;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  Loop *getOrigLoop() { return OrigLoop; }
+  const Loop *getOrigLoop() const { return OrigLoop; }
+  VPInstruction *cloneImpl() const {
+    llvm_unreachable("Not expected to be cloned!");
+  }
+
+private:
+  Loop *OrigLoop;
+};
+
+/// Instruction representing the final value of the explicit IV for the vector
+/// loop. We increment that IV by VF*UF, so actual value would be the iteration
+/// number of the serial loop execution corresponding the lane 0 of the last
+/// vector iteration.
+class VPVectorTripCountCalculation : public VPInstruction {
+public:
+  VPVectorTripCountCalculation(VPOrigTripCountCalculation *OrigTripCount,
+                               unsigned UF = 1)
+      : VPInstruction(VPInstruction::VectorTripCountCalculation,
+                      OrigTripCount->getType(), {OrigTripCount}),
+        UF(UF) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::VectorTripCountCalculation;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  unsigned getUF() const { return UF; }
+  void setUF(unsigned UF) { this->UF = UF; }
+  VPInstruction *cloneImpl() const {
+    llvm_unreachable("Not expected to be cloned!");
+  }
+
+private:
+  unsigned UF;
+};
+
 // VPInstruction to allocate private memory. This is translated into
 // allocation of a private memory in the function entry block. This instruction
 // is not supposed to vectorize alloca instructions that appear inside the loop
@@ -1677,6 +1754,10 @@ private:
   // line option to do the same.
   bool FullLinearizationForced = false;
 
+  // HIR isn't uplifted for explict vector loop IV - need DA to treat backedge
+  // condition as uniform.
+  bool ForceOuterLoopBackedgeUniformity = false;
+
   // The flag shows whether all steps needed for the loop entities privatization
   // are finished. Particularly, all VPInstructions for private memory
   // allocation are generated and the needed replacements in the VPLoop code are
@@ -1751,6 +1832,13 @@ public:
 
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
+
+  void markBackedgeUniformityForced() {
+    ForceOuterLoopBackedgeUniformity = true;
+  }
+  bool isBackedgeUniformityForced() const {
+    return ForceOuterLoopBackedgeUniformity;
+  }
 
   const DataLayout *getDataLayout() const { return DL; }
 

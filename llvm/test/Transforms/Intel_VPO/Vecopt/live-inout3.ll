@@ -23,7 +23,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-DAG: [101 x float]* %a livein in the loops:  BB1
 ; CHECK-DAG: i64* %lb livein in the loops:  BB1
 ; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
-; CHECK-DAG: i64 %2 livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
 ; CHECK:     Live-in and Live-out info end
 
 ; Function Attrs: nounwind uwtable

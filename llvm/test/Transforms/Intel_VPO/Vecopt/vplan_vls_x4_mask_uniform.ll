@@ -37,7 +37,7 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:   #8 <4 x 32> SStore
 ;
 ; CHECK:       vector.body:
-; CHECK:         br i1 %{{.*}}, label %VPlannedBB12, label %VPlannedBB
+; CHECK:         br i1 %{{.*}}, label %VPlannedBB13, label %VPlannedBB
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT2:%.*]], <4 x i64> [[VEC_PHI:%.*]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
@@ -64,8 +64,8 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:    [[MM_VECTORGEP_010:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR11:%.*]] = bitcast i32* [[MM_VECTORGEP_010]] to <16 x i32>*
 ; CHECK-NEXT:    store <16 x i32> [[GROUPSHUFFLE9]], <16 x i32>* [[GROUPPTR11]], align 4
-; CHECK-NEXT:    br label %VPlannedBB12
-; CHECK:       VPlannedBB12:
+; CHECK-NEXT:    br label %VPlannedBB13
+; CHECK:       VPlannedBB13:
 ; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
 ;
 entry:

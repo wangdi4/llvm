@@ -329,6 +329,7 @@ private:
   void populateVPLoopMetadata(VPLoopInfo *VPLInfo) override;
 
   void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) override;
+  void emitVectorLoopIV() override { Plan->markBackedgeUniformityForced(); };
 
 public:
   VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, VPlan *Plan,

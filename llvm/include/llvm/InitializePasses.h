@@ -498,6 +498,8 @@ void initializeStdContainerOptPass(PassRegistry &);
 void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
+// Pass for function recognition
+void initializeFunctionRecognizerLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
 void initializeIndirectCallConvLegacyPassPass(PassRegistry &);
 // Pass for SnodeInfo analysis
@@ -616,6 +618,7 @@ void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 void initializeDPCPPKernelVecClonePass(PassRegistry&);
 void initializeDPCPPKernelPostVecPass(PassRegistry&);
 void initializeDPCPPKernelWGLoopCreatorLegacyPassPass(PassRegistry&);
+void initializeDPCPPKernelAnalysisPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

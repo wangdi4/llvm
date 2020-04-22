@@ -304,6 +304,9 @@ ModulePass *createTransformFPGARegPass();
 // (which are needed by TbaaMDPropagationPass) after all inlining is finished.
 FunctionPass *createCleanupFakeLoadsPass();
 
+// FunctionRecognizer - Mark recognizable Functions with Function Attributes
+FunctionPass *createFunctionRecognizerLegacyPass(void);
+
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info and/or DTrans Field Single Value Info if possible
 FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,

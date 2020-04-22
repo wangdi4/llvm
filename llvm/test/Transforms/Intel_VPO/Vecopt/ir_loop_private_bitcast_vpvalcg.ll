@@ -10,7 +10,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* nocapture readonly %iarr) {
-; CHECK:       entry:
+; CHECK-LABEL: @foo(
+; CHECK-NEXT:  entry:
 ; CHECK:         [[COUNT_VEC:%.*]] = alloca <4 x i64>, align 32
 ; CHECK-NEXT:    [[COUNT_VEC_BC:%.*]] = bitcast <4 x i64>* [[COUNT_VEC]] to i64*
 ; CHECK-NEXT:    [[COUNT_VEC_BASE_ADDR:%.*]] = getelementptr i64, i64* [[COUNT_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
@@ -25,15 +26,17 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR:%.*]] = getelementptr float, float* [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:       vector.ph:
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x float*> [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR]] to <4 x i32*>
-; CHECK-NEXT:    [[DOTEXTRACT_0_2:%.*]] = extractelement <4 x i32*> [[TMP1]], i32 0
+; CHECK-NEXT:    [[DOTEXTRACT_0_3:%.*]] = extractelement <4 x i32*> [[TMP1]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x float*> undef, float* [[ACCUMULATED_GRID:%.*]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x float*> [[BROADCAST_SPLATINSERT]], <4 x float*> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %vector.ph ], [ [[INDEX_NEXT:%.*]], %vector.body ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, %vector.ph ], [ [[TMP12:%.*]], %vector.body ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, %vector.ph ], [ [[TMP11:%.*]], %vector.body ]
+; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP13:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP12:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP11:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    store <4 x i64> [[VEC_PHI]], <4 x i64>* [[COUNT_VEC]], align 8
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IARR:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IARR:%.*]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_3_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 3
@@ -45,15 +48,15 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x float*> [[MM_VECTORGEP]] to <4 x i32*>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i32*> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[DOTEXTRACT_0_]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD1:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[DOTEXTRACT_0_2]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD1]], <4 x i32>* [[TMP5]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i32> [[WIDE_LOAD1]] to <4 x float>
+; CHECK-NEXT:    [[WIDE_LOAD2:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[DOTEXTRACT_0_3]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD2]], <4 x i32>* [[TMP5]], align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i32> [[WIDE_LOAD2]] to <4 x float>
 ; CHECK-NEXT:    [[DOTEXTRACT_3_:%.*]] = extractelement <4 x float> [[TMP6]], i32 3
 ; CHECK-NEXT:    [[DOTEXTRACT_2_:%.*]] = extractelement <4 x float> [[TMP6]], i32 2
 ; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <4 x float> [[TMP6]], i32 1
-; CHECK-NEXT:    [[DOTEXTRACT_0_3:%.*]] = extractelement <4 x float> [[TMP6]], i32 0
-; CHECK-NEXT:    [[TMP7:%.*]] = call float @baz(float [[DOTEXTRACT_0_3]], i32 [[WIDE_LOAD_EXTRACT_0_]])
+; CHECK-NEXT:    [[DOTEXTRACT_0_4:%.*]] = extractelement <4 x float> [[TMP6]], i32 0
+; CHECK-NEXT:    [[TMP7:%.*]] = call float @baz(float [[DOTEXTRACT_0_4]], i32 [[WIDE_LOAD_EXTRACT_0_]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = call float @baz(float [[DOTEXTRACT_1_]], i32 [[WIDE_LOAD_EXTRACT_1_]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = call float @baz(float [[DOTEXTRACT_2_]], i32 [[WIDE_LOAD_EXTRACT_2_]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = call float @baz(float [[DOTEXTRACT_3_]], i32 [[WIDE_LOAD_EXTRACT_3_]])

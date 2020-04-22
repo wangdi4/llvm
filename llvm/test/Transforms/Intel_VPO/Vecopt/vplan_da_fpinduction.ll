@@ -16,14 +16,18 @@ define void @test_uniform_edge_to_divergent_block() {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]]<latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Random] double [[VP_IV:%.*]] = phi  [ double [[VP_IV_IND_INIT:%.*]], [[BB2:BB[0-9]+]] ],  [ double [[VP_IV_NEXT:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] double [[VP_IV:%.*]] = phi  [ double [[VP_IV_IND_INIT:%.*]], [[BB2]] ],  [ double [[VP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] double [[VP_IV_NEXT]] = fadd double [[VP_IV]] double [[VP_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = fcmp double [[VP_IV_NEXT]] double 2.500000e+00
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] double [[VP_IV_IND_FINAL:%.*]] = induction-final{fadd} double -2.000000e+00 double 1.000000e+00
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB4:BB[0-9]+]]
 ;
 entry:
   br label %for.body

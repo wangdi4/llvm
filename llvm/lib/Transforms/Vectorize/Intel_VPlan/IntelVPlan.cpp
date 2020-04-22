@@ -320,6 +320,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "blend";
   case VPInstruction::HIRCopy:
     return "hir-copy";
+  case VPInstruction::OrigTripCountCalculation:
+    return "orig-trip-count";
+  case VPInstruction::VectorTripCountCalculation:
+    return "vector-trip-count";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -407,6 +411,10 @@ void VPInstruction::print(raw_ostream &O,
   default:
     O << getOpcodeName(getOpcode());
   }
+  if (getOpcode() == VPInstruction::OrigTripCountCalculation) {
+    auto *Self = cast<VPOrigTripCountCalculation>(this);
+    O << " for original loop " << Self->getOrigLoop()->getName();
+  }
 
 #if INTEL_CUSTOMIZATION
   // TODO: print type when this information will be available.
@@ -455,6 +463,11 @@ void VPInstruction::print(raw_ostream &O,
     }
     case VPInstruction::HIRCopy:
       O << " , OriginPhiId: " << cast<VPHIRCopyInst>(this)->getOriginPhiId();
+      break;
+    case VPInstruction::VectorTripCountCalculation:
+      auto *Self = cast<VPVectorTripCountCalculation>(this);
+      O << ", UF = " << Self->getUF();
+      break;
     }
   }
 #endif // INTEL_CUSTOMIZATION

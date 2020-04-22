@@ -4,145 +4,110 @@
 ; tranformation. We need to preserve SSA for all the live-outs. Hence, a SSA
 ; phi node is emitted for each live-out.
 
-; RUN: opt -S < %s -VPlanDriver -disable-output -vplan-print-after-loop-massaging 2>&1 | FileCheck %s
-; RUN: opt -S < %s -passes="vplan-driver" -disable-output -vplan-print-after-loop-massaging 2>&1 | FileCheck %s
+; RUN: opt < %s -vplan-func-vec -disable-output -print-after-vplan-func-vec-loop-exit-canon | FileCheck %s
+; RUN: opt < %s -passes="vplan-func-vec" -disable-output -print-after-vplan-func-vec-loop-exit-canon | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() #0 {
-; CHECK-LABEL:  Print after loop massaging:
+define void @main() {
+; CHECK-LABEL:  VPlan IR for: main
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:     i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i32 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_INIT]], [[BB1]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     i32 [[VP_INNER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     i32 [[VP_VAR1:%.*]] = add i32 [[VP_INNER_LOOP_INDUCTION_PHI]] i32 2
+; CHECK-NEXT:     i32 [[VP_VAR1:%.*]] = add i32 [[VP_IV]] i32 2
 ; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_VAR1]] i32 16
-; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_CMP1]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_CMP1]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_CMP1]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_CMP1]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[INTERMEDIATE_BB0]]:
-; CHECK-NEXT:       i32 [[VP_LIVE_OUT1:%.*]] = phi  [ i32 [[VP_VAR1]], [[BB6]] ]
+; CHECK-NEXT:       i32 [[VP_LIVE_OUT1:%.*]] = phi  [ i32 [[VP_VAR1]], [[BB2]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
+; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       i32 [[VP_VAR2:%.*]] = add i32 [[VP_VAR1]] i32 1
 ; CHECK-NEXT:       i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_VAR2]] i32 32
-; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_CMP2]]), [[INTERMEDIATE_BB1:intermediate.bb[0-9]+]](!i1 [[VP_CMP2]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP2]]), [[INTERMEDIATE_BB1:intermediate.bb[0-9]+]](!i1 [[VP_CMP2]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[INTERMEDIATE_BB1]]:
-; CHECK-NEXT:         i32 [[VP_LIVE_OUT2:%.*]] = phi  [ i32 [[VP_VAR2]], [[BB7]] ]
+; CHECK-NEXT:         i32 [[VP_LIVE_OUT2:%.*]] = phi  [ i32 [[VP_VAR2]], [[BB3]] ]
 ; CHECK-NEXT:        SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
-; CHECK-NEXT:       i32 [[VP_INNER_LOOP_INDUCTION:%.*]] = add i32 [[VP_INNER_LOOP_INDUCTION_PHI]] i32 1
+; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:       i32 [[VP_IV_NEXT:%.*]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:     i32 [[VP_LIVE_OUT2_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB8]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 [[VP_LIVE_OUT2]], [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     i32 [[VP_LIVE_OUT1_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB8]] ],  [ i32 [[VP_LIVE_OUT1]], [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI]] = phi  [ i32 [[VP_INNER_LOOP_INDUCTION]], [[BB8]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB8]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ],  [ i32 2, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 true, [[BB8]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ],  [ i1 false, [[INTERMEDIATE_BB1]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]](!i1 [[VP_TAKE_BACKEDGE_COND]])
-; CHECK-NEXT:    PREDECESSORS(3): [[BB8]] [[INTERMEDIATE_BB0]] [[INTERMEDIATE_BB1]]
+; CHECK-NEXT:     i32 [[VP_LIVE_OUT2_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB4]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 [[VP_LIVE_OUT2]], [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:     i32 [[VP_LIVE_OUT1_SSA_PHI:%.*]] = phi  [ i32 undef, [[BB4]] ],  [ i32 [[VP_LIVE_OUT1]], [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:     i32 [[VP_IV_NEXT_SSA_PHI]] = phi  [ i32 [[VP_IV_NEXT]], [[BB4]] ],  [ i32 undef, [[INTERMEDIATE_BB0]] ],  [ i32 undef, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ],  [ i32 2, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ],  [ i1 false, [[INTERMEDIATE_BB1]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB1]](i1 [[VP_TAKE_BACKEDGE_COND]]), [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]](!i1 [[VP_TAKE_BACKEDGE_COND]])
+; CHECK-NEXT:    PREDECESSORS(3): [[BB4]] [[INTERMEDIATE_BB0]] [[INTERMEDIATE_BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]:
 ; CHECK-NEXT:     i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 2
-; CHECK-NEXT:    SUCCESSORS(2):[[BB9:BB[0-9]+]](i1 [[VP0]]), [[BB10:BB[0-9]+]](!i1 [[VP0]])
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP0]]), [[BB6:BB[0-9]+]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB10]]:
+; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       i32 [[VP_VAR3:%.*]] = add i32 [[VP_LIVE_OUT1_SSA_PHI]] i32 2
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]]:
+; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       i32 [[VP_VAR4:%.*]] = add i32 [[VP_LIVE_OUT2_SSA_PHI]] i32 2
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB7]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[CASCADED_IF_BLOCK0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_OUTER_LOOP_INDUCTION_PHI]] i32 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp i32 [[VP_OUTER_LOOP_INDUCTION]] i32 1024
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP_CMP3]]), [[BB11:BB[0-9]+]](!i1 [[VP_CMP3]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB9]] [[BB10]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB11]]:
-; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB12:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB12]]:
-; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    [[BB7]]:
+; CHECK-NEXT:     void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB6]]
 ;
 entry:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %outer_loop_header
+  %lane = call i32 @llvm.vplan.laneid()
+  br label %inner_loop_header
 ;-------------------------------------------------------------------------------
 ;             BEFORE                                       AFTER
 ;-------------------------------------------------------------------------------
-;-------->outer_loop_header              -------------->BB2(outer_loop_header)
-;|               |                       |               |
-;| ------>inner_loop_header              |              BB4(emitted before
-;| |        /                            |               |  transformation)
-;| |      bb1----------------            |  ----------->BB5(inner_loop_header)
-;| |       |                |            |  |            |
-;| |      bb2---------      |            |  |           BB6(bb1)
-;| |       |         |      |            |  |           /      \
-;| -inner_loop_latch |      |            |  |     BB7(bb2)    INTERMEDIATE_BB0
-;|                   |      |            |  |      /    \                   |
-;|              exitbb2  exitbb1         |  |    BB8   INTERMEDIATE_BB1     |
-;|                 \       /           (inner_loop_latch)       |           |
-;-------------- outer_loop_latch         |  |         \         |           |
-;                     |                  |  ----------NEW_LOOP_LATCH0<-------
-;                                        |                   |
-;                                        |            CASCADED_IF_BLOCK0
-;                                        |             /           \
-;                                        |       (exitbb1)BB9 (exitbb2)BB10
-;                                        |             \           /
-;                                        ------------BB3(outer_loop_latch)
-;                                                            |
-outer_loop_header:
-  %outer_loop_induction_phi = phi i32 [ 0, %entry ], [ %outer_loop_induction, %outer_loop_latch ]
-  br label %inner_loop_header
-
+; +------>inner_loop_header            +----------->BB1(inner_loop_header)
+; |        /                           |             |
+; |       bb1---------------+          |          BB2(bb1)
+; |        |                |          |          /      \
+; |       bb2--------+      |          |      BB3(bb2)    INTERMEDIATE_BB0
+; |        |         |      |          |       /    \                   /
+; +-inner_loop_latch |      |          |    BB4     INTERMEDIATE_BB1   /
+;                    |      |          |    (inner_     |             /
+;               exitbb2  exitbb1       |    loop_       |            /
+;                                      |    latch)      |           /
+;                                      |       \        |          /
+;                                      |        \       |         /
+;                                      +--------NEW_LOOP_LATCH0<-+
+;                                                           |
+;                                                    CASCADED_IF_BLOCK0
+;                                                     /           \
+;                                               BB5(exitbb1) BB6(exitbb2)
 inner_loop_header:
-  %inner_loop_induction_phi = phi i32 [ 0, %outer_loop_header ], [ %inner_loop_induction, %inner_loop_latch ]
+  %iv = phi i32 [ 0, %entry ], [ %iv_next, %inner_loop_latch ]
   br label %bb1
 
 bb1:
-  %var1 = add nsw i32 %inner_loop_induction_phi, 2
+  %var1 = add nsw i32 %iv, 2
   %cmp1 = icmp eq i32 %var1, 16
   br i1 %cmp1, label %bb2, label %exitbb1
 
@@ -152,45 +117,21 @@ bb2:
   br i1 %cmp2, label %inner_loop_latch, label %exitbb2
 
 inner_loop_latch:
-  %inner_loop_induction = add nsw i32 %inner_loop_induction_phi, 1
+  %iv_next = add nsw i32 %iv, 1
   br label %inner_loop_header
 
 exitbb1:
   %live_out1 = phi i32 [ %var1, %bb1 ]
   %var3 = add nsw i32 %live_out1, 2
-  br label %outer_loop_latch
+  br label %end
 
 exitbb2:
   %live_out2 = phi i32 [ %var2, %bb2 ]
   %var4 = add nsw i32 %live_out2, 2
-  br label %outer_loop_latch
-
-outer_loop_latch:
-  %outer_loop_induction = add nsw i32 %outer_loop_induction_phi, 1
-  %cmp3 = icmp eq i32 %outer_loop_induction, 1024
-  br i1 %cmp3, label %outer_loop_header, label %outer_loop_exit
-
-outer_loop_exit:
   br label %end
 
 end:
-  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
-  ret i32 0
+  ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 4.0.0 (branches/vpo 21280)"}
-!1 = !{!2, !2, i64 0}
-!2 = !{!"float", !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}
+declare i32 @llvm.vplan.laneid()

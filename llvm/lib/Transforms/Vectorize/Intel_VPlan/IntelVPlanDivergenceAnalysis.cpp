@@ -450,18 +450,17 @@ bool VPlanDivergenceAnalysis::propagateJoinDivergence(
 // deal, but we should be able to easily match the community code once VPlan
 // is updated.
 #endif // INTEL_CUSTOMIZATION
-void VPlanDivergenceAnalysis::propagateBranchDivergence(const VPValue &Cond) {
-  const VPInstruction *CondInst = cast<VPInstruction>(&Cond);
-  LLVM_DEBUG(dbgs() << "propBranchDiv " << CondInst->getParent()->getName()
-                    << "\n");
-  const auto *BranchLoop = VPLI->getLoopFor(CondInst->getParent());
+void VPlanDivergenceAnalysis::propagateBranchDivergence(
+    const VPBasicBlock *CondBlock) {
+  LLVM_DEBUG(dbgs() << "propBranchDiv " << CondBlock->getName() << "\n");
+  const auto *BranchLoop = VPLI->getLoopFor(CondBlock);
 
   // whether there is a divergent loop exit from @BranchLoop (if any)
   bool IsBranchLoopDivergent = false;
 
   // @BranchLoop is a divergent loop due to the divergent branch created by
   // @Cond.
-  for (const auto *JoinBlock : SDA->joinBlocks(*CondInst->getParent())) {
+  for (const auto *JoinBlock : SDA->joinBlocks(*CondBlock)) {
     if (propagateJoinDivergence(*JoinBlock, BranchLoop)) {
       addDivergentLoopExit(*JoinBlock);
       IsBranchLoopDivergent |= true;
@@ -542,21 +541,18 @@ void VPlanDivergenceAnalysis::computeImpl() {
       continue;
 
 #if INTEL_CUSTOMIZATION
-    // Branch instructions are not explicitly represented in VPlan, so check
-    // to see if the current instruction is the same as the VPCondBit of the
-    // parent block. If it is, then this tells us that we have a conditional
-    // branch and BranchDependenceAnalysis can be used to tell us which phi
-    // instructions are divergent. Note: the condition bit can be something
-    // other than a cmp instruction.
-    const VPValue *Cond = I.getParent()->getCondBit();
-    if (&I == Cond) {
+    // Propagate branch divergence from the block(s) containing the CondBit.
+    // TODO: this code should be removed after the introduction of the
+    // VPInstruction for branches.
+    if (CondBit2BlockMap.count(&I)) {
       if (pushMissingOperands(I))
         continue;
       if (updateNormalInstruction(I)) {
         VPVectorShape NewShape = getRandomVectorShape();
         updateVectorShape(&I, NewShape);
         // propagate control divergence to affected instructions
-        propagateBranchDivergence(*Cond);
+        for (auto *Block : CondBit2BlockMap[&I])
+          propagateBranchDivergence(Block);
         continue;
       }
     }
@@ -641,7 +637,8 @@ VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
     return NonConstDA->getUniformVectorShape();
 
   // FIXME: This needs an explicit vector IV.
-  if (RegionLoop->getLoopLatch()->getCondBit() == V)
+  if (Plan->isBackedgeUniformityForced() &&
+      RegionLoop->getLoopLatch()->getCondBit() == V)
     return NonConstDA->getUniformVectorShape();
 
   auto ShapeIter = VectorShapes.find(V);
@@ -1278,10 +1275,19 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::AllocatePrivate)
     NewShape = computeVectorShapeForAllocatePrivateInst(
         cast<const VPAllocatePrivate>(I));
-  else {
+  else if (Opcode == VPInstruction::OrigTripCountCalculation)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::VectorTripCountCalculation)
+    NewShape = getUniformVectorShape();
+  else if (Opcode >= VPInstruction::SMax && Opcode <= VPInstruction::FMin) {
+    LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
+    // FIXME: Compute divergence based on the operands.
+    NewShape = getRandomVectorShape();
+  } else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
-    // llvm_unreachable("Instruction not supported\n");
+    assert(Opcode <= Instruction::OtherOpsEnd &&
+           "VPlan-specific VPInstruction not supported in DA!");
   }
 
   return NewShape;
@@ -1462,9 +1468,23 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 
   // Push everything to the worklist.
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
-  for (auto *BB : RPOT)
+  for (auto *BB : RPOT) {
+    // Sometimes the CondBit exists in a different block than the instruction
+    // forming the CondBit. To properly propagate branch divergence, what we
+    // really need to know is which Block uses the instruction as the CondBit.
+    // This code piggybacks off the RPO traversal here to prevent further cost
+    // in computeImpl() and keeps a map of the Instruction to the block(s)
+    // containing the CondBit that computeImpl() will use to properly propagate
+    // branch divergence. CondBits using VPExternalDefs not included here, but
+    // we should be doing the right thing in computeImpl() by not propagating
+    // divergence for them anyway. Please see vplan_da_condbit_separate_block.ll
+    // as an example.
+    if (VPInstruction *CondBitInst =
+            dyn_cast_or_null<VPInstruction>(BB->getCondBit()))
+      CondBit2BlockMap[CondBitInst].push_back(BB);
     for (auto &Inst : *BB)
       pushToWorklist(Inst);
+  }
 
   // Compute the shapes of instructions - iterate until fixed point is reached.
   computeImpl();
