@@ -577,8 +577,8 @@ public:
                   const InductionList::value_type &CurValue) {
     Descriptor.clear();
     const InductionDescriptor &ID = CurValue.second;
-    Descriptor.setStartPhi(dyn_cast<VPInstruction>(
-        Builder.getOrCreateVPOperand(CurValue.first)));
+    Descriptor.setStartPhi(
+        dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setKind(ID.getKind());
     Descriptor.setStart(Builder.getOrCreateVPOperand(ID.getStartValue()));
     const SCEV *Step = ID.getStep();
@@ -601,11 +601,10 @@ public:
       assert(Descriptor.getStartPhi() &&
              "Induction descriptor does not have starting PHI.");
       Type *IndTy = Descriptor.getStartPhi()->getType();
-      (void)IndTy;
       assert((IndTy->isIntegerTy() || IndTy->isPointerTy()) &&
              "unexpected induction type");
       Descriptor.setInductionBinOp(nullptr);
-      Descriptor.setBinOpcode(Instruction::Add);
+      Descriptor.setKindAndOpcodeFromTy(IndTy);
     }
     Descriptor.setAllocaInst(nullptr);
   }
@@ -627,24 +626,18 @@ public:
            "expected pointer type for explicit induction");
     IndTy = IndTy->getPointerElementType();
     Type *StepTy = IndTy;
-    if (IndTy->isIntegerTy())
-      Descriptor.setKind(InductionDescriptor::IK_IntInduction);
-    else if (IndTy->isPointerTy()) {
-      Descriptor.setKind(InductionDescriptor::IK_PtrInduction);
+    Descriptor.setKindAndOpcodeFromTy(IndTy);
+    if (IndTy->isPointerTy()) {
       assert(isa<Instruction>(CurValue.first) &&
              "Linear descriptor is not an instruction.");
       const DataLayout &DL =
           cast<Instruction>(CurValue.first)->getModule()->getDataLayout();
       StepTy = DL.getIntPtrType(IndTy);
-    } else {
-      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
-      Descriptor.setKind(InductionDescriptor::IK_FpInduction);
     }
     Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
     Descriptor.setStep(Builder.getOrCreateVPOperand(Cstep));
 
     Descriptor.setInductionBinOp(nullptr);
-    Descriptor.setBinOpcode(Instruction::Add);
     assertIsSingleElementAlloca(CurValue.first);
     // Initialize the AllocaInst of the descriptor with the induction start
     // value. Explicit inductions always have a valid memory allocation.
