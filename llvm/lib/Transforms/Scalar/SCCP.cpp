@@ -407,9 +407,13 @@ private:
     return true;
   }
 
+  /// Merge \p MergeWithV into \p IV and push \p V to the worklist, if \p IV
+  /// changes.
   bool mergeInValue(ValueLatticeElement &IV, Value *V,
-                    ValueLatticeElement MergeWithV, bool Widen = true) {
-    if (IV.mergeIn(MergeWithV, Widen)) {
+                    ValueLatticeElement MergeWithV,
+                    ValueLatticeElement::MergeOptions Opts = {
+                        /*MayIncludeUndef=*/false, /*CheckWiden=*/true}) {
+    if (IV.mergeIn(MergeWithV, Opts)) {
       pushToWorkList(IV, V);
       LLVM_DEBUG(dbgs() << "Merged " << MergeWithV << " into " << *V << " : "
                         << IV << "\n");
@@ -419,10 +423,11 @@ private:
   }
 
   bool mergeInValue(Value *V, ValueLatticeElement MergeWithV,
-                    bool Widen = true) {
+                    ValueLatticeElement::MergeOptions Opts = {
+                        /*MayIncludeUndef=*/false, /*CheckWiden=*/true}) {
     assert(!V->getType()->isStructTy() &&
            "non-structs should use markConstant");
-    return mergeInValue(ValueState[V], V, MergeWithV, Widen);
+    return mergeInValue(ValueState[V], V, MergeWithV, Opts);
   }
 
   /// getValueState - Return the ValueLatticeElement object that corresponds to
@@ -1210,6 +1215,7 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
           markOverdefined(&A);
           continue;
         }
+<<<<<<< HEAD
 
         // Thread dependent values cannot be propagated to callbacks.
         if (IsCallback)
@@ -1227,6 +1233,11 @@ void SCCPSolver::handleCallArguments(CallSite CS) {
         } else
           mergeInValue(&A, getValueState(V), false);
       }
+=======
+      } else
+        mergeInValue(&*AI, getValueState(*CAI),
+                     ValueLatticeElement::MergeOptions().setCheckWiden(false));
+>>>>>>> 6ba0695c600a41950336cc1abdc2c78c2a777d93
     }
   };
 
