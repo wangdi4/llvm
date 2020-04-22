@@ -356,6 +356,9 @@ namespace llvm {
       // Zero High Bits Starting with Specified Bit Position.
       BZHI,
 
+      // Parallel extract and deposit.
+      PDEP, PEXT,
+
       // X86-specific multiply by immediate.
       MUL_IMM,
 
