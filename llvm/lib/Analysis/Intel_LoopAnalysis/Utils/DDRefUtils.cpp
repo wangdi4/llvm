@@ -239,8 +239,24 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   auto BaseCE2 = Ref2->getBaseCE();
 
   // TODO: check getBitCastDestType.
-  return CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode) &&
-         Ref1->getNumDimensions() == Ref2->getNumDimensions();
+  if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode) ||
+      Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
+    return false;
+  }
+
+  // Check that dimension lowers and strides are the same.
+  for (unsigned DimI = 1, DimE = Ref1->getNumDimensions(); DimI < DimE;
+       ++DimI) {
+    if (!CanonExprUtils::areEqual(Ref1->getDimensionLower(DimI),
+                                  Ref2->getDimensionLower(DimI), RelaxedMode) ||
+        !CanonExprUtils::areEqual(Ref1->getDimensionStride(DimI),
+                                  Ref2->getDimensionStride(DimI),
+                                  RelaxedMode)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool DDRefUtils::haveConstDimensionDistances(const RegDDRef *Ref1,

@@ -89,8 +89,12 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, LI, DL);
-  assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
-         "Inconsistent Loop information");
+
+  // FIXME: Uncomment assert once we support on-the-fly updates of the LoopInfo
+  // in our VPlan CodeGen. See a comment for the
+  // VPlanDriverImpl::runStandardMode<llvm::Loop> in IntelVPlanDriver.cpp.
+  // assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
+  //        "Inconsistent Loop information");
 }
 
 VPlanHCFGBuilder::~VPlanHCFGBuilder() = default;

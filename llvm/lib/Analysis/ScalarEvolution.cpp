@@ -234,6 +234,10 @@ static cl::opt<unsigned> NAryOperandStrengthenThreshold(
 static cl::opt<bool> PrintLoopRangeBounds(
     "scalar-evolution-print-loop-range-bounds", cl::Hidden, cl::init(false),
     cl::desc("Print out the call getRangeBoundedByLoop in addition"));
+
+static cl::opt<bool> PrintHIRMode("scalar-evolution-print-hir-mode", cl::Hidden,
+                                  cl::init(false),
+                                  cl::desc("Print SCEV results in HIR mode"));
 #endif //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -6720,6 +6724,75 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   // Finally, intersect signed and unsigned ranges.
   return SR.intersectWith(UR, ConstantRange::Smallest);
 }
+
+static const Loop *getOutermostLoop(const Loop *Lp) {
+  auto *OuterLp = Lp;
+
+  while (OuterLp) {
+    Lp = OuterLp;
+    OuterLp = OuterLp->getParentLoop();
+  }
+
+  return Lp;
+}
+
+bool ScalarEvolution::hasWrapSafeUses(const Value *Val,
+                                      const Value *KnownSafeUse) const {
+  if (isa<ConstantInt>(Val))
+    return true;
+
+  for (auto *ValUser : Val->users()) {
+    // Check whether Val can be used in any other SCEV analyzable context. This
+    // condition can probably be relaxed further, for example when Val is used
+    // in multiple identical 'KnownSafeUse'.
+    if ((ValUser == KnownSafeUse) || isa<CmpInst>(ValUser) ||
+        !isSCEVable(ValUser->getType()))
+      continue;
+
+    return false;
+  }
+
+  return true;
+}
+
+static bool foundSubIntrinsic(const Loop *Lp) {
+
+  if (!Lp)
+    return false;
+
+  unsigned Count = 0;
+  bool Found = false;
+
+  for (auto *BB : Lp->getBlocks()) {
+    if (Found || Count == 3)
+      break;
+
+    for (auto &Inst : *BB) {
+      if (isa<SubscriptInst>(Inst)) {
+        Found = true;
+        break;
+      }
+    }
+    ++Count;
+  }
+
+  return Found;
+}
+
+bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp) const {
+  // In HIR mode, we can assume unchanging IR and deduce nowrap by analyzing
+  // uses of BinOp's operands.
+  if (!HIRInfo.isValid())
+    return false;
+
+  // Ugly temporary hack to skip C/C++ cases to avoid performance regressions.
+  // TODO: remove hack.
+  if (!PrintHIRMode && !foundSubIntrinsic(HIRInfo.getOutermostLoop()))
+    return false;
+
+  return hasWrapSafeUses(BinOp->getOperand(0), BinOp) &&
+         hasWrapSafeUses(BinOp->getOperand(1), BinOp);
+}
 #endif // INTEL_CUSTOMIZATION
 
 SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
@@ -6735,7 +6808,11 @@ SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
   if (Flags == SCEV::FlagAnyWrap)
     return SCEV::FlagAnyWrap;
 
-  return isSCEVExprNeverPoison(BinOp) ? Flags : SCEV::FlagAnyWrap;
+#if INTEL_CUSTOMIZATION
+  return (isSCEVExprNeverPoison(BinOp) || hasWrapSafeOperands(BinOp))
+             ? Flags
+             : SCEV::FlagAnyWrap;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool ScalarEvolution::isSCEVExprNeverPoison(const Instruction *I) {
@@ -12968,6 +13045,10 @@ void ScalarEvolution::print(raw_ostream &OS) const {
     OS << "\n";
     for (Instruction &I : instructions(F))
       if (isSCEVable(I.getType()) && !isa<CmpInst>(I)) {
+#if INTEL_CUSTOMIZATION
+        if (PrintHIRMode)
+          SE.HIRInfo.set(getOutermostLoop(LI.getLoopFor(I.getParent())));
+#endif // INTEL_CUSTOMIZATION
         OS << I << '\n';
         OS << "  -->  ";
         const SCEV *SV = SE.getSCEV(&I);
