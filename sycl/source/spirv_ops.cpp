@@ -20,6 +20,7 @@ __SYCL_EXPORT void __spirv_GroupWaitEvents(__spv::Scope Execution,
                                            __ocl_event_t *WaitEvents) noexcept {
 }
 
+<<<<<<< HEAD
 __SYCL_EXPORT void __spirv_ControlBarrier(__spv::Scope Execution,
                                           __spv::Scope Memory,
                                           uint32_t Semantics) noexcept {
@@ -29,6 +30,9 @@ __SYCL_EXPORT void __spirv_ControlBarrier(__spv::Scope Execution,
 
 __SYCL_EXPORT void __spirv_MemoryBarrier(__spv::Scope Memory,
                                          uint32_t Semantics) noexcept {
+=======
+void __spirv_MemoryBarrier(__spv::Scope Memory, uint32_t Semantics) noexcept {
+>>>>>>> 8e353dcc52ced766db0514ade09366987065e25e
   // 1. The 'Memory' parameter is ignored on HOST because there is no memory
   //    separation to global and local there.
   // 2. The 'Semantics' parameter is ignored because there is no need

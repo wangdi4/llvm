@@ -66,12 +66,25 @@ config.substitutions.append( ('%opencl_include_dir',  config.opencl_include_dir)
 config.substitutions.append( ('%cuda_toolkit_include',  config.cuda_toolkit_include) )
 
 # INTEL_CUSTOMIZATION
-# Propagate --gcc-toolchain if we are overriding system installed gcc.
-if 'ICS_GCCBIN' in os.environ:
-    llvm_config.use_clang(additional_flags=['--gcc-toolchain='
-        + os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], ".." ) ) ] )
-else:
-    llvm_config.use_clang()
+def getAdditionalFlags():
+    flags = []
+    # Propagate --gcc-toolchain if we are overriding system installed gcc.
+    if 'ICS_GCCBIN' in os.environ:
+        flags += ['--gcc-toolchain='
+            + os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], ".." ) ) ]
+    # Add flags according to used host device backend
+    backend = os.getenv('DPCPP_HOST_BACKEND', 'serial').lower()
+    if backend is not None:
+        if backend == 'openmp':
+            flags += ['-DDPCPP_HOST_DEVICE_OPENMP=1', '-fopenmp']
+        elif backend == 'serial':
+            pass
+        else:
+            print("Unknown host backend: " + backend)
+
+    return flags
+
+llvm_config.use_clang(additional_flags=getAdditionalFlags())
 # end INTEL_CUSTOMIZATION
 
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
