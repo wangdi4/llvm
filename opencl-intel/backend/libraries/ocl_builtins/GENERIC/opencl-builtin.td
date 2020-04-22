@@ -176,6 +176,7 @@ multiclass _OCLTYPE1_<string ss, int len, int width, string base> {
   def cgp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __global ", base), len, width, 1>;
   def clp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __local ", base), len, width, 1>;
   def cpp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __private ", base), len, width, 1>;
+  def vgenp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile ", base), len, width, 1>;
   def vgp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __global ", base), len, width, 1>;
   def vlp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __local ", base), len, width, 1>;
   def vpp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __private ", base), len, width, 1>;
@@ -841,6 +842,11 @@ def patomgentype : OclGenType<"patomgentype"> {
   list<string> Tin = Torig;
   list<string> Tout = !foreach(n, Tin, !strconcat("patom_", n));
 }
+// converts a type to a volatile generic pointer atomic type
+def vgenpatomgentype : OclGenType<"vgenpatomgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vgenpatom_", n));
+}
 // converts a type to a volatile global pointer atomic type
 def vgpatomgentype : OclGenType<"vgpatomgentype"> {
   list<string> Tin = Torig;
@@ -997,6 +1003,7 @@ class CONST_GENERIC  : OclAddressSpace<"",   1, 0>;
 class VOLATILE_PRIVATE : OclAddressSpace<"__private",  0, 1>;
 class VOLATILE_LOCAL   : OclAddressSpace<"__local",    0, 1>;
 class VOLATILE_GLOBAL  : OclAddressSpace<"__global",   0, 1>;
+class VOLATILE_GENERIC : OclAddressSpace<"",   0, 1>;
 
 
 // OclBuiltinImpl
