@@ -235,6 +235,29 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (SerialAtomicRMW->isFloatingPointOperation())
       SerialAtomicRMW->setFastMathFlags(OrigAtomicRMW->getFastMathFlags());
     SerialInst = SerialAtomicRMW;
+  } else if (VPInst->getOpcode() == Instruction::ExtractValue) {
+    // TODO: Currently, 'extractvalue' VPInstruction drops the last argument.
+    // This is an issue similar to the dropped mask-value for shufflevector
+    // instruction. An assert on ScalarOperands size seems unnecessary till
+    // then.
+    auto *OrigExtractValueInst =
+        cast<ExtractValueInst>(VPInst->getUnderlyingValue());
+    assert(OrigExtractValueInst &&
+           "Expect a valid underlying extractvalue instruction.");
+    SerialInst = Builder.CreateExtractValue(
+        Ops[0], OrigExtractValueInst->getIndices(), "serial.extractvalue");
+  } else if (VPInst->getOpcode() == Instruction::InsertValue) {
+    // TODO: Currently, 'insertvalue' VPInstruction drops the last argument.
+    // This is an issue similar to the dropped mask-value for shufflevector
+    // instruction. An assert on ScalarOperands size seems unnecessary till
+    // then.
+    auto *OrigInsertValueInst =
+        cast<InsertValueInst>(VPInst->getUnderlyingValue());
+    assert(OrigInsertValueInst &&
+           "Expect a valid underlying insertvalue instruction.");
+    SerialInst = Builder.CreateInsertValue(Ops[0], Ops[1],
+                                           OrigInsertValueInst->getIndices(),
+                                           "serial.insertvalue");
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("Currently serialization of only binop instructions, "
@@ -1012,6 +1035,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   }
   case Instruction::InsertElement: {
     vectorizeInsertElement(VPInst);
+    return;
+  }
+  case Instruction::InsertValue:
+  case Instruction::ExtractValue: {
+    serializeInstruction(VPInst);
     return;
   }
   case Instruction::ShuffleVector: {
@@ -2977,8 +3005,13 @@ void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
 }
 
 void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
+  // TODO: Allow serialization for all types and get rid of the assert below
+  // (CMPLRLLVM-19198).
   // TODO: Handle serialization of aggregate type instructions.
-  assert(!VPInst->getType()->isAggregateType() &&
+  assert((VPInst->getOpcode() == Instruction::Call ||
+          VPInst->getOpcode() == Instruction::InsertValue ||
+          VPInst->getOpcode() == Instruction::ExtractValue ||
+          !VPInst->getType()->isAggregateType()) &&
          "Can't serialize aggregate type instructions.");
 
   unsigned Lanes =
