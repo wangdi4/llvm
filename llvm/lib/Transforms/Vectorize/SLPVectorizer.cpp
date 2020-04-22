@@ -6844,7 +6844,7 @@ Value *BoUpSLP::vectorizeTree(ArrayRef<Value *> VL) {
 }
 
 static void inversePermutation(ArrayRef<unsigned> Indices,
-                               SmallVectorImpl<unsigned> &Mask) {
+                               SmallVectorImpl<int> &Mask) {
   Mask.clear();
   const unsigned E = Indices.size();
   Mask.resize(E);
@@ -6926,7 +6926,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
     case Instruction::ExtractElement: {
       Value *V = E->getSingleOperand(0);
       if (!E->ReorderIndices.empty()) {
-        OrdersType Mask;
+        SmallVector<int, 4> Mask;
         inversePermutation(E->ReorderIndices, Mask);
         Builder.SetInsertPoint(VL0);
         V = Builder.CreateShuffleVector(V, UndefValue::get(VecTy), Mask,
@@ -6951,7 +6951,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       LoadInst *V = Builder.CreateAlignedLoad(VecTy, Ptr, LI->getAlign());
       Value *NewV = propagateMetadata(V, E->Scalars);
       if (!E->ReorderIndices.empty()) {
-        OrdersType Mask;
+        SmallVector<int, 4> Mask;
         inversePermutation(E->ReorderIndices, Mask);
         NewV = Builder.CreateShuffleVector(NewV, UndefValue::get(VecTy), Mask,
                                            "reorder_shuffle");
@@ -7154,7 +7154,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       LI = Builder.CreateAlignedLoad(VecTy, VecPtr, Alignment);
       Value *V = propagateMetadata(LI, E->Scalars);
       if (IsReorder) {
-        OrdersType Mask;
+        SmallVector<int, 4> Mask;
         inversePermutation(E->ReorderIndices, Mask);
         V = Builder.CreateShuffleVector(V, UndefValue::get(V->getType()),
                                         Mask, "reorder_shuffle");
@@ -7243,10 +7243,10 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
 
       Value *VecValue = vectorizeTree(E->getOperand(0));
       if (IsReorder) {
-        OrdersType Mask;
-        inversePermutation(E->ReorderIndices, Mask);
+        SmallVector<int, 4> Mask(E->ReorderIndices.begin(),
+                                 E->ReorderIndices.end());
         VecValue = Builder.CreateShuffleVector(
-            VecValue, UndefValue::get(VecValue->getType()), E->ReorderIndices,
+            VecValue, UndefValue::get(VecValue->getType()), Mask,
             "reorder_shuffle");
       }
       Value *ScalarPtr = SI->getPointerOperand();
