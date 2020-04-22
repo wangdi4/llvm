@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSClient.cpp ---------------------------------------------===/
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -15,63 +15,46 @@
 
 #include "IntelVPlanVLSClient.h"
 
+#include "IntelVPlanScalarEvolution.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 
 using namespace llvm::vpo;
 
-/// Implementation of OVLSMemref::getConstStride. The additional parameter
-/// \p MainLoop specifies the loop being vectorized, so that we compute stride
-/// with respect to this loop.
+/// Implementation of OVLSMemref::getConstStride.
 static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
-                                            const Loop *MainLoop) {
-  if (!isa<SCEVAddRecExpr>(Expr))
-    return None;
-
-  auto *AddRec = cast<SCEVAddRecExpr>(Expr);
-
-  // FIXME: So far, computing stride for nested loop IVs is not supported. This
-  // should be fixed in future patches.
-  if (AddRec->getLoop() != MainLoop)
-    return None;
-
-  if (!AddRec->isAffine())
-    return None;
-
-  assert(AddRec->getNumOperands() == 2 &&
-         "Affine SCEV is expected to have only two operands");
-
-  if (auto *ConstStep = dyn_cast<SCEVConstant>(AddRec->getOperand(1)))
-    return ConstStep->getAPInt().getSExtValue();
-
-  return None;
+                                            VPlanScalarEvolutionLLVM &VPSE) {
+  VPlanSCEV *VPExpr = VPSE.toVPlanSCEV(Expr);
+  Optional<VPConstStepLinear> Linear = VPSE.asConstStepLinear(VPExpr);
+  return Linear.map([](auto &L) { return L.Step; });
 }
 
-static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
-                                                  const SCEV *RHS,
-                                                  ScalarEvolution *SE) {
-  // If the types don't match, there's no sense trying to compute distance
-  // between pointers.
+static Optional<int64_t>
+getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
+                         VPlanScalarEvolutionLLVM &VPSE) {
+  // Early exit to improve compile time. If the types don't match, there's no
+  // sense trying to compute distance between pointers. Pointers to the same
+  // allocation always have the same type.
   if (LHS->getType() !=RHS->getType())
     return None;
 
-  // computeConstantDifference has a significant advantage over getMinusSCEV: it
-  // doesn't crash if LHS and RHS contain AddRecs for unrelated loops (e.g.
-  // sibling loops).
-  Optional<APInt> Difference = SE->computeConstantDifference(LHS, RHS);
-  if (!Difference)
+  VPlanSCEV *VPMinus =
+      VPSE.getMinusExpr(VPSE.toVPlanSCEV(LHS), VPSE.toVPlanSCEV(RHS));
+  const SCEV *Minus = VPSE.toSCEV(VPMinus);
+
+  auto *Const = dyn_cast<SCEVConstant>(Minus);
+  if (!Const)
     return None;
 
-  return Difference->getSExtValue();
+  return Const->getAPInt().getSExtValue();
 }
 
 // FIXME: It is not safe to call this method after we start modifying IR, as
 //        modifying IR invalidates ScalarEvolution. It'd be better to remove
 //        this method, but it is still used in canMoveTo.
 const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
-  ScalarEvolution *SE = VLSA->getSE();
-  return Val->isUnderlyingIRValid() ? SE->getSCEV(Val->getUnderlyingValue())
-                                    : SE->getCouldNotCompute();
+  auto &VPSE = VLSA->getVPSE();
+  return VPSE.toSCEV(VPSE.getVPlanSCEV(*Val));
 }
 
 VPVLSClientMemref::VPVLSClientMemref(const OVLSMemrefKind &Kind,
@@ -93,7 +76,7 @@ VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
   if (Inst->getParent() != FromInst->getParent())
     return None;
 
-  return getConstDistanceFromImpl(ScevExpr, FromScev, VLSA->getSE());
+  return getConstDistanceFromImpl(ScevExpr, FromScev, VLSA->getVPSE());
 }
 
 // FIXME: This is an extremely naive implementation just to enable the most
@@ -111,15 +94,14 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   if (ToInst->getParent() != FromInst->getParent())
     return false;
 
-  ScalarEvolution *SE = VLSA->getSE();
+  VPlanScalarEvolutionLLVM &VPSE = VLSA->getVPSE();
   Type *AccessType = getLoadStoreType(FromInst);
   int64_t AccessSize = VLSA->getDL().getTypeStoreSize(AccessType);
 
   if (isa<SCEVCouldNotCompute>(FromSCEV))
     return false;
 
-  const Loop *MainLoop = VLSA->getMainLoop();
-  Optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, MainLoop);
+  Optional<int64_t> FromStride = getConstStrideImpl(FromSCEV, VPSE);
   if (!FromStride)
     return false;
 
@@ -176,7 +158,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
       // Constant distance between From and IterInst implies that the strides of
       // IterInst and From are the same.
       Optional<int64_t> Distance =
-          getConstDistanceFromImpl(IterSCEV, FromSCEV, SE);
+          getConstDistanceFromImpl(IterSCEV, FromSCEV, VPSE);
       if (!Distance)
         return false;
 
@@ -202,7 +184,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
-  return getConstStrideImpl(ScevExpr, VLSA->getMainLoop());
+  return getConstStrideImpl(ScevExpr, VLSA->getVPSE());
 }
 
 bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {
