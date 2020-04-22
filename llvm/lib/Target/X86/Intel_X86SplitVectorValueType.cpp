@@ -299,6 +299,9 @@ private:
   // Split InsertElementInst to new instruction.
   void createSplitInsertElementInst(InsertElementInst *I, unsigned Depth);
 
+  // Split SelectInst to new instruction.
+  void createSplitSelectInst(SelectInst *I, unsigned Depth);
+
   // Create shufflevector instructions to split value of instruction that we
   // can't handle.
   void createShufVecInstToSplit(Instruction *I, unsigned Depth);
@@ -832,6 +835,51 @@ void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
              indentedDbgs(Depth) << *NI << "\n");
 }
 
+void X86SplitVectorValueType::createSplitSelectInst(SelectInst *I,
+                                                    unsigned Depth) {
+  if (isa<VectorType>(I->getCondition()->getType())) {
+    createSplitNormalInst(I, Depth);
+    return;
+  }
+
+  VectorType *VTy = cast<VectorType>(I->getType());
+  VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
+  Instruction *NI0 = I->clone();
+  Instruction *NI1 = I->clone();
+  NI0->mutateType(HVTy);
+  NI1->mutateType(HVTy);
+
+  for (unsigned OpI = 1; OpI < I->getNumOperands(); OpI++) {
+    setOperandOfSplitInst(I, NI0, OpI, 0);
+    setOperandOfSplitInst(I, NI1, OpI, 1);
+  }
+
+  // Condition of split SelectInst is same as original.
+  cast<SelectInst>(NI0)->setCondition(I->getCondition());
+  cast<SelectInst>(NI1)->setCondition(I->getCondition());
+
+  setInstName(I, NI0, NI1);
+
+  // Insert NI1 before I. Insert NI0 before NI1.
+  InsertInst(I, NI1).run();
+  InsertInst(NI1, NI0).run();
+
+  InstMap[I].push_back(NI0);
+  InstMap[I].push_back(NI1);
+
+  // Mark new instructions.
+  NInstSet.insert(NI0);
+  NInstSet.insert(NI1);
+
+  // Mark I to be erased.
+  OInstSet.insert(I);
+
+  LLVM_DEBUG(indentedDbgs(Depth)
+                 << "Create split instructions to replace: " << *I << "\n";
+             indentedDbgs(Depth) << *NI0 << "\n";
+             indentedDbgs(Depth) << *NI1 << "\n");
+}
+
 void X86SplitVectorValueType::createSplitNormalInst(Instruction *I,
                                                     unsigned Depth) {
   VectorType *VTy = cast<VectorType>(I->getType());
@@ -878,6 +926,9 @@ void X86SplitVectorValueType::createSplitInst(Instruction *I, unsigned Depth) {
     break;
   case Instruction::InsertElement:
     createSplitInsertElementInst(cast<InsertElementInst>(I), Depth);
+    break;
+  case Instruction::Select:
+    createSplitSelectInst(cast<SelectInst>(I), Depth);
   }
 }
 
@@ -947,6 +998,11 @@ bool X86SplitVectorValueType::updateInstChain() {
         // I is the first operand of UI and it has been split.
         if (isa<InsertElementInst>(UI))
           break;
+
+        // If cond of SelectInst isn't VectorType, just skip this operand.
+        if (isa<SelectInst>(UI) && OpI == 0 &&
+            !isa<VectorType>(UI->getOperand(0)->getType()))
+          continue;
 
         Value *OpdVal = UI->getOperand(OpI);
         if (!splitValueChainBottomUp(OpdVal, 2))
@@ -1027,6 +1083,11 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
     // Only the first operand need to be split for InsertElementInst.
     if (isa<InsertElementInst>(I) && OpI > 0)
       break;
+
+    // If cond of SelectInst isn't VectorType, just skip this operand.
+    if (isa<SelectInst>(I) && OpI == 0 &&
+        !isa<VectorType>(I->getOperand(0)->getType()))
+      continue;
 
     Value *OpdVal = I->getOperand(OpI);
 
