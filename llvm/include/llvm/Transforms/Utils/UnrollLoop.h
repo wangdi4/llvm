@@ -16,10 +16,12 @@
 #define LLVM_TRANSFORMS_UTILS_UNROLLLOOP_H
 
 #include "llvm/ADT/DenseMap.h"
+<<<<<<< HEAD
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
+=======
+>>>>>>> 9719b638be3f290cd59d9f790c1ce3de2877ea6c
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
 
 namespace llvm {
 
@@ -34,6 +36,8 @@ class MDNode;
 class ProfileSummaryInfo;
 class OptimizationRemarkEmitter;
 class ScalarEvolution;
+class StringRef;
+class Value;
 
 using NewLoopsMap = SmallDenseMap<const Loop *, Loop *, 4>;
 
