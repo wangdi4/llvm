@@ -1948,6 +1948,16 @@ def fno_standalone_debug : Flag<["-"], "fno-standalone-debug">, Group<f_Group>, 
   HelpText<"Limit debug information produced to reduce size of debug binary">;
 def flimit_debug_info : Flag<["-"], "flimit-debug-info">, Flags<[CoreOption]>, Alias<fno_standalone_debug>;
 def fno_limit_debug_info : Flag<["-"], "fno-limit-debug-info">, Flags<[CoreOption]>, Alias<fstandalone_debug>;
+#if INTEL_CUSTOMIZATION
+def femit_class_debug_always : Flag<["-"], "femit-class-debug-always">, Flags<[DriverOption]>,
+  Alias<fstandalone_debug>,
+  HelpText<"Emit debug information for a C++ class into each object file where the class is used."
+           " This flag is useful for tools which are unable to resolve incomplete type descriptions."
+           "  Using this option may cause a large increase in the size of the debug information">;
+def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">, Flags<[DriverOption]>,
+  Alias<fno_standalone_debug>,
+  HelpText<"Emit debug information for a C++ class in only one object file">;
+#endif // INTEL_CUSTOMIZATION
 def fdebug_macro : Flag<["-"], "fdebug-macro">, Group<f_Group>, Flags<[CoreOption]>,
   HelpText<"Emit macro debug information">;
 def fno_debug_macro : Flag<["-"], "fno-debug-macro">, Group<f_Group>, Flags<[CoreOption]>,

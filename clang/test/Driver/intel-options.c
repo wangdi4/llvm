@@ -115,3 +115,9 @@
 // RUN: %clang -### -fimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // CHECK-FIMF-ARCH: "-mGLOB_imf_attr=arch-consistency:none"
+
+// Behavior with -femit-class-debug-always option maps to -fstandalone-debug
+// RUN: %clang -### -c -g %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND-DEFAULT %s
+// CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=limited"
+// RUN: %clang -### -c -g -femit-class-debug-always %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND %s
+// CHECK-DEBUG-INFO-KIND: "-debug-info-kind=standalone"
