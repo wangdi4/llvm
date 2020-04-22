@@ -1719,6 +1719,13 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
     EnterAnnotationToken(SourceRange(HashLoc, EndLoc),
                          tok::annot_module_include, Action.ModuleForHeader);
     break;
+  case ImportAction::Failure:
+    assert(TheModuleLoader.HadFatalFailure &&
+           "This should be an early exit only to a fatal error");
+    TheModuleLoader.HadFatalFailure = true;
+    IncludeTok.setKind(tok::eof);
+    CurLexer->cutOffLexing();
+    return;
   }
 }
 
@@ -2176,7 +2183,10 @@ Preprocessor::ImportAction Preprocessor::HandleHeaderIncludeOrImport(
   if (IncludePos.isMacroID())
     IncludePos = SourceMgr.getExpansionRange(IncludePos).getEnd();
   FileID FID = SourceMgr.createFileID(*File, IncludePos, FileCharacter);
-  assert(FID.isValid() && "Expected valid file ID");
+  if (!FID.isValid()) {
+    TheModuleLoader.HadFatalFailure = true;
+    return ImportAction::Failure;
+  }
 
   // If all is good, enter the new file!
   if (EnterSourceFile(FID, CurDir, FilenameTok.getLocation()))
@@ -2462,7 +2472,7 @@ static void getTypelibGuid(const char *Name, GUID *GuidPtr,
 
 static std::string getTypelibName(StringRef Filename, unsigned short Major,
                                   unsigned short Minor, unsigned long Lcid) {
-  std::string Result = Filename.substr(1, Filename.size() - 2);
+  std::string Result = std::string(Filename.substr(1, Filename.size() - 2));
   GUID Guid;
   getTypelibGuid(Filename.data() + 1, &Guid, &Major, &Minor, &Lcid);
 
@@ -2633,7 +2643,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
           << ErrorCode.message();
       return;
     }
-    WrapperFilename = StringRef(WrapperFilenameImpl);
+    WrapperFilename = std::string(WrapperFilenameImpl);
   } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
                  WrapperFilename, WrapperFileDesc,
                  llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::F_Append)) {
@@ -3219,7 +3229,9 @@ void Preprocessor::HandleDefineDirective(
                              /*Syntactic=*/LangOpts.MicrosoftExt))
       Diag(MI->getDefinitionLoc(), diag::warn_pp_macro_def_mismatch_with_pch)
           << MacroNameTok.getIdentifierInfo();
-    return;
+    // Issue the diagnostic but allow the change if msvc extensions are enabled
+    if (!LangOpts.MicrosoftExt)
+      return;
   }
 
   // Finally, if this identifier already had a macro defined for it, verify that

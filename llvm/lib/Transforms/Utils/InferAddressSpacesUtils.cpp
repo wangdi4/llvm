@@ -109,6 +109,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
@@ -929,7 +930,7 @@ static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
 
   if (auto *MSI = dyn_cast<MemSetInst>(MI)) {
     B.CreateMemSet(NewV, MSI->getValue(), MSI->getLength(),
-                   MSI->getDestAlignment(),
+                   MaybeAlign(MSI->getDestAlignment()),
                    false, // isVolatile
                    TBAA, ScopeMD, NoAliasMD);
   } else if (auto *MTI = dyn_cast<MemTransferInst>(MI)) {
@@ -945,14 +946,14 @@ static bool handleMemIntrinsicPtrUse(MemIntrinsic *MI, Value *OldV,
 
     if (isa<MemCpyInst>(MTI)) {
       MDNode *TBAAStruct = MTI->getMetadata(LLVMContext::MD_tbaa_struct);
-      B.CreateMemCpy(Dest, MTI->getDestAlignment(), Src,
-                     MTI->getSourceAlignment(), MTI->getLength(),
+      B.CreateMemCpy(Dest, MTI->getDestAlign(), Src,
+                     MTI->getSourceAlign(), MTI->getLength(),
                      false, // isVolatile
                      TBAA, TBAAStruct, ScopeMD, NoAliasMD);
     } else {
       assert(isa<MemMoveInst>(MTI));
-      B.CreateMemMove(Dest, MTI->getDestAlignment(), Src,
-                      MTI->getSourceAlignment(), MTI->getLength(),
+      B.CreateMemMove(Dest, MTI->getDestAlign(), Src,
+                      MTI->getSourceAlign(), MTI->getLength(),
                       false, // isVolatile
                       TBAA, ScopeMD, NoAliasMD);
     }
@@ -1157,6 +1158,19 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
       }
     }
 
+    // Update debug variable intrinsics with the value change.
+    if (V->isUsedByMetadata()) {
+      if (auto *VAMD = ValueAsMetadata::getIfExists(V)) {
+        if (auto *MDAV = MetadataAsValue::getIfExists(V->getContext(), VAMD)) {
+          ValueAsMetadata *NewVAMD = ValueAsMetadata::get(NewV);
+          Value *NewMDAV = MetadataAsValue::get(NewV->getContext(), NewVAMD);
+          MDAV->replaceUsesWithIf(NewMDAV, [](Use &U) {
+              return isa<DbgVariableIntrinsic>(U.getUser());
+              });
+        }
+      }
+    }
+
     if (V->use_empty()) {
       if (Instruction *I = dyn_cast<Instruction>(V))
         DeadInstructions.push_back(I);
@@ -1176,4 +1190,187 @@ bool llvm::InferAddrSpaces(const TargetTransformInfo &TTI, unsigned AddrSpace,
   InferAddressSpaces IAS(AddrSpace);
   return IAS.processFunction(TTI, F);
 }
+
+#if INTEL_CUSTOMIZATION
+// The utility modifies types of variables, so that the member/element
+// pointers are transformed from flat address space pointers to
+// pointers to specific address space.
+//
+// The method is quite simple currently and only handles global variables
+// of pointer type.
+bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
+  SmallVector<GlobalVariable *, 16> GlobalsToDelete;
+
+  for (auto &GO : M.globals()) {
+    auto *GV = dyn_cast<GlobalVariable>(&GO);
+    if (!GV)
+      continue;
+
+    LLVM_DEBUG(dbgs() << "Analyzing global variable: " << *GV << "\n");
+
+    if (GV->getLinkage() != GlobalValue::InternalLinkage ||
+        GV->isExternallyInitialized() ||
+        (GV->hasInitializer() && !GV->getInitializer()->isZeroValue()))
+      continue;
+
+    auto *ValTy = dyn_cast<PointerType>(GV->getValueType());
+    if (!ValTy)
+      continue;
+
+    if (isa<PointerType>(ValTy->getElementType()))
+      // TODO: for now analyze only pointer to non-pointer globals.
+      continue;
+
+    if (ValTy->getAddressSpace() != FlatAddrSpace)
+      continue;
+
+    // Get rid of dead constant users to avoid analysing them.
+    GV->removeDeadConstantUsers();
+
+    SmallVector<StoreInst *, 8> StoreInstructions;
+    SmallVector<LoadInst *, 8> LoadInstructions;
+    bool HasUnknownUse = false;
+    unsigned ProcessedUsersNum = 0;
+
+    LLVM_DEBUG(dbgs() << "Analyzing users:\n");
+
+    if (GV->users().empty()) {
+      LLVM_DEBUG(dbgs() << "Global has no uses.\n");
+      continue;
+    }
+
+    for (auto *U : GV->users()) {
+      LLVM_DEBUG(dbgs() << "User: " << *U << "\n");
+
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        if (GV == SI->getPointerOperand())
+          StoreInstructions.push_back(SI);
+        else
+          HasUnknownUse = true;
+      } else if (auto *LI = dyn_cast<LoadInst>(U))
+        if (GV == LI->getPointerOperand())
+          LoadInstructions.push_back(LI);
+        else
+          HasUnknownUse = true;
+      else
+        HasUnknownUse = true;
+
+      if (HasUnknownUse) {
+        LLVM_DEBUG(dbgs() << "Skipping the global due to unknown use.\n");
+        break;
+      }
+
+      ++ProcessedUsersNum;
+    }
+
+    if (HasUnknownUse ||
+        // It is possible that the global variable is used
+        // both as a value and a pointer operand of the same
+        // store instruction (e.g. with additional bit/addrspace-casts).
+        // We do not want to deal with such cases, so check that
+        // the number of users matches with the number of uses.
+        !GV->hasNUses(ProcessedUsersNum))
+      continue;
+
+    // Look for store instructions storing a pointer to the global
+    // variable. If all pointers stored to the global variable
+    // are of the same specific non-flat address space,
+    // then we can change the type of the global variable.
+    unsigned NewAS = FlatAddrSpace;
+
+    for (auto *SI : StoreInstructions) {
+      auto *StoreVal = SI->getValueOperand();
+      auto *RootStoreVal = StoreVal->stripPointerCasts();
+      auto *RootStoreValTy = dyn_cast<PointerType>(RootStoreVal->getType());
+      if (!RootStoreValTy) {
+        NewAS = FlatAddrSpace;
+        break;
+      }
+
+      unsigned AS = RootStoreValTy->getAddressSpace();
+      if (NewAS == FlatAddrSpace) {
+        if (AS == FlatAddrSpace)
+          // The program stores a flat address space pointer
+          // into the global variable, so we cannot deduce any
+          // specific address space.
+          break;
+
+        NewAS = AS;
+      } else if (NewAS != AS) {
+        NewAS = FlatAddrSpace;
+        break;
+      }
+    }
+
+    if (NewAS == FlatAddrSpace) {
+      LLVM_DEBUG(dbgs() <<
+                 "Was not able to find new non-flat address space.\n");
+      continue;
+    }
+
+    // The optimization is possible.
+    auto *NewValType = ValTy->getElementType()->getPointerTo(NewAS);
+
+    // Create new global variable.
+    Constant *Initializer = nullptr;
+    if (GV->hasInitializer()) {
+      assert(GV->getInitializer()->isZeroValue() &&
+             "Only zero-initializers are supported.");
+      Initializer = Constant::getNullValue(NewValType);
+    }
+    auto *NewGV = new GlobalVariable(
+        M, NewValType, GV->isConstant(), GV->getLinkage(),
+        Initializer, "", GV, GV->getThreadLocalMode(),
+        NewAS, GV->isExternallyInitialized());
+    NewGV->copyAttributesFrom(GV);
+    NewGV->takeName(GV);
+
+    // Transform the store instructions.
+    for (auto *SI : StoreInstructions) {
+      IRBuilder<> Builder(SI);
+
+      auto *StoreVal = SI->getValueOperand();
+      auto *StoreValTy = dyn_cast<PointerType>(StoreVal->getType());
+      assert(StoreValTy && "Invalid store value type.");
+      // Cast the stored value to the new address space.
+      // This should be legal, because the stored value is based
+      // on a pointer that has the NewAS address space (note that
+      // we used stripPointerCasts() above to find the initial
+      // pointer).
+      auto *NewStoreVal = Builder.CreateAddrSpaceCast(
+          StoreVal, StoreValTy->getElementType()->getPointerTo(NewAS));
+      SI->replaceUsesOfWith(StoreVal, NewStoreVal);
+      SI->replaceUsesOfWith(GV, NewGV);
+    }
+    // Transform the load instructions.
+    for (auto *LI : LoadInstructions) {
+      auto *LoadValTy = dyn_cast<PointerType>(LI->getType());
+      assert(LoadValTy && "Invalid load type.\n");
+
+      // Clone the load instruction.
+      auto *NewLI = LI->clone();
+      NewLI->replaceUsesOfWith(GV, NewGV);
+      NewLI->mutateType(LoadValTy->getElementType()->getPointerTo(NewAS));
+      NewLI->insertBefore(LI);
+      // Cast the new load value to the original flat address space.
+      // We could have called InferAddrSpaces() again to optimize
+      // this new IR, but this seems to be unnecessary, since
+      // the device compilers are able to optimize it.
+      IRBuilder<> Builder(LI);
+      auto *NewLoadVal = Builder.CreateAddrSpaceCast(NewLI, LoadValTy);
+      LI->replaceAllUsesWith(NewLoadVal);
+      LI->eraseFromParent();
+    }
+
+    // Do not delete the global variable not to invalidate
+    // the iterator.
+    GlobalsToDelete.push_back(GV);
+  }
+
+  for (auto *GV : GlobalsToDelete)
+    GV->eraseFromParent();
+
+  return !GlobalsToDelete.empty();
+}
+#endif  // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB

@@ -14,11 +14,12 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
-#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -115,7 +116,7 @@ protected:
   // replaces all uses of the original variable within work region with a
   // private instance.
   virtual void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) {
-    auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix);
+    auto *New = PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix);
     addAlloca(New);
     I->setNew(New);
     auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
@@ -430,7 +431,7 @@ protected:
     if (!needsInLoopAlloca(I))
       return CSALoopPrivatizer::genPrivItem(I, W, Suffix);
 
-    auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix);
+    auto *New = PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix);
     addAlloca(New);
     I->setNew(New);
 
@@ -442,8 +443,8 @@ protected:
       addAlloca(Rep);
       PT.genPrivatizationReplacement(W, I->getOrig(), Rep);
 
-      auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                           Suffix + ".not.first");
+      auto *NewNF =
+          PT.genPrivatizationAlloca(I, AllocaInsPt, Suffix + ".not.first");
       new StoreInst(NewNF, Rep, AllocaInsPt);
       return;
     }
@@ -466,8 +467,8 @@ protected:
     new StoreInst(New, Ref, getInitInsPt());
 
     // Create in-loop alloca and store new address to the reference.
-    auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                         Suffix + ".not.first");
+    auto *NewNF =
+        PT.genPrivatizationAlloca(I, AllocaInsPt, Suffix + ".not.first");
     new StoreInst(NewNF, Ref, AllocaInsPt);
 
     // And finally replace all private uses within loop body with the address
@@ -1144,10 +1145,11 @@ class VPOParoptTransform::CSALoopSplitter {
     void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) override {
       auto *Old = I->getOrig();
       assert(!isa<Constant>(Old) && "unexpected private item");
-      SmallVector<Value*, 8u> Users;
+      SmallVector<Value *, 8u> Users;
       findUsers(Old, Users, WI.Blocks);
 
-      auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
+      auto *New =
+          PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
       addAlloca(New);
       I->setNew(New);
       auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
@@ -1208,11 +1210,11 @@ class VPOParoptTransform::CSALoopSplitter {
       // Do the "standard" privatization if this item does not require extra
       // alloca inside the loop.
       if (!needsInLoopAlloca(I)) {
-        SmallVector<Value*, 8u> Users;
+        SmallVector<Value *, 8u> Users;
         findUsers(Old, Users, WI.Blocks);
 
-        auto *New = genPrivatizationAlloca(I, getInitInsPt(),
-                                           Suffix + WI.Suffix);
+        auto *New =
+            PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
         addAlloca(New);
         I->setNew(New);
         auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
@@ -1222,7 +1224,8 @@ class VPOParoptTransform::CSALoopSplitter {
         return;
       }
 
-      auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
+      auto *New =
+          PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
       addAlloca(New);
       I->setNew(New);
 
@@ -1234,8 +1237,8 @@ class VPOParoptTransform::CSALoopSplitter {
         addAlloca(Rep);
         PT.genPrivatizationReplacement(W, Old, Rep);
 
-        auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                             Suffix + WI.Suffix + ".not.first");
+        auto *NewNF = PT.genPrivatizationAlloca(
+            I, AllocaInsPt, Suffix + WI.Suffix + ".not.first");
         new StoreInst(NewNF, Rep, AllocaInsPt);
         return;
       }
@@ -1260,8 +1263,8 @@ class VPOParoptTransform::CSALoopSplitter {
       new StoreInst(New, Ref, getInitInsPt());
 
       // Create in-loop alloca and store new address to the reference.
-      auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                           Suffix + WI.Suffix + ".not.first");
+      auto *NewNF = PT.genPrivatizationAlloca(
+          I, AllocaInsPt, Suffix + WI.Suffix + ".not.first");
       new StoreInst(NewNF, Ref, AllocaInsPt);
 
       // And finally replace all private uses within loop body with the address

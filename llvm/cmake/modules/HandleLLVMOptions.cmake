@@ -57,7 +57,10 @@ if( LLVM_ENABLE_ASSERTIONS )
   # On non-Debug builds cmake automatically defines NDEBUG, so we
   # explicitly undefine it:
   if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
-    add_definitions( -UNDEBUG )
+    # NOTE: use `add_compile_options` rather than `add_definitions` since
+    # `add_definitions` does not support generator expressions.
+    add_compile_options($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-UNDEBUG>)
+
     # Also remove /D NDEBUG to avoid MSVC warnings about conflicting defines.
     foreach (flags_var_to_scrub
         CMAKE_CXX_FLAGS_RELEASE
@@ -74,7 +77,26 @@ endif()
 
 if(LLVM_ENABLE_EXPENSIVE_CHECKS)
   add_definitions(-DEXPENSIVE_CHECKS)
-  add_definitions(-D_GLIBCXX_DEBUG)
+
+  # In some libstdc++ versions, std::min_element is not constexpr when
+  # _GLIBCXX_DEBUG is enabled.
+  CHECK_CXX_SOURCE_COMPILES("
+    #define _GLIBCXX_DEBUG
+    #include <algorithm>
+    int main(int argc, char** argv) {
+      static constexpr int data[] = {0, 1};
+      constexpr const int* min_elt = std::min_element(&data[0], &data[2]);
+      return 0;
+    }" CXX_SUPPORTS_GLIBCXX_DEBUG)
+  if(CXX_SUPPORTS_GLIBCXX_DEBUG)
+    add_definitions(-D_GLIBCXX_DEBUG)
+  else()
+    add_definitions(-D_GLIBCXX_ASSERTIONS)
+  endif()
+endif()
+
+if (LLVM_ENABLE_STRICT_FIXED_SIZE_VECTORS)
+  add_definitions(-DSTRICT_FIXED_SIZE_VECTORS)
 endif()
 
 string(TOUPPER "${LLVM_ABI_BREAKING_CHECKS}" uppercase_LLVM_ABI_BREAKING_CHECKS)
@@ -137,13 +159,21 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   # RHEL7 has ar and ranlib being non-deterministic by default. The D flag forces determinism,
-  # however only GNU version of ar and ranlib (2.27) have this option. 
+  # however only GNU version of ar and ranlib (2.27) have this option.
   # RHEL DTS7 is also affected by this, which uses GNU binutils 2.28
   execute_process(COMMAND ${CMAKE_AR} rD t.a
-                  WORKING_DIRECTORY ${CMAKE_BINARY_DIR} RESULT_VARIABLE AR_RESULT OUTPUT_VARIABLE RANLIB_OUTPUT)
+                  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                  RESULT_VARIABLE AR_RESULT
+                  OUTPUT_QUIET
+                  ERROR_QUIET
+                  )
   if(${AR_RESULT} EQUAL 0)
     execute_process(COMMAND ${CMAKE_RANLIB} -D t.a
-                    WORKING_DIRECTORY ${CMAKE_BINARY_DIR} RESULT_VARIABLE RANLIB_RESULT OUTPUT_VARIABLE RANLIB_OUTPUT)
+                    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                    RESULT_VARIABLE RANLIB_RESULT
+                    OUTPUT_QUIET
+                    ERROR_QUIET
+                    )
     if(${RANLIB_RESULT} EQUAL 0)
       set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> Dqc <TARGET> <LINK_FLAGS> <OBJECTS>")
       set(CMAKE_C_ARCHIVE_APPEND "<CMAKE_AR> Dq  <TARGET> <LINK_FLAGS> <OBJECTS>")
@@ -158,17 +188,6 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "AIX")
-  if(NOT LLVM_BUILD_32_BITS)
-    if (CMAKE_CXX_COMPILER_ID MATCHES "XL")
-      append("-q64" CMAKE_CXX_FLAGS CMAKE_C_FLAGS)
-    else()
-      append("-maix64" CMAKE_CXX_FLAGS CMAKE_C_FLAGS)
-    endif()
-    set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> -X64 qc <TARGET> <LINK_FLAGS> <OBJECTS>")
-    set(CMAKE_CXX_ARCHIVE_APPEND "<CMAKE_AR> -X64 q  <TARGET> <LINK_FLAGS> <OBJECTS>")
-    set(CMAKE_C_ARCHIVE_FINISH "<CMAKE_RANLIB> -X64 <TARGET>")
-    set(CMAKE_CXX_ARCHIVE_FINISH "<CMAKE_RANLIB> -X64 <TARGET>")
-  endif()
   # -fPIC does not enable the large code model for GCC on AIX but does for XL.
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     append("-mcmodel=large" CMAKE_CXX_FLAGS CMAKE_C_FLAGS)
@@ -569,7 +588,6 @@ if (MSVC)
       -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
       -wd4267 # Suppress ''var' : conversion from 'size_t' to 'type', possible loss of data'
       -wd4291 # Suppress ''declaration' : no matching operator delete found; memory will not be freed if initialization throws an exception'
-      -wd4345 # Suppress 'behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized'
       -wd4351 # Suppress 'new behavior: elements of array 'array' will be default initialized'
       -wd4456 # Suppress 'declaration of 'var' hides local variable'
       -wd4457 # Suppress 'declaration of 'var' hides function parameter'
@@ -710,6 +728,16 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   check_cxx_compiler_flag("-Wclass-memaccess" CXX_SUPPORTS_CLASS_MEMACCESS_FLAG)
   append_if(CXX_SUPPORTS_CLASS_MEMACCESS_FLAG "-Wno-class-memaccess" CMAKE_CXX_FLAGS)
 
+  # Disable -Wredundant-move on GCC>=9. GCC wants to remove std::move in code
+  # like "A foo(ConvertibleToA a) { return std::move(a); }", but this code does
+  # not compile (or uses the copy constructor instead) on clang<=3.8. Clang also
+  # has a -Wredundant-move, but it only fires when the types match exactly, so
+  # we can keep it here.
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    check_cxx_compiler_flag("-Wredundant-move" CXX_SUPPORTS_REDUNDANT_MOVE_FLAG)
+    append_if(CXX_SUPPORTS_REDUNDANT_MOVE_FLAG "-Wno-redundant-move" CMAKE_CXX_FLAGS)
+  endif()
+
   # The LLVM libraries have no stable C++ API, so -Wnoexcept-type is not useful.
   check_cxx_compiler_flag("-Wnoexcept-type" CXX_SUPPORTS_NOEXCEPT_TYPE_FLAG)
   append_if(CXX_SUPPORTS_NOEXCEPT_TYPE_FLAG "-Wno-noexcept-type" CMAKE_CXX_FLAGS)
@@ -837,9 +865,15 @@ if(LLVM_USE_SANITIZER)
   endif()
 endif()
 
-# Turn on -gsplit-dwarf if requested
-if(LLVM_USE_SPLIT_DWARF)
-  add_definitions("-gsplit-dwarf")
+# Turn on -gsplit-dwarf if requested in debug builds.
+if (LLVM_USE_SPLIT_DWARF AND
+    ((uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG") OR
+     (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELWITHDEBINFO")))
+  # Limit to clang and gcc so far. Add compilers supporting this option.
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR
+      CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(-gsplit-dwarf)
+  endif()
 endif()
 
 add_definitions( -D__STDC_CONSTANT_MACROS )
@@ -872,11 +906,17 @@ if(NOT CYGWIN AND NOT WIN32)
      NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
     check_c_compiler_flag("-Werror -fno-function-sections" C_SUPPORTS_FNO_FUNCTION_SECTIONS)
     if (C_SUPPORTS_FNO_FUNCTION_SECTIONS)
-      # Don't add -ffunction-section if it can be disabled with -fno-function-sections.
+      # Don't add -ffunction-sections if it can't be disabled with -fno-function-sections.
       # Doing so will break sanitizers.
       add_flag_if_supported("-ffunction-sections" FFUNCTION_SECTIONS)
+    elseif (CMAKE_CXX_COMPILER_ID MATCHES "XL")
+      append("-qfuncsect" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     endif()
     add_flag_if_supported("-fdata-sections" FDATA_SECTIONS)
+  endif()
+elseif(MSVC)
+  if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
+    append("/Gw" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   endif()
 endif()
 
@@ -1079,8 +1119,9 @@ if(macos_signposts_available)
   endif()
 endif()
 
+set(LLVM_SOURCE_PREFIX "" CACHE STRING "Use prefix for sources")
+
 option(LLVM_USE_RELATIVE_PATHS_IN_DEBUG_INFO "Use relative paths in debug info" OFF)
-set(LLVM_SOURCE_PREFIX "" CACHE STRING "Use prefix for sources in debug info")
 
 if(LLVM_USE_RELATIVE_PATHS_IN_DEBUG_INFO)
   check_c_compiler_flag("-fdebug-prefix-map=foo=bar" SUPPORTS_FDEBUG_PREFIX_MAP)
@@ -1092,6 +1133,21 @@ if(LLVM_USE_RELATIVE_PATHS_IN_DEBUG_INFO)
   file(RELATIVE_PATH relative_root "${source_root}" "${CMAKE_BINARY_DIR}")
   append_if(SUPPORTS_FDEBUG_PREFIX_MAP "-fdebug-prefix-map=${CMAKE_BINARY_DIR}=${relative_root}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   append_if(SUPPORTS_FDEBUG_PREFIX_MAP "-fdebug-prefix-map=${source_root}/=${LLVM_SOURCE_PREFIX}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+  add_flag_if_supported("-no-canonical-prefixes" NO_CANONICAL_PREFIXES)
+endif()
+
+option(LLVM_USE_RELATIVE_PATHS_IN_FILES "Use relative paths in sources and debug info" OFF)
+
+if(LLVM_USE_RELATIVE_PATHS_IN_FILES)
+  check_c_compiler_flag("-ffile-prefix-map=foo=bar" SUPPORTS_FFILE_PREFIX_MAP)
+  if(LLVM_ENABLE_PROJECTS_USED)
+    get_filename_component(source_root "${LLVM_MAIN_SRC_DIR}/.." ABSOLUTE)
+  else()
+    set(source_root "${LLVM_MAIN_SRC_DIR}")
+  endif()
+  file(RELATIVE_PATH relative_root "${source_root}" "${CMAKE_BINARY_DIR}")
+  append_if(SUPPORTS_FFILE_PREFIX_MAP "-ffile-prefix-map=${CMAKE_BINARY_DIR}=${relative_root}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+  append_if(SUPPORTS_FFILE_PREFIX_MAP "-ffile-prefix-map=${source_root}/=${LLVM_SOURCE_PREFIX}" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
   add_flag_if_supported("-no-canonical-prefixes" NO_CANONICAL_PREFIXES)
 endif()
 
@@ -1228,38 +1284,55 @@ if(INTEL_CUSTOMIZATION)
       # We only add the linker flag(s) here, since -fPIC objects can be used
       # to build Position Independent Executables.
       intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
+
+      intel_add_sdl_linker_flag("-Wl,-Map=swlc_ip.map" MAP
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
     elseif(MSVC)
       if (LLVM_ENABLE_WERROR)
         # Force warnings as errors for link:
-        intel_add_sdl_linker_flag("/WX" LINKERWX CMAKE_EXE_LINKER_FLAGS)
+        intel_add_sdl_linker_flag("/WX" LINKERWX
+          CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+          CMAKE_SHARED_LINKER_FLAGS)
       endif()
 
       # Dynamic Base (ASLR) (strongly recommended):
       intel_add_sdl_linker_flag(
-        "/DYNAMICBASE" DYNAMICBASE CMAKE_EXE_LINKER_FLAGS)
+        "/DYNAMICBASE" DYNAMICBASE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # High Entropy VA (strongly recommended):
       # This is not strictly required, since MSVC seems to enable
       # it by default. Adding it here will result in an appropriate
       # message in the build log, which is convenient:
       intel_add_sdl_linker_flag(
-        "/HIGHENTROPYVA" HIGHENTROPYVA CMAKE_EXE_LINKER_FLAGS)
+        "/HIGHENTROPYVA" HIGHENTROPYVA
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
       intel_add_sdl_linker_flag(
-        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE CMAKE_EXE_LINKER_FLAGS)
+        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Force Integrity (recommended):
       # Disabled now, because xmain parts (e.g. libraries) may be used
       # with not signed user parts. Moreover, executables built with this
       # option will not run from U4Win.
       intel_add_sdl_linker_flag(
-        "/INTEGRITYCHECK" INTEGRITYCHECK CMAKE_EXE_LINKER_FLAGS FUTURE)
+        "/INTEGRITYCHECK" INTEGRITYCHECK FUTURE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Namespace Isolation (strongly recommended):
       intel_add_sdl_linker_flag(
-        "/ALLOWISOLATION" ALLOWISOLATION CMAKE_EXE_LINKER_FLAGS)
+        "/ALLOWISOLATION" ALLOWISOLATION
+        CMAKE_EXE_LINKER_FLAGS)
 
       # DEP (NX) (strongly recommended):
-      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT CMAKE_EXE_LINKER_FLAGS)
+      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Control Flow Guard (recommended):
       # Microsoft claims small performance impact, but this has to be
@@ -1271,11 +1344,15 @@ if(INTEL_CUSTOMIZATION)
         intel_add_sdl_flag("/guard:cf" GUARDCF FUTURE)
       endif()
       intel_add_sdl_linker_flag(
-        "/GUARD:CF" LINKGUARDCF CMAKE_EXE_LINKER_FLAGS FUTURE)
+        "/GUARD:CF" LINKGUARDCF FUTURE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Safe SEH (recommended, 32-bit only):
       if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH CMAKE_EXE_LINKER_FLAGS)
+        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH
+          CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+          CMAKE_SHARED_LINKER_FLAGS)
       endif()
 
       # Stack Canaries (strongly recommended):
@@ -1295,6 +1372,10 @@ if(INTEL_CUSTOMIZATION)
       else()
         intel_add_sdl_flag("/Qspectre" QSPECTRE FUTURE)
       endif()
+
+      intel_add_sdl_linker_flag("/MAP:swlc_ip.map" MAP
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
     else()
       message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
     endif()

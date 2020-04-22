@@ -1,6 +1,6 @@
 //===-------- DDRefUtils.h - Utilities for DDRef class ---*- C++ -*--------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -273,6 +273,12 @@ public:
   static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
                                     bool RelaxedMode);
 
+  /// Returns true if \p Ref1 and \p Ref2 have equal base and shape and
+  /// distances in each pair of dimension indices are constants.
+  static bool haveConstDimensionDistances(const RegDDRef *Ref1,
+                                          const RegDDRef *Ref2,
+                                          bool RelaxedMode);
+
   // Sorting comparator operator for two Mem-RegDDRef, placing LVals before
   // RVals.
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
@@ -323,7 +329,8 @@ public:
   ///                (0 <= k <  n) && (0 <= j < m*n) && (0 <= i)
   static bool delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
                               SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
-                              SmallVectorImpl<BlobTy> *SizesPtr = nullptr);
+                              SmallVectorImpl<BlobTy> *SizesPtr = nullptr,
+                              bool AllowSExt = false);
 };
 
 } // End namespace loopopt

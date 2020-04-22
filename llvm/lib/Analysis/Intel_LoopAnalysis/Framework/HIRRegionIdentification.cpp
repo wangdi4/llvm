@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -32,12 +32,12 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -138,9 +138,10 @@ HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
       *PassRegistry::getPassRegistry());
 }
 
-/// Returns true if this bblock contains simd begin/end directive. \p BeginDir
-/// flag indicates whether to look for begin or end directive.
-static bool isSIMDOrParDirective(const Instruction *Inst, bool BeginDir) {
+/// Returns true if this bblock contains known loop begin/end directive. \p
+/// BeginDir flag indicates whether to look for begin or end directive.
+static bool isKnownLoopDirective(const Instruction *Inst, bool BeginDir,
+                                 bool SkipDistributePoint = false) {
   auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
 
   if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
@@ -150,18 +151,25 @@ static bool isSIMDOrParDirective(const Instruction *Inst, bool BeginDir) {
   StringRef TagName = IntrinInst->getOperandBundleAt(0).getTagName();
 
   return BeginDir ? (TagName.equals("DIR.OMP.PARALLEL.LOOP") ||
-                     TagName.equals("DIR.OMP.SIMD"))
+                     TagName.equals("DIR.OMP.SIMD") ||
+                     TagName.equals("DIR.PRAGMA.BLOCK_LOOP") ||
+                     (!SkipDistributePoint &&
+                      TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT")))
                   : (TagName.equals("DIR.OMP.END.PARALLEL.LOOP") ||
-                     TagName.equals("DIR.OMP.END.SIMD"));
+                     TagName.equals("DIR.OMP.END.SIMD") ||
+                     TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP") ||
+                     (!SkipDistributePoint &&
+                      TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT")));
 
   return false;
 }
 
-/// Returns true if this bblock contains simd begin/end directive. \p BeginDir
-/// flag indicates whether to look for begin or end directive.
-static bool containsSIMDOrParDirective(const BasicBlock *BB, bool BeginDir) {
+/// Returns true if this bblock contains known loop begin/end directive. \p
+/// BeginDir flag indicates whether to look for begin or end directive.
+static bool containsLoopDirective(const BasicBlock *BB, bool BeginDir,
+                                  bool SkipDistributePoint) {
   for (auto &Inst : *BB) {
-    if (isSIMDOrParDirective(&Inst, BeginDir)) {
+    if (isKnownLoopDirective(&Inst, BeginDir, SkipDistributePoint)) {
       return true;
     }
   }
@@ -170,14 +178,17 @@ static bool containsSIMDOrParDirective(const BasicBlock *BB, bool BeginDir) {
 }
 
 /// Traces a chain of single predecessor/successor bblocks starting from \p BB
-/// and looks for simd begin/end directive. Returns the bblock containing the
+/// and looks for loop begin/end directive. Returns the bblock containing the
 /// directive.
-static BasicBlock *findSIMDOrParDirective(BasicBlock *BB, bool BeginDir) {
+static BasicBlock *findLoopDirective(BasicBlock *BB, bool BeginDir) {
 
   for (; BB != nullptr;) {
-    if (containsSIMDOrParDirective(BB, BeginDir)) {
+    // Ignore distribute point directives as they are only found within the loop
+    // body.
+    if (containsLoopDirective(BB, BeginDir, true)) {
       return BB;
     }
+
     BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
   }
 
@@ -200,13 +211,13 @@ static void addBBlocks(const BasicBlock *BeginBB, const BasicBlock *EndBB,
   }
 }
 
-/// Returns true if Lp is a SIMD or parallel loop. If RegBBlocks is non-null, it
+/// Returns true if Lp has a directive. If RegBBlocks is non-null, it
 /// adds simd loop predecess/successor bblocks to it. Entry/Exit bblocks for the
-/// simd loop region are returned via \p EntryBB and \p ExitBB.
-static bool isSIMDOrParLoop(const Loop &Lp,
-                            IRRegion::RegionBBlocksTy *RegBBlocks = nullptr,
-                            BasicBlock **RegEntryBB = nullptr,
-                            BasicBlock **RegExitBB = nullptr) {
+/// directive loop region are returned via \p EntryBB and \p ExitBB.
+static bool isLoopWithDirective(const Loop &Lp,
+                                IRRegion::RegionBBlocksTy *RegBBlocks = nullptr,
+                                BasicBlock **RegEntryBB = nullptr,
+                                BasicBlock **RegExitBB = nullptr) {
 
   BasicBlock *ExitBB = Lp.getExitBlock();
 
@@ -216,13 +227,13 @@ static bool isSIMDOrParLoop(const Loop &Lp,
   }
 
   BasicBlock *PreheaderBB = Lp.getLoopPreheader();
-  BasicBlock *BeginBB = findSIMDOrParDirective(PreheaderBB, true);
+  BasicBlock *BeginBB = findLoopDirective(PreheaderBB, true);
 
   if (!BeginBB) {
     return false;
   }
 
-  BasicBlock *EndBB = findSIMDOrParDirective(ExitBB, false);
+  BasicBlock *EndBB = findLoopDirective(ExitBB, false);
 
   assert(EndBB && "Could not find SIMD END Directive!");
 
@@ -265,7 +276,7 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
 
     const Loop *Lp1Parent = Lp1->getParentLoop();
 
-    if (isSIMDOrParLoop(*Lp1)) {
+    if (isLoopWithDirective(*Lp1)) {
       continue;
     }
 
@@ -289,7 +300,7 @@ void HIRRegionIdentification::computeLoopSpansForFusion(
         break;
       }
 
-      if (isSIMDOrParLoop(*Lp2)) {
+      if (isLoopWithDirective(*Lp2)) {
         break;
       }
 
@@ -682,7 +693,7 @@ void HIRRegionIdentification::CostModelAnalyzer::printStats() const {
 void HIRRegionIdentification::CostModelAnalyzer::analyze() {
 
   // SIMD loops should not be throttled.
-  if (isSIMDOrParLoop(Lp)) {
+  if (isLoopWithDirective(Lp)) {
     IsProfitable = true;
     return;
   }
@@ -1428,15 +1439,7 @@ static bool hasUnsupportedOperandBundle(const CallInst *CI) {
     return false;
   }
 
-  OperandBundleUse BU = CI->getOperandBundleAt(0);
-
-  StringRef TagName = BU.getTagName();
-
-  return !TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") &&
-         !TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT") &&
-         // TODO: can we switch to TagName.startwith("DIR.OMP") later?
-         !TagName.equals("DIR.OMP.PARALLEL.LOOP") &&
-         !TagName.equals("DIR.OMP.END.PARALLEL.LOOP");
+  return !isKnownLoopDirective(CI, true) && !isKnownLoopDirective(CI, false);
 }
 
 bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
@@ -1508,6 +1511,12 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
     if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
       printOptReportRemark(
           Lp, "InsertValueInst/ExtractValueInst currently not supported.");
+      return false;
+    }
+
+    // TODO: Need to add support of auxiliary (non-operand) data.
+    if (isa<ShuffleVectorInst>(Inst)) {
+      printOptReportRemark(Lp, "ShuffleVectorInst currently not supported.");
       return false;
     }
 
@@ -1587,7 +1596,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   // Skip loops with unsupported pragmas.
   MDNode *LoopID = Lp.getLoopID();
-  if (!DisablePragmaBailOut && !isSIMDOrParLoop(Lp) && LoopID &&
+  if (!DisablePragmaBailOut && !isLoopWithDirective(Lp) && LoopID &&
       !isSupportedMetadata(LoopID)) {
     printOptReportRemark(&Lp, "Loop has unsupported pragma.");
     return false;
@@ -1652,15 +1661,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  auto IVNode = findIVDefInHeader(Lp, LatchCmpInst);
+  auto *IVNode = findIVDefInHeader(Lp, LatchCmpInst);
 
-  if (!IVNode) {
-    // TODO: remove this restriction
-    printOptReportRemark(&Lp, "Loop without IV not supported.");
-    return false;
-  }
-
-  if (IVNode->getType()->getPrimitiveSizeInBits() == 1) {
+  if (IVNode && (IVNode->getType()->getPrimitiveSizeInBits() == 1)) {
     // The following loop with i1 type IV has a trip count of 2 which is
     // outside its range. This is a quirk of SSA. CG will generate an infinite
     // loop for this case if we let it through.
@@ -1705,8 +1708,8 @@ void HIRRegionIdentification::createRegion(
     bool IsFirstLoop = (Lp == Loops.front());
     bool IsLastLoop = (Lp == Loops.back());
 
-    isSIMDOrParLoop(*Lp, &NonLoopBBlocks, IsFirstLoop ? &EntryBB : nullptr,
-                    IsLastLoop ? &ExitBB : nullptr);
+    isLoopWithDirective(*Lp, &NonLoopBBlocks, IsFirstLoop ? &EntryBB : nullptr,
+                        IsLastLoop ? &ExitBB : nullptr);
 
     BBlocks.append(Lp->getBlocks().begin(), Lp->getBlocks().end());
   }
@@ -1817,6 +1820,36 @@ static bool haveExpectedDistance(const Value *Val1, const Value *Val2,
   return false;
 }
 
+/// Returns true for GEP access of the form A[0].1 which end in a structure
+/// field access.
+static bool isTrailingStructFieldAccess(const Value *Ptr) {
+
+  // Trace through one bitcast.
+  if (auto *BitCast = dyn_cast<BitCastOperator>(Ptr)) {
+    Ptr = BitCast->getOperand(0);
+  }
+
+  auto *GEPOp = dyn_cast<GEPOperator>(Ptr);
+
+  if (!GEPOp) {
+    return false;
+  }
+
+  bool LastAccessIsStructTy = false;
+
+  // Check whether the last index type is structure or array.
+  for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
+    if (isa<StructType>(I.getIndexedType())) {
+      LastAccessIsStructTy = true;
+
+    } else if (isa<ArrayType>(I.getIndexedType())) {
+      LastAccessIsStructTy = false;
+    }
+  }
+
+  return LastAccessIsStructTy;
+}
+
 static bool foundMatchingLoads(
     const LoadInst *LInst,
     SmallVectorImpl<std::pair<const LoadInst *, const Instruction *>>
@@ -1864,6 +1897,12 @@ static bool foundMatchingLoads(
 
   auto *Ptr = LInst->getPointerOperand();
   uint64_t LoadSize = DL.getTypeAllocSize(LInst->getType());
+
+  // Suppress loads of the form A[0].1. These are likely to be non-profitable
+  // strided accesses.
+  if (isTrailingStructFieldAccess(Ptr)) {
+    return false;
+  }
 
   for (auto &PrevEntry : CandidateLoads) {
 
@@ -1922,6 +1961,12 @@ foundMatchingStores(const StoreInst *SInst,
 
   uint64_t AllocSize =
       DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+
+  // Suppress stores of the form A[0].1. These are likely to be non-profitable
+  // strided accesses.
+  if (isTrailingStructFieldAccess(Ptr)) {
+    return false;
+  }
 
   for (auto *PrevStore : CandidateStores) {
     if (StoreVal != PrevStore->getValueOperand()) {

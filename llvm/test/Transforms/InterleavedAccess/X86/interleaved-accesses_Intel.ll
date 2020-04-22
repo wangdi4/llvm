@@ -31,18 +31,12 @@ define void @interleaved_store_vf4_i32_undefs(<16 x i32> %a0,<16 x i32>* %ptr){
 
 define <4 x double> @load_factorf64_4(<8 x double>* %ptr) {
 ; AVX2-LABEL: @load_factorf64_4(
-; AVX2-NEXT:    [[TMP1:%.*]] = bitcast <8 x double>* %ptr to <4 x double>*
-; AVX2-NEXT:    [[TMP2:%.*]] = getelementptr inbounds <4 x double>, <4 x double>* [[TMP1]], i32 0
-; AVX2-NEXT:    [[TMP3:%.*]] = load <4 x double>, <4 x double>* [[TMP2]], align 16
-; AVX2-NEXT:    [[TMP4:%.*]] = bitcast <8 x double>* %ptr to <4 x double>*
-; AVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds <4 x double>, <4 x double>* [[TMP4]], i32 1
-; AVX2-NEXT:    [[TMP6:%.*]] = load <4 x double>, <4 x double>* [[TMP5]], align 16
-; AVX2-NEXT:    [[TMP7:%.*]] = shufflevector <4 x double> [[TMP3]], <4 x double> [[TMP6]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
-; AVX2-NEXT:    [[TMP8:%.*]] = shufflevector <4 x double> [[TMP3]], <4 x double> [[TMP6]], <4 x i32> <i32 2, i32 3, i32 6, i32 7>
-; AVX2-NEXT:    [[TMP9:%.*]] = shufflevector <4 x double> [[TMP7]], <4 x double> [[TMP8]], <4 x i32> <i32 0, i32 4, i32 2, i32 6>
-; AVX2-NEXT:    [[TMP10:%.*]] = shufflevector <4 x double> [[TMP7]], <4 x double> [[TMP8]], <4 x i32> <i32 1, i32 5, i32 3, i32 7>
-; AVX2-NEXT:    [[ADD1:%.*]] = fadd <4 x double> [[TMP9]], [[TMP10]]
+; AVX2-NEXT:    [[WIDE_VEC:%.*]] = load <8 x double>, <8 x double>* [[PTR:%.*]], align 16
+; AVX2-NEXT:    [[STRIDED_V1:%.*]] = shufflevector <8 x double> [[WIDE_VEC]], <8 x double> undef, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
+; AVX2-NEXT:    [[STRIDED_V2:%.*]] = shufflevector <8 x double> [[WIDE_VEC]], <8 x double> undef, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
+; AVX2-NEXT:    [[ADD1:%.*]] = fadd <4 x double> [[STRIDED_V1]], [[STRIDED_V2]]
 ; AVX2-NEXT:    ret <4 x double> [[ADD1]]
+;
 
   %wide.vec = load <8 x double>, <8 x double>* %ptr, align 16
   %strided.v1 = shufflevector <8 x double> %wide.vec, <8 x double> undef, <4 x i32> <i32 0, i32 2, i32 4, i32 6>

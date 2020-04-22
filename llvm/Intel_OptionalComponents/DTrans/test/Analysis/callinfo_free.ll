@@ -18,12 +18,12 @@ define void @test01() {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test01*{{ *$}}
+; CHECK:     Type: %struct.test01 = type { i32, i32, i32 }
 ; CHECK: Function: test01
 ; CHECK: FreeCallInfo:
 ; CHECK:   Kind: Free
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test01*{{ *$}}
+; CHECK:     Type: %struct.test01 = type { i32, i32, i32 }
 
 
 ; Test with free of a bitcast structure pointer
@@ -37,7 +37,7 @@ define void @test02(%struct.test02* %in) {
 ; CHECK: FreeCallInfo:
 ; CHECK:   Kind: Free
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test02*{{ *$}}
+; CHECK:     Type: %struct.test02 = type { i32, i32, i32 }
 
 
 ; Test with free that is passed a ptr-to-member of a struct type.
@@ -54,7 +54,7 @@ define void @test03(%struct.test03b* %in) {
 ; CHECK: FreeCallInfo:
 ; CHECK:   Kind: Free
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test03a*{{ *$}}
+; CHECK:     Type: %struct.test03a = type { i32, i32*, i32 }
 
 
 ; Test with free-like wrapper

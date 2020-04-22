@@ -409,6 +409,7 @@ void foo_ii_most_least_fmax()
 
 }
 
+void good();
 //CHECK: FunctionDecl{{.*}}foo_disable_loop_pipelining
 void foo_disable_loop_pipelining()
 {
@@ -478,6 +479,27 @@ void foo_disable_loop_pipelining()
 
   #pragma disable_loop_pipelining
   #pragma speculated_iterations 4  // expected-error {{incompatible directives}}
+  for (int i=0;i<32;++i) {}
+
+  //CHECK: good
+  good();
+
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: LoopHintAttr{{.*}}DisableLoopPipelining Enable
+  //CHECK: LoopHintAttr{{.*}}UnrollCount
+  //CHECK-NEXT: IntegerLiteral{{.*}}2
+  //CHECK: ForStmt
+  #pragma disable_loop_pipelining
+  #pragma unroll(2)
+  for (int i=0;i<32;++i) {}
+
+  //CHECK: AttributedStmt
+  //CHECK: LoopHintAttr{{.*}}UnrollCount
+  //CHECK-NEXT: IntegerLiteral{{.*}}4
+  //CHECK: LoopHintAttr{{.*}}DisableLoopPipelining Enable
+  //CHECK: ForStmt
+  #pragma unroll(4)
+  #pragma disable_loop_pipelining
   for (int i=0;i<32;++i) {}
 }
 

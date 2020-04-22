@@ -1,4 +1,5 @@
 ; RUN: opt %s -S -use-simd-channels=false -VPlanDriver 2>&1 | FileCheck %s
+; RUN: opt %s -S -use-simd-channels=false -passes="vplan-driver" 2>&1 | FileCheck %s
 
 ; CHECK-NOT: __write_pipe_2_bl_fpga_v4i8
 

@@ -259,7 +259,7 @@ class WebAssemblyLowerEmscriptenEHSjLj final : public ModulePass {
   Function *getFindMatchingCatch(Module &M, unsigned NumClauses);
 
   template <typename CallOrInvoke> Value *wrapInvoke(CallOrInvoke *CI);
-  void wrapTestSetjmp(BasicBlock *BB, Instruction *InsertPt, Value *Threw,
+  void wrapTestSetjmp(BasicBlock *BB, DebugLoc DL, Value *Threw,
                       Value *SetjmpTable, Value *SetjmpTableSize, Value *&Label,
                       Value *&LongjmpResult, BasicBlock *&EndBB);
   template <typename CallOrInvoke> Function *getInvokeWrapper(CallOrInvoke *CI);
@@ -344,6 +344,21 @@ static std::string getSignature(FunctionType *FTy) {
   return Sig;
 }
 
+static void markAsImported(Function *F) {
+  // Tell the linker that this function is expected to be imported from the
+  // 'env' module.
+  if (!F->hasFnAttribute("wasm-import-module")) {
+    llvm::AttrBuilder B;
+    B.addAttribute("wasm-import-module", "env");
+    F->addAttributes(llvm::AttributeList::FunctionIndex, B);
+  }
+  if (!F->hasFnAttribute("wasm-import-name")) {
+    llvm::AttrBuilder B;
+    B.addAttribute("wasm-import-name", F->getName());
+    F->addAttributes(llvm::AttributeList::FunctionIndex, B);
+  }
+}
+
 // Returns __cxa_find_matching_catch_N function, where N = NumClauses + 2.
 // This is because a landingpad instruction contains two more arguments, a
 // personality function and a cleanup bit, and __cxa_find_matching_catch_N
@@ -360,6 +375,7 @@ WebAssemblyLowerEmscriptenEHSjLj::getFindMatchingCatch(Module &M,
   Function *F = Function::Create(
       FTy, GlobalValue::ExternalLinkage,
       "__cxa_find_matching_catch_" + Twine(NumClauses + 2), &M);
+  markAsImported(F);
   FindMatchingCatches[NumClauses] = F;
   return F;
 }
@@ -453,7 +469,7 @@ Function *WebAssemblyLowerEmscriptenEHSjLj::getInvokeWrapper(CallOrInvoke *CI) {
     CalleeFTy = F->getFunctionType();
   else {
     auto *CalleeTy = cast<PointerType>(Callee->getType())->getElementType();
-    CalleeFTy = dyn_cast<FunctionType>(CalleeTy);
+    CalleeFTy = cast<FunctionType>(CalleeTy);
   }
 
   std::string Sig = getSignature(CalleeFTy);
@@ -469,6 +485,7 @@ Function *WebAssemblyLowerEmscriptenEHSjLj::getInvokeWrapper(CallOrInvoke *CI) {
                                         CalleeFTy->isVarArg());
   Function *F =
       Function::Create(FTy, GlobalValue::ExternalLinkage, "__invoke_" + Sig, M);
+  markAsImported(F);
   InvokeWrappers[Sig] = F;
   return F;
 }
@@ -538,13 +555,13 @@ bool WebAssemblyLowerEmscriptenEHSjLj::isEmAsmCall(Module &M,
 // As output parameters. returns %label, %longjmp_result, and the BB the last
 // instruction (%longjmp_result = ...) is in.
 void WebAssemblyLowerEmscriptenEHSjLj::wrapTestSetjmp(
-    BasicBlock *BB, Instruction *InsertPt, Value *Threw, Value *SetjmpTable,
+    BasicBlock *BB, DebugLoc DL, Value *Threw, Value *SetjmpTable,
     Value *SetjmpTableSize, Value *&Label, Value *&LongjmpResult,
     BasicBlock *&EndBB) {
   Function *F = BB->getParent();
   LLVMContext &C = BB->getModule()->getContext();
   IRBuilder<> IRB(C);
-  IRB.SetInsertPoint(InsertPt);
+  IRB.SetCurrentDebugLocation(DL);
 
   // if (%__THREW__.val != 0 & threwValue != 0)
   IRB.SetInsertPoint(BB);
@@ -688,17 +705,18 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runOnModule(Module &M) {
     if (SetjmpF) {
       // Register saveSetjmp function
       FunctionType *SetjmpFTy = SetjmpF->getFunctionType();
-      SmallVector<Type *, 4> Params = {SetjmpFTy->getParamType(0),
-                                       IRB.getInt32Ty(), Type::getInt32PtrTy(C),
-                                       IRB.getInt32Ty()};
       FunctionType *FTy =
-          FunctionType::get(Type::getInt32PtrTy(C), Params, false);
+          FunctionType::get(Type::getInt32PtrTy(C),
+                            {SetjmpFTy->getParamType(0), IRB.getInt32Ty(),
+                             Type::getInt32PtrTy(C), IRB.getInt32Ty()},
+                            false);
       SaveSetjmpF =
           Function::Create(FTy, GlobalValue::ExternalLinkage, "saveSetjmp", &M);
 
       // Register testSetjmp function
-      Params = {IRB.getInt32Ty(), Type::getInt32PtrTy(C), IRB.getInt32Ty()};
-      FTy = FunctionType::get(IRB.getInt32Ty(), Params, false);
+      FTy = FunctionType::get(
+          IRB.getInt32Ty(),
+          {IRB.getInt32Ty(), Type::getInt32PtrTy(C), IRB.getInt32Ty()}, false);
       TestSetjmpF =
           Function::Create(FTy, GlobalValue::ExternalLinkage, "testSetjmp", &M);
 
@@ -744,8 +762,8 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runEHOnFunction(Function &F) {
   bool Changed = false;
   SmallVector<Instruction *, 64> ToErase;
   SmallPtrSet<LandingPadInst *, 32> LandingPads;
-  bool AllowExceptions =
-      areAllExceptionsAllowed() || EHWhitelistSet.count(F.getName());
+  bool AllowExceptions = areAllExceptionsAllowed() ||
+                         EHWhitelistSet.count(std::string(F.getName()));
 
   for (BasicBlock &BB : F) {
     auto *II = dyn_cast<InvokeInst>(BB.getTerminator());
@@ -792,6 +810,7 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runEHOnFunction(Function &F) {
       auto *RI = dyn_cast<ResumeInst>(&I);
       if (!RI)
         continue;
+      Changed = true;
 
       // Split the input into legal values
       Value *Input = RI->getValue();
@@ -816,6 +835,7 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runEHOnFunction(Function &F) {
         continue;
       if (Callee->getIntrinsicID() != Intrinsic::eh_typeid_for)
         continue;
+      Changed = true;
 
       IRB.SetInsertPoint(CI);
       CallInst *NewCI =
@@ -831,6 +851,7 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runEHOnFunction(Function &F) {
     if (auto *LPI = dyn_cast<LandingPadInst>(I))
       LandingPads.insert(LPI);
   }
+  Changed |= !LandingPads.empty();
 
   // Handle all the landingpad for this function together, as multiple invokes
   // may share a single lp
@@ -888,13 +909,22 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runSjLjOnFunction(Function &F) {
   // this instruction to a constant 4, because this value will be used in
   // SSAUpdater.AddAvailableValue(...) later.
   BasicBlock &EntryBB = F.getEntryBlock();
+  DebugLoc FirstDL = EntryBB.begin()->getDebugLoc();
   BinaryOperator *SetjmpTableSize = BinaryOperator::Create(
       Instruction::Add, IRB.getInt32(4), IRB.getInt32(0), "setjmpTableSize",
       &*EntryBB.getFirstInsertionPt());
+  SetjmpTableSize->setDebugLoc(FirstDL);
   // setjmpTable = (int *) malloc(40);
   Instruction *SetjmpTable = CallInst::CreateMalloc(
       SetjmpTableSize, IRB.getInt32Ty(), IRB.getInt32Ty(), IRB.getInt32(40),
       nullptr, nullptr, "setjmpTable");
+  SetjmpTable->setDebugLoc(FirstDL);
+  // CallInst::CreateMalloc may return a bitcast instruction if the result types
+  // mismatch. We need to set the debug loc for the original call too.
+  auto *MallocCall = SetjmpTable->stripPointerCasts();
+  if (auto *MallocCallI = dyn_cast<Instruction>(MallocCall)) {
+    MallocCallI->setDebugLoc(FirstDL);
+  }
   // setjmpTable[0] = 0;
   IRB.SetInsertPoint(SetjmpTableSize);
   IRB.CreateStore(IRB.getInt32(0), SetjmpTable);
@@ -1024,12 +1054,13 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runSjLjOnFunction(Function &F) {
       Value *Label = nullptr;
       Value *LongjmpResult = nullptr;
       BasicBlock *EndBB = nullptr;
-      wrapTestSetjmp(BB, CI, Threw, SetjmpTable, SetjmpTableSize, Label,
-                     LongjmpResult, EndBB);
+      wrapTestSetjmp(BB, CI->getDebugLoc(), Threw, SetjmpTable, SetjmpTableSize,
+                     Label, LongjmpResult, EndBB);
       assert(Label && LongjmpResult && EndBB);
 
       // Create switch instruction
       IRB.SetInsertPoint(EndBB);
+      IRB.SetCurrentDebugLocation(EndBB->getInstList().back().getDebugLoc());
       SwitchInst *SI = IRB.CreateSwitch(Label, Tail, SetjmpRetPHIs.size());
       // -1 means no longjmp happened, continue normally (will hit the default
       // switch case). 0 means a longjmp that is not ours to handle, needs a
@@ -1053,8 +1084,16 @@ bool WebAssemblyLowerEmscriptenEHSjLj::runSjLjOnFunction(Function &F) {
   // Free setjmpTable buffer before each return instruction
   for (BasicBlock &BB : F) {
     Instruction *TI = BB.getTerminator();
-    if (isa<ReturnInst>(TI))
-      CallInst::CreateFree(SetjmpTable, TI);
+    if (isa<ReturnInst>(TI)) {
+      auto *Free = CallInst::CreateFree(SetjmpTable, TI);
+      Free->setDebugLoc(TI->getDebugLoc());
+      // CallInst::CreateFree may create a bitcast instruction if its argument
+      // types mismatch. We need to set the debug loc for the bitcast too.
+      if (auto *FreeCallI = dyn_cast<CallInst>(Free)) {
+        if (auto *BitCastI = dyn_cast<BitCastInst>(FreeCallI->getArgOperand(0)))
+          BitCastI->setDebugLoc(TI->getDebugLoc());
+      }
+    }
   }
 
   // Every call to saveSetjmp can change setjmpTable and setjmpTableSize

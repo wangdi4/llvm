@@ -50,12 +50,6 @@ __attribute__((__static_array_reset__(0))) const int global_const12 = 1;
 //CHECK: IntegerLiteral{{.*}}1{{$}}
 __attribute__((__static_array_reset__(1))) const int global_const13 = 1;
 
-//CHECK: VarDecl{{.*}}global_const14
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: InternalMaxBlockRamDepthAttr
-//CHECK: IntegerLiteral{{.*}}32{{$}}
-__attribute__((internal_max_block_ram_depth(32))) const int global_const14 = 1;
-
 //CHECK: VarDecl{{.*}}global_const17
 //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
 //CHECK: IntegerLiteral{{.*}}16{{$}}
@@ -70,15 +64,18 @@ __attribute__((__bank_bits__(2, 3, 4, 5))) const int global_const17 = 1;
 //CHECK: VarDecl {{.*}}global_const18
 //CHECK: IntegerLiteral{{.*}}1{{$}}
 //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-//CHECK: MemoryLayoutAttr{{.*}}"compact"
+//CHECK: ForcePow2DepthAttr
+//CHECK: IntegerLiteral{{.*}}0{{$}}
 
-__attribute__((__memory_layout__("compact"))) const int global_const18 = 1;
+__attribute__((__force_pow2_depth__(0))) const int global_const18 = 1;
 
 //CHECK: VarDecl{{.*}}global_const19
 //CHECK: IntegerLiteral{{.*}}1{{$}}
 //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-//CHECK: MemoryLayoutAttr{{.*}}"padded"
-__attribute__((__memory_layout__("padded"))) const int global_const19 = 1;
+//CHECK: ForcePow2DepthAttr
+//CHECK: IntegerLiteral{{.*}}1{{$}}
+
+__attribute__((__force_pow2_depth__(1))) const int global_const19 = 1;
 
 //CHECK: FunctionDecl{{.*}}foo1
 __attribute__((ihc_component))
@@ -136,8 +133,17 @@ void foo1()
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  //expected-warning@+1{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   __attribute__((max_concurrency(4)))
   unsigned int v_five_two[64];
+
+  //CHECK: VarDecl{{.*}}v_five_three
+  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
+  //CHECK: IntelFPGAPrivateCopiesAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+  __attribute__((private_copies(4)))
+  unsigned int v_five_three[64];
 
   //CHECK: VarDecl{{.*}}v_six
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
@@ -225,36 +231,21 @@ void foo1()
   int __attribute__((__numbanks__(4), __bankwidth__(16))) E;
   int __attribute__((__bank_bits__(2,3), __bankwidth__(16))) F;
 
-  //CHECK: VarDecl{{.*}}G0
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: InternalMaxBlockRamDepthAttr
-  //CHECK: IntegerLiteral{{.*}}32{{$}}
-  int __attribute__((internal_max_block_ram_depth(32))) G0;
-
   //CHECK: VarDecl{{.*}}v_sixteen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"padded"
-  __attribute__((__memory_layout__("padded")))
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}1{{$}}
+  __attribute__((__force_pow2_depth__(1)))
   static unsigned int v_sixteen[64];
 
   //CHECK: VarDecl{{.*}}v_seventeen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"compact"
-  __attribute__((__memory_layout__("compact")))
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}0{{$}}
+  __attribute__((__force_pow2_depth__(0)))
   static unsigned int v_seventeen[64];
 
   // diagnostics
-
-  //expected-warning@+2{{'internal_max_block_ram_depth' is already applied}}
-  __attribute__((internal_max_block_ram_depth(32)))
-  __attribute__((internal_max_block_ram_depth(32)))
-  int imbrd_one;
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((internal_max_block_ram_depth(32)))
-  __attribute__((register))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int imbrd_four[64];
 
   // **doublepump
   //expected-error@+2{{attributes are not compatible}}
@@ -324,11 +315,18 @@ void foo1()
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_six[64];
 
+  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__register__))
   __attribute__((__max_concurrency__(16)))
   //expected-note@-2 {{conflicting attribute is here}}
   unsigned int reg_six_two[64];
+
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__register__))
+  __attribute__((__private_copies__(16)))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int reg_six_three[64];
 
   //expected-note@+1{{conflicting attribute is here}}
   __attribute__((__register__))
@@ -416,6 +414,7 @@ void foo1()
   unsigned int bw_seven[64];
 
   // max_concurrency
+  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+2{{attributes are not compatible}}
   __attribute__((__max_concurrency__(16)))
   __attribute__((__register__))
@@ -430,25 +429,64 @@ void foo1()
   //CHECK: MaxConcurrencyAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
+  //expected-warning@+3{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__max_concurrency__(8)))
   __attribute__((__max_concurrency__(16)))
   unsigned int mc_two[64];
 
+  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+1{{requires integer constant between 0 and 1048576}}
   __attribute__((__max_concurrency__(-4)))
   unsigned int mc_four[64];
 
   int i_max_concurrency = 32;
+  //expected-warning@+4{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+3{{is not an integral constant expression}}
   //expected-note@+2{{not allowed in a constant expression}}
-  //expected-note@-3{{declared here}}
+  //expected-note@-4{{declared here}}
   __attribute__((__max_concurrency__(i_max_concurrency)))
   unsigned int mc_five[64];
 
   //expected-error@+1{{'__max_concurrency__' attribute takes one argument}}
   __attribute__((__max_concurrency__(4,8)))
   unsigned int mc_six[64];
+
+  // private_copies
+  //expected-error@+2{{attributes are not compatible}}
+  __attribute__((__private_copies__(16)))
+  __attribute__((__register__))
+  //expected-note@-2 {{conflicting attribute is here}}
+  unsigned int pc_one[64];
+
+  //CHECK: VarDecl{{.*}}pc_three
+  //CHECK: IntelFPGAMemoryAttr
+  //CHECK: IntelFPGAPrivateCopiesAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
+  //CHECK: IntelFPGAPrivateCopiesAttr
+  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //expected-warning@+2{{is already applied}}
+  __attribute__((__private_copies__(8)))
+  __attribute__((__private_copies__(16)))
+  unsigned int pc_three[64];
+
+  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  __attribute__((__private_copies__(-4)))
+  unsigned int pc_four[64];
+
+  int i_private_copies = 32;
+  //expected-error@+3{{is not an integral constant expression}}
+  //expected-note@+2{{not allowed in a constant expression}}
+  //expected-note@-3{{declared here}}
+  __attribute__((__private_copies__(i_private_copies)))
+  unsigned int pc_five[64];
+
+  //expected-error@+1{{'__private_copies__' attribute takes one argument}}
+  __attribute__((__private_copies__(4,8)))
+  unsigned int pc_six[64];
 
   // numbanks
   //expected-error@+2{{attributes are not compatible}}
@@ -597,28 +635,24 @@ void foo1()
   __attribute__((bank_bits()))
   unsigned int bb_eight[4];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
-  __attribute__((bank_bits(0)))
-  unsigned int bb_nine[4];
-
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{requires integer constant between 0 and 1048576}}
   __attribute__((bank_bits(-1)))
   unsigned int bb_ten[4];
 
-  // memory_layout
-  // expected-error@+1{{'__memory_layout__' attribute argument must be 'compact', or 'padded'}}
-  __attribute__((__memory_layout__("blah"))) unsigned int ml_one[4];
+  // force_pow2_depth
+  //expected-error@+1{{'force_pow2_depth' attribute requires integer constant between 0 and 1 inclusive}}
+  __attribute__((__force_pow2_depth__(5))) unsigned int ml_one[4];
 
   //expected-error@+2{{'__memory__' and 'register' attributes are not compatible}}
   //expected-note@+1{{conflicting attribute is here}}
-   __attribute__((__register__)) __attribute__((__memory__("padded")))
+   __attribute__((__register__)) __attribute__((__memory__(1)))
   unsigned int ml_two[4];
 
-   //expected-warning@+1{{attribute 'memory_layout' is already applied}}
-   __attribute__((__memory_layout__("compact"))) __attribute__((__memory_layout__("padded"))) unsigned int ml_three[4];
+   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   __attribute__((__force_pow2_depth__(0))) __attribute__((__force_pow2_depth__(1))) unsigned int ml_three[4];
 
-   //expected-warning@+1{{attribute 'memory_layout' is already applied}}
-   __attribute__((__memory_layout__("padded"))) __attribute__((__memory_layout__("compact"))) unsigned int ml_four[4];
+   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   __attribute__((__force_pow2_depth__(1))) __attribute__((__force_pow2_depth__(0))) unsigned int ml_four[4];
 
 }
 //CHECK: ComponentAttr
@@ -651,10 +685,17 @@ void foo1()
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
+//CHECK: VarDecl{{.*}}var2
+//CHECK: MemoryAttr{{.*}}Implicit
+//CHECK: PrivateCopiesAttr
+//CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: IntegerLiteral{{.*}}8{{.*}}
 template <int max_concurrency, unsigned bankwidth, unsigned numbanks,
-          int bit1, int bit2, int bit3>
+          int bit1, int bit2, int bit3, int private_copies>
 void tattr() {
 
+  //expected-warning@+2{{attribute max_concurrency for variables is deprecated, use the attribute private_copies instead}}
   //expected-error@+1{{'max_concurrency' attribute requires integer constant between 0 and 1048576 inclusive}}
   __attribute__((max_concurrency(max_concurrency)))
     //expected-error@+1{{'bankwidth' attribute argument must be a constant power of two greater than zero}}
@@ -662,26 +703,31 @@ void tattr() {
   __attribute__((numbanks(numbanks)))
   __attribute__((__bank_bits__(bit1,3,bit3)))
   int var1;
+
+  //expected-error@+1{{'private_copies' attribute requires integer constant between 0 and 1048576 inclusive}}
+  __attribute__((private_copies(private_copies)))
+  int var2;
 }
 
 void foo2()
 {
+  //expected-note@+1{{in instantiation of function template specialization}}
   tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
-        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4, /*private_copies=*/-1>();
 
   //expected-note@+1{{in instantiation of function template specialization}}
   tattr</*max_concurrency=*/8, /*bankwidth=*/3, /*numbanks=*/8,
-        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4, /*private_copies=*/8>();
 
   tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
-        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4, /*private_copies=*/8>();
 
   tattr</*max_concurrency=*/8, /*bankwidth=*/4, /*numbanks=*/8,
-	/*bit1=*/4, /*bit2=*/3, /*bit3=*/2>();
+	/*bit1=*/4, /*bit2=*/3, /*bit3=*/2, /*private_copies=*/8>();
 
   //expected-note@+1{{in instantiation of function template specialization}}
   tattr</*max_concurrency=*/-1, /*bankwidth=*/4, /*numbanks=*/8,
-        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4>();
+        /*bit1=*/2, /*bit2=*/3, /*bit3=*/4, /*private_copies=*/8>();
 }
 
 template <typename T>
@@ -717,6 +763,12 @@ __attribute__((__max_concurrency__(8))) unsigned int ext_two[64];
 //expected-error@+1{{only applies to functions and local non-const variables}}
 __attribute__((__max_concurrency__(8))) static unsigned int ext_three[64];
 
+//expected-error@+1{{only applies to local non-const variables and non-static data members}}
+__attribute__((__private_copies__(8))) unsigned int ext_four[64];
+
+//expected-error@+1{{only applies to local non-const variables and non-static data members}}
+__attribute__((__private_copies__(8))) static unsigned int ext_five[64];
+
 void other2()
 {
   ext_three[0] = 1;
@@ -726,10 +778,20 @@ void other2()
 
   //expected-error@+1{{only applies to functions and local non-const variables}}
   __attribute__((__max_concurrency__(8))) const int ext_fix[64] = { 0 };
+
+  //expected-error@+1{{only applies to local non-const variables and non-static data members}}
+  __attribute__((__private_copies__(8))) static unsigned int ext_five[64];
+  ext_five[0] = 1;
+
+  //expected-error@+1{{only applies to local non-const variables and non-static data members}}
+  __attribute__((__private_copies__(8))) const int ext_fix_two[64] = { 0 };
 }
 
 //expected-error@+1{{only applies to functions and local non-const variables}}
 void other3(__attribute__((__max_concurrency__(8))) int pfoo) {}
+
+//expected-error@+1{{only applies to local non-const variables and non-static data members}}
+void other4(__attribute__((__private_copies__(8))) int pfoo) {}
 
 //CHECK: CXXRecordDecl{{.*}}foo
 struct foo {
@@ -840,22 +902,18 @@ struct foo {
   //CHECK: IntegerLiteral{{.*}}1{{$}}
   __attribute__((__static_array_reset__(1))) unsigned int v_fifteen[64];
 
-  //CHECK: FieldDecl{{.*}}G0
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: InternalMaxBlockRamDepthAttr
-  //CHECK: IntegerLiteral{{.*}}32{{$}}
-  int __attribute__((internal_max_block_ram_depth(32))) G0;
-
   //CHECK: FieldDecl{{.*}}v_sixteen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"padded"
-  __attribute__((__memory_layout__("padded"))) unsigned int v_sixteen[64];
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}1{{$}}
+  __attribute__((__force_pow2_depth__(1))) unsigned int v_sixteen[64];
 
 
   //CHECK: FieldDecl{{.*}}v_seventeen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: MemoryLayoutAttr{{.*}}"compact"
-  __attribute__((__memory_layout__("compact"))) unsigned int v_seventeen[64];
+  //CHECK: ForcePow2DepthAttr
+  //CHECK: IntegerLiteral{{.*}}0{{$}}
+  __attribute__((__force_pow2_depth__(0))) unsigned int v_seventeen[64];
 
 };
 
@@ -885,9 +943,6 @@ __attribute__((__static_array_reset__(0))) int ext_12;
 
 //expected-error@+1{{'__static_array_reset__' attribute only applies to constant variables, local static variables, and non-static data members}}
 __attribute__((__static_array_reset__(1))) int ext_13;
-
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__attribute__((internal_max_block_ram_depth(32))) int ext_14;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 __attribute__((__bank_bits__(2, 3, 4, 5))) int ext_17;

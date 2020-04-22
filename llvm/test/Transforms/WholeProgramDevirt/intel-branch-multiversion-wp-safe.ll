@@ -43,7 +43,7 @@
 ; else
 ;   call Derived2::foo
 
-; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -wholeprogramdevirt-assume-safe -S 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -whole-program-assume -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }

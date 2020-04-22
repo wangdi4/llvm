@@ -11,10 +11,13 @@
 
 ; Check that __kmpc calls dominate the kernel's exit block,
 ; i.e. that they are not done under ZTT condition.
-; CHECK: call void @__kmpc_critical
-; CHECK: call double @_Z20sub_group_reduce_addd
-; CHECK: call void @__kmpc_end_critical
-; CHECK-NEXT: ret void
+; CHECK-DAG: declare spir_func void @__kmpc_critical([8 x i32] addrspace(4)*) #[[ATTR:[0-9]+]]
+; CHECK-DAG: declare spir_func void @__kmpc_end_critical([8 x i32] addrspace(4)*) #[[ATTR]]
+; CHECK-DAG: call spir_func void @__kmpc_critical
+; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_addd
+; CHECK-DAG: call spir_func void @__kmpc_end_critical
+; CHECK-DAG-NEXT: ret void
+; CHECK-DAG: attributes #[[ATTR]] = {{{.*}}convergent{{.*}}}
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

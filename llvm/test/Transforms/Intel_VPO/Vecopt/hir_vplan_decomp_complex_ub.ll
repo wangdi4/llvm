@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that decomposer generates the right code for loop upper bound in a do-while loop.
 
@@ -21,7 +21,7 @@
 ; CHECK-NEXT: i64 [[Max:%.*]] = smax i64 [[Sext]] i64 1
 ; CHECK-NEXT: i64 [[Add:%.*]] = add i64 [[Max]] i64 -1
 ; CHECK-NEXT: SUCCESSORS(1):[[H:BB.*]]
-; CHECK: [[H]] {{.*}}:
+; CHECK: [[H]]:
 ; CHECK-NEXT: i64 [[IVPhi:%.*]] = phi
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

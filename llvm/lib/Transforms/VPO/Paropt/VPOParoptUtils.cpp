@@ -32,12 +32,14 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TypeSize.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
+#include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include <string>
 
 #define DEBUG_TYPE "vpo-paropt-utils"
@@ -57,7 +59,9 @@ static cl::opt<bool> StrictOutlineVerification(
     cl::desc("Only allow pointers to be arguments of outlined routines."));
 
 // Undocumented option to control execution scheme for SPIR targets.
-cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
+// This option has to have the same value for the host and the target
+// compilations to work properly.
+static cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
     spirv::ExecutionSchemeOptionName, cl::Hidden,
     cl::init(spirv::ImplicitSIMDSPMDES),
     cl::desc(""),
@@ -68,6 +72,22 @@ cl::opt<spirv::ExecutionSchemeTy> SPIRExecutionScheme(
             "1", "<undocumented>"),        // Implicit SIMD with SPMD
         clEnumValN(spirv::ExplicitSIMDES,
             "2", "<undocumented>")));      // Explicit SIMD
+
+// Control whether "omp target parallel for" may be executed
+// with multiple teams/WGs.
+// This option has to have the same value for the host and the target
+// compilations to work properly.
+static cl::opt<bool> SPIRImplicitMultipleTeams(
+    "vpo-implicit-multiple-teams", cl::Hidden, cl::init(true),
+    cl::desc("Allow creation of multiple WGs for executing omp target "
+             "parallel for. Note that it is not OpenMP conformant."));
+
+// Control the level of detail of the source location info passed to OpenMP
+// via the kmp_ident_t* argument of most kmp calls.
+static cl::opt<uint32_t> ParallelSourceInfoMode(
+    "parallel-source-info", cl::Hidden, cl::init(1),
+    cl::desc("Control source location info in OpenMP code.  0 = none; "
+             "1 (default) = function + line; 2 = path + function + line."));
 
 static const unsigned StackAdjustedAlignment = 16;
 
@@ -120,13 +140,16 @@ StructType *VPOParoptUtils::getIdentStructType(Function *F) {
   assert(F && "Null function pointer.");
 
   LLVMContext &C = F->getContext();
-  Type *IdentTyArgs[] = {Type::getInt32Ty(C),    // reserved_1
-                         Type::getInt32Ty(C),    // flags
-                         Type::getInt32Ty(C),    // reserved_2
-                         Type::getInt32Ty(C),    // reserved_3
-                         Type::getInt8PtrTy(C)}; // *psource
+  unsigned AS = VPOAnalysisUtils::isTargetSPIRV(F->getParent())
+                    ? vpo::ADDRESS_SPACE_GENERIC
+                    : 0;
+  Type *IdentTyArgs[] = {Type::getInt32Ty(C),        // reserved_1
+                         Type::getInt32Ty(C),        // flags
+                         Type::getInt32Ty(C),        // reserved_2
+                         Type::getInt32Ty(C),        // reserved_3
+                         Type::getInt8PtrTy(C, AS)}; // *psource
 
-  return VPOParoptUtils::getOrCreateStructType(F, "__struct.ident_t",
+  return VPOParoptUtils::getOrCreateStructType(F, "struct.ident_t",
                                                IdentTyArgs);
 }
 
@@ -159,7 +182,8 @@ CallInst *VPOParoptUtils::genKmpcBeginCall(Function *F, Instruction *AI,
   FnKmpcBeginArgs.push_back(KmpcLoc);
   FnKmpcBeginArgs.push_back(ValueZero);
 
-  CallInst *KmpcBeginCall = CallInst::Create(FnKmpcBegin, FnKmpcBeginArgs);
+  CallInst *KmpcBeginCall =
+      CallInst::Create(FnC.getFunctionType(), FnKmpcBegin, FnKmpcBeginArgs);
   KmpcBeginCall->setCallingConv(CallingConv::C);
 
   return KmpcBeginCall;
@@ -189,7 +213,8 @@ CallInst *VPOParoptUtils::genKmpcEndCall(Function *F, Instruction *AI,
   std::vector<Value *> FnKmpcEndArgs;
   FnKmpcEndArgs.push_back(KmpcLoc);
 
-  CallInst *KmpcEndCall = CallInst::Create(FnKmpcEnd, FnKmpcEndArgs);
+  CallInst *KmpcEndCall =
+      CallInst::Create(FnC.getFunctionType(), FnKmpcEnd, FnKmpcEndArgs);
   KmpcEndCall->setCallingConv(CallingConv::C);
 
   return KmpcEndCall;
@@ -226,8 +251,8 @@ CallInst *VPOParoptUtils::genKmpcForkTest(WRegionNode *W, StructType *IdentTy,
   std::vector<Value *> FnForkTestArgs;
   FnForkTestArgs.push_back(Loc);
 
-  CallInst *ForkTestCall = CallInst::Create(FnForkTest, FnForkTestArgs,
-                                            "fork.test", InsertPt);
+  CallInst *ForkTestCall = CallInst::Create(
+      FnForkTestTy, FnForkTest, FnForkTestArgs, "fork.test", InsertPt);
   ForkTestCall->setCallingConv(CallingConv::C);
   ForkTestCall->setTailCall(true);
 
@@ -511,7 +536,7 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
   }
 
   CallInst *RedGetNthDataCall =
-      CallInst::Create(FnRedGetNthData, RedGetNthDataArgs, "", InsertPt);
+      CallInst::Create(FnTy, FnRedGetNthData, RedGetNthDataArgs, "", InsertPt);
   RedGetNthDataCall->setCallingConv(CallingConv::C);
   RedGetNthDataCall->setTailCall(false);
 
@@ -546,7 +571,8 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
     FnTaskWait->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskWaitCall = CallInst::Create(FnTaskWait, TaskArgs, "", InsertPt);
+  CallInst *TaskWaitCall =
+      CallInst::Create(FnTy, FnTaskWait, TaskArgs, "", InsertPt);
   TaskWaitCall->setCallingConv(CallingConv::C);
   TaskWaitCall->setTailCall(false);
 
@@ -781,6 +807,61 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, Value *DeviceID,
   // LLVM_DEBUG(dbgs() << "FnArgTypes.size() = "<< FnArgTypes.size());
   CallInst *Call = genCall(FnName, ReturnTy, FnArgs, FnArgTypes,
                            InsertPt);
+  CallInst *CallPushCodeLocation = genTgtPushCodeLocation(InsertPt, Call);
+  LLVM_DEBUG(dbgs() << "\nGenerating: " << *CallPushCodeLocation << "\n");
+  (void)CallPushCodeLocation;
+
+  return Call;
+}
+
+VPOParoptUtils::SrcLocMode getSrcLocMode() {
+  switch (ParallelSourceInfoMode) {
+  case 0:
+    return VPOParoptUtils::SRC_LOC_NONE;
+  case 1:
+    return VPOParoptUtils::SRC_LOC_FUNC;
+  case 2:
+    return VPOParoptUtils::SRC_LOC_PATH;
+  default:
+    return VPOParoptUtils::SRC_LOC_FUNC;
+  }
+}
+
+/// Generate tgt_push_code_location call which pushes source code location
+/// and the pointer to the tgt_target*() function.
+/// Generated function looks as follows:
+/// void __tgt_push_code_location (void *Location,
+///                                 void *FunctionPtr)
+CallInst *VPOParoptUtils::genTgtPushCodeLocation(Instruction *Location,
+                                                 CallInst *TgtTargetCall) {
+  IRBuilder<> Builder(Location);
+  BasicBlock *B = Location->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  DILocation *Loc1 = Location->getDebugLoc();
+  DILocation *Loc2 = nullptr;
+  SrcLocMode Mode = getSrcLocMode();
+
+  GlobalVariable *LocStr = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
+
+  //  Create the following function call
+  // call void @__tgt_push_code_location(i8* getelementptr inbounds ([18 x i8],
+  // [18 x i8]* @.source.3.4, i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32,
+  // i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
+  Type *ReturnTy = Type::getVoidTy(C);
+  SmallVector<Value *, 2> Args;
+  SmallVector<Type *, 2> ArgTypes;
+  Function *Fn = TgtTargetCall->getCalledFunction();
+  Value *Cast = Builder.CreateBitCast(Fn, Int8PtrTy);
+  Value *LocStrCast = Builder.CreateBitCast(LocStr, Int8PtrTy);
+  Args.push_back(LocStrCast);
+  ArgTypes.push_back(LocStrCast->getType());
+  Args.push_back(Cast);
+  ArgTypes.push_back(Int8PtrTy);
+  CallInst *Call = genCall("__tgt_push_code_location", ReturnTy, Args, ArgTypes,
+                           TgtTargetCall);
   return Call;
 }
 
@@ -843,7 +924,19 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
 
   CallInst *Call =
       genCall(FnName, RetType, FnArgs, ArgType, InsertPt);
+  setFuncCallingConv(Call, true);
   return Call;
+}
+
+// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
+// do nothing.
+void VPOParoptUtils::setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV) {
+  if (!IsTargetSPIRV)
+    return;
+
+  CI->setCallingConv(CallingConv::SPIR_FUNC);
+  if (auto *CF = CI->getCalledFunction())
+    CF->setCallingConv(CallingConv::SPIR_FUNC);
 }
 
 // Call to i32 __cxa_atexit(void (i8*)*
@@ -882,8 +975,6 @@ CallInst *VPOParoptUtils::genTgtIsDeviceAvailable(Value *DeviceNum,
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
-         "DeviceNum expected to be Int32");
   assert(DeviceType && DeviceType->getType()->isPointerTy() &&
          "DeviceType expected to be pointer");
   DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
@@ -904,8 +995,6 @@ CallInst *VPOParoptUtils::genTgtCreateBuffer(Value *DeviceNum, Value *HostPtr,
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
-         "DeviceNum expected to be Int32");
   assert(HostPtr && HostPtr->getType() == Int8PtrTy &&
          "HostPtr expected to be void*");
   DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
@@ -928,8 +1017,6 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   Type *Int64Ty = Type::getInt64Ty(C);
   Type *Int8PtrTy = Type::getInt8PtrTy(C);
 
-  assert(DeviceNum && DeviceNum->getType()->isIntegerTy(32) &&
-         "DeviceNum expected to be Int32");
   assert(TgtBuffer && TgtBuffer->getType() == Int8PtrTy &&
          "TgtBuffer expected to be void*");
   DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
@@ -937,6 +1024,63 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
   Type *ArgTypes[] = {Int64Ty, Int8PtrTy};
   CallInst *Call =
       genCall("__tgt_release_buffer", Int32Ty, Args, ArgTypes, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   void *__tgt_create_interop_obj(int64_t device_id,
+//                                  bool    is_async,
+//                                  void   *async_obj)
+CallInst *VPOParoptUtils::genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
+                                                 Value *AsyncObj,
+                                                 Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int8Ty = Type::getInt8Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert((IsAsync && AsyncObj || !IsAsync && !AsyncObj) &&
+         "AsyncObj must be null iff IsAsync is false");
+  assert((AsyncObj == nullptr || AsyncObj->getType() == Int8PtrTy) &&
+         "AsyncObj expected to be void*");
+
+  DeviceNum = IRBuilder<>(InsertPt).CreateSExt(DeviceNum, Int64Ty);
+
+  Value *IsAsyncVal = ConstantInt::get(Int8Ty, IsAsync ? 1 : 0);
+
+  if (AsyncObj == nullptr)    // create a void* nullptr argument
+    AsyncObj = Constant::getNullValue(Int8PtrTy);
+
+  Value *Args[] = {DeviceNum, IsAsyncVal, AsyncObj};
+  Type *ArgTypes[] = {Int64Ty, Int8Ty, Int8PtrTy};
+  CallInst *Call =
+      genCall("__tgt_create_interop_obj", Int8PtrTy, Args, ArgTypes, InsertPt);
+
+  if (IsAsync)
+    Call->setName("interop.obj.async");
+  else
+    Call->setName("interop.obj.sync");
+
+  return Call;
+}
+
+// Generate a call to
+//   int __tgt_release_interop_obj(void *interop_obj)
+CallInst *VPOParoptUtils::genTgtReleaseInteropObj(Value *InteropObj,
+                                                  Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+         "InteropObj expected to be void*");
+
+  CallInst *Call = genCall("__tgt_release_interop_obj", Int32Ty, {InteropObj},
+                           {Int8PtrTy}, InsertPt);
   return Call;
 }
 
@@ -1072,7 +1216,7 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
     FnTask->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskCall = CallInst::Create(FnTask, TaskArgs, "", InsertPt);
+  CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
   TaskCall->setCallingConv(CallingConv::C);
   TaskCall->setTailCall(false);
 
@@ -1108,7 +1252,7 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
     FnTask->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskCall = CallInst::Create(FnTask, TaskArgs, "", InsertPt);
+  CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
   TaskCall->setCallingConv(CallingConv::C);
   TaskCall->setTailCall(false);
 
@@ -1250,7 +1394,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
   }
 
   CallInst *TaskLoopCall =
-      CallInst::Create(FnTaskLoop, TaskLoopArgs, "", InsertPt);
+      CallInst::Create(FnTy, FnTaskLoop, TaskLoopArgs, "", InsertPt);
   TaskLoopCall->setCallingConv(CallingConv::C);
   TaskLoopCall->setTailCall(false);
 
@@ -1288,24 +1432,21 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
     FnTaskRedInit->setCallingConv(CallingConv::C);
   }
 
-  CallInst *TaskRedInitCall = CallInst::Create(FnTaskRedInit, TaskRedInitArgs,
-                                               "task.reduction.init", InsertPt);
+  CallInst *TaskRedInitCall = CallInst::Create(
+      FnTy, FnTaskRedInit, TaskRedInitArgs, "task.reduction.init", InsertPt);
   TaskRedInitCall->setCallingConv(CallingConv::C);
   TaskRedInitCall->setTailCall(false);
 
   return TaskRedInitCall;
 }
 
-// This function generates a call as follows.
-//    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
-//    size_t, size_t, i32 (i32, i8*)*)
-CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
-                                           Value *TidPtr,
-                                           Value *KmpTaskTTWithPrivatesTySz,
-                                           int KmpSharedTySz,
-                                           PointerType *KmpRoutineEntryPtrTy,
-                                           Function *MicroTaskFn,
-                                           Instruction *InsertPt, bool UseTbb) {
+// Auxiliary routine to generate call to @__kmpc_omp_task_alloc
+CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
+                               Value *TaskFlags,
+                               Value *KmpTaskTTWithPrivatesTySz,
+                               int KmpSharedTySz, Value *TaskEntryPtr,
+                               Instruction *InsertPt, bool UseTbb) {
+
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
   Function *F = B->getParent();
@@ -1313,22 +1454,24 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   LLVMContext &C = F->getContext();
   int Flags = KMP_IDENT_KMPC;
   GlobalVariable *Loc =
-      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+      VPOParoptUtils::genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   IRBuilder<> Builder(InsertPt);
   Type *SizeTTy = GeneralUtils::getSizeTTy(F);
   Type *Int32Ty = Builder.getInt32Ty();
 
-  auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag());
   auto *KmpTaskTWithPrivatesTySize =
       Builder.CreateZExtOrTrunc(KmpTaskTTWithPrivatesTySz, SizeTTy);
   auto *SharedsSize = ConstantInt::get(SizeTTy, KmpSharedTySz);
-  Value *AllocArgs[] = {
-      Loc,         Builder.CreateLoad(TidPtr),
-      TaskFlags,   KmpTaskTWithPrivatesTySize,
-      SharedsSize, Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy)};
-  Type *TypeParams[] = {Loc->getType(), Int32Ty, Int32Ty,
-                        SizeTTy,        SizeTTy, KmpRoutineEntryPtrTy};
+
+  Value *AllocArgs[] = {Loc,            Tid,
+                        TaskFlags,      KmpTaskTWithPrivatesTySize,
+                        SharedsSize,    TaskEntryPtr};
+
+  Type *TypeParams[] = {Loc->getType(), Int32Ty,
+                        Int32Ty,        SizeTTy,
+                        SizeTTy,        TaskEntryPtr->getType()};
+
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
@@ -1342,9 +1485,66 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   }
 
   CallInst *TaskAllocCall =
-      CallInst::Create(FnTaskAlloc, AllocArgs, "", InsertPt);
+      CallInst::Create(FnTy, FnTaskAlloc, AllocArgs, "", InsertPt);
   TaskAllocCall->setCallingConv(CallingConv::C);
   TaskAllocCall->setTailCall(false);
+
+  return TaskAllocCall;
+}
+
+// This function generates a call as follows.
+//    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
+//    size_t, size_t, i32 (i32, i8*)*)
+CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
+                                           Value *TidPtr,
+                                           Value *KmpTaskTTWithPrivatesTySz,
+                                           int KmpSharedTySz,
+                                           PointerType *KmpRoutineEntryPtrTy,
+                                           Function *MicroTaskFn,
+                                           Instruction *InsertPt, bool UseTbb) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+
+  Value *Tid = Builder.CreateLoad(TidPtr);
+  Value *TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+  Value *TaskEntry = Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy);
+
+  CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
+      W, IdentTy, Tid, TaskFlags, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
+      TaskEntry, InsertPt, UseTbb);
+
+  return TaskAllocCall;
+}
+
+// Generate a call to create an AsyncObj for TARGET VARIANT DISPATCH NOWAIT
+// The object is actually a repurposed task thunk (kmp_task_t) described
+// elsewhere. The call created looks like this:
+//    i8* @__kmpc_omp_task_alloc(loc,                     // (IdentTy*)
+//                               0,                       // (i32) unused
+//                               0x10,                    // (i32) Proxy flag
+//                               sizeof(AsyncObjTy),      // (size_t)
+//                               sizeof(UseDevicePtrsTy), // (size_t)
+//                               null);                   // (i8*) unused
+CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
+                                                      StructType *IdentTy,
+                                                      int AsyncObjTySize,
+                                                      int UseDevicePtrsTySize,
+                                                      Instruction *InsertPt) {
+
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  Type *SizeTTy = GeneralUtils::getSizeTTy(InsertPt->getFunction());
+
+  Value *ValueZero = ConstantInt::get(Int32Ty, 0);
+  Value *ProxyFlag = ConstantInt::get(Int32Ty, WRNTaskFlag::Proxy); // 0x10
+  Value *ValueAsyncObjTySize = ConstantInt::get(SizeTTy, AsyncObjTySize);
+
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
+      W, IdentTy, ValueZero, ProxyFlag, ValueAsyncObjTySize,
+      UseDevicePtrsTySize, NullPtr, InsertPt, false);
 
   return TaskAllocCall;
 }
@@ -1364,17 +1564,17 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 // needed. For example, in
 //
 //     int chksize;
-//     long long jjj;
+//     long long iii;
 //     #pragma omp distribute parallel for dist_schedule(static, chksize)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
-// the LCV jjj is i64, so chksize is cast from i32 to i64 in the call:
+// the LCV iii is i64, so chksize is cast from i32 to i64 in the call:
 //
 //     %chunk.cast = sext i32 %chksize to i64
 //     call void @__kmpc_team_static_init_8( ... , i64 %chunk.cast)
 //
 // The cast instruction is not needed if the type is already matching. For
-// example, if "long long jjj" above is changed to "int jjj", then we get
+// example, if "long long iii" above is changed to "int iii", then we get
 //
 //     ; no casting of "i32 %chksize" as it is the correct type
 //     call void @__kmpc_team_static_init_4( ... , i32 %chksize)
@@ -1382,9 +1582,9 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 // The cast instruction is not emitted if chunk is a constant and the compiler
 // can convert it directly. For example, given:
 //
-//     long long jjj;
+//     long long iii;
 //     #pragma omp distribute parallel for schedule(static, 17)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
 // The original "i32 17" is directly converted to "i64 17" by the compiler
 // without needing a sext instruction:
@@ -1458,8 +1658,8 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
   FnTeamStaticInitArgs.push_back(Inc);
   FnTeamStaticInitArgs.push_back(Chunk);
 
-  CallInst *TeamStaticInitCall = CallInst::Create(FnTeamStaticInit,
-                                           FnTeamStaticInitArgs, "", InsertPt);
+  CallInst *TeamStaticInitCall = CallInst::Create(
+      FnTy, FnTeamStaticInit, FnTeamStaticInitArgs, "", InsertPt);
   TeamStaticInitCall->setCallingConv(CallingConv::C);
   TeamStaticInitCall->setTailCall(false);
 
@@ -1481,17 +1681,17 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 // needed. For example, in
 //
 //     int chksize;
-//     long long jjj;
+//     long long iii;
 //     #pragma omp for schedule(static, chksize)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
-// the LCV jjj is i64, so chksize is cast from i32 to i64 in the call:
+// the LCV iii is i64, so chksize is cast from i32 to i64 in the call:
 //
 //     %chunk.cast = sext i32 %chksize to i64
 //     call void @__kmpc_for_static_init_8( ... , i64 %chunk.cast)
 //
 // The cast instruction is not needed if the type is already matching. For
-// example, if "long long jjj" above is changed to "int jjj", then we get
+// example, if "long long iii" above is changed to "int iii", then we get
 //
 //     ; no casting of "i32 %chksize" as it is the correct type
 //     call void @__kmpc_for_static_init_4( ... , i32 %chksize)
@@ -1499,9 +1699,9 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
 // The cast instruction is not emitted if chunk is a constant and the compiler
 // can convert it directly. For example, given:
 //
-//     long long jjj;
+//     long long iii;
 //     #pragma omp for schedule(static, 17)
-//       for (jjj=1; jjj<100; jjj++) ...
+//       for (iii=1; iii<100; iii++) ...
 //
 // The original "i32 17" is directly converted to "i64 17" by the compiler
 // without needing a sext instruction:
@@ -1747,8 +1947,8 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   FnDispatchInitArgs.push_back(ST);
   FnDispatchInitArgs.push_back(Chunk);
 
-  CallInst *DispatchInitCall = CallInst::Create(FnDispatchInit,
-                                         FnDispatchInitArgs, "", InsertPt);
+  CallInst *DispatchInitCall =
+      CallInst::Create(FnTy, FnDispatchInit, FnDispatchInitArgs, "", InsertPt);
   DispatchInitCall->setCallingConv(CallingConv::C);
   DispatchInitCall->setTailCall(false);
 
@@ -1823,8 +2023,8 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
   FnDispatchNextArgs.push_back(UB);
   FnDispatchNextArgs.push_back(ST);
 
-  CallInst *DispatchNextCall = CallInst::Create(FnDispatchNext,
-                                         FnDispatchNextArgs, "", InsertPt);
+  CallInst *DispatchNextCall =
+      CallInst::Create(FnTy, FnDispatchNext, FnDispatchNextArgs, "", InsertPt);
   DispatchNextCall->setCallingConv(CallingConv::C);
   DispatchNextCall->setTailCall(false);
   return DispatchNextCall;
@@ -1952,75 +2152,73 @@ CallInst *VPOParoptUtils::genKmpcGlobalThreadNumCall(Function *F,
   std::vector<Value *> FnGetTidArgs;
   FnGetTidArgs.push_back(KmpcLoc);
 
-  CallInst *GetTidCall = CallInst::Create(FnGetTid, FnGetTidArgs, "tid.val");
+  CallInst *GetTidCall =
+      CallInst::Create(FnGetTidTy, FnGetTid, FnGetTidArgs, "tid.val");
   GetTidCall->setCallingConv(CallingConv::C);
   GetTidCall->setTailCall(true);
 
   return GetTidCall;
 }
 
-// This function collects path, file name, line, column information for
-// generating kmpc_location struct needed for OpenMP runtime library
-GlobalVariable *
-VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
-                                       StructType *IdentTy, int Flags,
-                                       BasicBlock *BS, BasicBlock *BE) {
-  Module *M = F->getParent();
-  LLVMContext &C = F->getContext();
-  std::string LocString;
+// This function generates a GlobalVariable for the source location string
+// consisting of 4 fields. if Loc2==null the last field of the LocString is the
+// Column Number otherwise, the last field of the LocString is the end Line.
+// This utility is called either from genKmpcLocfromDebugLoc to generate kmpc
+// location (in this case loc2 will be non null) or from
+// genTgtPushCodeLocation (in which case loc2 will be null).
+// Based on the value of Mode, the function will generate the following
+// LocStrings
+// if Mode = SRC_LOC_NONE;
+//    LocString =";unknown;unknown;0;0;;\00";
+// if Mode = SRC_LOC_FUNC;
+//    LocString
+//    =“;unknown;<function name>;<start line>;<end line OR column num>;;”
+// if Mode = SRC_LOC_FILE;
+//    LocString
+//   =“;<file name>;<function name>;<start line>;<end line OR column num>;;”
+// if Mode = SRC_LOC_PATH;
+//    LocString =
+//  “;<Path/file name>;<function name>;<start line>;<end line OR column num>;;”
 
-  StringRef Path("");
-  StringRef File("unknown");
-  StringRef FnName("unknown");
+GlobalVariable *VPOParoptUtils::genLocStrfromDebugLoc(Function *F,
+                                                      DILocation *Loc1,
+                                                      DILocation *Loc2,
+                                                      SrcLocMode Mode) {
+  std::string LocString;
+  std::string Path("");
+  std::string File("unknown");
+  std::string FnName("unknown");
   unsigned SLine = 0;
   unsigned ELine = 0;
 
-  int VpoEmitSourceLocation = 1;
-
-  for (int K = 0; K < 2; ++K) {
-    BasicBlock::iterator I = (K == 0) ? BS->begin() : BE->begin();
-    if (Instruction *Inst = dyn_cast<Instruction>(I)) {
-      if (DILocation *Loc = Inst->getDebugLoc()) {
-        if (K == 0) {
-          Path = Loc->getDirectory();
-          File = Loc->getFilename();
-          FnName = Loc->getScope()->getSubprogram()->getName();
-          SLine = Loc->getLine();
-        } else {
-          ELine = Loc->getLine();
-        }
-      }
+  if (Loc1 != nullptr) {
+    switch (Mode) {
+    case SRC_LOC_PATH:
+      Path = (Loc1->getDirectory() + "/").str();
+      LLVM_FALLTHROUGH;
+    case SRC_LOC_FILE:
+      File = (Loc1->getFilename()).str();
+      LLVM_FALLTHROUGH;
+    case SRC_LOC_FUNC:
+      FnName = (Loc1->getScope()->getSubprogram()->getName()).str();
+      SLine = Loc1->getLine();
+      ELine = Loc2 ? Loc2->getLine() : Loc1->getColumn();
+      break;
+    case SRC_LOC_NONE:
+      break;
+    default:
+      llvm_unreachable("genLocStrfromDebugLoc: unhandled source location mode");
+      break;
     }
   }
+  LocString = (";" + Path + File + ";" + FnName + ";" + Twine(SLine) + ";" +
+               Twine(ELine) + ";;\00")
+                  .str();
 
-  // Source location string for OpenMP runtime library call
-  // LocString = ";pathfilename;routinename;sline;eline;;"
-  switch (VpoEmitSourceLocation) {
+  LLVM_DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
 
-  case 1:
-    LocString = (";unknown;" + FnName + ";" + Twine(SLine) + ";" +
-                 Twine(ELine) + ";;\00")
-                    .str();
-    break;
-
-  case 2:
-    LocString = (";" + Path + "/" + File + ";" + FnName + ";" + Twine(SLine) +
-                 ";" + Twine(ELine) + ";;\00")
-                    .str();
-    break;
-
-  case 0:
-  default:
-    LocString = ";unknown;unknown;0;0;;\00";
-    break;
-  }
-
-  Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
-
-  // Constant Definitions
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-  ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
-
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
   // Define the type of loc string. It is an array of i8/char type.
   ArrayType *LocStringTy = ArrayType::get(Type::getInt8Ty(C), LocString.size());
 
@@ -2031,16 +2229,47 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   GlobalVariable *LocStringVar = new GlobalVariable(
       *M, LocStringTy, true, GlobalValue::PrivateLinkage, LocStringInit,
       ".source." + Twine(SLine) + "." + Twine(ELine));
+
+  return LocStringVar;
+}
+
+// This function collects path, file name, line, column information for
+// generating kmpc_location struct needed for OpenMP runtime library
+GlobalVariable *
+VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
+                                       StructType *IdentTy, int Flags,
+                                       BasicBlock *BS, BasicBlock *BE) {
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Instruction *SInst = dyn_cast<Instruction>(BS->begin());
+  DILocation *Loc1 = SInst ? SInst->getDebugLoc() : nullptr;
+  Instruction *EInst = dyn_cast<Instruction>(BE->begin());
+  DILocation *Loc2 = EInst ? EInst->getDebugLoc() : nullptr;
+
+  SrcLocMode Mode = getSrcLocMode();
+
+  GlobalVariable *LocStringVar = genLocStrfromDebugLoc(F, Loc1, Loc2, Mode);
+
   // Allows merging of variables with same content.
   LocStringVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+  Flags |= KMP_IDENT_OPENMP_SPEC_VERSION_5_0; // Enable nonmonotonic scheduling
 
-  LLVM_DEBUG(dbgs() << "\nSource Location Info: " << LocString << "\n");
-
+  // Constant Definitions
+  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
+  ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
   // Get a pointer to the global variable containing loc string.
   Constant *Zeros[] = {ValueZero, ValueZero};
   Constant *LocStringPtr =
-      ConstantExpr::getGetElementPtr(LocStringTy, LocStringVar, Zeros);
+      ConstantExpr::getGetElementPtr(nullptr, LocStringVar, Zeros);
+  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+    LocStringPtr = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+        LocStringPtr, Type::getInt8PtrTy(C, vpo::ADDRESS_SPACE_GENERIC));
 
+  unsigned SLine =
+      (Loc1 != nullptr && Mode != SRC_LOC_NONE) ? Loc1->getLine() : 0;
+  unsigned ELine =
+      (Loc2 != nullptr && Mode != SRC_LOC_NONE) ? Loc2->getLine() : 0;
   // We now have values of all loc struct elements.
   // IdentTy:       {i32,   i32,    i32,    i32,    i8*         }
   // Loc struct:    {0,     Flags,  0,      0,      LocStringPtr}
@@ -2132,7 +2361,7 @@ CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
                          WRegionUtils::hasCancelConstruct(WParent);
 
   auto *BarrierCall = VPOParoptUtils::genKmpcBarrierImpl(
-      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier);
+      W, Tid, InsertPt, IdentTy, IsExplicit, IsCancelBarrier, IsTargetSPIRV);
 
   if (IsCancelBarrier)
     WParent->addCancellationPoint(BarrierCall);
@@ -2185,7 +2414,7 @@ CallInst *VPOParoptUtils::genSpmdKernelInit(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2212,7 +2441,7 @@ CallInst *VPOParoptUtils::genSpmdKernelFini(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2238,7 +2467,7 @@ CallInst *VPOParoptUtils::genKernelInit(WRegionNode *W, Instruction *InsertPt,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2264,7 +2493,7 @@ CallInst *VPOParoptUtils::genKernelFini(WRegionNode *W, Instruction *InsertPt,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2291,7 +2520,7 @@ CallInst *VPOParoptUtils::genGetSharingVariables(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2340,7 +2569,7 @@ CallInst *VPOParoptUtils::genKernelParallel(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2388,7 +2617,7 @@ CallInst *VPOParoptUtils::genBeginSharingVariables(WRegionNode *W,
     Fn->setCallingConv(CallingConv::C);
   }
 
-  CallInst *Call = CallInst::Create(Fn, Args, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnTy, Fn, Args, "", InsertPt);
   Call->setCallingConv(CallingConv::C);
   return Call;
 }
@@ -2419,6 +2648,8 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     // Emit an empty __kmpc_barrier without parameters,
     // and insert it above InsertPt
     CallInst *BarrierCall = genEmptyCall(M, FnName, RetTy, InsertPt);
+    BarrierCall->getCalledFunction()->setConvergent();
+    setFuncCallingConv(BarrierCall, IsTargetSPIRV);
     return BarrierCall;
   }
 
@@ -2430,7 +2661,8 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     Loc = genKmpcLocforImplicitBarrier(W, InsertPt, IdentTy, B);
 
   // Create the arg for Tid
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  Type *I32Ty = Type::getInt32Ty(C);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Create the argument list
@@ -2507,7 +2739,8 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
   // We have the Intrinsic name, its return type and other function args. The
   // loc argument is obtained using the IdentTy struct inside genKmpcCall. But
   // we need a valid Tid, which we can load from memory using TidPtr.
-  LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
+  Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
+  LoadInst *LoadTid = new LoadInst(I32Ty, TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2560,8 +2793,9 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
     FnName = "__kmpc_end_taskgroup";
 
   RetTy = Type::getVoidTy(C);
+  Type *I32Ty = Type::getInt32Ty(C);
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2586,11 +2820,12 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
   LLVMContext &C = F->getContext();
 
   Type *RetTy = nullptr;
+  Type *I32Ty = Type::getInt32Ty(C);
   StringRef FnName;
 
   if (IsMasterStart) {
     FnName = "__kmpc_master";
-    RetTy = Type::getInt32Ty(C);
+    RetTy = I32Ty;
   }
   else {
     FnName = "__kmpc_end_master";
@@ -2605,7 +2840,7 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
     return MasterOrEndCall;
   }
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2632,6 +2867,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
 
   Type *RetTy = nullptr;
   StringRef FnName;
+  Type *I32Ty = Type::getInt32Ty(C);
 
   if (IsSingleStart) {
     FnName = "__kmpc_single";
@@ -2642,7 +2878,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
     RetTy = Type::getVoidTy(C);
   }
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2668,6 +2904,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
   LLVMContext &C = F->getContext();
 
   Type *RetTy = Type::getVoidTy(C);
+  Type *I32Ty = Type::getInt32Ty(C);
 
   StringRef FnName;
 
@@ -2676,7 +2913,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
   else
     FnName = "__kmpc_end_ordered";
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
   LoadTid->setAlignment(MaybeAlign(4));
 
   // Now bundle all the function arguments together.
@@ -2958,7 +3195,8 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
                                   Instruction *InsertPt,
                                   bool IsTail, bool IsVarArg) {
   assert(Fn != nullptr && "Function Declaration is null.");
-  CallInst *Call = CallInst::Create(Fn, FnArgs, "", InsertPt);
+  FunctionType *FnTy = Fn->getFunctionType();
+  CallInst *Call = CallInst::Create(FnTy, Fn, FnArgs, "", InsertPt);
   // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
   assert(Call != nullptr && "Failed to generate Function Call");
 
@@ -3036,24 +3274,46 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 // The base and variant functions must have identical signatures.
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
+                                         Value *InteropObj,
                                          Instruction *InsertPt, WRegionNode *W,
                                          bool IsTail) {
   assert(BaseCall && "BaseCall is null");
+
   Module *M = BaseCall->getModule();
+  Function *F = BaseCall->getFunction();
+  LLVMContext &C = F->getContext();
+  Type *Int8PtrTy = Type::getInt8PtrTy(C); // void*
+
   Type *ReturnTy = BaseCall->getType();
   FunctionType *BaseFnTy = BaseCall->getFunctionType();
   bool IsVarArg = BaseFnTy->isVarArg();
 
+  SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
+
   // When IsVarArg==true, we cannot recreate the FnArgTypes from the FnArgs
   // because there may be more arguments in the call than the formal parameters
-  // in the function declaration. Therefore, we have to use BaseFnTy->params().
-  SmallVector<Value *, 4> FnArgs(BaseCall->arg_operands());
-  CallInst *VariantCall =
-      genCall(M, VariantName, ReturnTy, FnArgs, BaseFnTy->params(), InsertPt,
-              IsTail, IsVarArg);
+  // in the function declaration. Therefore, we have to use BaseFnTy->params()
+  // to populate FnArgTypes and call the genCall() version that takes an
+  // explicit FnArgTypes.
+  SmallVector<Type *, 4> FnArgTypes;
+  for (Type *ArgType : BaseFnTy->params()) {
+    FnArgTypes.push_back(ArgType);
+  }
+
+  if (InteropObj != nullptr) {
+    FnArgs.push_back(InteropObj);
+    if (!IsVarArg)
+      // If not VarArg, then the signature of the variant function has one
+      // more parameter (for void *interopObj) than the base function, so
+      // we need to update FnArgTypes accordingly.
+      FnArgTypes.push_back(Int8PtrTy);
+  }
+  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
+                                  InsertPt, IsTail, IsVarArg);
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
-  // on the use_device_ptr clause with a load from the corresponding TgtBuffer.
+  // on the use_device_ptr clause with a load from the corresponding
+  // TgtBufferAddr.
   if (W) {
     assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
     UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
@@ -3061,7 +3321,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       IRBuilder<> VCBuilder(VariantCall);
       for (UseDevicePtrItem *Item : UDPtrClause.items()) {
         Value *HostPtr = Item->getOrig();
-        Value *TgtBuffer = Item->getNew();
+        Value *TgtBufferAddr = Item->getNew();
         for (Value *Arg : FnArgs) {
           LoadInst *Load = dyn_cast<LoadInst>(Arg);
 
@@ -3079,12 +3339,14 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
             continue;
 
           if (Load->getPointerOperand() == HostPtr) {
-            LoadInst *Buffer = VCBuilder.CreateLoad(TgtBuffer, "buffer");
+            StringRef OrigName = HostPtr->getName();
+            LoadInst *Buffer =
+                VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
 
-            // HostPtr   type is:  SomeType**
-            // Arg       type is:  SomeType*
-            // TgtBuffer type is:  void**
-            // Buffer    type is:  void*
+            // HostPtr       type is:  SomeType**
+            // Arg           type is:  SomeType*
+            // TgtBufferAddr type is:  void**
+            // Buffer        type is:  void*
             //
             // To replace 'Arg' with 'Buffer' in the variant call,
             // we must cast Buffer from void* to SomeType*
@@ -3102,7 +3364,7 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
             (void)HostPtrElemTy;
             Value *BufferCast =
               VCBuilder.CreateBitCast(Buffer, Arg->getType());
-            BufferCast->setName("buffer.cast");
+            BufferCast->setName(OrigName + ".buffer.cast");
             VariantCall->replaceUsesOfWith(Arg, BufferCast);
             break;
           }
@@ -3123,9 +3385,8 @@ CallInst *VPOParoptUtils::genEmptyCall(Module *M, StringRef FnName,
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
   FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
-  Function *Fn = cast<Function>(FnC.getCallee());
 
-  CallInst *Call = CallInst::Create(Fn, "", InsertPt);
+  CallInst *Call = CallInst::Create(FnC, "", InsertPt);
   return Call;
 }
 
@@ -3276,6 +3537,14 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
       return false;
 
   // Now insert the calls in the IR.
+  if (IsTargetSPIRV) {
+    // __kmpc_[end_]critical calls must be convergent for SPIR-V targets.
+    BeginCritical->getCalledFunction()->setConvergent();
+    setFuncCallingConv(BeginCritical, IsTargetSPIRV);
+    EndCritical->getCalledFunction()->setConvergent();
+    setFuncCallingConv(EndCritical, IsTargetSPIRV);
+  }
+
   BeginCritical->insertBefore(BeginInst);
   if (EndInst->isTerminator())
     EndCritical->insertBefore(EndInst);
@@ -3346,6 +3615,19 @@ CallInst *VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
   return CancelCall;
 }
 
+void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
+                                        IRBuilder<> &Builder) {
+  if (Ctor == nullptr)
+    return;
+
+  FunctionType *FnTy = Ctor->getFunctionType();
+  Type *ArgTy = FnTy->getParamType(0);
+  Type *ValType = V->getType();
+  if (ArgTy != ValType)
+    V = Builder.CreateBitCast(V, ArgTy);
+  Builder.CreateCall(FnTy, Ctor, {V}, "");
+}
+
 // Emit Constructor call and insert it after PrivAlloca
 CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
                                              Value* PrivAlloca) {
@@ -3366,7 +3648,13 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   if (Dtor == nullptr)
     return nullptr;
 
+  Type *ArgTy = Dtor->getFunctionType()->getParamType(0);
   Type *ValType = V->getType();
+  if (ArgTy != ValType) {
+    IRBuilder<> Builder(InsertBeforePt);
+    V = Builder.CreateBitCast(V, ArgTy);
+    ValType = ArgTy;
+  }
   CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
   LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
@@ -3433,8 +3721,8 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 // Generate a private variable version for an array of Type ElementType,
 // size NumElements, and name VarName.
 Value *VPOParoptUtils::genPrivatizationAlloca(
-    Type *ElementType, Value *NumElements,
-    Instruction *InsertPt, const Twine &VarName,
+    Type *ElementType, Value *NumElements, MaybeAlign OrigAlignment,
+    Instruction *InsertPt, bool IsTargetSPIRV, const Twine &VarName,
     llvm::Optional<unsigned> AllocaAddrSpace,
     llvm::Optional<unsigned> ValueAddrSpace) {
   assert(ElementType && "Null element type.");
@@ -3443,6 +3731,20 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   Module *M = InsertPt->getModule();
   const DataLayout &DL = M->getDataLayout();
   IRBuilder<> Builder(InsertPt);
+
+  auto AddrSpaceCastValue = [IsTargetSPIRV](
+      IRBuilder<> &Builder, Value *V, PointerType *T) {
+    unsigned SrcAS = cast<PointerType>(V->getType())->getAddressSpace();
+    unsigned DstAS = T->getAddressSpace();
+
+    if (VPOParoptUtils::areCompatibleAddrSpaces(SrcAS, DstAS, IsTargetSPIRV))
+      return Builder.CreateAddrSpaceCast(V, T, V->getName() + ".ascast");
+
+    // By returning a value of incompatible addrspace here we let
+    // the uses relinking code know that more fixups have to be done
+    // during the relinking.
+    return V;
+  };
 
   assert((!AllocaAddrSpace ||
           AllocaAddrSpace.getValue() == vpo::ADDRESS_SPACE_PRIVATE ||
@@ -3470,12 +3772,35 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
                           nullptr,
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
                           AllocaAddrSpace.getValue());
+     GV->setAlignment(OrigAlignment);
 
-    auto *ASCI = Builder.CreateAddrSpaceCast(
-        GV, ElementType->getPointerTo(ValueAddrSpace.getValue()),
-        GV->getName() + ".ascast");
+    if (!ValueAddrSpace)
+      return GV;
 
-    return ASCI;
+    return AddrSpaceCastValue(
+        Builder, GV, ElementType->getPointerTo(ValueAddrSpace.getValue()));
+  }
+
+  // Some targets do not support array allocas, so we have to
+  // generate new alloca instruction of an array type to overcome that.
+  // For example, if the requested privatization allocation is
+  // 10 elements of type i32, then we will generate:
+  //   %0 = alloca [10 x i32], instead of
+  //   %0 = alloca i32, i64 10
+  //
+  // To make the resulting privatization value's type consistent
+  // with the expectations, we have to create an additional GEP
+  // with result type i32*:
+  //   %1 = getelementptr inbounds ([10 x i32], [10 x i32]* %0, i32 0, i32 0)
+  bool MimicArrayAllocation = false;
+
+  if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
+    // TODO: use ConstantFoldInstruction to discover more constant values.
+    uint64_t Size = CI->getZExtValue();
+    assert(Size > 0 && "Invalid size for new alloca.");
+    ElementType = ArrayType::get(ElementType, Size);
+    NumElements = nullptr;
+    MimicArrayAllocation = true;
   }
 
   auto *AI = Builder.CreateAlloca(
@@ -3483,19 +3808,67 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
       AllocaAddrSpace ?
           AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
       NumElements, VarName);
+  AI->setAlignment(OrigAlignment);
+
+  if (IsTargetSPIRV && AI->isArrayAllocation()) {
+    LLVM_DEBUG(dbgs() <<
+               "Requested privatization alloca with non-constant size:\n" <<
+               "\tElementType:\n" << *AI->getAllocatedType() << "\n" <<
+               "\tSize:\n" << *AI->getArraySize() << "\n");
+#if INTEL_CUSTOMIZATION
+#if 0
+    // FIXME: either re-enable this or come up with a solution.
+    report_fatal_error("VLA alloca is not supported for this target.");
+#endif
+#endif  // INTEL_CUSTOMIZATION
+  }
+
+  Value *V = AI;
+  if (MimicArrayAllocation) {
+    assert(AI->getAllocatedType()->isArrayTy() &&
+           "Expected ArrayType alloca.");
+    assert(!AI->isArrayAllocation() &&
+           "Unexpected array alloca with array type.");
+    V = Builder.CreateInBoundsGEP(
+        AI, {Builder.getInt32(0), Builder.getInt32(0)},
+        AI->getName() + Twine(".gep"));
+  }
 
   if (!ValueAddrSpace)
-    return AI;
+    return V;
 
+  auto *CastTy = cast<PointerType>(V->getType())->getPointerElementType()->
+      getPointerTo(ValueAddrSpace.getValue());
   auto *ASCI = dyn_cast<Instruction>(
-      Builder.CreateAddrSpaceCast(
-          AI, AI->getAllocatedType()->getPointerTo(ValueAddrSpace.getValue()),
-          AI->getName() + ".ascast"));
+      AddrSpaceCastValue(Builder, V, CastTy));
 
   assert(ASCI && "genPrivatizationAlloca: AddrSpaceCast for an AllocaInst "
          "must be an Instruction.");
 
   return ASCI;
+}
+
+bool VPOParoptUtils::areCompatibleAddrSpaces(
+    unsigned AS1, unsigned AS2, bool IsTargetSPIRV) {
+  assert((IsTargetSPIRV || (AS1 == AS2 && AS1 == 0)) &&
+         "Non-default address space used for non-SPIR target.");
+
+  if (AS1 == AS2)
+    return true;
+
+  // AS1 is not equal to AS2 here.
+
+  // All address spaces, except ADDRESS_SPACE_CONSTANT,
+  // may only be casted to ADDRESS_SPACE_GENERIC and vice versa.
+  if (AS1 == vpo::ADDRESS_SPACE_CONSTANT ||
+      AS2 == vpo::ADDRESS_SPACE_CONSTANT)
+    return false;
+
+  if (AS1 == vpo::ADDRESS_SPACE_GENERIC ||
+      AS2 == vpo::ADDRESS_SPACE_GENERIC)
+    return true;
+
+  return false;
 }
 
 // Computes the OpenMP loop upper bound so that the iteration space can be
@@ -3509,8 +3882,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(
   auto *NormUB = RegionInfo.getNormUB(Idx);
 
   assert(NormUB && GeneralUtils::isOMPItemLocalVAR(NormUB) &&
-         "NORMALIZED.UB clause must specify an AllocaInst or"
-         " AddrSpaceCastInst.");
+         "computeOmpUpperBound: Expect isOMPItemLocalVAR().");
 
   auto *NormUBAlloca = cast<Instruction>(NormUB);
   assert(isa<PointerType>(NormUBAlloca->getType()) &&
@@ -3634,11 +4006,13 @@ CallInst *VPOParoptUtils::addOperandBundlesInCall(
   CI->getOperandBundlesAsDefs(OpBundles);
 
   for (auto &StrValVec : OpBundlesToAdd) {
-    OperandBundleDef B(StrValVec.first, StrValVec.second);
+    OperandBundleDef B(std::string(StrValVec.first), StrValVec.second);
     OpBundles.push_back(B);
   }
 
-  auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles, "", CI);
+  FunctionType *FnTy = CI->getFunctionType();
+  Value *Fn = CI->getCalledOperand();
+  auto NewI = CallInst::Create(FnTy, Fn, Args, OpBundles, "", CI);
 
   NewI->takeName(CI);
   NewI->setCallingConv(CI->getCallingConv());
@@ -3655,42 +4029,12 @@ CallInst *VPOParoptUtils::addOperandBundlesInCall(
 // it, and returns it.
 CallInst *VPOParoptUtils::removeOperandBundlesFromCall(
     CallInst *CI, ArrayRef<StringRef> OpBundlesToRemove) {
-
-  assert(CI && "removeOperandBundlesFromCall: Null CallInst");
-
-  if (OpBundlesToRemove.empty())
-    return CI;
-
-  SmallVector<Value *, 8> Args;
-  for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
-    Args.push_back(*AI);
-
-  SmallVector<OperandBundleDef, 8> OpBundles;
-  SmallVector<OperandBundleDef, 8> OpBundlesUpdated;
-  CI->getOperandBundlesAsDefs(OpBundles);
-
-  for (auto &Bundle : OpBundles) {
-    // Go over all Bundles in CI, skipping any that is in OpBundlesToRemove.
-    if (std::any_of(OpBundlesToRemove.begin(), OpBundlesToRemove.end(),
-                    [&Bundle](StringRef S) { return Bundle.getTag() == S; }))
-      continue;
-    OpBundlesUpdated.push_back(Bundle);
-  }
-
-  if (OpBundles.size() == OpBundlesUpdated.size()) // Nothing removed
-    return CI;
-
-  auto *NewI =
-      CallInst::Create(CI->getCalledValue(), Args, OpBundlesUpdated, "", CI);
-
-  NewI->takeName(CI);
-  NewI->setCallingConv(CI->getCallingConv());
-  NewI->setAttributes(CI->getAttributes());
-  NewI->setDebugLoc(CI->getDebugLoc());
-
-  CI->replaceAllUsesWith(NewI);
-  CI->eraseFromParent();
-  return NewI;
+  return IntrinsicUtils::removeOperandBundlesFromCall(
+      CI, [&OpBundlesToRemove](const OperandBundleDef &Bundle) {
+        return std::any_of(
+            OpBundlesToRemove.begin(), OpBundlesToRemove.end(),
+            [&Bundle](StringRef S) { return Bundle.getTag() == S; });
+      });
 }
 
 // Check if the given value may be cloned before the given region.
@@ -3743,6 +4087,38 @@ bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
     return false;
 
   return true;
+}
+
+Instruction *VPOParoptUtils::getInsertionPtForAllocas(
+    WRegionNode *W, Function *F, bool OutsideRegion) {
+  assert(W && "Null WRegionNode.");
+  assert(F && "Null Function.");
+
+  auto *WTemp = W;
+
+  if (OutsideRegion)
+    WTemp = WTemp->getParent();
+
+  while (WTemp && !WTemp->needsOutlining())
+    WTemp = WTemp->getParent();
+
+  if (!WTemp)
+    return F->getEntryBlock().getFirstNonPHI();
+
+  if (WTemp == W) {
+    assert(!OutsideRegion && "Allocas requested inside region.");
+    // Allocas will be inserted inside the region.
+    // If they are used to relink some uses inside the region,
+    // we have to make sure that the allocas dominate all
+    // current instructions in the region. So we want to insert
+    // them right before the region's entry directive.
+    return WTemp->getEntryDirective();
+  }
+
+  BasicBlock *BB = WTemp->getEntryBBlock()->getSingleSuccessor();
+  assert(BB && "Couldn't find single successor of the region entry block.");
+
+  return BB->getFirstNonPHI();
 }
 
 // Find the first directive that dominates "PosInst" and which supports
@@ -3819,9 +4195,16 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
   // FIXME: we can probably gather the type information from
   //        BaseAddr, and do not pass AI at all.
   assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genArrayLength: Expect non-empty optionally casted "
-         "alloca instruction.");
-  Type *AllocaTy = cast<PointerType>(AI->getType())->getElementType();
+         "genArrayLength: Expect isOMPItemLocalVAR().");
+
+  Type *AllocaTy;
+  Value *NumElements;
+  std::tie(AllocaTy, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
+  assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
+
+  // TODO: NumElements??
+  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
   ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   assert(ArrTy && "Expect array type. ");
@@ -3865,7 +4248,8 @@ Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
 
   ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
   if (VectorType *VTy = dyn_cast<VectorType>(Ty))
-    return ConstantVector::getSplat(VTy->getNumElements(), MinMaxVal);
+    return ConstantVector::getSplat(ElementCount(VTy->getNumElements(), false),
+                                    MinMaxVal);
   return MinMaxVal;
 }
 
@@ -3957,6 +4341,7 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   CodeExtractor CE(makeArrayRef(W.bbset_begin(), W.bbset_end()), DT, false,
                    nullptr, nullptr, AC, false, true, true,
                    IsTarget ? &TgtClauseArgs : nullptr);
+  CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   // Remove the use of the entry directive in the exit directive, so that it
@@ -4018,11 +4403,6 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
   // call site.
   NewFunction->setCallingConv(CC);
   CallSite->setCallingConv(CC);
-
-  // Remove @llvm.dbg.declare, @llvm.dbg.value intrinsics from NewF
-  // to prevent verification failures. This is due due to the
-  // CodeExtractor not properly handling them at the moment.
-  VPOUtils::stripDebugInfoInstrinsics(*NewFunction);
 
   return NewFunction;
 }
@@ -4140,8 +4520,9 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
 
   StringRef Name = MapEntry->second;
 
-  auto HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
-                        &*Builder.GetInsertPoint());
+  auto *HRCall = genCall(RedDef->getModule(), Name, CallArgRetTy,  { Result },
+                         &*Builder.GetInsertPoint());
+  setFuncCallingConv(HRCall, true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ <<
              ": SPIRV horizontal reduction is used "
@@ -4156,9 +4537,29 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
   return Result;
 }
 
-bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
+bool VPOParoptUtils::mayUseSPMDMode(WRegionNode *W) {
+  // Check if SPMD mode is allowed by the options.
+  if (VPOParoptUtils::getSPIRExecutionScheme() != spirv::ImplicitSIMDSPMDES)
+    return false;
+
   // We cannot support SPMD execution scheme with SIMD1 emulation.
   if (W->mayHaveOMPCritical())
+    return false;
+
+  // Reductions require global locks. With SPMD mode there will be
+  // to many of them (basically, a lock per each sub-group) and it
+  // will result in too long serial sequence of updates.
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10535, CMPLRLLVM-10704, CMPLRLLVM-11080.
+#endif  // INTEL_CUSTOMIZATION
+  if (W->canHaveReduction() && !W->getRed().items().empty())
+    return false;
+
+  return true;
+}
+
+bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
+  if (!VPOParoptUtils::mayUseSPMDMode(W))
     return false;
 
   WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
@@ -4170,6 +4571,10 @@ bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
 
 spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
   return SPIRExecutionScheme;
+}
+
+bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {
+  return SPIRImplicitMultipleTeams;
 }
 
 bool VPOParoptUtils::isOMPCritical(
@@ -4189,4 +4594,37 @@ bool VPOParoptUtils::isOMPCritical(
 
   return false;
 }
+
+#ifndef NDEBUG
+void VPOParoptUtils::verifyFunctionForParopt(
+    const Function &F, bool IsTargetSPIRV) {
+  uint64_t Errors = 0;
+
+  auto InstFailed =
+      [&Errors](const Instruction *I) {
+        LLVM_DEBUG(dbgs() <<
+                   "ERROR: Instruction failed Paropt verification:\n" << *I <<
+                   "\n");
+        ++Errors;
+      };
+
+  for (auto &I : instructions(F))
+    if (auto *ASCI = dyn_cast<AddrSpaceCastInst>(&I)) {
+      auto *SrcTy = cast<PointerType>(ASCI->getSrcTy());
+      unsigned SrcAS = SrcTy->getAddressSpace();
+      auto *DstTy = cast<PointerType>(ASCI->getDestTy());
+      unsigned DstAS = DstTy->getAddressSpace();
+      if (!areCompatibleAddrSpaces(SrcAS, DstAS, IsTargetSPIRV))
+        InstFailed(ASCI);
+    }
+
+  if (Errors > 0) {
+    LLVM_DEBUG(dbgs() << "ERROR: Paropt found " << Errors <<
+               " errors in function:\n" << F << "\n");
+    report_fatal_error("Function failed Paropt verification.  "
+                       "Use -mllvm -debug-only=" DEBUG_TYPE " to get more "
+                       "information.");
+  }
+}
+#endif // NDEBUG
 #endif // INTEL_COLLAB

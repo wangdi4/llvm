@@ -1,8 +1,9 @@
-// RUN: %clangxx -fsycl %s -o %t.out
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
+
 //==----------------info.cpp - SYCL objects get_info() test ----------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -310,7 +311,7 @@ int main() {
       dev, "Preferred interop user sync");
   // TODO test once subdevice creation is enabled
   // print_info<info::device::parent_device, device>(dev, "Parent device");
-  if(!dev.is_host()){
+  if (!dev.is_host()) {
     try {
       print_info<info::device::parent_device, device>(dev, "Parent device");
     } catch (invalid_object_error e) {
@@ -343,4 +344,21 @@ int main() {
   print_info<info::platform::vendor, string_class>(plt, "Vendor");
   print_info<info::platform::extensions, vector_class<string_class>>(
       plt, "Extensions");
+
+  std::cout << separator << "Queue information\n" << separator;
+  queue q(selector);
+  auto qdev = q.get_info<cl::sycl::info::queue::device>();
+  std::cout << "Device from queue information\n";
+  print_info<info::device::name, string_class>(qdev, "Name");
+  auto ctx = q.get_info<cl::sycl::info::queue::context>();
+
+  std::cout << separator << "Context information\n" << separator;
+  std::cout << "Devices from context information\n";
+  auto cdevs = ctx.get_info<cl::sycl::info::context::devices>();
+  for (auto cdev : cdevs) {
+    print_info<info::device::name, string_class>(cdev, "Name");
+  }
+  std::cout << separator << "Platform from context information\n" << separator;
+  auto cplt = ctx.get_info<cl::sycl::info::context::platform>();
+  print_info<info::platform::name, string_class>(cplt, "Name");
 }

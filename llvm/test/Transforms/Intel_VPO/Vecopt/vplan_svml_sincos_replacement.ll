@@ -37,19 +37,18 @@
 ;   }
 ; }
 
-; RUN: opt -vector-library=SVML -VPlanDriver -vplan-force-vf=8 -enable-vp-value-codegen=false -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-LLVM
-; RUN: opt -vector-library=SVML -VPlanDriver -vplan-force-vf=8 -enable-vp-value-codegen=true -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+; RUN: opt -vector-library=SVML -VPlanDriver -vplan-force-vf=8 -S %s | FileCheck %s
 
 ; CHECK-LABEL: entry
-; CHECK:              [[COSPTR_VEC:%.*]] = alloca <8 x float>
-; CHECK-NEXT:         [[SINPTR_VEC:%.*]] = alloca <8 x float>
-; CHECK-VPVAL-NEXT:   [[COSPTR_BC:%.*]] = bitcast <8 x float>* [[COSPTR_VEC]] to float*
-; CHECK-VPVAL-NEXT:   [[COSPTR_GEP:%.*]] = getelementptr float, float* [[COSPTR_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK:         [[COSPTR_VEC:%.*]] = alloca <8 x float>
+; CHECK-NEXT:    [[SINPTR_VEC:%.*]] = alloca <8 x float>
+; CHECK-NEXT:    [[COSPTR_BC:%.*]] = bitcast <8 x float>* [[COSPTR_VEC]] to float*
+; CHECK-NEXT:    [[COSPTR_GEP:%.*]] = getelementptr float, float* [[COSPTR_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 
 ; CHECK-LABEL: vector.body
-; CHECK:       {{.*}} = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]], <8 x float>* [[SINPTR_VEC]])
-; CHECK:       {{.*}} = load <8 x float>, <8 x float>* [[SINPTR_VEC]]
-; CHECK:       {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
+; CHECK:         {{.*}} = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]], <8 x float>* [[SINPTR_VEC]])
+; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[SINPTR_VEC]]
+; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

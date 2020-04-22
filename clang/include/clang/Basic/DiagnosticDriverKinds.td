@@ -60,7 +60,13 @@ def err_drv_cuda_version_unsupported : Error<
   "but installation at %3 is %4.  Use --cuda-path to specify a different CUDA "
   "install, pass a different GPU arch with --cuda-gpu-arch, or pass "
   "--no-cuda-version-check.">;
+def warn_drv_unknown_cuda_version: Warning<
+  "Unknown CUDA version %0. Assuming the latest supported version %1">,
+  InGroup<CudaUnknownVersion>;
 def err_drv_cuda_host_arch : Error<"unsupported architecture '%0' for host compilation.">;
+def err_drv_no_sycl_libspirv : Error<
+  "cannot find `libspirv-nvptx64--nvidiacl.bc`. Provide path to libspirv library via "
+  "-fsycl-libspirv-path, or pass -fno-sycl-libspirv to build without linking with libspirv.">;
 def err_drv_mix_cuda_hip : Error<"Mixed Cuda and HIP compilation is not supported.">;
 def err_drv_invalid_thread_model_for_target : Error<
   "invalid thread model '%0' in '%1' for this target">;
@@ -249,6 +255,8 @@ def err_drv_expecting_fopenmp_with_fopenmp_targets : Error<
   "The option -fopenmp-targets must be used in conjunction with a -fopenmp option compatible with offloading, please use -fopenmp=libomp or -fopenmp=libiomp5.">;
 def err_drv_expecting_fsycl_with_sycl_opt : Error<
   "The option %0 must be used in conjunction with -fsycl to enable offloading.">;
+def err_drv_fsycl_with_c_type : Error<
+  "The option %0%1 must not be used in conjunction with -fsycl which expects C++ source.">;
 def warn_drv_omp_offload_target_duplicate : Warning<
   "The OpenMP offloading target '%0' is similar to target '%1' already specified - will be ignored.">,
   InGroup<OpenMPTarget>;
@@ -262,6 +270,9 @@ def err_drv_unsupported_embed_bitcode
     : Error<"%0 is not supported with -fembed-bitcode">;
 def err_drv_bitcode_unsupported_on_toolchain : Error<
   "-fembed-bitcode is not supported on versions of iOS prior to 6.0">;
+
+def err_drv_invalid_malign_branch_EQ : Error<
+  "invalid argument '%0' to -malign-branch=; each element must be one of: %1">;
 
 def warn_O4_is_O3 : Warning<"-O4 is equivalent to -O3">, InGroup<Deprecated>;
 def warn_drv_optimization_value : Warning<"optimization level '%0' is not supported; using '%1%2' instead">,
@@ -278,6 +289,9 @@ def warn_drv_unsupported_debug_info_opt_for_target : Warning<
   InGroup<UnsupportedTargetOpt>;
 def warn_c_kext : Warning<
   "ignoring -fapple-kext which is valid for C++ and Objective-C++ only">;
+def warn_ignoring_fdiscard_for_bitcode : Warning<
+  "ignoring -fdiscard-value-names for LLVM Bitcode">,
+  InGroup<UnusedCommandLineArgument>;
 def warn_drv_input_file_unused : Warning<
   "%0: '%1' input unused%select{ when '%3' is present|}2">,
   InGroup<UnusedCommandLineArgument>;
@@ -312,6 +326,8 @@ def warn_drv_treating_input_as_cxx : Warning<
   InGroup<Deprecated>;
 def warn_drv_pch_not_first_include : Warning<
   "precompiled header '%0' was ignored because '%1' is not first '-include'">;
+def warn_drv_existing_archive_append: Warning<
+  "appending to an existing archive '%0'">, InGroup<DiagGroup<"archive-append">>;
 def warn_missing_sysroot : Warning<"no such sysroot directory: '%0'">,
   InGroup<DiagGroup<"missing-sysroot">>;
 def warn_incompatible_sysroot : Warning<"using sysroot for '%0' but targeting '%1'">,
@@ -326,6 +342,8 @@ def warn_drv_object_size_disabled_O0 : Warning<
   InGroup<InvalidCommandLineArgument>, DefaultWarnNoWerror;
 def err_invalid_branch_protection: Error <
   "invalid branch protection option '%0' in '%1'">;
+def warn_drv_deprecated_option : Warning<
+  "option '%0' is deprecated, use '%1' directly instead">, InGroup<Deprecated>;
 
 def note_drv_command_failed_diag_msg : Note<
   "diagnostic msg: %0">;
@@ -348,6 +366,8 @@ def err_analyzer_checker_option_unknown : Error<
   "checker '%0' has no option called '%1'">;
 def err_analyzer_checker_option_invalid_input : Error<
   "invalid input for checker option '%0', that expects %1">;
+def err_analyzer_checker_incompatible_analyzer_option : Error<
+  "checker cannot be enabled with analyzer option '%0' == %1">;
 
 def err_drv_invalid_hvx_length : Error<
   "-mhvx-length is not supported without a -mhvx/-mhvx= flag">;
@@ -381,6 +401,9 @@ def err_drv_ropi_incompatible_with_cxx : Error<
 def err_stack_tagging_requires_hardware_feature : Error<
   "'-fsanitize=memtag' requires hardware support (+memtag)">;
 
+def err_cmse_pi_are_incompatible : Error<
+  "cmse is not compatible with %select{RWPI|ROPI}0">;
+
 def warn_target_unsupported_nan2008 : Warning<
   "ignoring '-mnan=2008' option because the '%0' architecture does not support it">,
   InGroup<UnsupportedNan>;
@@ -403,6 +426,9 @@ def warn_drv_unsupported_gpopt : Warning<
   "ignoring '-mgpopt' option as it cannot be used with %select{|the implicit"
   " usage of }0-mabicalls">,
   InGroup<UnsupportedGPOpt>;
+def warn_drv_unsupported_sdata : Warning<
+  "ignoring '-msmall-data-limit=' with -mcmodel=large for -fpic or RV64">,
+  InGroup<OptionIgnored>;
 def warn_drv_unsupported_longcalls : Warning<
   "ignoring '-mlong-calls' option as it is not currently supported with "
   "%select{|the implicit usage of }0-mabicalls">,
@@ -417,6 +443,8 @@ def err_drv_unsupported_indirect_jump_opt : Error<
   "'-mindirect-jump=%0' is unsupported with the '%1' architecture">;
 def err_drv_unknown_indirect_jump_opt : Error<
   "unknown '-mindirect-jump=' option '%0'">;
+def err_drv_unsupported_fpatchable_function_entry_argument : Error<
+  "the second argument of '-fpatchable-function-entry' must be smaller than the first argument">;
 
 def warn_drv_unable_to_find_directory_expected : Warning<
   "unable to find %0 directory, expected to be in '%1'">,
@@ -446,13 +474,13 @@ def note_drv_verify_prefix_spelling : Note<
   "-verify prefixes must start with a letter and contain only alphanumeric"
   " characters, hyphens, and underscores">;
 
-def warn_drv_experimental_isel_incomplete : Warning<
-  "-fexperimental-isel support for the '%0' architecture is incomplete">,
-  InGroup<ExperimentalISel>;
+def warn_drv_global_isel_incomplete : Warning<
+  "-fglobal-isel support for the '%0' architecture is incomplete">,
+  InGroup<GlobalISel>;
 
-def warn_drv_experimental_isel_incomplete_opt : Warning<
-  "-fexperimental-isel support is incomplete for this architecture at the current optimization level">,
-  InGroup<ExperimentalISel>;
+def warn_drv_global_isel_incomplete_opt : Warning<
+  "-fglobal-isel support is incomplete for this architecture at the current optimization level">,
+  InGroup<GlobalISel>;
 
 def warn_drv_moutline_unsupported_opt : Warning<
   "The '%0' architecture does not support -moutline; flag ignored">,
@@ -476,10 +504,6 @@ def warn_drv_msp430_hwmult_no_device : Warning<"no MCU device specified, but "
   "'-mhwmult' is set to 'auto', assuming no hardware multiply. Use -mmcu to "
   "specify a MSP430 device, or -mhwmult to set hardware multiply type "
   "explicitly.">, InGroup<InvalidCommandLineArgument>;
-
-// Frame pointer reservation.
-def err_reserved_frame_pointer : Error<
-  "'%0' has been specified but '%1' is used as the frame pointer for this target">;
 
 def warn_drv_libstdcxx_not_found : Warning<
   "include path for libstdc++ headers not found; pass '-stdlib=libc++' on the "

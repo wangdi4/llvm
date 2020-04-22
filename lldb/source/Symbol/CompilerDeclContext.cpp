@@ -1,4 +1,4 @@
-//===-- CompilerDeclContext.cpp ---------------------------------*- C++ -*-===//
+//===-- CompilerDeclContext.cpp -------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Symbol/CompilerDeclContext.h"
-#include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/CompilerDecl.h"
 #include "lldb/Symbol/TypeSystem.h"
 #include <vector>
@@ -20,33 +19,19 @@ CompilerDeclContext::FindDeclByName(ConstString name,
   if (IsValid())
     return m_type_system->DeclContextFindDeclByName(m_opaque_decl_ctx, name,
                                                     ignore_using_decls);
-  else
-    return std::vector<CompilerDecl>();
-}
-
-bool CompilerDeclContext::IsClang() const {
-  return IsValid() && llvm::isa<ClangASTContext>(m_type_system);
+  return std::vector<CompilerDecl>();
 }
 
 ConstString CompilerDeclContext::GetName() const {
   if (IsValid())
     return m_type_system->DeclContextGetName(m_opaque_decl_ctx);
-  else
-    return ConstString();
+  return ConstString();
 }
 
 ConstString CompilerDeclContext::GetScopeQualifiedName() const {
   if (IsValid())
     return m_type_system->DeclContextGetScopeQualifiedName(m_opaque_decl_ctx);
-  else
-    return ConstString();
-}
-
-bool CompilerDeclContext::IsStructUnionOrClass() const {
-  if (IsValid())
-    return m_type_system->DeclContextIsStructUnionOrClass(m_opaque_decl_ctx);
-  else
-    return false;
+  return ConstString();
 }
 
 bool CompilerDeclContext::IsClassMethod(lldb::LanguageType *language_ptr,
@@ -56,8 +41,7 @@ bool CompilerDeclContext::IsClassMethod(lldb::LanguageType *language_ptr,
     return m_type_system->DeclContextIsClassMethod(
         m_opaque_decl_ctx, language_ptr, is_instance_method_ptr,
         language_object_name_ptr);
-  else
-    return false;
+  return false;
 }
 
 bool CompilerDeclContext::IsContainedInLookup(CompilerDeclContext other) const {

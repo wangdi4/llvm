@@ -20,7 +20,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
-#include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h"
+#include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h"
 
 namespace llvm {
 
@@ -32,8 +32,8 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, DTransAnalysisInfo &Info, MemGetTLITy GetTLI,
-               WholeProgramInfo &WPInfo, MemInitDominatorTreeType &GetDT);
+  bool runImpl(Module &M, DTransAnalysisInfo &Info, SOAGetTLITy GetTLI,
+               WholeProgramInfo &WPInfo, SOADominatorTreeType &GetDT);
 };
 
 } // namespace dtrans

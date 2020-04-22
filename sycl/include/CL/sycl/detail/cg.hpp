@@ -11,6 +11,10 @@
 #include <CL/sycl/detail/accessor_impl.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/helpers.hpp>
+/* INTEL_CUSTOMIZATION */
+#include <CL/sycl/detail/host_device_intel/backend.hpp>
+/* end INTEL_CUSTOMIZATION */
+#include <CL/sycl/detail/host_profiling_info.hpp>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
 #include <CL/sycl/group.hpp>
@@ -24,8 +28,39 @@
 #include <type_traits>
 #include <vector>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
+
+// Interoperability handler
+//
+class interop_handler {
+  // Make accessor class friend to access the detail mem objects
+  template <typename DataT, int Dims, access::mode AccMode,
+            access::target AccTarget, access::placeholder isPlaceholder>
+  friend class accessor;
+public:
+  using ReqToMem = std::pair<detail::Requirement*, pi_mem>;
+
+  interop_handler(std::vector<ReqToMem> MemObjs, cl_command_queue PiQueue) :
+    MQueue(PiQueue), MMemObjs(MemObjs) {}
+
+  cl_command_queue get_queue() const noexcept { return MQueue; };
+
+  template <typename DataT, int Dims, access::mode AccessMode,
+            access::target AccessTarget,
+            access::placeholder IsPlaceholder = access::placeholder::false_t>
+  cl_mem get_mem(accessor<DataT, Dims, AccessMode, AccessTarget,
+                          access::placeholder::false_t>
+                     Acc) const {
+    detail::AccessorBaseHost *AccBase = (detail::AccessorBaseHost *)&Acc;
+    return getMemImpl(detail::getSyclObjImpl(*AccBase).get());
+  }
+private:
+  cl_command_queue MQueue;
+  std::vector<ReqToMem> MMemObjs;
+  cl_mem getMemImpl(detail::Requirement* Req) const;
+};
+
 namespace detail {
 
 using namespace cl;
@@ -141,6 +176,15 @@ public:
   virtual ~HostKernelBase() = default;
 };
 
+class InteropTask {
+  std::function<void(cl::sycl::interop_handler)> MFunc;
+
+public:
+  InteropTask(function_class<void(cl::sycl::interop_handler)> Func)
+      : MFunc(Func) {}
+  void call(cl::sycl::interop_handler &h) { MFunc(h); }
+};
+
 // Class which stores specific lambda object.
 template <class KernelType, class KernelArgType, int Dims>
 class HostKernel : public HostKernelBase {
@@ -151,8 +195,7 @@ public:
   HostKernel(KernelType Kernel) : MKernel(Kernel) {}
   void call(const NDRDescT &NDRDesc, HostProfilingInfo *HPI) override {
     // adjust ND range for serial host:
-    NDRDescT AdjustedRange;
-    bool Adjust = false;
+    NDRDescT AdjustedRange = NDRDesc;
 
     if (NDRDesc.GlobalSize[0] == 0 && NDRDesc.NumWorkGroups[0] != 0) {
       // This is a special case - NDRange information is not complete, only the
@@ -164,12 +207,15 @@ public:
       range<3> WGsize{1, 1, 1}; // no better alternative for serial host?
       AdjustedRange.set(NDRDesc.Dims,
                         nd_range<3>(NDRDesc.NumWorkGroups * WGsize, WGsize));
-      Adjust = true;
     }
-    const NDRDescT &R = Adjust ? AdjustedRange : NDRDesc;
+    // If local size for host is not set explicitly, let's adjust it to 1,
+    // so nd_range_error for zero local size is not thrown.
+    if (AdjustedRange.LocalSize[0] == 0)
+      for (int I = 0; I < AdjustedRange.Dims; ++I)
+        AdjustedRange.LocalSize[I] = 1;
     if (HPI)
       HPI->start();
-    runOnHost(R);
+    runOnHost(AdjustedRange);
     if (HPI)
       HPI->end();
   }
@@ -189,21 +235,32 @@ public:
     for (int I = 0; I < Dims; ++I)
       Range[I] = NDRDesc.GlobalSize[I];
 
+/* INTEL_CUSTOMIZATION */
+#if !DPCPP_HOST_DEVICE_SERIAL
+    ParallelFor(Range, [this](const sycl::id<Dims> Id) { MKernel(Id); });
+#else
+/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(
         Range, [&](const sycl::id<Dims> &ID) { MKernel(ID); });
+#endif // INTEL
   }
 
   template <class ArgT = KernelArgType>
   typename std::enable_if<
       std::is_same<ArgT, item<Dims, /*Offset=*/false>>::value>::type
   runOnHost(const NDRDescT &NDRDesc) {
-    size_t XYZ[3] = {0};
     sycl::id<Dims> ID;
     sycl::range<Dims> Range(InitializedVal<Dims, range>::template get<0>());
     for (int I = 0; I < Dims; ++I)
       Range[I] = NDRDesc.GlobalSize[I];
 
+/* INTEL_CUSTOMIZATION */
+#if !DPCPP_HOST_DEVICE_SERIAL
+    ParallelFor(Range, [Range, this](sycl::id<Dims> ID) {
+#else
+/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> ID) {
+#endif // INTEL
       sycl::item<Dims, /*Offset=*/false> Item =
           IDBuilder::createItem<Dims, false>(Range, ID);
       MKernel(Item);
@@ -221,7 +278,13 @@ public:
       Offset[I] = NDRDesc.GlobalOffset[I];
     }
 
+/* INTEL_CUSTOMIZATION */
+#if !DPCPP_HOST_DEVICE_SERIAL
+    ParallelFor(Range, [Range, Offset, this](sycl::id<Dims> ID) {
+#else
+/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(Range, [&](const sycl::id<Dims> &ID) {
+#endif // INTEL
       sycl::id<Dims> OffsetID = ID + Offset;
       sycl::item<Dims, /*Offset=*/true> Item =
           IDBuilder::createItem<Dims, true>(Range, OffsetID, Offset);
@@ -237,7 +300,8 @@ public:
     for (int I = 0; I < Dims; ++I) {
       if (NDRDesc.LocalSize[I] == 0 ||
           NDRDesc.GlobalSize[I] % NDRDesc.LocalSize[I] != 0)
-        throw sycl::nd_range_error("Invalid local size for global size");
+        throw sycl::nd_range_error("Invalid local size for global size",
+                                   PI_INVALID_WORK_GROUP_SIZE);
       GroupSize[I] = NDRDesc.GlobalSize[I] / NDRDesc.LocalSize[I];
     }
 
@@ -252,11 +316,21 @@ public:
       GlobalSize[I] = NDRDesc.GlobalSize[I];
     }
 
+/* INTEL_CUSTOMIZATION */
+#if !DPCPP_HOST_DEVICE_SERIAL
+    ParallelForNDRange(
+        LocalSize, GroupSize,
+        [=](const id<Dims> &GroupID, const id<Dims> &LocalID) {
+          sycl::group<Dims> Group = IDBuilder::createGroup<Dims>(
+              GlobalSize, LocalSize, GroupSize, GroupID);
+#else
+/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(GroupSize, [&](const id<Dims> &GroupID) {
       sycl::group<Dims> Group = IDBuilder::createGroup<Dims>(
           GlobalSize, LocalSize, GroupSize, GroupID);
 
       detail::NDLoop<Dims>::iterate(LocalSize, [&](const id<Dims> &LocalID) {
+#endif // INTEL
         id<Dims> GlobalID = GroupID * LocalSize + LocalID + GlobalOffset;
         const sycl::item<Dims, /*Offset=*/true> GlobalItem =
             IDBuilder::createItem<Dims, true>(GlobalSize, GlobalID,
@@ -266,7 +340,9 @@ public:
         const sycl::nd_item<Dims> NDItem =
             IDBuilder::createNDItem<Dims>(GlobalItem, LocalItem, Group);
         MKernel(NDItem);
+#if DPCPP_HOST_DEVICE_SERIAL // INTEL
       });
+#endif // INTEL
     });
   }
 
@@ -278,7 +354,8 @@ public:
     for (int I = 0; I < Dims; ++I) {
       if (NDRDesc.LocalSize[I] == 0 ||
           NDRDesc.GlobalSize[I] % NDRDesc.LocalSize[I] != 0)
-        throw sycl::nd_range_error("Invalid local size for global size");
+        throw sycl::nd_range_error("Invalid local size for global size",
+                                   PI_INVALID_WORK_GROUP_SIZE);
       NGroups[I] = NDRDesc.GlobalSize[I] / NDRDesc.LocalSize[I];
     }
 
@@ -290,7 +367,14 @@ public:
       LocalSize[I] = NDRDesc.LocalSize[I];
       GlobalSize[I] = NDRDesc.GlobalSize[I];
     }
+
+/* INTEL_CUSTOMIZATION */
+#if !DPCPP_HOST_DEVICE_SERIAL
+    ParallelForWorkGroup(NGroups, [&](const id<Dims> &GroupID) {
+#else
+/* end INTEL_CUSTOMIZATION */
     detail::NDLoop<Dims>::iterate(NGroups, [&](const id<Dims> &GroupID) {
+#endif // INTEL
       sycl::group<Dims> Group =
           IDBuilder::createGroup<Dims>(GlobalSize, LocalSize, NGroups, GroupID);
       MKernel(Group);
@@ -316,18 +400,29 @@ public:
     RUN_ON_HOST_INTEL,
     COPY_USM,
     FILL_USM,
-    PREFETCH_USM
+    PREFETCH_USM,
+    INTEROP_TASK_CODEPLAY
   };
 
-  CG(CGTYPE Type, std::vector<std::vector<char>> ArgsStorage,
-     std::vector<detail::AccessorImplPtr> AccStorage,
-     std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-     std::vector<Requirement *> Requirements,
-     std::vector<detail::EventImplPtr> Events)
+  CG(CGTYPE Type, vector_class<vector_class<char>> ArgsStorage,
+     vector_class<detail::AccessorImplPtr> AccStorage,
+     vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+     vector_class<Requirement *> Requirements,
+     vector_class<detail::EventImplPtr> Events, detail::code_location loc = {})
       : MType(Type), MArgsStorage(std::move(ArgsStorage)),
         MAccStorage(std::move(AccStorage)),
         MSharedPtrStorage(std::move(SharedPtrStorage)),
-        MRequirements(std::move(Requirements)), MEvents(std::move(Events)) {}
+        MRequirements(std::move(Requirements)), MEvents(std::move(Events)) {
+    // Capture the user code-location from Q.submit(), Q.parallel_for()
+    // etc for later use; if code location information is not available,
+    // the file name and function name members will be empty strings
+    if (loc.functionName())
+      MFunctionName = loc.functionName();
+    if (loc.fileName())
+      MFileName = loc.fileName();
+    MLine = loc.lineNumber();
+    MColumn = loc.columnNumber();
+  }
 
   CG(CG &&CommandGroup) = default;
 
@@ -340,45 +435,51 @@ private:
   // The following storages needed to ensure that arguments won't die while
   // we are using them.
   // Storage for standard layout arguments.
-  std::vector<std::vector<char>> MArgsStorage;
+  vector_class<vector_class<char>> MArgsStorage;
   // Storage for accessors.
-  std::vector<detail::AccessorImplPtr> MAccStorage;
+  vector_class<detail::AccessorImplPtr> MAccStorage;
   // Storage for shared_ptrs.
-  std::vector<std::shared_ptr<const void>> MSharedPtrStorage;
+  vector_class<shared_ptr_class<const void>> MSharedPtrStorage;
 
 public:
   // List of requirements that specify which memory is needed for the command
   // group to be executed.
-  std::vector<Requirement *> MRequirements;
+  vector_class<Requirement *> MRequirements;
   // List of events that order the execution of this CG
-  std::vector<detail::EventImplPtr> MEvents;
+  vector_class<detail::EventImplPtr> MEvents;
+  // Member variables to capture the user code-location
+  // information from Q.submit(), Q.parallel_for() etc
+  // Storage for function name and source file name
+  string_class MFunctionName, MFileName;
+  // Storage for line and column of code location
+  int32_t MLine, MColumn;
 };
 
 // The class which represents "execute kernel" command group.
 class CGExecKernel : public CG {
 public:
   NDRDescT MNDRDesc;
-  std::unique_ptr<HostKernelBase> MHostKernel;
-  std::shared_ptr<detail::kernel_impl> MSyclKernel;
-  std::vector<ArgDesc> MArgs;
-  std::string MKernelName;
+  unique_ptr_class<HostKernelBase> MHostKernel;
+  shared_ptr_class<detail::kernel_impl> MSyclKernel;
+  vector_class<ArgDesc> MArgs;
+  string_class MKernelName;
   detail::OSModuleHandle MOSModuleHandle;
-  std::vector<std::shared_ptr<detail::stream_impl>> MStreams;
+  vector_class<shared_ptr_class<detail::stream_impl>> MStreams;
 
-  CGExecKernel(NDRDescT NDRDesc, std::unique_ptr<HostKernelBase> HKernel,
-               std::shared_ptr<detail::kernel_impl> SyclKernel,
-               std::vector<std::vector<char>> ArgsStorage,
-               std::vector<detail::AccessorImplPtr> AccStorage,
-               std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-               std::vector<Requirement *> Requirements,
-               std::vector<detail::EventImplPtr> Events,
-               std::vector<ArgDesc> Args, std::string KernelName,
+  CGExecKernel(NDRDescT NDRDesc, unique_ptr_class<HostKernelBase> HKernel,
+               shared_ptr_class<detail::kernel_impl> SyclKernel,
+               vector_class<vector_class<char>> ArgsStorage,
+               vector_class<detail::AccessorImplPtr> AccStorage,
+               vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+               vector_class<Requirement *> Requirements,
+               vector_class<detail::EventImplPtr> Events,
+               vector_class<ArgDesc> Args, string_class KernelName,
                detail::OSModuleHandle OSModuleHandle,
-               std::vector<std::shared_ptr<detail::stream_impl>> Streams,
-               CGTYPE Type)
+               vector_class<shared_ptr_class<detail::stream_impl>> Streams,
+               CGTYPE Type, detail::code_location loc = {})
       : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
-           std::move(Events)),
+           std::move(Events), std::move(loc)),
         MNDRDesc(std::move(NDRDesc)), MHostKernel(std::move(HKernel)),
         MSyclKernel(std::move(SyclKernel)), MArgs(std::move(Args)),
         MKernelName(std::move(KernelName)), MOSModuleHandle(OSModuleHandle),
@@ -387,9 +488,9 @@ public:
            "Wrong type of exec kernel CG.");
   }
 
-  std::vector<ArgDesc> getArguments() const { return MArgs; }
-  std::string getKernelName() const { return MKernelName; }
-  std::vector<std::shared_ptr<detail::stream_impl>> getStreams() const {
+  vector_class<ArgDesc> getArguments() const { return MArgs; }
+  string_class getKernelName() const { return MKernelName; }
+  vector_class<shared_ptr_class<detail::stream_impl>> getStreams() const {
     return MStreams;
   }
 };
@@ -401,14 +502,15 @@ class CGCopy : public CG {
 
 public:
   CGCopy(CGTYPE CopyType, void *Src, void *Dst,
-         std::vector<std::vector<char>> ArgsStorage,
-         std::vector<detail::AccessorImplPtr> AccStorage,
-         std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-         std::vector<Requirement *> Requirements,
-         std::vector<detail::EventImplPtr> Events)
+         vector_class<vector_class<char>> ArgsStorage,
+         vector_class<detail::AccessorImplPtr> AccStorage,
+         vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+         vector_class<Requirement *> Requirements,
+         vector_class<detail::EventImplPtr> Events,
+         detail::code_location loc = {})
       : CG(CopyType, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
-           std::move(Events)),
+           std::move(Events), std::move(loc)),
         MSrc(Src), MDst(Dst) {}
   void *getSrc() { return MSrc; }
   void *getDst() { return MDst; }
@@ -417,18 +519,19 @@ public:
 // The class which represents "fill" command group.
 class CGFill : public CG {
 public:
-  std::vector<char> MPattern;
+  vector_class<char> MPattern;
   Requirement *MPtr;
 
-  CGFill(std::vector<char> Pattern, void *Ptr,
-         std::vector<std::vector<char>> ArgsStorage,
-         std::vector<detail::AccessorImplPtr> AccStorage,
-         std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-         std::vector<Requirement *> Requirements,
-         std::vector<detail::EventImplPtr> Events)
+  CGFill(vector_class<char> Pattern, void *Ptr,
+         vector_class<vector_class<char>> ArgsStorage,
+         vector_class<detail::AccessorImplPtr> AccStorage,
+         vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+         vector_class<Requirement *> Requirements,
+         vector_class<detail::EventImplPtr> Events,
+         detail::code_location loc = {})
       : CG(FILL, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
-           std::move(Events)),
+           std::move(Events), std::move(loc)),
         MPattern(std::move(Pattern)), MPtr((Requirement *)Ptr) {}
   Requirement *getReqToFill() { return MPtr; }
 };
@@ -438,14 +541,15 @@ class CGUpdateHost : public CG {
   Requirement *MPtr;
 
 public:
-  CGUpdateHost(void *Ptr, std::vector<std::vector<char>> ArgsStorage,
-               std::vector<detail::AccessorImplPtr> AccStorage,
-               std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-               std::vector<Requirement *> Requirements,
-               std::vector<detail::EventImplPtr> Events)
+  CGUpdateHost(void *Ptr, vector_class<vector_class<char>> ArgsStorage,
+               vector_class<detail::AccessorImplPtr> AccStorage,
+               vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+               vector_class<Requirement *> Requirements,
+               vector_class<detail::EventImplPtr> Events,
+               detail::code_location loc = {})
       : CG(UPDATE_HOST, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
-           std::move(Events)),
+           std::move(Events), std::move(loc)),
         MPtr((Requirement *)Ptr) {}
 
   Requirement *getReqToUpdate() { return MPtr; }
@@ -459,14 +563,15 @@ class CGCopyUSM : public CG {
 
 public:
   CGCopyUSM(void *Src, void *Dst, size_t Length,
-            std::vector<std::vector<char>> ArgsStorage,
-            std::vector<detail::AccessorImplPtr> AccStorage,
-            std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-            std::vector<Requirement *> Requirements,
-            std::vector<detail::EventImplPtr> Events)
+            vector_class<vector_class<char>> ArgsStorage,
+            vector_class<detail::AccessorImplPtr> AccStorage,
+            vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+            vector_class<Requirement *> Requirements,
+            vector_class<detail::EventImplPtr> Events,
+            detail::code_location loc = {})
       : CG(COPY_USM, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
-           std::move(Events)),
+           std::move(Events), std::move(loc)),
         MSrc(Src), MDst(Dst), MLength(Length) {}
 
   void *getSrc() { return MSrc; }
@@ -476,20 +581,21 @@ public:
 
 // The class which represents "fill" command group for USM pointers.
 class CGFillUSM : public CG {
-  std::vector<char> MPattern;
+  vector_class<char> MPattern;
   void *MDst;
   size_t MLength;
 
 public:
-  CGFillUSM(std::vector<char> Pattern, void *DstPtr, size_t Length,
-            std::vector<std::vector<char>> ArgsStorage,
-            std::vector<detail::AccessorImplPtr> AccStorage,
-            std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-            std::vector<Requirement *> Requirements,
-            std::vector<detail::EventImplPtr> Events)
+  CGFillUSM(vector_class<char> Pattern, void *DstPtr, size_t Length,
+            vector_class<vector_class<char>> ArgsStorage,
+            vector_class<detail::AccessorImplPtr> AccStorage,
+            vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+            vector_class<Requirement *> Requirements,
+            vector_class<detail::EventImplPtr> Events,
+            detail::code_location loc = {})
       : CG(FILL_USM, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
-           std::move(Events)),
+           std::move(Events), std::move(loc)),
         MPattern(std::move(Pattern)), MDst(DstPtr), MLength(Length) {}
   void *getDst() { return MDst; }
   size_t getLength() { return MLength; }
@@ -503,19 +609,37 @@ class CGPrefetchUSM : public CG {
 
 public:
   CGPrefetchUSM(void *DstPtr, size_t Length,
-                std::vector<std::vector<char>> ArgsStorage,
-                std::vector<detail::AccessorImplPtr> AccStorage,
-                std::vector<std::shared_ptr<const void>> SharedPtrStorage,
-                std::vector<Requirement *> Requirements,
-                std::vector<detail::EventImplPtr> Events)
+                vector_class<vector_class<char>> ArgsStorage,
+                vector_class<detail::AccessorImplPtr> AccStorage,
+                vector_class<shared_ptr_class<const void>> SharedPtrStorage,
+                vector_class<Requirement *> Requirements,
+                vector_class<detail::EventImplPtr> Events,
+                detail::code_location loc = {})
       : CG(PREFETCH_USM, std::move(ArgsStorage), std::move(AccStorage),
            std::move(SharedPtrStorage), std::move(Requirements),
-           std::move(Events)),
+           std::move(Events), std::move(loc)),
         MDst(DstPtr), MLength(Length) {}
   void *getDst() { return MDst; }
   size_t getLength() { return MLength; }
 };
 
+class CGInteropTask : public CG {
+public:
+  std::unique_ptr<InteropTask> MInteropTask;
+
+  CGInteropTask(std::unique_ptr<InteropTask> InteropTask,
+                std::vector<std::vector<char>> ArgsStorage,
+                std::vector<detail::AccessorImplPtr> AccStorage,
+                std::vector<std::shared_ptr<const void>> SharedPtrStorage,
+                std::vector<Requirement *> Requirements,
+                std::vector<detail::EventImplPtr> Events, CGTYPE Type,
+                detail::code_location loc = {})
+      : CG(Type, std::move(ArgsStorage), std::move(AccStorage),
+           std::move(SharedPtrStorage), std::move(Requirements),
+           std::move(Events), std::move(loc)),
+        MInteropTask(std::move(InteropTask)) {}
+};
+
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

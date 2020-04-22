@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,6 +20,7 @@
 #error SOAToAOSStruct.h include in an non-INTEL_INCLUDE_DTRANS build.
 #endif
 
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "SOAToAOSArrays.h"
 #include "SOAToAOSCommon.h"
 #include "SOAToAOSEffects.h"
@@ -2153,6 +2154,7 @@ public:
         if (!FCalled)
           return false;
         auto *StrType = getStructTypeOfMethod(*FCalled);
+        assert(StrType && "Expected class type for array method");
         assert(std::find(Arrays.begin(), Arrays.end(), StrType) !=
                    Arrays.end() &&
                "Unexpected instruction");
@@ -2421,7 +2423,9 @@ private:
     IRBuilder<> Builder(Context);
     // Insert at the end of BasicBlock.
     Builder.SetInsertPoint(NewAppend->getParent()->getTerminator());
-    Builder.CreateCall(NewAppend->getCalledValue(), NewArgs);
+    auto *NewF = NewAppend->getCalledFunction();
+    assert(NewF && "Expected direct call");
+    Builder.CreateCall(NewF->getFunctionType(), NewF, NewArgs);
 
     for (auto *CI : OldAppends) {
       auto *NewCI = cast<CallInst>((Value *)VMap[CI]);

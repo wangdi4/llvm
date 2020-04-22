@@ -112,11 +112,9 @@ bool DWARFVerifier::verifyUnitHeader(const DWARFDataExtractor DebugInfoData,
   bool ValidAbbrevOffset = true;
 
   uint64_t OffsetStart = *Offset;
-  Length = DebugInfoData.getU32(Offset);
-  if (Length == dwarf::DW_LENGTH_DWARF64) {
-    Length = DebugInfoData.getU64(Offset);
-    isUnitDWARF64 = true;
-  }
+  DwarfFormat Format;
+  std::tie(Length, Format) = DebugInfoData.getInitialLength(Offset);
+  isUnitDWARF64 = Format == DWARF64;
   Version = DebugInfoData.getU16(Offset);
 
   if (Version >= 5) {
@@ -193,6 +191,14 @@ unsigned DWARFVerifier::verifyUnitContents(DWARFUnit &Unit) {
     error() << "Compilation unit type (" << dwarf::UnitTypeString(UnitType)
             << ") and root DIE (" << dwarf::TagString(Die.getTag())
             << ") do not match.\n";
+    NumUnitErrors++;
+  }
+
+  //  According to DWARF Debugging Information Format Version 5,
+  //  3.1.2 Skeleton Compilation Unit Entries:
+  //  "A skeleton compilation unit has no children."
+  if (Die.getTag() == dwarf::DW_TAG_skeleton_unit && Die.hasChildren()) {
+    error() << "Skeleton compilation unit has children.\n";
     NumUnitErrors++;
   }
 
@@ -473,8 +479,7 @@ unsigned DWARFVerifier::verifyDebugInfoAttribute(const DWARFDie &Die,
       DWARFUnit *U = Die.getDwarfUnit();
       for (const auto &Entry : *Loc) {
         DataExtractor Data(toStringRef(Entry.Expr), DCtx.isLittleEndian(), 0);
-        DWARFExpression Expression(Data, U->getVersion(),
-                                   U->getAddressByteSize());
+        DWARFExpression Expression(Data, U->getAddressByteSize());
         bool Error = any_of(Expression, [](DWARFExpression::Operation &Op) {
           return Op.isError();
         });
@@ -634,7 +639,7 @@ unsigned DWARFVerifier::verifyDebugInfoReferences() {
   // getting the DIE by offset and emitting an error
   OS << "Verifying .debug_info references...\n";
   unsigned NumErrors = 0;
-  for (const std::pair<uint64_t, std::set<uint64_t>> &Pair :
+  for (const std::pair<const uint64_t, std::set<uint64_t>> &Pair :
        ReferenceToDIEOffsets) {
     if (DCtx.getDIEForOffset(Pair.first))
       continue;
@@ -1282,7 +1287,7 @@ static bool isVariableIndexable(const DWARFDie &Die, DWARFContext &DCtx) {
   for (const auto &Entry : *Loc) {
     DataExtractor Data(toStringRef(Entry.Expr), DCtx.isLittleEndian(),
                        U->getAddressByteSize());
-    DWARFExpression Expression(Data, U->getVersion(), U->getAddressByteSize());
+    DWARFExpression Expression(Data, U->getAddressByteSize());
     bool IsInteresting = any_of(Expression, [](DWARFExpression::Operation &Op) {
       return !Op.isError() && (Op.getCode() == DW_OP_addr ||
                                Op.getCode() == DW_OP_form_tls_address ||

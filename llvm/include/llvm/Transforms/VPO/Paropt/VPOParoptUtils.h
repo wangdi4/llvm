@@ -177,6 +177,12 @@ namespace intrinsics {
 class VPOParoptUtils {
 
 public:
+  typedef enum SrcLocMode {
+    SRC_LOC_NONE = 0,
+    SRC_LOC_FUNC = 1,
+    SRC_LOC_FILE = 2,
+    SRC_LOC_PATH = 3
+  } SrcLocMode;
   /// \name Utilities for getting/creating named StructTypes.
   /// @{
 
@@ -268,6 +274,11 @@ public:
   static GlobalVariable *genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
                                                 StructType *IdentTy, int Flags,
                                                 BasicBlock *BS, BasicBlock *BE);
+
+  /// Generate source location String from debug location \p Loc1 and \p Loc2.
+  static GlobalVariable *genLocStrfromDebugLoc(Function *F, DILocation *Loc1,
+                                               DILocation *Loc2,
+                                               SrcLocMode Mode);
 
   /// \p Arg is a Value from a clause.  It is either a Constant or
   /// a Value of pointer type.  If it is a pointer Value, the method
@@ -762,6 +773,8 @@ public:
 
   /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
   /// @{
+  static void genConstructorCall(Function *Ctor, Value *V,
+                                 IRBuilder<> &Builder);
   static CallInst *genConstructorCall(Function *Ctor, Value *V,
                                       Value *PrivAlloca);
   static CallInst *genDestructorCall(Function *Dtor, Value *V,
@@ -787,15 +800,34 @@ public:
   /// then the generated Value will be immediately addrspacecast'ed
   /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
   /// expression will be returned as a result.
-  static Value *genPrivatizationAlloca(
-      Type *ElementType, Value *NumElements,
-      Instruction *InsertPt, const Twine &VarName = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
+  static Value *
+  genPrivatizationAlloca(Type *ElementType, Value *NumElements,
+                         MaybeAlign OrigAlignment, Instruction *InsertPt,
+                         bool IsTargetSPIRV, const Twine &VarName = "",
+                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+                         llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
+
+  /// Return true if address spaces \p AS1 and \p AS2 are compatible
+  /// for the current compilation target. Address spaces are compatible,
+  /// if it is legal to addrspacecast from one address space to another
+  /// and vice versa.
+  static bool areCompatibleAddrSpaces(unsigned AS1, unsigned AS2,
+                                      bool IsTargetSPIRV);
 
 #if INTEL_CUSTOMIZATION
   /// \name Utilities specific to Fortran dope vectors.
   /// @{
+
+  /// Emit and return a call to `data_size =_f90_dope_vector_size(DV)`, which
+  /// returns the size of the array (in bytes) described by the dope vector.
+  static CallInst *genF90DVSizeCall(Value *DV, Instruction *InsertBefore);
+
+  /// Emit and return a call to `data_size = _f90_dope_vector_init(OrigDV,
+  /// NewDV)`, which initializes NewDV using OrigDV, and returns the size of the
+  /// array (in bytes) described by the dope vectors.
+  static CallInst *genF90DVInitCall(Value *OrigDV, Value *NewDV,
+                                    Instruction *InsertBefore,
+                                    bool IsTargetSPIRV = false);
 
   /// Emit code to initialize the local copy of \p I, where \p I is an F90 dope
   /// vector. The code looks like: \code
@@ -805,22 +837,35 @@ public:
   ///   %num_elements = udiv %size, <element_size> ; Only for reduction items
   /// \endcode
   /// The emitted code is inserted after the alloca NewV, which is the local
-  /// dope vector corresponding to \p I, and OrigV is the original.
-  static void genF90DVInitCode(Item *I);
+  /// dope vector corresponding to \p I, and OrigV is the original. If NewV is
+  /// a global variable, then the code is inserted before \p InsertPt.
+  static void genF90DVInitCode(Item *I, Instruction *InsertPt,
+                               bool IsTargetSPIRV = false);
+
+  /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
+  /// privates thunk. This is done after the `__kmpc_task_alloc` call, but
+  /// before `__kmpc_taskloop` or `__kmpc_omp_task`.
+  static void
+  genF90DVInitForItemsInTaskPrivatesThunk(WRegionNode *W, Value *KmpPrivatesGEP,
+                                          StructType *KmpPrivatesTy,
+                                          Instruction *InsertBefore);
 
   /// Emit a call to `_f90_firstprivate_copy(NewV, OrigV)`. The
   /// call is inserted before \p InsertBefore.
   static void genF90DVFirstprivateCopyCall(Value *NewV, Value *OrigV,
-                                           Instruction *InsertBefore);
+                                           Instruction *InsertBefore,
+                                           bool IsTargetSPIRV = false);
+
   /// Emit a call to `_f90_lastprivate_copy(NewV, OrigV)`. The
   /// call is inserted before \p InsertBefore.
   static void genF90DVLastprivateCopyCall(Value *NewV, Value *OrigV,
-                                          Instruction *InsertBefore);
+                                          Instruction *InsertBefore,
+                                          bool IsTargetSPIRV = false);
 
 private:
-  static void genF90DVFirstOrLastprivateCopyCallImpl(StringRef FnName,
-                                                     Value *NewV, Value *OrigV,
-                                                     Instruction *InsertBefore);
+  static void genF90DVFirstOrLastprivateCopyCallImpl(
+      StringRef FnName, Value *NewV, Value *OrigV, Instruction *InsertBefore,
+      bool IsTargetSPIRV = false);
 
 public:
   /// Compute the destination address, number of elements and element type for
@@ -829,31 +874,34 @@ public:
   /// \p InsertBefore.
   /// \code
   ///   %newv.addr0 = getelementpointer (NewV, 0, 0)
-  ///   %dest.arr.begin = load <element_ty>* %addr0
+  ///   %dest.arr.begin = load <element_ty>* %newv.addr0
   /// \endcode
   /// Where NewV is the local dope vector for I.
-  static void genF90DVRedutionInitDstInfo(const Item *I,
-                                          Value *&DestArrayBeginOut,
-                                          Type *&DestElementTyOut,
-                                          Value *&NumElementsOut,
-                                          Instruction *InsertBefore);
+  static void genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
+                                           Value *&DestArrayBeginOut,
+                                           Type *&DestElementTyOut,
+                                           Value *&NumElementsOut,
+                                           Instruction *InsertBefore);
+
   /// Compute the destination address, number of elements and element type for
   /// reduction finalization loop for Fortran dope vectors. The function emits
   /// code to get the data array for the dope vector, which is inserted before
   /// \p InsertBefore.
   /// \code
-  ///   %newv.addr0 = getelementpointer (NewV, 0, 0)
-  ///   %src.arr.begin = load <element_ty>* %newv.addr0
-  ///   %origv.addr0 = getelementpointer (OrigV, 0, 0)
-  ///   %src.arr.begin = load <element_ty>* %origv.addr0
+  ///   %srcv.addr0 = getelementpointer (SrcVal, 0, 0)
+  ///   %src.arr.begin = load <element_ty>* %srcv.addr0
+  ///   %destv.addr0 = getelementpointer (DestVal, 0, 0)
+  ///   %dest.arr.begin = load <element_ty>* %destv.addr0
   /// \endcode
-  /// Where NewV is the local dope vector for I, and OrigV is the original.
-  static void genF90DVRedutionFiniSrcDstInfo(const Item *I,
-                                             Value *&SrcArrayBeginOut,
-                                             Value *&DestArrayBeginOut,
-                                             Type *&DestElementTyOut,
-                                             Value *&NumElementsOut,
-                                             Instruction *InsertBefore);
+  /// Where SrcVal is the source dope vector (For reduction initialization, it's
+  /// the original dope vector; for reduction fini, it's local dope vector).
+  /// Where DestVal is the destination dope vector (For reduction
+  /// initialization, it's the local dope vector; for reduction fini, it's
+  /// original dope vector).
+  static void genF90DVReductionSrcDstInfo(
+      const Item *I, Value *&SrcVal, Value *&DestVal, Value *&SrcArrayBeginOut,
+      Value *&DestArrayBeginOut, Type *&DestElementTyOut,
+      Value *&NumElementsOut, Instruction *InsertBefore);
   /// @}
 
 #endif // INTEL_CUSTOMIZATION
@@ -926,6 +974,14 @@ public:
                    Value *KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
                    PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
                    Instruction *InsertPt, bool UseTbb);
+
+  /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
+  /// for the TARGET VARIANT DISPATCH NOWAIT construct corresponding to \p W
+  static CallInst *genKmpcTaskAllocForAsyncObj(WRegionNode *W,
+                                               StructType *IdentTy,
+                                               int AsyncObjTySize,
+                                               int UseDevicePtrsTySize,
+                                               Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_taskloop`. Example:
   /// \code
@@ -1133,6 +1189,11 @@ public:
                               Value *NumTeamsPtr = nullptr,
                               Value *ThreadLimitPtr = nullptr);
 
+  /// Generate tgt_push_code_location call which pushes source code location
+  /// and the pointer to the tgt_target*() function.
+  static CallInst *genTgtPushCodeLocation(Instruction *Location,
+                                          CallInst *TgtTargetCall);
+
   /// Generate a call to `tgt_unregister_lib`. Example:
   /// \code
   ///   i32 __tgt_unregister_lib(__tgt_bin_desc *desc)
@@ -1179,6 +1240,23 @@ public:
   /// \endcode
   static CallInst *genTgtReleaseBuffer(Value *DeviceNum, Value *TgtBuffer,
                                        Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///    void *__tgt_create_interop_obj(int64_t device_id,
+  ///                                   bool    is_async,
+  ///                                   void   *async_obj)
+  /// \endcode
+  static CallInst *genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
+                                          Value *AsyncObj,
+                                          Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///    int __tgt_release_interop_obj(void *interop_obj)
+  /// \endcode
+  static CallInst *genTgtReleaseInteropObj(Value *InteropObj,
+                                           Instruction *InsertPt);
 
   /// Generate a call to
   /// \code
@@ -1253,6 +1331,10 @@ public:
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
+  /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
+  /// do nothing.
+  static void setFuncCallingConv(CallInst *CI, bool IsTargetSPIRV);
+
   /// \name Helper methods for generating calls.
   /// @{
 
@@ -1319,7 +1401,7 @@ public:
   /// is a host pointer (listed in the use_device_ptr clause) with its
   /// corresponding target buffer.
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
-                                  Instruction *InsertPt,
+                                  Value *InteropObj, Instruction *InsertPt,
                                   WRegionNode *W = nullptr,
                                   bool IsTail = false);
 
@@ -1344,6 +1426,14 @@ public:
       ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
       spirv::Scope Scope);
 
+  /// Returns true, if the prerequisites for using ND-range driven
+  /// parallelization for the given loop-kind \p W region are met.
+  /// This includes checking user options and the properties
+  /// of the region itself. There are more requirements for the
+  /// IR that need to be satisfied to make ND-range parallelization
+  /// possible (see useSPMDMode() below).
+  static bool mayUseSPMDMode(WRegionNode *W);
+
   /// Returns true, if work partitioning for the loop-kind \p W region
   /// should rely on ND-range driven parallelization. This implies
   /// that for the given \p W region there is an enclosing "omp target"
@@ -1354,9 +1444,30 @@ public:
   /// Returns execution scheme for loop-kind regions on SPIR targets.
   static spirv::ExecutionSchemeTy getSPIRExecutionScheme();
 
+  /// Returns true, if it is allowed to execute "omp target parallel for"
+  /// with multiple teams/WGs. According to OpenMP specification only
+  /// one team/WG is allowed, which corresponds to false return value.
+  static bool getSPIRImplicitMultipleTeams();
+
   /// Returns true, if the given instruction \p I represents a call
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
+
+  /// Returns the Instruction which can be used as an insertion point for
+  /// any alloca which needs to be inserted before the entry directive of \p W.
+  /// If \p OutsideRegion is true, then the utility looks at parent
+  /// WRegions of \p W, and if it finds any that would be outlined,
+  /// then it returns the first non-PHI of its first basic
+  /// block. If no such parent is found, then the first non-PHI of the
+  /// function \p F is returned.
+  /// If \p OutsideRegion is false, and \p W will not be outlined, then
+  /// the behavior is the same as with \p OutsideRegion equal to true.
+  /// If \p OutsideRegion is false, and \p W will be outlined, then
+  /// the utility returns \p W region's entry directive making sure
+  /// that the inserted alloca will be outlined along with the region.
+  static Instruction *getInsertionPtForAllocas(WRegionNode *W,
+                                               Function *F,
+                                               bool OutsideRegion = true);
 
   /// Find the first directive that supports the private clause, that dominates
   /// \p PosInst. Add a private clause for \p I into that directive.
@@ -1365,6 +1476,12 @@ public:
   /// is already used in a llvm.directive.region.entry (checked by assertion).
   static bool addPrivateToEnclosingRegion(Instruction *I, Instruction *PosInst,
                                           DominatorTree &DT);
+
+#ifndef NDEBUG
+  /// Run some Paropt related verifications to make sure IR after FE
+  /// will not cause problems deep in Paropt.
+  static void verifyFunctionForParopt(const Function &F, bool IsTargetSPIRV);
+#endif  // NDEBUG
   /// @}
 
 private:

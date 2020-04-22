@@ -37,7 +37,6 @@ class LoopInfo;
 namespace vpo {
 
 class VPValue;
-class VPLoopRegion;
 class VPlan;
 class IntelVPlanUtils;
 class VPLoop;
@@ -46,19 +45,17 @@ class VPValue;
 class VPConstant;
 class VPInstruction;
 class VPPHINode;
-class VPBlockBase;
 class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
 
-extern bool LoopEntityImportEnabled;
-extern bool VPlanUseVPEntityInstructions;
+extern bool EnableSOAAnalysis;
 extern bool VPlanDisplaySOAAnalysisInformation;
 
 /// Base class for loop entities
 class VPLoopEntity {
 public:
-  using LinkedVPValuesTy = SmallSet<VPValue *, 4>;
+  using LinkedVPValuesTy = SetVector<VPValue *>;
 
   enum { Reduction, IndexReduction, Induction, Private };
   unsigned char getID() const { return SubclassID; }
@@ -455,7 +452,7 @@ public:
   void insertVPInstructions(VPBuilder &Builder);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS, const VPBlockBase *LoopHeader = nullptr) const;
+  void dump(raw_ostream &OS, const VPBasicBlock *LoopHeader = nullptr) const;
   void dump() const { dump(errs()); }
 #endif
   const VPLoop &getLoop() const { return Loop; }
@@ -512,6 +509,9 @@ public:
 
     // The running worklist of all the instructions which we want to track.
     WorkList WL;
+
+    // Set to avoid repeat-processing in case of cyclic Use-Def chains.
+    DenseSet<const VPInstruction *> AnalyzedInsts;
 
     // The list of potentially unsafe instructions. The users of these
     // instructions have to be analyzed for any unsafe behavior.
@@ -798,6 +798,7 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
+  void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
   /// Clear the content.
   void clear() override {
@@ -837,6 +838,10 @@ private:
   /// by analyzing its UpdateVPInsts in light of loop LiveOut analysis. It
   /// returns nullptr for InMemory reduction.
   VPInstruction *getLoopExitVPInstr(const VPLoop *Loop);
+  /// Utility to invalidate underlying IR for all VPInstructions involved in
+  /// current reduction. Currently we invalidate instructions in StartPhi, Exit
+  /// and LinkedVPVals.
+  void invalidateReductionInstructions();
 
   VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
   VPValue *Start = nullptr;

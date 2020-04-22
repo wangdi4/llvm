@@ -1,6 +1,6 @@
 //====-- Intel_FeatureInitCall.cpp ----------------====
 //
-//      Copyright (c) 2019 Intel Corporation.
+//      Copyright (c) 2019-2020 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -38,6 +38,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
@@ -121,7 +122,7 @@ public:
   }
 
   // Enable Flush To Zero and Denormals Are Zero flags in MXCSR, will generate
-  // the following instruction in main route:
+  // the following instruction in main routine:
   //     %tmp = alloca i32, align 4
   //     %0 = bitcast i32* %tmp to i8*
   //     call void @llvm.lifetime.start.p0i8(i64 4, i8* %0)
@@ -160,7 +161,7 @@ public:
     IRB.CreateCall(FI, Ptr8);
 
     // %stmxcsr = load i32, i32* %tmp, align 4
-    LoadInst *LI = IRB.CreateAlignedLoad(AI, 4, "stmxcsr");
+    LoadInst *LI = IRB.CreateAlignedLoad(AI, Align(4), "stmxcsr");
 
     // %or = or i32 %stmxcsr, 32832
     ConstantInt *CInt = IRB.getInt32(0x8040);
@@ -175,6 +176,57 @@ public:
     IRB.CreateCall(FI, Ptr8);
 
     // call void @llvm.lifetime.end.p0i8(i64 4, i8* %0)
+    IRB.CreateLifetimeEnd(Ptr8, AllocaSize);
+
+    return true;
+  }
+
+  // This function initializes X87's PC bits in FPCW, it will generate the
+  // following instruction in main routine:
+  //   %1 = alloca i16, align 2
+  //   store i16 Imm, i16* %1, align 2
+  //   call void asm sideeffect "fldcw ${0:w}",
+  //                            "*m,~{dirflag},~{fpsr},~{flags}"(i16* %1)
+  bool setX87Precision(Function &F, int X87Precision) {
+    if (!TM->getSubtarget<X86Subtarget>(F).hasX87())
+      return false;
+
+    short Imm = 0;
+    switch (X87Precision) {
+    default: llvm_unreachable("Bad X87 precision value");
+    case 32: Imm = 0x107f; break; // PC = 00 (SP)
+    case 64: Imm = 0x127f; break; // PC = 10 (DP)
+    case 80: Imm = 0x137f; break; // PC = 11 (DEP)
+    }
+
+    auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
+    const DataLayout &DL = FirstNonAlloca->getModule()->getDataLayout();
+    IRBuilder<> IRB(FirstNonAlloca);
+
+    // %1 = alloca i16, align 2
+    IntegerType *I16Ty = IRB.getInt16Ty();
+    AllocaInst *AI = IRB.CreateAlloca(I16Ty);
+    AI->setAlignment(MaybeAlign(DL.getPrefTypeAlignment(I16Ty)));
+
+    // %2 = bitcast i16* %1 to i8*
+    PointerType *Int8PtrTy = IRB.getInt8PtrTy();
+    Value *Ptr8 = IRB.CreateBitCast(AI, Int8PtrTy);
+
+    // call void @llvm.lifetime.start.p0i8(i64 2, i8* %2)
+    ConstantInt *AllocaSize = IRB.getInt64(DL.getTypeStoreSize(I16Ty));
+    IRB.CreateLifetimeStart(Ptr8, AllocaSize);
+
+    // store i16 Imm, i16* %1, align 2
+    ConstantInt *CInt = IRB.getInt16(Imm);
+    IRB.CreateStore(CInt, AI);
+
+    // call void asm sideeffect ...
+    InlineAsm *Asm = InlineAsm::get(
+        FunctionType::get(IRB.getVoidTy(), {Ptr8->getType()}, false),
+        "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}", true);
+    IRB.CreateCall(Asm, Ptr8);
+
+    // call void @llvm.lifetime.end.p0i8(i64 2, i8* %2)
     IRB.CreateLifetimeEnd(Ptr8, AllocaSize);
 
     return true;
@@ -203,7 +255,7 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
-    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x11 : 0x0;
+    uint32_t FtzDaz = TM->Options.IntelFtzDaz ? 0x3 : 0x0;
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), FtzDaz),
         ConstantInt::get(IRB.getInt64Ty(), CpuBitMap[0]),
@@ -234,6 +286,21 @@ public:
     if (isMainFunction(F) == false)
       return false;
 
+    // The following code works for CMPLRLLVM-9854.
+    // ICC supports options -pc80/-pc64/-pc32, which sets x87 FPU to
+    // 64/53/24-bit precision (FP80/FP64/FP32).
+    // We add the same support in Xmain.
+    bool X87PrecisionInit = false;
+    int X87Precision = TM->Options.X87Precision;
+
+    if (X87Precision == 0)
+      F.getFnAttribute("x87-precision")
+          .getValueAsString()
+          .getAsInteger(10, X87Precision);
+
+    if (X87Precision)
+      X87PrecisionInit = setX87Precision(F, X87Precision);
+
     bool ProcInit = insertProcInitCall(F);
     bool FTZ = false;
 
@@ -242,7 +309,7 @@ public:
     if (TM->Options.IntelFtzDaz && !ProcInit)
       FTZ = writeMXCSRFTZBits(F);
 
-    return ProcInit || FTZ;
+    return ProcInit || FTZ || X87PrecisionInit;
   }
 };
 

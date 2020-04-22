@@ -20,9 +20,9 @@ define void @init() {
 ; CHECK:  [[ALLOC_SAFE:%dyn.safe[0-9]*]] = alloca i8
 ; CHECK:  store i8 0, i8* [[ALLOC_SAFE]]
 ; CHECK:   [[ALLOC_MAX:%d.max[0-9]*]] = alloca i64
-; CHECK-NEXT:  store i64 -16384, i64* [[ALLOC_MAX]]
+; CHECK-NEXT:  store i64 0, i64* [[ALLOC_MAX]]
 ; CHECK-NEXT:  [[ALLOC_MIN:%d.min[0-9]*]] = alloca i64
-; CHECK-NEXT:  store i64 16383, i64* [[ALLOC_MIN]]
+; CHECK-NEXT:  store i64 16373, i64* [[ALLOC_MIN]]
 
 ; CHECK: store i8 1, i8* [[ALLOC_SAFE]]
   %call1 = tail call noalias i8* @calloc(i64 10, i64 48)
@@ -70,9 +70,9 @@ define void @init() {
 ;
 ; CHECK-LABEL: store i64 %g2, i64* %F6, align 8
 ; CHECK:  [[MIN_LD_3:%d.ld[0-9]*]] = load i64, i64* [[ALLOC_MIN]]
-; CHECK-NEXT:  [[MIN_CMP_3:%d.cmp[0-9]*]] = icmp slt i64 [[MIN_LD_3]], -16384
+; CHECK-NEXT:  [[MIN_CMP_3:%d.cmp[0-9]*]] = icmp slt i64 [[MIN_LD_3]], 0
 ; CHECK-NEXT:  [[MAX_LD_3:%d.ld[0-9]*]] = load i64, i64* [[ALLOC_MAX]]
-; CHECK-NEXT:  [[MAX_CMP_3:%d.cmp[0-9]*]] = icmp sgt i64 [[MAX_LD_3]], 16383
+; CHECK-NEXT:  [[MAX_CMP_3:%d.cmp[0-9]*]] = icmp sgt i64 [[MAX_LD_3]], 16373
 ; CHECK-NEXT:  [[OR_1:%d.or[0-9]*]] = or i1 [[MIN_CMP_3]], [[MAX_CMP_3]]
 ; CHECK-NEXT:  [[MAX_LD_4:%d.ld[0-9]*]] = load i8, i8* [[ALLOC_SAFE]]
 ; CHECK-NEXT:  [[MAX_CMP_4:%d.cmp[0-9]*]] = icmp eq i8 [[MAX_LD_4]], 0

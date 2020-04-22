@@ -2,30 +2,30 @@
 ; Test to check VPValue-based LLVM-IR codegen for scalar and aggregate loop privates in the candidate
 ; SIMD loop.
 
-; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=4 -S < %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[PRIVATE_MEM:%.*]] = alloca [4 x [1024 x i32]], align 4
-; CHECK-NEXT:    [[PRIVATE_MEM_BC:%.*]] = bitcast [4 x [1024 x i32]]* [[PRIVATE_MEM]] to [1024 x i32]*
-; CHECK-NEXT:    [[PRIVATE_MEM_BASE_ADDR:%.*]] = getelementptr [1024 x i32], [1024 x i32]* [[PRIVATE_MEM_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[PRIVATE_MEM1:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[PRIVATE_MEM1_BC:%.*]] = bitcast <4 x i32>* [[PRIVATE_MEM1]] to i32*
-; CHECK-NEXT:    [[PRIVATE_MEM1_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIVATE_MEM1_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[PRIVATE_MEM1_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[PRIVATE_MEM1_BASE_ADDR]], i32 0
+; CHECK:         [[SCALAR_PRIV_VEC:%.*]] = alloca <4 x i32>, align 16
+; CHECK-NEXT:    [[SCALAR_PRIV_VEC_BC:%.*]] = bitcast <4 x i32>* [[SCALAR_PRIV_VEC]] to i32*
+; CHECK-NEXT:    [[SCALAR_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[SCALAR_PRIV_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[SCALAR_PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[SCALAR_PRIV_VEC_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[ARR_PRIV_VEC:%.*]] = alloca [4 x [1024 x i32]], align 4
+; CHECK-NEXT:    [[ARR_PRIV_VEC_BC:%.*]] = bitcast [4 x [1024 x i32]]* [[ARR_PRIV_VEC]] to [1024 x i32]*
+; CHECK-NEXT:    [[ARR_PRIV_VEC_BASE_ADDR:%.*]] = getelementptr [1024 x i32], [1024 x i32]* [[ARR_PRIV_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 
 ; CHECK:       vector.body:
-; CHECK:         [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[PRIVATE_MEM1]], align 4
+; CHECK:         [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[SCALAR_PRIV_VEC]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = add <4 x i32> [[WIDE_LOAD]], <i32 42, i32 42, i32 42, i32 42>
-; CHECK-NEXT:    store <4 x i32> [[TMP0:%.*]], <4 x i32>* [[PRIVATE_MEM1]], align 4
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> [[PRIVATE_MEM_BASE_ADDR]], <4 x i64> zeroinitializer, <4 x i64> [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER2:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
-; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i32> [[WIDE_MASKED_GATHER2]], <i32 42, i32 42, i32 42, i32 42>
+; CHECK-NEXT:    store <4 x i32> [[TMP0]], <4 x i32>* [[SCALAR_PRIV_VEC]], align 4
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> [[ARR_PRIV_VEC_BASE_ADDR]], <4 x i64> zeroinitializer, <4 x i64> [[VEC_PHI:%.*]]
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
+; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i32> [[WIDE_MASKED_GATHER]], <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[TMP1]], <4 x i32*> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[PRIVATE_MEM1_BASE_ADDR_EXTRACT_0_]], i64 0
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SCALAR_PRIV_VEC_BASE_ADDR_EXTRACT_0_]], i64 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD2:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[WIDE_LOAD2]], <i32 42, i32 42, i32 42, i32 42>
+; CHECK-NEXT:    [[WIDE_LOAD1:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[WIDE_LOAD1]], <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> [[TMP3]], <4 x i32>* [[TMP4]], align 4
 
@@ -35,7 +35,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture readonly %iarr) {
-;
 entry:
   %scalar.priv = alloca i32, align 4
   %arr.priv = alloca [1024 x i32], align 4

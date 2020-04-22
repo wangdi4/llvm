@@ -304,7 +304,6 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setIf(nullptr);
   setDevice(nullptr);
   setNowait(false);
-  setDefaultmapTofromScalar(false);
   setParLoopNdInfoAlloca(nullptr);
   setOffloadEntryIdx(-1);
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
@@ -412,6 +411,7 @@ void WRNTargetUpdateNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 WRNTargetVariantNode::WRNTargetVariantNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTargetVariant, BB) {
   setDevice(nullptr);
+  setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetVariantNode<" << getNumber()
                     << ">\n");
@@ -422,6 +422,7 @@ void WRNTargetVariantNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                       unsigned Verbosity) const {
   unsigned Indent = 2 * Depth;
   vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
+  vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
 }
 
 //
@@ -741,7 +742,8 @@ WRNMasterNode::WRNMasterNode(BasicBlock *BB)
 WRNOrderedNode::WRNOrderedNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNOrdered, BB) {
   setIsDoacross(false);
-  setIsThreads(true);
+  setIsThreads(false);
+  setIsSIMD(false);
   LLVM_DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
 }
 
@@ -854,10 +856,10 @@ WRNGenericLoopNode::WRNGenericLoopNode(BasicBlock *BB, LoopInfo *Li)
 //   BIND=thread    ==> change to DIR_OMP_SIMD
 //
 // If BIND is absent, then we should look at the immediate parent WRN:
-//   Parent=null       ==> assert; BIND clause must be present
-//   Parent=Parallel   ==> DIR_OMP_LOOP
-//   Parent=Teams      ==> DIR_OMP_DISTRIBUTE_PARLOOP
-//   Parent=Distribute ==> DIR_OMP_PARALLEL_LOOP
+//   Parent=nullptr            ==> assert; BIND clause must be present
+//   Parent=Parallel           ==> DIR_OMP_LOOP
+//   Parent=Teams              ==> DIR_OMP_DISTRIBUTE_PARLOOP
+//   Parent=Distribute||Target ==> DIR_OMP_PARALLEL_LOOP
 //   Parent=WksLoop||ParallelLoop||DistributeParLoop||Taskloop ==> DIR_OMP_SIMD
 //   Parent=anything else  ==> DIR_OMP_SIMD
 //
@@ -891,7 +893,8 @@ bool WRNGenericLoopNode::mapLoopScheme() {
       } else if (Parent->getWRegionKindID() == WRegionNode::WRNTeams) {
         MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
         Mapped = true;
-      } else if (Parent->getWRegionKindID() == WRegionNode::WRNDistribute) {
+      } else if (Parent->getWRegionKindID() == WRegionNode::WRNDistribute ||
+                 Parent->getWRegionKindID() == WRegionNode::WRNTarget) {
         MappedDir = DIR_OMP_PARALLEL_LOOP;
         Mapped = true;
       } else {
@@ -995,11 +998,35 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
   if (!isa<WRNTargetDataNode>(W))
     vpo::printBool("NOWAIT", W->getNowait(), OS, Indent, Verbosity);
 
-  // Only WRNTarget can have the defaultmap(tofrom:scalar) clause
+  // Only WRNTarget can have the defaultmap(<behavior> [:<category]) clause
   if (isa<WRNTargetNode>(W)) {
-    StringRef Str = W->getDefaultmapTofromScalar() ?
-                    "TOFROM:SCALAR" : "UNSPECIFIED";
-    vpo::printStr("DEFAULTMAP", Str, OS, Indent, Verbosity);
+    bool Printed = false;
+    auto printDefaultmapBehaviorForCategory =
+        [&Printed, &W, &OS, &Indent](WRNDefaultmapCategory Category) {
+          WRNDefaultmapBehavior Behavior = W->getDefaultmap(Category);
+          if (Behavior != WRNDefaultmapAbsent) {
+            StringRef BehaviorName = WRNDefaultmapBehaviorName[Behavior];
+            StringRef CategoryName = WRNDefaultmapCategoryName[Category];
+            OS.indent(Indent) << "DEFAULTMAP: " << BehaviorName << " : "
+                              << CategoryName << "\n";
+            Printed = true;
+          }
+        };
+
+    printDefaultmapBehaviorForCategory(WRNDefaultmapAggregate);
+#if INTEL_CUSTOMIZATION
+    printDefaultmapBehaviorForCategory(WRNDefaultmapAllocatable);
+#endif // INTEL_CUSTOMIZATION
+    printDefaultmapBehaviorForCategory(WRNDefaultmapPointer);
+    printDefaultmapBehaviorForCategory(WRNDefaultmapScalar);
+
+    if (!Printed) {
+      // if there's no defaulmap with category specified,
+      // then handle defaultmap without category, which applies to all vars.
+      WRNDefaultmapBehavior Behavior = W->getDefaultmap(WRNDefaultmapAllVars);
+      StringRef BehaviorName = WRNDefaultmapBehaviorName[Behavior];
+      vpo::printStr("DEFAULTMAP", BehaviorName, OS, Indent, Verbosity);
+    }
 
     int EntryIdx = W->getOffloadEntryIdx();
     vpo::printInt("OFFLOAD_ENTRY_IDX", EntryIdx, OS, Indent, Verbosity, 0);

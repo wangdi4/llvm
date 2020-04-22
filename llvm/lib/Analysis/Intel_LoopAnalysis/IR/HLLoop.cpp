@@ -1,6 +1,6 @@
 //===-------- HLLoop.cpp - Implements the HLLoop class --------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -57,7 +57,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false),
+      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -80,7 +81,8 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
       NestingLevel(0), IsInnermost(true), IsNSW(false),
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
-      HasDistributePoint(false), IsUndoSinkingCandidate(false) {
+      HasDistributePoint(false), IsUndoSinkingCandidate(false),
+      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   initialize();
   setNumExits(NumEx);
 
@@ -108,7 +110,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       MaxTCIsUsefulForDD(HLLoopObj.MaxTCIsUsefulForDD),
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
       HasDistributePoint(HLLoopObj.HasDistributePoint),
-      IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate) {
+      IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate),
+      ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
+      ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor) {
 
   initialize();
 
@@ -143,6 +147,8 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
   IsUndoSinkingCandidate = Lp.IsUndoSinkingCandidate;
+  ForcedVectorWidth = Lp.ForcedVectorWidth;
+  ForcedVectorUnrollFactor = Lp.ForcedVectorUnrollFactor;
 
   // LiveInSet/LiveOutSet do not need to be moved as they depend on the lexical
   // order of HLLoops which remains the same as before.
@@ -285,6 +291,32 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
   } else {
     OS << " No";
   }
+
+  if (BlockingInfo) {
+    OS << "\n";
+    indent(OS, Depth);
+
+    OS << "+ Blocking levels and factors:";
+    for (auto &LevelFactorPair : BlockingInfo->LevelsAndFactors) {
+      OS << "(" << LevelFactorPair.first << ",";
+      LevelFactorPair.second->print(OS, false);
+      OS << ") ";
+    }
+
+    OS << "\n";
+    indent(OS, Depth);
+    OS << "+ Blocking privates:";
+
+    First = true;
+    for (auto *Private : BlockingInfo->Privates) {
+      if (!First) {
+        OS << ", ";
+      }
+      Private->print(OS, false);
+      First = false;
+    }
+  }
+
   OS << "\n";
 #endif // INTEL_PRODUCT_RELEASE
 }
@@ -423,7 +455,21 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   if (getMVTag()) {
-    OS << "  <MVTag: " << getMVTag() << ">";
+    OS << "  <MVTag: " << getMVTag();
+
+    auto &Delinearized = getMVDelinearizableBlobIndices();
+    if (!Delinearized.empty()) {
+      auto &BU = getBlobUtils();
+
+      OS << ", Delinearized: ";
+      for (auto I = Delinearized.begin(), E = Delinearized.end(); I != E; ++I) {
+        BU.printBlob(OS, BU.getBlob(*I));
+        if (I + 1 != E) {
+          OS << ", ";
+        }
+      }
+    }
+    OS << ">";
   }
 
   printDistributePoint(OS);
@@ -1030,7 +1076,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
   return ParentLp->getNestingLevel();
 }
 
-void HLLoop::replaceByFirstIteration() {
+void HLLoop::replaceByFirstIteration(bool ExtractPostexit) {
   unsigned Level = getNestingLevel();
   const RegDDRef *LB = getLowerDDRef();
 
@@ -1038,7 +1084,10 @@ void HLLoop::replaceByFirstIteration() {
   SmallPtrSet<HLLoop *, 8> InnerLoops;
 
   extractZtt(Level - 1);
-  extractPreheaderAndPostexit();
+  extractPreheader();
+  if (ExtractPostexit) {
+    extractPostexit();
+  }
 
   ForEach<RegDDRef>::visitRange(
       child_begin(), child_end(),
@@ -1161,7 +1210,7 @@ bool HLLoop::isTriangularLoop() const {
   for (auto I = ztt_ddref_begin(), E1 = ztt_ddref_end(); I != E1; ++I) {
     const RegDDRef *RRef = *I;
 
-    assert(RRef->isTerminalRef() && "non-terminal ref not expected in ztt!");
+    assert(!RRef->isMemRef() && "non-terminal ref not expected in ztt!");
 
     if (RRef->getSingleCanonExpr()->hasIV()) {
       return true;
@@ -1666,9 +1715,73 @@ void HLLoop::shiftLoopBodyRegDDRefs(int64_t Amount) {
       });
 }
 
+bool HLLoop::canPeelFirstIteration() const {
+  if (!isUnknown()) {
+    return true;
+  }
+
+  // Handle any bottom test where the operands are linear at level.
+  // For example-
+  //
+  // + UNKNOWN LOOP i1
+  // | L:
+  // | <i1 = 0>
+  // |
+  // | if (i1 < A[0]) {
+  // |   < i1 = i1 + 1>
+  // |   goto L;
+  // | }
+  //
+  // In general, any bottom test which can be modified to act as the ZTT
+  // condition for rest of the loop iterations after peeling can be handled.
+  //
+  // After peeling the loops will look like this-
+  //
+  // + UNKNOWN LOOP i1        // Peel loop
+  // | L.peel:
+  // | <i1 = 0>
+  // |
+  // | if (undef false undef) {   // 'false' bottom test to force loop exit.
+  // |   < i1 = i1 + 1>
+  // |   goto L.peel;
+  // | }
+  //
+  // if (0 < A[0]) {          // ZTT formed by replacing IV by 0 in bottom test.
+  //   + UNKNOWN LOOP i1      // Modified main loop
+  //   | L:
+  //   | <i1 = 0>
+  //   |
+  //   | if (i1 + 1 < A[0]) {     // Shifted IV by 1.
+  //   |   < i1 = i1 + 1>
+  //   |   goto L;
+  //   | }
+  // }
+
+  auto *BottomTest = getBottomTest();
+
+  unsigned Level = getNestingLevel();
+
+  for (auto *Ref :
+       make_range(BottomTest->ddref_begin(), BottomTest->ddref_end())) {
+    if (!Ref->isLinearAtLevel(Level)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
-  assert(!isUnknown() && isNormalized() &&
-         "Unsupported loop in 1st iteration peeling!");
+  assert(isNormalized() && "Unsupported loop in 1st iteration peeling!");
+
+  // When 'UpdateMainLoop' is false, the peel loop executes a redundant
+  // iteration which is also executed by the main loop. Since this is always
+  // doable, we don't need to check canPeelFirstIteration().
+  if (UpdateMainLoop && !canPeelFirstIteration()) {
+    return nullptr;
+  }
+
+  bool IsUnknown = isUnknown();
 
   // Extract Ztt, preheader and postexit from this loop before cloning it so
   // that the peel loop doesn't include them.
@@ -1676,22 +1789,60 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
   extractPreheaderAndPostexit();
 
   HLLoop *PeelLoop = clone();
-  getHLNodeUtils().insertBefore(this, PeelLoop);
+  HLNodeUtils::insertBefore(this, PeelLoop);
 
-  // Since the loop is normalized, set peel loop UB to 0 so that it executes
-  // just one iteration.
-  PeelLoop->getUpperDDRef()->clear();
+  if (IsUnknown) {
+    // Change the peel loop's bottom test condition to false to force loop to
+    // exit after one iteration.
+    auto *PeelBottomTest = PeelLoop->getBottomTest();
+    auto *PredI = PeelBottomTest->pred_begin();
+    PeelBottomTest->replacePredicate(PredI, PredicateTy::FCMP_FALSE);
+
+    auto *LHS = PeelBottomTest->getPredicateOperandDDRef(PredI, true);
+    auto *UndefOp = getDDRefUtils().createUndefDDRef(LHS->getDestType());
+
+    PeelBottomTest->setPredicateOperandDDRef(UndefOp, PredI, true);
+    PeelBottomTest->setPredicateOperandDDRef(UndefOp->clone(), PredI, false);
+
+  } else {
+    // Since the loop is normalized, set peel loop UB to 0 so that it executes
+    // just one iteration.
+    PeelLoop->getUpperDDRef()->clear();
+  }
 
   // Update this loop's UB and DDRefs to avoid execution of peeled iteration
   // only if UpdateMainLoop is true.
   if (UpdateMainLoop) {
-    getUpperCanonExpr()->addConstant(-1, true /*IsMath*/);
-    shiftLoopBodyRegDDRefs(1);
+    if (!IsUnknown) {
+      auto *Upper = getUpperDDRef();
+      Upper->getSingleCanonExpr()->addConstant(-1, true /*IsMath*/);
+      Upper->makeConsistent();
 
-    // Original loop requires a new ztt because the it may only have a single
-    // iteration, now executed by the peel loop.
-    createZtt(false /*IsOverWrite*/, isNSW());
+      shiftLoopBodyRegDDRefs(1);
+
+      // Original loop requires a new ztt because it may only have a single
+      // iteration, now executed by the peel loop.
+      createZtt(false /*IsOverWrite*/, isNSW());
+
+    } else {
+      // Clone of the bottom test can act as the ztt for rest of the iterations
+      // if we replace IV by zero.
+      auto *Ztt = getBottomTest()->cloneEmpty();
+
+      unsigned Level = getNestingLevel();
+      for (auto *Ref : make_range(Ztt->ddref_begin(), Ztt->ddref_end())) {
+        Ref->replaceIVByConstant(Level, 0);
+        Ref->makeConsistent({}, Level - 1);
+      }
+
+      HLNodeUtils::insertBefore(this, Ztt);
+      HLNodeUtils::moveAsFirstThenChild(Ztt, this);
+
+      shiftLoopBodyRegDDRefs(1);
+    }
   }
+
+  HLNodeUtils::addCloningInducedLiveouts(PeelLoop, this);
 
   return PeelLoop;
 }

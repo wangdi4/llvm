@@ -20,6 +20,9 @@
 #include "clang/AST/StmtOpenMP.h"
 
 namespace clang {
+
+class OMPCaptureNoInitAttr;
+
 namespace CodeGen {
 
 enum OMPAtomicClause {
@@ -59,9 +62,6 @@ class OpenMPLateOutliner {
   SmallVector<DirectiveIntrinsicSet, 4> Directives;
   CodeGenFunction &CGF;
   llvm::LLVMContext &C;
-
-  // Handle reprocessing VLASizeMap expressions.
-  CodeGenFunction::VLASizeMapHandler VSMH;
 
   // For region entry/exit implementation
   llvm::Function *RegionEntryDirective = nullptr;
@@ -158,6 +158,7 @@ class OpenMPLateOutliner {
   };
   const OMPExecutableDirective &Directive;
   OpenMPDirectiveKind CurrentDirectiveKind;
+  OMPClause *CurrentClause = nullptr;
 
   static ArraySectionDataTy emitArraySectionData(const Expr *E,
                                                  CodeGenFunction &CGF);
@@ -183,8 +184,10 @@ class OpenMPLateOutliner {
   void emitOMPReductionClause(const OMPReductionClause *Cl);
   void emitOMPOrderedClause(const OMPOrderedClause *C);
   void buildMapQualifier(OpenMPLateOutliner::ClauseStringBuilder &CSB,
-                         const OMPMapClause *C);
-  void emitOMPMapClause(const OMPMapClause *Cl);
+                         OpenMPMapClauseKind MapType,
+                         const SmallVector<OpenMPMapModifierKind, 1> Modifiers);
+  void emitOMPAllMapClauses();
+  void emitOMPMapClause(const OMPMapClause *C);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);
   void emitOMPCopyinClause(const OMPCopyinClause *Cl);
@@ -220,8 +223,8 @@ class OpenMPLateOutliner {
   void emitOMPHintClause(const OMPHintClause *);
   void emitOMPDistScheduleClause(const OMPDistScheduleClause *);
   void emitOMPDefaultmapClause(const OMPDefaultmapClause *);
-  void emitOMPToClause(const OMPToClause *);
   void emitOMPFromClause(const OMPFromClause *);
+  void emitOMPToClause(const OMPToClause *);
   void emitOMPUseDevicePtrClause(const OMPUseDevicePtrClause *);
   void emitOMPIsDevicePtrClause(const OMPIsDevicePtrClause *);
   void emitOMPTaskReductionClause(const OMPTaskReductionClause *);
@@ -234,7 +237,18 @@ class OpenMPLateOutliner {
   emitOMPAtomicDefaultMemOrderClause(const OMPAtomicDefaultMemOrderClause *);
   void emitOMPAllocatorClause(const OMPAllocatorClause *);
   void emitOMPAllocateClause(const OMPAllocateClause *);
+  void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
+  void emitOMPOrderClause(const OMPOrderClause *);
+  void emitOMPAcqRelClause(const OMPAcqRelClause *);
+  void emitOMPAcquireClause(const OMPAcquireClause *);
+  void emitOMPReleaseClause(const OMPReleaseClause *);
+  void emitOMPRelaxedClause(const OMPRelaxedClause *);
+  void emitOMPDepobjClause(const OMPDepobjClause *);
+  void emitOMPDestroyClause(const OMPDestroyClause *);
+  void emitOMPDetachClause(const OMPDetachClause *);
+  void emitOMPInclusiveClause(const OMPInclusiveClause *);
+  void emitOMPExclusiveClause(const OMPExclusiveClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
@@ -249,8 +263,7 @@ class OpenMPLateOutliner {
 
   bool isIgnoredImplicit(const VarDecl *);
   bool isImplicit(const VarDecl *);
-  bool isExplicit(const VarDecl *);
-  bool hasMapClause(const VarDecl *);
+  bool isExplicitForDirective(const VarDecl *, OpenMPDirectiveKind);
   bool alreadyHandled(llvm::Value *);
   void addImplicitClauses();
   void addRefsToOuter();
@@ -262,7 +275,6 @@ class OpenMPLateOutliner {
     ICK_firstprivate,
     ICK_lastprivate,
     ICK_shared,
-    ICK_map_tofrom,
     ICK_normalized_iv,
     ICK_normalized_ub,
     // A firstprivate specified with an implicit OMPFirstprivateClause.
@@ -271,10 +283,13 @@ class OpenMPLateOutliner {
   };
   void HandleImplicitVar(const Expr *E, ImplicitClauseKind ICK);
   llvm::MapVector<const VarDecl *, ImplicitClauseKind> ImplicitMap;
-  llvm::DenseSet<const VarDecl *> ExplicitRefs;
-  llvm::DenseSet<const VarDecl *> MapRefs;
+
+  llvm::DenseMap<const VarDecl *, SmallVector<OpenMPClauseKind, 2>>
+      ExplicitRefs;
+
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
+  llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
   std::vector<llvm::WeakTrackingVH> ReferencedValues;
@@ -289,6 +304,21 @@ public:
   OpenMPLateOutliner(CodeGenFunction &CGF, const OMPExecutableDirective &D,
                      OpenMPDirectiveKind Kind);
   ~OpenMPLateOutliner();
+  bool isImplicitLastPrivate(const VarDecl *VD) {
+   return isImplicit(VD) && ImplicitMap[VD] == ICK_lastprivate;
+  }
+  void privatizeMappedPointers(CodeGenFunction::OMPPrivateScope &PrivateScope) {
+    for (auto MT : MapTemps) {
+      llvm::Type *Ty = MT.first->getType();
+      Address A = CGF.CreateDefaultAlignTempAlloca(Ty, MT.second->getName() +
+                                                           ".map.ptr.tmp");
+      CGF.Builder.CreateStore(MT.first, A);
+      PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
+      if (MT.second->getType()->isReferenceType())
+        CGF.addMappedRefTemp(MT.second);
+    }
+    PrivateScope.Privatize();
+  }
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool shouldSkipExplicitClause(OpenMPClauseKind K);
   void emitOMPParallelDirective();
@@ -328,25 +358,10 @@ public:
   void emitOMPTargetVariantDispatchDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
-      VSMH.EmitVLAExpressions();
+      CGF.VLASizeMapHandler->EmitVLASizeExpressions();
   }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
-
-  template <typename ClauseType>
-  void AddMapToFromClauses(const ClauseType *C) {
-    for (auto *E : C->varlists()) {
-      const VarDecl *VD = getExplicitVarDecl(E);
-      assert(VD && "expected VarDecl in clause");
-      if (hasMapClause(VD))
-        continue;
-      emitImplicit(VD, ICK_map_tofrom);
-      // Adding to explicit list to prevent additional clauses from implicit
-      // rules.
-      addExplicit(VD, /*IsMap=*/true);
-    }
-  }
-  void emitCombinedTargetMapClauses();
 
   void emitImplicitLoopBounds(const OMPLoopDirective *LD);
   void emitImplicit(Expr *E, ImplicitClauseKind K);
@@ -363,10 +378,14 @@ public:
   }
   void addValueSuppress(llvm::Value *V) { HandledValues.insert(V); }
   OpenMPDirectiveKind getCurrentDirectiveKind() { return CurrentDirectiveKind; }
-  void addExplicit(const VarDecl *VD, bool IsMap = false) {
-    ExplicitRefs.insert(VD);
-    if (IsMap)
-      MapRefs.insert(VD);
+  void addExplicit(const VarDecl *VD, OpenMPClauseKind CK) {
+    auto It = ExplicitRefs.find(VD);
+    if (It != ExplicitRefs.end()) {
+      It->second.push_back(CK);
+    } else {
+      llvm::SmallVector<OpenMPClauseKind, 2> CKs = {CK};
+      ExplicitRefs.insert({VD,CKs});
+    }
   }
   bool insertPointChangeNeeded() { return MarkerInstruction != nullptr; }
   void setInsertPoint() {
@@ -380,6 +399,7 @@ public:
   }
   static bool isFirstDirectiveInSet(const OMPExecutableDirective &S,
                                     OpenMPDirectiveKind Kind);
+  bool checkIfModifier(OpenMPDirectiveKind DKind, const OMPIfClause *IC);
 };
 
 class OMPLateOutlineLexicalScope : public CodeGenFunction::LexicalScope {
@@ -463,15 +483,27 @@ public:
   void recordValueSuppression(llvm::Value *V) { Outliner.addValueSuppress(V); }
 
   bool inTargetVariantDispatchRegion() {
-    return Outliner.getCurrentDirectiveKind() == OMPD_target_variant_dispatch;
+    return Outliner.getCurrentDirectiveKind() ==
+           llvm::omp::OMPD_target_variant_dispatch;
   }
-  bool isLateOutlinedRegion() { return true; } // INTEL
+  void enterTryStmt() { ++TryStmts; }
+  void exitTryStmt() {
+    assert(TryStmts > 0);
+    --TryStmts;
+  }
+  bool inTryStmt() { return TryStmts > 0; }
+  bool isLateOutlinedRegion() { return true; }
+  bool isImplicitLastPrivate(const VarDecl *VD) {
+    return Outliner.isImplicitLastPrivate(VD);
+  }
 
 private:
   /// CodeGen info about outer OpenMP region.
   CodeGenFunction::CGCapturedStmtInfo *OldCSI;
   OpenMPLateOutliner &Outliner;
   const OMPExecutableDirective &D;
+  /// Nesting of C++ 'try' statements in the OpenMP region.
+  unsigned TryStmts = 0;
 };
 
 /// RAII for emitting code of OpenMP constructs.
@@ -490,8 +522,6 @@ public:
     // Start emission for the construct.
     CGF.CapturedStmtInfo =
         new CGLateOutlineOpenMPRegionInfo(CGF.CapturedStmtInfo, Outliner, D);
-    // If region is going to be outlined, re-emit the VLAExpressions.
-    O.emitVLAExpressions();
   }
   ~LateOutlineOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.

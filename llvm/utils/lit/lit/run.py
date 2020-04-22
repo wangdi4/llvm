@@ -6,26 +6,32 @@ import lit.Test
 import lit.util
 import lit.worker
 
+
 # No-operation semaphore for supporting `None` for parallelism_groups.
 #   lit_config.parallelism_groups['my_group'] = None
 class NopSemaphore(object):
     def acquire(self): pass
     def release(self): pass
 
-def create_run(tests, lit_config, workers, progress_callback, timeout=None):
-    assert workers > 0
-    if workers == 1:
-        return SerialRun(tests, lit_config, progress_callback, timeout)
-    return ParallelRun(tests, lit_config, progress_callback, timeout, workers)
+
+class MaxFailuresError(Exception):
+    pass
+class TimeoutError(Exception):
+    pass
+
 
 class Run(object):
     """A concrete, configured testing run."""
 
-    def __init__(self, tests, lit_config, progress_callback, timeout):
+    def __init__(self, tests, lit_config, workers, progress_callback,
+                 max_failures, timeout):
         self.tests = tests
         self.lit_config = lit_config
+        self.workers = workers
         self.progress_callback = progress_callback
+        self.max_failures = max_failures
         self.timeout = timeout
+        assert workers > 0
 
     def execute(self):
         """
@@ -45,8 +51,7 @@ class Run(object):
         computed. Tests which were not actually executed (for any reason) will
         be given an UNRESOLVED result.
         """
-        self.failure_count = 0
-        self.hit_max_failures = False
+        self.failures = 0
 
         # Larger timeouts (one year, positive infinity) don't work on Windows.
         one_week = 7 * 24 * 60 * 60  # days * hours * minutes * seconds
@@ -59,45 +64,6 @@ class Run(object):
         for test in self.tests:
             if test.result is None:
                 test.setResult(lit.Test.Result(lit.Test.UNRESOLVED, '', 0.0))
-
-    # TODO(yln): as the comment says.. this is racing with the main thread waiting
-    # for results
-    def _process_result(self, test, result):
-        # Don't add any more test results after we've hit the maximum failure
-        # count.  Otherwise we're racing with the main thread, which is going
-        # to terminate the process pool soon.
-        if self.hit_max_failures:
-            return
-
-        # Update the parent process copy of the test. This includes the result,
-        # XFAILS, REQUIRES, and UNSUPPORTED statuses.
-        test.setResult(result)
-
-        self.progress_callback(test)
-
-        # If we've finished all the tests or too many tests have failed, notify
-        # the main thread that we've stopped testing.
-        self.failure_count += (result.code == lit.Test.FAIL)
-        if self.lit_config.maxFailures and \
-                self.failure_count == self.lit_config.maxFailures:
-            self.hit_max_failures = True
-
-class SerialRun(Run):
-    def __init__(self, tests, lit_config, progress_callback, timeout):
-        super(SerialRun, self).__init__(tests, lit_config, progress_callback, timeout)
-
-    def _execute(self, deadline):
-        # TODO(yln): ignores deadline
-        for test in self.tests:
-            result = lit.worker._execute(test, self.lit_config)
-            self._process_result(test, result)
-            if self.hit_max_failures:
-                break
-
-class ParallelRun(Run):
-    def __init__(self, tests, lit_config, progress_callback, timeout, workers):
-        super(ParallelRun, self).__init__(tests, lit_config, progress_callback, timeout)
-        self.workers = workers
 
     def _execute(self, deadline):
         semaphores = {
@@ -119,22 +85,31 @@ class ParallelRun(Run):
 
         async_results = [
             pool.apply_async(lit.worker.execute, args=[test],
-                callback=lambda r, t=test: self._process_result(t, r))
+                             callback=self.progress_callback)
             for test in self.tests]
         pool.close()
 
-        for ar in async_results:
-            timeout = deadline - time.time()
+        try:
+            self._wait_for(async_results, deadline)
+        except:
+            pool.terminate()
+            raise
+        finally:
+            pool.join()
+
+    def _wait_for(self, async_results, deadline):
+        timeout = deadline - time.time()
+        for idx, ar in enumerate(async_results):
             try:
-                ar.get(timeout)
+                test = ar.get(timeout)
             except multiprocessing.TimeoutError:
-                # TODO(yln): print timeout error
-                pool.terminate()
-                break
-            if self.hit_max_failures:
-                pool.terminate()
-                break
-        pool.join()
+                raise TimeoutError()
+            else:
+                self.tests[idx] = test
+                if test.isFailure():
+                    self.failures += 1
+                    if self.failures == self.max_failures:
+                        raise MaxFailuresError()
 
     # TODO(yln): interferes with progress bar
     # Some tests use threads internally, and at least on Linux each of these

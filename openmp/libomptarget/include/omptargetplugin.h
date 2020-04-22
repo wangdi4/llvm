@@ -182,9 +182,22 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
     int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc, void *AsyncData);
 
-// Returns opaque handle to a device-dependent offload pipe.
+// Creates an opaque handle to a device-dependent offload pipe.
 EXTERN
-void *__tgt_rtl_get_offload_pipe(int32_t ID);
+void *__tgt_rtl_create_offload_pipe(int32_t ID, bool IsAsync);
+
+// Releases a device-dependent offload pipe.
+EXTERN
+int32_t __tgt_rtl_release_offload_pipe(int32_t ID, void *Pipe);
+
+// Allocate a managed memory object.
+EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);
+
+// Delete a managed memory object.
+EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t ID, void *Ptr);
+
+// Check if the pointer belongs to a managed memory address range.
+EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t ID, void *Ptr);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

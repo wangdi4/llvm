@@ -33,6 +33,7 @@
 #include "clang/Analysis/CFGStmtMap.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Basic/TargetInfo.h" // INTEL
 #include "clang/Lex/Preprocessor.h"
 #if INTEL_CUSTOMIZATION
 #include "clang/Sema/intel/FPGAAnalyzeChannelsUsage.h"
@@ -1177,7 +1178,7 @@ namespace {
     // We analyze lambda bodies separately. Skip them here.
     bool TraverseLambdaExpr(LambdaExpr *LE) {
       // Traverse the captures, but not the body.
-      for (const auto &C : zip(LE->captures(), LE->capture_inits()))
+      for (const auto C : zip(LE->captures(), LE->capture_inits()))
         TraverseLambdaCapture(LE, &std::get<0>(C), std::get<1>(C));
       return true;
     }

@@ -1,5 +1,6 @@
 ; Regression test from CMPLRLLVM-8853. Test that VPlanDriver does not cause a compilation fail.
 ; RUN: opt -S -VPlanDriver %s | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" %s | FileCheck %s
 ; CHECK-LABEL: vector.body
 ; ModuleID = 'main'
 %"class.cl::sycl::range" = type { %"class.cl::sycl::detail::array" }

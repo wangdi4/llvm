@@ -59,10 +59,11 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
 
 bool CSAInstPrinter::WrapCsaAsm() { return WrapAsmOpt; }
 
-void CSAInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
-                               StringRef Annot, const MCSubtargetInfo &STI) {
-  printInstruction(MI, O);
-  printAnnotation(O, Annot);
+void CSAInstPrinter::printInst(const MCInst *MI, uint64_t Address,
+                               StringRef Annot, const MCSubtargetInfo &STI,
+                               raw_ostream &OS) {
+  printInstruction(MI, Address, OS);
+  printAnnotation(OS, Annot);
 }
 
 // Include the auto-generated portion of the assembly writer.

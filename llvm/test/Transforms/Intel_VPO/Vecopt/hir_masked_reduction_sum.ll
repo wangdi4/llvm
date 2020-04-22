@@ -28,20 +28,17 @@
 ; CHECK:      %tgu = (sext.i32.i64(%N))/u4;
 ; CHECK-NEXT: if (0 <u 4 * %tgu)
 ; CHECK-NEXT: {
-; CHECK-NEXT:    %result.vector = insertelement zeroinitializer,  %tsum.015,  0;
+; CHECK-NEXT:    %red.var = 0.000000e+00;
 
 ; CHECK:         + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <nounroll> <novectorize>
+; CHECK-NEXT:    |   %add.vec = undef
 ; CHECK-NEXT:    |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; CHECK-NEXT:    |   %wide.cmp. = %.vec > 0.000000e+00;
 ; CHECK-NEXT:    |   %add.vec = %.vec  +  (<4 x float>*)(@C)[0][i1]; Mask = @{%wide.cmp.}
-; CHECK-NEXT:    |   %result.vector = %result.vector  +  %add.vec; Mask = @{%wide.cmp.}
+; CHECK-NEXT:    |   %red.var = %red.var  +  %add.vec; Mask = @{%wide.cmp.}
 ; CHECK-NEXT:    + END LOOP
 
-; CHECK:         %rdx.shuf = shufflevector %result.vector,  %result.vector,  <i32 2, i32 3, i32 undef, i32 undef>;
-; CHECK-NEXT:    %bin.rdx = %result.vector  +  %rdx.shuf;
-; CHECK-NEXT:    %rdx.shuf1 = shufflevector %bin.rdx,  %bin.rdx,  <i32 1, i32 undef, i32 undef, i32 undef>;
-; CHECK-NEXT:    %bin.rdx2 = %bin.rdx  +  %rdx.shuf1;
-; CHECK-NEXT:    %tsum.015 = extractelement %bin.rdx2,  0;
+; CHECK:         %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);
 ; CHECK-NEXT: }
 
 

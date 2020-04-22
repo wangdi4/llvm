@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_fp16
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-unknown -target-feature +avx512vl -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -flax-vector-conversions=none -ffreestanding %s -triple=x86_64-unknown-unknown -target-feature +avx512vl -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 
@@ -7,6 +7,12 @@ _Float16 test_mm_cvtsh_h(__m128h __A) {
   // CHECK-LABEL: @test_mm_cvtsh_h
   // CHECK: extractelement <8 x half> %{{.*}}, i32 0
   return _mm_cvtsh_h(__A);
+}
+
+_Float16 test_mm256_cvtsh_h(__m256h __A) {
+  // CHECK-LABEL: @test_mm256_cvtsh_h
+  // CHECK: extractelement <16 x half> %{{.*}}, i32 0
+  return _mm256_cvtsh_h(__A);
 }
 
 __m128h test_mm_set_sh(_Float16 __h)
@@ -58,6 +64,89 @@ __m256h test_mm256_set1_ph(_Float16 h)
   // CHECK: insertelement <16 x half> {{.*}}, i32 15
   return _mm256_set1_ph(h);
 }
+
+__m128h test_mm_set_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                       _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8)
+{
+  // CHECK-LABEL: @test_mm_set_ph
+  // CHECK: insertelement <8 x half> {{.*}}, i32 0
+  // CHECK: insertelement <8 x half> {{.*}}, i32 1
+  // CHECK: insertelement <8 x half> {{.*}}, i32 2
+  // CHECK: insertelement <8 x half> {{.*}}, i32 3
+  // CHECK: insertelement <8 x half> {{.*}}, i32 4
+  // CHECK: insertelement <8 x half> {{.*}}, i32 5
+  // CHECK: insertelement <8 x half> {{.*}}, i32 6
+  // CHECK: insertelement <8 x half> {{.*}}, i32 7
+  return _mm_set_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8);
+}
+
+__m256h test_mm256_set_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                          _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8,
+                          _Float16 __h9, _Float16 __h10, _Float16 __h11, _Float16 __h12,
+                          _Float16 __h13, _Float16 __h14, _Float16 __h15, _Float16 __h16)
+{
+  // CHECK-LABEL: @test_mm256_set_ph
+  // CHECK: insertelement <16 x half> {{.*}}, i32 0
+  // CHECK: insertelement <16 x half> {{.*}}, i32 1
+  // CHECK: insertelement <16 x half> {{.*}}, i32 2
+  // CHECK: insertelement <16 x half> {{.*}}, i32 3
+  // CHECK: insertelement <16 x half> {{.*}}, i32 4
+  // CHECK: insertelement <16 x half> {{.*}}, i32 5
+  // CHECK: insertelement <16 x half> {{.*}}, i32 6
+  // CHECK: insertelement <16 x half> {{.*}}, i32 7
+  // CHECK: insertelement <16 x half> {{.*}}, i32 8
+  // CHECK: insertelement <16 x half> {{.*}}, i32 9
+  // CHECK: insertelement <16 x half> {{.*}}, i32 10
+  // CHECK: insertelement <16 x half> {{.*}}, i32 11
+  // CHECK: insertelement <16 x half> {{.*}}, i32 12
+  // CHECK: insertelement <16 x half> {{.*}}, i32 13
+  // CHECK: insertelement <16 x half> {{.*}}, i32 14
+  // CHECK: insertelement <16 x half> {{.*}}, i32 15
+  return _mm256_set_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8,
+                       __h9, __h10, __h11, __h12, __h13, __h14, __h15, __h16);
+}
+
+__m128h test_mm_setr_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                        _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8)
+{
+  // CHECK-LABEL: @test_mm_setr_ph
+  // CHECK: insertelement <8 x half> {{.*}}, i32 0
+  // CHECK: insertelement <8 x half> {{.*}}, i32 1
+  // CHECK: insertelement <8 x half> {{.*}}, i32 2
+  // CHECK: insertelement <8 x half> {{.*}}, i32 3
+  // CHECK: insertelement <8 x half> {{.*}}, i32 4
+  // CHECK: insertelement <8 x half> {{.*}}, i32 5
+  // CHECK: insertelement <8 x half> {{.*}}, i32 6
+  // CHECK: insertelement <8 x half> {{.*}}, i32 7
+  return _mm_setr_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8);
+}
+
+__m256h test_mm256_setr_ph(_Float16 __h1, _Float16 __h2, _Float16 __h3, _Float16 __h4,
+                           _Float16 __h5, _Float16 __h6, _Float16 __h7, _Float16 __h8,
+                           _Float16 __h9, _Float16 __h10, _Float16 __h11, _Float16 __h12,
+                           _Float16 __h13, _Float16 __h14, _Float16 __h15, _Float16 __h16)
+{
+  // CHECK-LABEL: @test_mm256_setr_ph
+  // CHECK: insertelement <16 x half> {{.*}}, i32 0
+  // CHECK: insertelement <16 x half> {{.*}}, i32 1
+  // CHECK: insertelement <16 x half> {{.*}}, i32 2
+  // CHECK: insertelement <16 x half> {{.*}}, i32 3
+  // CHECK: insertelement <16 x half> {{.*}}, i32 4
+  // CHECK: insertelement <16 x half> {{.*}}, i32 5
+  // CHECK: insertelement <16 x half> {{.*}}, i32 6
+  // CHECK: insertelement <16 x half> {{.*}}, i32 7
+  // CHECK: insertelement <16 x half> {{.*}}, i32 8
+  // CHECK: insertelement <16 x half> {{.*}}, i32 9
+  // CHECK: insertelement <16 x half> {{.*}}, i32 10
+  // CHECK: insertelement <16 x half> {{.*}}, i32 11
+  // CHECK: insertelement <16 x half> {{.*}}, i32 12
+  // CHECK: insertelement <16 x half> {{.*}}, i32 13
+  // CHECK: insertelement <16 x half> {{.*}}, i32 14
+  // CHECK: insertelement <16 x half> {{.*}}, i32 15
+  return _mm256_setr_ph(__h1, __h2, __h3, __h4, __h5, __h6, __h7, __h8,
+                        __h9, __h10, __h11, __h12, __h13, __h14, __h15, __h16);
+}
+
 __m256h test_mm256_add_ph(__m256h __A, __m256h __B) {
   // CHECK-LABEL: @test_mm256_add_ph
   // CHECK: %{{.*}} = fadd <16 x half> %{{.*}}, %{{.*}}
@@ -2396,17 +2485,15 @@ __m256h test_mm256_maskz_fnmsub_ph(__mmask16 __U, __m256h __A, __m256h __B, __m2
 
 __m128h test_mm_fmaddsub_ph(__m128h __A, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
   return _mm_fmaddsub_ph(__A, __B, __C);
 }
 
 __m128h test_mm_mask_fmaddsub_ph(__m128h __A, __mmask8 __U, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_mask_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
   // CHECK: bitcast i8 %{{.*}} to <8 x i1>
   // CHECK: select <8 x i1> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}
   return _mm_mask_fmaddsub_ph(__A, __U, __B, __C);
@@ -2415,16 +2502,14 @@ __m128h test_mm_mask_fmaddsub_ph(__m128h __A, __mmask8 __U, __m128h __B, __m128h
 __m128h test_mm_fmsubadd_ph(__m128h __A, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> [[NEG]])
   return _mm_fmsubadd_ph(__A, __B, __C);
 }
 
 __m128h test_mm_mask_fmsubadd_ph(__m128h __A, __mmask8 __U, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_mask_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> [[NEG]])
   // CHECK: bitcast i8 %{{.*}} to <8 x i1>
   // CHECK: select <8 x i1> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}
   return _mm_mask_fmsubadd_ph(__A, __U, __B, __C);
@@ -2432,9 +2517,8 @@ __m128h test_mm_mask_fmsubadd_ph(__m128h __A, __mmask8 __U, __m128h __B, __m128h
 
 __m128h test_mm_mask3_fmaddsub_ph(__m128h __A, __m128h __B, __m128h __C, __mmask8 __U) {
   // CHECK-LABEL: @test_mm_mask3_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
   // CHECK: bitcast i8 %{{.*}} to <8 x i1>
   // CHECK: select <8 x i1> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}
   return _mm_mask3_fmaddsub_ph(__A, __B, __C, __U);
@@ -2442,9 +2526,8 @@ __m128h test_mm_mask3_fmaddsub_ph(__m128h __A, __m128h __B, __m128h __C, __mmask
 
 __m128h test_mm_maskz_fmaddsub_ph(__mmask8 __U, __m128h __A, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_maskz_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
   // CHECK: bitcast i8 %{{.*}} to <8 x i1>
   // CHECK: select <8 x i1> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}
   return _mm_maskz_fmaddsub_ph(__U, __A, __B, __C);
@@ -2453,8 +2536,7 @@ __m128h test_mm_maskz_fmaddsub_ph(__mmask8 __U, __m128h __A, __m128h __B, __m128
 __m128h test_mm_maskz_fmsubadd_ph(__mmask8 __U, __m128h __A, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_maskz_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> [[NEG]])
   // CHECK: bitcast i8 %{{.*}} to <8 x i1>
   // CHECK: select <8 x i1> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}
   return _mm_maskz_fmsubadd_ph(__U, __A, __B, __C);
@@ -2462,18 +2544,16 @@ __m128h test_mm_maskz_fmsubadd_ph(__mmask8 __U, __m128h __A, __m128h __B, __m128
 
 __m256h test_mm256_fmaddsub_ph(__m256h __A, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
   return _mm256_fmaddsub_ph(__A, __B, __C);
 }
 
 
 __m256h test_mm256_mask_fmaddsub_ph(__m256h __A, __mmask16 __U, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_mask_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
   // CHECK: bitcast i16 %{{.*}} to <16 x i1>
   // CHECK: select <16 x i1> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}}
   return _mm256_mask_fmaddsub_ph(__A, __U, __B, __C);
@@ -2482,16 +2562,14 @@ __m256h test_mm256_mask_fmaddsub_ph(__m256h __A, __mmask16 __U, __m256h __B, __m
 __m256h test_mm256_fmsubadd_ph(__m256h __A, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> [[NEG]])
   return _mm256_fmsubadd_ph(__A, __B, __C);
 }
 
 __m256h test_mm256_mask_fmsubadd_ph(__m256h __A, __mmask16 __U, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_mask_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> [[NEG]])
   // CHECK: bitcast i16 %{{.*}} to <16 x i1>
   // CHECK: select <16 x i1> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}}
   return _mm256_mask_fmsubadd_ph(__A, __U, __B, __C);
@@ -2499,9 +2577,8 @@ __m256h test_mm256_mask_fmsubadd_ph(__m256h __A, __mmask16 __U, __m256h __B, __m
 
 __m256h test_mm256_mask3_fmaddsub_ph(__m256h __A, __m256h __B, __m256h __C, __mmask16 __U) {
   // CHECK-LABEL: @test_mm256_mask3_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
   // CHECK: bitcast i16 %{{.*}} to <16 x i1>
   // CHECK: select <16 x i1> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}}
   return _mm256_mask3_fmaddsub_ph(__A, __B, __C, __U);
@@ -2509,9 +2586,8 @@ __m256h test_mm256_mask3_fmaddsub_ph(__m256h __A, __m256h __B, __m256h __C, __mm
 
 __m256h test_mm256_maskz_fmaddsub_ph(__mmask16 __U, __m256h __A, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_maskz_fmaddsub_ph
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
-  // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
+  // CHECK-NOT: fneg
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
   // CHECK: bitcast i16 %{{.*}} to <16 x i1>
   // CHECK: select <16 x i1> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}}
   return _mm256_maskz_fmaddsub_ph(__U, __A, __B, __C);
@@ -2520,8 +2596,7 @@ __m256h test_mm256_maskz_fmaddsub_ph(__mmask16 __U, __m256h __A, __m256h __B, __
 __m256h test_mm256_maskz_fmsubadd_ph(__mmask16 __U, __m256h __A, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_maskz_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> [[NEG]])
   // CHECK: bitcast i16 %{{.*}} to <16 x i1>
   // CHECK: select <16 x i1> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}}
   return _mm256_maskz_fmsubadd_ph(__U, __A, __B, __C);
@@ -2548,8 +2623,7 @@ __m256h test_mm256_mask3_fmsub_ph(__m256h __A, __m256h __B, __m256h __C, __mmask
 __m128h test_mm_mask3_fmsubadd_ph(__m128h __A, __m128h __B, __m128h __C, __mmask8 __U) {
   // CHECK-LABEL: @test_mm_mask3_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half>
-  // CHECK: [[ADD:%.+]] = call <8 x half> @llvm.fma.v8f16(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}})
+  // CHECK: call <8 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x half> [[NEG]])
   // CHECK: bitcast i8 %{{.*}} to <8 x i1>
   // CHECK: select <8 x i1> %{{.*}}, <8 x half> %{{.*}}, <8 x half> %{{.*}}
   return _mm_mask3_fmsubadd_ph(__A, __B, __C, __U);
@@ -2558,8 +2632,7 @@ __m128h test_mm_mask3_fmsubadd_ph(__m128h __A, __m128h __B, __m128h __C, __mmask
 __m256h test_mm256_mask3_fmsubadd_ph(__m256h __A, __m256h __B, __m256h __C, __mmask16 __U) {
   // CHECK-LABEL: @test_mm256_mask3_fmsubadd_ph
   // CHECK: [[NEG:%.+]] = fneg
-  // CHECK: [[SUB:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half>
-  // CHECK: [[ADD:%.+]] = call <16 x half> @llvm.fma.v16f16(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}})
+  // CHECK: call <16 x half> @llvm.x86.avx512fp16.vfmaddsub.ph.256(<16 x half> %{{.*}}, <16 x half> %{{.*}}, <16 x half> [[NEG]])
   // CHECK: bitcast i16 %{{.*}} to <16 x i1>
   // CHECK: select <16 x i1> %{{.*}}, <16 x half> %{{.*}}, <16 x half> %{{.*}}
   return _mm256_mask3_fmsubadd_ph(__A, __B, __C, __U);

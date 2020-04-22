@@ -1,6 +1,6 @@
 //===------- HLNodeUtils.cpp - Implements HLNodeUtils class ---------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,11 +21,12 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include <llvm/IR/IntrinsicInst.h>
+#include "llvm/Transforms/Utils/BuildLibCalls.h"
 
 #include <memory>
 
@@ -184,11 +185,12 @@ HLInst *HLNodeUtils::createNonLvalHLInst(Instruction *Inst) {
   return createHLInst(Inst);
 }
 
-HLInst *HLNodeUtils::createUnaryHLInst(
-    unsigned OpCode, RegDDRef *RvalRef, const Twine &Name, RegDDRef *LvalRef,
-    Type *DestTy, const UnaryInstruction *OrigUnInst) {
-  HLInst *HInst = createUnaryHLInstImpl(OpCode, RvalRef, Name, LvalRef, DestTy,
-                                        nullptr);
+HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
+                                       const Twine &Name, RegDDRef *LvalRef,
+                                       Type *DestTy,
+                                       const UnaryInstruction *OrigUnInst) {
+  HLInst *HInst =
+      createUnaryHLInstImpl(OpCode, RvalRef, Name, LvalRef, DestTy, nullptr);
   if (OrigUnInst) {
     UnaryInstruction *NewUnInstr = cast<UnaryInstruction>(
         const_cast<Instruction *>(HInst->getLLVMInstruction()));
@@ -1011,10 +1013,11 @@ HLInst *HLNodeUtils::createMax(RegDDRef *OpRef1, RegDDRef *OpRef2,
                       Name, LvalRef);
 }
 
-std::pair<HLInst *, CallInst *> HLNodeUtils::createCallImpl(
-    FunctionCallee Func, ArrayRef<RegDDRef *> CallArgs,
-    const Twine &Name, RegDDRef *LvalRef, ArrayRef<OperandBundleDef> Bundle,
-    ArrayRef<RegDDRef *> BundelOps) {
+std::pair<HLInst *, CallInst *>
+HLNodeUtils::createCallImpl(FunctionCallee Func, ArrayRef<RegDDRef *> CallArgs,
+                            const Twine &Name, RegDDRef *LvalRef,
+                            ArrayRef<OperandBundleDef> Bundle,
+                            ArrayRef<RegDDRef *> BundelOps) {
   bool HasReturn = !Func.getFunctionType()->getReturnType()->isVoidTy();
   unsigned NumArgs = CallArgs.size();
   HLInst *HInst;
@@ -1099,6 +1102,55 @@ HLInst *HLNodeUtils::createStackrestore(RegDDRef *AddrArg) {
   std::tie(HInst, Call) = createCallImpl(StackrestoreFunc, Ops);
 
   Call->setDebugLoc(AddrArg->getDebugLoc());
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
+                                   HLRegion *Region, StringRef Message) {
+  auto &Ctx = getContext();
+  auto &DRU = getDDRefUtils();
+
+  if (!TLI.has(LibFunc_puts))
+    return nullptr;
+
+  StringRef PutsName = TLI.getName(LibFunc_puts);
+  FunctionCallee PutsCallee = getModule().getOrInsertFunction(
+      PutsName, Type::getInt32Ty(Ctx), Type::getInt8PtrTy(Ctx, 0));
+  inferLibFuncAttributes(&getModule(), PutsName, TLI);
+
+  GlobalVariable *ConstStr =
+      DummyIRBuilder->CreateGlobalString(Message, "hir.str");
+
+  unsigned ConstStrBlobIndex = InvalidBlobIndex;
+  getBlobUtils().createGlobalVarBlob(ConstStr, true, &ConstStrBlobIndex);
+  assert(ConstStrBlobIndex != InvalidBlobIndex);
+
+  Region->addLiveInTemp(getBlobUtils().getTempBlobSymbase(ConstStrBlobIndex),
+                        ConstStr);
+
+  Type *IntPtr = getDataLayout().getIntPtrType(Ctx, 0);
+
+  RegDDRef *ConstStrRef =
+      DRU.createAddressOfRef(ConstStrBlobIndex, 0, GenericRvalSymbase);
+
+  auto &CU = getCanonExprUtils();
+  ConstStrRef->addDimension(CU.createCanonExpr(IntPtr, 0));
+  ConstStrRef->addDimension(CU.createCanonExpr(IntPtr, 0));
+
+  {
+    SmallVector<BlobDDRef *, 8> NewBlobs;
+    ConstStrRef->updateBlobDDRefs(NewBlobs);
+  }
+
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(PutsCallee, {ConstStrRef});
+
+  if (const Function *F =
+          dyn_cast<Function>(PutsCallee.getCallee()->stripPointerCasts())) {
+    Call->setCallingConv(F->getCallingConv());
+  }
 
   return HInst;
 }
@@ -3088,6 +3140,12 @@ public:
       }
 
       return false;
+
+    } else if (BlobUtils::isConstantVectorBlob(SC) ||
+               BlobUtils::isConstantFPBlob(SC)) {
+      // Constants are not considered livein.
+      IsLiveIn = false;
+      return false;
     }
 
     return !isDone();
@@ -3558,8 +3616,8 @@ static cl::opt<bool> IgnoreWraparound("hir-ignore-wraparound", cl::init(false),
 bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
                                 const HLNode *ParentNode,
                                 const bool FitsIn32Bits) {
-  assert(CE->getSrcType()->isIntegerTy() &&
-         "CE does not have an integer type!");
+  auto SrcTy = CE->getSrcType()->getScalarType();
+  assert(SrcTy->isIntegerTy() && "CE does not have an integer type!");
 
   if (IgnoreWraparound) {
     return false;
@@ -3582,7 +3640,7 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return false;
   }
 
-  if (FitsIn32Bits && CE->getSrcType()->getScalarSizeInBits() >= 32) {
+  if (FitsIn32Bits && SrcTy->getScalarSizeInBits() >= 32) {
     return false;
   }
 
@@ -3593,7 +3651,7 @@ bool HLNodeUtils::mayWraparound(const CanonExpr *CE, unsigned Level,
     return true;
   }
 
-  auto *IntTy = cast<IntegerType>(CE->getSrcType());
+  auto *IntTy = cast<IntegerType>(SrcTy);
   unsigned Size = IntTy->getPrimitiveSizeInBits();
 
   int64_t MaxValForSrcType = APInt::getMaxValue(Size).getZExtValue();
@@ -3830,6 +3888,67 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
 
   // NearPerfect is not perfect.
   return IsNearPerfect ? false : true;
+}
+
+const HLLoop *
+HLNodeUtils::getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop,
+                                                  bool &IsNearPerfect) {
+
+  assert(InnermostLoop);
+
+  // Inspect InnermostLoop
+  if (!InnermostLoop->isDo())
+    return nullptr;
+
+  // nullptr is returned for 1-level nest
+  // because isPerfectLoopNest returns false
+  // for innermost loop.
+  const HLLoop *ParentLoop = InnermostLoop->getParentLoop();
+  if (!ParentLoop)
+    return nullptr;
+
+  // TODO: triangluar is not allowed for now.
+  if (InnermostLoop->isTriangularLoop())
+    return nullptr;
+
+  auto IsNonHLInst = [](const HLNode &Node) { return !isa<HLInst>(&Node); };
+
+  // Pre- and Post- loops are allowed around innermost by being NearPerfect
+  // PreHeader and PostExits are not explicitly checked here, because
+  // they do have only inst by definition.
+  bool NonInstExist = std::any_of(ParentLoop->child_begin(),
+                                  InnermostLoop->getIterator(), IsNonHLInst) ||
+                      std::any_of(std::next(InnermostLoop->getIterator()),
+                                  ParentLoop->child_end(), IsNonHLInst);
+  if (NonInstExist) {
+    return InnermostLoop;
+  }
+
+  IsNearPerfect =
+      std::distance(ParentLoop->child_begin(), InnermostLoop->getIterator()) ||
+      std::distance(std::next(InnermostLoop->getIterator()),
+                    ParentLoop->child_end()) ||
+      InnermostLoop->hasPreheader() || InnermostLoop->hasPostexit();
+
+  // Scan from Innermost's ParentLoop and make sure no inter-loop HLNodes
+  const HLLoop *PrevLp = InnermostLoop;
+  const HLLoop *Lp = ParentLoop;
+  while (!(Lp->hasPreheader()) && !(Lp->hasPostexit()) &&
+         !(Lp->isTriangularLoop()) && Lp->isDo()) {
+    const HLLoop *ParLp = Lp->getParentLoop();
+    if (!ParLp) {
+      return Lp;
+    }
+
+    if (Lp != ParLp->getFirstChild() || Lp != ParLp->getLastChild()) {
+      return Lp;
+    }
+
+    PrevLp = Lp;
+    Lp = ParLp;
+  }
+
+  return PrevLp;
 }
 
 class NonUnitStrideMemRefs final : public HLNodeVisitorBase {
@@ -4531,7 +4650,8 @@ public:
 
       LORBuilder(*Loop).preserveLostLoopOptReport();
 
-      Loop->replaceByFirstIteration();
+      // Do not extract postexit as they will become dead nodes because of goto.
+      Loop->replaceByFirstIteration(false);
       RedundantEarlyExitLoops++;
 
       // Have to handle the label again in the context of parent loop.
@@ -4776,4 +4896,85 @@ MDNode *HLNodeUtils::swapProfMetadata(LLVMContext &Context,
                      ProfileData->getOperand(1)};
 
   return MDNode::get(Context, Ops);
+}
+
+namespace {
+
+class TempDefFinder final : public HLNodeVisitorBase {
+  SmallSet<unsigned, 4> &TempSymbases;
+  SmallVector<unsigned, 4> FoundTempDefs;
+
+public:
+  TempDefFinder(SmallSet<unsigned, 4> &TempSymbases)
+      : TempSymbases(TempSymbases) {}
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  void visit(const HLInst *Inst);
+
+  SmallVector<unsigned, 4> getFoundTempDefs() const { return FoundTempDefs; }
+};
+
+void TempDefFinder::visit(const HLInst *Inst) {
+  auto LvalRef = Inst->getLvalDDRef();
+
+  if (!LvalRef || !LvalRef->isTerminalRef()) {
+    return;
+  }
+
+  unsigned TempDefSB = LvalRef->getSymbase();
+
+  if (TempSymbases.count(TempDefSB)) {
+    FoundTempDefs.push_back(TempDefSB);
+  }
+}
+
+} // namespace
+
+void HLNodeUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
+                                            const HLLoop *OrigLoop) {
+  // Creation of a new cloned loop (remainder loop, for example) can result in
+  // additional liveouts from the lexically first loop. Consider this example
+  // where t1 is livein but not liveout of the loop- DO i1
+  //   t1 = t1 + ...
+  // END DO
+  //
+  // After creating main and remainder loop, t1 becomes liveout of main loop.
+  //
+  // DO i1  << main loop
+  //   t1 = t1 + ...
+  // END DO
+  //
+  // DO i2  << remainder loop
+  //   t1 = t1 + ...
+  // END DO
+
+  if (!OrigLoop) {
+    OrigLoop = LiveoutLoop;
+  }
+
+  SmallSet<unsigned, 4> LiveoutCandidates;
+
+  // Collect liveins which are not liveout of the loop.
+  for (auto It = OrigLoop->live_in_begin(), E = OrigLoop->live_in_end();
+       It != E; ++It) {
+    unsigned Symbase = *It;
+
+    if (!OrigLoop->isLiveOut(Symbase)) {
+      LiveoutCandidates.insert(Symbase);
+    }
+  }
+
+  if (LiveoutCandidates.empty()) {
+    return;
+  }
+
+  TempDefFinder TDF(LiveoutCandidates);
+
+  HLNodeUtils::visitRange(TDF, OrigLoop->child_begin(), OrigLoop->child_end());
+
+  for (unsigned LiveoutSB : TDF.getFoundTempDefs()) {
+    LiveoutLoop->addLiveOutTemp(LiveoutSB);
+  }
 }

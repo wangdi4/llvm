@@ -146,7 +146,8 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
           Builder.CreateInBoundsGEP(VecBasePtr, Builder.getInt32(GEPIndex));
 
       // Generate the load
-      Instruction *NewLoad = Builder.CreateAlignedLoad(NewBasePtr, Alignment);
+      Instruction *NewLoad =
+          Builder.CreateAlignedLoad(NewBasePtr, MaybeAlign(Alignment));
       InstMap[OInst->getId()] = NewLoad;
     } else if (const OVLSShuffle *const OSI =
                    dyn_cast<const OVLSShuffle>(OInst)) {
@@ -242,7 +243,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       // Generate the store
       Value *SrcReg = InstMap[OStI->getSrc()->getId()];
       Instruction *NewStore =
-          Builder.CreateAlignedStore(SrcReg, NewBasePtr, Alignment);
+          Builder.CreateAlignedStore(SrcReg, NewBasePtr, MaybeAlign(Alignment));
       InstMap[OInst->getId()] = NewStore;
     } else
       assert(false && "Unexpected OVLSInstruction.");

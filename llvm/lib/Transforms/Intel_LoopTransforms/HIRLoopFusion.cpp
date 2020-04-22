@@ -1,6 +1,6 @@
 //===- HIRLoopFusion.cpp - Implements Loop Fusion transformation ----------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -272,7 +272,7 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
 
       // Add loop liveouts for every pre-loop and post-loop except the last one.
       if (PreLoop || I < E - 1) {
-        HIRTransformUtils::addCloningInducedLiveouts(NewLoop);
+        HLNodeUtils::addCloningInducedLiveouts(NewLoop);
       }
     } else {
       // Empty loop
@@ -472,7 +472,7 @@ HLLoop *HIRLoopFusion::fuseLoops(const SmallVectorImpl<HLLoop *> &Candidates) {
 
   // Add possible new liveouts because of post loop.
   if (HasPostLoop) {
-    HIRTransformUtils::addCloningInducedLiveouts(FirstLoop);
+    HLNodeUtils::addCloningInducedLiveouts(FirstLoop);
   }
 
   return FirstLoop;

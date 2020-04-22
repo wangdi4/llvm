@@ -1,6 +1,6 @@
 //===- CanonExpr.cpp - Implements the CanonExpr class ---------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -16,6 +16,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/TypeSize.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -72,7 +73,7 @@ void CanonExpr::dump(bool Detailed) const {
 void CanonExpr::dump() const { dump(false); }
 #endif
 
-void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
+void CanonExpr::print(raw_ostream &OS, bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
   auto C0 = getConstant();
   auto Denom = getDenominator();
@@ -343,8 +344,8 @@ bool CanonExpr::isIntVectorConstant(Constant **Val) const {
       Constant *ConstVal;
 
       ConstVal = ConstantInt::get(getDestType()->getScalarType(), ConstIntVal);
-      *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
-                                      ConstVal);
+      *Val = ConstantVector::getSplat(
+          ElementCount(getDestType()->getVectorNumElements(), false), ConstVal);
     }
 
     return true;
@@ -366,8 +367,8 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
       Constant *ConstVal;
 
       ConstVal = ConstFPVal;
-      *Val = ConstantVector::getSplat(getDestType()->getVectorNumElements(),
-                                      ConstVal);
+      *Val = ConstantVector::getSplat(
+          ElementCount(getDestType()->getVectorNumElements(), false), ConstVal);
     }
 
     return true;
@@ -797,6 +798,14 @@ void CanonExpr::multiplyIVByConstant(unsigned Lvl, int64_t Val) {
 
 void CanonExpr::multiplyIVByConstant(iv_iterator IVI, int64_t Val) {
   multiplyIVByConstant(getLevel(IVI), Val);
+}
+
+void CanonExpr::replaceIV(unsigned OldLevel, unsigned NewLevel) {
+  unsigned Index;
+  int64_t Coeff;
+  getIVCoeff(OldLevel, &Index, &Coeff);
+  removeIV(OldLevel);
+  addIV(NewLevel, Index, Coeff);
 }
 
 int64_t CanonExpr::getBlobCoeff(unsigned Index) const {

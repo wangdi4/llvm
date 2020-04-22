@@ -106,7 +106,7 @@ bool VPOParoptLoopCollapse::runOnFunction(Function &F) {
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  bool Changed = collapseLoops(F, WI, ORE);;
+  bool Changed = collapseLoops(F, WI, ORE);
   LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");
   return Changed;
 }

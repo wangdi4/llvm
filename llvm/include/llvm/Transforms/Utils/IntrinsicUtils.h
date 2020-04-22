@@ -50,6 +50,10 @@ public:
     StringRef Str(getClauseString(Id));
     return cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
   }
+
+  /// Check if V is used in OMP private clause inside SIMD region.
+  static bool isValueUsedBySimdPrivateClause(const Instruction *I,
+                                             const Value *V);
 #endif // INTEL_CUSTOMIZATION
 
   /// Given an enum \p Id for a directive, return its corresponding string
@@ -61,6 +65,23 @@ public:
   /// Return true if the instruction is a directive represented
   /// as a llvm.directive.region.entry/exit intrinsic call
   static bool isDirective(Instruction *I);
+
+  /// Creates a clone of \p CI without any operand bundles that match
+  /// by \p Predicate. Replaces all uses of the original \p CI
+  /// with the new Instruction created.
+  /// \returns newly created CallInst, if it created one, \p CI otherwise
+  /// (if no matching bundle on \p CI).
+  static CallInst *removeOperandBundlesFromCall(
+      CallInst *CI,
+      function_ref<bool(const OperandBundleDef &Bundle)> Predicate);
+
+#if INTEL_CUSTOMIZATION
+  /// Creates a clone of \p CI without without private clauses for \p V.
+  /// Replaces all uses of the original \p CI with the new Instruction created.
+  /// \returns the created CallInst, if it created one, \p CI otherwise (when
+  /// no private clauses for \p V found).
+  static CallInst *removePrivateClauseForValue(CallInst *CI, const Value *V);
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace llvm

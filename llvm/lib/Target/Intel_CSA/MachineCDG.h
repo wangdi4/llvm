@@ -440,7 +440,7 @@ struct DOTGraphTraits<MachineFunction *> : public DefaultDOTGraphTraits {
   DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
 
   static std::string getGraphName(MachineFunction *Graph) {
-    std::string fName = Graph->getName();
+    std::string fName = Graph->getName().str();
     return "Machine CFG for '" + fName + "' function";
   }
 

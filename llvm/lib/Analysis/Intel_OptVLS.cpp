@@ -1154,14 +1154,12 @@ public:
 
 }; // end of class Graph
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
   OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
-  unsigned GroupId = 1;
-  for (unsigned i = 0, S = Grps.size(); i < S; i++) {
-    OS << "  Group#" << GroupId++ << " ";
-    Grps[i]->print(OS, 3);
-  }
+  for (const OVLSGroup *G : Grps)
+    G->print(OS, 3);
+  OS << '\n';
 }
 static void dumpOVLSMemrefVector(OVLSostream &OS,
                                  const OVLSMemrefVector &MemrefVec,
@@ -1733,15 +1731,15 @@ APInt OVLSGroup::computeByteAccessMask() const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
-
-  OS << "\n    Vector Length(in bytes): " << getVectorLength();
+  OS << "  Group#" << getDebugId() << ":\n";
+  OS << "    Vector Length(in bytes): " << getVectorLength() << '\n';
   // print accessType
-  OS << "\n    AccType: ";
+  OS << "    AccType: ";
   getAccessKind().print(OS);
-  OS << ", Stride (in bytes): " << getConstStride();
+  OS << ", Stride (in bytes): " << getConstStride() << '\n';
 
   // Print result mask
-  OS << "\n    AccessMask(per byte, R to L): ";
+  OS << "    AccessMask(per byte, R to L): ";
   OptVLS::printMask(OS, computeByteAccessMask());
   OS << "\n";
 
@@ -1848,7 +1846,7 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
                                 OVLSGroupVector &Grps, unsigned VectorLength,
                                 OVLSMemrefToGroupMap *MemrefToGroupMap) {
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n"
-                       << "  Recieved a vector of memrefs (" << Memrefs.size()
+                       << "  Received a vector of memrefs (" << Memrefs.size()
                        << "): \n");
   OVLSDebug(OptVLS::dumpOVLSMemrefVector(OVLSdbgs(), Memrefs, 2));
 

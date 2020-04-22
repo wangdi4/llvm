@@ -24,13 +24,11 @@
 ; }
 
 
-; RUN: opt -VPlanDriver -vplan-force-vf=2 -S  -enable-vp-value-codegen=false %s | FileCheck %s --check-prefixes=CHECK,CHECK-LLVM
-; RUN: opt -VPlanDriver -vplan-force-vf=2 -S  -enable-vp-value-codegen %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPVALUE
+; RUN: opt -VPlanDriver -vplan-force-vf=2 -S  %s | FileCheck %s
 
-; CHECK: entry:
-; CHECK-LLVM-NEXT: {{.*}} = alloca [2 x [1024 x i32]], align 16
-; CHECK-VPVALUE: [[PRIV1:%.*]] = alloca [2 x [1024 x i32]], align 4
-; CHECK-VPVALUE-NEXT: {{.*}} = bitcast [2 x [1024 x i32]]* [[PRIV1]] to [1024 x i32]*
+; CHECK:      entry:
+; CHECK:       [[PRIV1:%.*]] = alloca [2 x [1024 x i32]], align 4
+; CHECK-NEXT:  {{.*}} = bitcast [2 x [1024 x i32]]* [[PRIV1]] to [1024 x i32]*
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

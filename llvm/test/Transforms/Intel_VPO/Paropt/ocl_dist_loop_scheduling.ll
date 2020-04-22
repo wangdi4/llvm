@@ -10,11 +10,11 @@
 
 ; Check that workitem loop distribution computation initializes
 ; loop bounds with the workgroup (team) bounds:
+; CHECK: %[[TLB:.*]] = load i32, i32* %loop0.team.lb
+; CHECK: store i32 %[[TLB]], i32* %loop0.lower.bnd
+; CHECK: %[[TUB:.*]] = load i32, i32* %loop0.team.ub
+; CHECK: store i32 %[[TUB]], i32* %loop0.upper.bnd
 ; CHECK: call{{.*}}get_local_size
-; CHECK: %[[TLB:.*]] = load i32, i32* %team.lb
-; CHECK: store i32 %[[TLB]], i32* %lower.bnd
-; CHECK: %[[TUB:.*]] = load i32, i32* %team.ub
-; CHECK: store i32 %[[TUB]], i32* %upper.bnd
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

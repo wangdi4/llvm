@@ -94,8 +94,9 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 
 // TODO: ideally this function should be moved into utils.
 Type *VPlanCostModel::getVectorizedType(const Type *BaseTy, unsigned VF) {
-  if (BaseTy->isVectorTy())
-    VF *= BaseTy->getVectorNumElements();
+  auto *BaseVecTy = dyn_cast<VectorType>(BaseTy);
+  if (BaseVecTy)
+    VF *= BaseVecTy->getNumElements();
 
   return VectorType::get(BaseTy->getScalarType(), VF);
 }
@@ -122,8 +123,16 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
   const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
-  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
-    return ::getMemInstAddressSpace(Inst);
+  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
+    if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))
+      return ::getMemInstAddressSpace(Inst);
+
+    // Handle cases such as a[i] = b + c, the store to a[i] will be the master
+    // VPInst. However, Inst will be an add instruction.
+    const RegDDRef *LvalRef = DDNode->getLvalDDRef();
+    if (LvalRef && LvalRef->isMemRef())
+      return LvalRef->getPointerAddressSpace();
+  }
 #endif // INTEL_CUSTOMIZATION
 
   return 0; // CHECKME: Is that correct?
@@ -145,11 +154,12 @@ Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
 #if INTEL_CUSTOMIZATION
   if (!VPInst->HIR.isMaster())
     return nullptr;
-  auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
-  auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
-                                           : HInst->getLvalDDRef();
+  if (const auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
+    auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
+                                             : HInst->getLvalDDRef();
 
-  return RegDD->getTempBaseValue();
+    return RegDD->getTempBaseValue();
+  }
 #endif // INTEL_CUSTOMIZATION
 
   return nullptr;
@@ -171,9 +181,19 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
 #if INTEL_CUSTOMIZATION
   if (VPInst->HIR.isMaster()) {
     const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
-    if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
-      if (unsigned Align = ::getMemInstAlignment(Inst))
-        return Align;
+    if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
+      if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+        if (unsigned Align = ::getMemInstAlignment(Inst))
+          return Align;
+      } else {
+        // Handle cases such as a[i] = b + c, the store to a[i] will be the
+        // master VPInst. However, Inst will be an add instruction.
+        const RegDDRef *LvalRef = DDNode->getLvalDDRef();
+        if (LvalRef && LvalRef->isMemRef())
+          if (unsigned Align = LvalRef->getAlignment())
+            return Align;
+      }
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -379,7 +399,9 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
 
 unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   unsigned Cost = 0;
-  for (const VPInstruction &VPInst : VPBB->vpinstructions()) {
+  for (const VPInstruction &VPInst : *VPBB) {
+    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
+    // correctly scale the cost of the basic block.
     unsigned InstCost = getCost(&VPInst);
     if (InstCost == UnknownCost)
       continue;
@@ -389,39 +411,16 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost(const VPBlockBase *VPBlock) const {
-  if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
-    unsigned Cost = 0;
-    for (const VPBlockBase *Block : depth_first(Region->getEntry())) {
-      // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
-      // correctly scale the cost of the basic block.
-      Cost += getCost(Block);
-    }
-    return Cost;
-  }
-
-  // TODO: swap the casts with the above?
-  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
-  return getCost(VPBB);
-}
-
 unsigned VPlanCostModel::getCost() const {
-  assert(Plan->getEntry()->getNumSuccessors() == 0 &&
-         "VPlan Entry block must have no successors!");
-  return getCost(Plan->getEntry());
+  unsigned Cost = 0;
+  for (auto *Block : depth_first(Plan->getEntryBlock()))
+    Cost += getCost(Block);
+  return Cost;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
-                                         const VPBlockBase *VPBlock) const {
-  // TODO: match print order with "vector execution order".
-  if (auto Region = dyn_cast<VPRegionBlock>(VPBlock)) {
-    for (const VPBlockBase *Block : depth_first(Region->getEntry()))
-      printForVPBlockBase(OS, Block);
-    return;
-  }
-
-  const auto *VPBB = cast<VPBasicBlock>(VPBlock);
+void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
+                                          const VPBasicBlock *VPBB) const {
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: ";
   unsigned VPBBCost = getCost(VPBB);
   if (VPBBCost == UnknownCost)
@@ -429,7 +428,7 @@ void VPlanCostModel::printForVPBlockBase(raw_ostream &OS,
   else
     OS << VPBBCost << '\n';
 
-  for (const VPInstruction &VPInst : VPBB->vpinstructions()) {
+  for (const VPInstruction &VPInst : *VPBB) {
     unsigned Cost = getCost(&VPInst);
     if (Cost == UnknownCost)
       OS << "  Unknown cost for ";
@@ -447,8 +446,8 @@ void VPlanCostModel::print(raw_ostream &OS) const {
   LLVM_DEBUG(dbgs() << *Plan;);
 
   // TODO: match print order with "vector execution order".
-  for (const VPBlockBase *Block : depth_first(Plan->getEntry()))
-    printForVPBlockBase(OS, Block);
+  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
+    printForVPBasicBlock(OS, Block);
 
   OS << '\n';
 }

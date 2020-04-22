@@ -35,6 +35,7 @@
 ; the new PHI node from both incoming VPBBs (effectively a no-op).
 
 ; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-plain-cfg -enable-blob-coeff-vec -enable-nested-blob-vec -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -47,65 +48,54 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-NEXT:    REGION: [[REGION0:region[0-9]+]] (BP: NULL)
-; CHECK-NEXT:    [[BB0:BB[0-9]+]] (BP: NULL) :
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]] (BP: NULL) :
+; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]] (BP: NULL) :
-;
-; FIXME: CMPLRLLVM-10515: We depend on the iteration order of some container
-; here. Has to be root-caused and fixed.
-;
-; CHECK-DAG:      [DA: Divergent] i32 [[VP0:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-DAG:      [DA: Divergent] i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP4:%.*]] = mul i64 -1 i64 [[VP2]]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP5:%.*]] = add i64 [[VP4]] i64 8
-; CHECK-NEXT:     [DA: Divergent] i32* [[VP6:%.*]] = getelementptr inbounds [9 x i32]* @a i64 0 i64 [[VP5]]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP7:%.*]] = load i32* [[VP6]]
-; CHECK-NEXT:     [DA: Uniform]   i16 [[VP8:%.*]] = trunc i64 [[TMP1:%.*]] to i16
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP9:%.*]] = zext i16 [[VP8]] to i32
-; CHECK-NEXT:     [DA: Uniform]   i32 [[VP10:%.*]] = bitcast i32 [[VP9]]
-; CHECK-NEXT:     [DA: Divergent] i1 [[VP11:%.*]] = icmp i32 [[VP7]] i32 0
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = mul i64 -1 i64 [[VP2]]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP4]] i64 8
+; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [9 x i32]* @a i64 0 i64 [[VP5]]
+; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
+; CHECK-NEXT:     i16 [[VP8:%.*]] = trunc i64 [[TMP1:%.*]] to i16
+; CHECK-NEXT:     i32 [[VP9:%.*]] = zext i16 [[VP8]] to i32
+; CHECK-NEXT:     i32 [[VP10:%.*]] = bitcast i32 [[VP9]]
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp i32 [[VP7]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP11]]), [[BB3]](!i1 [[VP11]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]] (BP: NULL) :
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP12:%.*]] = udiv i32 2 i32 [[VP7]]
-; CHECK-NEXT:       [DA: Divergent] i32 [[VP13:%.*]] = bitcast i32 [[VP12]]
+; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:       i32 [[VP12:%.*]] = udiv i32 2 i32 [[VP7]]
+; CHECK-NEXT:       i32 [[VP13:%.*]] = bitcast i32 [[VP12]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]] (BP: NULL) :
-;
-; FIXME: CMPLRLLVM-10515: We depend on the iteration order of some container
-; here. Has to be root-caused and fixed.
-;
-; CHECK-DAG:      [DA: Divergent] i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB4]] ],  [ i32 [[VP10]], [[BB2]] ]
-; CHECK-DAG:      [DA: Divergent] i32 [[VP15:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP0]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Divergent] i32 [[VP1]] = mul i32 [[VP15]] i32 [[VP14]]
-; CHECK-NEXT:     [DA: Divergent] i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     [DA: Uniform]   i1 [[VP16:%.*]] = icmp i64 [[VP3]] i64 7
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB4]] ],  [ i32 [[VP10]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP15:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP0]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP1]] = mul i32 [[VP15]] i32 [[VP14]]
+; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
+; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp i64 [[VP3]] i64 7
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP16]]), [[BB5:BB[0-9]+]](!i1 [[VP16]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]] (BP: NULL) :
+; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]] (BP: NULL) :
+; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    END Region([[REGION0]])
 ;
   %1 = load i64, i64* @time_ago, align 8
   %conv1 = trunc i64 %1 to i32

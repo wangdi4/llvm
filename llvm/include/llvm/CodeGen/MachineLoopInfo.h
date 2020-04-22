@@ -76,7 +76,6 @@ public:
   /// then null is returned.
   MDNode *getLoopID() const;
 #endif  // INTEL_CUSTOMIZATION
-
   void dump() const;
 
 private:

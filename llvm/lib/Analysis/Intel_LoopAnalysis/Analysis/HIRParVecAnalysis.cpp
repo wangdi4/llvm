@@ -1,6 +1,6 @@
 //===-- HIRParVecAnalysis.cpp ---------------------------------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -495,7 +495,8 @@ static bool loopInSIMD(HLLoop *Loop) {
 
 void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
                          HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
-  if (Loop->hasUnrollEnablingPragma()) {
+  if (Loop->hasCompleteUnrollEnablingPragma()) {
+    // Bail out of vectorization if complete unroll requested.
     setVecType(UNROLL_PRAGMA_LOOP);
     emitDiag();
     return;
@@ -542,7 +543,8 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
       IdAnalysis.gatherIdioms(IList, DDA->getGraph(Loop), *SRA, Loop);
     }
     DDWalk DDW(*TLI, *DDA, *SRA, Loop, this, IList); // Legality checker.
-    Loop->getHLNodeUtils().visit(DDW, Loop); // This can change isDone() status.
+    // This can change isDone() status.
+    HLNodeUtils::visitRange(DDW, Loop->child_begin(), Loop->child_end());
   }
   if (isDone()) {
     // Necessary analysis is all complete.

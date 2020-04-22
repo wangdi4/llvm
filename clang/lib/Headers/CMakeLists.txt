@@ -56,12 +56,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/uliintrin.h
   )
 # end INTEL_FEATURE_ISA_ULI
-# INTEL_FEATURE_ISA_SERIALIZE
+# INTEL_FEATURE_ISA_HRESET
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
-  Intel_Headers/serializeintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET
+  Intel_Headers/hresetintrin.h
   )
-# end INTEL_FEATURE_ISA_SERIALIZE
+# end INTEL_FEATURE_ISA_HRESET
 # INTEL_FEATURE_ISA_TSXLDTRK
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_TSXLDTRK
@@ -73,12 +73,73 @@ intel_add_file(INTEL_HEADERS
   Intel_amxintrin.h
   )
 # end INTEL_FEATURE_ISA_AMX
-# INTEL_FEATURE_ISA_AMX2
+# INTEL_FEATURE_ISA_AMX_FUTURE
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX2
-  Intel_amx2intrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FUTURE
+  Intel_amxfutureintrin.h
   )
-# end INTEL_FEATURE_ISA_AMX2
+# end INTEL_FEATURE_ISA_AMX_FUTURE
+# INTEL_FEATURE_ISA_AMX_LNC
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_LNC
+  Intel_amxlncintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_LNC
+# INTEL_FEATURE_ISA_AMX_FP16
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FP16
+  Intel_amxfp16intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_FP16
+# INTEL_FEATURE_ISA_AMX_MEMORY2
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMORY2
+  Intel_amxmemory2intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_MEMORY2
+# INTEL_FEATURE_ISA_AMX_BF16_EVEX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF16_EVEX
+  Intel_amxbf16evexintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_BF16_EVEX
+# INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT_EVEX
+  Intel_amxconvertevexintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+# INTEL_FEATURE_ISA_AMX_INT8_EVEX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_INT8_EVEX
+  Intel_amxint8evexintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_INT8_EVEX
+# INTEL_FEATURE_ISA_AMX_TILE_EVEX
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TILE_EVEX
+  Intel_amxtileevexintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_TILE_EVEX
+# INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TRANSPOSE2
+  Intel_amxtranspose2intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+# INTEL_FEATURE_ISA_AMX_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT
+  Intel_amxconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_CONVERT
+# INTEL_FEATURE_ISA_AMX_TILE2
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TILE2
+  Intel_amxtile2intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_TILE2
+
 # INTEL_FEATURE_ISA_KEYLOCKER
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER
@@ -101,6 +162,44 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxvnni/avxvnniintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_VNNI
+# INTEL_FEATURE_ISA_AVX512_DOTPROD
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD
+  Intel_Headers/avx512dotprod/avx512dotprodintrin.h
+  Intel_Headers/avx512dotprod/avx512vldotprodintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD
+# INTEL_FEATURE_ISA_AVX512_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_CONVERT
+  Intel_Headers/avx512convert/avx512convertintrin.h
+  Intel_Headers/avx512convert/avx512vlconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_CONVERT
+# INTEL_FEATURE_ISA_AVX_IFMA
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_IFMA
+  Intel_Headers/avxifma/avxifmaintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_IFMA
+# INTEL_FEATURE_ISA_AVX_DOTPROD
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD
+  Intel_Headers/avxdotprod/avxdotprodintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_DOTPROD
+# INTEL_FEATURE_ISA_AVX_CONVERT
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_CONVERT
+  Intel_Headers/avxconvert/avxconvertintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_CONVERT
+# INTEL_FEATURE_ISA_AVX_BF16
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_BF16
+  Intel_Headers/avxbf16/avxbf16intrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_BF16
 # end INTEL_CUSTOMIZATION
 
 set(files
@@ -108,6 +207,7 @@ set(files
   altivec.h
   ammintrin.h
   arm_acle.h
+  arm_cmse.h
   armintr.h
   arm64intr.h
   avx2intrin.h
@@ -141,6 +241,7 @@ set(files
   bmi2intrin.h
   bmiintrin.h
   __clang_cuda_builtin_vars.h
+  __clang_cuda_math.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h
   __clang_cuda_device_functions.h
@@ -197,6 +298,7 @@ set(files
   ptwriteintrin.h
   rdseedintrin.h
   rtmintrin.h
+  serializeintrin.h
   sgxintrin.h
   s390intrin.h
   shaintrin.h
@@ -219,6 +321,7 @@ set(files
   vecintrin.h
   vpclmulqdqintrin.h
   waitpkgintrin.h
+  wasm_simd128.h
   wbnoinvdintrin.h
   wmmintrin.h
   __wmmintrin_aes.h
@@ -254,6 +357,7 @@ set(openmp_wrapper_files
   openmp_wrappers/cmath
   openmp_wrappers/__clang_openmp_math.h
   openmp_wrappers/__clang_openmp_math_declares.h
+  openmp_wrappers/new
 )
 
 set(output_dir ${LLVM_LIBRARY_OUTPUT_INTDIR}/clang/${CLANG_VERSION}/include)
@@ -314,8 +418,12 @@ endif(INTEL_CUSTOMIZATION)
 clang_generate_header(-gen-arm-neon arm_neon.td arm_neon.h)
 # Generate arm_fp16.h
 clang_generate_header(-gen-arm-fp16 arm_fp16.td arm_fp16.h)
+# Generate arm_sve.h
+clang_generate_header(-gen-arm-sve-header arm_sve.td arm_sve.h)
 # Generate arm_mve.h
 clang_generate_header(-gen-arm-mve-header arm_mve.td arm_mve.h)
+# Generate arm_cde.h
+clang_generate_header(-gen-arm-cde-header arm_cde.td arm_cde.h)
 
 add_custom_target(clang-resource-headers ALL DEPENDS ${out_files})
 set_target_properties(clang-resource-headers PROPERTIES
@@ -324,11 +432,48 @@ set_target_properties(clang-resource-headers PROPERTIES
 
 set(header_install_dir lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
 
+if(INTEL_CUSTOMIZATION)
+  # Avoid deploying header files for unsupported targets.
+  list(REMOVE_ITEM files
+    # ARM
+    arm_acle.h
+    arm_cmse.h
+    armintr.h
+    arm64intr.h
+
+    # MIPS
+    msa.h
+
+    # SystemZ, PowerPC
+    altivec.h
+    s390intrin.h
+    htmintrin.h
+    htmxlintrin.h
+    vecintrin.h
+
+    # CUDA
+    # Note that openmp_wrappers depend on these files.
+    # We exclude openmp_wrappers below.
+    __clang_cuda_builtin_vars.h
+    __clang_cuda_cmath.h
+    __clang_cuda_complex_builtins.h
+    __clang_cuda_device_functions.h
+    __clang_cuda_intrinsics.h
+    __clang_cuda_libdevice_declares.h
+    __clang_cuda_math_forward_declares.h
+    __clang_cuda_runtime_wrapper.h
+    )
+  # Currently all generated files are for ARM.  Avoid deploying them.
+  set(generated_files)
+endif(INTEL_CUSTOMIZATION)
+
 install(
   FILES ${files} ${generated_files}
   DESTINATION ${header_install_dir}
   COMPONENT clang-resource-headers)
 
+if(NOT INTEL_CUSTOMIZATION)
+# Avoid deploying CUDA/NVPTX and PPC files.
 install(
   FILES ${cuda_wrapper_files}
   DESTINATION ${header_install_dir}/cuda_wrappers
@@ -343,6 +488,7 @@ install(
   FILES ${openmp_wrapper_files}
   DESTINATION ${header_install_dir}/openmp_wrappers
   COMPONENT clang-resource-headers)
+endif(NOT INTEL_CUSTOMIZATION)
 
 if (NOT LLVM_ENABLE_IDE)
   add_llvm_install_targets(install-clang-resource-headers

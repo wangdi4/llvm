@@ -1,14 +1,13 @@
 ; Test for codegen of uniform loads inside divergent inner loops.
 
 ; RUN: opt < %s -VPlanDriver -vplan-force-vf=2 -S | FileCheck %s
-; RUN: opt < %s -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen -S | FileCheck %s
 
 ; CHECK-LABEL: @test1
 ; CHECK:       vector.body:
 ; CHECK:         [[MASK:%.*]] = icmp eq <2 x i64> [[VEC_IND:%.*]], [[BROADCAST_SPLAT:%.*]]
 ; CHECK-NEXT:    br label %[[VPLANNEDBB:.*]]
 ; CHECK:       [[VPLANNEDBB]]:
-; CHECK-NEXT:    [[INNER_VEC_PHI:%.*]] = phi <2 x i64> [ [[INNER_IV_ADD:%.*]], %[[PRED_LOAD_CONTINUE:.*]] ], [ zeroinitializer, [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], %[[PRED_LOAD_CONTINUE:.*]] ], [ 0, [[VECTOR_BODY:%.*]] ]
 ; CHECK:         [[GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR1:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
@@ -78,7 +77,7 @@ exit:                                             ; preds = %for.end, %entry
 ; because of bcast pattern differences between IR-based CG and VPValue-based CG.
 ; CHECK-LABEL: @test1_liveout
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[INNER_VEC_PHI:%.*]] = phi <2 x i64> [ [[INNER_IV_ADD:%.*]], [[VPLANNEDBB:%.*]] ], [ zeroinitializer, [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], [[VPLANNEDBB:%.*]] ], [ 0, [[VECTOR_BODY:%.*]] ]
 ; CHECK:         [[EXTRACT_GEP:%.*]] = extractelement <2 x i64*> [[GEP:%.*]], i32 0
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK:%.*]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0

@@ -24,10 +24,10 @@
 namespace llvm {
 namespace vpo {
 class VPlanForwardIDFCalculator final
-    : public IDFCalculatorBase<VPBlockBase, false> {
+    : public IDFCalculatorBase<VPBasicBlock, false> {
 public:
   using IDFCalculatorBase =
-      typename llvm::IDFCalculatorBase<VPBlockBase, false>;
+      typename llvm::IDFCalculatorBase<VPBasicBlock, false>;
   VPlanForwardIDFCalculator(VPDominatorTree &DT) : IDFCalculatorBase(DT) {}
 };
 } // namespace vpo

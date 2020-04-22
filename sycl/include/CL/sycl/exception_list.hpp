@@ -10,11 +10,12 @@
 
 // 4.9.2 Exception Class Interface
 
+#include <CL/sycl/detail/defines.hpp>
 #include <CL/sycl/stl.hpp>
 
 #include <cstddef>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 
 // Forward declaration
@@ -48,4 +49,4 @@ private:
 using async_handler = function_class<void(cl::sycl::exception_list)>;
 
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

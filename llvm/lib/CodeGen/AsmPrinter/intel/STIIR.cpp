@@ -102,7 +102,9 @@ STIStringEntry *STIStringEntry::create() { return new STIStringEntry(); }
 
 StringRef STIStringEntry::getString() const { return _string; }
 
-void STIStringEntry::setString(StringRef string) { _string = string; }
+void STIStringEntry::setString(StringRef string) {
+  _string = std::string(string);
+}
 
 STIStringEntry::Offset STIStringEntry::getOffset() const { return _offset; }
 
@@ -444,7 +446,7 @@ void STISymbolModule::setSymbolsSignatureID(STISymbolsSignatureID signatureID) {
 
 StringRef STISymbolModule::getPath() const { return _path; }
 
-void STISymbolModule::setPath(StringRef path) { _path = path; }
+void STISymbolModule::setPath(StringRef path) { _path = std::string(path); }
 
 void STISymbolModule::add(STISymbolCompileUnit *compileUnit) {
   _compileUnits.push_back(compileUnit);
@@ -482,7 +484,7 @@ void STISymbolCompileUnit::setMachineID(STIMachineID machineID) {
 StringRef STISymbolCompileUnit::getProducer() const { return _producer; }
 
 void STISymbolCompileUnit::setProducer(StringRef producer) {
-  _producer = producer;
+  _producer = std::string(producer);
 }
 
 STIScope *STISymbolCompileUnit::getScope() const { return _scope; }
@@ -523,7 +525,7 @@ void STISymbolProcedure::setSymbolID(STISymbolID symbolID) {
 
 StringRef STISymbolProcedure::getName() const { return _name; }
 
-void STISymbolProcedure::setName(StringRef name) { _name = name; }
+void STISymbolProcedure::setName(StringRef name) { _name = std::string(name); }
 
 STIType *STISymbolProcedure::getType() const { return _type; }
 
@@ -601,7 +603,9 @@ void STISymbolThunk::setAdjustor(int adjustor) { _adjustor = adjustor; }
 
 StringRef STISymbolThunk::getTarget() const { return _target; }
 
-void STISymbolThunk::setTarget(StringRef target) { _target = target; }
+void STISymbolThunk::setTarget(StringRef target) {
+  _target = std::string(target);
+}
 
 MCSymbol *STISymbolThunk::getPCODE() const { return _pcode; }
 
@@ -644,7 +648,7 @@ STISymbolBlock *STISymbolBlock::create() { return new STISymbolBlock(); }
 
 StringRef STISymbolBlock::getName() const { return _name; }
 
-void STISymbolBlock::setName(StringRef name) { _name = name; }
+void STISymbolBlock::setName(StringRef name) { _name = std::string(name); }
 
 STIScope *STISymbolBlock::getScope() const { return _scope; }
 
@@ -689,9 +693,7 @@ StringRef STISymbolConstant::getName() const {
   return _name;
 }
 
-void STISymbolConstant::setName(StringRef name) {
-  _name = name;
-}
+void STISymbolConstant::setName(StringRef name) { _name = std::string(name); }
 
 const STINumeric* STISymbolConstant::getValue() const {
   return _value;
@@ -724,7 +726,7 @@ STISymbolVariable::~STISymbolVariable() { delete _location; }
 
 StringRef STISymbolVariable::getName() const { return _name; }
 
-void STISymbolVariable::setName(StringRef name) { _name = name; }
+void STISymbolVariable::setName(StringRef name) { _name = std::string(name); }
 
 STILocation *STISymbolVariable::getLocation() const { return _location; }
 
@@ -897,9 +899,7 @@ StringRef STITypeArray::getName() const {
   return _name;
 }
 
-void STITypeArray::setName(StringRef name) {
-  _name = name;
-}
+void STITypeArray::setName(StringRef name) { _name = std::string(name); }
 
 const STINumeric* STITypeArray::getLength() const {
   return _length;
@@ -969,7 +969,7 @@ void STITypeMember::setOffset(const STINumeric *offset) {
 
 StringRef STITypeMember::getName() const { return _name; }
 
-void STITypeMember::setName(StringRef name) { _name = name; }
+void STITypeMember::setName(StringRef name) { _name = std::string(name); }
 
 bool STITypeMember::isStatic() const { return _isStatic; }
 
@@ -1060,7 +1060,7 @@ void STITypeMethod::setList(STIType *methodList) { _methodList = methodList; }
 
 StringRef STITypeMethod::getName() const { return _name; }
 
-void STITypeMethod::setName(StringRef name) { _name = name; }
+void STITypeMethod::setName(StringRef name) { _name = std::string(name); }
 
 //===----------------------------------------------------------------------===//
 // STITypeOneMethod
@@ -1099,7 +1099,7 @@ void STITypeOneMethod::setVirtualIndex(int virtualIndex) {
 
 StringRef STITypeOneMethod::getName() const { return _name; }
 
-void STITypeOneMethod::setName(StringRef name) { _name = name; }
+void STITypeOneMethod::setName(StringRef name) { _name = std::string(name); }
 
 //===----------------------------------------------------------------------===//
 // STITypeEnumerator
@@ -1133,7 +1133,7 @@ void STITypeEnumerator::setValue(const STINumeric *value) {
 
 StringRef STITypeEnumerator::getName() const { return _name; }
 
-void STITypeEnumerator::setName(StringRef name) { _name = name; }
+void STITypeEnumerator::setName(StringRef name) { _name = std::string(name); }
 
 //===----------------------------------------------------------------------===//
 // STITypeBaseClass
@@ -1389,7 +1389,7 @@ void STITypeEnumeration::setFieldType(STIType *fieldType) {
 
 StringRef STITypeEnumeration::getName() const { return _name; }
 
-void STITypeEnumeration::setName(StringRef name) { _name = name; }
+void STITypeEnumeration::setName(StringRef name) { _name = std::string(name); }
 
 //===----------------------------------------------------------------------===//
 // STITypeVShape
@@ -1440,7 +1440,7 @@ void STITypeFunctionID::setParentClassType(STIType *parentClassType) {
 
 StringRef STITypeFunctionID::getName() const { return _name; }
 
-void STITypeFunctionID::setName(StringRef name) { _name = name; }
+void STITypeFunctionID::setName(StringRef name) { _name = std::string(name); }
 
 //===----------------------------------------------------------------------===//
 // STITypeProcedure
@@ -1568,7 +1568,9 @@ STITypeServer *STITypeServer::create() { return new STITypeServer(); }
 
 StringRef STITypeServer::getPDBFullName() const { return _pdbFullName; }
 
-void STITypeServer::setPDBFullName(StringRef name) { _pdbFullName = name; }
+void STITypeServer::setPDBFullName(StringRef name) {
+  _pdbFullName = std::string(name);
+}
 
 //===----------------------------------------------------------------------===//
 // STISymbolUserDefined
@@ -1591,7 +1593,9 @@ void STISymbolUserDefined::setDefinedType(STIType *definedType) {
 
 StringRef STISymbolUserDefined::getName() const { return _name; }
 
-void STISymbolUserDefined::setName(StringRef name) { _name = name; }
+void STISymbolUserDefined::setName(StringRef name) {
+  _name = std::string(name);
+}
 
 //===----------------------------------------------------------------------===//
 // STIScope

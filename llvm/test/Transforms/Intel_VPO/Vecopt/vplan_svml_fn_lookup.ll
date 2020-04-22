@@ -1,11 +1,7 @@
 ; This test checks that masked svml call is serialized if the masked version of
 ; intirinsic is not available.
 
-; RUN: opt -VPlanDriver -vplan-force-vf=2 -vector-library=SVML \
-; RUN: -enable-vp-value-codegen=false -S %s | FileCheck %s
-
-; RUN: opt -VPlanDriver -vplan-force-vf=2 -vector-library=SVML \
-; RUN: -enable-vp-value-codegen -S %s | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=2 -vector-library=SVML -S < %s | FileCheck %s
 
 target datalayout = "p:32:32-p1:32:32-p2:16:16"
 

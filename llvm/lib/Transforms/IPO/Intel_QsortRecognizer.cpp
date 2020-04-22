@@ -1,6 +1,6 @@
 //===------- Intel_QsortRecognizer.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -99,7 +99,7 @@ static Instruction *firstNonDbgInst(BasicBlock *BB) {
 //
 static bool isPHINodeWithArgIncomingValue(Value *V, Argument *Arg) {
   auto PHIN = dyn_cast_or_null<PHINode>(V);
-  if (!PHIN)
+  if (!PHIN || !Arg)
     return false;
   auto Num = PHIN->getNumIncomingValues();
   for (unsigned I = 0; I < Num; ++I)
@@ -260,7 +260,7 @@ static bool isCompareFunction(Function *CompareFunc) {
 
     Value *LVal = nullptr;
     Value *RVal = nullptr;
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
 
     if (!match(Cond, m_ICmp(Pred, m_Value(LVal), m_Value(RVal))))
       return false;
@@ -305,12 +305,41 @@ static bool isCompareFunction(Function *CompareFunc) {
     return 0;
   };
 
+  // Returns true if "Val" is SelectInst that returns either 1 or -1
+  // based on argument comparison condition.
+  // Ex:
+  //     %21 = icmp sgt i32 %16, %20
+  //     %22 = select i1 %21, i32 1, i32 -1
+  auto CheckSelect = [&, IsValidCompare, GetConstantOne](
+                         Value *Val, unsigned *MaxSgtP, unsigned *MaxSltP) {
+    auto *SelInst = dyn_cast<SelectInst>(Val);
+    if (!SelInst)
+      return false;
+    int FalseConst = GetConstantOne(SelInst->getFalseValue());
+    int TrueConst = GetConstantOne(SelInst->getTrueValue());
+
+    // Each side is either -1 or 1
+    if (FalseConst == 0 || TrueConst == 0)
+      return false;
+    // Both sides are the same
+    if (FalseConst == TrueConst)
+      return false;
+    // The condition must use values pointing to the arguments
+    Value *Cond = SelInst->getCondition();
+    if (!IsValidCompare(Cond, Arg0, Arg1, MaxSgtP, MaxSltP))
+      return false;
+    return true;
+  };
+
   // There will be one use for each argument
   if (!Arg0->hasOneUse() || !Arg1->hasOneUse())
     return false;
 
   unsigned MaxSgt = 0;
   unsigned MaxSlt = 0;
+  bool FoundOne = false;
+  bool FoundMinusOne = false;
+  bool FoundSelect = false;
 
   for (auto &BB : *CompareFunc) {
     Instruction *Terminator = BB.getTerminator();
@@ -336,6 +365,18 @@ static bool isCompareFunction(Function *CompareFunc) {
 
     else if (ReturnInst *Ret = dyn_cast<ReturnInst>(Terminator)) {
 
+      // The below two patterns are allowed for ReturnInst.
+      // Pattern 1:
+      //      %21 = icmp sgt i32 %16, %20
+      //      %22 = select i1 %21, i32 1, i32 -1
+      //      ret i32 %22
+      //
+      //    23:
+      //      %24 = phi i32 [ 1, %2 ], [ -1, %10 ]
+      //      ret i32 %24
+      //
+      //
+      // Pattern 2:
       // The Value returned comes from a PHI Node that checks for
       // 1, -1 or a Select instruction. For example:
       //
@@ -346,69 +387,42 @@ static bool isCompareFunction(Function *CompareFunc) {
       //   23:
       //     %24 = phi i32 [ 1, %2 ], [ -1, %10 ], [ %22, %12 ]
       //     ret i32 %24
-      PHINode *RetPHI = dyn_cast_or_null<PHINode>(Ret->getReturnValue());
+      Value *RVal = Ret->getReturnValue();
+      if (!RVal)
+        return false;
+      if (!FoundSelect && CheckSelect(RVal, &MaxSgt, &MaxSlt)) {
+        FoundSelect = true;
+        continue;
+      }
+
+      PHINode *RetPHI = dyn_cast<PHINode>(RVal);
 
       if (!RetPHI)
         return false;
 
       unsigned NumIncomingValues = RetPHI->getNumIncomingValues();
 
-      if (NumIncomingValues != 3)
+      if (NumIncomingValues > 3)
         return false;
 
-      bool FoundOne = false;
-      bool FoundMinusOne = false;
-      bool FoundSelect = false;
       for (unsigned Entry = 0; Entry < NumIncomingValues; Entry++) {
-
-        if (!FoundOne &&
-            GetConstantOne(RetPHI->getIncomingValue(Entry)) == 1) {
+        Value *Val = RetPHI->getIncomingValue(Entry);
+        if (!FoundOne && GetConstantOne(Val) == 1)
           FoundOne = true;
-        }
-        else if (!FoundMinusOne &&
-            GetConstantOne(RetPHI->getIncomingValue(Entry)) == -1) {
+        else if (!FoundMinusOne && GetConstantOne(Val) == -1)
           FoundMinusOne = true;
-        }
-
-        // Entry in the PHI Node is a Select instructions (%22 from the
-        // above example).
-        else if (!FoundSelect &&
-            isa<SelectInst>(RetPHI->getIncomingValue(Entry))) {
-
-          SelectInst *SelInst =
-              cast<SelectInst>(RetPHI->getIncomingValue(Entry));
-
-          int FalseConst = GetConstantOne(SelInst->getFalseValue());
-          int TrueConst = GetConstantOne(SelInst->getTrueValue());
-
-          // One of the sides is not -1
-          if (FalseConst == 0 || TrueConst == 0)
-            return false;
-
-          // Both sides are the same
-          if (FalseConst == TrueConst)
-            return false;
-
-          // The condition must use values pointing to the arguments
-          Value *Cond = SelInst->getCondition();
-
-          if (!IsValidCompare(Cond, Arg0, Arg1, &MaxSgt, &MaxSlt))
-            return false;
-
+        else if (!FoundSelect && CheckSelect(Val, &MaxSgt, &MaxSlt))
           FoundSelect = true;
-        } else {
-           return false;
-        }
+        else
+          return false;
       }
-
-      if (!FoundOne || !FoundMinusOne || !FoundSelect)
-        return false;
-
     } else {
       return false;
     }
   }
 
+  if (!FoundOne || !FoundMinusOne || !FoundSelect)
+    return false;
   // Make sure that we found the correct number of "less than" and "greater
   // than" operations.
   if (MaxSgt == 2 && MaxSlt == 1)
@@ -433,6 +447,9 @@ static bool findCompareFunction(Function *F) {
   for (auto &I : instructions(F)) {
     CallBase *Call = dyn_cast<CallBase>(&I);
     if (!Call)
+      continue;
+
+    if (isa<DbgInfoIntrinsic>(I))
       continue;
 
     // All calls must be a direct call
@@ -1133,19 +1150,31 @@ static bool allStoresAreSwaps(Function *F,
 //    %289 = select i1 %288, i64 %284, i64 %287
 //    %290 = icmp eq i64 %289, 0
 //
-// It will look for the Select instruction (%289) and will identify the
-// source PtrToInt instructions for the operands %284 and %287. These are
-// %282, %283 and %285. Then it will check that these instructions actually
-// point to the input ArgArray and they use the ArgSize to access an
-// element in a GEP.
+// It will look for the Select instruction (%289). Then it will check that
+// the basic block represents a computation of MIN. This means that the
+// block is computing the lowest value between (pa - a, pb - pa), or
+// (pd - pc, pn - pd - 8).
 //
 // The input vector (SizesVector) will be used to store the operands of the
 // Select instructions found. We are going to use them later in the process
 // that counts the recursions. This is because the operands in the Select
 // instructions represent the new sizes that will be used in the recursions.
+//
+// Also, we store the select instructions found because they represent the
+// values used to compute the vecswap:
+//
+//   before the pivot (left side): from a to pb - r (SelectLeftOut)
+//   after the pivot (right side): from pb to pn - r (SelectRightOut)
+//
+// The GEP that represents pn is stored (GEPpnOut) since we need it for the
+// swaps too.
 static unsigned countMinComputations(Function *F, Argument *ArgArray,
-                             SetVector<Value *> &PointersToArgs,
-                             SmallVector<Value*, 2> &SizesVect) {
+                             Argument *ArgSize, PHINode *PHIpa, PHINode *PHIpb,
+                             PHINode *PHIpc, PHINode *PHIpd,
+                             GetElementPtrInst **GEPpnOut,
+                             SmallVector<Value*, 2> &SizesVect,
+                             SelectInst **SelectLeftOut,
+                             SelectInst **SelectRightOut) {
 
   if (!F)
     return 0;
@@ -1204,7 +1233,7 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
     if (!CmpSel)
       return false;
 
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     Value *ICmpLHS = nullptr;
     if (!match(CmpSel, m_ICmp(Pred, m_Value(ICmpLHS), m_Zero())))
       return false;
@@ -1212,124 +1241,144 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
     return ICmpLHS == SelInst;
   };
 
-  // TODO: For now this function is for testing only. It should be removed
-  // or replaced once the analysis to collect PointersToArgs is done.
-  //
-  // Check that all the operands in the Select instruction are
-  // pointer arithmetic. Also, collect the PtrToInt instructions
-  // related to the pointer arithmetic, later we will prove
-  // that they refer to the array that is being sorted.
-  // Basically, we are looking for this:
-  //
-  //   %282 = ptrtoint i8* %229 to i64
-  //   %283 = ptrtoint i8* %230 to i64
-  //   %284 = sub i64 %282, %283
-  //   %285 = ptrtoint i8* %233 to i64
-  //   %286 = sub i64 %285, %282
-  //   %287 = add i64 %286, -8
-  //   %288 = icmp slt i64 %284, %287
-  //   %289 = select i1 %288, i64 %284, i64 %287
-  //
-  // The operands 1 and 2 in %289 are %284 and %287. %284 is pointer
-  // arithmetic between %282 and %283. Then %287 is an add, but %286 is
-  // another pointer arithmetic between %285 and %282. SetPtr will
-  // collect %282, %283 and %285.
-  auto CollectPtrsToArgs = [](SelectInst *SelInst,
-                              SetVector<PtrToIntInst *> &SetPtr) {
-
-    unsigned NumOperands = SelInst->getNumOperands();
-
-    for (unsigned CurrOperand = 1; CurrOperand < NumOperands; CurrOperand++) {
-      Instruction *Inst =
-          dyn_cast<Instruction>(SelInst->getOperand(CurrOperand));
-
-      if (!Inst) {
-        SetPtr.clear();
-        return;
-      }
-
-      // The add is just basically moving the pointer calculated
-      if (Inst->getOpcode() == Instruction::Add) {
-        // Check that we are moving -8 (the -8 comes from the argument
-        // alignment)
-        ConstantInt *Const = dyn_cast<ConstantInt>(Inst->getOperand(1));
-        if (!Const || Const->getSExtValue() != -8) {
-          SetPtr.clear();
-          return;
-        }
-
-        Inst = dyn_cast<Instruction>(Inst->getOperand(0));
-        if (!Inst) {
-          SetPtr.clear();
-          return;
-        }
-      }
-
-      // Check the subtraction. All the operands must be PtrToInt, or
-      // a PHINode where the incoming values are PtrToInt instructions.
-      if (Inst->getOpcode() == Instruction::Sub) {
-        // Binary operations has only 2 operands
-        for (unsigned Operand = 0; Operand < 2; Operand++) {
-          if (PtrToIntInst *CurrPtr =
-              dyn_cast<PtrToIntInst>(Inst->getOperand(Operand))) {
-            SetPtr.insert(CurrPtr);
-          }
-
-          else if (PHINode *PHI =
-              dyn_cast<PHINode>(Inst->getOperand(Operand))) {
-
-            unsigned NumIncomingValues = PHI->getNumIncomingValues();
-            for (unsigned Entry = 0; Entry < NumIncomingValues; Entry++) {
-              PtrToIntInst *CurrPtr =
-                  dyn_cast<PtrToIntInst>(PHI->getIncomingValue(Entry));
-              if (!CurrPtr) {
-                SetPtr.clear();
-                return;
-              }
-              SetPtr.insert(CurrPtr);
-            }
-          } else {
-            SetPtr.clear();
-            return;
-          }
-        }
-      }
-      // Something else is going on.
-      else {
-        SetPtr.clear();
-        return;
-      }
-    }
-  };
-
-  // TODO: For now this function is for testing only. It should be removed
-  // once we implement the process to identify the pointers to arg.
-  // All PtrToIntInst used in the SelectInst must refer to the beginning of
-  // the array that we are sorting and must use the size to refer data in
-  // the array. Basically, it will use the array and the size to compute
-  // the MIN.
-  auto PtrToIntInstRefersToArgs = [ArgArray](
-      SetVector<PtrToIntInst *> &SetPtr) {
-    if (SetPtr.empty())
+  // Return true if the input Select instruction refers to the first
+  // half of ArgArray (MIN(pa - a, pb - pa)). Else return false.
+  auto CheckFirstHalf = [PHIpa, PHIpb](PHINode *ArgPHI, SelectInst *SelInst) {
+    if (!ArgPHI || !SelInst)
       return false;
 
-    Value *ArgArrValue = cast<Value>(ArgArray);
+    BasicBlock *BB = SelInst->getParent();
 
-    for (auto PtrInst : SetPtr) {
-      // If the pointer points directly to the argument then it must be
-      // the array.
-      if (Argument *Arg = dyn_cast<Argument>(PtrInst->getOperand(0))) {
-        if (Arg != ArgArray)
-          return false;
-      }
+    // Find pa - a
+    PtrToIntInst *PtrPa = dyn_cast<PtrToIntInst>(firstNonDbgInst(BB));
+    if (!PtrPa || PtrPa->getOperand(0) != PHIpa)
+      return false;
+    BinaryOperator *SubA =
+        dyn_cast<BinaryOperator>(PtrPa->getNextNonDebugInstruction());
+    if (!SubA || SubA->getOpcode() != Instruction::Sub)
+      return false;
+    if (SubA->getOperand(0) != PtrPa || SubA->getOperand(1) != ArgPHI)
+      return false;
 
-      // Else, the pointer must get information from the array at position
-      // size
-      else if (!ArgUtil.valueRefersToArg(PtrInst, ArgArrValue))
-        return false;
-    }
+    // Find pb - pa
+    PtrToIntInst *PtrPb =
+        dyn_cast<PtrToIntInst>(SubA->getNextNonDebugInstruction());
+    if (!PtrPb || PtrPb->getOperand(0) != PHIpb)
+      return false;
+    BinaryOperator *SubPa =
+        dyn_cast<BinaryOperator>(PtrPb->getNextNonDebugInstruction());
+    if (!SubPa || SubPa->getOpcode() != Instruction::Sub)
+      return false;
+    if (SubPa->getOperand(0) != PtrPb || SubPa->getOperand(1) != PtrPa)
+      return false;
+
+    // Compare if (pa - a) < (pb - pa)
+    Value *CmprLT = SubPa->getNextNonDebugInstruction();
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!match(CmprLT, m_ICmp(Pred, m_Specific(SubA), m_Specific(SubPa))))
+      return false;
+
+    if (Pred != ICmpInst::ICMP_SLT)
+      return false;
+
+    // Select between the lowest value (pa - a or pb - pa)
+    if (SelInst->getCondition() != CmprLT ||
+        SelInst->getTrueValue() != SubA ||
+        SelInst->getFalseValue() != SubPa)
+      return false;
 
     return true;
+  };
+
+  // Return true if the input Select instruction refers to the second
+  // half of ArgArray (MIN(pd - pc, pn - pd - 8)). Else return false.
+  auto CheckSecondHalf = [PHIpc, PHIpd, ArgArray, ArgSize, &GEPpnOut](
+      SelectInst *SelInst) {
+    if (!SelInst)
+      return false;
+
+    BasicBlock *BB = SelInst->getParent();
+
+    // Find pd - pc
+    PtrToIntInst *PtrPd = dyn_cast<PtrToIntInst>(firstNonDbgInst(BB));
+    if (!PtrPd || PtrPd->getOperand(0) != PHIpd)
+      return false;
+
+    PtrToIntInst *PtrPc =
+        dyn_cast<PtrToIntInst>(PtrPd->getNextNonDebugInstruction());
+    if (!PtrPc || PtrPc->getOperand(0) != PHIpc)
+      return false;
+
+    BinaryOperator *SubPdPc =
+        dyn_cast<BinaryOperator>(PtrPc->getNextNonDebugInstruction());
+    if (!SubPdPc || SubPdPc->getOpcode() != Instruction::Sub)
+      return false;
+    if (SubPdPc->getOperand(0) != PtrPd || SubPdPc->getOperand(1) != PtrPc)
+      return false;
+
+    // Find pn - pd - 8
+    PtrToIntInst *PtrPn =
+        dyn_cast_or_null<PtrToIntInst>(
+        SubPdPc->getNextNonDebugInstruction());
+    if (!PtrPn)
+      return false;
+
+    // There must be only one GEP that represents pn
+    if (*GEPpnOut)
+      return false;
+
+    // pn is a pointer pointing to the end of the array
+    GetElementPtrInst *GEPArg =
+        dyn_cast<GetElementPtrInst>(PtrPn->getOperand(0));
+    if (!GEPArg || GEPArg->getNumOperands() != 2)
+      return false;
+
+    // operand 0 must be a user of ArgArray
+    // (%34 = phi i8* [ %317, %315 ], [ %0, %2 ])
+    if (!isPHINodeWithArgIncomingValue(GEPArg->getOperand(0), ArgArray))
+      return false;
+
+    // Operand 1 is a left shift of the argument size
+    Value *ArgSizeUser = nullptr;
+    ConstantInt *Const = nullptr;
+    if (!match(GEPArg->getOperand(1),
+        m_Shl(m_Value(ArgSizeUser), m_ConstantInt(Const))) ||
+        Const->getZExtValue() != 3)
+      return false;
+
+    // operand 1 must point to the size
+    // %35 = phi i64 [ %318, %315 ], [ %1, %2 ]
+    if (!isPHINodeWithArgIncomingValue(ArgSizeUser, ArgSize))
+      return false;
+
+    *GEPpnOut = GEPArg;
+
+    BinaryOperator *SubPnPd =
+        dyn_cast<BinaryOperator>(PtrPn->getNextNonDebugInstruction());
+    if (!SubPnPd || SubPnPd->getOpcode() != Instruction::Sub)
+      return false;
+    if (SubPnPd->getOperand(0) != PtrPn || SubPnPd->getOperand(1) != PtrPd)
+      return false;
+
+    BinaryOperator *AddMinus8 =
+        dyn_cast<BinaryOperator>(SubPnPd->getNextNonDebugInstruction());
+    ConstantInt *Minus8 = nullptr;
+    if (!match(AddMinus8, m_Add(m_Specific(SubPnPd), m_ConstantInt(Minus8))) ||
+        Minus8->getSExtValue() != -8)
+      return false;
+
+    // Compare if (pd - pc) < (pn - pd - 8)
+    Value *CmprLT = AddMinus8->getNextNonDebugInstruction();
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!match(CmprLT, m_ICmp(Pred,
+        m_Specific(SubPdPc), m_Specific(AddMinus8))) ||
+        Pred != ICmpInst::ICMP_SLT)
+      return false;
+
+    // Select between the lowest value (pd - pc or pn - pd - 8)
+    return (SelInst->getCondition() == CmprLT &&
+        SelInst->getTrueValue() == SubPdPc &&
+        SelInst->getFalseValue() == AddMinus8);
   };
 
   // Return true if the input value is used in a direct call to F.
@@ -1392,18 +1441,44 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
     return -1;
   };
 
-  unsigned MINCounter = 0;
+  // Find the user that is PointerToInt and the get the PHINode that refers to
+  // that user.
+  auto FindPHIForArgArray = [ArgArray]() -> PHINode * {
 
-  // TODO: This is only for testing process. Once the whole qsort
-  // identifier is completed, this part needs to be removed since
-  // PointersToArgs must not be an empty set. The following part
-  // will identify the pointers used in the Select instruction found.
-  bool TestingEnabled = PointersToArgs.size() == 0 && QsortTestMin;
-  if (PointersToArgs.size() == 0 && !TestingEnabled)
-    return false;
+    PHINode *PHI = nullptr;
+    for (User *User : ArgArray->users()) {
+
+      if (PtrToIntInst *PtrToInt = dyn_cast<PtrToIntInst>(User)) {
+        if (PHI)
+          return nullptr;
+
+        // The pointer to int instruction will have only one user and must
+        // be a PHINode
+        if (!PtrToInt->hasOneUse())
+          return nullptr;
+
+        PHI = dyn_cast<PHINode>(PtrToInt->user_back());
+        if (!PHI)
+          continue;
+
+        if (PHI->getNumIncomingValues() != 2)
+          return nullptr;
+      }
+    }
+
+    return PHI;
+  };
+
+  unsigned MINCounter = 0;
 
   Value *DirectRecCallSize = nullptr;
   Value *TailRecCallSize = nullptr;
+
+  // Find the PHI for the pointer-to-int instruction that refers to
+  // the array argument
+  PHINode *PHIArgArray = FindPHIForArgArray();
+  if (!PHIArgArray)
+    return 0;
 
   // Go through each of the basic blocks in the function and check
   // if there is a computation of MIN
@@ -1415,20 +1490,31 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
     if (SelectInst *SelInst = FindSelectInst(BB)) {
       if (IsValidSelect(SelInst)) {
 
-        SetVector<PtrToIntInst *> SetPtr;
-
-        // TODO: This is only for testing process. This part should
-        // be removed and must be replaced with an analysis which proves
-        // that the operands of the Select instructions come from a pointer
-        // arithmetic operation that uses the Values in PointersToArg.
-        if (TestingEnabled) {
-          CollectPtrsToArgs(SelInst, SetPtr);
-
-          if (SetPtr.empty())
-            continue;
-        } else {
-          return 0;
+        // Check if the select instruction represents the left side
+        // of the pivot (MIN(pa - a, pb - pa)
+        bool LocalFirstHalf = CheckFirstHalf(PHIArgArray, SelInst);
+        if (LocalFirstHalf) {
+          if (*SelectLeftOut)
+            return MINCounter;
+          *SelectLeftOut = SelInst;
         }
+
+        // Check if the select instruction represents the right side
+        // of the pivot
+        bool LocalSecondHalf = CheckSecondHalf(SelInst);
+        if (LocalSecondHalf) {
+          if (*SelectRightOut)
+            return MINCounter;
+          *SelectRightOut = SelInst;
+        }
+
+        // Can't be both
+        if (LocalFirstHalf && LocalSecondHalf)
+          return 0;
+
+        // Nothing found
+        if (!LocalFirstHalf && !LocalSecondHalf)
+          continue;
 
         LLVM_DEBUG({
           dbgs() << "QsortRec: Checking computation of MIN in "
@@ -1436,49 +1522,35 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
           BB.dump();
         });
 
-        // TODO: This function will be removed once we implement the process
-        // that collects all the pointers to the arg. For now it is just used
-        // as a testing mechanisim to make sure we collected the correct
-        // values in the test case.
-        // All the pointers must refer to the array that is being sorted
-        if (!PtrToIntInstRefersToArgs(SetPtr)) {
+        // collect the possible new sizes
+        int Op1Result = OperandUsedInRecursion(SelInst->getOperand(1));
+        int Op2Result = OperandUsedInRecursion(SelInst->getOperand(2));
+
+        // We shouldn't be able to catch any other size used in a recursive
+        // call once all sizes are set
+        if (((Op1Result == 0 || Op2Result == 0) && DirectRecCallSize) ||
+            ((Op1Result == 1 || Op2Result == 1) && TailRecCallSize)) {
+          LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                            << F->getName() << " FAILED Test.\n");
+          return 0;
+        }
+
+        // Direct call site gets the size from operand 2
+        if (!DirectRecCallSize && Op2Result == 0)
+            DirectRecCallSize = SelInst->getOperand(2);
+
+        // Tail recursion gets the size from operand 1
+        else if (!TailRecCallSize && Op1Result == 1)
+            TailRecCallSize = SelInst->getOperand(1);
+
+        if (!DirectRecCallSize && !TailRecCallSize) {
           LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
                             << F->getName() << " FAILED Test.\n");
           continue;
         }
 
-        // If we need to catch the recursive calls then collect the possible
-        // sizes
-        if (QsortTestRecursion) {
-
-          int Op1Result = OperandUsedInRecursion(SelInst->getOperand(1));
-          int Op2Result = OperandUsedInRecursion(SelInst->getOperand(2));
-
-          // We shouldn't be able to catch any other size used in a recursive
-          // call once all sizes are set
-          if (((Op1Result == 0 || Op2Result == 0) && DirectRecCallSize) ||
-              ((Op1Result == 1 || Op2Result == 1) && TailRecCallSize)) {
-            LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
-                              << F->getName() << " FAILED Test.\n");
-            return 0;
-          }
-
-          // Direct call site gets the size from operand 2
-          if (!DirectRecCallSize && Op2Result == 0)
-              DirectRecCallSize = SelInst->getOperand(2);
-
-          // Tail recursion gets the size from operand 1
-          else if (!TailRecCallSize && Op1Result == 1)
-              TailRecCallSize = SelInst->getOperand(1);
-
-          if (!DirectRecCallSize && !TailRecCallSize) {
-            LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
-                              << F->getName() << " FAILED Test.\n");
-            continue;
-          }
-        }
         LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
-                          << F->getName() << " PASSED Test.\n");
+                        << F->getName() << " PASSED Test.\n");
 
         MINCounter++;
       }
@@ -1488,16 +1560,15 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
       return 0;
   }
 
-  if (QsortTestRecursion) {
-    if (!DirectRecCallSize || !TailRecCallSize) {
-      LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
-                        << F->getName() << " FAILED Test.\n");
-      return 0;
-    }
-
-    SizesVect.push_back(DirectRecCallSize);
-    SizesVect.push_back(TailRecCallSize);
+  // Both new sizes must be found
+  if (!DirectRecCallSize || !TailRecCallSize) {
+    LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                      << F->getName() << " FAILED Test.\n");
+    return 0;
   }
+
+  SizesVect.push_back(DirectRecCallSize);
+  SizesVect.push_back(TailRecCallSize);
 
   return MINCounter;
 }
@@ -1514,13 +1585,93 @@ static unsigned countMinComputations(Function *F, Argument *ArgArray,
 //
 // %303 loads from %301 and %304 loads from %300. Then %303 is stored
 // in %300 and %304 is stored in %301. Basically there is a data swap
-// between %300 and %301. Also, it checks that %304 and %303 come from
-// the argument (Arg).
+// between %300 and %301. Also, it checks that %301 comes from PHIpb
+// or Arg, and %300 comes from a GEP where operand 0 is PHIpb (or GEPpn)
+// and operand 1 is SelectLeft (or SelectRight).
+//
+// We are trying to catch here the swap before the pivot pb (from a to pn -r)
+// and after the pivot (from pn to pn - r).
 static unsigned countSwapComputations(Function *F, Argument *Arg,
-    SetVector<StoreInst *> &StoreInstructions) {
+    PHINode *PHIpb, GetElementPtrInst *GEPpn, SelectInst *SelectLeft,
+    SelectInst *SelectRight, SetVector<StoreInst *> &StoreInstructions) {
 
   if (!F || !Arg)
     return false;
+
+  // Return the incoming value of a PHINode that doesn't come from
+  // a loop and is a BitCast
+  auto GetNonRecursiveInstFromPHI = [](PHINode *PHI) -> BitCastInst * {
+    if (!PHI || PHI->getNumIncomingValues() != 2)
+      return nullptr;
+
+    Value *Val1 = PHI->getIncomingValue(0);
+    Value *Val2 = PHI->getIncomingValue(1);
+
+    if (isa<GetElementPtrInst>(Val1) && isa<BitCastInst>(Val2)) {
+      GetElementPtrInst *GEP = cast<GetElementPtrInst>(Val1);
+      BitCastInst *BitCast = cast<BitCastInst>(Val2);
+
+      if (GEP->getOperand(0) == PHI)
+        return BitCast;
+    }
+    else if (isa<GetElementPtrInst>(Val2) && isa<BitCastInst>(Val1)) {
+      GetElementPtrInst *GEP = cast<GetElementPtrInst>(Val2);
+      BitCastInst *BitCast = cast<BitCastInst>(Val1);
+
+      if (GEP->getOperand(0) == PHI)
+        return BitCast;
+    }
+    return nullptr;
+  };
+
+  // Return true if the input store function is writing at the beginning
+  // of the array's chunk (writing from to a or pb)
+  auto IsPointingAtBeginning = [GetNonRecursiveInstFromPHI](
+      StoreInst *Store, Value *ValStart) {
+    if (!Store || !ValStart)
+      return false;
+
+    PHINode *PHIStored = dyn_cast<PHINode>(Store->getOperand(1));
+    if (!PHIStored)
+      return false;
+
+    BitCastInst *BitCast = GetNonRecursiveInstFromPHI(PHIStored);
+    if (!BitCast)
+      return false;
+
+    // Handle the case of pb
+    if (BitCast->getOperand(0) == ValStart)
+      return true;
+
+    // Handle the case of a
+    return isPHINodeWithArgIncomingValue(BitCast->getOperand(0),
+                                         dyn_cast<Argument>(ValStart));
+  };
+
+  // Return true if the input store function is writing at the end of
+  // array's chunk (writing to pb - SelectLeft or pn - SelectRight)
+  auto IsPointingAtEnd = [GetNonRecursiveInstFromPHI](
+      StoreInst *Store, Value *ValEnd, SelectInst *Select) {
+    PHINode *PHIStored = dyn_cast<PHINode>(Store->getPointerOperand());
+    if (!PHIStored)
+      return false;
+
+    BitCastInst *BitCast = GetNonRecursiveInstFromPHI(PHIStored);
+    if (!BitCast)
+      return false;
+
+    GetElementPtrInst *GEP =
+        dyn_cast<GetElementPtrInst>(BitCast->getOperand(0));
+    if (!GEP)
+      return false;
+
+    // GEP pointing to pb or pn
+    if (GEP->getNumOperands() != 2 || ValEnd != GEP->getOperand(0))
+      return false;
+
+    // Collecting from - r
+    return match(GEP->getOperand(1), m_Sub(m_Zero(), m_Specific(Select)));
+  };
 
   // Collect the stores that are doing the swapping
   auto FindSwapStores = [&StoreInstructions](
@@ -1573,8 +1724,31 @@ static unsigned countSwapComputations(Function *F, Argument *Arg,
             StoresVect[1]->getOperand(1) == FirstPtr);
   };
 
+  // Return true if Store1 represents the starting point to swap (a or pb)
+  // and Store2 represents the end point (pb or pn), or vice-versa. Else
+  // return false. Basically, we are checking that the swaps are happening
+  // either in the left side of the pivot (from a to pb) or the right side
+  // of the pivot (from pb to pn).
+  auto CheckSwapWithPointers = [IsPointingAtBeginning, IsPointingAtEnd]
+      (StoreInst *Store1, StoreInst *Store2, Value *Start,
+      Value *End, SelectInst *Sel) {
+
+    if (IsPointingAtBeginning(Store1, Start) &&
+        IsPointingAtEnd(Store2, End, Sel))
+      return true;
+
+    if (IsPointingAtBeginning(Store2, Start) &&
+        IsPointingAtEnd(Store1, End, Sel))
+      return true;
+
+    return false;
+  };
+
   unsigned SwapCounter = 0;
   Value *ArgValue = cast<Value>(Arg);
+
+  bool LeftSideFound = false;
+  bool RightSideFound = false;
 
   // Go through each of the basic blocks in the function and check
   // if there is a swap
@@ -1594,21 +1768,49 @@ static unsigned countSwapComputations(Function *F, Argument *Arg,
       BB.dump();
     });
 
-    // The values that are swapped must come from the same argument
-    Value *FirstVal = StoreVect[0]->getOperand(0);
-    Value *SecondVal = StoreVect[1]->getOperand(0);
+    // The values that are swapped must be pointing at the left side
+    // of the pivot (from a to pb) and the right side of the pivot
+    // (from pb to pn)
 
-    if (ArgUtil.valueRefersToArg(FirstVal, ArgValue) &&
-        ArgUtil.valueRefersToArg(SecondVal, ArgValue)) {
-      SwapCounter++;
+    // Check for a to pb
+    bool LocalLeftSide = CheckSwapWithPointers(StoreVect[0], StoreVect[1],
+                                               ArgValue, PHIpb, SelectLeft);
 
-      LLVM_DEBUG(dbgs() << "QsortRec: Computation of swap in "
-                 << F->getName() << " PASSED Test.\n");
+    if (LocalLeftSide) {
+      if (LeftSideFound)
+        return 0;
+      LeftSideFound = LocalLeftSide;
     }
-    else {
+
+    // Check for pb to pn
+    bool LocalRightSide = CheckSwapWithPointers(StoreVect[0], StoreVect[1],
+                                                PHIpb, GEPpn, SelectRight);
+
+    if (LocalRightSide) {
+      if (RightSideFound)
+        return 0;
+      RightSideFound = LocalRightSide;
+    }
+
+    // Not a candidate
+    if (!LocalLeftSide && !LocalRightSide) {
       LLVM_DEBUG(dbgs() << "QsortRec: Computation of swap in "
                         << F->getName() << " FAILED Test.\n");
+      continue;
     }
+
+    // Both can't be true
+    if (LocalLeftSide == LocalRightSide) {
+      LLVM_DEBUG(dbgs() << "QsortRec: Computation of swap in "
+                        << F->getName() << " FAILED Test.\n");
+
+      return 0;
+    }
+
+    SwapCounter++;
+
+    LLVM_DEBUG(dbgs() << "QsortRec: Computation of swap in "
+                 << F->getName() << " PASSED Test.\n");
   }
 
   return SwapCounter;
@@ -1826,12 +2028,12 @@ static unsigned countRecursions(Function *F, Argument *ArgArr,
   // Check the formal argument against the actual
   if (!ArgUtil.valueRefersToArg(ActualArgArr, ArgValue) ||
       !IsNewInputSize(ActualArgSize, true /* IsDirectCall */)) {
-    LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+    LLVM_DEBUG(dbgs() << "QsortRec: Recursion in "
                       << F->getName() << " FAILED Test.\n");
     return 0;
   }
 
-  LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+  LLVM_DEBUG(dbgs() << "QsortRec: Recursion in "
                     << F->getName() << " PASSED Test.\n");
 
   NumRecursions++;
@@ -1861,12 +2063,12 @@ static unsigned countRecursions(Function *F, Argument *ArgArr,
     // ActualArgSize must be one of the new sizes
     if (ArgUtil.valueRefersToArg(ActualArgArr, ArgValue) &&
         IsNewInputSize(ActualArgSize, false /* IsDirectCall */)) {
-      LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+      LLVM_DEBUG(dbgs() << "QsortRec: Recursion in "
                         << F->getName() << " PASSED Test.\n");
       NumRecursions++;
     }
     else {
-      LLVM_DEBUG(dbgs() << "QsortRec: Recursions in "
+      LLVM_DEBUG(dbgs() << "QsortRec: Recursion in "
                         << F->getName() << " FAILED Test.\n");
     }
   }
@@ -2619,7 +2821,7 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
     auto BI = dyn_cast<BranchInst>(BBExit->getTerminator());
     if (!BI || BI->isUnconditional())
       return false;
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     Value *VPHIN0 = nullptr;
     if (!match(BI->getCondition(), m_ICmp(Pred, m_Value(VPHIN0), m_Zero())))
       return false;
@@ -2740,11 +2942,6 @@ static bool isPivotSorter(BasicBlock *BBStart, Argument *ArgArray,
 // Return 'true' if 'F' is recognized as a qsort like the one that appears in
 // standard C library.
 //
-// TODO: The implementation is not finished yet. At this point we only recognize
-// computation of the pivot value and the insertion sorts which are called
-// when the qsort recurses down to be applied to an array of size smaller than
-//'SmallSize'
-//
 static bool isQsort(Function *F) {
 
   // Any array smaller than this size will be sorted by insertion sort.
@@ -2790,7 +2987,7 @@ static bool isQsort(Function *F) {
     auto BI = dyn_cast<BranchInst>(BBExit->getTerminator());
     if (!BI || BI->isUnconditional())
       return false;
-    ICmpInst::Predicate Pred;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     Value *V0 = nullptr;
     ConstantInt *C0 = nullptr;
     ConstantInt *C1 = nullptr;
@@ -2988,6 +3185,47 @@ static bool isQsort(Function *F) {
     return UpCount + DownCount;
   };
 
+  // Return true if the computation of MIN was successful. Also
+  // collect the Select instruction that represents the left side of the
+  // pivot and the right side of the pivot.
+  auto FindMINComputation = [F](PHINode *PHIpa, PHINode *PHIpb,
+                                PHINode *PHIpc, PHINode *PHIpd,
+                                SmallVector<Value *, 2> &NewSizesVector,
+                                Argument *ArgArray, Argument *ArgSize,
+                                GetElementPtrInst **GEPpnOut,
+                                SelectInst **SelectLeft,
+                                SelectInst **SelectRight) {
+
+    unsigned MINCount = countMinComputations(F, ArgArray, ArgSize, PHIpa,
+                                             PHIpb, PHIpc, PHIpd, GEPpnOut,
+                                             NewSizesVector, SelectLeft,
+                                             SelectRight);
+
+    return MINCount == 2;
+  };
+
+  // Return true if swapping the vectors before and after the pivot
+  // was found
+  auto FindSwapVect = [F](PHINode *PHIpb, GetElementPtrInst *GEPpn,
+                          Argument *ArgArray, SelectInst *SelectLeft,
+                          SelectInst *SelectRight,
+                          SetVector<StoreInst *> &StoreInstructions) {
+
+    unsigned SwapCount = countSwapComputations(F, ArgArray, PHIpb, GEPpn,
+                                               SelectLeft, SelectRight,
+                                               StoreInstructions);
+
+    return SwapCount == 2;
+  };
+
+  // Return true if the recursions were found
+  auto FindRecursions = [F](Argument *ArgArray, Argument *ArgSize,
+                            SmallVector<Value *, 2> &NewSizesVector) {
+
+    unsigned RecCount = countRecursions(F, ArgArray, ArgSize, NewSizesVector);
+
+    return RecCount == 2;
+  };
 
   // Main code for isQsort().
   // Exclude obvious cases.
@@ -3003,7 +3241,13 @@ static bool isQsort(Function *F) {
   // represents the size used in the direct recursion and entry 1
   // represents the size used in the tail recursion.
   SmallVector<Value *, 2> NewSizesVector;
-  SetVector<Value *> PointersToArg;
+  PHINode *PHIpa = nullptr;
+  PHINode *PHIpb = nullptr;
+  PHINode *PHIpc = nullptr;
+  PHINode *PHIpd = nullptr;
+  SelectInst *SelectLeft = nullptr;
+  SelectInst *SelectRight = nullptr;
+  GetElementPtrInst *GEPpn = nullptr;
 
   SetVector<StoreInst *> StoreInstructions;
 
@@ -3036,15 +3280,12 @@ static bool isQsort(Function *F) {
                                           StoreInstructions);
       SawFailure |= PMCount < 2;
     }
-    if (QsortTestPivotSorter || QsortTestStoreSwaps) {
+    if (QsortTestPivotSorter || QsortTestStoreSwaps ||
+        QsortTestMin || QsortTestRecursion || QsortTestSwap) {
       Value *Pivot = qsortPivot(BBLargeSort, ArgArray, ArgSize);
       BasicBlock *BBStart = cast<Instruction>(Pivot)->getParent();
       BasicBlock *BBSmallTest = nullptr;
       BasicBlock *BBLargeSort = nullptr;
-      PHINode *PHIpa = nullptr;
-      PHINode *PHIpb = nullptr;
-      PHINode *PHIpc = nullptr;
-      PHINode *PHIpd = nullptr;
       bool NewFailure = !isPivotSorter(BBStart, ArgArray, ArgSize, Pivot,
         &BBSmallTest, &BBLargeSort, &PHIpa, &PHIpb, &PHIpc, &PHIpd,
         StoreInstructions);
@@ -3058,21 +3299,23 @@ static bool isQsort(Function *F) {
                  << F->getName() << " PASSED Test.\n";
       });
     }
-    if (QsortTestMin) {
-      unsigned MINCount = countMinComputations(F, ArgArray, PointersToArg,
-                                               NewSizesVector);
+    if (QsortTestMin || QsortTestStoreSwaps ||
+        QsortTestRecursion || QsortTestSwap) {
+      unsigned MINCount = countMinComputations(F, ArgArray, ArgSize, PHIpa,
+                                               PHIpb, PHIpc, PHIpd, &GEPpn,
+                                               NewSizesVector, &SelectLeft,
+                                               &SelectRight);
       SawFailure |= MINCount < 2;
     }
     if (QsortTestSwap || QsortTestStoreSwaps) {
-      unsigned SwapCount = countSwapComputations(F, ArgArray,
+      unsigned SwapCount = countSwapComputations(F, ArgArray, PHIpb, GEPpn,
+                                                 SelectLeft, SelectRight,
                                                  StoreInstructions);
       SawFailure |= SwapCount < 2;
     }
     // Note: The store instructions are collected during the swaps, therefore
     // we need to enable the tests for the insertion sort, pivot movers,
     // pivot sorter and the vect swaps to compute the store instructions.
-    // TODO: This check will be added in the regular process after enabling
-    // the check for vect swaps in the regular process.
     if (QsortTestStoreSwaps) {
       SawFailure |= !allStoresAreSwaps(F, StoreInstructions);
     }
@@ -3106,10 +3349,8 @@ static bool isQsort(Function *F) {
   // Find the pivot for the qsort.
   Value *Pivot = qsortPivot(BBLargeSort, ArgArray, ArgSize);
   BasicBlock *BBStart = cast<Instruction>(Pivot)->getParent();
-  PHINode *PHIpa = nullptr;
-  PHINode *PHIpb = nullptr;
-  PHINode *PHIpc = nullptr;
-  PHINode *PHIpd = nullptr;
+
+  // Find the sorting process
   if (!isPivotSorter(BBStart, ArgArray, ArgSize, Pivot, &BBSmallTest,
       &BBLargeSort, &PHIpa, &PHIpb, &PHIpc, &PHIpd, StoreInstructions)) {
     LLVM_DEBUG(dbgs() << "QsortRec: PivotSorter in "
@@ -3123,25 +3364,54 @@ static bool isQsort(Function *F) {
                       << F->getName() << "\n");
     return false;
   }
+
+  // Check the insertion sort for small arrays
   if (!isInsertionSort(BBSmallSort, ArgArray, ArgSize, StoreInstructions)) {
     LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                     << F->getName() << " FAILED Test.\n");
     return false;
   }
-  if (!findCompareFunction(F)) {
-    LLVM_DEBUG(dbgs() << "QsortRec: Compare Function in "
-                    << F->getName() << " FAILED Test.\n");
+
+  // Find that the compares in the left side and the right side of the pivot
+  if (!FindMINComputation(PHIpa, PHIpb, PHIpc, PHIpd, NewSizesVector, ArgArray,
+                          ArgSize, &GEPpn, &SelectLeft, &SelectRight)) {
+    LLVM_DEBUG(dbgs() << "QsortRec: Computation of MIN in "
+                      << F->getName() << " FAILED Test.\n");
     return false;
   }
+
+  // Check that the swaps in the left side and the right side of the pivot
+  // happen
+  if (!FindSwapVect(PHIpb, GEPpn, ArgArray, SelectLeft, SelectRight,
+                    StoreInstructions)) {
+    LLVM_DEBUG(dbgs() << "QSortRec: Swap Vectors in "
+                      << F->getName() << " FAILED Test.\n");
+    return false;
+  }
+
+  // Collect the recursions (direct and tail)
+  if (!FindRecursions(ArgArray, ArgSize, NewSizesVector)) {
+    LLVM_DEBUG(dbgs() << "QSortRec: Recursions in "
+                      << F->getName() << " FAILED Test.\n");
+    return false;
+  }
+
+  // All store instructions must be swaps
+  if (!allStoresAreSwaps(F, StoreInstructions)) {
+    LLVM_DEBUG(dbgs() << "QSortRec: Check if Store Instructions are swaps in "
+                      << F->getName() << " FAILED Test.\n");
+    return false;
+  }
+
+  // Check that the only called functions are the compare function and F itself
+  if (!findCompareFunction(F)) {
+    LLVM_DEBUG(dbgs() << "QSortRec: Compare Function in "
+                      << F->getName() << " FAILED Test.\n");
+    return false;
+  }
+
   LLVM_DEBUG(dbgs() << "QsortRec: Insertion Sort Candidate in "
                     << F->getName() << " PASSED Test.\n");
-  // The logic is not complete. We still need to add code to test for the
-  // vecswaps and recursive calls, and validate the compare functions
-  // called by the qsort.
-  // TODO: We need to add an analysis that collects all the pointers to
-  // ArgArray before calling the MIN counter. Basically, we need to proof that
-  // the Values used to compute MIN are ArgArray, or ArgArray + (something
-  // between 8 to ArgSize).
   return true;
 }
 

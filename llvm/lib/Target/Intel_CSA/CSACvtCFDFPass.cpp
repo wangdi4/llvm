@@ -1757,7 +1757,7 @@ void CSACvtCFDFPass::createFIEntryDefs() {
 
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI;
          ++MI) {
-      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+      for (MIBundleOperands MO(*MI); MO.isValid(); ++MO) {
         if (MO->isFI()) {
           int index = MO->getIndex();
           toReplace.insert(&*MO);
@@ -1825,6 +1825,7 @@ void CSACvtCFDFPass::assignLicForDF() {
         // then we need to prevent the CFG from being destroyed.
         if (!csa_utils::isAlwaysDataFlowLinkageSet())
           RunSXU = true;
+        continue;
       case CSA::JMP: case CSA::RET:
       case CSA::BT: case CSA::BF: case CSA::BR:
       case TargetOpcode::PHI:
@@ -2160,7 +2161,7 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock *inBB, MachineBasicBlock *mbb,
 
 void CSACvtCFDFPass::TraceThroughPhi(MachineInstr *iphi, MachineBasicBlock *mbb,
                                      unsigned dst) {
-  for (MIOperands MO(*iphi); MO.isValid(); ++MO) {
+  for (MIBundleOperands MO(*iphi); MO.isValid(); ++MO) {
     if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     if (MO->isUse()) {

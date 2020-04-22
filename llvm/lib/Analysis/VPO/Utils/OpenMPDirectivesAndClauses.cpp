@@ -27,11 +27,14 @@ using namespace llvm::vpo;
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
     : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
 #if INTEL_CUSTOMIZATION
-      IsF90DopeVector(false),
+      IsF90DopeVector(false), IsWILocal(false), IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
-      IsUnsigned(false), IsComplex(false), IsConditional(false),
-      IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
-      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false) {
+      IsAggregate(false), IsPointer(false), IsScalar(false), IsAlways(false),
+      IsClose(false), IsPresent(false), IsUnsigned(false), IsComplex(false),
+      IsConditional(false), IsScheduleMonotonic(false),
+      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
+      IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
+      IsIV(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -44,6 +47,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 
   // Save the BaseName and Modifier substrings
   Base = SubString[0];
+  LLVM_DEBUG(dbgs() << "\nClauseSpecifier: base name = " << Base << "\n");
   setBaseName(Base);
   if (NumSubStrings == 2) {
     Mod = SubString[1];
@@ -62,7 +66,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   if (VPOAnalysisUtils::isOpenMPClause(Base))
     setId(VPOAnalysisUtils::getClauseID(Base));
   else
-    llvm_unreachable("String is not an OpenMP clause name");
+    llvm_unreachable("Base name is not an OpenMP clause name");
 
   // If Modifier exists, then split it into its component substrings, and
   // update ClauseSpecifier's properties accordingly
@@ -71,8 +75,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
     Mod.split(ModSubString, ".");
     unsigned NumberOfModifierStrings = ModSubString.size();
 
-    if (VPOAnalysisUtils::isScheduleClause(getId())) {
+    if (VPOAnalysisUtils::isScheduleClause(getId()))
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
+        LLVM_DEBUG(dbgs() << "ClauseSpecifier: modifier = " << ModSubString[i]
+                          << "\n");
         if (ModSubString[i] == "MONOTONIC")
           setIsScheduleMonotonic();
         else if (ModSubString[i] == "NONMONOTONIC")
@@ -82,46 +88,66 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
         else
           llvm_unreachable("Unknown modifier string for the SCHEDULE clause");
       }
+    else if (VPOAnalysisUtils::isDefaultmapClause(getId())) {
+      assert(NumberOfModifierStrings <= 1 &&
+             "DEFAULTMAP cannot specify more than one variable category");
+      for (unsigned i=0; i < NumberOfModifierStrings; i++) {
+        LLVM_DEBUG(dbgs() << "ClauseSpecifier: modifier = " << ModSubString[i]
+                          << "\n");
+        if (ModSubString[i] == "AGGREGATE")
+          setIsAggregate();
+#if INTEL_CUSTOMIZATION
+        else if (ModSubString[i] == "ALLOCATABLE")
+          setIsAllocatable();
+#endif // INTEL_CUSTOMIZATION
+        else if (ModSubString[i] == "POINTER")
+          setIsPointer();
+        else if (ModSubString[i] == "SCALAR")
+          setIsScalar();
+        else
+          llvm_unreachable(
+              "Unknown variable category for the DEFAULTMAP clause");
+      }
     } else
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
-        if (ModSubString[i] == "ARRSECT")
+        LLVM_DEBUG(dbgs() << "ClauseSpecifier: modifier = " << ModSubString[i]
+                          << "\n");
+        if (ModSubString[i] == "ALWAYS")           // map-type modifier
+          setIsAlways();
+        else if (ModSubString[i] == "CLOSE")       // map-type modifier
+          setIsClose();
+        else if (ModSubString[i] == "PRESENT")     // map-type modifier
+          setIsPresent();
+        else if (ModSubString[i] == "ARRSECT")
           setIsArraySection();
         else if (ModSubString[i] == "BYREF")
           setIsByRef();
 #if INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "F90_DV")
           setIsF90DopeVector();
+        else if (ModSubString[i] == "WILOCAL")
+          setIsWILocal();
 #endif // INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "NONPOD")
           setIsNonPod();
-        else if (ModSubString[i] == "UNSIGNED")     // for reduction clause
+        else if (ModSubString[i] == "UNSIGNED")    // for reduction clause
           setIsUnsigned();
-        else if (ModSubString[i] == "CMPLX") // for reduction clause
+        else if (ModSubString[i] == "CMPLX")       // for reduction clause
           setIsComplex();
-        else if (ModSubString[i] == "CONDITIONAL")  // for lastprivate clause
+        else if (ModSubString[i] == "CONDITIONAL") // for lastprivate clause
           setIsConditional();
-        else if (ModSubString[i] == "AGGRHEAD") // map chain head
+        else if (ModSubString[i] == "AGGRHEAD")    // map chain head
           setIsMapAggrHead();
-        else if (ModSubString[i] == "AGGR") // map chain (not head)
+        else if (ModSubString[i] == "AGGR")        // map chain (not head)
           setIsMapAggr();
+        else if (ModSubString[i] == "CHAIN")       // map chain (not head)
+          setIsMapChainLink();
+        else if (ModSubString[i] == "IV")          // for linear clause
+          setIsIV();
         else
           llvm_unreachable("Unknown modifier string for clause");
       }
   }
-
-  LLVM_DEBUG(dbgs() << "=== ClauseInfo: " << Base);
-  LLVM_DEBUG(dbgs() << "  ID: " << getId());
-  LLVM_DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
-  LLVM_DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
-  LLVM_DEBUG(dbgs() << "  ByRef: " << getIsByRef());
-#if INTEL_CUSTOMIZATION
-  LLVM_DEBUG(dbgs() << "  F90_DV: " << getIsF90DopeVector());
-#endif // INTEL_CUSTOMIZATION
-  LLVM_DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
-  LLVM_DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
-  LLVM_DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());
-  LLVM_DEBUG(dbgs() << "  Simd: " << getIsScheduleSimd());
-  LLVM_DEBUG(dbgs() << "\n");
 }
 
 StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I){
@@ -519,6 +545,28 @@ bool VPOAnalysisUtils::isDependClause(int ClauseID) {
   return false;
 }
 
+bool VPOAnalysisUtils::isInReductionClause(int ClauseID) {
+  switch(ClauseID) {
+    case QUAL_OMP_INREDUCTION_ADD:
+    case QUAL_OMP_INREDUCTION_SUB:
+    case QUAL_OMP_INREDUCTION_MUL:
+    case QUAL_OMP_INREDUCTION_AND:
+    case QUAL_OMP_INREDUCTION_OR:
+    case QUAL_OMP_INREDUCTION_BXOR:
+    case QUAL_OMP_INREDUCTION_BAND:
+    case QUAL_OMP_INREDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+    case QUAL_OMP_INREDUCTION_EQV:
+    case QUAL_OMP_INREDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
+    case QUAL_OMP_INREDUCTION_MAX:
+    case QUAL_OMP_INREDUCTION_MIN:
+    case QUAL_OMP_INREDUCTION_UDR:
+      return true;
+  }
+  return false;
+}
+
 bool VPOAnalysisUtils::isReductionClause(int ClauseID) {
   switch(ClauseID) {
     case QUAL_OMP_REDUCTION_ADD:
@@ -529,10 +577,14 @@ bool VPOAnalysisUtils::isReductionClause(int ClauseID) {
     case QUAL_OMP_REDUCTION_BXOR:
     case QUAL_OMP_REDUCTION_BAND:
     case QUAL_OMP_REDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+    case QUAL_OMP_REDUCTION_EQV:
+    case QUAL_OMP_REDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
     case QUAL_OMP_REDUCTION_MAX:
     case QUAL_OMP_REDUCTION_MIN:
     case QUAL_OMP_REDUCTION_UDR:
-    return true;
+      return true;
   }
   return false;
 }
@@ -559,6 +611,7 @@ bool VPOAnalysisUtils::isMapClause(int ClauseID) {
   switch(ClauseID) {
     case QUAL_OMP_TO:
     case QUAL_OMP_FROM:
+    case QUAL_OMP_MAP:
     case QUAL_OMP_MAP_TO:
     case QUAL_OMP_MAP_FROM:
     case QUAL_OMP_MAP_TOFROM:
@@ -571,6 +624,21 @@ bool VPOAnalysisUtils::isMapClause(int ClauseID) {
     case QUAL_OMP_MAP_ALWAYS_ALLOC:
     case QUAL_OMP_MAP_ALWAYS_RELEASE:
     case QUAL_OMP_MAP_ALWAYS_DELETE:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::isDefaultmapClause(int ClauseID) {
+  switch(ClauseID) {
+    case QUAL_OMP_DEFAULTMAP_ALLOC:
+    case QUAL_OMP_DEFAULTMAP_TO:
+    case QUAL_OMP_DEFAULTMAP_FROM:
+    case QUAL_OMP_DEFAULTMAP_TOFROM:
+    case QUAL_OMP_DEFAULTMAP_FIRSTPRIVATE:
+    case QUAL_OMP_DEFAULTMAP_NONE:
+    case QUAL_OMP_DEFAULTMAP_DEFAULT:
+    case QUAL_OMP_DEFAULTMAP_PRESENT:
     return true;
   }
   return false;
@@ -603,7 +671,14 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_DEFAULT_SHARED:
     case QUAL_OMP_DEFAULT_PRIVATE:
     case QUAL_OMP_DEFAULT_FIRSTPRIVATE:
-    case QUAL_OMP_DEFAULTMAP_TOFROM_SCALAR:
+    case QUAL_OMP_DEFAULTMAP_ALLOC:
+    case QUAL_OMP_DEFAULTMAP_TO:
+    case QUAL_OMP_DEFAULTMAP_FROM:
+    case QUAL_OMP_DEFAULTMAP_TOFROM:
+    case QUAL_OMP_DEFAULTMAP_FIRSTPRIVATE:
+    case QUAL_OMP_DEFAULTMAP_NONE:
+    case QUAL_OMP_DEFAULTMAP_DEFAULT:
+    case QUAL_OMP_DEFAULTMAP_PRESENT:
     case QUAL_OMP_NOWAIT:
     case QUAL_OMP_UNTIED:
     case QUAL_OMP_READ_SEQ_CST:

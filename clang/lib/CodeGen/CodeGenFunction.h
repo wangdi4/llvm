@@ -36,6 +36,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
@@ -75,6 +76,8 @@ class ObjCAtTryStmt;
 class ObjCAtThrowStmt;
 class ObjCAtSynchronizedStmt;
 class ObjCAutoreleasePoolStmt;
+class ReturnsNonNullAttr;
+class IntelInlineAttr; // INTEL
 
 namespace analyze_os_log {
 class OSLogBufferLayout;
@@ -254,6 +257,114 @@ public:
     unsigned Index;
   };
 
+  // Helper class for the OpenMP IR Builder. Allows reusability of code used for
+  // region body, and finalization codegen callbacks. This will class will also
+  // contain privatization functions used by the privatization call backs
+  struct OMPBuilderCBHelpers {
+
+    using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
+
+    /// Emit the Finalization for an OMP region
+    /// \param CGF	The Codegen function this belongs to
+    /// \param IP	Insertion point for generating the finalization code.
+    static void FinalizeOMPRegion(CodeGenFunction &CGF, InsertPointTy IP) {
+      CGBuilderTy::InsertPointGuard IPG(CGF.Builder);
+      assert(IP.getBlock()->end() != IP.getPoint() &&
+             "OpenMP IR Builder should cause terminated block!");
+
+      llvm::BasicBlock *IPBB = IP.getBlock();
+      llvm::BasicBlock *DestBB = IPBB->getUniqueSuccessor();
+      assert(DestBB && "Finalization block should have one successor!");
+
+      // erase and replace with cleanup branch.
+      IPBB->getTerminator()->eraseFromParent();
+      CGF.Builder.SetInsertPoint(IPBB);
+      CodeGenFunction::JumpDest Dest = CGF.getJumpDestInCurrentScope(DestBB);
+      CGF.EmitBranchThroughCleanup(Dest);
+    }
+
+    /// Emit the body of an OMP region
+    /// \param CGF	The Codegen function this belongs to
+    /// \param RegionBodyStmt	The body statement for the OpenMP region being
+    /// 			 generated
+    /// \param CodeGenIP	Insertion point for generating the body code.
+    /// \param FiniBB	The finalization basic block
+    static void EmitOMPRegionBody(CodeGenFunction &CGF,
+                                  const Stmt *RegionBodyStmt,
+                                  InsertPointTy CodeGenIP,
+                                  llvm::BasicBlock &FiniBB) {
+      llvm::BasicBlock *CodeGenIPBB = CodeGenIP.getBlock();
+      if (llvm::Instruction *CodeGenIPBBTI = CodeGenIPBB->getTerminator())
+        CodeGenIPBBTI->eraseFromParent();
+
+      CGF.Builder.SetInsertPoint(CodeGenIPBB);
+
+      CGF.EmitStmt(RegionBodyStmt);
+
+      if (CGF.Builder.saveIP().isSet())
+        CGF.Builder.CreateBr(&FiniBB);
+    }
+
+    /// RAII for preserving necessary info during Outlined region body codegen.
+    class OutlinedRegionBodyRAII {
+
+      llvm::AssertingVH<llvm::Instruction> OldAllocaIP;
+      CodeGenFunction::JumpDest OldReturnBlock;
+      CodeGenFunction &CGF;
+
+    public:
+      OutlinedRegionBodyRAII(CodeGenFunction &cgf, InsertPointTy &AllocaIP,
+                             llvm::BasicBlock &RetBB)
+          : CGF(cgf) {
+        assert(AllocaIP.isSet() &&
+               "Must specify Insertion point for allocas of outlined function");
+        OldAllocaIP = CGF.AllocaInsertPt;
+        CGF.AllocaInsertPt = &*AllocaIP.getPoint();
+
+        OldReturnBlock = CGF.ReturnBlock;
+        CGF.ReturnBlock = CGF.getJumpDestInCurrentScope(&RetBB);
+      }
+
+      ~OutlinedRegionBodyRAII() {
+        CGF.AllocaInsertPt = OldAllocaIP;
+        CGF.ReturnBlock = OldReturnBlock;
+      }
+    };
+
+    /// RAII for preserving necessary info during inlined region body codegen.
+    class InlinedRegionBodyRAII {
+
+      llvm::AssertingVH<llvm::Instruction> OldAllocaIP;
+      CodeGenFunction &CGF;
+
+    public:
+      InlinedRegionBodyRAII(CodeGenFunction &cgf, InsertPointTy &AllocaIP,
+                            llvm::BasicBlock &FiniBB)
+          : CGF(cgf) {
+        // Alloca insertion block should be in the entry block of the containing
+        // function so it expects an empty AllocaIP in which case will reuse the
+        // old alloca insertion point, or a new AllocaIP in the same block as
+        // the old one
+        assert((!AllocaIP.isSet() ||
+                CGF.AllocaInsertPt->getParent() == AllocaIP.getBlock()) &&
+               "Insertion point should be in the entry block of containing "
+               "function!");
+        OldAllocaIP = CGF.AllocaInsertPt;
+        if (AllocaIP.isSet())
+          CGF.AllocaInsertPt = &*AllocaIP.getPoint();
+
+        // TODO: Remove the call, after making sure the counter is not used by
+        //       the EHStack.
+        // Since this is an inlined region, it should not modify the
+        // ReturnBlock, and should reuse the one for the enclosing outlined
+        // region. So, the JumpDest being return by the function is discarded
+        (void)CGF.getJumpDestInCurrentScope(&FiniBB);
+      }
+
+      ~InlinedRegionBodyRAII() { CGF.AllocaInsertPt = OldAllocaIP; }
+    };
+  };
+
   CodeGenModule &CGM;  // Per-module state.
   const TargetInfo &Target;
 
@@ -401,10 +512,14 @@ public:
     virtual void recordValueReference(llvm::Value *) {}
     virtual void recordValueSuppression(llvm::Value *) {}
     virtual bool inTargetVariantDispatchRegion() { return false; }
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
+    virtual void enterTryStmt() { }
+    virtual void exitTryStmt() { }
+    virtual bool inTryStmt() { assert(false); return false; }
     virtual bool isLateOutlinedRegion() { return false; }
-#endif // INTEL_CUSTOMIZATION
+    virtual bool isImplicitLastPrivate(const VarDecl *VD) {
+      assert(false); return false;
+    }
+#endif // INTEL_COLLAB
   private:
     /// The kind of captured statement being generated.
     CapturedRegionKind Kind;
@@ -437,6 +552,17 @@ public:
   public:
     IntelIVDepArrayHandler(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
     ~IntelIVDepArrayHandler();
+  private:
+    CodeGenFunction &CGF;
+    llvm::CallInst *CallEntry = nullptr;
+  };
+
+  class IntelFPGALoopFuseHandler {
+  public:
+    IntelFPGALoopFuseHandler(CodeGenFunction &CGF,
+                             ArrayRef<const Attr *> Attrs);
+    ~IntelFPGALoopFuseHandler();
+
   private:
     CodeGenFunction &CGF;
     llvm::CallInst *CallEntry = nullptr;
@@ -597,7 +723,11 @@ public:
 
   /// The selector slot.  Under the MandatoryCleanup model, all landing pads
   /// write the current selector value into this alloca.
+#if INTEL_COLLAB
+  llvm::Value *EHSelectorSlot = nullptr;
+#else
   llvm::AllocaInst *EHSelectorSlot = nullptr;
+#endif // INTEL_COLLAB
 
   /// A stack of exception code slots. Entering an __except block pushes a slot
   /// on the stack and leaving pops one. The __exception_code() intrinsic loads
@@ -817,10 +947,73 @@ public:
   EHScopeStack::stable_iterator CurrentCleanupScopeDepth =
       EHScopeStack::stable_end();
 
+#if INTEL_CUSTOMIZATION
+  class NoAliasScope {
+    SmallVector<llvm::Instruction *, 32> MemoryInsts;
+    SmallVector<llvm::Metadata *, 32> NoAliasScopes;
+
+  public:
+    NoAliasScope() {}
+    NoAliasScope(const NoAliasScope &ParentScope)
+        : NoAliasScopes(ParentScope.NoAliasScopes) {}
+
+    void addNoAliasScope(llvm::Metadata *Scope) {
+      NoAliasScopes.push_back(Scope);
+    }
+
+    void addMemInst(llvm::Instruction *MemInst) {
+      MemoryInsts.push_back(MemInst);
+    }
+
+    void addMemCpyInst(llvm::Instruction *MemCallInst) {
+      assert(isa<llvm::MemTransferInst>(MemCallInst) && "Memcpy call expected");
+      MemoryInsts.push_back(MemCallInst);
+    }
+
+    llvm::MDNode *intersectScopes(llvm::LLVMContext &Ctx,
+                                  llvm::Metadata *SelfScope) {
+      llvm::SmallVector<llvm::Metadata *, 32> NewNoAliasScopes;
+      llvm::SmallPtrSet<llvm::Metadata *, 8> BSet;
+
+      BSet.insert(SelfScope);
+      if (auto *MD = dyn_cast<llvm::MDNode>(SelfScope)) {
+        BSet.insert(MD->op_begin(), MD->op_end());
+      }
+
+      NewNoAliasScopes.reserve(NoAliasScopes.size());
+      std::copy_if(NoAliasScopes.begin(), NoAliasScopes.end(),
+                   std::back_inserter(NewNoAliasScopes),
+                   [&BSet](llvm::Metadata *MD) { return BSet.count(MD) == 0; });
+
+      return llvm::MDNode::get(Ctx, NewNoAliasScopes);
+    }
+
+    ~NoAliasScope() {
+      if (MemoryInsts.empty() || NoAliasScopes.empty()) {
+        return;
+      }
+
+      for (auto &I : MemoryInsts) {
+        auto *SelfScope = I->getMetadata(llvm::LLVMContext::MD_alias_scope);
+        llvm::MDNode *NewScopeList = intersectScopes(
+            MemoryInsts.front()->getParent()->getContext(), SelfScope);
+
+        I->setMetadata(
+            llvm::LLVMContext::MD_noalias,
+            llvm::MDNode::concatenate(
+                I->getMetadata(llvm::LLVMContext::MD_noalias), NewScopeList));
+      }
+    }
+  };
+
+  void recordNoAliasPtr(llvm::Value *BasePtr, llvm::Value *Ptr);
+#endif // INTEL_CUSTOMIZATION
+
   class LexicalScope : public RunCleanupsScope {
     SourceRange Range;
     SmallVector<const LabelDecl*, 4> Labels;
     LexicalScope *ParentScope;
+    NoAliasScope CurNoAliasScope; // INTEL
 
     LexicalScope(const LexicalScope &) = delete;
     void operator=(const LexicalScope &) = delete;
@@ -828,7 +1021,9 @@ public:
   public:
     /// Enter a new cleanup scope.
     explicit LexicalScope(CodeGenFunction &CGF, SourceRange Range)
-      : RunCleanupsScope(CGF), Range(Range), ParentScope(CGF.CurLexicalScope) {
+        : RunCleanupsScope(CGF), Range(Range),        // INTEL
+          ParentScope(CGF.CurLexicalScope),              // INTEL
+          CurNoAliasScope(CGF.getCurNoAliasScope()) {    // INTEL
       CGF.CurLexicalScope = this;
       if (CGDebugInfo *DI = CGF.getDebugInfo())
         DI->EmitLexicalBlockStart(CGF.Builder, Range.getBegin());
@@ -838,6 +1033,12 @@ public:
       assert(PerformCleanup && "adding label to dead scope?");
       Labels.push_back(label);
     }
+
+#if INTEL_CUSTOMIZATION
+    NoAliasScope &getNoAliasScope() {
+      return CurNoAliasScope;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     /// Exit this cleanup scope, emitting any accumulated
     /// cleanups.
@@ -1361,7 +1562,7 @@ private:
       CancelExit(OpenMPDirectiveKind Kind, JumpDest ExitBlock,
                  JumpDest ContBlock)
           : Kind(Kind), ExitBlock(ExitBlock), ContBlock(ContBlock) {}
-      OpenMPDirectiveKind Kind = OMPD_unknown;
+      OpenMPDirectiveKind Kind = llvm::omp::OMPD_unknown;
       /// true if the exit block has been emitted already by the special
       /// emitExit() call, false if the default codegen is used.
       bool HasBeenEmitted = false;
@@ -1529,37 +1730,52 @@ public:
   // provides the mechanism to re-emit the expressions in each region.
   // Since codegen expects these to be emitted on declaration of a variable
   // with variably modified type, we need to re-emit before processing the
-  // body of the region.  Currently we just re-emit all expressions seen
-  // so far, potentially emitting expressions we won't need in the region.
-  // If this turns out to be a problem we'll need to implement some
-  // mechanism to determine with are needed, or regenerate them on demand
-  // during codegen.
-  class VLASizeMapHandler {
+  // body of the region.
+  class CGVLASizeMapHandler {
     CodeGenFunction &CGF;
     llvm::DenseMap<const Expr*, llvm::Value*> SavedVLASizeMap;
     llvm::DenseMap<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
+    CGVLASizeMapHandler *PrevHandler = nullptr;
+    bool Initialized = false;
   public:
-    VLASizeMapHandler(CodeGenFunction &CGF)
-     : CGF(CGF) {
+    CGVLASizeMapHandler(CodeGenFunction &CGF)
+        : CGF(CGF), PrevHandler(CGF.VLASizeMapHandler) {
       SavedVLASizeMap = CGF.VLASizeMap;
-      // Outside the region save value in a temp.
-      for (auto &V : CGF.VLASizeMap) {
-        const Expr *E = V.first;
-        llvm::APSInt ConstLength;
-        if (E->isIntegerConstantExpr(ConstLength, CGF.getContext()))
-          continue;
+      CGF.VLASizeMapHandler = this;
+    }
 
-        Address A =
-            CGF.CreateMemTemp(CGF.getContext().getSizeType(), "omp.vla.tmp");
-        LValue LV = CGF.MakeAddrLValue(A, CGF.getContext().getSizeType());
-        RValue RV = RValue::get(V.second);
-        CGF.EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
-        AddressMap[V.first] = {A.getPointer(), A.getAlignment()};
+    // Find VLAs used in the captured statement. Emit stores of the Values
+    // to a temp before the outermost directive. Since there may be more
+    // than one llvm directive per OMPExecutable directive, use the
+    // Initialized field so it happens only at the outermost.
+    void ModifyVLASizeMap(const CapturedStmt *CS) {
+      if (Initialized || !CS)
+        return;
+      Initialized = true;
+
+      // Find VLAs in the captures.
+      const RecordDecl *RD = CS->getCapturedRecordDecl();
+      for (const auto *Field : RD->fields()) {
+        if (Field->hasCapturedVLAType()) {
+          const VariableArrayType *VAT = Field->getCapturedVLAType();
+          const Expr *E = VAT->getSizeExpr();
+          llvm::APSInt ConstLength;
+          if (E->isIntegerConstantExpr(ConstLength, CGF.getContext()))
+            continue;
+
+          Address A =
+              CGF.CreateMemTemp(CGF.getContext().getSizeType(), "omp.vla.tmp");
+          LValue LV = CGF.MakeAddrLValue(A, CGF.getContext().getSizeType());
+          RValue RV = RValue::get(CGF.VLASizeMap[E]);
+          CGF.EmitStoreThroughLValue(RV, LV, /*isInit=*/true);
+          AddressMap[E] = {A.getPointer(), A.getAlignment()};
+        }
       }
     }
-    void EmitVLAExpressions() {
-      // Inside the region load the temp and record it so it appears in a
-      // clause.
+
+    // Before dumping the captured statement, load the temp and store that
+    // value in the VLASizeMap.  Record the value so it will appear in a clause.
+    void EmitVLASizeExpressions() {
       for (auto &Z : AddressMap) {
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
@@ -1571,10 +1787,13 @@ public:
               cast<llvm::LoadInst>(CGF.VLASizeMap[E])->getPointerOperand());
       }
     }
-    ~VLASizeMapHandler() {
+    ~CGVLASizeMapHandler() {
       CGF.VLASizeMap = SavedVLASizeMap;
+      CGF.VLASizeMapHandler = PrevHandler;
     }
   };
+  CGVLASizeMapHandler *VLASizeMapHandler = nullptr;
+
   // Save and clear the TerminateHandled and TerminateLandingPad on entry to
   // each OpenMP region. This will ensure we have one for each OpenMP region
   // when it is outlined.
@@ -1582,12 +1801,18 @@ public:
     CodeGenFunction &CGF;
     llvm::BasicBlock *TerminateHandler;
     llvm::BasicBlock *TerminateLandingPad;
+    llvm::Value *ExceptionSlot = nullptr;
+    llvm::Value *EHSelectorSlot = nullptr;
+
   public:
     TerminateHandlerRAII(CodeGenFunction &CGF)
-      : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
-                         TerminateLandingPad(CGF.TerminateLandingPad) {
+        : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
+          TerminateLandingPad(CGF.TerminateLandingPad),
+          ExceptionSlot(CGF.ExceptionSlot), EHSelectorSlot(CGF.EHSelectorSlot) {
       CGF.TerminateHandler = nullptr;
       CGF.TerminateLandingPad = nullptr;
+      CGF.ExceptionSlot = nullptr;
+      CGF.EHSelectorSlot = nullptr;
     }
     ~TerminateHandlerRAII() {
       if (CGF.TerminateHandler) {
@@ -1604,6 +1829,8 @@ public:
       }
       CGF.TerminateHandler = TerminateHandler;
       CGF.TerminateLandingPad = TerminateLandingPad;
+      CGF.ExceptionSlot = ExceptionSlot;
+      CGF.EHSelectorSlot = EHSelectorSlot;
     }
   };
 private:
@@ -1775,6 +2002,16 @@ private:
   bool StdContainerOptKindDetermined = false;
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+  NoAliasScope RootNoAliasScope;
+
+  NoAliasScope &getCurNoAliasScope() {
+    if (CurLexicalScope)
+      return CurLexicalScope->getNoAliasScope();
+    return RootNoAliasScope;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// The current lexical scope.
   LexicalScope *CurLexicalScope = nullptr;
 
@@ -1801,11 +2038,7 @@ private:
   Address ReturnLocation = Address::invalid();
 
   /// Check if the return value of this function requires sanitization.
-  bool requiresReturnValueCheck() const {
-    return requiresReturnValueNullabilityCheck() ||
-           (SanOpts.has(SanitizerKind::ReturnsNonnullAttribute) &&
-            CurCodeDecl && CurCodeDecl->getAttr<ReturnsNonNullAttr>());
-  }
+  bool requiresReturnValueCheck() const;
 
   llvm::BasicBlock *TerminateLandingPad = nullptr;
   llvm::BasicBlock *TerminateHandler = nullptr;
@@ -2490,8 +2723,9 @@ public:
 
   /// CreateAggTemp - Create a temporary memory object for the given
   /// aggregate type.
-  AggValueSlot CreateAggTemp(QualType T, const Twine &Name = "tmp") {
-    return AggValueSlot::forAddr(CreateMemTemp(T, Name),
+  AggValueSlot CreateAggTemp(QualType T, const Twine &Name = "tmp",
+                             Address *Alloca = nullptr) {
+    return AggValueSlot::forAddr(CreateMemTemp(T, Name, Alloca),
                                  T.getQualifiers(),
                                  AggValueSlot::IsNotDestructed,
                                  AggValueSlot::DoesNotNeedGCBarriers,
@@ -2824,7 +3058,8 @@ public:
   Address EmitCXXUuidofExpr(const CXXUuidofExpr *E);
 
   /// Situations in which we might emit a check for the suitability of a
-  ///        pointer or glvalue.
+  /// pointer or glvalue. Needs to be kept in sync with ubsan_handlers.cpp in
+  /// compiler-rt.
   enum TypeCheckKind {
     /// Checking the operand of a load. Must be suitably sized and aligned.
     TCK_Load,
@@ -3056,7 +3291,7 @@ public:
   PeepholeProtection protectFromPeepholes(RValue rvalue);
   void unprotectFromPeepholes(PeepholeProtection protection);
 
-  void EmitAlignmentAssumptionCheck(llvm::Value *Ptr, QualType Ty,
+  void emitAlignmentAssumptionCheck(llvm::Value *Ptr, QualType Ty,
                                     SourceLocation Loc,
                                     SourceLocation AssumptionLoc,
                                     llvm::Value *Alignment,
@@ -3064,13 +3299,14 @@ public:
                                     llvm::Value *TheCheck,
                                     llvm::Instruction *Assumption);
 
-  void EmitAlignmentAssumption(llvm::Value *PtrValue, QualType Ty,
+  void emitAlignmentAssumption(llvm::Value *PtrValue, QualType Ty,
                                SourceLocation Loc, SourceLocation AssumptionLoc,
                                llvm::Value *Alignment,
                                llvm::Value *OffsetValue = nullptr);
 
-  void EmitAlignmentAssumption(llvm::Value *PtrValue, const Expr *E,
-                               SourceLocation AssumptionLoc, llvm::Value *Alignment,
+  void emitAlignmentAssumption(llvm::Value *PtrValue, const Expr *E,
+                               SourceLocation AssumptionLoc,
+                               llvm::Value *Alignment,
                                llvm::Value *OffsetValue = nullptr);
 
   //===--------------------------------------------------------------------===//
@@ -3216,7 +3452,8 @@ public:
   llvm::Function *EmitCapturedStmt(const CapturedStmt &S, CapturedRegionKind K);
   llvm::Function *GenerateCapturedStmtFunction(const CapturedStmt &S);
   Address GenerateCapturedStmtArgument(const CapturedStmt &S);
-  llvm::Function *GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S);
+  llvm::Function *GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S,
+                                                     SourceLocation Loc);
   void GenerateOpenMPCapturedVars(const CapturedStmt &S,
                                   SmallVectorImpl<llvm::Value *> &CapturedVars);
   void emitOMPSimpleStore(LValue LVal, RValue RVal, QualType RValTy,
@@ -3375,12 +3612,14 @@ public:
   void EmitOMPParallelForDirective(const OMPParallelForDirective &S);
   void EmitOMPParallelForSimdDirective(const OMPParallelForSimdDirective &S);
   void EmitOMPParallelSectionsDirective(const OMPParallelSectionsDirective &S);
+  void EmitOMPParallelMasterDirective(const OMPParallelMasterDirective &S);
   void EmitOMPTaskDirective(const OMPTaskDirective &S);
   void EmitOMPTaskyieldDirective(const OMPTaskyieldDirective &S);
   void EmitOMPBarrierDirective(const OMPBarrierDirective &S);
   void EmitOMPTaskwaitDirective(const OMPTaskwaitDirective &S);
   void EmitOMPTaskgroupDirective(const OMPTaskgroupDirective &S);
   void EmitOMPFlushDirective(const OMPFlushDirective &S);
+  void EmitOMPDepobjDirective(const OMPDepobjDirective &S);
   void EmitOMPOrderedDirective(const OMPOrderedDirective &S);
   void EmitOMPAtomicDirective(const OMPAtomicDirective &S);
   void EmitOMPTargetDirective(const OMPTargetDirective &S);
@@ -3572,18 +3811,29 @@ private:
   void EmitSections(const OMPExecutableDirective &S);
 
 #if INTEL_COLLAB
-  void EmitLateOutlineOMPDirective(const OMPExecutableDirective &S,
-                                   OpenMPDirectiveKind Kind = OMPD_unknown);
+  /// MapRefTemps - This keeps track of variables with reference type.
+  llvm::DenseSet<const VarDecl *> MapRefTemps;
+  void EmitLateOutlineOMPDirective(
+      const OMPExecutableDirective &S,
+      OpenMPDirectiveKind Kind = llvm::omp::OMPD_unknown);
 
   void EmitLateOutlineOMPLoopDirective(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind Kind);
 
 public:
+  void addMappedRefTemp(const VarDecl *VD) { MapRefTemps.insert(VD); }
+  bool isMappedRefTemp(const VarDecl *VD) {
+    return MapRefTemps.find(VD) != MapRefTemps.end();
+  }
+  void clearMappedRefTemps() { MapRefTemps.clear(); }
   bool requiresImplicitTask(const OMPExecutableDirective &S);
-#if INTEL_CUSTOMIZATION
+  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
+                                         OpenMPDirectiveKind Kind,
+                                         unsigned Depth);
   bool IsPrivateCounter(const VarDecl *VD) {
     return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
   }
+#if INTEL_CUSTOMIZATION
   bool LoopBoundsHaveBeenHoisted(const OMPLoopDirective *LD) {
    return HoistedBoundsLoops.find(LD) != HoistedBoundsLoops.end();
   }
@@ -3593,9 +3843,6 @@ public:
                                              OpenMPDirectiveKind Kind);
   bool hasOMPSpirTarget() const;
   bool useUncollapsedLoop(const OMPLoopDirective &S) const;
-  void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
-                                         OpenMPDirectiveKind Kind,
-                                         unsigned Depth);
 
 private:
   llvm::SmallPtrSet<const void *, 8> HoistedBoundsLoops;
@@ -3999,6 +4246,8 @@ public:
 
   RValue EmitNVPTXDevicePrintfCallExpr(const CallExpr *E,
                                        ReturnValueSlot ReturnValue);
+  RValue EmitAMDGPUDevicePrintfCallExpr(const CallExpr *E,
+                                        ReturnValueSlot ReturnValue);
 
   RValue EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                          const CallExpr *E, ReturnValueSlot ReturnValue);
@@ -4007,6 +4256,11 @@ public:
 
   /// Emit IR for __builtin_os_log_format.
   RValue emitBuiltinOSLogFormat(const CallExpr &E);
+
+  /// Emit IR for __builtin_is_aligned.
+  RValue EmitBuiltinIsAligned(const CallExpr *E);
+  /// Emit IR for __builtin_align_up/__builtin_align_down.
+  RValue EmitBuiltinAlignTo(const CallExpr *E, bool AlignUp);
 
   llvm::Function *generateBuiltinOSLogHelperFunction(
       const analyze_os_log::OSLogBufferLayout &Layout,
@@ -4027,6 +4281,9 @@ public:
                                   ReturnValueSlot ReturnValue,
                                   llvm::Triple::ArchType Arch);
   llvm::Value *EmitARMMVEBuiltinExpr(unsigned BuiltinID, const CallExpr *E,
+                                     ReturnValueSlot ReturnValue,
+                                     llvm::Triple::ArchType Arch);
+  llvm::Value *EmitARMCDEBuiltinExpr(unsigned BuiltinID, const CallExpr *E,
                                      ReturnValueSlot ReturnValue,
                                      llvm::Triple::ArchType Arch);
 
@@ -4063,12 +4320,20 @@ public:
                             SmallVectorImpl<llvm::Value*> &O,
                             const char *name,
                             unsigned shift = 0, bool rightshift = false);
+  llvm::Value *EmitNeonSplat(llvm::Value *V, llvm::Constant *Idx,
+                             const llvm::ElementCount &Count);
   llvm::Value *EmitNeonSplat(llvm::Value *V, llvm::Constant *Idx);
   llvm::Value *EmitNeonShiftVector(llvm::Value *V, llvm::Type *Ty,
                                    bool negateForRightShift);
   llvm::Value *EmitNeonRShiftImm(llvm::Value *Vec, llvm::Value *Amt,
                                  llvm::Type *Ty, bool usgn, const char *name);
   llvm::Value *vectorWrapScalar16(llvm::Value *Op);
+
+  llvm::Value *EmitSVEPredicateCast(llvm::Value *Pred, llvm::VectorType *VTy);
+  llvm::Value *EmitSVEMaskedLoad(llvm::Type *ReturnTy,
+                                 SmallVectorImpl<llvm::Value *> &Ops);
+  llvm::Value *EmitAArch64SVEBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+
   llvm::Value *EmitAArch64BuiltinExpr(unsigned BuiltinID, const CallExpr *E,
                                       llvm::Triple::ArchType Arch);
   llvm::Value *EmitBPFBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
@@ -4088,7 +4353,9 @@ public:
                                           const CallExpr *E);
   llvm::Value *EmitHexagonBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
-  RValue EmitIntelFPGARegBuiltin(const CallExpr *E, ReturnValueSlot ReturnValue);
+  RValue EmitIntelFPGARegBuiltin(const CallExpr *E,
+                                 ReturnValueSlot ReturnValue);
+  RValue EmitIntelFPGAMemBuiltin(const CallExpr *E);
 
 private:
   enum class MSVCIntrin;
@@ -4320,6 +4587,11 @@ public:
 
   RValue EmitAtomicExpr(AtomicExpr *E);
 
+#if INTEL_CUSTOMIZATION
+  /// Create alias.scope for the restrict qualified variable.
+  void AssignAliasScope(const CodeGenFunction::AutoVarEmission &emission);
+#endif // INTEL_CUSTOMIZATION
+
   //===--------------------------------------------------------------------===//
   //                         Annotations Emission
   //===--------------------------------------------------------------------===//
@@ -4395,6 +4667,16 @@ public:
   /// An enumeration which makes it easier to specify whether or not an
   /// operation is a subtraction.
   enum { NotSubtraction = false, IsSubtraction = true };
+
+#if INTEL_CUSTOMIZATION
+  /// The noalias domain metadata for this function.
+  llvm::MDNode *NoAliasDomain = nullptr;
+
+  /// A map between the addresses of local restrict-qualified variables and
+  /// their alias.scope.
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> NoAliasPtrMap;
+  llvm::DenseMap<llvm::Value *, llvm::MDNode *> NoAliasSlotMap;
+#endif // INTEL_CUSTOMIZATION
 
   /// Same as IRBuilder::CreateInBoundsGEP, but additionally emits a check to
   /// detect undefined behavior when the pointer overflow sanitizer is enabled.
@@ -4479,6 +4761,9 @@ public:
   /// SetFPAccuracy - Set the minimum required accuracy of the given floating
   /// point operation, expressed as the maximum relative error in ulp.
   void SetFPAccuracy(llvm::Value *Val, float Accuracy);
+
+  /// SetFPModel - Control floating point behavior via fp-model settings.
+  void SetFPModel();
 
 private:
   llvm::MDNode *getRangeForLoadFromType(QualType Ty);
@@ -4726,7 +5011,7 @@ inline llvm::Value *DominatingLLVMValue::restore(CodeGenFunction &CGF,
 
   // Otherwise, it should be an alloca instruction, as set up in save().
   auto alloca = cast<llvm::AllocaInst>(value.getPointer());
-  return CGF.Builder.CreateAlignedLoad(alloca, alloca->getAlignment());
+  return CGF.Builder.CreateAlignedLoad(alloca, alloca->getAlign());
 }
 
 }  // end namespace CodeGen

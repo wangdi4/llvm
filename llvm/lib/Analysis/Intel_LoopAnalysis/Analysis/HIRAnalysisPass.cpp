@@ -1,6 +1,6 @@
 //===----- HIRAnalysisPass.cpp - implements base HIR analysis pass --------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -61,16 +61,4 @@ void HIRAnalysis::printAnalysis(raw_ostream &OS) const {
 
   PrintVisitor PV(HAP, OS);
   HIRF.getHLNodeUtils().visitAll(PV);
-}
-
-void HIRAnalysisPass::printAnalysis(raw_ostream &OS) const {
-  // Remove constness as HIR analyses are on-demand and have to compute results
-  // for printing.
-  HIRAnalysisPass &HAP = *const_cast<HIRAnalysisPass *>(this);
-
-  PrintVisitor PV(HAP, OS);
-  auto *HIRA = getAnalysisIfAvailable<HIRFrameworkWrapperPass>();
-  assert(HIRA && "HIRFramework not available!");
-
-  HIRA->getHIR().getHLNodeUtils().visitAll(PV);
 }

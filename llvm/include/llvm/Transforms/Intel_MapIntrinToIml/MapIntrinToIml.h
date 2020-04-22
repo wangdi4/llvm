@@ -17,6 +17,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/iml_accuracy_interface.h"
@@ -42,6 +43,14 @@ class MapIntrinToImlImpl {
   /// Current function being processed.
   Function *Func;
 
+  TargetTransformInfo *TTI;
+
+  TargetLibraryInfo *TLI;
+
+  /// New instructions are always prepended before the instruction being
+  /// transformed using this IRBuilder.
+  IRBuilder<> Builder;
+
   /// \brief For a given intrinsic \p CI, try to find an equivalent math
   /// library function to replace it with.
   const char* findX86Variant(CallInst *CI, StringRef FuncName,
@@ -64,11 +73,11 @@ class MapIntrinToImlImpl {
   unsigned calculateNumReturns(TargetTransformInfo *TTI, unsigned TypeBitWidth,
                                unsigned LogicalVL, unsigned *TargetVL);
 
-  /// \brief Split the function call parameters into pseudo-registers the size
-  /// corresponding to the legal target vector length.
-  void splitArgs(SmallVectorImpl<Value *> &Args,
-                 SmallVectorImpl<SmallVector<Value *, 8>> &NewArgs,
-                 unsigned NumRet, unsigned TargetVL);
+  /// Extract subvectors \p NewArgs from function call parameters \p Args.
+  /// \p TargetVL is the size of subvector, and \p Part specifies which part to
+  /// extract.
+  void splitArg(ArrayRef<Value *> Args, SmallVectorImpl<Value *> &NewArgs,
+                unsigned Part, unsigned TargetVL);
 
   /// \brief Build a linked list of IMF attributes used to query the IML
   /// accuracy interface.
@@ -76,24 +85,15 @@ class MapIntrinToImlImpl {
 
   /// \brief Performs type legalization on parameter arguments and inserts the
   /// legally typed svml function declaration.
-  FunctionType *legalizeFunctionTypes(FunctionType *FT,
-                                      SmallVectorImpl<Value *> &Args,
+  FunctionType *legalizeFunctionTypes(FunctionType *FT, ArrayRef<Value *> Args,
                                       unsigned TargetVL, StringRef FuncName);
 
   /// \brief Generates \p NumRet number of call instructions to the math
   /// function and inserts them into \p Calls. \p Args are the arguments used
   /// for the call instructions.
-  void generateMathLibCalls(unsigned NumRet, FunctionCallee Func,
-                            SmallVectorImpl<SmallVector<Value *, 8>> &Args,
-                            SmallVectorImpl<Instruction *> &Calls,
-                            Instruction **InsertPt);
-
-  /// \brief For multiple math library call cases, combine all of the result
-  /// vectors of the target vector length into a single vector of the logical
-  /// vector length.
-  Instruction *combineCallResults(unsigned NumRet,
-                                  SmallVectorImpl<Instruction *> &WorkList,
-                                  Instruction **InsertPt);
+  void generateMathLibCalls(unsigned NumRet, unsigned TargetVL,
+                            FunctionCallee Func, ArrayRef<Value *> Args,
+                            SmallVectorImpl<Value *> &Calls);
 
   /// \brief Finds the stride attribute for the call argument and returns
   /// the type of load/store needed for code gen. This function also returns
@@ -103,25 +103,25 @@ class MapIntrinToImlImpl {
 
   /// \brief Generate the store for the __svml_sincos variant based on the
   /// memory reference pattern passed via call argument attributes.
-  void generateSinCosStore(CallInst *CI, Instruction *ResultVector,
+  void generateSinCosStore(CallInst *CI, Value *ResultVector,
                            unsigned NumElemsToStore, unsigned TargetVL,
-                           unsigned StorePtrIdx, Instruction **InsertPt);
+                           unsigned StorePtrIdx);
 
   /// \brief Duplicate low order elements of a smaller vector into a larger
   /// vector.
   void generateNewArgsFromPartialVectors(ArrayRef<Value *> Args,
                                          ArrayRef<Type *> NewArgTypes,
                                          unsigned TargetVL,
-                                         SmallVectorImpl<Value *> &NewArgs,
-                                         Instruction *InsertPt);
+                                         SmallVectorImpl<Value *> &NewArgs);
 
-  /// \brief Extracts \p NumElems from vector register \p Vector and returns an
-  /// extract instruction.
-  Instruction *extractElemsFromVector(Value *Vector, unsigned StartPos,
-                                      unsigned NumElems);
+  /// Extract the lower part of \p ExtractingVL length from vector \p V which is
+  /// of length SourceVL. The incoming value can be either a vector or a
+  /// structure of vectors.
+  Value *extractLowerPart(Value *V, unsigned ExtractingVL, unsigned SourceVL);
 
-  /// \brief Checks if both types are vectors and if \p ValType width is less
-  /// than \p LegalType width. If yes, the function returns true.
+  /// \brief Checks if both types are vectors or struct of vectors and if \p
+  /// ValType width is less than \p LegalType width. If yes, the function
+  /// returns true.
   bool isLessThanFullVector(Type *ValType, Type *LegalType);
 
   /// \brief Returns the largest vector type represented in the call
@@ -141,35 +141,33 @@ class MapIntrinToImlImpl {
   /// sincos call.
   bool isSincosRefArg(StringRef FuncName, FunctionType *FT);
 
-  /// Create a single instruction calling SVML for integer division. Opcode must
-  /// be one of sdiv/srem/udiv/urem. V0 and V1 must have the same integer vector
-  /// type, and their vector length need to be legal. Returns the newly created
-  /// call instruction.
-  CallInst *generateSVMLIDivOrRemCall(Instruction::BinaryOps Opcode, Value *V0,
-                                      Value *V1);
-
   /// Legalize and convert some vector integer divisions in a function to SVML
   /// call to avoid serialization in the CodeGen. Returns true if the
   /// function's IR is modified by this function.
   bool replaceVectorIDivAndRemWithSVMLCall(TargetTransformInfo *TTI,
                                            Function &F);
 
+  /// Legalize source and mask arguments when splitting an AVX512 SVML call to
+  /// a non-AVX512 one, or widening a non-AVX512 SVML call to AVX512
+  void legalizeAVX512MaskArgs(CallInst *CI, SmallVectorImpl<Value *> &Args,
+                              Value *MaskValue, unsigned LogicalVL,
+                              unsigned TargetVL, unsigned ScalarBitWidth);
+
 public:
   // Use TTI to provide information on the legal vector register size for the
   // target.
-  bool runImpl(Function &F, TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
+  MapIntrinToImlImpl(Function &F, TargetTransformInfo *TTI, TargetLibraryInfo *TLI);
+
+  bool runImpl();
 };
 
 class MapIntrinToImlPass : public PassInfoMixin<MapIntrinToImlPass> {
-  MapIntrinToImlImpl Impl;
-
 public:
   MapIntrinToImlPass() {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
 class MapIntrinToIml : public FunctionPass {
-  MapIntrinToImlImpl Impl;
   bool runOnFunction(Function &Fn) override;
 
 public:

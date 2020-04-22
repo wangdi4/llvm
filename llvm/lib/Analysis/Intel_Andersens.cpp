@@ -370,39 +370,42 @@ void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty,
   Constraints.push_back(Constraint(Ty, D, S, O));
 }
 
-// Returns false if 'Target' is unsafe possible target for 'CS', which is
+// Returns false if 'Target' is unsafe possible target for 'Call', which is
 // indirect call with 'FP' as function pointer.
 //
-static bool safePossibleTarget(Value *FP, Value* Target, CallSite CS) {
+static bool safePossibleTarget(Value *FP, Value* Target, CallBase *Call) {
 
   // Go conservative for now when possible target is non-function
   if (!isa<Function>(Target)) return false;
 
   FunctionType *CalleeTy = cast<Function>(Target)->getFunctionType();
-  FunctionType *FTy = CS.getFunctionType();
+  FunctionType *FTy = Call->getFunctionType();
   // Treat varargs as unsafe targets for now. If required, it can be
   // allowed as safe target later by checking number of actual arguments
-  // at CallSite, number of formals of possible targets, argument types
-  // of CallSite, and formal param types of possible target.
+  // at call site, number of formals of possible targets, argument types
+  // of call site, and formal param types of possible target.
   if (FTy->isVarArg() || CalleeTy->isVarArg()) return false;
 
   if (FP->getType() == Target->getType()) {
     // If signatures of call and possible target are same, makes sure
     // args and formals do match. Treat the target as unsafe if they
     // don't match.
-    if (CS.arg_size() != FTy->getNumParams()) return false;
+    if (Call->arg_size() != FTy->getNumParams()) return false;
 
     // Not sure whether we need to check for some of Function/Parameter
     // attributes to treat target as unsafe. Skipping those checks for
     // now.
     //
+    auto *Args = Call->arg_begin();
     for (unsigned I = 0, E = FTy->getNumParams(); I != E; ++I) {
       // Check types of param and arg
-      if (CS.getArgument(I)->getType() != FTy->getParamType(I)) return false;
+      auto *Arg = Args++;
+      if ((*Arg)->getType() != FTy->getParamType(I))
+        return false;
     }
 
     // This check may not be needed.
-    if (CS.getCallingConv() != cast<Function>(Target)->getCallingConv())
+    if (Call->getCallingConv() != cast<Function>(Target)->getCallingConv())
       return false;
   }
 
@@ -588,8 +591,9 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
 //   AndersenSetResult::Incomplete = Not all targets were found
 //
 AndersensAAResult::AndersenSetResult
-  AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
-                 std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace) {
+AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
+                                                 std::vector<Value *> &Targets,
+                                                 CallBase *Call, bool Trace) {
 
   Targets.clear();
   if (ValueNodes.size() == 0) {
@@ -628,7 +632,7 @@ AndersensAAResult::AndersenSetResult
     Value *V = N->getValue();
   
     // Set IsComplete to AndersenSetResult::Incomplete if V is unsafe target.
-    if (!safePossibleTarget(FP, V, CS)) {
+    if (!safePossibleTarget(FP, V, Call)) {
       if (Trace) {
         if (Function *Fn = dyn_cast<Function>(V)) {
           dbgs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
@@ -681,6 +685,7 @@ AndersensAAResult::AndersenSetResult
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   SkipAndersensAnalysis = false;
+  PointerSizeInBits = DL.getPointerSizeInBits();
   IndirectCallList.clear();
   DirectCallList.clear();
   IdentifyObjects(M);
@@ -1006,10 +1011,27 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
     return false;
   };
 
-  // Returns true if N is pointing to calls that return NoAlias pointers.
-  auto IsAllocPtr = [this] (Node *N) {
+  // Returns true if N represents either NoAlias call or internal global
+  // variable.
+  auto IsLocalMemoryNode = [] (Node *N) {
+    Value *V = N->getValue();
+    if (!V)
+      return false;
+    if (isNoAliasCall(V))
+      return true;
+    GlobalVariable *GV = dyn_cast<GlobalVariable>(V);
+    if (GV && GV->hasInternalLinkage())
+      return true;
+    return false;
+  };
+
+  // Returns true if N is pointing to calls that return NoAlias pointers or
+  // internal global variables.
+  auto IsLocalAllocPtr = [this, IsLocalMemoryNode] (Node *N) {
     if (N == &GraphNodes[UniversalSet])
       return false;
+    if (IsLocalMemoryNode(N))
+      return true;
     bool AllocFound = false;
     for (auto Bi : *N->PointsTo) {
       Node *N1 = &GraphNodes[Bi];
@@ -1017,8 +1039,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
         return false;
       if (N1 == &GraphNodes[NullPtr] || N1 == &GraphNodes[NullObject])
         continue;
-      Value *V = N1->getValue();
-      if (!V || !isNoAliasCall(V))
+      if (!IsLocalMemoryNode(N1))
         return false;
       AllocFound = true;
     }
@@ -1057,10 +1078,10 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   // Return NoAlias if one pointer is "stdout" and other pointer is
   // a return value of NoAliasCall when WholeProgram is safe.
   if (WholeProgramSafeDetected &&
-      ((IsStdoutFilePtr(V1) && IsAllocPtr(N2)) ||
-      (IsStdoutFilePtr(V2) && IsAllocPtr(N1)))) {
+      ((IsStdoutFilePtr(V1) && IsLocalAllocPtr(N2)) ||
+      (IsStdoutFilePtr(V2) && IsLocalAllocPtr(N1)))) {
     if (PrintAndersAliasQueries) {
-      dbgs() << " Result: NoAlias -- Local Alloc Ptr and stdout\n";
+      dbgs() << " Result: NoAlias -- Local Memory Ptr and stdout\n";
       dbgs() << " Alias_End \n";
     }
     return NoAlias;
@@ -1329,8 +1350,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
         escapes = true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
       if (*SingleAcessingFunction == nullptr) {
-        *SingleAcessingFunction = I->getParent()->getParent();
-      } else if (*SingleAcessingFunction != I->getParent()->getParent()) {
+        *SingleAcessingFunction = I->getFunction();
+      } else if (*SingleAcessingFunction != I->getFunction()) {
         *SingleAcessingFunction = nullptr;
         escapes = true;
       }
@@ -1449,14 +1470,14 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
       // referenced anywhere else.
       // Treat malloc/calloc in InvokeInst also as memory object creators.
       if (isa<CallInst>(&*II) || isa<InvokeInst>(&*II)) {
-        CallSite CS = CallSite(&*II); 
-        Value *Callee = CS.getCalledValue();
+        CallBase *CB = cast<CallBase>(&*II);
+        Value *Callee = CB->getCalledValue();
         if (isa<InlineAsm>(Callee))
           ValueNodes[Callee] = NumObjects++;
 
-        if (const Function *F1 = CS.getCalledFunction()) {
+        if (const Function *F1 = CB->getCalledFunction()) {
             if (findNameInTable(F1->getName(), Andersens_Alloc_Intrinsics)) {
-                  ObjectNodes[CS.getInstruction()] = NumObjects++;
+                  ObjectNodes[CB] = NumObjects++;
            }
         }
       }
@@ -1668,12 +1689,12 @@ bool AndersensAAResult::IsLibFunction(const Function *F) {
 /// AddConstraintsForCall - If this is a call to a "known" function, add the
 /// constraints and return true.  If this is a call to an unknown function,
 /// return false.
-bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
+bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
                                                       Function *F) {
   assert((F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) &&
          "Not an external function!");
 
-  if (isa<DbgInfoIntrinsic>(CS.getInstruction()))
+  if (isa<DbgInfoIntrinsic>(CB))
     return true;
 
   if (findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics)) {
@@ -1689,19 +1710,19 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
   // of current routine.
   //
   if (F->getName() == "llvm.va_start") {
-    Function *Src_Fun;
+    Function *SrcFun;
     const FunctionType *FTy = F->getFunctionType();
 
     // Get current routine
-    Src_Fun = CS->getParent()->getParent();
+    SrcFun = CB->getFunction();
 
-    if (!Src_Fun || !Src_Fun->getFunctionType()->isVarArg() ||
+    if (!SrcFun || !SrcFun->getFunctionType()->isVarArg() ||
         FTy->getNumParams() <= 0 || !isPointsToType(FTy->getParamType(0))) {
       return false;
     }
     
-    CreateConstraint(Constraint::AddressOf, getNode(CS.getArgument(0)), 
-                     getVarargNode(Src_Fun));
+    CreateConstraint(Constraint::AddressOf, getNode(CB->getArgOperand(0)),
+                     getVarargNode(SrcFun));
     return true;
   }
 
@@ -1714,8 +1735,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
     if (FTy->getNumParams() > 1 && 
         isPointsToType(FTy->getParamType(0)) &&
         isPointsToType(FTy->getParamType(1))) {
-      CreateConstraint(Constraint::Copy, getNode(CS.getArgument(0)),
-                       getNode(CS.getArgument(1)));
+      CreateConstraint(Constraint::Copy, getNode(CB->getArgOperand(0)),
+                       getNode(CB->getArgOperand(1)));
       return true;
     }
   }
@@ -1737,8 +1758,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
 
       // *Dest = *Src, which requires an artificial graph node to represent the
       // constraint.  It is broken up into *Dest = temp, temp = *Src
-      unsigned FirstArg = getNode(CS.getArgument(0));
-      unsigned SecondArg = getNode(CS.getArgument(1));
+      unsigned FirstArg = getNode(CB->getArgOperand(0));
+      unsigned SecondArg = getNode(CB->getArgOperand(1));
       unsigned TempArg = GraphNodes.size();
       GraphNodes.push_back(Node());
       CreateConstraint(Constraint::Store, FirstArg, TempArg);
@@ -1755,8 +1776,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
     if (FTy->getNumParams() > 1 && 
         isPointsToType(FTy->getParamType(0)) &&
         isPointsToType(FTy->getParamType(1))) {
-      unsigned FirstArg = getNode(CS.getArgument(0));
-      unsigned SecondArg = getNode(CS.getArgument(1));
+      unsigned FirstArg = getNode(CB->getArgOperand(0));
+      unsigned SecondArg = getNode(CB->getArgOperand(1));
       CreateConstraint(Constraint::Store, SecondArg, FirstArg);
       lib_call_handled = true;
     }
@@ -1767,8 +1788,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 0 && 
         isPointsToType(FTy->getParamType(0))) {
-      CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
-                       getNode(CS.getArgument(0)));
+      CreateConstraint(Constraint::Copy, getNode(CB),
+                       getNode(CB->getArgOperand(0)));
       lib_call_handled = true;
     }
   }
@@ -1778,8 +1799,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 1 && 
         isPointsToType(FTy->getParamType(1))) {
-      CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
-                       getNode(CS.getArgument(1)));
+      CreateConstraint(Constraint::Copy, getNode(CB),
+                       getNode(CB->getArgOperand(1)));
       lib_call_handled = true;
     }
   }
@@ -2061,13 +2082,13 @@ void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
     return;
   if (isAggregateOrVecType(RI.getOperand(0)->getType())) {
     CreateConstraint(Constraint::Copy,
-                     getReturnNode(RI.getParent()->getParent()), UniversalSet);
+                     getReturnNode(RI.getFunction()), UniversalSet);
     return;
   }
   if (isPointsToType(RI.getOperand(0)->getType()))
     // return V   -->   <Copy/retval{F}/v>
     CreateConstraint(Constraint::Copy,
-                     getReturnNode(RI.getParent()->getParent()),
+                     getReturnNode(RI.getFunction()),
                      getNode(RI.getOperand(0)));
 }
 
@@ -2084,6 +2105,39 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 }
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
+
+  // Returns true if "V" is LoadInst that loads pointer value as
+  // integer.
+  //   Ex:
+  //      %5 = bitcast %struct.p** %0 to i64*
+  //      %6 = load i64, i64* %5
+  //
+  auto IsLoadingPtrAsInt = [this](Value *V) {
+    auto *LI = dyn_cast<LoadInst>(V);
+    // Make sure load has single use to simplify the implementation.
+    if (!LI || !LI->getType()->isIntegerTy() || !LI->hasOneUse())
+      return false;
+    auto *BC = dyn_cast<BitCastInst>(LI->getPointerOperand());
+    if (!BC)
+      return false;
+    // Check source type of Bitcast is pointer to pointer to some type.
+    if (!BC->getSrcTy()->isPointerTy() ||
+       !BC->getSrcTy()->getPointerElementType()->isPointerTy())
+      return false;
+    return true;
+  };
+
+  // Returns true if Ty can be used to hold pointer value.
+  // For now, returns false if Ty is either floating point type
+  // or integer type that is smaller than size of pointer.
+  auto IsPtrCompatibleTy = [this](Type *Ty) {
+    if (Ty->isFloatingPointTy())
+      return false;
+    if (Ty->isIntegerTy() && Ty->getIntegerBitWidth() < PointerSizeInBits)
+      return false;
+    return true;
+  };
+
   ConstantExpr *CE;
   if (Constant *C = dyn_cast<Constant>(SI.getOperand(0))) {
     if (!isPointsToType(SI.getOperand(0)->getType()) &&
@@ -2130,9 +2184,30 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   // TODO: Analysis needs to be improved to compute more accurate
   // points-to info by analyzing the non-pointer value that is being
   // stored.
-  if (!isPointsToType(SI.getOperand(0)->getType()))
-    CreateConstraint(Constraint::Store, getNode(SI.getOperand(1)),
-                     UniversalSet);
+  Value *ValOp = SI.getValueOperand();
+  if (!isPointsToType(ValOp->getType())) {
+    if (IsLoadingPtrAsInt(ValOp)) {
+      //      %5 = bitcast %struct.p** %0 to i64*
+      //      %6 = load i64, i64* %5
+      //      store i64 %6, i64* bitcast (%struct.p** @pr to i64*)
+      LoadInst *LI = cast<LoadInst>(ValOp);
+      unsigned LN;
+      if (NonPointerAssignments.count(LI))
+        LN = getNode(LI);
+      else
+        LN = getNodeValue(*LI);
+      CreateConstraint(Constraint::Load, LN, getNode(LI->getPointerOperand()));
+      CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()), LN);
+    } else {
+      Type *Ty = ValOp->getType();
+      // Some stores can be ignored based on type of stored value.
+      // Assuming that pointers are not converted to floating point
+      // types or integer types that are smaller than pointer size.
+      if (IsPtrCompatibleTy(Ty))
+        CreateConstraint(Constraint::Store, getNode(SI.getPointerOperand()),
+                         UniversalSet);
+    }
+  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
@@ -2234,23 +2309,23 @@ void AndersensAAResult::visitVAArg(VAArgInst &I) {
   }
   if (isPointsToType(I.getType()))
     CreateConstraint(Constraint::Copy, getNodeValue(I),
-                     getVarargNode(I.getParent()->getParent()));
+                     getVarargNode(I.getFunction()));
 }
 
 // Create Constraints for direct calls
 //
-void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
+void AndersensAAResult::AddConstraintsForDirectCall(CallBase *CB, Function *F)
 {
-  CallSite::arg_iterator arg_itr = CS.arg_begin();
-  CallSite::arg_iterator arg_end = CS.arg_end();
+  auto arg_itr = CB->arg_begin();
+  auto arg_end = CB->arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
 
-  if (isPointsToType(CS.getType())) {
-    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
+  if (isPointsToType(CB->getType())) {
+    CreateConstraint(Constraint::Copy, getNode(CB),
                      getReturnNode(F));
-  } else if (isAggregateOrVecType(CS.getType())) {
-    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()),
+  } else if (isAggregateOrVecType(CB->getType())) {
+    CreateConstraint(Constraint::Copy, getNode(CB),
                      UniversalSet);
   }
 
@@ -2284,15 +2359,15 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   }
 }
 
-// Set actuals of 'CS' to UniversalSet.
+// Set actuals of 'CB' to UniversalSet.
 //
-void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) {
+void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallBase *CB) {
 
-  CallSite::arg_iterator arg_itr = CS.arg_begin();
-  CallSite::arg_iterator arg_end = CS.arg_end();
+  auto arg_itr = CB->arg_begin();
+  auto arg_end = CB->arg_end();
 
-  if (isTrackableType(CS.getType())) {
-    CreateConstraint(Constraint::Copy, getNode(CS.getInstruction()), 
+  if (isTrackableType(CB->getType())) {
+    CreateConstraint(Constraint::Copy, getNode(CB),
                      UniversalSet);
   }
 
@@ -2305,11 +2380,11 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
 }
 
 /// AddConstraintsForCall - Add constraints for a call with actual arguments
-/// specified by CS to the function specified by F.  Note that the types of
+/// specified by CB to the function specified by F.  Note that the types of
 /// arguments might not match up in the case where this is an indirect call and
 /// the function pointer has been casted.  If this is the case, do something
 /// reasonable.
-void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
+void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
 
   // CQ377893: It is possible that getCalledFunction returns nullptr
   // even for direct calls. It happens when getCalledValue is not 
@@ -2326,52 +2401,51 @@ void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
   // Callee can be found by parsing getCalledValue but it may not be 
   // useful due to mismatch of args and formals. Decided to go conservative. 
   //
-  if (F == nullptr && isa<ConstantExpr>(CS.getCalledValue())) {
-    AddConstraintsForInitActualsToUniversalSet(CS);
+  if (F == nullptr && isa<ConstantExpr>(CB->getCalledValue())) {
+    AddConstraintsForInitActualsToUniversalSet(CB);
     return; 
   }
 
   if (F == nullptr) {
     // Handle Indirect calls differently
-    IndirectCallList.push_back(CS);
+    IndirectCallList.push_back(CB);
     return; 
   }
-  DirectCallList.push_back(CS);
+  DirectCallList.push_back(CB);
 
   // If this is a call to an external function, try to handle it directly to get
   // some taste of context sensitivity.
   // Treat calls to weak functions as external calls.
   if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) {
-    if (AddConstraintsForExternalCall(CS, F)) {
+    if (AddConstraintsForExternalCall(CB, F)) {
       return;
     }
-    AddConstraintsForInitActualsToUniversalSet(CS);
+    AddConstraintsForInitActualsToUniversalSet(CB);
 
     return;
   }
 
   // Handle Direct calls here
-  AddConstraintsForDirectCall(CS, F);
+  AddConstraintsForDirectCall(CB, F);
 }
 
-void AndersensAAResult::visitCallSite(CallSite CS) {
-  if (CS.getCalledFunction() && 
-      findNameInTable(CS.getCalledFunction()->getName(),
+void AndersensAAResult::checkCall(CallBase *CB) {
+  if (CB->getCalledFunction() &&
+      findNameInTable(CB->getCalledFunction()->getName(),
                       Andersens_Alloc_Intrinsics)) {
-      // Instruction* inst = CS.getInstruction();
-      unsigned ObjectIndex = getObject(CS.getInstruction());
-      GraphNodes[ObjectIndex].setValue(CS.getInstruction());
+      unsigned ObjectIndex = getObject(CB);
+      GraphNodes[ObjectIndex].setValue(CB);
       CreateConstraint(Constraint::AddressOf, 
-                       getNodeValue(*CS.getInstruction()), ObjectIndex);
+                       getNodeValue(*CB), ObjectIndex);
       return;
   }
-  if (isTrackableType(CS.getType()))
-    getNodeValue(*CS.getInstruction());
+  if (isTrackableType(CB->getType()))
+    getNodeValue(*CB);
 
-  if (Function *F = CS.getCalledFunction()) {
-    AddConstraintsForCall(CS, F);
+  if (Function *F = CB->getCalledFunction()) {
+    AddConstraintsForCall(CB, F);
   } else {
-    AddConstraintsForCall(CS, nullptr);
+    AddConstraintsForCall(CB, nullptr);
   }
 }
 
@@ -2492,9 +2566,9 @@ void AndersensAAResult::ClumpAddressTaken() {
 void AndersensAAResult::CollectPossibleIndirectNodes(void) {
   PossibleSourceOfPointsToInfo.clear();
   for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
-    if (isTrackableType(IndirectCallList[i].getType())) {
+    if (isTrackableType(IndirectCallList[i]->getType())) {
       PossibleSourceOfPointsToInfo.insert(
-                    getNode(IndirectCallList[i].getInstruction()));
+                    getNode(IndirectCallList[i]));
     }
   }
 }
@@ -3414,15 +3488,15 @@ void AndersensAAResult::AddEdgeInGraph(unsigned N1, unsigned N2) {
   }
 }
 
-// Create edges from all actuals of 'CS' to UniversalSet.
+// Create edges from all actuals of 'CB' to UniversalSet.
 //
-void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
+void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallBase *CB) {
 
-  CallSite::arg_iterator arg_itr = CS.arg_begin();
-  CallSite::arg_iterator arg_end = CS.arg_end();
+  auto arg_itr = CB->arg_begin();
+  auto arg_end = CB->arg_end();
 
-  if (isTrackableType(CS.getType())) {
-    AddEdgeInGraph(getNode(CS.getInstruction()), UniversalSet);
+  if (isTrackableType(CB->getType())) {
+    AddEdgeInGraph(getNode(CB), UniversalSet);
   }
 
   for (; arg_itr != arg_end; ++arg_itr) {
@@ -3434,19 +3508,19 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
   }
 }
 
-// Map actuals of 'CS' to formals of 'F'
+// Map actuals of 'CB' to formals of 'F'
 //
-void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
+void AndersensAAResult::IndirectCallActualsToFormals(CallBase *CB, Function *F) {
 
   // Treat calls to weak functions as external calls.
   if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) {
     // TODO: Model Library calls like malloc here and change Graph
-    InitIndirectCallActualsToUniversalSet(CS);
+    InitIndirectCallActualsToUniversalSet(CB);
     return;
   } 
 
-  CallSite::arg_iterator arg_itr = CS.arg_begin();
-  CallSite::arg_iterator arg_end = CS.arg_end();
+  auto arg_itr = CB->arg_begin();
+  auto arg_end = CB->arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
 
@@ -3455,11 +3529,11 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   // to improve accuracy of points-to sets.   
 
   Type *FRTy = F->getFunctionType()->getReturnType();
-  Type *CTy = CS.getType();
+  Type *CTy = CB->getType();
   if (isPointsToType(CTy) && isPointsToType(FRTy)) {
-    AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
+    AddEdgeInGraph(getNode(CB), getReturnNode(F));
   } else if (isTrackableType(CTy) || isTrackableType(FRTy)) {
-      AddEdgeInGraph(getNode(CS.getInstruction()), UniversalSet);
+      AddEdgeInGraph(getNode(CB), UniversalSet);
   }
 
   // CQ377744: Stop trying to map arguments and formals if 
@@ -3496,9 +3570,9 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
 
 // Process Indirect call during propagation of points-to sets.
 //
-void AndersensAAResult::ProcessIndirectCall(CallSite CS) {
+void AndersensAAResult::ProcessIndirectCall(CallBase *CB) {
   SparseBitVector<> PointsToDiff;
-  Value* call_fptr = CS.getCalledValue();
+  Value* call_fptr = CB->getCalledValue();
   assert(call_fptr && "Expecting function fptr");
   const Node *N = &GraphNodes[FindNode(getNode(call_fptr))];
 
@@ -3518,14 +3592,14 @@ void AndersensAAResult::ProcessIndirectCall(CallSite CS) {
       continue;
     }
     if (N1 == &GraphNodes[UniversalSet]) {
-      InitIndirectCallActualsToUniversalSet(CS);
+      InitIndirectCallActualsToUniversalSet(CB);
       continue;
     }
     
     Value *V = N1->getValue();
     if (Function *F = dyn_cast<Function>(V)) {
-      if (F->getFunctionType()->isVarArg() || F->arg_size() == CS.arg_size()) {
-        IndirectCallActualsToFormals(CS, F);
+      if (F->getFunctionType()->isVarArg() || F->arg_size() == CB->arg_size()) {
+        IndirectCallActualsToFormals(CB, F);
       }
     }
     // Don't do anything for now if it pointsto non-function object
@@ -4074,7 +4148,7 @@ void AndersensAAResult::PrintNode(const Node *N) const {
   }
 
   if (Instruction *I = dyn_cast<Instruction>(V))
-    dbgs() << I->getParent()->getParent()->getName() << ":";
+    dbgs() << I->getFunction()->getName() << ":";
   else if (Argument *Arg = dyn_cast<Argument>(V))
     dbgs() << Arg->getParent()->getName() << ":";
 
@@ -5920,18 +5994,18 @@ void AndersensAAResult::ProcessIRValueDestructed(Value *V)
 // Given a call site, it marks the graph node which represents
 // the actual parameter with propagates flag. Same for return
 // graph node if it exists.
-void AndersensAAResult::ProcessCall(CallSite &CS) {
+void AndersensAAResult::ProcessCall(CallBase *CB) {
 
-  CallSite::arg_iterator arg_itr = CS.arg_begin();
-  CallSite::arg_iterator arg_end = CS.arg_end();
+  auto arg_itr = CB->arg_begin();
+  auto arg_end = CB->arg_end();
 
-  if (isPointsToType(CS.getType()))
+  if (isPointsToType(CB->getType()))
     //
     //     ret(acutal)
     //  --------------------------
     //     holding(actual)
     //
-    NewHoldingNode(getNode(CS.getInstruction()), FLAGS_HOLDING);
+    NewHoldingNode(getNode(CB), FLAGS_HOLDING);
 
   for (; arg_itr != arg_end; ++arg_itr) {
     Value *actual = *arg_itr;
@@ -5948,16 +6022,16 @@ void AndersensAAResult::ProcessCall(CallSite &CS) {
 
 // Builds the escape information for the acutal parameters and the
 // return at the call site.
-void AndersensAAResult::CallSitesAnalysis() {
+void AndersensAAResult::AnalyzeCalls() {
   for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i)
     ProcessCall(IndirectCallList[i]);
   for (unsigned i = 0, e = DirectCallList.size(); i != e; ++i) {
-    CallSite &CS = DirectCallList[i];
-    const Value *V = CS.getCalledValue();
+    CallBase *CB = DirectCallList[i];
+    const Value *V = CB->getCalledValue();
     if (isa<InlineAsm>(*V))
       continue;
 
-    Instruction *II = CS.getInstruction();
+    Instruction *II = CB;
     if (isa<DbgInfoIntrinsic>(II))
       continue;
     if (isa<AnyMemSetInst>(II))
@@ -5965,7 +6039,7 @@ void AndersensAAResult::CallSitesAnalysis() {
 
     // TODO Side effect information for the library
     // needs to be used here.
-    if (const Function *F = CS.getCalledFunction()) {
+    if (const Function *F = CB->getCalledFunction()) {
       if (F->isDeclaration() || F->isIntrinsic() || !F->hasExactDefinition()) {
         if (IsLibFunction(F))
           continue;
@@ -6273,7 +6347,7 @@ void AndersensAAResult::InitEscAnal(Module &M) {
     }
   }
 
-  CallSitesAnalysis();
+  AnalyzeCalls();
 }
 
 // Returns the escape properties for the incoming node.

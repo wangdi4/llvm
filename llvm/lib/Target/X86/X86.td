@@ -166,6 +166,13 @@ def FeatureVBMI     : SubtargetFeature<"avx512vbmi", "HasVBMI", "true",
 def FeatureVBMI2    : SubtargetFeature<"avx512vbmi2", "HasVBMI2", "true",
                       "Enable AVX-512 further Vector Byte Manipulation Instructions",
                                       [FeatureBWI]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+def FeatureAVXIFMA    : SubtargetFeature<"avxifma", "HasAVXIFMA", "true",
+                           "Enable AVX-IFMA",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
 def FeatureIFMA     : SubtargetFeature<"avx512ifma", "HasIFMA", "true",
                       "Enable AVX-512 Integer Fused Multiple-Add",
                                       [FeatureAVX512]>;
@@ -184,6 +191,14 @@ def FeatureAVXVNNI    : SubtargetFeature<"avxvnni", "HasAVXVNNI", "true",
 def FeatureBF16    : SubtargetFeature<"avx512bf16", "HasBF16", "true",
                            "Support bfloat16 floating point",
                                       [FeatureBWI]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+def FeatureAVXBF16  : SubtargetFeature<"avxbf16", "HasAVXBF16", "true",
+                           "Support bfloat16 floating point",
+                                      [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
 def FeatureBITALG  : SubtargetFeature<"avx512bitalg", "HasBITALG", "true",
                        "Enable AVX-512 Bit Algorithms",
                         [FeatureBWI]>;
@@ -202,6 +217,30 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+def FeatureAVXDOTPROD    : SubtargetFeature<"avxdotprod", "HasAVXDOTPROD", "true",
+                           "Enable AVX-DOTPROD",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
+                           "Enable AVX512-DOTPROD",
+                           [FeatureAVXDOTPROD, FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+def FeatureAVXCONVERT  : SubtargetFeature<"avxconvert", "HasAVXCONVERT", "true",
+                           "Enable AVX-CONVERT",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+def FeatureCONVERT    : SubtargetFeature<"avx512convert", "HasCONVERT", "true",
+                           "Enable AVX512-CONVERT",
+                           [FeatureAVXCONVERT, FeatureBF16, FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
+
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
                          "Enable packed carry-less multiplication instructions",
                                [FeatureSSE2]>;
@@ -281,7 +320,7 @@ def FeatureAMXBF16     : SubtargetFeature<"amx-bf16", "HasAMXBF16", "true",
                                       "Support AMX amx-bf16 instructions",
                                       [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
 def FeatureAMXELEMENT     : SubtargetFeature<"amx-element", "HasAMXELEMENT", "true",
                                       "Support AMX amx-element instructions",
                                       [FeatureAMXTILE]>;
@@ -291,32 +330,80 @@ def FeatureAMXREDUCE     : SubtargetFeature<"amx-reduce", "HasAMXREDUCE", "true"
 def FeatureAMXFORMAT     : SubtargetFeature<"amx-format", "HasAMXFORMAT", "true",
                                       "Support AMX amx-format instructions",
                                       [FeatureAMXTILE]>;
-def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE", "true",
-                                      "Support AMX amx-transpose instructions",
-                                      [FeatureAMXTILE]>;
 def FeatureAMXMEMORY     : SubtargetFeature<"amx-memory", "HasAMXMEMORY", "true",
                                       "Support AMX amx-memory instructions",
                                       [FeatureAMXTILE]>;
-def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
-                                      "Support AMX amx-fp16 instructions",
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE", "true",
+                                      "Support AMX amx-transpose instructions",
                                       [FeatureAMXTILE]>;
 
 def FeatureAMXAVX512     : SubtargetFeature<"amx-avx512", "HasAMXAVX512", "true",
                                       "Support AMX amx-avx512 instructions",
                                       [FeatureAMXTILE]>;
 
-def FeatureAMXTILEEVEX     : SubtargetFeature<"amx-tile-evex", "HasAMXTILEEVEX", "true",
-                                      "Support AMX amx-tile-evex instructions",
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
+                                      "Support AMX amx-fp16 instructions",
                                       [FeatureAMXTILE]>;
 
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+def FeatureAMXMEMORY2     : SubtargetFeature<"amx-memory2", "HasAMXMEMORY2", "true",
+                                      "Support AMX amx-memory2 instructions",
+                                      [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX", "true",
+                                      "Support AMX amx-bf16-evex instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+def FeatureAMXCONVERTEVEX     : SubtargetFeature<"amx-convert-evex", "HasAMXCONVERTEVEX", "true",
+                                      "Support AMX amx-convert-evex instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+def FeatureAMXCONVERT         : SubtargetFeature<"amx-convert", "HasAMXCONVERT", "true",
+                                      "Support AMX amx-convert instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
 def FeatureAMXINT8EVEX     : SubtargetFeature<"amx-int8-evex", "HasAMXINT8EVEX", "true",
                                       "Support AMX amx-int8-evex instructions",
                                       [FeatureAMXTILE]>;
 
-def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX", "true",
-                                      "Support AMX amx-bf16-evex instructions",
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+def FeatureAMXTILEEVEX     : SubtargetFeature<"amx-tile-evex", "HasAMXTILEEVEX", "true",
+                                      "Support AMX amx-tile-evex instructions",
                                       [FeatureAMXTILE]>;
-#endif // INTEL_FEATURE_ISA_AMX2
+
+
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+def FeatureAMXTRANSPOSE2     : SubtargetFeature<"amx-transpose2", "HasAMXTRANSPOSE2", "true",
+                                      "Support AMX amx-transpose2 instructions",
+                                      [FeatureAMXTILE]>;
+
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+
+#if INTEL_FEATURE_ISA_AMX_TILE2
+def FeatureAMXTILE2 : SubtargetFeature<"amx-tile2", "HasAMXTILE2", "true",
+                                       "Support AMX amx-tile2 instructions",
+                                       [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
@@ -355,15 +442,17 @@ def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
-                                      "Has serialize instruction">;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
+                                      "Has hreset instruction">;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
 def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
                                       "Support TSXLDTRK instructions">;
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
+                                        "Has serialize instruction">;
 // On some processors, instructions that implicitly take two memory operands are
 // slow. In practice, this means that CALL, PUSH, and POP with memory operands
 // should be avoided in favor of a MOV + register CALL/PUSH/POP.
@@ -420,6 +509,11 @@ def FeatureFastLZCNT
     : SubtargetFeature<
           "fast-lzcnt", "HasFastLZCNT", "true",
           "LZCNT instructions are as fast as most simple integer ops">;
+// If the target can efficiently decode NOPs upto 7-bytes in length.
+def FeatureFast7ByteNOP
+    : SubtargetFeature<
+          "fast-7bytenop", "HasFast7ByteNOP", "true",
+          "Target can quickly decode up to 7 byte NOPs">;
 // If the target can efficiently decode NOPs upto 11-bytes in length.
 def FeatureFast11ByteNOP
     : SubtargetFeature<
@@ -517,6 +611,15 @@ def FeatureRetpolineExternalThunk
           "ourselves. Only has effect when combined with some other retpoline "
           "feature", [FeatureRetpolineIndirectCalls]>;
 
+// Mitigate LVI attacks against indirect calls/branches and call returns
+def FeatureLVIControlFlowIntegrity
+    : SubtargetFeature<
+          "lvi-cfi", "UseLVIControlFlowIntegrity", "true",
+          "Prevent indirect calls/branches from using a memory operand, and "
+          "precede all indirect calls/branches from a register with an "
+          "LFENCE instruction to serialize control flow. Also decompose RET "
+          "instructions into a POP+LFENCE+JMP sequence.">;
+
 // Direct Move instructions.
 def FeatureMOVDIRI  : SubtargetFeature<"movdiri", "HasMOVDIRI", "true",
                                        "Support movdiri instruction">;
@@ -546,6 +649,10 @@ def FeatureFastVectorShiftMasks
         "fast-vector-shift-masks", "HasFastVectorShiftMasks", "true",
         "Prefer a left/right vector logical shift pair over a shift+and pair">;
 
+def FeatureUseGLMDivSqrtCosts
+    : SubtargetFeature<"use-glm-div-sqrt-costs", "UseGLMDivSqrtCosts", "true",
+        "Use Goldmont specific floating point div/sqrt costs">;
+
 // Merge branches using three-way conditional code.
 def FeatureMergeToThreeWayBranch : SubtargetFeature<"merge-to-threeway-branch",
                                         "ThreewayBranchProfitable", "true",
@@ -565,12 +672,6 @@ def FeatureHasDSB : SubtargetFeature<"dsb", "HasDSB", "true",
 def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
 // Silvermont
 def ProcIntelSLM  : SubtargetFeature<"", "X86ProcFamily", "IntelSLM", "">;
-// Goldmont
-def ProcIntelGLM  : SubtargetFeature<"", "X86ProcFamily", "IntelGLM", "">;
-// Goldmont Plus
-def ProcIntelGLP  : SubtargetFeature<"", "X86ProcFamily", "IntelGLP", "">;
-// Tremont
-def ProcIntelTRM  : SubtargetFeature<"", "X86ProcFamily", "IntelTRM", "">;
 
 //===----------------------------------------------------------------------===//
 // Register File Description
@@ -599,6 +700,7 @@ include "X86SchedHaswell.td"
 include "X86SchedBroadwell.td"
 include "X86ScheduleSLM.td"
 include "X86ScheduleZnver1.td"
+include "X86ScheduleZnver2.td"
 include "X86ScheduleBdVer2.td"
 include "X86ScheduleBtVer2.td"
 include "X86SchedSkylakeClient.td"
@@ -646,7 +748,8 @@ def ProcessorFeatures {
 #endif // INTEL_CUSTOMIZATION
                                                   FeatureFastScalarFSQRT,
                                                   FeatureFastSHLDRotate,
-                                                  FeatureMergeToThreeWayBranch];
+                                                  FeatureMergeToThreeWayBranch,
+                                                  FeatureFast15ByteNOP];
   list<SubtargetFeature> SNBSpecificFeatures = [FeatureSlowUAMem32,
                                                 FeaturePOPCNTFalseDeps];
   list<SubtargetFeature> SNBInheritableFeatures =
@@ -816,9 +919,7 @@ def ProcessorFeatures {
     FeatureAMXINT8,
     FeatureAMXBF16,
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_SERIALIZE
     FeatureSERIALIZE,
-#endif // INTEL_FEATURE_ISA_SERIALIZE
     FeaturePCONFIG,
     FeatureWBNOINVD,
     FeatureHasFastGather
@@ -863,6 +964,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> SLMSpecificFeatures = [ProcIntelSLM,
                                                 FeatureSlowDivide64,
                                                 FeatureSlowPMULLD,
+                                                FeatureFast7ByteNOP,
                                                 FeaturePOPCNTFalseDeps];
   list<SubtargetFeature> SLMInheritableFeatures =
     !listconcat(AtomInheritableFeatures, SLMAdditionalFeatures);
@@ -879,7 +981,7 @@ def ProcessorFeatures {
                                                   FeatureXSAVES,
                                                   FeatureCLFLUSHOPT,
                                                   FeatureFSGSBase];
-  list<SubtargetFeature> GLMSpecificFeatures = [ProcIntelGLM,
+  list<SubtargetFeature> GLMSpecificFeatures = [FeatureUseGLMDivSqrtCosts,
                                                 FeaturePOPCNTFalseDeps];
   list<SubtargetFeature> GLMInheritableFeatures =
     !listconcat(SLMInheritableFeatures, GLMAdditionalFeatures);
@@ -890,7 +992,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> GLPAdditionalFeatures = [FeaturePTWRITE,
                                                   FeatureRDPID,
                                                   FeatureSGX];
-  list<SubtargetFeature> GLPSpecificFeatures = [ProcIntelGLP];
+  list<SubtargetFeature> GLPSpecificFeatures = [FeatureUseGLMDivSqrtCosts];
   list<SubtargetFeature> GLPInheritableFeatures =
     !listconcat(GLMInheritableFeatures, GLPAdditionalFeatures);
   list<SubtargetFeature> GLPFeatures =
@@ -902,7 +1004,7 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureWAITPKG];
-  list<SubtargetFeature> TRMSpecificFeatures = [ProcIntelTRM];
+  list<SubtargetFeature> TRMSpecificFeatures = [FeatureUseGLMDivSqrtCosts];
   list<SubtargetFeature> TRMFeatures =
     !listconcat(GLPInheritableFeatures, TRMAdditionalFeatures,
                 TRMSpecificFeatures);
@@ -1352,7 +1454,7 @@ def : Proc<"bdver3", ProcessorFeatures.BdVer3Features>;
 def : Proc<"bdver4", ProcessorFeatures.BdVer4Features>;
 
 def : ProcessorModel<"znver1", Znver1Model, ProcessorFeatures.ZNFeatures>;
-def : ProcessorModel<"znver2", Znver1Model, ProcessorFeatures.ZN2Features>;
+def : ProcessorModel<"znver2", Znver2Model, ProcessorFeatures.ZN2Features>;
 
 def : Proc<"geode",           [FeatureX87, FeatureSlowUAMem16, FeatureCMPXCHG8B,
                                Feature3DNowA, FeatureInsertVZEROUPPER]>;

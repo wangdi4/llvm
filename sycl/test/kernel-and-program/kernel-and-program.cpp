@@ -1,8 +1,11 @@
-// RUN: %clangxx -fsycl %s -o %t.out -lOpenCL
+// REQUIRES: opencl
+
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out -L %opencl_libs_dir -lOpenCL
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUNx: %GPU_RUN_PLACEHOLDER %t.out
 // RUNx: %ACC_RUN_PLACEHOLDER %t.out
+
 //==--- kernel-and-program.cpp - SYCL kernel/program test ------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -207,8 +210,10 @@ int main() {
     std::iota(dataVec.begin(), dataVec.end(), 0);
 
     // Precompiled kernel invocation
-    // TODO run on host as well once local barrier is supported
-    if (!q.is_host()) {
+#if !DPCPP_HOST_DEVICE_HAS_BARRIER
+    if (!q.is_host())
+#endif
+    {
       {
         cl::sycl::range<1> numOfItems(dataVec.size());
         cl::sycl::range<1> localRange(2);

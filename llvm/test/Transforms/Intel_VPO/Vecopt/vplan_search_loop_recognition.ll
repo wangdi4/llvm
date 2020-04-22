@@ -2,11 +2,6 @@
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_RECOGNIZED-CHECK %s
 ;
-;;  Run with loop-entities enabled
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
-; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation -vplan-use-entity-instr=true \
-; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_RECOGNIZED-CHECK %s
-;
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -vplan-use-padding-info=false \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s

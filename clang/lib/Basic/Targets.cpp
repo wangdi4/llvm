@@ -122,6 +122,9 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
     return new XCoreTargetInfo(Triple, Opts);
 
   case llvm::Triple::hexagon:
+    if (os == llvm::Triple::Linux &&
+        Triple.getEnvironment() == llvm::Triple::Musl)
+      return new LinuxTargetInfo<HexagonTargetInfo>(Triple, Opts);
     return new HexagonTargetInfo(Triple, Opts);
 
   case llvm::Triple::lanai:
@@ -654,7 +657,12 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         case llvm::Triple::MSVC:
           assert(HT.getArch() == llvm::Triple::x86_64 &&
                  "Unsupported host architecture");
-          return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
+          switch (Triple.getEnvironment()) {
+          case llvm::Triple::IntelFPGA:
+            return new MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts);
+          default:
+            return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
+          }
         }
       default:
         switch (Triple.getEnvironment()) {

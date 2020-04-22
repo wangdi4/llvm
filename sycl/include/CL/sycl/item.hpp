@@ -14,7 +14,7 @@
 #include <CL/sycl/id.hpp>
 #include <CL/sycl/range.hpp>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 class Builder;
@@ -84,4 +84,4 @@ private:
 };
 
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

@@ -98,6 +98,13 @@ void GlobalValue::eraseFromParent() {
   llvm_unreachable("not a global");
 }
 
+bool GlobalValue::isInterposable() const {
+  if (isInterposableLinkage(getLinkage()))
+    return true;
+  return getParent() && getParent()->getSemanticInterposition() &&
+         !isDSOLocal();
+}
+
 unsigned GlobalValue::getAlignment() const {
   if (auto *GA = dyn_cast<GlobalAlias>(this)) {
     // In general we cannot compute this at the IR level, but we try.
@@ -147,7 +154,7 @@ std::string GlobalValue::getGlobalIdentifier(StringRef Name,
   if (Name[0] == '\1')
     Name = Name.substr(1);
 
-  std::string NewName = Name;
+  std::string NewName = std::string(Name);
   if (llvm::GlobalValue::isLocalLinkage(Linkage)) {
     // For local symbols, prepend the main file name to distinguish them.
     // Do not include the full path in the file name since there's no guarantee
@@ -442,6 +449,10 @@ findBaseObject(const Constant *C, DenseSet<const GlobalAlias *> &Aliases) {
   if (auto *GA = dyn_cast<GlobalAlias>(C))
     if (Aliases.insert(GA).second)
       return findBaseObject(GA->getOperand(0), Aliases);
+#if INTEL_CUSTOMIZATION
+  if (auto *GI = dyn_cast<GlobalIFunc>(C))
+    return findBaseObject(GI->getOperand(0), Aliases);
+#endif // INTEL_CUSTOMIZATION
   if (auto *CE = dyn_cast<ConstantExpr>(C)) {
     switch (CE->getOpcode()) {
     case Instruction::Add: {

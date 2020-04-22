@@ -10,13 +10,13 @@ kernel void k1(read_write pipe int i){} // expected-error{{access qualifier 'rea
 
 void myPipeWrite(write_only pipe int);
 kernel void k2(read_only pipe int p) {
-  myPipeWrite(p); // expected-error {{passing 'read_only pipe int' to parameter of incompatible type 'write_only pipe int'}}
+  myPipeWrite(p); // expected-error {{passing '__private read_only pipe int' to parameter of incompatible type 'write_only pipe int'}}
 // expected-note@11 {{passing argument to parameter here}}
 }
 
 typedef read_only pipe int ROPipeInt;
 kernel void k3(ROPipeInt p) {
-  myPipeWrite(p); // expected-error {{passing 'ROPipeInt' (aka 'read_only pipe int') to parameter of incompatible type 'write_only pipe int'}}
+  myPipeWrite(p); // expected-error {{passing '__private ROPipeInt' (aka '__private read_only pipe int') to parameter of incompatible type 'write_only pipe int'}}
 // expected-note@11 {{passing argument to parameter here}}
 }
 

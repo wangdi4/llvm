@@ -28,8 +28,10 @@ GCC-compatible ``clang`` and ``clang++`` drivers.
 }];
 
   string Program = "clang";
-  list<string> ExcludedFlags = ["HelpHidden", "NoDriverOption",
-                                "CLOption", "Unsupported", "Ignored"];
+#if INTEL_CUSTOMIZATION
+  list<string> ExcludedFlags = ["HelpHidden", "NoDriverOption", "CLOption",
+                                "Unsupported", "Ignored", "DpcppUnsupported"];
+#endif // INTEL_CUSTOMIZATION
 }
 
 include "Options.td"

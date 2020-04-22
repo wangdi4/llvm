@@ -39,6 +39,9 @@ static const unsigned NVPTXAddrSpaceMap[] = {
     0, // sycl_private
     // FIXME: generic has to be added to the target
     0, // sycl_generic
+    0, // ptr32_sptr
+    0, // ptr32_uptr
+    0  // ptr64
 };
 
 /// The DWARF address class. Taken from
@@ -138,6 +141,12 @@ public:
     Opts.support("cl_khr_global_int32_extended_atomics");
     Opts.support("cl_khr_local_int32_base_atomics");
     Opts.support("cl_khr_local_int32_extended_atomics");
+    // PTX actually supports 64 bits operations even if the Nvidia OpenCL
+    // runtime does not report support for it.
+    // This is required for libclc to compile 64 bits atomic functions.
+    // FIXME: maybe we should have a way to control this ?
+    Opts.support("cl_khr_int64_base_atomics");
+    Opts.support("cl_khr_int64_extended_atomics");
   }
 
   /// \returns If a target requires an address within a target specific address

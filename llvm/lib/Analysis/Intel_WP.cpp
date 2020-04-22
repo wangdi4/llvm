@@ -409,8 +409,11 @@ bool WholeProgramInfo::resolveAllLibFunctions(
   // NOTE: This is not an actual c assert, this is just an early exit.
   // The assert function calls abort and produces some messages that could
   // be misleading. Instead, we are going to use report_fatal_error.
-  if (WholeProgramAssert && !Resolved)
-    report_fatal_error("Whole-Program-Analysis: Did not detect whole program");
+  if (WholeProgramAssert && !Resolved) {
+    errs() << "Whole-Program-Analysis: Did not detect whole program\n";
+    errs().flush();
+    exit(1);
+  }
 
   Resolved &= MainDefSeen;
 

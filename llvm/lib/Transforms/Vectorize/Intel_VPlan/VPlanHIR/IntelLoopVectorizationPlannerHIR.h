@@ -45,20 +45,7 @@ private:
   std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                            unsigned &EndRangeVF,
                                            LLVMContext *Context,
-                                           const DataLayout *DL) override {
-    // Create new empty VPlan
-    std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
-    VPlan *Plan = SharedPlan.get();
-
-    // Build hierarchical CFG
-    const DDGraph &DDG = DDA->getGraph(TheLoop);
-
-    VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
-    HCFGBuilder.buildHierarchicalCFG();
-
-    Plan->markFullLinearizationForced();
-    return SharedPlan;
-  }
+                                           const DataLayout *DL) override;
 
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
@@ -74,7 +61,8 @@ public:
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan. This function returns true if code generation was
   /// successful, false if there was any late bailout during CG.
-  bool executeBestPlan(VPOCodeGenHIR *CG);
+  bool executeBestPlan(VPOCodeGenHIR *CG, unsigned UF);
+
   /// Return a pair of the <min, max> types' width used in the underlying loop.
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
     // FIXME: Implement this!

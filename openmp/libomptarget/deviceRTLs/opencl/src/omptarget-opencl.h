@@ -180,6 +180,11 @@ typedef enum omp_sched_t {
   omp_sched_auto = 0x4,
 } omp_sched_t;
 
+typedef enum omp_pause_resource_t {
+  omp_pause_soft = 1,
+  omp_pause_hard = 2
+} omp_pause_resource_t;
+
 ///
 /// Task state
 ///
@@ -259,12 +264,22 @@ typedef struct kmp_local_state {
   ushort num_threads;
   kmp_shared_data_t shared_data;
   kmp_barrier_counting_t work_barrier;
+  // Data for ad-hoc simple SPMD mode
+  ushort spmd_num_threads;
 } kmp_local_state_t;
+
+/// Host data -- misc. data that are copied from host
+typedef struct kmp_program_data {
+  int initialized;
+  int num_devices;
+  int device_num;
+} kmp_program_data_t;
 
 /// Global state
 typedef struct kmp_global_state {
-  kmp_barrier_t g_barrier;              // global barrier
+  kmp_barrier_t g_barrier;         // global barrier
   int assume_simple_spmd_mode;     // assume simple SPMD mode
+  kmp_program_data_t program_data; // data initialized by host
 } kmp_global_state_t;
 
 
@@ -341,6 +356,9 @@ EXTERN short __kmpc_parallel_level(ident_t *loc, uint gtid);
 
 /// Push num_threads for the next parallel region
 EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads);
+
+/// Pop num_threads
+EXTERN void __kmpc_pop_num_threads(ident_t *loc, int tid);
 
 /// Push simd_limit for the next region
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);
@@ -593,6 +611,7 @@ KMPC_ATOMIC_FN_CPT(fixed8u, max, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, orl, ulong);
 KMPC_ATOMIC_FN_CPT(fixed8u, andl, ulong);
 
+#if HAVE_FP64_SUPPORT
 /// 8-byte float
 KMPC_ATOMIC_FN(float8, add, double);
 KMPC_ATOMIC_FN(float8, sub, double);
@@ -612,6 +631,7 @@ KMPC_ATOMIC_FN_CPT(float8, min, double);
 KMPC_ATOMIC_FN_CPT(float8, max, double);
 KMPC_ATOMIC_FN_CPT(float8, orl, double);
 KMPC_ATOMIC_FN_CPT(float8, andl, double);
+#endif // HAVE_FP64_SUPPORT
 
 /// TODO: more data types
 
@@ -646,6 +666,9 @@ EXTERN int __kmpc_master_sub_group();
 /// Check if the current work item is the leader of the master sub group
 EXTERN int __kmpc_master_sub_group_leader();
 
+/// Check if the current work item is the active sub group leader
+EXTERN int __kmpc_active_sub_group_leader();
+
 
 ///
 /// Support for reduction
@@ -657,8 +680,10 @@ EXTERN void __kmpc_reduction_add_long(const uint id, const uint size,
                                       void *local_result, void *output);
 EXTERN void __kmpc_reduction_add_float(const uint id, const uint size,
                                        void *local_result, void *output);
+#if HAVE_FP64_SUPPORT
 EXTERN void __kmpc_reduction_add_double(const uint id, const uint size,
                                         void *local_result, void *output);
+#endif // HAVE_FP64_SUPPORT
 
 
 ///
@@ -679,9 +704,23 @@ EXTERN int omp_in_parallel(void);
 
 EXTERN int omp_get_max_threads(void);
 
+EXTERN int omp_get_thread_limit(void);
+
 EXTERN int omp_get_device_num(void);
 
 EXTERN int omp_get_num_devices(void);
+
+EXTERN int omp_get_num_procs(void);
+
+EXTERN int omp_get_supported_active_levels(void);
+
+EXTERN void omp_set_affinity_format(const char *fmt);
+
+EXTERN size_t omp_get_affinity_format(char *buf, size_t size);
+
+EXTERN void omp_display_affinity(const char *fmt);
+
+EXTERN size_t omp_capture_affinity(char *buf, size_t size, const char *fmt);
 
 EXTERN int omp_is_initial_device(void);
 

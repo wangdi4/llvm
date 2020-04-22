@@ -52,6 +52,7 @@
 #include <cassert>
 #include <limits>
 #include <vector>
+#include "llvm/CodeGen/RegisterClassInfo.h" // INTEL
 
 using namespace llvm;
 
@@ -204,6 +205,35 @@ namespace {
         : MI(mi), Def(def), FI(fi) {}
     };
 
+#if INTEL_CUSTOMIZATION
+    struct HoistableLoadInfo {
+      MachineBasicBlock *MBB;
+      MachineInstr *MI;
+      const TargetRegisterClass *RC;
+      Register Reg;
+      MachineInstr *NewMIs[2];
+      int FI;
+
+      HoistableLoadInfo(MachineBasicBlock *mbb, MachineInstr *mi,
+          const TargetRegisterClass * rc, Register reg, MachineInstr *i0,
+          MachineInstr *i1, int fi)
+        : MBB(mbb), MI(mi), RC(rc), Reg(reg), FI(fi) {
+        NewMIs[0] = i0;
+        NewMIs[1] = i1;
+      }
+
+      void DeleteNewMIs() {
+        assert(NewMIs[0]);
+        assert(NewMIs[1]);
+        MachineFunction *MF = MBB->getParent();
+        MF->DeleteMachineInstr(NewMIs[0]);
+        MF->DeleteMachineInstr(NewMIs[1]);
+      }
+    };
+    SmallVector<HoistableLoadInfo, 32> HoistableLoadCandidates;
+    RegisterClassInfo RegClassInfo;
+    bool IAOpt = false;
+#endif //INTEL_CUSTOMIZATION
     void HoistRegionPostRA();
 
     void HoistPostRA(MachineInstr *MI, unsigned Def);
@@ -365,6 +395,8 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
     for (unsigned i = 0, e = NumRPS; i != e; ++i)
       RegLimit[i] = TRI->getRegPressureSetLimit(MF, i);
   }
+  else // INTEL
+    RegClassInfo.runOnMachineFunction(MF); // INTEL
 
   // Get our Loop information...
   if (DisableHoistingToHotterBlocks != UseBFI::None)
@@ -372,6 +404,8 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   MLI = &getAnalysis<MachineLoopInfo>();
   DT  = &getAnalysis<MachineDominatorTree>();
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+  IAOpt = MF.getTarget().Options.IntelAdvancedOptim && // INTEL
+          MF.getTarget().getOptLevel() >= CodeGenOpt::Aggressive; // INTEL
 
   SmallVector<MachineLoop *, 8> Worklist(MLI->begin(), MLI->end());
   while (!Worklist.empty()) {
@@ -379,12 +413,15 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
     CurPreheader = nullptr;
     ExitBlocks.clear();
 
-    // If this is done before regalloc, only visit outer-most preheader-sporting
-    // loops.
-    if (PreRegAlloc && !LoopIsOuterMostWithPredecessor(CurLoop)) {
-      Worklist.append(CurLoop->begin(), CurLoop->end());
-      continue;
+#if INTEL_CUSTOMIZATION
+    Worklist.append(CurLoop->begin(), CurLoop->end());
+    if (PreRegAlloc) {
+      // If this is done before regalloc, only visit outer-most
+      // preheader-sporting loops.
+      if (!LoopIsOuterMostWithPredecessor(CurLoop) && !IAOpt)
+        continue;
     }
+#endif
 
     CurLoop->getExitBlocks(ExitBlocks);
 
@@ -514,9 +551,51 @@ void MachineLICMBase::ProcessMI(MachineInstr *MI,
   if (Def && !RuledOut) {
     int FI = std::numeric_limits<int>::min();
     if ((!HasNonInvariantUse && IsLICMCandidate(*MI)) ||
-        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI)))
+        (TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI))) { // INTEL
       Candidates.push_back(CandidateInfo(MI, Def, FI));
-  }
+      return; // INTEL
+    } // INTEL
+  } // INTEL
+#if INTEL_CUSTOMIZATION
+  // Don't unfold simple loads.
+  if (MI->canFoldAsLoad())
+    return;
+
+  // We may be able to unfold a load and hoist it if the instruction is
+  // loading from an amenable memory location or stack.
+  int FI = std::numeric_limits<int>::min();
+  if (!MI->isDereferenceableInvariantLoad(AA) &&
+      !(TII->isLoadFromStackSlot(*MI, FI) && MFI->isSpillSlotObjectIndex(FI)))
+      return;
+
+  // Determine the register class for a temporary register.
+  unsigned LoadRegIndex;
+  unsigned NewOpc =
+    TII->getOpcodeAfterMemoryUnfold(MI->getOpcode(),
+                                    /*UnfoldLoad=*/true,
+                                    /*UnfoldStore=*/false,
+                                    &LoadRegIndex);
+  if (!NewOpc)
+    return;
+
+  const MCInstrDesc &MID = TII->get(NewOpc);
+  MachineFunction &MF = *MI->getMF();
+  const TargetRegisterClass *RC = TII->getRegClass(MID, LoadRegIndex, TRI, MF);
+
+  // Create a temporary register and do the unfold.
+  Register Reg = MRI->createVirtualRegister(RC);
+  SmallVector<MachineInstr *, 2> NewMIs;
+  bool Success = TII->unfoldMemoryOperand(MF, *MI, Reg,
+                                          /*UnfoldLoad=*/true,
+                                          /*UnfoldStore=*/false, NewMIs);
+  if (!Success)
+    return;
+
+  assert(NewMIs.size() == 2 &&
+         "Unfolded a load into multiple instructions!");
+  MachineBasicBlock *MBB = MI->getParent();
+  HoistableLoadCandidates.push_back(HoistableLoadInfo(MBB, MI, RC, Reg, NewMIs[0], NewMIs[1], FI));
+#endif //INTEL_CUSTOMIZATION
 }
 
 /// Walk the specified region of the CFG and hoist loop invariants out to the
@@ -526,6 +605,7 @@ void MachineLICMBase::HoistRegionPostRA() {
   if (!Preheader)
     return;
 
+  HoistableLoadCandidates.clear(); // INTEL
   unsigned NumRegs = TRI->getNumRegs();
   BitVector PhysRegDefs(NumRegs); // Regs defined once in the loop.
   BitVector PhysRegClobbers(NumRegs); // Regs defined more than once.
@@ -602,6 +682,78 @@ void MachineLICMBase::HoistRegionPostRA() {
         HoistPostRA(MI, Candidate.Def);
     }
   }
+#if INTEL_CUSTOMIZATION
+  for (HoistableLoadInfo &HoistableLoad : HoistableLoadCandidates) {
+    // If the candidate is a load from stack slot, check if the slot
+    // is stored in the loop.
+    if (HoistableLoad.FI != std::numeric_limits<int>::min()) {
+      if (StoredFIs.count(HoistableLoad.FI)) {
+        HoistableLoad.DeleteNewMIs();
+        continue;
+      }
+    }
+
+    // Check if the candidate uses register that is defined by another
+    // instruction in the loop.
+    bool Safe = true;
+    MachineInstr *MI = HoistableLoad.NewMIs[0];
+    for (const MachineOperand &MO : MI->operands()) {
+      if (!MO.isReg() || MO.isDef() || !MO.getReg())
+        continue;
+      Register Reg = MO.getReg();
+      if (PhysRegDefs.test(Reg) ||
+          PhysRegClobbers.test(Reg)) {
+        // If it's using a non-loop-invariant register, then it's obviously
+        // not safe to hoist.
+        Safe = false;
+        break;
+      }
+    }
+    if (!Safe) {
+      HoistableLoad.DeleteNewMIs();
+      continue;
+    }
+
+    // Find an allocatable register for the load instruction to def.
+    const TargetRegisterClass *RC = HoistableLoad.RC;
+    MCPhysReg AllocReg = 0;
+    for (MCPhysReg PhysReg : RegClassInfo.getOrder(RC)) {
+      if (!PhysRegDefs.test(PhysReg) &&
+          !PhysRegClobbers.test(PhysReg) &&
+          !TermRegs.test(PhysReg)) {
+        AllocReg = PhysReg;
+        break;
+      }
+    }
+    if (AllocReg == 0) {
+      HoistableLoad.DeleteNewMIs();
+      continue;
+    }
+    for (MCRegAliasIterator AI(AllocReg, TRI, true); AI.isValid(); ++AI)
+      PhysRegDefs.set(*AI);
+    // Replace virtual register with allocate physical register
+    Register VirtReg = HoistableLoad.Reg;
+    for (int i = 0; i < 2; i++) {
+      MachineInstr *NewMI = HoistableLoad.NewMIs[i];
+      for (MachineOperand &MO : NewMI->operands()) {
+        if (!MO.isReg())
+          continue;
+        Register Reg = MO.getReg();
+        if (Reg != VirtReg)
+          continue;
+        MO.setReg(AllocReg);
+      }
+    }
+
+    MachineBasicBlock::iterator Pos = HoistableLoad.MI;
+    MachineBasicBlock *MBB = HoistableLoad.MBB;
+    MBB->insert(Pos, HoistableLoad.NewMIs[0]);
+    MBB->insert(Pos, HoistableLoad.NewMIs[1]);
+    HoistableLoad.MI->eraseFromParent();
+    HoistPostRA(HoistableLoad.NewMIs[0], AllocReg);
+  }
+  MRI->clearVirtRegs();
+#endif //INTEL_CUSTOMIZATION
 }
 
 /// Add register 'Reg' to the livein sets of BBs in the current loop, and make
@@ -1193,7 +1345,7 @@ MachineLICMBase::CanCauseHighRegPressure(const DenseMap<unsigned, int>& Cost,
 
     // Don't hoist cheap instructions if they would increase register pressure,
     // even if we're under the limit.
-    if (CheapInstr && !HoistCheapInsts)
+    if (CheapInstr && !HoistCheapInsts && !IAOpt) // INTEL
       return true;
 
     for (const auto &RP : BackTrace)
@@ -1345,10 +1497,10 @@ MachineInstr *MachineLICMBase::ExtractHoistableLoad(MachineInstr *MI) {
   bool Success = TII->unfoldMemoryOperand(MF, *MI, Reg,
                                           /*UnfoldLoad=*/true,
                                           /*UnfoldStore=*/false, NewMIs);
-  (void)Success;
-  assert(Success &&
-         "unfoldMemoryOperand failed when getOpcodeAfterMemoryUnfold "
-         "succeeded!");
+#if INTEL_CUSTOMIZATION
+  if (!Success)
+    return nullptr;
+#endif
   assert(NewMIs.size() == 2 &&
          "Unfolded a load into multiple instructions!");
   MachineBasicBlock *MBB = MI->getParent();
@@ -1367,6 +1519,11 @@ MachineInstr *MachineLICMBase::ExtractHoistableLoad(MachineInstr *MI) {
   UpdateRegPressure(NewMIs[1]);
 
   // Otherwise we successfully unfolded a load that we can hoist.
+
+  // Update the call site info.
+  if (MI->shouldUpdateCallSiteInfo())
+    MF.eraseCallSiteInfo(MI);
+
   MI->eraseFromParent();
   return NewMIs[0];
 }

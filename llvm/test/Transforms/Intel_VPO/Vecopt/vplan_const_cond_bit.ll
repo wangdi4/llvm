@@ -1,4 +1,5 @@
 ; RUN: opt -S -VPlanDriver -vplan-print-after-simplify-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" -vplan-print-after-simplify-cfg -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that VPlan HCFG can build a VPlan that contains complex constant
 ; condition bits. Example from the IR below:

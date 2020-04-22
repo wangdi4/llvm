@@ -30,6 +30,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
@@ -47,6 +48,18 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-target"
+
+// TODO: This is temporary while we support both old and new implementations
+// of target variant dispatch for MKL. After the new implementation is fully
+// tested, we will purge the old one and remove this flag.
+static cl::opt<bool>
+    UseInterop("vpo-paropt-use-interop", cl::Hidden,
+               cl::init(false),
+               cl::desc("Use the interop_obj for target variant dispatch."));
+
+static cl::opt<uint32_t> FixedSIMDWidth(
+    "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
+    cl::desc("Fixed SIMD width for all target regions in the module."));
 
 // Reset the value in the Map clause to be empty.
 //
@@ -75,10 +88,12 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   for (auto *Item : MpClause.items()) {
     if (!Item->getIsMapChain())
       continue;
+    Value *Orig = Item->getOrig();
     MapChainTy const &MapChain = Item->getMapChain();
     for (int I = MapChain.size() - 1; I >= 0; --I) {
       MapAggrTy *Aggr = MapChain[I];
       Value *SectionPtr = Aggr->getSectionPtr();
+      Value *BasePtr = Aggr->getBasePtr();
       // Do not reset section pointers in cases like this:
       //   %12 = call i8* @llvm.launder.invariant.group.p0i8(
       //       i8* bitcast (double** @f_global to i8*))
@@ -99,8 +114,13 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
       // (e.g. the inner "parallel" region referencing @f_global
       // is outlined). This difference may cause a mismatch between
       // outlined functions generated for the host and the device.
-      if (SectionPtr != Aggr->getBasePtr())
+      if (SectionPtr != BasePtr)
         resetValueInOmpClauseGeneric(W, SectionPtr);
+      // If BasePtr of the Aggr is not same as Orig, then we don't want it
+      // inside the outlined function. e.g. %y in the following:
+      //   "DIR.OMP.TARGET" [ "QUAL.OMP.MAP"(%x, ...) "MAP:CHAIN"(%y, ...) ]
+      if (BasePtr != Orig)
+        resetValueInOmpClauseGeneric(W, BasePtr);
       Value *Size = Aggr->getSize();
       if (!dyn_cast<ConstantInt>(Size))
         resetValueInOmpClauseGeneric(W, Size);
@@ -108,21 +128,21 @@ void VPOParoptTransform::resetValueInMapClause(WRegionNode *W) {
   }
 }
 
-// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
-  Function *PrintfDecl = MT->getPrintfDecl();
+// Replace printf() calls in F with _Z18__spirv_ocl_printfPU3AS2ci()
+void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
+                                                     Function *OCLPrintfDecl,
+                                                     Function *F) {
   if (!PrintfDecl)
-    // no printf() found in the module
     return;
 
-  Function *OCLPrintfDecl = MT->getOCLPrintfDecl();
+  SmallVector<Instruction *, 4> InstsToDelete;
   assert(OCLPrintfDecl != nullptr && "OCLPrintfDecl not initialized");
 
   // find all printf's in this function and replace them with the OCL version
   for (User *U : PrintfDecl->users())
     if (CallInst *OldCall = dyn_cast<CallInst>(U)) {
 
-      if (OldCall->getParent()->getParent() != F)
+      if (F && OldCall->getParent()->getParent() != F)
         // ignore printfs that are not in this function
         continue;
 
@@ -140,21 +160,37 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
       //     to i8 addrspace(4)*)
       //       , ...)
       //
-      // The OCL printf does not expect that address space.
-      // We must remove the addrspacecast, resulting in:
+      // The OCL printf expects addrspace(1). So, we must cast it to
+      // addrspace(1):
       //
       //   call i32 (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //     i8 addrspace(1)* addrspacecast (
+      //     i8 addrspace(4)* addrspacecast (
       //       i8 addrspace(1)* getelementptr inbounds
       //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
+      //     to i8 addrspace(4)*)
+      //     to i8 addrspace(1)*)
       //       , ...)
-      if (auto *FirstParm = dyn_cast<ConstantExpr>(FnArgs[0]))
-        if (FirstParm->getOpcode() == Instruction::AddrSpaceCast)
-          FnArgs[0] = cast<Value>(FirstParm->getOperand(0));
+      Type* FirstParmTy = FnArgs[0]->getType();
+      assert(isa<PointerType>(FirstParmTy) &&
+             "First argument to printf should be a pointer.");
+
+      if (FirstParmTy->getPointerAddressSpace() == vpo::ADDRESS_SPACE_GENERIC) {
+        IRBuilder<> Builder(OldCall);
+        FnArgs[0] = Builder.CreateAddrSpaceCast(
+            FnArgs[0], FirstParmTy->getPointerElementType()->getPointerTo(
+                           vpo::ADDRESS_SPACE_GLOBAL));
+      } else
+        assert(
+            FirstParmTy->getPointerAddressSpace() ==
+                vpo::ADDRESS_SPACE_GLOBAL &&
+            "First argument to ocl_printf should have global address space.");
 
       // Create the new call based on OCLPrintfDecl and
       // insert it before the old call
       CallInst *NewCall =
-          CallInst::Create(OCLPrintfDecl, FnArgs, "oclPrint", OldCall);
+          CallInst::Create(OCLPrintfDecl->getFunctionType(), OCLPrintfDecl,
+                           FnArgs, "oclPrint", OldCall);
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": new OCL printf(): " << *NewCall
                         << "\n");
@@ -165,14 +201,20 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *F) {
         if (Instruction *I = dyn_cast<Instruction>(OldU))
           I->replaceUsesOfWith(OldCall, NewCall);
 
-      // Remove the old call
-      OldCall->eraseFromParent();
+      // Mark old call for deletion
+      InstsToDelete.push_back(OldCall);
     }
+
+  for (Instruction *I: InstsToDelete)
+    I->eraseFromParent();
 }
 
 Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                                                      Function *Fn,
                                                      CallInst *&Call) {
+
+  assert(isTargetSPIRV() &&
+         "finalizeKernelFunction called for non-SPIRV target.");
 
   FunctionType *FnTy = Fn->getFunctionType();
   SmallVector<Type *, 8> ParamsTy;
@@ -196,6 +238,11 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
   NFn->takeName(Fn);
   NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
+
+  // Everything including the routine name has been moved to the new routine.
+  // Do the same with the debug information.
+  NFn->setSubprogram(Fn->getSubprogram());
+  Fn->setSubprogram(nullptr);
 
   IRBuilder<> Builder(NFn->getEntryBlock().getFirstNonPHI());
   Function::arg_iterator NewArgI = NFn->arg_begin();
@@ -221,37 +268,14 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     ++NewArgI;
   }
 
-  DenseMap<const Function *, DISubprogram *> FunctionDIs;
-
-  auto DI = FunctionDIs.find(Fn);
-  if (DI != FunctionDIs.end()) {
-    DISubprogram *SP = DI->second;
-
-    FunctionDIs.erase(DI);
-    FunctionDIs[NFn] = SP;
+  if (W->getSPIRVSIMDWidth() > 0) {
+    Metadata *AttrMDArgs[] = {
+        ConstantAsMetadata::get(Builder.getInt32(W->getSPIRVSIMDWidth())) };
+    NFn->setMetadata("intel_reqd_sub_group_size",
+                     MDNode::get(NFn->getContext(), AttrMDArgs));
   }
-  if (isTargetSPIRV()) {
-    InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
-    // We intentionally call the function below after InferAddrSpaces() to have
-    // the latter restructure addrspacecasts hidden inside GEP expressions.
-    // Otherwise, the code in replacePrintfWithOCLBuiltin() that strips off the
-    // addrspacecast in the printf's first argument would fail to find the cast.
-    // For example:
-    //   BEFORE:
-    //     i8 addrspace(4)* getelementptr inbounds ([25 x i8], [25 x i8]
-    //     addrspace(4)* addrspacecast (
-    //       [25 x i8] addrspace(1)* @.str to
-    //       [25 x i8] addrspace(4)*
-    //     ), i64 0, i64 0)
-    //   AFTER:
-    //     i8 addrspace(4)* addrspacecast (
-    //       i8 addrspace(1)* getelementptr inbounds ([25 x i8], [25 x i8]
-    //       addrspace(1)* @.str, i64 0, i64 0)
-    //     to i8 addrspace(4)*)
-    //
-    replacePrintfWithOCLBuiltin(NFn);
-  }
+  InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
 
   return NFn;
 }
@@ -322,19 +346,21 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
 }
 
 /// This function ignores special instructions with side effect.
-/// Returns true if the store address is one of the \p PrivateVariables.
 /// Returns true if the call instruction is a special call.
 /// Returns true if the store address is an alloca instruction,
 /// that is allocated locally in the thread.
-static bool ignoreSpecialOperands(const Instruction *I,
-                                  SmallPtrSetImpl<Value *> &PrivateVariables) {
+static bool ignoreSpecialOperands(const Instruction *I) {
 
   //   Ignore calls to the following OpenCL functions
   const std::set<std::string> IgnoreCalls = {
       "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
       "_Z14get_num_groupsj", "_Z12get_group_idj",   "_Z18work_group_barrierj",
       "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
-      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num" };
+#if INTEL_CUSTOMIZATION
+      "_f90_dope_vector_init", "_f90_firstprivate_copy",
+      "_f90_dope_vector_size", "_f90_lastprivate_copy",
+#endif // INTEL_CUSTOMIZATION
+      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num"};
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
@@ -342,15 +368,21 @@ static bool ignoreSpecialOperands(const Instruction *I,
     auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
     assert(CalledF != nullptr && "Called Function not found ");
     if (CalledF->hasName() &&
-        IgnoreCalls.find(CalledF->getName()) != IgnoreCalls.end())
+        IgnoreCalls.find(std::string(CalledF->getName())) != IgnoreCalls.end())
       return true;
   } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
     const Value *StorePointer = StoreI->getPointerOperand();
+    const Value *RootPointer = StorePointer->stripPointerCasts();
     LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer);
-    if (isa<AllocaInst>(StorePointer)) {
-      return true;
-    }
-    if (PrivateVariables.find(StorePointer) != PrivateVariables.end())
+    // We must not guard stores through private pointers. The store must
+    // happen in each work item, so that the variable is initialized
+    // in each work item. For values privatized as local allocas RootPointer
+    // will be the AllocaInst with private address space, so there is no need
+    // for special handling of the regions' private values.
+    if (cast<PointerType>(StorePointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE ||
+        cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE)
       return true;
   }
   return false;
@@ -359,39 +391,43 @@ static bool ignoreSpecialOperands(const Instruction *I,
 /// Guard instructions that have side effects, so that only master thread
 /// (thread_id == 0) in each team executes it.
 void VPOParoptTransform::guardSideEffectStatements(
-    Function *KernelF, SmallPtrSetImpl<Value *> &PrivateVariables,
-    Instruction *KernelEntryDir, Instruction *KernelExitDir) {
+    WRegionNode *W, Function *KernelF) {
 
-  SmallVector<Instruction *, 6> SideEffectInstructions;
-  SmallPtrSet<BasicBlock  *, 6> SideEffectBasicBlocks;
-  SmallPtrSet<BasicBlock  *, 6> InsertedBarrierBlocks;
-
-  LLVM_DEBUG(dbgs() << "\n Before inserting master thread guard" << *KernelF);
+  assert(isTargetSPIRV() &&
+         "guardSideEffectStatements() called for non-SPIRV target.");
 
   Instruction *ParDirectiveBegin    = nullptr;
   Instruction *ParDirectiveExit     = nullptr;
   Instruction *TargetDirectiveBegin = nullptr;
   Instruction *TargetDirectiveExit  = nullptr;
+  CallInst *KernelEntryDir          = cast<CallInst>(W->getEntryDirective());
+  CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
 
-  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
+  SmallVector<Instruction *, 6> SideEffectInstructions;
+  SmallVector<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
-  SmallVector<BasicBlock *, 10> ParDirectiveExitBlocks;
-  SmallVector<BasicBlock *, 10> CriticalSectionBlocks;
+  SmallVector<Instruction *, 10> EntryDirectivesToDelete;
+  SmallVector<Instruction *, 10> ExitDirectivesToDelete;
 
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
+
+    LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt);
 
     // TODO: we only need global fences for side effect instructions
     //       inside "omp target" and outside of the enclosed regions.
     //       Moreover, it probably makes sense to guard such instructions
     //       with (get_group_id() == 0) vs (get_local_id() == 0).
-    VPOParoptUtils::genOCLGenericCall(
-        "_Z18work_group_barrierj", Type::getVoidTy(C),
-        // CLK_LOCAL_MEM_FENCE  == 1
-        // CLK_GLOBAL_MEM_FENCE == 2
-        // CLK_IMAGE_MEM_FENCE  == 4
-        { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
-        InsertPt);
+    CallInst *CI =
+        VPOParoptUtils::genOCLGenericCall(
+            "_Z18work_group_barrierj", Type::getVoidTy(C),
+            // CLK_LOCAL_MEM_FENCE  == 1
+            // CLK_GLOBAL_MEM_FENCE == 2
+            // CLK_IMAGE_MEM_FENCE  == 4
+            { ConstantInt::get(Type::getInt32Ty(C), 1 | 2) },
+            InsertPt);
+    // work_group_barrier() is a convergent call.
+    CI->getCalledFunction()->setConvergent();
   };
 
   // Find the parallel region begin and end directives,
@@ -399,9 +435,25 @@ void VPOParoptTransform::guardSideEffectStatements(
   for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
        I != E; ++I) {
 
+    // Collect OpenMP directive calls so that we can delete them
+    // later. We may want to keep SIMD directives at some point,
+    // but right now they are not supported for SPIR-V targets.
+    // Moreover, llvm-spirv is not able to translate llvm.directive.region
+    // intrinsic calls.
+    if (VPOAnalysisUtils::isOpenMPDirective(&*I) &&
+        // Target directives require special processing (see below).
+        &*I != KernelEntryDir && &*I != KernelExitDir) {
+      // Distinguish between entry and other directives, since
+      // we want to delete the entry directives after their
+      // exit companions.
+      if (VPOAnalysisUtils::isBeginDirective(&*I))
+        EntryDirectivesToDelete.push_back(&*I);
+      else
+        ExitDirectivesToDelete.push_back(&*I);
+    }
+
     if (isParOrTargetDirective(&*I) &&
         // Barriers must not be inserted around SIMD loops.
-        // SIMD directives must not be removed either.
         !isParOrTargetDirective(&*I, false, true)) {
 
       ParDirectiveBegin = &*I;
@@ -414,14 +466,13 @@ void VPOParoptTransform::guardSideEffectStatements(
                                  ParDirectiveExit->getParent(), TempParBBVec);
       ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
 
-      InsertBarrierAt.insert(ParDirectiveBegin);
-
-      InsertBarrierAt.insert(ParDirectiveExit);
-
-      ParDirectiveExitBlocks.push_back(ParDirectiveExit->getParent());
-
-      LLVM_DEBUG(dbgs() << "\n Insert Barrier before :" << *ParDirectiveBegin
-                        << "\n and after ::" << *ParDirectiveExit);
+      // Insert a barrier after the region exit. This barrier synchronizes
+      // all side effects that might have happened inside the region
+      // with all the consumers of this side effects that are reachable
+      // from the region's exit. Note that we do not need a barrier
+      // before the region, since we insert barriers after all side effect
+      // instructions that may reach the region's entry.
+      InsertBarrierAt.push_back(ParDirectiveExit);
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
@@ -465,95 +516,187 @@ void VPOParoptTransform::guardSideEffectStatements(
       if (isa<IntrinsicInst>(&I))
         continue;
       if (I.mayHaveSideEffects()) {
-        // REMOVE this code when hierarchical parallelism is fully implemented.
-        // We avoid conditionalizing calls with return values, because the
-        // threads > 0 will get undefined values. We also might need a better
-        // filter than mayHaveSideEffects, which is very broad.
-        if (auto *Call = dyn_cast<CallInst>(&I)) {
-          auto *FnType = Call->getFunctionType();
-          if (!FnType->getReturnType()->isVoidTy() && Call->hasNUsesOrMore(1))
-            continue;
-        }
-        if (ignoreSpecialOperands(&I, PrivateVariables))
+        if (ignoreSpecialOperands(&I))
           continue;
 
-        LLVM_DEBUG(dbgs() << "\n Instruction Has Sideeffect::" << I
-                          << "\n BasicBlock:: " << I.getParent());
+        LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
+                          << "\nBasicBlock: " << I.getParent());
         SideEffectInstructions.push_back(&I);
       }
     }
   }
 
-  for (auto I : SideEffectInstructions) {
+  auto I = SideEffectInstructions.begin();
+  auto IE = SideEffectInstructions.end();
+  Value *MasterCheckPredicate = nullptr;
 
-    // Get the basic block of the side effect instruction,
-    // then guard the block, and
-    // Make sure to ignore other side effect instructions
-    // within the block, since they are already guarded.
-    Instruction *InsertPt = I;
-    BasicBlock *ThisBB = InsertPt->getParent();
+  if (I != IE) {
+    // Prepare the master check predicate, which looks like
+    //   (get_local_id(0) == 0 && get_local_id(1) == 0 &&
+    //    get_local_id(2) == 0)
+    //
+    // TODO: we may optimize this later, based on the number of dimensions
+    //       used for the target region.
+    IRBuilder<> Builder(KernelEntryDir);
+    auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
 
-    // If BB already guarded continue
-    // FIXME: since we are splitting blocks, when we insert
-    //        the guards, an instruction following the already guarded
-    //        instruction originally from the same block will look
-    //        like beloning to a different block.
-    if (SideEffectBasicBlocks.find(ThisBB) != SideEffectBasicBlocks.end())
-      continue;
+    for (unsigned Dim = 0; Dim < 3; ++Dim) {
+      auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
+      Value *LocalId = VPOParoptUtils::genOCLGenericCall(
+          "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
+          { Arg }, KernelEntryDir);
+      Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
-    //   Split the Basic Block at InsertPt, into 2 blocks (1st and 2nd Block)
-    //   Insert a check, at the end of the 1st block
-    //   if the thread id is not equal to zero, then
-    //   jump to the successor block of 2nd block
-    //   else execute the 2nd block
+      if (!MasterCheckPredicate) {
+        MasterCheckPredicate = Predicate;
+        continue;
+      }
 
-    LLVM_DEBUG(dbgs()<<"\n Guarding::"<<*I);
-    Instruction* Term = InsertPt->getNextNonDebugInstruction();
+      MasterCheckPredicate = Builder.CreateAnd(MasterCheckPredicate, Predicate);
+    }
 
-    BasicBlock *TailBlock = SplitBlock(ThisBB, Term, DT, LI);
-
-    // Create an empty bb before the Thenblock, that just jumps to it
-    auto ThenBlock = BasicBlock::Create(TailBlock->getContext(), "",
-                                        TailBlock->getParent(), TailBlock);
-
-    // The unconditional branch instruction, that jumps to the single successor
-    auto GotoTail = BranchInst::Create(TailBlock, ThenBlock);
-    GotoTail->setDebugLoc(InsertPt->getDebugLoc());
-    IRBuilder<> Builder(InsertPt);
-    SmallVector<Value *, 3> Arg;
-
-    // TODO: select dimension of thread_id,
-    initArgArray(&Arg, 0);
-    CallInst *LocalId = VPOParoptUtils::genOCLGenericCall(
-        "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), Arg, InsertPt);
-    auto *ValueZero = ConstantInt::get(LocalId->getType(), 0);
-    auto IsThread0 = Builder.CreateICmpNE(LocalId, ValueZero);
-    SplitBlockAndInsertIfThen(IsThread0, InsertPt, false, nullptr, DT, LI,
-                              ThenBlock);
-    // Add the new split basic block, since it is already guarded
-    //SideEffectBasicBlocks.insert(InsertPt->getParent());
-
-    // Insert group barrier at the merge point.
-    // We cannot just put TailBlock->getFirstNonPHI() into
-    // InsertBarrierAt, because this will not work if two side-effect
-    // instructions are consecutive - the barrier for the first guard
-    // will be inserted in the "then" block for the second instruction.
-    InsertWorkGroupBarrier(TailBlock->getFirstNonPHI());
-
-    SideEffectBasicBlocks.insert(InsertPt->getParent());
-    LLVM_DEBUG(dbgs() << "\n Has Side Effect::" << *I);
+    MasterCheckPredicate->setName("is.master.thread");
   }
 
-  if (!SideEffectInstructions.empty()){
-    for (auto InsertPt : InsertBarrierAt) {
-      LLVM_DEBUG(dbgs() << "\n Insert Barrier at :" << *InsertPt);
+  while (I != IE) {
+
+    Instruction *StartI = *I;
+    bool StartIHasUses = StartI->hasNUsesOrMore(1);
+
+    // Collect a consecutive set of Instructions with side effects
+    // from the same block. We want to guard them all at once.
+    // Note that we cannot easily guard any intermediate instructions.
+    // For example, we cannot guard a store to addrspace(0), because
+    // we want it to be executed in each WI. We cannot guard
+    // loads from addrspace(1|3) as well, since they may be loading
+    // from the memory we are about to guard, and the memory may be outdated
+    // in non-master WIs.
+    // Instructions with uses are guarded separately.
+    if (!StartIHasUses)
+      while (std::next(I) != IE &&
+             *std::next(I) == (*I)->getNextNonDebugInstruction() &&
+             !((*std::next(I))->hasNUsesOrMore(1))) {
+        I = std::next(I);
+      }
+
+    // I is pointing to the last instruction in the sequence.
+    Instruction *StopI = *I;
+
+    // Split the basic block after StopI, into 2 blocks (1st and 2nd Block).
+    // Insert a check, before StartI if the thread id is not equal to zero,
+    // then jump to the 2nd block, else jump to StartI. StopI will fall
+    // through to the 2nd block:
+    //   if(MasterCheckPredicate) {
+    //   master.thread.code:
+    //     <start instruction>
+    //     ...
+    //     <stop instruction>
+    //   }
+    //   master.thread.fallthru:
+
+    LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n" <<
+               *StartI << "\nto:\n" << *StopI);
+
+    // For the following code:
+    //
+    //   #pragma omp target map(tofrom:a)
+    //     int val = bar(a);
+    //
+    // Generate code like this:
+    //
+    //  @c.broadcast.ptr.__local = internal addrspace(3) global i32 0 //  (1)
+    //
+    //  if (is_master) {                                              //  (2)
+    //    %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)     // StartI
+    //    store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local    //  (3)
+    //  }
+    //
+    //  call spir_func void @_Z18work_group_barrierj(i32 3)           //  (4)
+    //  %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local //  (5)
+    //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
+    //
+    Value *TeamLocalVal = nullptr;
+    MaybeAlign Alignment =
+        StartI->getType()->isPointerTy()
+            ? StartI->getPointerAlignment(StartI->getModule()->getDataLayout())
+            : llvm::None;
+    if (StartIHasUses)
+      TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
+          StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
+          isTargetSPIRV(), StartI->getName() + ".broadcast.ptr",
+          vpo::ADDRESS_SPACE_LOCAL);
+
+    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
+        MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (2)
+    BasicBlock *ThenBB = ThenTerm->getParent();
+    ThenBB->setName("master.thread.code");
+    Instruction *ElseInst = StopI->getNextNonDebugInstruction();
+    BasicBlock *ElseBB = ElseInst->getParent();
+    ElseBB->setName("master.thread.fallthru");
+    ThenBB->getInstList().splice(
+        ThenTerm->getIterator(), StartI->getParent()->getInstList(),
+        StartI->getIterator(), ElseInst->getIterator());
+
+    Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
+
+    if (StartIHasUses) { //                                               (3)
+      StoreInst *StoreGuardedInstValue = new StoreInst(StartI, TeamLocalVal);
+      StoreGuardedInstValue->insertAfter(StartI);
+
+      LoadInst *LoadSavedValue = new LoadInst(StartI->getType(), TeamLocalVal,
+                                              StartI->getName() + ".new"); //(5)
+      LoadSavedValue->insertBefore(BarrierInsertPt);
+      BarrierInsertPt = LoadSavedValue;
+
+      StartI->replaceAllUsesWith(LoadSavedValue);
+      StoreGuardedInstValue->replaceUsesOfWith(LoadSavedValue, StartI);
+    }
+
+    // Insert group barrier at the merge point.
+    InsertWorkGroupBarrier(BarrierInsertPt); //                           (4)
+    I = std::next(I);
+  }
+
+  if (!SideEffectInstructions.empty() ||
+      // FIXME: if there are multiple parallel regions,
+      //        then we need to synchronize between them, otherwise
+      //        some data written in a parallel region
+      //        may be out of date for reading in the succeeding
+      //        parallel region. The check here is not enough,
+      //        because we may read data written in a parallel region
+      //        in "omp target" code succeeding the parallel region.
+      //        For now to avoid performance regressions, we insert
+      //        barriers only when there are multiple parallel regions
+      //        inside "omp target". The complete fix would be
+      //        to check if any load operation after a parallel region
+      //        may read data that was potentially updated inside
+      //        the parallel region. Can we use alias information for that?
+      W->getChildren().size() > 1) {
+    for (auto *InsertPt : InsertBarrierAt) {
+      LLVM_DEBUG(dbgs() << "\nInsert Barrier at :" << *InsertPt);
       InsertWorkGroupBarrier(InsertPt);
     }
   }
 
-  for (auto BB : ParDirectiveExitBlocks) {
-    VPOUtils::stripDirectives(*BB);
-  }
+  // Delete the directives.
+  // The target directives will be removed by paroptTransforms().
+  for (auto *I : ExitDirectivesToDelete)
+    VPOUtils::stripDirectives(*I->getParent());
+  for (auto *I : EntryDirectivesToDelete)
+    VPOUtils::stripDirectives(*I->getParent());
+
+  // Remove all clauses from the "omp target" entry directive.
+  // The extra references in the clauses may prevent address space
+  // inferring. We cannot remove the directive call yet, because
+  // the removal in paroptTransforms() will complain.
+  OperandBundleDef B(
+      std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), None);
+  // The following call clones the original directive call
+  // with just the directive name in the operand bundles.
+  auto *NewEntryDir = CallInst::Create(KernelEntryDir, {B}, KernelEntryDir);
+  KernelEntryDir->replaceAllUsesWith(NewEntryDir);
+  KernelEntryDir->eraseFromParent();
+  W->setEntryDirective(NewEntryDir);
 }
 
 // Generate the code for the directive omp target
@@ -594,38 +737,24 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   if (isa<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
     RegionId = MT->registerTargetRegion(W, NewF);
-  }
 
-  // Please note that the name of NewF is updated in the
-  // function registerTargetRegion.
-  if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-      hasOffloadCompilation()) {
-    LLVM_DEBUG(dbgs() << "\n Before finalizeKernel Dump the function ::"
-                      << *NewF);
-    NewF = finalizeKernelFunction(W, NewF, NewCall);
-    LLVM_DEBUG(dbgs() << "\n After finalizeKernel Dump the function ::"
-                      << *NewF);
+    // Please note that the name of NewF is updated in the
+    // function registerTargetRegion.
+    if (isTargetSPIRV()) {
+      LLVM_DEBUG(dbgs() << "\nBefore guardSideEffectStatemets the function ::"
+                 << *NewF);
+      guardSideEffectStatements(W, NewF);
+      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatemets the function ::"
+                 << *NewF);
 
-    SmallPtrSet<Value *, 10> PrivateVariables;
-    if (W->canHavePrivate()) {
-      PrivateClause const &PrivClause = W->getPriv();
-      for (PrivateItem *PrivI : PrivClause.items()) {
-        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
-                          << PrivI->getOrig()->getName()
-                          << " New:: " << PrivI->getNew()->getName());
-        PrivateVariables.insert(PrivI->getNew());
-      }
-      for (auto *PrivI : W->getFpriv().items()) {
-        LLVM_DEBUG(dbgs() << "\n Private Clause Items:: "
-                          << PrivI->getOrig()->getName()
-                          << " New:: " << PrivI->getNew()->getName());
-        PrivateVariables.insert(PrivI->getNew());
-      }
+      // Make sure to run kernel finalization after guardSideEffectStatemets(),
+      // which is responsible for cleaning up all directive calls that
+      // were left until this point for guardSideEffectStatemets() to work.
+      // The extra directive call may prevent address space inferring.
+      NewF = finalizeKernelFunction(W, NewF, NewCall);
+      LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
+                 << *NewF);
     }
-    guardSideEffectStatements(NewF, PrivateVariables, W->getEntryDirective(),
-                              W->getExitDirective());
-    LLVM_DEBUG(dbgs() << "\n After guardSideEffectStatemets the function ::"
-                      << *NewF);
   }
 
   if (hasOffloadCompilation())
@@ -718,23 +847,21 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     } else if (isa<WRNTargetDataNode>(W)) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
+      useUpdatedUseDevicePtrsInTgtDataRegion(W, NewCall);
+      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
+        NewF->removeFnAttr(Attribute::NoInline);
+        NewF->addFnAttr(Attribute::AlwaysInline);
+      }
     } else if (isa<WRNTargetEnterDataNode>(W) ||
                isa<WRNTargetExitDataNode>(W) ||
                isa<WRNTargetUpdateNode>(W)) {
-      NewCall->eraseFromParent();
-      // We cannot erase the function right now, because it now contains
-      // the region's entry/exit calls, which we will try to erase later.
-
-#if INTEL_CUSTOMIZATION
-      // TEMPORARY to address JIRA  CMPLRLLVM-10758.
-#endif // INTEL_CUSTOMIZATION
-      // Cannot just disconnect from parent as some passes
-      // walk all functions and encounters this function without
-      // a module and asserts.
-      // TODO Fix WRN's entry/exit BB to null and modify VPOUtils
-      // VPOUtils::stripDirectives to accept and ignore null BBs
-      // and remove the NewF completely.
-      // NewF->removeFromParent();
+      // We cannot delete the outlined functions, because they
+      // may contain some meaningful code (e.g. InstCombine may put
+      // something into the initially empty blocks).
+      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
+        NewF->removeFnAttr(Attribute::NoInline);
+        NewF->addFnAttr(Attribute::AlwaysInline);
+      }
     }
   }
 
@@ -779,9 +906,16 @@ void VPOParoptTransform::resetValueInIsDevicePtrClause(WRegionNode *W) {
 uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag) {
+
+  if (MapI->getInUseDevicePtr())
+    return (TGT_MAP_TARGET_PARAM | TGT_MAP_RETURN_PARAM);
+
   uint64_t Res = 0u;
   if (!AddrIsTargetParamFlag && IsFirstComponentFlag)
     return TGT_MAP_TARGET_PARAM;
+
+  assert(!MapI->getIsMapNone() &&
+         "Cannot compute map type flag. No type info in clause.");
 
   if (MapI->getIsMapTofrom())
     Res = TGT_MAP_TO | TGT_MAP_FROM;
@@ -797,6 +931,9 @@ uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
 
   if (MapI->getIsMapAlways())
     Res |= TGT_MAP_ALWAYS;
+
+  if (MapI->getIsMapClose())
+    Res |= TGT_MAP_CLOSE;
 
   // Memberof is given by the 16 MSB of the flag, so rotate by 48 bits.
   // It is workaroud. Need more work.
@@ -841,6 +978,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       continue;
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
+      uint64_t MapTypeIndexForBaseOfChain = MapTypes.size() + 1;
       MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
@@ -855,10 +993,31 @@ void VPOParoptTransform::genTgtInformationForPtrs(
           ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                                 ConstValue->getSExtValue()));
         }
-        MapTypes.push_back(
-            getMapTypeFlag(MapI,
-                MapChain.size() > 1 ? false : true,
-                I == 0 ? true : false));
+
+        uint64_t MapType = Aggr->getMapType();
+        if (MapType) {
+          // MemberOf flag is in the 16 MSBs of the 64 bit MapType.
+          uint64_t MemberOfFlag = MapType >> 48;
+
+          if (MemberOfFlag && MemberOfFlag != MapTypeIndexForBaseOfChain) {
+            // We need to set MemberOf to the index of the base of the chain,
+            // instead of what the frontend sent in.
+            assert(MapTypeIndexForBaseOfChain < (1 << 16) &&
+                   "Too many maps. MemberOf flag exceeding 16 bits.");
+            uint64_t Mask = (~(0ull)) >> 16;
+            uint64_t NewMapType = MapType & Mask;
+            NewMapType = NewMapType | (MapTypeIndexForBaseOfChain << 48);
+            LLVM_DEBUG(dbgs()
+                       << __FUNCTION__ << ": Updated MemberOf Flag from '"
+                       << MemberOfFlag << "' to '" << MapTypeIndexForBaseOfChain
+                       << "'; MapType from '" << MapType << "' to '"
+                       << NewMapType << "'\n");
+            MapType = NewMapType;
+          }
+          MapTypes.push_back(MapType);
+        } else
+          MapTypes.push_back(
+              getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0));
       }
     } else {
       assert(!MapI->getIsArraySection() &&
@@ -972,6 +1131,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     NumLoops = UncollapsedNDRange.size();
 
   assert(NumLoops != 0 && "Zero loops in loop construct.");
+  assert(NumLoops <= 3 && "Max 3 dimensions for ND-range execution.");
 
   LLVMContext &C = F->getContext();
   IntegerType *Int64Ty = Type::getInt64Ty(C);
@@ -1001,7 +1161,13 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
       BaseGep);
 
   for (unsigned I = 0; I < NumLoops; I++) {
-    Loop *L = WL->getWRNLoopInfo().getLoop(I);
+    // We assume that the innermost OpenMP loop stepping provides
+    // the best data locality. OpenCL execution assumes that the
+    // fastest changing dimension in ND-range is the 1st one.
+    // We need to specify the ND-range such that the 1st dimension
+    // corresponds to the innermost loop (with loop index NumLoops - 1).
+    unsigned Idx = NumLoops - I - 1;
+    Loop *L = WL->getWRNLoopInfo().getLoop(Idx);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
         {Builder.getInt32(0), Builder.getInt32(3 * I + 1)});
@@ -1015,7 +1181,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
       CloneUB = VPOParoptUtils::cloneInstructions(
           WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
     else
-      CloneUB = Builder.CreateLoad(UncollapsedNDRange[I]);
+      CloneUB = Builder.CreateLoad(UncollapsedNDRange[Idx]);
 
     assert(CloneUB && "genTgtLoopParameter: unexpected null CloneUB");
     Builder.CreateStore(Builder.CreateSExtOrTrunc(CloneUB, Int64Ty),
@@ -1252,13 +1418,117 @@ Value *VPOParoptTransform::genCastforAddr(Value *BPVal, IRBuilder<> &Builder) {
     return Builder.CreateIntToPtr(BPVal, Builder.getInt8PtrTy());
 }
 
+bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
+  assert(W && "Null WRegionNode.");
+
+  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+    return false;
+
+  UseDevicePtrClause &UDPC = W->getUseDevicePtr();
+  if (UDPC.empty())
+    return false;
+
+  // Create an empty BB before the entry BB, to insert loads for the new map
+  // clauses.
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *NewEntryBB =
+      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+  W->setEntryBBlock(NewEntryBB);
+  W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
+
+  IRBuilder<> LoadBuilder(EntryBB->getTerminator());
+  MapClause &MapC = W->getMap();
+  for (UseDevicePtrItem *UDPI : UDPC.items()) {
+    Value *UDP = UDPI->getOrig();
+    Value *UDPLoad = LoadBuilder.CreateLoad(UDP, UDP->getName() + ".load");
+    MapC.add(UDPLoad);
+
+    MapItem *MapI = MapC.back();
+    MapI->setInUseDevicePtr(UDPI);
+    UDPI->setInMap(MapI);
+
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Added map clause on '";
+               UDPLoad->printAsOperand(dbgs());
+               dbgs() << "', for use_device_ptr '"; UDP->printAsOperand(dbgs());
+               dbgs() << "'.\n");
+  }
+  return true;
+}
+
+// For the following code:
+//   int *udp;
+//   #pragma omp target use_device_ptr(udp)
+//
+// the IR before/after this util will look like:
+//
+// Before:
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     call @outlined.funtion(...i32** %udp)  ; TgtDataOutlinedFunctionCall
+//   call void @__tgt_target_data_end()
+//
+// After:
+//   $udp.new = alloca i32*                                          ; (2)
+//   ...
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     %udp.gep.cast = cast i8* %udp.gep to i32**                    ; (3)
+//     %udp.updated.val = load i32*, i32** %udp.gep.cast             ; (4)
+//     store i32* %udp.updated.val, i32** %udp.new                   ; (5)
+//     call @outlined.funtion(...i32** %udp.new)                     ; (6)
+//   call void @__tgt_target_data_end()
+//
+void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
+    WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall) {
+  assert(W && "Null WRegionNode.");
+  assert(TgtDataOutlinedFunctionCall && "Null outlined function call.");
+
+  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+    return;
+
+  UseDevicePtrClause &UDPC = W->getUseDevicePtr();
+  if (UDPC.empty())
+    return;
+
+  IRBuilder<> Builder(TgtDataOutlinedFunctionCall);
+  Function *F = TgtDataOutlinedFunctionCall->getFunction();
+  Instruction *AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
+
+  for (UseDevicePtrItem *UDPI : UDPC.items()) {
+    MapItem *MapI = UDPI->getInMap();
+    assert(MapI && "No map found for use-device-ptr item.");
+
+    Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig(); //             (1)
+    assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
+
+    Value *OrigV = UDPI->getOrig();
+
+    Value *NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //(2)
+
+    Value *GepCast = Builder.CreateBitOrPointerCast(
+        BasePtrGEP, OrigV->getType(), BasePtrGEP->getName() + ".cast"); // (3)
+    LoadInst *UpdatedUDPVal =
+        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); // (4)
+    Builder.CreateStore(UpdatedUDPVal, NewV); //                           (5)
+
+    TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //        (6)
+
+    LLVM_DEBUG(
+        dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
+        OrigV->printAsOperand(dbgs()); dbgs() << "', with '";
+        NewV->printAsOperand(dbgs()); dbgs() << "' in tgt_data region.\n");
+  }
+}
+
 // Utilities to construct the assignment to the base pointers, section
 // pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
 // true.
 void VPOParoptTransform::genOffloadArraysInitUtil(
     IRBuilder<> &Builder, Value *BasePtr, Value *SectionPtr, Value *Size,
     TgDataInfo *Info, SmallVectorImpl<Constant *> &ConstSizes, unsigned &Cnt,
-    bool hasRuntimeEvaluationCaptureSize) {
+    bool hasRuntimeEvaluationCaptureSize, Instruction **BasePtrGEPOut) {
 
   assert(BasePtr && "Unexpected: BasePtr is null");
   assert(SectionPtr && "Unexpected: SectionPtr is null");
@@ -1276,6 +1546,8 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
       ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
       Info->BaseDataPtrs, 0, Cnt);
   Builder.CreateStore(NewBPVal, BP);
+  if (BasePtrGEPOut)
+    *BasePtrGEPOut = cast<Instruction>(BP);
 
   P = Builder.CreateConstInBoundsGEP2_32(
       ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs),
@@ -1350,9 +1622,11 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr,
-                               Info, ConstSizes,
-                               Cnt, hasRuntimeEvaluationCaptureSize);
+      Instruction *BasePtrGEP = nullptr;
+      genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
+                               Cnt, hasRuntimeEvaluationCaptureSize,
+                               &BasePtrGEP);
+      MapI->setBasePtrGEPForOrig(BasePtrGEP);
     }
   }
 
@@ -1737,6 +2011,19 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(WRegionNode *W) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // We need this for private F90 DVs as well, as we pass in the original
+  // DV into the target region as a parameter of the outlined function.
+  if (W->canHavePrivate()) {
+    PrivateClause &PrivClause = W->getPriv();
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      if (!PrivI->getIsF90DopeVector())
+        continue;
+      VNew = createRenamedValueForGlobalsAndConstExprs(PrivI->getOrig());
+      PrivI->setOrig(VNew);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (W->canHaveIsDevicePtr()) {
     IsDevicePtrClause &IsDevPtrClause = W->getIsDevicePtr();
     for (IsDevicePtrItem *Item : IsDevPtrClause.items()) {
@@ -1981,6 +2268,234 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   return VariantName;
 }
 
+// To support asynchronous execution for a TARGET VARIANT DISPATCH NOWAIT
+// construct, an AsyncObj is created and passed to @__tgt_create_interop_obj().
+// Its type is that of a struct of this form:
+//
+//      struct AsyncObjTy { // struct size = 8+8+4+4 = 24 on 64bit arch
+//        void* UDPtrs;     // pointer to a UseDevicePtrsTy struct
+//        void* task_entry; // unused
+//        int   part_id;    // unused
+//        int   num_ptrs;   // number of use_device_ptr pointers
+//      };
+//
+// where the UseDevicePtrsTy is a struct to hold void* pointers corresponding
+// to the target buffers created for each pointer. For example, for the
+// clause use_device_ptr(a,b,c,d), the structure will look like this:
+//
+//      struct UseDevicePtrsTy { // struct size = num_ptrs*8 on 64bit arch
+//        void* a.buffer;
+//        void* b.buffer;
+//        void* c.buffer;
+//        void* d.buffer;
+//      };
+//
+// The AsyncObjTy is actually a __kmp_task_t struct, and
+// the UseDevicePtrsTy corresponds to the "shareds" struct.
+//
+// The AsyncObj is allocated by calling __kmpc_omp_task_alloc, with
+// the proxy flag bit set (WRNTaskFlag::Proxy is 0x10).
+static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
+                             StructType *IdentTy, Instruction *InsertPt) {
+  Function *F = InsertPt->getFunction();
+  LLVMContext &C = F->getContext();
+  const DataLayout DL = F->getParent()->getDataLayout();
+
+  IRBuilder<> Builder(InsertPt);
+  IntegerType *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  Value *Zero = Builder.getInt32(0);
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  // Build the struct for AsyncObjTy:
+  //
+  //   %__struct.AsyncObj = type { i8*, i8*, i32, i32 }
+
+  Type *AsyncObjTyFields[] = {Int8PtrTy, // 0: Pointer to UseDevicePtrsTy struct
+                              Int8PtrTy, // 1: unused: task_entry
+                              Int32Ty,   // 2: unused: part_id
+                              Int32Ty};  // 3: number of ptrs in UseDevicePtrsTy
+  StructType *AsyncObjTy =
+      StructType::create(C, AsyncObjTyFields, "__struct.AsyncObj", false);
+  int AsyncObjTySize = DL.getTypeAllocSize(AsyncObjTy);
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": AsyncObjTy: " << *AsyncObjTy
+                    << "; Size = " << AsyncObjTySize << " bytes\n");
+
+  // Build the struct for UseDevicePtrsTy if use_device_ptr clause is present.
+  // Add one "i8*" field for each item in the clause.
+  // Example: for 4 pointers, the struct is:
+  //
+  //   %__struct.UDPtrs = type { i8*, i8*, i8*, i8* }
+
+  StructType *UseDevicePtrsTy = nullptr;
+  int UseDevicePtrsTySize = 0;
+  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  int NumberOfPointers = UDPtrClause.size();
+  if (NumberOfPointers > 0) {
+    SmallVector<Type *, 4> StructFields; // {i8*, i8*, i8*, etc.}
+    for (int I = 0; I < NumberOfPointers; I++)
+      StructFields.push_back(Int8PtrTy);
+    UseDevicePtrsTy =
+        StructType::create(C, StructFields, "__struct.UDPtrs", false);
+    UseDevicePtrsTySize = DL.getTypeAllocSize(UseDevicePtrsTy);
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": UseDevicePtrsTy: " << *UseDevicePtrsTy
+                      << "; Size = " << UseDevicePtrsTySize << " bytes\n");
+  }
+
+  // Create AsyncObj by calling __kmpc_omp_task_alloc()
+  // For the example with 4 use_device_ptr pointers, the call looks like this:
+  //
+  //   %asyncobj = call i8* @__kmpc_omp_task_alloc(
+  //                        %__struct.ident_t* @.kmpc_loc.0.0,
+  //                        i32 0,      // unused
+  //                        i32 16,     // "proxy" flag 0x10
+  //                        i64 24,     // sizeof(AsyncObjTy) = 8+8+4+4 = 24
+  //                        i64 32,     // sizeof(UseDevicePtrsTy) = 4*8 = 32
+  //                        i8* null)   // unused
+
+  CallInst *AsyncObj = VPOParoptUtils::genKmpcTaskAllocForAsyncObj(
+      W, IdentTy, AsyncObjTySize, UseDevicePtrsTySize, InsertPt);
+  assert(AsyncObj && "AsyncObj not created for Target Variant Dispatch Nowait");
+  AsyncObj->setName("asyncobj"); // void* pointer
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": AsyncObj: " << *AsyncObj << "\n");
+
+  // Create a base pointer to AsyncObj by casting the void* ptr to AsyncObjTy*
+  // like this:
+  //   %asyncobj.ptr = bitcast i8* %asyncobj to %__struct.AsyncObj*
+  Value *AsyncObjPtr = Builder.CreateBitCast( // base pointer to AsyncObjTy
+      AsyncObj, PointerType::getUnqual(AsyncObjTy), "asyncobj.ptr");
+
+  // Initialize fields 1,2,3 of AsyncObj. Field 0 is already initialized
+  // by the runtime to hold a pointer to UseDevicePtrsTy.
+
+  // Field 1: task_entry pointer is unused. Just init it to null.
+  //
+  //   %task.entry.gep = getelementptr inbounds %__struct.AsyncObj,
+  //                     %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 1
+  //   store i8* null, i8** %task.entry.gep
+
+  Value *TaskEntryGep = Builder.CreateInBoundsGEP(
+      AsyncObjTy, AsyncObjPtr, {Zero, Builder.getInt32(1)}, "task.entry.gep");
+  Builder.CreateStore(NullPtr, TaskEntryGep);
+
+  // Field 2: part_id is unused. Just init it to 0.
+  //
+  //   %part.id.gep = getelementptr inbounds %__struct.AsyncObj,
+  //                     %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 2
+  //   store i32 0, i32* %part.id.gep
+
+  Value *PartIdGep = Builder.CreateInBoundsGEP(
+      AsyncObjTy, AsyncObjPtr, {Zero, Builder.getInt32(2)}, "part.id.gep");
+  Builder.CreateStore(Zero, PartIdGep);
+
+  // Field 3: save the number of use_device_ptr pointers here.
+  //
+  //   %num.ptrs.gep = getelementptr inbounds %__struct.AsyncObj,
+  //                     %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 3
+  //   store i32 <NumberOfPointers>, i32* %num.ptrs.gep
+
+  Value *NumPointersGep =
+      Builder.CreateInBoundsGEP(AsyncObjTy, AsyncObjPtr,
+                                {Zero, Builder.getInt32(3)}, "num.ptrs.gep");
+  Builder.CreateStore(Builder.getInt32(NumberOfPointers), NumPointersGep);
+
+  // Save the target buffer for a use_device_ptr pointer in the
+  // UseDevicePtrsTy struct.
+  if (NumberOfPointers > 0) {
+
+    // Build "UDPtrsPtr" to point to the UseDevicePtrsTy struct.
+    // Field 0 of AsyncObj holds the address of the UseDevicePtrsTy struct.
+    // Load it and cast it to UseDevicePtrsTy*. The IR looks like this:
+    //
+    //   %UDPtrs.gep = getelementptr inbounds %__struct.AsyncObj,
+    //                   %__struct.AsyncObj* %asyncobj.ptr, i32 0, i32 0
+    //   %11 = load i8*, i8** %UDPtrs.gep
+    //   %UDPtrs.ptr = bitcast i8* %11 to %__struct.UDPtrs*
+
+    Value *UDPtrsGep = Builder.CreateInBoundsGEP(AsyncObjTy, AsyncObjPtr,
+                                                 {Zero, Zero}, "UDPtrs.gep");
+    LoadInst *UDPtrsLoad = Builder.CreateLoad(UDPtrsGep);
+    Value *UDPtrsPtr = Builder.CreateBitCast(
+        UDPtrsLoad, PointerType::getUnqual(UseDevicePtrsTy), "UDPtrs.ptr");
+
+    // Store each target buffer in the UseDevicePtrsTy struct.
+    int Index = 0;
+    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+      StringRef OrigName = Item->getOrig()->getName();
+
+      // Build GEP for the Index'th field in the UseDevicePtrsTy struct. E.g.,
+      //
+      //   %aaa.gep = getelementptr inbounds %__struct.UDPtrs,
+      //                 %__struct.UDPtrs* %UDPtrs.ptr, i32 0, i32 <Index>
+
+      Value *Gep = Builder.CreateInBoundsGEP(UseDevicePtrsTy, UDPtrsPtr,
+                                             {Zero, Builder.getInt32(Index++)},
+                                             OrigName + ".gep");
+      // Store the buffer in the UseDevicePtrsTy field corresponding to the GEP
+      //
+      //   %aaa.buffer = load i8*, i8** %aaa.tgt.buffer.addr
+      //   store i8* %aaa.buffer, i8** %aaa.gep
+
+      Value *TgtBufferAddr = Item->getNew(); // i8**
+      LoadInst *Load =
+          Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // i8*
+      Builder.CreateStore(Load, Gep);
+    }
+  }
+
+  return AsyncObj;
+}
+
+// Create an InteropObj that is used for TARGET VARIANT DISPATCH [NOWAIT],
+// for both synchronouos and asynchronous modes.
+//
+// The struct is of this form:
+//
+//      struct __tgt_interop_obj {
+//        int64_t device_id;              // OpenMP device id
+//        bool    is_async;               // true for asynchronous
+//        void   *async_obj;              // Pointer to the asynchronous object
+//        void  (*async_handler)(void*);  // Callback function for asynchronous
+//        void   *pipe;       // Opaque handle to device-dependent offload pipe
+//      };
+//
+// If the NOWAIT clause is absent, then execution is synchronous,
+// and the fields is_async=false, async_obj=nullptr, async_handler=nullptr
+//
+// If the NOWAIT clause is present, then execution is asynchronous,
+// and the fields is_async=true, and all fields will be populated.
+//
+// The field values for device_id, is_async, and async_obj are emitted by the
+// compiler and passed to the __tgt_create_interop_obj() runtime. The values
+// for the async_handler and the pipe are provided by the runtime.
+static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
+                               StructType *IdentTy, Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Value *AsyncObj = nullptr;
+  bool IsAsync = W->getNowait(); // true means asynchronous execution
+
+  if (IsAsync)
+    AsyncObj = createAsyncObj(W, DeviceNum, IdentTy, InsertPt);
+
+  // Call __tgt_create_interop_obj(device_num, is_async, asyncobj)
+  //
+  // For is_async==false (no NOWAIT clause) it looks like
+  //   call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
+  //
+  // For is_async==true it looks like
+  //   call i8* @__tgt_create_interop_obj(i64 0, i8 1, i8* %asyncobj)
+
+  CallInst *InteropObj = VPOParoptUtils::genTgtCreateInteropObj(
+      DeviceNum, IsAsync, AsyncObj, InsertPt);
+
+  assert(InteropObj && "InteropObj not created for Target Variant Dispatch");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": InteropObj: " << *InteropObj << "\n");
+
+  return InteropObj;
+}
+
 /// Auxiliary function called from genTargetVariantDispatchCode() to
 ///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
 ///       for each host pointer
@@ -2038,14 +2553,15 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 
   // (A1)
   // For each host pointer in the use_device_pointer clause:
-  //   Alloc a target buffer pointer (void*)
+  //   Alloc a target buffer pointer (void**)
   //   Initialized it to null
   //   Save it in the Clause Item's "New" field
   for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-    AllocaInst *TgtBuffer =
-        Builder.CreateAlloca(Int8PtrTy, nullptr, "tgt.buffer");
-    Builder.CreateStore(NullPtr, TgtBuffer);
-    Item->setNew(TgtBuffer);
+    StringRef OrigName = Item->getOrig()->getName();
+    AllocaInst *TgtBufferAddr =
+        Builder.CreateAlloca(Int8PtrTy, nullptr, OrigName + ".tgt.buffer.addr");
+    Builder.CreateStore(NullPtr, TgtBufferAddr);
+    Item->setNew(TgtBufferAddr);
   }
 
   // (B1)
@@ -2101,18 +2617,19 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
   for (UseDevicePtrItem *Item : UDPtrClause.items()) {
     Builder.SetInsertPoint(InsertBefore);
     Value *Orig = Item->getOrig();
+    StringRef OrigName = Orig->getName();
     LoadInst *PtrLoad = Builder.CreateLoad(Orig, "hostPtr");
     assert(PtrLoad->getType()->isPointerTy() &&
            "Target Variant: Expected a pointer");
     Value *Ptr = Builder.CreateBitCast(PtrLoad, Int8PtrTy);
     CallInst *BufferCall =
         VPOParoptUtils::genTgtCreateBuffer(DeviceNum, Ptr, InsertBefore);
-    BufferCall->setName("buffer");
+    BufferCall->setName(OrigName + ".buffer");
     assert(BufferCall->getType() == Int8PtrTy &&
            "Expected __tgt_create_buffer() to return a void*");
-    Value *TgtBuffer = Item->getNew();
-    assert(TgtBuffer != nullptr && "Target Variant: missing tgtBuffer");
-    Builder.CreateStore(BufferCall, TgtBuffer);
+    Value *TgtBufferAddr = Item->getNew();
+    assert(TgtBufferAddr != nullptr && "Target Variant: missing TgtBufferAddr");
+    Builder.CreateStore(BufferCall, TgtBufferAddr);
 
     Value *IsNull = Builder.CreateICmpEQ(BufferCall, NullPtr, "isNull");
     SplitBlockAndInsertIfThen(IsNull, InsertBefore, false, nullptr, DT, LI,
@@ -2138,10 +2655,11 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     // one (the old parent of CleanupTerm before the split).
     // At -O2 this isn't a problem (somehow cleaned up) but at -O0 it
     // dies in the verifier.
+    StringRef OrigName = Item->getOrig()->getName();
     Builder.SetInsertPoint(CleanupTerm);
     CleanupTerm->getParent()->setName("check.unused.buffer");
-    Value *TgtBuffer = Item->getNew();
-    LoadInst *Buffer = Builder.CreateLoad(TgtBuffer, "buffer");
+    Value *TgtBufferAddr = Item->getNew();
+    LoadInst *Buffer = Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
     Value *NotNull = Builder.CreateICmpNE(Buffer, NullPtr, "notNull");
     Instruction *FreeTerm =
         SplitBlockAndInsertIfThen(NotNull, CleanupTerm, false, nullptr, DT, LI);
@@ -2296,6 +2814,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Instruction *InsertPt = BaseCall;
   IRBuilder<> Builder(InsertPt);
   IntegerType *Int32Ty = Builder.getInt32Ty();
+  IntegerType *Int64Ty = Builder.getInt64Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
   ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
   ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
@@ -2303,7 +2822,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // Default device num is -1
   Value *DeviceNum = W->getDevice();
   if (DeviceNum == nullptr) {
-    DeviceNum = ConstantInt::get(Int32Ty, -1);
+    DeviceNum = ConstantInt::get(Int64Ty, -1);
   }
 
   // Emit call to check for device availability:
@@ -2357,22 +2876,43 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Instruction *ThenTerm, *ElseTerm;
   buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt);        // (3)
 
+  // Create the interop object for
+  // (1) Asynchronous case (i.e., NOWAIT is present), or
+  // (2) Synchronous case when "UseInterop" flag is true.
+  //     If the flag is false, then the synchronous case will revert to
+  //     the old implementation without using interop_obj.
+  //     TODO: remove the old implementation when the new one if fully tested.
+  Value *InteropObj = nullptr;
+  if (UseInterop || W->getNowait())
+    InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm);
+
   // Create and insert Variant call before ThenTerm
   ThenTerm->getParent()->setName("variant.call");
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
-  CallInst *VariantCall =                                              // (4,D)
-      VPOParoptUtils::genVariantCall(BaseCall, VariantName, ThenTerm, W);
+  CallInst *VariantCall =                                               // (4,D)
+      VPOParoptUtils::genVariantCall(BaseCall, VariantName, InteropObj,
+                                     ThenTerm, W);
   if (!IsVoidType)
     VariantCall->setName("variant");
-  // Release target buffers after Variant call
-  if (!UDPtrClause.empty()) {
+
+  // Release target buffers after Variant call only for synchronous cases;
+  // i.e., when NOWAIT is false. For async cases they are released by the
+  // async_handler callback routine.
+  if (!UDPtrClause.empty() && W->getNowait() == false) {
     Builder.SetInsertPoint(ThenTerm);
     for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-      Value *TgtBuffer = Item->getNew();
-      LoadInst *Buffer = Builder.CreateLoad(TgtBuffer, "buffer");
+      StringRef OrigName = Item->getOrig()->getName();
+      Value *TgtBufferAddr = Item->getNew();
+      LoadInst *Buffer =
+          Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
       VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm);  // (E)
     }
   }
+
+  // Release the interop object for synchronous execution (no NOWAIT clause).
+  // Don't do this for the asynchronous case; the async_handler will do it.
+  if (InteropObj != nullptr && W->getNowait() == false)
+    VPOParoptUtils::genTgtReleaseInteropObj(InteropObj, ThenTerm);
 
   // Move BaseCall to before ElseTerm
   ElseTerm->getParent()->setName("base.call");
@@ -2398,5 +2938,51 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   W->resetBBSet(); // Invalidate BBSet after transformations
   return true;
+}
+
+// Set SIMD widening width for the target region based
+// on simdlen() clauses of the enclosed SIMD loops (if any).
+void VPOParoptTransform::propagateSPIRVSIMDWidth() const {
+  for (auto *WT : WRegionList) {
+    if (!isa<WRNTargetNode>(WT))
+      continue;
+
+    if (FixedSIMDWidth > 0) {
+      // Override the SIMD width with an option.
+      WT->setSPIRVSIMDWidth(FixedSIMDWidth);
+      continue;
+    }
+
+    // Choose minimum SIMD width, if there are multiple SIMD loops.
+    unsigned MinSIMDLen = 0;
+    SmallVector<WRegionNode*, 32> WorkList{WT};
+    while (!WorkList.empty()) {
+      unsigned CurSIMDLen = 0;
+      auto *W = WorkList.pop_back_val();
+
+      if (W != WT && isa<WRNTargetNode>(W))
+        // If this is an enclosed target region, then
+        // we have already processed it and we can take its
+        // SIMD width without processing the children.
+        CurSIMDLen = W->getSPIRVSIMDWidth();
+      else if (!isa<WRNVecLoopNode>(W)) {
+        WorkList.insert(
+            WorkList.end(), W->wrn_child_begin(), W->wrn_child_end());
+        continue;
+      } else
+        CurSIMDLen = W->getSimdlen();
+
+      if (CurSIMDLen == 0 ||
+          // Ignore unsupported SIMD widths.
+          (CurSIMDLen != 8 && CurSIMDLen != 16 && CurSIMDLen != 32))
+        continue;
+      if (MinSIMDLen == 0 ||
+          MinSIMDLen > CurSIMDLen)
+        MinSIMDLen = CurSIMDLen;
+    }
+
+    if (MinSIMDLen != 0)
+      WT->setSPIRVSIMDWidth(MinSIMDLen);
+  }
 }
 #endif // INTEL_COLLAB

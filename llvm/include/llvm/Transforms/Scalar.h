@@ -55,6 +55,13 @@ Pass *createDeadInstEliminationPass();
 
 //===----------------------------------------------------------------------===//
 //
+// RedundantDbgInstElimination - This pass removes redundant dbg intrinsics
+// without modifying the CFG of the function.  It is a FunctionPass.
+//
+Pass *createRedundantDbgInstEliminationPass();
+
+//===----------------------------------------------------------------------===//
+//
 // DeadCodeElimination - This pass is more powerful than DeadInstElimination,
 // because it is worklist driven that can potentially revisit instructions when
 // their other instructions become dead, to eliminate chains of dead
@@ -116,6 +123,11 @@ FunctionPass *createBitTrackingDCEPass();
 // SROA - Replace aggregates or pieces of aggregates with scalar SSA values.
 //
 FunctionPass *createSROAPass();
+
+#if INTEL_CUSTOMIZATION
+// CallGraphSCC adaptor for SROA function pass.
+Pass *createSROALegacyCGSCCAdaptorPass();
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 //
@@ -250,6 +262,12 @@ FunctionPass *createReassociatePass();
 //               Y = A + B + C     X = A + (B + C)
 //
 FunctionPass *createAddSubReassociatePass();
+
+//===----------------------------------------------------------------------===//
+//
+// ForcedCMOVGeneration - CMOV generation for special cases
+//
+FunctionPass *createForcedCMOVGenerationPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -424,6 +442,12 @@ Pass *createLowerAtomicPass();
 // LowerGuardIntrinsic - Lower guard intrinsics to normal control flow.
 //
 Pass *createLowerGuardIntrinsicPass();
+
+//===----------------------------------------------------------------------===//
+//
+// LowerMatrixIntrinsics - Lower matrix intrinsics to vector operations.
+//
+Pass *createLowerMatrixIntrinsicsPass();
 
 //===----------------------------------------------------------------------===//
 //

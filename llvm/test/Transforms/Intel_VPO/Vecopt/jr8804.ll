@@ -2,8 +2,9 @@
 ; correct location before the store.
 ; REQUIRES: asserts
 ; RUN: opt -S -VPlanDriver %s -debug 2>&1 | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" %s -debug 2>&1 | FileCheck %s
 ; CHECK: VPlan after predication
-; CHECK-COUNT-6: BB{{[0-9]+}} {{.*}} :
+; CHECK-COUNT-5: BB{{[0-9]+}}:
 ; CHECK-NEXT: block-predicate
 ; CHECK-NEXT: call {{.*}} @foo
 ; CHECK-NEXT: [[LRES:%vp.*]] = load i32* [[LDADDR:%vp.*]]

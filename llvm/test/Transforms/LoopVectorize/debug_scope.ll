@@ -11,7 +11,7 @@
 
 ; TODO: VPValue-based CG cannot preserve debug info since they are not represented in VPlan.
 ; Check JIRA : CMPLRLLVM-9901
-; RUN: opt -S -VPlanDriver -enable-vp-value-codegen=false < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver < %s | FileCheck %s
 ; REQUIRES: asserts
 ; CHECK: call void @llvm.dbg.value(metadata float addrspace(1)* {{.*}}, metadata ![[BR_LOC1:[0-9]+]], metadata !DIExpression()), !dbg ![[BR_LOC2:[0-9]+]]
 ; CHECK: ![[BR_LOC1]] = !DILocalVariable(name: "Ptr", arg: 2, scope: ![[BR_LOC:[0-9]+]])

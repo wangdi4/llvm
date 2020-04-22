@@ -26,7 +26,7 @@ elseif( CMAKE_HOST_UNIX )
       set(system_libs ${system_libs} ${TERMINFO_LIBS})
     endif()
   endif()
-  if( LLVM_ENABLE_THREADS AND HAVE_LIBATOMIC )
+  if( LLVM_ENABLE_THREADS AND (HAVE_LIBATOMIC OR HAVE_CXX_LIBATOMICS64) )
     set(system_libs ${system_libs} atomic)
   endif()
   set(system_libs ${system_libs} ${LLVM_PTHREAD_LIB})
@@ -87,6 +87,8 @@ add_llvm_component_library(LLVMSupport
   DeltaAlgorithm.cpp
   DAGDeltaAlgorithm.cpp
   DJB.cpp
+  ELFAttributeParser.cpp
+  ELFAttributes.cpp
   Error.cpp
   ErrorHandling.cpp
   FileCheck.cpp
@@ -119,16 +121,21 @@ add_llvm_component_library(LLVMSupport
   MemoryBuffer.cpp
   MD5.cpp
   NativeFormatting.cpp
+  OptimalLayout.cpp
   Optional.cpp
   Parallel.cpp
   PluginLoader.cpp
   PrettyStackTrace.cpp
+  PropertySetIO.cpp
   RandomNumberGenerator.cpp
   Regex.cpp
+  RISCVAttributes.cpp
+  RISCVAttributeParser.cpp
   ScaledNumber.cpp
   ScopedPrinter.cpp
   SHA1.cpp
   Signposts.cpp
+  SimpleTable.cpp
   SmallPtrSet.cpp
   SmallVector.cpp
   SourceMgr.cpp

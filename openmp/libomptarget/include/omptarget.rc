@@ -1,0 +1,133 @@
+#if INTEL_CUSTOMIZATION
+//===--- omptarget.rc --- Resource script ---------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+#define APSTUDIO_READONLY_SYMBOLS
+#include "winres.h"
+#undef APSTUDIO_READONLY_SYMBOLS
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+#ifndef LIBRARY_NAME
+#error LIBRARY_NAME not defined.
+#endif
+
+#include "clang/Basic/intel/versparm.h"
+
+#define STR(x) #x
+#define TO_STR(x) STR(x)
+
+#define VER_PRODUCTNAME_STR "Intel(R) OpenMP* Offload Runtime Library\0"
+#define VER_FILEDESCRIPTION_STR "Intel(R) OpenMP* Offload Runtime Library\0"
+#define VER_INTERNALNAME_STR LIBRARY_NAME
+#define VER_FILETYPE VFT_DLL
+
+#ifndef VER_MAJOR
+#define VER_MAJOR DPCPP_VERSION_MAJOR
+#endif
+
+#ifndef VER_MINOR
+#define VER_MINOR DPCPP_VERSION_MINOR
+#endif
+
+#ifndef VER_UPDATE
+#define VER_UPDATE 0 // Don't have update version for DPCPP
+#endif
+
+#ifndef VER_EDIT
+#define VER_EDIT 0
+#endif
+
+#ifndef VER_FILEVERSION
+#define VER_FILEVERSION VER_MAJOR, VER_MINOR, VER_EDIT, VER_UPDATE
+#endif
+
+#ifndef VER_PRODUCTVERSION
+#define VER_PRODUCTVERSION VER_MAJOR, VER_MINOR, VER_UPDATE
+#endif
+
+#ifndef VER_FILEVERSION_STR
+#define VER_FILEVERSION_STR TO_STR(VER_MAJOR) "." TO_STR(VER_MINOR) "." \
+                            TO_STR(VER_EDIT) "." TO_STR(VER_UPDATE)
+#endif
+
+#ifndef VER_PRODUCTVERSION_STR
+#define VER_PRODUCTVERSION_STR TO_STR(VER_MAJOR) "." TO_STR(VER_MINOR) "." \
+                               TO_STR(VER_UPDATE)
+#endif
+
+#ifndef VER_COMPANYNAME_STR
+#define VER_COMPANYNAME_STR "Intel Corporation"
+#endif
+
+#ifndef VER_LEGALCOPYRIGHT_YEARS
+#define VER_LEGALCOPYRIGHT_YEARS "2019-2020"
+#endif
+
+#ifndef VER_LEGALCOPYRIGHT_STR
+#define VER_LEGALCOPYRIGHT_STR "Copyright © " VER_LEGALCOPYRIGHT_YEARS " " \
+    VER_COMPANYNAME_STR
+#endif
+
+#ifndef VER_ORIGINALFILENAME_STR
+#define VER_ORIGINALFILENAME_STR VER_INTERNALNAME_STR
+#endif
+
+#ifndef VER_FILEFLAGSMASK
+#define VER_FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#endif
+
+#ifndef VER_FILEFLAGS
+#ifdef _DEBUG
+#define VER_FILEFLAGS 0x1L
+#else
+#define VER_FILEFLAGS 0x0L
+#endif
+#endif
+
+#ifndef VER_FILEOS
+#define VER_FILEOS VOS__WINDOWS32
+#endif
+
+#ifndef VER_FILESUBTYPE
+#define VER_FILESUBTYPE VFT2_UNKNOWN
+#endif
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    VER_FILEVERSION
+PRODUCTVERSION VER_PRODUCTVERSION
+FILEFLAGSMASK  VER_FILEFLAGSMASK
+FILEFLAGS      VER_FILEFLAGS
+FILEOS         VER_FILEOS
+FILETYPE       VER_FILETYPE
+FILESUBTYPE    VER_FILESUBTYPE
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"   /* LANG_ENGLISH/SUBLANG_ENGLISH_US, Unicode CP */
+        BEGIN
+            VALUE "CompanyName",     VER_COMPANYNAME_STR
+            VALUE "FileDescription", VER_FILEDESCRIPTION_STR
+            VALUE "FileVersion",     VER_FILEVERSION_STR
+            VALUE "InternalName",    VER_INTERNALNAME_STR
+            VALUE "LegalCopyright",  VER_LEGALCOPYRIGHT_STR
+            VALUE "OriginalFilename",VER_ORIGINALFILENAME_STR
+            VALUE "ProductName",     VER_PRODUCTNAME_STR
+            VALUE "ProductVersion",  VER_PRODUCTVERSION_STR
+        END
+    END
+
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END
+#endif // English
+
+#endif // INTEL_CUSTOMIZATION

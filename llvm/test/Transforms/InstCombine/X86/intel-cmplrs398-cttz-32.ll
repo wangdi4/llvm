@@ -9,8 +9,8 @@ define i32 @_Z9FindFirsty(i64 %b) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i64 @llvm.cttz.i64(i64 [[B:%.*]], i1 true), !range !0
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 [[B]], 0
-; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[TMP1]], i64 0, i64 [[TMP0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = trunc i64 [[TMP2]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = trunc i64 [[TMP0]] to i32
+; CHECK-NEXT:    [[TMP3:%.*]] = select i1 [[TMP1]], i32 0, i32 [[TMP2]]
 ; CHECK-NEXT:    ret i32 [[TMP3]]
 ;
 entry:

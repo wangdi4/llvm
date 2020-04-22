@@ -15,6 +15,7 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 #define LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
@@ -54,12 +55,14 @@ template <IRKind IR>
 #endif // INTEL_CUSTOMIZATION
 
 // Tables used for debug printing
-extern std::unordered_map<int, StringRef> WRNDefaultName;
-extern std::unordered_map<int, StringRef> WRNAtomicName;
-extern std::unordered_map<int, StringRef> WRNCancelName;
-extern std::unordered_map<int, StringRef> WRNProcBindName;
-extern std::unordered_map<int, StringRef> WRNLoopBindName;
-extern std::unordered_map<int, StringRef> WRNLoopOrderName;
+extern DenseMap<int, StringRef> WRNDefaultName;
+extern DenseMap<int, StringRef> WRNDefaultmapBehaviorName;
+extern DenseMap<int, StringRef> WRNDefaultmapCategoryName;
+extern DenseMap<int, StringRef> WRNAtomicName;
+extern DenseMap<int, StringRef> WRNCancelName;
+extern DenseMap<int, StringRef> WRNProcBindName;
+extern DenseMap<int, StringRef> WRNLoopBindName;
+extern DenseMap<int, StringRef> WRNLoopOrderName;
 
 //
 // Classes below represent list items used in many OMP clauses
@@ -112,6 +115,7 @@ class Item
     HVAR HOrigItem;       // original var for HIR
     bool IsF90DopeVector; // true for a F90 dope vector
     EXPR F90DVNumElements; // number of elements in the F90 DV
+    bool IsWILocal = false;
 #endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
                      // the offset into the thunk for the new var
@@ -182,6 +186,8 @@ class Item
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
     void setF90DVNumElements(EXPR Size){ F90DVNumElements = Size; }
     EXPR getF90DVNumElements() const   { return F90DVNumElements; }
+    void setIsWILocal(bool Flag)       { IsWILocal = Flag; }
+    bool getIsWILocal()          const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
 
     void printOrig(formatted_raw_ostream &OS, bool PrintType=true) const {
@@ -515,8 +521,10 @@ public:
     WRNReductionBxor,
     WRNReductionBand,
     WRNReductionBor,
-    WRNReductionEqv,  // Fortran; currently unsupported
-    WRNReductionNeqv, // Fortran; currently unsupported
+#if INTEL_CUSTOMIZATION
+    WRNReductionEqv,  // Fortran
+    WRNReductionNeqv, // Fortran
+#endif // INTEL_CUSTOMIZATION
     WRNReductionMax,
     WRNReductionMin,
     WRNReductionUdr   // user-defined reduction
@@ -530,14 +538,17 @@ public:
 
     // TODO: Combiner and Initializer are Function*'s from UDR.
     //       We should change Value* to Function* below.
-    Value *Combiner;
-    Value *Initializer;
+    RDECL Combiner;
+    RDECL Initializer;
+    RDECL Constructor;
+    RDECL Destructor;
     ArraySectionInfo ArrSecInfo;
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
-          IsInReduction(false), Combiner(nullptr), Initializer(nullptr) {}
+          IsInReduction(false), Combiner(nullptr), Initializer(nullptr),
+          Constructor(nullptr), Destructor(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -564,6 +575,14 @@ public:
         case QUAL_OMP_REDUCTION_BOR:
         case QUAL_OMP_INREDUCTION_BOR:
           return WRNReductionBor;
+#if INTEL_CUSTOMIZATION
+        case QUAL_OMP_REDUCTION_EQV:
+        case QUAL_OMP_INREDUCTION_EQV:
+          return WRNReductionEqv;
+        case QUAL_OMP_REDUCTION_NEQV:
+        case QUAL_OMP_INREDUCTION_NEQV:
+          return WRNReductionNeqv;
+#endif // INTEL_CUSTOMIZATION
         case QUAL_OMP_REDUCTION_MAX:
         case QUAL_OMP_INREDUCTION_MAX:
           return WRNReductionMax;
@@ -600,6 +619,12 @@ public:
           return QUAL_OMP_REDUCTION_BAND;
         case WRNReductionBor:
           return QUAL_OMP_REDUCTION_BOR;
+#if INTEL_CUSTOMIZATION
+        case WRNReductionEqv:
+          return QUAL_OMP_REDUCTION_EQV;
+        case WRNReductionNeqv:
+          return QUAL_OMP_REDUCTION_NEQV;
+#endif // INTEL_CUSTOMIZATION
         case WRNReductionMax:
           return QUAL_OMP_REDUCTION_MAX;
         case WRNReductionMin:
@@ -615,14 +640,19 @@ public:
     void setIsUnsigned(bool B)        { IsUnsigned = B;      }
     void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
-    void setCombiner(Value *Comb)     { Combiner = Comb;     }
-    void setInitializer(Value *Init)  { Initializer = Init;  }
+    void setCombiner(RDECL Comb)      { Combiner = Comb;     }
+    void setInitializer(RDECL Init)   { Initializer = Init;  }
+    void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
+    void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
     bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
-    Value *getCombiner()       const { return Combiner;      }
-    Value *getInitializer()    const { return Initializer;   }
+    RDECL getCombiner()        const { return Combiner;      }
+    RDECL getInitializer()     const { return Initializer;   }
+    RDECL getConstructor()     const { return Constructor;   }
+    RDECL getDestructor()      const { return Destructor;    }
+
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
     bool getIsArraySection() const {
@@ -692,15 +722,18 @@ class LinearItem : public Item
 #if INTEL_CUSTOMIZATION
     HEXPR HStep; // Item's Step for HIR
 #endif // INTEL_CUSTOMIZATION
+    bool IsIV; // Linear clause is for a loop IV, whose value is being
+               // computed in each iteration using close-form computation on
+               // the normalized loop IV.
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
 #if INTEL_CUSTOMIZATION
     LinearItem(VAR Orig)
-        : Item(Orig, IK_Linear), Step(nullptr), HStep(nullptr) {}
+        : Item(Orig, IK_Linear), Step(nullptr), HStep(nullptr), IsIV(false) {}
 #else
-    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr) {}
+    LinearItem(VAR Orig) : Item(Orig, IK_Linear), Step(nullptr), IsIV(false) {}
 #endif // INTEL_CUSTOMIZATION
     void setStep(EXPR S) { Step = S; }
     EXPR getStep() const { return Step; }
@@ -708,9 +741,13 @@ class LinearItem : public Item
     void setHStep(HEXPR S) { HStep = S; }
     template <IRKind IR = LLVMIR> ExprType<IR> getStep() const;
 #endif // INTEL_CUSTOMIZATION
+    void setIsIV(bool Flag) { IsIV = Flag; }
+    bool getIsIV() const { return IsIV; }
 
     // Specialized print() to output the stride as well
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsIV())
+        OS << "IV";
       OS << "(";
       printOrig(OS, PrintType);
       OS << ", ";
@@ -782,19 +819,25 @@ private:
   Value *BasePtr;
   Value *SectionPtr;
   Value *Size;
+  uint64_t MapType;
 public:
-  MapAggrTy(Value *BP, Value *SP, Value *Sz) : BasePtr(BP), SectionPtr(SP),
-                                               Size(Sz) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz)
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(0) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT)
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT) {}
   void setBasePtr(Value *BP) { BasePtr = BP; }
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
+  void setMapType(uint64_t MT) { MapType = MT;}
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
+  uint64_t getMapType() const { return MapType; }
 };
 
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
+class UseDevicePtrItem;
 //
 //   MapItem: OMP MAP clause item
 //
@@ -803,25 +846,36 @@ class MapItem : public Item
 private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
+  UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
   MapChainTy MapChain;
-  ArraySectionInfo ArrSecInfo;      // For TARGET UPDATE TO/FROM clauses
+  ArraySectionInfo ArrSecInfo;    // For TARGET UPDATE TO/FROM clauses
+  Instruction *BasePtrGEPForOrig; // GEP for Orig in the  baseptrs struct sent
+                                  // to tgt runtime calls.
 
 public:
   enum WRNMapKind {
     WRNMapNone       = 0x0000,
+    // map types:
     WRNMapTo         = 0x0001,
     WRNMapFrom       = 0x0002,
-    WRNMapAlways     = 0x0004,
-    WRNMapDelete     = 0x0008,
-    WRNMapAlloc      = 0x0010,
-    WRNMapRelease    = 0x0020,
-    WRNMapUpdateTo   = 0x0040,
-    WRNMapUpdateFrom = 0x0080,
+    WRNMapAlloc      = 0x0004,
+    WRNMapRelease    = 0x0008,
+    WRNMapDelete     = 0x0010,
+    // update to/from clauses:
+    WRNMapUpdateTo   = 0x0020,
+    WRNMapUpdateFrom = 0x0040,
+    // map-type modifiers:
+    WRNMapAlways     = 0x0080,
+    WRNMapClose      = 0x0100,
+    WRNMapPresent    = 0x0200,
   } WRNMapKind;
 
-  MapItem(VAR Orig) : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr) {}
+  MapItem(VAR Orig)
+      : Item(Orig, IK_Map), MapKind(0), InFirstprivate(nullptr),
+        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {}
   MapItem(MapAggrTy *Aggr)
-      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr) {
+      : Item(nullptr, IK_Map), MapKind(0), InFirstprivate(nullptr),
+        InUseDevicePtr(nullptr), BasePtrGEPForOrig(nullptr) {
     MapChain.push_back(Aggr);
   }
   ~MapItem() {
@@ -858,7 +912,7 @@ public:
     MapChain.push_back(Aggr);
   }
 
-  bool getIsMapChain() const { return MapChain.size() > 0; }
+  bool getIsMapChain() const { return !MapChain.empty(); }
 
   static unsigned getMapKindFromClauseId(int Id) {
     switch(Id) {
@@ -891,21 +945,26 @@ public:
       case QUAL_OMP_MAP_ALWAYS_DELETE:
         return WRNMapDelete | WRNMapAlways;
       default:
-        llvm_unreachable("Unsupported MAP Clause ID");
+        return WRNMapNone;
     }
   };
 
   void setMapKind(unsigned MK) { MapKind = MK; }
   void setIsMapTo()      { MapKind |= WRNMapTo; }
   void setIsMapFrom()    { MapKind |= WRNMapFrom; }
-  void setIsMapTofrom() { MapKind |= WRNMapFrom | WRNMapTo; }
+  void setIsMapTofrom()  { MapKind |= WRNMapFrom | WRNMapTo; }
   void setIsMapAlloc()   { MapKind |= WRNMapAlloc; }
   void setIsMapRelease() { MapKind |= WRNMapRelease; }
   void setIsMapDelete()  { MapKind |= WRNMapDelete; }
   void setIsMapAlways()  { MapKind |= WRNMapAlways; }
+  void setIsMapClose()   { MapKind |= WRNMapClose; }
+  void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
+  void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
+  void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
 
   unsigned getMapKind()     const { return MapKind; }
+  bool getIsMapNone()       const { return MapKind == WRNMapNone; }
   bool getIsMapTo()         const { return MapKind & WRNMapTo; }
   bool getIsMapFrom()       const { return MapKind & WRNMapFrom; }
   bool getIsMapTofrom()     const { return (MapKind & WRNMapFrom) &&
@@ -914,9 +973,13 @@ public:
   bool getIsMapRelease()    const { return MapKind & WRNMapRelease; }
   bool getIsMapDelete()     const { return MapKind & WRNMapDelete; }
   bool getIsMapAlways()     const { return MapKind & WRNMapAlways; }
+  bool getIsMapClose()      const { return MapKind & WRNMapClose; }
+  bool getIsMapPresent()    const { return MapKind & WRNMapPresent; }
   bool getIsMapUpdateTo()   const { return MapKind & WRNMapUpdateTo; }
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
+  UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
+  Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
 
   ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
   const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
@@ -932,13 +995,16 @@ public:
         Value *BasePtr = Aggr->getBasePtr();
         Value *SectionPtr = Aggr->getSectionPtr();
         Value *Size = Aggr->getSize();
+        uint64_t MapType = Aggr->getMapType();
         OS << "<" ;
         BasePtr->printAsOperand(OS, PrintType);
         OS << ", ";
         SectionPtr->printAsOperand(OS, PrintType);
         OS << ", ";
         Size->printAsOperand(OS, PrintType);
-        OS << "> ";
+        OS << ", ";
+        OS << MapType;
+        OS <<  "> ";
       }
       OS << ") ";
     } else if (getIsArraySection()) {
@@ -973,11 +1039,13 @@ class IsDevicePtrItem : public Item
 //
 class UseDevicePtrItem : public Item
 {
-  public:
-    UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
-    static bool classof(const Item *I) {
-      return I->getKind() == IK_UseDevicePtr;
-    }
+  MapItem *InMap;
+
+public:
+  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+  void setInMap(MapItem *MI) { InMap = MI; }
+  MapItem *getInMap() const { return InMap; }
+  static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
 };
 
 
@@ -1001,20 +1069,19 @@ class DependItem
     VAR   Base;           // scalar item or base of array section
     bool  IsByRef;        // true if Base is by-reference
     bool  IsIn;           // depend type: true for IN; false for OUT/INOUT
-    bool  IsArraySection; // if true, then lb, length, stride below are used
     EXPR  LowerBound;     // null if unspecified
     EXPR  Length;         // null if unspecified
     EXPR  Stride;         // null if unspecified
+    ArraySectionInfo ArrSecInfo;
 
   public:
-    DependItem(VAR V=nullptr) : Base(V), IsByRef(false), IsIn(true),
-    IsArraySection(false), LowerBound(nullptr), Length(nullptr),
-    Stride(nullptr) {}
+    DependItem(VAR V = nullptr)
+        : Base(V), IsByRef(false), IsIn(true), LowerBound(nullptr),
+          Length(nullptr), Stride(nullptr) {}
 
     void setOrig(VAR V)         { Base = V; }
     void setIsByRef(bool Flag)  { IsByRef = Flag; }
     void setIsIn(bool Flag)     { IsIn = Flag; }
-    void setIsArrSec(bool Flag) { IsArraySection = Flag; }
     void setLb(EXPR Lb)         { LowerBound = Lb;   }
     void setLength(EXPR Len)    { Length = Len;  }
     void setStride(EXPR Str)    { Stride = Str;  }
@@ -1022,14 +1089,22 @@ class DependItem
     VAR  getOrig()      const   { return Base; }
     bool getIsByRef()   const   { return IsByRef; }
     bool getIsIn()      const   { return IsIn; }
-    bool getIsArrSec()  const   { return IsArraySection; }
     EXPR getLb()        const   { return LowerBound; }
     EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
+    ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
+    const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
+    bool getIsArraySection() const {
+      return !ArrSecInfo.getArraySectionDims().empty();
+    };
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       if (getIsByRef())
         OS << "BYREF";
+      if (getIsArraySection()) {
+        OS << " ";
+        ArrSecInfo.print(OS, PrintType);
+      }
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -1111,6 +1186,7 @@ template <typename ClauseItem> class Clause
 {
   friend class WRegionNode;
   friend class WRegionUtils;
+  friend class VPOParoptTransform;
   private:
     typedef typename std::vector<ClauseItem*>       ItemArray;
     typedef typename ItemArray::iterator            Iterator;
@@ -1255,6 +1331,34 @@ typedef enum WRNDefaultKind {
     WRNDefaultPrivate,        // default(private) // Fortran only
     WRNDefaultFirstprivate    // default(firstprivate) //Fortran only
 } WRNDefaultKind;
+
+typedef enum WRNDefaultmapBehavior {
+    WRNDefaultmapAbsent = 0,      // defaultmap clause not present
+    WRNDefaultmapAlloc,           // defaultmap(alloc        [:<category>] )
+    WRNDefaultmapTo,              // defaultmap(to           [:<category>] )
+    WRNDefaultmapFrom,            // defaultmap(from         [:<category>] )
+    WRNDefaultmapToFrom,          // defaultmap(tofrom       [:<category>] )
+    WRNDefaultmapFirstprivate,    // defaultmap(firstprivate [:<category>] )
+    WRNDefaultmapNone,            // defaultmap(none         [:<category>] )
+    WRNDefaultmapDefault,         // defaultmap(default      [:<category>] )
+    WRNDefaultmapPresent          // defaultmap(present      [:<category>] )
+} WRNDefaultmapBehavior;
+
+// Table to get defaultmap behavior from ClauseID QUAL_OMP_DEFAULTMAP_<behavior>
+extern DenseMap<int, WRNDefaultmapBehavior> WRNDefaultmapBehaviorFromClauseID;
+
+typedef enum WRNDefaultmapCategory {
+    WRNDefaultmapAllVars = 0,     // defaultmap(<behavior>) with no category
+                                  // specified; <behavior> applies to all vars
+    WRNDefaultmapAggregate,       // defaultmap(<behavior>:aggregate)
+#if INTEL_CUSTOMIZATION
+    // Fortran only
+    WRNDefaultmapAllocatable,     // defaultmap(<behavior>:allocatable)
+#endif // INTEL_CUSTOMIZATION
+    WRNDefaultmapPointer,         // defaultmap(<behavior>:pointer)
+    WRNDefaultmapScalar,          // defaultmap(<behavior>:scalar)
+    WRNDefaultmapCategorySize     // last entry in enum
+} WRNDefaultmapCategory;
 
 typedef enum WRNAtomicKind {
     WRNAtomicUpdate = 0,

@@ -106,16 +106,14 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
     return false;
 
   SmallVector<const VPInstruction *, 1> Insts(
-      map_range(Block->vpinstructions(),
-                [](const VPInstruction &Inst) { return &Inst; }));
+      map_range(*Block, [](const VPInstruction &Inst) { return &Inst; }));
   if (Insts.size() != 1)
     return false;
   if (Insts[0]->getOpcode() != Instruction::And)
     return false;
 
   SmallVector<const VPInstruction *, 4> PredInsts(
-      map_range(SinglePred->vpinstructions(),
-                [](const VPInstruction &Inst) { return &Inst; }));
+      map_range(*SinglePred, [](const VPInstruction &Inst) { return &Inst; }));
   if (PredInsts.size() != 4)
     return false;
   if (PredInsts[0]->getOpcode() != VPInstruction::Pred)
@@ -141,10 +139,8 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
                                const bool AllowSpeculation) {
   bool HasIf = false;
 
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
-    if (!isa<const VPInstruction>(&Recipe))
-      continue;
-    const auto Inst = cast<const VPInstruction>(&Recipe);
+  for (const VPInstruction &InstRef : *Block) {
+    const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
@@ -272,10 +268,8 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
   // Item that is found in the list being searched.
   const RegDDRef *ListItemRef = nullptr;
 
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
-    if (!isa<const VPInstruction>(&Recipe))
-      continue;
-    const auto Inst = cast<const VPInstruction>(&Recipe);
+  for (const VPInstruction &InstRef : *Block) {
+    const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
@@ -347,10 +341,12 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
     ListItemRef = PredLhs;
 
     // Check that struct pointer size is same as loop bound's size.
-    HLNodeUtils &HNU = If->getParentLoop()->getHLNodeUtils();
+    const HLLoop *IfParLoop = If->getParentLoop();
+    assert(IfParLoop && "Expected the HLIf to have a valid parent-loop");
+    HLNodeUtils &HNU = IfParLoop->getHLNodeUtils();
     CanonExprUtils &CEU = HNU.getCanonExprUtils();
     unsigned PtrSize = CEU.getTypeSizeInBytes(PredLhsType);
-    const RegDDRef *LoopUB = If->getParentLoop()->getUpperDDRef();
+    const RegDDRef *LoopUB = IfParLoop->getUpperDDRef();
     assert(LoopUB && "Cannot find UB DDRef of loop.");
     unsigned LoopUBTypeSize = CEU.getTypeSizeInBytes(LoopUB->getDestType());
 
@@ -440,17 +436,6 @@ bool VPlanIdioms::checkStructPtrEqThenNodes(const HLIf *If,
   return true;
 }
 
-// In some cases vectorizer creates additional basic block with mask
-// mask computations, which are safe to vectorize.
-bool VPlanIdioms::isSafeBlockForSearchLoop(const VPBasicBlock *Block) {
-  for (const VPRecipeBase &Recipe : Block->getRecipes()) {
-    if (!isa<const VPInstruction>(&Recipe))
-      continue;
-    return false;
-  }
-  return true;
-}
-
 // Check that all VPInstructions in non-trivial exit block are supported.
 // This function is more important for what CG can handle, rather then for
 // vectorization legality.
@@ -497,7 +482,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
 
   // For the search loop idiom we expect 1-2 exit blocks and two exiting block.
   const VPLoop *VPL = *VPLI->begin();
-  SmallVector<VPBlockBase *, 8> Exitings, Exits;
+  SmallVector<VPBasicBlock *, 8> Exitings, Exits;
   VPL->getExitingBlocks(Exitings);
   VPL->getExitBlocks(Exits);
 
@@ -506,8 +491,8 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
     return VPlanIdioms::Unknown;
   }
 
-  SmallDenseSet<const VPBlockBase *> IgnoreBlocks;
-  const VPBasicBlock *Latch = dyn_cast<VPBasicBlock>(VPL->getLoopLatch());
+  SmallDenseSet<const VPBasicBlock *> IgnoreBlocks;
+  const VPBasicBlock *Latch = VPL->getLoopLatch();
   assert(Latch && "VPLoop does not have loop latch block.");
   if (!isSafeLatchBlockForSearchLoop(Latch)) {
     LLVM_DEBUG(dbgs() << "    Search loop is unsafe.\n");
@@ -516,16 +501,15 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   IgnoreBlocks.insert(Latch);
   IgnoreBlocks.insert(Latch->getSinglePredecessor());
 
-  for (const VPBlockBase *Exit : Exits) {
-    if (!isSafeExitBlockForSearchLoop(cast<VPBasicBlock>(Exit))) {
+  for (const VPBasicBlock *Exit : Exits) {
+    if (!isSafeExitBlockForSearchLoop(Exit)) {
       LLVM_DEBUG(dbgs() << "    Search loop is unsafe.n\n");
       return VPlanIdioms::Unsafe;
     }
     IgnoreBlocks.insert(Exit);
   }
 
-  const auto Header =
-      cast<const VPBasicBlock>(VPL->getHeader());
+  const VPBasicBlock *Header = VPL->getHeader();
   // Recognize specific patterns only for the header of the loop. All other
   // blocks will (except Exit block) will be treated unsafe.
   VPlanIdioms::Opcode Opcode = isStrEqSearchLoop(Header, false);
@@ -550,23 +534,22 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   }
   IgnoreBlocks.insert(Header);
 
-  if (const VPBlockBase *Succ = Header->getSingleSuccessor())
-    if (const auto *BB = dyn_cast<VPBasicBlock>(Succ)) {
-      if (!isSafeBlockForSearchLoop(BB)) {
-        LLVM_DEBUG(dbgs() << "    Search loop is unsafe.\n");
-        return VPlanIdioms::Unsafe;
-      }
-      IgnoreBlocks.insert(BB);
+  if (const VPBasicBlock *Succ = Header->getSingleSuccessor()) {
+    // Search loop idiom expects the successor block to be empty.
+    if (!Succ->empty()) {
+      LLVM_DEBUG(dbgs() << "    Search loop is unsafe.\n");
+      return VPlanIdioms::Unsafe;
     }
+    IgnoreBlocks.insert(Succ);
+  }
 
-  ReversePostOrderTraversal<const VPBlockBase *> RPOT(Header);
+  ReversePostOrderTraversal<const VPBasicBlock *> RPOT(Header);
   // Visit the VPBlocks connected to "this", starting from it.
-  for (const VPBlockBase *Block : RPOT) {
+  for (const VPBasicBlock *Block : RPOT) {
     // Blocks outside of the loop are safe to execute. Latch and Header blocks
     // were already visited.
     // Every other block is assumed to be unsafe for search loop vectorization.
-    if (IgnoreBlocks.count(Block) || !isa<VPBasicBlock>(Block) ||
-        !VPL->contains(Block))
+    if (IgnoreBlocks.count(Block) || !VPL->contains(Block))
       continue;
 
     LLVM_DEBUG(dbgs() << "        " << Block->getName() << " is unsafe\n");

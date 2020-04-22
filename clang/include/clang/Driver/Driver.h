@@ -204,6 +204,13 @@ public:
   /// Whether the driver is generating diagnostics for debugging purposes.
   unsigned CCGenDiagnostics : 1;
 
+  /// Pointer to the ExecuteCC1Tool function, if available.
+  /// When the clangDriver lib is used through clang.exe, this provides a
+  /// shortcut for executing the -cc1 command-line directly, in the same
+  /// process.
+  typedef int (*CC1ToolFunc)(SmallVectorImpl<const char *> &ArgV);
+  CC1ToolFunc CC1Main = nullptr;
+
 private:
   /// Raw target triple.
   std::string TargetTriple;
@@ -333,9 +340,7 @@ public:
       return InstalledDir.c_str();
     return Dir.c_str();
   }
-  void setInstalledDir(StringRef Value) {
-    InstalledDir = Value;
-  }
+  void setInstalledDir(StringRef Value) { InstalledDir = std::string(Value); }
 
   bool isSaveTempsEnabled() const { return SaveTemps != SaveTempsNone; }
   bool isSaveTempsObj() const { return SaveTemps == SaveTempsObj; }
@@ -454,8 +459,10 @@ public:
 
   /// PrintHelp - Print the help text.
   ///
-  /// \param ShowHidden - Show hidden options.
-  void PrintHelp(bool ShowHidden) const;
+#if INTEL_CUSTOMIZATION
+  /// \param Args - arguments used to control help information
+  void PrintHelp(const llvm::opt::ArgList &Args) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
   void PrintSYCLToolHelp(const Compilation &C) const;
@@ -616,6 +623,15 @@ private:
           &CachedResults,
       Action::OffloadKind TargetDeviceOffloadKind) const;
 
+  /// Static offload library seen.
+  bool OffloadStaticLibSeen = false;
+
+  void setOffloadStaticLibSeen() { OffloadStaticLibSeen = true; }
+
+  /// Returns true if an offload static library is found.
+  bool checkForOffloadStaticLib(Compilation &C,
+                                llvm::opt::DerivedArgList &Args) const;
+
 public:
   /// GetReleaseVersion - Parse (([0-9]+)(.([0-9]+)(.([0-9]+)?))?)? and
   /// return the grouped values as integers. Numbers which are not
@@ -637,6 +653,8 @@ public:
                                 MutableArrayRef<unsigned> Digits);
   /// Compute the default -fmodule-cache-path.
   static void getDefaultModuleCachePath(SmallVectorImpl<char> &Result);
+
+  bool getOffloadStaticLibSeen() const { return OffloadStaticLibSeen; };
 };
 
 /// \return True if the last defined optimization level is -Ofast.
@@ -645,6 +663,12 @@ bool isOptimizationLevelFast(const llvm::opt::ArgList &Args);
 
 /// \return True if the filename has a valid object file extension.
 bool isObjectFile(std::string FileName);
+
+/// \return True if the filename has a static archive/lib extension.
+bool isStaticArchiveFile(const StringRef &FileName);
+
+/// \return True if the argument combination will end up generating remarks.
+bool willEmitRemarks(const llvm::opt::ArgList &Args);
 
 } // end namespace driver
 } // end namespace clang

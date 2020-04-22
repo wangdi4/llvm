@@ -32,7 +32,7 @@ __m512 foo(__m512 a, float f0, double d0)
   //CHECK: call svml_cc <16 x float> @__svml_sinf16(<16 x float> {{.*}}) [[ATTR7:#[0-9]+]]
   v = _mm512_sin_ps(a);
 
-  //CHECK: call svml_cc <16 x float> @__svml_exp2f16(<16 x float> {{.*}}) [[ATTR6]]
+  //CHECK: call svml_cc <16 x float> @__svml_exp2f16(<16 x float> {{.*}}) [[ATTR8:#[0-9]+]]
   return _mm512_exp2_ps(a);
 }
 
@@ -45,3 +45,4 @@ __m512 foo(__m512 a, float f0, double d0)
 //CHECK-SAME: "imf-precision"="high"
 //CHECK: attributes [[ATTR6]] = {{{.*}}"imf-precision"="high"
 //CHECK: attributes [[ATTR7]] = {{{.*}}"imf-precision"="low"
+//CHECK: attributes [[ATTR8]] = {{{.*}}"imf-precision"="high"

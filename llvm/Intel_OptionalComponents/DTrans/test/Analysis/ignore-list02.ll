@@ -41,15 +41,13 @@ define i32 @main() {
 ; CHECK-NEXT:    Multiple Value: [ 0 ] <incomplete>
 ; CHECK-NEXT:    Multiple IA Value: [  ] <incomplete>
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
-; CHECK-NEXT:  Field LLVM Type: i32
+; CHECK:  Field LLVM Type: i32
 ; CHECK-NEXT:    Field info:
 ; CHECK-NEXT:    Frequency: 0
 ; CHECK-NEXT:    Multiple Value: [ 0 ] <incomplete>
 ; CHECK-NEXT:    Multiple IA Value: [  ] <incomplete>
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
-; CHECK-NEXT:  Total Frequency: 0
-; CHECK-NEXT:  Call graph:
-; CHECK-NEXT:  Safety data: Bad casting | Global instance
+; CHECK:  Safety data: Bad casting | Global instance
 
 ; CHECK-LABEL:  LLVMType: %struct.mystruct = type { i8*, i32 }
 ; CHECK-NEXT:  Name: struct.mystruct
@@ -61,12 +59,10 @@ define i32 @main() {
 ; CHECK-NEXT:    Multiple Value: [ null ] <incomplete> (ignored)
 ; CHECK-NEXT:    Multiple IA Value: [  ] <incomplete>
 ; CHECK-NEXT:    Single Alloc Function: i8* (i64)* @malloc (ignored)
-; CHECK-NEXT:  Field LLVM Type: i32
+; CHECK:  Field LLVM Type: i32
 ; CHECK-NEXT:    Field info:
 ; CHECK-NEXT:    Frequency: 0
 ; CHECK-NEXT:    Single Value: i32 0 (ignored)
 ; CHECK-NEXT:    Multiple IA Value: [  ] <incomplete>
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
-; CHECK-NEXT:  Total Frequency: 1
-; CHECK-NEXT:  Call graph:
-; CHECK-NEXT:  Safety data: Bad casting | Global instance
+; CHECK:  Safety data: Bad casting | Global instance

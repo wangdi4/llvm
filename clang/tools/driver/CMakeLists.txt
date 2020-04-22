@@ -13,6 +13,7 @@ set( LLVM_LINK_COMPONENTS
   Option
   ScalarOpts
   Support
+  SYCLLowerIR
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
@@ -20,6 +21,7 @@ set( LLVM_LINK_COMPONENTS
   Intel_LoopTransforms
   Intel_MapIntrinToIml
   Intel_OptReport
+  Intel_DPCPPKernelTransforms
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   VPOAnalysis
@@ -67,7 +69,7 @@ endif()
 
 # Support plugins.
 if(CLANG_PLUGIN_SUPPORT)
-  export_executable_symbols(clang)
+  export_executable_symbols_for_plugins(clang)
 endif()
 
 add_dependencies(clang clang-resource-headers)
@@ -146,7 +148,3 @@ if (p)
 endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-
-if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
-  target_link_libraries(clang PRIVATE Polly)
-endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)

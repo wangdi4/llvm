@@ -1,6 +1,6 @@
 //===----------------- DTransAnalysis.h - DTrans Analysis -----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -200,9 +200,8 @@ public:
   // invalid targets to 'Targets' vector and returns false if there are any
   // unknown/invalid targets.
   //
-  bool GetFuncPointerPossibleTargets(llvm::Value *FP,
-                                     std::vector<llvm::Value *> &Targets,
-                                     llvm::CallSite, bool);
+  bool GetFuncPointerPossibleTargets(Value *FP, std::vector<Value *> &Targets,
+                                     CallBase *, bool);
 
   // A helper routine to retrieve structure type - field index pair from a
   // GEPOperator. The helper routine can handle GEPOperators in both normal form
@@ -278,6 +277,7 @@ public:
                                  unsigned &StructIndex) const;
 
 private:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printStructInfo(dtrans::StructInfo *AI);
   void printArrayInfo(dtrans::ArrayInfo *AI);
   void printFieldInfo(dtrans::FieldInfo &FI,
@@ -286,6 +286,7 @@ private:
   // Prints the list of transformations for which the type was marked as
   // ignored in command line option.
   void printIgnoreTransListForStructure(dtrans::StructInfo *SI);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
   void destructCallInfo(dtrans::CallInfo *Info);

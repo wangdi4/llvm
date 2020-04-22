@@ -113,19 +113,6 @@ void foo9(slave_arg int *i_par1)
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
-void foo10(slave_arg __attribute__((internal_max_block_ram_depth(32)))
-           int *i_par1)
-{}
-// CHECK: FunctionDecl{{.*}}foo10
-// CHECK: ParmVarDecl{{.*}}i_par1
-// CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
-// CHECK: InternalMaxBlockRamDepthAttr
-// CHECK-NEXT: ConstantExpr
-// CHECK-NEXT: IntegerLiteral{{.*}}32{{$}}
-// CHECK: ComponentAttr
-
-__attribute__((ihc_component))
 void foo13(slave_arg __attribute__((readwrite_mode("readonly"))) int *i)
 {}
 // CHECK: FunctionDecl{{.*}}foo13
@@ -216,12 +203,6 @@ void bar7c(
   not_slave_arg3 __attribute__((bank_bits(1,2)))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
-__attribute__((ihc_component))
-void bar10a(
-  not_slave_arg1 __attribute__((internal_max_block_ram_depth(32)))
-  int *i) {}
-
 __attribute__((ihc_component))
 void bar11(
   //expected-error@+1{{'numbanks' attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
@@ -232,20 +213,6 @@ void baz1(
   //expected-error@+1{{'register' attribute only applies to constant variables, local variables, static variables, and non-static data members}}
   slave_arg __attribute__((register))
   int *i) {}
-
-void baz2(
-  slave_arg
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((argument_interface("avalon_mm_slave")))
-  __attribute__((internal_max_block_ram_depth(32)))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int *i0,
-  slave_arg
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((internal_max_block_ram_depth(32)))
-  __attribute__((argument_interface("avalon_mm_slave")))
-  //expected-note@-2 {{conflicting attribute is here}}
-  int *ip) {}
 
 //expected-error@+1{{readwrite type must be 'readonly', 'writeonly' or 'readwrite'}}
 void bar13(slave_arg __attribute__((readwrite_mode("anythingelse")))

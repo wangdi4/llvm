@@ -21,8 +21,7 @@
 
 using namespace llvm;
 
-/// initializeVectorizationPasses - Initialize all passes linked into the
-/// Vectorization library.
+/// Initialize all passes linked into the Vectorization library.
 void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeLoopVectorizePass(Registry);
   initializeSLPVectorizerPass(Registry);
@@ -32,7 +31,9 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeMathLibraryFunctionsReplacementLegacyPassPass(Registry);
   initializeVPlanDriverPass(Registry);
   initializeVPlanDriverHIRPass(Registry);
+  initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
 #endif
+  initializeVectorCombineLegacyPassPass(Registry);
 }
 
 void LLVMInitializeVectorization(LLVMPassRegistryRef R) {

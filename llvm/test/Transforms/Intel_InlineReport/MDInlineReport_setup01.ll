@@ -23,10 +23,10 @@
 ; CHECK: !intel.function.inlining.report [[Z_FIR:![0-9]+]] dso_local void @z(...)
 
 ; CHECK: !intel.module.inlining.report = !{[[MAIN_FIR]], [[B_FIR]], [[A_FIR]], [[X_FIR]], [[Y_FIR]], [[Z_FIR]]}
-; CHECK: [[MAIN_FIR]] = distinct !{!"intel.function.inlining.report", [[MAIN_NAME:![0-9]+]], [[MAIN_CSs:![0-9]+]], [[MODULE_NAME:![0-9]+]], [[ISDEAD_0:![0-9]+]], [[ISDECL_0:![0-9]+]], [[LINK_A:![0-9]+]]}
+; CHECK: [[MAIN_FIR]] = distinct !{!"intel.function.inlining.report", [[MAIN_NAME:![0-9]+]], [[MAIN_CSs:![0-9]+]], [[MODULE_NAME:![0-9]+]], [[ISDEAD_0:![0-9]+]], [[ISDECL_0:![0-9]+]], [[LINK_A:![0-9]+]], [[SUPPRESS_PRINT:![0-9]+]]}
 ; CHECK-NEXT: [[MAIN_NAME]] = !{!"name: main"}
 ; CHECK-NEXT: [[MAIN_CSs]] = distinct !{!"intel.callsites.inlining.report", [[A1_MAIN_CS:![0-9]+]], [[B_MAIN_CS:![0-9]+]], [[A2_MAIN_CS:![0-9]+]]}
-; CHECK-NEXT: [[A1_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME:![0-9]+]], null, [[INL_0:![0-9]+]], [[REASON_NO_REASON:![0-9]+]], [[INL_COST:![0-9]+]], [[OUT_INL_COST:![0-9]+]], [[INL_TR:![0-9]+]], [[EE_COST:![0-9]+]], [[EE_TR:![0-9]+]], !"line: 11 col: 3", [[MODULE_NAME]]}
+; CHECK-NEXT: [[A1_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME:![0-9]+]], null, [[INL_0:![0-9]+]], [[REASON_NO_REASON:![0-9]+]], [[INL_COST:![0-9]+]], [[OUT_INL_COST:![0-9]+]], [[INL_TR:![0-9]+]], [[EE_COST:![0-9]+]], [[EE_TR:![0-9]+]], !"line: 11 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT:![0-9]+]]}
 ; CHECK-NEXT: [[A_NAME]] = !{!"name: a"}
 ; CHECK-NEXT: [[INL_0]] = !{!"isInlined: 0"}
 ; CHECK-NEXT: [[REASON_NO_REASON]] = !{!"reason: {{[0-9]+}}"}
@@ -36,28 +36,29 @@
 ; CHECK-NEXT: [[EE_COST]] = !{!"earlyExitCost: 2147483647"}
 ; CHECK-NEXT: [[EE_TR]] = !{!"earlyExitThreshold: 2147483647"}
 ; CHECK-NEXT: [[MODULE_NAME]] = !{!"moduleName: <stdin>"}
-; CHECK-NEXT: [[B_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[B_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN:![0-9]+]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 12 col: 3", [[MODULE_NAME]]}
+; CHECK-NEXT: [[SUPPRESS_PRINT]] = !{!"isSuppressPrint: 0"}
+; CHECK-NEXT: [[B_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[B_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN:![0-9]+]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 12 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[B_NAME]] = !{!"name: b"}
 ; CHECK-NEXT: [[REASON_EXTRN]] = !{!"reason: {{[0-9]+}}"}
-; CHECK-NEXT: [[A2_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 13 col: 3", [[MODULE_NAME]]}
+; CHECK-NEXT: [[A2_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[A_NAME]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 13 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[ISDEAD_0]] = !{!"isDead: 0"}
 ; CHECK-NEXT: [[ISDECL_0]] = !{!"isDeclaration: 0"}
 ; CHECK-NEXT: [[LINK_A]] = !{!"linkage: A"}
-; CHECK-NEXT: [[B_FIR]] = distinct !{!"intel.function.inlining.report", [[B_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1:![0-9]+]], [[LINK_A]]}
+; CHECK-NEXT: [[B_FIR]] = distinct !{!"intel.function.inlining.report", [[B_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1:![0-9]+]], [[LINK_A]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[ISDECL_1]] = !{!"isDeclaration: 1"}
-; CHECK-NEXT: [[A_FIR]] = distinct !{!"intel.function.inlining.report", [[A_NAME]], [[A_CSs:![0-9]+]], [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_0]], [[LINK_A]]}
+; CHECK-NEXT: [[A_FIR]] = distinct !{!"intel.function.inlining.report", [[A_NAME]], [[A_CSs:![0-9]+]], [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_0]], [[LINK_A]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[A_CSs]] = distinct !{!"intel.callsites.inlining.report", [[X_A_CS:![0-9]+]], [[Y_A_CS:![0-9]+]]}
-; CHECK-NEXT: [[X_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[X_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 18 col: 3", [[MODULE_NAME]]}
+; CHECK-NEXT: [[X_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[X_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 18 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[X_NAME]] = !{!"name: x"}
-; CHECK-NEXT: [[Y_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[Y_NAME:![0-9]+]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 19 col: 3", [[MODULE_NAME]]}
+; CHECK-NEXT: [[Y_A_CS]] = distinct !{!"intel.callsite.inlining.report", [[Y_NAME:![0-9]+]], null, [[INL_0]], [[REASON_NO_REASON]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 19 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[Y_NAME]] = !{!"name: y"}
-; CHECK-NEXT: [[X_FIR]] = distinct !{!"intel.function.inlining.report", [[X_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1]], [[LINK_A]]}
-; CHECK-NEXT: [[Y_FIR]] = distinct !{!"intel.function.inlining.report", [[Y_NAME]], [[Y_CSs:![0-9]+]], [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_0]], [[LINK_L:![0-9]+]]}
+; CHECK-NEXT: [[X_FIR]] = distinct !{!"intel.function.inlining.report", [[X_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1]], [[LINK_A]], [[SUPPRESS_PRINT]]}
+; CHECK-NEXT: [[Y_FIR]] = distinct !{!"intel.function.inlining.report", [[Y_NAME]], [[Y_CSs:![0-9]+]], [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_0]], [[LINK_L:![0-9]+]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[Y_CSs]] = distinct !{!"intel.callsites.inlining.report", [[Z_Y_CS:![0-9]+]]}
-; CHECK-NEXT: [[Z_Y_CS]] = distinct !{!"intel.callsite.inlining.report", [[Z_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 23 col: 3", [[MODULE_NAME]]}
+; CHECK-NEXT: [[Z_Y_CS]] = distinct !{!"intel.callsite.inlining.report", [[Z_NAME:![0-9]+]], null, [[INL_0]], [[REASON_EXTRN]], [[INL_COST]], [[OUT_INL_COST]], [[INL_TR]], [[EE_COST]], [[EE_TR]], !"line: 23 col: 3", [[MODULE_NAME]], [[SUPPRESS_PRINT]]}
 ; CHECK-NEXT: [[Z_NAME]] = !{!"name: z"}
 ; CHECK-NEXT: [[LINK_L]] = !{!"linkage: L"}
-; CHECK-NEXT: [[Z_FIR]] = distinct !{!"intel.function.inlining.report", [[Z_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1]], [[LINK_A]]}
+; CHECK-NEXT: [[Z_FIR]] = distinct !{!"intel.function.inlining.report", [[Z_NAME]], null, [[MODULE_NAME]], [[ISDEAD_0]], [[ISDECL_1]], [[LINK_A]], [[SUPPRESS_PRINT]]}
 
 
 ; Original IR with no inline report metadata.

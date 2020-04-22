@@ -15,7 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanVerifierHIR.h"
-#include "IntelVPLoopRegionHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
@@ -34,14 +33,3 @@ unsigned VPlanVerifierHIR::countLoopsInUnderlyingIR() const {
   TheLoop->getHLNodeUtils().gatherAllLoops(TheLoop, Loops);
   return Loops.size();
 }
-
-void VPlanVerifierHIR::verifyIRSpecificLoopRegion(
-    const VPRegionBlock *Region) const {
-
-  if (const auto *LoopRHIR = dyn_cast<VPLoopRegionHIR>(Region)) {
-    assert(LoopRHIR->getHLLoop() &&
-           "VPLoopRegionHIR must have a valid HLLoop.");
-    (void)LoopRHIR;
-  }
-}
-

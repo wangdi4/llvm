@@ -168,6 +168,8 @@ constexpr bool EnableResolveTypes = true;
 
 void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnalysisWrapperPass(PR);
+  initializeDTransFieldModRefAnalysisWrapperPass(PR);
+  initializeDTransFieldModRefResultWrapperPass(PR);
   initializeDTransImmutableAnalysisWrapperPass(PR);
   initializeDTransPaddedMallocWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
@@ -186,6 +188,8 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
+  initializeDTransTypeMetadataReaderTestWrapperPass(PR);
+  initializeDTransPtrTypeAnalyzerTestWrapperPass(PR);
 #endif // !INTEL_PRODUCT_RELEASE
 }
 
@@ -327,6 +331,8 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
   (void)llvm::createDTransImmutableAnalysisWrapperPass();
+  (void)llvm::createDTransFieldModRefAnalysisWrapperPass();
+  (void)llvm::createDTransFieldModRefResultWrapperPass();
   (void)llvm::createDTransDynCloneWrapperPass();
   (void)llvm::createDTransWeakAlignWrapperPass();
   (void)llvm::createDTransMemInitTrimDownWrapperPass();
@@ -334,5 +340,7 @@ void llvm::createDTransPasses() {
 
 #if !INTEL_PRODUCT_RELEASE
   (void)llvm::createDTransOptBaseTestWrapperPass();
+  (void)llvm::createDTransMetadataReaderTestWrapperPass();
+  (void)llvm::createDTransPtrTypeAnalyzerTestWrapperPass();
 #endif // !INTEL_PRODUCT_RELEASE
 }

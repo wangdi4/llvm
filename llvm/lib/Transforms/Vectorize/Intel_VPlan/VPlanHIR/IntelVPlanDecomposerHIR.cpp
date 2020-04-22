@@ -1,6 +1,6 @@
 //===-- VPlanDecomposeHIR.cpp ---------------------------------------------===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
 
@@ -29,12 +30,16 @@ using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
+static cl::opt<bool> VPlanForceInvariantDecomposition(
+    "vplan-force-invariant-decomposition", cl::init(true), cl::Hidden,
+    cl::desc("Force decomposition of invariants"));
+
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
 // VPPhi instruction to the front of the list
 static void movePhiToFront(VPPHINode *Phi) {
   VPBasicBlock *BB = Phi->getParent();
-  BB->getInstList().splice((BB->front()).getIterator(), BB->getInstList(),
-                           Phi->getIterator());
+  BB->getInstructions().splice((BB->front()).getIterator(),
+                               BB->getInstructions(), Phi->getIterator());
 }
 
 // Creates a decomposed VPInstruction that combines \p LHS and \p RHS VPValues
@@ -111,10 +116,20 @@ VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
 VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
                                         int64_t BlobCoeff) {
   BlobTy Blob = RDDR->getBlobUtils().getBlob(BlobIdx);
+  VPValue *DecompBlob;
 
-  // Decompose Blob.
-  VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
-  VPValue *DecompBlob = BlobDecomp.visit(Blob);
+  // Avoid invariant blob decomposition if the same is enabled. However, for
+  // constant data blobs, and standalone blobs continue regular decomposition.
+  if (VPlanForceInvariantDecomposition ||
+      RDDR->getBlobUtils().isConstantDataBlob(Blob) ||
+      RDDR->isNonDecomposable() || RDDR->getBlobDDRef(BlobIdx) ||
+      RDDR->findMaxBlobLevel(BlobIdx) >= OutermostHLp->getNestingLevel()) {
+    // Decompose Blob.
+    VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
+    DecompBlob = BlobDecomp.visit(Blob);
+  } else
+    DecompBlob = Plan->getVPExternalDefForBlob(RDDR, BlobIdx);
+
   assert(DecompBlob && "Blob was not decomposed into valid VPValues");
 
   if (BlobCoeff != 1) {
@@ -177,7 +192,6 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   int64_t IVConstCoeff;
   unsigned IVBlobIndex;
   CE->getIVCoeff(IVLevel, &IVBlobIndex, &IVConstCoeff);
-
   VPValue *DecompIV = nullptr;
 
   if (IVBlobIndex != InvalidBlobIndex)
@@ -225,25 +239,110 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
 
-  // Decompose blobs.
-  for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
-    unsigned BlobIdx = CE->getBlobIndex(BlobIt);
-    assert(BlobIdx != InvalidBlobIndex && "Invalid blob index!");
+  // Return true if we want to force regular decomposition of given
+  // canon expression.
+  auto forceRegularDecomposition = [](CanonExpr *CE, unsigned VecLoopLevel) {
+    // Do regular decomposition if invariant decomposition is forced.
+    if (VPlanForceInvariantDecomposition)
+      return true;
 
-    int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
-    assert(BlobCoeff != 0 && "Invalid blob coefficient!");
+    // We want to force regular decomposition for canon expressions that are
+    // constants or self blobs once we ignore the IV at vectorization loop
+    // level. Remove IV if needed and mark for later restore of IV.
+    bool RestoreIV = false, UseRegular = false;
+    int64_t IVConstCoeff;
+    unsigned IVBlobIndex;
+    CE->getIVCoeff(VecLoopLevel, &IVBlobIndex, &IVConstCoeff);
+    if (IVConstCoeff) {
+      RestoreIV = true;
+      CE->removeIV(VecLoopLevel);
+    }
 
-    VPValue *DecompBlob = decomposeBlobImplicitConv(
-        decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
-    DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
-                                  Instruction::Add);
+    // Avoid creating an external def for constants - continue generating a
+    // VPConstant.
+    if (CE->isConstant())
+      UseRegular = true;
+
+    // Continue creating a VPBlob external def for self blob canon expressions
+    if (CE->isSelfBlob())
+      UseRegular = true;
+
+    // Restore IV at vectorization loop level if needed.
+    if (RestoreIV)
+      CE->addIV(VecLoopLevel, IVBlobIndex, IVConstCoeff);
+
+    return UseRegular;
+  };
+
+  unsigned VecLoopLevel = OutermostHLp->getNestingLevel();
+  bool ForceRegularDecomposition = forceRegularDecomposition(CE, VecLoopLevel);
+
+  // Avoid decomposing invariant canon expressions.
+  if (!ForceRegularDecomposition && CE->isInvariantAtLevel(VecLoopLevel))
+    return Plan->getVPExternalDefForCanonExpr(CE, RDDR);
+
+  // Check to see if we can avoid decomposition of canon expression portion
+  // after removing the IV at level being vectorized. Boolean flag is set to
+  // true if we can do so. TODO - revisit for multi level vectorization when
+  // we support this in future.
+  bool InvariantWithoutIV = false;
+
+  // The canon expression is a candidate if we are not forcing regular
+  // decomposition for this canon expression, it is linear at vec loop level and
+  // invariant at any inner loop level.
+  if (!ForceRegularDecomposition && CE->isLinearAtLevel(VecLoopLevel) &&
+      CE->isInvariantAtLevel(VecLoopLevel + 1)) {
+    auto *CEClone = CE->clone();
+    CEClone->removeIV(VecLoopLevel);
+
+    // Consider the following canon expressions where %n1 and %n2 are invariant:
+    //     (i1 + %n1 + %n2)  /  9 (source and dest types are i64)
+    //     i1 + %n1 + %n2         (source type is i64 and dest type is i32)
+    // In the above case, we want to create one invariant for %n1 + %n2. Also,
+    // the correct decomposition for the first case would be:
+    //   vp1 = add i64 invariant, i1
+    //   vp2 = sdiv i64 vp1, 9
+    // The correct decomposition for the second case would be
+    //   vp3 = add i64 invariant, i1
+    //   vp4 = trunc i64 vp3 to i32
+    // In order for this to happen, we force the
+    // clone destination type to same as source type and any needed conversion
+    // is applied later. Similarly we force the denominator to 1 and any needed
+    // division is applied later.
+    CEClone->setDestType(CEClone->getSrcType());
+    CEClone->setDenominator(1);
+    assert(CEClone->isInvariantAtLevel(VecLoopLevel) &&
+           "Expected invariant CEClone");
+
+    DecompDef = Plan->getVPExternalDefForCanonExpr(CEClone, RDDR);
+    InvariantWithoutIV = true;
   }
 
-  // Decompose IV expression.
+  // If the canon expression is invariant once we ignore IV at the vectorization
+  // level, we do not need to decompose blobs.
+  if (!InvariantWithoutIV)
+    // Decompose blobs.
+    for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
+      unsigned BlobIdx = CE->getBlobIndex(BlobIt);
+      assert(BlobIdx != InvalidBlobIndex && "Invalid blob index!");
+
+      int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
+      assert(BlobCoeff != 0 && "Invalid blob coefficient!");
+
+      VPValue *DecompBlob = decomposeBlobImplicitConv(
+          decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
+      DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
+                                    Instruction::Add);
+    }
+
+  // Decompose IV expression. If the canon expression is invariant without
+  // vectorization level IV, we only need to decompose vectorization level
+  // IV.
   for (auto IVIt = CE->iv_begin(), E = CE->iv_end(); IVIt != E; ++IVIt) {
     int64_t IVConstCoeff = CE->getIVConstCoeff(IVIt);
-
-    if (IVConstCoeff != 0) {
+    if (IVConstCoeff != 0 &&
+        (!InvariantWithoutIV ||
+         CE->getLevel(IVIt) == OutermostHLp->getNestingLevel())) {
       VPValue *DecompIV =
           decomposeIV(RDDR, CE, CE->getLevel(IVIt), CE->getSrcType());
       DecompDef = combineDecompDefs(DecompDef, DecompIV, CE->getSrcType(),
@@ -251,14 +350,18 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     }
   }
 
-  // Decompose constant additive. If it's 0, we ignore it when the CE has more
-  // components (e.g., X + 0). Otherwise, CE is representing the constant 0 and
-  // we have to generate a VPValue for it.
-  int64_t AddCoeff = CE->getConstant();
-  if (AddCoeff != 0 || !DecompDef) {
-    VPValue *DecompCoeff = decomposeCoeff(AddCoeff, CE->getSrcType());
-    DecompDef = combineDecompDefs(DecompDef, DecompCoeff, CE->getSrcType(),
-                                  Instruction::Add);
+  // If the canon expression is invariant without vectorization level IV,
+  // the constant additive will be part of the invariant and should be skipped.
+  if (!InvariantWithoutIV) {
+    // Decompose constant additive. If it's 0, we ignore it when the CE has more
+    // components (e.g., X + 0). Otherwise, CE is representing the constant 0
+    // and we have to generate a VPValue for it.
+    int64_t AddCoeff = CE->getConstant();
+    if (AddCoeff != 0 || !DecompDef) {
+      VPValue *DecompCoeff = decomposeCoeff(AddCoeff, CE->getSrcType());
+      DecompDef = combineDecompDefs(DecompDef, DecompCoeff, CE->getSrcType(),
+                                    Instruction::Add);
+    }
   }
 
   // Decompose denominator.
@@ -441,6 +544,9 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
         Instruction::Load, {MemOpVPI},
         cast<PointerType>(MemOpVPI->getType())->getElementType());
 
+    // Save away scalar memref symbase for later use.
+    cast<VPInstruction>(MemOpVPI)->setSymbase(Ref->getSymbase());
+
     // FIXME: This special-casing for loads that are HLInst is becoming more
     // complicated than expected since we also have to special-case
     // createVPInstruction. I think that special-case this code to avoid
@@ -559,9 +665,7 @@ unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
 // Return a pointer to the last VPInstruction of \p VPBB. Return nullptr if \p
 // VPBB is empty.
 static VPInstruction *getLastVPI(VPBasicBlock *VPBB) {
-  assert((VPBB->empty() || isa<VPInstruction>(&VPBB->back())) &&
-         "VPRecipes in HIR?");
-  return VPBB->empty() ? nullptr : cast<VPInstruction>(&VPBB->back());
+  return VPBB->empty() ? nullptr : &VPBB->back();
 }
 
 // Set \p MasterVPI as master VPInstruction of all the decomposed VPInstructions
@@ -579,13 +683,11 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
           ? VPBB->begin()
           : std::next(VPBasicBlock::iterator(LastVPIBeforeDec));
   VPBasicBlock::iterator DecompVPIEnd = VPBasicBlock::iterator(MasterVPI);
-  for (auto &Recipe : make_range(DecompVPIStart, DecompVPIEnd)) {
-    assert(isa<VPInstruction>(Recipe) && "VPRecipes in HIR?");
-    auto *DecompVPI = cast<VPInstruction>(&Recipe);
+  for (auto &DecompVPI : make_range(DecompVPIStart, DecompVPIEnd)) {
     // DecompVPI is a new VPInstruction at this point. To be marked as
     // decomposed VPInstruction with the following 'setMaster'.
-    assert(DecompVPI->isNew() && "Expected new VPInstruction!");
-    DecompVPI->HIR.setMaster(MasterVPI);
+    assert(DecompVPI.isNew() && "Expected new VPInstruction!");
+    DecompVPI.HIR.setMaster(MasterVPI);
   }
 }
 
@@ -620,13 +722,16 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert(!HLDef2VPValue.count(DDNode) && "Node shouldn't have been visited.");
 
-  if (auto *HInst = dyn_cast<HLInst>(Node)) {
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
-
+  // Generate a VPInstruction using LLVMInst opcode and the operands in
+  // VPOperands. DDNode if non-null will be used to setup the underlying
+  // node. HInst is used to obtain instruction specific information when
+  // needed.
+  auto genVPInst = [this](const Instruction *LLVMInst, HLDDNode *DDNode,
+                          HLInst *HInst, ArrayRef<VPValue *> VPOperands) {
+    VPInstruction *NewVPInst;
     if (isa<CmpInst>(LLVMInst)) {
       assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
+      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HInst);
       NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
                                         VPOperands[1], DDNode);
     } else if (isa<SelectInst>(LLVMInst)) {
@@ -642,8 +747,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Decompose first 2 operands into a CmpInst used as predicate for select
       VPCmpInst *Pred =
           Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
-      // Set underlying DDNode for the select VPInstruction since it's the
-      // master VPInstruction
+      // Set underlying DDNode for the select VPInstruction since it may be the
+      // master VPInstruction which will be the case if DDNode is non-null.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           Instruction::Select, {Pred, TVal, FVal}, TVal->getType(), DDNode));
     } else if (isa<LoadInst>(LLVMInst)) {
@@ -655,9 +760,10 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = cast<VPInstruction>(VPOperands.back());
       assert(NewVPInst->getOpcode() == Instruction::Load &&
              "Incorrect instruction added for load.");
-      // Set the underlying DDNode for the load instruction since it will be
-      // master VPI for this node
-      NewVPInst->HIR.setUnderlyingNode(DDNode);
+      // Set the underlying DDNode for the load instruction since it may be
+      // master VPI for this node which will be the case if DDNode is non-null.
+      if (DDNode)
+        NewVPInst->HIR.setUnderlyingNode(DDNode);
     } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
@@ -674,10 +780,50 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
 
-    if (RegDDRef *LvalDDR = HInst->getLvalDDRef()) {
+    return NewVPInst;
+  };
+
+  if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    const Instruction *LLVMInst = HInst->getLLVMInstruction();
+    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
+
+    // Any LLVM instruction which semantically has a terminal lval/rval can
+    // alternatively contain a memref operand in HIR. For example, an add
+    // instruction can look like the following in HIR:
+    //        A[i] = B[i] + C[i].
+    // Rval memory references are handled properly when we create corresponding
+    // VPOperands. However, instructions such as the above, need to be
+    // decomposed into two separate instructions. In this case, LLVMInst will be
+    // an add instruction and VPOperands will contain VPValues corresponding to
+    // B[i], C[i], and &A[i]. We generate an add instruction using the first two
+    // VPValues. The result of add becomes the value being stored and we
+    // generate a store instruction using the result of the add and the VPValue
+    // corresponding to &A[i]. The generated store instruction is set as the
+    // master instruction.
+    RegDDRef *LvalDDR = HInst->getLvalDDRef();
+
+    if (LvalDDR && LvalDDR->isMemRef() &&
+        LLVMInst->getOpcode() != Instruction::Store) {
+      VPInstruction *StoreVal =
+          genVPInst(LLVMInst, nullptr /* DDNode is only set on master */, HInst,
+                    VPOperands.drop_back() /* Omit last operand */);
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          Instruction::Store, {StoreVal, VPOperands.back()},
+          Type::getVoidTy(*Plan->getLLVMContext()), DDNode));
+    } else
+      NewVPInst = genVPInst(LLVMInst, DDNode, HInst, VPOperands);
+
+    if (LvalDDR) {
       // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
       // standalone loads.
       NewVPInst->HIR.setOperandDDR(LvalDDR);
+
+      // Save away scalar memref symbase for later use.
+      if (NewVPInst->getOpcode() == Instruction::Store) {
+        assert(LvalDDR->isMemRef() &&
+               "Expected Lval of a store HLInst to be a memref");
+        NewVPInst->setSymbase(LvalDDR->getSymbase());
+      }
 
       if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {
         VPExternalUse *User = Plan->getVPExternalUseForDDRef(LvalDDR);
@@ -829,9 +975,8 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   assert((HLp->isDo() || HLp->isDoMultiExit()) && HLp->isNormalized() &&
          "Only normalized single-exit DO loops are supported for now.");
   assert(LpPH->getSingleSuccessor() &&
-         isa<VPBasicBlock>(LpPH->getSingleSuccessor()) &&
          "Loop PH must have one successor VPBasicBlock.");
-  VPBasicBlock *LpH = cast<VPBasicBlock>(LpPH->getSingleSuccessor());
+  VPBasicBlock *LpH = LpPH->getSingleSuccessor();
 
   // Create IV start (0). Only normalized loops are expected.
   CanonExpr *LowerCE = HLp->getLowerCanonExpr();
@@ -958,30 +1103,29 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 ///  will help us avoid inserting PHI nodes into blocks without any uses (no
 ///  dead PHI nodes)
 void VPDecomposerHIR::computeLiveInBlocks(
-    unsigned CurSymbase, const SmallPtrSetImpl<VPBlockBase *> &DefBlocks,
-    const SmallPtrSetImpl<VPBlockBase *> &UsingBlocks,
-    SmallPtrSetImpl<VPBlockBase *> &LiveInBlocks) {
+    unsigned CurSymbase, const SmallPtrSetImpl<VPBasicBlock *> &DefBlocks,
+    const SmallPtrSetImpl<VPBasicBlock *> &UsingBlocks,
+    SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks) {
   // Liveness of the current symbase is determined by iterating over
   // predecessors of the blocks where definition is live. These blocks are
   // tracked via a worklist
 
   // Initially this worklist contains all the using blocks of the current
   // symbase
-  SmallVector<VPBlockBase *, 16> LiveInBlockWorklist(UsingBlocks.begin(),
+  SmallVector<VPBasicBlock *, 16> LiveInBlockWorklist(UsingBlocks.begin(),
                                                      UsingBlocks.end());
 
   // If a VPBB is both a defining and using block of the symbase, then we need
   // to check if the definition comes before or after the use. If definition
   // happens before use, the symbase is not really live-in to VPBB
   for (unsigned I = 0, E = LiveInBlockWorklist.size(); I != E; ++I) {
-    VPBlockBase *VPBB = LiveInBlockWorklist[I];
+    VPBasicBlock *VPBB = LiveInBlockWorklist[I];
     if (!DefBlocks.count(VPBB))
       continue;
 
     // VPBB has both use and definition of symbase, iterate over it's VPIs to
     // find out which comes first
-    assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &VPI : cast<VPBasicBlock>(VPBB)->vpinstructions()) {
+    for (auto &VPI : *VPBB) {
       // Underlying HIR is not attached to non-master VPInstructions
       if (!VPI.HIR.isMaster())
         continue;
@@ -1038,7 +1182,7 @@ void VPDecomposerHIR::computeLiveInBlocks(
   // Recursively add their predecessors, until we find the full region where the
   // symbase is live.
   while (!LiveInBlockWorklist.empty()) {
-    VPBlockBase *VPBB = LiveInBlockWorklist.pop_back_val();
+    VPBasicBlock *VPBB = LiveInBlockWorklist.pop_back_val();
 
     // Insert the VPBB into the proper LiveInBlocks set. If it already in the
     // set then we have also processed its predecessors
@@ -1047,7 +1191,7 @@ void VPDecomposerHIR::computeLiveInBlocks(
 
     // Add predecessors of VPBB unless they are defining blocks of current
     // symbase
-    for (VPBlockBase *Pred : VPBB->getPredecessors()) {
+    for (VPBasicBlock *Pred : VPBB->getPredecessors()) {
       if (DefBlocks.count(Pred))
         continue;
 
@@ -1065,20 +1209,19 @@ void VPDecomposerHIR::computeLiveInBlocks(
 //    IDFPHIBlocks does not already have a PHI for the current Symbase, then
 //    add it.
 void VPDecomposerHIR::addIDFPhiNodes() {
-  DenseMap<unsigned, SmallPtrSet<VPBlockBase *, 8>> SymbaseDefBlocks;
-  DenseMap<unsigned, SmallPtrSet<VPBlockBase *, 8>> SymbaseUsingBlocks;
-  VPRegionBlock *Region = Builder.getInsertBlock()->getParent();
-  Region->computeDT();
-  VPDominatorTree &DT = *(Region->getDT());
-  VPBlockBase *HCFGEntry = Region->getEntry();
+  DenseMap<unsigned, SmallPtrSet<VPBasicBlock *, 8>> SymbaseDefBlocks;
+  DenseMap<unsigned, SmallPtrSet<VPBasicBlock *, 8>> SymbaseUsingBlocks;
+  Plan->computeDT();
+  VPDominatorTree &DT = *(Plan->getDT());
+  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
 
   ///// Populate use-def blocks of each tracked symbase //////
 
   // Initialize all keys for the Symbase(Def|Using)Blocks map. If Symbase has an
-  // external def then the HCFGEntry block is noted as one of its defining block
+  // external def then the PlanEntry block is noted as one of its defining block
   for (auto Sym : TrackedSymbases) {
     if (Plan->getVPExternalDefForSymbase(Sym)) {
-      SymbaseDefBlocks[Sym] = {HCFGEntry};
+      SymbaseDefBlocks[Sym] = {PlanEntry};
     } else {
       SymbaseDefBlocks[Sym] = {};
     }
@@ -1097,11 +1240,8 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
   // For defining blocks we need to traverse the HCFG and check the Lval of each
   // underlying HIR nodes of each VPBB
-  for (VPBlockBase *VPBB :
-       make_range(df_iterator<VPBlockBase *>::begin(HCFGEntry),
-                  df_iterator<VPBlockBase *>::end(HCFGEntry))) {
-    assert(isa<VPBasicBlock>(VPBB) && "HCFG block is not a VPBasicBlock");
-    for (auto &VPI : cast<VPBasicBlock>(VPBB)->vpinstructions()) {
+  for (VPBasicBlock *VPBB : depth_first(PlanEntry)) {
+    for (auto &VPI : *VPBB) {
       if (!VPI.HIR.isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
@@ -1152,8 +1292,8 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   // to run IDF and determine additional PHI nodes that are needed in the HCFG
   for (auto Sym : TrackedSymbases) {
     VPlanForwardIDFCalculator IDF(DT);
-    SmallPtrSet<VPBlockBase *, 8> SymLiveInBlocks;
-    SmallVector<VPBlockBase *, 8> IDFPHIBlocks;
+    SmallPtrSet<VPBasicBlock *, 8> SymLiveInBlocks;
+    SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
 
     assert(!SymbaseDefBlocks[Sym].empty() &&
            "Tracked symbase has no defining blocks.");
@@ -1178,16 +1318,15 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
     IDF.calculate(IDFPHIBlocks);
 
-    for (auto IPB : IDFPHIBlocks) {
-      VPBasicBlock *NewPhiBB = cast<VPBasicBlock>(IPB);
+    for (VPBasicBlock *NewPhiBB : IDFPHIBlocks) {
       LLVM_DEBUG(dbgs() << "VPDecomp: IDF decided to add a PHI in "
                         << NewPhiBB->getName() << " for the tracked symbase "
                         << Sym << "\n");
       std::pair<VPBasicBlock *, unsigned> VPBBSymPair =
           std::make_pair(NewPhiBB, Sym);
       if (PhisToFix.find(VPBBSymPair) == PhisToFix.end()) {
-        // IDF suggests to add a new PHI node in IPB basic block, no entry was
-        // found in PhisToFix
+        // IDF suggests to add a new PHI node in NewPhiBB basic block, no entry
+        // was found in PhisToFix
 
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPoint(NewPhiBB, NewPhiBB->begin());
@@ -1252,17 +1391,17 @@ void VPDecomposerHIR::fixPhiNodes() {
     VPValues[Sym] = ExtDef;
   }
 
-  VPBasicBlock *CurrentVPBB = Builder.getInsertBlock();
-  assert(CurrentVPBB && "Current insertion VPBB for builder cannot be null.");
-  VPBasicBlock *HCFGEntry =
-      cast<VPBasicBlock>(CurrentVPBB->getParent()->getEntry());
-  assert(HCFGEntry && "Entry VPBB for HCFG cannot be null.");
-  LLVM_DEBUG(dbgs() << "HCFGEntry: "; HCFGEntry->dump(); dbgs() << "\n");
+  assert(Builder.getInsertBlock() &&
+         "Current insertion VPBB for builder cannot be null.");
+  VPBasicBlock *PlanEntry = Plan->getEntryBlock();
+  assert(PlanEntry && "Entry VPBB for Plan cannot be null.");
+  LLVM_DEBUG(dbgs() << "PlanEntry: "; PlanEntry->getParent()->dump();
+             dbgs() << "\n");
 
   // Walk all VPBasicBlocks in the HCFG of current VPlan and perform the PHI
   // node fixing algorithm, updating the incoming values based on underlying HIR
   SmallVector<PhiNodePassData, 32> PhiNodePassWorkList;
-  PhiNodePassWorkList.emplace_back(HCFGEntry, nullptr /* No pred to entry*/,
+  PhiNodePassWorkList.emplace_back(PlanEntry, nullptr /* No pred to entry*/,
                                    VPValues);
 
   LLVM_DEBUG(dbgs() << "Starting fixPhiNodePass algorithm\n");
@@ -1309,11 +1448,11 @@ void VPDecomposerHIR::fixPhiNodes() {
       // HIR should not be invalidated, we are still building initial HCFG.
       FixedPhi->replaceAllUsesWith(FixedPhi->getIncomingValue(Idx),
                                    false /*InvalidateIR*/);
-      FixedPhi->getParent()->eraseRecipe(FixedPhi);
+      FixedPhi->getParent()->eraseInstruction(FixedPhi);
     } else {
       // Solution for case 2
       HLDDNode *FirstDefNode = nullptr;
-      for (auto &VPI : FixedPhi->getParent()->vpinstructions()) {
+      for (auto &VPI : *(FixedPhi->getParent())) {
         if (!VPI.HIR.isMaster())
           continue;
 
@@ -1345,7 +1484,7 @@ void VPDecomposerHIR::fixPhiNodes() {
       // Replace the PHI node and remove it from HCFG. HIR should not be
       // invalidated, we are still building initial HCFG.
       FixedPhi->replaceAllUsesWith(FirstDefVPI, false /*InvalidateIR*/);
-      FixedPhi->getParent()->eraseRecipe(FixedPhi);
+      FixedPhi->getParent()->eraseInstruction(FixedPhi);
     }
   }
 }
@@ -1491,7 +1630,7 @@ void VPDecomposerHIR::fixPhiNodePass(
 
   // Iterate over instructions of VPBB and update the incoming value of Symbases
   // being tracked if any instruction in the VPBB writes into it
-  for (auto &VPI : VPBB->vpinstructions()) {
+  for (auto &VPI : *VPBB) {
     LLVM_DEBUG(dbgs() << "fixPhiNodePass: VPI: "; VPI.dump());
 
     if (VPI.HIR.isMaster()) {
@@ -1518,13 +1657,11 @@ void VPDecomposerHIR::fixPhiNodePass(
   // consistency with the mem2reg version of this traversal algorithm.
   SmallPtrSet<VPBasicBlock *, 8> VisitedSuccs;
 
-  for (VPBlockBase::succ_reverse_iterator RI = VPBB->succ_rbegin(),
-                                          RE = VPBB->succ_rend();
-       RI != RE; ++RI) {
+  for (VPBasicBlock *CurVPBB : reverse(VPBB->getSuccessors())) {
     // Keep track of successors so that same successor is not added to worklist
     // twice
-    if (VisitedSuccs.insert(cast<VPBasicBlock>(*RI)).second)
-      Worklist.emplace_back(cast<VPBasicBlock>(*RI), VPBB, IncomingVPVals);
+    if (VisitedSuccs.insert(CurVPBB).second)
+      Worklist.emplace_back(CurVPBB, VPBB, IncomingVPVals);
   }
 }
 

@@ -329,6 +329,11 @@ protected:
   Tool *buildAssembler() const override;
   Tool *buildLinker() const override;
 
+  virtual std::string getMultiarchTriple(const Driver &D,
+                                         const llvm::Triple &TargetTriple,
+                                         StringRef SysRoot) const
+  { return TargetTriple.str(); }
+
   /// \name ToolChain Implementation Helper Functions
   /// @{
 
@@ -356,6 +361,10 @@ protected:
   addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                            llvm::opt::ArgStringList &CC1Args) const;
 
+  bool
+  addGCCLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
+                           llvm::opt::ArgStringList &CC1Args) const;
+
   bool addLibStdCXXIncludePaths(Twine Base, Twine Suffix, StringRef GCCTriple,
                                 StringRef GCCMultiarchTriple,
                                 StringRef TargetMultiarchTriple,
@@ -381,6 +390,12 @@ public:
   void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
                              llvm::opt::ArgStringList &CC1Args,
                              Action::OffloadKind DeviceOffloadKind) const override;
+
+  virtual std::string getDynamicLinker(const llvm::opt::ArgList &Args) const {
+    return {};
+  }
+
+  virtual void addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const {}
 };
 
 } // end namespace toolchains

@@ -5,19 +5,20 @@ import sys
 
 import lit.util
 
+
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog='lit')
     parser.add_argument('test_paths',
             nargs='+',
             metavar="TEST_PATH",
             help='File or path to include in the test suite')
 
-    parser.add_argument("--version",
-            dest="show_version",
-            help="Show version and exit",
-            action="store_true")
+    parser.add_argument('--version',
+            action='version',
+            version='%(prog)s ' + lit.__version__)
+
     parser.add_argument("-j", "--threads", "--workers",
-            dest="numWorkers",
+            dest="workers",
             metavar="N",
             help="Number of workers used for testing",
             type=_positive_int,
@@ -106,7 +107,6 @@ def parse_args():
                  "0 means no time limit. [Default: 0]",
             type=_non_negative_int) # TODO(yln): --[no-]test-timeout, instead of 0 allowed
     execution_group.add_argument("--max-failures",
-            dest="maxFailures",
             help="Stop execution after the given number of failures.",
             type=_positive_int)
     execution_group.add_argument("--allow-empty-runs",
@@ -115,7 +115,6 @@ def parse_args():
 
     selection_group = parser.add_argument_group("Test Selection")
     selection_group.add_argument("--max-tests",
-            dest="max_tests",
             metavar="N",
             help="Maximum number of tests to run",
             type=_positive_int)
@@ -134,7 +133,7 @@ def parse_args():
             metavar="REGEX",
             type=_case_insensitive_regex,
             help="Only run tests with paths matching the given regular expression",
-            default=os.environ.get("LIT_FILTER"))
+            default=os.environ.get("LIT_FILTER", ".*"))
     selection_group.add_argument("--num-shards", # TODO(yln): --shards N/M
             dest="numShards",
             metavar="M",
@@ -189,11 +188,14 @@ def parse_args():
 
     return opts
 
+
 def _positive_int(arg):
     return _int(arg, 'positive', lambda i: i > 0)
 
+
 def _non_negative_int(arg):
     return _int(arg, 'non-negative', lambda i: i >= 0)
+
 
 def _int(arg, kind, pred):
     desc = "requires {} integer, but found '{}'"
@@ -205,12 +207,14 @@ def _int(arg, kind, pred):
         raise _error(desc, kind, arg)
     return i
 
+
 def _case_insensitive_regex(arg):
     import re
     try:
         return re.compile(arg, re.IGNORECASE)
     except re.error as reason:
         raise _error("invalid regular expression: '{}', {}", arg, reason)
+
 
 def _error(desc, *args):
     msg = desc.format(*args)

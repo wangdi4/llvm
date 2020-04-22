@@ -25,7 +25,6 @@ class LitConfig(object):
                  noExecute, debug, isWindows,
                  params, config_prefix = None,
                  maxIndividualTestTime = 0,
-                 maxFailures = None,
                  parallelism_groups = {},
                  echo_all_commands = False):
         # The name of the test runner.
@@ -65,9 +64,21 @@ class LitConfig(object):
             self.valgrindArgs.extend(self.valgrindUserArgs)
 
         self.maxIndividualTestTime = maxIndividualTestTime
-        self.maxFailures = maxFailures
         self.parallelism_groups = parallelism_groups
         self.echo_all_commands = echo_all_commands
+        self._recursiveExpansionLimit = None
+
+    @property
+    def recursiveExpansionLimit(self):
+        return self._recursiveExpansionLimit
+
+    @recursiveExpansionLimit.setter
+    def recursiveExpansionLimit(self, value):
+        if value is not None and not isinstance(value, int):
+            self.fatal('recursiveExpansionLimit must be either None or an integer (got <{}>)'.format(value))
+        if isinstance(value, int) and value < 0:
+            self.fatal('recursiveExpansionLimit must be a non-negative integer (got <{}>)'.format(value))
+        self._recursiveExpansionLimit = value
 
     @property
     def maxIndividualTestTime(self):

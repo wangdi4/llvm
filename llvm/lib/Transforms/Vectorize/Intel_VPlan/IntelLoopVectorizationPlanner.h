@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.h ------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -19,6 +19,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
+#include "IntelVPlanLoopUnroller.h"
 #else
 #include "VPlan.h"
 #endif
@@ -100,8 +101,13 @@ public:
   template <typename CostModelTy = VPlanCostModel>
   unsigned selectBestPlan(void);
 
-  /// \brief Predicate all unique non-scalar VPlans
+  /// Predicate all unique non-scalar VPlans
   void predicate(void);
+
+  /// Perform VPlan loop unrolling if needed
+  void
+  unroll(VPlan &Plan, unsigned UF,
+         VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
   template <typename CostModelTy = VPlanCostModel>
   void printCostModelAnalysisIfRequested();
@@ -178,10 +184,6 @@ private:
   /// the block that was created for it.
   // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
 
-  /// Determine whether a newly-created recipe adds a second user to one of the
-  /// variants the values its ingredients use. This may cause the defining
-  /// recipe to generate that variant itself to serve all such users.
-  // void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
   /// The loop that we evaluate.
   Loop *TheLoop;
 

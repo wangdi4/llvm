@@ -52,6 +52,9 @@ class CSAAsmParser : public MCTargetAsmParser {
 
   bool ParseRegister(unsigned &RegNum, SMLoc &StartLoc, SMLoc &EndLoc) override;
 
+  OperandMatchResultTy tryParseRegister(unsigned &RegNo, SMLoc &StartLoc,
+                                        SMLoc &EndLoc) override;
+
   bool MatchAndEmitInstruction(SMLoc IdLoc, unsigned &Opcode,
                                OperandVector &Operands, MCStreamer &Out,
                                uint64_t &ErrorInfo,
@@ -287,7 +290,7 @@ bool CSAAsmParser::MatchAndEmitInstruction(SMLoc IdLoc, unsigned &Opcode,
 
   switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
   case Match_Success:
-    Out.EmitInstruction(Inst, SubtargetInfo);
+    Out.emitInstruction(Inst, SubtargetInfo);
     Opcode = Inst.getOpcode();
     return false;
   case Match_MissingFeature:
@@ -354,13 +357,19 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseRegister() {
 
 bool CSAAsmParser::ParseRegister(unsigned &RegNum, SMLoc &StartLoc,
                                  SMLoc &EndLoc) {
+  return tryParseRegister(RegNum, StartLoc, EndLoc) != MatchOperand_Success;
+}
+
+OperandMatchResultTy CSAAsmParser::tryParseRegister(unsigned &RegNum,
+                                                    SMLoc &StartLoc,
+                                                    SMLoc &EndLoc) {
   const AsmToken &Tok            = getParser().getTok();
   StartLoc                       = Tok.getLoc();
   EndLoc                         = Tok.getEndLoc();
   std::unique_ptr<CSAOperand> Op = parseRegister();
   if (Op != nullptr)
     RegNum = Op->getReg();
-  return (Op == nullptr);
+  return (Op == nullptr) ? MatchOperand_NoMatch : MatchOperand_Success;
 }
 
 static int asmImmediateLabel(StringRef T) {
@@ -401,6 +410,7 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   case AsmToken::Dot:
     if (!Parser.parseExpression(ExprVal))
       return CSAOperand::createImm(ExprVal, Start, End);
+    return 0;
   default:
     return 0;
   }

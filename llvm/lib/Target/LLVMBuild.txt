@@ -18,26 +18,27 @@
 ; will typically require only insertion of a line.
 [common]
 subdirectories =
+ AArch64
  AMDGPU
  ARC
  ARM
- AArch64
  AVR
  BPF
+ Hexagon
 ; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_CSA
  Intel_CSA
 ; end INTEL_FEATURE_CSA
 ; end INTEL_CUSTOMIZATION
  Lanai
- Hexagon
  MSP430
- NVPTX
  Mips
+ NVPTX
  PowerPC
  RISCV
  Sparc
  SystemZ
+ VE
  WebAssembly
  X86
  XCore

@@ -15,6 +15,7 @@
 
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
@@ -27,7 +28,7 @@ using namespace llvm::vpo;
 
 unsigned WRegionNode::UniqueNum(0);
 
-std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
+DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNParallel, "parallel"},
     {WRegionNode::WRNParallelLoop, "parallel loop"},
     {WRegionNode::WRNParallelSections, "parallel sections"},
@@ -480,7 +481,7 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
   if (ClauseNumArgs == 0) {
     // The clause takes no arguments
     assert(NumArgs == 0 && "This clause takes no arguments.");
-    handleQual(ClauseID);
+    handleQual(ClauseInfo);
   } else if (ClauseNumArgs == 1) {
     // The clause takes one argument only
     assert(NumArgs == 1 && "This clause takes one argument.");
@@ -499,7 +500,8 @@ void WRegionNode::parseClause(const ClauseSpecifier &ClauseInfo,
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
 
-void WRegionNode::handleQual(int ClauseID) {
+void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
+  int ClauseID = ClauseInfo.getId();
   switch (ClauseID) {
   case QUAL_OMP_DEFAULT_NONE:
     setDefault(WRNDefaultNone);
@@ -513,9 +515,36 @@ void WRegionNode::handleQual(int ClauseID) {
   case QUAL_OMP_DEFAULT_FIRSTPRIVATE:
     setDefault(WRNDefaultFirstprivate);
     break;
-  case QUAL_OMP_DEFAULTMAP_TOFROM_SCALAR:
-    setDefaultmapTofromScalar(true);
+  case QUAL_OMP_DEFAULTMAP_ALLOC:
+  case QUAL_OMP_DEFAULTMAP_TO:
+  case QUAL_OMP_DEFAULTMAP_FROM:
+  case QUAL_OMP_DEFAULTMAP_TOFROM:
+  case QUAL_OMP_DEFAULTMAP_FIRSTPRIVATE:
+  case QUAL_OMP_DEFAULTMAP_NONE:
+  case QUAL_OMP_DEFAULTMAP_DEFAULT:
+  case QUAL_OMP_DEFAULTMAP_PRESENT:
+  {
+    WRNDefaultmapBehavior Behavior =
+        WRNDefaultmapBehaviorFromClauseID[ClauseID];
+    WRNDefaultmapCategory Category;
+
+    if (ClauseInfo.getIsAggregate())
+      Category = WRNDefaultmapAggregate;
+#if INTEL_CUSTOMIZATION
+    else if (ClauseInfo.getIsAllocatable())
+      Category = WRNDefaultmapAllocatable;
+#endif // INTEL_CUSTOMIZATION
+    else if (ClauseInfo.getIsPointer())
+      Category = WRNDefaultmapPointer;
+    else if (ClauseInfo.getIsScalar())
+      Category = WRNDefaultmapScalar;
+    else
+      // No category specified means implicit behavior applies to all vars
+      Category = WRNDefaultmapAllVars;
+
+    setDefaultmap(Category, Behavior);
     break;
+  }
   case QUAL_OMP_NOWAIT:
     setNowait(true);
     break;
@@ -567,7 +596,7 @@ void WRegionNode::handleQual(int ClauseID) {
     break;
   case QUAL_OMP_ORDERED_SIMD:
     setIsDoacross(false);
-    setIsThreads(false);
+    setIsSIMD(true);
     break;
   case QUAL_OMP_CANCEL_PARALLEL:
     setCancelKind(WRNCancelParallel);
@@ -711,6 +740,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
     if (ClauseInfo.getIsF90DopeVector())
       C.back()->setIsF90DopeVector(true);
+    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
   }
 }
@@ -748,6 +778,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
 #if INTEL_CUSTOMIZATION
     if (ClauseInfo.getIsF90DopeVector())
       Item->setIsF90DopeVector(true);
+    Item->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else
@@ -764,6 +795,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       C.back()->setHOrig(CurrentBundleDDRefs[I]);
     if (ClauseInfo.getIsF90DopeVector())
       C.back()->setIsF90DopeVector(true);
+    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
 }
@@ -820,9 +852,17 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
   C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in
                                   // the MapKind of each list item
 
+  // Get map-type modifiers (always, close, present) from ClauseInfo
+  if (ClauseInfo.getIsAlways())
+    MapKind |= MapItem::WRNMapAlways;
+  if (ClauseInfo.getIsClose())
+    MapKind |= MapItem::WRNMapClose;
+  if (ClauseInfo.getIsPresent())
+    MapKind |= MapItem::WRNMapPresent;
+
   if (ClauseInfo.getIsArraySection()) {
-    assert ((MapKind == MapItem::WRNMapUpdateTo ||
-             MapKind == MapItem::WRNMapUpdateFrom) &&
+    assert ((MapKind & MapItem::WRNMapUpdateTo ||
+             MapKind & MapItem::WRNMapUpdateFrom) &&
              "Expected Map Chain instead of Array Section in a MAP clause");
     Value *V = Args[0];
     C.add(V);
@@ -830,23 +870,47 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     MI->setMapKind(MapKind);
     MI->setIsByRef(ClauseInfo.getIsByRef());
     ArraySectionInfo &ArrSecInfo = MI->getArraySectionInfo();
+
+    assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
+           "Unexpected number of args for array section operand.");
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr()) {
-    // "AGGRHEAD" or "AGGR" seen: expect 3 arguments: BasePtr, SectionPtr, Size
-    assert(NumArgs == 3 && "Malformed MAP:AGGR[HEAD] clause");
+  } else if (ClauseInfo.getIsMapAggrHead() || ClauseInfo.getIsMapAggr() ||
+             NumArgs == 4) { // Map-chains with (BasePtr, SectionPtr,
+                             // Size, MapType)
+    // TODO: Remove handling of AGGR/AGGRHEAD type map-chains when clang only
+    // sends in the updated map-chains with 4 element links.
+    assert((NumArgs == 3 || NumArgs == 4) &&
+           "Malformed MAP:AGGR[HEAD]/CHAIN clause");
 
-    assert (MapKind != MapItem::WRNMapUpdateTo &&
-            MapKind != MapItem::WRNMapUpdateFrom &&
-            "Unexpected Map Chain in a TO/FROM clause");
+    assert(!(MapKind & MapItem::WRNMapUpdateTo ||
+             MapKind & MapItem::WRNMapUpdateFrom) &&
+           "Unexpected Map Chain in a TO/FROM clause");
 
-    // Create a MapAggr for the triple: <BasePtr, SectionPtr, Size>.
+    // Create a MapAggr for: <BasePtr, SectionPtr, Size[, MapType]>.
     Value *BasePtr = (Value *)Args[0];
     Value *SectionPtr = (Value *)Args[1];
     Value *Size = (Value *)Args[2];
-    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
+    uint64_t MapType = 0;
+    bool AggrHasMapType = (NumArgs == 4);
+    if (AggrHasMapType) {
+      assert(isa<ConstantInt>(Args[3]) && "IR is corrupt");
+      ConstantInt *CI = dyn_cast<ConstantInt>(Args[3]);
+      MapType = CI->getZExtValue();
+    }
+    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
 
     MapItem *MI;
-    if (ClauseInfo.getIsMapAggrHead()) { // Start a new chain: Add a MapItem
+
+    // Head of the updated map-chains does not have any modifier equivalent to
+    // AGGRHEAD. Instead, only subsequent links in the chain have a CHAIN
+    // modifier. Example: QUAL.OMP.MAP(BasePtr, SectionPtr, Size, MapType)
+    // QUAL.OMP.MAP:CHAIN(...)
+    bool AggrStartsNewStyleMapChain =
+        (!ClauseInfo.getIsMapChainLink() && !ClauseInfo.getIsMapAggrHead() &&
+         !ClauseInfo.getIsMapAggr() && AggrHasMapType);
+
+    if (ClauseInfo.getIsMapAggrHead() || AggrStartsNewStyleMapChain) {
+      // Start a new chain: Add a MapItem
       MI = new MapItem(Aggr);
       MI->setOrig(BasePtr);
       MI->setIsByRef(ClauseInfo.getIsByRef());
@@ -858,9 +922,10 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
       MapChain.push_back(Aggr);
     }
     MI->setMapKind(MapKind);
-  }
-  else
-    // Scalar map items; create a MapItem for each of them
+  } else
+    // TODO: Remove this loop and add an assertion that non-chain maps should
+    // each have their own clause string.
+    // Scalar map items; create a MapItem for each of them.
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       C.add(V);
@@ -876,7 +941,16 @@ void WRegionNode::extractDependOpndList(const Use *Args, unsigned NumArgs,
   C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id;
 
   if (ClauseInfo.getIsArraySection()) {
-    //TODO: Parse array section arguments.
+    Value *V = Args[0];
+    C.add(V);
+    DependItem *DI = C.back();
+    DI->setIsIn(IsIn);
+    DI->setIsByRef(ClauseInfo.getIsByRef());
+    ArraySectionInfo &ArrSecInfo = DI->getArraySectionInfo();
+
+    assert((NumArgs == 3 * (cast<ConstantInt>(Args[1])->getZExtValue()) + 2) &&
+           "Unexpected number of args for array section operand.");
+    ArrSecInfo.populateArraySectionDims(Args, NumArgs);
   }
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
@@ -907,6 +981,7 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
     LI->setIsByRef(ClauseInfo.getIsByRef());
+    LI->setIsIV(ClauseInfo.getIsIV());
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(C.getClauseID())) {
@@ -945,10 +1020,28 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
+
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
+    // The number of non array section tuple arguments is 2 by default (base
+    // pointer and dimension at the beginning). For UDR, it's 6, while there are
+    // 4 additional arguments for constructor, destructor, combiner and
+    // initializer at the end.
+    assert((NumArgs ==
+            3 * (cast<ConstantInt>(Args[1])->getZExtValue()) +
+                ((ReductionKind == ReductionItem::WRNReductionUdr) ? 6 : 2)) &&
+           "Unexpected number of args for array section operand.");
+
+    if (ReductionKind == ReductionItem::WRNReductionUdr) {
+      RI->setConstructor(
+          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
+      RI->setDestructor(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
+      RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
+      RI->setInitializer(
+          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+    }
+
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
-  }
-  else
+  } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       C.add(V);
@@ -965,9 +1058,19 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       if (ClauseInfo.getIsF90DopeVector())
         RI->setIsF90DopeVector(true);
 #endif // INTEL_CUSTOMIZATION
-    }
-}
 
+      if (ReductionKind == ReductionItem::WRNReductionUdr) {
+        assert(((I + 4) < NumArgs) &&
+               "Incorrect arg size for User-defined reduction.");
+        RI->setConstructor(dyn_cast<Function>(dyn_cast<Value>(Args[I + 1])));
+        RI->setDestructor(dyn_cast<Function>(dyn_cast<Value>(Args[I + 2])));
+        RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[I + 3])));
+        RI->setInitializer(dyn_cast<Function>(dyn_cast<Value>(Args[I + 4])));
+        I += 4;
+      }
+    }
+  }
+}
 
 //
 // The code below was trying to get initializer and combiner from the LLVM IR.
@@ -1226,6 +1329,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_INREDUCTION_BXOR:
   case QUAL_OMP_INREDUCTION_BAND:
   case QUAL_OMP_INREDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+  case QUAL_OMP_INREDUCTION_EQV:
+  case QUAL_OMP_INREDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
   case QUAL_OMP_INREDUCTION_MAX:
   case QUAL_OMP_INREDUCTION_MIN:
   case QUAL_OMP_INREDUCTION_UDR:
@@ -1239,6 +1346,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_REDUCTION_BXOR:
   case QUAL_OMP_REDUCTION_BAND:
   case QUAL_OMP_REDUCTION_BOR:
+#if INTEL_CUSTOMIZATION
+  case QUAL_OMP_REDUCTION_EQV:
+  case QUAL_OMP_REDUCTION_NEQV:
+#endif // INTEL_CUSTOMIZATION
   case QUAL_OMP_REDUCTION_MAX:
   case QUAL_OMP_REDUCTION_MIN:
   case QUAL_OMP_REDUCTION_UDR: {
@@ -1279,12 +1390,18 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       getWRNLoopInfo().addNormUB(V);
     }
     break;
-    case QUAL_OMP_OFFLOAD_NDRANGE:
-      for (unsigned I = 0; I < NumArgs; ++I) {
-        Value *V = Args[I];
-        addUncollapsedNDRangeDimension(V);
-      }
-      break;
+  case QUAL_OMP_OFFLOAD_NDRANGE:
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = Args[I];
+      addUncollapsedNDRangeDimension(V);
+    }
+    break;
+  case QUAL_OMP_JUMP_TO_END_IF:
+    // Nothing to parse for this auxiliary clause.
+    // It may exist after VPO Paropt prepare and before
+    // VPO Paropt transform to guarantee that DCE does not
+    // remove unreachable region exit directives.
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
@@ -1608,6 +1725,7 @@ bool WRegionNode::needsOutlining() const {
   case WRNTaskloop:
   case WRNTeams:
   case WRNTarget:
+  case WRNTargetData:
     return true;
   }
   return false;

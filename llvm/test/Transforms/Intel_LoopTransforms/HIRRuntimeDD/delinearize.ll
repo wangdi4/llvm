@@ -35,6 +35,7 @@
 ; CHECK-DAG: &((%q)[sext.i32.i64(%k) + -1]) >=u &((%p)[0][0]);
 ; CHECK-DAG: &((%p)[100][sext.i32.i64(%k) + -1]) >=u &((%q)[0]);
 ; CHECK: sext.i32.i64(%k) + -1 < sext.i32.i64(%n)
+; CHECK: <MVTag: {{[0-9]+}}, Delinearized: %p>
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

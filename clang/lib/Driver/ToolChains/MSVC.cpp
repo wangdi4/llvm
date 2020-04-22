@@ -128,13 +128,13 @@ static bool findVCToolChainViaEnvironment(std::string &Path,
         llvm::StringRef ParentPath = llvm::sys::path::parent_path(TestPath);
         llvm::StringRef ParentFilename = llvm::sys::path::filename(ParentPath);
         if (ParentFilename == "VC") {
-          Path = ParentPath;
+          Path = std::string(ParentPath);
           VSLayout = MSVCToolChain::ToolsetLayout::OlderVS;
           return true;
         }
         if (ParentFilename == "x86ret" || ParentFilename == "x86chk"
           || ParentFilename == "amd64ret" || ParentFilename == "amd64chk") {
-          Path = ParentPath;
+          Path = std::string(ParentPath);
           VSLayout = MSVCToolChain::ToolsetLayout::DevDivInternal;
           return true;
         }
@@ -163,7 +163,7 @@ static bool findVCToolChainViaEnvironment(std::string &Path,
         for (int i = 0; i < 3; ++i)
           ToolChainPath = llvm::sys::path::parent_path(ToolChainPath);
 
-        Path = ToolChainPath;
+        Path = std::string(ToolChainPath);
         VSLayout = MSVCToolChain::ToolsetLayout::VS2017OrNewer;
         return true;
       }
@@ -261,7 +261,7 @@ static bool findVCToolChainViaSetupConfig(std::string &Path,
   if (!llvm::sys::fs::is_directory(ToolchainPath))
     return false;
 
-  Path = ToolchainPath.str();
+  Path = std::string(ToolchainPath.str());
   VSLayout = MSVCToolChain::ToolsetLayout::VS2017OrNewer;
   return true;
 #endif
@@ -282,7 +282,7 @@ static bool findVCToolChainViaRegistry(std::string &Path,
           VSInstallPath.c_str(), VSInstallPath.find(R"(\Common7\IDE)")));
       llvm::sys::path::append(VCPath, "VC");
 
-      Path = VCPath.str();
+      Path = std::string(VCPath.str());
       VSLayout = MSVCToolChain::ToolsetLayout::OlderVS;
       return true;
     }
@@ -300,7 +300,8 @@ static std::string FindVisualStudioExecutable(const ToolChain &TC,
   SmallString<128> FilePath(MSVC.getSubDirectoryPath(
       toolchains::MSVCToolChain::SubDirectoryType::Bin));
   llvm::sys::path::append(FilePath, Exe);
-  return llvm::sys::fs::can_execute(FilePath) ? FilePath.str() : Exe;
+  return std::string(llvm::sys::fs::can_execute(FilePath) ? FilePath.str()
+                                                          : Exe);
 }
 
 // Add a call to lib.exe to create an archive.  This is used to embed host
@@ -369,8 +370,18 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   for (const auto *A : Args.filtered(options::OPT_foffload_static_lib_EQ))
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-defaultlib:") + A->getValue()));
+  for (const auto *A : Args.filtered(options::OPT_foffload_whole_static_lib_EQ))
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
 #if INTEL_CUSTOMIZATION
+  // Add other Intel specific libraries (libirc, svml, libdecimal)
+  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT__intel) &&
+      !C.getDriver().IsCLMode()) {
+    CmdArgs.push_back("-defaultlib:libirc");
+    CmdArgs.push_back("-defaultlib:svml_dispmt");
+    CmdArgs.push_back("-defaultlib:libdecimal");
+  }
   // Add Intel performance libraries. Only add the lib when not in CL-mode as
   // they have already been added via directive in the compilation
   if (Args.hasArg(options::OPT_ipp_EQ)) {
@@ -383,7 +394,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().IsCLMode())
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
   }
-  if (Args.hasArg(options::OPT_tbb) || Args.hasArg(options::OPT_daal_EQ)) {
+  if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
+      (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp))) {
     getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");
@@ -508,7 +520,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                   options::OPT_fno_openmp, false)) {
+                   options::OPT_fno_openmp, false) || // INTEL
+      Args.hasArg(options::OPT_fiopenmp)) {           // INTEL
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
     CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
@@ -526,6 +539,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       // Already diagnosed.
       break;
     }
+    if (JA.isHostOffloading(Action::OFK_OpenMP))      // INTEL
+      CmdArgs.push_back("-defaultlib:omptarget.lib"); // INTEL
   }
 
   // Add compiler-rt lib in case if it was explicitly
@@ -578,6 +593,28 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   StringRef Linker = Args.getLastArgValue(options::OPT_fuse_ld_EQ, "link");
   if (Linker.equals_lower("lld"))
     Linker = "lld-link";
+
+#if INTEL_CUSTOMIZATION
+  // TODO: Create a more streamlined and centralized way to add the additional
+  // llvm options that are set.  i.e. set once and use for both Linux and
+  // Windows compilation paths.
+  if (Linker.equals_lower("lld-link") && (C.getDriver().isUsingLTO())) {
+    // Handle flags for selecting CPU variants.
+    std::string CPU = getCPUName(Args, C.getDefaultToolChain().getTriple());
+    if (!CPU.empty())
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-mcpu=") + CPU));
+    // Add any Intel defaults.
+    if (Args.hasArg(options::OPT__intel)) {
+      CmdArgs.push_back("-mllvm:-intel-libirc-allowed");
+      if (Arg * A = Args.getLastArg(options::OPT_fveclib))
+        Args.MakeArgString(Twine("-mllvm:-vector-library=") + A->getValue());
+    }
+    // Using lld-link and -flto, we need to add any additional -mllvm options
+    // and implied options.
+    for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (Linker.equals_lower("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
@@ -973,7 +1010,7 @@ MSVCToolChain::getSubDirectoryPath(SubDirectoryType Type,
     llvm::sys::path::append(Path, "lib", SubdirName);
     break;
   }
-  return Path.str();
+  return std::string(Path.str());
 }
 
 #ifdef _WIN32
@@ -1127,7 +1164,7 @@ static bool getWindows10SDKVersionFromPath(const std::string &SDKPath,
     if (!CandidateName.startswith("10."))
       continue;
     if (CandidateName > SDKVersion)
-      SDKVersion = CandidateName;
+      SDKVersion = std::string(CandidateName);
   }
 
   return !SDKVersion.empty();
@@ -1210,7 +1247,7 @@ bool MSVCToolChain::getWindowsSDKLibraryPath(std::string &path) const {
     }
   }
 
-  path = libPath.str();
+  path = std::string(libPath.str());
   return true;
 }
 
@@ -1249,7 +1286,7 @@ bool MSVCToolChain::getUniversalCRTLibraryPath(std::string &Path) const {
   llvm::SmallString<128> LibPath(UniversalCRTSdkPath);
   llvm::sys::path::append(LibPath, "Lib", UCRTVersion, "ucrt", ArchName);
 
-  Path = LibPath.str();
+  Path = std::string(LibPath.str());
   return true;
 }
 
@@ -1576,14 +1613,15 @@ static void TranslateDArg(Arg *A, llvm::opt::DerivedArgList &DAL,
     return;
   }
 
-  std::string NewVal = Val;
+  std::string NewVal = std::string(Val);
   NewVal[Hash] = '=';
   DAL.AddJoinedArg(A, Opts.getOption(options::OPT_D), NewVal);
 }
 
 llvm::opt::DerivedArgList *
 MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
-                             StringRef BoundArch, Action::OffloadKind) const {
+                             StringRef BoundArch,
+                             Action::OffloadKind OFK) const {
   DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
   const OptTable &Opts = getDriver().getOpts();
 
@@ -1630,7 +1668,7 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
              A->getValue() == StringRef("libmkl_sycl")) {
       SmallString<128> MKLPath(GetMKLLibPath());
-      llvm::sys::path::append(MKLPath, "libmkl_sycl.lib");
+      llvm::sys::path::append(MKLPath, "mkl_sycl.lib");
       DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
                         Args.MakeArgString(MKLPath));
       continue;
@@ -1638,13 +1676,14 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
              A->getValue() == StringRef("libdaal_sycl")) {
       SmallString<128> DAALPath(GetDAALLibPath());
-      llvm::sys::path::append(DAALPath, "libdaal_sycl.lib");
+      llvm::sys::path::append(DAALPath, "daal_sycl.lib");
       DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
                         Args.MakeArgString(DAALPath));
       continue;
     }
 #endif // INTEL_CUSTOMIZATION
-    else {
+    else if (OFK != Action::OFK_HIP) {
+      // HIP Toolchain translates input args by itself.
       DAL->append(A);
     }
   }

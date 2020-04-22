@@ -1,14 +1,14 @@
 ;RUN: opt -hir-ssa-deconstruction -hir-details -print-after=hir-loop-distribute-memrec -hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
 
-;+ DO i64 i1 = 0, (%storemerge966 + -1)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-;| <RVAL-REG> LINEAR i64 (%storemerge966 + -1)/u64 {sb:2}
+;+ DO i64 i1 = 0, (%storemerge966)/u64, 1   <DO_LOOP>  <MAX_TC_EST = 100>
+;| <RVAL-REG> LINEAR i64 (%storemerge966)/u64 {sb:2}
 ;|    <BLOB> LINEAR i64 %storemerge966 {sb:21}
 ;|
-;|   %min = (-64 * i1 + %storemerge966 + -1 <= 63) ? -64 * i1 + %storemerge966 + -1 : 63;
+;|   %min = (-64 * i1 + %storemerge966 <= 63) ? -64 * i1 + %storemerge966 : 63;
 ;|   <LVAL-REG> NON-LINEAR i64 %min {sb:222}
-;|   <RVAL-REG> LINEAR i64 -64 * i1 + %storemerge966 + -1 {sb:2}
+;|   <RVAL-REG> LINEAR i64 -64 * i1 + %storemerge966 {sb:2}
 ;|      <BLOB> LINEAR i64 %storemerge966 {sb:21}
-;|   <RVAL-REG> LINEAR i64 -64 * i1 + %storemerge966 + -1 {sb:2}
+;|   <RVAL-REG> LINEAR i64 -64 * i1 + %storemerge966 {sb:2}
 ;|      <BLOB> LINEAR i64 %storemerge966 {sb:21}
 ;|   ...
 ;|   + DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 1>
@@ -22,9 +22,14 @@
 ;|   + END LOOP
 ;+ END LOOP
 
+; Check that Loop UB ref symbase is updated to a generic value (2).
+
+; CHECK: + DO i64 i1 = 0, (%storemerge966)/u64
+; CHECK: <RVAL-REG> LINEAR i64 (%storemerge966)/u64 {sb:2}
+
 ; Check if min is non-linear at level 1 and linear at level 2 with def@1
 
-; CHECK: %min = (-64 * i1 + %storemerge966 + -1 <= 63) ? -64 * i1 + %storemerge966 + -1 : 63;
+; CHECK: %min = (-64 * i1 + %storemerge966 <= 63) ? -64 * i1 + %storemerge966 : 63;
 ; CHECK: <LVAL-REG> NON-LINEAR i64 %min {sb:222}
 ; CHECK: DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
 ; CHECK: <RVAL-REG> LINEAR i64 %min{def@1} {sb:222}
@@ -239,7 +244,7 @@ for.body4:                                        ; preds = %newFuncRoot, %for.b
   %sub319 = fsub float %sub315, %mul258
   store float %sub319, float* %arrayidx303, align 4, !tbaa !2
   %inc322 = add nuw nsw i64 %storemerge903938, 1
-  %exitcond = icmp eq i64 %storemerge903938, %storemerge966
+  %exitcond = icmp ugt i64 %storemerge903938, %storemerge966
   br i1 %exitcond, label %for.end.exitStub, label %for.body4
 }
 

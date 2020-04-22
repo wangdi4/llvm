@@ -72,9 +72,7 @@ define i16 @dom_argument(i16 %arg1, i16 %arg2) {
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp ult i16 [[L2_ADD]], 2
 ; CHECK-NEXT:    br i1 [[CMP2]], label [[LOOP2]], label [[LOOP2_END:%.*]]
 ; CHECK:       loop2.end:
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[K2_ADD_LCSSA:%.*]] = add i16 [[ARG2:%.*]], 2
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[K2_ADD_LCSSA:%.*]] = add i16 [[ARG2:%.*]], 2 ;INTEL
 ; CHECK-NEXT:    ret i16 [[K2_ADD_LCSSA]]
 ;
 entry:
@@ -123,9 +121,7 @@ define i16 @dummy_phi_outside_loop(i16 %arg) {
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp ult i16 [[L2_ADD]], 2
 ; CHECK-NEXT:    br i1 [[CMP2]], label [[LOOP2]], label [[LOOP2_END:%.*]]
 ; CHECK:       loop2.end:
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[K2_ADD_LCSSA:%.*]] = add i16 [[DUMMY]], 2
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[K2_ADD_LCSSA:%.*]] = add i16 [[DUMMY]], 2 ;INTEL
 ; CHECK-NEXT:    ret i16 [[K2_ADD_LCSSA]]
 ;
 entry:
@@ -170,9 +166,7 @@ define i16 @neg_loop_carried(i16 %arg) {
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp ult i16 [[L2_ADD]], 2
 ; CHECK-NEXT:    br i1 [[CMP2]], label [[LOOP2]], label [[LOOP2_END:%.*]]
 ; CHECK:       loop2.end:
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[K2_ADD_LCSSA:%.*]] = add i16 [[TMP0]], 2
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[K2_ADD_LCSSA:%.*]] = add i16 [[TMP0]], 2 ;INTEL
 ; CHECK-NEXT:    ret i16 [[K2_ADD_LCSSA]]
 ;
 entry:

@@ -1,6 +1,6 @@
 //===---- Intel_ArgumentAlignment.cpp - Intel Compute Alignment      -*----===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -798,6 +798,43 @@ static bool
 checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
                std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
 
+  // This recursive routine track all uses of "Val" and tries to prove
+  // that there is only one store to "Val". If it can prove that there
+  // is only one store to it, returns true and saves the store instruction
+  // in "StoreOnceInstPtr". When this routine is called first time,
+  // malloc call is expected to be passed as the first argument.
+  std::function<bool(Instruction *, StoreInst **)> StoredOnlyOnceMalloc =
+      [&](Instruction *Val, StoreInst **StoreOnceInstPtr) {
+        for (User *U : Val->users()) {
+          auto *UserI = dyn_cast<Instruction>(&*U);
+          if (!UserI)
+            return false;
+          // Ignore Load/ICmp/free call since "Val" is not really escaped
+          // through them.
+          if (isa<LoadInst>(UserI) || isa<CmpInst>(UserI) ||
+              isFreeCall(UserI,
+                         &GetTLI(const_cast<Function &>(*UserI->getFunction())),
+                         false))
+            continue;
+
+          if (auto *SI = dyn_cast<StoreInst>(UserI)) {
+            if (SI->getValueOperand() == Val || *StoreOnceInstPtr != nullptr)
+              return false;
+            *StoreOnceInstPtr = SI;
+            continue;
+          }
+          if (isa<BitCastInst>(UserI)) {
+            // Track uses of BitCastInst.
+            if (!StoredOnlyOnceMalloc(UserI, StoreOnceInstPtr))
+              return false;
+            continue;
+          }
+          // No other instruction is allowed for now.
+          return false;
+        }
+        return *StoreOnceInstPtr != nullptr;
+      };
+
   if (!CallSite || !Val)
     return false;
 
@@ -828,6 +865,30 @@ checkAllocSite(CallBase *CallSite, Function *CandidateFunc, Value *Val,
         return false;
 
       return (AllocSize % IntelArgAlignmentSize == 0);
+    }
+
+    if (auto *LI = dyn_cast<LoadInst>(CurrVal)) {
+      // If it is LoadInst, try to prove the loaded value is a return
+      // address of malloc/calloc call.
+      //
+      // Ex:
+      // %ptr =  tail call noalias i8* @calloc(i64 %0, i64 8)
+      // %temp = tail call noalias i8* @malloc(i64 8)
+      // %bc1 = bitcast i8* %temp to i64**
+      // %bc2 = bitcast i8* %ptr to i64**
+      // store i64* %bc2, i64** %bc1
+      // %val = load i64*, i64** %bc1
+      Value *Val = LI->getPointerOperand();
+      if (auto *BC = dyn_cast<BitCastInst>(Val))
+        Val = BC->getOperand(0);
+      CallInst *CI = extractMallocCall(Val, GetTLI);
+      if (!CI)
+        return false;
+      StoreInst *StoredOnceInst = nullptr;
+      if (!StoredOnlyOnceMalloc(CI, &StoredOnceInst))
+        return false;
+      CurrVal = StoredOnceInst->getValueOperand();
+      continue;
     }
 
     // Check if the value is a BitCast
@@ -1028,16 +1089,6 @@ void ArgumentAlignment::applyTransformation() {
 
 bool ArgumentAlignment::runImpl() {
 
-  // Check for AVX2 or higher
-  auto TTIOptLevel = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-  if (!WPInfo || !WPInfo->isAdvancedOptEnabled(TTIOptLevel)) {
-    LLVM_DEBUG({
-      dbgs() << "Candidates for argument alignment: 0\n";
-      dbgs() << "Reason: NOT AVX2\n";
-    });
-    return false;
-  }
-
   // Check if whole program is safe
   if (!WPInfo->isWholeProgramSafe()) {
     LLVM_DEBUG({
@@ -1115,7 +1166,7 @@ public:
         &getAnalysis<WholeProgramWrapperPass>().getResult();
 
     auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<const TargetLibraryInfoWrapperPass>().getTLI(F);
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
     // Implementation of the optimization

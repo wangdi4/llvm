@@ -1,8 +1,11 @@
-// RUN: %clangxx -fsycl %s -o %t.out
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: env SYCL_DEVICE_TYPE=HOST %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
+// XFAIL: cuda
+// TODO: cuda fail due to unimplemented param_name 4121 in cuda_piDeviceGetInfo
+
 //==---------- subbuffer.cpp --- sub-buffer basic test ---------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -16,16 +19,19 @@
 // 2) Exceptions if we trying to create sub buffer not according to spec
 
 #include <CL/sycl.hpp>
+
+#include <algorithm>
 #include <iostream>
 #include <numeric>
 #include <vector>
 
 void checkHostAccessor(cl::sycl::queue &q) {
-  std::size_t size =
-      q.get_device().get_info<cl::sycl::info::device::mem_base_addr_align>() /
-      8;
+  std::size_t subbuf_align =
+      q.get_device().get_info<cl::sycl::info::device::mem_base_addr_align>() / 8;
+  std::size_t size = std::max(subbuf_align, 10 * 2 * sizeof(int)); // hold at least 20 elements
   size /= sizeof(int);
   size *= 2;
+
   std::vector<int> data(size);
   std::iota(data.begin(), data.end(), 0);
   {
@@ -56,9 +62,9 @@ void checkHostAccessor(cl::sycl::queue &q) {
 }
 
 void check1DSubBuffer(cl::sycl::queue &q) {
-  std::size_t size =
-      q.get_device().get_info<cl::sycl::info::device::mem_base_addr_align>() /
-      8;
+  std::size_t subbuf_align =
+      q.get_device().get_info<cl::sycl::info::device::mem_base_addr_align>() / 8;
+  std::size_t size = std::max(subbuf_align, 32 * sizeof(int)); // hold at least 32 elements
   size /= sizeof(int);
   size *= 2;
 
@@ -194,10 +200,103 @@ void checkExceptions() {
   }
 }
 
+void copyBlock() {
+  using typename cl::sycl::access::mode;
+  using buffer = cl::sycl::buffer<int, 1>;
+
+  auto CopyF = [](buffer &Buffer, buffer &Block, size_t Idx, size_t BlockSize) {
+    auto Subbuf = buffer(Buffer, Idx * BlockSize, BlockSize);
+    auto *Src = Subbuf.get_access<mode::read>().get_pointer();
+    auto *Dst = Block.get_access<mode::write>().get_pointer();
+    std::copy(Src, Src + BlockSize, Dst);
+  };
+
+  try {
+    static const size_t N = 100;
+    static const size_t NBlock = 4;
+    static const size_t BlockSize = N / NBlock;
+
+    buffer Buffer(N);
+
+    // Init with data
+    {
+      auto *Acc = Buffer.get_access<mode::write>().get_pointer();
+
+      for (size_t Idx = 0; Idx < N; Idx++) {
+        Acc[Idx] = Idx;
+      }
+    }
+
+    std::vector<buffer> BlockBuffers;
+    BlockBuffers.reserve(NBlock);
+
+    // Copy block by block
+    for (size_t Idx = 0; Idx < NBlock; Idx++) {
+      auto InsertedIt = BlockBuffers.emplace(BlockBuffers.end(), BlockSize);
+      CopyF(Buffer, *InsertedIt, Idx, BlockSize);
+    }
+
+    // Validate copies
+    for (size_t Idx = 0; Idx < BlockBuffers.size(); ++Idx) {
+      buffer &BlockB = BlockBuffers[Idx];
+
+      auto *V = BlockB.get_access<mode::read>().get_pointer();
+
+      for (size_t Idx2 = 0; Idx2 < BlockSize; ++Idx2) {
+        assert(V[Idx2] == Idx2 + BlockSize * Idx &&
+               "Invalid data in block buffer");
+      }
+    }
+  } catch (cl::sycl::exception &ex) {
+    assert(false && "Unexpected exception captured!");
+  }
+}
+
+void checkMultipleContexts() {
+  constexpr int N = 64;
+  int a[N] = {0};
+  {
+    sycl::queue queue1;
+    sycl::queue queue2;
+    sycl::buffer<int, 1> buf(a, sycl::range<1>(N));
+    sycl::buffer<int, 1> subbuf1(buf, sycl::id<1>(0), sycl::range<1>(N / 2));
+    sycl::buffer<int, 1> subbuf2(buf, sycl::id<1>(N / 2),
+                                 sycl::range<1>(N / 2));
+    queue1.submit([&](sycl::handler &cgh) {
+      auto bufacc = subbuf1.get_access<sycl::access::mode::read_write>(cgh);
+      cgh.parallel_for<class sub_buffer_1>(
+          sycl::range<1>(N / 2), [=](sycl::id<1> idx) { bufacc[idx[0]] = 1; });
+    });
+
+    queue2.submit([&](sycl::handler &cgh) {
+      auto bufacc = subbuf2.get_access<sycl::access::mode::read_write>(cgh);
+      cgh.parallel_for<class sub_buffer_2>(
+          sycl::range<1>(N / 2), [=](sycl::id<1> idx) { bufacc[idx[0]] = 2; });
+    });
+  }
+  assert(a[N / 2 - 1] == 1 && a[N / 2] == 2 && "Sub buffer data loss");
+
+  {
+    sycl::queue queue1;
+    sycl::buffer<int, 1> buf(a, sycl::range<1>(N));
+    sycl::buffer<int, 1> subbuf1(buf, sycl::id<1>(0), sycl::range<1>(N / 2));
+    queue1.submit([&](sycl::handler &cgh) {
+      auto bufacc = subbuf1.get_access<sycl::access::mode::read_write>(cgh);
+      cgh.parallel_for<class sub_buffer_3>(
+          sycl::range<1>(N / 2), [=](sycl::id<1> idx) { bufacc[idx[0]] = -1; });
+    });
+    auto host_acc = subbuf1.get_access<sycl::access::mode::read>();
+    assert(host_acc[0] == -1 && host_acc[N / 2 - 1] == -1 &&
+           "Sub buffer data loss");
+  }
+}
+
 int main() {
   cl::sycl::queue q;
   check1DSubBuffer(q);
   checkHostAccessor(q);
   checkExceptions();
+  copyBlock();
+  checkMultipleContexts();
   return 0;
 }

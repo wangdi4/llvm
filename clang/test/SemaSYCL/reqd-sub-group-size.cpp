@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fsycl-is-device -fsyntax-only -verify -DTRIGGER_ERROR %s
-// RUN: %clang_cc1 -fsycl-is-device -ast-dump %s | FileCheck %s
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -fsyntax-only -verify -DTRIGGER_ERROR %s
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -ast-dump %s | FileCheck %s
 
 [[cl::intel_reqd_sub_group_size(4)]] void foo() {} // expected-note {{conflicting attribute is here}}
 // expected-note@-1 {{conflicting attribute is here}}
@@ -45,9 +45,13 @@ void bar() {
     baz();
   });
 #endif
+
+  kernel<class kernel_name5>([]() [[cl::intel_reqd_sub_group_size(2)]] { });
 }
 
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name1
 // CHECK: IntelReqdSubGroupSizeAttr {{.*}} 16
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name2
 // CHECK: IntelReqdSubGroupSizeAttr {{.*}} 4
+// CHECK: FunctionDecl {{.*}} {{.*}}kernel_name5
+// CHECK: IntelReqdSubGroupSizeAttr {{.*}} 2

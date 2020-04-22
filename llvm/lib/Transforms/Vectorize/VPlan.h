@@ -31,6 +31,7 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -226,6 +227,8 @@ public:
 struct VPCallback {
   virtual ~VPCallback() {}
   virtual Value *getOrCreateVectorValues(Value *V, unsigned Part) = 0;
+  virtual Value *getOrCreateScalarValue(Value *V,
+                                        const VPIteration &Instance) = 0;
 };
 
 /// VPTransformState holds information passed down when "executing" a VPlan,
@@ -266,6 +269,13 @@ struct VPTransformState {
       return Data.PerPartOutput[Def][Part];
     // Def is managed by ILV: bring the Values from ValueMap.
     return Callback.getOrCreateVectorValues(VPValue2Value[Def], Part);
+  }
+
+  /// Get the generated Value for a given VPValue and given Part and Lane. Note
+  /// that as per-lane Defs are still created by ILV and managed in its ValueMap
+  /// this method currently just delegates the call to ILV.
+  Value *get(VPValue *Def, const VPIteration &Instance) {
+    return Callback.getOrCreateScalarValue(VPValue2Value[Def], Instance);
   }
 
   /// Set the generated Value for a given VPValue and a given Part.
@@ -355,6 +365,10 @@ private:
   /// Current block predicate - null if the block does not need a predicate.
   VPValue *Predicate = nullptr;
 
+  /// VPlan containing the block. Can only be set on the entry block of the
+  /// plan.
+  VPlan *Plan = nullptr;
+
   /// Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Successor) {
     assert(Successor && "Cannot add nullptr successor!");
@@ -407,6 +421,14 @@ public:
 
   VPRegionBlock *getParent() { return Parent; }
   const VPRegionBlock *getParent() const { return Parent; }
+
+  /// \return A pointer to the plan containing the current block.
+  VPlan *getPlan();
+  const VPlan *getPlan() const;
+
+  /// Sets the pointer of the plan containing the block. The block must be the
+  /// entry block into the VPlan.
+  void setPlan(VPlan *ParentPlan);
 
   void setParent(VPRegionBlock *P) { Parent = P; }
 
@@ -591,6 +613,7 @@ public:
     VPInterleaveSC,
     VPPredInstPHISC,
     VPReplicateSC,
+    VPWidenGEPSC,
     VPWidenIntOrFpInductionSC,
     VPWidenMemoryInstructionSC,
     VPWidenPHISC,
@@ -616,7 +639,9 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
-  virtual void print(raw_ostream &O, const Twine &Indent) const = 0;
+  void print(raw_ostream &O, const Twine &Indent);
+  virtual void print(raw_ostream &O, const Twine &Indent,
+                     VPSlotTracker &SlotTracker) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -647,7 +672,6 @@ public:
 /// executed, these instructions would always form a single-def expression as
 /// the VPInstruction is also a single def-use vertex.
 class VPInstruction : public VPUser, public VPRecipeBase {
-  friend class VPlanHCFGTransforms;
   friend class VPlanSlp;
 
 public:
@@ -707,10 +731,12 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the Recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 
   /// Print the VPInstruction.
   void print(raw_ostream &O) const;
+  void print(raw_ostream &O, VPSlotTracker &SlotTracker) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -721,23 +747,38 @@ public:
     return Opcode == Instruction::Store || Opcode == Instruction::Call ||
            Opcode == Instruction::Invoke || Opcode == SLPStore;
   }
+
+  bool hasResult() const {
+    // CallInst may or may not have a result, depending on the called function.
+    // Conservatively return calls have results for now.
+    switch (getOpcode()) {
+    case Instruction::Ret:
+    case Instruction::Br:
+    case Instruction::Store:
+    case Instruction::Switch:
+    case Instruction::IndirectBr:
+    case Instruction::Resume:
+    case Instruction::CatchRet:
+    case Instruction::Unreachable:
+    case Instruction::Fence:
+    case Instruction::AtomicRMW:
+      return false;
+    default:
+      return true;
+    }
+  }
 };
 
-/// VPWidenRecipe is a recipe for producing a copy of vector type for each
-/// Instruction in its ingredients independently, in order. This recipe covers
-/// most of the traditional vectorization cases where each ingredient transforms
-/// into a vectorized version of itself.
+/// VPWidenRecipe is a recipe for producing a copy of vector type its
+/// ingredient. This recipe covers most of the traditional vectorization cases
+/// where each ingredient transforms into a vectorized version of itself.
 class VPWidenRecipe : public VPRecipeBase {
 private:
-  /// Hold the ingredients by pointing to their original BasicBlock location.
-  BasicBlock::iterator Begin;
-  BasicBlock::iterator End;
+  /// Hold the instruction to be widened.
+  Instruction &Ingredient;
 
 public:
-  VPWidenRecipe(Instruction *I) : VPRecipeBase(VPWidenSC) {
-    End = I->getIterator();
-    Begin = End++;
-  }
+  VPWidenRecipe(Instruction &I) : VPRecipeBase(VPWidenSC), Ingredient(I) {}
 
   ~VPWidenRecipe() override = default;
 
@@ -749,18 +790,46 @@ public:
   /// Produce widened copies of all Ingredients.
   void execute(VPTransformState &State) override;
 
-  /// Augment the recipe to include Instr, if it lies at its End.
-  bool appendInstruction(Instruction *Instr) {
-    if (End != Instr->getIterator())
-      return false;
-    End++;
-    return true;
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Print the recipe.
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
+};
+
+/// A recipe for handling GEP instructions.
+class VPWidenGEPRecipe : public VPRecipeBase {
+private:
+  GetElementPtrInst *GEP;
+  bool IsPtrLoopInvariant;
+  SmallBitVector IsIndexLoopInvariant;
+
+public:
+  VPWidenGEPRecipe(GetElementPtrInst *GEP, Loop *OrigLoop)
+      : VPRecipeBase(VPWidenGEPSC), GEP(GEP),
+        IsIndexLoopInvariant(GEP->getNumIndices(), false) {
+    IsPtrLoopInvariant = OrigLoop->isLoopInvariant(GEP->getPointerOperand());
+    for (auto Index : enumerate(GEP->indices()))
+      IsIndexLoopInvariant[Index.index()] =
+          OrigLoop->isLoopInvariant(Index.value().get());
   }
+  ~VPWidenGEPRecipe() override = default;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPWidenGEPSC;
+  }
+
+  /// Generate the gep nodes.
+  void execute(VPTransformState &State) override;
 
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -789,7 +858,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -814,7 +884,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -849,7 +920,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -859,13 +931,14 @@ public:
 class VPInterleaveRecipe : public VPRecipeBase {
 private:
   const InterleaveGroup<Instruction> *IG;
-  std::unique_ptr<VPUser> User;
+  VPUser User;
 
 public:
-  VPInterleaveRecipe(const InterleaveGroup<Instruction> *IG, VPValue *Mask)
-      : VPRecipeBase(VPInterleaveSC), IG(IG) {
-    if (Mask) // Create a VPInstruction to register as a user of the mask.
-      User.reset(new VPUser({Mask}));
+  VPInterleaveRecipe(const InterleaveGroup<Instruction> *IG, VPValue *Addr,
+                     VPValue *Mask)
+      : VPRecipeBase(VPInterleaveSC), IG(IG), User({Addr}) {
+    if (Mask)
+      User.addOperand(Mask);
   }
   ~VPInterleaveRecipe() override = default;
 
@@ -874,13 +947,26 @@ public:
     return V->getVPRecipeID() == VPRecipeBase::VPInterleaveSC;
   }
 
+  /// Return the address accessed by this recipe.
+  VPValue *getAddr() const {
+    return User.getOperand(0); // Address is the 1st, mandatory operand.
+  }
+
+  /// Return the mask used by this recipe. Note that a full mask is represented
+  /// by a nullptr.
+  VPValue *getMask() const {
+    // Mask is optional and therefore the last, currently 2nd operand.
+    return User.getNumOperands() == 2 ? User.getOperand(1) : nullptr;
+  }
+
   /// Generate the wide load or store, and shuffles.
   void execute(VPTransformState &State) override;
 
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -934,7 +1020,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -962,10 +1049,11 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override {
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override {
     O << " +\n" << Indent << "\"BRANCH-ON-MASK ";
     if (User)
-      O << *User->getOperand(0);
+      User->getOperand(0)->print(O, SlotTracker);
     else
       O << " All-One";
     O << "\\l\"";
@@ -1001,24 +1089,45 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
 
 /// A Recipe for widening load/store operations.
+/// The recipe uses the following VPValues:
+/// - For load: Address, optional mask
+/// - For store: Address, stored value, optional mask
 /// TODO: We currently execute only per-part unless a specific instance is
 /// provided.
 class VPWidenMemoryInstructionRecipe : public VPRecipeBase {
 private:
   Instruction &Instr;
-  std::unique_ptr<VPUser> User;
+  VPUser User;
+
+  void setMask(VPValue *Mask) {
+    if (!Mask)
+      return;
+    User.addOperand(Mask);
+  }
+
+  bool isMasked() const {
+    return (isa<LoadInst>(Instr) && User.getNumOperands() == 2) ||
+           (isa<StoreInst>(Instr) && User.getNumOperands() == 3);
+  }
 
 public:
-  VPWidenMemoryInstructionRecipe(Instruction &Instr, VPValue *Mask)
-      : VPRecipeBase(VPWidenMemoryInstructionSC), Instr(Instr) {
-    if (Mask) // Create a VPInstruction to register as a user of the mask.
-      User.reset(new VPUser({Mask}));
+  VPWidenMemoryInstructionRecipe(LoadInst &Load, VPValue *Addr, VPValue *Mask)
+      : VPRecipeBase(VPWidenMemoryInstructionSC), Instr(Load), User({Addr}) {
+    setMask(Mask);
+  }
+
+  VPWidenMemoryInstructionRecipe(StoreInst &Store, VPValue *Addr,
+                                 VPValue *StoredValue, VPValue *Mask)
+      : VPRecipeBase(VPWidenMemoryInstructionSC), Instr(Store),
+        User({Addr, StoredValue}) {
+    setMask(Mask);
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1026,11 +1135,23 @@ public:
     return V->getVPRecipeID() == VPRecipeBase::VPWidenMemoryInstructionSC;
   }
 
+  /// Return the address accessed by this recipe.
+  VPValue *getAddr() const {
+    return User.getOperand(0); // Address is the 1st, mandatory operand.
+  }
+
   /// Return the mask used by this recipe. Note that a full mask is represented
   /// by a nullptr.
-  VPValue *getMask() {
-    // Mask is the last operand.
-    return User ? User->getOperand(User->getNumOperands() - 1) : nullptr;
+  VPValue *getMask() const {
+    // Mask is optional and therefore the last operand.
+    return isMasked() ? User.getOperand(User.getNumOperands() - 1) : nullptr;
+  }
+
+  /// Return the address accessed by this recipe.
+  VPValue *getStoredValue() const {
+    assert(isa<StoreInst>(Instr) &&
+           "Stored value only available for store instructions");
+    return User.getOperand(1); // Stored value is the 2nd, mandatory operand.
   }
 
   /// Generate the wide load/store.
@@ -1039,7 +1160,8 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
-  void print(raw_ostream &O, const Twine &Indent) const override;
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 };
@@ -1207,193 +1329,6 @@ public:
   void execute(struct VPTransformState *State) override;
 };
 
-/// VPlan models a candidate for vectorization, encoding various decisions take
-/// to produce efficient output IR, including which branches, basic-blocks and
-/// output IR instructions to generate, and their cost. VPlan holds a
-/// Hierarchical-CFG of VPBasicBlocks and VPRegionBlocks rooted at an Entry
-/// VPBlock.
-class VPlan {
-  friend class VPlanPrinter;
-
-private:
-  /// Hold the single entry to the Hierarchical CFG of the VPlan.
-  VPBlockBase *Entry;
-
-  /// Holds the VFs applicable to this VPlan.
-  SmallSet<unsigned, 2> VFs;
-
-  /// Holds the name of the VPlan, for printing.
-  std::string Name;
-
-  /// Holds all the external definitions created for this VPlan.
-  // TODO: Introduce a specific representation for external definitions in
-  // VPlan. External definitions must be immutable and hold a pointer to its
-  // underlying IR that will be used to implement its structural comparison
-  // (operators '==' and '<').
-  SmallPtrSet<VPValue *, 16> VPExternalDefs;
-
-  /// Represents the backedge taken count of the original loop, for folding
-  /// the tail.
-  VPValue *BackedgeTakenCount = nullptr;
-
-  /// Holds a mapping between Values and their corresponding VPValue inside
-  /// VPlan.
-  Value2VPValueTy Value2VPValue;
-
-  /// Holds the VPLoopInfo analysis for this VPlan.
-  VPLoopInfo VPLInfo;
-
-  /// Holds the condition bit values built during VPInstruction to VPRecipe transformation.
-  SmallVector<VPValue *, 4> VPCBVs;
-
-public:
-  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {}
-
-  ~VPlan() {
-    if (Entry)
-      VPBlockBase::deleteCFG(Entry);
-    for (auto &MapEntry : Value2VPValue)
-      if (MapEntry.second != BackedgeTakenCount)
-        delete MapEntry.second;
-    if (BackedgeTakenCount)
-      delete BackedgeTakenCount; // Delete once, if in Value2VPValue or not.
-    for (VPValue *Def : VPExternalDefs)
-      delete Def;
-    for (VPValue *CBV : VPCBVs)
-      delete CBV;
-  }
-
-  /// Generate the IR code for this VPlan.
-  void execute(struct VPTransformState *State);
-
-  VPBlockBase *getEntry() { return Entry; }
-  const VPBlockBase *getEntry() const { return Entry; }
-
-  VPBlockBase *setEntry(VPBlockBase *Block) { return Entry = Block; }
-
-  /// The backedge taken count of the original loop.
-  VPValue *getOrCreateBackedgeTakenCount() {
-    if (!BackedgeTakenCount)
-      BackedgeTakenCount = new VPValue();
-    return BackedgeTakenCount;
-  }
-
-  void addVF(unsigned VF) { VFs.insert(VF); }
-
-  bool hasVF(unsigned VF) { return VFs.count(VF); }
-
-  const std::string &getName() const { return Name; }
-
-  void setName(const Twine &newName) { Name = newName.str(); }
-
-  /// Add \p VPVal to the pool of external definitions if it's not already
-  /// in the pool.
-  void addExternalDef(VPValue *VPVal) {
-    VPExternalDefs.insert(VPVal);
-  }
-
-  /// Add \p CBV to the vector of condition bit values.
-  void addCBV(VPValue *CBV) {
-    VPCBVs.push_back(CBV);
-  }
-
-  void addVPValue(Value *V) {
-    assert(V && "Trying to add a null Value to VPlan");
-    assert(!Value2VPValue.count(V) && "Value already exists in VPlan");
-    Value2VPValue[V] = new VPValue();
-  }
-
-  VPValue *getVPValue(Value *V) {
-    assert(V && "Trying to get the VPValue of a null Value");
-    assert(Value2VPValue.count(V) && "Value does not exist in VPlan");
-    return Value2VPValue[V];
-  }
-
-  /// Return the VPLoopInfo analysis for this VPlan.
-  VPLoopInfo &getVPLoopInfo() { return VPLInfo; }
-  const VPLoopInfo &getVPLoopInfo() const { return VPLInfo; }
-
-private:
-  /// Add to the given dominator tree the header block and every new basic block
-  /// that was created between it and the latch block, inclusive.
-  static void updateDominatorTree(DominatorTree *DT,
-                                  BasicBlock *LoopPreHeaderBB,
-                                  BasicBlock *LoopLatchBB);
-};
-
-#if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
-/// indented and follows the dot format.
-class VPlanPrinter {
-  friend inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan);
-  friend inline raw_ostream &operator<<(raw_ostream &OS,
-                                        const struct VPlanIngredient &I);
-
-private:
-  raw_ostream &OS;
-  VPlan &Plan;
-  unsigned Depth = 0;
-  unsigned TabWidth = 2;
-  std::string Indent;
-  unsigned BID = 0;
-  SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
-
-  VPlanPrinter(raw_ostream &O, VPlan &P) : OS(O), Plan(P) {}
-
-  /// Handle indentation.
-  void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
-
-  /// Print a given \p Block of the Plan.
-  void dumpBlock(const VPBlockBase *Block);
-
-  /// Print the information related to the CFG edges going out of a given
-  /// \p Block, followed by printing the successor blocks themselves.
-  void dumpEdges(const VPBlockBase *Block);
-
-  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
-  /// its successor blocks.
-  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
-
-  /// Print a given \p Region of the Plan.
-  void dumpRegion(const VPRegionBlock *Region);
-
-  unsigned getOrCreateBID(const VPBlockBase *Block) {
-    return BlockID.count(Block) ? BlockID[Block] : BlockID[Block] = BID++;
-  }
-
-  const Twine getOrCreateName(const VPBlockBase *Block);
-
-  const Twine getUID(const VPBlockBase *Block);
-
-  /// Print the information related to a CFG edge between two VPBlockBases.
-  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
-                const Twine &Label);
-
-  void dump();
-
-  static void printAsIngredient(raw_ostream &O, Value *V);
-};
-
-struct VPlanIngredient {
-  Value *V;
-
-  VPlanIngredient(Value *V) : V(V) {}
-};
-
-inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
-  VPlanPrinter::printAsIngredient(OS, I.V);
-  return OS;
-}
-
-inline raw_ostream &operator<<(raw_ostream &OS, VPlan &Plan) {
-  VPlanPrinter Printer(OS, Plan);
-  Printer.dump();
-  return OS;
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 // GraphTraits specializations for VPlan Hierarchical Control-Flow Graphs     //
 //===----------------------------------------------------------------------===//
@@ -1515,6 +1450,215 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
     return nodes_iterator::end(N);
   }
 };
+
+class VPSlotTracker;
+/// VPlan models a candidate for vectorization, encoding various decisions take
+/// to produce efficient output IR, including which branches, basic-blocks and
+/// output IR instructions to generate, and their cost. VPlan holds a
+/// Hierarchical-CFG of VPBasicBlocks and VPRegionBlocks rooted at an Entry
+/// VPBlock.
+class VPlan {
+  friend class VPlanPrinter;
+  friend class VPSlotTracker;
+
+private:
+  /// Hold the single entry to the Hierarchical CFG of the VPlan.
+  VPBlockBase *Entry;
+
+  /// Holds the VFs applicable to this VPlan.
+  SmallSet<unsigned, 2> VFs;
+
+  /// Holds the name of the VPlan, for printing.
+  std::string Name;
+
+  /// Holds all the external definitions created for this VPlan.
+  // TODO: Introduce a specific representation for external definitions in
+  // VPlan. External definitions must be immutable and hold a pointer to its
+  // underlying IR that will be used to implement its structural comparison
+  // (operators '==' and '<').
+  SmallPtrSet<VPValue *, 16> VPExternalDefs;
+
+  /// Represents the backedge taken count of the original loop, for folding
+  /// the tail.
+  VPValue *BackedgeTakenCount = nullptr;
+
+  /// Holds a mapping between Values and their corresponding VPValue inside
+  /// VPlan.
+  Value2VPValueTy Value2VPValue;
+
+  /// Holds the VPLoopInfo analysis for this VPlan.
+  VPLoopInfo VPLInfo;
+
+  /// Holds the condition bit values built during VPInstruction to VPRecipe transformation.
+  SmallVector<VPValue *, 4> VPCBVs;
+
+public:
+  VPlan(VPBlockBase *Entry = nullptr) : Entry(Entry) {
+    if (Entry)
+      Entry->setPlan(this);
+  }
+
+  ~VPlan() {
+    if (Entry)
+      VPBlockBase::deleteCFG(Entry);
+    for (auto &MapEntry : Value2VPValue)
+      if (MapEntry.second != BackedgeTakenCount)
+        delete MapEntry.second;
+    if (BackedgeTakenCount)
+      delete BackedgeTakenCount; // Delete once, if in Value2VPValue or not.
+    for (VPValue *Def : VPExternalDefs)
+      delete Def;
+    for (VPValue *CBV : VPCBVs)
+      delete CBV;
+  }
+
+  /// Generate the IR code for this VPlan.
+  void execute(struct VPTransformState *State);
+
+  VPBlockBase *getEntry() { return Entry; }
+  const VPBlockBase *getEntry() const { return Entry; }
+
+  VPBlockBase *setEntry(VPBlockBase *Block) {
+    Entry = Block;
+    Block->setPlan(this);
+    return Entry;
+  }
+
+  /// The backedge taken count of the original loop.
+  VPValue *getOrCreateBackedgeTakenCount() {
+    if (!BackedgeTakenCount)
+      BackedgeTakenCount = new VPValue();
+    return BackedgeTakenCount;
+  }
+
+  void addVF(unsigned VF) { VFs.insert(VF); }
+
+  bool hasVF(unsigned VF) { return VFs.count(VF); }
+
+  const std::string &getName() const { return Name; }
+
+  void setName(const Twine &newName) { Name = newName.str(); }
+
+  /// Add \p VPVal to the pool of external definitions if it's not already
+  /// in the pool.
+  void addExternalDef(VPValue *VPVal) {
+    VPExternalDefs.insert(VPVal);
+  }
+
+  /// Add \p CBV to the vector of condition bit values.
+  void addCBV(VPValue *CBV) {
+    VPCBVs.push_back(CBV);
+  }
+
+  void addVPValue(Value *V) {
+    assert(V && "Trying to add a null Value to VPlan");
+    assert(!Value2VPValue.count(V) && "Value already exists in VPlan");
+    Value2VPValue[V] = new VPValue(V);
+  }
+
+  VPValue *getVPValue(Value *V) {
+    assert(V && "Trying to get the VPValue of a null Value");
+    assert(Value2VPValue.count(V) && "Value does not exist in VPlan");
+    return Value2VPValue[V];
+  }
+
+  VPValue *getOrAddVPValue(Value *V) {
+    assert(V && "Trying to get or add the VPValue of a null Value");
+    if (!Value2VPValue.count(V))
+      addVPValue(V);
+    return getVPValue(V);
+  }
+
+  /// Return the VPLoopInfo analysis for this VPlan.
+  VPLoopInfo &getVPLoopInfo() { return VPLInfo; }
+  const VPLoopInfo &getVPLoopInfo() const { return VPLInfo; }
+
+  /// Dump the plan to stderr (for debugging).
+  void dump() const;
+
+private:
+  /// Add to the given dominator tree the header block and every new basic block
+  /// that was created between it and the latch block, inclusive.
+  static void updateDominatorTree(DominatorTree *DT, BasicBlock *LoopLatchBB,
+                                  BasicBlock *LoopPreHeaderBB,
+                                  BasicBlock *LoopExitBB);
+};
+
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+/// VPlanPrinter prints a given VPlan to a given output stream. The printing is
+/// indented and follows the dot format.
+class VPlanPrinter {
+  friend inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan);
+  friend inline raw_ostream &operator<<(raw_ostream &OS,
+                                        const struct VPlanIngredient &I);
+
+private:
+  raw_ostream &OS;
+  const VPlan &Plan;
+  unsigned Depth = 0;
+  unsigned TabWidth = 2;
+  std::string Indent;
+  unsigned BID = 0;
+  SmallDenseMap<const VPBlockBase *, unsigned> BlockID;
+
+  VPSlotTracker SlotTracker;
+
+  VPlanPrinter(raw_ostream &O, const VPlan &P)
+      : OS(O), Plan(P), SlotTracker(&P) {}
+
+  /// Handle indentation.
+  void bumpIndent(int b) { Indent = std::string((Depth += b) * TabWidth, ' '); }
+
+  /// Print a given \p Block of the Plan.
+  void dumpBlock(const VPBlockBase *Block);
+
+  /// Print the information related to the CFG edges going out of a given
+  /// \p Block, followed by printing the successor blocks themselves.
+  void dumpEdges(const VPBlockBase *Block);
+
+  /// Print a given \p BasicBlock, including its VPRecipes, followed by printing
+  /// its successor blocks.
+  void dumpBasicBlock(const VPBasicBlock *BasicBlock);
+
+  /// Print a given \p Region of the Plan.
+  void dumpRegion(const VPRegionBlock *Region);
+
+  unsigned getOrCreateBID(const VPBlockBase *Block) {
+    return BlockID.count(Block) ? BlockID[Block] : BlockID[Block] = BID++;
+  }
+
+  const Twine getOrCreateName(const VPBlockBase *Block);
+
+  const Twine getUID(const VPBlockBase *Block);
+
+  /// Print the information related to a CFG edge between two VPBlockBases.
+  void drawEdge(const VPBlockBase *From, const VPBlockBase *To, bool Hidden,
+                const Twine &Label);
+
+  void dump();
+
+  static void printAsIngredient(raw_ostream &O, Value *V);
+};
+
+struct VPlanIngredient {
+  Value *V;
+
+  VPlanIngredient(Value *V) : V(V) {}
+};
+
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlanIngredient &I) {
+  VPlanPrinter::printAsIngredient(OS, I.V);
+  return OS;
+}
+
+inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
+  VPlanPrinter Printer(OS, Plan);
+  Printer.dump();
+  return OS;
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // VPlan Utilities

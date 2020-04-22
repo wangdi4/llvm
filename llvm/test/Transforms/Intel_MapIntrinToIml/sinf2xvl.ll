@@ -1,10 +1,10 @@
-; Check to see that __svml_sinf8 is translated to two __svml_sinf4 high accuracy variant calls.
+; Check to see that __svml_sinf8 is translated to two __svml_sinf4 medium accuracy variant calls.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
-; CHECK: call svml_cc <4 x float> @__svml_sinf4_ha
-; CHECK: call svml_cc <4 x float> @__svml_sinf4_ha
+; CHECK: call svml_cc <4 x float> @__svml_sinf4(
+; CHECK: call svml_cc <4 x float> @__svml_sinf4(
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

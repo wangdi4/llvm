@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -17,7 +17,11 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANINSTRUCTION_DATA_HIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANINSTRUCTION_DATA_HIR_H
 
+#include "llvm/ADT/FoldingSet.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 
 namespace llvm {
 
@@ -69,7 +73,7 @@ private:
 
 protected:
   /// Enumeration to keep track of the concrete sub-classes of VPOperandHIR.
-  enum { VPBlobSC, VPIndVarSC };
+  enum { VPBlobSC, VPIndVarSC, VPCanonExprSC };
 
   VPOperandHIR(const unsigned char ID) : SubclassID(ID) {}
 
@@ -82,50 +86,112 @@ public:
   /// Return true if this VPBlob is structurally equal to \p U.
   virtual bool isStructurallyEqual(const VPOperandHIR *U) const = 0;
 
+  /// Return true if this operand is equal to CE.
+  virtual bool isEqual(const loopopt::CanonExpr *CE) const { return false; }
+
   /// Method to support FoldingSet's hashing.
   virtual void Profile(FoldingSetNodeID &ID) const = 0;
 
   virtual void print(raw_ostream &OS) const = 0;
+  virtual void printDetail(raw_ostream &OS) const {
+    formatted_raw_ostream FOS(OS);
+    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
+    print(OS);
+    FOS << "\n";
+  }
 
   unsigned char getSubclassID() const { return SubclassID; }
 };
 
-/// Class that holds underlying HIR information for unitaty blobs.
+/// Class used to hold underlying HIR information for either unitary blobs or
+/// arbitrary blobs that are invariant at the loop level being vectorized.
 class VPBlob final : public VPOperandHIR {
 private:
-  // Hold DDRef for uninaty DDRef operand.
+  // Holds either DDRef for unitary DDRef operand or the RegDDRef of which
+  // the blob indicated by BlobIndex is part of.
   const loopopt::DDRef *OperandBlob;
 
+  // Set to InvalidBlobIndex for unitary blobs. Otherwise, stores the blob
+  // index of the invariant blob in DDR.
+  unsigned BlobIndex;
+
 public:
-  /// Construct a VPBlob with the DDRef \p Operand.
-  VPBlob(const loopopt::DDRef *Operand)
-      : VPOperandHIR(VPBlobSC), OperandBlob(Operand) {
+  /// Construct a VPBlob for the DDRef \p Operand or the invariant blob
+  /// specified by index \p BlobIndex in \p Operand.
+  VPBlob(const loopopt::DDRef *Operand,
+         unsigned BlobIndex = loopopt::InvalidBlobIndex)
+      : VPOperandHIR(VPBlobSC), OperandBlob(Operand), BlobIndex(BlobIndex) {
     assert(!Operand->isMetadata() && "Unexpected metadata!");
+    assert((BlobIndex == loopopt::InvalidBlobIndex ||
+            isa<loopopt::RegDDRef>(Operand)) &&
+           "Expected a RegDDRef for valid blob index");
   }
 
+  /// Return true if the blob is unitary.
+  bool isUnitaryBlob() const { return BlobIndex == loopopt::InvalidBlobIndex; }
+
   /// Return true if this VPBlob is structurally equal to \p U.
-  /// Structural comparision for VPBlobs checks if the symbase is the
-  /// same.
   bool isStructurallyEqual(const VPOperandHIR *U) const override {
-    const auto *UnitBlob = dyn_cast<VPBlob>(U);
-    if (!UnitBlob)
+    const auto *UBlob = dyn_cast<VPBlob>(U);
+    if (!UBlob)
       return false;
 
-    return getBlob()->getSymbase() == UnitBlob->getBlob()->getSymbase();
+    // For unitary blobs equality is determined using symbase.
+    if (UBlob->isUnitaryBlob())
+      return isUnitaryBlob() &&
+             getBlob()->getSymbase() == UBlob->getBlob()->getSymbase();
+
+    // For non-unitary blobs, equality is determined by BlobIndex.
+    if (BlobIndex == UBlob->getBlobIndex()) {
+      assert(UBlob->getBlob()->getBlobUtils().getBlob(UBlob->getBlobIndex()) ==
+                 getBlob()->getBlobUtils().getBlob(getBlobIndex()) &&
+             "Expected blobs to be equal");
+      return true;
+    }
+
+    return false;
   }
 
   // Return the DDRef of this VPBlob.
-  const loopopt::DDRef *getBlob() const { return OperandBlob; }
+  const loopopt::DDRef *getBlob() const {
+    assert(OperandBlob && "Unexpected null OperandBlob");
+    return OperandBlob;
+  }
+
+  unsigned getBlobIndex() const { return BlobIndex; }
 
   /// Method to support FoldingSet's hashing.
   void Profile(FoldingSetNodeID &ID) const override {
-    ID.AddInteger(OperandBlob->getSymbase());
+    // For unitary blobs, symbase is the key. Otherwise, the SCEVExpr
+    // corresponding to BlobIndex is the key.
+    if (isUnitaryBlob()) {
+      ID.AddPointer(nullptr);
+      ID.AddInteger(getBlob()->getSymbase());
+    } else {
+      ID.AddPointer(getBlob()->getBlobUtils().getBlob(BlobIndex));
+      ID.AddInteger(loopopt::InvalidSymbase /*Symbase*/);
+    }
+
     ID.AddInteger(0 /*IVLevel*/);
   }
 
   void print(raw_ostream &OS) const override {
     formatted_raw_ostream FOS(OS);
-    OperandBlob->print(FOS);
+    if (isUnitaryBlob())
+      getBlob()->print(FOS);
+    else
+      OS << "%vp" << (unsigned short)(unsigned long long)this;
+  }
+
+  void printDetail(raw_ostream &OS) const override {
+    formatted_raw_ostream FOS(OS);
+    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
+    if (isUnitaryBlob())
+      print(OS);
+    else {
+      getBlob()->getBlobUtils().getBlob(getBlobIndex())->print(OS);
+    }
+    FOS << "\n";
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -161,6 +227,7 @@ public:
 
   /// Method to support FoldingSet's hashing.
   void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddPointer(nullptr);
     ID.AddInteger(0 /*Symbase*/);
     ID.AddInteger(IVLevel);
   }
@@ -170,6 +237,71 @@ public:
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPOperandHIR *U) {
     return U->getSubclassID() == VPIndVarSC;
+  }
+};
+
+/// Class that holds underlying HIR information for invariant canon expressions.
+class VPCanonExpr final : public VPOperandHIR {
+private:
+  // Hold invariant canon expression of the invariant operand.
+  const loopopt::CanonExpr *OperandCE;
+
+  // Hold the DDRef that this canon expression is part of. This is used
+  // at code generation time to make the generated widened ref consistent
+  // with appropriate defined at level information.
+  const loopopt::RegDDRef *DDR;
+
+public:
+  /// Construct a VPCanonExpr for the given CanonExpr. DDR points to the DDRef
+  /// containing this canon expression.
+  VPCanonExpr(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
+      : VPOperandHIR(VPCanonExprSC), OperandCE(CE), DDR(DDR) {}
+
+  /// Return true if this VPCanonExpr is structurally equal to \p U.
+  /// Structural comparision for VPCanonExprs checks if the underlying canon \
+  /// expressions are equal.
+  bool isStructurallyEqual(const VPOperandHIR *U) const override {
+    const auto *UnitCE = dyn_cast<VPCanonExpr>(U);
+    if (!UnitCE)
+      return false;
+
+    return isEqual(UnitCE->getCanonExpr());
+  }
+
+  bool isEqual(const loopopt::CanonExpr *CE) const override {
+    return CE->getCanonExprUtils().areEqual(CE, getCanonExpr());
+  }
+
+  const loopopt::CanonExpr *getCanonExpr() const {
+    assert(OperandCE && "Unexpected null canon expression in VPCanonExpr");
+    return OperandCE;
+  }
+  const loopopt::RegDDRef *getDDR() const {
+    assert(DDR && "Unexpected null DDREF in VPCanonExpr");
+    return DDR;
+  }
+
+  /// Method to support FoldingSet's hashing.
+  void Profile(FoldingSetNodeID &ID) const override {
+    ID.AddPointer(getCanonExpr());
+    ID.AddInteger(0 /*Symbase*/);
+    ID.AddInteger(0 /*IVLevel*/);
+  }
+
+  void print(raw_ostream &OS) const override {
+    OS << "%vp" << (unsigned short)(unsigned long long)this;
+  }
+
+  void printDetail(raw_ostream &OS) const override {
+    formatted_raw_ostream FOS(OS);
+    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
+    getCanonExpr()->print(FOS);
+    FOS << "\n";
+  }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPOperandHIR *U) {
+    return U->getSubclassID() == VPCanonExprSC;
   }
 };
 } // namespace vpo

@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1427,7 +1427,7 @@ public:
       Builder.SetInsertPoint(NewLoad);
       auto *CopyLoad = Builder.CreateAlignedLoad(
           // Assumed all pointer types have same alignment.
-          NewPtr, NewLoad->getAlignment(), false, "copy");
+          NewPtr, NewLoad->getAlign(), false, "copy");
 
       if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr)) {
         ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
@@ -1451,7 +1451,7 @@ public:
         Builder.SetInsertPoint(NewLoad);
         auto *CopyLoad = Builder.CreateAlignedLoad(
             // Assumed all pointer types have same alignment.
-            NewPtr, NewLoad->getAlignment(), false, "copy");
+            NewPtr, NewLoad->getAlign(), false, "copy");
         OrigToCopy[NewLoad] = CopyLoad;
         if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))
           ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
@@ -1466,7 +1466,7 @@ public:
         auto *CopyStore = Builder.CreateAlignedStore(
             NewStore->getValueOperand(), NewPtr,
             // Assumed all pointer types have same alignment.
-            NewStore->getAlignment(), false);
+            NewStore->getAlign(), false);
         OrigToCopy[NewStore] = CopyStore;
 
         if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))

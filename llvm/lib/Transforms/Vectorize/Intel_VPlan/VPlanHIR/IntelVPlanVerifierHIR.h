@@ -35,7 +35,6 @@ private:
   const loopopt::HLLoop *TheLoop;
 
   unsigned countLoopsInUnderlyingIR() const override;
-  void verifyIRSpecificLoopRegion(const VPRegionBlock *Region) const override;
 
 public:
   VPlanVerifierHIR(const loopopt::HLLoop *HLLp);

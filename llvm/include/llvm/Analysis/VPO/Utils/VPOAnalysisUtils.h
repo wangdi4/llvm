@@ -56,43 +56,77 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 //
 /// The Modifier is used in the following cases:
 ///
-/// 1. Schedule modifiers. Example:
+/// * Schedule modifiers. Example:
 ///      FullName = "QUAL.OMP.SCHEDULE.STATIC:SIMD.MONOTONIC"
 ///      BaseName = "QUAL.OMP.SCHEDULE.STATIC"
 ///      Modifier = "SIMD.MONOTONIC"
 ///      Id = QUAL_OMP_SCHEDULE_STATIC
 ///
-/// 2. Array sections. Example:
+/// * Array sections. Example:
 ///      FullName = "QUAL.OMP.REDUCTION.ADD:ARRSECT"
 ///      BaseName = "QUAL.OMP.REDUCTION.ADD"
 ///      Modifier = "ARRSECT"
 ///      Id = QUAL_OMP_REDUCTION_ADD
 ///
-/// 3. ByRef operands. Example:
+/// * ByRef operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:BYREF"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "BYREF"
 ///      Id = QUAL_OMP_PRIVATE
 ///
-/// 4. NonPOD operands. Example:
+/// * NonPOD operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:NONPOD"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
 ///
-/// 5. MAP clause for aggregate objects. Example:
+/// * MAP clause for aggregate objects. Example:
 ///      FullName = "QUAL.OMP.MAP.TOFROM:AGGRHEAD"
 ///      BaseName = "QUAL.OMP.MAP.TOFROM"
 ///      Modifier = "AGGRHEAD"
 ///      Id = QUAL_OMP_MAP_TOFROM
+///
+/// * MAP chains' links after the first link. Example:
+///      FullName = "QUAL.OMP.MAP.TOFROM:CHAIN"
+///      BaseName = "QUAL.OMP.MAP.TOFROM"
+///      Modifier = "CHAIN"
+///      Id = QUAL_OMP_MAP_TOFROM
+///
+/// * LINEAR clause on original loop's IV. Example:
+///      FullName = "QUAL.OMP.LINEAR:IV"
+///      BaseName = "QUAL.OMP.LINEAR"
+///      Modifier = "IV"
+///      Id = QUAL_OMP_LINEAR
 #if INTEL_CUSTOMIZATION
 ///
-/// 6. F90 Dope Vector operands. Example:
+/// * F90 Dope Vector operands. Example:
 ///      FullName = "QUAL.OMP.PRIVATE:F90_DV"
 ///      BaseName = "QUAL.OMP.PRIVATE"
 ///      Modifier = "F90_DV"
 ///      Id = QUAL_OMP_PRIVATE
+///
+/// * WI local operands of clauses implying privatization. Example:
+///      FullName = "QUAL.OMP.PRIVATE:WILOCAL
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "WILOCAL"
+///      Id = QUAL_OMP_PRIVATE
 #endif // INTEL_CUSTOMIZATION
+///
+/// *  ALWAYS, CLOSE, PRESENT modifiers for map clause. Example:
+///      FullName = "QUAL.OMP.MAP:ALWAYS.CLOSE"
+///      BaseName = "QUAL.OMP.MAP"
+///      Modifiers = "ALWAYS" and "CLOSE"
+///      Id = QUAL_OMP_MAP
+///
+#if INTEL_CUSTOMIZATION
+/// *  AGGREGATE, ALLOCATABLE, POINTER, SCALAR defaultmap categories. Example:
+#else
+/// *  AGGREGATE, POINTER, SCALAR defaultmap categories. Example:
+#endif // INTEL_CUSTOMIZATION
+///      FullName = "QUAL.OMP.DEFAULTMAP.TO:SCALAR"
+///      BaseName = "QUAL.OMP.DEFAULTMAP.TO"
+///      Modifier = "SCALAR"
+///      Id = QUAL_OMP_DEFAULTMAP_TO
 ///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
@@ -110,7 +144,15 @@ private:
   bool IsNonPod:1;
 #if INTEL_CUSTOMIZATION
   bool IsF90DopeVector:1;
+  bool IsWILocal:1;
+  bool IsAllocatable:1;
 #endif // INTEL_CUSTOMIZATION
+  bool IsAggregate:1;
+  bool IsPointer:1;
+  bool IsScalar:1;
+  bool IsAlways:1;
+  bool IsClose:1;
+  bool IsPresent:1;
   bool IsUnsigned:1;     // needed by min/max reduction
   bool IsComplex:1;
 
@@ -125,6 +167,9 @@ private:
   // Map clause for aggregate objects
   bool IsMapAggrHead:1;
   bool IsMapAggr:1;
+  // Map clause is for a link in an ongoing map chain.
+  bool IsMapChainLink:1;
+  bool IsIV:1;
 
 public:
 
@@ -139,6 +184,9 @@ public:
   void setIsArraySection()         { IsArraySection = true; }
   void setIsByRef()                { IsByRef = true; }
   void setIsNonPod()               { IsNonPod = true; }
+  void setIsAlways()               { IsAlways = true; }
+  void setIsClose()                { IsClose = true; }
+  void setIsPresent()              { IsPresent = true; }
   void setIsUnsigned()             { IsUnsigned = true; }
   void setIsConditional()          { IsConditional = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
@@ -146,6 +194,11 @@ public:
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
   void setIsMapAggrHead()          { IsMapAggrHead = true; }
   void setIsMapAggr()              { IsMapAggr = true; }
+  void setIsMapChainLink()         { IsMapChainLink = true; }
+  void setIsAggregate()            { IsAggregate = true; }
+  void setIsPointer()              { IsPointer = true; }
+  void setIsScalar()               { IsScalar = true; }
+  void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
 
   // Getters
@@ -156,6 +209,9 @@ public:
   bool getIsArraySection() const { return IsArraySection; }
   bool getIsByRef() const { return IsByRef; }
   bool getIsNonPod() const { return IsNonPod; }
+  bool getIsAlways() const { return IsAlways; }
+  bool getIsClose() const { return IsClose; }
+  bool getIsPresent() const { return IsPresent; }
   bool getIsUnsigned() const { return IsUnsigned; }
   bool getIsConditional() const { return IsConditional; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
@@ -163,10 +219,19 @@ public:
   bool getIsScheduleSimd() const { return IsScheduleSimd; }
   bool getIsMapAggrHead() const { return IsMapAggrHead; }
   bool getIsMapAggr() const { return IsMapAggr; }
+  bool getIsMapChainLink() const { return IsMapChainLink; }
 #if INTEL_CUSTOMIZATION
   void setIsF90DopeVector() {IsF90DopeVector = true; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
+  void setIsWILocal() { IsWILocal = true; }
+  bool getIsWILocal() const { return IsWILocal; }
+  void setIsAllocatable() { IsAllocatable = true; }
+  bool getIsAllocatable() const { return IsAllocatable; }
 #endif // INTEL_CUSTOMIZATION
+  bool getIsAggregate() const { return IsAggregate; }
+  bool getIsPointer() const { return IsPointer; }
+  bool getIsScalar() const { return IsScalar; }
+  bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }
 };
 
@@ -297,6 +362,10 @@ public:
     /// such as QUAL_OMP_DEPEND_IN
     static bool isDependClause(int ClauseID);
 
+    /// Return true iff the ClauseID represents a INREDUCTION clause,
+    /// such as QUAL_OMP_INREDUCTION_ADD
+    static bool isInReductionClause(int ClauseID);
+
     /// Return true iff the ClauseID represents a REDUCTION clause,
     /// such as QUAL_OMP_REDUCTION_ADD
     static bool isReductionClause(int ClauseID);
@@ -307,6 +376,9 @@ public:
 
     /// True for MAP, TO, or FROM clauses
     static bool isMapClause(int ClauseID);
+
+    /// True for DEFAULTMAP clauses
+    static bool isDefaultmapClause(int ClauseID);
 
     /// Return 0, 1, or 2 based on the number of arguments that the
     /// clause can take:

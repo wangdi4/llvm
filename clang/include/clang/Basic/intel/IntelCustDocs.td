@@ -274,10 +274,11 @@ def AllowMissingTypenameDocs : Documentation {
   let RegressionTest = "cfeCpp/cq117771";
   let Owner = "";
   let CompatVersions = "";
+  let Default = 0;
   let Content = [{
 Microsoft allows you to leave off typename in some contexts.  Clang also
 allows this in MSVCCompat mode.  See isMicrosoftMissingTypename in
-SemaDecl.cpp.
+SemaDecl.cpp. This behavior is off-by-default.
 
 The Intel compiler allows this in more cases than Clang and in some cases
 more than Microsoft.
@@ -863,17 +864,19 @@ and jamming loops.
 def PragmaBlockLoopDocs : Documentation {
   let Category = DocCatIntelLoops;
   let Option = "IntelCompat";
-  let RegressionTest = "Parser/intel/block_loop.cpp, Sema/intel/block_loop.cpp, CodeGenCXX/intel/block_loop.cpp";
-  let Owner = "jyu2";
+  let RegressionTest = "Parser/intel/block_loop.cpp, Sema/intel/block_loop.cpp, CodeGenCXX/intel/block_loop.cpp, Parser/intel/noblock_loop.cpp, Sema/intel/noblock_loop.cpp, CodeGenCXX/intel/noblock_loop.cpp";
+  let Owner = "jyu2,smanna";
   let Content = [{
 The ``block_loop`` pragma lets you exert greater control over optimizations
-on a specific loop inside a nested loop.
+on a specific loop inside a nested loop. The ``noblock_loop`` pragma tunes the
+performance by disabling loop blocking for nested loops.
 
 Syntax:
 
 .. code-block:: text
 
   #pragma block_loop [level(levels)] [private(vars)] [factor(expr)]
+  #pragma noblock_loop
 
 Implements a new attribute (IntelBlockLoopAttr) instead of using the LoopHint
 attribute framework used.  LoopHintAttrs create metadata but this pragma
@@ -889,36 +892,55 @@ Example:
     for (int j=0; j<512; ++j) { bar(var); }
   }
 
+  void bar(int i, int *x, int *y) {
+    #pragma noblock_loop
+     for (i = 0; i < 10; ++i) {
+       x[i] = y[i];
+     }
+  }
+
 AST:
 
 .. code-block:: console
 
   $ clang -cc1 -fintel-compatibility -ast-dump -o - t.c
+  $ clang -cc1 -fintel-compatibility -ast-dump -o - t1.c
 
 .. code-block:: text
 
   AttributedStmt 0xdb151f8 <<invalid sloc>, line:5:41>
-  |-IntelBlockLoopAttr 0xdb15190 <line:3:11, col:56> Implicit 1 2
+  |-IntelBlockLoopAttr 0xdb15190 <line:3:11, col:56> Implicit block_loop 1 2
   | |-IntegerLiteral 0xdb14cb0 <col:40> 'int' 256
   | |-IntegerLiteral 0xdb14cb0 <col:40> 'int' 256
   | `-DeclRefExpr 0xdb14d30 <col:53> 'int' lvalue ParmVar 0xdab48c0 'var' 'int'
   `-ForStmt 0xdb15158 <line:4:3, line:5:41>
+
+   AttributedStmt 0x1091f290 <<invalid sloc>, line:5:3>
+  |-IntelBlockLoopAttr 0x1091f220 <line:2:9> Implicit noblock_loop -1
+  | `-<<<NULL>>>
+  `-ForStmt 0x1091f1e0 <line:3:3, line:5:3>
 
 IR:
 
 .. code-block:: console
 
   $ clang -cc1 -fintel-compatibility -emit-llvm -o - t.c
+  $ clang -cc1 -fintel-compatibility -emit-llvm -o - t1.c
 
 .. code-block:: llvm
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.PRIVATE"(i32* %var.addr), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 256), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 256) ]
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 -1), "QUAL.PRAGMA.FACTOR"(i32 0) ]
+
+  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
   }];
   let UserContent = [{
 The ``block_loop`` pragma lets you exert greater control over optimizations on
-a specific loop inside a nested loop.
+a specific loop inside a nested loop. The ``noblock_loop`` pragma lets you tune
+the performance by disabling loop blocking for nested loops.
   }];
 }
 
@@ -1013,6 +1035,78 @@ The ``loop_count`` pragma specifies the minimum, maximum, or average number of
 iterations for a for loop. In addition, a list of commonly occurring values
 can be specified to help the compiler generate multiple versions and perform
 complete unrolling.
+  }];
+}
+
+def PragmaLoopFuseDocs : Documentation {
+  let Category = DocCatIntelHLSPragmas;
+  let Option = "IntelCompat";
+  let RegressionTest = "SemaIntelHLS/loop_fuse.cpp, CodeGenIntelHLS/loop_fuse.cpp";
+  let Owner = "achikin";
+  let Content = [{
+A ``loop_fuse`` construct specifies a region of code where the compiler will
+attempt to fuse adjacent loops.
+Syntax:
+
+.. code-block:: text
+
+  #pragma loop_fuse [depth(depth-val)] [independent]
+  { // structured-block: compound statement
+    ...
+  }
+
+Implements a new attribute (LoopFuseAttr). Generates IR directives that
+surround the applicable scope.
+
+Example:
+
+.. code-block:: c
+
+  void foo(float* A, float* B, float* C) {
+    #pragma loop_fuse depth(2) independent
+    {
+      for (int i = 0; i < 1024; ++i)
+        C[i] += A[i];
+      for (int j = 0; j < 1024; ++j)
+        C[j] += B[j];
+    }
+  }
+
+
+AST:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -ast-dump t.c
+
+.. code-block:: text
+
+  `-FunctionDecl 0x896bef8 <doc.c:1:1, line:9:1> line:1:6 foo 'void (float *, float *, float *)'
+  |-ParmVarDecl 0x896bd10 <col:10, col:17> col:17 used A 'float *'
+  |-ParmVarDecl 0x896bd90 <col:20, col:27> col:27 used B 'float *'
+  |-ParmVarDecl 0x896be10 <col:30, col:37> col:37 used C 'float *'
+  `-CompoundStmt 0x896c6d0 <col:40, line:9:1>
+    `-AttributedStmt 0x896c6b8 <line:3:3, line:8:3>
+      |-LoopFuseAttr 0x896c670 <line:3:3, line:8:3> 2 "independent"
+      `-CompoundStmt 0x896c650 <line:3:3, line:8:3>
+        |-ForStmt 0x896c310 <line:4:5, line:5:18>
+
+IR:
+
+.. code-block:: console
+
+  $ clang -cc1 -fhls -emit-llvm -o - doc.c
+
+.. code-block:: llvm
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.FUSE"(), "QUAL.PRAGMA.FUSE.DISTANCE"(i32 2), "QUAL.PRAGMA.FUSE.INDEPENDENT"() ]
+
+  call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.FUSE"() ]
+  }];
+ let UserContent = [{
+The ``loop_fuse`` pragma specifies a region of code where the compiler will
+attempt to fuse adjacent loops, letting you exert greater control over
+optimizations on adjacent loops.
   }];
 }
 
@@ -2475,37 +2569,38 @@ IR:
    }];
 }
 
-def MemoryLayoutDocs : Documentation {
+def IntelFPGAForcePow2DepthDocs : Documentation {
   let Category = DocCatIntelHLSAttributes;
-  let BugTracker = "CMPLRLLVM-10365";
+  let BugTracker = "CMPLRLLVM-11256";
   let RegressionTest = "";
   let Owner = "zahiraam";
   let Content = [{
-The 'memory_layout' attribute is applied to a variable in OpenCl and HSL. It
-takes a mandatory argument "type" which values are either "compact" or
-"padded".
+The 'force_pow2_depth' attribute is applied to a variable in OpenCl, HLS and
+SYCL. It takes an integer argument between 0 and 1 that determines whether
+the memory implemented for the variable should have a power-of-2 depth or not.
 This attribute infers the 'memory' attribute, and it is illegal to apply it
 to the attribute 'register'.
 Syntax:
 
 .. code-block:: text
 
-   Type ::= 'compact' | 'padded';
-   __attribute__((memory_layout(<Type>)));
+   __attribute__((force_pow2_depth(n)));
+
+   where n is a non-negative integer constant between 0 and 1.
 
 Example:
 
 .. code-block:: c++
 
-   const int __attribute__((__memory_layout__("compact"))) gc = 0;
+   const int __attribute__((__force_pow2_depth__(0))) gc = 0;
 
    void foo ()
    {
-     int __attribute__((__memory_layout__("padded"))) lc;
+     int __attribute__((__force_pow2_depth__(1))) lc;
    }
 
    struct st {
-     int __attribute__((__memory_layout__("compact"))) f1;
+     int __attribute__((__force_pow2_depth__(0))) f1;
    };
 
    static st s1;
@@ -2517,46 +2612,51 @@ AST:
 
 .. code-block:: console
 
-  $ clang -cc1 -fhls -ast-dump.cpp t.cpp
+  $ clang -cc1 -fhls -ast-dump t.cpp
 
 .. code-block:: text
 
-   -VarDecl 0xf278e70 <t2.cpp:1:1, col:62> col:57 gc 'const int' cinit
-    -IntegerLiteral 0xf278f88 <col:62> 'int' 0
-    -IntelFPGAMemoryAttr 0x10661ed8 <<invalid sloc>> Implicit Default
-    `-MemoryLayoutAttr 0xf278ed8 <col:26, col:53> "compact"
+   -VarDecl 0xf5ec2d8 <t.cpp:1:1, col:57> col:52 gc 'const int' cinit
+    |-IntegerLiteral 0xf5ec430 <col:57> 'int' 0
+    |-IntelFPGAMemoryAttr 0xf5ec360 <<invalid sloc>> Implicit Default
+    `-ForcePow2DepthAttr 0xf5ec3b8 <col:26, col:48>
+      `-ConstantExpr 0xf5ec340 <col:47> 'int' Int: 0
+        `-IntegerLiteral 0xf5ec2a0 <col:47> 'int' 0
 
-    `-VarDecl 0xf2791a0 <col:6, col:55> col:55 lc 'int'
-    -IntelFPGAMemoryAttr 0x10662238 <<invalid sloc>> Implicit Default
-    `-MemoryLayoutAttr 0xf279208 <col:25, col:51> "padded"
+   -VarDecl 0xf5ec5d0 <col:3, col:48> col:48 lc 'int'
+    |-IntelFPGAMemoryAttr 0xf5ec658 <<invalid sloc>> Implicit Default
+    `-ForcePow2DepthAttr 0xf5ec6b0 <col:22, col:44>
+      `-ConstantExpr 0xf5ec638 <col:43> 'int' Int: 1
+        `-IntegerLiteral 0xf5ec598 <col:43> 'int' 1
 
-    -FieldDecl 0xf279480 <line:9:6, col:56> col:56 referenced f1 'int'
-    -IntelFPGAMemoryAttr 0x10662530 <<invalid sloc>> Implicit Default
-    `-MemoryLayoutAttr 0xf2794d0 <col:25, col:52> "compact"
-
+   -FieldDecl 0xf5ec8f0 <line:9:3, col:48> col:48 referenced f1 'int'
+    |-IntelFPGAMemoryAttr 0xf5ec960 <<invalid sloc>> Implicit Default
+     `-ForcePow2DepthAttr 0xf5ec9b8 <col:22, col:44>
+       `-ConstantExpr 0xf5ec940 <col:43> 'int' Int: 0
+         `-IntegerLiteral 0xf5ec8b8 <col:43> 'int' 0
 
 IR:
 
 .. code-block:: console
 
-  $ clang -fhls -emit-llvm -o - t.cpp
+  $ clang -cc1 -fhls -emit-llvm -o - t.cpp
 
 .. code-block:: llvm
 
-   @.str = private unnamed_addr constant [24 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:COMPACT}\00"
-   @.str.2 = private unnamed_addr constant [23 x i8] c"{memory:DEFAULT}{sizeinfo:4}{memory_layout:PADDED}\00"
+   @.str = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:0}\00"
+   @.str.2 = private unnamed_addr constant [49 x i8] c"{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:1}\00"
 
-   define dso_local void @_Z3foov() #0 {
+   define void @_Z3foov() #0 {
    entry:
      %lc = alloca i32, align 4
      %lc1 = bitcast i32* %lc to i8*
-     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([51 x i8], [51 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 5)
+     call void @llvm.var.annotation(i8* %lc1, i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str.2, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 5)
      ret void
    }
 
-   define dso_local void @_Z3barv() #0 {
+   define void @_Z3barv() #0 {
    entry:
-     %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @_ZL2s1, i32 0, i32 0), i8* getelementptr inbounds ([52 x i8], [52 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str.1, i32 0, i32 0), i32 9)
+     %0 = call i32* @llvm.ptr.annotation.p0i32(i32* getelementptr inbounds (%struct.st, %struct.st* @_ZL2s1, i32 0, i32 0), i8* getelementptr inbounds ([49 x i8], [49 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.1, i32 0, i32 0), i32 9)
   store i32 0, i32* %0, align 4
      ret void
    }

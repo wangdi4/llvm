@@ -20,10 +20,7 @@
 ; CHECK: |      %cond5 = (%3 * %1);
 ; CHECK: |   }
 ; CHECK: |   %sub40 = %sub40  -  %cond5;
-; CHECK: |   %tobool6 = %sub40 == 0;
-; CHECK: |   %cmp835 = i1 <u 4;
-; CHECK: |   %or.cond = %tobool6  ||  %cmp835;
-; CHECK: |   if (%or.cond == 0)
+; CHECK: |   if (%sub40 != 0)
 ; CHECK: |   {
 ; CHECK: |      + DO i2 = 0, i1 + -4, 1   <DO_LOOP>  <MAX_TC_EST = 1>
 ; CHECK: |      |   %4 = (@l)[0][i1];
@@ -83,9 +80,7 @@ cond.end4:                                        ; preds = %for.body, %cond.tru
   %cond5 = phi i32 [ %mul, %cond.true2 ], [ %.mux, %for.body ]
   %sub = sub i32 %sub40, %cond5
   %tobool6 = icmp eq i32 %sub, 0
-  %cmp835 = icmp ult i64 %indvars.iv41, 4
-  %or.cond = or i1 %tobool6, %cmp835
-  br i1 %or.cond, label %for.inc18, label %for.body12.lr.ph
+  br i1 %tobool6, label %for.inc18, label %for.body12.lr.ph
 
 for.body12.lr.ph:                                 ; preds = %cond.end4
   %arrayidx14 = getelementptr inbounds [20 x i32], [20 x i32]* @l, i64 0, i64 %indvars.iv41

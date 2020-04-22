@@ -64,6 +64,7 @@ FunctionPass *createX86CiscizationHelperPass();
 FunctionPass *createX86GlobalFMAPass();
 FunctionPass *createFeatureInitPass();
 FunctionPass *createIVSplitLegacyPass();
+FunctionPass *createX86SplitVectorValueTypePass();
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -129,7 +130,7 @@ FunctionPass *createX86DomainReassignmentPass();
 FunctionPass *createX86EvexToVexInsts();
 
 /// This pass creates the thunks for the retpoline feature.
-FunctionPass *createX86RetpolineThunksPass();
+FunctionPass *createX86IndirectThunksPass();
 
 /// This pass ensures instructions featuring a memory operand
 /// have distinctive <LineNumber, Discriminator> (with respect to eachother)
@@ -144,20 +145,32 @@ FunctionPass *createX86InsertPrefetchPass();
 FunctionPass *createX86GenerateLEAs();
 #endif // INTEL_CUSTOMIZATION
 
+/// This pass insert wait instruction after X87 instructions which could raise
+/// fp exceptions when strict-fp enabled.
+FunctionPass *createX86InsertX87waitPass();
+
+/// This pass optimizes arithmetic based on knowledge that is only used by
+/// a reduction sequence and is therefore safe to reassociate in interesting
+/// ways.
+FunctionPass *createX86PartialReductionPass();
+
 InstructionSelector *createX86InstructionSelector(const X86TargetMachine &TM,
                                                   X86Subtarget &,
                                                   X86RegisterBankInfo &);
 
 FunctionPass *createX86SpeculativeLoadHardeningPass();
 
+void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
 void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
+void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
 void initializeFPSPass(PassRegistry &);
 void initializeWinEHStatePassPass(PassRegistry &);
 void initializeX86AvoidSFBPassPass(PassRegistry &);
+void initializeX86AvoidTrailingCallPassPass(PassRegistry &);
 void initializeX86CallFrameOptimizationPass(PassRegistry &);
 void initializeX86CmovConverterPassPass(PassRegistry &);
 void initializeX86CondBrFoldingPassPass(PassRegistry &);
@@ -166,10 +179,23 @@ void initializeX86ExecutionDomainFixPass(PassRegistry &);
 void initializeX86ExpandPseudoPass(PassRegistry &);
 void initializeX86FlagsCopyLoweringPassPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
+void initializeX86PartialReductionPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
+
+namespace X86AS {
+enum : unsigned {
+  GS = 256,
+  FS = 257,
+  SS = 258,
+  PTR32_SPTR = 270,
+  PTR32_UPTR = 271,
+  PTR64 = 272
+};
+} // End X86AS namespace
+
 } // End llvm namespace
 
 #endif

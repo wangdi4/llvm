@@ -660,6 +660,10 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(AAPCS);
       TCALLINGCONV(AAPCS_VFP);
       TCALLINGCONV(IntelOclBicc);
+#if INTEL_CUSTOMIZATION
+      TCALLINGCONV(IntelOclBiccAVX);
+      TCALLINGCONV(IntelOclBiccAVX512);
+#endif // INTEL_CUSTOMIZATION
       TCALLINGCONV(Swift);
       TCALLINGCONV(PreserveMost);
       TCALLINGCONV(PreserveAll);

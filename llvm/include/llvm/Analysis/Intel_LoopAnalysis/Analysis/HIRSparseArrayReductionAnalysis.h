@@ -1,6 +1,6 @@
 //===--------   HIRSparseArrayReductionAnalysis.h   -----------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -17,13 +17,17 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
+
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
+
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 #include <map>
 
@@ -60,6 +64,7 @@ class HIRSparseArrayReductionAnalysis : public HIRAnalysis {
   typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
 
   HIRDDAnalysis &DDA;
+  TargetTransformInfo &TTI;
   DDGraph DDG;
 
   // From Loop, look up all sets of Insts in a Sparse Array Reduction chain
@@ -101,11 +106,12 @@ class HIRSparseArrayReductionAnalysis : public HIRAnalysis {
                                              const RefGroupTy &RefVec);
 
 public:
-  HIRSparseArrayReductionAnalysis(HIRFramework &HIRF, HIRDDAnalysis &DDA);
+  HIRSparseArrayReductionAnalysis(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+                                  TargetTransformInfo &TTI);
   HIRSparseArrayReductionAnalysis(const HIRSparseArrayReductionAnalysis &) =
       delete;
   HIRSparseArrayReductionAnalysis(HIRSparseArrayReductionAnalysis &&Arg)
-      : HIRAnalysis(Arg.HIRF), DDA(Arg.DDA),
+      : HIRAnalysis(Arg.HIRF), DDA(Arg.DDA), TTI(Arg.TTI),
         SparseArrayReductionMap(std::move(Arg.SparseArrayReductionMap)),
         SparseArrayReductionInstMap(
             std::move(Arg.SparseArrayReductionInstMap)) {}

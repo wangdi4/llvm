@@ -207,6 +207,11 @@ bool HotColdSplitting::shouldOutlineFrom(const Function &F) const {
   if (F.hasFnAttribute(Attribute::NoInline))
     return false;
 
+  // A function marked `noreturn` may contain unreachable terminators: these
+  // should not be considered cold, as the function may be a trampoline.
+  if (F.hasFnAttribute(Attribute::NoReturn))
+    return false;
+
   if (F.hasFnAttribute(Attribute::SanitizeAddress) ||
       F.hasFnAttribute(Attribute::SanitizeHWAddress) ||
       F.hasFnAttribute(Attribute::SanitizeThread) ||
@@ -332,6 +337,9 @@ Function *HotColdSplitting::extractColdRegion(
     }
     CI->setIsNoInline();
 
+    if (OrigF->hasSection())
+      OutF->setSection(OrigF->getSection());
+
     markFunctionCold(*OutF, BFI != nullptr);
 
     LLVM_DEBUG(llvm::dbgs() << "Outlined Region: " << *OutF);
@@ -454,6 +462,10 @@ public:
     // first have predecessors within the extraction region.
     if (mayExtractBlock(SinkBB)) {
       addBlockToRegion(&SinkBB, SinkScore);
+      if (pred_empty(&SinkBB)) {
+        ColdRegion->EntireFunctionCold = true;
+        return Regions;
+      }
     } else {
       Regions.emplace_back();
       ColdRegion = &Regions.back();

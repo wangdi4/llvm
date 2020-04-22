@@ -44,3 +44,15 @@ void test__writemsr(unsigned int x, unsigned long long y) {
 // CHECK: call void asm sideeffect "wrmsr", "{dx},{ax},{cx},~{dirflag},~{fpsr},~{flags}"(i32 %{{.*}}, i32 %{{.*}}, i32 {{.*}})
   __writemsr(x, y);
 }
+
+unsigned long long test_readmsr(unsigned int x) {
+// CHECK-LABEL: test_readmsr(
+// CHECK: call { i32, i32 } asm "rdmsr", "={dx},={ax},{cx},~{dirflag},~{fpsr},~{flags}"(i32 %{{.*}})
+  return _readmsr(x);
+}
+
+void test_writemsr(unsigned int x, unsigned long long y) {
+// CHECK-LABEL: test_writemsr(
+// CHECK: call void asm sideeffect "wrmsr", "{dx},{ax},{cx},~{dirflag},~{fpsr},~{flags}"(i32 %{{.*}}, i32 %{{.*}}, i32 {{.*}})
+  _writemsr(x, y);
+}

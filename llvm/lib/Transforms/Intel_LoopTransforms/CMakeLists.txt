@@ -26,7 +26,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLoopReversal.cpp
         HIRLMM.cpp
         HIRLoopCollapse.cpp
-        HIRSymbolicTripCountCompleteUnroll.cpp
+        HIRPMSymbolicTripCountCompleteUnroll.cpp
         HIRScalarReplArray.cpp
         ParVecDirectiveInsertion.cpp
         HIRParDirInsert.cpp
@@ -52,10 +52,13 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRUndoSinkingForPerfectLoopnest.cpp
         HIRConditionalTempSinking.cpp
         HIRMemoryReductionSinking.cpp
+        HIRRowWiseMV.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
         )
+
+target_link_libraries(LLVMIntel_LoopTransforms PRIVATE LLVMIntel_DTransAnalysis)
 
 add_dependencies(LLVMIntel_LoopTransforms intrinsics_gen directives_gen)

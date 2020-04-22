@@ -193,9 +193,9 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
 #if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason;
     auto IsViable = isInlineViable(*Callee, Reason);
-    if (IsViable)
+    if (IsViable.isSuccess())
       return llvm::InlineCost::getAlways("alwaysinline viable");
-    return llvm::InlineCost::getNever(IsViable.message);
+    return llvm::InlineCost::getNever(IsViable.getFailureReason());
   }
   if (CS.hasFnAttr("always-inline-recursive")) {
     InlineReason Reason = InlrNoReason;
@@ -226,8 +226,8 @@ InlineCost AMDGPUInliner::getInlineCost(CallSite CS) {
 
   auto IC = llvm::getInlineCost(cast<CallBase>(*CS.getInstruction()), Callee,
                              LocalParams, TTI, GetAssumptionCache, // INTEL
-                             None, nullptr, nullptr, nullptr, PSI, // INTEL
-                             RemarksEnabled ? &ORE : nullptr);
+                             None, GetTLI, nullptr, nullptr, nullptr, // INTEL
+                             PSI, RemarksEnabled ? &ORE : nullptr);
 
   if (IC && !IC.isAlways() && !Callee->hasFnAttribute(Attribute::InlineHint)) {
     // Single BB does not increase total BB amount, thus subtract 1

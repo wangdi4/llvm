@@ -1,4 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction  -hir-vec-dir-insert -VPlanDriverHIR -S | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -S | FileCheck %s
 
 ; WARNING!!!
 ; WARNING!!!      ** CONTAINS INTEL IP **

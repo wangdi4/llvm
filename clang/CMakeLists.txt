@@ -226,7 +226,7 @@ set(C_INCLUDE_DIRS "" CACHE STRING
   "Colon separated list of directories clang will search for headers.")
 
 set(GCC_INSTALL_PREFIX "" CACHE PATH "Directory where gcc is installed." )
-set(DEFAULT_SYSROOT "" CACHE PATH
+set(DEFAULT_SYSROOT "" CACHE STRING
   "Default <path> to all compiler invocations for --sysroot=<path>." )
 
 set(ENABLE_LINKER_BUILD_ID OFF CACHE BOOL "pass --build-id to ld")
@@ -236,6 +236,9 @@ set(ENABLE_X86_RELAX_RELOCATIONS OFF CACHE BOOL
 
 set(ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER FALSE CACHE BOOL
   "Enable the experimental new pass manager by default.")
+
+set(CLANG_SPAWN_CC1 OFF CACHE BOOL
+    "Whether clang should use a new process for the CC1 invocation")
 
 # TODO: verify the values against LangStandards.def?
 set(CLANG_DEFAULT_STD_C "" CACHE STRING
@@ -304,6 +307,8 @@ if (NOT DEFINED MATCHED_ARCH OR "${CMAKE_MATCH_1}" LESS 35)
   set(CLANG_OPENMP_NVPTX_DEFAULT_ARCH "sm_35" CACHE STRING
     "Default architecture for OpenMP offloading to Nvidia GPUs." FORCE)
 endif()
+
+set(CLANG_SYSTEMZ_DEFAULT_ARCH "z10" CACHE STRING "SystemZ Default Arch")
 
 set(CLANG_VENDOR ${PACKAGE_VENDOR} CACHE STRING
   "Vendor-specific text for showing with version information.")
@@ -590,6 +595,7 @@ if(CLANG_LIBS)
     add_dependencies(clang-libraries ${lib})
     if(NOT LLVM_ENABLE_IDE)
       add_dependencies(install-clang-libraries install-${lib})
+      add_dependencies(install-clang-libraries-stripped install-${lib}-stripped)
     endif()
   endforeach()
 endif()
@@ -806,8 +812,8 @@ if (CLANG_ENABLE_BOOTSTRAP)
                 # We shouldn't need to set this here, but INSTALL_DIR doesn't
                 # seem to work, so instead I'm passing this through
                 -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
-                ${CLANG_BOOTSTRAP_CMAKE_ARGS}
                 ${PASSTHROUGH_VARIABLES}
+                ${CLANG_BOOTSTRAP_CMAKE_ARGS}
                  -DCLANG_STAGE=${NEXT_CLANG_STAGE}
                 ${COMPILER_OPTIONS}
                 ${${CLANG_STAGE}_CONFIG}
@@ -866,6 +872,7 @@ add_subdirectory(utils/hmaptool)
 
 if(CLANG_BUILT_STANDALONE)
   llvm_distribution_add_targets()
+  process_llvm_pass_plugins()
 endif()
 
 configure_file(

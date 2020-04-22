@@ -96,7 +96,7 @@ void CSAInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
 
 void CSAInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                        MachineBasicBlock::iterator MI,
-                                       unsigned SrcReg, bool isKill,
+                                       Register SrcReg, bool isKill,
                                        int FrameIdx,
                                        const TargetRegisterClass *RC,
                                        const TargetRegisterInfo *TRI) const {
@@ -135,7 +135,7 @@ void CSAInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 
 void CSAInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                         MachineBasicBlock::iterator MI,
-                                        unsigned DestReg, int FrameIdx,
+                                        Register DestReg, int FrameIdx,
                                         const TargetRegisterClass *RC,
                                         const TargetRegisterInfo *TRI) const {
   DebugLoc DL;

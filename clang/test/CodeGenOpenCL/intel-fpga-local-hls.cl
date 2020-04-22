@@ -15,8 +15,6 @@
 //CHECK: [[ANN8:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{pump:2}
 //CHECK: global_constant10
 //CHECK: [[ANN9:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{merge:foo:depth}
-//CHECK: global_constant11
-//CHECK: [[ANN11:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{internal_max_block_ram_depth:32}
 //CHECK: global_constant14
 //CHECK: [[ANN14:@.str[\.]*[0-9]*]] = {{.*}}{memory:MLAB}{sizeinfo:4}{pump:2}
 //CHECK: global_constant15
@@ -24,15 +22,16 @@
 //CHECK: global_constant16
 //CHECK: [[ANN16:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{simple_dual_port:1}
 //CHECK: @global_constant17
-//CHECK: [[ANN30:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{memory_layout:COMPACT}
+//CHECK: [[ANN30:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:0}
 //CHECK: @global_constant18
-//CHECK: [[ANN31:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{memory_layout:PADDED}
+//CHECK: [[ANN31:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{force_pow2_depth:1}
 //CHECK: [[ANN6A:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{max_concurrency:4}
+//CHECK: [[ANN6B:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{private_copies:4}
 //CHECK: [[ANN10:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4}{merge:bar:width}
 //CHECK: [[ANN20:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:4,2}{simple_dual_port:1}
 //CHECK: [[ANN21:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:12}{max_replicates:2}
 //CHECK: [[ANN22:@.str[\.]*[0-9]*]] = {{.*}}{memory:DEFAULT}{sizeinfo:12,2}{max_replicates:2}
-//CHECK: @llvm.global.annotations = {{.*}}global_constant1{{.*}}[[ANN2]]{{.*}}global_constant2{{.*}}[[ANN2]]{{.*}}global_constant5{{.*}}[[ANN4]]{{.*}}@global_constant6{{.*}}[[ANN5]]{{.*}}global_constant7{{.*}}[[ANN6]]{{.*}}global_constant8{{.*}}[[ANN7]]{{.*}}global_constant9{{.*}}[[ANN8]]{{.*}}global_constant10{{.*}}[[ANN9]]{{.*}}global_constant11{{.*}}[[ANN11]]{{.*}}global_constant14{{.*}}[[ANN14]]{{.*}}global_constant15{{.*}}[[ANN15]]{{.*}}global_constant16{{.*}}[[ANN16]]{{.*}}global_constant17{{.*}}[[ANN30]]{{.*}}global_constant18{{.*}}[[ANN31]]
+//CHECK: @llvm.global.annotations = {{.*}}global_constant1{{.*}}[[ANN2]]{{.*}}global_constant2{{.*}}[[ANN2]]{{.*}}global_constant5{{.*}}[[ANN4]]{{.*}}@global_constant6{{.*}}[[ANN5]]{{.*}}global_constant7{{.*}}[[ANN6]]{{.*}}global_constant8{{.*}}[[ANN7]]{{.*}}global_constant9{{.*}}[[ANN8]]{{.*}}global_constant10{{.*}}[[ANN9]]{{.*}}global_constant14{{.*}}[[ANN14]]{{.*}}global_constant15{{.*}}[[ANN15]]{{.*}}global_constant16{{.*}}[[ANN16]]{{.*}}global_constant17{{.*}}[[ANN30]]{{.*}}global_constant18{{.*}}[[ANN31]]
 
 constant int __attribute__((bank_bits(4, 5))) global_constant1 = 0;
 constant int __attribute__((numbanks(4), bank_bits(4, 5))) global_constant2 = 0;
@@ -42,12 +41,11 @@ constant int __attribute__((__bankwidth__(4))) global_constant7 = 0;
 constant int __attribute__((singlepump)) global_constant8 = 0;
 constant int __attribute__((doublepump)) global_constant9 = 0;
 constant int __attribute__((merge("foo", "depth"))) global_constant10 = 0;
-constant int __attribute__((internal_max_block_ram_depth(32))) global_constant11 = 0;
 constant int __attribute__((doublepump, memory("MLAB"))) global_constant14 = 0;
 constant int __attribute__((max_replicates(2))) global_constant15 = 0;
 constant int __attribute__((simple_dual_port)) global_constant16 = 0;
-constant int __attribute__((__memory_layout__("compact"))) global_constant17 = 0;
-constant int __attribute__((__memory_layout__("padded"))) global_constant18 = 0;
+constant int __attribute__((__force_pow2_depth__(0))) global_constant17 = 0;
+constant int __attribute__((__force_pow2_depth__(1))) global_constant18 = 0;
 
 //__attribute__((ihc_component))
 void foo_two() {
@@ -79,6 +77,10 @@ void foo_two() {
   //CHECK: %[[VAR_NINE_TWO1:var_nine_two[0-9]+]] = bitcast{{.*}}var_nine_two
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_NINE_TWO1]],{{.*}}[[ANN6A]]
   int __attribute__((__max_concurrency__(4))) var_nine_two;
+  //CHECK: %[[VAR_NINE_THREE:[0-9]+]] = bitcast{{.*}}var_nine_three
+  //CHECK: %[[VAR_NINE_THREE1:var_nine_three[0-9]+]] = bitcast{{.*}}var_nine_three
+  //CHECK: llvm.var.annotation{{.*}}%[[VAR_NINE_THREE1]],{{.*}}[[ANN6B]]
+  int __attribute__((__private_copies__(4))) var_nine_three;
   //CHECK: %[[VAR_TEN:[0-9]+]] = bitcast{{.*}}var_ten
   //CHECK: %[[VAR_TEN1:var_ten[0-9]+]] = bitcast{{.*}}var_ten
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_TEN1]],{{.*}}[[ANN7]]
@@ -110,11 +112,11 @@ void foo_two() {
   //CHECK: %[[VAR_SEVENTEEN:[0-9]+]] = bitcast{{.*}}var_seventeen
   //CHECK: %[[VAR_SEVENTEEN15:var_seventeen[0-9]+]] = bitcast{{.*}}var_seventeen
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_SEVENTEEN15]],{{.*}}[[ANN30]]
-  int __attribute__((__memory_layout__("compact"))) var_seventeen;
+  int __attribute__((__force_pow2_depth__(0))) var_seventeen;
   //CHECK: %[[VAR_EIGHTEEN:[0-9]+]] = bitcast{{.*}}var_eighteen
   //CHECK: %[[VAR_EIGHTEEN16:var_eighteen[0-9]+]] = bitcast{{.*}}var_eighteen
   //CHECK: llvm.var.annotation{{.*}}%[[VAR_EIGHTEEN16]],{{.*}}[[ANN31]]
-  int __attribute__((__memory_layout__("padded"))) var_eighteen;
+  int __attribute__((__force_pow2_depth__(1))) var_eighteen;
 }
 
 struct foo_three{
@@ -126,12 +128,11 @@ struct foo_three{
   int __attribute__((singlepump)) f8;
   int __attribute__((doublepump)) f9;
   int __attribute__((merge("foo","depth"))) f10;
-  int __attribute__((internal_max_block_ram_depth(32))) f11;
   int __attribute__((doublepump, memory("MLAB"))) f14;
   int __attribute__((max_replicates(2))) f15;
   int __attribute__((simple_dual_port)) f16;
-  int __attribute__((__memory_layout__("compact"))) f17;
-  int __attribute__((__memory_layout__("compact"))) f18;
+  int __attribute__((__force_pow2_depth__(0))) f17;
+  int __attribute__((__force_pow2_depth__(0))) f18;
 };
 
 void bar() {
@@ -163,10 +164,6 @@ void bar() {
   //CHECK: %[[FIELD9:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
   //CHECK: call i32* @llvm.ptr.annotation.p0i32{{.*}}%[[FIELD9]]{{.*}}[[ANN8]]
   s1.f9 = 0;
-
-  //CHECK: %[[FIELD11:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
-  //CHECK: call i32* @llvm.ptr.annotation.p0i32{{.*}}%[[FIELD11]]{{.*}}[[ANN11]]
-  s1.f11 = 0;
 
   //CHECK: %[[FIELD14:.*]] = getelementptr inbounds %struct.foo_three{{.*}}
   //CHECK: call i32* @llvm.ptr.annotation.p0i32{{.*}}%[[FIELD14]]{{.*}}[[ANN14]]

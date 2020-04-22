@@ -35,6 +35,7 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   Analysis/HIRSparseArrayReductionAnalysis.cpp
   Analysis/HIRLocalityAnalysis.cpp
   Analysis/HIRParVecAnalysis.cpp
+  Analysis/HIRArraySectionAnalysis.cpp
   Utils/BlobUtils.cpp
   Utils/DDUtils.cpp
   Utils/HLNodeUtils.cpp

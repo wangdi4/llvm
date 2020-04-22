@@ -15,7 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlannerHIR.h"
+#include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
+#include "IntelVPlanBuilderHIR.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlannerHIR"
 
@@ -26,19 +28,53 @@ cl::opt<uint64_t>
     VPlanDefaultEstTripHIR("vplan-default-est-trip-hir", cl::init(300),
                            cl::desc("Default estimated trip count"));
 
-bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG) {
+static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
+                                           cl::init(true), cl::Hidden,
+                                           cl::desc("Force CFG linearization"));
+
+bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "VPlan not found!");
+
+  // Deconstruct SSA for final VPlan that will be lowered to HIR.
+  VPlanSSADeconstruction SSADeconstructor(*Plan);
+  SSADeconstructor.run();
+  if (PrintAfterSSADeconstruction) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    outs() << "After VPlan SSA deconstruction\n";
+    Plan->dump(outs(), true);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  }
 
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
 
-  bool VecLoopsInit = CG->initializeVectorLoop(BestVF);
+  bool VecLoopsInit = CG->initializeVectorLoop(BestVF, UF);
   if (!VecLoopsInit)
     return false;
   Plan->executeHIR(CG);
   CG->finalizeVectorLoop();
   return true;
 }
+
+std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
+    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
+    const DataLayout *DL) {
+  // Create new empty VPlan
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
+  VPlan *Plan = SharedPlan.get();
+
+  // Build hierarchical CFG
+  const DDGraph &DDG = DDA->getGraph(TheLoop);
+
+  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
+  HCFGBuilder.buildHierarchicalCFG();
+
+  if (ForceLinearizationHIR)
+    Plan->markFullLinearizationForced();
+
+  return SharedPlan;
+}
+

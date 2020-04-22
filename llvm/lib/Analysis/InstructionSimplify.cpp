@@ -137,6 +137,71 @@ static bool isSameCompare(Value *V, CmpInst::Predicate Pred, Value *LHS,
     CRHS == LHS;
 }
 
+/// Simplify comparison with true or false branch of select:
+///  %sel = select i1 %cond, i32 %tv, i32 %fv
+///  %cmp = icmp sle i32 %sel, %rhs
+/// Compose new comparison by substituting %sel with either %tv or %fv
+/// and see if it simplifies.
+static Value *simplifyCmpSelCase(CmpInst::Predicate Pred, Value *LHS,
+                                 Value *RHS, Value *Cond,
+                                 const SimplifyQuery &Q, unsigned MaxRecurse,
+                                 Constant *TrueOrFalse) {
+  Value *SimplifiedCmp = SimplifyCmpInst(Pred, LHS, RHS, Q, MaxRecurse);
+  if (SimplifiedCmp == Cond) {
+    // %cmp simplified to the select condition (%cond).
+    return TrueOrFalse;
+  } else if (!SimplifiedCmp && isSameCompare(Cond, Pred, LHS, RHS)) {
+    // It didn't simplify. However, if composed comparison is equivalent
+    // to the select condition (%cond) then we can replace it.
+    return TrueOrFalse;
+  }
+  return SimplifiedCmp;
+}
+
+/// Simplify comparison with true branch of select
+static Value *simplifyCmpSelTrueCase(CmpInst::Predicate Pred, Value *LHS,
+                                     Value *RHS, Value *Cond,
+                                     const SimplifyQuery &Q,
+                                     unsigned MaxRecurse) {
+  return simplifyCmpSelCase(Pred, LHS, RHS, Cond, Q, MaxRecurse,
+                            getTrue(Cond->getType()));
+}
+
+/// Simplify comparison with false branch of select
+static Value *simplifyCmpSelFalseCase(CmpInst::Predicate Pred, Value *LHS,
+                                      Value *RHS, Value *Cond,
+                                      const SimplifyQuery &Q,
+                                      unsigned MaxRecurse) {
+  return simplifyCmpSelCase(Pred, LHS, RHS, Cond, Q, MaxRecurse,
+                            getFalse(Cond->getType()));
+}
+
+/// We know comparison with both branches of select can be simplified, but they
+/// are not equal. This routine handles some logical simplifications.
+static Value *handleOtherCmpSelSimplifications(Value *TCmp, Value *FCmp,
+                                               Value *Cond,
+                                               const SimplifyQuery &Q,
+                                               unsigned MaxRecurse) {
+  // If the false value simplified to false, then the result of the compare
+  // is equal to "Cond && TCmp".  This also catches the case when the false
+  // value simplified to false and the true value to true, returning "Cond".
+  if (match(FCmp, m_Zero()))
+    if (Value *V = SimplifyAndInst(Cond, TCmp, Q, MaxRecurse))
+      return V;
+  // If the true value simplified to true, then the result of the compare
+  // is equal to "Cond || FCmp".
+  if (match(TCmp, m_One()))
+    if (Value *V = SimplifyOrInst(Cond, FCmp, Q, MaxRecurse))
+      return V;
+  // Finally, if the false value simplified to true and the true value to
+  // false, then the result of the compare is equal to "!Cond".
+  if (match(FCmp, m_One()) && match(TCmp, m_Zero()))
+    if (Value *V = SimplifyXorInst(
+            Cond, Constant::getAllOnesValue(Cond->getType()), Q, MaxRecurse))
+      return V;
+  return nullptr;
+}
+
 /// Does the given value dominate the specified phi node?
 static bool valueDominatesPHI(Value *V, PHINode *P, const DominatorTree *DT) {
   Instruction *I = dyn_cast<Instruction>(V);
@@ -398,6 +463,12 @@ static Value *ThreadBinOpOverSelect(Instruction::BinaryOps Opcode, Value *LHS,
 /// In the case of a comparison with a select instruction, try to simplify the
 /// comparison by seeing whether both branches of the select result in the same
 /// value. Returns the common value if so, otherwise returns null.
+/// For example, if we have:
+///  %tmp = select i1 %cmp, i32 1, i32 2
+///  %cmp1 = icmp sle i32 %tmp, 3
+/// We can simplify %cmp1 to true, because both branches of select are
+/// less than 3. We compose new comparison by substituting %tmp with both
+/// branches of select and see if it can be simplified.
 static Value *ThreadCmpOverSelect(CmpInst::Predicate Pred, Value *LHS,
                                   Value *RHS, const SimplifyQuery &Q,
                                   unsigned MaxRecurse) {
@@ -418,32 +489,14 @@ static Value *ThreadCmpOverSelect(CmpInst::Predicate Pred, Value *LHS,
 
   // Now that we have "cmp select(Cond, TV, FV), RHS", analyse it.
   // Does "cmp TV, RHS" simplify?
-  Value *TCmp = SimplifyCmpInst(Pred, TV, RHS, Q, MaxRecurse);
-  if (TCmp == Cond) {
-    // It not only simplified, it simplified to the select condition.  Replace
-    // it with 'true'.
-    TCmp = getTrue(Cond->getType());
-  } else if (!TCmp) {
-    // It didn't simplify.  However if "cmp TV, RHS" is equal to the select
-    // condition then we can replace it with 'true'.  Otherwise give up.
-    if (!isSameCompare(Cond, Pred, TV, RHS))
-      return nullptr;
-    TCmp = getTrue(Cond->getType());
-  }
+  Value *TCmp = simplifyCmpSelTrueCase(Pred, TV, RHS, Cond, Q, MaxRecurse);
+  if (!TCmp)
+    return nullptr;
 
   // Does "cmp FV, RHS" simplify?
-  Value *FCmp = SimplifyCmpInst(Pred, FV, RHS, Q, MaxRecurse);
-  if (FCmp == Cond) {
-    // It not only simplified, it simplified to the select condition.  Replace
-    // it with 'false'.
-    FCmp = getFalse(Cond->getType());
-  } else if (!FCmp) {
-    // It didn't simplify.  However if "cmp FV, RHS" is equal to the select
-    // condition then we can replace it with 'false'.  Otherwise give up.
-    if (!isSameCompare(Cond, Pred, FV, RHS))
-      return nullptr;
-    FCmp = getFalse(Cond->getType());
-  }
+  Value *FCmp = simplifyCmpSelFalseCase(Pred, FV, RHS, Cond, Q, MaxRecurse);
+  if (!FCmp)
+    return nullptr;
 
   // If both sides simplified to the same value, then use it as the result of
   // the original comparison.
@@ -452,29 +505,54 @@ static Value *ThreadCmpOverSelect(CmpInst::Predicate Pred, Value *LHS,
 
   // The remaining cases only make sense if the select condition has the same
   // type as the result of the comparison, so bail out if this is not so.
-  if (Cond->getType()->isVectorTy() != RHS->getType()->isVectorTy())
-    return nullptr;
-  // If the false value simplified to false, then the result of the compare
-  // is equal to "Cond && TCmp".  This also catches the case when the false
-  // value simplified to false and the true value to true, returning "Cond".
-  if (match(FCmp, m_Zero()))
-    if (Value *V = SimplifyAndInst(Cond, TCmp, Q, MaxRecurse))
-      return V;
-  // If the true value simplified to true, then the result of the compare
-  // is equal to "Cond || FCmp".
-  if (match(TCmp, m_One()))
-    if (Value *V = SimplifyOrInst(Cond, FCmp, Q, MaxRecurse))
-      return V;
-  // Finally, if the false value simplified to true and the true value to
-  // false, then the result of the compare is equal to "!Cond".
-  if (match(FCmp, m_One()) && match(TCmp, m_Zero()))
-    if (Value *V =
-        SimplifyXorInst(Cond, Constant::getAllOnesValue(Cond->getType()),
-                        Q, MaxRecurse))
-      return V;
+  if (Cond->getType()->isVectorTy() == RHS->getType()->isVectorTy())
+    return handleOtherCmpSelSimplifications(TCmp, FCmp, Cond, Q, MaxRecurse);
 
   return nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+/// If we have a comparison with two select instructions which have the same
+/// condition, try to simplify the comparison by seeing whether sibling branches
+/// of select instructions result in the same value. Returns the common value if
+/// so, otherwise returns null.
+static Value *threadCmpOverTwoSelects(CmpInst::Predicate Pred, Value *LHS,
+                                      Value *RHS, const SimplifyQuery &Q,
+                                      unsigned MaxRecurse) {
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!Q.TTI || !Q.TTI->isAdvancedOptEnabled(TTIAVX2))
+    return nullptr;
+
+  // Recursion is always used, so bail out at once if we already hit the limit.
+  if (!MaxRecurse--)
+    return nullptr;
+
+  assert(isa<SelectInst>(LHS) && isa<SelectInst>(RHS) &&
+         "Not comparing with a select instruction!");
+  Value *Cond, *A, *B, *C, *D;
+  // Check if both selects have the same condition
+  if (!(match(LHS, m_Select(m_Value(Cond), m_Value(A), m_Value(B))) &&
+        match(RHS, m_Select(m_Specific(Cond), m_Value(C), m_Value(D)))))
+    return nullptr;
+
+  // Try to simplify icmp with TRUE branches of both selects
+  Value *TCmp = simplifyCmpSelTrueCase(Pred, A, C, Cond, Q, MaxRecurse);
+  if (!TCmp)
+    return nullptr;
+
+  // Try to simplify icmp with FALSE branches of both selects
+  Value *FCmp = simplifyCmpSelFalseCase(Pred, B, D, Cond, Q, MaxRecurse);
+  if (!FCmp)
+    return nullptr;
+
+  // If both sides simplified to the same value, then use it as the result of
+  // the original comparison.
+  if (TCmp == FCmp)
+    return TCmp;
+
+  return handleOtherCmpSelSimplifications(TCmp, FCmp, Cond, Q, MaxRecurse);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// In the case of a binary operation with an operand that is a PHI instruction,
 /// try to simplify the binop by seeing whether evaluating it on the incoming
@@ -543,10 +621,16 @@ static Value *ThreadCmpOverPHI(CmpInst::Predicate Pred, Value *LHS, Value *RHS,
 
   // Evaluate the BinOp on the incoming phi values.
   Value *CommonValue = nullptr;
-  for (Value *Incoming : PI->incoming_values()) {
+  for (unsigned u = 0, e = PI->getNumIncomingValues(); u < e; ++u) {
+    Value *Incoming = PI->getIncomingValue(u);
+    Instruction *InTI = PI->getIncomingBlock(u)->getTerminator();
     // If the incoming value is the phi node itself, it can safely be skipped.
     if (Incoming == PI) continue;
-    Value *V = SimplifyCmpInst(Pred, Incoming, RHS, Q, MaxRecurse);
+    // Change the context instruction to the "edge" that flows into the phi.
+    // This is important because that is where incoming is actually "evaluated"
+    // even though it is used later somewhere else.
+    Value *V = SimplifyCmpInst(Pred, Incoming, RHS, Q.getWithInstruction(InTI),
+                               MaxRecurse);
     // If the operation failed to simplify, or simplified to a different value
     // to previously, then give up.
     if (!V || (CommonValue && V != CommonValue))
@@ -656,19 +740,18 @@ static Constant *stripAndComputeConstantOffsets(const DataLayout &DL, Value *&V,
                                                 bool AllowNonInbounds = false) {
   assert(V->getType()->isPtrOrPtrVectorTy());
 
-  Type *IntPtrTy = DL.getIntPtrType(V->getType())->getScalarType();
-  APInt Offset = APInt::getNullValue(IntPtrTy->getIntegerBitWidth());
+  Type *IntIdxTy = DL.getIndexType(V->getType())->getScalarType();
+  APInt Offset = APInt::getNullValue(IntIdxTy->getIntegerBitWidth());
 
   V = V->stripAndAccumulateConstantOffsets(DL, Offset, AllowNonInbounds);
   // As that strip may trace through `addrspacecast`, need to sext or trunc
   // the offset calculated.
-  IntPtrTy = DL.getIntPtrType(V->getType())->getScalarType();
-  Offset = Offset.sextOrTrunc(IntPtrTy->getIntegerBitWidth());
+  IntIdxTy = DL.getIndexType(V->getType())->getScalarType();
+  Offset = Offset.sextOrTrunc(IntIdxTy->getIntegerBitWidth());
 
-  Constant *OffsetIntPtr = ConstantInt::get(IntPtrTy, Offset);
-  if (V->getType()->isVectorTy())
-    return ConstantVector::getSplat(V->getType()->getVectorNumElements(),
-                                    OffsetIntPtr);
+  Constant *OffsetIntPtr = ConstantInt::get(IntIdxTy, Offset);
+  if (VectorType *VecTy = dyn_cast<VectorType>(V->getType()))
+    return ConstantVector::getSplat(VecTy->getElementCount(), OffsetIntPtr);
   return OffsetIntPtr;
 }
 
@@ -1388,9 +1471,6 @@ static Value *simplifyUnsignedRangeCheck(ICmpInst *ZeroICmp,
     if (match(UnsignedICmp,
               m_c_ICmp(UnsignedPred, m_Specific(A), m_Specific(B))) &&
         ICmpInst::isUnsigned(UnsignedPred)) {
-      if (UnsignedICmp->getOperand(0) != A)
-        UnsignedPred = ICmpInst::getSwappedPredicate(UnsignedPred);
-
       // A >=/<= B || (A - B) != 0  <-->  true
       if ((UnsignedPred == ICmpInst::ICMP_UGE ||
            UnsignedPred == ICmpInst::ICMP_ULE) &&
@@ -1420,9 +1500,6 @@ static Value *simplifyUnsignedRangeCheck(ICmpInst *ZeroICmp,
     //   Y <  A || Y == 0  --> Y <  A  iff B != 0
     if (match(UnsignedICmp,
               m_c_ICmp(UnsignedPred, m_Specific(Y), m_Specific(A)))) {
-      if (UnsignedICmp->getOperand(0) != Y)
-        UnsignedPred = ICmpInst::getSwappedPredicate(UnsignedPred);
-
       if (UnsignedPred == ICmpInst::ICMP_UGE && IsAnd &&
           EqPred == ICmpInst::ICMP_NE &&
           isKnownNonZero(B, Q.DL, /*Depth=*/0, Q.AC, Q.CxtI, Q.DT))
@@ -2306,10 +2383,9 @@ computePointerICmp(const DataLayout &DL, const TargetLibraryInfo *TLI,
   RHS = RHS->stripPointerCasts();
 
   // A non-null pointer is not equal to a null pointer.
-  if (llvm::isKnownNonZero(LHS, DL, 0, nullptr, nullptr, nullptr,
-                           IIQ.UseInstrInfo) &&
-      isa<ConstantPointerNull>(RHS) &&
-      (Pred == CmpInst::ICMP_EQ || Pred == CmpInst::ICMP_NE))
+  if (isa<ConstantPointerNull>(RHS) && ICmpInst::isEquality(Pred) &&
+      llvm::isKnownNonZero(LHS, DL, 0, nullptr, nullptr, nullptr,
+                           IIQ.UseInstrInfo))
     return ConstantInt::get(GetCompareTy(LHS),
                             !CmpInst::isTrueWhenEqual(Pred));
 
@@ -3446,10 +3522,20 @@ static Value *SimplifyICmpInst(unsigned Predicate, Value *LHS, Value *RHS,
         SmallVector<Value *, 4> IndicesRHS(GRHS->idx_begin(), GRHS->idx_end());
         Constant *NewRHS = ConstantExpr::getGetElementPtr(
             GLHS->getSourceElementType(), Null, IndicesRHS);
-        return ConstantExpr::getICmp(Pred, NewLHS, NewRHS);
+        Constant *NewICmp = ConstantExpr::getICmp(Pred, NewLHS, NewRHS);
+        return ConstantFoldConstant(NewICmp, Q.DL);
       }
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // If the comparison is with the result of two select instructions which have
+  // the same condition, check whether comparing sibling branches of two selects
+  // always yields the same value.
+  if (isa<SelectInst>(LHS) && isa<SelectInst>(RHS))
+    if (Value *V = threadCmpOverTwoSelects(Pred, LHS, RHS, Q, MaxRecurse))
+      return V;
+#endif // INTEL_CUSTOMIZATION
 
   // If the comparison is with the result of a select instruction, check whether
   // comparing with either branch of the select always yields the same value.
@@ -3581,9 +3667,9 @@ static Value *SimplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
     // Check comparison of [minnum/maxnum with constant] with other constant.
     const APFloat *C2;
     if ((match(LHS, m_Intrinsic<Intrinsic::minnum>(m_Value(), m_APFloat(C2))) &&
-         C2->compare(*C) == APFloat::cmpLessThan) ||
+         *C2 < *C) ||
         (match(LHS, m_Intrinsic<Intrinsic::maxnum>(m_Value(), m_APFloat(C2))) &&
-         C2->compare(*C) == APFloat::cmpGreaterThan)) {
+         *C2 > *C)) {
       bool IsMaxNum =
           cast<IntrinsicInst>(LHS)->getIntrinsicID() == Intrinsic::maxnum;
       // The ordered relationship and minnum/maxnum guarantee that we do not
@@ -3639,6 +3725,15 @@ static Value *SimplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
       break;
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // If the comparison is with the result of two select instructions which have
+  // the same condition, check whether comparing sibling branches of two selects
+  // always yields the same value.
+  if (isa<SelectInst>(LHS) && isa<SelectInst>(RHS))
+    if (Value *V = threadCmpOverTwoSelects(Pred, LHS, RHS, Q, MaxRecurse))
+      return V;
+#endif // INTEL_CUSTOMIZATION
 
   // If the comparison is with the result of a select instruction, check whether
   // comparing with either branch of the select always yields the same value.
@@ -3955,6 +4050,15 @@ static Value *SimplifySelectInst(Value *Cond, Value *TrueVal, Value *FalseVal,
       return FalseVal;
   }
 
+  // select i1 Cond, i1 true, i1 false --> i1 Cond
+  assert(Cond->getType()->isIntOrIntVectorTy(1) &&
+         "Select must have bool or bool vector condition");
+  assert(TrueVal->getType() == FalseVal->getType() &&
+         "Select must have same types for true/false ops");
+  if (Cond->getType() == TrueVal->getType() &&
+      match(TrueVal, m_One()) && match(FalseVal, m_ZeroInt()))
+    return Cond;
+
   // select ?, X, X -> X
   if (TrueVal == FalseVal)
     return TrueVal;
@@ -3963,6 +4067,34 @@ static Value *SimplifySelectInst(Value *Cond, Value *TrueVal, Value *FalseVal,
     return FalseVal;
   if (isa<UndefValue>(FalseVal))   // select ?, X, undef -> X
     return TrueVal;
+
+  // Deal with partial undef vector constants: select ?, VecC, VecC' --> VecC''
+  Constant *TrueC, *FalseC;
+  if (TrueVal->getType()->isVectorTy() && match(TrueVal, m_Constant(TrueC)) &&
+      match(FalseVal, m_Constant(FalseC))) {
+    unsigned NumElts = TrueC->getType()->getVectorNumElements();
+    SmallVector<Constant *, 16> NewC;
+    for (unsigned i = 0; i != NumElts; ++i) {
+      // Bail out on incomplete vector constants.
+      Constant *TEltC = TrueC->getAggregateElement(i);
+      Constant *FEltC = FalseC->getAggregateElement(i);
+      if (!TEltC || !FEltC)
+        break;
+
+      // If the elements match (undef or not), that value is the result. If only
+      // one element is undef, choose the defined element as the safe result.
+      if (TEltC == FEltC)
+        NewC.push_back(TEltC);
+      else if (isa<UndefValue>(TEltC))
+        NewC.push_back(FEltC);
+      else if (isa<UndefValue>(FEltC))
+        NewC.push_back(TEltC);
+      else
+        break;
+    }
+    if (NewC.size() == NumElts)
+      return ConstantVector::get(NewC);
+  }
 
   if (Value *V =
           simplifySelectWithICmpCond(Cond, TrueVal, FalseVal, Q, MaxRecurse))
@@ -4002,12 +4134,15 @@ static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
   Type *LastType = GetElementPtrInst::getIndexedType(SrcTy, Ops.slice(1));
   Type *GEPTy = PointerType::get(LastType, AS);
   if (VectorType *VT = dyn_cast<VectorType>(Ops[0]->getType()))
-    GEPTy = VectorType::get(GEPTy, VT->getNumElements());
+    GEPTy = VectorType::get(GEPTy, VT->getElementCount());
   else if (VectorType *VT = dyn_cast<VectorType>(Ops[1]->getType()))
-    GEPTy = VectorType::get(GEPTy, VT->getNumElements());
+    GEPTy = VectorType::get(GEPTy, VT->getElementCount());
 
   if (isa<UndefValue>(Ops[0]))
     return UndefValue::get(GEPTy);
+
+  bool IsScalableVec =
+      SrcTy->isVectorTy() ? SrcTy->getVectorIsScalable() : false;
 
   if (Ops.size() == 2) {
     // getelementptr P, 0 -> P.
@@ -4015,7 +4150,7 @@ static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
       return Ops[0];
 
     Type *Ty = SrcTy;
-    if (Ty->isSized()) {
+    if (!IsScalableVec && Ty->isSized()) {
       Value *P;
       uint64_t C;
       uint64_t TyAllocSize = Q.DL.getTypeAllocSize(Ty);
@@ -4026,7 +4161,7 @@ static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
       // The following transforms are only safe if the ptrtoint cast
       // doesn't truncate the pointers.
       if (Ops[1]->getType()->getScalarSizeInBits() ==
-          Q.DL.getIndexSizeInBits(AS)) {
+          Q.DL.getPointerSizeInBits(AS)) {
         auto PtrToIntOrZero = [GEPTy](Value *P) -> Value * {
           if (match(P, m_Zero()))
             return Constant::getNullValue(GEPTy);
@@ -4063,7 +4198,7 @@ static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
     }
   }
 
-  if (Q.DL.getTypeAllocSize(LastType) == 1 &&
+  if (!IsScalableVec && Q.DL.getTypeAllocSize(LastType) == 1 &&
       all_of(Ops.slice(1).drop_back(1),
              [](Value *Idx) { return match(Idx, m_Zero()); })) {
     unsigned IdxWidth =
@@ -4095,9 +4230,7 @@ static Value *SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
 
   auto *CE = ConstantExpr::getGetElementPtr(SrcTy, cast<Constant>(Ops[0]),
                                             Ops.slice(1));
-  if (auto *CEFolded = ConstantFoldConstant(CE, Q.DL))
-    return CEFolded;
-  return CE;
+  return ConstantFoldConstant(CE, Q.DL);
 }
 
 Value *llvm::SimplifyGEPInst(Type *SrcTy, ArrayRef<Value *> Ops,
@@ -4149,10 +4282,10 @@ Value *llvm::SimplifyInsertElementInst(Value *Vec, Value *Val, Value *Idx,
   if (VecC && ValC && IdxC)
     return ConstantFoldInsertElementInstruction(VecC, ValC, IdxC);
 
-  // Fold into undef if index is out of bounds.
+  // For fixed-length vector, fold into undef if index is out of bounds.
   if (auto *CI = dyn_cast<ConstantInt>(Idx)) {
-    uint64_t NumElements = cast<VectorType>(Vec->getType())->getNumElements();
-    if (CI->uge(NumElements))
+    if (!Vec->getType()->getVectorIsScalable() &&
+        CI->uge(Vec->getType()->getVectorNumElements()))
       return UndefValue::get(Vec->getType());
   }
 
@@ -4223,8 +4356,9 @@ static Value *SimplifyExtractElementInst(Value *Vec, Value *Idx, const SimplifyQ
   // If extracting a specified index from the vector, see if we can recursively
   // find a previously computed scalar that was inserted into the vector.
   if (auto *IdxC = dyn_cast<ConstantInt>(Idx)) {
-    if (IdxC->getValue().uge(Vec->getType()->getVectorNumElements()))
-      // definitely out of bounds, thus undefined result
+    // For fixed-length vector, fold into undef if index is out of bounds.
+    if (!Vec->getType()->getVectorIsScalable() &&
+        IdxC->getValue().uge(Vec->getType()->getVectorNumElements()))
       return UndefValue::get(Vec->getType()->getVectorElementType());
     if (Value *Elt = findScalarElement(Vec, IdxC->getZExtValue()))
       return Elt;
@@ -4366,57 +4500,95 @@ static Value *foldIdentityShuffles(int DestElt, Value *Op0, Value *Op1,
   return RootVec;
 }
 
-static Value *SimplifyShuffleVectorInst(Value *Op0, Value *Op1, Constant *Mask,
-                                        Type *RetTy, const SimplifyQuery &Q,
+static Value *SimplifyShuffleVectorInst(Value *Op0, Value *Op1,
+                                        ArrayRef<int> Mask, Type *RetTy,
+                                        const SimplifyQuery &Q,
                                         unsigned MaxRecurse) {
-  if (isa<UndefValue>(Mask))
+  if (all_of(Mask, [](int Elem) { return Elem == UndefMaskElem; }))
     return UndefValue::get(RetTy);
 
   Type *InVecTy = Op0->getType();
-  unsigned MaskNumElts = Mask->getType()->getVectorNumElements();
-  unsigned InVecNumElts = InVecTy->getVectorNumElements();
+  unsigned MaskNumElts = Mask.size();
+  ElementCount InVecEltCount = InVecTy->getVectorElementCount();
+
+  bool Scalable = InVecEltCount.Scalable;
 
   SmallVector<int, 32> Indices;
-  ShuffleVectorInst::getShuffleMask(Mask, Indices);
-  assert(MaskNumElts == Indices.size() &&
-         "Size of Indices not same as number of mask elements?");
+  Indices.assign(Mask.begin(), Mask.end());
 
   // Canonicalization: If mask does not select elements from an input vector,
   // replace that input vector with undef.
-  bool MaskSelects0 = false, MaskSelects1 = false;
-  for (unsigned i = 0; i != MaskNumElts; ++i) {
-    if (Indices[i] == -1)
-      continue;
-    if ((unsigned)Indices[i] < InVecNumElts)
-      MaskSelects0 = true;
-    else
-      MaskSelects1 = true;
+  if (!Scalable) {
+    bool MaskSelects0 = false, MaskSelects1 = false;
+    unsigned InVecNumElts = InVecEltCount.Min;
+    for (unsigned i = 0; i != MaskNumElts; ++i) {
+      if (Indices[i] == -1)
+        continue;
+      if ((unsigned)Indices[i] < InVecNumElts)
+        MaskSelects0 = true;
+      else
+        MaskSelects1 = true;
+    }
+    if (!MaskSelects0)
+      Op0 = UndefValue::get(InVecTy);
+    if (!MaskSelects1)
+      Op1 = UndefValue::get(InVecTy);
   }
-  if (!MaskSelects0)
-    Op0 = UndefValue::get(InVecTy);
-  if (!MaskSelects1)
-    Op1 = UndefValue::get(InVecTy);
 
   auto *Op0Const = dyn_cast<Constant>(Op0);
   auto *Op1Const = dyn_cast<Constant>(Op1);
 
-  // If all operands are constant, constant fold the shuffle.
-  if (Op0Const && Op1Const)
+  // If all operands are constant, constant fold the shuffle. This
+  // transformation depends on the value of the mask which is not known at
+  // compile time for scalable vectors
+  if (!Scalable && Op0Const && Op1Const)
     return ConstantFoldShuffleVectorInstruction(Op0Const, Op1Const, Mask);
 
   // Canonicalization: if only one input vector is constant, it shall be the
-  // second one.
-  if (Op0Const && !Op1Const) {
+  // second one. This transformation depends on the value of the mask which
+  // is not known at compile time for scalable vectors
+  if (!Scalable && Op0Const && !Op1Const) {
     std::swap(Op0, Op1);
-    ShuffleVectorInst::commuteShuffleMask(Indices, InVecNumElts);
+    ShuffleVectorInst::commuteShuffleMask(Indices, InVecEltCount.Min);
+  }
+
+  // A splat of an inserted scalar constant becomes a vector constant:
+  // shuf (inselt ?, C, IndexC), undef, <IndexC, IndexC...> --> <C, C...>
+  // NOTE: We may have commuted above, so analyze the updated Indices, not the
+  //       original mask constant.
+  // NOTE: This transformation depends on the value of the mask which is not
+  // known at compile time for scalable vectors
+  Constant *C;
+  ConstantInt *IndexC;
+  if (!Scalable && match(Op0, m_InsertElement(m_Value(), m_Constant(C),
+                                              m_ConstantInt(IndexC)))) {
+    // Match a splat shuffle mask of the insert index allowing undef elements.
+    int InsertIndex = IndexC->getZExtValue();
+    if (all_of(Indices, [InsertIndex](int MaskElt) {
+          return MaskElt == InsertIndex || MaskElt == -1;
+        })) {
+      assert(isa<UndefValue>(Op1) && "Expected undef operand 1 for splat");
+
+      // Shuffle mask undefs become undefined constant result elements.
+      SmallVector<Constant *, 16> VecC(MaskNumElts, C);
+      for (unsigned i = 0; i != MaskNumElts; ++i)
+        if (Indices[i] == -1)
+          VecC[i] = UndefValue::get(C->getType());
+      return ConstantVector::get(VecC);
+    }
   }
 
   // A shuffle of a splat is always the splat itself. Legal if the shuffle's
   // value type is same as the input vectors' type.
   if (auto *OpShuf = dyn_cast<ShuffleVectorInst>(Op0))
     if (isa<UndefValue>(Op1) && RetTy == InVecTy &&
-        OpShuf->getMask()->getSplatValue())
+        is_splat(OpShuf->getShuffleMask()))
       return Op0;
+
+  // All remaining transformation depend on the value of the mask, which is
+  // not known at compile time for scalable vectors.
+  if (Scalable)
+    return nullptr;
 
   // Don't fold a shuffle with undef mask elements. This may get folded in a
   // better way using demanded bits or other analysis.
@@ -4443,8 +4615,9 @@ static Value *SimplifyShuffleVectorInst(Value *Op0, Value *Op1, Constant *Mask,
 }
 
 /// Given operands for a ShuffleVectorInst, fold the result or return null.
-Value *llvm::SimplifyShuffleVectorInst(Value *Op0, Value *Op1, Constant *Mask,
-                                       Type *RetTy, const SimplifyQuery &Q) {
+Value *llvm::SimplifyShuffleVectorInst(Value *Op0, Value *Op1,
+                                       ArrayRef<int> Mask, Type *RetTy,
+                                       const SimplifyQuery &Q) {
   return ::SimplifyShuffleVectorInst(Op0, Op1, Mask, RetTy, Q, RecursionLimit);
 }
 
@@ -4488,14 +4661,24 @@ static Constant *propagateNaN(Constant *In) {
 /// Perform folds that are common to any floating-point operation. This implies
 /// transforms based on undef/NaN because the operation itself makes no
 /// difference to the result.
-static Constant *simplifyFPOp(ArrayRef<Value *> Ops) {
-  if (any_of(Ops, [](Value *V) { return isa<UndefValue>(V); }))
-    return ConstantFP::getNaN(Ops[0]->getType());
+static Constant *simplifyFPOp(ArrayRef<Value *> Ops,
+                              FastMathFlags FMF = FastMathFlags()) {
+  for (Value *V : Ops) {
+    bool IsNan = match(V, m_NaN());
+    bool IsInf = match(V, m_Inf());
+    bool IsUndef = match(V, m_Undef());
 
-  for (Value *V : Ops)
-    if (match(V, m_NaN()))
+    // If this operation has 'nnan' or 'ninf' and at least 1 disallowed operand
+    // (an undef operand can be chosen to be Nan/Inf), then the result of
+    // this operation is poison. That result can be relaxed to undef.
+    if (FMF.noNaNs() && (IsNan || IsUndef))
+      return UndefValue::get(V->getType());
+    if (FMF.noInfs() && (IsInf || IsUndef))
+      return UndefValue::get(V->getType());
+
+    if (IsUndef || IsNan)
       return propagateNaN(cast<Constant>(V));
-
+  }
   return nullptr;
 }
 
@@ -4506,7 +4689,7 @@ static Value *SimplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *C = foldOrCommuteConstant(Instruction::FAdd, Op0, Op1, Q))
     return C;
 
-  if (Constant *C = simplifyFPOp({Op0, Op1}))
+  if (Constant *C = simplifyFPOp({Op0, Op1}, FMF))
     return C;
 
   // fadd X, -0 ==> X
@@ -4553,7 +4736,7 @@ static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *C = foldOrCommuteConstant(Instruction::FSub, Op0, Op1, Q))
     return C;
 
-  if (Constant *C = simplifyFPOp({Op0, Op1}))
+  if (Constant *C = simplifyFPOp({Op0, Op1}, FMF))
     return C;
 
   // fsub X, +0 ==> X
@@ -4595,7 +4778,7 @@ static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
 
 static Value *SimplifyFMAFMul(Value *Op0, Value *Op1, FastMathFlags FMF,
                               const SimplifyQuery &Q, unsigned MaxRecurse) {
-  if (Constant *C = simplifyFPOp({Op0, Op1}))
+  if (Constant *C = simplifyFPOp({Op0, Op1}, FMF))
     return C;
 
   // fmul X, 1.0 ==> X
@@ -4662,7 +4845,7 @@ static Value *SimplifyFDivInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *C = foldOrCommuteConstant(Instruction::FDiv, Op0, Op1, Q))
     return C;
 
-  if (Constant *C = simplifyFPOp({Op0, Op1}))
+  if (Constant *C = simplifyFPOp({Op0, Op1}, FMF))
     return C;
 
   // X / 1.0 -> X
@@ -4707,7 +4890,7 @@ static Value *SimplifyFRemInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   if (Constant *C = foldOrCommuteConstant(Instruction::FRem, Op0, Op1, Q))
     return C;
 
-  if (Constant *C = simplifyFPOp({Op0, Op1}))
+  if (Constant *C = simplifyFPOp({Op0, Op1}, FMF))
     return C;
 
   // Unlike fdiv, the result of frem always matches the sign of the dividend.
@@ -5090,6 +5273,11 @@ static Value *simplifyBinaryIntrinsic(Function *F, Value *Op0, Value *Op1,
     // copysign X, X --> X
     if (Op0 == Op1)
       return Op0;
+    // copysign -X, X --> X
+    // copysign X, -X --> -X
+    if (match(Op0, m_FNeg(m_Specific(Op1))) ||
+        match(Op1, m_FNeg(m_Specific(Op0))))
+      return Op1;
     break;
   case Intrinsic::maxnum:
   case Intrinsic::minnum:
@@ -5211,6 +5399,11 @@ static Value *simplifyIntrinsic(CallBase *Call, const SimplifyQuery &Q) {
 Value *llvm::SimplifyCall(CallBase *Call, const SimplifyQuery &Q) {
   Value *Callee = Call->getCalledValue();
 
+  // musttail calls can only be simplified if they are also DCEd.
+  // As we can't guarantee this here, don't simplify them.
+  if (Call->isMustTailCall())
+    return nullptr;
+
   // call undef -> undef
   // call null -> undef
   if (isa<UndefValue>(Callee) || isa<ConstantPointerNull>(Callee))
@@ -5232,8 +5425,11 @@ Value *llvm::SimplifyCall(CallBase *Call, const SimplifyQuery &Q) {
   ConstantArgs.reserve(NumArgs);
   for (auto &Arg : Call->args()) {
     Constant *C = dyn_cast<Constant>(&Arg);
-    if (!C)
+    if (!C) {
+      if (isa<MetadataAsValue>(Arg.get()))
+        continue;
       return nullptr;
+    }
     ConstantArgs.push_back(C);
   }
 
@@ -5241,16 +5437,16 @@ Value *llvm::SimplifyCall(CallBase *Call, const SimplifyQuery &Q) {
 }
 
 /// Given operands for a Freeze, see if we can fold the result.
-static Value *SimplifyFreezeInst(Value *Op0) {
+static Value *SimplifyFreezeInst(Value *Op0, const SimplifyQuery &Q) {
   // Use a utility function defined in ValueTracking.
-  if (llvm::isGuaranteedNotToBeUndefOrPoison(Op0))
+  if (llvm::isGuaranteedNotToBeUndefOrPoison(Op0, Q.CxtI, Q.DT))
     return Op0;
   // We have room for improvement.
   return nullptr;
 }
 
 Value *llvm::SimplifyFreezeInst(Value *Op0, const SimplifyQuery &Q) {
-  return ::SimplifyFreezeInst(Op0);
+  return ::SimplifyFreezeInst(Op0, Q);
 }
 
 /// See if we can compute a simplified version of this instruction.
@@ -5384,8 +5580,9 @@ Value *llvm::SimplifyInstruction(Instruction *I, const SimplifyQuery &SQ,
   }
   case Instruction::ShuffleVector: {
     auto *SVI = cast<ShuffleVectorInst>(I);
-    Result = SimplifyShuffleVectorInst(SVI->getOperand(0), SVI->getOperand(1),
-                                       SVI->getMask(), SVI->getType(), Q);
+    Result =
+        SimplifyShuffleVectorInst(SVI->getOperand(0), SVI->getOperand(1),
+                                  SVI->getShuffleMask(), SVI->getType(), Q);
     break;
   }
   case Instruction::PHI:
@@ -5393,6 +5590,9 @@ Value *llvm::SimplifyInstruction(Instruction *I, const SimplifyQuery &SQ,
     break;
   case Instruction::Call: {
     Result = SimplifyCall(cast<CallInst>(I), Q);
+    // Don't perform known bits simplification below for musttail calls.
+    if (cast<CallInst>(I)->isMustTailCall())
+      return Result;
     break;
   }
   case Instruction::Freeze:
@@ -5521,12 +5721,16 @@ const SimplifyQuery getBestSimplifyQuery(Pass &P, Function &F) {
   auto *TLI = TLIWP ? &TLIWP->getTLI(F) : nullptr;
   auto *ACWP = P.getAnalysisIfAvailable<AssumptionCacheTracker>();
   auto *AC = ACWP ? &ACWP->getAssumptionCache(F) : nullptr;
-  return {F.getParent()->getDataLayout(), TLI, DT, AC};
+#if INTEL_CUSTOMIZATION
+  auto *TTIWP = P.getAnalysisIfAvailable<TargetTransformInfoWrapperPass>();
+  auto *TTI = TTIWP ? &TTIWP->getTTI(F) : nullptr;
+  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+#endif // INTEL_CUSTOMIZATION
 }
 
 const SimplifyQuery getBestSimplifyQuery(LoopStandardAnalysisResults &AR,
                                          const DataLayout &DL) {
-  return {DL, &AR.TLI, &AR.DT, &AR.AC};
+  return {DL, &AR.TLI, &AR.DT, &AR.AC, nullptr, true, &AR.TTI}; // INTEL
 }
 
 template <class T, class... TArgs>
@@ -5535,7 +5739,10 @@ const SimplifyQuery getBestSimplifyQuery(AnalysisManager<T, TArgs...> &AM,
   auto *DT = AM.template getCachedResult<DominatorTreeAnalysis>(F);
   auto *TLI = AM.template getCachedResult<TargetLibraryAnalysis>(F);
   auto *AC = AM.template getCachedResult<AssumptionAnalysis>(F);
-  return {F.getParent()->getDataLayout(), TLI, DT, AC};
+#if INTEL_CUSTOMIZATION
+  auto *TTI = AM.template getCachedResult<TargetIRAnalysis>(F);
+  return {F.getParent()->getDataLayout(), TLI, DT, AC, nullptr, true, TTI};
+#endif // INTEL_CUSTOMIZATION
 }
 template const SimplifyQuery getBestSimplifyQuery(AnalysisManager<Function> &,
                                                   Function &);

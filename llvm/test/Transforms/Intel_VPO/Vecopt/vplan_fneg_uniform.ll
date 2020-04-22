@@ -1,14 +1,12 @@
 ; Check that VPlan vectorizes uniform fneg instruction properly
-; RUN: opt -S -VPlanDriver -enable-vp-value-codegen=false -vplan-force-vf=4 < %s 2>&1 | FileCheck %s -check-prefixes=CHECK-IR,CHECK-LLVM-IR
-; RUN: opt -S -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=4 < %s 2>&1 | FileCheck %s -check-prefixes=CHECK-IR,CHECK-VPVALUE-IR
+; RUN: opt -S -VPlanDriver -vplan-force-vf=4 < %s 2>&1 | FileCheck %s -check-prefixes=CHECK-IR
 ; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -enable-vp-value-codegen-hir=false -vplan-force-vf=4 < %s | FileCheck %s -check-prefix=CHECK-HIR
 ; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -enable-vp-value-codegen-hir -vplan-force-vf=4 < %s | FileCheck %s -check-prefix=CHECK-HIR
 
-; CHECK-IR:         vector.body:
-; CHECK-LLVM-IR:      fneg <4 x float>
-; CHECK-VPVALUE-IR:   fneg float
-; CHECK-IR:         omp.inner.for.body:
-; CHECK-IR:           fneg float
+; CHECK-IR: vector.body:
+; CHECK-IR:   fneg float
+; CHECK-IR: omp.inner.for.body:
+; CHECK-IR:   fneg float
 
 ; CHECK-HIR: fneg <4 x float>
 ; CHECK-HIR: fneg float

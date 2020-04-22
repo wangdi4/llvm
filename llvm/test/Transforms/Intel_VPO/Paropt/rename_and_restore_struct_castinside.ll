@@ -51,21 +51,19 @@ entry:
 ; PREPR: store %struct.str* %y, %struct.str** [[YADDR]]
 ; PREPR: "QUAL.OMP.FIRSTPRIVATE"(%struct.str* %y)
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(%struct.str* %y, %struct.str** [[YADDR]])
-; PREPR: [[YRENAMED:%[a-zA-Z._0-9]+]] = load %struct.str*, %struct.str** [[YADDR]]
+; PREPR: [[YRENAMED:%[a-zA-Z._0-9]+]] = load volatile %struct.str*, %struct.str** [[YADDR]]
 ; PREPR: [[YRENAMED_BC:%[a-zA-Z._0-9]+]] = bitcast %struct.str* [[YRENAMED]] to i8*
 ; PREPR: call void @print_str(i8* [[YRENAMED_BC]])
 
-; Check for the IR modified by CSE + Instcombine
-; It's possible that the 'addr' of QUAL.OMP.OPERAND.ADDR is bitcast before a
-; load is done from it. This happens after instcombine.
+; Check that the IR was not modified by CSE + Instcombine
 
 ; INSTCMB: [[YADDR:%[a-zA-Z._0-9]+]] = alloca %struct.str*
 ; INSTCMB: store %struct.str* %y, %struct.str** [[YADDR]]
 ; INSTCMB: "QUAL.OMP.FIRSTPRIVATE"(%struct.str* %y)
 ; INSTCMB-SAME: "QUAL.OMP.OPERAND.ADDR"(%struct.str* %y, %struct.str** [[YADDR]])
-; INSTCMB: [[YADDR_CAST:%[a-zA-Z._0-9]+]] = bitcast %struct.str** [[YADDR]] to i8**
-; INSTCMB: [[YRENAMED:%[a-zA-Z._0-9]+]] = load i8*, i8** [[YADDR_CAST]]
-; INSTCMB: call void @print_str(i8* [[YRENAMED]])
+; INSTCMB: [[YRENAMED:%[a-zA-Z._0-9]+]] = load volatile %struct.str*, %struct.str** [[YADDR]]
+; INSTCMB: [[YRENAMED_BC:%[a-zA-Z._0-9]+]] = bitcast %struct.str* [[YRENAMED]] to i8*
+; INSTCMB: call void @print_str(i8* [[YRENAMED_BC]])
 
 ; Check for restore-operands was able to undo the renaming:
 ; RESTR: "QUAL.OMP.FIRSTPRIVATE"(%struct.str* %y)

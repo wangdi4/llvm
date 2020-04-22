@@ -3,7 +3,7 @@
 
 void foo(int i, int *x, int *y) {
   // CHECK: AttributedStmt
-  // CHECK-NEXT: IntelBlockLoopAttr{{.*}}
+  // CHECK-NEXT: IntelBlockLoopAttr{{.*}} Implicit block_loop -1
   // CHECK-NEXT: NULL
   // CHECK-NEXT: ForStmt
   #pragma block_loop
@@ -21,7 +21,7 @@ void foo(int i, int *x, int *y) {
 void bar(int i, int *x, int *y) {
 
   // CHECK: AttributedStmt
-  // CHECK-NEXT: IntelBlockLoopAttr{{.*}}
+  // CHECK-NEXT: IntelBlockLoopAttr{{.*}} Implicit block_loop -1
   // CHECK-NEXT: NULL
   // CHECK-NEXT: ForStmt
   #pragma block_loop
@@ -33,7 +33,7 @@ void bar(int i, int *x, int *y) {
 void zoo(int i, int *x, int *y) {
 
   // CHECK: AttributedStmt
-  // CHECK-NEXT: IntelBlockLoopAttr{{.*}} Implicit 2 3
+  // CHECK-NEXT: IntelBlockLoopAttr{{.*}} Implicit block_loop 2 3
   // CHECK-NEXT: IntegerLiteral{{.*}} 16
   // CHECK-NEXT: IntegerLiteral{{.*}} 16
   // CHECK-NEXT: ForStmt

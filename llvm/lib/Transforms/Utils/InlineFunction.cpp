@@ -54,6 +54,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
@@ -66,6 +71,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"  // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"  // INTEL
+#include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <algorithm>
@@ -93,6 +99,16 @@ static cl::opt<bool>
 PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
+
+static cl::opt<bool> UpdateReturnAttributes(
+        "update-return-attrs", cl::init(true), cl::Hidden,
+            cl::desc("Update return attributes on calls within inlined body"));
+
+static cl::opt<unsigned> InlinerAttributeWindow(
+    "max-inst-checked-for-throw-during-inlining", cl::Hidden,
+    cl::desc("the maximum number of instructions analyzed for may throw during "
+             "attribute inference in inlined body"),
+    cl::init(4));
 
 #if INTEL_CUSTOMIZATION
 
@@ -976,10 +992,14 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
   SmallVector<const Argument *, 4> NoAliasArgs;
 
   for (const Argument &Arg : CalledFunc->args())
-    if (Arg.hasNoAliasAttr() && !Arg.use_empty())
+    if (CS.paramHasAttr(Arg.getArgNo(), Attribute::NoAlias) && !Arg.use_empty())
       NoAliasArgs.push_back(&Arg);
 
-  if (NoAliasArgs.empty())
+#if INTEL_CUSTOMIZATION
+  MDNode *ArgAliasScopeList = CS->getMetadata("intel.args.alias.scope");
+#endif // INTEL_CUSTOMIZATION
+
+  if (NoAliasArgs.empty() && !ArgAliasScopeList) // INTEL
     return;
 
   // To do a good job, if a noalias variable is captured, we need to know if
@@ -1002,7 +1022,7 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
   for (unsigned i = 0, e = NoAliasArgs.size(); i != e; ++i) {
     const Argument *A = NoAliasArgs[i];
 
-    std::string Name = CalledFunc->getName();
+    std::string Name = std::string(CalledFunc->getName());
     if (A->hasName()) {
       Name += ": %";
       Name += A->getName();
@@ -1017,6 +1037,32 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
     MDNode *NewScope = MDB.createAnonymousAliasScope(NewDomain, Name);
     NewScopes.insert(std::make_pair(A, NewScope));
   }
+
+#if INTEL_CUSTOMIZATION
+  // Look for alias.scopes defined in argument metadata.
+  if (ArgAliasScopeList) {
+    for (int I = 0, E = ArgAliasScopeList->getNumOperands(); I < E; ++I) {
+      MDNode *ArgScope =
+          dyn_cast_or_null<MDNode>(ArgAliasScopeList->getOperand(I));
+      if (!ArgScope) {
+        continue;
+      }
+
+      auto *Arg = CalledFunc->getArg(I);
+      MDNode *&Scope = NewScopes[Arg];
+      if (!Scope) {
+        Scope = ArgScope;
+      } else {
+        Scope = MDNode::concatenate(Scope, ArgScope);
+      }
+
+      if (std::find(NoAliasArgs.begin(), NoAliasArgs.end(), Arg) ==
+          NoAliasArgs.end()) {
+        NoAliasArgs.push_back(Arg);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Iterate over all new instructions in the map; for all memory-access
   // instructions, add the alias scope metadata.
@@ -1053,8 +1099,7 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
         IsFuncCall = true;
         if (CalleeAAR) {
           FunctionModRefBehavior MRB = CalleeAAR->getModRefBehavior(Call);
-          if (MRB == FMRB_OnlyAccessesArgumentPointees ||
-              MRB == FMRB_OnlyReadsArgumentPointees)
+          if (AAResults::onlyAccessesArgPointees(MRB))
             IsArgMemOnlyCall = true;
         }
 
@@ -1110,7 +1155,7 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
         // completely describe the aliasing properties using alias.scope
         // metadata (and, thus, won't add any).
         if (const Argument *A = dyn_cast<Argument>(V)) {
-          if (!A->hasNoAliasAttr())
+          if (NewScopes.count(A) == 0) // INTEL
             UsesAliasingPtr = true;
         } else {
           UsesAliasingPtr = true;
@@ -1184,6 +1229,97 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
             MDNode::concatenate(NI->getMetadata(LLVMContext::MD_alias_scope),
                                 MDNode::get(CalledFunc->getContext(), Scopes)));
     }
+  }
+}
+
+static bool MayContainThrowingOrExitingCall(Instruction *Begin,
+                                            Instruction *End) {
+
+  assert(Begin->getParent() == End->getParent() &&
+         "Expected to be in same basic block!");
+  unsigned NumInstChecked = 0;
+  // Check that all instructions in the range [Begin, End) are guaranteed to
+  // transfer execution to successor.
+  for (auto &I : make_range(Begin->getIterator(), End->getIterator()))
+    if (NumInstChecked++ > InlinerAttributeWindow ||
+        !isGuaranteedToTransferExecutionToSuccessor(&I))
+      return true;
+  return false;
+}
+
+static AttrBuilder IdentifyValidAttributes(CallSite CS) {
+
+  AttrBuilder AB(CS.getAttributes(), AttributeList::ReturnIndex);
+  if (AB.empty())
+    return AB;
+  AttrBuilder Valid;
+  // Only allow these white listed attributes to be propagated back to the
+  // callee. This is because other attributes may only be valid on the call
+  // itself, i.e. attributes such as signext and zeroext.
+  if (auto DerefBytes = AB.getDereferenceableBytes())
+    Valid.addDereferenceableAttr(DerefBytes);
+  if (auto DerefOrNullBytes = AB.getDereferenceableOrNullBytes())
+    Valid.addDereferenceableOrNullAttr(DerefOrNullBytes);
+  if (AB.contains(Attribute::NoAlias))
+    Valid.addAttribute(Attribute::NoAlias);
+  if (AB.contains(Attribute::NonNull))
+    Valid.addAttribute(Attribute::NonNull);
+  return Valid;
+}
+
+static void AddReturnAttributes(CallSite CS, ValueToValueMapTy &VMap) {
+  if (!UpdateReturnAttributes)
+    return;
+
+  AttrBuilder Valid = IdentifyValidAttributes(CS);
+  if (Valid.empty())
+    return;
+  auto *CalledFunction = CS.getCalledFunction();
+  auto &Context = CalledFunction->getContext();
+
+  for (auto &BB : *CalledFunction) {
+    auto *RI = dyn_cast<ReturnInst>(BB.getTerminator());
+    if (!RI || !isa<CallBase>(RI->getOperand(0)))
+      continue;
+    auto *RetVal = cast<CallBase>(RI->getOperand(0));
+    // Sanity check that the cloned RetVal exists and is a call, otherwise we
+    // cannot add the attributes on the cloned RetVal.
+    // Simplification during inlining could have transformed the cloned
+    // instruction.
+    auto *NewRetVal = dyn_cast_or_null<CallBase>(VMap.lookup(RetVal));
+    if (!NewRetVal)
+      continue;
+    // Backward propagation of attributes to the returned value may be incorrect
+    // if it is control flow dependent.
+    // Consider:
+    // @callee {
+    //  %rv = call @foo()
+    //  %rv2 = call @bar()
+    //  if (%rv2 != null)
+    //    return %rv2
+    //  if (%rv == null)
+    //    exit()
+    //  return %rv
+    // }
+    // caller() {
+    //   %val = call nonnull @callee()
+    // }
+    // Here we cannot add the nonnull attribute on either foo or bar. So, we
+    // limit the check to both RetVal and RI are in the same basic block and
+    // there are no throwing/exiting instructions between these instructions.
+    if (RI->getParent() != RetVal->getParent() ||
+        MayContainThrowingOrExitingCall(RetVal, RI))
+      continue;
+    // Add to the existing attributes of NewRetVal, i.e. the cloned call
+    // instruction.
+    // NB! When we have the same attribute already existing on NewRetVal, but
+    // with a differing value, the AttributeList's merge API honours the already
+    // existing attribute value (i.e. attributes such as dereferenceable,
+    // dereferenceable_or_null etc). See AttrBuilder::merge for more details.
+    AttributeList AL = NewRetVal->getAttributes();
+    AttributeList NewAL =
+        AL.addAttributes(Context, AttributeList::ReturnIndex, Valid);
+    NewRetVal->setAttributes(NewAL);
   }
 }
 
@@ -1354,7 +1490,8 @@ static void HandleByValArgumentInit(Value *Dst, Value *Src, Module *M,
   // Always generate a memcpy of alignment 1 here because we don't know
   // the alignment of the src pointer.  Other optimizations can infer
   // better alignment.
-  Builder.CreateMemCpy(Dst, /*DstAlign*/1, Src, /*SrcAlign*/1, Size);
+  Builder.CreateMemCpy(Dst, /*DstAlign*/ Align(1), Src,
+                       /*SrcAlign*/ Align(1), Size);
 }
 
 /// When inlining a call site that has a byval argument,
@@ -1400,12 +1537,16 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
   // pointer inside the callee).
   Alignment = max(Alignment, MaybeAlign(ByValAlignment));
 
+#if INTEL_COLLAB
   Value *NewAlloca = new AllocaInst(
       AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment, Arg->getName(),
-#if INTEL_COLLAB
       VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
-#endif // INTEL_COLLAB
                                                &*Caller->begin()->begin());
+#else //INTEL_COLLAB
+  Value *NewAlloca =
+      new AllocaInst(AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment,
+                     Arg->getName(), &*Caller->begin()->begin());
+#endif // INTEL_COLLAB
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
   // Uses of the argument in the function should use our new alloca
@@ -1458,34 +1599,6 @@ static DebugLoc inlineDebugLoc(DebugLoc OrigDL, DILocation *InlinedAt,
                        IA);
 }
 
-/// Returns the LoopID for a loop which has has been cloned from another
-/// function for inlining with the new inlined-at start and end locs.
-static MDNode *inlineLoopID(const MDNode *OrigLoopId, DILocation *InlinedAt,
-                            LLVMContext &Ctx,
-                            DenseMap<const MDNode *, MDNode *> &IANodes) {
-  assert(OrigLoopId && OrigLoopId->getNumOperands() > 0 &&
-         "Loop ID needs at least one operand");
-  assert(OrigLoopId && OrigLoopId->getOperand(0).get() == OrigLoopId &&
-         "Loop ID should refer to itself");
-
-  // Save space for the self-referential LoopID.
-  SmallVector<Metadata *, 4> MDs = {nullptr};
-
-  for (unsigned i = 1; i < OrigLoopId->getNumOperands(); ++i) {
-    Metadata *MD = OrigLoopId->getOperand(i);
-    // Update the DILocations to encode the inlined-at metadata.
-    if (DILocation *DL = dyn_cast<DILocation>(MD))
-      MDs.push_back(inlineDebugLoc(DL, InlinedAt, Ctx, IANodes));
-    else
-      MDs.push_back(MD);
-  }
-
-  MDNode *NewLoopID = MDNode::getDistinct(Ctx, MDs);
-  // Insert the self-referential LoopID.
-  NewLoopID->replaceOperandWith(0, NewLoopID);
-  return NewLoopID;
-}
-
 /// Update inlined instructions' line numbers to
 /// to encode location where these instructions are inlined.
 static void fixupLineNumbers(Function *Fn, Function::iterator FI,
@@ -1517,11 +1630,11 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
          BI != BE; ++BI) {
       // Loop metadata needs to be updated so that the start and end locs
       // reference inlined-at locations.
-      if (MDNode *LoopID = BI->getMetadata(LLVMContext::MD_loop)) {
-        MDNode *NewLoopID =
-            inlineLoopID(LoopID, InlinedAtNode, BI->getContext(), IANodes);
-        BI->setMetadata(LLVMContext::MD_loop, NewLoopID);
-      }
+      auto updateLoopInfoLoc = [&Ctx, &InlinedAtNode, &IANodes](
+                                   const DILocation &Loc) -> DILocation * {
+        return inlineDebugLoc(&Loc, InlinedAtNode, Ctx, IANodes).get();
+      };
+      updateLoopMetadataDebugLocations(*BI, updateLoopInfoLoc);
 
       if (!NoInlineLineTables)
         if (DebugLoc DL = BI->getDebugLoc()) {
@@ -1575,7 +1688,7 @@ static void updateCallerBFI(BasicBlock *CallSiteBlock,
                             BlockFrequencyInfo *CalleeBFI,
                             const BasicBlock &CalleeEntryBlock) {
   SmallPtrSet<BasicBlock *, 16> ClonedBBs;
-  for (auto const &Entry : VMap) {
+  for (auto Entry : VMap) {
     if (!isa<BasicBlock>(Entry.first) || !Entry.second)
       continue;
     auto *OrigBB = cast<BasicBlock>(Entry.first);
@@ -1683,8 +1796,8 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = CallInst::Create(CI->getCalledValue(), Args, OpBundles,
-        "", CI);
+      auto NewI = CallInst::Create(CI->getFunctionType(), CI->getCalledValue(),
+          Args, OpBundles, "", CI);
       if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
       if (MDIR && MDIR->isMDIREnabled())
@@ -1709,8 +1822,9 @@ static void HandleVaArgPackAndLen(CallSite& CS, Function::iterator FI,
       }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = InvokeInst::Create(CI->getCalledValue(),
-        CI->getNormalDest(), CI->getUnwindDest(), Args, OpBundles, "", CI);
+      auto NewI = InvokeInst::Create(CI->getFunctionType(),
+        CI->getCalledValue(), CI->getNormalDest(), CI->getUnwindDest(), Args,
+        OpBundles, "", CI);
       if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
       if (MDIR && MDIR->isMDIREnabled())
@@ -1784,7 +1898,7 @@ void llvm::updateProfileCallee(
   // During inlining ?
   if (VMap) {
     uint64_t cloneEntryCount = priorEntryCount - newEntryCount;
-    for (auto const &Entry : *VMap) { // INTEL
+    for (auto Entry : *VMap) { // INTEL
 #if INTEL_CUSTOMIZATION
       // Update intel_profx metadata, which can be on CallInst or InvokeInst
       if (isa<CallBase>(Entry.first))
@@ -1895,33 +2009,34 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
   // FIXME: we don't inline callbr yet.
   if (isa<CallBrInst>(TheCall))
-    return false;
+    return InlineResult::failure("We don't inline callbr yet.");
 
   // If IFI has any state in it, zap it before we fill it in.
   IFI.reset();
 
   Function *CalledFunc = CS.getCalledFunction();
-  if (!CalledFunc ||              // Can't inline external function or indirect
+  if (!CalledFunc ||               // Can't inline external function or indirect
 #if INTEL_CUSTOMIZATION
-      CalledFunc->isDeclaration() ||  // call
+      CalledFunc->isDeclaration() || // call!
      (!ForwardVarArgsTo && CalledFunc->isVarArg())) {
     // call, or call to a vararg function
     if (!CalledFunc) {
       // Can't inline indirect call!
       *Reason = NinlrIndirect;
-      return "external or indirect";
+      return InlineResult::failure("external or indirect");
     }
     if (CalledFunc->isDeclaration()) {
       // Can't inline external function!
       *Reason = NinlrExtern;
-      return "external or indirect";
+      return InlineResult::failure("external or indirect");
     }
     assert(!ForwardVarArgsTo && CalledFunc->isVarArg());
 
     if (!TestVaArgPackAndLen(*CalledFunc)) {
       // Can't inline certain varargs calls
       *Reason = NinlrVarargs;
-      return "varargs";
+      return InlineResult::failure("varargs");
+
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -1937,8 +2052,9 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       // ... and "funclet" operand bundles.
       if (Tag == LLVMContext::OB_funclet)
         continue;
+
       *Reason = NinlrOpBundles; // INTEL
-      return "unsupported operand bundle";
+      return InlineResult::failure("unsupported operand bundle");
     }
   }
 
@@ -1958,7 +2074,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       Caller->setGC(CalledFunc->getGC());
     else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL
       *Reason = NinlrMismatchedGC; // INTEL
-      return "incompatible GC";
+      return InlineResult::failure("incompatible GC");
     } // INTEL
   }
 
@@ -1984,7 +2100,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     //       supersets of others and can be used in place of the other.
     else if (CalledPersonality != CallerPersonality) { // INTEL
       *Reason = NinlrMismatchedPersonality; // INTEL
-      return "incompatible personality";
+      return InlineResult::failure("incompatible personality");
     } // INTEL
   }
 
@@ -2011,7 +2127,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
             for (const BasicBlock &CalledBB : *CalledFunc) {
               if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL
                 *Reason = NinlrMSVCEH; // INTEL
-                return "catch in cleanup funclet";
+                return InlineResult::failure("catch in cleanup funclet");
               } // INTEL
             }
           }
@@ -2021,7 +2137,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
           for (const BasicBlock &CalledBB : *CalledFunc) {
             if (CalledBB.isEHPad()) { // INTEL
               *Reason = NinlrSEH; // INTEL
-              return "SEH in cleanup funclet";
+              return InlineResult::failure("SEH in cleanup funclet");
             } // INTEL
           }
         }
@@ -2081,10 +2197,15 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       VMap[&*I] = ActualArg;
     }
 
+    // TODO: Remove this when users have been updated to the assume bundles.
     // Add alignment assumptions if necessary. We do this before the inlined
     // instructions are actually cloned into the caller so that we can easily
     // check what will be known at the start of the inlined code.
     AddAlignmentAssumptions(CS, IFI);
+
+    /// Preserve all attributes on of the call and its parameters.
+    if (Instruction *Assume = buildAssumeFromInst(CS.getInstruction()))
+      Assume->insertBefore(CS.getInstruction());
 
     // We want the inliner to prune the code as it copies.  We would LOVE to
     // have no dead or constant instructions leftover after inlining occurs
@@ -2184,6 +2305,10 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // Add noalias metadata if necessary.
     AddAliasScopeMetadata(CS, VMap, DL, CalleeAAR);
 
+    // Clone return attributes on the callsite into the calls within the inlined
+    // function which feed into its return value.
+    AddReturnAttributes(CS, VMap);
+
     // Propagate llvm.mem.parallel_loop_access if necessary.
     PropagateParallelLoopAccessMetadata(CS, VMap);
 
@@ -2242,10 +2367,6 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
       Caller->getEntryBlock().getInstList().splice(
           InsertPoint, FirstNewBlock->getInstList(), AI->getIterator(), I);
     }
-    // Move any dbg.declares describing the allocas into the entry basic block.
-    DIBuilder DIB(*Caller->getParent());
-    for (auto &AI : IFI.StaticAllocas)
-      replaceDbgDeclareForAlloca(AI, AI, DIB, DIExpression::ApplyOffset, 0);
   }
   SmallVector<Value*,4> VarArgsToForward;
   SmallVector<AttributeSet, 4> VarArgsAttrs;
@@ -2663,7 +2784,7 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
     // We are now done with the inlining.
     *Reason = InlrNoReason; // INTEL
-    return true;
+    return InlineResult::success();
   }
 
   // Otherwise, we have the normal case, of more than one block to inline or
@@ -2826,6 +2947,6 @@ llvm::InlineResult llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   }
 
   *Reason = InlrNoReason; // INTEL
-  return true;
+  return InlineResult::success();
 }
 

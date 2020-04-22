@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple spir64-unknown-windows-sycldevice -aux-triple x86_64-pc-windows-msvc -fsycl-is-device -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fsycl -fsycl-is-device -triple spir64-unknown-windows-sycldevice -aux-triple x86_64-pc-windows-msvc -fsyntax-only -verify %s
 
 // expected-no-warning@+1
 __inline __cdecl int printf(char const* const _Format, ...) { return 0; }
@@ -18,10 +18,12 @@ __cdecl __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
   printf("cannot call from here\n");
   // expected-no-error@+1
   moo();
+  // expected-note@+1{{called by}}
   kernelFunc();
 }
 
 int main() {
+  //expected-note@+2 {{in instantiation of}}
   //expected-error@+1 {{SYCL kernel cannot call a variadic function}}
   kernel_single_task<class fake_kernel>([]() { printf("world\n"); });
   bar();

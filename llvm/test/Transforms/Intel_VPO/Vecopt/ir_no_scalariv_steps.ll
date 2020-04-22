@@ -10,8 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   for (index = 0; index < 1024; index++)
 ;     ip[index] = index;
 ; }
-; RUN: opt -VPlanDriver -S -enable-vp-value-codegen=false %s | FileCheck %s
-; RUN: opt -VPlanDriver -S -enable-vp-value-codegen %s | FileCheck %s
+; RUN: opt -VPlanDriver -S %s | FileCheck %s
 
 ; This test checks that scalar IV steps are not generated in vector loop
 ; CHECK: vector.ph:

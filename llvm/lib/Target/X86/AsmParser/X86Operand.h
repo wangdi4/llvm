@@ -36,6 +36,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   StringRef SymName;
   void *OpDecl;
   bool AddressOf;
+  bool CallOperand;
 
   struct TokOp {
     const char *Data;
@@ -52,6 +53,7 @@ struct X86Operand final : public MCParsedAsmOperand {
 
   struct ImmOp {
     const MCExpr *Val;
+    bool LocalRef;
   };
 
   struct MemOp {
@@ -77,7 +79,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   };
 
   X86Operand(KindTy K, SMLoc Start, SMLoc End)
-      : Kind(K), StartLoc(Start), EndLoc(End) {}
+      : Kind(K), StartLoc(Start), EndLoc(End), CallOperand(false) {}
 
   StringRef getSymName() override { return SymName; }
   void *getOpDecl() override { return OpDecl; }
@@ -278,13 +280,22 @@ struct X86Operand final : public MCParsedAsmOperand {
     return isImmUnsignedi8Value(CE->getValue());
   }
 
-  bool isOffsetOf() const override {
-    return OffsetOfLoc.getPointer();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  bool isImmUnsignedi32() const {
+    if (!isImm()) return false;
+    // If this isn't a constant expr, just assume it fits and let relaxation
+    // handle it.
+    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
+    if (!CE) return true;
+    return isUInt<32>(CE->getValue());
   }
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
-  bool needAddressOf() const override {
-    return AddressOf;
-  }
+  bool isOffsetOfLocal() const override { return isImm() && Imm.LocalRef; }
+
+  bool needAddressOf() const override { return AddressOf; }
 
   bool isMem() const override { return Kind == Memory; }
   bool isMemUnsized() const {
@@ -541,7 +552,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX
   bool isVTILEPair() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VTILERegClassID].contains(getReg());
@@ -586,7 +597,9 @@ struct X86Operand final : public MCParsedAsmOperand {
     }
     Inst.addOperand(MCOperand::createReg(Reg));
   }
+#endif // INTEL_FEATURE_ISA_AMX
 
+#if INTEL_FEATURE_ISA_AMX_LNC
   bool isZMM16Tuples() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::VR512RegClassID].contains(getReg());
@@ -597,7 +610,7 @@ struct X86Operand final : public MCParsedAsmOperand {
     unsigned Reg = (((getReg() - X86::ZMM0) / 16) * 16) + X86::ZMM0;
     Inst.addOperand(MCOperand::createReg(Reg));
   }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 
   void addMemOperands(MCInst &Inst, unsigned N) const {
@@ -673,9 +686,16 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
   static std::unique_ptr<X86Operand> CreateImm(const MCExpr *Val,
-                                               SMLoc StartLoc, SMLoc EndLoc) {
+                                               SMLoc StartLoc, SMLoc EndLoc,
+                                               StringRef SymName = StringRef(),
+                                               void *OpDecl = nullptr,
+                                               bool GlobalRef = true) {
     auto Res = std::make_unique<X86Operand>(Immediate, StartLoc, EndLoc);
-    Res->Imm.Val = Val;
+    Res->Imm.Val      = Val;
+    Res->Imm.LocalRef = !GlobalRef;
+    Res->SymName      = SymName;
+    Res->OpDecl       = OpDecl;
+    Res->AddressOf    = true;
     return Res;
   }
 

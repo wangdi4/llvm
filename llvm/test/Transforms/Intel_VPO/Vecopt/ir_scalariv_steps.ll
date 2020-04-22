@@ -9,15 +9,12 @@
 ;       baz1(index);
 ;   }
 ; }
-; RUN: opt -VPlanDriver -enable-vp-value-codegen=false -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-IRCG
-; RUN: opt -VPlanDriver -enable-vp-value-codegen=true  -S %s | FileCheck %s --check-prefixes=CHECK,CHECK-VPCG
-; TODO: Merge IRCG and VPCG checks after CMPLRLLVM-10781 is fixed.
+; RUN: opt -VPlanDriver  -S %s | FileCheck %s
 ;
 ; CHECK: vector.ph:
 ; CHECK: vector.body:
 ; CHECK:   %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; CHECK-IRCG: [[IND1:.*]] = add i64 %index, 1
-; CHECK-VPCG: [[IND1:.*]] = extractelement <2 x i64> [[VEC_PHI:.*]], i32 1
+; CHECK:   [[IND1:.*]] = extractelement <2 x i64> [[VEC_PHI:.*]], i32 1
 ; CHECK: call void @baz1(i64 %{{.*}})
 ; CHECK-NOT: {{.*}} = add i64 %index, 0
 

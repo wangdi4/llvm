@@ -16,10 +16,12 @@ set(LLVM_LINK_COMPONENTS
   ObjCARCOpts
   ScalarOpts
   Support
+  SYCLLowerIR
   Target
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
+  Intel_DPCPPKernelTransforms
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
@@ -42,11 +44,13 @@ add_llvm_tool(bugpoint
   ToolRunner.cpp
   bugpoint.cpp
 
+  ENABLE_PLUGINS
+
   DEPENDS
   intrinsics_gen
   SUPPORT_PLUGINS
   )
-export_executable_symbols(bugpoint)
+export_executable_symbols_for_plugins(bugpoint)
 
 # INTEL_CUSTOMIZATION
 if(INTEL_INCLUDE_DTRANS)
@@ -61,9 +65,3 @@ if (p)
 endif()
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-
-if(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)
-  target_link_libraries(bugpoint PRIVATE Polly)
-  # Ensure LLVMTarget can resolve dependences in Polly.
-  target_link_libraries(bugpoint PRIVATE LLVMTarget)
-endif(WITH_POLLY AND LINK_POLLY_INTO_TOOLS)

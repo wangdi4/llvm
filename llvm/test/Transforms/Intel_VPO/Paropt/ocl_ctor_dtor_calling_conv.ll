@@ -77,7 +77,7 @@ attributes #1 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sq
 
 !0 = !{i32 0, i32 2052, i32 85987078, !"__omp_offloading__804_5200f06_c_l7_ctor", i32 7, i32 1, i32 2}
 !1 = !{i32 0, i32 2052, i32 85987078, !"__omp_offloading__804_5200f06_c_l7_dtor", i32 7, i32 2, i32 4}
-!2 = !{i32 1, !"c", i32 0, i32 0}
+!2 = !{i32 1, !"c", i32 0, i32 0, %class.C* @c}
 !3 = !{i32 1, !"wchar_size", i32 4}
 !4 = !{}
 !5 = !{!"clang version 9.0.0"}

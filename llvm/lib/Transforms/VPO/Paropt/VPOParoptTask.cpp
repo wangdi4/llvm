@@ -61,25 +61,18 @@ bool VPOParoptTransform::genRedCodeForTaskGeneric(WRegionNode *W) {
   auto replaceReductionVarInTask = [&](WRegionNode *W,
                                        ReductionClause &RedClause) {
     W->populateBBSet();
-    BasicBlock *EntryBB = W->getEntryBBlock();
-    BasicBlock *ExitBB = W->getExitBBlock();
 
     for (ReductionItem *RedI : RedClause.items()) {
 
       Value *Orig = RedI->getOrig();
 
-      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-        Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
-        auto *NewPrivInst =
-            genPrivatizationAlloca(RedI, AllocaInsertPt, ".red");
-        genPrivatizationReplacement(W, Orig, NewPrivInst);
+      if (!isa<GlobalVariable>(Orig) && !isa<AllocaInst>(Orig))
+          continue;
 
-        IRBuilder<> Builder(EntryBB->getTerminator());
-        VPOParoptUtils::genCopyByAddr(NewPrivInst, RedI->getNew(),
-                                      EntryBB->getTerminator());
-        VPOParoptUtils::genCopyByAddr(RedI->getNew(), NewPrivInst,
-                                      ExitBB->getTerminator());
-      }
+      Instruction *InsertPt = GeneralUtils::nextUniqueInstruction(
+          cast<Instruction>(RedI->getNew()));
+      auto *NewPrivInst = getClauseItemReplacementValue(RedI, InsertPt);
+      genPrivatizationReplacement(W, Orig, NewPrivInst);
     }
   };
 
@@ -209,15 +202,22 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   Value *Src = LprivI->getNew();
   Value *Dst = LprivI->getOrigGEP();
   if (LprivI->getIsByRef())
-    Dst = new LoadInst(Dst, "", InsertPt);
+    Dst = new LoadInst(Src->getType(), Dst, "", InsertPt);
 
+#if INTEL_CUSTOMIZATION
+  if (LprivI->getIsF90DopeVector()) {
+    VPOParoptUtils::genF90DVLastprivateCopyCall(Src, Dst, InsertPt);
+    return;
+  }
+
+#endif // INTEL_CUSTOMIZATION
   Type *ScalarTy = cast<PointerType>(Src->getType())->getElementType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
 
   if (LprivI->getIsVla()) {
-    unsigned Align = DL.getABITypeAlignment(ScalarTy);
+    MaybeAlign Align(DL.getABITypeAlignment(ScalarTy));
     Builder.CreateMemCpy(Dst, Align, Src, Align,
                          LprivI->getNewThunkBufferSize());
   } else if (!VPOUtils::canBeRegisterized(ScalarTy, DL))
@@ -389,20 +389,44 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   unsigned PrivateCount = 0;
   unsigned SharedCount = 0;
+#if INTEL_CUSTOMIZATION
 
-  auto reserveFieldsForItemInPrivateThunk = [&PrivateThunkTypes, &PrivateCount,
-                                             &Builder, &SizeTTy,
-                                             &SizeTBitWidth](Item *I) {
+  auto reserveExtraFieldsForF90DVInPrivateThunk = [&](Item *I) {
+    if (!I->getIsF90DopeVector())
+      return;
+
+    // For F90 DVs, similar to VLAs, we allocate three spaces in the
+    // privates thunk, corresponding to the local copy of the DV, array size
+    // in bytes, and offset to the actual array in the task thunk buffer.
+    PrivateCount += 2;
+    PrivateThunkTypes.push_back(SizeTTy);
+    PrivateThunkTypes.push_back(SizeTTy);
+
+    StringRef NamePrefix = I->getOrig()->getName();
+    Value *ArraySizeInBytes =
+        VPOParoptUtils::genF90DVSizeCall(I->getOrig(), InsertBefore);
+    ArraySizeInBytes->setName(NamePrefix + ".array.size.in.bytes");
+    I->setThunkBufferSize(ArraySizeInBytes);
+  };
+#endif // INTEL_CUSTOMIZATION
+
+  auto reserveFieldsForItemInPrivateThunk = [&](Item *I) {
     Type *ElementTy = nullptr;
     Value *NumElements = nullptr;
-    unsigned AddrSpace = 0;
-    getItemInfo(I, ElementTy, NumElements, AddrSpace);
+    std::tie(ElementTy, NumElements, std::ignore) = getItemInfo(I);
     if (!NumElements) {
       PrivateThunkTypes.push_back(ElementTy);
       I->setPrivateThunkIdx(PrivateCount++);
+#if INTEL_CUSTOMIZATION
+      reserveExtraFieldsForF90DVInPrivateThunk(I);
+#endif // INTEL_CUSTOMIZATION
       return;
     }
 
+#if INTEL_CUSTOMIZATION
+    assert(!I->getIsF90DopeVector() && "Unexpected: array of dope vectors");
+
+#endif // INTEL_CUSTOMIZATION
     if (isa<ConstantInt>(NumElements)) {
       PrivateThunkTypes.push_back(ArrayType::get(
           ElementTy, cast<ConstantInt>(NumElements)->getZExtValue()));
@@ -523,6 +547,42 @@ bool VPOParoptTransform::genTaskInitCode(WRegionNode *W,
                              UBPtr, STPtr, LastIterGep, false);
 }
 
+// If an item has buffer space allocated for it at end of the thunk, make its
+// New field point to that buffer space.
+void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+    Item *I, StructType *KmpPrivatesTy, Value *PrivatesGep,
+    Value *TaskTWithPrivates, IRBuilder<> &Builder) {
+  if (!I->getIsVla())
+#if INTEL_CUSTOMIZATION
+    if (!I->getIsF90DopeVector())
+#endif // INTEL_CUSTOMIZATION
+    return;
+
+  StringRef OrigName = I->getOrig()->getName();
+  Value *Zero = Builder.getInt32(0);
+
+  int NewVIdx = I->getPrivateThunkIdx();
+  Value *NewVGep = Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep,
+                                             {Zero, Builder.getInt32(NewVIdx)},
+                                             OrigName + ".gep");
+
+  Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
+      KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
+      OrigName + ".data.offset.gep");
+  Value *NewVDataOffset =
+      Builder.CreateLoad(NewVDataOffsetGep, OrigName + ".data.offset");
+
+  Type *Int8PtrTy = Builder.getInt8PtrTy();
+  Value *TaskThunkBasePtr = Builder.CreateBitCast(TaskTWithPrivates, Int8PtrTy,
+                                                  ".taskt.withprivates.base");
+  Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, {NewVDataOffset},
+                                      OrigName + ".priv.data");
+
+  Builder.CreateStore(NewVData, Builder.CreateBitCast(
+                                    NewVGep, PointerType::getUnqual(Int8PtrTy),
+                                    OrigName + ".priv.gep.cast"));
+}
+
 // Generate the code to replace the variables in the task loop with
 // the thunk field dereferences
 bool VPOParoptTransform::genTaskLoopInitCode(
@@ -632,46 +692,15 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         Builder.CreateLoad(NewVDataSizeGep, OrigName + ".data.size"));
   };
 
-  // If an item is a VLA, make its New field point to its corresponding buffer
-  // space at the end of the thunk.
-  auto linkPrivateItemToBufferAtEndOfThunkIfVLA = [&Builder, &KmpPrivatesTy,
-                                                   &PrivatesGep,
-                                                   &DummyTaskTWithPrivates,
-                                                   &Zero](Item *I) {
-    if (!I->getIsVla())
-      return;
-
-    StringRef OrigName = I->getOrig()->getName();
-    int NewVIdx = I->getPrivateThunkIdx();
-    Value *NewVGep = Builder.CreateInBoundsGEP(
-        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx)},
-        OrigName + ".gep");
-
-    Value *NewVDataOffsetGep = Builder.CreateInBoundsGEP(
-        KmpPrivatesTy, PrivatesGep, {Zero, Builder.getInt32(NewVIdx + 2)},
-        OrigName + ".data.offset.gep");
-    Value *NewVDataOffset =
-        Builder.CreateLoad(NewVDataOffsetGep, OrigName + ".data.offset");
-
-    Type *Int8PtrTy = Builder.getInt8PtrTy();
-    Value *TaskThunkBasePtr = Builder.CreateBitCast(
-        DummyTaskTWithPrivates, Int8PtrTy, ".taskt.withprivates.base");
-    Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, {NewVDataOffset},
-                                        OrigName + ".priv.data");
-
-    Builder.CreateStore(NewVData,
-                        Builder.CreateBitCast(NewVGep,
-                                              PointerType::getUnqual(Int8PtrTy),
-                                              OrigName + ".priv.gep.cast"));
-  };
-
   for (PrivateItem *PrivI : W->getPriv().items()) {
-    linkPrivateItemToBufferAtEndOfThunkIfVLA(PrivI);
+    linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+        PrivI, KmpPrivatesTy, PrivatesGep, DummyTaskTWithPrivates, Builder);
     setNewForItemFromPrivateThunk(PrivI);
   }
 
   for (FirstprivateItem *FprivI : W->getFpriv().items()) {
-    linkPrivateItemToBufferAtEndOfThunkIfVLA(FprivI);
+    linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+        FprivI, KmpPrivatesTy, PrivatesGep, DummyTaskTWithPrivates, Builder);
     setNewForItemFromPrivateThunk(FprivI);
   }
 
@@ -681,7 +710,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
         LprivI->setNew(FprivI->getNew());
         LprivI->setNewThunkBufferSize(FprivI->getNewThunkBufferSize());
       } else {
-        linkPrivateItemToBufferAtEndOfThunkIfVLA(LprivI);
+        linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+            LprivI, KmpPrivatesTy, PrivatesGep, DummyTaskTWithPrivates, Builder);
         setNewForItemFromPrivateThunk(LprivI);
       }
 
@@ -704,6 +734,8 @@ bool VPOParoptTransform::genTaskLoopInitCode(
                                      IRBuilder<> &Builder) {
     if (!RedClause.empty()) {
       for (ReductionItem *RedI : RedClause.items()) {
+        computeArraySectionTypeOffsetSize(*RedI, &*Builder.GetInsertPoint());
+
         StringRef OrigName = RedI->getOrig()->getName();
         Value *ThunkSharedGep = Builder.CreateInBoundsGEP(
             KmpSharedTy, SharedCast,
@@ -711,12 +743,31 @@ bool VPOParoptTransform::genTaskLoopInitCode(
             OrigName + ".shr.gep");
         Value *ThunkSharedVal =
             Builder.CreateLoad(ThunkSharedGep, OrigName + ".shr");
+
+        // The __kmpc_task_reduction_get_th_data call needs the pointer to the
+        // actual data being reduced, after any pointer dereferences or offset
+        // additions.
+        if (RedI->getIsByRef())
+          ThunkSharedVal =
+              Builder.CreateLoad(ThunkSharedVal, OrigName + ".shr.deref");
+
+        if (RedI->getIsArraySection()) {
+          const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+          ThunkSharedVal = genBasePlusOffsetGEPForArraySection(
+              ThunkSharedVal, ArrSecInfo, &*Builder.GetInsertPoint());
+        }
+
         Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
             W, TidPtrHolder, ThunkSharedVal, &*Builder.GetInsertPoint(),
             Mode & OmpTbb);
         RedRes->setName(OrigName + ".red");
-        Value *RedResCast = Builder.CreateBitCast(
-            RedRes, RedI->getOrig()->getType(), OrigName + ".red.cast");
+
+        Type *ElementType = nullptr;
+        std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+
+        Type *RedNewTy = PointerType::getUnqual(ElementType);
+        Value *RedResCast =
+            Builder.CreateBitCast(RedRes, RedNewTy, OrigName + ".red.cast");
         RedI->setNew(RedResCast);
       }
     }
@@ -868,7 +919,7 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
       Size = Builder.getInt32(
           DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
 
-    unsigned Align = DL.getABITypeAlignment(Src->getAllocatedType());
+    MaybeAlign Align(DL.getABITypeAlignment(Src->getAllocatedType()));
     Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
   }
 
@@ -894,6 +945,9 @@ Value *VPOParoptTransform::computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
 
   auto computeOffsetForItem = [&CurrentOffset, &Builder](Item *I) {
     if (!I->getIsVla())
+#if INTEL_CUSTOMIZATION
+      if (!I->getIsF90DopeVector())
+#endif // INTEL_CUSTOMIZATION
       return;
 
     StringRef NamePrefix = I->getOrig()->getName();
@@ -930,12 +984,15 @@ void VPOParoptTransform::saveVLASizeAndOffsetToPrivatesThunk(
 
   auto saveSizeAndOffsetForItem = [&](Item *I) {
     if (!I->getIsVla())
+#if INTEL_CUSTOMIZATION
+      if (!I->getIsF90DopeVector())
+#endif // INTEL_CUSTOMIZATION
       return;
 
     StringRef OrigName = I->getOrig()->getName();
     int NewVIdx = I->getPrivateThunkIdx();
 
-    // For VLA items, the privates thunk contains NewV, size and offset in three
+    // The privates thunk contains NewV, size and offset in three
     // consecutive locations beginning from the PrivateThunkIdx. Here we save
     // size and offset to the corresponding locations.
     Value *NewVDataSizeGep = Builder.CreateInBoundsGEP(
@@ -991,37 +1048,54 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
   const DataLayout &DL = InsertBefore->getModule()->getDataLayout();
 
   for (FirstprivateItem *FprivI : FprivClause.items()) {
+
+    assert(!FprivI->getThunkBufferOffset() ||
+           !FprivI->getIsByRef() && "Unexpected Byref + VLA operand.");
+
     Value *OrigV = FprivI->getOrig();
     StringRef NamePrefix = OrigV->getName();
 
-    if (!FprivI->getIsVla()) {
-      Value *NewVGep = Builder.CreateInBoundsGEP(
-          KmpPrivatesTy, KmpPrivatesGEP,
-          {Builder.getInt32(0), Builder.getInt32(FprivI->getPrivateThunkIdx())},
-          NamePrefix + ".priv.gep");
-      VPOParoptUtils::genCopyByAddr(NewVGep, OrigV, InsertBefore,
-                                    FprivI->getCopyConstructor(),
-                                    FprivI->getIsByRef());
+    if (FprivI->getIsVla()) {
+      Type *Int8PtrTy = Builder.getInt8PtrTy();
+      Value *TaskThunkBasePtr = Builder.CreateBitCast(
+          KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
+
+      Value *NewData =
+          Builder.CreateGEP(TaskThunkBasePtr, {FprivI->getThunkBufferOffset()},
+                            NamePrefix + ".priv.data");
+      Value *OrigCast =
+          Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
+
+      MaybeAlign Align(DL.getABITypeAlignment(
+          cast<PointerType>(OrigV->getType())->getElementType()));
+
+      Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
+                           FprivI->getThunkBufferSize());
       continue;
     }
 
-    assert(!FprivI->getIsByRef() && "Unexpected Byref + VLA operand.");
+    Value *NewVGep = Builder.CreateInBoundsGEP(
+        KmpPrivatesTy, KmpPrivatesGEP,
+        {Builder.getInt32(0), Builder.getInt32(FprivI->getPrivateThunkIdx())},
+        NamePrefix + ".priv.gep");
+#if INTEL_CUSTOMIZATION
 
-    Type *Int8PtrTy = Builder.getInt8PtrTy();
-    Value *TaskThunkBasePtr = Builder.CreateBitCast(
-        KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
+    if (FprivI->getIsF90DopeVector()) {
+      // We first link the private dope vector to the data buffer allocated for
+      // it, so that we can call f90_firstprivate_copy on it.
+      linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+          FprivI, KmpPrivatesTy, KmpPrivatesGEP, KmpTaskTTWithPrivates,
+          Builder);
 
-    Value *NewData =
-        Builder.CreateGEP(TaskThunkBasePtr, {FprivI->getThunkBufferOffset()},
-                          NamePrefix + ".priv.data");
-    Value *OrigCast =
-        Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
+      VPOParoptUtils::genF90DVFirstprivateCopyCall(NewVGep, OrigV,
+                                                   InsertBefore);
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
-    unsigned Align = DL.getABITypeAlignment(
-        cast<PointerType>(OrigV->getType())->getElementType());
-
-    Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
-                         FprivI->getThunkBufferSize());
+    VPOParoptUtils::genCopyByAddr(NewVGep, OrigV, InsertBefore,
+                                  FprivI->getCopyConstructor(),
+                                  FprivI->getIsByRef());
   }
 }
 
@@ -1084,10 +1158,12 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
 Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
                                                      ReductionItem *RedI) {
   LLVMContext &C = F->getContext();
-  Value *Orig = RedI->getOrig();
   Module *M = F->getParent();
 
-  Type *TaskLoopRedInitParams[] = {Orig->getType()};
+  Type *ElementType = nullptr;
+  std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+
+  Type *TaskLoopRedInitParams[] = {PointerType::getUnqual(ElementType)};
   FunctionType *TaskLoopRedInitFnTy =
       FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
 
@@ -1122,10 +1198,13 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
 Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
                                                      ReductionItem *RedI) {
   LLVMContext &C = F->getContext();
-  Value *Orig = RedI->getOrig();
   Module *M = F->getParent();
 
-  Type *TaskLoopRedInitParams[] = {Orig->getType(), Orig->getType()};
+  Type *ElementType = nullptr;
+  std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+
+  Type *TaskLoopRedInitParams[] = {PointerType::getUnqual(ElementType),
+                                   PointerType::getUnqual(ElementType)};
   FunctionType *TaskLoopRedInitFnTy =
       FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
 
@@ -1149,11 +1228,14 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
 
   Value *NewRedInst = RedI->getNew();
 
-  genReductionFini(W, RedI, DstArg, EntryBB->getTerminator(), &DT);
+  genReductionFini(
+      W, RedI, DstArg, EntryBB->getTerminator(), &DT,
+      true); // There is no need for extra dereference/offset computation on the
+             // destination arg in the reduction combiner for tasks.
 
   NewRedInst->replaceAllUsesWith(SrcArg);
 
-  cast<AllocaInst>(NewRedInst)->eraseFromParent();
+  cast<Instruction>(NewRedInst)->eraseFromParent();
 
   return FnTaskLoopRedComb;
 }
@@ -1313,31 +1395,50 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
   const DataLayout DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
   for (DependItem *DepI : DepClause.items()) {
+    Value *Orig = DepI->getOrig();
+    Value *Size = nullptr;
+    Value *BasePtr = Orig;
+    Type *IntPtrTy = Builder.getIntPtrTy(DL);
+
+    // TODO: Paropt doesn't support code generation for non-contiguous sections,
+    // the plan is for the frontend to send us an array section in this form:
+    // "(0, i64 %number_of_elements_from_start_to_end, 1)
+    // %gep_with_starting_offset".
+    computeArraySectionTypeOffsetSize(Orig, DepI->getArraySectionInfo(),
+                                      DepI->getIsByRef(), InsertBefore);
 
     Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
         KmpTaskTDependVecTy, DummyTaskTDependVec,
-        {Builder.getInt32(0), Builder.getInt32(Count++)});
+        {Builder.getInt32(0), Builder.getInt32(Count++)}, ".dep.struct");
 
-    Value *Gep =
-        Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                  {Builder.getInt32(0), Builder.getInt32(0)});
-    Builder.CreateStore(
-        Builder.CreatePtrToInt(DepI->getOrig(),
-                               DL.getIntPtrType(DepI->getOrig()->getType())),
-        Gep);
+    if (DepI->getIsArraySection()) {
+      const ArraySectionInfo &ArrSecInfo = DepI->getArraySectionInfo();
+      BasePtr =
+          genBasePlusOffsetGEPForArraySection(Orig, ArrSecInfo, InsertBefore);
+      Value *NumElements = ArrSecInfo.getSize();
+      Value *ElementSize = Builder.getIntN(
+          DL.getPointerSizeInBits(),
+          DL.getTypeSizeInBits(ArrSecInfo.getElementType()) / 8);
+      Size = Builder.CreateMul(NumElements, ElementSize,
+                               Orig->getName() + ".size.in.bytes");
+    } else
+      Size = Builder.getIntN(
+          DL.getPointerSizeInBits(),
+          DL.getTypeAllocSize(Orig->getType()->getPointerElementType()));
+
+    Value *Gep = Builder.CreateInBoundsGEP(
+        KmpTaskDependInfoTy, BaseTaskTDependGep,
+        {Builder.getInt32(0), Builder.getInt32(0)}, ".dep.base.ptr");
+    Builder.CreateStore(Builder.CreatePtrToInt(BasePtr, IntPtrTy), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                    {Builder.getInt32(0), Builder.getInt32(1)});
-    Builder.CreateStore(
-        (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
-            ? Builder.getInt64(DL.getTypeAllocSize(
-                  DepI->getOrig()->getType()->getPointerElementType()))
-            : Builder.getInt32(DL.getTypeAllocSize(
-                  DepI->getOrig()->getType()->getPointerElementType())),
-        Gep);
+                                    {Builder.getInt32(0), Builder.getInt32(1)},
+                                    ".dep.num.bytes");
+    Builder.CreateStore(Size, Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskDependInfoTy, BaseTaskTDependGep,
-                                    {Builder.getInt32(0), Builder.getInt32(2)});
+                                    {Builder.getInt32(0), Builder.getInt32(2)},
+                                    ".dep.flags");
     Builder.CreateStore(Builder.getInt8(DepI->getIsIn() ? 0x1 : 0x3), Gep);
   }
 
@@ -1378,6 +1479,11 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   unsigned Count = 0;
   for (ReductionItem *RedI : RedClause.items()) {
 
+    // For non-taskgroups, computeArraySectionTypeOffsetSize is called as part
+    // of genTaskInitCode/genTaskLoopInitCode.
+    if (isa<WRNTaskgroupNode>(W) && RedI->getIsArraySection())
+      computeArraySectionTypeOffsetSize(*RedI, InsertBefore);
+
     StringRef NamePrefix = RedI->getOrig()->getName();
 
     Value *BaseTaskTRedGep = Builder.CreateInBoundsGEP(
@@ -1386,16 +1492,37 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
     Value *Gep = Builder.CreateInBoundsGEP(
         KmpTaskTRedTy, BaseTaskTRedGep, {Zero, Zero}, NamePrefix + ".red.item");
-    Builder.CreateStore(
-        Builder.CreateBitCast(RedI->getOrig(), Type::getInt8PtrTy(C)), Gep);
+
+    // The reduction item struct needs to store the starting address of the
+    // actual data to be reduced (after any offset computation, or  dereference
+    // for by-refs etc.)
+    Value *RedIBase = RedI->getOrig();
+    if (RedI->getIsByRef())
+      RedIBase = Builder.CreateLoad(RedIBase, NamePrefix + ".orig.deref");
+
+    if (RedI->getIsArraySection()) {
+      const ArraySectionInfo &ArrSecInfo = RedI->getArraySectionInfo();
+      RedIBase = genBasePlusOffsetGEPForArraySection(RedIBase, ArrSecInfo,
+                                                     InsertBefore);
+    }
+    Builder.CreateStore(Builder.CreateBitCast(RedIBase, Type::getInt8PtrTy(C)),
+                        Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
                                     {Zero, Builder.getInt32(1)},
                                     NamePrefix + ".red.size");
-    Builder.CreateStore(
-        Builder.getInt64(DL.getTypeAllocSize(
-            RedI->getOrig()->getType()->getPointerElementType())),
-        Gep);
+
+    Type *ElementType = nullptr;
+    Value *NumElements = nullptr;
+    std::tie(ElementType, NumElements, std::ignore) = getItemInfo(RedI);
+
+    Value *ElementSize = Builder.getInt64(DL.getTypeAllocSize(ElementType));
+
+    Value *Size = nullptr;
+    Size = NumElements ? Builder.CreateMul(ElementSize, NumElements,
+                                           NamePrefix + ".red.size")
+                       : ElementSize;
+    Builder.CreateStore(Size, Gep);
 
     Function *RedInitFunc = genTaskLoopRedInitFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
@@ -1444,6 +1571,16 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
     return;
   for (DependItem *DepI : DepClause.items()) {
     resetValueInOmpClauseGeneric(W, DepI->getOrig());
+    if (DepI->getIsArraySection()) {
+      const auto &ArraySectionDims =
+          DepI->getArraySectionInfo().getArraySectionDims();
+
+      for (const auto &Dim : ArraySectionDims) {
+        resetValueInOmpClauseGeneric(W, std::get<0>(Dim));
+        resetValueInOmpClauseGeneric(W, std::get<1>(Dim));
+        resetValueInOmpClauseGeneric(W, std::get<2>(Dim));
+      }
+    }
   }
 }
 
@@ -1546,7 +1683,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
     MTFnArgs.push_back((*I));
   }
-  CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
+  CallInst *MTFnCI =
+      CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
   MTFnCI->setCallingConv(CS.getCallingConv());
 
   // Copy isTailCall attribute
@@ -1595,6 +1733,10 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       genPrivatesGepForTask(TaskAllocCI, KmpTaskTTWithPrivatesTy, NewCall);
 
   saveVLASizeAndOffsetToPrivatesThunk(W, PrivatesGep, KmpPrivatesTy, NewCall);
+#if INTEL_CUSTOMIZATION
+  VPOParoptUtils::genF90DVInitForItemsInTaskPrivatesThunk(
+      W, PrivatesGep, KmpPrivatesTy, NewCall);
+#endif // INTEL_CUSTOMIZATION
   genFprivInitForTask(W, TaskAllocCI, PrivatesGep, KmpPrivatesTy, NewCall);
 
   IRBuilder<> Builder(NewCall);
@@ -1637,9 +1779,11 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
       MTFnArgs.push_back(ElseBuilder.CreateBitCast(
           TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
-      CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
+      CallInst *SeqCI = CallInst::Create(MTFn->getFunctionType(), MTFn,
+                                         MTFnArgs, "", ElseTerm);
       SeqCI->setCallingConv(CS.getCallingConv());
       SeqCI->takeName(NewCall);
+      SeqCI->setDebugLoc(NewCall->getDebugLoc());
       VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
                                              TaskAllocCI, ElseTerm);
     }

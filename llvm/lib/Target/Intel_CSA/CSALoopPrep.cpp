@@ -40,6 +40,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
@@ -731,7 +732,8 @@ void CSALoopPrep::processLoop(Loop *L, Value *TokenPool,
   if (TokenPool->getType() != I8PtrTy) {
     TokenPool = IAT0.CreateBitCast(TokenPool, I8PtrTy);
   }
-  auto *Slot0Saved = IAT0.CreateAlignedStore(TokenPool, SlotAlloca, 8, false);
+  auto *Slot0Saved =
+      IAT0.CreateAlignedStore(TokenPool, SlotAlloca, Align(8), false);
   LLVM_DEBUG(errs() << "Slot0 value assigned:\n"; Slot0Saved->dump());
 
   // Handle outer allocas
@@ -781,16 +783,16 @@ void CSALoopPrep::processLoop(Loop *L, Value *TokenPool,
   CallInst *const TokenTake = gen_call(
       TTPt, Intrinsic::csa_pipeline_depth_token_take, Args, "ls.token");
   LLVM_DEBUG(errs() << "Token take created in loop:\n"; TokenTake->dump());
-  IATT.CreateAlignedStore(TokenTake, SlotAlloca, 8, false);
+  IATT.CreateAlignedStore(TokenTake, SlotAlloca, Align(8), false);
   LLVM_DEBUG(errs() << "Slot-d value assigned:\n";
-      TokenTake->getNextNonDebugInstruction()->dump());
+             TokenTake->getNextNonDebugInstruction()->dump());
   BasicBlock *const LoopEndBlock = L->getLoopLatch();
   if (!LoopEndBlock) {
     assert(LoopEndBlock && "Loop must have single branch back to header");
   }
   Instruction *const LoopEndInstr = LoopEndBlock->getTerminator();
   IRBuilder<> IATR(LoopEndInstr);
-  auto *SlotRecovered = IATR.CreateAlignedLoad(SlotAlloca, 8);
+  auto *SlotRecovered = IATR.CreateAlignedLoad(SlotAlloca, Align(8));
   LLVM_DEBUG(errs() << "Slot-d value recovered:\n"; SlotRecovered->dump());
   Args = {TokenPool, SlotRecovered};
   gen_call(LoopEndInstr, Intrinsic::csa_pipeline_depth_token_return, Args, "");

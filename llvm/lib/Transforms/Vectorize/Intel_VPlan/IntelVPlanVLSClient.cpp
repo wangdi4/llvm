@@ -50,12 +50,18 @@ static Optional<int64_t> getConstStrideImpl(const SCEV *Expr,
 static Optional<int64_t> getConstDistanceFromImpl(const SCEV *LHS,
                                                   const SCEV *RHS,
                                                   ScalarEvolution *SE) {
+  // If the types don't match, there's no sense trying to compute distance
+  // between pointers.
+  if (LHS->getType() !=RHS->getType())
+    return None;
+
   // computeConstantDifference has a significant advantage over getMinusSCEV: it
   // doesn't crash if LHS and RHS contain AddRecs for unrelated loops (e.g.
   // sibling loops).
   Optional<APInt> Difference = SE->computeConstantDifference(LHS, RHS);
   if (!Difference)
     return None;
+
   return Difference->getSExtValue();
 }
 
@@ -120,20 +126,18 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   // Check if it is safe to move FromInst past every instruction between it and
   // ToInst. We consider only moving loads up and moving stores down.
 
-  SmallVector<const VPRecipeBase *, 64> RangeToCheck;
+  SmallVector<const VPInstruction *, 64> RangeToCheck;
   if (getAccessKind().isLoad())
-    for (const VPRecipeBase *I = FromInst->getPrevNode(); I != nullptr;
+    for (const VPInstruction *I = FromInst->getPrevNode(); I != nullptr;
          I = I->getPrevNode())
       RangeToCheck.push_back(I);
   else
-    for (const VPRecipeBase *I = FromInst->getNextNode(); I != nullptr;
+    for (const VPInstruction *I = FromInst->getNextNode(); I != nullptr;
          I = I->getNextNode())
       RangeToCheck.push_back(I);
 
-  for (const VPRecipeBase *I : RangeToCheck) {
-    const VPInstruction *IterInst = dyn_cast<VPInstruction>(I);
-
-    // Bail out if we run into an unexpected recipe.
+  for (const VPInstruction *IterInst : RangeToCheck) {
+    // Bail out if we run into an unexpected instruction.
     if (!IterInst)
       return false;
 
@@ -166,6 +170,8 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     if (IterInst->getOpcode() == Instruction::Load ||
         IterInst->getOpcode() == Instruction::Store) {
       auto *IterSCEV = getSCEVForVPValue(getLoadStorePointerOperand(IterInst));
+      if (isa<SCEVCouldNotCompute>(IterSCEV))
+        return false;
 
       // Constant distance between From and IterInst implies that the strides of
       // IterInst and From are the same.
@@ -200,13 +206,13 @@ Optional<int64_t> VPVLSClientMemref::getConstStride() const {
 }
 
 bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {
-  const VPRecipeBase *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
+  const VPInstruction *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
   // FIXME: we should check for basic block dominance if the two instructions
   // are not in the same basic block.
   if (Inst->getParent() != Other->getParent())
     return false;
 
-  const VPRecipeBase *Iter = Other;
+  const VPInstruction *Iter = Other;
   for (; Iter; Iter = Iter->getPrevNode())
     if (Iter == Inst)
       return true;
@@ -215,13 +221,13 @@ bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {
 }
 
 bool VPVLSClientMemref::postDominates(const OVLSMemref &Mrf) const {
-  const VPRecipeBase *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
+  const VPInstruction *Other = cast<VPVLSClientMemref>(Mrf).getInstruction();
   // FIXME: we should check for basic block postdominance if the two
   // instructions are not in the same basic block.
   if (Inst->getParent() != Other->getParent())
     return false;
 
-  const VPRecipeBase *Iter = Other;
+  const VPInstruction *Iter = Other;
   for (; Iter; Iter = Iter->getNextNode())
     if (Iter == Inst)
       return true;

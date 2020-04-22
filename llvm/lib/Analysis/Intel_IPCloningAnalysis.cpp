@@ -1,6 +1,6 @@
 //===------- Intel_IPCloningAnalysis.cpp - IP Cloning Analysis -*------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -40,11 +40,6 @@ namespace llvm_cloning_analysis {
 bool IPCloningTrace = false;
 }
 }
-
-// Option to trace IP Cloning
-static cl::opt<bool, true> IPCloningTraceOpt("print-ip-cloning",
-                                             cl::ReallyHidden,
-                                             cl::location(IPCloningTrace));
 
 // Enable Loop related heuristic for Cloning.
 static cl::opt<bool> IPCloningLoopHeuristic("ip-cloning-loop-heuristic",

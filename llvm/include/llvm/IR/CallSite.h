@@ -45,7 +45,7 @@
 namespace llvm {
 
 namespace Intrinsic {
-enum ID : unsigned;
+typedef unsigned ID;
 }
 
 template <typename FunTy = const Function, typename BBTy = const BasicBlock,
@@ -144,6 +144,13 @@ public:
     // Don't use Intrinsic::not_intrinsic, as it will require pulling
     // Intrinsics.h into every header that uses CallSite.
     return static_cast<Intrinsic::ID>(0);
+  }
+
+  /// Return if this call is to an intrinsic.
+  bool isIntrinsic() const {
+    if (auto *F = getCalledFunction())
+      return F->isIntrinsic();
+    return false;
   }
 
   /// Determine whether the passed iterator points to the callee operand's Use.
@@ -406,13 +413,27 @@ public:
   }
 
   /// Extract the alignment of the return value.
+  /// FIXME: Remove when the transition to Align is over.
   unsigned getRetAlignment() const {
-    CALLSITE_DELEGATE_GETTER(getRetAlignment());
+    if (auto MA = getRetAlign())
+      return MA->value();
+    return 0;
+  }
+
+  /// Extract the alignment of the return value.
+  MaybeAlign getRetAlign() const { CALLSITE_DELEGATE_GETTER(getRetAlign()); }
+
+  /// Extract the alignment for a call or parameter (0=unknown).
+  /// FIXME: Remove when the transition to Align is over.
+  unsigned getParamAlignment(unsigned ArgNo) const {
+    if (auto MA = getParamAlign(ArgNo))
+      return MA->value();
+    return 0;
   }
 
   /// Extract the alignment for a call or parameter (0=unknown).
-  unsigned getParamAlignment(unsigned ArgNo) const {
-    CALLSITE_DELEGATE_GETTER(getParamAlignment(ArgNo));
+  MaybeAlign getParamAlign(unsigned ArgNo) const {
+    CALLSITE_DELEGATE_GETTER(getParamAlign(ArgNo));
   }
 
   /// Extract the byval type for a call or parameter (nullptr=unknown).
@@ -693,6 +714,18 @@ private:
   User::op_iterator getCallee() const;
 };
 
+/// Establish a view to a call site for examination.
+class ImmutableCallSite : public CallSiteBase<> {
+public:
+  ImmutableCallSite() = default;
+  ImmutableCallSite(const CallInst *CI) : CallSiteBase(CI) {}
+  ImmutableCallSite(const InvokeInst *II) : CallSiteBase(II) {}
+  ImmutableCallSite(const CallBrInst *CBI) : CallSiteBase(CBI) {}
+  explicit ImmutableCallSite(const Instruction *II) : CallSiteBase(II) {}
+  explicit ImmutableCallSite(const Value *V) : CallSiteBase(V) {}
+  ImmutableCallSite(CallSite CS) : CallSiteBase(CS.getInstruction()) {}
+};
+
 /// AbstractCallSite
 ///
 /// An abstract call site is a wrapper that allows to treat direct,
@@ -765,6 +798,20 @@ public:
   /// as well as the callee of the abstract call site.
   AbstractCallSite(const Use *U);
 
+  /// Add operand uses of \p ICS that represent callback uses into \p CBUses.
+  ///
+  /// All uses added to \p CBUses can be used to create abstract call sites for
+  /// which AbstractCallSite::isCallbackCall() will return true.
+  static void getCallbackUses(ImmutableCallSite ICS,
+                              SmallVectorImpl<const Use *> &CBUses);
+
+#if INTEL_CUSTOMIZATION
+  /// Return callback function argument for the \p ICS call argument \p ArgNo
+  /// if \p ICS is a callback call site which forwards this argument to the
+  /// callback function or null otherwise.
+  static Argument *getCallbackArg(ImmutableCallSite ICS, unsigned ArgNo);
+#endif // INTEL_CUSTOMIZATION
+
   /// Conversion operator to conveniently check for a valid/initialized ACS.
   explicit operator bool() const { return (bool)CS; }
 
@@ -803,6 +850,12 @@ public:
 
     assert(!CI.ParameterEncoding.empty() &&
            "Callback without parameter encoding!");
+
+#if INTEL_CUSTOMIZATION
+    if (auto *CE = dyn_cast<ConstantExpr>(U->getUser()))
+      if (CE->getNumUses() == 1 && CE->isCast())
+        U = &*CE->use_begin();
+#endif // INTEL_CUSTOMIZATION
 
     return (int)CS.getArgumentNo(U) == CI.ParameterEncoding[0];
   }
@@ -878,6 +931,20 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
+/// Apply function Func to each Call's callback call site.
+template <typename CallType, typename UnaryFunction>
+void for_each_callback_callsite(CallType Call, UnaryFunction Func) {
+  SmallVector<const Use *, 4u> CallbackUses;
+  AbstractCallSite::getCallbackUses(ImmutableCallSite(Call), CallbackUses);
+  for (const Use *U : CallbackUses) {
+    AbstractCallSite ACS(U);
+    assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+    Func(ACS);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 template <> struct DenseMapInfo<CallSite> {
   using BaseInfo = DenseMapInfo<decltype(CallSite::I)>;
 
@@ -900,18 +967,6 @@ template <> struct DenseMapInfo<CallSite> {
   static bool isEqual(const CallSite &LHS, const CallSite &RHS) {
     return LHS == RHS;
   }
-};
-
-/// Establish a view to a call site for examination.
-class ImmutableCallSite : public CallSiteBase<> {
-public:
-  ImmutableCallSite() = default;
-  ImmutableCallSite(const CallInst *CI) : CallSiteBase(CI) {}
-  ImmutableCallSite(const InvokeInst *II) : CallSiteBase(II) {}
-  ImmutableCallSite(const CallBrInst *CBI) : CallSiteBase(CBI) {}
-  explicit ImmutableCallSite(const Instruction *II) : CallSiteBase(II) {}
-  explicit ImmutableCallSite(const Value *V) : CallSiteBase(V) {}
-  ImmutableCallSite(CallSite CS) : CallSiteBase(CS.getInstruction()) {}
 };
 
 } // end namespace llvm

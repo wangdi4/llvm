@@ -116,13 +116,12 @@ CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
                                    const TargetOptions &Options,
                                    Optional<Reloc::Model> RM,
                                    Optional<CodeModel::Model> CM,
-                                   CodeGenOpt::Level OL,
-                                   bool JIT)
+                                   CodeGenOpt::Level OL, bool JIT)
     : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options,
                         getEffectiveRelocModel(RM),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
       TLOF(std::make_unique<TargetLoweringObjectFileELF>()),
-      Subtarget(TT, CPU, FS, *this) {
+      Subtarget(TT, CPU.str(), FS.str(), *this) {
 
   // Although it's still not clear from a performance point of view whether or
   // not we need 'setRequiresStructuredCFG', we're enabling it because it
@@ -159,7 +158,8 @@ CSATargetMachine::getSubtargetImpl(const Function &F) const {
     // creation will depend on the TM and the code generation flags on the
     // function that reside in TargetOptions.
     resetTargetOptions(F);
-    I = std::make_unique<CSASubtarget>(TargetTriple, CPU, FS, *this);
+    I = std::make_unique<CSASubtarget>(TargetTriple, CPU.str(), FS.str(),
+                                       *this);
   }
   return I.get();
 }
@@ -242,7 +242,7 @@ public:
     addPass(createCFGSimplificationPass());
 
     // Add pass to parse annotation attributes
-    addPass(createCSAParseAnnotateAttributesPass());
+    addPass(createParseAnnotateAttributesPass());
 
     // Add pass to replace alloca instructions
     addPass(createPromoteMemoryToRegisterPass(true, true));

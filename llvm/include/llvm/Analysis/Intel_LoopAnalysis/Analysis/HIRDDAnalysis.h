@@ -1,6 +1,6 @@
 //===---- HIRDDAnalysis.h - Provides Data Dependence Analysis --*-- C++--*-===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -208,28 +208,25 @@ public:
   // TODO needed for incremental rebuild if and when supported
   // markDDRefModified
 
-  // \brief Returns the DD graph for the HLNode. For regions, this returns
-  // the full dd graph. For loops, this returns the graph with dependencies
-  // carried at levels >= than that of the loop nest. That is, we
-  // assume IV of outer loops to be invariant in specified loop nest(To be
-  // pedantic, DD testing assumes = for the outer loop levels )
-  // do i
-  //  do j
-  //    a[i][j] = ...
-  //    a[i+1][j] = ...
-  // Thus, if we get graph for j loop, we will determine no dependence as
-  // the first subscript is clearly distinct if we are in the same iteration
-  // of i loop.
-  //
-  // This call may either recompute the graph if it is invalid, or simply return
-  // it if still valid. Perform any legality checks possible before getting
-  // graph to avoid expensive recomputation.
-  // Note, atm the graph does not filter edges to ensure src/sink are in Node.
-  // some edges may be pointing to a node that is not of interest
+  /// \brief Returns the full DD graph for \p Region.
+  ///
+  /// This call may either recompute the graph if it is invalid, or simply
+  /// return it if still valid. Perform any legality checks possible before
+  /// getting graph to avoid expensive recomputation.
   DDGraph getGraph(const HLRegion *Region) {
     return getGraphImpl(Region, Region);
   }
 
+  /// \brief Returns the DD graph for \p Loop.
+  ///
+  /// Edges where the src/sink are not in \p Loop will be filtered out. Edges
+  /// with dependencies that are only carried in outer loops are *not* filtered
+  /// out in order to make these graph results re-usable in the context of outer
+  /// loops. Use #refineDV to filter those.
+  ///
+  /// This call may either recompute the graph if it is invalid, or simply
+  /// return it if still valid. Perform any legality checks possible before
+  /// getting graph to avoid expensive recomputation.
   DDGraph getGraph(const HLLoop *Loop) {
     return getGraphImpl(Loop->getParentRegion(), Loop);
   }

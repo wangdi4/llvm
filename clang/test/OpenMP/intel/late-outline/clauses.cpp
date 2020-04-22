@@ -264,28 +264,28 @@ int A_bar6, B_bar6;
 void bar6()
 {
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-SAME: "QUAL.OMP.TO:ARRSECT"([9 x i32]* @bar6BBB, i64 1, i64 5, i64 2
-  //CHECK-SAME: "QUAL.OMP.TO:ARRSECT"([9 x i32]* @bar6AAA, i64 1, i64 2, i64 4
+  //CHECK-DAG: "QUAL.OMP.MAP.TO"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 5), i64 8, i64 33)
+  //CHECK-DAG: "QUAL.OMP.MAP.TO"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 2), i64 16, i64 33)
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update to(bar6BBB[5:2], bar6AAA[2:4])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-SAME: "QUAL.OMP.TO:ARRSECT"([9 x i32]* @bar6BBB, i64 1, i64 2, i64 3
-  //CHECK-SAME: "QUAL.OMP.TO:ARRSECT"([9 x i32]* @bar6AAA, i64 1, i64 6, i64 1
+  //CHECK-DAG: QUAL.OMP.MAP.TO"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 2), i64 12, i64 33)
+  //CHECK-DAG: "QUAL.OMP.MAP.TO"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 6), i64 4, i64 33)
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update to(bar6BBB[2:3], bar6AAA[6])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-SAME: "QUAL.OMP.FROM:ARRSECT"([9 x i32]* @bar6BBB, i64 1, i64 5, i64 2
-  //CHECK-SAME: "QUAL.OMP.FROM:ARRSECT"([9 x i32]* @bar6AAA, i64 1, i64 2, i64 3
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 5), i64 8, i64 34)
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 2), i64 12, i64 34)
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update from(bar6BBB[5:2], bar6AAA[2:3])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-SAME: "QUAL.OMP.FROM:ARRSECT"([9 x i32]* @bar6BBB, i64 1, i64 2, i64 3
-  //CHECK-SAME: "QUAL.OMP.FROM:ARRSECT"([9 x i32]* @bar6AAA, i64 1, i64 6, i64 1
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6BBB, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6BBB, i64 0, i64 2), i64 12, i64 34)
+  //CHECK-DAG: "QUAL.OMP.MAP.FROM"([9 x i32]* @bar6AAA, i32* getelementptr inbounds ([9 x i32], [9 x i32]* @bar6AAA, i64 0, i64 6), i64 4, i64 34)
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update from(bar6BBB[2:3], bar6AAA[6])
   //CHECK: "DIR.OMP.TARGET.UPDATE"()
-  //CHECK-SAME: "QUAL.OMP.FROM"(i32* @A_bar6)
-  //CHECK-SAME: "QUAL.OMP.TO"(i32* @B_bar6)
+  //CHECK-SAME: "QUAL.OMP.MAP.TO"(i32* @B_bar6, i32* @B_bar6, i64 4, i64 33)
+  //CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* @A_bar6, i32* @A_bar6, i64 4, i64 34)
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update from(A_bar6) to(B_bar6)
 }

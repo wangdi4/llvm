@@ -14,8 +14,7 @@
 /// CFG from HIR.
 ///
 /// The algorithm consist of a Visitor that traverses HLNode's (lexical links)
-/// in topological order and builds a plain CFG out of them. It returns a region
-/// (TopRegion) containing the plain CFG.
+/// in topological order and builds a plain CFG out of them.
 ///
 /// It is inspired by AVR-based VPOCFG algorithm and uses a non-recursive
 /// visitor to explicitly handle visits of "compound" HLNode's (HLIfs, HLLoop,
@@ -50,7 +49,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanHCFGBuilderHIR.h"
-#include "IntelVPLoopRegionHIR.h"
 #include "IntelVPlanBuilderHIR.h"
 #include "IntelVPlanDecomposerHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -276,8 +274,7 @@ bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
 }
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
-// VPInstructions. Return VPRegionBlock that encloses all the VPBasicBlock's of
-// the plain CFG.
+// VPInstructions.
 class PlainCFGBuilderHIR : public HLNodeVisitorBase {
   friend HLNodeVisitor<PlainCFGBuilderHIR, false /*Recursive*/>;
 
@@ -289,14 +286,8 @@ private:
 
   /// Map between loop header VPBasicBlock's and their respective HLLoop's. It
   /// is populated in this phase to keep the information necessary to create
-  /// VPLoopRegionHIR's later in the H-CFG construction process.
+  /// entity descriptors.
   SmallDenseMap<VPBasicBlock *, HLLoop *> &Header2HLLoop;
-
-  /// Output TopRegion. Owned during the PlainCFG build process, moved
-  // afterwards.
-  std::unique_ptr<VPRegionBlock> TopRegion;
-  /// Number of VPBasicBlocks in TopRegion.
-  unsigned TopRegionSize = 0;
 
   /// Hold the set of dangling predecessors to be connected to the next active
   /// VPBasicBlock.
@@ -344,9 +335,8 @@ public:
       : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp),
         Decomposer(Plan, Lp, DDG, *HIRLegality) {}
 
-  /// Build a plain CFG for an HLLoop loop nest. Return the TopRegion containing
-  /// the plain CFG.
-  std::unique_ptr<VPRegionBlock> buildPlainCFG();
+  /// Build a plain CFG for an HLLoop loop nest.
+  void buildPlainCFG();
 
   /// Convert incoming loop entities to the VPlan format.
   void
@@ -360,13 +350,11 @@ public:
 VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
 
   // Auxiliary function that creates an empty VPBasicBlock, set its parent to
-  // TopRegion and increases TopRegion's size.
+  // Plan and increases Plan's size.
   auto createVPBB = [&]() -> VPBasicBlock * {
     VPBasicBlock *NewVPBB =
-        new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    NewVPBB->setParent(TopRegion.get());
-    ++TopRegionSize;
-
+        new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+    Plan->insertAtBack(NewVPBB);
     return NewVPBB;
   };
 
@@ -471,7 +459,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   VPBasicBlock *Header = ActiveVPBB;
   assert(Header && "Expected VPBasicBlock for loop header.");
 
-  // Map loop header VPBasicBlock with HLLoop for later loop region detection.
+  // Map loop header VPBasicBlock with HLLoop.
   Header2HLLoop[Header] = HLp;
 
   // Materialize the Loop IV and IV Start.
@@ -643,7 +631,7 @@ void PlainCFGBuilderHIR::visit(HLLabel *HLabel) {
 
 void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
   for (VPLoop *VPL : VPLInfo->getLoopsInPreorder()) {
-    auto *Header = cast<VPBasicBlock>(VPL->getHeader());
+    auto *Header = VPL->getHeader();
 
     assert(Header2HLLoop.count(Header) &&
            "Missing mapping from loop header to HLLoop!");
@@ -681,20 +669,15 @@ void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
   }
 }
 
-std::unique_ptr<VPRegionBlock> PlainCFGBuilderHIR::buildPlainCFG() {
-  // Create new TopRegion.
-  TopRegion = std::make_unique<VPRegionBlock>(
-      VPBlockBase::VPRegionBlockSC, VPlanUtils::createUniqueName("region"));
-
-  // Create a dummy VPBB as TopRegion's Entry.
+void PlainCFGBuilderHIR::buildPlainCFG() {
+  // Create a dummy VPBB as Plan's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
   updateActiveVPBB();
-  TopRegion->setEntry(ActiveVPBB);
 
   // Trigger the visit of the loop nest.
   visit(TheLoop);
 
-  // Create a dummy VPBB as TopRegion's Exit.
+  // Create a dummy VPBB as Plan's Exit.
   ActiveVPBB = nullptr;
   updateActiveVPBB();
 
@@ -702,11 +685,7 @@ std::unique_ptr<VPRegionBlock> PlainCFGBuilderHIR::buildPlainCFG() {
   // VPInstructions have been created for the loop nest. It's time to fix
   // VPInstructions representing a PHI operation.
   Decomposer.fixPhiNodes();
-
-  TopRegion->setExit(ActiveVPBB);
-  TopRegion->setSize(TopRegionSize);
-
-  return std::move(TopRegion);
+  return;
 }
 
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
@@ -733,6 +712,7 @@ public:
   ReductionDescriptorHIR() { clear(); }
 
   const DataType *getHLInst() const { return HLInst; }
+  SafeRedChain getRedChain() const { return RedChain; }
   const DataType *getParentInst() const { return ParentInst; }
   RecurrenceKind getKind() const { return RKind; }
   MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
@@ -820,6 +800,7 @@ private:
   }
 
   const DataType *HLInst;
+  SafeRedChain RedChain;
   const DataType *ParentInst; // Link to parent reduction.
   RecurrenceKind RKind;
   MinMaxRecurrenceKind MK;
@@ -904,6 +885,7 @@ private:
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
             (*RedCurrent)->isMax());
+        Descriptor.RedChain = ChainCurrent->Chain;
         break;
       }
       ChainCurrent++;
@@ -1146,11 +1128,18 @@ public:
 
   void operator()(ReductionDescr &Descriptor, const value_type &CurValue) {
     auto Inst = CurValue.getHLInst();
-    if (Inst)
+    if (Inst) {
       Descriptor.setExit(
           dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(Inst)));
-    else
+      for (auto *ChainInst : CurValue.getRedChain()) {
+        if (ChainInst == Inst)
+          continue;
+        LLVM_DEBUG(dbgs() << "ChainInst: "; ChainInst->dump());
+        Descriptor.addLinkedVPValue(Decomposer.getVPValueForNode(ChainInst));
+      }
+    } else {
       Descriptor.setExit(nullptr);
+    }
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(nullptr);
     Descriptor.setKind(CurValue.getKind());
@@ -1266,7 +1255,7 @@ public:
 
     std::function<void(const VPLoop *)> mapLoop2VPLoop =
         [&](const VPLoop *VPL) {
-          const HLLoop *L = Header2HLLoop[cast<VPBasicBlock>(VPL->getHeader())];
+          const HLLoop *L = Header2HLLoop[VPL->getHeader()];
           assert(L != nullptr && "Can't find Loop");
           LoopMap[L] = VPL;
           for (auto VLoop : *VPL)
@@ -1364,14 +1353,12 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
 }
 
-std::unique_ptr<VPRegionBlock>
-VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
+void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
   PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop,
                                  HIRLegality);
-  std::unique_ptr<VPRegionBlock> TopRegion = PCFGBuilder.buildPlainCFG();
-  if (LoopEntityImportEnabled)
-    PCFGBuilder.convertEntityDescriptors(HIRLegality, CvtVec);
-  return TopRegion;
+
+  PCFGBuilder.buildPlainCFG();
+  PCFGBuilder.convertEntityDescriptors(HIRLegality, CvtVec);
 }
 
 void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
@@ -1385,14 +1372,4 @@ void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
     BaseConverter *Converter = dyn_cast<BaseConverter>(Cvt.get());
     Converter->passToVPlan(Plan, Mapper);
   }
-}
-
-VPLoopRegion *VPlanHCFGBuilderHIR::createLoopRegion(VPLoop *VPLp) {
-  assert(isa<VPBasicBlock>(VPLp->getHeader()) &&
-         "Expected VPBasicBlock as Loop header.");
-  HLLoop *HLLp = Header2HLLoop[cast<VPBasicBlock>(VPLp->getHeader())];
-  assert(HLLp && "Expected HLLoop");
-  VPLoopRegion *Loop =
-      new VPLoopRegionHIR(VPlanUtils::createUniqueName("loop"), VPLp, HLLp);
-  return Loop;
 }

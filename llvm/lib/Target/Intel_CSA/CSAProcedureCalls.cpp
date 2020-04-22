@@ -191,21 +191,27 @@ unsigned CSAProcCallsPass::getParamReg(const std::string &caller_func, const std
   return LMFI->allocateLIC(TRC, Twine(name), Twine(caller_func), isDeclared, isGloballyVisible);
 }
 
-void CSAProcCallsPass::getCallSiteArgs(CALL_SITE_INFO &csi, MachineInstr *entryMI, bool isDeclared) {
-  csi.call_site_args.push_back(getParamReg(csi.caller_func, "caller_out_mem_ord_", csi.call_site_index, 0,
-                                            &CSA::CI0RegClass, isDeclared, true));
+void CSAProcCallsPass::getCallSiteArgs(CALL_SITE_INFO &csi,
+                                       MachineInstr *entryMI, bool isDeclared) {
+  csi.call_site_args.push_back(
+      getParamReg(csi.caller_func.str(), "caller_out_mem_ord_",
+                  csi.call_site_index, 0, &CSA::CI0RegClass, isDeclared, true));
   for (unsigned int i = 1; i < entryMI->getNumOperands(); ++i) {
-    csi.call_site_args.push_back(getParamReg(csi.caller_func, "param_", csi.call_site_index, i,
-                                            &CSA::CI64RegClass, isDeclared, true));
+    csi.call_site_args.push_back(
+        getParamReg(csi.caller_func.str(), "param_", csi.call_site_index, i,
+                    &CSA::CI64RegClass, isDeclared, true));
   }
 }
 
-void CSAProcCallsPass::getReturnArgs(CALL_SITE_INFO &csi, MachineInstr *returnMI, bool isDeclared) {
-  csi.return_args.push_back(getParamReg(csi.caller_func, "caller_in_mem_ord_", csi.call_site_index, 0,
-                                            &CSA::CI0RegClass, isDeclared, true));
+void CSAProcCallsPass::getReturnArgs(CALL_SITE_INFO &csi,
+                                     MachineInstr *returnMI, bool isDeclared) {
+  csi.return_args.push_back(
+      getParamReg(csi.caller_func.str(), "caller_in_mem_ord_",
+                  csi.call_site_index, 0, &CSA::CI0RegClass, isDeclared, true));
   for (unsigned int i = 1; i < returnMI->getNumOperands(); ++i) {
-    csi.return_args.push_back(getParamReg(csi.caller_func, "result_", csi.call_site_index, i,
-                                            &CSA::CI64RegClass, isDeclared, true));
+    csi.return_args.push_back(
+        getParamReg(csi.caller_func.str(), "result_", csi.call_site_index, i,
+                    &CSA::CI64RegClass, isDeclared, true));
   }
 }
 
@@ -351,33 +357,36 @@ void CSAProcCallsPass::processCallAndContinueInstructions(void) {
         report_fatal_error("Recursive function call not yet supported! Cannot be run on CSA!");
       }
       // The LIC will be declared in callee code or caller code depending on which comes first in the module
-      int callee_id = get_func_order(callee_name,M);
-      int caller_id = get_func_order(name,M);
+      int callee_id = get_func_order(callee_name, M);
+      int caller_id = get_func_order(name, M);
       bool isDeclared = (callee_id > caller_id);
-      unsigned newreg = getParamReg(name, "caller_out_mem_ord_", CallSiteIndex, 0,
-                                            &CSA::CI0RegClass, isDeclared, true);
-      unsigned oldreg =  CallMI->getOperand(1).getReg();
+      unsigned newreg =
+          getParamReg(name.str(), "caller_out_mem_ord_", CallSiteIndex, 0,
+                      &CSA::CI0RegClass, isDeclared, true);
+      unsigned oldreg = CallMI->getOperand(1).getReg();
       CallMI->getOperand(1).setReg(newreg);
-      createMovInstBefore(CallMI,oldreg,newreg);
+      createMovInstBefore(CallMI, oldreg, newreg);
       for (unsigned int i = 2; i < CallMI->getNumOperands(); ++i) {
         unsigned oldreg = CallMI->getOperand(i).getReg();
-        unsigned newreg = getParamReg(name, "param_", CallSiteIndex, i - 1,
-                                        MRI->getRegClass(oldreg), isDeclared, true);
+        unsigned newreg =
+            getParamReg(name.str(), "param_", CallSiteIndex, i - 1,
+                        MRI->getRegClass(oldreg), isDeclared, true);
         CallMI->getOperand(i).setReg(newreg);
-        createMovInstBefore(CallMI,oldreg,newreg);
+        createMovInstBefore(CallMI, oldreg, newreg);
       }
       oldreg = ContinueMI->getOperand(0).getReg();
-      newreg = getParamReg(name, "caller_in_mem_ord_", CallSiteIndex, 0,
-                                            &CSA::CI0RegClass, isDeclared, true);
+      newreg = getParamReg(name.str(), "caller_in_mem_ord_", CallSiteIndex, 0,
+                           &CSA::CI0RegClass, isDeclared, true);
       ContinueMI->getOperand(0).setReg(newreg);
-      createMovInstAfter(ContinueMI,oldreg,newreg);
+      createMovInstAfter(ContinueMI, oldreg, newreg);
       for (unsigned int i = 1; i < ContinueMI->getNumOperands(); ++i) {
         unsigned oldreg = ContinueMI->getOperand(i).getReg();
-        const TargetRegisterClass *RC = (oldreg == CSA::IGN) ? &CSA::CI0RegClass : MRI->getRegClass(oldreg);
-        unsigned newreg = getParamReg(name, "result_", CallSiteIndex, 1,
-                                        RC, isDeclared, true);
+        const TargetRegisterClass *RC =
+            (oldreg == CSA::IGN) ? &CSA::CI0RegClass : MRI->getRegClass(oldreg);
+        unsigned newreg = getParamReg(name.str(), "result_", CallSiteIndex, 1,
+                                      RC, isDeclared, true);
         ContinueMI->getOperand(i).setReg(newreg);
-        createMovInstAfter(ContinueMI,oldreg,newreg);
+        createMovInstAfter(ContinueMI, oldreg, newreg);
       }
     }
   }

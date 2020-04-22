@@ -17,31 +17,30 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
-#include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
-#endif // INTEL_CUSTOMIZATION
+#include <queue>
 
 namespace llvm {
 namespace vpo {
 
 class VPValue;
 class VPInstruction;
-class VPBlockBase;
 class VPLoop;
+class VPLoopInfo;
 class SyncDependenceAnalysis;
 #if INTEL_CUSTOMIZATION
 class VPVectorShape;
 class VPPHINode;
 class VPCmpInst;
 class VPLoopEntityList;
+class VPAllocatePrivate;
+class VPInductionInit;
+class VPInductionInitStep;
 #endif // INTEL_CUSTOMIZATION
 
-using VPDominatorTree = DomTreeBase<VPBlockBase>;
-using VPPostDominatorTree = PostDomTreeBase<VPBlockBase>;
+class VPDominatorTree;
+class VPPostDominatorTree;
 
 /// Generic divergence analysis for reducible CFGs.
 ///
@@ -63,14 +62,11 @@ public:
                VPDominatorTree &DT, VPPostDominatorTree &PDT,
                bool IsLCSSA = true);
 
-  /// The loop that defines the analyzed region (if any).
-  const VPLoop *getRegionLoop() const { return RegionLoop; }
-
   /// Mark \p DivVal as a value that is always divergent.
   void markDivergent(const VPValue &DivVal);
 
-  /// Whether any value was marked or analyzed to be divergent.
-  bool hasDetectedDivergence() const { return !DivergentValues.empty(); }
+  /// Mark \p UniVal as a value that is non-divergent.
+  void markUniform(const VPValue &UniVal);
 
   /// Whether \p Val will always return a uniform value regardless of its
   /// operands
@@ -81,11 +77,11 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Return the vector shape for \p V.
-  VPVectorShape* getVectorShape(const VPValue *V) const;
+  VPVectorShape getVectorShape(const VPValue *V) const;
 
   /// Updates the vector shape for \p V, if necessary.
   /// Returns true if the shape was updated.
-  bool updateVectorShape(const VPValue *V, VPVectorShape* Shape);
+  bool updateVectorShape(const VPValue *V, VPVectorShape Shape);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const VPLoop *VPLp);
@@ -95,18 +91,54 @@ public:
   /// Return \p true if the given pointer is unit-stride.
   bool isUnitStridePtr(const VPValue *Ptr) const;
 
+  void updateDivergence(const VPValue &Val) {
+    assert(isa<VPInstruction>(&Val) &&
+           "Expected a VPInstruction as input argument.");
+    auto NewShape = computeVectorShape(cast<VPInstruction>(&Val));
+    updateVectorShape(&Val, NewShape);
+  }
+
 private:
+  /// Initialize instructions with initial shapes and mark 'pinned' shapes.
+  void init();
+
+  /// Propagate divergence to all instructions in the region.
+  /// Divergence is seeded by calls to \p markDivergent.
+  void computeImpl();
+
+  /// Make the shape for the \p Val immutable.
+  void setPinned(const VPValue &Val) { Pinned.insert(&Val); }
+
+  /// Set the shape for \p Val and make it immutable.
+  void setPinnedShape(const VPValue &Val, const VPVectorShape Shape) {
+    setPinned(Val);
+    updateVectorShape(&Val, Shape);
+  }
+
+  /// Push users of instructions with non-deterministic results on to the
+  /// Worklist.
+  void pushNonDeterministicInsts();
+
+  /// Set shapes for instructions with loop-invariant operands.
+  void initializeShapesForConstOpInsts();
+
+  /// Mark Loop-exit condition as uniforms.
+  void markLoopExitsAsUniforms();
+
+  /// Push the instruction to the Worklist.
+  bool pushToWorklist(const VPInstruction &I);
+
+  /// Pop the instruction from the Worklist.
+  const VPInstruction *popFromWorklist();
+
   /// Whether \p BB is part of the region.
-  bool inRegion(const VPBlockBase &BB) const;
+  bool inRegion(const VPBasicBlock &BB) const;
+
   /// Whether \p I is part of the region.
   bool inRegion(const VPInstruction &I) const;
 
   /// Mark \p UniVal as a value that is always uniform.
   void addUniformOverride(const VPValue &UniVal);
-
-  /// Propagate divergence to all instructions in the region.
-  /// Divergence is seeded by calls to \p markDivergent.
-  void computeImpl();
 
   bool updatePHINode(const VPInstruction &Phi) const;
 
@@ -122,37 +154,68 @@ private:
   ///
   /// \param LoopHeader the header of the divergent loop.
   ///
-  /// Marks all users of live-out values of the loop headed by \p LoopHeader
+  /// Marks all users of live-out values of the loop headed by \p LoopHeader.
   /// as divergent and puts them on the worklist.
-  void taintLoopLiveOuts(const VPBlockBase &LoopHeader);
+  void taintLoopLiveOuts(const VPBasicBlock &LoopHeader);
 
-  /// Push only non-divergent users of \p Val (in the region) to the worklist
-  /// unless \p PushAll is true;
-  void pushUsers(const VPValue &V, bool PushAll=false); // INTEL
+  /// Push users of \p Val (in the region) to the worklist.
+  void pushUsers(const VPValue &V);
 
   /// Push all phi nodes in \p Block to the worklist if \p PushAll is true.
   /// If \p PushAll is false, only those phi nodes that have not already been
   /// identified as divergent are pushed.
-  void pushPHINodes(const VPBlockBase &Block, bool PushAll); // INTEL
+  void pushPHINodes(const VPBasicBlock &Block, bool PushAll); // INTEL
 
   /// Mark \p Block as join divergent
   ///
   /// A block is join divergent if two threads may reach it from different
   /// incoming blocks at the same time.
-  void markBlockJoinDivergent(const VPBlockBase &Block) {
+  void markBlockJoinDivergent(const VPBasicBlock &Block) {
     DivergentJoinBlocks.insert(&Block);
   }
 
-  /// Whether \p Val is divergent when read in \p ObservingBlock.
-  bool isTemporalDivergent(const VPBlockBase &ObservingBlock,
-                           const VPValue &Val) const;
+  /// Mark \p Block as divergent loop-exit block.
+  bool addDivergentLoopExit(const VPBasicBlock &Block) {
+    return DivergentLoopExits.insert(&Block).second;
+  }
+
+  /// Mark \p Loop as divergent.
+  bool addDivergentLoops(const VPLoop &VPLp) {
+    return DivergentLoops.insert(&VPLp).second;
+  }
+
+  /// Return \p true if the value has 'pinned' shape.
+  bool isPinned(const VPValue &Val) const { return Pinned.count(&Val) != 0; }
+
+  /// Return \p true if \p Loop is divergent.
+  bool isDivergentLoop(const VPLoop &VPLp) const {
+    return DivergentLoops.find(&VPLp) != DivergentLoops.end();
+  }
+
+  /// Return \p true if \p Block is a divergent loop-exit block.
+  bool isDivergentLoopExit(const VPBasicBlock &Block) const {
+    return DivergentLoopExits.find(&Block) != DivergentLoopExits.end();
+  }
 
   /// Whether \p Block is join divergent
   ///
   /// (see markBlockJoinDivergent).
-  bool isJoinDivergent(const VPBlockBase &Block) const {
+  bool isJoinDivergent(const VPBasicBlock &Block) const {
     return DivergentJoinBlocks.find(&Block) != DivergentJoinBlocks.end();
   }
+
+  bool addJoinDivergentBlock(const VPBasicBlock &Block) {
+    return DivergentJoinBlocks.insert(&Block).second;
+  }
+
+  /// Whether \p Val is divergent when read in \p ObservingBlock.
+  bool isTemporalDivergent(const VPBasicBlock &ObservingBlock,
+                           const VPValue &Val) const;
+
+  /// Get the vector shape of \p Val observed in \p ObserverBlock. This will
+  /// be varying if \p Val is defined in divergent loop.
+  VPVectorShape getObservedShape(const VPBasicBlock &ObserverBlock,
+                                 const VPValue &Val);
 
   /// Propagate control-induced divergence to users (phi nodes and
   /// instructions).
@@ -160,7 +223,7 @@ private:
   // \param JoinBlock is a divergent loop exit or join point of two disjoint
   // paths.
   // \returns Whether \p JoinBlock is a divergent loop exit of \p TermLoop.
-  bool propagateJoinDivergence(const VPBlockBase &JoinBlock,
+  bool propagateJoinDivergence(const VPBasicBlock &JoinBlock,
                                const VPLoop *TermLoop);
 
   /// Propagate induced value divergence due to control divergence in \p Term.
@@ -175,60 +238,70 @@ private:
   unsigned getTypeSizeInBytes(Type *Ty) const;
 
 #if INTEL_CUSTOMIZATION
+
+  /// Initialize shapes for LoopHeader.
+  void initializeShapesForLoopInvariantCode();
+
   /// Initialize shapes before propagation.
-  void initializeShapes(SmallVectorImpl<const VPInstruction*> &PhiNodes);
+  void initializePhiShapes();
 
   /// Returns true if OldShape is not equal to NewShape.
-  bool shapesAreDifferent(VPVectorShape* OldShape, VPVectorShape* NewShape);
-
-  /// Set any remaining shapes for instructions that stayed uniform after
-  /// divergence propagation.
-  void setVectorShapesForUniforms(const VPLoop *VPLp);
+  bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 
   /// Compute vector shape of \p I.
-  VPVectorShape* computeVectorShape(const VPInstruction *I);
+  VPVectorShape computeVectorShape(const VPInstruction *I);
+
+  /// Computes vector shapes for all unary instructions.
+  VPVectorShape computeVectorShapeForUnaryInst(const VPInstruction *I);
 
   /// Computes vector shapes for all binary instructions. E.g., add, sub, etc.
-  VPVectorShape* computeVectorShapeForBinaryInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForBinaryInst(const VPInstruction *I);
 
   /// Computes vector shapes for cast instructions, sitofp, sext, ptrtoint, etc.
-  VPVectorShape* computeVectorShapeForCastInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForCastInst(const VPInstruction *I);
 
   /// Computes vector shapes for gep instructions.
-  VPVectorShape* computeVectorShapeForGepInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForGepInst(const VPInstruction *I);
 
   /// Computes vector shapes for phi nodes.
-  VPVectorShape* computeVectorShapeForPhiNode(const VPPHINode *Phi);
+  VPVectorShape computeVectorShapeForPhiNode(const VPPHINode *Phi);
 
   /// Computes vector shape for load instructions.
-  VPVectorShape* computeVectorShapeForLoadInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForLoadInst(const VPInstruction *I);
 
   /// Computes vector shape for store instructions.
-  VPVectorShape* computeVectorShapeForStoreInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForStoreInst(const VPInstruction *I);
 
   /// Computes vector shape for the different types of cmp instructions.
-  VPVectorShape* computeVectorShapeForCmpInst(const VPCmpInst *I);
+  VPVectorShape computeVectorShapeForCmpInst(const VPCmpInst *I);
 
   /// Computes vector shape for extract element instructions.
-  VPVectorShape* computeVectorShapeForInsertExtractInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForInsertExtractInst(const VPInstruction *I);
 
   /// Computes vector shape for select instructions.
-  VPVectorShape* computeVectorShapeForSelectInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForSelectInst(const VPInstruction *I);
 
   /// Computes vector shape for call instructions.
-  VPVectorShape* computeVectorShapeForCallInst(const VPInstruction *I);
+  VPVectorShape computeVectorShapeForCallInst(const VPInstruction *I);
+
+  /// Computes vector shape for AllocatePrivate instructions.
+  VPVectorShape
+  computeVectorShapeForAllocatePrivateInst(const VPAllocatePrivate *AI);
+
+  /// Computes vector shape for induction-init instruction.
+  VPVectorShape computeVectorShapeForInductionInit(const VPInductionInit *Init);
 
   /// Returns a uniform vector shape.
-  VPVectorShape* getUniformVectorShape();
+  VPVectorShape getUniformVectorShape();
 
   /// Returns a random vector shape.
-  VPVectorShape* getRandomVectorShape();
+  VPVectorShape getRandomVectorShape();
 
   /// Returns a sequential vector shape with the given stride.
-  VPVectorShape *getSequentialVectorShape(uint64_t Stride);
+  VPVectorShape getSequentialVectorShape(uint64_t Stride);
 
   /// Returns a strided vector shape with the given stride.
-  VPVectorShape *getStridedVectorShape(uint64_t Stride);
+  VPVectorShape getStridedVectorShape(uint64_t Stride);
 
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
   bool getConstantIntVal(VPValue *V, uint64_t &IntVal);
@@ -236,17 +309,17 @@ private:
   /// Returns a VPConstant of \p Val.
   VPConstant* getConstantInt(int64_t Val);
 
-  /// Returns true if \p V is a uniform VPValue.
-  bool isUniformLoopEntity(const VPValue *V) const;
-
   /// Push operands of \p I to the worklist. Used when some operands vector
   /// shapes are needed to compute the vector shape of \p I.
   bool pushMissingOperands(const VPInstruction &I);
 
-  /// Verify that there are not undefined shapes after divergence analysis.
+  /// Verify that there are no undefined shapes after divergence analysis.
   /// Also ensure that divergent/uniform properties are consistent with vector
   /// shapes.
   void verifyVectorShapes(const VPLoop *VPLp);
+
+  /// Verify the shape of each instruction in give Block \p VPBB.
+  void verifyBasicBlock(const VPBasicBlock *VPBB);
 
   VPlan *Plan;
 
@@ -254,11 +327,12 @@ private:
   // Otw, analyze the whole function
   VPLoop *RegionLoop;
 
-  // Provides information on uniform, linear, private(vector), etc.
-  VPLoopEntityList *RegionLoopEntities;
+  // Shape information of divergent values.
+  DenseMap<const VPValue *, VPVectorShape> VectorShapes;
 #endif // INTEL_CUSTOMIZATION
 
   VPDominatorTree *DT;
+  VPPostDominatorTree *PDT;
   VPLoopInfo *VPLI;
 
   // Recognized divergent loops
@@ -274,39 +348,20 @@ private:
   DenseSet<const VPValue *> UniformOverrides;
 
   // Blocks with joining divergent control from different predecessors.
-  DenseSet<const VPBlockBase *> DivergentJoinBlocks;
+  DenseSet<const VPBasicBlock *> DivergentJoinBlocks;
 
-  // Detected/marked divergent values.
-  DenseSet<const VPValue *> DivergentValues;
-
-#if INTEL_CUSTOMIZATION
-  // Shape information of divergent values.
-  DenseMap<const VPValue *, std::unique_ptr<VPVectorShape>> VectorShapes;
-
-  // Undefined shapes are not stored in VectorShapes, but we need a singleton
-  // object to compare against other shapes.
-  std::unique_ptr<VPVectorShape> UndefShape;
-#endif // INTEL_CUSTOMIZATION
+  // Blocks which are loop-exits and result in divergent Control-flow.
+  DenseSet<const VPBasicBlock *> DivergentLoopExits;
 
   // Internal worklist for divergence propagation.
-  SmallVector<const VPInstruction *, 8> Worklist;
+  std::queue<const VPInstruction *> Worklist;
 
-#if INTEL_CUSTOMIZATION
+  // Unique-elements of the Worklist.
+  DenseSet<const VPInstruction*> OnWorklist;
 
-  /// Mark \p DivVal as a value that is non-divergent.
-  void markNonDivergent(const VPValue *DivVal);
+  // Internal list of values with 'pinned' values.
+  DenseSet<const VPValue *> Pinned;
 
-  // Internal list of privates/induction/reductions collected from
-  // Loop-entities, to help functions like markDivergent and isAlwaysUniform
-  // distinguish between regular VPExternalDefs and Private pointers and their
-  // aliases which are outside the Loop and also appear as 'VPExternalDefs' in
-  // the representation.
-  DenseSet<VPValue *> DivergentLoopEntities;
-
-  // Mark all relevant loop-entities as Divergent.
-  template <typename EntitiesRange>
-  void markEntitiesAsDivergent(const EntitiesRange &Range);
-#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace vpo

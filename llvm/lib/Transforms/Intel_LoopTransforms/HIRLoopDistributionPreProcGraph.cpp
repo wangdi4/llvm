@@ -1,6 +1,6 @@
 //===--- HIRLoopDistributionGraph.cpp - Forms Distribution Graph  ---------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -92,6 +92,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
   SmallVector<DistPPNode *, 8> CurControlDepNodes;
   SmallVector<DistPPNode *, 8> UnsafeSideEffectNodes;
   bool CreateControlNodes;
+  bool AllowScalarExpansion;
 
   bool isDone() const { return !DGraph->isGraphValid(); }
 
@@ -101,9 +102,11 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     DGraph->getNodeMap()[HNode] = DNode;
   }
 
-  DistributionNodeCreator(DistPPGraph *G, bool CreateControlNodes)
+  DistributionNodeCreator(DistPPGraph *G, bool CreateControlNodes,
+                          bool AllowScalarExpansion)
       : DGraph(G), CurDistPPNode(nullptr),
-        CreateControlNodes(CreateControlNodes) {}
+        CreateControlNodes(CreateControlNodes),
+        AllowScalarExpansion(AllowScalarExpansion) {}
 
   // Creates new PPNode if current node is not defined. Adds \p HNode to the
   // current PPNode.
@@ -150,16 +153,12 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
       return false;
     }
 
-    // Allow distribution of top level HLIf only. This may be extended.
-    if (!CurControlDepNodes.empty()) {
-      return false;
-    }
-
     for (auto &Ref : make_range(If->ddref_begin(), If->ddref_end())) {
       // Only distribute conditions with linear and privatizable (non-livein)
       // temps as they can be scalar-expanded.
       if (!Ref->isTerminalRef() ||
-          (!Ref->isLinear() && Ref->isLiveIntoParentLoop())) {
+          (Ref->isNonLinear() &&
+           (Ref->isLiveIntoParentLoop() || !AllowScalarExpansion))) {
         return false;
       }
     }
@@ -239,16 +238,16 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
   DDGraph LoopDDGraph;
   HIRSparseArrayReductionAnalysis *SARA;
   DistPPGraph *DistG;
-  bool ForceCycleForLoopIndepDep;
+  bool AllowScalarExpansion;
   unsigned EdgeCount = 0;
   typedef DenseMap<DistPPNode *, SmallVector<const DDEdge *, 16>> EdgeNodeMapTy;
 
   DistributionEdgeCreator(HIRSparseArrayReductionAnalysis *SARA,
                           DistPPGraph *DistPreProcGraph, DDGraph LoopDDGraph,
-                          unsigned LoopLevel, bool ForceCycleForLoopIndepDep)
+                          unsigned LoopLevel, bool AllowScalarExpansion)
       : LoopLevel(LoopLevel), LoopDDGraph(LoopDDGraph), SARA(SARA),
         DistG(DistPreProcGraph),
-        ForceCycleForLoopIndepDep(ForceCycleForLoopIndepDep) {}
+        AllowScalarExpansion(AllowScalarExpansion) {}
 
   void processOutgoingEdges(const DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
     DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
@@ -279,20 +278,11 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     const HLInst *SrcInst = dyn_cast<HLInst>(Edge->getSrc()->getHLDDNode());
     if (SinkInst && SrcInst && SARA->isSparseArrayReduction(SinkInst) &&
         !SARA->isSparseArrayReduction(SrcInst)) {
-
-      // Do not create back edge for sparse array reduction terms (%add) but
-      // create them for the index (%idx) 2->1, 3->1:
-      //   <1> %idx =
-      //   <2> %t = %p[%idx]
-      //   <3> %p[%idx] = %t + %add
-      auto *SinkBlobDDRef = dyn_cast<BlobDDRef>(Edge->getSink());
-      if (!SinkBlobDDRef || SinkBlobDDRef->getParentDDRef()->isTerminalRef()) {
-        return false;
-      }
+      return false;
     }
 
     //  When max level is reached, cannot stripmine
-    if (LoopLevel == MaxLoopNestLevel || ForceCycleForLoopIndepDep) {
+    if (LoopLevel == MaxLoopNestLevel || !AllowScalarExpansion) {
       return true;
     }
 
@@ -465,12 +455,13 @@ void DistPPGraph::constructUnknownSideEffectEdges(
 
 DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
                          HIRSparseArrayReductionAnalysis &SARA,
-                         bool ForceCycleForLoopIndepDep,
+                         bool AllowScalarExpansion,
                          bool CreateControlNodes) {
   const unsigned MaxDistPPSize = 128;
-  const unsigned MaxDDEdges = 300;
+  const unsigned MaxDDEdges = 600;
 
-  DistributionNodeCreator NodeCreator(this, CreateControlNodes);
+  DistributionNodeCreator NodeCreator(this, CreateControlNodes,
+                                      AllowScalarExpansion);
   HLNodeUtils::visitRange(NodeCreator, Loop->getFirstChild(),
                           Loop->getLastChild());
 
@@ -499,7 +490,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
   DDGraph DG = DDA.getGraph(Loop);
 
   DistributionEdgeCreator EdgeCreator(&SARA, this, DG, Level,
-                                      ForceCycleForLoopIndepDep);
+                                      AllowScalarExpansion);
   HLNodeUtils::visitRange(EdgeCreator, Loop->getFirstChild(),
                           Loop->getLastChild());
 
@@ -513,6 +504,7 @@ DistPPGraph::DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
 
   if (TotalEdges > MaxDDEdges) {
     setInvalid("Too many DD edges for proper analysis");
+    LLVM_DEBUG(dbgs() << TotalEdges << " < " << MaxDDEdges << "\n");
     return;
   }
 

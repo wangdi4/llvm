@@ -129,7 +129,7 @@ Pass *llvm::createCorrelatedValuePropagationPass() {
 
 static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   if (S->getType()->isVectorTy()) return false;
-  if (isa<Constant>(S->getOperand(0))) return false;
+  if (isa<Constant>(S->getCondition())) return false;
 
 #if INTEL_CUSTOMIZATION
   // Special case a local icmp with a phi input. LVI might be able to give an
@@ -163,11 +163,7 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   ConstantInt *CI = dyn_cast<ConstantInt>(C);
   if (!CI) return false;
 
-  Value *ReplaceWith = S->getTrueValue();
-  Value *Other = S->getFalseValue();
-  if (!CI->isOne()) std::swap(ReplaceWith, Other);
-  if (ReplaceWith == S) ReplaceWith = UndefValue::get(S->getType());
-
+  Value *ReplaceWith = CI->isOne() ? S->getTrueValue() : S->getFalseValue();
   S->replaceAllUsesWith(ReplaceWith);
   S->eraseFromParent();
 
@@ -340,9 +336,10 @@ static bool processCmp(CmpInst *Cmp, LazyValueInfo *LVI) {
   // the comparison is testing local values.  While LVI can sometimes reason
   // about such cases, it's not its primary purpose.  We do make sure to do
   // the block local query for uses from terminator instructions, but that's
-  // handled in the code for each terminator.
+  // handled in the code for each terminator. As an exception, we allow phi
+  // nodes, for which LVI can thread the condition into predecessors.
   auto *I = dyn_cast<Instruction>(Op0);
-  if (I && I->getParent() == Cmp->getParent())
+  if (I && I->getParent() == Cmp->getParent() && !isa<PHINode>(I))
     return false;
 
   LazyValueInfo::Tristate Result =
@@ -823,7 +820,10 @@ static bool processAnd(BinaryOperator *BinOp, LazyValueInfo *LVI) {
   if (!RHS || !RHS->getValue().isMask())
     return false;
 
-  ConstantRange LRange = LVI->getConstantRange(LHS, BB, BinOp);
+  // We can only replace the AND with LHS based on range info if the range does
+  // not include undef.
+  ConstantRange LRange =
+      LVI->getConstantRange(LHS, BB, BinOp, /*UndefAllowed=*/false);
   if (!LRange.getUnsignedMax().ule(RHS->getValue()))
     return false;
 

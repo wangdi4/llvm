@@ -50,9 +50,8 @@ inline size_t getVecBits(Instruction *LI, const DataLayout &DL,
 /// \returns the scalar bit-size of \p LI .
 inline size_t getScalarBits(Instruction *LI, const DataLayout &DL) {
   auto InstTy = getLoadStoreType(LI);
-  Type *ScalarTy = isa<VectorType>(InstTy)
-                       ? cast<VectorType>(InstTy)->getVectorElementType()
-                       : InstTy;
+  auto InstVecTy = dyn_cast<VectorType>(InstTy);
+  Type *ScalarTy = InstVecTy ? InstVecTy->getElementType() : InstTy;
 
   size_t Bits = DL.getTypeSizeInBits(ScalarTy);
   return Bits;

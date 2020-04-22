@@ -1,4 +1,5 @@
 ; RUN: opt -S -VPlanDriver -vpo-vplan-build-stress-test < %s | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" -vpo-vplan-build-stress-test < %s | FileCheck %s
 ; Test that we do not cause an assertion fail when stress testing VPlan builds
 ; for loop without dedicated exits.
 ; CHECK-LABEL: define void @test_multiple_exits_from_single_block(

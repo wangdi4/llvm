@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: not opt < %s -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S -debug-only=code-extractor 2>&1 | FileCheck %s
-; RUN: not opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S -debug-only=code-extractor 2>&1 | FileCheck %s
+; RUN: not --crash opt < %s -switch-to-offload=true -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S -debug-only=code-extractor 2>&1 | FileCheck %s
+; RUN: not --crash opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S -debug-only=code-extractor 2>&1 | FileCheck %s
 
 ; Original source:
 ; void foo() {

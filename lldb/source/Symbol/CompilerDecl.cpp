@@ -1,4 +1,4 @@
-//===-- CompilerDecl.cpp ----------------------------------------*- C++ -*-===//
+//===-- CompilerDecl.cpp --------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,15 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Symbol/CompilerDecl.h"
-#include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/CompilerDeclContext.h"
 #include "lldb/Symbol/TypeSystem.h"
 
 using namespace lldb_private;
-
-bool CompilerDecl::IsClang() const {
-  return IsValid() && llvm::isa<ClangASTContext>(m_type_system);
-}
 
 ConstString CompilerDecl::GetName() const {
   return m_type_system->DeclGetName(m_opaque_decl);

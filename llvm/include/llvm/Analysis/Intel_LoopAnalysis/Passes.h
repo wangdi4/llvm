@@ -1,6 +1,6 @@
 //===--------- Passes.h - Constructors for HIR analyses ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -38,6 +38,9 @@ FunctionPass *createHIRSafeReductionAnalysisPass();
 
 /// Identify Sparse Array Reduction Chain
 FunctionPass *createHIRSparseArrayReductionAnalysisPass();
+
+/// Identify Array sections
+FunctionPass *createHIRArraySectionAnalysisPass();
 
 /// Computes the locality cost for HLLoops which are used during
 /// transformations.

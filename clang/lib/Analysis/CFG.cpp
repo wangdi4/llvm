@@ -542,6 +542,7 @@ public:
 
 private:
   // Visitors to walk an AST and construct the CFG.
+  CFGBlock *VisitInitListExpr(InitListExpr *ILE, AddStmtChoice asc);
   CFGBlock *VisitAddrLabelExpr(AddrLabelExpr *A, AddStmtChoice asc);
   CFGBlock *VisitBinaryOperator(BinaryOperator *B, AddStmtChoice asc);
   CFGBlock *VisitBreakStmt(BreakStmt *B);
@@ -719,10 +720,10 @@ private:
   // These sorts of call expressions don't have a common superclass,
   // hence strict duck-typing.
   template <typename CallLikeExpr,
-            typename = typename std::enable_if<
-                std::is_same<CallLikeExpr, CallExpr>::value ||
-                std::is_same<CallLikeExpr, CXXConstructExpr>::value ||
-                std::is_same<CallLikeExpr, ObjCMessageExpr>::value>>
+            typename = std::enable_if_t<
+                std::is_base_of<CallExpr, CallLikeExpr>::value ||
+                std::is_base_of<CXXConstructExpr, CallLikeExpr>::value ||
+                std::is_base_of<ObjCMessageExpr, CallLikeExpr>::value>>
   void findConstructionContextsForArguments(CallLikeExpr *E) {
     for (unsigned i = 0, e = E->getNumArgs(); i != e; ++i) {
       Expr *Arg = E->getArg(i);
@@ -2135,6 +2136,14 @@ CFGBlock *CFGBuilder::Visit(Stmt * S, AddStmtChoice asc,
     default:
       return VisitStmt(S, asc);
 
+    case Stmt::ImplicitValueInitExprClass:
+      if (BuildOpts.OmitImplicitValueInitializers)
+        return Block;
+      return VisitStmt(S, asc);
+
+    case Stmt::InitListExprClass:
+      return VisitInitListExpr(cast<InitListExpr>(S), asc);
+
     case Stmt::AddrLabelExprClass:
       return VisitAddrLabelExpr(cast<AddrLabelExpr>(S), asc);
 
@@ -2341,11 +2350,33 @@ CFGBlock *CFGBuilder::VisitChildren(Stmt *S) {
   // Visit the children in their reverse order so that they appear in
   // left-to-right (natural) order in the CFG.
   reverse_children RChildren(S);
-  for (reverse_children::iterator I = RChildren.begin(), E = RChildren.end();
-       I != E; ++I) {
-    if (Stmt *Child = *I)
+  for (Stmt *Child : RChildren) {
+    if (Child)
       if (CFGBlock *R = Visit(Child))
         B = R;
+  }
+  return B;
+}
+
+CFGBlock *CFGBuilder::VisitInitListExpr(InitListExpr *ILE, AddStmtChoice asc) {
+  if (asc.alwaysAdd(*this, ILE)) {
+    autoCreateBlock();
+    appendStmt(Block, ILE);
+  }
+  CFGBlock *B = Block;
+
+  reverse_children RChildren(ILE);
+  for (Stmt *Child : RChildren) {
+    if (!Child)
+      continue;
+    if (CFGBlock *R = Visit(Child))
+      B = R;
+    if (BuildOpts.AddCXXDefaultInitExprInAggregates) {
+      if (auto *DIE = dyn_cast<CXXDefaultInitExpr>(Child))
+        if (Stmt *Child = DIE->getExpr())
+          if (CFGBlock *R = Visit(Child))
+            B = R;
+    }
   }
   return B;
 }
@@ -5888,7 +5919,7 @@ const Expr *CFGBlock::getLastCondition() const {
     return nullptr;
 
   const Stmt *Cond = StmtElem->getStmt();
-  if (isa<ObjCForCollectionStmt>(Cond))
+  if (isa<ObjCForCollectionStmt>(Cond) || isa<DeclStmt>(Cond))
     return nullptr;
 
   // Only ObjCForCollectionStmt is known not to be a non-Expr terminator, hence

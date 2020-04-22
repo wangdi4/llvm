@@ -10,10 +10,10 @@ void foo1() {
   int x, a[5]; float b; double c;
   // CHECK: [[AI:%.+]] = getelementptr{{.*}}[[A]]
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.ALLOC"(i32* [[X]])
-  // CHECK-SAME: "QUAL.OMP.MAP.ALLOC:AGGRHEAD"([5 x i32]* [[A]], i32* [[AI]], i64 4)
-  // CHECK-SAME: "QUAL.OMP.MAP.TO"(float* [[B]]),
-  // CHECK-SAME: "QUAL.OMP.MAP.ALWAYS.TO"(double* [[C]])
+  // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(i32* [[X]], i32* [[X]], i64 4, i64 32)
+  // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"([5 x i32]* [[A]], i32* [[AI]], i64 4, i64 32)
+  // CHECK-DAG: "QUAL.OMP.MAP.TO"(float* [[B]], float* [[B]], i64 4, i64 33),
+  // CHECK-DAG: "QUAL.OMP.MAP.TO:ALWAYS"(double* [[C]], double* [[C]], i64 8, i64 37)
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
   #pragma omp target enter data map(alloc:x) \
                                 map (alloc:a[0:1]) map(to:b) map(always,to:c)
@@ -42,7 +42,7 @@ void foo3() {
   // CHECK-SAME:"QUAL.OMP.DEPEND.IN"(i32* [[X1]])
   // CHECK-SAME:"QUAL.OMP.DEPEND.OUT"(float* [[Y1]])
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[B1]])
+  // CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[B1]], double* [[B1]], i64 8, i64 33)
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
   // CHECK: DIR.OMP.END.TASK
   #pragma omp target enter data depend(in:x1) depend(out:y1) map(to:b1)
@@ -59,7 +59,7 @@ void foo4() {
   // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(float* [[Y2]])
   // CHECK: DIR.OMP.TARGET.ENTER.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
-  // CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[B2]])
+  // CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[B2]], double* [[B2]], i64 8, i64 33)
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
   // CHECK: DIR.OMP.END.TASK
   #pragma omp target enter data depend(in:x2) depend(out:y2) nowait map(to:b2)
@@ -73,10 +73,10 @@ void foo5() {
   int x5, a5[2]; float b5; double c5;
   // CHECK: [[AI5:%.+]] = getelementptr{{.*}}[[A5]]
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.RELEASE"(i32* [[X5]])
-  // CHECK-SAME: "QUAL.OMP.MAP.DELETE:AGGRHEAD"([2 x i32]* [[A5]], i32* [[AI5]], i64 4)
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(float* [[B5]])
-  // CHECK-SAME: "QUAL.OMP.MAP.ALWAYS.FROM"(double* [[C5]])
+  // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(i32* [[X5]], i32* [[X5]], i64 4, i64 32)
+  // CHECK-DAG: "QUAL.OMP.MAP.DELETE"([2 x i32]* [[A5]], i32* [[AI5]], i64 4, i64 40)
+  // CHECK-DAG: "QUAL.OMP.MAP.FROM"(float* [[B5]], float* [[B5]], i64 4, i64 34)
+  // CHECK-DAG: "QUAL.OMP.MAP.FROM:ALWAYS"(double* [[C5]], double* [[C5]], i64 8, i64 38)
   //
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA
   #pragma omp target exit data map(release:x5) map(delete:a5[0:1]) \
@@ -88,7 +88,7 @@ void foo6() {
   int b6;
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* [[B6]])
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* [[B6]], i32* [[B6]], i64 4, i64 34)
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA
   #pragma omp target exit data nowait map(from:b6)
 }
@@ -106,7 +106,7 @@ void foo7() {
   // CHECK-SAME:"QUAL.OMP.SHARED"(double* [[B7]])
   // CHECK-SAME "QUAL.OMP.TARGET.TASK"
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(double* [[B7]])
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(double* [[B7]], double* [[B7]], i64 8, i64 34)
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA
   // CHECK: DIR.OMP.END.TASK
   #pragma omp target exit data depend(in:x7) depend(out:y7) map(from:b7)
@@ -124,7 +124,7 @@ void foo8() {
   // CHECK-SAME: "QUAL.OMP.SHARED"(double* [[B8]])
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(double* [[B8]])
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(double* [[B8]], double* [[B8]], i64 8, i64 34)
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA
   #pragma omp target exit data depend(in:x8) depend(out:y8) nowait map(from:b8)
 }

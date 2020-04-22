@@ -1,6 +1,6 @@
 //===----------- HLLoop.h - High level IR loop node -------------*- C++ -*-===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -37,6 +37,13 @@ namespace loopopt {
 class CanonExpr;
 class RegDDRef;
 class HLLoopParallelTraits;
+
+typedef std::pair<int, RegDDRef *> LevelAndFactorPairTy;
+
+struct BlockingPragmaInfo {
+  SmallVector<LevelAndFactorPairTy, MaxLoopNestLevel> LevelsAndFactors;
+  SmallVector<RegDDRef *, 4> Privates;
+};
 
 /// High level node representing a loop
 class HLLoop final : public HLDDNode {
@@ -103,8 +110,12 @@ private:
   // Indicates whether loop's IV is in signed range.
   bool IsNSW;
 
-  // Temporary tag to mark loop as multiversioned.
+  // Tag to mark loop as multiversioned.
   unsigned MVTag = 0;
+
+  // List of temp blobs that is proven to be delinearizable within the loop.
+  // Note: changing the loopnest bounds may invalidate the list.
+  SmallVector<unsigned, 0> MVDelinearizableBlobIndices;
 
   // Set of temp symbases live into the loop.
   LiveInSetTy LiveInSet;
@@ -136,6 +147,14 @@ private:
   bool HasDistributePoint;
 
   bool IsUndoSinkingCandidate;
+
+  // Special field to force VF for a loop inside LoopOpt.
+  unsigned ForcedVectorWidth;
+  // Special field to force vector UF for a loop inside LoopOpt.
+  unsigned ForcedVectorUnrollFactor;
+
+  // Contains info specified in blocking pragma.
+  std::unique_ptr<BlockingPragmaInfo> BlockingInfo;
 
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
@@ -207,6 +226,23 @@ protected:
 
   /// Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
+
+  /// Adds a pair of {level-factor} info specified in the blocking pragma for
+  /// this loop.
+  void addBlockingPragmaLevelAndFactor(int Level, RegDDRef *Factor) {
+    if (!BlockingInfo) {
+      BlockingInfo.reset(new BlockingPragmaInfo);
+    }
+    BlockingInfo->LevelsAndFactors.push_back(std::make_pair(Level, Factor));
+  }
+
+  /// Adds a new private specified in the blocking pragma for this loop.
+  void addBlockingPragmaPrivate(RegDDRef *Private) {
+    if (!BlockingInfo) {
+      BlockingInfo.reset(new BlockingPragmaInfo);
+    }
+    BlockingInfo->Privates.push_back(Private);
+  }
 
 public:
   /// Prints preheader of loop.
@@ -567,7 +603,7 @@ public:
   void removePostexit();
 
   /// Replaces the loop with its body and IVs with the lower bound.
-  void replaceByFirstIteration();
+  void replaceByFirstIteration(bool ExtractPostexit = true);
 
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }
@@ -668,6 +704,14 @@ public:
   bool isVecLoop() const { return isSIMD() || hasDirective(DIR_VPO_AUTO_VEC); }
 
   unsigned getMVTag() const { return MVTag; }
+
+  SmallVectorImpl<unsigned> &getMVDelinearizableBlobIndices() {
+    return MVDelinearizableBlobIndices;
+  }
+
+  const SmallVectorImpl<unsigned> &getMVDelinearizableBlobIndices() const {
+    return MVDelinearizableBlobIndices;
+  }
 
   bool isDistributedForMemRec() const { return DistributedForMemRec; }
 
@@ -947,6 +991,19 @@ public:
     return mdconst::extract<ConstantInt>(MD->getOperand(1))->getZExtValue();
   }
 
+  /// Returns the VF for this loop forced inside LoopOpt.
+  unsigned getForcedVectorWidth() const { return ForcedVectorWidth; }
+  /// Sets the forced VF that should be used during vectorization.
+  void setForcedVectorWidth(unsigned VF) { ForcedVectorWidth = VF; }
+  /// Returns the vector UF for this loop forced inside LoopOpt.
+  unsigned getForcedVectorUnrollFactor() const {
+    return ForcedVectorUnrollFactor;
+  }
+  /// Sets the forced vector UF that should be used during vectorization.
+  void setForcedVectorUnrollFactor(unsigned UF) {
+    ForcedVectorUnrollFactor = UF;
+  }
+
   /// Returns true if minimum trip count of loop is specified using pragma and
   /// returns the value in \p MinTripCount.
   bool getPragmaBasedMinimumTripCount(unsigned &MinTripCount) const {
@@ -1117,13 +1174,19 @@ public:
   /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
   void shiftLoopBodyRegDDRefs(int64_t Amount);
 
+  /// Returns true if the first iteration of the loop can be peeled.
+  bool canPeelFirstIteration() const;
+
   /// Peels the first iteration of the loop and inserts the peel loop before
   /// this loop. Ztt, loop preheader and postexit are extracted before cloning
   /// this loop to generate the peel loop. If \p UpdateMainLoop is true, this
   /// loop's UB and DDRefs are updated so that peeled iterations are not
   /// executed again. Otherwise, this loop's UB and DDRefs won't be updated and
   /// the loop will redundantly execute the iterations executed by the peel
-  /// loop.
+  /// loop. This method requires that the loop is in normalized form.
+  //
+  /// NOTE: Peeling can fail for unknown loops in which case it returns nullptr
+  /// and leaves the original loop unchanged.
   HLLoop *peelFirstIteration(bool UpdateMainLoop = true);
 
   /// Peels the current loop to align memory accesses to the memref \p
@@ -1149,6 +1212,29 @@ public:
   void setParallelTraits(HLLoopParallelTraits *CT) {
     assert(ParTraits == nullptr && "parallel traits already set");
     ParTraits.reset(CT);
+  }
+
+  bool isMVFallBack() const {
+    unsigned MVTag = getMVTag();
+    return (MVTag && (MVTag != getNumber()));
+  }
+
+  /// Returns all (level-factor) pairs specified in the blocking pragma for this
+  /// loop. Returns empty ArrayRef if no info exists.
+  ArrayRef<LevelAndFactorPairTy> getBlockingPragmaLevelAndFactors() const {
+    if (BlockingInfo) {
+      return BlockingInfo->LevelsAndFactors;
+    }
+    return {};
+  }
+
+  /// Returns all privates specified in the blocking pragma for this loop.
+  /// Returns empty ArrayRef if no info exists.
+  ArrayRef<RegDDRef *> getBlockingPragmaPrivates() const {
+    if (BlockingInfo) {
+      return BlockingInfo->Privates;
+    }
+    return {};
   }
 };
 

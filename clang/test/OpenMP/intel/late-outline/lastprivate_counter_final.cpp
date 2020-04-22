@@ -53,9 +53,43 @@ float a[100];
 // CHECK-LABEL: @_Z4foo2v
 void foo2() {
  int j;
-  //CHECK: [[TVAL2:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL.LOOP{{.*}}LASTPRIVATE{{.*}}([100 x float]* @a)
+  //CHECK: [[TVAL2:%[0-9]+]] = call token{{.*}}DIR.OMP.PARALLEL.LOOP
+  //CHECK-SAME: LASTPRIVATE{{.*}}([100 x float]* @a)
   //CHECK: region.exit(token [[TVAL2]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
  #pragma omp parallel for schedule(static, 1) lastprivate(a)
  for (j = 0; j < 4; j++) { a[j] = a[j]+1; }
 }
+
+// CHECK-LABEL: @_Z4foo3v
+void foo3() {
+  int i, j;
+
+  //CHECK: [[I:%i.*]] = alloca i32,
+  //CHECK: [[J:%j.*]] = alloca i32,
+  //CHECK: [[K:%k.*]] = alloca i32,
+  //CHECK: [[L:%l.*]] = alloca i32,
+
+  //CHECK: DIR.OMP.PARALLEL.LOOP
+  //CHECK: "QUAL.OMP.LASTPRIVATE"(i32* [[I]])
+  //CHECK: "QUAL.OMP.LASTPRIVATE"(i32* [[J]])
+  #pragma omp parallel for simd collapse(2)
+  for (i = 0; i < 77; ++i)
+    for (j = 0; j < 99; ++j) bar(i+j);
+  //CHECK: {{call|invoke}}{{.*}}bar
+  //CHECK: store i32 77, i32* [[I]]
+  //CHECK: store i32 99, i32* [[J]]
+  //CHECK: DIR.OMP.END.PARALLEL.LOOP
+
+  //CHECK: DIR.OMP.PARALLEL.LOOP
+  //CHECK-NOT: "QUAL.OMP.LASTPRIVATE"(i32* [[K]])
+  //CHECK-NOT: "QUAL.OMP.LASTPRIVATE"(i32* [[L]])
+  #pragma omp parallel for simd collapse(2)
+  for (int k = 0; k < 33; ++k)
+    for (int l = 0; l < 55; ++l) bar(k+l);
+  //CHECK: {{call|invoke}}{{.*}}bar
+  //CHECK-NOT: store i32 33, i32* [[K]]
+  //CHECK-NOT: store i32 55, i32* [[L]]
+  //CHECK: DIR.OMP.END.PARALLEL.LOOP
+}
+
 // end INTEL_COLLAB

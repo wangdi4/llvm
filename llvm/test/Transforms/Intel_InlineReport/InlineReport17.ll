@@ -11,20 +11,18 @@
 ; CHECK-NEXT: f1{{.*}}Callee is single basic block
 
 ; CHECK: COMPILE FUNC: f4
-; CHECK-NEXT: INLINE: f3{{.*}}Callee is always inline
+; CHECK-NEXT: INLINE: f3{{.*}}Callsite on inline list
 
 ; CHECK: COMPILE FUNC: main
-; CHECK-NEXT: INLINE: f1{{.*}}Callee is always inline
-; CHECK-NEXT: INLINE: f1{{.*}}Callee is always inline
-; CHECK-NEXT: f2{{.*}}Callsite is noinline
-; CHECK-NEXT: INLINE: f2{{.*}}Callee is always inline
+; CHECK-NEXT: INLINE: f1{{.*}}Callsite on inline list
+; CHECK-NEXT: INLINE: f1{{.*}}Callsite on inline list
+; CHECK-NEXT: f2{{.*}}Callsite on noinline list
+; CHECK-NEXT: INLINE: f2{{.*}}Callsite on inline list
 ; CHECK-NEXT: f1{{.*}}Callee is single basic block
-; CHECK-NEXT: INLINE: f3{{.*}}Callee is always inline
+; CHECK-NEXT: INLINE: f3{{.*}}Callsite on inline list
 ; CHECK-NEXT: INLINE: f4{{.*}}Callee is always inline
-; CHECK-NEXT: INLINE: f3{{.*}}Callee is always inline
-; CHECK-NEXT:  f4{{.*}}Callsite is noinline
-
-
+; CHECK-NEXT: INLINE: f3{{.*}}Callsite on inline list
+; CHECK-NEXT: f4{{.*}}Callsite on noinline list
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

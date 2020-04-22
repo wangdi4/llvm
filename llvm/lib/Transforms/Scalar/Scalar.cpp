@@ -93,6 +93,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLowerConstantIntrinsicsPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
   initializeLowerGuardIntrinsicLegacyPassPass(Registry);
+  initializeLowerMatrixIntrinsicsLegacyPassPass(Registry);
   initializeLowerWidenableConditionLegacyPassPass(Registry);
   initializeLowerSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeMemCpyOptLegacyPassPass(Registry);
@@ -101,10 +102,12 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeNaryReassociateLegacyPassPass(Registry);
   initializePartiallyInlineLibCallsLegacyPassPass(Registry);
   initializeReassociateLegacyPassPass(Registry);
+  initializeRedundantDbgInstEliminationPass(Registry);
   initializeRegToMemPass(Registry);
   initializeRewriteStatepointsForGCLegacyPassPass(Registry);
   initializeSCCPLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
+  initializeSROALegacyCGSCCAdaptorPassPass(Registry); // INTEL
   initializeCFGSimplifyPassPass(Registry);
   initializeStructurizeCFGPass(Registry);
   initializeSimpleLoopUnswitchLegacyPassPass(Registry);
@@ -129,6 +132,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
   initializeTransformFPGARegPass(Registry);
   initializeAddSubReassociateLegacyPassPass(Registry);
+  initializeForcedCMOVGenerationLegacyPassPass(Registry);
 #if INTEL_FEATURE_CSA
   initializeCSAScalarPasses(Registry);
 #endif // INTEL_FEATURE_CSA
@@ -253,6 +257,12 @@ void LLVMAddReassociatePass(LLVMPassManagerRef PM) {
 #if INTEL_CUSTOMIZATION
 void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createAddSubReassociatePass());
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+void LLVMAddForcedCMOVGenerationPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createForcedCMOVGenerationPass());
 }
 #endif // INTEL_CUSTOMIZATION
 

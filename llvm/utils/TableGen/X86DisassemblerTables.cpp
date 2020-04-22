@@ -112,6 +112,7 @@ static inline bool inheritsFrom(InstructionContext child,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   case IC_64BIT_CE:
+  case IC_64BIT_OPSIZE_CE:
   case IC_64BIT_XD_CE:
   case IC_64BIT_XS_CE:
   case IC_64BIT_REXW_CE:
@@ -738,16 +739,9 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
   static uint32_t sEntryNumber = 1;
   ModRMDecisionType dt = getDecisionType(decision);
 
-  if (dt == MODRM_ONEENTRY && decision.instructionIDs[0] == 0)
-  {
-    o2.indent(i2) << "{ /* ModRMDecision */" << "\n";
-    i2++;
-
-    o2.indent(i2) << stringForDecisionType(dt) << "," << "\n";
-    o2.indent(i2) << 0 << " /* EmptyTable */\n";
-
-    i2--;
-    o2.indent(i2) << "}";
+  if (dt == MODRM_ONEENTRY && decision.instructionIDs[0] == 0) {
+    // Empty table.
+    o2 << "{ " << stringForDecisionType(dt) << ", 0 }";
     return;
   }
 
@@ -804,14 +798,8 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
     i1--;
   }
 
-  o2.indent(i2) << "{ /* struct ModRMDecision */" << "\n";
-  i2++;
-
-  o2.indent(i2) << stringForDecisionType(dt) << "," << "\n";
-  o2.indent(i2) << EntryNumber << " /* Table" << EntryNumber << " */\n";
-
-  i2--;
-  o2.indent(i2) << "}";
+  o2 << "{ " << stringForDecisionType(dt) << ", " << EntryNumber << " /* Table"
+     << EntryNumber << " */ }";
 
   switch (dt) {
     default:
@@ -850,30 +838,43 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
 void DisassemblerTables::emitOpcodeDecision(raw_ostream &o1, raw_ostream &o2,
                                             unsigned &i1, unsigned &i2,
                                             unsigned &ModRMTableNum,
-                                            OpcodeDecision &decision) const {
-  o2.indent(i2) << "{ /* struct OpcodeDecision */" << "\n";
-  i2++;
-  o2.indent(i2) << "{" << "\n";
-  i2++;
+                                            OpcodeDecision &opDecision) const {
+  o2 << "{";
+  ++i2;
 
-  for (unsigned index = 0; index < 256; ++index) {
-    o2.indent(i2);
-
-    o2 << "/* 0x" << format("%02hhx", index) << " */" << "\n";
-
-    emitModRMDecision(o1, o2, i1, i2, ModRMTableNum,
-                      decision.modRMDecisions[index]);
-
-    if (index <  255)
-      o2 << ",";
-
-    o2 << "\n";
+  unsigned index;
+  for (index = 0; index < 256; ++index) {
+    auto &decision = opDecision.modRMDecisions[index];
+    ModRMDecisionType dt = getDecisionType(decision);
+    if (!(dt == MODRM_ONEENTRY && decision.instructionIDs[0] == 0))
+      break;
   }
+  if (index == 256) {
+    // If all 256 entries are MODRM_ONEENTRY, omit output.
+    assert(MODRM_ONEENTRY == 0);
+    --i2;
+    o2 << "},\n";
+  } else {
+    o2 << " /* struct OpcodeDecision */ {\n";
+    ++i2;
+    for (index = 0; index < 256; ++index) {
+      o2.indent(i2);
 
-  i2--;
-  o2.indent(i2) << "}" << "\n";
-  i2--;
-  o2.indent(i2) << "}" << "\n";
+      o2 << "/* 0x" << format("%02hhx", index) << " */ ";
+
+      emitModRMDecision(o1, o2, i1, i2, ModRMTableNum,
+                        opDecision.modRMDecisions[index]);
+
+      if (index < 255)
+        o2 << ",";
+
+      o2 << "\n";
+    }
+    --i2;
+    o2.indent(i2) << "}\n";
+    --i2;
+    o2.indent(i2) << "},\n";
+  }
 }
 
 void DisassemblerTables::emitContextDecision(raw_ostream &o1, raw_ostream &o2,
@@ -889,14 +890,10 @@ void DisassemblerTables::emitContextDecision(raw_ostream &o1, raw_ostream &o2,
   for (unsigned index = 0; index < IC_max; ++index) {
     o2.indent(i2) << "/* ";
     o2 << stringForContext((InstructionContext)index);
-    o2 << " */";
-    o2 << "\n";
+    o2 << " */ ";
 
     emitOpcodeDecision(o1, o2, i1, i2, ModRMTableNum,
                        decision.opcodeDecisions[index]);
-
-    if (index + 1 < IC_max)
-      o2 << ", ";
   }
 
   i2--;
@@ -1032,6 +1029,8 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
       o << "IC_64BIT_XD_CE";
     else if ((index & ATTR_64BIT) && (index & ATTR_XS) && (index & ATTR_CE))
       o << "IC_64BIT_XS_CE";
+    else if ((index & ATTR_64BIT) && (index & ATTR_OPSIZE) && (index & ATTR_CE))
+      o << "IC_64BIT_OPSIZE_CE";
     else if ((index & ATTR_64BIT) && (index & ATTR_CE))
       o << "IC_64BIT_CE";
 #endif // INTEL_FEATURE_ICECODE

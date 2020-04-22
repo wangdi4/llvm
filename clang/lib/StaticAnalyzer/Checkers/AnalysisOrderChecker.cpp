@@ -40,6 +40,7 @@ class AnalysisOrderChecker
                      check::EndFunction,
                      check::NewAllocator,
                      check::Bind,
+                     check::PointerEscape,
                      check::RegionChanges,
                      check::LiveSymbols> {
 
@@ -165,6 +166,15 @@ public:
       llvm::errs() << "RegionChanges\n";
     return State;
   }
+
+  ProgramStateRef checkPointerEscape(ProgramStateRef State,
+                                     const InvalidatedSymbols &Escaped,
+                                     const CallEvent *Call,
+                                     PointerEscapeKind Kind) const {
+    if (isCallbackEnabled(State, "PointerEscape"))
+      llvm::errs() << "PointerEscape\n";
+    return State;
+  }
 };
 } // end anonymous namespace
 
@@ -176,6 +186,6 @@ void ento::registerAnalysisOrderChecker(CheckerManager &mgr) {
   mgr.registerChecker<AnalysisOrderChecker>();
 }
 
-bool ento::shouldRegisterAnalysisOrderChecker(const LangOptions &LO) {
+bool ento::shouldRegisterAnalysisOrderChecker(const CheckerManager &mgr) {
   return true;
 }

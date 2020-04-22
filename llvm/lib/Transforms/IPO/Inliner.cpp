@@ -36,6 +36,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
@@ -62,7 +63,7 @@
 #include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #if INTEL_INCLUDE_DTRANS
-#include "Intel_DTrans/Transforms/MemInitTrimDownInfoImpl.h" // INTEL
+#include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h" // INTEL
 #endif // INTEL_INCLUDE_DTRANS
 #include <algorithm>
@@ -321,7 +322,7 @@ static InlineResult InlineCallIfPossible(
   // inlined.
   InlineResult IR = InlineFunction(CS, IFI, IRep, MDIRep, IIR, &AAR, // INTEL
                                    InsertLifetime);          // INTEL
-  if (!IR)
+  if (!IR.isSuccess())
     return IR;
 
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
@@ -471,9 +472,14 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
   if (IC.isAlways()) {
     LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC)
                       << ", Call: " << *CS.getInstruction() << "\n");
-    if (IR != nullptr)                                  // INTEL
-      IR->setReasonIsInlined(CS, IC.getInlineReason()); // INTEL
-    llvm::setMDReasonIsInlined(CS, IC.getInlineReason()); // INTEL
+#if INTEL_CUSTOMIZATION
+    InlineReason Reason = IC.getInlineReason();
+    if (CS.hasFnAttr("inline-list"))
+      Reason = InlrInlineList;
+    if (IR != nullptr)
+      IR->setReasonIsInlined(cast<CallBase>(CS.getInstruction()), Reason);
+    llvm::setMDReasonIsInlined(cast<CallBase>(CS.getInstruction()), Reason);
+#endif // INTEL_CUSTOMIZATION
     return IC;
   }
 
@@ -486,9 +492,14 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
              << NV("Caller", Caller) << " because it should never be inlined "
              << IC;
     });
-    if (IR != nullptr)                                   // INTEL
-      IR->setReasonNotInlined(CS, IC.getInlineReason()); // INTEL
-    llvm::setMDReasonNotInlined(CS, IC.getInlineReason()); // INTEL
+#if INTEL_CUSTOMIZATION
+    InlineReason Reason = IC.getInlineReason();
+    if (CS.hasFnAttr("noinline-list"))
+      Reason = NinlrNoinlineList;
+    if (IR != nullptr)
+      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
+    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
+#endif // INTEL_CUSTOMIZATION
     return IC;
   }
 
@@ -500,9 +511,11 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
              << NV("Callee", Callee) << " not inlined into "
              << NV("Caller", Caller) << " because too costly to inline " << IC;
     });
-    if (IR != nullptr)                 // INTEL
-      IR->setReasonNotInlined(CS, IC); // INTEL
-    llvm::setMDReasonNotInlined(CS, IC); // INTEL
+#if INTEL_CUSTOMIZATION
+    if (IR != nullptr)
+      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC);
+    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC);
+#endif // INTEL_CUSTOMIZATION
     return IC;
   }
 
@@ -521,18 +534,24 @@ shouldInline(CallSite CS, function_ref<InlineCost(CallSite CS)> GetInlineCost,
 
     // IC does not bool() to false, so get an InlineCost that will.
     // This will not be inspected to make an error message.
-    IC.setInlineReason(NinlrOuterInlining);               // INTEL
-    if (IR != nullptr)                                    // INTEL
-      IR->setReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL
-    llvm::setMDReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL
+#if INTEL_CUSTOMIZATION
+    IC.setInlineReason(NinlrOuterInlining);
+    if (IR != nullptr)
+      IR->setReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC,
+                              TotalSecondaryCost);
+    llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()), IC,
+                                TotalSecondaryCost);
+#endif // INTEL_CUSTOMIZATION
     return None;
   }
 
   LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC)
                     << ", Call: " << *CS.getInstruction() << '\n');
-  if (IR != nullptr)                                    // INTEL
-    IR->setReasonIsInlined(CS, IC); // INTEL
-  llvm::setMDReasonIsInlined(CS, IC); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (IR != nullptr)
+    IR->setReasonIsInlined(cast<CallBase>(CS.getInstruction()), IC);
+  llvm::setMDReasonIsInlined(cast<CallBase>(CS.getInstruction()), IC);
+#endif // INTEL_CUSTOMIZATION
   return IC;
 }
 
@@ -607,24 +626,24 @@ static void collectDtransFuncs(Module &M,
   SmallSet<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
   for (auto *TI : SOAToAOSCandidates) {
-    dtrans::MemInitCandidateInfo MemInfo;
+    dtrans::SOACandidateInfo MemInfo;
     if (!MemInfo.isCandidateType(TI))
       continue;
-    DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+    DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
       dbgs() << "MemInitTrimDown transformation";
       dbgs() << "  Considering candidate: ";
       TI->print(dbgs(), true, true);
       dbgs() << "\n";
     });
     if (!MemInfo.collectMemberFunctions(M, false)) {
-      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
         dbgs() << "  Failed: member functions collections.\n";
       });
       continue;
     }
 
     if (!MemInitFuncs.empty()) {
-      DEBUG_WITH_TYPE(DTRANS_MEMINITTRIMDOWN, {
+      DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
         dbgs() << "  Failed: More than one candidate struct found.\n";
       });
       MemInitFuncs.clear();
@@ -700,7 +719,7 @@ static bool
 inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 std::function<AssumptionCache &(Function &)> GetAssumptionCache,
                 ProfileSummaryInfo *PSI,
-                std::function<TargetLibraryInfo &(Function &)> GetTLI,
+                std::function<const TargetLibraryInfo &(Function &)> GetTLI,
                 bool InsertLifetime,
                 function_ref<InlineCost(CallSite CS)> GetInlineCost,
                 function_ref<AAResults &(Function &)> AARGetter,
@@ -812,13 +831,17 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       if (!Callee || Callee->isDeclaration()) { // INTEL
 #if INTEL_CUSTOMIZATION
         if (!Callee) {
-          IR.setReasonNotInlined(CS, NinlrIndirect);
-          llvm::setMDReasonNotInlined(CS, NinlrIndirect);
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                 NinlrIndirect);
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      NinlrIndirect);
           continue;
         }
         if (Callee->isDeclaration()) {
-          IR.setReasonNotInlined(CS, NinlrExtern);
-          llvm::setMDReasonNotInlined(CS, NinlrExtern);
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                 NinlrExtern);
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      NinlrExtern);
           continue;
         }
 #endif // INTEL_CUSTOMIZATION
@@ -840,8 +863,12 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         InlineHistoryID = CallSites[CSi].second;
         if (InlineHistoryID != -1 &&
             InlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory)) {
-          IR.setReasonNotInlined(CS, NinlrRecursive);      // INTEL
-          llvm::setMDReasonNotInlined(CS, NinlrRecursive);   // INTEL
+#if INTEL_CUSTOMIZATION
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                 NinlrRecursive);
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      NinlrRecursive);
+#endif // INTEL_CUSTOMIZATION
           setInlineRemark(CS, "recursive");
           continue;
         }
@@ -874,8 +901,12 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // call and then we're left with the dead call.
       if (IsTriviallyDead) {
         LLVM_DEBUG(dbgs() << "    -> Deleting dead call: " << *Instr << "\n");
-        IR.setReasonNotInlined(CS, NinlrDeleted); // INTEL
-        llvm::setMDReasonNotInlined(CS, NinlrDeleted); // INTEL
+#if INTEL_CUSTOMIZATION
+        IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                               NinlrDeleted);
+        llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                    NinlrDeleted);
+#endif // INTEL_CUSTOMIZATION
         // Update the call graph by deleting the edge from Callee to Caller.
         setInlineRemark(CS, "trivially dead");
         CG[Caller]->removeCallEdgeFor(*cast<CallBase>(CS.getInstruction()));
@@ -889,8 +920,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // Attempt to inline the function.
         using namespace ore;
 #if INTEL_CUSTOMIZATION
-        IR.beginUpdate(CS);
-        MDIR.beginUpdate(CS);
+        IR.beginUpdate(cast<CallBase>(CS.getInstruction()));
+        MDIR.beginUpdate(cast<CallBase>(CS.getInstruction()));
         InlineReason Reason = NinlrNoReason;
         bool IsAlwaysInlineRecursive =
             CS.hasFnAttr("always-inline-recursive");
@@ -907,12 +938,14 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                                                AARGetter,
                                                ImportedFunctionsStats,
                                                &Reason);
-        if (!LIR) {
+        if (!LIR.isSuccess()) {
           IR.endUpdate();
-          IR.setReasonNotInlined(CS, Reason);
+          IR.setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
           MDIR.endUpdate();
-          llvm::setMDReasonNotInlined(CS, Reason);
-          setInlineRemark(CS, std::string(LIR) + "; " + inlineCostStr(*OIC));
+          llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                      Reason);
+          setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " +
+                                  inlineCostStr(*OIC));
           if (CallSitesForFusion) {
             CallSitesForFusion->clear();
           }
@@ -921,8 +954,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
                                             Block)
                    << NV("Callee", Callee) << " will not be inlined into "
-                   << NV("Caller", Caller) << ": " // INTEL
-                   << NV("Reason", LIR.message);   // INTEL
+                   << NV("Caller", Caller) << ": "            // INTEL
+                   << NV("Reason", LIR.getFailureReason());   // INTEL
           });
           continue;
         }
@@ -962,8 +995,21 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           int NewHistoryID = InlineHistory.size();
           InlineHistory.push_back(std::make_pair(Callee, InlineHistoryID));
 
-#if INTEL_CUSTOMIZATION
+#ifndef NDEBUG
+          // Make sure no dupplicates in the inline candidates. This could
+          // happen when a callsite is simpilfied to reusing the return value
+          // of another callsite during function cloning, thus the other
+          // callsite will be reconsidered here.
+          DenseSet<CallSite> DbgCallSites;
+          for (auto &II : CallSites)
+            DbgCallSites.insert(II.first);
+#endif
+
           for (Value *Ptr : InlineInfo.InlinedCalls) {
+#ifndef NDEBUG
+            assert(DbgCallSites.count(CallSite(Ptr)) == 0);
+#endif
+#if INTEL_CUSTOMIZATION
             auto CB = cast<CallBase>(Ptr);
             if (IsAlwaysInlineRecursive)
                 CB->addAttribute(AttributeList::FunctionIndex,
@@ -971,9 +1017,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             if (IsInlineHintRecursive)
                 CB->addAttribute(AttributeList::FunctionIndex,
                      "inline-hint-recursive");
+#endif // INTEL_CUSTOMIZATION
             CallSites.push_back(std::make_pair(CallSite(Ptr), NewHistoryID));
           }
-#endif // INTEL_CUSTOMIZATION
         }
       }
 
@@ -1027,7 +1073,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-  auto GetTLI = [&](Function &F) -> TargetLibraryInfo & {
+  GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
     return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
   ILIC = new InliningLoopInfoCache(); // INTEL
@@ -1355,6 +1401,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     auto GetBFI = [&](Function &F) -> BlockFrequencyInfo & {
       return FAM.getResult<BlockFrequencyAnalysis>(F);
     };
+    auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
+      return FAM.getResult<TargetLibraryAnalysis>(F);
+    };
 
     auto GetInlineCost = [&](CallSite CS) {
       Function &Callee = *CS.getCalledFunction();
@@ -1365,13 +1414,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
       if (IntelInlineReportLevel & InlineReportOptions::RealCost)
         Params.ComputeFullInlineCost = true;
-      TargetLibraryInfo *TLI =
-          FAM.getCachedResult<TargetLibraryAnalysis>(Callee);
 #endif // INTEL_CUSTOMIZATION
 
       return getInlineCost(cast<CallBase>(*CS.getInstruction()), Params,
                            CalleeTTI, GetAssumptionCache, {GetBFI}, // INTEL
-                           TLI, ILIC, AggI, &CallSitesForFusion,    // INTEL
+                           GetTLI, ILIC, AggI, &CallSitesForFusion,    // INTEL
                            &FuncsForDTrans, PSI,                // INTEL
                            RemarksEnabled ? &ORE : nullptr);
     };
@@ -1435,8 +1482,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       using namespace ore;
 
-      Report.beginUpdate(CS);  // INTEL
-      MDReport->beginUpdate(CS); // INTEL
+      Report.beginUpdate(cast<CallBase>(CS.getInstruction()));  // INTEL
+      MDReport->beginUpdate(cast<CallBase>(CS.getInstruction())); // INTEL
       InlineReason Reason = NinlrNoReason; // INTEL
 #if INTEL_CUSTOMIZATION
       // For a recursive call, save the number of the Callee's recursive
@@ -1447,19 +1494,22 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
       InlineResult LIR = InlineFunction(CS, IFI, &Report, MDReport, // INTEL
                                         &Reason);                    // INTEL
-      if (!LIR) { // INTEL
-        setInlineRemark(CS, std::string(LIR) + "; " // INTEL
+      if (!LIR.isSuccess()) { // INTEL
+        setInlineRemark(CS, std::string(LIR.getFailureReason()) + "; " // INTEL
             + inlineCostStr(*OIC));                 // INTEL
         ORE.emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
                  << NV("Callee", &Callee) << " will not be inlined into "
-                 << NV("Caller", &F) << ": "    // INTEL
-                 << NV("Reason", LIR.message);  // INTEL
+                 << NV("Caller", &F) << ": "
+                 << NV("Reason", LIR.getFailureReason()); // INTEL
         });
-        Report.endUpdate(); // INTEL
-        Report.setReasonNotInlined(CS, Reason); // INTEL
-        MDReport->endUpdate(); // INTEL
-        llvm::setMDReasonNotInlined(CS, Reason); // INTEL
+#if INTEL_CUSTOMIZATION
+        Report.endUpdate();
+        Report.setReasonNotInlined(cast<CallBase>(CS.getInstruction()), Reason);
+        MDReport->endUpdate();
+        llvm::setMDReasonNotInlined(cast<CallBase>(CS.getInstruction()),
+                                    Reason);
+#endif // INTEL_CUSTOMIZATION
         continue;
       }
       DidInline = true;
@@ -1499,10 +1549,20 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       if (!IFI.InlinedCallSites.empty()) {
         int NewHistoryID = InlineHistory.size();
         InlineHistory.push_back({&Callee, InlineHistoryID});
-        for (CallSite &CS : reverse(IFI.InlinedCallSites))
-          if (Function *NewCallee = CS.getCalledFunction())
+        for (CallSite &CS : reverse(IFI.InlinedCallSites)) {
+          Function *NewCallee = CS.getCalledFunction();
+          if (!NewCallee) {
+            // Try to promote an indirect (virtual) call without waiting for the
+            // post-inline cleanup and the next DevirtSCCRepeatedPass iteration
+            // because the next iteration may not happen and we may miss
+            // inlining it.
+            if (tryPromoteCall(CS))
+              NewCallee = CS.getCalledFunction();
+          }
+          if (NewCallee)
             if (!NewCallee->isDeclaration())
               Calls.push_back({CS, NewHistoryID});
+        }
       }
 
       if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)

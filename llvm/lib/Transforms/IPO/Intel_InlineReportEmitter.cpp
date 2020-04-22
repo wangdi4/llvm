@@ -1,6 +1,6 @@
 //===----------- Intel_InlineReportEmitter.cpp - Inlining Report  -----------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -44,21 +44,9 @@ static void printFunctionLinkageChar(StringRef CalleeName, Module &M,
     llvm::errs() << llvm::getLinkageStr(F) << ' ';
     return;
   }
-  // If the function is dead we should look for its linkage info in the
-  // metadata.
-  NamedMDNode *ModuleInlineReport =
-      M.getOrInsertNamedMetadata("intel.module.inlining.report");
-  for (unsigned I = 0; I < ModuleInlineReport->getNumOperands(); ++I) {
-    MDNode *Node = ModuleInlineReport->getOperand(I);
-    assert(isa<MDTuple>(Node) && "Bad format of function inlining report");
-    MDTuple *FIR = cast<MDTuple>(Node);
-    StringRef FuncName = getOpStr(FIR->getOperand(FMDIR_FuncName), "name: ");
-    if (FuncName == CalleeName) {
-      llvm::errs() << getOpStr(FIR->getOperand(FMDIR_LinkageStr), "linkage: ")
-                   << ' ';
-      return;
-    }
-  }
+  // If we can't find a function in the module, then it is dead. Which means it
+  // should have local linkage.
+  llvm::errs() << "L ";
 }
 
 ///
@@ -172,8 +160,17 @@ static void printCallSiteInlineReports(Metadata *MD, unsigned IndentCount,
 void printCallSiteInlineReport(Metadata *MD, unsigned IndentCount, Module &M,
                                unsigned Level) {
   MDTuple *CSIR = cast<MDTuple>(MD);
-  assert(CSIR && (CSIR->getNumOperands() == CallSiteMDSize) &&
-         "Bad call site inlining report format");
+  assert((CSIR->getNumOperands() == CallSiteMDSize) &&
+      "Bad call site inlining report format");
+  int64_t SuppressPrint = 0;
+  getOpVal(CSIR->getOperand(CSMDIR_SuppressPrintReport),
+           "isSuppressPrint: ", &SuppressPrint);
+  if (SuppressPrint) {
+    LLVM_DEBUG(
+        dbgs() << "SuppressPrint flag is ON on CallSite, suppress print\n";);
+    return;
+  }
+
   int64_t Reason = 0;
   getOpVal(CSIR->getOperand(CSMDIR_InlineReason), "reason: ", &Reason);
   assert(InlineReasonText[Reason].Type != InlPrtNone);
@@ -220,9 +217,8 @@ void printCallSiteInlineReport(Metadata *MD, unsigned IndentCount, Module &M,
     } else {
       llvm::errs() << "-> ";
       printCalleeNameModuleLineCol(CSIR, M, Level);
-      if (InlineReasonText[Reason].Type == InlPrtCost) {
+      if (InlineReasonText[Reason].Type == InlPrtCost)
         printCostAndThreshold(CSIR, false, Level);
-      }
       printSimpleMessage(InlineReasonText[Reason].Message, false, IndentCount,
                          Level);
     }
@@ -256,8 +252,10 @@ static void printCallSiteInlineReports(Metadata *MD, unsigned IndentCount,
   const MDString *S = dyn_cast<MDString>(MDCSs->getOperand(0));
   if (!S || (S->getString() != CallSitesTag))
     return;
-  for (unsigned I = 1; I < MDCSs->getNumOperands(); ++I)
+
+  for (unsigned I = 1, E = MDCSs->getNumOperands(); I < E; ++I) {
     printCallSiteInlineReport(MDCSs->getOperand(I), IndentCount, M, Level);
+  }
 }
 
 ///
@@ -267,10 +265,23 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
                                                   unsigned Level) {
   assert(isa<MDTuple>(Node) && "Bad format of function inlining report");
   MDTuple *FuncReport = cast<MDTuple>(Node);
-  assert(FuncReport->getNumOperands() == FunctionMDSize &&
-         "Bad format of function inlining report");
+  if (!FuncReport) {
+    LLVM_DEBUG(dbgs() << "Fail to obtain FuncReport\n";);
+    return;
+  }
+  assert((FuncReport->getNumOperands() == FunctionMDSize) &&
+      "Bad format of function inlining report");
+  int64_t SuppressPrint = 0;
+  getOpVal(FuncReport->getOperand(FMDIR_SuppressPrintReport),
+           "isSuppressPrint: ", &SuppressPrint);
+  if (SuppressPrint) {
+    LLVM_DEBUG(dbgs() << "Hit SuppressPrint flag ON, suppress print\n";);
+    return;
+  }
+
   int64_t IsDead = 0;
   getOpVal(FuncReport->getOperand(FMDIR_IsDead), "isDead: ", &IsDead);
+
   // Special output for dead static functions.
   if (IsDead) {
     llvm::errs() << "DEAD STATIC FUNC: ";
@@ -281,10 +292,16 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
                    << ' ';
     }
     // Function name
-    llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ")
-                 << "\n\n";
+    llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    // Module name
+    if (Level & InlineReportOptions::File)
+      llvm::errs() << ' '
+                   << getOpStr(FuncReport->getOperand(FMDIR_ModuleName),
+                               "moduleName: ");
+    llvm::errs() << "\n\n";
     return;
   }
+
   // if function is declaration
   int64_t IsDecl = 0;
   getOpVal(FuncReport->getOperand(FMDIR_IsDeclaration),
@@ -292,7 +309,8 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
   if (IsDecl)
     return;
   llvm::errs() << "COMPILE FUNC: ";
-  std::string Name = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+  std::string Name =
+      std::string(getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: "));
   // Update linkage last time before printing.
   if (Function *F = M.getFunction(Name)) {
     std::string Linkage = llvm::getLinkageStr(F);
@@ -308,9 +326,11 @@ static void printFunctionInlineReportFromMetadata(MDNode *Node, Module &M,
                                "linkage: ")
                    << ' ';
   }
+
   llvm::errs() << Name << '\n';
   printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1, M, Level);
   llvm::errs() << '\n';
+
   return;
 }
 
@@ -339,10 +359,16 @@ static bool emitInlineReport(Module &M, unsigned Level, unsigned OptLevel,
   llvm::printOptionValues(OptLevel, SizeLevel);
   NamedMDNode *ModuleInlineReport =
       M.getOrInsertNamedMetadata("intel.module.inlining.report");
-  for (unsigned I = 0; I < ModuleInlineReport->getNumOperands(); ++I) {
+  if (!ModuleInlineReport) {
+    LLVM_DEBUG(dbgs() << "Failed to obtain ModuleInlineReport\n";);
+    return false;
+  }
+
+  for (unsigned I = 0, E = ModuleInlineReport->getNumOperands(); I < E; ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
     printFunctionInlineReportFromMetadata(Node, M, Level);
   }
+
   llvm::errs() << "---- End Inlining Report ------ (via metadata)\n";
   return true;
 }

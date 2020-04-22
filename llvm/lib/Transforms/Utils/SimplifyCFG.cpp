@@ -195,16 +195,17 @@ class SimplifyCFGOpt {
   bool FoldValueComparisonIntoPredecessors(Instruction *TI,
                                            IRBuilder<> &Builder);
 
-  bool SimplifyReturn(ReturnInst *RI, IRBuilder<> &Builder);
-  bool SimplifyResume(ResumeInst *RI, IRBuilder<> &Builder);
-  bool SimplifySingleResume(ResumeInst *RI);
-  bool SimplifyCommonResume(ResumeInst *RI);
-  bool SimplifyCleanupReturn(CleanupReturnInst *RI);
-  bool SimplifyUnreachable(UnreachableInst *UI);
-  bool SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder);
-  bool SimplifyIndirectBr(IndirectBrInst *IBI);
-  bool SimplifyUncondBranch(BranchInst *BI, IRBuilder<> &Builder);
-  bool SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder);
+  bool simplifyReturn(ReturnInst *RI, IRBuilder<> &Builder);
+  bool simplifyResume(ResumeInst *RI, IRBuilder<> &Builder);
+  bool simplifySingleResume(ResumeInst *RI);
+  bool simplifyCommonResume(ResumeInst *RI);
+  bool simplifyCleanupReturn(CleanupReturnInst *RI);
+  bool simplifyUnreachable(UnreachableInst *UI);
+  bool simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder);
+  bool simplifyIndirectBr(IndirectBrInst *IBI);
+  bool simplifyBranch(BranchInst *Branch, IRBuilder<> &Builder);
+  bool simplifyUncondBranch(BranchInst *BI, IRBuilder<> &Builder);
+  bool simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder);
 
   bool tryToSimplifyUncondBranchWithICmpInIt(ICmpInst *ICI,
                                              IRBuilder<> &Builder);
@@ -1471,6 +1472,13 @@ static bool isLifeTimeMarker(const Instruction *I) {
   return false;
 }
 
+// TODO: Refine this. This should avoid cases like turning constant memcpy sizes
+// into variables.
+static bool replacingOperandWithVariableIsCheap(const Instruction *I,
+                                                int OpIdx) {
+  return !isa<IntrinsicInst>(I);
+}
+
 // All instructions in Insts belong to different blocks that all unconditionally
 // branch to a common successor. Analyze each instruction and return true if it
 // would be possible to sink them into their successor, creating one common
@@ -1548,7 +1556,8 @@ static bool canSinkInstructions(
     return false;
 
   for (unsigned OI = 0, OE = I0->getNumOperands(); OI != OE; ++OI) {
-    if (I0->getOperand(OI)->getType()->isTokenTy())
+    Value *Op = I0->getOperand(OI);
+    if (Op->getType()->isTokenTy())
       // Don't touch any operand of token type.
       return false;
 
@@ -1557,7 +1566,8 @@ static bool canSinkInstructions(
       return I->getOperand(OI) == I0->getOperand(OI);
     };
     if (!all_of(Insts, SameAsI0)) {
-      if (!canReplaceOperandWithVariable(I0, OI))
+      if ((isa<Constant>(Op) && !replacingOperandWithVariableIsCheap(I0, OI)) ||
+          !canReplaceOperandWithVariable(I0, OI))
         // We can't create a PHI from this GEP.
         return false;
       // Don't create indirect calls! The called value is the final operand.
@@ -2158,13 +2168,12 @@ static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
       continue;
 
     // Create a select whose true value is the speculatively executed value and
-    // false value is the preexisting value. Swap them if the branch
+    // false value is the pre-existing value. Swap them if the branch
     // destinations were inverted.
     Value *TrueV = ThenV, *FalseV = OrigV;
     if (Invert)
       std::swap(TrueV, FalseV);
-    Value *V = Builder.CreateSelect(
-        BrCond, TrueV, FalseV, "spec.select", BI);
+    Value *V = Builder.CreateSelect(BrCond, TrueV, FalseV, "spec.select", BI);
     PN.setIncomingValue(OrigI, V);
     PN.setIncomingValue(ThenI, V);
   }
@@ -2302,14 +2311,14 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
         if (!BBI->use_empty())
           TranslateMap[&*BBI] = N;
       }
-      // Insert the new instruction into its new home.
-      if (N)
+      if (N) {
+        // Insert the new instruction into its new home.
         EdgeBB->getInstList().insert(InsertPt, N);
 
-      // Register the new instruction with the assumption cache if necessary.
-      if (auto *II = dyn_cast_or_null<IntrinsicInst>(N))
-        if (II->getIntrinsicID() == Intrinsic::assume)
-          AC->registerAssumption(II);
+        // Register the new instruction with the assumption cache if necessary.
+        if (AC && match(N, m_Intrinsic<Intrinsic::assume>()))
+          AC->registerAssumption(cast<IntrinsicInst>(N));
+      }
     }
 
     // Loop over all of the edges from PredBB to BB, changing them to branch
@@ -2518,8 +2527,11 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
     for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
-      if (isa<FPMathOperator>(PN))
+      if (isa<FPMathOperator>(PN)) {
+        // Putting the next statement between curly because compilation
+        // with gcc7.3.0 failed.
         Builder.setFastMathFlags(PN->getFastMathFlags());
+      }
 
       Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
       Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
@@ -2650,8 +2662,8 @@ static bool SimplifyCondBranchToTwoReturns(BranchInst *BI,
   (void)RI;
 
   LLVM_DEBUG(dbgs() << "\nCHANGING BRANCH TO TWO RETURNS INTO SELECT:"
-                    << "\n  " << *BI << "NewRet = " << *RI << "TRUEBLOCK: "
-                    << *TrueSucc << "FALSEBLOCK: " << *FalseSucc);
+                    << "\n  " << *BI << "\nNewRet = " << *RI << "\nTRUEBLOCK: "
+                    << *TrueSucc << "\nFALSEBLOCK: " << *FalseSucc);
 
   EraseTerminatorAndDCECond(BI);
 
@@ -2674,6 +2686,481 @@ static bool tryCSEWithPredecessor(Instruction *Inst, BasicBlock *PB) {
   }
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+// We transform this:
+//
+// if (t1x > t2y  || t2x < t1y  || t1x > t2z || t2x < t1z ||
+//     t1y > t2z || t2y < t1z) return 0;
+// if (t2x < 0.0f || t2y < 0.0f || t2z < 0.0f) return 0;
+// if (t1x > isec->dist || t1y > isec->dist || t1z > isec->dist) return 0;
+//
+// to this:
+//
+// if (t2x < 0.0f || t2y < 0.0f || t2z < 0.0f) return 0;
+// if (t1x > isec->dist || t1y > isec->dist || t1z > isec->dist) return 0;
+// if (t2y < fmaxf(t1x,t1z) || t2x < fmaxf(t1y,t1x) || t2z < fmaxf(t1x,t1y))
+//    return 0;
+//
+// The || clauses look like a "ladder" of these blocks:
+//
+// if.end69:
+//  %71 = load float, float* %t1x, align 4, !tbaa !70
+//  %72 = load %struct.Isect*, %struct.Isect** %isec.addr, align 8, !tbaa !63
+//  %dist = getelementptr inbounds %struct.Isect, %struct.Isect* %72...
+//  %73 = load float, float* %dist, align 8, !tbaa !76
+//  %cmp70 = fcmp fast ogt float %71, %73
+//  br i1 %cmp70, label %if.then77, label %lor.lhs.false71
+//
+// There is a consecutive sequence of these blocks which have the same
+// exit block (or equivalent exit blocks).
+//
+// The blocks can be reordered with respect to each other, because they have
+// no side effects, and each inst result does not live outside its own block.
+//
+// For blender, we need to re-order 12 blocks like this:
+//   constant compares
+//   double-indirect compares
+//   all other compares
+//
+// Then we run a pattern on the last 6 compares:
+// x < y || x < z
+//  =>
+// x < llvm.maxnum(y,z)
+//
+// The purpose of this transformation is to move the most common clauses
+// to the top and allow early exits, and improve branch prediction.
+//
+// Code is scanned starting at "BI" parameter, for a ladder of 12 blocks.
+// Returns true if the above transformation was performed.
+static bool foldFcmpLadder(BranchInst *BI) {
+  bool didSomething = false;
+  // Function BranchInstInLadder:
+  //
+  // Does this BranchInst end a ladder block? A ladder block is:
+  //
+  // [LoadInst | GEP]
+  // ...
+  // fcmp [OLT|OGT]
+  // br
+  //
+  // The pattern above is specific for blender.
+  // All insts must also be one-use, to ensure that the blocks can be
+  // reordered.
+  // If this block is the first block, we ignore extra instructions above the
+  // ladder instructions.
+  auto BranchInstInLadder = [](BranchInst *BI, bool IgnoreAbove) {
+    // BI must have 2 successors.
+    if (!BI || BI->getNumSuccessors() != 2)
+      return false;
+
+    // Match fcmp,br pattern above.
+    auto *FCmpI = dyn_cast<FCmpInst>(BI->getCondition());
+    if (!FCmpI || FCmpI->getNextNonDebugInstruction() != BI)
+      return false;
+    if (!FCmpI->isFast())
+      return false;
+    if (!FCmpI->hasOneUse())
+      return false;
+    // Compare must be OLT or OGT.
+    auto Pred = FCmpI->getPredicate();
+    if (Pred != FCmpInst::FCMP_OLT && Pred != FCmpInst::FCMP_OGT)
+      return false;
+
+    auto *Inst0 = dyn_cast<Instruction>(FCmpI->getOperand(0));
+    auto *Inst1 = dyn_cast<Instruction>(FCmpI->getOperand(1));
+    auto *ThisBlock = BI->getParent();
+    // Inst0 and Inst1 are the operands of the compare.
+    // Check for these patterns:
+    //
+    // startblock: (optional if IgnoreAbove == true)
+    //   %Inst0 = load ...
+    //   %load|%gep = ... (optional)
+    //   %load|%gep = ... (optional)
+    //   %Inst1 = load ...
+    //   %cmp = fcmp %Inst0, %Inst1...
+    //
+    // or
+    //
+    // startblock: (optional if IgnoreAbove == true)
+    //   %Inst0 = load
+    //   %cmp = fcmp %Inst0, constant
+    //
+    if (!Inst0)
+      return false;
+
+    // Inst0 must start the block (unless we are ignoring other instructions)
+    if (!IgnoreAbove && Inst0 != &*(ThisBlock->begin()))
+      return false;
+    if (!isa<LoadInst>(Inst0))
+      return false;
+    if (!Inst0->hasOneUse())
+      return false;
+
+    if (Inst1) {
+      if (!isa<LoadInst>(Inst1))
+        return false;
+      // Check insts between Inst0 and Inst1.
+      Instruction *Curr = Inst0->getNextNonDebugInstruction();
+      while (Curr != Inst1) {
+        if (!Curr || (!isa<GetElementPtrInst>(Curr) && !isa<LoadInst>(Curr)))
+          return false;
+        if (!Curr->hasOneUse() || !Curr->isUsedInBasicBlock(ThisBlock))
+          return false;
+        Curr = Curr->getNextNonDebugInstruction();
+      }
+      // Finally, Inst1 must precede the compare.
+      if (Inst1->getNextNonDebugInstruction() != FCmpI)
+        return false;
+    } else {
+      // No Inst1, check for compare with constant.
+      if (!isa<Constant>(FCmpI->getOperand(1)))
+        return false;
+      if (Inst0->getNextNonDebugInstruction() != FCmpI)
+        return false;
+    }
+
+    return true;
+  };
+
+  // Function sameValueOrLoadAddr:
+  //
+  // True if the 2 values are pointer-equal, or they are loads of the same
+  // address.
+  // Ladder blocks have no side effects, so loads with the same address are
+  // equal.
+  auto sameValueOrLoadAddr = [](Value *V1, Value *V2) {
+    if (!V1 || !V2)
+      return false;
+    auto *LV1 = dyn_cast<LoadInst>(V1);
+    auto *LV2 = dyn_cast<LoadInst>(V2);
+    if (LV1 && LV2)
+      return LV1->getPointerOperand() == LV2->getPointerOperand();
+    else
+      return V1 == V2;
+  };
+
+  struct LadderCompare {
+    Value *Smaller;
+    Value *Larger;
+    FCmpInst *FCmpI;
+  };
+
+  // Function moveLadderBlock:
+  //
+  // Move a ladder block, updating CFG and Compares vector.
+  // Compares vector holds ladder fcmps, {Smaller, Larger, FCmpInst}
+  // The blocks are indexes into this Compares vector.
+  // Move from index "IdxToMove", insert before index "InsertBefore".
+  // This algorithm is specific to the ladder blocks. It assumes that only
+  // "false" branches must be updated.
+  auto moveLadderBlock = [](SmallVector<LadderCompare, 5> &Compares,
+                            unsigned IdxToMove, unsigned InsertBefore) {
+    if (IdxToMove == InsertBefore)
+      return false;
+    assert(Compares[IdxToMove].Smaller);
+    assert(Compares[InsertBefore].Smaller);
+    assert(Compares[IdxToMove].FCmpI);
+    assert(Compares[InsertBefore].FCmpI);
+
+    // BlockToMove will be inserted between BlockBefore and BlockAfter.
+    BasicBlock *BlockToMove = Compares[IdxToMove].FCmpI->getParent();
+    BasicBlock *BlockAfter = Compares[InsertBefore].FCmpI->getParent();
+    assert(BlockAfter->hasNPredecessors(1));
+    assert(BlockToMove->hasNPredecessors(1));
+    BasicBlock *BlockBefore = BlockAfter->getSinglePredecessor();
+
+    auto *MoveTerm = cast<BranchInst>(BlockToMove->getTerminator());
+    auto *BlockBeforeTerm = cast<BranchInst>(BlockBefore->getTerminator());
+
+    assert(MoveTerm->getNumSuccessors() == 2);
+
+    // The ladder blocks are connected by their "false" branches.
+    // We don't need to worry about the "true" branches.
+
+    // First, remove BlockToMove from the CFG.
+    // Find the false edge going to BlockToMove, and connect it to
+    // BlockToMove's successor.
+    BasicBlock *OldPred = BlockToMove->getSinglePredecessor();
+    BasicBlock *OldSucc = MoveTerm->getSuccessor(1);
+    auto *OldPredTerm = OldPred->getTerminator();
+    assert(OldPredTerm->getNumSuccessors() == 2);
+    assert(OldPredTerm->getSuccessor(1) == BlockToMove);
+    OldPredTerm->setSuccessor(1, OldSucc);
+
+    // Find the edge going from BlockBefore to BlockAfter, and change it
+    // to BlockToMove. BlockBefore may not be a ladder block, so we don't
+    // assume it's a false branch.
+    for (unsigned int i = 0; i < BlockBeforeTerm->getNumSuccessors(); ++i)
+      if (BlockBeforeTerm->getSuccessor(i) == BlockAfter) {
+        BlockBeforeTerm->setSuccessor(i, BlockToMove);
+        break;
+      }
+
+    // Set the "false" branch of BlockToMove, to point to BlockAfter.
+    // (the ladder blocks use the "false" branch to the next ladder block)
+    MoveTerm->setSuccessor(1, BlockAfter);
+
+    // Move BlockToMove in the Function's list. out-of-order blocks may
+    // prevent other optimizations.
+    BlockToMove->moveAfter(BlockBefore);
+
+    // Update the Compares vector, by rotating elements.
+    // Example, insert e (index 4) between a and b (@ index 1).
+    // a b c d e f => rotate [1..4] so that 4 is first
+    // a e b c d f
+    //
+    // other case: insert b (index 1) between e and f (@ index 4):
+    // a b c d e f => rotate [1..4] so that 1 is last (lrot 1 step)
+    // a c d e b f
+    // Vector size is small, these linear algorithms will perform OK.
+    // std::rotate is open interval [m..n), need +1 on end
+    if (InsertBefore < IdxToMove)
+      std::rotate(Compares.begin() + InsertBefore, Compares.begin() + IdxToMove,
+                  Compares.begin() + IdxToMove + 1);
+    else
+      std::rotate(
+          Compares.begin() + IdxToMove, Compares.begin() + IdxToMove + 1,
+          Compares.begin() + InsertBefore); // InsertBefore is target pos + 1
+
+    return true;
+  };
+
+  // Function compareBlocks:
+  //
+  // Compare 2 ladder-exit blocks similar to the below:
+  //
+  // store float 0x47EFFFFFE0000000, float* %retval, align 4
+  // store i32 1, i32* %cleanup.dest.slot, align 4
+  // br label %cleanup
+  //
+  // 2 blocks are equivalent if they have the same instructions with the
+  // same operands, and no calls or other instructions with unknown
+  // side effects. StoreInst is OK if the stores have the same address and
+  // the same store-value.
+  // For simplicity, we just compare StoreInst and the terminator branch.
+  // No other instructions are allowed.
+  auto compareBlocks = [](BasicBlock *BBL, BasicBlock *BBR) {
+    if (BBL == BBR)
+      return true;
+    BasicBlock::iterator InstITL = BBL->begin(), InstLE = BBL->end();
+    BasicBlock::iterator InstITR = BBR->begin(), InstRE = BBR->end();
+
+    int count = 5;
+    do {
+      // Don't compare more than 5 insts.
+      if (count-- == 0)
+        return false;
+      Instruction *InstL = &*InstITL;
+      Instruction *InstR = &*InstITR;
+      // Filter for specific insts.
+      if (!isa<StoreInst>(InstL) && !isa<BranchInst>(InstL))
+        return false;
+
+      if (!InstL->isIdenticalTo(InstR))
+        return false;
+
+      // BranchInst successors must be compared.
+      BranchInst *BrInstL = dyn_cast<BranchInst>(InstL);
+      BranchInst *BrInstR = dyn_cast<BranchInst>(InstR);
+      if (BrInstL && BrInstR) {
+        unsigned ns = BrInstL->getNumSuccessors();
+        if (BrInstR->getNumSuccessors() != ns)
+          return false;
+        for (unsigned i = 0; i != ns; ++i)
+          if (BrInstL->getSuccessor(i) != BrInstR->getSuccessor(i))
+            return false;
+      }
+      ++InstITL;
+      ++InstITR;
+    } while (InstITL != InstLE && InstITR != InstRE);
+
+    return true;
+  };
+
+  // Function FcmpBrToFalseBr:
+  //
+  // Convert fcmp, br into unconditional br to the false branch (next ladder
+  // block). Used when a ladder block is folded to dead code.
+  auto FcmpBrToFalseBr = [](FCmpInst *FCmpI) {
+    assert(FCmpI->hasOneUse());
+    BranchInst *Br = dyn_cast<BranchInst>(*(FCmpI->user_begin()));
+    assert(Br && Br->getNumSuccessors() == 2);
+    BranchInst::Create(Br->getSuccessor(1), Br);
+    Br->eraseFromParent();
+    FCmpI->eraseFromParent();
+  };
+
+  // PART 1:
+  // Collect consecutive ladder blocks into this "Compares" vector:
+  // lesser value, greater value, compare instruction
+  SmallVector<LadderCompare, 5> Compares;
+  BranchInst *CurrBI = BI;
+  BasicBlock *SameTrueBlock = CurrBI->getSuccessor(0);
+
+  while (CurrBI) {
+    FCmpInst *FCmpI = nullptr;
+    if (BranchInstInLadder(CurrBI, CurrBI->getParent() == BI->getParent()))
+      FCmpI = dyn_cast<FCmpInst>(CurrBI->getCondition());
+    if (!FCmpI)
+      break;
+    // CurrBI points to a ladder block. Each ladder block must have a
+    // false branch to the next ladder block, and a true exit that is
+    // "equivalent" to the other true exits.
+    if (!compareBlocks(SameTrueBlock, CurrBI->getSuccessor(0)))
+      break;
+
+    LLVM_DEBUG(dbgs() << "Found ladder compare: " << *FCmpI << "\n");
+
+    // Make a tuple for this ladder block and push it on the Compares vector.
+    Value *Smaller = FCmpI->getPredicate() == FCmpInst::FCMP_OLT
+                         ? FCmpI->getOperand(0)
+                         : FCmpI->getOperand(1);
+    Value *Larger = FCmpI->getPredicate() == FCmpInst::FCMP_OLT
+                        ? FCmpI->getOperand(1)
+                        : FCmpI->getOperand(0);
+    Compares.push_back(LadderCompare{Smaller, Larger, FCmpI});
+    CurrBI = dyn_cast<BranchInst>(CurrBI->getSuccessor(1)->getTerminator());
+  }
+
+  LLVM_DEBUG(if (Compares.size()) dbgs()
+             << "Number of blocks: " << Compares.size() << "\n");
+
+  // blender specific
+  if (Compares.size() != 12)
+    return false;
+
+  // PART 2:
+  // Reorder blocks so that fcmp const,.. is at the top,
+  // blocks with 3 loads are next,
+  // blocks with 2 loads are last.
+  auto fcmpHasConst = [](FCmpInst *FCmpI) {
+    for (unsigned i = 0; i < FCmpI->getNumOperands(); ++i)
+      if (isa<Constant>(FCmpI->getOperand(i)))
+        return true;
+    return false;
+  };
+
+  auto fcmpBlockHas3Loads = [](FCmpInst *FCmpI) {
+    BasicBlock *FcmpBlock = FCmpI->getParent();
+    unsigned count = 0;
+    for (Instruction &I : *FcmpBlock)
+      if (isa<LoadInst>(I))
+        count++;
+    return count > 2;
+  };
+
+  // First we must fix the first block in the ladder.
+  // Split the unrelated instructions away from the ladder.
+  FCmpInst *Compare0 = Compares[0].FCmpI;
+  Instruction *Load0 = cast<Instruction>(Compare0->getOperand(0));
+
+  // If the 1st instruction in the ladder is already at the top of the
+  // block, we already did this ladder optimization.
+  if (Load0 == &*(Load0->getParent()->begin())) {
+    LLVM_DEBUG(dbgs() << "Ladder optimization already done.\n");
+    return false;
+  }
+
+  didSomething = true;
+
+  Load0->getParent()->splitBasicBlock(Load0, "ladder");
+
+  // Then, move the fcmp const blocks to the top of the ladder.
+  unsigned IPoint = 0;
+  for (unsigned i = 0; i < Compares.size(); ++i) {
+    FCmpInst *FCmpI = Compares[i].FCmpI;
+    if (fcmpHasConst(FCmpI)) {
+      moveLadderBlock(Compares, i, IPoint++);
+      LLVM_DEBUG(dbgs() << "Moved fcmp x,C: " << *FCmpI << " to pos " << i
+                        << "\n");
+    }
+  }
+
+  // Move the blocks with 3 loads next.
+  for (unsigned i = 0; i < Compares.size(); ++i) {
+    FCmpInst *FCmpI = Compares[i].FCmpI;
+    if (fcmpBlockHas3Loads(FCmpI)) {
+      moveLadderBlock(Compares, i, IPoint++);
+      LLVM_DEBUG(dbgs() << "Moved 3-load block: " << *FCmpI << " to pos " << i
+                        << "\n");
+    }
+  }
+  // The rest of the blocks stay in the same order.
+
+  // PART 3:
+  // Recognize llvm.maxnum:
+  // x < y || x < z  =>  x < llvm.maxnum(y,z)
+  //
+  // x86 CG can recognize max from fcmp/select. We make this transform
+  // here in SimplifyCFG, because it prevents reordering of the compares, and
+  // preserves the specific branch ordering we need.
+
+  // Only apply max to the last 6 blocks. More max will reduce performance.
+  const int StartPeep = 6;
+
+  for (unsigned int i = StartPeep; i < Compares.size(); ++i) {
+    // For each "smaller" value in the Compares, find a compare with the
+    // same "smaller" value.
+    Value *Smaller = Compares[i].Smaller;
+    Value *Larger = Compares[i].Larger;
+    FCmpInst *FCmpI = Compares[i].FCmpI;
+    if (!Smaller)
+      continue;
+    if (!isa<Instruction>(Smaller))
+      continue;
+
+    LLVM_DEBUG(dbgs() << "Finding match for compare at pos " << i << ":\n"
+                      << *FCmpI << "\n");
+
+    auto MatchingCompIt = std::find_if(
+        Compares.begin() + StartPeep, Compares.end(), [&](LadderCompare &Cand) {
+          return Cand.Smaller != Smaller &&
+                 sameValueOrLoadAddr(Cand.Smaller, Smaller);
+        });
+    if (MatchingCompIt == Compares.end())
+      continue;
+    unsigned MatchingIdx = std::distance(Compares.begin(), MatchingCompIt);
+
+    LLVM_DEBUG(dbgs() << "Matched compare at pos " << MatchingIdx << ":\n"
+                      << *((*MatchingCompIt).FCmpI) << "\n");
+
+    // "i" and "MatchingIdx" are the indices of the 2 matching compares.
+    // The llvm.maxnum must replace the deepest instruction, so that all
+    // operands are available. This instruction has the highest index, as the
+    // ladder blocks are in DFO.
+    unsigned HighestIdx = std::max(i, MatchingIdx);
+    Instruction *InsertPt = Compares[HighestIdx].FCmpI;
+    LLVM_DEBUG(dbgs() << "Generating max in block " << HighestIdx << ":\n");
+
+    // Generate %fmaxf = llvm.maxnum(Larger, OtherG)
+    IRBuilder<> Builder(InsertPt);
+    Value *OtherLrg = Compares[MatchingIdx].Larger;
+    Function *F = Intrinsic::getDeclaration(
+        FCmpI->getModule(), Intrinsic::maxnum, Smaller->getType());
+    auto *CallI = Builder.CreateCall(F, {Larger, OtherLrg}, "fmaxf");
+    // Generate "Smaller < %fmaxf"
+    FCmpInst *NewCmpI =
+        cast<FCmpInst>(Builder.CreateFCmpOLT(Smaller, CallI, "fmaxfcmp"));
+    NewCmpI->setFast(true);
+    InsertPt->replaceAllUsesWith(NewCmpI);
+    InsertPt->eraseFromParent();
+    LLVM_DEBUG(dbgs() << *CallI << "\n" << *NewCmpI << "\n");
+
+    // Remove the peepholed values from the Compares array, so we don't
+    // match them again.
+    Compares[i].Smaller = nullptr;
+    Compares[MatchingIdx].Smaller = nullptr;
+
+    // The block without the fmax is now useless. Change its br to unconditional
+    // false. InstCombine will later delete the dead instructions.
+    auto *DeadFcmp = Compares[std::min(i, MatchingIdx)].FCmpI;
+    LLVM_DEBUG(dbgs() << "Compare is dead: " << *DeadFcmp << "\n");
+    FcmpBrToFalseBr(DeadFcmp);
+  }
+  return didSomething;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Return true if either PBI or BI has branch weight available, and store
 /// the weights in {Pred|Succ}{True|False}Weight. If one of PBI and BI does
@@ -3982,19 +4469,19 @@ static bool SimplifyBranchOnICmpChain(BranchInst *BI, IRBuilder<> &Builder,
   return true;
 }
 
-bool SimplifyCFGOpt::SimplifyResume(ResumeInst *RI, IRBuilder<> &Builder) {
+bool SimplifyCFGOpt::simplifyResume(ResumeInst *RI, IRBuilder<> &Builder) {
   if (isa<PHINode>(RI->getValue()))
-    return SimplifyCommonResume(RI);
+    return simplifyCommonResume(RI);
   else if (isa<LandingPadInst>(RI->getParent()->getFirstNonPHI()) &&
            RI->getValue() == RI->getParent()->getFirstNonPHI())
     // The resume must unwind the exception that caused control to branch here.
-    return SimplifySingleResume(RI);
+    return simplifySingleResume(RI);
 
   return false;
 }
 
 // Simplify resume that is shared by several landing pads (phi of landing pad).
-bool SimplifyCFGOpt::SimplifyCommonResume(ResumeInst *RI) {
+bool SimplifyCFGOpt::simplifyCommonResume(ResumeInst *RI) {
   BasicBlock *BB = RI->getParent();
 
   // Check that there are no other instructions except for debug intrinsics
@@ -4073,7 +4560,7 @@ bool SimplifyCFGOpt::SimplifyCommonResume(ResumeInst *RI) {
 }
 
 // Simplify resume that is only used by a single (non-phi) landing pad.
-bool SimplifyCFGOpt::SimplifySingleResume(ResumeInst *RI) {
+bool SimplifyCFGOpt::simplifySingleResume(ResumeInst *RI) {
   BasicBlock *BB = RI->getParent();
   auto *LPInst = cast<LandingPadInst>(BB->getFirstNonPHI());
   assert(RI->getValue() == LPInst &&
@@ -4202,9 +4689,10 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI) {
       // The iterator must be incremented here because the instructions are
       // being moved to another block.
       PHINode *PN = cast<PHINode>(I++);
-      if (PN->use_empty())
-        // If the PHI node has no uses, just leave it.  It will be erased
-        // when we erase BB below.
+      if (PN->use_empty() || !PN->isUsedOutsideOfBlock(BB))
+        // If the PHI node has no uses or all of its uses are in this basic
+        // block (meaning they are debug or lifetime intrinsics), just leave
+        // it.  It will be erased when we erase BB below.
         continue;
 
       // Otherwise, sink this PHI node into UnwindDest.
@@ -4267,7 +4755,7 @@ static bool mergeCleanupPad(CleanupReturnInst *RI) {
   return true;
 }
 
-bool SimplifyCFGOpt::SimplifyCleanupReturn(CleanupReturnInst *RI) {
+bool SimplifyCFGOpt::simplifyCleanupReturn(CleanupReturnInst *RI) {
   // It is possible to transiantly have an undef cleanuppad operand because we
   // have deleted some, but not all, dead blocks.
   // Eventually, this block will be deleted.
@@ -4283,7 +4771,7 @@ bool SimplifyCFGOpt::SimplifyCleanupReturn(CleanupReturnInst *RI) {
   return false;
 }
 
-bool SimplifyCFGOpt::SimplifyReturn(ReturnInst *RI, IRBuilder<> &Builder) {
+bool SimplifyCFGOpt::simplifyReturn(ReturnInst *RI, IRBuilder<> &Builder) {
   BasicBlock *BB = RI->getParent();
   if (!BB->getFirstNonPHIOrDbg()->isTerminator())
     return false;
@@ -4337,7 +4825,7 @@ bool SimplifyCFGOpt::SimplifyReturn(ReturnInst *RI, IRBuilder<> &Builder) {
   return false;
 }
 
-bool SimplifyCFGOpt::SimplifyUnreachable(UnreachableInst *UI) {
+bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
   BasicBlock *BB = UI->getParent();
 
   bool Changed = false;
@@ -5985,7 +6473,7 @@ static bool ReduceSwitchRange(SwitchInst *SI, IRBuilder<> &Builder,
   return true;
 }
 
-bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
+bool SimplifyCFGOpt::simplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   BasicBlock *BB = SI->getParent();
 
   if (isValueEqualityComparison(SI)) {
@@ -6043,7 +6531,7 @@ bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   return false;
 }
 
-bool SimplifyCFGOpt::SimplifyIndirectBr(IndirectBrInst *IBI) {
+bool SimplifyCFGOpt::simplifyIndirectBr(IndirectBrInst *IBI) {
   BasicBlock *BB = IBI->getParent();
   bool Changed = false;
 
@@ -6158,7 +6646,12 @@ static bool TryToMergeLandingPad(LandingPadInst *LPad, BranchInst *BI,
   return false;
 }
 
-bool SimplifyCFGOpt::SimplifyUncondBranch(BranchInst *BI,
+bool SimplifyCFGOpt::simplifyBranch(BranchInst *Branch, IRBuilder<> &Builder) {
+  return Branch->isUnconditional() ? simplifyUncondBranch(Branch, Builder)
+                                   : simplifyCondBranch(Branch, Builder);
+}
+
+bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
                                           IRBuilder<> &Builder) {
   BasicBlock *BB = BI->getParent();
   BasicBlock *Succ = BI->getSuccessor(0);
@@ -6219,7 +6712,7 @@ static BasicBlock *allPredecessorsComeFromSameSource(BasicBlock *BB) {
   return PredPred;
 }
 
-bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
+bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   BasicBlock *BB = BI->getParent();
   const Function *Fn = BB->getParent();
   if (Fn && Fn->hasFnAttribute(Attribute::OptForFuzzing))
@@ -6263,6 +6756,12 @@ bool SimplifyCFGOpt::SimplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
     RecursivelyDeleteTriviallyDeadInstructions(OldCond);
     return requestResimplify();
   }
+
+#if INTEL_CUSTOMIZATION
+  if (foldFcmpLadder(BI)) {
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If this basic block is ONLY a compare and a branch, and if a predecessor
   // branches to us and one of our successors, fold the comparison into the
@@ -6460,33 +6959,30 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
   }
 #endif //INTEL_CUSTOMIZATION
 
-  Builder.SetInsertPoint(BB->getTerminator());
-  if (auto *BI = dyn_cast<BranchInst>(BB->getTerminator())) {
-    if (BI->isUnconditional()) {
-      if (SimplifyUncondBranch(BI, Builder))
-        return true;
-    } else {
-      if (SimplifyCondBranch(BI, Builder))
-        return true;
-    }
-  } else if (auto *RI = dyn_cast<ReturnInst>(BB->getTerminator())) {
-    if (SimplifyReturn(RI, Builder))
-      return true;
-  } else if (auto *RI = dyn_cast<ResumeInst>(BB->getTerminator())) {
-    if (SimplifyResume(RI, Builder))
-      return true;
-  } else if (auto *RI = dyn_cast<CleanupReturnInst>(BB->getTerminator())) {
-    if (SimplifyCleanupReturn(RI))
-      return true;
-  } else if (auto *SI = dyn_cast<SwitchInst>(BB->getTerminator())) {
-    if (SimplifySwitch(SI, Builder))
-      return true;
-  } else if (auto *UI = dyn_cast<UnreachableInst>(BB->getTerminator())) {
-    if (SimplifyUnreachable(UI))
-      return true;
-  } else if (auto *IBI = dyn_cast<IndirectBrInst>(BB->getTerminator())) {
-    if (SimplifyIndirectBr(IBI))
-      return true;
+  Instruction *Terminator = BB->getTerminator();
+  Builder.SetInsertPoint(Terminator);
+  switch (Terminator->getOpcode()) {
+  case Instruction::Br:
+    Changed |= simplifyBranch(cast<BranchInst>(Terminator), Builder);
+    break;
+  case Instruction::Ret:
+    Changed |= simplifyReturn(cast<ReturnInst>(Terminator), Builder);
+    break;
+  case Instruction::Resume:
+    Changed |= simplifyResume(cast<ResumeInst>(Terminator), Builder);
+    break;
+  case Instruction::CleanupRet:
+    Changed |= simplifyCleanupReturn(cast<CleanupReturnInst>(Terminator));
+    break;
+  case Instruction::Switch:
+    Changed |= simplifySwitch(cast<SwitchInst>(Terminator), Builder);
+    break;
+  case Instruction::Unreachable:
+    Changed |= simplifyUnreachable(cast<UnreachableInst>(Terminator));
+    break;
+  case Instruction::IndirectBr:
+    Changed |= simplifyIndirectBr(cast<IndirectBrInst>(Terminator));
+    break;
   }
 
   return Changed;

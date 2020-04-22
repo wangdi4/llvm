@@ -1,6 +1,6 @@
 //===----  Intel_IPOUtils.h - IPO Utility Functions   --------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,6 +20,8 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
 
+#include <sstream>
+
 namespace llvm {
 
 class DominatorTree;
@@ -28,13 +30,12 @@ class TargetLibraryInfo;
 
 class IPOUtils {
 public:
-
   // Check: is the given Function a leaf function?
   // A leaf function has NO function call(s) in it.
   static bool isLeafFunction(const Function &F);
 
   // Check: is the given value V within the range of [LB, UB]?
-  template<typename T> static bool isInRange(T V, T LB, T UB) {
+  template <typename T> static bool isInRange(T V, T LB, T UB) {
     assert((LB <= UB) && "Expect LB <= UB\n");
     return (V >= LB) && (V <= UB);
   }
@@ -70,7 +71,6 @@ public:
 #endif
     return false;
   }
-
 };
 
 // This helper class is used to find candidates for multiversioning based on
@@ -85,10 +85,8 @@ class FunctionSignatureMatcher {
 public:
   // Default constructor, needed for MultiVersionImpl's type declaration
   FunctionSignatureMatcher()
-      : MinNumArgs(0), MaxNumArgs(0),
-        MinNumIntArgs(0), MaxNumIntArgs(0),
-        MinNumDoublePtrArgs(0), MaxNumDoublePtrArgs(0),
-        IsLeaf(false) {}
+      : MinNumArgs(0), MaxNumArgs(0), MinNumIntArgs(0), MaxNumIntArgs(0),
+        MinNumDoublePtrArgs(0), MaxNumDoublePtrArgs(0), IsLeaf(false) {}
 
   // [Note]
   // Argument NumPtrArgs0 and NumPtrArgs1 represent individual values instead of
@@ -105,9 +103,9 @@ public:
 
     assert((MinNumArgs <= MaxNumArgs) && "Expect MinNumArgs <= MaxNumArgs");
     assert((MinNumIntArgs <= MaxNumIntArgs) &&
-        "Expect MinNumIntArgs <= MaxNumIntArgs");
+           "Expect MinNumIntArgs <= MaxNumIntArgs");
     assert((MinNumDoublePtrArgs <= MaxNumDoublePtrArgs) &&
-        "Expect MinNumDoublePtrArgs <= MaxNumDoublePtrArgs");
+           "Expect MinNumDoublePtrArgs <= MaxNumDoublePtrArgs");
 
     // Note: NumPtrArgs are treated as individual values, rather than a range!
     NumPtrArgsV.push_back(NumPtrArgs0);
@@ -164,8 +162,7 @@ public:
 
     // Check MinNumIntAgs, MaxNumIntArgs: strict compare
     unsigned IntArgCount = IPOUtils::countIntArgs(*F);
-    if (!IPOUtils::isInRange<unsigned>(IntArgCount,
-                                       MinNumIntArgs,
+    if (!IPOUtils::isInRange<unsigned>(IntArgCount, MinNumIntArgs,
                                        MaxNumIntArgs))
       return false;
 
@@ -197,7 +194,33 @@ private:
 
 public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string toString(void) const;
+  LLVM_DUMP_METHOD std::string toString(void) const {
+    std::ostringstream S;
+    S << "FunctionSignature Object: \n";
+
+    // unsigned MinNumArgs, MaxNumArgs:
+    S << "MinNumArgs: " << MinNumArgs << ", MaxNumArgs: " << MaxNumArgs << "\n";
+
+    // unsigned MinNumIntArgs, MaxNumIntArgs:
+    S << "MinNumIntArgs: " << MinNumIntArgs
+      << ", MaxNumIntArgs: " << MaxNumIntArgs << "\n";
+
+    // std::vector<unsigned> NumPtrArgsV:
+    S << "NumPtrArgs: ";
+    for (auto V : NumPtrArgsV)
+      S << V << ", ";
+    S << "\n";
+
+    // unsigned MinNumDoublePtrArgs, MaxNumDoublePtrArgs;
+    S << "MinNumDoublePtrArgs: " << MinNumDoublePtrArgs
+      << ", MaxNumDoublePtrArgs: " << MaxNumDoublePtrArgs << "\n";
+
+    // IsLeaf:
+    S << "IsLeaf: " << std::boolalpha << IsLeaf << "\n";
+
+    return S.str();
+  }
+
   LLVM_DUMP_METHOD void dump(void) const { llvm::dbgs() << toString(); }
 #endif
 };
@@ -212,8 +235,8 @@ public:
 // call.
 //
 class AllocFreeAnalyzer {
-  // A FunctionClosureTy container is used to hold a function closure, which is a
-  // set of function *.
+  // A FunctionClosureTy container is used to hold a function closure, which is
+  // a set of function *.
   typedef SmallPtrSet<Function *, 8> FunctionClosureTy;
 
   // A CloseMapperTy type maps a Function* to a SmallVector of CallBase*.
@@ -236,11 +259,11 @@ class AllocFreeAnalyzer {
   typedef DenseMap<Function *, bool> FunctionVisitTy;
 
 public:
-  AllocFreeAnalyzer(Module &M,
-                    Function *MainF,
-                    function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-                    function_ref<DominatorTree &(Function &)> LookupDomTree,
-                    function_ref<PostDominatorTree &(Function &)> LookupPostDomTree)
+  AllocFreeAnalyzer(
+      Module &M, Function *MainF,
+      function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+      function_ref<DominatorTree &(Function &)> LookupDomTree,
+      function_ref<PostDominatorTree &(Function &)> LookupPostDomTree)
       : M(M), MainF(MainF), GetTLI(GetTLI), LookupDomTree(LookupDomTree),
         LookupPostDomTree(LookupPostDomTree) {
     // Collect any malloc-like and/or free call.
@@ -272,17 +295,14 @@ public:
     return Closure.find(F) != Closure.end();
   }
 
-  bool InsertUsersIntoClosure(Function *F,
-                              FunctionClosureTy &Closure,
-                              FunctionClosureTy &NewFunctions,
-                              bool DoRecurse, ClosureMapperTy &Mapper);
+  bool InsertUsersIntoClosure(Function *F, FunctionClosureTy &Closure,
+                              FunctionClosureTy &NewFunctions, bool DoRecurse,
+                              ClosureMapperTy &Mapper);
 
-  bool GrowAndTest(Function *F,
-                   FunctionClosureTy &FClosure,
+  bool GrowAndTest(Function *F, FunctionClosureTy &FClosure,
                    FunctionClosureTy &TestClosure,
                    ClosureMapperTy &HostClosureMapper,
-                   ClosureMapperTy &JointMapper,
-                   FunctionVisitTy &Visited);
+                   ClosureMapperTy &JointMapper, FunctionVisitTy &Visited);
 
   bool collect(void);
   bool analyzeMallocClosure(void);
@@ -293,12 +313,12 @@ public:
 private:
   // malloc related:
   SmallVector<CallBase *, 4> AllocVec; // detected malloc calls
-  FunctionClosureTy AllocClosure; // malloc closure
+  FunctionClosureTy AllocClosure;      // malloc closure
   ClosureMapperTy AllocClosureMapper;
 
   // free related:
-  SmallVector<CallBase *, 4> FreeVec;  // detected free calls
-  FunctionClosureTy FreeClosure;  // free closure
+  SmallVector<CallBase *, 4> FreeVec; // detected free calls
+  FunctionClosureTy FreeClosure;      // free closure
   ClosureMapperTy FreeClosureMapper;
 
   Module &M;
@@ -312,7 +332,6 @@ private:
   void dumpFunctionClosure(FunctionClosureTy &Closure, StringRef Msg);
   void dumpClosureMapper(ClosureMapperTy &ClosureMapper, StringRef Msg);
 #endif
-
 };
 
 // Helper class to handle the shared utilities for argument alignment
@@ -320,6 +339,74 @@ class IntelArgumentAlignmentUtils {
 public:
   bool valueRefersToArg(Value *Val, Value *ArgArray);
 }; // end IntelArgumentAlignmentUtils
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Data structure that tracks the progress of a task
+class ProgressLog {
+  StringRef PassName;
+  bool PassPreliminaryAnalysis, PassCollection, PassAnalysis,
+      PassTransformation;
+  bool DetailMode;
+
+public:
+  enum Stage {
+    PreliminaryAnalysis = 0,
+    Collection,
+    Analysis,
+    Transform,
+    Stage_Last,
+  };
+
+  ProgressLog()
+      : PassName(""), PassPreliminaryAnalysis(false), PassCollection(false),
+        PassAnalysis(false), PassTransformation(false), DetailMode(false) {}
+
+  ProgressLog(StringRef PassName)
+      : PassName(PassName), PassPreliminaryAnalysis(false),
+        PassCollection(false), PassAnalysis(false), PassTransformation(false),
+        DetailMode(false) {}
+
+  void setPassName(const StringRef PName) { PassName = PName; }
+  void setDetailMode(const bool Mode) { DetailMode = Mode; }
+
+  void setStage(Stage TheStage) {
+    switch (TheStage) {
+    case PreliminaryAnalysis:
+      PassPreliminaryAnalysis = true;
+      break;
+    case Collection:
+      PassCollection = true;
+      break;
+    case Analysis:
+      PassAnalysis = true;
+      break;
+    case Transform:
+      PassTransformation = true;
+      break;
+    default:
+      break;
+    }
+  }
+
+  LLVM_DUMP_METHOD void dump(void) {
+    if (DetailMode) {
+      dbgs() << PassName << " preliminary analysis: "
+             << (PassPreliminaryAnalysis ? "" : "NOT") << " good\n";
+      dbgs() << PassName << " collection: " << (PassCollection ? "" : "NOT")
+             << " good\n";
+      dbgs() << PassName << " analysis: " << (PassAnalysis ? "" : "NOT")
+             << " good\n";
+      dbgs() << PassName
+             << " transformation: " << (PassTransformation ? "" : "NOT")
+             << " good\n";
+    }
+
+    bool Summary = PassCollection && PassAnalysis && PassTransformation;
+    StringRef Msg = Summary ? " Triggered " : " NOT Triggered";
+    dbgs() << PassName << Msg << "\n";
+  }
+};
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 } // End namespace llvm
 

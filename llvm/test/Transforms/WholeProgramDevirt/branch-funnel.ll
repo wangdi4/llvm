@@ -1,12 +1,12 @@
 ; INTEL_CUSTOMIZATION
 ; The customization is for turning off the multiversioning.
 
-; RUN: opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=false %s | FileCheck --check-prefixes=CHECK,RETP %s
-; RUN: sed -e 's,+retpoline,-retpoline,g' %s | opt -S -wholeprogramdevirt -wholeprogramdevirt-multiversion=false | FileCheck --check-prefixes=CHECK,NORETP %s
+; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s | FileCheck --check-prefixes=CHECK,RETP %s
+; RUN: sed -e 's,+retpoline,-retpoline,g' %s | opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false | FileCheck --check-prefixes=CHECK,NORETP %s
 
-; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,RETP %s
+; RUN: opt -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t -S -o - %s | FileCheck --check-prefixes=CHECK,RETP %s
 
-; RUN: opt -wholeprogramdevirt -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t  -O3 -S -o - %s | FileCheck --check-prefixes=CHECK %s
+; RUN: opt -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false -wholeprogramdevirt-summary-action=export -wholeprogramdevirt-read-summary=%S/Inputs/export.yaml -wholeprogramdevirt-write-summary=%t  -O3 -S -o - %s | FileCheck --check-prefixes=CHECK %s
 
 ; RUN: FileCheck --check-prefix=SUMMARY %s < %t
 ; END INTEL_CUSTOMIZATION

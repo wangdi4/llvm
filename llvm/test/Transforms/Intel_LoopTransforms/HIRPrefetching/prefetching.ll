@@ -25,6 +25,8 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" 2>&1 < %s | FileCheck %s
 ;
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+;
 ;*** IR Dump Before HIR Prefetching ***
 ;
 ;<0>          BEGIN REGION { }
@@ -65,14 +67,20 @@
 ; CHECK-NEXT:      |   %21 = (@B)[0][i1 + 12];
 ; CHECK-NEXT:      |   %23 = (@B)[0][i1 + 16];
 ; CHECK-NEXT:      |   (@B)[0][i1] = %13 + %15 + %17 + %19 + %21 + %23;
-; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 6]),  0,  3,  1);
-; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 100006]),  0,  3,  1);
-; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 400006]),  0,  3,  1);
-; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][2 * i1 + 14]),  0,  3,  1);
-; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 6]),  0,  3,  1);
-; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 16]),  0,  3,  1);
+; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 7]),  0,  3,  1);
+; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 100007]),  0,  3,  1);
+; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 400007]),  0,  3,  1);
+; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][2 * i1 + 16]),  0,  3,  1);
+; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 7]),  0,  3,  1);
+; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 18]),  0,  3,  1);
 ; CHECK-NEXT:      + END LOOP
 ; CHECK:     END  REGION
+;
+; OPTREPORT: Global loop optimization report for : foo
+;
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:     Remark: Number of spatial prefetches=6, dist=7
+; OPTREPORT: LOOP END
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

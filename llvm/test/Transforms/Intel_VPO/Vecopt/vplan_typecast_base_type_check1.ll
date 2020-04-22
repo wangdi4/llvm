@@ -1,7 +1,7 @@
 ; Verify that we have correct types for 'zext' instruction and the subsequent operations
 ; Input LLVM IR is generated for below code with command:  icx -O2 -mllvm -print-module-before-loopopt
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Source code
 ; #define N 1600
@@ -33,17 +33,17 @@
 
 
 ;=======================VPlan-dump after-simplify-CFG=================================
-;  REGION: region1 (BP: NULL)
-;  BB2 (BP: NULL) :
+;  REGION: region1
+;  BB2:
 ;   <Empty Block>
 ;  SUCCESSORS(1):BB3
 ;
-;  BB3 (BP: NULL) :
+;  BB3:
 ;   i64 %vp1680 = zext i32 %vp1616
 ;   i64 %vp1904 = add i64 %vp1680 i64 -1
 ;  SUCCESSORS(1):BB4
 ;
-;  BB4 (BP: NULL) :
+;  BB4:
 ;   i64 %vp64720 = phi [ i64 0, BB3 ], [ i64 %vp1344, BB7 ]
 ;   i32 %vp64944 = load i32 %vp64880
 ;   i32 %vp672 = load i32 %vp608
@@ -53,16 +53,16 @@
 ;   i1 %vp2064 = icmp i64 %vp1344 i64 %vp1904
 ;  SUCCESSORS(1):BB7
 ;
-;  BB7 (BP: NULL) :
+;  BB7:
 ;   <Empty Block>
 ;   Condition(BB4): i1 %vp2064 = icmp i64 %vp1344 i64 %vp1904
 ;  SUCCESSORS(2):BB4(i1 %vp2064), BB5(!i1 %vp2064)
 ;
-;  BB5 (BP: NULL) :
+;  BB5:
 ;   <Empty Block>
 ;  SUCCESSORS(1):BB6
 ;
-;  BB6 (BP: NULL) :
+;  BB6:
 ;   <Empty Block>
 ;  END Block - no SUCCESSORS
 ;  END Region(region1)
@@ -73,7 +73,7 @@
 ; CHECK: i64 [[Zext:%vp.*]] = zext i32 {{.*}}
 ; CHECK-NEXT: [[Add:%.*]] = add i64 [[Zext]] i64 -1
 ; CHECK-NEXT: SUCCESSORS(1):[[H:BB.*]]
-; CHECK: [[H]] {{.*}}:
+; CHECK: [[H]]:
 ; CHECK-NEXT: [[IVPhi:%.*]] = phi
 
 target triple = "x86_64-unknown-linux-gnu"

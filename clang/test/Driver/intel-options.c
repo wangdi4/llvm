@@ -58,10 +58,56 @@
 // RUN: %clang -### -target x86_64-unknown-windows-msvc -- %s 2>&1 | FileCheck -check-prefix=LIBMMT %s
 // LIBMMT: "-defaultlib:libmmt"
 
-// --dpcpp -fopenmp not supported
-// When running the 'dpcpp' driver, the --dpcpp option is used to signify the
-// source of how the compiler is invoked.
-// RUN: %clang -### -c --dpcpp -fopenmp %s 2>&1 | FileCheck -check-prefix CHECK-DPCPP-FOPENMP %s
-// RUN: %clang -### -c --dpcpp -fopenmp=libiomp5 %s 2>&1 | FileCheck -check-prefix CHECK-DPCPP-FOPENMP-ARG %s
-// CHECK-DPCPP-FOPENMP: error: unsupported option '-fopenmp'
-// CHECK-DPCPP-FOPENMP-ARG: error: unsupported option '-fopenmp=libiomp5'
+// Behavior with -lm
+// RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// CHECK-LIMF: "-limf" "-lm"
+
+// Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
+// and the true functionality is tested in cl-x86-arch.c
+// RUN: %clang_cl /Zs /WX /Qm32 /Qm64 --target=i386-pc-win32 -### -- 2>&1 %s \
+// RUN: | FileCheck -check-prefix=MFLAGS %s
+// MFLAGS-NOT: argument unused during compilation
+
+//Behavior with -static-intel options
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -dynamic -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
+// CHECK-INTEL-STATIC: "-Bstatic" "-lirc" "-Bdynamic"
+// CHECK-INTEL-STATIC: "-Bstatic" "-lsvml" "-Bdynamic"
+
+//Behavior with -shared-intel options
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
+// CHECK-INTEL-SHARED: "-Bdynamic" "-lirc" "-Bstatic"
+// CHECK-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
+
+//Behavior with combination of -shared-intel and -static-intel options
+// RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// CHECK-INTEL-LIBS-NOT: "-Bdynamic" "-lirc" "-Bstatic"
+// CHECK-INTEL-LIBS-NOT: "-Bdynamic" "-lsvml" "-Bstatic"
+// CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lirc" "-Bdynamic"
+// CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lsvml" "-Bdynamic"
+// CHECK-INTEL-LIBS:"-lirc" "-lsvml"
+
+// RUN: %clang -### -fp-speculation=strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
+// RUN: %clang_cl -### /Qfp-speculation:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
+// RUN: %clang_cl -### /Qfp-speculation:fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
+// RUN: %clang -### -fp-speculation=fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
+// RUN: %clang_cl -### /Qfp-speculation:safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
+// RUN: %clang -### -fp-speculation=safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
+// RUN: %clang -### -fp-model=fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
+// RUN: %clang_cl -### -fp:fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
+// CHECK-SAFE: "-ffp-exception-behavior=maytrap"
+// CHECK-STRICT: "-ffp-exception-behavior=strict"
+// CHECK-IGNORE: "-ffp-exception-behavior=ignore"
+// CHECK-FAST: "-ffp-contract=fast"
+
+// RUN: %clang_cl -### -Qlong-double -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
+// LONG_DOUBLE: clang{{.*}} "-fintel-long-double-size=80"

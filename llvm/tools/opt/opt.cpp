@@ -22,17 +22,17 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
-#include "llvm/CodeGen/CommandFlags.inc"
+#include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LLVMRemarkStreamer.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/RemarkStreamer.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
@@ -54,6 +54,7 @@
 #include "llvm/Transforms/Coroutines.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
 
@@ -67,6 +68,8 @@
 #include <memory>
 using namespace llvm;
 using namespace opt_tool;
+
+static codegen::RegisterCodeGenFlags CFG;
 
 // The OptimizationList is automatically populated with registered Passes by the
 // PassNameParser.
@@ -279,6 +282,20 @@ static cl::opt<bool> Coroutines(
   "enable-coroutines",
   cl::desc("Enable coroutine passes."),
   cl::init(false), cl::Hidden);
+
+static cl::opt<bool> TimeTrace(
+    "time-trace",
+    cl::desc("Record time trace"));
+
+static cl::opt<unsigned> TimeTraceGranularity(
+    "time-trace-granularity",
+    cl::desc("Minimum time granularity (in microseconds) traced by time profiler"),
+    cl::init(500), cl::Hidden);
+
+static cl::opt<std::string>
+    TimeTraceFile("time-trace-file",
+                    cl::desc("Specify time trace file destination"),
+                    cl::value_desc("filename"));
 
 static cl::opt<bool> RemarksWithHotness(
     "pass-remarks-with-hotness",
@@ -500,27 +517,23 @@ static TargetMachine* GetTargetMachine(Triple TheTriple, StringRef CPUStr,
                                        StringRef FeaturesStr,
                                        const TargetOptions &Options) {
   std::string Error;
-  const Target *TheTarget = TargetRegistry::lookupTarget(MArch, TheTriple,
-                                                         Error);
+  const Target *TheTarget =
+      TargetRegistry::lookupTarget(codegen::getMArch(), TheTriple, Error);
   // Some modules don't specify a triple, and this is okay.
   if (!TheTarget) {
     return nullptr;
   }
 
-  return TheTarget->createTargetMachine(TheTriple.getTriple(), CPUStr,
-                                        FeaturesStr, Options, getRelocModel(),
-                                        getCodeModel(), GetCodeGenOptLevel());
+  return TheTarget->createTargetMachine(
+      TheTriple.getTriple(), codegen::getCPUStr(), codegen::getFeaturesStr(),
+      Options, codegen::getExplicitRelocModel(),
+      codegen::getExplicitCodeModel(), GetCodeGenOptLevel());
 }
 
 #ifdef BUILD_EXAMPLES
 void initializeExampleIRTransforms(llvm::PassRegistry &Registry);
 #endif
 
-#ifdef LINK_POLLY_INTO_TOOLS
-namespace polly {
-void initializePollyPasses(llvm::PassRegistry &Registry);
-}
-#endif
 
 void exportDebugifyStats(llvm::StringRef Path, const DebugifyStatsMap &Map) {
   std::error_code EC;
@@ -542,6 +555,24 @@ void exportDebugifyStats(llvm::StringRef Path, const DebugifyStatsMap &Map) {
        << Stats.getEmptyLocationRatio() << '\n';
   }
 }
+
+struct TimeTracerRAII {
+  TimeTracerRAII(StringRef ProgramName) {
+    if (TimeTrace)
+      timeTraceProfilerInitialize(TimeTraceGranularity, ProgramName);
+  }
+  ~TimeTracerRAII() {
+    if (TimeTrace) {
+      if (auto E = timeTraceProfilerWrite(TimeTraceFile, OutputFilename)) {
+        handleAllErrors(std::move(E), [&](const StringError &SE) {
+          errs() << SE.getMessage() << "\n";
+        });
+        return;
+      }
+      timeTraceProfilerCleanup();
+    }
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // main for opt
@@ -595,15 +626,18 @@ int main(int argc, char **argv) {
   initializeExpandReductionsPass(Registry);
   initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
-  initializeASFixerPass(Registry);
   initializeHardwareLoopsPass(Registry);
+  initializeTypePromotionPass(Registry);
 #if INTEL_CUSTOMIZATION
+  initializeIntel_DPCPPKernelTransforms(Registry);
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
   initializeFloat128ExpandPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
+  initializeSYCLLowerWGScopeLegacyPassPass(Registry);
+  initializeParseAnnotateAttributesLegacyPass(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransPasses(Registry);
 #endif // INTEL_INCLUDE_DTRANS
@@ -619,10 +653,6 @@ int main(int argc, char **argv) {
   initializeExampleIRTransforms(Registry);
 #endif
 
-#ifdef LINK_POLLY_INTO_TOOLS
-  polly::initializePollyPasses(Registry);
-#endif
-
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
 
@@ -631,6 +661,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  TimeTracerRAII TimeTracer(argv[0]);
+
   SMDiagnostic Err;
 
   Context.setDiscardValueNames(DiscardValueNames);
@@ -638,9 +670,9 @@ int main(int argc, char **argv) {
     Context.enableDebugTypeODRUniquing();
 
   Expected<std::unique_ptr<ToolOutputFile>> RemarksFileOrErr =
-      setupOptimizationRemarks(Context, RemarksFilename, RemarksPasses,
-                               RemarksFormat, RemarksWithHotness,
-                               RemarksHotnessThreshold);
+      setupLLVMOptimizationRemarks(Context, RemarksFilename, RemarksPasses,
+                                   RemarksFormat, RemarksWithHotness,
+                                   RemarksHotnessThreshold);
   if (Error E = RemarksFileOrErr.takeError()) {
     errs() << toString(std::move(E)) << '\n';
     return 1;
@@ -681,6 +713,13 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // Enable testing of whole program devirtualization on this module by invoking
+  // the facility for updating public visibility to linkage unit visibility when
+  // specified by an internal option. This is normally done during LTO which is
+  // not performed via opt.
+  updateVCallVisibilityInModule(*M,
+                                /* WholeProgramVisibilityEnabledInLTO */ false);
+
   // Figure out what stream we are supposed to write to...
   std::unique_ptr<ToolOutputFile> Out;
   std::unique_ptr<ToolOutputFile> ThinLinkOut;
@@ -715,11 +754,11 @@ int main(int argc, char **argv) {
   Triple ModuleTriple(M->getTargetTriple());
   std::string CPUStr, FeaturesStr;
   TargetMachine *Machine = nullptr;
-  const TargetOptions Options = InitTargetOptionsFromCodeGenFlags();
+  const TargetOptions Options = codegen::InitTargetOptionsFromCodeGenFlags();
 
   if (ModuleTriple.getArch()) {
-    CPUStr = getCPUStr();
-    FeaturesStr = getFeaturesStr();
+    CPUStr = codegen::getCPUStr();
+    FeaturesStr = codegen::getFeaturesStr();
     Machine = GetTargetMachine(ModuleTriple, CPUStr, FeaturesStr, Options);
   } else if (ModuleTriple.getArchName() != "unknown" &&
              ModuleTriple.getArchName() != "") {
@@ -732,7 +771,7 @@ int main(int argc, char **argv) {
 
   // Override function attributes based on CPUStr, FeaturesStr, and command line
   // flags.
-  setFunctionAttributes(CPUStr, FeaturesStr, *M);
+  codegen::setFunctionAttributes(CPUStr, FeaturesStr, *M);
 
   // If the output is set to be emitted to standard out, and standard out is a
   // console, print out a warning message and refuse to do it.  We don't
@@ -764,7 +803,7 @@ int main(int argc, char **argv) {
                            RemarksFile.get(), PassPipeline, OK, VK,
                            PreserveAssemblyUseListOrder,
                            PreserveBitcodeUseListOrder, EmitSummaryIndex,
-                           EmitModuleHash, EnableDebugify)
+                           EmitModuleHash, EnableDebugify, Coroutines)
                ? 0
                : 1;
   }
@@ -956,8 +995,10 @@ int main(int argc, char **argv) {
   std::unique_ptr<raw_svector_ostream> BOS;
   raw_ostream *OS = nullptr;
 
+  const bool ShouldEmitOutput = !NoOutput && !AnalyzeOnly;
+
   // Write bitcode or assembly to the output as the last step...
-  if (!NoOutput && !AnalyzeOnly) {
+  if (ShouldEmitOutput || RunTwice) {
     assert(Out);
     OS = &Out->os();
     if (RunTwice) {
@@ -1005,13 +1046,16 @@ int main(int argc, char **argv) {
              "Writing the result of the second run to the specified output.\n"
              "To generate the one-run comparison binary, just run without\n"
              "the compile-twice option\n";
-      Out->os() << BOS->str();
-      Out->keep();
+      if (ShouldEmitOutput) {
+        Out->os() << BOS->str();
+        Out->keep();
+      }
       if (RemarksFile)
         RemarksFile->keep();
       return 1;
     }
-    Out->os() << BOS->str();
+    if (ShouldEmitOutput)
+      Out->os() << BOS->str();
   }
 
   if (DebugifyEach && !DebugifyExport.empty())

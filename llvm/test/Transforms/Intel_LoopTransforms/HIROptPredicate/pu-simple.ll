@@ -37,7 +37,7 @@
 ; CHECK:   |   }
 ; CHECK:   |   else
 ; CHECK:   |   {
-; CHECK:   |      %.pre-phi = i1;
+; CHECK:   |      %.pre-phi = i1 + 1;
 ; CHECK:   |   }
 ; CHECK:   |   (%q)[i1] = %.pre-phi;
 ; CHECK:   + END LOOP
@@ -45,7 +45,7 @@
 ; CHECK: else
 ; CHECK: {
 ; CHECK:   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-; CHECK:   |   %.pre-phi = i1;
+; CHECK:   |   %.pre-phi = i1 + 1;
 ; CHECK:   |   (%q)[i1] = %.pre-phi;
 ; CHECK:   + END LOOP
 ; CHECK: }
@@ -80,6 +80,7 @@ for.body:                                         ; preds = %if.end, %for.body.l
 
 for.body.if.end_crit_edge:                        ; preds = %for.body
   %.pre = trunc i64 %indvars.iv to i32
+  %add = add i32 %.pre, 1
   br label %if.end
 
 if.then:                                          ; preds = %for.body
@@ -89,7 +90,7 @@ if.then:                                          ; preds = %for.body
   br label %if.end
 
 if.end:                                           ; preds = %for.body.if.end_crit_edge, %if.then
-  %.pre-phi = phi i32 [ %.pre, %for.body.if.end_crit_edge ], [ %1, %if.then ]
+  %.pre-phi = phi i32 [ %add, %for.body.if.end_crit_edge ], [ %1, %if.then ]
   %arrayidx4 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
   store i32 %.pre-phi, i32* %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

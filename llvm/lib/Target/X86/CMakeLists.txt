@@ -23,6 +23,7 @@ endif()
 add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
+  Intel_X86SplitVectorValueType.cpp     # INTEL
   Intel_X86CiscizationHelper.cpp        # INTEL
   Intel_X86FMA.cpp        # INTEL
   Intel_X86FeatureInitCall.cpp        # INTEL
@@ -49,6 +50,7 @@ set(sources
   X86ISelDAGToDAG.cpp
   X86ISelLowering.cpp
   X86IndirectBranchTracking.cpp
+  X86IndirectThunks.cpp
   X86InterleavedAccess.cpp
   X86InsertPrefetch.cpp
   X86InstrFMA3Info.cpp
@@ -61,9 +63,9 @@ set(sources
   X86MacroFusion.cpp
   X86OptimizeLEAs.cpp
   X86PadShortFunction.cpp
+  X86PartialReduction.cpp
   X86RegisterBankInfo.cpp
   X86RegisterInfo.cpp
-  X86RetpolineThunks.cpp
   X86SelectionDAGInfo.cpp
   X86ShuffleDecodeConstantPool.cpp
   X86SpeculativeLoadHardening.cpp
@@ -74,6 +76,7 @@ set(sources
   X86VZeroUpper.cpp
   X86WinAllocaExpander.cpp
   X86WinEHState.cpp
+  X86InsertWait.cpp
   )
 
 add_llvm_target(X86CodeGen ${sources})

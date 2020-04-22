@@ -31,6 +31,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/User.h"
+#include "llvm/IR/ValueHandle.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -220,9 +221,8 @@ static bool combineSinCos(CallInst *Call, StringRef OCLSinCosName,
     SinVal->setFast(true);
 
   // Load the cosine result from the alloca temporary.
-  auto *CosVal =
-      B.CreateAlignedLoad(CosTmp->getType()->getPointerElementType(), CosTmp,
-                          DL.getStackAlignment().value(), "cos.val");
+  auto *CosVal = B.CreateAlignedLoad(CosTmp->getType()->getPointerElementType(),
+                                     CosTmp, DL.getStackAlignment(), "cos.val");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << "Generated sincos\n"
                     << SinVal << "\n"
                     << CosVal << "\n");
@@ -366,9 +366,9 @@ static bool rewriteVSinCosCall(CallInst *Call, StringRef SVMLSinCosPrefix) {
          "Only float vector sincos supported."); // TODO, double
 
   // Create the call to svml_sincosfNN.
-  Type *RetStrTy = StructType::create({AngleType, AngleType}, "sincosret");
-  IRBuilder<> B(Call);
   Module *M = Call->getParent()->getModule();
+  Type *RetStrTy = StructType::get(M->getContext(), {AngleType, AngleType});
+  IRBuilder<> B(Call);
   std::string SVMLSinCosName = SVMLSinCosPrefix.str() + "f" +
                                std::to_string(AngleType->getElementCount().Min);
   // Set nounwind, readnone
@@ -419,7 +419,7 @@ class MathLibraryFunctionsReplacement {
 
 private:
   SmallVector<Instruction *, 4> DivRemInsts;
-  SmallVector<CallInst *, 4> GenSinCosInsts;   // sin,cos,sincosf
+  SmallVector<WeakVH, 4> GenSinCosInsts;       // sin,cos,sincosf
   SmallVector<CallInst *, 4> LowerSinCosInsts; // OCL scalar and vector sincos
   StringRef OCLSinCosName = "_Z6sincosfPf";
   StringRef OCLVSinCosPrefix = "_Z14sincos_ret2ptrDv";
@@ -483,7 +483,7 @@ void MathLibraryFunctionsReplacement::collectMathInstructions(Function &F) {
         Function *Func = Call->getCalledFunction();
         if (isSin(Call) || isCos(Call) ||
             (Func && (Func->getName() == SinCosName)))
-          GenSinCosInsts.push_back(Call);
+          GenSinCosInsts.emplace_back(Call);
         else if (Func && (Func->getName() == OCLSinCosName ||
                           Func->getName().startswith(OCLVSinCosPrefix)))
           LowerSinCosInsts.push_back(Call);
@@ -496,7 +496,11 @@ void MathLibraryFunctionsReplacement::collectMathInstructions(Function &F) {
 // to OCL sincos format.
 bool MathLibraryFunctionsReplacement::genOCLSinCos() {
   int NumConverted = 0;
-  for (CallInst *Call : GenSinCosInsts) {
+  for (auto &&Handle : GenSinCosInsts) {
+    auto *Call = cast_or_null<CallInst>(Handle);
+    if (!Call)
+      // The call has been processed by combining sin/cos earlier.
+      continue;
     Function *Func = Call->getCalledFunction();
     if (Func && Func->getName() == SinCosName) {
       SinCosCallToOCL(Call, OCLSinCosName);

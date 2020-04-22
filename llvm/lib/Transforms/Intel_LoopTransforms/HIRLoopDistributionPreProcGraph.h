@@ -1,6 +1,6 @@
 //===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  --------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -210,7 +210,7 @@ public:
   // Possible failures could be too many nodes, edges etc
   void setInvalid(StringRef FailureReason) {
     GraphValidity = false;
-    FailureString = FailureReason;
+    FailureString = std::string(FailureReason);
   }
 
   unsigned getNodeCount() { return DistPPNodeList.size(); }
@@ -230,7 +230,7 @@ public:
 
   DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
               HIRSparseArrayReductionAnalysis &SARA,
-              bool ForceCycleForLoopIndepDep, bool CreateControlNodes);
+              bool AllowScalarExpansion, bool CreateControlNodes);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution

@@ -56,10 +56,7 @@ public:
   enum X86ProcFamilyEnum {
     Others,
     IntelAtom,
-    IntelSLM,
-    IntelGLM,
-    IntelGLP,
-    IntelTRM
+    IntelSLM
   };
 
 protected:
@@ -179,6 +176,12 @@ protected:
   /// Processor has Integer Fused Multiply Add
   bool HasIFMA = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  bool HasAVXIFMA = false;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor has RTM instructions.
   bool HasRTM = false;
 
@@ -259,6 +262,10 @@ protected:
   /// True if vzeroupper instructions should be inserted after code that uses
   /// ymm or zmm registers.
   bool InsertVZEROUPPER = false;
+
+  /// True if there is no performance penalty for writing NOPs with up to
+  /// 7 bytes.
+  bool HasFast7ByteNOP = false;
 
   /// True if there is no performance penalty for writing NOPs with up to
   /// 11 bytes.
@@ -363,6 +370,13 @@ protected:
   /// Processor has AVX-512 bfloat16 floating-point extensions
   bool HasBF16 = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+  /// Processor has AVX bfloat16 floating-point extensions
+  bool HasAVXBF16 = false;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
+
   /// Processor supports ENQCMD instructions
   bool HasENQCMD = false;
 
@@ -411,10 +425,10 @@ protected:
 #if INTEL_FEATURE_ISA_ULI
   bool HasULI = false;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-  /// Processor supports SERIALIZE instruction
-  bool HasSERIALIZE = false;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  /// Processor supports HRESET instruction
+  bool HasHRESET = false;
+#endif // INTEL_FEATURE_ISA_HRESET
 
 #if INTEL_FEATURE_ISA_TSXLDTRK
   /// Processor supports TSXLDTRK instruction
@@ -427,23 +441,65 @@ protected:
   bool HasAMXBF16 = false;
   bool HasAMXINT8 = false;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXELEMENT = false;
   bool HasAMXREDUCE = false;
   bool HasAMXFORMAT = false;
-  bool HasAMXTRANSPOSE = false;
   bool HasAMXMEMORY = false;
-  bool HasAMXFP16 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  bool HasAMXTRANSPOSE = false;
   bool HasAMXAVX512 = false;
-  bool HasAMXINT8EVEX = false;
-  bool HasAMXTILEEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  bool HasAMXFP16 = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  bool HasAMXMEMORY2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
   bool HasAMXBF16EVEX = false;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+  bool HasAMXCONVERTEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  bool HasAMXCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  bool HasAMXINT8EVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  bool HasAMXTILEEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  bool HasAMXTRANSPOSE2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_TILE2
+  bool HasAMXTILE2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
+
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  bool HasCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  bool HasAVXCONVERT = false;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
 
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  bool HasDOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  bool HasAVXDOTPROD = false;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #endif // INTEL_CUSTOMIZATION
+  /// Processor supports SERIALIZE instruction
+  bool HasSERIALIZE = false;
+
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
 
@@ -471,6 +527,12 @@ protected:
   /// When using a retpoline thunk, call an externally provided thunk rather
   /// than emitting one inside the compiler.
   bool UseRetpolineExternalThunk = false;
+
+  /// Prevent generation of indirect call/branch instructions from memory,
+  /// and force all indirect call/branch instructions from a register to be
+  /// preceded by an LFENCE. Also decompose RET instructions into a
+  /// POP+LFENCE+JMP sequence.
+  bool UseLVIControlFlowIntegrity = false;
 
   /// Use software floating point for code generation.
   bool UseSoftFloat = false;
@@ -503,6 +565,10 @@ protected:
   /// Processor supports Decoded Stream Buffer.
   bool HasDSB = false;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Use Goldmont specific floating point div/sqrt costs.
+  bool UseGLMDivSqrtCosts = false;
+
   /// What processor and OS we're targeting.
   Triple TargetTriple;
 
@@ -693,6 +759,11 @@ public:
   bool hasVBMI() const { return HasVBMI; }
   bool hasVBMI2() const { return HasVBMI2; }
   bool hasIFMA() const { return HasIFMA; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  bool hasAVXIFMA() const { return HasAVXIFMA; }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
   bool hasRTM() const { return HasRTM; }
   bool hasADX() const { return HasADX; }
   bool hasSHA() const { return HasSHA; }
@@ -763,6 +834,11 @@ public:
   bool hasPKU() const { return HasPKU; }
   bool hasVNNI() const { return HasVNNI; }
   bool hasBF16() const { return HasBF16; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+  bool hasAVXBF16() const { return HasAVXBF16; }
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
   bool hasVP2INTERSECT() const { return HasVP2INTERSECT; }
   bool hasBITALG() const { return HasBITALG; }
   bool hasSHSTK() const { return HasSHSTK; }
@@ -786,13 +862,14 @@ public:
 #if INTEL_FEATURE_ISA_ULI
   bool hasULI() const { return HasULI; }
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-  bool hasSERIALIZE() const { return HasSERIALIZE; }
-#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  bool hasHRESET() const { return HasHRESET; }
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+  bool hasSERIALIZE() const { return HasSERIALIZE; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;
@@ -803,24 +880,74 @@ public:
   bool hasAMXBF16() const { return HasAMXBF16; }
   bool hasAMXINT8() const { return HasAMXINT8; }
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   bool hasAMXELEMENT() const { return HasAMXELEMENT; }
   bool hasAMXREDUCE() const { return HasAMXREDUCE; }
   bool hasAMXFORMAT() const { return HasAMXFORMAT; }
-  bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXMEMORY() const { return HasAMXMEMORY; }
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  bool hasAMXTRANSPOSE() const { return HasAMXTRANSPOSE; }
   bool hasAMXAVX512() const { return HasAMXAVX512; }
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
   bool hasAMXFP16() const { return HasAMXFP16; }
-  bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
-  bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  bool hasAMXMEMORY2() const { return HasAMXMEMORY2; }
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
   bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+  bool hasAMXCONVERTEVEX() const { return HasAMXCONVERTEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  bool hasAMXCONVERT() const { return HasAMXCONVERT; }
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  bool hasAMXINT8EVEX() const { return HasAMXINT8EVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  bool hasAMXTILEEVEX() const { return HasAMXTILEEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  bool hasAMXTRANSPOSE2() const { return HasAMXTRANSPOSE2; }
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_TILE2
+  bool hasAMXTILE2() const { return HasAMXTILE2; }
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  bool hasDOTPROD() const { return HasDOTPROD; }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  bool hasAVXDOTPROD() const { return HasAVXDOTPROD; }
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  bool hasCONVERT() const { return HasCONVERT; }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  bool hasAVXCONVERT() const { return HasAVXCONVERT; }
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
+
+  // These are generic getters that OR together all of the thunk types
+  // supported by the subtarget. Therefore useIndirectThunk*() will return true
+  // if any respective thunk feature is enabled.
+  bool useIndirectThunkCalls() const {
+    return useRetpolineIndirectCalls() || useLVIControlFlowIntegrity();
+  }
+  bool useIndirectThunkBranches() const {
+    return useRetpolineIndirectBranches() || useLVIControlFlowIntegrity();
+  }
+
   bool preferMaskRegisters() const { return PreferMaskRegisters; }
+  bool useGLMDivSqrtCosts() const { return UseGLMDivSqrtCosts; }
+  bool useLVIControlFlowIntegrity() const { return UseLVIControlFlowIntegrity; }
 
   unsigned getPreferVectorWidth() const { return PreferVectorWidth; }
   unsigned getRequiredVectorWidth() const { return RequiredVectorWidth; }
@@ -853,11 +980,6 @@ public:
   /// TODO: to be removed later and replaced with suitable properties
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
-  bool isGLM() const {
-    return X86ProcFamily == IntelGLM ||
-           X86ProcFamily == IntelGLP ||
-           X86ProcFamily == IntelTRM;
-  }
   bool useSoftFloat() const { return UseSoftFloat; }
   bool useAA() const override { return UseAA; }
 
@@ -937,6 +1059,10 @@ public:
     case CallingConv::X86_ThisCall:
     case CallingConv::X86_VectorCall:
     case CallingConv::Intel_OCL_BI:
+#if INTEL_CUSTOMIZATION
+    case CallingConv::Intel_OCL_BI_AVX:
+    case CallingConv::Intel_OCL_BI_AVX512:
+#endif // INTEL_CUSTOMIZATION
       return isTargetWin64();
     // This convention allows using the Win64 convention on other targets.
     case CallingConv::Win64:
@@ -970,10 +1096,10 @@ public:
   /// Return true if the subtarget allows calls to immediate address.
   bool isLegalToCallImmediateAddr() const;
 
-  /// If we are using retpolines, we need to expand indirectbr to avoid it
+  /// If we are using indirect thunks, we need to expand indirectbr to avoid it
   /// lowering to an actual indirect jump.
   bool enableIndirectBrExpand() const override {
-    return useRetpolineIndirectBranches();
+    return useIndirectThunkBranches();
   }
 
   /// Enable the MachineScheduler pass for all X86 subtargets.

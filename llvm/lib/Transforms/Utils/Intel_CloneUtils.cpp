@@ -1,6 +1,6 @@
 //===------ Intel_CloneUtils.cpp - Utilities for Cloning -----===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,6 +18,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
@@ -101,6 +102,82 @@ static bool hasLoopIndexArg(CallSite &CS) {
 static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
                                            Argument &Arg, unsigned &Count,
                                            int &Start, int &Inc) {
+
+  //
+  // Given a BasicBlock 'BS' and a dominating BasicBlock 'BT', compute
+  // the successors of 'BT' on some path from 'BT' to 'BS' and put them
+  // in 'OutBlocks'.
+  //
+  auto GenOutBlocks = [](BasicBlock *BT, BasicBlock *BS,
+                         SmallPtrSetImpl<BasicBlock *> &OutBlocks) {
+    SmallVector<BasicBlock *, 10> Worklist;
+    SmallPtrSet<BasicBlock *, 10> Visited;
+    Worklist.push_back(BS);
+    while (!Worklist.empty()) {
+      BasicBlock *BB = Worklist.pop_back_val();
+      Visited.insert(BB);
+      for (auto *BP : predecessors(BB)) {
+        if (BP == BT)
+          OutBlocks.insert(BB);
+        else if (!Visited.count(BP))
+          Worklist.push_back(BP);
+      }
+    }
+  };
+
+  //
+  // Given 'BS' and 'BT', which dominates 'BS', and 'LI', check if 'BT'
+  // terminates in a test of 'LI' against a constant 'CI' which exits
+  // 'BT' on a path that always avoids 'BS'. If so, return 'CI'.
+  //
+  auto ExitValue = [&GenOutBlocks](LoadInst *LI, BasicBlock *BT,
+                                   BasicBlock *BS) -> ConstantInt * {
+    SmallPtrSet<BasicBlock *, 10> OutBlocks;
+    auto TI = BT->getTerminator();
+    auto BI = dyn_cast<BranchInst>(TI);
+    ConstantInt *ECI = nullptr;
+    if (BI) {
+      if (BI->isUnconditional() || BI->getNumSuccessors() != 2)
+        return nullptr;
+      auto CMI = dyn_cast<ICmpInst>(BI->getCondition());
+      if (!CMI)
+        return nullptr;
+      GenOutBlocks(BT, BS, OutBlocks);
+      auto P = CMI->getPredicate();
+      BasicBlock *BBTrue = BI->getSuccessor(0);
+      BasicBlock *BBFalse = BI->getSuccessor(1);
+      if (!OutBlocks.count(BBTrue) && OutBlocks.count(BBFalse) &&
+          P == ICmpInst::ICMP_EQ ||
+          OutBlocks.count(BBTrue) && !OutBlocks.count(BBFalse) &&
+          P == ICmpInst::ICMP_NE) {
+        if (CMI->getOperand(0) == LI)
+          ECI = dyn_cast<ConstantInt>(CMI->getOperand(1));
+        else if (CMI->getOperand(1) == LI)
+          ECI = dyn_cast<ConstantInt>(CMI->getOperand(0));
+      }
+    }
+    auto SI = dyn_cast<SwitchInst>(TI);
+    if (SI) {
+      if (SI->getCondition() != LI)
+        return nullptr;
+      GenOutBlocks(BT, BS, OutBlocks);
+      if (!OutBlocks.count(SI->getDefaultDest()))
+        return nullptr;
+      BasicBlock *BBExit = nullptr;
+      for (auto &Case : SI->cases()) {
+        BasicBlock *BBTry = Case.getCaseSuccessor();
+        if (OutBlocks.count(BBTry))
+          continue;
+        ConstantInt *ECITry = Case.getCaseValue();
+        if (BBExit)
+          return nullptr;
+        BBExit = BBTry;
+        ECI = ECITry;
+      }
+    }
+    return ECI;
+  };
+
   int LocalStart = 0;
   int LocalInc = 0;
   int LocalCount = 0;
@@ -208,24 +285,15 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
     }
   }
   // Check for the termination test.
+  DominatorTree DT(*(Arg.getParent()));
   ConstantInt *ECI = nullptr;
   auto BP = CLI->getParent();
-  auto BB = BP->getSinglePredecessor();
-  for (; BB; BP = BB, BB = BB->getSinglePredecessor()) {
-    auto TI = BB->getTerminator();
-    auto BI = cast<BranchInst>(TI);
-    if (BI->getNumSuccessors() != 2)
-      continue;
-    auto CMI = dyn_cast<ICmpInst>(BI->getCondition());
-    if (!CMI)
-      continue;
-    auto P = BI->getSuccessor(0) == BP ? ICmpInst::ICMP_NE : ICmpInst::ICMP_EQ;
-    if (CMI->getPredicate() != P)
-      continue;
-    if (CMI->getOperand(0) == LI)
-      ECI = dyn_cast<ConstantInt>(CMI->getOperand(1));
-    else if (CMI->getOperand(1) == LI)
-      ECI = dyn_cast<ConstantInt>(CMI->getOperand(0));
+  DomTreeNode *DTN = DT.getNode(BP);
+  if (!DTN)
+    return false;
+  for (DTN = DTN->getIDom(); DTN; DTN = DTN->getIDom()) {
+    BasicBlock *BT = DTN->getBlock();
+    ECI = ExitValue(LI, BT, BP);
     if (ECI)
       break;
   }

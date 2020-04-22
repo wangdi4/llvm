@@ -180,9 +180,10 @@ bool X86TargetInfo::initFeatureMap(
   AnonymousCPU1Features.push_back("amx-int8");
   AnonymousCPU1Features.push_back("amx-bf16");
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_SERIALIZE
   AnonymousCPU1Features.push_back("serialize");
-#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  AnonymousCPU1Features.push_back("hreset");
+#endif // INTEL_FEATURE_ISA_HRESET
   AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
 #endif // INTEL_CUSTOMIZATION
 
@@ -631,6 +632,18 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AVX_VNNI
     Features["avxvnni"] = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+    Features["avxifma"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+    Features["avxdotprod"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+    Features["avxconvert"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_BF16
+    Features["avxbf16"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
@@ -645,6 +658,12 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_FP16
     Features["avx512fp16"] = false;
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    Features["avx512dotprod"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    Features["avx512convert"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
     break;
   }
@@ -781,11 +800,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   } else if (Name == "avx512f") {
     setSSELevel(Features, AVX512F, Enabled);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_LNC
     if (!Enabled) {
       Features["amx-avx512"] = false;
     }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
   } else if (Name.startswith("avx512")) {
     if (Enabled)
@@ -799,15 +818,23 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     // Enable BW and VL if AVX512FP16 is being enabled.
     if (Name == "avx512fp16") {
       if (Enabled) {
-        Features["avx512bw"] = Features["avx512vl"] = true;
+        Features["avx512bw"] = true;
+        Features["avx512dq"] = true;
+        Features["avx512vl"] = true;
       }
-#endif // INTEL_FEATURE_ISA_FP16
-#if INTEL_FEATURE_ISA_AMX2
       else {
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AMX_FP16
         Features["amx-fp16"] = false;
-      }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+        Features["avx512convert"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+        Features["avx512dotprod"] = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
 #if INTEL_FEATURE_ISA_FP16
+      }
     }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
@@ -819,14 +846,41 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
       Features["avx512bf16"] = false;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-      Features["avx512fp16"] = false;
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
 #endif // INTEL_FEATURE_ISA_FP16
     }
 #if INTEL_FEATURE_ISA_FP16
+    if (Name == "avx512dq" && !Enabled)
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
     if (Name == "avx512vl" && !Enabled)
-      Features["avx512fp16"] = false;
+      setFeatureEnabledImpl(Features, "avx512fp16", false);
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    if (Name == "avx512bf16" && !Enabled) {
+      Features["avx512convert"] = false;
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    if (Name == "avx512dotprod" && Enabled) {
+      setFeatureEnabledImpl(Features, "avx512fp16", true);
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+      Features["avxdotprod"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    if (Name == "avx512convert" && Enabled) {
+      setFeatureEnabledImpl(Features, "avx512fp16", true);
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+      Features["avxconvert"] = true;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
   } else if (Name == "fma") {
     if (Enabled)
       setSSELevel(Features, AVX, Enabled);
@@ -867,39 +921,118 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   else if (Name == "amx-tile" && !Enabled) {
     Features["amx-bf16"] = Features["amx-int8"] = false;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-    Features["amx-transpose"] = Features["amx-reduce"] =
-    Features["amx-memory"] = Features["amx-format"] =
-    Features["amx-element"] = Features["amx-fp16"] =
-    Features["amx-avx512"] = Features["amx-bf16-evex"] =
-    Features["amx-int8-evex"] = Features["amx-tile-evex"] = false;
-#endif // INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+    Features["amx-reduce"] = Features["amx-memory"] =
+    Features["amx-format"] = Features["amx-element"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+    Features["amx-transpose"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+    Features["amx-fp16"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+    Features["amx-memory2"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+    Features["amx-bf16-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+    Features["amx-convert-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+    Features["amx-int8-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+    Features["amx-tile-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+    Features["amx-transpose2"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+    Features["amx-convert"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+    Features["amx-tile2"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AMX
   }
   else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
     Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-  else if ((Name == "amx-transpose" || Name == "amx-reduce" ||
-            Name == "amx-memory" || Name == "amx-format" ||
-            Name == "amx-element" || Name == "amx-avx512" ||
-            Name == "amx-bf16-evex" || Name == "amx-int8-evex" ||
-            Name == "amx-tile-evex") && Enabled)
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+  else if ((Name == "amx-reduce" || Name == "amx-memory" ||
+            Name == "amx-format" || Name == "amx-element") && Enabled)
     Features["amx-tile"] = true;
-  else if ((Name == "amx-fp16") && Enabled) {
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  else if (Name == "amx-transpose" && Enabled)
     Features["amx-tile"] = true;
-    setFeatureEnabledImpl(Features, "avx512fp16", true);
-  } else if ((Name == "amx-avx512") && Enabled) {
+  else if ((Name == "amx-avx512") && Enabled) {
     Features["amx-tile"] = true;
     setFeatureEnabledImpl(Features, "avx512f", true);
   }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  else if (Name == "amx-fp16" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  else if (Name == "amx-memory2" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+  else if (Name == "amx-bf16-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+  else if (Name == "amx-convert-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  else if (Name == "amx-int8-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  else if (Name == "amx-tile-evex" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  else if (Name == "amx-transpose2" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  else if (Name == "amx-convert" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+  else if (Name == "amx-tile2" && Enabled)
+    Features["amx-tile"] = true;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   else if (Name == "avxvnni") {
     if (Enabled)
       setSSELevel(Features, AVX2, Enabled);
   }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  else if (Name == "avxifma" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  else if (Name == "avxconvert" && Enabled)
+    setSSELevel(Features, AVX2, Enabled);
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  else if (Name == "avxdotprod" && Enabled)
+    setSSELevel(Features, AVX2, Enabled);
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_BF16
+  else if (Name == "avxbf16" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1053,10 +1186,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+uli") {
       HasULI = true;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-    } else if (Feature == "+serialize") {
-      HasSERIALIZE = true;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+    } else if (Feature == "+hreset") {
+      HasHRESET = true;
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
     } else if (Feature == "+tsxldtrk") {
       HasTSXLDTRK = true;
@@ -1069,9 +1202,7 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-    } else if (Feature == "+amx-transpose") {
-      HasAMXTRANSPOSE = true;
+#if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
       HasAMXREDUCE = true;
     } else if (Feature == "+amx-memory") {
@@ -1080,22 +1211,80 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAMXFORMAT = true;
     } else if (Feature == "+amx-element") {
       HasAMXELEMENT = true;
-    } else if (Feature == "+amx-fp16") {
-      HasAMXFP16 = true;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+    } else if (Feature == "+amx-transpose") {
+      HasAMXTRANSPOSE = true;
     } else if (Feature == "+amx-avx512") {
       HasAMXAVX512 = true;
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+    } else if (Feature == "+amx-fp16") {
+      HasAMXFP16 = true;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+    } else if (Feature == "+amx-memory2") {
+      HasAMXMEMORY2 = true;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
     } else if (Feature == "+amx-bf16-evex") {
       HasAMXBF16EVEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+    } else if (Feature == "+amx-convert-evex") {
+      HasAMXCONVERTEVEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
     } else if (Feature == "+amx-int8-evex") {
       HasAMXINT8EVEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
     } else if (Feature == "+amx-tile-evex") {
       HasAMXTILEEVEX = true;
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+    } else if (Feature == "+amx-transpose2") {
+      HasAMXTRANSPOSE2 = true;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+    } else if (Feature == "+amx-convert") {
+      HasAMXCONVERT = true;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+    } else if (Feature == "+amx-tile2") {
+      HasAMXTILE2 = true;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
     } else if (Feature == "+avxvnni") {
       HasAVXVNNI = true;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+    } else if (Feature == "+avx512dotprod") {
+      HasAVX512DOTPROD = true;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    } else if (Feature == "+avx512convert") {
+      HasAVX512CONVERT = true;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_IFMA
+    } else if (Feature == "+avxifma") {
+      HasAVXIFMA = true;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+    } else if (Feature == "+avxdotprod") {
+      HasAVXDOTPROD = true;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+    } else if (Feature == "+avxconvert") {
+      HasAVXCONVERT = true;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_BF16
+    } else if (Feature == "+avxbf16") {
+      HasAVXBF16 = true;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
+    } else if (Feature == "+serialize") {
+      HasSERIALIZE = true;
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
@@ -1149,7 +1338,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   std::string CodeModel = getTargetOpts().CodeModel;
   if (CodeModel == "default")
     CodeModel = "small";
-  Builder.defineMacro("__code_model_" + CodeModel + "_");
+  Builder.defineMacro("__code_model_" + CodeModel + "__");
 
   // Target identification.
 #if INTEL_CUSTOMIZATION
@@ -1531,11 +1720,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__ULI__");
   Builder.defineMacro("__ULI_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-  if (HasSERIALIZE)
-    Builder.defineMacro("__SERIALIZE__");
-  Builder.defineMacro("__SERIALIZE_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_SERIALIZE
+#if INTEL_FEATURE_ISA_HRESET
+  if (HasHRESET)
+    Builder.defineMacro("__HRESET__");
+  Builder.defineMacro("__HRESET_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_TSXLDTRK
   if (HasTSXLDTRK)
     Builder.defineMacro("__TSXLDTRK__");
@@ -1550,9 +1739,37 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXBF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-  if (HasAMXTRANSPOSE)
-    Builder.defineMacro("__AMXTRANSPOSE__");
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+  if (HasAMXMEMORY2)
+    Builder.defineMacro("__AMX_MEMORY2__");
+  Builder.defineMacro("__AMX_MEMORY2_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+  if (HasAMXBF16EVEX)
+    Builder.defineMacro("__AMX_BF16EVEX__");
+  Builder.defineMacro("__AMX_BF16EVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+  if (HasAMXCONVERTEVEX)
+    Builder.defineMacro("__AMX_CONVERTEVEX__");
+  Builder.defineMacro("__AMX_CONVERTEVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+  if (HasAMXINT8EVEX)
+    Builder.defineMacro("__AMX_INT8EVEX__");
+  Builder.defineMacro("__AMX_INT8EVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+  if (HasAMXTILEEVEX)
+    Builder.defineMacro("__AMX_TILEEVEX__");
+  Builder.defineMacro("__AMX_TILEEVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  if (HasAMXTRANSPOSE2)
+    Builder.defineMacro("__AMX_TRANSPOSE2__");
+  Builder.defineMacro("__AMX_TRANSPOSE2_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_FUTURE
   if (HasAMXREDUCE)
     Builder.defineMacro("__AMXREDUCE__");
   if (HasAMXMEMORY)
@@ -1561,25 +1778,66 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXFORMAT__");
   if (HasAMXELEMENT)
     Builder.defineMacro("__AMXELEMENT__");
-  if (HasAMXFP16)
-    Builder.defineMacro("__AMXFP16__");
+  Builder.defineMacro("__AMX_FUTURE_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+  if (HasAMXTRANSPOSE)
+    Builder.defineMacro("__AMXTRANSPOSE__");
   if (HasAMXAVX512)
     Builder.defineMacro("__AMXAVX512__");
-  if (HasAMXBF16EVEX)
-    Builder.defineMacro("__AMXBF16EVEX__");
-  if (HasAMXINT8EVEX)
-    Builder.defineMacro("__AMXINT8EVEX__");
-  if (HasAMXTILEEVEX)
-    Builder.defineMacro("__AMXTILEEVEX__");
-  Builder.defineMacro("__AMX2_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX2
+  Builder.defineMacro("__AMX_LNC_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+  if (HasAMXFP16)
+    Builder.defineMacro("__AMXFP16__");
+  Builder.defineMacro("__AMX_FP16_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+  if (HasAMXCONVERT)
+    Builder.defineMacro("__AMX_CONVERT__");
+  Builder.defineMacro("__AMX_CONVERT_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+  if (HasAMXTILE2)
+    Builder.defineMacro("__AMX_TILE2__");
+  Builder.defineMacro("__AMX_TILE2_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   if (HasAVXVNNI)
     Builder.defineMacro("__AVXVNNI__");
   Builder.defineMacro("__AVXVNNI_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  if (HasAVX512DOTPROD)
+    Builder.defineMacro("__AVX512DOTPROD__");
+  Builder.defineMacro("__AVX512DOTPROD_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  if (HasAVX512CONVERT)
+    Builder.defineMacro("__AVX512CONVERT__");
+  Builder.defineMacro("__AVX512CONVERT_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  if (HasAVXIFMA)
+    Builder.defineMacro("__AVXIFMA__");
+  Builder.defineMacro("__AVXIFMA_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  if (HasAVXDOTPROD)
+    Builder.defineMacro("__AVXDOTPROD__");
+  Builder.defineMacro("__AVXDOTPROD_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  if (HasAVXCONVERT)
+    Builder.defineMacro("__AVXCONVERT__");
+  Builder.defineMacro("__AVXCONVERT_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_BF16
+  if (HasAVXBF16)
+    Builder.defineMacro("__AVXBF16__");
+  Builder.defineMacro("__AVXBF16_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   // Disable setting of __SSE2_MATH__  as it enables guarded x86 inline asm in
@@ -1591,6 +1849,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  if (HasSERIALIZE)
+    Builder.defineMacro("__SERIALIZE__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -1700,18 +1960,43 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-int8", true)
       .Case("amx-tile", true)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-      .Case("amx-transpose", true)
+#if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", true)
       .Case("amx-memory", true)
       .Case("amx-format", true)
       .Case("amx-element", true)
-      .Case("amx-fp16", true)
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+      .Case("amx-transpose", true)
       .Case("amx-avx512", true)
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+      .Case("amx-fp16", true)
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+      .Case("amx-memory2", true)
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
       .Case("amx-bf16-evex", true)
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+      .Case("amx-convert-evex", true)
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
       .Case("amx-int8-evex", true)
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
       .Case("amx-tile-evex", true)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+      .Case("amx-transpose2", true)
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+      .Case("amx-convert", true)
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+      .Case("amx-tile2", true)
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", true)
       .Case("avx2", true)
@@ -1720,6 +2005,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vpopcntdq", true)
       .Case("avx512vnni", true)
       .Case("avx512bf16", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_BF16
+      .Case("avxbf16", true)
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#endif // INTEL_CUSTOMIZATION
       .Case("avx512er", true)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
@@ -1739,6 +2029,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", true)
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+      .Case("avxifma", true)
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
       .Case("bmi", true)
       .Case("bmi2", true)
@@ -1754,6 +2047,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fsgsbase", true)
       .Case("fxsr", true)
       .Case("gfni", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_HRESET
+      .Case("hreset", true)
+#endif // INTEL_FEATURE_ISA_HRESET
+#endif // INTEL_CUSTOMIZATION
       .Case("invpcid", true)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
@@ -1780,13 +2078,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("rtm", true)
       .Case("sahf", true)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_SERIALIZE
-      .Case("serialize", true)
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_TSXLDTRK
       .Case("tsxldtrk", true)
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+      .Case("serialize", true)
       .Case("sgx", true)
       .Case("sha", true)
       .Case("shstk", true)
@@ -1814,6 +2110,20 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("xsavec", true)
       .Case("xsaves", true)
       .Case("xsaveopt", true)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+      .Case("avx512dotprod", true)
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+      .Case("avx512convert", true)
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+      .Case("avxdotprod", true)
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+      .Case("avxconvert", true)
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
 
@@ -1827,21 +2137,52 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AMX2
-      .Case("amx-transpose", HasAMXTRANSPOSE)
+#if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", HasAMXREDUCE)
       .Case("amx-memory", HasAMXMEMORY)
       .Case("amx-format", HasAMXFORMAT)
       .Case("amx-element", HasAMXELEMENT)
-      .Case("amx-fp16", HasAMXFP16)
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+      .Case("amx-transpose", HasAMXTRANSPOSE)
       .Case("amx-avx512", HasAMXAVX512)
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_FP16
+      .Case("amx-fp16", HasAMXFP16)
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+      .Case("amx-memory2", HasAMXMEMORY)
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
       .Case("amx-bf16-evex", HasAMXBF16EVEX)
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+      .Case("amx-convert-evex", HasAMXCONVERTEVEX)
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
       .Case("amx-int8-evex", HasAMXINT8EVEX)
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
       .Case("amx-tile-evex", HasAMXTILEEVEX)
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+      .Case("amx-transpose2", HasAMXTRANSPOSE2)
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+      .Case("amx-convert", HasAMXCONVERT)
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+      .Case("amx-tile2", HasAMXTILE2)
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
       .Case("avxvnni", HasAVXVNNI)
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+      .Case("avxifma", HasAVXIFMA)
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_BF16
+      .Case("avxbf16", HasAVXBF16)
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
@@ -1865,6 +2206,20 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vbmi2", HasAVX512VBMI2)
       .Case("avx512ifma", HasAVX512IFMA)
       .Case("avx512vp2intersect", HasAVX512VP2INTERSECT)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+      .Case("avx512dotprod", HasAVX512DOTPROD)
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+      .Case("avx512convert", HasAVX512CONVERT)
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+      .Case("avxdotprod", HasAVXDOTPROD)
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+      .Case("avxconvert", HasAVXCONVERT)
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
       .Case("cldemote", HasCLDEMOTE)
@@ -1880,6 +2235,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fsgsbase", HasFSGSBASE)
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_HRESET
+      .Case("hreset", HasHRESET)
+#endif // INTEL_FEATURE_ISA_HRESET
+#endif // INTEL_CUSTOMIZATION
       .Case("invpcid", HasINVPCID)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
@@ -1909,13 +2269,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("rtm", HasRTM)
       .Case("sahf", HasLAHFSAHF)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_SERIALIZE
-      .Case("serialize", HasSERIALIZE)
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_TSXLDTRK
       .Case("tsxldtrk", HasTSXLDTRK)
 #endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+      .Case("serialize", HasSERIALIZE)
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
       .Case("shstk", HasSHSTK)
@@ -2178,21 +2536,144 @@ bool X86TargetInfo::validateAsmConstraint(
   }
 }
 
-bool X86TargetInfo::validateOutputSize(StringRef Constraint,
+// Below is based on the following information:
+// +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+// |           Processor Name           | Cache Line Size (Bytes) |                                                                            Source                                                                            |
+// +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+// | i386                               |                      64 | https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-optimization-manual.pdf                                          |
+// | i486                               |                      16 | "four doublewords" (doubleword = 32 bits, 4 bits * 32 bits = 16 bytes) https://en.wikichip.org/w/images/d/d3/i486_MICROPROCESSOR_HARDWARE_REFERENCE_MANUAL_%281990%29.pdf and http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.126.4216&rep=rep1&type=pdf (page 29) |
+// | i586/Pentium MMX                   |                      32 | https://www.7-cpu.com/cpu/P-MMX.html                                                                                                                         |
+// | i686/Pentium                       |                      32 | https://www.7-cpu.com/cpu/P6.html                                                                                                                            |
+// | Netburst/Pentium4                  |                      64 | https://www.7-cpu.com/cpu/P4-180.html                                                                                                                        |
+// | Atom                               |                      64 | https://www.7-cpu.com/cpu/Atom.html                                                                                                                          |
+// | Westmere                           |                      64 | https://en.wikichip.org/wiki/intel/microarchitectures/sandy_bridge_(client) "Cache Architecture"                                                             |
+// | Sandy Bridge                       |                      64 | https://en.wikipedia.org/wiki/Sandy_Bridge and https://www.7-cpu.com/cpu/SandyBridge.html                                                                    |
+// | Ivy Bridge                         |                      64 | https://blog.stuffedcow.net/2013/01/ivb-cache-replacement/ and https://www.7-cpu.com/cpu/IvyBridge.html                                                      |
+// | Haswell                            |                      64 | https://www.7-cpu.com/cpu/Haswell.html                                                                                                                       |
+// | Boadwell                           |                      64 | https://www.7-cpu.com/cpu/Broadwell.html                                                                                                                     |
+// | Skylake (including skylake-avx512) |                      64 | https://www.nas.nasa.gov/hecc/support/kb/skylake-processors_550.html "Cache Hierarchy"                                                                       |
+// | Cascade Lake                       |                      64 | https://www.nas.nasa.gov/hecc/support/kb/cascade-lake-processors_579.html "Cache Hierarchy"                                                                  |
+// | Skylake                            |                      64 | https://en.wikichip.org/wiki/intel/microarchitectures/kaby_lake "Memory Hierarchy"                                                                           |
+// | Ice Lake                           |                      64 | https://www.7-cpu.com/cpu/Ice_Lake.html                                                                                                                      |
+// | Knights Landing                    |                      64 | https://software.intel.com/en-us/articles/intel-xeon-phi-processor-7200-family-memory-management-optimizations "The Intel® Xeon Phi™ Processor Architecture" |
+// | Knights Mill                       |                      64 | https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf?countrylabel=Colombia "2.5.5.2 L1 DCache "       |
+// +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
+Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
+  switch (CPU) {
+    // i386
+    case CK_i386:
+    // i486
+    case CK_i486:
+    case CK_WinChipC6:
+    case CK_WinChip2:
+    case CK_C3:
+    // Lakemont
+    case CK_Lakemont:
+      return 16;
+
+    // i586
+    case CK_i586:
+    case CK_Pentium:
+    case CK_PentiumMMX:
+    // i686
+    case CK_PentiumPro:
+    case CK_i686:
+    case CK_Pentium2:
+    case CK_Pentium3:
+    case CK_PentiumM:
+    case CK_C3_2:
+    // K6
+    case CK_K6:
+    case CK_K6_2:
+    case CK_K6_3:
+    // Geode
+    case CK_Geode:
+      return 32;
+
+    // Netburst
+    case CK_Pentium4:
+    case CK_Prescott:
+    case CK_Nocona:
+    // Atom
+    case CK_Bonnell:
+    case CK_Silvermont:
+    case CK_Goldmont:
+    case CK_GoldmontPlus:
+    case CK_Tremont:
+
+    case CK_Westmere:
+    case CK_SandyBridge:
+    case CK_IvyBridge:
+    case CK_Haswell:
+    case CK_Broadwell:
+    case CK_SkylakeClient:
+    case CK_SkylakeServer:
+    case CK_Cascadelake:
+    case CK_Nehalem:
+    case CK_Cooperlake:
+    case CK_Cannonlake:
+    case CK_Tigerlake:
+    case CK_IcelakeClient:
+    case CK_IcelakeServer:
+#if INTEL_CUSTOMIZATION
+    case CK_CommonAVX512:
+#if INTEL_FEATURE_CPU_GLC
+    case CK_Goldencove:
+#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_CUSTOMIZATION
+    case CK_KNL:
+    case CK_KNM:
+    // K7
+    case CK_Athlon:
+    case CK_AthlonXP:
+    // K8
+    case CK_K8:
+    case CK_K8SSE3:
+    case CK_AMDFAM10:
+    // Bobcat
+    case CK_BTVER1:
+    case CK_BTVER2:
+    // Bulldozer
+    case CK_BDVER1:
+    case CK_BDVER2:
+    case CK_BDVER3:
+    case CK_BDVER4:
+    // Zen
+    case CK_ZNVER1:
+    case CK_ZNVER2:
+    // Deprecated
+    case CK_x86_64:
+    case CK_Yonah:
+    case CK_Penryn:
+    case CK_Core2:
+      return 64;
+
+    // The following currently have unknown cache line sizes (but they are probably all 64):
+    // Core
+    case CK_Generic:
+      return None;
+  }
+  llvm_unreachable("Unknown CPU kind");
+}
+
+bool X86TargetInfo::validateOutputSize(const llvm::StringMap<bool> &FeatureMap,
+                                       StringRef Constraint,
                                        unsigned Size) const {
   // Strip off constraint modifiers.
   while (Constraint[0] == '=' || Constraint[0] == '+' || Constraint[0] == '&')
     Constraint = Constraint.substr(1);
 
-  return validateOperandSize(Constraint, Size);
+  return validateOperandSize(FeatureMap, Constraint, Size);
 }
 
-bool X86TargetInfo::validateInputSize(StringRef Constraint,
+bool X86TargetInfo::validateInputSize(const llvm::StringMap<bool> &FeatureMap,
+                                      StringRef Constraint,
                                       unsigned Size) const {
-  return validateOperandSize(Constraint, Size);
+  return validateOperandSize(FeatureMap, Constraint, Size);
 }
 
-bool X86TargetInfo::validateOperandSize(StringRef Constraint,
+bool X86TargetInfo::validateOperandSize(const llvm::StringMap<bool> &FeatureMap,
+                                        StringRef Constraint,
                                         unsigned Size) const {
   switch (Constraint[0]) {
   default:
@@ -2217,7 +2698,7 @@ bool X86TargetInfo::validateOperandSize(StringRef Constraint,
     case 'z':
     case '0':
       // XMM0
-      if (SSELevel >= SSE1)
+      if (FeatureMap.lookup("sse"))
         return Size <= 128U;
       return false;
     case 'i':
@@ -2231,10 +2712,10 @@ bool X86TargetInfo::validateOperandSize(StringRef Constraint,
     LLVM_FALLTHROUGH;
   case 'v':
   case 'x':
-    if (SSELevel >= AVX512F)
+    if (FeatureMap.lookup("avx512f"))
       // 512-bit zmm registers can be used if target supports AVX512F.
       return Size <= 512U;
-    else if (SSELevel >= AVX)
+    else if (FeatureMap.lookup("avx"))
       // 256-bit ymm registers can be used if target supports AVX.
       return Size <= 256U;
     return Size <= 128U;

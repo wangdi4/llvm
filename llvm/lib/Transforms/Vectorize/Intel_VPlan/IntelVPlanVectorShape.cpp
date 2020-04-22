@@ -21,29 +21,29 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-vector-shape"
 
-VPVectorShape* VPVectorShape::joinShapes(const VPVectorShape *Shape1,
-                                         const VPVectorShape *Shape2) {
-  if (Shape1->isUndefined())
-    return new VPVectorShape(Shape2->getShapeDescriptor(), Shape2->getStride());
+VPVectorShape VPVectorShape::joinShapes(VPVectorShape Shape1,
+                                        VPVectorShape Shape2) {
+  if (Shape1.isUndefined())
+    return {Shape2.getShapeDescriptor(), Shape2.getStride()};
 
-  if (Shape2->isUndefined())
-    return new VPVectorShape(Shape1->getShapeDescriptor(), Shape1->getStride());
+  if (Shape2.isUndefined())
+    return {Shape1.getShapeDescriptor(), Shape1.getStride()};
 
   if (shapesHaveSameStride(Shape1, Shape2)) {
-    if (Shape1->isUniform())
-      return new VPVectorShape(VPVectorShape::Uni, Shape1->getStride());
+    if (Shape1.isUniform())
+      return {VPVectorShape::Uni, Shape1.getStride()};
+
+    if (Shape1.isUnitStride())
+      return {VPVectorShape::Seq, Shape1.getStride()};
     else
-      return new VPVectorShape(VPVectorShape::Str, Shape1->getStride());
+      return {VPVectorShape::Str, Shape1.getStride()};
   }
 
-  return new VPVectorShape(VPVectorShape::Rnd);
+  return {VPShapeDescriptor::Rnd};
 }
 
-bool VPVectorShape::shapesHaveSameStride(const VPVectorShape *Shape1,
-                                         const VPVectorShape *Shape2) {
-  if (Shape1 && Shape2 && Shape1->hasKnownStride() &&
-      Shape2->hasKnownStride() &&
-      Shape1->getStrideVal() == Shape2->getStrideVal())
-    return true;
-  return false;
+bool VPVectorShape::shapesHaveSameStride(VPVectorShape Shape1,
+                                         VPVectorShape Shape2) {
+  return Shape1.hasKnownStride() && Shape2.hasKnownStride() &&
+         Shape1.getStrideVal() == Shape2.getStrideVal();
 }

@@ -2,27 +2,32 @@
 ; Test to check that VPValue-based IR codegen generates optimal and correct scalar code for
 ; non-masked stores to uniform addresses.
 
-; RUN: opt -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
 
 define void @foo(i32* %src1, i32 %src2, i32* %dest1, i32* %dest2, i32* %dest3) {
+; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC1:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC1:%.*]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 8
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_3_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 3
 ; CHECK-NEXT:    store i32 [[WIDE_LOAD_EXTRACT_3_]], i32* [[DEST1:%.*]], align 8
 ; CHECK-NEXT:    store i32 [[SRC2:%.*]], i32* [[DEST2:%.*]], align 8
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i32.v4p0i32(<4 x i32> [[SRC2_BCAST:%.*]], <4 x i32*> [[DEST3_BCAST:%.*]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3:%.*]]
+; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3]]
+; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3]]
+; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3]]
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne <4 x i64> [[TMP1]], <i64 1024, i64 1024, i64 1024, i64 1024>
-; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i1> [[TMP3]], i32 0
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI1]], 4
+; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp ne i64 [[TMP4]], 1024
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
+; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

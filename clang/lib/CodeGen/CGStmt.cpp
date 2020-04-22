@@ -10,14 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CGDebugInfo.h" // INTEL
+#include "CGDebugInfo.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Expr.h"  // INTEL
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/PrettyStackTrace.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DataLayout.h"
@@ -92,9 +94,11 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #else
   if (CGM.getLangOpts().OpenMPLateOutline) {
 #endif // INTEL_CUSTOMIZATION
+    // Handle reprocessing VLASizeMap expressions.
+    CGVLASizeMapHandler VSMH(*this);
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       if (requiresImplicitTask(*Dir))
-        return EmitLateOutlineOMPDirective(*Dir, OMPD_task);
+        return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_task);
 
     // Combined target directives
     if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||
@@ -109,7 +113,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
         S->getStmtClass() ==
             Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_target);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_target);
     }
     // Combined teams directives
     if (S->getStmtClass() == Stmt::OMPTeamsDistributeDirectiveClass ||
@@ -119,20 +123,21 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
         S->getStmtClass() ==
             Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_teams);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_teams);
     }
     // Combined master/taskloop directives
     if (S->getStmtClass() == Stmt::OMPMasterTaskLoopDirectiveClass ||
         S->getStmtClass() == Stmt::OMPMasterTaskLoopSimdDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_master);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_master);
     }
-    // Combined parallel/master_taskloop directives
+    // Combined parallel/master/master_taskloop directives
     if (S->getStmtClass() == Stmt::OMPParallelMasterTaskLoopDirectiveClass ||
         S->getStmtClass() ==
-            Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass) {
+            Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPParallelMasterDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
-      return EmitLateOutlineOMPDirective(*Dir, OMPD_parallel);
+      return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_parallel);
     }
     if (auto *LoopDir = dyn_cast<OMPLoopDirective>(S))
       return EmitLateOutlineOMPLoopDirective(*LoopDir,
@@ -293,6 +298,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPParallelForSimdDirectiveClass:
     EmitOMPParallelForSimdDirective(cast<OMPParallelForSimdDirective>(*S));
     break;
+  case Stmt::OMPParallelMasterDirectiveClass:
+    EmitOMPParallelMasterDirective(cast<OMPParallelMasterDirective>(*S));
+    break;
   case Stmt::OMPParallelSectionsDirectiveClass:
     EmitOMPParallelSectionsDirective(cast<OMPParallelSectionsDirective>(*S));
     break;
@@ -313,6 +321,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     break;
   case Stmt::OMPFlushDirectiveClass:
     EmitOMPFlushDirective(cast<OMPFlushDirective>(*S));
+    break;
+  case Stmt::OMPDepobjDirectiveClass:
+    EmitOMPDepobjDirective(cast<OMPDepobjDirective>(*S));
+    break;
+  case Stmt::OMPScanDirectiveClass:
+    llvm_unreachable("Scan directive not supported yet.");
     break;
   case Stmt::OMPOrderedDirectiveClass:
     EmitOMPOrderedDirective(cast<OMPOrderedDirective>(*S));
@@ -634,8 +648,7 @@ void CodeGenFunction::EmitLabel(const LabelDecl *D) {
 
   // Emit debug info for labels.
   if (CGDebugInfo *DI = getDebugInfo()) {
-    if (CGM.getCodeGenOpts().getDebugInfo() >=
-        codegenoptions::LimitedDebugInfo) {
+    if (CGM.getCodeGenOpts().hasReducedDebugInfo()) {
       DI->setLocation(D->getLocation());
       DI->EmitLabel(D, Builder);
     }
@@ -732,7 +745,7 @@ CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
     if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
       if (const Expr *LE = LHAttr->getLoopExprValue()) {
         assert(LE->isGLValue());
-        BundleValues.push_back(CGF.EmitLValue(LE).getPointer());
+        BundleValues.push_back(CGF.EmitLValue(LE).getPointer(CGF));
         if (const Expr *E = LHAttr->getValue())
           BundleValues.push_back(CGF.EmitScalarExpr(E));
         else
@@ -756,6 +769,46 @@ CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
       llvm::OperandBundleDef("DIR.PRAGMA.END.IVDEP",
                              ArrayRef<llvm::Value *>{})};
 
+    CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
+        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
+  }
+}
+
+/// Handle #pragma loop_fuse
+CodeGenFunction::IntelFPGALoopFuseHandler::IntelFPGALoopFuseHandler(
+    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
+    : CGF(CGF) {
+  auto LFAIt = std::find_if(Attrs.begin(), Attrs.end(),
+                            [](const Attr *A) { return isa<LoopFuseAttr>(A); });
+  const LoopFuseAttr *LFA =
+      LFAIt == Attrs.end() ? nullptr : cast<LoopFuseAttr>(*LFAIt);
+
+  if (LFA) {
+    llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(CGF.getLLVMContext());
+    SmallVector<llvm::OperandBundleDef, 3> OpBundles{
+        llvm::OperandBundleDef("DIR.PRAGMA.FUSE", ArrayRef<llvm::Value *>{})};
+
+    if (LFA->getDepth())
+      OpBundles.push_back(
+          llvm::OperandBundleDef("QUAL.PRAGMA.FUSE.DISTANCE",
+                                 ArrayRef<llvm::Value *>{llvm::ConstantInt::get(
+                                     Int32Ty, LFA->getDepth())}));
+
+    if (LFA->getIndependent())
+      OpBundles.push_back(llvm::OperandBundleDef("QUAL.PRAGMA.FUSE.INDEPENDENT",
+                                                 ArrayRef<llvm::Value *>{}));
+
+    CallEntry = CGF.Builder.CreateCall(
+        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
+        OpBundles);
+  }
+}
+
+CodeGenFunction::IntelFPGALoopFuseHandler::~IntelFPGALoopFuseHandler() {
+  if (CallEntry) {
+    SmallVector<llvm::OperandBundleDef, 1> OpBundles{llvm::OperandBundleDef(
+        "DIR.PRAGMA.END.FUSE", ArrayRef<llvm::Value *>{})};
     CGF.Builder.CreateCall(
         CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
         SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
@@ -818,12 +871,14 @@ CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
 
   for (const auto *P : BL->privates()) {
     SmallVector<llvm::Value *, 4> BundleValues;
-    BundleValues.push_back(CGF.EmitLValue(P).getPointer());
+    BundleValues.push_back(CGF.EmitLValue(P).getPointer(CGF));
     OpBundles.push_back(
         llvm::OperandBundleDef("QUAL.PRAGMA.PRIVATE", BundleValues));
   }
 
   IntelBlockLoopAttr::factors_iterator FI = BL->factors_begin();
+  bool IsNoBlockLoop = (BL->getSemanticSpelling() ==
+                        IntelBlockLoopAttr::Pragma_noblock_loop);
   for (const auto L : BL->levels()) {
     llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
     OpBundles.push_back(llvm::OperandBundleDef(
@@ -833,7 +888,8 @@ CodeGenFunction::IntelBlockLoopExprHandler::IntelBlockLoopExprHandler(
                                                  CGF.EmitScalarExpr(*FI)));
     else
       OpBundles.push_back(llvm::OperandBundleDef(
-          "QUAL.PRAGMA.FACTOR", llvm::ConstantInt::get(Int32Ty, -1)));
+          "QUAL.PRAGMA.FACTOR",
+           llvm::ConstantInt::get(Int32Ty, IsNoBlockLoop ? 0 : -1)));
     ++FI;
   }
   CallEntry = CGF.Builder.CreateCall(
@@ -862,6 +918,7 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
+  IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }
@@ -1411,16 +1468,14 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
         !EmitFakeLoadForRetPtr(RV)) {
       RValue Result = EmitReferenceBindingToExpr(RV);
       llvm::Value *Val = Result.getScalarVal();
-      if (!getenv("DISABLE_INFER_AS")) {
-        if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
-          auto *ExpectedPtrType =
-              cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
-          unsigned ValueAS = PtrTy->getAddressSpace();
-          unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-          if (ValueAS != ExpectedAS) {
-            Val =
-                Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
-          }
+      if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
+        auto *ExpectedPtrType =
+            cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
+        unsigned ValueAS = PtrTy->getAddressSpace();
+        unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+        if (ValueAS != ExpectedAS) {
+          Val =
+              Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
         }
       }
       Builder.CreateStore(Val, ReturnValue);
@@ -1438,16 +1493,14 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
           Exp->getOpcode() != UO_AddrOf || !IsFakeLoadCand(Exp->getSubExpr()) ||
           !EmitFakeLoadForRetPtr(Exp->getSubExpr())) {
         llvm::Value *Val = EmitScalarExpr(RV);
-        if (!getenv("DISABLE_INFER_AS")) {
-          if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
-            auto *ExpectedPtrType =
-                cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
-            unsigned ValueAS = PtrTy->getAddressSpace();
-            unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-            if (ValueAS != ExpectedAS)
-              Val = Builder.CreatePointerBitCastOrAddrSpaceCast(
-                  Val, ExpectedPtrType);
-          }
+        if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
+          auto *ExpectedPtrType =
+              cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
+          unsigned ValueAS = PtrTy->getAddressSpace();
+          unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
+          if (ValueAS != ExpectedAS)
+            Val = Builder.CreatePointerBitCastOrAddrSpaceCast(
+                Val, ExpectedPtrType);
         }
         Builder.CreateStore(Val, ReturnValue);
       }
@@ -2173,15 +2226,15 @@ CodeGenFunction::EmitAsmInputLValue(const TargetInfo::ConstraintInfo &Info,
         Ty = llvm::IntegerType::get(getLLVMContext(), Size);
         Ty = llvm::PointerType::getUnqual(Ty);
 
-        Arg = Builder.CreateLoad(Builder.CreateBitCast(InputValue.getAddress(),
-                                                       Ty));
+        Arg = Builder.CreateLoad(
+            Builder.CreateBitCast(InputValue.getAddress(*this), Ty));
       } else {
-        Arg = InputValue.getPointer();
+        Arg = InputValue.getPointer(*this);
         ConstraintStr += '*';
       }
     }
   } else {
-    Arg = InputValue.getPointer();
+    Arg = InputValue.getPointer(*this);
     ConstraintStr += '*';
   }
 
@@ -2427,11 +2480,12 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
 
       // Update largest vector width for any vector types.
       if (auto *VT = dyn_cast<llvm::VectorType>(ResultRegTypes.back()))
-        LargestVectorWidth = std::max((uint64_t)LargestVectorWidth,
-                                   VT->getPrimitiveSizeInBits().getFixedSize());
+        LargestVectorWidth =
+            std::max((uint64_t)LargestVectorWidth,
+                     VT->getPrimitiveSizeInBits().getKnownMinSize());
     } else {
-      ArgTypes.push_back(Dest.getAddress().getType());
-      Args.push_back(Dest.getPointer());
+      ArgTypes.push_back(Dest.getAddress(*this).getType());
+      Args.push_back(Dest.getPointer(*this));
       Constraints += "=*";
       Constraints += OutputConstraint;
       ReadOnly = ReadNone = false;
@@ -2452,8 +2506,9 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
 
       // Update largest vector width for any vector types.
       if (auto *VT = dyn_cast<llvm::VectorType>(Arg->getType()))
-        LargestVectorWidth = std::max((uint64_t)LargestVectorWidth,
-                                   VT->getPrimitiveSizeInBits().getFixedSize());
+        LargestVectorWidth =
+            std::max((uint64_t)LargestVectorWidth,
+                     VT->getPrimitiveSizeInBits().getKnownMinSize());
       if (Info.allowsRegister())
         InOutConstraints += llvm::utostr(i);
       else
@@ -2539,20 +2594,14 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
 
     // Update largest vector width for any vector types.
     if (auto *VT = dyn_cast<llvm::VectorType>(Arg->getType()))
-      LargestVectorWidth = std::max((uint64_t)LargestVectorWidth,
-                                   VT->getPrimitiveSizeInBits().getFixedSize());
+      LargestVectorWidth =
+          std::max((uint64_t)LargestVectorWidth,
+                   VT->getPrimitiveSizeInBits().getKnownMinSize());
 
     ArgTypes.push_back(Arg->getType());
     Args.push_back(Arg);
     Constraints += InputConstraint;
   }
-
-  // Append the "input" part of inout constraints last.
-  for (unsigned i = 0, e = InOutArgs.size(); i != e; i++) {
-    ArgTypes.push_back(InOutArgTypes[i]);
-    Args.push_back(InOutArgs[i]);
-  }
-  Constraints += InOutConstraints;
 
   // Labels
   SmallVector<llvm::BasicBlock *, 16> Transfer;
@@ -2561,7 +2610,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   if (const auto *GS =  dyn_cast<GCCAsmStmt>(&S)) {
     IsGCCAsmGoto = GS->isAsmGoto();
     if (IsGCCAsmGoto) {
-      for (auto *E : GS->labels()) {
+      for (const auto *E : GS->labels()) {
         JumpDest Dest = getJumpDestForLabel(E->getLabel());
         Transfer.push_back(Dest.getBlock());
         llvm::BlockAddress *BA =
@@ -2572,10 +2621,16 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
           Constraints += ',';
         Constraints += 'X';
       }
-      StringRef Name = "asm.fallthrough";
-      Fallthrough = createBasicBlock(Name);
+      Fallthrough = createBasicBlock("asm.fallthrough");
     }
   }
+
+  // Append the "input" part of inout constraints last.
+  for (unsigned i = 0, e = InOutArgs.size(); i != e; i++) {
+    ArgTypes.push_back(InOutArgTypes[i]);
+    Args.push_back(InOutArgs[i]);
+  }
+  Constraints += InOutConstraints;
 
   // Clobbers
   for (unsigned i = 0, e = S.getNumClobbers(); i != e; i++) {
@@ -2583,8 +2638,14 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
 
     if (Clobber == "memory")
       ReadOnly = ReadNone = false;
-    else if (Clobber != "cc")
+    else if (Clobber != "cc") {
       Clobber = getTarget().getNormalizedGCCRegisterName(Clobber);
+      if (CGM.getCodeGenOpts().StackClashProtector &&
+          getTarget().isSPRegName(Clobber)) {
+        CGM.getDiags().Report(S.getAsmLoc(),
+                              diag::warn_stack_clash_protection_inline_asm);
+      }
+    }
 
     if (!Constraints.empty())
       Constraints += ',';
@@ -2623,9 +2684,9 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
   if (IsGCCAsmGoto) {
     llvm::CallBrInst *Result =
         Builder.CreateCallBr(IA, Fallthrough, Transfer, Args);
+    EmitBlock(Fallthrough);
     UpdateAsmCallInst(cast<llvm::CallBase>(*Result), HasSideEffect, ReadOnly,
                       ReadNone, S, ResultRegTypes, *this, RegResults);
-    EmitBlock(Fallthrough);
   } else {
     llvm::CallInst *Result =
         Builder.CreateCall(IA, Args, getBundlesForFunclet(IA));
@@ -2673,7 +2734,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     // ResultTypeRequiresCast.size() elements of RegResults.
     if ((i < ResultTypeRequiresCast.size()) && ResultTypeRequiresCast[i]) {
       unsigned Size = getContext().getTypeSize(ResultRegQualTys[i]);
-      Address A = Builder.CreateBitCast(Dest.getAddress(),
+      Address A = Builder.CreateBitCast(Dest.getAddress(*this),
                                         ResultRegTypes[i]->getPointerTo());
       QualType Ty = getContext().getIntTypeForBitwidth(Size, /*Signed*/ false);
       if (Ty.isNull()) {
@@ -2726,14 +2787,14 @@ CodeGenFunction::EmitCapturedStmt(const CapturedStmt &S, CapturedRegionKind K) {
   delete CGF.CapturedStmtInfo;
 
   // Emit call to the helper function.
-  EmitCallOrInvoke(F, CapStruct.getPointer());
+  EmitCallOrInvoke(F, CapStruct.getPointer(*this));
 
   return F;
 }
 
 Address CodeGenFunction::GenerateCapturedStmtArgument(const CapturedStmt &S) {
   LValue CapStruct = InitCapturedStruct(S);
-  return CapStruct.getAddress();
+  return CapStruct.getAddress(*this);
 }
 
 /// Creates the outlined function for a CapturedStmt.

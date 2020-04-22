@@ -1,5 +1,3 @@
-add_subdirectory(SYCLLowerIR)
-
 set(LLVM_LINK_COMPONENTS
   Analysis
   BitReader
@@ -7,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   Coroutines
   Coverage
+  FrontendOpenMP
   IPO
   IRReader
   AggressiveInstCombine
@@ -22,9 +21,9 @@ set(LLVM_LINK_COMPONENTS
   Remarks
   ScalarOpts
   Support
+  SYCLLowerIR
   Target
   TransformUtils
-  ASFixer
   )
 
 # INTEL_CUSTOMIZATION
@@ -113,6 +112,8 @@ add_clang_library(clangCodeGen
   intel/CGIntelHLS.cpp
 # end INTEL_CUSTOMIZATION
 
+  ENABLE_PLUGINS
+
   DEPENDS
   ${codegen_deps}
 
@@ -124,5 +125,4 @@ add_clang_library(clangCodeGen
   clangFrontend
   clangLex
   clangSerialization
-  clangSYCLLowerIR
   )

@@ -1,6 +1,6 @@
 //===------- HIRLoopFormation.cpp - Creates HIR Loops ---------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -221,14 +221,13 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
-  assert(IVNode && "Could not find loop IV!");
+  auto *IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
 
-  auto IVType = IVNode->getType();
+  auto *IVType = IVNode ? IVNode->getType() : nullptr;
 
   // If the IVType is not an integer, assign it an integer type which is able to
   // represent the address space.
-  if (!IVType->isIntegerTy()) {
+  if (!IVType || !IVType->isIntegerTy()) {
     IVType = Type::getIntNTy(
         Func->getContext(),
         Func->getParent()->getDataLayout().getPointerSizeInBits());

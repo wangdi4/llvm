@@ -22,6 +22,9 @@ static_library("Support") {
 
     # public_dep because public header TargetSelect.h includes these .def files.
     "//llvm/include/llvm/Config:write_target_def_files",
+
+    # public_dep because random targets assume its output exists.
+    "//llvm/include/llvm/Support:write_extension_def",
   ]
   include_dirs = [
     "Unix",
@@ -62,6 +65,8 @@ static_library("Support") {
     "Debug.cpp",
     "DebugCounter.cpp",
     "DeltaAlgorithm.cpp",
+    "ELFAttributeParser.cpp",
+    "ELFAttributes.cpp",
     "Error.cpp",
     "ErrorHandling.cpp",
     "FileCheck.cpp",
@@ -90,10 +95,13 @@ static_library("Support") {
     "MathExtras.cpp",
     "MemoryBuffer.cpp",
     "NativeFormatting.cpp",
+    "OptimalLayout.cpp",
     "Optional.cpp",
     "Parallel.cpp",
     "PluginLoader.cpp",
     "PrettyStackTrace.cpp",
+    "RISCVAttributeParser.cpp",
+    "RISCVAttributes.cpp",
     "RWMutex.cpp",
     "RandomNumberGenerator.cpp",
     "Regex.cpp",

@@ -38,6 +38,12 @@ class AArch64Subtarget final : public AArch64GenSubtargetInfo {
 public:
   enum ARMProcFamilyEnum : uint8_t {
     Others,
+    A64FX,
+    AppleA7,
+    AppleA10,
+    AppleA11,
+    AppleA12,
+    AppleA13,
     CortexA35,
     CortexA53,
     CortexA55,
@@ -47,7 +53,6 @@ public:
     CortexA73,
     CortexA75,
     CortexA76,
-    Cyclone,
     ExynosM3,
     Falkor,
     Kryo,
@@ -71,6 +76,7 @@ protected:
   bool HasV8_3aOps = false;
   bool HasV8_4aOps = false;
   bool HasV8_5aOps = false;
+  bool HasV8_6aOps = false;
 
   bool HasFPARMv8 = false;
   bool HasNEON = false;
@@ -138,6 +144,9 @@ protected:
   bool HasRandGen = false;
   bool HasMTE = false;
   bool HasTME = false;
+
+  // Armv8.6-A Extensions
+  bool HasBF16 = false;
 
   // Arm SVE2 extensions
   bool HasSVE2AES = false;
@@ -355,7 +364,12 @@ public:
   }
   unsigned getCacheLineSize() const override { return CacheLineSize; }
   unsigned getPrefetchDistance() const override { return PrefetchDistance; }
-  unsigned getMinPrefetchStride() const override { return MinPrefetchStride; }
+  unsigned getMinPrefetchStride(unsigned NumMemAccesses,
+                                unsigned NumStridedMemAccesses,
+                                unsigned NumPrefetches,
+                                bool HasCall) const override {
+    return MinPrefetchStride;
+  }
   unsigned getMaxPrefetchIterationsAhead() const override {
     return MaxPrefetchIterationsAhead;
   }
@@ -397,6 +411,9 @@ public:
   bool hasSVE2SM4() const { return HasSVE2SM4; }
   bool hasSVE2SHA3() const { return HasSVE2SHA3; }
   bool hasSVE2BitPerm() const { return HasSVE2BitPerm; }
+
+  // Armv8.6-A Extensions
+  bool hasBF16() const { return HasBF16; }
 
   bool isLittleEndian() const { return IsLittle; }
 

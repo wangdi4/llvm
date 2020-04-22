@@ -115,7 +115,7 @@ public:
   std::string ModuleUserBuildPath;
 
   /// The mapping of module names to prebuilt module files.
-  std::map<std::string, std::string> PrebuiltModuleFiles;
+  std::map<std::string, std::string, std::less<>> PrebuiltModuleFiles;
 
   /// The directories used to load prebuilt module files.
   std::vector<std::string> PrebuiltModulePaths;
@@ -247,7 +247,7 @@ public:
   }
 
   void AddVFSOverlayFile(StringRef Name) {
-    VFSOverlayFiles.push_back(Name);
+    VFSOverlayFiles.push_back(std::string(Name));
   }
 
 #if INTEL_CUSTOMIZATION
@@ -257,7 +257,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   void AddPrebuiltModulePath(StringRef Name) {
-    PrebuiltModulePaths.push_back(Name);
+    PrebuiltModulePaths.push_back(std::string(Name));
   }
 };
 

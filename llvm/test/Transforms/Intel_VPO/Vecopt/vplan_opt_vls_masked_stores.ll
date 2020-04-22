@@ -1,5 +1,7 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
 ; RUN:     -debug-only=vplan-vls-analysis 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN: -debug-only=vplan-vls-analysis 2>&1 | FileCheck %s
 ;
 ; REQUIRES: asserts
 

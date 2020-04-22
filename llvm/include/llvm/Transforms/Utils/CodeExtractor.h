@@ -20,6 +20,10 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include <limits>
 #if INTEL_COLLAB
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include <utility>
 #endif // INTEL_COLLAB
 
@@ -113,6 +117,18 @@ public:
 
   private:
     const OrderedArgs *TgtClauseArgs = nullptr;
+
+    // Information about inputs/outputs which are rewritten during block
+    // extraction. This information is used later for emitting debug info.
+    struct RewrittenValueInfo {
+      Value *Storage;
+      unsigned ArgNo;
+    };
+    typedef DenseMap<Value *, struct RewrittenValueInfo> RewrittenValuesMap;
+    RewrittenValuesMap RewrittenValues;
+
+    // Declaration location for extracted routine.
+    DebugLoc DeclLoc;
 #endif // INTEL_COLLAB
 
     // Suffix to use when creating extracted function (appended to the original
@@ -157,6 +173,13 @@ public:
                   AssumptionCache *AC = nullptr,
                   std::string Suffix = "");
 
+#if INTEL_COLLAB
+    /// Routines for updating debug information during code extraction.
+    void setDeclLoc(DebugLoc DL) { DeclLoc = DL; }
+    void updateDebugInfo(Function *OldF, Function *NewF,
+                         const ValueSet &inputs, const ValueSet &outputs);
+#endif // INTEL_COLLAB
+
     /// Perform the extraction, returning the new function.
     ///
     /// Returns zero when called on a CodeExtractor instance where isEligible
@@ -164,9 +187,11 @@ public:
     Function *extractCodeRegion(const CodeExtractorAnalysisCache &CEAC);
 
     /// Verify that assumption cache isn't stale after a region is extracted.
-    /// Returns false when verifier finds errors. AssumptionCache is passed as
+    /// Returns true when verifier finds errors. AssumptionCache is passed as
     /// parameter to make this function stateless.
-    static bool verifyAssumptionCache(const Function& F, AssumptionCache *AC);
+    static bool verifyAssumptionCache(const Function &OldFunc,
+                                      const Function &NewFunc,
+                                      AssumptionCache *AC);
 
     /// Test whether this code extractor is eligible.
     ///

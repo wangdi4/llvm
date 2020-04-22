@@ -1,0 +1,123 @@
+// REQUIRES: intel_feature_isa_avx_convert
+// RUN: llvm-mc -triple i686-unknown-unknown -mattr=+avxconvert --show-encoding %s | FileCheck %s
+
+// CHECK:  vcvt2ps2ph %ymm4, %ymm3, %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x65,0x67,0xd4]
+      vcvt2ps2ph %ymm4, %ymm3, %ymm2
+
+// CHECK:  vcvt2ps2ph %xmm4, %xmm3, %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x61,0x67,0xd4]
+      vcvt2ps2ph %xmm4, %xmm3, %xmm2
+
+// CHECK:  vcvt2ps2ph  268435456(%esp,%esi,8), %ymm3, %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x65,0x67,0x94,0xf4,0x00,0x00,0x00,0x10]
+      vcvt2ps2ph  268435456(%esp,%esi,8), %ymm3, %ymm2
+
+// CHECK:  vcvt2ps2ph  291(%edi,%eax,4), %ymm3, %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x65,0x67,0x94,0x87,0x23,0x01,0x00,0x00]
+      vcvt2ps2ph  291(%edi,%eax,4), %ymm3, %ymm2
+
+// CHECK:  vcvt2ps2ph  (%eax), %ymm3, %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x65,0x67,0x10]
+      vcvt2ps2ph  (%eax), %ymm3, %ymm2
+
+// CHECK:  vcvt2ps2ph  -1024(,%ebp,2), %ymm3, %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x65,0x67,0x14,0x6d,0x00,0xfc,0xff,0xff]
+      vcvt2ps2ph  -1024(,%ebp,2), %ymm3, %ymm2
+
+// CHECK:  vcvt2ps2ph  268435456(%esp,%esi,8), %xmm3, %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x61,0x67,0x94,0xf4,0x00,0x00,0x00,0x10]
+      vcvt2ps2ph  268435456(%esp,%esi,8), %xmm3, %xmm2
+
+// CHECK:  vcvt2ps2ph  291(%edi,%eax,4), %xmm3, %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x61,0x67,0x94,0x87,0x23,0x01,0x00,0x00]
+      vcvt2ps2ph  291(%edi,%eax,4), %xmm3, %xmm2
+
+// CHECK:  vcvt2ps2ph  (%eax), %xmm3, %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x61,0x67,0x10]
+      vcvt2ps2ph  (%eax), %xmm3, %xmm2
+
+// CHECK:  vcvt2ps2ph  -512(,%ebp,2), %xmm3, %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x61,0x67,0x14,0x6d,0x00,0xfe,0xff,0xff]
+      vcvt2ps2ph  -512(,%ebp,2), %xmm3, %xmm2
+
+// CHECK:  vcvtbf162ph %xmm3, %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7a,0x67,0xd3]
+      vcvtbf162ph %xmm3, %xmm2
+
+// CHECK:  vcvtbf162ph %ymm3, %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7e,0x67,0xd3]
+      vcvtbf162ph %ymm3, %ymm2
+
+// CHECK:  vcvtbf162ph  268435456(%esp,%esi,8), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7a,0x67,0x94,0xf4,0x00,0x00,0x00,0x10]
+      vcvtbf162ph  268435456(%esp,%esi,8), %xmm2
+
+// CHECK:  vcvtbf162ph  291(%edi,%eax,4), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7a,0x67,0x94,0x87,0x23,0x01,0x00,0x00]
+      vcvtbf162ph  291(%edi,%eax,4), %xmm2
+
+// CHECK:  vcvtbf162ph  (%eax), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7a,0x67,0x10]
+      vcvtbf162ph  (%eax), %xmm2
+
+// CHECK:  vcvtbf162ph  -512(,%ebp,2), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7a,0x67,0x14,0x6d,0x00,0xfe,0xff,0xff]
+      vcvtbf162ph  -512(,%ebp,2), %xmm2
+
+// CHECK:  vcvtbf162ph  268435456(%esp,%esi,8), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7e,0x67,0x94,0xf4,0x00,0x00,0x00,0x10]
+      vcvtbf162ph  268435456(%esp,%esi,8), %ymm2
+
+// CHECK:  vcvtbf162ph  291(%edi,%eax,4), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7e,0x67,0x94,0x87,0x23,0x01,0x00,0x00]
+      vcvtbf162ph  291(%edi,%eax,4), %ymm2
+
+// CHECK:  vcvtbf162ph  (%eax), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7e,0x67,0x10]
+      vcvtbf162ph  (%eax), %ymm2
+
+// CHECK:  vcvtbf162ph  -1024(,%ebp,2), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7e,0x67,0x14,0x6d,0x00,0xfc,0xff,0xff]
+      vcvtbf162ph  -1024(,%ebp,2), %ymm2
+
+// CHECK:  vcvtneph2bf16 %xmm3, %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7b,0x67,0xd3]
+      vcvtneph2bf16 %xmm3, %xmm2
+
+// CHECK:  vcvtneph2bf16 %ymm3, %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7f,0x67,0xd3]
+      vcvtneph2bf16 %ymm3, %ymm2
+
+// CHECK:  vcvtneph2bf16  268435456(%esp,%esi,8), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7b,0x67,0x94,0xf4,0x00,0x00,0x00,0x10]
+      vcvtneph2bf16  268435456(%esp,%esi,8), %xmm2
+
+// CHECK:  vcvtneph2bf16  291(%edi,%eax,4), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7b,0x67,0x94,0x87,0x23,0x01,0x00,0x00]
+      vcvtneph2bf16  291(%edi,%eax,4), %xmm2
+
+// CHECK:  vcvtneph2bf16  (%eax), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7b,0x67,0x10]
+      vcvtneph2bf16  (%eax), %xmm2
+
+// CHECK:  vcvtneph2bf16  -512(,%ebp,2), %xmm2
+// CHECK: encoding: [0xc4,0xe2,0x7b,0x67,0x14,0x6d,0x00,0xfe,0xff,0xff]
+      vcvtneph2bf16  -512(,%ebp,2), %xmm2
+
+// CHECK:  vcvtneph2bf16  268435456(%esp,%esi,8), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7f,0x67,0x94,0xf4,0x00,0x00,0x00,0x10]
+      vcvtneph2bf16  268435456(%esp,%esi,8), %ymm2
+
+// CHECK:  vcvtneph2bf16  291(%edi,%eax,4), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7f,0x67,0x94,0x87,0x23,0x01,0x00,0x00]
+      vcvtneph2bf16  291(%edi,%eax,4), %ymm2
+
+// CHECK:  vcvtneph2bf16  (%eax), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7f,0x67,0x10]
+      vcvtneph2bf16  (%eax), %ymm2
+
+// CHECK:  vcvtneph2bf16  -1024(,%ebp,2), %ymm2
+// CHECK: encoding: [0xc4,0xe2,0x7f,0x67,0x14,0x6d,0x00,0xfc,0xff,0xff]
+      vcvtneph2bf16  -1024(,%ebp,2), %ymm2
+

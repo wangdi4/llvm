@@ -176,13 +176,6 @@ def fix_cortex_a53_843419: F<"fix-cortex-a53-843419">,
 def fix_cortex_a8: F<"fix-cortex-a8">,
   HelpText<"Apply fixes for ARM Cortex-A8 erratum 657417">;
 
-// This option is intentionally hidden from the user as the implementation
-// is not complete.
-def require_cet: F<"require-cet">;
-
-def force_bti: F<"force-bti">,
-  HelpText<"Force enable AArch64 BTI in PLT, warn if Input ELF file does not have GNU_PROPERTY_AARCH64_FEATURE_1_BTI property">;
-
 defm format: Eq<"format", "Change the input format of the inputs following this option">,
   MetaVarName<"[default,elf,binary]">;
 
@@ -294,9 +287,6 @@ defm pack_dyn_relocs:
   Eq<"pack-dyn-relocs", "Pack dynamic relocations in the given format">,
   MetaVarName<"[none,android,relr,android+relr]">;
 
-def pac_plt: F<"pac-plt">,
-  HelpText<"AArch64 only, use pointer authentication in PLT">;
-
 defm use_android_relr_tags: B<"use-android-relr-tags",
     "Use SHT_ANDROID_RELR / DT_ANDROID_RELR* tags instead of SHT_RELR / DT_RELR*",
     "Use SHT_RELR / DT_RELR* tags (default)">;
@@ -373,9 +363,16 @@ defm target2:
   Eq<"target2", "Interpret R_ARM_TARGET2 as <type>, where <type> is one of rel, abs, or got-rel">,
   MetaVarName<"<type>">;
 
-defm threads: B<"threads",
-    "Run the linker multi-threaded (default)",
-    "Do not run the linker multi-threaded">;
+defm threads
+    : Eq<"threads",
+         "Number of threads. '1' disables multi-threading. By default all "
+         "available hardware threads are used">;
+
+def time_trace: F<"time-trace">, HelpText<"Record time trace">;
+def time_trace_file_eq: J<"time-trace-file=">, HelpText<"Specify time trace output file">;
+
+defm time_trace_granularity: Eq<"time-trace-granularity",
+  "Minimum time granularity (in microseconds) traced by time profiler">;
 
 defm toc_optimize : B<"toc-optimize",
     "(PowerPC64) Enable TOC related optimizations (default)",
@@ -390,6 +387,8 @@ defm undefined: Eq<"undefined", "Force undefined symbol during linking">,
 
 defm undefined_glob: Eq<"undefined-glob", "Force undefined symbol during linking">,
   MetaVarName<"<pattern>">;
+
+def unique: F<"unique">, HelpText<"Creates a separate output section for every orphan input section">;
 
 defm unresolved_symbols:
   Eq<"unresolved-symbols", "Determine how to handle unresolved symbols">;
@@ -502,6 +501,8 @@ def lto_cs_profile_file: J<"lto-cs-profile-file=">,
 def lto_obj_path_eq: J<"lto-obj-path=">;
 def lto_sample_profile: J<"lto-sample-profile=">,
   HelpText<"Sample profile file path">;
+def lto_whole_program_visibility: F<"lto-whole-program-visibility">,
+  HelpText<"Asserts that the LTO link has whole program visibility">;
 def disable_verify: F<"disable-verify">;
 defm mllvm: Eq<"mllvm", "Additional arguments to forward to LLVM's option processing">;
 def opt_remarks_filename: Separate<["--"], "opt-remarks-filename">,
@@ -514,53 +515,56 @@ def opt_remarks_format: Separate<["--"], "opt-remarks-format">,
   HelpText<"The format used for serializing remarks (default: YAML)">;
 defm plugin_opt: Eq<"plugin-opt", "specifies LTO options for compatibility with GNU linkers">;
 def save_temps: F<"save-temps">;
+def shuffle_sections: J<"shuffle-sections=">, MetaVarName<"<seed>">,
+  HelpText<"Shuffle input sections using the given seed. If 0, use a random seed">;
 def thinlto_cache_dir: J<"thinlto-cache-dir=">,
   HelpText<"Path to ThinLTO cached object file directory">;
 defm thinlto_cache_policy: Eq<"thinlto-cache-policy", "Pruning policy for the ThinLTO cache">;
 def thinlto_emit_imports_files: F<"thinlto-emit-imports-files">;
 def thinlto_index_only: F<"thinlto-index-only">;
 def thinlto_index_only_eq: J<"thinlto-index-only=">;
-def thinlto_jobs: J<"thinlto-jobs=">, HelpText<"Number of ThinLTO jobs">;
+def thinlto_jobs: J<"thinlto-jobs=">,
+  HelpText<"Number of ThinLTO jobs. Default to --threads=">;
 def thinlto_object_suffix_replace_eq: J<"thinlto-object-suffix-replace=">;
 def thinlto_prefix_replace_eq: J<"thinlto-prefix-replace=">;
 
-def: J<"plugin-opt=O">, Alias<lto_O>, HelpText<"Alias for -lto-O">;
+def: J<"plugin-opt=O">, Alias<lto_O>, HelpText<"Alias for --lto-O">;
 def: F<"plugin-opt=debug-pass-manager">,
-  Alias<lto_debug_pass_manager>, HelpText<"Alias for -lto-debug-pass-manager">;
-def: F<"plugin-opt=disable-verify">, Alias<disable_verify>, HelpText<"Alias for -disable-verify">;
+  Alias<lto_debug_pass_manager>, HelpText<"Alias for --lto-debug-pass-manager">;
+def: F<"plugin-opt=disable-verify">, Alias<disable_verify>, HelpText<"Alias for --disable-verify">;
 def plugin_opt_dwo_dir_eq: J<"plugin-opt=dwo_dir=">,
   HelpText<"Directory to store .dwo files when LTO and debug fission are used">;
 def plugin_opt_emit_llvm: F<"plugin-opt=emit-llvm">;
-def: J<"plugin-opt=jobs=">, Alias<thinlto_jobs>, HelpText<"Alias for -thinlto-jobs">;
-def: J<"plugin-opt=lto-partitions=">, Alias<lto_partitions>, HelpText<"Alias for -lto-partitions">;
+def: J<"plugin-opt=jobs=">, Alias<thinlto_jobs>, HelpText<"Alias for --thinlto-jobs">;
+def: J<"plugin-opt=lto-partitions=">, Alias<lto_partitions>, HelpText<"Alias for --lto-partitions">;
 def plugin_opt_mcpu_eq: J<"plugin-opt=mcpu=">;
 def: F<"plugin-opt=new-pass-manager">,
-  Alias<lto_new_pass_manager>, HelpText<"Alias for -lto-new-pass-manager">;
+  Alias<lto_new_pass_manager>, HelpText<"Alias for --lto-new-pass-manager">;
 def: F<"plugin-opt=cs-profile-generate">,
-  Alias<lto_cs_profile_generate>, HelpText<"Alias for -lto-cs-profile-generate">;
+  Alias<lto_cs_profile_generate>, HelpText<"Alias for --lto-cs-profile-generate">;
 def: J<"plugin-opt=cs-profile-path=">,
-  Alias<lto_cs_profile_file>, HelpText<"Alias for -lto-cs-profile-file">;
+  Alias<lto_cs_profile_file>, HelpText<"Alias for --lto-cs-profile-file">;
 def: J<"plugin-opt=obj-path=">,
   Alias<lto_obj_path_eq>,
-  HelpText<"Alias for -lto-obj-path=">;
+  HelpText<"Alias for --lto-obj-path=">;
 def: J<"plugin-opt=sample-profile=">,
-  Alias<lto_sample_profile>, HelpText<"Alias for -lto-sample-profile">;
-def: F<"plugin-opt=save-temps">, Alias<save_temps>, HelpText<"Alias for -save-temps">;
+  Alias<lto_sample_profile>, HelpText<"Alias for --lto-sample-profile">;
+def: F<"plugin-opt=save-temps">, Alias<save_temps>, HelpText<"Alias for --save-temps">;
 def: F<"plugin-opt=thinlto-emit-imports-files">,
   Alias<thinlto_emit_imports_files>,
-  HelpText<"Alias for -thinlto-emit-imports-files">;
+  HelpText<"Alias for --thinlto-emit-imports-files">;
 def: F<"plugin-opt=thinlto-index-only">,
   Alias<thinlto_index_only>,
-  HelpText<"Alias for -thinlto-index-only">;
+  HelpText<"Alias for --thinlto-index-only">;
 def: J<"plugin-opt=thinlto-index-only=">,
   Alias<thinlto_index_only_eq>,
-  HelpText<"Alias for -thinlto-index-only=">;
+  HelpText<"Alias for --thinlto-index-only=">;
 def: J<"plugin-opt=thinlto-object-suffix-replace=">,
  Alias<thinlto_object_suffix_replace_eq>,
- HelpText<"Alias for -thinlto-object-suffix-replace=">;
+ HelpText<"Alias for --thinlto-object-suffix-replace=">;
 def: J<"plugin-opt=thinlto-prefix-replace=">,
   Alias<thinlto_prefix_replace_eq>,
-  HelpText<"Alias for -thinlto-prefix-replace=">;
+  HelpText<"Alias for --thinlto-prefix-replace=">;
 
 // Ignore LTO plugin-related options.
 // clang -flto passes -plugin and -plugin-opt to the linker. This is required

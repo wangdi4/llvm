@@ -10,7 +10,11 @@
 
 #include <CL/__spirv/spirv_ops.hpp>
 #include <CL/sycl/access/access.hpp>
+#include <CL/sycl/detail/defines.hpp>
 #include <CL/sycl/detail/helpers.hpp>
+/* INTEL_CUSTOMIZATION */
+#include <CL/sycl/detail/host_device_intel/backend.hpp>
+/* end INTEL_CUSTOMIZATION */
 #include <CL/sycl/group.hpp>
 #include <CL/sycl/id.hpp>
 #include <CL/sycl/intel/sub_group.hpp>
@@ -21,7 +25,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 class Builder;
@@ -83,9 +87,20 @@ public:
 
   void barrier(access::fence_space accessSpace =
                    access::fence_space::global_and_local) const {
+#ifdef __SYCL_DEVICE_ONLY__
     uint32_t flags = detail::getSPIRVMemorySemanticsMask(accessSpace);
     __spirv_ControlBarrier(__spv::Scope::Workgroup, __spv::Scope::Workgroup,
                            flags);
+#else
+/* INTEL_CUSTOMIZATION */
+#if !DPCPP_HOST_DEVICE_SERIAL
+    cl::sycl::detail::NDRangeBarrier(accessSpace);
+#else
+/* end INTEL_CUSTOMIZATION */
+    std::cerr << "Barrier is not supported on host device.\n";
+    abort();
+#endif // INTEL
+#endif // __SYCL_DEVICE_ONLY__
   }
 
   /// Executes a work-group mem-fence with memory ordering on the local address
@@ -165,4 +180,4 @@ private:
   group<dimensions> Group;
 };
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

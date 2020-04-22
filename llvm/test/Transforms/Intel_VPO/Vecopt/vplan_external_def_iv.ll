@@ -18,7 +18,7 @@
 
 ; Loop body (context):
 ;
-;  BB4 (BP: NULL) :
+;  BB4:
 ;    i64 %vp62560 = phi  [ i64 0, BB3 ],  [ i64 %vp1520, BB7 ]
 ;    i32* %vp64576 = getelementptr [1600 x [1600 x i32]]* @b i64 0 i64 %i1 i64 %vp62560
 ;    i32 %vp64784 = load i32* %vp64576

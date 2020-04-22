@@ -1,6 +1,7 @@
-; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHKSS
+; end INTEL_CUSTOMIZATION
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"
 target triple = "arm-apple-ios"
 
@@ -366,7 +367,7 @@ entry:
   call void @an_argmemonly_func(i8* %q) #9 [ "unknown"() ]
   ret void
 
-; INTEL
+; INTEL_CUSTOMIZATION
 ; More generic reg-exps
 ; CHECK: Just Ref:  Ptr: i8* %p        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
 ; CHECK: Just Ref:  Ptr: i8* %q        <->  call void @a_readonly_func(i8* %p) #{{.*}} [ "unknown"() ]
@@ -389,6 +390,22 @@ entry:
 ; CHECK: NoModRef:   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessiblememonly_func() #{{.*}} [ "unknown"() ]
 ; CHECK: Both ModRef (MustAlias):   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 }
+
+
+; CHECK:      attributes #{{.*}} = { argmemonly nounwind willreturn writeonly }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind willreturn }
+; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind readonly }
+; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind writeonly }
+; CHECK-NEXT: attributes #{{.*}} = { nounwind ssp }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly nounwind }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly nounwind }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind }
+; CHKSS-NEXT: attributes #{{.*}} = { nounwind readnone speculatable }
+; CHECK-NEXT: attributes #{{.*}} = { readonly }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly }
+; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly }
+; end INTEL_CUSTOMIZATION
 
 attributes #0 = { argmemonly nounwind }
 attributes #1 = { noinline nounwind readonly }

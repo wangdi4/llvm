@@ -243,6 +243,12 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::OMPArraySection:
     ID = PREDEF_TYPE_OMP_ARRAY_SECTION;
     break;
+  case BuiltinType::OMPArrayShaping:
+    ID = PREDEF_TYPE_OMP_ARRAY_SHAPING;
+    break;
+  case BuiltinType::OMPIterator:
+    ID = PREDEF_TYPE_OMP_ITERATOR;
+    break;
 #if INTEL_CUSTOMIZATION
   case BuiltinType::VAArgPack:
     llvm_unreachable("VAArgPack Type Serialization not implemented");
@@ -406,6 +412,7 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::Binding:
   case Decl::Concept:
   case Decl::LifetimeExtendedTemporary:
+  case Decl::RequiresExprBody:
     return false;
 
   // These indirectly derive from Redeclarable<T> but are not actually

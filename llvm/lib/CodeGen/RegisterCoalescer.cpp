@@ -1733,8 +1733,15 @@ void RegisterCoalescer::updateRegDefsUses(unsigned SrcReg, unsigned DstReg,
       if (SubIdx != 0 && MO.isUse() && MRI->shouldTrackSubRegLiveness(DstReg)) {
         if (!DstInt->hasSubRanges()) {
           BumpPtrAllocator &Allocator = LIS->getVNInfoAllocator();
-          LaneBitmask Mask = MRI->getMaxLaneMaskForVReg(DstInt->reg);
-          DstInt->createSubRangeFrom(Allocator, Mask, *DstInt);
+          LaneBitmask FullMask = MRI->getMaxLaneMaskForVReg(DstInt->reg);
+          LaneBitmask UsedLanes = TRI->getSubRegIndexLaneMask(SubIdx);
+          LaneBitmask UnusedLanes = FullMask & ~UsedLanes;
+          DstInt->createSubRangeFrom(Allocator, UsedLanes, *DstInt);
+          // The unused lanes are just empty live-ranges at this point.
+          // It is the caller responsibility to set the proper
+          // dead segments if there is an actual dead def of the
+          // unused lanes. This may happen with rematerialization.
+          DstInt->createSubRange(Allocator, UnusedLanes);
         }
         SlotIndex MIIdx = UseMI->isDebugValue()
                               ? LIS->getSlotIndexes()->getIndexBefore(*UseMI)
@@ -2878,7 +2885,8 @@ bool JoinVals::resolveConflicts(JoinVals &Other) {
     if (V.Resolution != CR_Unresolved)
       continue;
     LLVM_DEBUG(dbgs() << "\t\tconflict at " << printReg(Reg) << ':' << i << '@'
-                      << LR.getValNumInfo(i)->def << '\n');
+                      << LR.getValNumInfo(i)->def
+                      << ' ' << PrintLaneMask(LaneMask) << '\n');
     if (SubRangeJoin)
       return false;
 

@@ -155,6 +155,11 @@ public:
   bool isModeOmpNoFECollapse() { return Mode & vpo::OmpNoFECollapse; }
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
+#if INTEL_CUSTOMIZATION
+  /// Top level interface for data sharing optimization.
+  bool optimizeDataSharing();
+#endif  // INTEL_CUSTOMIZATION
+
 private:
   /// A reference to the parent module transform object. It can be NULL if
   /// paropt transform is construted from a function pass.
@@ -327,6 +332,12 @@ private:
   bool genLinearCode(WRegionNode *W, BasicBlock *IfLastIterBB,
                      Instruction *OMPLBForLinearClosedForm = nullptr);
 
+  /// Emit privatization and copyin/copyout code for linear/linear:iv clause
+  /// operands on SIMD directives. Initial copyin is generated for "linear"
+  /// operands but not for "linear:iv" operands. The final copyout is done for
+  /// both "linear" and "linear:iv" operands.
+  bool genLinearCodeForVecLoop(WRegionNode *W, BasicBlock *LinearFiniBB);
+
   /// Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 
@@ -351,14 +362,11 @@ private:
 
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p I.
-  /// \param [in] I Input Item
-  /// \param [out] ElementType Type of one element
-  /// \param [out] NumElements Number of elements, in case \p OrigValue is
-  /// an array, \b nullptr otherwise.
-  /// \param [out] AddrSpace Address space of the input item object.
-  static void getItemInfo(Item *I, Type *&ElementType, Value *&NumElements,
-                          unsigned &AddrSpace);
-
+  /// \returns a \b tuple of <ElementType, NumElements, AddrSpace>. where
+  /// NumElements is the number of elements, in case I's Orig is an array, \b
+  /// nullptr otherwise. AddrSpace is the address space of the input item
+  /// object.
+  static std::tuple<Type *, Value *, unsigned> getItemInfo(Item *I);
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
@@ -376,12 +384,12 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Value *genPrivatizationAlloca(
+  Value *genPrivatizationAlloca(
       Value *OrigValue,
       Instruction *InsertPt,
       const Twine &NameSuffix = "",
       llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true);
+      bool PreserveAddressSpace = true) const;
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
@@ -402,23 +410,33 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  static Value *genPrivatizationAlloca(
+  Value *genPrivatizationAlloca(
       Item *I, Instruction *InsertPt,
       const Twine &NameSuffix = "",
       llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true);
+      bool PreserveAddressSpace = true) const;
 
-  /// Returns address space that should be used for privatizing variables
-  /// referenced in PRIVATE clauses of the given region \p W.
+  /// Returns address space that should be used for privatizing variable
+  /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
   /// If the return value is llvm::None, then the address space
   /// should be equal to default alloca address space, as defined
   /// by DataLayout.
   llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
-      const WRegionNode *W) const;
+      const WRegionNode *W, const Item *I) const;
 
   /// Replace the variable with the privatized variable
   void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
                                    Value *NewPrivInst);
+
+  /// For array sections, generate a base + offset GEP corresponding to the
+  /// section's starting address. \p Orig is the base of the array section
+  /// coming from the frontend, \p ArrSecInfo is the data structure containg the
+  /// starting offset, size and stride for various dimensions of the section.
+  /// The generated GEP is inserted before \p InsertBefore.
+  static Value *
+  genBasePlusOffsetGEPForArraySection(Value *Orig,
+                                      const ArraySectionInfo &ArrSecInfo,
+                                      Instruction *InsertBefore);
 
   /// \name Reduction Specific Functions
   /// {@
@@ -438,12 +456,12 @@ private:
                                    Value *&NumElements, Value *&DestArrayBegin,
                                    Type *&DestElementTy);
 
-  /// For array [section] reduction finalization loop, compute the base address
-  /// of the source and destination arrays, number of elements, and the type of
-  /// destination array elements.
+  /// For array [section] reduction init (for UDR with non-null initializer) or
+  /// finalization loop, compute the base address of the source and destination
+  /// arrays, number of elements, and the type of destination array elements.
   /// \param [in] ReductionItem Reduction Item.
-  /// \param [in] AI Local Value for the reduction operand.
-  /// \param [in] OldV Original reduction operand Value.
+  /// \param [in] SrcVal Source Value for the reduction operand.
+  /// \param [in] DestVal Destination Value for the reduction operand.
   /// \param [in] InsertPt Insert point for any Instructions to be inserted.
   /// \param [in] Builder IRBuilder using InsertPt for any new Instructions.
   /// \param [out] NumElements Number of elements in the array [section].
@@ -451,17 +469,36 @@ private:
   /// \param [out] DestArrayBegin Starting address of the original reduction
   /// array [section].
   /// \param [out] DestElementTy Type of each element of the array [section].
-  void genAggrReductionFiniSrcDstInfo(const ReductionItem &RedI, Value *AI,
-                                      Value *OldV, Instruction *InsertPt,
-                                      IRBuilder<> &Builder, Value *&NumElements,
-                                      Value *&SrcArrayBegin,
-                                      Value *&DestArrayBegin,
-                                      Type *&DestElementTy);
+  /// \param [in] NoNeedToOffsetOrDerefOldV If true, then that means that \p
+  /// OldV has already been pre-processed to include any pointer
+  /// dereference/offset, and can be used directly as the destination base
+  /// pointer. (default = false)
+  void genAggrReductionSrcDstInfo(const ReductionItem &RedI, Value *SrcVal,
+                                  Value *DestVal, Instruction *InsertPt,
+                                  IRBuilder<> &Builder, Value *&NumElements,
+                                  Value *&SrcArrayBegin, Value *&DestArrayBegin,
+                                  Type *&DestElementTy,
+                                  bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
   /// ArraySectionInfo of the map/reduction item \p CI. It may need to emit some
   /// Instructions, which is done \b before \p InsertPt.
   void computeArraySectionTypeOffsetSize(Item &CI, Instruction *InsertPt);
+
+  /// Initialize `Size`, `ElementType`, `Offset` and `BaseIsPointer` fields for
+  /// ArraySectionInfo \p ArrSecInfo. \p Orig is the base of the array section.
+  /// The code emitted is inserted \b before \p InsertPt.
+  void computeArraySectionTypeOffsetSize(Value *Orig,
+                                         ArraySectionInfo &ArrSecInfo,
+                                         bool IsByRef, Instruction *InsertPt);
+
+  /// For all use_device_ptr clauses in \p W, create a Map clause.
+  bool addMapForUseDevicePtr(WRegionNode *W);
+
+  /// Update references of use_device_ptr operands in tgt data region to use the
+  /// value updated by the tgt_data_init call.
+  void useUpdatedUseDevicePtrsInTgtDataRegion(
+      WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall);
 
   /// Transform all array sections in \p W region's map clauses
   /// into map chains. New instructions to compute parameters of
@@ -475,7 +512,8 @@ private:
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
   /// some Instructions, which is done \b before \p InsertPt.
-  static Value *getClauseItemReplacementValue(Item *I, Instruction *InsertPt);
+  static Value *getClauseItemReplacementValue(const Item *I,
+                                              Instruction *InsertPt);
 
   /// Return the Value to replace the occurrences of the original Array Section
   /// Reduction operand inside the body of the associated WRegion. It may need
@@ -490,12 +528,22 @@ private:
 
   /// Generate the reduction update code.
   /// Returns true iff critical section is required around the generated
-  /// reduction update code.
+  /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
+  /// means that \p OldV has already been pre-processed to include any pointer
+  /// dereference/offset, and can be used directly as the destination base
+  /// pointer. (default = false)
   bool genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
-                        Instruction *InsertPt, DominatorTree *DT);
+                        Instruction *InsertPt, DominatorTree *DT,
+                        bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
+
+  /// Generate calling reduction initialization function for user-defined
+  /// reduction.
+  void genReductionUdrInit(ReductionItem *RedI, Value *ReductionVar,
+                           Value *ReductionValueLoc, Type *ScalarTy,
+                           IRBuilder<> &Builder);
 
   /// Generate the reduction intialization instructions.
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
@@ -503,23 +551,36 @@ private:
   /// Generate the reduction code for reduction clause.
   bool genReductionCode(WRegionNode *W);
 
-  /// Prepare the empty basic block for the array
-  /// reduction or firstprivate initialization.
-  void createEmptyPrvInitBB(WRegionNode *W, BasicBlock *&RedBB);
+  /// For the given region \p W returns a BasicBlock, where
+  /// new alloca instructions may be inserted.
+  /// If the region itself or one of its ancestors will be outlined,
+  /// then the returned block is an immediate successor of the region's
+  /// entry directive, otherwise, it is the enclosing Function's entry block.
+  /// New alloca instructions must be inserted at the beginning
+  /// of the returned block.
+  BasicBlock *createAllocaBB(WRegionNode *W) const;
 
   /// Prepare the empty basic block for the array
+  /// reduction or firstprivate initialization.
+  BasicBlock *createEmptyPrivInitBB(WRegionNode *W) const;
+
+  /// Return the empty basic block for the array
   /// reduction or lastprivate update.
   /// If \p W is a loop region, and the loop has ZTT check,
   /// then the new block will be inserted at the exit block
   /// of the loop, unless \p HonorZTT is false.  Otherwise,
   /// the new block will be inserted at the region's exit
   /// block
-  void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB,
-                             bool HonorZTT = true);
+  BasicBlock *createEmptyPrivFiniBB(WRegionNode *W,
+                                    bool HonorZTT = true);
 
   /// Generate the reduction update instructions for min/max.
   Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
+
+  /// Generate calling reduction update function for user-defined reduction.
+  bool genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
+                           Value *ReductionValueLoc, IRBuilder<> &Builder);
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
@@ -532,11 +593,14 @@ private:
   /// Generate the reduction initialization/update for array.
   /// Returns true iff critical section is required around the generated
   /// reduction update code. The method always returns false, when
-  /// IsInit is true.
-  bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI,
-                                 Value *AI, Value *OldV,
-                                 Instruction *InsertPt, bool IsInit,
-                                 DominatorTree *DT);
+  /// IsInit is true. If \p NoNeedToOffsetOrDerefOldV is true, then that means
+  /// that \p OldV has already been pre-processed to include any pointer
+  /// dereference/offset, and can be used directly as the destination base
+  /// pointer. (default = false)
+  bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI, Value *AI,
+                                 Value *OldV, Instruction *InsertPt,
+                                 bool IsInit, DominatorTree *DT,
+                                 bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
@@ -578,6 +642,13 @@ private:
                              Instruction *&InsertLastIterCheckBeforeOut,
                              Instruction *&NewOmpLBInstOut,
                              Instruction *&NewOmpZttInstOut);
+
+  /// If an item has space allocated in the buffer at the end of the task's
+  /// thunk (such as VLAs), make its New field in the privates thunk point to
+  /// its corresponding buffer space.
+  void linkPrivateItemToBufferAtEndOfThunkIfApplicable(
+      Item *I, StructType *KmpPrivatesTy, Value *PrivatesGep,
+      Value *TaskTWithPrivates, IRBuilder<> &Builder);
 
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
@@ -860,15 +931,16 @@ private:
                             SmallVectorImpl<Constant *> &ConstSizes,
                             bool hasRuntimeEvaluationCaptureSize);
 
-  /// Utilities to construct the assignment to the base pointers, section
-  /// pointers and size pointers if the flag hasRuntimeEvaluationCaptureSize is
-  /// true.
+  /// Utility to construct the assignment to the base pointers, section
+  /// pointers (and size pointers if the flag hasRuntimeEvaluationCaptureSize is
+  /// true). Sets \p BasePtrGEPOut to the GEP where \p BasePtr is stored.
   void genOffloadArraysInitUtil(IRBuilder<> &Builder, Value *BasePtr,
                                 Value *SectionPtr, Value *Size,
                                 TgDataInfo *Info,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 unsigned &Cnt,
-                                bool hasRuntimeEvaluationCaptureSize);
+                                bool hasRuntimeEvaluationCaptureSize,
+                                Instruction **BasePtrGEPOut = nullptr);
 
   /// Fixup references generated for global variables in OpenMP
   /// clauses for targets supporting non-default address spaces.
@@ -970,7 +1042,7 @@ private:
   /// clause operands.
   Instruction *genBarrierForConditionalLP(WRegionNode *W);
 
-  /// Emits an if-then branch using \p IsLastVal and sets \p IfLastIterOut to
+  /// Emits an if-then branch using \p IsLastLocs and sets \p IfLastIterOut to
   /// the if-then BBlock. This is used for emitting the final copy-out code for
   /// linear and lastprivate clause operands.
   ///
@@ -998,8 +1070,12 @@ private:
   ///
   /// \endcode
   ///
-  /// \param [in] IsLastVal A stack variable which is non-zero if the current
-  /// iteration is the last one.
+  /// \param [in] IsLastLocs A list of stack variables which are non-zero
+  /// if the current thread executes the last iteration of the loop(s).
+  /// If there is more than one loop associated with the region, then
+  /// the list will contain a variable for each loop. In this case,
+  /// the "last iteration" is defined as logical and of the variables'
+  /// values being non-zero.
   /// \param [out] IfLastIterOut The BasicBlock for when the last iteration
   /// check is true.
   /// \param [in] InsertBefore If not null, the branch is inserted before it.
@@ -1008,7 +1084,8 @@ private:
   /// \returns \b true if the branch is emitted, \b false otherwise.
   ///
   /// The branch is not emitted if \p W has no Linear or Lastprivate var.
-  bool genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
+  bool genLastIterationCheck(WRegionNode *W,
+                             const ArrayRef<Value *> IsLastLocs,
                              BasicBlock *&IfLastIterOut,
                              Instruction *InsertBefore = nullptr);
 
@@ -1261,7 +1338,7 @@ private:
     TGT_MAP_TARGET_PARAM = 0x20,
     // instructs the runtime that it is the first
     // occurrence of this mapped variable within this construct.
-    GT_MAP_RETURN_PARAM = 0x40,
+    TGT_MAP_RETURN_PARAM = 0x40,
     // instructs the runtime to return the base
     // device address of the mapped variable.
     TGT_MAP_PRIVATE = 0x80,
@@ -1552,6 +1629,13 @@ private:
   /// Add alias_scope and no_alias metadata to improve the alias
   /// results in the outlined function.
   void improveAliasForOutlinedFunc(WRegionNode *W);
+
+  /// Promote shared items to firstprivate (effectively) if we can prove that
+  /// item is not modified inside the region. Such items remain 'shared' on the
+  /// directive bundle, but a private instance is allocated and initialized
+  /// inside the region and all references to the original instance are replaced
+  /// with the private one.
+  bool privatizeSharedItems(WRegionNode *W);
 #endif  // INTEL_CUSTOMIZATION
 
   /// Guard each instruction that has a side effect with master thread id
@@ -1559,16 +1643,20 @@ private:
   /// the code, then put a barrier before the start and after the end of
   /// every parallel region, so that all the threads in the team wait for
   /// the master thread, and can see its update of team shared memory.
-  /// \p KernelEntryDir and \p KernelExitDir are correspondingly the entry and
-  /// exit directives for the WRegion whose outlined region \p kernelF is.
-  void guardSideEffectStatements(Function *KernelF,
-                                 SmallPtrSetImpl<Value *> &PrivateVariables,
-                                 Instruction *KernelEntryDir = nullptr,
-                                 Instruction *KernelExitDir = nullptr);
+  /// \p KernelF is an outlined function of region \p W.
+  void guardSideEffectStatements(WRegionNode *W, Function *KernelF);
 
+public:
   /// Replace printf() calls in \p F with _Z18__spirv_ocl_printfPU3AS2ci()
-  void replacePrintfWithOCLBuiltin(Function *F);
+  /// \p PrintfDecl is the function printf(). \p OCLPrintfDecl is the function
+  /// _Z18__spirv_ocl_printfPU3AS2ci(). If \p PrintfDecl is null, the utility
+  /// returns without doing anything. if \p F is null, then all call
+  /// instructions to the function \p PrintfDecl are replaced.
+  static void replacePrintfWithOCLBuiltin(Function *PrintfDecl,
+                                          Function *OCLPrintfDecl,
+                                          Function *F = nullptr);
 
+private:
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.
@@ -1589,7 +1677,12 @@ private:
   ///  \endcode
   ///  Here we assume the global_size is equal to local_size, which means
   ///  there is only one workgroup.
-  bool genOCLParallelLoop(WRegionNode *W);
+  ///
+  /// \param IsLastLocs is an output list of stack variable pointers
+  /// holding the 'is last iteration' predicate values for the loops
+  /// associated with the region.
+  bool genOCLParallelLoop(WRegionNode *W,
+                          SmallVectorImpl<Value *> &IsLastLocs);
 
   /// Replace calls to "__atomic_[load/store/compare_exchange]", with calls to
   /// "__kmpc_atomic_[load/store/compare_exchange]". This involves:
@@ -1599,45 +1692,54 @@ private:
   bool renameAndReplaceLibatomicCallsForSPIRV(Function *F);
 
   /// Generate the placeholders for the loop lower bound and upper bound.
-  /// \param [in]  W            OpenMP loop region node.
-  /// \param [in]  Idx          dimension number.
-  /// \param [out] LowerBnd     stack variable holding the loop's lower bound.
-  /// \param [out] UpperBnd     stack variable holding the loop's upper bound.
-  /// \param [out] SchedStride  stack variable holding the loop's stride.
-  /// \param [out] TeamLowerBnd stack variable holding the team's lower bound.
-  /// \param [out] TeamUpperBnd stack variable holding the team's upper bound.
-  /// \param [out] TeamStride   stack variable holding the team's stride.
-  /// \param [out] UpperBndVal  orginal loop bound value.
+  /// \param [in]  W             OpenMP loop region node.
+  /// \param [in]  Idx           dimension number.
+  /// \param [in]  AllocaBuilder IRBuilder for new alloca instructions.
+  /// \param [out] LowerBnd      stack variable holding the loop's lower bound.
+  /// \param [out] UpperBnd      stack variable holding the loop's upper bound.
+  /// \param [out] SchedStride   stack variable holding the loop's stride.
+  /// \param [out] TeamLowerBnd  stack variable holding the team's lower bound.
+  /// \param [out] TeamUpperBnd  stack variable holding the team's upper bound.
+  /// \param [out] TeamStride    stack variable holding the team's stride.
+  /// \param [out] IsLastLoc     stack variable holding the 'is last iteration'
+  ///                            predicate value.
+  /// \param [out] UpperBndVal   orginal loop bound value.
+  /// \param [in]  ChunkForTeams initialize TeamLowerBnd, TeamUpperBnd
+  ///                            and TeamStride output values.
   void genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
+                              IRBuilder<> &AllocaBuilder,
                               AllocaInst *&LowerBnd, AllocaInst *&UpperBnd,
                               AllocaInst *&SchedStride,
                               AllocaInst *&TeamLowerBnd,
                               AllocaInst *&TeamUpperBnd,
-                              AllocaInst *&TeamStride, Value *&UpperBndVal);
+                              AllocaInst *&TeamStride,
+                              Value *&IsLastLoc,
+                              Value *&UpperBndVal,
+                              bool ChunkForTeams);
 
   /// Generate the OCL loop bound update code.
   void genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
                                  AllocaInst *LowerBnd, AllocaInst *UpperBnd,
                                  AllocaInst *TeamLowerBnd,
                                  AllocaInst *TeamUpperBnd,
-                                 AllocaInst *SchedStride);
+                                 AllocaInst *&SchedStride);
 
   /// Generate the loop update code for DistParLoop under OpenCL.
-  /// \param [in]  W            OpenMP distribute region node.
-  /// \param [in]  Idx          dimension number.
-  /// \param [in]  LowerBnd     stack variable holding the loop's lower bound.
-  /// \param [in]  UpperBnd     stack variable holding the loop's upper bound.
-  /// \param [in]  TeamLowerBnd stack variable holding the team's lower bound.
-  /// \param [in]  TeamUpperBnd stack variable holding the team's upper bound.
-  /// \param [in]  TeamStride   stack variable holding the team's stride.
-  /// \param [out] DistSchedKind team schedule kind.
-  /// \param [out] TeamLB       team's lower bound value.
-  /// \param [out] TeamUB       team's upper bound value.
-  /// \param [out] TeamST       team's stride value.
+  /// \param [in]  W             OpenMP distribute region node.
+  /// \param [in]  Idx           dimension number.
+  /// \param [in]  LowerBnd      stack variable holding the loop's lower bound.
+  /// \param [in]  UpperBnd      stack variable holding the loop's upper bound.
+  /// \param [in]  TeamLowerBnd  stack variable holding the team's lower bound.
+  /// \param [in]  TeamUpperBnd  stack variable holding the team's upper bound.
+  /// \param [in]  TeamStride    stack variable holding the team's stride.
+  /// \param [in]  DistSchedKind team schedule kind.
+  /// \param [out] TeamLB        team's lower bound value.
+  /// \param [out] TeamUB        team's upper bound value.
+  /// \param [out] TeamST        team's stride value.
   void genOCLDistParLoopBoundUpdateCode(
       WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
-      AllocaInst *TeamStride, WRNScheduleKind &DistSchedKind,
+      AllocaInst *TeamStride, WRNScheduleKind DistSchedKind,
       Instruction *&TeamLB, Instruction *&TeamUB, Instruction *&TeamST);
 
   /// \breif Generate the OCL loop scheduling code.
@@ -1650,7 +1752,9 @@ private:
   /// \param [in] TeamUpperBnd  stack variable holding the team's upper bound.
   /// \param [in] TeamStride    stack variable holding the team's stride.
   /// \param [in] UpperBndVal   original loop upper bound value.
-  /// \param [in] DistSchedKind team schedule kind.
+  /// \param [in] IsLastLoc     stack variable holding the 'is last iteration'
+  ///                           predicate value.
+  /// \param [in] GenDispLoop   create team dispatch loop.
   /// \param [in] TeamLB        team's lower bound value.
   /// \param [in] TeamUB        team's upper bound value.
   /// \param [in] TeamST        team's stride value.
@@ -1659,8 +1763,9 @@ private:
                           AllocaInst *UpperBnd, AllocaInst *SchedStride,
                           AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
                           AllocaInst *TeamStride, Value *UpperBndVal,
-                          WRNScheduleKind DistSchedKind, Instruction *TeamLB,
-                          Instruction *TeamUB, Instruction *TeamST);
+                          Value *IsLastLoc, bool GenTeamDistDispatchLoop,
+                          Instruction *TeamLB, Instruction *TeamUB,
+                          Instruction *TeamST);
 
   // Generate dispatch loop for static chunk.
   /// \param [in] L               loop.
@@ -1699,7 +1804,7 @@ private:
   ///                              remain inside the team distribute loop.
   ///                              If it is nullptr, then all instructions
   ///                              from TeamExitBB will be outside of the loop.
-  Loop *genDispatchLoopForTeamDistirbute(
+  Loop *genDispatchLoopForTeamDistribute(
       Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
       AllocaInst *TeamStride, Value *UpperBndVal, BasicBlock *LoopExitBB,
@@ -1709,11 +1814,12 @@ private:
   /// Initialize the incoming array Arg with the constant Idx.
   void initArgArray(SmallVectorImpl<Value *> *Arg, unsigned Idx);
 
-  /// The compiler sets DistSchedKind to be TargetScheduleKind for the case of
-  /// multi-level loop nest.
-  void setSchedKindForMultiLevelLoops(WRegionNode *W,
-                                      WRNScheduleKind &ScheduleKind,
-                                      WRNScheduleKind TargetScheduleKind);
+  /// If the given region \p W represent a multi-level loop nest, then
+  /// the method returns \p TargetScheduleKind, otherwise, it returns
+  /// \p SchedKind.
+  WRNScheduleKind getSchedKindForMultiLevelLoops(
+      WRegionNode *W, WRNScheduleKind ScheduleKind,
+      WRNScheduleKind TargetScheduleKind);
 
 #if 0
   /// Return original global variable if the value Orig is the return value
@@ -1756,7 +1862,19 @@ private:
   /// "omp critical".
   void setMayHaveOMPCritical(WRegionNode *W) const;
 
+  /// If the given region is an OpenMP loop construct with collapse
+  /// clause, then the method will collapse the loop nest accordingly.
+  /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
+
+  /// For SPIR-V target propagate simdlen() from SIMD loops
+  /// to the enclosing target region. If there are multiple
+  /// SIMD loops with different simdlen() values, then the minimum
+  /// value will be propagated. During the propagation, simdlen()
+  /// values not equal to 8, 16 or 32 are ignored.
+  /// The propagated value will be used to specify SPIR-V widening
+  /// width for the outlined target region.
+  void propagateSPIRVSIMDWidth() const;
 };
 
 } /// namespace vpo

@@ -1,0 +1,94 @@
+//===--- OpenCLTypeTransforms.def -  OpenCL-specific Type Handling --------===//
+//
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+// ===--------------------------------------------------------------------=== //
+
+// BASIC_TYPE(name, encoding)
+// Defines the OpenCL scalar/vector basic types and their DWARF encoding.
+#ifndef BASIC_TYPE
+#define BASIC_TYPE(name, encoding)
+#endif
+
+// Scalar Types
+BASIC_TYPE(uchar,           DW_ATE_unsigned_char);
+BASIC_TYPE(ushort,          DW_ATE_unsigned);
+BASIC_TYPE(uint,            DW_ATE_unsigned);
+BASIC_TYPE(ulong,           DW_ATE_unsigned);
+BASIC_TYPE(size_t,          DW_ATE_unsigned);
+BASIC_TYPE(ptrdiff_t,       DW_ATE_signed);
+BASIC_TYPE(intptr_t,        DW_ATE_signed);
+BASIC_TYPE(uintptr_t,       DW_ATE_unsigned);
+
+// Vector Character Types
+BASIC_TYPE(char2,           DW_ATE_signed_char);
+BASIC_TYPE(char3,           DW_ATE_signed_char);
+BASIC_TYPE(char4,           DW_ATE_signed_char);
+BASIC_TYPE(char8,           DW_ATE_signed_char);
+BASIC_TYPE(char16,          DW_ATE_signed_char);
+
+BASIC_TYPE(uchar2,          DW_ATE_unsigned_char);
+BASIC_TYPE(uchar3,          DW_ATE_unsigned_char);
+BASIC_TYPE(uchar4,          DW_ATE_unsigned_char);
+BASIC_TYPE(uchar8,          DW_ATE_unsigned_char);
+BASIC_TYPE(uchar16,         DW_ATE_unsigned_char);
+
+// Vector Integer Types
+BASIC_TYPE(short2,          DW_ATE_signed);
+BASIC_TYPE(short3,          DW_ATE_signed);
+BASIC_TYPE(short4,          DW_ATE_signed);
+BASIC_TYPE(short8,          DW_ATE_signed);
+BASIC_TYPE(short16,         DW_ATE_signed);
+
+BASIC_TYPE(ushort2,         DW_ATE_unsigned);
+BASIC_TYPE(ushort3,         DW_ATE_unsigned);
+BASIC_TYPE(ushort4,         DW_ATE_unsigned);
+BASIC_TYPE(ushort8,         DW_ATE_unsigned);
+BASIC_TYPE(ushort16,        DW_ATE_unsigned);
+
+BASIC_TYPE(int2,            DW_ATE_signed);
+BASIC_TYPE(int3,            DW_ATE_signed);
+BASIC_TYPE(int4,            DW_ATE_signed);
+BASIC_TYPE(int8,            DW_ATE_signed);
+BASIC_TYPE(int16,           DW_ATE_signed);
+
+BASIC_TYPE(uint2,           DW_ATE_unsigned);
+BASIC_TYPE(uint3,           DW_ATE_unsigned);
+BASIC_TYPE(uint4,           DW_ATE_unsigned);
+BASIC_TYPE(uint8,           DW_ATE_unsigned);
+BASIC_TYPE(uint16,          DW_ATE_unsigned);
+
+BASIC_TYPE(long2,           DW_ATE_signed);
+BASIC_TYPE(long3,           DW_ATE_signed);
+BASIC_TYPE(long4,           DW_ATE_signed);
+BASIC_TYPE(long8,           DW_ATE_signed);
+BASIC_TYPE(long16,          DW_ATE_signed);
+
+BASIC_TYPE(ulong2,          DW_ATE_unsigned);
+BASIC_TYPE(ulong3,          DW_ATE_unsigned);
+BASIC_TYPE(ulong4,          DW_ATE_unsigned);
+BASIC_TYPE(ulong8,          DW_ATE_unsigned);
+BASIC_TYPE(ulong16,         DW_ATE_unsigned);
+
+// Vector Floating Point Types
+BASIC_TYPE(float2,          DW_ATE_float);
+BASIC_TYPE(float3,          DW_ATE_float);
+BASIC_TYPE(float4,          DW_ATE_float);
+BASIC_TYPE(float8,          DW_ATE_float);
+BASIC_TYPE(float16,         DW_ATE_float);
+
+BASIC_TYPE(double2,         DW_ATE_float);
+BASIC_TYPE(double3,         DW_ATE_float);
+BASIC_TYPE(double4,         DW_ATE_float);
+BASIC_TYPE(double8,         DW_ATE_float);
+BASIC_TYPE(double16,        DW_ATE_float);
+
+BASIC_TYPE(half2,           DW_ATE_float);
+BASIC_TYPE(half3,           DW_ATE_float);
+BASIC_TYPE(half4,           DW_ATE_float);
+BASIC_TYPE(half8,           DW_ATE_float);
+BASIC_TYPE(half16,          DW_ATE_float);

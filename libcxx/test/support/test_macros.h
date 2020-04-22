@@ -28,6 +28,9 @@
 #pragma GCC diagnostic ignored "-Wvariadic-macros"
 #endif
 
+#define TEST_STRINGIZE_IMPL(x) #x
+#define TEST_STRINGIZE(x) TEST_STRINGIZE_IMPL(x)
+
 #define TEST_CONCAT1(X, Y) X##Y
 #define TEST_CONCAT(X, Y) TEST_CONCAT1(X, Y)
 
@@ -45,6 +48,12 @@
 #define TEST_HAS_EXTENSION(X) __has_extension(X)
 #else
 #define TEST_HAS_EXTENSION(X) 0
+#endif
+
+#ifdef __has_warning
+#define TEST_HAS_WARNING(X) __has_warning(X)
+#else
+#define TEST_HAS_WARNING(X) 0
 #endif
 
 #ifdef __has_builtin
@@ -163,7 +172,7 @@
 #    if __ANDROID_API__ >= 29
 #      define TEST_HAS_TIMESPEC_GET
 #    endif
-#  elif defined(__Fuchsia__) || defined(__wasi__)
+#  elif defined(__Fuchsia__) || defined(__wasi__) || defined(__NetBSD__)
 #    define TEST_HAS_ALIGNED_ALLOC
 #    define TEST_HAS_C11_FEATURES
 #    define TEST_HAS_TIMESPEC_GET

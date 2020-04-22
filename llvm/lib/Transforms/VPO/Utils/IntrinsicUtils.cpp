@@ -93,8 +93,8 @@ CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,
                                            unsigned Alignment,
                                            Value *Mask,
                                            Value *PassThru) {
-  auto NewCallInst = Builder.CreateMaskedGather(VecPtr, Alignment, Mask,
-                                                PassThru);
+  auto NewCallInst =
+      Builder.CreateMaskedGather(VecPtr, Align(Alignment), Mask, PassThru);
   return NewCallInst;
 }
 
@@ -103,8 +103,8 @@ CallInst *VPOUtils::createMaskedScatterCall(Value *VecPtr,
                                             IRBuilder<> &Builder,
                                             unsigned Alignment,
                                             Value *Mask) {
-  auto NewCallInst = Builder.CreateMaskedScatter(VecData, VecPtr, Alignment,
-                                                 Mask);
+  auto NewCallInst =
+      Builder.CreateMaskedScatter(VecData, VecPtr, Align(Alignment), Mask);
   return NewCallInst;
 }
 
@@ -113,8 +113,8 @@ CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
                                          unsigned Alignment,
                                          Value *Mask,
                                          Value *PassThru) {
-  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask,
-                                               PassThru);
+  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, assumeAligned(Alignment),
+                                              Mask, PassThru);
   return NewCallInst;
 }
 
@@ -123,8 +123,8 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
                                           IRBuilder<> &Builder,
                                           unsigned Alignment,
                                           Value *Mask) {
-  auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
-                                                Mask);
+  auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr,
+                                               assumeAligned(Alignment), Mask);
   return NewCallInst;
 }
 
@@ -140,22 +140,6 @@ Value *VPOUtils::stripCasts(Value *ValWithCasts,
   }
 
   return ValWithCasts;
-}
-
-// Removes '@llvm.dbg.declare', '@llvm.dbg.value' calls from the Function F.
-// This is a workaround for now till CodeExtractor learns to handle these.
-void VPOUtils::stripDebugInfoInstrinsics(Function &F)
-{
-  for (auto &BB : F) {
-    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
-      Instruction *Insn = &*BI++;
-      if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(Insn)) {
-        DVI->eraseFromParent();
-      } else if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(Insn)) {
-        DDI->eraseFromParent();
-      }
-    }
-  }
 }
 
 // Return true if the given type can be registerized.
@@ -190,7 +174,7 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
 
   Value *Dest, *Src, *Size;
 
-  // The first two arguments of the memcpy expects the i8 operands.
+  // The first two arguments of the memcpy expects the i8* operands.
   // The instruction bitcast is introduced if the incoming src or dest
   // operand in not in i8 type.
   if (D->getType() !=
@@ -216,8 +200,48 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
   if (AI && AI->isArrayAllocation())
     Size = MemcpyBuilder.CreateMul(Size, AI->getArraySize());
 
-  return MemcpyBuilder.CreateMemCpy(Dest, Align, Src, Align, Size);
+  return MemcpyBuilder.CreateMemCpy(Dest, MaybeAlign(Align), Src,
+                                    MaybeAlign(Align), Size);
 }
+
+// Generates a memset call before the given instruction InsertPt.
+// The value P represents the pointer to the block of memory to fill while the
+// value V represents the value to be set. The size of the memset is the size of
+// pointer to the memory block. The compiler will insert the typecast if the
+// type of pointer and value does not match with the type i8.
+CallInst *VPOUtils::genMemset(Value *P, Value *V, const DataLayout &DL,
+                              unsigned Align, IRBuilder<> &MemsetBuilder) {
+  Value *Ptr, *Size;
+
+  // The first argument of the memset expect the i8* operand.
+  // The instruction bitcast is introduced if the incoming pointer operand in
+  // not in i8 type.
+  if (P->getType() != Type::getInt8PtrTy(MemsetBuilder.getContext()))
+    Ptr = MemsetBuilder.CreatePointerCast(P, MemsetBuilder.getInt8PtrTy());
+  else
+    Ptr = P;
+
+  assert((V->getType() == Type::getInt8Ty(MemsetBuilder.getContext())) &&
+         "Unsupported type for value in genMemset");
+
+  // For 32/64 bit architecture, the size and alignment should be
+  // set accordingly.
+  if (DL.getIntPtrType(MemsetBuilder.getInt8PtrTy())->getIntegerBitWidth() ==
+      64) {
+    Size = MemsetBuilder.getInt64(
+        DL.getTypeAllocSize(P->getType()->getPointerElementType()));
+  } else {
+    Size = MemsetBuilder.getInt32(
+        DL.getTypeAllocSize(P->getType()->getPointerElementType()));
+  }
+
+  AllocaInst *AI = dyn_cast<AllocaInst>(P);
+  if (AI && AI->isArrayAllocation())
+    Size = MemsetBuilder.CreateMul(Size, AI->getArraySize());
+
+  return MemsetBuilder.CreateMemSet(Ptr, V, Size, MaybeAlign(Align));
+}
+
 #if INTEL_CUSTOMIZATION
 
 // Alias scope is an optimization

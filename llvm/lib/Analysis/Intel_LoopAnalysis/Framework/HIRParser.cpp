@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1570,57 +1570,88 @@ unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
 unsigned HIRParser::processInstBlob(const Instruction *Inst,
                                     const Instruction *BaseInst,
                                     unsigned Symbase) {
-  unsigned DefLevel = 0;
-  bool IsRegionLivein = false;
-  HLLoop *LCALoop = nullptr;
-
   auto ParentBB = Inst->getParent();
-  Loop *DefLp = LI.getLoopFor(Inst->getParent());
-
-  HLLoop *DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
 
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
 
-  // Set region livein and def level.
+  // Handle the easier region livein case.
   if (!CurRegion->containsBBlock(ParentBB)) {
     CurRegion->addLiveInTemp(Symbase, Inst);
-    IsRegionLivein = true;
-    assert(!DefLoop && "Livein value cannot come from another region!");
+    assert((Inst == BaseInst) &&
+           "Inst and BaseInst should be same for region liveins!");
 
-  } else if ((LCALoop =
-                  HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
-    // If the current node where the blob is used and the blob definition are
-    // both in some HLLoop, the defined at level should be the lowest common
-    // ancestor loop. For example-
-    //
-    // DO i1
-    //   DO i2
-    //     t1 = ...
-    //   END DO
-    //
-    //   DO i2
-    //     A[i2] = t1; // t1 is defined at level 1 for this loop.
-    //   END DO
-    // END DO
-    //
-    DefLevel = LCALoop->getNestingLevel();
+    while (UseLoop) {
+      UseLoop->addLiveInTemp(Symbase);
+      UseLoop = UseLoop->getParentLoop();
+    }
+    return 0;
+  }
+
+  // Inst and BaseInst are different in these cases-
+  // 1) Inst is an SCC inst. In this case BaseInst is the outermost loop header
+  // phi.
+  //
+  // 2) Inst is a livein copy of a deconstructed phi. BaseInst is the
+  // corresponding phi.
+  //
+  // 3) Inst is a single operand phi. BaseInst is anything we traced back the
+  // chain of single operand phis to. If BaseInst is a loop header phi both Inst
+  // and BaseInst are in the same loop.
+  //
+  // Matrix of whether we need the def loop from Inst or BaseInst for
+  // livein/liveout analysis or setting the def level.
+  //
+  //          livein/liveout       def level
+  // 1)          BaseInst            Inst
+  // 2)          BaseInst            Inst
+  // 3)          BaseInst            BaseInst
+  //
+  // The issue is that the parser does not have direct knowledge of which of the
+  // cases is being handled. We work around the problem by checking the
+  // properties of BaseInst.
+
+  Loop *DefLLVMLoop = LI.getLoopFor(Inst->getParent());
+
+  HLLoop *DefLoop = DefLLVMLoop ? LF.findHLLoop(DefLLVMLoop) : nullptr;
+  HLLoop *OrigDefLoop = DefLoop;
+
+  if (Inst != BaseInst) {
+    DefLLVMLoop = LI.getLoopFor(BaseInst->getParent());
+    DefLoop = DefLLVMLoop ? LF.findHLLoop(DefLLVMLoop) : nullptr;
+  }
+
+  bool BaseIsLoopHeaderPhi =
+      DefLoop && isa<PHINode>(BaseInst) &&
+      (BaseInst->getParent() == DefLLVMLoop->getHeader());
+  bool BaseIsDeconstructedPhi =
+      SE.getHIRMetadata(BaseInst, ScalarEvolution::HIRLiveKind::LiveIn);
+  unsigned DefLevel = 0;
+
+  // Given a blob definition and a use in some HLLoop, the defined at level for
+  // that use should be the lowest common ancestor loop level. For example-
+  //
+  // DO i1
+  //   DO i2
+  //     t1 = ...
+  //   END DO
+  //
+  //   DO i2
+  //     A[i2] = t1; // t1 is defined at level 1 for this loop.
+  //   END DO
+  // END DO
+  //
+  if (auto *DefLevelLoop = HLNodeUtils::getLowestCommonAncestorLoop(
+          (BaseIsLoopHeaderPhi || BaseIsDeconstructedPhi) ? OrigDefLoop
+                                                          : DefLoop,
+          UseLoop)) {
+    DefLevel = DefLevelLoop->getNestingLevel();
   }
 
   // Set loop livein/liveout as applicable.
 
-  // For loop livein/liveout analysis we need to set defining loop based on
-  // BaseInst as it represents Inst in HIR.
-  if (!IsRegionLivein && (Inst != BaseInst)) {
-    DefLp = LI.getLoopFor(BaseInst->getParent());
-    DefLoop = DefLp ? LF.findHLLoop(DefLp) : nullptr;
-
-    LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
-  }
-
   // This if-else case handles liveins/liveouts caused by SSA deconstruction.
-  if (DefLoop && isa<PHINode>(BaseInst) &&
-      (BaseInst->getParent() == DefLp->getHeader())) {
+  if (BaseIsLoopHeaderPhi) {
     // If this is a phi in the loop header, it should be added as a livein
     // temp in defining loop since header phis are deconstructed as follows-
     // Before deconstruction-
@@ -1641,14 +1672,15 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     //
     DefLoop->addLiveInTemp(Symbase);
 
-  } else if (SE.getHIRMetadata(BaseInst,
-                               ScalarEvolution::HIRLiveKind::LiveIn)) {
+  } else if (BaseIsDeconstructedPhi) {
     ScalarSA.handleLoopExitLiveoutPhi(dyn_cast<PHINode>(BaseInst), Symbase);
   }
 
   // Loop livein/liveouts are processed per use (except for the special cases
   // handled above) so we skip the definitions (scalar lvals).
   if (!parsingScalarLval()) {
+
+    auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
     // Add temp as livein into UseLoop and all its parent loops till we reach
     // LCA loop.
     while (UseLoop != LCALoop) {
@@ -2286,7 +2318,10 @@ bool HIRParser::isCastedFromLoopIVType(const CastInst *CI,
 
   // Ignore if SCEV form of CI is already a cast. Top cast can be handled by
   // parseRecursive().
-  if (isa<SCEVCastExpr>(SC)) {
+  // We should ignore casts on constants like trunc.i64.i8(256) which get
+  // simplified to constants like 'i8 0'. Casts on constants are not expected in
+  // HIR.
+  if (isa<SCEVCastExpr>(SC) || isa<SCEVConstant>(SC)) {
     return false;
   }
 
@@ -3714,6 +3749,15 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
         StructOffsets = Arr.offsets();
       }
 
+      // If lower can be merged into index, do it. This will make HIR generated
+      // for Fortran and C/C++ test cases similar and make it easier to perform
+      // idiom recognition.
+      if (!LowerCE->isZero() && LowerCE->isIntConstant() &&
+          CanonExprUtils::canSubtract(IndexCE, LowerCE)) {
+        CanonExprUtils::subtract(IndexCE, LowerCE);
+        LowerCE->clear();
+      }
+
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
                                Dim.getType());
     }
@@ -3999,7 +4043,12 @@ static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
          RefIt != E; ++RefIt) {
       auto *Ref = *RefIt;
 
-      assert(Ref->isTerminalRef() &&
+      // Call insts with 'returned' attribute can have AddressOf Refs.
+      // Ideally, we should only check the ref for parameter with 'returned'
+      // attribute but it is not straightforward to get its operand number so we
+      // check all the refs.
+      assert((isa<CallInst>(HInst->getLLVMInstruction()) ||
+              Ref->isTerminalRef()) &&
              "unexpected rval ref for non self blob lval!");
 
       if (Ref->usesTempBlob(BlobIndex)) {
@@ -4258,6 +4307,30 @@ static bool isDistributePoint(const IntrinsicInst *Intrin, bool &IsBegin) {
   return false;
 }
 
+static bool isBlockLoopBeginDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.BLOCK_LOOP");
+}
+
+static bool isBlockLoopEndDirective(const IntrinsicInst *Intrin) {
+  if (!Intrin->hasOperandBundles()) {
+    return false;
+  }
+
+  OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+  StringRef TagName = BU.getTagName();
+
+  return TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP");
+}
+
 bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
 
@@ -4271,7 +4344,11 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   }
 
   bool IsBegin;
-  if (!isDistributePoint(Intrin, IsBegin)) {
+
+  if (isBlockLoopEndDirective(Intrin)) {
+    IsBegin = false;
+
+  } else if (!isDistributePoint(Intrin, IsBegin)) {
     return false;
   }
 
@@ -4285,6 +4362,58 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   }
 
   return true;
+}
+
+static HLLoop *getNextLexicalLoop(HLNode *Node) {
+  HLNode *NextNode = Node;
+
+  do {
+    NextNode = NextNode->getNextNode();
+  } while (NextNode && !isa<HLLoop>(NextNode));
+
+  return cast_or_null<HLLoop>(NextNode);
+}
+
+void HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
+  auto *Intrin = dyn_cast<IntrinsicInst>(HInst->getLLVMInstruction());
+
+  if (!Intrin || !isBlockLoopBeginDirective(Intrin)) {
+    return;
+  }
+
+  // We ignore pragma if loop is not found. This can happen when ztt is not
+  // recognized.
+  if (auto *PragmaLp = getNextLexicalLoop(HInst)) {
+
+    int64_t Level = 0;
+    bool LevelFound = false;
+    (void)LevelFound;
+    for (unsigned I = 0, E = HInst->getNumOperandBundles(); I < E; ++I) {
+      StringRef TagName = HInst->getOperandBundleAt(I).getTagName();
+
+      if (TagName.equals("QUAL.PRAGMA.PRIVATE")) {
+        PragmaLp->addBlockingPragmaPrivate(*HInst->bundle_op_ddref_begin(I));
+        LevelFound = false;
+      } else if (TagName.equals("QUAL.PRAGMA.LEVEL")) {
+        // Store level info, to be added along with the corresponding factor.
+        (*HInst->bundle_op_ddref_begin(I))->isIntConstant(&Level);
+        LevelFound = true;
+      } else if (TagName.equals("QUAL.PRAGMA.FACTOR")) {
+        assert(LevelFound && "Factor found without corresponding level!");
+        PragmaLp->addBlockingPragmaLevelAndFactor(
+            (int)Level, *HInst->bundle_op_ddref_begin(I));
+        LevelFound = false;
+      }
+    }
+  }
+
+  // Remove refs' link to the instruction now that they are stored inside loop.
+  for (unsigned I = 0, E = HInst->getNumOperands(); I < E; ++I) {
+    HInst->removeOperandDDRef(I);
+  }
+
+  // Do not need explicit block_loop intrinsic in HIR.
+  HLNodeUtils::erase(HInst);
 }
 
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
@@ -4372,6 +4501,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     HInst->setPredicate(
         {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
   }
+
+  processBlockLoopBeginDirective(HInst);
 }
 
 void HIRParser::phase1Parse(HLNode *Node) {
@@ -4601,6 +4732,8 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
     CanonExpr *StrideCE = CEU.createCanonExpr(LinearIndexCE->getDestType());
     if (Stride != nullptr) {
+      StrideCE->setSrcType(Stride->getType());
+      StrideCE->setExtType(true);
       StrideCE->setBlobCoeff(BU.findOrInsertBlob(Stride), 1);
     } else {
       StrideCE->setConstant(1);
@@ -4667,7 +4800,8 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
 bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
                                 SmallVectorImpl<loopopt::RegDDRef *> &OutRefs,
-                                SmallVectorImpl<BlobTy> *DimSizes) {
+                                SmallVectorImpl<BlobTy> *DimSizes,
+                                bool AllowSExt) {
   LLVM_DEBUG(dbgs() << "Refs delinearization\n");
 
   BlobUtils &BU = getBlobUtils();
@@ -4688,8 +4822,8 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
     }
 
     const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
-    if (LinearIndexCE->getDenominator() != 1 ||
-        LinearIndexCE->getSrcType() != LinearIndexCE->getDestType()) {
+    if (LinearIndexCE->getDenominator() != 1 || LinearIndexCE->isTrunc() ||
+        LinearIndexCE->isZExt() || (!AllowSExt && LinearIndexCE->isSExt())) {
       return false;
     }
 
@@ -4704,7 +4838,7 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   }
 
   // No candidates for delinearization.
-  if (Strides.size() < 2) {
+  if (Strides.empty()) {
     return false;
   }
 

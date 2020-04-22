@@ -12,8 +12,8 @@
 ;   for (int j=0; j<100; j++) foo();
 ; }
 
-; CHECK: %{{.*}} = call i64 @_Z14get_num_groupsj(i32 0)
-; CHECK: %{{.*}} = call i64 @_Z12get_group_idj(i32 0)
+; CHECK: %{{.*}} = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+; CHECK: %{{.*}} = call spir_func i64 @_Z12get_group_idj(i32 0)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

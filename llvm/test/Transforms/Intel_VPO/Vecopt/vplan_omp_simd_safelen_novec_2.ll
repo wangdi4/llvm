@@ -19,8 +19,10 @@
 ; REQUIRES: asserts
 
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=8 -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; RUN: opt -S -vplan-force-vf=8 -VPlanDriver -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: opt -S -vplan-force-vf=8 -passes="vplan-driver" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; Check debug info from LoopVectorizationPlanner
 ; CHECK-HIR: LVP: ForcedVF: 8

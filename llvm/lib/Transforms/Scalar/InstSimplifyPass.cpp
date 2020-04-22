@@ -15,6 +15,7 @@
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -41,7 +42,7 @@ static bool runImpl(Function &F, const SimplifyQuery &SQ,
       if (!SQ.DT->isReachableFromEntry(&BB))
         continue;
 
-      SmallVector<Instruction *, 8> DeadInstsInBB;
+      SmallVector<WeakTrackingVH, 8> DeadInstsInBB;
       for (Instruction &I : BB) {
         // The first time through the loop, ToSimplify is empty and we try to
         // simplify all instructions. On later iterations, ToSimplify is not
@@ -92,6 +93,7 @@ struct InstSimplifyLegacyPass : public FunctionPass {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>(); // INTEL
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   }
 
@@ -109,7 +111,11 @@ struct InstSimplifyLegacyPass : public FunctionPass {
     OptimizationRemarkEmitter *ORE =
         &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
     const DataLayout &DL = F.getParent()->getDataLayout();
-    const SimplifyQuery SQ(DL, TLI, DT, AC);
+#if INTEL_CUSTOMIZATION
+    const TargetTransformInfo *TTI =
+        &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+    const SimplifyQuery SQ(DL, TLI, DT, AC, nullptr, true, TTI);
+#endif // INTEL_CUSTOMIZATION
     return runImpl(F, SQ, ORE);
   }
 };
@@ -127,6 +133,7 @@ INITIALIZE_PASS_BEGIN(InstSimplifyLegacyPass, "instsimplify",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(InstSimplifyLegacyPass, "instsimplify",
                     "Remove redundant instructions", false, false)

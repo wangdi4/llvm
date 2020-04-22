@@ -7,47 +7,50 @@
 //===----------------------------------------------------------------------===//
 
 #include <CL/sycl/detail/common.hpp>
-#include <CL/sycl/detail/kernel_impl.hpp>
-#include <CL/sycl/detail/kernel_info.hpp>
 #include <CL/sycl/info/info_desc.hpp>
 #include <CL/sycl/program.hpp>
+#include <detail/context_impl.hpp>
+#include <detail/kernel_impl.hpp>
+#include <detail/kernel_info.hpp>
 
 #include <memory>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
-kernel_impl::kernel_impl(RT::PiKernel Kernel, const context &SyclContext)
-    : kernel_impl(Kernel, SyclContext,
-                  std::make_shared<program_impl>(SyclContext, Kernel),
+kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr Context)
+    : kernel_impl(Kernel, Context,
+                  std::make_shared<program_impl>(Context, Kernel),
                   /*IsCreatedFromSource*/ true) {}
 
-kernel_impl::kernel_impl(RT::PiKernel Kernel, const context &SyclContext,
-                         std::shared_ptr<program_impl> ProgramImpl,
+kernel_impl::kernel_impl(RT::PiKernel Kernel, ContextImplPtr ContextImpl,
+                         ProgramImplPtr ProgramImpl,
                          bool IsCreatedFromSource)
-    : MKernel(Kernel), MContext(SyclContext),
+    : MKernel(Kernel), MContext(ContextImpl),
       MProgramImpl(std::move(ProgramImpl)),
       MCreatedFromSource(IsCreatedFromSource) {
 
   RT::PiContext Context = nullptr;
-  PI_CALL(piKernelGetInfo)(MKernel, CL_KERNEL_CONTEXT, sizeof(Context),
-                           &Context, nullptr);
-  auto ContextImpl = detail::getSyclObjImpl(SyclContext);
+  // Using the plugin from the passed ContextImpl
+  getPlugin().call<PiApiKind::piKernelGetInfo>(
+      MKernel, PI_KERNEL_INFO_CONTEXT, sizeof(Context), &Context, nullptr);
+
   if (ContextImpl->getHandleRef() != Context)
     throw cl::sycl::invalid_parameter_error(
-        "Input context must be the same as the context of cl_kernel");
-  PI_CALL(piKernelRetain)(MKernel);
+        "Input context must be the same as the context of cl_kernel",
+        PI_INVALID_CONTEXT);
+  getPlugin().call<PiApiKind::piKernelRetain>(MKernel);
 }
 
-kernel_impl::kernel_impl(const context &SyclContext,
-                         std::shared_ptr<program_impl> ProgramImpl)
-    : MContext(SyclContext), MProgramImpl(std::move(ProgramImpl)) {}
+kernel_impl::kernel_impl(ContextImplPtr Context,
+                         ProgramImplPtr ProgramImpl)
+    : MContext(Context), MProgramImpl(std::move(ProgramImpl)) {}
 
 kernel_impl::~kernel_impl() {
   // TODO catch an exception and put it to list of asynchronous exceptions
   if (!is_host()) {
-    PI_CALL(piKernelRelease)(MKernel);
+    getPlugin().call<PiApiKind::piKernelRelease>(MKernel);
   }
 }
 
@@ -60,11 +63,11 @@ kernel_impl::get_info() const {
   }
   return get_kernel_info<
       typename info::param_traits<info::kernel, param>::return_type,
-      param>::get(this->getHandleRef());
+      param>::get(this->getHandleRef(), getPlugin());
 }
 
 template <> context kernel_impl::get_info<info::kernel::context>() const {
-  return MContext;
+  return createSyclObjFromImpl<context>(MContext);
 }
 
 template <> program kernel_impl::get_info<info::kernel::program>() const {
@@ -79,18 +82,21 @@ kernel_impl::get_work_group_info(const device &Device) const {
   }
   return get_kernel_work_group_info<
       typename info::param_traits<info::kernel_work_group, param>::return_type,
-      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef());
+      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(),
+                  getPlugin());
 }
 
 template <info::kernel_sub_group param>
 typename info::param_traits<info::kernel_sub_group, param>::return_type
 kernel_impl::get_sub_group_info(const device &Device) const {
   if (is_host()) {
-    throw runtime_error("Sub-group feature is not supported on HOST device.");
+    throw runtime_error("Sub-group feature is not supported on HOST device.",
+                        PI_INVALID_DEVICE);
   }
   return get_kernel_sub_group_info<
       typename info::param_traits<info::kernel_sub_group, param>::return_type,
-      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef());
+      param>::get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(),
+                  getPlugin());
 }
 
 template <info::kernel_sub_group param>
@@ -100,13 +106,15 @@ kernel_impl::get_sub_group_info(
     typename info::param_traits<info::kernel_sub_group, param>::input_type
         Value) const {
   if (is_host()) {
-    throw runtime_error("Sub-group feature is not supported on HOST device.");
+    throw runtime_error("Sub-group feature is not supported on HOST device.",
+                        PI_INVALID_DEVICE);
   }
   return get_kernel_sub_group_info_with_input<
       typename info::param_traits<info::kernel_sub_group, param>::return_type,
       param,
       typename info::param_traits<info::kernel_sub_group, param>::input_type>::
-      get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(), Value);
+      get(this->getHandleRef(), getSyclObjImpl(Device)->getHandleRef(), Value,
+          getPlugin());
 }
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
@@ -154,4 +162,4 @@ bool kernel_impl::isCreatedFromSource() const {
 
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

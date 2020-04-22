@@ -166,7 +166,15 @@ Pass *createVPlanDriverPass();
 // VPlan HIR Vectorizer - Create a VPlan Driver pass for HIR.
 //
 Pass *createVPlanDriverHIRPass();
+
+Pass *createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
+
+//===----------------------------------------------------------------------===//
+//
+// Optimize partial vector operations using target cost models.
+//
+Pass *createVectorCombinePass();
 
 } // End llvm namespace
 

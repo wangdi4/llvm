@@ -44,13 +44,13 @@ public:
 
   void storeRegToStackSlot(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MBBI,
-                           unsigned SrcReg, bool isKill, int FrameIndex,
+                           Register SrcReg, bool isKill, int FrameIndex,
                            const TargetRegisterClass *RC,
                            const TargetRegisterInfo *TRI) const override;
 
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator MBBI,
-                            unsigned DestReg, int FrameIndex,
+                            Register DestReg, int FrameIndex,
                             const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const override;
 
@@ -74,6 +74,10 @@ ARMCC::CondCodes getITInstrPredicate(const MachineInstr &MI, unsigned &PredReg);
 int findFirstVPTPredOperandIdx(const MachineInstr &MI);
 ARMVCC::VPTCodes getVPTInstrPredicate(const MachineInstr &MI,
                                       unsigned &PredReg);
+inline ARMVCC::VPTCodes getVPTInstrPredicate(const MachineInstr &MI) {
+  unsigned PredReg;
+  return getVPTInstrPredicate(MI, PredReg);
 }
+} // namespace llvm
 
 #endif

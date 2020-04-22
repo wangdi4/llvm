@@ -79,19 +79,19 @@
 ; CHECK:        |   %limm = 0;
 ; CHECK:        |   %1 = (@A)[0][0];
 ; CHECK:        |   (@A)[0][i1] = 2 * %1;
-; CHECK:        |   %limm2 = 1;
+; CHECK:        |   %limm9 = 1;
 ; CHECK:        |   %1 = (@A)[0][1];
 ; CHECK:        |   (@A)[0][i1] = 2 * %1;
-; CHECK:        |   %limm4 = 2;
+; CHECK:        |   %limm11 = 2;
 ; CHECK:        |   %1 = (@A)[0][2];
 ; CHECK:        |   (@A)[0][i1] = 2 * %1;
-; CHECK:        |   %limm6 = 3;
+; CHECK:        |   %limm13 = 3;
 ; CHECK:        |   %1 = (@A)[0][3];
 ; CHECK:        |   (@A)[0][i1] = 2 * %1;
 ; CHECK:        + END LOOP
-; CHECK:           (@B)[0][3] = %limm6;
-; CHECK:           (@B)[0][2] = %limm4;
-; CHECK:           (@B)[0][1] = %limm2;
+; CHECK:           (@B)[0][3] = %limm13;
+; CHECK:           (@B)[0][2] = %limm11;
+; CHECK:           (@B)[0][1] = %limm9;
 ; CHECK:           (@B)[0][0] = %limm;
 ; CHECK:  END REGION
 ;

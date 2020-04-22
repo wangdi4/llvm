@@ -40,14 +40,14 @@ entry:
 ; PREPR: store [10 x i8]* %y, [10 x i8]** [[YADDR1:%[a-zA-Z._0-9]+]]
 ; PREPR: "QUAL.OMP.PRIVATE"([10 x i8]* %y)
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"([10 x i8]* %y, [10 x i8]** [[YADDR1]])
-; PREPR: [[YRENAMED1:%[a-zA-Z._0-9]+]] = load [10 x i8]*, [10 x i8]** [[YADDR1]]
+; PREPR: [[YRENAMED1:%[a-zA-Z._0-9]+]] = load volatile [10 x i8]*, [10 x i8]** [[YADDR1]]
 ; PREPR: getelementptr inbounds [10 x i8], [10 x i8]* [[YRENAMED1]]
 
 ; Renaming for inner region:
 ; PREPR: store [10 x i8]* [[YRENAMED1]], [10 x i8]** [[YADDR2:%[a-zA-Z._0-9]+]]
 ; PREPR: "QUAL.OMP.PRIVATE"([10 x i8]* [[YRENAMED1]])
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"([10 x i8]* [[YRENAMED1]], [10 x i8]** [[YADDR2]])
-; PREPR: [[YRENAMED2:%[a-zA-Z._0-9]+]] = load [10 x i8]*, [10 x i8]** [[YADDR2]]
+; PREPR: [[YRENAMED2:%[a-zA-Z._0-9]+]] = load volatile [10 x i8]*, [10 x i8]** [[YADDR2]]
 ; PREPR: getelementptr inbounds [10 x i8], [10 x i8]* [[YRENAMED2]]
 
 

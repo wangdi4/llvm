@@ -82,16 +82,24 @@ def IntelInline : Attr {
   let Documentation = [Undocumented];
 }
 
-// Pragma block_loop
+// Pragma block_loop and noblock_loop
 def IntelBlockLoop : Attr {
-  let Spellings = [Pragma<"", "block_loop">];
+  let Spellings = [Pragma<"", "block_loop">,
+                   Pragma<"", "noblock_loop">];
   let Args = [
     VariadicExprArgument<"Factors">, VariadicIntArgument<"Levels">,
     VariadicExprArgument<"Privates">
   ];
   let AdditionalMembers = [{
   void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
-    OS << "#pragma block_loop";
+    OS << getDiagnosticName(Policy);
+  }
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+    unsigned SpellingIndex = getSpellingListIndex();
+    if (SpellingIndex == Pragma_block_loop)
+      return "#pragma block_loop";
+    else
+      return "#pragma noblock_loop";
   }
   }];
   let Documentation = [Undocumented];
@@ -503,24 +511,6 @@ def SchedulerTargetFmaxMHz : InheritableAttr {
   }];
 }
 
-def InternalMaxBlockRamDepth : InheritableAttr {
-  let Spellings = [GNU<"internal_max_block_ram_depth">];
-  let Args = [ExprArgument<"InternalMaxBlockRamDepth">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-  let LangOpts = [OpenCL, HLS];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 0;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
 // One string argument
 def ReadWriteMode : Attr {
   let Spellings = [GNU<"readwrite_mode">];
@@ -528,33 +518,6 @@ def ReadWriteMode : Attr {
   let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar, Field], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [ReadWriteModeDocs];
-}
-
-def MemoryLayout : Attr {
-  let Spellings = [GNU<"memory_layout">];
-  let Args = [StringArgument<"Type">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [MemoryLayoutDocs];
-}
-
-// Variadic integral arguments.
-def BankBits : Attr {
-  let Spellings = [GNU<"bank_bits">];
-  let Args = [VariadicExprArgument<"Args">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let LangOpts = [OpenCL, HLS];
-  let Documentation = [Undocumented];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 1;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
 }
 
 def HLSLocalStaticVar : SubsetSubject<Var,
@@ -586,7 +549,7 @@ def ArbPrecInt : TypeAttr {
   let Spellings = [Clang<"__ap_int">];
   let Subjects = SubjectList<[TypedefName], ErrorDiag>;
   let Args = [ExprArgument<"NumBits">];
-  let LangOpts = [OpenCL, HLS];
+  let LangOpts = [OpenCL, HLS, SYCLIsDevice];
   let Documentation = [ArbPrecIntDocs];
   let ASTNode = 0;
 }
@@ -597,4 +560,14 @@ def TargetPromotion : InheritableAttr {
   let Spellings = [];
   let Args = [StringArgument<"Features">];
   let Documentation = [Undocumented];
+}
+
+def IntelOclBiccAVX : DeclOrTypeAttr {
+  let Spellings = [Clang<"intel_ocl_bicc_avx", 0>];
+  let Documentation = [IntelOclBiccAVXDocs];
+}
+
+def IntelOclBiccAVX512 : DeclOrTypeAttr {
+  let Spellings = [Clang<"intel_ocl_bicc_avx512", 0>];
+  let Documentation = [IntelOclBiccAVX512Docs];
 }

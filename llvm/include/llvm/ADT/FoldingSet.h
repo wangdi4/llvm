@@ -85,17 +85,17 @@ namespace llvm {
 ///
 ///    MyNode *M = MyFoldingSet.FindNodeOrInsertPos(ID, InsertPoint);
 ///
-/// If found then M with be non-NULL, else InsertPoint will point to where it
+/// If found then M will be non-NULL, else InsertPoint will point to where it
 /// should be inserted using InsertNode.
 ///
-/// 3) If you get a NULL result from FindNodeOrInsertPos then you can as a new
-/// node with FindNodeOrInsertPos;
+/// 3) If you get a NULL result from FindNodeOrInsertPos then you can insert a
+/// new node with InsertNode;
 ///
-///    InsertNode(N, InsertPoint);
+///    MyFoldingSet.InsertNode(M, InsertPoint);
 ///
 /// 4) Finally, if you want to remove a node from the folding set call;
 ///
-///    bool WasRemoved = RemoveNode(N);
+///    bool WasRemoved = MyFoldingSet.RemoveNode(M);
 ///
 /// The result indicates whether the node existed in the folding set.
 
@@ -652,6 +652,15 @@ public:
   FoldingSetIterator operator++(int) {        // Postincrement
     FoldingSetIterator tmp = *this; ++*this; return tmp;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Define necessary traits for STL implementations.
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = T;
+  using reference = T &;
+  using pointer = T *;
+  using difference_type = std::ptrdiff_t;
+#endif // INTEL_CUSTOMIZATION
 };
 
 //===----------------------------------------------------------------------===//

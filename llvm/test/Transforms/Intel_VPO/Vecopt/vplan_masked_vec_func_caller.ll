@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -disable-vplan-subregions -S < %s  | FileCheck %s
+; RUN: opt -VPlanDriver -S < %s  | FileCheck %s
 
 ; CHECK-LABEL: vector.body
 ; CHECK: call <4 x float> @_ZGVbM4vv_vec_sum

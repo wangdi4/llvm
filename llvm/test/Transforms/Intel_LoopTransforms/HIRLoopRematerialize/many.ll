@@ -36,21 +36,12 @@
 
 ; CHECK-LABEL:Function: add_v3
 
-; TODO: This should have been recognized a loop. Currently, ANTI dep from
-;       (%a)[0] to (%a)[1] inhibits loop rematerialization in a worry that
-;       a wrong loop-carried dependency might occur by materializing a loop.
-;       The dependency check had to be added because loop-invariant hoisting
-;       is not implemented in current loop rematerialization logic.
-;       If hoisting is implemented, and other necessary checks are
-;       added, the work-around dependency check can be removed.
-
 ; CHECK:         BEGIN REGION { }
-; CHECK:               %add = (%b)[0]  +  (%a)[0];
-; CHECK:               (%a)[0] = %add;
-; CHECK:               %add4 = (%b)[1]  +  (%a)[1];
-; CHECK:               (%a)[1] = %add4;
-; CHECK:               %add7 = (%b)[2]  +  (%a)[2];
-; CHECK:               (%a)[2] = %add7;
+; CHECK:               + DO i1 = 0, 2, 1   <DO_LOOP>
+; CHECK:               |   %add = (%b)[i1]  +  (%a)[i1];
+; CHECK:               |   (%a)[i1] = %add;
+; CHECK:               + END LOOP
+
 ; CHECK:               ret ;
 ; CHECK:         END REGION
 
@@ -68,15 +59,12 @@
 
 ; CHECK-LABEL:Function: mul_v3_fl
 
-; TODO: same as add_v3
-
 ; CHECK:        BEGIN REGION { }
-; CHECK:              %mul = (%a)[0]  *  %f;
-; CHECK:              (%a)[0] = %mul;
-; CHECK:              %mul2 = (%a)[1]  *  %f;
-; CHECK:              (%a)[1] = %mul2;
-; CHECK:              %mul4 = (%a)[2]  *  %f;
-; CHECK:              (%a)[2] = %mul4;
+; CHECK:               + DO i1 = 0, 2, 1   <DO_LOOP>
+; CHECK:               |   %mul = (%a)[i1]  *  %f;
+; CHECK:               |   (%a)[i1] = %mul;
+; CHECK:               + END LOOP
+
 ; CHECK:              ret ;
 ; CHECK:        END REGION
 
@@ -122,15 +110,12 @@
 ; CHECK-LABEL:Function: madd_v3_v3fl
 
 ; CHECK:          BEGIN REGION { }
-; CHECK:               %mul = (%b)[0]  *  %f;
-; CHECK:               %add = (%a)[0]  +  %mul;
-; CHECK:               (%a)[0] = %add;
-; CHECK:               %mul3 = (%b)[1]  *  %f;
-; CHECK:               %add5 = (%a)[1]  +  %mul3;
-; CHECK:               (%a)[1] = %add5;
-; CHECK:               %mul7 = (%b)[2]  *  %f;
-; CHECK:               %add9 = (%a)[2]  +  %mul7;
-; CHECK:               (%a)[2] = %add9;
+; CHECK:               + DO i1 = 0, 2, 1   <DO_LOOP>
+; CHECK:               |   %mul = (%b)[i1]  *  %f;
+; CHECK:               |   %add = (%a)[i1]  +  %mul;
+; CHECK:               |   (%a)[i1] = %add;
+; CHECK:               + END LOOP
+
 ; CHECK:               ret ;
 ; CHECK:          END REGION
 

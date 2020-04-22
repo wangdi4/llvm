@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenFunction.h"
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGObjCRuntime.h"
+#include "CodeGenFunction.h"
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
 #include "clang/AST/Mangle.h"
@@ -21,8 +21,9 @@
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
@@ -401,14 +402,32 @@ void CodeGenFunction::EmitAnyExprToExn(const Expr *e, Address addr) {
 }
 
 Address CodeGenFunction::getExceptionSlot() {
+#if INTEL_COLLAB
+  if (!ExceptionSlot) {
+    Address A = CreateDefaultAlignTempAlloca(Int8PtrTy, "exn.slot");
+    ExceptionSlot = A.getPointer();
+    if (CapturedStmtInfo)
+      CapturedStmtInfo->recordValueDefinition(ExceptionSlot);
+  }
+#else
   if (!ExceptionSlot)
     ExceptionSlot = CreateTempAlloca(Int8PtrTy, "exn.slot");
+#endif  // INTEL_COLLAB
   return Address(ExceptionSlot, getPointerAlign());
 }
 
 Address CodeGenFunction::getEHSelectorSlot() {
+#if INTEL_COLLAB
+  if (!EHSelectorSlot) {
+    Address A = CreateDefaultAlignTempAlloca(Int32Ty, "ehselector.slot");
+    EHSelectorSlot = A.getPointer();
+    if (CapturedStmtInfo)
+      CapturedStmtInfo->recordValueDefinition(EHSelectorSlot);
+  }
+#else
   if (!EHSelectorSlot)
     EHSelectorSlot = CreateTempAlloca(Int32Ty, "ehselector.slot");
+#endif // INTEL_COLLAB
   return Address(EHSelectorSlot, CharUnits::fromQuantity(4));
 }
 
@@ -551,6 +570,10 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   EnterCXXTryStmt(S);
+#if INTEL_COLLAB
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->enterTryStmt();
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().IntelCompat) {
     // CQ#372058 - associate landing pad in debug info with the end of the try
@@ -567,6 +590,10 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   } else
     EmitStmt(S.getTryBlock());
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  if (CapturedStmtInfo)
+    CapturedStmtInfo->exitTryStmt();
+#endif // INTEL_COLLAB
   ExitCXXTryStmt(S);
 }
 
@@ -717,12 +744,12 @@ llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
   assert(EHStack.requiresLandingPad());
   assert(!EHStack.empty());
 
-  // If exceptions are disabled and SEH is not in use, then there is no invoke
-  // destination. SEH "works" even if exceptions are off. In practice, this
-  // means that C++ destructors and other EH cleanups don't run, which is
+  // If exceptions are disabled/ignored and SEH is not in use, then there is no
+  // invoke destination. SEH "works" even if exceptions are off. In practice,
+  // this means that C++ destructors and other EH cleanups don't run, which is
   // consistent with MSVC's behavior.
   const LangOptions &LO = CGM.getLangOpts();
-  if (!LO.Exceptions) {
+  if (!LO.Exceptions || LO.IgnoreExceptions) {
     if (!LO.Borland && !LO.MicrosoftExt)
       return nullptr;
     if (!currentFunctionUsesSEHTry())
@@ -765,7 +792,9 @@ llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
 
 llvm::BasicBlock *CodeGenFunction::EmitLandingPad() {
   assert(EHStack.requiresLandingPad());
-
+  assert(!CGM.getLangOpts().IgnoreExceptions &&
+         "LandingPad should not be emitted when -fignore-exceptions are in "
+         "effect.");
   EHScope &innermostEHScope = *EHStack.find(EHStack.getInnermostEHScope());
   switch (innermostEHScope.getKind()) {
   case EHScope::Terminate:
@@ -1899,7 +1928,7 @@ void CodeGenFunction::startOutlinedSEHHelper(CodeGenFunction &ParentCGF,
                 OutlinedStmt->getBeginLoc(), OutlinedStmt->getBeginLoc());
   CurSEHParent = ParentCGF.CurSEHParent;
 
-  CGM.SetLLVMFunctionAttributes(GlobalDecl(), FnInfo, CurFn);
+  CGM.SetInternalFunctionAttributes(GlobalDecl(), CurFn, FnInfo);
   EmitCapturedLocals(ParentCGF, OutlinedStmt, IsFilter);
 }
 

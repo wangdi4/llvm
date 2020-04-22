@@ -31,11 +31,14 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -80,6 +83,14 @@ using ProfileCount = Function::ProfileCount;
 static cl::opt<bool>
 AggregateArgsOpt("aggregate-extracted-args", cl::Hidden,
                  cl::desc("Aggregate arguments to code-extracted functions"));
+
+#if INTEL_COLLAB
+static cl::opt<bool>
+IntelCodeExtractorDebug("intel-codeextractor-debug",
+                        cl::Hidden,
+                        cl::init(true),
+                        cl::desc("Use Intel CodeExtractor debug information."));
+#endif // INTEL_COLLAB
 
 /// Test whether a block is valid for extraction.
 static bool isBlockValidForExtraction(const BasicBlock &BB,
@@ -282,6 +293,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID)),
       TgtClauseArgs(TgtClauseArgs),
+      RewrittenValues(), DeclLoc(),
 #else // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
@@ -298,6 +310,7 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
 #if INTEL_COLLAB
                                      /* AllowAlloca */ false,
                                      /* AllowEHTypeID */ false)),
+      RewrittenValues(), DeclLoc(),
 #else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
 #endif // INTEL_COLLAB
@@ -871,7 +884,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
     dbgs() << ")\n";
   });
 
-  StructType *StructTy;
+  StructType *StructTy = nullptr;
   if (AggregateArgs && (inputs.size() + outputs.size() > 0)) {
     StructTy = StructType::get(M->getContext(), paramTy);
     paramTy.clear();
@@ -950,6 +963,8 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::ZExt:
       case Attribute::ImmArg:
       case Attribute::EndAttrKinds:
+      case Attribute::EmptyKey:
+      case Attribute::TombstoneKey:
         continue;
       // Those attributes should be safe to propagate to the extracted function.
       case Attribute::AlwaysInline:
@@ -995,17 +1010,24 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
   // arguments (or appropriate addressing into struct) instead.
   for (unsigned i = 0, e = inputs.size(); i != e; ++i) {
     Value *RewriteVal;
+#if INTEL_COLLAB
+    Instruction *TI = newFunction->begin()->getTerminator();
+#endif // INTEL_COLLAB
     if (AggregateArgs) {
       Value *Idx[2];
       Idx[0] = Constant::getNullValue(Type::getInt32Ty(header->getContext()));
       Idx[1] = ConstantInt::get(Type::getInt32Ty(header->getContext()), i);
-      Instruction *TI = newFunction->begin()->getTerminator();
       GetElementPtrInst *GEP = GetElementPtrInst::Create(
           StructTy, &*AI, Idx, "gep_" + inputs[i]->getName(), TI);
       RewriteVal = new LoadInst(StructTy->getElementType(i), GEP,
                                 "loadgep_" + inputs[i]->getName(), TI);
     } else
       RewriteVal = &*AI++;
+
+#if INTEL_COLLAB
+    unsigned ArgNo = i + 1;
+    RewrittenValues[inputs[i]] = {RewriteVal, ArgNo};
+#endif // INTEL_COLLAB
 
     std::vector<User *> Users(inputs[i]->user_begin(), inputs[i]->user_end());
     for (User *use : Users)
@@ -1052,8 +1074,8 @@ void CodeExtractor::hoistAlloca(Function &F) {
     }
   }
 }
-
 #endif // INTEL_COLLAB
+
 /// Erase lifetime.start markers which reference inputs to the extraction
 /// region, and insert the referenced memory into \p LifetimesStart.
 ///
@@ -1464,6 +1486,363 @@ void CodeExtractor::calculateNewCallTerminatorWeights(
       MDBuilder(TI->getContext()).createBranchWeights(BranchWeights));
 }
 
+/// Erase debug info intrinsics which refer to values in \p F but aren't in
+/// \p F.
+static void eraseDebugIntrinsicsWithNonLocalRefs(Function &F) {
+  for (Instruction &I : instructions(F)) {
+    SmallVector<DbgVariableIntrinsic *, 4> DbgUsers;
+    findDbgUsers(DbgUsers, &I);
+    for (DbgVariableIntrinsic *DVI : DbgUsers)
+      if (DVI->getFunction() != &F)
+        DVI->eraseFromParent();
+  }
+}
+
+/// Fix up the debug info in the old and new functions by pointing line
+/// locations and debug intrinsics to the new subprogram scope, and by deleting
+/// intrinsics which point to values outside of the new function.
+static void fixupDebugInfoPostExtraction(Function &OldFunc, Function &NewFunc,
+                                         CallInst &TheCall) {
+  DISubprogram *OldSP = OldFunc.getSubprogram();
+  LLVMContext &Ctx = OldFunc.getContext();
+
+  if (!OldSP) {
+    // Erase any debug info the new function contains.
+    stripDebugInfo(NewFunc);
+    // Make sure the old function doesn't contain any non-local metadata refs.
+    eraseDebugIntrinsicsWithNonLocalRefs(NewFunc);
+    return;
+  }
+
+  // Create a subprogram for the new function. Leave out a description of the
+  // function arguments, as the parameters don't correspond to anything at the
+  // source level.
+  assert(OldSP->getUnit() && "Missing compile unit for subprogram");
+  DIBuilder DIB(*OldFunc.getParent(), /*AllowUnresolvedNodes=*/false,
+                OldSP->getUnit());
+  auto SPType = DIB.createSubroutineType(DIB.getOrCreateTypeArray(None));
+  DISubprogram::DISPFlags SPFlags = DISubprogram::SPFlagDefinition |
+                                    DISubprogram::SPFlagOptimized |
+                                    DISubprogram::SPFlagLocalToUnit;
+  auto NewSP = DIB.createFunction(
+      OldSP->getUnit(), NewFunc.getName(), NewFunc.getName(), OldSP->getFile(),
+      /*LineNo=*/0, SPType, /*ScopeLine=*/0, DINode::FlagZero, SPFlags);
+  NewFunc.setSubprogram(NewSP);
+
+  // Debug intrinsics in the new function need to be updated in one of two
+  // ways:
+  //  1) They need to be deleted, because they describe a value in the old
+  //     function.
+  //  2) They need to point to fresh metadata, e.g. because they currently
+  //     point to a variable in the wrong scope.
+  SmallDenseMap<DINode *, DINode *> RemappedMetadata;
+  SmallVector<Instruction *, 4> DebugIntrinsicsToDelete;
+  for (Instruction &I : instructions(NewFunc)) {
+    auto *DII = dyn_cast<DbgInfoIntrinsic>(&I);
+    if (!DII)
+      continue;
+
+    // Point the intrinsic to a fresh label within the new function.
+    if (auto *DLI = dyn_cast<DbgLabelInst>(&I)) {
+      DILabel *OldLabel = DLI->getLabel();
+      DINode *&NewLabel = RemappedMetadata[OldLabel];
+      if (!NewLabel)
+        NewLabel = DILabel::get(Ctx, NewSP, OldLabel->getName(),
+                                OldLabel->getFile(), OldLabel->getLine());
+      DLI->setArgOperand(0, MetadataAsValue::get(Ctx, NewLabel));
+      continue;
+    }
+
+    // If the location isn't a constant or an instruction, delete the
+    // intrinsic.
+    auto *DVI = cast<DbgVariableIntrinsic>(DII);
+    Value *Location = DVI->getVariableLocation();
+    if (!Location ||
+        (!isa<Constant>(Location) && !isa<Instruction>(Location))) {
+      DebugIntrinsicsToDelete.push_back(DVI);
+      continue;
+    }
+
+    // If the variable location is an instruction but isn't in the new
+    // function, delete the intrinsic.
+    Instruction *LocationInst = dyn_cast<Instruction>(Location);
+    if (LocationInst && LocationInst->getFunction() != &NewFunc) {
+      DebugIntrinsicsToDelete.push_back(DVI);
+      continue;
+    }
+
+    // Point the intrinsic to a fresh variable within the new function.
+    DILocalVariable *OldVar = DVI->getVariable();
+    DINode *&NewVar = RemappedMetadata[OldVar];
+    if (!NewVar)
+      NewVar = DIB.createAutoVariable(
+          NewSP, OldVar->getName(), OldVar->getFile(), OldVar->getLine(),
+          OldVar->getType(), /*AlwaysPreserve=*/false, DINode::FlagZero,
+          OldVar->getAlignInBits());
+    DVI->setArgOperand(1, MetadataAsValue::get(Ctx, NewVar));
+  }
+  for (auto *DII : DebugIntrinsicsToDelete)
+    DII->eraseFromParent();
+  DIB.finalizeSubprogram(NewSP);
+
+  // Fix up the scope information attached to the line locations in the new
+  // function.
+  for (Instruction &I : instructions(NewFunc)) {
+    if (const DebugLoc &DL = I.getDebugLoc())
+      I.setDebugLoc(DebugLoc::get(DL.getLine(), DL.getCol(), NewSP));
+
+    // Loop info metadata may contain line locations. Fix them up.
+    auto updateLoopInfoLoc = [&Ctx,
+                              NewSP](const DILocation &Loc) -> DILocation * {
+      return DILocation::get(Ctx, Loc.getLine(), Loc.getColumn(), NewSP,
+                             nullptr);
+    };
+    updateLoopMetadataDebugLocations(I, updateLoopInfoLoc);
+  }
+  if (!TheCall.getDebugLoc())
+    TheCall.setDebugLoc(DebugLoc::get(0, 0, OldSP));
+
+  eraseDebugIntrinsicsWithNonLocalRefs(NewFunc);
+}
+
+#if INTEL_COLLAB
+static DISubprogram *constructArtificialSubprogram(
+    Function *OldF,
+    Function *NewF,
+    DILocation *Loc) {
+  // Nothing to do if the original function didn't have a subprogram.
+  DISubprogram *OldSP = OldF->getSubprogram();
+  assert(OldSP && "Expected a function with a valid DISUbprogram!");
+
+  // Place the new subprogram into the same compilation unit as the old.
+  DICompileUnit *Unit = OldSP->getUnit();
+  Module *M = NewF->getParent();
+  DIBuilder DIB (*M, true, Unit);
+
+  // Artificial subprograms should not have source names, but GDB doesn't
+  // work without this. Emit the function name here and leave the linkage name
+  // empty below. The name of the artificial subprogram should match the
+  // function name to make it easy to correlate the two.
+  StringRef SourceName = NewF->getName();
+
+  // This should specify the linkage name, but since we used it as the name
+  // above there's no point in emitting it twice.
+  StringRef LinkageName /* = NewF->getName() */;
+
+  // Determine which flags apply to this routine.
+  DINode::DIFlags Flags = DINode::FlagZero;
+  Flags |= llvm::DINode::FlagArtificial;
+
+  // Determine which subprogram flags apply to this routine.
+  DISubprogram::DISPFlags SPFlags = DISubprogram::SPFlagZero;
+  if (NewF->hasLocalLinkage())
+    SPFlags |= DISubprogram::SPFlagLocalToUnit;
+  if (OldSP->isOptimized())
+    SPFlags |= DISubprogram::SPFlagOptimized;
+  SPFlags |= llvm::DISubprogram::SPFlagDefinition;
+
+  // Extract the components of the source location.
+  DIFile *File;
+  unsigned LineNo;
+  unsigned ScopeLine;
+  if (Loc) {
+    File = Loc->getFile();
+    LineNo = Loc->getLine();
+    ScopeLine = LineNo;
+  } else {
+    File = OldSP->getFile();
+    LineNo = OldSP->getLine();
+    ScopeLine = OldSP->getScopeLine();
+  }
+
+  // Artificial subprograms are created with a generic subroutine type.
+  DISubroutineType *Type =
+      DIB.createSubroutineType(DIB.getOrCreateTypeArray(None));
+
+  // Artificial routines do not have declarations or template parameters.
+  DISubprogram *Decl = nullptr;
+  DINodeArray TParams;
+
+  // Create the artificial subprogram and attach it to the function.
+  DISubprogram *NewSP = DIB.createFunction(
+      File, SourceName, LinkageName, File, LineNo, Type, ScopeLine, Flags,
+      SPFlags, TParams.get(), Decl);
+  DIB.finalizeSubprogram(NewSP);
+  return NewSP;
+}
+
+static DILocalVariable *createAutoVariableForLocal(
+    DIBuilder& DIB,
+    DILocalVariable *DILV) {
+  return DILV->isParameter()
+    ? DIB.createAutoVariable(
+        DILV->getScope(),
+        DILV->getName(),
+        DILV->getFile(),
+        DILV->getLine(),
+        DILV->getType(),
+        false,
+        DILV->getFlags(),
+        DILV->getAlignInBits())
+    : DILV;
+}
+
+void CodeExtractor::updateDebugInfo(
+    Function *OldF,
+    Function *NewF,
+    const ValueSet &inputs,
+    const ValueSet &outputs) {
+  // If there's no debug information to update then we are done.
+  DISubprogram *OSP = OldF->getSubprogram();
+  if (!OSP)
+    return;
+
+  DICompileUnit *Unit = OSP->getUnit();
+  Module *M = NewF->getParent();
+  DIBuilder DIB (*M, true, Unit);
+
+  // Build a list of the debug variable intrinsic calls to update.
+  SmallVector<DbgVariableIntrinsic*, 32> DebugVariableIntrinsics;
+  for (Instruction &I : instructions(OldF))
+    if (auto *DVI = dyn_cast_or_null<DbgVariableIntrinsic>(&I))
+      DebugVariableIntrinsics.push_back(DVI);
+  for (Instruction &I : instructions(NewF))
+    if (auto *DVI = dyn_cast_or_null<DbgVariableIntrinsic>(&I))
+      DebugVariableIntrinsics.push_back(DVI);
+
+  for (DbgVariableIntrinsic *DVI : DebugVariableIntrinsics) {
+    Value *Storage = DVI->getVariableLocation();
+    DIExpression *Expression = DVI->getExpression();
+    DILocalVariable *Variable = DVI->getVariable();
+    DILocation *Location = DVI->getDebugLoc().get();
+
+    LLVM_DEBUG(dbgs() << "\nProcessing: [" << DVI << "] " << *DVI << "\n");
+    LLVM_DEBUG(dbgs() << "  Storage:  <" << Storage << ">" << *Storage << "\n");
+    LLVM_DEBUG(dbgs() << "  Expression: " << *Expression << "\n");
+    LLVM_DEBUG(dbgs() << "  Variable: " << *Variable << "\n");
+    LLVM_DEBUG(dbgs() << "  Location: " << *Location << "\n");
+
+    if (Storage == nullptr) {
+      // Errors in passes may result in DVI's with a NULL storage location.
+      // We can't even fix these up by making them UndefValue because we don't
+      // know the value type. We should fix these but guard against them here.
+      LLVM_DEBUG(dbgs() << "  Removing DVI with NULL storage!\n");
+      DVI->eraseFromParent();
+      continue;
+    }
+
+    if (inputs.count(Storage)) {
+      LLVM_DEBUG(dbgs() << "  Storage is input to new routine.\n");
+
+      // This DVI describes a value passed _into_ the new routine.
+      auto RI = RewrittenValues.find(Storage); // "Rewritten Iterator"
+      if (RI != RewrittenValues.end()) {
+        Value *AStorage = RI->second.Storage;
+
+        // Non-aggregate parameters are passed by reference.
+        DIExpression *AExpression = Expression;
+        if (!AggregateArgs)
+          AExpression = DIExpression::append(AExpression, dwarf::DW_OP_deref);
+
+        // Preserve the source correlation from the original DVI.
+        DILocation *ALocation = Location;
+
+        // Insert the llvm.dbg.declare after the alloca instruction.
+        Instruction *AInsertBefore;
+        if (Instruction *I = dyn_cast_or_null<Instruction>(AStorage))
+          AInsertBefore = I->getNextNode();
+        else
+          AInsertBefore = NewF->begin()->getTerminator();
+
+        // We cannot emit a parameter here. The old routine may have multiple
+        // DVI's sharing the same storage location, and there can't be multiple
+        // parameters with the same argument number but different variable
+        // names.
+        DILocalVariable *AVar = createAutoVariableForLocal(DIB, Variable);;
+        LLVM_DEBUG(dbgs() << "  + [" << AVar << "]: " << *AVar << "\n");
+        Instruction *ADVI = DIB.insertDbgValueIntrinsic(
+            AStorage, AVar, AExpression, ALocation, AInsertBefore);
+        LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
+        (void)ADVI;
+      }
+    } else if (outputs.count(Storage)) {
+      // This DVI describes a value passed _out_ of the new routine.
+      // Not yet supported.
+    }
+  
+    // Handle cases where the DVI and storage end up in different functions.
+    if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
+      if (auto *SI = dyn_cast_or_null<Instruction>(Storage)) {
+        Function *SF = SI->getFunction();
+        if (SF != DVI->getFunction()) {
+          DVI->moveAfter(SI);
+          LLVM_DEBUG(dbgs() << "  Moved DVI after storage instruction.\n");
+        }
+      } else if (auto *SA = dyn_cast_or_null<Argument>(Storage)) {
+        Function *SF = SA->getParent();
+        if (SF != DVI->getFunction()) {
+          DVI->moveBefore(SF->begin()->getTerminator());
+          LLVM_DEBUG(dbgs() << "  Moved DVI to entry block.\n");
+        }
+      }
+    } else if (isa<DbgValueInst>(DVI)) {
+      if (auto *SI = dyn_cast_or_null<Instruction>(Storage)) {
+        Function *SF = SI->getFunction();
+        if (SF != DVI->getFunction()) {
+          DVI->eraseFromParent();
+          LLVM_DEBUG(dbgs() << "  Erased DVI.\n");
+          continue;
+        }
+      } else if (auto *SA = dyn_cast_or_null<Argument>(Storage)) {
+        Function *SF = SA->getParent();
+        if (SF != DVI->getFunction()) {
+          DVI->eraseFromParent();
+          LLVM_DEBUG(dbgs() << "  Erased DVI.\n");
+          continue;
+        }
+      }
+    }
+
+    // Handle DVI's describing parameters which end up in the new function.
+    if (DVI->getFunction() == NewF && Variable->isParameter()) {
+      LLVM_DEBUG(dbgs() << "  DVI is parameter in NEW function." << ".\n");
+
+      if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
+        DILocalVariable *AVariable = createAutoVariableForLocal(DIB, Variable);
+        LLVM_DEBUG(dbgs() << "  + [" << AVariable << "]: " << *AVariable
+                          << "\n");
+        Instruction *ADVI = DIB.insertDeclare(
+            Storage, AVariable, Expression, Location, DVI);
+        LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
+        (void)ADVI;
+      } else if (isa<DbgValueInst>(DVI)) {
+        DILocalVariable *AVariable = createAutoVariableForLocal(DIB, Variable);
+        LLVM_DEBUG(dbgs() << "  + [" << AVariable << "]: " << *AVariable
+                          << "\n");
+        Instruction *ADVI = DIB.insertDbgValueIntrinsic(
+            Storage, AVariable, Expression, Location, DVI);
+        LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
+        (void)ADVI;
+      }
+
+      DVI->eraseFromParent();
+      LLVM_DEBUG(dbgs() << "  Erased DVI.\n");
+      continue;
+    }
+  }
+
+  // Generate an artificial subprogram for the new function containing the
+  // extracted code region. The new subprogram will be based on the existing
+  // subprogram information.  Update the instructions/metadata to use the new
+  // subprogram scope.
+  NewF->setSubprogram(OSP); // Updated by RemapFunction() below.
+  DISubprogram *NSP = constructArtificialSubprogram(OldF, NewF, DeclLoc);
+  ValueToValueMapTy NewSubprogramMap;
+  NewSubprogramMap.MD()[OSP].reset(NSP);
+  RemapFunction(*NewF, NewSubprogramMap, RF_IgnoreMissingLocals);
+}
+#endif // INTEL_COLLAB
+
 Function *
 CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
   if (!isEligible())
@@ -1487,13 +1866,19 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
     }
   }
 
-  if (AC) {
-    // Remove @llvm.assume calls that were moved to the new function from the
-    // old function's assumption cache.
-    for (BasicBlock *Block : Blocks)
-      for (auto &I : *Block)
-        if (match(&I, m_Intrinsic<Intrinsic::assume>()))
-          AC->unregisterAssumption(cast<CallInst>(&I));
+  // Remove @llvm.assume calls that will be moved to the new function from the
+  // old function's assumption cache.
+  for (BasicBlock *Block : Blocks) {
+    for (auto It = Block->begin(), End = Block->end(); It != End;) {
+      Instruction *I = &*It;
+      ++It;
+
+      if (match(I, m_Intrinsic<Intrinsic::assume>())) {
+        if (AC)
+          AC->unregisterAssumption(cast<CallInst>(I));
+        I->eraseFromParent();
+      }
+    }
   }
 
   // If we have any return instructions in the region, split those blocks so
@@ -1719,26 +2104,10 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
       }
     }
 
-  // Erase debug info intrinsics. Variable updates within the new function are
-  // invisible to debuggers. This could be improved by defining a DISubprogram
-  // for the new function.
-  for (BasicBlock &BB : *newFunction) {
-    auto BlockIt = BB.begin();
-    // Remove debug info intrinsics from the new function.
-    while (BlockIt != BB.end()) {
-      Instruction *Inst = &*BlockIt;
-      ++BlockIt;
-      if (isa<DbgInfoIntrinsic>(Inst))
-        Inst->eraseFromParent();
-    }
-    // Remove debug info intrinsics which refer to values in the new function
-    // from the old function.
-    SmallVector<DbgVariableIntrinsic *, 4> DbgUsers;
-    for (Instruction &I : BB)
-      findDbgUsers(DbgUsers, &I);
-    for (DbgVariableIntrinsic *DVI : DbgUsers)
-      DVI->eraseFromParent();
-  }
+#if INTEL_COLLAB
+  if (!IntelCodeExtractorDebug)
+#endif // INTEL_COLLAB
+  fixupDebugInfoPostExtraction(*oldFunction, *newFunction, *TheCall);
 
   // Mark the new function `noreturn` if applicable. Terminators which resume
   // exception propagation are treated as returning instructions. This is to
@@ -1752,6 +2121,9 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
 
 #if INTEL_COLLAB
   hoistAlloca(*newFunction);
+
+  if (IntelCodeExtractorDebug)
+    updateDebugInfo(oldFunction, newFunction, inputs, outputs);
 #endif // INTEL_COLLAB
 
   LLVM_DEBUG(if (verifyFunction(*newFunction, &errs())) {
@@ -1760,17 +2132,36 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
   });
   LLVM_DEBUG(if (verifyFunction(*oldFunction))
              report_fatal_error("verification of oldFunction failed!"));
-  LLVM_DEBUG(if (AC && verifyAssumptionCache(*oldFunction, AC))
-             report_fatal_error("Stale Asumption cache for old Function!"));
+  LLVM_DEBUG(if (AC && verifyAssumptionCache(*oldFunction, *newFunction, AC))
+                 report_fatal_error("Stale Asumption cache for old Function!"));
   return newFunction;
 }
 
-bool CodeExtractor::verifyAssumptionCache(const Function& F,
+bool CodeExtractor::verifyAssumptionCache(const Function &OldFunc,
+                                          const Function &NewFunc,
                                           AssumptionCache *AC) {
   for (auto AssumeVH : AC->assumptions()) {
-    CallInst *I = cast<CallInst>(AssumeVH);
-    if (I->getFunction() != &F)
+    CallInst *I = dyn_cast_or_null<CallInst>(AssumeVH);
+    if (!I)
+      continue;
+
+    // There shouldn't be any llvm.assume intrinsics in the new function.
+    if (I->getFunction() != &OldFunc)
       return true;
+
+    // There shouldn't be any stale affected values in the assumption cache
+    // that were previously in the old function, but that have now been moved
+    // to the new function.
+    for (auto AffectedValVH : AC->assumptionsFor(I->getOperand(0))) {
+      CallInst *AffectedCI = dyn_cast_or_null<CallInst>(AffectedValVH);
+      if (!AffectedCI)
+        continue;
+      if (AffectedCI->getFunction() != &OldFunc)
+        return true;
+      auto *AssumedInst = dyn_cast<Instruction>(AffectedCI->getOperand(0));
+      if (AssumedInst->getFunction() != &OldFunc)
+        return true;
+    }
   }
   return false;
 }

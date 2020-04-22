@@ -321,22 +321,18 @@ interface.
   }];
 }
 
-def MemoryLayoutDocs : Documentation {
- let Category = DocCatType;
+def IntelOclBiccAVXDocs : Documentation {
+  let Category = DocCatType;
   let Content = [{
-The memory_layout attribute provides the user of the FPGA HLD compiler
-explicit control over the layout of memory blocks used in a given memory
-system.
+On x86 targets, this attribute changes the calling convention of a function to
+match with the calling convention of Intel OpenCL SVML AVX/AVX2 builtin.
+ }];
+}
 
-In the presence of this attribute, the compiler will:
-
-1. Automatically size the memory depth to the next largest power of 2 if
-memory_layout is set to "padded", and will prefer width-stitching of RAM
-blocks over depth-stitching.
-
-2. Will not size the memory to the next largest power of 2 if memory_layout
-is set to "compact", and will prefer depth stitching instead of
-width-stitching if RAM usage can be lowered.
-
+def IntelOclBiccAVX512Docs : Documentation {
+  let Category = DocCatType;
+  let Content = [{
+On x86 targets, this attribute changes the calling convention of a function to
+match with the calling convention of Intel OpenCL SVML AVX512 builtin.
  }];
 }

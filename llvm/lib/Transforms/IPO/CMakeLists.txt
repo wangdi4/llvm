@@ -21,6 +21,7 @@ add_llvm_component_library(LLVMipo
   IPO.cpp
   InferFunctionAttrs.cpp
   Intel_AdvancedFastCall.cpp   # INTEL
+  Intel_DeadArrayOpsElimination.cpp   # INTEL
   Intel_DopeVectorConstProp.cpp   # INTEL
   Intel_InlineReport.cpp   # INTEL
   Intel_MDInlineReport.cpp   # INTEL
@@ -39,10 +40,12 @@ add_llvm_component_library(LLVMipo
   Intel_InlineLists.cpp   # INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
   Intel_PartialInline.cpp           # INTEL
+  Intel_TileMVInlMarker.cpp         # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp
   MergeFunctions.cpp
+  OpenMPOpt.cpp
   PartialInlining.cpp
   PassManagerBuilder.cpp
   PruneEH.cpp

@@ -111,6 +111,7 @@ protected:
   MCSection *DwarfLineDWOSection = nullptr;
   MCSection *DwarfLocDWOSection = nullptr;
   MCSection *DwarfStrOffDWOSection = nullptr;
+  MCSection *DwarfMacinfoDWOSection = nullptr;
 
   /// The DWARF v5 string offset and address table sections.
   MCSection *DwarfStrOffSection = nullptr;
@@ -170,7 +171,6 @@ protected:
 
   /// Section containing metadata on function stack sizes.
   MCSection *StackSizesSection = nullptr;
-  mutable DenseMap<const MCSymbol *, unsigned> StackSizesUniquing;
 
   // ELF specific sections.
   MCSection *DataRelROSection = nullptr;
@@ -219,9 +219,13 @@ protected:
   MCSection *OptReportSection = nullptr;
 #endif  // INTEL_CUSTOMIZATION
 
+  // XCOFF specific sections
+  MCSection *TOCBaseSection = nullptr;
+
 public:
   void InitMCObjectFileInfo(const Triple &TT, bool PIC, MCContext &ctx,
                             bool LargeCodeModel = false);
+  MCContext &getContext() const { return *Ctx; }
 
   bool getSupportsWeakOmittedEHFrame() const {
     return SupportsWeakOmittedEHFrame;
@@ -307,6 +311,9 @@ public:
   MCSection *getDwarfLoclistsDWOSection() const {
     return DwarfLoclistsDWOSection;
   }
+  MCSection *getDwarfMacinfoDWOSection() const {
+    return DwarfMacinfoDWOSection;
+  }
   MCSection *getDwarfCUIndexSection() const { return DwarfCUIndexSection; }
   MCSection *getDwarfTUIndexSection() const { return DwarfTUIndexSection; }
   MCSection *getDwarfSwiftASTSection() const { return DwarfSwiftASTSection; }
@@ -390,6 +397,9 @@ public:
   MCSection *getSXDataSection() const { return SXDataSection; }
   MCSection *getGFIDsSection() const { return GFIDsSection; }
   MCSection *getGLJMPSection() const { return GLJMPSection; }
+
+  // XCOFF specific sections
+  MCSection *getTOCBaseSection() const { return TOCBaseSection; }
 
   MCSection *getEHFrameSection() {
     return EHFrameSection;

@@ -1,6 +1,6 @@
 //===---------------- MemInitTrimDown.cpp - DTransMemInitTrimDownPass -----===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -59,7 +59,7 @@ public:
         getAnalysis<DTransAnalysisWrapper>();
     DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
 
-    dtrans::MemInitDominatorTreeType GetDT =
+    dtrans::SOADominatorTreeType GetDT =
         [this](Function &F) -> DominatorTree & {
       return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
@@ -123,10 +123,10 @@ public:
   }
 
   MemInitClassInfo(const DataLayout &DL, DTransAnalysisInfo &DTInfo,
-                   MemGetTLITy GetTLI, MemInitDominatorTreeType GetDT,
-                   MemInitCandidateInfo *MICInfo, int32_t FieldIdx,
+                   SOAGetTLITy GetTLI, SOADominatorTreeType GetDT,
+                   SOACandidateInfo *SOACInfo, int32_t FieldIdx,
                    bool RecognizeAll)
-      : ClassInfo(DL, DTInfo, GetTLI, GetDT, MICInfo, FieldIdx, RecognizeAll){};
+      : ClassInfo(DL, DTInfo, GetTLI, GetDT, SOACInfo, FieldIdx, RecognizeAll){};
 
 private:
   // GetCapacity function.
@@ -568,8 +568,8 @@ class MemInitTrimDownImpl {
 
 public:
   MemInitTrimDownImpl(Module &M, const DataLayout &DL,
-                      DTransAnalysisInfo &DTInfo, MemGetTLITy GetTLI,
-                      MemInitDominatorTreeType GetDT)
+                      DTransAnalysisInfo &DTInfo, SOAGetTLITy GetTLI,
+                      SOADominatorTreeType GetDT)
       : M(M), DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT){};
 
   ~MemInitTrimDownImpl() {
@@ -584,11 +584,11 @@ private:
   Module &M;
   const DataLayout &DL;
   DTransAnalysisInfo &DTInfo;
-  MemGetTLITy GetTLI;
-  MemInitDominatorTreeType GetDT;
+  SOAGetTLITy GetTLI;
+  SOADominatorTreeType GetDT;
 
   constexpr static int MaxNumCandidates = 1;
-  SmallVector<MemInitCandidateInfo *, MaxNumCandidates> Candidates;
+  SmallVector<SOACandidateInfo *, MaxNumCandidates> Candidates;
 
   // Collection of ClassInfo. It will used for more analysis and
   // transformation.
@@ -597,7 +597,7 @@ private:
   bool isEscapePointOkay(std::pair<Function *, int32_t> &);
   bool isAnyClassGetCapacityFunction(Function *F);
   bool gatherCandidateInfo(void);
-  bool analyzeCandidate(MemInitCandidateInfo *);
+  bool analyzeCandidate(SOACandidateInfo *);
   bool verifyFinalSafetyChecks(void);
   void transformMemInit(void);
 };
@@ -615,7 +615,7 @@ void MemInitTrimDownImpl::transformMemInit(void) {
   // analysis can't handle dead instructions.
   for (auto *ClassI : ClassInfoSet)
     for (auto *F : ClassI->field_member_functions()) {
-      SmallVector<Instruction *, 4> DeadInsts;
+      SmallVector<WeakTrackingVH, 4> DeadInsts;
 
       for (auto &I : instructions(F))
         if (isInstructionTriviallyDead(&I)) {
@@ -682,7 +682,7 @@ bool MemInitTrimDownImpl::verifyFinalSafetyChecks(void) {
 
 // Analyze functionality of each member function of candidate
 // field classes to prove that the classes are vector classes.
-bool MemInitTrimDownImpl::analyzeCandidate(MemInitCandidateInfo *Cand) {
+bool MemInitTrimDownImpl::analyzeCandidate(SOACandidateInfo *Cand) {
   for (auto Loc : Cand->candidate_fields()) {
     std::unique_ptr<MemInitClassInfo> ClassI(new MemInitClassInfo(
         DL, DTInfo, GetTLI, GetDT, Cand, Loc, DTransMemInitRecognizeAll));
@@ -721,7 +721,7 @@ bool MemInitTrimDownImpl::gatherCandidateInfo(void) {
   // also to be on the safe side).
   //
   for (TypeInfo *TI : DTInfo.type_info_entries()) {
-    std::unique_ptr<MemInitCandidateInfo> CInfo(new MemInitCandidateInfo());
+    std::unique_ptr<SOACandidateInfo> CInfo(new SOACandidateInfo());
 
     auto *StInfo = dyn_cast<StructInfo>(TI);
     if (!StInfo)
@@ -792,7 +792,7 @@ bool MemInitTrimDownImpl::run(void) {
 
   // Analyze member functions of candidate classes to prove
   // that functionality match with usual vector class.
-  SmallVector<MemInitCandidateInfo *, MaxNumCandidates> ValidCandidates;
+  SmallVector<SOACandidateInfo *, MaxNumCandidates> ValidCandidates;
   for (auto *Cand : Candidates)
     if (analyzeCandidate(Cand))
       ValidCandidates.push_back(Cand);
@@ -815,8 +815,8 @@ bool MemInitTrimDownImpl::run(void) {
 }
 
 bool MemInitTrimDownPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                  MemGetTLITy GetTLI, WholeProgramInfo &WPInfo,
-                                  dtrans::MemInitDominatorTreeType &GetDT) {
+                                  SOAGetTLITy GetTLI, WholeProgramInfo &WPInfo,
+                                  dtrans::SOADominatorTreeType &GetDT) {
 
   auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
   if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
@@ -836,7 +836,7 @@ PreservedAnalyses MemInitTrimDownPass::run(Module &M,
   auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  MemInitDominatorTreeType GetDT = [&FAM](Function &F) -> DominatorTree & {
+  SOADominatorTreeType GetDT = [&FAM](Function &F) -> DominatorTree & {
     return FAM.getResult<DominatorTreeAnalysis>(F);
   };
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {

@@ -122,10 +122,6 @@ def err_hls_merge_dir_invalid : Error<
   "merge direction must be 'depth' or 'width'">;
 def err_hls_memory_arg_invalid : Error<
   "%0 attribute requires either no argument or one of: %1">;
-def err_bankbits_numbanks_conflicting : Error<
-  "the number of bank_bits must be equal to ceil(log2(numbanks))">;
-def err_bankbits_non_consecutive : Error<
-  "bank_bits must be consecutive">;
 def err_memory_attribute_invalid : Error<
   "%0 attribute only applies to "
   "%select{|slave memory arguments, non-static field members, }1"
@@ -138,8 +134,10 @@ def err_hls_readwrite_arg_invalid : Error<
   "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
 def err_readwritememory_attribute_invalid : Error<
   "%0 attribute only applies to slave memory arguments">;
-def err_hls_memorylayout_arg_invalid : Error<
-  "%0 attribute argument must be 'compact', or 'padded'">;
+def warn_max_concurrency_deprecated
+    : Warning<"attribute max_concurrency for variables is deprecated, use the "
+              "attribute private_copies instead">,
+      InGroup<IgnoredAttributes>;
 
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
@@ -166,8 +164,6 @@ def err_opencl_autorun_kernel_cannot_have_arguments : Error<
   "Autorun kernel functions cannot have any arguments">;
 def err_opencl_x_y_z_arguments_must_be_one : Error<
   "%0 X-, Y- and Z- sizes must be 1 when %1 attribute is used and equals to 0">;
-def err_intel_attribute_argument_is_not_in_range: Error<
-  "%0 attribute must be in range from 0 to 3">;
 def err_intel_opencl_attribute_requires_extension : Error<
   "%0 attribute requires %1 extension to be enabled">;
 def warn_intel_opencl_attribute_wrong_decl_type : Warning<
@@ -273,7 +269,7 @@ def note_intrinsic_promote : Note<"Intrinsic called here">;
 
 // OpenMP
 def warn_omp_simdlen_in_target_spir: Warning<
-  "simdlen clause is not supported for this target">,
+  "simdlen clause is not fully supported for this target">,
   InGroup<SimdUnsupported>;
 def warn_collapse_ignored_with_tile : Warning<
   "'collapse' clause ignored when using 'tile' clause">, InGroup<OpenMPClauses>;

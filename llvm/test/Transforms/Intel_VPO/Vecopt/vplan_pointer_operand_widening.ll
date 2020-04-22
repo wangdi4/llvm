@@ -1,24 +1,20 @@
 ; This test verifies that we generate correct base-pointers for cases where we
 ; have to generate scatter-gathers for store/load instructions
 
-; Check LLVM-IR codegen path.
 ; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2  | FileCheck %s
-
-; Check VPValue-codegen path.
-; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2 -vplan-use-entity-instr -enable-vp-value-codegen | FileCheck %s
 
 ; CHECK-LABEL:@foo
 ;CHECK: [[VEC_BASE_PTR1:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK-NEXT: [[ELEM_BASE_PTRS1:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR1]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK-NEXT: [[G1:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEM_BASE_PTRS1]], i32 16, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
+;CHECK-NEXT: [[G1:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEM_BASE_PTRS1]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
 
 ;CHECK: [[VEC_BASE_PTR2:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK-NEXT: [[ELEM_BASE_PTRS2:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR2]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK-NEXT: call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[G1]], <6 x i32*> [[ELEM_BASE_PTRS2]], i32 16, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+;CHECK-NEXT: call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[G1]], <6 x i32*> [[ELEM_BASE_PTRS2]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 
 ;CHECK: [[VEC_BASE_PTR3:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK-NEXT: [[ELEM_BASE_PTRS3:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR3]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK-NEXT: call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[G1]], <6 x i32*> [[ELEM_BASE_PTRS3]], i32 16, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+;CHECK-NEXT: call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[G1]], <6 x i32*> [[ELEM_BASE_PTRS3]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -58,16 +54,16 @@ DIR.QUAL.LIST.END.2:
 ; CHECK-LABEL: @foo_c
 ;CHECK: [[VEC_BASE_PTR1:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK-NEXT: [[ELEM_BASE_PTRS1:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR1]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK: [[G1:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEM_BASE_PTRS1]], i32 16, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
+;CHECK: [[G1:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEM_BASE_PTRS1]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
 ;CHECK: [[GEP2:%.*]] = getelementptr inbounds %Struct, <2 x %Struct*> [[GEP1:%.*]], <2 x i32> <i32 1, i32 1>, <2 x i32> zeroinitializer
 ;CHECK-NEXT: [[GEP3:%.*]] = getelementptr inbounds %Struct, <2 x %Struct*> [[GEP1:%.*]], <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
 ;CHECK-NEXT: [[PRED_PHI:%.*]] = select <2 x i1> {{.*}}, <2 x <3 x i32>*> [[GEP3]], <2 x <3 x i32>*> [[GEP2]]
 ;CHECK-NEXT: [[BASE_ADDR:%.*]] = bitcast <2 x <3 x i32>*> [[PRED_PHI]] to <2 x i32*>
 ;CHECK-NEXT: [[VEC_BASE_PTR2:%.*]] = shufflevector <2 x i32*> [[BASE_ADDR]], <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
 ;CHECK-NEXT: [[ELEM_BASE_PTRS2:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR2]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK-NEXT: call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[G1]], <6 x i32*> [[ELEM_BASE_PTRS2]], i32 16, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+;CHECK-NEXT: call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[G1]], <6 x i32*> [[ELEM_BASE_PTRS2]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 
-define void @foo_c(%Struct *%a, i1 %flag) {
+define void @foo_c(%Struct *%a) {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()]
   br label %for.body

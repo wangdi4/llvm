@@ -77,30 +77,30 @@
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %limm = (@B)[0][1];
-; CHECK:           %limm7 = (@B)[0][2];
-; CHECK:           %limm12 = (@B)[0][3];
-; CHECK:           %limm17 = (@B)[0][4];
+; CHECK:           %limm18 = (@B)[0][2];
+; CHECK:           %limm23 = (@B)[0][3];
+; CHECK:           %limm28 = (@B)[0][4];
 ; CHECK:        + DO i1 = 0, 999, 1   <DO_LOOP>
 ; CHECK:        |   %0 = %limm;
-; CHECK:        |   %limm3 = 2 * %0;
-; CHECK:        |   %limm5 = 2 * %0 + 1;
-; CHECK:        |   %0 = %limm7;
-; CHECK:        |   %limm10 = 2 * %0;
+; CHECK:        |   %limm14 = 2 * %0;
+; CHECK:        |   %limm16 = 2 * %0 + 1;
+; CHECK:        |   %0 = %limm18;
+; CHECK:        |   %limm21 = 2 * %0;
 ; CHECK:        |   %limm = 2 * %0 + 1;
-; CHECK:        |   %0 = %limm12;
-; CHECK:        |   %limm15 = 2 * %0;
-; CHECK:        |   %limm7 = 2 * %0 + 1;
-; CHECK:        |   %0 = %limm17;
-; CHECK:        |   %limm19 = 2 * %0;
-; CHECK:        |   %limm12 = 2 * %0 + 1;
+; CHECK:        |   %0 = %limm23;
+; CHECK:        |   %limm26 = 2 * %0;
+; CHECK:        |   %limm18 = 2 * %0 + 1;
+; CHECK:        |   %0 = %limm28;
+; CHECK:        |   %limm30 = 2 * %0;
+; CHECK:        |   %limm23 = 2 * %0 + 1;
 ; CHECK:        + END LOOP
-; CHECK:           (@A)[0][3] = %limm19;
-; CHECK:           (@A)[0][2] = %limm15;
-; CHECK:           (@B)[0][3] = %limm12;
-; CHECK:           (@A)[0][1] = %limm10;
-; CHECK:           (@B)[0][2] = %limm7;
-; CHECK:           (@B)[0][0] = %limm5;
-; CHECK:           (@A)[0][0] = %limm3;
+; CHECK:           (@A)[0][3] = %limm30;
+; CHECK:           (@A)[0][2] = %limm26;
+; CHECK:           (@B)[0][3] = %limm23;
+; CHECK:           (@A)[0][1] = %limm21;
+; CHECK:           (@B)[0][2] = %limm18;
+; CHECK:           (@B)[0][0] = %limm16;
+; CHECK:           (@A)[0][0] = %limm14;
 ; CHECK:           (@B)[0][1] = %limm;
 ; CHECK:  END REGION
 ;

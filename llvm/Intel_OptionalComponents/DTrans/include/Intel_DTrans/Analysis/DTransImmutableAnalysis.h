@@ -1,6 +1,6 @@
 //===------------------- DTransImmutableAnalysis.h -----------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -21,7 +21,7 @@
 #define LLVM_DTRANS_ANALYSIS_DTRANSIMMUTABLE_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -61,8 +61,8 @@ public:
   /// Adds likely constant values for field \p FieldNum of struct \p StructTy.
   void
   addStructFieldInfo(StructType *StructTy, unsigned FieldNum,
-                     SmallPtrSetImpl<Constant *> &LikelyValues,
-                     SmallPtrSetImpl<Constant *> &LikelyIndirectArrayValues);
+                     SetVector<Constant *> &LikelyValues,
+                     SetVector<Constant *> &LikelyIndirectArrayValues);
 
   /// Returns likely set of constant values for \p FieldNum of struct \p
   /// StructTy. Returns null if no info exists.
@@ -80,7 +80,15 @@ public:
     return false;
   }
 
+  /// Results cannot be invalidated.
+  bool invalidate(Function &, const PreservedAnalyses &,
+                  FunctionAnalysisManager::Invalidator &) {
+    return false;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 };
 
 class DTransImmutableAnalysis
@@ -91,6 +99,7 @@ class DTransImmutableAnalysis
 public:
   typedef DTransImmutableInfo Result;
   Result run(Module &M, ModuleAnalysisManager &AM);
+  Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
 class DTransImmutableAnalysisWrapper : public ImmutablePass {

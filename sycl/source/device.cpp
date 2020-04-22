@@ -6,20 +6,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/device_impl.hpp>
 #include <CL/sycl/detail/force_device.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/info/info_desc.hpp>
+#include <detail/device_impl.hpp>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 void force_type(info::device_type &t, const info::device_type &ft) {
   if (t == info::device_type::all) {
     t = ft;
   } else if (ft != info::device_type::all && t != ft) {
-    throw cl::sycl::invalid_parameter_error("No device of forced type.");
+    throw cl::sycl::invalid_parameter_error("No device of forced type.",
+                                            PI_INVALID_OPERATION);
   }
 }
 } // namespace detail
@@ -28,7 +29,8 @@ device::device() : impl(std::make_shared<detail::device_impl>()) {}
 
 device::device(cl_device_id deviceId)
     : impl(std::make_shared<detail::device_impl>(
-          detail::pi::cast<detail::RT::PiDevice>(deviceId))) {}
+          detail::pi::cast<detail::device_interop_handle_t>(deviceId),
+          *RT::GlobalPlugin)) {}
 
 device::device(const device_selector &deviceSelector) {
   *this = deviceSelector.select_device();
@@ -36,17 +38,76 @@ device::device(const device_selector &deviceSelector) {
 
 vector_class<device> device::get_devices(info::device_type deviceType) {
   vector_class<device> devices;
+  // Host device availability should not depend on the forced type
+  const bool includeHost =
+      detail::match_types(deviceType, info::device_type::host);
   info::device_type forced_type = detail::get_forced_type();
   // Exclude devices which do not match requested device type
   if (detail::match_types(deviceType, forced_type)) {
     detail::force_type(deviceType, forced_type);
     for (const auto &plt : platform::get_platforms()) {
-      vector_class<device> found_devices(plt.get_devices(deviceType));
-      if (!found_devices.empty())
-        devices.insert(devices.end(), found_devices.begin(),
-                       found_devices.end());
+      if (includeHost && plt.is_host()) {
+        vector_class<device> host_device(
+            plt.get_devices(info::device_type::host));
+        if (!host_device.empty())
+          devices.insert(devices.end(), host_device.begin(), host_device.end());
+      } else {
+        vector_class<device> found_devices(plt.get_devices(deviceType));
+        if (!found_devices.empty())
+          devices.insert(devices.end(), found_devices.begin(),
+                         found_devices.end());
+      }
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  // TODO: open-source
+  //
+  // If SYCL_BE is set and there are multiple devices of the same type
+  // supported by different BE, and one of the devices is from SYCL_BE
+  // then only add that (and remove all others). This allows to force
+  // selection of a specific BE for a target, while running on other
+  // targets, unsupported by the SYCL_BE, with other BEs.
+  //
+  if (std::getenv("SYCL_BE")) {
+    vector_class<device> filtered_devices;
+    auto SyclBE = detail::pi::getPreferredBE();
+
+    // On the first pass see which device types are supported with SYCL_BE
+    pi_uint64 TypesSupportedBySyclBE = 0; // bit-set of info::device_type
+    for (const auto &dev : devices) {
+      if (dev.is_host()) continue;
+      auto BE = detail::getSyclObjImpl(dev)->getPlugin().getBackend();
+      if (BE == SyclBE) {
+        TypesSupportedBySyclBE |=
+            (pi_uint64)dev.get_info<info::device::device_type>();
+      }
+    }
+    // On the second pass only add devices that are from SYCL_BE or not
+    // supported there.
+    //
+    for (const auto &dev : devices) {
+      if (dev.is_host()) {
+        // TODO: decide if we really want to add the host here.
+        // The cons of doing so is that if SYCL_BE is set but that BE
+        // is unavailable for whatever reason, the execution would silently
+        // proceed to the host while people may think it is running
+        // with the SYCL_BE as they wanted.
+        //
+        filtered_devices.push_back(dev);
+        continue;
+      }
+
+      auto BE = detail::getSyclObjImpl(dev)->getPlugin().getBackend();
+      auto Type = (pi_uint64)dev.get_info<info::device::device_type>();
+      if (BE == SyclBE || (TypesSupportedBySyclBE & Type) == 0) {
+        filtered_devices.push_back(dev);
+      }
+    }
+    return filtered_devices;
+  }
+
+#endif // INTEL_CUSTOMIZATION
   return devices;
 }
 
@@ -106,4 +167,4 @@ device::get_info() const {
 #undef PARAM_TRAITS_SPEC
 
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

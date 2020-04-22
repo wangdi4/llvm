@@ -8,24 +8,92 @@
 
 #pragma once
 
+#include <CL/sycl/detail/defines.hpp>
+
 // Suppress a compiler warning about undefined CL_TARGET_OPENCL_VERSION
 // Khronos ICD supports only latest OpenCL version
 #define CL_TARGET_OPENCL_VERSION 220
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 #include <CL/cl_ext_intel.h>
+
+#include <cstdint>
 #include <string>
 #include <type_traits>
 
 #define STRINGIFY_LINE_HELP(s) #s
 #define STRINGIFY_LINE(s) STRINGIFY_LINE_HELP(s)
 
+// Default signature enables the passing of user code location information to
+// public methods as a default argument. If the end-user wants to disable the
+// code location information, they must compile the code with
+// -DDISABLE_SYCL_INSTRUMENTATION_METADATA flag
+__SYCL_INLINE_NAMESPACE(cl) {
+namespace sycl {
+namespace detail {
+// We define a sycl stream name and this will
+// be used by the instrumentation framework
+constexpr const char *SYCL_STREAM_NAME = "sycl";
+// Data structure that captures the user code
+// location information using the builtin capabilities
+// of the compiler
+struct code_location {
+#ifdef _MSC_VER
+  // Since MSVC does not support the required builtins, we
+  // implement the version with "unknown"s which is handled
+  // correctly by the instrumentation
+  static constexpr code_location current(const char *fileName = nullptr,
+                                         const char *funcName = nullptr,
+                                         unsigned long lineNo = 0,
+                                         unsigned long columnNo = 0) noexcept {
+    return code_location(fileName, funcName, lineNo, columnNo);
+  }
+#else
+  static constexpr code_location
+  current(const char *fileName = __builtin_FILE(),
+          const char *funcName = __builtin_FUNCTION(),
+          unsigned long lineNo = __builtin_LINE(),
+          unsigned long columnNo = 0) noexcept {
+    return code_location(fileName, funcName, lineNo, columnNo);
+  }
+#endif
+
+  constexpr code_location(const char *file, const char *func, int line,
+                          int col) noexcept
+      : MFileName(file), MFunctionName(func), MLineNo(line), MColumnNo(col) {}
+
+  constexpr code_location() noexcept
+      : MFileName(nullptr), MFunctionName(nullptr), MLineNo(0), MColumnNo(0) {}
+
+  constexpr unsigned long lineNumber() const noexcept { return MLineNo; }
+  constexpr unsigned long columnNumber() const noexcept { return MColumnNo; }
+  constexpr const char *fileName() const noexcept { return MFileName; }
+  constexpr const char *functionName() const noexcept { return MFunctionName; }
+
+private:
+  const char *MFileName;
+  const char *MFunctionName;
+  unsigned long MLineNo;
+  unsigned long MColumnNo;
+};
+} // namespace detail
+} // namespace sycl
+} // __SYCL_INLINE_NAMESPACE(cl)
+
+__SYCL_INLINE_NAMESPACE(cl) {
+namespace sycl {
+namespace detail {
+
 const char *stringifyErrorCode(cl_int error);
 
-static inline std::string codeToString(cl_int code){
-  return std::string(std::to_string(code) + " (" +
-         stringifyErrorCode(code) + ")");
+static inline std::string codeToString(cl_int code) {
+  return std::string(std::to_string(code) + " (" + stringifyErrorCode(code) +
+                     ")");
 }
+
+} // namespace detail
+} // namespace sycl
+} // __SYCL_INLINE_NAMESPACE(cl)
 
 #ifdef __SYCL_DEVICE_ONLY__
 // TODO remove this when 'assert' is supported in device code
@@ -46,7 +114,8 @@ static inline std::string codeToString(cl_int code){
 {                                                                              \
   auto code = expr;                                                            \
   if (code != CL_SUCCESS) {                                                    \
-    std::cerr << OCL_ERROR_REPORT << codeToString(code) << std::endl;          \
+    std::cerr << OCL_ERROR_REPORT << cl::sycl::detail::codeToString(code)      \
+      << std::endl;                                                            \
   }                                                                            \
 }
 #endif
@@ -58,7 +127,7 @@ static inline std::string codeToString(cl_int code){
 {                                                                              \
   auto code = expr;                                                            \
   if (code != CL_SUCCESS) {                                                    \
-    throw exc(OCL_ERROR_REPORT + codeToString(code), code);                    \
+    throw exc(OCL_ERROR_REPORT + cl::sycl::detail::codeToString(code), code);  \
   }                                                                            \
 }
 #define REPORT_OCL_ERR_TO_EXC_THROW(code, exc) REPORT_OCL_ERR_TO_EXC(code, exc)
@@ -78,21 +147,7 @@ static inline std::string codeToString(cl_int code){
 #define CHECK_OCL_CODE_NO_EXC(X) REPORT_OCL_ERR_TO_STREAM(X)
 #endif
 
-#ifndef __has_attribute
-#define __has_attribute(x) 0
-#endif
-
-#if __has_attribute(always_inline)
-#define ALWAYS_INLINE __attribute__((always_inline))
-#else
-#define ALWAYS_INLINE
-#endif
-
-#ifndef SYCL_EXTERNAL
-#define SYCL_EXTERNAL
-#endif
-
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
@@ -168,7 +223,7 @@ struct NDLoopIterateImpl {
   }
 };
 
-// spcialization for DIM=0 to terminate recursion
+// Specialization for DIM=0 to terminate recursion
 template <int NDIMS, template <int> class LoopBoundTy, typename FuncTy,
           template <int> class LoopIndexTy>
 struct NDLoopIterateImpl<NDIMS, 0, LoopBoundTy, FuncTy, LoopIndexTy> {
@@ -246,6 +301,15 @@ size_t getLinearIndex(const T<Dims> &Index, const U<Dims> &Range) {
   return LinearIndex;
 }
 
+// Kernel set ID, used to group kernels (represented by OSModule & kernel name
+// pairs) into disjoint sets based on the kernel distribution among device
+// images.
+using KernelSetId = size_t;
+// Kernel set ID for kernels contained within the SPIRV file specified via
+// environment.
+constexpr KernelSetId SpvFileKSId = 0;
+constexpr KernelSetId LastKSId = SpvFileKSId;
+
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

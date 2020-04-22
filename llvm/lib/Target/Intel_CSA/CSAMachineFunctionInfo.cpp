@@ -61,16 +61,17 @@ CSAMachineFunctionInfo::licRCFromGenRC(const TargetRegisterClass *RC) {
   return NULL;
 }
 
-
 bool CSAMachineFunctionInfo::canDeleteLICReg(unsigned reg) const {
-  if (getIsGloballyVisible(reg)) return false;
-  for (MIOperands MO(*entryMI); MO.isValid(); ++MO) {
+  if (getIsGloballyVisible(reg))
+    return false;
+  for (MIBundleOperands MO(*entryMI); MO.isValid(); ++MO) {
     if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     unsigned MOReg = MO->getReg();
-    if (MOReg == reg) return false;
+    if (MOReg == reg)
+      return false;
   }
-  for (MIOperands MO(*returnMI); MO.isValid(); ++MO) {
+  for (MIBundleOperands MO(*returnMI); MO.isValid(); ++MO) {
     if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     unsigned MOReg = MO->getReg();
@@ -137,10 +138,10 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
     }
     std::string fname_str;
     if (fname.isTriviallyEmpty())
-      fname_str = MF.getFunction().getName();
+      fname_str = MF.getFunction().getName().str();
     else
       fname_str = fname.str();
-    fname_str = replaceFuncNameWithNewUniqueName(fname_str,MF);
+    fname_str = replaceFuncNameWithNewUniqueName(fname_str, MF);
     if (csa_utils::isAlwaysDataFlowLinkageSet() && (composed.find(fname_str) != 0)) {
       composed = fname_str + "_" + composed;
     }
@@ -168,11 +169,14 @@ unsigned CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
   return TII->getSizeOfRegisterClass(RC);
 }
 
-void CSAMachineFunctionInfo::addLICAttribute(unsigned regno, const StringRef key, const StringRef value) const {
-  getLICInfo(regno).attribs[key] = value;
+void CSAMachineFunctionInfo::addLICAttribute(unsigned regno,
+                                             const StringRef key,
+                                             const StringRef value) const {
+  getLICInfo(regno).attribs[key] = value.str();
 }
 
-void CSAMachineFunctionInfo::removeLICAttribute(unsigned regno, const StringRef key) const {
+void CSAMachineFunctionInfo::removeLICAttribute(unsigned regno,
+                                                const StringRef key) const {
   getLICInfo(regno).attribs.erase(key);
 }
 

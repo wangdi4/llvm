@@ -9,6 +9,7 @@ add_llvm_unittest(SupportTests
   AnnotationsTest.cpp
   ARMAttributeParser.cpp
   ArrayRecyclerTest.cpp
+  Base64Test.cpp
   BinaryStreamTest.cpp
   BlockFrequencyTest.cpp
   BranchProbabilityTest.cpp
@@ -27,6 +28,7 @@ add_llvm_unittest(SupportTests
   DJBTest.cpp
   EndianStreamTest.cpp
   EndianTest.cpp
+  ELFAttributeParserTest.cpp
   ErrnoTest.cpp
   ErrorOrTest.cpp
   ErrorTest.cpp
@@ -50,14 +52,18 @@ add_llvm_unittest(SupportTests
   MemoryBufferTest.cpp
   MemoryTest.cpp
   NativeFormatTests.cpp
+  OptimalLayoutTest.cpp
   ParallelTest.cpp
   Path.cpp
   ProcessTest.cpp
   ProgramTest.cpp
+  PropertySetIOTest.cpp
   RegexTest.cpp
   ReverseIterationTest.cpp
   ReplaceFileTest.cpp
+  RISCVAttributeParserTest.cpp
   ScaledNumberTest.cpp
+  SimpleTableTest.cpp
   SourceMgrTest.cpp
   SpecialCaseListTest.cpp
   StringPool.cpp

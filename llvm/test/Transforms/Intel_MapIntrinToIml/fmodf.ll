@@ -1,10 +1,10 @@
-; __svml_fmodf4 does not have a high precision variant, so just use the low precision one.
+; Check to see that __svml_fmodf4 is translated to the medium accuracy svml variant.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK: vector.body
-; CHECK: call svml_cc <4 x float> @__svml_fmodf4
+; CHECK: call svml_cc <4 x float> @__svml_fmodf4(
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

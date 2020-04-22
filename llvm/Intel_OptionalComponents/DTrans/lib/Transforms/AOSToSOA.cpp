@@ -1,6 +1,6 @@
 //===---------------- AOSToSOA.cpp - DTransAOStoSOAPass -------------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -933,18 +933,22 @@ public:
   // \p FieldNumVal is a constant integer for the field number.
   // Instructions are inserted before \p InsertBefore
   //
-  // Generates:
+  // For example, if the 'PeelType' is: { i64*, i32*, struct.foo** }
+  // and the array for field 1 is desired. This generates the following
+  // to load the base address for that array:
   //    %peel_base = getelementptr % __soa_struct.t, %__soa_struct.t*
   //                     @__soa_struct.t, i64 0, i32 1
   //    %soa_addr = load i32*, i32** %peel_base
-  Instruction *createPeelFieldLoad(llvm::Type *PeelType, Value *PeelVar,
+  Instruction *createPeelFieldLoad(llvm::StructType *PeelType, Value *PeelVar,
                                    Value *FieldNumVal,
                                    Instruction *InsertBefore) {
+    unsigned FieldIdx = cast<ConstantInt>(FieldNumVal)->getLimitedValue();
     GetElementPtrInst *PeelBase = GetElementPtrInst::Create(
         PeelType, PeelVar,
         {Constant::getNullValue(getPtrSizedIntType()), FieldNumVal}, "",
         InsertBefore);
-    LoadInst *SOAAddr = new LoadInst(PeelBase);
+    llvm::Type *FieldType = PeelType->getElementType(FieldIdx);
+    LoadInst *SOAAddr = new LoadInst(FieldType, PeelBase);
 
     // Mark the load of the structure of arrays field member as being invariant.
     // When the memory allocation for the object was done, the address of each
@@ -1076,9 +1080,9 @@ public:
     // valid, so set it to the ABI default for the type that the load will be
     // once remapping occurs.
     unsigned int Alignment = DL.getABITypeAlignment(RemapTy);
-    Instruction *NewLI =
-        new LoadInst(NewPtrOp, "", LI->isVolatile(), MaybeAlign(Alignment),
-                     LI->getOrdering(), LI->getSyncScopeID(), LI);
+    Instruction *NewLI = new LoadInst(RemapTy, NewPtrOp, "", LI->isVolatile(),
+                                      MaybeAlign(Alignment), LI->getOrdering(),
+                                      LI->getSyncScopeID(), LI);
 
     // Determine the type of conversion needed to match the type of the users
     // for the original load instruction.
@@ -1604,7 +1608,7 @@ private:
 
     // Check all uses of global variables of the dependent type.
     for (auto &GV : M.globals()) {
-      if (GV.getType()->getPointerElementType() != Ty)
+      if (GV.getValueType() != Ty)
         continue;
 
       if (hasUseOfType(&GV, IsBCOpToInt8Ptr, OnBCOp))
@@ -2340,7 +2344,7 @@ private:
   // being transformed, return nullptr.
   std::pair<llvm::Type *, AOSConvType>
   getCallInfoTypeToTransform(dtrans::CallInfo *CInfo) {
-    auto &TypeList = CInfo->getPointerTypeInfoRef().getTypes();
+    auto &TypeList = CInfo->getElementTypesRef().getElemTypes();
 
     // Only cases with a single type will be allowed during the transformation.
     // If there's more than one, we don't need the type, because we won't be
@@ -2348,11 +2352,7 @@ private:
     if (TypeList.size() != 1)
       return std::make_pair(nullptr, AOS_NoConv);
 
-    llvm::Type *Ty = *TypeList.begin();
-    if (!Ty->isPointerTy())
-      return std::make_pair(nullptr, AOS_NoConv);
-
-    llvm::Type *ElemTy = Ty->getPointerElementType();
+    llvm::Type *ElemTy = *TypeList.begin();
     if (isTypeToTransform(ElemTy))
       return std::make_pair(ElemTy, AOS_SOAConv);
 
@@ -2732,16 +2732,15 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
   DenseMap<dtrans::StructInfo *, Instruction *> TypeToAllocInstr;
   for (auto *Call : DTInfo.call_info_entries()) {
     auto *ACI = dyn_cast<dtrans::AllocCallInfo>(Call);
-    if (!ACI || !ACI->getAliasesToAggregatePointer())
+    if (!ACI || !ACI->getAliasesToAggregateType())
       continue;
 
     // We do not support transforming any allocations that are not
     // calloc/malloc. Invalidate the information for all types.
     if (ACI->getAllocKind() != dtrans::AK_Calloc &&
         ACI->getAllocKind() != dtrans::AK_Malloc) {
-      for (auto *AllocatedTy : ACI->getPointerTypeInfoRef().getTypes()) {
-        auto *Ty = AllocatedTy->getPointerElementType();
-        auto *TI = DTInfo.getTypeInfo(Ty);
+      for (auto *AllocatedTy : ACI->getElementTypesRef().getElemTypes()) {
+        auto *TI = DTInfo.getTypeInfo(AllocatedTy);
         if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
           LLVM_DEBUG({
             if (std::find(CandidateTypes.begin(), CandidateTypes.end(),
@@ -2750,7 +2749,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                  TypeToAllocInstr[StInfo] != nullptr))
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Unsupported "
                         "allocation function: "
-                     << StructNamePrintHelper(Ty) << "\n"
+                     << StructNamePrintHelper(AllocatedTy) << "\n"
                      << "  " << *ACI->getInstruction() << "\n";
           });
 
@@ -2763,9 +2762,8 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
 
     // For supported allocations, update the association between the type and
     // allocating instruction.
-    for (auto *AllocatedTy : ACI->getPointerTypeInfoRef().getTypes()) {
-      auto *Ty = AllocatedTy->getPointerElementType();
-      auto *TI = DTInfo.getTypeInfo(Ty);
+    for (auto *AllocatedTy : ACI->getElementTypesRef().getElemTypes()) {
+      auto *TI = DTInfo.getTypeInfo(AllocatedTy);
       if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
         if (TypeToAllocInstr.count(StInfo)) {
           LLVM_DEBUG({
@@ -2773,7 +2771,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
                           StInfo) != CandidateTypes.end() &&
                 TypeToAllocInstr[StInfo] != nullptr)
               dbgs() << "DTRANS-AOSTOSOA: Rejecting -- Too many allocations: "
-                     << StructNamePrintHelper(Ty) << "\n";
+                     << StructNamePrintHelper(AllocatedTy) << "\n";
           });
           TypeToAllocInstr[StInfo] = nullptr;
           continue;

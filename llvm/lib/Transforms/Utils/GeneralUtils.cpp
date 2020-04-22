@@ -25,6 +25,8 @@
 #include "llvm/Support/CommandLine.h" // INTEL
 #include <queue>
 
+#define DEBUG_TYPE "general-utils"
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
@@ -140,14 +142,17 @@ void GeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
 // Breaks up the instruction recursively for all the constant expression
 // operands.
 void GeneralUtils::breakExpressions(
-    Instruction *Inst, SmallVectorImpl<Instruction *> *NewInstArr) {
+    Instruction *Inst, SmallVectorImpl<Instruction *> *NewInstArr,
+    SmallPtrSetImpl<ConstantExpr *> *ExprsToBreak) {
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Breaking constant exprs in '" << *Inst
+                    << "'.\n");
   if (DbgDeclareInst *DbgDclInst = dyn_cast<DbgDeclareInst>(Inst)) {
     // For DbgDeclareInst, the operand is a metadata that might
     // contain a constant expression.
     Value* Op = DbgDclInst->getAddress();
     // If the debug adress is a constant expression, recursively break it up.
     if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
-      breakExpressionsHelper(Expr, 0, Inst, NewInstArr);
+      breakExpressionsHelper(Expr, 0, Inst, NewInstArr, ExprsToBreak);
   }
   else if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(Inst)) {
     // For DbgValueInst, the operand is a metadata that might
@@ -155,7 +160,7 @@ void GeneralUtils::breakExpressions(
     Value* Op = DbgValInst->getValue();
     // If the debug value operand is a constant expression, recursively break it up.
     if (ConstantExpr* Expr = dyn_cast_or_null<ConstantExpr>(Op))
-      breakExpressionsHelper(Expr, 0, Inst, NewInstArr);
+      breakExpressionsHelper(Expr, 0, Inst, NewInstArr, ExprsToBreak);
   }
   else {
     // And all the operands of each instruction
@@ -165,7 +170,7 @@ void GeneralUtils::breakExpressions(
 
       // If the operand is a constant expression, recursively break it up.
       if (ConstantExpr* Expr = dyn_cast<ConstantExpr>(Op))
-        breakExpressionsHelper(Expr, I, Inst, NewInstArr);
+        breakExpressionsHelper(Expr, I, Inst, NewInstArr, ExprsToBreak);
     }
   }
 }
@@ -174,7 +179,13 @@ void GeneralUtils::breakExpressions(
 // expression operand.
 void GeneralUtils::breakExpressionsHelper(
     ConstantExpr *Expr, unsigned OperandIndex, Instruction *User,
-    SmallVectorImpl<Instruction *> *NewInstArr) {
+    SmallVectorImpl<Instruction *> *NewInstArr,
+    SmallPtrSetImpl<ConstantExpr *> *ExprsToBreak) {
+  if (ExprsToBreak && !ExprsToBreak->count(Expr))
+    return;
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Breaking Expr '" << *Expr << "'.\n");
+
   // Create a new instruction, and insert it at the appropriate point.
   Instruction *NewInst = Expr->getAsInstruction();
   NewInst->setDebugLoc(User->getDebugLoc());
@@ -198,7 +209,7 @@ void GeneralUtils::breakExpressionsHelper(
     Value *Op = NewInst->getOperand(I);
     ConstantExpr *InnerExpr = dyn_cast<ConstantExpr>(Op);
     if (InnerExpr)
-      breakExpressionsHelper(InnerExpr, I, NewInst, NewInstArr);
+      breakExpressionsHelper(InnerExpr, I, NewInst, NewInstArr, ExprsToBreak);
   }
 }
 
@@ -348,46 +359,62 @@ bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
 }
 
 bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
-  if (isa<AllocaInst>(V))
-    return true;
+  // Filter out global variable references, first.
+  // Everything else is classified for a local variable reference,
+  // except that we run special verification for AddrSpaceCastInst's
+  // below.
+  if (isOMPItemGlobalVAR(V))
+    return false;
 
-  if (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
-    if (const auto *AI = dyn_cast<AllocaInst>(ASCI->getPointerOperand())) {
-      // If this is an AddrSpaceCastInst of an AllocaInst, then
-      // assert that the AddrSpaceCastInst's type and the operand's
-      // type are only different by the addrspace. We expect that
-      // we can deduce the original type of the OpenMP clause's
-      // item VAR in both cases, i.e. when VAR is represented directly
-      // with an AllocaInst or with AllocaInst followed by AddrSpaceCastInst.
-      (void)AI;
-      assert(cast<PointerType>(ASCI->getType())->getElementType() ==
-             AI->getType()->getElementType() &&
-             "isItemLocalVAR: Type mismatch for an alloca and "
-             "its addrspacecast.");
+  if (!isa<PointerType>(V->getType()))
+    return false;
 
-      return true;
-    }
-
-  return false;
-}
-
-PointerType *GeneralUtils::getOMPItemLocalVARPointerType(const Value *V) {
-  if (!isOMPItemLocalVAR(V)) {
-    llvm_unreachable("getItemLocalVARPointerType: Expect AllocaInst or "
-                     "AddrSpaceCastInst as a definition of an OpenMP "
-                     "item local VAR.");
-    return nullptr;
+#ifndef NDEBUG
+  // Skip a sequence of AddrSpaceCastInst's in hope to reach
+  // the AllocaInst.
+  bool ASCIChangedType = false;
+  while (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V)) {
+    // We expect that the address space casts do not change
+    // the original type of their pointer operand.
+    // If we reach an AllocaInst by following AddrSpaceCastInst
+    // chain, and the type changes along the way, then it is not
+    // clear what object type was specified in the clause.
+    V = ASCI->getPointerOperand();
+    if (cast<PointerType>(ASCI->getType())->getElementType() !=
+        cast<PointerType>(V->getType())->getElementType())
+      ASCIChangedType = true;
   }
 
-  if (const auto *AI = dyn_cast<AllocaInst>(V))
-    return AI->getType();
+  (void)ASCIChangedType;
+  assert(!isa<AllocaInst>(V) || !ASCIChangedType && "isItemLocalVAR: "
+         "type changed between an alloca and the clause reference.");
+#endif  // NDEBUG
 
-  if (const auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
-    return cast<PointerType>(ASCI->getType());
+  return true;
+}
 
-  llvm_unreachable("getItemLocalVARPointerType: Mismatch between "
-                   "isItemLocalVAR and getItemLocalVARPointerType.");
+std::tuple<PointerType *, Value *>
+    GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
+  Value *V) {
+  if (!isOMPItemLocalVAR(V)) {
+    llvm_unreachable("getItemLocalVARPointerType: expect isOMPItemLocalVAR().");
+    return std::make_tuple(nullptr, nullptr);
+  }
 
-  return nullptr;
+  // Skip a sequence of AddrSpaceCastInst's in hope to reach
+  // the AllocaInst.
+  while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
+    V = ASCI->getPointerOperand();
+
+  if (auto *AI = dyn_cast<AllocaInst>(V)) {
+    // VLA allocas specify the number of allocated elements.
+    Value *NumElements = AI->getArraySize();
+    return std::make_tuple(AI->getType(), NumElements);
+  }
+
+  // If we did not find an AllocaInst, then we treat this as a scalar
+  // clause item.
+  return std::make_tuple(cast<PointerType>(V->getType()),
+      cast<Value>(ConstantInt::get(Type::getInt32Ty(V->getContext()), 1)));
 }
 #endif // INTEL_COLLAB

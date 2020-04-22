@@ -276,10 +276,13 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // is done.
   bool WholeProgramSafeDetected = false;
 
+  // Indicates the size of pointer.
+  unsigned PointerSizeInBits = 0;
+
   std::set<unsigned> PossibleSourceOfPointsToInfo;
 
-  std::vector<CallSite> IndirectCallList;
-  std::vector<CallSite> DirectCallList;
+  std::vector<CallBase *> IndirectCallList;
+  std::vector<CallBase *> DirectCallList;
 
   // GraphNodes - This vector is populated as part of the object
   // identification stage of the analysis, which populates this vector with a
@@ -467,8 +470,9 @@ public:
               CallGraph &CG, WholeProgramInfo *WPInfo);
 
   // Interface routine to get possible targets of function pointers
-  AndersenSetResult GetFuncPointerPossibleTargets(Value *FP, 
-              std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace);
+  AndersenSetResult GetFuncPointerPossibleTargets(Value *FP,
+                                                  std::vector<Value *> &Targets,
+                                                  CallBase *, bool Trace);
 
   //------------------------------------------------
   // Implement the AliasAnalysis API
@@ -541,12 +545,12 @@ private:
                         unsigned S, unsigned O);
 
   void AddConstraintsForNonInternalLinkage(Function *F);
-  void AddConstraintsForCall(CallSite CS, Function *F);
-  bool AddConstraintsForExternalCall(CallSite CS, Function *F);
-  void AddConstraintsForDirectCall(CallSite CS, Function *F);
-  void AddConstraintsForInitActualsToUniversalSet(CallSite CS);
-  void IndirectCallActualsToFormals(CallSite CS, Function *F);
-  void InitIndirectCallActualsToUniversalSet(CallSite CS);
+  void AddConstraintsForCall(CallBase *CB, Function *F);
+  bool AddConstraintsForExternalCall(CallBase *CB, Function *F);
+  void AddConstraintsForDirectCall(CallBase *CB, Function *F);
+  void AddConstraintsForInitActualsToUniversalSet(CallBase *CB);
+  void IndirectCallActualsToFormals(CallBase *CB, Function *F);
+  void InitIndirectCallActualsToUniversalSet(CallBase *CB);
   void AddEdgeInGraph(unsigned N1, unsigned N2);
 
   // Return true if the type of a function pointer (FPType) matches with
@@ -557,7 +561,7 @@ private:
   bool IsLibFunction(const Function *F);
   void CreateInOutEdgesforNodes();
   void CreateRevPointsToGraph();
-  void CallSitesAnalysis();
+  void AnalyzeCalls();
   void AddToWorkList(unsigned int NodeIdx);
   void NewHoldingNode(unsigned int NodeIdx, unsigned int Flags);
   void ProcessHoldingNode(unsigned int NodeIdx);
@@ -571,7 +575,7 @@ private:
   void AddFlags(unsigned NodeIdx, unsigned int F);
   void PerformEscAnal(Module &M);
   void MarkEscaped();
-  void ProcessCall(CallSite &CS);
+  void ProcessCall(CallBase *CB);
 
   // Update the information stored for the points-to graph to remove
   // tracking of the value because the object in the IR that represents is
@@ -588,7 +592,7 @@ private:
                const Function **SinlgeAcessingFunction);
   void PrintNonEscapes() const;
 
-  void ProcessIndirectCall(CallSite CS);
+  void ProcessIndirectCall(CallBase *CB);
   void ProcessIndirectCalls(void);
   void PrintNode(const Node *N) const;
   void PrintConstraints() const ;
@@ -600,10 +604,9 @@ private:
   // Instruction visitation methods for adding constraints
   friend class InstVisitor<AndersensAAResult>;
   void visitReturnInst(ReturnInst &RI);
-  void visitInvokeInst(InvokeInst &II) { visitCallSite(CallSite(&II)); }
+  void visitInvokeInst(InvokeInst &II) { checkCall(cast<CallBase>(&II)); }
   void visitAddressInst(AddressInst &AI);
-  void visitCallInst(CallInst &CI) { visitCallSite(CallSite(&CI)); }
-  void visitCallSite(CallSite CS);
+  void visitCallInst(CallInst &CI) { checkCall(cast<CallBase>(&CI)); }
   void visitAllocaInst(AllocaInst &AI);
   void visitLoadInst(LoadInst &LI);
   void visitStoreInst(StoreInst &SI);
@@ -633,6 +636,7 @@ private:
   void visitCatchReturnInst(CatchReturnInst &AI);
 
   void processWinEhOperands(Instruction &AI);
+  void checkCall(CallBase *CB);
  
 };
 

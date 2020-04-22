@@ -1,6 +1,6 @@
 //===--------- HIRCodeGen.cpp - Implements HIRCodeGen class ---------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -39,6 +39,11 @@
 
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -728,7 +733,7 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
-    if (isa<CompositeType>(SrcType)) {
+    if (isa<StructType>(SrcType) || isa<SequentialType>(SrcType)) {
       // We should be generating a GEP for a pointer base with an offset. For
       // struct types, we need to follow the structure layout.
       assert("Pointer base with offset not handled!");
@@ -906,7 +911,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // can simply use the base value. Also, for opaque (forward declared) struct
   // types, LLVM doesn't allow any indices even if it is just a zero.
   if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
-      (*Ref->canon_begin())->isZero(true /*HandleSplat*/)) {
+      (*Ref->canon_begin())->isZero()) {
     // GEP is not needed.
   } else {
     assert(DimNum && "No dimensions");
@@ -1014,7 +1019,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
                                              Ref->getAlignment(), MaskVal);
     } else {
-      LInst = Builder.CreateAlignedLoad(GEPVal, Ref->getAlignment(),
+      LInst = Builder.CreateAlignedLoad(GEPVal, MaybeAlign(Ref->getAlignment()),
                                         Ref->isVolatile(), "gepload");
     }
 
@@ -1709,8 +1714,9 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
       ResInst = VPOUtils::createMaskedStoreCall(
           StorePtr, StoreVal, Builder, LvalRef->getAlignment(), MaskVal);
     } else {
-      ResInst = Builder.CreateAlignedStore(
-          StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());
+      ResInst = Builder.CreateAlignedStore(StoreVal, StorePtr,
+                                           MaybeAlign(LvalRef->getAlignment()),
+                                           LvalRef->isVolatile());
     }
 
     setMetadata(ResInst, LvalRef);
@@ -1766,7 +1772,8 @@ static void populateOperandBundles(HLInst *HInst,
       Inputs.push_back(Operands[J]);
     }
 
-    Bundles.emplace_back(HInst->getOperandBundleAt(I).getTagName(), Inputs);
+    Bundles.emplace_back(std::string(HInst->getOperandBundleAt(I).getTagName()),
+                         Inputs);
     OpBeginIndex = OpEndIndex;
   }
 

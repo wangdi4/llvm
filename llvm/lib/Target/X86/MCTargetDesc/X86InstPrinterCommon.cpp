@@ -13,6 +13,7 @@
 
 #include "X86InstPrinterCommon.h"
 #include "X86BaseInfo.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrDesc.h"
@@ -309,16 +310,23 @@ void X86InstPrinterCommon::printRoundingControl(const MCInst *MI, unsigned Op,
   }
 }
 
-/// printPCRelImm - This is used to print an immediate value that ends up
-/// being encoded as a pc-relative value (e.g. for jumps and calls).  In
-/// Intel-style these print slightly differently than normal immediates.
-/// for example, a $ is not emitted.
-void X86InstPrinterCommon::printPCRelImm(const MCInst *MI, unsigned OpNo,
-                                         raw_ostream &O) {
+/// value (e.g. for jumps and calls). In Intel-style these print slightly
+/// differently than normal immediates. For example, a $ is not emitted.
+///
+/// \p Address The address of the next instruction.
+/// \see MCInstPrinter::printInst
+void X86InstPrinterCommon::printPCRelImm(const MCInst *MI, uint64_t Address,
+                                         unsigned OpNo, raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isImm())
-    O << formatImm(Op.getImm());
-  else {
+  if (Op.isImm()) {
+    if (PrintBranchImmAsAddress) {
+      uint64_t Target = Address + Op.getImm();
+      if (MAI.getCodePointerSize() == 4)
+        Target &= 0xffffffff;
+      O << formatHex(Target);
+    } else
+      O << formatImm(Op.getImm());
+  } else {
     assert(Op.isExpr() && "unknown pcrel immediate operand");
     // If a symbolic branch target was added as a constant expression then print
     // that address in hex.
@@ -356,6 +364,63 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O) {
     O << "\trepne\t";
   else if (Flags & X86::IP_HAS_REPEAT)
     O << "\trep\t";
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  switch (MI->getOpcode()) {
+  case X86::VPDPBUSDSYrm:
+  case X86::VPDPBUSDSYrr:
+  case X86::VPDPBUSDSrm:
+  case X86::VPDPBUSDSrr:
+  case X86::VPDPBUSDYrm:
+  case X86::VPDPBUSDYrr:
+  case X86::VPDPBUSDrm:
+  case X86::VPDPBUSDrr:
+  case X86::VPDPWSSDSYrm:
+  case X86::VPDPWSSDSYrr:
+  case X86::VPDPWSSDSrm:
+  case X86::VPDPWSSDSrr:
+  case X86::VPDPWSSDYrm:
+  case X86::VPDPWSSDYrr:
+  case X86::VPDPWSSDrm:
+  case X86::VPDPWSSDrr:
+    // These all require a pseudo prefix
+    O << "\t{vex}";
+  }
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_BF16
+  switch (MI->getOpcode()) {
+  case X86::VDPBF16PSrr:
+  case X86::VDPBF16PSrm:
+  case X86::VDPBF16PSYrr:
+  case X86::VDPBF16PSYrm:
+  case X86::VCVTNE2PS2BF16rr:
+  case X86::VCVTNE2PS2BF16rm:
+  case X86::VCVTNE2PS2BF16Yrr:
+  case X86::VCVTNE2PS2BF16Yrm:
+  case X86::VCVTNEPS2BF16rr:
+  case X86::VCVTNEPS2BF16rm:
+  case X86::VCVTNEPS2BF16Yrr:
+  case X86::VCVTNEPS2BF16Yrm:
+    // These all require a pseudo prefix
+    O << "\t{vex}";
+  }
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_IFMA
+  switch (MI->getOpcode()) {
+  case X86:: VPMADD52HUQrr:
+  case X86:: VPMADD52HUQrm:
+  case X86:: VPMADD52HUQYrr:
+  case X86:: VPMADD52HUQYrm:
+  case X86:: VPMADD52LUQrr:
+  case X86:: VPMADD52LUQrm:
+  case X86:: VPMADD52LUQYrr:
+  case X86:: VPMADD52LUQYrm:
+    // These all require a pseudo prefix
+    O << "\t{vex}";
+  }
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
@@ -384,7 +449,7 @@ void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX2
+#if INTEL_FEATURE_ISA_AMX
 void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
                                        raw_ostream &OS) {
   switch (MI->getOperand(OpNo).getReg()) {
@@ -415,5 +480,5 @@ void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
   }
   llvm_unreachable("Unknown tile pair register name");
 }
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION

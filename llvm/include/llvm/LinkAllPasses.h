@@ -32,6 +32,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"  // INTEL
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
@@ -42,6 +43,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
 #include "llvm/Transforms/IPO.h"
@@ -66,6 +68,7 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"  // INTEL
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
 #include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
@@ -100,6 +103,7 @@ namespace {
       (void) llvm::createAggressiveDCEPass();
       (void) llvm::createAggressiveInstCombinerPass();
       (void) llvm::createBitTrackingDCEPass();
+      (void) llvm::createOpenMPOptLegacyPass();
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
@@ -125,6 +129,7 @@ namespace {
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
       (void) llvm::createCallTreeCloningPass();
       (void) llvm::createAddSubReassociatePass();
+      (void) llvm::createForcedCMOVGenerationPass();
       (void) llvm::createTransformFPGARegPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createBasicAAWrapperPass();
@@ -214,6 +219,7 @@ namespace {
       (void) llvm::createPostDomOnlyViewerPass();
       (void) llvm::createPostDomViewerPass();
       (void) llvm::createReassociatePass();
+      (void) llvm::createRedundantDbgInstEliminationPass();
       (void) llvm::createRegionInfoPass();
       (void) llvm::createRegionOnlyPrinterPass();
       (void) llvm::createRegionOnlyViewerPass();
@@ -247,11 +253,13 @@ namespace {
       (void) llvm::createInstructionNamerPass();
       (void) llvm::createMetaRenamerPass();
       (void) llvm::createAttributorLegacyPass();
+      (void) llvm::createAttributorCGSCCLegacyPass();
       (void) llvm::createPostOrderFunctionAttrsLegacyPass();
       (void) llvm::createReversePostOrderFunctionAttrsPass();
       (void) llvm::createMergeFunctionsPass();
       (void) llvm::createMergeICmpsLegacyPass();
       (void) llvm::createExpandMemCmpPass();
+      (void)llvm::createSYCLLowerWGScopePass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -266,10 +274,12 @@ namespace {
       (void) llvm::createLoopVectorizePass();
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
-#if INTEL_CUSTOMIZATION //TODO: VEC to COLLAB
+#if INTEL_CUSTOMIZATION
       (void) llvm::createVPlanDriverPass();
       (void) llvm::createVPlanDriverHIRPass();
+      (void) llvm::createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
+      (void) llvm::createVectorCombinePass();
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();
@@ -285,7 +295,8 @@ namespace {
       (void) llvm::createScalarizeMaskedMemIntrinPass();
       (void) llvm::createWarnMissedTransformationsPass();
       (void) llvm::createHardwareLoopsPass();
-      (void)llvm::createInjectTLIMappingsLegacyPass();
+      (void) llvm::createInjectTLIMappingsLegacyPass();
+      (void) llvm::createUnifyLoopExitsPass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolutionWrapperPass();
@@ -305,6 +316,7 @@ namespace {
       (void)llvm::createMathLibraryFunctionsReplacementPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
+      (void) llvm::createArrayUseWrapperPass();
       // HIR passes
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();
@@ -337,7 +349,7 @@ namespace {
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRLoopCollapsePass();
-      (void) llvm::createHIRSymbolicTripCountCompleteUnrollLegacyPass();
+      (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
       (void) llvm::createHIRMVForConstUBPass();
@@ -358,6 +370,12 @@ namespace {
       (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
+      (void)llvm::createHIRRowWiseMVPass();
+
+      // DPCPP Kernel Transformations
+      (void) llvm::createDPCPPKernelVecClonePass();
+      (void) llvm::createDPCPPKernelPostVecPass();
+      (void) llvm::createDPCPPKernelWGLoopCreatorPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();
@@ -379,6 +397,7 @@ namespace {
       (void) llvm::createCSALowerParallelIntrinsicsWrapperPass();
       (void) llvm::createCSAGraphSplitterPass();
   #endif  // INTEL_FEATURE_CSA
+      (void) llvm::createVPOParoptOptimizeDataSharingPass();
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB

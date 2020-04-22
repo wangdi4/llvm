@@ -1,5 +1,4 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=false < %s | FileCheck %s
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 -enable-vp-value-codegen=true < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; CHECK: [[INNER_LOOP_HEADER:VPlannedBB.*]]:{{.*}} preds = %[[INNER_LOOP_HEADER]], %vector.body

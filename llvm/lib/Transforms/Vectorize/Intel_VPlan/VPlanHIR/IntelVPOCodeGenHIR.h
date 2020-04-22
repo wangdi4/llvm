@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPOCODEGENHIR_H
 
 #include "../IntelVPlanIdioms.h"
+#include "../IntelVPlanLoopUnroller.h"
 #include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
@@ -43,6 +44,8 @@ class VPlan;
 class VPlanVLSAnalysis;
 class VPInstruction;
 
+extern bool EnableVPValueCodegenHIR;
+
 // VPOCodeGenHIR generates vector code by widening of scalars into
 // appropriate length vectors.
 class VPOCodeGenHIR {
@@ -54,14 +57,23 @@ public:
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef)
+                const RegDDRef *SearchLoopPeelArrayRef,
+                const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), LORBuilder(LORB), WVecNode(WRLp),
+        TripCount(0), VF(0), UF(1), LORBuilder(LORB), WVecNode(WRLp),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
-        SearchLoopPeelArrayRef(SearchLoopPeelArrayRef) {}
+        SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
+        BlobUtilities(Loop->getBlobUtils()),
+        CanonExprUtilities(Loop->getCanonExprUtils()),
+        DDRefUtilities(Loop->getDDRefUtils()),
+        HLNodeUtilities(Loop->getHLNodeUtils()),
+        VPInstUnrollPart(VPInstUnrollPart) {
+    assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
+    VLoop = *(Plan->getVPLoopInfo()->begin());
+  }
 
   ~VPOCodeGenHIR() {
     SCEVWideRefMap.clear();
@@ -78,10 +90,13 @@ public:
 
   // Setup vector loop to perform the actual loop widening (vectorization) using
   // VF as the vectorization factor.
-  bool initializeVectorLoop(unsigned int VF);
+  bool initializeVectorLoop(unsigned int VF, unsigned int UF);
 
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
+
+  // Fixup gotos in GotoTargetVPBBPairVector using VPBBLabelMap
+  void finalizeGotos(void);
 
   // Check if loop is currently suported by CodeGen.
   bool loopIsHandled(HLLoop *Loop, unsigned int VF);
@@ -122,6 +137,11 @@ public:
                  int64_t InterleaveIndex = 0,
                  const HLInst *GrpStartInst = nullptr);
 
+  /// Adjust arguments passed to SVML functions to handle masks
+  void addMaskToSVMLCall(Function *OrigF, SmallVectorImpl<RegDDRef *> &VecArgs,
+                         SmallVectorImpl<Type *> &VecArgTys,
+                         RegDDRef *MaskValue);
+
   // Given the function being called and the widened operands, generate and
   // return the widened call. The call arguments are returned in CallRegs
   // if they need to be analyzed for stride information. The flag HasLvalArg
@@ -137,7 +157,8 @@ public:
                                  const OVLSGroup *Group,
                                  int64_t InterleaveFactor,
                                  int64_t InterleaveIndex,
-                                 const HLInst *GrpStartInst);
+                                 const HLInst *GrpStartInst,
+                                 const VPInstruction *VPInst);
 
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer
@@ -202,8 +223,7 @@ public:
                         const Twine &Name = "cast");
 
   HLInst *createZExt(Type *Ty, RegDDRef *Ref, const Twine &Name = "cast") {
-    HLInst *ZExtInst =
-        MainLoop->getHLNodeUtils().createZExt(Ty, Ref->clone(), Name);
+    HLInst *ZExtInst = HLNodeUtilities.createZExt(Ty, Ref->clone(), Name);
     addInstUnmasked(ZExtInst);
     return ZExtInst;
   }
@@ -266,12 +286,29 @@ public:
   }
 
   // Add the given instruction at the end of the main loop and mask
-  // it with the provided mask value if non-null.
+  // it with the provided mask value if non-null. If the masked instruction
+  // writes into a loop private temp ref, then initialize the temp with undef
+  // value in loop header to prevent any backedge flows introduced by selects
+  // during lowering.
   void addInst(HLNode *Node, RegDDRef *Mask) {
     if (Mask) {
       HLInst *Inst = dyn_cast<HLInst>(Node);
       assert(Inst && "Only HLInst can have a mask.");
       Inst->setMaskDDRef(Mask->clone());
+
+      // Initialize Lval temp to undef if it's private per loop iteration.
+      RegDDRef *LvalRef = Inst->getLvalDDRef();
+      if (LvalRef && LvalRef->isTerminalRef() &&
+          !MainLoop->isLiveIn(LvalRef->getSymbase()) &&
+          InitializedPrivateTempSymbases.insert(LvalRef->getSymbase()).second) {
+        RegDDRef *Init =
+            DDRefUtilities.createUndefDDRef(LvalRef->getDestType());
+        auto InitInst =
+            HLNodeUtilities.createCopyInst(Init, "priv.init", LvalRef->clone());
+        // We handle only innermost loop vectorization today, so initialize
+        // temp in MainLoop header.
+        HLNodeUtils::insertAsFirstChild(MainLoop, InitInst);
+      }
     }
 
     if (auto InsertRegion = dyn_cast<HLLoop>(getInsertRegion()))
@@ -325,6 +362,16 @@ public:
   // if one is not found.
   RegDDRef *widenRef(const VPValue *VPVal, unsigned VF);
 
+  // Returns the expression IV + <0, 1, .., VF-1> where IV is the current loop's
+  // main induction variable.
+  RegDDRef *generateLoopInductionRef(Type *RefDestTy);
+
+  // Given a widened ref corresponding to the pointer operand of
+  // a load/store instruction, setup and return the pointer operand
+  // for use in generating the load/store HLInst.
+  RegDDRef *getPointerOperand(RegDDRef *PtrOp, Type *VecRefDestTy,
+                              unsigned AddressSpace, unsigned ScalSymbase);
+
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
 
@@ -339,7 +386,7 @@ public:
 
   void createHLIf(const CmpInst::Predicate Pred, RegDDRef *LhsRef,
                   RegDDRef *RhsRef) {
-    HLDDNode *If = MainLoop->getHLNodeUtils().createHLIf(Pred, LhsRef, RhsRef);
+    HLDDNode *If = HLNodeUtilities.createHLIf(Pred, LhsRef, RhsRef);
     addInst(If, nullptr);
     addInsertRegion(If);
   }
@@ -349,6 +396,48 @@ public:
   // map instructions linked to a LoopEntity, to the new ref which will be used
   // during CG.
   void createAndMapLoopEntityRefs();
+
+  // Utility to check if target being compiled for has AVX512 Intel
+  // optimizations.
+  bool targetHasAVX512() const {
+    return TTI->isAdvancedOptEnabled(
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512);
+  }
+
+  void setUniformControlFlowSeen() {
+    // Search loops do not go through predication currently and code generation
+    // for this is handled separately for now. Until search loop representation
+    // is made explicit we do not need any additional handling of the uniform
+    // control flow case for them.
+    if (!isSearchLoop())
+      UniformControlFlowSeen = true;
+  }
+
+  bool getUniformControlFlowSeen() const { return UniformControlFlowSeen; }
+
+  const VPLoop *getVPLoop() const { return VLoop; }
+
+  // Emit a label to indicate the start of the given basic block if the
+  // block is inside the loop being vectorized and add the label to
+  // the VPBBLabelMap.
+  void emitBlockLabel(const VPBasicBlock *VPBB);
+
+  // Emit the needed gotos to appropriate labels if the block is inside
+  // the loop being vectorized. Add the gotos generated to
+  // GotoTargetVPBBPairVector so that the gotos are fixed up at the end of
+  // vector code generation.
+  void emitBlockTerminator(const VPBasicBlock *SourceBB);
+
+  // Return the Lval temp that was generated to represent the deconstructed PHI
+  // identified by its PhiId, if found in PhiIdLValTempsMap. Return null
+  // otherwise.
+  RegDDRef *getLValTempForPhiId(const int PhiId) const {
+    auto Itr = PhiIdLValTempsMap.find(PhiId);
+    if (Itr != PhiIdLValTempsMap.end())
+      return Itr->second;
+    else
+      return nullptr;
+  }
 
 private:
   // Target Library Info is used to check for svml.
@@ -362,6 +451,9 @@ private:
 
   // VPlan for which vector code is being generated.
   const VPlan *Plan;
+
+  // VPLoop being vectorized - assumes VPlan contains one loop.
+  const VPLoop *VLoop;
 
   // OPTVLS analysis.
   VPlanVLSAnalysis *VLSA;
@@ -398,6 +490,9 @@ private:
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
   unsigned VF;
+
+  // Unroll factor which was applied to VPlan before code generation.
+  unsigned UF;
 
   LoopOptReportBuilder &LORBuilder;
 
@@ -441,6 +536,12 @@ private:
   // generated for a vectorized search loop.
   const RegDDRef *SearchLoopPeelArrayRef = nullptr;
 
+  // References to miscellaneous HIR creation utilities objects.
+  BlobUtils &BlobUtilities;
+  CanonExprUtils &CanonExprUtilities;
+  DDRefUtils &DDRefUtilities;
+  HLNodeUtils &HLNodeUtilities;
+
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
   // Map of VPValues and their corresponding HIR reduction variable used inside
@@ -451,9 +552,37 @@ private:
   // Map of VPValues and their corresponding HIR induction variable used inside
   // the generated vector loop.
   DenseMap<const VPValue *, RegDDRef *> InductionRefs;
+  // Collection of VPInstructions inside the loop that correspond to main loop
+  // IV. This is expected to contain the PHI and incrementing add
+  // instruction(s).
+  SmallPtrSet<const VPValue *, 8> MainLoopIVInsts;
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
   // created to represent within vector loop.
   DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
+
+  // Set of masked private temp symbases that have been initialized to undef in
+  // vector loop header.
+  SmallSet<unsigned, 16> InitializedPrivateTempSymbases;
+
+  // Boolean flag used to see if the loop being vectorized has any uniform
+  // control flow.
+  bool UniformControlFlowSeen = false;
+
+  // Vector of <HLGoto, target basic block> pairs.
+  SmallVector<std::pair<HLGoto *, const VPBasicBlock *>, 8>
+      GotoTargetVPBBPairVector;
+
+  // Map from a basic block to its starting label.
+  SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
+
+  // Mapping of VPInstructions to their unrolled part numbers.
+  const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart;
+
+  // Unrolled part number for the VPInstruction currently being processed.
+  unsigned CurrentVPInstUnrollPart;
+
+  // Track HIR temp created for each deconstructed PHI ID.
+  SmallDenseMap<int, RegDDRef *> PhiIdLValTempsMap;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
@@ -462,6 +591,7 @@ private:
   void setNeedRemainderLoop(bool NeedRem) { NeedRemainderLoop = NeedRem; }
   void setTripCount(uint64_t TC) { TripCount = TC; }
   void setVF(unsigned V) { VF = V; }
+  void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
   void insertReductionInit(HLInst *Inst) {
     HLNodeUtils::insertBefore(RedInitInsertPoint, Inst);
@@ -484,9 +614,9 @@ private:
   // the lookup.
   void eraseLoopIntrinsImpl(bool BeginDir);
 
-  /// \brief Analyzes the memory references of \p OrigCall to determine
-  /// stride. The resulting stride information is attached to the arguments
-  /// of \p WideCall in the form of attributes.
+  /// Analyzes the memory references of \p OrigCall to determine stride. The
+  /// resulting stride information is attached to the arguments of \p WideCall
+  /// in the form of attributes.
   void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
                                       SmallVectorImpl<RegDDRef *> &Args);
 
@@ -526,6 +656,9 @@ private:
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                      const OVLSGroup *Group, int64_t InterleaveFactor,
                      int64_t InterleaveIndex, const HLInst *GrpStartInst);
+
+  // Implementation of blend widening.
+  void widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask);
 
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);

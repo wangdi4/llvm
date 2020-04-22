@@ -161,9 +161,9 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
 ;
 ;  The result looks like this.
 ;
-;  %15 = call %sincosret @__svml_sincosf4_ha(<4 x float> %10) #5
-;  %16 = extractvalue %sincosret %15, 0
-;  %17 = extractvalue %sincosret %15, 1
+;  %15 = call { <4 x float>, <4 x float> } @__svml_sincosf4_ha(<4 x float> %10) #5
+;  %16 = extractvalue { <4 x float>, <4 x float> } %15, 0
+;  %17 = extractvalue { <4 x float>, <4 x float> } %15, 11
 ;  store <4 x float> %16, <4 x float>* %s.priv.vec, align 4
 ;  %wide.load20 = load <4 x float>, <4 x float>* %s.priv.vec, align 4
 ;  %18 = fmul fast <4 x float> %wide.load20, <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>
@@ -176,9 +176,16 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
 ; parameters, not any other stores (such as %s.priv.vec).
 
 ; CHECK-NOT: ret2ptr
-; CHECK: [[SINCOSRET:%[a-z0-9.]+]] = call svml_cc %sincosret @__svml_sincosf4_ha(<4 x float> [[ANGLE:%[a-z0-9.]+]]
-; CHECK: [[SINVAL:%[a-z0-9.]+]] = extractvalue %sincosret [[SINCOSRET]], 0
-; CHECK: [[COSVAL:%[a-z0-9.]+]] = extractvalue %sincosret [[SINCOSRET]], 1
+; CHECK: [[ANGLEEXT:%[a-z0-9.]+]] = shufflevector <4 x float> [[ANGLE:%[a-z0-9.]+]], <4 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
+; CHECK: [[SINCOSRETWIDE:%[a-z0-9.]+]] = call svml_cc { <8 x float>, <8 x float> } @__svml_sincosf8_ha(<8 x float> [[ANGLEEXT]])
+; CHECK: [[SINVALWIDE:%[a-z0-9.]+]] = extractvalue { <8 x float>, <8 x float> } [[SINCOSRETWIDE]], 0
+; CHECK: [[SINVALINS:%[a-z0-9.]+]] = shufflevector <8 x float> [[SINVALWIDE]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK: [[SINCOSRETTMP:%[a-z0-9.]+]] = insertvalue { <4 x float>, <4 x float> } undef, <4 x float> [[SINVALINS]], 0
+; CHECK: [[COSVALWIDE:%[a-z0-9.]+]] = extractvalue { <8 x float>, <8 x float> } [[SINCOSRETWIDE]], 1
+; CHECK: [[COSVALINS:%[a-z0-9.]+]] = shufflevector <8 x float> [[COSVALWIDE]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK: [[SINCOSRET:%[a-z0-9.]+]] = insertvalue { <4 x float>, <4 x float> } [[SINCOSRETTMP]], <4 x float> [[COSVALINS]], 1
+; CHECK: [[SINVAL:%[a-z0-9.]+]] = extractvalue { <4 x float>, <4 x float> } [[SINCOSRET]], 0
+; CHECK: [[COSVAL:%[a-z0-9.]+]] = extractvalue { <4 x float>, <4 x float> } [[SINCOSRET]], 1
 ; CHECK: store {{.*}} [[SINVAL]], {{.*}} %s.priv.vec
 ; CHECK: [[SINVALCOPY:%[a-z0-9.]+]] = load {{.*}} %s.priv.vec
 ; CHECK: [[SIN2X:%[a-z0-9.]+]] = fmul {{.*}} [[SINVALCOPY]]
@@ -355,14 +362,14 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
 ; CHECK-NOT: ret2ptr
 ; CHECK: [[ANGLELO:%[a-z0-9.]+]] = shufflevector{{.*}}<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK: [[SINCOSLO:%[a-z0-9.]+]] = call{{.*}}svml_sincosf8_ha{{.*}}[[ANGLELO]]
-; CHECK-DAG: [[SINCOS1:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 1
-; CHECK-DAG: [[SINCOS0:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 0
 ; CHECK: [[ANGLEHI:%[a-z0-9.]+]] = shufflevector{{.*}}<i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK: [[SINCOSHI:%[a-z0-9.]+]] = call{{.*}}svml_sincosf8_ha{{.*}}[[ANGLEHI]]
-; CHECK: [[SINCOS3:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 1
-; CHECK-DAG: [[COMBHI:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS1]]{{.*}}[[SINCOS3]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-; CHECK-DAG: [[SINCOS2:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 0
+; CHECK: [[SINCOS0:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 0
+; CHECK: [[SINCOS2:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 0
 ; CHECK: [[COMBLO:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS0]]{{.*}}[[SINCOS2]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[SINCOS1:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 1
+; CHECK: [[SINCOS3:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 1
+; CHECK: [[COMBHI:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS1]]{{.*}}[[SINCOS3]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
 ; CHECK: fmul{{.*}}[[COMBLO]]
 ; CHECK: fadd{{.*}}[[COMBHI]]
 

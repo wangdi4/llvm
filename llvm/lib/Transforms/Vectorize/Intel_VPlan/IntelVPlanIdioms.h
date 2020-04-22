@@ -63,7 +63,6 @@ private:
                                         loopopt::RegDDRef *&PeelArrayRef);
   static bool checkStructPtrEqThenNodes(const loopopt::HLIf *If,
                                         const loopopt::RegDDRef *ListItemRef);
-  static bool isSafeBlockForSearchLoop(const VPBasicBlock *Block);
   static bool isSafeExitBlockForSearchLoop(const VPBasicBlock *Block);
 };
 } // namespace vpo

@@ -1,18 +1,14 @@
-; The sin and cos calls should not be conditionalized to thread 0,
-; as their return values are used in the loop.
-; This test may need adjustment after hierarchical parallelism is able
-; to handle these cases.
-;
+; RUN: opt -switch-to-offload -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S | FileCheck %s
+
+; Test src:
 ;#pragma omp target map(to:f[0:100]) map(from:r[0:100])
 ;  for (i = 0; i < 100; i++)
 ;    r[i] = sinf(f[i]) + cosf(f[i]);
 
-; RUN: opt -switch-to-offload -vpo-restore-operands -domtree -loops -vpo-cfg-restructuring -vpo-paropt  -S < %s | FileCheck %s
-; CHECK: call{{.*}}sin
-; CHECK-NOT: :
-; CHECK: call{{.*}}cos
-; CHECK-NOT: :
-; CHECK: load
+; Check that calls to sinf and cosf are guarded by is_master check, and the return value is
+; broadcast to all other "threads"
+
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
@@ -48,14 +44,32 @@ for.body:                                         ; preds = %for.cond
   %idxprom = sext i32 %5 to i64
   %arrayidx2 = getelementptr inbounds float, float addrspace(4)* %4, i64 %idxprom
   %6 = load float, float addrspace(4)* %arrayidx2, align 4
+
+
   %call = call spir_func float @sinf(float %6) #1
+; Check that %call is stored to a global and then loaded in other threads
+; CHECK: %call = call spir_func float @_Z3sinf(float %{{.*}})
+; CHECK: store float %call, float addrspace(3)* @call.broadcast.ptr.__local
+; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
+; CHECK: %call.new = load float, float addrspace(3)* @call.broadcast.ptr.__local
+
   %7 = load float addrspace(4)*, float addrspace(4)* addrspace(4)* %f.addr.ascast, align 8
   %8 = load i32, i32 addrspace(4)* %i.ascast, align 4
   %idxprom3 = sext i32 %8 to i64
   %arrayidx4 = getelementptr inbounds float, float addrspace(4)* %7, i64 %idxprom3
   %9 = load float, float addrspace(4)* %arrayidx4, align 4
+
   %call5 = call spir_func float @cosf(float %9) #1
+; Check that %call5 is captured and then broadcast
+; CHECK: %call5 = call spir_func float @_Z3cosf(float %{{.*}})
+; CHECK: store float %call5, float addrspace(3)* @call5.broadcast.ptr.__local
+; CHECK: call spir_func void @_Z18work_group_barrierj(i32 3)
+; CHECK: %call5.new = load float, float addrspace(3)* @call5.broadcast.ptr.__local
+
   %add = fadd float %call, %call5
+; Check that the new loaded values for %call and %call5 are used in the add
+; CHECK: %add = fadd float %call.new, %call5.new
+
   %10 = load float addrspace(4)*, float addrspace(4)* addrspace(4)* %r.addr.ascast, align 8
   %11 = load i32, i32 addrspace(4)* %i.ascast, align 4
   %idxprom6 = sext i32 %11 to i64
@@ -100,4 +114,4 @@ attributes #2 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 !0 = !{i32 0, i32 64770, i32 1077853693, !"_Z3fooPfS_", i32 6, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{}
-!3 = !{!"icx (ICX) dev.8.x.0"}
+!3 = !{!"clang version 9.0.0"}

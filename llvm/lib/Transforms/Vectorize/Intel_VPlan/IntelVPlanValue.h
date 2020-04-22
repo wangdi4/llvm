@@ -22,6 +22,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -41,8 +42,6 @@ class VPUser;
 // Forward declaration (need them to friend them within VPInstruction)
 // TODO: This needs to be refactored
 class VPBasicBlock;
-class VPIfTruePredicateRecipe;
-class VPIfFalsePredicateRecipe;
 class VPlanPredicator;
 class VPlan;
 class VPLoop;
@@ -56,10 +55,6 @@ class VPExternalUse;
 class VPValue {
 #if INTEL_CUSTOMIZATION
   // The following need access to the underlying IR Value
-  // TODO: This needs to be refactored. The VP*PredicateRecipe's will disappear
-  //       when they get represented with VPInstructions.
-  friend class VPIfTruePredicateRecipe;
-  friend class VPIfFalsePredicateRecipe;
   friend class VPlan;
   friend class VPBasicBlock;
   friend class VPlanPredicator;
@@ -115,7 +110,7 @@ protected:
         IsUnderlyingValueValid(UV ? true : false) {
     assert(BaseTy && "BaseTy can't be null!");
     if (UV && !UV->getName().empty())
-      Name = ("vp." + UV->getName()).str();
+      Name = (getVPNamePrefix() + UV->getName()).str();
   }
 #else
   VPValue(const unsigned char SC, Value *UV = nullptr)
@@ -139,14 +134,8 @@ protected:
     IsUnderlyingValueValid = true;
 
     if (!Val.getName().empty())
-      Name = ("vp." + Val.getName()).str();
+      Name = (getVPNamePrefix() + Val.getName()).str();
   }
-
-  /// Return validity of underlying Value or HIR node.
-  bool isUnderlyingIRValid() const;
-
-  /// Invalidate the underlying Value or HIR node.
-  void invalidateUnderlyingIR();
 
 public:
   /// An enumeration for keeping track of the concrete subclass of VPValue
@@ -163,6 +152,7 @@ public:
     VPMetadataAsValueSC,
     VPExternalUseSC,
     VPPrivateMemorySC,
+    VPBasicBlockSC,
   };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
@@ -194,13 +184,34 @@ public:
     if (NameRef.empty())
       return;
 
-    if (NameRef.startswith("vp."))
+    if (NameRef.startswith(getVPNamePrefix()))
       Name = std::string(NameRef);
     else
-      Name = ("vp." + NameRef).str();
+      Name = (getVPNamePrefix() + NameRef).str();
   }
   StringRef getName() const {
     return Name;
+  }
+  /// Return the VPNamePrefix to clients so that proper VPValue-names can be
+  /// generated.
+  StringRef getVPNamePrefix() const {
+    // FIXME: Define the VPNamePrefix in some analogue of the
+    // llvm::Context just like we plan for the 'Name' field.
+    static std::string VPNamePrefix = "vp.";
+    if (isa<VPBasicBlock>(this))
+      return "";
+    return VPNamePrefix;
+  }
+
+  /// Return the original llvm::Value name so that codegen clients can generate
+  /// appropriate names in output IR.
+  StringRef getOrigName() const {
+    StringRef NameRef(Name);
+
+    if (NameRef.startswith(getVPNamePrefix()))
+      return NameRef.substr(getVPNamePrefix().size());
+    else
+      return NameRef;
   }
 #endif
 
@@ -258,6 +269,12 @@ public:
                                  bool InvalidateIR = true) {
     replaceAllUsesWithImpl(NewVal, nullptr, &VPBB, InvalidateIR);
   }
+
+  /// Return validity of underlying Value or HIR node.
+  bool isUnderlyingIRValid() const;
+
+  /// Invalidate the underlying Value or HIR node.
+  void invalidateUnderlyingIR();
 #endif // INTEL_CUSTOMIZATION
 
   typedef SmallVectorImpl<VPUser *>::iterator user_iterator;
@@ -367,15 +384,15 @@ public:
   int getNumOperandsFrom(const VPValue *Op) const {
     return std::count(op_begin(), op_end(), Op);
   }
-  /// Replace all uses of operand \From by \To. Additionally invalidate the
-  /// underlying IR if \p InvalidateIR is set.
+  /// Replace all uses of operand \From by \To, invalidating the underlying IR
+  /// if \p InvalidateIR is true.
   void replaceUsesOfWith(VPValue *From, VPValue *To, bool InvalidateIR = true) {
     for (int I = 0, E = getNumOperands(); I != E; ++I)
-      if (getOperand(I) == From)
+      if (getOperand(I) == From) {
         setOperand(I, To);
-
-    if (InvalidateIR)
-      invalidateUnderlyingIR();
+        if (InvalidateIR)
+          invalidateUnderlyingIR();
+      }
   }
 
   /// Return index of a given \p Operand.
@@ -421,7 +438,6 @@ public:
 class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
   friend class VPlan;
-  friend class VPlanDivergenceAnalysis;
 
 protected:
   VPConstant(Constant *Const)
@@ -491,6 +507,17 @@ private:
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
 
+  // Construct a VPExternalDef for blob with index \p BI in \p DDR. \p BType
+  // specifies the blob type.
+  VPExternalDef(const loopopt::RegDDRef *DDR, unsigned BI, Type *BType)
+      : VPValue(VPValue::VPExternalDefSC, BType),
+        HIROperand(new VPBlob(DDR, BI)) {}
+
+  // Construct a VPExternalDef given an underlying CanonExpr \p CE.
+  VPExternalDef(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
+      : VPValue(VPValue::VPExternalDefSC, CE->getDestType()),
+        HIROperand(new VPCanonExpr(CE, DDR)) {}
+
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
       : VPValue(VPValue::VPExternalDefSC, BaseTy),
@@ -519,6 +546,13 @@ public:
       HIROperand->print(OS);
     }
   }
+  void printDetail(raw_ostream &OS) const {
+    if (getUnderlyingValue())
+      getUnderlyingValue()->printAsOperand(OS);
+    else {
+      HIROperand->printDetail(OS);
+    }
+  }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -540,7 +574,7 @@ private:
   std::unique_ptr<VPOperandHIR> HIROperand;
 
   // Construct a VPExternalUse given a Value \p ExtVal.
-  VPExternalUse(Value *ExtVal)
+  VPExternalUse(PHINode *ExtVal)
       : VPUser(VPValue::VPExternalUseSC, ExtVal->getType()) {
     setUnderlyingValue(*ExtVal);
   }
@@ -566,8 +600,7 @@ public:
   VPExternalUse(const VPExternalUse &) = delete;
   VPExternalUse &operator=(const VPExternalUse &) = delete;
 
-  /// \brief Methods for supporting type inquiry through isa, cast, and
-  /// dyn_cast:
+  /// Methods for supporting type inquiry through isa, cast, and dyn_cast:
   static bool classof(const VPValue *V) {
     return V->getVPValueID() == VPExternalUseSC;
   }

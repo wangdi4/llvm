@@ -62,7 +62,7 @@ public:
         ORVerbosity(OptReportVerbosity::Low),
 #endif  // INTEL_CUSTOMIZATION
         OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
-        DisableOffload(DisableOffload), TgOffloadEntryTy(nullptr),
+        DisableOffload(DisableOffload), TgtOffloadEntryTy(nullptr),
         TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
         DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
 
@@ -125,7 +125,7 @@ private:
   ///      int32_t    flags;      // Flags of the entry.
   ///      int32_t    reserved;   // Reserved by the runtime library.
   /// };
-  StructType *TgOffloadEntryTy;
+  StructType *TgtOffloadEntryTy;
 
   /// Hold the struct type as follows.
   /// struct __tgt_device_image{
@@ -175,6 +175,9 @@ private:
 
   /// Routine to populate PrintfDecl and OCLPrintfDecl
   void createOCLPrintfDecl(Function *F);
+
+  /// Replaces calls to sincos/sincosf with _Z6sincosdPd/_Z6sincosfPf
+  void replaceSincosWithOCLBuiltin(Function *F, bool IsDouble);
 
   /// Routine to identify Functions that may use "omp critical"
   /// either directly or down the call stack.
@@ -261,8 +264,8 @@ private:
     };
 
   public:
-    explicit VarEntry(GlobalVariable *Var, uint32_t Flags)
-      : OffloadEntry(VarKind, Var->getName(), Flags) {
+    explicit VarEntry(GlobalVariable *Var, StringRef Name, uint32_t Flags)
+      : OffloadEntry(VarKind, Name, Flags) {
       setAddress(Var);
     }
 
@@ -324,7 +327,7 @@ private:
   bool genOffloadEntries();
 
   /// Return/Create the struct type __tgt_offload_entry.
-  StructType *getTgOffloadEntryTy();
+  StructType *getTgtOffloadEntryTy();
 };
 
 } /// namespace vpo

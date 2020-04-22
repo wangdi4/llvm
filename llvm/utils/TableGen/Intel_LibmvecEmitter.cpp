@@ -118,7 +118,7 @@ void LibmvecVariantsEmitter::emitLibmvecVariants(raw_ostream &OS) {
   for (auto LibmvecVariant : LibmvecVariants) {
     std::vector<Record*> ArgList =
       LibmvecVariant->getValueAsListOfDefs("ArgList");
-    std::string LibmvecVariantNameStr = LibmvecVariant->getName();
+    std::string LibmvecVariantNameStr = std::string(LibmvecVariant->getName());
     std::string ParmSignatureStr = "";
     for (unsigned i = 0; i < ArgList.size(); i++) {
       ParmSignatureStr += ArgList[i]->getValueAsString("Type");

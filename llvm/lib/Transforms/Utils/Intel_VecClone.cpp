@@ -153,6 +153,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Debug.h"
@@ -577,110 +578,106 @@ VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
   Instruction *Mask = nullptr;
   SmallVector<StoreInst*, 4> StoresToInsert;
 
-  Function::arg_iterator ArgIt = Clone->arg_begin();
-  Function::arg_iterator ArgEnd = Clone->arg_end();
+  ArrayRef<VectorKind> ParmKinds = V.getParameters();
 
-  unsigned LastArg = Clone->arg_size() - 1;
-  unsigned ArgIdx = 0;
+  Argument *LastArg = &*(Clone->arg_end() - 1);
 
-  for (; ArgIt != ArgEnd; ++ArgIt) {
+  for (auto ArgIt : enumerate(Clone->args())) {
+    Argument *Arg = &ArgIt.value();
 
-    User::user_iterator UserIt = ArgIt->user_begin();
-    User::user_iterator UserEnd = ArgIt->user_end();
+    // If the original parameter isn't vector, we should not widen it.
+    if (!ParmKinds[ArgIt.index()].isVector())
+      continue;
 
-    VectorType *VecType = dyn_cast<VectorType>(ArgIt->getType());
+    // This function is run after the arguments have been already widened!
+    VectorType *VecType = cast<VectorType>(Arg->getType());
 
-    if (VecType) {
+    // Some args other than the mask may not have users, but have not been
+    // removed as dead. In those cases, just go on to the next argument.
+    // There's no need to expand non-mask parameters with no users.
+    bool MaskArg = V.isMasked() && Arg == LastArg;
 
-      // Some args other than the mask may not have users, but have not been
-      // removed as dead. In those cases, just go on to the next argument.
-      // There's no need to expand non-mask parameters with no users.
-      bool MaskArg = V.isMasked() && ArgIdx == LastArg;
+    if (!MaskArg && Arg->getNumUses() == 0)
+      continue;
 
-      if (!(!MaskArg && ArgIt->getNumUses() == 0)) {
+    // Create a new vector alloca and bitcast to a pointer to the element
+    // type. The following is an example of what the cast should look like:
+    //
+    // %veccast = bitcast <2 x i32>* %vec_a.addr to i32*
+    //
+    // geps using the bitcast will appear in a scalar form instead of
+    // casting to an array or using vector. For example,
+    //
+    // %vecgep1 = getelementptr i32, i32* %veccast, i32 %index
+    //
+    // instead of:
+    //
+    // getelementptr inbounds [4 x i32], [4 x i32]* %a, i32 0, i64 1
+    //
+    // We do this to put the geps in a more scalar form.
 
-        // Create a new vector alloca and bitcast to a pointer to the element
-        // type. The following is an example of what the cast should look like:
-        //
-        // %veccast = bitcast <2 x i32>* %vec_a.addr to i32*
-        //
-        // geps using the bitcast will appear in a scalar form instead of
-        // casting to an array or using vector. For example,
-        //
-        // %vecgep1 = getelementptr i32, i32* %veccast, i32 %index
-        //
-        // instead of:
-        //
-        // getelementptr inbounds [4 x i32], [4 x i32]* %a, i32 0, i64 1
-        //
-        // We do this to put the geps in a more scalar form.
+    const DataLayout &DL = Clone->getParent()->getDataLayout();
+    AllocaInst *VecAlloca =
+      new AllocaInst(VecType, DL.getAllocaAddrSpace(),
+                     "vec." + Arg->getName());
+    insertInstruction(VecAlloca, EntryBlock);
+    PointerType *ElemTypePtr =
+        PointerType::get(VecType->getElementType(),
+                         VecAlloca->getType()->getAddressSpace());
 
-        const DataLayout &DL = Clone->getParent()->getDataLayout();
-        AllocaInst *VecAlloca =
-          new AllocaInst(VecType, DL.getAllocaAddrSpace(),
-                         "vec." + ArgIt->getName());
-        insertInstruction(VecAlloca, EntryBlock);
-        PointerType *ElemTypePtr =
-            PointerType::get(VecType->getElementType(),
-                             VecAlloca->getType()->getAddressSpace());
+    BitCastInst *VecParmCast = nullptr;
+    if (MaskArg) {
+      Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
+    } else {
+      VecParmCast = new BitCastInst(VecAlloca, ElemTypePtr,
+                                    "vec." + Arg->getName() + ".cast");
+      insertInstruction(VecParmCast, EntryBlock);
+    }
 
-        BitCastInst *VecParmCast = nullptr;
-        if (MaskArg) {
-          Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
-        } else {
-          VecParmCast = new BitCastInst(VecAlloca, ElemTypePtr,
-                                        "vec." + ArgIt->getName() + ".cast");
-          insertInstruction(VecParmCast, EntryBlock);
-        }
+    StoreInst *StoreUser = nullptr;
+    AllocaInst *Alloca = nullptr;
 
-        StoreInst *StoreUser = nullptr;
-        AllocaInst *Alloca = nullptr;
+    ParmRef *PRef = nullptr;
+    if (!Mask)
+      PRef = new ParmRef();
 
-        ParmRef *PRef = nullptr;
-        if (!Mask)
-          PRef = new ParmRef();
+    for (User *U : Arg->users()) {
 
-        for (; UserIt != UserEnd; ++UserIt) {
+      StoreUser = dyn_cast<StoreInst>(U);
 
-          StoreUser = dyn_cast<StoreInst>(*UserIt);
-
-          if (StoreUser && !Mask) {
-            // For non-mask parameters, find the initial store of the parameter
-            // to an alloca instruction. Map this alloca to the vector bitcast
-            // created above so that we can update the old scalar references.
-            Alloca = dyn_cast<AllocaInst>(UserIt->getOperand(1));
-            PRef->VectorParm = Alloca;
-            break;
-          }
-        }
-
-        if (!Alloca && !Mask) {
-          // Since Mem2Reg has run, there is no existing scalar store for
-          // the parameter, but we must still pack (store) the expanded vector
-          // parameter to a new vector alloca. This store is created here and
-          // put in a container for later insertion. We cannot insert it here
-          // since this will be a new user of the parameter and we are still
-          // iterating over the original users of the parameter. This will
-          // invalidate the iterator. We also map the parameter directly to the
-          // vector bitcast so that we can later update any users of the
-          // parameter.
-          Value *ArgValue = cast<Value>(ArgIt);
-          StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
-          StoresToInsert.push_back(Store);
-          PRef->VectorParm = ArgValue;
-        }
-
-        if (!Mask) {
-          // Mapping not needed for the mask parameter because there will
-          // be no users of it to replace. This parameter will only be used to
-          // introduce if conditions on each mask bit.
-          PRef->VectorParmCast = VecParmCast;
-          VectorParmMap.push_back(PRef);
-        }
+      if (StoreUser && !Mask) {
+        // For non-mask parameters, find the initial store of the parameter
+        // to an alloca instruction. Map this alloca to the vector bitcast
+        // created above so that we can update the old scalar references.
+        Alloca = dyn_cast<AllocaInst>(StoreUser->getPointerOperand());
+        PRef->VectorParm = Alloca;
+        break;
       }
     }
 
-    ArgIdx++;
+    if (!Alloca && !Mask) {
+      // Since Mem2Reg has run, there is no existing scalar store for
+      // the parameter, but we must still pack (store) the expanded vector
+      // parameter to a new vector alloca. This store is created here and
+      // put in a container for later insertion. We cannot insert it here
+      // since this will be a new user of the parameter and we are still
+      // iterating over the original users of the parameter. This will
+      // invalidate the iterator. We also map the parameter directly to the
+      // vector bitcast so that we can later update any users of the
+      // parameter.
+      Value *ArgValue = cast<Value>(Arg);
+      StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
+      StoresToInsert.push_back(Store);
+      PRef->VectorParm = ArgValue;
+    }
+
+    if (!Mask) {
+      // Mapping not needed for the mask parameter because there will
+      // be no users of it to replace. This parameter will only be used to
+      // introduce if conditions on each mask bit.
+      PRef->VectorParmCast = VecParmCast;
+      VectorParmMap.push_back(PRef);
+    }
   }
 
   // Insert any necessary vector parameter stores here. This is needed for when
@@ -1049,8 +1046,10 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
               // Otherwise, we need to load the value from the gep first before
               // using it. This effectively loads the particular element from
               // the vector parameter.
+              Type *LoadTy = VecGep->getResultElementType();
               LoadInst *ParmElemLoad =
-                new LoadInst(VecGep, "vec." + Parm->getName() + ".elem"); 
+                new LoadInst(LoadTy, VecGep,
+                             "vec." + Parm->getName() + ".elem");
               ParmElemLoad->insertAfter(VecGep);
               User->setOperand(I, ParmElemLoad);
             }
@@ -1401,23 +1400,29 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   // Pack up the elements into a vector temp and return it. If the return
   // vector was bitcast to a pointer to the element type, we must bitcast to
   // vector before returning.
-  Instruction *Return;
-  if (dyn_cast<BitCastInst>(ExpandedReturn)) {
-      // Operand 0 is the actual alloc reference in the bitcast.
-      AllocaInst *Alloca = cast<AllocaInst>(ExpandedReturn->getOperand(0));
-      PointerType *PtrVecType =
-          PointerType::get(Clone->getReturnType(),
-                           Alloca->getType()->getAddressSpace());
-      BitCastInst *BitCast =
-        new BitCastInst(ExpandedReturn, PtrVecType,
-                        "vec." + ExpandedReturn->getName(),
-                        ReturnBlock);
-      Return = BitCast;
-  } else {
-      Return = ExpandedReturn;
-  }
+  // Operand 0 is the actual alloc reference in the bitcast.
+  AllocaInst *Alloca = cast<AllocaInst>(ExpandedReturn->getOperand(0));
+  PointerType *PtrVecType =
+      PointerType::get(Clone->getReturnType(),
+                       Alloca->getType()->getAddressSpace());
+  BitCastInst *BitCast =
+    new BitCastInst(ExpandedReturn, PtrVecType,
+                    "vec." + ExpandedReturn->getName(),
+                    ReturnBlock);
 
-  LoadInst *VecReturn = new LoadInst(Return, "vec.ret", ReturnBlock);
+  // Return can't be void here due to early exit at the top of this function.
+  // Return is expected to be a bitcast instruction because we always create
+  // a vector alloca for the return value and cast that to a scalar pointer.
+  // for use within the loop. I.e., this cast is used with the loop index to
+  // reference a specific vector element. At the point of the function return,
+  // the scalar cast is converted back to vector and we load from that to the
+  // return vector.
+  // TODO: this can actually be simplified further by just returning Alloca
+  // from above. There doesn't seem to be a good reason to do this extra
+  // casting. Leaving for now because this change is NFC.
+  PointerType *VecPtr = cast<PointerType>(BitCast->getDestTy());
+  Type *ReturnTy = VecPtr->getElementType();
+  LoadInst *VecReturn = new LoadInst(ReturnTy, BitCast, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
   LLVM_DEBUG(dbgs() << "After Return Block Update\n");
@@ -1436,14 +1441,21 @@ int VecCloneImpl::getParmIndexInFunction(Function *F, Value *Parm) {
 
 // Allocates space for each linear/uniform parameter.
 static void emitAllocaForParameter(
-    BasicBlock *EntryBlock, SmallVectorImpl<Value *> &ParamVars,
-    Value *ArgValue,
+    SmallVectorImpl<Value *> &ParamVars, Argument *Arg,
     SmallVectorImpl<std::pair<AllocaInst *, Value *>> &AllocaArgValueVector,
     IRBuilder<> &IRB) {
-  AllocaInst *Alloca = IRB.CreateAlloca(ArgValue->getType(), nullptr,
-                                        "alloca." + ArgValue->getName());
+  // No need to allocate another stack slot for an argument if there is already
+  // a dedicated storage for it on the stack.
+  if (Arg->hasByValAttr()) {
+    ParamVars.push_back(Arg);
+    AllocaArgValueVector.emplace_back(nullptr, Arg);
+    return;
+  }
+
+  AllocaInst *Alloca =
+      IRB.CreateAlloca(Arg->getType(), nullptr, "alloca." + Arg->getName());
   ParamVars.push_back(Alloca);
-  AllocaArgValueVector.push_back(std::make_pair(Alloca, ArgValue));
+  AllocaArgValueVector.push_back(std::make_pair(Alloca, Arg));
 }
 
 // Stores the parameter in the stack and loads it.
@@ -1516,8 +1528,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
     if (ParmKinds[ParmIdx].isLinear()) {
       // Allocate space for storing the linear parameters in the stack.
-      emitAllocaForParameter(EntryBlock, LinearVars, cast<Value>(ArgListIt),
-                             AllocaArgValueVector, Builder);
+      emitAllocaForParameter(LinearVars, &*ArgListIt, AllocaArgValueVector,
+                             Builder);
       Constant *Stride = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
                                           ParmKinds[ParmIdx].getStride());
       LinearVars.push_back(Stride);
@@ -1525,8 +1537,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
 
     if (ParmKinds[ParmIdx].isUniform()) {
       // Allocate space for storing the uniform parameters in the stack.
-      emitAllocaForParameter(EntryBlock, UniformVars, cast<Value>(ArgListIt),
-                             AllocaArgValueVector, Builder);
+      emitAllocaForParameter(UniformVars, &*ArgListIt, AllocaArgValueVector,
+                             Builder);
     }
   }
 
@@ -1540,7 +1552,8 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
     for (const auto &Pair : AllocaArgValueVector) {
       AllocaInst *Alloca = Pair.first;
       Value *ArgValue = Pair.second;
-      emitLoadStoreForParameter(Alloca, ArgValue, LoopPreHeader);
+      if (Alloca)
+        emitLoadStoreForParameter(Alloca, ArgValue, LoopPreHeader);
     }
   }
 
@@ -1649,7 +1662,8 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
       GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
                                 LoopBlock->getTerminator());
 
-  LoadInst *MaskLoad = new LoadInst(MaskGep, "mask.parm",
+  Type *LoadTy = MaskGep->getResultElementType();
+  LoadInst *MaskLoad = new LoadInst(LoadTy, MaskGep, "mask.parm",
                                     LoopBlock->getTerminator());
 
   Type *CompareTy = MaskLoad->getType();

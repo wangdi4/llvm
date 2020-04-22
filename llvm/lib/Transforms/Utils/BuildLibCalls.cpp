@@ -190,6 +190,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_strtoll:
   case LibFunc_strtold:
   case LibFunc_strtoull:
+  case LibFunc_under_strtoi64:              // INTEL
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
@@ -347,6 +348,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetDoesNotAlias(F);
     return Changed;
   case LibFunc_mkdir:
+  case LibFunc_under_mkdir:                   // INTEL
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
@@ -360,6 +362,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setRetDoesNotAlias(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  // NOTE: The libfunc read is an alias to _read in Windows (LibFunc_under_read)
+  case LibFunc_under_read:
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_read:
     // May throw; "read" is a valid pthread cancellation point.
     Changed |= setDoesNotCapture(F, 1);
@@ -392,6 +398,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     // May throw; "write" is a valid pthread cancellation point.
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 1);
+    return Changed;
+  case LibFunc_aligned_alloc:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setRetDoesNotAlias(F);
     return Changed;
   case LibFunc_bcopy:
     Changed |= setDoesNotThrow(F);
@@ -559,6 +569,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  case LibFunc_under_unlink:
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_unlink:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -723,12 +736,20 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_stat64:
   case LibFunc_lstat64:
   case LibFunc_statvfs64:
-  case LibFunc_under_stat64i32:   // INTEL
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  // stat and its other form can throw an exception handler in Windows
+  case LibFunc_under_stat64:
+  case LibFunc_under_stat64i32:
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 0);
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_dunder_isoc99_sscanf:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -925,6 +946,11 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_kmpc_global_thread_num:
     return Changed;
+  case LibFunc_kmpc_ok_to_fork:
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setOnlyReadsMemory(F, 0);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_kmpc_push_num_threads:
     return Changed;
   case LibFunc_kmpc_reduce_nowait:
@@ -970,7 +996,32 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_sysv_signal:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_under_Getctype:
+    return Changed;
+  case LibFunc_under_Getcvt:
+    return Changed;
+  // Get working directory in Windows can throw an exception
+  // compared to the Linux version (LibFunc_getcwd)
+  case LibFunc_under_getcwd:
+  case LibFunc_under_getdcwd:
+    return Changed;
+  case LibFunc_under_getdrive:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_Tolower:
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_Toupper:
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_chdir:
+    return Changed;
   case LibFunc_under_errno:
+    return Changed;
+  case LibFunc_under_fseeki64:
+    Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_under_fstat64i32:
     Changed |= setDoesNotThrow(F);
@@ -979,6 +1030,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_under_fileno:
+    return Changed;
+  case LibFunc_under_ftelli64:
+    Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_under_invalid_parameter_noinfo_noreturn:
     Changed |= setDoesNotReturn(F);
@@ -1165,6 +1219,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
     return Changed;
+  case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED1Ev:
+    return Changed;
   case LibFunc_ZNSt14basic_ifstreamIcSt11char_traitsIcEED2Ev:
     return Changed;
   case LibFunc_ZNSt14basic_ofstreamIcSt11char_traitsIcEEC1EPKcSt13_Ios_Openmode:
@@ -1215,6 +1271,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE14_M_replace_auxEmmmc:
     return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2EPKcRKS3_:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2ERKS4_mm:
+    return Changed;
   case LibFunc_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED2Ev:
     return Changed;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE6setbufEPcl:
@@ -1234,6 +1294,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEE9underflowEv:
     return Changed;
   case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEC2ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode:
+    return Changed;
+  case LibFunc_ZNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEED2Ev:
     return Changed;
   case LibFunc_ZNSt7__cxx1118basic_stringstreamIcSt11char_traitsIcESaIcEEC1ERKNS_12basic_stringIcS2_S3_EESt13_Ios_Openmode:
     return Changed;
@@ -1409,7 +1471,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getcwd:
-  case LibFunc_under_getcwd:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_getegid:
@@ -1428,6 +1489,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_under_getpid:
   case LibFunc_getpid:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
@@ -1519,6 +1581,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_iswspace:
     Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_isxdigit:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_j0:
@@ -1777,6 +1842,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_Sleep:
+  case LibFunc_under_sleep:
   case LibFunc_sleep:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1796,6 +1863,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F, 2);
     return Changed;
   case LibFunc_stdio_common_vsprintf:
+    Changed |= setDoesNotThrow(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setDoesNotCapture(F, 3);
+    Changed |= setOnlyReadsMemory(F, 3);
+    return Changed;
+  case LibFunc_dunder_stdio_common_vsprintf_s:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setDoesNotCapture(F, 3);
@@ -1827,6 +1900,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_time:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  // _ftime64 validates the parameters, it can throw
+  // an exception
+  case LibFunc_under_ftime64:
     return Changed;
   case LibFunc_under_time64:
     Changed |= setDoesNotThrow(F);
@@ -1909,14 +1986,14 @@ StringRef llvm::getFloatFnName(const TargetLibraryInfo *TLI, Type *Ty,
 
 //- Emit LibCalls ------------------------------------------------------------//
 
-Value *llvm::castToCStr(Value *V, IRBuilder<> &B) {
+Value *llvm::castToCStr(Value *V, IRBuilderBase &B) {
   unsigned AS = V->getType()->getPointerAddressSpace();
   return B.CreateBitCast(V, B.getInt8PtrTy(AS), "cstr");
 }
 
 static Value *emitLibCall(LibFunc TheLibFunc, Type *ReturnType,
                           ArrayRef<Type *> ParamTypes,
-                          ArrayRef<Value *> Operands, IRBuilder<> &B,
+                          ArrayRef<Value *> Operands, IRBuilderBase &B,
                           const TargetLibraryInfo *TLI,
                           bool IsVaArgs = false) {
   if (!TLI->has(TheLibFunc))
@@ -1934,20 +2011,20 @@ static Value *emitLibCall(LibFunc TheLibFunc, Type *ReturnType,
   return CI;
 }
 
-Value *llvm::emitStrLen(Value *Ptr, IRBuilder<> &B, const DataLayout &DL,
+Value *llvm::emitStrLen(Value *Ptr, IRBuilderBase &B, const DataLayout &DL,
                         const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(LibFunc_strlen, DL.getIntPtrType(Context),
                      B.getInt8PtrTy(), castToCStr(Ptr, B), B, TLI);
 }
 
-Value *llvm::emitStrDup(Value *Ptr, IRBuilder<> &B,
+Value *llvm::emitStrDup(Value *Ptr, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strdup, B.getInt8PtrTy(), B.getInt8PtrTy(),
                      castToCStr(Ptr, B), B, TLI);
 }
 
-Value *llvm::emitStrChr(Value *Ptr, char C, IRBuilder<> &B,
+Value *llvm::emitStrChr(Value *Ptr, char C, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   Type *I32Ty = B.getInt32Ty();
@@ -1955,7 +2032,7 @@ Value *llvm::emitStrChr(Value *Ptr, char C, IRBuilder<> &B,
                      {castToCStr(Ptr, B), ConstantInt::get(I32Ty, C)}, B, TLI);
 }
 
-Value *llvm::emitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
+Value *llvm::emitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                          const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -1964,28 +2041,28 @@ Value *llvm::emitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
       {castToCStr(Ptr1, B), castToCStr(Ptr2, B), Len}, B, TLI);
 }
 
-Value *llvm::emitStrCpy(Value *Dst, Value *Src, IRBuilder<> &B,
+Value *llvm::emitStrCpy(Value *Dst, Value *Src, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_strcpy, I8Ptr, {I8Ptr, I8Ptr},
                      {castToCStr(Dst, B), castToCStr(Src, B)}, B, TLI);
 }
 
-Value *llvm::emitStpCpy(Value *Dst, Value *Src, IRBuilder<> &B,
+Value *llvm::emitStpCpy(Value *Dst, Value *Src, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_stpcpy, I8Ptr, {I8Ptr, I8Ptr},
                      {castToCStr(Dst, B), castToCStr(Src, B)}, B, TLI);
 }
 
-Value *llvm::emitStrNCpy(Value *Dst, Value *Src, Value *Len, IRBuilder<> &B,
+Value *llvm::emitStrNCpy(Value *Dst, Value *Src, Value *Len, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_strncpy, I8Ptr, {I8Ptr, I8Ptr, Len->getType()},
                      {castToCStr(Dst, B), castToCStr(Src, B), Len}, B, TLI);
 }
 
-Value *llvm::emitStpNCpy(Value *Dst, Value *Src, Value *Len, IRBuilder<> &B,
+Value *llvm::emitStpNCpy(Value *Dst, Value *Src, Value *Len, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   Type *I8Ptr = B.getInt8PtrTy();
   return emitLibCall(LibFunc_stpncpy, I8Ptr, {I8Ptr, I8Ptr, Len->getType()},
@@ -1993,7 +2070,7 @@ Value *llvm::emitStpNCpy(Value *Dst, Value *Src, Value *Len, IRBuilder<> &B,
 }
 
 Value *llvm::emitMemCpyChk(Value *Dst, Value *Src, Value *Len, Value *ObjSize,
-                           IRBuilder<> &B, const DataLayout &DL,
+                           IRBuilderBase &B, const DataLayout &DL,
                            const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_memcpy_chk))
     return nullptr;
@@ -2016,7 +2093,7 @@ Value *llvm::emitMemCpyChk(Value *Dst, Value *Src, Value *Len, Value *ObjSize,
   return CI;
 }
 
-Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilder<> &B,
+Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -2025,7 +2102,7 @@ Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilder<> &B,
       {castToCStr(Ptr, B), Val, Len}, B, TLI);
 }
 
-Value *llvm::emitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
+Value *llvm::emitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -2034,7 +2111,7 @@ Value *llvm::emitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
       {castToCStr(Ptr1, B), castToCStr(Ptr2, B), Len}, B, TLI);
 }
 
-Value *llvm::emitBCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
+Value *llvm::emitBCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                       const DataLayout &DL, const TargetLibraryInfo *TLI) {
   LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(
@@ -2044,7 +2121,7 @@ Value *llvm::emitBCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilder<> &B,
 }
 
 Value *llvm::emitMemCCpy(Value *Ptr1, Value *Ptr2, Value *Val, Value *Len,
-                         IRBuilder<> &B, const TargetLibraryInfo *TLI) {
+                         IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   return emitLibCall(
       LibFunc_memccpy, B.getInt8PtrTy(),
       {B.getInt8PtrTy(), B.getInt8PtrTy(), B.getInt32Ty(), Len->getType()},
@@ -2052,7 +2129,7 @@ Value *llvm::emitMemCCpy(Value *Ptr1, Value *Ptr2, Value *Val, Value *Len,
 }
 
 Value *llvm::emitSNPrintf(Value *Dest, Value *Size, Value *Fmt,
-                          ArrayRef<Value *> VariadicArgs, IRBuilder<> &B,
+                          ArrayRef<Value *> VariadicArgs, IRBuilderBase &B,
                           const TargetLibraryInfo *TLI) {
   SmallVector<Value *, 8> Args{castToCStr(Dest, B), Size, castToCStr(Fmt, B)};
   Args.insert(Args.end(), VariadicArgs.begin(), VariadicArgs.end());
@@ -2062,7 +2139,7 @@ Value *llvm::emitSNPrintf(Value *Dest, Value *Size, Value *Fmt,
 }
 
 Value *llvm::emitSPrintf(Value *Dest, Value *Fmt,
-                         ArrayRef<Value *> VariadicArgs, IRBuilder<> &B,
+                         ArrayRef<Value *> VariadicArgs, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   SmallVector<Value *, 8> Args{castToCStr(Dest, B), castToCStr(Fmt, B)};
   Args.insert(Args.end(), VariadicArgs.begin(), VariadicArgs.end());
@@ -2071,28 +2148,28 @@ Value *llvm::emitSPrintf(Value *Dest, Value *Fmt,
                      /*IsVaArgs=*/true);
 }
 
-Value *llvm::emitStrCat(Value *Dest, Value *Src, IRBuilder<> &B,
+Value *llvm::emitStrCat(Value *Dest, Value *Src, IRBuilderBase &B,
                         const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strcat, B.getInt8PtrTy(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy()},
                      {castToCStr(Dest, B), castToCStr(Src, B)}, B, TLI);
 }
 
-Value *llvm::emitStrLCpy(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
+Value *llvm::emitStrLCpy(Value *Dest, Value *Src, Value *Size, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strlcpy, Size->getType(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), Size->getType()},
                      {castToCStr(Dest, B), castToCStr(Src, B), Size}, B, TLI);
 }
 
-Value *llvm::emitStrLCat(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
+Value *llvm::emitStrLCat(Value *Dest, Value *Src, Value *Size, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strlcat, Size->getType(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), Size->getType()},
                      {castToCStr(Dest, B), castToCStr(Src, B), Size}, B, TLI);
 }
 
-Value *llvm::emitStrNCat(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
+Value *llvm::emitStrNCat(Value *Dest, Value *Src, Value *Size, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_strncat, B.getInt8PtrTy(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), Size->getType()},
@@ -2100,7 +2177,7 @@ Value *llvm::emitStrNCat(Value *Dest, Value *Src, Value *Size, IRBuilder<> &B,
 }
 
 Value *llvm::emitVSNPrintf(Value *Dest, Value *Size, Value *Fmt, Value *VAList,
-                           IRBuilder<> &B, const TargetLibraryInfo *TLI) {
+                           IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   return emitLibCall(
       LibFunc_vsnprintf, B.getInt32Ty(),
       {B.getInt8PtrTy(), Size->getType(), B.getInt8PtrTy(), VAList->getType()},
@@ -2108,7 +2185,7 @@ Value *llvm::emitVSNPrintf(Value *Dest, Value *Size, Value *Fmt, Value *VAList,
 }
 
 Value *llvm::emitVSPrintf(Value *Dest, Value *Fmt, Value *VAList,
-                          IRBuilder<> &B, const TargetLibraryInfo *TLI) {
+                          IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   return emitLibCall(LibFunc_vsprintf, B.getInt32Ty(),
                      {B.getInt8PtrTy(), B.getInt8PtrTy(), VAList->getType()},
                      {castToCStr(Dest, B), castToCStr(Fmt, B), VAList}, B, TLI);
@@ -2130,7 +2207,7 @@ static void appendTypeSuffix(Value *Op, StringRef &Name,
 }
 
 static Value *emitUnaryFloatFnCallHelper(Value *Op, StringRef Name,
-                                         IRBuilder<> &B,
+                                         IRBuilderBase &B,
                                          const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitUnaryFloatFnCall");
 
@@ -2152,7 +2229,7 @@ static Value *emitUnaryFloatFnCallHelper(Value *Op, StringRef Name,
   return CI;
 }
 
-Value *llvm::emitUnaryFloatFnCall(Value *Op, StringRef Name, IRBuilder<> &B,
+Value *llvm::emitUnaryFloatFnCall(Value *Op, StringRef Name, IRBuilderBase &B,
                                   const AttributeList &Attrs) {
   SmallString<20> NameBuffer;
   appendTypeSuffix(Op, Name, NameBuffer);
@@ -2162,7 +2239,7 @@ Value *llvm::emitUnaryFloatFnCall(Value *Op, StringRef Name, IRBuilder<> &B,
 
 Value *llvm::emitUnaryFloatFnCall(Value *Op, const TargetLibraryInfo *TLI,
                                   LibFunc DoubleFn, LibFunc FloatFn,
-                                  LibFunc LongDoubleFn, IRBuilder<> &B,
+                                  LibFunc LongDoubleFn, IRBuilderBase &B,
                                   const AttributeList &Attrs) {
   // Get the name of the function according to TLI.
   StringRef Name = getFloatFnName(TLI, Op->getType(),
@@ -2172,7 +2249,7 @@ Value *llvm::emitUnaryFloatFnCall(Value *Op, const TargetLibraryInfo *TLI,
 }
 
 static Value *emitBinaryFloatFnCallHelper(Value *Op1, Value *Op2,
-                                          StringRef Name, IRBuilder<> &B,
+                                          StringRef Name, IRBuilderBase &B,
                                           const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitBinaryFloatFnCall");
 
@@ -2195,7 +2272,8 @@ static Value *emitBinaryFloatFnCallHelper(Value *Op1, Value *Op2,
 }
 
 Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2, StringRef Name,
-                                   IRBuilder<> &B, const AttributeList &Attrs) {
+                                   IRBuilderBase &B,
+                                   const AttributeList &Attrs) {
   assert((Name != "") && "Must specify Name to emitBinaryFloatFnCall");
 
   SmallString<20> NameBuffer;
@@ -2207,7 +2285,7 @@ Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2, StringRef Name,
 Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2,
                                    const TargetLibraryInfo *TLI,
                                    LibFunc DoubleFn, LibFunc FloatFn,
-                                   LibFunc LongDoubleFn, IRBuilder<> &B,
+                                   LibFunc LongDoubleFn, IRBuilderBase &B,
                                    const AttributeList &Attrs) {
   // Get the name of the function according to TLI.
   StringRef Name = getFloatFnName(TLI, Op1->getType(),
@@ -2216,7 +2294,7 @@ Value *llvm::emitBinaryFloatFnCall(Value *Op1, Value *Op2,
   return emitBinaryFloatFnCallHelper(Op1, Op2, Name, B, Attrs);
 }
 
-Value *llvm::emitPutChar(Value *Char, IRBuilder<> &B,
+Value *llvm::emitPutChar(Value *Char, IRBuilderBase &B,
                          const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_putchar))
     return nullptr;
@@ -2239,7 +2317,7 @@ Value *llvm::emitPutChar(Value *Char, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitPutS(Value *Str, IRBuilder<> &B,
+Value *llvm::emitPutS(Value *Str, IRBuilderBase &B,
                       const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_puts))
     return nullptr;
@@ -2256,7 +2334,7 @@ Value *llvm::emitPutS(Value *Str, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilder<> &B,
+Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilderBase &B,
                        const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fputc))
     return nullptr;
@@ -2277,27 +2355,7 @@ Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFPutCUnlocked(Value *Char, Value *File, IRBuilder<> &B,
-                               const TargetLibraryInfo *TLI) {
-  if (!TLI->has(LibFunc_fputc_unlocked))
-    return nullptr;
-
-  Module *M = B.GetInsertBlock()->getModule();
-  StringRef FPutcUnlockedName = TLI->getName(LibFunc_fputc_unlocked);
-  FunctionCallee F = M->getOrInsertFunction(FPutcUnlockedName, B.getInt32Ty(),
-                                            B.getInt32Ty(), File->getType());
-  if (File->getType()->isPointerTy())
-    inferLibFuncAttributes(M, FPutcUnlockedName, *TLI);
-  Char = B.CreateIntCast(Char, B.getInt32Ty(), /*isSigned*/ true, "chari");
-  CallInst *CI = B.CreateCall(F, {Char, File}, FPutcUnlockedName);
-
-  if (const Function *Fn =
-          dyn_cast<Function>(F.getCallee()->stripPointerCasts()))
-    CI->setCallingConv(Fn->getCallingConv());
-  return CI;
-}
-
-Value *llvm::emitFPutS(Value *Str, Value *File, IRBuilder<> &B,
+Value *llvm::emitFPutS(Value *Str, Value *File, IRBuilderBase &B,
                        const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fputs))
     return nullptr;
@@ -2316,26 +2374,7 @@ Value *llvm::emitFPutS(Value *Str, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitFPutSUnlocked(Value *Str, Value *File, IRBuilder<> &B,
-                               const TargetLibraryInfo *TLI) {
-  if (!TLI->has(LibFunc_fputs_unlocked))
-    return nullptr;
-
-  Module *M = B.GetInsertBlock()->getModule();
-  StringRef FPutsUnlockedName = TLI->getName(LibFunc_fputs_unlocked);
-  FunctionCallee F = M->getOrInsertFunction(FPutsUnlockedName, B.getInt32Ty(),
-                                            B.getInt8PtrTy(), File->getType());
-  if (File->getType()->isPointerTy())
-    inferLibFuncAttributes(M, FPutsUnlockedName, *TLI);
-  CallInst *CI = B.CreateCall(F, {castToCStr(Str, B), File}, FPutsUnlockedName);
-
-  if (const Function *Fn =
-          dyn_cast<Function>(F.getCallee()->stripPointerCasts()))
-    CI->setCallingConv(Fn->getCallingConv());
-  return CI;
-}
-
-Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilder<> &B,
+Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_fwrite))
     return nullptr;
@@ -2359,7 +2398,7 @@ Value *llvm::emitFWrite(Value *Ptr, Value *Size, Value *File, IRBuilder<> &B,
   return CI;
 }
 
-Value *llvm::emitMalloc(Value *Num, IRBuilder<> &B, const DataLayout &DL,
+Value *llvm::emitMalloc(Value *Num, IRBuilderBase &B, const DataLayout &DL,
                         const TargetLibraryInfo *TLI) {
   if (!TLI->has(LibFunc_malloc))
     return nullptr;
@@ -2380,7 +2419,7 @@ Value *llvm::emitMalloc(Value *Num, IRBuilder<> &B, const DataLayout &DL,
 }
 
 Value *llvm::emitCalloc(Value *Num, Value *Size, const AttributeList &Attrs,
-                        IRBuilder<> &B, const TargetLibraryInfo &TLI) {
+                        IRBuilderBase &B, const TargetLibraryInfo &TLI) {
   if (!TLI.has(LibFunc_calloc))
     return nullptr;
 
@@ -2397,90 +2436,5 @@ Value *llvm::emitCalloc(Value *Num, Value *Size, const AttributeList &Attrs,
           dyn_cast<Function>(Calloc.getCallee()->stripPointerCasts()))
     CI->setCallingConv(F->getCallingConv());
 
-  return CI;
-}
-
-Value *llvm::emitFWriteUnlocked(Value *Ptr, Value *Size, Value *N, Value *File,
-                                IRBuilder<> &B, const DataLayout &DL,
-                                const TargetLibraryInfo *TLI) {
-  if (!TLI->has(LibFunc_fwrite_unlocked))
-    return nullptr;
-
-  Module *M = B.GetInsertBlock()->getModule();
-  LLVMContext &Context = B.GetInsertBlock()->getContext();
-  StringRef FWriteUnlockedName = TLI->getName(LibFunc_fwrite_unlocked);
-  FunctionCallee F = M->getOrInsertFunction(
-      FWriteUnlockedName, DL.getIntPtrType(Context), B.getInt8PtrTy(),
-      DL.getIntPtrType(Context), DL.getIntPtrType(Context), File->getType());
-
-  if (File->getType()->isPointerTy())
-    inferLibFuncAttributes(M, FWriteUnlockedName, *TLI);
-  CallInst *CI = B.CreateCall(F, {castToCStr(Ptr, B), Size, N, File});
-
-  if (const Function *Fn =
-          dyn_cast<Function>(F.getCallee()->stripPointerCasts()))
-    CI->setCallingConv(Fn->getCallingConv());
-  return CI;
-}
-
-Value *llvm::emitFGetCUnlocked(Value *File, IRBuilder<> &B,
-                               const TargetLibraryInfo *TLI) {
-  if (!TLI->has(LibFunc_fgetc_unlocked))
-    return nullptr;
-
-  Module *M = B.GetInsertBlock()->getModule();
-  StringRef FGetCUnlockedName = TLI->getName(LibFunc_fgetc_unlocked);
-  FunctionCallee F = M->getOrInsertFunction(FGetCUnlockedName, B.getInt32Ty(),
-                                            File->getType());
-  if (File->getType()->isPointerTy())
-    inferLibFuncAttributes(M, FGetCUnlockedName, *TLI);
-  CallInst *CI = B.CreateCall(F, File, FGetCUnlockedName);
-
-  if (const Function *Fn =
-          dyn_cast<Function>(F.getCallee()->stripPointerCasts()))
-    CI->setCallingConv(Fn->getCallingConv());
-  return CI;
-}
-
-Value *llvm::emitFGetSUnlocked(Value *Str, Value *Size, Value *File,
-                               IRBuilder<> &B, const TargetLibraryInfo *TLI) {
-  if (!TLI->has(LibFunc_fgets_unlocked))
-    return nullptr;
-
-  Module *M = B.GetInsertBlock()->getModule();
-  StringRef FGetSUnlockedName = TLI->getName(LibFunc_fgets_unlocked);
-  FunctionCallee F =
-      M->getOrInsertFunction(FGetSUnlockedName, B.getInt8PtrTy(),
-                             B.getInt8PtrTy(), B.getInt32Ty(), File->getType());
-  inferLibFuncAttributes(M, FGetSUnlockedName, *TLI);
-  CallInst *CI =
-      B.CreateCall(F, {castToCStr(Str, B), Size, File}, FGetSUnlockedName);
-
-  if (const Function *Fn =
-          dyn_cast<Function>(F.getCallee()->stripPointerCasts()))
-    CI->setCallingConv(Fn->getCallingConv());
-  return CI;
-}
-
-Value *llvm::emitFReadUnlocked(Value *Ptr, Value *Size, Value *N, Value *File,
-                               IRBuilder<> &B, const DataLayout &DL,
-                               const TargetLibraryInfo *TLI) {
-  if (!TLI->has(LibFunc_fread_unlocked))
-    return nullptr;
-
-  Module *M = B.GetInsertBlock()->getModule();
-  LLVMContext &Context = B.GetInsertBlock()->getContext();
-  StringRef FReadUnlockedName = TLI->getName(LibFunc_fread_unlocked);
-  FunctionCallee F = M->getOrInsertFunction(
-      FReadUnlockedName, DL.getIntPtrType(Context), B.getInt8PtrTy(),
-      DL.getIntPtrType(Context), DL.getIntPtrType(Context), File->getType());
-
-  if (File->getType()->isPointerTy())
-    inferLibFuncAttributes(M, FReadUnlockedName, *TLI);
-  CallInst *CI = B.CreateCall(F, {castToCStr(Ptr, B), Size, N, File});
-
-  if (const Function *Fn =
-          dyn_cast<Function>(F.getCallee()->stripPointerCasts()))
-    CI->setCallingConv(Fn->getCallingConv());
   return CI;
 }

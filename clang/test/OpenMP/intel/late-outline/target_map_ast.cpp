@@ -11,8 +11,6 @@ public:
   double* woo;
 };
 // CHECK: start 'void ()'
-// CHECK: `-DeclRefExpr {{.*}} 'double *' lvalue OMPCapturedExpr {{.*}} 'zoo' 'double *&'
-// CHECK: `-DeclRefExpr {{.*}} 'double *' lvalue OMPCapturedExpr {{.*}} 'xoo' 'double *&'
 // CHECK-NOT: `-DeclRefExpr {{.*}} 'double *' lvalue OMPCapturedExpr {{.*}} 'woo' 'double *&'
 void B::start()
 {

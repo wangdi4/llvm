@@ -76,13 +76,19 @@ X86RegisterInfo::X86RegisterInfo(const Triple &TT)
     BasePtr = X86::ESI;
   }
 }
+#if INTEL_CUSTOMIZATION
+unsigned
+X86RegisterInfo::getCSRFirstUseCost(const MachineFunction &MF) const {
+  const TargetOptions &Options = MF.getTarget().Options;
+  const X86Subtarget *ST = &MF.getSubtarget<X86Subtarget>();
+  if (!Options.IntelAdvancedOptim)
+    return 0;
+  if (!ST->isTarget64BitLP64())
+    return 0;
 
-bool
-X86RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
-  // ExecutionDomainFix, BreakFalseDeps and PostRAScheduler require liveness.
-  return true;
+  return 1 << 14;
 }
-
+#endif // INTEL_CUSTOMIZATION
 int
 X86RegisterInfo::getSEHRegNum(unsigned i) const {
   return getEncodingValue(i);
@@ -318,19 +324,24 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
       return MF->getInfo<X86MachineFunctionInfo>()->isSplitCSR() ?
              CSR_64_CXX_TLS_Darwin_PE_SaveList : CSR_64_TLS_Darwin_SaveList;
     break;
-  case CallingConv::Intel_OCL_BI: {
+#if INTEL_CUSTOMIZATION
+  case CallingConv::Intel_OCL_BI_AVX512:
     if (HasAVX512 && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX512_SaveList;
     if (HasAVX512 && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX512_SaveList;
+    break;
+  case CallingConv::Intel_OCL_BI_AVX:
     if (HasAVX && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX_SaveList;
     if (HasAVX && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX_SaveList;
-    if (!HasAVX && !IsWin64 && Is64Bit)
+    break;
+  case CallingConv::Intel_OCL_BI:
+    if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_SaveList;
     break;
-  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_SaveList;
 #if INTEL_CUSTOMIZATION
@@ -446,19 +457,24 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     if (Is64Bit)
       return CSR_64_TLS_Darwin_RegMask;
     break;
-  case CallingConv::Intel_OCL_BI: {
+#if INTEL_CUSTOMIZATION
+  case CallingConv::Intel_OCL_BI_AVX512:
     if (HasAVX512 && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX512_RegMask;
     if (HasAVX512 && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX512_RegMask;
+    break;
+  case CallingConv::Intel_OCL_BI_AVX:
     if (HasAVX && IsWin64)
       return CSR_Win64_Intel_OCL_BI_AVX_RegMask;
     if (HasAVX && Is64Bit)
       return CSR_64_Intel_OCL_BI_AVX_RegMask;
-    if (!HasAVX && !IsWin64 && Is64Bit)
+    break;
+  case CallingConv::Intel_OCL_BI:
+    if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_RegMask;
     break;
-  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_RegMask;
 #if INTEL_CUSTOMIZATION
@@ -467,9 +483,17 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
       return CSR_32_SVML_RegMask;
     if (IsWin64)
       return CSR_Win64_SVML_RegMask;
-    if (HasAVX512)
+    // Only use the AVX512 CSR list if there's a chance we're using ZMM
+    // registers. Otherwise we can assume we're using the older SSE/AVX SVML
+    // functions that preserve XMM/YMM 8-15.
+    // FIXME: This should be based off which function we're really calling.
+    // Perhaps by splitting the calling convention.
+    if (Subtarget.useAVX512Regs())
       return CSR_Lin64_SVML_AVX512_RegMask;
     return CSR_Lin64_SVML_RegMask;
+  case CallingConv::X86_AVX2_C:
+    assert(Is64Bit);
+    return CSR_64_AVX2_RegMask;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::X86_RegCall:
     if (Is64Bit) {
@@ -555,23 +579,20 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(X86::MXCSR);
 
   // Set the stack-pointer register and its aliases as reserved.
-  for (MCSubRegIterator I(X86::RSP, this, /*IncludeSelf=*/true); I.isValid();
-       ++I)
-    Reserved.set(*I);
+  for (const MCPhysReg &SubReg : subregs_inclusive(X86::RSP))
+    Reserved.set(SubReg);
 
   // Set the Shadow Stack Pointer as reserved.
   Reserved.set(X86::SSP);
 
   // Set the instruction pointer register and its aliases as reserved.
-  for (MCSubRegIterator I(X86::RIP, this, /*IncludeSelf=*/true); I.isValid();
-       ++I)
-    Reserved.set(*I);
+  for (const MCPhysReg &SubReg : subregs_inclusive(X86::RIP))
+    Reserved.set(SubReg);
 
   // Set the frame-pointer register and its aliases as reserved if needed.
   if (TFI->hasFP(MF)) {
-    for (MCSubRegIterator I(X86::RBP, this, /*IncludeSelf=*/true); I.isValid();
-         ++I)
-      Reserved.set(*I);
+    for (const MCPhysReg &SubReg : subregs_inclusive(X86::RBP))
+      Reserved.set(SubReg);
   }
 
   // Set the base-pointer register and its aliases as reserved if needed.
@@ -584,9 +605,8 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
         "this calling convention.");
 
     Register BasePtr = getX86SubSuperRegister(getBaseRegister(), 64);
-    for (MCSubRegIterator I(BasePtr, this, /*IncludeSelf=*/true);
-         I.isValid(); ++I)
-      Reserved.set(*I);
+    for (const MCPhysReg &SubReg : subregs_inclusive(BasePtr))
+      Reserved.set(SubReg);
   }
 
   // Mark the segment registers as reserved.

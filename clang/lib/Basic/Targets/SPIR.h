@@ -38,6 +38,9 @@ static const unsigned SPIRAddrSpaceMap[] = {
     2, // sycl_constant
     0, // sycl_private
     4, // sycl_generic
+    0, // ptr32_sptr
+    0, // ptr32_uptr
+    0  // ptr64
 };
 
 static const unsigned SYCLAddrSpaceMap[] = {
@@ -55,6 +58,9 @@ static const unsigned SYCLAddrSpaceMap[] = {
     2, // sycl_constant
     0, // sycl_private
     4, // sycl_generic
+    0, // ptr32_sptr
+    0, // ptr32_uptr
+    0  // ptr64
 };
 
 #if INTEL_COLLAB
@@ -73,6 +79,9 @@ static const unsigned SPIRAddrSpaceDefIsGenMap[] = {
     2, // sycl_constant
     0, // sycl_private
     4, // sycl_generic
+    0, // ptr32_sptr
+    0, // ptr32_uptr
+    0  // ptr64
 };
 #endif // INTEL_COLLAB
 
@@ -93,8 +102,7 @@ public:
     TLSSupported = false;
     VLASupported = false;
     LongWidth = LongAlign = 64;
-    if (Triple.getEnvironment() == llvm::Triple::SYCLDevice &&
-        !getenv("DISABLE_INFER_AS")) {
+    if (Triple.getEnvironment() == llvm::Triple::SYCLDevice) {
       AddrSpaceMap = &SYCLAddrSpaceMap;
     } else {
       AddrSpaceMap = &SPIRAddrSpaceMap;
@@ -259,6 +267,40 @@ public:
   ArrayRef<Builtin::Info> getTargetBuiltins() const override;
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+};
+
+// x86-64 SPIR64 Intelfpga Windows target
+class LLVM_LIBRARY_VISIBILITY WindowsX86_64_SPIR64INTELFpgaTargetInfo
+    : public WindowsTargetInfo<SPIR64INTELFpgaTargetInfo> {
+public:
+  WindowsX86_64_SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                                          const TargetOptions &Opts)
+      : WindowsTargetInfo<SPIR64INTELFpgaTargetInfo>(Triple, Opts) {
+    LongWidth = LongAlign = 32;
+    SizeType = UnsignedLongLong;
+    WCharType = SignedInt; // To match cllib's rule: wchar_size = 4 in SPIR
+  }
+
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::CharPtrBuiltinVaList;
+  }
+
+  CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
+    if (CC == CC_X86VectorCall)
+      // Permit CC_X86VectorCall which is used in Microsoft headers
+      return CCCR_OK;
+    return (CC == CC_SpirFunction || CC == CC_OpenCLKernel) ? CCCR_OK
+                                                            : CCCR_Warning;
+  }
+};
+
+// x86-64 SPIR64 Intelfpga Windows Visual Studio target
+class LLVM_LIBRARY_VISIBILITY MicrosoftX86_64_SPIR64INTELFpgaTargetInfo
+    : public WindowsX86_64_SPIR64INTELFpgaTargetInfo {
+public:
+  MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                                            const TargetOptions &Opts)
+      : WindowsX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts) {}
 };
 #endif // INTEL_CUSTOMIZATION
 

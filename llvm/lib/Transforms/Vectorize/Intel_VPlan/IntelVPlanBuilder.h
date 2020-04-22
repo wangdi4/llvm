@@ -9,8 +9,7 @@
 ///
 /// \file
 /// This file provides a VPlan-based builder utility analogous to IRBuilder.
-/// It provides an instruction-level API for generating VPInstructions while
-/// abstracting away the Recipe manipulation details.
+/// It provides an instruction-level API for generating VPInstructions.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANBUILDER_H
@@ -34,6 +33,11 @@ private:
   VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
                                    ArrayRef<VPValue *> Operands,
                                    const Twine &Name = "") {
+    assert((!Instruction::isBinaryOp(Opcode) || Operands.size() == 2) &&
+           "Expected 2 operands");
+    assert((!Instruction::isUnaryOp(Opcode) || Operands.size() == 1) &&
+           "Expected 1 operand");
+
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     if (BB)
       BB->insert(Instr, InsertPt);
@@ -58,7 +62,7 @@ private:
 public:
   VPBuilder() {}
 #if INTEL_CUSTOMIZATION
-  /// \brief Clear the insertion point: created instructions will not be
+  /// Clear the insertion point: created instructions will not be
   /// inserted into a block.
   void clearInsertionPoint() {
     BB = nullptr;
@@ -68,7 +72,7 @@ public:
   VPBasicBlock *getInsertBlock() const { return BB; }
   VPBasicBlock::iterator getInsertPoint() const { return InsertPt; }
 
-  /// \brief Insert and return the specified instruction.
+  /// Insert and return the specified instruction.
   VPInstruction *insert(VPInstruction *I) const {
     BB->insert(I, InsertPt);
     return I;
@@ -80,21 +84,21 @@ public:
     VPBasicBlock::iterator Point;
 
   public:
-    /// \brief Creates a new insertion point which doesn't point to anything.
+    /// Creates a new insertion point which doesn't point to anything.
     VPInsertPoint() = default;
 
-    /// \brief Creates a new insertion point at the given location.
+    /// Creates a new insertion point at the given location.
     VPInsertPoint(VPBasicBlock *InsertBlock, VPBasicBlock::iterator InsertPoint)
         : Block(InsertBlock), Point(InsertPoint) {}
 
-    /// \brief Returns true if this insert point is set.
+    /// Returns true if this insert point is set.
     bool isSet() const { return (Block != nullptr); }
 
     VPBasicBlock *getBlock() const { return Block; }
     VPBasicBlock::iterator getPoint() const { return Point; }
   };
 
-  /// \brief Sets the current insert point to a previously-saved location.
+  /// Sets the current insert point to a previously-saved location.
   void restoreIP(VPInsertPoint IP) {
     if (IP.isSet())
       setInsertPoint(IP.getBlock(), IP.getPoint());
@@ -111,14 +115,14 @@ public:
     InsertPt = BB->end();
   }
 #if INTEL_CUSTOMIZATION
-  /// \brief This specifies that created instructions should be inserted
+  /// This specifies that created instructions should be inserted
   /// before the specified instruction.
   void setInsertPoint(VPInstruction *I) {
     BB = I->getParent();
     InsertPt = I->getIterator();
   }
 
-  /// \brief This specifies that created instructions should be inserted at the
+  /// This specifies that created instructions should be inserted at the
   /// specified point.
   void setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
     BB = TheBB;
@@ -129,6 +133,14 @@ public:
     BB = TheBB;
     VPBasicBlock::iterator IP = TheBB->begin();
     while (IP != TheBB->end() && isa<VPPHINode>(*IP))
+      ++IP;
+    InsertPt = IP;
+  }
+
+  void setInsertPointAfterBlends(VPBasicBlock *TheBB) {
+    BB = TheBB;
+    VPBasicBlock::iterator IP = TheBB->begin();
+    while (IP != TheBB->end() && (isa<VPPHINode>(*IP) || isa<VPBlendInst>(*IP)))
       ++IP;
     InsertPt = IP;
   }
@@ -213,7 +225,7 @@ public:
     return VPCI;
   }
 
-  /// \brief Create VPCmpInst with its two operands.
+  /// Create VPCmpInst with its two operands.
   VPCmpInst *createCmpInst(CmpInst::Predicate Pred, VPValue *LeftOp,
                            VPValue *RightOp, const Twine &Name = "") {
     assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
@@ -274,27 +286,84 @@ public:
     return NewVPInst;
   }
 
+  // Build a single-dimensional VPSubscriptInst to represent a subscript
+  // intrinsic call.
+  VPSubscriptInst *createSubscriptInst(unsigned Rank, VPValue *Lower,
+                                       VPValue *Stride, VPValue *Base,
+                                       VPValue *Index,
+                                       Instruction *Inst = nullptr,
+                                       const Twine &Name = "subscript") {
+    VPSubscriptInst *NewSubscript =
+        new VPSubscriptInst(Rank, Lower, Stride, Base, Index);
+    NewSubscript->setName(Name);
+    if (BB)
+      BB->insert(NewSubscript, InsertPt);
+    if (Inst)
+      NewSubscript->setUnderlyingValue(*Inst);
+    return NewSubscript;
+  }
+
+  // Build a multi-dimensional VPSubscriptInst to represent a combined
+  // multi-dimensional array access implemented using subscript intrinsic calls.
+  // TODO: Such an access would usually have multiple underlying instructions,
+  // how to map the VPValue to multiple Values?
+  VPSubscriptInst *createSubscriptInst(unsigned NumDims,
+                                       ArrayRef<VPValue *> Lowers,
+                                       ArrayRef<VPValue *> Strides,
+                                       VPValue *Base,
+                                       ArrayRef<VPValue *> Indices,
+                                       const Twine &Name = "subscript") {
+    VPSubscriptInst *NewSubscript =
+        new VPSubscriptInst(NumDims, Lowers, Strides, Base, Indices);
+    NewSubscript->setName(Name);
+    if (BB)
+      BB->insert(NewSubscript, InsertPt);
+    return NewSubscript;
+  }
+
+  // Build a multi-dimensional VPSubscriptInst to represent a combined
+  // multi-dimensional array access implemented using subscript intrinsic calls
+  // when each dimension has associated struct offsets.
+  VPSubscriptInst *
+  createSubscriptInst(unsigned NumDims, ArrayRef<VPValue *> Lowers,
+                      ArrayRef<VPValue *> Strides, VPValue *Base,
+                      ArrayRef<VPValue *> Indices,
+                      VPSubscriptInst::DimStructOffsetsMapTy StructOffsets,
+                      const Twine &Name = "subscript") {
+    VPSubscriptInst *NewSubscript = new VPSubscriptInst(
+        NumDims, Lowers, Strides, Base, Indices, StructOffsets);
+    NewSubscript->setName(Name);
+    if (BB)
+      BB->insert(NewSubscript, InsertPt);
+    return NewSubscript;
+  }
+
   // Reduction init/final
-  VPInstruction *createReductionInit(VPValue *Identity,
-                                     VPValue *Start = nullptr) {
+  VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
+                                     const Twine &Name = "") {
     VPInstruction *NewVPInst = Start ? new VPReductionInit(Identity, Start)
                                      : new VPReductionInit(Identity);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
-                                         VPValue *StartValue, bool Sign) {
+                                         VPValue *StartValue, bool Sign,
+                                         const Twine &Name = "") {
     VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec) {
+  VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
+                                         const Twine &Name = "") {
     VPReductionFinal *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
@@ -304,9 +373,10 @@ public:
   VPReductionFinal *createReductionFinal(unsigned BinOp, VPValue *ReducVec,
                                          VPValue *ParentExit,
                                          VPReductionFinal *ParentFinal,
-                                         bool Sign) {
+                                         bool Sign, const Twine &Name = "") {
     VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, ParentExit, ParentFinal, Sign);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
@@ -314,40 +384,49 @@ public:
 
   // Induction init/final
   VPInstruction *createInductionInit(VPValue *Start, VPValue *Step,
-                                     Instruction::BinaryOps Opc) {
+                                     Instruction::BinaryOps Opc,
+                                     const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionInit(Start, Step, Opc);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   VPInstruction *createInductionInitStep(VPValue *Step,
-                                         Instruction::BinaryOps Opcode) {
+                                         Instruction::BinaryOps Opcode,
+                                         const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionInitStep(Step, Opcode);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPInstruction *createInductionFinal(VPValue *InducVec) {
+  VPInstruction *createInductionFinal(VPValue *InducVec,
+                                      const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionFinal(InducVec);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
   VPInstruction *createInductionFinal(VPValue *Start, VPValue *Step,
-                                      Instruction::BinaryOps Opcode) {
+                                      Instruction::BinaryOps Opcode,
+                                      const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionFinal(Start, Step, Opcode);
+    NewVPInst->setName(Name);
     if (BB)
       BB->insert(NewVPInst, InsertPt);
     return NewVPInst;
   }
 
-  VPInstruction *createAllocaPrivate(Type *Ty) {
-    VPInstruction *NewVPInst = new VPAllocatePrivate(Ty);
+  VPInstruction *createAllocaPrivate(const VPValue *AI) {
+    VPInstruction *NewVPInst = new VPAllocatePrivate(AI->getType());
     if (BB)
       BB->insert(NewVPInst, InsertPt);
+    NewVPInst->setName(AI->getName());
     return NewVPInst;
   }
 
@@ -355,8 +434,8 @@ public:
   // RAII helpers.
   //===--------------------------------------------------------------------===//
 
-  // \brief RAII object that stores the current insertion point and restores it
-  // when the object is destroyed.
+  // RAII object that stores the current insertion point and restores it when
+  // the object is destroyed.
   class InsertPointGuard {
     VPBuilder &Builder;
     // TODO: AssertingVH<VPBasicBlock> Block;

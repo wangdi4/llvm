@@ -1,6 +1,6 @@
 //===---------------- ReorderFields.cpp - DTransReorderFieldsPass ---------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -436,8 +436,7 @@ public:
 
 // Helper function to get associated StructType of \p CallInfo.
 StructType *ReorderFieldsImpl::getStructTyAssociatedWithCallInfo(CallInfo *CI) {
-  for (auto *PTy : CI->getPointerTypeInfoRef().getTypes()) {
-    Type *StTy = PTy->getPointerElementType();
+  for (auto *StTy : CI->getElementTypesRef().getElemTypes()) {
     // StTy is original type, call getOrigTyOfTransformedType to
     // make sure the type is transformed.
     Type *OrigStTy = getOrigTyOfTransformedType(StTy);
@@ -473,8 +472,8 @@ StructType *ReorderFieldsImpl::unmapInclusiveType(CallInfo *CI) {
   }
 
   // Find the OrigTy of a matching ReorderedTy
-  for (auto *Ty : CI->getPointerTypeInfoRef().getTypes()) {
-    StructType *ReorderedTy = dyn_cast<StructType>(Ty->getPointerElementType());
+  for (auto *ElemTy : CI->getElementTypesRef().getElemTypes()) {
+    StructType *ReorderedTy = dyn_cast<StructType>(ElemTy);
 
     // Search InclusiveStructTypeUnmap
     // map ReorderedTy -> OrigTy

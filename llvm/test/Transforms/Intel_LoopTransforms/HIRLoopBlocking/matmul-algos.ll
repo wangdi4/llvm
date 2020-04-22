@@ -3,14 +3,13 @@
 ; 2. Outer two levels of matmul are blocked using Outer algorithm (prefix OUTER)
 ; 3. All three levels are blocked using default algorithm (prefix DEFAULT)
 ;
-; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking < %s 2>&1 | FileCheck %s --check-prefix=KANDR
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -print-before=hir-loop-blocking   < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -debug-only=hir-loop-blocking -hir-loop-blocking-algo=outer -print-before=hir-loop-blocking -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s --check-prefix=OUTER
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -hir-loop-blocking-algo=kandr -print-before=hir-loop-blocking < %s 2>&1 | FileCheck %s --check-prefix=KANDR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -print-before=hir-loop-blocking   < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-interchange -hir-loop-blocking -print-after=hir-loop-blocking -hir-loop-blocking-algo=outer -print-before=hir-loop-blocking -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region < %s 2>&1 | FileCheck %s --check-prefix=OUTER
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa" -debug-only=hir-loop-blocking  -hir-loop-blocking-algo=outer -hir-dd-analysis-verify=Region 2>&1 < %s | FileCheck %s --check-prefix=OUTER
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-loop-blocking-algo=kandr 2>&1 < %s | FileCheck %s --check-prefix=KANDR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa"  -hir-loop-blocking-algo=outer -hir-dd-analysis-verify=Region 2>&1 < %s | FileCheck %s --check-prefix=OUTER
 
 ;
 ; for(i=0; i<N; i++)
@@ -32,8 +31,8 @@
 ; KANDR:           + END LOOP
 ; KANDR:     END REGION
 
-; KANDR: Blocked at Level 2
-; KANDR: Blocked at Level 3
+; Blocked at Level 2
+; Blocked at Level 3
 
 
 ; KANDR:     BEGIN REGION { modified }
@@ -71,8 +70,8 @@
 ; OUTER:             + END LOOP
 ; OUTER:       END REGION
 
-; OUTER: Blocked at Level 1
-; OUTER: Blocked at Level 2
+;  Blocked at Level 1
+;  Blocked at Level 2
 
 
 ; OUTER: BEGIN REGION { modified }
@@ -117,9 +116,9 @@
 ; DEFAULT:             + END LOOP
 ; DEFAULT:       END REGION
 
-; DEFAULT: Blocked at Level 1
-; DEFAULT: Blocked at Level 2
-; DEFAULT: Blocked at Level 3
+; Blocked at Level 1
+; Blocked at Level 2
+; Blocked at Level 3
 
 ; DEFAULT: BEGIN REGION { modified }
 ; DEFAULT:      + DO i1 = 0, (%N + -1)/u64, 1

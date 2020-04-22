@@ -1,8 +1,8 @@
-// RUN: %clangxx -fsycl %s -o %t.run
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.run
+// RUN: env SYCL_DEVICE_TYPE=HOST %t.run
 // RUN: %GPU_RUN_PLACEHOLDER %t.run
 // RUN: %CPU_RUN_PLACEHOLDER %t.run
 // RUN: %ACC_RUN_PLACEHOLDER %t.run
-// RUNx (TODO: nd_item::barrier() is not implemented on HOST): env SYCL_DEVICE_TYPE=HOST %t.run
 
 //==--------device_event.cpp - SYCL class device_event test ----------------==//
 //
@@ -68,6 +68,12 @@ int test_strideN(size_t stride) {
       }
     });
 
+#if !DPCPP_HOST_DEVICE_HAS_BARRIER
+    if (myQueue.is_host())
+        // Skip the test
+        return 0;
+#endif
+
     buffer<int, 1> out_buf(out_data, range<1>(nElems));
 
     myQueue.submit([&](handler& cgh) {
@@ -95,7 +101,8 @@ int test_strideN(size_t stride) {
         // that are not supposed to happen, but who knows..., c) to see those
         // values at the end if something goes wrong during the ASYNC MEM COPY.
         out_ptr[item.get_global_id()[0]] = item.get_global_id()[0] + 700;
-
+        // Just a check of get_range() API.
+        local_acc.get_range();
         item.barrier();
 
         // Copy from local memory to global memory.

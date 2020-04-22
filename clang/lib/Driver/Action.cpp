@@ -47,8 +47,14 @@ const char *Action::getClassName(ActionClass AC) {
     return "llvm-spirv";
   case SPIRCheckJobClass:
     return "llvm-no-spir-kernel";
+  case SYCLPostLinkJobClass:
+    return "sycl-post-link";
+  case PartialLinkJobClass:
+    return "partial-link";
   case BackendCompileJobClass:
     return "backend-compiler";
+  case FileTableTformJobClass:
+    return "file-table-tform";
   }
 
   llvm_unreachable("invalid class");
@@ -419,8 +425,12 @@ OffloadBundlingJobAction::OffloadBundlingJobAction(ActionList &Inputs)
 
 void OffloadUnbundlingJobAction::anchor() {}
 
-OffloadUnbundlingJobAction::OffloadUnbundlingJobAction(ActionList &Inputs)
-    : JobAction(OffloadUnbundlingJobClass, Inputs, Inputs.back()->getType()) {}
+OffloadUnbundlingJobAction::OffloadUnbundlingJobAction(Action *Input)
+    : JobAction(OffloadUnbundlingJobClass, Input, Input->getType()) {}
+
+OffloadUnbundlingJobAction::OffloadUnbundlingJobAction(ActionList &Inputs,
+                                                       types:: ID Type)
+    : JobAction(OffloadUnbundlingJobClass, Inputs, Type) {}
 
 void OffloadWrapperJobAction::anchor() {}
 
@@ -443,8 +453,45 @@ void SPIRCheckJobAction::anchor() {}
 SPIRCheckJobAction::SPIRCheckJobAction(Action *Input, types::ID Type)
     : JobAction(SPIRCheckJobClass, Input, Type) {}
 
+void SYCLPostLinkJobAction::anchor() {}
+
+SYCLPostLinkJobAction::SYCLPostLinkJobAction(Action *Input, types::ID Type)
+    : JobAction(SYCLPostLinkJobClass, Input, Type) {}
+
+void PartialLinkJobAction::anchor() {}
+
+PartialLinkJobAction::PartialLinkJobAction(Action *Input, types::ID Type)
+    : JobAction(PartialLinkJobClass, Input, Type) {}
+
+PartialLinkJobAction::PartialLinkJobAction(ActionList &Inputs, types::ID Type)
+    : JobAction(PartialLinkJobClass, Inputs, Type) {}
+
 void BackendCompileJobAction::anchor() {}
+
+BackendCompileJobAction::BackendCompileJobAction(ActionList &Inputs,
+                                                 types::ID Type)
+    : JobAction(BackendCompileJobClass, Inputs, Type) {}
 
 BackendCompileJobAction::BackendCompileJobAction(Action *Input,
                                                  types::ID Type)
     : JobAction(BackendCompileJobClass, Input, Type) {}
+
+void FileTableTformJobAction::anchor() {}
+
+FileTableTformJobAction::FileTableTformJobAction(Action *Input, types::ID Type)
+    : JobAction(FileTableTformJobClass, Input, Type) {}
+
+FileTableTformJobAction::FileTableTformJobAction(ActionList &Inputs,
+                                                 types::ID Type)
+    : JobAction(FileTableTformJobClass, Inputs, Type) {}
+
+void FileTableTformJobAction::addExtractColumnTform(StringRef ColumnName,
+                                                    bool WithColTitle) {
+  auto K = WithColTitle ? Tform::EXTRACT : Tform::EXTRACT_DROP_TITLE;
+  Tforms.emplace_back(Tform(K, {ColumnName}));
+}
+
+void FileTableTformJobAction::addReplaceColumnTform(StringRef From,
+                                                    StringRef To) {
+  Tforms.emplace_back(Tform(Tform::REPLACE, {From, To}));
+}

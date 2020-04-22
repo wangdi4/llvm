@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,6 +14,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -28,6 +29,29 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+bool dtrans::dtransIsCompositeType(Type *Ty) {
+  if (isa<StructType>(Ty) || isa<SequentialType>(Ty))
+    return true;
+  return false;
+}
+
+bool dtrans::dtransCompositeIndexValid(Type *Ty, unsigned Idx) {
+  assert(dtransIsCompositeType(Ty) && "Expected Composite Type");
+  if (auto *STy = dyn_cast<StructType>(Ty))
+    return Idx < STy->getNumElements();
+  // Sequential types can be indexed by any integer.
+  return true;
+}
+
+Type *dtrans::dtransCompositeGetTypeAtIndex(Type *Ty, unsigned Idx) {
+  assert(dtransIsCompositeType(Ty) && "Expected Composite Type");
+  if (auto *STy = dyn_cast<StructType>(Ty)) {
+    assert(dtransCompositeIndexValid(Ty, Idx) && "Invalid structure index!");
+    return STy->getElementType(Idx);
+  }
+  return cast<SequentialType>(Ty)->getElementType();
+}
+
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
   if (!Ty->hasName())
     return false;
@@ -36,26 +60,6 @@ bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
       .Case("struct._IO_FILE", true)
       .Case("struct._IO_marker", true)
       .Default(false);
-}
-
-StringRef dtrans::AllocKindName(AllocKind Kind) {
-  switch (Kind) {
-  case AK_NotAlloc:
-    return "NotAlloc";
-  case AK_Malloc:
-    return "Malloc";
-  case AK_Calloc:
-    return "Calloc";
-  case AK_Realloc:
-    return "Realloc";
-  case AK_UserMalloc:
-    return "UserMalloc";
-  case AK_UserMalloc0:
-    return "UserMalloc0";
-  case AK_New:
-    return "new/new[]";
-  }
-  llvm_unreachable("Unexpected continuation past AllocKind switch.");
 }
 
 StringRef dtrans::CRuleTypeKindName(CRuleTypeKind Kind) {
@@ -68,147 +72,6 @@ StringRef dtrans::CRuleTypeKindName(CRuleTypeKind Kind) {
     return "True";
   }
   llvm_unreachable("Unexpected continuation past CRuleTypeKind switch.");
-}
-
-StringRef dtrans::FreeKindName(FreeKind Kind) {
-  switch (Kind) {
-  case FK_NotFree:
-    return "NotFree";
-  case FK_Free:
-    return "Free";
-  case FK_UserFree:
-    return "UserFree";
-  case FK_Delete:
-    return "delete/delete[]";
-  }
-  llvm_unreachable("Unexpected continuation past FreeKind switch.");
-}
-
-AllocKind dtrans::getAllocFnKind(const CallBase *Call,
-                                 const TargetLibraryInfo &TLI) {
-  // Returns non-null, so C++ function.
-  if (isNewLikeFn(Call, &TLI))
-    return AK_New;
-  if (isMallocLikeFn(Call, &TLI))
-    // if C++ and could return null, then there should be more than one
-    // argument.
-    return Call->arg_size() == 1 ? AK_Malloc : AK_New;
-  if (isCallocLikeFn(Call, &TLI))
-    return AK_Calloc;
-  if (isReallocLikeFn(Call, &TLI))
-    return AK_Realloc;
-  return AK_NotAlloc;
-}
-
-void dtrans::getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
-                              unsigned &AllocSizeInd, unsigned &AllocCountInd,
-                              const TargetLibraryInfo &TLI) {
-  assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
-         "Unexpected alloc kind passed to getAllocSizeArgs");
-  switch (Kind) {
-  case AK_UserMalloc: {
-    // User-defined malloc with two arguments comes from the operator new which
-    // was re-defined by user in some class. In this case the first argument is
-    // always 'this' pointer and the second argument is 'size' argument.
-    // Indirect call means that devirtualization on this call site didn't
-    // happen.
-    if (Call->arg_size() == 2 || !dtrans::getCalledFunction(*Call)) {
-      // Allow user-defined malloc with 'this' ptr argument.
-      Type *ZeroArgType = Call->getArgOperand(0)->getType();
-      Type *FirstArgType = Call->getArgOperand(1)->getType();
-      if (ZeroArgType->isPointerTy() &&
-          ZeroArgType->getPointerElementType()->isStructTy() &&
-          FirstArgType->isIntegerTy()) {
-        AllocSizeInd = 1;
-        AllocCountInd = -1U;
-        return;
-      }
-    }
-    AllocSizeInd = 0;
-    AllocCountInd = -1U;
-    return;
-  }
-  case AK_New:
-    AllocSizeInd = 0;
-    AllocCountInd = -1U;
-    return;
-  case AK_Calloc:
-  case AK_Malloc:
-  case AK_Realloc: {
-    /// All functions except calloc return -1 as a second argument.
-    auto Inds = getAllocSizeArgumentIndices(Call, &TLI);
-    if (Inds.second == -1U) {
-      AllocSizeInd = Inds.first;
-      AllocCountInd = -1U;
-    } else {
-      assert(Kind == AK_Calloc && "Only calloc has two size arguments");
-      AllocCountInd = Inds.first;
-      AllocSizeInd = Inds.second;
-    }
-    break;
-  }
-  default:
-    llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
-  }
-}
-
-// Should be kept in sync with DTransInstVisitor::DTanalyzeAllocationCall.
-void dtrans::collectSpecialAllocArgs(AllocKind Kind, const CallBase *Call,
-                                     SmallPtrSet<const Value *, 3> &OutputSet,
-                                     const TargetLibraryInfo &TLI) {
-
-  unsigned AllocSizeInd = -1U;
-  unsigned AllocCountInd = -1U;
-  getAllocSizeArgs(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
-  if (AllocSizeInd < Call->arg_size())
-    OutputSet.insert(Call->getArgOperand(AllocSizeInd));
-  if (AllocCountInd < Call->arg_size())
-    OutputSet.insert(Call->getArgOperand(AllocCountInd));
-
-  if (Kind == AK_Realloc)
-    OutputSet.insert(Call->getArgOperand(0));
-}
-
-bool dtrans::isFreeFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
-  return isFreeCall(Call, &TLI, false);
-}
-
-bool dtrans::isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
-  return isDeleteCall(Call, &TLI, false);
-}
-
-void dtrans::getFreePtrArg(FreeKind Kind, const CallBase *Call,
-                           unsigned &PtrArgInd, const TargetLibraryInfo &TLI) {
-  assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
-
-  if (!dtrans::getCalledFunction(*Call)) {
-    assert(Kind == FK_UserFree);
-    PtrArgInd = 1;
-    return;
-  }
-
-  if ((Kind == FK_UserFree) && (Call->arg_size() == 2)) {
-    // Allow user-defined free with 'this' ptr argument.
-    Type *ZeroArgType = Call->getArgOperand(0)->getType();
-    Type *FirstArgType = Call->getArgOperand(1)->getType();
-    if (ZeroArgType->isPointerTy() &&
-        ZeroArgType->getPointerElementType()->isStructTy() &&
-        FirstArgType->isPointerTy()) {
-      PtrArgInd = 1;
-      return;
-    }
-  }
-  PtrArgInd = 0;
-}
-
-void dtrans::collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
-                                    SmallPtrSetImpl<const Value *> &OutputSet,
-                                    const TargetLibraryInfo &TLI) {
-  unsigned PtrArgInd = -1U;
-  getFreePtrArg(Kind, Call, PtrArgInd, TLI);
-
-  if (PtrArgInd < Call->arg_size())
-    OutputSet.insert(Call->getArgOperand(PtrArgInd));
 }
 
 Function *dtrans::getCalledFunction(const CallBase &Call) {
@@ -357,11 +220,11 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
   // This will handle vector types, in addition to structs and arrays,
   // but I don't think we'd get here with a vector type (unless we end
   // up wanting to track vector types).
-  if (auto *CompTy = dyn_cast<CompositeType>(SrcPointeeTy)) {
+  if (dtransIsCompositeType(SrcPointeeTy)) {
     // This avoids problems with opaque types.
-    if (!CompTy->indexValid(0u))
+    if (!dtransCompositeIndexValid(SrcPointeeTy, 0u))
       return false;
-    auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+    auto *ElementZeroTy = dtransCompositeGetTypeAtIndex(SrcPointeeTy, 0u);
     // If the element zero type matches the destination pointee type,
     // this is an element zero access.
     if (DestPointeeTy == ElementZeroTy) {
@@ -420,13 +283,11 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
 }
 
 bool dtrans::isElementZeroI8Ptr(llvm::Type *Ty, llvm::Type **AccessedTy) {
-  auto *CompTy = dyn_cast<CompositeType>(Ty);
-  if (!CompTy)
+  if (!dtransIsCompositeType(Ty))
     return false;
-  // This avoids problems with opaque types.
-  if (!CompTy->indexValid(0u))
+  if (!dtransCompositeIndexValid(Ty, 0))
     return false;
-  auto *ElementZeroTy = CompTy->getTypeAtIndex(0u);
+  Type *ElementZeroTy = dtransCompositeGetTypeAtIndex(Ty, 0);
   // If element zero is a composite type, look at its first element.
   if (ElementZeroTy->isAggregateType())
     return isElementZeroI8Ptr(ElementZeroTy, AccessedTy);
@@ -526,6 +387,85 @@ Type *dtrans::unwrapType(Type *Ty) {
   return BaseTy;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
+  assert(countPopulation(SafetyInfo) == 1 &&
+         "More than one safety type detected\n");
+
+  if (SafetyInfo & dtrans::BadCasting)
+    return "Bad casting";
+  if (SafetyInfo & dtrans::BadAllocSizeArg)
+    return "Bad alloc size";
+  if (SafetyInfo & dtrans::BadPtrManipulation)
+    return "Bad pointer manipulation";
+  if (SafetyInfo & dtrans::AmbiguousGEP)
+    return "Ambiguous GEP";
+  if (SafetyInfo & dtrans::VolatileData)
+    return "Volatile data";
+  if (SafetyInfo & dtrans::MismatchedElementAccess)
+    return "Mismatched element access";
+  if (SafetyInfo & dtrans::WholeStructureReference)
+    return "Whole structure reference";
+  if (SafetyInfo & dtrans::UnsafePointerStore)
+    return "Unsafe pointer store";
+  if (SafetyInfo & dtrans::FieldAddressTaken)
+    return "Field address taken";
+  if (SafetyInfo & dtrans::GlobalPtr)
+    return "Global pointer";
+  if (SafetyInfo & dtrans::GlobalInstance)
+    return "Global instance";
+  if (SafetyInfo & dtrans::HasInitializerList)
+    return "Has initializer list";
+  if (SafetyInfo & dtrans::BadMemFuncSize)
+    return "Bad memfunc size";
+  if (SafetyInfo & dtrans::MemFuncPartialWrite)
+    return "Memfunc partial write";
+  if (SafetyInfo & dtrans::BadMemFuncManipulation)
+    return "Bad memfunc manipulation";
+  if (SafetyInfo & dtrans::AmbiguousPointerTarget)
+    return "Ambiguous pointer target";
+  if (SafetyInfo & dtrans::UnsafePtrMerge)
+    return "Unsafe pointer merge";
+  if (SafetyInfo & dtrans::AddressTaken)
+    return "Address taken";
+  if (SafetyInfo & NoFieldsInStruct)
+    return "No fields in structure";
+  if (SafetyInfo & dtrans::NestedStruct)
+    return "Nested structure";
+  if (SafetyInfo & dtrans::ContainsNestedStruct)
+    return "Contains nested structure";
+  if (SafetyInfo & dtrans::SystemObject)
+    return "System object";
+  if (SafetyInfo & dtrans::LocalPtr)
+    return "Local pointer";
+  if (SafetyInfo & dtrans::LocalInstance)
+    return "Local instance";
+  if (SafetyInfo & dtrans::MismatchedArgUse)
+    return "Mismatched argument use";
+  if (SafetyInfo & dtrans::GlobalArray)
+    return "Global array";
+  if (SafetyInfo & dtrans::HasVTable)
+    return "Has vtable";
+  if (SafetyInfo & dtrans::HasFnPtr)
+    return "Has function ptr";
+  if (SafetyInfo & dtrans::HasCppHandling)
+    return "Has C++ handling";
+  if (SafetyInfo & dtrans::HasZeroSizedArray)
+    return "Has zero-sized array";
+  if (SafetyInfo & dtrans::BadCastingPending)
+    return "Bad casting (pending)";
+  if (SafetyInfo & dtrans::BadCastingConditional)
+    return "Bad casting (conditional)";
+  if (SafetyInfo & dtrans::UnsafePointerStorePending)
+    return "Unsafe pointer store (pending)";
+  if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
+    return "Unsafe pointer store (conditional)";
+  if (SafetyInfo & dtrans::UnhandledUse)
+    return "Unhandled use";
+
+  llvm_unreachable("Unknown SafetyData type");
+}
+
 static void printSafetyInfo(const SafetyData &SafetyInfo,
                             llvm::raw_ostream &ostr) {
   if (SafetyInfo == 0) {
@@ -573,84 +513,21 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::UnsafePointerStoreConditional ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
-  std::vector<StringRef> SafetyIssues;
-  if (SafetyInfo & dtrans::BadCasting)
-    SafetyIssues.push_back("Bad casting");
-  if (SafetyInfo & dtrans::BadAllocSizeArg)
-    SafetyIssues.push_back("Bad alloc size");
-  if (SafetyInfo & dtrans::BadPtrManipulation)
-    SafetyIssues.push_back("Bad pointer manipulation");
-  if (SafetyInfo & dtrans::AmbiguousGEP)
-    SafetyIssues.push_back("Ambiguous GEP");
-  if (SafetyInfo & dtrans::VolatileData)
-    SafetyIssues.push_back("Volatile data");
-  if (SafetyInfo & dtrans::MismatchedElementAccess)
-    SafetyIssues.push_back("Mismatched element access");
-  if (SafetyInfo & dtrans::WholeStructureReference)
-    SafetyIssues.push_back("Whole structure reference");
-  if (SafetyInfo & dtrans::UnsafePointerStore)
-    SafetyIssues.push_back("Unsafe pointer store");
-  if (SafetyInfo & dtrans::FieldAddressTaken)
-    SafetyIssues.push_back("Field address taken");
-  if (SafetyInfo & dtrans::GlobalPtr)
-    SafetyIssues.push_back("Global pointer");
-  if (SafetyInfo & dtrans::GlobalInstance)
-    SafetyIssues.push_back("Global instance");
-  if (SafetyInfo & dtrans::HasInitializerList)
-    SafetyIssues.push_back("Has initializer list");
-  if (SafetyInfo & dtrans::BadMemFuncSize)
-    SafetyIssues.push_back("Bad memfunc size");
-  if (SafetyInfo & dtrans::MemFuncPartialWrite)
-    SafetyIssues.push_back("Memfunc partial write");
-  if (SafetyInfo & dtrans::BadMemFuncManipulation)
-    SafetyIssues.push_back("Bad memfunc manipulation");
-  if (SafetyInfo & dtrans::AmbiguousPointerTarget)
-    SafetyIssues.push_back("Ambiguous pointer target");
-  if (SafetyInfo & dtrans::UnsafePtrMerge)
-    SafetyIssues.push_back("Unsafe pointer merge");
-  if (SafetyInfo & dtrans::AddressTaken)
-    SafetyIssues.push_back("Address taken");
-  if (SafetyInfo & NoFieldsInStruct)
-    SafetyIssues.push_back("No fields in structure");
-  if (SafetyInfo & dtrans::NestedStruct)
-    SafetyIssues.push_back("Nested structure");
-  if (SafetyInfo & dtrans::ContainsNestedStruct)
-    SafetyIssues.push_back("Contains nested structure");
-  if (SafetyInfo & dtrans::SystemObject)
-    SafetyIssues.push_back("System object");
-  if (SafetyInfo & dtrans::LocalPtr)
-    SafetyIssues.push_back("Local pointer");
-  if (SafetyInfo & dtrans::LocalInstance)
-    SafetyIssues.push_back("Local instance");
-  if (SafetyInfo & dtrans::MismatchedArgUse)
-    SafetyIssues.push_back("Mismatched argument use");
-  if (SafetyInfo & dtrans::GlobalArray)
-    SafetyIssues.push_back("Global array");
-  if (SafetyInfo & dtrans::HasVTable)
-    SafetyIssues.push_back("Has vtable");
-  if (SafetyInfo & dtrans::HasFnPtr)
-    SafetyIssues.push_back("Has function ptr");
-  if (SafetyInfo & dtrans::HasCppHandling)
-    SafetyIssues.push_back("Has C++ handling");
-  if (SafetyInfo & dtrans::HasZeroSizedArray)
-    SafetyIssues.push_back("Has zero-sized array");
-  if (SafetyInfo & dtrans::BadCastingPending)
-    SafetyIssues.push_back("Bad casting (pending)");
-  if (SafetyInfo & dtrans::BadCastingConditional)
-    SafetyIssues.push_back("Bad casting (conditional)");
-  if (SafetyInfo & dtrans::UnsafePointerStorePending)
-    SafetyIssues.push_back("Unsafe pointer store (pending)");
-  if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
-    SafetyIssues.push_back("Unsafe pointer store (conditional)");
-  if (SafetyInfo & dtrans::UnhandledUse)
-    SafetyIssues.push_back("Unhandled use");
-  // Print the safety issues found
-  size_t NumIssues = SafetyIssues.size();
-  for (size_t i = 0; i < NumIssues; ++i) {
-    ostr << SafetyIssues[i];
-    if (i != NumIssues - 1) {
-      ostr << " | ";
+
+  // Go through the issues in the order of LSB to MSB, and print the names of
+  // the SafetyData bits that are set.
+  SafetyData TmpInfo = SafetyInfo;
+  SafetyData Bit = 1;
+  bool First = true;
+  while (TmpInfo) {
+    if (SafetyInfo & Bit) {
+      if (!First)
+        ostr << " | ";
+      ostr << getSafetyDataName(Bit);
+      First = false;
     }
+    Bit <<= 1;
+    TmpInfo >>= 1;
   }
 
   // TODO: Make this unnecessary.
@@ -667,6 +544,7 @@ void dtrans::TypeInfo::printSafetyData() {
   dbgs() << "  Safety data: ";
   printSafetyInfo(SafetyInfo, dbgs());
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   SafetyInfo |= Conditions;
@@ -677,13 +555,13 @@ void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
   if (!C)
     return false;
-  return ConstantValues.insert(C).second;
+  return ConstantValues.insert(C);
 }
 
 bool dtrans::FieldInfo::processNewSingleIAValue(llvm::Constant *C) {
   if (!C)
     return false;
-  return ConstantIAValues.insert(C).second;
+  return ConstantIAValues.insert(C);
 }
 
 bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
@@ -790,15 +668,15 @@ void dtrans::StructInfo::CallSubGraph::insertFunction(Function *F,
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void PointerTypeInfo::dump() { print(dbgs()); }
+void CallInfoElementTypes::dump() { print(dbgs()); }
 
-void PointerTypeInfo::print(raw_ostream &OS) {
+void CallInfoElementTypes::print(raw_ostream &OS) {
   if (!getAnalyzed()) {
     OS << "    Type: Not analyzed\n";
     return;
   }
 
-  if (!getAliasesToAggregatePointer()) {
+  if (!getAliasesToAggregateType()) {
     OS << "    Type: Non-aggregate\n";
     return;
   }
@@ -807,7 +685,7 @@ void PointerTypeInfo::print(raw_ostream &OS) {
   // it in sorted order to enable consistency for testing.
   std::vector<std::string> StrVec;
 
-  for (auto *T : Types) {
+  for (auto *T : ElemTypes) {
     std::string Name;
     raw_string_ostream(Name) << "    Type: " << *T;
     StrVec.push_back(Name);
@@ -842,7 +720,7 @@ void AllocCallInfo::print(raw_ostream &OS) {
   OS << "AllocCallInfo:\n";
   OS << "  Kind: " << AllocKindName(AK) << "\n";
   OS << "  Aliased types:\n";
-  PTI.print(OS);
+  ElementTypes.print(OS);
 }
 
 void FreeCallInfo::dump() { print(dbgs()); }
@@ -851,7 +729,7 @@ void FreeCallInfo::print(raw_ostream &OS) {
   OS << "FreeCallInfo:\n";
   OS << "  Kind: " << FreeKindName(FK) << "\n";
   OS << "  Aliased types:\n";
-  PTI.print(OS);
+  ElementTypes.print(OS);
 }
 
 void MemfuncCallInfo::dump() { print(dbgs()); }
@@ -866,14 +744,15 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
     OS << "  Region " << RN << ":\n";
     OS << "    Complete: " << (IsComplete ? "true" : "false") << "\n";
     if (!IsComplete) {
+      OS << "    PrePad:     " << getPrePadBytes(RN) << "\n";
       OS << "    FirstField: " << getFirstField(RN) << "\n";
       OS << "    LastField:  " << getLastField(RN) << "\n";
+      OS << "    PostPad:    " << getPostPadBytes(RN) << "\n";
     }
 
-    PTI.print(OS);
+    ElementTypes.print(OS);
   }
 }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Returns StringRef with the name of the transformation
 StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
@@ -907,6 +786,7 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Returns safety conditions for the transformation
 dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
@@ -1065,3 +945,40 @@ bool dtrans::isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
           FirstArgType->isPointerTy());
 }
 
+bool dtrans::hasPointerType(llvm::Type *Ty) {
+  if (Ty->isPointerTy())
+    return true;
+
+  if (auto *SeqTy = dyn_cast<SequentialType>(Ty))
+    return hasPointerType(SeqTy->getElementType());
+
+  if (auto *StTy = dyn_cast<StructType>(Ty)) {
+    // Check inside of literal structs because those cannot be referenced by
+    // name. However, there is no need to look inside non-literal structures
+    // because those will be referenced by their name.
+    if (StTy->isLiteral())
+      for (auto *ElemTy : StTy->elements()) {
+        bool HasPointer = hasPointerType(ElemTy);
+        if (HasPointer)
+          return true;
+      }
+  }
+
+  if (auto *FnTy = dyn_cast<FunctionType>(Ty)) {
+    // Check the return type and the parameter types for any possible
+    // pointer because metadata descriptions on these will be used to help
+    // recovery of opaque pointer types.
+    Type *RetTy = FnTy->getReturnType();
+    if (hasPointerType(RetTy))
+      return true;
+
+    unsigned NumParams = FnTy->getNumParams();
+    for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
+      Type *ParmTy = FnTy->getParamType(Idx);
+      if (hasPointerType(ParmTy))
+        return true;
+    }
+  }
+
+  return false;
+}

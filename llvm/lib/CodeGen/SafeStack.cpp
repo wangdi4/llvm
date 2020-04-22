@@ -563,7 +563,7 @@ Value *SafeStack::moveStaticAllocasToUnsafeStack(
 
   for (Argument *Arg : ByValArguments) {
     unsigned Offset = SSL.getObjectOffset(Arg);
-    unsigned Align = SSL.getObjectAlignment(Arg);
+    MaybeAlign Align(SSL.getObjectAlignment(Arg));
     Type *Ty = Arg->getType()->getPointerElementType();
 
     uint64_t Size = DL.getTypeStoreSize(Ty);
@@ -576,11 +576,11 @@ Value *SafeStack::moveStaticAllocasToUnsafeStack(
                                      Arg->getName() + ".unsafe-byval");
 
     // Replace alloc with the new location.
-    replaceDbgDeclare(Arg, BasePointer, BasePointer->getNextNode(), DIB,
-                      DIExpression::ApplyOffset, -Offset);
+    replaceDbgDeclare(Arg, BasePointer, DIB, DIExpression::ApplyOffset,
+                      -Offset);
     Arg->replaceAllUsesWith(NewArg);
     IRB.SetInsertPoint(cast<Instruction>(NewArg)->getNextNode());
-    IRB.CreateMemCpy(Off, Align, Arg, Arg->getParamAlignment(), Size);
+    IRB.CreateMemCpy(Off, Align, Arg, Arg->getParamAlign(), Size);
   }
 
   // Allocate space for every unsafe static AllocaInst on the unsafe stack.
@@ -588,8 +588,7 @@ Value *SafeStack::moveStaticAllocasToUnsafeStack(
     IRB.SetInsertPoint(AI);
     unsigned Offset = SSL.getObjectOffset(AI);
 
-    replaceDbgDeclareForAlloca(AI, BasePointer, DIB, DIExpression::ApplyOffset,
-                               -Offset);
+    replaceDbgDeclare(AI, BasePointer, DIB, DIExpression::ApplyOffset, -Offset);
     replaceDbgValueForAlloca(AI, BasePointer, DIB, -Offset);
 
     // Replace uses of the alloca with the new location.
@@ -676,7 +675,7 @@ void SafeStack::moveDynamicAllocasToUnsafeStack(
     if (AI->hasName() && isa<Instruction>(NewAI))
       NewAI->takeName(AI);
 
-    replaceDbgDeclareForAlloca(AI, NewAI, DIB, DIExpression::ApplyOffset, 0);
+    replaceDbgDeclare(AI, NewAI, DIB, DIExpression::ApplyOffset, 0);
     AI->replaceAllUsesWith(NewAI);
     AI->eraseFromParent();
   }
@@ -708,9 +707,9 @@ void SafeStack::moveDynamicAllocasToUnsafeStack(
 
 bool SafeStack::ShouldInlinePointerAddress(CallSite &CS) {
   Function *Callee = CS.getCalledFunction();
-  InlineReportTypes::InlineReason Reason;      // INTEL
-  if (CS.hasFnAttr(Attribute::AlwaysInline) && // INTEL
-      isInlineViable(*Callee, Reason))         // INTEL
+  InlineReportTypes::InlineReason Reason;          // INTEL
+  if (CS.hasFnAttr(Attribute::AlwaysInline) &&     // INTEL
+      isInlineViable(*Callee, Reason).isSuccess()) // INTEL
     return true;
   if (Callee->isInterposable() || Callee->hasFnAttribute(Attribute::NoInline) ||
       CS.isNoInline())

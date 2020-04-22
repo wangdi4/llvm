@@ -108,6 +108,7 @@ protected:
     ARMv83a,
     ARMv84a,
     ARMv85a,
+    ARMv86a,
     ARMv8a,
     ARMv8mBaseline,
     ARMv8mMainline,
@@ -157,11 +158,13 @@ protected:
   bool HasV8_3aOps = false;
   bool HasV8_4aOps = false;
   bool HasV8_5aOps = false;
+  bool HasV8_6aOps = false;
   bool HasV8MBaselineOps = false;
   bool HasV8MMainlineOps = false;
   bool HasV8_1MMainlineOps = false;
   bool HasMVEIntegerOps = false;
   bool HasMVEFloatOps = false;
+  bool HasCDEOps = false;
 
   /// HasVFPv2, HasVFPv3, HasVFPv4, HasFPARMv8, HasNEON - Specify what
   /// floating point ISAs are supported.
@@ -203,6 +206,10 @@ protected:
   /// whether the FP VML[AS] instructions are slow (if so, don't use them).
   bool SlowFPVMLx = false;
 
+  /// SlowFPVFMx - If the VFP4 / NEON instructions are available, indicates
+  /// whether the FP VFM[AS] instructions are slow (if so, don't use them).
+  bool SlowFPVFMx = false;
+
   /// HasVMLxForwarding - If true, NEON has special multiplier accumulator
   /// forwarding to allow mul + mla being issued back to back.
   bool HasVMLxForwarding = false;
@@ -229,8 +236,8 @@ protected:
   /// NoARM - True if subtarget does not support ARM mode execution.
   bool NoARM = false;
 
-  // ReservedGPRegisters[i] - R#i is not available as a general purpose register
-  BitVector ReservedGPRegisters;
+  /// ReserveR9 - True if R9 is not available as a general purpose register.
+  bool ReserveR9 = false;
 
   /// NoMovt - True if MOVT / MOVW pairs are not used for materialization of
   /// 32-bit imms (including global addresses).
@@ -249,6 +256,9 @@ protected:
 
   /// HasFP16FML - True if subtarget supports half-precision FP fml operations
   bool HasFP16FML = false;
+
+  /// HasBF16 - True if subtarget supports BFloat16 floating point operations
+  bool HasBF16 = false;
 
   /// HasD32 - True if subtarget has the full 32 double precision
   /// FP registers for VFPv3.
@@ -558,6 +568,7 @@ private:
   void initSubtargetFeatures(StringRef CPU, StringRef FS);
   ARMFrameLowering *initializeFrameLowering(StringRef CPU, StringRef FS);
 
+  std::bitset<8> CoprocCDE = {};
 public:
   void computeIssueWidth();
 
@@ -575,11 +586,13 @@ public:
   bool hasV8_3aOps() const { return HasV8_3aOps; }
   bool hasV8_4aOps() const { return HasV8_4aOps; }
   bool hasV8_5aOps() const { return HasV8_5aOps; }
+  bool hasV8_6aOps() const { return HasV8_6aOps; }
   bool hasV8MBaselineOps() const { return HasV8MBaselineOps; }
   bool hasV8MMainlineOps() const { return HasV8MMainlineOps; }
   bool hasV8_1MMainlineOps() const { return HasV8_1MMainlineOps; }
   bool hasMVEIntegerOps() const { return HasMVEIntegerOps; }
   bool hasMVEFloatOps() const { return HasMVEFloatOps; }
+  bool hasCDEOps() const { return HasCDEOps; }
   bool hasFPRegs() const { return HasFPRegs; }
   bool hasFPRegs16() const { return HasFPRegs16; }
   bool hasFPRegs64() const { return HasFPRegs64; }
@@ -632,6 +645,11 @@ public:
 
   bool useMulOps() const { return UseMulOps; }
   bool useFPVMLx() const { return !SlowFPVMLx; }
+  bool useFPVFMx() const {
+    return !isTargetDarwin() && hasVFP4Base() && !SlowFPVFMx;
+  }
+  bool useFPVFMx16() const { return useFPVFMx() && hasFullFP16(); }
+  bool useFPVFMx64() const { return useFPVFMx() && hasFP64(); }
   bool hasVMLxForwarding() const { return HasVMLxForwarding; }
   bool isFPBrccSlow() const { return SlowFPBrcc; }
   bool hasFP64() const { return HasFP64; }
@@ -763,9 +781,8 @@ public:
   bool isAClass() const { return ARMProcClass == AClass; }
   bool isReadTPHard() const { return ReadTPHard; }
 
-  bool isGPRegisterReserved(size_t i) const { return ReservedGPRegisters[i]; }
-  unsigned getNumGPRegistersReserved() const {
-    return ReservedGPRegisters.count();
+  bool isR9Reserved() const {
+    return isTargetMachO() ? (ReserveR9 || !HasV6Ops) : ReserveR9;
   }
 
   bool useR7AsFramePointer() const {

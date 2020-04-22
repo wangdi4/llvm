@@ -1,4 +1,4 @@
-//===-- Communication.cpp ---------------------------------------*- C++ -*-===//
+//===-- Communication.cpp -------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -399,10 +399,10 @@ void Communication::SynchronizeWithReadThread() {
   listener_sp->GetEvent(event_sp, llvm::None);
 }
 
-void Communication::SetConnection(Connection *connection) {
+void Communication::SetConnection(std::unique_ptr<Connection> connection) {
   Disconnect(nullptr);
   StopReadThread(nullptr);
-  m_connection_sp.reset(connection);
+  m_connection_sp = std::move(connection);
 }
 
 const char *

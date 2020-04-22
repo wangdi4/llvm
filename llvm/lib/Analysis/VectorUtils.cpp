@@ -278,9 +278,12 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
 Value *llvm::findScalarElement(Value *V, unsigned EltNo) {
   assert(V->getType()->isVectorTy() && "Not looking at a vector?");
   VectorType *VTy = cast<VectorType>(V->getType());
-  unsigned Width = VTy->getNumElements();
-  if (EltNo >= Width)  // Out of range access.
-    return UndefValue::get(VTy->getElementType());
+  // For fixed-length vector, return undef for out of range access.
+  if (!V->getType()->getVectorIsScalable()) {
+    unsigned Width = VTy->getNumElements();
+    if (EltNo >= Width)
+      return UndefValue::get(VTy->getElementType());
+  }
 
   if (Constant *C = dyn_cast<Constant>(V))
     return C->getAggregateElement(EltNo);
@@ -323,6 +326,24 @@ Value *llvm::findScalarElement(Value *V, unsigned EltNo) {
   return nullptr;
 }
 
+int llvm::getSplatIndex(ArrayRef<int> Mask) {
+  int SplatIndex = -1;
+  for (int M : Mask) {
+    // Ignore invalid (undefined) mask elements.
+    if (M < 0)
+      continue;
+
+    // There can be only 1 non-negative mask element value if this is a splat.
+    if (SplatIndex != -1 && SplatIndex != M)
+      return -1;
+
+    // Initialize the splat index to the 1st non-negative mask element.
+    SplatIndex = M;
+  }
+  assert((SplatIndex == -1 || SplatIndex >= 0) && "Negative index?");
+  return SplatIndex;
+}
+
 /// Get splat value if the input is a splat vector or return nullptr.
 /// This function is not fully general. It checks only 2 cases:
 /// the input value is (1) a splat constant vector or (2) a sequence
@@ -334,9 +355,9 @@ const llvm::Value *llvm::getSplatValue(const Value *V) {
 
   // shuf (inselt ?, Splat, 0), ?, <0, undef, 0, ...>
   Value *Splat;
-  if (match(V, m_ShuffleVector(m_InsertElement(m_Value(), m_Value(Splat),
-                                               m_ZeroInt()),
-                               m_Value(), m_ZeroInt())))
+  if (match(V, m_ShuffleVector(
+                   m_InsertElement(m_Value(), m_Value(Splat), m_ZeroInt()),
+                   m_Value(), m_ZeroMask())))
     return Splat;
 
   return nullptr;
@@ -346,21 +367,32 @@ const llvm::Value *llvm::getSplatValue(const Value *V) {
 // adjusted if needed.
 const unsigned MaxDepth = 6;
 
-bool llvm::isSplatValue(const Value *V, unsigned Depth) {
+bool llvm::isSplatValue(const Value *V, int Index, unsigned Depth) {
   assert(Depth <= MaxDepth && "Limit Search Depth");
 
   if (isa<VectorType>(V->getType())) {
     if (isa<UndefValue>(V))
       return true;
-    // FIXME: Constant splat analysis does not allow undef elements.
+    // FIXME: We can allow undefs, but if Index was specified, we may want to
+    //        check that the constant is defined at that index.
     if (auto *C = dyn_cast<Constant>(V))
       return C->getSplatValue() != nullptr;
   }
 
-  // FIXME: Constant splat analysis does not allow undef elements.
-  Constant *Mask;
-  if (match(V, m_ShuffleVector(m_Value(), m_Value(), m_Constant(Mask))))
-    return Mask->getSplatValue() != nullptr;
+  if (auto *Shuf = dyn_cast<ShuffleVectorInst>(V)) {
+    // FIXME: We can safely allow undefs here. If Index was specified, we will
+    //        check that the mask elt is defined at the required index.
+    if (!is_splat(Shuf->getShuffleMask()))
+      return false;
+
+    // Match any index.
+    if (Index == -1)
+      return true;
+
+    // Match a specific element. The mask should be defined at and match the
+    // specified index.
+    return Shuf->getMaskValue(Index) == Index;
+  }
 
   // The remaining tests are all recursive, so bail out if we hit the limit.
   if (Depth++ == MaxDepth)
@@ -369,16 +401,32 @@ bool llvm::isSplatValue(const Value *V, unsigned Depth) {
   // If both operands of a binop are splats, the result is a splat.
   Value *X, *Y, *Z;
   if (match(V, m_BinOp(m_Value(X), m_Value(Y))))
-    return isSplatValue(X, Depth) && isSplatValue(Y, Depth);
+    return isSplatValue(X, Index, Depth) && isSplatValue(Y, Index, Depth);
 
   // If all operands of a select are splats, the result is a splat.
   if (match(V, m_Select(m_Value(X), m_Value(Y), m_Value(Z))))
-    return isSplatValue(X, Depth) && isSplatValue(Y, Depth) &&
-           isSplatValue(Z, Depth);
+    return isSplatValue(X, Index, Depth) && isSplatValue(Y, Index, Depth) &&
+           isSplatValue(Z, Index, Depth);
 
   // TODO: Add support for unary ops (fneg), casts, intrinsics (overflow ops).
 
   return false;
+}
+
+void llvm::scaleShuffleMask(size_t Scale, ArrayRef<int> Mask,
+                            SmallVectorImpl<int> &ScaledMask) {
+  assert(Scale > 0 && "Unexpected scaling factor");
+
+  // Fast-path: if no scaling, then it is just a copy.
+  if (Scale == 1) {
+    ScaledMask.assign(Mask.begin(), Mask.end());
+    return;
+  }
+
+  ScaledMask.clear();
+  for (int MaskElt : Mask)
+    for (int ScaleElt = 0; ScaleElt != (int)Scale; ++ScaleElt)
+      ScaledMask.push_back(MaskElt < 0 ? MaskElt : Scale * MaskElt + ScaleElt);
 }
 
 MapVector<Instruction *, uint64_t>
@@ -787,18 +835,8 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   if (ID) {
-    // Generate a vector intrinsic. Remember, all intrinsics defined in
-    // Intrinsics.td that can be vectorized are those for which the return
-    // type matches the call arguments. Thus, TysForDecl should only contain
-    // 1 type in order to be able to generate the right declaration. Inserting
-    // multiple instances of this type will cause assertions when attempting
-    // to generate the declaration. This code will need to be changed to
-    // support different types of function signatures.
+    // Generate a vector intrinsic.
     assert(!RetTy->isVoidTy() && "Expected non-void function");
-    assert(
-        llvm::all_of(ArgTys,
-                     [&](Type *ArgTy) -> bool { return VecRetTy == ArgTy; }) &&
-        "Expected return type to match arg type");
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
@@ -860,7 +898,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   return VectorF;
 }
 
-Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
+Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder,
                          Twine Name) {
   SmallVector<Value *, 8> VParts(VectorsToJoin.begin(), VectorsToJoin.end());
   unsigned VL = VParts.size();
@@ -880,7 +918,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
 }
 
 Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
-                          IRBuilder<> &Builder, const Twine &Name) {
+                          IRBuilderBase &Builder, const Twine &Name) {
   Type *OrigTy = OrigVal->getType();
   assert(isa<VectorType>(OrigTy) && "OriginalVal should be of a vector type");
   unsigned VectorElts = OrigTy->getVectorNumElements();
@@ -895,7 +933,7 @@ Value *llvm::extendVector(Value *OrigVal, unsigned TargetLength,
 }
 
 Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
-                                 IRBuilder<> &Builder, const Twine &Name) {
+                                 IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
   Value *ShuffleMask = createReplicatedMask(
@@ -906,7 +944,7 @@ Value *llvm::replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
 }
 
 Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
-                             IRBuilder<> &Builder, const Twine &Name) {
+                             IRBuilderBase &Builder, const Twine &Name) {
   if (OriginalVL == 1)
     return OrigVal;
   unsigned NumElts = OrigVal->getType()->getVectorNumElements();
@@ -919,11 +957,62 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
                                      ShuffleMask, Name + OrigVal->getName());
 }
 
-Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilder<> &Builder,
+Value *llvm::createVectorSplat(Value *V, unsigned VF, IRBuilderBase &Builder,
                                const Twine &Name) {
   if (V->getType()->isVectorTy())
     return replicateVectorElts(V, VF, Builder, Name);
   return Builder.CreateVectorSplat(VF, V, V->getName() + Name);
+}
+
+Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
+                                      unsigned NumParts, IRBuilderBase &Builder,
+                                      const Twine &Name) {
+  // Example:
+  // Consider the following vector code -
+  // %1 = sitofp <4 x i32> %0 to <4 x double>
+  //
+  // If NumParts is 2, then shuffle values for %1 for different parts are -
+  // If Part = 1, output value is -
+  // %shuffle = shufflevector <4 x double> %1, <4 x double> undef,
+  //                                           <2 x i32> <i32 0, i32 1>
+  //
+  // and if Part = 2, output is -
+  // %shuffle7 =shufflevector <4 x double> %1, <4 x double> undef,
+  //                                           <2 x i32> <i32 2, i32 3>
+
+  if (!V)
+    return nullptr; // No vector to extract from.
+
+  assert(NumParts > 0 && "Invalid number of subparts of vector.");
+
+  if (NumParts == 1) {
+    // Return the original vector as there is only one Part.
+    return V;
+  }
+
+  assert(isa<VectorType>(V->getType()) &&
+         "Cannot generate shuffles for non-vector values.");
+  unsigned VecLen = V->getType()->getVectorNumElements();
+  assert(VecLen % NumParts == 0 &&
+         "Vector cannot be divided into unequal parts for extraction");
+  assert(Part < NumParts && "Invalid subpart to be extracted from vector.");
+
+  unsigned SubVecLen = VecLen / NumParts;
+  SmallVector<unsigned, 4> ShuffleMask;
+  Value *Undef = UndefValue::get(V->getType());
+
+  unsigned ElemIdx = Part * SubVecLen;
+
+  for (unsigned K = 0; K < SubVecLen; K++)
+    ShuffleMask.push_back(ElemIdx + K);
+
+  auto *ShuffleInst = Builder.CreateShuffleVector(
+      V, Undef, ShuffleMask,
+      !Name.isTriviallyEmpty() ? Name
+                               : V->getName() + ".part." + Twine(Part) +
+                                     ".of." + Twine(NumParts) + ".");
+
+  return ShuffleInst;
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -1056,7 +1145,7 @@ Instruction *llvm::propagateMetadata(Instruction *Inst, ArrayRef<Value *> VL) {
 }
 
 Constant *
-llvm::createBitMaskForGaps(IRBuilder<> &Builder, unsigned VF,
+llvm::createBitMaskForGaps(IRBuilderBase &Builder, unsigned VF,
                            const InterleaveGroup<Instruction> &Group) {
   // All 1's means mask is not needed.
   if (Group.getNumMembers() == Group.getFactor())
@@ -1075,7 +1164,7 @@ llvm::createBitMaskForGaps(IRBuilder<> &Builder, unsigned VF,
   return ConstantVector::get(Mask);
 }
 
-Constant *llvm::createReplicatedMask(IRBuilder<> &Builder, 
+Constant *llvm::createReplicatedMask(IRBuilderBase &Builder, 
                                      unsigned ReplicationFactor, unsigned VF) {
   SmallVector<Constant *, 16> MaskVec;
   for (unsigned i = 0; i < VF; i++)
@@ -1085,7 +1174,7 @@ Constant *llvm::createReplicatedMask(IRBuilder<> &Builder,
   return ConstantVector::get(MaskVec);
 }
 
-Constant *llvm::createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *llvm::createInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                      unsigned NumVecs) {
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < VF; i++)
@@ -1095,7 +1184,7 @@ Constant *llvm::createInterleaveMask(IRBuilder<> &Builder, unsigned VF,
   return ConstantVector::get(Mask);
 }
 
-Constant *llvm::createStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *llvm::createStrideMask(IRBuilderBase &Builder, unsigned Start,
                                  unsigned Stride, unsigned VF) {
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < VF; i++)
@@ -1105,7 +1194,7 @@ Constant *llvm::createStrideMask(IRBuilder<> &Builder, unsigned Start,
 }
 
 #if INTEL_CUSTOMIZATION
-Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
+Constant *llvm::createVectorInterleaveMask(IRBuilderBase &Builder, unsigned VF,
                                            unsigned NumVecs,
                                            unsigned VecWidth) {
   SmallVector<Constant *, 64> Mask;
@@ -1117,7 +1206,7 @@ Constant *llvm::createVectorInterleaveMask(IRBuilder<> &Builder, unsigned VF,
   return ConstantVector::get(Mask);
 }
 
-Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
+Constant *llvm::createVectorStrideMask(IRBuilderBase &Builder, unsigned Start,
                                        unsigned Stride, unsigned VF,
                                        unsigned VecWidth) {
   SmallVector<Constant *, 64> Mask;
@@ -1129,7 +1218,7 @@ Constant *llvm::createVectorStrideMask(IRBuilder<> &Builder, unsigned Start,
 }
 #endif // INTEL_CUSTOMIZATION
 
-Constant *llvm::createSequentialMask(IRBuilder<> &Builder, unsigned Start,
+Constant *llvm::createSequentialMask(IRBuilderBase &Builder, unsigned Start,
                                      unsigned NumInts, unsigned NumUndefs) {
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < NumInts; i++)
@@ -1145,7 +1234,7 @@ Constant *llvm::createSequentialMask(IRBuilder<> &Builder, unsigned Start,
 /// A helper function for concatenating vectors. This function concatenates two
 /// vectors having the same element type. If the second vector has fewer
 /// elements than the first, it is padded with undefs.
-static Value *concatenateTwoVectors(IRBuilder<> &Builder, Value *V1,
+static Value *concatenateTwoVectors(IRBuilderBase &Builder, Value *V1,
                                     Value *V2) {
   VectorType *VecTy1 = dyn_cast<VectorType>(V1->getType());
   VectorType *VecTy2 = dyn_cast<VectorType>(V2->getType());
@@ -1168,7 +1257,8 @@ static Value *concatenateTwoVectors(IRBuilder<> &Builder, Value *V1,
   return Builder.CreateShuffleVector(V1, V2, Mask);
 }
 
-Value *llvm::concatenateVectors(IRBuilder<> &Builder, ArrayRef<Value *> Vecs) {
+Value *llvm::concatenateVectors(IRBuilderBase &Builder,
+                                ArrayRef<Value *> Vecs) {
   unsigned NumVecs = Vecs.size();
   assert(NumVecs > 1 && "Should be at least two vectors");
 
@@ -1367,7 +1457,7 @@ void InterleavedAccessInfo::analyzeInterleaving(
     // create a group for B, we continue with the bottom-up algorithm to ensure
     // we don't break any of B's dependences.
     InterleaveGroup<Instruction> *Group = nullptr;
-    if (isStrided(DesB.Stride) && 
+    if (isStrided(DesB.Stride) &&
         (!isPredicated(B->getParent()) || EnablePredicatedInterleavedMemAccesses)) {
       Group = getInterleaveGroup(B);
       if (!Group) {
@@ -1468,8 +1558,8 @@ void InterleavedAccessInfo::analyzeInterleaving(
 
       // All members of a predicated interleave-group must have the same predicate,
       // and currently must reside in the same BB.
-      BasicBlock *BlockA = A->getParent();  
-      BasicBlock *BlockB = B->getParent();  
+      BasicBlock *BlockA = A->getParent();
+      BasicBlock *BlockB = B->getParent();
       if ((isPredicated(BlockA) || isPredicated(BlockB)) &&
           (!EnablePredicatedInterleavedMemAccesses || BlockA != BlockB))
         continue;
@@ -1619,11 +1709,56 @@ void VFABI::getVectorVariantNames(
 
   for (auto &S : SetVector<StringRef>(ListAttr.begin(), ListAttr.end())) {
 #ifndef NDEBUG
-    Optional<VFInfo> Info = VFABI::tryDemangleForVFABI(S);
+    LLVM_DEBUG(dbgs() << "VFABI: adding mapping '" << S << "'\n");
+    Optional<VFInfo> Info = VFABI::tryDemangleForVFABI(S, *(CI.getModule()));
     assert(Info.hasValue() && "Invalid name for a VFABI variant.");
     assert(CI.getModule()->getFunction(Info.getValue().VectorName) &&
            "Vector function is missing.");
 #endif
-    VariantMappings.push_back(S);
+    VariantMappings.push_back(std::string(S));
   }
+}
+
+bool VFShape::hasValidParameterList() const {
+  for (unsigned Pos = 0, NumParams = Parameters.size(); Pos < NumParams;
+       ++Pos) {
+    assert(Parameters[Pos].ParamPos == Pos && "Broken parameter list.");
+
+    switch (Parameters[Pos].ParamKind) {
+    default: // Nothing to check.
+      break;
+    case VFParamKind::OMP_Linear:
+    case VFParamKind::OMP_LinearRef:
+    case VFParamKind::OMP_LinearVal:
+    case VFParamKind::OMP_LinearUVal:
+      // Compile time linear steps must be non-zero.
+      if (Parameters[Pos].LinearStepOrPos == 0)
+        return false;
+      break;
+    case VFParamKind::OMP_LinearPos:
+    case VFParamKind::OMP_LinearRefPos:
+    case VFParamKind::OMP_LinearValPos:
+    case VFParamKind::OMP_LinearUValPos:
+      // The runtime linear step must be referring to some other
+      // parameters in the signature.
+      if (Parameters[Pos].LinearStepOrPos >= int(NumParams))
+        return false;
+      // The linear step parameter must be marked as uniform.
+      if (Parameters[Parameters[Pos].LinearStepOrPos].ParamKind !=
+          VFParamKind::OMP_Uniform)
+        return false;
+      // The linear step parameter can't point at itself.
+      if (Parameters[Pos].LinearStepOrPos == int(Pos))
+        return false;
+      break;
+    case VFParamKind::GlobalPredicate:
+      // The global predicate must be the unique. Can be placed anywhere in the
+      // signature.
+      for (unsigned NextPos = Pos + 1; NextPos < NumParams; ++NextPos)
+        if (Parameters[NextPos].ParamKind == VFParamKind::GlobalPredicate)
+          return false;
+      break;
+    }
+  }
+  return true;
 }

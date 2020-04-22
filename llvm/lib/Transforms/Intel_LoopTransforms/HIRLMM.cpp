@@ -1,6 +1,6 @@
 //===--- HIRLMM.cpp -Implements Loop Memory Motion Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -75,8 +75,12 @@
 //
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 
+#include "Intel_DTrans/Analysis/DTransFieldModRef.h"
+#include "Intel_DTrans/DTransCommon.h"
+
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -88,6 +92,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -111,6 +116,10 @@ static cl::opt<bool>
     DisableHIRLMM("disable-hir-lmm", cl::init(false), cl::Hidden,
                   cl::desc("Disable HIR Loop Memory Motion (LMM)"));
 
+static cl::opt<bool> ForceLoopNestHoisting(
+    "hir-lmm-loopnest-hoisting", cl::init(false), cl::Hidden,
+    cl::desc("Performs memory motion at the loopnest level"));
+
 STATISTIC(
     HIRLIMMRefPromoted,
     "Number of HIR loop-invariant memory load(s)/store(s) References Promoted");
@@ -118,27 +127,99 @@ STATISTIC(
 MemRefGroup::MemRefGroup(RegDDRef *FirstRef)
     : IsProfitable(false), IsLegal(false), IsAnalyzed(false), HasLoad(false),
       HasLoadOnDomPath(false), HasStore(false), HasStoreOnDomPath(false) {
-  RefV.push_back(FirstRef);
-
-  Lp = FirstRef->getHLDDNode()->getParentLoop();
-  assert(Lp && "Not expecting null Lp\n");
+  RefVec.push_back(FirstRef);
 }
 
 bool MemRefGroup::belongs(RegDDRef *Ref) const {
-  return DDRefUtils::areEqual(Ref, RefV[0]);
+  return DDRefUtils::areEqual(Ref, RefVec[0]);
 }
 
-void MemRefGroup::analyze(void) {
+static bool foundRegionDominatingLoadOrStore(DominatorTree &DT,
+                                             const RegDDRef *LoadRef,
+                                             const HLRegion *Reg) {
+
+  bool IsPrecise;
+  auto *RefGepInst =
+      dyn_cast<GetElementPtrInst>(LoadRef->getLocationPtr(IsPrecise));
+
+  if (!IsPrecise || !RefGepInst) {
+    return false;
+  }
+
+  auto *RegEntryBB = Reg->getEntryBBlock();
+
+  auto *DomNode = DT.getNode(RegEntryBB);
+  assert(DomNode && "DomNode of region entry block is null!");
+
+  // Traverse dominating nodes of region entry block to find an identical GEP.
+  bool FoundDominatingLoadOrStore = false;
+  while (DomNode = DomNode->getIDom()) {
+    auto *DomBlock = DomNode->getBlock();
+
+    for (auto &Inst : *DomBlock) {
+      auto *DomGepInst = dyn_cast<GetElementPtrInst>(&Inst);
+
+      if (!DomGepInst) {
+        continue;
+      }
+
+      if (DomGepInst->getNumOperands() != RefGepInst->getNumOperands()) {
+        continue;
+      }
+
+      if (DomGepInst->getPointerOperand() != RefGepInst->getPointerOperand()) {
+        continue;
+      }
+
+      if (!std::equal(DomGepInst->idx_begin(), DomGepInst->idx_end(),
+                      RefGepInst->idx_begin(), RefGepInst->idx_end())) {
+        continue;
+      }
+
+      // Try to find a load or store user of the GEP which dominates region
+      // entry.
+      for (auto *GepUser :
+           make_range(DomGepInst->user_begin(), DomGepInst->user_end())) {
+
+        if (!isa<LoadInst>(GepUser) && !isa<StoreInst>(GepUser)) {
+          continue;
+        }
+
+        auto *UserInst = cast<Instruction>(GepUser);
+        if (!DT.dominates(UserInst, RegEntryBB)) {
+          continue;
+        }
+
+        FoundDominatingLoadOrStore = true;
+        break;
+      }
+
+      break;
+    }
+
+    if (FoundDominatingLoadOrStore) {
+      break;
+    }
+  }
+
+  return FoundDominatingLoadOrStore;
+}
+
+void MemRefGroup::analyze(const HLLoop *Lp, DominatorTree *DT,
+                          bool LoopNestHoistingOnly) {
   // Only analyze once
   assert(!IsAnalyzed && "Analyze ONCE only\n");
 
-  IsAnalyzed = true;
   const HLNode *LoopTail = Lp->getLastChild();
   const HLNode *LoopHead = Lp->getFirstChild();
 
+  bool IsInnermost = Lp->isInnermost();
+  bool AllRefsInSameLoop = true;
+
+  const HLLoop *PrevLoop = nullptr;
   // Scan each Ref in group, and do statistical collection, for:
   // Load, LoadOnDomPath, Store, StoreOnDomPath
-  for (auto &Ref : RefV) {
+  for (auto &Ref : RefVec) {
     bool IsLoad = Ref->isRval();
 
     // Load
@@ -161,6 +242,41 @@ void MemRefGroup::analyze(void) {
         HasStoreOnDomPath = true;
       }
     }
+
+    if (!IsInnermost && AllRefsInSameLoop) {
+      auto *CurLoop = Ref->getLexicalParentLoop();
+      if (PrevLoop && PrevLoop != CurLoop) {
+        AllRefsInSameLoop = false;
+      } else {
+        PrevLoop = CurLoop;
+      }
+    }
+  }
+
+  IsAnalyzed = true;
+
+  bool IsLoadOnly = isLoadOnly();
+
+  if (!LoopNestHoistingOnly) {
+    IsProfitable = hasAnyLoadOrStoreOnDominatePath();
+
+  } else if (IsLoadOnly && AllRefsInSameLoop) {
+    // We only allow loads with the same parent loop in loopnest hoisting mode.
+    // This is to keep the transformation simple but the limination can be
+    // removed.
+
+    assert(Lp->getNestingLevel() == 1 &&
+           "Loop level 1 expected in loopnest hoisting mode!");
+
+    IsProfitable = hasAnyLoadOnDominatePath();
+
+    // Technically, this check only proves safety of hoisting. Profitability is
+    // harder to prove unless we check aliasing with any intervening stores.
+    if (!IsProfitable && DT &&
+        foundRegionDominatingLoadOrStore(*DT, RefVec[0],
+                                         Lp->getParentRegion())) {
+      IsProfitable = true;
+    }
   }
 }
 
@@ -169,12 +285,12 @@ LLVM_DUMP_METHOD void MemRefGroup::print(bool NewLine) {
   formatted_raw_ostream FOS(dbgs());
 
   // Print 1st item (since they all look the same)
-  RefV[0]->print(FOS);
+  RefVec[0]->print(FOS);
   FOS << " { ";
 
   // For each ref, print 'W' for a write, and 'R' for a read
   unsigned NumLoad = 0, NumStore = 0;
-  for (auto &Ref : RefV) {
+  for (auto &Ref : RefVec) {
     if (Ref->isLval()) {
       FOS << " W ";
       ++NumStore;
@@ -220,11 +336,11 @@ LLVM_DUMP_METHOD void MemRefGroup::print(bool NewLine) {
 
 bool MemRefCollection::find(RegDDRef *Ref, unsigned &Index) const {
   // Search available record(s) in the collection
-  for (unsigned Idx = 0, IdxE = MRVV.size(); Idx < IdxE; ++Idx) {
-    auto &MRG = MRVV[Idx];
+  for (unsigned Idx = 0, IdxE = MemRefGroups.size(); Idx < IdxE; ++Idx) {
+    auto &Group = MemRefGroups[Idx];
 
-    // Check if Ref belongs to MRG
-    if (MRG.belongs(Ref)) {
+    // Check if Ref belongs to Group
+    if (Group.belongs(Ref)) {
       Index = Idx;
       return true;
     }
@@ -239,51 +355,71 @@ void MemRefCollection::insert(RegDDRef *Ref) {
 
   // Check if the Ref is available in current Collection
   // -yes: insert using the idx
-  // -no:  create a new MRG with the ref, and push the MRG into MRVV
+  // -no:  create a new Group with the ref, and push the Group into MemRefGroups
   if (find(Ref, Idx)) {
-    MRVV[Idx].insert(Ref);
+    MemRefGroups[Idx].insert(Ref);
   } else {
-    MRVV.emplace_back(Ref);
+    MemRefGroups.emplace_back(Ref);
   }
 }
 
 #ifndef NDEBUG
 LLVM_DUMP_METHOD void MemRefCollection::print(void) {
   formatted_raw_ostream FOS(dbgs());
-  FOS << "MemRefCollection, entries: " << MRVV.size() << "\n";
+  FOS << "MemRefCollection, entries: " << MemRefGroups.size() << "\n";
 
-  // Sanity check: any available MRG in collection?
-  if (MRVV.size() == 0) {
+  // Sanity check: any available Group in collection?
+  if (MemRefGroups.size() == 0) {
     FOS << " __EMPTY__ \n";
     return;
   }
 
-  for (auto &MRG : MRVV) {
+  for (auto &Group : MemRefGroups) {
     FOS << "  ";
-    MRG.print(true);
+    Group.print(true);
   }
 }
 #endif
 
-// Collect every loop-inv MemRef within the given range
-class HIRLMM::CollectMemRefs final : public HLNodeVisitorBase {
+// Collects all info relevant to memory motion like loop invariant memrefs and
+// calls with unknown aliasing.
+class MemAccessCollector final : public HLNodeVisitorBase {
 private:
-  struct MemRefCollection &MRC;
+  MemRefCollection &MRC;
+  SmallVectorImpl<HLInst *> &UnknownAliasingCallInsts;
   unsigned LoopLevel;
+  bool SkipMemRefs;
+  bool IsDone;
 
 public:
-  CollectMemRefs(MemRefCollection &InitMRC, unsigned InitLevel)
-      : MRC(InitMRC), LoopLevel(InitLevel) {
+  MemAccessCollector(MemRefCollection &InitMRC,
+                     SmallVectorImpl<HLInst *> &UnknownAliasingCallInsts,
+                     unsigned InitLevel, RegDDRef *CandidateMemRef,
+                     bool IgnoreIVs)
+      : MRC(InitMRC), UnknownAliasingCallInsts(UnknownAliasingCallInsts),
+        LoopLevel(InitLevel), SkipMemRefs(CandidateMemRef), IsDone(false) {
     assert(CanonExprUtils::isValidLoopLevel(InitLevel) &&
            "LoopLevel is out of bound\n");
+
+    if (CandidateMemRef && !collectMemRef(CandidateMemRef, IgnoreIVs)) {
+      IsDone = true;
+    }
   }
 
   void visit(HLDDNode *Node) {
     // Scan each HLDDNode from Right to Left, so that any potential load
     // appears earlier than store on the same HLDDNode*.
-    for (auto It = Node->op_ddref_rbegin(), ItE = Node->op_ddref_rend();
-         It != ItE; ++It) {
-      collectMemRef(*It);
+    if (!SkipMemRefs) {
+      for (auto *Ref :
+           make_range(Node->op_ddref_rbegin(), Node->op_ddref_rend())) {
+        collectMemRef(Ref);
+      }
+    }
+
+    if (auto *Inst = dyn_cast<HLInst>(Node)) {
+      if (Inst->isUnknownAliasingCallInst()) {
+        UnknownAliasingCallInsts.push_back(Inst);
+      }
     }
   }
 
@@ -295,42 +431,49 @@ public:
   }
   void postVisit(HLNode *Node) {}
 
-  bool isEmpty(void) { return MRC.isEmpty(); }
+  bool collectMemRef(RegDDRef *Ref, bool IgnoreIVs = false);
 
-  void collectMemRef(RegDDRef *Ref);
+  bool isDone() const { return IsDone; }
 };
 
-// Collect all relevant MemRef(s)
-void HIRLMM::CollectMemRefs::collectMemRef(RegDDRef *Ref) {
-  // Check: must be MemRef
+// Collects \p Ref as candidate if it passes structural checks.
+bool MemAccessCollector::collectMemRef(RegDDRef *Ref, bool IgnoreIVs) {
   if (!Ref->isMemRef()) {
-    return;
+    return false;
   }
 
-  // Check: must be LoopInvariant w.r.t a given loop level
-  if (!Ref->isStructurallyInvariantAtLevel(LoopLevel)) {
-    return;
+  if (!IgnoreIVs) {
+    if (!Ref->isStructurallyInvariantAtLevel(LoopLevel)) {
+      return false;
+    }
+  } else {
+    // Allow base pointer to be structurally variant for single dimension refs.
+    // Additional legality checks will be done using DD. Give up if some other
+    // blob is non-linear.
+
+    unsigned BaseIndex = Ref->getBasePtrBlobIndex();
+    bool IsSingleDim = (Ref->getNumDimensions() == 1);
+
+    for (auto *BRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+      if (!BRef->isLinearAtLevel(LoopLevel) &&
+          (!IsSingleDim || (BRef->getBlobIndex() != BaseIndex))) {
+        return false;
+      }
+    }
   }
 
-  // Collect: insert the RegDDRef* into MRC
   MRC.insert(Ref);
-
-  // LLVM_DEBUG(MRC.print(););
+  return true;
 }
 
-// The following preliminary conditions are currently checked:
-// - Empty loop body
-// - LoopStatistics
-//   . no call
-//
-bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
+bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp,
+                                     bool AllowUnknownAliasingCalls) {
 
   if (Lp->hasDistributePoint()) {
     return false;
   }
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
-  // LLVM_DEBUG(LS.dump(););
-  if (LS.hasCallsWithUnknownAliasing()) {
+  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Lp);
+  if (!AllowUnknownAliasingCalls && LS.hasCallsWithUnknownAliasing()) {
     return false;
   }
 
@@ -346,18 +489,19 @@ bool HIRLMM::run() {
   LLVM_DEBUG(dbgs() << "HIR LIMM on Function : " << HIRF.getFunction().getName()
                     << "\n");
 
-  // Gather all inner-most Loop Candidates
   SmallVector<HLLoop *, 64> CandidateLoops;
 
-  HNU.gatherInnermostLoops(CandidateLoops);
+  if (LoopNestHoistingOnly) {
+    HNU.gatherOutermostLoops(CandidateLoops);
+  } else {
+    HNU.gatherInnermostLoops(CandidateLoops);
+  }
 
   if (CandidateLoops.empty()) {
     LLVM_DEBUG(dbgs() << HIRF.getFunction().getName()
                       << "() has no inner-most loop\n ");
     return false;
   }
-  // LLVM_DEBUG(dbgs() << " # Innermost Loops: " << CandidateLoops.size() <<
-  // "\n");
 
   bool Result = false;
 
@@ -365,28 +509,24 @@ bool HIRLMM::run() {
     Result = doLoopMemoryMotion(Lp) || Result;
   }
 
-  CandidateLoops.clear();
   return Result;
 }
 
 bool HIRLMM::doLoopMemoryMotion(HLLoop *Lp) {
-  // Analyze the loop and reject if unsuitable
   if (!doAnalysis(Lp)) {
     return false;
   }
 
-  // Do Loop Memory Motion (LMM) promotion
   doTransform(Lp);
   return true;
 }
 
 // Conduct ALL HIR-LMM Tests to decide whether the loop is good for LMM
 bool HIRLMM::doAnalysis(HLLoop *Lp) {
-  // LLVM_DEBUG(dbgs() << "Current Loop: \n"; Lp->dump(););
   clearWorkingSetMemory();
   LoopLevel = Lp->getNestingLevel();
 
-  if (!doLoopPreliminaryChecks(Lp)) {
+  if (!doLoopPreliminaryChecks(Lp, LoopNestHoistingOnly)) {
     LLVM_DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
     return false;
   }
@@ -396,12 +536,7 @@ bool HIRLMM::doAnalysis(HLLoop *Lp) {
     return false;
   }
 
-  if (!isProfitable(Lp)) {
-    LLVM_DEBUG(dbgs() << "HIRLMM: failed profit test\n");
-    return false;
-  }
-
-  if (!isLegal(Lp)) {
+  if (!processLegalityAndProfitability(Lp)) {
     LLVM_DEBUG(dbgs() << "HIRLMM: failed legal test\n");
     return false;
   }
@@ -409,50 +544,51 @@ bool HIRLMM::doAnalysis(HLLoop *Lp) {
   return true;
 }
 
-// Do a loop collection
-// (After collection, data is in MRC)
-bool HIRLMM::doCollection(HLLoop *Lp) {
-  // Collect all loop-inv MemRefs within the loop's body
-  CollectMemRefs Collector(MRC, LoopLevel);
-  HLNodeUtils::visitRange(Collector, Lp->getFirstChild(), Lp->getLastChild());
+bool HIRLMM::isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Lp,
+                             bool IgnoreIVs) {
+  clearWorkingSetMemory();
+  LoopLevel = Lp->getNestingLevel();
 
-  // Examine the collection result
-  // LLVM_DEBUG(MRC.print(););
-
-  // Analyze each Group inside MRC
-  MRC.analyze();
-
-  // Check if there is at least 1 MRG available after collection
-  return !Collector.isEmpty();
-}
-
-// A loop is profitable for LMM if there is at least 1 profitable Group
-bool HIRLMM::isProfitable(const HLLoop *Lp) {
-  bool Result = false;
-
-  for (unsigned Idx = 0, IdxE = MRC.getSize(); Idx != IdxE; ++Idx) {
-    MemRefGroup &MRG = MRC.get(Idx);
-
-    if (MRG.hasAnyLoadOrStoreOnDominatePath()) {
-      MRG.setProfitable(true);
-      Result = true;
-    }
+  if (!doLoopPreliminaryChecks(Lp, FieldModRef != nullptr)) {
+    LLVM_DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
+    return false;
   }
 
-  return Result;
+  // We need const_cast because Ref is stored as non-const in MemRefGroup.
+  auto *NonConstLp = const_cast<HLLoop *>(Lp);
+  auto *NonConstRef = const_cast<RegDDRef *>(MemRef);
+
+  if (!doCollection(NonConstLp, NonConstRef, IgnoreIVs)) {
+    LLVM_DEBUG(dbgs() << "HIRLMM: failed DoCollection\n");
+    return false;
+  }
+
+  assert(MRC.size() == 1 && "Single candidate group expected in query mode!");
+
+  return isLegal(Lp, *MRC.begin(), true);
+}
+
+bool HIRLMM::doCollection(HLLoop *Lp, RegDDRef *CandidateMemRef,
+                          bool IgnoreIVs) {
+  MemAccessCollector Collector(MRC, UnknownAliasingCallInsts, LoopLevel,
+                               CandidateMemRef, IgnoreIVs);
+  HLNodeUtils::visitRange(Collector, Lp->child_begin(), Lp->child_end());
+
+  // Analyze each Group inside MRC
+  MRC.analyze(Lp, DT, LoopNestHoistingOnly);
+
+  // Check if there is at least 1 Group available after collection
+  return !MRC.empty();
 }
 
 // A Loop is legal if there is it has at least 1 legal group
-bool HIRLMM::isLegal(const HLLoop *Lp) {
+bool HIRLMM::processLegalityAndProfitability(const HLLoop *Lp) {
   bool Result = false;
-  DDGraph DDG = HDDA.getGraph(Lp);
+  // Do legal test on any profitable Group
+  for (MemRefGroup &Group : MRC) {
 
-  // Do legal test on any profitable MRG
-  for (unsigned Idx = 0, IdxE = MRC.getSize(); Idx != IdxE; ++Idx) {
-    MemRefGroup &MRG = MRC.get(Idx);
-
-    if (MRG.getProfitable() && isLegal(Lp, MRG, DDG)) {
-      MRG.setLegal(true);
+    if (Group.isProfitable() && isLegal(Lp, Group)) {
+      Group.setLegal(true);
       Result = true;
     }
   }
@@ -463,48 +599,131 @@ bool HIRLMM::isLegal(const HLLoop *Lp) {
   return Result;
 }
 
-// A Group is legal IF&F every Ref is legal within the MRG
-bool HIRLMM::isLegal(const HLLoop *Lp, MemRefGroup &MRG, DDGraph &DDG) {
-  for (unsigned II = 0, IE = MRG.getSize(); II != IE; ++II) {
-    const RegDDRef *Ref = MRG.get(II);
-    if (!areDDEdgesLegal(Lp, Ref, DDG)) {
-      return false;
+static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
+                            unsigned LoopLevel,
+                            ArrayRef<HLInst *> UnknownAliasingCallInsts) {
+  bool IsLoad = MemRef->isRval();
+  const RegDDRef *OtherMemRef = nullptr;
+
+  assert(!DDG.empty() && "Empty DDG not expected!");
+
+  // Iterate over each relevant DDEdge
+  // Load: incoming-edge iterators
+  // Store: outgoing-edge iterators
+  for (const DDEdge *Edge :
+       (IsLoad ? DDG.incoming(MemRef) : DDG.outgoing(MemRef))) {
+    LLVM_DEBUG(Edge->print(dbgs()););
+
+    // Setup OtherMemRef
+    if (IsLoad) {
+      OtherMemRef = cast<RegDDRef>(Edge->getSrc());
+    } else {
+      OtherMemRef = cast<RegDDRef>(Edge->getSink());
+    }
+
+    auto *OtherInst = dyn_cast<HLInst>(OtherMemRef->getHLDDNode());
+    if (OtherInst) {
+      bool IgnoreEdge = false;
+      // Ignore edges to unknown aliasing calls. They will be handled using
+      // mod-ref later.
+      for (auto *UnknownCall : UnknownAliasingCallInsts) {
+        if (UnknownCall == OtherInst) {
+          IgnoreEdge = true;
+          break;
+        }
+      }
+
+      Intrinsic::ID Id;
+      // We can ignore lifetime start/end intrinsics if they reference some
+      // other base pointer. Can the two base pointers point to the same object?
+      if (!IgnoreEdge && OtherInst->isIntrinCall(Id) &&
+          (Id == Intrinsic::lifetime_start || Id == Intrinsic::lifetime_end) &&
+          !CanonExprUtils::areEqual(MemRef->getBaseCE(),
+                                    OtherMemRef->getBaseCE())) {
+        IgnoreEdge = true;
+      }
+
+      if (IgnoreEdge) {
+        continue;
+      }
+    }
+
+    if (!DDRefUtils::areEqual(MemRef, OtherMemRef)) {
+      // Test: DV has any < or > before the loop level
+      const DirectionVector &DV = Edge->getDV();
+      if (!DV.isIndepFromLevel(LoopLevel)) {
+        return false;
+      }
     }
   }
 
   return true;
 }
 
-bool HIRLMM::areDDEdgesLegal(const HLLoop *Lp, const RegDDRef *Ref,
-                             DDGraph &DDG) {
-  bool IsLoad = Ref->isRval();
-  DDRef *OtherRef = nullptr;
-  bool Result = true;
+// A Group is legal IF&F every Ref is legal within the Group
+bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
+                     bool QueryMode) {
 
-  // Iterate over each relevant DDEdge
-  // Load: incoming-edge iterators
-  // Store: outgoing-edge iterators
-  for (const DDEdge *Edge : (IsLoad ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
-    LLVM_DEBUG(Edge->print(dbgs()););
+  if (DDG.empty()) {
+    DDG = HDDA.getGraph(Lp);
+  }
 
-    // Setup OtherRef
-    if (IsLoad) {
-      OtherRef = Edge->getSrc();
-    } else {
-      OtherRef = Edge->getSink();
+  auto *FirstRef = Group[0];
+  const RegDDRef *BasePtrLoadRef = nullptr;
+
+  if (!FirstRef->isLinearAtLevel(LoopLevel)) {
+    assert(QueryMode && "memref is not structually invariant w.r.t loop!");
+    (void)QueryMode;
+
+    if (!(BasePtrLoadRef = DDUtils::getSingleBasePtrLoadRef(DDG, FirstRef))) {
+      return false;
     }
 
-    // Test: both Ref and OtherRef are equal
-    if (!DDRefUtils::areEqual(Ref, OtherRef)) {
-      // Test: DV has any < or > before the loop level
-      const DirectionVector &DV = Edge->getDV();
-      if (!DV.isIndepFromLevel(LoopLevel)) {
-        Result = false;
+    // Only allow a structure field load with precise location.
+    // This is because only in this case are the results returned by FieldModRef
+    // applicable to both Ref and BasePtrLoadRef.
+    // TODO: Find a cleaner way by querying mod-ref twice.
+    if (!BasePtrLoadRef->hasTrailingStructOffsets(1)) {
+      return false;
+    }
+
+    bool LocIsPrecise;
+    BasePtrLoadRef->getLocationPtr(LocIsPrecise);
+
+    if (!LocIsPrecise) {
+      return false;
+    }
+
+    if (!areDDEdgesLegal(BasePtrLoadRef, DDG, LoopLevel,
+                         UnknownAliasingCallInsts)) {
+      return false;
+    }
+  }
+
+  for (const RegDDRef *Ref : Group) {
+    if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts)) {
+      return false;
+    }
+  }
+
+  if (!UnknownAliasingCallInsts.empty()) {
+    assert(FieldModRef && "FieldModRef expected!");
+
+    // Use BasePtrLoadRef for mod-ref queries as it returns result for both
+    // itself and its dereference(FirstRef).
+    auto MemLoc = BasePtrLoadRef ? BasePtrLoadRef->getMemoryLocation()
+                                 : FirstRef->getMemoryLocation();
+
+    for (auto *HInst : UnknownAliasingCallInsts) {
+      auto *Call = cast<CallInst>(HInst->getLLVMInstruction());
+
+      if (isModSet(FieldModRef->getModRefInfo(Call, MemLoc))) {
+        return false;
       }
     }
   }
 
-  return Result;
+  return true;
 }
 
 // LMM transform always succeeds because the given loop is guaranteed to have
@@ -514,19 +733,20 @@ void HIRLMM::doTransform(HLLoop *Lp) {
   SmallSet<unsigned, 32> TempRefSet;
 
   // Iterate over each group in MRC, do LMM promotion if suitable.
-  for (unsigned Idx = 0, IdxE = MRC.getSize(); Idx < IdxE; ++Idx) {
-    MemRefGroup &MRG = MRC.get(Idx);
+  for (MemRefGroup &Group : MRC) {
 
-    // Skip MRG if it is either illegal or non-profitable
-    if (!MRG.getProfitable() || !MRG.getLegal()) {
+    // Skip Group if it is either illegal or non-profitable
+    if (!Group.isLegal()) {
       continue;
     }
 
-    // LLVM_DEBUG(MRG.print(true); dbgs() << "Before LIMM on a MRG\n";
+    assert(Group.isProfitable() && "Legal group should be profitable!");
+
+    // LLVM_DEBUG(Group.print(true); dbgs() << "Before LIMM on a Group\n";
     // Lp->dump(););
-    doLIMMRef(Lp, MRG, TempRefSet);
+    doLIMMRef(Lp, Group, TempRefSet);
     ++NumLIMM;
-    // LLVM_DEBUG(dbgs() << "After LIMM on a MRG\n"; Lp->dump(););
+    // LLVM_DEBUG(dbgs() << "After LIMM on a Group\n"; Lp->dump(););
   }
 
   HIRLIMMRefPromoted += NumLIMM;
@@ -539,58 +759,67 @@ void HIRLMM::doTransform(HLLoop *Lp) {
   HLNodeUtils::removeEmptyNodes(Lp);
 }
 
-bool HIRLMM::canHoistSingleLoad(HLLoop *Lp, RegDDRef *FirstRef,
-                                MemRefGroup &MRG,
-                                SmallSet<unsigned, 32> &TempRefSet) const {
-  if (MRG.getSize() != 1 || !FirstRef->isRval()) {
-    return false;
+HLInst *HIRLMM::canHoistLoadsUsingExistingTemp(
+    HLLoop *Lp, MemRefGroup &Group, SmallSet<unsigned, 32> &TempRefSet) const {
+
+  // Handle load only group as long as only one instruction is a load
+  // instruction with a hoistable temp ref.
+  if (!Group.isLoadOnly()) {
+    return nullptr;
   }
 
-  HLDDNode *LoadDDNode = FirstRef->getHLDDNode();
+  HLInst *SingleLoadInst = nullptr;
 
-  HLInst *LoadHInst = dyn_cast<HLInst>(LoadDDNode);
+  for (auto *Ref : Group) {
 
-  if (!LoadHInst) {
-    return false;
-  }
+    HLInst *LoadHInst = dyn_cast<HLInst>(Ref->getHLDDNode());
 
-  const Instruction *LLVMLoadInst = LoadHInst->getLLVMInstruction();
+    if (!LoadHInst) {
+      continue;
+    }
 
-  if (!isa<LoadInst>(LLVMLoadInst)) {
-    return false;
-  }
+    if (!isa<LoadInst>(LoadHInst->getLLVMInstruction())) {
+      continue;
+    }
 
-  RegDDRef *LRef = LoadHInst->getLvalDDRef();
+    if (SingleLoadInst) {
+      return nullptr;
+    }
 
-  if (TempRefSet.count(LRef->getSymbase())) {
-    return false;
-  }
+    SingleLoadInst = LoadHInst;
 
-  DDGraph DDG = HDDA.getGraph(Lp);
+    RegDDRef *LRef = SingleLoadInst->getLvalDDRef();
 
-  for (DDEdge *E : DDG.incoming(LRef)) {
-    if (E->isAnti() || E->isOutput()) {
-      return false;
+    if (TempRefSet.count(LRef->getSymbase())) {
+      return nullptr;
+    }
+
+    assert(!DDG.empty() && "Empty DDG not expected!");
+
+    for (DDEdge *E : DDG.incoming(LRef)) {
+      if (E->isAnti() || E->isOutput()) {
+        return nullptr;
+      }
+    }
+
+    for (DDEdge *E : DDG.outgoing(LRef)) {
+      if (E->isOutput()) {
+        return nullptr;
+      }
     }
   }
 
-  for (DDEdge *E : DDG.outgoing(LRef)) {
-    if (E->isOutput()) {
-      return false;
-    }
-  }
-
-  return true;
+  return SingleLoadInst;
 }
 
 bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
-                                MemRefGroup &MRG,
+                                MemRefGroup &Group,
                                 SmallSet<unsigned, 32> &TempRefSet) const {
   if (Lp->getNumExits() > 1) {
     return false;
   }
 
-  if (MRG.getSize() != 1 || !FirstRef->isLval()) {
+  if (Group.size() != 1 || !FirstRef->isLval()) {
     return false;
   }
 
@@ -621,7 +850,7 @@ bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
     return false;
   }
 
-  DDGraph DDG = HDDA.getGraph(Lp);
+  assert(!DDG.empty() && "Empty DDG not expected!");
 
   for (DDEdge *E : DDG.outgoing(RRef)) {
     if (E->isAnti()) {
@@ -633,20 +862,19 @@ bool HIRLMM::canSinkSingleStore(HLLoop *Lp, RegDDRef *FirstRef,
 }
 
 // Check whether we need a Load in the Loops' preheader:
-// - If there is no load (store-only MRG), no need for tmp in prehder
-// - Scan the MRG from beginning:
+// - If there is no load (store-only Group), no need for tmp in prehder
+// - Scan the Group from beginning:
 //  . 1st hit a load: need
 //  . 1st hit a store on dom path: no need
 //
-bool HIRLMM::isLoadNeededInPrehder(HLLoop *Lp, MemRefGroup &MRG) {
-  if (MRG.isStoreOnly()) {
+static bool isLoadNeededInPrehder(HLLoop *Lp, const MemRefGroup &Group) {
+  if (Group.isStoreOnly()) {
     return false;
   }
 
   const HLNode *LoopTail = Lp->getLastChild();
 
-  for (unsigned Idx = 0, IdxE = MRG.getSize(); Idx < IdxE; ++Idx) {
-    RegDDRef *CurRef = MRG.get(Idx);
+  for (const RegDDRef *CurRef : Group) {
 
     // If hit a Load 1st, need tmp
     if (CurRef->isRval()) {
@@ -721,8 +949,8 @@ void LvalMemRefChecker::preventsHoisting(RegDDRef *Ref) {
 }
 
 HLLoop *HIRLMM::getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
-                                                   MemRefGroup &MRG) {
-  if (MRG.getSize() != 1 || !Ref->isRval()) {
+                                                   MemRefGroup &Group) {
+  if (Group.size() != 1 || !Ref->isRval()) {
     return Lp;
   }
 
@@ -764,29 +992,63 @@ HLLoop *HIRLMM::getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
   return Lp;
 }
 
-bool HIRLMM::hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
-                               SmallSet<unsigned, 32> &TempRefSet,
-                               LoopOptReportBuilder &LORBuilder) {
-  if (!canHoistSingleLoad(Lp, LoadRef, MRG, TempRefSet)) {
+// Call setDefinedAtLevel(LoopLevel -1) to setLinear on a given RegDDRef*
+static void setLinear(DDRef *TmpRef, unsigned LoopLevel) {
+  TmpRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
+
+  if (auto BlobRef = dyn_cast<BlobDDRef>(TmpRef)) {
+    BlobRef->getParentDDRef()->updateDefLevel();
+  } else {
+    assert(cast<RegDDRef>(TmpRef)->isTerminalRef() &&
+           "Expecting a terminal ref");
+  }
+}
+
+bool HIRLMM::hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
+                                           SmallSet<unsigned, 32> &TempRefSet,
+                                           LoopOptReportBuilder &LORBuilder) {
+
+  HLInst *SingleLoadInst = nullptr;
+
+  if (!(SingleLoadInst =
+            canHoistLoadsUsingExistingTemp(Lp, Group, TempRefSet))) {
     return false;
   }
 
-  HLDDNode *LoadDDNode = LoadRef->getHLDDNode();
+  RegDDRef *TempRef = SingleLoadInst->getLvalDDRef();
 
-  RegDDRef *TempRef = LoadDDNode->getLvalDDRef();
+  auto *OuterLp = Lp->getParentLoop();
+  auto *ParentLp = SingleLoadInst->getParentLoop();
 
-  Lp->addLiveInTemp(TempRef->getSymbase());
+  // Ref can be hoisted outisde multiple loops in loopnest hoisting mode.
+  while (ParentLp != OuterLp) {
+    ParentLp->addLiveInTemp(TempRef->getSymbase());
+    ParentLp = ParentLp->getParentLoop();
+  }
 
-  DDGraph DDG = HDDA.getGraph(Lp);
+  assert(!DDG.empty() && "Empty DDG not expected!");
 
   for (DDEdge *E : DDG.outgoing(TempRef)) {
     if (E->isFlow()) {
       DDRef *DDRefSink = E->getSink();
-      setLinear(DDRefSink);
+      setLinear(DDRefSink, LoopLevel);
     }
   }
 
-  HLNodeUtils::moveAsLastPreheaderNode(Lp, LoadDDNode);
+  auto *LoadRef = SingleLoadInst->getRvalDDRef();
+
+  // Replace all other refs in the group with linear temp.
+  for (auto *Ref : Group) {
+    if (Ref == LoadRef) {
+      continue;
+    }
+
+    auto *TempRefClone = TempRef->clone();
+    setLinear(TempRefClone, LoopLevel);
+    Ref->getHLDDNode()->replaceOperandDDRef(Ref, TempRefClone);
+  }
+
+  HLNodeUtils::moveAsLastPreheaderNode(Lp, SingleLoadInst);
 
   LoadRef->updateDefLevel(LoopLevel - 1);
 
@@ -796,10 +1058,11 @@ bool HIRLMM::hoistedSingleLoad(HLLoop *Lp, RegDDRef *LoadRef, MemRefGroup &MRG,
   return true;
 }
 
-bool HIRLMM::sinkedSingleStore(HLLoop *Lp, RegDDRef *StoreRef, MemRefGroup &MRG,
-                               SmallSet<unsigned, 32> &TempRefSet,
-                               LoopOptReportBuilder &LORBuilder) {
-  if (!canSinkSingleStore(Lp, StoreRef, MRG, TempRefSet)) {
+bool HIRLMM::sinkedStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
+                                           MemRefGroup &Group,
+                                           SmallSet<unsigned, 32> &TempRefSet,
+                                           LoopOptReportBuilder &LORBuilder) {
+  if (!canSinkSingleStore(Lp, StoreRef, Group, TempRefSet)) {
     return false;
   }
 
@@ -819,15 +1082,15 @@ bool HIRLMM::sinkedSingleStore(HLLoop *Lp, RegDDRef *StoreRef, MemRefGroup &MRG,
   return true;
 }
 
-// Do LIMM promotion on a MRG
+// Do LIMM promotion on a Group
 //
 // [Algorithm]
 //
-// For each candidate group (MRG)
+// For each candidate group (Group)
 //
 // [Preparation]
 // Decide if a store is needed in Loop's postexit:
-//  -yes: if there is at least 1 store in MRG
+//  -yes: if there is at least 1 store in Group
 //
 // Decide if a load is needed in Loop's preheader
 //  -details in isLoadNeededInPrehder()
@@ -837,45 +1100,47 @@ bool HIRLMM::sinkedSingleStore(HLLoop *Lp, RegDDRef *StoreRef, MemRefGroup &MRG,
 //  - Create a store in postexit if needed
 //  - Replace each load/store in group with the Tmp
 //
-void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
+void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
                        SmallSet<unsigned, 32> &TempRefSet) {
   bool NeedLoadInPrehdr = false, NeedStoreInPostexit = false;
   RegDDRef *TmpDDRef = nullptr;
-  RegDDRef *FirstRef = MRG.get(0);
+  RegDDRef *FirstRef = Group[0];
 
   HLInst *LoadInPrehdr = nullptr;
 
-  bool IsLoadOnly = MRG.isLoadOnly();
+  bool IsLoadOnly = Group.isLoadOnly();
   // Debug: Examine the Loop BEFORE transformation
   // LLVM_DEBUG(Lp->dump(););
 
-  // *** Prepare LMM for the MRG ***
+  // *** Prepare LMM for the Group ***
 
-  // Need a Store in postexit: if there is at least 1 store in MRG
+  // Need a Store in postexit: if there is at least 1 store in Group
   NeedStoreInPostexit = !IsLoadOnly;
 
   // Need a Load in prehdr: check algorithm for details
-  NeedLoadInPrehdr = isLoadNeededInPrehder(Lp, MRG);
+  NeedLoadInPrehdr = IsLoadOnly || isLoadNeededInPrehder(Lp, Group);
 
   LoopOptReportBuilder &LORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  HLLoop *OuterLp = getOuterLoopCandidateForSingleLoad(Lp, FirstRef, MRG);
+  HLLoop *OuterLp = getOuterLoopCandidateForSingleLoad(Lp, FirstRef, Group);
 
-  // Hoist a Load or a Store without replacing a temp
-  if (hoistedSingleLoad(Lp, FirstRef, MRG, TempRefSet, LORBuilder) ||
-      sinkedSingleStore(Lp, FirstRef, MRG, TempRefSet, LORBuilder)) {
+  if (hoistedLoadsUsingExistingTemp(Lp, Group, TempRefSet, LORBuilder) ||
+      sinkedStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet,
+                                    LORBuilder)) {
     return;
   }
 
-  // ### Promote LIMM for the MRG ###
+  // ### Promote LIMM for the Group ###
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
     LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                               "Load hoisted out of the loop");
-
-    LoadInPrehdr = createLoadInPreheader(Lp, FirstRef, OuterLp);
+    // Passing FirstRef's lexical parent loop as it can be different than Lp in
+    // loopnest hoisting mode.
+    LoadInPrehdr = createLoadInPreheader(FirstRef->getLexicalParentLoop(),
+                                         FirstRef, OuterLp);
 
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
   }
@@ -896,9 +1161,9 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
     // In the multi-exit loop, we need to find the exact store ref to compare
     // the top sort number with gotos.
     if (Lp->getNumExits() > 1) {
-      for (unsigned Idx = 0, IdxE = MRG.getSize(); Idx < IdxE; ++Idx) {
-        if (MRG.get(Idx)->isLval()) {
-          FirstStore = MRG.get(Idx);
+      for (auto *Ref : Group) {
+        if (Ref->isLval()) {
+          FirstStore = Ref;
           break;
         }
       }
@@ -907,25 +1172,13 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &MRG,
     createStoreInPostexit(Lp, FirstStore, TmpDDRef, NeedLoadInPrehdr);
   }
 
-  // LMM process each Ref in MRG
-  for (unsigned Idx = 0, IdxE = MRG.getSize(); Idx < IdxE; ++Idx) {
-    handleInLoopMemRef(Lp, MRG.get(Idx), TmpDDRef, IsLoadOnly);
+  // LMM process each Ref in Group
+  for (auto *Ref : Group) {
+    handleInLoopMemRef(Lp, Ref, TmpDDRef, IsLoadOnly);
   }
 
   // Debug: Examine the Loop AFTER transformation
   // LLVM_DEBUG(Lp->dump(););
-}
-
-// Call setDefinedAtLevel(LoopLevel -1) to setLinear on a given RegDDRef*
-void HIRLMM::setLinear(DDRef *TmpRef) {
-  TmpRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
-
-  if (auto BlobRef = dyn_cast<BlobDDRef>(TmpRef)) {
-    BlobRef->getParentDDRef()->updateDefLevel(LoopLevel);
-  } else {
-    assert(cast<RegDDRef>(TmpRef)->isTerminalRef() &&
-           "Expecting a terminal ref");
-  }
 }
 
 // Handle each loop-inv MemRef inside a group
@@ -944,7 +1197,7 @@ void HIRLMM::handleInLoopMemRef(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
   RegDDRef *TmpRefClone = TmpRef->clone();
 
   if (IsLoadOnly) {
-    setLinear(TmpRefClone);
+    setLinear(TmpRefClone, LoopLevel);
   }
 
   HLInst *HInst = dyn_cast<HLInst>(DDNode);
@@ -997,22 +1250,15 @@ static void insertInPreheader(HLLoop *Lp, HLInst *LoadInPrehdr,
   return;
 }
 
-// Check if a LoadInst (E.g. t0 = A[0]) exists in Preheader
-// . YES: obtain the HLInst*
-// . NO:  create a new LoadInst in preheader
-//
-// Return: The LoadToTemp HLInst*
+// Creates a new LoadInst in preheader and returns it.
 //
 // Additional Work:
 // - Mark the new Temp as live-in to loop
 // - Mark the new Temp as linear, defined at level = looplevel -1
 // - Call updateDefLevel() for the Rval of the new load
 //
-HLInst *HIRLMM::createLoadInPreheader(HLLoop *InnermostLp, RegDDRef *Ref,
-                                      HLLoop *OuterLp) const{
-  // Debug: Examine the Loop
-  // LLVM_DEBUG(InnermostLp->dump(););
-
+HLInst *HIRLMM::createLoadInPreheader(HLLoop *RefLp, RegDDRef *Ref,
+                                      HLLoop *OuterLp) const {
   auto RvalRef = Ref->clone();
   HLInst *LoadInPrehdr = HNU.createLoad(RvalRef, LIMMTempName);
 
@@ -1022,16 +1268,13 @@ HLInst *HIRLMM::createLoadInPreheader(HLLoop *InnermostLp, RegDDRef *Ref,
   insertInPreheader(OuterLp, LoadInPrehdr, RvalRef);
 
   unsigned OuterLpLevel = OuterLp->getNestingLevel();
-  unsigned Level = InnermostLp->getNestingLevel();
+  unsigned Level = RefLp->getNestingLevel();
 
   while (Level >= OuterLpLevel) {
-    InnermostLp->addLiveInTemp(TmpSB);
-    InnermostLp = InnermostLp->getParentLoop();
+    RefLp->addLiveInTemp(TmpSB);
+    RefLp = RefLp->getParentLoop();
     Level--;
   }
-
-  // Debug: Examine the Loop, notice the temp in prehdr
-  // LLVM_DEBUG(InnermostLp->dump(););
 
   return LoadInPrehdr;
 }
@@ -1143,7 +1386,10 @@ PreservedAnalyses HIRLMMPass::run(llvm::Function &F,
                                   llvm::FunctionAnalysisManager &AM) {
   HIRLMM(AM.getResult<HIRFrameworkAnalysis>(F),
          AM.getResult<HIRDDAnalysisPass>(F),
-         AM.getResult<HIRLoopStatisticsAnalysis>(F))
+         AM.getResult<HIRLoopStatisticsAnalysis>(F),
+         &AM.getResult<DominatorTreeAnalysis>(F),
+         &AM.getResult<DTransFieldModRefResult>(F),
+         (LoopNestHoistingOnly || ForceLoopNestHoisting))
       .run();
   return PreservedAnalyses::all();
 }
@@ -1151,15 +1397,19 @@ PreservedAnalyses HIRLMMPass::run(llvm::Function &F,
 class HIRLMMLegacyPass : public HIRTransformPass {
 public:
   static char ID;
+  bool LoopNestHoistingOnly;
 
-  HIRLMMLegacyPass() : HIRTransformPass(ID) {
+  HIRLMMLegacyPass(bool LoopNestHoistingOnly = false)
+      : HIRTransformPass(ID), LoopNestHoistingOnly(LoopNestHoistingOnly) {
     initializeHIRLMMLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<DominatorTreeWrapperPass>();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequiredTransitive<DTransFieldModRefResultWrapper>();
     AU.setPreservesAll();
   }
 
@@ -1170,7 +1420,10 @@ public:
 
     return HIRLMM(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                   getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                  getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+                  getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
+                  &getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+                  &getAnalysis<DTransFieldModRefResultWrapper>().getResult(),
+                  (LoopNestHoistingOnly || ForceLoopNestHoisting))
         .run();
   }
 };
@@ -1181,7 +1434,11 @@ INITIALIZE_PASS_BEGIN(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
 INITIALIZE_PASS_END(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
                     false, false)
 
-FunctionPass *llvm::createHIRLMMPass() { return new HIRLMMLegacyPass(); }
+FunctionPass *llvm::createHIRLMMPass(bool LoopNestHoistingOnly) {
+  return new HIRLMMLegacyPass(LoopNestHoistingOnly);
+}

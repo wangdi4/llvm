@@ -296,6 +296,8 @@ enum attributeBits {
   INSTRUCTION_CONTEXTS \
   ENUM_ENTRY(IC_64BIT_CE,            1,  "says the instruction applies in "     \
                                          "icecode mode but no more")            \
+  ENUM_ENTRY(IC_64BIT_OPSIZE_CE,     3,  "requires an OPSIZE prefix, so "       \
+                                         "operands change width")               \
   ENUM_ENTRY(IC_64BIT_XD_OPSIZE_CE,  3,  "Just as meaningful as IC_XD_OPSIZE")  \
   ENUM_ENTRY(IC_64BIT_XS_OPSIZE_CE,  3,  "Just as meaningful as IC_XS_OPSIZE")  \
   ENUM_ENTRY(IC_64BIT_REXW_CE,       5,  "requires a REX.W prefix, so operands "\
@@ -462,17 +464,17 @@ enum OperandEncoding {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 #define XTM_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM,        "tile")
+#define XTP_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_PAIR,   "tile pair")
 #else // INTEL_FEATURE_ISA_AMX
 #define XTM_ENUM_ENTRY
+#define XTP_ENUM_ENTRY
 #endif // INTEL_FEATURE_ISA_AMX
 
-#if INTEL_FEATURE_ISA_AMX2
-#define XTP_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_PAIR,   "tile pair")
+#if INTEL_FEATURE_ISA_AMX_LNC
 #define Z16T_ENUM_ENTRY ENUM_ENTRY(TYPE_ZMM16_TUPLES, "zmm 16 tuples")
-#else // INTEL_FEATURE_ISA_AMX2
-#define XTP_ENUM_ENTRY
+#else // INTEL_FEATURE_ISA_AMX_LNC
 #define Z16T_ENUM_ENTRY
-#endif // INTEL_FEATURE_ISA_AMX2
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 
 // Semantic interpretations of instruction operands.

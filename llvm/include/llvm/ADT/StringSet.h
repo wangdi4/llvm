@@ -15,7 +15,7 @@
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
+#include "llvm/Support/AllocatorBase.h"
 #include <cassert>
 #include <initializer_list>
 #include <utility>
@@ -36,7 +36,6 @@ namespace llvm {
     explicit StringSet(AllocatorTy A) : base(A) {}
 
     std::pair<typename base::iterator, bool> insert(StringRef Key) {
-      assert(!Key.empty());
       return base::insert(std::make_pair(Key, None));
     }
 

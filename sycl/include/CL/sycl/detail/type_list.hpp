@@ -13,7 +13,7 @@
 
 #include <type_traits>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
@@ -22,7 +22,7 @@ template <typename T> using head_t = typename T::head;
 template <typename T> using tail_t = typename T::tail;
 
 // type_list
-template <typename... T> class type_list;
+template <typename... T> struct type_list;
 
 using empty_type_list = type_list<>;
 
@@ -137,4 +137,4 @@ using find_twice_as_large_type_t = find_type_t<TL, is_type_size_double_of, T>;
 
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

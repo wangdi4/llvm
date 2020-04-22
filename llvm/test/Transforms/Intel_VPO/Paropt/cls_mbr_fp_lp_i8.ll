@@ -79,7 +79,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %5 = load i8, i8* %x, align 2
   store i8 %5, i8* %y3, align 2
 ; Check that after prepare, uses of %y3 are replaced with a load from YADDR.
-; PREPR: [[YADDR_LOAD:%[a-zA-Z._0-9]+]] = load i8*, i8** [[YADDR]]
+; PREPR: [[YADDR_LOAD:%[a-zA-Z._0-9]+]] = load volatile i8*, i8** [[YADDR]]
 ; PREPR: [[LOAD_X:%[a-zA-Z._0-9]+]] = load i8, i8* %x
 ; PREPR: store i8 [[LOAD_X]], i8* [[YADDR_LOAD]]
 

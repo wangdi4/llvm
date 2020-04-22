@@ -1,6 +1,6 @@
 //===- Intel_IndirectCallConv.cpp - Indirect call Conv transformation -===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -60,10 +60,6 @@ using namespace llvm;
 static cl::opt<unsigned> IndCallConvMaxTarget("intel-ind-call-conv-max-target",
                                               cl::ReallyHidden, cl::init(2));
 
-// Option to trace indirect call conversion transformation
-static cl::opt<bool> IndCallConvTrace("print-indirect-call-conv",
-                                      cl::ReallyHidden);
-
 // Option to control allowing InvokeInst for IndCallConv transformation
 static cl::opt<bool> IndCallConvAllowInvoke("intel-ind-call-conv-allow-invoke",
                                             cl::init(false), cl::ReallyHidden);
@@ -91,10 +87,10 @@ struct IndirectCallConvImpl {
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo)
       : AnderPointsTo(AnderPointsTo){};
 #endif // INTEL_INCLUDE_DTRANS
-  static bool isNotDirectCall(CallSite CS);
-  static CallSite createDirectCallSite(CallSite CS, Value *F,
-                                       BasicBlock *In_BB);
-  bool convert(CallSite CS);
+  static bool isNotDirectCall(CallBase *Call);
+  static CallBase *createDirectCallSite(CallBase *Call, Value *F,
+                                        BasicBlock *In_BB);
+  bool convert(CallBase *CS);
   bool run(Function &F);
 
 private:
@@ -105,10 +101,10 @@ private:
 };
 } // namespace
 
-// Return true if CS is not a direct call.
+// Return true if Call is not a direct call.
 //
-bool IndirectCallConvImpl::isNotDirectCall(CallSite CS) {
-  Value *func = CS.getCalledValue();
+bool IndirectCallConvImpl::isNotDirectCall(CallBase *Call) {
+  Value *func = Call->getCalledValue();
   func = func->stripPointerCasts();
   if (isa<Function>(func)) {
     return false;
@@ -116,48 +112,49 @@ bool IndirectCallConvImpl::isNotDirectCall(CallSite CS) {
   return true;
 }
 
-// Creates new CallInst/InvokeInst that is exactly same as 'CS' but
+// Creates new CallInst/InvokeInst that is exactly same as 'Call' but
 // 'FuncName' is used as function name and inserted it into 'Insert_BB'.
 //
-CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
-                                                    Value *FuncName,
-                                                    BasicBlock *Insert_BB) {
-  CallSite New_CS;
+CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
+                                                     Value *FuncName,
+                                                     BasicBlock *Insert_BB) {
+  CallBase *NewCall;
 
-  if (isa<CallInst>(CS.getInstruction())) {
-    CallInst *New_CI;
-    std::string New_Name;
-    CallInst *CI = cast<CallInst>(CS.getInstruction());
+  if (isa<CallInst>(Call)) {
+    CallInst *NewCI;
+    std::string NewName;
 
-    std::vector<Value *> Args(CI->op_begin(), CI->op_end() - 1);
-    New_Name = CI->hasName() ? CI->getName().str() + ".indconv" : "";
-    New_CI = CallInst::Create(FuncName, Args, New_Name, Insert_BB);
+    std::vector<Value *> Args(Call->op_begin(), Call->op_end() - 1);
+    NewName = Call->hasName() ? Call->getName().str() + ".indconv" : "";
+    NewCI = CallInst::Create(Call->getFunctionType(), FuncName, Args, NewName,
+                             Insert_BB);
 
-    New_CI->setDebugLoc(CI->getDebugLoc());
-    New_CI->setCallingConv(CI->getCallingConv());
-    New_CI->setAttributes(CI->getAttributes());
-    New_CS = CallSite(New_CI);
-  } else if (isa<InvokeInst>(CS.getInstruction())) {
-    InvokeInst *New_II;
-    std::string New_Name;
-    InvokeInst *II = cast<InvokeInst>(CS.getInstruction());
+    NewCI->setDebugLoc(Call->getDebugLoc());
+    NewCI->setCallingConv(Call->getCallingConv());
+    NewCI->setAttributes(Call->getAttributes());
+    NewCall = NewCI;
+  } else if (isa<InvokeInst>(Call)) {
+    InvokeInst *NewII;
+    std::string NewName;
+    InvokeInst *II = cast<InvokeInst>(Call);
 
     std::vector<Value *> Args(II->op_begin(), II->op_end() - 3);
-    New_Name = II->hasName() ? II->getName().str() + ".indconv" : "";
-    New_II = InvokeInst::Create(FuncName, II->getNormalDest(),
-                                II->getUnwindDest(), Args, New_Name, Insert_BB);
+    NewName = II->hasName() ? II->getName().str() + ".indconv" : "";
+    NewII =
+        InvokeInst::Create(II->getFunctionType(), FuncName, II->getNormalDest(),
+                           II->getUnwindDest(), Args, NewName, Insert_BB);
 
-    New_II->setDebugLoc(II->getDebugLoc());
-    New_II->setCallingConv(II->getCallingConv());
-    New_II->setAttributes(II->getAttributes());
-    New_CS = CallSite(New_II);
+    NewII->setDebugLoc(II->getDebugLoc());
+    NewII->setCallingConv(II->getCallingConv());
+    NewII->setAttributes(II->getAttributes());
+    NewCall = NewII;
   } else {
     llvm_unreachable("Expecting call/invoke instruction");
   }
-  return New_CS;
+  return NewCall;
 }
 
-// Convert indirect call 'CS' to direct call if possible.
+// Convert indirect call 'Call' to a direct call if possible.
 //
 //  Ex (Complete Set):
 //   Before:
@@ -188,63 +185,55 @@ CallSite IndirectCallConvImpl::createDirectCallSite(CallSite CS,
 //     }
 //     ...
 //
-bool IndirectCallConvImpl::convert(CallSite CS) {
-  AndersensAAResult::AndersenSetResult
-      IsComplete = AndersensAAResult::AndersenSetResult::Incomplete;
+bool IndirectCallConvImpl::convert(CallBase *Call) {
+  AndersensAAResult::AndersenSetResult IsComplete =
+      AndersensAAResult::AndersenSetResult::Incomplete;
   unsigned NumPossibleTargets = 0;
 
-  if (IndCallConvTrace) {
-    errs() << "Call-Site:  ";
-    errs() << *(CS.getInstruction()) << "\n";
-  }
+  LLVM_DEBUG(dbgs() << "Call-Site:  " << *Call << "\n");
 
-  // Get possible targets for 'CS' using points-to info.
+  // Get possible targets for 'Call' using points-to info.
   std::vector<llvm::Value *> PossibleTargets;
-  Value *call_fptr = CS.getCalledValue()->stripPointerCasts();
+  Value *call_fptr = Call->getCalledValue()->stripPointerCasts();
+  bool TraceOn = false;
+  LLVM_DEBUG( TraceOn = true; );
 #if INTEL_INCLUDE_DTRANS
   if (DTransInfo && DTransInfo->useDTransAnalysis()) {
     if (DTransInfo->GetFuncPointerPossibleTargets(
-        call_fptr, PossibleTargets, CS, IndCallConvTrace))
+            call_fptr, PossibleTargets, Call, TraceOn))
       IsComplete = AndersensAAResult::AndersenSetResult::Complete;
   }
 #endif // INTEL_INCLUDE_DTRANS
-  if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete
-      && AnderPointsTo)
+  if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete &&
+      AnderPointsTo)
     IsComplete = AnderPointsTo->GetFuncPointerPossibleTargets(
-        call_fptr, PossibleTargets, CS, IndCallConvTrace);
-  if (IsComplete !=
-      AndersensAAResult::AndersenSetResult::Complete) {
-    if (IndCallConvTrace) {
+        call_fptr, PossibleTargets, Call, TraceOn);
+  if (IsComplete != AndersensAAResult::AndersenSetResult::Complete) {
+    LLVM_DEBUG({
       if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
-        errs() << "    (Incomplete set) \n";
+        dbgs() << "    (Incomplete set) \n";
       else
-        errs() << "    (Partially complete set) \n";
-    }
+        dbgs() << "    (Partially complete set) \n";
+    });
     // If not complete, increment NumPossibleTargets by 1 since indirect call
     // will be generated as Fallback case.
     NumPossibleTargets++;
   } else {
-    if (IndCallConvTrace) {
-      errs() << "    (Complete set) \n";
-    }
+    LLVM_DEBUG(dbgs() << "    (Complete set) \n");
   }
   // No possible targets ... skip them
   if (!PossibleTargets.size()) {
-    if (IndCallConvTrace) {
-      errs() << "    No possible targets \n";
-    }
+    LLVM_DEBUG(dbgs() << "    No possible targets \n");
     return false;
   }
 
   NumPossibleTargets += PossibleTargets.size();
 
-  if (IndCallConvTrace) {
+  LLVM_DEBUG({
     for (auto F1 = PossibleTargets.begin(), E1 = PossibleTargets.end();
-         F1 != E1; ++F1) {
-      Function *Fun = dyn_cast<Function>(*F1);
-      errs() << "    " << Fun->getName() << "\n";
-    }
-  }
+         F1 != E1; ++F1)
+      dbgs() << "    " << cast<Function>(*F1)->getName() << "\n";
+  });
 
   // If we have a partially complete set then it means that all the targets
   // are available, but the type of some of the targets aren't exactly the
@@ -271,16 +260,15 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   // case because we want to be able to directly call the possible targets
   // found with the fallback case. In the incomplete set case we can have
   // unsafe targets and the fallback case will be added automatically.
-  unsigned ActualMaxTargets = (IsComplete ==
-      AndersensAAResult::AndersenSetResult::PartiallyComplete) ?
-      IndCallConvMaxTarget + 1 : IndCallConvMaxTarget;
+  unsigned ActualMaxTargets =
+      (IsComplete == AndersensAAResult::AndersenSetResult::PartiallyComplete)
+          ? IndCallConvMaxTarget + 1
+          : IndCallConvMaxTarget;
 
   // It is not converted if number of possible targets exceeds
   // IndCallConvMaxTarget.
   if (NumPossibleTargets > ActualMaxTargets) {
-    if (IndCallConvTrace) {
-      errs() << "    Number of possible targets exceeds Limit\n";
-    }
+    LLVM_DEBUG(dbgs() << "    Number of possible targets exceeds Limit\n");
     return false;
   }
 
@@ -295,30 +283,24 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
     // If there is only one possible target and it is complete, just
     // replace function pointer with direct call.
     auto FirstElement = PossibleTargets.front();
-    CS.setCalledFunction(FirstElement);
-    if (IndCallConvTrace) {
-      errs() << "    Replaced with Direct call" << *(CS.getInstruction())
-             << "\n";
-    }
+    Call->setCalledFunction(cast<Function>(FirstElement));
+    LLVM_DEBUG(dbgs() << "    Replaced with Direct call" << *Call << "\n");
     return true;
   }
 
   // Get BasicBlock of indirect call
   Instruction *SplitPt = nullptr;
-  if (CallInst *CI = dyn_cast<CallInst>(CS.getInstruction())) {
+  if (CallInst *CI = dyn_cast<CallInst>(Call)) {
     SplitPt = CI;
-  } else if (InvokeInst *CI = dyn_cast<InvokeInst>(CS.getInstruction())) {
+  } else if (InvokeInst *CI = dyn_cast<InvokeInst>(Call)) {
     SplitPt = CI;
   }
   assert(SplitPt != nullptr && "Expected Call/Invoke Inst");
 
   BasicBlock *OrigBlock = SplitPt->getParent();
 
-  if (IndCallConvTrace) {
-    errs() << " \n BasicBlocks before transformation \n";
-    errs() << *OrigBlock;
-    errs() << "\n\n";
-  }
+  LLVM_DEBUG(dbgs() << " \n BasicBlocks before transformation \n"
+                    << *OrigBlock << "\n\n");
 
   std::string BB_Str = ".indconv.sink.";
   // Split BasicBlock that the indirect call lives in.
@@ -339,14 +321,14 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   std::vector<BasicBlock *> NewCondStmtBBs;
 
   // List of newly created direct call stmts
-  std::vector<CallSite> NewDirectCalls;
+  std::vector<CallBase *> NewDirectCalls;
 
   // List of newly created conditional stmts
   std::vector<CmpInst *> NewCondStmts;
 
   unsigned index = 0;
   BasicBlock *Cond_BB;
-  CallSite New_CS;
+  CallBase *NewCall;
   CmpInst *Comp;
 
   for (auto F1 = PossibleTargets.begin(), E1 = PossibleTargets.end(); F1 != E1;
@@ -390,11 +372,11 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
                                              OrigBlock->getParent(), Tail_BB);
 
     // Create direct call and insert into Call_BB
-    New_CS = createDirectCallSite(CS, *F1, Call_BB);
+    NewCall = createDirectCallSite(Call, *F1, Call_BB);
 
     // Add new call inst and call BasicBlock to NewDirectCalls and
     // NewDirectCallBBs to fix CFG later.
-    NewDirectCalls.push_back(New_CS);
+    NewDirectCalls.push_back(NewCall);
     NewDirectCallBBs.push_back(Call_BB);
 
     // Create unconditional branch to tail BB
@@ -415,11 +397,11 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
     BasicBlock *Call_BB = BasicBlock::Create(call_fptr->getContext(), BB_Str,
                                              OrigBlock->getParent(), Tail_BB);
 
-    New_CS = createDirectCallSite(CS, CS.getCalledValue(), Call_BB);
+    NewCall = createDirectCallSite(Call, Call->getCalledValue(), Call_BB);
 
     // Add them to NewDirectCallBBs and NewDirectCalls list
     NewDirectCallBBs.push_back(Call_BB);
-    NewDirectCalls.push_back(New_CS);
+    NewDirectCalls.push_back(NewCall);
 
     // Create unconditional branch to tail BB
     BranchInst *BI = BranchInst::Create(Tail_BB, Call_BB);
@@ -452,13 +434,13 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   //                            [ %call.i.indconv10, %.indconv.call.subtract],
   //                            [ %call.i.indconv11, %.indconv.call.multiply]
   //
-  if (!CS->getType()->isVoidTy()) {
-    PHINode *RPHI = PHINode::Create(CS->getType(), NumPossibleTargets,
+  if (!Call->getType()->isVoidTy()) {
+    PHINode *RPHI = PHINode::Create(Call->getType(), NumPossibleTargets,
                                     ".indconv.ret", &Tail_BB->front());
 
     for (unsigned i = 0; i < NumPossibleTargets; i++) {
-      CallSite CS2 = NewDirectCalls[i];
-      RPHI->addIncoming(CS2.getInstruction(), NewDirectCallBBs[i]);
+      CallBase *Call2 = NewDirectCalls[i];
+      RPHI->addIncoming(Call2, NewDirectCallBBs[i]);
     }
     RPHI->setDebugLoc(SplitPt->getDebugLoc());
     // Fix UI for newly created PHI_NODE
@@ -468,29 +450,27 @@ bool IndirectCallConvImpl::convert(CallSite CS) {
   // Eliminate original indirect call
   SplitPt->eraseFromParent();
 
-  if (IndCallConvTrace) {
-    errs() << " BasicBlocks after transformation \n";
+  LLVM_DEBUG({
+    dbgs() << " BasicBlocks after transformation \n";
     for (index = 0; index < NumPossibleTargets; index++) {
-      if (index < NumberCondStmts) {
-        errs() << *NewCondStmtBBs[index];
-      }
-      errs() << *NewDirectCallBBs[index];
+      if (index < NumberCondStmts)
+        dbgs() << *NewCondStmtBBs[index];
+      dbgs() << *NewDirectCallBBs[index];
     }
-    errs() << *Tail_BB;
-    errs() << "\n\n";
-  }
+    dbgs() << *Tail_BB << "\n\n";
+  });
   return true;
 }
 
 bool IndirectCallConvImpl::run(Function &F) {
-  std::vector<CallSite> candidates;
+  std::vector<CallBase *> candidates;
   // Collect Indirect calls in current routine.
   for (inst_iterator II = inst_begin(F), EE = inst_end(F); II != EE; ++II) {
     if (isa<CallInst>(&*II) ||
         (IndCallConvAllowInvoke && isa<InvokeInst>(&*II))) {
-      CallSite CS = CallSite(&*II);
-      if (isNotDirectCall(CS)) {
-        candidates.push_back(CS);
+      CallBase *Call = cast<CallBase>(&*II);
+      if (isNotDirectCall(Call)) {
+        candidates.push_back(Call);
       }
     }
   }
@@ -499,11 +479,8 @@ bool IndirectCallConvImpl::run(Function &F) {
     return false;
   }
 
-  if (IndCallConvTrace) {
-    errs() << "IntelIndCallConv for ";
-    errs() << F.getName() << "\n";
-    errs() << "--------------------------\n";
-  }
+  LLVM_DEBUG(dbgs() << "IntelIndCallConv for " << F.getName() << "\n"
+                    << "--------------------------\n");
 
   // Walk through the candidates and try to convert each indirect call
   bool Changed = false;
@@ -511,9 +488,7 @@ bool IndirectCallConvImpl::run(Function &F) {
     Changed |= convert(cs);
   }
 
-  if (IndCallConvTrace) {
-    errs() << "End IntelIndCallConv\n\n";
-  }
+  LLVM_DEBUG(dbgs() << "End IntelIndCallConv\n\n");
   return Changed;
 }
 
@@ -521,8 +496,7 @@ namespace {
 // IndirectCallConv legacy pass implementation
 struct IndirectCallConvLegacyPass : public FunctionPass {
   static char ID; // Pass identification, replacement for typeid
-  IndirectCallConvLegacyPass(bool UseAndersen = false,
-                             bool UseDTrans = false);
+  IndirectCallConvLegacyPass(bool UseAndersen = false, bool UseDTrans = false);
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 

@@ -16,18 +16,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlanner.h"
-#include "IntelLoopVectorizationCodeGen.h"
 #include "IntelLoopVectorizationLegality.h"
-#include "IntelNewVPlanPredicator.h"
+#include "IntelVPOCodeGen.h"
 #include "IntelVPlanCostModel.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
+#include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
+#include "IntelVPlanClone.h"
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
-#include "IntelVPlanClone.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -37,24 +38,18 @@
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
 extern llvm::cl::opt<bool> EnableVPValueCodegen;
 
-static cl::opt<unsigned>
-VecThreshold("vec-threshold",
-             cl::desc("sets a threshold for the vectorization on the probability"
-                      "of profitable execution of the vectorized loop in parallel."),
-             cl::init(100));
+static cl::opt<unsigned> VecThreshold(
+    "vec-threshold",
+    cl::desc("sets a threshold for the vectorization on the probability"
+             "of profitable execution of the vectorized loop in parallel."),
+    cl::init(100));
 
-static cl::opt<bool>
-    EnableNewVPlanPredicator("enable-new-vplan-predicator", cl::init(true),
-                             cl::Hidden,
-                             cl::desc("Enable New VPlan predicator."));
 #else
-cl::opt<unsigned>
-    VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
-                        cl::desc("Default estimated trip count"));
+cl::opt<unsigned> VPlanDefaultEstTrip("vplan-default-est-trip", cl::init(300),
+                                      cl::desc("Default estimated trip count"));
 #endif // INTEL_CUSTOMIZATION
-static cl::opt<unsigned> VPlanForceVF(
-    "vplan-force-vf", cl::init(0),
-    cl::desc("Force VPlan to use given VF"));
+static cl::opt<unsigned> VPlanForceVF("vplan-force-vf", cl::init(0),
+                                      cl::desc("Force VPlan to use given VF"));
 
 static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
@@ -65,6 +60,21 @@ static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     cl::ZeroOrMore,
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool>
+    PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
+                      cl::desc("Print VPlan after LoopCFU transformation."));
+
+static cl::opt<bool> PrintAfterLinearization(
+    "vplan-print-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after predication and linearization."));
+
+static cl::opt<bool> DotAfterLinearization(
+    "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after predication and linearization."));
+
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -157,17 +167,15 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
-    if (VPlanUseVPEntityInstructions) {
-      VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
-      // Loop entities may be not created in some cases.
-      VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
-      VPBuilder VPIRBuilder;
-      LE->insertVPInstructions(VPIRBuilder);
-      LE->doSOAAnalysis();
-      LLVM_DEBUG(Plan->setName("After insertion VPEntities instructions\n");
-                 dbgs() << *Plan;);
-    }
-
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    Plan->setVPlanDA(std::move(VPDA));
+    auto *VPLInfo = Plan->getVPLoopInfo();
+    VPLoop *CandidateLoop = *VPLInfo->begin();
+    Plan->computeDT();
+    Plan->computePDT();
+    Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
+                                *Plan->getDT(), *Plan->getPDT(),
+                                false /*Not in LCSSA form*/);
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
 
@@ -213,8 +221,8 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // Even if TripCount is more than 2^32 we can safely assume that it's equal
   // to 2^32, otherwise all logic below will have a problem with overflow.
   VPLoopInfo *VPLI = ScalarPlan->getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
-         && "Expected single outermost loop!");
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+         "Expected single outermost loop!");
   VPLoop *OuterMostVPLoop = *VPLI->begin();
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
@@ -286,11 +294,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
                         << VF << ". Original cost = " << VectorCost << '\n');
-      VectorCost = (uint64_t)(VectorCost * (100.0 - VecThreshold))/100.0f;
+      VectorCost = (uint64_t)(VectorCost * (100.0 - VecThreshold)) / 100.0f;
     }
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
-    (void) CmpChar;
+    (void)CmpChar;
     LLVM_DEBUG(dbgs() << "Scalar Cost = " << TripCount << " x "
                       << ScalarIterationCost << " = " << ScalarCost << ' '
                       << CmpChar << " VectorCost = " << VectorTripCount << "[x"
@@ -332,7 +340,7 @@ void LoopVectorizationPlanner::predicate() {
   if (DisableVPlanPredicator)
     return;
 
-  DenseSet<VPlan*> PredicatedVPlans;
+  DenseSet<VPlan *> PredicatedVPlans;
   for (auto It : VPlans) {
     if (It.first == 1)
       continue; // Ignore Scalar VPlan;
@@ -340,15 +348,52 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
-    if (EnableNewVPlanPredicator) {
-      NewVPlanPredicator VPP(*VPlan);
-      VPP.predicate();
-    } else {
-      VPlanPredicator VPP(VPlan);
-      VPP.predicate();
+    VPLoopInfo *VPLI = VPlan->getVPLoopInfo();
+    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+           "There should be single outer loop!");
+    VPLoop *OuterLoop = *VPLI->begin();
+    // Search loops require multiple hacks. Skipping LoopCFU is one of them.
+    bool SearchLoopHack = !OuterLoop->getExitBlock();
+    if (!SearchLoopHack) {
+      assert(!VPlan->getVPlanDA()->isDivergent(
+                 *(OuterLoop)->getLoopLatch()->getCondBit()) &&
+             "Outer loop doesn't have uniform backedge!");
+      VPlanLoopCFU LoopCFU(*VPlan);
+      LoopCFU.run();
     }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintAfterLoopCFU) {
+      outs() << "After Loop CFU transformation:\n";
+      VPlan->dump(outs(), VPlan->getVPlanDA());
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    // Predication "has" to be done even for the search loop hack. Our
+    // idiom-matching code and CG currently expect that. Note that predicator
+    // has some hacks for search loop processing inside it as well.
+    VPlanPredicator VPP(*VPlan);
+    VPP.predicate();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintAfterLinearization) {
+      outs() << "After predication and linearization\n";
+      VPlan->dump(outs(), true /* print DA info */);
+    }
+    if (DotAfterLinearization) {
+      outs() << *VPlan;
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     PredicatedVPlans.insert(VPlan);
+  }
+}
+
+void LoopVectorizationPlanner::unroll(
+    VPlan &Plan, unsigned UF,
+    VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
+  if (UF > 1) {
+    VPlanLoopUnroller Unroller(Plan, UF);
+    Unroller.run(VPInstUnrollPart);
   }
 }
 
@@ -411,8 +456,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
     unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
     const DataLayout *DL) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan =
-      std::make_shared<VPlan>(Context, DL);
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
@@ -432,12 +476,10 @@ template <class Legality> constexpr IRKind getIRKindByLegality() {
 
 template <class VPOVectorizationLegality>
 #endif
-void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLp,
-                                                 VPOVectorizationLegality &LVL) {
+void LoopVectorizationPlanner::EnterExplicitData(
+    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
 #if INTEL_CUSTOMIZATION
   constexpr IRKind Kind = getIRKindByLegality<VPOVectorizationLegality>();
-  if (Kind == IRKind::LLVMIR && EnableVPValueCodegen)
-    VPlanUseVPEntityInstructions = true;
 #endif
   // Collect any SIMD loop private information
   if (WRLp) {
@@ -520,8 +562,8 @@ template void
 LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
     WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL);
 #endif
-} // namespace llvm
 } // namespace vpo
+} // namespace llvm
 
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
@@ -544,8 +586,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Set ILV transform state
   ILV->setTransformState(&State);
 #endif // INTEL_CUSTOMIZATION
-
-  ILV->collectUniformsAndScalars(BestVF);
 
   Plan->execute(&State);
 

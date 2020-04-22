@@ -6,16 +6,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/kernel_impl.hpp>
 #include <CL/sycl/kernel.hpp>
 #include <CL/sycl/program.hpp>
+#include <detail/kernel_impl.hpp>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 
 kernel::kernel(cl_kernel ClKernel, const context &SyclContext)
     : impl(std::make_shared<detail::kernel_impl>(
-          detail::pi::cast<detail::RT::PiKernel>(ClKernel), SyclContext)) {}
+          detail::pi::cast<detail::RT::PiKernel>(ClKernel),
+              detail::getSyclObjImpl(SyclContext))) {}
 
 cl_kernel kernel::get() const { return impl->get(); }
 
@@ -86,4 +87,4 @@ kernel::get_sub_group_info(
 kernel::kernel(std::shared_ptr<detail::kernel_impl> Impl) : impl(Impl) {}
 
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

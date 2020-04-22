@@ -21,6 +21,7 @@
 #include "llvm/Object/ELF.h"
 
 namespace lld {
+// Returns a string representation for a symbol for diagnostics.
 std::string toString(const elf::Symbol &);
 
 // There are two different ways to convert an Archive::Symbol to a string:
@@ -86,9 +87,6 @@ public:
 
   // Version definition index.
   uint16_t versionId;
-
-  // An index into the .branch_lt section on PPC64.
-  uint16_t ppc64BranchltIndex = -1;
 
   // Symbol binding. This is not overwritten by replace() to track
   // changes during resolution. In particular:
@@ -181,7 +179,6 @@ public:
 
   bool isInGot() const { return gotIndex != -1U; }
   bool isInPlt() const { return pltIndex != -1U; }
-  bool isInPPC64Branchlt() const { return ppc64BranchltIndex != 0xffff; }
 
   uint64_t getVA(int64_t addend = 0) const;
 
@@ -190,8 +187,6 @@ public:
   uint64_t getGotPltOffset() const;
   uint64_t getGotPltVA() const;
   uint64_t getPltVA() const;
-  uint64_t getPPC64LongBranchTableVA() const;
-  uint64_t getPPC64LongBranchOffset() const;
   uint64_t getSize() const;
   OutputSection *getOutputSection() const;
 
@@ -560,6 +555,8 @@ void Symbol::replace(const Symbol &newSym) {
 }
 
 void maybeWarnUnorderableSymbol(const Symbol *sym);
+bool computeIsPreemptible(const Symbol &sym);
+
 } // namespace elf
 } // namespace lld
 

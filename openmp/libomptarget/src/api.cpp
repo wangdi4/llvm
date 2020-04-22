@@ -21,13 +21,17 @@
 #include <cstdlib>
 
 EXTERN int omp_get_num_devices(void) {
-  RTLsMtx.lock();
+#if INTEL_COLLAB
+  return __tgt_get_num_devices();
+#else // INTEL_COLLAB
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
 
   DP("Call to omp_get_num_devices returning %zd\n", Devices_size);
 
   return Devices_size;
+#endif // INTEL_COLLAB
 }
 
 EXTERN int omp_get_initial_device(void) {
@@ -59,8 +63,13 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
 
   DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    rc = Device.data_alloc_managed(size);
+    DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
+    return rc;
+  }
   rc = Device.data_alloc_user(size, NULL);
-#else
+#else // INTEL_COLLAB
   rc = Device.RTL->data_alloc(Device.RTLDeviceID, size, NULL);
 #endif // INTEL_COLLAB
   DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
@@ -88,6 +97,13 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
   }
 
   DeviceTy &Device = Devices[device_num];
+#if INTEL_COLLAB
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    Device.data_delete_managed(device_ptr);
+    DP("omp_target_free deallocated managed ptr\n");
+    return;
+  }
+#endif // INTEL_COLLAB
   Device.RTL->data_delete(Device.RTLDeviceID, (void *)device_ptr);
   DP("omp_target_free deallocated device ptr\n");
 }
@@ -106,9 +122,9 @@ EXTERN int omp_target_is_present(void *ptr, int device_num) {
     return true;
   }
 
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
   if (Devices_size <= (size_t)device_num) {
     DP("Call to omp_target_is_present with invalid device ID, returning "
         "false\n");
@@ -124,7 +140,7 @@ EXTERN int omp_target_is_present(void *ptr, int device_num) {
   // getTgtPtrBegin() function which means that there is no device
   // corresponding point for ptr. This function should return false
   // in that situation.
-  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
     rc = !IsHostPtr;
   DP("Call to omp_target_is_present returns %d\n", rc);
   return rc;
@@ -178,6 +194,7 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
     rc = SrcDev.data_retrieve(buffer, srcAddr, length);
     if (rc == OFFLOAD_SUCCESS)
       rc = DstDev.data_submit(dstAddr, buffer, length);
+    free(buffer);
   }
 
   DP("omp_target_memcpy returns %d\n", rc);
@@ -292,3 +309,33 @@ EXTERN int omp_target_disassociate_ptr(void *host_ptr, int device_num) {
   DP("omp_target_disassociate_ptr returns %d\n", rc);
   return rc;
 }
+#if INTEL_COLLAB
+EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
+  DP("Call to omp_get_mapped_ptr with host_ptr " DPxMOD ", "
+      "device_num %d\n", DPxPTR(host_ptr), device_num);
+
+  if (!host_ptr) {
+    DP("Call to omp_get_mapped_ptr with invalid host_ptr\n");
+    return NULL;
+  }
+
+  if (device_num == omp_get_initial_device()) {
+    DP("omp_get_mapped_ptr : Mapped pointer is same as hsot\n");
+    return host_ptr;
+  }
+
+  if (!device_is_ready(device_num)) {
+    DP("omp_get_mapped_ptr :  returns NULL\n");
+    return NULL;
+  }
+
+  DeviceTy& Device = Devices[device_num];
+  bool IsLast, IsHostPtr;
+  void * rc = Device.getTgtPtrBegin(host_ptr, 1, IsLast, false, IsHostPtr);
+  if (rc == NULL)
+     DP("omp_get_mapped_ptr : cannot find device pointer\n");
+  DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
+  return rc;
+}
+#endif  // INTEL_COLLAB
+

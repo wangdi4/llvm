@@ -98,10 +98,11 @@ STATISTIC(NumGVNSimpl,  "Number of instructions simplified");
 STATISTIC(NumGVNEqProp, "Number of equalities propagated");
 STATISTIC(NumPRELoad,   "Number of loads PRE'd");
 
-static cl::opt<bool> EnablePRE("enable-pre",
-                               cl::init(true), cl::Hidden);
-static cl::opt<bool> EnableLoadPRE("enable-load-pre", cl::init(true));
-static cl::opt<bool> EnableMemDep("enable-gvn-memdep", cl::init(true));
+static cl::opt<bool> GVNEnablePRE("enable-pre", cl::init(true), cl::Hidden);
+static cl::opt<bool> GVNEnableLoadPRE("enable-load-pre", cl::init(true));
+static cl::opt<bool> GVNEnableLoadInLoopPRE("enable-load-in-loop-pre",
+                                            cl::init(true));
+static cl::opt<bool> GVNEnableMemDep("enable-gvn-memdep", cl::init(true));
 
 // Maximum allowed recursion depth.
 static cl::opt<uint32_t>
@@ -289,7 +290,7 @@ GVN::Expression GVN::ValueTable::createExpr(Instruction *I) {
     e.commutative = true;
   }
 
-  if (CmpInst *C = dyn_cast<CmpInst>(I)) {
+  if (auto *C = dyn_cast<CmpInst>(I)) {
     // Sort the operand value numbers so x<y and y>x get the same value number.
     CmpInst::Predicate Predicate = C->getPredicate();
     if (e.varargs[0] > e.varargs[1]) {
@@ -298,10 +299,11 @@ GVN::Expression GVN::ValueTable::createExpr(Instruction *I) {
     }
     e.opcode = (C->getOpcode() << 8) | Predicate;
     e.commutative = true;
-  } else if (InsertValueInst *E = dyn_cast<InsertValueInst>(I)) {
-    for (InsertValueInst::idx_iterator II = E->idx_begin(), IE = E->idx_end();
-         II != IE; ++II)
-      e.varargs.push_back(*II);
+  } else if (auto *E = dyn_cast<InsertValueInst>(I)) {
+    e.varargs.append(E->idx_begin(), E->idx_end());
+  } else if (auto *SVI = dyn_cast<ShuffleVectorInst>(I)) {
+    ArrayRef<int> ShuffleMask = SVI->getShuffleMask();
+    e.varargs.append(ShuffleMask.begin(), ShuffleMask.end());
   }
 
   return e;
@@ -531,6 +533,7 @@ uint32_t GVN::ValueTable::lookupOrAdd(Value *V) {
     case Instruction::AddrSpaceCast:
     case Instruction::BitCast:
     case Instruction::Select:
+    case Instruction::Freeze:
     case Instruction::ExtractElement:
     case Instruction::InsertElement:
     case Instruction::ShuffleVector:
@@ -611,6 +614,22 @@ void GVN::ValueTable::verifyRemoved(const Value *V) const {
 //                                GVN Pass
 //===----------------------------------------------------------------------===//
 
+bool GVN::isPREEnabled() const {
+  return Options.AllowPRE.getValueOr(GVNEnablePRE);
+}
+
+bool GVN::isLoadPREEnabled() const {
+  return Options.AllowLoadPRE.getValueOr(GVNEnableLoadPRE);
+}
+
+bool GVN::isLoadInLoopPREEnabled() const {
+  return Options.AllowLoadInLoopPRE.getValueOr(GVNEnableLoadInLoopPRE);
+}
+
+bool GVN::isMemDepEnabled() const {
+  return Options.AllowMemDep.getValueOr(GVNEnableMemDep);
+}
+
 PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
   // FIXME: The order of evaluation of these 'getResult' calls is very
   // significant! Re-ordering these variables will cause GVN when run alone to
@@ -620,10 +639,11 @@ PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
-  auto &MemDep = AM.getResult<MemoryDependenceAnalysis>(F);
+  auto *MemDep =
+      isMemDepEnabled() ? &AM.getResult<MemoryDependenceAnalysis>(F) : nullptr;
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
-  bool Changed = runImpl(F, AC, DT, TLI, AA, &MemDep, LI, &ORE);
+  bool Changed = runImpl(F, AC, DT, TLI, AA, MemDep, LI, &ORE);
   if (!Changed)
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
@@ -929,6 +949,7 @@ bool GVN::AnalyzeLoadAvailability(LoadInst *LI, MemDepResult DepInfo,
 
   // Loading the allocation -> undef.
   if (isa<AllocaInst>(DepInst) || isMallocLikeFn(DepInst, TLI) ||
+      isAlignedAllocLikeFn(DepInst, TLI) ||
       // Loading immediately after lifetime begin -> undef.
       isLifetimeStart(DepInst)) {
     Res = AvailableValue::get(UndefValue::get(LI->getType()));
@@ -1026,6 +1047,46 @@ void GVN::AnalyzeLoadAvailability(LoadInst *LI, LoadDepVect &Deps,
 }
 
 #if INTEL_CUSTOMIZATION
+// We don't call into LTO here because ScalarOpt must build as a standalone
+// library with -slibs.
+static bool PaddedMallocGenerated(Module &M) {
+  return M.getFunction("__Intel_PaddedMallocInterface");
+}
+
+// This identifies the following pattern in the code when the Malloc Padding
+// is active to facilitate the Load PRE:
+//
+//     %PHI = phi i32 [ %l, %if.else ], [ %l, %while.end ], [ %s, %if.else10 ]
+//     %0 = zext i32 %phi to i64
+//     %1 = getelementptr inbounds i8, i8* %a, i64 %0
+//     %2 = load i8, i8* %1, align 1, !tbaa !19
+//
+// It returns the PHI node if such Load is found,
+// otherwise nullptr.
+PHINode *PREProfitableWithPaddedMalloc(LoadInst *LI) {
+  if (!PaddedMallocGenerated(*(LI->getModule()))) {
+    return nullptr;
+  }
+
+  if (!isa<GEPOperator>(LI->getPointerOperand())) {
+    return nullptr;
+  }
+
+  GEPOperator *GEP = dyn_cast<GEPOperator>(LI->getPointerOperand());
+  if (GEP->getNumIndices() == 1 && isa<ZExtInst>(GEP->getOperand(1))) {
+    ZExtInst *ZEI = dyn_cast<ZExtInst>(GEP->getOperand(1));
+    if (isa<PHINode>(ZEI->getOperand(0))) {
+      PHINode *PH = dyn_cast<PHINode>(ZEI->getOperand(0));
+      if ((PH->getNumIncomingValues() == 3) &&
+          PH->getParent() == LI->getParent()) {
+        return PH;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT) {
 
   auto LoadBB = LI->getParent();
@@ -1043,6 +1104,11 @@ static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT) {
   if (!Func->isPreLoopOpt()) {
     return true;
   }
+
+  // We don't want to suppress PRE when the padded malloc is active
+  // along with the specified pattern.
+  if (PREProfitableWithPaddedMalloc(LI))
+    return true;
 
   auto AddressInst = dyn_cast<Instruction>(LI->getPointerOperand());
 
@@ -1251,6 +1317,28 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
   unsigned NumUnavailablePreds = PredLoads.size() + CriticalEdgePred.size();
   assert(NumUnavailablePreds != 0 &&
          "Fully available value should already be eliminated!");
+
+#if INTEL_CUSTOMIZATION
+  PHINode *PH = PREProfitableWithPaddedMalloc(LI);
+  if (PH) {
+    if (NumUnavailablePreds == 2 && CriticalEdgePred.size() == 2 &&
+        (PH->getIncomingValueForBlock(CriticalEdgePred[0]) ==
+         PH->getIncomingValueForBlock(CriticalEdgePred[1]))) {
+      BasicBlock *NewBB = SplitBlockPredecessors(LoadBB, CriticalEdgePred,
+                                                 ".split", DT, this->LI);
+      if (NewBB) {
+        LLVM_DEBUG(dbgs() << " ENABLING PRE BY SPLITTING BB for LOAD: " << *LI
+                          << '\n');
+        CriticalEdgePred.clear();
+        PredLoads[NewBB] = nullptr;
+        NumUnavailablePreds = PredLoads.size() + CriticalEdgePred.size();
+        if (MD)
+          MD->invalidateCachedPredecessors();
+        InvalidBlockRPONumbers = true;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If this load is unavailable in multiple predecessors, reject it.
   // FIXME: If we could restructure the CFG, we could make a common pred with
@@ -1508,11 +1596,67 @@ bool GVN::processNonLocalLoad(LoadInst *LI) {
   }
 
   // Step 4: Eliminate partial redundancy.
-  if (!EnablePRE || !EnableLoadPRE)
+  if (!isPREEnabled() || !isLoadPREEnabled())
+    return false;
+  if (!isLoadInLoopPREEnabled() && this->LI &&
+      this->LI->getLoopFor(LI->getParent()))
     return false;
 
   return PerformLoadPRE(LI, ValuesPerBlock, UnavailableBlocks);
 }
+
+static bool impliesEquivalanceIfTrue(CmpInst* Cmp) {
+  if (Cmp->getPredicate() == CmpInst::Predicate::ICMP_EQ)
+    return true;
+
+  // Floating point comparisons can be equal, but not equivalent.  Cases:
+  // NaNs for unordered operators
+  // +0.0 vs 0.0 for all operators
+  if (Cmp->getPredicate() == CmpInst::Predicate::FCMP_OEQ ||
+      (Cmp->getPredicate() == CmpInst::Predicate::FCMP_UEQ &&
+       Cmp->getFastMathFlags().noNaNs())) {
+      Value *LHS = Cmp->getOperand(0);
+      Value *RHS = Cmp->getOperand(1);
+      // If we can prove either side non-zero, then equality must imply
+      // equivalence.
+      // FIXME: We should do this optimization if 'no signed zeros' is
+      // applicable via an instruction-level fast-math-flag or some other
+      // indicator that relaxed FP semantics are being used.
+      if (isa<ConstantFP>(LHS) && !cast<ConstantFP>(LHS)->isZero())
+        return true;
+      if (isa<ConstantFP>(RHS) && !cast<ConstantFP>(RHS)->isZero())
+        return true;;
+      // TODO: Handle vector floating point constants
+  }
+  return false;
+}
+
+static bool impliesEquivalanceIfFalse(CmpInst* Cmp) {
+  if (Cmp->getPredicate() == CmpInst::Predicate::ICMP_NE)
+    return true;
+
+  // Floating point comparisons can be equal, but not equivelent.  Cases:
+  // NaNs for unordered operators
+  // +0.0 vs 0.0 for all operators
+  if ((Cmp->getPredicate() == CmpInst::Predicate::FCMP_ONE &&
+       Cmp->getFastMathFlags().noNaNs()) ||
+      Cmp->getPredicate() == CmpInst::Predicate::FCMP_UNE) {
+      Value *LHS = Cmp->getOperand(0);
+      Value *RHS = Cmp->getOperand(1);
+      // If we can prove either side non-zero, then equality must imply
+      // equivalence.
+      // FIXME: We should do this optimization if 'no signed zeros' is
+      // applicable via an instruction-level fast-math-flag or some other
+      // indicator that relaxed FP semantics are being used.
+      if (isa<ConstantFP>(LHS) && !cast<ConstantFP>(LHS)->isZero())
+        return true;
+      if (isa<ConstantFP>(RHS) && !cast<ConstantFP>(RHS)->isZero())
+        return true;;
+      // TODO: Handle vector floating point constants
+  }
+  return false;
+}
+
 
 static bool hasUsersIn(Value *V, BasicBlock *BB) {
   for (User *U : V->users())
@@ -1565,10 +1709,10 @@ bool GVN::processAssumeIntrinsic(IntrinsicInst *IntrinsicI) {
   // If we find an equality fact, canonicalize all dominated uses in this block
   // to one of the two values.  We heuristically choice the "oldest" of the
   // two where age is determined by value number. (Note that propagateEquality
-  // above handles the cross block case.) 
-  // 
+  // above handles the cross block case.)
+  //
   // Key case to cover are:
-  // 1) 
+  // 1)
   // %cmp = fcmp oeq float 3.000000e+00, %0 ; const on lhs could happen
   // call void @llvm.assume(i1 %cmp)
   // ret float %0 ; will change it to ret float 3.000000e+00
@@ -1578,10 +1722,7 @@ bool GVN::processAssumeIntrinsic(IntrinsicInst *IntrinsicI) {
   // call void @llvm.assume(i1 %cmp)
   // ret float %load ; will change it to ret float %0
   if (auto *CmpI = dyn_cast<CmpInst>(V)) {
-    if (CmpI->getPredicate() == CmpInst::Predicate::ICMP_EQ ||
-        CmpI->getPredicate() == CmpInst::Predicate::FCMP_OEQ ||
-        (CmpI->getPredicate() == CmpInst::Predicate::FCMP_UEQ &&
-         CmpI->getFastMathFlags().noNaNs())) {
+    if (impliesEquivalanceIfTrue(CmpI)) {
       Value *CmpLHS = CmpI->getOperand(0);
       Value *CmpRHS = CmpI->getOperand(1);
       // Heuristically pick the better replacement -- the choice of heuristic
@@ -1608,17 +1749,11 @@ bool GVN::processAssumeIntrinsic(IntrinsicInst *IntrinsicI) {
       if (isa<Constant>(CmpLHS) && isa<Constant>(CmpRHS))
         return Changed;
 
-      // +0.0 and -0.0 compare equal, but do not imply equivalence.  Unless we
-      // can prove equivalence, bail.
-      if (CmpRHS->getType()->isFloatTy() &&
-          (!isa<ConstantFP>(CmpRHS) || cast<ConstantFP>(CmpRHS)->isZero()))
-        return Changed;
-
       LLVM_DEBUG(dbgs() << "Replacing dominated uses of "
                  << *CmpLHS << " with "
                  << *CmpRHS << " in block "
                  << IntrinsicI->getParent()->getName() << "\n");
-      
+
 
       // Setup the replacement map - this handles uses within the same block
       if (hasUsersIn(CmpLHS, IntrinsicI->getParent()))
@@ -1791,7 +1926,8 @@ uint32_t GVN::ValueTable::phiTranslateImpl(const BasicBlock *Pred,
     // instead of value numbers. Those index numbers should not be
     // translated.
     if ((i > 1 && Exp.opcode == Instruction::InsertValue) ||
-        (i > 0 && Exp.opcode == Instruction::ExtractValue))
+        (i > 0 && Exp.opcode == Instruction::ExtractValue) ||
+        (i > 1 && Exp.opcode == Instruction::ShuffleVector))
       continue;
     Exp.varargs[i] = phiTranslate(Pred, PhiBlock, Exp.varargs[i], Gvn);
   }
@@ -1883,7 +2019,7 @@ void GVN::assignBlockRPONumber(Function &F) {
 bool GVN::replaceOperandsForInBlockEquality(Instruction *Instr) const {
   bool Changed = false;
   for (unsigned OpNum = 0; OpNum < Instr->getNumOperands(); ++OpNum) {
-    Value *Operand = Instr->getOperand(OpNum); 
+    Value *Operand = Instr->getOperand(OpNum);
     auto it = ReplaceOperandsWithMap.find(Operand);
     if (it != ReplaceOperandsWithMap.end()) {
       LLVM_DEBUG(dbgs() << "GVN replacing: " << *Operand << " with "
@@ -2002,26 +2138,11 @@ bool GVN::propagateEquality(Value *LHS, Value *RHS, const BasicBlockEdge &Root,
       Value *Op0 = Cmp->getOperand(0), *Op1 = Cmp->getOperand(1);
 
       // If "A == B" is known true, or "A != B" is known false, then replace
-      // A with B everywhere in the scope.
-      if ((isKnownTrue && Cmp->getPredicate() == CmpInst::ICMP_EQ) ||
-          (isKnownFalse && Cmp->getPredicate() == CmpInst::ICMP_NE))
+      // A with B everywhere in the scope.  For floating point operations, we
+      // have to be careful since equality does not always imply equivalance.
+      if ((isKnownTrue && impliesEquivalanceIfTrue(Cmp)) ||
+          (isKnownFalse && impliesEquivalanceIfFalse(Cmp)))
         Worklist.push_back(std::make_pair(Op0, Op1));
-
-      // Handle the floating point versions of equality comparisons too.
-      if ((isKnownTrue && Cmp->getPredicate() == CmpInst::FCMP_OEQ) ||
-          (isKnownFalse && Cmp->getPredicate() == CmpInst::FCMP_UNE)) {
-
-        // Floating point -0.0 and 0.0 compare equal, so we can only
-        // propagate values if we know that we have a constant and that
-        // its value is non-zero.
-
-        // FIXME: We should do this optimization if 'no signed zeros' is
-        // applicable via an instruction-level fast-math-flag or some other
-        // indicator that relaxed FP semantics are being used.
-
-        if (isa<ConstantFP>(Op1) && !cast<ConstantFP>(Op1)->isZero())
-          Worklist.push_back(std::make_pair(Op0, Op1));
-      }
 
       // If "A >= B" is known true, replace "A < B" with false everywhere.
       CmpInst::Predicate NotPred = Cmp->getInversePredicate();
@@ -2244,7 +2365,7 @@ bool GVN::runImpl(Function &F, AssumptionCache &RunAC, DominatorTree &RunDT,
     ++Iteration;
   }
 
-  if (EnablePRE) {
+  if (isPREEnabled()) {
     // Fabricate val-num for dead-code in order to suppress assertion in
     // performPRE().
     assignValNumForDeadCode();
@@ -2778,8 +2899,8 @@ class llvm::gvn::GVNLegacyPass : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  explicit GVNLegacyPass(bool NoMemDepAnalysis = !EnableMemDep)
-      : FunctionPass(ID), NoMemDepAnalysis(NoMemDepAnalysis) {
+  explicit GVNLegacyPass(bool NoMemDepAnalysis = !GVNEnableMemDep)
+      : FunctionPass(ID), Impl(GVNOptions().setMemDep(!NoMemDepAnalysis)) {
     initializeGVNLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -2794,9 +2915,9 @@ public:
         getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
         getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
         getAnalysis<AAResultsWrapperPass>().getAAResults(),
-        NoMemDepAnalysis
-            ? nullptr
-            : &getAnalysis<MemoryDependenceWrapperPass>().getMemDep(),
+        Impl.isMemDepEnabled()
+            ? &getAnalysis<MemoryDependenceWrapperPass>().getMemDep()
+            : nullptr,
         LIWP ? &LIWP->getLoopInfo() : nullptr,
         &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE());
   }
@@ -2806,7 +2927,7 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
-    if (!NoMemDepAnalysis)
+    if (Impl.isMemDepEnabled())
       AU.addRequired<MemoryDependenceWrapperPass>();
     AU.addRequired<AAResultsWrapperPass>();
 
@@ -2820,7 +2941,6 @@ public:
   }
 
 private:
-  bool NoMemDepAnalysis;
   GVN Impl;
 };
 

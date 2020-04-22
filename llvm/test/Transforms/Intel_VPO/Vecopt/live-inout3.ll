@@ -6,22 +6,26 @@ target triple = "x86_64-unknown-linux-gnu"
 ; verify live-in and live-out analysis
 ; CHECK:Live-in and Live-out info:
 ; CHECK-NEXT:External defs:
-; CHECK-DAG: i64* %lb
-; CHECK-DAG: [101 x float]* %a
 ; CHECK-DAG: i64* %ub
+; CHECK-DAG: [101 x float]* %a
+; CHECK-DAG: i64* %lb
 ; CHECK-DAG: i64 %2
 ; CHECK-NEXT:Used externally:
 ; CHECK-DAG: i64 {{%vp.*}}
 ; CHECK-DAG: i64 {{%vp.*}}
 ; CHECK-DAG: i64 {{%vp.*}}
-; CHECK-DAG: i64* %ub livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
-; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
-; CHECK-DAG: [101 x float]* %a livein in the loops:  BB2
-; CHECK-DAG: i64* %lb livein in the loops:  BB2
-; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB2
-; CHECK-DAG: i64 %2 livein in the loops:  BB2
-; CHECK-NEXT:Live-in and Live-out info end
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64* %ub livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB1
+; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB1
+; CHECK-DAG: [101 x float]* %a livein in the loops:  BB1
+; CHECK-DAG: i64* %lb livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK:     Live-in and Live-out info end
 
 ; Function Attrs: nounwind uwtable
 define dso_local i64 @_Z3foolPlS_PA101_f(i64 %n, i64* nocapture %lb, i64* nocapture readonly %ub, [101 x float]* nocapture readonly %a) local_unnamed_addr #0 {

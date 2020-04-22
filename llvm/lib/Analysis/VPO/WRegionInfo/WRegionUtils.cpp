@@ -306,6 +306,19 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
           // should ignore vectorization profitability in vectorizer cost
           // model.
           W->setHasVectorAlways(L->hasVectorizeAlwaysPragma());
+          // TODO: Update to use "pragma vector vectorlength(N)" when support is
+          // added in FE.
+          unsigned PragmaBasedVF = L->getVectorizePragmaWidth();
+          unsigned LoopOptForcedVF = L->getForcedVectorWidth();
+          // VF forced via pragma takes higher precedence than LoopOpt's
+          // internal forced VF.
+          if (PragmaBasedVF > 0) {
+            assert(!W->getSimdlen() && "Cannot overwrite SIMD length value.");
+            W->setSimdlen(PragmaBasedVF);
+          } else if (LoopOptForcedVF > 0) {
+            assert(!W->getSimdlen() && "Cannot overwrite SIMD length value.");
+            W->setSimdlen(LoopOptForcedVF);
+          }
         }
       }
     }
@@ -630,16 +643,13 @@ bool WRegionUtils::usedInRegionEntryDirective(WRegionNode *W, Value *I) {
   return false;
 }
 
-// \returns true if the value \p V is used in the WRN \p W.
-// If \p Users is not null (default is nullptr), then find all users of \p V
-// in \p W and put them in \p *Users.
-// If \p ExcludeDirective is true (default is true), then ignore the
-// instructions for which isOpenMPDirective() is true.
+// Returns true if V is used in the WRN W. Populates UserInsts and UserExprs
+// with the users if they are not null.
 //
 // Prerequisite: W's BBSet must be populated before calling this util.
-bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
-                                     SmallVectorImpl<Instruction *> *Users,
-                                     bool ExcludeEntryDirective) {
+bool WRegionUtils::findUsersInRegion(
+    WRegionNode *W, Value *V, SmallVectorImpl<Instruction *> *UserInsts,
+    bool ExcludeEntryDirective, SmallPtrSetImpl<ConstantExpr *> *UserExprs) {
   bool Found = false;
   for (User *U : V->users()) {
     if (Instruction *I = dyn_cast<Instruction>(U)) {
@@ -648,13 +658,15 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
       if (W->contains(I->getParent())) {
         // LLVM_DEBUG(dbgs() << "findUsersInRegion ("<< *V <<") in ("<< *I
         // <<")\n");
-        if (Users == nullptr)
+        if (UserInsts == nullptr)
           return true; // no need to find more users
         Found = true;
-        Users->push_back(I);
+        UserInsts->push_back(I);
       }
     }
     else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+      if (UserExprs)
+        UserExprs->insert(CE);
       // LLVM_DEBUG(dbgs() << "  ConstantExpr: " << *CE << "\n");
       //
       // The user may not be an Instruction, but a ConstantExpr used directly
@@ -666,9 +678,9 @@ bool WRegionUtils::findUsersInRegion(WRegionNode *W, Value *V,
       //
       // Recursively call findUsersInRegion() to find all Instructions in \p W
       // that use the ConstantExpr and add such Instructions to \p *Users.
-      if (WRegionUtils::findUsersInRegion(W, CE, Users,
-                                          ExcludeEntryDirective)) {
-        if (Users == nullptr)
+      if (WRegionUtils::findUsersInRegion(W, CE, UserInsts,
+                                          ExcludeEntryDirective, UserExprs)) {
+        if (UserInsts == nullptr)
           return true; // no need to find more users
         Found = true;
       }
@@ -781,7 +793,11 @@ bool WRegionUtils::needsDestructors(WRegionNode *W) {
       if (LI->getDestructor() != nullptr)
         return true;
 
-  // TODO: support UDR
+  if (W->canHaveReduction())
+    for (ReductionItem *RI : W->getRed().items())
+      if (RI->getDestructor() != nullptr)
+        return true;
+
   return false;
 }
 

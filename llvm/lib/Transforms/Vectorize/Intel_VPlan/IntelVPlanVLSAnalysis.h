@@ -50,6 +50,7 @@ protected:
   LLVMContext &Context;
   const DataLayout &DL;
   ScalarEvolution *SE;
+  TargetTransformInfo *TTI;
 
   /// Finds a group for a given VPInstruction.
   OVLSGroup *getGroupForInstruction(const VPlan *Plan,
@@ -71,8 +72,8 @@ protected:
                                       const unsigned VF) const;
 
 private:
-  void collectMemrefs(const VPRegionBlock *Region,
-                      OVLSMemrefVector &MemrefVector, unsigned VF);
+  void collectMemrefs(OVLSMemrefVector &MemrefVector, const VPlan *Plan,
+                      unsigned VF);
 
   /// To call OptVLSInterface, vectorizer has to pass maximum physical
   /// vector length for a given target. From vectorization point of view,
@@ -104,8 +105,9 @@ private:
 
 public:
   VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
-                   const DataLayout &DL, ScalarEvolution *SE)
-      : MainLoop(MainLoop), Context(Context), DL(DL), SE(SE) {}
+                   const DataLayout &DL, ScalarEvolution *SE,
+                   TargetTransformInfo *TTI)
+      : MainLoop(MainLoop), Context(Context), DL(DL), SE(SE), TTI(TTI) {}
   virtual ~VPlanVLSAnalysis() {}
   /// Collect all memrefs within given VPlan and reflect given VF in
   /// each collected memref.

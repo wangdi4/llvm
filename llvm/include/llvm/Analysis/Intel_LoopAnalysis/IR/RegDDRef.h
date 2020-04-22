@@ -1,6 +1,6 @@
 //===----- RegDDRef.h - Regular data dependency node in HIR -----*- C++ -*-===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -135,6 +135,10 @@ private:
     // Debug location of the load/store instruction.
     DebugLoc MemDbgLoc;
 
+    // For some refs, dummy gep inst is constructed to be used for alias
+    // analysis and is cached here.
+    GetElementPtrInst *DummyGepLoc;
+
     // Comparators to sort MDNodes.
     struct MDKindCompareLess;
     struct MDKindCompareEqual;
@@ -265,6 +269,19 @@ private:
                            CanonExpr *StrideCE = nullptr,
                            Type *DimTy = nullptr);
 
+  /// Returns true if the GEP ref has a 'known' location (address range). An
+  /// unattached or fake ref's location is unknown.
+  bool hasKnownLocation() const;
+
+  /// Returns true if a GEP representing the ref can be created for alias
+  /// analyis.
+  bool canCreateLocationGEP() const;
+
+  /// Returns a GEP Inst which represents the ref, for alias analysis.
+  /// Asserts that canCreateLocationGEP() is true.
+  /// The GEP Inst is cached for reuse.
+  GetElementPtrInst *getOrCreateLocationGEP() const;
+
 public:
   /// Returns HLDDNode this DDRef is attached to.
   const HLDDNode *getHLDDNode() const override { return Node; };
@@ -300,7 +317,39 @@ public:
     return getCanonExprUtils().getTypeSizeInBytes(getDestType());
   }
 
-  /// MemoryLocation for AA.
+  // Returns true if the ref is AddressOf ref whose element type is sized.
+  bool isAddressOfSizedType() const {
+    if (!isAddressOf()) {
+      return false;
+    }
+
+    return getDestType()->getPointerElementType()->isSized();
+  }
+
+  // Returns size of element type. This is only applicable for AddressOf refs.
+  // For example it will return 8 bits for &(i8*)A[i1].
+  uint64_t getElementTypeSizeInBits() const {
+    assert(isAddressOfSizedType() && "Dereferenceable AddressOf ref expected!");
+
+    auto *ElementTy = getDestType()->getPointerElementType();
+    return getCanonExprUtils().getTypeSizeInBits(ElementTy);
+  }
+
+  // Returns size of element type. This is only applicable for AddressOf refs.
+  // For example it will return 1 byte for &(i8*)A[i1].
+  uint64_t getElementTypeSizeInBytes() const {
+    assert(isAddressOfSizedType() && "Dereferenceable AddressOf ref expected!");
+
+    auto *ElementTy = getDestType()->getPointerElementType();
+    return getCanonExprUtils().getTypeSizeInBytes(ElementTy);
+  }
+
+  /// Returns a pointer val which can act as the location pointer for the GEP
+  /// ref for alias analysis.
+  /// Sets \p IsPrecise to true if the pointer is a precise location for ref.
+  Value *getLocationPtr(bool &IsPrecise) const;
+
+  /// MemoryLocation for Alias Analysis, only valid for memrefs.
   MemoryLocation getMemoryLocation() const;
 
   /// Returns address spaces for GEP DDRefs.
@@ -358,6 +407,9 @@ public:
 
   /// Returns true if the Ref accesses a structure.
   bool accessesStruct() const;
+
+  /// Returns underlying LLVM value of the base. Only applicable to GEP refs.
+  Value *getBaseValue() const;
 
   /// Returns underlying LLVM value of the base if it is a temp, otherwise
   /// returns nullptr.
@@ -671,6 +723,9 @@ public:
   bool isStructurallyInvariantAtLevel(unsigned Level,
                                       bool IgnoreInnerIVs = false) const;
 
+  /// Returns true if the ref is structurally invariant in the HLRegion.
+  bool isStructurallyRegionInvariant() const;
+
   /// Returns true if the DDRef is a memory reference
   bool isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
 
@@ -753,15 +808,9 @@ public:
   /// Returns true if the Ref has trailing offsets for any dimension.
   bool hasTrailingStructOffsets() const;
 
-  /// Returns the number of elements for specified dimension. 0 is returned for
-  /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
-  unsigned getNumDimensionElements(unsigned DimensionNum) const {
-    assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
-    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
-
-    Type *DimType = getDimensionType(DimensionNum);
-    return DimType->isArrayTy() ? DimType->getArrayNumElements() : 0;
-  }
+  /// Returns the number of elements for specified dimension. 0 is returned if
+  /// it is unknown. DimensionNum must be within [1, getNumDimensions()].
+  unsigned getNumDimensionElements(unsigned DimensionNum) const;
 
   /// Returns the stride in number of bytes for specified dimension if it is
   /// constant, else returns 0. DimensionNum must be within [1,
@@ -1007,6 +1056,9 @@ public:
   /// Returns true if ref has an IV at \p Level.
   bool hasIV(unsigned Level) const;
 
+  /// Returns true if ref contains any IV.
+  bool hasIV() const;
+
   /// Returns the defined at level of the ref.
   unsigned getDefinedAtLevel() const override;
 
@@ -1017,12 +1069,6 @@ public:
   /// - its baseCE (if available) is linear
   /// - any CE is linear
   bool isLinear(void) const { return !isNonLinear(); }
-
-  /// Returns true if this is linear at some levels (greater than
-  /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel(unsigned Level) const {
-    return getDefinedAtLevel() < Level;
-  }
 
   /// A RegDDRef is nonlinear if any of the following is true:
   /// - its baseCE (if available) is nonlinear

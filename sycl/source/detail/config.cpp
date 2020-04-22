@@ -17,7 +17,7 @@
 #define STRINGIFY_LINE_HELP(s) #s
 #define STRINGIFY_LINE(s) STRINGIFY_LINE_HELP(s)
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
@@ -62,8 +62,10 @@ void readConfig() {
   }
 
   if (File.is_open()) {
-    // TODO: Use max size from macro instead of 256
-    char Key[MAX_CONFIG_NAME] = {0}, Value[256] = {0};
+#ifdef INTEL_CUSTOMIZATION
+    // TODO: Use max size from macro instead of 1024
+    char Key[MAX_CONFIG_NAME] = {0}, Value[1024] = {0};
+#endif // INTEL_CUSTOMIZATION
     while (!File.eof()) {
       // Expected fromat:
       // ConfigName=Value\r
@@ -111,7 +113,7 @@ void dumpConfig() {
 #undef CONFIG
 }
 
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)
 } // namespace sycl
 } // namespace detail
 

@@ -111,6 +111,17 @@ public:
     cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
     return NewVPInst;
   }
+
+  // Construct VPHIRCopyInst instruction with given VPValue \p CopyFrom.
+  VPHIRCopyInst *createHIRCopy(VPValue *CopyFrom,
+                               loopopt::HLDDNode *DDNode = nullptr) {
+    VPHIRCopyInst *CopyInst = new VPHIRCopyInst(CopyFrom);
+    if (BB)
+      BB->insert(CopyInst, InsertPt);
+    if (DDNode)
+      CopyInst->HIR.setUnderlyingNode(DDNode);
+    return CopyInst;
+  }
 };
 
 } // namespace vpo

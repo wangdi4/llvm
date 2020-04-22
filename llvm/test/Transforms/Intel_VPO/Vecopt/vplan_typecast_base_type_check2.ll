@@ -21,16 +21,16 @@
 
 
 ;=================================Print after simplify plain CFG=================================
-;  REGION: region1 (BP: NULL)
-;  BB2 (BP: NULL) :
+;  REGION: region1
+;  BB2:
 ;   <Empty Block>
 ;  SUCCESSORS(1):BB3
 ;
-;  BB3 (BP: NULL) :
+;  BB3:
 ;   i64 %vp48864 = add i64 %vp48736 i64 -1
 ;  SUCCESSORS(1):BB4
 ;
-;  BB4 (BP: NULL) :
+;  BB4:
 ;   i64 %vp40448 = phi [ i64 0, BB3 ], [ i64 %vp48432, BB10 ]
 ;   i64 %vp40672 = load i64 %vp40608
 ;   i64 %vp41872 = bitcast i64 %vp40672
@@ -40,37 +40,38 @@
 ;   i1 %vp42608 = icmp i64 %vp40672 i64 %vp42448
 ;  SUCCESSORS(1):BB9
 ;
-;  BB9 (BP: NULL) :
+;  BB9:
 ;   <Empty Block>
 ;   Condition(BB4): i1 %vp42608 = icmp i64 %vp40672 i64 %vp42448
 ;  SUCCESSORS(2):BB5(i1 %vp42608), BB6(!i1 %vp42608)
 ;
-;    BB5 (BP: NULL) :
+;    BB5:
 ;     i64 %vp47760 = load i64 %vp47696
 ;     i64 %vp47952 = bitcast i64 %vp47760
 ;    SUCCESSORS(1):BB6
 ;
-;  BB6 (BP: NULL) :
+;  BB6:
 ;   i64 %vp48432 = add i64 %vp40448 i64 1
 ;   i1 %vp49024 = icmp i64 %vp48432 i64 %vp48864
 ;  SUCCESSORS(1):BB10
 ;
-;  BB10 (BP: NULL) :
+;  BB10:
 ;   <Empty Block>
 ;   Condition(BB6): i1 %vp49024 = icmp i64 %vp48432 i64 %vp48864
 ;  SUCCESSORS(2):BB4(i1 %vp49024), BB7(!i1 %vp49024)
 ;
-;  BB7 (BP: NULL) :
+;  BB7:
 ;   <Empty Block>
 ;  SUCCESSORS(1):BB8
 ;
-;  BB8 (BP: NULL) :
+;  BB8:
 ;   <Empty Block>
 ;  END Block - no SUCCESSORS
 ;  END Region(region1)
 ;=================================================================================================
 
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
 ; CHECK: load

@@ -16,7 +16,7 @@
 ; In the above loop node <7> will be invalidated when VPEntities are used to represent the reduction.
 ; Mixed CG should generate explicit vector code for the loop IV PHI to prevent compfails.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-use-entity-instr -enable-vp-value-codegen-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %a.010,  0;
@@ -25,11 +25,12 @@
 ; CHECK-NEXT:       |   %.vec = %red.var;
 ; CHECK-NEXT:       |   %.vec1 = (<4 x i32>*)(%A)[i1];
 ; CHECK-NEXT:       |   %.vec2 = trunc.<4 x i64>.<4 x i32>(i1 + <i64 0, i64 1, i64 2, i64 3>);
-; CHECK-NEXT:       |   %.vec3 = %.vec  +  %.vec2;
-; CHECK-NEXT:       |   %red.var = %.vec3  +  %.vec1;
+; CHECK-NEXT:       |   %red.var = %.vec  +  %.vec2;
+; CHECK-NEXT:       |   %red.var = %red.var  +  %.vec1;
 ; CHECK-NEXT:       + END LOOP
 
 ; CHECK:            %a.010 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

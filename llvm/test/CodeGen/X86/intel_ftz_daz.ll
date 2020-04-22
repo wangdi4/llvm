@@ -9,7 +9,7 @@ define dso_local i32 @main() {
 ; CHECK-NO-FTZ-NEXT:    pushq %rax
 ; CHECK-NO-FTZ-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NO-FTZ-NEXT:    movl $32, %esi
-; CHECK-NO-FTZ-NEXT:    movl $17, %edi
+; CHECK-NO-FTZ-NEXT:    movl $3, %edi
 ; CHECK-NO-FTZ-NEXT:    callq __intel_new_feature_proc_init
 ; CHECK-NO-FTZ-NEXT:    movl $0, {{[0-9]+}}(%rsp)
 ; CHECK-NO-FTZ-NEXT:    xorl %eax, %eax

@@ -29,12 +29,13 @@
 ; prevent compfails. NOTE: Selects are optimized away for the blend PHIs since the same widened ref
 ; is being blended from all incoming edges.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-use-entity-instr -enable-vp-value-codegen-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %nz.039,  0;
 
 ; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
+; CHECK-NEXT:       |   %coef.0.in1.vec = undef
 ; CHECK-NEXT:       |   %.vec = (<4 x i16>*)(%dct)[i1];
 ; CHECK-NEXT:       |   %.vec2 = (<4 x i16>*)(%mf)[i1];
 ; CHECK-NEXT:       |   %.vec3 = (<4 x i16>*)(%bias)[i1];

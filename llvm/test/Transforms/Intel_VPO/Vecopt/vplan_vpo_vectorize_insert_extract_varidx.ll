@@ -42,7 +42,7 @@
 ; =======================================================================
 
 ; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver \
-; RUN: -vplan-force-vf=2 | FileCheck %s --check-prefix=CHECK-VF2
+; RUN: -vplan-force-vf=2 | FileCheck %s --check-prefixes=CHECK,CHECK-VF2
 
 source_filename = "tt2.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -239,6 +239,188 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.cond.
   call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #2
   ret float %retVal.0.lcssa
 }
+
+;; Source
+;void maskedSetElement(float4* vec, float val, int* arr) {
+;  int v_i = val, retVal=0;
+;  #pragma omp simd
+;  for (int i = 1; i < 1024; i++) {
+;    if (i %2 == 0) {
+;      float4 t = vec[i];
+;      t[arr[i]%4] = val;
+;      vec[i] = t;
+;    }
+;  }
+;}
+
+; Function Attrs: nounwind uwtable
+define dso_local void @maskedSetElement(<4 x float>* %vec, float %val, i32* %arr) {
+; CHECK-LABEL: @maskedSetElement(
+; CHECK:       vector.body:
+; CHECK:         [[TMP7:%.*]] = srem <2 x i32> [[WIDE_MASKED_LOAD2:%.*]], <i32 4, i32 4>
+; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP7]], i32 1
+; CHECK-NEXT:    [[DOTEXTRACT_0_3:%.*]] = extractelement <2 x i32> [[TMP7]], i32 0
+; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP2:%.*]], i64 0
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE]], true
+; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD:%.*]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    br i1 [[TMP8]], label %[[PRED_INSERTELEMENT_IF:.*]], label %[[TMP10:.*]]
+; CHECK:       [[PRED_INSERTELEMENT_IF]]:
+; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_]], float [[VAL:%.*]], i32 [[DOTEXTRACT_0_3]]
+; CHECK-NEXT:    br label %[[TMP10]]
+; CHECK:       [[TMP10]]:
+; CHECK-NEXT:    [[TMP11:%.*]] = phi <4 x float> [ undef, %vector.body ], [ [[TMP9]], %[[PRED_INSERTELEMENT_IF]] ]
+; CHECK-NEXT:    br label %[[PRED_INSERTELEMENT_CONTINUE:.*]]
+; CHECK:       [[PRED_INSERTELEMENT_CONTINUE]]:
+; CHECK-NEXT:    [[PREDICATE4:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i1 [[PREDICATE4]], true
+; CHECK-NEXT:    [[EXTRACTSUBVEC_5:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    br i1 [[TMP12]], label %[[PRED_INSERTELEMENT_IF8:.*]], label %[[TMP14:.*]]
+; CHECK:       [[PRED_INSERTELEMENT_IF8]]:
+; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_5]], float [[VAL]], i32 [[DOTEXTRACT_1_]]
+; CHECK-NEXT:    br label %[[TMP14]]
+; CHECK:       [[TMP14]]:
+; CHECK-NEXT:    [[TMP15:%.*]] = phi <4 x float> [ undef, %[[PRED_INSERTELEMENT_CONTINUE]] ], [ [[TMP13]], %[[PRED_INSERTELEMENT_IF8]] ]
+; CHECK-NEXT:    br label %[[PRED_INSERTELEMENT_CONTINUE9:.*]]
+; CHECK:       [[PRED_INSERTELEMENT_CONTINUE9]]:
+; CHECK-NEXT:    [[TMP16:%.*]] = shufflevector <4 x float> [[TMP11]], <4 x float> [[TMP15]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP17:%.*]] = bitcast <4 x float>* [[SCALAR_GEP:%.*]] to <8 x float>*
+; CHECK-NEXT:    [[REPLICATEDMASKELTS_6:%.*]] = shufflevector <2 x i1> [[TMP2]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    call void @llvm.masked.store.v8f32.p0v8f32(<8 x float> [[TMP16]], <8 x float>* [[TMP17]], i32 16, <8 x i1> [[REPLICATEDMASKELTS_6]])
+;
+omp.inner.for.body.lr.ph:
+  %t.priv = alloca <4 x float>, align 16
+  br label %DIR.OMP.SIMD.1
+
+DIR.OMP.SIMD.1:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(<4 x float>* %t.priv) ]
+  br label %DIR.OMP.SIMD.2
+
+DIR.OMP.SIMD.2:
+  br label %omp.inner.for.body
+
+omp.inner.for.body:
+  %indvars.iv = phi i64 [ %indvars.iv.next, %omp.body.continue ], [ 0, %DIR.OMP.SIMD.2 ]
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %and = and i64 %indvars.iv.next, 1
+  %cmp2 = icmp eq i64 %and, 0
+  br i1 %cmp2, label %if.then, label %omp.body.continue
+
+if.then:
+  %arrayidx = getelementptr inbounds <4 x float>, <4 x float>* %vec, i64 %indvars.iv.next
+  %load = load <4 x float>, <4 x float>* %arrayidx, align 16
+  %arrayidx5 = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv.next
+  %load1 = load i32, i32* %arrayidx5, align 4
+  %rem6 = srem i32 %load1, 4
+  %vecins = insertelement <4 x float> %load, float %val, i32 %rem6
+  store <4 x float> %vecins, <4 x float>* %arrayidx, align 16
+  br label %omp.body.continue
+
+omp.body.continue:
+  %exitcond = icmp eq i64 %indvars.iv.next, 1023
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.4:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %DIR.OMP.END.SIMD.3
+
+DIR.OMP.END.SIMD.3:
+  ret void
+}
+
+
+;; Source
+;float maskedGetElement(float4* vec, float val, int i) {
+;  int v_i = val;
+;  float retVal = 0;
+;  #pragma omp simd
+;  for (int i = 1; i < 1024; i++) {
+;    if (i % 2 == 0) {
+;      float4 t = vec[i];
+;      retVal += t[v_i % i];
+;    }
+;  }
+;  return retVal;
+;}
+;
+; Function Attrs: nounwind uwtable
+define dso_local float @maskedGetElement(<4 x float>* %vec, float %val, i32 %i) {
+; CHECK-LABEL: @maskedGetElement(
+; CHECK:       vector.body:
+; CHECK:         [[TMP7:%.*]] = srem <2 x i32> [[BROADCAST:%.*]], [[TMP1:%.*]]
+; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP7]], i32 1
+; CHECK-NEXT:    [[DOTEXTRACT_0_2:%.*]] = extractelement <2 x i32> [[TMP7]], i32 0
+; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP3:%.*]], i64 0
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE]], true
+; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD:%.*]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    br i1 [[TMP8]], label %[[PRED_EXTRACTELEMENT_IF:.*]], label %[[TMP11:.*]]
+; CHECK:       [[PRED_EXTRACTELEMENT_IF]]:
+; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_]], i32 [[DOTEXTRACT_0_2]]
+; CHECK-NEXT:    [[TMP10:%.*]] = insertelement <2 x float> undef, float [[TMP9]], i32 0
+; CHECK-NEXT:    br label %[[TMP11]]
+; CHECK:       [[TMP11]]:
+; CHECK-NEXT:    [[TMP12:%.*]] = phi <2 x float> [ undef, %vector.body ], [ [[TMP10]], %[[PRED_EXTRACTELEMENT_IF]] ]
+; CHECK-NEXT:    br label %[[PRED_EXTRACTELEMENT_CONTINUE:.*]]
+; CHECK:       [[PRED_EXTRACTELEMENT_CONTINUE]]:
+; CHECK-NEXT:    [[PREDICATE3:%.*]] = extractelement <2 x i1> [[TMP3]], i64 1
+; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i1 [[PREDICATE3]], true
+; CHECK-NEXT:    [[EXTRACTSUBVEC_4:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    br i1 [[TMP13]], label %[[PRED_EXTRACTELEMENT_IF6:.*]], label %[[TMP16:.*]]
+; CHECK:       [[PRED_EXTRACTELEMENT_IF6]]:
+; CHECK-NEXT:    [[TMP14:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_4]], i32 [[DOTEXTRACT_1_]]
+; CHECK-NEXT:    [[TMP15:%.*]] = insertelement <2 x float> [[TMP12]], float [[TMP14]], i32 1
+; CHECK-NEXT:    br label %[[TMP16]]
+; CHECK:       [[TMP16]]:
+; CHECK-NEXT:    [[TMP17:%.*]] = phi <2 x float> [ [[TMP12]], %[[PRED_EXTRACTELEMENT_CONTINUE]] ], [ [[TMP15]], %[[PRED_EXTRACTELEMENT_IF6]] ]
+; CHECK-NEXT:    br label %[[PRED_EXTRACTELEMENT_CONTINUE7:.*]]
+; CHECK:       [[PRED_EXTRACTELEMENT_CONTINUE7]]:
+; CHECK-NEXT:    [[TMP18:%.*]] = fadd <2 x float> [[VEC_PHI1:%.*]], [[TMP17]]
+;
+omp.inner.for.body.lr.ph:
+  %conv = fptosi float %val to i32
+  %t.priv = alloca <4 x float>, align 16
+  br label %DIR.OMP.SIMD.1
+
+DIR.OMP.SIMD.1:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(<4 x float>* %t.priv) ]
+  br label %DIR.OMP.SIMD.2
+
+DIR.OMP.SIMD.2:
+  br label %omp.inner.for.body
+
+omp.inner.for.body:
+  %indvars.iv = phi i64 [ %indvars.iv.next, %omp.body.continue ], [ 0, %DIR.OMP.SIMD.2 ]
+  %retVal.020 = phi float [ %retVal.1, %omp.body.continue ], [ 0.000000e+00, %DIR.OMP.SIMD.2 ]
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %trunc = trunc i64 %indvars.iv.next to i32
+  %and = and i32 %trunc, 1
+  %cmp3 = icmp eq i32 %and, 0
+  br i1 %cmp3, label %if.then, label %omp.body.continue
+
+if.then:
+  %arrayidx = getelementptr inbounds <4 x float>, <4 x float>* %vec, i64 %indvars.iv.next
+  %load = load <4 x float>, <4 x float>* %arrayidx, align 16
+  %rem5 = srem i32 %conv, %trunc
+  %vecext = extractelement <4 x float> %load, i32 %rem5
+  %add6 = fadd float %retVal.020, %vecext
+  br label %omp.body.continue
+
+omp.body.continue:
+  %retVal.1 = phi float [ %add6, %if.then ], [ %retVal.020, %omp.inner.for.body ]
+  %exitcond = icmp eq i64 %indvars.iv.next, 1023
+  br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
+
+DIR.OMP.END.SIMD.4:
+  %retVal.1.lcssa = phi float [ %retVal.1, %omp.body.continue ]
+  br label %DIR.OMP.END.SIMD.3
+
+DIR.OMP.END.SIMD.3:
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  br label %DIR.OMP.END.SIMD.41
+
+DIR.OMP.END.SIMD.41:
+  ret float %retVal.1.lcssa
+}
+
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

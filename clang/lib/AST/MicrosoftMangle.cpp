@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/Mangle.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/CXXInheritance.h"
@@ -22,9 +21,12 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/Mangle.h"
 #include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/ABI.h"
 #include "clang/Basic/DiagnosticOptions.h"
+#include "clang/Basic/FileManager.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CRC.h"
@@ -135,7 +137,7 @@ public:
   MicrosoftMangleContextImpl(ASTContext &Context, DiagnosticsEngine &Diags);
   bool shouldMangleCXXName(const NamedDecl *D) override;
   bool shouldMangleStringLiteral(const StringLiteral *SL) override;
-  void mangleCXXName(const NamedDecl *D, raw_ostream &Out) override;
+  void mangleCXXName(GlobalDecl GD, raw_ostream &Out) override;
   void mangleVirtualMemPtrThunk(const CXXMethodDecl *MD,
                                 const MethodVFTableLocation &ML,
                                 raw_ostream &Out) override;
@@ -177,10 +179,6 @@ public:
                                      ArrayRef<const CXXRecordDecl *> BasePath,
                                      raw_ostream &Out) override;
   void mangleTypeName(QualType T, raw_ostream &) override;
-  void mangleCXXCtor(const CXXConstructorDecl *D, CXXCtorType Type,
-                     raw_ostream &) override;
-  void mangleCXXDtor(const CXXDestructorDecl *D, CXXDtorType Type,
-                     raw_ostream &) override;
   void mangleReferenceTemporary(const VarDecl *, unsigned ManglingNumber,
                                 raw_ostream &) override;
   void mangleStaticGuardVariable(const VarDecl *D, raw_ostream &Out) override;
@@ -285,8 +283,6 @@ class MicrosoftCXXNameMangler {
 
   ASTContext &getASTContext() const { return Context.getASTContext(); }
 
-  // FIXME: If we add support for __ptr32/64 qualifiers, then we should push
-  // this check into mangleQualifiers().
   const bool PointersAre64Bit;
 
 public:
@@ -344,6 +340,13 @@ public:
 private:
   bool isStructorDecl(const NamedDecl *ND) const {
     return ND == Structor || getStructor(ND) == Structor;
+  }
+
+  bool is64BitPointer(Qualifiers Quals) const {
+    LangAS AddrSpace = Quals.getAddressSpace();
+    return AddrSpace == LangAS::ptr64 ||
+           (PointersAre64Bit && !(AddrSpace == LangAS::ptr32_sptr ||
+                                  AddrSpace == LangAS::ptr32_uptr));
   }
 
   void mangleUnqualifiedName(const NamedDecl *ND) {
@@ -724,7 +727,7 @@ void MicrosoftCXXNameMangler::mangleVirtualMemPtrThunk(
   Out << "$B";
   mangleNumber(OffsetInVFTable);
   Out << 'A';
-  mangleCallingConvention(MD->getType()->getAs<FunctionProtoType>());
+  mangleCallingConvention(MD->getType()->castAs<FunctionProtoType>());
 }
 
 void MicrosoftCXXNameMangler::mangleName(const NamedDecl *ND) {
@@ -1315,7 +1318,7 @@ void MicrosoftCXXNameMangler::mangleSourceName(StringRef Name) {
   BackRefVec::iterator Found = llvm::find(NameBackReferences, Name);
   if (Found == NameBackReferences.end()) {
     if (NameBackReferences.size() < 10)
-      NameBackReferences.push_back(Name);
+      NameBackReferences.push_back(std::string(Name));
     Out << Name << '@';
   } else {
     Out << (Found - NameBackReferences.begin());
@@ -1731,8 +1734,10 @@ MicrosoftCXXNameMangler::mangleRefQualifier(RefQualifierKind RefQualifier) {
 
 void MicrosoftCXXNameMangler::manglePointerExtQualifiers(Qualifiers Quals,
                                                          QualType PointeeType) {
-  if (PointersAre64Bit &&
-      (PointeeType.isNull() || !PointeeType->isFunctionType()))
+  // Check if this is a default 64-bit pointer or has __ptr64 qualifier.
+  bool is64Bit = PointeeType.isNull() ? PointersAre64Bit :
+      is64BitPointer(PointeeType.getQualifiers());
+  if (is64Bit && (PointeeType.isNull() || !PointeeType->isFunctionType()))
     Out << 'E';
 
   if (Quals.hasRestrict())
@@ -1892,6 +1897,10 @@ void MicrosoftCXXNameMangler::mangleAddressSpaceType(QualType T,
     case LangAS::cuda_shared:
       Extra.mangleSourceName("_ASCUshared");
       break;
+    case LangAS::ptr32_sptr:
+    case LangAS::ptr32_uptr:
+    case LangAS::ptr64:
+      llvm_unreachable("don't mangle ptr address spaces with _AS");
     }
   }
 
@@ -2638,10 +2647,13 @@ void MicrosoftCXXNameMangler::mangleType(const PointerType *T, Qualifiers Quals,
   manglePointerCVQualifiers(Quals);
   manglePointerExtQualifiers(Quals, PointeeType);
 
-  if (PointeeType.getQualifiers().hasAddressSpace())
-    mangleAddressSpaceType(PointeeType, PointeeType.getQualifiers(), Range);
-  else
+  // For pointer size address spaces, go down the same type mangling path as
+  // non address space types.
+  LangAS AddrSpace = PointeeType.getQualifiers().getAddressSpace();
+  if (isPtrSizeAddressSpace(AddrSpace) || AddrSpace == LangAS::Default)
     mangleType(PointeeType, Range);
+  else
+    mangleAddressSpaceType(PointeeType, PointeeType.getQualifiers(), Range);
 }
 
 void MicrosoftCXXNameMangler::mangleType(const ObjCObjectPointerType *T,
@@ -2728,9 +2740,7 @@ void MicrosoftCXXNameMangler::mangleType(const VectorType *T, Qualifiers Quals,
   // doesn't match the Intel types uses a custom mangling below.
   size_t OutSizeBefore = Out.tell();
   if (!isa<ExtVectorType>(T)) {
-    llvm::Triple::ArchType AT =
-        getASTContext().getTargetInfo().getTriple().getArch();
-    if (AT == llvm::Triple::x86 || AT == llvm::Triple::x86_64) {
+    if (getASTContext().getTargetInfo().getTriple().isX86()) {
       if (Width == 64 && ET->getKind() == BuiltinType::LongLong) {
         mangleArtificialTagType(TTK_Union, "__m64");
       } else if (Width >= 128) {
@@ -2971,11 +2981,17 @@ void MicrosoftCXXNameMangler::mangleType(const AtomicType *T, Qualifiers,
 
 void MicrosoftCXXNameMangler::mangleType(const PipeType *T, Qualifiers,
                                          SourceRange Range) {
-  DiagnosticsEngine &Diags = Context.getDiags();
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-    "cannot mangle this OpenCL pipe type yet");
-  Diags.Report(Range.getBegin(), DiagID)
-    << Range;
+  QualType ElementType = T->getElementType();
+
+  llvm::SmallString<64> TemplateMangling;
+  llvm::raw_svector_ostream Stream(TemplateMangling);
+  MicrosoftCXXNameMangler Extra(Context, Stream);
+  Stream << "?$";
+  Extra.mangleSourceName("ocl_pipe");
+  Extra.mangleType(ElementType, Range, QMM_Escape);
+  Extra.mangleIntegerLiteral(llvm::APSInt::get(T->isReadOnly()), true);
+
+  mangleArtificialTagType(TTK_Struct, TemplateMangling, {"__clang"});
 }
 
 #if INTEL_CUSTOMIZATION
@@ -3016,18 +3032,27 @@ void MicrosoftCXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T,
 }
 #endif // INTEL_CUSTOMIZATION
 
-void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
+void MicrosoftMangleContextImpl::mangleCXXName(GlobalDecl GD,
                                                raw_ostream &Out) {
-  assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
-         "Invalid mangleName() call, argument is not a variable or function!");
-  assert(!isa<CXXConstructorDecl>(D) && !isa<CXXDestructorDecl>(D) &&
-         "Invalid mangleName() call on 'structor decl!");
-
+  const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
   PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
                                  getASTContext().getSourceManager(),
                                  "Mangling declaration");
 
   msvc_hashing_ostream MHO(Out);
+
+  if (auto *CD = dyn_cast<CXXConstructorDecl>(D)) {
+    auto Type = GD.getCtorType();
+    MicrosoftCXXNameMangler mangler(*this, MHO, CD, Type);
+    return mangler.mangle(D);
+  }
+
+  if (auto *DD = dyn_cast<CXXDestructorDecl>(D)) {
+    auto Type = GD.getDtorType();
+    MicrosoftCXXNameMangler mangler(*this, MHO, DD, Type);
+    return mangler.mangle(D);
+  }
+
   MicrosoftCXXNameMangler Mangler(*this, MHO);
   return Mangler.mangle(D);
 }
@@ -3285,7 +3310,7 @@ void MicrosoftMangleContextImpl::mangleCXXCatchableType(
   if (!OmitCopyCtor && CD) {
     llvm::raw_svector_ostream Stream(CopyCtorMangling);
     msvc_hashing_ostream MHO(Stream);
-    mangleCXXCtor(CD, CT, MHO);
+    mangleCXXName(GlobalDecl(CD, CT), MHO);
   }
   Mangler.getStream() << CopyCtorMangling;
 
@@ -3386,22 +3411,6 @@ void MicrosoftMangleContextImpl::mangleTypeName(QualType T, raw_ostream &Out) {
   MicrosoftCXXNameMangler Mangler(*this, Out);
   Mangler.getStream() << '?';
   Mangler.mangleType(T, SourceRange());
-}
-
-void MicrosoftMangleContextImpl::mangleCXXCtor(const CXXConstructorDecl *D,
-                                               CXXCtorType Type,
-                                               raw_ostream &Out) {
-  msvc_hashing_ostream MHO(Out);
-  MicrosoftCXXNameMangler mangler(*this, MHO, D, Type);
-  mangler.mangle(D);
-}
-
-void MicrosoftMangleContextImpl::mangleCXXDtor(const CXXDestructorDecl *D,
-                                               CXXDtorType Type,
-                                               raw_ostream &Out) {
-  msvc_hashing_ostream MHO(Out);
-  MicrosoftCXXNameMangler mangler(*this, MHO, D, Type);
-  mangler.mangle(D);
 }
 
 void MicrosoftMangleContextImpl::mangleReferenceTemporary(

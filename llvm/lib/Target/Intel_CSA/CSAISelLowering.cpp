@@ -34,6 +34,7 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -588,11 +589,11 @@ SDValue CSATargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
 // MachineMemOperand retains the ordering information, which we need to drop to
 // be able to use regular load/store nodes.
 static MachineMemOperand *dropAtomicInfo(SelectionDAG &DAG,
-    MachineMemOperand *Src) {
+                                         MachineMemOperand *Src) {
   MachineFunction &MF = DAG.getMachineFunction();
   return MF.getMachineMemOperand(Src->getPointerInfo(), Src->getFlags(),
-      Src->getSize(), Src->getBaseAlignment(), Src->getAAInfo(),
-      Src->getRanges());
+                                 Src->getSize(), Src->getBaseAlign(),
+                                 Src->getAAInfo(), Src->getRanges());
 }
 
 SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
@@ -2112,13 +2113,13 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     if (Flags.isByVal()) {
       SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i32);
       MemOpChains.push_back(DAG.getMemcpy(
-        Chain, dl, PtrOff, Arg, SizeNode, Flags.getByValAlign(),
-        /*isVolatile=*/false, /*AlwaysInline=*/false, /*isTailCall=*/false,
-        MachinePointerInfo(), MachinePointerInfo()));
+          Chain, dl, PtrOff, Arg, SizeNode, Flags.getNonZeroByValAlign(),
+          /*isVolatile=*/false, /*AlwaysInline=*/false, /*isTailCall=*/false,
+          MachinePointerInfo(), MachinePointerInfo()));
     } else {
       MemOpChains.push_back(
-        DAG.getStore(Chain, dl, Arg, PtrOff,
-                     MachinePointerInfo::getStack(MF, LocMemOffset)));
+          DAG.getStore(Chain, dl, Arg, PtrOff,
+                       MachinePointerInfo::getStack(MF, LocMemOffset)));
     }
   }
 

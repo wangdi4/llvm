@@ -72,7 +72,7 @@ static Value *simplifyValueKnownNonZero(Value *V, InstCombiner &IC,
     // We know that this is an exact/nuw shift and that the input is a
     // non-zero context as well.
     if (Value *V2 = simplifyValueKnownNonZero(I->getOperand(0), IC, CxtI)) {
-      I->setOperand(0, V2);
+      IC.replaceOperand(*I, 0, V2);
       MadeChange = true;
     }
 
@@ -430,7 +430,7 @@ Instruction *InstCombiner::visitFMul(BinaryOperator &I) {
   // X * -1.0 --> -X
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
   if (match(Op1, m_SpecificFP(-1.0)))
-    return BinaryOperator::CreateFNegFMF(Op0, &I);
+    return UnaryOperator::CreateFNegFMF(Op0, &I);
 
   // -X * -Y --> X * Y
   Value *X, *Y;
@@ -582,8 +582,7 @@ Instruction *InstCombiner::visitFMul(BinaryOperator &I) {
       Y = Op0;
     }
     if (Log2) {
-      Log2->setArgOperand(0, X);
-      Log2->copyFastMathFlags(&I);
+      Value *Log2 = Builder.CreateUnaryIntrinsic(Intrinsic::log2, X, &I);
       Value *LogXTimesY = Builder.CreateFMulFMF(Log2, Y, &I);
       return BinaryOperator::CreateFSubFMF(LogXTimesY, Y, &I);
     }
@@ -611,7 +610,7 @@ bool InstCombiner::simplifyDivRemOfSelectWithZeroOp(BinaryOperator &I) {
     return false;
 
   // Change the div/rem to use 'Y' instead of the select.
-  I.setOperand(1, SI->getOperand(NonNullOperand));
+  replaceOperand(I, 1, SI->getOperand(NonNullOperand));
 
   // Okay, we know we replace the operand of the div/rem with 'Y' with no
   // problem.  However, the select, or the condition of the select may have
@@ -639,12 +638,12 @@ bool InstCombiner::simplifyDivRemOfSelectWithZeroOp(BinaryOperator &I) {
     for (Instruction::op_iterator I = BBI->op_begin(), E = BBI->op_end();
          I != E; ++I) {
       if (*I == SI) {
-        *I = SI->getOperand(NonNullOperand);
-        Worklist.Add(&*BBI);
+        replaceUse(*I, SI->getOperand(NonNullOperand));
+        Worklist.push(&*BBI);
       } else if (*I == SelectCond) {
-        *I = NonNullOperand == 1 ? ConstantInt::getTrue(CondTy)
-                                 : ConstantInt::getFalse(CondTy);
-        Worklist.Add(&*BBI);
+        replaceUse(*I, NonNullOperand == 1 ? ConstantInt::getTrue(CondTy)
+                                           : ConstantInt::getFalse(CondTy));
+        Worklist.push(&*BBI);
       }
     }
 
@@ -702,10 +701,8 @@ Instruction *InstCombiner::commonIDivTransforms(BinaryOperator &I) {
   Type *Ty = I.getType();
 
   // The RHS is known non-zero.
-  if (Value *V = simplifyValueKnownNonZero(I.getOperand(1), *this, I)) {
-    I.setOperand(1, V);
-    return &I;
-  }
+  if (Value *V = simplifyValueKnownNonZero(I.getOperand(1), *this, I))
+    return replaceOperand(I, 1, V);
 
   // Handle cases involving: [su]div X, (select Cond, Y, Z)
   // This does not apply for fdiv.
@@ -819,8 +816,8 @@ Instruction *InstCombiner::commonIDivTransforms(BinaryOperator &I) {
     bool HasNSW = cast<OverflowingBinaryOperator>(Op1)->hasNoSignedWrap();
     bool HasNUW = cast<OverflowingBinaryOperator>(Op1)->hasNoUnsignedWrap();
     if ((IsSigned && HasNSW) || (!IsSigned && HasNUW)) {
-      I.setOperand(0, ConstantInt::get(Ty, 1));
-      I.setOperand(1, Y);
+      replaceOperand(I, 0, ConstantInt::get(Ty, 1));
+      replaceOperand(I, 1, Y);
       return &I;
     }
   }
@@ -1258,6 +1255,14 @@ Instruction *InstCombiner::visitFDiv(BinaryOperator &I) {
       Value *YZ = Builder.CreateFMulFMF(Y, Op0, &I);
       return BinaryOperator::CreateFDivFMF(YZ, X, &I);
     }
+    // Z / (1.0 / Y) => (Y * Z)
+    //
+    // This is a special case of Z / (X / Y) => (Y * Z) / X, with X = 1.0. The
+    // m_OneUse check is avoided because even in the case of the multiple uses
+    // for 1.0/Y, the number of instructions remain the same and a division is
+    // replaced by a multiplication.
+    if (match(Op1, m_FDiv(m_SpecificFP(1.0), m_Value(Y))))
+      return BinaryOperator::CreateFMulFMF(Y, Op0, &I);
   }
 
   if (I.hasAllowReassoc() && Op0->hasOneUse() && Op1->hasOneUse()) {
@@ -1288,8 +1293,8 @@ Instruction *InstCombiner::visitFDiv(BinaryOperator &I) {
   // -X / -Y -> X / Y
   Value *X, *Y;
   if (match(Op0, m_FNeg(m_Value(X))) && match(Op1, m_FNeg(m_Value(Y)))) {
-    I.setOperand(0, X);
-    I.setOperand(1, Y);
+    replaceOperand(I, 0, X);
+    replaceOperand(I, 1, Y);
     return &I;
   }
 
@@ -1298,8 +1303,8 @@ Instruction *InstCombiner::visitFDiv(BinaryOperator &I) {
   // We can ignore the possibility that X is infinity because INF/INF is NaN.
   if (I.hasNoNaNs() && I.hasAllowReassoc() &&
       match(Op1, m_c_FMul(m_Specific(Op0), m_Value(Y)))) {
-    I.setOperand(0, ConstantFP::get(I.getType(), 1.0));
-    I.setOperand(1, Y);
+    replaceOperand(I, 0, ConstantFP::get(I.getType(), 1.0));
+    replaceOperand(I, 1, Y);
     return &I;
   }
 
@@ -1325,10 +1330,8 @@ Instruction *InstCombiner::commonIRemTransforms(BinaryOperator &I) {
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
 
   // The RHS is known non-zero.
-  if (Value *V = simplifyValueKnownNonZero(I.getOperand(1), *this, I)) {
-    I.setOperand(1, V);
-    return &I;
-  }
+  if (Value *V = simplifyValueKnownNonZero(I.getOperand(1), *this, I))
+    return replaceOperand(I, 1, V);
 
   // Handle cases involving: rem X, (select Cond, Y, Z)
   if (simplifyDivRemOfSelectWithZeroOp(I))
@@ -1387,8 +1390,10 @@ Instruction *InstCombiner::visitURem(BinaryOperator &I) {
   }
 
   // 1 urem X -> zext(X != 1)
-  if (match(Op0, m_One()))
-    return CastInst::CreateZExtOrBitCast(Builder.CreateICmpNE(Op1, Op0), Ty);
+  if (match(Op0, m_One())) {
+    Value *Cmp = Builder.CreateICmpNE(Op1, ConstantInt::get(Ty, 1));
+    return CastInst::CreateZExtOrBitCast(Cmp, Ty);
+  }
 
   // X urem C -> X < C ? X : X - C, where C >= signbit.
   if (match(Op1, m_Negative())) {
@@ -1426,11 +1431,8 @@ Instruction *InstCombiner::visitSRem(BinaryOperator &I) {
   {
     const APInt *Y;
     // X % -Y -> X % Y
-    if (match(Op1, m_Negative(Y)) && !Y->isMinSignedValue()) {
-      Worklist.AddValue(I.getOperand(1));
-      I.setOperand(1, ConstantInt::get(I.getType(), -*Y));
-      return &I;
-    }
+    if (match(Op1, m_Negative(Y)) && !Y->isMinSignedValue())
+      return replaceOperand(I, 1, ConstantInt::get(I.getType(), -*Y));
   }
 
   // -X srem Y --> -(X srem Y)
@@ -1477,11 +1479,8 @@ Instruction *InstCombiner::visitSRem(BinaryOperator &I) {
       }
 
       Constant *NewRHSV = ConstantVector::get(Elts);
-      if (NewRHSV != C) {  // Don't loop on -MININT
-        Worklist.AddValue(I.getOperand(1));
-        I.setOperand(1, NewRHSV);
-        return &I;
-      }
+      if (NewRHSV != C)  // Don't loop on -MININT
+        return replaceOperand(I, 1, NewRHSV);
     }
   }
 

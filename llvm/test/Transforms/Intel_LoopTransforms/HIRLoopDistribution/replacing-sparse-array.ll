@@ -1,4 +1,4 @@
-;RUN: opt -hir-ssa-deconstruction -analyze -hir-temp-cleanup -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
+;RUN: opt -mattr=+avx512f -enable-intel-advanced-opts -hir-ssa-deconstruction -analyze -hir-temp-cleanup -hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
 
 ;*** IR Dump Before HIR Loop Distribution MemRec ***
 ;Function: nab

@@ -1,6 +1,6 @@
 //===- HIRRuntimeDDImpl.h - Implements MV for Runtime DD ---------*-- C++ --*-//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,6 +27,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
+
+#include "llvm/Analysis/TargetTransformInfo.h"
 
 namespace llvm {
 namespace loopopt {
@@ -65,6 +67,7 @@ enum RuntimeDDResult {
 
 enum RTDDMethod {
   Compare,
+  LibraryCall,
 };
 
 // The struct represents a segment of memory. It is used to construct checks
@@ -137,6 +140,7 @@ struct LoopContext {
   RefGroupVecTy Groups;
   SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
   SmallVector<PredicateTuple, 8> PreConditions;
+  SmallVector<unsigned, 8> DelinearizedGroupIndices;
   RTDDMethod Method = RTDDMethod::Compare;
 
 #ifndef NDEBUG
@@ -153,14 +157,19 @@ class HIRRuntimeDD {
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
   HIRLoopStatistics &HLS;
+  TargetLibraryInfo &TLI;
+  TargetTransformInfo &TTI;
+
+  bool EnableLibraryCallMethod = true;
 
   typedef DDRefGatherer<RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
 
 public:
   static char ID;
 
-  HIRRuntimeDD(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS)
-      : HIRF(HIRF), DDA(DDA), HLS(HLS) {}
+  HIRRuntimeDD(HIRFramework &HIRF, HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
+               TargetLibraryInfo &TLI, TargetTransformInfo &TTI)
+      : HIRF(HIRF), DDA(DDA), HLS(HLS), TLI(TLI), TTI(TTI) {}
 
   bool run();
 
@@ -191,7 +200,7 @@ private:
 
   // Creates UGE compare of \p Ref1 and \p Ref2, handles type mismatch.
   static HLInst *createUGECompare(HLNodeUtils &HNU, HLContainerTy &Nodes,
-                                  RegDDRef *Ref1, RegDDRef *Ref2);
+                                  RegDDRef *Lower, RegDDRef *Upper);
 
   static HLInst *createIntersectionCondition(HLNodeUtils &HNU,
                                              HLContainerTy &Nodes, Segment &S1,
@@ -201,12 +210,20 @@ private:
   static HLIf *createCompareCondition(LoopContext &Context, HLIf *MasterIf,
                                       HLContainerTy &Nodes);
 
+  // Generate runtime DD tests using library call method.
+  static HLIf *
+  createLibraryCallCondition(LoopContext &Context, HLIf *MasterIf,
+                             HLContainerTy &Nodes,
+                             SmallVectorImpl<unsigned> &NewSymbases);
+
   // Create IF statement which will be selecting a loop version.
-  static HLIf *createMasterCondition(LoopContext &Context,
-                                     HLContainerTy &Nodes);
+  static HLIf *
+  createMasterCondition(LoopContext &Context, HLContainerTy &Nodes,
+                        SmallVectorImpl<unsigned> &NewLiveinSymbases);
 
   // \brief Modifies HIR implementing specified tests.
-  static void generateHLNodes(LoopContext &Context);
+  static void generateHLNodes(LoopContext &Context,
+                              const TargetLibraryInfo &TLI);
 
   // \brief Marks all DDRefs independent across groups.
   static void markDDRefsIndep(LoopContext &Context);

@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_COLLAB
+#include "omptarget-tools.h"
+#endif // INTEL_COLLAB
 #include "device.h"
 #include "private.h"
 #include "rtl.h"
@@ -44,16 +47,12 @@ int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
     }
   }
 
-  // Mapping does not exist, allocate it
-  HostDataToTargetTy newEntry;
-
-  // Set up missing fields
-  newEntry.HstPtrBase = (uintptr_t) HstPtrBegin;
-  newEntry.HstPtrBegin = (uintptr_t) HstPtrBegin;
-  newEntry.HstPtrEnd = (uintptr_t) HstPtrBegin + Size;
-  newEntry.TgtPtrBegin = (uintptr_t) TgtPtrBegin;
-  // refCount must be infinite
-  newEntry.RefCount = INF_REF_CNT;
+  // Mapping does not exist, allocate it with refCount=INF
+  HostDataToTargetTy newEntry((uintptr_t) HstPtrBegin /*HstPtrBase*/,
+                              (uintptr_t) HstPtrBegin /*HstPtrBegin*/,
+                              (uintptr_t) HstPtrBegin + Size /*HstPtrEnd*/,
+                              (uintptr_t) TgtPtrBegin /*TgtPtrBegin*/,
+                              true /*IsRefCountINF*/);
 
   DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", HstEnd="
       DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(newEntry.HstPtrBase),
@@ -74,7 +73,7 @@ int DeviceTy::disassociatePtr(void *HstPtrBegin) {
       ii != HostDataToTargetMap.end(); ++ii) {
     if ((uintptr_t)HstPtrBegin == ii->HstPtrBegin) {
       // Mapping exists
-      if (CONSIDERED_INF(ii->RefCount)) {
+      if (ii->isRefCountInf()) {
         DP("Association found, removing it\n");
         HostDataToTargetMap.erase(ii);
         DataMapMtx.unlock();
@@ -94,21 +93,21 @@ int DeviceTy::disassociatePtr(void *HstPtrBegin) {
 }
 
 // Get ref count of map entry containing HstPtrBegin
-long DeviceTy::getMapEntryRefCnt(void *HstPtrBegin) {
+uint64_t DeviceTy::getMapEntryRefCnt(void *HstPtrBegin) {
   uintptr_t hp = (uintptr_t)HstPtrBegin;
-  long RefCnt = -1;
+  uint64_t RefCnt = 0;
 
   DataMapMtx.lock();
   for (auto &HT : HostDataToTargetMap) {
     if (hp >= HT.HstPtrBegin && hp < HT.HstPtrEnd) {
       DP("DeviceTy::getMapEntry: requested entry found\n");
-      RefCnt = HT.RefCount;
+      RefCnt = HT.getRefCount();
       break;
     }
   }
   DataMapMtx.unlock();
 
-  if (RefCnt < 0) {
+  if (RefCnt == 0) {
     DP("DeviceTy::getMapEntry: requested entry not found\n");
   }
 
@@ -174,15 +173,14 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     IsNew = false;
 
     if (UpdateRefCount)
-      ++HT.RefCount;
+      HT.incRefCount();
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
         "Size=%" PRId64 ",%s RefCount=%s\n", (IsImplicit ? " (implicit)" : ""),
         DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
         (UpdateRefCount ? " updated" : ""),
-        (CONSIDERED_INF(HT.RefCount)) ? "INF" :
-            std::to_string(HT.RefCount).c_str());
+        HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
   } else if ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && !IsImplicit) {
     // Explicit extension of mapped data - not allowed.
@@ -194,9 +192,16 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // maps are respected.
     // In addition to the mapping rules above, the close map
     // modifier forces the mapping of the variable to the device.
-    if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
+#if INTEL_COLLAB
+    if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+        !HasCloseModifier && is_managed_ptr(HstPtrBegin)) {
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
-         DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+      DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+#else // INTEL_COLLAB
+    if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
+      DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
+      DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+#endif // INTEL_COLLAB
       IsHostPtr = true;
       rc = HstPtrBegin;
     } else {
@@ -204,7 +209,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
       IsNew = true;
 #if INTEL_COLLAB
       uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
-#else
+#else // INTEL_COLLAB
       uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
 #endif // INTEL_COLLAB
       DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
@@ -233,19 +238,23 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 
   if (lr.Flags.IsContained || lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) {
     auto &HT = *lr.Entry;
-    IsLast = !(HT.RefCount > 1);
+    IsLast = HT.getRefCount() == 1;
 
-    if (HT.RefCount > 1 && UpdateRefCount)
-      --HT.RefCount;
+    if (!IsLast && UpdateRefCount)
+      HT.decRefCount();
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
         "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
         (UpdateRefCount ? " updated" : ""),
-        (CONSIDERED_INF(HT.RefCount)) ? "INF" :
-            std::to_string(HT.RefCount).c_str());
+        HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
-  } else if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+#if INTEL_COLLAB
+  } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+             is_managed_ptr(HstPtrBegin)) {
+#else // INTEL_COLLAB
+  } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+#endif // INTEL_COLLAB
     // If the value isn't found in the mapping and unified shared memory
     // is on then it means we have stumbled upon a value which we need to
     // use directly from the host.
@@ -275,7 +284,12 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
 
 int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
                             bool HasCloseModifier) {
-  if (RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
+#if INTEL_COLLAB
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier &&
+      is_managed_ptr(HstPtrBegin))
+#else // INTEL_COLLAB
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
+#endif // INTEL_COLLAB
     return OFFLOAD_SUCCESS;
   // Check if the pointer is contained in any sub-nodes.
   int rc;
@@ -284,12 +298,17 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
   if (lr.Flags.IsContained || lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) {
     auto &HT = *lr.Entry;
     if (ForceDelete)
-      HT.RefCount = 1;
-    if (--HT.RefCount <= 0) {
-      assert(HT.RefCount == 0 && "did not expect a negative ref count");
+      HT.resetRefCount();
+    if (HT.decRefCount() == 0) {
       DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
           DPxPTR(HT.TgtPtrBegin), Size);
+#if INTEL_COLLAB
+      OMPT_TRACE(targetDataDeleteBegin(RTLDeviceID, (void *)HT.TgtPtrBegin));
+#endif // INTEL_COLLAB
       RTL->data_delete(RTLDeviceID, (void *)HT.TgtPtrBegin);
+#if INTEL_COLLAB
+      OMPT_TRACE(targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin));
+#endif // INTEL_COLLAB
       DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
           ", Size=%" PRId64 "\n", (ForceDelete ? " (forced)" : ""),
           DPxPTR(HT.HstPtrBegin), DPxPTR(HT.TgtPtrBegin), Size);
@@ -310,7 +329,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
 void DeviceTy::init() {
   // Make call to init_requires if it exists for this plugin.
   if (RTL->init_requires)
-    RTL->init_requires(RTLs.RequiresFlags);
+    RTL->init_requires(RTLs->RequiresFlags);
   int32_t rc = RTL->init_device(RTLDeviceID);
   if (rc == OFFLOAD_SUCCESS) {
     IsInit = true;
@@ -344,28 +363,62 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
 // Submit data to device.
 int32_t DeviceTy::data_submit(void *TgtPtrBegin, void *HstPtrBegin,
     int64_t Size) {
+#if INTEL_COLLAB
+  OMPT_TRACE(
+      targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
+  int32_t ret = RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
+  OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
+  return ret;
+#else // INTEL_COLLAB
   return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
+#endif // INTEL_COLLAB
 }
 
 // Retrieve data from device.
 int32_t DeviceTy::data_retrieve(void *HstPtrBegin, void *TgtPtrBegin,
     int64_t Size) {
+#if INTEL_COLLAB
+  OMPT_TRACE(
+      targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
+  int32_t ret = RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
+  OMPT_TRACE(
+      targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
+  return ret;
+#else // INTEL_COLLAB
   return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
+#endif // INTEL_COLLAB
 }
 
 // Run region on device
 int32_t DeviceTy::run_region(void *TgtEntryPtr, void **TgtVarsPtr,
     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize) {
+#if INTEL_COLLAB
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
+  int32_t ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                TgtOffsets, TgtVarsSize);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
+  return ret;
+#else // INTEL_COLLAB
   return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
       TgtVarsSize);
+#endif // INTEL_COLLAB
 }
 
 // Run team region on device.
 int32_t DeviceTy::run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
     int32_t ThreadLimit, uint64_t LoopTripCount) {
+#if INTEL_COLLAB
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
+  int32_t ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                     TgtOffsets, TgtVarsSize, NumTeams,
+                                     ThreadLimit, LoopTripCount);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
+  return ret;
+#else // INTEL_COLLAB
   return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
       TgtVarsSize, NumTeams, ThreadLimit, LoopTripCount);
+#endif // INTEL_COLLAB
 }
 
 #if INTEL_COLLAB
@@ -386,7 +439,7 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   DataMapMtx.lock();
 
   for (auto &HT : HostDataToTargetMap) {
-    if (!CONSIDERED_INF(HT.RefCount))
+    if (!HT.isRefCountInf())
       continue;
 
     void *TgtPtrBegin = reinterpret_cast<void *>(HT.TgtPtrBegin);
@@ -459,42 +512,60 @@ char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
 
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
-  if (!RTL->data_alloc_base)
-    return RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
-  return RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase);
+  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
+  void *ret = RTL->data_alloc_base
+      ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
+      : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
+  return ret;
 }
 
 void *DeviceTy::data_alloc_user(int64_t Size, void *HstPtrBegin) {
-  if (!RTL->data_alloc_user)
-    return RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
-  return RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin);
+  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
+  void *ret = RTL->data_alloc_user
+      ? RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin)
+      : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
+  return ret;
 }
 
 int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
                                      int64_t Size, void *AsyncData) {
-  if (!RTL->data_submit_nowait)
-    return OFFLOAD_FAIL;
-  return RTL->data_submit_nowait(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
-                                 AsyncData);
+  OMPT_TRACE(
+      targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
+  int32_t ret = RTL->data_submit_nowait
+      ? RTL->data_submit_nowait(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
+                                AsyncData)
+      : OFFLOAD_FAIL;
+  OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
+  return ret;
 }
 
 int32_t DeviceTy::data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
                                        int64_t Size, void *AsyncData) {
-  if (!RTL->data_retrieve_nowait)
-    return OFFLOAD_FAIL;
-  return RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
-                                   AsyncData);
+  OMPT_TRACE(
+      targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
+  int32_t ret = RTL->data_retrieve_nowait
+      ? RTL->data_retrieve_nowait(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
+                                  AsyncData)
+      : OFFLOAD_FAIL;
+  OMPT_TRACE(
+      targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
+  return ret;
 }
 
 int32_t DeviceTy::run_team_nd_region(void *TgtEntryPtr, void **TgtVarsPtr,
                                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                      int32_t NumTeams, int32_t ThreadLimit,
                                      void *TgtNDLoopDesc) {
-  if (!RTL->run_team_nd_region)
-    return OFFLOAD_FAIL;
-  return RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
-                                 TgtNDLoopDesc);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
+  int32_t ret = RTL->run_team_nd_region
+      ? RTL->run_team_nd_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
+                                TgtNDLoopDesc)
+      : OFFLOAD_FAIL;
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
+  return ret;
 }
 
 int32_t
@@ -502,20 +573,26 @@ DeviceTy::run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                     int32_t NumTeams, int32_t ThreadLimit,
                                     void *TgtNDLoopDesc, void *AsyncData) {
-  if (!RTL->run_team_nd_region_nowait)
-    return OFFLOAD_FAIL;
-  return RTL->run_team_nd_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                        TgtOffsets, TgtVarsSize, NumTeams,
-                                        ThreadLimit, TgtNDLoopDesc, AsyncData);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
+  int32_t ret = RTL->run_team_nd_region_nowait
+      ? RTL->run_team_nd_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                       TgtOffsets, TgtVarsSize, NumTeams,
+                                       ThreadLimit, TgtNDLoopDesc, AsyncData)
+      : OFFLOAD_FAIL;
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
+  return ret;
 }
 
 int32_t DeviceTy::run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                     void *AsyncData) {
-  if (!RTL->run_region_nowait)
-    return OFFLOAD_FAIL;
-  return RTL->run_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, AsyncData);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
+  int32_t ret = RTL->run_region_nowait
+      ? RTL->run_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
+                               TgtVarsSize, AsyncData)
+      : OFFLOAD_FAIL;
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
+  return ret;
 }
 
 int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
@@ -524,17 +601,48 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                          int32_t ThreadLimit,
                                          uint64_t LoopTripCount,
                                          void *AsyncData) {
-  if (!RTL->run_team_region_nowait)
-    return OFFLOAD_FAIL;
-  return RTL->run_team_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                     TgtOffsets, TgtVarsSize, NumTeams,
-                                     ThreadLimit, LoopTripCount, AsyncData);
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
+  int32_t ret = RTL->run_team_region_nowait
+      ? RTL->run_team_region_nowait(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                    TgtOffsets, TgtVarsSize, NumTeams,
+                                    ThreadLimit, LoopTripCount, AsyncData)
+      : OFFLOAD_FAIL;
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
+  return ret;
 }
 
-void *DeviceTy::get_offload_pipe(void) {
-  if (!RTL->get_offload_pipe)
+void *DeviceTy::create_offload_pipe(bool IsAsync) {
+  if (!RTL->create_offload_pipe)
     return nullptr;
-  return RTL->get_offload_pipe(RTLDeviceID);
+  return RTL->create_offload_pipe(RTLDeviceID, IsAsync);
+}
+
+int32_t DeviceTy::release_offload_pipe(void *Pipe) {
+  if (RTL->release_offload_pipe)
+    return RTL->release_offload_pipe(RTLDeviceID, Pipe);
+  else
+    return OFFLOAD_SUCCESS;
+}
+
+void *DeviceTy::data_alloc_managed(int64_t Size) {
+  if (RTL->data_alloc_managed)
+    return RTL->data_alloc_managed(RTLDeviceID, Size);
+  else
+    return nullptr;
+}
+
+int32_t DeviceTy::data_delete_managed(void *Ptr) {
+  if (RTL->data_delete_managed)
+    return RTL->data_delete_managed(RTLDeviceID, Ptr);
+  else
+    return OFFLOAD_FAIL;
+}
+
+int32_t DeviceTy::is_managed_ptr(void *Ptr) {
+  if (RTL->is_managed_ptr)
+    return RTL->is_managed_ptr(RTLDeviceID, Ptr);
+  else
+    return 0;
 }
 #endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not
@@ -543,9 +651,9 @@ bool device_is_ready(int device_num) {
   DP("Checking whether device %d is ready.\n", device_num);
   // Devices.size() can only change while registering a new
   // library, so try to acquire the lock of RTLs' mutex.
-  RTLsMtx.lock();
+  RTLsMtx->lock();
   size_t Devices_size = Devices.size();
-  RTLsMtx.unlock();
+  RTLsMtx->unlock();
   if (Devices_size <= (size_t)device_num) {
     DP("Device ID  %d does not have a matching RTL\n", device_num);
     return false;

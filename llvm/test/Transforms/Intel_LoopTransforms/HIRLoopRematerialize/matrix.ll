@@ -27,13 +27,6 @@
 ;  mat[3][2] += trans[2];
 ;}
 
-; Notice that this code requires partial reordering.
-; First three %mul, %mul11 and %mul13 are above than any other insts.
-; Current implementation can handle this reordering. However,
-; ANTI dep from (%mat)[1][0] to (%mat)[3][0] hinders loop rematerialization.
-; Hoisting of the first three muls out of the potential new loop
-; solves the problem.
-
 ; CHECK:Function: bone_matrix_translate_y
 ; CHECK:         BEGIN REGION { }
 ; CHECK:               %mul = (%mat)[1][0]  *  %y;
@@ -50,15 +43,12 @@
 
 ; CHECK:Function: bone_matrix_translate_y
 ; CHECK:         BEGIN REGION { }
-; CHECK:               %mul = (%mat)[1][0]  *  %y;
-; CHECK:               %mul11 = (%mat)[1][1]  *  %y;
-; CHECK:               %mul13 = (%mat)[1][2]  *  %y;
-; CHECK:               %add = %mul  +  (%mat)[3][0];
-; CHECK:               (%mat)[3][0] = %add;
-; CHECK:               %add20 = %mul11  +  (%mat)[3][1];
-; CHECK:               (%mat)[3][1] = %add20;
-; CHECK:               %add24 = %mul13  +  (%mat)[3][2];
-; CHECK:               (%mat)[3][2] = %add24;
+; CHECK:               + DO i1 = 0, 2, 1   <DO_LOOP>
+; CHECK:               |   %mul = (%mat)[1][i1]  *  %y;
+; CHECK:               |   %add = %mul  +  (%mat)[3][i1];
+; CHECK:               |   (%mat)[3][i1] = %add;
+; CHECK:               + END LOOP
+
 ; CHECK:               ret ;
 ; CHECK:         END REGION
 

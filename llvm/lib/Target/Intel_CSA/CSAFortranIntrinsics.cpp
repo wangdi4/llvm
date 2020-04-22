@@ -27,6 +27,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
@@ -122,7 +123,7 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
       // Get the arguments too.
       SmallVector<Value *, 2> args;
       bool bad_args   = false;
-      string err_name = proc_name;
+      string err_name = proc_name.str();
       err_name.pop_back();
       const auto emit_arg_warning = [err_name]() {
         errs() << "\n";

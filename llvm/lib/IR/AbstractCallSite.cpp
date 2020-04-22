@@ -33,6 +33,47 @@ STATISTIC(NumInvalidAbstractCallSitesUnknownCallee,
 STATISTIC(NumInvalidAbstractCallSitesNoCallback,
           "Number of invalid abstract call sites created (no callback)");
 
+void AbstractCallSite::getCallbackUses(ImmutableCallSite ICS,
+                                       SmallVectorImpl<const Use *> &CBUses) {
+  const Function *Callee = ICS.getCalledFunction();
+  if (!Callee)
+    return;
+
+  MDNode *CallbackMD = Callee->getMetadata(LLVMContext::MD_callback);
+  if (!CallbackMD)
+    return;
+
+  for (const MDOperand &Op : CallbackMD->operands()) {
+    MDNode *OpMD = cast<MDNode>(Op.get());
+    auto *CBCalleeIdxAsCM = cast<ConstantAsMetadata>(OpMD->getOperand(0));
+    uint64_t CBCalleeIdx =
+        cast<ConstantInt>(CBCalleeIdxAsCM->getValue())->getZExtValue();
+    if (CBCalleeIdx < ICS.arg_size())
+      CBUses.push_back(ICS.arg_begin() + CBCalleeIdx);
+  }
+}
+
+#if INTEL_CUSTOMIZATION
+Argument *AbstractCallSite::getCallbackArg(ImmutableCallSite ICS,
+                                           unsigned ArgNo) {
+  SmallVector<const Use *, 4u> CallbackUses;
+  AbstractCallSite::getCallbackUses(ICS, CallbackUses);
+  for (auto *U : CallbackUses) {
+    AbstractCallSite ACS(U);
+    assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+
+    if (Function *Callback = ACS.getCalledFunction())
+      for (Argument &CallbackArg : Callback->args()) {
+        int CallArgNo = ACS.getCallArgOperandNo(CallbackArg);
+        if (CallArgNo < 0 || unsigned(CallArgNo) != ArgNo)
+          continue;
+        return &CallbackArg;
+      }
+  }
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Create an abstract call site from a use.
 AbstractCallSite::AbstractCallSite(const Use *U) : CS(U->getUser()) {
 

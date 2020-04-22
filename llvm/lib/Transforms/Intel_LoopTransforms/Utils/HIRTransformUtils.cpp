@@ -1,6 +1,6 @@
 //===--- HIRTransformUtils.cpp  -------------------------------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -123,46 +123,20 @@ void HIRTransformUtils::doLoopReversal(HLLoop *InnermostLp, HIRDDAnalysis &HDDA,
   ReversalPass.doHIRReversalTransform(InnermostLp);
 }
 
-bool HIRTransformUtils::doHIRLoopRedundantMemoryMotion(
-    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
-    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
-) {
-  assert(InnermostLp && "HLLoop* can't be null\n");
-  assert(InnermostLp->isInnermost() && "HIR LRMM (Loop Redundant Memory "
-                                       "Motion) can only work on an inner-most "
-                                       "loop\n");
+bool HIRTransformUtils::isLoopInvariant(const RegDDRef *MemRef,
+                                        const HLLoop *Loop, HIRDDAnalysis &HDDA,
+                                        HIRLoopStatistics &HLS,
+                                        FieldModRefResult *FieldModRef,
+                                        bool IgnoreIVs) {
+  assert(MemRef && "Memref is null!");
+  assert(MemRef->isMemRef() && "Ref is not a memref!");
+  assert(Loop && "Loop is null!");
+  assert(HLNodeUtils::contains(Loop, MemRef->getHLDDNode()) &&
+         "MemRef expected to be inside Loop!");
 
-  // to implement!
-
-  return false;
-}
-
-bool HIRTransformUtils::doHIRLoopInvariantMemoryMotion(
-    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-    HIRDDAnalysis &HDDA,   // INPUT: Existing HIR DDAnalysis
-    HIRLoopStatistics &HLS // INPUT: Existing HIR LoopStatitics Analysis
-) {
-  assert(InnermostLp && "HLLoop* can't be null\n");
-  assert(InnermostLp->isInnermost() && "HIR LIMM (Loop Invariant Memory "
-                                       "Motion) can only work on an inner-most "
-                                       "loop\n");
-
-  HIRLMM LMMPass(InnermostLp->getHLNodeUtils().getHIRFramework(), HDDA, HLS);
-  return LMMPass.doLoopMemoryMotion(InnermostLp);
-}
-
-bool HIRTransformUtils::doHIRLoopMemoryMotion(
-    HLLoop *InnermostLp,   // INPUT + OUTPUT: a given innermost loop
-    HIRDDAnalysis &HDDA,   // INPUT: HIR DDAnalysis
-    HIRLoopStatistics &HLS // INPUT: Existing HIRLoopStatitics Analysis
-) {
-  assert(InnermostLp && "HLLoop* can't be null\n");
-  assert(InnermostLp->isInnermost() &&
-         "HIR LMM (Loop Memory Motion) can only work on an inner-most loop\n");
-
-  // to implement!
-  return false;
+  HIRLMM LMMPass(Loop->getHLNodeUtils().getHIRFramework(), HDDA, HLS, nullptr,
+                 FieldModRef);
+  return LMMPass.isLoopInvariant(MemRef, Loop, IgnoreIVs);
 }
 
 bool HIRTransformUtils::isRemainderLoopNeeded(HLLoop *OrigLoop,
@@ -462,87 +436,6 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
   LLVM_DEBUG(OrigLoop->dump());
 }
 
-namespace {
-
-class TempDefFinder final : public HLNodeVisitorBase {
-  SmallSet<unsigned, 4> &TempSymbases;
-  SmallVector<unsigned, 4> FoundTempDefs;
-
-public:
-  TempDefFinder(SmallSet<unsigned, 4> &TempSymbases)
-      : TempSymbases(TempSymbases) {}
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  void visit(const HLInst *Inst);
-
-  SmallVector<unsigned, 4> getFoundTempDefs() const { return FoundTempDefs; }
-};
-
-void TempDefFinder::visit(const HLInst *Inst) {
-  auto LvalRef = Inst->getLvalDDRef();
-
-  if (!LvalRef || !LvalRef->isTerminalRef()) {
-    return;
-  }
-
-  unsigned TempDefSB = LvalRef->getSymbase();
-
-  if (TempSymbases.count(TempDefSB)) {
-    FoundTempDefs.push_back(TempDefSB);
-  }
-}
-
-} // namespace
-
-void HIRTransformUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
-                                                  const HLLoop *OrigLoop) {
-  // Creation of a new cloned loop (remainder loop, for example) can result in
-  // additional liveouts from the lexically first loop. Consider this example
-  // where t1 is livein but not liveout of the loop- DO i1
-  //   t1 = t1 + ...
-  // END DO
-  //
-  // After creating main and remainder loop, t1 becomes liveout of main loop.
-  //
-  // DO i1  << main loop
-  //   t1 = t1 + ...
-  // END DO
-  //
-  // DO i2  << remainder loop
-  //   t1 = t1 + ...
-  // END DO
-
-  if (!OrigLoop) {
-    OrigLoop = LiveoutLoop;
-  }
-
-  SmallSet<unsigned, 4> LiveoutCandidates;
-
-  // Collect liveins which are not liveout of the loop.
-  for (auto It = OrigLoop->live_in_begin(), E = OrigLoop->live_in_end();
-       It != E; ++It) {
-    unsigned Symbase = *It;
-
-    if (!OrigLoop->isLiveOut(Symbase)) {
-      LiveoutCandidates.insert(Symbase);
-    }
-  }
-
-  if (LiveoutCandidates.empty()) {
-    return;
-  }
-
-  TempDefFinder TDF(LiveoutCandidates);
-
-  HLNodeUtils::visitRange(TDF, OrigLoop->child_begin(), OrigLoop->child_end());
-
-  for (unsigned LiveoutSB : TDF.getFoundTempDefs()) {
-    LiveoutLoop->addLiveOutTemp(LiveoutSB);
-  }
-}
-
 HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
     LoopOptReportBuilder &LORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
@@ -620,7 +513,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   if (NeedRemainderLoop) {
     processRemainderLoop(OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef,
                          RuntimeCheck != nullptr, ProfExists ? &Prof : nullptr);
-    addCloningInducedLiveouts(MainLoop, OrigLoop);
+    HLNodeUtils::addCloningInducedLiveouts(MainLoop, OrigLoop);
 
     // Since OrigLoop became a remainder and will be lexicographicaly
     // second to MainLoop, we move all the next siblings back there.
@@ -922,6 +815,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
 
   UBCE->divide(StripmineSize);
   UBCE->simplify(true, true);
+
+  UBRef->makeConsistent({}, Level);
 
   RegDDRef *InnerLBRef =
       UBRef->getDDRefUtils().createRegDDRef(GenericRvalSymbase);

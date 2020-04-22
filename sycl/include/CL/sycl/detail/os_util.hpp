@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <CL/sycl/detail/defines.hpp>
+
 #include <cstdint>
 #include <stdlib.h>
 #include <string>
@@ -54,7 +56,7 @@
 
 #endif
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
@@ -78,6 +80,10 @@ public:
   /// single one at most.
   static constexpr OSModuleHandle ExeModuleHandle = -1;
 
+  /// Dummy module handle to designate non-existing module for a device binary
+  /// image loaded from file e.g. via SYCL_USE_KERNEL_SPV env var.
+  static constexpr OSModuleHandle DummyModuleHandle = -2;
+
 #ifdef SYCL_RT_OS_WINDOWS
   static constexpr const char* DirSep = "\\";
 #else
@@ -97,4 +103,4 @@ public:
 
 } // namespace detail
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

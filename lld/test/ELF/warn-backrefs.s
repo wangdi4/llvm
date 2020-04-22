@@ -19,12 +19,12 @@
 # RUN: echo "GROUP(\"%t2.a\" \"%t1.o\")" > %t2.script
 # RUN: ld.lld --fatal-warnings --warn-backrefs -o %t.exe %t2.script
 
-# RUN: not ld.lld --fatal-warnings --warn-backrefs -o %t.exe %t2.a %t1.o 2>&1 | FileCheck %s
-# RUN: not ld.lld --fatal-warnings --warn-backrefs -o %t.exe %t2.a "-(" %t1.o "-)" 2>&1 | FileCheck %s
-# RUN: not ld.lld --fatal-warnings --warn-backrefs -o %t.exe --start-group %t2.a --end-group %t1.o 2>&1 | FileCheck %s
+# RUN: not ld.lld --fatal-warnings --warn-backrefs -o /dev/null %t2.a %t1.o 2>&1 | FileCheck %s
+# RUN: not ld.lld --fatal-warnings --warn-backrefs -o /dev/null %t2.a "-(" %t1.o "-)" 2>&1 | FileCheck %s
+# RUN: not ld.lld --fatal-warnings --warn-backrefs -o /dev/null --start-group %t2.a --end-group %t1.o 2>&1 | FileCheck %s
 
 # RUN: echo "GROUP(\"%t2.a\")" > %t3.script
-# RUN: not ld.lld --fatal-warnings --warn-backrefs -o %t.exe %t3.script %t1.o 2>&1 | FileCheck %s
+# RUN: not ld.lld --fatal-warnings --warn-backrefs -o /dev/null %t3.script %t1.o 2>&1 | FileCheck %s
 # RUN: ld.lld --fatal-warnings --warn-backrefs -o %t.exe "-(" %t3.script %t1.o "-)"
 
 # CHECK: backward reference detected: foo in {{.*}}1.o refers to {{.*}}2.a
@@ -39,7 +39,7 @@
 # RUN: echo ".globl foo; foo: call bar" | llvm-mc -filetype=obj -triple=x86_64-unknown-linux - -o %t4.o
 # RUN: ld.lld --fatal-warnings --warn-backrefs %t1.o --start-lib %t3.o %t4.o --end-lib -o /dev/null
 
-# We don't report backward references to weak symbols as they can be overriden later.
+# We don't report backward references to weak symbols as they can be overridden later.
 # RUN: echo ".weak foo; foo:" | llvm-mc -filetype=obj -triple=x86_64-unknown-linux - -o %t5.o
 # RUN: ld.lld --fatal-warnings --warn-backrefs --start-lib %t5.o --end-lib %t1.o %t2.o -o /dev/null
 

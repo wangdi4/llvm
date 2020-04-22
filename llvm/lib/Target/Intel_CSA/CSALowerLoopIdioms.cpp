@@ -108,9 +108,10 @@ void expandMemTransferFlat(MemTransferInst *I, unsigned MaxGran) {
       LR.Size  = CurSize;
       LR.Index = LoadOffset / CurSize;
       Value *const OffPtr =
-        LoadOffset ? IRB.CreateConstInBoundsGEP1_64(BasePtr, LR.Index)
-                   : BasePtr;
-      LR.Val = IRB.CreateAlignedLoad(OffPtr, CurSize, I->isVolatile());
+          LoadOffset ? IRB.CreateConstInBoundsGEP1_64(BasePtr, LR.Index)
+                     : BasePtr;
+      LR.Val =
+          IRB.CreateAlignedLoad(OffPtr, MaybeAlign(CurSize), I->isVolatile());
       Loaded.push_back(LR);
       LoadOffset += CurSize;
     }
@@ -118,8 +119,9 @@ void expandMemTransferFlat(MemTransferInst *I, unsigned MaxGran) {
   for (const LoadRec &LR : Loaded) {
     Value *const BasePtr = getPtrOfSize(I->getDest(), LR.Size, IRB);
     Value *const OffPtr =
-      LR.Index ? IRB.CreateConstInBoundsGEP1_64(BasePtr, LR.Index) : BasePtr;
-    IRB.CreateAlignedStore(LR.Val, OffPtr, LR.Size, I->isVolatile());
+        LR.Index ? IRB.CreateConstInBoundsGEP1_64(BasePtr, LR.Index) : BasePtr;
+    IRB.CreateAlignedStore(LR.Val, OffPtr, MaybeAlign(LR.Size),
+                           I->isVolatile());
   }
   LLVM_DEBUG(dbgs() << "\n");
 
@@ -158,10 +160,11 @@ void expandMemSetFlat(MemSetInst *I, unsigned MaxGran) {
     while (StoreOffset + CurSize <= Length) {
       LLVM_DEBUG(dbgs() << " " << CurSize);
       Value *const OffPtr =
-        StoreOffset
-          ? IRB.CreateConstInBoundsGEP1_64(BasePtr, StoreOffset / CurSize)
-          : BasePtr;
-      IRB.CreateAlignedStore(RepVal, OffPtr, CurSize, I->isVolatile());
+          StoreOffset
+              ? IRB.CreateConstInBoundsGEP1_64(BasePtr, StoreOffset / CurSize)
+              : BasePtr;
+      IRB.CreateAlignedStore(RepVal, OffPtr, MaybeAlign(CurSize),
+                             I->isVolatile());
       StoreOffset += CurSize;
     }
   }
@@ -247,16 +250,16 @@ void expandMemCpyLoop(MemCpyInst *I, unsigned FlatGran) {
 
   // load from ScaledSrcAddr+LoopIndex
   Value *const Element = LoopBuilder.CreateAlignedLoad(
-    LoopBuilder.CreateInBoundsGEP(nullptr, ScaledSrcAddr, LoopIndex), LoopGran,
-    I->isVolatile());
+      LoopBuilder.CreateInBoundsGEP(nullptr, ScaledSrcAddr, LoopIndex),
+      MaybeAlign(LoopGran), I->isVolatile());
   // store at ScaledDstAddr+LoopIndex
   LoopBuilder.CreateAlignedStore(
-    Element, LoopBuilder.CreateInBoundsGEP(nullptr, ScaledDstAddr, LoopIndex),
-    LoopGran, I->isVolatile());
+      Element, LoopBuilder.CreateInBoundsGEP(nullptr, ScaledDstAddr, LoopIndex),
+      MaybeAlign(LoopGran), I->isVolatile());
 
   // The value for LoopIndex coming from backedge is (LoopIndex + 1)
   Value *const NewIndex =
-    LoopBuilder.CreateAdd(LoopIndex, ConstantInt::get(LenType, 1), "", true);
+      LoopBuilder.CreateAdd(LoopIndex, ConstantInt::get(LenType, 1), "", true);
   LoopIndex->addIncoming(NewIndex, LoopBB);
 
   LoopBuilder.CreateCondBr(LoopBuilder.CreateICmpULT(NewIndex, ScaledCopyLen),
@@ -336,14 +339,14 @@ void expandMemMoveLoop(MemMoveInst *I, unsigned FlatGran) {
   Index->addIncoming(Start, OrigBB);
 
   Value *const Element = LIRB.CreateAlignedLoad(
-    LIRB.CreateInBoundsGEP(nullptr, ScaledSrcAddr, Index), LoopGran,
-    I->isVolatile());
+      LIRB.CreateInBoundsGEP(nullptr, ScaledSrcAddr, Index),
+      MaybeAlign(LoopGran), I->isVolatile());
   LIRB.CreateAlignedStore(Element,
                           LIRB.CreateInBoundsGEP(nullptr, ScaledDstAddr, Index),
-                          LoopGran, I->isVolatile());
+                          MaybeAlign(LoopGran), I->isVolatile());
 
   Value *const NewLoopInd =
-    LIRB.CreateAdd(LoopInd, ConstantInt::get(LenType, 1), "", true);
+      LIRB.CreateAdd(LoopInd, ConstantInt::get(LenType, 1), "", true);
   LoopInd->addIncoming(NewLoopInd, LoopBB);
   Value *const NewIndex = LIRB.CreateAdd(Index, Step);
   Index->addIncoming(NewIndex, LoopBB);
@@ -396,11 +399,12 @@ void expandMemSetLoop(MemSetInst *I, unsigned FlatGran) {
   LoopIndex->addIncoming(ConstantInt::get(SetLen->getType(), 0), OrigBB);
 
   LoopBuilder.CreateAlignedStore(
-    ScaledVal, LoopBuilder.CreateInBoundsGEP(nullptr, ScaledDstAddr, LoopIndex),
-    LoopGran, I->isVolatile());
+      ScaledVal,
+      LoopBuilder.CreateInBoundsGEP(nullptr, ScaledDstAddr, LoopIndex),
+      MaybeAlign(LoopGran), I->isVolatile());
 
   Value *const NewIndex = LoopBuilder.CreateAdd(
-    LoopIndex, ConstantInt::get(SetLen->getType(), 1), "", true);
+      LoopIndex, ConstantInt::get(SetLen->getType(), 1), "", true);
   LoopIndex->addIncoming(NewIndex, LoopBB);
 
   LoopBuilder.CreateCondBr(LoopBuilder.CreateICmpULT(NewIndex, ScaledSetLen),

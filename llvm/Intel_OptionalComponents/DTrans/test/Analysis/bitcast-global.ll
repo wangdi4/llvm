@@ -22,6 +22,7 @@ define i32 @test01() {
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK-NEXT: Field info:
 ; CHECK-NOT: Read
+; CHECK: Frequency
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK-NEXT: Field info: Read
 ; CHECK: Safety data: Bad casting | Ambiguous GEP
@@ -54,6 +55,7 @@ define i32 @test02() {
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK-NEXT: Field info:
 ; CHECK-NOT: Read
+; CHECK: Frequency
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK-NEXT: Field info: Read
 ; CHECK: Safety data: Bad casting | Ambiguous GEP

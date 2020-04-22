@@ -114,13 +114,14 @@
 ; CHECK-O2-NEXT: Running pass: RequireAnalysisPass<{{.*}}InlineAggAnalysis            ;INTEL
 ; CHECK-O2-NEXT: Running analysis: InlineAggAnalysis                                  ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
-; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; CHECK-O2-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-O2-NEXT: Running pass: PartialInlinerPass
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
+; CHECK-O2-NEXT: Running pass: DeadArrayOpsEliminationPass ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
 ; CHECK-O2-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O2-NEXT: Running pass: InstCombinePass

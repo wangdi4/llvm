@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -S -instsimplify -hotcoldsplit -debug < %s 2>&1 | FileCheck %s
+; RUN: opt -S -instsimplify -hotcoldsplit -debug -intel-codeextractor-debug=false < %s 2>&1 | FileCheck %s ;INTEL
 ; RUN: opt -instcombine -hotcoldsplit -instsimplify %s -o /dev/null
 
 target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
@@ -16,7 +16,7 @@ target triple = "aarch64"
 ; CHECK: define {{.*}}@f.cold.1(i64 %0)
 ; CHECK-LABEL: newFuncRoot:
 ; CHECK: %1 = icmp eq i64 %0, 0
-; CHECK: call void @llvm.assume(i1 %1)
+; CHECK-NOT: call void @llvm.assume
 
 define void @f() {
 entry:

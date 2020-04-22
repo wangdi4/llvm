@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/GlobalDecl.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/Basic/TargetInfo.h"
@@ -255,16 +256,9 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
   // The parser verifies that there is a string literal here.
   assert(AsmString->isAscii());
 
-  // Skip all the checks if we are compiling SYCL device code, but the function
-  // is not marked to be used on device, this code won't be codegen'ed anyway.
-  if (getLangOpts().SYCLIsDevice) {
-    SYCLDiagIfDeviceCode(AsmLoc, diag::err_sycl_restrict)
-        << KernelUseAssembly;
-    return new (Context)
-      GCCAsmStmt(Context, AsmLoc, IsSimple, IsVolatile, NumOutputs,
-                 NumInputs, Names, Constraints, Exprs.data(), AsmString,
-                 NumClobbers, Clobbers, NumLabels, RParenLoc);
-  }
+  FunctionDecl *FD = dyn_cast<FunctionDecl>(getCurLexicalContext());
+  llvm::StringMap<bool> FeatureMap;
+  Context.getFunctionFeatureMap(FeatureMap, FD);
 
   for (unsigned i = 0; i != NumOutputs; i++) {
     StringLiteral *Literal = Constraints[i];
@@ -336,8 +330,8 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
     }
 
     unsigned Size = Context.getTypeSize(OutputExpr->getType());
-    if (!Context.getTargetInfo().validateOutputSize(Literal->getString(),
-                                                    Size)) {
+    if (!Context.getTargetInfo().validateOutputSize(
+            FeatureMap, Literal->getString(), Size)) {
       targetDiag(OutputExpr->getBeginLoc(), diag::err_asm_invalid_output_size)
           << Info.getConstraintStr();
       return new (Context)
@@ -438,8 +432,8 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
         return StmtError();
 
     unsigned Size = Context.getTypeSize(Ty);
-    if (!Context.getTargetInfo().validateInputSize(Literal->getString(),
-                                                   Size))
+    if (!Context.getTargetInfo().validateInputSize(FeatureMap,
+                                                   Literal->getString(), Size))
       return StmtResult(
           targetDiag(InputExpr->getBeginLoc(), diag::err_asm_invalid_input_size)
           << Info.getConstraintStr());
@@ -484,10 +478,10 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
 
     // Look for the correct constraint index.
     unsigned ConstraintIdx = Piece.getOperandNo();
-    // Labels are the last in the Exprs list.
-    if (NS->isAsmGoto() && ConstraintIdx >= NS->getNumInputs())
-      continue;
     unsigned NumOperands = NS->getNumOutputs() + NS->getNumInputs();
+    // Labels are the last in the Exprs list.
+    if (NS->isAsmGoto() && ConstraintIdx >= NumOperands)
+      continue;
     // Look for the (ConstraintIdx - NumOperands + 1)th constraint with
     // modifier '+'.
     if (ConstraintIdx >= NumOperands) {
@@ -713,8 +707,13 @@ void Sema::FillInlineAsmIdentifierInfo(Expr *Res,
   if (T->isFunctionType() || T->isDependentType())
     return Info.setLabel(Res);
   if (Res->isRValue()) {
-    if (isa<clang::EnumType>(T) && Res->EvaluateAsRValue(Eval, Context))
+    bool IsEnum = isa<clang::EnumType>(T);
+    if (DeclRefExpr *DRE = dyn_cast<clang::DeclRefExpr>(Res))
+      if (DRE->getDecl()->getKind() == Decl::EnumConstant)
+        IsEnum = true;
+    if (IsEnum && Res->EvaluateAsRValue(Eval, Context))
       return Info.setEnum(Eval.Val.getInt().getSExtValue());
+
     return Info.setLabel(Res);
   }
   unsigned Size = Context.getTypeSizeInChars(T).getQuantity();
@@ -893,9 +892,6 @@ StmtResult Sema::ActOnMSAsmStmt(SourceLocation AsmLoc, SourceLocation LBraceLoc,
                                 SourceLocation EndLoc) {
   bool IsSimple = (NumOutputs != 0 || NumInputs != 0);
   setFunctionHasBranchProtectedScope();
-  if (getLangOpts().SYCLIsDevice)
-    SYCLDiagIfDeviceCode(AsmLoc, diag::err_sycl_restrict)
-        << KernelUseAssembly;
   MSAsmStmt *NS =
     new (Context) MSAsmStmt(Context, AsmLoc, LBraceLoc, IsSimple,
                             /*IsVolatile*/ true, AsmToks, NumOutputs, NumInputs,

@@ -1,8 +1,8 @@
 ; Test for basic functionality of min/max+index idiom (main reduction + last linear index).
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -debug-only=LoopVectorizationPlanner -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix VPVAL_CG %s
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -vplan-import-entities -vplan-use-entity-instr=true -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix MIXED_CG %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix VPVAL_CG %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix MIXED_CG %s
 ;
 ;CHECK: Reduction list
 ;CHECK-NEXT: signed (SIntMax) Start: i32 [[BEST:%best.[0-9]+]] Exit: i32 [[BEST_EXIT:%vp[0-9]+]]
@@ -15,14 +15,14 @@
 ;CHECK-NEXT: Induction list
 ;CHECK-NEXT: IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 {{%vp[0-9]+}} = add i32 {{%vp[0-9]+}} i32 {{%vp[0-9]+}}
 ;
-;CHECK:  BB3 (BP: NULL) :
+;CHECK:  BB2:
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = add
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = reduction-init i32 [[BEST]]
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = reduction-init i32 [[TMP]]
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = induction-init{add} i32 0 i32 1
 ;CHECK-NEXT:   i32 {{%vp[0-9]+}} = induction-init-step{add} i32 1
 ;
-;CHECK:  BB5 (BP: NULL) :
+;CHECK:  BB4:
 ;CHECK-NEXT:  i32 [[BEST_FINAL:%vp[0-9]+]] = reduction-final{u_smax} i32 [[BEST_EXIT]]
 ;CHECK-NEXT:  i32 {{%vp[0-9]+}} = reduction-final{s_smax} i32 [[TMP_EXIT]] i32 [[BEST_EXIT]] i32 [[BEST_FINAL]]
 ;

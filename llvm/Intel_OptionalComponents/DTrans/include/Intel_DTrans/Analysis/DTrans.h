@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,20 +20,22 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANS_H
 #define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
+#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 
 class TargetLibraryInfo;
-class Function;
-class Instruction;
 class CallBase;
 class Type;
 class StructType;
@@ -68,9 +70,9 @@ class FieldInfo {
 public:
   FieldInfo(llvm::Type *Ty)
       : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
-        ComplexUse(false), AddressTaken(false), SVKind(SVK_Complete),
-        SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
-        SingleAllocFunction(nullptr), Frequency(0) {}
+        ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
+        SVKind(SVK_Complete), SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
+        SingleAllocFunction(nullptr), RWState(RWK_Top), Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return LLVMType; }
 
@@ -79,6 +81,7 @@ public:
   bool isValueUnused() const { return UnusedValue && isRead(); }
   bool hasComplexUse() const { return ComplexUse; }
   bool isAddressTaken() const { return AddressTaken; }
+  bool isMismatchedElementAccess() const { return MismatchedElementAccess; }
   bool isNoValue() const {
     return SVKind == SVK_Complete && ConstantValues.empty();
   }
@@ -109,13 +112,17 @@ public:
   llvm::Function *getSingleAllocFunction() {
     return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
   }
-  void setRead(bool b) { Read = b; }
-  void setWritten(bool b) { Written = b; }
+  void setRead(Instruction &I) { Read = true; addReader(I.getFunction());  }
+  void setWritten(Instruction &I) {
+    Written = true;
+    addWriter(I.getFunction());
+  }
   void setValueUnused(bool b) {
     UnusedValue = b;
   }
   void setComplexUse(bool b) { ComplexUse = b; }
   void setAddressTaken() { AddressTaken = true; }
+  void setMismatchedElementAccess() { MismatchedElementAccess = true; }
   void setSingleAllocFunction(llvm::Function *F) {
     assert((SAFKind == SAFK_Top) && "Expecting lattice at top");
     SAFKind = SAFK_Single;
@@ -131,11 +138,11 @@ public:
   uint64_t getFrequency() const { return Frequency; }
 
   // Returns a set of possible constant values.
-  llvm::SmallPtrSetImpl<llvm::Constant *> &values()
+  llvm::SetVector<llvm::Constant *> &values()
       { return ConstantValues; }
 
   // Returns a set of possible indirect array constant values.
-  llvm::SmallPtrSetImpl<llvm::Constant *> &iavalues()
+  llvm::SetVector<llvm::Constant *> &iavalues()
       { return ConstantIAValues; }
 
   // Returns true if the set of possible values is complete.
@@ -162,6 +169,35 @@ public:
   //
   bool processNewSingleAllocFunction(llvm::Function *F);
 
+  // For tracking the set of functions that read/write the field.
+  typedef llvm::SmallPtrSet<Function*, 2> FunctionSet;
+  typedef llvm::SmallPtrSet<Function*, 2> &FunctionSetRef;
+
+  void addReader(Function *F) { Readers.insert(F); }
+  void addWriter(Function *F) { Writers.insert(F); }
+  FunctionSetRef readers() { return Readers; }
+  FunctionSetRef writers() { return Writers; }
+
+  // Lattice regarding the information contained within the Readers/Writers
+  // sets.
+  // RWK_Top - Initial state.
+  // RWK_Computed - After safety checks are performed, elements that are
+  //   resolved as being safe to rely on the Readers/Writers fields will be
+  //   marked as RWK_Computed.
+  // RWK_Bottom - Elements that are determined to not be safe.
+  //   This may also be used in the future to limit the size to the
+  //   Readers/Writers sets by going conservative if the sets become to large.
+  enum RW_Kind { RWK_Top, RWK_Computed, RWK_Bottom };
+  void setRWComputed() {
+    assert(!isRWBottom() && "State is already bottom.");
+    RWState = RWK_Computed;
+  }
+  void setRWBottom() { RWState = RWK_Bottom; }
+
+  bool isRWTop() const { return RWState == RWK_Top; }
+  bool isRWComputed() const { return RWState == RWK_Computed; }
+  bool isRWBottom() const { return RWState == RWK_Bottom; }
+
 private:
   llvm::Type *LLVMType;
   bool Read;
@@ -169,12 +205,25 @@ private:
   bool UnusedValue;
   bool ComplexUse;
   bool AddressTaken;
+
+  // Tracks whether this field triggered the mismatched element access safety
+  // check on the structure.
+  bool MismatchedElementAccess;
+
   SingleValueKind SVKind;
-  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantValues;
+  llvm::SetVector<llvm::Constant *> ConstantValues;
   SingleValueKind SVIAKind;
-  llvm::SmallPtrSet<llvm::Constant *, 2> ConstantIAValues;
+  llvm::SetVector<llvm::Constant *> ConstantIAValues;
   SingleAllocFunctionKind SAFKind;
   llvm::Function *SingleAllocFunction;
+  // For computing ModRef information for the field, these sets contain the
+  // functions that are known to directly read/write the field.
+  FunctionSet Readers;
+  FunctionSet Writers;
+
+  // Status for Readers/Writers information.
+  RW_Kind RWState;
+
   // It represents relative field access frequency and is used in
   // heuristics to enable transformations. Load/Store is considered as
   // field access. AddressTaken of struct or field is not considered as
@@ -520,7 +569,9 @@ public:
   void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
   void clearSafetyData() { SafetyInfo = 0; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printSafetyData();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   CRuleTypeKind getCRuleTypeKind() { return CRTypeKind; }
   void setCRuleTypeKind(CRuleTypeKind K) { CRTypeKind = K; }
@@ -651,32 +702,6 @@ private:
   size_t NumElements;
 };
 
-/// Kind of allocation associated with a Function.
-/// The malloc, calloc, and realloc allocation kinds each correspond to a call
-/// to the standard library function of the same name.
-///
-/// See MemoryBuiltins.cpp:AllocType
-enum AllocKind : uint8_t {
-  AK_NotAlloc,
-  AK_Malloc,
-  AK_Calloc,
-  AK_Realloc,
-  AK_UserMalloc,
-  AK_UserMalloc0,
-  AK_New
-};
-
-/// Kind of free function call.
-/// - FK_Free represents a direct call to the standard library function 'free'
-/// - FK_UserFree represents a call to a user-wrapper function of 'free''
-/// - FK_Delete represents a call to C++ delete/deletep[] functions.
-enum FreeKind { FK_NotFree, FK_Free, FK_UserFree, FK_Delete };
-
-/// Get a printable string for the AllocKind
-StringRef AllocKindName(AllocKind Kind);
-
-/// Get a printable string for the FreeKind
-StringRef FreeKindName(FreeKind Kind);
 
 /// Get a printable string for the CRuleTypeKind
 StringRef CRuleTypeKindName(CRuleTypeKind Kind);
@@ -686,7 +711,9 @@ StringRef CRuleTypeKindName(CRuleTypeKind Kind);
 // information collected during the analysis to the transforms about how
 // a memfunc call is impacting a structure.
 struct MemfuncRegion {
-  MemfuncRegion() : IsCompleteAggregate(true), FirstField(0), LastField(0) {}
+  MemfuncRegion()
+      : IsCompleteAggregate(true), PrePadBytes(0), FirstField(0), LastField(0),
+        PostPadBytes(0) {}
 
   // If this is 'false', the FirstField and LastField members must be set
   // to indicate an inclusive set of fields within the structure that are
@@ -695,58 +722,60 @@ struct MemfuncRegion {
   bool IsCompleteAggregate;
 
   // If the region is a description of a partial structure modification, these
-  // members specify the first and last fields touched.
+  // members specify the first and last fields touched, and number of padding
+  // bytes before/after the first/last field.
+  unsigned int PrePadBytes;
   unsigned int FirstField;
   unsigned int LastField;
+  unsigned int PostPadBytes;
 };
 
-// This class is used to hold information that has been
-// extracted from the LocalPointerInfo to contain a
-// list of aggregate types being used by one of the tracked
-// call instructions. This is kept outside of the CallInfo
-// class itself to allow for cases where type information needs
-// to be tracked for more than a single function argument.
-class PointerTypeInfo {
+// This class is used to hold information related to the object type(s) that are
+// used by a CallInfo object. The information stored here has been extracted
+// from the LocalPointerInfo to contain a list of aggregate types being used by
+// one of the tracked call instructions. This is kept outside of the CallInfo
+// class itself to allow for cases where type information needs to be tracked
+// for more than a single function argument.
+class CallInfoElementTypes {
 public:
-  typedef SmallVector<llvm::Type *, 2> PointerTypeAliasSet;
-  typedef SmallVectorImpl<llvm::Type *> &PointerTypeAliasSetRef;
+  typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
+  typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
 
-  PointerTypeInfo() : AliasesToAggregatePointer(false), Analyzed(false) {}
+  CallInfoElementTypes() : AliasesToAggregateType(false), Analyzed(false) {}
 
-  // Returns 'true' if the type (at some level of indirection)
-  // was known to be a pointer to an aggregate type.
-  bool getAliasesToAggregatePointer() const {
-    return AliasesToAggregatePointer;
+  // Returns 'true' if the call was known to be a pointer (at some level of
+  // indirection) to an aggregate type.
+  bool getAliasesToAggregateType() const {
+    return AliasesToAggregateType;
   }
 
-  void setAliasesToAggregatePointer(bool Val) {
-    AliasesToAggregatePointer = Val;
+  void setAliasesToAggregateType(bool Val) {
+    AliasesToAggregateType = Val;
   }
 
   void setAnalyzed(bool Val) { Analyzed = Val; }
 
   bool getAnalyzed() const { return Analyzed; }
 
-  void addType(llvm::Type *Ty) {
-    assert(isa<llvm::PointerType>(Ty) &&
-        "PointerTypeInfo::addType: Expecting pointer type");
-    Types.push_back(Ty);
+  void addElemType(llvm::Type *Ty) {
+    ElemTypes.push_back(Ty);
   }
-  PointerTypeAliasSetRef getTypes() { return Types; }
 
-  size_t getNumTypes() { return Types.size(); }
+  TypeAliasSetRef getElemTypes() { return ElemTypes; }
 
-  llvm::Type *getType(size_t Idx) const {
-    assert(Idx < Types.size() && "Index out of range");
-    return Types[Idx];
+  size_t getNumTypes() { return ElemTypes.size(); }
+
+  llvm::Type *getElemType(size_t Idx) const {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    return ElemTypes[Idx];
   }
 
   // Change the type at index \p Idx to type \p Ty. This
   // function should only be used for updating a type based
   // on the type remapping done when processing a function.
-  void setType(size_t Idx, llvm::Type *Ty) {
-    assert(Idx < Types.size() && "Index out of range");
-    Types[Idx] = Ty;
+  void setElemType(size_t Idx, llvm::Type *Ty) {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    ElemTypes[Idx] = Ty;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -756,16 +785,17 @@ public:
 
 private:
   // When true, indicates that the base type for one or more of the pointer
-  // types collected for the pointer was an aggregate type.
-  bool AliasesToAggregatePointer;
+  // types operated upon by the call was an aggregate type.
+  bool AliasesToAggregateType;
 
   // When true, indicates the LocalPointerAnalysis was performed to collect type
   // information for the pointer.
   bool Analyzed;
 
-  // List of pointer to aggregate types resolved by the local pointer analysis
-  // for this item.
-  PointerTypeAliasSet Types;
+  // List of element types, resolved by the local pointer analysis, that the
+  // call instruction is operating upon. e.g. an allocation of %struct.foo
+  // objects, or a memset of i64 objects or %struct.foo* pointers.
+  TypeAliasSet ElemTypes;
 };
 
 // Base class for storing collected information about specific
@@ -780,21 +810,22 @@ public:
   Instruction *getInstruction() const { return I; }
   void setInstruction(Instruction *NewI) { I = NewI; }
 
-  bool getAliasesToAggregatePointer() const {
-    return PTI.getAliasesToAggregatePointer();
+  bool getAliasesToAggregateType() const {
+    return ElementTypes.getAliasesToAggregateType();
   }
 
-  void setAliasesToAggregatePointer(bool Val) {
-    PTI.setAliasesToAggregatePointer(Val);
+  void setAliasesToAggregateType(bool Val) {
+    ElementTypes.setAliasesToAggregateType(Val);
+  }
+  void setAnalyzed(bool Val) { ElementTypes.setAnalyzed(Val); }
+
+  bool getAnalyzed() const { return ElementTypes.getAnalyzed(); }
+
+  void addElemType(llvm::Type *Ty) {
+    ElementTypes.addElemType(Ty);
   }
 
-  void setAnalyzed(bool Val) { PTI.setAnalyzed(Val); }
-
-  bool getAnalyzed() const { return PTI.getAnalyzed(); }
-
-  void addType(llvm::Type *Ty) { PTI.addType(Ty); }
-
-  PointerTypeInfo &getPointerTypeInfoRef() { return PTI; }
+  CallInfoElementTypes &getElementTypesRef() { return ElementTypes; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump();
@@ -808,7 +839,7 @@ protected:
   Instruction *I;
 
   // The type list from the local pointer analysis.
-  PointerTypeInfo PTI;
+  CallInfoElementTypes ElementTypes;
 
 private:
   // ID to support type inquiry through isa, cast, and dyn_cast
@@ -933,18 +964,32 @@ public:
     return Regions[RN].IsCompleteAggregate;
   }
 
+  unsigned int getPrePadBytes(unsigned int RN) {
+    assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
+    assert(!getIsCompleteAggregate(RN) &&
+      "Field tracking only valid when not a complete aggregate");
+    return Regions[RN].PrePadBytes;
+  }
+
   unsigned int getFirstField(unsigned int RN) const {
     assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
     assert(!getIsCompleteAggregate(RN) &&
-        "Field tracking only value when not a complete aggregate");
+        "Field tracking only valid when not a complete aggregate");
     return Regions[RN].FirstField;
   }
 
   unsigned int getLastField(unsigned int RN) const {
     assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
     assert(!getIsCompleteAggregate(RN) &&
-        "Field tracking only value when not a complete aggregate");
+        "Field tracking only valid when not a complete aggregate");
     return Regions[RN].LastField;
+  }
+
+  unsigned int getPostPadBytes(unsigned int RN) {
+    assert(RN <= getNumRegions() && "RegionNum for memfunc call out of range");
+    assert(!getIsCompleteAggregate(RN) &&
+      "Field tracking only valid when not a complete aggregate");
+    return Regions[RN].PostPadBytes;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -957,48 +1002,10 @@ private:
   SmallVector<MemfuncRegion, 2> Regions;
 };
 
-/// Determine whether the specified \p Call is a call to allocation function,
-/// and if so what kind of allocation function it is and the size of the
-/// allocation.
-AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI);
+// Get the printable name for a SafetyData bit. The \p SafetyInfo value input to
+// this function may only have a single non-zero bit set.
+const char* getSafetyDataName(const SafetyData &SafetyInfo);
 
-/// Get the indices of size and count arguments for the allocation call.
-/// AllocCountInd is used for calloc allocations.  For all other allocation
-/// kinds it will be set to -1U
-void getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
-                      unsigned &AllocSizeInd, unsigned &AllocCountInd,
-                      const TargetLibraryInfo &TLI);
-
-/// Collects all special arguments for malloc-like call.
-/// Elements are added to OutputSet.
-/// Realloc-like functions have pointer argument returned in OutputSet.
-void collectSpecialAllocArgs(AllocKind Kind, const CallBase *Call,
-                             SmallPtrSet<const Value *, 3> &OutputSet,
-                             const TargetLibraryInfo &TLI);
-
-/// Determine whether or not the specified \p Call is a call to the free-like
-/// library function.
-bool isFreeFn(const CallBase *Call, const TargetLibraryInfo &TLI);
-
-/// Determine whether or not the specified \p Call is a call to the
-/// delete-like library function.
-bool isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI);
-
-/// Returns the index of pointer argument for \p Call.
-void getFreePtrArg(FreeKind Kind, const CallBase *Call, unsigned &PtrArgInd,
-                   const TargetLibraryInfo &TLI);
-
-/// Collects all special arguments for free-like call.
-void collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
-                            SmallPtrSetImpl<const Value *> &OutputSet,
-                            const TargetLibraryInfo &TLI);
-
-/// There is a possibility that a call to be analyzed is inside a BitCast, in
-/// which case we need to strip the pointer casting from the \p Call operand to
-/// identify the Function. The call may also be using an Alias to a Function,
-/// in which case we need to get the aliasee. If a function is found, return it.
-/// Otherwise, return nullptr.
-Function *getCalledFunction(const CallBase &Call);
 
 /// Checks if a \p Val is a constant integer and sets it to \p ConstValue.
 bool isValueConstant(const Value *Val, uint64_t *ConstValue = nullptr);
@@ -1050,8 +1057,10 @@ bool isSystemObjectType(llvm::StructType *Ty);
 /// we are unwilling to attempts dtrans optimizations.
 unsigned getMaxFieldsInStruct();
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Get the transformation printable name.
 StringRef getStringForTransform(dtrans::Transform Trans);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Get the safety conditions for the transformation.
 dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans,
                                              bool DTransOutOfBoundsOK);
@@ -1075,34 +1084,14 @@ bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
 bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
                                    const TargetLibraryInfo &TLI);
 
-// This template function is to support dumping a collection of items in
-// lexically sorted order so that debug traces do not change due to pointer
-// addresses changing. This is done by first printing each item within the
-// iterator range to a string, sorting the strings, and then outputting the
-// strings to the output stream.
-//
-// \p OS               - Output stream
-// \p Begin and \p End - Range of elements to be output.
-// \p ToString         - Function that converts an element of the collection to
-//                       a string. Signature should be:
-//                       std::string F(IterType::value_type V);
-// \p Separator        - Delimiter to use between elements output.
-template<typename IterType, class Fn>
-static void printCollectionSorted(raw_ostream &OS, IterType Begin, IterType End,
-                                  const char *Separator, Fn ToString) {
-  SmallVector<std::string, 8> Outputs;
-  for (auto I = Begin; I != End; ++I)
-    Outputs.emplace_back(ToString(*I));
+// Returns true if Ty is either StructType or SequentialType.
+bool dtransIsCompositeType(llvm::Type *Ty);
 
-  std::sort(Outputs.begin(), Outputs.end());
-  bool First = true;
-  for (auto &Str : Outputs) {
-    if (!First)
-      OS << Separator;
-    OS << Str;
-    First = false;
-  }
-}
+// Return true if "Idx" is valid index for Ty.
+bool dtransCompositeIndexValid(llvm::Type *Ty, unsigned Idx);
+
+// Returns type at "Idx" in "Ty".
+llvm::Type *dtransCompositeGetTypeAtIndex(llvm::Type *Ty, unsigned Idx);
 
 } // namespace dtrans
 

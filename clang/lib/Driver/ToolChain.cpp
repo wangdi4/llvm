@@ -168,7 +168,7 @@ static const DriverSuffix *FindDriverSuffix(StringRef ProgName, size_t &Pos) {
 /// Normalize the program name from argv[0] by stripping the file extension if
 /// present and lower-casing the string on Windows.
 static std::string normalizeProgramName(llvm::StringRef Argv0) {
-  std::string ProgName = llvm::sys::path::stem(Argv0);
+  std::string ProgName = std::string(llvm::sys::path::stem(Argv0));
 #ifdef _WIN32
   // Transform to lowercase for case insensitive file systems.
   std::transform(ProgName.begin(), ProgName.end(), ProgName.begin(), ::tolower);
@@ -221,8 +221,10 @@ ToolChain::getTargetAndModeFromProgramName(StringRef PN) {
   StringRef Prefix(ProgName);
   Prefix = Prefix.slice(0, LastComponent);
   std::string IgnoredError;
-  bool IsRegistered = llvm::TargetRegistry::lookupTarget(Prefix, IgnoredError);
-  return ParsedClangName{Prefix, ModeSuffix, DS->ModeFlag, IsRegistered};
+  bool IsRegistered =
+      llvm::TargetRegistry::lookupTarget(std::string(Prefix), IgnoredError);
+  return ParsedClangName{std::string(Prefix), ModeSuffix, DS->ModeFlag,
+                         IsRegistered};
 }
 
 StringRef ToolChain::getDefaultUniversalArchName() const {
@@ -322,10 +324,28 @@ Tool *ToolChain::getSPIRCheck() const {
   return SPIRCheck.get();
 }
 
+Tool *ToolChain::getSYCLPostLink() const {
+  if (!SYCLPostLink)
+    SYCLPostLink.reset(new tools::SYCLPostLink(*this));
+  return SYCLPostLink.get();
+}
+
+Tool *ToolChain::getPartialLink() const {
+  if (!PartialLink)
+    PartialLink.reset(new tools::PartialLink(*this));
+  return PartialLink.get();
+}
+
 Tool *ToolChain::getBackendCompiler() const {
   if (!BackendCompiler)
     BackendCompiler.reset(buildBackendCompiler());
   return BackendCompiler.get();
+}
+
+Tool *ToolChain::getTableTform() const {
+  if (!FileTableTform)
+    FileTableTform.reset(new tools::FileTableTform(*this));
+  return FileTableTform.get();
 }
 
 Tool *ToolChain::getTool(Action::ActionClass AC) const {
@@ -370,8 +390,17 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::SPIRCheckJobClass:
     return getSPIRCheck();
 
+  case Action::SYCLPostLinkJobClass:
+    return getSYCLPostLink();
+
+  case Action::PartialLinkJobClass:
+    return getPartialLink();
+
   case Action::BackendCompileJobClass:
     return getBackendCompiler();
+
+  case Action::FileTableTformJobClass:
+    return getTableTform();
   }
 
   llvm_unreachable("Invalid tool kind.");
@@ -416,7 +445,7 @@ std::string ToolChain::getCompilerRTPath() const {
   } else {
     llvm::sys::path::append(Path, "lib", getOSLibName());
   }
-  return Path.str();
+  return std::string(Path.str());
 }
 
 std::string ToolChain::getCompilerRT(const ArgList &Args, StringRef Component,
@@ -446,7 +475,7 @@ std::string ToolChain::getCompilerRT(const ArgList &Args, StringRef Component,
     SmallString<128> P(LibPath);
     llvm::sys::path::append(P, Prefix + Twine("clang_rt.") + Component + Suffix);
     if (getVFS().exists(P))
-      return P.str();
+      return std::string(P.str());
   }
 
   StringRef Arch = getArchNameForCompilerRTLib(*this, Args);
@@ -454,7 +483,7 @@ std::string ToolChain::getCompilerRT(const ArgList &Args, StringRef Component,
   SmallString<128> Path(getCompilerRTPath());
   llvm::sys::path::append(Path, Prefix + Twine("clang_rt.") + Component + "-" +
                                     Arch + Env + Suffix);
-  return Path.str();
+  return std::string(Path.str());
 }
 
 const char *ToolChain::getCompilerRTArgString(const llvm::opt::ArgList &Args,
@@ -471,13 +500,13 @@ Optional<std::string> ToolChain::getRuntimePath() const {
   P.assign(D.ResourceDir);
   llvm::sys::path::append(P, "lib", D.getTargetTriple());
   if (getVFS().exists(P))
-    return llvm::Optional<std::string>(P.str());
+    return llvm::Optional<std::string>(std::string(P.str()));
 
   // Second try the normalized triple.
   P.assign(D.ResourceDir);
   llvm::sys::path::append(P, "lib", Triple.str());
   if (getVFS().exists(P))
-    return llvm::Optional<std::string>(P.str());
+    return llvm::Optional<std::string>(std::string(P.str()));
 
   return None;
 }
@@ -489,13 +518,13 @@ Optional<std::string> ToolChain::getCXXStdlibPath() const {
   P.assign(D.Dir);
   llvm::sys::path::append(P, "..", "lib", D.getTargetTriple(), "c++");
   if (getVFS().exists(P))
-    return llvm::Optional<std::string>(P.str());
+    return llvm::Optional<std::string>(std::string(P.str()));
 
   // Second try the normalized triple.
   P.assign(D.Dir);
   llvm::sys::path::append(P, "..", "lib", Triple.str(), "c++");
   if (getVFS().exists(P))
-    return llvm::Optional<std::string>(P.str());
+    return llvm::Optional<std::string>(std::string(P.str()));
 
   return None;
 }
@@ -504,7 +533,7 @@ std::string ToolChain::getArchSpecificLibPath() const {
   SmallString<128> Path(getDriver().ResourceDir);
   llvm::sys::path::append(Path, "lib", getOSLibName(),
                           llvm::Triple::getArchTypeName(getArch()));
-  return Path.str();
+  return std::string(Path.str());
 }
 
 bool ToolChain::needsProfileRT(const ArgList &Args) {
@@ -556,7 +585,7 @@ std::string ToolChain::GetLinkerPath() const {
     // If we're passed what looks like an absolute path, don't attempt to
     // second-guess that.
     if (llvm::sys::fs::can_execute(UseLinker))
-      return UseLinker;
+      return std::string(UseLinker);
   } else if (UseLinker.empty() || UseLinker == "ld") {
     // If we're passed -fuse-ld= with no argument, or with the argument ld,
     // then use whatever the default system linker is.
@@ -881,7 +910,7 @@ void ToolChain::addExternCSystemIncludeIfExists(const ArgList &DriverArgs,
 /*static*/ void ToolChain::addSystemIncludes(const ArgList &DriverArgs,
                                              ArgStringList &CC1Args,
                                              ArrayRef<StringRef> Paths) {
-  for (const auto Path : Paths) {
+  for (const auto &Path : Paths) {
     CC1Args.push_back("-internal-isystem");
     CC1Args.push_back(DriverArgs.MakeArgString(Path));
   }
@@ -978,13 +1007,13 @@ static std::string getIPPBasePath(const ArgList &Args,
       P.append("cp");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetIPPIncludePath(const ArgList &Args) const {
   SmallString<128> P(getIPPBasePath(Args, getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 // Add IPP specific performance library search path.  The different IPP libs
@@ -1017,13 +1046,13 @@ static std::string getMKLBasePath(const std::string DriverDir) {
     P.append(getIntelBasePath(DriverDir) + "mkl");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetMKLIncludePath(const ArgList &Args) const {
   SmallString<128> P(getMKLBasePath(getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
@@ -1032,7 +1061,7 @@ std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
     llvm::sys::path::append(P, "intel64/lp64");
   else
     llvm::sys::path::append(P, "ia32");
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetMKLLibPath(void) const {
@@ -1041,7 +1070,7 @@ std::string ToolChain::GetMKLLibPath(void) const {
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
-  return P.str();
+  return std::string(P);
 }
 
 // Add MKL specific performance library search path
@@ -1059,13 +1088,13 @@ static std::string getTBBBasePath(const std::string DriverDir) {
     P.append(getIntelBasePath(DriverDir) + "tbb");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetTBBIncludePath(const ArgList &Args) const {
   SmallString<128> P(getTBBBasePath(getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 // Add TBB specific performance library search path
@@ -1094,13 +1123,13 @@ static std::string getDAALBasePath(const std::string DriverDir) {
     P.append(getIntelBasePath(DriverDir) + "daal");
     llvm::sys::path::append(P, "latest");
   }
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetDAALIncludePath(const ArgList &Args) const {
   SmallString<128> P(getDAALBasePath(getDriver().Dir));
   llvm::sys::path::append(P, "include");
-  return P.str();
+  return std::string(P);
 }
 
 std::string ToolChain::GetDAALLibPath(void) const {
@@ -1109,7 +1138,7 @@ std::string ToolChain::GetDAALLibPath(void) const {
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
-  return P.str();
+  return std::string(P);
 }
 
 // Add DAAL specific performance library search path
@@ -1149,7 +1178,7 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
   if (const Arg *A = Args.getLastArg(options::OPT_mkl_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
-    if (Args.hasArg(options::OPT_fsycl) &&
+    if (Args.hasArg(options::OPT__dpcpp) &&
         (A->getValue() == StringRef("cluster") ||
          (A->getValue() == StringRef("parallel") &&
           Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
@@ -1164,11 +1193,11 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     SmallVector<StringRef, 8> MKLLibs;
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                       options::OPT_fno_openmp, false))
-        MKLLibs.push_back("mkl_intel_thread");
-      else if (Args.hasArg(options::OPT_tbb))
+      if (Args.hasArg(options::OPT_tbb, options::OPT__dpcpp))
+        // Use TBB when -tbb or DPC++
         MKLLibs.push_back("mkl_tbb_thread");
+      else
+        MKLLibs.push_back("mkl_intel_thread");
     }
     if (A->getValue() == StringRef("cluster")) {
       MKLLibs.push_back("mkl_cdft_core");
@@ -1217,28 +1246,35 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool ToolChain::AddFastMathRuntimeIfAvailable(const ArgList &Args,
-                                              ArgStringList &CmdArgs) const {
+bool ToolChain::isFastMathRuntimeAvailable(const ArgList &Args,
+                                           std::string &Path) const {
   // Do not check for -fno-fast-math or -fno-unsafe-math when -Ofast passed
   // (to keep the linker options consistent with gcc and clang itself).
   if (!isOptimizationLevelFast(Args)) {
     // Check if -ffast-math or -funsafe-math.
     Arg *A =
-        Args.getLastArg(options::OPT_ffast_math, options::OPT_fno_fast_math,
-                        options::OPT_funsafe_math_optimizations,
-                        options::OPT_fno_unsafe_math_optimizations);
+      Args.getLastArg(options::OPT_ffast_math, options::OPT_fno_fast_math,
+                      options::OPT_funsafe_math_optimizations,
+                      options::OPT_fno_unsafe_math_optimizations);
 
     if (!A || A->getOption().getID() == options::OPT_fno_fast_math ||
         A->getOption().getID() == options::OPT_fno_unsafe_math_optimizations)
       return false;
   }
   // If crtfastmath.o exists add it to the arguments.
-  std::string Path = GetFilePath("crtfastmath.o");
-  if (Path == "crtfastmath.o") // Not found.
-    return false;
+  Path = GetFilePath("crtfastmath.o");
+  return (Path != "crtfastmath.o"); // Not found.
+}
 
-  CmdArgs.push_back(Args.MakeArgString(Path));
-  return true;
+bool ToolChain::addFastMathRuntimeIfAvailable(const ArgList &Args,
+                                              ArgStringList &CmdArgs) const {
+  std::string Path;
+  if (isFastMathRuntimeAvailable(Args, Path)) {
+    CmdArgs.push_back(Args.MakeArgString(Path));
+    return true;
+  }
+
+  return false;
 }
 
 SanitizerMask ToolChain::getSupportedSanitizers() const {
@@ -1432,6 +1468,89 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     AllocatedArgs.push_back(A);
     DAL->append(A);
     Modified = true;
+  }
+
+  if (Modified)
+    return DAL;
+
+  delete DAL;
+  return nullptr;
+}
+
+// TODO: Currently argument values separated by space e.g.
+// -Xclang -mframe-pointer=no cannot be passed by -Xarch_. This should be
+// fixed.
+void ToolChain::TranslateXarchArgs(
+    const llvm::opt::DerivedArgList &Args, llvm::opt::Arg *&A,
+    llvm::opt::DerivedArgList *DAL,
+    SmallVectorImpl<llvm::opt::Arg *> *AllocatedArgs) const {
+  const OptTable &Opts = getDriver().getOpts();
+  unsigned ValuePos = 1;
+  if (A->getOption().matches(options::OPT_Xarch_device) ||
+      A->getOption().matches(options::OPT_Xarch_host))
+    ValuePos = 0;
+
+  unsigned Index = Args.getBaseArgs().MakeIndex(A->getValue(ValuePos));
+  unsigned Prev = Index;
+  std::unique_ptr<llvm::opt::Arg> XarchArg(Opts.ParseOneArg(Args, Index));
+
+  // If the argument parsing failed or more than one argument was
+  // consumed, the -Xarch_ argument's parameter tried to consume
+  // extra arguments. Emit an error and ignore.
+  //
+  // We also want to disallow any options which would alter the
+  // driver behavior; that isn't going to work in our model. We
+  // use isDriverOption() as an approximation, although things
+  // like -O4 are going to slip through.
+  if (!XarchArg || Index > Prev + 1) {
+    getDriver().Diag(diag::err_drv_invalid_Xarch_argument_with_args)
+        << A->getAsString(Args);
+    return;
+  } else if (XarchArg->getOption().hasFlag(options::DriverOption)) {
+    getDriver().Diag(diag::err_drv_invalid_Xarch_argument_isdriver)
+        << A->getAsString(Args);
+    return;
+  }
+  XarchArg->setBaseArg(A);
+  A = XarchArg.release();
+  if (!AllocatedArgs)
+    DAL->AddSynthesizedArg(A);
+  else
+    AllocatedArgs->push_back(A);
+}
+
+llvm::opt::DerivedArgList *ToolChain::TranslateXarchArgs(
+    const llvm::opt::DerivedArgList &Args, StringRef BoundArch,
+    Action::OffloadKind OFK,
+    SmallVectorImpl<llvm::opt::Arg *> *AllocatedArgs) const {
+  DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
+  bool Modified = false;
+
+  bool IsGPU = OFK == Action::OFK_Cuda || OFK == Action::OFK_HIP;
+  for (Arg *A : Args) {
+    bool NeedTrans = false;
+    bool Skip = false;
+    if (A->getOption().matches(options::OPT_Xarch_device)) {
+      NeedTrans = IsGPU;
+      Skip = !IsGPU;
+    } else if (A->getOption().matches(options::OPT_Xarch_host)) {
+      NeedTrans = !IsGPU;
+      Skip = IsGPU;
+    } else if (A->getOption().matches(options::OPT_Xarch__) && IsGPU) {
+      // Do not translate -Xarch_ options for non CUDA/HIP toolchain since
+      // they may need special translation.
+      // Skip this argument unless the architecture matches BoundArch
+      if (BoundArch.empty() || A->getValue(0) != BoundArch)
+        Skip = true;
+      else
+        NeedTrans = true;
+    }
+    if (NeedTrans || Skip)
+      Modified = true;
+    if (NeedTrans)
+      TranslateXarchArgs(Args, A, DAL, AllocatedArgs);
+    if (!Skip)
+      DAL->append(A);
   }
 
   if (Modified)

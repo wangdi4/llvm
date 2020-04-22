@@ -230,6 +230,16 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_IFMA */
+#if defined(__AVXIFMA_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXIFMA__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxifma/avxifmaintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_IFMA */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || \
     (defined(__AVX512IFMA__) && defined(__AVX512VL__)) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
@@ -297,6 +307,16 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_BF16 */
+#if defined(__AVXBF16_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxbf16/avxbf16intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_BF16 */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <pkuintrin.h>
@@ -313,6 +333,68 @@
 /* end INTEL_CUSTOMIZATION */
 #include <gfniintrin.h>
 #endif
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_DOTPROD */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVXDOTPROD_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVXDOTPROD__) && defined(__AVX512FP16__)
+#include <avxdotprod/avxdotprodintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_DOTPROD */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVX512DOTPROD_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVX512DOTPROD__)
+#include <avx512dotprod/avx512dotprodintrin.h>
+#endif
+#if defined(__AVX512VL__) && defined(__AVX512DOTPROD__)
+#include <avx512dotprod/avx512vldotprodintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_CONVERT */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVXCONVERT_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVXCONVERT__) && defined(__AVX512FP16__)
+#include <avxconvert/avxconvertintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_CONVERT */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_CONVERT */
+/*
+ * FIXME: When _Float16 type is supported, this should be:
+ * "if defined(__AVX512CONVERT_SUPPORTED__)
+ * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ *
+ */
+#if defined(__AVX512CONVERT__)
+#include <avx512convert/avx512convertintrin.h>
+#endif
+#if defined(__AVX512VL__) && defined(__AVX512CONVERT__)
+#include <avx512convert/avx512vlconvertintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_CONVERT */
+/* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
@@ -422,7 +504,7 @@ _loadbe_i16(void const * __P) {
   struct __loadu_i16 {
     short __v;
   } __attribute__((__packed__, __may_alias__));
-  return __builtin_bswap16(((struct __loadu_i16*)__P)->__v);
+  return __builtin_bswap16(((const struct __loadu_i16*)__P)->__v);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("movbe")))
@@ -438,7 +520,7 @@ _loadbe_i32(void const * __P) {
   struct __loadu_i32 {
     int __v;
   } __attribute__((__packed__, __may_alias__));
-  return __builtin_bswap32(((struct __loadu_i32*)__P)->__v);
+  return __builtin_bswap32(((const struct __loadu_i32*)__P)->__v);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("movbe")))
@@ -455,7 +537,7 @@ _loadbe_i64(void const * __P) {
   struct __loadu_i64 {
     long long __v;
   } __attribute__((__packed__, __may_alias__));
-  return __builtin_bswap64(((struct __loadu_i64*)__P)->__v);
+  return __builtin_bswap64(((const struct __loadu_i64*)__P)->__v);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("movbe")))
@@ -591,13 +673,13 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_ULI */
 
-/* INTEL_FEATURE_ISA_SERIALIZE */
-#if defined(__SERIALIZE_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SERIALIZE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <serializeintrin.h>
+/* INTEL_FEATURE_ISA_HRESET */
+#if defined(__HRESET_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <hresetintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_SERIALIZE */
+/* end INTEL_FEATURE_ISA_HRESET */
 
 /* INTEL_FEATURE_ISA_TSXLDTRK */
 #if defined(__TSXLDTRK_SUPPORTED__)
@@ -615,16 +697,96 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX */
 
-/* INTEL_FEATURE_ISA_AMX2 */
-#if defined(__AMX2_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTRANSPOSE__) || defined(__AMXREDUCE__) ||   \
-    defined(__AMXELEMENT__) || defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||                           \
-    defined(__AMXFP16__) || defined(__AMXAVX512__) || defined(__AMXBF16EVEX__) ||                            \
-    defined(__AMXINT8EVEX__) || defined(__AMXTILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amx2intrin.h>
+/* INTEL_FEATURE_ISA_AMX_FUTURE */
+#if defined(__AMX_FUTURE_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXREDUCE__) ||           \
+    defined(__AMXELEMENT__) || defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||      \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxfutureintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX2 */
+/* end INTEL_FEATURE_ISA_AMX_FUTURE */
+
+/* INTEL_FEATURE_ISA_AMX_LNC */
+#if defined(__AMX_LNC_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTRANSPOSE__) ||        \
+    defined(__AMXAVX512__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxlncintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_LNC */
+
+/* INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */
+#if defined(__AMX_TRANSPOSE2_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_TRANSPOSE2__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxtranspose2intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */
+
+/* INTEL_FEATURE_ISA_AMX_MEMORY2 */
+#if defined(__AMX_MEMORY2_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_MEMORY2__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxmemory2intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_MEMORY2 */
+
+/* INTEL_FEATURE_ISA_AMX_BF16_EVEX */
+#if defined(__AMX_BF16EVEX_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_BF16EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxbf16evexintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_BF16_EVEX */
+
+/* INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
+#if defined(__AMX_CONVERTEVEX_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_CONVERTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxconvertevexintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
+
+/* INTEL_FEATURE_ISA_AMX_INT8_EVEX */
+#if defined(__AMX_INT8EVEX_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_INT8EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxint8evexintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_INT8_EVEX */
+
+/* INTEL_FEATURE_ISA_AMX_TILE_EVEX */
+#if defined(__AMX_TILEEVEX_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_TILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxtileevexintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_TILE_EVEX */
+
+/* INTEL_FEATURE_ISA_AMX_FP16 */
+#if defined(__AMX_FP16_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXFP16__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxfp16intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_FP16 */
+
+/* INTEL_FEATURE_ISA_AMX_CONVERT */
+#if defined(__AMX_CONVERT_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXCONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxconvertintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_CONVERT */
+
+/* INTEL_FEATURE_ISA_AMX_TILE2 */
+#if defined(__AMX_TILE2_SUPPORTED__)
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTILE2__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxtile2intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_TILE2 */
 
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 #if defined(__KEYLOCKER_SUPPORTED__)
@@ -651,6 +813,10 @@ _storebe_i64(void * __P, long long __D) {
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__ENQCMD__)
 #include <enqcmdintrin.h>
+#endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SERIALIZE__)
+#include <serializeintrin.h>
 #endif
 
 #if defined(_MSC_VER) && __has_extension(gnu_asm)
@@ -827,6 +993,9 @@ static __inline__ void __DEFAULT_FN_ATTRS
 __writemsr(unsigned int __register, unsigned long long __data) {
   __asm__ ("wrmsr" : : "d"((unsigned)(__data >> 32)), "a"((unsigned)__data), "c"(__register));
 }
+
+#define _readmsr(R) __readmsr(R)
+#define _writemsr(R, D) __writemsr(R, D)
 
 #endif /* !defined(_MSC_VER) && __has_extension(gnu_asm) */
 

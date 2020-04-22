@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -enable-vp-value-codegen -debug-only=ovls < %s 2>&1 | FileCheck %s
+; RUN: opt -S -VPlanDriver -debug-only=ovls < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 ;
 ; Check that no memrefs are created.
-; CHECK:  Recieved a vector of memrefs (0)
+; CHECK:  Received a vector of memrefs (0)
 ;
 define void @foo(<64 x i32>* nocapture %ary) {
 entry:

@@ -4,9 +4,19 @@
 #cmake_policy(SET CMP0057 NEW)
 #include(AddLLVM)
 
-function(add_sycl_rt_library LIB_NAME)
+if (SYCL_ENABLE_XPTI_TRACING)
+  if (NOT EXISTS ${LLVM_EXTERNAL_XPTI_SOURCE_DIR})
+    message (FATAL_ERROR "Undefined LLVM_EXTERNAL_XPTI_SOURCE_DIR variable: Must be set when XPTI tracing is set to ON")
+  endif()
+  include_directories(${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
+endif()
 
-  add_library(${LIB_NAME} SHARED ${ARGN})
+function(add_sycl_rt_library LIB_NAME)
+  # Add an optional argument so we can get the library name to
+  # link with for Windows Debug version
+  cmake_parse_arguments(ARG "" "XPTI_LIB" "" ${ARGN})
+
+  add_library(${LIB_NAME} SHARED ${ARG_UNPARSED_ARGUMENTS})
 
   #To-Do: Remove dependency on icd loader and opencl headers.
   add_dependencies(${LIB_NAME}
@@ -17,17 +27,38 @@ function(add_sycl_rt_library LIB_NAME)
 
   set_target_properties(${LIB_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 
-  if (MSVC)
-      target_compile_definitions(${LIB_NAME} PRIVATE __SYCL_BUILD_SYCL_DLL )
-      target_link_libraries(${LIB_NAME} PRIVATE shlwapi)
+  if (SYCL_ENABLE_XPTI_TRACING)
+    target_compile_definitions(${LIB_NAME} PRIVATE XPTI_ENABLE_INSTRUMENTATION XPTI_STATIC_LIBRARY)
+    target_link_libraries(${LIB_NAME} PRIVATE ${ARG_XPTI_LIB})
   endif()
+
+  if (MSVC)
+    target_compile_definitions(${LIB_NAME} PRIVATE __SYCL_BUILD_SYCL_DLL )
+    target_link_libraries(${LIB_NAME} PRIVATE shlwapi)
+  else()
+    set(linker_script "${CMAKE_CURRENT_SOURCE_DIR}/ld-version-script.txt")
+    target_link_libraries(
+      ${LIB_NAME} PRIVATE "-Wl,--version-script=${linker_script}")
+    set_target_properties(${LIB_NAME} PROPERTIES LINK_DEPENDS ${linker_script})
+    if (SYCL_ENABLE_XPTI_TRACING)
+      target_link_libraries(${LIB_NAME} PRIVATE dl)
+    endif()
+  endif()
+
   target_include_directories(
       ${LIB_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} "${sycl_inc_dir}")
   target_link_libraries(${LIB_NAME}
-      PRIVATE OpenCL::Headers
-      PRIVATE ${OpenCL_LIBRARIES}
-      PRIVATE ${CMAKE_DL_LIBS}
+      PRIVATE
+        OpenCL::Headers
+        ${OpenCL_LIBRARIES}
+        ${CMAKE_DL_LIBS}
+      PUBLIC
+        $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
   )
+
+  target_compile_definitions(${LIB_NAME}
+    PUBLIC
+      $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:USE_PI_CUDA>)
 
   add_common_options(${LIB_NAME})
 
@@ -36,11 +67,13 @@ endfunction(add_sycl_rt_library)
 set(SYCL_SOURCES
     "${sycl_inc_dir}/CL/sycl.hpp"
     "detail/accessor_impl.cpp"
+    "detail/buffer_impl.cpp"
     "detail/builtins_common.cpp"
     "detail/builtins_geometric.cpp"
     "detail/builtins_integer.cpp"
     "detail/builtins_math.cpp"
     "detail/builtins_relational.cpp"
+    "detail/cg.cpp"
     "detail/pi.cpp"
     "detail/common.cpp"
     "detail/config.cpp"
@@ -55,6 +88,7 @@ set(SYCL_SOURCES
     "detail/image_impl.cpp"
     "detail/kernel_impl.cpp"
     "detail/kernel_info.cpp"
+    "detail/kernel_program_cache.cpp"
     "detail/memory_manager.cpp"
     "detail/platform_impl.cpp"
     "detail/platform_info.cpp"
@@ -69,19 +103,23 @@ set(SYCL_SOURCES
     "detail/scheduler/scheduler.cpp"
     "detail/scheduler/graph_processor.cpp"
     "detail/scheduler/graph_builder.cpp"
-    "detail/usm/clusm.cpp"
-    "detail/usm/usm_dispatch.cpp"
+    "detail/spec_constant_impl.cpp"
+    "detail/sycl_mem_obj_t.cpp"
     "detail/usm/usm_impl.cpp"
     "detail/util.cpp"
+    "accessor.cpp"
     "context.cpp"
     "device.cpp"
     "device_selector.cpp"
     "event.cpp"
     "exception.cpp"
     "exception_list.cpp"
+    "function_pointer.cpp"
     "half_type.cpp"
+    "handler.cpp"
     "kernel.cpp"
     "platform.cpp"
+    "program.cpp"
     "queue.cpp"
     "ordered_queue.cpp"
     "sampler.cpp"
@@ -91,7 +129,11 @@ set(SYCL_SOURCES
     "$<$<OR:$<PLATFORM_ID:Linux>,$<PLATFORM_ID:Darwin>>:detail/posix_pi.cpp>"
 )
 
-add_sycl_rt_library(sycl ${SYCL_SOURCES})
+if (SYCL_ENABLE_XPTI_TRACING)
+  add_sycl_rt_library(sycl ${SYCL_SOURCES} XPTI_LIB xpti)
+else()
+  add_sycl_rt_library(sycl ${SYCL_SOURCES})
+endif()
 
 if (MSVC)
   # MSVC provides two incompatible build variants for its CRT: release and debug
@@ -127,15 +169,25 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "")
   set(CMAKE_CXX_FLAGS_DEBUG "")
 
-  target_compile_options(sycl PUBLIC ${SYCL_CXX_FLAGS_RELEASE})
+  target_compile_options(sycl PRIVATE ${SYCL_CXX_FLAGS_RELEASE})
 
-  add_sycl_rt_library(sycld ${SYCL_SOURCES})
-  target_compile_options(sycld PUBLIC ${SYCL_CXX_FLAGS_DEBUG})
+  if (SYCL_ENABLE_XPTI_TRACING)
+    add_sycl_rt_library(sycld ${SYCL_SOURCES} XPTI_LIB xptid)
+  else()
+    add_sycl_rt_library(sycld ${SYCL_SOURCES})
+  endif()
+  target_compile_options(sycld PRIVATE ${SYCL_CXX_FLAGS_DEBUG})
+# INTEL_CUSTOMIZATION
 else()
 # Don't use libcxx library to build sycl library if it is not explicitly stated to do so
   string( REPLACE "-stdlib=libc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
   string( REPLACE "-stdlib=libc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
   string( REPLACE "-stdlib=libc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
+
+# Don't link statically against standard C++ library
+  string( REPLACE "-static-libstdc++" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
+  string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 
 # Workaround for bug in GCC version 5 and higher.
 # More information https://bugs.launchpad.net/ubuntu/+source/gcc-5/+bug/1568899
@@ -144,9 +196,37 @@ else()
     target_link_libraries(sycl PRIVATE gcc_s gcc)
   endif()
 
+# end INTEL_CUSTOMIZATION
 endif()
 
+# Enable new IN_LIST operator.
+cmake_policy(SET CMP0057 NEW)
+
+if (libdevice IN_LIST LLVM_ENABLE_PROJECTS)
+  add_dependencies(sycl libsycldevice)
+endif()
+
+# INTEL_CUSTOMIZATION
+set(SYCL_ARCHIVE_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
+set(SYCL_LIBRARY_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
+set(SYCL_RUNTIME_INSTALL_DIR "bin")
+
 install(TARGETS ${SYCL_RT_LIBS}
-    ARCHIVE DESTINATION "lib" COMPONENT sycl
-    LIBRARY DESTINATION "lib" COMPONENT sycl
-    RUNTIME DESTINATION "bin" COMPONENT sycl)
+    ARCHIVE DESTINATION ${SYCL_ARCHIVE_INSTALL_DIR} COMPONENT sycl
+    LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
+    RUNTIME DESTINATION ${SYCL_RUNTIME_INSTALL_DIR} COMPONENT sycl)
+
+# Copy SYCL config to build location
+add_custom_target(sycl-config-file ALL
+  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/sycl.conf $<TARGET_FILE_DIR:sycl>
+COMMENT "Copying SYCL config ...")
+
+# Copy SYCL config to install location
+set(SYCL_CONF_INSTALL_PATH "NOT SET")
+if (MSVC)
+  set(SYCL_CONF_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${SYCL_RUNTIME_INSTALL_DIR})
+else()
+  set(SYCL_CONF_INSTALL_PATH ${CMAKE_INSTALL_PREFIX}/${SYCL_LIBRARY_INSTALL_DIR})
+endif()
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/sycl.conf DESTINATION ${SYCL_CONF_INSTALL_PATH} COMPONENT sycl-config-file)
+# end INTEL_CUSTOMIZATION

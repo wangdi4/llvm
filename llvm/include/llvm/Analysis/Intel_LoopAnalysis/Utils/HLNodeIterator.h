@@ -1,6 +1,6 @@
 //===---- HLNodeIterator.h - GraphTraits Instantiation ----------*- C++ -*-===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -190,6 +190,47 @@ public:
     return getNode();
   }
 };
+
+class NonLoopChildBeginEnd {
+private:
+  using ChildIteratorType = loopopt::ChildNodeIterator;
+  using NodeRef = loopopt::HLNode *;
+
+public:
+  // child_begin for non-loop
+  static ChildIteratorType non_loop_child_begin(NodeRef N) {
+
+    assert(!isa<HLLoop>(N));
+
+    if (HLRegion *Reg = dyn_cast<HLRegion>(N)) {
+      return ChildIteratorType(Reg->child_begin());
+    } else if (HLIf *If = dyn_cast<HLIf>(N)) {
+      return ChildIteratorType(If->child_begin());
+    } else if (HLSwitch *Switch = dyn_cast<HLSwitch>(N)) {
+      return ChildIteratorType(Switch->child_begin());
+    } else {
+      // HLInst, HLGoto, HLLabel - no children
+      return ChildIteratorType();
+    }
+  }
+
+  static ChildIteratorType non_loop_child_end(NodeRef N) {
+
+    assert(!isa<HLLoop>(N));
+
+    if (HLRegion *Reg = dyn_cast<HLRegion>(N)) {
+      return ChildIteratorType(Reg->child_end());
+    } else if (HLIf *If = dyn_cast<HLIf>(N)) {
+      return ChildIteratorType(If->child_end());
+    } else if (HLSwitch *Switch = dyn_cast<HLSwitch>(N)) {
+      return ChildIteratorType(Switch->child_end());
+    } else {
+      // HLInst, HLGoto, HLLabel - no children
+      return ChildIteratorType();
+    }
+  }
+};
+
 } // namespace loopopt
 
 template <> struct GraphTraits<loopopt::HLNode *> {
@@ -209,36 +250,90 @@ template <> struct GraphTraits<loopopt::HLNode *> {
       // Note that preheader is visited before loopbody
       // but after loop itself.
       return ChildIteratorType(Lp->child_begin());
-    } else if (HLRegion *Reg = dyn_cast<HLRegion>(N)) {
-      return ChildIteratorType(Reg->child_begin());
-    } else if (HLIf *If = dyn_cast<HLIf>(N)) {
-      return ChildIteratorType(If->then_begin());
-    } else if (HLSwitch *Switch = dyn_cast<HLSwitch>(N)) {
-      return ChildIteratorType(Switch->child_begin());
     } else {
-      // HLInst, HLGoto, HLLabel - no children
-      return ChildIteratorType();
+      return loopopt::NonLoopChildBeginEnd::non_loop_child_begin(N);
     }
   }
 
   static ChildIteratorType child_end(NodeRef N) {
     if (HLLoop *Lp = dyn_cast<HLLoop>(N)) {
       return ChildIteratorType(Lp->child_end());
-    } else if (HLRegion *Reg = dyn_cast<HLRegion>(N)) {
-      return ChildIteratorType(Reg->child_end());
-    } else if (HLIf *If = dyn_cast<HLIf>(N)) {
-      return ChildIteratorType(If->else_end());
-    } else if (HLSwitch *Switch = dyn_cast<HLSwitch>(N)) {
-      return ChildIteratorType(Switch->child_end());
     } else {
-      // HLInst, HLGoto, HLLabel - no children
-      return ChildIteratorType();
+      return loopopt::NonLoopChildBeginEnd::non_loop_child_end(N);
     }
   }
 };
 
+namespace loopopt {
+namespace skipinnermostbody {
+
+// GraphTraits that skipping recursing into the body of the innermost loop.
+// Other than that, the functionality is the same as the one above.
+// Separate GraphTraits in another namespace is neede because of following
+// reason.
+// I would like to use the same GraphType and NodeRef type with
+// the one above but make it work slightly differently.
+// No additional template argument to GraphType is allowed
+// to utilize df_iterator. But I can have different GraphTraits.
+// Thus, a new GraphTraits in the new namespace.
+// Notice that template specialization has to be happen
+// within the same namespace.
+template <typename GraphType> struct GraphTraits {
+  // using NodeRef = typename GraphType::UnknownGraphTypeError;
+};
+
+template <> struct GraphTraits<loopopt::HLNode *> {
+  using NodeRef = loopopt::HLNode *;
+
+  using ChildIteratorType = loopopt::ChildNodeIterator;
+
+  using HLLoop = loopopt::HLLoop;
+  using HLRegion = loopopt::HLRegion;
+  using HLIf = loopopt::HLIf;
+  using HLSwitch = loopopt::HLSwitch;
+
+  static NodeRef getEntryNode(loopopt::HLNode *N) { return N; }
+
+  static ChildIteratorType child_begin(NodeRef N) {
+    if (HLLoop *Lp = dyn_cast<HLLoop>(N)) {
+      // Note that preheader is visited before loopbody
+      // but after loop itself.
+      if (!Lp->isInnermost())
+        return ChildIteratorType(Lp->child_begin());
+      else
+        return ChildIteratorType();
+    } else {
+      return loopopt::NonLoopChildBeginEnd::non_loop_child_begin(N);
+    }
+  }
+
+  static ChildIteratorType child_end(NodeRef N) {
+    if (HLLoop *Lp = dyn_cast<HLLoop>(N)) {
+      if (!Lp->isInnermost())
+        return ChildIteratorType(Lp->child_end());
+      else
+        return ChildIteratorType();
+    } else {
+      return loopopt::NonLoopChildBeginEnd::non_loop_child_end(N);
+    }
+  }
+};
+
+} // namespace skipinnermostbody
+} // namespace loopopt
+
 // Use it if a HLNode's all subtree needs to be visited.
+// GraphTraits<HLNode *> specialization in llvm namespace is used.
 using HLPreOrderIterator = df_iterator<loopopt::HLNode *>;
+
+// GraphTraits<HLNode *> specialization in
+// llvm::loopopt::skipinnermostbody namespace is used.
+using SkipInnermostGraphTraits =
+    loopopt::skipinnermostbody::GraphTraits<loopopt::HLNode *>;
+using HLPreOrderIteratorSkipInnermostBody =
+    df_iterator<loopopt::HLNode *,
+                df_iterator_default_set<SkipInnermostGraphTraits::NodeRef>,
+                false, SkipInnermostGraphTraits>;
 
 namespace loopopt {
 
@@ -253,14 +348,15 @@ namespace loopopt {
 /// End is the past the last, the last node reachable from Begin
 /// by going forward through ilist.
 /// The logic is the same as visitRange(Begin, End)
-class HLRangeIterator
+template <typename HLPreOrderIteratorClass>
+class HLRangeIteratorImpl
     : public std::iterator<std::forward_iterator_tag,
                            loopopt::HLContainerTy::iterator, std::ptrdiff_t,
                            loopopt::HLContainerTy::iterator, HLNode *> {
 
   using ilist_iter = loopopt::HLContainerTy::iterator;
   using NodeRef = loopopt::HLNode *;
-  using df_iter = HLPreOrderIterator;
+  using df_iter = HLPreOrderIteratorClass;
 
 private:
   /// Tracking HLContainerTy::iterator.
@@ -286,13 +382,13 @@ private:
   // because our HLContainterTy is Sentinel-un-enabled simple_ilist.
   void populateDFStackIfEmpty() const {
     if (IsFirst) {
-      DfIter = df_iterator<loopopt::HLNode *>::begin(&*TreeRootIter);
+      DfIter = df_iter::begin(&*TreeRootIter);
       IsFirst = false;
     }
   }
 
 public:
-  HLRangeIterator(const ilist_iter &I)
+  HLRangeIteratorImpl(const ilist_iter &I)
       : TreeRootIter(I),
         // At first, we keep df_iterator's stack empty.
         // This is because, we do not know if given I is Sentinel or not.
@@ -302,16 +398,15 @@ public:
         // I causes a seg fault.
         // df_iterator<>::end() construct a df_iterator<> with empty stack.
         // Stack is populated first in operator*() and &operatpr++().
-        DfIter(df_iterator<loopopt::HLNode *>::end(nullptr)),
-        DfIterEnd(df_iterator<loopopt::HLNode *>::end(nullptr)), IsFirst(true) {
-  }
+        DfIter(df_iter::end(nullptr)), DfIterEnd(df_iter::end(nullptr)),
+        IsFirst(true) {}
 
   NodeRef operator*() const {
     populateDFStackIfEmpty();
     return *DfIter;
   }
 
-  HLRangeIterator &operator++() {
+  HLRangeIteratorImpl &operator++() {
     // Check here should be present in case &operator++() is called
     // before other referencing operator like operator*().
     // E.G. std::any_of calls &operator++() first
@@ -326,21 +421,26 @@ public:
     return *this;
   }
 
-  bool operator==(const HLRangeIterator &Other) const {
+  bool operator==(const HLRangeIteratorImpl &Other) const {
     return TreeRootIter == Other.TreeRootIter && DfIter == Other.DfIter &&
            DfIterEnd == Other.DfIterEnd;
   }
 
-  bool operator!=(const HLRangeIterator &Other) const {
+  bool operator!=(const HLRangeIteratorImpl &Other) const {
     return !(*this == Other);
   }
 
-  HLRangeIterator operator++(int) {
-    HLRangeIterator RetVal = *this;
+  HLRangeIteratorImpl operator++(int) {
+    HLRangeIteratorImpl RetVal = *this;
     ++(*this);
     return RetVal;
   }
 };
+
+// template <typename T> using ForEach = ForEachImpl<T, false>;
+using HLRangeIterator = HLRangeIteratorImpl<HLPreOrderIterator>;
+using HLRangeSkipInnermostIterator =
+    HLRangeIteratorImpl<HLPreOrderIteratorSkipInnermostBody>;
 
 } // namespace loopopt
 } // namespace llvm

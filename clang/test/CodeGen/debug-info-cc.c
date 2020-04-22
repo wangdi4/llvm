@@ -16,6 +16,8 @@
 //    CC_AAPCS,       // __attribute__((pcs("aapcs")))
 //    CC_AAPCS_VFP,   // __attribute__((pcs("aapcs-vfp")))
 //    CC_IntelOclBicc, // __attribute__((intel_ocl_bicc))
+//    CC_IntelOclBiccAVX, // __attribute__((intel_ocl_bicc_avx)) // INTEL
+//    CC_IntelOclBiccAVX512, // __attribute__((intel_ocl_bicc_avx512)) // INTEL
 //    CC_SpirFunction, // default for OpenCL functions on SPIR target
 //    CC_OpenCLKernel, // inferred for OpenCL kernels
 //    CC_Swift,        // __attribute__((swiftcall))
@@ -61,6 +63,20 @@ __attribute__((swiftcall)) int add_swiftcall(int a, int b) {
 __attribute__((intel_ocl_bicc)) int add_inteloclbicc(int a, int b) {
   return a+b;
 }
+
+// INTEL_CUSTOMIZATION
+// LINUX: !DISubprogram({{.*}}"add_inteloclbiccavx", {{.*}}type: ![[FTY:[0-9]+]]
+// LINUX: ![[FTY]] = !DISubroutineType({{.*}}cc: DW_CC_LLVM_IntelOclBiccAVX,
+__attribute__((intel_ocl_bicc_avx)) int add_inteloclbiccavx(int a, int b) {
+  return a+b;
+}
+
+// LINUX: !DISubprogram({{.*}}"add_inteloclbiccavx512", {{.*}}type: ![[FTY:[0-9]+]]
+// LINUX: ![[FTY]] = !DISubroutineType({{.*}}cc: DW_CC_LLVM_IntelOclBiccAVX512,
+__attribute__((intel_ocl_bicc_avx512)) int add_inteloclbiccavx512(int a, int b) {
+  return a+b;
+}
+// end INTEL_CUSTOMIZATION
 #endif
 
 #ifdef _WIN64

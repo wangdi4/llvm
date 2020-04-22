@@ -25,3 +25,29 @@ endmacro()
 macro(libomptarget_error_say message_to_user)
   message(FATAL_ERROR "LIBOMPTARGET: ${message_to_user}")
 endmacro()
+
+if(INTEL_CUSTOMIZATION)
+macro(libomptarget_add_resource_file target)
+  if(WIN32)
+    set(library_name "${target}.dll")
+    set(resource_file "${CMAKE_CURRENT_BINARY_DIR}/${target}.res")
+    get_target_property(target_include ${target} INCLUDE_DIRECTORIES)
+    find_file(omptarget_rc omptarget.rc PATHS ${target_include})
+    set(rc_flags
+        -I${CMAKE_SOURCE_DIR}/../clang/include
+        -DINTEL_CUSTOMIZATION=1
+        -DLIBRARY_NAME="${library_name}"
+        -Fo${resource_file}
+    )
+    add_custom_command(
+      OUTPUT ${resource_file}
+      COMMAND rc ${rc_flags} ${omptarget_rc}
+      DEPENDS ${omptarget_rc}
+      VERBATIM
+    )
+    add_custom_target(${target}.res ALL DEPENDS ${resource_file})
+    add_dependencies(${target} ${target}.res)
+    target_link_libraries(${target} ${resource_file})
+  endif()
+endmacro()
+endif(INTEL_CUSTOMIZATION)

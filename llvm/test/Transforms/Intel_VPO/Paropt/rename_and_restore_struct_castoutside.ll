@@ -39,12 +39,10 @@ entry:
 ; PREPR: store %struct._FourChars* %f, %struct._FourChars** [[FADDR]]
 ; PREPR: "QUAL.OMP.SHARED"(%struct._FourChars* %f)
 ; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(%struct._FourChars* %f, %struct._FourChars** [[FADDR]])
-; PREPR: [[FRENAMED:%[a-zA-Z._0-9]+]] = load %struct._FourChars*, %struct._FourChars** [[FADDR]]
+; PREPR: [[FRENAMED:%[a-zA-Z._0-9]+]] = load volatile %struct._FourChars*, %struct._FourChars** [[FADDR]]
 ; PREPR: getelementptr inbounds %struct._FourChars, %struct._FourChars* [[FRENAMED]]
 
-; Check for the IR modified by CSE + Instcombine
-; It's possible that the 'addr' of QUAL.OMP.OPERAND.ADDR is bitcast before a
-; store is done to it. This happens after instcombine.
+; Check that the IR was not modified by CSE + Instcombine
 
 ; INSTCMB: [[F:%[a-zA-Z._0-9]+]] = alloca i32
 ; INSTCMB: [[FCAST:%[a-zA-Z._0-9]+]] = bitcast i32* [[F]] to %struct._FourChars*
@@ -52,7 +50,7 @@ entry:
 ; INSTCMB: [[FADDR_CAST:%[a-zA-Z._0-9]+]] = bitcast %struct._FourChars** [[FADDR]] to i32**
 ; INSTCMB: store i32* [[F]], i32** [[FADDR_CAST]]
 ; INSTCMB: "QUAL.OMP.OPERAND.ADDR"(%struct._FourChars* [[FCAST]], %struct._FourChars** [[FADDR]])
-; INSTCMB: [[FRENAMED:%[a-zA-Z._0-9]+]] = load %struct._FourChars*, %struct._FourChars** [[FADDR]]
+; INSTCMB: [[FRENAMED:%[a-zA-Z._0-9]+]] = load volatile %struct._FourChars*, %struct._FourChars** [[FADDR]]
 ; INSTCMB: getelementptr inbounds %struct._FourChars, %struct._FourChars* [[FRENAMED]]
 
 ; Check for restore-operands was able to undo the renaming:

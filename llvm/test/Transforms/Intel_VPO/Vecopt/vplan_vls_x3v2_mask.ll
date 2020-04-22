@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -enable-vp-value-codegen -debug-only=ovls < %s 2>&1 | FileCheck %s
+; RUN: opt -S -VPlanDriver -debug-only=ovls < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; The test is supposed to check that OptVLS works correctly in masked basic

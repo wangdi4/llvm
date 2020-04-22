@@ -1,3 +1,7 @@
+; INTEL_CUSTOMIZATION
+; Disabled temporarily as explained in CMPLRLLVM-19188.
+; UNSUPPORTED: windows-gnu, windows-msvc
+; end INTEL_CUSTOMIZATION
 ; REQUIRES: x86
 ; RUN: rm -fr %T/thinlto
 ; RUN: mkdir %T/thinlto
@@ -5,6 +9,21 @@
 ; RUN: opt -thinlto-bc -o %T/thinlto/foo.obj %S/Inputs/lto-dep.ll
 ; RUN: lld-link /lldsavetemps /out:%T/thinlto/main.exe /entry:main /subsystem:console %T/thinlto/main.obj %T/thinlto/foo.obj
 ; RUN: llvm-nm %T/thinlto/main.exe1.lto.obj | FileCheck %s
+
+; Test various possible options for /opt:lldltojobs
+; RUN: lld-link /lldsavetemps /out:%T/thinlto/main.exe /entry:main /subsystem:console %T/thinlto/main.obj %T/thinlto/foo.obj /opt:lldltojobs=1
+; RUN: llvm-nm %T/thinlto/main.exe1.lto.obj | FileCheck %s
+; RUN: lld-link /lldsavetemps /out:%T/thinlto/main.exe /entry:main /subsystem:console %T/thinlto/main.obj %T/thinlto/foo.obj /opt:lldltojobs=all
+; RUN: llvm-nm %T/thinlto/main.exe1.lto.obj | FileCheck %s
+; RUN: lld-link /lldsavetemps /out:%T/thinlto/main.exe /entry:main /subsystem:console %T/thinlto/main.obj %T/thinlto/foo.obj /opt:lldltojobs=1000
+; RUN: llvm-nm %T/thinlto/main.exe1.lto.obj | FileCheck %s
+; RUN: not lld-link /lldsavetemps /out:%T/thinlto/main.exe /entry:main /subsystem:console %T/thinlto/main.obj %T/thinlto/foo.obj /opt:lldltojobs=foo 2>&1 | FileCheck %s --check-prefix=BAD-JOBS
+; BAD-JOBS: error: /opt:lldltojobs: invalid job count: foo
+
+; This command will store full path to foo.obj in the archive %t.lib
+; Check that /lldsavetemps is still usable in such case.
+; RUN: lld-link /lib %T/thinlto/foo.obj /out:%t.lib
+; RUN: lld-link /lldsavetemps /out:%t.exe /entry:main /subsystem:console %T/thinlto/main.obj %t.lib
 
 ; CHECK-NOT: U foo
 

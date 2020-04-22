@@ -4,6 +4,7 @@ add_llvm_component_library(LLVMAnalysis
   AliasAnalysisSummary.cpp
   AliasSetTracker.cpp
   Analysis.cpp
+  AssumeBundleQueries.cpp
   AssumptionCache.cpp
   BasicAliasAnalysis.cpp
   BlockFrequencyInfo.cpp
@@ -44,6 +45,7 @@ add_llvm_component_library(LLVMAnalysis
 # INTEL_CUSTOMIZATION
   Intel_AggInline.cpp
   Intel_Andersens.cpp
+  Intel_ArrayUseAnalysis.cpp
   Intel_DopeVectorAnalysis.cpp
   Intel_IPCloningAnalysis.cpp
   Intel_PartialInlineAnalysis.cpp
@@ -73,6 +75,7 @@ add_llvm_component_library(LLVMAnalysis
   LoopAccessAnalysis.cpp
   LoopAnalysisManager.cpp
   LoopCacheAnalysis.cpp
+  LoopNestAnalysis.cpp
   LoopUnrollAnalyzer.cpp
   LoopInfo.cpp
   LoopPass.cpp
@@ -90,7 +93,6 @@ add_llvm_component_library(LLVMAnalysis
   ObjCARCAnalysisUtils.cpp
   ObjCARCInstKind.cpp
   OptimizationRemarkEmitter.cpp
-  OrderedBasicBlock.cpp
   OrderedInstructions.cpp
   PHITransAddr.cpp
   PhiValues.cpp

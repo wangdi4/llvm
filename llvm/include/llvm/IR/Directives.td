@@ -1,4 +1,4 @@
-// INTEL_COLLAB   -*- tablegen -*-
+#if INTEL_COLLAB //  -*- tablegen -*-
 //==---- Directives.td - Defines all parallelization and -*- tablegen -*----==//
 //                          vectorization directives and clauses.
 //
@@ -131,14 +131,14 @@ def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 def "DIR.OMP.GENERICLOOP" : Directive;
 def "DIR.OMP.END.GENERICLOOP" : Directive;
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
 // legality analysis to be legal to vectorize.
 // These are in the OpenMP section because they need to be processed by
 // WRN construction as if they were a SIMD directive.
 def "DIR.VPO.AUTO.VEC" : Directive;
 def "DIR.VPO.END.AUTO.VEC" : Directive;
-//end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 
 // =====================================================================
@@ -146,10 +146,10 @@ def "DIR.VPO.END.AUTO.VEC" : Directive;
 // * This section defines directives unrelated to OpenMP
 // =====================================================================
 
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def "DIR.PRAGMA.IVDEP" : Directive;
 def "DIR.PRAGMA.END.IVDEP" : Directive;
-//end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 
 // =====================================================================
@@ -209,6 +209,10 @@ def "QUAL.OMP.REDUCTION.OR" : Clause;
 def "QUAL.OMP.REDUCTION.BXOR" : Clause;
 def "QUAL.OMP.REDUCTION.BAND" : Clause;
 def "QUAL.OMP.REDUCTION.BOR" : Clause;
+#if INTEL_CUSTOMIZATION
+def "QUAL.OMP.REDUCTION.EQV" : Clause;
+def "QUAL.OMP.REDUCTION.NEQV" : Clause;
+#endif // INTEL_CUSTOMIZATION
 def "QUAL.OMP.REDUCTION.MAX" : Clause;
 def "QUAL.OMP.REDUCTION.MIN" : Clause;
 def "QUAL.OMP.REDUCTION.UDR" : Clause;
@@ -220,6 +224,10 @@ def "QUAL.OMP.INREDUCTION.OR" : Clause;
 def "QUAL.OMP.INREDUCTION.BXOR" : Clause;
 def "QUAL.OMP.INREDUCTION.BAND" : Clause;
 def "QUAL.OMP.INREDUCTION.BOR" : Clause;
+#if INTEL_CUSTOMIZATION
+def "QUAL.OMP.INREDUCTION.EQV" : Clause;
+def "QUAL.OMP.INREDUCTION.NEQV" : Clause;
+#endif // INTEL_CUSTOMIZATION
 def "QUAL.OMP.INREDUCTION.MAX" : Clause;
 def "QUAL.OMP.INREDUCTION.MIN" : Clause;
 def "QUAL.OMP.INREDUCTION.UDR" : Clause;
@@ -233,7 +241,15 @@ def "QUAL.OMP.THREADPRIVATE" : Clause;
 def "QUAL.OMP.DEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_PTR" : Clause;
-def "QUAL.OMP.DEFAULTMAP.TOFROM.SCALAR" : Clause;
+def "QUAL.OMP.DEFAULTMAP.ALLOC" : Clause;
+def "QUAL.OMP.DEFAULTMAP.TO" : Clause;
+def "QUAL.OMP.DEFAULTMAP.FROM" : Clause;
+def "QUAL.OMP.DEFAULTMAP.TOFROM" : Clause;
+def "QUAL.OMP.DEFAULTMAP.FIRSTPRIVATE" : Clause;
+def "QUAL.OMP.DEFAULTMAP.NONE" : Clause;
+def "QUAL.OMP.DEFAULTMAP.DEFAULT" : Clause;
+def "QUAL.OMP.DEFAULTMAP.PRESENT" : Clause;
+def "QUAL.OMP.MAP" : Clause;
 def "QUAL.OMP.MAP.TO" : Clause;
 def "QUAL.OMP.MAP.FROM" : Clause;
 def "QUAL.OMP.MAP.TOFROM" : Clause;
@@ -289,8 +305,8 @@ def "QUAL.OMP.OFFLOAD.NDRANGE" : Clause;
 // * Begin Non-OpenMP Clauses
 // * This section defines qualifiers unrelated to OpenMP
 // =====================================================================
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 def "QUAL.PRAGMA.ARRAY" : Clause;
-// end INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
-// end INTEL_COLLAB
+#endif // INTEL_COLLAB

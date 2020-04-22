@@ -9,11 +9,6 @@
 ; asin,asinh,acos,acosh,atan,atanh,atan2
 ; To add new functions, add them to the 2 areas marked MANUALLY ADDED.
 
-;   - For C++, clang will generate calls to ceil, floor, fabs, fmax, fmin.
-;   - For C, clang will generate calls to
-;       llvm.(ceil|floor|fabs|maxnum|minnum).f64
-; We test both forms in one test.
-
 ;
 ; #include <stdio.h>
 ; #include <mathimf.h>
@@ -78,22 +73,13 @@ declare dso_local spir_func double @exp(double) #1
 declare dso_local spir_func double @log(double) #1
 ; CHECK: declare dso_local spir_func double @_Z3logd(double)
 
-; Function Attrs: nounwind readnone
-declare dso_local spir_func double @ceil(double) #2
-
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func double @llvm.ceil.f64(double) #6
 ; CHECK: declare dso_local spir_func double @_Z4ceild(double)
 
-; Function Attrs: nounwind readnone
-declare dso_local spir_func double @floor(double) #2
-
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func double @llvm.floor.f64(double) #6
 ; CHECK: declare dso_local spir_func double @_Z5floord(double)
-
-; Function Attrs: nounwind readnone
-declare dso_local spir_func double @fabs(double) #2
 
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func double @llvm.fabs.f64(double) #6
@@ -111,15 +97,9 @@ declare dso_local spir_func double @log2(double) #1
 declare dso_local spir_func double @erf(double) #1
 ; CHECK: declare dso_local spir_func double @_Z3erfd(double)
 
-; Function Attrs: nounwind
-declare dso_local spir_func double @fmax(double, double) #1
-
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func double @llvm.maxnum.f64(double, double) #6
 ; CHECK: declare dso_local spir_func double @_Z4fmaxdd(double, double)
-
-; Function Attrs: nounwind
-declare dso_local spir_func double @fmin(double, double) #1
 
 ; Function Attrs: nounwind readnone speculatable
 declare dso_local spir_func double @llvm.minnum.f64(double, double) #6
@@ -161,7 +141,7 @@ declare dso_local spir_func double @atanh(double) #1
 
 ; Function Attrs: nounwind
 declare dso_local spir_func double @atan2(double, double) #1
-; CHECK: declare dso_local spir_func double @_Z5atan2d(double, double)
+; CHECK: declare dso_local spir_func double @_Z5atan2dd(double, double)
 
 ; Function Attrs: nounwind
 declare dso_local spir_func double @tanh(double) #1
@@ -207,25 +187,16 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}} call spir_func double @_Z3logd
   %arrayidx11 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 5
   store double %call10, double addrspace(1)* %arrayidx11, align 8
-  %call12.1 = call spir_func double @ceil(double 2.500000e+00) #5
-  %call12.2 = call spir_func double @llvm.ceil.f64(double 2.500000e+00)
+  %call12 = call spir_func double @llvm.ceil.f64(double 2.500000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z4ceild
-; CHECK: {{.*}} call spir_func double @_Z4ceild
-  %call12 = fadd double %call12.1, %call12.2
   %arrayidx13 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 6
   store double %call12, double addrspace(1)* %arrayidx13, align 8
-  %call14.1 = call spir_func double @floor(double 2.500000e+00)
-  %call14.2 = call spir_func double @llvm.floor.f64(double 2.500000e+00)
+  %call14 = call spir_func double @llvm.floor.f64(double 2.500000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z5floord
-; CHECK: {{.*}} call spir_func double @_Z5floord
-  %call14 = fadd double %call14.1, %call14.2
   %arrayidx15 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 7
   store double %call14, double addrspace(1)* %arrayidx15, align 8
-  %call16.1 = call spir_func double @fabs(double -2.000000e+00)
-  %call16.2 = call spir_func double @llvm.fabs.f64(double -2.000000e+00)
+  %call16 = call spir_func double @llvm.fabs.f64(double -2.000000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z4fabsd
-; CHECK: {{.*}} call spir_func double @_Z4fabsd
-  %call16 = fadd double %call16.1, %call16.2
   %arrayidx17 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 8
   store double %call16, double addrspace(1)* %arrayidx17, align 8
   %call18 = call spir_func double @sqrt(double 3.000000e+00) #0
@@ -240,18 +211,12 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
 ; CHECK: {{.*}} call spir_func double @_Z3erfd
   %arrayidx23 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 11
   store double %call22, double addrspace(1)* %arrayidx23, align 8
-  %call24.1 = call spir_func double @fmax(double 2.000000e+00, double 3.000000e+00)
-  %call24.2 = call spir_func double @llvm.maxnum.f64(double 2.000000e+00, double 3.000000e+00)
+  %call24 = call spir_func double @llvm.maxnum.f64(double 2.000000e+00, double 3.000000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z4fmaxdd
-; CHECK: {{.*}} call spir_func double @_Z4fmaxdd
-  %call24 = fadd double %call24.1, %call24.2
   %arrayidx25 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 12
   store double %call24, double addrspace(1)* %arrayidx25, align 8
-  %call26.1 = call spir_func double @fmin(double 2.000000e+00, double 3.000000e+00)
-  %call26.2 = call spir_func double @llvm.minnum.f64(double 2.000000e+00, double 3.000000e+00)
+  %call26 = call spir_func double @llvm.minnum.f64(double 2.000000e+00, double 3.000000e+00)
 ; CHECK: {{.*}} call spir_func double @_Z4fmindd
-; CHECK: {{.*}} call spir_func double @_Z4fmindd
-  %call26 = fadd double %call26.1, %call26.2
   %arrayidx27 = getelementptr inbounds [20 x double], [20 x double] addrspace(1)* %array, i64 0, i64 13
   store double %call26, double addrspace(1)* %arrayidx27, align 8
 
@@ -291,7 +256,7 @@ DIR.OMP.TARGET.1:                                 ; preds = %for.end
   store double %call34, double addrspace(1)* %arrayidx25, align 8
 
   %call35 = call spir_func double @atan2(double 1.00e+00, double 1.00e+00)
-; CHECK: {{.*}} call spir_func double @_Z5atan2d
+; CHECK: {{.*}} call spir_func double @_Z5atan2dd
   store double %call35, double addrspace(1)* %arrayidx25, align 8
 
   %call36 = call spir_func double @tanh(double 1.00e+00)

@@ -1,6 +1,11 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-rematerialize -print-before=hir-loop-rematerialize -print-after=hir-loop-rematerialize < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
+; HIR framework does not create region for structure offset accesses so the
+; checks are expected to fail.
+; It can be extended if required.
+; XFAIL:*
+
 ;
 ;struct S {
 ;  double X;

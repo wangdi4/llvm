@@ -1,6 +1,6 @@
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -92,10 +92,14 @@ static cl::opt<bool> ForceIFSwitchHeuristic(
           "ip-gen-cloning-force-if-switch-heuristic", cl::init(false),
           cl::ReallyHidden);
 
-// This switch will be enabled (and removed) once the associated loop opt work
-// for CMPLRLLVM-8680 is complete.
+// Used to force the enabling of the dtrans-related heuristics even when they
+// would not normally be enabled.
+static cl::opt<bool> ForceEnableDTrans(
+          "ip-gen-cloning-force-enable-dtrans", cl::init(false),
+          cl::ReallyHidden);
+
 static cl::opt<bool> EnableMorphologyCloning(
-          "ip-gen-cloning-enable-morphology", cl::init(false),
+          "ip-gen-cloning-enable-morphology", cl::init(true),
           cl::ReallyHidden);
 
 // Do not qualify a routine for cloning under the "if" heuristic unless we
@@ -3297,6 +3301,7 @@ static void createManyRecCallsClone(Function &F,
 // Main routine to analyze all calls and clone functions if profitable.
 //
 static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
+                                        bool EnableDTrans,
                                         bool IFSwitchHeuristic) {
   bool FunctionAddressTaken;
 
@@ -3329,7 +3334,7 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       int Start, Inc;
       unsigned ArgPos, Count;
       bool IsByRef, IsCyclic;
-      if (isRecProgressionCloneCandidate(F, true,
+      if (EnableDTrans && isRecProgressionCloneCandidate(F, true,
           &ArgPos, &Count, &Start, &Inc, &IsByRef, &IsCyclic)) {
         CloneType = RecProgressionClone;
         LLVM_DEBUG(dbgs() << "    Selected RecProgression cloning  " << "\n");
@@ -3447,10 +3452,12 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   return false;
 }
 
-static bool runIPCloning(Module &M, bool AfterInl, bool IFSwitchHeuristic) {
+static bool runIPCloning(Module &M, bool AfterInl, bool EnableDTrans) {
   bool Change = false;
-  bool IFSwitchHeuristicOn = IFSwitchHeuristic || ForceIFSwitchHeuristic;
-  Change = analysisCallsCloneFunctions(M, AfterInl, IFSwitchHeuristicOn);
+  bool IFSwitchHeuristicOn = EnableDTrans || ForceIFSwitchHeuristic;
+  bool EnableDTransOn = EnableDTrans || ForceEnableDTrans;
+  Change = analysisCallsCloneFunctions(M, AfterInl, EnableDTransOn,
+      IFSwitchHeuristicOn);
   clearAllMaps();
   return Change;
 }
@@ -3460,9 +3467,8 @@ namespace {
 struct IPCloningLegacyPass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  IPCloningLegacyPass(bool AfterInl = false, bool IFSwitchHeuristic = false)
-      : ModulePass(ID), AfterInl(AfterInl),
-        IFSwitchHeuristic(IFSwitchHeuristic) {
+  IPCloningLegacyPass(bool AfterInl = false, bool EnableDTrans = false)
+      : ModulePass(ID), AfterInl(AfterInl), EnableDTrans(EnableDTrans) {
     initializeIPCloningLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
@@ -3478,16 +3484,16 @@ public:
 
     if (IPCloningAfterInl)
       AfterInl = true;
-    return runIPCloning(M, AfterInl, IFSwitchHeuristic);
+    return runIPCloning(M, AfterInl, EnableDTrans);
   }
 
 private:
   // This flag helps to decide whether function addresses or other
   // constants need to be considered for cloning.
   bool AfterInl;
-  // If 'true' enable cloning on routines with formals that feed a
-  // sufficient number of if and switch values that will become constant.
-  bool IFSwitchHeuristic;
+  // If 'true' we are doing specialized cloning generally applicable
+  // when we are running DTrans.
+  bool EnableDTrans;
 };
 }
 
@@ -3496,15 +3502,15 @@ INITIALIZE_PASS(IPCloningLegacyPass, "ip-cloning", "IP Cloning", false, false)
 
 
 ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl,
-                                            bool IFSwitchHeuristic) {
-  return new IPCloningLegacyPass(AfterInl, IFSwitchHeuristic);
+                                            bool EnableDTrans) {
+  return new IPCloningLegacyPass(AfterInl, EnableDTrans);
 }
 
-IPCloningPass::IPCloningPass(bool AfterInl, bool IFSwitchHeuristic)
-  : AfterInl(AfterInl), IFSwitchHeuristic(IFSwitchHeuristic) {}
+IPCloningPass::IPCloningPass(bool AfterInl, bool EnableDTrans)
+  : AfterInl(AfterInl), EnableDTrans(EnableDTrans) {}
 
 PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (!runIPCloning(M, AfterInl, IFSwitchHeuristic))
+  if (!runIPCloning(M, AfterInl, EnableDTrans))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();

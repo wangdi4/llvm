@@ -14,6 +14,8 @@
 #include "InstCombineInternal.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IntrinsicsAMDGPU.h"
+#include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/KnownBits.h"
 
@@ -85,7 +87,10 @@ bool InstCombiner::SimplifyDemandedBits(Instruction *I, unsigned OpNo,
   Value *NewVal = SimplifyDemandedUseBits(U.get(), DemandedMask, Known,
                                           Depth, I);
   if (!NewVal) return false;
-  U = NewVal;
+  if (Instruction* OpInst = dyn_cast<Instruction>(U))
+    salvageDebugInfoOrMarkUndef(*OpInst);
+    
+  replaceUse(U, NewVal);
   return true;
 }
 
@@ -348,8 +353,36 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     assert(!LHSKnown.hasConflict() && "Bits known to be one AND zero?");
 
     // If the operands are constants, see if we can simplify them.
-    if (ShrinkDemandedConstant(I, 1, DemandedMask) ||
-        ShrinkDemandedConstant(I, 2, DemandedMask))
+    // This is similar to ShrinkDemandedConstant, but for a select we want to
+    // try to keep the selected constants the same as icmp value constants, if
+    // we can. This helps not break apart (or helps put back together)
+    // canonical patterns like min and max.
+    auto CanonicalizeSelectConstant = [](Instruction *I, unsigned OpNo,
+                                         APInt DemandedMask) {
+      const APInt *SelC;
+      if (!match(I->getOperand(OpNo), m_APInt(SelC)))
+        return false;
+
+      // Get the constant out of the ICmp, if there is one.
+      const APInt *CmpC;
+      ICmpInst::Predicate Pred;
+      if (!match(I->getOperand(0), m_c_ICmp(Pred, m_APInt(CmpC), m_Value())) ||
+          CmpC->getBitWidth() != SelC->getBitWidth())
+        return ShrinkDemandedConstant(I, OpNo, DemandedMask);
+
+      // If the constant is already the same as the ICmp, leave it as-is.
+      if (*CmpC == *SelC)
+        return false;
+      // If the constants are not already the same, but can be with the demand
+      // mask, use the constant value from the ICmp.
+      if ((*CmpC & DemandedMask) == (*SelC & DemandedMask)) {
+        I->setOperand(OpNo, ConstantInt::get(I->getType(), *CmpC));
+        return true;
+      }
+      return ShrinkDemandedConstant(I, OpNo, DemandedMask);
+    };
+    if (CanonicalizeSelectConstant(I, 1, DemandedMask) ||
+        CanonicalizeSelectConstant(I, 2, DemandedMask))
       return I;
 
     // Only known if known in both the LHS and RHS.
@@ -366,8 +399,7 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     if (SimplifyDemandedBits(I, 0, InputDemandedMask, InputKnown, Depth + 1))
       return I;
     assert(InputKnown.getBitWidth() == SrcBitWidth && "Src width changed?");
-    Known = InputKnown.zextOrTrunc(BitWidth,
-                                   true /* ExtendedBitsAreKnownZero */);
+    Known = InputKnown.zextOrTrunc(BitWidth);
     assert(!Known.hasConflict() && "Bits known to be one AND zero?");
     break;
   }
@@ -439,6 +471,43 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     break;
   }
   case Instruction::Add:
+    if ((DemandedMask & 1) == 0) {
+      // If we do not need the low bit, try to convert bool math to logic:
+      // add iN (zext i1 X), (sext i1 Y) --> sext (~X & Y) to iN
+      Value *X, *Y;
+      if (match(I, m_c_Add(m_OneUse(m_ZExt(m_Value(X))),
+                           m_OneUse(m_SExt(m_Value(Y))))) &&
+          X->getType()->isIntOrIntVectorTy(1) && X->getType() == Y->getType()) {
+        // Truth table for inputs and output signbits:
+        //       X:0 | X:1
+        //      ----------
+        // Y:0  |  0 | 0 |
+        // Y:1  | -1 | 0 |
+        //      ----------
+        IRBuilderBase::InsertPointGuard Guard(Builder);
+        Builder.SetInsertPoint(I);
+        Value *AndNot = Builder.CreateAnd(Builder.CreateNot(X), Y);
+        return Builder.CreateSExt(AndNot, VTy);
+      }
+
+      // add iN (sext i1 X), (sext i1 Y) --> sext (X | Y) to iN
+      // TODO: Relax the one-use checks because we are removing an instruction?
+      if (match(I, m_Add(m_OneUse(m_SExt(m_Value(X))),
+                         m_OneUse(m_SExt(m_Value(Y))))) &&
+          X->getType()->isIntOrIntVectorTy(1) && X->getType() == Y->getType()) {
+        // Truth table for inputs and output signbits:
+        //       X:0 | X:1
+        //      -----------
+        // Y:0  | -1 | -1 |
+        // Y:1  | -1 |  0 |
+        //      -----------
+        IRBuilderBase::InsertPointGuard Guard(Builder);
+        Builder.SetInsertPoint(I);
+        Value *Or = Builder.CreateOr(X, Y);
+        return Builder.CreateSExt(Or, VTy);
+      }
+    }
+    LLVM_FALLTHROUGH;
   case Instruction::Sub: {
     /// If the high-bits of an ADD/SUB are not demanded, then we do not care
     /// about the high bits of the operands.
@@ -501,11 +570,27 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       if (SimplifyDemandedBits(I, 0, DemandedMaskIn, Known, Depth + 1))
         return I;
       assert(!Known.hasConflict() && "Bits known to be one AND zero?");
+
+      bool SignBitZero = Known.Zero.isSignBitSet();
+      bool SignBitOne = Known.One.isSignBitSet();
       Known.Zero <<= ShiftAmt;
       Known.One  <<= ShiftAmt;
       // low bits known zero.
       if (ShiftAmt)
         Known.Zero.setLowBits(ShiftAmt);
+
+      // If this shift has "nsw" keyword, then the result is either a poison
+      // value or has the same sign bit as the first operand.
+      if (IOp->hasNoSignedWrap()) {
+        if (SignBitZero)
+          Known.Zero.setSignBit();
+        else if (SignBitOne)
+          Known.One.setSignBit();
+        if (Known.hasConflict())
+          return UndefValue::get(I->getType());
+      }
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -529,6 +614,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       Known.One.lshrInPlace(ShiftAmt);
       if (ShiftAmt)
         Known.Zero.setHighBits(ShiftAmt);  // high bits known zero.
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -589,6 +676,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       } else if (Known.One[BitWidth-ShiftAmt-1]) { // New bits are known one.
         Known.One |= HighBits;
       }
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -610,6 +699,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       // Propagate zero bits from the input.
       Known.Zero.setHighBits(std::min(
           BitWidth, LHSKnown.Zero.countLeadingOnes() + RHSTrailingZeros));
+    } else {
+      computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
   }
@@ -668,7 +759,8 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     Known.Zero = APInt::getHighBitsSet(BitWidth, Leaders) & DemandedMask;
     break;
   }
-  case Instruction::Call:
+  case Instruction::Call: {
+    bool KnownBitsComputed = false;
     if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
       switch (II->getIntrinsicID()) {
       default: break;
@@ -700,8 +792,6 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
           NewVal->takeName(I);
           return InsertNewInstWith(NewVal, *I);
         }
-
-        // TODO: Could compute known zero/one bits based on the input.
         break;
       }
       case Intrinsic::fshr:
@@ -726,6 +816,7 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
                      RHSKnown.Zero.lshr(BitWidth - ShiftAmt);
         Known.One = LHSKnown.One.shl(ShiftAmt) |
                     RHSKnown.One.lshr(BitWidth - ShiftAmt);
+        KnownBitsComputed = true;
         break;
       }
       case Intrinsic::x86_mmx_pmovmskb:
@@ -754,15 +845,20 @@ Value *InstCombiner::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
 
         // We know that the upper bits are set to zero.
         Known.Zero.setBitsFrom(ArgWidth);
-        return nullptr;
+        KnownBitsComputed = true;
+        break;
       }
       case Intrinsic::x86_sse42_crc32_64_64:
         Known.Zero.setBitsFrom(32);
-        return nullptr;
+        KnownBitsComputed = true;
+        break;
       }
     }
-    computeKnownBits(V, Known, Depth, CxtI);
+
+    if (!KnownBitsComputed)
+      computeKnownBits(V, Known, Depth, CxtI);
     break;
+  }
   }
 
   // If the client is only demanding bits that we know, return the known
@@ -998,13 +1094,64 @@ Value *InstCombiner::simplifyAMDGCNMemoryIntrinsicDemanded(IntrinsicInst *II,
   if (VWidth == 1)
     return nullptr;
 
-  ConstantInt *NewDMask = nullptr;
+  IRBuilderBase::InsertPointGuard Guard(Builder);
+  Builder.SetInsertPoint(II);
+
+  // Assume the arguments are unchanged and later override them, if needed.
+  SmallVector<Value *, 16> Args(II->arg_begin(), II->arg_end());
 
   if (DMaskIdx < 0) {
-    // Pretend that a prefix of elements is demanded to simplify the code
-    // below.
-    DemandedElts = (1 << DemandedElts.getActiveBits()) - 1;
+    // Buffer case.
+
+    const unsigned ActiveBits = DemandedElts.getActiveBits();
+    const unsigned UnusedComponentsAtFront = DemandedElts.countTrailingZeros();
+
+    // Start assuming the prefix of elements is demanded, but possibly clear
+    // some other bits if there are trailing zeros (unused components at front)
+    // and update offset.
+    DemandedElts = (1 << ActiveBits) - 1;
+
+    if (UnusedComponentsAtFront > 0) {
+      static const unsigned InvalidOffsetIdx = 0xf;
+
+      unsigned OffsetIdx;
+      switch (II->getIntrinsicID()) {
+      case Intrinsic::amdgcn_raw_buffer_load:
+        OffsetIdx = 1;
+        break;
+      case Intrinsic::amdgcn_s_buffer_load:
+        // If resulting type is vec3, there is no point in trimming the
+        // load with updated offset, as the vec3 would most likely be widened to
+        // vec4 anyway during lowering.
+        if (ActiveBits == 4 && UnusedComponentsAtFront == 1)
+          OffsetIdx = InvalidOffsetIdx;
+        else
+          OffsetIdx = 1;
+        break;
+      case Intrinsic::amdgcn_struct_buffer_load:
+        OffsetIdx = 2;
+        break;
+      default:
+        // TODO: handle tbuffer* intrinsics.
+        OffsetIdx = InvalidOffsetIdx;
+        break;
+      }
+
+      if (OffsetIdx != InvalidOffsetIdx) {
+        // Clear demanded bits and update the offset.
+        DemandedElts &= ~((1 << UnusedComponentsAtFront) - 1);
+        auto *Offset = II->getArgOperand(OffsetIdx);
+        unsigned SingleComponentSizeInBits =
+            getDataLayout().getTypeSizeInBits(II->getType()->getScalarType());
+        unsigned OffsetAdd =
+            UnusedComponentsAtFront * SingleComponentSizeInBits / 8;
+        auto *OffsetAddVal = ConstantInt::get(Offset->getType(), OffsetAdd);
+        Args[OffsetIdx] = Builder.CreateAdd(Offset, OffsetAddVal);
+      }
+    }
   } else {
+    // Image case.
+
     ConstantInt *DMask = cast<ConstantInt>(II->getArgOperand(DMaskIdx));
     unsigned DMaskVal = DMask->getZExtValue() & 0xf;
 
@@ -1023,7 +1170,7 @@ Value *InstCombiner::simplifyAMDGCNMemoryIntrinsicDemanded(IntrinsicInst *II,
     }
 
     if (DMaskVal != NewDMaskVal)
-      NewDMask = ConstantInt::get(DMask->getType(), NewDMaskVal);
+      Args[DMaskIdx] = ConstantInt::get(DMask->getType(), NewDMaskVal);
   }
 
   unsigned NewNumElts = DemandedElts.countPopulation();
@@ -1031,8 +1178,8 @@ Value *InstCombiner::simplifyAMDGCNMemoryIntrinsicDemanded(IntrinsicInst *II,
     return UndefValue::get(II->getType());
 
   if (NewNumElts >= VWidth && DemandedElts.isMask()) {
-    if (NewDMask)
-      II->setArgOperand(DMaskIdx, NewDMask);
+    if (DMaskIdx >= 0)
+      II->setArgOperand(DMaskIdx, Args[DMaskIdx]);
     return nullptr;
   }
 
@@ -1054,16 +1201,6 @@ Value *InstCombiner::simplifyAMDGCNMemoryIntrinsicDemanded(IntrinsicInst *II,
 
   OverloadTys[0] = NewTy;
   Function *NewIntrin = Intrinsic::getDeclaration(M, IID, OverloadTys);
-
-  SmallVector<Value *, 16> Args;
-  for (unsigned I = 0, E = II->getNumArgOperands(); I != E; ++I)
-    Args.push_back(II->getArgOperand(I));
-
-  if (NewDMask)
-    Args[DMaskIdx] = NewDMask;
-
-  IRBuilderBase::InsertPointGuard Guard(Builder);
-  Builder.SetInsertPoint(II);
 
   CallInst *NewCall = Builder.CreateCall(NewIntrin, Args);
   NewCall->takeName(II);
@@ -1185,10 +1322,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
     auto *II = dyn_cast<IntrinsicInst>(Inst);
     Value *Op = II ? II->getArgOperand(OpNum) : Inst->getOperand(OpNum);
     if (Value *V = SimplifyDemandedVectorElts(Op, Demanded, Undef, Depth + 1)) {
-      if (II)
-        II->setArgOperand(OpNum, V);
-      else
-        Inst->setOperand(OpNum, V);
+      replaceOperand(*Inst, OpNum, V);
       MadeChange = true;
     }
   };
@@ -1254,7 +1388,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
     // If this is inserting an element that isn't demanded, remove this
     // insertelement.
     if (IdxNo >= VWidth || !DemandedElts[IdxNo]) {
-      Worklist.Add(I);
+      Worklist.push(I);
       return I->getOperand(0);
     }
 
@@ -1269,6 +1403,24 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
            "Expected shuffle operands to have same type");
     unsigned OpWidth =
         Shuffle->getOperand(0)->getType()->getVectorNumElements();
+    // Handle trivial case of a splat. Only check the first element of LHS
+    // operand.
+    if (all_of(Shuffle->getShuffleMask(), [](int Elt) { return Elt == 0; }) &&
+        DemandedElts.isAllOnesValue()) {
+      if (!isa<UndefValue>(I->getOperand(1))) {
+        I->setOperand(1, UndefValue::get(I->getOperand(1)->getType()));
+        MadeChange = true;
+      }
+      APInt LeftDemanded(OpWidth, 1);
+      APInt LHSUndefElts(OpWidth, 0);
+      simplifyAndSetOp(I, 0, LeftDemanded, LHSUndefElts);
+      if (LHSUndefElts[0])
+        UndefElts = EltMask;
+      else
+        UndefElts.clearAllBits();
+      break;
+    }
+
     APInt LeftDemanded(OpWidth, 0), RightDemanded(OpWidth, 0);
     for (unsigned i = 0; i < VWidth; i++) {
       if (DemandedElts[i]) {
@@ -1382,15 +1534,14 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
     }
     if (NewUndefElts) {
       // Add additional discovered undefs.
-      SmallVector<Constant*, 16> Elts;
+      SmallVector<int, 16> Elts;
       for (unsigned i = 0; i < VWidth; ++i) {
         if (UndefElts[i])
-          Elts.push_back(UndefValue::get(Type::getInt32Ty(I->getContext())));
+          Elts.push_back(UndefMaskElem);
         else
-          Elts.push_back(ConstantInt::get(Type::getInt32Ty(I->getContext()),
-                                          Shuffle->getMaskValue(i)));
+          Elts.push_back(Shuffle->getMaskValue(i));
       }
-      I->setOperand(2, ConstantVector::get(Elts));
+      Shuffle->setShuffleMask(Elts);
       MadeChange = true;
     }
     break;
@@ -1535,7 +1686,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
       // use Arg0 if DemandedElts[0] is clear like we do for other intrinsics.
       // Instead we should return a zero vector.
       if (!DemandedElts[0]) {
-        Worklist.Add(II);
+        Worklist.push(II);
         return ConstantAggregateZero::get(II->getType());
       }
 
@@ -1554,7 +1705,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
 
       // If lowest element of a scalar op isn't used then use Arg0.
       if (!DemandedElts[0]) {
-        Worklist.Add(II);
+        Worklist.push(II);
         return II->getArgOperand(0);
       }
       // TODO: If only low elt lower SQRT to FSQRT (with rounding/exceptions
@@ -1574,7 +1725,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
 
       // If lowest element of a scalar op isn't used then use Arg0.
       if (!DemandedElts[0]) {
-        Worklist.Add(II);
+        Worklist.push(II);
         return II->getArgOperand(0);
       }
 
@@ -1601,7 +1752,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
 
       // If lowest element of a scalar op isn't used then use Arg0.
       if (!DemandedElts[0]) {
-        Worklist.Add(II);
+        Worklist.push(II);
         return II->getArgOperand(0);
       }
 
@@ -1635,7 +1786,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
 
       // If lowest element of a scalar op isn't used then use Arg0.
       if (!DemandedElts[0]) {
-        Worklist.Add(II);
+        Worklist.push(II);
         return II->getArgOperand(0);
       }
 
@@ -1733,6 +1884,7 @@ Value *InstCombiner::SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
     case Intrinsic::amdgcn_raw_buffer_load:
     case Intrinsic::amdgcn_raw_buffer_load_format:
     case Intrinsic::amdgcn_raw_tbuffer_load:
+    case Intrinsic::amdgcn_s_buffer_load:
     case Intrinsic::amdgcn_struct_buffer_load:
     case Intrinsic::amdgcn_struct_buffer_load_format:
     case Intrinsic::amdgcn_struct_tbuffer_load:

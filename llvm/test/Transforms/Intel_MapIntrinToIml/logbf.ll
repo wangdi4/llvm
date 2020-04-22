@@ -1,10 +1,9 @@
-; __svml_logbf4 does not have an _ha variant. The iml query results in the same variant function name when using attributes of max-error=0.5 and precision="high". This
-; variant is defined to be a correctly rounded version of the function, but for some reason the function name is not appended with _cr.
+; Check to see that __svml_logbf4 is translated to the medium accuracy svml variant.
 
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
-; CHECK: call svml_cc <4 x float> @__svml_logbf4
+; CHECK: call svml_cc <4 x float> @__svml_logbf4(
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

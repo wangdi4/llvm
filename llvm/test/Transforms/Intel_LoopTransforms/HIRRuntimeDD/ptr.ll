@@ -2,6 +2,7 @@
 
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-details -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-dd-test-assume-no-loop-carried-dep=1 -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=NO-RTDD
 
 ; Check HIR CG ability to emit !llvm.loop metadata
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -hir-cg -force-hir-cg -S < %s 2>&1 | FileCheck %s -check-prefix=CG-CHECK
@@ -30,6 +31,8 @@
 ; CHECK: Loop metadata: !llvm.loop
 ; CHECK: DO
 ; CHECK: <nounroll> <novectorize>
+
+; NO-RTDD-NOT: if (%mv.and == 0)
 
 ; Check after HIR CG
 ; CG-CHECK: ModuleID

@@ -1,4 +1,5 @@
 ; RUN: opt %s -S -vpo-cfg-restructuring -VPlanDriver 2>&1 | FileCheck %s
+; RUN: opt %s -S -passes="vpo-cfg-restructuring,vplan-driver" 2>&1 | FileCheck %s
 ; Verify that VPlan understands simdlen directive information.
 
 ; CHECK: load <2 x float>, <2 x float>* 

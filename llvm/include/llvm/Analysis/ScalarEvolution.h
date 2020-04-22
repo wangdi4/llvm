@@ -738,6 +738,14 @@ public:
   bool isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
                  const BranchInst *ZttInst, bool Inverse);
   
+  // NOTE--the below function should be called as part of getRange. However,
+  // this does appear to impact compile time, so it is being reserved for
+  // consumers who really care about tighter bounds.
+
+  /// Try to bound a range for a loop-varying, but non-affine, SCEV representing
+  /// a PHI by finding bounds on how much it can grow each loop iteration.
+  ConstantRange getRangeBoundedByLoop(const PHINode &Phi);
+
 #endif  // INTEL_CUSTOMIZATION
   /// Returns the upper bound of the loop trip count as a normal unsigned
   /// value.
@@ -1040,6 +1048,19 @@ public:
                               SmallVectorImpl<const SCEV *> &Subscripts,
                               SmallVectorImpl<const SCEV *> &Sizes);
 
+  /// Gathers the individual index expressions from a GEP instruction.
+  ///
+  /// This function optimistically assumes the GEP references into a fixed size
+  /// array. If this is actually true, this function returns a list of array
+  /// subscript expressions in \p Subscripts and a list of integers describing
+  /// the size of the individual array dimensions in \p Sizes. Both lists have
+  /// either equal length or the size list is one element shorter in case there
+  /// is no known size available for the outermost array dimension. Returns true
+  /// if successful and false otherwise.
+  bool getIndexExpressionsFromGEP(const GetElementPtrInst *GEP,
+                                  SmallVectorImpl<const SCEV *> &Subscripts,
+                                  SmallVectorImpl<int> &Sizes);
+
   /// Split this SCEVAddRecExpr into two vectors of SCEVs representing the
   /// subscripts and sizes of an array access.
   ///
@@ -1279,6 +1300,9 @@ private:
   // Recursion depth for PHINode traversal. Avoids adding a parameter to all
   // the intermediate functions such as getSCEV.
   unsigned int PhiDepth = 0;
+
+  // Phis currently being processed by createNodeForIdenticalOperandsPHI().
+  DenseMap<const PHINode *, bool> PhiSimplificationCandidates;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set to true by isLoopBackedgeGuardedByCond when we're walking the set of
@@ -1586,6 +1610,10 @@ private: // INTEL
   const SCEV *createSimpleAffineAddRec(PHINode *PN, Value *BEValueV,
                                             Value *StartValueV);
 
+#if INTEL_CUSTOMIZATION
+  /// Helper function to handle Phi whose operands have identical Scevs.
+  const SCEV *createNodeForIdenticalOperandsPHI(PHINode *PN);
+#endif // INTEL_CUSTOMIZATION
   /// Helper function called from createNodeForPHI.
   const SCEV *createNodeFromSelectLikePHI(PHINode *PN);
 
@@ -1750,7 +1778,10 @@ private: // INTEL
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                              bool isSigned, bool ControlsExit,
-                             bool AllowPredicates = false);
+#if INTEL_CUSTOMIZATION
+                             bool AllowPredicates = false,
+                             bool IVMaxValIsUB = false);
+#endif // INTEL_CUSTOMIZATION
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
@@ -1882,9 +1913,13 @@ private: // INTEL
   /// frugal here since we just bail out of actually constructing and
   /// canonicalizing an expression in the cases where the result isn't going
   /// to be a constant.
-public: // INTEL
-  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS);
-private: // INTEL
+#if INTEL_CUSTOMIZATION
+public:
+  Optional<APInt> computeConstantDifference(const SCEV *LHS, const SCEV *RHS,
+                                            bool *SignedOverflow = nullptr);
+
+private:
+#endif // INTEL_CUSTOMIZATION
 
   /// Drop memoized information computed for S.
   void forgetMemoizedResults(const SCEV *S);
@@ -1966,7 +2001,9 @@ private: // INTEL
   /// assert these preconditions so please be careful.
   const SCEV *computeMaxBECountForLT(const SCEV *Start, const SCEV *Stride,
                                      const SCEV *End, unsigned BitWidth,
-                                     bool IsSigned);
+#if INTEL_CUSTOMIZATION
+                                     bool IsSigned, bool IVMaxValIsUB = false);
+#endif // INTEL_CUSTOMIZATION
 
   /// Verify if an linear IV with positive stride can overflow when in a
   /// less-than comparison, knowing the invariant term of the comparison,
@@ -2015,7 +2052,7 @@ private: // INTEL
   /// otherwise.  The second component is the `FoldingSetNodeID` that was
   /// constructed to look up the SCEV and the third component is the insertion
   /// point.
-  std::tuple<const SCEV *, FoldingSetNodeID, void *>
+  std::tuple<SCEV *, FoldingSetNodeID, void *>
   findExistingSCEVInCache(int SCEVType, ArrayRef<const SCEV *> Ops);
 
   FoldingSet<SCEV> UniqueSCEVs;
@@ -2049,6 +2086,13 @@ public:
   using Result = ScalarEvolution;
 
   ScalarEvolution run(Function &F, FunctionAnalysisManager &AM);
+};
+
+/// Verifier pass for the \c ScalarEvolutionAnalysis results.
+class ScalarEvolutionVerifierPass
+    : public PassInfoMixin<ScalarEvolutionVerifierPass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
 /// Printer pass for the \c ScalarEvolutionAnalysis results.

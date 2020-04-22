@@ -1,5 +1,5 @@
 // CQ#366312
-// RUN: %clang_cc1 -fintel-compatibility %s -verify %s
+// RUN: %clang_cc1 -fintel-compatibility %s -Wno-pointer-to-int-cast -verify %s
 
 typedef struct foo {
   short field1;

@@ -12,7 +12,8 @@ define void @test1(i32 %n, i32 %m, i1 %cond) {
 ; Check that SCEV has no trip count before unswitching.
 ; SCEV-LABEL: Determining loop execution counts for: @test1
 ; SCEV: Loop %inner_loop_begin: <multiple exits> Unpredictable backedge-taken count.
-; SCEV: Loop %outer_loop_begin: Unpredictable backedge-taken count.
+; INTEL: backedge taken count can be computed without unswitching.
+; SCEV: Loop %outer_loop_begin: backedge-taken count is (-1 + (1 smax %n))<nsw>
 ;
 ; Now check that after unswitching and simplifying instructions we get clean
 ; backedge-taken counts.
@@ -71,7 +72,8 @@ define void @test2(i32 %n, i32 %m, i32 %cond) {
 ; Check that SCEV has no trip count before unswitching.
 ; SCEV-LABEL: Determining loop execution counts for: @test2
 ; SCEV: Loop %inner_loop_begin: <multiple exits> Unpredictable backedge-taken count.
-; SCEV: Loop %outer_loop_begin: Unpredictable backedge-taken count.
+; INTEL: backedge taken count can be computed without unswitching.
+; SCEV: Loop %outer_loop_begin: backedge-taken count is (-1 + (1 smax %n))<nsw>
 ;
 ; Now check that after unswitching and simplifying instructions we get clean
 ; backedge-taken counts.

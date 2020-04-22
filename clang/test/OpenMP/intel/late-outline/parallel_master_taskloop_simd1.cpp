@@ -15,7 +15,6 @@ T tmain(T argc) {
   // CHECK: DIR.OMP.TASKGROUP
   // CHECK-SAME: QUAL.OMP.REDUCTION.ADD
   // CHECK: DIR.OMP.PARALLEL
-  // check-same: QUAL.OMP.IF should this be here? See 2.14
   // CHECK-SAME: QUAL.OMP.DEFAULT.SHARED
   // check-same: QUAL.OMP.REDUCTION.ADD should this be here? See 2.14
   // CHECK: DIR.OMP.MASTER
@@ -47,8 +46,7 @@ T tmain(T argc) {
     a = 2;
 
   // CHECK: DIR.OMP.PARALLEL
-  // CHECK: DIR.OMP.PARALLEL
-  // check-same: QUAL.OMP.IF should this be here? See 2.14
+  // CHECK-SAME: QUAL.OMP.IF
   // CHECK: DIR.OMP.MASTER
   // CHECK-NEXT: fence acquire
   // CHECK: DIR.OMP.TASKLOOP
@@ -60,6 +58,8 @@ T tmain(T argc) {
   // CHECK-SAME: QUAL.OMP.NOGROUP
   // CHECK-SAME: QUAL.OMP.NUM_TASKS
   // CHECK: DIR.OMP.SIMD
+  // Should be here once we switch to OpenMP5.0 (allows if on simd)
+  // CHECK-NOT: QUAL.OMP.IF
   // CHECK-SAME: QUAL.OMP.COLLAPSE
   // CHECK-SAME: QUAL.OMP.SAFELEN
   // CHECK: DIR.OMP.END.SIMD
@@ -67,13 +67,10 @@ T tmain(T argc) {
   // CHECK: fence release
   // CHECK-NEXT: DIR.OMP.END.MASTER
   // CHECK-NEXT: DIR.OMP.END.PARALLEL
-  // CHECK-NEXT: DIR.OMP.END.PARALLEL
-
-#pragma omp parallel
 #ifdef COMBINED
 #pragma omp parallel master taskloop simd private(argc, b), firstprivate(c, d), lastprivate(d, f) collapse(N) shared(g) if (c) final(d) mergeable priority(f) nogroup num_tasks(N) safelen(8)
 #else
-#pragma omp parallel
+#pragma omp parallel if (c)
 #pragma omp master taskloop simd private(argc, b), firstprivate(c, d), lastprivate(d, f) collapse(N) shared(g) if (c) final(d) mergeable priority(f) nogroup num_tasks(N) safelen(8)
 #endif
   for (int i = 0; i < 2; ++i)

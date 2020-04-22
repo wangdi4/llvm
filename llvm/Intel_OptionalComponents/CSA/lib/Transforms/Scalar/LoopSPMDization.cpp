@@ -24,6 +24,7 @@
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -2063,7 +2064,7 @@ CallInst * LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &co
   CallInst *region_entry = IRBuilder<>{preheader_terminator}.CreateCall(
       FIntr, ConstantInt::get(IntegerType::get(context, 32), 1), "spmd_pre");
 
-  std::string RegionName = region_entry->getName();
+  StringRef RegionName = region_entry->getName();
   next_token = context.getMDKindID(RegionName) + 1000;
   region_entry->setOperand(
       0, ConstantInt::get(IntegerType::get(context, 32), next_token));

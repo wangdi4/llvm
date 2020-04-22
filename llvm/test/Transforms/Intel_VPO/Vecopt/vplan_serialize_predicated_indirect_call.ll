@@ -1,7 +1,6 @@
 ; Test for predicated indirect call serialization.
 
 ; RUN: opt %s -VPlanDriver -vplan-force-vf=2 -S | FileCheck %s
-; RUN: opt %s -VPlanDriver -enable-vp-value-codegen -vplan-force-vf=2 -S | FileCheck %s
 
 ; CHECK-LABEL: vector.body:
 ; CHECK:         [[F1:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_MASKED_LOAD:%.*]], i32 1

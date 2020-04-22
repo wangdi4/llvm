@@ -2,8 +2,7 @@
 ; This test verifies that accesses to a array of vectors is handled correctly for individual vector
 ; as well as all the elements within the vector.
 
-;RUN: opt -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen=false %s | FileCheck %s --check-prefixes=CHECK-LLVM
-;RUN: opt -S -VPlanDriver -vplan-force-vf=2 -enable-vp-value-codegen %s | FileCheck %s --check-prefixes=CHECK-VPVALUE
+;RUN: opt -S -VPlanDriver -vplan-force-vf=2 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -19,35 +18,20 @@ declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
 
 ; Function Attrs: convergent nounwind
 define void @_ZGVdN8uuuu_test_fn(<4 x i8> addrspace(1)* %src) {
-; CHECK-LLVM-LABEL: @_ZGVdN8uuuu_test_fn(
-; CHECK-LLVM:  entry:
-; CHECK-LLVM:    [[SPRIVATESTORAGE_VEC:%.*]] = alloca [2 x [2 x <4 x i8>]], align 16
-; CHECK-LLVM:  vector.body:
-; CHECK-LLVM:    [[PRIVADDR:%.*]] = bitcast [2 x [2 x <4 x i8>]]* [[SPRIVATESTORAGE_VEC]] to [2 x <4 x i8>]*
-; CHECK-LLVM:    [[TMP2:%.*]] = getelementptr [2 x <4 x i8>], [2 x <4 x i8>]* [[PRIVADDR]], <2 x i32> <i32 0, i32 1>
-; CHECK-LLVM:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[TMP2]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
-; CHECK-LLVM:    [[TMP5:%.*]] = load <4 x i8>, <4 x i8> addrspace(1)* [[SRC:%.*]], align 16
-; CHECK-LLVM:    [[REPLICATEDVAL_:%.*]] = shufflevector <4 x i8> [[TMP5]], <4 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK-LLVM:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[TMP2]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
-; CHECK-LLVM:    [[TMP6:%.*]] = bitcast <2 x <4 x i8>*> [[MM_VECTORGEP2]] to <2 x i8*>
-; CHECK-LLVM:    [[VECBASEPTR_:%.*]] = shufflevector <2 x i8*> [[TMP6]], <2 x i8*> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
-; CHECK-LLVM:    [[ELEMBASEPTR_:%.*]] = getelementptr i8, <8 x i8*> [[VECBASEPTR_]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK-LLVM:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[REPLICATEDVAL_]], <8 x i8*> [[ELEMBASEPTR_]], i32 16, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
-;
-; CHECK-VPVALUE-LABEL: @_ZGVdN8uuuu_test_fn(
-; CHECK-VPVALUE:  entry:
-; CHECK-VPVALUE:    [[PRIVATE_MEM:%.*]] = alloca [2 x [2 x <4 x i8>]], align 4
-; CHECK-VPVALUE:    [[PRIVADDR:%.*]] = bitcast [2 x [2 x <4 x i8>]]* [[PRIVATE_MEM]] to [2 x <4 x i8>]*
-; CHECK-VPVALUE:    [[PRIV_BASE_ADDR:%.*]] = getelementptr [2 x <4 x i8>], [2 x <4 x i8>]* [[PRIVADDR]], <2 x i32> <i32 0, i32 1>
-; CHECK-VPVALUE:  vector.body:
-; CHECK-VPVALUE:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
-; CHECK-VPVALUE:    [[TMP4:%.*]] = load <4 x i8>, <4 x i8> addrspace(1)* [[SRC:%.*]]
-; CHECK-VPVALUE:    [[REPLICATEDVAL_:%.*]] = shufflevector <4 x i8> [[TMP4]], <4 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK-VPVALUE:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
-; CHECK-VPVALUE:    [[TMP5:%.*]] = bitcast <2 x <4 x i8>*> [[MM_VECTORGEP2]] to <2 x i8*>
-; CHECK-VPVALUE:    [[VECBASEPTR_:%.*]] = shufflevector <2 x i8*> [[TMP5]], <2 x i8*> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
-; CHECK-VPVALUE:    [[ELEMBASEPTR_:%.*]] = getelementptr i8, <8 x i8*> [[VECBASEPTR_]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
-; CHECK-VPVALUE:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[REPLICATEDVAL_]], <8 x i8*> [[ELEMBASEPTR_]], i32 16, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+; CHECK-LABEL: @_ZGVdN8uuuu_test_fn(
+; CHECK:  entry:
+; CHECK:    [[PRIVATE_MEM:%.*]] = alloca [2 x [2 x <4 x i8>]], align 4
+; CHECK:    [[PRIVADDR:%.*]] = bitcast [2 x [2 x <4 x i8>]]* [[PRIVATE_MEM]] to [2 x <4 x i8>]*
+; CHECK:    [[PRIV_BASE_ADDR:%.*]] = getelementptr [2 x <4 x i8>], [2 x <4 x i8>]* [[PRIVADDR]], <2 x i32> <i32 0, i32 1>
+; CHECK:  vector.body:
+; CHECK:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
+; CHECK:    [[TMP4:%.*]] = load <4 x i8>, <4 x i8> addrspace(1)* [[SRC:%.*]]
+; CHECK:    [[REPLICATEDVAL_:%.*]] = shufflevector <4 x i8> [[TMP4]], <4 x i8> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
+; CHECK:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [2 x <4 x i8>], <2 x [2 x <4 x i8>]*> [[PRIV_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
+; CHECK:    [[TMP5:%.*]] = bitcast <2 x <4 x i8>*> [[MM_VECTORGEP2]] to <2 x i8*>
+; CHECK:    [[VECBASEPTR_:%.*]] = shufflevector <2 x i8*> [[TMP5]], <2 x i8*> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
+; CHECK:    [[ELEMBASEPTR_:%.*]] = getelementptr i8, <8 x i8*> [[VECBASEPTR_]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 0, i64 1, i64 2, i64 3>
+; CHECK:    call void @llvm.masked.scatter.v8i8.v8p0i8(<8 x i8> [[REPLICATEDVAL_]], <8 x i8*> [[ELEMBASEPTR_]], i32 1, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 ;
 entry:
   %sPrivateStorage = alloca [2 x <4 x i8>], align 16

@@ -1,3 +1,393 @@
+# February'20 release notes
+
+Release notes for commit e8f1f29
+
+## New features
+  - Added `__builtin_intel_fpga_mem` for the FPGA SYCL device. The built-in is
+    used to indicate the characteristics of the load-store unit (LSU) to be used
+    when de-referencing the pointer [1e33c01]
+  - Added support for the `intelfpga::no_global_work_offset` attribute
+    [8bed533] [5a9058b]
+  - Added basic xmethod implementation for `sycl::accessor::operator[]` to make
+    it callable from gdb command line [d6be8ff]
+  - Added device libraries for standard math like `std::cos` and `std::complex`
+    type [7abd9d5]
+
+## Improvements
+### SYCL Frontend and driver changes
+  - Added support for passing a non-type template parameter to the `loop_unroll`
+    attribute [8d7a32a]
+  - Relaxed the standard layout requirement for kernel arguments. Now by default
+    they should be trivially copyable. The `-sycl-std=1.2.1` driver option turns
+    standard layout requirement "on" [3adb4a5]
+  - Added diagnostic on using `__float128` type in the device code [659efdf]
+  - The `intelfpga::max_private_copies` has been renamed to
+    `intelfpga::private_copies` [97a199f]
+  - Prevented duplication of error diagnostics for `-fsycl` [3a0b62e]
+  - Added diagnostic when attempting to use existing FPGA static library with
+    additional device code [6431be6]
+  - Added support for non-type template parameters for FPGA memory attributes
+    [ffcad03]
+
+### SYCL headers and runtime
+  - The `SYCL_DEVICE_WHITE_LIST` control was renamed to `SYCL_DEVICE_ALLOWLIST`
+    [4df18fa]
+  - Added a leaf limit to the execution graph to avoid leaf bloat in
+    applications that have an overwhelming number of command groups that can
+    be executed in parallel [7c293e2]
+  - Added `get_range()` method to the image and local accessors to align with
+    the SYCL specification [8ed5566]
+  - Added a diagnostic on attempt to create a context from devices that are
+    bound to different platforms [8f354f7]
+  - An ordered queue can now be created by passing
+   `sycl::property::queue::in_order` property to the `sycl::queue` constructor
+    [c855520]
+  - Added a diagnostic on attempt to create an accessor with an unsupported type
+    [306624e]
+  - Made host device return `nullptr` for bad USM allocation functions
+    (huge, 0, etc) [2a000d9]
+  - Added templated forms of USM allocation functions [42cf5bf]
+  - Added support for APIs that query properties of USM pointers [926e38e]
+  - Added cleanup of finished command nodes of the execution graph in the
+    situations when the `wait` for a command is called implicitly or explicitly
+    [438dc49]
+  - Added 2 `sycl::queue` constructors accepting `sycl::context` and
+    `sycl::device` arguments [c81c1c5]
+
+### Documentation
+  - Added [documentation](doc/extensions/QueueShortcuts/QueueShortcuts.adoc) for
+    simplification of the `sycl::queue` functions [478b7c0]
+  - Added [documentation](doc/extensions/ReqdWorkGroupSize/SYCL_INTEL_reqd_work_group_size.asciidoc)
+    for `reqd_work_group_size` extension [c2c416a]
+  - The FAQ [document](doc/FAQ.md) was introduced [e42b40e]
+  - Added Ordered Queue Property
+    [proposal](doc/extensions/OrderedQueue/OrderedQueue_v2.adoc) [9fa878f]
+  - Added device code split options documentation to the
+    [user's manual](doc/UsersManual.md) [1355aa6]
+  - Added documentation for [ExtendedAtomics extension](doc/extensions/ExtendedAtomics/SYCL_INTEL_extended_atomics.asciidoc) [4445462]
+  - Removed old Ordered Queue proposal and make a note of deprecation [e8f1f29]
+
+## Bug fixes
+### SYCL Frontend and driver changes
+  - Fixed variable sharing passed by value to `parallel_for_work_group`
+    [d8ea63a]
+  - Do not produce an error if some restricted feature (e.g. exceptions) is used
+    by a function only referenced in unevaluated contexts [5eae571]
+  - Fixed problem with not cleaning up temporary files when device code split
+    feature is enabled [d86ee2f]
+  - Fixed issue with emitting wrong 'typename' keywords in the integration
+    header [c19372e]
+  - The SYCL target image registration functions have been renamed to avoid
+    conflicts with the OpenMP registration functions [82fd970]
+  - Avoid using `std::memcpy` in the device code [f39f47e]
+  - Fixed `-save-temps` option when used along with `-fsycl` [f7f4699]
+  - Fixed link steps triggering for libraries specified through
+    `-foffload-static-lib` when no source or object file is provided [360b25b]
+  - Fixed output options behavior for `-fsycl-link` on Windows [67b24d46]
+
+### SYCL headers and runtime
+  - Fixed final result saturation in the host implementation of `sycl::mad_sat`
+    [54dddb4]
+  - Fixed a crash when a non-nullptr_t `0x0` value is passed to the
+    `sycl::buffer::set_final_data` method [6a0e279]
+  - Fixed an issue with copying sub-buffer between different contexts [0867a38]
+  - Resolved the problem when local accessor is a temporary object [1eed329]
+  - Fixed an issue with the event not being retained when a memory object is
+    constructed using interoperability constructors [0aabe7e]
+  - Fixed compilation of kernels which use `sycl::stream` for FPGA device
+    [c4dbaa2]
+  - Fixed execution graph cleanup on memory object destruction [7a75b54]
+
+## Known issues
+  - [new] Defining a `SUCCESS` or `FAILED` can break SYCL headers because such
+    names are used internally
+  - [new] The format of the object files produced by the compiler can change
+    between versions. The workaround is to rebuild the application.
+  - [new] The SYCL library doesn't guarantee stable API/ABI, so applications
+    compiled with older version of the SYCL library may not work with new one.
+    The workaround is to rebuild the application.
+  - Using `cl::sycl::program` API to refer to a kernel defined in another
+    translation unit leads to undefined behaviour
+  - Linkage errors with the following message:
+    `error LNK2005: "bool const std::_Is_integral<bool>" (??$_Is_integral@_N@std@@3_NB) already defined`
+    can happen when a SYCL application is built using MS Visual Studio 2019
+    version below 16.3.0
+    The workaround is to enable `-std=c++17` for the failing MSVC version.
+
+## Prerequisites
+### Linux
+- Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
+  support version
+  [2020.10.3.0.04](https://github.com/intel/llvm/releases/download/2020-02/oclcpuexp-2020.10.3.0.04_rel.tar.gz)
+  is the recommended OpenCL CPU RT prerequisite for the SYCL compiler
+- The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
+  [20.06.15619](https://github.com/intel/compute-runtime/releases/tag/20.06.15619)
+  is the recommended OpenCL GPU RT prerequisite for the SYCL compiler.
+<!--### Windows-->
+- Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
+  support version
+  [2020.10.3.0.04](https://github.com/intel/llvm/releases/download/2020-02/win-oclcpuexp-2020.10.3.0.04_rel.zip)
+  is the recommended OpenCL CPU RT prerequisite for the SYCL compiler
+- The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
+  [26.20.100.7870](https://downloadcenter.intel.com/download/29426/Intel-Graphics-Windows-10-DCH-Drivers)
+  is the recommended OpenCL GPU RT prerequisite for the SYCL compiler.
+
+Please, see the runtime installation guide [here](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedGuide.md#install-low-level-runtime)
+
+
+# December'19 release notes
+
+Release notes for commit 78d80a1cc628af76f09c53673ada906a3d2f0131
+
+## New features
+  - New attributes for Intel FPGA devices : `num_simd_work_items`, `bank_bits`,
+  `max_work_group_size`, `max_global_work_dim`
+  [61d60b6] [7becb9d] [9053642] [6441851]
+  - The infrastructure for device standard C/C++ libraries has been introduced.
+    `assert` can now be used in device code [0039ee0]
+  - Add opencl-aot tool for AoT compilation for Intel CPU devices [400460b]
+  - Added support for `cl::sycl::intel::experimental::printf` builtin [78d80a1]
+  - Implemented device code split feature: compiler can now be instructed to
+    split a single device code module into multiple via the
+    `-fsycl-device-code-split` option.
+    [9d7dba6] [cc93bc4] [5491486] [a339d4c] [9095749]
+
+## Improvements
+### SYCL Frontend and driver changes
+  - Allowed applying `cl::reqd_work_group_size` and
+    `cl::intel_reqd_sub_group_size` attributes to a lambda function [b06fc66]
+  - Allowed applying SYCL_EXTERNAL to functions with raw pointer arguments or
+    return value if `-Wno-error=sycl-strict` option is passed [2840458]
+  - Added support for FPGA device libraries in fat static libraries [d39ab73]
+  - Removed limitation of virtual types in SYCL [98754ff]
+
+### SYCL headers and runtime
+  - Added support for platform name and platform version in the device allowed
+    list [7f2f668]
+  - Made kernels and programs caches thread-safe [118dc82]
+  - It's now possible to omit `cl` namespace specifier when using SYCL API.
+    `sycl::buffer` can be used instead `cl::sycl::buffer` [67e4655]
+  - Diagnostic on attempt to do several actions in one command group has been
+    implemented [9f8ae50]
+  - `queue::submit` now throws synchronous exceptions [6a83d14]
+  - Enqueue pending tasks after host accessor destructor [80d17b2]
+  - Implemented more "flat" kernel submission `cl::sycl::queue` methods
+    [c5318c5]
+
+### Documentation
+  - Added support for generation of SYCL documentation with Doxygen [de418d6]
+  - [Design document](doc/extensions/C-CXX-StandardLibrary/C-CXX-StandardLibrary.rst)
+    which describes design of C/C++ standard library support has been added
+
+## Bug fixes
+### SYCL Frontend and driver changes
+  - Fixed problem which prevented attaching multiple attributes to a SYCL kernel
+    [b77e5b7]
+
+### SYCL headers and runtime
+  - Fixed a possible deadlock with host accessor' creation from multiple threads
+    [d1c6dbe]
+  - Compatibility issues that can happen when the SYCL library and SYCL
+    application are compiled with different version of standard headers are
+    fixed.  [d854643]
+  - Fixed compile error for `handler::copy` with `-fsycl-unnamed-lambda`
+    [e73d2ce]
+  - Fixed error which happened when autogenerated (`-fsycl-unnamed-lambda`)
+    kernel name contained `cl::sycl::half` type [514fc0b]
+  - Fixed crash on submitting a kernel with zero local size on the host device
+    [b6806ea]
+  - Made `vec::load` and `vec::store` member functions templated to align with
+    the SYCL specification [4bd76de]
+  - Made exceptions that are thrown in the copy back routine during SYCL
+    memory object destructor asynchronous [2d6dcd0]
+  - Fixed creation of host accessor to sub-buffer leading to crash in some
+    scenarios [f607520]
+  - Fixed build error on Windows caused by RuntimeLibrary value inconsistency
+    for LLVM and apps/tests linked with it [f9296b6]
+
+## Known issues
+- [new] The size of object file is increased compared to the older compiler
+  releases due to the recent fat object layout changes in the open source LLVM.
+- Using `cl::sycl::program` API to refer to a kernel defined in another
+  translation unit leads to undefined behaviour
+- Linkage errors with the following message:
+  `error LNK2005: "bool const std::_Is_integral<bool>" (??$_Is_integral@_N@std@@3_NB) already defined`
+  can happen when a SYCL application is built using MS Visual Studio 2019
+  version below 16.3.0
+  For MSVC version having the error the workaround is to use -std=c++17 switch.
+
+## Prerequisites
+### Linux
+- Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
+  support version
+  [2020.9.1.0.18_rel](https://github.com/intel/llvm/releases/download/2019-12/oclcpuexp-2020.9.1.0.18_rel.tar.gz)
+  is recommended OpenCL CPU RT prerequisite for the SYCL compiler
+- The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
+  [19.48.14977](https://github.com/intel/compute-runtime/releases/tag/19.48.14977)
+  is recommended OpenCL GPU RT prerequisite for the SYCL compiler.
+### Windows
+- Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
+  support version
+  [2020.9.1.0.18_rel](https://github.com/intel/llvm/releases/download/2019-12/win-oclcpuexp-2020.9.1.0.18_rel.zip)
+  is recommended OpenCL CPU RT prerequisite for the SYCL compiler
+- The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
+  [26.20.100.7463](https://downloadcenter.intel.com/download/29195/Intel-Graphics-Windows-10-DCH-Drivers)
+  is recommended OpenCL GPU RT prerequisite for the SYCL compiler.
+
+Please, see the runtime installation guide [here](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedWithSYCLCompiler.md#install-low-level-runtime)
+
+# November'19 release notes
+
+Release notes for commit e0a62df4e20eaf4bdff5c7dd46cbde566fbaee90
+
+## New features
+
+## Improvements
+### SYCL Frontend and driver changes
+  - Added more diagnostics on incorrect usage of SYCL options [f8a8785]
+  - Added diagnostic on capturing values by reference in a kernel lambda
+    [0e7639a]
+  - Removed `--sycl` option which was an alias to `-fsycl-device-only`
+  - Added support for using integral template parameter as an argument to
+    `intelfpga::ivdep`, `intelfpga::ii` and `intelfpga::max_concurrency`
+    attributes [6a283ae]
+  - Improved diagnostic for using incorrect triple for AOT [6af65e1]
+
+### SYCL headers and runtime
+  - `cl::sycl::pipe` class was moved to `cl::sycl::intel` namespace [23af059]
+  - Added new query `info::device::kernel_kernel_pipe_support` which indicates
+    whether device supports SYCL_INTEL_data_flow_pipes extension [8acf36e]
+  - Added support for copying accessor with arbitrary dimensions in
+    `handler::copy` [ff30897]
+  - Cache result of compilation and kernel creation of programs created via
+    `cl::sycl::program::build_with_kernel_type` without build options
+    [8c2e09a] [4ba499c] [d442364]
+  - Added diagnostic (static_assert) for dimensions mismatch when passing
+    `cl::sycl::vec` objects to SYCL builtins [eb3ac32]
+  - Added diagnostic (exception) on attempt to create invalid sub-buffer
+    [0bd58df]
+  - Added `single_task` and `parallel_for` methods to
+    `cl::sycl::ordered_queue::single_task`. These provide an alternative way to
+    launch kernels [1d2f7ce]
+  - Added forms of USM functions for allocations that take a queue reference
+    [f57c2b6]
+  - Added C++ deduction guides to
+      - `cl::sycl::range`
+      - `cl::sycl::id`
+      - `cl::sycl::nd_range`
+      - `cl::sycl::vec`
+      - `cl::sycl::multi_ptr`
+      - `cl::sycl::buffer`
+    [644013e] [3546a78] [728b904] [dba1c20]
+  - Added a new buffer constructor which takes a contiguous container as an
+    argument [dba1c20]
+  - Added support of 1 byte type to load and store method of
+    `cl::sycl::intel::sub_group` class [c8cffcc]
+  - Improved error reporting for kernel enqueue process [d27cff2]
+  - Instance of memory objects are now preserved on host after host accessor
+    destruction [16ae15a]
+  - Added support for `SYCL_DEVICE_WHITE_LIST` control which can be used to
+    specify devices that are visible to the SYCL implementation [4ad5263]
+
+### Documentation
+  - Updated build instructions for Windows and added instructions for setting
+    up FPGA emulator device to [get started guide](doc/GetStartedWithSYCLCompiler.md)
+    [6d0b326] [b2bb35b] [a7336c2]
+  - Updated [SYCLCompilerAndRuntimeDesign](doc/SYCLCompilerAndRuntimeDesign.md)
+    to use proper names of AOT related options [b3ee6a2]
+  - Added [unnamed lambda extension](doc/extensions/UnnamedKernelLambda/SYCL_INTEL_unnamed_kernel_lambda.asciidoc)
+    draft [47c4c71]
+  - Added [kernel restrict all extension](doc/extensions/KernelRestrictAll/SYCL_INTEL_kernel_restrict_all.asciidoc)
+    draft [47c4c71]
+  - Added initial draft of [data flow pipes extension](doc/extensions/DataFlowPipes/data_flow_pipes.asciidoc)
+    proposal [ee2b482]
+  - [USM doc](doc/extensions/USM/USM.adoc) was updated with new version of
+    allocation functions [0c32410]
+  - Added draft version of [group collectives extension](doc/extensions/GroupCollectives/GroupCollectives.md)
+    [e0a62df]
+  - Added [deduction guides extension](doc/extensions/deduction_guides/SYCL_INTEL_deduction_guides.asciidoc)
+    [4591d74]
+  - Improved [environment variables controls documentation](doc/SYCLEnvironmentVariables.md)
+    [6aae4ef]
+
+## Bug fixes
+### SYCL Frontend and driver changes
+  - Fixed a problem with option duplication during offload [1edd217]
+  - Modified the driver to unbundle files with no extension like objects
+    [84992a5]
+  - Fixed AOT compilation for FPGA target on Windows [6b789f9] [525da51]
+  - Fixed FPGA AOT compilation when using FPGA AOCX device archives
+    [ec738f2] [16c530a]
+  - Fixed problem causing abort when `-fsycl` and `-lstdc++` passed
+    simultaneously [e437fd4]
+  - Fixed `-o` option for FPGA AOT on Windows
+    [ddd24a3]
+  - Default `-std=c++` setting for device compilations was removed to avoid
+    `__cplusplus` differences between host and device compilation. [29cabdf]
+  - Suppressed warning about cdecl calling convention [0d2dab4]
+  - Fixed problem when two different lambdas with the same signature get the
+    same mangled name [d6aa11b]
+  - Removed the error being issued for pseudo-destructor expressions [3c9006e]
+  - Removed the device linking step for cases with no valid objects being
+    provided from the device compilation [25bbe42]
+
+### SYCL headers and runtime
+  - Implemented a workaround for the issue with conversion of one element
+    swizzle to a scalar [f752698]
+  - Fixed a UX problem with a sycl::stream mixing output of several work-items
+    in some cases [377b3fa]
+  - Fixed problem with linker options getting passed to the bundler instead of
+    the linker when -foffload-static-lib is supplied [e437fd4]
+  - Fixed problem with using wrong offset inside `cl::sycl::handler::copy`
+    [5c8e81f]
+  - Fixed `get_count` and `get_size` methods of `cl::sycl::accessor` class that
+    used to return incorrect values for non-local accessor created with range
+    [9dd68c5]
+  - Fixed issue with asynchronous exceptions not being associated with the
+    returned event [6c512d3]
+  - Fixed issue with host accessor not always providing exclusive access to
+    a memory object [16ae15a]
+  - Fixed issue with ignoring `cl::sycl::property::buffer::use_host_ptr`
+    property [16ae15a]
+
+## Known issues
+- [new] `cl::sycl::program` constructor creates unnecessary context which is
+  bound to the device which is chosen by `cl::sycl::default_selector`. This can
+  lead to unexpected behavior, for example, process may hang if default selector
+  chooses Intel FPGA emulator device but target device is Intel OpenCL CPU one
+- [new] Using cl::sycl::program API to refer to a kernel defined in another
+  translation unit leads to undefined behaviour
+- [new] -fsycl-unnamed-lambda doesn't work with kernel names that contain
+  cl::sycl::half type
+- The addition of the static keyword on an array in the presence of Intel
+  FPGA memory attributes results in the empty kernel after translation
+- A loop's attribute in device code may be lost during compilation
+- Linkage errors with the following message:
+  `error LNK2005: "bool const std::_Is_integral<bool>" (??$_Is_integral@_N@std@@3_NB) already defined`
+  can happen when a SYCL application is built using MS Visual Studio 2019
+  version below 16.3.0
+  For MSVC version having the error the workaround is to use -std=c++17 switch.
+
+## Prerequisites
+### Linux
+- Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
+  support version
+  [2019.9.12.0.12_rel](https://github.com/intel/llvm/releases/download/2019-11/oclcpuexp-2019.9.12.0.12_rel.tar.gz)
+  is recommended OpenCL CPU RT prerequisite for the SYCL compiler
+- The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
+  [19.48.14977](https://github.com/intel/compute-runtime/releases/tag/19.48.14977)
+  is recommended OpenCL GPU RT prerequisite for the SYCL compiler.
+### Windows
+- Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
+  support version
+  [2019.9.12.0.12_rel](https://github.com/intel/llvm/releases/download/2019-11/win-oclcpuexp-2019.9.12.0.12_rel.zip)
+  is recommended OpenCL CPU RT prerequisite for the SYCL compiler
+- The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
+  [26.20.100.7463](https://downloadcenter.intel.com/download/29195/Intel-Graphics-Windows-10-DCH-Drivers)
+  is recommended OpenCL GPU RT prerequisite for the SYCL compiler.
+
+Please, see the runtime installation guide [here](https://github.com/intel/llvm/blob/sycl/sycl/doc/GetStartedWithSYCLCompiler.md#install-low-level-runtime)
+
 # October'19 release notes
 
 Release notes for commit 918b285d8dede6ab0561fccc622f71cb858849a6
@@ -172,7 +562,7 @@ Release notes for commit 918b285d8dede6ab0561fccc622f71cb858849a6
 ### Linux
 - Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
   support version
-  [2019.10.10.0.1106_rel](https://github.com/intel/llvm/releases/download/2019-10/oclcpuexp-2019.10.10.0.1106_rel.tar.gz)
+  [2019.9.11.0.1106_rel](https://github.com/intel/llvm/releases/download/2019-10/oclcpuexp-2019.9.11.0.1106_rel.tar.gz)
   is recommended OpenCL CPU RT prerequisite for the SYCL compiler
 - The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
   [19.43.14583](https://github.com/intel/compute-runtime/releases/tag/19.43.14583)
@@ -180,7 +570,7 @@ Release notes for commit 918b285d8dede6ab0561fccc622f71cb858849a6
 ### Windows
 - Experimental Intel(R) CPU Runtime for OpenCL(TM) Applications with SYCL
   support version
-  [2019.10.10.0.1106_rel](https://github.com/intel/llvm/releases/download/2019-10/win-oclcpuexp-2019.10.10.0.1106_rel.zip)
+  [2019.9.11.0.1106_rel](https://github.com/intel/llvm/releases/download/2019-10/win-oclcpuexp-2019.9.11.0.1106_rel.zip)
   is recommended OpenCL CPU RT prerequisite for the SYCL compiler
 - The Intel(R) Graphics Compute Runtime for OpenCL(TM) version
   [100.7372](https://downloadmirror.intel.com/29127/a08/1910.1007372.exe)

@@ -1,6 +1,5 @@
 ; Verify call with no side effect can be serialized as serialized once per all lanes.
 ; RUN: opt -S -VPlanDriver -vplan-force-vf=8 < %s | FileCheck %s
-; RUN: opt -S -VPlanDriver -enable-vp-value-codegen=true -vplan-force-vf=8 < %s | FileCheck %s
 
 ; Function Attrs: nounwind readonly
 declare i32 @foo_i32(i32 addrspace(1)*, i32) local_unnamed_addr readonly #1

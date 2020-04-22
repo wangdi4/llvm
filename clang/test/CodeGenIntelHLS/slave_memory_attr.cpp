@@ -18,8 +18,6 @@ component int foo0a(int *j0,
                     slave_arg __attribute__((singlepump))          int *i4,
                     slave_arg __attribute__((doublepump))          int *i5,
                     slave_arg __attribute__((bank_bits(4,3,2)))    int *i7,
-                    slave_arg __attribute__((internal_max_block_ram_depth(32)))
-                    int *i10,
                     slave_arg __attribute__((readwrite_mode("readonly")))
                     int *i11,
                     slave_arg __attribute__((readwrite_mode("writeonly")))
@@ -41,7 +39,6 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
                     __attribute__((bankwidth(4)))
                     __attribute__((numbanks(8)))
                     __attribute__((bank_bits(4,3,2)))
-                    __attribute__((internal_max_block_ram_depth(64)))
                     __attribute__((readwrite_mode("readonly")))
           int *i0)
 {
@@ -63,6 +60,5 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
 
 //CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
 //CHECK: [[ATFOO1A]] = !{!"mm_slave"}
-//CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}
-//CHECK-SAME: {internal_max_block_ram_depth:64}{bank_bits:4,3,2}{readwritememory:READONLY}"
+//CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}{bank_bits:4,3,2}
 //CHECK: [[LMSFOO1A]] = !{i32 32}

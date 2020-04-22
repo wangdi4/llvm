@@ -14,7 +14,7 @@ define void @test01() {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test01*{{ *$}}
+; CHECK:     Type: %struct.test01 = type { i32, i32, i32 }
 
 
 ; Test with malloc result cast to more than one type.
@@ -30,8 +30,8 @@ define void @test02() {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test02a*{{ *$}}
-; CHECK:     Type: %struct.test02b*{{ *$}}
+; CHECK:     Type: %struct.test02a = type { i32, i32, i32 }
+; CHECK:     Type: %struct.test02b = type { i16, i16, i16, i16, i16, i16 }
 
 ; Test with malloc result cast to pointer to an array
 %struct.test03 = type { i32, i32, i32 }
@@ -44,7 +44,7 @@ define void @test03(i64 %n) {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: [6 x %struct.test03*]*{{ *$}}
+; CHECK:     Type: [6 x %struct.test03*]
 
 ; Test with malloc result that is not an aggregate type
 define noalias i32* @test04() {
@@ -73,7 +73,7 @@ define void @test05(%struct.test05b* %in) {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test05a*{{ *$}}
+; CHECK:     Type: %struct.test05a = type { i32, i32*, i32 }
 
 ; Test with realloc call
 %struct.test06 = type { i32, i32, i32 }
@@ -87,7 +87,7 @@ define void @test06(%struct.test06* %in) {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Realloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test06*{{ *$}}
+; CHECK:     Type: %struct.test06 = type { i32, i32, i32 }
 
 ; Test with calloc creation of a structure pointer
 %struct.test07 = type { i32, i32, i32 }
@@ -100,7 +100,7 @@ define void @test07() {
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Calloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test07*{{ *$}}
+; CHECK:     Type: %struct.test07 = type { i32, i32, i32 }
 
 ; Test with user alloc-like wrapper
 %struct.test08 = type { i32, i32, i32 }
@@ -119,7 +119,7 @@ define void @test08(i64 %size) {
 ; CHECK: AllocCallInfo:
 ; FIXME - User allocs are currently tagged as malloc:   Kind: UserAlloc
 ; CHECK:   Aliased types:
-; CHECK:     Type: %struct.test08*{{ *$}}
+; CHECK:     Type: %struct.test08 = type { i32, i32, i32 }
 
 
 declare noalias i8* @calloc(i64, i64)
