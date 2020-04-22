@@ -291,9 +291,7 @@ private:
   void updateAnalysis();
 
   /// Get the Function-entry block.
-  BasicBlock &getFunctionEntryBlock() const {
-    return OrigLoop->getHeader()->getParent()->front();
-  }
+  BasicBlock &getFunctionEntryBlock() const;
 
   /// This function adds (StartIdx, StartIdx + Step, StartIdx + 2*Step, ...)
   /// to each vector element of Val. The sequence starts at StartIndex.

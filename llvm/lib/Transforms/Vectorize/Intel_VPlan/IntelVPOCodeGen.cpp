@@ -450,6 +450,10 @@ void VPOCodeGen::updateAnalysis() {
   // LLVM_DEBUG(DT->verifyDomTree());
 }
 
+BasicBlock &VPOCodeGen::getFunctionEntryBlock() const {
+  return OrigLoop->getHeader()->getParent()->front();
+}
+
 /// Reverse vector \p Vec. \p OriginalVL specifies the original vector length
 /// of the value before vectorization.
 /// If the original value was scalar, a vector <A0, A1, A2, A3> will be just
