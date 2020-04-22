@@ -11,8 +11,6 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; CHECK:       vector.ph:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> undef, i64 addrspace(4)* [[ARR:%.*]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> undef, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT5:%.*]] = insertelement <2 x i64> undef, i64 [[N:%.*]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT6:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT5]], <2 x i64> undef, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI:%.*]]
@@ -60,7 +58,7 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; CHECK-NEXT:    [[PREDICATE4:%.*]] = extractelement <2 x i1> [[TMP0]], i64 1
 ; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i1 [[PREDICATE4]], true
 ; CHECK-NEXT:    br i1 [[TMP18]], label [[PRED_LOAD_IF7:%.*]], label [[TMP21:%.*]]
-; CHECK:       pred.load.if7:
+; CHECK:       pred.load.if{{.*}}:
 ; CHECK-NEXT:    [[TMP19:%.*]] = load volatile i64, i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]]
 ; CHECK-NEXT:    [[TMP20:%.*]] = insertelement <2 x i64> [[TMP17]], i64 [[TMP19]], i32 1
 ; CHECK-NEXT:    br label [[TMP21]]

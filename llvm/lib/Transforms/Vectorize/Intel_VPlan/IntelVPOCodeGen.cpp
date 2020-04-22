@@ -1262,6 +1262,26 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
     return;
   }
+  case VPInstruction::OrigTripCountCalculation: {
+    // TODO: Inline getOrCreateTripCount's implementation to here once we
+    // complete transition to an explicit CFG representation in VPlan.
+    VPScalarMap[VPInst][0] = getOrCreateTripCount(
+        cast<VPOrigTripCountCalculation>(VPInst)->getOrigLoop());
+    return;
+  }
+  case VPInstruction::VectorTripCountCalculation: {
+    auto *VTCCalc = cast<VPVectorTripCountCalculation>(VPInst);
+    // TODO: Inline getOrCreateVectorTripCount's implementation to here once we
+    // complete transition to an explicit CFG representation in VPlan.
+    VPScalarMap[VPInst][0] = getOrCreateVectorTripCount(
+        cast<VPOrigTripCountCalculation>(VTCCalc->getOperand(0))
+            ->getOrigLoop());
+
+    // Meanwhile, assert that the UF implicitly used by the CG is the same as
+    // represented explicitly.
+    assert(VTCCalc->getUF() == UF && "Mismatch in UFs!");
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");

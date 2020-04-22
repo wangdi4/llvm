@@ -31,7 +31,8 @@
 ; CHECK-DAG: float %conv11 livein in the loops:  BB1
 ; CHECK-DAG: i8* {{%vp.*}} livein in the loops:  BB1
 ; CHECK-DAG: i64 {{%vp.*}} liveout in the loop: BB1
-; CHECK-DAG: i64 %3 livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
+; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB1
 ; CHECK:     Live-in and Live-out info end
 
 ; Function Attrs: nounwind uwtable

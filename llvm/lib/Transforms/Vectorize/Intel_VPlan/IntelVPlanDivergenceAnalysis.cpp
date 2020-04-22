@@ -641,7 +641,8 @@ VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
     return NonConstDA->getUniformVectorShape();
 
   // FIXME: This needs an explicit vector IV.
-  if (RegionLoop->getLoopLatch()->getCondBit() == V)
+  if (Plan->isBackedgeUniformityForced() &&
+      RegionLoop->getLoopLatch()->getCondBit() == V)
     return NonConstDA->getUniformVectorShape();
 
   auto ShapeIter = VectorShapes.find(V);
@@ -1278,10 +1279,19 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::AllocatePrivate)
     NewShape = computeVectorShapeForAllocatePrivateInst(
         cast<const VPAllocatePrivate>(I));
-  else {
+  else if (Opcode == VPInstruction::OrigTripCountCalculation)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::VectorTripCountCalculation)
+    NewShape = getUniformVectorShape();
+  else if (Opcode >= VPInstruction::SMax && Opcode <= VPInstruction::FMin) {
+    LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
+    // FIXME: Compute divergence based on the operands.
+    NewShape = getRandomVectorShape();
+  } else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
-    // llvm_unreachable("Instruction not supported\n");
+    assert(Opcode <= Instruction::OtherOpsEnd &&
+           "VPlan-specific VPInstruction not supported in DA!");
   }
 
   return NewShape;
