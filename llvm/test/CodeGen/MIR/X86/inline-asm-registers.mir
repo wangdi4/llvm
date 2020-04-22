@@ -1,3 +1,8 @@
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_ISA_FP16
+# UNSUPPORTED: intel_feature_isa_fp16
+# end INTEL_FEATURE_ISA_FP16
+# end INTEL_CUSTOMIZATION
 # RUN: llc -march=x86-64 -run-pass none -o - %s | FileCheck %s
 
 --- |
