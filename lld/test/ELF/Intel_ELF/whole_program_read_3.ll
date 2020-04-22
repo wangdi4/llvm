@@ -9,15 +9,16 @@
 ; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 
-; CHECK:   Main definition seen
 ; CHECK:   LIBFUNCS NOT FOUND: 1
 ; CHECK:       sub
 ; CHECK:   VISIBLE OUTSIDE LTO: 1
 ; CHECK:       sub
-; CHECK:   WHOLE PROGRAM NOT DETECTED
-; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
-; CHECK:       whole program not seen;
-; CHECK:       whole program not read;
+; CHECK:   WHOLE PROGRAM RESULT:
+; CHECK:    MAIN DEFINITION:  DETECTED
+; CHECK:    LINKING AN EXECUTABLE:  DETECTED
+; CHECK:    WHOLE PROGRAM READ:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM SAFE:  NOT DETECTED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
