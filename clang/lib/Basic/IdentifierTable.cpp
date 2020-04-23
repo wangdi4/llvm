@@ -100,8 +100,7 @@ namespace {
     KEYOPENCLCXX  = 0x400000,
     KEYMSCOMPAT   = 0x800000,
     KEYSYCL       = 0x1000000,
-<<<<<<< HEAD
-    KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX2A,
+    KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
 #if INTEL_CUSTOMIZATION
     KEYALL = (0x7fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x7fffffff
               ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
@@ -115,11 +114,6 @@ namespace {
                   KEYOPENCLCHANNEL,
     KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION
-=======
-    KEYALLCXX = KEYCXX | KEYCXX11 | KEYCXX20,
-    KEYALL = (0x1ffffff & ~KEYNOMS18 &
-              ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
->>>>>>> 30a5c5ba9ee66b2a2f84ad7e1977f86b51d5793d
   };
 
   /// How a keyword is treated in the selected standard.
