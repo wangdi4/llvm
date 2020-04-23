@@ -332,48 +332,64 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z4udivjj\", \"_Z4udivDv4_jS_\", 4, false},\n";
   OS << "{\"_Z4udivjj\", \"_Z4udivDv8_jS_\", 8, false},\n";
   OS << "{\"_Z4udivjj\", \"_Z4udivDv16_jS_\", 16, false},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv32_jS_\", 32, false},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv64_jS_\", 64, false},\n";
 
   OS << "{\"_Z4udivjj\", \"_Z4udivDv2_jS_\", 2, true},\n";
   OS << "{\"_Z4udivjj\", \"_Z4udivDv3_jS_\", 3, true},\n";
   OS << "{\"_Z4udivjj\", \"_Z4udivDv4_jS_\", 4, true},\n";
   OS << "{\"_Z4udivjj\", \"_Z4udivDv8_jS_\", 8, true},\n";
   OS << "{\"_Z4udivjj\", \"_Z4udivDv16_jS_\", 16, true},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv32_jS_\", 32, true},\n";
+  OS << "{\"_Z4udivjj\", \"_Z4udivDv64_jS_\", 64, true},\n";
 
   OS << "{\"_Z4idivii\", \"_Z4idivDv2_iS_\", 2, false},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv3_iS_\", 3, false},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv4_iS_\", 4, false},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv8_iS_\", 8, false},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv16_iS_\", 16, false},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv32_iS_\", 32, false},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv64_iS_\", 64, false},\n";
 
   OS << "{\"_Z4idivii\", \"_Z4idivDv2_iS_\", 2, true},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv3_iS_\", 3, true},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv4_iS_\", 4, true},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv8_iS_\", 8, true},\n";
   OS << "{\"_Z4idivii\", \"_Z4idivDv16_iS_\", 16, true},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv32_iS_\", 32, true},\n";
+  OS << "{\"_Z4idivii\", \"_Z4idivDv64_iS_\", 64, true},\n";
 
   OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", 2, false},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", 3, false},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv4_jS_\", 4, false},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv8_jS_\", 8, false},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv16_jS_\", 16, false},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv32_jS_\", 32, false},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv64_jS_\", 64, false},\n";
 
   OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", 2, true},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv2_jS_\", 3, true},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv4_jS_\", 4, true},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv8_jS_\", 8, true},\n";
   OS << "{\"_Z4uremjj\", \"_Z4uremDv16_jS_\", 16, true},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv32_jS_\", 32, true},\n";
+  OS << "{\"_Z4uremjj\", \"_Z4uremDv64_jS_\", 64, true},\n";
 
   OS << "{\"_Z4iremii\", \"_Z4iremDv2_iS_\", 2, false},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv3_iS_\", 3, false},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv4_iS_\", 4, false},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv8_iS_\", 8, false},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv16_iS_\", 16, false},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv32_iS_\", 32, false},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv64_iS_\", 64, false},\n";
 
   OS << "{\"_Z4iremii\", \"_Z4iremDv2_iS_\", 2, true},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv3_iS_\", 3, true},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv4_iS_\", 4, true},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv8_iS_\", 8, true},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv16_iS_\", 16, true},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv32_iS_\", 32, true},\n";
+  OS << "{\"_Z4iremii\", \"_Z4iremDv64_iS_\", 64, true},\n";
 
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }
