@@ -12,7 +12,8 @@ define void @foo() {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]],[[BB5:BB[0-9]+]],[[BB6:BB[0-9]+]],[[BB7:BB[0-9]+]],[[BB8:BB[0-9]+]],[[BB9:BB[0-9]+]]<latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDEX:%.*]] = phi  [ i64 [[VP_INDEX_IND_INIT:%.*]], [[BB10:BB[0-9]+]] ],  [ i64 [[VP_INDVAR:%.*]], [[BB9]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB10:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB9]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDEX:%.*]] = phi  [ i64 [[VP_INDEX_IND_INIT:%.*]], [[BB10]] ],  [ i64 [[VP_INDVAR:%.*]], [[BB9]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD1:%.*]] = add i64 [[LID00:%.*]] i64 [[VP_INDEX]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMPZ:%.*]] = icmp i64 [[LSZ00:%.*]] i64 [[VP_ADD1]]
 ; CHECK-EMPTY:
@@ -38,7 +39,8 @@ define void @foo() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB9]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVAR]] = add i64 [[VP_INDEX]] i64 [[VP_INDEX_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VL_COND:%.*]] = icmp i64 [[VP_INDVAR]] i64 8
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB11:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
