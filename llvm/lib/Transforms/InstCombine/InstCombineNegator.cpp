@@ -207,6 +207,24 @@ LLVM_NODISCARD Value *Negator::visit(Value *V, unsigned Depth) {
                  : Builder.CreateSExt(I->getOperand(0), I->getType(),
                                       I->getName() + ".neg");
     break;
+#if INTEL_CUSTOMIZATION
+  case Instruction::And: {
+    // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
+    if (!I->hasOneUse())
+      break;
+    const APInt *Mask, *ShAmt;
+    if (match(I->getOperand(0), m_LShr(m_Value(X), m_APInt(ShAmt))) &&
+        match(I->getOperand(1), m_APInt(Mask)) &&
+        Mask->isOneValue() && ShAmt->ult(BitWidth)) {
+      Value *Shl = Builder.CreateShl(X,
+                                     ConstantInt::get(I->getType(),
+                                                      BitWidth - *ShAmt - 1));
+      return Builder.CreateAShr(Shl, ConstantInt::get(I->getType(),
+                                                      BitWidth - 1));
+    }
+    break;
+  }
+#endif
   default:
     break; // Other instructions require recursive reasoning.
   }

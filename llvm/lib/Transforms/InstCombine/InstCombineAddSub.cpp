@@ -1792,43 +1792,7 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
   }
 
   const APInt *Op0C;
-<<<<<<< HEAD
-  if (match(Op0, m_APInt(Op0C))) {
-    if (Op0C->isNullValue() && Op1->hasOneUse()) {
-      Value *LHS, *RHS;
-      SelectPatternFlavor SPF = matchSelectPattern(Op1, LHS, RHS).Flavor;
-      if (SPF == SPF_ABS || SPF == SPF_NABS) {
-        // This is a negate of an ABS/NABS pattern. Just swap the operands
-        // of the select.
-        cast<SelectInst>(Op1)->swapValues();
-        // Don't swap prof metadata, we didn't change the branch behavior.
-        return replaceInstUsesWith(I, Op1);
-      }
-    }
-
-#if INTEL_CUSTOMIZATION
-    if (Op0C->isNullValue()) {
-      unsigned BitWidth = I.getType()->getScalarSizeInBits();
-
-      // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
-      const APInt *Mask, *ShAmt;
-      if (match(Op1,
-                m_OneUse(m_And(m_LShr(m_Value(X), m_APInt(ShAmt)),
-                               m_APInt(Mask)))) &&
-          *Mask == 1 && ShAmt->ult(BitWidth)) {
-        Value *Shl = Builder.CreateShl(X,
-                                       ConstantInt::get(I.getType(),
-                                                        BitWidth - *ShAmt - 1));
-        return BinaryOperator::CreateAShr(Shl,
-                                          ConstantInt::get(I.getType(),
-                                                           BitWidth - 1));
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-
-=======
   if (match(Op0, m_APInt(Op0C)) && Op0C->isMask()) {
->>>>>>> 352fef3f11f5ccb2ddc8e16cecb7302a54721e9f
     // Turn this into a xor if LHS is 2^n-1 and the remaining bits are known
     // zero.
     KnownBits RHSKnown = computeKnownBits(Op1, 0, &I);
