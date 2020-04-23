@@ -143,11 +143,10 @@ static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
 {
   assert(FuncTy && "Func type not specified");
 
-  if (CIArgs.size() != FuncTy->getNumParams() && !FuncTy->isVarArg()) {
-    BadSigDesc = "arguments amount doesn't match";
-    return false;
-  } else if (CIArgs.size() < FuncTy->getNumParams()) {
-    BadSigDesc = "too few arguments in variadic function";
+  if (CIArgs.size() != FuncTy->getNumParams()) {
+    BadSigDesc = "wrong number of arguments to function call, "
+        "expected " + std::to_string(FuncTy->getNumParams()) + ", "
+        "have " + std::to_string(CIArgs.size());
     return false;
   }
 
@@ -159,9 +158,11 @@ static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
       const auto *CIArgPTy = llvm::dyn_cast<llvm::PointerType>(CIArgTy);
       if (FPPTy && CIArgPTy &&
           FPPTy->getElementType() == CIArgPTy->getElementType()) {
-        BadSigDesc = "arguments in different address spaces";
+        BadSigDesc = "passing parameter " + std::to_string(i+1) +
+            " with incompatible address space";
       } else {
-        BadSigDesc = "arguments of different types";
+        BadSigDesc = "passing parameter " + std::to_string(i+1) +
+            " with incompatible type";
       }
       return false;
     }

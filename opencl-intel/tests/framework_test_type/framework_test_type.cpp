@@ -837,9 +837,14 @@ TEST(FrameworkTestType, Test_cl12_atomic_add_float)
     EXPECT_TRUE(cl12_atomic_add_float_test());
 }
 
-TEST(FrameworkTestType, Test_clFuncSignatureInconsistencyOnLinkageTest)
+TEST(FrameworkTestType, Test_clFuncIncompatParamASOnLinkageTest)
 {
-    clFuncSignatureInconsistencyOnLinkageTest();
+    clFuncIncompatParamASOnLinkageTest();
+}
+
+TEST(FrameworkTestType, Test_clFuncWrongNumParamsOnLinkageTest)
+{
+    clFuncWrongNumParamsOnLinkageTest();
 }
 
 /////////////////////////////////////////////////////////////////////
