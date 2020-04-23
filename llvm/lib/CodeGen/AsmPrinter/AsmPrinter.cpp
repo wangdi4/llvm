@@ -36,16 +36,13 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/CodeGen/GCMetadata.h"
 #include "llvm/CodeGen/GCMetadataPrinter.h"
 #include "llvm/CodeGen/GCStrategy.h"
-#include "llvm/CodeGen/LazyMachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -60,7 +57,6 @@
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
-#include "llvm/CodeGen/MachineSizeOpts.h"
 #include "llvm/CodeGen/StackMaps.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
@@ -273,8 +269,6 @@ void AsmPrinter::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<MachineModuleInfoWrapperPass>();
   AU.addRequired<MachineOptimizationRemarkEmitterPass>();
   AU.addRequired<GCModuleInfo>();
-  AU.addRequired<LazyMachineBlockFrequencyInfoPass>();
-  AU.addRequired<ProfileSummaryInfoWrapperPass>();
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1841,13 +1835,6 @@ void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
   }
 
   ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
-  PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-  MBFI = (PSI && PSI->hasProfileSummary()) ?
-         // ORE conditionally computes MBFI. If available, use it, otherwise
-         // request it.
-         (ORE->getBFI() ? ORE->getBFI() :
-          &getAnalysis<LazyMachineBlockFrequencyInfoPass>().getBFI()) :
-         nullptr;
 }
 
 namespace {
@@ -3254,8 +3241,12 @@ void AsmPrinterHandler::markFunctionEnd() {}
 // describes each instrumentation point.  When XRay patches your code, the index
 // into this table will be given to your handler as a patch point identifier.
 void AsmPrinter::XRayFunctionEntry::emit(int Bytes, MCStreamer *Out,
+                                         const MCExpr *Location,
                                          const MCSymbol *CurrentFnSym) const {
-  Out->emitSymbolValue(Sled, Bytes);
+  if (Location)
+    Out->emitValueImpl(Location, Bytes);
+  else
+    Out->emitSymbolValue(Sled, Bytes);
   Out->emitSymbolValue(CurrentFnSym, Bytes);
   auto Kind8 = static_cast<uint8_t>(Kind);
   Out->emitBinaryData(StringRef(reinterpret_cast<const char *>(&Kind8), 1));
@@ -3275,9 +3266,14 @@ void AsmPrinter::emitXRayTable() {
   const Function &F = MF->getFunction();
   MCSection *InstMap = nullptr;
   MCSection *FnSledIndex = nullptr;
-  if (MF->getSubtarget().getTargetTriple().isOSBinFormatELF()) {
+  const Triple &TT = TM.getTargetTriple();
+  // Version 2 uses a PC-relative address on all supported targets.
+  bool PCRel = TT.isX86();
+  if (TT.isOSBinFormatELF()) {
     auto LinkedToSym = cast<MCSymbolELF>(CurrentFnSym);
-    auto Flags = ELF::SHF_WRITE | ELF::SHF_ALLOC | ELF::SHF_LINK_ORDER;
+    auto Flags = ELF::SHF_ALLOC | ELF::SHF_LINK_ORDER;
+    if (!PCRel)
+      Flags |= ELF::SHF_WRITE;
     StringRef GroupName;
     if (F.hasComdat()) {
       Flags |= ELF::SHF_GROUP;
@@ -3306,8 +3302,17 @@ void AsmPrinter::emitXRayTable() {
   MCSymbol *SledsStart = OutContext.createTempSymbol("xray_sleds_start", true);
   OutStreamer->SwitchSection(InstMap);
   OutStreamer->emitLabel(SledsStart);
-  for (const auto &Sled : Sleds)
-    Sled.emit(WordSizeBytes, OutStreamer.get(), CurrentFnSym);
+  for (const auto &Sled : Sleds) {
+    const MCExpr *Location = nullptr;
+    if (PCRel) {
+      MCSymbol *Dot = OutContext.createTempSymbol();
+      OutStreamer->emitLabel(Dot);
+      Location = MCBinaryExpr::createSub(
+          MCSymbolRefExpr::create(Sled.Sled, OutContext),
+          MCSymbolRefExpr::create(Dot, OutContext), OutContext);
+    }
+    Sled.emit(WordSizeBytes, OutStreamer.get(), Location, CurrentFnSym);
+  }
   MCSymbol *SledsEnd = OutContext.createTempSymbol("xray_sleds_end", true);
   OutStreamer->emitLabel(SledsEnd);
 
