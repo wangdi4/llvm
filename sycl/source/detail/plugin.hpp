@@ -24,13 +24,8 @@ class plugin {
 public:
   plugin() = delete;
 
-<<<<<<< HEAD
-  plugin(RT::PiPlugin Plugin, RT::Backend UseBackend) // INTEL
-      : MPlugin(Plugin), MBackend(UseBackend) {}  //INTEL
-=======
   plugin(RT::PiPlugin Plugin, backend UseBackend)
       : MPlugin(Plugin), MBackend(UseBackend) {}
->>>>>>> 937fec14aeac2607af98450ddf71252321db5573
 
   ~plugin() = default;
 
@@ -57,21 +52,13 @@ public:
   template <PiApiKind PiApiOffset, typename... ArgsT>
   RT::PiResult call_nocheck(ArgsT... Args) const {
     RT::PiFuncInfo<PiApiOffset> PiCallInfo;
-<<<<<<< HEAD
-    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) { // INTEL
-=======
     if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) {
->>>>>>> 937fec14aeac2607af98450ddf71252321db5573
       std::string FnName = PiCallInfo.getFuncName();
       std::cout << "---> " << FnName << "(" << std::endl;
       RT::printArgs(Args...);
     }
     RT::PiResult R = PiCallInfo.getFuncPtr(MPlugin)(Args...);
-<<<<<<< HEAD
-    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) { // INTEL
-=======
     if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) {
->>>>>>> 937fec14aeac2607af98450ddf71252321db5573
       std::cout << ") ---> ";
       RT::printArgs(R);
     }
@@ -87,21 +74,11 @@ public:
     checkPiResult(Err);
   }
 
-<<<<<<< HEAD
-  RT::Backend getBackend(void) const { return MBackend; } // INTEL
-
-private:
-  RT::PiPlugin MPlugin;
-  bool MPiEnableTrace;
-
-  const RT::Backend MBackend; // INTEL
-=======
   backend getBackend(void) const { return MBackend; }
 
 private:
   RT::PiPlugin MPlugin;
   const backend MBackend;
->>>>>>> 937fec14aeac2607af98450ddf71252321db5573
 }; // class plugin
 } // namespace detail
 } // namespace sycl

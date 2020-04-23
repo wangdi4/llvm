@@ -44,21 +44,6 @@ enum class PiApiKind {
 class plugin;
 namespace pi {
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-// TODO: open-source
-// The SYCL_PI_TRACE sets what we will trace.
-// This is a bit-mask of various things we'd want to trace.
-enum TraceLevel {
-  PI_TRACE_BASIC  = 0x1,
-  PI_TRACE_CALLS  = 0x2,
-  PI_TRACE_ALL    = -1
-};
-
-// Return true if we want to trace PI related activities.
-bool trace(TraceLevel level = PI_TRACE_ALL);
-/* end INTEL_CUSTOMIZATION */
-=======
 // The SYCL_PI_TRACE sets what we will trace.
 // This is a bit-mask of various things we'd want to trace.
 enum TraceLevel {
@@ -69,7 +54,6 @@ enum TraceLevel {
 
 // Return true if we want to trace PI related activities.
 bool trace(TraceLevel level);
->>>>>>> 937fec14aeac2607af98450ddf71252321db5573
 
 #ifdef SYCL_RT_OS_WINDOWS
 #define OPENCL_PLUGIN_NAME "pi_opencl.dll"
@@ -142,24 +126,6 @@ void *loadOsLibrary(const std::string &Library);
 // library, implementation is OS dependent.
 void *getOsLibraryFuncAddress(void *Library, const std::string &FunctionName);
 
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-// TODO: open-source
-// For selection of SYCL RT back-end, now manually through the "SYCL_BE"
-// environment variable.
-enum Backend {
-  SYCL_BE_PI_OPENCL,
-  SYCL_BE_PI_LEVEL0,
-  SYCL_BE_PI_CUDA,
-  SYCL_BE_DEFAULT = SYCL_BE_PI_LEVEL0
-};
-
-// Get the preferred BE (selected with SYCL_BE).
-Backend getPreferredBE();
-/* end INTEL_CUSTOMIZATION */
-
-=======
->>>>>>> 937fec14aeac2607af98450ddf71252321db5573
 // Get a string representing a _pi_platform_info enum
 std::string platformInfoToString(pi_platform_info info);
 

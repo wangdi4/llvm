@@ -1672,11 +1672,7 @@ cl_int ExecCGCommand::enqueueImp() {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
         RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-<<<<<<< HEAD
-        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_OPENCL)) {
-=======
         if (Plugin.getBackend() == backend::opencl) {
->>>>>>> 937fec14aeac2607af98450ddf71252321db5573
           Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                  sizeof(RT::PiMem), &MemArg);
         } else {
@@ -1695,7 +1691,7 @@ cl_int ExecCGCommand::enqueueImp() {
         RT::PiSampler Sampler =
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
 #if INTEL_CUSTOMIZATION
-        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_LEVEL0)) {
+        if (Plugin.getBackend() == (backend::level0)) {
           Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel,
               Arg.MIndex, (const RT::PiMem*)&Sampler);
           break;
