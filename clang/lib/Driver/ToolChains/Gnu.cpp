@@ -875,9 +875,13 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         WantPthread = true;
 
 #if INTEL_CUSTOMIZATION
-        // Use of -mkl implies pthread
-        if (Args.hasArg(options::OPT_mkl_EQ))
-          WantPthread = true;
+      // Use of -mkl implies pthread
+      if (Args.hasArg(options::OPT_mkl_EQ))
+        WantPthread = true;
+      // -stdlib=libc++ implies pthread
+      if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
+          Args.hasArg(options::OPT__intel))
+        WantPthread = true;
 #endif // INTEL_CUSTOMIZATION
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
