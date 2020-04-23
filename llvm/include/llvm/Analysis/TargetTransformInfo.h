@@ -201,6 +201,26 @@ public:
     TCC_Expensive = 4 ///< The cost of a 'div' instruction on x86.
   };
 
+#if INTEL_CUSTOMIZATION
+  // This was removed in the community (D76124), but was kept here
+  // temporarily as LoopOpt needs it for now.
+  /// Estimate the cost of a specific operation when lowered.
+  ///
+  /// Note that this is designed to work on an arbitrary synthetic opcode, and
+  /// thus work for hypothetical queries before an instruction has even been
+  /// formed. However, this does *not* work for GEPs, and must not be called
+  /// for a GEP instruction. Instead, use the dedicated getGEPCost interface as
+  /// analyzing a GEP's cost required more information.
+  ///
+  /// Typically only the result type is required, and the operand type can be
+  /// omitted. However, if the opcode is one of the cast instructions, the
+  /// operand type is required.
+  ///
+  /// The returned cost is defined in terms of \c TargetCostConstants, see its
+  /// comments for a detailed explanation of the cost values.
+  int getOperationCost(unsigned Opcode, Type *Ty, Type *OpTy = nullptr) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// Estimate the cost of a GEP operation when lowered.
   int getGEPCost(Type *PointeeType, const Value *Ptr,
                  ArrayRef<const Value *> Operands) const;
@@ -1194,6 +1214,9 @@ class TargetTransformInfo::Concept {
 public:
   virtual ~Concept() = 0;
   virtual const DataLayout &getDataLayout() const = 0;
+#if INTEL_CUSTOMIZATION
+  virtual int getOperationCost(unsigned Opcode, Type *Ty, Type *OpTy) = 0;
+#endif // INTEL_CUSTOMIZATION
   virtual int getGEPCost(Type *PointeeType, const Value *Ptr,
                          ArrayRef<const Value *> Operands) = 0;
   virtual int getExtCost(const Instruction *I, const Value *Src) = 0;
@@ -1447,6 +1470,11 @@ public:
     return Impl.getDataLayout();
   }
 
+#if INTEL_CUSTOMIZATION
+  int getOperationCost(unsigned Opcode, Type *Ty, Type *OpTy) override {
+    return Impl.getOperationCost(Opcode, Ty, OpTy);
+  }
+#endif // INTEL_CUSTOMIZATION
   int getGEPCost(Type *PointeeType, const Value *Ptr,
                  ArrayRef<const Value *> Operands) override {
     return Impl.getGEPCost(PointeeType, Ptr, Operands);

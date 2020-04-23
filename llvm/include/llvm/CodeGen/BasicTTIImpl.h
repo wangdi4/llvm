@@ -412,6 +412,31 @@ public:
     return TargetTransformInfo::TCC_Expensive;
   }
 
+#if INTEL_CUSTOMIZATION
+  unsigned getOperationCost(unsigned Opcode, Type *Ty, Type *OpTy) {
+    const TargetLoweringBase *TLI = getTLI();
+    switch (Opcode) {
+    default: break;
+    case Instruction::Trunc:
+      if (TLI->isTruncateFree(OpTy, Ty))
+        return TargetTransformInfo::TCC_Free;
+      return TargetTransformInfo::TCC_Basic;
+    case Instruction::ZExt:
+      if (TLI->isZExtFree(OpTy, Ty))
+        return TargetTransformInfo::TCC_Free;
+      return TargetTransformInfo::TCC_Basic;
+
+    case Instruction::AddrSpaceCast:
+      if (TLI->isFreeAddrSpaceCast(OpTy->getPointerAddressSpace(),
+                                   Ty->getPointerAddressSpace()))
+        return TargetTransformInfo::TCC_Free;
+      return TargetTransformInfo::TCC_Basic;
+    }
+
+    return BaseT::getOperationCost(Opcode, Ty, OpTy);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   unsigned getInliningThresholdMultiplier() { return 1; }
 
   int getInlinerVectorBonusPercent() { return 150; }
