@@ -9,8 +9,8 @@
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE
 ; CHECK:      VISIBLE OUTSIDE LTO: 1
 ; CHECK-NEXT:   _ZN8Derived23fooEv
-; CHECK:     WHOLE PROGRAM NOT DETECTED
-; CHECK:      whole program not seen;
+; CHECK:  WHOLE PROGRAM RESULT:
+; CHECK:    WHOLE PROGRAM READ:  NOT DETECTED
 
 ; Create the Base, Derived and Derived2 classes
 %class.Base = type { i32 (...)** }

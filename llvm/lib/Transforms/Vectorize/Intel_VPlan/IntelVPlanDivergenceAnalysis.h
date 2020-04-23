@@ -317,7 +317,7 @@ private:
   /// Verify that there are no undefined shapes after divergence analysis.
   /// Also ensure that divergent/uniform properties are consistent with vector
   /// shapes.
-  void verifyVectorShapes(const VPLoop *VPLp);
+  void verifyVectorShapes();
 
   /// Verify the shape of each instruction in give Block \p VPBB.
   void verifyBasicBlock(const VPBasicBlock *VPBB);

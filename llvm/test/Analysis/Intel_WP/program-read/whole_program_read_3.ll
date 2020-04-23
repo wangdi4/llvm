@@ -9,7 +9,7 @@
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 
-; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ
+; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
 ; CHECK: SYMBOL NAME: __dso_handle
 ; CHECK:  LINKER ADDED SYMBOL
 

@@ -330,6 +330,9 @@ bool VPlanDivergenceAnalysis::inRegion(const VPInstruction &I) const {
 }
 
 bool VPlanDivergenceAnalysis::inRegion(const VPBasicBlock &BB) const {
+  if (!RegionLoop)
+    return true;
+
   return RegionLoop->contains(&BB);
 }
 
@@ -540,35 +543,6 @@ void VPlanDivergenceAnalysis::computeImpl() {
         !getVectorShape(&I).isUndefined())
       continue;
 
-#if INTEL_CUSTOMIZATION
-    // Propagate branch divergence from the block(s) containing the CondBit.
-    // TODO: this code should be removed after the introduction of the
-    // VPInstruction for branches.
-    if (CondBit2BlockMap.count(&I)) {
-      if (pushMissingOperands(I))
-        continue;
-      if (updateNormalInstruction(I)) {
-        VPVectorShape NewShape = getRandomVectorShape();
-        updateVectorShape(&I, NewShape);
-        // propagate control divergence to affected instructions
-        for (auto *Block : CondBit2BlockMap[&I])
-          propagateBranchDivergence(Block);
-        continue;
-      }
-    }
-#else
-    // propagate divergence caused by terminator
-    if (isa<TerminatorInst>(I)) {
-      auto &Term = cast<TerminatorInst>(I);
-      if (updateTerminator(Term)) {
-        // propagate control divergence to affected instructions
-        propagateBranchDivergence(Term);
-        continue;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
     bool IsPhiNode = (I.getOpcode() == Instruction::PHI);
     bool ShapeUpdated = false;
     VPVectorShape NewShape;
@@ -583,9 +557,18 @@ void VPlanDivergenceAnalysis::computeImpl() {
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     }
 
-    if (ShapeUpdated)
+    if (ShapeUpdated) {
       pushUsers(I);
-#endif // INTEL_CUSTOMIZATION
+
+      // Propagate branch divergence from the block(s) containing the CondBit.
+      // TODO: this code should be removed after the introduction of the
+      // VPInstruction for branches.
+      if (!NewShape.isUniform() && CondBit2BlockMap.count(&I)) {
+        // propagate control divergence to affected instructions
+        for (auto *Block : CondBit2BlockMap[&I])
+          propagateBranchDivergence(Block);
+      }
+    }
   }
 }
 
@@ -706,19 +689,9 @@ void VPlanDivergenceAnalysis::verifyBasicBlock(const VPBasicBlock *VPBB) {
 // Verify that there are no undefined shapes after divergence analysis.
 // Also ensure that divergent/uniform properties are consistent with vector
 // shapes.
-void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
-  for (VPBasicBlock *VPBB : VPLp->getBlocks())
+void VPlanDivergenceAnalysis::verifyVectorShapes() {
+  for (VPBasicBlock *VPBB : depth_first(Plan->getEntryBlock()))
     verifyBasicBlock(VPBB);
-
-  // TODO: Verify the loop-preheader - CMPLRLLVM-11939. The veryifyBlock should
-  // have more thorough checks for entities instructions. Also, the PreHeader is
-  // not part of the 'Loop'.
-  verifyBasicBlock(VPLp->getLoopPreheader());
-
-  // TODO: Verify the loop-postExit - CMPLRLLVM-11939. We may not always have a
-  // PostExit block at this time.
-  if (VPLp->getUniqueExitBlock())
-    verifyBasicBlock(VPLp->getUniqueExitBlock());
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -726,8 +699,15 @@ void VPlanDivergenceAnalysis::verifyVectorShapes(const VPLoop *VPLp) {
 // print function differs from the community version because VPlan is VPLoop
 // based and not Module based (function DA).
 void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
-  OS << "\nPrinting Divergence info for " << *VPLp << "\n";
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(VPLp->getHeader());
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(VPLp ? VPLp->getHeader()
+                                                      : Plan->getEntryBlock());
+  OS << "\nPrinting Divergence info for ";
+  if (VPLp)
+    OS << *VPLp;
+  else
+    OS << Plan->getName();
+  OS << "\n";
+
   for (VPBasicBlock *VPBB : RPOT) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     for (auto &VPInst : *VPBB) {
@@ -1011,7 +991,8 @@ VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForPhiNode(const VPPHINode *Phi) {
 
   // Loop header PHI nodes were already analyzed during initialization.
-  if (Phi->getParent() == RegionLoop->getHeader() && isPinned(*Phi))
+  if (RegionLoop && Phi->getParent() == RegionLoop->getHeader() &&
+      isPinned(*Phi))
     return getVectorShape(Phi);
 
   // Incoming value shapes could be uniform, but the parent of the phi node may
@@ -1463,8 +1444,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
-  SDA = new SyncDependenceAnalysis(RegionLoop->getHeader(), VPDomTree,
-                                   VPPostDomTree, *VPLInfo);
+  SDA = new SyncDependenceAnalysis(CandidateLoop ? CandidateLoop->getHeader()
+                                                 : P->getEntryBlock(),
+                                   VPDomTree, VPPostDomTree, *VPLInfo);
 
   // Push everything to the worklist.
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
@@ -1494,7 +1476,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
   if (VPlanVerifyDA)
-    verifyVectorShapes(RegionLoop);
+    verifyVectorShapes();
 
 #endif // INTEL_CUSTOMIZATION
 
