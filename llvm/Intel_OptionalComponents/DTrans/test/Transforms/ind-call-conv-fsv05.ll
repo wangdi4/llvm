@@ -10,6 +10,9 @@
 ; CHECK-NOT{{.*}}icmp{{.*}}
 ; CHECK:{{.*}}call i32 @bar()
 
+; Needed to specify we are using 8 byte pointers (for memset)
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+
 define dso_local i32 @foo() {
   ret i32 5
 }
@@ -17,9 +20,6 @@ define dso_local i32 @foo() {
 define dso_local i32 @bar() {
   ret i32 5
 }
-
-; Needed to specify we are using 8 byte pointers (for memset)
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 %struct.MYSTRUCT = type { i32 ()*, i32 ()* }
 

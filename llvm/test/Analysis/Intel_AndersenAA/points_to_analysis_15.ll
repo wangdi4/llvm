@@ -5,11 +5,11 @@
 ; CHECK: bug:%4        --> (0): <universal>
 ; CHECK-NOT: [0] bug:%4        -->
 
-%struct.ant_s = type { %struct.info_s* }
-%struct.info_s = type { %struct.info_s*, i32 }
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+%struct.ant_s = type { %struct.info_s* }
+%struct.info_s = type { %struct.info_s*, i32 }
 
 define dso_local i32 @bug(i8* %p_beetle, %struct.ant_s** %pp_ant, i32 (...)* nocapture %wasp, i8* %p_fly) {
 entry:

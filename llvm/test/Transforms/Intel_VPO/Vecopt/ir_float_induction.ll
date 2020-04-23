@@ -9,10 +9,10 @@
 ;  }
 ;}
 
-@fp_inc = local_unnamed_addr global float 0.000000e+00, align 4
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+@fp_inc = local_unnamed_addr global float 0.000000e+00, align 4
 
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL: @fp_iv_loop(
