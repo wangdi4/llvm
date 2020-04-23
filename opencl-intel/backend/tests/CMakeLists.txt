@@ -28,10 +28,8 @@ set(BE_TEST_PARAMS
   be_lit_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
 )
 
-# -s: Show less output, for example, don't show information on tests that pass.
-# -v: Show more information on tests failures, for example the entrie test
-# output instead of just the test result.
-set(BE_TEST_ARGS ${BE_TEST_ARGS} "-s" "-v")
+# Use the same options as LLVM
+set(BE_TEST_ARGS ${LLVM_LIT_ARGS} CACHE STRING "Options for LIT test")
 
 add_custom_target(be-lit-deps DEPENDS ${BE_TEST_DEPS})
 set_target_properties(be-lit-deps PROPERTIES FOLDER "Tests")
