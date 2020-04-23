@@ -1999,9 +1999,9 @@ void NEATPlugIn::popStackAndReturnValueToCaller( const Type *RetTy, NEATGenericV
     // fill in the return value...
     ExecutionContext &CallingSF = (*m_pECStack)[m_pECStack->size()-2];
     NEATExecutionContext &SF = m_NECStack.back();
-    if (Instruction *I = CallingSF.Caller.getInstruction()) {
+    if (Instruction *I = CallingSF.Caller) {
       // Save result...
-      if (!CallingSF.Caller.getType()->isVoidTy())
+      if (!CallingSF.Caller->getType()->isVoidTy())
         SetValue(I, Result, SF);
     }
   }
