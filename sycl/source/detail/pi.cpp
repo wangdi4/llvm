@@ -15,6 +15,7 @@
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/pi.hpp>
+#include <detail/config.hpp>
 #include <detail/plugin.hpp>
 
 #include <bitset>
@@ -22,9 +23,9 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <stddef.h>
 #include <string>
-#include <sstream>
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
 // Include the headers necessary for emitting
@@ -141,6 +142,7 @@ std::string memFlagsToString(pi_mem_flags Flags) {
   return Sstream.str();
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // A singleton class to aid that PI configuration parameters
 // are processed only once, like reading a string from environment
@@ -223,18 +225,25 @@ Backend getPreferredBE() {
 
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
 // GlobalPlugin is a global Plugin used with Interoperability constructors that
 // use low-level objects to construct SYCL class objects.
 std::shared_ptr<plugin> GlobalPlugin;
 
 // Find the plugin at the appropriate location and return the location.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool findPlugins(vector_class<std::pair<std::string, Backend>> &PluginNames) {
+=======
+bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
   // TODO: Based on final design discussions, change the location where the
   // plugin must be searched; how to identify the plugins etc. Currently the
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
+<<<<<<< HEAD
   PluginNames.push_back(std::make_pair<std::string, Backend>(
       OPENCL_PLUGIN_NAME, SYCL_BE_PI_OPENCL));
   PluginNames.push_back(std::make_pair<std::string, Backend>(
@@ -244,6 +253,12 @@ bool findPlugins(vector_class<std::pair<std::string, Backend>> &PluginNames) {
    PluginNames.push_back(std::make_pair<std::string, Backend>(
       CUDA_PLUGIN_NAME, SYCL_BE_PI_CUDA));
 #endif
+=======
+  PluginNames.push_back(std::make_pair<std::string, backend>(OPENCL_PLUGIN_NAME,
+                                                             backend::opencl));
+  PluginNames.push_back(
+      std::make_pair<std::string, backend>(CUDA_PLUGIN_NAME, backend::cuda));
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
@@ -285,6 +300,7 @@ bool trace(TraceLevel Level) {
   return (TraceLevelMask & Level) == Level;
 }
 
+<<<<<<< HEAD
 // Initializes all available Plugins.
 vector_class<plugin> initialize() {
   vector_class<plugin> Plugins;
@@ -293,26 +309,59 @@ vector_class<plugin> initialize() {
 
   if (PluginNames.empty() && trace())
     std::cerr << "SYCL_PI_TRACE[-1]: No Plugins Found." << std::endl;
+=======
+bool trace(TraceLevel Level) {
+  auto TraceLevelMask = SYCLConfig<SYCL_PI_TRACE>::get();
+  return (TraceLevelMask & Level) == Level;
+}
+
+// Initializes all available Plugins.
+vector_class<plugin> initialize() {
+  vector_class<plugin> Plugins;
+  vector_class<std::pair<std::string, backend>> PluginNames;
+  findPlugins(PluginNames);
+
+  if (PluginNames.empty() && trace(PI_TRACE_ALL))
+    std::cerr << "SYCL_PI_TRACE[all]: "
+              << "No Plugins Found." << std::endl;
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
 
   PiPlugin PluginInformation;
   for (unsigned int I = 0; I < PluginNames.size(); I++) {
     void *Library = loadPlugin(PluginNames[I].first);
+<<<<<<< HEAD
     if (!Library) {
       if (trace()) {
         std::cerr << "SYCL_PI_TRACE[-1]: Check if plugin is present. "
+=======
+
+    if (!Library) {
+      if (trace(PI_TRACE_ALL)) {
+        std::cerr << "SYCL_PI_TRACE[all]: "
+                  << "Check if plugin is present. "
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
                   << "Failed to load plugin: " << PluginNames[I].first
                   << std::endl;
       }
       continue;
     }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (!bindPlugin(Library, &PluginInformation)) {
       if (trace()) {
         std::cerr << "SYCL_PI_TRACE[-1]: Failed to bind PI APIs to the plugin: "
+=======
+
+    if (!bindPlugin(Library, &PluginInformation)) {
+      if (trace(PI_TRACE_ALL)) {
+        std::cerr << "SYCL_PI_TRACE[all]: "
+                  << "Failed to bind PI APIs to the plugin: "
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
                   << PluginNames[I].first << std::endl;
       }
       continue;
     }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
     // Set the Global Plugin based on SYCL_INTEROP_BE.
     if (Config<Backend, SYCL_INTEROP_BE>::get() == PluginNames[I].second) {
@@ -322,6 +371,23 @@ vector_class<plugin> initialize() {
     Plugins.push_back(plugin(PluginInformation, PluginNames[I].second));
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[1]: Plugin found and successfully loaded: "
+=======
+    backend *BE = SYCLConfig<SYCL_BE>::get();
+    if (!BE || (*BE == backend::opencl &&
+                PluginNames[I].first.find("opencl") != std::string::npos)) {
+      // Use the OpenCL plugin as the GlobalPlugin
+      GlobalPlugin =
+          std::make_shared<plugin>(PluginInformation, backend::opencl);
+    } else if (*BE == backend::cuda &&
+               PluginNames[I].first.find("cuda") != std::string::npos) {
+      // Use the CUDA plugin as the GlobalPlugin
+      GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
+    }
+    Plugins.emplace_back(plugin(PluginInformation, PluginNames[I].second));
+    if (trace(TraceLevel::PI_TRACE_BASIC))
+      std::cerr << "SYCL_PI_TRACE[basic]: "
+                << "Plugin found and successfully loaded: "
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
                 << PluginNames[I].first << std::endl;
   }
 

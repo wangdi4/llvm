@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <CL/sycl/backend_types.hpp>
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/os_util.hpp>
@@ -277,7 +278,12 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   }
 
   // OpenCL 2.1 and greater require clCreateProgramWithIL
+<<<<<<< HEAD
   if ((CBackend == pi::SYCL_BE_PI_OPENCL) && // INTEL
+=======
+  backend CBackend = (detail::getSyclObjImpl(C)->getPlugin()).getBackend();
+  if ((CBackend == backend::opencl) &&
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
       C.get_platform().get_info<info::platform::version>() >= "2.1")
     return true;
 

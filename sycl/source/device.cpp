@@ -10,6 +10,7 @@
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/info/info_desc.hpp>
+#include <detail/config.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/force_device.hpp>
 
@@ -50,6 +51,14 @@ vector_class<device> device::get_devices(info::device_type deviceType) {
   if (detail::match_types(deviceType, forced_type)) {
     detail::force_type(deviceType, forced_type);
     for (const auto &plt : platform::get_platforms()) {
+      // If SYCL_BE is set then skip platforms which doesn't have specified
+      // backend.
+      backend *ForcedBackend = detail::SYCLConfig<detail::SYCL_BE>::get();
+      if (ForcedBackend)
+        if (!plt.is_host() &&
+            (detail::getSyclObjImpl(plt)->getPlugin().getBackend() !=
+             *ForcedBackend))
+          continue;
       if (includeHost && plt.is_host()) {
         vector_class<device> host_device(
             plt.get_devices(info::device_type::host));
@@ -64,6 +73,7 @@ vector_class<device> device::get_devices(info::device_type deviceType) {
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // TODO: open-source
   //
@@ -112,6 +122,8 @@ vector_class<device> device::get_devices(info::device_type deviceType) {
   }
 
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
   return devices;
 }
 

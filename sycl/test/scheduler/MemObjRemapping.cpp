@@ -1,5 +1,9 @@
 // RUN: %clangxx -fsycl %s -o %t.out
+<<<<<<< HEAD
 // RUN: env SYCL_PI_TRACE=-1 %CPU_RUN_PLACEHOLDER %t.out 2>&1 %CPU_CHECK_PLACEHOLDER
+=======
+// RUN: env SYCL_PI_TRACE=2 %CPU_RUN_PLACEHOLDER %t.out 2>&1 %CPU_CHECK_PLACEHOLDER
+>>>>>>> 937fec14aeac2607af98450ddf71252321db5573
 #include <CL/sycl.hpp>
 #include <cassert>
 #include <cstddef>
