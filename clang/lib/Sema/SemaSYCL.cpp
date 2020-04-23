@@ -1132,80 +1132,6 @@ class SyclKernelBodyCreator
       ParamDREs[I] = SemaRef.BuildDeclRefExpr(KernelParameters[I], ParamType,
                                               VK_LValue, SourceLocation());
     }
-<<<<<<< HEAD
-  };
-
-  // Create parameter descriptor for accessor in case when it's wrapped with
-  // some class.
-  // TODO: Do we need support case when sampler is wrapped with some class or
-  // struct?
-  std::function<void(const FieldDecl *, const QualType &ArgTy)>
-      createParamDescForWrappedAccessors =
-          [&](const FieldDecl *Fld, const QualType &ArgTy) {
-            const auto *Wrapper = ArgTy->getAsCXXRecordDecl();
-            for (const auto *WrapperFld : Wrapper->fields()) {
-              QualType FldType = WrapperFld->getType();
-              if (FldType->isStructureOrClassType()) {
-                if (Util::isSyclAccessorType(FldType)) {
-                  // Accessor field is found - create descriptor.
-                  createSpecialSYCLObjParamDesc(WrapperFld, FldType);
-                } else if (Util::isSyclSpecConstantType(FldType)) {
-                  // Don't try recursive search below.
-                } else {
-                  // Field is some class or struct - recursively check for
-                  // accessor fields.
-                  createParamDescForWrappedAccessors(WrapperFld, FldType);
-                }
-              }
-            }
-          };
-
-  bool AllArgsAreValid = true;
-  // Run through kernel object fields and create corresponding kernel
-  // parameters descriptors. There are a several possible cases:
-  //   - Kernel object field is a SYCL special object (SYCL accessor or SYCL
-  //     sampler). These objects has a special initialization scheme - using
-  //     __init method.
-  //   - Kernel object field has a scalar type. In this case we should add
-  //     kernel parameter with the same type.
-  //   - Kernel object field has a structure or class type. Same handling as a
-  //     scalar but we should check if this structure/class contains accessors
-  //     and add parameter decriptor for them properly.
-  for (const auto *Fld : KernelObj->fields()) {
-    QualType ArgTy = Fld->getType();
-    if (Util::isSyclAccessorType(ArgTy) || Util::isSyclSamplerType(ArgTy)) {
-      createSpecialSYCLObjParamDesc(Fld, ArgTy);
-    } else if (Util::isSyclSpecConstantType(ArgTy)) {
-      // Specialization constants are not added as arguments.
-    } else if (ArgTy->isStructureOrClassType()) {
-      if (Context.getLangOpts().SYCLStdLayoutKernelParams) {
-        if (!ArgTy->isStandardLayoutType()) {
-          Context.getDiagnostics().Report(Fld->getLocation(),
-                                          diag::err_sycl_non_std_layout_type)
-              << ArgTy;
-          AllArgsAreValid = false;
-          continue;
-        }
-      }
-      CXXRecordDecl *RD =
-          cast<CXXRecordDecl>(ArgTy->getAs<RecordType>()->getDecl());
-      if (!RD->hasTrivialCopyConstructor()) {
-        Context.getDiagnostics().Report(
-            Fld->getLocation(),
-            diag::err_sycl_non_trivially_copy_ctor_dtor_type)
-            << 0 << ArgTy;
-        AllArgsAreValid = false;
-        continue;
-      }
-      if (!RD->hasTrivialDestructor()) {
-        Context.getDiagnostics().Report(
-            Fld->getLocation(),
-            diag::err_sycl_non_trivially_copy_ctor_dtor_type)
-            << 1 << ArgTy;
-         AllArgsAreValid = false;
-         continue;
-       }
-=======
 
     MemberExpr *SpecialObjME = BuildMemberExpr(Base, Field);
     MemberExpr *MethodME = BuildMemberExpr(SpecialObjME, Method);
@@ -1226,7 +1152,6 @@ class SyclKernelBodyCreator
     else
       BodyStmts.push_back(Call);
   }
->>>>>>> de1c3631b04e3aaf6e5ed08a53333743e9c65e2e
 
   // FIXME Avoid creation of kernel obj clone.
   // See https://github.com/intel/llvm/issues/1544 for details.
