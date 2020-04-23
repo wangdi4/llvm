@@ -1010,7 +1010,8 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
     }
 
 #if INTEL_CUSTOMIZATION
-    IPOUtils::preserveOrSuppressInlineReport(Call, New);
+    IPOUtils::preserveOrSuppressInlineReport(cast<Instruction>(&CB),
+                                             cast<Instruction>(NewCB));
 #endif //INTEL_CUSTOMIZATION
 
     // Finally, remove the old call from the program, reducing the use-count of
