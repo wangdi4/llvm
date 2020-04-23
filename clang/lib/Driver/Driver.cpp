@@ -1800,8 +1800,6 @@ llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
   TT.setVendor(llvm::Triple::UnknownVendor);
   TT.setOS(llvm::Triple::UnknownOS);
   TT.setEnvironment(llvm::Triple::SYCLDevice);
-  if (IsCLMode())
-    TT.setObjectFormat(llvm::Triple::COFF);
   return TT;
 }
 
@@ -2644,8 +2642,6 @@ bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
   TT.setVendorName("intel");
   TT.setOS(llvm::Triple::UnknownOS);
   TT.setEnvironment(llvm::Triple::SYCLDevice);
-  if (C.getDriver().IsCLMode())
-    TT.setObjectFormat(llvm::Triple::COFF);
 
   // Checking uses -check-section option with the input file, no output
   // file and the target triple being looked for.
