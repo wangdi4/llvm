@@ -1641,7 +1641,7 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
     { ISD::TRUNCATE,    MVT::v8i16, MVT::v8i32,  5 },
     { ISD::TRUNCATE,    MVT::v4i8,  MVT::v4i64,  4 },
     { ISD::TRUNCATE,    MVT::v4i16, MVT::v4i64,  4 },
-    { ISD::TRUNCATE,    MVT::v4i32, MVT::v4i64,  4 },
+    { ISD::TRUNCATE,    MVT::v4i32, MVT::v4i64,  2 }, //INTEL: extract + shufps
     { ISD::TRUNCATE,    MVT::v8i8,  MVT::v8i64, 11 },
     { ISD::TRUNCATE,    MVT::v8i16, MVT::v8i64,  9 },
     { ISD::TRUNCATE,    MVT::v8i32, MVT::v8i64,  9 },
