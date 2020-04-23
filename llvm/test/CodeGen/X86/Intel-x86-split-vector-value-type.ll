@@ -37,6 +37,22 @@ entry:
   ret <16 x i32*> %res
 }
 
+; CMPLRLLVM-19344: Test for split SelectInst when condition type is i1.
+define <32 x i1> @selectSplitTest(<32 x i32>* %x0_ptr, <32 x i32>* %y0_ptr, <32 x i32>* %z0_ptr, i1 %cond) {
+; CHECK-LABEL: selectSplitTest
+; CHECK:       %sel.l = select i1 %cond, <16 x i32> %x0.l, <16 x i32> %y0.l
+; CHECK-NEXT:  %sel.h = select i1 %cond, <16 x i32> %x0.h, <16 x i32> %y0.h
+entry:
+  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
+  %z0 = load <32 x i32>, <32 x i32>* %z0_ptr
+  %sel = select i1 %cond, <32 x i32> %x0, <32 x i32> %y0
+  %cmp0 = icmp sgt <32 x i32> %sel, %z0
+  %cmp1 = icmp sgt <32 x i32> %x0, %y0
+  %res = and <32 x i1> %cmp0, %cmp1
+  ret <32 x i1> %res
+}
+
 define <32 x i1> @insertelementSplitTest(<32 x i32>* %data_ptr, i32 %val1, i32 %val2) {
 ; CHECK-LABEL:  insertelementSplitTest
 ; CHECK:        %x0.h = insertelement <16 x i32> %data.h, i32 %val1, i32 4
