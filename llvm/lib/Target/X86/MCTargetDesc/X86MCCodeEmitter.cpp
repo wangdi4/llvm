@@ -1227,8 +1227,10 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     // +-----+ +--------------+ +-------------------+ +------------------------+
     // | 62h | | RXBR' | 00mm | | W | vvvv | U | pp | | z | L'L | b | v' | aaa |
     // +-----+ +--------------+ +-------------------+ +------------------------+
-    assert((VEX_5M & 0x3) == VEX_5M &&
-           "More than 2 significant bits in VEX.m-mmmm fields for EVEX!");
+#if INTEL_CUSTOMIZATION
+    assert((VEX_5M & 0x7) == VEX_5M &&
+           "More than 3 significant bits in VEX.m-mmmm fields for EVEX!");
+#endif // INTEL_CUSTOMIZATION
 
     emitByte(0x62, OS);
     emitByte((VEX_R << 7) | (VEX_X << 6) | (VEX_B << 5) | (EVEX_R2 << 4) |
