@@ -4793,7 +4793,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT__SLASH_Qlong_double,
                    options::OPT__SLASH_Qlong_double_, false))
     CmdArgs.push_back("-fintel-long-double-size=80");
-  #endif // INTEL_CUSTOMIZATION
+
+  for (const Arg *A : Args.filtered(options::OPT_fimf_arch_consistency_EQ)) {
+       CmdArgs.push_back(Args.MakeArgString(
+           Twine("-mGLOB_imf_attr=arch-consistency:") + A->getValue()));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Decide whether to use verbose asm. Verbose assembly is the default on
   // toolchains which have the integrated assembler on by default.

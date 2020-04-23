@@ -1556,6 +1556,12 @@ def fmodules : Flag <["-"], "fmodules">, Group<f_Group>,
 def fimplicit_module_maps : Flag <["-"], "fimplicit-module-maps">, Group<f_Group>,
   Flags<[DriverOption, CC1Option]>,
   HelpText<"Implicitly search the file system for module map files.">;
+#if INTEL_CUSTOMIZATION
+def fimf_arch_consistency_EQ : Joined<["-"],"fimf-arch-consistency=">,
+  Group<f_Group>, Flags<[DriverOption]>, HelpText<"Ensures that "
+  "the math library functions produce consistent results across different "
+  "implementations of the same architecture">;
+#endif // INTEL_CUSTOMIZATION
 def fmodules_ts : Flag <["-"], "fmodules-ts">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Enable support for the C++ Modules TS">;
 def fmodule_maps : Flag <["-"], "fmodule-maps">, Alias<fimplicit_module_maps>;

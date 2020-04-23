@@ -111,3 +111,7 @@
 
 // RUN: %clang_cl -### -Qlong-double -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
 // LONG_DOUBLE: clang{{.*}} "-fintel-long-double-size=80"
+
+// RUN: %clang -### -fimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
+// RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
+// CHECK-FIMF-ARCH: "-mGLOB_imf_attr=arch-consistency:none"
