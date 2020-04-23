@@ -28,7 +28,9 @@
 #ifndef LLVM_TRANSFORMS_VPO_PAROPT_ATOMICS_H
 #define LLVM_TRANSFORMS_VPO_PAROPT_ATOMICS_H
 
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #include <map>
@@ -56,7 +58,8 @@ public:
   /// thread ID. Needed for KMPC calls.
   /// \param [in] IsTargetSPIRV if true don't emit the Ident and Tid parameters
   static bool handleAtomic(WRNAtomicNode *AtomicNode, StructType *IdentTy,
-                           Constant *TidPtr, bool IsTargetSPIRV);
+                           Constant *TidPtr, DominatorTree *DT, LoopInfo *LI,
+                           bool IsTargetSPIRV);
 
   /// Transforms update operation sequence into an atomic update.
   ///

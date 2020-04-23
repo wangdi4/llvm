@@ -1854,11 +1854,6 @@ private:
   /// ND-range information (see implementation for details).
   bool constructNDRangeInfo(WRegionNode *W);
 
-  /// Marks the given region \p W as may-have-openmp-critical,
-  /// if it contains "omp critical" or a call that may "invoke"
-  /// "omp critical".
-  void setMayHaveOMPCritical(WRegionNode *W) const;
-
   /// If the given region is an OpenMP loop construct with collapse
   /// clause, then the method will collapse the loop nest accordingly.
   /// Otherwise, it will do nothing.
