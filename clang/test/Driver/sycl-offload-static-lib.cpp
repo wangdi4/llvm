@@ -1,3 +1,6 @@
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: intel_opencl && i686-pc-windows
+// end INTEL_CUSTOMIZATION
 ///
 /// Perform several driver tests for SYCL offloading with -foffload-static-lib
 ///
