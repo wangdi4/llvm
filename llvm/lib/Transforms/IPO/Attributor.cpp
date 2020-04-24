@@ -401,6 +401,7 @@ bool IRPosition::getAttrsFromAssumes(Attribute::AttrKind AK,
 }
 
 void IRPosition::verify() {
+#ifdef EXPENSIVE_CHECKS
   switch (KindOrArgNo) {
   default:
     assert(KindOrArgNo >= 0 && "Expected argument or call site argument!");
@@ -448,6 +449,7 @@ void IRPosition::verify() {
     assert(AnchorVal == &getAssociatedValue() && "Associated value mismatch!");
     break;
   }
+#endif
 }
 
 Optional<Constant *>
