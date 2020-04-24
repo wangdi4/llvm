@@ -907,17 +907,12 @@ static bool isFunctionMallocLike(Function *F, const SCCNodeSet &SCCNodes) {
         break;
       case Instruction::Call:
       case Instruction::Invoke: {
-<<<<<<< HEAD
         if (auto *I = dyn_cast<AddressInst>(RVI)) {      // INTEL
           FlowsToReturn.insert(I->getPointerOperand());  // INTEL
           continue;                                      // INTEL
         }                                                // INTEL
-        CallSite CS(RVI);
-        if (CS.hasRetAttr(Attribute::NoAlias))
-=======
         CallBase &CB = cast<CallBase>(*RVI);
         if (CB.hasRetAttr(Attribute::NoAlias))
->>>>>>> 9ee02aef62870850c957354def8cff9644b4e6c9
           break;
         if (CB.getCalledFunction() && SCCNodes.count(CB.getCalledFunction()))
           break;
@@ -1025,18 +1020,13 @@ static bool isReturnNonNull(Function *F, const SCCNodeSet &SCCNodes,
     }
     case Instruction::Call:
     case Instruction::Invoke: {
-<<<<<<< HEAD
       if (auto *I = dyn_cast<AddressInst>(RVI)) {      // INTEL
         FlowsToReturn.insert(I->getPointerOperand());  // INTEL
         continue;                                      // INTEL
       }                                                // INTEL
 
-      CallSite CS(RVI);
-      Function *Callee = CS.getCalledFunction();
-=======
       CallBase &CB = cast<CallBase>(*RVI);
       Function *Callee = CB.getCalledFunction();
->>>>>>> 9ee02aef62870850c957354def8cff9644b4e6c9
       // A call to a node within the SCC is assumed to return null until
       // proven otherwise
       if (Callee && SCCNodes.count(Callee)) {
