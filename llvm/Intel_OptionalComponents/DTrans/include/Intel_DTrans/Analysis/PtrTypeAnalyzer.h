@@ -37,6 +37,7 @@ class raw_ostream;
 
 namespace dtrans {
 
+class DTransArrayType;
 class DTransType;
 class DTransTypeManager;
 class PtrTypeAnalyzerImpl;
@@ -118,10 +119,12 @@ public:
   // need to preallocate memory.
   typedef std::set<TypeAndPointeeLocPair> ElementPointeeSet;
   typedef std::set<TypeAndPointeeLocPair> &ElementPointeeSetRef;
+  typedef std::set<TypeAndPointeeLocPair> const &ElementPointeeSetConstRef;
 
   // Most Values will have very few possible types.
   typedef SmallPtrSet<DTransType *, 2> PointerTypeAliasSet;
   typedef SmallPtrSetImpl<DTransType *> &PointerTypeAliasSetRef;
+  typedef SmallPtrSetImpl<DTransType *> const &PointerTypeAliasSetConstRef;
 
   ValueTypeInfo(Value *V) : V(V) {}
 
@@ -169,13 +172,25 @@ public:
     return PointerTypeAliases[Kind];
   }
 
+  PointerTypeAliasSetConstRef
+  getPointerTypeAliasSet(ValueAnalysisType Kind) const {
+    return PointerTypeAliases[Kind];
+  }
+
   // Retrieve the (declared or usage type) element pointee set for iterating.
   ElementPointeeSetRef getElementPointeeSet(ValueAnalysisType Kind) {
     return ElementPointees[Kind];
   }
 
+  ElementPointeeSetConstRef getElementPointeeSet(ValueAnalysisType Kind) const {
+    return ElementPointees[Kind];
+  }
+
   // Indicates that an element in the alias set is an aggregate type.
-  bool canAliasToAggregatePointer() { return AliasesToAggregatePointer; }
+  bool canAliasToAggregatePointer() const { return AliasesToAggregatePointer; }
+
+  // Indicates the Value is used as an element within an aggregate type.
+  bool pointsToSomeElement() const { return !ElementPointees[VAT_Use].empty(); }
 
   // Indicate that the Value object could not be processed during type
   // determination. For example, a global pointer variable which should have had
@@ -187,6 +202,9 @@ public:
   // could not be processed.
   void setDependsOnUnhandled();
   bool getDependsOnUnhandled() const { return DependsOnUnhandled; }
+
+  void setUnknownByteFlattenedGEP();
+  bool getUnknownByteFlattenedGEP() const { return UnknownByteFlattenedGEP; }
 
   // These control the state machine that tracks the progress of analyzing the
   // value.
@@ -241,6 +259,12 @@ private:
   // The value object had a dependency on a value that could not be handled by
   // the analysis, which means the type recovery information may be incomplete.
   bool DependsOnUnhandled = false;
+
+  // Indicates this Value object is involved in a ByteGEP that could not be
+  // resolved to being a specific element of any of the aggregate types this
+  // value may represent. This information will be used by the safety analyzer
+  // to mark the types with a safety flag.
+  bool UnknownByteFlattenedGEP = false;
 
   // Used for handling cyclic dependencies that require multiple rounds of the
   // analysis routine.
