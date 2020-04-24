@@ -16,9 +16,9 @@
 
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
@@ -78,11 +78,11 @@ static bool isLoopIndexArg(Value *Arg) {
 }
 
 //
-// Return 'true' if 'CS' has an actual argument which is (at least
+// Return 'true' if 'CB' has an actual argument which is (at least
 // heuristically) the index of a loop.
 //
-static bool hasLoopIndexArg(CallSite &CS) {
-  for (auto &Arg : CS.args())
+static bool hasLoopIndexArg(CallBase &CB) {
+  for (auto &Arg : CB.args())
     if (isLoopIndexArg(Arg.get()))
       return true;
   return false;
@@ -233,38 +233,37 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
       continue;
     if (CLI)
       return false;
-    CallSite CS(U);
-    if (!CS || CS.getCalledFunction() != F)
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB || CB->getCalledFunction() != F)
       return false;
-    if (Arg.getArgNo() >= CS.arg_size())
+    if (Arg.getArgNo() >= CB->arg_size())
       return false;
-    if (*(CS.arg_begin() + Arg.getArgNo()) != LAV)
+    if (*(CB->arg_begin() + Arg.getArgNo()) != LAV)
       return false;
-    CLI = cast<CallInst>(CS.getInstruction());
+    CLI = cast<CallInst>(CB);
   }
   bool SawBasis = false;
   bool SawRecCall = false;
   // Check for the basis call and recursive call.
   for (User *U : F->users()) {
-    CallSite CS(U);
-    if (!CS || CS.getCalledFunction() != F)
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB || CB->getCalledFunction() != F)
       return false;
-    if (Arg.getArgNo() >= CS.arg_size())
+    if (Arg.getArgNo() >= CB->arg_size())
       return false;
-    auto CSI = CS.getInstruction();
-    if (CSI->getFunction() == F) {
+    if (CB->getFunction() == F) {
       if (SawRecCall)
         return false;
       SawRecCall = true;
     } else {
       if (SawBasis)
         return false;
-      auto AI = dyn_cast<AllocaInst>(CS.arg_begin() + Arg.getArgNo());
+      auto AI = dyn_cast<AllocaInst>(CB->arg_begin() + Arg.getArgNo());
       if (!AI)
         return false;
       bool SawStore = false;
       for (User *V : AI->users()) {
-        if (CSI == V)
+        if (CB == V)
           continue;
         if (SawStore)
           return false;
@@ -356,16 +355,15 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
   // Check for the basis call and recursive calls.
   Function *F = Arg.getParent();
   for (User *U : F->users()) {
-    CallSite CS(U);
-    if (!CS || CS.getCalledFunction() != F)
+    auto CB = dyn_cast<CallBase>(U);
+    if (!CB || CB->getCalledFunction() != F)
       return false;
-    if (Arg.getArgNo() >= CS.arg_size())
+    if (Arg.getArgNo() >= CB->arg_size())
       return false;
-    auto CSI = CS.getInstruction();
-    if (CSI->getFunction() == F) {
+    if (CB->getFunction() == F) {
       if (RecCount > IPRPCloningMaxRecCount)
         return false;
-      auto BO = dyn_cast<BinaryOperator>(CS.arg_begin() + Arg.getArgNo());
+      auto BO = dyn_cast<BinaryOperator>(CB->arg_begin() + Arg.getArgNo());
       if (!BO)
         return false;
       if (BO->getOpcode() != Instruction::Add)
@@ -389,10 +387,10 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
     } else {
       if (SawBasis)
         return false;
-      auto BI = dyn_cast<ConstantInt>(CS.arg_begin() + Arg.getArgNo());
+      auto BI = dyn_cast<ConstantInt>(CB->arg_begin() + Arg.getArgNo());
       if (!BI)
         return false;
-      if (!hasLoopIndexArg(CS))
+      if (!hasLoopIndexArg(*CB))
         return false;
       LocalStart = BI->getSExtValue();
       SawBasis = true;
