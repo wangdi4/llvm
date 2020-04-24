@@ -294,6 +294,8 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
       Opcode = CSA::SHUFI32X2;
     else if (VT.getScalarSizeInBits() == 16)
       Opcode = CSA::SHUFI16X4;
+    else if (VT.getScalarSizeInBits() == 8)
+      Opcode = CSA::SHUFI8X8;
     else
       report_fatal_error("Unsupported vector for shuffle");
     CurDAG->SelectNodeTo(Node, Opcode, VT, Ops);

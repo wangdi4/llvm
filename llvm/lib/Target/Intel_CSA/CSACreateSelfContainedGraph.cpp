@@ -625,6 +625,8 @@ void CSACreateSelfContainedGraph::insertTrampolineCode(
     if (!CallInstList.empty())
       insertTrampolineCode(TopMF,MF,CallInstList,EntryInst);
     else { // This is function that is only being called externally
+           // or may be a dead function
+      if (MF->getFunction().hasLocalLinkage()) continue;
       auto LMFI = TopMF->getInfo<CSAMachineFunctionInfo>();
       MachineInstr *ReturnInst = EntryToReturnMap[EntryInst];
       LMFI->addCSAEntryPoint(MF, EntryInst, ReturnInst);

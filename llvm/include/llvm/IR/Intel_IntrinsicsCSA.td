@@ -266,6 +266,26 @@ def int_csa_abs8x8 : GCCBuiltin<"__builtin_csa_abs8x8">,
 def int_csa_abs16x4 : GCCBuiltin<"__builtin_csa_abs16x4">,
     Intrinsic<[llvm_v4i16_ty], [llvm_v4i16_ty], [IntrNoMem]>;
 
+// Compute the average of packed 8-bit integers in a, and return the results.
+// __m64i __m64_avg_epi8(__m64i a, __m64i b)
+def int_csa_avgs8x8 : GCCBuiltin<"__builtin_csa_avgs8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the average of packed unsigned 8-bit integers in a, and return the results.
+// __m64i __m64_avg_epu8(__m64i a, __m64i b)
+def int_csa_avgu8x8 : GCCBuiltin<"__builtin_csa_avgu8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the average of packed 16-bit integers in a, and return the results.
+// __m64i __m64_avg_epi16(__m64i a, __m64i b)
+def int_csa_avgs16x4 : GCCBuiltin<"__builtin_csa_avgs16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
+// Compute the average of packed unsigned 16-bit integers in a, and return the results.
+// __m64i __m64_avg_epu16(__m64i a, __m64i b)
+def int_csa_avgu16x4 : GCCBuiltin<"__builtin_csa_avgu16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
 // Create mask from the most significant bit of each 8-bit element in a, and return the result.
 // int __m64_movemask_epi8(__m64i a)
 def int_csa_movmsk8x8 : GCCBuiltin<"__builtin_csa_movmsk8x8">,

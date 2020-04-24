@@ -762,10 +762,9 @@ void CSAAsmPrinter::emitFunctionBodyStart() {
     for (unsigned i = 0; i < LMFI->getNumCSAEntryPoints(); ++i) {
       const CSAEntryPoint &CSAEP = LMFI->getCSAEntryPoint(i);
       const Function &F = CSAEP.MF->getFunction();
-      if (i != 0)
-        emitLinkage(&F, OutContext.createTempSymbol(F.getName(), false));
+      if (i != 0) emitLinkage(&F, getSymbol(&F));
       emitSimpleEntryInstruction(CSAEP.MF);
-      emitParamsResultsDecl(CSAEP.EntryMI, CSAEP.ReturnMI);
+      emitParamsResultsDecl(CSAEP.EntryMI,CSAEP.ReturnMI);
     }
   }
   if (not ImplicitLicDefs) {

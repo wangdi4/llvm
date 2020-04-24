@@ -71,6 +71,11 @@ BUILTIN(__builtin_csa_blend8x8,    "V8cUcV8cV8c",        "ncV:64:")
 BUILTIN(__builtin_csa_blend16x4,   "V4sUcV4sV4s",        "ncV:64:")
 BUILTIN(__builtin_csa_blend32x2,   "V2fUcV2fV2f",        "ncV:64:")
 
+BUILTIN(__builtin_csa_avgs8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_avgu8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_avgs16x4,    "V4sV4sV4s",          "ncV:64:")
+BUILTIN(__builtin_csa_avgu16x4,    "V4sV4sV4s",          "ncV:64:")
+
 BUILTIN(__builtin_csa_addf16x4,    "V4hV4hV4hIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_subf16x4,    "V4hV4hV4hIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_mulf16x4,    "V4hV4hV4hIcIcIc",    "ncV:64:")

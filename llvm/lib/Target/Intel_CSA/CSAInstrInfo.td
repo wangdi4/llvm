@@ -1107,6 +1107,33 @@ def ABS16X4: FMTGEN<ABS, Ti16x4,
     "abs16x4\t$res, $op1",
     [(set I64:$res, (int_csa_abs16x4 RCLi16x4:$op1))]>;
 
+// avg simd instructions
+def AVG       : GenericOp<"avg">;
+
+def AVGS8X8: FMTGEN<AVG, Ts8x8,
+    (outs I64:$res),
+    (ins RCLi8x8:$op1, RCLi8x8:$op2),
+    "avgs8x8\t$res, $op1, $op2",
+    [(set I64:$res, (int_csa_avgs8x8 RCLi8x8:$op1, RCLi8x8:$op2))]>;
+
+def AVGU8X8: FMTGEN<AVG, Tu8x8,
+    (outs I64:$res),
+    (ins RCLi8x8:$op1, RCLi8x8:$op2),
+    "avgu8x8\t$res, $op1, $op2",
+    [(set I64:$res, (int_csa_avgu8x8 RCLi8x8:$op1, RCLi8x8:$op2))]>;
+
+def AVGS16X4: FMTGEN<AVG, Ts16x4,
+    (outs I64:$res),
+    (ins RCLi16x4:$op1, RCLi16x4:$op2),
+    "avgs16x4\t$res, $op1, $op2",
+    [(set I64:$res, (int_csa_avgs16x4 RCLi16x4:$op1, RCLi16x4:$op2))]>;
+
+def AVGU16X4: FMTGEN<AVG, Tu16x4,
+    (outs I64:$res),
+    (ins RCLi16x4:$op1, RCLi16x4:$op2),
+    "avgu16x4\t$res, $op1, $op2",
+    [(set I64:$res, (int_csa_avgu16x4 RCLi16x4:$op1, RCLi16x4:$op2))]>;
+
 def ABSF16    : UnaryOp< ABS,    fabs,   Tf16,   IIALU>;
 def ABSF32    : UnaryOp< ABS,    fabs,   Tf32,   IIALU>;
 def ABSF64    : UnaryOp< ABS,    fabs,   Tf64,   IIALU>;
@@ -2696,6 +2723,13 @@ def MOVMSK16X4: FMTGEN<?, Ti16x4,
     (ins RCLi16x4:$op1),
     "movmsk16x4\t$res, $op1",
     [(set I8:$res, (int_csa_movmsk16x4 RCLi16x4:$op1))]>;
+
+def SHUFI8X8: FMTGEN<?, Ti8x8,
+    (outs I64:$res),
+    (ins RCLi8x8:$op1, RCLi8x8:$op2, i8imm:$sel0, i8imm:$sel1, i8imm:$sel2,
+     i8imm:$sel3,  i8imm:$sel4, i8imm:$sel5, i8imm:$sel6, i8imm:$sel7),
+    "shufi8x8\t$res, $op1, $op2, $sel0, $sel1, $sel2, $sel3, $sel4, $sel5, $sel6, $sel7",
+    []>;
 
 def SHUFI16X4: FMTGEN<?, Tf16x4,
     (outs I64:$res),
