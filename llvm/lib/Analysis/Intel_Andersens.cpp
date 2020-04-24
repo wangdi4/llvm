@@ -184,6 +184,16 @@ static const char *(Andersens_Alloc_Intrinsics[]) = {
    nullptr 
 };
 
+// Fortran runtime routines for allocation.
+static const char *(Andersens_Allocatable_Intrinsics[]) = {
+  "for_alloc_allocatable", "for_allocate", nullptr
+};
+
+// Fortran runtime routines for deallocation.
+static const char *(Andersens_Dealloc_Intrinsics[]) = {
+  "for_dealloc_allocatable", "for_deallocate", nullptr
+};
+
 // Not handled lib calls yet: signal, atexit, strerror, strerror_r, localeconv,
 // fopen, fdopen, freopen 
 
@@ -1480,11 +1490,10 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
         if (isa<InlineAsm>(Callee))
           ValueNodes[Callee] = NumObjects++;
 
-        if (const Function *F1 = CB->getCalledFunction()) {
-            if (findNameInTable(F1->getName(), Andersens_Alloc_Intrinsics)) {
-                  ObjectNodes[CB] = NumObjects++;
-           }
-        }
+        if (const Function *F1 = CB->getCalledFunction())
+          if (findNameInTable(F1->getName(), Andersens_Alloc_Intrinsics) ||
+              findNameInTable(F1->getName(), Andersens_Allocatable_Intrinsics))
+                ObjectNodes[CB] = NumObjects++;
       }
     }
   }
@@ -1748,6 +1757,27 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
 
   // Skip it since there is no change in points-to info
   if (F->getName() == "llvm.va_end") {
+    return true;
+  }
+
+  // TODO: Restrict this code only to Fortran once "intel-lang=fortran"
+  // attribute is available for functions.
+  //
+  // No change in points-to info.
+  if (findNameInTable(F->getName(), Andersens_Dealloc_Intrinsics))
+    return true;
+
+  // Model these Fortran runtime lib calls like below:
+  //  *second_arg = dynamic_allocation;
+  //
+  if (findNameInTable(F->getName(), Andersens_Allocatable_Intrinsics)) {
+    unsigned SecondArg = getNode(CB->getArgOperand(1));
+    unsigned TempArg = GraphNodes.size();
+    GraphNodes.push_back(Node());
+    unsigned ObjectIndex = getObject(CB);
+    GraphNodes[ObjectIndex].setValue(CB);
+    CreateConstraint(Constraint::AddressOf, TempArg, ObjectIndex);
+    CreateConstraint(Constraint::Store, SecondArg, TempArg);
     return true;
   }
 
