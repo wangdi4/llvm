@@ -387,13 +387,13 @@ static Value *joinVectorsWithMask(ArrayRef<Value *> VectorsToJoin,
                                   IRBuilder<> &Builder, const Twine &Name) {
   Value *Result = joinVectors(VectorsToJoin, Builder, Name);
   if (SourceValue && Mask) {
-    assert(SourceValue->getType()->getVectorNumElements() ==
-               Result->getType()->getVectorNumElements() &&
-           Mask->getType()->getVectorNumElements() ==
-               Result->getType()->getVectorNumElements() &&
+    assert(cast<VectorType>(SourceValue->getType())->getNumElements() ==
+               cast<VectorType>(Result->getType())->getNumElements() &&
+           cast<VectorType>(Mask->getType())->getNumElements() ==
+               cast<VectorType>(Result->getType())->getNumElements() &&
            "Inconsistent vector length");
-    assert(SourceValue->getType()->getVectorElementType() ==
-               Result->getType()->getVectorElementType() &&
+    assert(cast<VectorType>(SourceValue->getType())->getElementType() ==
+               cast<VectorType>(Result->getType())->getElementType() &&
            "Vector element type mismatch");
     Result = Builder.CreateSelect(Mask, Result, SourceValue, "select.merge");
   }
@@ -409,12 +409,13 @@ Value *MapIntrinToImlImpl::joinSplitCallResults(unsigned NumRet,
   Type *CallType = SplitCalls[0]->getType();
   assert((CallType->isVectorTy() ||
           (CallType->isStructTy() &&
-           CallType->getStructElementType(0)->isVectorTy())) &&
+           cast<StructType>(CallType)->getElementType(0)->isVectorTy())) &&
          "Invalid type of result of SVML call");
-  assert((!(SourceValue && Mask) ||
-          (Mask->getType()->isVectorTy() &&
-           Mask->getType()->getVectorElementType()->isIntegerTy(1))) &&
-         "Invalid mask type");
+  assert(
+      (!(SourceValue && Mask) ||
+       (Mask->getType()->isVectorTy() &&
+        cast<VectorType>(Mask->getType())->getElementType()->isIntegerTy(1))) &&
+      "Invalid mask type");
 
   // Again, we need to handle 2 cases: the return value is a vector,
   // or a structure of vectors.
