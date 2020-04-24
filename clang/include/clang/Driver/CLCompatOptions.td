@@ -244,6 +244,10 @@ def _SLASH_Qx : CLJoined<"Qx">,
 def _SLASH_Qlong_double : CLFlag<"Qlong-double">,
   HelpText<"Enable 80-bit long double">;
 def _SLASH_Qlong_double_ : CLFlag<"Qlong-double-">;
+def _SLASH_Qimf_arch_consistency_EQ : CLJoined<"Qimf-arch-consistency=">,
+  Alias<fimf_arch_consistency_EQ>,HelpText<"Ensures that the math library "
+  "functions produce consistent results across different implementations "
+  "of the same architecture">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
