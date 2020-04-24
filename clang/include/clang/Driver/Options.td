@@ -1561,6 +1561,10 @@ def fimf_arch_consistency_EQ : Joined<["-"],"fimf-arch-consistency=">,
   Group<f_Group>, Flags<[DriverOption]>, HelpText<"Ensures that "
   "the math library functions produce consistent results across different "
   "implementations of the same architecture">;
+def fimf_max_error_EQ : Joined<["-"],"fimf-max-error=">,
+  Group<f_Group>, Flags<[DriverOption]>, HelpText<"defines the "
+  "maximum allowable relative error, measured in ulps, for math "
+  "library function results">;
 #endif // INTEL_CUSTOMIZATION
 def fmodules_ts : Flag <["-"], "fmodules-ts">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Enable support for the C++ Modules TS">;

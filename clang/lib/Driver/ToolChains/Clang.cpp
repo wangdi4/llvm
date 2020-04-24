@@ -4798,6 +4798,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
        CmdArgs.push_back(Args.MakeArgString(
            Twine("-mGLOB_imf_attr=arch-consistency:") + A->getValue()));
   }
+
+  for (const Arg *A : Args.filtered(options::OPT_fimf_max_error_EQ)) {
+       CmdArgs.push_back(Args.MakeArgString(
+           Twine("-mGLOB_imf_attr=max-error:") + A->getValue()));
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   // Decide whether to use verbose asm. Verbose assembly is the default on
