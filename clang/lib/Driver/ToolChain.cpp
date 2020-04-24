@@ -33,6 +33,9 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -1415,6 +1418,57 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
         else
           continue;
+#if INTEL_CUSTOMIZATION
+      } else if (A->getOption().matches(options::OPT_fopenmp_targets_EQ)) {
+        // Capture options from -fopenmp-targets=<triple>=<opts>
+        StringRef Val(A->getValue());
+        std::pair<StringRef, StringRef> T = Val.split('=');
+        if (!T.second.empty()) {
+          // Add the the original -fopenmp-targets option without the additional
+          // arguments, then add the arguments.
+          Arg *ArgReplace =
+              new Arg(A->getOption(), Args.MakeArgString(A->getSpelling()),
+                      Args.getBaseArgs().MakeIndex(A->getSpelling()),
+                      Args.MakeArgString(T.first));
+          std::unique_ptr<llvm::opt::Arg> OffloadTargetArg(ArgReplace);
+          OffloadTargetArg->setBaseArg(A);
+          Arg *A4 = OffloadTargetArg.release();
+          AllocatedArgs.push_back(A4);
+          DAL->append(A4);
+
+          // Tokenize the string.
+          SmallVector<const char *, 8> TargetArgs;
+          llvm::BumpPtrAllocator BPA;
+          llvm::StringSaver S(BPA);
+          llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+          unsigned MissingArgIndex, MissingArgCount;
+          InputArgList NewArgs =
+              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount);
+          for (Arg *NA : NewArgs) {
+            // Add the new arguments.
+            Arg *OffloadArg;
+            if (NA->getNumValues()) {
+              StringRef Value(NA->getValue());
+              OffloadArg = new Arg(
+                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+                  Args.getBaseArgs().MakeIndex(NA->getSpelling()),
+                  Args.MakeArgString(Value.data()));
+            } else {
+              OffloadArg = new Arg(
+                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+                  Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+            }
+            std::unique_ptr<llvm::opt::Arg> A2(OffloadArg);
+            A2->setBaseArg(A);
+            Arg *A4 = A2.release();
+            AllocatedArgs.push_back(A4);
+            DAL->append(A4);
+          }
+          Modified = true;
+        } else
+          DAL->append(A);
+        continue;
+#endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
         // Passing device args: -Xopenmp-target -opt=val.
         Index = Args.getBaseArgs().MakeIndex(A->getValue(0));

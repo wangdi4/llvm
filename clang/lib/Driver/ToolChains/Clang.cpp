@@ -6323,7 +6323,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         TargetInfo += ',';
       // We need to get the string from the triple because it may be not exactly
       // the same as the one we get directly from the arguments.
-      llvm::Triple T(Tgts->getValue(i));
+#if INTEL_CUSTOMIZATION
+      llvm::Triple T(StringRef(Tgts->getValue(i)).split('=').first);
+#endif // INTEL_CUSTOMIZATION
       TargetInfo += T.getTriple();
     }
     CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
