@@ -698,7 +698,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
              cast<VectorType>(CallMaskValue->getType())->getNumElements() &&
          "Re-vectorization of SVML functions is not supported yet");
 
-  if (VecTy->getBitWidth() < 512) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
     // parameter list. For example:
     //

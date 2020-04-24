@@ -3998,7 +3998,8 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   VectorType *firstOpType =
     dyn_cast<VectorType>(CI->getArgOperand(0)->getType());
   assert(firstOpType && "Unexpected type for SVML argument");
-  if (firstOpType->getBitWidth() == 512)
+  if (!firstOpType->getElementCount().Scalable &&
+      firstOpType->getPrimitiveSizeInBits().getFixedSize() == 512)
     return false;
   Function *origFunc = CI->getCalledFunction();
   // Bail out in case of indirect call.

@@ -2347,7 +2347,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
   assert(MaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
 
-  if (VecTy->getBitWidth() < 512) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
     // parameter list. For example:
     //

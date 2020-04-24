@@ -550,7 +550,8 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
         // We can use cast because we proved that the function pointer
         // and the target are vector types
         VectorType *TargetVector = cast<VectorType>(TargetType);
-        if (FPVector->getBitWidth() != TargetVector->getBitWidth())
+        if (FPVector->getPrimitiveSizeInBits() !=
+            TargetVector->getPrimitiveSizeInBits())
           return false;
 
         // Check that the number of elements and their types match

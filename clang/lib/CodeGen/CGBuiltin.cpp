@@ -7372,8 +7372,9 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
   llvm::VectorType *VectorTy = OrigVectorTy;
   if (IntBitWidth && VectorTy->getScalarSizeInBits() != IntBitWidth) {
     assert(VectorTy->getScalarType()->isIntegerTy());
-    VectorTy = llvm::VectorType::get(Builder.getIntNTy(IntBitWidth),
-                                     VectorTy->getBitWidth() / IntBitWidth);
+    VectorTy = llvm::VectorType::get(
+        Builder.getIntNTy(IntBitWidth),
+        VectorTy->getPrimitiveSizeInBits().getFixedSize() / IntBitWidth);
   }
 
   llvm::Type *RetTy = VectorTy;
