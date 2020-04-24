@@ -546,6 +546,9 @@ private:
   // VPInstruction.
   HIRSpecifics HIR;
 
+  // Debug location for this VPInstruction.
+  DebugLoc DbgLoc;
+
   void setSymbase(unsigned Symbase) {
     assert(Opcode == Instruction::Store ||
            Opcode == Instruction::Load &&
@@ -579,6 +582,13 @@ private:
     if (!Inst.isUnderlyingIRValid())
       invalidateUnderlyingIR();
   }
+
+#if INTEL_CUSTOMIZATION
+  void copyAttributesFrom(const VPInstruction &Inst) {
+    DbgLoc = Inst.DbgLoc;
+    // Copy other general attributes here when imported.
+  }
+#endif
 
 #if INTEL_CUSTOMIZATION
 protected:
@@ -652,6 +662,9 @@ public:
   bool isCast() const { return Instruction::isCast(getOpcode()); }
 
   bool mayHaveSideEffects() const;
+
+  const DebugLoc getDebugLocation() const { return DbgLoc; }
+  void setDebugLocation(const DebugLoc &Loc) { DbgLoc = Loc; }
 #endif // INTEL_CUSTOMIZATION
 
   // ilist should have access to VPInstruction node.
@@ -691,6 +704,7 @@ public:
   VPInstruction *clone() const {
     VPInstruction *Cloned = cloneImpl();
     Cloned->copyUnderlyingFrom(*this);
+    Cloned->copyAttributesFrom(*this);
     return Cloned;
   }
 };

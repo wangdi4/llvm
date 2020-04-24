@@ -19,6 +19,7 @@ ModulePass* createDPCPPKernelVecClonePass();
 ModulePass* createDPCPPKernelPostVecPass();
 ModulePass* createDPCPPKernelWGLoopCreatorPass();
 ModulePass* createDPCPPKernelAnalysisPass();
+FunctionPass* createPhiCanonicalizationPass();
 
 } // namespace llvm
 
