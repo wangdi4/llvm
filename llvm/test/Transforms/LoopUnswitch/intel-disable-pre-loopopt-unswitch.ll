@@ -10,7 +10,7 @@
 ; CHECK-NOT: br i1 true
 ; CHECK: ret void
 
-define void @foo(i64 %t) "pre_loopopt" {
+define void @foo(i64 %t, float %f) "pre_loopopt" {
 entry:
   br label %for.body.outer
 
@@ -26,6 +26,7 @@ for.body:                                         ; preds = %for.inc, %for.body.
 if.then:                                          ; preds = %for.body
   %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4
+  %call = tail call float @sinf(float %f)
   %1 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %0, %1
   store i32 %add, i32* %arrayidx, align 4
@@ -57,7 +58,7 @@ for.end:                                          ; preds = %for.inc
 ; CHECK: br i1 true
 ; CHECK: ret void
 
-define void @bar(i64 %t) {
+define void @bar(i64 %t, float %f) {
 entry:
   br label %for.body.outer
 
@@ -72,6 +73,7 @@ for.body:                                         ; preds = %for.inc, %for.body.
 
 if.then:                                          ; preds = %for.body
   %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
+  %call = tail call float @sinf(float %f)
   %0 = load i32, i32* %arrayidx, align 4
   %1 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %0, %1
@@ -99,3 +101,5 @@ for.inc.outer:                                    ; preds = %for.inc
 for.end:                                          ; preds = %for.inc
   ret void
 }
+
+declare float @sinf(float)

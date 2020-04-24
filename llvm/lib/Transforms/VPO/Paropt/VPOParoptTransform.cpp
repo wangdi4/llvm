@@ -455,7 +455,6 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
       W, VPOParoptUtils::getLoopScheduleKind(W), WRNScheduleStaticEven);
 
-  bool MayHaveOMPCritical = W->mayHaveOMPCritical();
   // There are two ways to process iterations of the chunk
   // provided by the teams distribution for static even scheduling:
   //   Strided:
@@ -520,8 +519,6 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   uint32_t IVAddendOp = 0;
   if (AvoidStridedProcessing &&
-      // Do not mess with SIMD1 emulation.
-      !MayHaveOMPCritical &&
       !VPOParoptUtils::useSPMDMode(W) &&
       // Do this only for schedule(static) for the time being.
       SchedKind == WRNScheduleStaticEven &&
@@ -542,18 +539,10 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
-    CallInst *LocalSize = nullptr;
-    if (MayHaveOMPCritical)
-      // Emulate SIMD1 by executing the same code in all SIMD channels
-      // of a sub-group.
-      LocalSize =
-          VPOParoptUtils::genOCLGenericCall("_Z18get_num_sub_groupsv",
-                                            Builder.getInt32Ty(),
-                                            {}, CallsInsertPt);
-    else
-      LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-                                                    GeneralUtils::getSizeTTy(F),
-                                                    Arg, CallsInsertPt);
+    CallInst *LocalSize =
+        VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
+                                          GeneralUtils::getSizeTTy(F),
+                                          Arg, CallsInsertPt);
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
@@ -585,16 +574,10 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       Builder.CreateStore(SchedStrideVal, SchedStride);
     }
 
-    CallInst *LocalId = nullptr;
-    if (MayHaveOMPCritical)
-      LocalId =
-          VPOParoptUtils::genOCLGenericCall("_Z16get_sub_group_idv",
-                                            Builder.getInt32Ty(),
-                                            {}, CallsInsertPt);
-    else
-      LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                                  GeneralUtils::getSizeTTy(F),
-                                                  Arg, CallsInsertPt);
+    CallInst *LocalId =
+        VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+                                          GeneralUtils::getSizeTTy(F),
+                                          Arg, CallsInsertPt);
 
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
@@ -625,9 +608,6 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       NewUB = Builder.CreateAdd(LB, Ch);
     }
   } else {
-    assert(!MayHaveOMPCritical &&
-           "SPMD mode cannot be used with omp critical.");
-
     // Use SPMD mode by setting lower and upper bound to get_global_id().
     // This will let each WI execute just one iteration of the loop.
     CallInst *GlobalId =
@@ -1471,7 +1451,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          setMayHaveOMPCritical(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
 
@@ -1798,7 +1777,8 @@ bool VPOParoptTransform::paroptTransforms() {
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
           Changed |= VPOParoptAtomics::handleAtomic(
-              cast<WRNAtomicNode>(W), IdentTy, TidPtrHolder, isTargetSPIRV());
+              cast<WRNAtomicNode>(W), IdentTy, TidPtrHolder, DT, LI,
+              isTargetSPIRV());
           RemoveDirectives = true;
         }
         break;
@@ -1816,7 +1796,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= propagateCancellationPointsToIR(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          setMayHaveOMPCritical(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
 #if INTEL_CUSTOMIZATION
@@ -2308,6 +2287,8 @@ Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
   EntryBB->getTerminator()->eraseFromParent();
   Builder.SetInsertPoint(EntryBB);
   Builder.CreateCondBr(IsTrue, IsAnd ? ContBB : RhsBB, IsAnd ? RhsBB : ContBB);
+  if (DT)
+    DT->changeImmediateDominator(RhsBB, EntryBB);
 
   Builder.SetInsertPoint(ContBB->getTerminator());
   auto ConvRed = Builder.CreateSExtOrTrunc(Rhs2, Type::getInt32Ty(C));
@@ -2471,17 +2452,9 @@ bool VPOParoptTransform::genReductionScalarFini(
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
-    Instruction *AtomicCall = nullptr;
-
-    if (!W->mayHaveOMPCritical())
-      // For may-have-openmp-critical regions we use SIMD1 emulation,
-      // but atomic_op() functions imply horizontal reduction, which
-      // would produce incorrect results with SIMD1 emulation.
-      // Thus we avoid atomic updates for regions that use SIMD1 emulation.
-      // The final reduction update(s) will be done using __kmpc_critical.
-      AtomicCall =
-          VPOParoptAtomics::handleAtomicUpdateInBlock(W, Tmp0->getParent(),
-                                                      nullptr, nullptr, true);
+    Instruction *AtomicCall =
+        VPOParoptAtomics::handleAtomicUpdateInBlock(W, Tmp0->getParent(),
+                                                    nullptr, nullptr, true);
 
     if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
@@ -2502,23 +2475,19 @@ bool VPOParoptTransform::genReductionScalarFini(
     //
     // Insert new instruction(s) after the definition of the private
     // reduction value.
-    if (!W->mayHaveOMPCritical()) {
-      // Horizontal reduction will produce incorrect results in regions
-      // using SIMD1 emulation.
-      auto *TempRedLoad = Rhs2->clone();
-      TempRedLoad->insertAfter(Rhs2);
-      TempRedLoad->takeName(Rhs2);
-      auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
-          RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
+    auto *TempRedLoad = Rhs2->clone();
+    TempRedLoad->insertAfter(Rhs2);
+    TempRedLoad->takeName(Rhs2);
+    auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
+        RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
 
-      if (HRed)
-        Rhs2->replaceAllUsesWith(HRed);
-      else
-        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                   ": SPIRV horizontal reduction is not available "
-                   "for critical section reduction: " << RedI->getOpName() <<
-                   " with type " << *ScalarTy << "\n");
-    }
+    if (HRed)
+      Rhs2->replaceAllUsesWith(HRed);
+    else
+      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                 ": SPIRV horizontal reduction is not available "
+                 "for critical section reduction: " << RedI->getOpName() <<
+                 " with type " << *ScalarTy << "\n");
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
@@ -3231,7 +3200,8 @@ void VPOParoptTransform::genConditionalLPCode(
   GlobalMaxComputationBuilder.SetInsertPoint(ConditionalLPBarrier);
   VPOParoptUtils::genKmpcCriticalSection(
       W, IdentTy, TidPtrHolder, GlobalMaxIndexLoad, IfThreadWroteSomethingThen,
-      isTargetSPIRV(), (NamePrefix + ".max.lock.var").str()); //      (57), (62)
+      DT, LI, isTargetSPIRV(),
+      Twine(NamePrefix) + ".max.lock.var"); //                        (57), (62)
 
   // Now emit the final copyout code, which checks if the current thread's max
   // local index is same as the final global max index, and it actually wrote to
@@ -3430,6 +3400,18 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
 
       BasicBlock *BeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+      // FIXME: if NeedsKmpcCritical is true, then for SPIR targets
+      //        all reduction update instructions will be wrapped
+      //        into a loop. The loop is not needed for reductions
+      //        that can be done via atomics or with horizontal
+      //        reductions.
+      //        We need to have three update sections:
+      //          * updates using atomics (no need for the loop),
+      //          * updates with __kmpc_critical and horizontal reductions
+      //            (no need for the loop),
+      //          * updates with __kmpc_critical and the loop.
+      //        Note that the first two sections will work with the loop
+      //        as well, but this may not be very efficient.
       NeedsKmpcCritical |= genReductionFini(W, RedI, RedI->getOrig(),
                                             BeginBB->getTerminator(), DT);
 
@@ -3452,7 +3434,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       VPOParoptUtils::genKmpcCriticalSection(
           W, IdentTy, TidPtrHolder,
           dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
-          EndBB->getTerminator(), isTargetSPIRV(), ".reduction");
+          EndBB->getTerminator(), DT, LI, isTargetSPIRV(), ".reduction");
 
       OptimizationRemark R(DEBUG_TYPE, "Reduction", &EntryBB->front());
       R << "Critical section was generated for reduction update(s)";
@@ -7453,13 +7435,10 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   StringRef LockNameSuffix = CriticalNode->getUserLockName();
 
   bool CriticalCallsInserted =
-      LockNameSuffix.empty()
-          ? VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
-                                                   TidPtrHolder,
-                                                   isTargetSPIRV())
-          : VPOParoptUtils::genKmpcCriticalSection(
-                CriticalNode, IdentTy, TidPtrHolder, isTargetSPIRV(),
-                LockNameSuffix);
+      VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
+                                             TidPtrHolder, DT, LI,
+                                             isTargetSPIRV(),
+                                             LockNameSuffix);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Handling of Critical Node: "
                     << (CriticalCallsInserted ? "Successful" : "Failed")
@@ -8871,32 +8850,6 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
   return Changed;
 }
 
-void VPOParoptTransform::setMayHaveOMPCritical(WRegionNode *W) const {
-  if (!isTargetSPIRV())
-    return;
-
-  W->populateBBSet();
-  for (auto *BB : make_range(W->bbset_begin(), W->bbset_end())) {
-    for (auto &I : *BB) {
-      const auto *CI = dyn_cast<const CallInst>(&I);
-      if (!CI)
-        continue;
-      auto *CalledF =
-          dyn_cast<Function>(CI->getCalledOperand()->stripPointerCasts());
-      // Check if it is an indirect call or call of a Function marked
-      // may-have-openmp-critical.
-      if (!CalledF ||
-          MT->mayHaveOMPCritical(CalledF)) {
-        W->setMayHaveOMPCritical();
-        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                   ": region marked as may-have-openmp-critical: " <<
-                   *W->getEntryDirective() << "\n");
-        return;
-      }
-    }
-  }
-}
-
 bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   auto Exiter = [FunctionName = __FUNCTION__, W](bool Changed) {
     W->resetBBSetIfChanged(Changed);
@@ -9463,7 +9416,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   }
 #ifndef NDEBUG
   assert((!DT || DT->verify()) && "DominatorTree is invalid");
-  if (LI)
+  if (LI && DT)
     LI->verify(*DT);
 #endif  // NDEBUG
 

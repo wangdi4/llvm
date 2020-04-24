@@ -10,7 +10,7 @@
 ; RUN:    %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s
 
-; CHECK: whole-program-assume is enabled
+; CHECK: WHOLE PROGRAM ASSUME IS ENABLED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

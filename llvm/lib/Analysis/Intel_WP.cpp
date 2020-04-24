@@ -181,23 +181,28 @@ void WholeProgramInfo::printWholeProgramTrace() {
     };
 
     auto PrintWPResult = [this](void) {
-      dbgs() << "  WHOLE PROGRAM" << (isWholeProgramSeen() ? " " : " NOT ")
+      dbgs() << "  WHOLE PROGRAM RESULT: \n";
+      dbgs() << "    MAIN DEFINITION: "
+             << (MainDefSeen ? " " : " NOT ")
              << "DETECTED \n";
-      dbgs() << "  WHOLE PROGRAM SAFE is"
-             << (WholeProgramSafe ? " " : " *NOT* ")
-             << "determined:\n";
 
-      if (AssumeWholeProgram) {
-        dbgs() << "whole-program-assume is enabled ... \n";
+      if (!AssumeWholeProgram) {
+        dbgs() << "    LINKING AN EXECUTABLE: "
+               << (isLinkedAsExecutable() ? " " : " NOT ")
+               << "DETECTED\n";
+        dbgs() << "    WHOLE PROGRAM READ: "
+               << (isWholeProgramRead() ? " " : " NOT ")
+               << "DETECTED \n";
+        dbgs() << "    WHOLE PROGRAM SEEN: "
+               << (isWholeProgramSeen() ? " " : " NOT ")
+               << "DETECTED \n";
       }
       else {
-        if (!isWholeProgramSeen())
-          dbgs() <<  "    whole program not seen;\n";
-        if (!isWholeProgramRead())
-          dbgs() <<  "    whole program not read;\n";
-        if (!isLinkedAsExecutable())
-          dbgs() <<  "    not linking an executable;\n";
+        dbgs() << "    WHOLE PROGRAM ASSUME IS ENABLED\n";
       }
+      dbgs() << "    WHOLE PROGRAM SAFE: "
+             << (WholeProgramSafe ? " " : " NOT ")
+             << "DETECTED\n";
     };
 
     bool Simple = !WholeProgramTraceLibFuncs &&
@@ -226,13 +231,11 @@ void WholeProgramInfo::printWholeProgramTrace() {
       dbgs() << "EXTERNAL FUNCTIONS TRACE";
 
     else if (WholeProgramReadTrace)
-      dbgs() << "WHOLE PROGRAM READ\n";
+      dbgs() << "WHOLE PROGRAM READ TRACE";
 
     dbgs() << "\n\n";
 
     if (Simple || Full) {
-      dbgs() << "  Main definition" << (MainDefSeen ? " " : " not ")
-             << "seen \n";
       dbgs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
     }
 

@@ -8,11 +8,11 @@
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1 2>&1 | FileCheck %s
 
-; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
-; CHECK:      UNRESOLVED CALLSITES: 0
-; CHECK:      VISIBLE OUTSIDE LTO: 1
-; CHECK:     WHOLE PROGRAM NOT DETECTED
-; CHECK:      whole program not seen;
+; CHECK:  WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
+; CHECK:    UNRESOLVED CALLSITES: 0
+; CHECK:    VISIBLE OUTSIDE LTO: 1
+; CHECK:  WHOLE PROGRAM RESULT:
+; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
 
 ; Create the Base, Derived and Derived2 classes
 %class.Base = type { i32 (...)** }

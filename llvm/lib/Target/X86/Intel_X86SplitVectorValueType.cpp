@@ -94,9 +94,8 @@
 // 3. For those original instructions that will be erased, split its users
 // transitively. If there are some users can't be split, then generate a
 // shuffleVector instruction to 'unpack' split instructions and this
-// shuffleVector instruction will be inserted before the user (also supports
-// after definition). the user's operands will be updated after all instructions
-// are handled successfully.
+// shuffleVector instruction will be inserted before the user. the user's
+// operands will be updated after all instructions are handled successfully.
 //
 // 4. If all instructions are handled successfully, then erase the original
 // instructions which were split. Then update some original instruction's
@@ -107,7 +106,7 @@
 // be split. This is a heuristic method, if vector condition value is split many
 // times, bitwise binary operation (and/or) may generate more instructions than
 // we saved from unpack and split k-reg.
-// FIXME: Need a cost model.
+// TODO: Need a cost model.
 //
 // If the dependence graph of some instructions forms a cycle. (There is a
 // strong connected component.) This pass handles it in this way:
@@ -939,6 +938,12 @@ bool X86SplitVectorValueType::updateInstChain() {
     LLVM_DEBUG(dbgs() << "Update usage of Value: "; I->printAsOperand(dbgs());
                dbgs() << "\n");
 
+    // Since this pass only split unsupported value (except condition vector).
+    // We can make sure the value of I must not be supported by target machine.
+    assert((I->getType()->getScalarType()->isIntegerTy(1) ||
+            (TTI->getNumberOfParts(I->getType()) > 1)) &&
+           "I must not be supported!");
+
     // I may be used many times in UI. The update proceduce will update all
     // value I in UI, so it is unnecessary to visit it again.
     DenseSet<const User *> VisitedUserSet;
@@ -962,14 +967,6 @@ bool X86SplitVectorValueType::updateInstChain() {
       assert(!SettledNInstSet.count(I) &&
              "Candidate must be split previously!");
 
-      if (!isSupportedOp(UI)) {
-        createShufVecInstToFuse(I, UI, 1);
-        continue;
-      }
-
-      // User will now try to be split and replaced by new instructions && it
-      // is supported.
-      //
       // Some PHINodes have been presplit but it's operands haven't been
       // split yet. This step will update some of those operands that cause a
       // cycle reliance. The left operands will be updated later.
@@ -989,9 +986,13 @@ bool X86SplitVectorValueType::updateInstChain() {
         continue;
       }
 
-      // Now we can make sure all UI in InstMap have been split completely.
       if (InstMap.count(UI))
         continue;
+
+      if (!isSupportedOp(UI)) {
+        createShufVecInstToFuse(I, UI, 1);
+        continue;
+      }
 
       // Split operands of UI.
       for (unsigned OpI = 0; OpI < UI->getNumOperands(); OpI++) {
@@ -1068,14 +1069,29 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
   // if split B is not in CA, then CA intersect B equals null set.
   assert(!SettledNInstSet.count(I) && "Candidate must be split previously!");
 
+  // Skip instruction that has already been split.
+  if (InstMap.count(I))
+    return true;
+
+  // Make sure not to split supported value.
+  // e.g. %cmp0 = icmp sgt <16 x i64> %x0, %y0
+  //      %cmp1 = icmp sgt <16 x i32> %x1, %y1
+  //      %tmp = and <16 x i1> %cmp0, %cmp1
+  // In this case, suppose target machine use avx512. The splitting of %cmp0
+  // causes the splitting of %cmp1 and the splitting of %x1 and % y1. %x1 and
+  // %y1 is supported by target machine so it shouldn't be split.
+  if (!I->getType()->getScalarType()->isIntegerTy(1) &&
+      TTI->getNumberOfParts(I->getType()) < 2) {
+    LLVM_DEBUG(indentedDbgs(Depth)
+               << "Find an instruction which shouldn't be split: " << *I
+               << "\n");
+    return false;
+  }
+
   if (!isSupportedOp(I)) {
     createShufVecInstToSplit(I, Depth);
     return true;
   }
-
-  // Skip instruction that has already been split.
-  if (InstMap.count(I))
-    return true;
 
   // Step1: Recursively split operands until all operands have been split.
   for (unsigned OpI = 0; OpI < I->getNumOperands(); OpI++) {

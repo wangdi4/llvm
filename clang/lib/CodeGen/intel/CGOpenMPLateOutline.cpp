@@ -999,10 +999,12 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
           Cons = emitOpenMPDefaultConstructor(*IPriv);
         Des = emitOpenMPDestructor(Private->getType());
       }
-      addArg(Cons);
-      addArg(Des);
-      addArg(CombinerFn);
-      addArg(Init);
+      for (auto *FV : {Cons, Des, CombinerFn, Init}) {
+        addArg(FV);
+        if (auto *Fn = dyn_cast_or_null<llvm::Function>(FV))
+          if (CGF.getLangOpts().OpenMPIsDevice && CGF.CGM.inTargetRegion())
+            Fn->addFnAttr("openmp-target-declare", "true");
+      }
     }
     ++I;
     ++IPriv;

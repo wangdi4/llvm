@@ -19,6 +19,22 @@ entry:
   ret <32 x i32> %res
 }
 
+; CMPLRLLVM-19311: Avoid to split instructions chain if it contains supported vector value.
+define <16 x i1> @overSplitTest(<16 x i32>* %x0_ptr, <16 x i32>* %y0_ptr, <16 x i64>* %x1_ptr, <16 x i64>* %y1_ptr) {
+; CHECK-LABEL: overSplitTest
+; CHECK:       %cmp0 = icmp sgt <16 x i32>
+; CHECK-NEXT:  %cmp1 = icmp sgt <16 x i64>
+entry:
+  %x0 = load <16 x i32>, <16 x i32>* %x0_ptr
+  %y0 = load <16 x i32>, <16 x i32>* %y0_ptr
+  %x1 = load <16 x i64>, <16 x i64>* %x1_ptr
+  %y1 = load <16 x i64>, <16 x i64>* %y1_ptr
+  %cmp0 = icmp sgt <16 x i32> %x0, %y0
+  %cmp1 = icmp sgt <16 x i64> %x1, %y1
+  %res = and <16 x i1> %cmp0, %cmp1
+  ret <16 x i1> %res
+}
+
 ; CMPLRLLVM-18547: Test for ConstantExpr split fail bug.
 @array0 = global [64 x i32] zeroinitializer
 @array1 = global [64 x i32] zeroinitializer

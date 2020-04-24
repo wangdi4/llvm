@@ -38,6 +38,11 @@ static cl::opt<bool> DumpAfterLoopExitsCanonicalization(
              "vectorization "),
     cl::init(false), cl::Hidden);
 
+static cl::opt<bool> DumpAfterDA(
+    "print-after-vplan-func-vec-da",
+    cl::desc("Print after DA analysis for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
 using namespace llvm;
 using namespace llvm::vpo;
 namespace {
@@ -74,6 +79,17 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterLoopExitsCanonicalization)
       Plan->dump(outs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    Plan->setVPlanDA(std::move(VPDA));
+    Plan->getVPlanDA()->compute(Plan.get(), nullptr, VPLInfo,
+                                *Plan->getDT(), *Plan->getPDT(),
+                                false /*Not in LCSSA form*/);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterDA)
+      Plan->dump(outs(), true);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     return false;
