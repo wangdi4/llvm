@@ -475,7 +475,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
            }
 
           llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
-          if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
+          if ( pArg->hasByValAttr() && isa<VectorType>(PTy->getElementType()))
           {
             // Check by pointer vector passing, used in long16 and double16
             llvm::VectorType *pVector = llvm::cast<llvm::VectorType>(PTy->getElementType());
@@ -630,7 +630,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         curArg.size_in_bytes = sizeof(double);
         break;
 
-      case llvm::Type::VectorTyID:
+      case Type::FixedVectorTyID:
+      case Type::ScalableVectorTyID:
         {
           llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(arg_it->getType());
           curArg.type = CL_KRNL_ARG_VECTOR;

@@ -119,7 +119,8 @@ namespace Validation
                 ret.SetSubTypeDesc(0, subElemType);
                 break;
             }
-        case llvm::Type::VectorTyID:
+        case llvm::Type::FixedVectorTyID:
+        case llvm::Type::ScalableVectorTyID:
             {
                 ret.SetType(TVECTOR);
                 ret.SetNumberOfElements(llvm::cast<llvm::VectorType>(type)->getNumElements());
@@ -201,7 +202,9 @@ namespace Validation
             case llvm::Type::FloatTyID:   return F32;
             case llvm::Type::DoubleTyID:  return F64;
             case llvm::Type::IntegerTyID: return I32;
-            case llvm::Type::VectorTyID:  return GetDataType(llvm::cast<llvm::VectorType>(type)->getElementType());
+            case llvm::Type::FixedVectorTyID:
+            case llvm::Type::ScalableVectorTyID:
+                return GetDataType(llvm::cast<llvm::VectorType>(type)->getElementType());
             case llvm::Type::PointerTyID: return GetDataType(llvm::cast<llvm::PointerType>(type)->getElementType());
             default:
                 assert(false && "Unsupported parameter type");
