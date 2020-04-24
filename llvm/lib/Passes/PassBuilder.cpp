@@ -444,7 +444,7 @@ extern cl::opt<bool> EnableOrderFileInstrumentation;
 
 extern cl::opt<bool> FlattenedProfileUsed;
 
-extern cl::opt<bool> DisableAttributor;
+extern cl::opt<AttributorRunOption> AttributorRun;
 
 const PassBuilder::OptimizationLevel PassBuilder::OptimizationLevel::O0 = {
     /*SpeedLevel*/ 0,
@@ -1036,7 +1036,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                                            true /* SamplePGO */));
   }
 
-  if (!DisableAttributor)
+  if (AttributorRun & AttributorRunOption::MODULE)
     MPM.addPass(AttributorPass());
 
   // Interprocedural constant propagation now that basic cleanup has occurred
@@ -1130,7 +1130,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // because it makes profile annotation in the backend inaccurate.
   MainCGPipeline.addPass(std::move(InlPass)); // INTEL
 
-  if (!DisableAttributor)
+  if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
 
   if (PTO.Coroutines)
