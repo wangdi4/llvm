@@ -3084,6 +3084,11 @@ def stdlibxx_isystem : JoinedOrSeparate<["-"], "stdlib++-isystem">,
   Group<clang_i_Group>,
   HelpText<"Use directory as the C++ standard library include path">,
   Flags<[DriverOption]>, MetaVarName<"<directory>">;
+#if INTEL_CUSTOMIZATION
+def strict_ansi : Flag<["-"], "strict-ansi">, Flags<[DriverOption]>,
+  HelpText<"strict ANSI conformance dialect">;
+def : Flag<["-"], "strict_ansi">, Alias<strict_ansi>;
+#endif // INTEL_CUSTOMIZATION
 def unwindlib_EQ : Joined<["-", "--"], "unwindlib=">, Flags<[CC1Option]>,
   HelpText<"Unwind library to use">, Values<"libgcc,unwindlib,platform">;
 def sub__library : JoinedOrSeparate<["-"], "sub_library">;

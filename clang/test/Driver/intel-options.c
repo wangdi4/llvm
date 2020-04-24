@@ -132,3 +132,9 @@
 // RUN: %clang -### -c -nolib-inline %s 2>&1 | FileCheck -check-prefix CHECK-NOLIB-INLINE %s
 // RUN: %clang -### -c -nolib_inline %s 2>&1 | FileCheck -check-prefix CHECK-NOLIB-INLINE %s
 // CHECK-NOLIB-INLINE: "-fno-builtin"
+
+//Behavior with -strict-ansi option
+// RUN: %clang -### -strict-ansi %s 2>&1 | FileCheck -check-prefix CHECK-STRICT-ANSI %s
+// RUN: %clang -### -strict_ansi %s 2>&1 | FileCheck -check-prefix CHECK-STRICT-ANSI %s
+// CHECK-STRICT-ANSI: "-pedantic"
+// CHECK-STRICT-ANSI: "-std=c89"
