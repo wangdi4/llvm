@@ -421,7 +421,7 @@ static VarTypeDescriptor GenerateVarTypeEnum(const DICompositeType& di_enum)
         DIEnumerator *di_enumerator_i = cast<DIEnumerator>(di_member_i);
         VarTypeEnum::EnumEntry* entry = enum_descriptor.add_entries();
         entry->set_name(di_enumerator_i->getName().str());
-        entry->set_value(di_enumerator_i->getValue());
+        entry->set_value(di_enumerator_i->getValue()->getSExtValue());
     }
 
     VarTypeDescriptor descriptor;
