@@ -8,10 +8,10 @@
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOAUnsafe = [1024 x i32]* %arr_e.priv
-; CHECK-DAG: SOAUnsafe = [1024 x i32]* %arr_e2.priv
-; CHECK-DAG: SOASafe = i32** %ptr.priv
-; CHECK-DAG: SOASafe = i32* %index.lpriv
+; CHECK-DAG: SOAUnsafe = arr_e.priv
+; CHECK-DAG: SOAUnsafe = arr_e2.priv
+; CHECK-DAG: SOASafe = ptr.priv
+; CHECK-DAG: SOASafe = index.lpriv
 
 
 ;Source Code: test2.c
@@ -95,11 +95,11 @@ DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
 
 ; This test makes sure that loads/stores of bitcasted privates or their aliases are marked as unsafe.
 
-; CHECK-DAG: SOASafe = [624 x i32]* %arr_e1.priv
-; CHECK-DAG: SOAUnsafe = [624 x i32]* %arr_e2.priv
-; CHECK-DAG: SOAUnsafe = [624 x i32]* %arr_e3.priv
-; CHECK-DAG: SOAUnsafe = [624 x i32]* %arr_e4.priv
-; CHECK-DAG: SOAUnsafe = [624 x i32]* %arr_e5.priv
+; CHECK-DAG: SOASafe = arr_e1.priv
+; CHECK-DAG: SOAUnsafe = arr_e2.priv
+; CHECK-DAG: SOAUnsafe = arr_e3.priv
+; CHECK-DAG: SOAUnsafe = arr_e4.priv
+; CHECK-DAG: SOAUnsafe = arr_e5.priv
 
 
 ;; Function Attrs: nounwind
@@ -193,14 +193,14 @@ declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
 ; Test that possible pointer-escape via indirect call is conservatively reported as
 ; SOA-unsafe. This test also checks that unsupported types are outrightly rejected.
 
-; CHECK-DAG: SOASafe = i32** %ptr.priv
-; CHECK-DAG: SOAUnsafe = [624 x i32]* %arr_e.priv
-; CHECK-DAG: SOASafe = [624 x i32*]* %arr_e1.priv
-; CHECK-DAG: SOAUnsafe = { i32, [624 x i32] }* %struct.priv
-; CHECK-DAG: SOAUnsafe = [100 x { i32 }]* %arr.struct.priv
-; CHECK-DAG: SOASafe = [100 x { i32 }*]* %arr.struct.ptr.priv
-; CHECK-DAG: SOAUnsafe = <4 x i32>* %vec.priv
-; CHECK-DAG: SOAUnsafe = [100 x <4 x i32>]* %arr.vec.priv
+; CHECK-DAG: SOASafe = ptr.priv
+; CHECK-DAG: SOAUnsafe = arr_e.priv
+; CHECK-DAG: SOASafe = arr_e1.priv
+; CHECK-DAG: SOAUnsafe = struct.priv
+; CHECK-DAG: SOAUnsafe = arr.struct.priv
+; CHECK-DAG: SOASafe = arr.struct.ptr.priv
+; CHECK-DAG: SOAUnsafe = vec.priv
+; CHECK-DAG: SOAUnsafe = arr.vec.priv
 
 define void @test_negative(i32 (i32 *)** nocapture readonly %p2) {
   %ptr.priv = alloca i32*, align 8
@@ -243,7 +243,7 @@ return:
 
 ; This test checks that we do not enter a tight infinite loop on account of PHI instructions
 ; and its users.
-; CHECK-DAG: SOAUnsafe = [1024 x i32]* %arr_e.priv
+; CHECK-DAG: SOAUnsafe = arr_e.priv
 define void @test_pointer_induction_escape() {
   %arr_e.priv = alloca [1024 x i32], align 4
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0

@@ -392,10 +392,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   VPBuilder VPIRBuilder;
   LE->insertVPInstructions(VPIRBuilder);
-  // FIXME: SOA Analysis should be decoupled from the LoopEntities and be done
-  // solely on VPInstructions giving us ability to schedule it later in pipeline
-  // (we don't really want to use LoopEntities beyond this point).
-  LE->doSOAAnalysis();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterVPEntityInstructions) {

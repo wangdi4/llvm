@@ -23,6 +23,7 @@
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
+#include "IntelVPSOAAnalysis.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
@@ -176,6 +177,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
+
+    // Do SOA-analysis for loop-privates.
+    VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
+    VPSOAA.doSOAAnalysis();
+
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
 

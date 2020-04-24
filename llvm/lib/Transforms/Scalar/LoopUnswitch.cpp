@@ -206,6 +206,7 @@ namespace {
 #if INTEL_CUSTOMIZATION
     // Helper for generating optimization reports.
     LoopOptReportBuilder LORBuilder;
+    TargetLibraryInfo *TLI;
 #endif // INTEL CUSTOMIZATION
 
   public:
@@ -236,6 +237,7 @@ namespace {
         AU.addRequired<LegacyDivergenceAnalysis>();
       getLoopAnalysisUsage(AU);
       AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
+      AU.addRequired<TargetLibraryInfoWrapperPass>(); // INTEL
     }
 
   private:
@@ -399,6 +401,7 @@ INITIALIZE_PASS_BEGIN(LoopUnswitch, "loop-unswitch", "Unswitch loops",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass) // INTEL
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LegacyDivergenceAnalysis)
 INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
@@ -545,6 +548,7 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPMRef) {
 #if INTEL_CUSTOMIZATION
   LORBuilder.setup(F->getContext(),
                    getAnalysis<OptReportOptionsPass>().getVerbosity());
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(*F);
 #endif
 
   SanitizeMemory = F->hasFnAttribute(Attribute::SanitizeMemory);
@@ -892,13 +896,11 @@ static BasicBlock *isTrivialLoopExitBlock(Loop *L, BasicBlock *BB) {
 }
 
 #if INTEL_CUSTOMIZATION
-static bool isLoopHandledByLoopOpt(Loop *Lp, unsigned SizeThreshold) {
+static bool isLoopHandledByLoopOpt(Loop *Lp, LoopInfo *LI,
+                                   TargetLibraryInfo *TLI) {
 
   // Perfect loopnest is only meaningful for single exit loops.
   if (!Lp->getExitingBlock())
-    return false;
-
-  if (Lp->getNumBlocks() > SizeThreshold)
     return false;
 
   // LoopOpt only handles loops with single latch ending in a
@@ -907,11 +909,11 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, unsigned SizeThreshold) {
   if (!Latch)
     return false;
 
-  bool IsOuterLoop = !Lp->empty();
-
   auto *LatchBr = dyn_cast<BranchInst>(Latch->getTerminator());
   if (!LatchBr)
     return false;
+
+  bool IsOuterLoop = !Lp->empty();
 
   // Outer loop may not be rotated yet so this cannot be checked.
   if (!IsOuterLoop) {
@@ -924,21 +926,57 @@ static bool isLoopHandledByLoopOpt(Loop *Lp, unsigned SizeThreshold) {
       return false;
   }
 
-  // Give up if loop has a user call. LoopOpt is not likely to optimize loops
-  // with user calls, especially when it comes to textbook optimizations which
-  // require perfect loopnest. Also, in LTO mode inlining of these calls may
-  // result in LoopOpt skipping this loop.
-  if (IsOuterLoop)
-    for (auto I = Lp->block_begin(), BE = Lp->block_end(); I != BE; ++I)
-      for (auto Inst = (*I)->begin(), E = (*I)->end(); Inst != E; ++Inst)
-        if (isa<CallInst>(Inst) && !isa<IntrinsicInst>(Inst))
-          return false;
+  unsigned NumBlocks = 0;
+
+  for (auto I = Lp->block_begin(), BE = Lp->block_end(); I != BE; ++I) {
+    auto *BB = *I;
+
+    if (IsOuterLoop && LI->getLoopFor(BB) != Lp)
+      continue;
+
+    ++NumBlocks;
+
+    // Give up if loop has a user call. LoopOpt is not likely to optimize loops
+    // with user calls, especially when it comes to textbook optimizations which
+    // require perfect loopnest. Also, in LTO mode inlining of these calls may
+    // result in LoopOpt skipping this loop.
+    for (auto Inst = BB->begin(), E = BB->end(); Inst != E; ++Inst) {
+      auto *CInst = dyn_cast<CallInst>(&*Inst);
+
+      if (!CInst)
+        continue;
+
+      if (isa<IntrinsicInst>(CInst))
+        continue;
+
+      auto *Func = CInst->getCalledFunction();
+
+      // Indirect call
+      if (!Func)
+        return false;
+
+      // Allow library and vectorizable calls.
+      LibFunc LF;
+      if ((TLI->getLibFunc(Func->getName(), LF) && TLI->has(LF)) ||
+          TLI->isFunctionVectorizable(Func->getName()))
+        continue;
+
+      return false;
+    }
+  }
+
+  // We are unlikely to perform loop transformations if loop has too many
+  // branches. The number of blocks is used as a simplistic heuristic for number
+  // of branches allowed.
+  if (NumBlocks > 5)
+    return false;
 
   return true;
 }
 
 static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
-                                     Instruction *Inst) {
+                                     Instruction *Inst,
+                                     TargetLibraryInfo *TLI) {
   // Let LoopOpt perform unswitching if certain criteria are satisfied.
   // Unswitching can interfere with LoopOpt's ability to recognize ztt and
   // form perfect loopnests.
@@ -957,27 +995,41 @@ static bool mayAffectPerfectLoopnest(LoopInfo *LI, Loop *CurLoop,
 
   // We need to get the innermost loop for the block as the same bblock
   // may be traversed for outer loops as well.
-  Loop *InnermostLp = CurLoop->empty() ? CurLoop : LI->getLoopFor(BB);
+  Loop *CondLp = CurLoop->empty() ? CurLoop : LI->getLoopFor(BB);
 
-  // Look for two level loopnest which looks like a perfect loopnest.
+  // Check if this loopnest looks like a perfect loopnest.
 
-  if (!InnermostLp->empty())
-    return false;
+  if (!CondLp->empty()) {
+    // Check whether the condition being hoisted looks like inner loop's ztt.
+    auto &SubLoops = CondLp->getSubLoops();
 
-  auto *ParentLp = InnermostLp->getParentLoop();
+    if (SubLoops.size() != 1) {
+      return false;
+    }
+
+    auto *SubLoop = SubLoops[0];
+    auto *SubLoopPreheader = SubLoop->getLoopPreheader();
+    auto *BrInst = cast<BranchInst>(Inst);
+
+    // Check that we are are jumping to inner loop's preheader using the
+    // condition.
+    if (BrInst->getSuccessor(0) != SubLoopPreheader &&
+        BrInst->getSuccessor(1) != SubLoopPreheader)
+      return false;
+
+    if (!isLoopHandledByLoopOpt(SubLoop, LI, TLI))
+      return false;
+  }
+
+  auto *ParentLp = CondLp->getParentLoop();
 
   if (!ParentLp)
     return false;
 
-  // We are unlikely to perform loop transformations if loop has too many
-  // branches. The number of blocks is used as a simplistic heuristic for number
-  // of branches allowed.
-  if (!isLoopHandledByLoopOpt(InnermostLp, 5))
+  if (!isLoopHandledByLoopOpt(CondLp, LI, TLI))
     return false;
 
-  unsigned OuterLoopSize = InnermostLp->getNumBlocks() + 5;
-
-  if (!isLoopHandledByLoopOpt(ParentLp, OuterLoopSize))
+  if (!isLoopHandledByLoopOpt(ParentLp, LI, TLI))
     return false;
 
   return true;
@@ -1008,7 +1060,7 @@ bool LoopUnswitch::unswitchIfProfitable(Value *LoopCond, Constant *Val,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (mayAffectPerfectLoopnest(LI, CurrentLoop, TI)) {
+  if (mayAffectPerfectLoopnest(LI, CurrentLoop, TI, TLI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
                       << CurrentLoop->getHeader()->getName()
                       << " at non-trivial condition '" << *Val
