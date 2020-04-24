@@ -277,8 +277,9 @@ class OpenMPLateOutliner {
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-  llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv);
-  llvm::Value *emitOpenMPDestructor(QualType Ty);
+  llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
+                                            bool IsUDR = false);
+  llvm::Value *emitOpenMPDestructor(QualType Ty, bool IsUDR = false);
   llvm::Value *emitOpenMPCopyConstructor(const Expr *IPriv);
   llvm::Value *emitOpenMPCopyAssign(QualType Ty, const Expr *SrcExpr,
                                     const Expr *DstExpr, const Expr *AssignOp);
