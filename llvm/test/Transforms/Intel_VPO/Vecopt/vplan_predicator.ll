@@ -55,13 +55,13 @@ define void @test_uniform_edge_to_divergent_block(i32* %a, i32 %b) local_unnamed
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_BB1_VARYING_PHI_BB6:%.*]] = phi  [ i1 [[VP_BB5_BR_VP_BB1_VARYING]], [[BB7]] ],  [ i1 false, [[BB4]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT_PHI_BB6:%.*]] = phi  [ i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT]], [[BB7]] ],  [ i1 false, [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_BB1_VARYING_PHI_BB6:%.*]] = phi  [ i1 false, [[BB4]] ],  [ i1 [[VP_BB5_BR_VP_BB1_VARYING]], [[BB7]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT_PHI_BB6:%.*]] = phi  [ i1 false, [[BB4]] ],  [ i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT]], [[BB7]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = or i1 [[VP_BB5_BR_VP_BB1_VARYING_NOT_PHI_BB6]] i1 [[VP_BB0_UNIFORM_NOT]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LD]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB7]] [[BB4]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_BB1_VARYING_PHI_BB6]]

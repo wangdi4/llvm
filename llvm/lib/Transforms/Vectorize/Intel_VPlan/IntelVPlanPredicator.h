@@ -102,6 +102,9 @@ private:
   // predicate in a separate map.
   DenseMap<VPBasicBlock *, VPValue *> Block2Predicate;
 
+  DenseMap<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
+      RemovedDivergentEdgesMap;
+
   // The struct corresponding to the blend consists of an incoming value,
   // incoming block, and the RPOT Idx calculated during linearization. This
   // index will be used to sort the operands of the blend.
