@@ -624,7 +624,6 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
         }
       }
       break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case Type::ArrayTyID: {
         // if the whole array is 'undef'
@@ -639,18 +638,6 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       }
       break;
 #endif // INTEL_CUSTOMIZATION
-    case Type::VectorTyID:
-      // if the whole vector is 'undef' just reserve memory for the value.
-      auto* VTy = cast<VectorType>(C->getType());
-      Type *ElemTy = VTy->getElementType();
-      unsigned int elemNum = VTy->getNumElements();
-      Result.AggregateVal.resize(elemNum);
-      if (ElemTy->isIntegerTy())
-        for (unsigned int i = 0; i < elemNum; ++i)
-          Result.AggregateVal[i].IntVal =
-            APInt(ElemTy->getPrimitiveSizeInBits(), 0);
-      break;
-=======
       case Type::FixedVectorTyID:
       case Type::ScalableVectorTyID:
         // if the whole vector is 'undef' just reserve memory for the value.
@@ -663,7 +650,6 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
             Result.AggregateVal[i].IntVal =
                 APInt(ElemTy->getPrimitiveSizeInBits(), 0);
         break;
->>>>>>> 2dea3f129878e929e5d1f00b91a622eb1ec8be4e
     }
     return Result;
   }
@@ -1036,9 +1022,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       break;
     }
     llvm_unreachable("Unknown constant pointer type!");
-<<<<<<< HEAD
-  }
-  break;
+  } break;
 #if INTEL_CUSTOMIZATION
   case Type::StructTyID: {
     assert((isa<ConstantStruct>(C) || isa<ConstantAggregateZero>(C)) &&
@@ -1065,9 +1049,6 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     const ConstantArray *CA = dyn_cast<ConstantArray>(C);
     const ConstantDataArray *CDA = dyn_cast<ConstantDataArray>(C);
     const ConstantAggregateZero *CAZ = dyn_cast<ConstantAggregateZero>(C);
-=======
-  } break;
->>>>>>> 2dea3f129878e929e5d1f00b91a622eb1ec8be4e
 
     const ArrayType* CATy = dyn_cast<ArrayType>(C->getType());
     auto NumElements = CATy->getNumElements();
