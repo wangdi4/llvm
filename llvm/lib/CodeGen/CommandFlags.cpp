@@ -81,7 +81,6 @@ CGOPT(bool, EnableStackSizeSection)
 CGOPT(bool, EnableAddrsig)
 #if INTEL_CUSTOMIZATION
 CGOPT(bool, EnableIntelAdvancedOpts)
-CGOPT(bool, EnableFtzDaz)
 CGOPT(int, X87Precision)
 #endif // INTEL_CUSTOMIZATION
 CGOPT(bool, EmitCallSiteInfo)
@@ -397,12 +396,6 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(EnableIntelAdvancedOpts);
 
-  static cl::opt<bool> EnableFtzDaz(
-      "ftz",
-      cl::desc("Enable Flush To Zero and Denormals Are Zero flags in MXCSR"),
-      cl::init(false));
-  CGBINDOPT(EnableFtzDaz);
-
   static cl::opt<int> X87Precision(
       "x87-precision", cl::desc("Set X87 internal precision"),
       cl::init(0));
@@ -492,7 +485,6 @@ TargetOptions codegen::InitTargetOptionsFromCodeGenFlags() {
   Options.EmitAddrsig = getEnableAddrsig();
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
-  Options.IntelFtzDaz = getEnableFtzDaz();
   Options.X87Precision = getX87Precision();
 #endif // INTEL_CUSTOMIZATION
   Options.EmitCallSiteInfo = getEmitCallSiteInfo();

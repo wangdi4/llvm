@@ -409,7 +409,7 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
   }
   else {
     // TODO: handle other errors.
-    ZeCall::check(ze_result, "piPlatformsGet");
+    ZeCall::check(ze_result, "zeInit");
   }
 
   // L0 does not have concept of platforms, but L0 driver is the
@@ -462,10 +462,12 @@ pi_result L0(piPlatformGetInfo)(
   zePrint("==========================\n");
 
   if (param_name == PI_PLATFORM_INFO_NAME) {
-    SET_PARAM_VALUE_STR("Intel Level-Zero Platform");
+    // TODO: Query L0 driver when relevant info is added there.
+    SET_PARAM_VALUE_STR("Intel(R) Level-Zero");
   }
   else if (param_name == PI_PLATFORM_INFO_VENDOR) {
-    SET_PARAM_VALUE_STR("Intel");
+    // TODO: Query L0 driver when relevant info is added there.
+    SET_PARAM_VALUE_STR("Intel(R) Corporation");
   }
   else if (param_name == PI_PLATFORM_INFO_EXTENSIONS) {
     // Convention adopted from OpenCL:
@@ -807,8 +809,14 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
     SET_PARAM_VALUE_STR(driver_version.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_VERSION) {
-    std::string version = std::to_string(pi_cast<pi_uint32>(device->L0DeviceProperties.version));
-    SET_PARAM_VALUE_STR(version.c_str());
+    ze_api_version_t ze_api_version;
+    ZE_CALL(zeDriverGetApiVersion(device->Platform->L0Driver, &ze_api_version));
+    std::string device_version =
+        std::string("Level-Zero ") +
+        std::to_string(ZE_MAJOR_VERSION(ze_api_version)) +
+        std::string(".") +
+        std::to_string(ZE_MINOR_VERSION(ze_api_version));
+    SET_PARAM_VALUE_STR(device_version.c_str());
   }
   else if (param_name == PI_DEVICE_INFO_PARTITION_MAX_SUB_DEVICES) {
     uint32_t ze_sub_device_count = 0;
