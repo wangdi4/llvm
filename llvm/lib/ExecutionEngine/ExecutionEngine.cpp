@@ -624,6 +624,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
         }
       }
       break;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case Type::ArrayTyID: {
         // if the whole array is 'undef'
@@ -649,6 +650,20 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
           Result.AggregateVal[i].IntVal =
             APInt(ElemTy->getPrimitiveSizeInBits(), 0);
       break;
+=======
+      case Type::FixedVectorTyID:
+      case Type::ScalableVectorTyID:
+        // if the whole vector is 'undef' just reserve memory for the value.
+        auto *VTy = cast<VectorType>(C->getType());
+        Type *ElemTy = VTy->getElementType();
+        unsigned int elemNum = VTy->getNumElements();
+        Result.AggregateVal.resize(elemNum);
+        if (ElemTy->isIntegerTy())
+          for (unsigned int i = 0; i < elemNum; ++i)
+            Result.AggregateVal[i].IntVal =
+                APInt(ElemTy->getPrimitiveSizeInBits(), 0);
+        break;
+>>>>>>> 2dea3f129878e929e5d1f00b91a622eb1ec8be4e
     }
     return Result;
   }
@@ -928,7 +943,8 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     else
       llvm_unreachable("Unknown constant pointer type!");
     break;
-  case Type::VectorTyID: {
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID: {
     unsigned elemNum;
     Type* ElemTy;
     const ConstantDataVector *CDV = dyn_cast<ConstantDataVector>(C);
@@ -1020,6 +1036,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       break;
     }
     llvm_unreachable("Unknown constant pointer type!");
+<<<<<<< HEAD
   }
   break;
 #if INTEL_CUSTOMIZATION
@@ -1048,6 +1065,9 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     const ConstantArray *CA = dyn_cast<ConstantArray>(C);
     const ConstantDataArray *CDA = dyn_cast<ConstantDataArray>(C);
     const ConstantAggregateZero *CAZ = dyn_cast<ConstantAggregateZero>(C);
+=======
+  } break;
+>>>>>>> 2dea3f129878e929e5d1f00b91a622eb1ec8be4e
 
     const ArrayType* CATy = dyn_cast<ArrayType>(C->getType());
     auto NumElements = CATy->getNumElements();
@@ -1104,7 +1124,8 @@ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
 
     *((PointerTy*)Ptr) = Val.PointerVal;
     break;
-  case Type::VectorTyID:
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID:
     for (unsigned i = 0; i < Val.AggregateVal.size(); ++i) {
       if (cast<VectorType>(Ty)->getElementType()->isDoubleTy())
         *(((double*)Ptr)+i) = Val.AggregateVal[i].DoubleVal;
@@ -1187,7 +1208,8 @@ void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
     Result.IntVal = APInt(80, y);
     break;
   }
-  case Type::VectorTyID: {
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID: {
     auto *VT = cast<VectorType>(Ty);
     Type *ElemT = VT->getElementType();
     const unsigned numElems = VT->getNumElements();
