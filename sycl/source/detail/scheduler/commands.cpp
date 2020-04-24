@@ -1691,8 +1691,10 @@ cl_int ExecCGCommand::enqueueImp() {
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
 #if INTEL_CUSTOMIZATION
         if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_LEVEL0)) {
-          Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel,
-              Arg.MIndex, (const RT::PiMem*)&Sampler);
+          // TODO: This is a workaround and should be reworked when
+          // piextDeviceGetNativeHandle will be implemented.
+          Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
+                                                 sizeof(void *), Sampler);
           break;
         }
 #endif // INTEL_CUSTOMIZATION

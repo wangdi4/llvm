@@ -133,8 +133,8 @@ static pi_result enqueueMemCopyHelper(
 static pi_result enqueueMemCopyRectHelper(
   pi_command_type    command_type,
   pi_queue           queue,
-  char *             src_buffer,
-  char *             dst_buffer,
+  void *             src_buffer,
+  void *             dst_buffer,
   const size_t *     src_origin,
   const size_t *     dst_origin,
   const size_t *     region,
@@ -470,9 +470,7 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
     ZE_CALL(zeDriverGet(&ze_driver_count, &ze_driver));
 
     // TODO: figure out how/when to release this memory
-    auto L0PiPlatform = new _pi_platform();
-    L0PiPlatform->L0Driver = ze_driver;
-    *platforms = L0PiPlatform;
+    *platforms = new _pi_platform(ze_driver);
   }
 
   if (num_platforms)
@@ -568,11 +566,7 @@ pi_result L0(piDevicesGet)(pi_platform      platform,
   for (uint32_t i = 0; i < ze_device_count; ++i) {
     // TODO: add check for device type
     if (i < num_entries) {
-      auto L0PiDevice = new _pi_device();
-      L0PiDevice->L0Device = ze_devices[i];
-      L0PiDevice->Platform = platform;
-      L0PiDevice->IsSubDevice = false;
-      L0PiDevice->RefCount = 1;
+      auto L0PiDevice = new _pi_device(ze_devices[i], platform);
 
       // Create the immediate command list to be used for initializations
       // Created as synchronous so level-zero performs implicit synchronization and
@@ -630,6 +624,8 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
                               size_t          param_value_size,
                               void *          param_value,
                               size_t *        param_value_size_ret) {
+
+  assert(device != nullptr);
 
   ze_device_handle_t ze_device = device->L0Device;
 
@@ -1193,11 +1189,8 @@ pi_result L0(piDevicePartition)(
 
   // Wrap the L0 sub-devices into PI sub-devices, and write them out.
   for (uint32_t i = 0; i < count; ++i) {
-    auto L0PiDevice = new _pi_device();
-    L0PiDevice->L0Device = ze_subdevices[i];
-    L0PiDevice->Platform = device->Platform;
-    L0PiDevice->IsSubDevice = true;
-    L0PiDevice->RefCount = 1;
+    auto L0PiDevice = new _pi_device(ze_subdevices[i], device->Platform,
+                                     true /* isSubDevice */);
     out_devices[i] = L0PiDevice;
 
     // Cache device properties
@@ -1269,11 +1262,7 @@ pi_result L0(piContextCreate)(
     return PI_INVALID_VALUE;
   }
 
-  auto L0PiContext = new _pi_context();
-  L0PiContext->Device = *devices;
-  L0PiContext->RefCount = 1;
-  L0PiContext->L0EventPool = nullptr;
-  *ret_context = L0PiContext;
+  *ret_context =  new _pi_context(*devices);
   return PI_SUCCESS;
 }
 
@@ -1364,10 +1353,7 @@ pi_result L0(piQueueCreate)(
     &ze_command_queue_desc,  // TODO: translate properties
     &ze_command_queue));
 
-  auto L0PiQueue = new _pi_queue();
-  L0PiQueue->L0CommandQueue = ze_command_queue;
-  L0PiQueue->Context = context;
-  *queue = L0PiQueue;
+  *queue = new _pi_queue(ze_command_queue, context);
 
   return PI_SUCCESS;
 }
@@ -1474,15 +1460,11 @@ pi_result piMemBufferCreate(
     die("piMemBufferCreate: not implemented");
   }
 
-  auto L0PiMem = new _pi_mem();
-  L0PiMem->L0Mem = pi_cast<char*>(ptr);
-  L0PiMem->Platform = context->Device->Platform;
-  L0PiMem->RefCount = 1;
-  L0PiMem->IsMemImage = false;
-  L0PiMem->SubBuffer.Parent = nullptr;
-  L0PiMem->MapHostPtr = (flags & PI_MEM_FLAGS_HOST_PTR_USE) ?
-      pi_cast<char*>(host_ptr): nullptr;
-  *ret_mem = L0PiMem;
+  auto HostPtr =
+      (flags & PI_MEM_FLAGS_HOST_PTR_USE) ? pi_cast<char *>(host_ptr) : nullptr;
+  *ret_mem =
+      new _pi_buffer(context->Device->Platform,
+                     pi_cast<char *>(ptr) /* L0 Memory Handle */, HostPtr);
 
   return PI_SUCCESS;
 }
@@ -1505,12 +1487,13 @@ pi_result L0(piMemRetain)(pi_mem mem) {
 
 pi_result L0(piMemRelease)(pi_mem mem) {
   if (--(mem->RefCount) == 0) {
-    if (mem->IsMemImage) {
-      ZE_CALL(zeImageDestroy(mem->L0Image));
+    if (mem->isImage()) {
+      ZE_CALL(zeImageDestroy(pi_cast<ze_image_handle_t>(mem->getL0Handle())));
     }
     else {
-      if (!mem->SubBuffer.Parent) {
-        ZE_CALL(zeDriverFreeMem(mem->Platform->L0Driver, mem->L0Mem));
+      auto buf = static_cast<_pi_buffer *>(mem);
+      if (!buf->isSubBuffer()) {
+        ZE_CALL(zeDriverFreeMem(mem->Platform->L0Driver, mem->getL0Handle()));
       }
     }
     delete mem;
@@ -1643,12 +1626,10 @@ pi_result L0(piMemImageCreate)(
   ze_image_handle_t hImage;
   ZE_CALL(zeImageCreate(context->Device->L0Device, &imageDesc, &hImage));
 
-  auto L0PiImage = new _pi_mem();
-  L0PiImage->L0Image = hImage;
-  L0PiImage->Platform = context->Device->Platform;
-  L0PiImage->RefCount = 1;
-  L0PiImage->IsMemImage = true;
-  L0PiImage->SubBuffer.Parent = nullptr;
+  auto HostPtr =
+      (flags & PI_MEM_FLAGS_HOST_PTR_USE) ? pi_cast<char *>(host_ptr) : nullptr;
+  auto L0PiImage = new _pi_image(context->Device->Platform, hImage, HostPtr);
+
 #ifndef NDEBUG
   L0PiImage->L0ImageDesc = imageDesc;
 #endif // !NDEBUG
@@ -1697,11 +1678,7 @@ pi_result L0(piProgramCreate)(
     &ze_module,
     0)); // TODO: handle build log
 
-  auto L0PiProgram = new _pi_program();
-  L0PiProgram->L0Module = ze_module;
-  L0PiProgram->Context = context;
-  L0PiProgram->RefCount = 1;
-
+  auto L0PiProgram = new _pi_program(ze_module, context);
   *program = pi_cast<pi_program>(L0PiProgram);
   return PI_SUCCESS;
 }
@@ -1740,12 +1717,9 @@ pi_result L0(piclProgramCreateWithBinary)(
     &ze_module,
     0));
 
-  auto L0PiProgram = new _pi_program();
-  L0PiProgram->L0Module = ze_module;
-  L0PiProgram->Context = context;
-  L0PiProgram->RefCount = 1;
-
+  auto L0PiProgram = new _pi_program(ze_module, context);
   *ret_program = pi_cast<pi_program>(L0PiProgram);
+
   if (binary_status) {
     *binary_status = PI_SUCCESS;
   }
@@ -1953,10 +1927,7 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
   auto ze_module = pi_cast<ze_module_handle_t*>(nativeHandle);
   assert(*ze_module);
   // Create PI program from the given L0 module handle
-  auto L0PiProgram = new _pi_program();
-  L0PiProgram->L0Module = *ze_module;
-  L0PiProgram->Context = context;
-  L0PiProgram->RefCount = 1;
+  auto L0PiProgram = new _pi_program(*ze_module, context);
 
   *program = pi_cast<pi_program>(L0PiProgram);
   return PI_SUCCESS;
@@ -1978,11 +1949,7 @@ pi_result L0(piKernelCreate)(
     &ze_kernel_desc,
     &ze_kernel));
 
-  auto L0PiKernel = new _pi_kernel();
-  L0PiKernel->L0Kernel = ze_kernel;
-  L0PiKernel->Program = program;
-  L0PiKernel->RefCount = 1;
-
+  auto L0PiKernel = new _pi_kernel(ze_kernel, program);
   *ret_kernel = pi_cast<pi_kernel>(L0PiKernel);
   return PI_SUCCESS;
 }
@@ -2021,10 +1988,6 @@ pi_result L0(piextKernelSetArgMemObj)(
   pi_uint32         arg_index,
   const pi_mem *    arg_value)
 {
-  // We don't care to understand here which exactly PI object we are
-  // dealing with here as long as corresponding native L0 handle is
-  // the first thing in the structure representing this PI object.
-  //
   // TODO: the better way would probably be to add a new PI API for
   // extracting native PI object from PI handle, and have SYCL
   // RT pass that directly to the regular piKernelSetArg (and
@@ -2035,7 +1998,7 @@ pi_result L0(piextKernelSetArgMemObj)(
     pi_cast<ze_kernel_handle_t>(kernel->L0Kernel),
     pi_cast<uint32_t>(arg_index),
     sizeof(void *),
-    pi_cast<const void*>(&(*arg_value)->L0Mem)));
+    (*arg_value)->getL0HandlePtr()));
 
   return PI_SUCCESS;
 }
@@ -2341,15 +2304,8 @@ pi_result L0(piEventCreate)(
     &ze_event_desc,
     &ze_event));
 
-  auto PiEvent = new _pi_event;
-  PiEvent->L0Event = ze_event;
-  PiEvent->L0EventPool = ze_event_pool;
-  PiEvent->Queue = nullptr;
-  PiEvent->CommandType = PI_COMMAND_TYPE_USER;   // TODO: verify
-  PiEvent->L0CommandList = nullptr;
-  PiEvent->RefCount = 1;
-  PiEvent->Context = context;
-  *ret_event = PiEvent;
+  *ret_event =
+      new _pi_event(ze_event, ze_event_pool, context, PI_COMMAND_TYPE_USER);
   return PI_SUCCESS;
 }
 
@@ -2680,11 +2636,7 @@ pi_result L0(piSamplerCreate)(
     &ze_sampler_desc,  // TODO: translate properties
     &ze_sampler));
 
-  auto L0PiSampler = new _pi_sampler();
-  L0PiSampler->L0Sampler = ze_sampler;
-  L0PiSampler->RefCount = 1;
-
-  *ret_sampler = L0PiSampler;
+  *ret_sampler = new _pi_sampler(ze_sampler);
   return PI_SUCCESS;
 }
 
@@ -2742,7 +2694,7 @@ pi_result L0(piEnqueueMemBufferRead)(
     dst,
     blocking_read,
     size,
-    src->L0Mem + offset,
+    pi_cast<char *>(src->getL0Handle()) + offset,
     num_events_in_wait_list,
     event_wait_list,
     event);
@@ -2767,7 +2719,7 @@ pi_result L0(piEnqueueMemBufferReadRect)(
   return enqueueMemCopyRectHelper(
     PI_COMMAND_TYPE_MEM_BUFFER_READ_RECT,
     queue,
-    buffer->L0Mem,
+    buffer->getL0Handle(),
     static_cast<char *>(ptr),
     buffer_offset,
     host_offset,
@@ -2844,8 +2796,8 @@ static pi_result enqueueMemCopyHelper(
 static pi_result enqueueMemCopyRectHelper(
   pi_command_type    command_type,
   pi_queue           queue,
-  char *             src_buffer,
-  char *             dst_buffer,
+  void *             src_buffer,
+  void *             dst_buffer,
   const size_t *     src_origin,
   const size_t *     dst_origin,
   const size_t *     region,
@@ -2963,7 +2915,7 @@ pi_result L0(piEnqueueMemBufferWrite)(
   return enqueueMemCopyHelper(
     PI_COMMAND_TYPE_MEM_BUFFER_WRITE,
     queue,
-    buffer->L0Mem + offset, // dst
+    pi_cast<char *>(buffer->getL0Handle()) + offset, // dst
     blocking_write,
     size,
     ptr, // src
@@ -2992,7 +2944,7 @@ pi_result L0(piEnqueueMemBufferWriteRect)(
     PI_COMMAND_TYPE_MEM_BUFFER_WRITE_RECT,
     queue,
     const_cast<char *>(static_cast<const char *>(ptr)),
-    buffer->L0Mem,
+    buffer->getL0Handle(),
     host_offset,
     buffer_offset,
     region,
@@ -3020,10 +2972,10 @@ pi_result L0(piEnqueueMemBufferCopy)(
   return enqueueMemCopyHelper(
     PI_COMMAND_TYPE_MEM_BUFFER_COPY,
     queue,
-    dst_buffer->L0Mem + dst_offset,
+    pi_cast<char *>(dst_buffer->getL0Handle()) + dst_offset,
     false, // blocking
     size,
-    src_buffer->L0Mem + src_offset,
+    pi_cast<char *>(src_buffer->getL0Handle()) + src_offset,
     num_events_in_wait_list,
     event_wait_list,
     event);
@@ -3047,8 +2999,8 @@ pi_result L0(piEnqueueMemBufferCopyRect)(
   return enqueueMemCopyRectHelper(
     PI_COMMAND_TYPE_MEM_BUFFER_COPY_RECT,
     queue,
-    src_buffer->L0Mem,
-    dst_buffer->L0Mem,
+    src_buffer->getL0Handle(),
+    dst_buffer->getL0Handle(),
     src_origin,
     dst_origin,
     region,
@@ -3139,7 +3091,7 @@ pi_result L0(piEnqueueMemBufferFill)(
   return enqueueMemFillHelper(
     PI_COMMAND_TYPE_MEM_BUFFER_FILL,
     queue,
-    buffer->L0Mem + offset,
+    pi_cast<char *>(buffer->getL0Handle()) + offset,
     pattern,
     pattern_size,
     size,
@@ -3220,7 +3172,7 @@ pi_result L0(piEnqueueMemBufferMap)(
   ZE_CALL(zeCommandListAppendMemoryCopy(
     ze_command_list,
     *ret_map,
-    buffer->L0Mem + offset,
+    pi_cast<char *>(buffer->getL0Handle()) + offset,
     size,
     ze_event
   ));
@@ -3294,7 +3246,7 @@ pi_result L0(piEnqueueMemUnmap)(
   ze_event_handle_t ze_event = (*event)->L0Event;
   ZE_CALL(zeCommandListAppendMemoryCopy(
     ze_command_list,
-    memobj->L0Mem + map_info.offset,
+    pi_cast<char *>(memobj->getL0Handle()) + map_info.offset,
     mapped_ptr,
     map_info.size,
     ze_event
@@ -3328,12 +3280,14 @@ pi_result L0(piMemImageGetInfo) (
 }
 
 static ze_image_region_t getImageRegionHelper(
-  pi_mem            image,
+  pi_mem            mem,
   const size_t *    origin,
   const size_t *    region) {
 
-  assert(image && origin);
+  assert(mem && origin);
 #ifndef NDEBUG
+  assert(mem->isImage());
+  auto image = static_cast<_pi_image *>(mem);
   ze_image_desc_t imageDesc = image->L0ImageDesc;
 #endif // !NDEBUG
 
@@ -3398,72 +3352,69 @@ static pi_result enqueueMemImageCommandHelper(
   ));
 
   if (command_type == PI_COMMAND_TYPE_IMAGE_READ) {
-    pi_mem src_image = pi_cast<pi_mem>(const_cast<void*>(src));
+    pi_mem src_mem = pi_cast<pi_mem>(const_cast<void *>(src));
+
     const ze_image_region_t srcRegion =
-      getImageRegionHelper(src_image, src_origin, region);
+        getImageRegionHelper(src_mem, src_origin, region);
 
     // TODO: L0 does not support row_pitch/slice_pitch for images yet.
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303
     // Check that SYCL RT did not want pitch larger than default.
     //
 #ifndef NDEBUG
+    assert(src_mem->isImage());
+    auto src_image = static_cast<_pi_image *>(src_mem);
+    const ze_image_desc_t &ImageDesc = src_image->L0ImageDesc;
     assert(row_pitch == 0 ||
            // special case RGBA image pitch equal to region's width
-           (src_image->L0ImageDesc.format.layout ==
-                ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
+           (ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
             row_pitch == 4 * 4 * srcRegion.width) ||
-           (src_image->L0ImageDesc.format.layout ==
-                ZE_IMAGE_FORMAT_LAYOUT_16_16_16_16 &&
+           (ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_16_16_16_16 &&
             row_pitch == 4 * 2 * srcRegion.width) ||
-           (src_image->L0ImageDesc.format.layout ==
-                ZE_IMAGE_FORMAT_LAYOUT_8_8_8_8 &&
+           (ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_8_8_8_8 &&
             row_pitch == 4 * srcRegion.width));
-    assert(slice_pitch == 0 ||
-           slice_pitch == row_pitch * srcRegion.height);
+    assert(slice_pitch == 0 || slice_pitch == row_pitch * srcRegion.height);
 #endif // !NDEBUG
 
     ZE_CALL(zeCommandListAppendImageCopyToMemory(
       ze_command_list,
       dst,
-      src_image->L0Image,
+      pi_cast<ze_image_handle_t>(src_mem->getL0Handle()),
       &srcRegion,
       ze_event
     ));
-  }
-  else if (command_type == PI_COMMAND_TYPE_IMAGE_WRITE) {
-    pi_mem dst_image = pi_cast<pi_mem>(dst);
+  } else if (command_type == PI_COMMAND_TYPE_IMAGE_WRITE) {
+    pi_mem dst_mem = pi_cast<pi_mem>(dst);
     const ze_image_region_t dstRegion =
-      getImageRegionHelper(dst_image, dst_origin, region);
+      getImageRegionHelper(dst_mem, dst_origin, region);
 
     // TODO: L0 does not support row_pitch/slice_pitch for images yet.
     // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303
     // Check that SYCL RT did not want pitch larger than default.
     //
 #ifndef NDEBUG
+    assert(dst_mem->isImage());
+    auto dst_image = static_cast<_pi_image *>(dst_mem);
+    const ze_image_desc_t &ImageDesc = dst_image->L0ImageDesc;
     assert(row_pitch == 0 ||
            // special case RGBA image pitch equal to region's width
-           (dst_image->L0ImageDesc.format.layout ==
-                ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
+           (ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_32_32_32_32 &&
             row_pitch == 4 * 4 * dstRegion.width) ||
-           (dst_image->L0ImageDesc.format.layout ==
-                ZE_IMAGE_FORMAT_LAYOUT_16_16_16_16 &&
+           (ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_16_16_16_16 &&
             row_pitch == 4 * 2 * dstRegion.width) ||
-           (dst_image->L0ImageDesc.format.layout ==
-                ZE_IMAGE_FORMAT_LAYOUT_8_8_8_8 &&
+           (ImageDesc.format.layout == ZE_IMAGE_FORMAT_LAYOUT_8_8_8_8 &&
             row_pitch == 4 * dstRegion.width));
-    assert(slice_pitch == 0 ||
-           slice_pitch == row_pitch * dstRegion.height);
+    assert(slice_pitch == 0 || slice_pitch == row_pitch * dstRegion.height);
 #endif // !NDEBUG
 
     ZE_CALL(zeCommandListAppendImageCopyFromMemory(
       ze_command_list,
-      dst_image->L0Image,
+      pi_cast<ze_image_handle_t>(dst_mem->getL0Handle()),
       src,
       &dstRegion,
       ze_event
     ));
-  }
-  else if (command_type == PI_COMMAND_TYPE_IMAGE_COPY) {
+  } else if (command_type == PI_COMMAND_TYPE_IMAGE_COPY) {
     pi_mem src_image = pi_cast<pi_mem>(const_cast<void*>(src));
     pi_mem dst_image = pi_cast<pi_mem>(dst);
 
@@ -3474,14 +3425,13 @@ static pi_result enqueueMemImageCommandHelper(
 
     ZE_CALL(zeCommandListAppendImageCopyRegion(
       ze_command_list,
-      dst_image->L0Image,
-      src_image->L0Image,
+      pi_cast<ze_image_handle_t>(dst_image->getL0Handle()),
+      pi_cast<ze_image_handle_t>(src_image->getL0Handle()),
       &dstRegion,
       &srcRegion,
       ze_event
     ));
-  }
-  else {
+  } else {
     zePrint("enqueueMemImageUpdate: unsupported image command type\n");
     return PI_INVALID_OPERATION;
   }
@@ -3599,22 +3549,17 @@ pi_result L0(piMemBufferPartition)(
     void *                    buffer_create_info,
     pi_mem *                  ret_mem) {
 
-  assert(buffer && !buffer->IsMemImage);
+  assert(buffer && !buffer->isImage());
   assert(flags == PI_MEM_FLAGS_ACCESS_RW);
   assert(buffer_create_type == PI_BUFFER_CREATE_TYPE_REGION);
 
   auto region = (pi_buffer_region)buffer_create_info;
-
-  auto L0PiMem = new _pi_mem();
-  L0PiMem->L0Mem = pi_cast<char*>(buffer->L0Mem + region->origin);
-  L0PiMem->Platform = buffer->Platform;
-  L0PiMem->RefCount = 1;
-  L0PiMem->IsMemImage = false;
-  L0PiMem->MapHostPtr = nullptr;
-  L0PiMem->SubBuffer.Parent = buffer;
-  L0PiMem->SubBuffer.Origin = region->origin;
-  L0PiMem->SubBuffer.Size = region->size;
-  *ret_mem = L0PiMem;
+  *ret_mem = new _pi_buffer(
+      buffer->Platform,
+      pi_cast<char *>(buffer->getL0Handle()) +
+          region->origin /* L0 memory handle */,
+      nullptr /* Host pointer */, buffer /* Parent buffer */,
+      region->origin /* Sub-buffer origin */, region->size /*Sub-buffer size*/);
 
   return PI_SUCCESS;
 }
