@@ -17,5 +17,6 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDPCPPKernelPostVecPass(Registry);
   initializeDPCPPKernelWGLoopCreatorLegacyPassPass(Registry);
   initializeDPCPPKernelAnalysisPass(Registry);
+  initializePhiCanonicalizationPass(Registry);
 }
 
