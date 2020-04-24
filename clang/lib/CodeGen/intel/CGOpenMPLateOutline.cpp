@@ -171,6 +171,9 @@ OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   auto *Init = Private->getInit();
   if (Init && !NewCGF.isTrivialInitializer(Init)) {
     CodeGenFunction::RunCleanupsScope Scope(NewCGF);
+    // Initializer might involve cleanups, so skip to constructor.
+    if (auto Cleanups = dyn_cast<ExprWithCleanups>(Init))
+      Init = Cleanups->getSubExpr();
     auto *CCE = cast<CXXConstructExpr>(Init);
     DeclRefExpr SrcExpr(C, &SrcDecl,
                         /*RefersToEnclosingVariableOrCapture=*/false,
