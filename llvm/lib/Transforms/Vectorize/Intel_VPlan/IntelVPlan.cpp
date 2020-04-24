@@ -61,6 +61,11 @@ static cl::opt<bool> DumpExternalDefsHIR("vplan-dump-external-defs-hir",
                                          cl::init(false), cl::Hidden,
                                          cl::desc("Print HIR VPExternalDefs."));
 
+static cl::opt<bool>
+    VPlanDumpDetails("vplan-dump-details", cl::init(false), cl::Hidden,
+                     cl::desc("Print VPlan instructions' details like "
+                              "underlying attributes/metadata."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
@@ -93,6 +98,7 @@ void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {}
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
+  State.ILV->setBuilderDebugLoc(this->getDebugLocation());
   State.ILV->vectorizeInstruction(this);
   return;
 #endif
@@ -342,6 +348,14 @@ void VPInstruction::dump(raw_ostream &O,
                          const VPlanDivergenceAnalysis *DA) const {
   print(O, DA);
   O << "\n";
+  if (VPlanDumpDetails) {
+    // TODO: How to get Indent here?
+    O << "    DbgLoc: ";
+    getDebugLocation().print(O);
+    O << "\n";
+    // Print other attributes here when imported.
+    O << "\n";
+  }
 }
 #endif /* INTEL_CUSTOMIZATION */
 
