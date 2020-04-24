@@ -1285,9 +1285,9 @@ if(INTEL_CUSTOMIZATION)
       # to build Position Independent Executables.
       intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
 
-      intel_add_sdl_linker_flag("-Wl,-Map=swlc_ip.map" MAP
-        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
-        CMAKE_SHARED_LINKER_FLAGS)
+      #intel_add_sdl_linker_flag("-Wl,-Map=swlc_ip.map" MAP
+      #  CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+      #  CMAKE_SHARED_LINKER_FLAGS)
     elseif(MSVC)
       if (LLVM_ENABLE_WERROR)
         # Force warnings as errors for link:
@@ -1373,9 +1373,9 @@ if(INTEL_CUSTOMIZATION)
         intel_add_sdl_flag("/Qspectre" QSPECTRE FUTURE)
       endif()
 
-      intel_add_sdl_linker_flag("/MAP:swlc_ip.map" MAP
-        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
-        CMAKE_SHARED_LINKER_FLAGS)
+      #intel_add_sdl_linker_flag("/MAP:swlc_ip.map" MAP
+      #  CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+      #  CMAKE_SHARED_LINKER_FLAGS)
     else()
       message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
     endif()
