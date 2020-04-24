@@ -438,12 +438,11 @@ __OMP_ATTRS_SET(SetterAttrs,
 #define __OMP_RTL_ATTRS(Name, FnAttrSet, RetAttrSet, ArgAttrSets)              \
   OMP_RTL_ATTRS(OMPRTL_##Name, FnAttrSet, RetAttrSet, ArgAttrSets)
 
-__OMP_RTL_ATTRS(__kmpc_barrier,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
+__OMP_RTL_ATTRS(__kmpc_barrier, AttributeSet(), AttributeSet(), {})
 __OMP_RTL_ATTRS(__kmpc_cancel,
                 AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
                 AttributeSet(), {})
+<<<<<<< HEAD
 __OMP_RTL_ATTRS(__kmpc_cancel_barrier,
                 AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
                 AttributeSet(), {})
@@ -455,11 +454,14 @@ __OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
                 ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
                                                      EnumAttr(ReadOnly))}))
 #endif // INTEL_CUSTOMIZATION
+=======
+__OMP_RTL_ATTRS(__kmpc_cancel_barrier, AttributeSet(), AttributeSet(), {})
+__OMP_RTL_ATTRS(__kmpc_flush, AttributeSet(), AttributeSet(), {})
+__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(), {})
+>>>>>>> 72a9e7c926f4e32f209e528ec407fe526da5587e
 __OMP_RTL_ATTRS(__kmpc_fork_call, AttributeSet(EnumAttr(NoUnwind)),
                 AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_taskwait,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
+__OMP_RTL_ATTRS(__kmpc_omp_taskwait, AttributeSet(), AttributeSet(), {})
 __OMP_RTL_ATTRS(__kmpc_omp_taskyield,
                 AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
                 AttributeSet(), {})
