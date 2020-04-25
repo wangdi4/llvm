@@ -13,7 +13,7 @@
 ; HIR-MODE: -->  (1 + %n)<nuw><nsw> U: [1,0) S: [-2147483647,-2147483648)
 
 
-define i32 @foo(i32 %n) {
+define i32 @foo(i32 %n) "intel-lang"="fortran" {
 entry:
   %cmp17 = icmp slt i32 %n, 5
   %add = add nsw nuw i32 %n, 1
