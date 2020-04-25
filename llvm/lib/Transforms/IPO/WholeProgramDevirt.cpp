@@ -1148,9 +1148,8 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       if (RemarksEnabled)
         VCallSite.emitRemark("single-impl",
                              TheFn->stripPointerCasts()->getName(), OREGetter);
-<<<<<<< HEAD
-      VCallSite.CS.setCalledFunction(ConstantExpr::getBitCast(
-          TheFn, VCallSite.CS.getCalledValue()->getType()));
+      VCallSite.CB.setCalledOperand(ConstantExpr::getBitCast(
+          TheFn, VCallSite.CB.getCalledValue()->getType()));
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
       // If a bitcast operation has been performed to match the callsite to
@@ -1159,15 +1158,10 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       // type for the call, rather than a mismatched argument type. The
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
-      if (TheFn->getType() != VCallSite.CS.getCalledValue()->getType())
-        VCallSite.CS.getInstruction()->setMetadata("_Intel.Devirt.Call",
-                                                 DevirtCallMDNode);
+      if (TheFn->getType() != VCallSite.CB.getCalledValue()->getType())
+        (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-      VCallSite.CB.setCalledOperand(ConstantExpr::getBitCast(
-          TheFn, VCallSite.CB.getCalledValue()->getType()));
->>>>>>> cea6f4d5f8431ea723e85f6e57812feb3633ecbe
       // This use is no longer unsafe.
       if (VCallSite.NumUnsafeUses)
         --*VCallSite.NumUnsafeUses;
@@ -1473,7 +1467,7 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
 
   IRBuilder<> Builder(M.getContext());
   StringRef BaseName = StringRef("BBDevirt_");
-  Instruction *CSInst = VCallSite.CS.getInstruction();
+  Instruction *CSInst = &VCallSite.CB;
   Function *Func = CSInst->getFunction();
 
   // Add all the function addresses and create the BasicBlocks
@@ -1505,10 +1499,10 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
     Builder.Insert(CloneCS);
 
     // Replace the called function with the direct call
-    CallSite NewCS = CallSite(CloneCS);
-    if (Target.Fn->getFunctionType() != VCallSite.CS.getFunctionType()) {
-      NewCS.setCalledFunction(ConstantExpr::getBitCast(
-        Target.Fn, VCallSite.CS.getCalledValue()->getType()));
+    CallBase *NewCB = cast<CallBase>(CloneCS);
+    if (Target.Fn->getFunctionType() != VCallSite.CB.getFunctionType()) {
+      NewCB->setCalledOperand(ConstantExpr::getBitCast(
+          Target.Fn, VCallSite.CB.getCalledValue()->getType()));
 #if INTEL_INCLUDE_DTRANS
       // Because a bitcast operation has been performed to match the callsite to
       // the call target for the object type, mark the call to allow DTrans
@@ -1516,16 +1510,15 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
       // type for the call, rather than a mismatched argument type. The
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
-      NewCS.getInstruction()->setMetadata("_Intel.Devirt.Call",
-                                          DevirtCallMDNode);
+      NewCB->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
 #endif // INTEL_INCLUDE_DTRANS
     }
     else {
-      NewCS.setCalledFunction(Target.Fn);
+      NewCB->setCalledFunction(Target.Fn);
     }
 
     // Save the new instruction for PHINode
-    NewTarget->CallInstruction = NewCS.getInstruction();
+    NewTarget->CallInstruction = NewCB;
 
     // Add the metadata "_Intel.Devirt.Target" in the target function
     if (!Target.Fn->hasMetadata() ||
@@ -1550,7 +1543,7 @@ BasicBlock* DevirtModule::getMergePoint(Module &M, std::string &VCallStamp,
   BasicBlock *MergePointBB = nullptr;
   IRBuilder<> Builder(M.getContext());
   StringRef MergePointName = StringRef("MergeBB");
-  Instruction *CSInst = VCallSite.CS.getInstruction();
+  Instruction *CSInst = &VCallSite.CB;
   Function *Func = CSInst->getFunction();
   BasicBlock *BB = CSInst->getParent();
 
@@ -1565,7 +1558,7 @@ BasicBlock* DevirtModule::getMergePoint(Module &M, std::string &VCallStamp,
   // is a CallInst
   //   BB: everything before the virtual function call
   //   BBEndPoint: Everything from the virtual function call until the end
-  if (VCallSite.CS.isCall()) {
+  if (isa<CallInst>(&VCallSite.CB)) {
     EndPointBB = BB->splitBasicBlock(CSInst->getNextNode());
     // The current terminator branch is not needed since is going to be
     // replaced with an if/else
@@ -1575,7 +1568,7 @@ BasicBlock* DevirtModule::getMergePoint(Module &M, std::string &VCallStamp,
     // will take care of fixing them.
   }
   // Else, InvokeInst, collect the destination
-  else if (VCallSite.CS.isInvoke()) {
+  else if (isa<InvokeInst>(&VCallSite.CB)) {
     // Replace the PHINodes that are pointing to the main BasicBlock
     // with the merge point. The PHINodes that are in the unwind
     // destinations will be fixed later.
@@ -1604,8 +1597,8 @@ BasicBlock* DevirtModule::getMergePoint(Module &M, std::string &VCallStamp,
 DevirtModule::TargetData* DevirtModule::buildDefaultCase(Module &M,
     std::string VCallStamp, VirtualCallSite VCallSite) {
 
-  Instruction *CSInst = VCallSite.CS.getInstruction();
-  Value *CalledVal = VCallSite.CS.getCalledValue();
+  Instruction *CSInst = &VCallSite.CB;
+  Value *CalledVal = VCallSite.CB.getCalledValue();
   Function *Func = CSInst->getFunction();
   IRBuilder<> Builder(M.getContext());
   StringRef DefaultBBName = StringRef("DefaultBB");
@@ -1644,10 +1637,10 @@ void DevirtModule::fixUnwindPhiNodes(VirtualCallSite &VCallSite,
     BasicBlock *MergePointBB, std::vector<TargetData *> &TargetsVector,
     TargetData *DefaultTarget) {
 
-  if (!VCallSite.CS.isInvoke())
+  if (!isa<InvokeInst>(&VCallSite.CB))
     return;
 
-  InvokeInst *InvokeI = cast<InvokeInst>(VCallSite.CS.getInstruction());
+  InvokeInst *InvokeI = cast<InvokeInst>(&VCallSite.CB);
   BasicBlock *UnwindBB = InvokeI->getUnwindDest();
 
   // Traverse through each PHINode in the unwind destination
@@ -2018,10 +2011,10 @@ bool DevirtModule::tryMultiVersionDevirt(
 
     for (auto &&VCallSite : CSInfo.CallSites) {
 
-      if (VCallSite.CS.getCalledFunction() != nullptr)
+      if (VCallSite.CB.getCalledFunction() != nullptr)
         continue;
 
-      BasicBlock *MainBB = VCallSite.CS.getParent();
+      BasicBlock *MainBB = VCallSite.CB.getParent();
 
       // Generate the number stamp _CallSlotI_VCallI
       std::string VCallNum = std::to_string(VCallI);
@@ -2045,7 +2038,8 @@ bool DevirtModule::tryMultiVersionDevirt(
 
       // Build the branches that will do the multiversioning
       generateBranching(M, VCallStamp, MainBB, MergePoint,
-                        VCallSite.CS.isCall(), TargetsVector, DefaultTarget);
+                        isa<CallInst>(&VCallSite.CB), TargetsVector,
+                        DefaultTarget);
 
       // Build the PHINode and the replacement in case there is any use
       generatePhiNodes(M, MergePoint, TargetsVector, DefaultTarget);
