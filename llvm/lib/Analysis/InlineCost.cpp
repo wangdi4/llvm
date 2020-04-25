@@ -5378,6 +5378,7 @@ InlineCost llvm::getInlineCost(
 #endif // INTEL_CUSTOMIZATION
 }
 
+<<<<<<< HEAD
 InlineCost llvm::getInlineCost(
     CallBase &Call, Function *Callee, const InlineParams &Params,
     TargetTransformInfo &CalleeTTI,
@@ -5395,6 +5396,15 @@ InlineCost llvm::getInlineCost(
   // Cannot inline indirect calls.
   if (!Callee)
     return llvm::InlineCost::getNever("indirect call", NinlrIndirect); // INTEL
+=======
+Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
+    CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
+    function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
+
+  // Cannot inline indirect calls.
+  if (!Callee)
+    return InlineResult::failure("indirect call");
+>>>>>>> 201498c6f34ef1a052d9c3f46cfdf4263606f232
 
   // Never inline calls with byval arguments that does not have the alloca
   // address space. Since byval arguments can be replaced with a copy to an
@@ -5406,8 +5416,8 @@ InlineCost llvm::getInlineCost(
     if (Call.isByValArgument(I)) {
       PointerType *PTy = cast<PointerType>(Call.getArgOperand(I)->getType());
       if (PTy->getAddressSpace() != AllocaAS)
-        return llvm::InlineCost::getNever("byval arguments without alloca"
-                                          " address space");
+        return InlineResult::failure("byval arguments without alloca"
+                                     " address space");
     }
 
   // Calls to functions with always-inline attributes should be inlined
@@ -5417,11 +5427,16 @@ InlineCost llvm::getInlineCost(
     InlineReason Reason = InlrNoReason;
     auto IsViable = isInlineViable(*Callee, Reason);
     if (IsViable.isSuccess())
+<<<<<<< HEAD
       return llvm::InlineCost::getAlways("always inline attribute",
                                          InlrAlwaysInline);
     assert(IsNotInlinedReason(Reason));
     return llvm::InlineCost::getNever(IsViable.getFailureReason(),
                                       Reason);
+=======
+      return InlineResult::success();
+    return InlineResult::failure(IsViable.getFailureReason());
+>>>>>>> 201498c6f34ef1a052d9c3f46cfdf4263606f232
   }
   if (Call.hasFnAttr("always-inline-recursive")) {
     InlineReason Reason = InlrNoReason;
@@ -5438,6 +5453,7 @@ InlineCost llvm::getInlineCost(
   // always-inline attribute).
   Function *Caller = Call.getCaller();
   if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI, GetTLI))
+<<<<<<< HEAD
     return llvm::InlineCost::getNever("conflicting attributes",   // INTEL
                                       NinlrMismatchedAttributes); // INTEL
 
@@ -5445,10 +5461,18 @@ InlineCost llvm::getInlineCost(
   if (Caller->hasOptNone())
     return llvm::InlineCost::getNever("optnone attribute",    // INTEL
                                       NinlrNullPtrMismatch);  // INTEL
+=======
+    return InlineResult::failure("conflicting attributes");
+
+  // Don't inline this call if the caller has the optnone attribute.
+  if (Caller->hasOptNone())
+    return InlineResult::failure("optnone attribute");
+>>>>>>> 201498c6f34ef1a052d9c3f46cfdf4263606f232
 
   // Don't inline a function that treats null pointer as valid into a caller
   // that does not have this attribute.
   if (!Caller->nullPointerIsDefined() && Callee->nullPointerIsDefined())
+<<<<<<< HEAD
     return llvm::InlineCost::getNever("nullptr definitions "   // INTEL
                                       "incompatible",          // INTEL
                                       NinlrNullPtrMismatch);   // INTEL
@@ -5472,6 +5496,46 @@ InlineCost llvm::getInlineCost(
                           << "... (caller:" << Caller->getName() << ")\n");
 #if INTEL_CUSTOMIZATION
   auto TLI = GetTLI(*Callee);
+=======
+    return InlineResult::failure("nullptr definitions incompatible");
+
+  // Don't inline functions which can be interposed at link-time.
+  if (Callee->isInterposable())
+    return InlineResult::failure("interposable");
+
+  // Don't inline functions marked noinline.
+  if (Callee->hasFnAttribute(Attribute::NoInline))
+    return InlineResult::failure("noinline function attribute");
+
+  // Don't inline call sites marked noinline.
+  if (Call.isNoInline())
+    return InlineResult::failure("noinline call site attribute");
+
+  return None;
+}
+
+InlineCost llvm::getInlineCost(
+    CallBase &Call, Function *Callee, const InlineParams &Params,
+    TargetTransformInfo &CalleeTTI,
+    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
+
+  auto UserDecision =
+      llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
+
+  if (UserDecision.hasValue()) {
+    if (UserDecision->isSuccess())
+      return llvm::InlineCost::getAlways("always inline attribute");
+    return llvm::InlineCost::getNever(UserDecision->getFailureReason());
+  }
+
+  LLVM_DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
+                          << "... (caller:" << Call.getCaller()->getName()
+                          << ")\n");
+
+>>>>>>> 201498c6f34ef1a052d9c3f46cfdf4263606f232
   InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
                             *Callee, Call, &TLI, ILIC, AI, CallSitesForFusion,
                             FuncsForDTrans, Params, true);
