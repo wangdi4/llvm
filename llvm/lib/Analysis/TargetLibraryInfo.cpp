@@ -831,9 +831,12 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_Tolower);
     TLI.setUnavailable(LibFunc_under_Toupper);
     TLI.setUnavailable(LibFunc_under_chdir);
+    TLI.setUnavailable(LibFunc_under_close);
     TLI.setUnavailable(LibFunc_under_errno);
+    TLI.setUnavailable(LibFunc_under_fdopen);
     TLI.setUnavailable(LibFunc_under_fileno);
     TLI.setUnavailable(LibFunc_under_fseeki64);
+    TLI.setUnavailable(LibFunc_under_fstat64);
     TLI.setUnavailable(LibFunc_under_fstat64i32);
     TLI.setUnavailable(LibFunc_under_ftelli64);
     TLI.setUnavailable(LibFunc_under_ftime64);
@@ -858,6 +861,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_time64);
     TLI.setUnavailable(LibFunc_under_unlink);
     TLI.setUnavailable(LibFunc_under_wassert);
+    TLI.setUnavailable(LibFunc_under_wfopen);
+    TLI.setUnavailable(LibFunc_under_wopen);
+    TLI.setUnavailable(LibFunc_under_write);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2292,8 +2298,22 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+  case LibFunc_under_close:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
   case LibFunc_under_errno:
     return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
+
+  case LibFunc_under_fdopen:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_under_fstat64:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_under_fstat64i32:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
@@ -2409,6 +2429,23 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_under_wassert:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_under_wfopen:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  // The third parameter for _wopen is a vararg
+  case LibFunc_under_wopen:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_under_write:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 

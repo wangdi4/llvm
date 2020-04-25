@@ -1018,11 +1018,21 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_under_chdir:
     return Changed;
+  // _close in Windows can throw an exception compared to
+  // the Linux version (LibFunc_close)
+  case LibFunc_under_close:
+    return Changed;
   case LibFunc_under_errno:
+    return Changed;
+  case LibFunc_under_fdopen:
+    Changed |= setRetDoesNotAlias(F);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_under_fseeki64:
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+  case LibFunc_under_fstat64:
   case LibFunc_under_fstat64i32:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1911,6 +1921,21 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_under_wassert:
     Changed |= setDoesNotReturn(F);
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_wfopen:
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 0);
+    Changed |= setOnlyReadsMemory(F, 1);
+    return Changed;
+  case LibFunc_under_wopen:
+    Changed |= setDoesNotCapture(F, 0);
+    Changed |= setOnlyReadsMemory(F, 0);
+    return Changed;
+  // _write can throw an exception in Windows
+  case LibFunc_under_write:
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 1);
     return Changed;
   case LibFunc_tolower:
     Changed |= setOnlyAccessesArgMemory(F);
