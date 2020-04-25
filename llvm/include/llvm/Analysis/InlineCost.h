@@ -448,13 +448,19 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
+#if INTEL_CUSTOMIZATION
+/// Returns a pair of InlineResult and InlineReason for a given call site.
+#endif // INTEL_CUSTOMIZATION
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
 /// InlineResult::failure() if the inlining may never happen because of user
 /// directives or incompatibilities detectable without needing callee traversal.
 /// Otherwise returns None, meaning that inlining should be decided based on
 /// other criteria (e.g. cost modeling).
-Optional<InlineResult> getAttributeBasedInliningDecision(
+#if INTEL_CUSTOMIZATION
+Optional<std::pair<InlineResult, InlineReportTypes::InlineReason>>
+getAttributeBasedInliningDecision(
+#endif // INTEL_CUSTOMIZATION
     CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
