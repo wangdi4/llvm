@@ -222,22 +222,9 @@ LLVM_NODISCARD Value *Negator::visit(Value *V, unsigned Depth) {
       }
     }
     break;
-<<<<<<< HEAD
-  case Instruction::SExt:
-  case Instruction::ZExt:
-    // `*ext` of i1 is always negatible
-    if (I->getOperand(0)->getType()->isIntOrIntVectorTy(1))
-      return I->getOpcode() == Instruction::SExt
-                 ? Builder.CreateZExt(I->getOperand(0), I->getType(),
-                                      I->getName() + ".neg")
-                 : Builder.CreateSExt(I->getOperand(0), I->getType(),
-                                      I->getName() + ".neg");
-    break;
 #if INTEL_CUSTOMIZATION
   case Instruction::And: {
     // -((X >> C) & 1) -> (X << (BitWidth - C - 1)) >>s (BitWidth - 1)
-    if (!I->hasOneUse())
-      break;
     const APInt *Mask, *ShAmt;
     if (match(I->getOperand(0), m_LShr(m_Value(X), m_APInt(ShAmt))) &&
         match(I->getOperand(1), m_APInt(Mask)) &&
@@ -250,11 +237,7 @@ LLVM_NODISCARD Value *Negator::visit(Value *V, unsigned Depth) {
     }
     break;
   }
-#endif
-  default:
-    break; // Other instructions require recursive reasoning.
-=======
->>>>>>> 5a159ed2a8e5a9a6ced73f78e4c64b01d76d3493
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Rest of the logic is recursive, so if it's time to give up then it's time.
