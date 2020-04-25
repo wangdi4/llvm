@@ -200,20 +200,14 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
       // Add a parameter to the function for each element passed in.
       for (const auto &ArgIndex : ArgIndices) {
         // not allowed to dereference ->begin() if size() is 0
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         Type *ParamTy = GetElementPtrInst::getIndexedType(
-            cast<PointerType>(I->getType()->getScalarType())->getElementType(),
+            cast<PointerType>(I->getType())->getElementType(),
             ArgIndex.second);
         if (isCallback && !isa<PointerType>(ParamTy))
           ParamTy = DL.getIntPtrType(I->getType());
         Params.push_back(ParamTy);
 #endif // INTEL_CUSTOMIZATION
-=======
-        Params.push_back(GetElementPtrInst::getIndexedType(
-            cast<PointerType>(I->getType())->getElementType(),
-            ArgIndex.second));
->>>>>>> 25807452ac1bca643bdc00f7555e9cad03097b0e
         ArgAttrVec.push_back(AttributeSet());
         assert(Params.back());
       }
