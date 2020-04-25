@@ -91,9 +91,12 @@
 ;Is device ready?
 ; CHECK: call i32 @__tgt_is_device_available(i64 -1
 ;
-;Create target buffers for both host pointers
-; CHECK: call i8* @__tgt_create_buffer(i64 -1, i8*
-; CHECK: call i8* @__tgt_create_buffer(i64 -1, i8*
+; Create target buffers for both host pointers
+; Check that loads from @a_cpu and %b_cpu are used in tgt_create_buffer call,
+; CHECK-DAG: [[HOSTPTR1:%hostPtr[^ ]*]] = load i8*, i8** %b_cpu
+; CHECK: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 -1, i8* [[HOSTPTR1]])
+; CHECK-DAG: [[HOSTPTR2:%hostPtr[^ ]*]] = load i8*, i8** @a_cpu
+; CHECK: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 -1, i8* [[HOSTPTR2]])
 ;
 ;Code to clean up target buffers in case some are not created
 ; CHECK: call i32 @__tgt_release_buffer(i64 -1, i8*
@@ -164,7 +167,7 @@ entry:
   br label %DIR.OMP.TARGET.VARIANT.DISPATCH.1
 
 DIR.OMP.TARGET.VARIANT.DISPATCH.1:                ; preds = %entry
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR"(i8** @a_cpu, i8** %b_cpu) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i8** @a_cpu, i8** %b_cpu) ]
   br label %DIR.OMP.TARGET.VARIANT.DISPATCH.2
 
 DIR.OMP.TARGET.VARIANT.DISPATCH.2:                ; preds = %DIR.OMP.TARGET.VARIANT.DISPATCH.1

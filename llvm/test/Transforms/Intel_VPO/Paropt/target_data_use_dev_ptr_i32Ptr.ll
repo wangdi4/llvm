@@ -1,7 +1,10 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-device-ptr-is-default-by-ref=false -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-device-ptr-is-default-by-ref=false  -S | FileCheck %s
 
 ; Test src:
+
+; This test has hand-modified version of the test target_data_use_dev_ptr.ll,
+; with an int32* operand to the clause, instead of an int32**.
 
 ; #include <stdio.h>
 ;
@@ -41,27 +44,24 @@ entry:
   %arrayidx1 = getelementptr inbounds i32, i32* %0, i64 0
   %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx1)
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"(i32** %array_device) ]
+  %array_device.val = load i32*, i32** %array_device
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"(i32* %array_device.val) ]
 
-; Check that the map created for %array_device has the correct map-type (96)
+; Check that the map created for %array_device.val has the correct map-type (96)
 ; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
 
-; Check that there is a new copy of %array_device created.
-; CHECK: %array_device.new = alloca i32*
-
+; Check that the value in the baseptrs struct after the tgt_data call is
+; used inside the region as the updated value of the pointer %array_device.val.
 ; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x i8*], [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
 ; CHECK: call void @__tgt_target_data_begin({{.+}})
-
-; Check that %array_device.new is initialized using the updated value of %array_device
 ; CHECK: [[GEP_CAST:%[^ ]+]] = bitcast i8** [[GEP]] to i32**
-; CHECK: %array_device.updated.val = load i32*, i32** [[GEP_CAST]]
-; CHECK: store i32* %array_device.updated.val, i32** %array_device.new
+; CHECK: %array_device.val.updated.val = load i32*, i32** [[GEP_CAST]]
 
 ; Check that call to outlined function for target data uses %array_device.new
-; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(i32** %array_device.new)
+; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(i32* %array_device.val.updated.val)
 
-  %2 = load i32*, i32** %array_device, align 8
-  %arrayidx2 = getelementptr inbounds i32, i32* %2, i64 0
+
+  %arrayidx2 = getelementptr inbounds i32, i32* %array_device.val, i64 0
   %call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx2) #2
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET.DATA"() ]
