@@ -444,15 +444,11 @@ __OMP_RTL_ATTRS(__kmpc_cancel,
                 AttributeSet(), {})
 __OMP_RTL_ATTRS(__kmpc_cancel_barrier, AttributeSet(), AttributeSet(), {})
 __OMP_RTL_ATTRS(__kmpc_flush, AttributeSet(), AttributeSet(), {})
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 __OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
                 ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
                                                      EnumAttr(ReadOnly))}))
 #endif // INTEL_CUSTOMIZATION
-=======
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(), {})
->>>>>>> 68a27587c2acb9b8772d75e552adcc22836844c2
 __OMP_RTL_ATTRS(__kmpc_fork_call, AttributeSet(EnumAttr(NoUnwind)),
                 AttributeSet(), {})
 __OMP_RTL_ATTRS(__kmpc_omp_taskwait, AttributeSet(), AttributeSet(), {})
