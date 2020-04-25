@@ -82,6 +82,12 @@ typedef void * (CL_API_CALL *clHostMemAllocINTELTy)(
 typedef cl_int (CL_API_CALL *clMemFreeINTELTy)(
     cl_context context,
     const void *ptr);
+typedef cl_int (CL_API_CALL *clGetDeviceGlobalVariablePointerINTELTy)(
+    cl_device_id,
+    cl_program,
+    const char *,
+    size_t *,
+    void **);
 #endif  // INTEL_CUSTOMIZATION
 #ifdef __cplusplus
 extern "C" {
@@ -445,7 +451,20 @@ struct RTLFlagsTy {
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
+  /// Type of the device version of the offload table.
+  /// The type may not match the host offload table's type
+  /// due to extensions.
+  struct DeviceOffloadEntryTy {
+    /// Common part with the host offload table.
+    __tgt_offload_entry Base;
+    /// Length of the Base.name string in bytes including
+    /// the null terminator.
+    size_t NameSize;
+  };
 
+  /// Looks up an external global variable with the given \p Name
+  /// and \p Size in the device environment for device \p DeviceId.
+  void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
 public:
   cl_uint numDevices;
   cl_platform_id platformID;
@@ -468,6 +487,7 @@ public:
   std::vector<cl_ulong> SLMSize;
   std::vector<std::map<void *, int64_t>> ManagedData;
   std::mutex *Mutexes;
+  std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
 
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -488,6 +508,8 @@ public:
   clGetMemAllocInfoINTELTy clGetMemAllocInfoINTELFn = nullptr;
   clHostMemAllocINTELTy clHostMemAllocINTELFn = nullptr;
   clMemFreeINTELTy clMemFreeINTELFn = nullptr;
+  clGetDeviceGlobalVariablePointerINTELTy
+      clGetDeviceGlobalVariablePointerINTELFn = nullptr;
 #endif  // INTEL_CUSTOMIZATION
 
   // Limit for the number of WIs in a WG.
@@ -617,11 +639,27 @@ public:
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
     if (DeviceType == CL_DEVICE_TYPE_GPU &&
-        (env = std::getenv("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) &&
-        (env[0] == 'T' || env[0] == 't' || env[0] == '1'))
-        LinkingOptions += " -cl-take-global-address ";
+        (!(env = std::getenv("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) ||
+         (env[0] != 'F' && env[0] != 'f' && env[0] != '0')))
+      LinkingOptions += " -cl-take-global-address ";
 #endif  // INTEL_CUSTOMIZATION
   }
+
+  /// Loads the device version of the offload table for device \p DeviceId.
+  /// The table is expected to have \p NumEntries entries.
+  /// Returns true, if the load was successful, false - otherwise.
+  bool loadOffloadTable(int32_t DeviceId, size_t NumEntries);
+
+  /// Deallocates resources allocated for the device offload table
+  /// of \p DeviceId device.
+  void unloadOffloadTable(int32_t DeviceId);
+
+  /// Looks up an OpenMP declare target global variable with the given
+  /// \p Name and \p Size in the device environment for device \p DeviceId.
+  /// The lookup is first done via the device offload table. If it fails,
+  /// then the lookup falls back to non-OpenMP specific lookup on the device.
+  void *getOffloadVarDeviceAddr(
+      int32_t DeviceId, const char *Name, size_t Size);
 };
 
 #ifdef _WIN32
@@ -830,6 +868,7 @@ static void closeRTL() {
     }
     INVOKE_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->CTX[i]);
 #endif // !defined(_WIN32)
+    DeviceInfo->unloadOffloadTable(i);
   }
   delete[] DeviceInfo->Mutexes;
   DP("Closed RTL successfully\n");
@@ -893,6 +932,178 @@ static int32_t initProgram(int32_t deviceId) {
   INVOKE_CL_RET_FAIL(clReleaseMemObject, devData);
   INVOKE_CL_RET_FAIL(clReleaseKernel, initPgm);
   return OFFLOAD_SUCCESS;
+}
+
+void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
+     Name, Size, DeviceId);
+
+  std::vector<DeviceOffloadEntryTy> &OffloadTable = OffloadTables[DeviceId];
+  if (!OffloadTable.empty()) {
+    size_t NameSize = strlen(Name) + 1;
+    auto I = std::lower_bound(
+        OffloadTable.begin(), OffloadTable.end(), Name,
+        [NameSize](const DeviceOffloadEntryTy &E, const char *Name) {
+          return strncmp(E.Base.name, Name, NameSize) < 0;
+        });
+
+    if (I != OffloadTable.end() &&
+        strncmp(I->Base.name, Name, NameSize) == 0) {
+      DP("Global variable '%s' found in the offload table at position %zu.\n",
+         Name, std::distance(OffloadTable.begin(), I));
+      return I->Base.addr;
+    }
+
+    DP("Error: global variable '%s' was not found in the offload table.\n",
+       Name);
+  } else
+    DP("Error: offload table is not loaded for device %d.\n", DeviceId);
+
+  // Fallback to the lookup by name.
+  return getVarDeviceAddr(DeviceId, Name, Size);
+}
+
+void *RTLDeviceInfoTy::getVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  size_t DeviceSize = 0;
+  void *TgtAddr = nullptr;
+  DP("Looking up device global variable '%s' of size %zu bytes on device %d.\n",
+     Name, Size, DeviceId);
+#if INTEL_CUSTOMIZATION
+  if (!clGetDeviceGlobalVariablePointerINTELFn)
+    return nullptr;
+
+  if (clGetDeviceGlobalVariablePointerINTELFn(
+          deviceIDs[DeviceId], FuncGblEntries[DeviceId].Program,
+          Name, &DeviceSize, &TgtAddr) != CL_SUCCESS) {
+    DPI("Error: clGetDeviceGlobalVariablePointerINTEL API returned "
+        "nullptr for global variable '%s'.\n", Name);
+    DeviceSize = 0;
+  } else if (Size != DeviceSize) {
+    DPI("Error: size mismatch for host (%zu) and device (%zu) versions "
+        "of global variable: %s\n.  Direct references "
+        "to this variable will not work properly.\n",
+        Size, DeviceSize, Name);
+    DeviceSize = 0;
+  }
+#else  // INTEL_CUSTOMIZATION
+  // TODO: use device API to get variable address by name.
+#endif // INTEL_CUSTOMIZATION
+
+  if (DeviceSize == 0) {
+    DP("Error: global variable lookup failed.\n");
+    return nullptr;
+  }
+
+  DP("Global variable lookup succeeded.\n");
+  return TgtAddr;
+}
+
+bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
+  const char *OffloadTableSizeVarName = "__omp_offloading_entries_table_size";
+  void *OffloadTableSizeVarAddr =
+      getVarDeviceAddr(DeviceId, OffloadTableSizeVarName, sizeof(int64_t));
+
+  if (!OffloadTableSizeVarAddr) {
+    DP("Error: cannot get device value for global variable '%s'.\n",
+       OffloadTableSizeVarName);
+    return false;
+  }
+
+  int64_t TableSizeVal = 0;
+  __tgt_rtl_data_retrieve(DeviceId, &TableSizeVal,
+                          OffloadTableSizeVarAddr, sizeof(int64_t));
+  size_t TableSize = (size_t)TableSizeVal;
+
+  if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
+    DP("Error: offload table size (%zu) is not a multiple of %zu.\n",
+       TableSize, sizeof(DeviceOffloadEntryTy));
+    return false;
+  }
+
+  size_t DeviceNumEntries = TableSize / sizeof(DeviceOffloadEntryTy);
+
+  if (NumEntries != DeviceNumEntries) {
+    DP("Error: number of entries in host and device "
+       "offload tables mismatch (%zu != %zu).\n",
+       NumEntries, DeviceNumEntries);
+    return false;
+  }
+
+  const char *OffloadTableVarName = "__omp_offloading_entries_table";
+  void *OffloadTableVarAddr =
+      getVarDeviceAddr(DeviceId, OffloadTableVarName, TableSize);
+  if (!OffloadTableVarAddr) {
+    DP("Error: cannot get device value for global variable '%s'.\n",
+       OffloadTableVarName);
+    return false;
+  }
+
+  OffloadTables[DeviceId].resize(DeviceNumEntries);
+  __tgt_rtl_data_retrieve(DeviceId, OffloadTables[DeviceId].data(),
+                          OffloadTableVarAddr, TableSize);
+  std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
+
+  size_t I = 0;
+  const char *PreviousName = "";
+
+  for (; I < DeviceNumEntries; ++I) {
+    DeviceOffloadEntryTy &Entry = DeviceTable[I];
+    size_t NameSize = Entry.NameSize;
+    void *NameTgtAddr = Entry.Base.name;
+    Entry.Base.name = nullptr;
+
+    if (NameSize == 0) {
+      DP("Error: offload entry (%zu) with 0 size.\n", I);
+      break;
+    }
+
+    Entry.Base.name = new char[NameSize];
+    __tgt_rtl_data_retrieve(DeviceId, Entry.Base.name,
+                            NameTgtAddr, NameSize);
+    if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
+      DP("Error: offload entry's name has wrong size.\n");
+      break;
+    }
+
+    if (strncmp(PreviousName, Entry.Base.name, NameSize) >= 0) {
+      DP("Error: offload table is not sorted.\n"
+         "Error: previous name is '%s'.\n"
+         "Error:  current name is '%s'.\n",
+         PreviousName, Entry.Base.name);
+      break;
+    }
+    PreviousName = Entry.Base.name;
+  }
+
+  if (I != DeviceNumEntries) {
+    // Errors during the table processing.
+    // Deallocate all memory allocated in the loop.
+    for (size_t J = 0; J <= I; ++J) {
+      DeviceOffloadEntryTy &Entry = DeviceTable[J];
+      if (Entry.Base.name)
+        delete[] Entry.Base.name;
+    }
+
+    OffloadTables[DeviceId].clear();
+    return false;
+  }
+
+#ifdef OMPTARGET_OPENCL_DEBUG
+  DP("Device offload table loaded:\n");
+  for (size_t I = 0; I < DeviceNumEntries; ++I)
+    DP("\t%zu:\t%s\n", I, DeviceTable[I].Base.name);
+#endif  // OMPTARGET_OPENCL_DEBUG
+
+  return true;
+}
+
+void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
+  for (auto &E : OffloadTables[DeviceId])
+    delete[] E.Base.name;
+
+  OffloadTables[DeviceId].clear();
 }
 
 #ifdef __cplusplus
@@ -1032,6 +1243,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->SLMSize.resize(DeviceInfo->numDevices);
   DeviceInfo->ManagedData.resize(DeviceInfo->numDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->numDevices];
+  DeviceInfo->OffloadTables.resize(DeviceInfo->numDevices);
 
   // get device specific information
   for (unsigned i = 0; i < DeviceInfo->numDevices; i++) {
@@ -1369,6 +1581,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   } else {
     DP("Successfully linked program.\n");
   }
+  DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
 
   LinkingTimer.stop();
 
@@ -1381,20 +1594,20 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo->FuncGblEntries[device_id].Kernels;
 
 #if INTEL_CUSTOMIZATION
-  cl_int (CL_API_CALL *ExtCall)(cl_device_id, cl_program, const char *,
-                                size_t *, void **) = nullptr;
+  if (!DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn &&
+      DeviceInfo->Extensions[device_id].GetDeviceGlobalVariablePointer ==
+      ExtensionStatusEnabled) {
+    DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn =
+        reinterpret_cast<clGetDeviceGlobalVariablePointerINTELTy>(
+            clGetExtensionFunctionAddressForPlatform(
+                DeviceInfo->platformID,
+                "clGetDeviceGlobalVariablePointerINTEL"));
 
-  if (DeviceInfo->Extensions[device_id].GetDeviceGlobalVariablePointer ==
-      ExtensionStatusEnabled)
-    ExtCall = reinterpret_cast<decltype(ExtCall)>(
-        clGetExtensionFunctionAddressForPlatform(
-            DeviceInfo->platformID,
-            "clGetDeviceGlobalVariablePointerINTEL"));
-
-  if (!ExtCall) {
-    DPI("Error: clGetDeviceGlobalVariablePointerINTEL API "
-        "is nullptr.  Direct references to declare target variables "
-        "will not work properly.\n");
+    if (!DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn) {
+      DPI("Error: clGetDeviceGlobalVariablePointerINTEL API "
+          "is nullptr.  Direct references to declare target variables "
+          "will not work properly.\n");
+    }
   }
 
   if (!DeviceInfo->clGetMemAllocInfoINTELFn &&
@@ -1410,82 +1623,41 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DPI("Error: clGetMemAllocInfoINTEL API is nullptr.  Direct references "
           "to declare target variables will not work properly.\n");
   }
+#endif  // INTEL_CUSTOMIZATION
 
   ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
-#endif  // INTEL_CUSTOMIZATION
+  EntriesTimer.start();
+  if (!DeviceInfo->loadOffloadTable(device_id, NumEntries))
+    DPI("Error: offload table loading failed.\n");
+  EntriesTimer.stop();
 
   for (unsigned i = 0; i < NumEntries; i++) {
     // Size is 0 means that it is kernel function.
     auto Size = image->EntriesBegin[i].size;
 
     if (Size != 0) {
-#if INTEL_CUSTOMIZATION
       EntriesTimer.start();
 
-      void *TgtAddr = nullptr;
-      auto HostAddr = image->EntriesBegin[i].addr;
-      auto Name = image->EntriesBegin[i].name;
-      size_t DeviceSize = 0;
+      void *HostAddr = image->EntriesBegin[i].addr;
+      char *Name = image->EntriesBegin[i].name;
 
-      if (ExtCall) {
-        DP("Looking up global variable '%s' of size %zu bytes\n",
-           Name, Size);
-
-        if (ExtCall(DeviceInfo->deviceIDs[device_id], linked_program,
-                    Name, &DeviceSize, &TgtAddr) != CL_SUCCESS) {
-          // FIXME: this may happen for static global variables,
-          //        since they are not declared as Extern, thus,
-          //        the driver cannot find them. We have to be able
-          //        to externalize static variables, if we name
-          //        them uniquely.
-          DPI("Error: clGetDeviceGlobalVariablePointerINTEL API returned "
-              "nullptr for global variable '%s'.\n", Name);
-          DP("Error: direct references to declare target variable '%s' "
-             "will not work properly.\n", Name);
-          DeviceSize = 0;
-        } else if (Size != DeviceSize) {
-          DP("Error: size mismatch for host (%zu) and device (%zu) versions "
-             "of global variable: %s\n.  Direct references "
-             "to this variable will not work properly.\n",
-             Size, DeviceSize, Name);
-          DeviceSize = 0;
-        }
-      }
-
-      // DeviceSize equal to zero means that the symbol lookup failed.
-      // Allocate the device buffer dynamically for this host object.
-      // Note that the direct references to the global object in the device
-      // code will refer to completely different memory, so programs
-      // may produce incorrect results, e.g.:
-      //          #pragma omp declare target
-      //          static int a[100];
-      //          void foo() {
-      //            a[7] = 7;
-      //          }
-      //          #pragma omp end declare target
-      //
-      //          void bar() {
-      //          #pragma omp target
-      //            { foo(); }
-      //          }
-      //
-      //        foo() will have a reference to global 'a', and there
-      //        is currently no way to associate this access with the buffer
-      //        that we allocate here.
-      if (DeviceSize == 0) {
+      void *TgtAddr =
+          DeviceInfo->getOffloadVarDeviceAddr(device_id, Name, Size);
+      if (!TgtAddr) {
         TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
         __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
+        DP("Error: global variable '%s' allocated. "
+          "Direct references will not work properly.\n", Name);
       }
 
-      DP("Global variable allocated: Name = %s, Size = %zu"
-         ", HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
+      DP("Global variable mapped: Name = %s, Size = %zu, "
+         "HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
          Name, Size, DPxPTR(HostAddr), DPxPTR(TgtAddr));
       entries[i].addr = TgtAddr;
       entries[i].name = Name;
       entries[i].size = Size;
 
       EntriesTimer.stop();
-#endif  // INTEL_CUSTOMIZATION
       continue;
     }
 
@@ -1543,7 +1715,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   for (uint32_t i = 0; i < programs.size(); i++) {
     INVOKE_CL_EXIT_FAIL(clReleaseProgram, programs[i]);
   }
-  DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
   if (initProgram(device_id) != OFFLOAD_SUCCESS)
     return nullptr;
   __tgt_target_table &table = DeviceInfo->FuncGblEntries[device_id].Table;
