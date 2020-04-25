@@ -39,13 +39,9 @@ namespace llvm {
   /// one value before giving up due too "too many uses".
   bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             bool StoreCaptures,
-<<<<<<< HEAD
                             bool IgnoreNoAliasArgStCaptures = false,   // INTEL
-                            unsigned MaxUsesToExplore = DefaultMaxUsesToExplore);
-=======
                             unsigned MaxUsesToExplore =
                                 getDefaultMaxUsesToExploreForCaptureTracking());
->>>>>>> c0d2bbb1d4939908545071831568b1e0b1b82860
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
