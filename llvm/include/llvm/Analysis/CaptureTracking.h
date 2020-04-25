@@ -21,13 +21,10 @@ namespace llvm {
   class Instruction;
   class DominatorTree;
 
-  /// The default value for MaxUsesToExplore argument. It's relatively small to
-  /// keep the cost of analysis reasonable for clients like BasicAliasAnalysis,
-  /// where the results can't be cached.
-  /// TODO: we should probably introduce a caching CaptureTracking analysis and
-  /// use it where possible. The caching version can use much higher limit or
-  /// don't have this cap at all.
-  unsigned constexpr DefaultMaxUsesToExplore = 20;
+  /// getDefaultMaxUsesToExploreForCaptureTracking - Return default value of
+  /// the maximal number of uses to explore before giving up. It is used by
+  /// PointerMayBeCaptured family analysys.
+  unsigned getDefaultMaxUsesToExploreForCaptureTracking();
 
   /// PointerMayBeCaptured - Return true if this pointer value may be captured
   /// by the enclosing function (which is required to exist).  This routine can
@@ -40,11 +37,15 @@ namespace llvm {
   /// analysis will ignore the store to the no-alias argument pointer. // INTEL
   /// MaxUsesToExplore specifies how many uses should the analysis explore for
   /// one value before giving up due too "too many uses".
-  bool PointerMayBeCaptured(const Value *V,
-                            bool ReturnCaptures,
+  bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
                             bool StoreCaptures,
+<<<<<<< HEAD
                             bool IgnoreNoAliasArgStCaptures = false,   // INTEL
                             unsigned MaxUsesToExplore = DefaultMaxUsesToExplore);
+=======
+                            unsigned MaxUsesToExplore =
+                                getDefaultMaxUsesToExploreForCaptureTracking());
+>>>>>>> c0d2bbb1d4939908545071831568b1e0b1b82860
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
@@ -58,10 +59,11 @@ namespace llvm {
   /// final parameter is true.
   /// MaxUsesToExplore specifies how many uses should the analysis explore for
   /// one value before giving up due too "too many uses".
-  bool PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
-                                  bool StoreCaptures, const Instruction *I,
-                                  const DominatorTree *DT, bool IncludeI = false,
-                                  unsigned MaxUsesToExplore = DefaultMaxUsesToExplore);
+  bool PointerMayBeCapturedBefore(
+      const Value *V, bool ReturnCaptures, bool StoreCaptures,
+      const Instruction *I, const DominatorTree *DT, bool IncludeI = false,
+      unsigned MaxUsesToExplore =
+          getDefaultMaxUsesToExploreForCaptureTracking());
 
   /// This callback is used in conjunction with PointerMayBeCaptured. In
   /// addition to the interface here, you'll need to provide your own getters
@@ -97,7 +99,8 @@ namespace llvm {
   /// MaxUsesToExplore specifies how many uses should the analysis explore for
   /// one value before giving up due too "too many uses".
   void PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
-                            unsigned MaxUsesToExplore = DefaultMaxUsesToExplore);
+                            unsigned MaxUsesToExplore =
+                                getDefaultMaxUsesToExploreForCaptureTracking());
 } // end namespace llvm
 
 #endif
