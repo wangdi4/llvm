@@ -1,7 +1,7 @@
-; RUN: opt < %s -S -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -inline -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
-; This is the same test as TileMVInl04.ll, but does not require asserts
+; This is the same test as Intel-TileMVInl04.ll, but does not require asserts
 ; and checks the IR only.
 
 ; This test is an extention of TileMVInl03ir.ll which adds the inlining after
