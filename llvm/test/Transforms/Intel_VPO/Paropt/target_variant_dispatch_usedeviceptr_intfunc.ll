@@ -1,5 +1,8 @@
-; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -S < %s | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -S | FileCheck %s -check-prefix=RAWPTR
+
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause
 
 ; C Source
@@ -17,7 +20,7 @@
 ;   return rrr;
 ; }
 ;
-; Expected IR:
+; Expected IR: when (default)  -vpo-paropt-use-raw-dev-ptr=false
 ;
 ;   %call1 = call i32 @__tgt_is_device_available(i64 -1, i8* null)
 ;   %available = icmp ne i32 %call1, 0
@@ -87,40 +90,91 @@
 ; if.end:
 ;   %callphi = phi i32 [ %variant, %variant.call ], [ %call, %base.call ]
 ; ...
+;
+; Expected IR: when -vpo-paropt-use-raw-dev-ptr=true
+;  %call1 = call i32 @__tgt_is_device_available(i64 -1, i8* null)
+;  %dispatch = icmp ne i32 %call1, 0
+;  br i1 %dispatch, label %variant.call, label %base.call
+;
+;variant.call:                                     ; preds = %DIR.OMP.TARGET.VARIANT.DISPATCH.2
+;  %a_cpu.load = load i8*, i8** @a_cpu, align 8
+;  %b_cpu.load = load i8*, i8** %b_cpu, align 8
+;...
+;  call void @__tgt_target_data_begin(i64 -1, i32 2, i8** %10, i8** %11, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes, i32 0, i32 0))
+;  %a_cpu.buffer.cast = load i8*, i8** %6, align 8
+;  %b_cpu.buffer.cast = load i8*, i8** %8, align 8
+;  %variant = call i32 @foo_gpu(i8* %a_cpu.buffer.cast, i8* %b_cpu.buffer.cast, i32 77777)
+;  call void @__tgt_target_data_end(i64 -1, i32 2, i8** %10, i8** %11, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes, i32 0, i32 0))
+;  br label %if.end
+;
+;base.call:                                        ; preds = %DIR.OMP.TARGET.VARIANT.DISPATCH.2
+;  %call = call i32 @foo(i8* %4, i8* %5, i32 77777) #4
+;  br label %if.end
+;
+;if.end:                                           ; preds = %base.call, %variant.call
+;  %callphi = phi i32 [ %variant, %variant.call ], [ %call, %base.call ]
+;  store i32 %callphi, i32* %rrr, align 4, !tbaa !8
+;  br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.3
+;
+;DIR.OMP.END.TARGET.VARIANT.DISPATCH.3:            ; preds = %if.end
+;  br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.4
+;....
 
 ;Is device ready?
-; CHECK: call i32 @__tgt_is_device_available(i64 -1
+; BUFFPTR: call i32 @__tgt_is_device_available(i64 -1
 ;
-; Create target buffers for both host pointers
+;Create target buffers for both host pointers
 ; Check that loads from @a_cpu and %b_cpu are used in tgt_create_buffer call,
-; CHECK-DAG: [[HOSTPTR1:%hostPtr[^ ]*]] = load i8*, i8** %b_cpu
-; CHECK: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 -1, i8* [[HOSTPTR1]])
-; CHECK-DAG: [[HOSTPTR2:%hostPtr[^ ]*]] = load i8*, i8** @a_cpu
-; CHECK: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 -1, i8* [[HOSTPTR2]])
+; BUFFPTR-DAG: [[HOSTPTR1:%hostPtr[^ ]*]] = load i8*, i8** %b_cpu
+; BUFFPTR: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 -1, i8* [[HOSTPTR1]])
+; BUFFPTR-DAG: [[HOSTPTR2:%hostPtr[^ ]*]] = load i8*, i8** @a_cpu
+; BUFFPTR: %{{[^ ]+}} = call i8* @__tgt_create_buffer(i64 -1, i8* [[HOSTPTR2]])
 ;
 ;Code to clean up target buffers in case some are not created
-; CHECK: call i32 @__tgt_release_buffer(i64 -1, i8*
-; CHECK: call i32 @__tgt_release_buffer(i64 -1, i8*
+; BUFFPTR: call i32 @__tgt_release_buffer(i64 -1, i8*
+; BUFFPTR: call i32 @__tgt_release_buffer(i64 -1, i8*
 ;
 ;Load and check the dispatch flag
-; CHECK: [[DISPATCH:%[a-zA-Z._0-9]+]] = load i1
-; CHECK-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
+; BUFFPTR: [[DISPATCH:%[a-zA-Z._0-9]+]] = load i1
+; BUFFPTR-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
 ;
 ;Variant Call: load 2 tgt buffers before call, and release them afterwards
-; CHECK: [[VARIANTLBL]]:
-; CHECK-DAG: [[BUFF1:%[a-zA-Z._0-9]+]] = load i8*
-; CHECK-DAG: [[BUFF2:%[a-zA-Z._0-9]+]] = load i8*
-; CHECK: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[BUFF1]], i8* [[BUFF2]]
-; CHECK: call i32 @__tgt_release_buffer(i64 -1, i8*
-; CHECK: call i32 @__tgt_release_buffer(i64 -1, i8*
+; BUFFPTR: [[VARIANTLBL]]:
+; BUFFPTR-DAG: [[BUFF1:%[a-zA-Z._0-9]+]] = load i8*
+; BUFFPTR-DAG: [[BUFF2:%[a-zA-Z._0-9]+]] = load i8*
+; BUFFPTR: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[BUFF1]], i8* [[BUFF2]]
+; BUFFPTR: call i32 @__tgt_release_buffer(i64 -1, i8*
+; BUFFPTR: call i32 @__tgt_release_buffer(i64 -1, i8*
 ;
 ;Base Call:
-; CHECK-DAG: [[BASELBL]]:
-; CHECK-NEXT: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i8*
+; BUFFPTR-DAG: [[BASELBL]]:
+; BUFFPTR-NEXT: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i8*
 ;
 ;Check phi:
-; CHECK: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
-
+; BUFFPTR: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
+;
+; when -vpo-paropt-use-raw-dev-ptr=true
+;
+;Is device ready?
+; RAWPTR: call i32 @__tgt_is_device_available(i64 -1
+; RAWPTR-NEXT: [[DISPATCH:%[a-zA-Z._0-9]+]] = icmp ne
+; RAWPTR-NEXT: br i1 [[DISPATCH]], label %[[VARIANTLBL:[a-zA-Z._0-9]+]], label %[[BASELBL:[a-zA-Z._0-9]+]]
+;
+;Variant Call
+; RAWPTR: [[VARIANTLBL]]:
+; RAWPTR: call void @__tgt_target_data_begin({{.+}})
+; RAWPTR-DAG: [[ARG1:%[a-zA-Z._0-9]+]] = load i8*, i8**
+; RAWPTR-DAG: [[ARG2:%[a-zA-Z._0-9]+]] = load i8*, i8**
+; RAWPTR: [[VARIANT:%[a-zA-Z._0-9]+]] = call i32 @foo_gpu(i8* [[ARG1]], i8* [[ARG2]]
+; RAWPTR: call void @__tgt_target_data_end({{.+}})
+;
+;Base Call:
+; RAWPTR: [[BASELBL]]:
+; RAWPTR: [[BASE:%[a-zA-Z._0-9]+]] = call i32 @foo(i8*
+;
+;Check phi:
+; RAWPTR: phi i32 [ [[VARIANT]], %[[VARIANTLBL]] ], [ [[BASE]], %[[BASELBL]] ]
+;
 ; ModuleID = 'target_variant_dispatch_usedeviceptr_intfunc.c'
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

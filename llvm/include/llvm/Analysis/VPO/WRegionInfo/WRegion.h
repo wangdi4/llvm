@@ -793,6 +793,7 @@ public:
 /// \endcode
 class WRNTargetVariantNode : public WRegionNode {
 private:
+  MapClause Map;
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
   bool Nowait;
@@ -805,6 +806,7 @@ protected:
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
+  DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }

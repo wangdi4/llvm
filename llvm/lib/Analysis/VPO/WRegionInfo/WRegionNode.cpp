@@ -212,7 +212,8 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
   // then the resulting task is not undeferred (ie, asynchronous offloading).
   // We want to set the "IsTask" attribute of these target constructs to
   // facilitate code generation.
-  if (getIsTarget() && getWRegionKindID() != WRNTargetData) {
+  if (getIsTarget() && getWRegionKindID() != WRNTargetData &&
+                    getWRegionKindID() != WRNTargetVariant) {
     assert(canHaveDepend() && "Corrupt WRN? Depend Clause should be allowed");
     if (getNowait() || !getDepend().empty()) {
       // TODO: turn on this code after verifying that task codegen supports it

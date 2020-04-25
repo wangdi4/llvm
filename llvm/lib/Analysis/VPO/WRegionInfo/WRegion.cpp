@@ -391,6 +391,7 @@ void WRNTargetUpdateNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 // constructor
 WRNTargetVariantNode::WRNTargetVariantNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTargetVariant, BB) {
+  setIsTarget();
   setDevice(nullptr);
   setNowait(false);
 

@@ -493,7 +493,11 @@ private:
                                          bool IsByRef, Instruction *InsertPt);
 
   /// For all use_device_ptr clauses in \p W, create a Map clause.
-  bool addMapForUseDevicePtr(WRegionNode *W);
+  /// If \p InsertBefore is not null, then any instructions genereated
+  /// for the map clause are inserted before it, otherwise they are
+  /// inserted before \p W's entry BasicBlock
+  bool addMapForUseDevicePtr(WRegionNode *W,
+                 Instruction *InsertBefore = nullptr);
 
   /// Update references of use_device_ptr operands in tgt data region to use the
   /// value updated by the tgt_data_init call.
@@ -929,6 +933,7 @@ private:
   void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info, CallInst *Call,
                             Instruction *InsertPt,
                             SmallVectorImpl<Constant *> &ConstSizes,
+                            SmallVectorImpl<uint64_t> &MapTypes,
                             bool hasRuntimeEvaluationCaptureSize);
 
   /// Utility to construct the assignment to the base pointers, section
