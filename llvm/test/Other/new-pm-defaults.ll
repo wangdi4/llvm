@@ -96,7 +96,6 @@
 ; CHECK-EP-PIPELINE-START-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: PassManager<{{.*}}Module{{.*}}>
 ; CHECK-O-NEXT: Starting llvm::Module pass manager run.
-; CHECK-O-NEXT: Running pass: InlineReportSetupPass    ;INTEL
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
@@ -133,12 +132,10 @@
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}ProfileSummaryAnalysis
 ; CHECK-O-NEXT: Running analysis: ProfileSummaryAnalysis
-<<<<<<< HEAD
-; CHECK-O-NEXT: Running pass: InlineListsPass        ;INTEL
-=======
 ; CHECK-O-NEXT: Running pass: PassManager<{{.*}}Module{{.*}}>
 ; CHECK-O-NEXT: Starting llvm::Module pass manager run.
->>>>>>> c3770c5d6d374af4dcdc9f7f1c4565bed94373dc
+; CHECK-O-NEXT: Running pass: InlineReportSetupPass  ;INTEL
+; CHECK-O-NEXT: Running pass: InlineListsPass        ;INTEL
 ; CHECK-O-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}LazyCallGraph{{.*}}>
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis

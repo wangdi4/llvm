@@ -955,6 +955,18 @@ ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
                                                     bool DebugLogging) {
   ModulePassManager MPM(DebugLogging);
 
+#if INTEL_CUSTOMIZATION
+  InlineParams IP = getInlineParamsFromOptLevel(Level);
+  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
+      PGOOpt->Action == PGOOptions::SampleUse)
+    IP.HotCallSiteThreshold = 0;
+  InlinerPass InlPass(IP);
+  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
+
+  // Parse -[no]inline-list option and set corresponding attributes.
+  MPM.addPass(InlineListsPass());
+#endif // INTEL_CUSTOMIZATION
+
   // Now begin the main postorder CGSCC pipeline.
   // FIXME: The current CGSCC pipeline has its origins in the legacy pass
   // manager and trying to emulate its precise behavior. Much of this doesn't
@@ -971,11 +983,7 @@ ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
-  InlineParams IP = getInlineParamsFromOptLevel(Level);
-  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
-      PGOOpt->Action == PGOOptions::SampleUse)
-    IP.HotCallSiteThreshold = 0;
-  MainCGPipeline.addPass(InlinerPass(IP));
+  MainCGPipeline.addPass(std::move(InlPass)); // INTEL
 
   if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
@@ -1027,14 +1035,6 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   bool LoadSampleProfile =
       HasSampleProfile &&
       !(FlattenedProfileUsed && Phase == ThinLTOPhase::PostLink);
-#ifdef INTEL_CUSTOMIZATION
-  InlineParams IP = getInlineParamsFromOptLevel(Level);
-  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
-      PGOOpt->Action == PGOOptions::SampleUse)
-    IP.HotCallSiteThreshold = 0;
-  InlinerPass InlPass(IP);
-  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
-#endif // INTEL_CUSTOMIZATION
 
   // During the ThinLTO backend phase we perform early indirect call promotion
   // here, before globalopt. Otherwise imported available_externally functions
@@ -1171,69 +1171,9 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   // Require the ProfileSummaryAnalysis for the module so we can query it within
   // the inliner pass.
   MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineListsPass());
-#endif //INTEL_CUSTOMIZATION
-  // Now begin the main postorder CGSCC pipeline.
-  // FIXME: The current CGSCC pipeline has its origins in the legacy pass
-  // manager and trying to emulate its precise behavior. Much of this doesn't
-  // make a lot of sense and we should revisit the core CGSCC structure.
-  CGSCCPassManager MainCGPipeline(DebugLogging);
 
-  // Note: historically, the PruneEH pass was run first to deduce nounwind and
-  // generally clean up exception handling overhead. It isn't clear this is
-  // valuable as the inliner doesn't currently care whether it is inlining an
-  // invoke or a call.
-
-  // Run the inliner first. The theory is that we are walking bottom-up and so
-  // the callees have already been fully optimized, and we want to inline them
-  // into the callers so that our optimizations can reflect that.
-  // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
-  // because it makes profile annotation in the backend inaccurate.
-  MainCGPipeline.addPass(std::move(InlPass)); // INTEL
-
-  if (AttributorRun & AttributorRunOption::CGSCC)
-    MainCGPipeline.addPass(AttributorCGSCCPass());
-
-  if (PTO.Coroutines)
-    MainCGPipeline.addPass(CoroSplitPass());
-
-  // Now deduce any function attributes based in the current code.
-  MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
-
-  // When at O3 add argument promotion to the pass pipeline.
-  // FIXME: It isn't at all clear why this should be limited to O3.
-  if (Level == OptimizationLevel::O3)
-    MainCGPipeline.addPass(ArgumentPromotionPass());
-
-  // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
-  // there are no OpenMP runtime calls present in the module.
-  if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
-    MainCGPipeline.addPass(OpenMPOptPass());
-
-  // Lastly, add the core function simplification pipeline nested inside the
-  // CGSCC walk.
-  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-      buildFunctionSimplificationPipeline(Level, Phase, DebugLogging)));
-
-  for (auto &C : CGSCCOptimizerLateEPCallbacks)
-    C(MainCGPipeline, Level);
-
-  // We wrap the CGSCC pipeline in a devirtualization repeater. This will try
-  // to detect when we devirtualize indirect calls and iterate the SCC passes
-  // in that case to try and catch knock-on inlining or function attrs
-  // opportunities. Then we add it to the module pipeline by walking the SCCs
-  // in postorder (or bottom-up).
-  MPM.addPass(
-      createModuleToPostOrderCGSCCPassAdaptor(createDevirtSCCRepeatedPass(
-          std::move(MainCGPipeline), MaxDevirtIterations)));
-
-=======
 
   MPM.addPass(buildInlinerPipeline(Level, Phase, DebugLogging));
->>>>>>> c3770c5d6d374af4dcdc9f7f1c4565bed94373dc
   return MPM;
 }
 
