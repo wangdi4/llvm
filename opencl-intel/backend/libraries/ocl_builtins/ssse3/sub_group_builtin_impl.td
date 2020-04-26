@@ -1,4 +1,619 @@
 //
+// non uniform logical
+//
+list<OclType> logical_vec_types = [v4i32, v8i32, v16i32];
+
+// logical and
+code reduce_logical_and = [{
+  int$VecLength arg1 = as_int$VecLength($Arg1VarName);
+  $Arg0VarName |= ~arg1;
+  int res = 1;
+#pragma clang unroll(full)
+  for (int i=0; i < $VecLength; i++) {
+    res = res && $Arg0VarName[i];
+  }
+  return res;
+}];
+
+OclBuiltinImpl sub_group_non_uniform_reduce_logical_and_all = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_and_vec, logical_vec_types, 0, reduce_logical_and>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_and_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_and_vec, [v4i32], 0,
+[{
+  int4 arg1 = as_int4($Arg1VarName);
+  $Arg0VarName |= ~arg1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 3; i++) {
+    temp[3] = 1;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName = $Arg0VarName && temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_and_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_and_vec, [v8i32], 0,
+[{
+  int8 arg1 = as_int8($Arg1VarName);
+  $Arg0VarName |= ~arg1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 7; i++) {
+    temp[7] = 1;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName = $Arg0VarName && temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_and_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_and_vec, [v16i32], 0,
+[{
+  int16 arg1 = as_int16($Arg1VarName);
+  $Arg0VarName |= ~arg1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 15; i++) {
+    temp[15] = 1;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName = $Arg0VarName && temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and_vec, [v4i32], 0,
+[{
+  int4 arg1 = as_int4($Arg1VarName);
+  $Arg0VarName |= ~arg1;
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+  $Arg0VarName[0] = 1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 2; i++) {
+    temp[3] = 1;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName = $Arg0VarName && temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and_vec, [v8i32], 0,
+[{
+  int8 arg1 = as_int8($Arg1VarName);
+  $Arg0VarName |= ~arg1;
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
+  $Arg0VarName[0] = 1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 6; i++) {
+    temp[7] = 1;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName = $Arg0VarName && temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and_vec, [v16i32], 0,
+[{
+  int16 arg1 = as_int16($Arg1VarName);
+  $Arg0VarName |= ~arg1;
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+  $Arg0VarName[0] = 1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 14; i++) {
+    temp[15] = 1;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName = $Arg0VarName && temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+// logical or, xor
+code reduce_logical_or_xor = [{
+  int$VecLength arg1 = as_int$VecLength($Arg1VarName);
+  $Arg0VarName &= arg1;
+  int res = 0;
+#pragma clang unroll(full)
+  for (int i=0; i < $VecLength; i++) {
+    res = res $OP $Arg0VarName[i];
+  }
+  return res;
+}];
+
+OclBuiltinImpl sub_group_non_uniform_reduce_logical_or_all = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_or_vec, logical_vec_types, 0, reduce_logical_or_xor, [["$OP", "||"]]>;
+//OclBuiltinImpl sub_group_non_uniform_reduce_logical_xor_all = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_xor_vec, logical_vec_types, 0, reduce_logical_or_xor, [["$OP", "^^"]]>;
+
+code scan_inclusive_logical_or_xor_v4 = [{
+  int4 arg1 = as_int4($Arg1VarName);
+  $Arg0VarName &= arg1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 3; i++) {
+    temp[3] = 0;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName = $Arg0VarName $OP temp;
+  }
+  return $Arg0VarName;
+}];
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_or_vec, [v4i32], 0, scan_inclusive_logical_or_xor_v4, [["$OP", "||"]]>;
+//OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v4i32], 0, scan_inclusive_logical_or_xor_v4, [["$OP", "^^"]]>;
+
+code scan_inclusive_logical_or_xor_v8 = [{
+  int8 arg1 = as_int8($Arg1VarName);
+  $Arg0VarName &= arg1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 7; i++) {
+    temp[7] = 0;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName = $Arg0VarName $OP temp;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_or_vec, [v8i32], 0, scan_inclusive_logical_or_xor_v8, [["$OP", "||"]]>;
+//OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v8i32], 0, scan_inclusive_logical_or_xor_v8, [["$OP", "^^"]]>;
+
+code scan_inclusive_logical_or_xor_v16 = [{
+  int16 arg1 = as_int16($Arg1VarName);
+  $Arg0VarName &= arg1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 15; i++) {
+    temp[15] = 0;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName = $Arg0VarName $OP temp;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_or_vec, [v16i32], 0, scan_inclusive_logical_or_xor_v16, [["$OP", "||"]]>;
+//OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor_vec, [v16i32], 0, scan_inclusive_logical_or_xor_v16, [["$OP", "^^"]]>;
+
+code scan_exclusive_logical_or_xor_v4 = [{
+  int4 arg1 = as_int4($Arg1VarName);
+  $Arg0VarName &= arg1;
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+  $Arg0VarName[0] = 0;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 2; i++) {
+    temp[3] = 0;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName = $Arg0VarName $OP temp;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_or_vec, [v4i32], 0, scan_exclusive_logical_or_xor_v4, [["$OP", "||"]]>;
+//OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v4i32], 0, scan_exclusive_logical_or_xor_v4, [["$OP", "^^"]]>;
+
+code scan_exclusive_logical_or_xor_v8 = [{
+  int8 arg1 = as_int8($Arg1VarName);
+  $Arg0VarName &= arg1;
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
+  $Arg0VarName[0] = 0;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 6; i++) {
+    temp[7] = 0;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName = $Arg0VarName $OP temp;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_or_vec, [v8i32], 0, scan_exclusive_logical_or_xor_v8, [["$OP", "||"]]>;
+//OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v8i32], 0, scan_exclusive_logical_or_xor_v8, [["$OP", "^^"]]>;
+
+code scan_exclusive_logical_or_xor_v16 = [{
+  int16 arg1 = as_int16($Arg1VarName);
+  $Arg0VarName &= arg1;
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+  $Arg0VarName[0] = 0;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 14; i++) {
+    temp[15] = 0;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName = $Arg0VarName $OP temp;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_or_vec, [v16i32], 0, scan_exclusive_logical_or_xor_v16, [["$OP", "||"]]>;
+//OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor_vec, [v16i32], 0, scan_exclusive_logical_or_xor_v16, [["$OP", "^^"]]>;
+
+
+// non uniform bitwise
+list<OclType> bitwise_vec_types = [v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
+                                   v4i16, v4u16, v8i16, v8u16, v16i16, v16u16,
+                                   v4i32, v4u32, v8i32, v8u32, v16i32, v16u32,
+                                   v4i64, v4u64, v8i64, v8u64, v16i64, v16u64];
+code reduce_and = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 |= ~arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0BaseType res = $Arg0VarName[0];
+#pragma clang unroll(full)
+  for (int i=1; i < $VecLength; i++) {
+    res &= $Arg0VarName[i];
+  }
+  return res;
+}];
+OclBuiltinImpl sub_group_non_uniform_reduce_and_all = OclBuiltinImpl<sub_group_non_uniform_reduce_and_vec, bitwise_vec_types, 0, reduce_and>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_and_vec,
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 |= ~arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 3; i++) {
+    temp[3] = -1;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName &= temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_and_vec,
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 |= ~arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 7; i++) {
+    temp[7] = -1;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName &= temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_and_vec,
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 |= ~arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 15; i++) {
+    temp[15] = -1;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName &= temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_and_vec,
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 |= ~arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+  $Arg0VarName[0] = -1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 2; i++) {
+    temp[3] = -1;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName &= temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_and_vec,
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 |= ~arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
+  $Arg0VarName[0] = -1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 6; i++) {
+    temp[7] = -1;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName &= temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_and_vec,
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 |= ~arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+  $Arg0VarName[0] = -1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 14; i++) {
+    temp[15] = -1;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName &= temp;
+  }
+  return $Arg0VarName;
+}]>;
+
+code reduce_or_xor = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0BaseType res = $Arg0VarName[0];
+#pragma clang unroll(full)
+  for (int i=1; i < $VecLength; i++) {
+    res = $Arg0VarName[i] $OP res;
+  }
+  return res;
+}];
+OclBuiltinImpl sub_group_non_uniform_reduce_or_all = OclBuiltinImpl<sub_group_non_uniform_reduce_or_vec, bitwise_vec_types, 0, reduce_or_xor, [["$OP", "|"]]>;
+OclBuiltinImpl sub_group_non_uniform_reduce_xor_all = OclBuiltinImpl<sub_group_non_uniform_reduce_xor_vec, bitwise_vec_types, 0, reduce_or_xor, [["$OP", "^"]]>;
+
+code scan_inclusive_or_xor_v4 = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 3; i++) {
+    temp[3] = 0;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName = temp $OP $Arg0VarName;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_or_vec,
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "|"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_xor_vec,
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "^"]]>;
+
+code scan_inclusive_or_xor_v8 = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 7; i++) {
+    temp[7] = 0;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName = temp $OP $Arg0VarName;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_or_vec,
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "|"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_xor_vec,
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "^"]]>;
+
+code scan_inclusive_or_xor_v16 = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 15; i++) {
+    temp[15] = 0;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName = temp $OP $Arg0VarName;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_or_vec,
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "|"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_xor_vec,
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "^"]]>;
+
+
+code scan_exclusive_or_xor_v4 = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+  $Arg0VarName[0] = 0;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 2; i++) {
+    temp[3] = 0;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName = temp $OP $Arg0VarName;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "|"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "^"]]>;
+
+code scan_exclusive_or_xor_v8 = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
+  $Arg0VarName[0] = 0;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 6; i++) {
+    temp[7] = 0;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName = temp $OP $Arg0VarName;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "|"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "^"]]>;
+
+code scan_exclusive_or_xor_v16 = [{
+  $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= arg1;
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+  $Arg0VarName[0] = 0;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 14; i++) {
+    temp[15] = 0;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName = temp $OP $Arg0VarName;
+  }
+  return $Arg0VarName;
+}];
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "|"]]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "^"]]>;
+
+
+// non uniform arithmetic
+list<OclType> arithmetic_vec_types = [v4i8, v4u8, v8i8, v8u8, v16i8, v16u8,
+                                      v4i16, v4u16, v8i16, v8u16, v16i16, v16u16,
+                                      v4i32, v4u32, v8i32, v8u32, v16i32, v16u32,
+                                      v4i64, v4u64, v8i64, v8u64, v16i64, v16u64,
+                                      v4f32, v8f32, v16f32, v4f64, v8f64, v16f64];
+
+code reduce_mul = [{
+  $MaskCastTy$VecLength mask0 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
+  $MaskCastTy$VecLength arg0 = as_$MaskCastTy$VecLength($Arg0VarName);
+  arg0 &= mask0;
+  $Arg0BaseType one = 1;
+  arg0 |= (~mask0 & as_$MaskCastTy(one));
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0BaseType res = 1;
+#pragma clang unroll(full)
+  for (int i=0; i < $VecLength; i++) {
+    res *= $Arg0VarName[i];
+  }
+  return res;
+  }];
+OclBuiltinImpl sub_group_non_uniform_reduce_mul_all = OclBuiltinImpl<sub_group_non_uniform_reduce_mul_vec, arithmetic_vec_types, 0, reduce_mul>;
+
+code scan_inclusive_mul_v4 = [{
+  $MaskCastTy#4 mask0 = __builtin_convertvector(as_int4($Arg1VarName), $MaskCastTy#4);
+  $MaskCastTy#4 arg0 = as_$MaskCastTy#4($Arg0VarName);
+  arg0 &= mask0;
+  $Arg0BaseType one = 1;
+  arg0 |= (~mask0 & as_$MaskCastTy(one));
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 3; i++) {
+    temp[3] = 1;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName *= temp;
+  }
+  return $Arg0VarName;
+}];
+code scan_inclusive_mul_v8 = [{
+  $MaskCastTy#8 mask0 = __builtin_convertvector(as_int8($Arg1VarName), $MaskCastTy#8);
+  $MaskCastTy#8 arg0 = as_$MaskCastTy#8($Arg0VarName);
+  arg0 &= mask0;
+  $Arg0BaseType one = 1;
+  arg0 |= (~mask0 & as_$MaskCastTy(one));
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 7; i++) {
+    temp[7] = 1;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName *= temp;
+  }
+  return $Arg0VarName;
+}];
+code scan_inclusive_mul_v16 = [{
+  $MaskCastTy#16 mask0 = __builtin_convertvector(as_int16($Arg1VarName), $MaskCastTy#16);
+  $MaskCastTy#16 arg0 = as_$MaskCastTy#16($Arg0VarName);
+  arg0 &= mask0;
+  $Arg0BaseType one = 1;
+  arg0 |= (~mask0 & as_$MaskCastTy(one));
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 15; i++) {
+    temp[15] = 1;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName *= temp;
+  }
+  return $Arg0VarName;
+}];
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_mul_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_mul_vec, [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4f32, v4f64, v4i64, v4u64], 0, scan_inclusive_mul_v4>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_mul_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_mul_vec, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, scan_inclusive_mul_v8>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_mul_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_mul_vec, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, scan_inclusive_mul_v16>;
+
+code scan_exclusive_mul_v4 = [{
+  $MaskCastTy#4 mask0 = __builtin_convertvector(as_int4($Arg1VarName), $MaskCastTy#4);
+  $MaskCastTy#4 arg0 = as_$MaskCastTy#4($Arg0VarName);
+  arg0 &= mask0;
+  $Arg0BaseType one = 1;
+  arg0 |= (~mask0 & as_$MaskCastTy(one));
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
+  $Arg0VarName[0] = 1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 2; i++) {
+    temp[3] = 1;
+    temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
+    $Arg0VarName *= temp;
+  }
+  return $Arg0VarName;
+}];
+code scan_exclusive_mul_v8 = [{
+  $MaskCastTy#8 mask0 = __builtin_convertvector(as_int8($Arg1VarName), $MaskCastTy#8);
+  $MaskCastTy#8 arg0 = as_$MaskCastTy#8($Arg0VarName);
+  arg0 &= mask0;
+  $Arg0BaseType one = 1;
+  arg0 |= (~mask0 & as_$MaskCastTy(one));
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);
+  $Arg0VarName[0] = 1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 6; i++) {
+    temp[7] = 1;
+    temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
+    $Arg0VarName *= temp;
+  }
+  return $Arg0VarName;
+}];
+code scan_exclusive_mul_v16 = [{
+  $MaskCastTy#16 mask0 = __builtin_convertvector(as_int16($Arg1VarName), $MaskCastTy#16);
+  $MaskCastTy#16 arg0 = as_$MaskCastTy#16($Arg0VarName);
+  arg0 &= mask0;
+  $Arg0BaseType one = 1;
+  arg0 |= (~mask0 & as_$MaskCastTy(one));
+  $Arg0VarName = as_$Arg0Type(arg0);
+  $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+  $Arg0VarName[0] = 1;
+  $Arg0Type temp = $Arg0VarName;
+#pragma clang unroll(full)
+  for (int i = 0; i < 14; i++) {
+    temp[15] = 1;
+    temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    $Arg0VarName *= temp;
+  }
+  return $Arg0VarName;
+}];
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4f32, v4f64, v4i64, v4u64], 0, scan_exclusive_mul_v4>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, scan_exclusive_mul_v8>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, scan_exclusive_mul_v16>;
+
+//
 // Broadcast
 //
 

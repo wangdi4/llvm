@@ -130,6 +130,218 @@ OclBuiltinImpl sub_group_any_avx512fiu32_vf4 = OclBuiltinImpl<sub_group_any_vec,
 // VF 4 end
 // any/all end
 
+// non_uniform reduce [and|or|xor]
+OclBuiltinImpl sub_group_non_uniform_reduce_and_avx512fiu32 = OclBuiltinImpl<sub_group_non_uniform_reduce_and_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm512_mask_reduce_and_epi32(mask, (__m512i)$Arg0VarName);
+  }]>;
+OclBuiltinImpl sub_group_non_uniform_reduce_or_avx512fiu32 = OclBuiltinImpl<sub_group_non_uniform_reduce_or_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm512_mask_reduce_or_epi32(mask, (__m512i)$Arg0VarName);
+  }]>;
+
+OclBuiltinImpl sub_group_non_uniform_reduce_and_avx512fiu8iu16 = OclBuiltinImpl<sub_group_non_uniform_reduce_and_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm512_mask_reduce_and_epi32(mask, (__m512i)arg0);
+  }]>;
+OclBuiltinImpl sub_group_non_uniform_reduce_or_avx512fiu8iu16 = OclBuiltinImpl<sub_group_non_uniform_reduce_or_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    return _mm512_mask_reduce_or_epi32(mask, (__m512i)arg0);
+  }]>;
+
+OclBuiltinImpl sub_group_non_uniform_reduce_and_avx512fiu64 = OclBuiltinImpl<sub_group_non_uniform_reduce_and_vec, [ v16i64, v16u64 ], 0,
+  [{
+    __mmask8 mask_lo = _mm256_cmp_epi32_mask($Arg1VarName.lo, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __mmask8 mask_hi = _mm256_cmp_epi32_mask($Arg1VarName.hi, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    __int64 lores = _mm512_mask_reduce_and_epi64(mask_lo, *(__m512i*)&lo);
+    __int64 hires = _mm512_mask_reduce_and_epi64(mask_hi, *(__m512i*)&hi);
+    return lores & hires;
+  }]>;
+OclBuiltinImpl sub_group_non_uniform_reduce_or_avx512fiu64 = OclBuiltinImpl<sub_group_non_uniform_reduce_or_vec, [ v16i64, v16u64 ], 0,
+  [{
+    __mmask8 mask_lo = _mm256_cmp_epi32_mask($Arg1VarName.lo, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    __mmask8 mask_hi = _mm256_cmp_epi32_mask($Arg1VarName.hi, _mm256_setzero_ps(), _MM_CMPINT_NE);
+    $Arg0BaseType#8 lo = $Arg0VarName.lo;
+    $Arg0BaseType#8 hi = $Arg0VarName.hi;
+    __int64 lores = _mm512_mask_reduce_or_epi64(mask_lo, *(__m512i*)&lo);
+    __int64 hires = _mm512_mask_reduce_or_epi64(mask_hi, *(__m512i*)&hi);
+    return lores | hires;
+  }]>;
+
+// non uniform scan_inclusive [and|or|xor]
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_avx512fiu32 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_and_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m512i masked_data = _mm512_mask_mov_epi32(_mm512_set1_epi32(-1), vmask, (__m512i)$Arg0VarName);
+
+    const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16si res = *((__v16si *)&masked_data);
+    __v16si rotated = res;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) { // VF - 1 iterations
+        mask <<= 1;
+        rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
+        res = (__v16si)_mm512_mask_and_epi32((__m512i)res, mask, (__m512i)res, (__m512i)rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_avx512fiu8iu16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_and_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    return __builtin_convertvector(sub_group_non_uniform_scan_inclusive_and(arg0, $Arg1VarName), $Arg0Type);
+  }]>;
+
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_or_avx512fiu32 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_or_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m512i masked_data = _mm512_maskz_mov_epi32(vmask, (__m512i)$Arg0VarName);
+
+    const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16si res = *((__v16si *)&masked_data);
+    __v16si rotated = res;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) { // VF - 1 iterations
+        mask <<= 1;
+        rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
+        res = (__v16si)_mm512_mask_or_epi32((__m512i)res, mask, (__m512i)res, (__m512i)rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_or_avx512fiu8iu16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_or_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    return __builtin_convertvector(sub_group_non_uniform_scan_inclusive_or(arg0, $Arg1VarName), $Arg0Type);
+  }]>;
+
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_xor_avx512fiu32 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_xor_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m512i masked_data = _mm512_maskz_mov_epi32(vmask, (__m512i)$Arg0VarName);
+
+    const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16si res = *((__v16si *)&masked_data);
+    __v16si rotated = res;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 15; i++) { // VF - 1 iterations
+        mask <<= 1;
+        rotated = (__v16si)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
+        res = (__v16si)_mm512_mask_xor_epi32((__m512i)res, mask, (__m512i)res, (__m512i)rotated);
+    }
+    return *(($ReturnType *)&res);
+  }]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_xor_avx512fiu8iu16 = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_xor_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    return __builtin_convertvector(sub_group_non_uniform_scan_inclusive_xor(arg0, $Arg1VarName), $Arg0Type);
+  }]>;
+
+// non uniform scan_exclusive [and|or|xor]
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_avx512fui32 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_and_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m512i masked_data = _mm512_mask_mov_epi32(_mm512_set1_epi32(-1), vmask, (__m512i)$Arg0VarName);
+
+    const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16su res = (uint16)-1;
+    res[1] = masked_data[0];
+    __v16su rotated_d = (__v16su)_mm512_permutexvar_epi32(rotate_mask, masked_data);
+    __v16su rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
+        res = (__v16su)_mm512_mask_and_epi32((__m512i)res, mask, (__m512i)rotated, (__m512i)rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_avx512fui8ui16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_and_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    return __builtin_convertvector(sub_group_non_uniform_scan_exclusive_and(arg0, $Arg1VarName), $Arg0Type);
+  }]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_avx512fui32 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m512i masked_data = _mm512_maskz_mov_epi32(vmask, (__m512i)$Arg0VarName);
+
+    const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16su res = (uint16)0;
+    res[1] = masked_data[0];
+    __v16su rotated_d = (__v16su)_mm512_permutexvar_epi32(rotate_mask, masked_data);
+    __v16su rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
+        res = (__v16su)_mm512_mask_or_epi32((__m512i)res, mask, (__m512i)rotated, (__m512i)rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_avx512fui8ui16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    return __builtin_convertvector(sub_group_non_uniform_scan_exclusive_or(arg0, $Arg1VarName), $Arg0Type);
+  }]>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_avx512fui32 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec, [ v16i32, v16u32 ], 0,
+  [{
+    __mmask16 vmask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
+    __m512i masked_data = _mm512_maskz_mov_epi32(vmask, (__m512i)$Arg0VarName);
+
+    const __m512i rotate_mask = _mm512_setr_epi32(15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+    unsigned short mask = 1;
+
+    __v16su res = (uint16)(0);
+    res[1] = masked_data[0];
+    __v16su rotated_d = (__v16su)_mm512_permutexvar_epi32(rotate_mask, masked_data);
+    __v16su rotated;
+    mask <<= 1;
+
+#pragma clang unroll(full)
+    for (int i = 0; i < 14; i++) { // VF - 2 iterations
+        mask <<= 1;
+        rotated = (__v16su)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
+        res = (__v16su)_mm512_mask_xor_epi32((__m512i)res, mask, (__m512i)rotated, (__m512i)rotated_d);
+    }
+    return as_$ReturnType(res);
+  }]>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_avx512fui8ui16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec, [ v16i8, v16u8, v16i16, v16u16 ], 0,
+  [{
+    int16 arg0 = __builtin_convertvector($Arg0VarName, int16);
+    return __builtin_convertvector(sub_group_non_uniform_scan_exclusive_xor(arg0, $Arg1VarName), $Arg0Type);
+  }]>;
+
 // reduce [add|min|max]
 // add begin
 
