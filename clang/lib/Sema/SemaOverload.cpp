@@ -9562,22 +9562,16 @@ static Comparison compareEnableIfAttrs(const Sema &S, const FunctionDecl *Cand1,
   return Comparison::Equal;
 }
 
-static Comparison
-isBetterMultiversionCandidate(const OverloadCandidate &Cand1,
-                              const OverloadCandidate &Cand2) {
+static bool isBetterMultiversionCandidate(const OverloadCandidate &Cand1,
+                                          const OverloadCandidate &Cand2) {
   if (!Cand1.Function || !Cand1.Function->isMultiVersion() || !Cand2.Function ||
       !Cand2.Function->isMultiVersion())
-    return Comparison::Equal;
+    return false;
 
-  // If both are invalid, they are equal. If one of them is invalid, the other
-  // is better.
-  if (Cand1.Function->isInvalidDecl()) {
-    if (Cand2.Function->isInvalidDecl())
-      return Comparison::Equal;
-    return Comparison::Worse;
-  }
-  if (Cand2.Function->isInvalidDecl())
-    return Comparison::Better;
+  // If Cand1 is invalid, it cannot be a better match, if Cand2 is invalid, this
+  // is obviously better.
+  if (Cand1.Function->isInvalidDecl()) return false;
+  if (Cand2.Function->isInvalidDecl()) return true;
 
   // If this is a cpu_dispatch/cpu_specific multiversion situation, prefer
   // cpu_dispatch, else arbitrarily based on the identifiers.
@@ -9587,18 +9581,16 @@ isBetterMultiversionCandidate(const OverloadCandidate &Cand1,
   const auto *Cand2CPUSpec = Cand2.Function->getAttr<CPUSpecificAttr>();
 
   if (!Cand1CPUDisp && !Cand2CPUDisp && !Cand1CPUSpec && !Cand2CPUSpec)
-    return Comparison::Equal;
+    return false;
 
   if (Cand1CPUDisp && !Cand2CPUDisp)
-    return Comparison::Better;
+    return true;
   if (Cand2CPUDisp && !Cand1CPUDisp)
-    return Comparison::Worse;
+    return false;
 
   if (Cand1CPUSpec && Cand2CPUSpec) {
     if (Cand1CPUSpec->cpus_size() != Cand2CPUSpec->cpus_size())
-      return Cand1CPUSpec->cpus_size() < Cand2CPUSpec->cpus_size()
-                 ? Comparison::Better
-                 : Comparison::Worse;
+      return Cand1CPUSpec->cpus_size() < Cand2CPUSpec->cpus_size();
 
     std::pair<CPUSpecificAttr::cpus_iterator, CPUSpecificAttr::cpus_iterator>
         FirstDiff = std::mismatch(
@@ -9611,9 +9603,7 @@ isBetterMultiversionCandidate(const OverloadCandidate &Cand1,
     assert(FirstDiff.first != Cand1CPUSpec->cpus_end() &&
            "Two different cpu-specific versions should not have the same "
            "identifier list, otherwise they'd be the same decl!");
-    return (*FirstDiff.first)->getName() < (*FirstDiff.second)->getName()
-               ? Comparison::Better
-               : Comparison::Worse;
+    return (*FirstDiff.first)->getName() < (*FirstDiff.second)->getName();
   }
   llvm_unreachable("No way to get here unless both had cpu_dispatch");
 }
@@ -9673,6 +9663,7 @@ bool clang::isBetterOverloadCandidate(
   else if (!Cand1.Viable)
     return false;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#376357: GCC in -fpermissive mode allows weird conversions.
   bool CandHasPermissiveConversion1 = hasPermissiveConversion(Cand1);
@@ -9727,6 +9718,8 @@ bool clang::isBetterOverloadCandidate(
     }
   }
 
+=======
+>>>>>>> 7eae00477fddf3943b92d485a6055f4043852f9b
   // C++ [over.match.best]p1:
   //
   //   -- if F is a static member function, ICS1(F) is defined such
@@ -9961,6 +9954,12 @@ bool clang::isBetterOverloadCandidate(
       return Cmp == Comparison::Better;
   }
 
+  if (S.getLangOpts().CUDA && Cand1.Function && Cand2.Function) {
+    FunctionDecl *Caller = dyn_cast<FunctionDecl>(S.CurContext);
+    return S.IdentifyCUDAPreference(Caller, Cand1.Function) >
+           S.IdentifyCUDAPreference(Caller, Cand2.Function);
+  }
+
   bool HasPS1 = Cand1.Function != nullptr &&
                 functionHasPassObjectSizeParams(Cand1.Function);
   bool HasPS2 = Cand2.Function != nullptr &&
@@ -9968,22 +9967,7 @@ bool clang::isBetterOverloadCandidate(
   if (HasPS1 != HasPS2 && HasPS1)
     return true;
 
-  auto MV = isBetterMultiversionCandidate(Cand1, Cand2);
-  if (MV == Comparison::Better)
-    return true;
-  if (MV == Comparison::Worse)
-    return false;
-
-  // If other rules cannot determine which is better, CUDA preference is used
-  // to determine which is better.
-  if (S.getLangOpts().CUDA && Cand1.Function && Cand2.Function) {
-    if (FunctionDecl *Caller = dyn_cast<FunctionDecl>(S.CurContext)) {
-      return S.IdentifyCUDAPreference(Caller, Cand1.Function) >
-             S.IdentifyCUDAPreference(Caller, Cand2.Function);
-    }
-  }
-
-  return false;
+  return isBetterMultiversionCandidate(Cand1, Cand2);
 }
 
 /// Determine whether two declarations are "equivalent" for the purposes of
@@ -10068,6 +10052,33 @@ OverloadCandidateSet::BestViableFunction(Sema &S, SourceLocation Loc,
   llvm::SmallVector<OverloadCandidate *, 16> Candidates;
   std::transform(begin(), end(), std::back_inserter(Candidates),
                  [](OverloadCandidate &Cand) { return &Cand; });
+
+  // [CUDA] HD->H or HD->D calls are technically not allowed by CUDA but
+  // are accepted by both clang and NVCC. However, during a particular
+  // compilation mode only one call variant is viable. We need to
+  // exclude non-viable overload candidates from consideration based
+  // only on their host/device attributes. Specifically, if one
+  // candidate call is WrongSide and the other is SameSide, we ignore
+  // the WrongSide candidate.
+  if (S.getLangOpts().CUDA) {
+    const FunctionDecl *Caller = dyn_cast<FunctionDecl>(S.CurContext);
+    bool ContainsSameSideCandidate =
+        llvm::any_of(Candidates, [&](OverloadCandidate *Cand) {
+          // Check viable function only.
+          return Cand->Viable && Cand->Function &&
+                 S.IdentifyCUDAPreference(Caller, Cand->Function) ==
+                     Sema::CFP_SameSide;
+        });
+    if (ContainsSameSideCandidate) {
+      auto IsWrongSideCandidate = [&](OverloadCandidate *Cand) {
+        // Check viable function only to avoid unnecessary data copying/moving.
+        return Cand->Viable && Cand->Function &&
+               S.IdentifyCUDAPreference(Caller, Cand->Function) ==
+                   Sema::CFP_WrongSide;
+      };
+      llvm::erase_if(Candidates, IsWrongSideCandidate);
+    }
+  }
 
   // Find the best viable function.
   Best = end();
