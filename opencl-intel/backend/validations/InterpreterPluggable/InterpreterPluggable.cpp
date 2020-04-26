@@ -139,9 +139,9 @@ static bool IsLoweringPossible(Instruction& I)
 {
     if(I.getOpcode() == Instruction::Call)
     {
-        CallSite CS (cast<Value>(&I));
+        CallBase *CB = cast<CallBase>(&I);
         // Check to see if this is an intrinsic function call...
-        Function *F = CS.getCalledFunction();
+        Function *F = CB->getCalledFunction();
         if (F && F->isDeclaration())
         {
             switch (F->getIntrinsicID())

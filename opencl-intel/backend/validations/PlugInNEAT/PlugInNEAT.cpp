@@ -1956,7 +1956,7 @@ void NEATPlugIn::visitInsertValueInst( InsertValueInst &I )
 }
 
 
-void NEATPlugIn::visitCallSite( CallSite CS )
+void NEATPlugIn::visitCallSite( CallBase &CS )
 {
     // handle call instruction before execution
     HANDLE_EVENT(PRE_INST);
@@ -1988,7 +1988,7 @@ void NEATPlugIn::visitCallSite( CallSite CS )
 
     std::map<Value*, NEATGenericValue> ArgVals;
     Function::arg_iterator AI = CalledF->arg_begin(), AE = CalledF->arg_end();
-    for (CallSite::arg_iterator i = CS.arg_begin(),
+    for (auto i = CS.arg_begin(),
         e = CS.arg_end(); (i != e) || (AI != AE); ++AI, ++i) {
             Argument* A = &*AI;
             // use the NEAT supported arguments only
@@ -2269,9 +2269,9 @@ void NEATPlugIn::execute_clamp(Function *F,
 // Method to obtain integer value by argument index.
 GenericValue NEATPlugIn::GetGenericArg(size_t ArgIdx) {
     ExecutionContext &CallingSF = m_pECStack->back();
-    CallSite CS(&(static_cast<CallInst&>(*CallingSF.CurInst)));
+    CallBase *CB = cast<CallBase>(CallingSF.CurInst);
     Value* arg = 0;
-    CallSite::arg_iterator i = CS.arg_begin();
+    auto i = CB->arg_begin();
     for (size_t j = 0; j < ArgIdx; ++j, ++i) {}
     arg = *i;
     return m_pInterp->getOperandValueAdapter(arg, CallingSF);

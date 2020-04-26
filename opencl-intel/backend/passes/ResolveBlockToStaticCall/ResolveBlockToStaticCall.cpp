@@ -275,8 +275,8 @@ namespace intel {
       "CallInst " << *CI << " to function " << resolvedFunc->getName() << "\n");
 
     // Create new call instruction with static call to resolved function
-    CallSite CS(CI);
-    SmallVector<Value*, 4> params(CS.arg_begin(), CS.arg_end());
+    CallBase *CB = cast<CallBase>(CI);
+    SmallVector<Value*, 4> params(CB->arg_begin(), CB->arg_end());
     CallInst *pNewCall = CallInst::Create(resolvedFunc, ArrayRef<Value*>(params), CI->getName(), CI);
     // Copy attributes from the callee which contains aligment for parameters
     pNewCall->setAttributes(resolvedFunc->getAttributes());

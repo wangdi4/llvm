@@ -189,9 +189,11 @@ namespace llvm {
         void visitBitCastInst(BitCastInst &I);
         void visitExtractValueInst(ExtractValueInst &I);
         void visitInsertValueInst(InsertValueInst &I);
-        void visitCallSite(CallSite CS);
-        void visitCallInst(CallInst &I) { visitCallSite (CallSite (&I)); }
-        void visitInvokeInst(InvokeInst &I) { visitCallSite (CallSite (&I)); }
+        void visitCallSite(CallBase &CS);
+        void visitCallInst(CallInst &I) { visitCallSite(*cast<CallBase>(&I)); }
+        void visitInvokeInst(InvokeInst &I) {
+          visitCallSite(*cast<CallBase>(&I));
+        }
         void visitBranchInst(BranchInst &I);
 
         /// getOrEmitGlobalVariable - Return the address of the specified global
