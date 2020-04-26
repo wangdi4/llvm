@@ -9673,7 +9673,6 @@ bool clang::isBetterOverloadCandidate(
   else if (!Cand1.Viable)
     return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#376357: GCC in -fpermissive mode allows weird conversions.
   bool CandHasPermissiveConversion1 = hasPermissiveConversion(Cand1);
@@ -9683,7 +9682,7 @@ bool clang::isBetterOverloadCandidate(
   else if (CandHasPermissiveConversion1 && !CandHasPermissiveConversion2)
     return false;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // [CUDA] A function with 'never' preference is marked not viable, therefore
   // is never shown up here. The worst preference shown up here is 'wrong side',
   // e.g. a host function called by a device host function in device
@@ -9728,7 +9727,6 @@ bool clang::isBetterOverloadCandidate(
     }
   }
 
->>>>>>> c77a4078e01033aa2206c31a579d217c8a07569b
   // C++ [over.match.best]p1:
   //
   //   -- if F is a static member function, ICS1(F) is defined such
