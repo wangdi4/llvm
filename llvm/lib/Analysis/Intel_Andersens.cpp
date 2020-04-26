@@ -2465,23 +2465,23 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
   AddConstraintsForDirectCall(CB, F);
 }
 
-void AndersensAAResult::checkCall(CallBase *CB) {
-  if (CB->getCalledFunction() &&
-      findNameInTable(CB->getCalledFunction()->getName(),
+void AndersensAAResult::checkCall(CallBase &CB) {
+  if (CB.getCalledFunction() &&
+      findNameInTable(CB.getCalledFunction()->getName(),
                       Andersens_Alloc_Intrinsics)) {
-      unsigned ObjectIndex = getObject(CB);
-      GraphNodes[ObjectIndex].setValue(CB);
+      unsigned ObjectIndex = getObject(&CB);
+      GraphNodes[ObjectIndex].setValue(&CB);
       CreateConstraint(Constraint::AddressOf, 
-                       getNodeValue(*CB), ObjectIndex);
+                       getNodeValue(CB), ObjectIndex);
       return;
   }
-  if (isTrackableType(CB->getType()))
-    getNodeValue(*CB);
+  if (isTrackableType(CB.getType()))
+    getNodeValue(CB);
 
-  if (Function *F = CB->getCalledFunction()) {
-    AddConstraintsForCall(CB, F);
+  if (Function *F = CB.getCalledFunction()) {
+    AddConstraintsForCall(&CB, F);
   } else {
-    AddConstraintsForCall(CB, nullptr);
+    AddConstraintsForCall(&CB, nullptr);
   }
 }
 
