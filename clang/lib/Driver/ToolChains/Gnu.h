@@ -343,12 +343,11 @@ protected:
   /// Check whether the target triple's architecture is 32-bits.
   bool isTarget32Bit() const { return getTriple().isArch32Bit(); }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Check whether the target triple's architecture is spir.
   bool isTargetSpir() const { return getTriple().isSPIR(); }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   void PushPPaths(ToolChain::path_list &PPaths);
   void AddMultilibPaths(const Driver &D, const std::string &SysRoot,
                         const std::string &OSLibDir,
@@ -358,7 +357,6 @@ protected:
                          const std::string &OSLibDir, path_list &Paths);
   void AddMultilibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
                               llvm::opt::ArgStringList &CC1Args) const;
->>>>>>> 63959803702c66cbd72f6526f43914039c1a027b
 
   // FIXME: This should be final, but the CrossWindows toolchain does weird
   // things that can't be easily generalized.
