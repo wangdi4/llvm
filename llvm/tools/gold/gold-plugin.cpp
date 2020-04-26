@@ -234,30 +234,18 @@ namespace options {
       return;
     llvm::StringRef opt = opt_;
 
-<<<<<<< HEAD
-    if (opt.startswith("mcpu=")) {
-      mcpu = std::string(opt.substr(strlen("mcpu=")));
-    } else if (opt.startswith("extra-library-path=")) {
-      extra_library_path =
-          std::string(opt.substr(strlen("extra_library_path=")));
-    } else if (opt.startswith("mtriple=")) {
-      triple = std::string(opt.substr(strlen("mtriple=")));
-#if INTEL_CUSTOMIZATION
-    } else if (opt.startswith("fintel-advanced-optim")) {
-      AdvOptim = true;
-#endif // INTEL_CUSTOMIZATION
-    } else if (opt.startswith("obj-path=")) {
-      obj_path = std::string(opt.substr(strlen("obj-path=")));
-=======
     if (opt.consume_front("mcpu=")) {
       mcpu = std::string(opt);
     } else if (opt.consume_front("extra-library-path=")) {
       extra_library_path = std::string(opt);
     } else if (opt.consume_front("mtriple=")) {
       triple = std::string(opt);
+#if INTEL_CUSTOMIZATION
+    } else if (opt.startswith("fintel-advanced-optim")) {
+      AdvOptim = true;
+#endif // INTEL_CUSTOMIZATION
     } else if (opt.consume_front("obj-path=")) {
       obj_path = std::string(opt);
->>>>>>> bea5a958d317652fe68d66f848d096449063234c
     } else if (opt == "emit-llvm") {
       TheOutputType = OT_BC_ONLY;
     } else if (opt == "save-temps") {
