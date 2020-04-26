@@ -291,8 +291,8 @@ static bool analyzeEscapeAux(const Value *V,
         assert(MSI->getArgOperand(0) == V && "Memset only takes one pointer!");
         if (MSI->isVolatile())
           return true;
-      } else if (auto C = ImmutableCallSite(I)) {
-        if (!C.isCallee(&U))
+      } else if (auto C = dyn_cast<CallBase>(I)) {
+        if (!C->isCallee(&U))
           return true;
       } else
         return true;

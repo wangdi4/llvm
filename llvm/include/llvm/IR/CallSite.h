@@ -231,7 +231,6 @@ public:
   }
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Apply function Func to each Call's callback call site.
 template <typename UnaryFunction>
@@ -246,32 +245,6 @@ void for_each_callback_callsite(const CallBase &CB, UnaryFunction Func) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-template <> struct DenseMapInfo<CallSite> {
-  using BaseInfo = DenseMapInfo<decltype(CallSite::I)>;
-
-  static CallSite getEmptyKey() {
-    CallSite CS;
-    CS.I = BaseInfo::getEmptyKey();
-    return CS;
-  }
-
-  static CallSite getTombstoneKey() {
-    CallSite CS;
-    CS.I = BaseInfo::getTombstoneKey();
-    return CS;
-  }
-
-  static unsigned getHashValue(const CallSite &CS) {
-    return BaseInfo::getHashValue(CS.I);
-  }
-
-  static bool isEqual(const CallSite &LHS, const CallSite &RHS) {
-    return LHS == RHS;
-  }
-};
-
-=======
->>>>>>> fdbf493a705c01b33796afc34d0da92c7e8cbb77
 } // end namespace llvm
 
 #endif // LLVM_IR_CALLSITE_H

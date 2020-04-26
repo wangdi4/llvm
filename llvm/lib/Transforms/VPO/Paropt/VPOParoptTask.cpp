@@ -1667,7 +1667,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
-  CallSite CS(NewCall);
 
   // TidArgNo parameter is unused, if IsTidArg is false.
   Function *MTFn = finalizeExtractedMTFunction(W, NewF, false, -1U, false);
@@ -1680,12 +1679,12 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   MTFnArgs.push_back(ValueZero);
   genThreadedEntryActualParmList(W, MTFnArgs);
 
-  for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+  for (auto I = NewCall->arg_begin(), E = NewCall->arg_end(); I != E; ++I) {
     MTFnArgs.push_back((*I));
   }
   CallInst *MTFnCI =
       CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
-  MTFnCI->setCallingConv(CS.getCallingConv());
+  MTFnCI->setCallingConv(NewCall->getCallingConv());
 
   // Copy isTailCall attribute
   if (NewCall->isTailCall())
@@ -1781,7 +1780,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
           TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
       CallInst *SeqCI = CallInst::Create(MTFn->getFunctionType(), MTFn,
                                          MTFnArgs, "", ElseTerm);
-      SeqCI->setCallingConv(CS.getCallingConv());
+      SeqCI->setCallingConv(NewCall->getCallingConv());
       SeqCI->takeName(NewCall);
       SeqCI->setDebugLoc(NewCall->getDebugLoc());
       VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,
