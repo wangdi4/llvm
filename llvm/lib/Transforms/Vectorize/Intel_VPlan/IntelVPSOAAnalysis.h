@@ -19,6 +19,7 @@
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/STLExtras.h"
 
 namespace llvm {
 class Type;
@@ -66,6 +67,9 @@ private:
   // instructions have to be analyzed for any unsafe behavior.
   DenseSet<const VPValue *> PotentiallyUnsafeInsts;
 
+  // Cache to hold previously-determined profitable/unprofitable mem-accesses.
+  DenseMap<const VPInstruction *, bool> AccessProfitabilityInfo;
+
   // VPlan object.
   const VPlan &Plan;
 
@@ -111,8 +115,50 @@ private:
   /// b) In the loop.
   bool isInstructionInRelevantScope(const VPInstruction *UseInst);
 
+  /// Determine whether there is a data-access profitable with SOA layout to
+  /// the private memory pointed to by the Alloca. Profitability is determined
+  /// by the vector shape of access. Only uniform accesses are considered
+  /// profitable.
+  bool isSOAProfitable(VPAllocatePrivate *Alloca);
+
+  /// \return true if the given instruction does not break profitability of SOA
+  /// layout.
+  bool isProfitableForSOA(const VPInstruction *I);
+
+  /// Collect all the loads/stores resulting from a given private \p Alloca.
+  void collectLoadStores(const VPAllocatePrivate *Alloca,
+                         DenseSet<VPInstruction *> &LoadStores);
+
+  /// Return the iterator-range to the list of currently analyzed SOA-profitable
+  // instructions.
+  decltype(auto) analyzedMemAccessInsts() const {
+    return make_range(AccessProfitabilityInfo.begin(),
+                      AccessProfitabilityInfo.end());
+  }
+
+  /// Return an iterator range to profitable or unprofitable memory access
+  /// instructions based on the boolean template parameter.
+  template <bool Profitable = true>
+  inline decltype(auto) profitabilityAnalyzedAccessInsts() const {
+    return map_range(make_filter_range(analyzedMemAccessInsts(),
+                                       [](const auto &InstProfitabilityPair) {
+                                         return InstProfitabilityPair.second ==
+                                                Profitable;
+                                       }),
+                     [](const auto &InstProfitabilityPair) {
+                       return InstProfitabilityPair.first;
+                     });
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const;
+
+  // For use in debug sessions, dump the list of SOA-profitable instructions
+  // encountered till the given point in Analysis.
+  void dumpSOAProfitable(raw_ostream &OS) const;
+
+  // For use in debug sessions, dump the list of SOA-unprofitable instructions
+  // encountered till the given point in Analysis.
+  void dumpSOAUnprofitable(raw_ostream &OS) const;
 #endif // NDEBUG
 };
 
