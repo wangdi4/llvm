@@ -1,7 +1,7 @@
-; RUN: opt < %s -S -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
-; This is the same test as TileMVInl05.ll, but does not require asserts
+; This is the same test as Intel-TileMVInl05.ll, but does not require asserts
 ; and checks the IR only.
 
 ; CHECK: define{{.*}}@MAIN__({{.*}})
@@ -41,7 +41,7 @@
 ; CHECK: %t53 = load i1, i1* @mymod_mp_mybool_, align 8
 ; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@extra_({{.*}}) #1{{ *$}}
-; CHECK: call{{.*}}@switch_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@switch_({{.*}}) #1{{ *$}}
 ; CHECK: %t7 = load i32, i32* @mymod_mp_mynnodes_, align 8
 ; CHECK: icmp eq i32 %t7, -2
 ; CHECK: br i1 false, label %{{.*}}, label %{{.*}}

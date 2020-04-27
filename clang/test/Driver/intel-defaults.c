@@ -51,3 +51,8 @@
 // RUN: %clang -### -c --intel -fveclib=none %s 2>&1 | FileCheck -check-prefix CHECK-VECLIB %s
 // CHECK-VECLIB: "-fveclib=none"
 // CHECK-VECLIB-NOT: "-fveclib=SVML"
+
+// -stdlib=libc++ settings
+// RUN: %clangxx -### --intel -target x86_64-unknown-linux -stdlib=libc++ -### %t.o 2>&1 | FileCheck -check-prefix=CHECK-LIBCXX %s
+// CHECK-LIBCXX: "-lc++" "-lc++abi"
+// CHECK-LIBCXX" "-lpthread"

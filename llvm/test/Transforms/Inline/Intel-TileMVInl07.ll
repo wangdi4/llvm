@@ -1,8 +1,123 @@
-; RUN: opt < %s -S -tilemvinlmarker -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s -S -tilemvinlmarker -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
-; This is the same test as Intel-TileMVInl03.ll, but does not require asserts
-; and checks the IR only.
+; Check that the loop indices and increments are correctly identified for
+;   the loops within the tile candidates.
+; Check that the loop index and loop increment for each subscript arg is:
+;   correctly identified.
+; Check that the tile candidates are correctly identified.
+
+; CHECK: TMVINL: fun01_ Loop Index   %14 = add nuw nsw i64 %10, 1
+; CHECK: TMVINL: fun01_ Loop Inc   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
+; CHECK: TMVINL: fun01_ Arg %0(2,1)
+; CHECK: TMVINL: Tile Candidate fun01_
+; CHECK: TMVINL: fun00_ Loop Index   %14 = add nuw nsw i64 %10, 1
+; CHECK: TMVINL: fun00_ Loop Inc   %10 = phi i64 [ 3, %6 ], [ %14, %9 ]
+; CHECK: TMVINL: fun00_ Arg %0(0,1)
+; CHECK: TMVINL: fun00_ Arg %1(2,1)
+; CHECK: TMVINL: Tile Candidate fun00_
+; CHECK: TMVINL: fun1_ Loop Index   %13 = add nuw nsw i64 %9, 1
+; CHECK: TMVINL: fun1_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
+; CHECK: TMVINL: fun1_ Arg %0(2,1)
+; CHECK: TMVINL: Tile Candidate fun1_
+; CHECK: TMVINL: fun2_ Loop Index   %13 = add nuw nsw i64 %9, 1
+; CHECK: TMVINL: fun2_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
+; CHECK: TMVINL: fun2_ Arg %0(2,1)
+; CHECK: TMVINL: Tile Candidate fun2_
+; CHECK: TMVINL: fun0_ Loop Index   %13 = add nuw nsw i64 %9, 1
+; CHECK: TMVINL: fun0_ Loop Inc   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
+; CHECK: TMVINL: fun0_ Arg %0(0,1)
+; CHECK: TMVINL: fun0_ Arg %1(2,1)
+; CHECK: TMVINL: Tile Candidate fun0_
+
+; Check that the tile choices are correctly identified.
+
+; CHECK: TMVINL: Tile Choice fun0_
+; CHECK: TMVINL: Tile Choice fun1_
+; CHECK: TMVINL: Tile Choice fun2_
+; CHECK: TMVINL: Tile Choice extra_
+; CHECK: TMVINL: Tile Choice switch_
+; CHECK: TMVINL: Tile Choice fun00_
+; CHECK: TMVINL: Tile Choice fun01_
+
+; Check that the guards for the tile choices are correctly identified.
+
+; CHECK: TMVINL: GVMAP mymod_mp_mytester_
+; CHECK: TMVINL:   %t6 = icmp sgt i32 %t5, 5
+; CHECK: TMVINL: GVMAP mymod_mp_myglobal_
+; CHECK: TMVINL:   %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINL: GVMAP mymod_mp_mybool_
+; CHECK: TMVINL:   %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: TMVINL: GVMAP mymod_mp_mynnodes_
+; CHECK: TMVINL:   %t8 = icmp eq i32 %t7, -2
+; CHECK: TMVINL: CONDMAP T   %t6 = icmp sgt i32 %t5, 5
+; CHECK: TMVINL: LI   %t5 = load i32, i32* @mymod_mp_mytester_, align 8
+; CHECK: TMVINL: CONDMAP T   %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINL: LI   %t51 = load i32, i32* @mymod_mp_myglobal_, align 8
+; CHECK: TMVINL: CONDMAP T   %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: TMVINL: CONDMAP F   %t8 = icmp eq i32 %t7, -2
+; CHECK: TMVINL: LI   %t7 = load i32, i32* @mymod_mp_mynnodes_, align 8
+
+; Check that the global variables were validated (determined not to be
+; assigned in the root routine @leapfrog_).
+
+; CHECK: TMVINL: Validated GVM
+
+; Check that the tile choices are correctly identified.
+
+; CHECK: TMVINL: Marked leapfrog_ TO fun0_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO fun1_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO fun2_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO extra_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO switch_ FOR INLINING
+; CHECK: TMVINL: Marked switch_ TO fun00_ FOR INLINING
+; CHECK: TMVINL: Marked switch_ TO fun01_ FOR INLINING
+
+; Check that the conditionals with globals are simplified.
+
+; CHECK: TMVINL: Testing       %t6 = icmp sgt i32 %t5, 5
+; CHECK: TMVINL: Against (T)   %t6 = icmp sgt i32 %t5, 5
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_mytester_
+; CHECK: TMVINL: Testing       %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINL: Against (T)   %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_myglobal_
+; CHECK: TMVINL: Testing       %t62 = icmp sge i32 %t52, 1
+; CHECK: TMVINL: Against (T)   %t61 = icmp eq i32 %t51, 1
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_myglobal_
+; CHECK: TMVINL: Testing       %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: TMVINL: Against (T)   %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_mybool_
+; CHECK: TMVINL: Testing       %t8 = icmp eq i32 %t7, -2
+; CHECK: TMVINL: Against (F)   %t8 = icmp eq i32 %t7, -2
+; CHECK: TMVINST: Provably FALSE  GV = mymod_mp_mynnodes_
+; CHECK: TMVINL: Testing       %4 = load i1, i1* @mymod_mp_mybool_, align 4
+; CHECK: TMVINL: Against (T)   %t53 = load i1, i1* @mymod_mp_mybool_, align 8
+; CHECK: TMVINST: Provably TRUE   GV = mymod_mp_mybool_
+
+; Check that the skeleton graph shows the right tile choices.
+
+; CHECK: TMVINL: Root: leapfrog_
+; CHECK: TMVINL:  T fun0_
+; CHECK: TMVINL:  T fun1_
+; CHECK: TMVINL:  T fun2_
+; CHECK: TMVINL:  T extra_
+; CHECK: TMVINL:  T switch_
+; CHECK: TMVINL: SubRoot: switch_
+; CHECK: TMVINL:  T fun00_
+; CHECK: TMVINL:  T fun01_
+; CHECK: TMVINL: NewRoot: leapfrog_.1
+; CHECK: TMVINL:  fun0_
+; CHECK: TMVINL:  fun1_
+; CHECK: TMVINL:  fun2_
+; CHECK: TMVINL:  extra_
+; CHECK: TMVINL:  switch_.2
+; CHECK: TMVINL: NewSubRoot: switch_.2
+; CHECK: TMVINL:  fun00_
+; CHECK: TMVINL:  fun01_
+; CHECK: TMVINL: Multiversioning complete
+
+; Check the IR
 
 ; CHECK: define{{.*}}@MAIN__({{.*}})
 ; CHECK: br label %.clone.tile.cond
@@ -46,6 +161,8 @@
 ; CHECK: icmp eq i32 %t7, -2
 ; CHECK: br i1 false, label %{{.*}}, label %{{.*}}
 ; CHECK: define{{.*}}@switch_({{.*}})
+; CHECK: %4 = load i1, i1* @mymod_mp_mybool_, align 4
+; CHECK: br i1 true, label %6, label %7
 ; CHECK: call{{.*}}@fun00_({{.*}}) #1{{ *$}}
 ; CHECK: call{{.*}}@fun01_({{.*}}) #1{{ *$}}
 ; CHECK: define{{.*}}@leapfrog_.1({{.*}})
@@ -187,7 +304,7 @@ L76:                                               ; preds = %L75
   tail call fastcc void @extra_(double* %0, i32* %2)
   br label %L77
 L77:                                               ; preds = %l75, %L76
-  tail call fastcc void @switch_(double* %0, double* %1, i32* %2, i32* %3)
+  tail call fastcc void @switch_(double* %0, double* %1, i32* %2)
   br label %L8
 L8:                                                ; preds = %L77
   br label %L9
@@ -202,21 +319,19 @@ L14:                                               ; preds = %L12, %L9
   ret void
 }
 
-define internal fastcc void @switch_(double* noalias nocapture %0, double* noalias nocapture %1, i32* noalias nocapture readonly %2, i32* noalias nocapture readonly %3) unnamed_addr #0 {
-  %5 = load i32, i32* %3, align 4
-  %6 = and i32 %5, 1
-  %7 = icmp eq i32 %6, 0
-  br i1 %7, label %9, label %8
+define internal fastcc void @switch_(double* noalias nocapture %0, double* noalias nocapture %1, i32* noalias nocapture readonly %2) unnamed_addr #0 {
+  %4 = load i1, i1* @mymod_mp_mybool_, align 4
+  br i1 %4, label %6, label %7
 
-8:                                                ; preds = %4
+5:                                                ; preds = %3
   tail call fastcc void @fun00_(double* %0, double* %1, i32* %2)
-  br label %10
+  br label %7
 
-9:                                                ; preds = %4
+6:                                                ; preds = %3
   tail call fastcc void @fun01_(double* %0, double* %1, i32* %2)
-  br label %10
+  br label %7
 
-10:                                               ; preds = %9, %8
+7:                                               ; preds = %6, %7
   ret void
 }
 
