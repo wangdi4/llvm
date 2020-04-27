@@ -108,7 +108,7 @@ static pi_result mapError(ze_result_t result) {
   case ZE_RESULT_ERROR_INVALID_NATIVE_BINARY:
     return PI_INVALID_BINARY;
   case ZE_RESULT_ERROR_INVALID_KERNEL_NAME:
-    return PI_RESULT_INVALID_KERNEL_NAME;
+    return PI_INVALID_KERNEL_NAME;
   case ZE_RESULT_ERROR_INVALID_FUNCTION_NAME:
     return PI_BUILD_PROGRAM_FAILURE;
   case ZE_RESULT_ERROR_OVERLAPPING_REGIONS:
@@ -1255,13 +1255,13 @@ pi_result L0(piextDeviceSelectBinary)(
 
 pi_result piextDeviceGetNativeHandle(pi_device device,
                                      pi_native_handle *nativeHandle) {
-  pi_throw("piextDeviceGetNativeHandle: not supported");
+  die("piextDeviceGetNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
 pi_result piextDeviceCreateWithNativeHandle(pi_native_handle nativeHandle,
                                             pi_device *device) {
-  pi_throw("piextDeviceCreateWithNativeHandle: not supported");
+  die("piextDeviceCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -1321,19 +1321,19 @@ pi_result L0(piContextGetInfo)(
 pi_result piextContextSetExtendedDeleter(pi_context context,
                                          pi_context_extended_deleter function,
                                          void *user_data) {
-  pi_throw("piextContextSetExtendedDeleter: not supported");
+  die("piextContextSetExtendedDeleter: not supported");
   return PI_SUCCESS;
 }
 
 pi_result piextContextGetNativeHandle(pi_context context,
                                       pi_native_handle *nativeHandle) {
-  pi_throw("piextContextGetNativeHandle: not supported");
+  die("piextContextGetNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
 pi_result piextContextCreateWithNativeHandle(pi_native_handle nativeHandle,
     pi_context *context) {
-  pi_throw("piextContextCreateWithNativeHandle: not supported");
+  die("piextContextCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -1442,13 +1442,13 @@ pi_result L0(piQueueFinish)(pi_queue queue)
 
 pi_result piextQueueGetNativeHandle(pi_queue queue,
                                     pi_native_handle *nativeHandle) {
-  pi_throw("piextQueueGetNativeHandle: not supported");
+  die("piextQueueGetNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
 pi_result piextQueueCreateWithNativeHandle(pi_native_handle nativeHandle,
                                            pi_queue *queue) {
-  pi_throw("piextQueueCreateWithNativeHandle: not supported");
+  die("piextQueueCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -1681,13 +1681,13 @@ pi_result L0(piMemImageCreate)(
 }
 
 pi_result piextMemGetNativeHandle(pi_mem mem, pi_native_handle *nativeHandle) {
-  pi_throw("piextMemGetNativeHandle: not supported");
+  die("piextMemGetNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
 pi_result piextMemCreateWithNativeHandle(pi_native_handle nativeHandle,
                                          pi_mem *mem) {
-  pi_throw("piextMemCreateWithNativeHandle: not supported");
+  die("piextMemCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -1980,13 +1980,13 @@ pi_result L0(piProgramRelease)(pi_program program) {
 
 pi_result piextProgramGetNativeHandle(pi_program program,
                                       pi_native_handle *nativeHandle) {
-  pi_throw("piextProgramGetNativeHandle: not supported");
+  die("piextProgramGetNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
                                              pi_program *program) {
-  pi_throw("piextProgramCreateWithNativeHandle: not supported");
+  die("piextProgramCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
@@ -2598,13 +2598,13 @@ pi_result L0(piEventRelease)(pi_event event) {
 
 pi_result piextEventGetNativeHandle(pi_event event,
                                     pi_native_handle *nativeHandle) {
-  pi_throw("piextEventGetNativeHandle: not supported");
+  die("piextEventGetNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
 pi_result piextEventCreateWithNativeHandle(pi_native_handle nativeHandle,
                                            pi_event *event) {
-  pi_throw("piextEventCreateWithNativeHandle: not supported");
+  die("piextEventCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
 
