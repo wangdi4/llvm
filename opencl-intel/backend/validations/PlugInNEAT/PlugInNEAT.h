@@ -15,7 +15,6 @@
 #ifndef LLI_PLUGIN_NEAT_H
 #define LLI_PLUGIN_NEAT_H
 
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
