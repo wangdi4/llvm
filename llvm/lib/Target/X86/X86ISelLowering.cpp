@@ -7680,8 +7680,8 @@ static bool getFauxShuffleMask(SDValue N, const APInt &DemandedElts,
            Scl.getOpcode() == ISD::ANY_EXTEND ||
            Scl.getOpcode() == ISD::ZERO_EXTEND) {
       Scl = Scl.getOperand(0);
-      if (MinBitsPerElt > Scl.getScalarValueSizeInBits())
-        MinBitsPerElt = Scl.getScalarValueSizeInBits();
+      MinBitsPerElt =
+          std::min<unsigned>(MinBitsPerElt, Scl.getScalarValueSizeInBits());
     }
     if ((MinBitsPerElt % 8) != 0)
       return false;
@@ -7704,6 +7704,8 @@ static bool getFauxShuffleMask(SDValue N, const APInt &DemandedElts,
     unsigned SrcIdx = SrcExtract.getConstantOperandVal(1);
     unsigned SrcByte = SrcIdx * (SrcVT.getScalarSizeInBits() / 8);
     unsigned DstByte = DstIdx * NumBytesPerElt;
+    MinBitsPerElt =
+        std::min<unsigned>(MinBitsPerElt, SrcVT.getScalarSizeInBits());
 
     // Create 'identity' byte level shuffle mask and then add inserted bytes.
     if (Opcode == ISD::SCALAR_TO_VECTOR) {
@@ -46162,10 +46164,9 @@ static SDValue combineFneg(SDNode *N, SelectionDAG &DAG,
 
   bool CodeSize = DAG.getMachineFunction().getFunction().hasOptSize();
   bool LegalOperations = !DCI.isBeforeLegalizeOps();
-  if (TLI.getNegatibleCost(Arg, DAG, LegalOperations, CodeSize) !=
-      TargetLowering::NegatibleCost::Expensive)
-    return DAG.getBitcast(
-        OrigVT, TLI.getNegatedExpression(Arg, DAG, LegalOperations, CodeSize));
+  if (SDValue NegArg =
+          TLI.getNegatedExpression(Arg, DAG, LegalOperations, CodeSize))
+    return DAG.getBitcast(OrigVT, NegArg);
 
   return SDValue();
 }
@@ -46217,10 +46218,10 @@ X86TargetLowering::getNegatibleCost(SDValue Op, SelectionDAG &DAG,
                                           Depth);
 }
 
-SDValue X86TargetLowering::getNegatedExpression(SDValue Op, SelectionDAG &DAG,
-                                                bool LegalOperations,
-                                                bool ForCodeSize,
-                                                unsigned Depth) const {
+SDValue X86TargetLowering::negateExpression(SDValue Op, SelectionDAG &DAG,
+                                            bool LegalOperations,
+                                            bool ForCodeSize,
+                                            unsigned Depth) const {
   // fneg patterns are removable even if they have multiple uses.
   if (SDValue Arg = isFNEG(DAG, Op.getNode(), Depth))
     return DAG.getBitcast(Op.getValueType(), Arg);
@@ -46245,13 +46246,9 @@ SDValue X86TargetLowering::getNegatedExpression(SDValue Op, SelectionDAG &DAG,
     // This is always negatible for free but we might be able to remove some
     // extra operand negations as well.
     SmallVector<SDValue, 4> NewOps(Op.getNumOperands(), SDValue());
-    for (int i = 0; i != 3; ++i) {
-      NegatibleCost V = getNegatibleCost(Op.getOperand(i), DAG, LegalOperations,
-                                         ForCodeSize, Depth + 1);
-      if (V == NegatibleCost::Cheaper)
-        NewOps[i] = getNegatedExpression(Op.getOperand(i), DAG, LegalOperations,
-                                         ForCodeSize, Depth + 1);
-    }
+    for (int i = 0; i != 3; ++i)
+      NewOps[i] = getCheaperNegatedExpression(
+          Op.getOperand(i), DAG, LegalOperations, ForCodeSize, Depth + 1);
 
     bool NegA = !!NewOps[0];
     bool NegB = !!NewOps[1];
@@ -46266,13 +46263,13 @@ SDValue X86TargetLowering::getNegatedExpression(SDValue Op, SelectionDAG &DAG,
   }
   case X86ISD::FRCP:
     return DAG.getNode(Opc, SDLoc(Op), VT,
-                       getNegatedExpression(Op.getOperand(0), DAG,
-                                            LegalOperations, ForCodeSize,
-                                            Depth + 1));
+                       negateExpression(Op.getOperand(0), DAG, LegalOperations,
+                                        ForCodeSize, Depth + 1));
+    break;
   }
 
-  return TargetLowering::getNegatedExpression(Op, DAG, LegalOperations,
-                                              ForCodeSize, Depth);
+  return TargetLowering::negateExpression(Op, DAG, LegalOperations, ForCodeSize,
+                                          Depth);
 }
 
 static SDValue lowerX86FPLogicOp(SDNode *N, SelectionDAG &DAG,
@@ -47172,9 +47169,9 @@ static SDValue combineFMA(SDNode *N, SelectionDAG &DAG,
   auto invertIfNegative = [&DAG, &TLI, &DCI](SDValue &V) {
     bool CodeSize = DAG.getMachineFunction().getFunction().hasOptSize();
     bool LegalOperations = !DCI.isBeforeLegalizeOps();
-    if (TLI.getNegatibleCost(V, DAG, LegalOperations, CodeSize) ==
-        TargetLowering::NegatibleCost::Cheaper) {
-      V = TLI.getNegatedExpression(V, DAG, LegalOperations, CodeSize);
+    if (SDValue NegV = TLI.getCheaperNegatedExpression(V, DAG, LegalOperations,
+                                                       CodeSize)) {
+      V = NegV;
       return true;
     }
     // Look through extract_vector_elts. If it comes from an FNEG, create a
@@ -47182,12 +47179,10 @@ static SDValue combineFMA(SDNode *N, SelectionDAG &DAG,
     if (V.getOpcode() == ISD::EXTRACT_VECTOR_ELT &&
         isNullConstant(V.getOperand(1))) {
       SDValue Vec = V.getOperand(0);
-      if (TLI.getNegatibleCost(Vec, DAG, LegalOperations, CodeSize) ==
-          TargetLowering::NegatibleCost::Cheaper) {
-        SDValue NegVal =
-            TLI.getNegatedExpression(Vec, DAG, LegalOperations, CodeSize);
+      if (SDValue NegV = TLI.getCheaperNegatedExpression(
+              Vec, DAG, LegalOperations, CodeSize)) {
         V = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, SDLoc(V), V.getValueType(),
-                        NegVal, V.getOperand(1));
+                        NegV, V.getOperand(1));
         return true;
       }
     }
@@ -47229,11 +47224,11 @@ static SDValue combineFMADDSUB(SDNode *N, SelectionDAG &DAG,
   bool LegalOperations = !DCI.isBeforeLegalizeOps();
 
   SDValue N2 = N->getOperand(2);
-  if (TLI.getNegatibleCost(N2, DAG, LegalOperations, CodeSize) !=
-      TargetLowering::NegatibleCost::Cheaper)
-    return SDValue();
 
-  SDValue NegN2 = TLI.getNegatedExpression(N2, DAG, LegalOperations, CodeSize);
+  SDValue NegN2 =
+      TLI.getCheaperNegatedExpression(N2, DAG, LegalOperations, CodeSize);
+  if (!NegN2)
+    return SDValue();
   unsigned NewOpcode = negateFMAOpcode(N->getOpcode(), false, true, false);
 
   if (N->getNumOperands() == 4)
