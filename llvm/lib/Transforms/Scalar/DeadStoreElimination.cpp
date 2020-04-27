@@ -1930,7 +1930,7 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
       }
 
       if (!DebugCounter::shouldExecute(MemorySSACounter))
-        break;
+        continue;
 
       // Check if NI overwrites SI.
       int64_t InstWriteOffset, DepWriteOffset;
