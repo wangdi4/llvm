@@ -10043,6 +10043,26 @@ bool isNotRangeMaxUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev,
          NAryScevPlusOne->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
                                                        : SCEV::FlagNUW);
 }
+
+// Returns a positive constant additive of \p Scev if found, otherwise returns
+// nullptr.
+static const SCEVConstant *getPositiveConstAdditive(const SCEV *Scev,
+                                                    bool IsSigned) {
+  if (auto *Const = dyn_cast<SCEVConstant>(Scev)) {
+    return Const->getAPInt().isStrictlyPositive() ? Const : nullptr;
+  }
+
+  auto *Add = dyn_cast<SCEVAddExpr>(Scev);
+
+  // TODO: extend to SCEVAddRecExpr.
+  if (!Add || !Add->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW))
+    return nullptr;
+
+  // Constant will be the first operand, it it exists.
+  auto *Const = dyn_cast<SCEVConstant>(Add->getOperand(0));
+
+  return (Const && Const->getAPInt().isStrictlyPositive()) ? Const : nullptr;
+}
 #endif // INTEL_CUSTOMIZATION
 bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
                                            const SCEV *&LHS, const SCEV *&RHS,
@@ -10239,6 +10259,25 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     break;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Cancel out smaller positive constant from both LHS/RHS. For example-
+  // (a+1)<nsw> >s (b+2)<nsw>
+  //
+  // ==>
+  //
+  // a >s (b+1)<nsw>
+  bool IsSigned = CmpInst::isSigned(Pred);
+  if (auto *LConst = getPositiveConstAdditive(LHS, IsSigned))
+    if (auto *RConst = getPositiveConstAdditive(RHS, IsSigned)) {
+    auto *SmallerConst =
+        LConst->getAPInt().sle(RConst->getAPInt()) ? LConst : RConst;
+    LHS = getMinusSCEV(LHS, SmallerConst,
+                       IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW);
+    RHS = getMinusSCEV(RHS, SmallerConst,
+                       IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW);
+    Changed = true;
+    }
+#endif // INTEL_CUSTOMIZATION
   // TODO: More simplifications are possible here.
 
   // Recursively simplify until we either hit a recursion limit or nothing
