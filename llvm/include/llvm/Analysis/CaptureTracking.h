@@ -33,6 +33,7 @@ namespace llvm {
   /// counts as capturing it or not.  The boolean StoreCaptures specified
   /// whether storing the value (or part of it) into memory anywhere
   /// automatically counts as capturing it or not.
+<<<<<<< HEAD
   /// The flag IgnoreNoAliasArgStCaptures is ON means that the         // INTEL
   /// analysis will ignore the store to the no-alias argument pointer. // INTEL
   /// MaxUsesToExplore specifies how many uses should the analysis explore for
@@ -42,6 +43,14 @@ namespace llvm {
                             bool IgnoreNoAliasArgStCaptures = false,   // INTEL
                             unsigned MaxUsesToExplore =
                                 getDefaultMaxUsesToExploreForCaptureTracking());
+=======
+  /// MaxUsesToExplore specifies how many uses the analysis should explore for
+  /// one value before giving up due too "too many uses". If MaxUsesToExplore
+  /// is zero, a default value is assumed.
+  bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                            bool StoreCaptures,
+                            unsigned MaxUsesToExplore = 0);
+>>>>>>> 2b2827552ad7e0fbd30597d714e751516f83e0f9
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
@@ -53,13 +62,13 @@ namespace llvm {
   /// (or part of it) into memory anywhere automatically counts as capturing it
   /// or not. Captures by the provided instruction are considered if the
   /// final parameter is true.
-  /// MaxUsesToExplore specifies how many uses should the analysis explore for
-  /// one value before giving up due too "too many uses".
+  /// MaxUsesToExplore specifies how many uses the analysis should explore for
+  /// one value before giving up due too "too many uses". If MaxUsesToExplore
+  /// is zero, a default value is assumed.
   bool PointerMayBeCapturedBefore(
       const Value *V, bool ReturnCaptures, bool StoreCaptures,
       const Instruction *I, const DominatorTree *DT, bool IncludeI = false,
-      unsigned MaxUsesToExplore =
-          getDefaultMaxUsesToExploreForCaptureTracking());
+      unsigned MaxUsesToExplore = 0);
 
   /// This callback is used in conjunction with PointerMayBeCaptured. In
   /// addition to the interface here, you'll need to provide your own getters
@@ -92,11 +101,11 @@ namespace llvm {
   /// PointerMayBeCaptured - Visit the value and the values derived from it and
   /// find values which appear to be capturing the pointer value. This feeds
   /// results into and is controlled by the CaptureTracker object.
-  /// MaxUsesToExplore specifies how many uses should the analysis explore for
-  /// one value before giving up due too "too many uses".
+  /// MaxUsesToExplore specifies how many uses the analysis should explore for
+  /// one value before giving up due too "too many uses". If MaxUsesToExplore
+  /// is zero, a default value is assumed.
   void PointerMayBeCaptured(const Value *V, CaptureTracker *Tracker,
-                            unsigned MaxUsesToExplore =
-                                getDefaultMaxUsesToExploreForCaptureTracking());
+                            unsigned MaxUsesToExplore = 0);
 } // end namespace llvm
 
 #endif
