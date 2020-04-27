@@ -58,7 +58,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Pass.h"
-#include "llvm/PassAnalysisSupport.h"
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
