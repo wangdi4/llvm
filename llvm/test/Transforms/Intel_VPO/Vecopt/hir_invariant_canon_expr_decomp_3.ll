@@ -17,8 +17,8 @@
 ; the same. The test checks that we create an external def for (n1 * i1)
 ; and that it used correctly in decomposition.
 ;
-; The auto generated checks for external defs are replaced with CHECK-DAG
-; as the order of printing of external defs in non-deterministic. Auto
+; The auto generated checks for external defs are done using CHECK-DAG
+; as the order of printing of external defs is non-deterministic. Auto
 ; generated checks that were unnecessary were also removed.
 ;
 @arr = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
@@ -26,7 +26,7 @@
 define dso_local void @foo(i64 %n1) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:   [[VP0:%.*]] = [[N10:%.*]] * i1
+; CHECK-DAG:   [[VP0:%.*]] = %n1 * i1
 ; CHECK-DAG:   [[VP1:%.*]] = @arr
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP3:%.*]], {{.*}} ]

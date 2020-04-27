@@ -202,11 +202,27 @@ def genericize_check_lines(lines):
   while ANALYSIS_PRINTING_RE.match(lines[1]):
     lines = lines[1:]
 
+  in_ext_defs = False
+  ext_defs_start_seen = False
+  ext_defs_separator = " = "
   for i, line in enumerate(lines):
+    if ext_defs_start_seen == True:
+      in_ext_defs = True
+    if line.startswith("External Defs Start:"):
+      ext_defs_start_seen = True
+    if line.startswith("External Defs End:"):
+      ext_defs_start_seen = False
+      in_ext_defs = False
     # An IR variable named '%.' matches the FileCheck regex string.
     line = line.replace('%.', '%dot')
     # Ignore any comments, since the check lines will too.
     scrubbed_line = SCRUB_IR_COMMENT_RE.sub(r'', line)
+
+    # For external defs, do not do any substitution in the part of
+    # the string after ext_defs_separator.
+    if in_ext_defs == True:
+      scrubbed_line,scrubbed_tail = scrubbed_line.split(ext_defs_separator)
+
     # print 'Line: <{}>, matches:\n'.format(scrubbed_line)
     tmp =  IR_VALUE_RE.sub(transform_line_vars, scrubbed_line)
     # FIXME: why isn't it enough to perform substitution once?
@@ -216,6 +232,11 @@ def genericize_check_lines(lines):
     tmp = VPLOOP_RE.sub(transform_vploop, tmp)
     tmp = PREDICATOR_IF_STMT_RE.sub(transform_predicator_if_stmt, tmp)
     tmp = PREDICATOR_BLOCK_PREDICATE_RE.sub(transform_predicator_block_predicate, tmp)
+
+    # For external defs, add the part after ext_defs_separator that was split earlier
+    if in_ext_defs == True:
+      tmp = tmp + ext_defs_separator + scrubbed_tail
+
     lines[i] = tmp
   return lines
 
@@ -237,12 +258,22 @@ def add_checks(output_lines, prefix_list, func_dict, func_name, opt_basename):
 
       checking_cg_output = False
       in_define = None
+      in_ext_defs = False
+      ext_defs_start_seen = False
       for cost_line in cost_model_output[1:]:
         if cost_line == 'source_filename = "<stdin>"':
           cost_line = ''
         if cost_line.strip() == '':
           num_blank_lines += 1
           continue
+        if ext_defs_start_seen == True:
+          in_ext_defs = True
+        if cost_line.startswith("External Defs Start:"):
+          ext_defs_start_seen = True
+        if cost_line.startswith("External Defs End:"):
+          ext_defs_start_seen = False
+          in_ext_defs = False
+
         if cost_line.startswith("define "):
           # Make some space between VPlan dump and VPlan LLVM IR CG output
           # Do NOT emit just empty line as we'd try to preserve it during the
@@ -261,10 +292,15 @@ def add_checks(output_lines, prefix_list, func_dict, func_name, opt_basename):
         if num_blank_lines == 1:
           output_lines.append('; %s-EMPTY:' % (checkprefix))
 
-        if num_blank_lines <= 1:
-          output_lines.append('; %s-NEXT:  %s' % (checkprefix, cost_line))
+        # External defs print order is currently non-deterministic - emit
+        # checkprefix-DAG.
+        if in_ext_defs == True:
+          output_lines.append('; %s-DAG:    %s' % (checkprefix, cost_line))
         else:
-          output_lines.append('; %s:       %s' % (checkprefix, cost_line))
+          if num_blank_lines <= 1:
+            output_lines.append('; %s-NEXT:  %s' % (checkprefix, cost_line))
+          else:
+            output_lines.append('; %s:       %s' % (checkprefix, cost_line))
 
         if cost_line == '}':
           in_define = False

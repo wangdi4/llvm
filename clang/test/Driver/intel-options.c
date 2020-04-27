@@ -116,6 +116,10 @@
 // RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // CHECK-FIMF-ARCH: "-mGLOB_imf_attr=arch-consistency:none"
 
+// RUN: %clang -### -fimf-max-error=5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
+// RUN: %clang_cl -### /Qimf-max-error=5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
+// CHECK-FIMF-MAX: "-mGLOB_imf_attr=max-error:5"
+
 // Behavior with -femit-class-debug-always option maps to -fstandalone-debug
 // RUN: %clang -### -c -g %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND-DEFAULT %s
 // CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=limited"

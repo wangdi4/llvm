@@ -11,8 +11,8 @@
 ; The test checks that (n1 * n2) is treated as one external def and that this
 ; external def is used appropriately during decomposition.
 ;
-; The auto generated checks for external defs are replaced with CHECK-DAG
-; as the order of printing of external defs in non-deterministic. Auto
+; The auto generated checks for external defs are done using CHECK-DAG
+; as the order of printing of external defs is non-deterministic. Auto
 ; generated checks that were unnecessary were also removed.
 @arr = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 @arr2 = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
@@ -20,9 +20,9 @@
 define void @foo(i64 %n1, i64 %n2) {
 ; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:   [[VP0:%.*]] = @arr2
-; CHECK-DAG:   [[VP1:%.*]] = @arr
-; CHECK-DAG:   [[VP2:%.*]] = ([[N10:%.*]] * [[N20:%.*]])
+; CHECK-DAG:     [[VP0:%.*]] = @arr2
+; CHECK-DAG:     [[VP1:%.*]] = @arr
+; CHECK-DAG:     [[VP2:%.*]] = (%n1 * %n2)
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP3:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP4:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64* [[VP5:%.*]] = getelementptr inbounds [100 x i64]* @arr i64 0 i64 [[VP3]]
