@@ -922,6 +922,11 @@ void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
   auto *DA = Plan.getVPlanDA();
   for (VPBasicBlock *Block : PostLinearizationRPOT) {
     const auto &PredTerms = Block2PredicateTermsAndUniformity[Block].first;
+    bool BlockIsUniform = Block2PredicateTermsAndUniformity[Block].second;
+    if (BlockIsUniform && !Plan.isFullLinearizationForced())
+      // Block itself is uniform, any predicate terms affecting it are lowered
+      // as actual CFG - no need to perform predicate calculations.
+      continue;
 
     if (PredTerms.size() == 1 && PredTerms[0].Condition == nullptr) {
       // Re-use predicate of the OriginBlock.
