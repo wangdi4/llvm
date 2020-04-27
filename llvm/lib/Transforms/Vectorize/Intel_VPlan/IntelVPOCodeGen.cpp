@@ -2226,13 +2226,20 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
     // to reverse the order of elements in the stored value.
     VecDataOp = reverseVector(VecDataOp);
 
+  Instruction *Store;
   if (MaskValue) {
     // Replicate the mask if VPInst is a vector instruction originally.
     Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                               "replicatedMaskElts.");
-    Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
+    Store =
+        Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
   } else
-    Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+    Store = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+
+  if (auto *DynPeeling =
+          dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
+    if (VPInst == DynPeeling->memref())
+      attachPreferredAlignmentMetadata(Store, DynPeeling->targetAlignment());
 }
 
 void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
@@ -3406,6 +3413,14 @@ void VPOCodeGen::fixOutgoingValues() {
       fixInductionLastVal(*Induction,
                           cast<VPInductionFinal>(LastValPair.second));
   }
+}
+
+void VPOCodeGen::attachPreferredAlignmentMetadata(Instruction *Memref,
+                                                  Align PreferredAlignment) {
+  auto &C = Builder.getContext();
+  auto *CI = ConstantInt::get(Type::getInt32Ty(C), PreferredAlignment.value());
+  SmallVector<Metadata *, 1> Ops{ConstantAsMetadata::get(CI)};
+  Memref->setMetadata("intel.preferred_alignment", MDTuple::get(C, Ops));
 }
 
 void VPOCodeGen::fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal) {

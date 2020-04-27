@@ -60,6 +60,11 @@ using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt; // INTEL
 
+static cl::opt<bool>
+    VPlanEnablePeeling("vplan-enable-peeling", cl::init(false),
+                       cl::desc("Enable generation of peel loops to improve "
+                                "alignment of memory accesses"));
+
 static cl::opt<bool> DisableCodeGen(
     "disable-vplan-codegen", cl::init(false), cl::Hidden,
     cl::desc(
@@ -213,7 +218,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   BasicBlock *Header = Lp->getHeader();
   VPlanScalarEvolutionLLVM VPSE(SE, Lp);
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, &VPSE, TTI);
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, &SE, TLI, TTI, DL, DT, &LVL,
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, &SE, &VPSE, TLI, TTI, DL, DT, &LVL,
                                &VLSA);
 
 #if INTEL_CUSTOMIZATION
@@ -237,6 +242,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     return false;
 
   assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
+
+  if (VPlanEnablePeeling)
+    LVP.selectBestPeelingVariants();
 
   unsigned VF = LVP.selectBestPlan();
 
