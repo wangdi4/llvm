@@ -712,11 +712,14 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
+  bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
     if (IsByRef)
       C.back()->setIsByRef(true);
+    if (IsPointerToPointer)
+      C.back()->setIsPointerToPointer(true);
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))

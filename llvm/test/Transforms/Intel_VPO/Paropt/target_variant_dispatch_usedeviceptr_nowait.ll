@@ -83,7 +83,7 @@ entry:
   br label %DIR.OMP.TARGET.VARIANT.DISPATCH.1
 
 DIR.OMP.TARGET.VARIANT.DISPATCH.1:                ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR"(float** @aaa, double** @bbb), "QUAL.OMP.NOWAIT"() ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(float** @aaa, double** @bbb), "QUAL.OMP.NOWAIT"() ]
   br label %DIR.OMP.TARGET.VARIANT.DISPATCH.2
 
 DIR.OMP.TARGET.VARIANT.DISPATCH.2:                ; preds = %DIR.OMP.TARGET.VARIANT.DISPATCH.1

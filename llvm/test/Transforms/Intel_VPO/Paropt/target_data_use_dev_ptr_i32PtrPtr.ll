@@ -1,9 +1,7 @@
 ; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 
-; Check that the local copy of %array_device created for the use_device_ptr
-; clause on the inner target-data directive, is private to the outer parallel
-; construct, i.e., it is not in the param list for the parallel construct.
+; Test src:
 
 ; #include <stdio.h>
 ;
@@ -11,7 +9,7 @@
 ;   int a[10];
 ;   int *array_device = &a[0];
 ;   printf("%p\n", &array_device[0]);
-; #pragma omp parallel num_threads(1)
+; //#pragma omp parallel num_threads(1)
 ; //#pragma omp target data map(tofrom: array_device[0:10])
 ;   {
 ; #pragma omp target data use_device_ptr(array_device)
@@ -25,7 +23,7 @@
 ;   } // end target data
 ; }
 
-source_filename = "par_target_data_use_dev_ptr.c"
+source_filename = "target_data_use_dev_ptr.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64"
@@ -43,20 +41,30 @@ entry:
   %arrayidx1 = getelementptr inbounds i32, i32* %0, i64 0
   %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx1)
 
-; Check that only %array_device is passed into the outlined function for DIR.OMP.PARALLEL
-; CHECK:  call void @main.DIR.OMP.PARALLEL{{.+}}(i32* %{{.+}}, i32* %{{.+}}, i32** %array_device)
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %array_device) ]
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.NUM_THREADS"(i32 1), "QUAL.OMP.SHARED"(i32** %array_device) ]
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %array_device) ]
+; Check that the map created for %array_device has the correct map-type (96)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
 
-  %3 = load i32*, i32** %array_device, align 8
-  %arrayidx2 = getelementptr inbounds i32, i32* %3, i64 0
+; Check that there is a new copy of %array_device created.
+; CHECK: %array_device.new = alloca i32*
 
+; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x i8*], [1 x i8*]* %.offload_baseptrs, i32 0, i32 0
+; CHECK: call void @__tgt_target_data_begin({{.+}})
+
+; Check that %array_device.new is initialized using the updated value of %array_device
+; CHECK: [[GEP_CAST:%[^ ]+]] = bitcast i8** [[GEP]] to i32**
+; CHECK: %array_device.updated.val = load i32*, i32** [[GEP_CAST]]
+; CHECK: store i32* %array_device.updated.val, i32** %array_device.new
+
+; Check that call to outlined function for target data uses %array_device.new
+; CHECK: call void @main.DIR.OMP.TARGET.DATA{{[^ ]+}}(i32** %array_device.new)
+
+  %2 = load i32*, i32** %array_device, align 8
+  %arrayidx2 = getelementptr inbounds i32, i32* %2, i64 0
   %call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32* %arrayidx2) #2
 
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET.DATA"() ]
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
-
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET.DATA"() ]
   ret i32 0
 }
 

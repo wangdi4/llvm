@@ -34,7 +34,7 @@ entry:
   %host_ptr = alloca float*, align 8
   %0 = bitcast float** %host_ptr to i8*
   call void @llvm.lifetime.start.p0i8(i64 8, i8* %0) #2
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR"(float** %host_ptr) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(float** %host_ptr) ]
   %2 = load float*, float** %host_ptr, align 8, !tbaa !2
   %3 = bitcast float* %2 to i8*
   call void @foo(i8* %3) #2

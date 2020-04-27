@@ -1450,15 +1450,20 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
   MapClause &MapC = W->getMap();
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
     Value *UDP = UDPI->getOrig();
-    Value *UDPLoad = LoadBuilder.CreateLoad(UDP, UDP->getName() + ".load");
-    MapC.add(UDPLoad);
+    Value *MappedVal =
+        UDPI->getIsPointerToPointer()
+            ? LoadBuilder.CreateLoad(
+                  cast<PointerType>(UDP->getType())->getPointerElementType(),
+                  UDP, UDP->getName() + ".load")
+            : UDP;
+    MapC.add(MappedVal);
 
     MapItem *MapI = MapC.back();
     MapI->setInUseDevicePtr(UDPI);
     UDPI->setInMap(MapI);
 
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Added map clause on '";
-               UDPLoad->printAsOperand(dbgs());
+               MappedVal->printAsOperand(dbgs());
                dbgs() << "', for use_device_ptr '"; UDP->printAsOperand(dbgs());
                dbgs() << "'.\n");
   }
@@ -1471,6 +1476,7 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
 //
 // the IR before/after this util will look like:
 //
+// Case 1: Type of %udp is i32**, and it's marked as PTR_TO_PTR:
 // Before:
 //   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
 //   ...
@@ -1488,6 +1494,24 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
 //     %udp.updated.val = load i32*, i32** %udp.gep.cast             ; (4)
 //     store i32* %udp.updated.val, i32** %udp.new                   ; (5)
 //     call @outlined.funtion(...i32** %udp.new)                     ; (6)
+//   call void @__tgt_target_data_end()
+//
+// Case 2: Type of %udp is i32*, and it's NOT marked as PTR_TO_PTR:
+// Before:
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     call @outlined.funtion(...i32* %udp)  ; TgtDataOutlinedFunctionCall
+//   call void @__tgt_target_data_end()
+//
+// After:
+//   ...
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     %udp.gep.cast = cast i8* %udp.gep to i32**                    ; (3)
+//     %udp.updated.val = load i32*, i32** %udp.gep.cast             ; (4)
+//     call @outlined.funtion(...i32* %udp.updated.val)              ; (6)
 //   call void @__tgt_target_data_end()
 //
 void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
@@ -1510,20 +1534,25 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     MapItem *MapI = UDPI->getInMap();
     assert(MapI && "No map found for use-device-ptr item.");
 
-    Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig(); //             (1)
+    Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig(); //              (1)
     assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
 
     Value *OrigV = UDPI->getOrig();
 
-    Value *NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //(2)
-
     Value *GepCast = Builder.CreateBitOrPointerCast(
-        BasePtrGEP, OrigV->getType(), BasePtrGEP->getName() + ".cast"); // (3)
-    LoadInst *UpdatedUDPVal =
-        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); // (4)
-    Builder.CreateStore(UpdatedUDPVal, NewV); //                           (5)
+        BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
+        BasePtrGEP->getName() + ".cast"); //                                (3)
 
-    TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //        (6)
+    LoadInst *UpdatedUDPVal =
+        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); //  (4)
+    Value *NewV = nullptr;
+    if (UDPI->getIsPointerToPointer()) {
+      NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //      (2)
+      Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
+    } else
+      NewV = UpdatedUDPVal;
+
+    TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //         (6)
 
     LLVM_DEBUG(
         dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
@@ -2628,13 +2657,25 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     Builder.SetInsertPoint(InsertBefore);
     Value *Orig = Item->getOrig();
     StringRef OrigName = Orig->getName();
-    LoadInst *PtrLoad = Builder.CreateLoad(Orig, "hostPtr");
-    assert(PtrLoad->getType()->isPointerTy() &&
+    Instruction *NextInsertBefore = nullptr;
+    Value *HostPtr = nullptr;
+    if (Item->getIsPointerToPointer()) {
+      Type *LoadTy = cast<PointerType>(Orig->getType())->getElementType();
+      HostPtr = Builder.CreateLoad(LoadTy, Orig, "hostPtr");
+      NextInsertBefore = cast<Instruction>(HostPtr);
+    } else
+      HostPtr = Orig;
+
+    assert(HostPtr->getType()->isPointerTy() &&
            "Target Variant: Expected a pointer");
-    Value *Ptr = Builder.CreateBitCast(PtrLoad, Int8PtrTy);
+    Value *PtrCast = Builder.CreateBitCast(HostPtr, Int8PtrTy);
+    if (!NextInsertBefore && isa<Instruction>(PtrCast))
+      NextInsertBefore = cast<Instruction>(PtrCast);
     CallInst *BufferCall =
-        VPOParoptUtils::genTgtCreateBuffer(DeviceNum, Ptr, InsertBefore);
+        VPOParoptUtils::genTgtCreateBuffer(DeviceNum, PtrCast, InsertBefore);
     BufferCall->setName(OrigName + ".buffer");
+    if (!NextInsertBefore)
+      NextInsertBefore = BufferCall;
     assert(BufferCall->getType() == Int8PtrTy &&
            "Expected __tgt_create_buffer() to return a void*");
     Value *TgtBufferAddr = Item->getNew();
@@ -2645,7 +2686,7 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     SplitBlockAndInsertIfThen(IsNull, InsertBefore, false, nullptr, DT, LI,
                               BBCheckBuffer);
     InsertBefore->getParent()->setName("if.ptr.not.null");
-    InsertBefore = PtrLoad;
+    InsertBefore = NextInsertBefore;
   }
 
   // (C)

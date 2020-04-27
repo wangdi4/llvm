@@ -1055,6 +1055,7 @@ def ffp_exception_behavior_EQ : Joined<["-"], "ffp-exception-behavior=">, Group<
 #if INTEL_CUSTOMIZATION
 def fp_model_EQ : Joined<["-"], "fp-model=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
+def fp_model : Separate<["-"], "fp-model">, Alias<ffp_model_EQ>;
 def fp_speculation_EQ : Joined<["-"], "fp-speculation=">,Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 #endif // INTEL_CUSTOMIZATION
