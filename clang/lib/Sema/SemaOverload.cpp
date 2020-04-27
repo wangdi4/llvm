@@ -9663,7 +9663,6 @@ bool clang::isBetterOverloadCandidate(
   else if (!Cand1.Viable)
     return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#376357: GCC in -fpermissive mode allows weird conversions.
   bool CandHasPermissiveConversion1 = hasPermissiveConversion(Cand1);
@@ -9674,52 +9673,6 @@ bool clang::isBetterOverloadCandidate(
     return false;
 #endif // INTEL_CUSTOMIZATION
 
-  // [CUDA] A function with 'never' preference is marked not viable, therefore
-  // is never shown up here. The worst preference shown up here is 'wrong side',
-  // e.g. a host function called by a device host function in device
-  // compilation. This is valid AST as long as the host device function is not
-  // emitted, e.g. it is an inline function which is called only by a host
-  // function. A deferred diagnostic will be triggered if it is emitted.
-  // However a wrong-sided function is still a viable candidate here.
-  //
-  // If Cand1 can be emitted and Cand2 cannot be emitted in the current
-  // context, Cand1 is better than Cand2. If Cand1 can not be emitted and Cand2
-  // can be emitted, Cand1 is not better than Cand2. This rule should have
-  // precedence over other rules.
-  //
-  // If both Cand1 and Cand2 can be emitted, or neither can be emitted, then
-  // other rules should be used to determine which is better. This is because
-  // host/device based overloading resolution is mostly for determining
-  // viability of a function. If two functions are both viable, other factors
-  // should take precedence in preference, e.g. the standard-defined preferences
-  // like argument conversion ranks or enable_if partial-ordering. The
-  // preference for pass-object-size parameters is probably most similar to a
-  // type-based-overloading decision and so should take priority.
-  //
-  // If other rules cannot determine which is better, CUDA preference will be
-  // used again to determine which is better.
-  //
-  // TODO: Currently IdentifyCUDAPreference does not return correct values
-  // for functions called in global variable initializers due to missing
-  // correct context about device/host. Therefore we can only enforce this
-  // rule when there is a caller. We should enforce this rule for functions
-  // in global variable initializers once proper context is added.
-  if (S.getLangOpts().CUDA && Cand1.Function && Cand2.Function) {
-    if (FunctionDecl *Caller = dyn_cast<FunctionDecl>(S.CurContext)) {
-      auto P1 = S.IdentifyCUDAPreference(Caller, Cand1.Function);
-      auto P2 = S.IdentifyCUDAPreference(Caller, Cand2.Function);
-      assert(P1 != Sema::CFP_Never && P2 != Sema::CFP_Never);
-      auto Cand1Emittable = P1 > Sema::CFP_WrongSide;
-      auto Cand2Emittable = P2 > Sema::CFP_WrongSide;
-      if (Cand1Emittable && !Cand2Emittable)
-        return true;
-      if (!Cand1Emittable && Cand2Emittable)
-        return false;
-    }
-  }
-
-=======
->>>>>>> 8c8aae852b5e60929156054808af941fc0745d46
   // C++ [over.match.best]p1:
   //
   //   -- if F is a static member function, ICS1(F) is defined such
