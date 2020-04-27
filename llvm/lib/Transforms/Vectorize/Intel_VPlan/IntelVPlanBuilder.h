@@ -445,6 +445,26 @@ public:
     return NewVPInst;
   }
 
+  VPOrigTripCountCalculation *
+  createOrigTripCountCalculation(Loop *OrigLoop, VPLoop *VPLp, Type *Ty,
+                                 const Twine &Name = "orig.trip.count") {
+    auto *OrigTC = new VPOrigTripCountCalculation(OrigLoop, VPLp, Ty);
+    OrigTC->setName(Name);
+    if (BB)
+      BB->insert(OrigTC, InsertPt);
+    return OrigTC;
+  }
+
+  VPVectorTripCountCalculation *
+  createVectorTripCountCalculation(VPOrigTripCountCalculation *OrigTC,
+                                   const Twine &Name = "vector.trip.count") {
+    auto *TC = new VPVectorTripCountCalculation(OrigTC);
+    TC->setName(Name);
+    if (BB)
+      BB->insert(TC, InsertPt);
+    return TC;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//

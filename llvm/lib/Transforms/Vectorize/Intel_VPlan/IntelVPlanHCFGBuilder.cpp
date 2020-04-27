@@ -400,7 +400,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  emitVectorLoopIV();
+  emitVecSpecifics();
 
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
@@ -908,15 +908,12 @@ void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   }
 }
 
-void VPlanHCFGBuilder::emitVectorLoopIV() {
+void VPlanHCFGBuilder::emitVecSpecifics() {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
 
-  auto *Header = CandidateLoop->getHeader();
   auto *PreHeader = CandidateLoop->getLoopPreheader();
-  auto *Latch = CandidateLoop->getLoopLatch();
   assert(PreHeader && "Single pre-header is expected!");
-  assert(Latch && "Single loop latch is expected!");
 
   Type *VectorLoopIVType = Legal->getWidestInductionType();
   if (!VectorLoopIVType) {
@@ -924,23 +921,34 @@ void VPlanHCFGBuilder::emitVectorLoopIV() {
     // that. Shouldn't happen outside stress/forced pipeline.
     VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
   }
-  auto *VPZero =
-      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
   auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
 
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
   auto *VF = Builder.createInductionInitStep(VPOne, Instruction::Add, "VF");
 
-  auto *OrigTC =
-      new VPOrigTripCountCalculation(TheLoop, CandidateLoop, VectorLoopIVType);
-  OrigTC->setName("orig.trip.count");
-  Builder.getInsertBlock()->insert(OrigTC, Builder.getInsertPoint());
+  auto *OrigTC = Builder.createOrigTripCountCalculation(TheLoop, CandidateLoop,
+                                                        VectorLoopIVType);
+  auto *TC = Builder.createVectorTripCountCalculation(OrigTC);
 
-  auto *TC = new VPVectorTripCountCalculation(OrigTC);
-  TC->setName("vector.trip.count");
-  Builder.getInsertBlock()->insert(TC, Builder.getInsertPoint());
+  emitVectorLoopIV(TC, VF);
+}
 
+void VPlanHCFGBuilder::emitVectorLoopIV(VPValue *TripCount, VPValue *VF) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  auto *Header = CandidateLoop->getHeader();
+  auto *Latch = CandidateLoop->getLoopLatch();
+  assert(PreHeader && "Single pre-header is expected!");
+  assert(Latch && "Single loop latch is expected!");
+
+  Type *VectorLoopIVType = TripCount->getType();
+  auto *VPZero =
+      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
+
+  VPBuilder Builder;
   Builder.setInsertPoint(Header, Header->begin());
   auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
   IV->addIncoming(VPZero, PreHeader);
@@ -949,7 +957,7 @@ void VPlanHCFGBuilder::emitVectorLoopIV() {
   IV->addIncoming(IVUpdate, Latch);
   auto *ExitCond = Builder.createCmpInst(
       Latch->getSuccessors()[0] == Header ? CmpInst::ICMP_NE : CmpInst::ICMP_EQ,
-      IVUpdate, TC, "vector.loop.exitcond");
+      IVUpdate, TripCount, "vector.loop.exitcond");
 
   VPValue *OrigExitCond = Latch->getCondBit();
   Latch->setCondBit(ExitCond);
