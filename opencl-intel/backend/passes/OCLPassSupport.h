@@ -15,7 +15,7 @@
 #ifndef OCL_PASS_SUPPORT_H
 #define OCL_PASS_SUPPORT_H
 
-#include "llvm/PassSupport.h"
+#include "llvm/Pass.h"
 
 #define OCL_INITIALIZE_PASS(passName, arg, name, cfg, analysis)                  \
   static void *initialize##passName##PassOnce(llvm::PassRegistry &Registry) {    \
