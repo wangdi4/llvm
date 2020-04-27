@@ -26,11 +26,11 @@ define dso_local void @foo(i64 %n1, i64 %n2) {
 ;
 ; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:   [[VP0:%.*]] = (%n1 * %n2)
-; CHECK-DAG:   [[VP1:%.*]] = %n1 + %n2
-; CHECK-DAG:   [[VP2:%.*]] = @farr2
-; CHECK-DAG:   [[VP4:%.*]] = @farr
-; CHECK-DAG:   [[VP5:%.*]] = @arr
+; CHECK-DAG:   [[VP0:%.*]] = {(%n1 * %n2)}
+; CHECK-DAG:   [[VP1:%.*]] = {%n1 + %n2}
+; CHECK-DAG:   [[VP2:%.*]] = {@farr2}
+; CHECK-DAG:   [[VP4:%.*]] = {@farr}
+; CHECK-DAG:   [[VP5:%.*]] = {@arr}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP8:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP9:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64* [[VP10:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP0]] i64 [[VP8]]
