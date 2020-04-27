@@ -6103,11 +6103,7 @@ multiclass avx512_fp_packed<bits<8> opc, string OpcodeStr, SDPatternOperator OpN
   let ExeDomain = _.ExeDomain, hasSideEffects = 0,
       Uses = [MXCSR], mayRaiseFPException = 1 in {
   defm rr: AVX512_maskable_split<opc, MRMSrcReg, _, (outs _.RC:$dst),
-<<<<<<< HEAD
-                  (ins _.RC:$src1, _.RC:$src2), OpcodeStr##suffix,
-=======
-                  (ins _.RC:$src1, _.RC:$src2), OpcodeStr#_.Suffix,
->>>>>>> 2cb48d620ff3e56f4a4179186055a802c34a4bfd
+                  (ins _.RC:$src1, _.RC:$src2), OpcodeStr#suffix,
                   "$src2, $src1", "$src1, $src2",
                   (_.VT (OpNode _.RC:$src1, _.RC:$src2)),
                   (_.VT (MaskOpNode _.RC:$src1, _.RC:$src2)), IsCommutable,
@@ -6116,26 +6112,16 @@ multiclass avx512_fp_packed<bits<8> opc, string OpcodeStr, SDPatternOperator OpN
                   EVEX_4V, Sched<[sched]>;
   let mayLoad = 1 in {
     defm rm: AVX512_maskable_split<opc, MRMSrcMem, _, (outs _.RC:$dst),
-<<<<<<< HEAD
-                    (ins _.RC:$src1, _.MemOp:$src2), OpcodeStr##suffix,
-=======
-                    (ins _.RC:$src1, _.MemOp:$src2), OpcodeStr#_.Suffix,
->>>>>>> 2cb48d620ff3e56f4a4179186055a802c34a4bfd
+                    (ins _.RC:$src1, _.MemOp:$src2), OpcodeStr#suffix,
                     "$src2, $src1", "$src1, $src2",
                     (OpNode _.RC:$src1, (_.LdFrag addr:$src2)),
                     (MaskOpNode _.RC:$src1, (_.LdFrag addr:$src2)),
                     0, 0, 0, ClobberConstraint>,
                     EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
     defm rmb: AVX512_maskable_split<opc, MRMSrcMem, _, (outs _.RC:$dst),
-<<<<<<< HEAD
-                     (ins _.RC:$src1, _.ScalarMemOp:$src2), OpcodeStr##suffix,
-                     "${src2}"##_.BroadcastStr##", $src1",
-                     "$src1, ${src2}"##_.BroadcastStr,
-=======
-                     (ins _.RC:$src1, _.ScalarMemOp:$src2), OpcodeStr#_.Suffix,
+                     (ins _.RC:$src1, _.ScalarMemOp:$src2), OpcodeStr#suffix,
                      "${src2}"#_.BroadcastStr#", $src1",
                      "$src1, ${src2}"#_.BroadcastStr,
->>>>>>> 2cb48d620ff3e56f4a4179186055a802c34a4bfd
                      (OpNode  _.RC:$src1, (_.VT (_.BroadcastLdFrag addr:$src2))),
                      (MaskOpNode  _.RC:$src1, (_.VT (_.BroadcastLdFrag addr:$src2))),
                      0, 0, 0, ClobberConstraint>,
@@ -6152,11 +6138,7 @@ multiclass avx512_fp_round_packed<bits<8> opc, string OpcodeStr,
                                   string ClobberConstraint = ""> {
   let ExeDomain = _.ExeDomain, Uses = [MXCSR] in
   defm rrb: AVX512_maskable<opc, MRMSrcReg, _, (outs _.RC:$dst),
-<<<<<<< HEAD
-                  (ins _.RC:$src1, _.RC:$src2, AVX512RC:$rc), OpcodeStr##suffix,
-=======
-                  (ins _.RC:$src1, _.RC:$src2, AVX512RC:$rc), OpcodeStr#_.Suffix,
->>>>>>> 2cb48d620ff3e56f4a4179186055a802c34a4bfd
+                  (ins _.RC:$src1, _.RC:$src2, AVX512RC:$rc), OpcodeStr#suffix,
                   "$rc, $src2, $src1", "$src1, $src2, $rc",
                   (_.VT (OpNodeRnd _.RC:$src1, _.RC:$src2, (i32 timm:$rc))),
                   0, 0, 0, vselect_mask, ClobberConstraint>,
