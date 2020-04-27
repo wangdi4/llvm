@@ -2034,7 +2034,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
         if (CheckPPCBuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case llvm::Triple::spir:
   case llvm::Triple::spir64:
@@ -2057,12 +2056,10 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     break;
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
       case llvm::Triple::amdgcn:
         if (CheckAMDGCNBuiltinFunctionCall(BuiltinID, TheCall))
           return ExprError();
         break;
->>>>>>> 06bdffb2bb45d8666ec86782d21214ef545a71fd
       default:
         break;
     }
