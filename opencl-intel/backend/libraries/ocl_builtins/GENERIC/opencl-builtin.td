@@ -168,7 +168,7 @@ class OclType<string name, string base, int length, int width, bit ptr> {
 }
 
 multiclass _OCLTYPE1_<string ss, int len, int width, string base> {
-  def  #NAME# : OclType<ss, base, len, width, 0>;
+  def   NAME# : OclType<ss, base, len, width, 0>;
   def p#NAME# : OclType<!strconcat("p", ss), base, len, width, 1>;
   def gp#NAME# : OclType<!strconcat("p", ss), !strconcat("__global ", base), len, width, 1>;
   def lp#NAME# : OclType<!strconcat("p", ss), !strconcat("__local ", base), len, width, 1>;
