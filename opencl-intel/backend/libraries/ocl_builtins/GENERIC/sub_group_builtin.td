@@ -75,6 +75,62 @@ Attrs = [OVERLOADABLE] in {
     }
   }
 
+  let Types = [v1i32] in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      foreach op = ["and", "or", "xor"] in {
+      def sub_group_non_uniform_#func#_logical_#op : OclBuiltin<"sub_group_non_uniform_"#func#"_logical_"#op, (outs gentype:$ret), (ins gentype:$wsrc), [], [], 1, 0>;
+      }
+    }
+  }
+
+  let Types = [v4i32, v8i32, v16i32] in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      foreach op = ["and", "or", "xor"] in {
+      def sub_group_non_uniform_#func#_logical_#op#_vec : OclBuiltin<"sub_group_non_uniform_"#func#"_logical_"#op, (outs gentype:$ret), (ins gentype:$wsrc, u32gentype:$vec_mask), [], [], 1, 0>;
+      }
+    }
+  }
+
+  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      foreach op = ["and", "or", "xor"] in {
+      def sub_group_non_uniform_#func#_#op : OclBuiltin<"sub_group_non_uniform_"#func#"_"#op, (outs gentype:$ret), (ins gentype:$wsrc, u32gentype:$vec_mask), [], [], 1, 0>;
+      }
+    }
+  }
+
+  let Types = [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64,
+               v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64,
+               v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64] in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      foreach op = ["and", "or", "xor"] in {
+      def sub_group_non_uniform_#func#_#op#_vec : OclBuiltin<"sub_group_non_uniform_"#func#"_"#op, (outs gentype:$ret), (ins gentype:$wsrc, u32gentype:$vec_mask), [], [], 1, 0>;
+      }
+    }
+  }
+
+  let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32,
+               v1f32, v1f64, v1i64, v1u64] in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      def sub_group_non_uniform_#func#_#mul : OclBuiltin<"sub_group_non_uniform_"#func#"_mul", (outs gentype:$ret), (ins gentype:$wsrc), [], [], 1, 0>;
+    }
+  }
+
+  let Types = [ v4i8 , v8i8 , v16i8 ,
+                v4u8 , v8u8 , v16u8 ,
+                v4i16, v8i16, v16i16,
+                v4u16, v8u16, v16u16,
+                v4i32, v8i32, v16i32,
+                v4u32, v8u32, v16u32,
+                v4i64, v8i64, v16i64,
+                v4u64, v8u64, v16u64,
+                v4f32, v8f32, v16f32,
+                v4f64, v8f64, v16f64 ] in {
+    foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+      def sub_group_non_uniform_#func#_#mul_vec : OclBuiltin<"sub_group_non_uniform_"#func#"_mul", (outs gentype:$ret), (ins gentype:$wsrc, u32gentype:$vec_mask), [], [], 1, 0>;
+    }
+  }
+
   // Scalar ballot_next
   let Types = [v1i32] in {
     def intel_sub_group_ballot : OclBuiltin<"intel_sub_group_ballot", (outs v4u32:$ret), (ins gentype:$predicate), [], [], 1, 0>;
@@ -576,9 +632,48 @@ foreach suffix = ["", "_avx", "_avx2", "_avx512"] in {
     ["sub_group_shuffle_xor"#suffix, "sub_group_shuffle_xor"]], types>;
 }
 
+
+foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+  foreach op = ["add", "min", "max"] in {
+    def sub_group_#func#_#op#_alias : AliasMap<[
+    ["sub_group_"#func#"_"#op, "sub_group_non_uniform_"#func#"_"#op]
+    ],[]>;
+    def sub_group_#func#_#op#_cs_alias : AliasMap<[
+    ["sub_group_"#func#"_"#op#"_cs", "sub_group_non_uniform_"#func#"_"#op]
+    ],[]>;
+    def sub_group_#func#_#op#_vec_alias : AliasMap<[
+    ["sub_group_"#func#"_"#op#"_vec", "sub_group_non_uniform_"#func#"_"#op]
+    ],[]>;
+    def sub_group_#func#_#op#_vec_cs_alias : AliasMap<[
+    ["sub_group_"#func#"_"#op#"_vec_cs", "sub_group_non_uniform_"#func#"_"#op]
+    ],[]>;
+  }
+}
 //
 // Generate VectInfo for OCLVecClone
 //
+
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64] in {
+  foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+    def sub_group_non_uniform_#func#_#"mul_vect_info" : VectInfo<[], !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_mul_vec")>;
+  }
+}
+
+let Types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64] in {
+  foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+    foreach op = ["and", "or", "xor"] in {
+    def sub_group_non_uniform_#func#_#op#_vect_info : VectInfo<[], !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op#"_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op#"_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op#"_vec")>;
+    }
+  }
+}
+
+let Types = [v1i32] in {
+  foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
+    foreach op = ["logical_and", "logical_or", "logical_xor"] in {
+    def sub_group_non_uniform_#func#_#op#_vect_info : VectInfo<[], !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op#"_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op#"_vec"), !cast<OclBuiltin>("sub_group_non_uniform_"#func#"_"#op#"_vec")>;
+    }
+  }
+}
 
 let Types = [v1i32] in {
   def sub_group_all_vect_info : VectInfo<[], sub_group_all, sub_group_all_vec, sub_group_all_vec, sub_group_all_vec>;

@@ -54,6 +54,35 @@ OclBuiltinImpl sub_group_any_fake = OclBuiltinImpl<sub_group_any, sub_group_type
 OclBuiltinImpl sub_group_broadcast_fake = OclBuiltinImpl<sub_group_broadcast, sub_group_types_broadcast_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_broadcast_cs_fake = OclBuiltinImpl<sub_group_broadcast_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
 
+// non uniform arithmetic
+list<OclType> sub_group_non_uniform_arithmetic_scalar_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
+list<OclType> sub_group_non_uniform_bitwise_scalar_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64];
+
+OclBuiltinImpl sub_group_non_uniform_reduce_mul_fake = OclBuiltinImpl<sub_group_non_uniform_reduce_mul, sub_group_non_uniform_arithmetic_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_reduce_logical_and_fake = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_and, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_reduce_logical_or_fake = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_or, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_reduce_logical_xor_fake = OclBuiltinImpl<sub_group_non_uniform_reduce_logical_xor, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_reduce_and_fake = OclBuiltinImpl<sub_group_non_uniform_reduce_and, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_reduce_or_fake = OclBuiltinImpl<sub_group_non_uniform_reduce_or, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_reduce_xor_fake = OclBuiltinImpl<sub_group_non_uniform_reduce_xor, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_mul_fake = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_mul, sub_group_non_uniform_arithmetic_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_and_fake = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_and, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_or_fake = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_or, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_logical_xor_fake = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_logical_xor, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_and_fake = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_and, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_or_fake = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_or, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_inclusive_xor_fake = OclBuiltinImpl<sub_group_non_uniform_scan_inclusive_xor, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_fake = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul, sub_group_non_uniform_arithmetic_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_fake = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_or_fake = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_or, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_xor_fake = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_xor, [v1i32], 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_and_fake = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_and, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_fake = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_fake = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor, sub_group_non_uniform_bitwise_scalar_types, 0, DummyReturn>;
+
+
 // reduce [add|min|max]
 
 OclBuiltinImpl sub_group_reduce_add_fake = OclBuiltinImpl<sub_group_reduce_add, sub_group_types_reduce_scan_scalar, 0, DummyReturn>;

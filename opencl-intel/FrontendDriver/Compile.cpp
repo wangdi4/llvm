@@ -169,6 +169,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << ",+" << Ext.str();
 
   optionsEx << " -Dcl_intel_required_subgroup_size";
+  optionsEx << " -Dcl_intel_subgroups_char";
+  optionsEx << " -Dcl_intel_subgroups_long";
 
   // If working as fpga emulator, pass special triple.
   if (m_pProgDesc->bFpgaEmulator) {

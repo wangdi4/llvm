@@ -117,6 +117,264 @@ double  __attribute__((overloadable)) sub_group_scan_inclusive_max( double x );
 #endif
 #endif
 
+#if defined(cl_khr_subgroup_non_uniform_arithmetic)
+// reduce
+char   __attribute__((overloadable)) sub_group_non_uniform_reduce_add( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_reduce_add( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_reduce_add( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_reduce_add( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_add( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_reduce_add( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_reduce_add( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_reduce_add( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_reduce_add( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_reduce_min( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_reduce_min( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_reduce_min( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_reduce_min( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_min( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_reduce_min( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_reduce_min( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_reduce_min( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_reduce_min( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_reduce_max( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_reduce_max( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_reduce_max( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_reduce_max( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_max( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_reduce_max( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_reduce_max( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_reduce_max( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_reduce_max( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( float x );
+
+// reduce bitwise
+char   __attribute__((overloadable)) sub_group_non_uniform_reduce_and( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_reduce_and( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_reduce_and( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_reduce_and( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_and( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_reduce_and( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_reduce_and( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_reduce_and( ulong x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_reduce_or( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_reduce_or( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_reduce_or( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_reduce_or( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_or( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_reduce_or( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_reduce_or( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_reduce_or( ulong x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_reduce_xor( ulong x );
+
+// reduce logical
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_logical_and( int x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_logical_or( int x );
+int   __attribute__((overloadable)) sub_group_non_uniform_reduce_logical_xor( int x );
+
+// scan_inclusive
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( float x );
+
+// scan_inclusive bitwise
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_and( ulong x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_or( ulong x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_xor( ulong x );
+
+// scan_inclusive logical
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_logical_and( int x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_logical_or( int x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_logical_xor( int x );
+
+// scan_exclusive
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( float x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( ulong x );
+float   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( float x );
+
+// scan_exclusive bitwise
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_and( ulong x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_or( ulong x );
+
+char   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( char x );
+uchar  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( uchar x );
+short   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( short x );
+ushort  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( ushort x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( int x );
+uint  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( uint x );
+long   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( long x );
+ulong  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_xor( ulong x );
+
+// scan_exclusive logical
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_logical_and( int x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_logical_or( int x );
+int   __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_logical_xor( int x );
+
+#if defined(cl_khr_fp64)
+double  __attribute__((overloadable)) sub_group_non_uniform_reduce_add( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_reduce_min( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_reduce_max( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( double x );
+
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( double x );
+
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( double x );
+double  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( double x );
+#endif
+#if defined(cl_khr_fp16)
+half  __attribute__((overloadable)) sub_group_non_uniform_reduce_add( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_reduce_min( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_reduce_max( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_reduce_mul( half x );
+
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_add( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_min( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_max( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_inclusive_mul( half x );
+
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_add( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_min( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( half x );
+half  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( half x );
+#endif
+
+#endif
+
 #if defined(cl_khr_subgroup_shuffle)
 char   __attribute__((overloadable)) sub_group_shuffle( char x, uint c );
 uchar  __attribute__((overloadable)) sub_group_shuffle( uchar x, uint c );
