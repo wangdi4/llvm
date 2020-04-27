@@ -189,6 +189,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityOptimizationHintsINTEL:
       // Intel FPGA capabilities
     case spv::CapabilityFPGAMemoryAttributesINTEL:
+    case spv::CapabilityArbitraryPrecisionIntegersINTEL:
     case spv::CapabilityFPGALoopControlsINTEL:
     case spv::CapabilityFPGARegINTEL:
     case spv::CapabilityBlockingPipesINTEL:
