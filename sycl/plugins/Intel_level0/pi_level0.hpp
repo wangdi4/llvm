@@ -44,7 +44,7 @@ struct _pi_device {
   // It's caller's responsibility to remember and destroy the created
   // command list when no longer needed.
   //
-  ze_command_list_handle_t createCommandList();
+  pi_result createCommandList(ze_command_list_handle_t *ze_command_list);
 
   // Cache of the immutable device properties.
   ze_device_properties_t L0DeviceProperties;
@@ -93,8 +93,8 @@ struct _pi_queue {
   // Note that this command list cannot be appended to after this.
   // The "is_blocking" tells if the wait for completion is requested.
   //
-  void executeCommandList(ze_command_list_handle_t L0CommandList,
-                          bool is_blocking = false);
+  pi_result executeCommandList(ze_command_list_handle_t L0CommandList,
+                                   bool is_blocking = false);
 };
 
 struct _pi_mem {
@@ -240,11 +240,10 @@ uint32_t pi_cast(uint64_t value) {
   return casted_value;
 }
 
-[[noreturn]] void pi_throw(const char *message) {
-  std::cerr << "pi_throw: " << message << std::endl;
-  throw message;
-  //std::terminate();
+// TODO: Currently die is defined in each plugin. Probably some
+// common header file with utilities should be created. Resolve after open
+// sourcing.
+[[noreturn]] void die(const char *Message) {
+  std::cerr << "die: " << Message << std::endl;
+  std::terminate();
 }
-
-void pi_assert(bool cond) { assert(cond); }
-
