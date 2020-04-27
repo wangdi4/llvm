@@ -1043,7 +1043,9 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
-      newScalarizedInsts[dup] = new LoadInst(operand[dup], LI->getName(), LI);
+      Type *Ty = cast<PointerType>(operand[dup]->getType())->getElementType();
+      newScalarizedInsts[dup] =
+          new LoadInst(Ty, operand[dup], LI->getName(), LI);
     }
 
     // Add new value/s to SCM
@@ -1092,7 +1094,9 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
       pGEP = GetElementPtrInst::Create(nullptr, pGEP, pIndex, "GEP_s", LI);
-      newScalarizedInsts[dup] = new LoadInst(pGEP, LI->getName(), LI);
+      newScalarizedInsts[dup] =
+          new LoadInst(cast<GetElementPtrInst>(pGEP)->getResultElementType(),
+                       pGEP, LI->getName(), LI);
     }
 
     // Add new value/s to SCM
@@ -1317,7 +1321,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     for (unsigned i = 0; i < width; i++)
     {
       // Generate dummy "load" instruction (but don't really place in function)
-      retValues[i] = new LoadInst(dummyPtr);
+      retValues[i] = new LoadInst(dummyType, dummyPtr);
       newDRLEntry.dummyVals[i] = retValues[i];
     }
     // Copy the data into DRL structure

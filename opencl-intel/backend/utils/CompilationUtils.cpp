@@ -865,7 +865,7 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
   assert(Cast && "Failed to create CastInst");
 
   // Replace the original function with a call
-  auto *NewC = CallInst::Create(Cast, Args, "", OldC);
+  auto *NewC = CallInst::Create(NewFType, Cast, Args, "", OldC);
   assert(NewC && "Failed to create CallInst");
 
   // Copy debug metadata to new function if available

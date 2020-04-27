@@ -87,7 +87,7 @@ createPipeBackingStore(GlobalVariable *GV,
                          Utils::OCLAddressSpace::Global);
 
   BS->setInitializer(ConstantAggregateZero::get(ArrayTy));
-  BS->setAlignment(MD.PacketAlign);
+  BS->setAlignment(MaybeAlign(MD.PacketAlign));
 
   return BS;
 }

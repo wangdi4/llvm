@@ -379,7 +379,7 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
   V_PRINT(packetizer, "\t\tCreate Dummy Vector value/s (of type " << *dummyType << ")\n");
   Constant *dummyPtr = ConstantPointerNull::get(dummyType->getPointerTo());
 
-  dummyEntry->vectorValue = new LoadInst(dummyPtr);
+  dummyEntry->vectorValue = new LoadInst(dummyType, dummyPtr);
   *vectorVal = dummyEntry->vectorValue;
 
   // Insert into deferred resolution map/list
@@ -419,7 +419,7 @@ void PacketizeFunction::createDummyMultiScalarVals(Value *origValue, Value *mult
 
   for (unsigned i = 0; i < m_packetWidth; i++)
   {
-    dummyEntry->multiScalarValues[i] = new LoadInst(dummyPtr);
+    dummyEntry->multiScalarValues[i] = new LoadInst(dummyType, dummyPtr);
     multiScalarVals[i] = dummyEntry->multiScalarValues[i];
   }
 
