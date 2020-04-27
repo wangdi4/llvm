@@ -139,13 +139,13 @@
 ; CHECK-CG:  br i1 {{.*}}, label %then.22, label %ifmerge.22, !dbg ![[m45]]
 
 ; Load ref + CE
-; CHECK-CG:  {{.*}} = load i32, i32* %i1.i32, !dbg ![[m26]]
+; CHECK-CG:  {{.*}} = load i32, i32* %i1.i32, align 4, !dbg ![[m26]]
 ; CHECK-CG:  {{.*}} = add i32 {{.*}}, 1, !dbg ![[m26]]
 ; CHECK-CG:  %arrayIdx10 = getelementptr inbounds float, float* %a, i32 {{.*}}, !dbg ![[m26]]
 ; CHECK-CG:  %gepload11 = load float, float* %arrayIdx10, align 4, !dbg ![[m26]]
 
 ; Scalar store
-; CHECK-CG:  store float {{.*}}, float* {{.*}}, !dbg ![[m26]]
+; CHECK-CG:  store float {{.*}}, float* {{.*}}, align 4, !dbg ![[m26]]
 
 ; Select
 ; CHECK-CG:  %hir.selcmp.37 = fcmp une float {{.*}}, 0.000000e+00, !dbg ![[m25:.*]]

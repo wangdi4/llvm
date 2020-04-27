@@ -62,11 +62,6 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/hresetintrin.h
   )
 # end INTEL_FEATURE_ISA_HRESET
-# INTEL_FEATURE_ISA_TSXLDTRK
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_TSXLDTRK
-  Intel_Headers/tsxldtrkintrin.h)
-# end INTEL_FEATURE_ISA_TSXLDTRK
 # INTEL_FEATURE_ISA_AMX
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX
@@ -314,6 +309,7 @@ set(files
   tbmintrin.h
   tgmath.h
   tmmintrin.h
+  tsxldtrkintrin.h
   unwind.h
   vadefs.h
   vaesintrin.h
@@ -355,8 +351,7 @@ set(ppc_wrapper_files
 set(openmp_wrapper_files
   openmp_wrappers/math.h
   openmp_wrappers/cmath
-  openmp_wrappers/__clang_openmp_math.h
-  openmp_wrappers/__clang_openmp_math_declares.h
+  openmp_wrappers/__clang_openmp_device_functions.h
   openmp_wrappers/new
 )
 

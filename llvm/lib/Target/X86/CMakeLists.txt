@@ -58,6 +58,7 @@ set(sources
   X86InstrInfo.cpp
   X86EvexToVex.cpp
   X86LegalizerInfo.cpp
+  X86LoadValueInjectionRetHardening.cpp
   X86MCInstLower.cpp
   X86MachineFunctionInfo.cpp
   X86MacroFusion.cpp
@@ -85,4 +86,3 @@ add_subdirectory(AsmParser)
 add_subdirectory(Disassembler)
 add_subdirectory(MCTargetDesc)
 add_subdirectory(TargetInfo)
-add_subdirectory(Utils)

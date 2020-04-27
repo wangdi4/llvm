@@ -190,7 +190,7 @@ inline uint64_t decodeULEB128(const uint8_t *p, unsigned *n = nullptr,
   if (error)
     *error = nullptr;
   do {
-    if (end && p == end) {
+    if (p == end) {
       if (error)
         *error = "malformed uleb128, extends past end";
       if (n)
@@ -224,7 +224,7 @@ inline int64_t decodeSLEB128(const uint8_t *p, unsigned *n = nullptr,
   if (error)
     *error = nullptr;
   do {
-    if (end && p == end) {
+    if (p == end) {
       if (error)
         *error = "malformed sleb128, extends past end";
       if (n)

@@ -757,7 +757,7 @@ public:
     /// For direct/indirect calls the parameter encoding is empty. If it is not,
     /// the abstract call site represents a callback. In that case, the first
     /// element of the encoding vector represents which argument of the call
-    /// site CS is the callback callee. The remaining elements map parameters
+    /// site CB is the callback callee. The remaining elements map parameters
     /// (identified by their position) to the arguments that will be passed
     /// through (also identified by position but in the call site instruction).
     ///
@@ -774,7 +774,7 @@ private:
   /// The underlying call site:
   ///   caller -> callee,             if this is a direct or indirect call site
   ///   caller -> broker function,    if this is a callback call site
-  CallSite CS;
+  CallBase *CB;
 
   /// The encoding of a callback with regards to the underlying instruction.
   CallbackInfo CI;
@@ -798,37 +798,35 @@ public:
   /// as well as the callee of the abstract call site.
   AbstractCallSite(const Use *U);
 
-  /// Add operand uses of \p ICS that represent callback uses into \p CBUses.
+  /// Add operand uses of \p CB that represent callback uses into
+  /// \p CallbackUses.
   ///
-  /// All uses added to \p CBUses can be used to create abstract call sites for
-  /// which AbstractCallSite::isCallbackCall() will return true.
-  static void getCallbackUses(ImmutableCallSite ICS,
-                              SmallVectorImpl<const Use *> &CBUses);
+  /// All uses added to \p CallbackUses can be used to create abstract call
+  /// sites for which AbstractCallSite::isCallbackCall() will return true.
+  static void getCallbackUses(const CallBase &CB,
+                              SmallVectorImpl<const Use *> &CallbackUses);
 
 #if INTEL_CUSTOMIZATION
-  /// Return callback function argument for the \p ICS call argument \p ArgNo
-  /// if \p ICS is a callback call site which forwards this argument to the
+  /// Return callback function argument for the \p CB call argument \p ArgNo
+  /// if \p CB is a callback call site which forwards this argument to the
   /// callback function or null otherwise.
-  static Argument *getCallbackArg(ImmutableCallSite ICS, unsigned ArgNo);
+  static Argument *getCallbackArg(const CallBase &CB, unsigned ArgNo);
 #endif // INTEL_CUSTOMIZATION
 
   /// Conversion operator to conveniently check for a valid/initialized ACS.
-  explicit operator bool() const { return (bool)CS; }
+  explicit operator bool() const { return CB != nullptr; }
 
   /// Return the underlying instruction.
-  Instruction *getInstruction() const { return CS.getInstruction(); }
-
-  /// Return the call site abstraction for the underlying instruction.
-  CallSite getCallSite() const { return CS; }
+  CallBase *getInstruction() const { return CB; }
 
   /// Return true if this ACS represents a direct call.
   bool isDirectCall() const {
-    return !isCallbackCall() && !CS.isIndirectCall();
+    return !isCallbackCall() && !CB->isIndirectCall();
   }
 
   /// Return true if this ACS represents an indirect call.
   bool isIndirectCall() const {
-    return !isCallbackCall() && CS.isIndirectCall();
+    return !isCallbackCall() && CB->isIndirectCall();
   }
 
   /// Return true if this ACS represents a callback call.
@@ -846,7 +844,7 @@ public:
   /// Return true if @p U is the use that defines the callee of this ACS.
   bool isCallee(const Use *U) const {
     if (isDirectCall())
-      return CS.isCallee(U);
+      return CB->isCallee(U);
 
     assert(!CI.ParameterEncoding.empty() &&
            "Callback without parameter encoding!");
@@ -857,13 +855,13 @@ public:
         U = &*CE->use_begin();
 #endif // INTEL_CUSTOMIZATION
 
-    return (int)CS.getArgumentNo(U) == CI.ParameterEncoding[0];
+    return (int)CB->getArgOperandNo(U) == CI.ParameterEncoding[0];
   }
 
   /// Return the number of parameters of the callee.
   unsigned getNumArgOperands() const {
     if (isDirectCall())
-      return CS.getNumArgOperands();
+      return CB->getNumArgOperands();
     // Subtract 1 for the callee encoding.
     return CI.ParameterEncoding.size() - 1;
   }
@@ -892,10 +890,10 @@ public:
   /// function parameter number @p ArgNo or nullptr if there is none.
   Value *getCallArgOperand(unsigned ArgNo) const {
     if (isDirectCall())
-      return CS.getArgOperand(ArgNo);
+      return CB->getArgOperand(ArgNo);
     // Add 1 for the callee encoding.
     return CI.ParameterEncoding[ArgNo + 1] >= 0
-               ? CS.getArgOperand(CI.ParameterEncoding[ArgNo + 1])
+               ? CB->getArgOperand(CI.ParameterEncoding[ArgNo + 1])
                : nullptr;
   }
 
@@ -919,8 +917,8 @@ public:
   /// Return the pointer to function that is being called.
   Value *getCalledValue() const {
     if (isDirectCall())
-      return CS.getCalledValue();
-    return CS.getArgOperand(getCallArgOperandNoForCallee());
+      return CB->getCalledValue();
+    return CB->getArgOperand(getCallArgOperandNoForCallee());
   }
 
   /// Return the function being called if this is a direct call, otherwise
@@ -933,10 +931,10 @@ public:
 
 #if INTEL_CUSTOMIZATION
 /// Apply function Func to each Call's callback call site.
-template <typename CallType, typename UnaryFunction>
-void for_each_callback_callsite(CallType Call, UnaryFunction Func) {
+template <typename UnaryFunction>
+void for_each_callback_callsite(const CallBase &CB, UnaryFunction Func) {
   SmallVector<const Use *, 4u> CallbackUses;
-  AbstractCallSite::getCallbackUses(ImmutableCallSite(Call), CallbackUses);
+  AbstractCallSite::getCallbackUses(CB, CallbackUses);
   for (const Use *U : CallbackUses) {
     AbstractCallSite ACS(U);
     assert(ACS && ACS.isCallbackCall() && "must be a callback call");

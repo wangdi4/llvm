@@ -31,7 +31,6 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -314,9 +313,9 @@ private:
   // edges from the guarding entry blocks).
   BranchProbability getOutliningCallBBRelativeFreq(FunctionCloner &Cloner);
 
-  // Return true if the callee of CS should be partially inlined with
+  // Return true if the callee of CB should be partially inlined with
   // profit.
-  bool shouldPartialInline(CallSite CS, FunctionCloner &Cloner,
+  bool shouldPartialInline(CallBase &CB, FunctionCloner &Cloner,
                            BlockFrequency WeightedOutliningRcost,
                            OptimizationRemarkEmitter &ORE);
 
@@ -335,15 +334,11 @@ private:
             NumPartialInlining >= MaxNumPartialInlining);
   }
 
-  static CallSite getCallSite(User *U) {
-    CallSite CS;
-    if (CallInst *CI = dyn_cast<CallInst>(U))
-      CS = CallSite(CI);
-    else if (InvokeInst *II = dyn_cast<InvokeInst>(U))
-      CS = CallSite(II);
-    else
-      llvm_unreachable("All uses must be calls");
-    return CS;
+  static CallBase *getSupportedCallBase(User *U) {
+    if (isa<CallInst>(U) || isa<InvokeInst>(U))
+      return cast<CallBase>(U);
+    llvm_unreachable("All uses must be calls");
+    return nullptr;
   }
 
 #if INTEL_CUSTOMIZATION
@@ -365,24 +360,24 @@ private:
   }
 #endif
 
-  static CallSite getOneCallSiteTo(Function *F) {
+  static CallBase *getOneCallSiteTo(Function *F) {
 
 #if INTEL_CUSTOMIZATION
     // If the function is a target of a virtual function,
     // then return the first user
     User *VirtualFuncUser = getOneDirectCallSiteUser(F);
     if (VirtualFuncUser)
-      return getCallSite(VirtualFuncUser);
+      return getSupportedCallBase(VirtualFuncUser);
 #endif
 
     User *User = *F->user_begin();
-    return getCallSite(User);
+    return getSupportedCallBase(User);
   }
 
   std::tuple<DebugLoc, BasicBlock *> getOneDebugLoc(Function *F) {
-    CallSite CS = getOneCallSiteTo(F);
-    DebugLoc DLoc = CS.getInstruction()->getDebugLoc();
-    BasicBlock *Block = CS.getParent();
+    CallBase *CB = getOneCallSiteTo(F);
+    DebugLoc DLoc = CB->getDebugLoc();
+    BasicBlock *Block = CB->getParent();
     return std::make_tuple(DLoc, Block);
   }
 
@@ -874,34 +869,31 @@ PartialInlinerImpl::getOutliningCallBBRelativeFreq(FunctionCloner &Cloner) {
 }
 
 bool PartialInlinerImpl::shouldPartialInline(
-    CallSite CS, FunctionCloner &Cloner,
-    BlockFrequency WeightedOutliningRcost,
+    CallBase &CB, FunctionCloner &Cloner, BlockFrequency WeightedOutliningRcost,
     OptimizationRemarkEmitter &ORE) {
   using namespace ore;
 
-  Instruction *Call = CS.getInstruction();
-  Function *Callee = CS.getCalledFunction();
+  Function *Callee = CB.getCalledFunction();
   assert(Callee == Cloner.ClonedFunc);
 
   InlineReason Reason; // INTEL
   if (SkipCostAnalysis)
     return isInlineViable(*Callee, Reason).isSuccess(); // INTEL
 
-  Function *Caller = CS.getCaller();
+  Function *Caller = CB.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);
   bool RemarksEnabled =
       Callee->getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
           DEBUG_TYPE);
-  assert(Call && "invalid callsite for partial inline");
-  InlineCost IC = getInlineCost(cast<CallBase>(*Call), getInlineParams(),
-                                CalleeTTI, *GetAssumptionCache,   // INTEL
+  InlineCost IC =
+      getInlineCost(CB, getInlineParams(), CalleeTTI, *GetAssumptionCache,
                                 GetBFI, *GetTLI, ILIC,            // INTEL
                                 nullptr, nullptr, nullptr, PSI,   // INTEL
                                 RemarksEnabled ? &ORE : nullptr);
 
   if (IC.isAlways()) {
     ORE.emit([&]() {
-      return OptimizationRemarkAnalysis(DEBUG_TYPE, "AlwaysInline", Call)
+      return OptimizationRemarkAnalysis(DEBUG_TYPE, "AlwaysInline", &CB)
              << NV("Callee", Cloner.OrigFunc)
              << " should always be fully inlined, not partially";
     });
@@ -910,7 +902,7 @@ bool PartialInlinerImpl::shouldPartialInline(
 
   if (IC.isNever()) {
     ORE.emit([&]() {
-      return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline", Call)
+      return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline", &CB)
              << NV("Callee", Cloner.OrigFunc) << " not partially inlined into "
              << NV("Caller", Caller)
              << " because it should never be inlined (cost=never)";
@@ -920,7 +912,7 @@ bool PartialInlinerImpl::shouldPartialInline(
 
   if (!IC) {
     ORE.emit([&]() {
-      return OptimizationRemarkAnalysis(DEBUG_TYPE, "TooCostly", Call)
+      return OptimizationRemarkAnalysis(DEBUG_TYPE, "TooCostly", &CB)
              << NV("Callee", Cloner.OrigFunc) << " not partially inlined into "
              << NV("Caller", Caller) << " because too costly to inline (cost="
              << NV("Cost", IC.getCost()) << ", threshold="
@@ -931,14 +923,14 @@ bool PartialInlinerImpl::shouldPartialInline(
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
   // The savings of eliminating the call:
-  int NonWeightedSavings = getCallsiteCost(cast<CallBase>(*Call), DL);
+  int NonWeightedSavings = getCallsiteCost(CB, DL);
   BlockFrequency NormWeightedSavings(NonWeightedSavings);
 
   // Weighted saving is smaller than weighted cost, return false
   if (NormWeightedSavings < WeightedOutliningRcost) {
     ORE.emit([&]() {
       return OptimizationRemarkAnalysis(DEBUG_TYPE, "OutliningCallcostTooHigh",
-                                        Call)
+                                        &CB)
              << NV("Callee", Cloner.OrigFunc) << " not partially inlined into "
              << NV("Caller", Caller) << " runtime overhead (overhead="
              << NV("Overhead", (unsigned)WeightedOutliningRcost.getFrequency())
@@ -951,7 +943,7 @@ bool PartialInlinerImpl::shouldPartialInline(
   }
 
   ORE.emit([&]() {
-    return OptimizationRemarkAnalysis(DEBUG_TYPE, "CanBePartiallyInlined", Call)
+    return OptimizationRemarkAnalysis(DEBUG_TYPE, "CanBePartiallyInlined", &CB)
            << NV("Callee", Cloner.OrigFunc) << " can be partially inlined into "
            << NV("Caller", Caller) << " with cost=" << NV("Cost", IC.getCost())
            << " (threshold="
@@ -1085,15 +1077,15 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
     if (IsVirtualTarget && !isa<CallBase>(User))
       continue;
 #endif
-    CallSite CS = getCallSite(User);
-    Function *Caller = CS.getCaller();
+    CallBase *CB = getSupportedCallBase(User);
+    Function *Caller = CB->getCaller();
     if (CurrentCaller != Caller) {
       CurrentCaller = Caller;
       ComputeCurrBFI(Caller);
     } else {
       assert(CurrentCallerBFI && "CallerBFI is not set");
     }
-    BasicBlock *CallBB = CS.getInstruction()->getParent();
+    BasicBlock *CallBB = CB->getParent();
     auto Count = CurrentCallerBFI->getBlockProfileCount(CallBB);
     if (Count)
       CallSiteToProfCountMap[User] = *Count;
@@ -1294,8 +1286,8 @@ bool PartialInlinerImpl::FunctionCloner::doMultiRegionFunctionOutlining() {
     Function *OutlinedFunc = CE.extractCodeRegion(CEAC);
 
     if (OutlinedFunc) {
-      CallSite OCS = PartialInlinerImpl::getOneCallSiteTo(OutlinedFunc);
-      BasicBlock *OutliningCallBB = OCS.getInstruction()->getParent();
+      CallBase *OCS = PartialInlinerImpl::getOneCallSiteTo(OutlinedFunc);
+      BasicBlock *OutliningCallBB = OCS->getParent();
       assert(OutliningCallBB->getParent() == ClonedFunc);
       OutlinedFunctions.push_back(std::make_pair(OutlinedFunc,OutliningCallBB));
       NumColdRegionsOutlined++;
@@ -1303,7 +1295,7 @@ bool PartialInlinerImpl::FunctionCloner::doMultiRegionFunctionOutlining() {
 
       if (MarkOutlinedColdCC) {
         OutlinedFunc->setCallingConv(CallingConv::Cold);
-        OCS.setCallingConv(CallingConv::Cold);
+        OCS->setCallingConv(CallingConv::Cold);
       }
     } else
       ORE.emit([&]() {
@@ -1363,7 +1355,6 @@ PartialInlinerImpl::FunctionCloner::doSingleRegionFunctionOutlining() {
   if (OutlinedFunc) {
     BasicBlock *OutliningCallBB =
         PartialInlinerImpl::getOneCallSiteTo(OutlinedFunc)
-            .getInstruction()
             ->getParent();
     assert(OutliningCallBB->getParent() == ClonedFunc);
     OutlinedFunctions.push_back(std::make_pair(OutlinedFunc, OutliningCallBB));
@@ -1404,8 +1395,8 @@ bool PartialInlinerImpl::allCallSitesAreDirect(Function *Func) {
 
   for (User *FuncUser : Func->users()) {
     if (isa<CallInst>(FuncUser) || isa<InvokeInst>(FuncUser)) {
-      CallSite CS = getCallSite(FuncUser);
-      Function *CallFunc = CS.getCalledFunction();
+      CallBase *CB = getSupportedCallBase(FuncUser);
+      Function *CallFunc = CB->getCalledFunction();
       if (!CallFunc || CallFunc != Func)
         return false;
 
@@ -1653,27 +1644,27 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
       continue;
 #endif
 
-    CallSite CS = getCallSite(User);
+    CallBase *CB = getSupportedCallBase(User);
 
     if (IsLimitReached())
       continue;
 
-    OptimizationRemarkEmitter CallerORE(CS.getCaller());
-    if (!shouldPartialInline(CS, Cloner, WeightedRcost, CallerORE))
+    OptimizationRemarkEmitter CallerORE(CB->getCaller());
+    if (!shouldPartialInline(*CB, Cloner, WeightedRcost, CallerORE))
       continue;
 
     // Construct remark before doing the inlining, as after successful inlining
     // the callsite is removed.
-    OptimizationRemark OR(DEBUG_TYPE, "PartiallyInlined", CS.getInstruction());
+    OptimizationRemark OR(DEBUG_TYPE, "PartiallyInlined", CB);
     OR << ore::NV("Callee", Cloner.OrigFunc) << " partially inlined into "
-       << ore::NV("Caller", CS.getCaller());
+       << ore::NV("Caller", CB->getCaller());
 
     InlineFunctionInfo IFI(nullptr, GetAssumptionCache, PSI);
     // We can only forward varargs when we outlined a single region, else we
     // bail on vararg functions.
     InlineReason Reason = NinlrNoReason; // INTEL
-    if (!InlineFunction(CS, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
-                        true,                                        // INTEL
+    if (!InlineFunction(*CB, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
+                        true,                                         // INTEL
                         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
                                          : nullptr))
              .isSuccess())

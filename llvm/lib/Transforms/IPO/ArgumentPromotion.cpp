@@ -36,7 +36,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -77,6 +76,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include <algorithm>
@@ -254,7 +254,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 #if INTEL_CUSTOMIZATION
     AbstractCallSite ACS(&*F->use_begin());
     assert(ACS.getCalledFunction() == F);
-    CallSite CS = ACS.getCallSite();
+    CallSite CS = CallSite(ACS.getInstruction());
 #endif // INTEL_CUSTOMIZATION
     Instruction *Call = CS.getInstruction();
     const AttributeList &CallPAL = CS.getAttributes();
@@ -377,7 +377,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           // of the previous load.
           LoadInst *newLoad =
               IRB.CreateLoad(OrigLoad->getType(), V, V->getName() + ".val");
-          newLoad->setAlignment(MaybeAlign(OrigLoad->getAlignment()));
+          newLoad->setAlignment(OrigLoad->getAlign());
           // Transfer the AA info too.
           AAMDNodes AAInfo;
           OrigLoad->getAAMetadata(AAInfo);
@@ -561,12 +561,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           assert(It != ArgIndices.end() && "GEP not handled??");
         }
 
-        std::string NewName = std::string(I->getName());
-        for (unsigned i = 0, e = Operands.size(); i != e; ++i) {
-          NewName += "." + utostr(Operands[i]);
-        }
-        NewName += ".val";
-        TheArg->setName(NewName);
+        TheArg->setName(formatv("{0}.{1:$[.]}.val", I->getName(),
+                                make_range(Operands.begin(), Operands.end())));
 
         LLVM_DEBUG(dbgs() << "*** Promoted agg argument '" << TheArg->getName()
                           << "' of function '" << NF->getName() << "'\n");
@@ -929,12 +925,17 @@ bool ArgumentPromotionPass::isDenselyPacked(Type *type, const DataLayout &DL) {
   if (DL.getTypeSizeInBits(type) != DL.getTypeAllocSizeInBits(type))
     return false;
 
-  if (!isa<StructType>(type) && !isa<SequentialType>(type))
-    return true;
-
-  // For homogenous sequential types, check for padding within members.
-  if (SequentialType *seqTy = dyn_cast<SequentialType>(type))
+  // FIXME: This isn't the right way to check for padding in vectors with
+  // non-byte-size elements.
+  if (VectorType *seqTy = dyn_cast<VectorType>(type))
     return isDenselyPacked(seqTy->getElementType(), DL);
+
+  // For array types, check for padding within members.
+  if (ArrayType *seqTy = dyn_cast<ArrayType>(type))
+    return isDenselyPacked(seqTy->getElementType(), DL);
+
+  if (!isa<StructType>(type))
+    return true;
 
   // Check for padding within and between elements of a struct.
   StructType *StructTy = cast<StructType>(type);
@@ -996,7 +997,7 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     AbstractCallSite CS(&U); // INTEL
     if (!CS)
       return false;
-    const Function *Caller = CS.getCallSite().getCaller(); // INTEL
+    const Function *Caller = CS.getInstruction()->getCaller(); // INTEL
     const Function *Callee = CS.getCalledFunction();
     if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
         !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
@@ -1060,7 +1061,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     if (CS.isDirectCall()) {
       // Can't change signature of musttail callee
-      if (CS.getCallSite().isMustTailCall())
+      if (CS.getInstruction()->isMustTailCall())
         return nullptr;
 
       if (CS.getInstruction()->getParent()->getParent() == F)
@@ -1116,7 +1117,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
             // And it should be passed to the broker as a vararg argument.
             // Otherwise we would need to change broker function signature.
-            Function *Broker = ACS.getCallSite().getCalledFunction();
+            Function *Broker = ACS.getInstruction()->getCalledFunction();
             assert(Broker && "Expecting broker function");
             if (!Broker->isVarArg() ||
                 static_cast<unsigned>(ArgNo) < Broker->arg_size())

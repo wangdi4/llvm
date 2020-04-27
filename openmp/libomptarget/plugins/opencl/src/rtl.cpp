@@ -1934,6 +1934,14 @@ int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
 }
 
 EXTERN
+int32_t __tgt_rtl_data_submit_async(int32_t device_id, void *tgt_ptr, void *hst_ptr,
+                              int64_t size,
+                              __tgt_async_info *AsyncInfoPtr /*not used*/) {
+  return __tgt_rtl_data_submit_nowait(device_id, tgt_ptr, hst_ptr, size,
+                                      nullptr);
+}
+
+EXTERN
 int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
                                        void *tgt_ptr, int64_t size,
                                        void *async_event) {
@@ -2012,6 +2020,15 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
 EXTERN
 int32_t __tgt_rtl_data_retrieve(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                 int64_t size) {
+  return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
+                                        nullptr);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr, void *tgt_ptr,
+                              int64_t size,
+                              __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return __tgt_rtl_data_retrieve_nowait(device_id, hst_ptr, tgt_ptr, size,
                                         nullptr);
 }
@@ -2540,9 +2557,31 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
 }
 
 EXTERN
+int32_t __tgt_rtl_run_target_team_region_async(
+    int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
+    ptrdiff_t *tgt_offsets, int32_t arg_num, int32_t team_num,
+    int32_t thread_limit, uint64_t loop_tripcount /*not used*/,
+    __tgt_async_info *AsyncInfoPtr /*not used*/) {
+  return run_target_team_nd_region(device_id, tgt_entry_ptr, tgt_args,
+                                   tgt_offsets, arg_num, team_num, thread_limit,
+                                   nullptr, nullptr);
+}
+
+EXTERN
 int32_t __tgt_rtl_run_target_region(int32_t device_id, void *tgt_entry_ptr,
                                     void **tgt_args, ptrdiff_t *tgt_offsets,
                                     int32_t arg_num) {
+  // use one team!
+  return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
+                                          tgt_offsets, arg_num, 1, 0, 0);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_run_target_region_async(int32_t device_id, void *tgt_entry_ptr,
+                                  void **tgt_args, ptrdiff_t *tgt_offsets,
+                                  int32_t arg_num,
+                                  __tgt_async_info *AsyncInfoPtr /*not used*/) {
   // use one team!
   return __tgt_rtl_run_target_team_region(device_id, tgt_entry_ptr, tgt_args,
                                           tgt_offsets, arg_num, 1, 0, 0);
@@ -2555,6 +2594,11 @@ EXTERN char *__tgt_rtl_get_device_name(
   INVOKE_CL_RET_NULL(clGetDeviceInfo, DeviceInfo->deviceIDs[device_id],
                      CL_DEVICE_NAME, buffer_max_size, buffer, nullptr);
   return buffer;
+}
+
+EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
+                                     __tgt_async_info *async_info_ptr) {
+  return OFFLOAD_SUCCESS;
 }
 
 #ifdef __cplusplus

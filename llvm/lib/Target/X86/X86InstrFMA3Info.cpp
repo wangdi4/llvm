@@ -187,18 +187,12 @@ static void verifyTables() {
 #ifndef NDEBUG
   static std::atomic<bool> TableChecked(false);
   if (!TableChecked.load(std::memory_order_relaxed)) {
-    assert(std::is_sorted(std::begin(Groups), std::end(Groups)) &&
-           std::is_sorted(std::begin(RoundGroups), std::end(RoundGroups)) &&
-           std::is_sorted(std::begin(BroadcastGroups),
-                          std::end(BroadcastGroups)) &&
-           "FMA3 tables not sorted!");
+    assert(llvm::is_sorted(Groups) && llvm::is_sorted(RoundGroups) &&
+           llvm::is_sorted(BroadcastGroups) && "FMA3 tables not sorted!");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-    assert(std::is_sorted(std::begin(FP16Groups), std::end(FP16Groups)) &&
-           std::is_sorted(std::begin(FP16RoundGroups),
-                          std::end(FP16RoundGroups)) &&
-           std::is_sorted(std::begin(FP16BroadcastGroups),
-                          std::end(FP16BroadcastGroups)) &&
+    assert(llvm::is_sorted(FP16Groups) && llvm::is_sorted(FP16RoundGroups) &&
+           llvm::is_sorted(FP16BroadcastGroups) &&
            "FP16 FMA3 tables not sorted!");
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION

@@ -157,6 +157,7 @@ void initializeDataFlowSanitizerPass(PassRegistry&);
 void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&); // INTEL
 void initializeDeadInstEliminationPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
+void initializeDebugifyMachineModulePass(PassRegistry &);
 void initializeDelinearizationPass(PassRegistry&);
 void initializeDemandedBitsWrapperPassPass(PassRegistry&);
 void initializeDependenceAnalysisPass(PassRegistry&);
@@ -188,6 +189,8 @@ void initializeExternalAAWrapperPassPass(PassRegistry&);
 void initializeFEntryInserterPass(PassRegistry&);
 void initializeFinalizeISelPass(PassRegistry&);
 void initializeFinalizeMachineBundlesPass(PassRegistry&);
+void initializeFixIrreduciblePass(PassRegistry &);
+void initializeFixupStatepointCallerSavedPass(PassRegistry&);
 void initializeFlattenCFGPassPass(PassRegistry&);
 void initializeFloat128ExpandPass(PassRegistry&); // INTEL
 void initializeFloat2IntLegacyPassPass(PassRegistry&);
@@ -454,6 +457,7 @@ void initializeStraightLineStrengthReducePass(PassRegistry&);
 void initializeStripDeadDebugInfoPass(PassRegistry&);
 void initializeStripDeadPrototypesLegacyPassPass(PassRegistry&);
 void initializeStripDebugDeclarePass(PassRegistry&);
+void initializeStripDebugMachineModulePass(PassRegistry &);
 void initializeStripGCRelocatesPass(PassRegistry&);
 void initializeStripNonDebugSymbolsPass(PassRegistry&);
 void initializeStripNonLineTableDebugInfoPass(PassRegistry&);

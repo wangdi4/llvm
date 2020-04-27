@@ -3250,6 +3250,7 @@ X86
 
 .. option:: -mtbm, -mno-tbm
 
+.. option:: -mtsxldtrk, -mno-tsxldtrk
 .. INTEL_CUSTOMIZATION
 .. INTEL_FEATURE_ISA_ULI
 .. option:: -muli, -mno-uli

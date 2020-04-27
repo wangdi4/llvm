@@ -141,12 +141,12 @@ static bool searchTypeInType(llvm::Type *Ty1, llvm::Type *Ty2, bool IgnorePtrs,
     return true;
 
   if (Ty1->isVectorTy())
-    return searchTypeInType(Ty1->getVectorElementType(), Ty2, IgnorePtrs,
-                            TypesList);
+    return searchTypeInType(cast<VectorType>(Ty1)->getElementType(), Ty2,
+                            IgnorePtrs, TypesList);
 
   if (Ty1->isArrayTy())
-    return searchTypeInType(Ty1->getArrayElementType(), Ty2, IgnorePtrs,
-                            TypesList);
+    return searchTypeInType(cast<ArrayType>(Ty1)->getElementType(), Ty2,
+                            IgnorePtrs, TypesList);
 
   if (!IgnorePtrs && Ty1->isPointerTy()) {
     // prevent infinte loop (such as a struct that conatins a pointer to itself)

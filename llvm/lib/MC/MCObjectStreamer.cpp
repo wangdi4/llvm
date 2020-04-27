@@ -368,6 +368,13 @@ bool MCObjectStreamer::mayHaveInstructions(MCSection &Sec) const {
 
 void MCObjectStreamer::emitInstruction(const MCInst &Inst,
                                        const MCSubtargetInfo &STI) {
+  const MCSection &Sec = *getCurrentSectionOnly();
+  if (Sec.isVirtualSection()) {
+    getContext().reportError(Inst.getLoc(), Twine(Sec.getVirtualSectionKind()) +
+                                                " section '" + Sec.getName() +
+                                                "' cannot have instructions");
+    return;
+  }
   getAssembler().getBackend().emitInstructionBegin(*this, Inst);
   emitInstructionImpl(Inst, STI);
   getAssembler().getBackend().emitInstructionEnd(*this, Inst);
@@ -387,13 +394,11 @@ void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
   // If this instruction doesn't need relaxation, just emit it as data.
   MCAssembler &Assembler = getAssembler();
   MCAsmBackend &Backend = Assembler.getBackend();
-#if INTEL_CUSTOMIZATION
   if (!(Backend.mayNeedRelaxation(Inst, STI) ||
         Backend.allowEnhancedRelaxation())) {
     EmitInstToData(Inst, STI);
     return;
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, relax and emit it as data if either:
   // - The RelaxAll flag was passed
@@ -402,9 +407,7 @@ void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
   //   fragment.
   if (Assembler.getRelaxAll() ||
       (Assembler.isBundlingEnabled() && Sec->isBundleLocked())) {
-#if INTEL_CUSTOMIZATION
     MCInst Relaxed = Inst;
-#endif // INTEL_CUSTOMIZATION
     while (getAssembler().getBackend().mayNeedRelaxation(Relaxed, STI))
       getAssembler().getBackend().relaxInstruction(Relaxed, STI, Relaxed);
     EmitInstToData(Relaxed, STI);

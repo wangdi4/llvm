@@ -85,8 +85,7 @@ static cl::opt<int> LoadCoalescingProfitabilityThreshold(
 
 Type *MemInstGroup::getScalarType() const {
   auto Ty = getLoadStoreType(getHead());
-  return isa<VectorType>(Ty) ? cast<VectorType>(Ty)->getVectorElementType()
-                             : Ty;
+  return isa<VectorType>(Ty) ? cast<VectorType>(Ty)->getElementType() : Ty;
 }
 
 // Returns true if it is profitable to coalesce group into a single wide-load.
@@ -148,9 +147,9 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
 void MemInstGroup::append(Instruction *LI, size_t LISize) {
   Type *LIType = LI->getType();
   if (CoalescedLoads.size() == 0) {
-    Type *ScalarTy = (isa<VectorType>(LIType)
-                          ? cast<VectorType>(LIType)->getVectorElementType()
-                          : LIType);
+    Type *ScalarTy =
+        (isa<VectorType>(LIType) ? cast<VectorType>(LIType)->getElementType()
+                                 : LIType);
     ScalarSize = DL.getTypeSizeInBits(ScalarTy);
   }
 
@@ -176,7 +175,7 @@ bool MemInstGroup::tryInsert(LoadInst *Inst) {
   bool WillOverflow = willExceedSize(LoadSize, MaxVecRegSize);
   auto InstTy = getLoadStoreType(Inst);
   auto ScalarInstTy = isa<VectorType>(InstTy)
-                          ? cast<VectorType>(InstTy)->getVectorElementType()
+                          ? cast<VectorType>(InstTy)->getElementType()
                           : InstTy;
 
   bool ScalarTypesMatch = size() > 0 ? (ScalarInstTy == getScalarType()) : true;

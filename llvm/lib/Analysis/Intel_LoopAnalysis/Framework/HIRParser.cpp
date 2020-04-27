@@ -2994,10 +2994,12 @@ void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
   for (unsigned I = 1; I < NumOp; ++I) {
     assert(isa<GEPOperator>(GEPOp) && "Only GEP operators expected here");
 
-    if (auto SeqTy = dyn_cast<SequentialType>(CurTy)) {
-      CurTy = SeqTy->getElementType();
+    if (CurTy->isArrayTy()) {
+      CurTy = cast<ArrayType>(CurTy)->getElementType();
       Offsets.push_back(-1);
-
+    } else if (CurTy->isVectorTy()) {
+      CurTy = cast<VectorType>(CurTy)->getElementType();
+      Offsets.push_back(-1);
     } else {
       assert(isa<StructType>(CurTy) && "Unexpected type encountered!");
       auto StrucTy = cast<StructType>(CurTy);

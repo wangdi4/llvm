@@ -1058,9 +1058,6 @@ def HasULI : Predicate<"Subtarget->hasULI()">;
 #if INTEL_FEATURE_ISA_HRESET
 def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-def HasTSXLDTRK : Predicate<"Subtarget->hasTSXLDTRK()">;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
 def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
@@ -1113,6 +1110,7 @@ def HasAMXTILE2    : Predicate<"Subtarget->hasAMXTILE2()">;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
+def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;
 def Not64BitMode : Predicate<"!Subtarget->is64Bit()">,
                              AssemblerPredicate<(all_of (not Mode64Bit)), "Not 64-bit mode">;
 def In64BitMode  : Predicate<"Subtarget->is64Bit()">,
@@ -3062,8 +3060,15 @@ let Uses = [EAX] in
   def HRESET : Ii8<0xF0, MRM_C0, (outs), (ins i32u8imm:$imm), "hreset\t$imm", []>,
                    Requires<[HasHRESET]>, TAXS;
 #endif // INTEL_FEATURE_ISA_HRESET
+#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_FEATURE_ISA_TSXLDTRK
+//===----------------------------------------------------------------------===//
+// SERIALIZE Instruction
+//
+def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
+                  [(int_x86_serialize)]>, PS,
+                  Requires<[HasSERIALIZE]>;
+
 //===----------------------------------------------------------------------===//
 // TSXLDTRK - TSX Suspend Load Address Tracking
 //
@@ -3073,15 +3078,6 @@ let Predicates = [HasTSXLDTRK] in {
   def XRESLDTRK : I<0x01, MRM_E9, (outs), (ins), "xresldtrk",
                     [(int_x86_xresldtrk)]>, XD;
 }
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
-#endif // INTEL_CUSTOMIZATION
-
-//===----------------------------------------------------------------------===//
-// SERIALIZE Instruction
-//
-def SERIALIZE : I<0x01, MRM_E8, (outs), (ins), "serialize",
-                  [(int_x86_serialize)]>, PS,
-                  Requires<[HasSERIALIZE]>;
 
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.

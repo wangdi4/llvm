@@ -916,9 +916,12 @@ private:
       if (SrcBaseTy->isPointerTy()) {
         SrcBaseTy = SrcBaseTy->getPointerElementType();
         DestBaseTy = DestBaseTy->getPointerElementType();
-      } else {
-        SrcBaseTy = SrcBaseTy->getSequentialElementType();
-        DestBaseTy = DestBaseTy->getSequentialElementType();
+      } else if (SrcBaseTy->isArrayTy()) {
+        SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
+      } else if (SrcBaseTy->isVectorTy()) {
+        SrcBaseTy = cast<VectorType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<VectorType>(DestBaseTy)->getElementType();
       }
     }
 
@@ -1392,7 +1395,10 @@ bool ResolveTypesImpl::resolveNestedTypes(
   auto GetUnderlyingStructTy = [](llvm::Type *Ty) {
     auto *BaseTy = Ty;
     while (BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
-      BaseTy = BaseTy->getSequentialElementType();
+      if (BaseTy->isArrayTy())
+        BaseTy = cast<ArrayType>(BaseTy)->getElementType();
+      else
+        BaseTy = cast<VectorType>(BaseTy)->getElementType();
     }
     return dyn_cast<StructType>(BaseTy);
   };
@@ -1590,9 +1596,12 @@ void ResolveTypesImpl::collectDependentTypeMappings(
       if (SrcBaseTy->isPointerTy()) {
         SrcBaseTy = SrcBaseTy->getPointerElementType();
         DestBaseTy = DestBaseTy->getPointerElementType();
-      } else {
-        SrcBaseTy = SrcBaseTy->getSequentialElementType();
-        DestBaseTy = DestBaseTy->getSequentialElementType();
+      } else if (SrcBaseTy->isArrayTy()) {
+        SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
+      } else if (SrcBaseTy->isVectorTy()) {
+        SrcBaseTy = cast<VectorType>(SrcBaseTy)->getElementType();
+        DestBaseTy = cast<VectorType>(DestBaseTy)->getElementType();
       }
     }
     assert(SrcBaseTy != DestBaseTy &&
@@ -1840,16 +1849,25 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
           return CompareResult::Distinct;
         }
         // Both types must have the same number of elements.
-        auto *SeqATy = cast<SequentialType>(ElemATy);
-        auto *SeqBTy = cast<SequentialType>(ElemBTy);
-        if (SeqATy->getNumElements() != SeqBTy->getNumElements()) {
-          DEBUG_WITH_TYPE(DTRT_VERBOSE,
-                          dbgs() << "Element count mismatch @ " << i << "\n");
-          return CompareResult::Distinct;
+        if (ElemATy->isArrayTy()) {
+          if (cast<ArrayType>(ElemATy)->getNumElements() !=
+              cast<ArrayType>(ElemBTy)->getNumElements()) {
+            DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                            dbgs() << "Element count mismatch @ " << i << "\n");
+            return CompareResult::Distinct;
+          }
+          ElemATy = cast<ArrayType>(ElemATy)->getElementType();
+          ElemBTy = cast<ArrayType>(ElemBTy)->getElementType();
+        } else {
+          if (cast<VectorType>(ElemATy)->getNumElements() !=
+              cast<VectorType>(ElemBTy)->getNumElements()) {
+            DEBUG_WITH_TYPE(DTRT_VERBOSE,
+                            dbgs() << "Element count mismatch @ " << i << "\n");
+            return CompareResult::Distinct;
+          }
+          ElemATy = cast<VectorType>(ElemATy)->getElementType();
+          ElemBTy = cast<VectorType>(ElemBTy)->getElementType();
         }
-        // Arrays and vectors are handled together this way.
-        ElemATy = SeqATy->getElementType();
-        ElemBTy = SeqBTy->getElementType();
         ComparingPointerElements = false;
       }
     }

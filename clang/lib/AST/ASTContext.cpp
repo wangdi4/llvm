@@ -1465,6 +1465,12 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   // Type for __builtin_va_arg_pack
   InitBuiltinType(VAArgPackTy, BuiltinType::VAArgPack);
 #endif // INTEL_CUSTOMIZATION
+
+  // MSVC predeclares struct _GUID, and we need it to create MSGuidDecls.
+  if (LangOpts.MicrosoftExt || LangOpts.Borland) {
+    MSGuidTagDecl = buildImplicitRecord("_GUID");
+    TUDecl->addDecl(MSGuidTagDecl);
+  }
 }
 
 DiagnosticsEngine &ASTContext::getDiagnostics() const {
@@ -1927,31 +1933,31 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
 
   case Type::IncompleteArray:
   case Type::VariableArray:
-    Width = 0;
-    Align = getTypeAlign(cast<ArrayType>(T)->getElementType());
-    break;
-
   case Type::ConstantArray: {
-    const auto *CAT = cast<ConstantArrayType>(T);
+    // Model non-constant sized arrays as size zero, but track the alignment.
+    uint64_t Size = 0;
+    if (const auto *CAT = dyn_cast<ConstantArrayType>(T))
+      Size = CAT->getSize().getZExtValue();
 
-    TypeInfo EltInfo = getTypeInfo(CAT->getElementType());
-    uint64_t Size = CAT->getSize().getZExtValue();
+    TypeInfo EltInfo = getTypeInfo(cast<ArrayType>(T)->getElementType());
     assert((Size == 0 || EltInfo.Width <= (uint64_t)(-1) / Size) &&
            "Overflow in array type bit size evaluation");
     Width = EltInfo.Width * Size;
 #if INTEL_CUSTOMIZATION
-    if (CAT->getElementType()->isArbPrecIntType() &&
+    if (cast<ArrayType>(T)->getElementType()->isArbPrecIntType() &&
         !llvm::isPowerOf2_64(EltInfo.Width))
       Width = llvm::alignTo(EltInfo.Width,
                             EltInfo.Align) *
               Size;
 #endif // INTEL_CUSTOMIZATION
     Align = EltInfo.Align;
+    AlignIsRequired = EltInfo.AlignIsRequired;
     if (!getTargetInfo().getCXXABI().isMicrosoft() ||
         getTargetInfo().getPointerWidth(0) == 64)
       Width = llvm::alignTo(Width, Align);
     break;
   }
+
   case Type::ExtVector:
   case Type::Vector: {
     const auto *VT = cast<VectorType>(T);
@@ -2220,6 +2226,15 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     const ASTRecordLayout &Layout = getASTObjCInterfaceLayout(ObjCI->getDecl());
     Width = toBits(Layout.getSize());
     Align = toBits(Layout.getAlignment());
+    break;
+  }
+  case Type::ExtInt: {
+    const auto *EIT = cast<ExtIntType>(T);
+    Align =
+        std::min(static_cast<unsigned>(std::max(
+                     getCharWidth(), llvm::PowerOf2Ceil(EIT->getNumBits()))),
+                 Target->getLongLongAlign());
+    Width = llvm::alignTo(EIT->getNumBits(), Align);
     break;
   }
   case Type::Record:
@@ -3434,6 +3449,8 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::Auto:
   case Type::DeducedTemplateSpecialization:
   case Type::PackExpansion:
+  case Type::ExtInt:
+  case Type::DependentExtInt:
     llvm_unreachable("type should never be variably-modified");
 
   // These types can be variably-modified but should never need to
@@ -4224,6 +4241,39 @@ ASTContext::getDependentSizedArbPrecIntType(QualType Type, Expr *NumBitsExpr,
   return QualType(New, 0);
 }
 #endif // INTEL_CUSTOMIZATION
+
+QualType ASTContext::getExtIntType(bool IsUnsigned, unsigned NumBits) const {
+  llvm::FoldingSetNodeID ID;
+  ExtIntType::Profile(ID, IsUnsigned, NumBits);
+
+  void *InsertPos = nullptr;
+  if (ExtIntType *EIT = ExtIntTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(EIT, 0);
+
+  auto *New = new (*this, TypeAlignment) ExtIntType(IsUnsigned, NumBits);
+  ExtIntTypes.InsertNode(New, InsertPos);
+  Types.push_back(New);
+  return QualType(New, 0);
+}
+
+QualType ASTContext::getDependentExtIntType(bool IsUnsigned,
+                                            Expr *NumBitsExpr) const {
+  assert(NumBitsExpr->isInstantiationDependent() && "Only good for dependent");
+  llvm::FoldingSetNodeID ID;
+  DependentExtIntType::Profile(ID, *this, IsUnsigned, NumBitsExpr);
+
+  void *InsertPos = nullptr;
+  if (DependentExtIntType *Existing =
+          DependentExtIntTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(Existing, 0);
+
+  auto *New = new (*this, TypeAlignment)
+      DependentExtIntType(*this, IsUnsigned, NumBitsExpr);
+  DependentExtIntTypes.InsertNode(New, InsertPos);
+
+  Types.push_back(New);
+  return QualType(New, 0);
+}
 
 #ifndef NDEBUG
 static bool NeedsInjectedClassNameType(const RecordDecl *D) {
@@ -6065,6 +6115,11 @@ unsigned ASTContext::getIntegerRank(const Type *T) const {
   }
 #endif // INTEL_CUSTOMIZATION
 
+  // Results in this 'losing' to any type of the same size, but winning if
+  // larger.
+  if (const auto *EIT = dyn_cast<ExtIntType>(T))
+    return 0 + (EIT->getNumBits() << 3);
+
   switch (cast<BuiltinType>(T)->getKind()) {
   default: llvm_unreachable("getIntegerRank(): not a built-in integer");
   case BuiltinType::Bool:
@@ -7454,6 +7509,7 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
   case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
+  case Type::ExtInt:
 #define ABSTRACT_TYPE(KIND, BASE)
 #define TYPE(KIND, BASE)
 #define DEPENDENT_TYPE(KIND, BASE) \
@@ -9028,8 +9084,8 @@ QualType ASTContext::mergeFunctionParameterTypes(QualType lhs, QualType rhs,
 }
 
 QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
-                                        bool OfBlockPointer,
-                                        bool Unqualified) {
+                                        bool OfBlockPointer, bool Unqualified,
+                                        bool AllowCXX) {
   const auto *lbase = lhs->castAs<FunctionType>();
   const auto *rbase = rhs->castAs<FunctionType>();
   const auto *lproto = dyn_cast<FunctionProtoType>(lbase);
@@ -9103,7 +9159,8 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
   FunctionType::ExtInfo einfo = lbaseInfo.withNoReturn(NoReturn);
 
   if (lproto && rproto) { // two C99 style function prototypes
-    assert(!lproto->hasExceptionSpec() && !rproto->hasExceptionSpec() &&
+    assert((AllowCXX ||
+            (!lproto->hasExceptionSpec() && !rproto->hasExceptionSpec())) &&
            "C++ shouldn't be here");
     // Compatible functions must have the same number of parameters
     if (lproto->getNumParams() != rproto->getNumParams())
@@ -9167,7 +9224,7 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
 
   const FunctionProtoType *proto = lproto ? lproto : rproto;
   if (proto) {
-    assert(!proto->hasExceptionSpec() && "C++ shouldn't be here");
+    assert((AllowCXX || !proto->hasExceptionSpec()) && "C++ shouldn't be here");
     if (proto->isVariadic())
       return {};
     // Check that the types are compatible with the types that
@@ -9595,6 +9652,21 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     assert(LHS != RHS &&
            "Equivalent pipe types should have already been handled!");
     return {};
+  case Type::ExtInt: {
+    // Merge two ext-int types, while trying to preserve typedef info.
+    bool LHSUnsigned  = LHS->castAs<ExtIntType>()->isUnsigned();
+    bool RHSUnsigned = RHS->castAs<ExtIntType>()->isUnsigned();
+    unsigned LHSBits = LHS->castAs<ExtIntType>()->getNumBits();
+    unsigned RHSBits = RHS->castAs<ExtIntType>()->getNumBits();
+
+    // Like unsigned/int, shouldn't have a type if they dont match.
+    if (LHSUnsigned != RHSUnsigned)
+      return {};
+
+    if (LHSBits != RHSBits)
+      return {};
+    return LHS;
+  }
   }
 
   llvm_unreachable("Invalid Type::Class!");
@@ -9735,6 +9807,8 @@ unsigned ASTContext::getIntWidth(QualType T) const {
     T = ET->getDecl()->getIntegerType();
   if (T->isBooleanType())
     return 1;
+  if(const auto *EIT = T->getAs<ExtIntType>())
+    return EIT->getNumBits();
   // For builtin types, just use the standard type sizing method
   return (unsigned)getTypeSize(T);
 }
@@ -10832,6 +10906,23 @@ ASTContext::getPredefinedStringLiteralFromCache(StringRef Key) const {
         /*Pascal*/ false, getStringLiteralArrayType(CharTy, Key.size()),
         SourceLocation());
   return Result;
+}
+
+MSGuidDecl *
+ASTContext::getMSGuidDecl(MSGuidDecl::Parts Parts) const {
+  assert(MSGuidTagDecl && "building MS GUID without MS extensions?");
+
+  llvm::FoldingSetNodeID ID;
+  MSGuidDecl::Profile(ID, Parts);
+
+  void *InsertPos;
+  if (MSGuidDecl *Existing = MSGuidDecls.FindNodeOrInsertPos(ID, InsertPos))
+    return Existing;
+
+  QualType GUIDType = getMSGuidType().withConst();
+  MSGuidDecl *New = MSGuidDecl::Create(*this, GUIDType, Parts);
+  MSGuidDecls.InsertNode(New, InsertPos);
+  return New;
 }
 
 bool ASTContext::AtomicUsesUnsupportedLibcall(const AtomicExpr *E) const {

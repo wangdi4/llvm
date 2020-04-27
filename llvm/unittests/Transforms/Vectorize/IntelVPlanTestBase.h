@@ -20,6 +20,7 @@
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"

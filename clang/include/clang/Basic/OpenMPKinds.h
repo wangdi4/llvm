@@ -23,16 +23,7 @@ namespace clang {
 using OpenMPDirectiveKind = llvm::omp::Directive;
 
 /// OpenMP clauses.
-enum OpenMPClauseKind {
-#define OPENMP_CLAUSE(Name, Class) \
-  OMPC_##Name,
-#include "clang/Basic/OpenMPKinds.def"
-  OMPC_threadprivate,
-  OMPC_uniform,
-  OMPC_device_type,
-  OMPC_match,
-  OMPC_unknown
-};
+using OpenMPClauseKind = llvm::omp::Clause;
 
 /// OpenMP attributes for 'schedule' clause.
 enum OpenMPScheduleClauseKind {
@@ -103,6 +94,10 @@ enum OpenMPMapModifierKind {
 #include "clang/Basic/OpenMPKinds.def"
   OMPC_MAP_MODIFIER_last
 };
+
+  /// Number of allowed map-type-modifiers.
+static constexpr unsigned NumberOfOMPMapClauseModifiers =
+    OMPC_MAP_MODIFIER_last - OMPC_MAP_MODIFIER_unknown - 1;
 
 /// OpenMP modifier kind for 'to' clause.
 enum OpenMPToModifierKind {
@@ -193,15 +188,8 @@ bool isAllowedInTBBSubset(OpenMPDirectiveKind DKind);
 bool isAllowedInSPIRSubset(OpenMPDirectiveKind DKind);
 #endif //INTEL_CUSTOMIZATION
 
-OpenMPClauseKind getOpenMPClauseKind(llvm::StringRef Str);
-const char *getOpenMPClauseName(OpenMPClauseKind Kind);
-
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str);
 const char *getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind, unsigned Type);
-
-bool isAllowedClauseForDirective(OpenMPDirectiveKind DKind,
-                                 OpenMPClauseKind CKind,
-                                 unsigned OpenMPVersion);
 
 /// Checks if the specified directive is a directive with an associated
 /// loop construct.

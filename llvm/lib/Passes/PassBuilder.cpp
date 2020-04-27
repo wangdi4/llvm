@@ -428,9 +428,9 @@ static cl::opt<bool> EnableCallGraphProfile(
     cl::desc("Enable call graph profile pass for the new PM (default = on)"));
 
 PipelineTuningOptions::PipelineTuningOptions() {
-  LoopInterleaving = EnableLoopInterleaving;
-  LoopVectorization = EnableLoopVectorization;
-  SLPVectorization = RunSLPVectorization;
+  LoopInterleaving = true;
+  LoopVectorization = true;
+  SLPVectorization = false;
   LoopUnrolling = true;
   ForgetAllSCEVInLoopUnroll = ForgetSCEVInLoopUnroll;
   Coroutines = false;
@@ -443,6 +443,8 @@ extern cl::opt<bool> EnableHotColdSplit;
 extern cl::opt<bool> EnableOrderFileInstrumentation;
 
 extern cl::opt<bool> FlattenedProfileUsed;
+
+extern cl::opt<bool> DisableAttributor;
 
 const PassBuilder::OptimizationLevel PassBuilder::OptimizationLevel::O0 = {
     /*SpeedLevel*/ 0,
@@ -1033,7 +1035,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
       MPM.addPass(PGOIndirectCallPromotion(Phase == ThinLTOPhase::PostLink,
                                            true /* SamplePGO */));
   }
-  MPM.addPass(AttributorPass());
+
+  if (!DisableAttributor)
+    MPM.addPass(AttributorPass());
 
   // Interprocedural constant propagation now that basic cleanup has occurred
   // and prior to optimizing globals.
@@ -1126,7 +1130,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // because it makes profile annotation in the backend inaccurate.
   MainCGPipeline.addPass(std::move(InlPass)); // INTEL
 
-  MainCGPipeline.addPass(AttributorCGSCCPass());
+  if (!DisableAttributor)
+    MainCGPipeline.addPass(AttributorCGSCCPass());
 
   if (PTO.Coroutines)
     MainCGPipeline.addPass(CoroSplitPass());
@@ -1260,6 +1265,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // currently only performed for loops marked with the metadata
   // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
   OptimizePM.addPass(LoopDistributePass());
+
+  // Populates the VFABI attribute with the scalar-to-vector mappings
+  // from the TargetLibraryInfo.
+  OptimizePM.addPass(InjectTLIMappings());
 
   // Now run the core loop vectorizer.
   OptimizePM.addPass(LoopVectorizePass(

@@ -1463,7 +1463,8 @@ static void emitLoadStoreForParameter(AllocaInst *Alloca, Value *ArgValue,
                                       BasicBlock *LoopPreHeader) {
   // Emit the load in the simd.loop.preheader block.
   IRBuilder<> Builder(&*LoopPreHeader->begin());
-  LoadInst *Load = Builder.CreateLoad(Alloca, "load." + ArgValue->getName());
+  LoadInst *Load = Builder.CreateLoad(Alloca->getAllocatedType(), Alloca,
+                                      "load." + ArgValue->getName());
   ArgValue->replaceAllUsesWith(Load);
   // After updating the uses of the function parameter with its stack variable,
   // we emit the store.

@@ -38,6 +38,7 @@
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <memory>
 
@@ -626,6 +627,9 @@ int main(int argc, char **argv) {
     // Register required analysis
     MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
     RunSpecConst.addPass(SCP);
+    if (!DoSplit)
+      // This pass deletes unreachable globals. Code splitter runs it later.
+      RunSpecConst.addPass(GlobalDCEPass());
     PreservedAnalyses Res = RunSpecConst.run(*MPtr, MAM);
     SpecConstsMet = !Res.areAllPreserved();
   }

@@ -5,12 +5,16 @@ project(sycl-solution)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 option(SYCL_ENABLE_WERROR "Treat all warnings as errors in SYCL project" OFF)
 
 # enable all warnings by default
 if (MSVC)
   set(CMAKE_CXX_FLAGS "/W4 ${CMAKE_CXX_FLAGS}")
+# INTEL_CUSTOMIZATION
+  add_definitions(
+    -wd4996 # Suppress 'function': was declared deprecated'
+  )
+# end INTEL_CUSTOMIZATION
 else ()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-deprecated-declarations")
 endif()
@@ -18,9 +22,6 @@ endif()
 if(SYCL_ENABLE_WERROR)
   if(MSVC)
     set(CMAKE_CXX_FLAGS "/WX ${CMAKE_CXX_FLAGS}")
-    add_definitions(
-      -wd4996 # Suppress 'function': was declared deprecated'
-    )
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
   endif()
@@ -281,15 +282,18 @@ add_custom_target( sycl-toolchain
   COMMENT "Building SYCL compiler toolchain..."
 )
 
+# Check if opencl-aot tool is enabled.
+list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
+if(NOT OPENCL_AOT_FOUND EQUAL -1)
+  add_dependencies(sycl-toolchain opencl-aot)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
+endif()
+
 if (SYCL_ENABLE_XPTI_TRACING)
   add_dependencies( sycl-toolchain xpti)
   if (MSVC)
     add_dependencies( sycl-toolchain xptid)
   endif()
-endif()
-
-if (NOT DEFINED LLVM_INCLUDE_TESTS)
-  set(LLVM_INCLUDE_TESTS ON)
 endif()
 
 option(SYCL_INCLUDE_TESTS
@@ -357,7 +361,6 @@ if(SYCL_BUILD_PI_CUDA)
   add_dependencies(sycl-toolchain libspirv-builtins pi_cuda)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_cuda)
 endif()
-
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it

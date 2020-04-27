@@ -23,7 +23,6 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <functional>
@@ -204,7 +203,7 @@ public:
   /// 'InlineFunction' fills this in by scanning the inlined instructions, and
   /// only if CG is null. If CG is non-null, instead the value handle
   /// `InlinedCalls` above is used.
-  SmallVector<CallSite, 8> InlinedCallSites;
+  SmallVector<CallBase *, 8> InlinedCallSites;
 
   void reset() {
     StaticAllocas.clear();
@@ -232,10 +231,7 @@ public:
 /// and all varargs at the callsite will be passed to any calls to
 /// ForwardVarArgsTo. The caller of InlineFunction has to make sure any varargs
 /// are only used by ForwardVarArgsTo.
-InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
-                            AAResults *CalleeAAR = nullptr,
-                            bool InsertLifetime = true);
-InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true,
                             Function *ForwardVarArgsTo = nullptr);
@@ -244,13 +240,7 @@ InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 /// The Intel version computes the InlineReason indicating the principal
 /// reason the function was or was not inlined.
 ///
-InlineResult InlineFunction(CallBase *CB, InlineFunctionInfo &IFI,
-                            InlineReport *IR,
-                            InlineReportBuilder *MDIR,
-                            InlineReportTypes::InlineReason* Reason,
-                            AAResults *CalleeAAR = nullptr,
-                            bool InsertLifetime = true);
-InlineResult InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             InlineReport *IR,
                             InlineReportBuilder *MDIR,
                             InlineReportTypes::InlineReason* Reason,

@@ -41,7 +41,7 @@ define <8 x i32> @test2(%struct.ST* %base, <8 x i1> %mask) {
 ; KNL-NEXT:    vptestmq %zmm0, %zmm0, %k1
 ; KNL-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; KNL-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; KNL-NEXT:    vpgatherdd 4(%rdi,%zmm1), %zmm0 {%k1}
+; KNL-NEXT:    vpgatherdd 4(%rdi,%zmm1,4), %zmm0 {%k1}
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 killed $zmm0
 ; KNL-NEXT:    retq
 entry:
@@ -65,7 +65,7 @@ define <8 x i32> @test3(%struct.ST* %base, <8 x i1> %mask) {
 ; KNL-NEXT:    vptestmq %zmm0, %zmm0, %k1
 ; KNL-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; KNL-NEXT:    vpxor %xmm0, %xmm0, %xmm0
-; KNL-NEXT:    vpgatherdd 4(%rdi,%zmm1), %zmm0 {%k1}
+; KNL-NEXT:    vpgatherdd 4(%rdi,%zmm1,4), %zmm0 {%k1}
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 killed $zmm0
 ; KNL-NEXT:    retq
 entry:
@@ -89,7 +89,7 @@ define <8 x i32> @test4(%struct.ST* %base, <8 x i32> %passthru, <8 x i1> %mask) 
 ; KNL-NEXT:    vpsllq $63, %zmm1, %zmm1
 ; KNL-NEXT:    vptestmq %zmm1, %zmm1, %k1
 ; KNL-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; KNL-NEXT:    vpgatherdd 4(%rdi,%zmm1), %zmm0 {%k1}
+; KNL-NEXT:    vpgatherdd 4(%rdi,%zmm1,4), %zmm0 {%k1}
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 killed $zmm0
 ; KNL-NEXT:    retq
 entry:

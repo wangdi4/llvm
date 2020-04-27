@@ -226,7 +226,7 @@ void MapIntrinToImlImpl::createImfAttributeList(CallInst *CI, ImfAttr **List) {
 //    legalized.
 static Type *legalizeArgumentOrReturnType(Type *T, unsigned TargetVL) {
   if (T->isVectorTy())
-    return VectorType::get(T->getVectorElementType(), TargetVL);
+    return VectorType::get(cast<VectorType>(T)->getElementType(), TargetVL);
 
   assert(T->isStructTy() &&
          "Expect vector or struct type in SVML function type legalization");
@@ -236,7 +236,7 @@ static Type *legalizeArgumentOrReturnType(Type *T, unsigned TargetVL) {
     assert(StructElementTy->isVectorTy() &&
            "Expect all elements in struct to be vectors");
     NewStructElementTypes.push_back(VectorType::get(
-        StructElementTy->getVectorElementType(), TargetVL));
+        cast<VectorType>(StructElementTy)->getElementType(), TargetVL));
   }
 
   return StructType::get(T->getContext(), NewStructElementTypes);
@@ -387,13 +387,13 @@ static Value *joinVectorsWithMask(ArrayRef<Value *> VectorsToJoin,
                                   IRBuilder<> &Builder, const Twine &Name) {
   Value *Result = joinVectors(VectorsToJoin, Builder, Name);
   if (SourceValue && Mask) {
-    assert(SourceValue->getType()->getVectorNumElements() ==
-               Result->getType()->getVectorNumElements() &&
-           Mask->getType()->getVectorNumElements() ==
-               Result->getType()->getVectorNumElements() &&
+    assert(cast<VectorType>(SourceValue->getType())->getNumElements() ==
+               cast<VectorType>(Result->getType())->getNumElements() &&
+           cast<VectorType>(Mask->getType())->getNumElements() ==
+               cast<VectorType>(Result->getType())->getNumElements() &&
            "Inconsistent vector length");
-    assert(SourceValue->getType()->getVectorElementType() ==
-               Result->getType()->getVectorElementType() &&
+    assert(cast<VectorType>(SourceValue->getType())->getElementType() ==
+               cast<VectorType>(Result->getType())->getElementType() &&
            "Vector element type mismatch");
     Result = Builder.CreateSelect(Mask, Result, SourceValue, "select.merge");
   }
@@ -409,12 +409,13 @@ Value *MapIntrinToImlImpl::joinSplitCallResults(unsigned NumRet,
   Type *CallType = SplitCalls[0]->getType();
   assert((CallType->isVectorTy() ||
           (CallType->isStructTy() &&
-           CallType->getStructElementType(0)->isVectorTy())) &&
+           cast<StructType>(CallType)->getElementType(0)->isVectorTy())) &&
          "Invalid type of result of SVML call");
-  assert((!(SourceValue && Mask) ||
-          (Mask->getType()->isVectorTy() &&
-           Mask->getType()->getVectorElementType()->isIntegerTy(1))) &&
-         "Invalid mask type");
+  assert(
+      (!(SourceValue && Mask) ||
+       (Mask->getType()->isVectorTy() &&
+        cast<VectorType>(Mask->getType())->getElementType()->isIntegerTy(1))) &&
+      "Invalid mask type");
 
   // Again, we need to handle 2 cases: the return value is a vector,
   // or a structure of vectors.
@@ -490,19 +491,21 @@ bool MapIntrinToImlImpl::isLessThanFullVector(Type *ValType, Type *LegalType) {
                        ValStructType->element_end(),
                        [ValStructType](Type *ElementTy) {
                          return ElementTy->isVectorTy() &&
-                                ElementTy->getVectorNumElements() ==
-                                    ValStructType->getStructElementType(0)
-                                        ->getVectorNumElements();
+                                cast<VectorType>(ElementTy)->getNumElements() ==
+                                    cast<VectorType>(
+                                        ValStructType->getStructElementType(0))
+                                        ->getNumElements();
                        }) &&
            "Expect all struct fields to be vectors of the same length");
-    assert(std::all_of(LegalStructType->element_begin(),
-                       LegalStructType->element_end(),
-                       [LegalStructType](Type *ElementTy) {
-                         return ElementTy->isVectorTy() &&
-                                ElementTy->getVectorNumElements() ==
-                                    LegalStructType->getStructElementType(0)
-                                        ->getVectorNumElements();
-                       }) &&
+    assert(std::all_of(
+               LegalStructType->element_begin(), LegalStructType->element_end(),
+               [LegalStructType](Type *ElementTy) {
+                 return ElementTy->isVectorTy() &&
+                        cast<VectorType>(ElementTy)->getNumElements() ==
+                            cast<VectorType>(
+                                LegalStructType->getStructElementType(0))
+                                ->getNumElements();
+               }) &&
            "Expect all struct fields to be vectors of the same length");
 
     return isLessThanFullVector(ValStructType->getElementType(0),
@@ -549,8 +552,8 @@ void MapIntrinToImlImpl::generateNewArgsFromPartialVectors(
     } else if (isa<UndefValue>(Args[I])) {
       NewArgs.push_back(UndefValue::get(LegalArgType));
     } else if (ArgType->isVectorTy()) {
-      unsigned NumElems = ArgType->getVectorNumElements();
-      unsigned LegalNumElems = LegalArgType->getVectorNumElements();
+      unsigned NumElems = cast<VectorType>(ArgType)->getNumElements();
+      unsigned LegalNumElems = cast<VectorType>(LegalArgType)->getNumElements();
       NewArg = replicateVector(NewArg, LegalNumElems / NumElems, Builder,
                                  "shuffle.dup");
       NewArgs.push_back(NewArg);

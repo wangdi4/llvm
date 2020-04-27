@@ -525,7 +525,7 @@ determinePointerReadAttrs(Argument *A,
 
 #if INTEL_CUSTOMIZATION
       if (UseIndex >= F->arg_size() && !IsOperandBundleUse &&
-          !AbstractCallSite::getCallbackArg(ImmutableCallSite(I), UseIndex)) {
+          !AbstractCallSite::getCallbackArg(cast<CallBase>(*I), UseIndex)) {
 #endif // INTEL_CUSTOMIZATION
         assert(F->isVarArg() && "More params than args in non-varargs call");
         return Attribute::None;
@@ -1320,7 +1320,7 @@ static bool inferAttrsFromFunctionBodies(const SCCNodeSet &SCCNodes) {
         // Skip non-throwing functions.
         [](const Function &F) { return F.doesNotThrow(); },
         // Instructions that break non-throwing assumption.
-        [SCCNodes](Instruction &I) {
+        [&SCCNodes](Instruction &I) {
           return InstrBreaksNonThrowing(I, SCCNodes);
         },
         [](Function &F) {
@@ -1343,7 +1343,7 @@ static bool inferAttrsFromFunctionBodies(const SCCNodeSet &SCCNodes) {
         // Skip functions known not to free memory.
         [](const Function &F) { return F.doesNotFreeMemory(); },
         // Instructions that break non-deallocating assumption.
-        [SCCNodes](Instruction &I) {
+        [&SCCNodes](Instruction &I) {
           return InstrBreaksNoFree(I, SCCNodes);
         },
         [](Function &F) {

@@ -152,9 +152,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_HRESET
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  bool HasTSXLDTRK = false;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
@@ -214,6 +211,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
   bool HasSERIALIZE = false;
+  bool HasTSXLDTRK = false;
 
 protected:
   /// Enumeration of all of the X86 CPUs supported by Clang.
