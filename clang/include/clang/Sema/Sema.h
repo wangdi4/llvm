@@ -12371,12 +12371,16 @@ private:
 #endif // INTEL_CUSTOMIZATION
   bool CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 #endif // INTEL_CUSTOMIZATION
 
   bool CheckIntelFPGARegBuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
   bool CheckIntelFPGAMemBuiltinFunctionCall(CallExpr *Call);
+=======
+  bool CheckAMDGCNBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
+>>>>>>> 06bdffb2bb45d8666ec86782d21214ef545a71fd
 
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);
