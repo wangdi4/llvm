@@ -166,3 +166,8 @@
 // RUN: %clang_cl -### -c /Qno-builtin-memset %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN-FUNC %s
 // CHECK-QNO-BUILTIN: "-fno-builtin-"
 // CHECK-QNO-BUILTIN-FUNC: "-fno-builtin-memset"
+
+// RUN: %clang -### -c -fmerge-debug-strings -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-MERGE-DEBUG %s
+// RUN: %clang -### -c -fno-merge-debug-strings -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-NO-MERGE-DEBUG %s
+// CHECK-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Disable"
+// CHECK-NO-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Enable"

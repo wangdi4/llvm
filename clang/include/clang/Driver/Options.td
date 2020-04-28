@@ -1471,6 +1471,14 @@ def fmacro_backtrace_limit_EQ : Joined<["-"], "fmacro-backtrace-limit=">,
                                 Group<f_Group>, Flags<[DriverOption, CoreOption]>;
 def fmerge_all_constants : Flag<["-"], "fmerge-all-constants">, Group<f_Group>,
   Flags<[CC1Option, CoreOption]>, HelpText<"Allow merging of constants">;
+#if INTEL_CUSTOMIZATION
+def fmerge_debug_strings : Flag<["-"], "fmerge-debug-strings">, Group<f_Group>,
+  Flags<[DriverOption]>, HelpText<"Merge identical debug strings in "
+  "different object files.">;
+def fno_merge_debug_strings : Flag<["-"], "fno-merge-debug-strings">,
+  Group<f_Group>,Flags<[DriverOption]>, HelpText<" Do not merge"
+  "identical debug strings in different object files.">;
+#endif // INTEL_CUSTOMIZATION
 def fmessage_length_EQ : Joined<["-"], "fmessage-length=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Format message diagnostics so that they fit within N columns">;
 def fms_extensions : Flag<["-"], "fms-extensions">, Group<f_Group>, Flags<[CC1Option, CoreOption]>,
