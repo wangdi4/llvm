@@ -967,6 +967,14 @@ bool X86SplitVectorValueType::updateInstChain() {
       assert(!SettledNInstSet.count(I) &&
              "Candidate must be split previously!");
 
+      // InstMap contains unsupported instructions split with shufflevector.
+      // This check should be placed before InstMap check because those
+      // unsupported instructions may be the user of split instructions.
+      if (!isSupportedOp(UI)) {
+        createShufVecInstToFuse(I, UI, 1);
+        continue;
+      }
+
       // Some PHINodes have been presplit but it's operands haven't been
       // split yet. This step will update some of those operands that cause a
       // cycle reliance. The left operands will be updated later.
@@ -988,11 +996,6 @@ bool X86SplitVectorValueType::updateInstChain() {
 
       if (InstMap.count(UI))
         continue;
-
-      if (!isSupportedOp(UI)) {
-        createShufVecInstToFuse(I, UI, 1);
-        continue;
-      }
 
       // Split operands of UI.
       for (unsigned OpI = 0; OpI < UI->getNumOperands(); OpI++) {
@@ -1069,10 +1072,6 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
   // if split B is not in CA, then CA intersect B equals null set.
   assert(!SettledNInstSet.count(I) && "Candidate must be split previously!");
 
-  // Skip instruction that has already been split.
-  if (InstMap.count(I))
-    return true;
-
   // Make sure not to split supported value.
   // e.g. %cmp0 = icmp sgt <16 x i64> %x0, %y0
   //      %cmp1 = icmp sgt <16 x i32> %x1, %y1
@@ -1092,6 +1091,10 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
     createShufVecInstToSplit(I, Depth);
     return true;
   }
+
+  // Skip instruction that has already been split.
+  if (InstMap.count(I))
+    return true;
 
   // Step1: Recursively split operands until all operands have been split.
   for (unsigned OpI = 0; OpI < I->getNumOperands(); OpI++) {
@@ -1267,9 +1270,8 @@ bool X86SplitVectorValueType::runOnFunction(Function &F) {
 
       // Some cache need to be cleaned based on split status.
       cleanUpCache(SplitSucc);
+      Changed |= SplitSucc;
     }
-
-    Changed |= SplitSucc;
   }
 
   if (Changed) {
