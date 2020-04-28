@@ -476,6 +476,11 @@ Optional<int> getInliningCostEstimate(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+#if INTEL_CUSTOMIZATION
+    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
+    InlineAggressiveInfo *AggI, SmallSet<CallBase *, 20> *CallSitesForFusion,
+    SmallSet<Function *, 20> *FuncsForDTrans,
+#endif // INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.
