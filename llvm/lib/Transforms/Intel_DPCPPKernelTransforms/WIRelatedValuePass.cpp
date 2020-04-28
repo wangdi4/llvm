@@ -27,11 +27,11 @@ namespace llvm {
 
 char WIRelatedValue::ID = 0;
 
-WIRelatedValue::WIRelatedValue() : ModulePass(ID), M(nullptr) {}
+WIRelatedValue::WIRelatedValue() : ModulePass(ID) {}
 
 bool WIRelatedValue::runOnModule(Module &M) {
-
-  this->M = &M;
+  //Initialize barrier utils class with current module
+  BarrierUtils.init(&M);
 
   // Calculate the calling order for the functions to be analyzed.
   calculateCallingOrder();
@@ -396,9 +396,7 @@ void WIRelatedValue::calculateCallingOrder() {
 
   // Initialize functionToHandle container with functions that need to be
   // analyzed Find all functions that call synchronize instructions
-  DPCPPKernelBarrierUtils::FuncSet FuncsWithSync;
-  DPCPPKernelBarrierUtils::getAllFunctionsWithSynchronization(*M,
-                                                              FuncsWithSync);
+  FuncSet& FuncsWithSync = BarrierUtils.getAllFunctionsWithSynchronization();
   // Collect data for each function with synchronize instruction
   for (Function *F : FuncsWithSync) {
     FuncsToHandle.insert(F);

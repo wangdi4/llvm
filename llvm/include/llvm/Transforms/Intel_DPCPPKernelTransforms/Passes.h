@@ -23,6 +23,7 @@ FunctionPass* createPhiCanonicalizationPass();
 FunctionPass* createRedundantPhiNodePass();
 ModulePass* createSplitBBonBarrierPass();
 ModulePass* createWIRelatedValuePass();
+ModulePass* createDataPerBarrierPass();
 
 } // namespace llvm
 

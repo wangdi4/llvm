@@ -13,6 +13,7 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 
 namespace llvm {
 
@@ -33,6 +34,10 @@ public:
   }
 
   bool runOnModule(Module &M) override;
+
+private:
+  /// This is barrier utility class
+  DPCPPKernelBarrierUtils BarrierUtils;
 };
 
 } // namespace llvm

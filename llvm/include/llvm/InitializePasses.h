@@ -625,6 +625,7 @@ void initializePhiCanonicalizationPass(PassRegistry&);
 void initializeRedundantPhiNodePass(PassRegistry&);
 void initializeSplitBBonBarrierPass(PassRegistry&);
 void initializeWIRelatedValuePass(PassRegistry&);
+void initializeDataPerBarrierPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass
