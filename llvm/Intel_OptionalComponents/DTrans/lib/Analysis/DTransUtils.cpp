@@ -23,6 +23,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/Format.h"
+#include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
 using namespace dtrans;
@@ -542,10 +544,147 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
   ostr << "\n";
 }
 
-void dtrans::TypeInfo::printSafetyData() {
-  dbgs() << "  Safety data: ";
-  printSafetyInfo(SafetyInfo, dbgs());
+void dtrans::TypeInfo::printSafetyData(raw_ostream &OS) const {
+  OS << "  Safety data: ";
+  printSafetyInfo(SafetyInfo, OS);
 }
+
+void dtrans::StructInfo::print(
+    raw_ostream &OS,
+    std::function<void(raw_ostream &OS, const StructInfo *)> *Annotator) const {
+  llvm::StructType *S = cast<llvm::StructType>(getLLVMType());
+  OS << "DTRANS_StructInfo:\n";
+  OS << "  LLVMType: " << *S << "\n";
+  if (S->hasName())
+    OS << "  Name: " << S->getName() << "\n";
+  if (getCRuleTypeKind() != dtrans::CRT_Unknown) {
+    OS << "  CRuleTypeKind: ";
+    OS << dtrans::CRuleTypeKindName(getCRuleTypeKind()) << "\n";
+  }
+  if (Annotator)
+    (*Annotator)(OS, this);
+
+  OS << "  Number of fields: " << getNumFields() << "\n";
+  unsigned Number = 0;
+  for (auto &Field : getFields()) {
+    OS << format_decimal(Number++, 3) << ")";
+    Field.print(OS, getIgnoredFor());
+  }
+  OS << "  Total Frequency: " << getTotalFrequency() << "\n";
+  auto &CG = getCallSubGraph();
+  OS << "  Call graph: "
+     << (CG.isBottom() ? "bottom\n" : (CG.isTop() ? "top\n" : ""));
+  if (!CG.isBottom() && !CG.isTop()) {
+    OS << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
+  }
+  printSafetyData(OS);
+  OS << "\n";
+}
+
+void dtrans::ArrayInfo::print(raw_ostream &OS) const {
+  OS << "DTRANS_ArrayInfo:\n";
+  OS << "  LLVMType: " << *getLLVMType() << "\n";
+  if (getCRuleTypeKind() != dtrans::CRT_Unknown) {
+    OS << "  CRuleTypeKind: ";
+    OS << dtrans::CRuleTypeKindName(getCRuleTypeKind()) << "\n";
+  }
+  OS << "  Number of elements: " << getNumElements() << "\n";
+  OS << "  Element LLVM Type: " << *getElementLLVMType() << "\n";
+  printSafetyData(OS);
+  OS << "\n";
+}
+
+void dtrans::FieldInfo::print(raw_ostream &OS,
+                              dtrans::Transform IgnoredInTransform) const {
+  OS << "Field LLVM Type: " << *getLLVMType() << "\n";
+  OS << "    Field info:";
+
+  if (isRead())
+    OS << " Read";
+
+  if (isWritten())
+    OS << " Written";
+
+  if (isValueUnused())
+    OS << " UnusedValue";
+
+  if (hasComplexUse())
+    OS << " ComplexUse";
+
+  if (isAddressTaken())
+    OS << " AddressTaken";
+
+  if (isMismatchedElementAccess())
+    OS << " MismatchedElementAccess";
+
+  OS << "\n";
+  OS << "    Frequency: " << getFrequency();
+  OS << "\n";
+
+  if (isNoValue())
+    OS << "    No Value";
+  else if (isSingleValue()) {
+    OS << "    Single Value: ";
+    getSingleValue()->printAsOperand(OS);
+  } else if (isMultipleValue()) {
+    OS << "    Multiple Value: [ ";
+    dtrans::printCollectionSorted(OS, values().begin(), values().end(), ", ",
+                                  [](llvm::Constant *C) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    C->printAsOperand(OutputStream, false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
+    OS << " ] <" << (isValueSetComplete() ? "complete" : "incomplete") << ">";
+  }
+  if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
+    OS << " (ignored)";
+  OS << "\n";
+
+  if (isNoIAValue())
+    OS << "    No IA Value";
+  else if (isSingleIAValue()) {
+    OS << "    Single IA Value: ";
+    getSingleValue()->printAsOperand(OS);
+  } else {
+    assert(isMultipleIAValue() && "Expecting multiple value");
+    OS << "    Multiple IA Value: [ ";
+    dtrans::printCollectionSorted(OS, iavalues().begin(), iavalues().end(),
+                                  ", ", [](llvm::Constant *C) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    C->printAsOperand(OutputStream, false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
+    OS << " ] <" << (isIAValueSetComplete() ? "complete" : "incomplete") << ">";
+  }
+  OS << "\n";
+
+  if (isTopAllocFunction())
+    OS << "    Top Alloc Function";
+  else if (isSingleAllocFunction()) {
+    OS << "    Single Alloc Function: ";
+    getSingleAllocFunction()->printAsOperand(OS);
+  } else if (isBottomAllocFunction())
+    OS << "    Bottom Alloc Function";
+  if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
+    OS << " (ignored)";
+  OS << "\n";
+  OS << "    Readers: ";
+  dtrans::printCollectionSorted(OS, readers().begin(), readers().end(), ", ",
+                                [](const Function *F) { return F->getName(); });
+  OS << "\n";
+  OS << "    Writers: ";
+  dtrans::printCollectionSorted(OS, writers().begin(), writers().end(), ", ",
+                                [](const Function *F) { return F->getName(); });
+  OS << "\n";
+  OS << "    RWState: "
+     << (isRWBottom() ? "bottom" : (isRWComputed() ? "computed" : "top"))
+     << "\n";
+}
+
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {

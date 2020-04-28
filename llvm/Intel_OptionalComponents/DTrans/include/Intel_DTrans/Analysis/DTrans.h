@@ -47,6 +47,9 @@ class DTransAnalysisInfo;
 
 namespace dtrans {
 
+//Type used for DTrans transformation bitmask
+typedef uint32_t Transform;
+
 //
 // Enum to indicate the "single value" status of a field:
 //   Complete: All values of the field are constant and known.
@@ -103,13 +106,13 @@ public:
     return SVIAKind == SVK_Incomplete || ConstantIAValues.size() > 1;
   }
   bool isBottomAllocFunction() const { return SAFKind == SAFK_Bottom; }
-  llvm::Constant *getSingleValue() {
+  llvm::Constant *getSingleValue() const {
     return isSingleValue() ? *ConstantValues.begin() : nullptr;
   }
-  llvm::Constant *getSingleIAValue() {
+  llvm::Constant *getSingleIAValue() const {
     return isSingleIAValue() ? *ConstantIAValues.begin() : nullptr;
   }
-  llvm::Function *getSingleAllocFunction() {
+  llvm::Function *getSingleAllocFunction() const {
     return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
   }
   void setRead(Instruction &I) { Read = true; addReader(I.getFunction());  }
@@ -138,11 +141,11 @@ public:
   uint64_t getFrequency() const { return Frequency; }
 
   // Returns a set of possible constant values.
-  llvm::SetVector<llvm::Constant *> &values()
+  const llvm::SetVector<llvm::Constant *> &values() const
       { return ConstantValues; }
 
   // Returns a set of possible indirect array constant values.
-  llvm::SetVector<llvm::Constant *> &iavalues()
+  const llvm::SetVector<llvm::Constant *> &iavalues() const
       { return ConstantIAValues; }
 
   // Returns true if the set of possible values is complete.
@@ -171,12 +174,12 @@ public:
 
   // For tracking the set of functions that read/write the field.
   typedef llvm::SmallPtrSet<Function*, 2> FunctionSet;
-  typedef llvm::SmallPtrSet<Function*, 2> &FunctionSetRef;
+  typedef llvm::SmallPtrSet<Function*, 2> const &FunctionSetConstRef;
 
   void addReader(Function *F) { Readers.insert(F); }
   void addWriter(Function *F) { Writers.insert(F); }
-  FunctionSetRef readers() { return Readers; }
-  FunctionSetRef writers() { return Writers; }
+  FunctionSetConstRef readers() const { return Readers; }
+  FunctionSetConstRef writers() const { return Writers; }
 
   // Lattice regarding the information contained within the Readers/Writers
   // sets.
@@ -197,6 +200,15 @@ public:
   bool isRWTop() const { return RWState == RWK_Top; }
   bool isRWComputed() const { return RWState == RWK_Computed; }
   bool isRWBottom() const { return RWState == RWK_Bottom; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(dbgs()); }
+
+  // An optional Transform bitmask, IgnoredInTransform, can be passed in to
+  // report extra information about field information that may be ignored for
+  // some transformation types.
+  void print(raw_ostream &OS, dtrans::Transform IgnoredInTransform = 0) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   llvm::Type *LLVMType;
@@ -517,8 +529,6 @@ const SafetyData SDMemInitTrimDown =
 // TODO: Update the list each time we add a new safety conditions check for a
 // new transformation pass.
 //
-typedef uint32_t Transform;
-
 const Transform DT_First = 0x0001;
 const Transform DT_FieldSingleValue = 0x0001;
 const Transform DT_FieldSingleAllocFunction = 0x0002;
@@ -570,10 +580,10 @@ public:
   void clearSafetyData() { SafetyInfo = 0; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printSafetyData();
+  void printSafetyData(raw_ostream &OS) const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  CRuleTypeKind getCRuleTypeKind() { return CRTypeKind; }
+  CRuleTypeKind getCRuleTypeKind() const { return CRTypeKind; }
   void setCRuleTypeKind(CRuleTypeKind K) { CRTypeKind = K; }
 
   // Returns true if the type is a zero-sized array or it is a structure with a
@@ -624,6 +634,7 @@ public:
 
   size_t getNumFields() const { return Fields.size(); }
   SmallVectorImpl <FieldInfo> &getFields() { return Fields; }
+  const SmallVectorImpl <FieldInfo> &getFields() const { return Fields; }
   FieldInfo &getField(size_t N) { return Fields[N]; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
@@ -637,7 +648,19 @@ public:
   /// and/or FSAF safety checking.
   void setIgnoredFor(dtrans::Transform Flag) { IsIgnoredFor |= Flag; }
   /// Returns FSV and/or FSAF if the type was ignored in those optimizations.
-  dtrans::Transform getIgnoredFor() { return IsIgnoredFor; }
+  dtrans::Transform getIgnoredFor() const { return IsIgnoredFor; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(dbgs()); }
+
+  // Print the structure information.
+  // An optional annotation function can be passed in to report extra
+  // information about the structure, such as transformations that will ignore
+  // the safety mask.
+  void print(raw_ostream &OS,
+             std::function<void(raw_ostream &OS, const StructInfo *)>
+                 *Annotator = nullptr) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // To represent call graph in C++ one stores outermost type,
   // in whose methods there was reference to this structure.
@@ -696,6 +719,11 @@ public:
   static inline bool classof(const TypeInfo *TI) {
     return TI->getTypeInfoKind() == TypeInfo::ArrayInfo;
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(dbgs()); }
+  void print(raw_ostream &OS) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   TypeInfo *DTransElemTy;

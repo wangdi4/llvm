@@ -46,8 +46,8 @@ DTransImmutableInfo DTransImmutableAnalysis::run(Function &F,
 
 void DTransImmutableInfo::addStructFieldInfo(
     StructType *StructTy, unsigned FieldNum,
-    SetVector<Constant *> &LikelyValues,
-    SetVector<Constant *> &LikelyIndirectArrayValues) {
+    const SetVector<Constant *> &LikelyValues,
+    const SetVector<Constant *> &LikelyIndirectArrayValues) {
 
   StructInfo *SInfo = nullptr;
 
