@@ -1234,24 +1234,17 @@ pi_result L0(piextDeviceSelectBinary)(
 
 pi_result piextDeviceGetNativeHandle(pi_device device,
                                      pi_native_handle *nativeHandle) {
-<<<<<<< HEAD
-  die("piextDeviceGetNativeHandle: not supported");
-=======
   assert(device);
 
   auto ze_device = pi_cast<ze_device_handle_t*>(nativeHandle);
   // Extract the L0 module handle from the given PI device
   *ze_device = device->L0Device;
->>>>>>> bcfd779c463aa993a286a00cba6a07c57b38c80d
   return PI_SUCCESS;
 }
 
 pi_result piextDeviceCreateWithNativeHandle(pi_native_handle nativeHandle,
                                             pi_device *device) {
-<<<<<<< HEAD
-=======
   // Create PI device from the given L0 device handle.
->>>>>>> bcfd779c463aa993a286a00cba6a07c57b38c80d
   die("piextDeviceCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 }
@@ -1679,37 +1672,6 @@ pi_result piextMemGetNativeHandle(pi_mem mem, pi_native_handle *nativeHandle) {
 pi_result piextMemCreateWithNativeHandle(pi_native_handle nativeHandle,
                                          pi_mem *mem) {
   die("piextMemCreateWithNativeHandle: not supported");
-<<<<<<< HEAD
-  return PI_SUCCESS;
-}
-
-pi_result L0(piextProgramConvert)(
-  pi_context    context,
-  pi_program *  program,
-  void **       handle)
-{
-  assert(program);
-  assert(handle);
-
-  auto ze_module = pi_cast<ze_module_handle_t*>(handle);
-  if (*program == nullptr) {
-    // Create PI program from the given L0 module handle
-    assert(*ze_module);
-    auto L0PiProgram = new _pi_program();
-    L0PiProgram->L0Module = *ze_module;
-    L0PiProgram->Context = context;
-    L0PiProgram->RefCount = 1;
-
-    *program = pi_cast<pi_program>(L0PiProgram);
-  }
-  else {
-    // Extract the L0 module handle from the given PI program
-    assert(*program);
-    assert(*ze_module == nullptr);
-    *ze_module = (*program)->L0Module;
-  }
-=======
->>>>>>> bcfd779c463aa993a286a00cba6a07c57b38c80d
   return PI_SUCCESS;
 }
 
@@ -1974,24 +1936,17 @@ pi_result L0(piProgramRelease)(pi_program program) {
 
 pi_result piextProgramGetNativeHandle(pi_program program,
                                       pi_native_handle *nativeHandle) {
-<<<<<<< HEAD
-  die("piextProgramGetNativeHandle: not supported");
-=======
   assert(program);
 
   auto ze_module = pi_cast<ze_module_handle_t*>(nativeHandle);
   // Extract the L0 module handle from the given PI program
   *ze_module = program->L0Module;
->>>>>>> bcfd779c463aa993a286a00cba6a07c57b38c80d
   return PI_SUCCESS;
 }
 
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
                                              pi_context context,
                                              pi_program *program) {
-<<<<<<< HEAD
-  die("piextProgramCreateWithNativeHandle: not supported");
-=======
   assert(nativeHandle);
   assert(context);
 
@@ -2004,7 +1959,6 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
   L0PiProgram->RefCount = 1;
 
   *program = pi_cast<pi_program>(L0PiProgram);
->>>>>>> bcfd779c463aa993a286a00cba6a07c57b38c80d
   return PI_SUCCESS;
 }
 
