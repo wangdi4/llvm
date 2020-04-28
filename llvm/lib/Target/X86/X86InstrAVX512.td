@@ -6377,7 +6377,7 @@ multiclass avx512_fp_scalef_all<bits<8> opc, bits<8> opcScaler, string OpcodeStr
                avx512_fp_round_packed<opc, OpcodeStr, X86scalefRnd, sched.ZMM, v32f16_info>,
                                 EVEX_V512, T_MAP6PD, EVEX_CD8<16, CD8VF>;
     defm SHZ : avx512_fp_scalef_scalar<opcScaler, OpcodeStr, X86scalefs, sched.Scl, f16x_info>,
-               avx512_fp_scalar_round<opcScaler, OpcodeStr##"sh", f16x_info, X86scalefsRnd, sched.Scl>,
+               avx512_fp_scalar_round<opcScaler, OpcodeStr#"sh", f16x_info, X86scalefsRnd, sched.Scl>,
                              EVEX_4V, T_MAP6PD, EVEX_CD8<16, CD8VT1>;
   }
 #endif // INTEL_FEATURE_ISA_FP16
@@ -8683,69 +8683,69 @@ multiclass avx512_cvtpd2ph<bits<8> opc, string OpcodeStr, X86SchedWriteWidths sc
                                null_frag, sched.YMM, "{1to4}", "{y}", f256mem,
                                VK4WM>, EVEX_V256;
   }
-  def : InstAlias<OpcodeStr##"x\t{$src, $dst|$dst, $src}",
+  def : InstAlias<OpcodeStr#"x\t{$src, $dst|$dst, $src}",
                   (!cast<Instruction>(NAME # "Z128rr") VR128X:$dst,
                   VR128X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
+  def : InstAlias<OpcodeStr#"x\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
                   (!cast<Instruction>(NAME # "Z128rrk") VR128X:$dst,
                   VK2WM:$mask, VR128X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{$src, $dst {${mask}} {z}|$dst {${mask}} {z}, $src}",
+  def : InstAlias<OpcodeStr#"x\t{$src, $dst {${mask}} {z}|$dst {${mask}} {z}, $src}",
                   (!cast<Instruction>(NAME # "Z128rrkz") VR128X:$dst,
                   VK2WM:$mask, VR128X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{${src}{1to2}, $dst|$dst, ${src}{1to2}}",
+  def : InstAlias<OpcodeStr#"x\t{${src}{1to2}, $dst|$dst, ${src}{1to2}}",
                   (!cast<Instruction>(NAME # "Z128rmb") VR128X:$dst,
                   i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{${src}{1to2}, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"x\t{${src}{1to2}, $dst {${mask}}|"
                   "$dst {${mask}}, ${src}{1to2}}",
                   (!cast<Instruction>(NAME # "Z128rmbk") VR128X:$dst,
                   VK2WM:$mask, i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{${src}{1to2}, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"x\t{${src}{1to2}, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, ${src}{1to2}}",
                   (!cast<Instruction>(NAME # "Z128rmbkz") VR128X:$dst,
                   VK2WM:$mask, i64mem:$src), 0, "att">;
 
-  def : InstAlias<OpcodeStr##"y\t{$src, $dst|$dst, $src}",
+  def : InstAlias<OpcodeStr#"y\t{$src, $dst|$dst, $src}",
                   (!cast<Instruction>(NAME # "Z256rr") VR128X:$dst,
                   VR256X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{$src, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"y\t{$src, $dst {${mask}}|"
                   "$dst {${mask}}, $src}",
                   (!cast<Instruction>(NAME # "Z256rrk") VR128X:$dst,
                   VK4WM:$mask, VR256X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{$src, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"y\t{$src, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, $src}",
                   (!cast<Instruction>(NAME # "Z256rrkz") VR128X:$dst,
                   VK4WM:$mask, VR256X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{${src}{1to4}, $dst|$dst, ${src}{1to4}}",
+  def : InstAlias<OpcodeStr#"y\t{${src}{1to4}, $dst|$dst, ${src}{1to4}}",
                   (!cast<Instruction>(NAME # "Z256rmb") VR128X:$dst,
                   i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{${src}{1to4}, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"y\t{${src}{1to4}, $dst {${mask}}|"
                   "$dst {${mask}}, ${src}{1to4}}",
                   (!cast<Instruction>(NAME # "Z256rmbk") VR128X:$dst,
                   VK4WM:$mask, i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{${src}{1to4}, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"y\t{${src}{1to4}, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, ${src}{1to4}}",
                   (!cast<Instruction>(NAME # "Z256rmbkz") VR128X:$dst,
                   VK4WM:$mask, i64mem:$src), 0, "att">;
 
-  def : InstAlias<OpcodeStr##"z\t{$src, $dst|$dst, $src}",
+  def : InstAlias<OpcodeStr#"z\t{$src, $dst|$dst, $src}",
                   (!cast<Instruction>(NAME # "Zrr") VR128X:$dst,
                   VR512:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{$src, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"z\t{$src, $dst {${mask}}|"
                   "$dst {${mask}}, $src}",
                   (!cast<Instruction>(NAME # "Zrrk") VR128X:$dst,
                   VK8WM:$mask, VR512:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{$src, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"z\t{$src, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, $src}",
                   (!cast<Instruction>(NAME # "Zrrkz") VR128X:$dst,
                   VK8WM:$mask, VR512:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{${src}{1to8}, $dst|$dst, ${src}{1to8}}",
+  def : InstAlias<OpcodeStr#"z\t{${src}{1to8}, $dst|$dst, ${src}{1to8}}",
                   (!cast<Instruction>(NAME # "Zrmb") VR128X:$dst,
                   i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{${src}{1to8}, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"z\t{${src}{1to8}, $dst {${mask}}|"
                   "$dst {${mask}}, ${src}{1to8}}",
                   (!cast<Instruction>(NAME # "Zrmbk") VR128X:$dst,
                   VK8WM:$mask, i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{${src}{1to8}, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"z\t{${src}{1to8}, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, ${src}{1to8}}",
                   (!cast<Instruction>(NAME # "Zrmbkz") VR128X:$dst,
                   VK8WM:$mask, i64mem:$src), 0, "att">;
@@ -13887,69 +13887,69 @@ multiclass avx512_cvtqq2ph<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                EVEX_V256, NotEVEX2VEXConvertible;
   }
 
-  def : InstAlias<OpcodeStr##"x\t{$src, $dst|$dst, $src}",
+  def : InstAlias<OpcodeStr#"x\t{$src, $dst|$dst, $src}",
                   (!cast<Instruction>(NAME # "Z128rr") VR128X:$dst,
                   VR128X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
+  def : InstAlias<OpcodeStr#"x\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
                   (!cast<Instruction>(NAME # "Z128rrk") VR128X:$dst,
                   VK2WM:$mask, VR128X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{$src, $dst {${mask}} {z}|$dst {${mask}} {z}, $src}",
+  def : InstAlias<OpcodeStr#"x\t{$src, $dst {${mask}} {z}|$dst {${mask}} {z}, $src}",
                   (!cast<Instruction>(NAME # "Z128rrkz") VR128X:$dst,
                   VK2WM:$mask, VR128X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{${src}{1to2}, $dst|$dst, ${src}{1to2}}",
+  def : InstAlias<OpcodeStr#"x\t{${src}{1to2}, $dst|$dst, ${src}{1to2}}",
                   (!cast<Instruction>(NAME # "Z128rmb") VR128X:$dst,
                   i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{${src}{1to2}, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"x\t{${src}{1to2}, $dst {${mask}}|"
                   "$dst {${mask}}, ${src}{1to2}}",
                   (!cast<Instruction>(NAME # "Z128rmbk") VR128X:$dst,
                   VK2WM:$mask, i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"x\t{${src}{1to2}, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"x\t{${src}{1to2}, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, ${src}{1to2}}",
                   (!cast<Instruction>(NAME # "Z128rmbkz") VR128X:$dst,
                   VK2WM:$mask, i64mem:$src), 0, "att">;
 
-  def : InstAlias<OpcodeStr##"y\t{$src, $dst|$dst, $src}",
+  def : InstAlias<OpcodeStr#"y\t{$src, $dst|$dst, $src}",
                   (!cast<Instruction>(NAME # "Z256rr") VR128X:$dst,
                   VR256X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{$src, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"y\t{$src, $dst {${mask}}|"
                   "$dst {${mask}}, $src}",
                   (!cast<Instruction>(NAME # "Z256rrk") VR128X:$dst,
                   VK4WM:$mask, VR256X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{$src, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"y\t{$src, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, $src}",
                   (!cast<Instruction>(NAME # "Z256rrkz") VR128X:$dst,
                   VK4WM:$mask, VR256X:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{${src}{1to4}, $dst|$dst, ${src}{1to4}}",
+  def : InstAlias<OpcodeStr#"y\t{${src}{1to4}, $dst|$dst, ${src}{1to4}}",
                   (!cast<Instruction>(NAME # "Z256rmb") VR128X:$dst,
                   i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{${src}{1to4}, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"y\t{${src}{1to4}, $dst {${mask}}|"
                   "$dst {${mask}}, ${src}{1to4}}",
                   (!cast<Instruction>(NAME # "Z256rmbk") VR128X:$dst,
                   VK4WM:$mask, i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"y\t{${src}{1to4}, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"y\t{${src}{1to4}, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, ${src}{1to4}}",
                   (!cast<Instruction>(NAME # "Z256rmbkz") VR128X:$dst,
                   VK4WM:$mask, i64mem:$src), 0, "att">;
 
-  def : InstAlias<OpcodeStr##"z\t{$src, $dst|$dst, $src}",
+  def : InstAlias<OpcodeStr#"z\t{$src, $dst|$dst, $src}",
                   (!cast<Instruction>(NAME # "Zrr") VR128X:$dst,
                   VR512:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{$src, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"z\t{$src, $dst {${mask}}|"
                   "$dst {${mask}}, $src}",
                   (!cast<Instruction>(NAME # "Zrrk") VR128X:$dst,
                   VK8WM:$mask, VR512:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{$src, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"z\t{$src, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, $src}",
                   (!cast<Instruction>(NAME # "Zrrkz") VR128X:$dst,
                   VK8WM:$mask, VR512:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{${src}{1to8}, $dst|$dst, ${src}{1to8}}",
+  def : InstAlias<OpcodeStr#"z\t{${src}{1to8}, $dst|$dst, ${src}{1to8}}",
                   (!cast<Instruction>(NAME # "Zrmb") VR128X:$dst,
                   i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{${src}{1to8}, $dst {${mask}}|"
+  def : InstAlias<OpcodeStr#"z\t{${src}{1to8}, $dst {${mask}}|"
                   "$dst {${mask}}, ${src}{1to8}}",
                   (!cast<Instruction>(NAME # "Zrmbk") VR128X:$dst,
                   VK8WM:$mask, i64mem:$src), 0, "att">;
-  def : InstAlias<OpcodeStr##"z\t{${src}{1to8}, $dst {${mask}} {z}|"
+  def : InstAlias<OpcodeStr#"z\t{${src}{1to8}, $dst {${mask}} {z}|"
                   "$dst {${mask}} {z}, ${src}{1to8}}",
                   (!cast<Instruction>(NAME # "Zrmbkz") VR128X:$dst,
                   VK8WM:$mask, i64mem:$src), 0, "att">;
@@ -14371,8 +14371,8 @@ multiclass avx512_vpdpb_rmb<bits<8> Op, string OpStr, SDNode OpNode,
                                    Sched<[sched.Folded, sched.ReadAfterFold]>;
   defm mb :   AVX512_maskable_3src<Op, MRMSrcMem, VTI, (outs VTI.RC:$dst),
                                    (ins VTI.RC:$src2, VTI.ScalarMemOp:$src3),
-                                   OpStr, "${src3}"##VTI.BroadcastStr##", $src2",
-                                   "$src2, ${src3}"##VTI.BroadcastStr,
+                                   OpStr, "${src3}"#VTI.BroadcastStr#", $src2",
+                                   "$src2, ${src3}"#VTI.BroadcastStr,
                                    (OpNode VTI.RC:$src1, VTI.RC:$src2,
                                     (VTI.VT (VTI.BroadcastLdFrag addr:$src3)))>,
                                    EVEX_4V, EVEX_CD8<32, CD8VF>, EVEX_B,
