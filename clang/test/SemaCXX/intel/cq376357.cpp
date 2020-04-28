@@ -55,7 +55,7 @@ T1 fx(T2 t) {
   // expected-warning@-8{{illegal implicit type conversion from 'int' to 'E' allowed in -fpermissive mode}}
   a = t; // assignment
   // expected-warning@-1{{illegal implicit type conversion from 'void *' to 'int *' allowed in -fpermissive mode}}
-
+  // expected-error@-2{{incompatible pointer types assigning to 'int *' from 'long *'}}
   // expected-warning@-3{{illegal implicit type conversion from 'unsigned int *' to 'int *' allowed in -fpermissive mode}}
   // expected-warning@-4{{illegal implicit type conversion from 'int (**)(char, char)' to 'void (**)(int)' allowed in -fpermissive mode}}
   // expected-warning@-5{{illegal implicit type conversion from 'int (*)(char, char)' to 'void (*)(int)' allowed in -fpermissive mode}}
