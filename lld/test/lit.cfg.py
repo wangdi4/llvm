@@ -70,6 +70,13 @@ if platform.system() in ['FreeBSD', 'NetBSD', 'Linux']:
 if platform.system() not in ['Windows']:
     config.available_features.add('demangler')
 
+# INTEL_CUSTOMIZATION
+# Add 'intel_opencl' feature based on ICS_WSVARIANT value.
+ics_wsvariant = os.environ.get("ICS_WSVARIANT")
+if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
+    config.available_features.add("intel_opencl")
+# end INTEL_CUSTOMIZATION
+
 llvm_config.feature_config(
     [('--build-mode', {'DEBUG': 'debug'}),
      ('--assertion-mode', {'ON': 'asserts'}),
