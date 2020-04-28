@@ -1,10 +1,9 @@
-# RUN: llvm-mc -filetype=obj -triple x86_64 --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp --x86-pad-max-prefix-size=5 %s -o %t1 ;INTEL
+# RUN: llvm-mc -filetype=obj -triple x86_64 --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp %s -o %t1
 # RUN: llvm-mc -filetype=obj -triple x86_64 --x86-branches-within-32B-boundaries %s -o %t2
 # RUN: cmp %t1 %t2
 
   # Check the general option --x86-branches-within-32B-boundaries is equivelent
-  # to the fined options --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp --x86-pad-max-prefix-size=5. ;INTEL
-
+  # to the fined options --x86-align-branch-boundary=32 --x86-align-branch=fused+jcc+jmp.
 
   .text
   .globl  foo
