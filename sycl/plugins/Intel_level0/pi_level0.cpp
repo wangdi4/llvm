@@ -2207,6 +2207,21 @@ pi_result piKernelGetSubGroupInfo(
     size_t InputValueSize, const void *InputValue, size_t ParamValueSize,
     void *ParamValue, size_t *ParamValueSizeRet) {
 
+  // Uncomment the code below after the Level0 driver is updated to L0 spec
+  // 0.91.73. Tracked as a part of CMPLRXDEPS-8
+  // ze_kernel_properties_t ZeKernelProperties;
+  // ZE_CALL(zeKernelGetProperties(Kernel->L0Kernel, &ZeKernelProperties));
+  // if (ParamName == PI_KERNEL_MAX_SUB_GROUP_SIZE) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.maxSubGroupSize);
+  // } else if (ParamName == PI_KERNEL_MAX_NUM_SUB_GROUPS) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.maxNumSubgroups);
+  // } else if (ParamName == PI_KERNEL_COMPILE_NUM_SUB_GROUPS) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.requiredNumSubGroups);
+  // } else if (ParamName == PI_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL) {
+  //   SET_PARAM_VALUE(ZeKernelProperties.requiredSubgroupSize);
+  // }
+  // return PI_SUCCESS;
+
   die("piKernelGetSubGroupInfo: not implemented");
   return {};
 }
