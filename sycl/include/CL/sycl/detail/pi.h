@@ -1029,6 +1029,7 @@ pi_result piextProgramGetNativeHandle(pi_program program,
 /// \param nativeHandle is the native handle to create PI program from.
 /// \param program is the PI program created from the native handle.
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                             pi_context context, // INTEL
                                              pi_program *program);
 
 //

@@ -110,8 +110,10 @@ program_impl::program_impl(ContextImplPtr Context,
     assert(InteropProgram &&
            "No InteropProgram/PiProgram defined with piextProgramFromNative");
     // Translate the raw program handle into PI program.
-    Plugin.call<PiApiKind::piextProgramCreateWithNativeHandle>(InteropProgram,
-                                                               &MProgram);
+#if INTEL_CUSTOMIZATION
+    Plugin.call<PiApiKind::piextProgramCreateWithNativeHandle>(
+        InteropProgram, MContext->getHandleRef(), &MProgram);
+#endif // INTEL_CUSTOMIZATION
   } else
     Plugin.call<PiApiKind::piProgramRetain>(Program);
 
