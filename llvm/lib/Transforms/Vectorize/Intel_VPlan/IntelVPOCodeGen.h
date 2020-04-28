@@ -52,13 +52,8 @@ public:
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlan *Plan)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-        Legal(LVL), VLSA(VLSA), Plan(Plan), VPEntities(nullptr),
-        TripCount(nullptr), VectorTripCount(nullptr), Induction(nullptr),
-        VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        PreferredPeeling(Plan->getPreferredPeeling(VF)),
-        LoopVectorPreHeader(nullptr), LoopScalarPreHeader(nullptr),
-        LoopMiddleBlock(nullptr), LoopExitBlock(nullptr),
-        LoopVectorBody(nullptr), LoopScalarBody(nullptr), MaskValue(nullptr) {}
+        Legal(LVL), VLSA(VLSA), Plan(Plan), VF(VecWidth), UF(UnrollFactor),
+        Builder(Context), PreferredPeeling(Plan->getPreferredPeeling(VF)) {}
 
   ~VPOCodeGen() {}
 
@@ -383,15 +378,15 @@ private:
   const VPlan *Plan;
 
   // Loop entities, for correct reductions processing
-  const VPLoopEntityList *VPEntities;
+  const VPLoopEntityList *VPEntities = nullptr;
 
   // Loop trip count
-  Value *TripCount;
+  Value *TripCount = nullptr;
   // Vectorized loop trip count.
-  Value *VectorTripCount;
+  Value *VectorTripCount = nullptr;
 
   /// The new Induction variable which was added to the new block.
-  PHINode *Induction;
+  PHINode *Induction = nullptr;
 
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
@@ -445,19 +440,19 @@ private:
   // --- Vectorization state ---
 
   /// The vector-loop preheader.
-  BasicBlock *LoopVectorPreHeader;
+  BasicBlock *LoopVectorPreHeader = nullptr;
   /// The scalar-loop preheader.
-  BasicBlock *LoopScalarPreHeader;
+  BasicBlock *LoopScalarPreHeader = nullptr;
   /// Middle Block between the vector and the scalar.
-  BasicBlock *LoopMiddleBlock;
+  BasicBlock *LoopMiddleBlock = nullptr;
   /// The ExitBlock of the scalar loop.
-  BasicBlock *LoopExitBlock;
+  BasicBlock *LoopExitBlock = nullptr;
   /// The vector loop body.
-  BasicBlock *LoopVectorBody;
+  BasicBlock *LoopVectorBody = nullptr;
   /// The scalar loop body.
-  BasicBlock *LoopScalarBody;
+  BasicBlock *LoopScalarBody = nullptr;
   /// Current mask value for instructions being generated
-  Value *MaskValue;
+  Value *MaskValue = nullptr;
   /// A list of all bypass blocks. The first block is the entry of the loop.
   SmallVector<BasicBlock *, 4> LoopBypassBlocks;
 
