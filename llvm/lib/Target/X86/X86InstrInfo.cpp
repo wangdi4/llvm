@@ -2985,17 +2985,6 @@ unsigned X86::getSwappedVCMPImm(unsigned Imm) {
   return Imm;
 }
 
-bool X86InstrInfo::isUnpredicatedTerminator(const MachineInstr &MI) const {
-  if (!MI.isTerminator()) return false;
-
-  // Conditional branch is a special case.
-  if (MI.isBranch() && !MI.isBarrier())
-    return true;
-  if (!MI.isPredicable())
-    return true;
-  return !isPredicated(MI);
-}
-
 bool X86InstrInfo::isUnconditionalTailCall(const MachineInstr &MI) const {
   switch (MI.getOpcode()) {
   case X86::TCRETURNdi:

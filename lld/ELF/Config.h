@@ -169,6 +169,7 @@ struct Configuration {
 #endif // INTEL_CUSTOMIZATION
   bool ltoCSProfileGenerate;
   bool ltoDebugPassManager;
+  bool ltoEmitAsm;
   bool ltoNewPassManager;
   bool ltoUniqueBBSectionNames;
   bool ltoWholeProgramVisibility;
