@@ -110,6 +110,7 @@ public:
       : VPSE(&VPSE), DL(&DL) {}
   VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
+  VPlanPeelingAnalysis(VPlanPeelingAnalysis &&) = default;
 
   /// Find and analyze all the memory references in \p VPlan.
   /// This method must be called before selecting a peeling variant, and it

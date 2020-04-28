@@ -2626,7 +2626,13 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
         FPModel = Val;
         FPContract = "off";
         TrappingMath = true;
-      } else
+      }
+#if INTEL_CUSTOMIZATION
+      else if (Val.equals("source")) {
+        optID = options::OPT_fno_rounding_math;
+      }
+#endif // INTEL_CUSTOMIZATION
+      else
         D.Diag(diag::err_drv_unsupported_option_argument)
             << A->getOption().getName() << Val;
       break;
@@ -4785,7 +4791,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     else
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << A->getAsString(Args) << TripleStr;
-  #if INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   } else if (Args.hasArg(options::OPT__intel) && IsOpenMPDevice &&
              Triple.isSPIR()) {
     // -mlong-double-64 is set for spir64 offload
@@ -4800,6 +4806,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
        CmdArgs.push_back(Args.MakeArgString(
            Twine("-mGLOB_imf_attr=arch-consistency:") + A->getValue()));
   }
+
+  for (const Arg *A : Args.filtered(options::OPT_fimf_max_error_EQ)) {
+       CmdArgs.push_back(Args.MakeArgString(
+           Twine("-mGLOB_imf_attr=max-error:") + A->getValue()));
+  }
+
 #endif // INTEL_CUSTOMIZATION
 
   // Decide whether to use verbose asm. Verbose assembly is the default on

@@ -103,11 +103,14 @@
 // RUN: %clang_cl -### /Qfp-speculation:safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 // RUN: %clang -### -fp-speculation=safe -c %s 2>&1 | FileCheck --check-prefix=CHECK-SAFE %s
 // RUN: %clang -### -fp-model=fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
+// RUN: %clang -### -fp-model source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
+// RUN: %clang -### -fp-model=source -S %s 2>&1 | FileCheck --check-prefix=CHECK-SOURCE %s
 // RUN: %clang_cl -### -fp:fast -S %s 2>&1 | FileCheck --check-prefix=CHECK-FAST %s
 // CHECK-SAFE: "-ffp-exception-behavior=maytrap"
 // CHECK-STRICT: "-ffp-exception-behavior=strict"
 // CHECK-IGNORE: "-ffp-exception-behavior=ignore"
 // CHECK-FAST: "-ffp-contract=fast"
+// CHECK-SOURCE: "-fno-rounding-math"
 
 // RUN: %clang_cl -### -Qlong-double -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
 // LONG_DOUBLE: clang{{.*}} "-fintel-long-double-size=80"
@@ -115,6 +118,10 @@
 // RUN: %clang -### -fimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // CHECK-FIMF-ARCH: "-mGLOB_imf_attr=arch-consistency:none"
+
+// RUN: %clang -### -fimf-max-error=5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
+// RUN: %clang_cl -### /Qimf-max-error=5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
+// CHECK-FIMF-MAX: "-mGLOB_imf_attr=max-error:5"
 
 // Behavior with -femit-class-debug-always option maps to -fstandalone-debug
 // RUN: %clang -### -c -g %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND-DEFAULT %s

@@ -620,6 +620,7 @@ void initializeDPCPPKernelPostVecPass(PassRegistry&);
 void initializeDPCPPKernelWGLoopCreatorLegacyPassPass(PassRegistry&);
 void initializeDPCPPKernelAnalysisPass(PassRegistry&);
 void initializePhiCanonicalizationPass(PassRegistry&);
+void initializeRedundantPhiNodePass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

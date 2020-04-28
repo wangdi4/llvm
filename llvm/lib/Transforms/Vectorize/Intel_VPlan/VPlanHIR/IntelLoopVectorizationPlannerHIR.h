@@ -54,7 +54,8 @@ public:
                               const DataLayout *DL,
                               HIRVectorizationLegality *HIRLegal,
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA)
-      : LoopVectorizationPlanner(WRL, nullptr, nullptr, nullptr, TLI, TTI, DL,
+      : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr,
+                                 /*SE=*/nullptr, /*VPSE=*/nullptr, TLI, TTI, DL,
                                  nullptr, nullptr, VLSA),
         TheLoop(Lp), DDA(DDA), HIRLegality(HIRLegal) {}
 

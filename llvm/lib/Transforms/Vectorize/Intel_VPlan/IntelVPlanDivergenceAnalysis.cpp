@@ -139,6 +139,15 @@ SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 #undef Rnd
 #undef Undef
 
+static void assertOperandsDefined(const VPInstruction &I,
+                                  VPlanDivergenceAnalysis *DA) {
+  assert(none_of(I.operands(),
+                 [=](VPValue *Op) {
+                   return DA->getVectorShape(Op).isUndefined();
+                 }) &&
+         "Undefined shape not expected!");
+}
+
 void VPlanDivergenceAnalysis::markDivergent(const VPValue &DivVal) {
   // Community version also checks to see if DivVal is a function argument.
   // For VPlan, function arguments are ExternalDefs, so check that here instead.
@@ -151,10 +160,6 @@ void VPlanDivergenceAnalysis::markDivergent(const VPValue &DivVal) {
 // Mark UniVal as a value that is non-divergent.
 void VPlanDivergenceAnalysis::markUniform(const VPValue &UniVal) {
   updateVectorShape(&UniVal, getUniformVectorShape());
-}
-
-void VPlanDivergenceAnalysis::addUniformOverride(const VPValue &UniVal) {
-  UniformOverrides.insert(&UniVal);
 }
 
 unsigned VPlanDivergenceAnalysis::getTypeSizeInBytes(Type *Ty) const {
@@ -374,7 +379,7 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(
 
     // taint outside users of values carried by @DivLoop
     for (VPInstruction &I : *UserBlock) {
-      if (isAlwaysUniform(I) || isPinned(I))
+      if (isAlwaysUniform(I))
         continue;
 
       for (auto &Op : I.operands()) {
@@ -516,22 +521,6 @@ void VPlanDivergenceAnalysis::propagateLoopDivergence(
   }
 }
 
-#if INTEL_CUSTOMIZATION
-bool VPlanDivergenceAnalysis::pushMissingOperands(const VPInstruction &I) {
-  bool MissingOp = false;
-  for (const auto &Op : I.operands()) {
-    if (getVectorShape(Op).isUndefined()) {
-      auto *OpInst = dyn_cast<VPInstruction>(Op);
-      if (OpInst) {
-        pushToWorklist(*OpInst);
-        MissingOp = true;
-      }
-    }
-  }
-  return MissingOp;
-}
-#endif // INTEL_CUSTOMIZATION
-
 void VPlanDivergenceAnalysis::computeImpl() {
 
   // propagate divergence
@@ -539,20 +528,19 @@ void VPlanDivergenceAnalysis::computeImpl() {
     const VPInstruction &I = *NextI;
 
     // maintain uniformity of overrides
-    if ((isAlwaysUniform(I) || isPinned(I)) &&
-        !getVectorShape(&I).isUndefined())
+    if ((isAlwaysUniform(I)) && !getVectorShape(&I).isUndefined())
       continue;
 
     bool IsPhiNode = (I.getOpcode() == Instruction::PHI);
     bool ShapeUpdated = false;
     VPVectorShape NewShape;
     if (IsPhiNode) {
-      pushMissingOperands(I);
+      // Some operands might be undefined for header phis. That is fine, the phi
+      // will be re-visited during backpropagation.
       NewShape = computeVectorShape(&I);
       ShapeUpdated |= updateVectorShape(&I, NewShape);
-    } else if (pushMissingOperands(I))
-      continue;
-    else {
+    } else {
+      assertOperandsDefined(I, this);
       NewShape = computeVectorShape(&I);
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     }
@@ -573,9 +561,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
 }
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
-
-  if (UniformOverrides.find(&V) != UniformOverrides.end() ||
-      isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) || isa<VPExternalDef>(V))
+  if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) || isa<VPExternalDef>(V))
     return true;
 
   // TODO: We have a choice on how to handle functions such as get_global_id().
@@ -989,12 +975,6 @@ VPlanDivergenceAnalysis::computeVectorShapeForGepInst(const VPInstruction *I) {
 
 VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForPhiNode(const VPPHINode *Phi) {
-
-  // Loop header PHI nodes were already analyzed during initialization.
-  if (RegionLoop && Phi->getParent() == RegionLoop->getHeader() &&
-      isPinned(*Phi))
-    return getVectorShape(Phi);
-
   // Incoming value shapes could be uniform, but the parent of the phi node may
   // be reached through a divergent branch. If so, the phi is divergent and
   // return random shape.
@@ -1273,164 +1253,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
 
   return NewShape;
 }
-
-void VPlanDivergenceAnalysis::initializePhiShapes() {
-  // Initialize all outer loop phi induction nodes using the appropriate
-  // strides. We could also initialize VPExternalDefs to uniform here, but
-  // we can do that only the fly in computeVectorShapes() to avoid an
-  // additional iteration over the instructions in the VPlan.
-  for (const auto &Phi : RegionLoop->getHeader()->getVPPhis()) {
-    VPVectorShape NewShape = VPVectorShape::getUndef();
-    auto getInduction = [](const auto &Phi) -> VPInductionInit * {
-      for (auto *PhiArg : Phi.incoming_values())
-        if (isa<VPInductionInit>(PhiArg))
-          return cast<VPInductionInit>(PhiArg);
-      return nullptr;
-    };
-
-    if (const VPInductionInit *Init = getInduction(Phi))
-      NewShape = getVectorShape(Init);
-    else
-      // To be conservative, we mark phi nodes with random shape unless we
-      // know the phi is an induction. This matches the divergent property
-      // set for outer loop phi nodes just before this step. See beginning
-      // of compute().
-      NewShape = getRandomVectorShape();
-
-    setPinnedShape(Phi, NewShape);
-  }
-}
-
-/// Set shapes for instructions with loop-invariant operands.
-void VPlanDivergenceAnalysis::initializeShapesForConstOpInsts() {
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(RegionLoop->getHeader());
-  for (VPBasicBlock *VPBB : make_range(RPOT.begin(), RPOT.end())) {
-    for (auto &VPInst : *VPBB) {
-      // If any operands of the instruction are always known to be
-      // uniform, set the shape as uniform. This will also cover cases
-      // where some instructions have all uniform operands that are
-      // external definitions and for which shapes will not be defined
-      // during divergence propagation. I.e., shape propagation happens
-      // through def/use chains and these instructions are not using
-      // other values defined within the region. Thus, these instructions
-      // will never be "seen" while propagating divergence and shape
-      // information and would result in shapes being undefined for them.
-      if (isa<VPBranchInst>(&VPInst) && VPInst.getNumOperands() == 0) {
-        updateVectorShape(&VPInst, getUniformVectorShape());
-        continue;
-      }
-      unsigned NumOps = VPInst.getNumOperands();
-      bool HasUniformShapedOperand = false;
-      for (unsigned i = 0; i < NumOps; i++) {
-        const VPValue *Op = VPInst.getOperand(i);
-        if (isAlwaysUniform(*Op)) {
-          HasUniformShapedOperand = true;
-          VPVectorShape NewShape = getUniformVectorShape();
-          updateVectorShape(Op, NewShape);
-        }
-      }
-      // If any operand has changed shape, push that instruction to the
-      // Worklist so that its shape is evaluated.
-      if (HasUniformShapedOperand)
-        pushToWorklist(VPInst);
-    }
-  }
-}
 #endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-
-// Push users of instructions with non-deterministic results on to the
-// Worklist. These include instructions which can have side-effects and/or
-// instructions with no input operands.
-void VPlanDivergenceAnalysis::pushNonDeterministicInsts() {
-  // Collect instructions that may possibly have non-deterministic result.
-  for (VPBasicBlock *VPBB : RegionLoop->getBlocks()) {
-    for (const auto &VPInst : *VPBB)
-      if (!hasDeterministicResult(VPInst) || VPInst.getNumOperands() == 0)
-        pushToWorklist(VPInst);
-    // We should set appropriate shape on Block CondBit.
-    if (auto *CB = VPBB->getCondBit()) {
-      if (isAlwaysUniform(*CB)) {
-        VPVectorShape NewShape = getUniformVectorShape();
-        updateVectorShape(CB, NewShape);
-      } else
-        markDivergent(*CB);
-    }
-  }
-}
-
-// Mark Loop-exit condition as uniforms.
-void VPlanDivergenceAnalysis::markLoopExitsAsUniforms() {
-  // After the scalar remainder loop is extracted, the loop exit condition will
-  // be uniform. Source of code divergence here away from community - no
-  // getTerminator() interface.
-  VPBasicBlock *ExitingBlock = RegionLoop->getExitingBlock();
-  if (ExitingBlock) {
-    auto LoopExitCond = ExitingBlock->getCondBit();
-    assert(LoopExitCond && "Loop exit condition not found");
-    if (LoopExitCond) {
-      addUniformOverride(*LoopExitCond);
-      VPVectorShape NewShape = getUniformVectorShape();
-      updateVectorShape(LoopExitCond, NewShape);
-    }
-  }
-}
-
-// Mark instructions in the Preheader and other non-loop blocks with
-// appropriate shapes. These instructions are not visited during the core
-// algorithm.
-void VPlanDivergenceAnalysis::initializeShapesForLoopInvariantCode() {
-
-  // Mark instructions in the Preheader with appropriate shapes.
-  VPBasicBlock *LoopPreheader = RegionLoop->getLoopPreheader();
-  assert(LoopPreheader && "Expect a valid Loop preheader.");
-  for (const auto &VPInst : *LoopPreheader) {
-    // First mark the shapes of the operands as 'Uniform' if they are so.
-    for (const auto *VPOper : VPInst.operands())
-      if (isAlwaysUniform(*VPOper))
-        updateVectorShape(VPOper, getUniformVectorShape());
-
-    // Compute the vector-shape of the Instruction and push the users of these
-    // instructions to the Worklist.
-    auto NewShape = computeVectorShape(&VPInst);
-    updateVectorShape(&VPInst, NewShape);
-    pushUsers(VPInst);
-  }
-
-  // Mark instructions in the PostExit block with appropriate shapes.
-  if (VPBasicBlock *LoopExit = RegionLoop->getUniqueExitBlock()) {
-    for (const auto &VPInst : *LoopExit)
-      updateVectorShape(&VPInst, computeVectorShape(&VPInst));
-  }
-}
-
-#endif // INTEL_CUSTOMIZATION
-void VPlanDivergenceAnalysis::init() {
-#if INTEL_CUSTOMIZATION
-  // We are running DA after materialization of VPEntities.
-  // Set shapes for instructions in the non-loop blocks.
-  initializeShapesForLoopInvariantCode();
-#endif // INTEL_CUSTOMIZATION
-
-  // Push instructions with non-deterministic results to Worklist.
-  pushNonDeterministicInsts();
-
-  // Mark the loop-exits are uniform.
-  markLoopExitsAsUniforms();
-
-  // Initialize the shapes of the Phis corresponding to the loop being
-  // vectorized.
-  initializePhiShapes();
-
-  // Initialize the shapes of operands of instructions which have constant or
-  // uniform operands.
-  initializeShapesForConstOpInsts();
-
-  // Push users of pinned values to the Worklist.
-  for (auto *PinnedVal : Pinned)
-    pushUsers(*PinnedVal);
-}
 
 void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,

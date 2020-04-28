@@ -248,6 +248,9 @@ def _SLASH_Qimf_arch_consistency_EQ : CLJoined<"Qimf-arch-consistency=">,
   Alias<fimf_arch_consistency_EQ>,HelpText<"Ensures that the math library "
   "functions produce consistent results across different implementations "
   "of the same architecture">;
+def _SLASH_Qimf_max_error_EQ : CLJoined<"Qimf-max-error=">,
+  Alias<fimf_max_error_EQ>,HelpText<"defines the maximum allowable relative "
+  "error, measured in ulps, for math library function results">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

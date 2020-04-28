@@ -1,4 +1,4 @@
-//==--- DPCPPKernelAnalysis.h - Detect barriers in DPCPP kernels- C++ -*---==//
+//==--- DPCPPKernelAnalysis.cpp - Detect barriers in DPCPP kernels- C++ -*--==//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
 //

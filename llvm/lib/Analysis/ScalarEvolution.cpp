@@ -6755,28 +6755,12 @@ bool ScalarEvolution::hasWrapSafeUses(const Value *Val,
   return true;
 }
 
-static bool foundSubIntrinsic(const Loop *Lp) {
-
-  if (!Lp)
+static bool isFortranLang(Function &F) {
+  if (!F.hasFnAttribute("intel-lang"))
     return false;
 
-  unsigned Count = 0;
-  bool Found = false;
-
-  for (auto *BB : Lp->getBlocks()) {
-    if (Found || Count == 3)
-      break;
-
-    for (auto &Inst : *BB) {
-      if (isa<SubscriptInst>(Inst)) {
-        Found = true;
-        break;
-      }
-    }
-    ++Count;
-  }
-
-  return Found;
+  StringRef Lang = F.getFnAttribute("intel-lang").getValueAsString();
+  return (Lang == "fortran");
 }
 
 bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp) const {
@@ -6787,7 +6771,7 @@ bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp) const {
 
   // Ugly temporary hack to skip C/C++ cases to avoid performance regressions.
   // TODO: remove hack.
-  if (!PrintHIRMode && !foundSubIntrinsic(HIRInfo.getOutermostLoop()))
+  if (!isFortranLang(F))
     return false;
 
   return hasWrapSafeUses(BinOp->getOperand(0), BinOp) &&

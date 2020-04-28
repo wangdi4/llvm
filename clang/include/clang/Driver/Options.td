@@ -1055,6 +1055,7 @@ def ffp_exception_behavior_EQ : Joined<["-"], "ffp-exception-behavior=">, Group<
 #if INTEL_CUSTOMIZATION
 def fp_model_EQ : Joined<["-"], "fp-model=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
+def fp_model : Separate<["-"], "fp-model">, Alias<ffp_model_EQ>;
 def fp_speculation_EQ : Joined<["-"], "fp-speculation=">,Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 #endif // INTEL_CUSTOMIZATION
@@ -1569,6 +1570,10 @@ def fimf_arch_consistency_EQ : Joined<["-"],"fimf-arch-consistency=">,
   Group<f_Group>, Flags<[DriverOption]>, HelpText<"Ensures that "
   "the math library functions produce consistent results across different "
   "implementations of the same architecture">;
+def fimf_max_error_EQ : Joined<["-"],"fimf-max-error=">,
+  Group<f_Group>, Flags<[DriverOption]>, HelpText<"defines the "
+  "maximum allowable relative error, measured in ulps, for math "
+  "library function results">;
 #endif // INTEL_CUSTOMIZATION
 def fmodules_ts : Flag <["-"], "fmodules-ts">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Enable support for the C++ Modules TS">;

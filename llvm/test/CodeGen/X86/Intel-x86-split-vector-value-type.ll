@@ -69,6 +69,30 @@ entry:
   ret <32 x i1> %res
 }
 
+; CMPLRLLVM-18912: The splitting of %x1.tr generates two shufflevector instructions and InstMap
+; contains an element map %x1.tr to those shufflevector instructions. Then when updateInstChain
+; method try to "update" %x1 to trunc instruction, a shufflvector instruction should be generated
+; to "fuse" split instructions of %x1. This requires updateInstChain method should check if the
+; instruction being updated is supported before checking InstMap. Otherwise "fuse" instruction
+; won't be generated and this causes assertion fail in eraseInstSet method.
+define <32 x i1> @unsupportedInstSplitTest(<32 x i64>* %x0_ptr) {
+; CHECK-LABEL: unsupportedInstSplitTest
+; CHECK:       %fused{{.*}} = shufflevector <16 x i64> %x1.l, <16 x i64> %x1.h, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+; CHECK-NEXT:  %x1.tr = trunc <32 x i64> %fused to <32 x i32>
+; CHECK-NEXT:  %x1.tr.l = shufflevector <32 x i32> %x1.tr, <32 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT:  %x1.tr.h = shufflevector <32 x i32> %x1.tr, <32 x i32> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+entry:
+  %x0 = load <32 x i64>, <32 x i64>* %x0_ptr
+  %x1 = add <32 x i64> %x0, <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
+  %x1.tr = trunc <32 x i64> %x1 to <32 x i32>
+  %cmp0 = icmp sgt <32 x i32> %x1.tr, <i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  %tmp0 = and <32 x i1> %cmp0, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %cmp1 = icmp sgt <32 x i64> %x1, <i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0>
+  %tmp1 = and <32 x i1> %cmp1, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %res = add <32 x i1> %tmp0, %cmp1
+  ret <32 x i1> %res
+}
+
 define <32 x i1> @insertelementSplitTest(<32 x i32>* %data_ptr, i32 %val1, i32 %val2) {
 ; CHECK-LABEL:  insertelementSplitTest
 ; CHECK:        %x0.h = insertelement <16 x i32> %data.h, i32 %val1, i32 4
