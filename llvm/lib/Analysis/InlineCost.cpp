@@ -3189,6 +3189,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   /// Attempt to evaluate indirect calls to boost its inline cost.
   const bool BoostIndirectCalls;
 
+  /// Ignore the threshold when finalizing analysis.
+  const bool IgnoreThreshold;
+
   /// Inlining cost measured in abstract units, accounts for all the
   /// instructions expected to be executed for a given function invocation.
   /// Instructions that are statically proven to be dead based on call-site
@@ -3418,6 +3421,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     else if (NumVectorInstructions <= NumInstructions / 2)
       Threshold -= VectorBonus / 2;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (NumVectorInstructions > NumInstructions / 10)
       YesReasonVector.push_back(InlrVectorBonus);
@@ -3430,11 +3434,17 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       return InlineResult::failure("not profitable");
     return InlineResult::success();
 #endif // INTEL_CUSTOMIZATION
+=======
+    if (IgnoreThreshold || Cost < std::max(1, Threshold))
+      return InlineResult::success();
+    return InlineResult::failure("Cost over threshold.");
+>>>>>>> 8a4013ed38c6eee730dd6781a7c3dfd2b39e7e80
   }
 
   bool shouldStop() override {
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (Cost >= Threshold) {
       if (!ComputeFullInlineCost)
@@ -3446,6 +3456,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     }
     return false;
 #endif // INTEL_CUSTOMIZATION
+=======
+    return !IgnoreThreshold && Cost >= Threshold && !ComputeFullInlineCost;
+>>>>>>> 8a4013ed38c6eee730dd6781a7c3dfd2b39e7e80
   }
 
   void onLoadEliminationOpportunity() override {
@@ -3617,6 +3630,7 @@ public:
       std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
       ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE, Function &Callee,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       CallBase &Call, TargetLibraryInfo *TLI,
       InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI,
@@ -3624,16 +3638,24 @@ public:
       SmallSet<Function *, 20> *FForDTrans, const InlineParams &Params,
       bool BoostIndirect = true)
 #endif // INTEL_CUSTOMIZATION
+=======
+      CallBase &Call, const InlineParams &Params, bool BoostIndirect = true,
+      bool IgnoreThreshold = false)
+>>>>>>> 8a4013ed38c6eee730dd6781a7c3dfd2b39e7e80
       : CallAnalyzer(TTI, GetAssumptionCache, GetBFI, PSI, ORE, Callee, Call),
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
         Params(Params), Threshold(Params.DefaultThreshold),
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         BoostIndirectCalls(BoostIndirect),
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         FuncsForDTrans(FForDTrans), SubtractedBonus(false) {}
 #endif // INTEL_CUSTOMIZATION
+=======
+        BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold) {}
+>>>>>>> 8a4013ed38c6eee730dd6781a7c3dfd2b39e7e80
 
   /// Annotation Writer for cost annotation
   CostAnnotationWriter Writer;
@@ -5378,10 +5400,38 @@ InlineCost llvm::getInlineCost(
 #endif // INTEL_CUSTOMIZATION
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 Optional<std::pair<InlineResult, InlineReportTypes::InlineReason>>
 llvm::getAttributeBasedInliningDecision(
 #endif // INTEL_CUSTOMIZATION
+=======
+Optional<int> getInliningCostEstimate(
+    CallBase &Call, TargetTransformInfo &CalleeTTI,
+    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
+  const InlineParams Params = {/* DefaultThreshold*/ 0,
+                               /*HintThreshold*/ {},
+                               /*ColdThreshold*/ {},
+                               /*OptSizeThreshold*/ {},
+                               /*OptMinSizeThreshold*/ {},
+                               /*HotCallSiteThreshold*/ {},
+                               /*LocallyHotCallSiteThreshold*/ {},
+                               /*ColdCallSiteThreshold*/ {},
+                               /* ComputeFullInlineCost*/ true};
+
+  InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
+                            *Call.getCalledFunction(), Call, Params, true,
+                            /*IgnoreThreshold*/ true);
+  auto R = CA.analyze();
+  if (!R.isSuccess())
+    return None;
+  return CA.getCost();
+}
+
+Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
+>>>>>>> 8a4013ed38c6eee730dd6781a7c3dfd2b39e7e80
     CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
 
