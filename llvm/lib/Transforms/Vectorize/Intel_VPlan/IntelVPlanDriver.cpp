@@ -271,77 +271,73 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlan *Plan = LVP.getVPlanForVF(VF);
   LVP.unroll(*Plan, UF);
 
-  bool ModifiedLoop = false;
-  if (!DisableCodeGen) {
-    if (VPlanVectCand)
-      LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: "
-                        << Fn.getName() << "\n");
+  if (DisableCodeGen)
+    return false;
 
-    VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF,
-                        &LVL, &VLSA, Plan);
-    VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
-    if (VF != 1) {
-      // Run VLS analysis before IR for the current loop is modified.
-      VCodeGen.getVLS()->getOVLSMemrefs(LVP.getVPlanForVF(VF), VF);
-
-      LVP.executeBestPlan(VCodeGen);
-
-      // Strip the directives once the loop is vectorized. In stress testing,
-      // WRLp is null and no directives need deletion.
-      if (WRLp)
-        VPOUtils::stripDirectives(WRLp);
-
-      CandLoopsVectorized++;
-      ModifiedLoop = true;
-      addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
-
-      // Emit kernel optimization remarks.
-      if (isEmitKernelOptRemarks) {
-        // TODO: Collect remarks about Gather/Scatter counts
-        // during CG itself using VPlanOptReportBuilder framework.
-        unsigned GatherCount = 0;
-        unsigned ScatterCount = 0;
-        for (auto Block : VCodeGen.getMainLoop()->getBlocks())
-          if (auto BB = dyn_cast<BasicBlock>(Block))
-            for (auto &Inst : *BB)
-              if (auto IntrinInst = dyn_cast<IntrinsicInst>(&Inst)) {
-                Intrinsic::ID ID = IntrinInst->getIntrinsicID();
-                if (ID == Intrinsic::masked_gather)
-                  GatherCount++;
-                if (ID == Intrinsic::masked_scatter)
-                  ScatterCount++;
-              }
-
-        OptimizationRemark R("VPlan Vectorization", "Vectorized", &Fn);
-        if (VectorVariant::isVectorVariant(Fn.getName()))
-          R << ore::NV("Remark",
-                       "Kernel was " + Twine(VF).str() + "-way vectorized");
-        else
-          R << ore::NV("Remark",
-                       "Loop was " + Twine(VF).str() + "-way vectorized");
-        if (GatherCount > 0)
-          R << ore::NV("Remark", Twine(GatherCount).str() + " gathers");
-        if (ScatterCount > 0)
-          R << ore::NV("Remark", Twine(ScatterCount).str() + " scatters");
-
-        OptimizationRemarkEmitter &ORE = WR->getORE();
-        ORE.emit(R);
-      }
-    }
-  }
-
-  // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized
-  // TODO: Emit reason for bailing out
-  if (!ModifiedLoop)
+  if (VF == 1) {
+    // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized.
+    // TODO: Emit reason for bailing out.
     VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
-
-  if (ModifiedLoop) {
-    DT->recalculate(Fn);
-    LI->releaseMemory();
-    LI->analyze(*DT);
+    return false;
   }
 
-  return ModifiedLoop;
+  LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
+                    << "\n");
+
+  VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF, &LVL,
+                      &VLSA, Plan);
+  VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
+
+  // Run VLS analysis before IR for the current loop is modified.
+  VCodeGen.getVLS()->getOVLSMemrefs(LVP.getVPlanForVF(VF), VF);
+
+  LVP.executeBestPlan(VCodeGen);
+
+  // Strip the directives once the loop is vectorized. In stress testing,
+  // WRLp is null and no directives need deletion.
+  if (WRLp)
+    VPOUtils::stripDirectives(WRLp);
+
+  CandLoopsVectorized++;
+  addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
+
+  // Emit kernel optimization remarks.
+  if (isEmitKernelOptRemarks) {
+    // TODO: Collect remarks about Gather/Scatter counts during CG itself using
+    // VPlanOptReportBuilder framework.
+    unsigned GatherCount = 0;
+    unsigned ScatterCount = 0;
+    for (auto Block : VCodeGen.getMainLoop()->getBlocks())
+      if (auto BB = dyn_cast<BasicBlock>(Block))
+        for (auto &Inst : *BB)
+          if (auto IntrinInst = dyn_cast<IntrinsicInst>(&Inst)) {
+            Intrinsic::ID ID = IntrinInst->getIntrinsicID();
+            if (ID == Intrinsic::masked_gather)
+              GatherCount++;
+            if (ID == Intrinsic::masked_scatter)
+              ScatterCount++;
+          }
+
+    OptimizationRemark R("VPlan Vectorization", "Vectorized", &Fn);
+    if (VectorVariant::isVectorVariant(Fn.getName()))
+      R << ore::NV("Remark",
+                   "Kernel was " + Twine(VF).str() + "-way vectorized");
+    else
+      R << ore::NV("Remark", "Loop was " + Twine(VF).str() + "-way vectorized");
+    if (GatherCount > 0)
+      R << ore::NV("Remark", Twine(GatherCount).str() + " gathers");
+    if (ScatterCount > 0)
+      R << ore::NV("Remark", Twine(ScatterCount).str() + " scatters");
+
+    OptimizationRemarkEmitter &ORE = WR->getORE();
+    ORE.emit(R);
+  }
+
+  DT->recalculate(Fn);
+  LI->releaseMemory();
+  LI->analyze(*DT);
+
+  return true;
 }
 
 #if INTEL_CUSTOMIZATION
