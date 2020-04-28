@@ -1101,7 +1101,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     assert(VTCCalc->getUF() == UF && "Mismatch in UFs!");
     return;
   }
-  case VPInstruction::Terminator:
+  case Instruction::Br:
     // Do nothing.
     return;
   default: {

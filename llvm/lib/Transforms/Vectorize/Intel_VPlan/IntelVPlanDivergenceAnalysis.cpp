@@ -555,7 +555,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
       continue;
 
     bool IsPhiOrTerminatorNode = I.getOpcode() == Instruction::PHI ||
-                                 I.getOpcode() == VPInstruction::Terminator;
+                                 I.getOpcode() == Instruction::Br;
     bool ShapeUpdated = false;
     VPVectorShape NewShape;
     if (IsPhiOrTerminatorNode) {
@@ -1349,11 +1349,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = computeVectorShapeForSelectInst(I);
   else if (Opcode == Instruction::Call)
     NewShape = computeVectorShapeForCallInst(I);
-  else if (Opcode == Instruction::Br)
-    NewShape = (I->getNumOperands() == 0)
-                   ? getUniformVectorShape()
-                   : getObservedShape(ParentBB, *I->getOperand(0));
-  else if (Instruction::isUnaryOp(Opcode))
+  else if (Opcode == Instruction::Br) {
+    VPValue *CondBit = cast<VPTerminator>(I)->getCondBit();
+    NewShape = !CondBit ? getUniformVectorShape()
+                        : getObservedShape(ParentBB, *CondBit);
+  } else if (Instruction::isUnaryOp(Opcode))
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
@@ -1382,11 +1382,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::HIRCopy)
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
-  else if (Opcode == VPInstruction::Terminator) {
-    const VPValue *CondBit = cast<VPTerminator>(I)->getCondBit();
-    NewShape = !CondBit ? getUniformVectorShape()
-                        : getObservedShape(ParentBB, *CondBit);
-  } else if (Opcode >= VPInstruction::SMax && Opcode <= VPInstruction::FMin) {
+  else if (Opcode >= VPInstruction::SMax && Opcode <= VPInstruction::FMin) {
     LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
     // FIXME: Compute divergence based on the operands.
     NewShape = getRandomVectorShape();

@@ -3416,7 +3416,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     widenLoopEntityInst(VPInst);
     return;
 
-  case VPInstruction::Terminator:
+  case Instruction::Br:
     // Do nothing.
     return;
   }
@@ -4154,20 +4154,19 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   LLVM_DEBUG(dbgs() << "Vectorizing: ");
   LLVM_DEBUG(VPInst->dump());
 
-  if (auto Branch = dyn_cast<VPBranchInst>(VPInst)) {
-    assert(Branch->getHLGoto() && "For HIR VPBranchInst must have HLGoto.");
-    const HLGoto *HGoto = Branch->getHLGoto();
-    assert(isSearchLoop() && HGoto->isEarlyExit(getOrigLoop()) &&
-           "Only early exit gotos expected!");
-    // FIXME: Temporary support for last value computation of live-outs in the
-    // early exit branch. 'createNonLinearLiveOutsForEE' introduces the last
-    // value computation instructions before the goto instruction for the
-    // reaching definitions of the live-outs.
-    handleNonLinearEarlyExitLiveOuts(HGoto);
+  if (auto Branch = dyn_cast<VPTerminator>(VPInst))
+    if (const HLGoto *HGoto = Branch->getHLGoto()) {
+      assert(isSearchLoop() && HGoto->isEarlyExit(getOrigLoop()) &&
+             "Only early exit gotos expected!");
+      // FIXME: Temporary support for last value computation of live-outs in the
+      // early exit branch. 'createNonLinearLiveOutsForEE' introduces the last
+      // value computation instructions before the goto instruction for the
+      // reaching definitions of the live-outs.
+      handleNonLinearEarlyExitLiveOuts(HGoto);
 
-    addInst(HGoto->clone(), nullptr);
-    return;
-  }
+      addInst(HGoto->clone(), nullptr);
+      return;
+    }
 
   if (VPInst->isUnderlyingIRValid()) {
     // Master VPInstruction with valid HIR.

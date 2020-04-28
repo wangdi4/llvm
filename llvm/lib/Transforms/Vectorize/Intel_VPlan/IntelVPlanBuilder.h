@@ -217,9 +217,9 @@ public:
     return Instr;
   }
 
-  // Create dummy VPBranchInst instruction.
-  VPBranchInst *createBr(Type *BaseTy) {
-    VPBranchInst *Instr = new VPBranchInst(BaseTy);
+  // Create dummy VPTerminator instruction.
+  VPTerminator *createTerminator(Type *BaseTy) {
+    VPTerminator *Instr = new VPTerminator(BaseTy);
     if (BB)
       BB->insert(Instr, InsertPt);
     return Instr;

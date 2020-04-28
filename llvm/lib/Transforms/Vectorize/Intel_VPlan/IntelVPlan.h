@@ -281,7 +281,6 @@ class VPInstruction : public VPUser,
   friend class HIRSpecifics;
   friend class VPBasicBlock;
   friend class VPBuilder;
-  friend class VPBranchInst;
   friend class VPBuilderHIR;
   friend class VPDecomposerHIR;
   // To get underlying HIRData until we have proper VPType.
@@ -300,6 +299,7 @@ class VPInstruction : public VPUser,
   friend class VPValueMapper;
   friend class VPLoopEntityList;
   friend class VPValue;
+  friend class VPTerminator;
   // FIXME: This is only needed to support buggy mixed HIR codegen. Once we
   // retire it and use full VPValue-based codegen, underlying IR copying won't
   // be necessary.
@@ -697,7 +697,6 @@ public:
       HIRCopy,
       OrigTripCountCalculation,
       VectorTripCountCalculation,
-      Terminator,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -1004,17 +1003,20 @@ private:
   }
 };
 
-/// Concrete class to represent branch instruction in VPlan.
-class VPBranchInst : public VPInstruction {
+/// Concrete class to represent terminator instruction in VPlan.
+class VPTerminator : public VPInstruction {
 public:
-  explicit VPBranchInst(Type *BaseTy)
-      : VPInstruction(Instruction::Br, BaseTy, {}) {}
+  explicit VPTerminator(Type *BaseTy)
+    : VPInstruction(Instruction::Br, BaseTy, {}) {}
 
   const loopopt::HLGoto *getHLGoto() const {
-    return cast<loopopt::HLGoto>(HIR.getUnderlyingNode());
+    loopopt::HLNode *Node = HIR.getUnderlyingNode();
+    if (!Node)
+      return nullptr;
+    return cast<loopopt::HLGoto>(Node);
   }
 
-  /// Return target block of unconditional VPBranchInst. If VPBranchInst was
+  /// Return target block of unconditional VPTerminator. If VPTerminator was
   /// created for HLGoto, return its external target block or nullptr otherwise.
   const BasicBlock *getTargetBlock() const {
     if (getHLGoto())
@@ -1029,25 +1031,6 @@ public:
 
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == Instruction::Br;
-  }
-
-  virtual VPBranchInst *cloneImpl() const final {
-    return new VPBranchInst(getType());
-  }
-};
-
-/// Concrete class to represent terminator instruction in VPlan.
-class VPTerminator : public VPInstruction {
-public:
-  explicit VPTerminator(Type *BaseTy)
-    : VPInstruction(VPInstruction::Terminator, BaseTy, {}) {}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  static inline bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == VPInstruction::Terminator;
   }
   static bool classof(const VPUser *U) {
     return isa<VPInstruction>(U) && classof(cast<VPInstruction>(U));

@@ -81,10 +81,10 @@ public:
     return VPBuilder::createPhiInstruction(BaseTy);
   }
 
-  // Construct VPBranchInst instruction from a \p Goto.
-  VPBranchInst *createBr(Type *BaseTy, loopopt::HLGoto *Goto) {
-    assert(Goto && "HLGoto must be passed to construct VPBranchInst.");
-    VPBranchInst *BranchInst = VPBuilder::createBr(BaseTy);
+  // Construct VPTerminator instruction from a \p Goto.
+  VPTerminator *createTerminator(Type *BaseTy, loopopt::HLGoto *Goto) {
+    assert(Goto && "HLGoto must be passed to construct VPTerminator.");
+    VPTerminator *BranchInst = VPBuilder::createTerminator(BaseTy);
     BranchInst->HIR.setUnderlyingNode(Goto);
     BranchInst->HIR.setValid();
     return BranchInst;

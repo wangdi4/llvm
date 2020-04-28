@@ -405,8 +405,7 @@ void VPInstruction::print(raw_ostream &O,
       O << "[DA: Uni] ";
   }
 
-  if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this) &&
-      !isa<VPTerminator>(this)) {
+  if (getOpcode() != Instruction::Store && !isa<VPTerminator>(this)) {
     printAsOperand(O);
     O << " = ";
   }
@@ -424,9 +423,6 @@ void VPInstruction::print(raw_ostream &O,
   switch (getOpcode()) {
 #if INTEL_CUSTOMIZATION
   case Instruction::Br:
-    cast<VPBranchInst>(this)->print(O);
-    return;
-  case VPInstruction::Terminator:
     cast<VPTerminator>(this)->print(O);
     return;
   case VPInstruction::Blend: {
@@ -928,18 +924,6 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBranchInst::print(raw_ostream &O) const {
-  O << "br ";
-  const BasicBlock *BB = getTargetBlock();
-  if (BB)
-    O << BB->getName();
-  else
-    // FIXME: Call HGoto print.
-    O << "<External Basic Block>";
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
 void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan) {
   addOperand(IncomingVal);
   if (!BlockPred && Plan) {
@@ -976,11 +960,19 @@ void VPTerminator::print(raw_ostream &O) const {
     CondBit->printAsOperand(O);
     O << ", ";
   }
-  for (auto It = succ_begin(); It != succ_end(); It++) {
-    if (It != succ_begin())
-      O << ", ";
-    O << (*It)->getName();
+  if (getHLGoto()) {
+    if (const BasicBlock *BB = getTargetBlock())
+      O << BB->getName();
+    else
+      // FIXME: Call HGoto print.
+      O << "<External Basic Block>";
   }
+  else
+    for (auto It = succ_begin(); It != succ_end(); It++) {
+      if (It != succ_begin())
+        O << ", ";
+      O << (*It)->getName();
+    }
 }
 
 void VPCallInstruction::print(raw_ostream &O) const {
