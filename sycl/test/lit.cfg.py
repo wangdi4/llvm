@@ -81,6 +81,9 @@ def getAdditionalFlags():
     if backend is not None:
         if backend == 'openmp':
             flags += ['-DDPCPP_HOST_DEVICE_OPENMP=1', '-fopenmp']
+        elif backend == 'openmp-perf':
+            flags += ['-DDPCPP_HOST_DEVICE_PERF_NATIVE=1', '-fiopenmp', \
+                      '-mllvm', '-enable-dpcpp-kernel-transforms', '-O3']
         elif backend == 'serial':
             pass
         else:
