@@ -99,6 +99,11 @@ static cl::opt<unsigned> VPlanVectCand(
 static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
+static cl::opt<bool> VPlanPrintAfterSingleTripCountOpt(
+    "vplan-print-after-single-trip-count-opt", cl::init(false),
+    cl::desc("Print after backedge branch rewrite for single trip count vector "
+             "loop"));
+
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
 /// Check whether the edge (\p SrcBB, \p DestBB) is a backedge according to LI.
@@ -272,6 +277,37 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     UF = 1;
   VPlan *Plan = LVP.getVPlanForVF(VF);
   LVP.unroll(*Plan, UF);
+
+  // Workaround for kernel vectorization. Kernel vectorization is done through
+  // loop creation inside vec-clone) followed by loop vectorization. That
+  // leaves a loop CFG that can't be optimized away (even though it will be
+  // 1-iteration loop) without scheduling indvars-simplify or unroller later in
+  // the pipeline. We don't want to spend compile-time on these passes so do
+  // some special casing here for a vector loop that will result in exactly one
+  // iteration.
+  //
+  // For ahead of time calculation a better approach is to perform small-trip
+  // count loop-unroll which won't be limited to exactly one iteration. For
+  // kernel vectorization the long-term plan would be to import the region
+  // itself into VPlan without artificial loop being created at all.
+  if (auto *TripCount = dyn_cast<SCEVConstant>(PSE.getBackedgeTakenCount()))
+    if ((VF * UF - 1) == TripCount->getAPInt()) {
+      VPLoop *Lp = (*Plan->getVPLoopInfo()->begin());
+      VPBasicBlock *Latch = Lp->getLoopLatch();
+      VPBasicBlock *Header = Lp->getHeader();
+      bool BackedgeOnTrue = Latch->getSuccessors()[0] == Header;
+      auto &Context = Fn.getContext();
+      auto *Cond = BackedgeOnTrue ? ConstantInt::getFalse(Context)
+                                  : ConstantInt::getTrue(Context);
+      auto *VPCond = Plan->getVPConstant(Cond);
+      Latch->setCondBit(VPCond);
+      if (VPlanPrintAfterSingleTripCountOpt) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        outs() << "VPlan after single iteration optimization:\n";
+        Plan->dump(outs(), true /* Print DA */);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+      }
+    }
 
   if (DisableCodeGen)
     return false;
