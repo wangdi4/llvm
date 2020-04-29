@@ -189,6 +189,9 @@ def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
 def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
+def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,
+  HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
+def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_openmp_simd>;
 def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;
 def _SLASH_Qopenmp_targets_COL : CLCommaJoinedNoDpcpp<"Qopenmp-targets:">,

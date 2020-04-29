@@ -1871,6 +1871,11 @@ def fno_openmp_optimistic_collapse : Flag<["-"], "fno-openmp-optimistic-collapse
 #if INTEL_CUSTOMIZATION
 def static_openmp: Flag<["-"], "static-openmp">, Flags<[DpcppUnsupported]>,
   HelpText<"Use the static host OpenMP runtime while linking.">;
+def qopenmp_simd: Flag<["-"], "qopenmp-simd">, Alias<fopenmp_simd>,
+  Flags<[DpcppUnsupported]>, HelpText<" Emit OpenMP code only for SIMD-based"
+  " constructs.">;
+def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_openmp_simd>,
+  Flags<[DpcppUnsupported]>;
 #endif // INTEL_CUSTOMIZATION
 // INTEL_COLLAB
 def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
