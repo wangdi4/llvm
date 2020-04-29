@@ -1831,7 +1831,7 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
 #if INTEL_CUSTOMIZATION
   if (CallSiteCount == None) {
     // Get profile for call from intel_profx if not available elsewhere
-    auto *MD = TheCall->getMetadata(LLVMContext::MD_intel_profx);
+    auto *MD = TheCall.getMetadata(LLVMContext::MD_intel_profx);
     if (MD) {
       assert(MD->getNumOperands() == 2);
       ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
