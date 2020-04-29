@@ -28,6 +28,7 @@ class StringRef;
 class AAManager;
 class TargetMachine;
 class ModuleSummaryIndex;
+class InlinerPass; // INTEL
 
 /// A struct capturing PGO tunables.
 struct PGOOptions {
@@ -353,6 +354,7 @@ public:
   /// the inlining-driven cleanups.
   ModulePassManager buildInlinerPipeline(OptimizationLevel Level,
                                          ThinLTOPhase Phase,
+                                         InlinerPass *InlPass, // INTEL
                                          bool DebugLogging = false);
 
   /// Construct the core LLVM module optimization pipeline.

@@ -952,17 +952,11 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
 
 ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
                                                     ThinLTOPhase Phase,
+                                                    InlinerPass *InlP, // INTEL
                                                     bool DebugLogging) {
   ModulePassManager MPM(DebugLogging);
 
 #if INTEL_CUSTOMIZATION
-  InlineParams IP = getInlineParamsFromOptLevel(Level);
-  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
-      PGOOpt->Action == PGOOptions::SampleUse)
-    IP.HotCallSiteThreshold = 0;
-  InlinerPass InlPass(IP);
-  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
-
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
 #endif // INTEL_CUSTOMIZATION
@@ -983,7 +977,17 @@ ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
-  MainCGPipeline.addPass(std::move(InlPass)); // INTEL
+#if INTEL_CUSTOMIZATION
+  if (InlP) {
+    MainCGPipeline.addPass(std::move(*InlP));
+  } else {
+    InlineParams IP = getInlineParamsFromOptLevel(Level);
+    if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
+        PGOOpt->Action == PGOOptions::SampleUse)
+      IP.HotCallSiteThreshold = 0;
+    MainCGPipeline.addPass(InlinerPass(IP));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
@@ -1035,6 +1039,15 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   bool LoadSampleProfile =
       HasSampleProfile &&
       !(FlattenedProfileUsed && Phase == ThinLTOPhase::PostLink);
+
+#if INTEL_CUSTOMIZATION
+  InlineParams IP = getInlineParamsFromOptLevel(Level);
+  if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
+      PGOOpt->Action == PGOOptions::SampleUse)
+    IP.HotCallSiteThreshold = 0;
+  InlinerPass InlPass(IP);
+  MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
+#endif // INTEL_CUSTOMIZATION
 
   // During the ThinLTO backend phase we perform early indirect call promotion
   // here, before globalopt. Otherwise imported available_externally functions
@@ -1172,8 +1185,9 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   // the inliner pass.
   MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
 
-
-  MPM.addPass(buildInlinerPipeline(Level, Phase, DebugLogging));
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(buildInlinerPipeline(Level, Phase, &InlPass, DebugLogging));
+#endif // INTEL_CUSTOMIZATION
   return MPM;
 }
 
