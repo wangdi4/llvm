@@ -1983,7 +1983,8 @@ void NEATPlugIn::visitCallSite( CallBase &CS )
     }
 
     // obtain Function reference from Interpreter
-    GenericValue SRC = m_pInterp->getOperandValueAdapter(CS.getCalledValue(), EC);
+    GenericValue SRC =
+        m_pInterp->getOperandValueAdapter(CS.getCalledOperand(), EC);
     Function *CalledF = (Function*)GVTOP(SRC);
 
     std::map<Value*, NEATGenericValue> ArgVals;

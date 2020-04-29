@@ -852,7 +852,7 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
   // And append new arguments
   Args.append(NewArgs.begin(), NewArgs.end());
 
-  auto *FPtrType = cast<PointerType>(OldC->getCalledValue()->getType());
+  auto *FPtrType = cast<PointerType>(OldC->getCalledOperand()->getType());
   auto *FType = cast<FunctionType>(FPtrType->getElementType());
   SmallVector<Type *, 16> ArgTys;
   for (const auto &V : Args)
@@ -861,7 +861,7 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
   auto *NewFType =
       FunctionType::get(FType->getReturnType(), ArgTys, /* vararg = */ false);
   auto *Cast = CastInst::CreatePointerCast(
-      OldC->getCalledValue(),
+      OldC->getCalledOperand(),
       PointerType::get(NewFType, FPtrType->getAddressSpace()), "", OldC);
   assert(Cast && "Failed to create CastInst");
 

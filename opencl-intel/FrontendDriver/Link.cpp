@@ -190,7 +190,7 @@ static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
         if (!CI || CI->getCalledFunction())
           continue;
 
-        const llvm::Value *VI = CI->getCalledValue();
+        const llvm::Value *VI = CI->getCalledOperand();
         if (!VI->getType()->isPointerTy())
           continue;
 

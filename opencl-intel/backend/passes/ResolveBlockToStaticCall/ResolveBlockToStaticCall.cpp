@@ -131,7 +131,7 @@ namespace intel {
     Function *resolvedFunc = nullptr;
 
     // %call1 = call i32 %8(i8* %6, i32 7)
-    I = CI->getCalledValue();
+    I = CI->getCalledOperand();
     assert(I->getType()->isPointerTy() &&
         "Not pointer type of CallInst argument");
 
