@@ -1665,6 +1665,11 @@ def fno_exceptions : Flag<["-"], "fno-exceptions">, Group<f_Group>;
 def fno_gnu_keywords : Flag<["-"], "fno-gnu-keywords">, Group<f_Group>, Flags<[CC1Option]>;
 def fno_inline_functions : Flag<["-"], "fno-inline-functions">, Group<f_clang_Group>, Flags<[CC1Option]>;
 def fno_inline : Flag<["-"], "fno-inline">, Group<f_clang_Group>, Flags<[CC1Option]>;
+#if INTEL_CUSTOMIZATION
+def inline_level_EQ : Joined<["-"], "inline-level=">, Flags<[DriverOption]>,
+  HelpText<"Set function inlining level where: 0 is disable, 1 is inline "
+           "marked functions and 2 is inline at compilers discretion">, Values<"0,1,2">;
+#endif // INTEL_CUSTOMIZATION
 def fno_global_isel : Flag<["-"], "fno-global-isel">, Group<f_clang_Group>,
   HelpText<"Disables the global instruction selector">;
 def fno_experimental_isel : Flag<["-"], "fno-experimental-isel">, Group<f_clang_Group>,
