@@ -437,6 +437,366 @@ static bool isQsortMed3(Function &F) {
   return IsOKPHIBlock(BBPHI, PHIMap);
 }
 
+//
+// Return 'true' if 'F' is a qsort swapfunc.
+//
+static bool isQsortSwapFunc(Function &F) {
+
+  //
+  // Return 'true' if 'BBI' matches a sequence of the form:
+  //
+  //     %cmp = icmp 'Pred' i32 'AI', 1
+  //      br i1 %cmp, label 'BBOL', label 'BBOR'
+  //
+  // If we return 'true', we set the values of 'BBOL' and 'BBOR'.
+  //
+  auto IsArgCmpBlock = [](BasicBlock *BBI, Argument *AI,
+                          ICmpInst::Predicate Pred, BasicBlock **BBOL,
+                          BasicBlock **BBOR) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return false;
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!IC || IC->getPredicate() != Pred || IC->getOperand(0) != AI)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CI || !CI->isOne())
+      return false;
+    *BBOL = BI->getSuccessor(0);
+    *BBOR = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' matches a sequence of the form:
+  //
+  //   %conv = sext i32 'F(2)' to i64
+  //   'V2' = udiv i64 %conv, 'UDivDen'
+  //   'V0' = bitcast i8* 'F(0)' to i64*
+  //   'V1' = bitcast i8* 'F(1)' to i64*
+  //   br label 'BBO'
+  //
+  // If we return 'true', we set the values of 'V0', 'V1', 'V2', and 'BBO'.
+  // Note: the bircast instructions may be absent, in which case we set
+  // 'V0' and 'V1' to nullptr.
+  //
+  auto IsSFDoPreH = [](Function &F, BasicBlock *BBI, uint64_t UDivDen,
+                       Value **V0, Value **V1, Value **V2,
+                       BasicBlock **BBO) -> bool {
+    *V0 = nullptr;
+    *V1 = nullptr;
+    *V2 = nullptr;
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    *BBO = BI->getSuccessor(0);
+    Instruction *BP = BI->getPrevNonDebugInstruction();
+    if (!BP)
+      return false;
+    if (auto BC1 = dyn_cast<BitCastInst>(BP)) {
+      if (BC1->getOperand(0) != F.getArg(1))
+        return false;
+      *V1 = BC1;
+      BP = BP->getPrevNonDebugInstruction();
+      if (!BP)
+        return false;
+    }
+    if (auto BC0 = dyn_cast<BitCastInst>(BP)) {
+      if (BC0->getOperand(0) != F.getArg(0))
+        return false;
+      *V0 = BC0;
+      BP = BP->getPrevNonDebugInstruction();
+      if (!BP)
+        return false;
+    }
+    Value *V2P = BP;
+    if (auto TI = dyn_cast<TruncInst>(BP))
+      BP = dyn_cast<Instruction>(TI->getOperand(0));
+    auto DVO = dyn_cast<UDivOperator>(BP);
+    if (!DVO)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(DVO->getOperand(1));
+    if (!CI || CI->getZExtValue() != UDivDen)
+      return false;
+    auto SXI = dyn_cast<SExtInst>(DVO->getOperand(0));
+    if (!SXI || SXI->getOperand(0) != F.getArg(2))
+      return false;
+    *V2 = V2P;
+    return true;
+  };
+
+  //
+  // Search 'BBI' and if it has two and only two StoreInsts, and no other
+  // Instruction that writes to memory, return 'true'. If we return 'true',
+  // we set the values of 'ST1' and 'ST2' to the two StoreInsts found.
+  //
+  auto GetTwoStores = [](BasicBlock *BBI, StoreInst **SI1,
+                         StoreInst **SI2) -> bool {
+    *SI1 = nullptr;
+    *SI2 = nullptr;
+    for (auto &I : *BBI) {
+      if (auto SI = dyn_cast<StoreInst>(&I)) {
+        if (!*SI1)
+          *SI1 = SI;
+        else if (!*SI2)
+          *SI2 = SI;
+        else
+          return false;
+      } else if (I.mayWriteToMemory()) {
+        return false;
+      }
+    }
+    return SI1 && SI2;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' matches a sequence of the form:
+  //
+  //  'BBI':
+  //    'VI' = bitcast i8* %a to 'DType'*
+  //    br label 'BBD'
+  //  'BBD':
+  //    'PHIL' = phi 'DType'* [ 'VI', 'BBI' ], [ 'GEPI', 'BBD' ]
+  //    'LI' = load 'DType', 'DType' 'PHIL', align 8
+  //    'SI': store 'DType' 'LI', 'DType'* 'PHIS', align 8
+  //    'GEPI' = getelementptr inbounds 'DType', 'DType'* 'PHIL', i32 1
+  //    br i1 %cmp2, label 'BBD', label 'BBX'
+  //
+  // If we return 'true', we set the values of 'PHIS' and 'PHIL'.
+  // Note: we don't match the branch labels here.  They are shown only
+  // for context.
+  //
+  auto IsLSChain = [](BasicBlock *BBI, BasicBlock *BBD, StoreInst *SI,
+                      Value *VI, Type *DType, PHINode **PHIS,
+                      PHINode **PHIL) -> bool {
+    auto LI = dyn_cast<LoadInst>(SI->getValueOperand());
+    if (!LI || LI->getType() != DType)
+      return false;
+    auto PHIN = dyn_cast<PHINode>(LI->getPointerOperand());
+    if (!PHIN || PHIN->getNumIncomingValues() != 2)
+      return false;
+    if (PHIN->getIncomingValue(0) != VI)
+      return false;
+    if (PHIN->getIncomingBlock(0) != BBI)
+      return false;
+    if (PHIN->getIncomingBlock(1) != BBD)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(PHIN->getIncomingValue(1));
+    if (!GEPI || GEPI->getNumOperands() != 2 ||
+        GEPI->getPointerOperand() != PHIN || GEPI->getParent() != BBD)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI || !CI->isOne())
+      return false;
+    auto PHISPO = dyn_cast<PHINode>(SI->getPointerOperand());
+    if (!PHISPO)
+      return false;
+    *PHIS = PHISPO;
+    *PHIL = PHIN;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBD' is a single BasicBlock do-loop with preheader
+  // 'BBI' in 'F' that matches:
+  //
+  // 'BBI':
+  //   %conv = sext i32 %n to i64
+  //   'VN' = udiv i64 %conv, 8
+  //   'V0' = bitcast i8* %a to i64*
+  //   'V1' = bitcast i8* %b to i64*
+  //   br label %do.body
+  // 'BBD':
+  //   %pj.0 = phi 'DType'* [ 'V1', 'BBI' ], [ %incdec.ptr1, 'BBD' ]
+  //   %pi.0 = phi 'DType'* [ 'V0', 'BBI' ], [ %incdec.ptr, 'BBD' ]
+  //   %i.0 = phi i64 [ %div, 'BBI' ], [ %dec, 'BBD' ]
+  //   %2 = load 'DType', 'DType'* %pi.0, align 8, !tbaa !8
+  //   %3 = load 'DType', 'DType'* %pj.0, align 8, !tbaa !8
+  //   %incdec.ptr = getelementptr inbounds 'DType', 'DType'* %pi.0, i32 1
+  //   store 'DType' %3, 'DType'* %pi.0, align 8, !tbaa !8
+  //   %incdec.ptr1 = getelementptr inbounds i64, i64* %pj.0, i32 1
+  //   store 'DType' %2, 'DType'* %pj.0, align 8, !tbaa !8
+  //   %dec = add nsw i64 %i.0, -1
+  //   %cmp2 = icmp sgt i64 %dec, 0
+  //   br i1 %cmp2, label 'BBD', label 'BBX'
+  // 'BBX':
+  //
+  // If we return 'true', set the value of 'BBX'.
+  // Note: Here we only match the do-loop itself. We match the do-loop and
+  // its preheader and exit branch below.
+  //
+  auto IsSFDoBody = [&GetTwoStores, &IsLSChain](Function &F, BasicBlock *BBD,
+                                                BasicBlock *BBI, Type *DType,
+                                                Value *V0, Value *V1, Value *VN,
+                                                BasicBlock **BBX) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBD->getTerminator());
+    if (!BI || BI->isUnconditional() || BI->getSuccessor(0) != BBD)
+      return false;
+    auto IC = dyn_cast<ICmpInst>(BI->getCondition());
+    if (!IC || IC->getPredicate() != ICmpInst::ICMP_SGT)
+      return false;
+    auto CIZ = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CIZ || !CIZ->isZero())
+      return false;
+    auto BO = dyn_cast<BinaryOperator>(IC->getOperand(0));
+    if (!BO || BO->getOpcode() != Instruction::Add)
+      return false;
+    auto CIM1 = dyn_cast<ConstantInt>(BO->getOperand(1));
+    if (!CIM1 || !CIM1->isMinusOne())
+      return false;
+    auto PHIIV = dyn_cast<PHINode>(BO->getOperand(0));
+    if (!PHIIV || PHIIV->getNumIncomingValues() != 2)
+      return false;
+    if (PHIIV->getIncomingValue(0) != VN || PHIIV->getIncomingBlock(0) != BBI)
+      return false;
+    if (PHIIV->getIncomingValue(1) != BO || PHIIV->getIncomingBlock(1) != BBD)
+      return false;
+    StoreInst *SI0 = nullptr;
+    StoreInst *SI1 = nullptr;
+    if (!GetTwoStores(BBD, &SI0, &SI1))
+      return false;
+    PHINode *PHIS0 = nullptr;
+    PHINode *PHIS1 = nullptr;
+    PHINode *PHIL0 = nullptr;
+    PHINode *PHIL1 = nullptr;
+    Value *VI1 = V1 ? V1 : F.getArg(1);
+    if (!IsLSChain(BBI, BBD, SI0, VI1, DType, &PHIS0, &PHIL0))
+      return false;
+    Value *VI0 = V0 ? V0 : F.getArg(0);
+    if (!IsLSChain(BBI, BBD, SI1, VI0, DType, &PHIS1, &PHIL1))
+      return false;
+    if (PHIS1 != PHIL0 || PHIS0 != PHIL1)
+      return false;
+    auto V0I = dyn_cast<Instruction>(VI0);
+    if (!isa<Argument>(VI0) && (!V0I || V0I->getParent() != BBI))
+      return false;
+    auto V1I = dyn_cast<Instruction>(VI1);
+    if (!isa<Argument>(VI1) && (!V1I || V1I->getParent() != BBI))
+      return false;
+    auto VNI = dyn_cast<Instruction>(VN);
+    if (!VNI || VNI->getParent() != BBI)
+      return false;
+    *BBX = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' matches a BasicBlock of the form:
+  //
+  //    br label 'BBO'
+  //
+  // If we return 'true', set the value of 'BBO'.
+  //
+  auto IsDirectBranch = [](BasicBlock *BBI, BasicBlock **BBO) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    *BBO = BI->getSuccessor(0);
+    return true;
+  };
+
+  //
+  // Return 'BBR' if 'BBI' is the preheader of a single BasicBlock do-loop
+  // in 'F' that matches:
+  //
+  // 'BBI':
+  //   %conv = sext i32 %n to i64
+  //   'VN' = udiv i64 %conv, 'UDivDen'
+  //   'V0' = bitcast i8* %a to i64*
+  //   'V1' = bitcast i8* %b to i64*
+  //   br label %do.body
+  // 'BBD':
+  //   %pj.0 = phi 'DType'* [ 'V1', 'BBI' ], [ %incdec.ptr1, 'BBD' ]
+  //   %pi.0 = phi 'DType'* [ 'V0', 'BBI' ], [ %incdec.ptr, 'BBD' ]
+  //   %i.0 = phi i64 [ %div, 'BBI' ], [ %dec, 'BBD' ]
+  //   %2 = load 'DType', 'DType'* %pi.0, align 8, !tbaa !8
+  //   %3 = load 'DType', 'DType'* %pj.0, align 8, !tbaa !8
+  //   %incdec.ptr = getelementptr inbounds 'DType', 'DType'* %pi.0, i32 1
+  //   store 'DType' %3, 'DType'* %pi.0, align 8, !tbaa !8
+  //   %incdec.ptr1 = getelementptr inbounds i64, i64* %pj.0, i32 1
+  //   store 'DType' %2, 'DType'* %pj.0, align 8, !tbaa !8
+  //   %dec = add nsw i64 %i.0, -1
+  //   %cmp2 = icmp sgt i64 %dec, 0
+  //   br i1 %cmp2, label 'BBD', label 'BBX'
+  // 'BBX':
+  //   br label 'BBR'
+  //
+  // otherwise, return nullptr. Furthermore, if 'BBRet' is not nullptr,
+  // 'BBRet' must match 'BBR', or we return nullptr.
+  //
+  auto IsDoLoop = [&IsSFDoPreH, &IsSFDoBody, &IsDirectBranch](
+                      Function &F, BasicBlock *BBI, BasicBlock *BBRet,
+                      uint64_t UDivDen, Type *DType) -> BasicBlock * {
+    Value *A0 = nullptr;
+    Value *A1 = nullptr;
+    Value *A2 = nullptr;
+    BasicBlock *BBD = nullptr;
+    BasicBlock *BBX = nullptr;
+    BasicBlock *BBR = nullptr;
+    if (!IsSFDoPreH(F, BBI, UDivDen, &A0, &A1, &A2, &BBD))
+      return nullptr;
+    if (!IsSFDoBody(F, BBD, BBI, DType, A0, A1, A2, &BBX))
+      return nullptr;
+    if (!IsDirectBranch(BBX, &BBR))
+      return nullptr;
+    if (BBRet && (BBR != BBRet))
+      return nullptr;
+    return BBR;
+  };
+
+  //
+  // Return 'true' if 'BBRet' ends in a void return.
+  //
+  auto IsOKRet = [](BasicBlock *BBRet) -> bool {
+    auto RI = dyn_cast<ReturnInst>(BBRet->getTerminator());
+    return RI && !RI->getReturnValue();
+  };
+
+  // This is the main code for isQsortSwapFunc().
+  if (F.isDeclaration() || F.isVarArg() || F.arg_size() != 5)
+    return false;
+  LLVMContext &FC = F.getContext();
+  Type *TI32 = llvm::Type::getInt32Ty(FC);
+  for (unsigned I = 0, E = F.arg_size(); I < E; ++I) {
+    Type *TyArg = F.getArg(I)->getType();
+    if (I < 2) {
+      if (!TyArg->isPointerTy())
+        return false;
+    } else if (TyArg != TI32) {
+      return false;
+    }
+  }
+  if (!F.getReturnType()->isVoidTy())
+    return false;
+  BasicBlock *BBE = &F.getEntryBlock();
+  BasicBlock *BBL0 = nullptr;
+  BasicBlock *BBR0 = nullptr;
+  BasicBlock *BBL1 = nullptr;
+  BasicBlock *BBR1 = nullptr;
+  BasicBlock *BBRet = nullptr;
+  if (!IsArgCmpBlock(BBE, F.getArg(3), ICmpInst::ICMP_SLE, &BBL0, &BBR0))
+    return false;
+#if _WIN32
+  const uint64_t BitsInLong = 4;
+  Type *TILong = TI32;
+#else
+  const uint64_t BitsInLong = 8;
+  Type *TILong = llvm::Type::getInt64Ty(FC);
+#endif // _WIN32
+  BBRet = IsDoLoop(F, BBL0, nullptr, BitsInLong, TILong);
+  if (!BBRet)
+    return false;
+  if (!IsArgCmpBlock(BBR0, F.getArg(4), ICmpInst::ICMP_SLE, &BBL1, &BBR1))
+    return false;
+  if (!IsDoLoop(F, BBL1, BBRet, 4, TI32))
+    return false;
+  if (!IsDoLoop(F, BBR1, BBRet, 1, llvm::Type::getInt8Ty(FC)))
+    return false;
+  if (!IsOKRet(BBRet))
+    return false;
+  return true;
+}
+
 static bool FunctionRecognizerImpl(Function &F) {
   if (isQsortCompare(F)) {
     F.addFnAttr("is-qsort-compare");
@@ -450,6 +810,13 @@ static bool FunctionRecognizerImpl(Function &F) {
     NumFunctionsRecognized++;
     LLVM_DEBUG(dbgs() << "FUNCTION-RECOGNIZER: FOUND QSORT-MED3 " << F.getName()
                       << "\n");
+    return true;
+  }
+  if (isQsortSwapFunc(F)) {
+    F.addFnAttr("is-qsort-swapfunc");
+    NumFunctionsRecognized++;
+    LLVM_DEBUG(dbgs() << "FUNCTION-RECOGNIZER: FOUND QSORT-SWAPFUNC "
+                      << F.getName() << "\n");
     return true;
   }
   return false;
