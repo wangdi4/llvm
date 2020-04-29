@@ -526,31 +526,21 @@ void VPlanPredicator::linearizeRegion(
     ++CurrBlockRPOTIndex;
 
    // Process incoming edges to the CurrBlock. Once this iterations finishes,
-   // CurrBlock's incoming edges are properly set (*). Also create new basic
-   // blocks if CurrBlock is a point of re-convergence of several divergent
-   // conditions (or even of a single one if uniform incoming edges are
-   // present). Phi-nodes are marked as blended too, if needed.
-   //
-   // (*) Another important thing is that region CFG isn't consistent after
-   // the modifications above are done. We exploit the fact that edges are
-   // recorded in both successor and predecessor and perform only partial
-   // updates. Successors' representation of edges between already processed
-   // blocks is maintained correctly on each step. Predecessors are finalized
-   // much later because we need to know original edges in the un-processed
-   // graph during transformation.
-
+   // CurrBlock's incoming edges are properly set. Also create new basic blocks
+   // if CurrBlock is a point of re-convergence of several divergent conditions
+   // (or even of a single one if uniform incoming edges are present). Phi-nodes
+   // are marked as blended too, if needed.
     SmallVector<VPBasicBlock *, 4> UniformEdges;
     SmallVector<VPBasicBlock *, 4> RemainingDivergentEdges;
-    SmallVector<VPBasicBlock *, 4> RemovedDivergentEdges;
+    SmallVectorImpl<VPBasicBlock *> &RemovedDivergentEdges =
+        RemovedDivergentEdgesMap[CurrBlock];
+
     for (auto *Pred : CurrBlock->getPredecessors()) {
       if (shouldPreserveOutgoingEdges(Pred)) {
         UniformEdges.push_back(Pred);
         continue;
       }
-      if (is_contained(Pred->getSuccessors(), CurrBlock))
-        RemainingDivergentEdges.push_back(Pred);
-      else
-        RemovedDivergentEdges.push_back(Pred);
+      RemainingDivergentEdges.push_back(Pred);
     }
 
     if (RemainingDivergentEdges.size() + RemovedDivergentEdges.size() == 0) {
@@ -638,13 +628,26 @@ void VPlanPredicator::linearizeRegion(
     // affect later optimizations too.
     MapVector<VPBasicBlock *, SmallVector<VPBasicBlock *, 4>> EdgeToBlendBBs;
 
+    auto DropDivergentEdgesFromAndLinkWith =
+        [this](VPBasicBlock *Src, VPBasicBlock *TargetToKeep) {
+          for (VPBasicBlock *Succ : Src->getSuccessors()) {
+            if (Succ == TargetToKeep)
+              continue;
+            RemovedDivergentEdgesMap[Succ].push_back(Src);
+          }
+          // TODO: This code should turn to just dropping the terminator and
+          // creating a new one.
+          for (VPBasicBlock *Succ : Src->getSuccessors())
+            VPBlockUtils::disconnectBlocks(Src, Succ);
+          VPBlockUtils::connectBlocks(Src, TargetToKeep);
+        };
+
     for (auto *Pred : RemainingDivergentEdges) {
       // The edge is in the linearized subgraph and is processed first. Keep it,
       // but remove other successors of the pred to perform linearization.
       assert(!shouldPreserveOutgoingEdges(Pred) &&
              "Trying to remove an edge that should be preserved!");
-      Pred->getSuccessors().clear();
-      Pred->appendSuccessor(CurrBlock);
+      DropDivergentEdgesFromAndLinkWith(Pred, CurrBlock);
 
       EdgeToBlendBBs[Pred].push_back(Pred);
     }
@@ -701,8 +704,11 @@ void VPlanPredicator::linearizeRegion(
       } else {
         // Pred was processed as part of some other linearization chain. Need to
         // merge it with the current one.
-        LastProcessed->getSuccessors().clear();
-        VPBlockUtils::connectBlocks(LastProcessed, CurrBlock);
+        //
+        // Note: we are in the process of iterating over
+        // RemovedDivergentEdgesMap[CurrBlock]. Since CurrBlock is passed at the
+        // destination to keep no invalidation happens.
+        DropDivergentEdgesFromAndLinkWith(LastProcessed, CurrBlock);
       }
 
       EdgeToBlendBBs[LastProcessed].push_back(Pred);
@@ -731,7 +737,10 @@ void VPlanPredicator::linearizeRegion(
 
     for (auto &It : EdgeToBlendBBs) {
       auto *IncomingBlock = It.first;
-      IncomingBlock->getSuccessors().clear();
+
+      for (auto *Succ : IncomingBlock->getSuccessors())
+        VPBlockUtils::disconnectBlocks(IncomingBlock, Succ);
+
       auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("blend.bb"),
                                       IncomingBlock->getParent());
       if (auto *VLoop = VPLI->getLoopFor(CurrBlock))
@@ -739,7 +748,7 @@ void VPlanPredicator::linearizeRegion(
       BlendBB->insertBefore(CurrBlock);
       VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
       VPBlockUtils::connectBlocks(BlendBB, CurrBlock);
-      CurrBlock->removePredecessor(IncomingBlock);
+
       // Re-use IncomingBlock's position for blend phi sorting purpose.
       BlockIndexInRPOT[BlendBB] = BlockIndexInRPOT[IncomingBlock];
       for (VPPHINode &Phi : VPPhisIteratorRange) {
@@ -759,18 +768,6 @@ void VPlanPredicator::linearizeRegion(
           addBlendTuple(Blend, PhiIncVal, PhiIncBB, BlockIndexInRPOT[PhiIncBB]);
         }
         Phi.addIncoming(Blend, BlendBB);
-      }
-    }
-  }
-
-  // Do remaining edges fixups. Don't remove cond bits yet as they're still
-  // needed to generate predicates (see shouldPreserveOutgoingEdges).
-  for (auto *Block : RegionRPOT) {
-    SmallVector<VPBasicBlock *, 4> Preds(Block->getPredecessors().begin(),
-                                         Block->getPredecessors().end());
-    for (auto *PredBB : Preds) {
-      if (!is_contained(PredBB->getSuccessors(), Block)) {
-        Block->removePredecessor(PredBB);
       }
     }
   }
