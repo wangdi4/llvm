@@ -1822,8 +1822,7 @@ static void HandleVaArgPackAndLen(CallBase& CB, Function::iterator FI,
 /// Update the branch metadata for cloned call instructions.
 static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
                               const ProfileCount &CalleeEntryCount,
-                              const Instruction *TheCall,
-                              ProfileSummaryInfo *PSI,
+                              const CallBase &TheCall, ProfileSummaryInfo *PSI,
                               BlockFrequencyInfo *CallerBFI) {
   if (!CalleeEntryCount.hasValue() || CalleeEntryCount.isSynthetic() ||
       CalleeEntryCount.getCount() < 1)
@@ -2191,7 +2190,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       updateCallerBFI(OrigBB, VMap, IFI.CallerBFI, IFI.CalleeBFI,
                       CalledFunc->front());
 
-    updateCallProfile(CalledFunc, VMap, CalledFunc->getEntryCount(), &CB,
+    updateCallProfile(CalledFunc, VMap, CalledFunc->getEntryCount(), CB,
                       IFI.PSI, IFI.CallerBFI);
 
     // Inject byval arguments initialization.
