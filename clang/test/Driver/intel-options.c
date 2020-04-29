@@ -200,3 +200,8 @@
 // RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // CHECK-QIOPENMP-SIMD: "-fopenmp-simd" "-fopenmp-late-outline"
+
+// Behavior with Qopenmp-version option
+// RUN: %clang_cl -### -c /Qopenmp-version=50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
+// RUN: %clang_cl -### -c /Qopenmp-version:50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
+// CHECK-QOPENMP-VERSION: "-fopenmp-version=50"
