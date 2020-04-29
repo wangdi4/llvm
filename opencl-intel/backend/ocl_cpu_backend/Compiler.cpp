@@ -68,7 +68,7 @@ namespace Utils
 /**
  * Generates the log record (to the given stream) enumerating the given external function names
  */
-void LogUndefinedExternals( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
+static void LogUndefinedExternals(llvm::raw_ostream& logs, const std::vector<std::string>& externals)
 {
     logs << "Error: unimplemented function(s) used:\n";
 
@@ -83,7 +83,7 @@ void LogUndefinedExternals( llvm::raw_ostream& logs, const std::vector<std::stri
  * Generates the log record (to the given stream) enumerating function names
    with recursive calls
  */
-void LogHasRecursion( llvm::raw_ostream& logs, const std::vector<std::string>& externals)
+static void LogHasRecursion(llvm::raw_ostream& logs, const std::vector<std::string>& externals)
 {
     logs << "Error: recursive call in function(s):\n";
 
@@ -97,8 +97,8 @@ void LogHasRecursion( llvm::raw_ostream& logs, const std::vector<std::string>& e
  * Generates the log record (to the given stream) enumerating function names
    with unresolved pipe accesses.
  */
-void LogHasFpgaPipeDynamicAccess( llvm::raw_ostream& logs,
-                                  const std::vector<std::string>& functions)
+static void LogHasFpgaPipeDynamicAccess(llvm::raw_ostream& logs,
+                                        const std::vector<std::string>& functions)
 {
     logs << "Error: dynamic pipe or channel access in function(s):\n";
 
@@ -108,12 +108,62 @@ void LogHasFpgaPipeDynamicAccess( llvm::raw_ostream& logs,
     }
 }
 
+
+static bool LogKernelVFState(llvm::raw_ostream &logs,
+                             const TStringToVFState &state)
+{
+    bool checkFailed = false;
+    for (const auto & si :state)
+    {
+       const std::string &kernelName = si.first;
+       const VFState &vfState = si.second;
+       if (vfState.isMultiConstraint)
+       {
+           logs << "Error in kernel <" << kernelName << "> "
+                << "Only allow specifying one of "
+                   "CL_CONFIG_CPU_VECTORIZER_MODE, intel_vec_len_hint and "
+                   "intel_reqd_sub_group_size!\n";
+           checkFailed = true;
+       }
+
+       if (vfState.hasUnsupportedPatterns)
+       {
+           logs << "Warning in kernel <" << kernelName << "> "
+                << "Has unsupported patterns, can't vectorize.\n";
+       }
+
+       if (vfState.isSubGroupBroken)
+       {
+           logs << "Error in kernel <" << kernelName << "> "
+                << "Subgroup calls in scalar kernel or non-inlined subroutine "
+                << "can't be resolved!\n";
+           checkFailed = true;
+       }
+
+       if (vfState.isVFFalledBack)
+       {
+           logs << "Warning in kernel <" << kernelName << "> "
+                << "specified intel_vec_len_hint can't be satisfied. "
+                << "Fall back to autovectorization mode.\n";
+       }
+
+       for (const auto &item : vfState.unimplementOps)
+       {
+           logs << "Error in kernel <" << kernelName << "> "
+                << item.first << " with vectorization factor "
+                << item.second << " is not implement!\n";
+           checkFailed = true;
+       }
+    }
+    return !checkFailed;
+}
+
 /**
  * Generates the log record (to the given stream) enumerating global names
    whose depth attribute is ignored.
    Note: currently only FPGA channels is expected to be such globals.
  */
-void LogHasFPGAChannelsWithDepthIgnored(
+static void LogHasFPGAChannelsWithDepthIgnored(
     llvm::raw_ostream &logs, const std::vector<std::string> &globals)
 {
     logs << "Warning: The default channel depths in the emulation flow will be "
@@ -458,7 +508,15 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
     Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
     optimizer.Optimize();
 
-    if(optimizer.hasUndefinedExternals())
+    {
+        bool checkSuccess = Utils::LogKernelVFState(pResult->LogS(), optimizer.GetKernelVFStates());
+        if (!checkSuccess)
+        {
+            throw Exceptions::CompilerException("Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
+        }
+    }
+
+    if (optimizer.hasUndefinedExternals())
     {
         // For FPGA, Buitlin initialization log is a hint for undefiend externals.
         // TODO: It's better to check whether the module contains IHC content.
@@ -470,7 +528,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
     }
 
-    if( optimizer.hasRecursion())
+    if (optimizer.hasRecursion())
     {
       Utils::LogHasRecursion(
           pResult->LogS(), optimizer.GetInvalidFunctions(
@@ -480,7 +538,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             CL_DEV_INVALID_BINARY);
     }
 
-    if( optimizer.hasFpgaPipeDynamicAccess())
+    if (optimizer.hasFpgaPipeDynamicAccess())
     {
       Utils::LogHasFpgaPipeDynamicAccess(
           pResult->LogS(), optimizer.GetInvalidFunctions(

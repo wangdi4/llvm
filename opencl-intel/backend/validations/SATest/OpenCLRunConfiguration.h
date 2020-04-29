@@ -42,6 +42,7 @@ namespace Validation
         RC_BR_EXECUTE_ITERATIONS_COUNT,
         RC_BR_MEASURE_PERFORMANCE,
         RC_BR_VECTORIZER_TYPE,
+        RC_BR_NATIVE_SUBGROUPS,
         RC_BR_TRANSPOSE_SIZE,
         RC_BR_VERBOSE,
         RC_BR_USE_SDE,
@@ -110,6 +111,7 @@ namespace Validation
         std::string m_InjectedObject;
         bool m_dumpHeuristcIR;
         VectorizerType m_vectorizerType;
+        bool m_nativeSubgroups;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;

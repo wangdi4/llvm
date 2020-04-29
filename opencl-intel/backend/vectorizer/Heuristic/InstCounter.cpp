@@ -1199,6 +1199,32 @@ bool VectorizationPossibilityPass::runOnFunction(Function & F)
   return false;
 }
 
+bool CanVectorizeImpl::canVectorizeForVPO(Function &F, RuntimeServices *services)
+{
+  Statistic::ActiveStatsT kernelStats;
+  if (hasVariableGetTIDAccess(F, services)) {
+    dbgPrint() << "Variable TID access, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectGIDMess,"Unable to vectorize because get_global_id is messed up",kernelStats);
+    CantVectGIDMess++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    return false;
+  }
+
+  if (hasNonInlineUnsupportedFunctions(F)) {
+    dbgPrint() << "Call to unsupported functions, can not vectorize\n";
+    OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,"Unable to vectorize because of calls to functions that can't be inlined",kernelStats);
+    CantVectNonInlineUnsupportedFunctions++;
+    intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+    return false;
+  }
+
+  // TODO: Do we need other checks?
+
+  OCLSTAT_DEFINE(CanVect,"Code is vectorizable",kernelStats);
+  CanVect++;
+  intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
+  return true;
+}
 
 bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServices* services)
 {

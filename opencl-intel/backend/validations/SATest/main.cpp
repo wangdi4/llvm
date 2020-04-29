@@ -56,6 +56,12 @@ BaseDirectory("basedir",
                           "Default value - configuration file directory."),
            llvm::cl::value_desc("basedir"));
 
+llvm::cl::opt<bool>
+NativeSubgroups("native-subgroups",
+                llvm::cl::desc("Enable native subgroups. "
+                               "Default value - false."),
+                llvm::cl::init(false));
+
 llvm::cl::opt<VectorizerType>
 OptVectorizerType("vectorizer-type",
                llvm::cl::desc("Specify vectorizer type. "
