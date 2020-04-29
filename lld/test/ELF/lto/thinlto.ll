@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; Disabled temporarily as explained in CMPLRLLVM-19188.
-; UNSUPPORTED: windows-gnu, windows-msvc
+; Disabled for 32-bit OpenCL in Windows since it isn't supported.
+; UNSUPPORTED: intel_opencl && i686-pc-windows
 ; end INTEL_CUSTOMIZATION
 ; REQUIRES: x86
 
