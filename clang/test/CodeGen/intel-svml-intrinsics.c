@@ -181,6 +181,16 @@ __m128 test_mm_sin_ps(__m128 A) {
   return _mm_sin_ps(A);
 }
 
+__m128 test_mm_sincos_ps(__m128 *A, __m128 B) {
+  // CHECK-LABEL: test_mm_sincos_ps
+  // CHECK: [[RESULT:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4(<4 x float> %{{.*}})
+  // CHECK: [[COS:%.*]] = extractvalue { <4 x float>, <4 x float> } [[RESULT]], 1
+  // CHECK: store <4 x float> [[COS]], <4 x float>* %{{.*}}
+  // CHECK: [[SIN:%.*]] = extractvalue { <4 x float>, <4 x float> } [[RESULT]], 0
+  // CHECK: ret <4 x float> [[SIN]]
+  return _mm_sincos_ps(A, B);
+}
+
 __m128 test_mm_sind_ps(__m128 A) {
   // CHECK-LABEL: test_mm_sind_ps
   // CHECK: call svml_cc <4 x float> @__svml_sindf4(<4 x float> %{{.*}})
@@ -437,6 +447,16 @@ __m128d test_mm_sin_pd(__m128d A) {
   return _mm_sin_pd(A);
 }
 
+__m128d test_mm_sincos_pd(__m128d *A, __m128d B) {
+  // CHECK-LABEL: test_mm_sincos_pd
+  // CHECK: [[RESULT:%.*]] = call svml_cc { <2 x double>, <2 x double> } @__svml_sincos2(<2 x double> %{{.*}})
+  // CHECK: [[COS:%.*]] = extractvalue { <2 x double>, <2 x double> } [[RESULT]], 1
+  // CHECK: store <2 x double> [[COS]], <2 x double>* %{{.*}}
+  // CHECK: [[SIN:%.*]] = extractvalue { <2 x double>, <2 x double> } [[RESULT]], 0
+  // CHECK: ret <2 x double> [[SIN]]
+  return _mm_sincos_pd(A, B);
+}
+
 __m128d test_mm_sind_pd(__m128d A) {
   // CHECK-LABEL: test_mm_sind_pd
   // CHECK: call svml_cc <2 x double> @__svml_sind2(<2 x double> %{{.*}})
@@ -600,6 +620,20 @@ __m128i test_mm_idiv_epi32(__m128i A, __m128i B) {
   return _mm_idiv_epi32(A, B);
 }
 
+__m128i test_mm_idivrem_epi32(__m128i *A, __m128i B, __m128i C) {
+  // CHECK-LABEL: test_mm_idivrem_epi32
+  // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
+  // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
+  // CHECK: [[RESULT:%.*]] = call svml_cc { <4 x i32>, <4 x i32> } @__svml_idivrem4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]])
+  // CHECK: [[REMAINDER:%.*]] = extractvalue { <4 x i32>, <4 x i32> } [[RESULT]], 1
+  // CHECK: [[REMAINDER_CAST:%.*]] = bitcast <4 x i32> [[REMAINDER]] to <2 x i64>
+  // CHECK: store <2 x i64> [[REMAINDER_CAST]], <2 x i64>* %{{.*}}
+  // CHECK: [[QUOTIENT:%.*]] = extractvalue { <4 x i32>, <4 x i32> } [[RESULT]], 0
+  // CHECK: [[QUOTIENT_CAST:%.*]] = bitcast <4 x i32> [[QUOTIENT]] to <2 x i64>
+  // CHECK: ret <2 x i64> [[QUOTIENT_CAST]]
+  return _mm_idivrem_epi32(A, B, C);
+}
+
 __m128i test_mm_irem_epi32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_irem_epi32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
@@ -682,6 +716,20 @@ __m128i test_mm_udiv_epi32(__m128i A, __m128i B) {
   // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_udiv4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]])
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_udiv_epi32(A, B);
+}
+
+__m128i test_mm_udivrem_epi32(__m128i *A, __m128i B, __m128i C) {
+  // CHECK-LABEL: test_mm_udivrem_epi32
+  // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
+  // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
+  // CHECK: [[RESULT:%.*]] = call svml_cc { <4 x i32>, <4 x i32> } @__svml_udivrem4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]])
+  // CHECK: [[REMAINDER:%.*]] = extractvalue { <4 x i32>, <4 x i32> } [[RESULT]], 1
+  // CHECK: [[REMAINDER_CAST:%.*]] = bitcast <4 x i32> [[REMAINDER]] to <2 x i64>
+  // CHECK: store <2 x i64> [[REMAINDER_CAST]], <2 x i64>* %{{.*}}
+  // CHECK: [[QUOTIENT:%.*]] = extractvalue { <4 x i32>, <4 x i32> } [[RESULT]], 0
+  // CHECK: [[QUOTIENT_CAST:%.*]] = bitcast <4 x i32> [[QUOTIENT]] to <2 x i64>
+  // CHECK: ret <2 x i64> [[QUOTIENT_CAST]]
+  return _mm_udivrem_epi32(A, B, C);
 }
 
 __m128i test_mm_urem_epi32(__m128i A, __m128i B) {
@@ -867,6 +915,16 @@ __m256 test_mm256_sin_ps(__m256 A) {
   // CHECK-AVX1-LABEL: test_mm256_sin_ps
   // CHECK-AVX1: call svml_cc <8 x float> @__svml_sinf8(<8 x float> %{{.*}})
   return _mm256_sin_ps(A);
+}
+
+__m256 test_mm256_sincos_ps(__m256 *A, __m256 B) {
+  // CHECK-AVX1-LABEL: test_mm256_sincos_ps
+  // CHECK-AVX1: [[RESULT:%.*]] = call svml_cc { <8 x float>, <8 x float> } @__svml_sincosf8(<8 x float> %{{.*}})
+  // CHECK-AVX1: [[COS:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 1
+  // CHECK-AVX1: store <8 x float> [[COS]], <8 x float>* %{{.*}}
+  // CHECK-AVX1: [[SIN:%.*]] = extractvalue { <8 x float>, <8 x float> } [[RESULT]], 0
+  // CHECK-AVX1: ret <8 x float> [[SIN]]
+  return _mm256_sincos_ps(A, B);
 }
 
 __m256 test_mm256_sind_ps(__m256 A) {
@@ -1116,6 +1174,16 @@ __m256d test_mm256_sin_pd(__m256d A) {
   return _mm256_sin_pd(A);
 }
 
+__m256d test_mm256_sincos_pd(__m256d *A, __m256d B) {
+  // CHECK-AVX1-LABEL: test_mm256_sincos_pd
+  // CHECK-AVX1: [[RESULT:%.*]] = call svml_cc { <4 x double>, <4 x double> } @__svml_sincos4(<4 x double> %{{.*}})
+  // CHECK-AVX1: [[COS:%.*]] = extractvalue { <4 x double>, <4 x double> } [[RESULT]], 1
+  // CHECK-AVX1: store <4 x double> [[COS]], <4 x double>* %{{.*}}
+  // CHECK-AVX1: [[SIN:%.*]] = extractvalue { <4 x double>, <4 x double> } [[RESULT]], 0
+  // CHECK-AVX1: ret <4 x double> [[SIN]]
+  return _mm256_sincos_pd(A, B);
+}
+
 __m256d test_mm256_sind_pd(__m256d A) {
   // CHECK-AVX1-LABEL: test_mm256_sind_pd
   // CHECK-AVX1: call svml_cc <4 x double> @__svml_sind4(<4 x double> %{{.*}})
@@ -1284,6 +1352,20 @@ __m256i test_mm256_idiv_epi32(__m256i A, __m256i B) {
   return _mm256_idiv_epi32(A, B);
 }
 
+__m256i test_mm256_idivrem_epi32(__m256i *A, __m256i B, __m256i C) {
+  // CHECK-AVX2-LABEL: test_mm256_idivrem_epi32
+  // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
+  // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
+  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc { <8 x i32>, <8 x i32> } @__svml_idivrem8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]])
+  // CHECK-AVX2: [[REMAINDER:%.*]] = extractvalue { <8 x i32>, <8 x i32> } [[RESULT]], 1
+  // CHECK-AVX2: [[REMAINDER_CAST:%.*]] = bitcast <8 x i32> [[REMAINDER]] to <4 x i64>
+  // CHECK-AVX2: store <4 x i64> [[REMAINDER_CAST]], <4 x i64>* %{{.*}}
+  // CHECK-AVX2: [[QUOTIENT:%.*]] = extractvalue { <8 x i32>, <8 x i32> } [[RESULT]], 0
+  // CHECK-AVX2: [[QUOTIENT_CAST:%.*]] = bitcast <8 x i32> [[QUOTIENT]] to <4 x i64>
+  // CHECK-AVX2: ret <4 x i64> [[QUOTIENT_CAST]]
+  return _mm256_idivrem_epi32(A, B, C);
+}
+
 __m256i test_mm256_irem_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_irem_epi32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
@@ -1366,6 +1448,20 @@ __m256i test_mm256_udiv_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_udiv8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]])
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_udiv_epi32(A, B);
+}
+
+__m256i test_mm256_udivrem_epi32(__m256i *A, __m256i B, __m256i C) {
+  // CHECK-AVX2-LABEL: test_mm256_udivrem_epi32
+  // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
+  // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
+  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc { <8 x i32>, <8 x i32> } @__svml_udivrem8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]])
+  // CHECK-AVX2: [[REMAINDER:%.*]] = extractvalue { <8 x i32>, <8 x i32> } [[RESULT]], 1
+  // CHECK-AVX2: [[REMAINDER_CAST:%.*]] = bitcast <8 x i32> [[REMAINDER]] to <4 x i64>
+  // CHECK-AVX2: store <4 x i64> [[REMAINDER_CAST]], <4 x i64>* %{{.*}}
+  // CHECK-AVX2: [[QUOTIENT:%.*]] = extractvalue { <8 x i32>, <8 x i32> } [[RESULT]], 0
+  // CHECK-AVX2: [[QUOTIENT_CAST:%.*]] = bitcast <8 x i32> [[QUOTIENT]] to <4 x i64>
+  // CHECK-AVX2: ret <4 x i64> [[QUOTIENT_CAST]]
+  return _mm256_udivrem_epi32(A, B, C);
 }
 
 __m256i test_mm256_urem_epi32(__m256i A, __m256i B) {
@@ -1703,6 +1799,29 @@ __m512 test_mm512_mask_sin_ps(__m512 A, __mmask16 B, __m512 C) {
   // CHECK-AVX512F: [[MASK:%.*]] = bitcast i16 %{{.*}} to <16 x i1>
   // CHECK-AVX512F: call svml_cc <16 x float> @__svml_sinf16_mask(<16 x float> %{{.*}}, <16 x i1> [[MASK]], <16 x float> %{{.*}})
   return _mm512_mask_sin_ps(A, B, C);
+}
+
+__m512 test_mm512_sincos_ps(__m512 *A, __m512 B) {
+  // CHECK-AVX512F-LABEL: test_mm512_sincos_ps
+  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc { <16 x float>, <16 x float> } @__svml_sincosf16(<16 x float> %{{.*}})
+  // CHECK-AVX512F: [[COS:%.*]] = extractvalue { <16 x float>, <16 x float> } [[RESULT]], 1
+  // CHECK-AVX512F: store <16 x float> [[COS]], <16 x float>* %{{.*}}
+  // CHECK-AVX512F: [[SIN:%.*]] = extractvalue { <16 x float>, <16 x float> } [[RESULT]], 0
+  // CHECK-AVX512F: ret <16 x float> [[SIN]]
+  return _mm512_sincos_ps(A, B);
+}
+
+__m512 test_mm512_mask_sincos_ps(__m512 *A, __m512 B, __m512 C, __mmask16 D, __m512 E) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_sincos_ps
+  // CHECK-AVX512F: [[MASK:%.*]] = bitcast i16 %{{.*}} to <16 x i1>
+  // CHECK-AVX512F: [[SRC_TMP:%.*]] = insertvalue { <16 x float>, <16 x float> } undef, <16 x float> %{{.*}}, 0
+  // CHECK-AVX512F: [[SRC:%.*]] = insertvalue { <16 x float>, <16 x float> } [[SRC_TMP]], <16 x float> %{{.*}}, 1
+  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc { <16 x float>, <16 x float> } @__svml_sincosf16_mask({ <16 x float>, <16 x float> } [[SRC]], <16 x i1> [[MASK]], <16 x float> %{{.*}})
+  // CHECK-AVX512F: [[COS:%.*]] = extractvalue { <16 x float>, <16 x float> } [[RESULT]], 1
+  // CHECK-AVX512F: store <16 x float> [[COS]], <16 x float>* %{{.*}}
+  // CHECK-AVX512F: [[SIN:%.*]] = extractvalue { <16 x float>, <16 x float> } [[RESULT]], 0
+  // CHECK-AVX512F: ret <16 x float> [[SIN]]
+  return _mm512_mask_sincos_ps(A, B, C, D, E);
 }
 
 __m512 test_mm512_sind_ps(__m512 A) {
@@ -2234,6 +2353,29 @@ __m512d test_mm512_mask_sin_pd(__m512d A, __mmask8 B, __m512d C) {
   // CHECK-AVX512F: [[MASK:%.*]] = bitcast i8 %{{.*}} to <8 x i1>
   // CHECK-AVX512F: call svml_cc <8 x double> @__svml_sin8_mask(<8 x double> %{{.*}}, <8 x i1> [[MASK]], <8 x double> %{{.*}})
   return _mm512_mask_sin_pd(A, B, C);
+}
+
+__m512d test_mm512_sincos_pd(__m512d *A, __m512d B) {
+  // CHECK-AVX512F-LABEL: test_mm512_sincos_pd
+  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc { <8 x double>, <8 x double> } @__svml_sincos8(<8 x double> %{{.*}})
+  // CHECK-AVX512F: [[COS:%.*]] = extractvalue { <8 x double>, <8 x double> } [[RESULT]], 1
+  // CHECK-AVX512F: store <8 x double> [[COS]], <8 x double>* %{{.*}}
+  // CHECK-AVX512F: [[SIN:%.*]] = extractvalue { <8 x double>, <8 x double> } [[RESULT]], 0
+  // CHECK-AVX512F: ret <8 x double> [[SIN]]
+  return _mm512_sincos_pd(A, B);
+}
+
+__m512d test_mm512_mask_sincos_pd(__m512d *A, __m512d B, __m512d C, __mmask8 D, __m512d E) {
+  // CHECK-AVX512F-LABEL: test_mm512_mask_sincos_pd
+  // CHECK-AVX512F: [[MASK:%.*]] = bitcast i8 %{{.*}} to <8 x i1>
+  // CHECK-AVX512F: [[SRC_TMP:%.*]] = insertvalue { <8 x double>, <8 x double> } undef, <8 x double> %{{.*}}, 0
+  // CHECK-AVX512F: [[SRC:%.*]] = insertvalue { <8 x double>, <8 x double> } [[SRC_TMP]], <8 x double> %{{.*}}, 1
+  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc { <8 x double>, <8 x double> } @__svml_sincos8_mask({ <8 x double>, <8 x double> } [[SRC]], <8 x i1> [[MASK]], <8 x double> %{{.*}})
+  // CHECK-AVX512F: [[COS:%.*]] = extractvalue { <8 x double>, <8 x double> } [[RESULT]], 1
+  // CHECK-AVX512F: store <8 x double> [[COS]], <8 x double>* %{{.*}}
+  // CHECK-AVX512F: [[SIN:%.*]] = extractvalue { <8 x double>, <8 x double> } [[RESULT]], 0
+  // CHECK-AVX512F: ret <8 x double> [[SIN]]
+  return _mm512_mask_sincos_pd(A, B, C, D, E);
 }
 
 __m512d test_mm512_sind_pd(__m512d A) {

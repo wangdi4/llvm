@@ -6967,6 +6967,10 @@ struct SVMLBuiltinInfo {
   { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0, 0 }
 #define SVML2MAP_DIV_OR_REM(LibName, BuiltinName, IntBitWidth) \
   { "__svml_" LibName, clang::X86::BI ## BuiltinName, 0, IntBitWidth }
+#define SVML2MAP1(LibName, BuiltinName, Modifier) \
+  { "__svml_" LibName, clang::X86::BI ## BuiltinName, Modifier, 0 }
+#define SVML2MAP1_DIVREM(LibName, BuiltinName, Modifier, IntBitWidth) \
+  { "__svml_" LibName, clang::X86::BI ## BuiltinName, Modifier, IntBitWidth }
 
 static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   // SSE1 FP
@@ -7007,6 +7011,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP0("powf4", _mm_pow_ps),
   SVML2MAP0("roundf4", _mm_svml_round_ps),
   SVML2MAP0("sinf4", _mm_sin_ps),
+  SVML2MAP1("sincosf4", _mm_sincos_ps, SVMLTwoRets),
   SVML2MAP0("sindf4", _mm_sind_ps),
   SVML2MAP0("sinhf4", _mm_sinh_ps),
   SVML2MAP0("sqrtf4", _mm_svml_sqrt_ps),
@@ -7050,6 +7055,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP0("pow2", _mm_pow_pd),
   SVML2MAP0("round2", _mm_svml_round_pd),
   SVML2MAP0("sin2", _mm_sin_pd),
+  SVML2MAP1("sincos2", _mm_sincos_pd, SVMLTwoRets),
   SVML2MAP0("sind2", _mm_sind_pd),
   SVML2MAP0("sinh2", _mm_sinh_pd),
   SVML2MAP0("sqrt2", _mm_svml_sqrt_pd),
@@ -7094,6 +7100,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP0("powf8", _mm256_pow_ps),
   SVML2MAP0("roundf8", _mm256_svml_round_ps),
   SVML2MAP0("sinf8", _mm256_sin_ps),
+  SVML2MAP1("sincosf8", _mm256_sincos_ps, SVMLTwoRets),
   SVML2MAP0("sindf8", _mm256_sind_ps),
   SVML2MAP0("sinhf8", _mm256_sinh_ps),
   SVML2MAP0("sqrtf8", _mm256_svml_sqrt_ps),
@@ -7134,6 +7141,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP0("pow4", _mm256_pow_pd),
   SVML2MAP0("round4", _mm256_svml_round_pd),
   SVML2MAP0("sin4", _mm256_sin_pd),
+  SVML2MAP1("sincos4", _mm256_sincos_pd, SVMLTwoRets),
   SVML2MAP0("sind4", _mm256_sind_pd),
   SVML2MAP0("sinh4", _mm256_sinh_pd),
   SVML2MAP0("sqrt4", _mm256_svml_sqrt_pd),
@@ -7208,6 +7216,8 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP0("rintf16_mask", _mm512_mask_rint_ps),
   SVML2MAP0("sinf16", _mm512_sin_ps),
   SVML2MAP0("sinf16_mask", _mm512_mask_sin_ps),
+  SVML2MAP1("sincosf16", _mm512_sincos_ps, SVMLTwoRets),
+  SVML2MAP1("sincosf16_mask", _mm512_mask_sincos_ps, SVMLTwoRets),
   SVML2MAP0("sindf16", _mm512_sind_ps),
   SVML2MAP0("sindf16_mask", _mm512_mask_sind_ps),
   SVML2MAP0("sinhf16", _mm512_sinh_ps),
@@ -7288,6 +7298,8 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP0("round8_mask", _mm512_mask_svml_round_pd),
   SVML2MAP0("sin8", _mm512_sin_pd),
   SVML2MAP0("sin8_mask", _mm512_mask_sin_pd),
+  SVML2MAP1("sincos8", _mm512_sincos_pd, SVMLTwoRets),
+  SVML2MAP1("sincos8_mask", _mm512_mask_sincos_pd, SVMLTwoRets),
   SVML2MAP0("sind8", _mm512_sind_pd),
   SVML2MAP0("sind8_mask", _mm512_mask_sind_pd),
   SVML2MAP0("sinh8", _mm512_sinh_pd),
@@ -7309,6 +7321,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP_DIV_OR_REM("i64div2", _mm_div_epi64, 64),
   SVML2MAP_DIV_OR_REM("u64div2", _mm_div_epu64, 64),
   SVML2MAP_DIV_OR_REM("idiv4", _mm_idiv_epi32, 32),
+  SVML2MAP1_DIVREM("idivrem4", _mm_idivrem_epi32, SVMLTwoRets, 32),
   SVML2MAP_DIV_OR_REM("irem4", _mm_irem_epi32, 32),
   SVML2MAP_DIV_OR_REM("i8rem16", _mm_rem_epi8, 8),
   SVML2MAP_DIV_OR_REM("u8rem16", _mm_rem_epu8, 8),
@@ -7319,6 +7332,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP_DIV_OR_REM("i64rem2", _mm_rem_epi64, 64),
   SVML2MAP_DIV_OR_REM("u64rem2", _mm_rem_epu64, 64),
   SVML2MAP_DIV_OR_REM("udiv4", _mm_udiv_epi32, 32),
+  SVML2MAP1_DIVREM("udivrem4", _mm_udivrem_epi32, SVMLTwoRets, 32),
   SVML2MAP_DIV_OR_REM("urem4", _mm_urem_epi32, 32),
 
   // AVX2 Int
@@ -7331,6 +7345,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP_DIV_OR_REM("i64div4", _mm256_div_epi64, 64),
   SVML2MAP_DIV_OR_REM("u64div4", _mm256_div_epu64, 64),
   SVML2MAP_DIV_OR_REM("idiv8", _mm256_idiv_epi32, 32),
+  SVML2MAP1_DIVREM("idivrem8", _mm256_idivrem_epi32, SVMLTwoRets, 32),
   SVML2MAP_DIV_OR_REM("irem8", _mm256_irem_epi32, 32),
   SVML2MAP_DIV_OR_REM("i8rem32", _mm256_rem_epi8, 8),
   SVML2MAP_DIV_OR_REM("u8rem32", _mm256_rem_epu8, 8),
@@ -7341,6 +7356,7 @@ static const SVMLBuiltinInfo SIMDBuiltinMap[] = {
   SVML2MAP_DIV_OR_REM("i64rem4", _mm256_rem_epi64, 64),
   SVML2MAP_DIV_OR_REM("u64rem4", _mm256_rem_epu64, 64),
   SVML2MAP_DIV_OR_REM("udiv8", _mm256_udiv_epi32, 32),
+  SVML2MAP1_DIVREM("udivrem8", _mm256_udivrem_epi32, SVMLTwoRets, 32),
   SVML2MAP_DIV_OR_REM("urem8", _mm256_urem_epi32, 32),
 
   // AVX512 Int
@@ -7414,6 +7430,7 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
     Ops.erase(Ops.begin());
   }
 
+  bool HasMask = false;
   SmallVector<llvm::Type *, 3> Tys;
   // All arguments of SVML functions should be vector type, including masks,
   // but __mmask8 and __mmask16 are defined as unsigned char (i8) and
@@ -7427,11 +7444,28 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
       else if (Ty == Int16Ty)
         Ty = llvm::VectorType::get(Builder.getInt1Ty(), 16);
       Ops[i] = Builder.CreateBitCast(Ops[i], Ty);
+      HasMask = true;
     } else if (Ty != VectorTy) {
       Ty = VectorTy;
       Ops[i] = Builder.CreateBitCast(Ops[i], Ty);
     }
     Tys.push_back(Ty);
+  }
+
+  // If a SVML intrinsic is a masked intrinsic, and it has 2 return values, it
+  // will also have 2 source arguments. In this case, the corresponding SVML
+  // function will be expecting a struct as source argument.
+  if (HasMask && (Modifier & SVMLTwoRets)) {
+    // The type of this struct is the same as that of the return value.
+    llvm::Value *SrcStructEmpty = llvm::UndefValue::get(RetTy);
+    llvm::Value *SrcStructTmp = Builder.CreateInsertValue(SrcStructEmpty,
+                                                          Ops[0], { 0 });
+    llvm::Value *SrcStruct = Builder.CreateInsertValue(SrcStructTmp,
+                                                       Ops[1], { 1 });
+    Ops.erase(Ops.begin(), Ops.begin() + 2);
+    Ops.insert(Ops.begin(), SrcStruct);
+    Tys.erase(Tys.begin(), Tys.begin() + 2);
+    Tys.insert(Tys.begin(), RetTy);
   }
 
   llvm::FunctionType *FTy =
@@ -7452,7 +7486,7 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
   if (Modifier & SVMLTwoRets) {
     llvm::Value *StoredValue = Builder.CreateExtractValue(Res, 1);
     if (VectorTy != OrigVectorTy)
-      StoredValue = Builder.CreateBitCast(Res, OrigVectorTy);
+      StoredValue = Builder.CreateBitCast(StoredValue, OrigVectorTy);
     Builder.CreateDefaultAlignedStore(StoredValue, RetPtr);
     Res = Builder.CreateExtractValue(Res, 0);
   }

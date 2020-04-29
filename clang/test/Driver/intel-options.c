@@ -128,3 +128,7 @@
 // CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=limited"
 // RUN: %clang -### -c -g -femit-class-debug-always %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND %s
 // CHECK-DEBUG-INFO-KIND: "-debug-info-kind=standalone"
+
+// RUN: %clang -### -c -nolib-inline %s 2>&1 | FileCheck -check-prefix CHECK-NOLIB-INLINE %s
+// RUN: %clang -### -c -nolib_inline %s 2>&1 | FileCheck -check-prefix CHECK-NOLIB-INLINE %s
+// CHECK-NOLIB-INLINE: "-fno-builtin"

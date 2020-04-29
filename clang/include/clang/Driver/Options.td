@@ -1635,6 +1635,11 @@ def fno_builtin_ : Joined<["-"], "fno-builtin-">, Group<f_Group>, Flags<[CC1Opti
   HelpText<"Disable implicit builtin knowledge of a specific function">;
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<f_Group>,
  Flags<[CC1Option]>;
+#if INTEL_CUSTOMIZATION
+def nolib_inline : Flag<["-"], "nolib-inline">, Flags<[DriverOption]>, Alias<fno_builtin>,
+  HelpText<"disable inline expansion of intrinsic functions">;
+def : Flag<["-"], "nolib_inline">, Alias<fno_builtin>;
+#endif // INTEL_CUSTOMIZATION
 def fno_color_diagnostics : Flag<["-"], "fno-color-diagnostics">, Group<f_Group>,
   Flags<[CoreOption, CC1Option]>;
 def fno_diagnostics_color : Flag<["-"], "fno-diagnostics-color">, Group<f_Group>,
