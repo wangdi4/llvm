@@ -99,19 +99,18 @@ static string GetFormattedTime()
 
 // FrameworkUserLogger's methods
 
-string FrameworkUserLogger::FormatLocalWorkSize(const vector<size_t>& localWorkSize)
+string FrameworkUserLogger::FormatLocalWorkSize(size_t ndim,
+    const size_t *localWorkSize)
 {
     stringstream stream;
-    stream  << "(";    
-    for (vector<size_t>::size_type i = 0; i < localWorkSize.size(); ++i)
+    stream  << "[";
+    for (size_t i = 0; i < ndim; ++i)
     {
         stream << localWorkSize[i];
-        if (i < localWorkSize.size() - 1)
-        {
+        if (i < (ndim - 1))
             stream << ",";
-        }
     }
-    stream << ")";
+    stream << "]";
     return stream.str();
 }
 
@@ -296,10 +295,19 @@ void FrameworkUserLogger::PrintStringInternal(const string& str)
     *m_pOutput << str;
 }
 
-void FrameworkUserLogger::SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const vector<size_t>& localWorkSize)
-{
+void FrameworkUserLogger::SetWGSizeCount(cl_dev_cmd_id id, size_t ndim,
+    const size_t *localSizeUniform, const size_t *localSizeNonUniform,
+    const size_t *workgroupCount) {
     OclAutoMutex mutex(&m_outputMutex);
-    *m_pOutput << "Internally calculated local_work_size with for NDRangeKernel command with ID " << (size_t)id << ": " << FormatLocalWorkSize(localWorkSize) << endl;
+    *m_pOutput
+        << "Internally calculated WG info for NDRangeKernel command with ID "
+        << (size_t)id << ": work dimension = " << ndim
+        << ", uniform work group size = "
+        << FormatLocalWorkSize(ndim, localSizeUniform)
+        << ", non-uniform work group size = "
+        << FormatLocalWorkSize(ndim, localSizeNonUniform)
+        << ", work group count = " << FormatLocalWorkSize(ndim, workgroupCount)
+        << endl;
 }
 
 // LogMessageWrapper methods:
