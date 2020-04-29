@@ -177,6 +177,32 @@ entry:
   ret <4 x i64> %6
 }
 
+; CHECK-LABEL: @test_cexpf4
+; CHECK: [[ARG:%.*]] = shufflevector <8 x float> %A, <8 x float> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK: [[RESULT:%.*]] = call svml_cc <16 x float> @__svml_cexpf8(<16 x float> [[ARG]])
+; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <16 x float> [[RESULT]], <16 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK: ret <8 x float> [[RESULT_EXTRACT]]
+
+define <8 x float> @test_cexpf4(<8 x float> %A) #1 {
+entry:
+  %0 = tail call fast svml_cc <8 x float> @__svml_cexpf4(<8 x float> %A)
+  ret <8 x float> %0
+}
+
+; CHECK-LABEL: @test_cexpf4_mask
+; CHECK: [[MASK_I1:%.*]] = icmp eq <4 x i64> %B, <i64 -1, i64 -1, i64 -1, i64 -1>
+; CHECK: [[MASK:%.*]] = shufflevector <4 x i1> [[MASK_I1]], <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
+; CHECK: [[ARG:%.*]] = shufflevector <8 x float> %A, <8 x float> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK: [[RESULT:%.*]] = call svml_cc <16 x float> @__svml_cexpf8_mask(<16 x float> undef, <8 x i1> [[MASK]], <16 x float> [[ARG]])
+; CHECK: [[RESULT_EXTRACT:%.*]] = shufflevector <16 x float> [[RESULT]], <16 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK: ret <8 x float> [[RESULT_EXTRACT]]
+
+define <8 x float> @test_cexpf4_mask(<8 x float> %A, <4 x i64> %B) #1 {
+entry:
+  %0 = tail call fast svml_cc <8 x float> @__svml_cexpf4_mask(<8 x float> %A, <4 x i64> %B)
+  ret <8 x float> %0
+}
+
 declare svml_cc <4 x float> @__svml_sinf4(<4 x float>)
 
 declare svml_cc <4 x i32> @__svml_idiv4(<4 x i32>, <4 x i32>)
@@ -194,6 +220,10 @@ declare svml_cc { <8 x float>, <8 x float> } @__svml_sincosf8(<8 x float>)
 declare svml_cc { <8 x float>, <8 x float> } @__svml_sincosf8_mask(<8 x float>, <8 x i32>)
 
 declare svml_cc { <8 x i32>, <8 x i32> } @__svml_idivrem8(<8 x i32>, <8 x i32>)
+
+declare svml_cc <8 x float> @__svml_cexpf4(<8 x float>)
+
+declare svml_cc <8 x float> @__svml_cexpf4_mask(<8 x float>, <4 x i64>)
 
 attributes #0 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="256" "prefer-vector-width"="256" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="512" "prefer-vector-width"="512" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
