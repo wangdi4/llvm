@@ -41,7 +41,7 @@
 #if __INTEL_OFFLOAD
 #define DEVICE_EXTERNAL __attribute__((weak))
 #else  // !__INTEL_OFFLOAD
-#define DEVICE_EXTERNAL static
+#define DEVICE_EXTERNAL
 #undef EXTERN_C
 #define EXTERN_C
 #endif  // !__INTEL_OFFLOAD
