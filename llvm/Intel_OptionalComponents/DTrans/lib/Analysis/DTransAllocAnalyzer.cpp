@@ -705,7 +705,7 @@ bool DTransAllocAnalyzer::analyzeForIndirectStatus(const CallBase *Call,
     return false;
 
   // Search for definition of called Value
-  auto *Callee = dyn_cast<LoadInst>(Call->getCalledValue());
+  auto *Callee = dyn_cast<LoadInst>(Call->getCalledOperand());
   if (!Callee)
     return false;
 

@@ -104,7 +104,7 @@ private:
 // Return true if Call is not a direct call.
 //
 bool IndirectCallConvImpl::isNotDirectCall(CallBase *Call) {
-  Value *func = Call->getCalledValue();
+  Value *func = Call->getCalledOperand();
   func = func->stripPointerCasts();
   if (isa<Function>(func)) {
     return false;
@@ -194,7 +194,7 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
 
   // Get possible targets for 'Call' using points-to info.
   std::vector<llvm::Value *> PossibleTargets;
-  Value *call_fptr = Call->getCalledValue()->stripPointerCasts();
+  Value *call_fptr = Call->getCalledOperand()->stripPointerCasts();
   bool TraceOn = false;
   LLVM_DEBUG( TraceOn = true; );
 #if INTEL_INCLUDE_DTRANS
@@ -397,7 +397,7 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
     BasicBlock *Call_BB = BasicBlock::Create(call_fptr->getContext(), BB_Str,
                                              OrigBlock->getParent(), Tail_BB);
 
-    NewCall = createDirectCallSite(Call, Call->getCalledValue(), Call_BB);
+    NewCall = createDirectCallSite(Call, Call->getCalledOperand(), Call_BB);
 
     // Add them to NewDirectCallBBs and NewDirectCalls list
     NewDirectCallBBs.push_back(Call_BB);

@@ -1148,8 +1148,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
         VCallSite.emitRemark("single-impl",
                              TheFn->stripPointerCasts()->getName(), OREGetter);
       VCallSite.CB.setCalledOperand(ConstantExpr::getBitCast(
-<<<<<<< HEAD
-          TheFn, VCallSite.CB.getCalledValue()->getType()));
+          TheFn, VCallSite.CB.getCalledOperand()->getType()));
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
       // If a bitcast operation has been performed to match the callsite to
@@ -1158,13 +1157,10 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       // type for the call, rather than a mismatched argument type. The
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
-      if (TheFn->getType() != VCallSite.CB.getCalledValue()->getType())
+      if (TheFn->getType() != VCallSite.CB.getCalledOperand()->getType())
         (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-          TheFn, VCallSite.CB.getCalledOperand()->getType()));
->>>>>>> 6df65912a727fe8e186cc04055811e99b7082529
       // This use is no longer unsafe.
       if (VCallSite.NumUnsafeUses)
         --*VCallSite.NumUnsafeUses;
@@ -1505,7 +1501,7 @@ void DevirtModule::createCallSiteBasicBlocks(Module &M,
     CallBase *NewCB = cast<CallBase>(CloneCS);
     if (Target.Fn->getFunctionType() != VCallSite.CB.getFunctionType()) {
       NewCB->setCalledOperand(ConstantExpr::getBitCast(
-          Target.Fn, VCallSite.CB.getCalledValue()->getType()));
+          Target.Fn, VCallSite.CB.getCalledOperand()->getType()));
 #if INTEL_INCLUDE_DTRANS
       // Because a bitcast operation has been performed to match the callsite to
       // the call target for the object type, mark the call to allow DTrans
@@ -1601,7 +1597,7 @@ DevirtModule::TargetData* DevirtModule::buildDefaultCase(Module &M,
     std::string VCallStamp, VirtualCallSite VCallSite) {
 
   Instruction *CSInst = &VCallSite.CB;
-  Value *CalledVal = VCallSite.CB.getCalledValue();
+  Value *CalledVal = VCallSite.CB.getCalledOperand();
   Function *Func = CSInst->getFunction();
   IRBuilder<> Builder(M.getContext());
   StringRef DefaultBBName = StringRef("DefaultBB");

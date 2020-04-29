@@ -177,7 +177,7 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
       // Use the last operand which is the function pointer.
       (*op_ddref_rbegin())->print(OS, false);
     } else {
-      FInst->getCalledValue()->printAsOperand(OS, false);
+      FInst->getCalledOperand()->printAsOperand(OS, false);
     }
     OS << "(";
   } else if (isa<SelectInst>(Inst)) {

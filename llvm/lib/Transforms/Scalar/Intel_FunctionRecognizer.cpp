@@ -267,7 +267,7 @@ static bool isQsortMed3(Function &F) {
     auto CI = dyn_cast<CallInst>(VC);
     if (!CI || !CI->isIndirectCall() || CI->arg_size() != 2)
       return false;
-    if (CI->getCalledValue() != AP || CI->getArgOperand(0) != AL ||
+    if (CI->getCalledOperand() != AP || CI->getArgOperand(0) != AL ||
         CI->getArgOperand(1) != AR)
       return false;
     return true;

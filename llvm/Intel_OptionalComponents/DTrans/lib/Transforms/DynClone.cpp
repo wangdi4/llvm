@@ -1019,7 +1019,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
       }
 
       if (CallInst *CI = dyn_cast<CallInst>(&Inst)) {
-        Value *CalledValue = CI->getCalledValue();
+        Value *CalledValue = CI->getCalledOperand();
         // Calls using aliases are treated as indirect calls.
         if (!isa<Function>(CalledValue) &&
             !IsSimpleFPtrBitCast(CalledValue, CI)) {
@@ -3581,7 +3581,7 @@ bool DynCloneImpl::createCallGraphClone(void) {
       if (!isa<CallInst>(&Inst))
         continue;
       CallInst *CI = cast<CallInst>(&Inst);
-      Value *CalledValue = CI->getCalledValue();
+      Value *CalledValue = CI->getCalledOperand();
       Function *Callee = cast<Function>(CalledValue->stripPointerCasts());
       if (!ClonedFunctionList.count(Callee))
         continue;

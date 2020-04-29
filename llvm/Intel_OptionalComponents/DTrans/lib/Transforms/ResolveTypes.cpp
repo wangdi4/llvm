@@ -440,7 +440,7 @@ public:
   // implicit casts between types, either the return type or a parameter type,
   // that results from this function bitcast.
   void visitCallBase(CallBase &Call) {
-    if (auto *Cast = dyn_cast<BitCastOperator>(Call.getCalledValue())) {
+    if (auto *Cast = dyn_cast<BitCastOperator>(Call.getCalledOperand())) {
       auto referencesTypeOfInterest = [&](Type *Ty) {
         auto *BaseTy = Ty;
         while (BaseTy->isPointerTy())
