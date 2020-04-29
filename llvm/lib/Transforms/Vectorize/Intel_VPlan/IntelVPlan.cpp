@@ -990,12 +990,12 @@ void VPBranchInst::print(raw_ostream &O) const {
     O << "br <External Block>";
   else
     O << "br ";
-  if (VPValue *CondBit = getCondBit()) {
+  if (VPValue *CondBit = getCondition()) {
     CondBit->printAsOperand(O);
     O << ", ";
   }
-  if (getHLGoto()) {
-    if (const BasicBlock *BB = getTargetBlock())
+  if (const loopopt::HLGoto *Node = getHLGoto()) {
+    if (const BasicBlock *BB = Node->getTargetBBlock())
       O << BB->getName();
     else
       // FIXME: Call HGoto print.
@@ -1060,45 +1060,6 @@ void VPCallInstruction::print(raw_ostream &O) const {
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-void VPBranchInst::appendSuccessor(VPBasicBlock *Successor) {
-  assert(Successor && "Cannot add nullptr successor!");
-  VPValue *CondBit = getCondBit();
-  // Temporarily remove condition operand (if any) to insert the successor
-  // before it.
-  setCondBit(nullptr);
-  addOperand(Successor);
-  // Restore condition operand.
-  setCondBit(CondBit);
-}
-
-void VPBranchInst::removeSuccessor(VPBasicBlock *Successor) {
-  int Idx = getOperandIndex(Successor);
-  assert(Idx >= 0 && "Successor does not exist");
-  removeOperand(Idx);
-}
-
-void VPBranchInst::replaceSuccessor(VPBasicBlock *OldSuccessor,
-                                    VPBasicBlock *NewSuccessor) {
-
-  int Idx = getOperandIndex(OldSuccessor);
-  assert(Idx >= 0 && "Successor not found");
-  setOperand(Idx, NewSuccessor);
-}
-
-void VPBranchInst::setOneSuccessor(VPBasicBlock *Successor) {
-  assert(getNumSuccessors() == 0 && "Setting one successor when others exist.");
-  appendSuccessor(Successor);
-}
-
-void VPBranchInst::setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
-                                    VPBasicBlock *IfFalse) {
-  assert(getNumSuccessors() == 0 &&
-         "Setting two successors when others exist.");
-  appendSuccessor(IfTrue);
-  appendSuccessor(IfFalse);
-  setCondBit(ConditionV);
-}
 
 void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
                                      VPBasicBlock *VPBB, bool InvalidateIR) {

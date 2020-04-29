@@ -767,19 +767,6 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(Node && "Expected Node to create a VPInstruction.");
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
-  if (auto *Goto = dyn_cast<HLGoto>(Node)) {
-    // Create new branch instruction
-    ScopeDbgLoc DbgLoc(Builder, Goto->getDebugLoc());
-    Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
-    VPBranchInst *T = Builder.createBr(BaseTy, Goto);
-
-    // Remove unnecessary existing terminator
-    VPBasicBlock *BB = Builder.getInsertBlock();
-    BB->removeInstruction(BB->getTerminator());
-
-    return T;
-  }
-
   // Create VPCmpInst for HLInst representing a CmpInst.
   VPInstruction *NewVPInst;
   auto DDNode = cast<HLDDNode>(Node);
@@ -1843,6 +1830,11 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert((isa<HLGoto>(Node) || !HLDef2VPValue.count(cast<HLDDNode>(Node))) &&
          "Node shouldn't have been visited.");
+
+  // Don't need to create any new instructions for Goto nodes -- can use
+  // existing terminator instead.
+  if (isa<HLGoto>(Node))
+    return InsPointVPBB->getTerminator();
 
   // Set the insertion point in the builder for the VPInstructions that we are
   // going to create for this Node.

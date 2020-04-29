@@ -483,10 +483,7 @@ void VPlanPredicator::linearizeRegion() {
               continue;
             RemovedDivergentEdgesMap[Succ].push_back(Src);
           }
-          // TODO: This code should turn to just dropping the terminator and
-          // creating a new one.
-          Src->clearSuccessors();
-          Src->appendSuccessor(TargetToKeep);
+          Src->setTerminator(TargetToKeep);
         };
 
     for (auto *Pred : RemainingDivergentEdges) {

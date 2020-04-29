@@ -1073,23 +1073,30 @@ private:
 /// Concrete class to represent branch instruction in VPlan.
 class VPBranchInst : public VPInstruction {
 public:
+  /// Construct empty branch instruction with no successors
+  /// (e.g. for the latest block in CFG).
   explicit VPBranchInst(Type *BaseTy)
-    : VPInstruction(Instruction::Br, BaseTy, {}) {}
+      : VPInstruction(Instruction::Br, BaseTy, {}) {}
 
+  /// Construct branch instruction with one successor.
+  explicit VPBranchInst(VPBasicBlock *Succ)
+      : VPInstruction(Instruction::Br,
+                      Type::getVoidTy(Succ->getType()->getContext()), {Succ}) {
+  }
+
+  /// Construct branch instruction with two successors and a condition bit.
+  explicit VPBranchInst(VPBasicBlock *IfTrue, VPBasicBlock *IfFalse,
+                        VPValue *Cond)
+      : VPInstruction(Instruction::Br,
+                      Type::getVoidTy(IfTrue->getType()->getContext()),
+                      {IfTrue, IfFalse, Cond}) {}
+
+  /// Returns underlying HLGoto node if any or nullptr otherwise.
   const loopopt::HLGoto *getHLGoto() const {
     loopopt::HLNode *Node = HIR.getUnderlyingNode();
     if (!Node)
       return nullptr;
     return cast<loopopt::HLGoto>(Node);
-  }
-
-  /// Return target block of unconditional VPBranchInst. If VPBranchInst was
-  /// created for HLGoto, return its external target block or nullptr otherwise.
-  const BasicBlock *getTargetBlock() const {
-    if (const loopopt::HLGoto *Goto = getHLGoto())
-      return Goto->getTargetBBlock();
-    // TODO: LLVM-IR implementation is needed.
-    return nullptr;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1108,82 +1115,58 @@ public:
   inline operand_iterator succ_begin() { return op_begin(); }
   inline operand_iterator succ_end() {
     // CondBit is expected to be last operand of VPBranchInst (if available)
-    return getCondBit() ? std::prev(op_end()) : op_end();
+    return getCondition() ? std::prev(op_end()) : op_end();
   }
   inline const_operand_iterator succ_begin() const { return op_begin(); }
   inline const_operand_iterator succ_end() const {
     return const_cast<VPBranchInst *>(this)->succ_end();
   }
 
+  /// Successors range.
   const_operand_range successors() const {
     return make_range(succ_begin(), succ_end());
   }
 
+  /// Returns the certain successor.
   VPBasicBlock *getSuccessor(unsigned idx) const {
     assert(idx < getNumSuccessors() && "Successor # out of range for Branch!");
     return cast<VPBasicBlock>(getOperand(idx));
   }
 
-  /// Add \p Successor as the last successor to this terminator.
-  void appendSuccessor(VPBasicBlock *Successor);
+  /// Replaces the certain successor
+  /// (the successor with specified index should already exist).
+  void setSuccessor(unsigned idx, VPBasicBlock *NewSucc) {
+    assert(idx < getNumSuccessors() && "Successor # out of range for Branch!");
+    setOperand(idx, NewSucc);
+  }
 
-  /// Remove \p Successor from the successors of this terminator.
-  void removeSuccessor(VPBasicBlock *Successor);
-
-  /// Replace \p OldSuccessor by \p NewSuccessor in terminator's successor
-  /// list. \p NewSuccessor will be inserted in the same position as
-  /// \p OldSuccessor.
-  void replaceSuccessor(VPBasicBlock *OldSuccessor, VPBasicBlock *NewSuccessor);
-
+  /// Returns successors total count.
   size_t getNumSuccessors() const {
     return std::distance(succ_begin(), succ_end());
   }
 
-  /// \Return the successor of this terminator if it has a single successor.
-  /// Otherwise return a null pointer.
-  VPBasicBlock *getSingleSuccessor() const {
-    return (getNumSuccessors() == 1 ? cast<VPBasicBlock>(*succ_begin())
-                                    : nullptr);
-  }
-
-  /// Set a given VPBasicBlock \p Successor as the single successor of this
-  /// terminator. This terminator must have no successors.
-  void setOneSuccessor(VPBasicBlock *Successor);
-
-  /// Set two given VPBasicBlocks \p IfTrue and \p IfFalse to be the two
-  /// successors of this terminator. This terminator must have no
-  /// successors. \p ConditionV is set as successor selector.
-  void setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
-                        VPBasicBlock *IfFalse);
-
-  /// Remove all the successors of this terminator and set its condition bit
-  /// to null.
-  void clearSuccessors() {
-    while (getNumOperands() > 0)
-      removeOperand(0);
-  }
-
-  /// \Return the condition bit selecting the successor.
-  VPValue *getCondBit() const {
-    VPValue *CondBit = nullptr;
+  /// Returns the condition bit selecting the successor.
+  VPValue *getCondition() const {
+    VPValue *Cond = nullptr;
     if (unsigned Count = getNumOperands()) {
-      CondBit = getOperand(Count - 1);
-      // Condition could not be a basic block.
-      if (isa<VPBasicBlock>(CondBit))
-        CondBit = nullptr;
+      Cond = getOperand(Count - 1);
+      // Condition can't be a basic block.
+      if (isa<VPBasicBlock>(Cond))
+        Cond = nullptr;
     }
-    return CondBit;
+    return Cond;
   }
 
-  void setCondBit(VPValue *CB) {
-    if (getCondBit()) {
-      if (CB)
-        setOperand(getNumOperands() - 1, CB);
+  /// Set a condition bit or replace the existing one.
+  void setCondition(VPValue *Cond) {
+    if (getCondition()) {
+      if (Cond)
+        setOperand(getNumOperands() - 1, Cond);
       else
         removeOperand(getNumOperands() - 1);
     }
-    else if (CB)
-      addOperand(CB);
+    else if (Cond)
+      addOperand(Cond);
   }
 
 protected:

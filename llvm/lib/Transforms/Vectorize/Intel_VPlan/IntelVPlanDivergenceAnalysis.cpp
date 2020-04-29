@@ -634,9 +634,10 @@ VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue *V) const {
     return NonConstDA->getUniformVectorShape();
 
   // FIXME: This needs an explicit vector IV.
-  if (Plan->isBackedgeUniformityForced() &&
-      RegionLoop->getLoopLatch()->getCondBit() == V)
-    return NonConstDA->getUniformVectorShape();
+  if (Plan->isBackedgeUniformityForced())
+    if (VPBasicBlock *LoopLatch = RegionLoop->getLoopLatch())
+      if (LoopLatch->getCondBit() == V)
+        return NonConstDA->getUniformVectorShape();
 
   auto ShapeIter = VectorShapes.find(V);
   if (ShapeIter != VectorShapes.end())
@@ -1375,9 +1376,9 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == Instruction::Call)
     NewShape = computeVectorShapeForCallInst(I);
   else if (Opcode == Instruction::Br) {
-    VPValue *CondBit = cast<VPBranchInst>(I)->getCondBit();
-    NewShape = !CondBit ? getUniformVectorShape()
-                        : getObservedShape(ParentBB, *CondBit);
+    VPValue *Cond = cast<VPBranchInst>(I)->getCondition();
+    NewShape = !Cond ? getUniformVectorShape()
+                     : getObservedShape(ParentBB, *Cond);
   } else if (Instruction::isUnaryOp(Opcode))
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)

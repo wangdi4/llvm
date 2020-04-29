@@ -74,15 +74,11 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
 
   for (auto &Inst : *Block) {
     auto ClonedInst = Inst.clone();
-    ClonedBlock->appendInstruction(ClonedInst);
+    ClonedBlock->insert(ClonedInst, ClonedBlock->end());
     ValueMap.insert(std::make_pair(&Inst, ClonedInst));
     if (DA)
       DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst));
   }
-
-  // Remove unnecessary terminator added by VPBasicBlock constructor
-  // FIXME: this is a temporary workaround which should be removed
-  ClonedBlock->removeInstruction(ClonedBlock->getTerminator());
 
   ValueMap.insert({Block, ClonedBlock});
 

@@ -226,13 +226,6 @@ public:
     return Instr;
   }
 
-  // Create dummy VPBranchInst instruction.
-  VPBranchInst *createBr(Type *BaseTy) {
-    VPBranchInst *Instr = new VPBranchInst(BaseTy);
-    insert(Instr);
-    return Instr;
-  }
-
   VPPHINode *createPhiInstruction(Instruction *Inst, const Twine &Name = "") {
     assert(Inst != nullptr && "Instruction cannot be a nullptr");
     VPPHINode *NewVPPHINode = createPhiInstruction(Inst->getType(), Name);

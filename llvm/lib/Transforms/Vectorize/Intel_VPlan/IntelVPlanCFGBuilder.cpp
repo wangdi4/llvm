@@ -205,7 +205,7 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
 template <class CFGBuilder>
 void VPlanCFGBuilderBase<CFGBuilder>::createVPInstructionsForVPBB(
     VPBasicBlock *VPBB, BasicBlock *BB) {
-  VPIRBuilder.setInsertPoint(VPBB);
+  VPIRBuilder.setInsertPoint(VPBB, VPBB->end());
   for (Instruction &InstRef : *BB) {
     // There shouldn't be any VPValue for Inst at this point. Otherwise, we
     // visited Inst when we shouldn't, breaking the RPO traversal order.
@@ -239,7 +239,7 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
   if (NumSuccs == 1) {
     VPBasicBlock *SuccVPBB = getOrCreateVPBB(TI->getSuccessor(0));
     assert(SuccVPBB && "VPBB Successor not found");
-    VPBB->setOneSuccessor(SuccVPBB);
+    VPBB->setTerminator(SuccVPBB);
     VPBB->setCBlock(BB);
     VPBB->setTBlock(TI->getSuccessor(0));
   } else if (NumSuccs == 2) {
@@ -264,7 +264,7 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
              "Missing condition bit in IRDef2VPValue!");
       VPCondBit = IRDef2VPValue[BrCond];
     }
-    VPBB->setTwoSuccessors(VPCondBit, SuccVPBB0, SuccVPBB1);
+    VPBB->setTerminator(SuccVPBB0, SuccVPBB1, VPCondBit);
 
     VPBB->setCBlock(BB);
     VPBB->setTBlock(TI->getSuccessor(0));
@@ -272,6 +272,7 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
 
   } else if (NumSuccs == 0) {
     assert(!cast<ReturnInst>(TI)->getReturnValue() && "Expected void return!");
+    VPBB->setTerminator();
   } else {
     llvm_unreachable("Number of successors not supported");
   }
@@ -298,7 +299,7 @@ void VPlanLoopCFGBuilder::buildCFG() {
   // will be created during RPO traversal.
   VPBasicBlock *HeaderVPBB = getOrCreateVPBB(TheLoop->getHeader());
   // Preheader's predecessors will be set during the loop RPO traversal below.
-  PreheaderVPBB->setOneSuccessor(HeaderVPBB);
+  PreheaderVPBB->setTerminator(HeaderVPBB);
 
   LoopBlocksRPO RPO(TheLoop);
   RPO.perform(LI);
@@ -323,18 +324,19 @@ void VPlanLoopCFGBuilder::buildCFG() {
   // Create EntryBlock.
   VPBasicBlock *PlanEntryBB =
       new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+  PlanEntryBB->setTerminator(PreheaderVPBB);
   Plan->insertAtFront(PlanEntryBB);
-  PlanEntryBB->appendSuccessor(PreheaderVPBB);
 
   // Create ExitBlock.
   VPBasicBlock *NewPlanExitBB =
       new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+  NewPlanExitBB->setTerminator();
   Plan->insertAtBack(NewPlanExitBB);
 
   // Update CFG for ExitBlock.
   if (LoopExits.size() == 1) {
     VPBasicBlock *LoopExitVPBB = BB2VPBB[LoopExits.front()];
-    LoopExitVPBB->appendSuccessor(NewPlanExitBB);
+    LoopExitVPBB->setTerminator(NewPlanExitBB);
   } else {
     // If there are multiple exits in the outermost loop, we need another dummy
     // block as landing pad for all of them.
@@ -342,16 +344,16 @@ void VPlanLoopCFGBuilder::buildCFG() {
 
     VPBasicBlock *LandingPad =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+
+    // Connect landing pad to ExitBlock.
+    LandingPad->setTerminator(NewPlanExitBB);
     LandingPad->insertBefore(NewPlanExitBB);
 
     // Connect multiple exits to landing pad
     for (auto ExitBB : make_range(LoopExits.begin(), LoopExits.end())) {
       VPBasicBlock *ExitVPBB = BB2VPBB[ExitBB];
-      ExitVPBB->appendSuccessor(LandingPad);
+      ExitVPBB->setTerminator(LandingPad);
     }
-
-    // Connect landing pad to ExitBlock.
-    LandingPad->appendSuccessor(NewPlanExitBB);
   }
 
   return;

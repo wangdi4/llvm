@@ -33,7 +33,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP0]] i32 3
-; CHECK-NEXT:     [DA: Div] br all.zero.bypass.begin9
+; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin9
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.begin9: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_CMP1]]
@@ -43,11 +43,11 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX3:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX3]]
-; CHECK-NEXT:       [DA: Div] br all.zero.bypass.end11
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end11
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.end11: # preds: [[BB4]], all.zero.bypass.begin9
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = phi  [ i32 [[VP2]], [[BB4]] ],  [ i32 0, all.zero.bypass.begin9 ]
-; CHECK-NEXT:     [DA: Div] br [[BB3]]
+; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end11
 ; CHECK-NEXT:     [DA: Div] i32 [[VP__BLEND_BB3:%.*]] = blend [ i32 0, i1 true ], [ i32 [[VP3]], i1 [[VP_CMP1]] ]

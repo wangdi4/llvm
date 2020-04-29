@@ -158,17 +158,14 @@ public:
     return &VPBasicBlock::Instructions;
   }
 
-  /// Add \p Successor as the last successor to this block.
-  void appendSuccessor(VPBasicBlock *Successor);
-
-  /// Remove \p Successor from the successors of this block.
-  void removeSuccessor(VPBasicBlock *Successor);
-
   /// Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
   /// \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
   void replaceSuccessor(VPBasicBlock *OldSuccessor, VPBasicBlock *NewSuccessor);
 
   VPBasicBlock *getSuccessor(unsigned idx) const;
+
+  /// Set successor for \p idx position.
+  void setSuccessor(unsigned idx, VPBasicBlock *NewSucc);
 
   auto getSuccessors() const {
     // std::function is required here to compile the code with MSVC.
@@ -200,19 +197,6 @@ public:
   /// to this block (for example a switch statement with multiple cases having
   /// the same destination).
   const VPBasicBlock *getUniquePredecessor() const;
-
-  /// Set a given VPBasicBlock \p Successor as the single successor of this
-  /// VPBasicBlock. This VPBasicBlock must have no successors.
-  void setOneSuccessor(VPBasicBlock *Successor);
-
-  /// Set two given VPBasicBlocks \p IfTrue and \p IfFalse to be the two
-  /// successors of this VPBasicBlock. This VPBasicBlock must have no
-  /// successors. \p ConditionV is set as successor selector.
-  void setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
-                        VPBasicBlock *IfFalse);
-
-  /// Remove all the successors of this block and set its condition bit to null.
-  void clearSuccessors();
 
   void insertBefore(VPBasicBlock *MovePos);
   void insertAfter(VPBasicBlock *MovePos);
@@ -253,6 +237,19 @@ public:
   }
 
   VPBasicBlock(const Twine &Name, VPlan *Plan);
+
+  /// Drop an existing terminator (if there is one) and append a new terminator
+  /// instruction without successors.
+  void setTerminator();
+
+  /// Drop an existing terminator (if there is one) and append a new terminator
+  /// instruction with a single successor.
+  void setTerminator(VPBasicBlock *Succ);
+
+  /// Drop an existing terminator (if there is one) and append a new terminator
+  /// instruction with two successors and a condition bit.
+  void setTerminator(VPBasicBlock *IfTrue, VPBasicBlock *IfFalse,
+                     VPValue *Cond);
 
   // ilist should have access to VPBasicBlock node.
   friend struct ilist_traits<VPBasicBlock>;
@@ -394,6 +391,9 @@ private:
   /// containing the block-predicate instruction after the split is used.
   VPBasicBlock *splitBlock(iterator I, const Twine &NewBBName = "");
 
+  /// Drop the terminator instruction if one exists.
+  void dropTerminatorIfExists();
+
   VPUser::const_operand_range successors() const;
 
   static VPBasicBlock *getVPUserParent(VPUser *User);
@@ -410,8 +410,6 @@ public:
   /// Insert NewBlock in Plan. If BlockPtr has more that one successors, its
   /// CondBit is propagated to NewBlock.
   static void insertBlockAfter(VPBasicBlock *NewBB, VPBasicBlock *BlockPtr);
-
-  static void moveSuccessors(VPBasicBlock *From, VPBasicBlock *To);
 
   /// Returns true if the edge \p FromBlock -> \p ToBlock is a back-edge.
   static bool isBackEdge(const VPBasicBlock *FromBB, const VPBasicBlock *ToBB,
