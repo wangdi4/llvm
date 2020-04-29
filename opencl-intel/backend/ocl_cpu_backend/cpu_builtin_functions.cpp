@@ -86,6 +86,16 @@ extern "C" LLVM_BACKEND_API unsigned long long cpu_get_time_counter()
   return Intel::OpenCL::DeviceBackend::Utils::SystemInfo::HostTime();
 }
 
+// floating-point extend/truncate builtins
+extern "C" LLVM_BACKEND_API uint16_t __gnu_f2h_ieee(float a);
+extern "C" LLVM_BACKEND_API float __gnu_h2f_ieee(uint16_t a);
+extern "C" LLVM_BACKEND_API uint16_t __truncdfhf2(double a);
+extern "C" LLVM_BACKEND_API uint16_t  __trunctfhf2(long double a);
+extern "C" LLVM_BACKEND_API float __trunctfsf2(long double a);
+extern "C" LLVM_BACKEND_API double __trunctfdf2(long double a);
+extern "C" LLVM_BACKEND_API long double __extendsftf2(float a);
+extern "C" LLVM_BACKEND_API long double __extenddftf2(double a);
+
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
 extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
@@ -161,6 +171,17 @@ llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
     REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
     REGISTER_BI_FUNCTION("__emutls_get_address",__opencl_emutls_get_address)
+    // Floating-point extend/truncate builtins
+    REGISTER_BI_FUNCTION("__gnu_f2h_ieee", __gnu_f2h_ieee)
+    REGISTER_BI_FUNCTION("__gnu_h2f_ieee", __gnu_h2f_ieee)
+    REGISTER_BI_FUNCTION("__truncdfhf2", __truncdfhf2)
+#ifndef _WIN32
+    REGISTER_BI_FUNCTION("__trunctfhf2", __trunctfhf2)
+    REGISTER_BI_FUNCTION("__trunctfsf2", __trunctfsf2)
+    REGISTER_BI_FUNCTION("__trunctfdf2", __trunctfdf2)
+    REGISTER_BI_FUNCTION("__extendsftf2", __extendsftf2)
+    REGISTER_BI_FUNCTION("__extenddftf2", __extenddftf2)
+#endif
     // IHS support
     REGISTER_BI_FUNCTION("_ihc_mutex_create", _ihc_mutex_create)
     REGISTER_BI_FUNCTION("_ihc_mutex_delete", _ihc_mutex_delete)

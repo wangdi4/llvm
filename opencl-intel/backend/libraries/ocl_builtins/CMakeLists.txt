@@ -462,7 +462,6 @@ list (APPEND OCL_20_SOURCE_FILES
 )
 
 list (APPEND OCL_20_SOURCE_FILES
-  half.cl
   pipes.cl
   pipes-info.cl
   pipe_functions.c
@@ -507,6 +506,9 @@ if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
     # includes AVX-512 F, CD, ER, PF.
   add_subdirectory (avx512phi)
 endif()
+
+## floating-point extend/truncate builtins
+add_subdirectory(fp_extend_trunc)
 
 if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/eyeq_builtins")
   # Configuring and adding the EyeQ builtins
