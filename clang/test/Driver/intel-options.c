@@ -139,6 +139,7 @@
 // CHECK-STRICT-ANSI: "-pedantic"
 // CHECK-STRICT-ANSI: "-std=c89"
 
+<<<<<<< HEAD
 // Behavior with -inline-level=<0,1,2> option maps to -fno-inline, -finline-hint-functions, -finline-functions
 // RUN: %clang -### -c -inline-level=0 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-ZERO %s
 // RUN: %clang -### -c -finline-functions -inline-level=0 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-ZERO %s
@@ -161,4 +162,8 @@
 // CHECK-INLINE-LEVEL: "-fno-inline"
 // CHECK-INLINE-LEVEL: "-finline-hint-functions"
 
-
+//Behavior with /Qno-builtin- maps to -fno-builtin-
+// RUN: %clang_cl -### -c /Qno-builtin- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN %s
+// RUN: %clang_cl -### -c /Qno-builtin-memset %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN-FUNC %s
+// CHECK-QNO-BUILTIN: "-fno-builtin-"
+// CHECK-QNO-BUILTIN-FUNC: "-fno-builtin-memset"
