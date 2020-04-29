@@ -2687,9 +2687,27 @@ static void getTargetEntryUniqueInfo(ASTContext &C, SourceLocation Loc,
   LineNum = PLoc.getLine();
 }
 #if INTEL_COLLAB
+static std::string getStableMangledName(StringRef MainFileName) {
+  // Create an MD5 of the path and the filename
+  llvm::MD5 Hash;
+  llvm::MD5::MD5Result Result;
+  SmallString<256> CWD;
+  llvm::sys::fs::current_path(CWD);
+  Hash.update(CWD);
+  Hash.update("/");
+  Hash.update(MainFileName);
+  Hash.final(Result);
+  SmallString<32> NameStr;
+  Hash.stringifyResult(Result, NameStr);
+
+  return std::string(NameStr);
+}
+
 /// Generate Itanium ABI mangled name for the given variable
-/// declaration.
-static std::string getItaniumABIMangledName(const VarDecl *VD) {
+/// declaration. Static variables are additionally decorated
+/// with a suffix uniquely identifying the module being compiled.
+static std::string getUniqueItaniumABIMangledName(
+    const VarDecl *VD, const CodeGenModule &CGM) {
   auto &Context = VD->getASTContext();
   std::unique_ptr<MangleContext> MC{
       ItaniumMangleContext::create(Context, Context.getDiagnostics())};
@@ -2697,6 +2715,16 @@ static std::string getItaniumABIMangledName(const VarDecl *VD) {
   llvm::raw_svector_ostream Out(Buffer);
   MC->mangleName(VD, Out);
   assert(!Buffer.empty() && "Itanium name mangling failed.");
+
+  SourceManager &SM = CGM.getContext().getSourceManager();
+  if (auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+    StringRef MainFileName = MainFile->getName();
+    if (!MainFileName.empty() &&
+        VD->getStorageClass() == SC_Static && VD->hasGlobalStorage() &&
+        !VD->isLocalVarDecl() && !VD->isStaticDataMember())
+      Out << "_" << getStableMangledName(MainFileName);
+  }
+
   return std::string(Buffer.str());
 }
 #endif  // INTEL_COLLAB
@@ -10696,7 +10724,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
     Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo;
 #if INTEL_COLLAB
     if (CGM.getLangOpts().OpenMPLateOutline) {
-      ItaniumMangledName = getItaniumABIMangledName(VD);
+      ItaniumMangledName = getUniqueItaniumABIMangledName(VD, CGM);
       VarName = ItaniumMangledName;
     } else
 #endif // INTEL_COLLAB

@@ -6,8 +6,9 @@
 ; static int global_x;
 ; #pragma omp end declare target
 
-; Check that global_x is externalized (i.e. not internal linkage set):
-; CHECK: @global_x = dso_local target_declare addrspace(1) global i32 0
+; Check that global_x is not externalized (i.e. internal linkage set):
+; CHECK: @global_x = internal target_declare addrspace(1) global i32 0
+; CHECK: @.omp_offloading.entry.global_x = weak target_declare addrspace(2) constant
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

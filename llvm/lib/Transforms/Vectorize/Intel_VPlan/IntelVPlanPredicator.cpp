@@ -734,9 +734,8 @@ void VPlanPredicator::linearizeRegion(
       IncomingBlock->getSuccessors().clear();
       auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("blend.bb"),
                                       IncomingBlock->getParent());
-      auto *VLoop = VPLI->getLoopFor(CurrBlock);
-      assert(VLoop && "VLoop is expected");
-      VLoop->addBasicBlockToLoop(BlendBB, *VPLI);
+      if (auto *VLoop = VPLI->getLoopFor(CurrBlock))
+        VLoop->addBasicBlockToLoop(BlendBB, *VPLI);
       BlendBB->insertBefore(CurrBlock);
       VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
       VPBlockUtils::connectBlocks(BlendBB, CurrBlock);

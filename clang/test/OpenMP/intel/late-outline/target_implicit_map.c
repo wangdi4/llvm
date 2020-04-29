@@ -25,7 +25,7 @@ static int x[10];
 void foo_two()
 {
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([10 x i32]* @x_
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([10 x i32]* @x
   #pragma omp target
     {
       x[1]=1;;
@@ -42,7 +42,7 @@ static int x1;
 void foo_three()
 {
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @x1_
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* @x1
   #pragma omp target
     x1 = 1;
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.TARGET"() ]

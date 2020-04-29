@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <fstream>
@@ -224,7 +225,23 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
 }
 
 /// Device information
-struct RTLDeviceInfoTy {
+class RTLDeviceInfoTy {
+  /// Type of the device version of the offload table.
+  /// The type may not match the host offload table's type
+  /// due to extensions.
+  struct DeviceOffloadEntryTy {
+    /// Common part with the host offload table.
+    __tgt_offload_entry Base;
+    /// Length of the Base.name string in bytes including
+    /// the null terminator.
+    size_t NameSize;
+  };
+
+  /// Looks up an external global variable with the given \p Name
+  /// and \p Size in the device environment for device \p DeviceId.
+  void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
+
+public:
   uint32_t NumDevices;
 
   // TODO: multiple device groups are required if two different types of devices
@@ -242,6 +259,7 @@ struct RTLDeviceInfoTy {
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
+  std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
 
   /// Flags, parameters, options
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -289,6 +307,15 @@ struct RTLDeviceInfoTy {
     // Compilation options for IGC
     if (char *env = getenv("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
       CompilationOptions += env;
+
+    if (DeviceType == ZE_DEVICE_TYPE_GPU) {
+      // Intel Graphics compilers that do not support that option
+      // silently ignore it. Other OpenCL compilers may fail.
+      const char *env = nullptr;
+      if (!(env = std::getenv("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS")) ||
+          (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
+        CompilationOptions += " -cl-take-global-address ";
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -314,6 +341,22 @@ struct RTLDeviceInfoTy {
     }
     return ThreadLocalHandles.CmdQueue;
   }
+
+  /// Loads the device version of the offload table for device \p DeviceId.
+  /// The table is expected to have \p NumEntries entries.
+  /// Returns true, if the load was successful, false - otherwise.
+  bool loadOffloadTable(int32_t DeviceId, size_t NumEntries);
+
+  /// Deallocates resources allocated for the device offload table
+  /// of \p DeviceId device.
+  void unloadOffloadTable(int32_t DeviceId);
+
+  /// Looks up an OpenMP declare target global variable with the given
+  /// \p Name and \p Size in the device environment for device \p DeviceId.
+  /// The lookup is first done via the device offload table. If it fails,
+  /// then the lookup falls back to non-OpenMP specific lookup on the device.
+  void *getOffloadVarDeviceAddr(
+      int32_t DeviceId, const char *Name, size_t Size);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -364,6 +407,7 @@ static void closeRTL() {
     CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo.FuncGblEntries[i].Module);
     DeviceInfo.Mutexes[i].unlock();
 #endif
+    DeviceInfo.unloadOffloadTable(i);
   }
   delete[] DeviceInfo.Mutexes;
   delete[] DeviceInfo.DataMutexes;
@@ -495,6 +539,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.Initialized.resize(DeviceInfo.NumDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.NumDevices];
   DeviceInfo.DataMutexes = new std::mutex[DeviceInfo.NumDevices];
+  DeviceInfo.OffloadTables.resize(DeviceInfo.NumDevices);
 
   ze_device_compute_properties_t computeProperties = {};
   computeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
@@ -576,28 +621,38 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   }
   CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
 
+  DeviceInfo.FuncGblEntries[DeviceId].Module = module;
   auto &entries = DeviceInfo.FuncGblEntries[DeviceId].Entries;
   auto &kernels = DeviceInfo.FuncGblEntries[DeviceId].Kernels;
   entries.resize(numEntries);
   kernels.resize(numEntries);
+
+  if (!DeviceInfo.loadOffloadTable(DeviceId, numEntries))
+    DP("Error: offload table loading failed.\n");
 
   for (uint32_t i = 0; i < numEntries; i++) {
     auto size = Image->EntriesBegin[i].size;
 
     if (size != 0) {
       // Entry is a global variable
-      void *tgtAddr = nullptr;
       auto hstAddr = Image->EntriesBegin[i].addr;
       auto name = Image->EntriesBegin[i].name;
-      // FIXME: unsupported in v0.2.2
-      //CALL_ZE_RET_NULL(zeModuleGetGlobalPointer, module, name, &tgtAddr);
+      void *tgtAddr =
+          DeviceInfo.getOffloadVarDeviceAddr(DeviceId, name, size);
+
       if (!tgtAddr) {
         tgtAddr = __tgt_rtl_data_alloc(DeviceId, size, hstAddr);
         __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
         DeviceInfo.DataMutexes[DeviceId].lock();
         DeviceInfo.OwnedMemory[DeviceId].push_back(tgtAddr);
         DeviceInfo.DataMutexes[DeviceId].unlock();
+        DP("Error: global variable '%s' allocated. "
+          "Direct references will not work properly.\n", name);
       }
+
+      DP("Global variable mapped: Name = %s, Size = %zu, "
+         "HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
+         name, size, DPxPTR(hstAddr), DPxPTR(tgtAddr));
       entries[i].addr = tgtAddr;
       entries[i].name = name;
       entries[i].size = size;
@@ -631,7 +686,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 #endif
   }
 
-  DeviceInfo.FuncGblEntries[DeviceId].Module = module;
   if (initModule(DeviceId) != OFFLOAD_SUCCESS)
     return nullptr;
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[DeviceId].Table;
@@ -1005,7 +1059,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
                                    int32_t NumArgs, int32_t NumTeams,
                                    int32_t ThreadLimit, void *LoopDesc,
                                    void *AsyncEvent) {
-  assert((TgtEntryPtr && TgtArgs && TgtOffsets) && "Invalid kernel");
+  assert(TgtEntryPtr && "Invalid kernel");
   assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
   DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
@@ -1188,5 +1242,152 @@ EXTERN int32_t __tgt_rtl_release_buffer(void *TgtPtr) {
 EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
                                      __tgt_async_info *async_info_ptr) {
   return OFFLOAD_SUCCESS;
+}
+
+void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
+     Name, Size, DeviceId);
+
+  std::vector<DeviceOffloadEntryTy> &OffloadTable = OffloadTables[DeviceId];
+  if (!OffloadTable.empty()) {
+    size_t NameSize = strlen(Name) + 1;
+    auto I = std::lower_bound(
+        OffloadTable.begin(), OffloadTable.end(), Name,
+        [NameSize](const DeviceOffloadEntryTy &E, const char *Name) {
+          return strncmp(E.Base.name, Name, NameSize) < 0;
+        });
+
+    if (I != OffloadTable.end() &&
+        strncmp(I->Base.name, Name, NameSize) == 0) {
+      DP("Global variable '%s' found in the offload table at position %zu.\n",
+         Name, std::distance(OffloadTable.begin(), I));
+      return I->Base.addr;
+    }
+
+    DP("Error: global variable '%s' was not found in the offload table.\n",
+       Name);
+  } else
+    DP("Error: offload table is not loaded for device %d.\n", DeviceId);
+
+  // Fallback to the lookup by name.
+  return getVarDeviceAddr(DeviceId, Name, Size);
+}
+
+void *RTLDeviceInfoTy::getVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  void *TgtAddr = nullptr;
+  DP("Looking up device global variable '%s' of size %zu bytes on device %d.\n",
+     Name, Size, DeviceId);
+  CALL_ZE_RET_NULL(zeModuleGetGlobalPointer,
+                   FuncGblEntries[DeviceId].Module, Name, &TgtAddr);
+  DP("Global variable lookup succeeded.\n");
+  return TgtAddr;
+}
+
+bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
+  const char *OffloadTableSizeVarName = "__omp_offloading_entries_table_size";
+  void *OffloadTableSizeVarAddr =
+      getVarDeviceAddr(DeviceId, OffloadTableSizeVarName, sizeof(int64_t));
+
+  if (!OffloadTableSizeVarAddr) {
+    DP("Error: cannot get device value for global variable '%s'.\n",
+       OffloadTableSizeVarName);
+    return false;
+  }
+
+  int64_t TableSizeVal = 0;
+  __tgt_rtl_data_retrieve(DeviceId, &TableSizeVal,
+                          OffloadTableSizeVarAddr, sizeof(int64_t));
+  size_t TableSize = (size_t)TableSizeVal;
+
+  if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
+    DP("Error: offload table size (%zu) is not a multiple of %zu.\n",
+       TableSize, sizeof(DeviceOffloadEntryTy));
+    return false;
+  }
+
+  size_t DeviceNumEntries = TableSize / sizeof(DeviceOffloadEntryTy);
+
+  if (NumEntries != DeviceNumEntries) {
+    DP("Error: number of entries in host and device "
+       "offload tables mismatch (%zu != %zu).\n",
+       NumEntries, DeviceNumEntries);
+    return false;
+  }
+
+  const char *OffloadTableVarName = "__omp_offloading_entries_table";
+  void *OffloadTableVarAddr =
+      getVarDeviceAddr(DeviceId, OffloadTableVarName, TableSize);
+  if (!OffloadTableVarAddr) {
+    DP("Error: cannot get device value for global variable '%s'.\n",
+       OffloadTableVarName);
+    return false;
+  }
+
+  OffloadTables[DeviceId].resize(DeviceNumEntries);
+  __tgt_rtl_data_retrieve(DeviceId, OffloadTables[DeviceId].data(),
+                          OffloadTableVarAddr, TableSize);
+  std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
+
+  size_t I = 0;
+  const char *PreviousName = "";
+
+  for (; I < DeviceNumEntries; ++I) {
+    DeviceOffloadEntryTy &Entry = DeviceTable[I];
+    size_t NameSize = Entry.NameSize;
+    void *NameTgtAddr = Entry.Base.name;
+    Entry.Base.name = nullptr;
+
+    if (NameSize == 0) {
+      DP("Error: offload entry (%zu) with 0 size.\n", I);
+      break;
+    }
+
+    Entry.Base.name = new char[NameSize];
+    __tgt_rtl_data_retrieve(DeviceId, Entry.Base.name,
+                            NameTgtAddr, NameSize);
+    if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
+      DP("Error: offload entry's name has wrong size.\n");
+      break;
+    }
+
+    if (strncmp(PreviousName, Entry.Base.name, NameSize) >= 0) {
+      DP("Error: offload table is not sorted.\n"
+         "Error: previous name is '%s'.\n"
+         "Error:  current name is '%s'.\n",
+         PreviousName, Entry.Base.name);
+      break;
+    }
+    PreviousName = Entry.Base.name;
+  }
+
+  if (I != DeviceNumEntries) {
+    // Errors during the table processing.
+    // Deallocate all memory allocated in the loop.
+    for (size_t J = 0; J <= I; ++J) {
+      DeviceOffloadEntryTy &Entry = DeviceTable[J];
+      if (Entry.Base.name)
+        delete[] Entry.Base.name;
+    }
+
+    OffloadTables[DeviceId].clear();
+    return false;
+  }
+
+#ifdef OMPTARGET_LEVEL0_DEBUG
+  DP("Device offload table loaded:\n");
+  for (size_t I = 0; I < DeviceNumEntries; ++I)
+    DP("\t%zu:\t%s\n", I, DeviceTable[I].Base.name);
+#endif  // OMPTARGET_LEVEL0_DEBUG
+
+  return true;
+}
+
+void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
+  for (auto &E : OffloadTables[DeviceId])
+    delete[] E.Base.name;
+
+  OffloadTables[DeviceId].clear();
 }
 #endif // INTEL_CUSTOMIZATION

@@ -987,17 +987,6 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
 
         assert(Var && "no global variable with given name");
         assert(Var->isTargetDeclare() && "must be a target declare variable");
-
-        // Force external linkage for target declare variables
-        // emitted for SPIRV target, otherwise they may be discarded
-        // by the device compiler (even though, they may be referenced
-        // by llvm.compiler.used). FEs must guarantee that static declare
-        // target variables are named uniquely, so that externalizing
-        // them does not cause conflicting definitions.
-        if (VPOAnalysisUtils::isTargetSPIRV(&M) &&
-            Var->getLinkage() == GlobalValue::InternalLinkage)
-          Var->setLinkage(GlobalValue::ExternalLinkage);
-
         addEntry(new VarEntry(Var, Name, Flags), Idx);
         break;
       }
@@ -1139,9 +1128,12 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
     Constant *EntryInit = ConstantStruct::get(EntryTy, EntryInitBuffer);
 
     GlobalVariable *Entry =
-        new GlobalVariable(M, EntryInit->getType(),
-                           /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
-                           EntryInit, ".omp_offloading.entry." + Name);
+        new GlobalVariable(M, EntryInit->getType(), /*isConstant=*/true,
+                           GlobalValue::WeakAnyLinkage, EntryInit,
+                           ".omp_offloading.entry." + Name,
+                           /*InsertBefore=*/nullptr,
+                           GlobalValue::ThreadLocalMode::NotThreadLocal,
+                           IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0);
 
     Entry->setTargetDeclare(true);
     Triple TT(M.getTargetTriple());
