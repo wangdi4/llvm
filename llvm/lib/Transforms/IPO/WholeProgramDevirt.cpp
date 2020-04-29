@@ -1148,6 +1148,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
         VCallSite.emitRemark("single-impl",
                              TheFn->stripPointerCasts()->getName(), OREGetter);
       VCallSite.CB.setCalledOperand(ConstantExpr::getBitCast(
+<<<<<<< HEAD
           TheFn, VCallSite.CB.getCalledValue()->getType()));
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
@@ -1161,6 +1162,9 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
         (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+          TheFn, VCallSite.CB.getCalledOperand()->getType()));
+>>>>>>> 6df65912a727fe8e186cc04055811e99b7082529
       // This use is no longer unsafe.
       if (VCallSite.NumUnsafeUses)
         --*VCallSite.NumUnsafeUses;
