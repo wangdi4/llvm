@@ -287,7 +287,12 @@ bool trace(TraceLevel Level) {
 
 // Initializes all available Plugins.
 vector_class<plugin> initialize() {
-  vector_class<plugin> Plugins;
+  static bool PluginsInitDone = false;
+  static vector_class<plugin> Plugins;
+  if (PluginsInitDone) {
+    return Plugins;
+  }
+
   vector_class<std::pair<std::string, Backend>> PluginNames;
   findPlugins(PluginNames);
 
@@ -324,6 +329,7 @@ vector_class<plugin> initialize() {
       std::cerr << "SYCL_PI_TRACE[1]: Plugin found and successfully loaded: "
                 << PluginNames[I].first << std::endl;
   }
+  PluginsInitDone = true;
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   if (!(xptiTraceEnabled() && !XPTIInitDone))
