@@ -1,8 +1,9 @@
 #include <CL/sycl/detail/pi.h>
+#include <atomic>
 #include <cassert>
 #include <iostream>
 #include <map>
-#include <atomic>
+#include <mutex>
 
 #include <level_zero/ze_api.h>
 
@@ -101,6 +102,16 @@ struct _pi_context {
   // Must be atomic to prevent data race when incrementing/decrementing.
   std::atomic<pi_uint32> RefCount;
 
+  // Get index of the free slot in the available pool. If there is no avialble
+  // pool then create new one.
+  ze_result_t getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &,
+                                             size_t &);
+
+  // If event is destroyed then decrement number of events living in the pool
+  // and destroy the pool if there are no alive events.
+  ze_result_t decrementAliveEventsInPool(ze_event_pool_handle_t pool);
+
+private:
   // Following member variables are used to manage assignment of events
   // to event pools.
   // TODO: These variables may be moved to pi_device and pi_platform
@@ -115,6 +126,15 @@ struct _pi_context {
   // number of events live in the pool live
   // This will help when we try to make the code thread-safe
   std::map<ze_event_pool_handle_t, pi_uint32> NumEventsLiveInEventPool;
+
+  // TODO: we'd like to create a  thread safe map class instead of mutex + map,
+  // that must be carefully used together.
+
+  // Mutex to control operations on NumEventsAvailableInEventPool map.
+  std::mutex NumEventsAvailableInEventPoolMutex;
+
+  // Mutex to control operations on NumEventsLiveInEventPool.
+  std::mutex NumEventsLiveInEventPoolMutex;
 };
 
 struct _pi_queue {
@@ -162,24 +182,34 @@ struct _pi_mem {
     // The size of the mapped region.
     size_t size;
   };
-  // The key is the host pointer representing an active mapping.
-  // The value is the information needed to maintain/undo the mapping.
-  // TODO: make this thread-safe.
-  //
-  std::map<void *, mapping> Mappings;
 
   virtual ~_pi_mem() = default;
 
   // Interface of the _pi_mem object.
-  virtual void *getL0Handle() { return nullptr; };
+  virtual void *getL0Handle() = 0;
 
-  virtual void *getL0HandlePtr() { return nullptr; };
+  virtual void *getL0HandlePtr() = 0;
 
   virtual bool isImage() const = 0;
+
+  // Thread-safe methods to work with memory mappings
+  pi_result addMapping(void *MappedTo, size_t size, size_t offset);
+  pi_result removeMapping(void *MappedTo, mapping& map_info);
 
 protected:
   _pi_mem(pi_platform Plt, char *HostPtr)
       : Platform{Plt}, MapHostPtr{HostPtr}, RefCount{1}, Mappings{} {}
+
+private:
+  // The key is the host pointer representing an active mapping.
+  // The value is the information needed to maintain/undo the mapping.
+  //
+  std::map<void *, mapping> Mappings;
+
+  // TODO: we'd like to create a thread safe map class instead of mutex + map,
+  // that must be carefully used together.
+  // The mutex that is used for thread-safe work with Mappings.
+  std::mutex MappingsMutex;
 };
 
 struct _pi_buffer final : _pi_mem {

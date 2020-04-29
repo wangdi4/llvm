@@ -6,16 +6,16 @@
 //    encapsulating some functionalities of PI objects.
 // 2. Settle/follow a convention for naming L0/PI handles.
 // 3. Make this code more robust, assert of assumptions and supported features.
-// 4. Make this code thread-safe.
-// 5. Address TODO comments in the code.
-// 6. Cover PI API with unittests
+// 4. Address TODO comments in the code.
+// 5. Cover PI API with unittests
 //
 #include "pi_level0.hpp"
 #include <map>
 #include <memory>
 #include <string>
 #include <thread>
-#include <mutex>
+#include <cstdarg>
+#include <cstdio>
 
 #include <level_zero/zet_api.h>
 
@@ -56,6 +56,102 @@ public:
 };
 std::mutex ZeCall::globalLock;
 
+// Controls L0 calls tracing in zePrint.
+bool ZE_DEBUG = false;
+
+static void zePrint(const char *format, ... ) {
+  if (ZE_DEBUG) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+  }
+}
+
+// TODO:: In the following 4 methods we may want to distinguish read access vs.
+// write (as it is OK for multiple threads to read the map without locking it).
+
+pi_result _pi_mem::addMapping(void *MappedTo, size_t offset, size_t size) {
+  std::lock_guard<std::mutex> lock(MappingsMutex);
+  auto it = Mappings.find(MappedTo);
+  if (it != Mappings.end()) {
+    zePrint("piEnqueueMemBufferMap: duplicate mapping detected\n");
+    return PI_INVALID_OPERATION;
+  } else {
+    Mappings.insert({MappedTo, {offset, size}});
+  }
+  return PI_SUCCESS;
+}
+
+pi_result _pi_mem::removeMapping(void *MappedTo, mapping& map_info) {
+  std::lock_guard<std::mutex> lock(MappingsMutex);
+  auto it = Mappings.find(MappedTo);
+  if (it == Mappings.end()) {
+    zePrint("piEnqueueMemUnmap: unknown memory mapping\n");
+    return PI_INVALID_VALUE;
+  }
+  map_info = it->second;
+  Mappings.erase(it);
+  return PI_SUCCESS;
+}
+
+ze_result_t
+_pi_context::getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &pool,
+                                            size_t &index) {
+  // Maximum number of events that can be present in an event pool is captured
+  // here Setting it to 256 gave best possible performance for several
+  // benchmarks
+  static const char *getEnv =
+      std::getenv("MAX_NUMBER_OF_EVENTS_PER_EVENT_POOL");
+  static const pi_uint32 MaxNumEventsPerPool =
+      (getEnv) ? std::atoi(getEnv) : 256;
+
+  index = 0;
+  // Create one event pool per MaxNumEventsPerPool events
+  if ((L0EventPool == nullptr) ||
+      (NumEventsAvailableInEventPool[L0EventPool] == 0)) {
+    // Creation of the new pool with record in NumEventsAvailableInEventPool and
+    // initialization of the record in NumEventsLiveInEventPool must be done
+    // atomically. Otherwise it is possible that decrementAliveEventsInPool will
+    // be called for the record in NumEventsLiveInEventPool before its
+    // initialization.
+    std::lock(NumEventsAvailableInEventPoolMutex,
+              NumEventsLiveInEventPoolMutex);
+    std::lock_guard<std::mutex> NumEventsAvailableInEventPoolGuard(
+        NumEventsAvailableInEventPoolMutex, std::adopt_lock);
+    std::lock_guard<std::mutex> NumEventsLiveInEventPoolGuard(
+        NumEventsLiveInEventPoolMutex, std::adopt_lock);
+
+    ze_event_pool_desc_t ze_event_pool_desc;
+    ze_event_pool_desc.count = MaxNumEventsPerPool;
+    ze_event_pool_desc.flags = ZE_EVENT_POOL_FLAG_TIMESTAMP;
+    ze_event_pool_desc.version = ZE_EVENT_POOL_DESC_VERSION_CURRENT;
+
+    ze_device_handle_t ze_device = Device->L0Device;
+    if (ze_result_t res =
+            zeEventPoolCreate(Device->Platform->L0Driver, &ze_event_pool_desc,
+                              1, &ze_device, &L0EventPool))
+      return res;
+    NumEventsAvailableInEventPool[L0EventPool] = MaxNumEventsPerPool - 1;
+    NumEventsLiveInEventPool[L0EventPool] = MaxNumEventsPerPool;
+  } else {
+    std::lock_guard<std::mutex> NumEventsAvailableInEventPoolGuard(
+        NumEventsAvailableInEventPoolMutex);
+    index = MaxNumEventsPerPool - NumEventsAvailableInEventPool[L0EventPool];
+    --NumEventsAvailableInEventPool[L0EventPool];
+  }
+  pool = L0EventPool;
+  return ZE_RESULT_SUCCESS;
+}
+
+ze_result_t _pi_context::decrementAliveEventsInPool(ze_event_pool_handle_t pool) {
+  std::lock_guard<std::mutex> lock(NumEventsLiveInEventPoolMutex);
+  --NumEventsLiveInEventPool[pool];
+  if (NumEventsLiveInEventPool[pool] == 0) {
+    return zeEventPoolDestroy(pool);
+  }
+  return ZE_RESULT_SUCCESS;
+}
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,8 +165,6 @@ extern "C" {
 #define L0_SUPPORTED_EXTENSIONS                                                \
   "cl_khr_il_program cl_khr_subgroups cl_intel_subgroups "                     \
   "cl_intel_subgroups_short cl_intel_required_subgroup_size "
-// Controls L0 calls tracing in zePrint.
-bool ZE_DEBUG = false;
 
 // Map L0 runtime error code to PI error code
 static pi_result mapError(ze_result_t result) {
@@ -146,15 +240,6 @@ static pi_result enqueueMemCopyRectHelper(
   pi_uint32          num_events_in_wait_list,
   const pi_event *   event_wait_list,
   pi_event *         event);
-
-static void zePrint(const char *format, ... ) {
-  if (ZE_DEBUG) {
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-  }
-}
 
 inline void zeParseError(ze_result_t error, std::string &errorString)
 {
@@ -2304,37 +2389,9 @@ pi_result L0(piEventCreate)(
   pi_context    context,
   pi_event *    ret_event)
 {
-  ze_event_pool_handle_t ze_event_pool = context->L0EventPool;
-  auto index = 0;
-
-  // Maximum number of events that can be present in an event pool is captured here
-  // Setting it to 256 gave best possible performance for several benchmarks
-  static const char *getEnv = std::getenv("MAX_NUMBER_OF_EVENTS_PER_EVENT_POOL");
-  static const pi_uint32 MaxNumEventsPerPool = (getEnv) ? std::atoi(getEnv) : 256;
-
-  // Create one event pool per MaxNumEventsPerPool events
-  // TODO: ensure this is thread-safe.
-  if ((ze_event_pool == nullptr) ||
-      (context->NumEventsAvailableInEventPool[ze_event_pool] == 0)) {
-    ze_event_pool_desc_t ze_event_pool_desc;
-    ze_event_pool_desc.count = MaxNumEventsPerPool;
-    ze_event_pool_desc.flags = ZE_EVENT_POOL_FLAG_TIMESTAMP;
-    ze_event_pool_desc.version = ZE_EVENT_POOL_DESC_VERSION_CURRENT;
-
-    ze_device_handle_t ze_device = context->Device->L0Device;
-    ZE_CALL(zeEventPoolCreate(
-      context->Device->Platform->L0Driver,
-      &ze_event_pool_desc,
-      1,
-      &ze_device,
-      &ze_event_pool));
-    context->L0EventPool = ze_event_pool;
-    context->NumEventsAvailableInEventPool[ze_event_pool] = MaxNumEventsPerPool-1;
-    context->NumEventsLiveInEventPool[ze_event_pool] = MaxNumEventsPerPool;
-  } else {
-    index = MaxNumEventsPerPool - context->NumEventsAvailableInEventPool[ze_event_pool];
-    --context->NumEventsAvailableInEventPool[ze_event_pool];
-  }
+  size_t index = 0;
+  ze_event_pool_handle_t ze_event_pool = {};
+  ZE_CALL(context->getFreeSlotInExistingOrNewPool(ze_event_pool, index));
   ze_event_handle_t ze_event;
   ze_event_desc_t ze_event_desc = {};
   ze_event_desc.signal = ZE_EVENT_SCOPE_FLAG_NONE;
@@ -2560,12 +2617,10 @@ pi_result L0(piEventRelease)(pi_event event) {
       event->CommandData = nullptr;
     }
     ZE_CALL(zeEventDestroy(event->L0Event));
+
     auto context = event->Context;
-    // TODO: ensure this is thread-safe.
-    --context->NumEventsLiveInEventPool[event->L0EventPool];
-    if (context->NumEventsLiveInEventPool[event->L0EventPool] == 0) {
-      ZE_CALL(zeEventPoolDestroy(event->L0EventPool));
-    }
+    ZE_CALL(context->decrementAliveEventsInPool(event->L0EventPool));
+
     delete event;
   }
   return PI_SUCCESS;
@@ -3238,18 +3293,7 @@ pi_result L0(piEnqueueMemBufferMap)(
 
   _pi_event::deleteL0EventList(ze_event_wait_list);
 
-  // Record the created mapping to facilitate its later unmap.
-  // TODO: ensure this is thread-safe.
-  auto it = buffer->Mappings.find(*ret_map);
-  if (it != buffer->Mappings.end()) {
-    zePrint("piEnqueueMemBufferMap: duplicate mapping detected\n");
-    return PI_INVALID_OPERATION;
-  }
-  else {
-    buffer->Mappings.insert({*ret_map, {offset, size}});
-  }
-
-  return PI_SUCCESS;
+  return buffer->addMapping(*ret_map, offset, size);
 }
 
 pi_result L0(piEnqueueMemUnmap)(
@@ -3291,13 +3335,9 @@ pi_result L0(piEnqueueMemUnmap)(
   // NOTE: Keep this in sync with the implementation of
   // piEnqueueMemBufferMap/piEnqueueMemImageMap.
   //
-  auto it = memobj->Mappings.find(mapped_ptr);
-  if (it == memobj->Mappings.end()) {
-    zePrint("piEnqueueMemUnmap: unknown memory mapping\n");
-    return PI_INVALID_VALUE;
-  }
-  auto map_info = it->second;
-  memobj->Mappings.erase(it);
+  _pi_mem::mapping map_info = {};
+  if (pi_result res = memobj->removeMapping(mapped_ptr, map_info))
+    return res;
 
   ze_event_handle_t ze_event = (*event)->L0Event;
   ZE_CALL(zeCommandListAppendMemoryCopy(
