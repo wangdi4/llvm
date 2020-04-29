@@ -5120,8 +5120,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_R_Group);
 
   Args.AddAllArgs(CmdArgs, options::OPT_W_Group);
-  if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false))
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_pedantic, options::OPT_no_pedantic, false)
+      || Args.hasArg(options::OPT_strict_ansi))
+#endif //INTEL_CUSTOMIZATION
     CmdArgs.push_back("-pedantic");
+
   Args.AddLastArg(CmdArgs, options::OPT_pedantic_errors);
   Args.AddLastArg(CmdArgs, options::OPT_w);
 
@@ -5136,9 +5140,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // If a std is supplied, only add -trigraphs if it follows the
   // option.
   bool ImplyVCPPCXXVer = false;
-  const Arg *Std = Args.getLastArg(options::OPT_std_EQ, options::OPT_ansi);
+#if INTEL_CUSTOMIZATION
+  const Arg *Std = Args.getLastArg(options::OPT_std_EQ, options::OPT_ansi,
+                     options::OPT_strict_ansi);
   if (Std) {
-    if (Std->getOption().matches(options::OPT_ansi))
+    if (Std->getOption().matches(options::OPT_ansi) ||
+        Std->getOption().matches(options::OPT_strict_ansi))
+#endif //INTEL_CUSTOMIZATION
       if (types::isCXX(InputType))
         CmdArgs.push_back("-std=c++98");
       else
