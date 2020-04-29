@@ -252,12 +252,204 @@ static bool isQsortCompare(Function &F) {
   return true;
 }
 
+//
+// Return 'true' if 'F' is a qsort med3.
+//
+static bool isQsortMed3(Function &F) {
+
+  //
+  // Return 'true' if we match a sequence of the form:
+  //
+  //  'VC' = call i32 'AP'(i8* 'AL', i8* 'AR')
+  //
+  auto IsIndCmpCall = [](Value *VC, Argument *AP, Argument *AL,
+                         Argument *AR) -> bool {
+    auto CI = dyn_cast<CallInst>(VC);
+    if (!CI || !CI->isIndirectCall() || CI->arg_size() != 2)
+      return false;
+    if (CI->getCalledValue() != AP || CI->getArgOperand(0) != AL ||
+        CI->getArgOperand(1) != AR)
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if we match a sequence of the form:
+  //
+  //   %call = call i32 'AP'(i8* 'AL', i8* 'AR')
+  //   'V0' = icmp 'Pred' i32 %call, 0
+  //
+  auto IsICmpIndCmp = [&IsIndCmpCall](Value *V0, Argument *AP, Argument *AL,
+                                      Argument *AR,
+                                      ICmpInst::Predicate Pred) -> bool {
+    auto IC = dyn_cast<ICmpInst>(V0);
+    if (!IC || IC->getPredicate() != Pred)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CI || !CI->isZero())
+      return false;
+    return IsIndCmpCall(IC->getOperand(0), AP, AL, AR);
+  };
+
+  //
+  // Return 'true' if we match a BasicBlock 'BBI' of the form:
+  //
+  //   %call = call i32 'AP'(i8* 'AL', i8* 'AR')
+  //   %cmp = icmp 'Pred' i32 %call, 0
+  //   br i1 %cmp, label 'BBL', label 'BBR'
+  //
+  // If we return 'true', set the values of 'BBL' and 'BBR'.
+  //
+  auto IsCmpBlock = [&IsICmpIndCmp](BasicBlock *BBI, Argument *AP, Argument *AL,
+                                    Argument *AR, ICmpInst::Predicate Pred,
+                                    BasicBlock **BBL,
+                                    BasicBlock **BBR) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return false;
+    if (!IsICmpIndCmp(BI->getCondition(), AP, AL, AR, Pred))
+      return false;
+    *BBL = BI->getSuccessor(0);
+    *BBR = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if we match a BasicBlock 'BBI' of the form:
+  //
+  //   br label 'BBO'
+  //
+  // and indicate that 'BBO', which starts with a PHINode, will have an
+  // incoming [Value *, BasicBlock *] pair of [ 'V0', 'BBI' ]. If we return
+  // 'true', put an entry in the PHIMap to indicate this and set the value of
+  // 'BBO'.
+  //
+  auto IsDirectBranchBlock = [](BasicBlock *BBI, Value *V0,
+                                DenseMap<BasicBlock *, Value *> &PHIMap,
+                                BasicBlock **BBO) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    PHIMap[BBI] = V0;
+    *BBO = BI->getSuccessor(0);
+    return true;
+  };
+
+  //
+  // Return 'true' if we match a BasicBlock 'BBI' of the form:
+  //
+  //   %call = call i32 'CallP'(i8* 'CallL', i8* 'CallR')
+  //   %cmp = icmp 'Pred' i32 %call, 0
+  //   'SI' = select i1 %cmp, i8* 'SelL', i8* 'SelR'
+  //   br label 'BBO'
+  //
+  // and indicate that 'BBO', which startes with a PHINode, will have an
+  // incoming [Value *, BasicBlock *] pair of ['SI', 'BBI']. If we return
+  // 'true', put an entry in the PHIMap to indicate this and set the value of
+  // 'BBO'.
+  //
+  auto IsCmpSelBlock = [&IsICmpIndCmp](BasicBlock *BBI, Argument *SelL,
+                                       Argument *SelR, ICmpInst::Predicate Pred,
+                                       Argument *CallL, Argument *CallR,
+                                       Argument *CallP,
+                                       DenseMap<BasicBlock *, Value *> &PHIMap,
+                                       BasicBlock **BBO) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    auto SI = dyn_cast_or_null<SelectInst>(BI->getPrevNonDebugInstruction());
+    if (!SI || SI->getTrueValue() != SelL || SI->getFalseValue() != SelR)
+      return false;
+    if (!IsICmpIndCmp(SI->getCondition(), CallP, CallL, CallR, Pred))
+      return false;
+    *BBO = BI->getSuccessor(0);
+    PHIMap[BBI] = SI;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBPHI' has the desired form:
+  //   %rv = phi i32 [ 'V0', 'BBR0' ], [ 'V1', 'BBR1' ], [ 'V2', 'BBR2' ],
+  //     [ 'V3', 'BBR3' ]
+  //   ret i32 %rv
+  // where the correspondence between the incoming values and the BasicBlocks
+  // for the PHINode is given by the map 'PHIMap'.
+  //
+  auto IsOKPHIBlock = [](BasicBlock *BBPHI,
+                         DenseMap<BasicBlock *, Value *> &PHIMap) -> bool {
+    auto RI = dyn_cast<ReturnInst>(BBPHI->getTerminator());
+    if (!RI)
+      return false;
+    auto PHIN = dyn_cast_or_null<PHINode>(RI->getReturnValue());
+    if (!PHIN)
+      return false;
+    for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I < E; ++I) {
+      Value *VI = PHIN->getIncomingValue(I);
+      BasicBlock *BBI = PHIN->getIncomingBlock(I);
+      if (PHIMap[BBI] != VI)
+        return false;
+    }
+    return true;
+  };
+
+  // This is the main code for isQsortMed3().
+  DenseMap<BasicBlock *, Value *> PHIMap;
+  if (F.isDeclaration() || F.isVarArg() || F.arg_size() != 4)
+    return false;
+  if (!F.getReturnType()->isPointerTy())
+    return false;
+  for (unsigned I = 0; I < F.arg_size(); ++I)
+    if (!F.getArg(I)->getType()->isPointerTy())
+      return false;
+  BasicBlock *BBE = &F.getEntryBlock();
+  BasicBlock *BBT0 = nullptr;
+  BasicBlock *BBF0 = nullptr;
+  BasicBlock *BBT1 = nullptr;
+  BasicBlock *BBF1 = nullptr;
+  BasicBlock *BBT2 = nullptr;
+  BasicBlock *BBF2 = nullptr;
+  BasicBlock *BBS0 = nullptr;
+  BasicBlock *BBS1 = nullptr;
+  BasicBlock *BBU0 = nullptr;
+  BasicBlock *BBPHI = nullptr;
+  Argument *A0 = F.getArg(0);
+  Argument *A1 = F.getArg(1);
+  Argument *A2 = F.getArg(2);
+  Argument *A3 = F.getArg(3);
+  ICmpInst::Predicate PLT = ICmpInst::ICMP_SLT;
+  ICmpInst::Predicate PGT = ICmpInst::ICMP_SGT;
+  if (!IsCmpBlock(BBE, A3, A0, A1, PLT, &BBT0, &BBF0))
+    return false;
+  if (!IsCmpBlock(BBT0, A3, A1, A2, PLT, &BBT1, &BBF1))
+    return false;
+  if (!IsDirectBranchBlock(BBT1, A1, PHIMap, &BBPHI))
+    return false;
+  if (!IsCmpSelBlock(BBF1, A2, A0, PLT, A0, A2, A3, PHIMap, &BBS0) ||
+      BBS0 != BBPHI)
+    return false;
+  if (!IsCmpBlock(BBF0, A3, A1, A2, PGT, &BBT2, &BBF2))
+    return false;
+  if (!IsDirectBranchBlock(BBT2, A1, PHIMap, &BBU0) || BBU0 != BBPHI)
+    return false;
+  if (!IsCmpSelBlock(BBF2, A0, A2, PLT, A0, A2, A3, PHIMap, &BBS1) ||
+      BBS1 != BBPHI)
+    return false;
+  return IsOKPHIBlock(BBPHI, PHIMap);
+}
+
 static bool FunctionRecognizerImpl(Function &F) {
   if (isQsortCompare(F)) {
     F.addFnAttr("is-qsort-compare");
     NumFunctionsRecognized++;
     LLVM_DEBUG(dbgs() << "FUNCTION-RECOGNIZER: FOUND QSORT-COMPARE "
                       << F.getName() << "\n");
+    return true;
+  }
+  if (isQsortMed3(F)) {
+    F.addFnAttr("is-qsort-med3");
+    NumFunctionsRecognized++;
+    LLVM_DEBUG(dbgs() << "FUNCTION-RECOGNIZER: FOUND QSORT-MED3 " << F.getName()
+                      << "\n");
     return true;
   }
   return false;
