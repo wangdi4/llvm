@@ -22,7 +22,7 @@
 
 ; CHECK-LABEL: define internal void @test.loop1(i8* %p1)
 ; CHECK-NEXT: newFuncRoot:
-; CHECK-NEXT:   br
+; CHECK-NOT: %v1 = alloca i32 ;INTEL
 
 define void @test() {
 entry:
