@@ -16,6 +16,7 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include <iterator>
 
 namespace llvm {
 namespace vpo {
@@ -176,6 +177,58 @@ inline Function *getCalledFunction(const VPInstruction *Call) {
   return cast<Function>(Func->getConstant());
 }
 
+// Add a new depth-first iterator (sese_df_iterator) for traversing the blocks
+// of SESE region.
+template <typename BlockTy>
+class sese_df_iterator
+    : public std::iterator<std::forward_iterator_tag, BlockTy> {
+
+public:
+  sese_df_iterator(df_iterator<BlockTy> Iter, BlockTy End)
+      : Iter(Iter), End(End) {}
+
+  sese_df_iterator &operator++() {
+    if (*Iter == End)
+      // Don't go outside of SESE region. It does move the iterator, so avoid
+      // usual increment.
+      Iter.skipChildren();
+    else
+      // Go to the next block in ordinary way.
+      ++Iter;
+    return *this;
+  }
+
+  BlockTy const &operator*() const { return *Iter; }
+
+  bool operator!=(const sese_df_iterator &It2) const {
+    return Iter != It2.Iter;
+  }
+
+  bool operator==(const sese_df_iterator &It2) const {
+    return Iter == It2.Iter;
+  }
+
+private:
+  df_iterator<BlockTy> Iter;
+  BlockTy End;
+};
+
+template <typename BlockTy>
+sese_df_iterator<BlockTy> sese_df_begin(BlockTy Begin, BlockTy End) {
+  return sese_df_iterator<BlockTy>(df_begin(Begin), End);
+}
+
+template <typename BlockTy>
+sese_df_iterator<BlockTy> sese_df_end(BlockTy Begin, BlockTy End) {
+  return sese_df_iterator<BlockTy>(df_end(Begin), End);
+}
+
+// Provide an accessor that can be used in ranged patterns.
+template <typename BlockTy>
+iterator_range<sese_df_iterator<BlockTy>> sese_depth_first(BlockTy Begin,
+                                                           BlockTy End) {
+  return make_range(sese_df_begin(Begin, End), sese_df_end(Begin, End));
+}
 } // namespace vpo
 } // namespace llvm
 
