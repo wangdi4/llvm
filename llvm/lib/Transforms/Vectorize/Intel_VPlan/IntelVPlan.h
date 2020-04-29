@@ -506,6 +506,131 @@ class VPInstruction : public VPUser,
                "Cloned isValid() value should be equal to the original one");
     }
   };
+
+  /// Central class to capture and differentiate operator-specific attributes
+  /// that are attached to an instruction. All operators in LLVM are mutually
+  /// exclusive, hence we use tagged unions to explicitly identify which
+  /// specific type of operator flags is currently held.
+  struct VPOperatorIRFlags {
+  private:
+    union {
+      FastMathFlags FMF;
+      std::bitset<2> OverflowFlags;
+      unsigned ExactFlag : 1;
+    };
+
+  public:
+    // Helpful internal enum to tag current type of VPOperatorIRFlags.
+    enum class FlagsKind {
+      UnknownOperatorFlags = 0,
+      VPFastMathFlags = 1,
+      VPOverflowingFlags = 2,
+      VPExactFlags = 3,
+      NumFlagsKind
+    };
+
+    enum class OverflowFlagsKind {
+      NSWFlag = 0,
+      NUWFlag = 1
+    };
+
+    VPOperatorIRFlags() {}
+
+    // Utility to find type of operator flags based on given opcode. This switch
+    // helps us track the mutual exclusivity of operator flags i.e. one type of
+    // instruction cannot have multiple types of operator flags.
+    FlagsKind getOperatorKind(unsigned Opcode, Type *InstTy = nullptr) const {
+      switch (Opcode) {
+      case Instruction::FNeg:
+      case Instruction::FAdd:
+      case Instruction::FSub:
+      case Instruction::FMul:
+      case Instruction::FDiv:
+      case Instruction::FRem:
+      case Instruction::FCmp:
+        return FlagsKind::VPFastMathFlags;
+      case Instruction::PHI:
+      case Instruction::Select:
+      case Instruction::Call: {
+        // Conservatively return UnknownOperatorFlags if instruction type info
+        // is not provided for opcode.
+        if (!InstTy)
+          return FlagsKind::UnknownOperatorFlags;
+
+        while (ArrayType *ArrTy = dyn_cast<ArrayType>(InstTy))
+          InstTy = ArrTy->getElementType();
+
+        if (InstTy->isFPOrFPVectorTy())
+          return FlagsKind::VPFastMathFlags;
+
+        return FlagsKind::UnknownOperatorFlags;
+      }
+      case Instruction::Add:
+      case Instruction::Sub:
+      case Instruction::Mul:
+      case Instruction::Shl:
+        return FlagsKind::VPOverflowingFlags;
+      case Instruction::SDiv:
+      case Instruction::UDiv:
+      case Instruction::AShr:
+      case Instruction::LShr:
+        return FlagsKind::VPExactFlags;
+      default:
+        return FlagsKind::UnknownOperatorFlags;
+      }
+    }
+
+    // NOTE: Both getValueAsXYZ and setValueAsXYZ assert if they are called on
+    // unexpected type of instructions (determined by opcode).
+
+    // Getter and setter for VPFastMathFlags type.
+    bool hasValueAsFastMathFlags(unsigned Opcode, Type *InstTy) const {
+      return getOperatorKind(Opcode, InstTy) == FlagsKind::VPFastMathFlags;
+    }
+    FastMathFlags getValueAsFastMathFlags(unsigned Opcode, Type *InstTy) const {
+      assert(hasValueAsFastMathFlags(Opcode, InstTy) &&
+             "VPInstruction cannot have FastMathFlags.");
+      return FMF;
+    }
+    void setValueAsFastMathFlags(unsigned Opcode, Type *InstTy,
+                                 FastMathFlags InFMF) {
+      assert(hasValueAsFastMathFlags(Opcode, InstTy) &&
+             "VPInstruction cannot have FastMathFlags.");
+      FMF = InFMF;
+    }
+
+    // Getter and setter for VPOverflowingFlags type.
+    bool hasValueAsOverflowingFlags(unsigned Opcode) const {
+      return getOperatorKind(Opcode) == FlagsKind::VPOverflowingFlags;
+    }
+    bool getValueAsOverflowingFlags(unsigned Opcode,
+                                    OverflowFlagsKind FlagID) const {
+      assert(hasValueAsOverflowingFlags(Opcode) &&
+             "VPInstruction cannot have overflowing flags (NSW/NUW).");
+      return OverflowFlags[static_cast<unsigned>(FlagID)];
+    }
+    void setValueAsOverflowingFlags(unsigned Opcode, OverflowFlagsKind FlagID,
+                                    bool FlagVal) {
+      assert(hasValueAsOverflowingFlags(Opcode) &&
+             "VPInstruction cannot have overflowing flags (NSW/NUW).");
+      OverflowFlags.set(static_cast<unsigned>(FlagID), FlagVal);
+    }
+
+    // Getter and setter for VPExactFlag type.
+    bool hasValueAsExactFlag(unsigned Opcode) const {
+      return getOperatorKind(Opcode) == FlagsKind::VPExactFlags;
+    }
+    unsigned getValueAsExactFlag(unsigned Opcode) const {
+      assert(hasValueAsExactFlag(Opcode) &&
+             "VPInstruction cannot have exact flag.");
+      return ExactFlag;
+    }
+    void setValueAsExactFlag(unsigned Opcode, bool InExactFlag) {
+      assert(hasValueAsExactFlag(Opcode) &&
+             "VPInstruction cannot have exact flag.");
+      ExactFlag = InExactFlag;
+    }
+  };
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -546,6 +671,8 @@ private:
 
   // Debug location for this VPInstruction.
   DebugLoc DbgLoc;
+  // Hold operator-related metadata attributes attached to this VPInstruction.
+  VPOperatorIRFlags OperatorFlags;
 
   /// Utility method serving execute(): generates a single instance of the
   /// modeled instruction.
@@ -566,6 +693,7 @@ private:
   void copyAttributesFrom(const VPInstruction &Inst) {
     DbgLoc = Inst.DbgLoc;
     // Copy other general attributes here when imported.
+    OperatorFlags = Inst.OperatorFlags;
   }
 #endif
 
@@ -667,6 +795,78 @@ public:
 
   const DebugLoc getDebugLocation() const { return DbgLoc; }
   void setDebugLocation(const DebugLoc &Loc) { DbgLoc = Loc; }
+
+  // Utility to populate current VPInstruction's operator flags from
+  // llvm::Instruction it was created for.
+  void copyOperatorFlagsFrom(const Instruction *Inst) {
+    if (auto *OB = dyn_cast<OverflowingBinaryOperator>(Inst)) {
+      setHasNoSignedWrap(OB->hasNoSignedWrap());
+      setHasNoUnsignedWrap(OB->hasNoUnsignedWrap());
+    }
+    if (auto *PE = dyn_cast<PossiblyExactOperator>(Inst))
+      setIsExact(PE->isExact());
+    if (auto *FP = dyn_cast<FPMathOperator>(Inst))
+      setFastMathFlags(FP->getFastMathFlags());
+    // No other operator flags of interest now for VPlan.
+  }
+
+  // Utility to transfer current VPInstruction's operator flags to its
+  // corresponding outgoing llvm::Instruction.
+  void copyOperatorFlagsTo(Instruction *Inst) {
+    if (isa<OverflowingBinaryOperator>(Inst)) {
+      Inst->setHasNoSignedWrap(hasNoSignedWrap());
+      Inst->setHasNoUnsignedWrap(hasNoUnsignedWrap());
+    }
+    if (isa<PossiblyExactOperator>(Inst))
+      Inst->setIsExact(isExact());
+    if (isa<FPMathOperator>(Inst))
+      Inst->setFastMathFlags(getFastMathFlags());
+  }
+
+  // Getters for operator-specific attributes.
+  bool hasFastMathFlags() const {
+    return OperatorFlags.hasValueAsFastMathFlags(getOpcode(), getType()) &&
+           getFastMathFlags().any();
+  }
+  FastMathFlags getFastMathFlags() const {
+    return OperatorFlags.getValueAsFastMathFlags(getOpcode(), getType());
+  }
+  bool hasNoSignedWrap() const {
+    if (!OperatorFlags.hasValueAsOverflowingFlags(getOpcode()))
+      return false;
+
+    return OperatorFlags.getValueAsOverflowingFlags(
+        getOpcode(), VPOperatorIRFlags::OverflowFlagsKind::NSWFlag);
+  }
+  bool hasNoUnsignedWrap() const {
+    if (!OperatorFlags.hasValueAsOverflowingFlags(getOpcode()))
+      return false;
+
+    return OperatorFlags.getValueAsOverflowingFlags(
+        getOpcode(), VPOperatorIRFlags::OverflowFlagsKind::NUWFlag);
+  }
+  bool isExact() const {
+    if (!OperatorFlags.hasValueAsExactFlag(getOpcode()))
+      return false;
+
+    return OperatorFlags.getValueAsExactFlag(getOpcode());
+  }
+
+  // Setters for operator-specific attributes.
+  void setFastMathFlags(FastMathFlags FMF) {
+    OperatorFlags.setValueAsFastMathFlags(getOpcode(), getType(), FMF);
+  }
+  void setHasNoSignedWrap(bool IsNSW) {
+    OperatorFlags.setValueAsOverflowingFlags(
+        getOpcode(), VPOperatorIRFlags::OverflowFlagsKind::NSWFlag, IsNSW);
+  }
+  void setHasNoUnsignedWrap(bool IsNUW) {
+    OperatorFlags.setValueAsOverflowingFlags(
+        getOpcode(), VPOperatorIRFlags::OverflowFlagsKind::NUWFlag, IsNUW);
+  }
+  void setIsExact(bool IsExact) {
+    OperatorFlags.setValueAsExactFlag(getOpcode(), IsExact);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // ilist should have access to VPInstruction node.
