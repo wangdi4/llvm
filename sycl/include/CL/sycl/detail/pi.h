@@ -792,6 +792,23 @@ pi_result piPlatformGetInfo(pi_platform platform, pi_platform_info param_name,
                             size_t param_value_size, void *param_value,
                             size_t *param_value_size_ret);
 
+/* INTEL_CUSTOMIZATION */
+/// Gets the native handle of a PI platform object.
+///
+/// \param platform is the PI platform to get the native handle of.
+/// \param nativeHandle is the native handle of platform.
+pi_result piextPlatformGetNativeHandle(pi_platform platform,
+                                       pi_native_handle *nativeHandle);
+
+/// Creates PI platform object from a native handle.
+/// NOTE: The created PI object takes ownership of the native handle.
+///
+/// \param nativeHandle is the native handle to create PI device from.
+/// \param platform is the PI platform created from the native handle.
+pi_result piextPlatformCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                              pi_platform *platform);
+/* end INTEL_CUSTOMIZATION */
+
 pi_result piDevicesGet(pi_platform platform, pi_device_type device_type,
                        pi_uint32 num_entries, pi_device *devices,
                        pi_uint32 *num_devices);
@@ -822,6 +839,7 @@ pi_result piextDeviceGetNativeHandle(pi_device device,
 /// \param nativeHandle is the native handle to create PI device from.
 /// \param device is the PI device created from the native handle.
 pi_result piextDeviceCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                            pi_platform platform, // INTEL
                                             pi_device *device);
 
 /// Selects the most appropriate device binary based on runtime information
@@ -909,10 +927,11 @@ pi_result piextQueueGetNativeHandle(pi_queue queue,
 /// NOTE: The created PI object takes ownership of the native handle.
 ///
 /// \param nativeHandle is the native handle to create PI queue from.
+/// \param context is the PI context of the queue.             // INTEL
 /// \param queue is the PI queue created from the native handle.
 pi_result piextQueueCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                           pi_context context, // INTEL
                                            pi_queue *queue);
-
 //
 // Memory
 //

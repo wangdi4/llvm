@@ -163,7 +163,6 @@ extern "C" {
 // Convenience macro makes source code search easier
 #define OCL(pi_api) Ocl##pi_api
 
-// Example of a PI interface that does not map exactly to an OpenCL one.
 pi_result OCL(piPlatformsGet)(pi_uint32 num_entries, pi_platform *platforms,
                               pi_uint32 *num_platforms) {
   cl_int result = clGetPlatformIDs(cast<cl_uint>(num_entries),
@@ -179,7 +178,17 @@ pi_result OCL(piPlatformsGet)(pi_uint32 num_entries, pi_platform *platforms,
   return static_cast<pi_result>(result);
 }
 
-// Example of a PI interface that does not map exactly to an OpenCL one.
+#if INTEL_CUSTOMIZATION
+pi_result OCL(piextPlatformCreateWithNativeHandle)(
+    pi_native_handle nativeHandle,
+    pi_platform *platform) {
+  assert(platform);
+  assert(nativeHandle);
+  *platform = reinterpret_cast<pi_platform>(nativeHandle);
+  return PI_SUCCESS;
+}
+#endif // INTEL_CUSTOMIZATION
+
 pi_result OCL(piDevicesGet)(pi_platform platform, pi_device_type device_type,
                             pi_uint32 num_entries, pi_device *devices,
                             pi_uint32 *num_devices) {
@@ -270,6 +279,7 @@ pi_result OCL(piextDeviceSelectBinary)(pi_device device,
 }
 
 pi_result OCL(piextDeviceCreateWithNativeHandle)(pi_native_handle nativeHandle,
+                                                 pi_platform platform, // unused // INTEL
                                                  pi_device *piDevice) {
   assert(piDevice != nullptr);
   *piDevice = reinterpret_cast<pi_device>(nativeHandle);
@@ -317,6 +327,7 @@ pi_result OCL(piQueueCreate)(pi_context context, pi_device device,
 }
 
 pi_result OCL(piextQueueCreateWithNativeHandle)(pi_native_handle nativeHandle,
+                                                pi_context context, // unused // INTEL
                                                 pi_queue *piQueue) {
   assert(piQueue != nullptr);
   *piQueue = reinterpret_cast<pi_queue>(nativeHandle);
@@ -1077,6 +1088,9 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   // Platform
   _PI_CL(piPlatformsGet, OCL(piPlatformsGet))
   _PI_CL(piPlatformGetInfo, clGetPlatformInfo)
+  _PI_CL(piextPlatformGetNativeHandle, OCL(piextGetNativeHandle))
+  _PI_CL(piextPlatformCreateWithNativeHandle,       // INTEL
+         OCL(piextPlatformCreateWithNativeHandle))  // INTEL
   // Device
   _PI_CL(piDevicesGet, OCL(piDevicesGet))
   _PI_CL(piDeviceGetInfo, clGetDeviceInfo)

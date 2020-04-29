@@ -355,6 +355,24 @@ ze_result_t ZeCall::check(ze_result_t ZeResult, const char *CallStr,
     return mapError(Result);
 #define ZE_CALL_NOCHECK(Call) ZeCall().checkThis(Call, #Call, false)
 
+pi_result _pi_device::initialize() {
+  // Create the immediate command list to be used for initializations
+  // Created as synchronous so level-zero performs implicit synchronization and
+  // there is no need to query for completion in the plugin
+  ze_command_queue_desc_t ze_command_queue_desc = {};
+  ze_command_queue_desc.version = ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT;
+  ze_command_queue_desc.ordinal = 0;
+  ze_command_queue_desc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
+  ZE_CALL(zeCommandListCreateImmediate(ZeDevice, &ze_command_queue_desc,
+                                       &ZeCommandListInit));
+  // Cache device properties
+  ZeDeviceProperties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
+  ZE_CALL(zeDeviceGetProperties(ZeDevice, &ZeDeviceProperties));
+  ZeDeviceComputeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
+  ZE_CALL(zeDeviceGetComputeProperties(ZeDevice, &ZeDeviceComputeProperties));
+  return PI_SUCCESS;
+}
+
 // Crate a new command list to be used in a PI call
 pi_result
 _pi_device::createCommandList(ze_command_list_handle_t *ZeCommandList) {
@@ -656,30 +674,11 @@ pi_result piDevicesGet(pi_platform Platform, pi_device_type DeviceType,
   for (uint32_t I = 0; I < ZeDeviceCount; ++I) {
     // TODO: add check for device type
     if (I < NumEntries) {
-      auto ZePiDevice = new _pi_device(ZeDevices[I], Platform);
-
-      // Create the immediate command list to be used for initializations
-      // Created as synchronous so level-zero performs implicit synchronization
-      // and there is no need to query for completion in the plugin
-      ze_device_handle_t ZeDevice = ZePiDevice->ZeDevice;
-      ze_command_queue_desc_t ZeCommandQueueDesc = {};
-      ZeCommandQueueDesc.version = ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT;
-      ZeCommandQueueDesc.ordinal = 0;
-      ZeCommandQueueDesc.mode = ZE_COMMAND_QUEUE_MODE_SYNCHRONOUS;
-      ZE_CALL(zeCommandListCreateImmediate(ZeDevice, &ZeCommandQueueDesc,
-                                           &ZePiDevice->ZeCommandListInit));
-
-      // Cache device properties
-      ZePiDevice->ZeDeviceProperties.version =
-          ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
-      ZE_CALL(zeDeviceGetProperties(ZeDevice, &ZePiDevice->ZeDeviceProperties));
-
-      ZePiDevice->ZeDeviceComputeProperties.version =
-          ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
-      ZE_CALL(zeDeviceGetComputeProperties(
-          ZeDevice, &ZePiDevice->ZeDeviceComputeProperties));
-
-      Devices[I] = ZePiDevice;
+      Devices[I] = new _pi_device(ZeDevices[I], Platform);
+      pi_result result = Devices[I]->initialize();
+      if (result != PI_SUCCESS) {
+        return result;
+      }
     }
   }
   return PI_SUCCESS;
@@ -1272,23 +1271,15 @@ pi_result piDevicePartition(pi_device Device,
 
   // Wrap the L0 sub-devices into PI sub-devices, and write them out.
   for (uint32_t I = 0; I < Count; ++I) {
-    auto ZePiDevice = new _pi_device(ZeSubdevices[I], Device->Platform,
-                                     true /* isSubDevice */);
-    OutDevices[I] = ZePiDevice;
-
-    // Cache device properties
-    ZePiDevice->ZeDeviceProperties.version =
-        ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
-    ZE_CALL(zeDeviceGetProperties(ZeSubdevices[I],
-                                  &ZePiDevice->ZeDeviceProperties));
-
-    ZePiDevice->ZeDeviceComputeProperties.version =
-        ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
-    ZE_CALL(zeDeviceGetComputeProperties(
-        ZeSubdevices[I], &ZePiDevice->ZeDeviceComputeProperties));
+    OutDevices[I] = new _pi_device(ZeSubdevices[I], Device->Platform,
+                                   true /* isSubDevice */);
+    pi_result result = OutDevices[I]->initialize();
+    if (result != PI_SUCCESS) {
+      delete[] ZeSubdevices;
+      return result;
+    }
   }
   delete[] ZeSubdevices;
-
   return PI_SUCCESS;
 }
 
@@ -1314,6 +1305,7 @@ piextDeviceSelectBinary(pi_device Device, // TODO: does this need to be context?
 pi_result piextDeviceGetNativeHandle(pi_device Device,
                                      pi_native_handle *NativeHandle) {
   assert(Device);
+  assert(NativeHandle);
 
   auto ZeDevice = pi_cast<ze_device_handle_t *>(NativeHandle);
   // Extract the L0 module handle from the given PI device
@@ -1321,11 +1313,39 @@ pi_result piextDeviceGetNativeHandle(pi_device Device,
   return PI_SUCCESS;
 }
 
-pi_result piextDeviceCreateWithNativeHandle(pi_native_handle NativeHandle,
-                                            pi_device *Device) {
-  // Create PI device from the given L0 device handle.
-  die("piextDeviceCreateWithNativeHandle: not supported");
+pi_result piextPlatformGetNativeHandle(pi_platform Platform,
+                                       pi_native_handle *NativeHandle) {
+  assert(Platform);
+  assert(NativeHandle);
+
+  auto ZeDriver = pi_cast<ze_driver_handle_t*>(NativeHandle);
+  // Extract the L0 driver handle from the given PI platform
+  *ZeDriver = Platform->ZeDriver;
   return PI_SUCCESS;
+}
+
+pi_result piextPlatformCreateWithNativeHandle(pi_native_handle NativeHandle,
+                                              pi_platform *Platform) {
+  assert(NativeHandle);
+  assert(Platform);
+
+  // Create PI platform from the given L0 driver handle.
+  auto ZeDriver = pi_cast<ze_driver_handle_t>(NativeHandle);
+  *Platform = new _pi_platform(ZeDriver);
+  return PI_SUCCESS;
+}
+
+pi_result piextDeviceCreateWithNativeHandle(pi_native_handle NativeHandle,
+                                            pi_platform Platform, // INTEL
+                                            pi_device *Device) {
+  assert(NativeHandle);
+  assert(Device);
+  assert(Platform);
+
+  // Create PI device from the given L0 device handle.
+  auto ZeDevice = pi_cast<ze_device_handle_t>(NativeHandle);
+  *Device = new _pi_device(ZeDevice, Platform);
+  return (*Device)->initialize();
 }
 
 pi_result piContextCreate(const pi_context_properties *Properties,
@@ -1439,7 +1459,6 @@ pi_result piQueueCreate(pi_context Context, pi_device Device,
 
   assert(Queue);
   *Queue = new _pi_queue(ZeCommandQueue, Context);
-
   return PI_SUCCESS;
 }
 
@@ -1478,11 +1497,16 @@ pi_result piQueueGetInfo(pi_queue Queue, pi_queue_info ParamName,
   return PI_SUCCESS;
 }
 
-pi_result piQueueRetain(pi_queue Queue) { return PI_SUCCESS; }
+pi_result piQueueRetain(pi_queue Queue) {
+  ++(Queue->RefCount);
+  return PI_SUCCESS;
+}
 
 pi_result piQueueRelease(pi_queue Queue) {
   assert(Queue);
-  ZE_CALL(zeCommandQueueDestroy(Queue->ZeCommandQueue));
+  if (--(Queue->RefCount) == 0) {
+    ZE_CALL(zeCommandQueueDestroy(Queue->ZeCommandQueue));
+  }
   return PI_SUCCESS;
 }
 
@@ -1493,15 +1517,27 @@ pi_result piQueueFinish(pi_queue Queue) {
   return PI_SUCCESS;
 }
 
+
 pi_result piextQueueGetNativeHandle(pi_queue Queue,
                                     pi_native_handle *NativeHandle) {
-  die("piextQueueGetNativeHandle: not supported");
+  assert(Queue);
+  assert(NativeHandle);
+
+  auto ZeQueue = pi_cast<ze_command_queue_handle_t*>(NativeHandle);
+  // Extract the L0 queue handle from the given PI queue
+  *ZeQueue = Queue->ZeCommandQueue;
   return PI_SUCCESS;
 }
 
 pi_result piextQueueCreateWithNativeHandle(pi_native_handle NativeHandle,
+                                           pi_context Context,
                                            pi_queue *Queue) {
-  die("piextQueueCreateWithNativeHandle: not supported");
+  assert(NativeHandle);
+  assert(Context);
+  assert(Queue);
+
+  auto ZeQueue = pi_cast<ze_command_queue_handle_t>(NativeHandle);
+  *Queue = new _pi_queue(ZeQueue, Context);
   return PI_SUCCESS;
 }
 
@@ -1990,12 +2026,9 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
   assert(Context);
   assert(Program);
 
-  auto ZeModule = pi_cast<ze_module_handle_t *>(NativeHandle);
-  assert(*ZeModule);
+  auto ZeModule = pi_cast<ze_module_handle_t>(NativeHandle);
   // Create PI program from the given L0 module handle
-  auto ZePIProgram = new _pi_program(*ZeModule, Context);
-
-  *Program = pi_cast<pi_program>(ZePIProgram);
+  *Program = new _pi_program(ZeModule, Context);
   return PI_SUCCESS;
 }
 

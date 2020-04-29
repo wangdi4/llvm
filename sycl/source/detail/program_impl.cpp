@@ -503,6 +503,15 @@ void program_impl::flush_spec_constants(const RTDeviceBinaryImage &Img,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+pi_native_handle program_impl::getNative() const {
+  const auto &Plugin = getPlugin();
+  pi_native_handle Handle;
+  Plugin.call<PiApiKind::piextProgramGetNativeHandle>(MProgram, &Handle);
+  return Handle;
+}
+#endif //INTEL_CUSTOMIZATION
+
 } // namespace detail
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)

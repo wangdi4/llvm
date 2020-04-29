@@ -171,8 +171,8 @@ public:
   /// \return a native handle, the type of which defined by the backend.
   template <backend BackendName>
   auto get_native() const -> typename interop<BackendName, device>::type {
-    return static_cast<typename interop<BackendName, device>::type>(
-        getNative());
+    return reinterpret_cast<                                        // INTEL
+        typename interop<BackendName, device>::type>(getNative());  // INTEL
   }
 
 private:
