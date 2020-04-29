@@ -13,13 +13,8 @@
 
 using namespace cl::sycl;
 
-<<<<<<< HEAD
 TEST_F(SchedulerTest, DISABLED_FinishedCmdCleanup) {
-  TestScheduler TS;
-=======
-TEST_F(SchedulerTest, FinishedCmdCleanup) {
   MockScheduler MS;
->>>>>>> ec0846c44910d4b15f1c8b22207a61b20c2c0ac5
   buffer<int, 1> BufA(range<1>(1));
   buffer<int, 1> BufB(range<1>(1));
   buffer<int, 1> BufC(range<1>(1));

@@ -11,13 +11,8 @@
 
 using namespace cl::sycl;
 
-<<<<<<< HEAD
 TEST_F(SchedulerTest, DISABLED_MemObjCommandCleanup) {
-  TestScheduler TS;
-=======
-TEST_F(SchedulerTest, MemObjCommandCleanup) {
   MockScheduler MS;
->>>>>>> ec0846c44910d4b15f1c8b22207a61b20c2c0ac5
   buffer<int, 1> BufA(range<1>(1));
   buffer<int, 1> BufB(range<1>(1));
   detail::Requirement MockReqA = getMockRequirement(BufA);
