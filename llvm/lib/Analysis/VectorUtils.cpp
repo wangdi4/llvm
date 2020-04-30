@@ -964,7 +964,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder
     for (unsigned i = 0, j = 0; i < VL; i += 2, ++j) {
       unsigned NumElts =
           cast<VectorType>(VParts[i]->getType())->getNumElements();
-      SmallVector<unsigned, 8> ShuffleMask(NumElts * 2);
+      SmallVector<int, 8> ShuffleMask(NumElts * 2);
       for (unsigned MaskInd = 0; MaskInd < NumElts * 2; ++MaskInd)
         ShuffleMask[MaskInd] = MaskInd;
       VParts[j] =
@@ -1007,7 +1007,7 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
   if (OriginalVL == 1)
     return OrigVal;
   unsigned NumElts = cast<VectorType>(OrigVal->getType())->getNumElements();
-  SmallVector<unsigned, 8> ShuffleMask;
+  SmallVector<int, 8> ShuffleMask;
   for (unsigned j = 0; j < OriginalVL; j++)
     for (unsigned i = 0; i < NumElts; ++i)
       ShuffleMask.push_back((signed)i);
@@ -1057,7 +1057,7 @@ Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
   assert(Part < NumParts && "Invalid subpart to be extracted from vector.");
 
   unsigned SubVecLen = VecLen / NumParts;
-  SmallVector<unsigned, 4> ShuffleMask;
+  SmallVector<int, 4> ShuffleMask;
   Value *Undef = UndefValue::get(V->getType());
 
   unsigned ElemIdx = Part * SubVecLen;

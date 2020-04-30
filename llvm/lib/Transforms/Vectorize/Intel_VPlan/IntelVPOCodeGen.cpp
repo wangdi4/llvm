@@ -2681,7 +2681,7 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   // getScalarValue(Wide.Val, 1) would return <v1_1, v2_1>
   if (auto *ValVecTy = dyn_cast<VectorType>(V->getType())) {
     unsigned OrigNumElts = ValVecTy->getNumElements();
-    SmallVector<unsigned, 8> ShufMask;
+    SmallVector<int, 8> ShufMask;
     for (unsigned StartIdx = Lane * OrigNumElts,
                   EndIdx = (Lane * OrigNumElts) + OrigNumElts;
          StartIdx != EndIdx; ++StartIdx)
@@ -2764,7 +2764,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
   unsigned Index = OrigIndexVPConst->getZExtValue();
 
   // Extract subvector. The subvector should include VF elements.
-  SmallVector<unsigned, 8> ShufMask;
+  SmallVector<int, 8> ShufMask;
   unsigned WideNumElts = VF * OriginalVL;
   for (unsigned Idx = Index; Idx < WideNumElts; Idx += OriginalVL)
     ShufMask.push_back(Idx);
@@ -2862,7 +2862,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
 
   Value *ExtendSubVec =
       extendVector(NewSubVec, WideNumElts, Builder, NewSubVec->getName());
-  SmallVector<unsigned, 8> ShufMask2;
+  SmallVector<int, 8> ShufMask2;
   for (unsigned FirstVecIdx = 0, SecondVecIdx = WideNumElts;
        FirstVecIdx < WideNumElts; ++FirstVecIdx) {
     if ((FirstVecIdx % OriginalVL) == Index)
@@ -2887,7 +2887,7 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
            "First operand of simple supported shuffle is not insertelement");
     VPValue *SplVal = cast<VPInstruction>(VPInst->getOperand(0))->getOperand(1);
     Value *Vec = getVectorValue(SplVal);
-    SmallVector<unsigned, 8> ShufMask;
+    SmallVector<int, 8> ShufMask;
     for (unsigned I = 0; I < OriginalVL; ++I)
       for (unsigned J = 0; J < VF; ++J)
         ShufMask.push_back(J);
@@ -2906,7 +2906,7 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
   int InstVL = cast<VectorType>(VPInst->getType())->getNumElements();
   // All-zero mask case.
   if (isa<ConstantAggregateZero>(Mask)) {
-    SmallVector<unsigned, 8> ShufMask;
+    SmallVector<int, 8> ShufMask;
     int Repeat = InstVL / OriginalVL;
     for (int K = 0; K < Repeat; K++)
       for (unsigned I = 0; I < OriginalVL; ++I)
