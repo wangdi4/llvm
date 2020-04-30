@@ -204,18 +204,13 @@ bool trace(TraceLevel Level) {
 
 // Initializes all available Plugins.
 vector_class<plugin> initialize() {
-<<<<<<< HEAD
-  vector_class<plugin> Plugins;
-  vector_class<std::pair<std::string, backend>> PluginNames;
-=======
   static bool PluginsInitDone = false;
   static vector_class<plugin> Plugins;
   if (PluginsInitDone) {
     return Plugins;
   }
 
-  vector_class<std::pair<std::string, Backend>> PluginNames;
->>>>>>> f6acd723004a23f606ef0638fccb384a5ff9c9db
+  vector_class<std::pair<std::string, backend>> PluginNames;
   findPlugins(PluginNames);
 
   if (PluginNames.empty() && trace(PI_TRACE_ALL))
