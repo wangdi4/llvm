@@ -475,6 +475,28 @@ pi_result L0(piPlatformsGet)(pi_uint32       num_entries,
 
     // TODO: figure out how/when to release this memory
     *platforms = new _pi_platform(ze_driver);
+
+    // Cache driver properties
+    ze_driver_properties_t ze_driver_properties;
+    ZE_CALL(zeDriverGetProperties(ze_driver, &ze_driver_properties));
+    uint32_t ze_driver_version = ze_driver_properties.driverVersion;
+    // Intel Level-Zero GPU driver stores version as:
+    // | 31 - 24 | 23 - 16 | 15 - 0 |
+    // |  Major  |  Minor  | Build  |
+    std::string versionMajor = std::to_string((ze_driver_version & 0xFF000000) >> 24);
+    std::string versionMinor = std::to_string((ze_driver_version & 0x00FF0000) >> 16);
+    std::string versionBuild = std::to_string(ze_driver_version & 0x0000FFFF);
+    platforms[0]->L0DriverVersion = versionMajor +
+                                 std::string(".") +
+                                 versionMinor +
+                                 std::string(".") +
+                                 versionBuild;
+
+    ze_api_version_t ze_api_version;
+    ZE_CALL(zeDriverGetApiVersion(ze_driver, &ze_api_version));
+    platforms[0]->L0DriverApiVersion = std::to_string(ZE_MAJOR_VERSION(ze_api_version)) +
+                                    std::string(".") +
+                                    std::to_string(ZE_MINOR_VERSION(ze_api_version));
   }
 
   if (num_platforms)
@@ -490,18 +512,8 @@ pi_result L0(piPlatformGetInfo)(
   void *            param_value,
   size_t *          param_value_size_ret) {
 
-  ze_driver_properties_t ze_driver_properties;
-  ZE_CALL(zeDriverGetProperties(platform->L0Driver, &ze_driver_properties));
-  uint32_t ze_driver_version = ze_driver_properties.driverVersion;
-  uint32_t ze_driver_version_major = ZE_MAJOR_VERSION(ze_driver_version);
-  uint32_t ze_driver_version_minor = ZE_MINOR_VERSION(ze_driver_version);
-
-  char ze_driver_version_string[255];
-  sprintf(ze_driver_version_string, "Level-Zero %d.%d",
-      ze_driver_version_major,
-      ze_driver_version_minor);
   zePrint("==========================\n");
-  zePrint("SYCL over %s\n", ze_driver_version_string);
+  zePrint("SYCL over Level-Zero %s\n", platform->L0DriverVersion.c_str());
   zePrint("==========================\n");
 
   switch (param_name) {
@@ -537,7 +549,7 @@ pi_result L0(piPlatformGetInfo)(
     // OpenCL<space><major_version.minor_version><space><platform-specific
     // information>. Follow the same notation here.
     //
-    SET_PARAM_VALUE_STR(ze_driver_version_string);
+    SET_PARAM_VALUE_STR(platform->L0DriverApiVersion.c_str());
     break;
   default:
     // TODO: implement other parameters
@@ -821,31 +833,14 @@ pi_result L0(piDeviceGetInfo)(pi_device       device,
   case PI_DEVICE_INFO_VENDOR:
     // TODO: Level-Zero does not return vendor's name at the moment
     // only the ID.
-    SET_PARAM_VALUE_STR("Intel");
+    SET_PARAM_VALUE_STR("Intel(R) Corporation");
     break;
-  case PI_DEVICE_INFO_DRIVER_VERSION: {
-    ze_driver_properties_t ze_driver_properties;
-    ZE_CALL(zeDriverGetProperties(device->Platform->L0Driver,
-                                  &ze_driver_properties));
-    uint32_t ze_driver_version = ze_driver_properties.driverVersion;
-    std::string driver_version =
-        std::to_string(ZE_MAJOR_VERSION(ze_driver_version)) +
-        std::string(".") +
-        std::to_string(ZE_MINOR_VERSION(ze_driver_version));
-    SET_PARAM_VALUE_STR(driver_version.c_str());
+  case PI_DEVICE_INFO_DRIVER_VERSION:
+    SET_PARAM_VALUE_STR(device->Platform->L0DriverVersion.c_str());
+        break;
+  case PI_DEVICE_INFO_VERSION:
+    SET_PARAM_VALUE_STR(device->Platform->L0DriverApiVersion.c_str());
     break;
-  }
-  case PI_DEVICE_INFO_VERSION: {
-    ze_api_version_t ze_api_version;
-    ZE_CALL(
-        zeDriverGetApiVersion(device->Platform->L0Driver, &ze_api_version));
-    std::string device_version =
-        std::string("Level-Zero ") +
-        std::to_string(ZE_MAJOR_VERSION(ze_api_version)) + std::string(".") +
-        std::to_string(ZE_MINOR_VERSION(ze_api_version));
-    SET_PARAM_VALUE_STR(device_version.c_str());
-    break;
-  }
   case PI_DEVICE_INFO_PARTITION_MAX_SUB_DEVICES: {
     uint32_t ze_sub_device_count = 0;
     ZE_CALL(zeDeviceGetSubDevices(ze_device, &ze_sub_device_count, nullptr));

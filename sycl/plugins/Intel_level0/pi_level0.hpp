@@ -38,6 +38,10 @@ struct _pi_platform {
   // pretty good fit to keep here.
   //
   ze_driver_handle_t L0Driver;
+
+  // Cache versions info from zeDriverGetProperties.
+  std::string L0DriverVersion;
+  std::string L0DriverApiVersion;
 };
 
 struct _pi_device {
