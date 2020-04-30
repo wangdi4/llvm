@@ -369,6 +369,10 @@ private:
   // instructions will be erased if split failed.
   DenseSet<Instruction *> NInstSet;
 
+  // Mark instructions which are split with shufflevector. If split success, the
+  // split instructions should be kept in InstMap because they may be reused.
+  DenseSet<Instruction *> SplitWithSVInstSet;
+
   // Mark all new instructions that have been "settled". This set is used to
   // make sure all instructions will be split only once.
   DenseSet<Instruction *> SettledNInstSet;
@@ -476,18 +480,25 @@ static raw_ostream &indentedDbgs(unsigned Depth) {
 #endif
 
 void X86SplitVectorValueType::cleanUpCache(bool SplitSucc) {
+
+  // InstMap.key\OInstSet (Relative Complement) are instructions which is split
+  // with shufflevector. Some of split instructions of them (A) have been
+  // settled in previous iteration while others (B) are created in this
+  // iteration. A could be reused in later iteration. If SplitSucc, B could also
+  // be reused. Otherwise only A should be kept in InstMap.
+  // Calculate A + B.
+  for (auto *OI : OInstSet)
+    InstMap.erase(OI);
+
   if (SplitSucc) {
     assert(WorkList.empty() && "WorkList must be empty!");
     assert(UnsvdPHIOpdMap.empty() && "UnsvdPHIOpdMap must be empty!");
-
-    // InstMap contains instructions which value is split with shuffervector.
-    // This shuffervector Instruction should be kept if SplitSucc. It may be
-    // reused again.
-    for (auto *II : OInstSet)
-      InstMap.erase(II);
-
   } else {
-    InstMap.clear();
+
+    // Calculate A. B is SplitWithSVInstSet.
+    for (auto *I : SplitWithSVInstSet)
+      InstMap.erase(I);
+
     UnsvdPHIOpdMap.clear();
     while (!WorkList.empty())
       WorkList.pop();
@@ -497,6 +508,7 @@ void X86SplitVectorValueType::cleanUpCache(bool SplitSucc) {
   InstActions.clear();
   NInstSet.clear();
   OInstSet.clear();
+  SplitWithSVInstSet.clear();
 }
 
 void X86SplitVectorValueType::takeAllInstAction() {
@@ -603,6 +615,9 @@ void X86SplitVectorValueType::createShufVecInstToSplit(Instruction *I,
       ConstantDataVector::get(VTy->getContext(), MaskVec));
 
   setInstName(I, NI0, NI1);
+
+  // Mark I is split with shufflevector.
+  SplitWithSVInstSet.insert(I);
 
   // Record new instructions.
   NInstSet.insert(NI0);

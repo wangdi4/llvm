@@ -60,8 +60,8 @@ public:
   /// Adds likely constant values for field \p FieldNum of struct \p StructTy.
   void
   addStructFieldInfo(StructType *StructTy, unsigned FieldNum,
-                     SetVector<Constant *> &LikelyValues,
-                     SetVector<Constant *> &LikelyIndirectArrayValues);
+                     const SetVector<Constant *> &LikelyValues,
+                     const SetVector<Constant *> &LikelyIndirectArrayValues);
 
   /// Returns likely set of constant values for \p FieldNum of struct \p
   /// StructTy. Returns null if no info exists.

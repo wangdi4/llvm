@@ -276,17 +276,6 @@ public:
                                  unsigned &StructIndex) const;
 
 private:
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printStructInfo(dtrans::StructInfo *AI);
-  void printArrayInfo(dtrans::ArrayInfo *AI);
-  void printFieldInfo(dtrans::FieldInfo &FI,
-                      dtrans::Transform IgnoredInTransform);
-
-  // Prints the list of transformations for which the type was marked as
-  // ignored in command line option.
-  void printIgnoreTransListForStructure(dtrans::StructInfo *SI);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
   void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
   void destructCallInfo(dtrans::CallInfo *Info);
 
