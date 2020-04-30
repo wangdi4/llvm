@@ -94,6 +94,7 @@ bool link(ArrayRef<const char *> args, bool canExitEarly, raw_ostream &stdoutOS,
   outputSections.clear();
   binaryFiles.clear();
   bitcodeFiles.clear();
+  lazyObjFiles.clear();
   objectFiles.clear();
   sharedFiles.clear();
   gNULTOFiles.clear();  // INTEL
