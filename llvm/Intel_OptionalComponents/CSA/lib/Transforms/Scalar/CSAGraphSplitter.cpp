@@ -162,7 +162,11 @@ private:
 
 public:
   GraphSplitter(CallGraph &CG) : CG(CG) {}
-  ~GraphSplitter() { DeleteContainerPointers(SCCs); }
+  ~GraphSplitter() {
+    for (auto SCC : SCCs)
+      delete SCC;
+    SCCs.clear();
+  }
 
   bool run();
 };
