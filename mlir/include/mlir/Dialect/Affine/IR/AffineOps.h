@@ -31,10 +31,9 @@ class AffineTerminatorOp;
 class FlatAffineConstraints;
 class OpBuilder;
 
-/// A utility function to check if a value is defined at the top level of an
-/// op with trait `PolyhedralScope` or is a region argument for such an op. A
-/// value of index type defined at the top level is always a valid symbol for
-/// all its uses.
+/// A utility function to check if a value is defined at the top level of a
+/// function. A value of index type defined at the top level is always a valid
+/// symbol.
 bool isTopLevelValue(Value value);
 
 /// AffineDmaStartOp starts a non-blocking DMA operation that transfers data
@@ -83,7 +82,7 @@ class AffineDmaStartOp : public Op<AffineDmaStartOp, OpTrait::VariadicOperands,
 public:
   using Op::Op;
 
-  static void build(Builder *builder, OperationState &result, Value srcMemRef,
+  static void build(OpBuilder &builder, OperationState &result, Value srcMemRef,
                     AffineMap srcMap, ValueRange srcIndices, Value destMemRef,
                     AffineMap dstMap, ValueRange destIndices, Value tagMemRef,
                     AffineMap tagMap, ValueRange tagIndices, Value numElements,
@@ -271,7 +270,7 @@ class AffineDmaWaitOp : public Op<AffineDmaWaitOp, OpTrait::VariadicOperands,
 public:
   using Op::Op;
 
-  static void build(Builder *builder, OperationState &result, Value tagMemRef,
+  static void build(OpBuilder &builder, OperationState &result, Value tagMemRef,
                     AffineMap tagMap, ValueRange tagIndices, Value numElements);
 
   static StringRef getOperationName() { return "affine.dma_wait"; }
@@ -339,13 +338,13 @@ public:
   using Op::Op;
 
   /// Builds an affine load op with the specified map and operands.
-  static void build(Builder *builder, OperationState &result, AffineMap map,
+  static void build(OpBuilder &builder, OperationState &result, AffineMap map,
                     ValueRange operands);
   /// Builds an affine load op with an identity map and operands.
-  static void build(Builder *builder, OperationState &result, Value memref,
+  static void build(OpBuilder &builder, OperationState &result, Value memref,
                     ValueRange indices = {});
   /// Builds an affine load op with the specified map and its operands.
-  static void build(Builder *builder, OperationState &result, Value memref,
+  static void build(OpBuilder &builder, OperationState &result, Value memref,
                     AffineMap map, ValueRange mapOperands);
 
   /// Returns the operand index of the memref.
@@ -408,10 +407,10 @@ public:
   using Op::Op;
 
   /// Builds an affine store operation with the provided indices (identity map).
-  static void build(Builder *builder, OperationState &result,
+  static void build(OpBuilder &builder, OperationState &result,
                     Value valueToStore, Value memref, ValueRange indices);
   /// Builds an affine store operation with the specified map and its operands.
-  static void build(Builder *builder, OperationState &result,
+  static void build(OpBuilder &builder, OperationState &result,
                     Value valueToStore, Value memref, AffineMap map,
                     ValueRange mapOperands);
 
@@ -458,21 +457,11 @@ public:
                      SmallVectorImpl<OpFoldResult> &results);
 };
 
-/// Returns true if the given Value can be used as a dimension id in the region
-/// of the closest surrounding op that has the trait `PolyhedralScope`.
+/// Returns true if the given Value can be used as a dimension id.
 bool isValidDim(Value value);
 
-/// Returns true if the given Value can be used as a dimension id in `region`,
-/// i.e., for all its uses in `region`.
-bool isValidDim(Value value, Region *region);
-
-/// Returns true if the given value can be used as a symbol in the region of the
-/// closest surrounding op that has the trait `PolyhedralScope`.
+/// Returns true if the given Value can be used as a symbol.
 bool isValidSymbol(Value value);
-
-/// Returns true if the given Value can be used as a symbol for `region`, i.e.,
-/// for all its uses in `region`.
-bool isValidSymbol(Value value, Region *region);
 
 /// Modifies both `map` and `operands` in-place so as to:
 /// 1. drop duplicate operands

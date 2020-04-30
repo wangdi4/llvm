@@ -70,9 +70,9 @@ def AffineApplyOp : Affine_Op<"apply", [NoSideEffect]> {
   // has a constant builder. That way we wouldn't need to explicitly specify the
   // result types here.
   let builders = [
-    OpBuilder<"Builder *builder, OperationState &result, "
+    OpBuilder<"OpBuilder &builder, OperationState &result, "
               "AffineMap map, ValueRange mapOperands", [{
-      build(builder, result, builder->getIndexType(), map, mapOperands);
+      build(builder, result, builder.getIndexType(), map, mapOperands);
     }]>
   ];
 
@@ -83,21 +83,11 @@ def AffineApplyOp : Affine_Op<"apply", [NoSideEffect]> {
     /// Returns the affine value map computed from this operation.
     AffineValueMap getAffineValueMap();
 
-    /// Returns true if the result of this operation can be used as dimension id
-    /// in the region of the closest surrounding op with trait PolyhedralScope.
+    /// Returns true if the result of this operation can be used as dimension id.
     bool isValidDim();
 
-    /// Returns true if the result of this operation can be used as dimension id
-    /// within 'region', i.e., for all its uses with `region`.
-    bool isValidDim(Region *region);
-
-    /// Returns true if the result of this operation is a symbol in the region
-    /// of the closest surrounding op that has the trait PolyhedralScope.
+    /// Returns true if the result of this operation is a symbol.
     bool isValidSymbol();
-
-    /// Returns true if the result of this operation is a symbol for all its
-    /// uses in `region`.
-    bool isValidSymbol(Region *region);
 
     operand_range getMapOperands() { return getOperands(); }
   }];
@@ -177,9 +167,9 @@ def AffineForOp : Affine_Op<"for",
 
   let skipDefaultBuilders = 1;
   let builders = [
-    OpBuilder<"Builder *builder, OperationState &result, "
+    OpBuilder<"OpBuilder &builder, OperationState &result, "
               "int64_t lowerBound, int64_t upperBound, int64_t step = 1">,
-    OpBuilder<"Builder *builder, OperationState &result, "
+    OpBuilder<"OpBuilder &builder, OperationState &result, "
               "ValueRange lbOperands, AffineMap lbMap, "
               "ValueRange ubOperands, AffineMap ubMap, "
               "int64_t step = 1">
@@ -328,7 +318,7 @@ def AffineIfOp : Affine_Op<"if",
   let skipDefaultBuilders = 1;
 
   let builders = [
-    OpBuilder<"Builder *builder, OperationState &result, "
+    OpBuilder<"OpBuilder &builder, OperationState &result, "
               "IntegerSet set, ValueRange args, bool withElseRegion">
   ];
 
@@ -376,10 +366,10 @@ class AffineMinMaxOpBase<string mnemonic, list<OpTrait> traits = []> :
   let results = (outs Index);
 
   let builders = [
-    OpBuilder<"Builder *builder, OperationState &result, AffineMap affineMap, "
+    OpBuilder<"OpBuilder &builder, OperationState &result, AffineMap affineMap, "
               "ValueRange mapOperands",
     [{
-      build(builder, result, builder->getIndexType(), affineMap, mapOperands);
+      build(builder, result, builder.getIndexType(), affineMap, mapOperands);
     }]>
   ];
 
@@ -473,11 +463,11 @@ def AffineParallelOp : Affine_Op<"parallel", [ImplicitAffineTerminator]> {
   let regions = (region SizedRegion<1>:$region);
 
   let builders = [
-    OpBuilder<"Builder* builder, OperationState& result,"
+    OpBuilder<"OpBuilder &builder, OperationState &result,"
               "ArrayRef<int64_t> ranges">,
-    OpBuilder<"Builder* builder, OperationState& result, AffineMap lbMap,"
+    OpBuilder<"OpBuilder &builder, OperationState &result, AffineMap lbMap,"
               "ValueRange lbArgs, AffineMap ubMap, ValueRange ubArgs">,
-    OpBuilder<"Builder* builder, OperationState& result, AffineMap lbMap,"
+    OpBuilder<"OpBuilder &builder, OperationState &result, AffineMap lbMap,"
               "ValueRange lbArgs, AffineMap ubMap, ValueRange ubArgs,"
               "ArrayRef<int64_t> steps">
   ];
@@ -535,15 +525,15 @@ def AffinePrefetchOp : Affine_Op<"prefetch"> {
                    BoolAttr:$isDataCache);
 
   let builders = [OpBuilder<
-    "Builder *builder, OperationState &result, Value memref,"
+    "OpBuilder &builder, OperationState &result, Value memref,"
     "AffineMap map, ArrayRef<Value> mapOperands, bool isWrite,"
     "unsigned localityHint, bool isDataCache",
     [{
       assert(map.getNumInputs() == mapOperands.size()
              && "inconsistent index info");
-      auto localityHintAttr = builder->getI32IntegerAttr(localityHint);
-      auto isWriteAttr = builder->getBoolAttr(isWrite);
-      auto isDataCacheAttr = builder->getBoolAttr(isDataCache);
+      auto localityHintAttr = builder.getI32IntegerAttr(localityHint);
+      auto isWriteAttr = builder.getBoolAttr(isWrite);
+      auto isDataCacheAttr = builder.getBoolAttr(isDataCache);
       result.addOperands(memref);
       result.addAttribute(getMapAttrName(), AffineMapAttr::get(map));
       result.addOperands(mapOperands);
