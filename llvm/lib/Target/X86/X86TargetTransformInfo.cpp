@@ -3829,7 +3829,14 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
   unsigned IndexSize = (ST->hasAVX512() && VF >= 16)
                            ? getIndexSizeInBits(Ptr, DL)
                            : DL.getPointerSizeInBits();
+  return getGSVectorCost(Opcode, SrcVTy, IndexSize, Alignment, AddressSpace);
+}
 
+// Return an average cost of Gather / Scatter instruction, maybe improved later
+int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
+                                unsigned IndexSize, unsigned Alignment,
+                                unsigned AddressSpace) {
+  unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
   Type *IndexVTy = VectorType::get(IntegerType::get(SrcVTy->getContext(),
                                                     IndexSize), VF);
   std::pair<int, MVT> IdxsLT = TLI->getTypeLegalizationCost(DL, IndexVTy);
@@ -3837,9 +3844,10 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
   int SplitFactor = std::max(IdxsLT.first, SrcLT.first);
   if (SplitFactor > 1) {
     // Handle splitting of vector of pointers
-    Type *SplitSrcTy = VectorType::get(SrcVTy->getScalarType(), VF / SplitFactor);
-    return SplitFactor * getGSVectorCost(Opcode, SplitSrcTy, Ptr, Alignment,
-                                         AddressSpace);
+    Type *SplitSrcTy =
+      VectorType::get(SrcVTy->getScalarType(), VF / SplitFactor);
+    return SplitFactor * getGSVectorCost(
+      Opcode, SplitSrcTy, IndexSize, Alignment, AddressSpace);
   }
 #if INTEL_CUSTOMIZATION
   static const CostTblEntry SKXScatterDTbl[] = {
@@ -3967,9 +3975,7 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
 int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
                                 bool VariableMask, unsigned Alignment,
                                 unsigned AddressSpace) {
-#endif // INTEL_CUSTOMIZATION
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
-
   int MaskUnpackCost = 0;
   if (VariableMask) {
     VectorType *MaskTy =
@@ -3987,12 +3993,10 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
                                           MaybeAlign(Alignment), AddressSpace);
 
   int InsertExtractCost = 0;
-#if INTEL_CUSTOMIZATION
   // The cost to extract bases from the Ptr vector.
   for (unsigned i = 0; i < VF; ++i)
     InsertExtractCost +=
         getVectorInstrCost(Instruction::ExtractElement, PtrTy, i);
-#endif // INTEL_CUSTOMIZATION
 
   if (Opcode == Instruction::Load)
     for (unsigned i = 0; i < VF; ++i)
@@ -4007,6 +4011,7 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
 
   return MemoryOpCost + MaskUnpackCost + InsertExtractCost;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Calculate the cost of Gather / Scatter operation
 int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
@@ -4037,14 +4042,48 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
   if (ST->hasAVX512() && (VF == 2 || (VF == 4 && !ST->hasVLX())))
     Scalarize = true;
 
-  if (Scalarize)
 #if INTEL_CUSTOMIZATION
+  if (Scalarize)
     return getGSScalarCost(Opcode, VectorType::get(PtrTy, VF), SrcVTy,
                            VariableMask, Alignment, AddressSpace);
 #endif // INTEL_CUSTOMIZATION
 
   return getGSVectorCost(Opcode, SrcVTy, Ptr, Alignment, AddressSpace);
 }
+
+#if INTEL_CUSTOMIZATION
+/// Calculate the cost of Gather / Scatter operation
+int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
+                                       unsigned IndexSize, bool VariableMask,
+                                       unsigned Alignment,
+                                       unsigned AddressSpace,
+                                       const Instruction *I = nullptr) {
+  assert(SrcVTy->isVectorTy() && "Unexpected data type for Gather/Scatter");
+  unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
+  PointerType *PtrTy = SrcVTy->getScalarType()->getPointerTo(AddressSpace);
+
+  bool Scalarize = false;
+  if ((Opcode == Instruction::Load &&
+       !isLegalMaskedGather(SrcVTy, MaybeAlign(Alignment))) ||
+      (Opcode == Instruction::Store &&
+       !isLegalMaskedScatter(SrcVTy, MaybeAlign(Alignment))))
+    Scalarize = true;
+  // Gather / Scatter for vector 2 is not profitable on KNL / SKX
+  // Vector-4 of gather/scatter instruction does not exist on KNL.
+  // We can extend it to 8 elements, but zeroing upper bits of
+  // the mask vector will add more instructions. Right now we give the scalar
+  // cost of vector-4 for KNL. TODO: Check, maybe the gather/scatter instruction
+  // is better in the VariableMask case.
+  if (ST->hasAVX512() && (VF == 2 || (VF == 4 && !ST->hasVLX())))
+    Scalarize = true;
+
+  if (Scalarize)
+    return getGSScalarCost(Opcode, VectorType::get(PtrTy, VF), SrcVTy,
+                           VariableMask, Alignment, AddressSpace);
+
+  return getGSVectorCost(Opcode, SrcVTy, IndexSize, Alignment, AddressSpace);
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86TTIImpl::isLSRCostLess(TargetTransformInfo::LSRCost &C1,
                                TargetTransformInfo::LSRCost &C2) {
