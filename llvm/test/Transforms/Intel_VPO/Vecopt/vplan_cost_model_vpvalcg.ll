@@ -332,13 +332,8 @@ for.end:                                          ; preds = %for.body
 }
 
 define void @test_casts() local_unnamed_addr #0 {
-<<<<<<< HEAD
-; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan  with VF = 4:
-; VPLAN-CM-VF4-NEXT:  Total Cost: 194
-=======
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan test_casts.for.body with VF = 4:
-; VPLAN-CM-VF4-NEXT:  Total Cost: 203
->>>>>>> 85a83f0e06fc57b6310faf41f78737eb49b224ed
+; VPLAN-CM-VF4-NEXT:  Total Cost: 194
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -445,13 +440,8 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
-<<<<<<< HEAD
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan  with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 22
-=======
 ; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_casts.50 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 31
->>>>>>> 85a83f0e06fc57b6310faf41f78737eb49b224ed
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 22
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Unknown cost for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
