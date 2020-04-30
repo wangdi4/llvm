@@ -41,7 +41,6 @@ namespace intel{
             Type2ValueLookup FPToSI_Lookup;
             Type2ValueLookup UIToFP_Lookup;
             Type2ValueLookup SIToFP_Lookup;
-            Type2ValueLookup FPTrunc_Lookup;
 
             /// Replaces:
             /// %conv = fptoui double %tmp2 to i64
@@ -142,13 +141,10 @@ namespace intel{
                 UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
             }
 
-            FPTrunc_Lookup[std::make_pair(Half,Double)] = std::make_pair("convert_halfd", CallingConv::C);
-
             m_Lookup[Instruction::UIToFP] = UIToFP_Lookup;
             m_Lookup[Instruction::SIToFP] = SIToFP_Lookup;
             m_Lookup[Instruction::FPToUI] = FPToUI_Lookup;
             m_Lookup[Instruction::FPToSI] = FPToSI_Lookup;
-            m_Lookup[Instruction::FPTrunc] = FPTrunc_Lookup;
 
             Type2ValueLookup FDiv_Lookup;
             FDiv_Lookup[std::make_pair(Float,Float)] = std::make_pair("_Z9divide_rmff", CallingConv::C);
