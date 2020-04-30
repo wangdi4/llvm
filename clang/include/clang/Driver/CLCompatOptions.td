@@ -257,6 +257,11 @@ def _SLASH_Qimf_arch_consistency_EQ : CLJoined<"Qimf-arch-consistency=">,
 def _SLASH_Qimf_max_error_EQ : CLJoined<"Qimf-max-error=">,
   Alias<fimf_max_error_EQ>,HelpText<"defines the maximum allowable relative "
   "error, measured in ulps, for math library function results">;
+def _SLASH_Qtemplate_depth_COL : CLJoined<"Qtemplate-depth:">,
+  Alias<ftemplate_depth_EQ>, HelpText<"Control the depth in which recursive"
+  " templates are expanded">;
+def _SLASH_Qtemplate_depth_EQ : CLJoined<"Qtemplate-depth=">,
+  Alias<ftemplate_depth_EQ>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

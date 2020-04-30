@@ -179,3 +179,8 @@
 // RUN: %clang_cl -### -c /Qopenmp-simd- %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMP-SIMD %s
 // CHECK-QOPENMP-SIMD: "-fopenmp-simd"
 // CHECK-NO-QOPENMP-SIMD: "-fno-openmp-simd"
+
+// Behavior with Qtemplate-depth option
+// RUN: %clang_cl -### -c /Qtemplate-depth:5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
+// RUN: %clang_cl -### -c /Qtemplate-depth=5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
+// CHECK-TEMPLATE-DEPTH: "-ftemplate-depth" "5"
