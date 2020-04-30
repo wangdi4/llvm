@@ -777,6 +777,10 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     else
       llvm_unreachable("NONPOD support for this clause type TBD");
 
+    if (!Args[0] || isa<ConstantPointerNull>(Args[0])) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      return;
+    }
     ClauseItemTy *Item = new ClauseItemTy(Args);
     Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
@@ -791,6 +795,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   } else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
+      if (!V || isa<ConstantPointerNull>(V)) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << " Ignoring null clause operand.\n");
+        continue;
+      }
       C.add(V);
       if (IsByRef)
         C.back()->setIsByRef(true);
@@ -984,6 +993,10 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
   // The linear list items are in Args[0..NumArgs-2]
   for (unsigned I = 0; I < NumArgs-1; ++I) {
     Value *V = Args[I];
+    if (!V || isa<ConstantPointerNull>(V)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      continue;
+    }
     C.add(V);
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
@@ -1020,6 +1033,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
 
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
+    if (!V || isa<ConstantPointerNull>(V)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      return;
+    }
     C.add(V);
     ReductionItem *RI = C.back();
     RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
@@ -1051,6 +1068,11 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
   } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
+      if (!V || isa<ConstantPointerNull>(V)) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << " Ignoring null clause operand.\n");
+        continue;
+      }
       C.add(V);
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
