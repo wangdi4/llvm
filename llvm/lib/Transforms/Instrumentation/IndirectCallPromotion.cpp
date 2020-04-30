@@ -320,7 +320,7 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
 #if INTEL_CUSTOMIZATION
   // Propagate intel_profx metadata for call counts on indirect calls
   // to direct calls, if available.
-  MDNode * MD = Inst->getMetadata(LLVMContext::MD_intel_profx);
+  MDNode * MD = CB.getMetadata(LLVMContext::MD_intel_profx);
   if (MD) {
     assert(MD->getNumOperands() == 2);
     ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
@@ -329,7 +329,7 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
     if (CallSiteCount != TotalCount)
       LLVM_DEBUG(dbgs() << "Expecting intel_profx count to equal VP count");
     SmallVector<Metadata *, 2> Vals(2);
-    Module *M = Inst->getModule();
+    Module *M = CB.getModule();
     Vals[0] = MDString::get(M->getContext(), "intel_profx");
     Type *Int64Ty = Type::getInt64Ty(M->getContext());
     Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Count));
@@ -340,7 +340,7 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
     uint64_t Diff = CallSiteCount >= Count ? CallSiteCount - Count : 0;
     // Adjust the intel_profx metadata for the old indirect call
     Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Diff));
-    Inst->setMetadata(LLVMContext::MD_intel_profx,
+    CB.setMetadata(LLVMContext::MD_intel_profx,
         MDNode::get(M->getContext(), Vals));
   }
 #endif // INTEL_CUSTOMIZATION
