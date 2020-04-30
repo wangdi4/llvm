@@ -522,6 +522,10 @@ private:
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
+  /// Generate instructions to extract two results of a sincos call, and store
+  /// them to locations designated in the original call.
+  void generateStoreForSinCos(VPInstruction *VPCall, Value *CallResult);
+
   // Widen call instruction parameters and return. If given \p VPCall cannot be
   // widened for current VF, but can be pumped with lower VF, then vectorize the
   // call by breaking down the operands and pumping it \p PumpFactor times.
@@ -555,11 +559,10 @@ private:
   /// Hold names of scalar select builtins
   SmallSet<std::string, 20> ScalarSelectSet;
 
-  /// This function returns the widened GEP instruction that is used
-  /// as a pointer-operand in a load-store instruction. In the generated code,
-  /// the returned GEP is itself used as an operand of a Scatter/Gather
-  /// function.
-  Value *getWidenedAddressForScatterGather(VPInstruction *VPI);
+  /// This function returns the widened GEP instruction for a pointer. In the
+  /// generated code, the returned GEP is itself used as an operand of a
+  /// Scatter/Gather function.
+  Value *getWidenedAddressForScatterGather(VPValue *VPBasePtr);
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations
