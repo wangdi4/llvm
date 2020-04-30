@@ -82,7 +82,7 @@ public:
   virtual unsigned getCost() const;
   virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS) const;
+  void print(raw_ostream &OS, const std::string &Header) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   virtual ~VPlanCostModel() {}
 

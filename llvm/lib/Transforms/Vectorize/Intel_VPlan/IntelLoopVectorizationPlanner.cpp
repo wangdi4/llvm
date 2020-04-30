@@ -426,13 +426,15 @@ void LoopVectorizationPlanner::unroll(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 template <typename CostModelTy>
-void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
+void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
+  const std::string &Header) {
   for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
     if (!hasVPlanForVF(VFRequested)) {
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
     VPlan *Plan = getVPlanForVF(VFRequested);
+
 #if INTEL_CUSTOMIZATION
     CostModelTy CM(Plan, VFRequested, TTI, DL, VLSA);
 #else
@@ -443,15 +445,17 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
     // control it would have been opt's output stream (via "-o" switch). As it
     // is not so, just pass stdout so that we would not be required to redirect
     // stderr to Filecheck.
-    CM.print(outs());
+    CM.print(outs(), Header);
   }
 }
 
 // Explicit instantiations.
 template void
-LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>();
+LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>(
+  const std::string &Header);
 template void LoopVectorizationPlanner::printCostModelAnalysisIfRequested<
-    VPlanCostModelProprietary>();
+    VPlanCostModelProprietary>(
+  const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // TODO: Current implementation is too aggressive and may lead to increase of

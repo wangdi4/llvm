@@ -177,9 +177,9 @@ unsigned VPlanCostModelProprietary::getCost() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPlanCostModelProprietary::print(raw_ostream &OS) {
-  OS << "HIR Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
-     << ":\n";
+void VPlanCostModelProprietary::print(
+  raw_ostream &OS, const std::string &Header) {
+  OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   LLVM_DEBUG(dbgs() << *Plan;);
 
