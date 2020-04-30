@@ -95,7 +95,7 @@ LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)
 
   // Don't allow embedded LLD to create additional threads.
   //
-  ArgvLLD.push_back("-threads:no");
+  ArgvLLD.push_back("-threads:1");
 }
 
 LLDJIT::~LLDJIT() {
