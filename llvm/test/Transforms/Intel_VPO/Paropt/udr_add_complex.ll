@@ -1,6 +1,7 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
-
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=FASTRED
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=FASTRED
 
 ; #include <omp.h>
 ; #include <complex>
@@ -56,12 +57,19 @@ entry:
   store i32 99, i32* %.omp.ub, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.UDR"(%"struct.std::complex"* %sum, i8* null, void (%"struct.std::complex"*)* @_ZTSSt7complexIfE.omp.destr, void (%"struct.std::complex"*, %"struct.std::complex"*)* @.omp_combiner., void (%"struct.std::complex"*, %"struct.std::complex"*)* @.omp_initializer.), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(%"struct.std::complex"* %c) ]
 
-; CHECK-NOT: "QUAL.OMP.REDUCTION.UDR"
-; CHECK: call void @.omp_initializer.(%"struct.std::complex"* %sum.red, %"struct.std::complex"* %sum)
-; CHECK: call void @__kmpc_critical({{.*}})
-; CHECK: call void @.omp_combiner.(%"struct.std::complex"* %sum, %"struct.std::complex"* %sum.red)
-; CHECK: call void @__kmpc_end_critical({{.*}})
-; CHECK: call void @_ZTSSt7complexIfE.omp.destr(%"struct.std::complex"* %sum.red)
+; CRITICAL-NOT: "QUAL.OMP.REDUCTION.UDR"
+; CRITICAL: call void @.omp_initializer.(%"struct.std::complex"* %sum.red, %"struct.std::complex"* %sum)
+; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @.omp_combiner.(%"struct.std::complex"* %sum, %"struct.std::complex"* %sum.red)
+; CRITICAL: call void @__kmpc_end_critical({{.*}})
+; CRITICAL: call void @_ZTSSt7complexIfE.omp.destr(%"struct.std::complex"* %sum.red)
+
+; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
+; FASTRED: call void @.omp_initializer.(%"struct.std::complex"* %sum.red, %"struct.std::complex"* %sum)
+; FASTRED: call i32 @__kmpc_reduce({{.*}})
+; FASTRED-DAG: call void @.omp_combiner.(%"struct.std::complex"* %sum, %"struct.std::complex"* %sum.fast_red)
+; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})
+; FASTRED-DAG: call void @_ZTSSt7complexIfE.omp.destr(%"struct.std::complex"* %sum.fast_red)
 
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4

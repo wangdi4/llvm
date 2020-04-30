@@ -1,7 +1,13 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -mtriple=i686-unknown-linux-gnu -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -mtriple=i686-unknown-linux-gnu -S < %s  | FileCheck %s
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -mtriple=x86_64-unknown-linux-gnu -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -mtriple=x86_64-unknown-linux-gnu -S < %s  | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -mtriple=i686-unknown-linux-gnu -vpo-paropt-fast-reduction=false -S < %s | FileCheck %s -check-prefix=CRITICAL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -mtriple=i686-unknown-linux-gnu -vpo-paropt-fast-reduction=false -S < %s  | FileCheck %s -check-prefix=CRITICAL -check-prefix=ALL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -mtriple=x86_64-unknown-linux-gnu -vpo-paropt-fast-reduction=false -S < %s | FileCheck %s -check-prefix=CRITICAL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -mtriple=x86_64-unknown-linux-gnu -vpo-paropt-fast-reduction=false  -S < %s  | FileCheck %s -check-prefix=CRITICAL -check-prefix=ALL
+
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -mtriple=i686-unknown-linux-gnu  -S < %s | FileCheck %s -check-prefix=FASTRED -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -mtriple=i686-unknown-linux-gnu  -S < %s  | FileCheck %s -check-prefix=FASTRED -check-prefix=ALL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -mtriple=x86_64-unknown-linux-gnu  -S < %s | FileCheck %s -check-prefix=FASTRED -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -mtriple=x86_64-unknown-linux-gnu  -S < %s  | FileCheck %s -check-prefix=FASTRED -check-prefix=ALL
+
 ;
 ; It tests whether the VPOParopt can generate the call @__kmpc_critical
 ; and the call @__kmpc_end_critical at the end of the loop.
@@ -38,8 +44,8 @@ entry:
   store i32 1, i32* %.omp.stride, align 4
   store i32 0, i32* %.omp.is_last, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(double* @x), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
-; CHECK-NOT: call token @llvm.directive.region.entry()
-; CHECK-NOT: call token @llvm.directive.region.exit()
+; ALL-NOT: call token @llvm.directive.region.entry()
+; ALL-NOT: call token @llvm.directive.region.exit()
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
@@ -50,7 +56,8 @@ omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, 
   %cmp = icmp sle i32 %2, %3
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
-; CHECK: call void @__kmpc_critical
+; CRITICAL: call void @__kmpc_critical
+; FASTRED: call i32 @__kmpc_reduce
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %4 = load i32, i32* %.omp.iv, align 4
   %mul = mul nsw i32 %4, 1
@@ -64,8 +71,10 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
-; CHECK: store double %{{.*}}, double* @x
-; CHECK: call void @__kmpc_end_critical
+; ALL: store double %{{.*}}, double* @x
+; CRITICAL: call void @__kmpc_end_critical
+; FASTRED: call void @__kmpc_end_reduce
+
 omp.inner.for.inc:                                ; preds = %omp.body.continue
   %6 = load i32, i32* %.omp.iv, align 4
   %add1 = add nsw i32 %6, 1

@@ -99,6 +99,20 @@ static cl::opt<bool> AvoidStridedProcessing(
     "vpo-paropt-avoid-strided-processing", cl::Hidden, cl::init(true),
     cl::desc("For SPIR targets schedule parallel loops such that adjacent "
              "threads execute adjacent iterations of the loop."));
+
+static cl::opt<bool> UseFastReduction("vpo-paropt-fast-reduction", cl::Hidden,
+                                      cl::init(true),
+                                      cl::desc("Enable fast reduction."));
+static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
+                                           cl::Hidden, cl::init(0x3),
+                                           cl::desc("Control option for fast "
+                                                    "reduction. Bit 0(default "
+                                                    "on): Scalar variables are"
+                                                    " used directly in "
+                                                    "reduction code. Bit 1("
+                                                    "default on): similar with"
+                                                    " bit 0, but for array "
+                                                    "reduction."));
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -2264,11 +2278,9 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 //    @.kmpc_loc.0.0.5, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.var)
 //    br label %exitStub
 //
-Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
-                                          Value *Rhs1, Value *Rhs2,
-                                          Type *ScalarTy,
-                                          IRBuilder<> &Builder,
-                                          bool IsAnd) {
+Value *VPOParoptTransform::genReductionFiniForBoolOps(
+    ReductionItem *RedI, Value *Rhs1, Value *Rhs2, Type *ScalarTy,
+    IRBuilder<> &Builder, DominatorTree *DT, bool IsAnd) {
   LLVMContext &C = F->getContext();
   // FIXME: handle FP types here, and also make sure that
   //        significant bits are not truncated before
@@ -2360,9 +2372,9 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
 
 // Generate the reduction update instructions.
 bool VPOParoptTransform::genReductionScalarFini(
-    WRegionNode *W, ReductionItem *RedI,
-    Value *ReductionVar, Value *ReductionValueLoc,
-    Type *ScalarTy, IRBuilder<> &Builder) {
+    WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
+    Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
+    DominatorTree *DT) {
   Value *Res = nullptr;
   auto *Rhs2 = Builder.CreateLoad(ReductionValueLoc);
   auto *Rhs1 = Builder.CreateLoad(ReductionVar);
@@ -2420,11 +2432,11 @@ bool VPOParoptTransform::genReductionScalarFini(
     Res = Builder.CreateXor(Rhs1, Rhs2);
     break;
   case ReductionItem::WRNReductionAnd:
-    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder,
+    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder, DT,
                                      true);
     break;
   case ReductionItem::WRNReductionOr:
-    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder,
+    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder, DT,
                                      false);
     break;
   case ReductionItem::WRNReductionMax:
@@ -2575,7 +2587,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
          "genReductionFini: Expect incoming scalar/complex type.");
   Type *ScalarTy = AllocaTy->getScalarType();
 
-  return genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder);
+  return genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder, DT);
 }
 
 // Generate the reduction initialization/update for array.
@@ -2730,7 +2742,7 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
           genReductionUdrFini(RedI, DestElementPHI, SrcElementPHI, Builder);
     else
       NeedsKmpcCritical |= genReductionScalarFini(
-          W, RedI, DestElementPHI, SrcElementPHI, DestElementTy, Builder);
+          W, RedI, DestElementPHI, SrcElementPHI, DestElementTy, Builder, DT);
   }
 
   auto DestElementNext =
@@ -3348,6 +3360,172 @@ BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
   return ExitBlock;
 }
 
+bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
+#if INTEL_CUSTOMIZATION
+  if (I->getIsF90DopeVector())
+    return true;
+#endif // INTEL_CUSTOMIZATION
+  if (I->getIsArraySection())
+    return true;
+
+  Type *ElementType =
+      cast<PointerType>(I->getOrig()->getType())->getElementType();
+  if (ElementType->isArrayTy())
+    return true;
+
+  return false;
+}
+
+// Determine if we want to generate fast reduction code.
+int VPOParoptTransform::checkFastReduction(WRegionNode *W) {
+  if (!UseFastReduction)
+    return 0;
+
+  // TODO: add offloading support for fast reduction. Now only support CPU.
+  if (isTargetSPIRV())
+    return 0;
+
+  ReductionClause &RedClause = W->getRed();
+  for (ReductionItem *RedI : RedClause.items()) {
+    // Disable fast reduction for array now. It will be supported later.
+    if (isArrayReduction(RedI))
+      return 0;
+  }
+
+  return 1;
+}
+
+// Generate fast reduction callback routine.
+// Here is example with C source code and IR.
+// C source code:
+//   int i, sum = 0;
+//   #pragma omp parallel for reduction(+:sum)
+//   for (i=0; i<10; i++) {
+//     sum+=i;
+//   }
+//
+// IR:
+// define internal void @main_tree_reduce_4(i8* %dst, i8* %src) {
+// entry:
+//   %0 = bitcast i8* %dst to %struct.fast_red_t*
+//   %1 = bitcast i8* %src to %struct.fast_red_t*
+//   %sum.gep = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t*
+//   %0, i32 0, i32 0
+//   %sum.fast_red.gep = getelementptr inbounds %struct.fast_red_t,
+//   %struct.fast_red_t* %1, i32 0, i32 0
+//   %2 = load i32, i32* %sum.fast_red.gep, align 4
+//   %3 = load i32, i32* %sum.gep, align 4
+//   %4 = add i32 %3, %2
+//   store i32 %4, i32* %sum.gep, align 4
+//   ret void
+// }
+//
+RDECL VPOParoptTransform::genFastReductionRoutine(WRegionNode *W,
+                                                  StructType *FastRedStructTy) {
+  LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+
+  Type *FastRedParams[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C)};
+  FunctionType *FastRedFnTy =
+      FunctionType::get(Type::getVoidTy(C), FastRedParams, false);
+  Function *FnFastRed = Function::Create(
+      FastRedFnTy, GlobalValue::InternalLinkage,
+      F->getName() + "_tree_reduce_" + Twine(W->getNumber()), M);
+  FnFastRed->setCallingConv(CallingConv::C);
+  if (hasParentTarget(W))
+    FnFastRed->addFnAttr("target.declare", "true");
+
+  auto Arg = FnFastRed->arg_begin();
+  Value *DstArg = &*Arg;
+  DstArg->setName("dst");
+  Arg++;
+  Value *SrcArg = &*Arg;
+  SrcArg->setName("src");
+
+  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnFastRed);
+  DominatorTree DT;
+  DT.recalculate(*FnFastRed);
+
+  IRBuilder<> Builder(EntryBB);
+  ReturnInst *RetInst = Builder.CreateRetVoid();
+
+  ReductionClause &RedClause = W->getRed();
+  assert(!RedClause.empty() && "Empty reduction clauses");
+
+  int ItemIndex = 0;
+  for (ReductionItem *RedI : RedClause.items()) {
+    Builder.SetInsertPoint(RetInst);
+    Value *DstVec =
+        Builder.CreateBitCast(DstArg, PointerType::getUnqual(FastRedStructTy));
+    Value *SrcVec =
+        Builder.CreateBitCast(SrcArg, PointerType::getUnqual(FastRedStructTy));
+
+    Value *ValueIndex[2] = {Builder.getInt32(0), Builder.getInt32(ItemIndex++)};
+    Value *DstGEP =
+        Builder.CreateInBoundsGEP(FastRedStructTy, DstVec, ValueIndex,
+                                  RedI->getOrig()->getName() + ".gep");
+    Value *SrcGEP =
+        Builder.CreateInBoundsGEP(FastRedStructTy, SrcVec, ValueIndex,
+                                  RedI->getOrig()->getName() + ".fast_red.gep");
+    genReductionFini(W, RedI, DstGEP, &*Builder.GetInsertPoint(), &DT, true);
+
+    // replace New with SrcGEP in this function
+    SmallVector<Instruction *, 8> OldUses;
+    Value *NewRedInst = RedI->getNew();
+    for (auto IB = NewRedInst->user_begin(), IE = NewRedInst->user_end();
+         IB != IE; ++IB) {
+      if (Instruction *User = dyn_cast<Instruction>(*IB))
+        if (User->getParent()->getParent() == FnFastRed)
+          OldUses.push_back(User);
+    }
+    while (!OldUses.empty()) {
+      Instruction *UI = OldUses.pop_back_val();
+      UI->replaceUsesOfWith(NewRedInst, SrcGEP);
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "Generate fast reduction callback routine: "
+                    << *FnFastRed << "\n");
+  return FnFastRed;
+}
+
+// Create struct type and variable for fast reduction
+std::pair<StructType *, Value *>
+VPOParoptTransform::createFastRedTyAndVar(WRegionNode *W, int FastReduction) {
+  StructType *FastRedStructTy = nullptr;
+  Value *FastRedInst = nullptr;
+
+  if (!FastReduction)
+    return std::make_pair(nullptr, nullptr);
+
+  // Create structure type for fast reduction
+  SmallVector<Type *, 9> StructArgTys;
+  MaybeAlign MaxAlignment(4);
+
+  ReductionClause &RedClause = W->getRed();
+  for (ReductionItem *RedI : RedClause.items()) {
+    MaybeAlign OrigAlignment =
+        RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
+    MaxAlignment = std::max(OrigAlignment, MaxAlignment);
+
+    Type *ElementType = nullptr;
+    std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+    StructArgTys.push_back(ElementType);
+  }
+  LLVMContext &C = F->getContext();
+  // packed structure is needed, so that we can get actual size of this
+  // structure, instead of the larger size including padding.
+  FastRedStructTy =
+      StructType::create(C, StructArgTys, "struct.fast_red_t", true);
+
+  FastRedInst = VPOParoptUtils::genPrivatizationAlloca(
+      FastRedStructTy, nullptr, MaybeAlign(MaxAlignment),
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, false), isTargetSPIRV(),
+      "fast_red_struct", llvm::None, llvm::None);
+
+  return std::make_pair(FastRedStructTy, FastRedInst);
+}
+
 // Generate the reduction code for reduction clause.
 bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   bool Changed = false;
@@ -3359,6 +3537,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   ReductionClause &RedClause = W->getRed();
   if (!RedClause.empty()) {
+    int FastReduction = checkFastReduction(W);
+    LLVM_DEBUG(dbgs() << "Fast reduction is "
+                      << ((FastReduction == 1) ? "enabled" : "disabled")
+                      << ".\n");
 
     W->populateBBSet();
 
@@ -3371,6 +3553,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     // variable is initialized at the region's entry block.
     BasicBlock *RedUpdateEntryBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
 
+    StructType *FastRedStructTy = nullptr;
+    Value *FastRedInst = nullptr;
+    std::tie(FastRedStructTy, FastRedInst) =
+        createFastRedTyAndVar(W, FastReduction);
+
+    int ItemIndex = 0;
     for (ReductionItem *RedI : RedClause.items()) {
       Value *NewRedInst;
       Value *Orig = RedI->getOrig();
@@ -3384,7 +3572,21 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       computeArraySectionTypeOffsetSize(*RedI, InsertPt);
 
-      NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
+      bool UseRecForScalar = ((FastReductionCtrl & 0x1) == 0);
+      bool UseRecForArray = ((FastReductionCtrl & 0x2) == 0);
+      bool UseRec = ((!isArrayReduction(RedI) && UseRecForScalar) ||
+                     (isArrayReduction(RedI) && UseRecForArray));
+      if (FastReduction && UseRec) {
+        // Get local variable from structure and set it as NewRedInst
+        Value *ValueIndex[2] = {
+            ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
+            ConstantInt::get(Type::getInt32Ty(F->getContext()), ItemIndex++)};
+        NewRedInst = GetElementPtrInst::CreateInBounds(
+            FastRedStructTy, FastRedInst, ValueIndex,
+            Orig->getName() + ".fast_red", InsertPt);
+      } else
+        NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
+
       RedI->setNew(NewRedInst);
 
       Value *ReplacementVal = getClauseItemReplacementValue(RedI, InsertPt);
@@ -3396,6 +3598,23 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
       RedInitEntryBB = createEmptyPrivInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
+
+      if (FastReduction && !UseRec) {
+        IRBuilder<> Builder(dyn_cast<Instruction>(
+            RedUpdateEntryBB->getSinglePredecessor()->begin()));
+        // Get local variable from structure and set it as NewRedInst
+        Value *ValueIndex[2] = {
+            ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
+            ConstantInt::get(Type::getInt32Ty(F->getContext()), ItemIndex++)};
+        Value *RecInst =
+            Builder.CreateInBoundsGEP(FastRedStructTy, FastRedInst, ValueIndex,
+                                      Orig->getName() + ".fast_red");
+        assert((RecInst->getType() == RedI->getNew()->getType()) &&
+               "Inconsistent type between local and fast reduction vars");
+        Value *V = Builder.CreateLoad(RedI->getNew());
+        Builder.CreateStore(V, RecInst);
+        RedI->setNew(RecInst);
+      }
 
       BasicBlock *BeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
       // FIXME: if NeedsKmpcCritical is true, then for SPIR targets
@@ -3412,7 +3631,6 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       //        as well, but this may not be very efficient.
       NeedsKmpcCritical |= genReductionFini(W, RedI, RedI->getOrig(),
                                             BeginBB->getTerminator(), DT);
-
       LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
@@ -3429,10 +3647,18 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // case the end_critical() would get emitted before the copy-out loop that
       // the critical section is trying to guard.
       BasicBlock *EndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
-      VPOParoptUtils::genKmpcCriticalSection(
-          W, IdentTy, TidPtrHolder,
-          dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
-          EndBB->getTerminator(), DT, LI, isTargetSPIRV(), ".reduction");
+
+      if (FastReduction) {
+        RDECL FastRedCallback = genFastReductionRoutine(W, FastRedStructTy);
+        VPOParoptUtils::genKmpcReduce(
+            W, IdentTy, TidPtrHolder, FastRedInst, FastRedCallback,
+            dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
+            EndBB->getTerminator(), DT, LI, isTargetSPIRV(), ".fast_reduction");
+      } else
+        VPOParoptUtils::genKmpcCriticalSection(
+            W, IdentTy, TidPtrHolder,
+            dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
+            EndBB->getTerminator(), DT, LI, isTargetSPIRV(), ".reduction");
 
       OptimizationRemark R(DEBUG_TYPE, "Reduction", &EntryBB->front());
       R << "Critical section was generated for reduction update(s)";
