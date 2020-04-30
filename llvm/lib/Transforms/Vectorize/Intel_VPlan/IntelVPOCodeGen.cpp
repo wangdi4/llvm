@@ -2984,14 +2984,6 @@ void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
 }
 
 void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
-  // TODO: Allow serialization for all types and get rid of the assert below
-  // (CMPLRLLVM-19198).
-  // TODO: Handle serialization of aggregate type instructions.
-  assert((VPInst->getOpcode() == Instruction::Call ||
-          VPInst->getOpcode() == Instruction::InsertValue ||
-          VPInst->getOpcode() == Instruction::ExtractValue ||
-          !VPInst->getType()->isAggregateType()) &&
-         "Can't serialize aggregate type instructions.");
 
   unsigned Lanes =
       (!VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan)) ||
