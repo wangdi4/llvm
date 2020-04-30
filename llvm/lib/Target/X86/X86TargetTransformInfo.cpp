@@ -3709,8 +3709,9 @@ int X86TTIImpl::getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx,
   return X86TTIImpl::getIntImmCost(Imm, Ty);
 }
 
-unsigned X86TTIImpl::getUserCost(const User *U,
-                                 ArrayRef<const Value *> Operands) {
+unsigned
+X86TTIImpl::getUserCost(const User *U, ArrayRef<const Value *> Operands,
+                        TTI::TargetCostKind CostKind) {
   if (isa<StoreInst>(U)) {
     Value *Ptr = U->getOperand(1);
     // Store instruction with index and scale costs 2 Uops.
@@ -3721,7 +3722,7 @@ unsigned X86TTIImpl::getUserCost(const User *U,
     }
     return TTI::TCC_Basic;
   }
-  return BaseT::getUserCost(U, Operands);
+  return BaseT::getUserCost(U, Operands, CostKind);
 }
 
 // Return an average cost of Gather / Scatter instruction, maybe improved later
