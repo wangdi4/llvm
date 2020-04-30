@@ -254,17 +254,15 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     LVP.selectBestPeelingVariants();
 
   unsigned VF = LVP.selectBestPlan();
+  VPlan *Plan = LVP.getVPlanForVF(VF);
+  assert(Plan && "Unexpected null VPlan");
 
   LLVM_DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
              RSO << "VD: Initial VPlan for VF=" << VF; RSO.flush();
-             VPlan *Plan = LVP.getVPlanForVF(VF); Plan->setName(PlanName);
-             dbgs() << *Plan);
+             Plan->setName(PlanName); dbgs() << *Plan);
 
 #if INTEL_CUSTOMIZATION
   if (VPlanPrintInit) {
-    VPlan *Plan = LVP.getVPlanForVF(VF);
-    (void)Plan;
-    assert(Plan && "Unexpected null VPlan");
     errs() << "Print initial VPlan for VF=" << VF << "\n";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     Plan->dump(errs());
@@ -275,7 +273,6 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   unsigned UF = VPlanForceUF;
   if (UF == 0)
     UF = 1;
-  VPlan *Plan = LVP.getVPlanForVF(VF);
   LVP.unroll(*Plan, UF);
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
@@ -327,7 +324,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
   // Run VLS analysis before IR for the current loop is modified.
-  VCodeGen.getVLS()->getOVLSMemrefs(LVP.getVPlanForVF(VF), VF);
+  VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
 
   LVP.executeBestPlan(VCodeGen);
 
