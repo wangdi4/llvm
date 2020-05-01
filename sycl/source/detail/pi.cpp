@@ -240,24 +240,28 @@ vector_class<plugin> initialize() {
       continue;
     }
     backend *BE = SYCLConfig<SYCL_BE>::get();
-    if (!BE || (*BE == backend::opencl &&
-                PluginNames[I].first.find("opencl") != std::string::npos)) {
-      // Use the OpenCL plugin as the GlobalPlugin
+    // Use OpenCL as the default interoperability plugin.
+    // This will go away when we make backend interoperability selection
+    // explicit in SYCL-2020.
+    backend InteropBE = BE ? *BE : backend::opencl;
+
+    if (InteropBE == backend::opencl &&
+        PluginNames[I].first.find("opencl") != std::string::npos) {
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::opencl);
 #if INTEL_CUSTOMIZATION
 #if 0
-    } else if (*BE == backend::cuda &&
+    } else if (InteropBE == backend::cuda &&
                PluginNames[I].first.find("cuda") != std::string::npos)
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
 #endif
-    } else if (*BE == backend::level0 &&
+    } else if (InteropBE == backend::level0 &&
                PluginNames[I].first.find(LEVEL0_PLUGIN_NAME) !=
                    std::string::npos) {
-        // Use the LEVEL0 plugin as the GlobalPlugin
-        GlobalPlugin =
-            std::make_shared<plugin>(PluginInformation, backend::level0);
+      // Use the LEVEL0 plugin as the GlobalPlugin
+      GlobalPlugin =
+          std::make_shared<plugin>(PluginInformation, backend::level0);
     }
 #endif // INTEL_CUSTOMIZATION
     Plugins.emplace_back(plugin(PluginInformation, PluginNames[I].second));
