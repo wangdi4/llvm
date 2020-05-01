@@ -364,8 +364,8 @@ private:
 
 class HIRCodeGen {
 private:
-  ScalarEvolution &SE;
   HIRFramework &HIRF;
+  ScalarEvolution &SE;
   LoopOptReportBuilder &LORBuilder;
 
   // Clears HIR related metadata from instructions. Returns true if any
@@ -376,8 +376,8 @@ private:
   bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
 
 public:
-  HIRCodeGen(ScalarEvolution &SE, HIRFramework &HIRF)
-      : SE(SE), HIRF(HIRF), LORBuilder(HIRF.getLORBuilder()) {}
+  HIRCodeGen(HIRFramework &HIRF)
+      : HIRF(HIRF), SE(HIRF.getScopedSE()), LORBuilder(HIRF.getLORBuilder()) {}
 
   bool run();
 
@@ -394,12 +394,9 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    return HIRCodeGen(getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-                      getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
+    return HIRCodeGen(getAnalysis<HIRFrameworkWrapperPass>().getHIR()).run();
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRFrameworkWrapperPass>();
 
     AU.addPreserved<GlobalsAAWrapperPass>();
@@ -416,16 +413,13 @@ FunctionPass *llvm::createHIRCodeGenWrapperPass() {
 char HIRCodeGenWrapperPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
                     false, false)
 
 PreservedAnalyses HIRCodeGenPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
-  bool Transformed = HIRCodeGen(AM.getResult<ScalarEvolutionAnalysis>(F),
-                                AM.getResult<HIRFrameworkAnalysis>(F))
-                         .run();
+  bool Transformed = HIRCodeGen(AM.getResult<HIRFrameworkAnalysis>(F)).run();
 
   if (!Transformed) {
     return PreservedAnalyses::all();

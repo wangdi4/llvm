@@ -20,7 +20,6 @@
 ; CHECK-NEXT: |      |   %indvars.iv.next = i2  +  1;
 ; CHECK-NEXT: |      + END LOOP
 ; CHECK-NEXT: |
-; CHECK-NEXT: |      %4 = trunc.i64.i32(%indvars.iv.next);
 ; CHECK-NEXT: |      %inc.lcssa19 = %indvars.iv.next;
 ; CHECK-NEXT: |   }
 ; CHECK-NEXT: + END LOOP
@@ -64,7 +63,8 @@ for.body3:                                        ; preds = %for.body3.lr.ph, %f
   br i1 %cmp2, label %for.body3, label %for.inc10.loopexit
 
 for.inc10.loopexit:                               ; preds = %for.body3
-  %4 = trunc i64 %indvars.iv.next to i32
+  %indvars.iv.next.lcssa = phi i64 [ %indvars.iv.next, %for.body3 ]
+  %4 = trunc i64 %indvars.iv.next.lcssa to i32
   br label %for.inc10
 
 for.inc10:                                        ; preds = %for.inc10.loopexit, %for.cond1.preheader
@@ -74,7 +74,8 @@ for.inc10:                                        ; preds = %for.inc10.loopexit,
   br i1 %exitcond, label %for.end12, label %for.cond1.preheader
 
 for.end12:                                        ; preds = %for.inc10
-  store i32 %inc.lcssa19, i32* @j, align 4
+  %inc.lcssa19.lcssa = phi i32 [ %inc.lcssa19, %for.inc10 ]
+  store i32 %inc.lcssa19.lcssa, i32* @j, align 4
   store i32 32, i32* @i, align 4
   ret i32 undef
 }

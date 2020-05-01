@@ -22,7 +22,7 @@
 ;<0>          BEGIN REGION { }
 ;<15>               + DO i1 = 0, 99999, 1   <DO_LOOP>
 ;<2>                |   %0 = trunc.i64.i32(i1);
-;<6>                |   (@A)[0][i1 + -5 * (sext.i32.i64(%0) /u 5)] = i1;
+;<6>                |   (@A)[0][i1 + -5 * (zext.i32.i64(%0) /u 5)] = i1;
 ;<8>                |   (@B)[0][i1] = i1;
 ;<15>               + END LOOP
 ;<0>          END REGION
@@ -33,9 +33,9 @@
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, 99999, 1   <DO_LOOP>
 ; CHECK:           |   %0 = trunc.i64.i32(i1);
-; CHECK:           |   (@A)[0][i1 + -5 * (sext.i32.i64(%0) /u 5)] = i1;
+; CHECK:           |   (@A)[0][i1 + -5 * (zext.i32.i64(%0) /u 5)] = i1;
 ; CHECK:           |   (@B)[0][i1] = i1;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 52]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 56]),  0,  3,  1);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;

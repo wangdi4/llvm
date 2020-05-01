@@ -63,6 +63,7 @@ protected:
   friend class HIRCreation;
   // Accesses getIRRegion().
   friend class HIRParser;
+  friend class HIRLoopFormation;
 
   /// \brief Clone Implementation
   /// Do not support Region cloning.
