@@ -1033,8 +1033,13 @@ define i32 @smul(i32 %arg) {
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %V8I64 = call { <8 x i64>, <8 x i1> } @llvm.smul.with.overflow.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I32 = call { i32, i1 } @llvm.smul.with.overflow.i32(i32 undef, i32 undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 33 for instruction: %V4I32 = call { <4 x i32>, <4 x i1> } @llvm.smul.with.overflow.v4i32(<4 x i32> undef, <4 x i32> undef)
+<<<<<<< HEAD
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.smul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 148 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.smul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+=======
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.smul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.smul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+>>>>>>> 9968e6dc872fb70c61eeacbe66b87345ffff968d
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %I16 = call { i16, i1 } @llvm.smul.with.overflow.i16(i16 undef, i16 undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 25 for instruction: %V8I16 = call { <8 x i16>, <8 x i1> } @llvm.smul.with.overflow.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %V16I16 = call { <16 x i16>, <16 x i1> } @llvm.smul.with.overflow.v16i16(<16 x i16> undef, <16 x i16> undef)
@@ -1166,8 +1171,13 @@ define i32 @smul(i32 %arg) {
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 112 for instruction: %V8I64 = call { <8 x i64>, <8 x i1> } @llvm.smul.with.overflow.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %I32 = call { i32, i1 } @llvm.smul.with.overflow.i32(i32 undef, i32 undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 33 for instruction: %V4I32 = call { <4 x i32>, <4 x i1> } @llvm.smul.with.overflow.v4i32(<4 x i32> undef, <4 x i32> undef)
+<<<<<<< HEAD
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 72 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.smul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 148 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.smul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+=======
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 84 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.smul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 172 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.smul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+>>>>>>> 9968e6dc872fb70c61eeacbe66b87345ffff968d
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %I16 = call { i16, i1 } @llvm.smul.with.overflow.i16(i16 undef, i16 undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 25 for instruction: %V8I16 = call { <8 x i16>, <8 x i1> } @llvm.smul.with.overflow.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %V16I16 = call { <16 x i16>, <16 x i1> } @llvm.smul.with.overflow.v16i16(<16 x i16> undef, <16 x i16> undef)
@@ -1271,8 +1281,13 @@ define i32 @umul(i32 %arg) {
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 92 for instruction: %V8I64 = call { <8 x i64>, <8 x i1> } @llvm.umul.with.overflow.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %I32 = call { i32, i1 } @llvm.umul.with.overflow.i32(i32 undef, i32 undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V4I32 = call { <4 x i32>, <4 x i1> } @llvm.umul.with.overflow.v4i32(<4 x i32> undef, <4 x i32> undef)
+<<<<<<< HEAD
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.umul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.umul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+=======
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.umul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.umul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+>>>>>>> 9968e6dc872fb70c61eeacbe66b87345ffff968d
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I16 = call { i16, i1 } @llvm.umul.with.overflow.i16(i16 undef, i16 undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8I16 = call { <8 x i16>, <8 x i1> } @llvm.umul.with.overflow.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V16I16 = call { <16 x i16>, <16 x i1> } @llvm.umul.with.overflow.v16i16(<16 x i16> undef, <16 x i16> undef)
@@ -1404,8 +1419,13 @@ define i32 @umul(i32 %arg) {
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 92 for instruction: %V8I64 = call { <8 x i64>, <8 x i1> } @llvm.umul.with.overflow.v8i64(<8 x i64> undef, <8 x i64> undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %I32 = call { i32, i1 } @llvm.umul.with.overflow.i32(i32 undef, i32 undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V4I32 = call { <4 x i32>, <4 x i1> } @llvm.umul.with.overflow.v4i32(<4 x i32> undef, <4 x i32> undef)
+<<<<<<< HEAD
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.umul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 140 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.umul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+=======
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %V8I32 = call { <8 x i32>, <8 x i1> } @llvm.umul.with.overflow.v8i32(<8 x i32> undef, <8 x i32> undef)
+; BTVER2-NEXT:  Cost Model: Found an estimated cost of 164 for instruction: %V16I32 = call { <16 x i32>, <16 x i1> } @llvm.umul.with.overflow.v16i32(<16 x i32> undef, <16 x i32> undef)
+>>>>>>> 9968e6dc872fb70c61eeacbe66b87345ffff968d
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %I16 = call { i16, i1 } @llvm.umul.with.overflow.i16(i16 undef, i16 undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V8I16 = call { <8 x i16>, <8 x i1> } @llvm.umul.with.overflow.v8i16(<8 x i16> undef, <8 x i16> undef)
 ; BTVER2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V16I16 = call { <16 x i16>, <16 x i1> } @llvm.umul.with.overflow.v16i16(<16 x i16> undef, <16 x i16> undef)
