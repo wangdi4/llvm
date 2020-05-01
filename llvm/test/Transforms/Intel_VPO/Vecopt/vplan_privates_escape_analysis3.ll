@@ -244,18 +244,22 @@ return:
 ; This test checks that we do not enter a tight infinite loop on account of PHI instructions
 ; and its users.
 ; CHECK-DAG: SOAUnsafe = arr_e.priv
+; CHECK-DAG: SOASafe = arr_ne.priv
 define void @test_pointer_induction_escape() {
   %arr_e.priv = alloca [1024 x i32], align 4
+  %arr_ne.priv = alloca [1024 x i32], align 4
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
+  %arrayidx1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 0
   %arrayidx.end = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 1023
   %as.cast1 = addrspacecast i32* %arrayidx.end to i32 addrspace(4)*
   %ptr2int1 = ptrtoint i32 addrspace(4)* %as.cast1 to i64
   br label %simd.begin.region
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv, [1024 x i32]* %arr_ne.priv ) ]
   br label %simd.loop
 simd.loop:
   %arrayidx.current = phi i32* [ %arrayidx, %simd.begin.region], [%arrayidx.next, %simd.loop.end]
+  %arrayidx.current1 = phi i32* [ %arrayidx1, %simd.begin.region], [%arrayidx.next1, %simd.loop.end]
   %ld = load i32, i32* %arrayidx.current
   br label %simd.loop.end
 simd.loop.end:
@@ -263,6 +267,7 @@ simd.loop.end:
   %ptr2int2 = ptrtoint i32 addrspace(4)* %as.cast2 to i64
   %icmp = icmp ult i64 %ptr2int2, %ptr2int1
   %arrayidx.next = getelementptr inbounds i32, i32* %arrayidx.current, i64 1
+  %arrayidx.next1 = getelementptr inbounds i32, i32* %arrayidx.current1, i64 1
   br i1 %icmp, label %simd.end.region, label %simd.loop
 
 simd.end.region:
