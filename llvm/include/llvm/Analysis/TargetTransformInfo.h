@@ -1406,17 +1406,13 @@ public:
                              ArrayRef<unsigned> Indices, unsigned Alignment,
                              unsigned AddressSpace, bool UseMaskForCond = false,
                              bool UseMaskForGaps = false) = 0;
-<<<<<<< HEAD
-  virtual int getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
-=======
 #if INTEL_CUSTOMIZATION
   virtual int getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                      unsigned IndexSize, bool VariableMask,
                                      unsigned Alignment, unsigned AddressSpace,
                                      const Instruction *I = nullptr) = 0;
 #endif // INTEL_CUSTOMIZATION
-  virtual int getArithmeticReductionCost(unsigned Opcode, Type *Ty,
->>>>>>> 692f2ab86290df4081b72ece31f76f3ab5cc0d62
+  virtual int getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
                                          bool IsPairwiseForm) = 0;
   virtual int getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
                                      bool IsPairwiseForm, bool IsUnsigned) = 0;
