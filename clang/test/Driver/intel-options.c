@@ -139,7 +139,6 @@
 // CHECK-STRICT-ANSI: "-pedantic"
 // CHECK-STRICT-ANSI: "-std=c89"
 
-<<<<<<< HEAD
 // Behavior with -inline-level=<0,1,2> option maps to -fno-inline, -finline-hint-functions, -finline-functions
 // RUN: %clang -### -c -inline-level=0 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-ZERO %s
 // RUN: %clang -### -c -finline-functions -inline-level=0 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-ZERO %s
