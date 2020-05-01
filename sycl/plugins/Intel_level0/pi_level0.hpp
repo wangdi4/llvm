@@ -6,9 +6,34 @@
 
 #include <level_zero/ze_api.h>
 
+template<class To, class From>
+To pi_cast(From value) {
+  // TODO: see if more sanity checks are possible.
+  assert(sizeof(From) == sizeof(To));
+  return (To)(value);
+}
+
+template<>
+uint32_t pi_cast(uint64_t value) {
+  // Cast value and check that we don't lose any information.
+  uint32_t casted_value = (uint32_t)(value);
+  assert((uint64_t)casted_value == value);
+  return casted_value;
+}
+
+// TODO: Currently die is defined in each plugin. Probably some
+// common header file with utilities should be created. Resolve after open
+// sourcing.
+[[noreturn]] void die(const char *Message) {
+  std::cerr << "die: " << Message << std::endl;
+  std::terminate();
+}
+
 // Define the types that are opaque in pi.h in a manner suitabale for L0 plugin
 
 struct _pi_platform {
+  _pi_platform(ze_driver_handle_t Driver) : L0Driver{Driver} {}
+
   // L0 lacks the notion of a platform, but thert is a driver, which is a
   // pretty good fit to keep here.
   //
@@ -16,6 +41,12 @@ struct _pi_platform {
 };
 
 struct _pi_device {
+  _pi_device(ze_device_handle_t Device, pi_platform Plt,
+             bool isSubDevice = false)
+      : L0Device{Device}, Platform{Plt}, L0CommandListInit{nullptr},
+        IsSubDevice{isSubDevice}, RefCount{1}, L0DeviceProperties{},
+        L0DeviceComputeProperties{} {}
+
   // L0 device handle.
   ze_device_handle_t L0Device;
 
@@ -52,6 +83,10 @@ struct _pi_device {
 };
 
 struct _pi_context {
+  _pi_context(pi_device Device)
+      : Device{Device}, RefCount{1}, L0EventPool{nullptr},
+        NumEventsAvailableInEventPool{}, NumEventsLiveInEventPool{} {}
+
   // L0 does not have notion of contexts.
   // Keep the device here (must be exactly one) to return it when PI context
   // is queried for devices.
@@ -79,6 +114,9 @@ struct _pi_context {
 };
 
 struct _pi_queue {
+  _pi_queue(ze_command_queue_handle_t Queue, pi_context Context)
+      : L0CommandQueue{Queue}, Context{Context}, RefCount{1} {}
+
   // L0 command queue handle.
   ze_command_queue_handle_t L0CommandQueue;
 
@@ -98,45 +136,14 @@ struct _pi_queue {
 };
 
 struct _pi_mem {
-  // PI memory is either buffer or image.
-  union {
-    // L0 memory handle is really just a naked pointer.
-    // It is just convenient to have it char * to simplify offset arithmetics.
-    //
-    char *L0Mem;
-
-    // L0 image handle.
-    ze_image_handle_t L0Image;
-  };
-
   // Keeps the PI platform of this memory handle.
-  // NOTE: it is coming *after* the native handle because the code in
-  // piextKernelSetArgMemObj needs it to be so.
   pi_platform Platform;
-
-  // TODO: as this only affects buffers and not images reorganize to
-  // not waste memory. Even for buffers this should better be a pointer
-  // (null for normal buffers) than statically allocates structure.
-  //
-  struct {
-    _pi_mem * Parent;
-    size_t Origin; // only valid if Parent != nullptr
-    size_t Size;   // only valid if Parent != nullptr
-  } SubBuffer;
-
-  // TODO: see if there a better way to tag buffer vs. image.
-  bool IsMemImage;
 
   // Keeps the host pointer where the buffer will be mapped to,
   // if created with PI_MEM_FLAGS_HOST_PTR_USE (see
   // piEnqueueMemBufferMap for details).
   //
   char *MapHostPtr;
-
-#ifndef NDEBUG
-  // Keep the descriptor of the image (for debugging purposes)
-  ze_image_desc_t L0ImageDesc;
-#endif // !NDEBUG
 
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
@@ -156,9 +163,75 @@ struct _pi_mem {
   // TODO: make this thread-safe.
   //
   std::map<void *, mapping> Mappings;
+
+  virtual ~_pi_mem() = default;
+
+  // Interface of the _pi_mem object.
+  virtual void *getL0Handle() { return nullptr; };
+
+  virtual void *getL0HandlePtr() { return nullptr; };
+
+  virtual bool isImage() const = 0;
+
+protected:
+  _pi_mem(pi_platform Plt, char *HostPtr)
+      : Platform{Plt}, MapHostPtr{HostPtr}, RefCount{1}, Mappings{} {}
+};
+
+struct _pi_buffer final : _pi_mem {
+  // Buffer/Sub-buffer constructor
+  _pi_buffer(pi_platform Plt, char *Mem, char *HostPtr,
+             _pi_mem *Parent = nullptr, size_t Origin = 0, size_t Size = 0)
+      : _pi_mem(Plt, HostPtr), L0Mem{Mem}, SubBuffer{Parent, Origin,
+                                                          Size} {}
+
+  void *getL0Handle() override { return L0Mem; }
+
+  void *getL0HandlePtr() override { return &L0Mem; }
+
+  bool isImage() const override { return false; }
+
+  bool isSubBuffer() const { return SubBuffer.Parent != nullptr; }
+
+  // L0 memory handle is really just a naked pointer.
+  // It is just convenient to have it char * to simplify offset arithmetics.
+  //
+  char *L0Mem;
+
+  struct {
+    _pi_mem *Parent;
+    size_t Origin; // only valid if Parent != nullptr
+    size_t Size;   // only valid if Parent != nullptr
+  } SubBuffer;
+};
+
+struct _pi_image final : _pi_mem {
+  // Image constructor
+  _pi_image(pi_platform Plt, ze_image_handle_t Image, char *HostPtr)
+      : _pi_mem(Plt, HostPtr), L0Image{Image} {}
+
+  void *getL0Handle() override { return L0Image; }
+
+  void *getL0HandlePtr() override { return &L0Image; }
+
+  bool isImage() const override { return true; }
+
+#ifndef NDEBUG
+  // Keep the descriptor of the image (for debugging purposes)
+  ze_image_desc_t L0ImageDesc;
+#endif // !NDEBUG
+
+  // L0 image handle.
+  ze_image_handle_t L0Image;
 };
 
 struct _pi_event {
+  _pi_event(ze_event_handle_t L0Event, ze_event_pool_handle_t L0EventPool,
+            pi_context Context, pi_command_type CommandType)
+      : L0Event{L0Event}, L0EventPool{L0EventPool}, L0CommandList{nullptr},
+        CommandType{CommandType}, Context{Context},
+        CommandData{nullptr}, RefCount{1} {}
+
   // L0 event handle.
   ze_event_handle_t L0Event;
   // L0 event pool handle.
@@ -193,6 +266,9 @@ struct _pi_event {
 };
 
 struct _pi_program {
+  _pi_program(ze_module_handle_t Module, pi_context Context)
+      : L0Module{Module}, Context{Context}, RefCount{1} {}
+
   // L0 module handle.
   ze_module_handle_t L0Module;
 
@@ -205,6 +281,9 @@ struct _pi_program {
 };
 
 struct _pi_kernel {
+  _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program)
+      : L0Kernel{Kernel}, Program{Program}, RefCount{1} {}
+
   // L0 function handle.
   ze_kernel_handle_t L0Kernel;
 
@@ -217,7 +296,12 @@ struct _pi_kernel {
 };
 
 struct _pi_sampler {
+  _pi_sampler(ze_sampler_handle_t Sampler) : L0Sampler{Sampler}, RefCount{1} {}
+
   // L0 sampler handle.
+  // TODO: It is important that L0 handler is the first data member. Workaround
+  // in SYCL RT (in ExecCGCommand::enqueueImp()) relies on this. This comment
+  // should be removed when workaround in SYCL runtime will be removed.
   ze_sampler_handle_t L0Sampler;
 
   // L0 doesn't do the reference counting, so we have to do.
@@ -225,25 +309,3 @@ struct _pi_sampler {
   std::atomic<pi_uint32> RefCount;
 };
 
-template<class To, class From>
-To pi_cast(From value) {
-  // TODO: see if more sanity checks are possible.
-  assert(sizeof(From) == sizeof(To));
-  return (To)(value);
-}
-
-template<>
-uint32_t pi_cast(uint64_t value) {
-  // Cast value and check that we don't lose any information.
-  uint32_t casted_value = (uint32_t)(value);
-  assert((uint64_t)casted_value == value);
-  return casted_value;
-}
-
-// TODO: Currently die is defined in each plugin. Probably some
-// common header file with utilities should be created. Resolve after open
-// sourcing.
-[[noreturn]] void die(const char *Message) {
-  std::cerr << "die: " << Message << std::endl;
-  std::terminate();
-}
