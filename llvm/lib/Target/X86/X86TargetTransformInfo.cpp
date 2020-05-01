@@ -4033,11 +4033,8 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
                                 bool VariableMask, unsigned Alignment,
                                 unsigned AddressSpace) {
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
-<<<<<<< HEAD
-=======
   APInt DemandedElts = APInt::getAllOnesValue(VF);
 
->>>>>>> 090cae8491279126690b9530ce72b7f8fdb1dc9e
   int MaskUnpackCost = 0;
   if (VariableMask) {
     VectorType *MaskTy =
