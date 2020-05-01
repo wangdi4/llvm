@@ -2057,7 +2057,10 @@ def fno_sycl_libspirv : Flag<["-"], "fno-sycl-libspirv">, HelpText<"Disable chec
 def fsyntax_only : Flag<["-"], "fsyntax-only">,
   Flags<[DriverOption,CoreOption,CC1Option]>, Group<Action_Group>;
 def ftabstop_EQ : Joined<["-"], "ftabstop=">, Group<f_Group>;
-def ftemplate_depth_EQ : Joined<["-"], "ftemplate-depth=">, Group<f_Group>;
+#if INTEL_CUSTOMIZATION
+def ftemplate_depth_EQ : Joined<["-"], "ftemplate-depth=">, Group<f_Group>,
+  HelpText<"Control the depth in which recursive templates are expanded.">;
+#endif // INTEL_CUSTOMIZATION
 def ftemplate_depth_ : Joined<["-"], "ftemplate-depth-">, Group<f_Group>;
 def ftemplate_backtrace_limit_EQ : Joined<["-"], "ftemplate-backtrace-limit=">,
                                    Group<f_Group>;
