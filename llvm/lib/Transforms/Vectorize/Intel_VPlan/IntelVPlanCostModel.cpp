@@ -432,24 +432,19 @@ unsigned VPlanCostModel::getCost() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPlanCostModel::printForVPInstruction(
+  raw_ostream &OS, const VPInstruction *VPInst) const {
+  OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
+  VPInst->print(OS);
+  OS << '\n';
+}
+
 void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
                                           const VPBasicBlock *VPBB) const {
-  OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: ";
-  unsigned VPBBCost = getCost(VPBB);
-  if (VPBBCost == UnknownCost)
-    OS << "Unknown\n";
-  else
-    OS << VPBBCost << '\n';
-
-  for (const VPInstruction &VPInst : *VPBB) {
-    unsigned Cost = getCost(&VPInst);
-    if (Cost == UnknownCost)
-      OS << "  Unknown cost for ";
-    else
-      OS << "  Cost " << Cost << " for ";
-    VPInst.print(OS);
-    OS << '\n';
-  }
+  OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
+    getCostNumberString(getCost(VPBB)) << '\n';
+  for (const VPInstruction &VPInst : *VPBB)
+    printForVPInstruction(OS, &VPInst);
 }
 
 void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) const {
