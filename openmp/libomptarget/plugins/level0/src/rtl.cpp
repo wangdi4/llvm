@@ -18,6 +18,7 @@
 #include <limits>
 #include <mutex>
 #include <string>
+#include <sstream>
 #include <thread>
 #include <vector>
 #include <ze_api.h>
@@ -71,6 +72,11 @@ int DebugLevel = 0;
   do {                                                                         \
     fprintf(stderr, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);   \
     exit(EXIT_FAILURE);                                                        \
+  } while (0)
+
+#define WARNING(Msg)                                                           \
+  do {                                                                         \
+    fprintf(stderr, "Warning: %s\n", Msg);                                     \
   } while (0)
 
 /// For non-thread-safe functions
@@ -180,10 +186,57 @@ struct ModuleDataTy {
   int DeviceNum = -1;
 };
 
-/// Handles to be created for each threads
+/// RTL profile -- only host timer for now
+class RTLProfileTy {
+  struct TimeTy {
+    double HostTime = 0.0;
+    double DeviceTime = 0.0; // Not used for now
+  };
+  std::thread::id ThreadId;
+  std::map<std::string, TimeTy> Data;
+public:
+  static const int64_t MSEC_PER_SEC = 1000;
+  static const int64_t USEC_PER_SEC = 1000000;
+  static int64_t Multiplier;
+
+  RTLProfileTy() {
+    ThreadId = std::this_thread::get_id();
+  }
+
+  void printData(int32_t DeviceId, const char *DeviceName) {
+    std::ostringstream o;
+    o << ThreadId;
+    fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s"
+            ", Thread %s\n", DeviceId, DeviceName, o.str().c_str());
+    const char *unit = (Multiplier == MSEC_PER_SEC) ? "msec" : "usec";
+    fprintf(stderr, "-- Name: Host Time (%s)\n", unit);
+    double hostTotal = 0.0;
+    for (const auto &d : Data) {
+      double hostTime = d.second.HostTime * Multiplier;
+      fprintf(stderr, "-- %s: %.3f\n", d.first.c_str(), hostTime);
+      hostTotal += hostTime;
+    }
+    fprintf(stderr, "-- Total: %.3f\n", hostTotal);
+  }
+
+  void update(const char *Name, double Elapsed) {
+    std::string key(Name);
+    TimeTy &time = Data[key];
+    time.HostTime += Elapsed;
+  }
+
+  void update(std::string &Name, double Elapsed) {
+    TimeTy &time = Data[Name];
+    time.HostTime += Elapsed;
+  }
+};
+int64_t RTLProfileTy::Multiplier;
+
+/// Handles/data to be created for each threads
 struct PrivateHandlesTy {
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
+  RTLProfileTy *Profile = nullptr;
 };
 
 thread_local PrivateHandlesTy ThreadLocalHandles;
@@ -224,6 +277,13 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
   return fence;
 }
 
+/// RTL flags
+struct RTLFlagsTy {
+  uint64_t EnableProfile : 1;
+  uint64_t Reserved : 63;
+  RTLFlagsTy() : EnableProfile(0), Reserved(0) {}
+};
+
 /// Device information
 class RTLDeviceInfoTy {
   /// Type of the device version of the offload table.
@@ -260,8 +320,10 @@ public:
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
+  std::vector<std::vector<RTLProfileTy *>> Profiles;
 
   /// Flags, parameters, options
+  RTLFlagsTy Flags;
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
   uint32_t DataTransferLatency; // Emulated data transfer latency in us
   int32_t DeviceType;
@@ -316,6 +378,19 @@ public:
           (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
         CompilationOptions += " -cl-take-global-address ";
     }
+    // Profile
+    if (char *env = getenv("LIBOMPTARGET_PROFILE")) {
+      if ((env[0] == 'T' || env[0] == '1') &&
+          (env[1] == ',' || env[1] == '\0')) {
+        Flags.EnableProfile = 1;
+        RTLProfileTy::Multiplier = RTLProfileTy::MSEC_PER_SEC;
+        if (env[1] == ',') {
+          std::string unit(&env[2]);
+          if (unit == "usec" || unit == "unit_usec")
+            RTLProfileTy::Multiplier = RTLProfileTy::USEC_PER_SEC;
+        }
+      }
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -340,6 +415,16 @@ public:
       ThreadLocalHandles.CmdQueue = cmdQueue;
     }
     return ThreadLocalHandles.CmdQueue;
+  }
+
+  RTLProfileTy *getProfile(int32_t DeviceId) {
+    if (!ThreadLocalHandles.Profile && Flags.EnableProfile) {
+      ThreadLocalHandles.Profile = new RTLProfileTy();
+      DataMutexes[DeviceId].lock();
+      Profiles[DeviceId].push_back(ThreadLocalHandles.Profile);
+      DataMutexes[DeviceId].unlock();
+    }
+    return ThreadLocalHandles.Profile;
   }
 
   /// Loads the device version of the offload table for device \p DeviceId.
@@ -374,6 +459,54 @@ typedef struct {
 
 static RTLDeviceInfoTy DeviceInfo;
 
+/// For scoped start/stop
+class ScopedTimerTy {
+  std::string Name;
+  double TimeStamp = 0.0;
+  bool Active = false;
+  RTLProfileTy *Profile = nullptr;
+public:
+  ScopedTimerTy(int32_t DeviceId, const char *name) : Name(name) {
+    Profile = DeviceInfo.getProfile(DeviceId);
+    start();
+  }
+  ScopedTimerTy(int32_t DeviceId, std::string name) : Name(name) {
+    Profile = DeviceInfo.getProfile(DeviceId);
+    start();
+  }
+  ~ScopedTimerTy() {
+    if (Active)
+      stop();
+  }
+  void start() {
+    if (!DeviceInfo.Flags.EnableProfile)
+      return;
+    if (!Profile) {
+      WARNING("Profile data are invalid");
+      return;
+    }
+    if (Active)
+      WARNING("Timer restarted");
+    TimeStamp = omp_get_wtime();
+    Active = true;
+  }
+  void stop() {
+    if (!DeviceInfo.Flags.EnableProfile)
+      return;
+    if (!Profile) {
+      WARNING("Profile data are invalid");
+      return;
+    }
+    if (!Active) {
+      WARNING("Timer is invalid");
+      return;
+    }
+    double currStamp = omp_get_wtime();
+    Profile->update(Name, currStamp - TimeStamp);
+    Active = false;
+  }
+};
+
 static void addDataTransferLatency() {
   if (DeviceInfo.DataTransferLatency == 0)
     return;
@@ -387,6 +520,12 @@ static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo.NumDevices; i++) {
     if (!DeviceInfo.Initialized[i])
       continue;
+    if (DeviceInfo.Flags.EnableProfile) {
+      for (auto profile : DeviceInfo.Profiles[i]) {
+        profile->printData(i, DeviceInfo.DeviceProperties.name);
+        delete profile;
+      }
+    }
     if (omptEnabled.enabled) {
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
@@ -540,6 +679,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.NumDevices];
   DeviceInfo.DataMutexes = new std::mutex[DeviceInfo.NumDevices];
   DeviceInfo.OffloadTables.resize(DeviceInfo.NumDevices);
+  DeviceInfo.Profiles.resize(DeviceInfo.NumDevices);
 
   ze_device_compute_properties_t computeProperties = {};
   computeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
@@ -600,6 +740,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   };
   ze_module_handle_t module;
   ze_module_build_log_handle_t buildLog;
+  ScopedTimerTy tmModuleBuild(DeviceId, "ModuleBuild");
   if (zeModuleCreate(DeviceInfo.Devices[DeviceId], &moduleDesc, &module,
                      &buildLog) != ZE_RESULT_SUCCESS) {
 #ifdef OMPTARGET_LEVEL0_DEBUG
@@ -620,6 +761,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     return nullptr;
   }
   CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
+  tmModuleBuild.stop();
 
   DeviceInfo.FuncGblEntries[DeviceId].Module = module;
   auto &entries = DeviceInfo.FuncGblEntries[DeviceId].Entries;
@@ -709,6 +851,7 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   // TODO: this seems necessary for now -- check with L0 driver team for details
   std::unique_lock<std::mutex> allocLock(DeviceInfo.Mutexes[DeviceId]);
 
+  ScopedTimerTy tmDataAlloc(DeviceId, "DataAlloc");
   intptr_t offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   size_t size = (offset < 0 && ABS(offset) >= Size) ? ABS(offset) + 1 : Size;
 
@@ -841,6 +984,8 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
+  ScopedTimerTy tmDataWrite(DeviceId, "DataWrite");
+
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
@@ -909,6 +1054,8 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                             int64_t Size, void *AsyncEvent) {
   if (Size == 0)
     return OFFLOAD_SUCCESS;
+
+  ScopedTimerTy tmDataRead(DeviceId, "DataRead");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -1067,6 +1214,10 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   std::unique_lock<std::mutex> kernelLock(DeviceInfo.Mutexes[DeviceId]);
 
   ze_kernel_handle_t kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
+  ze_kernel_properties_t kernelProperties;
+  CALL_ZE_RET_FAIL(zeKernelGetProperties, kernel, &kernelProperties);
+  std::string tmName("Kernel#");
+  ScopedTimerTy tmKernel(DeviceId, tmName + kernelProperties.name);
 
   // Set arguments
   std::vector<void *> args(NumArgs);
