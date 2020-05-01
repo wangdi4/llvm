@@ -53,7 +53,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] float* [[VP5:%.*]] = getelementptr inbounds float* [[ARR20:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP6:%.*]] = load float* [[VP5]]
-; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = bitcast float [[VP6]]
+; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = call float [[VP6]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:       [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP7]] , OriginPhiId: 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
@@ -62,7 +62,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] float* [[VP10:%.*]] = getelementptr inbounds float* [[ARR10:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP11:%.*]] = load float* [[VP10]]
-; CHECK-NEXT:       [DA: Div] float [[VP12:%.*]] = bitcast float [[VP11]]
+; CHECK-NEXT:       [DA: Div] float [[VP12:%.*]] = call float [[VP11]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:       [DA: Div] float [[VP13:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = hir-copy float [[VP12]] , OriginPhiId: 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]

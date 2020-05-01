@@ -1463,8 +1463,10 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
 
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
-  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
-      (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst))) {
+  if (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst) &&
+      (cast<CallInst>(Inst)->getIntrinsicID() != Intrinsic::ssa_copy)) {
+    Ret = true;
+  } else if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
     Ret = true;
   } else if (isRegionLiveOut(Inst)) {
     Ret = true;

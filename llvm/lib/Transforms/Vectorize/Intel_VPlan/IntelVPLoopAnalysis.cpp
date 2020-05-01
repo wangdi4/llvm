@@ -201,11 +201,6 @@ allUpdatesAreStores(SmallVectorImpl<VPInstruction *> &UpdateVPInsts) {
 
 // A trivial bitcast VPInstruction is something like below-
 // i32 %vp18288 = bitcast i32 %vp8624
-// These bitcasts are primarily coming from HIR. In order to deconstruct SSA,
-// HIR introduces these bitcast instructions which are translated to HLInsts
-// like: %2 = %4; We will need these bitcasts to reconstruct SSA from HIR and to
-// introduce PHI nodes in HCFG. It is possible to remove them later after HCFG
-// is built in a VPlan-to-VPlan transform maybe.
 static bool isTrivialBitcast(VPInstruction *VPI) {
   if (VPI->getOpcode() != Instruction::BitCast)
     return false;
@@ -217,6 +212,19 @@ static bool isTrivialBitcast(VPInstruction *VPI) {
     return false;
 
   return true;
+}
+
+// A trivial copy VPInstruction is something like below-
+// i32 %vp0 = call i32 %vp1 i32 (i32*) llvm.ssa_copy.i32
+// These copies are primarily coming from HIR. In order to deconstruct SSA,
+// HIR introduces these bitcast instructions which are translated to HLInsts
+// like: %2 = %4; We will need these copies to reconstruct SSA from HIR and to
+// introduce PHI nodes in CFG.
+static bool isTrivialCopy(VPInstruction *VPI) {
+  if (VPI->getOpcode() != Instruction::Call)
+    return false;
+
+  return getCalledFunction(VPI)->getIntrinsicID() == Intrinsic::ssa_copy;
 }
 
 unsigned VPReduction::getReductionOpcode(RecurrenceKind K,
@@ -1190,12 +1198,13 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
 
   // Live-out analysis tests for LoopExit
   if (LoopExitVPI) {
-    while (!Loop->isLiveOut(LoopExitVPI) && isTrivialBitcast(LoopExitVPI)) {
-      // Add the bitcast to linked VPVals for safety
+    while (!Loop->isLiveOut(LoopExitVPI) &&
+           (isTrivialBitcast(LoopExitVPI) || isTrivialCopy(LoopExitVPI))) {
+      // Add the trivial copy to linked VPVals for safety
       LinkedVPVals.push_back(LoopExitVPI);
       LoopExitVPI = dyn_cast<VPInstruction>(
-          LoopExitVPI->getOperand(0)); // Bitcast has only one operand
-      assert(LoopExitVPI && "Input for bitcast is not a VPInstruction.");
+          LoopExitVPI->getOperand(0)); // Copy has only one operand
+      assert(LoopExitVPI && "Input for copy is not a VPInstruction.");
     }
 
     // If the final loop exit VPI is still not live-out then store the VPI to

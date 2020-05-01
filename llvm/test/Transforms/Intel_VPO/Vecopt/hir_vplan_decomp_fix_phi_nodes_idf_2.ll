@@ -67,14 +67,14 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
 ; CHECK-NEXT:     i16 [[VP8:%.*]] = trunc i64 [[TMP1:%.*]] to i16
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = zext i16 [[VP8]] to i32
-; CHECK-NEXT:     i32 [[VP10:%.*]] = bitcast i32 [[VP9]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = call i32 [[VP9]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp i32 [[VP7]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP11]]), [[BB3]](!i1 [[VP11]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       i32 [[VP12:%.*]] = udiv i32 2 i32 [[VP7]]
-; CHECK-NEXT:       i32 [[VP13:%.*]] = bitcast i32 [[VP12]]
+; CHECK-NEXT:       i32 [[VP13:%.*]] = call i32 [[VP12]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

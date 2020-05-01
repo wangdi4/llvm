@@ -23,7 +23,7 @@ define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init)  {
 ; CHECK:         [[TMP4:%.*]] = shl i32 [[TMP0:%.*]], 2
 ; CHECK-NEXT:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
 ; CHECK-NEXT:    [[IND_STEP_INIT_SPLAT:%.*]] = shufflevector <4 x i32> [[IND_STEP_INIT_SPLATINSERT]], <4 x i32> undef, <4 x i32> zeroinitializer
-; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
+; CHECK:         br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK:         [[VEC_PHI2:%.*]] = phi <4 x i32> [ [[TMP3:%.*]], [[VECTOR_PH:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
 ; CHECK:         [[TMP6]] = add nsw <4 x i32> [[IND_STEP_INIT_SPLAT]], [[VEC_PHI2]]

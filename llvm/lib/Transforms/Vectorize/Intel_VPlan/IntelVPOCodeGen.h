@@ -249,10 +249,6 @@ private:
   /// Reverse vector elements
   Value *reverseVector(Value *Vec, unsigned Stride = 1);
 
-  /// Create the primary induction variable for vector loop.
-  PHINode *createInductionVariable(Loop *L, Value *Start, Value *End,
-                                   Value *Step);
-
   /// Make the needed fixups for all live out values.
   void fixOutgoingValues();
 

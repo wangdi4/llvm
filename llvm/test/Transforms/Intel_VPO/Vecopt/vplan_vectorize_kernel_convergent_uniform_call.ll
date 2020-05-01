@@ -50,15 +50,15 @@ declare void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* %0
 ; CHECK:       pred.call.continue:
 ; CHECK-NEXT:    [[PREDICATE10:%.*]] = extractelement <2 x i1> [[TMP10]], i64 1
 ; CHECK-NEXT:    [[TMP24:%.*]] = icmp eq i1 [[PREDICATE10]], true
-; CHECK-NEXT:    br i1 [[TMP24]], label [[PRED_CALL_IF13:%.*]], label [[TMP26:%.*]]
-; CHECK:       pred.call.if13:
+; CHECK-NEXT:    br i1 [[TMP24]], label [[PRED_CALL_IF12:%.*]], label [[TMP26:%.*]]
+; CHECK:       pred.call.if12:
 ; CHECK-NEXT:    [[TMP25:%.*]] = call i32 @__read_pipe_4(%opencl.pipe_ro_t.7 addrspace(1)* {{%.*}}, %opencl.reserve_id_t.5* {{%.*}}, i32 {{%.*}}, i8 addrspace(4)* {{%.*}}, i32 4, i32 4)
 ; CHECK-NEXT:    br label [[TMP26]]
-; CHECK:       pred.load.continue16:
+; CHECK:       pred.load.continue15:
 ; CHECK-NEXT:    [[TMP33:%.*]] = bitcast <2 x i1> [[TMP10]] to i2
 ; CHECK-NEXT:    [[TMP34:%.*]] = icmp ne i2 [[TMP33]], 0
-; CHECK-NEXT:    br i1 [[TMP34]], label [[PRED_CALL_IF17:%.*]], label [[TMP35:%.*]]
-; CHECK:       pred.call.if17:
+; CHECK-NEXT:    br i1 [[TMP34]], label [[PRED_CALL_IF16:%.*]], label [[TMP35:%.*]]
+; CHECK:       pred.call.if16:
 ; CHECK-NEXT:    call void @__work_group_commit_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)* {{%.*}}, %opencl.reserve_id_t.5* {{%.*}}, i32 4, i32 4)
 ; CHECK-NEXT:    br label [[TMP35]]
 

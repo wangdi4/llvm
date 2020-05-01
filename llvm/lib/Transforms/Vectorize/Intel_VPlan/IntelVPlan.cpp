@@ -518,21 +518,16 @@ void VPlan::execute(VPTransformState *State) {
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
-  BasicBlock *VectorLatchBB = VectorHeaderBB;
+  // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
+  // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
+  // file.
   auto *HTerm = VectorHeaderBB->getTerminator();
-  assert(HTerm->getNumSuccessors() == 2 &&
-         "Unexpected vector loop header successors");
-  unsigned MidBlockSuccNum = HTerm->getSuccessor(0) == VectorHeaderBB ? 1 : 0;
-  BasicBlock *MiddleBlock = HTerm->getSuccessor(MidBlockSuccNum);
+  BasicBlock *MiddleBlock = HTerm->getSuccessor(0);
+  assert(MiddleBlock->getName().startswith("middle.block") &&
+         "Code is not in sync!");
+
   auto CurrIP = State->Builder.saveIP();
 
-  // 1. Make room to generate basic blocks inside loop body if needed.
-  VectorLatchBB = VectorHeaderBB->splitBasicBlock(
-      VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
-  Loop *L = State->LI->getLoopFor(VectorHeaderBB);
-  assert(L && "Unexpected null loop for Vector Header");
-  L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
-  // Remove the edge between Header and Latch to allow other connections.
   // Temporarily terminate with unreachable until CFG is rewired.
   // Note: this asserts xform code's assumption that getFirstInsertionPt()
   // can be dereferenced into an Instruction.
@@ -542,10 +537,10 @@ void VPlan::execute(VPTransformState *State) {
   // Set insertion point to vector loop PH
   State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
 
-  // 2. Generate code in loop body of vectorized version.
+  // Generate code in loop body of vectorized version.
   State->CFG.PrevVPBB = nullptr;
   State->CFG.PrevBB = VectorPreHeaderBB;
-  State->CFG.InsertBefore = VectorLatchBB;
+  State->CFG.InsertBefore = MiddleBlock;
 
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
@@ -553,7 +548,7 @@ void VPlan::execute(VPTransformState *State) {
     BB->execute(State);
   }
 
-  // 3. Fix the edges for blocks in VPBBsToFix list.
+  // Fix the edges for blocks in VPBBsToFix list.
   for (auto VPBB : State->CFG.VPBBsToFix) {
     BasicBlock *BB = State->CFG.VPBB2IRBB[VPBB];
     assert(BB && "Unexpected null basic block for VPBB");
@@ -567,32 +562,18 @@ void VPlan::execute(VPTransformState *State) {
     }
   }
 
-  // 4. Merge the temporary latch created with the last basic block filled.
+  // Create an unconditional branch from the Plan's exit block to the middle
+  // block that contains top-test for entering remainder.
   BasicBlock *LastBB = State->CFG.PrevBB;
   assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
          "Expected VPlan CFG to terminate with unreachable");
 
-  // LastBB will be the outermost loop exit block. Get the latch BB.
-  BasicBlock *LatchBB = LastBB->getSinglePredecessor();
-  assert(LatchBB && "Unexpected null latch BB");
-
-  // Merge LatchBB with Latch.
-  LatchBB->getTerminator()->eraseFromParent();
-  BranchInst::Create(VectorLatchBB, LatchBB);
-
-  bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
-  assert(merged && "Could not merge last basic block with latch.");
-  (void)merged;
-  VectorLatchBB = LatchBB;
-
-  // Insert LastBB between LatchBB and MiddleBlock. TODO - currently we
-  // assume MiddleBlock and LastBB do not have any PHIs. This will need
-  // to be addressed if this changes.
+  // TODO - currently we assume MiddleBlock and LastBB do not have any PHIs.
+  // This will need to be addressed if this changes.
   assert(!isa<PHINode>(MiddleBlock->begin()) &&
          "Middle block starts with a PHI");
   assert(!isa<PHINode>(LastBB->begin()) && "LastBB starts with a PHI");
 
-  LatchBB->getTerminator()->setSuccessor(MidBlockSuccNum, LastBB);
   LastBB->getTerminator()->eraseFromParent();
   BranchInst::Create(MiddleBlock, LastBB);
 

@@ -93,7 +93,7 @@ public:
   /// Returns true if the underlying instruction has a single rval.
   virtual bool hasRval() const override {
     return (isa<StoreInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
-            (hasLval() && isa<UnaryInstruction>(Inst)));
+            (hasLval() && isa<UnaryInstruction>(Inst)) || isCopyInst());
   }
 
   /// Returns the lval DDRef of this node.
@@ -242,7 +242,7 @@ public:
 
   /// Returns true if this is a call instruction.
   bool isCallInst() const {
-    return isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst);
+    return isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst) && !isCopyInst();
   }
 
   /// Returns CallInst pointer if this is a call instruction.

@@ -35,10 +35,9 @@ inner.exit:
   br label %outer.cont
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VPLANNEDBB5:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP11:%.*]], [[VPLANNEDBB5]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ [[TMP9:%.*]], [[VPLANNEDBB5]] ], [ 0, [[VECTOR_PH]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP8:%.*]], [[VPLANNEDBB5]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP6:%.*]], [[VPLANNEDBB3:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ [[TMP5:%.*]], [[VPLANNEDBB3]] ], [ 0, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP4:%.*]], [[VPLANNEDBB3]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[A:%.*]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[SCALAR_GEP]] to <2 x i64>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, <2 x i64>* [[TMP0]], align 8
@@ -58,7 +57,7 @@ inner.exit:
 ; CHECK-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT3]], <2 x i1> undef, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLAT4_EXTRACT_0_:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT4]], i32 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = or i1 [[BROADCAST_SPLAT4_EXTRACT_0_]], [[DOTEXTRACT_0_]]
-; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB5]], label [[VPLANNEDBB]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB5:%.*]], label [[VPLANNEDBB]]
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>
 ; CHECK-NEXT:    [[PREDPHI6:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> <i64 2, i64 2>, <2 x i64> <i64 1, i64 1>

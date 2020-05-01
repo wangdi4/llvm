@@ -138,3 +138,32 @@
 // RUN: %clang -### -strict_ansi %s 2>&1 | FileCheck -check-prefix CHECK-STRICT-ANSI %s
 // CHECK-STRICT-ANSI: "-pedantic"
 // CHECK-STRICT-ANSI: "-std=c89"
+
+<<<<<<< HEAD
+// Behavior with -inline-level=<0,1,2> option maps to -fno-inline, -finline-hint-functions, -finline-functions
+// RUN: %clang -### -c -inline-level=0 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-ZERO %s
+// RUN: %clang -### -c -finline-functions -inline-level=0 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-ZERO %s
+// RUN: %clang -### -c -inline-level=0 -finline-hint-functions -fno-inline %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-ZERO %s
+// CHECK-INLINE-LEVEL-ZERO: "-fno-inline"
+
+// RUN: %clang -### -c -inline-level=1 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-1 %s
+// RUN: %clang -### -c -finline-functions -inline-level=1 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-1 %s
+// RUN: %clang -### -c -inline-level=1 -finline-functions -finline-hint-functions %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-1 %s
+// CHECK-INLINE-LEVEL-1: "-finline-hint-functions"
+
+// RUN: %clang -### -c -inline-level=2 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-2 %s
+// RUN: %clang -### -c -finline-hint-functions -inline-level=2 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-2 %s
+// RUN: %clang -### -c -finline-functions -finline-hint-functions -inline-level=2 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL-2 %s
+// CHECK-INLINE-LEVEL-2: "-finline-functions"
+
+// RUN: %clang -### -c -inline-level=0 -inline-level=1 -fno-inline %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL %s
+// RUN: %clang -### -c -fno-inline -inline-level=0 -finline-hint-functions %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL %s
+// RUN: %clang -### -c -fno-inline -inline-level=1 %s 2>&1 | FileCheck -check-prefix CHECK-INLINE-LEVEL %s
+// CHECK-INLINE-LEVEL: "-fno-inline"
+// CHECK-INLINE-LEVEL: "-finline-hint-functions"
+
+//Behavior with /Qno-builtin- maps to -fno-builtin-
+// RUN: %clang_cl -### -c /Qno-builtin- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN %s
+// RUN: %clang_cl -### -c /Qno-builtin-memset %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN-FUNC %s
+// CHECK-QNO-BUILTIN: "-fno-builtin-"
+// CHECK-QNO-BUILTIN-FUNC: "-fno-builtin-memset"

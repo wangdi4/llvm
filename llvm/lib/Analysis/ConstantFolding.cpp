@@ -1446,6 +1446,9 @@ bool llvm::canConstantFoldCallTo(const CallBase *Call, const Function *F) {
   case Intrinsic::smul_fix:
   case Intrinsic::smul_fix_sat:
   case Intrinsic::bitreverse:
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::ssa_copy:
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::is_constant:
     return true;
 
@@ -1746,6 +1749,11 @@ static Constant *ConstantFoldScalarCall1(StringRef Name,
       return ConstantInt::getTrue(Ty->getContext());
     return nullptr;
   }
+#if INTEL_CUSTOMIZATION
+  // ssa_copy is a copy of its operand.
+  if (IntrinsicID == Intrinsic::ssa_copy && isManifestConstant(Operands[0]))
+    return Operands[0];
+#endif // INTEL_CUSTOMIZATION
   if (isa<UndefValue>(Operands[0])) {
     // cosine(arg) is between -1 and 1. cosine(invalid arg) is NaN.
     // ctpop() is between 0 and bitwidth, pick 0 for undef.

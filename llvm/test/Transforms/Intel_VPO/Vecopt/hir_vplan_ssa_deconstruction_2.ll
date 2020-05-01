@@ -69,7 +69,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] float* [[VP4:%.*]] = getelementptr inbounds float* [[ARR0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = load float* [[VP4]]
-; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = bitcast float [[VP5]]
+; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] =  call float [[VP5]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp i32 [[N10:%.*]] i32 0
 ; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:     [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP6]] , OriginPhiId: 1
@@ -96,7 +96,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = fadd float [[VP10]] float 2.000000e+00
 ; CHECK-NEXT:       [DA: Div] float* [[VP15:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP14]] float* [[VP15]]
-; CHECK-NEXT:       [DA: Div] float [[VP16:%.*]] = bitcast float [[VP14]]
+; CHECK-NEXT:       [DA: Div] float [[VP16:%.*]] = call float [[VP14]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
@@ -105,7 +105,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:       [DA: Div] float [[VP18:%.*]] = fadd float [[VP10]] float 1.000000e+00
 ; CHECK-NEXT:       [DA: Div] float* [[VP19:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP18]] float* [[VP19]]
-; CHECK-NEXT:       [DA: Div] float [[VP20:%.*]] = bitcast float [[VP18]]
+; CHECK-NEXT:       [DA: Div] float [[VP20:%.*]] = call float [[VP18]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:

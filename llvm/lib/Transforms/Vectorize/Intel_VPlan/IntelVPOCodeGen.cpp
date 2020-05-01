@@ -305,46 +305,6 @@ void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
   LoopBypassBlocks.push_back(BB);
 }
 
-PHINode *VPOCodeGen::createInductionVariable(Loop *L, Value *Start, Value *End,
-                                             Value *Step) {
-  BasicBlock *Header = L->getHeader();
-  BasicBlock *Latch = L->getLoopLatch();
-  // As we're just creating this loop, it's possible no latch exists
-  // yet. If so, use the header as this will be a single block loop.
-  if (!Latch)
-    Latch = Header;
-
-  IRBuilder<> Builder(&*Header->getFirstInsertionPt());
-  auto *Induction = Builder.CreatePHI(Start->getType(), 2, "index");
-
-  Builder.SetInsertPoint(Latch->getTerminator());
-
-  // Create i+1 and fill the PHINode.
-  Value *Next = Builder.CreateAdd(Induction, Step, "index.next");
-  Induction->addIncoming(Start, L->getLoopPreheader());
-  Induction->addIncoming(Next, Latch);
-
-  // Create the compare. Special case for 1-trip count vector loop by checking
-  // for End == Step and start value of zero. We rely on later optimizations to
-  // cleanup the loop. TODO: Consider modifying the vector code generation to
-  // avoid the vector loop altogether for such cases.
-  Value *ICmp;
-  ConstantInt *ConstStart = dyn_cast<ConstantInt>(Start);
-  if (End == Step && ConstStart && ConstStart->isZero())
-    ICmp = Builder.getInt1(true);
-  else
-    ICmp = Builder.CreateICmpEQ(Next, End);
-
-  BasicBlock *Exit = L->getExitBlock();
-  assert(Exit && "Exit block not found for loop.");
-  Builder.CreateCondBr(ICmp, Exit, Header);
-
-  // Now we have two terminators. Remove the old one from the block.
-  Latch->getTerminator()->eraseFromParent();
-
-  return Induction;
-}
-
 void VPOCodeGen::createEmptyLoop() {
 
   LoopScalarBody = OrigLoop->getHeader();
@@ -386,24 +346,15 @@ void VPOCodeGen::createEmptyLoop() {
 
   Lp->addBasicBlockToLoop(LoopVectorBody, *LI);
 
-  // Find the loop boundaries.
-  Value *Count = getOrCreateTripCount(Lp);
-
   // Now, compare the new count to zero. If it is zero skip the vector loop and
   // jump to the scalar loop.
   emitVectorLoopEnteredCheck(Lp, LoopScalarPreHeader);
 
+  // Find the loop boundaries.
+  Value *Count = getOrCreateTripCount(Lp);
   // CountRoundDown is a counter for the vectorized loop.
   // CountRoundDown = Count - Count % VF.
   Value *CountRoundDown = getOrCreateVectorTripCount(Lp);
-
-  Type *IdxTy = Legal->getWidestInductionType();
-  Value *StartIdx = ConstantInt::get(IdxTy, 0);
-  Constant *Step = ConstantInt::get(IdxTy, VF * UF);
-
-  // Create an induction variable in vector loop with a step equal to VF.
-  Induction = createInductionVariable(Lp, StartIdx, CountRoundDown, Step);
-
   // Add a check in the middle block to see if we have completed
   // all of the iterations in the first vector loop.
   // If (N - N%VF) == N, then we *don't* need to run the remainder.

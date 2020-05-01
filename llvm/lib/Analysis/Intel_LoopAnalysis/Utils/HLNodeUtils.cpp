@@ -262,17 +262,9 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
   }
 
   case Instruction::BitCast: {
-    // IRBuilder CreateCast returns input value when DestType is the same as
-    // the value's type. In such cases, the return value is not guaranteed to
-    // be an instruction as isa<Instruction>(DummyVal) is not necessarily true.
-    // We take care of such cases by forcing creation of a copy Instruction
-    // here.
-    if (DestTy == DummyVal->getType()) {
-      return createCopyInst(RvalRef, Name, LvalRef);
-    } else {
-      InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode,
-                                           DummyVal, DestTy, Name);
-    }
+    assert((DestTy != DummyVal->getType()) && "Bad bitcast type");
+    InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, DummyVal,
+                                         DestTy, Name);
     break;
   }
 
@@ -292,15 +284,9 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
 Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
   // Create dummy val.
   auto DummyVal = UndefValue::get(Ty);
-
-  // Cannot use IRBuilder here as it returns the same value for casts with
-  // identical src and dest types.
-  Value *InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
-                                    DummyVal->getType(), Name);
-
-  auto Inst = cast<Instruction>(InstVal);
-  Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
-
+  Function *SSACopyFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::ssa_copy, Ty);
+  CallInst *Inst = DummyIRBuilder->CreateCall(SSACopyFunc, {DummyVal}, Name);
   setFirstAndLastDummyInst(Inst);
 
   return Inst;

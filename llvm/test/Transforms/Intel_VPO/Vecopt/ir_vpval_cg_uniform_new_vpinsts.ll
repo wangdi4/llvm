@@ -11,8 +11,7 @@
 define void @test_uniform_edge_to_uniform_block(i32* %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL: @test_uniform_edge_to_uniform_block(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VPLANNEDBB8:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP17:%.*]], [[VPLANNEDBB8]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP16:%.*]], [[VPLANNEDBB8:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP15:%.*]], [[VPLANNEDBB8]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH]] ], [ [[TMP14:%.*]], [[VPLANNEDBB8]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 [[UNI_PHI1]]

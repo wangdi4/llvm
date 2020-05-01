@@ -2466,9 +2466,8 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
 }
 
 void AndersensAAResult::checkCall(CallBase &CB) {
-  if (CB.getCalledFunction() &&
-      findNameInTable(CB.getCalledFunction()->getName(),
-                      Andersens_Alloc_Intrinsics)) {
+  Function *F = CB.getCalledFunction();
+  if (F && findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
       unsigned ObjectIndex = getObject(&CB);
       GraphNodes[ObjectIndex].setValue(&CB);
       CreateConstraint(Constraint::AddressOf, 
@@ -2478,7 +2477,7 @@ void AndersensAAResult::checkCall(CallBase &CB) {
   if (isTrackableType(CB.getType()))
     getNodeValue(CB);
 
-  if (Function *F = CB.getCalledFunction()) {
+  if (F) {
     AddConstraintsForCall(&CB, F);
   } else {
     AddConstraintsForCall(&CB, nullptr);
@@ -5790,12 +5789,11 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
                                           AAQueryInfo &AAQI) {
   ModRefInfo Result = ModRefInfo::ModRef;
   const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
+  const Function *F = Call->getCalledFunction();
 
   DEBUG_WITH_TYPE("imr-query",
                   dbgs() << "IntelModRefImpl::getModRefInfo("
-                         << (Call->getCalledFunction()
-                                 ? Call->getCalledFunction()->getName()
-                                 : "<indirect>")
+                         << (F ? F->getName() : "<indirect>")
                          << ", ");
 
   if (Object == nullptr) {
@@ -5809,7 +5807,6 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
                   dbgs() << (isa<GlobalValue>(Object) ? "[global]" : ""));
   DEBUG_WITH_TYPE("imr-query", dbgs() << ")\n");
 
-  const Function *F = Call->getCalledFunction();
   if (!F) {
     DEBUG_WITH_TYPE("imr-query", dbgs() << "  Indirect destination\n");
     return ModRefInfo::ModRef;

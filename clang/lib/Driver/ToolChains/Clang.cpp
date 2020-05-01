@@ -5800,9 +5800,33 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fno_inline))
     CmdArgs.push_back("-fno-inline");
 
+#if INTEL_CUSTOMIZATION
+  if (Arg *InlinLvl = Args.getLastArg(
+        options::OPT_inline_level_EQ, options::OPT_finline_functions,
+        options::OPT_finline_hint_functions,
+        options::OPT_fno_inline_functions)) {
+    if (InlinLvl->getOption().matches(options::OPT_inline_level_EQ)) {
+      if (InlinLvl->getValue() == StringRef("0") &&
+          !Args.hasArg(options::OPT_fno_inline))
+        CmdArgs.push_back("-fno-inline");
+      else if (InlinLvl->getValue() == StringRef("1"))
+        CmdArgs.push_back("-finline-hint-functions");
+      else if (InlinLvl->getValue() == StringRef("2"))
+        CmdArgs.push_back("-finline-functions");
+      else
+        C.getDriver().Diag(clang::diag::err_drv_unsupported_option_argument)
+          << InlinLvl->getOption().getName()
+          << StringRef(InlinLvl->getValue());
+    }
+    else
+      CmdArgs.push_back(Args.MakeArgString(InlinLvl->getAsString(Args)));
+  }
+#else //INTEL_CUSTOMIZATION
   Args.AddLastArg(CmdArgs, options::OPT_finline_functions,
                   options::OPT_finline_hint_functions,
                   options::OPT_fno_inline_functions);
+
+#endif //INTEL_CUSTOMIZATION
 
   // FIXME: Find a better way to determine whether the language has modules
   // support by default, or just assume that all languages do.
