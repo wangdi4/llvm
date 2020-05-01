@@ -72,9 +72,8 @@ protected:
     doAnalysis(*F, LoopHeader);
 
     auto Plan = std::make_unique<VPlan>(Ctx.get(), DL.get());
-    VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), SE.get(),
-                                 *DL, nullptr /*WRLp */, Plan.get(),
-                                 Legal.get());
+    VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
+                                 nullptr /*WRLp */, Plan.get(), Legal.get());
     HCFGBuilder.buildHierarchicalCFG();
     return Plan;
   }

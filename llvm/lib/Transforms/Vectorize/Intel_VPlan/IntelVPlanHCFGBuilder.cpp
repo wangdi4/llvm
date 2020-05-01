@@ -88,14 +88,13 @@ static constexpr bool VPlanPrintAfterLoopMassaging = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
-VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
-                                   const DataLayout &DL,
+VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
                                    const WRNVecLoopNode *WRL, VPlan *Plan,
                                    VPOVectorizationLegality *Legal)
-    : TheLoop(Lp), LI(LI), SE(SE), WRLp(WRL), Plan(Plan), Legal(Legal) {
+    : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
-  Verifier = std::make_unique<VPlanVerifier>(Lp, LI, DL);
+  Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
 
   // FIXME: Uncomment assert once we support on-the-fly updates of the LoopInfo
   // in our VPlan CodeGen. See a comment for the

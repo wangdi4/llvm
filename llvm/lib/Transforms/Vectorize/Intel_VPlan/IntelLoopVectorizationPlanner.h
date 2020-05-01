@@ -58,15 +58,14 @@ class LoopVectorizationPlanner {
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
-                           ScalarEvolution *SE, VPlanScalarEvolution *VPSE,
+                           VPlanScalarEvolution *VPSE,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
-        LI(LI), SE(SE), VPSE(VPSE), DT(DT), VLSA(VLSA) {
-  }
+        LI(LI), VPSE(VPSE), DT(DT), VLSA(VLSA) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -196,9 +195,6 @@ private:
 
   /// Loop Info analysis.
   LoopInfo *LI;
-
-  /// Scalar Evolution analysis.
-  ScalarEvolution *SE;
 
   /// VPlan Scalar Evolution Analysis.
   VPlanScalarEvolution *VPSE;

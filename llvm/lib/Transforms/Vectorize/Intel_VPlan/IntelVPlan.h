@@ -2197,12 +2197,6 @@ private:
   // condition as uniform.
   bool ForceOuterLoopBackedgeUniformity = false;
 
-  // The flag shows whether all steps needed for the loop entities privatization
-  // are finished. Particularly, all VPInstructions for private memory
-  // allocation are generated and the needed replacements in the VPLoop code are
-  // done.
-  bool LoopEntitiesPrivatizationIsDone = false;
-
   /// Holds the name of the VPlan, for printing.
   std::string Name;
 

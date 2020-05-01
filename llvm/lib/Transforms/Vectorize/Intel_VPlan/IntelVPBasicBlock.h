@@ -28,8 +28,6 @@ template <> struct ilist_traits<vpo::VPInstruction> {
 private:
   friend class vpo::VPBasicBlock; // Set by the owning VPBasicBlock.
 
-  vpo::VPBasicBlock *Parent;
-
   using instr_iterator =
       simple_ilist<vpo::VPInstruction, ilist_sentinel_tracking<true>>::iterator;
 

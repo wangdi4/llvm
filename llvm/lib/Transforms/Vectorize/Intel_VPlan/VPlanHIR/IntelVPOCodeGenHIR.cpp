@@ -485,11 +485,9 @@ public:
 
 class HLInstCounter final : public HLNodeVisitorBase {
 private:
-  const HLLoop *OrigLoop;
-  unsigned NumInsts;
+  unsigned NumInsts = 0;
 
 public:
-  HLInstCounter(const HLLoop *OrigLoop) : OrigLoop(OrigLoop) { NumInsts = 0; }
 
   unsigned getNumInsts() { return NumInsts; }
 
@@ -1045,7 +1043,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     bool KnownTripCount = TripCount > 0 ? true : false;
     if (KnownTripCount && TripCount <= SmallTripThreshold &&
         OrigLoop->isInnermost()) {
-      HLInstCounter InstCounter(OrigLoop);
+      HLInstCounter InstCounter;
       HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
                               OrigLoop->child_end());
       if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold)

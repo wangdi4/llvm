@@ -377,9 +377,6 @@ private:
   // Vectorized loop trip count.
   Value *VectorTripCount = nullptr;
 
-  /// The new Induction variable which was added to the new block.
-  PHINode *Induction = nullptr;
-
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
   unsigned VF;
