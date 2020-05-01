@@ -3770,6 +3770,46 @@ bool CallAnalyzer::isGEPFree(GetElementPtrInst &GEP) {
 }
 
 bool CallAnalyzer::visitAlloca(AllocaInst &I) {
+#if INTEL_CUSTOMIZATION
+  // Arguments are passed to OpenMP calls indirectly. That means, original
+  // arguments are saved on stack and then addresses of the stack locations are
+  // passed as arguments as shown in the example below. This change is needed
+  // to enable inlining for OpenMP calls.
+  //
+  // Returns true if "I", which allocates either integer or pointer type,
+  // is used by only StoreInst and CallBase instructions.
+  //
+  // Ex:
+  //  %31 = alloca i32, align 4
+  //  store i32 %30, i32* %31, align 4
+  //  %32 = alloca double*, align 8
+  //  store double* %29, double** %32, align 8, !tbaa !6
+  //  call void @foo(i32* nonnull %31, i32* undef, double** nonnull %32, i64 0)
+  //           `
+  auto IsSimpleAlloca = [] (AllocaInst &I) {
+    Type *Ty = I.getAllocatedType();
+    if (!Ty->isPointerTy() && !Ty->isIntegerTy())
+      return false;
+    if (I.isArrayAllocation())
+      return false;
+    StoreInst *SingleStore = nullptr;
+    bool CallSeen = false;
+    for (User *U : I.users()) {
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        if (SingleStore)
+          return false;
+        if (SI->getPointerOperand() != &I)
+          return false;
+        SingleStore = SI;
+      } else if (isa<CallBase>(U)) {
+        CallSeen = true;
+      } else {
+        return false;
+      }
+    }
+    return CallSeen && SingleStore;
+  };
+#endif // INTEL_CUSTOMIZATION
   // Check whether inlining will turn a dynamic alloca into a static
   // alloca and handle that case.
   if (I.isArrayAllocation()) {
@@ -3794,24 +3834,25 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
   if (I.isStaticAlloca())
     return Base::visitAlloca(I);
 
-  // FIXME: This is overly conservative. Dynamic allocas are inefficient for
-  // a variety of reasons, and so we would like to not inline them into
-  // functions which don't currently have a dynamic alloca. This simply
-  // disables inlining altogether in the presence of a dynamic alloca.
-  HasDynamicAlloca = true;
 #if INTEL_CUSTOMIZATION
   // In Fortran, dynamic allocas can be used to represent local arrays
   // allocated on the stack. We don't want to inhibiting inlining under
   // special circumstances.
   if (DTransInlineHeuristics) {
     for (User *U : I.users())
-      if (isa<SubscriptInst>(U)) {
-        HasDynamicAlloca = false;
-        break;
-      }
+      if (isa<SubscriptInst>(U))
+        return Base::visitAlloca(I);
+    if (IsSimpleAlloca(I))
+      return Base::visitAlloca(I);
   }
-  return !HasDynamicAlloca;
 #endif // INTEL_CUSTOMIZATION
+
+  // FIXME: This is overly conservative. Dynamic allocas are inefficient for
+  // a variety of reasons, and so we would like to not inline them into
+  // functions which don't currently have a dynamic alloca. This simply
+  // disables inlining altogether in the presence of a dynamic alloca.
+  HasDynamicAlloca = true;
+  return !HasDynamicAlloca;
 }
 
 bool CallAnalyzer::visitPHI(PHINode &I) {
