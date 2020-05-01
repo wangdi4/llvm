@@ -230,3 +230,9 @@
 // CHECK-FUN-ALN-NOT: "-function-alignment"
 // CHECK-FNO-ALN-NOT: "-function-alignment"
 // CHECK-FUN-ALN-EQ: "-function-alignment" "2"
+
+//Behavior with -dryrun and -# maps to -###
+// RUN: %clang -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
+// RUN: %clang_cl -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
+// RUN: %clang -dryrun  %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
+// CHECK-HASH: "-cc1"{{.*}}"-emit-obj"
