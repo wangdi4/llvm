@@ -1487,6 +1487,7 @@ def : ProcessorModel<"x86-64", SandyBridgeModel, [
   FeatureNOPL,
   Feature64Bit,
   FeatureSlow3OpsLEA,
+  FeatureSlowDivide64,
   FeatureSlowIncDec,
   FeatureMacroFusion,
   FeatureInsertVZEROUPPER
