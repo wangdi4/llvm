@@ -1,5 +1,7 @@
-; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s  -check-prefix=BUFFPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s  -check-prefix=BUFFPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -S < %s | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -S | FileCheck %s -check-prefix=RAWPTR
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause
 ;
 ; This test is similar to target_variant_dispatch_usedeviceptr_intfunc.ll
@@ -22,6 +24,7 @@
 ;   return rrr;
 ; }
 ;
+; When -vpo-paropt-use-raw-dev-ptr=false which is default
 ; See comment in target_variant_dispatch_usedeviceptr_intfunc.ll for the
 ; expected IR. The main differences here are the extra bitcast instructions
 ; in the variant.call BasicBlock:
@@ -34,10 +37,27 @@
 ;   %variant = call i32 @foo_gpu(float* %buffer.cast, float* %buffer.cast15, i32 77777)
 ;   ...
 
-; CHECK: variant.call:
-; CHECK-DAG: [[CAST1:%[a-zA-Z._0-9]+]] = bitcast i8* %{{.*}} to float*
-; CHECK-DAG: [[CAST2:%[a-zA-Z._0-9]+]] = bitcast i8* %{{.*}} to float*
-; CHECK: call i32 @foo_gpu(float* [[CAST1]], float* [[CAST2]]
+; BUFFPTR: variant.call:
+; BUFFPTR-DAG: [[CAST1:%[a-zA-Z._0-9]+]] = bitcast i8* %{{.*}} to float*
+; BUFFPTR-DAG: [[CAST2:%[a-zA-Z._0-9]+]] = bitcast i8* %{{.*}} to float*
+; BUFFPTR: call i32 @foo_gpu(float* [[CAST1]], float* [[CAST2]]
+;
+; When -vpo-paropt-use-raw-dev-ptr=false which is default
+; See comment in target_variant_dispatch_usedeviceptr_intfunc.ll for the
+; expected IR. The main differences here are the extra bitcast and load instructions
+; in the variant.call BasicBlock:
+; variant.call:
+;  %a_cpu.cast = bitcast i8** %5 to float**
+;  %b_cpu.cast = bitcast i8** %9 to float**
+;  %a_cpu.buffer.cast = load float*, float** %a_cpu.cast, align 8
+;  %b_cpu.buffer.cast = load float*, float** %b_cpu.cast, align 8
+;  %variant = call i32 @foo_gpu(float* %a_cpu.buffer.cast, float* %b_cpu.buffer.cast, i32 77777)
+; RAWPTR: variant.call:
+; RAWPTR-DAG: [[CAST1:%[a-zA-Z._0-9]+]] = bitcast i8** %{{.*}} to float**
+; RAWPTR-DAG: [[CAST2:%[a-zA-Z._0-9]+]] = bitcast i8** %{{.*}} to float**
+; RAWPTR-DAG: [[CASTLD1:%[a-zA-Z._0-9]+]] = load float*, float** [[CAST1]]
+; RAWPTR-DAG: [[CASTLD2:%[a-zA-Z._0-9]+]] = load float*, float** [[CAST2]]
+; RAWPTR: call i32 @foo_gpu(float* [[CASTLD1]], float* [[CASTLD2]]
 
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc_floatStar.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

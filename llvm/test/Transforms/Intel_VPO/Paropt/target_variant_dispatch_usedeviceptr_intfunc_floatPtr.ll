@@ -1,5 +1,7 @@
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-device-ptr-is-default-by-ref=false -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-device-ptr-is-default-by-ref=false -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-device-ptr-is-default-by-ref=false -S < %s | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-device-ptr-is-default-by-ref=false -S | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-device-ptr-is-default-by-ref=false -vpo-paropt-use-raw-dev-ptr=true -S < %s | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-device-ptr-is-default-by-ref=false -vpo-paropt-use-raw-dev-ptr=true -S | FileCheck %s -check-prefix=RAWPTR
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause
 ;
 ; This test has hand-modified version of the test
@@ -25,9 +27,14 @@
 ; Check that @a_cpu and %b_cpu are sent in directly to the tgt_create_buffer call,
 ; instead of creating a load from them (like in
 ; target_variant_dispatch_usedeviceptr_intfunc_floatStarStar.ll).
-; CHECK-DAG: [[BCAST:[^ ]+]] = bitcast float* %b_cpu to i8*
-; CHECK: %b_cpu.buffer = call i8* @__tgt_create_buffer(i64 -1, i8* [[BCAST]])
-; CHECK: %a_cpu.buffer = call i8* @__tgt_create_buffer(i64 -1, i8* bitcast (float* @a_cpu to i8*))
+; BUFFPTR-DAG:[[BCAST:[^ ]+]] = bitcast float* %b_cpu to i8*
+; BUFFPTR: %b_cpu.buffer = call i8* @__tgt_create_buffer(i64 -1, i8* [[BCAST]])
+; BUFFPTR: %a_cpu.buffer = call i8* @__tgt_create_buffer(i64 -1, i8* bitcast (float* @a_cpu to i8*))
+;
+; Check that @a_cpu and %b_cpu used directly
+; RAWPTR:store i8* bitcast (float* @a_cpu to i8*), i8**
+; RAWPTR:[[BCAST:[^ ]+]] = bitcast float* %b_cpu to i8*
+; RAWPTR:store i8* [[BCAST]], i8**
 
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc_floatStar.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

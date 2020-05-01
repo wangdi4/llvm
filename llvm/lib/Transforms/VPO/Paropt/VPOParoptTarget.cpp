@@ -47,13 +47,20 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-target"
 
-// TODO: This is temporary while we support both old and new implementations
-// of target variant dispatch for MKL. After the new implementation is fully
-// tested, we will purge the old one and remove this flag.
+// TODO: The following 2 flags are temporary to support MKL to transiton from
+// old implementation of target variant dispatch to new implementation.
+// vpo-paropt-use-interop is used to create interop object for synchronous case
+// vpo-paropt-use-raw-dev-ptr is used to send raw device pointer instead of
+// cl_buffer After the new implementation is fully tested, we will purge the
+// old one and remove these flags.
 static cl::opt<bool>
     UseInterop("vpo-paropt-use-interop", cl::Hidden,
                cl::init(false),
                cl::desc("Use the interop_obj for target variant dispatch."));
+static cl::opt<bool>
+    UseRawDevicePtr("vpo-paropt-use-raw-dev-ptr", cl::Hidden,
+               cl::init(false),
+               cl::desc("Pass raw device ptr to variant dispatch."));
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -979,7 +986,8 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 
   bool ForceMapping =
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
+      isa<WRNTargetVariantNode>(W);
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -1290,7 +1298,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
   assert(!hasOffloadCompilation() &&
          "genTargetInitCode() called for device compilation.");
-  LLVMContext &C = F->getContext();
 
   TgDataInfo Info;
 
@@ -1330,53 +1337,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     Info.NumberOfPtrs = MapTypes.size();
 
-    Value *SizesArray;
-
-    // Build the alloca defs of the target parms.
-    // The allocas must be kept in the same region as their uses,
-    // in case more outlining transformations are made.
-    IRBuilder<> Builder(InsertPt);
-
-    if (hasRuntimeEvaluationCaptureSize)
-      SizesArray = Builder.CreateAlloca(
-          ArrayType::get(Type::getInt64Ty(C), Info.NumberOfPtrs),
-          nullptr, ".offload_sizes");
-    else {
-      auto *SizesArrayInit = ConstantArray::get(
-          ArrayType::get(Type::getInt64Ty(C), ConstSizes.size()),
-          ConstSizes);
-
-      GlobalVariable *SizesArrayGbl =
-          new GlobalVariable(*(F->getParent()), SizesArrayInit->getType(), true,
-                             GlobalValue::PrivateLinkage, SizesArrayInit,
-                             ".offload_sizes", nullptr);
-      SizesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-      SizesArray = SizesArrayGbl;
-    }
-
-    AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
-        ".offload_baseptrs");
-
-    AllocaInst *TgPointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
-        ".offload_ptrs");
-
-    Constant *MapTypesArrayInit =
-        ConstantDataArray::get(Builder.getContext(), MapTypes);
-    auto *MapTypesArrayGbl =
-        new GlobalVariable(*(F->getParent()), MapTypesArrayInit->getType(),
-                           true, GlobalValue::PrivateLinkage, MapTypesArrayInit,
-                           ".offload_maptypes", nullptr);
-    MapTypesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-
-    Info.BaseDataPtrs = TgBasePointersArray;
-    Info.DataPtrs = TgPointersArray;
-    Info.DataSizes = SizesArray;
-    Info.DataMapTypes = MapTypesArrayGbl;
-
     genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes,
-                         hasRuntimeEvaluationCaptureSize);
+                         MapTypes, hasRuntimeEvaluationCaptureSize);
   }
 
   genOffloadArraysArgument(&Info, InsertPt);
@@ -1428,10 +1390,12 @@ Value *VPOParoptTransform::genCastforAddr(Value *BPVal, IRBuilder<> &Builder) {
     return Builder.CreateIntToPtr(BPVal, Builder.getInt8PtrTy());
 }
 
-bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
+bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
+                                         Instruction *InsertPt ) {
   assert(W && "Null WRegionNode.");
 
-  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+  if (!W->canHaveUseDevicePtr() || !(isa<WRNTargetDataNode>(W) ||
+                                  isa<WRNTargetVariantNode>(W)))
     return false;
 
   UseDevicePtrClause &UDPC = W->getUseDevicePtr();
@@ -1439,14 +1403,16 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
     return false;
 
   // Create an empty BB before the entry BB, to insert loads for the new map
-  // clauses.
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *NewEntryBB =
-      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
-  W->setEntryBBlock(NewEntryBB);
-  W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
-
-  IRBuilder<> LoadBuilder(EntryBB->getTerminator());
+  // clauses if InsertPt is null.
+  if (!InsertPt) {
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *NewEntryBB =
+        SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+    W->setEntryBBlock(NewEntryBB);
+    W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
+    InsertPt = EntryBB->getTerminator();
+  }
+  IRBuilder<> LoadBuilder(InsertPt);
   MapClause &MapC = W->getMap();
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
     Value *UDP = UDPI->getOrig();
@@ -1640,7 +1606,8 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
 
   bool ForceMapping =
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
+      isa<WRNTargetVariantNode>(W);
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -1675,12 +1642,15 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
              << " Match=" << Match << " Cnt=" << Cnt << "\n");
 }
 
+// Create array of base pointer,  array of section pointer
+// array of MAP types and array of Target pointer.
 // Pass the data to the array of base pointer as well as  array of
 // section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,
 // the compiler needs to generate the init code for the size array.
 void VPOParoptTransform::genOffloadArraysInit(
     WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
     SmallVectorImpl<Constant *> &ConstSizes,
+    SmallVectorImpl<uint64_t> &MapTypes,
     bool hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInit:"
@@ -1692,9 +1662,53 @@ void VPOParoptTransform::genOffloadArraysInit(
   IRBuilder<> Builder(InsertPt);
   unsigned Cnt = 0;
   bool Match = false;
+  Value *SizesArray;
+  LLVMContext &C = F->getContext();
+
+  // Build the alloca defs of the target parms.
+  // The allocas must be kept in the same region as their uses,
+  // in case more outlining transformations are made.
+  if (hasRuntimeEvaluationCaptureSize)
+    SizesArray = Builder.CreateAlloca(
+          ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
+          nullptr, ".offload_sizes");
+  else {
+    auto *SizesArrayInit = ConstantArray::get(
+        ArrayType::get(Type::getInt64Ty(C), ConstSizes.size()),
+        ConstSizes);
+
+    GlobalVariable *SizesArrayGbl =
+        new GlobalVariable(*(F->getParent()), SizesArrayInit->getType(), true,
+                           GlobalValue::PrivateLinkage, SizesArrayInit,
+                           ".offload_sizes", nullptr);
+    SizesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+    SizesArray = SizesArrayGbl;
+  }
+
+  AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
+        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
+        ".offload_baseptrs");
+
+  AllocaInst *TgPointersArray = Builder.CreateAlloca(
+        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
+        ".offload_ptrs");
+
+  Constant *MapTypesArrayInit =
+        ConstantDataArray::get(Builder.getContext(), MapTypes);
+  auto *MapTypesArrayGbl =
+      new GlobalVariable(*(F->getParent()), MapTypesArrayInit->getType(),
+                         true, GlobalValue::PrivateLinkage, MapTypesArrayInit,
+                         ".offload_maptypes", nullptr);
+  MapTypesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+  Info->BaseDataPtrs = TgBasePointersArray;
+  Info->DataPtrs = TgPointersArray;
+  Info->DataSizes = SizesArray;
+  Info->DataMapTypes = MapTypesArrayGbl;
 
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
+      isa<WRNTargetVariantNode>(W)) {
     genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, nullptr,
                                   Match, Builder, Cnt);
@@ -2780,6 +2794,11 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 /// \endcode
 ///
 /// The list items (a,b above) in the use_device_ptr clause are host pointers.
+///
+/// Old Scheme uses opencl buffers.  New scheme does not create buffers
+/// To use new scheme UseRawDevicePtr flag should be true.
+/// At some point old Scheme will be delete.
+///
 /// The compiler emits extra code (on top of Case1) as follows:
 ///
 ///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
@@ -2826,6 +2845,19 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 /// Tasks (A,B,C) are done in createTargetVariantDispatchHostPtrs()
 /// Task (D) is done in VPOParoptUtils::genVariantCall()
 /// Task (E) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
+///
+/// New Scheme when UseRawDevicePointer is true.
+/// Will replace the above old scheme in the future.
+///
+///   bool available = __tgt_is_device_available(dnum, ...)
+///
+///    call void @__tgt_target_data_begin(i64 -1, i32 1, i8** %5,
+///      i8** %6, i64* getelementptr inbounds ([1 x i64],
+///      [1 x i64]* @.offload_sizes, i32 0, i32 0),
+///      i64* getelementptr inbounds ([1 x i64],
+///      [1 x i64]* @.offload_maptypes, i32 0, i32 0))
+///   foo_gpu(a_tgtBuff, b_tgtBuff);
+///   call void @__tgt_target_data_end()
 bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
@@ -2878,8 +2910,8 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   // Emit call to check for device availability:
   //
-  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
-  //   %dispatch = icmp ne i32 %call1, 0                                   (2)
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)      (1)
+  //   %available  = icmp ne i32 %call, 0                                 (2)
   //
   // The second argument of __tgt_is_device_available() is a pointer
   // that is currently unused. When we support device types in the
@@ -2894,26 +2926,27 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Value *DispatchTmp; // the dispatch condition
 
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  if (!UDPtrClause.empty()) {
+  // NOTE : Remove after switching to UseDevicePtr
+  if (!UseRawDevicePtr && !UDPtrClause.empty()) {
     // A use_device_ptr clause is present. Therefore:
     //   (A) Create the target buffers
     //   (C) Free all target buffers if some failed to create
     //   (B) return the dispatch condition
-    DispatchTmp = createTargetVariantDispatchHostPtrs(W, InsertPt, DeviceNum,
-                                                      Available, DT, LI);
-  } else { // no use_device_ptr clause
-    // No use_device_ptr clause, so dispatch condition == device is available
+    DispatchTmp = createTargetVariantDispatchHostPtrs(W, InsertPt,
+                                          DeviceNum, Available, DT, LI);
+  } else {
     DispatchTmp = Available;
     DispatchTmp->setName("dispatch");
   }
-  // Here, Builder insertion point is "InsertPt"
 
+  // Here, Builder insertion point is "InsertPt"
   // Emit dispatch code:
   //
   //   br i1 %dispatch, label %variant.call, label %base.call               (3)
   //
   // variant.call:
   //   %variant = call i32 @foo_gpu(<args>)                               (4,D)
+  //   release buffer is in old scheme only
   //   [calls to __tgt_release_buffer if use_device_ptr exists]             (E)
   //   br label %if.end                                              (ThenTerm)
   //
@@ -2940,25 +2973,68 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // Create and insert Variant call before ThenTerm
   ThenTerm->getParent()->setName("variant.call");
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
-  CallInst *VariantCall =                                               // (4,D)
-      VPOParoptUtils::genVariantCall(BaseCall, VariantName, InteropObj,
-                                     ThenTerm, W);
+  CallInst *VariantCall = nullptr;
+  if (UseRawDevicePtr && !UDPtrClause.empty()) {
+    Builder.SetInsertPoint(ThenTerm);
+    TgDataInfo Info;
+    Info.NumberOfPtrs = UDPtrClause.size();
+    bool hasRuntimeEvaluationCaptureSize = false;
+    SmallVector<Constant *, 16> ConstSizes;
+    SmallVector<uint64_t, 16> MapTypes;
+
+    (void) addMapForUseDevicePtr(W, ThenTerm);
+
+    genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+                                 hasRuntimeEvaluationCaptureSize);
+
+    InsertPt = ThenTerm;
+    CallInst *DummyCall = nullptr;
+    genOffloadArraysInit(W, &Info, DummyCall, InsertPt, ConstSizes,
+                        MapTypes, hasRuntimeEvaluationCaptureSize);
+
+    genOffloadArraysArgument(&Info, InsertPt);
+    (void) VPOParoptUtils::genTgtTargetDataBegin(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+      MapItem *MapI = Item->getInMap();
+      assert(MapI && "No map found for use-device-ptr item.");
+      Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig();
+      assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
+      Value *OrigV = Item->getOrig();
+      Value *GepCast = Builder.CreateBitOrPointerCast(
+        BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
+        OrigV->getName() + ".cast");
+      Item->setNew(GepCast);
+    }
+    VariantCall =
+            VPOParoptUtils::genVariantCall(BaseCall, VariantName,
+                                           InteropObj, InsertPt, W);
+    VPOParoptUtils::genTgtTargetDataEnd(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  }
+  else
+      VariantCall =
+            VPOParoptUtils::genVariantCall(BaseCall, VariantName,
+                                           InteropObj, ThenTerm, W);  // (4,D)
   if (!IsVoidType)
     VariantCall->setName("variant");
 
-  // Release target buffers after Variant call only for synchronous cases;
-  // i.e., when NOWAIT is false. For async cases they are released by the
-  // async_handler callback routine.
-  if (!UDPtrClause.empty() && W->getNowait() == false) {
-    Builder.SetInsertPoint(ThenTerm);
-    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-      StringRef OrigName = Item->getOrig()->getName();
-      Value *TgtBufferAddr = Item->getNew();
-      LoadInst *Buffer =
-          Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
-      VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm);  // (E)
+  if (!UseRawDevicePtr) // should be removed later
+    // Release target buffers after Variant call only for synchronous cases;
+    // i.e., when NOWAIT is false. For async cases they are released by the
+    // async_handler callback routine.
+    if (!UDPtrClause.empty() && W->getNowait() == false) {
+      Builder.SetInsertPoint(ThenTerm);
+      for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+        StringRef OrigName = Item->getOrig()->getName();
+        Value *TgtBufferAddr = Item->getNew();
+        LoadInst *Buffer =
+            Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
+        VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm); // (E)
+      }
     }
-  }
 
   // Release the interop object for synchronous execution (no NOWAIT clause).
   // Don't do this for the asynchronous case; the async_handler will do it.

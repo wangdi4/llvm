@@ -3930,6 +3930,20 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-fdebug-ranges-base-address");
   }
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_fmerge_debug_strings,
+                   options::OPT_fno_merge_debug_strings, false)) {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-dwarf-inlined-strings=Disable");
+  }
+
+  if (Args.hasFlag(options::OPT_fno_merge_debug_strings,
+                   options::OPT_fmerge_debug_strings, false)) {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-dwarf-inlined-strings=Enable");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // -gdwarf-aranges turns on the emission of the aranges section in the
   // backend.
   // Always enabled for SCE tuning.

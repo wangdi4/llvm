@@ -166,3 +166,16 @@
 // RUN: %clang_cl -### -c /Qno-builtin-memset %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN-FUNC %s
 // CHECK-QNO-BUILTIN: "-fno-builtin-"
 // CHECK-QNO-BUILTIN-FUNC: "-fno-builtin-memset"
+
+// RUN: %clang -### -c -fmerge-debug-strings -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-MERGE-DEBUG %s
+// RUN: %clang -### -c -fno-merge-debug-strings -target x86_64-unknown-linux %s 2>&1 | FileCheck --check-prefix=CHECK-NO-MERGE-DEBUG %s
+// CHECK-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Disable"
+// CHECK-NO-MERGE-DEBUG: "-mllvm" "-dwarf-inlined-strings=Enable"
+
+// Behavior with qopenmp-simd/Qopenmp-simd option
+// RUN: %clang -### -c -qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
+// RUN: %clang_cl -### -c /Qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-SIMD %s
+// RUN: %clang -### -c -qno-openmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMP-SIMD %s
+// RUN: %clang_cl -### -c /Qopenmp-simd- %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMP-SIMD %s
+// CHECK-QOPENMP-SIMD: "-fopenmp-simd"
+// CHECK-NO-QOPENMP-SIMD: "-fno-openmp-simd"

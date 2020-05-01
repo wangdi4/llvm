@@ -326,8 +326,11 @@ bool isPartialPtrLoad(LoadInst *Load) {
         LoopInVal = BasePHI->getIncomingValue(0);
       else
         LoopInVal = BasePHI->getIncomingValue(1);
-      if (!(match(LoopInVal, m_Add(m_Specific(BasePHI), m_SpecificInt(-1))) ||
-            match(LoopInVal, m_Add(m_SpecificInt(-1), m_Specific(BasePHI))))) {
+      unsigned Bitwidth = LoopInVal->getType()->getScalarSizeInBits();
+      if (!(match(LoopInVal, m_Add(m_Specific(BasePHI),
+                                   m_SpecificInt(APInt(Bitwidth, -1)))) ||
+            match(LoopInVal, m_Add(m_SpecificInt(APInt(Bitwidth, -1)),
+                                   m_Specific(BasePHI))))) {
         DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
                         dbgs() << "Not matched. PHI decrement not matched!\n");
         return false;

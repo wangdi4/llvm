@@ -1697,7 +1697,6 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan test_total_cost_branch_probabilities.for.body with VF = 4:
 ; VPLAN-CM-VF4-NEXT:  Total Cost: 43
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Unknown cost for i1 [[VP_COND_INST_NOT:%.*]] = not i1 [[COND_INST0:%.*]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -1727,7 +1726,6 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan test_total_cost_branch_probabilities.for.body with VF = 1:
 ; VPLAN-CM-VF1-NEXT:  Total Cost: 4
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Unknown cost for i1 [[VP_COND_INST_NOT:%.*]] = not i1 [[COND_INST0:%.*]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Unknown cost for i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
