@@ -388,9 +388,9 @@ bool TargetTransformInfo::useColdCCForColdCall(Function &F) const {
   return TTIImpl->useColdCCForColdCall(F);
 }
 
-unsigned TargetTransformInfo::getScalarizationOverhead(Type *Ty, bool Insert,
-                                                       bool Extract) const {
-  return TTIImpl->getScalarizationOverhead(Ty, Insert, Extract);
+unsigned TargetTransformInfo::getScalarizationOverhead(
+    Type *Ty, const APInt &DemandedElts, bool Insert, bool Extract) const {
+  return TTIImpl->getScalarizationOverhead(Ty, DemandedElts, Insert, Extract);
 }
 
 unsigned TargetTransformInfo::getOperandsScalarizationOverhead(
