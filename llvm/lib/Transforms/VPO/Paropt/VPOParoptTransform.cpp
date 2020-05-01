@@ -3270,8 +3270,6 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   //       below or ask FE to represent all array reductions (including VLAs)
   //       with array sections (which would have an explicit number of elements
   //       specified).
-
-  Type *ScalarTy = AllocaTy->getScalarType();
   bool IsUDR = (RedI->getType() == ReductionItem::WRNReductionUdr);
   bool NeedSrc = IsUDR && (RedI->getInitializer() != nullptr);
   Value *OldV = RedI->getOrig();
@@ -3297,7 +3295,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   }
   IRBuilder<> Builder(InsertPt);
   if (IsUDR) {
-    genReductionUdrInit(RedI, RedI->getOrig(), AI, ScalarTy, Builder);
+    genReductionUdrInit(RedI, RedI->getOrig(), AI, AllocaTy, Builder);
     return;
   }
 
@@ -3305,7 +3303,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                       InsertPt->getModule()->getDataLayout()) ||
           RedI->getIsComplex()) &&
          "genReductionInit: Expect incoming scalar/complex type.");
-  Value *V = genReductionScalarInit(RedI, ScalarTy);
+  Value *V = genReductionScalarInit(RedI, AllocaTy);
   Builder.CreateStore(V, AI);
 }
 
