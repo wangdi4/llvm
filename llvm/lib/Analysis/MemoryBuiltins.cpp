@@ -816,7 +816,7 @@ SizeOffsetType ObjectSizeOffsetVisitor::visitAllocaInst(AllocaInst &I) {
 
 SizeOffsetType ObjectSizeOffsetVisitor::visitArgument(Argument &A) {
   // No interprocedural analysis is done at the moment.
-  if (!A.hasByValOrInAllocaAttr()) {
+  if (!A.hasPassPointeeByValueAttr()) {
     ++ObjectVisitorArgument;
     return unknown();
   }

@@ -3009,6 +3009,9 @@ public:
 ///
 class OMPTargetParallelDirective : public OMPExecutableDirective {
   friend class ASTStmtReader;
+  /// true if the construct has inner cancel directive.
+  bool HasCancel = false;
+
   /// Build directive with the given start and end location.
   ///
   /// \param StartLoc Starting location of the directive kind.
@@ -3031,6 +3034,9 @@ class OMPTargetParallelDirective : public OMPExecutableDirective {
                                SourceLocation(), SourceLocation(), NumClauses,
                                /*NumChildren=*/1) {}
 
+  /// Set cancel state.
+  void setHasCancel(bool Has) { HasCancel = Has; }
+
 public:
   /// Creates directive with a list of \a Clauses.
   ///
@@ -3039,10 +3045,11 @@ public:
   /// \param EndLoc Ending Location of the directive.
   /// \param Clauses List of clauses.
   /// \param AssociatedStmt Statement, associated with the directive.
+  /// \param HasCancel true if this directive has inner cancel directive.
   ///
   static OMPTargetParallelDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
-         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, bool HasCancel);
 
   /// Creates an empty directive with the place for \a NumClauses
   /// clauses.
@@ -3052,6 +3059,9 @@ public:
   ///
   static OMPTargetParallelDirective *
   CreateEmpty(const ASTContext &C, unsigned NumClauses, EmptyShell);
+
+  /// Return true if current directive has inner cancel directive.
+  bool hasCancel() const { return HasCancel; }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTargetParallelDirectiveClass;

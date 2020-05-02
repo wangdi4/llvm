@@ -6295,8 +6295,8 @@ static SDValue getExtendInVec(unsigned Opcode, const SDLoc &DL, EVT VT,
 // Match (xor X, -1) -> X.
 // Match extract_subvector(xor X, -1) -> extract_subvector(X).
 // Match concat_vectors(xor X, -1, xor Y, -1) -> concat_vectors(X, Y).
-static SDValue IsNOT(SDValue V, SelectionDAG &DAG) {
-  V = peekThroughBitcasts(V);
+static SDValue IsNOT(SDValue V, SelectionDAG &DAG, bool OneUse = false) {
+  V = OneUse ? peekThroughOneUseBitcasts(V) : peekThroughBitcasts(V);
   if (V.getOpcode() == ISD::XOR &&
       ISD::isBuildVectorAllOnes(V.getOperand(1).getNode()))
     return V.getOperand(0);
@@ -37200,6 +37200,31 @@ static SDValue combineTargetShuffle(SDValue N, SelectionDAG &DAG,
   if (SDValue R = combineCommutableSHUFP(N, VT, DL, DAG))
     return R;
 
+  // Canonicalize UNARYSHUFFLE(XOR(X,-1) -> XOR(UNARYSHUFFLE(X),-1) to
+  // help expose the 'NOT' pattern further up the DAG.
+  // TODO: This might be beneficial for any binop with a 'splattable' operand.
+  switch (Opcode) {
+  case X86ISD::MOVDDUP:
+  case X86ISD::PSHUFD: {
+    SDValue Src = N.getOperand(0);
+    if (Src.hasOneUse() && Src.getValueType() == VT) {
+      if (SDValue Not = IsNOT(Src, DAG, /*OneUse*/ true)) {
+        Not = DAG.getBitcast(VT, Not);
+        Not = Opcode == X86ISD::MOVDDUP
+                  ? DAG.getNode(Opcode, DL, VT, Not)
+                  : DAG.getNode(Opcode, DL, VT, Not, N.getOperand(1));
+        EVT IntVT = Not.getValueType().changeTypeToInteger();
+        SDValue AllOnes = DAG.getConstant(-1, DL, IntVT);
+        Not = DAG.getBitcast(IntVT, Not);
+        Not = DAG.getNode(ISD::XOR, DL, IntVT, Not, AllOnes);
+        return DAG.getBitcast(VT, Not);
+      }
+    }
+    break;
+  }
+  }
+
+  // Handle specific target shuffles.
   switch (Opcode) {
   case X86ISD::MOVDDUP: {
     SDValue Src = N.getOperand(0);
@@ -43212,10 +43237,27 @@ static SDValue combineANDXORWithAllOnesIntoANDNP(SDNode *N, SelectionDAG &DAG) {
   SDValue N0 = N->getOperand(0);
   SDValue N1 = N->getOperand(1);
 
-  if (SDValue Not = IsNOT(N0, DAG)) {
+  auto GetNot = [&VT, &DAG](SDValue V) {
+    // Basic X = NOT(Y) detection.
+    if (SDValue Not = IsNOT(V, DAG))
+      return Not;
+    // Fold BROADCAST(NOT(Y)) -> BROADCAST(Y).
+    if (V.getOpcode() == X86ISD::VBROADCAST) {
+      SDValue Src = V.getOperand(0);
+      EVT SrcVT = Src.getValueType();
+      if (!SrcVT.isVector())
+        return SDValue();
+      if (SDValue Not = IsNOT(Src, DAG))
+        return DAG.getNode(X86ISD::VBROADCAST, SDLoc(V), VT,
+                           DAG.getBitcast(SrcVT, Not));
+    }
+    return SDValue();
+  };
+
+  if (SDValue Not = GetNot(N0)) {
     X = Not;
     Y = N1;
-  } else if (SDValue Not = IsNOT(N1, DAG)) {
+  } else if (SDValue Not = GetNot(N1)) {
     X = Not;
     Y = N0;
   } else
