@@ -71,6 +71,13 @@ function(add_sycl_rt_library LIB_NAME)
       PUBLIC
         $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
   )
+# INTEL_CUSTOMIZATION
+# FIXME: Temporary fix for self-build after (#1597), needed for
+# std::shared_timed_mutex::try_lock introduced in commit 1d13f84.
+  if (NOT MSVC)
+    target_link_libraries(${LIB_NAME} PRIVATE pthread)
+  endif()
+# end INTEL_CUSTOMIZATION
 
   target_compile_definitions(${LIB_OBJ_NAME}
     PUBLIC
