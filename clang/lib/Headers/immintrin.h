@@ -10,228 +10,187 @@
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 #include <ia32intrin.h>
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__MMX__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__MMX__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <mmintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__SSE__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <xmmintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE2__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__SSE2__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <emmintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSE3__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__SSE3__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <pmmintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SSSE3__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__SSSE3__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <tmmintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__SSE4_2__) || defined(__SSE4_1__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__SSE4_2__) || defined(__SSE4_1__)) ||                            \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <smmintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AES__) || defined(__PCLMUL__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AES__) || defined(__PCLMUL__)) ||                               \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <wmmintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLFLUSHOPT__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__CLFLUSHOPT__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <clflushoptintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLWB__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__CLWB__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <clwbintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avxintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX2__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX2__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx2intrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__F16C__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__F16C__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <f16cintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__VPCLMULQDQ__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__VPCLMULQDQ__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-=======
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__MMX__)
-#include <mmintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SSE__)
-#include <xmmintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SSE2__)
-#include <emmintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SSE3__)
-#include <pmmintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SSSE3__)
-#include <tmmintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__SSE4_2__) || defined(__SSE4_1__))
-#include <smmintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AES__) || defined(__PCLMUL__))
-#include <wmmintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__CLFLUSHOPT__)
-#include <clflushoptintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__CLWB__)
-#include <clwbintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX__)
-#include <avxintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX2__)
-#include <avx2intrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__F16C__)
-#include <f16cintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__VPCLMULQDQ__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
 #include <vpclmulqdqintrin.h>
 #endif
 
 /* No feature check desired due to internal checks */
 #include <bmiintrin.h>
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__BMI2__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__BMI2__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <bmi2intrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__LZCNT__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__LZCNT__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <lzcntintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__POPCNT__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__POPCNT__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <popcntintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__FMA__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__FMA__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <fmaintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512F__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512F__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512fintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512VL__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VL__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512BW__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512BW__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512bwintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512BITALG__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512BITALG__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512bitalgintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512CD__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512CD__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512cdintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512VPOPCNTDQ__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VPOPCNTDQ__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vpopcntdqintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512VPOPCNTDQ__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512VPOPCNTDQ__)) ||                 \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vpopcntdqvlintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512VNNI__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VNNI__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vnniintrin.h>
 #endif
@@ -239,58 +198,67 @@
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_VNNI */
 #if defined(__AVXVNNI_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXVNNI__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXVNNI__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxvnni/avxvnniintrin.h>
 #endif
 #endif
 
 /* end INTEL_FEATURE_ISA_AVX_VNNI */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512VNNI__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512VNNI__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vlvnniintrin.h>
 #endif
 
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512DQ__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512DQ__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512dqintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512BITALG__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512BITALG__)) ||                    \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlbitalgintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512BW__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512BW__)) ||                        \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlbwintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512CD__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512CD__)) ||                        \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlcdintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512DQ__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512DQ__)) ||                        \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vldqintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512ER__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512ER__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512erintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512IFMA__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512IFMA__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512ifmaintrin.h>
 #endif
@@ -298,7 +266,8 @@
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_IFMA */
 #if defined(__AVXIFMA_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXIFMA__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXIFMA__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxifma/avxifmaintrin.h>
 #endif
 #endif
@@ -306,40 +275,46 @@
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512IFMA__) && defined(__AVX512VL__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512IFMA__) && defined(__AVX512VL__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512ifmavlintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512VBMI__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VBMI__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vbmiintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VBMI__) && defined(__AVX512VL__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VBMI__) && defined(__AVX512VL__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vbmivlintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512VBMI2__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VBMI2__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vbmi2intrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VBMI2__) && defined(__AVX512VL__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VBMI2__) && defined(__AVX512VL__)) ||                     \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlvbmi2intrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512PF__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512PF__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512pfintrin.h>
 #endif
@@ -361,13 +336,15 @@
 #endif
 /* end INTEL_FEATURE_ISA_FP16 */
 /* end INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16intrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-    (defined(__AVX512VL__) && defined(__AVX512BF16__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512BF16__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vlbf16intrin.h>
 #endif
@@ -375,7 +352,8 @@
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_AVX_BF16 */
 #if defined(__AVXBF16_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AVXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxbf16/avxbf16intrin.h>
 #endif
 #endif
@@ -383,19 +361,22 @@
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__PKU__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__PKU__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <pkuintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__VAES__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__VAES__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <vaesintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__GFNI__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__GFNI__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <gfniintrin.h>
 #endif
@@ -405,7 +386,8 @@
 /*
  * FIXME: When _Float16 type is supported, this should be:
  * "if defined(__AVXDOTPROD_SUPPORTED__)
- * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
+ * defined(__AVX_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
 #if defined(__AVXDOTPROD__) && defined(__AVX512FP16__)
@@ -419,7 +401,8 @@
 /*
  * FIXME: When _Float16 type is supported, this should be:
  * "if defined(__AVX512DOTPROD_SUPPORTED__)
- * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
+ * defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
 #if defined(__AVX512DOTPROD__)
@@ -436,7 +419,8 @@
 /*
  * FIXME: When _Float16 type is supported, this should be:
  * "if defined(__AVXCONVERT_SUPPORTED__)
- * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
+ * defined(__AVX_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
 #if defined(__AVXCONVERT__) && defined(__AVX512FP16__)
@@ -450,7 +434,8 @@
 /*
  * FIXME: When _Float16 type is supported, this should be:
  * "if defined(__AVX512CONVERT_SUPPORTED__)
- * "!defined(_MSC_VER) || __has_feature(modules) || defined(__AVX512_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
+ * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
+ * defined(__AVX512_CONVERT__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
 #if defined(__AVX512CONVERT__)
@@ -463,167 +448,9 @@
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-=======
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__BMI2__)
-#include <bmi2intrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__LZCNT__)
-#include <lzcntintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__POPCNT__)
-#include <popcntintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__FMA__)
-#include <fmaintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512F__)
-#include <avx512fintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VL__)
-#include <avx512vlintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512BW__)
-#include <avx512bwintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512BITALG__)
-#include <avx512bitalgintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512CD__)
-#include <avx512cdintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VPOPCNTDQ__)
-#include <avx512vpopcntdqintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512VPOPCNTDQ__))
-#include <avx512vpopcntdqvlintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VNNI__)
-#include <avx512vnniintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512VNNI__))
-#include <avx512vlvnniintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512DQ__)
-#include <avx512dqintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512BITALG__))
-#include <avx512vlbitalgintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512BW__))
-#include <avx512vlbwintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512CD__))
-#include <avx512vlcdintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512DQ__))
-#include <avx512vldqintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512ER__)
-#include <avx512erintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512IFMA__)
-#include <avx512ifmaintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512IFMA__) && defined(__AVX512VL__))
-#include <avx512ifmavlintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VBMI__)
-#include <avx512vbmiintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VBMI__) && defined(__AVX512VL__))
-#include <avx512vbmivlintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VBMI2__)
-#include <avx512vbmi2intrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VBMI2__) && defined(__AVX512VL__))
-#include <avx512vlvbmi2intrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512PF__)
-#include <avx512pfintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512BF16__)
-#include <avx512bf16intrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512BF16__))
-#include <avx512vlbf16intrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__PKU__)
-#include <pkuintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__VAES__)
-#include <vaesintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__GFNI__)
-#include <gfniintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__RDPID__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
 /// Returns the value of the IA32_TSC_AUX MSR (0xc0000103).
 ///
 /// \headerfile <immintrin.h>
@@ -635,14 +462,10 @@ _rdpid_u32(void) {
 }
 #endif // __RDPID__
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDRND__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
-=======
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__RDRND__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
+    defined(__RDRND__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 static __inline__ int __attribute__((__always_inline__, __nodebug__, __target__("rdrnd")))
 _rdrand16_step(unsigned short *__p)
 {
@@ -664,14 +487,10 @@ _rdrand64_step(unsigned long long *__p)
 #endif
 #endif /* __RDRND__ */
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__FSGSBASE__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
-=======
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__FSGSBASE__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
+    defined(__FSGSBASE__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #ifdef __x86_64__
 static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _readfsbase_u32(void)
@@ -724,14 +543,10 @@ _writegsbase_u64(unsigned long long __V)
 #endif
 #endif /* __FSGSBASE__ */
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__MOVBE__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
-=======
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__MOVBE__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
+    defined(__MOVBE__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 
 /* The structs used below are to force the load/store to be unaligned. This
  * is accomplished with the __packed__ attribute. The __may_alias__ prevents
@@ -790,84 +605,56 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 #endif /* __MOVBE */
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__RTM__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
-=======
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__RTM__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
+    defined(__RTM__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <rtmintrin.h>
 #include <xtestintrin.h>
 #endif
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SHA__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__SHA__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <shaintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__FXSR__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__FXSR__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-=======
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SHA__)
-#include <shaintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__FXSR__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
 #include <fxsrintrin.h>
 #endif
 
 /* No feature check desired due to internal MSC_VER checks */
 #include <xsaveintrin.h>
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__XSAVEOPT__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__XSAVEOPT__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <xsaveoptintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__XSAVEC__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__XSAVEC__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <xsavecintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__XSAVES__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__XSAVES__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <xsavesintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SHSTK__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__SHSTK__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-=======
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__XSAVEOPT__)
-#include <xsaveoptintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__XSAVEC__)
-#include <xsavecintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__XSAVES__)
-#include <xsavesintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SHSTK__)
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
 #include <cetintrin.h>
 #endif
 
@@ -875,58 +662,66 @@ _storebe_i64(void * __P, long long __D) {
  * whereas others are also available at all times. */
 #include <adxintrin.h>
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__RDSEED__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__RDSEED__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <rdseedintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__WBNOINVD__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__WBNOINVD__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <wbnoinvdintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLDEMOTE__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__CLDEMOTE__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <cldemoteintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__WAITPKG__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__WAITPKG__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <waitpkgintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-  defined(__MOVDIRI__) || defined(__MOVDIR64B__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__MOVDIRI__) || defined(__MOVDIR64B__) ||                          \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <movdirintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__PCONFIG__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__PCONFIG__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <pconfigintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__SGX__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__SGX__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <sgxintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__PTWRITE__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__PTWRITE__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <ptwriteintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__INVPCID__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__INVPCID__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <invpcidintrin.h>
 #endif
@@ -943,7 +738,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_ULI */
 #if defined(__ULI_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__ULI__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__ULI__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <uliintrin.h>
 #endif
 #endif
@@ -951,7 +747,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_HRESET */
 #if defined(__HRESET_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__HRESET__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <hresetintrin.h>
 #endif
 #endif
@@ -959,7 +756,9 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX */
 #if defined(__AMX_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) ||    \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxintrin.h>
 #endif
 #endif
@@ -967,8 +766,9 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_FUTURE */
 #if defined(__AMX_FUTURE_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXREDUCE__) ||           \
-    defined(__AMXELEMENT__) || defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||      \
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXREDUCE__) || defined(__AMXELEMENT__) ||                       \
+    defined(__AMXMEMORY__) || defined(__AMXFORMAT__) ||                        \
     defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxfutureintrin.h>
 #endif
@@ -977,8 +777,9 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_LNC */
 #if defined(__AMX_LNC_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTRANSPOSE__) ||        \
-    defined(__AMXAVX512__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXTRANSPOSE__) || defined(__AMXAVX512__) ||                     \
+    defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxlncintrin.h>
 #endif
 #endif
@@ -986,7 +787,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */
 #if defined(__AMX_TRANSPOSE2_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_TRANSPOSE2__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_TRANSPOSE2__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxtranspose2intrin.h>
 #endif
 #endif
@@ -994,7 +796,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_MEMORY2 */
 #if defined(__AMX_MEMORY2_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_MEMORY2__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_MEMORY2__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxmemory2intrin.h>
 #endif
 #endif
@@ -1002,7 +805,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_BF16_EVEX */
 #if defined(__AMX_BF16EVEX_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_BF16EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_BF16EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxbf16evexintrin.h>
 #endif
 #endif
@@ -1010,7 +814,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
 #if defined(__AMX_CONVERTEVEX_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_CONVERTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_CONVERTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxconvertevexintrin.h>
 #endif
 #endif
@@ -1018,7 +823,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_INT8_EVEX */
 #if defined(__AMX_INT8EVEX_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_INT8EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_INT8EVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxint8evexintrin.h>
 #endif
 #endif
@@ -1026,7 +832,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_TILE_EVEX */
 #if defined(__AMX_TILEEVEX_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMX_TILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_TILEEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxtileevexintrin.h>
 #endif
 #endif
@@ -1034,7 +841,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_FP16 */
 #if defined(__AMX_FP16_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXFP16__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXFP16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxfp16intrin.h>
 #endif
 #endif
@@ -1042,7 +850,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_CONVERT */
 #if defined(__AMX_CONVERT_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXCONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXCONVERT__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxconvertintrin.h>
 #endif
 #endif
@@ -1050,7 +859,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_AMX_TILE2 */
 #if defined(__AMX_TILE2_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__AMXTILE2__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXTILE2__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxtile2intrin.h>
 #endif
 #endif
@@ -1058,7 +868,8 @@ _storebe_i64(void * __P, long long __D) {
 
 /* INTEL_FEATURE_ISA_KEYLOCKER */
 #if defined(__KEYLOCKER_SUPPORTED__)
-#if !defined(_MSC_VER) || __has_feature(modules) || defined(__KEYLOCKER__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__KEYLOCKER__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <keylockerintrin.h>
 #endif
 #endif
@@ -1066,70 +877,17 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-  defined(__AVX512VP2INTERSECT__) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VP2INTERSECT__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avx512vp2intersectintrin.h>
 #endif
 
 /* INTEL_CUSTOMIZATION */
-#if !defined(_MSC_VER) || __has_feature(modules) || \
-  (defined(__AVX512VL__) && defined(__AVX512VP2INTERSECT__)) || defined(__M_INTRINSIC_PROMOTE__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512VP2INTERSECT__)) ||              \
+    defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-=======
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__RDSEED__)
-#include <rdseedintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__WBNOINVD__)
-#include <wbnoinvdintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__CLDEMOTE__)
-#include <cldemoteintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__WAITPKG__)
-#include <waitpkgintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__MOVDIRI__) || defined(__MOVDIR64B__)
-#include <movdirintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__PCONFIG__)
-#include <pconfigintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SGX__)
-#include <sgxintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__PTWRITE__)
-#include <ptwriteintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__INVPCID__)
-#include <invpcidintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VP2INTERSECT__)
-#include <avx512vp2intersectintrin.h>
-#endif
-
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVX512VL__) && defined(__AVX512VP2INTERSECT__))
->>>>>>> 046130490f230559e8dae7d7cb4959bd04f89bb8
 #include <avx512vlvp2intersectintrin.h>
 #endif
 
