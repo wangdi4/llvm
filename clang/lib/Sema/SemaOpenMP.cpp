@@ -4599,6 +4599,10 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
     if (!NestingProhibited &&
         !isOpenMPTargetExecutionDirective(CurrentRegion) &&
         !isOpenMPTargetDataManagementDirective(CurrentRegion) &&
+#if INTEL_COLLAB
+        !(CurrentRegion == OMPD_atomic &&
+          SemaRef.getLangOpts().OpenMPLateOutline) &&
+#endif // INTEL_COLLAB
         (ParentRegion == OMPD_teams || ParentRegion == OMPD_target_teams)) {
       // OpenMP [2.16, Nesting of Regions]
       // distribute, parallel, parallel sections, parallel workshare, and the
