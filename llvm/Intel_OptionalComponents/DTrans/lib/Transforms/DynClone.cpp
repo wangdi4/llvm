@@ -1292,12 +1292,44 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
                      Instruction * InitInst)>
       CandidateFieldAccessAfterBB;
 
+  // On platforms like Windows, some library functions like printf are not
+  // treated as library calls since they have definitions. This function checks
+  // if user defined library routine is safe.
+  //
+  // "F" is treated as safe user defined function only if the below rules
+  // are met.
+  // 1. The name of function is printf / sprintf / __local_stdio_printf_options
+  // 2. The function doesn't have any side effects except calling either
+  //     library calls or these safe user defined routines.
+  //
+  std::function<bool(const Function *F)> IsKnownLibInterfaceFunction;
+  IsKnownLibInterfaceFunction = [&IsKnownLibInterfaceFunction](
+                                    const Function *F) {
+    const StringRef FName = F->getName();
+    if (FName != "printf" && FName != "sprintf" &&
+        FName != "__local_stdio_printf_options")
+      return false;
+    for (auto &I : instructions(F)) {
+      if (auto CB = dyn_cast<CallBase>(&I)) {
+        const Function *Callee = CB->getCalledFunction();
+        if (!Callee)
+          return false;
+        if (!Callee->isDeclaration() && !IsKnownLibInterfaceFunction(Callee)) {
+          return false;
+        }
+      } else if (I.mayWriteToMemory()) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   // Recursive lambda function to check legality issues for InitRoutine
   // in CurrentBB and all of the successors until InitInst.
-  CandidateFieldAccessAfterBB = [this, &CandidateFieldAccessAfterBB](
-                                    BasicBlock *CurrentBB,
-                                    SmallPtrSetImpl<BasicBlock *> &Visited,
-                                    Instruction *InitInst) -> bool {
+  CandidateFieldAccessAfterBB =
+      [this, &CandidateFieldAccessAfterBB, &IsKnownLibInterfaceFunction](
+          BasicBlock *CurrentBB, SmallPtrSetImpl<BasicBlock *> &Visited,
+          Instruction *InitInst) -> bool {
     if (!Visited.insert(CurrentBB).second)
       return true;
 
@@ -1320,8 +1352,9 @@ bool DynCloneImpl::verifyLegalityChecksForInitRoutine(void) {
         const Function *Callee = Call->getCalledFunction();
         assert(Callee && "Expected only direct calls");
         // Since WholeProgramSafe is true, just check if Callee is defined
-        // to prove it is a user defined routine.
-        if (!Callee->isDeclaration()) {
+        // to prove it is a user defined routine. Also, checks if user
+        // defined library calls can be exempted.
+        if (!Callee->isDeclaration() && !IsKnownLibInterfaceFunction(Callee)) {
           LLVM_DEBUG(dbgs() << "    InitRoutine failed...User routine called: "
                             << I << "\n");
           return false;
@@ -2845,8 +2878,8 @@ void DynCloneImpl::transformInitRoutine(void) {
         new AllocaInst(Val->getType(), DL.getAllocaAddrSpace(), nullptr,
                        "dyn.alloc", &InitRoutine->getEntryBlock().front());
     StoreInst *SI = new StoreInst(Val, AI, CI->getNextNode());
-    LoadInst *LI = new LoadInst(AI->getAllocatedType(), AI, "dyn.alloc.ld",
-                                InsertBefore);
+    LoadInst *LI =
+        new LoadInst(AI->getAllocatedType(), AI, "dyn.alloc.ld", InsertBefore);
     (void)SI;
     LLVM_DEBUG(dbgs() << " Save and Restore: " << *Val << "\n");
     LLVM_DEBUG(dbgs() << "    " << *AI << "\n"
