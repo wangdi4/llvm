@@ -5884,6 +5884,7 @@ const SCEV *ScalarEvolution::createNodeForIdenticalOperandsPHI(PHINode *PN) {
       const SCEV *Old = HIRInfo.isValid() ? HIt->second : It->second;
       forgetMemoizedResults(Old);
       eraseValueFromMap(PN);
+      forgetSymbolicName(PN, Old);
     }
 
     if (IdenticalScevs) {
