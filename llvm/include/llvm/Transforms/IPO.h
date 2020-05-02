@@ -14,6 +14,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_H
 #define LLVM_TRANSFORMS_IPO_H
 
+#include "llvm/ADT/SmallVector.h"
 #include <functional>
 #include <vector>
 
@@ -27,8 +28,11 @@ class Pass;
 class BasicBlock;
 class GlobalValue;
 class raw_ostream;
+<<<<<<< HEAD
 class InlineReportBuilder; // INTEL
 template <typename T> class SmallVectorImpl;
+=======
+>>>>>>> 5e6f167aa979cd274f0de413f3adb8319cca273f
 
 //===----------------------------------------------------------------------===//
 //
