@@ -889,15 +889,14 @@ void VPlanPrinter::drawEdge(const VPBasicBlock *From, const VPBasicBlock *To,
 }
 
 void VPlanPrinter::dumpEdges(const VPBasicBlock *BB) {
-  auto &Successors = BB->getSuccessors();
-  if (Successors.size() == 1)
-    drawEdge(BB, Successors.front(), false, "");
-  else if (Successors.size() == 2) {
-    drawEdge(BB, Successors.front(), false, "T");
-    drawEdge(BB, Successors.back(), false, "F");
+  if (BB->getNumSuccessors() == 1)
+    drawEdge(BB, BB->getSuccessor(0), false, "");
+  else if (BB->getNumSuccessors() == 2) {
+    drawEdge(BB, BB->getSuccessor(0), false, "T");
+    drawEdge(BB, BB->getSuccessor(1), false, "F");
   } else {
     unsigned SuccessorNumber = 0;
-    for (auto *Successor : Successors)
+    for (auto *Successor : BB->getSuccessors())
       drawEdge(BB, Successor, false, Twine(SuccessorNumber++));
   }
 }
@@ -969,18 +968,18 @@ void VPBlendInst::print(raw_ostream &O) const {
 }
 
 void VPTerminator::print(raw_ostream &O) const {
-  if (Successors.empty())
+  if (getNumSuccessors() == 0)
     O << "br <External Block>";
   else
     O << "br ";
-  if (CondBit) {
+  if (VPValue *CondBit = getCondBit()) {
     CondBit->printAsOperand(O);
     O << ", ";
   }
-  for (unsigned I = 0; I < Successors.size(); I++) {
-    if (I > 0)
+  for (auto It = succ_begin(); It != succ_end(); It++) {
+    if (It != succ_begin())
       O << ", ";
-    O << Successors[I]->getName();
+    O << (*It)->getName();
   }
 }
 
@@ -1031,40 +1030,41 @@ void VPCallInstruction::print(raw_ostream &O) const {
 
 void VPTerminator::appendSuccessor(VPBasicBlock *Successor) {
   assert(Successor && "Cannot add nullptr successor!");
-  Successors.push_back(Successor);
-  Successor->addUser(*this);
+  VPValue *CondBit = getCondBit();
+  // Temporarily remove condition operand (if any) to insert the successor
+  // before it.
+  setCondBit(nullptr);
+  addOperand(Successor);
+  // Restore condition operand.
+  setCondBit(CondBit);
 }
 
 void VPTerminator::removeSuccessor(VPBasicBlock *Successor) {
-  auto Pos = std::find(Successors.begin(), Successors.end(), Successor);
-  assert(Pos && "Successor does not exist");
-  Successors.erase(Pos);
-  Successor->removeUser(*this);
+  int Idx = getOperandIndex(Successor);
+  assert(Idx >= 0 && "Successor does not exist");
+  removeOperand(Idx);
 }
 
 void VPTerminator::replaceSuccessor(VPBasicBlock *OldSuccessor,
                                     VPBasicBlock *NewSuccessor) {
 
-  auto SuccIt = std::find(Successors.begin(), Successors.end(), OldSuccessor);
-  assert(SuccIt != Successors.end() && "Successor not found");
-  SuccIt = Successors.erase(SuccIt);
-  Successors.insert(SuccIt, NewSuccessor);
-
-  OldSuccessor->removeUser(*this);
-  NewSuccessor->addUser(*this);
+  int Idx = getOperandIndex(OldSuccessor);
+  assert(Idx >= 0 && "Successor not found");
+  setOperand(Idx, NewSuccessor);
 }
 
 void VPTerminator::setOneSuccessor(VPBasicBlock *Successor) {
-  assert(Successors.empty() && "Setting one successor when others exist.");
+  assert(getNumSuccessors() == 0 && "Setting one successor when others exist.");
   appendSuccessor(Successor);
 }
 
 void VPTerminator::setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
                                     VPBasicBlock *IfFalse) {
-  assert(Successors.empty() && "Setting two successors when others exist.");
-  setCondBit(ConditionV);
+  assert(getNumSuccessors() == 0 &&
+         "Setting two successors when others exist.");
   appendSuccessor(IfTrue);
   appendSuccessor(IfFalse);
+  setCondBit(ConditionV);
 }
 
 void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,

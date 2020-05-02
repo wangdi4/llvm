@@ -281,13 +281,13 @@ void mergeLoopExits(VPLoop *VPL) {
   VPBasicBlock *LatchExitBlock = nullptr;
   // BackedgeCond checks whether the backedge is taken when the CondBit is
   // true or false.
-  bool BackedgeCond = (OrigLoopLatch->getSuccessors()[0] == LoopHeader);
+  bool BackedgeCond = OrigLoopLatch->getSuccessor(0) == LoopHeader;
   if (OrigLoopLatch->getNumSuccessors() > 1) {
     // For for-loops, we get the exit block of the latch.
     assert(OrigLoopLatch->getNumSuccessors() == 2 &&
            "The loop latch should have two successors!");
-    LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
-                                  : OrigLoopLatch->getSuccessors()[0];
+    LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessor(1)
+                                  : OrigLoopLatch->getSuccessor(0);
     ExitExitingBlocksMap[LatchExitBlock] = OrigLoopLatch;
   }
 
@@ -510,12 +510,12 @@ void mergeLoopExits(VPLoop *VPL) {
   while (!CascadedIfBlocks.empty()) {
     // Start from the last cascaded if block because it has two exit blocks.
     VPBasicBlock *CurrentCascadedIfBlock = CascadedIfBlocks.pop_back_val();
-    assert(CurrentCascadedIfBlock->getSuccessors().size() == 2 &&
+    assert(CurrentCascadedIfBlock->getNumSuccessors() == 2 &&
            "Two successors are expected");
     VPLoop *Succ0Loop =
-        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessors()[0]);
+        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessor(0));
     VPLoop *Succ1Loop =
-        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessors()[1]);
+        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessor(1));
     // It's possible that successor blocks of CurrentCascadedIfBlock may fall
     // outside of any loopnest. If so, loop depth is set to 0.
     // The bigger the loop depth the deeper the loop is in the loop nest.

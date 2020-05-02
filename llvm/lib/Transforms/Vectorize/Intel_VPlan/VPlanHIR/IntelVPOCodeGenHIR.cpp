@@ -3414,6 +3414,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::InductionFinal:
     widenLoopEntityInst(VPInst);
     return;
+
+  case VPInstruction::Terminator:
+    // Do nothing.
+    return;
   }
 
   // Skip widening the first select operand. The select instruction is generated
@@ -3914,10 +3918,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
-  case VPInstruction::Terminator:
-    // Do nothing.
-    return;
-
   default:
     LLVM_DEBUG(VPInst->dump());
     llvm_unreachable("Unexpected VPInstruction opcode");
@@ -4227,8 +4227,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   // gotos in the latch block.
   if (VLoop->contains(SourceBB) && !VLoop->isLoopLatch(SourceBB)) {
     assert(SourceBB->getNumSuccessors() && "Expected at least one successor");
-    auto &Successors = SourceBB->getSuccessors();
-    const VPBasicBlock *Succ1 = cast<VPBasicBlock>(*Successors.begin());
+    const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
     // If the block has two successors, we emit the following sequence
     // of code for 'SourceBB: (condbit: C1) Successors: Succ1, Succ2'.
@@ -4246,8 +4245,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
     // fixed up at the end of vector code generation when the labels
     // are available for all basic blocks.
     if (SourceBB->getNumSuccessors() == 2) {
-      const VPBasicBlock *Succ2 =
-          cast<VPBasicBlock>(*std::next(Successors.begin()));
+      const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
       const VPValue *CondBit = SourceBB->getCondBit();
       auto *CondRef = getWideRefForVPVal(CondBit);
       assert(CondRef && "Missind widened DDRef!");

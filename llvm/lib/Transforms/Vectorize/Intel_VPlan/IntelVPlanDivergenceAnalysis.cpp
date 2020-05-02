@@ -554,12 +554,13 @@ void VPlanDivergenceAnalysis::computeImpl() {
     if ((isAlwaysUniform(I)) && !getVectorShape(&I).isUndefined())
       continue;
 
-    bool IsPhiNode = (I.getOpcode() == Instruction::PHI);
+    bool IsPhiOrTerminatorNode = I.getOpcode() == Instruction::PHI ||
+                                 I.getOpcode() == VPInstruction::Terminator;
     bool ShapeUpdated = false;
     VPVectorShape NewShape;
-    if (IsPhiNode) {
-      // Some operands might be undefined for header phis. That is fine, the phi
-      // will be re-visited during backpropagation.
+    if (IsPhiOrTerminatorNode) {
+      // Some operands might be undefined for header phis or terminators. That
+      // is fine, the phi will be re-visited during backpropagation.
       NewShape = computeVectorShape(&I);
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     } else {

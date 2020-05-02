@@ -1675,7 +1675,7 @@ void VPDecomposerHIR::fixPhiNodePass(
       assert(Pred && "VPBB has null predecessor.");
 
       // Number of incoming edges from Pred to VPBB
-      auto &Successors = Pred->getSuccessors();
+      auto Successors = Pred->getSuccessors();
       unsigned NumEdges =
           std::count(Successors.begin(), Successors.end(), VPBB);
       assert(NumEdges && "Atleast one edge must exist from Pred to VPBB.");

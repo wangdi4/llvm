@@ -311,7 +311,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
       VPBasicBlock *Latch = Lp->getLoopLatch();
       assert(Latch && "Latch should not be a null pointer.");
       VPBasicBlock *Header = Lp->getHeader();
-      bool BackedgeOnTrue = Latch->getSuccessors()[0] == Header;
+      bool BackedgeOnTrue = Latch->getSuccessor(0) == Header;
       auto &Context = Fn.getContext();
       auto *Cond = BackedgeOnTrue ? ConstantInt::getFalse(Context)
                                   : ConstantInt::getTrue(Context);
