@@ -2514,6 +2514,14 @@ void OMPClauseEnqueue::VisitOMPNontemporalClause(
     Visitor->AddStmt(E);
 }
 void OMPClauseEnqueue::VisitOMPOrderClause(const OMPOrderClause *C) {}
+void OMPClauseEnqueue::VisitOMPUsesAllocatorsClause(
+    const OMPUsesAllocatorsClause *C) {
+  for (unsigned I = 0, E = C->getNumberOfAllocators(); I < E; ++I) {
+    const OMPUsesAllocatorsClause::Data &D = C->getAllocatorData(I);
+    Visitor->AddStmt(D.Allocator);
+    Visitor->AddStmt(D.AllocatorTraits);
+  }
+}
 } // namespace
 
 void EnqueueVisitor::EnqueueChildren(const OMPClause *S) {
