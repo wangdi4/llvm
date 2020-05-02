@@ -519,11 +519,15 @@ public:
   getTopMostTaskgroupReductionData(const ValueDecl *D, SourceRange &SR,
                                    const Expr *&ReductionRef,
                                    Expr *&TaskgroupDescriptor) const;
-  /// Return reduction reference expression for the current taskgroup.
+  /// Return reduction reference expression for the current taskgroup or
+  /// parallel/worksharing directives with task reductions.
   Expr *getTaskgroupReductionRef() const {
-    assert(getTopOfStack().Directive == OMPD_taskgroup &&
-           "taskgroup reference expression requested for non taskgroup "
-           "directive.");
+    assert((getTopOfStack().Directive == OMPD_taskgroup ||
+            ((isOpenMPParallelDirective(getTopOfStack().Directive) ||
+              isOpenMPWorksharingDirective(getTopOfStack().Directive)) &&
+             !isOpenMPSimdDirective(getTopOfStack().Directive))) &&
+           "taskgroup reference expression requested for non taskgroup or "
+           "parallel/worksharing directive.");
     return getTopOfStack().TaskgroupReductionRef;
   }
   /// Checks if the given \p VD declaration is actually a taskgroup reduction
@@ -1351,7 +1355,10 @@ void DSAStackTy::addTaskgroupReductionData(const ValueDecl *D, SourceRange SR,
       "Additional reduction info may be specified only for reduction items.");
   ReductionData &ReductionData = getTopOfStack().ReductionMap[D];
   assert(ReductionData.ReductionRange.isInvalid() &&
-         getTopOfStack().Directive == OMPD_taskgroup &&
+         (getTopOfStack().Directive == OMPD_taskgroup ||
+          ((isOpenMPParallelDirective(getTopOfStack().Directive) ||
+            isOpenMPWorksharingDirective(getTopOfStack().Directive)) &&
+           !isOpenMPSimdDirective(getTopOfStack().Directive))) &&
          "Additional reduction info may be specified only once for reduction "
          "items.");
   ReductionData.set(BOK, SR);
@@ -1374,7 +1381,10 @@ void DSAStackTy::addTaskgroupReductionData(const ValueDecl *D, SourceRange SR,
       "Additional reduction info may be specified only for reduction items.");
   ReductionData &ReductionData = getTopOfStack().ReductionMap[D];
   assert(ReductionData.ReductionRange.isInvalid() &&
-         getTopOfStack().Directive == OMPD_taskgroup &&
+         (getTopOfStack().Directive == OMPD_taskgroup ||
+          ((isOpenMPParallelDirective(getTopOfStack().Directive) ||
+            isOpenMPWorksharingDirective(getTopOfStack().Directive)) &&
+           !isOpenMPSimdDirective(getTopOfStack().Directive))) &&
          "Additional reduction info may be specified only once for reduction "
          "items.");
   ReductionData.set(ReductionRef, SR);
@@ -1395,7 +1405,8 @@ const DSAStackTy::DSAVarData DSAStackTy::getTopMostTaskgroupReductionData(
   assert(!isStackEmpty() && "Data-sharing attributes stack is empty.");
   for (const_iterator I = begin() + 1, E = end(); I != E; ++I) {
     const DSAInfo &Data = I->SharingMap.lookup(D);
-    if (Data.Attributes != OMPC_reduction || I->Directive != OMPD_taskgroup)
+    if (Data.Attributes != OMPC_reduction ||
+        Data.Modifier != OMPC_REDUCTION_task)
       continue;
     const ReductionData &ReductionData = I->ReductionMap.lookup(D);
     if (!ReductionData.ReductionOp ||
@@ -1407,8 +1418,8 @@ const DSAStackTy::DSAVarData DSAStackTy::getTopMostTaskgroupReductionData(
                                        "expression for the descriptor is not "
                                        "set.");
     TaskgroupDescriptor = I->TaskgroupReductionRef;
-    return DSAVarData(OMPD_taskgroup, OMPC_reduction, Data.RefExpr.getPointer(),
-                      Data.PrivateCopy, I->DefaultAttrLoc, /*Modifier=*/0);
+    return DSAVarData(I->Directive, OMPC_reduction, Data.RefExpr.getPointer(),
+                      Data.PrivateCopy, I->DefaultAttrLoc, OMPC_REDUCTION_task);
   }
   return DSAVarData();
 }
@@ -1420,7 +1431,8 @@ const DSAStackTy::DSAVarData DSAStackTy::getTopMostTaskgroupReductionData(
   assert(!isStackEmpty() && "Data-sharing attributes stack is empty.");
   for (const_iterator I = begin() + 1, E = end(); I != E; ++I) {
     const DSAInfo &Data = I->SharingMap.lookup(D);
-    if (Data.Attributes != OMPC_reduction || I->Directive != OMPD_taskgroup)
+    if (Data.Attributes != OMPC_reduction ||
+        Data.Modifier != OMPC_REDUCTION_task)
       continue;
     const ReductionData &ReductionData = I->ReductionMap.lookup(D);
     if (!ReductionData.ReductionOp ||
@@ -1432,8 +1444,8 @@ const DSAStackTy::DSAVarData DSAStackTy::getTopMostTaskgroupReductionData(
                                        "expression for the descriptor is not "
                                        "set.");
     TaskgroupDescriptor = I->TaskgroupReductionRef;
-    return DSAVarData(OMPD_taskgroup, OMPC_reduction, Data.RefExpr.getPointer(),
-                      Data.PrivateCopy, I->DefaultAttrLoc, /*Modifier=*/0);
+    return DSAVarData(I->Directive, OMPC_reduction, Data.RefExpr.getPointer(),
+                      Data.PrivateCopy, I->DefaultAttrLoc, OMPC_REDUCTION_task);
   }
   return DSAVarData();
 }
@@ -2290,7 +2302,12 @@ OpenMPClauseKind Sema::isOpenMPPrivateDecl(ValueDecl *D, unsigned Level,
           // Consider taskgroup reduction descriptor variable a private
           // to avoid possible capture in the region.
           (DSAStack->hasExplicitDirective(
-               [](OpenMPDirectiveKind K) { return K == OMPD_taskgroup; },
+               [](OpenMPDirectiveKind K) {
+                 return K == OMPD_taskgroup ||
+                        ((isOpenMPParallelDirective(K) ||
+                          isOpenMPWorksharingDirective(K)) &&
+                         !isOpenMPSimdDirective(K));
+               },
                Level) &&
            DSAStack->isTaskgroupReductionRef(D, Level)))
              ? OMPC_private
@@ -4257,7 +4274,8 @@ StmtResult Sema::ActOnOpenMPRegionEnd(StmtResult S,
   SmallVector<const OMPClauseWithPreInit *, 4> PICs;
   // This is required for proper codegen.
   for (OMPClause *Clause : Clauses) {
-    if (isOpenMPTaskingDirective(DSAStack->getCurrentDirective()) &&
+    if (!LangOpts.OpenMPSimd &&
+        isOpenMPTaskingDirective(DSAStack->getCurrentDirective()) &&
         Clause->getClauseKind() == OMPC_in_reduction) {
       // Capture taskgroup task_reduction descriptors inside the tasking regions
       // with the corresponding in_reduction items.
@@ -6245,6 +6263,7 @@ StmtResult Sema::ActOnOpenMPParallelDirective(ArrayRef<OMPClause *> Clauses,
   setFunctionHasBranchProtectedScope();
 
   return OMPParallelDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
+                                      DSAStack->getTaskgroupReductionRef(),
                                       DSAStack->isCancelRegion());
 }
 
@@ -8849,8 +8868,9 @@ Sema::ActOnOpenMPForDirective(ArrayRef<OMPClause *> Clauses, Stmt *AStmt,
   }
 
   setFunctionHasBranchProtectedScope();
-  return OMPForDirective::Create(Context, StartLoc, EndLoc, NestedLoopCount,
-                                 Clauses, AStmt, B, DSAStack->isCancelRegion());
+  return OMPForDirective::Create(
+      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B,
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPForSimdDirective(
@@ -8927,6 +8947,7 @@ StmtResult Sema::ActOnOpenMPSectionsDirective(ArrayRef<OMPClause *> Clauses,
   setFunctionHasBranchProtectedScope();
 
   return OMPSectionsDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
+                                      DSAStack->getTaskgroupReductionRef(),
                                       DSAStack->isCancelRegion());
 }
 
@@ -9103,9 +9124,9 @@ StmtResult Sema::ActOnOpenMPParallelForDirective(
   }
 
   setFunctionHasBranchProtectedScope();
-  return OMPParallelForDirective::Create(Context, StartLoc, EndLoc,
-                                         NestedLoopCount, Clauses, AStmt, B,
-                                         DSAStack->isCancelRegion());
+  return OMPParallelForDirective::Create(
+      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B,
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPParallelForSimdDirective(
@@ -9169,8 +9190,9 @@ Sema::ActOnOpenMPParallelMasterDirective(ArrayRef<OMPClause *> Clauses,
 
   setFunctionHasBranchProtectedScope();
 
-  return OMPParallelMasterDirective::Create(Context, StartLoc, EndLoc, Clauses,
-                                            AStmt);
+  return OMPParallelMasterDirective::Create(
+      Context, StartLoc, EndLoc, Clauses, AStmt,
+      DSAStack->getTaskgroupReductionRef());
 }
 
 StmtResult
@@ -9209,7 +9231,8 @@ Sema::ActOnOpenMPParallelSectionsDirective(ArrayRef<OMPClause *> Clauses,
   setFunctionHasBranchProtectedScope();
 
   return OMPParallelSectionsDirective::Create(
-      Context, StartLoc, EndLoc, Clauses, AStmt, DSAStack->isCancelRegion());
+      Context, StartLoc, EndLoc, Clauses, AStmt,
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 /// detach and mergeable clauses are mutially exclusive, check for it.
@@ -10261,8 +10284,9 @@ Sema::ActOnOpenMPTargetParallelDirective(ArrayRef<OMPClause *> Clauses,
 
   setFunctionHasBranchProtectedScope();
 
-  return OMPTargetParallelDirective::Create(Context, StartLoc, EndLoc, Clauses,
-                                            AStmt, DSAStack->isCancelRegion());
+  return OMPTargetParallelDirective::Create(
+      Context, StartLoc, EndLoc, Clauses, AStmt,
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPTargetParallelForDirective(
@@ -10314,9 +10338,9 @@ StmtResult Sema::ActOnOpenMPTargetParallelForDirective(
   }
 
   setFunctionHasBranchProtectedScope();
-  return OMPTargetParallelForDirective::Create(Context, StartLoc, EndLoc,
-                                               NestedLoopCount, Clauses, AStmt,
-                                               B, DSAStack->isCancelRegion());
+  return OMPTargetParallelForDirective::Create(
+      Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B,
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 /// Check for existence of a map clause in the list of clauses.
@@ -10928,7 +10952,7 @@ StmtResult Sema::ActOnOpenMPDistributeParallelForDirective(
   setFunctionHasBranchProtectedScope();
   return OMPDistributeParallelForDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B,
-      DSAStack->isCancelRegion());
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPDistributeParallelForSimdDirective(
@@ -11369,7 +11393,7 @@ StmtResult Sema::ActOnOpenMPTeamsDistributeParallelForDirective(
 
   return OMPTeamsDistributeParallelForDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B,
-      DSAStack->isCancelRegion());
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPTargetTeamsDirective(ArrayRef<OMPClause *> Clauses,
@@ -11498,7 +11522,7 @@ StmtResult Sema::ActOnOpenMPTargetTeamsDistributeParallelForDirective(
   setFunctionHasBranchProtectedScope();
   return OMPTargetTeamsDistributeParallelForDirective::Create(
       Context, StartLoc, EndLoc, NestedLoopCount, Clauses, AStmt, B,
-      DSAStack->isCancelRegion());
+      DSAStack->getTaskgroupReductionRef(), DSAStack->isCancelRegion());
 }
 
 StmtResult Sema::ActOnOpenMPTargetTeamsDistributeParallelForSimdDirective(
@@ -15494,9 +15518,17 @@ static bool actOnOMPReductionKindClause(
     }
     // All reduction items are still marked as reduction (to do not increase
     // code base size).
-    Stack->addDSA(D, RefExpr->IgnoreParens(), OMPC_reduction, Ref,
-                  RD.RedModifier);
-    if (CurrDir == OMPD_taskgroup) {
+    unsigned Modifier = RD.RedModifier;
+    // Consider task_reductions as reductions with task modifier. Required for
+    // correct analysis of in_reduction clauses.
+    if (CurrDir == OMPD_taskgroup && ClauseKind == OMPC_task_reduction)
+      Modifier = OMPC_REDUCTION_task;
+    Stack->addDSA(D, RefExpr->IgnoreParens(), OMPC_reduction, Ref, Modifier);
+    if (Modifier == OMPC_REDUCTION_task &&
+        (CurrDir == OMPD_taskgroup ||
+         ((isOpenMPParallelDirective(CurrDir) ||
+           isOpenMPWorksharingDirective(CurrDir)) &&
+          !isOpenMPSimdDirective(CurrDir)))) {
       if (DeclareReductionRef.isUsable())
         Stack->addTaskgroupReductionData(D, ReductionIdRange,
                                          DeclareReductionRef.get());
