@@ -200,16 +200,13 @@ __OMP_CLAUSE(destroy, OMPDestroyClause)
 __OMP_CLAUSE(detach, OMPDetachClause)
 __OMP_CLAUSE(inclusive, OMPInclusiveClause)
 __OMP_CLAUSE(exclusive, OMPExclusiveClause)
-<<<<<<< HEAD
+__OMP_CLAUSE(uses_allocators, OMPUsesAllocatorsClause)
 #if INTEL_CUSTOMIZATION
 __OMP_CLAUSE(tile, OMPTileClause)
 #if INTEL_FEATURE_CSA
 __OMP_CLAUSE(dataflow, OMPDataflowClause)
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-__OMP_CLAUSE(uses_allocators, OMPUsesAllocatorsClause)
->>>>>>> b5be1c5419e2a38eb60fc7e785567b54b6d9e0e0
 
 __OMP_CLAUSE_NO_CLASS(uniform)
 __OMP_CLAUSE_NO_CLASS(device_type)
