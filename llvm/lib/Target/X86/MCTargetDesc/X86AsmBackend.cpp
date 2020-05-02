@@ -154,7 +154,6 @@ public:
       AlignBranchType.addKind(X86::AlignBranchFused);
       AlignBranchType.addKind(X86::AlignBranchJcc);
       AlignBranchType.addKind(X86::AlignBranchJmp);
-      TargetPrefixMax = 5;
     }
     // Allow overriding defaults set by master flag
     if (X86AlignBranchBoundary.getNumOccurrences())
