@@ -6023,6 +6023,10 @@ struct SourceWithCompletedTagList : clang::ExternalASTSource {
     Record->completeDefinition();
     CompletedTags.push_back(Tag);
   }
+#if INTEL_CUSTOMIZATION
+private:
+  using ExternalASTSource::CompleteType;
+#endif // INTEL_CUSTOMIZATION
 };
 
 TEST_P(ImportWithExternalSource, CompleteRecordBeforeImporting) {
