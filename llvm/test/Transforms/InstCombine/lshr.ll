@@ -137,13 +137,8 @@ define i8 @lshr_exact(i8 %x) {
 ; begin INTEL_CUSTOMIZATION
 ; test case modified relative to llorg to bypass an xmain optimization
 ; CHECK-LABEL: @lshr_exact(
-<<<<<<< HEAD
-; CHECK-NEXT:    [[SHL:%.*]] = shl i8 %x, 3
+; CHECK-NEXT:    [[SHL:%.*]] = shl i8 [[X:%.*]], 3
 ; CHECK-NEXT:    [[ADD:%.*]] = add i8 [[SHL]], -4
-=======
-; CHECK-NEXT:    [[SHL:%.*]] = shl i8 [[X:%.*]], 2
-; CHECK-NEXT:    [[ADD:%.*]] = add i8 [[SHL]], 4
->>>>>>> 7c649b58f02996fc89032df20d1377f8ef76f70c
 ; CHECK-NEXT:    [[LSHR:%.*]] = lshr exact i8 [[ADD]], 2
 ; CHECK-NEXT:    ret i8 [[LSHR]]
 ;
@@ -158,13 +153,8 @@ define <2 x i8> @lshr_exact_splat_vec(<2 x i8> %x) {
 ; begin INTEL_CUSTOMIZATION
 ; test case modified relative to llorg to bypass an xmain optimization
 ; CHECK-LABEL: @lshr_exact_splat_vec(
-<<<<<<< HEAD
-; CHECK-NEXT:    [[SHL:%.*]] = shl <2 x i8> %x, <i8 3, i8 3>
+; CHECK-NEXT:    [[SHL:%.*]] = shl <2 x i8> [[X:%.*]], <i8 3, i8 3>
 ; CHECK-NEXT:    [[ADD:%.*]] = add <2 x i8> [[SHL]], <i8 -4, i8 -4>
-=======
-; CHECK-NEXT:    [[SHL:%.*]] = shl <2 x i8> [[X:%.*]], <i8 2, i8 2>
-; CHECK-NEXT:    [[ADD:%.*]] = add <2 x i8> [[SHL]], <i8 4, i8 4>
->>>>>>> 7c649b58f02996fc89032df20d1377f8ef76f70c
 ; CHECK-NEXT:    [[LSHR:%.*]] = lshr exact <2 x i8> [[ADD]], <i8 2, i8 2>
 ; CHECK-NEXT:    ret <2 x i8> [[LSHR]]
 ;
