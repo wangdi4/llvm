@@ -642,7 +642,6 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
-  void print(raw_ostream &O, const Twine &Indent);
   virtual void print(raw_ostream &O, const Twine &Indent,
                      VPSlotTracker &SlotTracker) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
