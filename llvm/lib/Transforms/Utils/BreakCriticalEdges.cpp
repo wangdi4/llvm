@@ -442,7 +442,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
       BlockFrequency NewBBFreq =
           PredFreq * BPI->getEdgeProbability(IBRPred, Target);
       constexpr unsigned FreqRatioToSkipMerge = 2;
-      if (PredFreq.getFrequency() <=
+      if (PredFreq.getFrequency() <
           NewBBFreq.getFrequency() * FreqRatioToSkipMerge)
         continue;
     }
