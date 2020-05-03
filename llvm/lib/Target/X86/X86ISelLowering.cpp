@@ -5957,13 +5957,14 @@ static bool collectConcatOps(SDNode *N, SmallVectorImpl<SDValue> &Ops) {
 
 static std::pair<SDValue, SDValue> splitVector(SDValue Op, SelectionDAG &DAG,
                                                const SDLoc &dl) {
-  MVT VT = Op.getSimpleValueType();
+  EVT VT = Op.getValueType();
   unsigned NumElems = VT.getVectorNumElements();
   unsigned SizeInBits = VT.getSizeInBits();
+  assert((NumElems % 2) == 0 && (SizeInBits % 2) == 0 &&
+         "Can't split odd sized vector");
 
   SDValue Lo = extractSubVector(Op, 0, DAG, dl, SizeInBits / 2);
   SDValue Hi = extractSubVector(Op, NumElems / 2, DAG, dl, SizeInBits / 2);
-
   return std::make_pair(Lo, Hi);
 }
 
@@ -20702,10 +20703,9 @@ static SDValue truncateVectorWithPACK(unsigned Opcode, EVT DstVT, SDValue In,
     return DAG.getBitcast(DstVT, Res);
   }
 
-  // Extract lower/upper subvectors.
-  unsigned NumSubElts = NumElems / 2;
-  SDValue Lo = extractSubVector(In, 0 * NumSubElts, DAG, DL, SrcSizeInBits / 2);
-  SDValue Hi = extractSubVector(In, 1 * NumSubElts, DAG, DL, SrcSizeInBits / 2);
+  // Split lower/upper subvectors.
+  SDValue Lo, Hi;
+  std::tie(Lo, Hi) = splitVector(In, DAG, DL);
 
   unsigned SubSizeInBits = SrcSizeInBits / 2;
   InVT = EVT::getVectorVT(Ctx, InVT, SubSizeInBits / InVT.getSizeInBits());
@@ -20745,7 +20745,7 @@ static SDValue truncateVectorWithPACK(unsigned Opcode, EVT DstVT, SDValue In,
 
   // Recursively pack lower/upper subvectors, concat result and pack again.
   assert(SrcSizeInBits >= 256 && "Expected 256-bit vector or greater");
-  EVT PackedVT = EVT::getVectorVT(Ctx, PackedSVT, NumSubElts);
+  EVT PackedVT = EVT::getVectorVT(Ctx, PackedSVT, NumElems / 2);
   Lo = truncateVectorWithPACK(Opcode, PackedVT, Lo, DL, DAG, Subtarget);
   Hi = truncateVectorWithPACK(Opcode, PackedVT, Hi, DL, DAG, Subtarget);
 
@@ -23794,14 +23794,10 @@ static SDValue splitVectorStore(StoreSDNode *Store, SelectionDAG &DAG) {
   if (!Store->isSimple())
     return SDValue();
 
-  EVT StoreVT = StoredVal.getValueType();
-  unsigned NumElems = StoreVT.getVectorNumElements();
-  unsigned HalfSize = StoredVal.getValueSizeInBits() / 2;
-  unsigned HalfAlign = (128 == HalfSize ? 16 : 32);
-
   SDLoc DL(Store);
-  SDValue Value0 = extractSubVector(StoredVal, 0, DAG, DL, HalfSize);
-  SDValue Value1 = extractSubVector(StoredVal, NumElems / 2, DAG, DL, HalfSize);
+  SDValue Value0, Value1;
+  std::tie(Value0, Value1) = splitVector(StoredVal, DAG, DL);
+  unsigned HalfAlign = (StoredVal.getValueType().is256BitVector() ? 16 : 32);
   SDValue Ptr0 = Store->getBasePtr();
   SDValue Ptr1 = DAG.getMemBasePlusOffset(Ptr0, HalfAlign, DL);
   unsigned Alignment = Store->getAlignment();
@@ -39797,12 +39793,9 @@ static SDValue combineHorizontalMinMaxResult(SDNode *Extract, SelectionDAG &DAG,
 
   // First, reduce the source down to 128-bit, applying BinOp to lo/hi.
   while (SrcVT.getSizeInBits() > 128) {
-    unsigned NumElts = SrcVT.getVectorNumElements();
-    unsigned NumSubElts = NumElts / 2;
-    SrcVT = EVT::getVectorVT(*DAG.getContext(), SrcSVT, NumSubElts);
-    unsigned SubSizeInBits = SrcVT.getSizeInBits();
-    SDValue Lo = extractSubVector(MinPos, 0, DAG, DL, SubSizeInBits);
-    SDValue Hi = extractSubVector(MinPos, NumSubElts, DAG, DL, SubSizeInBits);
+    SDValue Lo, Hi;
+    std::tie(Lo, Hi) = splitVector(MinPos, DAG, DL);
+    SrcVT = Lo.getValueType();
     MinPos = DAG.getNode(BinOp, DL, SrcVT, Lo, Hi);
   }
   assert(((SrcVT == MVT::v8i16 && ExtractVT == MVT::i16) ||
@@ -40384,12 +40377,10 @@ static SDValue combineReductionToHorizontal(SDNode *ExtElt, SelectionDAG &DAG,
   // vXi8 reduction - sum lo/hi halves then use PSADBW.
   if (VT == MVT::i8) {
     while (Rdx.getValueSizeInBits() > 128) {
-      unsigned HalfSize = VecVT.getSizeInBits() / 2;
-      unsigned HalfElts = VecVT.getVectorNumElements() / 2;
-      SDValue Lo = extractSubVector(Rdx, 0, DAG, DL, HalfSize);
-      SDValue Hi = extractSubVector(Rdx, HalfElts, DAG, DL, HalfSize);
-      Rdx = DAG.getNode(ISD::ADD, DL, Lo.getValueType(), Lo, Hi);
-      VecVT = Rdx.getValueType();
+      SDValue Lo, Hi;
+      std::tie(Lo, Hi) = splitVector(Rdx, DAG, DL);
+      VecVT = Lo.getValueType();
+      Rdx = DAG.getNode(ISD::ADD, DL, VecVT, Lo, Hi);
     }
     assert(VecVT == MVT::v16i8 && "v16i8 reduction expected");
 
