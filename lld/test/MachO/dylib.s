@@ -1,3 +1,7 @@
+# INTEL_CUSTOMIZATION
+# Disabled for 32-bit OpenCL in Windows since it isn't supported.
+# UNSUPPORTED: intel_opencl && i686-pc-windows
+# end INTEL_CUSTOMIZATION
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-apple-darwin %s -o %t.o
 
