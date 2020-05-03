@@ -882,11 +882,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // just become a regular analysis dependency.
       OptimizationRemarkEmitter ORE(Caller);
 
-<<<<<<< HEAD
-      auto OIC = shouldInline(CB, GetInlineCost, ORE, &IR); // INTEL
-=======
-      auto InlDec = shouldInline(CB, GetInlineCost, ORE);
->>>>>>> 3dbc612cf27327ef39cbb8ee8f69957e85a4e22e
+      auto InlDec = shouldInline(CB, GetInlineCost, ORE, &IR); // INTEL
       // If the policy determines that we should inline this function,
       // delete the call instead.
       if (!InlDec)
@@ -914,7 +910,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
         // Attempt to inline the function.
         using namespace ore;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         IR.beginUpdate(&CB);
         MDIR.beginUpdate(&CB);
@@ -940,20 +935,11 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           MDIR.endUpdate();
           llvm::setMDReasonNotInlined(&CB, Reason);
           setInlineRemark(CB, std::string(LIR.getFailureReason()) + "; " +
-                                  inlineCostStr(OIC.getCost()));
+                                  inlineCostStr(InlDec.getCost()));
           if (CallSitesForFusion) {
             CallSitesForFusion->clear();
           }
 #endif // INTEL_CUSTOMIZATION
-=======
-
-        InlineResult IR = inlineCallIfPossible(
-            CB, InlineInfo, InlinedArrayAllocas, InlineHistoryID,
-            InsertLifetime, AARGetter, ImportedFunctionsStats);
-        if (!IR.isSuccess()) {
-          setInlineRemark(CB, std::string(IR.getFailureReason()) + "; " +
-                                  inlineCostStr(InlDec.getCost()));
->>>>>>> 3dbc612cf27327ef39cbb8ee8f69957e85a4e22e
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
                                             Block)
@@ -1453,11 +1439,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
-<<<<<<< HEAD
-      auto OIC = shouldInline(*CB, GetInlineCost, ORE, &Report); // INTEL
-=======
-      auto InlDec = shouldInline(*CB, GetInlineCost, ORE);
->>>>>>> 3dbc612cf27327ef39cbb8ee8f69957e85a4e22e
+      auto InlDec = shouldInline(*CB, GetInlineCost, ORE, &Report); // INTEL
       // Check whether we want to inline this callsite.
       if (!InlDec)
         continue;
