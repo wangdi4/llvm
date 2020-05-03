@@ -882,10 +882,14 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // just become a regular analysis dependency.
       OptimizationRemarkEmitter ORE(Caller);
 
+<<<<<<< HEAD
       auto OIC = shouldInline(CB, GetInlineCost, ORE, &IR); // INTEL
+=======
+      auto InlDec = shouldInline(CB, GetInlineCost, ORE);
+>>>>>>> 3dbc612cf27327ef39cbb8ee8f69957e85a4e22e
       // If the policy determines that we should inline this function,
       // delete the call instead.
-      if (!OIC)
+      if (!InlDec)
         continue;
 
       // If this call site is dead and it is to a readonly function, we should
@@ -910,6 +914,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
         // Attempt to inline the function.
         using namespace ore;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         IR.beginUpdate(&CB);
         MDIR.beginUpdate(&CB);
@@ -940,6 +945,15 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             CallSitesForFusion->clear();
           }
 #endif // INTEL_CUSTOMIZATION
+=======
+
+        InlineResult IR = inlineCallIfPossible(
+            CB, InlineInfo, InlinedArrayAllocas, InlineHistoryID,
+            InsertLifetime, AARGetter, ImportedFunctionsStats);
+        if (!IR.isSuccess()) {
+          setInlineRemark(CB, std::string(IR.getFailureReason()) + "; " +
+                                  inlineCostStr(InlDec.getCost()));
+>>>>>>> 3dbc612cf27327ef39cbb8ee8f69957e85a4e22e
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
                                             Block)
@@ -971,7 +985,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 #endif // INTEL_CUSTOMIZATION
         ILIC->invalidateFunction(Caller); // INTEL
 
-        emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, OIC.getCost());
+        emitInlinedInto(ORE, DLoc, Block, *Callee, *Caller, InlDec.getCost());
 
         IR.inlineCallSite();           // INTEL
         IR.endUpdate();                // INTEL
@@ -1439,9 +1453,13 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
+<<<<<<< HEAD
       auto OIC = shouldInline(*CB, GetInlineCost, ORE, &Report); // INTEL
+=======
+      auto InlDec = shouldInline(*CB, GetInlineCost, ORE);
+>>>>>>> 3dbc612cf27327ef39cbb8ee8f69957e85a4e22e
       // Check whether we want to inline this callsite.
-      if (!OIC)
+      if (!InlDec)
         continue;
 
       // Setup the data structure used to plumb customization into the
@@ -1471,7 +1489,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                                        &Reason);                    // INTEL
       if (!IR.isSuccess()) {
         setInlineRemark(*CB, std::string(IR.getFailureReason()) + "; " +
-                                 inlineCostStr(OIC.getCost()));
+                                 inlineCostStr(InlDec.getCost()));
         ORE.emit([&]() {
           return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
                  << NV("Callee", &Callee) << " will not be inlined into "
@@ -1513,7 +1531,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       ++NumInlined;
 
-      emitInlinedInto(ORE, DLoc, Block, Callee, F, OIC.getCost());
+      emitInlinedInto(ORE, DLoc, Block, Callee, F, InlDec.getCost());
 
       Report.inlineCallSite();           // INTEL
       Report.endUpdate();                // INTEL
