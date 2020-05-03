@@ -1393,6 +1393,9 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     case OMPD_declare_variant:
     case OMPD_begin_declare_variant:
     case OMPD_end_declare_variant:
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+#endif // INTEL_COLLAB
     case OMPD_unknown:
       llvm_unreachable("Enexpected directive with task reductions.");
     }
