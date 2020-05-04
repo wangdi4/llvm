@@ -5318,6 +5318,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(A->getValue());
   }
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_fiopenmp_simd)) {
+    // FIXME: Add better interactions with -fopenmp-simd.
+    CmdArgs.push_back("-fopenmp-simd");
+    CmdArgs.push_back("-fopenmp-late-outline");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Pass -fmessage-length=.
   unsigned MessageLength = 0;
   if (Arg *A = Args.getLastArg(options::OPT_fmessage_length_EQ)) {

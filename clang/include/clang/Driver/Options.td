@@ -1847,6 +1847,9 @@ def fnoopenmp_relocatable_target : Flag<["-"], "fnoopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
+#if INTEL_CUSTOMIZATION
+def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>;
+#endif // INTEL_CUSTOMIZATION
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
 def fno_openmp_simd : Flag<["-"], "fno-openmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>;
