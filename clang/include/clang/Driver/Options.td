@@ -3109,6 +3109,10 @@ def stdlibxx_isystem : JoinedOrSeparate<["-"], "stdlib++-isystem">,
 def strict_ansi : Flag<["-"], "strict-ansi">, Flags<[DriverOption]>,
   HelpText<"strict ANSI conformance dialect">;
 def : Flag<["-"], "strict_ansi">, Alias<strict_ansi>;
+def use_msasm : Flag<["-"], "use-msasm">, Alias<fasm_blocks>,
+  HelpText<"enables the use of blocks and entire functions of assembly code"
+  " within a C or C++ file">;
+def : Flag<["-"], "use_msasm">, Alias<fasm_blocks>;
 #endif // INTEL_CUSTOMIZATION
 def unwindlib_EQ : Joined<["-", "--"], "unwindlib=">, Flags<[CC1Option]>,
   HelpText<"Unwind library to use">, Values<"libgcc,unwindlib,platform">;

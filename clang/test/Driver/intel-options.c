@@ -184,3 +184,8 @@
 // RUN: %clang_cl -### -c /Qtemplate-depth:5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
 // RUN: %clang_cl -### -c /Qtemplate-depth=5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
 // CHECK-TEMPLATE-DEPTH: "-ftemplate-depth" "5"
+
+// -use-msasm alias to -fasm-blocks
+// RUN: %clang -### -c -use-msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
+// RUN: %clang -### -c -use_msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
+//CHECK-USE-MSASM: "-fasm-blocks"
