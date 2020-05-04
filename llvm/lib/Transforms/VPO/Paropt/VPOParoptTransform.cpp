@@ -1615,8 +1615,10 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTarget:
         if (DisableOffload) {
-          // Ignore TARGET construct
+          // Ignore TARGET construct, but maintain [FIRST]PRIVATE semantics
           LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");
+          Changed |= genPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
           RemoveDirectives = true;
           break;
         }
