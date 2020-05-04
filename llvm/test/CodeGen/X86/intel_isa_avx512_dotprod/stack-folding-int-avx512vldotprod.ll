@@ -59,16 +59,23 @@ define <4 x i32> @stack_fold_vpdpbssd_mask_commuted(<4 x i32>* %a0, <4 x i32> %a
 ; AVXDOTPROD-NEXT:    vmovaps %xmm1, %xmm2
 ; AVXDOTPROD-NEXT:    vpdpbssd {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm2 # 16-byte Folded Reload
 ; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrl $3, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
 ; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrl $2, %ecx
-; AVXDOTPROD-NEXT:    movl %esi, %edx
-; AVXDOTPROD-NEXT:    shrl %edx
-; AVXDOTPROD-NEXT:    andl $1, %esi
-; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $4, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrb $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $4, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm0, %xmm0
 ; AVXDOTPROD-NEXT:    vblendvps %xmm0, %xmm2, %xmm1, %xmm0
 ; AVXDOTPROD-NEXT:    retq
@@ -98,21 +105,25 @@ define <4 x i32> @stack_fold_vpdpbssd_maskz_commuted(<4 x i32> %a0, <4 x i32> %a
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $3, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %esi
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $2, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    movb (%rdi), %al
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
 ; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $4, %edx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $6, %esi, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    andb $1, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    vpinsrb $2, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vpinsrb $4, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpsrad $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpand %xmm0, %xmm1, %xmm0
@@ -179,16 +190,23 @@ define <4 x i32> @stack_fold_vpdpbssds_mask_commuted(<4 x i32>* %a0, <4 x i32> %
 ; AVXDOTPROD-NEXT:    vmovaps %xmm1, %xmm2
 ; AVXDOTPROD-NEXT:    vpdpbssds {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm2 # 16-byte Folded Reload
 ; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrl $3, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
 ; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrl $2, %ecx
-; AVXDOTPROD-NEXT:    movl %esi, %edx
-; AVXDOTPROD-NEXT:    shrl %edx
-; AVXDOTPROD-NEXT:    andl $1, %esi
-; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $4, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrb $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $4, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm0, %xmm0
 ; AVXDOTPROD-NEXT:    vblendvps %xmm0, %xmm2, %xmm1, %xmm0
 ; AVXDOTPROD-NEXT:    retq
@@ -218,21 +236,25 @@ define <4 x i32> @stack_fold_vpdpbssds_maskz_commuted(<4 x i32> %a0, <4 x i32> %
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $3, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %esi
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $2, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    movb (%rdi), %al
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
 ; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $4, %edx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $6, %esi, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    andb $1, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    vpinsrb $2, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vpinsrb $4, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpsrad $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpand %xmm0, %xmm1, %xmm0
@@ -299,16 +321,23 @@ define <4 x i32> @stack_fold_vpdpbuud_mask_commuted(<4 x i32>* %a0, <4 x i32> %a
 ; AVXDOTPROD-NEXT:    vmovaps %xmm1, %xmm2
 ; AVXDOTPROD-NEXT:    vpdpbuud {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm2 # 16-byte Folded Reload
 ; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrl $3, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
 ; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrl $2, %ecx
-; AVXDOTPROD-NEXT:    movl %esi, %edx
-; AVXDOTPROD-NEXT:    shrl %edx
-; AVXDOTPROD-NEXT:    andl $1, %esi
-; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $4, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrb $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $4, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm0, %xmm0
 ; AVXDOTPROD-NEXT:    vblendvps %xmm0, %xmm2, %xmm1, %xmm0
 ; AVXDOTPROD-NEXT:    retq
@@ -338,21 +367,25 @@ define <4 x i32> @stack_fold_vpdpbuud_maskz_commuted(<4 x i32> %a0, <4 x i32> %a
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $3, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %esi
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $2, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    movb (%rdi), %al
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
 ; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $4, %edx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $6, %esi, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    andb $1, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    vpinsrb $2, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vpinsrb $4, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpsrad $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpand %xmm0, %xmm1, %xmm0
@@ -419,16 +452,23 @@ define <4 x i32> @stack_fold_vpdpbuuds_mask_commuted(<4 x i32>* %a0, <4 x i32> %
 ; AVXDOTPROD-NEXT:    vmovaps %xmm1, %xmm2
 ; AVXDOTPROD-NEXT:    vpdpbuuds {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm2 # 16-byte Folded Reload
 ; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrl $3, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
 ; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrl $2, %ecx
-; AVXDOTPROD-NEXT:    movl %esi, %edx
-; AVXDOTPROD-NEXT:    shrl %edx
-; AVXDOTPROD-NEXT:    andl $1, %esi
-; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $4, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrb $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $4, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm0, %xmm0
 ; AVXDOTPROD-NEXT:    vblendvps %xmm0, %xmm2, %xmm1, %xmm0
 ; AVXDOTPROD-NEXT:    retq
@@ -458,21 +498,25 @@ define <4 x i32> @stack_fold_vpdpbuuds_maskz_commuted(<4 x i32> %a0, <4 x i32> %
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $3, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %esi
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $2, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    movb (%rdi), %al
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
 ; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $4, %edx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $6, %esi, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    andb $1, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    vpinsrb $2, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vpinsrb $4, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpsrad $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpand %xmm0, %xmm1, %xmm0
@@ -525,16 +569,23 @@ define <4 x i32> @stack_fold_vpdpbsud_mask(<4 x i32>* %a0, <4 x i32> %a1, <4 x i
 ; AVXDOTPROD-NEXT:    vmovaps %xmm1, %xmm2
 ; AVXDOTPROD-NEXT:    vpdpbsud {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm2 # 16-byte Folded Reload
 ; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrl $3, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
 ; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrl $2, %ecx
-; AVXDOTPROD-NEXT:    movl %esi, %edx
-; AVXDOTPROD-NEXT:    shrl %edx
-; AVXDOTPROD-NEXT:    andl $1, %esi
-; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $4, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrb $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $4, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm0, %xmm0
 ; AVXDOTPROD-NEXT:    vblendvps %xmm0, %xmm2, %xmm1, %xmm0
 ; AVXDOTPROD-NEXT:    retq
@@ -564,21 +615,25 @@ define <4 x i32> @stack_fold_vpdpbsud_maskz(<4 x i32> %a0, <4 x i32> %a1, <4 x i
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $3, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %esi
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $2, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    movb (%rdi), %al
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
 ; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $4, %edx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $6, %esi, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    andb $1, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    vpinsrb $2, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vpinsrb $4, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpsrad $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpand %xmm0, %xmm1, %xmm0
@@ -631,16 +686,23 @@ define <4 x i32> @stack_fold_vpdpbsuds_mask(<4 x i32>* %a0, <4 x i32> %a1, <4 x 
 ; AVXDOTPROD-NEXT:    vmovaps %xmm1, %xmm2
 ; AVXDOTPROD-NEXT:    vpdpbsuds {{[-0-9]+}}(%r{{[sb]}}p), %xmm0, %xmm2 # 16-byte Folded Reload
 ; AVXDOTPROD-NEXT:    movl %esi, %eax
-; AVXDOTPROD-NEXT:    shrl $3, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
 ; AVXDOTPROD-NEXT:    movl %esi, %ecx
-; AVXDOTPROD-NEXT:    shrl $2, %ecx
-; AVXDOTPROD-NEXT:    movl %esi, %edx
-; AVXDOTPROD-NEXT:    shrl %edx
-; AVXDOTPROD-NEXT:    andl $1, %esi
-; AVXDOTPROD-NEXT:    vmovd %esi, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $2, %edx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $4, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrw $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrb $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    andb $1, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $4, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm0, %xmm0
 ; AVXDOTPROD-NEXT:    vblendvps %xmm0, %xmm2, %xmm1, %xmm0
 ; AVXDOTPROD-NEXT:    retq
@@ -670,21 +732,25 @@ define <4 x i32> @stack_fold_vpdpbsuds_maskz(<4 x i32> %a0, <4 x i32> %a1, <4 x 
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
-; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
-; AVXDOTPROD-NEXT:    movl %eax, %ecx
-; AVXDOTPROD-NEXT:    shrb $3, %cl
-; AVXDOTPROD-NEXT:    movzbl %cl, %esi
-; AVXDOTPROD-NEXT:    movl %eax, %edx
-; AVXDOTPROD-NEXT:    shrb $2, %dl
-; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    movb (%rdi), %al
 ; AVXDOTPROD-NEXT:    movl %eax, %ecx
 ; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
 ; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
-; AVXDOTPROD-NEXT:    andl $1, %eax
-; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $4, %edx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrw $6, %esi, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    andb $1, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    vpinsrb $2, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    andb $1, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    vpinsrb $4, %ecx, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    vpinsrb $6, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    vpmovzxwd {{.*#+}} xmm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero
 ; AVXDOTPROD-NEXT:    vpslld $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpsrad $31, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vpand %xmm0, %xmm1, %xmm0
@@ -743,7 +809,6 @@ define <8 x i32> @stack_fold_vpdpbssd256__mask_commuted(<8 x i32>* %a0, <8 x i32
 ;
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbssd256__mask_commuted:
 ; AVXDOTPROD:       # %bb.0:
-; AVXDOTPROD-NEXT:    # kill: def $esi killed $esi def $rsi
 ; AVXDOTPROD-NEXT:    vmovups %ymm1, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
@@ -751,34 +816,49 @@ define <8 x i32> @stack_fold_vpdpbssd256__mask_commuted(<8 x i32>* %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
 ; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
 ; AVXDOTPROD-NEXT:    vpdpbssd {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq %sil, %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    shll $25, %esi
-; AVXDOTPROD-NEXT:    vpinsrd $2, %esi, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $5, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    movl %esi, %ecx
+; AVXDOTPROD-NEXT:    shrb $4, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $6, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $7, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
@@ -810,36 +890,50 @@ define <8 x i32> @stack_fold_vpdpbssd256_maskz_commuted(<8 x i32> %a0, <8 x i32>
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
 ; AVXDOTPROD-NEXT:    vpdpbssd {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq (%rdi), %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $5, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    shrb $4, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    andl $1, %edx
+; AVXDOTPROD-NEXT:    negl %edx
 ; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $57, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $6, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $7, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
@@ -897,7 +991,6 @@ define <8 x i32> @stack_fold_vpdpbssds256_mask_commuted(<8 x i32>* %a0, <8 x i32
 ;
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbssds256_mask_commuted:
 ; AVXDOTPROD:       # %bb.0:
-; AVXDOTPROD-NEXT:    # kill: def $esi killed $esi def $rsi
 ; AVXDOTPROD-NEXT:    vmovups %ymm1, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
@@ -905,34 +998,49 @@ define <8 x i32> @stack_fold_vpdpbssds256_mask_commuted(<8 x i32>* %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
 ; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
 ; AVXDOTPROD-NEXT:    vpdpbssds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq %sil, %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    shll $25, %esi
-; AVXDOTPROD-NEXT:    vpinsrd $2, %esi, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $5, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    movl %esi, %ecx
+; AVXDOTPROD-NEXT:    shrb $4, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $6, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $7, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
@@ -964,36 +1072,50 @@ define <8 x i32> @stack_fold_vpdpbssds256_maskz_commuted(<8 x i32> %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
 ; AVXDOTPROD-NEXT:    vpdpbssds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq (%rdi), %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $5, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    shrb $4, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    andl $1, %edx
+; AVXDOTPROD-NEXT:    negl %edx
 ; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $57, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $6, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $7, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
@@ -1051,7 +1173,6 @@ define <8 x i32> @stack_fold_vpdpbuud256_mask_commuted(<8 x i32>* %a0, <8 x i32>
 ;
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbuud256_mask_commuted:
 ; AVXDOTPROD:       # %bb.0:
-; AVXDOTPROD-NEXT:    # kill: def $esi killed $esi def $rsi
 ; AVXDOTPROD-NEXT:    vmovups %ymm1, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
@@ -1059,34 +1180,49 @@ define <8 x i32> @stack_fold_vpdpbuud256_mask_commuted(<8 x i32>* %a0, <8 x i32>
 ; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
 ; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
 ; AVXDOTPROD-NEXT:    vpdpbuud {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq %sil, %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    shll $25, %esi
-; AVXDOTPROD-NEXT:    vpinsrd $2, %esi, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $5, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    movl %esi, %ecx
+; AVXDOTPROD-NEXT:    shrb $4, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $6, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $7, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
@@ -1118,36 +1254,50 @@ define <8 x i32> @stack_fold_vpdpbuud256_maskz_commuted(<8 x i32> %a0, <8 x i32>
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
 ; AVXDOTPROD-NEXT:    vpdpbuud {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq (%rdi), %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $5, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    shrb $4, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    andl $1, %edx
+; AVXDOTPROD-NEXT:    negl %edx
 ; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $57, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $6, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $7, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
@@ -1205,7 +1355,6 @@ define <8 x i32> @stack_fold_vpdpbuuds256_mask_commuted(<8 x i32>* %a0, <8 x i32
 ;
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbuuds256_mask_commuted:
 ; AVXDOTPROD:       # %bb.0:
-; AVXDOTPROD-NEXT:    # kill: def $esi killed $esi def $rsi
 ; AVXDOTPROD-NEXT:    vmovups %ymm1, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
@@ -1213,34 +1362,49 @@ define <8 x i32> @stack_fold_vpdpbuuds256_mask_commuted(<8 x i32>* %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
 ; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
 ; AVXDOTPROD-NEXT:    vpdpbuuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq %sil, %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    shll $25, %esi
-; AVXDOTPROD-NEXT:    vpinsrd $2, %esi, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $5, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    movl %esi, %ecx
+; AVXDOTPROD-NEXT:    shrb $4, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $6, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $7, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
@@ -1272,36 +1436,50 @@ define <8 x i32> @stack_fold_vpdpbuuds256_maskz_commuted(<8 x i32> %a0, <8 x i32
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
 ; AVXDOTPROD-NEXT:    vpdpbuuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq (%rdi), %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $5, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    shrb $4, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    andl $1, %edx
+; AVXDOTPROD-NEXT:    negl %edx
 ; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $57, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $6, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $7, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
@@ -1345,7 +1523,6 @@ define <8 x i32> @stack_fold_vpdpbsud256_mask(<8 x i32>* %a0, <8 x i32> %a1, <8 
 ;
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbsud256_mask:
 ; AVXDOTPROD:       # %bb.0:
-; AVXDOTPROD-NEXT:    # kill: def $esi killed $esi def $rsi
 ; AVXDOTPROD-NEXT:    vmovups %ymm1, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
@@ -1353,34 +1530,49 @@ define <8 x i32> @stack_fold_vpdpbsud256_mask(<8 x i32>* %a0, <8 x i32> %a1, <8 
 ; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
 ; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
 ; AVXDOTPROD-NEXT:    vpdpbsud {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq %sil, %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    shll $25, %esi
-; AVXDOTPROD-NEXT:    vpinsrd $2, %esi, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $5, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    movl %esi, %ecx
+; AVXDOTPROD-NEXT:    shrb $4, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $6, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $7, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
@@ -1412,36 +1604,50 @@ define <8 x i32> @stack_fold_vpdpbsud256_maskz(<8 x i32> %a0, <8 x i32> %a1, <8 
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
 ; AVXDOTPROD-NEXT:    vpdpbsud {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq (%rdi), %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $5, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    shrb $4, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    andl $1, %edx
+; AVXDOTPROD-NEXT:    negl %edx
 ; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $57, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $6, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $7, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
@@ -1485,7 +1691,6 @@ define <8 x i32> @stack_fold_vpdpbsuds256_mask(<8 x i32>* %a0, <8 x i32> %a1, <8
 ;
 ; AVXDOTPROD-LABEL: stack_fold_vpdpbsuds256_mask:
 ; AVXDOTPROD:       # %bb.0:
-; AVXDOTPROD-NEXT:    # kill: def $esi killed $esi def $rsi
 ; AVXDOTPROD-NEXT:    vmovups %ymm1, {{[-0-9]+}}(%r{{[sb]}}p) # 32-byte Spill
 ; AVXDOTPROD-NEXT:    #APP
 ; AVXDOTPROD-NEXT:    nop
@@ -1493,34 +1698,49 @@ define <8 x i32> @stack_fold_vpdpbsuds256_mask(<8 x i32>* %a0, <8 x i32> %a1, <8
 ; AVXDOTPROD-NEXT:    vmovaps (%rdi), %ymm2
 ; AVXDOTPROD-NEXT:    vmovaps %ymm2, %ymm3
 ; AVXDOTPROD-NEXT:    vpdpbsuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm0, %ymm3 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq %sil, %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    shll $25, %esi
-; AVXDOTPROD-NEXT:    vpinsrd $2, %esi, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
-; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $5, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    movl %esi, %ecx
+; AVXDOTPROD-NEXT:    shrb $4, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm0
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $6, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $7, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm0, %xmm0
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vmovd %eax, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $1, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    movl %esi, %eax
+; AVXDOTPROD-NEXT:    shrb $2, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
+; AVXDOTPROD-NEXT:    vpinsrd $2, %eax, %xmm1, %xmm1
+; AVXDOTPROD-NEXT:    shrb $3, %sil
+; AVXDOTPROD-NEXT:    movzbl %sil, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vblendvps %ymm0, %ymm3, %ymm2, %ymm0
@@ -1552,36 +1772,50 @@ define <8 x i32> @stack_fold_vpdpbsuds256_maskz(<8 x i32> %a0, <8 x i32> %a1, <8
 ; AVXDOTPROD-NEXT:    nop
 ; AVXDOTPROD-NEXT:    #NO_APP
 ; AVXDOTPROD-NEXT:    vpdpbsuds {{[-0-9]+}}(%r{{[sb]}}p), %ymm1, %ymm2 # 32-byte Folded Reload
-; AVXDOTPROD-NEXT:    movsbq (%rdi), %rax
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $58, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $59, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
+; AVXDOTPROD-NEXT:    movzbl (%rdi), %eax
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $5, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    movl %eax, %edx
+; AVXDOTPROD-NEXT:    shrb $4, %dl
+; AVXDOTPROD-NEXT:    movzbl %dl, %edx
+; AVXDOTPROD-NEXT:    andl $1, %edx
+; AVXDOTPROD-NEXT:    negl %edx
 ; AVXDOTPROD-NEXT:    vmovd %edx, %xmm0
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $57, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $6, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shrq $7, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $7, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %ecx, %xmm0, %xmm0
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $62, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
-; AVXDOTPROD-NEXT:    movq %rax, %rdx
-; AVXDOTPROD-NEXT:    shlq $63, %rdx
-; AVXDOTPROD-NEXT:    sarq $63, %rdx
-; AVXDOTPROD-NEXT:    vmovd %edx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
+; AVXDOTPROD-NEXT:    vmovd %ecx, %xmm1
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $1, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    movq %rax, %rcx
-; AVXDOTPROD-NEXT:    shlq $61, %rcx
-; AVXDOTPROD-NEXT:    sarq $63, %rcx
+; AVXDOTPROD-NEXT:    movl %eax, %ecx
+; AVXDOTPROD-NEXT:    shrb $2, %cl
+; AVXDOTPROD-NEXT:    movzbl %cl, %ecx
+; AVXDOTPROD-NEXT:    andl $1, %ecx
+; AVXDOTPROD-NEXT:    negl %ecx
 ; AVXDOTPROD-NEXT:    vpinsrd $2, %ecx, %xmm1, %xmm1
-; AVXDOTPROD-NEXT:    shlq $60, %rax
-; AVXDOTPROD-NEXT:    sarq $63, %rax
+; AVXDOTPROD-NEXT:    shrb $3, %al
+; AVXDOTPROD-NEXT:    movzbl %al, %eax
+; AVXDOTPROD-NEXT:    andl $1, %eax
+; AVXDOTPROD-NEXT:    negl %eax
 ; AVXDOTPROD-NEXT:    vpinsrd $3, %eax, %xmm1, %xmm1
 ; AVXDOTPROD-NEXT:    vinserti128 $1, %xmm0, %ymm1, %ymm0
 ; AVXDOTPROD-NEXT:    vpand %ymm2, %ymm0, %ymm0
