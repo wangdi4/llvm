@@ -112,15 +112,20 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:  <30>                  [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
 ; VPVALCG-NEXT:  <26>
 ; VPVALCG-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
-; VPVALCG-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>]
+; VPVALCG-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:  <32>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
-; VPVALCG-NEXT:  <33>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 4]
-; VPVALCG-NEXT:  <34>                  |   [[RED_VAR0]] = [[DOTVEC30]]  +  [[RED_VAR0]]
-; VPVALCG-NEXT:  <35>                  |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 8]
-; VPVALCG-NEXT:  <36>                  |   [[RED_VAR0]] = [[DOTVEC50]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <33>                  |   [[DOTVEC30:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  4
+; VPVALCG-NEXT:  <34>                  |   [[UNI_IDX0:%.*]] = extractelement [[DOTVEC30]],  0
+; VPVALCG-NEXT:  <35>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx]
+; VPVALCG-NEXT:  <36>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <37>                  |   [[DOTVEC60:%.*]] = [[DOTVEC30]]  +  4
+; VPVALCG-NEXT:  <38>                  |   [[UNI_IDX70:%.*]] = extractelement [[DOTVEC60]],  0
+; VPVALCG-NEXT:  <39>                  |   [[DOTVEC80:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx7]
+; VPVALCG-NEXT:  <40>                  |   [[RED_VAR0]] = [[DOTVEC80]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <41>                  |   [[DOTVEC100:%.*]] = [[DOTVEC60]]  +  4
 ; VPVALCG-NEXT:  <26>                  + END LOOP
 ; VPVALCG-NEXT:  <26>
-; VPVALCG-NEXT:  <37>                  [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; VPVALCG-NEXT:  <42>                  [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; VPVALCG-NEXT:  <27>               }
 ; VPVALCG-NEXT:  <24>
 ; VPVALCG-NEXT:  <24>               + DO i1 = 12 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>

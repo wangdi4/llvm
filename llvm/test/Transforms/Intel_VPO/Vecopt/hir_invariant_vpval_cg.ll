@@ -29,7 +29,9 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK:        DO i2 = 0, 99, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:     %.vec = (%n1 * %n2)  +  i2 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:     (<4 x i64>*)(@arr)[0][i1][%.vec] = i1 + (%n1 * %n2);
+; CHECK-NEXT:     %uni.idx = extractelement %.vec, 0;
+; CHECK-NEXT:     (<4 x i64>*)(@arr)[0][i1][%uni.idx] = i1 + (%n1 * %n2);
+; CHECK-NEXT:     %.vec2 = i2 + <i64 0, i64 1, i64 2, i64 3> + 4
 ; CHECK-NEXT:   END LOOP
 ;
 entry:

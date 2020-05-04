@@ -266,6 +266,28 @@ public:
       return nullptr;
   }
 
+  // Add ScalVal as the scalar ref corresponding to VPVal in VPValScalRefMap
+  // for specified Lane.
+  void addVPValueScalRefMapping(const VPValue *VPVal, RegDDRef *ScalVal,
+                                unsigned Lane) {
+    VPValScalRefMap[VPVal][Lane] = ScalVal;
+  }
+
+  // Return the scalar ref corresponding to VPVal for specified Lane if found
+  // in VPValScalRefMap, return null otherwise.
+  RegDDRef *getScalRefForVPVal(const VPValue *VPVal, unsigned Lane) const {
+    auto It = VPValScalRefMap.find(VPVal);
+    if (It == VPValScalRefMap.end())
+      return nullptr;
+
+    auto SVMap = It->second;
+    auto Itr = SVMap.find(Lane);
+    if (Itr == SVMap.end())
+      return nullptr;
+
+    return Itr->second;
+  }
+
   // Add WideVal as the widened vector value corresponding  to SCVal
   void addSCEVWideRefMapping(const SCEV *SCVal, RegDDRef *WideVal) {
     SCEVWideRefMap[SCVal] = WideVal;
@@ -370,11 +392,17 @@ public:
   // main induction variable.
   RegDDRef *generateLoopInductionRef(Type *RefDestTy);
 
-  // Given a widened ref corresponding to the pointer operand of
-  // a load/store instruction, setup and return the pointer operand
-  // for use in generating the load/store HLInst.
-  RegDDRef *getPointerOperand(RegDDRef *PtrOp, Type *VecRefDestTy,
-                              unsigned AddressSpace, unsigned ScalSymbase);
+  // Return true if the given VPPtr has a stride of 1.
+  bool isUnitStridePtr(const VPValue *VPPtr) const {
+    assert(isa<PointerType>(VPPtr->getType()) && "Expected pointer value");
+    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr) &&
+           Plan->getVPlanDA()->getVectorShape(VPPtr).getStrideVal() > 0;
+  }
+
+  // Given the pointer operand of a load/store instruction, setup and return the
+  // memory ref to use in generating the load/store HLInst. ScalSymbase
+  // specifies the symbase to set for the returned ref.
+  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase);
 
   // Delete intel intrinsic directives before and after the loop.
   void eraseLoopIntrins();
@@ -500,6 +528,9 @@ private:
   // Map of DDRef symbase and widened ref
   DenseMap<unsigned, RegDDRef *> WidenMap;
   DenseMap<const VPValue *, RegDDRef *> VPValWideRefMap;
+
+  // Map of scalar refs for VPValue + vector Lane
+  DenseMap<const VPValue *, DenseMap<unsigned, RegDDRef *>> VPValScalRefMap;
 
   // Map of SCEV expression and widened DDRef.
   DenseMap<const SCEV *, RegDDRef *> SCEVWideRefMap;
@@ -664,6 +695,9 @@ private:
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);
 
+  // Implementation of load/store widening.
+  void widenLoadStoreImpl(const VPInstruction *VPInst, RegDDRef *Mask);
+
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
   // 1. reduction-init  : We generate a broadcast/splat of reduction
@@ -712,12 +746,17 @@ private:
                            RegDDRef *RednDescriptor, HLContainerTy &RedTail,
                            HLInst *&WInst);
 
-  // Get scalar version of RegDDRef that represents the VPValue \p VPVal.
-  // For external definitions and constants we can obtain the scalar version
-  // from underlying HIR operand attached to VPValue, but for a
-  // VPInstruction we need to create an extract element instruction. NOTE:
-  // This function should be used only if it is known that VPVal is uniform.
+  // Get scalar version of RegDDRef that represents the VPValue \p VPVal
+  // which is either an external definition or a constant. We can build the
+  // scalar version from underlying HIR operand attached to VPValue.
   RegDDRef *getUniformScalarRef(const VPValue *VPVal);
+
+  // Get scalar version of RegDDRef that represents the VPValue \p VPVal for
+  // lane 0 from VPValScalRefMap. If not found in the map,  we can obtain the
+  // scalar ref using getUniformScalarRef for external definitions and
+  // constants. For others, we create an extract element instruction for lane 0
+  // from the wide reference and return the result of the extract.
+  RegDDRef *getOrCreateScalarRef(const VPValue *VPVal);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.
