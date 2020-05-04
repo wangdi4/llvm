@@ -1,10 +1,38 @@
 ; REQUIRES: asserts
-;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-build -debug -vplan-plain-dump=true -vplan-dump-liveness=1 %s  2>&1 | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-build -debug -vplan-plain-dump=true -vplan-dump-liveness=1 %s 2>&1 | FileCheck %s
-
+;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-build -debug -vplan-plain-dump=true -vplan-dump-liveness=1 -disable-output < %s  2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-build -debug -vplan-plain-dump=true -vplan-dump-liveness=1 -disable-output < %s 2>&1 | FileCheck %s
+;
+; HIR loop for which VPlan is being built:
+; <60>
+; <60>         + DO i1 = 0, %4, 1   <DO_LOOP>  <MAX_TC_EST = 101> <simd>
+; <16>         |   %storemerge38.out = i1;
+; <17>         |   @llvm.lifetime.start.p0i8(8,  &((i8*)(%k)[0]));
+; <18>         |   (%k)[0] = 0;
+; <20>         |   %6 = (%ub)[i1];
+; <61>         |
+; <61>         |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 101>
+; <25>         |   |   %cmp8 = i2 + %6 > 0;
+; <28>         |   |   %conv10 = sitofp.i64.float(i1 + zext.i1.i64(%cmp8));
+; <30>         |   |   (%a)[i1][i2] = %conv10;
+; <61>         |   + END LOOP
+; <61>         |
+; <38>         |   %conv.le = zext.i1.i64(%cmp8);
+; <40>         |   %conv15 = sitofp.i64.float(%n + zext.i1.i64(%cmp8) + 2);
+; <42>         |   %7 = (%B)[i1][i1];
+; <43>         |   %add18 = %7  +  %conv15;
+; <44>         |   (%B)[i1][i1] = %add18;
+; <45>         |   @llvm.lifetime.end.p0i8(8,  &((i8*)(%k)[0]));
+; <46>         |   %add19 = i1  +  1;
+; <60>         + END LOOP
+; <53>            (%ret)[0] = %conv.le;
+; <54>            (%.omp.iv)[0] = %add19;
+; <55>            %i.0.lcssa = %storemerge38.out;
+; <60>
+;
 ; verify live-in and live-out analysis
 ; CHECK:Live-in and Live-out info:
 ; CHECK-NEXT:External defs:
+; CHECK-DAG: i64 [[NPLUS:%vp.*]]
 ; CHECK-DAG: i64 %n
 ; CHECK-DAG: i64 %4
 ; CHECK-DAG: i64* %ub
@@ -19,10 +47,9 @@
 ; CHECK-DAG: i64* %k livein in the loops:  BB2
 ; CHECK-DAG: i64* %k livein in the loops:  BB2
 ; CHECK-DAG: i64* %ub livein in the loops:  BB2
-; CHECK-DAG: i64 %n livein in the loops:  BB2
+; CHECK-DAG: i64 [[NPLUS]] livein in the loops:  BB4 BB2
 ; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
 ; CHECK-DAG: i1 {{%vp.*}} liveout in the loop: BB4
-; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
 ; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
 ; CHECK-DAG: i64 {{%vp.*}} livein in the loops:  BB4
 ; CHECK-DAG: [101 x float]* %a livein in the loops:  BB4 BB2

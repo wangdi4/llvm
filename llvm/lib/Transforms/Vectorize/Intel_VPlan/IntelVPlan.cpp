@@ -58,7 +58,7 @@ static cl::opt<bool>
                 cl::desc("Print VP Operands using VPValue's Name member."));
 
 static cl::opt<bool> DumpExternalDefsHIR("vplan-dump-external-defs-hir",
-                                         cl::init(false), cl::Hidden,
+                                         cl::init(true), cl::Hidden,
                                          cl::desc("Print HIR VPExternalDefs."));
 
 static cl::opt<bool>
@@ -749,10 +749,10 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
-  if (DumpExternalDefsHIR) {
+  if (DumpExternalDefsHIR && VPExternalDefsHIR.size() > 0) {
     FOS << "External Defs Start:\n";
     for (auto &Def : VPExternalDefsHIR)
-      Def.printDetail(OS);
+      Def.printDetail(FOS);
     FOS << "External Defs End:\n";
   }
 

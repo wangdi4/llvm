@@ -26,10 +26,10 @@
 define void @foo(i64 %n1, i64 %n2, i64 %n3) {
 ; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:   [[VP0:%.*]] = %n3
-; CHECK-DAG:   [[VP1:%.*]] = @longarr
-; CHECK-DAG:   [[VP2:%.*]] = @intarr
-; CHECK-DAG:   [[VP3:%.*]] = %n1 + %n2
+; CHECK-DAG:   [[VP0:%.*]] = {%n3}
+; CHECK-DAG:   [[VP1:%.*]] = {@longarr}
+; CHECK-DAG:   [[VP2:%.*]] = {@intarr}
+; CHECK-DAG:   [[VP3:%.*]] = {%n1 + %n2}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP4:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP5:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP3]] i64 [[VP4]]

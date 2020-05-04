@@ -56,7 +56,6 @@
 
 ; CHECK: Ref: &((%c)[0])
 ; CHECK: AliasRef: [[C_ALIAS_1:%.*]]
-; CHECK-NEXT: InitValue: [[C_ALIAS_1]]
 ; CHECK: AliasRef: [[C_ALIAS_2:%.*]]
 ; CHECK-NEXT: InitValue: [[C_ALIAS_2]]
 ; CHECK-NEXT: UpdateInstruction: {{.*}} [[C_ALIAS_2]] = {{.*}}

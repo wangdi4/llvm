@@ -31,7 +31,7 @@ using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
 static cl::opt<bool> VPlanForceInvariantDecomposition(
-    "vplan-force-invariant-decomposition", cl::init(true), cl::Hidden,
+    "vplan-force-invariant-decomposition", cl::init(false), cl::Hidden,
     cl::desc("Force decomposition of invariants"));
 
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
@@ -263,9 +263,23 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     if (CE->isConstant())
       UseRegular = true;
 
-    // Continue creating a VPBlob external def for self blob canon expressions
-    if (CE->isSelfBlob())
+    // Continue creating a VPBlob external def for standalone blob canon
+    // expressions which includes self blobs.
+    if (CE->isStandAloneBlob())
       UseRegular = true;
+
+    // Continue creating an VPIndVar if the CE is just a single plain IV.
+    if (CE->getDestType() == CE->getSrcType() && CE->numIVs() == 1 &&
+        CE->numBlobs() == 0 && !CE->hasIVBlobCoeffs()) {
+      // Check for single IV coefficient of 1 in which case we have just a
+      // single plain IV.
+      for (auto IVIt = CE->iv_begin(), E = CE->iv_end(); IVIt != E; ++IVIt) {
+        if (CE->getIVConstCoeff(IVIt) == 1) {
+          UseRegular = true;
+          break;
+        }
+      }
+    }
 
     // Restore IV at vectorization loop level if needed.
     if (RestoreIV)

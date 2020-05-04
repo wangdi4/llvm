@@ -60,6 +60,7 @@ namespace llvm {
 class InnerLoopVectorizer;
 class LoopVectorizationLegality;
 class LoopInfo;
+class VectorVariant; // INTEL
 //}
 
 namespace vpo {
@@ -542,32 +543,8 @@ private:
   /// Each VPInstruction belongs to a single VPBasicBlock.
   VPBasicBlock *Parent = nullptr;
 
-#if INTEL_CUSTOMIZATION
-  // Hold the underlying HIR information, if any, attached to this
-  // VPInstruction.
-  HIRSpecifics HIR;
-
   // Debug location for this VPInstruction.
   DebugLoc DbgLoc;
-
-  void setSymbase(unsigned Symbase) {
-    assert(Opcode == Instruction::Store ||
-           Opcode == Instruction::Load &&
-               "setSymbase called for invalid VPInstruction");
-    assert(Symbase != loopopt::InvalidSymbase &&
-           "Unexpected invalid symbase assignment");
-    HIR.setSymbase(Symbase);
-  }
-
-  unsigned getSymbase(void) const {
-    assert(Opcode == Instruction::Store ||
-           Opcode == Instruction::Load &&
-               "getSymbase called for invalid VPInstruction");
-    assert(HIR.Symbase != loopopt::InvalidSymbase &&
-           "Unexpected invalid symbase");
-    return HIR.getSymbase();
-  }
-#endif
 
   /// Utility method serving execute(): generates a single instance of the
   /// modeled instruction.
@@ -606,6 +583,29 @@ protected:
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
   bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
+
+  // Hold the underlying HIR information, if any, attached to this
+  // VPInstruction. This field is protected to provide access to derived
+  // subclasses of VPInstruction.
+  HIRSpecifics HIR;
+
+  void setSymbase(unsigned Symbase) {
+    assert(Opcode == Instruction::Store ||
+           Opcode == Instruction::Load &&
+               "setSymbase called for invalid VPInstruction");
+    assert(Symbase != loopopt::InvalidSymbase &&
+           "Unexpected invalid symbase assignment");
+    HIR.setSymbase(Symbase);
+  }
+
+  unsigned getSymbase(void) const {
+    assert(Opcode == Instruction::Store ||
+           Opcode == Instruction::Load &&
+               "getSymbase called for invalid VPInstruction");
+    assert(HIR.Symbase != loopopt::InvalidSymbase &&
+           "Unexpected invalid symbase");
+    return HIR.getSymbase();
+  }
 #endif
 
   virtual VPInstruction *cloneImpl() const {
@@ -1334,6 +1334,232 @@ public:
     VPHIRCopyInst *Cloned = new VPHIRCopyInst(getOperand(0));
     Cloned->setOriginPhiId(getOriginPhiId());
     return Cloned;
+  }
+};
+
+/// Concrete class to represent Call instruction in VPlan.
+class VPCallInstruction : public VPInstruction {
+private:
+  /// Data structure to record specific vectorization properties for a call
+  /// instruction.
+  struct CallVecProperties {
+    unsigned VF = 0;
+    VectorVariant *MatchedVecVariant = nullptr;
+    Optional<StringRef> VectorLibraryFn = None;
+    unsigned PumpFactor = 1;
+    // Specifies if masked version of a vector variant should be used to
+    // vectorize the unmasked call (using all-true mask).
+    unsigned UseMaskedForUnmasked : 1;
+  } VecProperties;
+
+  enum class CallVecScenarios {
+    Undefined,
+    // Vectorize call using appropriate vector library function.
+    LibraryFunc,
+    // Vectorize call using matching SIMD vector variant.
+    VectorVariant,
+    // Specifies if call should be emulated with serialization i.e. appropriate
+    // scalar call for each vector lane. Serialization is done today in VPlan
+    // for indirect calls and non-vectorizable function calls (functions with no
+    // vector library equivalent or matching vector variants).
+    Serialization,
+    // Specifies if call must not be widened in outgoing vector code based on
+    // its -
+    // A) underlying attributes. For example, DPC++ kernel uniform calls
+    // (function attribute "kernel-uniform-call"), memory fences, prefetch
+    // intrinsics with scalar-only semantics.
+    // B) uniformity of operands when used in deterministic function calls with
+    // no side-effects.
+    DoNotWiden
+  };
+
+  /// Tracks the decision taken on how to vectorize this VPCallInst for given
+  /// VF.
+  CallVecScenarios VecScenario;
+
+public:
+  using CallVecScenariosTy = CallVecScenarios;
+
+  VPCallInstruction(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
+                    const CallInst *OrigCall)
+      : VPInstruction(Instruction::Call, OrigCall->getType(), ArgList) {
+    assert(OrigCall &&
+           "VPlan trying to create a new VPCall without underlying Call.");
+    assert(CalledValue && "Call instruction does not have CalledValue");
+    // Add called value to end of operand list for def-use chain.
+    addOperand(CalledValue);
+    resetVecScenario(0 /*Initial VF*/);
+    // Check if Call should not be strictly widened i.e. not (re-)vectorized or
+    // serialized.
+    if (OrigCall->hasFnAttr("kernel-uniform-call"))
+      VecScenario = CallVecScenarios::DoNotWiden;
+  }
+
+  /// Helper function to access CalledValue (last operand).
+  VPValue *getCalledValue() const { return *(op_end() - 1); }
+
+  /// Getter to return called function for this Call instruction. Returns
+  /// nullptr for indirect calls.
+  Function *getCalledFunction() const {
+    if (auto *Func = dyn_cast<VPConstant>(getCalledValue()))
+      return cast<Function>(Func->getConstant());
+
+    // Indirect call.
+    return nullptr;
+  }
+
+  /// Getter for original call's calling convention.
+  CallingConv::ID getOrigCallingConv() const {
+    CallingConv::ID CC = CallingConv::MaxID;
+    if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction())) {
+      CC = IRCall->getCallingConv();
+    } else if (auto *HIRCall = HIR.getUnderlyingNode()) {
+      assert(isa<loopopt::HLInst>(HIRCall) &&
+             "Underlying HIR DDNode for Call is not HLInst.");
+      CC = cast<loopopt::HLInst>(HIRCall)->getCallInst()->getCallingConv();
+    } else {
+      llvm_unreachable(
+          "VPlan created a new VPCallInstruction without underlying IR.");
+    }
+
+    return CC;
+  }
+
+  // Getter for original call's callsite attributes.
+  AttributeList getOrigCallAttrs() const {
+    AttributeList CallAttrs;
+    if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction())) {
+      CallAttrs = IRCall->getAttributes();
+    } else if (auto *HIRCall = HIR.getUnderlyingNode()) {
+      assert(isa<loopopt::HLInst>(HIRCall) &&
+             "Underlying HIR DDNode for Call is not HLInst.");
+      CallAttrs =
+          cast<loopopt::HLInst>(HIRCall)->getCallInst()->getAttributes();
+    } else {
+      llvm_unreachable(
+          "VPlan created a new VPCallInstruction without underlying IR.");
+    }
+
+    return CallAttrs;
+  }
+
+  // Some helpful getters based on underlying call's attributes.
+  bool isKernelCallOnce() const {
+    return getOrigCallAttrs().hasFnAttribute("kernel-call-once");
+  }
+  bool isOCLVecUniformReturn() const {
+    return getOrigCallAttrs().hasFnAttribute("opencl-vec-uniform-return");
+  }
+
+  /// Clear decision that was last computed for this call, and reset to initial
+  /// state (Undef scenario) for new VF.
+  void resetVecScenario(unsigned NewVF) {
+    // DoNotWiden is used only for kernel uniform calls today i.e. the property
+    // is not VF-dependent. Hence it need not be reset here.
+    if (VecScenario == CallVecScenarios::DoNotWiden)
+      return;
+
+    VecScenario = CallVecScenarios::Undefined;
+    VecProperties.MatchedVecVariant = nullptr;
+    VecProperties.VectorLibraryFn = None;
+    VecProperties.PumpFactor = 1;
+    VecProperties.UseMaskedForUnmasked = 0;
+    // Record VF for which new vectorization scenario and properties will be
+    // recorded.
+    VecProperties.VF = NewVF;
+  }
+
+  /// Setter functions for different possible states of VecScenario.
+  // Scenario 1 : Serialization.
+  void setShouldBeSerialized() {
+    assert(VecScenario == CallVecScenarios::Undefined &&
+           "Inconsistent scenario update.");
+    assert(!isKernelCallOnce() &&
+           "Calls with kernel-call-once attributes cannot be serialized.");
+    VecScenario = CallVecScenarios::Serialization;
+  }
+  // Scenario 2 : Vectorization using vector library functions (like SVML).
+  void setVectorizeWithLibraryFn(StringRef VecLibFn, unsigned PumpFactor = 1) {
+    assert(!VecLibFn.empty() && "Invalid VecLibFn.");
+    assert(VecScenario == CallVecScenarios::Undefined &&
+           "Inconsistent scenario update.");
+    VecScenario = CallVecScenarios::LibraryFunc;
+    VecProperties.VectorLibraryFn = VecLibFn;
+    VecProperties.PumpFactor = PumpFactor;
+  }
+  // Scenario 3 : Vectorization using SIMD vector variant.
+  void setVectorizeWithVectorVariant(std::unique_ptr<VectorVariant> &VecVariant,
+                                     bool UseMaskedForUnmasked = false,
+                                     unsigned PumpFactor = 1) {
+    assert(VecVariant && "Can't set null vector variant.");
+    assert(VecScenario == CallVecScenarios::Undefined &&
+           "Inconsistent scenario update.");
+    VecScenario = CallVecScenarios::VectorVariant;
+    VecProperties.MatchedVecVariant = VecVariant.release();
+    VecProperties.UseMaskedForUnmasked = UseMaskedForUnmasked;
+    VecProperties.PumpFactor = PumpFactor;
+  }
+
+  /// Get decision about how call will be handled by vectorizer.
+  CallVecScenariosTy getVectorizationScenario() const { return VecScenario; }
+  /// Get VF for which decision was last recorded.
+  unsigned getVFForScenario() const { return VecProperties.VF; }
+  /// Getter for vector library function.
+  StringRef getVectorLibraryFunc() const {
+    assert(VecScenario == CallVecScenarios::LibraryFunc &&
+           "Can't get VectorLibraryFn for mismatched scenario.");
+    return VecProperties.VectorLibraryFn.getValue();
+  }
+  /// Getters for matched vector variant.
+  const VectorVariant *getVectorVariant() const {
+    assert(VecScenario == CallVecScenarios::VectorVariant &&
+           "Can't get VectorVariant for mismatched scenario.");
+    return VecProperties.MatchedVecVariant;
+  }
+  bool shouldUseMaskedVariantForUnmasked() const {
+    assert(VecScenario == CallVecScenarios::VectorVariant &&
+           "Can't get VectorVariant for mismatched scenario.");
+    return VecProperties.UseMaskedForUnmasked;
+  }
+  /// Getter for pump factor.
+  unsigned getPumpFactor() const {
+    if (VecProperties.PumpFactor > 1) {
+      // TODO: Extend to allow vector-variant pumping in future.
+      assert(VecScenario == CallVecScenarios::LibraryFunc &&
+             "Only vectorized calls can be pumped multi-way.");
+      assert(!isKernelCallOnce() &&
+             "Calls with kernel-call-once cannot be pumped.");
+    }
+    return VecProperties.PumpFactor;
+  }
+
+  /// Call argument list size.
+  unsigned arg_size() const {
+    assert(getNumOperands() != 0 && "Invalid VPCallInstruction.");
+    return getNumOperands() - 1;
+  }
+
+  /// Call arguments operand ranges.
+  operand_range arg_operands(void) {
+    return make_range(op_begin(), op_end() - 1);
+  }
+  const_operand_range arg_operands(void) const {
+    return make_range(op_begin(), op_end() - 1);
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == Instruction::Call;
+  }
+
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  virtual VPCallInstruction *cloneImpl() const final {
+    // TODO: Implement cloneImpl specialization when VPCallInstruction is used
+    // by CFGBuilders and CG.
+    llvm_unreachable("Call instruction cloning not implemented.");
   }
 };
 

@@ -338,6 +338,21 @@ public:
     return NewSubscript;
   }
 
+  // Build a VPCallInstruction for the LLVM-IR instruction \p Inst using callee
+  // \p CalledValue and list of argument operands \p ArgList.
+  VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
+                            Instruction *Inst) {
+    assert(Inst && "Cannot create VPCallInstruction without underlying IR.");
+    CallInst *Call = cast<CallInst>(Inst);
+    VPCallInstruction *NewVPCall =
+        new VPCallInstruction(CalledValue, ArgList, Call);
+    NewVPCall->setUnderlyingValue(*Call);
+    NewVPCall->setName(Inst->getName());
+    if (BB)
+      BB->insert(NewVPCall, InsertPt);
+    return NewVPCall;
+  }
+
   // Reduction init/final
   VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
                                      const Twine &Name = "") {
