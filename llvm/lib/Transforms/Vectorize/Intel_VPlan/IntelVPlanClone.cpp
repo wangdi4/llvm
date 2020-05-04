@@ -11,6 +11,7 @@
 
 #include "IntelVPlanClone.h"
 #include "IntelVPBasicBlock.h"
+#include "IntelVPlanUtils.h"
 
 namespace llvm {
 namespace vpo {
@@ -75,19 +76,8 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(VPBasicBlock *Begin,
                                              VPlanDivergenceAnalysis *DA,
                                              const Twine &Prefix) {
 
-  auto Iter = df_begin(Begin);
-  auto EndIter = df_end(Begin);
-  while (Iter != EndIter) {
-    cloneBasicBlock(*Iter, Prefix.str(), ValueMap, ++End->getIterator(), DA);
-    if (*Iter == End) {
-      // Don't go outside of SESE region. It does move the iterator, so avoid
-      // usual increment.
-      Iter.skipChildren();
-      continue;
-    }
-    // Go to the next block in ordinary way.
-    ++Iter;
-  }
+  for (auto *BB : sese_depth_first(Begin, End))
+    cloneBasicBlock(BB, Prefix.str(), ValueMap, ++End->getIterator(), DA);
 
   // Remap successors *inside* SESE region. Once CFG is represented through
   // terminator VPInstruction that won't be needed here and would be done as
@@ -95,22 +85,16 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(VPBasicBlock *Begin,
   //
   // Can't iterate over BlockMap directly because the order won't be stable
   // resulting in unstable predecessors order.
-  Iter = df_begin(Begin);
-  while (Iter != EndIter) {
-    if (*Iter == End){
-      // Don't remap successor of the last block.
-      Iter.skipChildren();
+  for (auto *BB : sese_depth_first(Begin, End)) {
+    // Skip last basic block.
+    if (BB == End)
       continue;
-    }
-
-    VPBasicBlock *Orig = *Iter;
-    auto *Clone = cast<VPBasicBlock>(ValueMap[Orig]);
-    for (VPBasicBlock *OrigSucc : Orig->getSuccessors()) {
+    auto *Clone = cast<VPBasicBlock>(ValueMap[BB]);
+    for (VPBasicBlock *OrigSucc : BB->getSuccessors()) {
       auto *CloneSucc = cast<VPBasicBlock>(ValueMap[OrigSucc]);
       Clone->appendSuccessor(CloneSucc);
       CloneSucc->appendPredecessor(Clone);
     }
-    ++Iter;
   }
 
   return cast<VPBasicBlock>(ValueMap[Begin]);

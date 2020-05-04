@@ -269,7 +269,7 @@ bool VPOVectorizationLegality::isReductionVarStoredInsideTheLoop(
 }
 
 void VPOVectorizationLegality::parseMinMaxReduction(
-    AllocaInst *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
+    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
     RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
 
   // Analyzing 2 possible scenarios:
@@ -329,7 +329,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(
-    AllocaInst *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind) {
+    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -376,7 +376,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
     RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF,
                             RecurrenceDescriptor::MRK_Invalid, nullptr,
                             ReductionPhi->getType(), true, CastInsts);
-    ExplicitReductions[ReductionPhi] = {RD, cast<AllocaInst>(RedVarPtr)};
+    ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
   } else if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
     InMemoryReductions[RedVarPtr] = {Kind, RecurrenceDescriptor::MRK_Invalid};
 
@@ -387,13 +387,13 @@ void VPOVectorizationLegality::parseBinOpReduction(
 void VPOVectorizationLegality::parseExplicitReduction(
     Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
     RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
-  assert(isa<AllocaInst>(RedVarPtr) &&
-         "Expected Alloca instruction as a pointer to reduction variable");
+  assert(isa<PointerType>(RedVarPtr->getType()) &&
+         "Expected reduction variable to be a pointer type");
 
   if (Mrk != RecurrenceDescriptor::MRK_Invalid)
-    return parseMinMaxReduction(cast<AllocaInst>(RedVarPtr), Kind, Mrk);
+    return parseMinMaxReduction(RedVarPtr, Kind, Mrk);
 
-  return parseBinOpReduction(cast<AllocaInst>(RedVarPtr), Kind);
+  return parseBinOpReduction(RedVarPtr, Kind);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
@@ -621,7 +621,7 @@ bool VPOVectorizationLegality::isLoopPrivateAggregate(Value *V) const {
 
 bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
   V = getPtrThruCast<BitCastInst>(V);
-  return isa<AllocaInst>(V) && InMemoryReductions.count(cast<AllocaInst>(V));
+  return isa<PointerType>(V->getType()) && InMemoryReductions.count(V);
 }
 
 bool VPOVectorizationLegality::isLastPrivate(Value *V) const {
