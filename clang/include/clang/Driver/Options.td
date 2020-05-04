@@ -3157,6 +3157,11 @@ def unexported__symbols__list : Separate<["-"], "unexported_symbols_list">;
 def u : JoinedOrSeparate<["-"], "u">, Group<u_Group>;
 def v : Flag<["-"], "v">, Flags<[CC1Option, CoreOption]>,
   HelpText<"Show commands to run and use verbose output">;
+#if INTEL_CUSTOMIZATION
+def vec : Flag<["-"], "vec">, Alias<fvectorize>,
+  HelpText<"Enable the loop vectorization passes">;
+def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>;
+#endif // INTEL_CUSTOMIZATION
 def verify_debug_info : Flag<["--"], "verify-debug-info">, Flags<[DriverOption]>,
   HelpText<"Verify the binary representation of debug output">;
 def weak_l : Joined<["-"], "weak-l">, Flags<[LinkerInput]>;

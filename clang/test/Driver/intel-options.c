@@ -4,6 +4,12 @@
 // CHECK-IPO: "-flto"
 // CHECK-IPO: "-flto-unit"
 
+// -vec and -no-vec behavior
+// RUN: %clang -### -c -vec %s 2>&1 | FileCheck -check-prefix CHECK-VEC %s
+// RUN: %clang -### -c -vec -no-vec %s 2>&1 | FileCheck -check-prefix CHECK-NO-VEC %s
+// CHECK-VEC: "-vectorize-loops"
+// CHECK-NO-VEC-NOT: "-vectorize-loops"
+
 // Behavior with -no-ansi-alias option
 // RUN: %clang -### -c -no-ansi-alias %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
 // RUN: %clang_cl -### -c /Qansi-alias- %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
