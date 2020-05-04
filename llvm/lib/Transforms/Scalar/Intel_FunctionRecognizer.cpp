@@ -1181,7 +1181,7 @@ static bool isQsortSpecQsort(Function &F) {
     if (!CI || !CI->isZero())
       return false;
     auto CLI = dyn_cast<CallInst>(IC->getOperand(0));
-    if (!CLI || CLI->getCalledValue() != F.getArg(3) || CLI->arg_size() != 2)
+    if (!CLI || CLI->getCalledOperand() != F.getArg(3) || CLI->arg_size() != 2)
       return false;
     if (CLI->getArgOperand(1) != PHIIL)
       return false;
