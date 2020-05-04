@@ -743,7 +743,12 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   auto genVPInst = [this](const Instruction *LLVMInst, HLDDNode *DDNode,
                           HLInst *HInst, ArrayRef<VPValue *> VPOperands) {
     VPInstruction *NewVPInst;
-    if (isa<CmpInst>(LLVMInst)) {
+    if (HInst->isCopyInst()) {
+      // Handle HIR copy instruction.
+      assert(VPOperands.size() == 1 &&
+             "Invalid number of operands for copy instruction.");
+      NewVPInst = Builder.createHIRCopy(VPOperands[0], DDNode);
+    } else if (isa<CmpInst>(LLVMInst)) {
       assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
       CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HInst);
       NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
@@ -779,15 +784,29 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       if (DDNode)
         NewVPInst->HIR.setUnderlyingNode(DDNode);
     } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
-      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-          Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
-      // For direct calls, the called function should be added as last operand
-      // of the generated VPInstruction.
-      if (!HInst->isIndirectCallInst()) {
-        Function *F = Call->getCalledFunction();
-        assert(F && "Call HLInst does not have called function.");
-        VPValue *VPFunc = Plan->getVPConstant(F);
-        NewVPInst->addOperand(VPFunc);
+      bool IsSubscriptInst = false;
+      if (auto *IntrinCall = dyn_cast<IntrinsicInst>(Call)) {
+        if (IntrinCall->getIntrinsicID() == Intrinsic::intel_subscript) {
+          // TODO: This should be VPSubscriptInst in future.
+          NewVPInst = cast<VPGEPInstruction>(VPOperands[0]);
+          // Make subscript the master instruction since it was already created.
+          NewVPInst->HIR.setUnderlyingNode(DDNode);
+          IsSubscriptInst = true;
+        }
+      }
+
+      if (!IsSubscriptInst) {
+        assert(HInst->isCallInst() && "Underlying HLInst expected to be call.");
+        NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+            Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
+        // For direct calls, the called function should be added as last operand
+        // of the generated VPInstruction.
+        if (!HInst->isIndirectCallInst()) {
+          Function *F = Call->getCalledFunction();
+          assert(F && "Call HLInst does not have called function.");
+          VPValue *VPFunc = Plan->getVPConstant(F);
+          NewVPInst->addOperand(VPFunc);
+        }
       }
     } else
       // Generic VPInstruction.

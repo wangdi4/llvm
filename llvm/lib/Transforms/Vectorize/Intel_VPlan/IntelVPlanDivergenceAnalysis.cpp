@@ -1240,6 +1240,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::VectorTripCountCalculation)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::HIRCopy)
+    NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
   else if (Opcode >= VPInstruction::SMax && Opcode <= VPInstruction::FMin) {
     LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
     // FIXME: Compute divergence based on the operands.

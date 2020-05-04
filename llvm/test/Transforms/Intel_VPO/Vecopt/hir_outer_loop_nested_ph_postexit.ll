@@ -41,8 +41,8 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%ret.021}
-; CHECK-DAG:     [[VP1:%.*]] = {%n + -1}
-; CHECK-DAG:     [[VP2:%.*]] = {%m + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {%m + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%n + -1}
 ; CHECK-DAG:     [[VP3:%.*]] = {%a}
 ; CHECK-DAG:     [[VP4:%.*]] = {%ub}
 ; CHECK-DAG:     [[VP5:%.*]] = {%m}
@@ -60,9 +60,9 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[RET_0210:%.*]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP9:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP10:%.*]] = call i64 [[VP6]] i64 (i64)* @llvm.ssa.copy.i64
-; CHECK-NEXT:     i64 [[VP11:%.*]] = call i64 [[VP8]] i64 (i64)* @llvm.ssa.copy.i64
-; CHECK-NEXT:     i64 [[VP12:%.*]] = call i64 0 i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:     i64 [[VP10:%.*]] = hir-copy i64 [[VP6]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP11:%.*]] = hir-copy i64 [[VP8]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP12:%.*]] = hir-copy i64 0 , OriginPhiId: -1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
@@ -83,17 +83,17 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-NEXT:     i64 [[VP21:%.*]] = add i64 [[VP10]] i64 [[VP20]]
 ; CHECK-NEXT:     i64 [[VP22:%.*]] = add i64 [[VP21]] i64 2
 ; CHECK-NEXT:     i64 [[VP15]] = add i64 [[VP14]] i64 1
-; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp i64 [[VP15]] i64 [[VP2]]
+; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp i64 [[VP15]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP23]]), [[BB3]](!i1 [[VP23]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     i64 [[VP24:%.*]] = phi  [ i64 [[VP6]], [[BB5]] ]
-; CHECK-NEXT:     i64 [[VP7]] = call i64 [[VP22]] i64 (i64)* @llvm.ssa.copy.i64
-; CHECK-NEXT:     i64 [[VP25:%.*]] = call i64 [[M0:%.*]] i64 (i64)* @llvm.ssa.copy.i64
-; CHECK-NEXT:     i64 [[VP26:%.*]] = call i64 [[VP24]] i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:     i64 [[VP7]] = hir-copy i64 [[VP22]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP25:%.*]] = hir-copy i64 [[M0:%.*]] , OriginPhiId: -1
+; CHECK-NEXT:     i64 [[VP26:%.*]] = hir-copy i64 [[VP24]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
-; CHECK-NEXT:     i1 [[VP27:%.*]] = icmp i64 [[VP9]] i64 [[VP1]]
+; CHECK-NEXT:     i1 [[VP27:%.*]] = icmp i64 [[VP9]] i64 [[VP2]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP27]]), [[BB6:BB[0-9]+]](!i1 [[VP27]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
