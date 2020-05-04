@@ -16,6 +16,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
@@ -1157,4 +1158,66 @@ bool HIRTransformUtils::doDeadStoreElimination(HLRegion &Region,
   HIRDeadStoreElimination DSE(Region.getHLNodeUtils().getHIRFramework(), HDDA,
                               HLS);
   return DSE.run(Region, nullptr, /* IsRegion */ true);
+}
+
+typedef DDRefGathererLambda<RegDDRef> MemRefGatherer;
+
+bool HIRTransformUtils::doIdentityMatrixSubstitution(
+    HLLoop *Loop, const RegDDRef *IdentityRef) {
+
+  auto isTargetSymbase = [&](unsigned SB, const RegDDRef *Ref) {
+    return (Ref->getSymbase() == SB);
+  };
+
+  LLVM_DEBUG(dbgs() << "Identity Ref:\n"; IdentityRef->dump(1); dbgs() << "\n");
+
+  MemRefGatherer::VectorTy FoundRefs;
+  MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), FoundRefs,
+                              std::bind(isTargetSymbase,
+                                        IdentityRef->getSymbase(),
+                                        std::placeholders::_1));
+
+  if (FoundRefs.empty()) {
+    return false;
+  }
+
+  if (std::any_of(FoundRefs.begin(), FoundRefs.end(),
+                  [](const RegDDRef *Ref) { return Ref->isLval(); })) {
+    return false;
+  }
+
+  for (auto &Ref : FoundRefs) {
+    if (!DDRefUtils::haveEqualBaseAndShape(IdentityRef, Ref, false)) {
+      continue;
+    }
+
+    // Dimension already checked from EqualBaseandShape
+    CanonExpr *FirstCE = Ref->getDimensionIndex(1);
+    CanonExpr *SecondCE = Ref->getDimensionIndex(2);
+
+    int64_t Index1, Index2;
+    if (!FirstCE->isIntConstant(&Index1) || !SecondCE->isIntConstant(&Index2)) {
+      continue;
+    }
+
+    RegDDRef *ConstantRef;
+    if (Index1 != Index2) {
+      ConstantRef = Ref->getDDRefUtils().createNullDDRef(Ref->getDestType());
+    } else {
+      ConstantRef =
+          Ref->getDDRefUtils().createConstOneDDRef(Ref->getDestType());
+    }
+
+    auto *Inst = cast<HLInst>(Ref->getHLDDNode());
+    // Replace loadinst with copyinst
+    if (isa<LoadInst>(Inst->getLLVMInstruction())) {
+      auto *LvalRef = Inst->removeLvalDDRef();
+      auto *CopyInst = Loop->getHLNodeUtils().createCopyInst(
+          ConstantRef, "identity", LvalRef);
+      HLNodeUtils::replace(Inst, CopyInst);
+    } else {
+      Ref->getHLDDNode()->replaceOperandDDRef(Ref, ConstantRef);
+    }
+  }
+  return true;
 }
