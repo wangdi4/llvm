@@ -4078,17 +4078,27 @@ public:
                          Value *Arg, unsigned ArgNo) {
 
     if (F && F->hasName()) {
-      LibFunc TheLibFunc;
-      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
-      if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
-
+      if (F->hasDLLExportStorageClass()) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
-                          << "argument used in a library function:\n  "
+                          << "argument used in a dllexport function:\n  "
                           << *Call << "\n");
 
        Type *ArgType = Arg->getType();
        setBaseTypeInfoSafetyDataWithCascading(ArgType,
                                               dtrans::SystemObject);
+      } else {
+        LibFunc TheLibFunc;
+        const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+        if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
+
+          LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                            << "argument used in a library function:\n  "
+                            << *Call << "\n");
+
+         Type *ArgType = Arg->getType();
+         setBaseTypeInfoSafetyDataWithCascading(ArgType,
+                                                dtrans::SystemObject);
+        }
       }
     }
 
@@ -4254,7 +4264,8 @@ public:
     // address has escaped. Also, if a pointer to a field is passed as an
     // argument to a function, the address of the field has escaped.
     // FIXME: Try to resolve indirect calls.
-    bool IsFnLocal = F ? !F->isDeclaration() : false;
+    bool IsFnLocal = F ? (!F->isDeclaration() &&
+                          !F->hasDLLExportStorageClass()) : false;
 
     // Mark structures returned by non-local functions as system types.
     auto *RetTy = Call.getType();

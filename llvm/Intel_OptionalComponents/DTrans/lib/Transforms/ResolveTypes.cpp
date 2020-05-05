@@ -1057,7 +1057,7 @@ void ResolveTypesImpl::collectExternalStructTypes(
   // Collect the types that are used by external functions and any types
   // that depend on those types.
   for (Function &F : M) {
-    if (F.isDeclaration()) {
+    if (F.isDeclaration() || F.hasDLLExportStorageClass()) {
       auto *FnTy = F.getFunctionType();
       if (auto *RetST = getContainedStructTy(FnTy->getReturnType()))
         addExternalType(RetST);
