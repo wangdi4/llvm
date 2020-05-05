@@ -27,7 +27,7 @@ for.body:
   br label %ordered.entry
 
 ordered.entry:
-  %tok.ordered = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"() ]
+  %tok.ordered = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
   br label %ordered
 
 ordered:
