@@ -1333,9 +1333,9 @@ static bool isQsortSpecQsort(Function &F) {
   //    store 'DType' %3, 'DType'* %7, align 8
   //    br label 'BBX'
   //
-  auto IsSwapBlock = [&IsSwapLSChain, IsSwapGEPChain](
-                         Function &F, BasicBlock *BBI, BasicBlock *BBX,
-                         PHINode *PHIIL, Type *DType) -> bool {
+  auto IsHardSwapBlock = [&IsSwapLSChain, IsSwapGEPChain](
+                             Function &F, BasicBlock *BBI, BasicBlock *BBX,
+                             PHINode *PHIIL, Type *DType) -> bool {
     StoreInst *SI0 = nullptr;
     StoreInst *SI1 = nullptr;
     Value *SI0LV = nullptr;
@@ -1378,10 +1378,10 @@ static bool isQsortSpecQsort(Function &F) {
   //
   // If we return 'true', set the value of 'FSwapFunc'.
   //
-  auto IsSwapFuncBlock = [&IsSwapGEPChain](Function &F, BasicBlock *BBI,
-                                           BasicBlock *BBX, PHINode *PHIIL,
-                                           PHINode *PHIC0, PHINode *PHIC1,
-                                           Function **FSwapFunc) -> bool {
+  auto IsHardSwapFuncBlock = [&IsSwapGEPChain](Function &F, BasicBlock *BBI,
+                                               BasicBlock *BBX, PHINode *PHIIL,
+                                               PHINode *PHIC0, PHINode *PHIC1,
+                                               Function **FSwapFunc) -> bool {
     auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
     if (!BI || BI->isConditional() || BI->getSuccessor(0) != BBX)
       return false;
@@ -1444,11 +1444,12 @@ static bool isQsortSpecQsort(Function &F) {
   // insertion sort and 'FSwapFunc', the Function that implements qsort
   // swapfunc.
   //
-  auto IsInsertionSort = [&IsISInit, &IsISOTerm, &IsISITerm, &IsPHITest,
-                          &IsSwapBlock, &IsSwapFuncBlock, &IsLoopIncBlock](
-                             Function &F, BasicBlock *BBI, PHINode *PHIA,
-                             PHINode *PHIN, PHINode *PHIC0, PHINode *PHIC1,
-                             BasicBlock **BBO, Function **FSwapFunc) -> bool {
+  auto IsInsertionSort =
+      [&IsISInit, &IsISOTerm, &IsISITerm, &IsPHITest, &IsHardSwapBlock,
+       &IsHardSwapFuncBlock,
+       &IsLoopIncBlock](Function &F, BasicBlock *BBI, PHINode *PHIA,
+                        PHINode *PHIN, PHINode *PHIC0, PHINode *PHIC1,
+                        BasicBlock **BBO, Function **FSwapFunc) -> bool {
     Value *VI = nullptr;
     BasicBlock *BBOT = nullptr;
     BasicBlock *BBIT = nullptr;
@@ -1479,13 +1480,13 @@ static bool isQsortSpecQsort(Function &F) {
 #else
     Type *TILong = llvm::Type::getInt64Ty(FC);
 #endif // _WIN32
-    if (!IsSwapBlock(F, BBSW0, BBILI, PHIIL, TILong))
+    if (!IsHardSwapBlock(F, BBSW0, BBILI, PHIIL, TILong))
       return false;
     if (!IsPHITest(BBT1, PHIC1, &BBSW1, &BBSW2))
       return false;
-    if (!IsSwapBlock(F, BBSW1, BBILI, PHIIL, llvm::Type::getInt32Ty(FC)))
+    if (!IsHardSwapBlock(F, BBSW1, BBILI, PHIIL, llvm::Type::getInt32Ty(FC)))
       return false;
-    if (!IsSwapFuncBlock(F, BBSW2, BBILI, PHIIL, PHIC0, PHIC1, FSwapFunc))
+    if (!IsHardSwapFuncBlock(F, BBSW2, BBILI, PHIIL, PHIC0, PHIC1, FSwapFunc))
       return false;
     if (!IsLoopIncBlock(F, BBILI, BBIT, PHIIL, false))
       return false;
@@ -1717,8 +1718,8 @@ static bool isQsortSpecQsort(Function &F) {
   // Return 'true' if 'I' matches a PHINode with 2 incoming values 'VI' and
   // 'VO'. If we return 'true', set 'PHIO' to 'I' cast as a PHINode'.
   //
-  auto IsMed3JoinPHI = [](Instruction *I, Value *VI, Value *VO,
-                          PHINode **PHIO) -> bool {
+  auto IsJoinPHI = [](Instruction *I, Value *VI, Value *VO,
+                      PHINode **PHIO) -> bool {
     auto PHI = dyn_cast_or_null<PHINode>(I);
     if (!PHI || PHI->getNumIncomingValues() != 2)
       return false;
@@ -1740,7 +1741,7 @@ static bool isQsortSpecQsort(Function &F) {
   //
   // If we return 'true', set the value of 'VPMF'.
   //
-  auto IsMed3JoinBlock = [&IsMed3JoinPHI, GetPrevCallMatch](
+  auto IsMed3JoinBlock = [&IsJoinPHI, GetPrevCallMatch](
                              Function &F, Function &FMed3, BasicBlock *BBI,
                              BasicBlock *BBO, Value *VPLI, Value *VPMI,
                              Value *VPNI, Value *VPLO, Value *VPMO, Value *VPNO,
@@ -1755,15 +1756,15 @@ static bool isQsortSpecQsort(Function &F) {
       return false;
     Instruction *BP = CI->getPrevNonDebugInstruction();
     PHINode *PHI2 = nullptr;
-    if (!IsMed3JoinPHI(BP, VPLI, VPLO, &PHI2) || CI->getArgOperand(0) != PHI2)
+    if (!IsJoinPHI(BP, VPLI, VPLO, &PHI2) || CI->getArgOperand(0) != PHI2)
       return false;
     BP = BP->getPrevNonDebugInstruction();
     PHINode *PHI1 = nullptr;
-    if (!IsMed3JoinPHI(BP, VPMI, VPMO, &PHI1) || CI->getArgOperand(1) != PHI1)
+    if (!IsJoinPHI(BP, VPMI, VPMO, &PHI1) || CI->getArgOperand(1) != PHI1)
       return false;
     BP = BP->getPrevNonDebugInstruction();
     PHINode *PHI0 = nullptr;
-    if (!IsMed3JoinPHI(BP, VPNI, VPNO, &PHI0) || CI->getArgOperand(2) != PHI0)
+    if (!IsJoinPHI(BP, VPNI, VPNO, &PHI0) || CI->getArgOperand(2) != PHI0)
       return false;
     if (BP->getPrevNonDebugInstruction())
       return false;
@@ -1774,13 +1775,14 @@ static bool isQsortSpecQsort(Function &F) {
   //
   // Return 'true' if 'BBI' in 'F' represents the median computation that
   // appears in a spec_qsort. 'PHIA' is beginning of the array, and 'PHIN' is
-  // the size of the array. If we return 'true', set 'VPMF' to the median value
-  // computed and 'BBO' to the BasicBlock that exits the computation.
+  // the size of the array. If we return 'true', set 'VPMFO' to the median value
+  // computed, 'VPMFI' to the previous value computed, and 'BBO' to the
+  // BasicBlock that exits the computation.
   //
   auto IsMedianComp = [&IsSizeTest, &ComputesPM, &ComputesPN, &IsMed3CallBlock,
                        &IsMed3JoinBlock](Function &F, BasicBlock *BBI,
                                          PHINode *PHIA, PHINode *PHIN,
-                                         Value **VPMF,
+                                         Value **VPMFI, Value **VPMFO,
                                          BasicBlock **BBO) -> bool {
     BasicBlock *BBIT = nullptr;
     BasicBlock *BBX = nullptr;
@@ -1807,7 +1809,158 @@ static bool isQsortSpecQsort(Function &F) {
     if (!IsMed3JoinBlock(F, *PFMed3, BBJB, BBX, PHIA, VPMI, VPNI, VPLO, VPMO,
                          VPNO, &VPMOO))
       return false;
-    *VPMF = VPMOO;
+    *VPMFI = VPMI;
+    *VPMFO = VPMOO;
+    *BBO = BBX;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //   %14 = bitcast i8* 'VL' to 'DType'*
+  //   %15 = load 'DType', 'DType'* %14, align 8
+  //   %16 = bitcast i8* 'VR' to 'DType'*
+  //   %17 = load 'DType', 'DType'* %16, align 8
+  //   %18 = bitcast i8* 'VL' to 'DType'*
+  //   store 'DType' %17, 'DType'* %18, align 8
+  //   %19 = bitcast i8* 'VR' to 'DType'*
+  //   store 'DType' %15, 'DType'* %19, align 8
+  //   br label 'BBO'
+  //
+  // where 'DType' is the integer type of 'DSize' bytes.
+  //
+  // If we return 'true', set the value of 'BBO'.
+  //
+  auto IsEasySwapBlock = [&IsSwapLSChain](BasicBlock *BBI, uint64_t DSize,
+                                          Value *VL, Value *VR,
+                                          BasicBlock **BBO) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    StoreInst *SI0 = nullptr;
+    StoreInst *SI1 = nullptr;
+    if (!getTwoStores(BBI, &SI0, &SI1))
+      return false;
+    if (!SI0->getValueOperand()->getType()->isIntegerTy(8 * DSize))
+      return false;
+    if (!SI1->getValueOperand()->getType()->isIntegerTy(8 * DSize))
+      return false;
+    Value *S1LV = nullptr;
+    Value *S1SV = nullptr;
+    if (!IsSwapLSChain(SI1, &S1LV, &S1SV))
+      return false;
+    if (S1LV != VL || S1SV != VR)
+      return false;
+    Value *S0LV = nullptr;
+    Value *S0SV = nullptr;
+    if (!IsSwapLSChain(SI0, &S0LV, &S0SV))
+      return false;
+    if (S0LV != VR || S0SV != VL)
+      return false;
+    *BBO = BI->getSuccessor(0);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' is a BasicBlock of the form:
+  //
+  //   %conv88 = trunc i64 'F(2)' to i32
+  //   call void 'FSwapFunc'(i8* 'VL', i8* 'VR', i32 %conv88, i32 'PHIC0',
+  //       i32 'PHIC1')
+  //   br label 'BBO'
+  //
+  auto IsEasySwapFuncBlock =
+      [](Function &F, Function &FSwapFunc, BasicBlock *BBI, BasicBlock *BBO,
+         Value *VL, Value *VR, PHINode *PHIC0, PHINode *PHIC1) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional() || BI->getSuccessor(0) != BBO)
+      return false;
+    auto CI = dyn_cast_or_null<CallInst>(BI->getPrevNonDebugInstruction());
+    if (!CI || CI->isIndirectCall() || CI->arg_size() != 5)
+      return false;
+    if (CI->getArgOperand(0) != VL || CI->getArgOperand(1) != VR ||
+        CI->getArgOperand(3) != PHIC0 || CI->getArgOperand(4) != PHIC1)
+      return false;
+    auto TI = dyn_cast<TruncInst>(CI->getArgOperand(2));
+    if (!TI || TI->getOperand(0) != F.getArg(2))
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' starts a sequence of BasicBlocks that
+  // implement a swap, of longs, ints, or something else. The values pointed
+  // to by 'VL' and 'VR' are swapped. 'PHIC0' is 'true' if we are swapping
+  // long values. 'PHIC1' is 'true' if we are swapping int values. If we are
+  // swapping something else, 'FSwapFunc' is used to do the swapping.
+  // 'BytesInLong' is the number of bytes in a long. If we return 'true',
+  // we set the value of 'BBO', the exit BasicBlock from the swap sequence.
+  //
+  auto IsEasySwap = [&IsPHITest, &IsEasySwapBlock, IsEasySwapFuncBlock](
+                        Function &F, Function &FSwapFunc, BasicBlock *BBI,
+                        Value *VL, Value *VR, PHINode *PHIC0, PHINode *PHIC1,
+                        uint64_t BytesInLong, BasicBlock **BBO) -> bool {
+    BasicBlock *BBSW0 = nullptr;
+    BasicBlock *BBSW1 = nullptr;
+    BasicBlock *BBSW2 = nullptr;
+    BasicBlock *BBT0 = nullptr;
+    BasicBlock *BBX = nullptr;
+    BasicBlock *BBX0 = nullptr;
+    if (!IsPHITest(BBI, PHIC0, &BBSW0, &BBT0))
+      return false;
+    if (!IsEasySwapBlock(BBSW0, BytesInLong, VL, VR, &BBX))
+      return false;
+    if (!IsPHITest(BBT0, PHIC1, &BBSW1, &BBSW2))
+      return false;
+    if (!IsEasySwapBlock(BBSW1, 4, VL, VR, &BBX0) || BBX0 != BBX)
+      return false;
+    if (!IsEasySwapFuncBlock(F, FSwapFunc, BBSW2, BBX, VL, VR, PHIC0, PHIC1))
+      return false;
+    *BBO = BBX;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' contains a PHINode of the form:
+  //
+  //   'V0' = phi i8* [ 'VMPO', %if.end75 ], [ 'VMPI', %if.end48 ]
+  //
+  // If we return 'true', we set the value of 'VO'.
+  //
+  auto IsEasySwapInit0 = [&IsJoinPHI](BasicBlock *BBI, Value *VMFI, Value *VMFO,
+                                      Value **VO) -> bool {
+    BranchInst *BI = nullptr;
+    ICmpInst *IC = nullptr;
+    if (!getBIAndIC(BBI, ICmpInst::ICMP_EQ, &BI, &IC))
+      return false;
+    PHINode *PHI = nullptr;
+    if (!IsJoinPHI(IC->getPrevNonDebugInstruction(), VMFO, VMFI, &PHI))
+      return false;
+    *VO = PHI;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' is a sequence swapping two values at
+  // 'PHIA' and the join of 'VMFI' and 'VMFO'. 'PHIC0' indicates whether
+  // we are swapping longs. 'PHIC1' indicates whether we are swapping ints.
+  // If neither, 'FSwapFunc' is used to do the swapping. 'BytesInLong' is
+  // the number of bytes in a long. If we return true, we set 'BBO' to the
+  // exit BasicBlock of the sequence.
+  //
+  auto IsEasySwap0 = [&IsEasySwapInit0, &IsEasySwap](
+                         Function &F, Function &FSwapFunc, BasicBlock *BBI,
+                         PHINode *PHIA, Value *VMFI, Value *VMFO,
+                         PHINode *PHIC0, PHINode *PHIC1, uint64_t BytesInLong,
+                         BasicBlock **BBO) -> bool {
+    Value *VMF = nullptr;
+    if (!IsEasySwapInit0(BBI, VMFO, VMFI, &VMF))
+      return false;
+    uint64_t BIL = BytesInLong;
+    BasicBlock *BBX = nullptr;
+    if (!IsEasySwap(F, FSwapFunc, BBI, PHIA, VMF, PHIC0, PHIC1, BIL, &BBX))
+      return false;
     *BBO = BBX;
     return true;
   };
@@ -1822,11 +1975,13 @@ static bool isQsortSpecQsort(Function &F) {
   BasicBlock *BBXN = nullptr;
   BasicBlock *BBIS = nullptr;
   BasicBlock *BBSW = nullptr;
+  BasicBlock *BBPV = nullptr;
   PHINode *PHIA = nullptr;
   PHINode *PHIN = nullptr;
   PHINode *PHIC0 = nullptr;
   PHINode *PHIC1 = nullptr;
-  Value *VPMF = nullptr;
+  Value *VPMFI = nullptr;
+  Value *VPMFO = nullptr;
   Function *FSwapFunc = nullptr;
   DenseMapBBToV PHIMap;
   if (!MatchesPrototype(F)) {
@@ -1882,10 +2037,17 @@ static bool isQsortSpecQsort(Function &F) {
                            << ": Is not second direct branch block.\n");
     return false;
   }
-  if (!IsMedianComp(F, BBX2, PHIA, PHIN, &VPMF, &BBSW)) {
+  if (!IsMedianComp(F, BBX2, PHIA, PHIN, &VPMFI, &VPMFO, &BBSW)) {
     DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
                                         << "FXNREC: SPEC_QSORT: " << F.getName()
                                         << ": Is not median computation.\n");
+    return false;
+  }
+  if (!IsEasySwap0(F, *FSwapFunc, BBSW, PHIA, VPMFI, VPMFO, PHIC0, PHIC1,
+                   BytesInLong, &BBPV)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": Is not first easy swap.\n");
     return false;
   }
   // More code to come here.
