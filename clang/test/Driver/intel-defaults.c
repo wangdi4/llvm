@@ -4,6 +4,7 @@
 // RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // CHECK-INTEL: "-fveclib=SVML"
 // CHECK-INTEL: "-O2"
+// CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
 // CHECK-INTEL: "-mllvm" "-intel-libirc-allowed"
 

@@ -3121,6 +3121,10 @@ def stdlibxx_isystem : JoinedOrSeparate<["-"], "stdlib++-isystem">,
 def strict_ansi : Flag<["-"], "strict-ansi">, Flags<[DriverOption]>,
   HelpText<"strict ANSI conformance dialect">;
 def : Flag<["-"], "strict_ansi">, Alias<strict_ansi>;
+def use_msasm : Flag<["-"], "use-msasm">, Alias<fasm_blocks>,
+  HelpText<"enables the use of blocks and entire functions of assembly code"
+  " within a C or C++ file">;
+def : Flag<["-"], "use_msasm">, Alias<fasm_blocks>;
 #endif // INTEL_CUSTOMIZATION
 def unwindlib_EQ : Joined<["-", "--"], "unwindlib=">, Flags<[CC1Option]>,
   HelpText<"Unwind library to use">, Values<"libgcc,unwindlib,platform">;
@@ -3165,6 +3169,11 @@ def unexported__symbols__list : Separate<["-"], "unexported_symbols_list">;
 def u : JoinedOrSeparate<["-"], "u">, Group<u_Group>;
 def v : Flag<["-"], "v">, Flags<[CC1Option, CoreOption]>,
   HelpText<"Show commands to run and use verbose output">;
+#if INTEL_CUSTOMIZATION
+def vec : Flag<["-"], "vec">, Alias<fvectorize>,
+  HelpText<"Enable the loop vectorization passes">;
+def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>;
+#endif // INTEL_CUSTOMIZATION
 def verify_debug_info : Flag<["--"], "verify-debug-info">, Flags<[DriverOption]>,
   HelpText<"Verify the binary representation of debug output">;
 def weak_l : Joined<["-"], "weak-l">, Flags<[LinkerInput]>;
