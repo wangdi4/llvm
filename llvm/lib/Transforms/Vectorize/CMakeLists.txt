@@ -38,6 +38,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanScalarEvolution.cpp
   Intel_VPlan/IntelVPlanSSADeconstruction.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
+  Intel_VPlan/IntelVPlanValueTracking.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp
   Intel_VPlan/IntelVPlanVectorShape.cpp

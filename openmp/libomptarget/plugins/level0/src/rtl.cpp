@@ -373,9 +373,8 @@ public:
     if (DeviceType == ZE_DEVICE_TYPE_GPU) {
       // Intel Graphics compilers that do not support that option
       // silently ignore it. Other OpenCL compilers may fail.
-      const char *env = nullptr;
-      if (!(env = std::getenv("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS")) ||
-          (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
+      const char *env = std::getenv("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS");
+      if (env && (env[0] == 'T' || env[0] == 't' || env[0] == '1'))
         CompilationOptions += " -cl-take-global-address ";
     }
     // Profile
