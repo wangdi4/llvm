@@ -1,8 +1,4 @@
 # RUN: env LLVM_BIN_PATH=%llvm_build_bin_dir python %sycl_tools_src_dir/abi_check.py --mode check_symbols --reference %s %llvm_build_lib_dir/libsycl.so
-# INTEL_CUSTOMIZATION
-# Temporarily disable the test (CMPLRLLVM-19612)/
-# UNSUPPORTED: linux
-# end INTEL_CUSTOMIZATION
 # REQUIRES: linux
 
 _Z20__spirv_ocl_prefetchPKcm
