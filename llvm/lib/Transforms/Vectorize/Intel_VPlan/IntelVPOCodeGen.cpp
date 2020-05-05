@@ -1537,9 +1537,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
   // %16 = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float>
   //                                                       %wide.input,
   //                                                       <8 x float>*
-  //                                                       %cosPtr.vec,
+  //                                                       %sinPtr.vec,
   //                                                       <8 x float>*
-  //                                                       %sinPtr.vec)
+  //                                                       %cosPtr.vec)
   // %wide.sin.InitVal = load <8 x float>, <8 x float>* %SinPtr.vec
   // %wide.load2 = load <8 x float>, <8 x float>* %cosPtr.vec, align 4
 
@@ -1571,11 +1571,11 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
   WideSinPtr->insertAfter(WideCosPtr);
   WideSinPtr->setName("sinPtr.vec");
   VecArgs.push_back(Arg1);
-  VecArgs.push_back(WideCosPtr);
   VecArgs.push_back(WideSinPtr);
+  VecArgs.push_back(WideCosPtr);
   VecArgTys.push_back(Arg1->getType());
-  VecArgTys.push_back(WideCosPtr->getType());
   VecArgTys.push_back(WideSinPtr->getType());
+  VecArgTys.push_back(WideCosPtr->getType());
 
   Function *CalledFunc = getCalledFunction(VPCall);
   assert(CalledFunc && "Unexpected null call function.");
