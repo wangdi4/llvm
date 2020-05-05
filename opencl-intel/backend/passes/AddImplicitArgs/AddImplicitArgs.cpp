@@ -213,7 +213,7 @@ namespace intel{
           CompilationUtils::isGlobalCtorDtorOrCPPFunc(pCallee)))
         continue;
       StringRef Name = IsDirectCall ? pCallee->getName()
-                                    : pCall->getCalledValue()->getName();
+                                    : pCall->getCalledOperand()->getName();
       Value **pCallArgs = new Value*[ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS];
       Function::arg_iterator IA = pNewF->arg_begin();
       // Skip over explicit args

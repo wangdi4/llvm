@@ -475,7 +475,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
            }
 
           llvm::PointerType *PTy = llvm::cast<llvm::PointerType>(arg_it->getType());
-          if ( pArg->hasByValAttr() && PTy->getElementType()->getTypeID() == llvm::Type::VectorTyID )
+          if ( pArg->hasByValAttr() && isa<VectorType>(PTy->getElementType()))
           {
             // Check by pointer vector passing, used in long16 and double16
             llvm::VectorType *pVector = llvm::cast<llvm::VectorType>(PTy->getElementType());
@@ -630,7 +630,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         curArg.size_in_bytes = sizeof(double);
         break;
 
-      case llvm::Type::VectorTyID:
+      case Type::FixedVectorTyID:
+      case Type::ScalableVectorTyID:
         {
           llvm::VectorType *pVector = llvm::dyn_cast<llvm::VectorType>(arg_it->getType());
           curArg.type = CL_KRNL_ARG_VECTOR;
@@ -851,7 +852,7 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
   // And append new arguments
   Args.append(NewArgs.begin(), NewArgs.end());
 
-  auto *FPtrType = cast<PointerType>(OldC->getCalledValue()->getType());
+  auto *FPtrType = cast<PointerType>(OldC->getCalledOperand()->getType());
   auto *FType = cast<FunctionType>(FPtrType->getElementType());
   SmallVector<Type *, 16> ArgTys;
   for (const auto &V : Args)
@@ -860,7 +861,7 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
   auto *NewFType =
       FunctionType::get(FType->getReturnType(), ArgTys, /* vararg = */ false);
   auto *Cast = CastInst::CreatePointerCast(
-      OldC->getCalledValue(),
+      OldC->getCalledOperand(),
       PointerType::get(NewFType, FPtrType->getAddressSpace()), "", OldC);
   assert(Cast && "Failed to create CastInst");
 
