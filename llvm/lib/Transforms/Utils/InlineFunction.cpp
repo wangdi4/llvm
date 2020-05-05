@@ -89,9 +89,12 @@ EnableNoAliasConversion("enable-noalias-to-md-conversion", cl::init(true),
   cl::Hidden,
   cl::desc("Convert noalias attributes to metadata during inlining."));
 
+// Disabled by default, because the added alignment assumptions may increase
+// compile-time and block optimizations. This option is not suitable for use
+// with frontends that emit comprehensive parameter alignment annotations.
 static cl::opt<bool>
 PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
-  cl::init(true), cl::Hidden,
+  cl::init(false), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
 static cl::opt<bool> UpdateReturnAttributes(
@@ -561,7 +564,7 @@ static BasicBlock *HandleCallsInBlockInlinedThroughInvoke(
     // instructions require no special handling.
     CallInst *CI = dyn_cast<CallInst>(I);
 
-    if (!CI || CI->doesNotThrow() || isa<InlineAsm>(CI->getCalledValue()))
+    if (!CI || CI->doesNotThrow() || CI->isInlineAsm())
       continue;
 
     // We do not need to (and in fact, cannot) convert possibly throwing calls
@@ -1309,7 +1312,7 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
   Function *CalledFunc = CB.getCalledFunction();
   for (Argument &Arg : CalledFunc->args()) {
     unsigned Align = Arg.getType()->isPointerTy() ? Arg.getParamAlignment() : 0;
-    if (Align && !Arg.hasByValOrInAllocaAttr() && !Arg.hasNUses(0)) {
+    if (Align && !Arg.hasPassPointeeByValueAttr() && !Arg.hasNUses(0)) {
       if (!DTCalculated) {
         DT.recalculate(*CB.getCaller());
         DTCalculated = true;
@@ -1490,8 +1493,8 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
 
     // If the pointer is already known to be sufficiently aligned, or if we can
     // round it up to a larger alignment, then we don't need a temporary.
-    if (getOrEnforceKnownAlignment(Arg, ByValAlignment, DL, TheCall, AC) >=
-        ByValAlignment)
+    if (getOrEnforceKnownAlignment(Arg, Align(ByValAlignment), DL, TheCall,
+                                   AC) >= ByValAlignment)
       return Arg;
 
     // Otherwise, we have to make a memcpy to get a safe alignment.  This is bad
@@ -1765,8 +1768,9 @@ static void HandleVaArgPackAndLen(CallBase& CB, Function::iterator FI,
       }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = CallInst::Create(CI->getFunctionType(), CI->getCalledValue(),
-          Args, OpBundles, "", CI);
+      auto NewI =
+          CallInst::Create(CI->getFunctionType(), CI->getCalledOperand(), Args,
+                           OpBundles, "", CI);
       if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
       if (MDIR && MDIR->isMDIREnabled())
@@ -1791,9 +1795,9 @@ static void HandleVaArgPackAndLen(CallBase& CB, Function::iterator FI,
       }
       SmallVector<OperandBundleDef, 1> OpBundles;
       CI->getOperandBundlesAsDefs(OpBundles);
-      auto NewI = InvokeInst::Create(CI->getFunctionType(),
-        CI->getCalledValue(), CI->getNormalDest(), CI->getUnwindDest(), Args,
-        OpBundles, "", CI);
+      auto NewI = InvokeInst::Create(
+          CI->getFunctionType(), CI->getCalledOperand(), CI->getNormalDest(),
+          CI->getUnwindDest(), Args, OpBundles, "", CI);
       if (IR && IR->isClassicIREnabled())
         IR->updateActiveCallSiteTarget(CI, NewI);
       if (MDIR && MDIR->isMDIREnabled())
@@ -1822,8 +1826,7 @@ static void HandleVaArgPackAndLen(CallBase& CB, Function::iterator FI,
 /// Update the branch metadata for cloned call instructions.
 static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
                               const ProfileCount &CalleeEntryCount,
-                              const Instruction *TheCall,
-                              ProfileSummaryInfo *PSI,
+                              const CallBase &TheCall, ProfileSummaryInfo *PSI,
                               BlockFrequencyInfo *CallerBFI) {
   if (!CalleeEntryCount.hasValue() || CalleeEntryCount.isSynthetic() ||
       CalleeEntryCount.getCount() < 1)
@@ -1832,7 +1835,7 @@ static void updateCallProfile(Function *Callee, const ValueToValueMapTy &VMap,
 #if INTEL_CUSTOMIZATION
   if (CallSiteCount == None) {
     // Get profile for call from intel_profx if not available elsewhere
-    auto *MD = TheCall->getMetadata(LLVMContext::MD_intel_profx);
+    auto *MD = TheCall.getMetadata(LLVMContext::MD_intel_profx);
     if (MD) {
       assert(MD->getNumOperands() == 2);
       ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
@@ -2191,7 +2194,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       updateCallerBFI(OrigBB, VMap, IFI.CallerBFI, IFI.CalleeBFI,
                       CalledFunc->front());
 
-    updateCallProfile(CalledFunc, VMap, CalledFunc->getEntryCount(), &CB,
+    updateCallProfile(CalledFunc, VMap, CalledFunc->getEntryCount(), CB,
                       IFI.PSI, IFI.CallerBFI);
 
     // Inject byval arguments initialization.
@@ -2556,7 +2559,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 
         // Skip call sites which are nounwind intrinsics.
         auto *CalledFn =
-            dyn_cast<Function>(I->getCalledValue()->stripPointerCasts());
+            dyn_cast<Function>(I->getCalledOperand()->stripPointerCasts());
         if (CalledFn && CalledFn->isIntrinsic() && I->doesNotThrow())
           continue;
 

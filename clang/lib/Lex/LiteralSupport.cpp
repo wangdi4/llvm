@@ -823,7 +823,7 @@ bool NumericLiteralParser::isValidUDSuffix(const LangOptions &LangOpts,
       .Cases("h", "min", "s", true)
       .Cases("ms", "us", "ns", true)
       .Cases("il", "i", "if", true)
-      .Cases("d", "y", LangOpts.CPlusPlus2a)
+      .Cases("d", "y", LangOpts.CPlusPlus20)
       .Default(false);
 }
 

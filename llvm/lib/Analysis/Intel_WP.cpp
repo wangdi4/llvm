@@ -344,7 +344,7 @@ bool WholeProgramInfo::resolveCallsInRoutine(
     }
 
     CallBase *CS = dyn_cast<CallBase>(&II);
-    Resolved &= resolveCalledValue(GetTLI, CS->getCalledValue(), F);
+    Resolved &= resolveCalledValue(GetTLI, CS->getCalledOperand(), F);
 
     LLVM_DEBUG({
       // If we are printing the trace for whole program analysis then

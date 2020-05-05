@@ -10,6 +10,7 @@
 
 #include "CL/sycl/access/access.hpp"
 #include <CL/cl.h>
+#include <CL/sycl/backend_types.hpp>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
 #include <CL/sycl/detail/stream_impl.hpp>
@@ -1671,7 +1672,7 @@ cl_int ExecCGCommand::enqueueImp() {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
         RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_OPENCL)) {
+        if (Plugin.getBackend() == backend::opencl) {
           Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                  sizeof(RT::PiMem), &MemArg);
         } else {
@@ -1690,7 +1691,7 @@ cl_int ExecCGCommand::enqueueImp() {
         RT::PiSampler Sampler =
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
 #if INTEL_CUSTOMIZATION
-        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_LEVEL0)) {
+        if (Plugin.getBackend() == (backend::level0)) {
           // TODO: This is a workaround and should be reworked when
           // piextDeviceGetNativeHandle will be implemented.
           Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,

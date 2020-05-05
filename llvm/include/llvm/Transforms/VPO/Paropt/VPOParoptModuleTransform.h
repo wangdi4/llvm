@@ -67,7 +67,9 @@ public:
         DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
 
   ~VPOParoptModuleTransform() {
-    DeleteContainerPointers(OffloadEntries);
+    for (auto E : OffloadEntries)
+      delete E;
+    OffloadEntries.clear();
   }
 
   /// Perform paropt transformation on a module.

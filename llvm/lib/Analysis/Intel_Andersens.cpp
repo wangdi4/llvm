@@ -560,7 +560,8 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
         // We can use cast because we proved that the function pointer
         // and the target are vector types
         VectorType *TargetVector = cast<VectorType>(TargetType);
-        if (FPVector->getBitWidth() != TargetVector->getBitWidth())
+        if (FPVector->getPrimitiveSizeInBits() !=
+            TargetVector->getPrimitiveSizeInBits())
           return false;
 
         // Check that the number of elements and their types match
@@ -1486,7 +1487,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
       // Treat malloc/calloc in InvokeInst also as memory object creators.
       if (isa<CallInst>(&*II) || isa<InvokeInst>(&*II)) {
         CallBase *CB = cast<CallBase>(&*II);
-        Value *Callee = CB->getCalledValue();
+        Value *Callee = CB->getCalledOperand();
         if (isa<InlineAsm>(Callee))
           ValueNodes[Callee] = NumObjects++;
 
@@ -2436,9 +2437,9 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
   // Callee can be found by parsing getCalledValue but it may not be 
   // useful due to mismatch of args and formals. Decided to go conservative. 
   //
-  if (F == nullptr && isa<ConstantExpr>(CB->getCalledValue())) {
+  if (F == nullptr && isa<ConstantExpr>(CB->getCalledOperand())) {
     AddConstraintsForInitActualsToUniversalSet(CB);
-    return; 
+    return;
   }
 
   if (F == nullptr) {
@@ -3606,7 +3607,7 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallBase *CB, Function *F) 
 //
 void AndersensAAResult::ProcessIndirectCall(CallBase *CB) {
   SparseBitVector<> PointsToDiff;
-  Value* call_fptr = CB->getCalledValue();
+  Value *call_fptr = CB->getCalledOperand();
   assert(call_fptr && "Expecting function fptr");
   const Node *N = &GraphNodes[FindNode(getNode(call_fptr))];
 
@@ -5032,7 +5033,7 @@ IntelModRefImpl::isResolvable(Function *F) const {
   // Check if all call-sites can be resolved.
   for (auto &I : instructions(F))
     if (CallBase *Call = dyn_cast<CallBase>(&I)) {
-      const Value *V = Call->getCalledValue();
+      const Value *V = Call->getCalledOperand();
       if (isa<InlineAsm>(*V)) {
         DEBUG_WITH_TYPE("imr-collect",
                         dbgs() << F->getName() << ": has inline-asm\n");
@@ -6059,7 +6060,7 @@ void AndersensAAResult::AnalyzeCalls() {
     ProcessCall(IndirectCallList[i]);
   for (unsigned i = 0, e = DirectCallList.size(); i != e; ++i) {
     CallBase *CB = DirectCallList[i];
-    const Value *V = CB->getCalledValue();
+    const Value *V = CB->getCalledOperand();
     if (isa<InlineAsm>(*V))
       continue;
 

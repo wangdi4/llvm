@@ -373,10 +373,17 @@ static cl::opt<bool>
     EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
                  cl::desc("Enable lowering of the matrix intrinsics"));
 
-cl::opt<bool> DisableAttributor(
-    "attributor-disable", cl::Hidden,
-    cl::desc("Disable the attributor inter-procedural deduction pass."),
-    cl::init(true));
+cl::opt<AttributorRunOption> AttributorRun(
+    "attributor-enable", cl::Hidden, cl::init(AttributorRunOption::NONE),
+    cl::desc("Enable the attributor inter-procedural deduction pass."),
+    cl::values(clEnumValN(AttributorRunOption::ALL, "all",
+                          "enable all attributor runs"),
+               clEnumValN(AttributorRunOption::MODULE, "module",
+                          "enable module-wide attributor runs"),
+               clEnumValN(AttributorRunOption::CGSCC, "cgscc",
+                          "enable call graph SCC attributor runs"),
+               clEnumValN(AttributorRunOption::NONE, "none",
+                          "disable attributor runs")));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -915,7 +922,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createInferFunctionAttrsLegacyPass());
 
   // Infer attributes on declarations, call sites, arguments, etc.
-  if (!DisableAttributor)
+  if (AttributorRun & AttributorRunOption::MODULE)
     MPM.add(createAttributorLegacyPass());
 
   addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
@@ -996,7 +1003,7 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
-  if (!DisableAttributor)
+  if (AttributorRun & AttributorRunOption::CGSCC)
     MPM.add(createAttributorCGSCCLegacyPass());
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
@@ -1481,7 +1488,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createCalledValuePropagationPass());
 
     // Infer attributes on declarations, call sites, arguments, etc.
-    if (!DisableAttributor)
+    if (AttributorRun & AttributorRunOption::MODULE)
       PM.add(createAttributorLegacyPass());
   }
 
@@ -1608,7 +1615,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addPGOInstrPasses(PM, /* IsCS */ true);
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
-  if (!DisableAttributor)
+  if (AttributorRun & AttributorRunOption::CGSCC)
     PM.add(createAttributorCGSCCLegacyPass());
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if

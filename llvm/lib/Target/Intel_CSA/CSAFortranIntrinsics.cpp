@@ -101,7 +101,7 @@ bool CSAFortranIntrinsics::runOnFunction(Function &F) {
       // (gfortran).
       Function *callee = CI->getCalledFunction();
       if (not callee) {
-        ConstantExpr *const CE = dyn_cast<ConstantExpr>(CI->getCalledValue());
+        ConstantExpr *const CE = dyn_cast<ConstantExpr>(CI->getCalledOperand());
         if (not CE)
           continue;
         if (not CE->isCast())

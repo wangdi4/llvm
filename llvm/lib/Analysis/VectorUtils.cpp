@@ -113,7 +113,7 @@ bool llvm::hasVectorInstrinsicScalarOpd(Intrinsic::ID ID,
 /// its ID, in case it does not found it return not_intrinsic.
 Intrinsic::ID llvm::getVectorIntrinsicIDForCall(const CallInst *CI,
                                                 const TargetLibraryInfo *TLI) {
-  Intrinsic::ID ID = getIntrinsicForCallSite(CI, TLI);
+  Intrinsic::ID ID = getIntrinsicForCallSite(*CI, TLI);
   if (ID == Intrinsic::not_intrinsic)
     return Intrinsic::not_intrinsic;
 
@@ -279,10 +279,10 @@ Value *llvm::findScalarElement(Value *V, unsigned EltNo) {
   assert(V->getType()->isVectorTy() && "Not looking at a vector?");
   VectorType *VTy = cast<VectorType>(V->getType());
   // For fixed-length vector, return undef for out of range access.
-  if (!VTy->isScalable()) {
-    unsigned Width = VTy->getNumElements();
+  if (auto *FVTy = dyn_cast<FixedVectorType>(VTy)) {
+    unsigned Width = FVTy->getNumElements();
     if (EltNo >= Width)
-      return UndefValue::get(VTy->getElementType());
+      return UndefValue::get(FVTy->getElementType());
   }
 
   if (Constant *C = dyn_cast<Constant>(V))
@@ -964,7 +964,7 @@ Value *llvm::joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilderBase &Builder
     for (unsigned i = 0, j = 0; i < VL; i += 2, ++j) {
       unsigned NumElts =
           cast<VectorType>(VParts[i]->getType())->getNumElements();
-      SmallVector<unsigned, 8> ShuffleMask(NumElts * 2);
+      SmallVector<int, 8> ShuffleMask(NumElts * 2);
       for (unsigned MaskInd = 0; MaskInd < NumElts * 2; ++MaskInd)
         ShuffleMask[MaskInd] = MaskInd;
       VParts[j] =
@@ -1007,7 +1007,7 @@ Value *llvm::replicateVector(Value *OrigVal, unsigned OriginalVL,
   if (OriginalVL == 1)
     return OrigVal;
   unsigned NumElts = cast<VectorType>(OrigVal->getType())->getNumElements();
-  SmallVector<unsigned, 8> ShuffleMask;
+  SmallVector<int, 8> ShuffleMask;
   for (unsigned j = 0; j < OriginalVL; j++)
     for (unsigned i = 0; i < NumElts; ++i)
       ShuffleMask.push_back((signed)i);
@@ -1057,7 +1057,7 @@ Value *llvm::generateExtractSubVector(Value *V, unsigned Part,
   assert(Part < NumParts && "Invalid subpart to be extracted from vector.");
 
   unsigned SubVecLen = VecLen / NumParts;
-  SmallVector<unsigned, 4> ShuffleMask;
+  SmallVector<int, 4> ShuffleMask;
   Value *Undef = UndefValue::get(V->getType());
 
   unsigned ElemIdx = Part * SubVecLen;
@@ -1724,22 +1724,23 @@ void InterleavedAccessInfo::invalidateGroupsRequiringScalarEpilogue() {
   if (!requiresScalarEpilogue())
     return;
 
-  // Avoid releasing a Group twice.
-  SmallPtrSet<InterleaveGroup<Instruction> *, 4> DelSet;
-  for (auto &I : InterleaveGroupMap) {
-    InterleaveGroup<Instruction> *Group = I.second;
-    if (Group->requiresScalarEpilogue())
-      DelSet.insert(Group);
-  }
-  for (auto *Ptr : DelSet) {
+  bool ReleasedGroup = false;
+  // Release groups requiring scalar epilogues. Note that this also removes them
+  // from InterleaveGroups.
+  for (auto *Group : make_early_inc_range(InterleaveGroups)) {
+    if (!Group->requiresScalarEpilogue())
+      continue;
     LLVM_DEBUG(
         dbgs()
         << "LV: Invalidate candidate interleaved group due to gaps that "
            "require a scalar epilogue (not allowed under optsize) and cannot "
            "be masked (not enabled). \n");
-    releaseGroup(Ptr);
+    releaseGroup(Group);
+    ReleasedGroup = true;
   }
-
+  assert(ReleasedGroup && "At least one group must be invalidated, as a "
+                          "scalar epilogue was required");
+  (void)ReleasedGroup;
   RequiresScalarEpilogue = false;
 }
 

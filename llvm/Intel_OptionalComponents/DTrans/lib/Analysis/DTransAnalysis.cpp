@@ -3082,7 +3082,7 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
     if (!dtrans::isFreeFn(CI, TLI) && !DTAA.isFreePostDom(CI))
       return false;
   } else {
-    auto LI2 = dyn_cast<LoadInst>(CI->getCalledValue());
+    auto LI2 = dyn_cast<LoadInst>(CI->getCalledOperand());
     if (!LI2)
       return false;
     if (CI->getNumArgOperands() < VoidArgumentIndex + 1 ||
@@ -3941,7 +3941,7 @@ public:
     if (!DTransUseCRuleCompat)
       return true;
     // Check if this is an indirect call site.
-    if (isa<Function>(Call->getCalledValue()))
+    if (isa<Function>(Call->getCalledOperand()))
       return false;
     // Look for a matching address taken external call.
     for (auto &F : Call->getModule()->functions()) {
@@ -4304,7 +4304,7 @@ public:
     if (F && MayBeBitcast) {
       // Account for layout in registers and on stack.
       if (!typesMayBeCRuleCompatible(
-              Call.getCalledValue()->getType()->getPointerElementType(),
+              Call.getCalledOperand()->getType()->getPointerElementType(),
               // Do not need to compare pointees types
               // here.
               F->getType()->getPointerElementType(), true)) {

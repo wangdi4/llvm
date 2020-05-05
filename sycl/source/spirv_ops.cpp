@@ -20,6 +20,13 @@ __SYCL_EXPORT void __spirv_GroupWaitEvents(__spv::Scope Execution,
                                            __ocl_event_t *WaitEvents) noexcept {
 }
 
+__SYCL_EXPORT void __spirv_ControlBarrier(__spv::Scope Execution,
+                                          __spv::Scope Memory,
+                                          uint32_t Semantics) noexcept {
+  std::cerr << "Barrier is not supported on the host device yet.\n";
+  abort();
+}
+
 __SYCL_EXPORT void __spirv_MemoryBarrier(__spv::Scope Memory,
                                          uint32_t Semantics) noexcept {
   // 1. The 'Memory' parameter is ignored on HOST because there is no memory

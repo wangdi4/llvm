@@ -113,7 +113,8 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     // (such as loading indices).
     // FIXME 2: Extend the LLVM TTI interface for shuffles.
     // FORNOW: temporary dummy implementation.
-    Cost = TTI.getShuffleCost(TargetTransformInfo::SK_Select, VecTy);
+    Cost = TTI.getShuffleCost(TargetTransformInfo::SK_Select,
+                              cast<VectorType>(VecTy));
     return Cost;
   }
 
@@ -197,7 +198,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
             Value *Op2 = InterleavingShuffleInst->getOperand(1);
             int64_t StartIndex =
                 cast<const OVLSAddress>(OVLSOp[i])->getOffset();
-            SmallVector<uint32_t, 4> Mask;
+            SmallVector<int, 4> Mask;
             uint32_t ElemSize = TempBase->getType().getElementSize();
             uint32_t NumElements = TempBase->getType().getNumElements();
             // StartIndex, represents the offset from the base,
@@ -220,7 +221,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       assert((InvalidOperands == false) &&
              "Unexpected Operand for OVLSShuffle Instruction.");
 
-      SmallVector<uint32_t, 4> Mask;
+      SmallVector<int, 4> Mask;
       OSI->getShuffleMask(Mask);
       Value *Shuffle = Builder.CreateShuffleVector(Op[0], Op[1], Mask);
       InstMap[OInst->getId()] = Shuffle;

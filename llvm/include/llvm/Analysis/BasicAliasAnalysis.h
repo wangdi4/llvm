@@ -86,7 +86,7 @@ public:
   {
     PtrCaptureMaxUses =
         OptLevel < 3 && OptPtrMaxUsesToExplore.getNumOccurrences() == 0
-            ? DefaultMaxUsesToExplore
+            ? getDefaultMaxUsesToExploreForCaptureTracking()
             : OptPtrMaxUsesToExplore;
   }
 #endif // INTEL_CUSTOMIZATION

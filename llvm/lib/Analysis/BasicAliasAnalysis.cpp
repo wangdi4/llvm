@@ -686,8 +686,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
     // Don't attempt to analyze GEPs if index scale is not a compile-time
     // constant.
-    Type *SrcEleTy = GEPOp->getSourceElementType();
-    if (SrcEleTy->isVectorTy() && cast<VectorType>(SrcEleTy)->isScalable()) {
+    if (isa<ScalableVectorType>(GEPOp->getSourceElementType())) {
       Decomposed.Base = V;
       Decomposed.HasCompileTimeConstantScale = false;
       return false;

@@ -488,15 +488,12 @@ public:
   /// Returns true if the address space in these qualifiers is equal to or
   /// a superset of the address space in the argument qualifiers.
   bool isAddressSpaceSupersetOf(Qualifiers other) const {
-
-    return
-        isAddressSpaceSupersetOf(getAddressSpace(), other.getAddressSpace()) ||
-        (!hasAddressSpace() &&
-         (other.getAddressSpace() == LangAS::sycl_private ||
-          other.getAddressSpace() == LangAS::sycl_local ||
-          other.getAddressSpace() == LangAS::sycl_global ||
-          other.getAddressSpace() == LangAS::sycl_constant ||
-          other.getAddressSpace() == LangAS::sycl_generic));
+    return isAddressSpaceSupersetOf(getAddressSpace(),
+                                    other.getAddressSpace()) ||
+           (!hasAddressSpace() &&
+            (other.getAddressSpace() == LangAS::opencl_private ||
+             other.getAddressSpace() == LangAS::opencl_local ||
+             other.getAddressSpace() == LangAS::opencl_global));
   }
 
   /// Determines if these qualifiers compatibly include another set.
@@ -3532,13 +3529,12 @@ public:
     enum { NoReturnMask = 0x20 };
     enum { ProducesResultMask = 0x40 };
     enum { NoCallerSavedRegsMask = 0x80 };
+    enum {
+      RegParmMask =  0x700,
+      RegParmOffset = 8
+    };
     enum { NoCfCheckMask = 0x800 };
     enum { CmseNSCallMask = 0x1000 };
-    enum {
-      RegParmMask = ~(CallConvMask | NoReturnMask | ProducesResultMask |
-                      NoCallerSavedRegsMask | NoCfCheckMask | CmseNSCallMask),
-      RegParmOffset = 8
-    }; // Assumed to be the last field
     uint16_t Bits = CC_C;
 
     ExtInfo(unsigned Bits) : Bits(static_cast<uint16_t>(Bits)) {}
@@ -3571,7 +3567,7 @@ public:
     bool getCmseNSCall() const { return Bits & CmseNSCallMask; }
     bool getNoCallerSavedRegs() const { return Bits & NoCallerSavedRegsMask; }
     bool getNoCfCheck() const { return Bits & NoCfCheckMask; }
-    bool getHasRegParm() const { return (Bits >> RegParmOffset) != 0; }
+    bool getHasRegParm() const { return ((Bits & RegParmMask) >> RegParmOffset) != 0; }
 
     unsigned getRegParm() const {
       unsigned RegParm = (Bits & RegParmMask) >> RegParmOffset;
@@ -5619,6 +5615,7 @@ public:
   void Profile(llvm::FoldingSetNodeID &ID);
   static void Profile(llvm::FoldingSetNodeID &ID,
                       const ObjCTypeParamDecl *OTPDecl,
+                      QualType CanonicalType,
                       ArrayRef<ObjCProtocolDecl *> protocols);
 
   ObjCTypeParamDecl *getDecl() const { return OTPDecl; }

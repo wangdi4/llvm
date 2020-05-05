@@ -329,8 +329,8 @@ static void addForceNoinlineAttr(CallBase &CB, Function *Callee,
       CallInst *CI = dyn_cast_or_null<CallInst>(I->getUser());
       InvokeInst *II = dyn_cast_or_null<InvokeInst>(I->getUser());
 
-      if (!(CI && CI->getCalledValue() == Callee) &&
-          !(II && II->getCalledValue() == Callee))
+      if (!(CI && CI->getCalledOperand() == Callee) &&
+          !(II && II->getCalledOperand() == Callee))
         continue;
 
       auto NewCB = cast<CallBase>(I->getUser());

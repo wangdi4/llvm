@@ -26,14 +26,14 @@ public:
   int den() const { return d; }
 };
 bool operator==(const Fraction &lhs, const Fraction &rhs) {
-  new int; // expected-error {{SYCL kernel cannot allocate storage}} // INTEL
+  new int; // expected-error {{SYCL kernel cannot allocate storage}}
   return lhs.num() == rhs.num() && lhs.den() == rhs.den();
 }
 } // namespace Check_User_Operators
 
 namespace Check_VLA_Restriction {
 void no_restriction(int p) {
-  int index[p + 2];
+  int index[p + 3];
 }
 void restriction(int p) {
   // This particular violation is nested under two kernels with intermediate function calls.
@@ -41,10 +41,10 @@ void restriction(int p) {
   // Because the error is in two different kernels, we are given helpful notes for the origination of the error, twice.
   // expected-note@#call_usage {{called by 'operator()'}}
   // expected-note@#call_kernelFunc {{called by 'kernel_single_task<fake_kernel, (lambda at}}
-  // expected-note@#call_isa_B {{called by 'operator()'}} //INTEL
-  // expected-note@#rtti_kernel {{called by 'kernel1<kernel_name, (lambda at }} // INTEL
-  // expected-note@#call_vla {{called by 'isa_B'}} // INTEL
-  int index[p + 2]; // expected-error {{variable length arrays are not supported for the current target}} // INTEL
+  // expected-note@#call_isa_B 2{{called by 'operator()'}}
+  // expected-note@#rtti_kernel 2{{called by 'kernel1<kernel_name, (lambda at }}
+  // expected-note@#call_vla {{called by 'isa_B'}}
+  int index[p + 2]; // expected-error {{variable length arrays are not supported for the current target}}
 }
 } // namespace Check_VLA_Restriction
 
@@ -61,7 +61,7 @@ struct B : public A {
 struct OverloadedNewDelete {
   // This overload allocates storage, give diagnostic.
   void *operator new(std::size_t size) throw() {
-    float *pt = new float; // expected-error {{SYCL kernel cannot allocate storage}} // INTEL
+    float *pt = new float; // expected-error {{SYCL kernel cannot allocate storage}}
     return 0;
   }
   // This overload does not allocate: no diagnostic.
@@ -72,14 +72,14 @@ struct OverloadedNewDelete {
 
 bool isa_B(A *a) {
   Check_User_Operators::Fraction f1(3, 8), f2(1, 2), f3(10, 2);
-  if (f1 == f2) // expected-note {{called by 'isa_B'}} // INTEL
+  if (f1 == f2) // expected-note {{called by 'isa_B'}}
     return false;
 
   Check_VLA_Restriction::restriction(7); //#call_vla
-  int *ip = new int;                     // expected-error {{SYCL kernel cannot allocate storage}} // INTEL
+  int *ip = new int;                     // expected-error {{SYCL kernel cannot allocate storage}}
   int i;
   int *p3 = new (&i) int;                                    // no error on placement new
-  OverloadedNewDelete *x = new (struct OverloadedNewDelete); // expected-note {{called by 'isa_B'}} // INTEL
+  OverloadedNewDelete *x = new (struct OverloadedNewDelete); // expected-note {{called by 'isa_B'}}
   auto y = new struct OverloadedNewDelete[5];
   (void)typeid(int);                // expected-error {{SYCL kernel cannot use rtti}}
   return dynamic_cast<B *>(a) != 0; // expected-error {{SYCL kernel cannot use rtti}}
@@ -87,7 +87,7 @@ bool isa_B(A *a) {
 
 template <typename N, typename L>
 __attribute__((sycl_kernel)) void kernel1(L l) {
-  l(); //#rtti_kernel  // expected-note 3{{called by 'kernel1<kernel_name, (lambda at }} // INTEL
+  l(); //#rtti_kernel  // expected-note 2{{called by 'kernel1<kernel_name, (lambda at }}
 }
 } // namespace Check_RTTI_Restriction
 
@@ -207,9 +207,9 @@ void usage(myFuncDef functionPtr) {
     // expected-error@+1 {{SYCL kernel cannot use a non-const global variable}}
     b.f(); // expected-error {{SYCL kernel cannot call a virtual function}}
 
-  Check_RTTI_Restriction::kernel1<class kernel_name>([]() { //#call_rtti_kernel // INTEL
+  Check_RTTI_Restriction::kernel1<class kernel_name>([]() { //#call_rtti_kernel
     Check_RTTI_Restriction::A *a;
-    Check_RTTI_Restriction::isa_B(a); //#call_isa_B  // expected-note 3{{called by 'operator()'}} // INTEL
+    Check_RTTI_Restriction::isa_B(a); //#call_isa_B  // expected-note 2{{called by 'operator()'}}
   });
 
   // ======= Float128 Not Allowed in Kernel ==========
@@ -367,7 +367,7 @@ int use2(a_type ab, a_type *abp) {
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
-  kernelFunc(); //#call_kernelFunc // expected-note 3{{called by 'kernel_single_task<fake_kernel, (lambda at}} // INTEL
+  kernelFunc(); //#call_kernelFunc // expected-note 3{{called by 'kernel_single_task<fake_kernel, (lambda at}}
 }
 
 int main() {
@@ -384,7 +384,7 @@ int main() {
   auto notACrime = &commitInfraction;
 
   kernel_single_task<class fake_kernel>([=]() {
-    usage(&addInt); //#call_usage // expected-note {{called by 'operator()'}} // INTEL
+    usage(&addInt); //#call_usage // expected-note {{called by 'operator()'}}
     a_type *p;
     use2(ab, p); // expected-note 2{{called by 'operator()'}}
   });

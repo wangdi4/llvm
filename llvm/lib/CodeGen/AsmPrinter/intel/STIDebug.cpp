@@ -3587,7 +3587,7 @@ STITypeEnumerator* STIDebugImpl::lowerTypeEnumerator(
   std::string name;
 
   name = std::string(llvmType->getName());
-  value     = createNumericSignedInt(llvmType->getValue());
+  value = createNumericSignedInt(llvmType->getValue().getSExtValue());
   attribute = STI_ACCESS_PUBLIC; // FIXME: set correct attributes here!
 
   truncateName(name);

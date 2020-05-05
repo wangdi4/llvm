@@ -2606,7 +2606,7 @@ void MemopCFG::calculate_pool_numbers() {
           CMA = dyn_cast<CallInst>(GEP->getPointerOperand());
         }
       }
-      if (not CMA or CMA->getCalledValue()->getName() != "CsaMemAlloc")
+      if (not CMA or CMA->getCalledOperand()->getName() != "CsaMemAlloc")
         report_fatal_error("Token takes should be direct users of CsaMemAlloc "
                            "calls or indirect users through a GEP");
 

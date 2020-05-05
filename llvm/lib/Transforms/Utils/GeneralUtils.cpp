@@ -16,7 +16,6 @@
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
@@ -291,8 +290,8 @@ static bool analyzeEscapeAux(const Value *V,
         assert(MSI->getArgOperand(0) == V && "Memset only takes one pointer!");
         if (MSI->isVolatile())
           return true;
-      } else if (auto C = ImmutableCallSite(I)) {
-        if (!C.isCallee(&U))
+      } else if (auto C = dyn_cast<CallBase>(I)) {
+        if (!C->isCallee(&U))
           return true;
       } else
         return true;

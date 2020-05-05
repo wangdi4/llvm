@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <CL/sycl/backend_types.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/detail/os_util.hpp>
@@ -43,19 +44,16 @@ enum class PiApiKind {
 class plugin;
 namespace pi {
 
-/* INTEL_CUSTOMIZATION */
-// TODO: open-source
 // The SYCL_PI_TRACE sets what we will trace.
 // This is a bit-mask of various things we'd want to trace.
 enum TraceLevel {
-  PI_TRACE_BASIC  = 0x1,
-  PI_TRACE_CALLS  = 0x2,
-  PI_TRACE_ALL    = -1
+  PI_TRACE_BASIC = 0x1,
+  PI_TRACE_CALLS = 0x2,
+  PI_TRACE_ALL = -1
 };
 
 // Return true if we want to trace PI related activities.
-bool trace(TraceLevel level = PI_TRACE_ALL);
-/* end INTEL_CUSTOMIZATION */
+bool trace(TraceLevel level);
 
 #ifdef SYCL_RT_OS_WINDOWS
 #define OPENCL_PLUGIN_NAME "pi_opencl.dll"
@@ -128,21 +126,6 @@ void *loadOsLibrary(const std::string &Library);
 // library, implementation is OS dependent.
 void *getOsLibraryFuncAddress(void *Library, const std::string &FunctionName);
 
-/* INTEL_CUSTOMIZATION */
-// TODO: open-source
-// For selection of SYCL RT back-end, now manually through the "SYCL_BE"
-// environment variable.
-enum Backend {
-  SYCL_BE_PI_OPENCL,
-  SYCL_BE_PI_LEVEL0,
-  SYCL_BE_PI_CUDA,
-  SYCL_BE_DEFAULT = SYCL_BE_PI_LEVEL0
-};
-
-// Get the preferred BE (selected with SYCL_BE).
-Backend getPreferredBE();
-/* end INTEL_CUSTOMIZATION */
-
 // Get a string representing a _pi_platform_info enum
 std::string platformInfoToString(pi_platform_info info);
 
@@ -162,8 +145,9 @@ template <PiApiKind PiApiOffset> struct PiFuncInfo {};
 
 #define _PI_API(api)                                                           \
   template <> struct PiFuncInfo<PiApiKind::api> {                              \
+    using FuncPtrT = decltype(&::api);                                         \
     inline std::string getFuncName() { return #api; }                          \
-    inline decltype(&::api) getFuncPtr(PiPlugin MPlugin) {                     \
+    inline FuncPtrT getFuncPtr(PiPlugin MPlugin) {                             \
       return MPlugin.PiFunctionTable.api;                                      \
     }                                                                          \
   };

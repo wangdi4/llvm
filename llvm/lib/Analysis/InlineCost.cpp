@@ -93,8 +93,8 @@ static cl::opt<int>
                      cl::ZeroOrMore,
                      cl::desc("Default amount of inlining to perform"));
 
-static cl::opt<bool> PrintDebugInstructionDeltas("print-instruction-deltas",
-    cl::Hidden, cl::init(false),
+static cl::opt<bool> PrintDebugInstructionDeltas(
+    "print-instruction-deltas", cl::Hidden, cl::init(false),
     cl::desc("Prints deltas of cost and threshold per instruction"));
 
 static cl::opt<int> InlineThreshold(
@@ -242,10 +242,10 @@ class CostAnnotationWriter : public AssemblyAnnotationWriter {
 public:
   // This DenseMap stores the delta change in cost and threshold after
   // accounting for the given instruction.
-  DenseMap <const Instruction *, InstructionCostDetail> CostThresholdMap;
+  DenseMap<const Instruction *, InstructionCostDetail> CostThresholdMap;
 
   virtual void emitInstructionAnnot(const Instruction *I,
-                                        formatted_raw_ostream &OS);
+                                    formatted_raw_ostream &OS);
 };
 
 class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
@@ -3189,6 +3189,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   /// Attempt to evaluate indirect calls to boost its inline cost.
   const bool BoostIndirectCalls;
 
+  /// Ignore the threshold when finalizing analysis.
+  const bool IgnoreThreshold;
+
   /// Inlining cost measured in abstract units, accounts for all the
   /// instructions expected to be executed for a given function invocation.
   /// Instructions that are statically proven to be dead based on call-site
@@ -3374,7 +3377,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // This function is called to store the initial cost of inlining before
     // the given instruction was assessed.
     if (!PrintDebugInstructionDeltas)
-        return ;
+      return;
     Writer.CostThresholdMap[I].CostBefore = Cost;
     Writer.CostThresholdMap[I].ThresholdBefore = Threshold;
   }
@@ -3383,7 +3386,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // This function is called to find new values of cost and threshold after
     // the instruction has been assessed.
     if (!PrintDebugInstructionDeltas)
-        return ;
+      return;
     Writer.CostThresholdMap[I].CostAfter = Cost;
     Writer.CostThresholdMap[I].ThresholdAfter = Threshold;
   }
@@ -3421,7 +3424,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #if INTEL_CUSTOMIZATION
     if (NumVectorInstructions > NumInstructions / 10)
       YesReasonVector.push_back(InlrVectorBonus);
-    bool IsProfitable = Cost < std::max(1, Threshold);
+    bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
     if (IsProfitable)
       *ReasonAddr = bestInlineReason(YesReasonVector, InlrProfitable);
     else
@@ -3436,7 +3439,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
 #if INTEL_CUSTOMIZATION
-    if (Cost >= Threshold) {
+    if (!IgnoreThreshold && Cost >= Threshold) {
       if (!ComputeFullInlineCost)
          return true;
       if (EarlyExitCost == INT_MAX) {
@@ -3622,14 +3625,15 @@ public:
       InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI,
       SmallSet<CallBase *, 20> *CSForFusion,
       SmallSet<Function *, 20> *FForDTrans, const InlineParams &Params,
-      bool BoostIndirect = true)
+      bool BoostIndirect = true,
 #endif // INTEL_CUSTOMIZATION
+      bool IgnoreThreshold = false)
       : CallAnalyzer(TTI, GetAssumptionCache, GetBFI, PSI, ORE, Callee, Call),
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
         Params(Params), Threshold(Params.DefaultThreshold),
 #if INTEL_CUSTOMIZATION
-        BoostIndirectCalls(BoostIndirect),
+        BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
         FuncsForDTrans(FForDTrans), SubtractedBonus(false) {}
@@ -3690,22 +3694,24 @@ void CallAnalyzer::disableSROAForArg(AllocaInst *SROAArg) {
   disableLoadElimination();
 }
 
-void CostAnnotationWriter::emitInstructionAnnot(
-    const Instruction *I, formatted_raw_ostream &OS) {
-    // The cost of inlining of the given instruction is printed always.
-    // The threshold delta is printed only when it is non-zero. It happens
-    // when we decided to give a bonus at a particular instruction.
-    assert(CostThresholdMap.count(I) > 0 &&
-           "Expected each instruction to have an instruction annotation");
-    const auto &Record = CostThresholdMap[I];
-    OS << "; cost before = " << Record.CostBefore
-       << ", cost after = " << Record.CostAfter
-       << ", threshold before = " << Record.ThresholdBefore
-       << ", threshold after = " << Record.ThresholdAfter << ", ";
-    OS << "cost delta = " << Record.getCostDelta();
-    if (Record.hasThresholdChanged())
-      OS << ", threshold delta = " << Record.getThresholdDelta();
-    OS << "\n";
+void CostAnnotationWriter::emitInstructionAnnot(const Instruction *I,
+                                                formatted_raw_ostream &OS) {
+  // The cost of inlining of the given instruction is printed always.
+  // The threshold delta is printed only when it is non-zero. It happens
+  // when we decided to give a bonus at a particular instruction.
+  if (CostThresholdMap.count(I) == 0) {
+    OS << "; No analysis for the instruction\n";
+    return;
+  }
+  const auto &Record = CostThresholdMap[I];
+  OS << "; cost before = " << Record.CostBefore
+     << ", cost after = " << Record.CostAfter
+     << ", threshold before = " << Record.ThresholdBefore
+     << ", threshold after = " << Record.ThresholdAfter << ", ";
+  OS << "cost delta = " << Record.getCostDelta();
+  if (Record.hasThresholdChanged())
+    OS << ", threshold delta = " << Record.getThresholdDelta();
+  OS << "\n";
 }
 
 /// If 'V' maps to a SROA candidate, disable SROA for it.
@@ -3766,7 +3772,9 @@ bool CallAnalyzer::isGEPFree(GetElementPtrInst &GEP) {
       Operands.push_back(SimpleOp);
     else
       Operands.push_back(*I);
-  return TargetTransformInfo::TCC_Free == TTI.getUserCost(&GEP, Operands);
+  return TargetTransformInfo::TCC_Free ==
+         TTI.getUserCost(&GEP, Operands,
+                         TargetTransformInfo::TCK_SizeAndLatency);
 }
 
 bool CallAnalyzer::visitAlloca(AllocaInst &I) {
@@ -4067,7 +4075,8 @@ bool CallAnalyzer::visitPtrToInt(PtrToIntInst &I) {
   if (auto *SROAArg = getSROAArgForValueOrNull(I.getOperand(0)))
     SROAArgValues[&I] = SROAArg;
 
-  return TargetTransformInfo::TCC_Free == TTI.getUserCost(&I);
+  return TargetTransformInfo::TCC_Free ==
+         TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
 }
 
 bool CallAnalyzer::visitIntToPtr(IntToPtrInst &I) {
@@ -4091,7 +4100,8 @@ bool CallAnalyzer::visitIntToPtr(IntToPtrInst &I) {
   if (auto *SROAArg = getSROAArgForValueOrNull(Op))
     SROAArgValues[&I] = SROAArg;
 
-  return TargetTransformInfo::TCC_Free == TTI.getUserCost(&I);
+  return TargetTransformInfo::TCC_Free ==
+         TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
 }
 
 bool CallAnalyzer::visitCastInst(CastInst &I) {
@@ -4121,7 +4131,8 @@ bool CallAnalyzer::visitCastInst(CastInst &I) {
     break;
   }
 
-  return TargetTransformInfo::TCC_Free == TTI.getUserCost(&I);
+  return TargetTransformInfo::TCC_Free ==
+         TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
 }
 
 bool CallAnalyzer::visitUnaryInstruction(UnaryInstruction &I) {
@@ -4193,7 +4204,7 @@ bool InlineCostCallAnalyzer::isColdCallSite(CallBase &Call,
   // If global profile summary is available, then callsite's coldness is
   // determined based on that.
   if (PSI && PSI->hasProfileSummary())
-    return PSI->isColdCallSite(CallSite(&Call), CallerBFI);
+    return PSI->isColdCallSite(Call, CallerBFI);
 
   // Otherwise we need BFI to be available.
   if (!CallerBFI)
@@ -4217,8 +4228,7 @@ InlineCostCallAnalyzer::getHotCallSiteThreshold(CallBase &Call,
 
   // If global profile summary is available, then callsite's hotness is
   // determined based on that.
-  if (PSI && PSI->hasProfileSummary() &&
-      PSI->isHotCallSite(CallSite(&Call), CallerBFI))
+  if (PSI && PSI->hasProfileSummary() && PSI->isHotCallSite(Call, CallerBFI))
     return Params.HotCallSiteThreshold;
 
   // Otherwise we need BFI to be available and to have a locally hot callsite
@@ -4861,7 +4871,8 @@ bool CallAnalyzer::visitUnreachableInst(UnreachableInst &I) {
 bool CallAnalyzer::visitInstruction(Instruction &I) {
   // Some instructions are free. All of the free intrinsics can also be
   // handled by SROA, etc.
-  if (TargetTransformInfo::TCC_Free == TTI.getUserCost(&I))
+  if (TargetTransformInfo::TCC_Free ==
+      TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency))
     return true;
 
   // We found something we don't understand or can't handle. Mark any SROA-able
@@ -5420,6 +5431,136 @@ InlineCost llvm::getInlineCost(
 #endif // INTEL_CUSTOMIZATION
 }
 
+Optional<int> llvm::getInliningCostEstimate(
+    CallBase &Call, TargetTransformInfo &CalleeTTI,
+    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+#if INTEL_CUSTOMIZATION
+    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
+    InlineAggressiveInfo *AggI, SmallSet<CallBase *, 20> *CallSitesForFusion,
+    SmallSet<Function *, 20> *FuncsForDTrans,
+#endif // INTEL_CUSTOMIZATION
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
+  const InlineParams Params = {/* DefaultThreshold*/ 0,
+                               /*HintThreshold*/ {},
+                               /*ColdThreshold*/ {},
+                               /*OptSizeThreshold*/ {},
+                               /*OptMinSizeThreshold*/ {},
+                               /*HotCallSiteThreshold*/ {},
+                               /*LocallyHotCallSiteThreshold*/ {},
+                               /*ColdCallSiteThreshold*/ {},
+                               /* ComputeFullInlineCost*/ true};
+
+InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
+#if INTEL_CUSTOMIZATION
+                          *Call.getCalledFunction(), Call, TLI, ILIC, AggI,
+                          CallSitesForFusion, FuncsForDTrans, Params, true,
+#endif // INTEL_CUSTOMIZATION
+                          /*IgnoreThreshold*/ true);
+  auto R = CA.analyze(CalleeTTI, nullptr); // INTEL
+  if (!R.isSuccess())
+    return None;
+  return CA.getCost();
+}
+
+#if INTEL_CUSTOMIZATION
+Optional<std::pair<InlineResult, InlineReportTypes::InlineReason>>
+llvm::getAttributeBasedInliningDecision(
+#endif // INTEL_CUSTOMIZATION
+    CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
+    function_ref<const TargetLibraryInfo &(Function &)> GetTLI) {
+
+  // Cannot inline indirect calls.
+  if (!Callee)
+#if INTEL_CUSTOMIZATION
+    return {{InlineResult::failure("indirect call"), NinlrIndirect}};
+#endif // INTEL_CUSTOMIZATION
+
+  // Never inline calls with byval arguments that does not have the alloca
+  // address space. Since byval arguments can be replaced with a copy to an
+  // alloca, the inlined code would need to be adjusted to handle that the
+  // argument is in the alloca address space (so it is a little bit complicated
+  // to solve).
+  unsigned AllocaAS = Callee->getParent()->getDataLayout().getAllocaAddrSpace();
+  for (unsigned I = 0, E = Call.arg_size(); I != E; ++I)
+    if (Call.isByValArgument(I)) {
+      PointerType *PTy = cast<PointerType>(Call.getArgOperand(I)->getType());
+      if (PTy->getAddressSpace() != AllocaAS)
+#if INTEL_CUSTOMIZATION
+        return {{InlineResult::failure(
+                     "byval arguments without alloca address space"),
+                 NinlrNoReason}};
+#endif // INTEL_CUSTOMIZATION
+    }
+
+  // Calls to functions with always-inline attributes should be inlined
+  // whenever possible.
+  if (Call.hasFnAttr(Attribute::AlwaysInline)) {
+#if INTEL_CUSTOMIZATION
+    InlineReason Reason = InlrNoReason;
+    auto IsViable = isInlineViable(*Callee, Reason);
+    if (IsViable.isSuccess())
+      return {{InlineResult::success(), InlrAlwaysInline}};
+    assert(IsNotInlinedReason(Reason));
+    return {{InlineResult::failure(IsViable.getFailureReason()), Reason}};
+  }
+  if (Call.hasFnAttr("always-inline-recursive")) {
+    InlineReason Reason = InlrNoReason;
+    if (isInlineViable(*Callee, Reason).isSuccess())
+      return {{InlineResult::success(), InlrAlwaysInlineRecursive}};
+    assert(IsNotInlinedReason(Reason));
+    return {{InlineResult::failure(
+                 "inapplicable always inline recursive attribute"),
+             Reason}};
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  // Never inline functions with conflicting attributes (unless callee has
+  // always-inline attribute).
+  Function *Caller = Call.getCaller();
+  if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI, GetTLI))
+#if INTEL_CUSTOMIZATION
+    return {{InlineResult::failure("conflicting attributes"),
+             NinlrMismatchedAttributes}};
+#endif // INTEL_CUSTOMIZATION
+
+  // Don't inline this call if the caller has the optnone attribute.
+  if (Caller->hasOptNone())
+#if INTEL_CUSTOMIZATION
+    return {{InlineResult::failure("optnone attribute"), NinlrNullPtrMismatch}};
+#endif // INTEL_CUSTOMIZATION
+
+  // Don't inline a function that treats null pointer as valid into a caller
+  // that does not have this attribute.
+  if (!Caller->nullPointerIsDefined() && Callee->nullPointerIsDefined())
+#if INTEL_CUSTOMIZATION
+    return {{InlineResult::failure("nullptr definitions incompatible"),
+             NinlrNullPtrMismatch}};
+#endif // INTEL_CUSTOMIZATION
+
+  // Don't inline functions which can be interposed at link-time.
+  if (Callee->isInterposable())
+#if INTEL_CUSTOMIZATION
+    return {{InlineResult::failure("interposable"), NinlrMayBeOverriden}};
+#endif // INTEL_CUSTOMIZATION
+
+  // Don't inline functions marked noinline.
+  if (Callee->hasFnAttribute(Attribute::NoInline))
+#if INTEL_CUSTOMIZATION
+    return {{InlineResult::failure("noinline function attribute"),
+             NinlrNoinlineAttribute}};
+#endif // INTEL_CUSTOMIZATION
+
+  // Don't inline call sites marked noinline.
+  if (Call.isNoInline())
+#if INTEL_CUSTOMIZATION
+    return {{InlineResult::failure("noinline call site attribute"),
+             NinlrNoinlineCallsite}};
+#endif // INTEL_CUSTOMIZATION
+
+  return None;
+}
+
 InlineCost llvm::getInlineCost(
     CallBase &Call, Function *Callee, const InlineParams &Params,
     TargetTransformInfo &CalleeTTI,
@@ -5434,84 +5575,27 @@ InlineCost llvm::getInlineCost(
 #endif // INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
-  // Cannot inline indirect calls.
-  if (!Callee)
-    return llvm::InlineCost::getNever("indirect call", NinlrIndirect); // INTEL
+  auto UserDecision =
+      llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
 
-  // Never inline calls with byval arguments that does not have the alloca
-  // address space. Since byval arguments can be replaced with a copy to an
-  // alloca, the inlined code would need to be adjusted to handle that the
-  // argument is in the alloca address space (so it is a little bit complicated
-  // to solve).
-  unsigned AllocaAS = Callee->getParent()->getDataLayout().getAllocaAddrSpace();
-  for (unsigned I = 0, E = Call.arg_size(); I != E; ++I)
-    if (Call.isByValArgument(I)) {
-      PointerType *PTy = cast<PointerType>(Call.getArgOperand(I)->getType());
-      if (PTy->getAddressSpace() != AllocaAS)
-        return llvm::InlineCost::getNever("byval arguments without alloca"
-                                          " address space");
-    }
-
-  // Calls to functions with always-inline attributes should be inlined
-  // whenever possible.
-  if (Call.hasFnAttr(Attribute::AlwaysInline)) {
+  if (UserDecision.hasValue()) {
 #if INTEL_CUSTOMIZATION
-    InlineReason Reason = InlrNoReason;
-    auto IsViable = isInlineViable(*Callee, Reason);
-    if (IsViable.isSuccess())
+    if (UserDecision->first.isSuccess()) {
+      if (UserDecision->second == InlrAlwaysInlineRecursive)
+        return llvm::InlineCost::getAlways("always inline recursive attribute",
+                                           InlrAlwaysInlineRecursive);
       return llvm::InlineCost::getAlways("always inline attribute",
                                          InlrAlwaysInline);
-    assert(IsNotInlinedReason(Reason));
-    return llvm::InlineCost::getNever(IsViable.getFailureReason(),
-                                      Reason);
-  }
-  if (Call.hasFnAttr("always-inline-recursive")) {
-    InlineReason Reason = InlrNoReason;
-    if (isInlineViable(*Callee, Reason).isSuccess())
-      return llvm::InlineCost::getAlways("always inline recursive attribute",
-                                         InlrAlwaysInlineRecursive);
-    assert(IsNotInlinedReason(Reason));
-    return llvm::InlineCost::getNever(
-        "inapplicable always inline recursive attribute", Reason);
-  }
+    }
+    return llvm::InlineCost::getNever(UserDecision->first.getFailureReason(),
+                                      UserDecision->second);
 #endif // INTEL_CUSTOMIZATION
-
-  // Never inline functions with conflicting attributes (unless callee has
-  // always-inline attribute).
-  Function *Caller = Call.getCaller();
-  if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI, GetTLI))
-    return llvm::InlineCost::getNever("conflicting attributes",   // INTEL
-                                      NinlrMismatchedAttributes); // INTEL
-
-  // Don't inline this call if the caller has the optnone attribute.
-  if (Caller->hasOptNone())
-    return llvm::InlineCost::getNever("optnone attribute",    // INTEL
-                                      NinlrNullPtrMismatch);  // INTEL
-
-  // Don't inline a function that treats null pointer as valid into a caller
-  // that does not have this attribute.
-  if (!Caller->nullPointerIsDefined() && Callee->nullPointerIsDefined())
-    return llvm::InlineCost::getNever("nullptr definitions "   // INTEL
-                                      "incompatible",          // INTEL
-                                      NinlrNullPtrMismatch);   // INTEL
-
-  // Don't inline functions which can be interposed at link-time.
-  if (Callee->isInterposable())
-    return llvm::InlineCost::getNever("interposable",          // INTEL
-                                      NinlrMayBeOverriden);    // INTEL
-
-  // Don't inline functions marked noinline.
-  if (Callee->hasFnAttribute(Attribute::NoInline))
-    return llvm::InlineCost::getNever("noinline function attribute", // INTEL
-                                      NinlrNoinlineAttribute);       // INTEL
-
-  // Don't inline call sites marked noinline.
-  if (Call.isNoInline())
-    return llvm::InlineCost::getNever("noinline call site attribute", // INTEL
-                                      NinlrNoinlineCallsite);         // INTEL
+  }
 
   LLVM_DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
-                          << "... (caller:" << Caller->getName() << ")\n");
+                          << "... (caller:" << Call.getCaller()->getName()
+                          << ")\n");
+
 #if INTEL_CUSTOMIZATION
   auto TLI = GetTLI(*Callee);
   InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,

@@ -9,6 +9,7 @@ set(LLVM_LINK_COMPONENTS
   CodeGen
   Core
   Coroutines
+  Extensions
   IPO
   IRReader
   InstCombine
@@ -45,8 +46,6 @@ add_llvm_tool(opt
   PassPrinters.cpp
   PrintSCC.cpp
   opt.cpp
-
-  ENABLE_PLUGINS
 
   DEPENDS
   intrinsics_gen

@@ -7,8 +7,6 @@ add_mlir_dialect_library(MLIRLinalgOps
 
   DEPENDS
   intrinsics_gen
-  )
-add_dependencies(MLIRLinalgOps
   MLIRLinalgOpsIncGen
   MLIRLinalgStructuredOpsIncGen
   MLIRLinalgStructuredOpsInterfaceIncGen
@@ -17,5 +15,6 @@ target_link_libraries(MLIRLinalgOps
   PUBLIC
   MLIRIR
   MLIRSideEffects
+  MLIRViewLikeInterface
   MLIRStandardOps
   )

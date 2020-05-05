@@ -14,8 +14,6 @@
 #ifndef LLVM_LIB_TARGET_X86_X86ISELLOWERING_H
 #define LLVM_LIB_TARGET_X86_X86ISELLOWERING_H
 
-#include "llvm/CodeGen/CallingConvLower.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLowering.h"
 
 namespace llvm {
@@ -355,6 +353,9 @@ namespace llvm {
 
       // Zero High Bits Starting with Specified Bit Position.
       BZHI,
+
+      // Parallel extract and deposit.
+      PDEP, PEXT,
 
       // X86-specific multiply by immediate.
       MUL_IMM,
@@ -883,9 +884,9 @@ namespace llvm {
 
     /// If getNegatibleCost returns Neutral/Cheaper, return the newly negated
     /// expression.
-    SDValue getNegatedExpression(SDValue Op, SelectionDAG &DAG,
-                                 bool LegalOperations, bool ForCodeSize,
-                                 unsigned Depth) const override;
+    SDValue negateExpression(SDValue Op, SelectionDAG &DAG,
+                             bool LegalOperations, bool ForCodeSize,
+                             unsigned Depth) const override;
 
     MachineBasicBlock *
     EmitInstrWithCustomInserter(MachineInstr &MI,

@@ -10,6 +10,7 @@
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -1049,6 +1050,19 @@ TEST_F(ComputeKnownBitsTest, ComputeKnownMulBits) {
       "  ret i32 %A\n"
       "}\n");
   expectKnownBits(/*zero*/ 95u, /*one*/ 32u);
+}
+
+TEST_F(ComputeKnownBitsTest, KnownNonZeroShift) {
+  // %q is known nonzero without known bits.
+  // Because %q is nonzero, %A[0] is known to be zero.
+  parseAssembly(
+      "define i8 @test(i8 %p, i8* %pq) {\n"
+      "  %q = load i8, i8* %pq, !range !0\n"
+      "  %A = shl i8 %p, %q\n"
+      "  ret i8 %A\n"
+      "}\n"
+      "!0 = !{ i8 1, i8 5 }\n");
+  expectKnownBits(/*zero*/ 1u, /*one*/ 0u);
 }
 
 TEST_F(ComputeKnownBitsTest, ComputeKnownFshl) {

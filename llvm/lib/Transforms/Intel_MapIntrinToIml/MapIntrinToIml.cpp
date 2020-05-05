@@ -515,7 +515,8 @@ bool MapIntrinToImlImpl::isLessThanFullVector(Type *ValType, Type *LegalType) {
   VectorType *ValVecType = cast<VectorType>(ValType);
   VectorType *LegalVecType = cast<VectorType>(LegalType);
 
-  if (ValVecType->getBitWidth() < LegalVecType->getBitWidth())
+  if (ValVecType->getPrimitiveSizeInBits().getFixedSize() <
+      LegalVecType->getPrimitiveSizeInBits().getFixedSize())
     return true;
 
   return false;

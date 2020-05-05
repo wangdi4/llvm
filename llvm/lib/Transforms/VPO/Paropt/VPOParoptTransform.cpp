@@ -58,8 +58,6 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 
-#include "llvm/PassAnalysisSupport.h"
-
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -6670,12 +6668,11 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NewF->addFnAttr("target.declare", "true");
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
-  CallSite CS(NewCall);
 
   unsigned int TidArgNo = 0;
   bool IsTidArg = false;
 
-  for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+  for (auto I = NewCall->arg_begin(), E = NewCall->arg_end(); I != E; ++I) {
     if (*I == TidPtrHolder) {
       IsTidArg = true;
       LLVM_DEBUG(dbgs() << " NewF Tid Argument: " << *(*I) << "\n");
@@ -6696,7 +6693,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   LLVM_DEBUG(dbgs() << " New Call to MTFn: " << *NewCall << "\n");
   // Pass all the same arguments of the extracted function.
-  for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+  for (auto I = NewCall->arg_begin(), E = NewCall->arg_end(); I != E; ++I) {
     if (*I != TidPtrHolder) {
       LLVM_DEBUG(dbgs() << " NewF Arguments: " << *(*I) << "\n");
       MTFnArgs.push_back((*I));
@@ -6705,7 +6702,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   CallInst *MTFnCI =
       CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
-  MTFnCI->setCallingConv(CS.getCallingConv());
+  MTFnCI->setCallingConv(NewCall->getCallingConv());
 
   // Copy isTailCall attribute
   if (NewCall->isTailCall())
@@ -6923,9 +6920,8 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   GlobalVariable *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
       F, CI, IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
-  CallSite CS(CI);
-  ConstantInt *NumArgs = ConstantInt::get(Type::getInt32Ty(C),
-                                          CS.getNumArgOperands()-2);
+  ConstantInt *NumArgs =
+      ConstantInt::get(Type::getInt32Ty(C), CI->getNumArgOperands() - 2);
 
   std::vector<Value *> Params;
   Params.push_back(KmpcLoc);
@@ -6935,9 +6931,9 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
                            PointerType::getUnqual(MicroTaskFnTy));
   Params.push_back(Cast);
 
-  auto InitArg = CS.arg_begin(); ++InitArg; ++InitArg;
+  auto InitArg = CI->arg_begin(); ++InitArg; ++InitArg;
 
-  for (auto I = InitArg, E = CS.arg_end(); I != E; ++I) {
+  for (auto I = InitArg, E = CI->arg_end(); I != E; ++I) {
     Params.push_back((*I));
   }
 

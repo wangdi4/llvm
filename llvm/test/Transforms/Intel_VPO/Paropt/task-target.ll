@@ -12,10 +12,10 @@
 ; that they are not killed by other OMP code in the program (a task region
 ; in this case)
 
-@.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
-
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
+
+@.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 
 ; Function Attrs: norecurse uwtable
 define dso_local i32 @main() #0 {

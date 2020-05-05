@@ -157,6 +157,9 @@ static lto::Config createConfig() {
     };
   }
 
+  if (config->ltoEmitAsm)
+    c.CGFileType = CGFT_AssemblyFile;
+
   if (config->saveTemps)
     checkError(c.addSaveTemps(config->outputFile.str() + ".",
                               /*UseInputModulePath*/ true));
@@ -348,6 +351,13 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
     saveBuffer(buf[0], config->outputFile + ".lto.o");
     for (unsigned i = 1; i != maxTasks; ++i)
       saveBuffer(buf[i], config->outputFile + Twine(i) + ".lto.o");
+  }
+
+  if (config->ltoEmitAsm) {
+    saveBuffer(buf[0], config->outputFile);
+    for (unsigned i = 1; i != maxTasks; ++i)
+      saveBuffer(buf[i], config->outputFile + Twine(i));
+    return {};
   }
 
   std::vector<InputFile *> ret;
