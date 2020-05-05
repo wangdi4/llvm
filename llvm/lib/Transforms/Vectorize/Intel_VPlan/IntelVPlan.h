@@ -289,6 +289,7 @@ class VPInstruction : public VPUser,
   friend class VPlanCostModelProprietary;
   friend class VPlanDivergenceAnalysis;
   friend class VPlanIdioms;
+  friend class VPlanValueTrackingLLVM;
   friend class VPlanVLSAnalysis;
   friend class VPlanVLSAnalysisHIR;
   friend class VPlanVerifier;

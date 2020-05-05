@@ -4,6 +4,12 @@
 // CHECK-IPO: "-flto"
 // CHECK-IPO: "-flto-unit"
 
+// -vec and -no-vec behavior
+// RUN: %clang -### -c -vec %s 2>&1 | FileCheck -check-prefix CHECK-VEC %s
+// RUN: %clang -### -c -vec -no-vec %s 2>&1 | FileCheck -check-prefix CHECK-NO-VEC %s
+// CHECK-VEC: "-vectorize-loops"
+// CHECK-NO-VEC-NOT: "-vectorize-loops"
+
 // Behavior with -no-ansi-alias option
 // RUN: %clang -### -c -no-ansi-alias %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
 // RUN: %clang_cl -### -c /Qansi-alias- %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
@@ -184,3 +190,13 @@
 // RUN: %clang_cl -### -c /Qtemplate-depth:5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
 // RUN: %clang_cl -### -c /Qtemplate-depth=5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
 // CHECK-TEMPLATE-DEPTH: "-ftemplate-depth" "5"
+
+// -use-msasm alias to -fasm-blocks
+// RUN: %clang -### -c -use-msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
+// RUN: %clang -### -c -use_msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
+//CHECK-USE-MSASM: "-fasm-blocks"
+
+// Behavior with fiopenmp-simd/Qiopenmp-simd option
+// RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
+// RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
+// CHECK-QIOPENMP-SIMD: "-fopenmp-simd" "-fopenmp-late-outline"

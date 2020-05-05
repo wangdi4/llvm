@@ -923,7 +923,7 @@ static bool isQsortSpecQsort(Function &F) {
                       m_Zero())))
       return false;
     if (CIDen->getZExtValue() != UDen || V0 != PHIA ||
-        Pred != ICmpInst::ICMP_NE )
+        Pred != ICmpInst::ICMP_NE)
       return false;
     *BBL = BI->getSuccessor(0);
     *BBR = BI->getSuccessor(1);
@@ -1050,16 +1050,17 @@ static bool isQsortSpecQsort(Function &F) {
   //
   //  Return 'true' if 'BBI' matches a BasicBlock of the form:
   //
-  //    %cmp51 = icmp ugt i64 'PHIN', 7
+  //    %cmp51 = icmp 'Pred' i64 'PHIN', 'SmallSize'
   //    br i1 %cmp51, label 'BBL', label 'BBR'
   //
   //  If we return 'true', we assign values to 'BBL' and 'BBR'.
   //
-  auto IsSizeTest = [](BasicBlock *BBI, PHINode *PHIN, uint64_t SmallSize,
-                       BasicBlock **BBL, BasicBlock **BBR) -> bool {
+  auto IsSizeTest = [](BasicBlock *BBI, PHINode *PHIN, ICmpInst::Predicate Pred,
+                       uint64_t SmallSize, BasicBlock **BBL,
+                       BasicBlock **BBR) -> bool {
     BranchInst *BI = nullptr;
     ICmpInst *IC = nullptr;
-    if (!getBIAndIC(BBI, ICmpInst::ICMP_ULT, &BI, &IC))
+    if (!getBIAndIC(BBI, Pred, &BI, &IC))
       return false;
     if (IC->getOperand(0) != PHIN)
       return false;
@@ -1494,35 +1495,356 @@ static bool isQsortSpecQsort(Function &F) {
     return true;
   };
 
+  //
+  // If 'VGEP' is a byte-flattened GEP with pointer operand 'GPO', return 'VGEP'
+  // as a GetElementPtrInst.
+  //
+  auto GetBFGEP = [](Value *VGEP, Value *GPO) -> GetElementPtrInst * {
+    auto GEP = dyn_cast_or_null<GetElementPtrInst>(VGEP);
+    if (!GEP || GEP->getNumOperands() != 2 || GEP->getPointerOperand() != GPO)
+      return nullptr;
+    return GEP;
+  };
+
+  //
+  // If 'VGEP' is a byte-flattened GEP with pointer operand 'GPO', return the
+  // offset of that byte-flattened GEP.
+  //
+  auto GetBFGEPO = [&GetBFGEP](Value *VGEP, Value *GPO) -> Value * {
+    GetElementPtrInst *GEP = GetBFGEP(VGEP, GPO);
+    return GEP ? GEP->getOperand(1) : nullptr;
+  };
+
+  //
+  // If 'BBI' is terminated with a conditional test, which is preceded by
+  // a byte-flattened GEP, return that byte-flattened GEP as a
+  // GetElementPtrInst.
+  //
+  auto BottomBFGEP = [&GetBFGEP](BasicBlock *BBI,
+                                 Value *GPO) -> GetElementPtrInst * {
+    BranchInst *BI = nullptr;
+    ICmpInst *IC = nullptr;
+    if (!getBIAndIC(BBI, ICmpInst::ICMP_UGT, &BI, &IC))
+      return nullptr;
+    Instruction *BP = IC->getPrevNonDebugInstruction();
+    return GetBFGEP(BP, GPO);
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' matches the sequence:
+  //
+  //   %div = udiv i64 'PHIN', 2
+  //   %mul49 = mul i64 %div, 'F(2)'
+  //   'VPMI' = getelementptr inbounds i8, i8* 'PHIA', i64 %mul49
+  //
+  // When we return 'true', set the value of 'VPMI'.
+  //
+  auto ComputesPM = [&BottomBFGEP](Function &F, BasicBlock *BBI, PHINode *PHIA,
+                                   PHINode *PHIN, Value **VPMI) -> bool {
+    GetElementPtrInst *GEP = BottomBFGEP(BBI, PHIA);
+    if (!GEP)
+      return false;
+    Value *V0 = nullptr;
+    Value *V1 = nullptr;
+    ConstantInt *CI = nullptr;
+    Value *GEPO = GEP->getOperand(1);
+    if (!match(GEPO,
+               m_Mul(m_UDiv(m_Value(V0), m_ConstantInt(CI)), m_Value(V1))))
+      return false;
+    if (V0 != PHIN || V1 != F.getArg(2) || CI->getZExtValue() != 2)
+      return false;
+    *VPMI = GEP;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' matches the sequence:
+  //
+  //   %sub = sub i64 'PHIN', 1
+  //   %mul54 = mul i64 %sub, 'F(2)'
+  //   'VPNI' = getelementptr inbounds i8, i8* 'PHIA', i64 %mul54
+  //
+  // When we return 'true', set the value of 'VPNI'.
+  //
+  auto ComputesPN = [&BottomBFGEP](Function &F, BasicBlock *BBI, PHINode *PHIA,
+                                   PHINode *PHIN, Value **VPNI) -> bool {
+    GetElementPtrInst *GEP = BottomBFGEP(BBI, PHIA);
+    if (!GEP)
+      return false;
+    Value *V0 = nullptr;
+    Value *V1 = nullptr;
+    Value *GEPO = GEP->getOperand(1);
+    if (!match(GEPO, m_Mul(m_Sub(m_Value(V0), m_One()), m_Value(V1))))
+      return false;
+    if (V0 != PHIN || V1 != F.getArg(2))
+      return false;
+    *VPNI = GEP;
+    return true;
+  };
+
+  //
+  // Return 'true' if traversing back from 'I' we find a CallInst representing
+  // a direct call to a function with 4 arguments, the last of which is 'F(3)'.
+  // Furthermore, if 'I' itself is a CallInst, ensure that the CallInst found
+  // calls the same function as 'I'. If during the traversal, another
+  // Instruction that may write memory is encountered, return 'false'. We will
+  // also return 'true' if no such CallInst is found, as long as we don't
+  // encounter another Instruction that may write memory. If an appropriate
+  // CallInst is found, we set 'CO' to it.
+  //
+  auto GetPrevCallMatch = [](Function &F, Instruction *I,
+                             CallInst **CO) -> bool {
+    Instruction *BP = nullptr;
+    Instruction *BPI = I->getPrevNonDebugInstruction();
+    for (BP = BPI; BP; BP = BP->getPrevNonDebugInstruction()) {
+      if (auto CI = dyn_cast<CallInst>(BP)) {
+        if (CI->isIndirectCall() || CI->arg_size() != 4 ||
+            CI->getArgOperand(3) != F.getArg(3))
+          return false;
+        if (auto PCI = dyn_cast<CallInst>(I))
+          if (CI->getCalledFunction() != PCI->getCalledFunction())
+            return false;
+        *CO = CI;
+        return true;
+      } else if (BPI->mayWriteToMemory()) {
+        return false;
+      }
+    }
+    *CO = nullptr;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' matches a BasicBlock of the form:
+  //
+  //   %div59 = udiv i64 'PHIN', 8
+  //   %mul60 = mul i64 %div59, 'F(2)'
+  //   %add.ptr61 = getelementptr inbounds i8, i8* 'VPLI', i64 %mul60
+  //   %mul62 = mul i64 2, %mul60
+  //   %add.ptr63 = getelementptr inbounds i8, i8* 'VPLI', i64 %mul62
+  //   'VPLO' = call i8* 'FMed3'(i8* %a.addr.0, i8* %add.ptr61, i8* %add.ptr63,
+  //        i32 (i8*, i8*)* 'F(3)')
+  //   %idx.neg65 = sub i64 0, %mul60
+  //   %add.ptr66 = getelementptr inbounds i8, i8* 'VPMI', i64 %idx.neg65
+  //   %add.ptr67 = getelementptr inbounds i8, i8* 'VPMI', i64 %mul60
+  //   'VPMO' = call i8* 'FMed3'(i8* %add.ptr66, i8* 'VPMI', i8* %add.ptr67,
+  //        i32 (i8*, i8*)* 'F(3)')
+  //   %mul69 = mul i64 2, %mul60
+  //   %idx.neg70 = sub i64 0, %mul69
+  //   %add.ptr71 = getelementptr inbounds i8, i8* 'VPNI', i64 %idx.neg70
+  //   %idx.neg72 = sub i64 0, %mul60
+  //   %add.ptr73 = getelementptr inbounds i8, i8* 'VPNI', i64 %idx.neg72
+  //   'VPNO' = call i8* 'FMed3'(i8* %add.ptr71, i8* %add.ptr73, i8* %add.ptr55,
+  //        i32 (i8*, i8*)* 'F(3)')
+  //   br label 'BBO'
+  //
+  // If we return 'true', set the values of 'VPLO', 'VPMO', 'VPNO', and
+  // 'FMed3'.
+  //
+  auto IsMed3CallBlock = [&GetBFGEPO, &GetPrevCallMatch](
+                             Function &F, BasicBlock *BBI, BasicBlock *BBO,
+                             PHINode *PHIN, PHINode *VPLI, Value *VPMI,
+                             Value *VPNI, Value **VPLO, Value **VPMO,
+                             Value **VPNO, Function **FMed3) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional() || BI->getSuccessor(0) != BBO)
+      return false;
+    CallInst *CI2 = nullptr;
+    if (!GetPrevCallMatch(F, BI, &CI2) || !CI2)
+      return false;
+    Function *PFMed3 = CI2->getCalledFunction();
+    if (CI2->getArgOperand(2) != VPNI)
+      return false;
+    Value *GEP20 = GetBFGEPO(CI2->getArgOperand(0), VPNI);
+    ConstantInt *CNI2 = nullptr;
+    Value *VD = nullptr;
+    if (!GEP20 ||
+        !match(GEP20, m_Sub(m_Zero(), m_Mul(m_ConstantInt(CNI2), m_Value(VD)))))
+      return false;
+    if (CNI2->getZExtValue() != 2)
+      return false;
+    Value *V0 = nullptr;
+    Value *V1 = nullptr;
+    ConstantInt *CNI8 = nullptr;
+    if (!match(VD,
+               m_Mul(m_UDiv(m_Value(V0), m_ConstantInt(CNI8)), m_Value(V1))))
+      return false;
+    if (V0 != PHIN || V1 != F.getArg(2) || CNI8->getZExtValue() != 8)
+      return false;
+    Value *GEP21 = GetBFGEPO(CI2->getArgOperand(1), VPNI);
+    Value *VDT = nullptr;
+    if (!GEP21 || !match(GEP21, m_Sub(m_Zero(), m_Value(VDT))))
+      return false;
+    if (VDT != VD)
+      return false;
+    CallInst *CI1 = nullptr;
+    if (!GetPrevCallMatch(F, CI2, &CI1) || !CI1)
+      return false;
+    if (CI1->getArgOperand(1) != VPMI)
+      return false;
+    Value *GEP10 = GetBFGEPO(CI1->getArgOperand(0), VPMI);
+    if (!GEP10 || !match(GEP10, m_Sub(m_Zero(), m_Value(VDT))))
+      return false;
+    if (VDT != VD)
+      return false;
+    Value *GEP12 = GetBFGEPO(CI1->getArgOperand(2), VPMI);
+    if (GEP12 != VD)
+      return false;
+    CallInst *CI0 = nullptr;
+    if (!GetPrevCallMatch(F, CI1, &CI0) || !CI0)
+      return false;
+    if (CI0->getArgOperand(0) != VPLI)
+      return false;
+    Value *GEP01 = GetBFGEPO(CI0->getArgOperand(1), VPLI);
+    if (GEP01 != VD)
+      return false;
+    Value *GEP02 = GetBFGEPO(CI0->getArgOperand(2), VPLI);
+    if (!GEP02 || !match(GEP02, m_Mul(m_ConstantInt(CNI2), m_Value(VDT))))
+      return false;
+    if (CNI2->getZExtValue() != 2 || VDT != VD)
+      return false;
+    CallInst *CINull = nullptr;
+    if (!GetPrevCallMatch(F, CI0, &CINull) || CINull)
+      return false;
+    *VPLO = CI0;
+    *VPMO = CI1;
+    *VPNO = CI2;
+    *FMed3 = PFMed3;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'I' matches a PHINode with 2 incoming values 'VI' and
+  // 'VO'. If we return 'true', set 'PHIO' to 'I' cast as a PHINode'.
+  //
+  auto IsMed3JoinPHI = [](Instruction *I, Value *VI, Value *VO,
+                          PHINode **PHIO) -> bool {
+    auto PHI = dyn_cast_or_null<PHINode>(I);
+    if (!PHI || PHI->getNumIncomingValues() != 2)
+      return false;
+    if (PHI->getIncomingValue(0) != VO || PHI->getIncomingValue(1) != VI)
+      return false;
+    *PHIO = PHI;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' matches a BasicBlock of the form:
+  //
+  //   %pn.0 = phi i8* [ 'VPNO', %if.then58 ], [ 'VPNI', %if.then53 ]
+  //   %pm.1 = phi i8* [ 'VPMO', %if.then58 ], [ 'VPMI', %if.then53 ]
+  //   %pl.1 = phi i8* [ 'VPLO', %if.then58 ], [ 'VPLI', %if.then53 ]
+  //   'VPMF' = call i8* 'FMed3'(i8* %pl.1, i8* %pm.1, i8* %pn.0,
+  //        i32 (i8*, i8*)* 'F(3)')
+  //   br label 'BBO'
+  //
+  // If we return 'true', set the value of 'VPMF'.
+  //
+  auto IsMed3JoinBlock = [&IsMed3JoinPHI, GetPrevCallMatch](
+                             Function &F, Function &FMed3, BasicBlock *BBI,
+                             BasicBlock *BBO, Value *VPLI, Value *VPMI,
+                             Value *VPNI, Value *VPLO, Value *VPMO, Value *VPNO,
+                             Value **VPMF) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    CallInst *CI = nullptr;
+    if (!GetPrevCallMatch(F, BI, &CI))
+      return false;
+    if (CI->getCalledFunction() != &FMed3)
+      return false;
+    Instruction *BP = CI->getPrevNonDebugInstruction();
+    PHINode *PHI2 = nullptr;
+    if (!IsMed3JoinPHI(BP, VPLI, VPLO, &PHI2) || CI->getArgOperand(0) != PHI2)
+      return false;
+    BP = BP->getPrevNonDebugInstruction();
+    PHINode *PHI1 = nullptr;
+    if (!IsMed3JoinPHI(BP, VPMI, VPMO, &PHI1) || CI->getArgOperand(1) != PHI1)
+      return false;
+    BP = BP->getPrevNonDebugInstruction();
+    PHINode *PHI0 = nullptr;
+    if (!IsMed3JoinPHI(BP, VPNI, VPNO, &PHI0) || CI->getArgOperand(2) != PHI0)
+      return false;
+    if (BP->getPrevNonDebugInstruction())
+      return false;
+    *VPMF = CI;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' represents the median computation that
+  // appears in a spec_qsort. 'PHIA' is beginning of the array, and 'PHIN' is
+  // the size of the array. If we return 'true', set 'VPMF' to the median value
+  // computed and 'BBO' to the BasicBlock that exits the computation.
+  //
+  auto IsMedianComp = [&IsSizeTest, &ComputesPM, &ComputesPN, &IsMed3CallBlock,
+                       &IsMed3JoinBlock](Function &F, BasicBlock *BBI,
+                                         PHINode *PHIA, PHINode *PHIN,
+                                         Value **VPMF,
+                                         BasicBlock **BBO) -> bool {
+    BasicBlock *BBIT = nullptr;
+    BasicBlock *BBX = nullptr;
+    BasicBlock *BBCB = nullptr;
+    BasicBlock *BBJB = nullptr;
+    Function *PFMed3 = nullptr;
+    Value *VPMI = nullptr;
+    Value *VPNI = nullptr;
+    Value *VPLO = nullptr;
+    Value *VPMO = nullptr;
+    Value *VPNO = nullptr;
+    Value *VPMOO = nullptr;
+    if (!IsSizeTest(BBI, PHIN, ICmpInst::ICMP_UGT, 7, &BBIT, &BBX))
+      return false;
+    if (!IsSizeTest(BBIT, PHIN, ICmpInst::ICMP_UGT, 40, &BBCB, &BBJB))
+      return false;
+    if (!ComputesPM(F, BBI, PHIA, PHIN, &VPMI))
+      return false;
+    if (!ComputesPN(F, BBIT, PHIA, PHIN, &VPNI))
+      return false;
+    if (!IsMed3CallBlock(F, BBCB, BBJB, PHIN, PHIA, VPMI, VPNI, &VPLO, &VPMO,
+                         &VPNO, &PFMed3))
+      return false;
+    if (!IsMed3JoinBlock(F, *PFMed3, BBJB, BBX, PHIA, VPMI, VPNI, VPLO, VPMO,
+                         VPNO, &VPMOO))
+      return false;
+    *VPMF = VPMOO;
+    *BBO = BBX;
+    return true;
+  };
+
   // This is the main code for isQsortSpecQsort().
   BasicBlock *BBE = &F.getEntryBlock();
   BasicBlock *BBL = nullptr;
   BasicBlock *BBX0 = nullptr;
   BasicBlock *BBX1 = nullptr;
   BasicBlock *BBX2 = nullptr;
+  BasicBlock *BBX3 = nullptr;
+  BasicBlock *BBXN = nullptr;
   BasicBlock *BBIS = nullptr;
+  BasicBlock *BBSW = nullptr;
   PHINode *PHIA = nullptr;
   PHINode *PHIN = nullptr;
   PHINode *PHIC0 = nullptr;
   PHINode *PHIC1 = nullptr;
+  Value *VPMF = nullptr;
   Function *FSwapFunc = nullptr;
   DenseMapBBToV PHIMap;
   if (!MatchesPrototype(F)) {
-    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
-                    dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
-                           << ": Does not match prototype.\n");
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": Does not match prototype.\n");
     return false;
   }
   if (!isDirectBranchBlock(BBE, &BBL)) {
     DEBUG_WITH_TYPE(FXNREC_VERBOSE,
                     dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
-                           << ": Is not direct branch block.\n");
+                           << ": Is not first direct branch block.\n");
     return false;
   }
   if (!GetKeyLoopPHIs(F, BBL, &PHIA, &PHIN)) {
-    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
-                    dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
-                           << ": No key loop PHIs.\n");
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": No key loop PHIs.\n");
     return false;
   }
 #ifdef _WIN32
@@ -1531,27 +1853,39 @@ static bool isQsortSpecQsort(Function &F) {
   uint64_t BytesInLong = 8;
 #endif // _WIN32
   if (!IsSwapInit(F, BBL, PHIA, BytesInLong, &PHIC0, &BBX0)) {
-    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
-                    dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
-                           << ": No first SWAPINIT.\n");
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": No first SWAPINIT.\n");
     return false;
   }
   if (!IsSwapInit(F, BBX0, PHIA, 4, &PHIC1, &BBX1)) {
-    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
-                    dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
-                           << ": No second SWAPINIT.\n");
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": No second SWAPINIT.\n");
     return false;
   }
-  if (!IsSizeTest(BBX1, PHIN, 7, &BBIS, &BBX2)) {
-    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
-                    dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
-                           << ": No insert sort size test.\n");
+  if (!IsSizeTest(BBX1, PHIN, ICmpInst::ICMP_ULT, 7, &BBIS, &BBX2)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": No insert sort size test.\n");
     return false;
   }
-  if (!IsInsertionSort(F, BBIS, PHIA, PHIN, PHIC0, PHIC1, &BBX2, &FSwapFunc)) {
+  if (!IsInsertionSort(F, BBIS, PHIA, PHIN, PHIC0, PHIC1, &BBX3, &FSwapFunc)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": No first insertion sort.\n");
+    return false;
+  }
+  if (!isDirectBranchBlock(BBX3, &BBXN)) {
     DEBUG_WITH_TYPE(FXNREC_VERBOSE,
                     dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
-                           << ": No first insertion sort.\n");
+                           << ": Is not second direct branch block.\n");
+    return false;
+  }
+  if (!IsMedianComp(F, BBX2, PHIA, PHIN, &VPMF, &BBSW)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": Is not median computation.\n");
     return false;
   }
   // More code to come here.

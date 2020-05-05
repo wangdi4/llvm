@@ -2,162 +2,105 @@
 ; Test inner loop control flow uniformity where inner loop exit condition is divergent memory reference.
 
 ; REQUIRES: asserts
-; RUN: opt -S < %s -VPlanDriver -vplan-print-after-loop-cfu -disable-output | FileCheck %s
+
+; RUN: opt -S -vplan-func-vec -print-after-vplan-func-vec-loop-cfu < %s -disable-output | FileCheck %s
+; RUN: opt -S -passes="vplan-func-vec" -print-after-vplan-func-vec-loop-cfu < %s -disable-output | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry()
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token)
 
 @A = common local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 
-; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr #0 {
-;
-; CHECK-LABEL:  After Loop CFU transformation:
+define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %ub) local_unnamed_addr {
+; CHECK-LABEL:  VPlan IR for: foo
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LB0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i32 [[VP_LANE]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = load i64* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_TOPTEST:%.*]] = icmp i64 [[VP0]] i64 [[VP1]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_TOPTEST]]), [[BB2:BB[0-9]+]](!i1 [[VP_TOPTEST]])
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_OUTER_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop outer.header
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:      [[BB1]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:      SUCCESSORS(1):[[BB3:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV:%.*]] = phi  [ i64 [[VP_OUTER_IV_NEXT:%.*]], [[BB3]] ],  [ i64 [[VP_OUTER_IV_IND_INIT]], [[BB1]] ]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LB0:%.*]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = load i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = load i64* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_INNER_TOPTEST:%.*]] = icmp i64 [[VP0]] i64 [[VP1]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_INNER_TOPTEST]]), [[BB3]](!i1 [[VP_INNER_TOPTEST]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
+; CHECK-NEXT:      [[BB3]]:
+; CHECK-NEXT:       [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB4:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_TOPTEST]], [[BB1]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB4]] ]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB5]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:       Condition([[BB3]]): [DA: Div] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_TOPTEST]], [[BB1]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB4]] ]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB7:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:        [[BB6]]:
+; CHECK-NEXT:         [DA: Div] i64 [[VP_SHL:%.*]] = shl i64 [[VP_IV]] i64 3
+; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_IV]] i32 [[VP_LANE]]
+; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] i64* [[VP_ARRAYIDX6]]
+; CHECK-NEXT:         [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
+; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load i64* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:        SUCCESSORS(1):[[BB7]]
+; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB7]]:
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP4:%.*]] = not i1 [[VP3]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-NEXT:       Condition([[BB7]]): [DA: Uni] i1 [[VP4]] = not i1 [[VP3]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB3]](i1 [[VP4]]), [[BB8:BB[0-9]+]](!i1 [[VP4]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB6:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_INNER_TOPTEST]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
+; CHECK-NEXT:      [[BB8]]:
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB5]]): [DA: Div] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_INNER_TOPTEST]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB6]] ]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB9:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB8]]:
-; CHECK-NEXT:         [DA: Div] i64 [[VP_SHL:%.*]] = shl i64 [[VP_INNER_IV]] i64 3
-; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_INNER_IV]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] i64* [[VP_ARRAYIDX6]]
-; CHECK-NEXT:         [DA: Div] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
-; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load i64* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:        SUCCESSORS(1):[[BB9]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_INNER_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP2]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXITCOND]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP4:%.*]] = not i1 [[VP3]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB9]]): [DA: Uni] i1 [[VP4]] = not i1 [[VP3]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP4]]), [[BB10:BB[0-9]+]](!i1 [[VP4]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB10]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP_OUTER_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB11:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB10]] [[BB2]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB11]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_OUTER_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB12:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB12]]:
-; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Div] void [[VP5:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB0]]
 ;
 entry:
-  %outer.toptest = icmp sgt i64 %N, 0
-  br i1 %outer.toptest, label %outer.preheader, label %func.exit
-
-outer.preheader:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  br label %outer.header
-
-outer.header:
-  %outer.iv = phi i64 [ %outer.iv.next, %outer.latch ], [ 0, %outer.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %outer.iv
+  %lane = call i64 @llvm.vplan.laneid()
+  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %lane
   %0 = load i64, i64* %arrayidx, align 8
-  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %outer.iv
+  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %lane
   %1 = load i64, i64* %arrayidx2, align 8
-  %inner.toptest = icmp slt i64 %0, %1
-  br i1 %inner.toptest, label %inner.preheader, label %outer.latch
+  %toptest = icmp slt i64 %0, %1
+  br i1 %toptest, label %preheader, label %exit
 
-inner.preheader:
-  br label %inner.header
+preheader:
+  br label %header
 
-inner.header:
-  %inner.iv = phi i64 [ %inner.iv.next, %inner.header ], [ %0, %inner.preheader ]
-  %shl = shl i64 %inner.iv, 3
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %inner.iv, i64 %outer.iv
+header:
+  %iv = phi i64 [ %iv.next, %header ], [ %0, %preheader ]
+  %shl = shl i64 %iv, 3
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %iv, i64 %lane
   store i64 %shl, i64* %arrayidx6, align 8
-  %inner.iv.next = add nsw i64 %inner.iv, 1
+  %iv.next = add nsw i64 %iv, 1
   %2 = load i64, i64* %arrayidx2, align 8
-  %inner.exitcond = icmp slt i64 %inner.iv.next, %2
-  br i1 %inner.exitcond, label %inner.header, label %inner.exit
+  %exitcond = icmp slt i64 %iv.next, %2
+  br i1 %exitcond, label %header, label %loop.exit
 
-inner.exit:
-  br label %outer.latch
+loop.exit:
+  br label %exit
 
-outer.latch:
-  %outer.iv.next = add nuw nsw i64 %outer.iv, 1
-  %outer.exitcond = icmp eq i64 %outer.iv.next, %N
-  br i1 %outer.exitcond, label %outer.exit, label %outer.header
-
-outer.exit:
-  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"()]
-  br label %func.exit
-
-func.exit:
+exit:
   ret void
 }
 
-attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 4.0.0 (branches/vpo 20869)"}
-!1 = !{!2, !2, i64 0}
-!2 = !{!"long", !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}
+declare i64 @llvm.vplan.laneid()
