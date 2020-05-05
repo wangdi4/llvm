@@ -697,15 +697,13 @@ int TargetTransformInfo::getGatherScatterOpCost(
 }
 
 #if INTEL_CUSTOMIZATION
-int TargetTransformInfo::getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
-                                                unsigned IndexSize,
-                                                bool VariableMask,
-                                                unsigned Alignment,
-                                                unsigned AddressSpace,
-                                                const Instruction *I) const {
-  int Cost = TTIImpl->getGatherScatterOpCost(Opcode, DataTy, IndexSize,
-                                             VariableMask, Alignment,
-                                             AddressSpace, I);
+int TargetTransformInfo::getGatherScatterOpCost(
+    unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
+    unsigned Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
+    const Instruction *I) const {
+  int Cost =
+      TTIImpl->getGatherScatterOpCost(Opcode, DataTy, IndexSize, VariableMask,
+                                      Alignment, AddressSpace, CostKind, I);
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }

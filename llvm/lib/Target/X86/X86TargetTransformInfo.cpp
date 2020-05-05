@@ -4157,6 +4157,7 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
                                        unsigned IndexSize, bool VariableMask,
                                        unsigned Alignment,
                                        unsigned AddressSpace,
+                                       TTI::TargetCostKind CostKind,
                                        const Instruction *I = nullptr) {
   assert(SrcVTy->isVectorTy() && "Unexpected data type for Gather/Scatter");
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();

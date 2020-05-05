@@ -958,10 +958,10 @@ public:
   /// \p Alignment - alignment of single element
   /// \p I - the optional original context instruction, if one exists, e.g. the
   ///        load/store to transform or the call to the gather/scatter intrinsic
-<<<<<<< HEAD
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, Value *Ptr,
-                             bool VariableMask, unsigned Alignment,
-                             const Instruction *I = nullptr) const;
+  int getGatherScatterOpCost(
+    unsigned Opcode, Type *DataTy, Value *Ptr, bool VariableMask,
+    unsigned Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+    const Instruction *I = nullptr) const;
 #if INTEL_CUSTOMIZATION
   /// \return The cost of Gather or Scatter operation
   /// \p Opcode - is a type of memory access Load or Store
@@ -973,18 +973,13 @@ public:
   /// \p AddressSpace - address space of data
   /// \p I - the optional original context instruction, if one exists, e.g. the
   ///        load/store to transform or the call to the gather/scatter intrinsic
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                             bool VariableMask, unsigned Alignment,
-                             unsigned AddressSpace,
-                             const Instruction *I = nullptr) const;
-#endif // INTEL_CUSTOMIZATION
-=======
   int getGatherScatterOpCost(
-    unsigned Opcode, Type *DataTy, Value *Ptr, bool VariableMask,
-    unsigned Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-    const Instruction *I = nullptr) const;
+      unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
+      unsigned Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+      const Instruction *I = nullptr) const;
+#endif // INTEL_CUSTOMIZATION
 
->>>>>>> 40574fefe9b2ad7d251da25c7461c313d965b809
   /// \return The cost of the interleaved memory operation.
   /// \p Opcode is the memory operation code
   /// \p VecTy is the vector type of the interleaved access.
@@ -1435,10 +1430,11 @@ public:
                              bool UseMaskForCond = false,
                              bool UseMaskForGaps = false) = 0;
 #if INTEL_CUSTOMIZATION
-  virtual int getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
-                                     unsigned IndexSize, bool VariableMask,
-                                     unsigned Alignment, unsigned AddressSpace,
-                                     const Instruction *I = nullptr) = 0;
+  virtual int getGatherScatterOpCost(
+      unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
+      unsigned Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+      const Instruction *I = nullptr) = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual int getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
                                          bool IsPairwiseForm,
@@ -1884,9 +1880,10 @@ public:
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                              bool VariableMask, unsigned Alignment,
                              unsigned AddressSpace,
+                             TTI::TargetCostKind CostKind,
                              const Instruction *I = nullptr) override {
     return Impl.getGatherScatterOpCost(Opcode, DataTy, IndexSize, VariableMask,
-                                       Alignment, AddressSpace, I);
+                                       Alignment, AddressSpace, CostKind, I);
   }
 #endif // INTEL_CUSTOMIZATION
   int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,

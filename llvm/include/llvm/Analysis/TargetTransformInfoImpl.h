@@ -463,6 +463,7 @@ public:
   unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                   unsigned IndexSize, bool VariableMask,
                                   unsigned Alignment, unsigned AddressSpace,
+                                  TTI::TargetCostKind CostKind,
                                   const Instruction *I = nullptr) {
     return 1;
   }

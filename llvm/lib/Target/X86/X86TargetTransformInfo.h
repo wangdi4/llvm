@@ -155,7 +155,9 @@ public:
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                              bool VariableMask, unsigned Alignment,
-                             unsigned AddressSpace, const Instruction *I);
+                             unsigned AddressSpace,
+                             TTI::TargetCostKind CostKind,
+                             const Instruction *I);
 #endif // INTEL_CUSTOMIZATION
   int getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
                                 const SCEV *Ptr);

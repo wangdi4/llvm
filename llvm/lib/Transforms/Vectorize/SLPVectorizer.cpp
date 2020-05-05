@@ -6141,7 +6141,6 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
       }
       VectorType *MaskTy = VectorType::get(Builder.getInt1Ty(), VL.size());
       int ScalarCost = VecTy->getNumElements() * ScalarEltCost;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (DoPSLP && PSLPAdjustCosts) {
         // Count the PSLP-emitted instructions and remove them from the
@@ -6159,11 +6158,8 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
         assert(ScalarCost >= 0 && "Too much cost reduction");
       }
 #endif // INTEL_CUSTOMIZATION
-      int VecCost = TTI->getCmpSelInstrCost(E->getOpcode(), VecTy, MaskTy, VL0);
-=======
       int VecCost = TTI->getCmpSelInstrCost(E->getOpcode(), VecTy, MaskTy,
                                             CostKind, VL0);
->>>>>>> 40574fefe9b2ad7d251da25c7461c313d965b809
       return ReuseShuffleCost + VecCost - ScalarCost;
     }
     case Instruction::FNeg:
@@ -6231,8 +6227,8 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
       }
       int ScalarCost = VecTy->getNumElements() * ScalarEltCost;
       int VecCost = TTI->getArithmeticInstrCost(
-<<<<<<< HEAD
-          E->getOpcode(), VecTy, Op1VK, Op2VK, Op1VP, Op2VP, Operands, VL0);
+          E->getOpcode(), VecTy, CostKind, Op1VK, Op2VK, Op1VP, Op2VP,
+          Operands, VL0);
 #if INTEL_CUSTOMIZATION
       if (DoPSLP && PSLPAdjustCosts) {
         // Count the PSLP-emitted instructions and remove them from the
@@ -6244,16 +6240,13 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
               CntPadded++;
           }
         }
-        int SingleCost = TTI->getArithmeticInstrCost(
-            E->getOpcode(), ScalarTy, Op1VK, Op2VK, Op1VP, Op2VP, Operands);
+        int SingleCost =
+            TTI->getArithmeticInstrCost(E->getOpcode(), ScalarTy, CostKind,
+                                        Op1VK, Op2VK, Op1VP, Op2VP, Operands);
         ScalarCost -= CntPadded * SingleCost;
         assert(ScalarCost >= 0 && "Too much cost reduction");
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-          E->getOpcode(), VecTy, CostKind, Op1VK, Op2VK, Op1VP, Op2VP,
-          Operands, VL0);
->>>>>>> 40574fefe9b2ad7d251da25c7461c313d965b809
       return ReuseShuffleCost + VecCost - ScalarCost;
     }
     case Instruction::GetElementPtr: {
