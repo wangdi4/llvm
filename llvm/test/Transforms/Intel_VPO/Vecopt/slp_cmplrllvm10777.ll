@@ -1,25 +1,29 @@
-; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP -slp-look-ahead-users-budget=100 < %s 2>&1 | FileCheck %s -check-prefix=CHECK_HI_LIMIT
-; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP < %s 2>&1 | FileCheck %s -check-prefix=CHECK_DEFAULT_LIMIT
+; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP -slp-look-ahead-users-budget=100 < %s 2>&1 | FileCheck %s -check-prefix=CHECK_HI
+; RUN: opt -enable-intel-advanced-opts -mcpu=skylake-avx512 -tti -basicaa --slp-vectorizer -disable-output -debug-only=SLP < %s 2>&1 | FileCheck %s -check-prefix=CHECK_DEFAULT
 
 ; REQUIRES: asserts
 
-; SLP here makes 3 attempts to build vectorizable tree. On the second try
-; it touches IR and looks for cost. If cost is no better it then reverts
-; IR changes and makes another tree build. On the third attempt even though
-; IR is same as during initial build SLP behavior turned out to be sensitive
-; to ordering of instruction users lists and that affected its behavior.
+; SLP here used to make 3 attempts to build vectorizable tree. After initial
+; tree build it discovered a possibility for PSLP (padded SLP) and made the
+; second try for PSLP. Then since PSLP attempt appeared no better it
+; reverted IR changes made for PSLP attempt and ran another tree build.
+; Expectation was the cost from 1st try would match 3d one.
+; Problem is that SLP behavior is sensitive to ordering of instruction users
+; lists and cleanup after PSLP changed their order so that vectorizable tree
+; turned out different.
+; First attempt to fix that was to sort users list before visiting but the
+; remedy turned out way too expensive for compile time.
+; Current fix is not to run third tree build if the first attempt was
+; not profitable. Additionally the assertion was relaxed to check that the
+; third build still remains profitable to vectorize.
 
-; CHECK_HI_LIMIT:  SLP: Total Cost = 0.
-; CHECK_HI_LIMIT:  SLP: Total Cost = 7.
-; CHECK_HI_LIMIT:  SLP: Total Cost = 0.
+; CHECK_HI: SLP: Total Cost = 0.
+; CHECK_HI: SLP: Total Cost = 7.
+; CHECK_HI-NOT: SLP: Total Cost =
 
-; With limited users budget cost can change.
-; Important thing is that for the first and third attempts cost must be same
-; (and second time cost is bigger: that is actually a condition to make 3d run).
-
-; CHECK_DEFAULT_LIMIT:  SLP: Total Cost = 0.
-; CHECK_DEFAULT_LIMIT:  SLP: Total Cost = 7.
-; CHECK_DEFAULT_LIMIT:  SLP: Total Cost = 0.
+; CHECK_DEFAULT: SLP: Total Cost = 0.
+; CHECK_DEFAULT: SLP: Total Cost = 7.
+; CHECK_DEFAULT-NOT: SLP: Total Cost =
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
