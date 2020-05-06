@@ -80,6 +80,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeIntelFoldWPIntrinsicLegacyPassPass(Registry); // INTEL
   initializeDeadArrayOpsEliminationLegacyPassPass(Registry); // INTEL
   initializeTileMVInlMarkerLegacyPassPass(Registry); // INTEL
+  initializeIPArrayTransposeLegacyPassPass(Registry); // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {
