@@ -1,0 +1,30 @@
+set(TARGET_NAME ObjDump)
+
+# Copy and modify files from llvm-objdump dir to current build dir
+set(ORIGINAL_OBJDUMP_DIR ${LLVM_MAIN_SRC_DIR}/tools/llvm-objdump)
+file(GLOB ORIGINAL_OBJDUMP_FILES ${ORIGINAL_OBJDUMP_DIR}/*.h
+                                 ${ORIGINAL_OBJDUMP_DIR}/*.cpp)
+set(COPIED_OBJDUMP_FILES "")
+foreach(ORIGINAL_OBJDUMP_FILE ${ORIGINAL_OBJDUMP_FILES})
+  get_filename_component(BASENAME ${ORIGINAL_OBJDUMP_FILE} NAME)
+  list(APPEND COPIED_OBJDUMP_FILES ${CMAKE_CURRENT_BINARY_DIR}/${BASENAME})
+endforeach()
+add_custom_command(OUTPUT ${COPIED_OBJDUMP_FILES}
+  COMMAND ${PYTHON_EXECUTABLE}
+  ${CMAKE_CURRENT_SOURCE_DIR}/redirect_objdump_to_file.py
+  ${ORIGINAL_OBJDUMP_FILES}
+  ${COPIED_OBJDUMP_FILES}
+  COMMENT "Generating OpenCL ObjDump files into ${CMAKE_CURRENT_BINARY_DIR}")
+
+include_directories(${LLVM_INCLUDE_DIRS})
+
+add_library(
+  ${TARGET_NAME}
+  STATIC
+  ObjectDump.h
+  ObjectDump.cpp
+  ${COPIED_OBJDUMP_FILES}
+)
+
+# For a tidy Visual Studio solution layout
+set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
