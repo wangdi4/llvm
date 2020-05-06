@@ -523,8 +523,6 @@ void VPlan::execute(VPTransformState *State) {
   // file.
   auto *HTerm = VectorHeaderBB->getTerminator();
   BasicBlock *MiddleBlock = HTerm->getSuccessor(0);
-  assert(MiddleBlock->getName().startswith("middle.block") &&
-         "Code is not in sync!");
 
   auto CurrIP = State->Builder.saveIP();
 
