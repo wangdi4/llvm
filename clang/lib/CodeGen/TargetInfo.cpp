@@ -97,7 +97,6 @@ Address ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
   return Address::invalid();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static ABIArgInfo classifyOpenCL(QualType Ty, ASTContext &Context) {
   if (Ty->isVoidType())
@@ -134,7 +133,7 @@ static bool doOpenCLClassification(CGFunctionInfo &FI, ASTContext &Context) {
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 bool ABIInfo::isPromotableIntegerTypeForABI(QualType Ty) const {
   if (Ty->isPromotableIntegerType())
     return true;
@@ -145,7 +144,6 @@ bool ABIInfo::isPromotableIntegerTypeForABI(QualType Ty) const {
 
   return false;
 }
->>>>>>> 8a1c999c9b0817d4de778a62965b4af86416e4b7
 
 ABIInfo::~ABIInfo() {}
 
