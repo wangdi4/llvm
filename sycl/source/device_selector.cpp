@@ -13,6 +13,10 @@
 #include <CL/sycl/stl.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/force_device.hpp>
+#ifdef INTEL_CUSTOMIZATION
+#include <detail/config.hpp>
+#endif // INTEL_CUSTOMIZATION
+
 // 4.6.1 Device selection class
 
 __SYCL_INLINE_NAMESPACE(cl) {
@@ -112,10 +116,11 @@ int default_selector::operator()(const device &dev) const {
   if (dev.is_cpu())
     Score += 300;
 
-#ifndef INTEL_CUSTOMIZATION
-  if (dev.is_host())
-    Score += 100;
+#ifdef INTEL_CUSTOMIZATION
+  if (detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get())
 #endif // INTEL_CUSTOMIZATION
+    if (dev.is_host())
+      Score += 100;
 
   return Score;
 }
@@ -156,7 +161,15 @@ int accelerator_selector::operator()(const device &dev) const {
 
 int host_selector::operator()(const device &dev) const {
   int Score = REJECT_DEVICE_SCORE;
-  if (dev.is_host()) {
+#ifdef INTEL_CUSTOMIZATION
+  bool ShouldSelect =
+      detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get() ||
+              detail::get_forced_type() == info::device_type::host
+          ? dev.is_host()
+          : dev.is_cpu();
+  if (ShouldSelect)
+#endif // INTEL_CUSTOMIZATION
+  {
     Score = 1000;
     // Give preference to device of SYCL BE.
     if (isDeviceOfPreferredSyclBe(dev))
