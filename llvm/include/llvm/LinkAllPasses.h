@@ -385,6 +385,7 @@ namespace {
       (void) llvm::createSplitBBonBarrierPass();
       (void) llvm::createWIRelatedValuePass();
       (void) llvm::createDataPerBarrierPass();
+      (void) llvm::createDataPerValuePass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

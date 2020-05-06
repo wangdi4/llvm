@@ -65,7 +65,24 @@ public:
   /// I instruction to observe its synchronize type.
   /// Returns given instruction synchronize type:
   ///  {barrier, fiber, dummyBarrier or none}.
-  SyncType getSynchronizeType(Instruction *I);
+  SyncType getSynchronizeType(const Instruction *I);
+
+  /// Checks whether call instruction calls dummyBarrier().
+  /// CI instruction of interest,
+  /// Returns true if this is dummyBarrier() call and false otherwise.
+  bool isDummyBarrierCall(const CallInst *CI);
+
+  /// Checks whether call instruction calls barrier().
+  /// CI instruction of interest,
+  /// Returns true if this is barrier() call and false otherwise.
+  bool isBarrierCall(const CallInst *CI);
+
+  /// Return BasicBlock of UserInst (if it is not a PHINode)
+  ///  Otherwise, return the prevBB of UserInst with respect to V.
+  /// V value that pUserInst is using,
+  /// UserInst instruction that is using I value,
+  /// Returns BasicBlock of usage instruction with respect to value it is using.
+  static BasicBlock *findBasicBlockOfUsageInst(Value *V, Instruction *UserInst);
 
 private:
   /// Clean all collected values and assure
