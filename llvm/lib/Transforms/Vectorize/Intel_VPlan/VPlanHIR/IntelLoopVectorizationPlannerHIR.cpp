@@ -29,7 +29,7 @@ cl::opt<uint64_t>
                            cl::desc("Default estimated trip count"));
 
 static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
-                                           cl::init(true), cl::Hidden,
+                                           cl::init(false), cl::Hidden,
                                            cl::desc("Force CFG linearization"));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
@@ -72,7 +72,14 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
   VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
   HCFGBuilder.buildHierarchicalCFG();
 
-  if (ForceLinearizationHIR)
+  // Search loop representation is not yet explicit and search loop idiom
+  // recognition is picky. Avoid any changes in predicator behavior for search
+  // loops such as avoiding predicate calculations.
+  auto *VPLI = Plan->getVPLoopInfo();
+  assert(VPLI->size() == 1 && "Expected 1 loop");
+  bool SearchLoop = (*VPLI->begin())->getUniqueExitBlock() == nullptr;
+
+  if (ForceLinearizationHIR || SearchLoop)
     Plan->markFullLinearizationForced();
 
   return SharedPlan;
