@@ -1,3 +1,17 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2020 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #pragma once
 
 #include <string>
@@ -22,6 +36,7 @@ bool SilentCheckSize(const char * name, size_t expected, size_t result);
 bool CheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result);
 bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result);
 bool BuildProgramSynch(cl_context context, cl_uint count, const char ** strings, const size_t * lengths, const char * options, cl_program * program_ret);
+void GetBuildLog(cl_device_id device, cl_program program, std::string &log);
 
 // auxiliary functions for SilentCheckException
 

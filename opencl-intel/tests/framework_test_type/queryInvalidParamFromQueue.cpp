@@ -1,6 +1,6 @@
 #include "CL.h"
 
-void CL::QueryInvalidParamNameFromCQueue_Negative()
+TEST_F(CL, QueryInvalidParamNameFromCQueue_Negative)
 {
     cl_int iRet = CL_SUCCESS;
 

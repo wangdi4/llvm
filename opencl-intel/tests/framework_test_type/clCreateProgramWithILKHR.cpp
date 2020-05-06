@@ -16,7 +16,7 @@ TEST_F(CL, Test_CreateProgramWithILKHR_Negative)
     cl_program program = nullptr;
 
     std::vector<char> spirv;
-    GetSimpleSPIRV(spirv);
+    ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
     program = clCreateProgramWithILKHR(nullptr, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_CONTEXT, iRet)
@@ -49,7 +49,7 @@ TEST_F(CL, Test_CreateProgramWithILKHR_FP)
             "failed";
 
     std::vector<char> spirv;
-    GetSimpleSPIRV(spirv);
+    ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
     program = create_program_with_il(nullptr, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_CONTEXT, iRet)
@@ -73,7 +73,7 @@ TEST_F(CL, Test_CreateProgramWithILKHR)
     cl_program program = nullptr;
 
     std::vector<char> spirv;
-    GetSimpleSPIRV(spirv);
+    ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
     program = clCreateProgramWithILKHR(m_context, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramTestCreateProgramWithILKHR failed. ";
@@ -149,7 +149,7 @@ TEST_F(CL, Test_CreateProgramWithILKHR_PROGRAM_IL)
     cl_program program = nullptr;
 
     std::vector<char> spirv;
-    GetSimpleSPIRV(spirv);
+    ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
     program = clCreateProgramWithILKHR(m_context, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithILKHR failed. ";

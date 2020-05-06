@@ -1,6 +1,6 @@
 #include "CL21.h"
 
-void CL21::GetPlatformInfo_DEVICE_TIMER_RESOLUTION() const
+TEST_F(CL21, GetPlatformInfo_DEVICE_TIMER_RESOLUTION)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -16,7 +16,7 @@ void CL21::GetPlatformInfo_DEVICE_TIMER_RESOLUTION() const
     ASSERT_EQ(sizeof(cl_ulong), ret_size);
 }
 
-void CL21::GetHostTimer_Negative() const
+TEST_F(CL21, GetHostTimer_Negative)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -31,7 +31,7 @@ void CL21::GetHostTimer_Negative() const
         << " clGetHostTimer with invalid ptr to host_timer failed. ";
 }
 
-void CL21::GetDeviceAndHostTimer_Negative() const
+TEST_F(CL21, GetDeviceAndHostTimer_Negative)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -52,7 +52,7 @@ void CL21::GetDeviceAndHostTimer_Negative() const
         << " clGetDeviceAndHostTimer with invalid ptr to host_timer. ";
 }
 
-void CL21::GetHostTimer() const
+TEST_F(CL21, GetHostTimer)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -63,7 +63,7 @@ void CL21::GetHostTimer() const
         << "Looks like clGetHostTimer has not set host time.";
 }
 
-void CL21::GetDeviceAndHostTimer() const
+TEST_F(CL21, GetDeviceAndHostTimer)
 {
     cl_int iRet = CL_SUCCESS;
 

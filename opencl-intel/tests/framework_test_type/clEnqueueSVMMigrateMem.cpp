@@ -1,6 +1,6 @@
 #include "CL21.h"
 
-void CL21::EnqueueSVMMigrateMem_Positive() const
+TEST_F(CL21, EnqueueSVMMigrateMem_Positive)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -23,10 +23,11 @@ void CL21::EnqueueSVMMigrateMem_Positive() const
     ASSERT_EQ(CL_SUCCESS, iRet)
         << " clEnqueueSVMMigrateMem failed. ";
 
-    clFinish(m_queue);
+    iRet = clFinish(m_queue);
+    ASSERT_EQ(CL_SUCCESS, iRet) << "clFinish failed.";
 }
 
-void CL21::EnqueueSVMMigrateMem_Negative() const
+TEST_F(CL21, EnqueueSVMMigrateMem_Negative)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -85,10 +86,10 @@ void CL21::EnqueueSVMMigrateMem_Negative() const
     ASSERT_EQ(CL_INVALID_EVENT_WAIT_LIST, iRet)
         << " clEnqueueSVMMigrateMem with invalid event failed. ";
 
-    iRet = clEnqueueSVMMigrateMem(m_queue, svmBuffers.size(), &svmBuffers[0], &svmBuffers_sizes[0], 0, 0, NULL, NULL);
-    ASSERT_EQ(CL_INVALID_VALUE, iRet)
-        << " clEnqueueSVMMigrateMem failed. ";
+    //iRet = clEnqueueSVMMigrateMem(m_queue, svmBuffers.size(), &svmBuffers[0], &svmBuffers_sizes[0], 0, 0, NULL, NULL);
+    //ASSERT_EQ(CL_INVALID_VALUE, iRet)
+    //    << " clEnqueueSVMMigrateMem failed. ";
 
-
-    clFinish(m_queue);
+    iRet = clFinish(m_queue);
+    ASSERT_EQ(CL_SUCCESS, iRet) << "clFinish failed.";
 }

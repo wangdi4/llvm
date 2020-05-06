@@ -1,33 +1,26 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2015-2020 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #ifndef __CL_GENERAL__
 #define __CL_GENERAL__
 
-#include <iostream>
-#include <gtest/gtest.h>
-#include "CL/cl.h"
-#include "test_utils.h"
-#include "CL/cl_platform.h"
 #include "CL_BASE.h"
 
-class CL : public ::CL_base
-{
+class CL : public ::CL_base {
 protected:
-    cl_platform_id m_platform;
-    cl_device_id m_device;
-    cl_context m_context;
-    cl_command_queue m_queue;
-
-    void Init()
-    {
-        m_platform = ::CL_base::GetPlatform();
-        m_device   = ::CL_base::GetDeviceID();
-        m_context  = ::CL_base::GetContext();
-        m_queue    = ::CL_base::GetQueue();
-    }
-
-    void QueryInvalidParamNameFromCQueue_Negative();
-
-    void ZeroLocalSize();
-
-    void CPUSignatureDefine();
+  virtual void SetUp() override { CL_base::SetUp(); }
+  virtual void TearDown() override { CL_base::TearDown(); }
 };
+
 #endif /*__CL_GENERAL__*/

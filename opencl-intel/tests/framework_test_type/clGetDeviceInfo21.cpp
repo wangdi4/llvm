@@ -1,6 +1,6 @@
 #include "CL21.h"
 
-void CL21::GetDeviceInfo_INDEPENDENT_PROGRESS() const
+TEST_F(CL21, GetDeviceInfo_INDEPENDENT_PROGRESS)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -23,7 +23,7 @@ void CL21::GetDeviceInfo_INDEPENDENT_PROGRESS() const
 
 }
 
-void CL21::GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS() const
+TEST_F(CL21, GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
 {
     cl_int iRet = CL_SUCCESS;
 

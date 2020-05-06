@@ -1,6 +1,6 @@
 #include "CL21.h"
 
-void CL21::CreateProgramWithIL_IL_VERSION() const
+TEST_F(CL21, CreateProgramWithIL_IL_VERSION)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -17,13 +17,13 @@ void CL21::CreateProgramWithIL_IL_VERSION() const
 
 }
 
-void CL21::CreateProgramWithIL_Negative() const
+TEST_F(CL21, CreateProgramWithIL_Negative)
 {
     cl_int iRet = CL_SUCCESS;
     cl_program program = nullptr;
 
     std::vector<char> spirv;
-    GetSimpleSPIRV(spirv);
+    ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
     program = clCreateProgramWithIL(nullptr, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_CONTEXT, iRet)
@@ -41,13 +41,13 @@ void CL21::CreateProgramWithIL_Negative() const
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithIL with invalid IL failed. ";
 }
 
-void CL21::CreateProgramWithIL() const
+TEST_F(CL21, CreateProgramWithIL)
 {
     cl_int iRet = CL_SUCCESS;
     cl_program program = nullptr;
 
     std::vector<char> spirv;
-    GetSimpleSPIRV(spirv);
+    ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
     program = clCreateProgramWithIL(m_context, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithIL failed. ";
@@ -117,7 +117,7 @@ void CL21::CreateProgramWithIL() const
     ASSERT_EQ(4, *out) << "Invalid kernel result.";
 }
 
-void CL21::CreateProgramWithIL_PROGRAM_IL_Negative() const
+TEST_F(CL21, CreateProgramWithIL_PROGRAM_IL_Negative)
 {
     cl_int iRet = CL_SUCCESS;
     cl_program program = nullptr;
@@ -141,13 +141,13 @@ void CL21::CreateProgramWithIL_PROGRAM_IL_Negative() const
                 << " clGetProgramInfo with CL_PROGRAM_IL failed. param_value changed. ";
 }
 
-void CL21::CreateProgramWithIL_PROGRAM_IL() const
+TEST_F(CL21, CreateProgramWithIL_PROGRAM_IL)
 {
     cl_int iRet = CL_SUCCESS;
     cl_program program = nullptr;
 
     std::vector<char> spirv;
-    GetSimpleSPIRV(spirv);
+    ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
     program = clCreateProgramWithIL(m_context, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithIL failed. ";

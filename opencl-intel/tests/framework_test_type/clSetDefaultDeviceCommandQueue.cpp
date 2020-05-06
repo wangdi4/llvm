@@ -68,7 +68,7 @@ static void BuildProgramAndExecWithQueue(cl_command_queue target_queue, cl_devic
         "Queue setted from host and queue returned by get_default_queue() are different";
 }
 
-void CL21::SetDefaultDeviceCommandQueueOOO() const
+TEST_F(CL21, SetDefaultDeviceCommandQueueOOO)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -81,10 +81,12 @@ void CL21::SetDefaultDeviceCommandQueueOOO() const
     cl_command_queue queue_created_not_as_default = clCreateCommandQueueWithProperties(m_context, m_device, prop_for_not_default, &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateCommandQueueWithProperties(create simple OOO queue) failed. ";
 
-    BuildProgramAndExecWithQueue(queue_created_not_as_default, m_device, m_context, m_queue);
+    ASSERT_NO_FATAL_FAILURE(
+        BuildProgramAndExecWithQueue(queue_created_not_as_default, m_device,
+                                     m_context, m_queue));
 }
 
-void CL21::SetDefaultDeviceCommandQueueOOO_Profiling() const
+TEST_F(CL21, SetDefaultDeviceCommandQueueOOO_Profiling)
 {
 
     cl_int iRet = CL_SUCCESS;
@@ -98,11 +100,13 @@ void CL21::SetDefaultDeviceCommandQueueOOO_Profiling() const
     cl_command_queue queue_created_not_as_default = clCreateCommandQueueWithProperties(m_context, m_device, prop_for_not_default, &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateCommandQueueWithProperties(create profiling queue) failed. ";
 
-    BuildProgramAndExecWithQueue(queue_created_not_as_default, m_device, m_context, m_queue);
+    ASSERT_NO_FATAL_FAILURE(
+        BuildProgramAndExecWithQueue(queue_created_not_as_default, m_device,
+                                     m_context, m_queue));
 
 }
 
-void CL21::SetDefaultDeviceCommandQueueOOO_SubDevice() const
+TEST_F(CL21, SetDefaultDeviceCommandQueueOOO_SubDevice)
 {
 
     cl_int iRet = CL_SUCCESS;
@@ -133,11 +137,13 @@ void CL21::SetDefaultDeviceCommandQueueOOO_SubDevice() const
     cl_queue_properties host_queue_prop[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, 0};
     cl_command_queue host_queue = clCreateCommandQueueWithProperties(context_, sub_devices[0], host_queue_prop, &iRet);
 
-    BuildProgramAndExecWithQueue(queue_created_not_as_default, sub_devices[0], context_, host_queue);
+    ASSERT_NO_FATAL_FAILURE(
+        BuildProgramAndExecWithQueue(queue_created_not_as_default,
+                                     sub_devices[0], context_, host_queue));
 
 }
 
-void CL21::SetDefaultDeviceCommandQueue_Get_Default_Queue_Query() const
+TEST_F(CL21, SetDefaultDeviceCommandQueue_Get_Default_Queue_Query)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -164,7 +170,7 @@ void CL21::SetDefaultDeviceCommandQueue_Get_Default_Queue_Query() const
     ASSERT_EQ(queue_created_not_as_default, default_queue) << " Queue setted as default and returned by CL_QUEUE_DEVICE_DEFAULT query don't match. ";
 }
 
-void CL21::SetDefaultDeviceCommandQueue_Negative() const
+TEST_F(CL21, SetDefaultDeviceCommandQueue_Negative)
 {
     cl_int iRet = CL_SUCCESS;
 

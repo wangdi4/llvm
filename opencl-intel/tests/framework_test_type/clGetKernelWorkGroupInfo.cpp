@@ -22,7 +22,7 @@ const char *krnl_str = "__kernel void test_sum(\n"
                        "        c[gid] = a[gid] + b[gid] + d;\n"
                        "}\n";
 
-void CL21::GetKernelWorkGroupInfo_SizeRet() const {
+TEST_F(CL21, GetKernelWorkGroupInfo_SizeRet) {
   cl_platform_id platf;
   cl_uint nplatf;
   cl_device_id dev = NULL;
