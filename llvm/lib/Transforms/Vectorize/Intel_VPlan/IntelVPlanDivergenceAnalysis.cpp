@@ -75,11 +75,14 @@ static cl::opt<bool>
 
 extern cl::opt<bool> EnableVPValueCodegen;
 
-#define Uni VPVectorShape::Uni
-#define Seq VPVectorShape::Seq
-#define Str VPVectorShape::Str
-#define Rnd VPVectorShape::Rnd
-#define Undef VPVectorShape::Undef
+#define Uni    VPVectorShape::Uni
+#define Seq    VPVectorShape::Seq
+#define Str    VPVectorShape::Str
+#define Rnd    VPVectorShape::Rnd
+#define SOASeq VPVectorShape::SOASeq
+#define SOAStr VPVectorShape::SOAStr
+#define SOARnd VPVectorShape::SOARnd
+#define Undef  VPVectorShape::Undef
 
 const VPVectorShape::VPShapeDescriptor
 AddConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
@@ -113,12 +116,15 @@ MulConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 
 const VPVectorShape::VPShapeDescriptor
 GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /* ptr\index   Uni,   Seq,   Str,   Rnd,   Undef */
-  /* Uni   */   {Uni,   Str,   Str,   Rnd,   Undef},
-  /* Seq   */   {Str,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Str   */   {Str,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Rnd   */   {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */   {Undef, Undef, Undef, Undef, Undef}
+  /* ptr\index      Uni,      Seq,      Str,      Rnd,      Undef */
+  /* Uni      */   {Uni,      Str,      Str,      Rnd,      Undef},
+  /* Seq      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
+  /* Str      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
+  /* Rnd      */   {Rnd,      Rnd,      Rnd,      Rnd,      Undef},
+  /* SOASeq   */   {SOASeq,   SOAStr,   SOARnd,   SOARnd,   Undef},
+  /* SOAStr   */   {SOAStr,   SOAStr,   SOARnd,   SOARnd,   Undef},
+  /* SOARnd   */   {SOARnd,   SOARnd,   SOARnd,   SOARnd,   Undef},
+  /* Undef    */   {Undef,    Undef,    Undef,    Undef,    Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
@@ -137,6 +143,9 @@ SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 #undef Seq
 #undef Str
 #undef Rnd
+#undef SOASeq
+#undef SOAStr
+#undef SOARnd
 #undef Undef
 
 static void assertOperandsDefined(const VPInstruction &I,
