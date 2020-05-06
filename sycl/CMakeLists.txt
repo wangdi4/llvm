@@ -290,13 +290,10 @@ add_custom_target( sycl-toolchain
           llvm-link
           llvm-objcopy
           sycl-post-link
-<<<<<<< HEAD
+          sycl-ls
 # INTEL_CUSTOMIZATION
           sycl-config-file
 # end INTEL_CUSTOMIZATION
-=======
-          sycl-ls
->>>>>>> cc0c33b71b2607be9176a6246fa1458e23b7480b
   COMMENT "Building SYCL compiler toolchain..."
 )
 
