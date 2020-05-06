@@ -247,20 +247,12 @@ vector_class<plugin> initialize() {
 
     if (InteropBE == backend::opencl &&
         PluginNames[I].first.find("opencl") != std::string::npos) {
-<<<<<<< HEAD
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::opencl);
 #if INTEL_CUSTOMIZATION
 #if 0
     } else if (InteropBE == backend::cuda &&
                PluginNames[I].first.find("cuda") != std::string::npos)
-=======
-      // Use the OpenCL plugin as the GlobalPlugin
-      GlobalPlugin =
-          std::make_shared<plugin>(PluginInformation, backend::opencl);
-    } else if (InteropBE == backend::cuda &&
-               PluginNames[I].first.find("cuda") != std::string::npos) {
->>>>>>> 3b7fdf4988f32ebf53a3eba942b6732c0f2e731a
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
 #endif
