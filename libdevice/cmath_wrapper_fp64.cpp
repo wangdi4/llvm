@@ -138,13 +138,12 @@ double asinh(double x) { return __devicelib_asinh(x); }
 DEVICE_EXTERN_C
 double atanh(double x) { return __devicelib_atanh(x); }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
+
 #if defined(_WIN32)
 #include <math.h>
 // FLOAT PROPERTIES
@@ -174,6 +173,12 @@ union _Dconst {            // pun float types as integer array
 #define DSIGN(x) (((_Dval *)(char *)&(x))->_Sh[_D0] & _DSIGN)
 
 #define _Xbig (double)((NBITS + 1) * 347L / 1000)
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 
 DEVICE_EXTERN_C
 short _Dtest(double *px) { // categorize *px
@@ -410,5 +415,10 @@ double _Sinh(double x, double y) { // compute y * sinh(x), |y| <= 1
     return neg ? -x : x;
   }
 }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 #endif
->>>>>>> fd1416787941e081584f449a390f2f0d8618287a

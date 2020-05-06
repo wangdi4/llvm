@@ -148,13 +148,12 @@ float asinhf(float x) { return __devicelib_asinhf(x); }
 DEVICE_EXTERN_C
 float atanhf(float x) { return __devicelib_atanhf(x); }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
+
 #if defined(_WIN32)
 #include <math.h>
 union _Fval { // pun floating type as integer array
@@ -180,6 +179,13 @@ union _Dconst {            // pun float types as integer array
   { 0, w0 }
 
 #define _FXbig (float)((NBITS + 1) * 347L / 1000)
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
+
 DEVICE_EXTERN_C
 short _FDtest(float *px) { // categorize *px
   _Fval *ps = (_Fval *)(char *)px;
@@ -380,5 +386,10 @@ float _FSinh(float x, float y) { // compute y * sinh(x), |y| <= 1
     return neg ? -x : x;
   }
 }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 #endif
->>>>>>> fd1416787941e081584f449a390f2f0d8618287a
