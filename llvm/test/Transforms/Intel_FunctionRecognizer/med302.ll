@@ -3,7 +3,7 @@
 ; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -debug-only=functionrecognizer -S 2>&1 | FileCheck %s
 
 ; Test that @med3 is not recognized as a qsort med3, because it does not
-; have the correct pattern of comparision tests.
+; have the correct pattern of comparison tests.
 
 ; CHECK-NOT: FUNCTION-RECOGNIZER: FOUND QSORT-MED3 med3
 ; CHECK: define{{.*}}@med3{{.*}}

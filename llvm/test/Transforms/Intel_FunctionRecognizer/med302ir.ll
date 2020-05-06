@@ -2,7 +2,7 @@
 ; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s
 
 ; Test that @med3 is not recognized as a qsort med3, because it does not
-; have the correct pattern of comparision tests.
+; have the correct pattern of comparison tests.
 ; This is the same test as med302.ll, but does not require asserts.
 
 ; CHECK: define{{.*}}@med3{{.*}}
