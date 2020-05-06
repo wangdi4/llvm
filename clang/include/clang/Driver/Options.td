@@ -1836,7 +1836,9 @@ def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
 def qopenmp: Flag<["-"], "qopenmp">, Alias<fopenmp>, Flags<[DpcppUnsupported]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>;
-def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>;
+def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>,
+  HelpText<"Choose which OpenMP version to link with.">;
 def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>, Flags<[DpcppUnsupported]>;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_use_tls : Flag<["-"], "fopenmp-use-tls">, Group<f_Group>,

@@ -58,6 +58,9 @@ class CLCommaJoined<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
 
 class CLCommaJoinedNoDpcpp<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
   Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported]>;
+
+class CLJoinedNoDpcpp<string name> : Option<["/", "-"], name, KIND_JOINED>,
+  Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported]>;
 #endif // INTEL_CUSTOMIZATION
 
 // Aliases:
@@ -198,6 +201,11 @@ def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
 def _SLASH_Qopenmp_targets_COL : CLCommaJoinedNoDpcpp<"Qopenmp-targets:">,
   Alias<fopenmp_targets_EQ>, HelpText<"Specify comma-separated list of triples"
   " OpenMP offloading targets to be supported">;
+def _SLASH_Qopenmp_version_EQ : CLJoinedNoDpcpp<"Qopenmp-version=">,
+  Alias<fopenmp_version_EQ>;
+def _SLASH_Qopenmp_version_COL : CLJoinedNoDpcpp<"Qopenmp-version:">,
+  Alias<fopenmp_version_EQ>, HelpText<"Choose which OpenMP version to"
+  " link with.">;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
