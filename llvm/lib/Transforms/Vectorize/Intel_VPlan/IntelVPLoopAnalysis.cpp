@@ -255,7 +255,14 @@ unsigned VPReduction::getReductionOpcode(RecurrenceKind K,
 }
 
 unsigned int VPInduction::getInductionOpcode() const {
-  return getInductionBinOp() ? getInductionBinOp()->getOpcode() : BinOpcode;
+  // If the opode was set explicitly return it.
+  if (BinOpcode != Instruction::BinaryOpsEnd)
+    return BinOpcode;
+
+  // Otherwise get opcode from instruction.
+  VPInstruction* IndUpdate = getInductionBinOp();
+  assert (IndUpdate && "Induction update instruction is not set");
+  return IndUpdate->getOpcode();
 }
 
 VPInstruction *VPLoopEntityList::getInductionLoopExitInstr(

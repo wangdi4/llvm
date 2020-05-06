@@ -816,6 +816,31 @@ public:
   void setBinOpcode(unsigned V) { BinOpcode = V; }
   void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
 
+  // Get InductionKind and default induction opcode for the data type \p IndTy.
+  static std::pair<unsigned, InductionKind>
+  getKindAndOpcodeFromTy(Type *IndTy) {
+    if (IndTy->isIntegerTy()) {
+      return std::make_pair(Instruction::Add,
+                            InductionDescriptor::IK_IntInduction);
+    } else if (IndTy->isPointerTy()) {
+      return std::make_pair(Instruction::GetElementPtr,
+                            InductionDescriptor::IK_PtrInduction);
+    } else {
+      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
+      return std::make_pair(Instruction::FAdd,
+                            InductionDescriptor::IK_FpInduction);
+    }
+  }
+
+  // Set InductionKind and default induction opcode using data type \p IndTy.
+  void setKindAndOpcodeFromTy(Type *IndTy) {
+    unsigned Opc;
+    VPInduction::InductionKind Kind;
+    std::tie(Opc, Kind) = getKindAndOpcodeFromTy(IndTy);
+    setKind(Kind);
+    setBinOpcode(Opc);
+  }
+
   /// Clear the content.
   void clear() override {
     BaseT::clear();
