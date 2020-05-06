@@ -13030,13 +13030,18 @@ static SDValue PerformVMOVDRRCombine(SDNode *N, SelectionDAG &DAG) {
 }
 
 static SDValue PerformVMOVhrCombine(SDNode *N, TargetLowering::DAGCombinerInfo &DCI) {
+  SDValue Op0 = N->getOperand(0);
+
+  // VMOVhr (VMOVrh (X)) -> X
+  if (Op0->getOpcode() == ARMISD::VMOVrh)
+    return Op0->getOperand(0);
+
   // FullFP16: half values are passed in S-registers, and we don't
   // need any of the bitcast and moves:
   //
   //     t2: f32,ch = CopyFromReg t0, Register:f32 %0
   //   t5: i32 = bitcast t2
   // t18: f16 = ARMISD::VMOVhr t5
-  SDValue Op0 = N->getOperand(0);
   if (Op0->getOpcode() == ISD::BITCAST) {
     SDValue Copy = Op0->getOperand(0);
     if (Copy.getValueType() == MVT::f32 &&
@@ -13045,6 +13050,18 @@ static SDValue PerformVMOVhrCombine(SDNode *N, TargetLowering::DAGCombinerInfo &
       SDValue NewCopy =
           DCI.DAG.getNode(ISD::CopyFromReg, SDLoc(N), MVT::f16, Ops);
       return NewCopy;
+    }
+  }
+
+  // fold (VMOVhr (load x)) -> (load (f16*)x)
+  if (LoadSDNode *LN0 = dyn_cast<LoadSDNode>(Op0)) {
+    if (LN0->hasOneUse() && LN0->isUnindexed() &&
+        LN0->getMemoryVT() == MVT::i16) {
+      SDValue Load = DCI.DAG.getLoad(MVT::f16, SDLoc(N), LN0->getChain(),
+                                     LN0->getBasePtr(), LN0->getMemOperand());
+      DCI.DAG.ReplaceAllUsesOfValueWith(SDValue(N, 0), Load.getValue(0));
+      DCI.DAG.ReplaceAllUsesOfValueWith(Op0.getValue(1), Load.getValue(1));
+      return Load;
     }
   }
 
