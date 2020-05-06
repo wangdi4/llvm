@@ -1943,7 +1943,7 @@ void OpenMPLateOutliner::emitOMPDistributeParallelForSimdDirective() {
 }
 void OpenMPLateOutliner::emitOMPDistributeSimdDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE", "DIR.OMP.END.DISTRIBUTE",
-                             OMPD_distribute_simd);
+                             OMPD_distribute);
   startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
 }
 void OpenMPLateOutliner::emitOMPSectionsDirective() {
