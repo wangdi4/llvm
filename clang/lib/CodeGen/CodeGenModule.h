@@ -1093,6 +1093,7 @@ public:
   }
   bool inTargetRegion() { return InTargetRegion > 0; }
   void SetTargetRegionFunctionAttributes(llvm::Function *Fn);
+  std::string getUniqueItaniumABIMangledName(GlobalDecl GD);
 #endif // INTEL_COLLAB
 
   void generateIntelFPGAAnnotation(const Decl *D,

@@ -84,24 +84,24 @@ void foo2() {
 
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[J_CAST]]),
   // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
   // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
   // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB]]),
   // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[J_CAST]]
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]]),
+  // HOST-SAME: "QUAL.OMP.SHARED"(i32* [[J]]),
+  // TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]]),
   // HOST-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]),
   // TARG-SAME: "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* [[OMP_IV_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]])
-  // HOST-SAME: "QUAL.OMP.SHARED"(i32* [[J]]
-  // TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]])
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]])
   // HOST: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
   // TARG: [[L1:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_IV_CAST]], align 4
   // HOST-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[OMP_UB]], align 4
@@ -287,28 +287,28 @@ void foo3() {
   int j = 20;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[J_CAST]]),
   // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_LB]]),
   // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB]])
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]])
   // HOST: store i32 0, i32* [[OMP_LB]],
   // TARG: store i32 0, i32 addrspace(4)* [[OMP_LB_CAST]],
   // HOST: store i32 15, i32* [[OMP_UB]],
   // TARG: store i32 15, i32 addrspace(4)* [[OMP_UB_CAST]],
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]]),
+  // HOST-SAME: "QUAL.OMP.SHARED"(i32* [[J]]),
+  // TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]]),
   // HOST-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]),
   // TARG-SAME: "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* [[OMP_IV_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]])
-  // HOST-SAME: "QUAL.OMP.SHARED"(i32* [[J]]
-  // TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]])
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]])
   // HOST: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
   // TARG: [[L1:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_IV_CAST]], align 4
   // HOST-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[OMP_UB]], align 4
@@ -353,28 +353,28 @@ void foo4(int n) {
   int j = 20;
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[J_CAST]]),
   // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_LB]]),
   // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J]]
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[OMP_UB]])
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]])
   // HOST: store i32 0, i32* [[OMP_LB]],
   // TARG: store i32 0, i32 addrspace(4)* [[OMP_LB_CAST]],
   // HOST: store i32 {{.*}}, i32* [[OMP_UB]],
   // TARG: store i32 {{.*}}, i32 addrspace(4)* [[OMP_UB_CAST]],
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]]),
+  // HOST-SAME: "QUAL.OMP.SHARED"(i32* [[J]]),
+  // TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]]),
   // HOST-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]),
   // TARG-SAME: "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* [[OMP_IV_CAST]]),
-  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
-  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]])
-  // HOST-SAME: "QUAL.OMP.SHARED"(i32* [[J]]
-  // TARG-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // HOST-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]])
+  // TARG-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]])
   // HOST: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
   // TARG: [[L1:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_IV_CAST]], align 4
   // HOST-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[OMP_UB]], align 4
@@ -424,12 +424,12 @@ void foo5(double *qq, int nq) {
 
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[K]]),
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[K_CAST]]),
   // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
   // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[K]]
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[K_CAST]]
+  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB]])
+  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_UB_CAST]])
   // ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TEAMS"()
   // ALL: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()

@@ -345,8 +345,8 @@ int main(int argc, char **argv) {
    bar(1);
 // CHECK: call {{.*}}bar
 // CHECK: [[TARG2_TOKENVAL:%[0-9]+]] = call token{{.*}}TARGET
-// CHECK-SAME: FIRSTPRIVATE{{.*}}local_int
 // CHECK-SAME: FIRSTPRIVATE{{.*}}glob_int
+// CHECK-SAME: FIRSTPRIVATE{{.*}}local_int
 // CHECK: region.exit(token [[TARG2_TOKENVAL]]) [ "DIR.OMP.END.TARGET"() ]
     #pragma omp target is_device_ptr(glob_ptr)
     {
@@ -372,8 +372,8 @@ int main(int argc, char **argv) {
 // CHECK: [[DIST_TV:%[0-9]+]] = call token{{.*}}region.entry()
 // CHECK-SAME: [ "DIR.OMP.DISTRIBUTE"()
 // CHECK-SAME: "QUAL.OMP.DIST_SCHEDULE.STATIC"(i32 8)
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %i
   #pragma omp target

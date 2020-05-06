@@ -289,7 +289,33 @@ class OpenMPLateOutliner {
       ExplicitRefs;
 
   llvm::DenseSet<const VarDecl *> VarDefs;
-  llvm::SmallSetVector<const VarDecl *, 32> VarRefs;
+
+  // Host and target may use different ABIs, which in turn may cause
+  // different processing order for expressions (e.g. MS C++ ABI
+  // implies right to left processing of call parameters).
+  // We have to guarantee that the order of implicitly FIRSTPRIVATE
+  // variables for "omp target" regions is the same for host and target.
+  // This comparator uses the source locations and the variable names
+  // to set up this order.
+  struct VarCompareTy {
+    bool operator()(const VarDecl *const &V1, const VarDecl *const &V2) const {
+      const auto &SL1 = V1->getBeginLoc();
+      const auto &SL2 = V2->getBeginLoc();
+      if (SL1 < SL2)
+        return true;
+      if (SL1 != SL2)
+        return false;
+
+      if (V1->getName() < V2->getName())
+        return true;
+      if (V1->getName() != V2->getName())
+        return false;
+
+      assert(V1 == V2 && "Cannot order variables.");
+      return false;
+    }
+  };
+  std::set<const VarDecl *, VarCompareTy> VarRefs;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;

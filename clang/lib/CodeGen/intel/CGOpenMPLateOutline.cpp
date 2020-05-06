@@ -2418,15 +2418,41 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     // Get an index of the associated offload entry for this target directive.
     assert(CurFuncDecl && "No parent declaration for target region!");
     StringRef ParentName;
+    std::string ItaniumMangledName;
     // In case we have Ctors/Dtors we use the complete type variant to produce
     // the mangling of the device outlined kernel.
-    if (const auto *D = dyn_cast<CXXConstructorDecl>(CurFuncDecl))
+    if (const auto *D = dyn_cast<CXXConstructorDecl>(CurFuncDecl)) {
       ParentName = CGM.getMangledName(GlobalDecl(D, Ctor_Complete));
-    else if (const auto *D = dyn_cast<CXXDestructorDecl>(CurFuncDecl))
+#if INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutline) {
+        ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
+            GlobalDecl(D, Ctor_Complete));
+        ParentName = ItaniumMangledName;
+      }
+    } else if (const auto *D = dyn_cast<CXXDestructorDecl>(CurFuncDecl)) {
       ParentName = CGM.getMangledName(GlobalDecl(D, Dtor_Complete));
-    else
+#if INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutline) {
+        ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
+            GlobalDecl(D, Dtor_Complete));
+        ParentName = ItaniumMangledName;
+      }
+    } else {
       ParentName =
           CGM.getMangledName(GlobalDecl(cast<FunctionDecl>(CurFuncDecl)));
+#if INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutline) {
+        ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
+            GlobalDecl(cast<FunctionDecl>(CurFuncDecl)));
+        ParentName = ItaniumMangledName;
+      }
+    }
 
     int Order = CGM.getOpenMPRuntime().registerTargetRegion(S, ParentName);
     assert(Order >= 0 && "No entry for the target region");

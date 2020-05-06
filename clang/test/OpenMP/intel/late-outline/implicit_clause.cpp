@@ -86,10 +86,10 @@ void test3()
   #pragma omp parallel
   {
 // CHECK: region.entry() [ "DIR.OMP.LOOP"()
-// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[LB]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV]])
-// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[UB]])
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV]])
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[LB]])
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[UB]])
     #pragma omp for schedule(static, 1) firstprivate(a)
     for ( j = 0; j < 10; j++ ) { }
   }
