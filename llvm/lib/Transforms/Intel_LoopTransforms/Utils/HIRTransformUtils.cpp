@@ -14,18 +14,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/Support/Debug.h"
 
-#include "HIRUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
+#include "HIRDeadStoreElimination.h"
 #include "HIRLMM.h"
 #include "HIRLoopReversal.h"
+#include "HIRUnroll.h"
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "hir-transform-utils"
 
@@ -33,6 +35,7 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::loopopt::reversal;
 using namespace llvm::loopopt::lmm;
+using namespace llvm::loopopt::dse;
 
 namespace {
 
@@ -943,7 +946,7 @@ static bool doesConstTCOverflowAfterMult(const HLLoop *Loop, unsigned IVBitSize,
     APInt APOrigTC(IVBitSize, TripCnt);
     APInt APMultiplier(IVBitSize, Multiplier);
     bool Overflow = false;
-    (void) APOrigTC.umul_ov(APMultiplier, Overflow);
+    (void)APOrigTC.umul_ov(APMultiplier, Overflow);
     return Overflow;
   }
 
@@ -1142,4 +1145,26 @@ void HIRTransformUtils::mergeZtt(HLLoop *Loop,
 
     Loop->addZttPredicate(Pred, LHS, RHS);
   }
+}
+
+bool HIRTransformUtils::doDeadStoreElimination(HLRegion &Region, HLLoop *Lp,
+                                               HIRDDAnalysis &HDDA,
+                                               HIRLoopStatistics &HLS) {
+  assert(Lp && "Lp* can't be null\n");
+  if (Lp->getParentRegion() != &Region) {
+    LLVM_DEBUG(dbgs() << "Expect Loop be in the region provided\n";);
+    return false;
+  }
+
+  HIRDeadStoreElimination DSE(Region.getHLNodeUtils().getHIRFramework(), HDDA,
+                              HLS);
+  return DSE.run(Region, Lp, /* IsRegion */ false);
+}
+
+bool HIRTransformUtils::doDeadStoreElimination(HLRegion &Region,
+                                               HIRDDAnalysis &HDDA,
+                                               HIRLoopStatistics &HLS) {
+  HIRDeadStoreElimination DSE(Region.getHLNodeUtils().getHIRFramework(), HDDA,
+                              HLS);
+  return DSE.run(Region, nullptr, /* IsRegion */ true);
 }
