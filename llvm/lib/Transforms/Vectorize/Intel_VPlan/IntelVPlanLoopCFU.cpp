@@ -314,6 +314,10 @@ void VPlanLoopCFU::run() {
     // Process from the innermost to the outermost.
     for (auto *VPLp : post_order(OuterVPLp))
       run(VPLp);
+
+  // Recompute invalidated analyses.
+  Plan.computeDT();
+  Plan.computePDT();
 }
 } // namespace vpo
 } // namespace llvm

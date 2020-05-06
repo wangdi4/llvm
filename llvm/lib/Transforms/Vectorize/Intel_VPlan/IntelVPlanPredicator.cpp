@@ -151,10 +151,10 @@ void VPlanPredicator::calculatePredicateTerms(VPBasicBlock *CurrBlock) {
   //         |
   //        BB1 (re-use same predicate)
   //
-  VPDomTreeNode *CurrBlockDT = VPDomTree.getNode(CurrBlock);
+  VPDomTreeNode *CurrBlockDT = Plan.getDT()->getNode(CurrBlock);
   assert(CurrBlockDT && "Expected node in dom tree!");
   if (auto *IDomNode = CurrBlockDT->getIDom())
-    if (VPPostDomTree.dominates(CurrBlock, IDomNode->getBlock())) {
+    if (Plan.getPDT()->dominates(CurrBlock, IDomNode->getBlock())) {
       auto *BB = IDomNode->getBlock();
       PredicateTerm Term(BB);
       Block2PredicateTermsAndUniformity[CurrBlock] = {
@@ -170,6 +170,7 @@ void VPlanPredicator::calculatePredicateTerms(VPBasicBlock *CurrBlock) {
 
   Block2PredicateTermsAndUniformity[CurrBlock] = {};
 
+  VPPostDominatorTree &VPPostDomTree = *Plan.getPDT();
   SmallPtrSet<VPBasicBlock *, 12> Frontier;
   getPostDomFrontier(CurrBlock, VPPostDomTree, Frontier);
 
@@ -273,7 +274,7 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
     PredicateInstsBB = Block->getSingleSuccessor();
   else {
     PredicateInstsBB =
-        VPBlockUtils::splitBlockEnd(Block, VPLI, &VPDomTree, nullptr);
+        VPBlockUtils::splitBlockEnd(Block, VPLI, Plan.getDT(), Plan.getPDT());
     SplitBlocks.insert(Block);
   }
   Builder.setInsertPoint(PredicateInstsBB);
@@ -311,7 +312,7 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
   computeLiveInsForIDF(Term, LiveInBlocks);
 
-  VPlanForwardIDFCalculator IDF(VPDomTree);
+  VPlanForwardIDFCalculator IDF(*Plan.getDT());
   IDF.setDefiningBlocks(DefBlocks);
   IDF.setLiveInBlocks(LiveInBlocks);
   IDF.calculate(IDFPHIBlocks);
@@ -904,8 +905,8 @@ void VPlanPredicator::sortIncomingBlocksForBlend(
 // Predicate and linearize the CFG within Region.
 void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
-  VPDomTree.recalculate(Plan);
-  VPPostDomTree.recalculate(Plan);
+
+  VPDominatorTree &VPDomTree = *Plan.getDT();
 
   for (VPBasicBlock *Block : RPOT)
     calculatePredicateTerms(Block);
@@ -1014,6 +1015,11 @@ void VPlanPredicator::predicate(void) {
 
   predicateAndLinearizeRegion(SearchLoopHack);
   fixupUniformInnerLoops();
+
+  // Recompute invalidated analyses.
+  Plan.computeDT();
+  Plan.computePDT();
+
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));
