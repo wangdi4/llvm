@@ -186,13 +186,12 @@ private:
   /// Worklist. Uses the current insertion point of Builder member.
   VPValue *genPredicateTree(std::list<VPValue *> &Worklist);
 
-  /// Predicate and linearize the CFG within \p Region, recursively.
-  void predicateAndLinearizeRegionRec(bool SearchLoopHack);
+  /// Predicate and linearize the CFG within \p Region.
+  void predicateAndLinearizeRegion(bool SearchLoopHack);
 
-  /// Linearize \p Region (without recursion) and replace PHIs in the linearized
-  /// blocks with blends. It does *NOT* update condition bits for the blocks,
-  /// this information is needed for block predicate insertion after
-  /// linearization.
+  /// Linearize \p Region and replace PHIs in the linearized blocks with blends.
+  /// It does *NOT* update condition bits for the blocks, this information is
+  /// needed for block predicate insertion after linearization.
   void
   linearizeRegion(const ReversePostOrderTraversal<VPBasicBlock *> &RegionRPOT);
 
