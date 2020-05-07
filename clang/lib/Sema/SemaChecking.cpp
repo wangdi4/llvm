@@ -4561,17 +4561,18 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
 
 #if INTEL_CUSTOMIZATION
 bool Sema::CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
-  if (BuiltinID == SPIRINTELFpga::BIget_compute_id)
+  switch (BuiltinID) {
+  case SPIRINTELFpga::BIget_compute_id:
     return false;
-  if (BuiltinID == SPIRINTELFpga::BIread_pipe ||
-      BuiltinID == SPIRINTELFpga::BIwrite_pipe) {
+  case SPIRINTELFpga::BIread_pipe:
+  case SPIRINTELFpga::BIwrite_pipe:
     if (SemaBuiltinRWPipe(*this, TheCall))
       return true;
     TheCall->setType(Context.IntTy);
     return false;
+  default:
+    return false;
   }
-
-  return true;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -5242,7 +5243,7 @@ static unsigned IntelTypeCoerceSizeCalc(AtomicExpr::AtomicOp p) {
   case AtomicExpr::AO__atomic_or_fetch_explicit_16:
   case AtomicExpr::AO__atomic_xor_fetch_explicit_16:
     return 16;
-  default: 
+  default:
     return 0;
   }
 }
