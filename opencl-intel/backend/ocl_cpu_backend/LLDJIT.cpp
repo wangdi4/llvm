@@ -279,7 +279,7 @@ std::set<std::string> LLDJIT::getExternalSymbolsList(
       StringRef Name;
       assert(!errorToErrorCode(Symbol.takeError()));
       Coff->getSymbolName(*Symbol, Name);
-      if (Symbol->getSectionNumber() == 0)
+      if (Symbol->isUndefined())
         ExternalSymbols.insert(std::string(Name));
     }
   }
