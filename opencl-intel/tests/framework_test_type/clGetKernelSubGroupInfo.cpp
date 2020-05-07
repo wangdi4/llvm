@@ -14,12 +14,12 @@ static const char* BC_FILE = "reqd_num_sub_groups_32.bc";
     #define GET_FPOS_T(var) ((var).__pos)
 #endif
 
-void CL21::GetKernelSubGroupInfo_MAX_SB_SIZE() const
+TEST_F(CL21, GetKernelSubGroupInfo_MAX_SB_SIZE)
 {
     cl_int iRet = CL_SUCCESS;
 
     cl_kernel kern = nullptr;
-    GetDummyKernel(kern);
+    ASSERT_NO_FATAL_FAILURE(GetDummyKernel(kern));
 
     {// local work sizes is [20,20,20]
         size_t dummy_vec[] = {20, 20, 20};
@@ -154,12 +154,12 @@ void CL21::GetKernelSubGroupInfo_MAX_SB_SIZE() const
 
 }
 
-void CL21::GetKernelSubGroupInfo_SG_COUNT() const
+TEST_F(CL21, GetKernelSubGroupInfo_SG_COUNT)
 {
     cl_int iRet = CL_SUCCESS;
 
     cl_kernel kern = nullptr;
-    GetDummyKernel(kern);
+    ASSERT_NO_FATAL_FAILURE(GetDummyKernel(kern));
 
 
     {// local work sizes is [20,20,20]
@@ -241,12 +241,12 @@ void CL21::GetKernelSubGroupInfo_SG_COUNT() const
     }
 }
 
-void CL21::GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT() const
+TEST_F(CL21, GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
 {
     cl_int iRet = CL_SUCCESS;
 
     cl_kernel kern = nullptr;
-    GetDummyKernel(kern);
+    ASSERT_NO_FATAL_FAILURE(GetDummyKernel(kern));
 
     {// Desired SG count is 10
         size_t dummy_vec[] = {1, 1, 1};
@@ -357,12 +357,12 @@ void CL21::GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT() const
     }
 }
 
-void CL21::GetKernelSubGroupInfo_Negative() const
+TEST_F(CL21, GetKernelSubGroupInfo_Negative)
 {
     cl_int iRet = CL_SUCCESS;
 
     cl_kernel kern = nullptr;
-    GetDummyKernel(kern);
+    ASSERT_NO_FATAL_FAILURE(GetDummyKernel(kern));
 
     {
         size_t dummy_vec[] = {1, 1, 1};
@@ -428,12 +428,12 @@ void CL21::GetKernelSubGroupInfo_Negative() const
 
 }
 
-void CL21::GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS() const
+TEST_F(CL21, GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS)
 {
     cl_int iRet = CL_SUCCESS;
 
     cl_kernel kern = nullptr;
-    GetDummyKernel(kern);
+    ASSERT_NO_FATAL_FAILURE(GetDummyKernel(kern));
 
     size_t returned_size = 0;
     size_t max_num_SG = 0;
@@ -454,7 +454,7 @@ void CL21::GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS() const
         << " clGetKernelSubGroupInfo(CL_KERNEL_MAX_NUM_SUB_GROUPS query) failed. Unexpected query result. ";
 }
 
-void CL21::GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS() const
+TEST_F(CL21, DISABLED_GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
 {
     cl_int iRet = CL_SUCCESS;
     bool bResult = 0;

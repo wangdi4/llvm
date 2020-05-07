@@ -1,9 +1,23 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2012-2020 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #include "CL/cl.h"
+#include "FrameworkTest.h"
 #include "cl_types.h"
 #include "cl_utils.h"
 #include "test_utils.h"
-#include "FrameworkTest.h"
-
+#include <gtest/gtest.h>
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
@@ -547,6 +561,16 @@ bool BuildProgramSynch(cl_context	        context,
 	return bRes;
 }
 
+void GetBuildLog(cl_device_id device, cl_program program, std::string &log) {
+  size_t logSize = 0;
+  cl_int err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0,
+                                     nullptr, &logSize);
+  ASSERT_EQ(CL_SUCCESS, err) << "clGetProgramBuildInfo failed";
+  log.resize(logSize);
+  err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+                              logSize, &log[0], nullptr);
+  ASSERT_EQ(CL_SUCCESS, err) << "clGetProgramBuildInfo failed";
+}
 
 // LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
 // DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY

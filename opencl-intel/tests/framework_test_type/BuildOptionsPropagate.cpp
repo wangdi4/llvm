@@ -1,15 +1,28 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2020 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #include "CL21.h"
-#include <string>
 
 // This test checks that even when kernel doesn't contain
 // opencl.compiler.options metadata "-g" and "-cl-opt-disable" options provided
 // to clCompileProgram are propagated to the device compiler.
-void CL21::BuildOptionsPropagate() const {
+TEST_F(CL21, BuildOptionsPropagate) {
   cl_int iRet = CL_SUCCESS;
   cl_program program = nullptr;
 
   std::vector<char> spirv;
-  GetSimpleSPIRV(spirv);
+  ASSERT_NO_FATAL_FAILURE(GetSimpleSPIRV(spirv));
 
   program = clCreateProgramWithIL(m_context, spirv.data(), spirv.size(), &iRet);
   ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithIL failed. ";

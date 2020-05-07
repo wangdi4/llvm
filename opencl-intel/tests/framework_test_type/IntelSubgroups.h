@@ -1,52 +1,47 @@
-#ifndef __CL_NATIVE_SUBGROUPS_
-#define __CL_NATIVE_SUBGROUPS_
+// INTEL CONFIDENTIAL
+//
+// Copyright 2019-2020 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
 
-#include <iostream>
-#include <fstream>
-#include <gtest/gtest.h>
-#include "CL/cl.h"
-#include "test_utils.h"
-#include "CL/cl_platform.h"
+#ifndef __INTEL_SUBGROUPS__
+#define __INTEL_SUBGROUPS__
+
 #include "CL_BASE.h"
+#include "common_utils.h"
 
-extern cl_device_type gDeviceType;
+class NativeSubgroupsTest : public ::CL_base {
+protected:
+  virtual void SetUp() override {
+    m_extentionName = "CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS";
+    if (!SETENV(m_extentionName.c_str(), "True"))
+      FAIL() << "Failed to set env " << m_extentionName;
+    CL_base::SetUp();
+    ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, m_version)
+        << "Test required OpenCL2.1 version at least";
+  }
 
-class NativeSubgroups : public ::testing::Test
-{
-    static cl_platform_id m_platform;
-    static cl_device_id m_device;
-    static cl_context m_context;
-    static cl_command_queue m_queue;
+  virtual void TearDown() override {
+    CL_base::TearDown();
+    if (!UNSETENV(m_extentionName.c_str()))
+      FAIL() << "Failed to unset env " << m_extentionName;
+  }
+
+  void GetDummySubgroupKernel(cl_kernel &kern) const;
+
+  void CheckSGCount(cl_device_id device, cl_kernel kern,
+                    const std::vector<size_t> &local_work_sizes);
 
 protected:
-
-    static void SetUpTestCase();
-
-    cl_platform_id   GetPlatform()   { return m_platform; }
-
-    cl_device_id     GetDeviceID()   { return m_device;   }
-
-    cl_context       GetContext()    { return m_context;  }
-
-    cl_command_queue GetQueue()      { return m_queue;    }
-
-    virtual void SetUp() final;
-
-    virtual void TearDown() final;
-
-    virtual void Init();
-
-    static void TearDownTestCase(); 
-
-    void GetDummySubgroupKernel(cl_kernel& kern) const;
-
-    // Tests
-
-    void NativeSubgroups_MAX_SB_SIZE() const;
-
-    void NativeSubgroups_SG_COUNT() const;
-
-    void NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT() const;
+  std::string m_extentionName;
 };
 
-#endif /*NativeSubgroups*/
+#endif // _INTEL_SUBGROUPS___

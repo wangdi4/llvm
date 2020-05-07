@@ -14,7 +14,7 @@
 
 using namespace Intel::OpenCL::Utils;
 
-void CL::CPUSignatureDefine()
+TEST_F(CL, CPUSignatureDefine)
 {
     cl_int iRet = CL_SUCCESS;
 

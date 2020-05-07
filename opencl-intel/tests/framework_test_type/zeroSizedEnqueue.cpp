@@ -1,6 +1,4 @@
 #include "CL21.h"
-#include <vector>
-#include <string>
 
 static void UnlockEventAndFinishQueue(cl_event block_event, cl_event blocked_event, const std::string& opName)
 {
@@ -24,7 +22,7 @@ static void UnlockEventAndFinishQueue(cl_event block_event, cl_event blocked_eve
 
 }
 
-void CL21::ZeroSized_clEnqueueReadBuffer() const
+TEST_F(CL21, ZeroSized_clEnqueueReadBuffer)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -55,12 +53,12 @@ void CL21::ZeroSized_clEnqueueReadBuffer() const
                                &block_event,
                                &read_event);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueReadBuffer(zero sized enqueue) failed. ";
-    UnlockEventAndFinishQueue(block_event, read_event, "clEnqueueReadBuffer");
+    ASSERT_NO_FATAL_FAILURE(UnlockEventAndFinishQueue(block_event, read_event, "clEnqueueReadBuffer"));
 
     ASSERT_TRUE(buffer == buffer_ref) << " clEnqueueReadBuffer(zero sized enqueue) ref and actual datas differ.";
 }
 
-void CL21::ZeroSized_clEnqueueWriteBuffer() const
+TEST_F(CL21, ZeroSized_clEnqueueWriteBuffer)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -90,7 +88,9 @@ void CL21::ZeroSized_clEnqueueWriteBuffer() const
                                 &write_event);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueWriteBuffer(zero sized enqueue) failed. ";
 
-    UnlockEventAndFinishQueue(block_event, write_event, "clEnqueueWriteBuffer");
+    ASSERT_NO_FATAL_FAILURE(
+        UnlockEventAndFinishQueue(block_event, write_event,
+                                  "clEnqueueWriteBuffer"));
 
     iRet = clFinish(m_queue);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clFinish failed. ";
@@ -109,13 +109,13 @@ void CL21::ZeroSized_clEnqueueWriteBuffer() const
     ASSERT_TRUE(buffer == buffer_ref) << " clEnqueueWriteBuffer(zero sized enqueue) ref and actual datas differ.";
 }
 
-void CL21::ZeroSized_clEnqueueNDRangeKernel() const
+TEST_F(CL21, ZeroSized_clEnqueueNDRangeKernel)
 {
     cl_int iRet = CL_SUCCESS;
 
     cl_event enqueue_event = nullptr;
     cl_kernel kern = nullptr;
-    GetDummyKernel(kern);
+    ASSERT_NO_FATAL_FAILURE(GetDummyKernel(kern));
 
     cl_event block_event = clCreateUserEvent(m_context, &iRet);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateUserEvent failed. ";
@@ -131,10 +131,12 @@ void CL21::ZeroSized_clEnqueueNDRangeKernel() const
                                   &enqueue_event);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueNDRangeKernel(zero sized enqueue) failed. ";
 
-    UnlockEventAndFinishQueue(block_event, enqueue_event, "clEnqueueNDRangeKernel");
+    ASSERT_NO_FATAL_FAILURE(
+        UnlockEventAndFinishQueue(block_event, enqueue_event,
+                                  "clEnqueueNDRangeKernel"));
 }
 
-void CL21::ZeroSized_clEnqueueCopyBuffer() const
+TEST_F(CL21, ZeroSized_clEnqueueCopyBuffer)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -171,7 +173,9 @@ void CL21::ZeroSized_clEnqueueCopyBuffer() const
                                &copy_event);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueCopyBuffer(zero sized enqueue) failed. ";
 
-    UnlockEventAndFinishQueue(block_event, copy_event, "clEnqueueCopyBuffer");
+    ASSERT_NO_FATAL_FAILURE(
+        UnlockEventAndFinishQueue(block_event, copy_event,
+                                  "clEnqueueCopyBuffer"));
 
     iRet = clEnqueueReadBuffer(m_queue,
                                cl_buffer_dst,
@@ -187,7 +191,7 @@ void CL21::ZeroSized_clEnqueueCopyBuffer() const
     ASSERT_TRUE(buffer == buffer_ref) << " clEnqueueCopyBuffer(zero sized enqueue) ref and actual datas differ.";
 }
 
-void CL21::ZeroSized_clEnqueueSVMFree() const
+TEST_F(CL21, ZeroSized_clEnqueueSVMFree)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -206,10 +210,12 @@ void CL21::ZeroSized_clEnqueueSVMFree() const
                             &svm_free_event);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueSVMFree(zero sized enqueue) failed. ";
 
-    UnlockEventAndFinishQueue(block_event, svm_free_event, "clEnqueueCopyBuffer");
+    ASSERT_NO_FATAL_FAILURE(
+        UnlockEventAndFinishQueue(block_event, svm_free_event,
+                                  "clEnqueueCopyBuffer"));
 }
 
-void CL21::ZeroSized_clEnqueueSVMFree_Negative() const
+TEST_F(CL21, ZeroSized_clEnqueueSVMFree_Negative)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -241,7 +247,7 @@ void CL21::ZeroSized_clEnqueueSVMFree_Negative() const
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clEnqueueSVMFree(zero sized enqueue)(negative) failed. ";
 }
 
-void CL21::ZeroSized_clEnqueueSVMMemcpy() const
+TEST_F(CL21, ZeroSized_clEnqueueSVMMemcpy)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -309,8 +315,11 @@ void CL21::ZeroSized_clEnqueueSVMMemcpy() const
                               &svm_memcpy_event);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueSVMMemcpy(zero sized enqueue) failed. ";
 
-    UnlockEventAndFinishQueue(block_event, svm_memcpy_event, "clEnqueueSVMMemcpy");
+    ASSERT_NO_FATAL_FAILURE(
+        UnlockEventAndFinishQueue(block_event, svm_memcpy_event,
+                                  "clEnqueueSVMMemcpy"));
 
+    // Check content in pSVMBuffer_dst is not the same as ref any more
     iRet = clEnqueueSVMMap(m_queue,
                            CL_TRUE,
                            CL_MAP_WRITE,
@@ -321,9 +330,18 @@ void CL21::ZeroSized_clEnqueueSVMMemcpy() const
                            nullptr);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueSVMMap failed. ";
     ASSERT_FALSE(memcmp(pSVMBuffer_dst, &ref[0], ref.size())) << "clEnqueueSVMMemcpy(zero sized enqueue) failed.";
+    iRet = clEnqueueSVMUnmap(m_queue,
+                             pSVMBuffer_dst,
+                             0,
+                             nullptr,
+                             nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueSVMUnmap failed. ";
+
+    iRet = clFinish(m_queue);
+    ASSERT_EQ(CL_SUCCESS, iRet) << "clFinish failed.";
 }
 
-void CL21::ZeroSized_clEnqueueSVMMemFill() const
+TEST_F(CL21, ZeroSized_clEnqueueSVMMemFill)
 {
     cl_int iRet = CL_SUCCESS;
 
@@ -368,8 +386,11 @@ void CL21::ZeroSized_clEnqueueSVMMemFill() const
                                &svm_memfill_event);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueSVMMemFill failed. ";
 
-    UnlockEventAndFinishQueue(block_event, svm_memfill_event, "clEnqueueSVMMemFill");
+    ASSERT_NO_FATAL_FAILURE(
+        UnlockEventAndFinishQueue(block_event, svm_memfill_event,
+                                  "clEnqueueSVMMemFill"));
 
+    // Check content in pSVMBuffer_src is not the same as ref any more
     iRet = clEnqueueSVMMap(m_queue,
                            CL_TRUE,
                            CL_MAP_WRITE,
@@ -381,4 +402,14 @@ void CL21::ZeroSized_clEnqueueSVMMemFill() const
     ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueSVMMap failed. ";
 
     ASSERT_FALSE(memcmp(pSVMBuffer_src, &ref[0], ref.size())) << "clEnqueueSVMMemFill(zero sized enqueue) failed.";
+
+    iRet = clEnqueueSVMUnmap(m_queue,
+                             pSVMBuffer_src,
+                             0,
+                             nullptr,
+                             nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueSVMUnmap failed. ";
+
+    iRet = clFinish(m_queue);
+    ASSERT_EQ(CL_SUCCESS, iRet) << "clFinish failed.";
 }
