@@ -45,12 +45,16 @@
 // TODO: we need a mapping of PI to OpenCL somewhere, and this can be done
 // elsewhere, e.g. in the pi_opencl, but constants/enums mapping is now
 // done here, for efficiency and simplicity.
+<<<<<<< HEAD
 //
 /* INTEL_CUSTOMIZATION */
 #include <CL/cl_ext_intel.h>
 /* end INTEL_CUSTOMIZATION */
+=======
+
+>>>>>>> 8a0fbfb9326d8fa6b1c3841c37115e07088aca6c
 #include <CL/cl_usm_ext.h>
-#include <CL/opencl.h>
+#include <CL/sycl/detail/cl.h>
 #include <cstdint>
 
 #ifdef __cplusplus
