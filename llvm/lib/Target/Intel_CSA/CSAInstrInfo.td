@@ -302,10 +302,16 @@ class TemplatedInst<GenericOp genOp, CSAOpInfo opInfo, dag outs, dag ins,
 multiclass DataflowInst<string asm, dag outs, dag ins, string asmops,
                         list<dag> pats = []> {
   def "" : GenericOp<asm>;
-  def "0"  : TemplatedInst<!cast<GenericOp>(NAME), Ti0,  outs, ins,
-                           !strconcat(asm, "0\t",  asmops), pats>;
   def "1"  : TemplatedInst<!cast<GenericOp>(NAME), Ti1,  outs, ins,
                            !strconcat(asm, "1\t",  asmops), pats>;
+
+  // The ordering of these entries determines their priority when selecting
+  // instructions, so we have found that if "0" is first on this list the
+  // compiler will prefer merge0 over merge1 when lowering i1 selects. Because
+  // that would lead to incorrect code generation, we list "0" after "1" here.
+  def "0"  : TemplatedInst<!cast<GenericOp>(NAME), Ti0,  outs, ins,
+                           !strconcat(asm, "0\t",  asmops), pats>;
+
   def "8"  : TemplatedInst<!cast<GenericOp>(NAME), Ti8,  outs, ins,
                            !strconcat(asm, "8\t",  asmops), pats>;
   def "16" : TemplatedInst<!cast<GenericOp>(NAME), T16, outs, ins,
