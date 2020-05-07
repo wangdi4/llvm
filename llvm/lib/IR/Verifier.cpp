@@ -59,6 +59,11 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/ilist.h"
+#if INTEL_CUSTOMIZATION
+// It is not a good idea to include analyses headers in IR directory.
+// FIXME: Refactor the code to resolve this.
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -812,12 +817,29 @@ void Verifier::visitMDNode(const MDNode &MD, AreDebugLocsAllowed AllowLocs) {
 #include "llvm/IR/Metadata.def"
   }
 
+#if INTEL_CUSTOMIZATION
+  auto CheckOptReportDebugLoc = [](const MDNode &MD) {
+    auto *Tuple = dyn_cast<MDTuple>(&MD);
+    if (!Tuple || Tuple->getNumOperands() != 2)
+      return false;
+
+    if (!Tuple->getOperand(0))
+      return false;
+
+    MDString *Str = dyn_cast<MDString>(Tuple->getOperand(0));
+
+    return Str && (Str->getString() == LoopOptReportTag::DebugLoc);
+  };
+
+  bool IsOptReportDebugLoc = CheckOptReportDebugLoc(MD);
+#endif // INTEL_CUSTOMIZATION
   for (const Metadata *Op : MD.operands()) {
     if (!Op)
       continue;
     Assert(!isa<LocalAsMetadata>(Op), "Invalid operand for global metadata!",
            &MD, Op);
-    AssertDI(!isa<DILocation>(Op) || AllowLocs == AreDebugLocsAllowed::Yes,
+    AssertDI(!isa<DILocation>(Op) || IsOptReportDebugLoc || // INTEL
+                 AllowLocs == AreDebugLocsAllowed::Yes,     // INTEL
              "DILocation not allowed within this metadata node", &MD, Op);
     if (auto *N = dyn_cast<MDNode>(Op)) {
       visitMDNode(*N, AllowLocs);
