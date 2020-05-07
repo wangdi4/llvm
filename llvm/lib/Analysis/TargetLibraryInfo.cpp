@@ -831,6 +831,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_Tolower);
     TLI.setUnavailable(LibFunc_under_Toupper);
     TLI.setUnavailable(LibFunc_under_chdir);
+    TLI.setUnavailable(LibFunc_under_commit);
     TLI.setUnavailable(LibFunc_under_close);
     TLI.setUnavailable(LibFunc_under_errno);
     TLI.setUnavailable(LibFunc_under_fdopen);
@@ -842,6 +843,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_ftime64);
     TLI.setUnavailable(LibFunc_under_invalid_parameter_noinfo_noreturn);
     TLI.setUnavailable(LibFunc_under_localtime64);
+    TLI.setUnavailable(LibFunc_under_lseeki64);
     TLI.setUnavailable(LibFunc_under_difftime64);
     TLI.setUnavailable(LibFunc_under_getcwd);
     TLI.setUnavailable(LibFunc_under_getdcwd);
@@ -860,10 +862,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_strtoi64);
     TLI.setUnavailable(LibFunc_under_time64);
     TLI.setUnavailable(LibFunc_under_unlink);
+    TLI.setUnavailable(LibFunc_under_waccess);
     TLI.setUnavailable(LibFunc_under_wassert);
     TLI.setUnavailable(LibFunc_under_wfopen);
     TLI.setUnavailable(LibFunc_under_wopen);
+    TLI.setUnavailable(LibFunc_under_wremove);
     TLI.setUnavailable(LibFunc_under_write);
+    TLI.setUnavailable(LibFunc_under_wstat64);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2298,6 +2303,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+case LibFunc_under_commit:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
   case LibFunc_under_close:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
@@ -2368,6 +2377,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+    case LibFunc_under_lseeki64:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
   case LibFunc_under_mkdir:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -2426,6 +2441,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+  case LibFunc_under_waccess:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy());
+
   case LibFunc_under_wassert:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -2443,11 +2463,20 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_under_wremove:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
   case LibFunc_under_write:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
+
+    case LibFunc_under_wstat64:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_obstack_begin:
     return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
