@@ -1433,11 +1433,34 @@ bool Sema::CheckTSBuiltinFunctionCall(llvm::Triple::ArchType Arch,
     return CheckSystemZBuiltinFunctionCall(BuiltinID, TheCall);
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  case llvm::Triple::x86_icecode:
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     return CheckX86BuiltinFunctionCall(BuiltinID, TheCall);
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
     return CheckPPCBuiltinFunctionCall(BuiltinID, TheCall);
+#if INTEL_CUSTOMIZATION
+  case llvm::Triple::spir:
+  case llvm::Triple::spir64:
+    // We use environment part of triple to indicate that the target for
+    // compilation is fpga-emulator, i.e. spir64-unknown-unknown-intelfpga.
+    //
+    // Additional fpga built-ins are declared as target builtins for
+    // SPIR64INTELFpga and SPIR32INTELFpga targets, so, usual user will see an
+    // error message if it would try to use this ones and we can omit check
+    // of environment part of the triple.
+    // check for the argument.
+    return CheckFPGABuiltinFunctionCall(BuiltinID, TheCall);
+#if INTEL_FEATURE_CSA
+  case llvm::Triple::csa:
+    // CSA builtins custom typechecking
+    return CheckCSABuiltinFunctionCall(BuiltinID, TheCall);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::amdgcn:
     return CheckAMDGCNBuiltinFunctionCall(BuiltinID, TheCall);
   }
@@ -2024,86 +2047,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   // Since the target specific builtins for each arch overlap, only check those
   // of the arch we are compiling for.
   if (Context.BuiltinInfo.isTSBuiltin(BuiltinID)) {
-<<<<<<< HEAD
-    switch (Context.getTargetInfo().getTriple().getArch()) {
-      case llvm::Triple::arm:
-      case llvm::Triple::armeb:
-      case llvm::Triple::thumb:
-      case llvm::Triple::thumbeb:
-        if (CheckARMBuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      case llvm::Triple::aarch64:
-      case llvm::Triple::aarch64_32:
-      case llvm::Triple::aarch64_be:
-        if (CheckAArch64BuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      case llvm::Triple::bpfeb:
-      case llvm::Triple::bpfel:
-        if (CheckBPFBuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      case llvm::Triple::hexagon:
-        if (CheckHexagonBuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      case llvm::Triple::mips:
-      case llvm::Triple::mipsel:
-      case llvm::Triple::mips64:
-      case llvm::Triple::mips64el:
-        if (CheckMipsBuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      case llvm::Triple::systemz:
-        if (CheckSystemZBuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      case llvm::Triple::x86:
-      case llvm::Triple::x86_64:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-      case llvm::Triple::x86_icecode:
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-        if (CheckX86BuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      case llvm::Triple::ppc:
-      case llvm::Triple::ppc64:
-      case llvm::Triple::ppc64le:
-        if (CheckPPCBuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-#if INTEL_CUSTOMIZATION
-  case llvm::Triple::spir:
-  case llvm::Triple::spir64:
-    // We use environment part of triple to indicate that the target for
-    // compilation is fpga-emulator, i.e. spir64-unknown-unknown-intelfpga.
-    //
-    // Additional fpga built-ins are declared as target builtins for
-    // SPIR64INTELFpga and SPIR32INTELFpga targets, so, usual user will see an
-    // error message if it would try to use this ones and we can omit check
-    // of environment part of the triple.
-    // check for the argument.
-    if (CheckFPGABuiltinFunctionCall(BuiltinID, TheCall))
-      return ExprError();
-    break;
-#if INTEL_FEATURE_CSA
-  case llvm::Triple::csa:
-    //CSA builtins custom typechecking
-    if (CheckCSABuiltinFunctionCall(BuiltinID, TheCall))
-      return ExprError();
-    break;
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-      case llvm::Triple::amdgcn:
-        if (CheckAMDGCNBuiltinFunctionCall(BuiltinID, TheCall))
-          return ExprError();
-        break;
-      default:
-        break;
-=======
     if (Context.BuiltinInfo.isAuxBuiltinID(BuiltinID)) {
       assert(Context.getAuxTargetInfo() &&
              "Aux Target Builtin, but not an aux target?");
@@ -2117,7 +2060,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
               Context.getTargetInfo().getTriple().getArch(), BuiltinID,
               TheCall))
         return ExprError();
->>>>>>> f9eaa6934e4fdd92e09ddff89b6805a8b583e53e
     }
   }
 
