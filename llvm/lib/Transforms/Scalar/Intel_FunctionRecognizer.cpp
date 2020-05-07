@@ -913,17 +913,15 @@ static bool isQsortSpecQsort(Function &F) {
     auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
     if (!BI || BI->isUnconditional())
       return false;
-    Value *V0 = nullptr;
     ConstantInt *CIDen = nullptr;
     ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
     if (!match(BI->getCondition(),
                m_ICmp(Pred,
-                      m_URem(m_Sub(m_PtrToInt(m_Value(V0)), m_Zero()),
+                      m_URem(m_Sub(m_PtrToInt(m_Specific(PHIA)), m_Zero()),
                              m_ConstantInt(CIDen)),
                       m_Zero())))
       return false;
-    if (CIDen->getZExtValue() != UDen || V0 != PHIA ||
-        Pred != ICmpInst::ICMP_NE)
+    if (CIDen->getZExtValue() != UDen || Pred != ICmpInst::ICMP_NE)
       return false;
     *BBL = BI->getSuccessor(0);
     *BBR = BI->getSuccessor(1);
@@ -948,15 +946,14 @@ static bool isQsortSpecQsort(Function &F) {
     auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
     if (!BI || BI->isUnconditional())
       return false;
-    Value *V0 = nullptr;
     ConstantInt *CIDen = nullptr;
     ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
-    if (!match(
-            BI->getCondition(),
-            m_ICmp(Pred, m_URem(m_Value(V0), m_ConstantInt(CIDen)), m_Zero())))
+    if (!match(BI->getCondition(),
+               m_ICmp(Pred,
+                      m_URem(m_Specific(F.getArg(2)), m_ConstantInt(CIDen)),
+                      m_Zero())))
       return false;
-    if (CIDen->getZExtValue() != UDen || V0 != F.getArg(2) ||
-        Pred != ICmpInst::ICMP_NE)
+    if (CIDen->getZExtValue() != UDen || Pred != ICmpInst::ICMP_NE)
       return false;
     if (BI->getSuccessor(0) != BBX)
       return false;
@@ -980,15 +977,14 @@ static bool isQsortSpecQsort(Function &F) {
     auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
     if (!BI || BI->isConditional())
       return false;
-    Value *V0 = nullptr;
     ConstantInt *CIDen = nullptr;
     Instruction *BC = BI->getPrevNonDebugInstruction();
     ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
-    if (!BC || !match(BC, m_SelectCst<0, 1>(
-                              m_ICmp(Pred, m_Value(V0), m_ConstantInt(CIDen)))))
+    if (!BC ||
+        !match(BC, m_SelectCst<0, 1>(m_ICmp(Pred, m_Specific(F.getArg(2)),
+                                            m_ConstantInt(CIDen)))))
       return false;
-    if (CIDen->getZExtValue() != UDen || V0 != F.getArg(2) ||
-        Pred != ICmpInst::ICMP_EQ)
+    if (CIDen->getZExtValue() != UDen || Pred != ICmpInst::ICMP_EQ)
       return false;
     if (BI->getSuccessor(0) != BBX)
       return false;
@@ -1189,10 +1185,7 @@ static bool isQsortSpecQsort(Function &F) {
     auto GEP = dyn_cast<GetElementPtrInst>(CLI->getArgOperand(0));
     if (!GEP || GEP->getNumOperands() != 2 || GEP->getPointerOperand() != PHIIL)
       return false;
-    Value *V0 = nullptr;
-    if (!match(GEP->getOperand(1), m_Sub(m_Zero(), m_Value(V0))))
-      return false;
-    if (V0 != F.getArg(2))
+    if (!match(GEP->getOperand(1), m_Sub(m_Zero(), m_Specific(F.getArg(2)))))
       return false;
     *BBL = BI->getSuccessor(0);
     *BBR = BI->getSuccessor(1);
@@ -1508,6 +1501,19 @@ static bool isQsortSpecQsort(Function &F) {
   };
 
   //
+  // Return the first byte-flattened GEP before 'I' in a backward search of
+  // 'I's BasicBlock, if the pointer operand of that byte-flattened GEP matches
+  // 'GPO'.
+  //
+  auto GetPrevBFGEP = [&GetBFGEP](Instruction *I,
+                                  Value *GPO) -> GetElementPtrInst * {
+    Instruction *BP = I->getPrevNonDebugInstruction();
+    while (BP && !isa<GetElementPtrInst>(BP))
+      BP = BP->getPrevNonDebugInstruction();
+    return BP ? GetBFGEP(BP, GPO) : nullptr;
+  };
+
+  //
   // If 'VGEP' is a byte-flattened GEP with pointer operand 'GPO', return the
   // offset of that byte-flattened GEP.
   //
@@ -1545,14 +1551,12 @@ static bool isQsortSpecQsort(Function &F) {
     GetElementPtrInst *GEP = BottomBFGEP(BBI, PHIA);
     if (!GEP)
       return false;
-    Value *V0 = nullptr;
-    Value *V1 = nullptr;
     ConstantInt *CI = nullptr;
     Value *GEPO = GEP->getOperand(1);
-    if (!match(GEPO,
-               m_Mul(m_UDiv(m_Value(V0), m_ConstantInt(CI)), m_Value(V1))))
+    if (!match(GEPO, m_Mul(m_UDiv(m_Specific(PHIN), m_ConstantInt(CI)),
+                           m_Specific(F.getArg(2)))))
       return false;
-    if (V0 != PHIN || V1 != F.getArg(2) || CI->getZExtValue() != 2)
+    if (CI->getZExtValue() != 2)
       return false;
     *VPMI = GEP;
     return true;
@@ -1572,12 +1576,9 @@ static bool isQsortSpecQsort(Function &F) {
     GetElementPtrInst *GEP = BottomBFGEP(BBI, PHIA);
     if (!GEP)
       return false;
-    Value *V0 = nullptr;
-    Value *V1 = nullptr;
     Value *GEPO = GEP->getOperand(1);
-    if (!match(GEPO, m_Mul(m_Sub(m_Value(V0), m_One()), m_Value(V1))))
-      return false;
-    if (V0 != PHIN || V1 != F.getArg(2))
+    if (!match(GEPO, m_Mul(m_Sub(m_Specific(PHIN), m_One()),
+                           m_Specific(F.getArg(2)))))
       return false;
     *VPNI = GEP;
     return true;
@@ -1664,19 +1665,14 @@ static bool isQsortSpecQsort(Function &F) {
       return false;
     if (CNI2->getZExtValue() != 2)
       return false;
-    Value *V0 = nullptr;
-    Value *V1 = nullptr;
     ConstantInt *CNI8 = nullptr;
-    if (!match(VD,
-               m_Mul(m_UDiv(m_Value(V0), m_ConstantInt(CNI8)), m_Value(V1))))
+    if (!match(VD, m_Mul(m_UDiv(m_Specific(PHIN), m_ConstantInt(CNI8)),
+                         m_Specific(F.getArg(2)))))
       return false;
-    if (V0 != PHIN || V1 != F.getArg(2) || CNI8->getZExtValue() != 8)
+    if (CNI8->getZExtValue() != 8)
       return false;
     Value *GEP21 = GetBFGEPO(CI2->getArgOperand(1), VPNI);
-    Value *VDT = nullptr;
-    if (!GEP21 || !match(GEP21, m_Sub(m_Zero(), m_Value(VDT))))
-      return false;
-    if (VDT != VD)
+    if (!GEP21 || !match(GEP21, m_Sub(m_Zero(), m_Specific(VD))))
       return false;
     CallInst *CI1 = nullptr;
     if (!GetPrevCallMatch(F, CI2, &CI1) || !CI1)
@@ -1684,9 +1680,7 @@ static bool isQsortSpecQsort(Function &F) {
     if (CI1->getArgOperand(1) != VPMI)
       return false;
     Value *GEP10 = GetBFGEPO(CI1->getArgOperand(0), VPMI);
-    if (!GEP10 || !match(GEP10, m_Sub(m_Zero(), m_Value(VDT))))
-      return false;
-    if (VDT != VD)
+    if (!GEP10 || !match(GEP10, m_Sub(m_Zero(), m_Specific(VD))))
       return false;
     Value *GEP12 = GetBFGEPO(CI1->getArgOperand(2), VPMI);
     if (GEP12 != VD)
@@ -1700,9 +1694,9 @@ static bool isQsortSpecQsort(Function &F) {
     if (GEP01 != VD)
       return false;
     Value *GEP02 = GetBFGEPO(CI0->getArgOperand(2), VPLI);
-    if (!GEP02 || !match(GEP02, m_Mul(m_ConstantInt(CNI2), m_Value(VDT))))
+    if (!GEP02 || !match(GEP02, m_Mul(m_ConstantInt(CNI2), m_Specific(VD))))
       return false;
-    if (CNI2->getZExtValue() != 2 || VDT != VD)
+    if (CNI2->getZExtValue() != 2)
       return false;
     CallInst *CINull = nullptr;
     if (!GetPrevCallMatch(F, CI0, &CINull) || CINull)
@@ -1946,7 +1940,7 @@ static bool isQsortSpecQsort(Function &F) {
   // 'PHIA' and the join of 'VMFI' and 'VMFO'. 'PHIC0' indicates whether
   // we are swapping longs. 'PHIC1' indicates whether we are swapping ints.
   // If neither, 'FSwapFunc' is used to do the swapping. 'BytesInLong' is
-  // the number of bytes in a long. If we return true, we set 'BBO' to the
+  // the number of bytes in a long. If we return 'true', we set 'BBO' to the
   // exit BasicBlock of the sequence.
   //
   auto IsEasySwap0 = [&IsEasySwapInit0, &IsEasySwap](
@@ -1965,6 +1959,391 @@ static bool isQsortSpecQsort(Function &F) {
     return true;
   };
 
+  //
+  // Return 'true' if 'BBI' in 'F' is a BasicBlock of the form:
+  //
+  //   'VPAI' = getelementptr inbounds i8, i8* 'PHIA', i64 'F(2)'
+  //   %sub92 = sub i64 'PHIN', 1
+  //   %mul93 = mul i64 %sub92, 'F(2)'
+  //   'VPCI' = getelementptr inbounds i8, i8* 'PHIA', i64 %mul93
+  //   br label 'BBO'
+  //
+  // If we return 'true', set the values of 'VPAI', 'VPCI' and 'BBO'.
+  //
+  auto IsMainInitBlock =
+      [&GetBFGEP, &GetPrevBFGEP](Function &F, BasicBlock *BBI, PHINode *PHIA,
+                                 PHINode *PHIN, Value **VPAI, Value **VPCI,
+                                 BasicBlock **BBO) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    Instruction *BP = BI->getPrevNonDebugInstruction();
+    GetElementPtrInst *GEP1 = GetBFGEP(BP, PHIA);
+    if (!GEP1)
+      return false;
+    if (!match(GEP1->getOperand(1), m_Mul(m_Sub(m_Specific(PHIN), m_One()),
+                                          m_Specific(F.getArg(2)))))
+      return false;
+    GetElementPtrInst *GEP0 = GetPrevBFGEP(BP, PHIA);
+    if (!GEP0 || GEP0->getOperand(1) != F.getArg(2))
+      return false;
+    *VPAI = GEP0;
+    *VPCI = GEP1;
+    *BBO = BI->getSuccessor(0);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //   'PHISWC' = phi i32 [ 0, %if.end90 ], [ 1, %if.end169 ]
+  //   'PHIPD' = phi i8* [ 'VPCI', %if.end90 ], [ %pd.1, %if.end169 ]
+  //   'PHIPC' = phi i8* [ 'VPCI', %if.end90 ], [ %add.ptr172, %if.end169 ]
+  //   'PHIPB' = phi i8* [ 'VPAI', %if.end90 ], [ %add.ptr170, %if.end169 ]
+  //   'PHIPA' = phi i8* [ 'VPAI', %if.end90 ], [ %pa.1, %if.end169 ]
+  //   br label 'BBO'
+  //
+  // If we return 'true' we set the values of 'PHIPA', 'PHIPBB', 'PHIPC',
+  // 'PHIPD', 'PHISWC', and 'BBO'.
+  //
+  // Note: The incoming values on the right branch of the PHINodes in this
+  // BasicBlock will be checked below in 'AreMainPHIsOK'.
+  //
+  auto IsMainHeadBlock = [](BasicBlock *BBI, Value *VPAI, Value *VPCI,
+                            PHINode **PHIPA, PHINode **PHIPB, PHINode **PHIPC,
+                            PHINode **PHIPD, PHINode **PHISWC,
+                            BasicBlock **BBO) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    auto PHIA0 = dyn_cast_or_null<PHINode>(BI->getPrevNonDebugInstruction());
+    if (!PHIA0 || PHIA0->getNumIncomingValues() != 2 ||
+        PHIA0->getIncomingValue(0) != VPAI)
+      return false;
+    auto PHIB0 = dyn_cast_or_null<PHINode>(PHIA0->getPrevNonDebugInstruction());
+    if (!PHIB0 || PHIB0->getNumIncomingValues() != 2 ||
+        PHIB0->getIncomingValue(0) != VPAI)
+      return false;
+    auto PHIC0 = dyn_cast_or_null<PHINode>(PHIB0->getPrevNonDebugInstruction());
+    if (!PHIC0 || PHIC0->getNumIncomingValues() != 2 ||
+        PHIC0->getIncomingValue(0) != VPCI)
+      return false;
+    auto PHID0 = dyn_cast_or_null<PHINode>(PHIC0->getPrevNonDebugInstruction());
+    if (!PHID0 || PHID0->getNumIncomingValues() != 2 ||
+        PHID0->getIncomingValue(0) != VPCI)
+      return false;
+    auto PHISW = dyn_cast_or_null<PHINode>(PHID0->getPrevNonDebugInstruction());
+    if (!PHISW || PHISW->getNumIncomingValues() != 2)
+      return false;
+    auto CI0 = dyn_cast<ConstantInt>(PHISW->getIncomingValue(0));
+    if (!CI0 || !CI0->isZero())
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(PHISW->getIncomingValue(1));
+    if (!CI1 || !CI1->isOne())
+      return false;
+    *PHIPA = PHIA0;
+    *PHIPB = PHIB0;
+    *PHIPC = PHIC0;
+    *PHIPD = PHID0;
+    *PHISWC = PHISW;
+    *BBO = BI->getSuccessor(0);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //   'PHISWC1' = phi i32 [ 'PHISWC0', %for.cond95 ],
+  //       [ %swap_cnt.2, %if.end120 ]
+  //   'PHIPB1' = phi i8* [ 'PHIPB0', %for.cond95 ], [ %add.ptr121, %if.end120 ]
+  //   'PHIPA1' = phi i8* [ 'PHIPA0', %for.cond95 ], [ %pa.2, %if.end120 ]
+  //   %cmp96 = icmp ule i8* 'PHIPB1', 'PHIPC0'
+  //   br i1 %cmp96, label %land.rhs98, label 'BBO'
+  //
+  // If we return 'true', we set the values of 'PHIPA1', 'PHIPB1', 'PHISWC1',
+  // and 'BBO'.
+  //
+  // Note: The incoming values on the right branch of the PHINodes in this
+  // BasicBlock will be checked when the rest of the code for the forward
+  // pivot loop is written.
+  //
+  auto IsFwdPivotTestBlock =
+      [](BasicBlock *BBI, PHINode *PHIPA0, PHINode *PHIPB0, PHINode *PHIPC0,
+         PHINode *PHISWC0, PHINode **PHIPA1, PHINode **PHIPB1,
+         PHINode **PHISWC1, BasicBlock **BBO) -> bool {
+    BranchInst *BI = nullptr;
+    ICmpInst *IC = nullptr;
+    if (!getBIAndIC(BBI, ICmpInst::ICMP_ULE, &BI, &IC))
+      return false;
+    auto PHIPBX = dyn_cast<PHINode>(IC->getOperand(0));
+    if (!PHIPBX || PHIPBX->getNumIncomingValues() != 2 ||
+        PHIPBX->getIncomingValue(0) != PHIPB0)
+      return false;
+    if (IC->getOperand(1) != PHIPC0)
+      return false;
+    auto PHIPAX = dyn_cast_or_null<PHINode>(IC->getPrevNonDebugInstruction());
+    if (!PHIPAX || PHIPAX->getNumIncomingValues() != 2 ||
+        PHIPAX->getIncomingValue(0) != PHIPA0)
+      return false;
+    Instruction *BP = PHIPBX->getPrevNonDebugInstruction();
+    auto PHISWCX = dyn_cast_or_null<PHINode>(BP);
+    if (!PHISWCX || PHISWCX->getNumIncomingValues() != 2 ||
+        PHISWCX->getIncomingValue(0) != PHISWC0)
+      return false;
+    *PHIPA1 = PHIPAX;
+    *PHIPB1 = PHIPBX;
+    *PHISWC1 = PHISWCX;
+    *BBO = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' matches the forward pivot loop in spec_qsort.
+  // The implementation is not complete now. It will be finished in a
+  // future change set.
+  //
+  auto IsFwdPivotLoop =
+      [&IsFwdPivotTestBlock](BasicBlock *BBI, PHINode *PHIPA0, PHINode *PHIPB0,
+                             PHINode *PHIPC0, PHINode *PHISWC0,
+                             PHINode **PHIPA1, PHINode **PHIPB1,
+                             PHINode **PHISWC1, BasicBlock **BBO) -> bool {
+    BasicBlock *BBX = nullptr;
+    PHINode *PHIPAX = nullptr;
+    PHINode *PHIPBX = nullptr;
+    PHINode *PHISWCX = nullptr;
+    if (!IsFwdPivotTestBlock(BBI, PHIPA0, PHIPB0, PHIPC0, PHISWC0, &PHIPAX,
+                             &PHIPBX, &PHISWCX, &BBX))
+      return false;
+    // More code to come here.
+    *PHIPA1 = PHIPAX;
+    *PHIPB1 = PHIPBX;
+    *PHISWC1 = PHISWCX;
+    *BBO = BBX;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //
+  //   'PHISWC3' = phi i32 [ 'PHISWC1', %while.end ],
+  //       [ %swap_cnt.4, %if.end149 ]
+  //   'PHIPD1' = phi i8* [ 'PHIPD0', %while.end ], [ %pd.2, %if.end149 ]
+  //   'PHIPC1' = phi i8* [ 'PHIPC0', %while.end ], [ %add.ptr151, %if.end149 ]
+  //   %cmp123 = icmp ule i8* 'PHIPB1', 'PHIPC1'
+  //   br i1 %cmp123, label %land.rhs125, label 'BBO'
+  //
+  // If we return 'true', we set the values of 'PHIPC1', 'PHIPD1', 'PHISWC3',
+  // and 'BBO'.
+  //
+  // Note: The incoming values on the right branch of the PHINodes in this
+  // BasicBlock will be checked when the rest of the code for the backward
+  // pivot loop is written.
+  //
+  auto IsBwdPivotTestBlock =
+      [](BasicBlock *BBI, PHINode *PHIPB1, PHINode *PHIPC0, PHINode *PHIPD0,
+         PHINode *PHISWC1, PHINode **PHIPC1, PHINode **PHIPD1,
+         PHINode **PHISWC3, BasicBlock **BBO) -> bool {
+    BranchInst *BI = nullptr;
+    ICmpInst *IC = nullptr;
+    if (!getBIAndIC(BBI, ICmpInst::ICMP_ULE, &BI, &IC))
+      return false;
+    if (IC->getOperand(0) != PHIPB1)
+      return false;
+    auto PHIPCX = dyn_cast<PHINode>(IC->getOperand(1));
+    if (!PHIPCX || PHIPCX->getNumIncomingValues() != 2 ||
+        PHIPCX->getIncomingValue(0) != PHIPC0)
+      return false;
+    Instruction *BP0 = PHIPCX->getPrevNonDebugInstruction();
+    auto PHIPDX = dyn_cast_or_null<PHINode>(BP0);
+    if (!PHIPDX || PHIPDX->getNumIncomingValues() != 2 ||
+        PHIPDX->getIncomingValue(0) != PHIPD0)
+      return false;
+    Instruction *BP1 = PHIPDX->getPrevNonDebugInstruction();
+    auto PHISWCX = dyn_cast_or_null<PHINode>(BP1);
+    if (!PHISWCX || PHISWCX->getNumIncomingValues() != 2 ||
+        PHISWCX->getIncomingValue(0) != PHISWC1)
+      return false;
+    *PHIPC1 = PHIPCX;
+    *PHIPD1 = PHIPDX;
+    *PHISWC3 = PHISWCX;
+    *BBO = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' matches the backward pivot loop in spec_qsort.
+  // The implementation is not complete now. It will be finished in a
+  // future change set.
+  //
+  auto IsBwdPivotLoop =
+      [&IsBwdPivotTestBlock](BasicBlock *BBI, PHINode *PHIPB1, PHINode *PHIPC0,
+                             PHINode *PHIPD0, PHINode *PHISWC1,
+                             PHINode **PHIPC1, PHINode **PHIPD1,
+                             PHINode **PHISWC3, BasicBlock **BBO) -> bool {
+    PHINode *PHIPCX = nullptr;
+    PHINode *PHIPDX = nullptr;
+    PHINode *PHISWCX = nullptr;
+    BasicBlock *BBX = nullptr;
+    if (!IsBwdPivotTestBlock(BBI, PHIPB1, PHIPC0, PHIPD0, PHISWC1, &PHIPCX,
+                             &PHIPDX, &PHISWCX, &BBX))
+      return false;
+    // More code to come here.
+    *PHIPC1 = PHIPCX;
+    *PHIPD1 = PHIPDX;
+    *PHISWC3 = PHISWCX;
+    *BBO = BBX;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //   %cmp153 = icmp ugt i8* 'PHIPB1', 'PHIPC1'
+  //   br i1 %cmp153, label 'BBL', label 'BBR'
+  //
+  // If we return 'true', set the values of 'BBL' and 'BBR'.
+  //
+  auto IsMainExitBlock = [](BasicBlock *BBI, PHINode *PHIPB1, PHINode *PHIPC1,
+                            BasicBlock **BBL, BasicBlock **BBR) -> bool {
+    BranchInst *BI = nullptr;
+    ICmpInst *IC = nullptr;
+    if (!getBIAndIC(BBI, ICmpInst::ICMP_UGT, &BI, &IC))
+      return false;
+    if (IC->getOperand(0) != PHIPB1 || IC->getOperand(1) != PHIPC1)
+      return false;
+    *BBL = BI->getSuccessor(0);
+    *BBR = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' is a BasicBlock of the form:
+  //
+  //   'VPBN' = getelementptr inbounds i8, i8* 'PHIB1', i64 'F(2)'
+  //   %idx.neg171 = sub i64 0, 'F(2)'
+  //   'VPCN'  = getelementptr inbounds i8, i8* 'PHIC1', i64 %idx.neg171
+  //   br label 'BBO'
+  //
+  // If we return 'true', we set the values of 'VPBN' and 'VPCN'.
+  //
+  auto IsMainIncBlock =
+      [&GetBFGEP, &GetPrevBFGEP](Function &F, BasicBlock *BBI, BasicBlock *BBO,
+                                 PHINode *PHIPB1, PHINode *PHIPC1, Value **VPBN,
+                                 Value **VPCN) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional() || BI->getSuccessor(0) != BBO)
+      return false;
+    Instruction *BP = BI->getPrevNonDebugInstruction();
+    GetElementPtrInst *GEP1 = GetBFGEP(BP, PHIPC1);
+    if (!GEP1 ||
+        !match(GEP1->getOperand(1), m_Sub(m_Zero(), m_Specific(F.getArg(2)))))
+      return false;
+    GetElementPtrInst *GEP0 = GetPrevBFGEP(GEP1, PHIPB1);
+    if (!GEP0 || GEP0->getOperand(1) != F.getArg(2))
+      return false;
+    *VPBN = GEP0;
+    *VPCN = GEP1;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //   %swap_cnt.0 = phi i32 [ 0, %if.end90 ], [ 1, %if.end169 ]
+  //   %pd.0 = phi i8* [ %add.ptr94, %if.end90 ], [ 'VPDI', %if.end169 ]
+  //   %pc.0 = phi i8* [ %add.ptr94, %if.end90 ], [ 'VPCI', %if.end169 ]
+  //   %pb.0 = phi i8* [ %add.ptr91, %if.end90 ], [ 'VPBI', %if.end169 ]
+  //   %pa.0 = phi i8* [ %add.ptr91, %if.end90 ], [ 'VPAI', %if.end169 ]
+  //   br label %while.cond
+  //
+  // Note: This the same BasicBlock that we checked in 'IsMainHeadBlock'
+  // above, but now we are checking the right inputs of the PHINodes.
+  // We can use casts rather than dyn_casts because the relative order of
+  // the Instructions in this BasicBlock were already verified in
+  // 'IsMainHeadBlock'.
+  //
+  auto AreMainPHIsOK = [](BasicBlock *BBI, Value *VPAI, Value *VPBI,
+                          Value *VPCI, Value *VPDI) -> bool {
+    Instruction *BP = BBI->getTerminator()->getPrevNonDebugInstruction();
+    auto PHIA = cast<PHINode>(BP);
+    if (PHIA->getIncomingValue(1) != VPAI)
+      return false;
+    auto PHIB = cast<PHINode>(PHIA->getPrevNonDebugInstruction());
+    if (PHIB->getIncomingValue(1) != VPBI)
+      return false;
+    auto PHIC = cast<PHINode>(PHIB->getPrevNonDebugInstruction());
+    if (PHIC->getIncomingValue(1) != VPCI)
+      return false;
+    auto PHID = cast<PHINode>(PHIC->getPrevNonDebugInstruction());
+    if (PHID->getIncomingValue(1) != VPDI)
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' starts the main while loop in spec_qsort.
+  // 'PHIA' is the beginning of the swapping array. 'PHIN' is its length.
+  // 'PHIC0' indicates whether we are swapping longs. 'PHIC1' indicates
+  // whether we are swapping ints. If neither, 'FSwapFunc' is used to do the
+  // swapping. 'BytesInLong' is the number of bytes in a long. If we return
+  // 'true', we set 'BBO' to the exit BasicBlock of the main while loop.
+  //
+  auto IsMainWhileLoop =
+      [&IsMainInitBlock, &IsMainHeadBlock, &IsFwdPivotLoop, &IsBwdPivotLoop,
+       &IsMainExitBlock, &IsEasySwap, &IsMainIncBlock, &AreMainPHIsOK](
+          Function &F, Function &FSwapFunc, BasicBlock *BBI, PHINode *PHIA,
+          PHINode *PHIN, PHINode *PHIC0, PHINode *PHIC1, uint64_t BytesInLong,
+          BasicBlock **BBO) -> bool {
+    Value *VPAI = nullptr;
+    Value *VPBN = nullptr;
+    Value *VPCI = nullptr;
+    Value *VPCN = nullptr;
+    PHINode *PHIPA0 = nullptr;
+    PHINode *PHIPA1 = nullptr;
+    PHINode *PHIPB0 = nullptr;
+    PHINode *PHIPB1 = nullptr;
+    PHINode *PHIPC0 = nullptr;
+    PHINode *PHIPC1 = nullptr;
+    PHINode *PHIPD0 = nullptr;
+    PHINode *PHIPD1 = nullptr;
+    PHINode *PHISWC0 = nullptr;
+    PHINode *PHISWC1 = nullptr;
+    PHINode *PHISWC3 = nullptr;
+    BasicBlock *BBL = nullptr;
+    BasicBlock *BBX = nullptr;
+    BasicBlock *BBFPV = nullptr;
+    BasicBlock *BBFPVX = nullptr;
+    BasicBlock *BBBPV = nullptr;
+    BasicBlock *BBBPVX = nullptr;
+    BasicBlock *BBSWP = nullptr;
+    BasicBlock *BBSWX = nullptr;
+    if (!IsMainInitBlock(F, BBI, PHIA, PHIN, &VPAI, &VPCI, &BBL))
+      return false;
+    if (!IsMainHeadBlock(BBL, VPAI, VPCI, &PHIPA0, &PHIPB0, &PHIPC0, &PHIPD0,
+                         &PHISWC0, &BBFPV))
+      return false;
+    if (!IsFwdPivotLoop(BBFPV, PHIPA0, PHIPB0, PHIPC0, PHISWC0, &PHIPA1,
+                        &PHIPB1, &PHISWC1, &BBFPVX))
+      return false;
+    if (!isDirectBranchBlock(BBFPVX, &BBBPV))
+      return false;
+    if (!IsBwdPivotLoop(BBBPV, PHIPB1, PHIPC0, PHIPD0, PHISWC1, &PHIPC1,
+                        &PHIPD1, &PHISWC3, &BBBPVX))
+      return false;
+    if (!IsMainExitBlock(BBBPVX, PHIPB1, PHIPC1, &BBX, &BBSWP))
+      return false;
+    if (!IsEasySwap(F, FSwapFunc, BBSWP, PHIPB1, PHIPC1, PHIC0, PHIC1,
+                    BytesInLong, &BBSWX))
+      return false;
+    if (!IsMainIncBlock(F, BBSWX, BBL, PHIPB1, PHIPC1, &VPBN, &VPCN))
+      return false;
+    if (!AreMainPHIsOK(BBL, PHIPA1, VPBN, VPCN, PHIPD1))
+      return false;
+    *BBO = BBX;
+    return true;
+  };
+
   // This is the main code for isQsortSpecQsort().
   BasicBlock *BBE = &F.getEntryBlock();
   BasicBlock *BBL = nullptr;
@@ -1976,6 +2355,7 @@ static bool isQsortSpecQsort(Function &F) {
   BasicBlock *BBIS = nullptr;
   BasicBlock *BBSW = nullptr;
   BasicBlock *BBPV = nullptr;
+  BasicBlock *BBSWT = nullptr;
   PHINode *PHIA = nullptr;
   PHINode *PHIN = nullptr;
   PHINode *PHIC0 = nullptr;
@@ -2048,6 +2428,13 @@ static bool isQsortSpecQsort(Function &F) {
     DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
                                         << "FXNREC: SPEC_QSORT: " << F.getName()
                                         << ": Is not first easy swap.\n");
+    return false;
+  }
+  if (!IsMainWhileLoop(F, *FSwapFunc, BBPV, PHIA, PHIN, PHIC0, PHIC1,
+                       BytesInLong, &BBSWT)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": Is not main while loop.\n");
     return false;
   }
   // More code to come here.

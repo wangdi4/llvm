@@ -271,6 +271,7 @@ def _SLASH_Qtemplate_depth_COL : CLJoined<"Qtemplate-depth:">,
   " templates are expanded">;
 def _SLASH_Qtemplate_depth_EQ : CLJoined<"Qtemplate-depth=">,
   Alias<ftemplate_depth_EQ>;
+def : CLFlag<"S">, Alias<S>, HelpText<"Compile to assembly only, do not link">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

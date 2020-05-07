@@ -205,3 +205,8 @@
 // RUN: %clang_cl -### -c /Qopenmp-version=50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // RUN: %clang_cl -### -c /Qopenmp-version:50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // CHECK-QOPENMP-VERSION: "-fopenmp-version=50"
+
+// Use of -S with clang-cl
+// RUN: %clang_cl -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-S %s
+// CHECK-S: clang{{.*}} "-S"
+// CHECK-S-NOT: link.exe
