@@ -8779,12 +8779,10 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 #if !INTEL_CUSTOMIZATION
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (R.isLoadCombineCandidate())
     return false;
->>>>>>> 02051c7f3ae9b90bb48a6bdf9b1badbb0d4b4f30
 
   R.computeMinimumValueSizes();
 
