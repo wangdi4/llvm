@@ -15,6 +15,7 @@
 #ifndef LLVM_CLANG_BASIC_TARGETBUILTINS_H
 #define LLVM_CLANG_BASIC_TARGETBUILTINS_H
 
+#include <algorithm>
 #include <stdint.h>
 #include "clang/Basic/Builtins.h"
 #include "llvm/Support/MathExtras.h"
@@ -326,6 +327,7 @@ namespace clang {
     };
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// \brief FPGA builtins
   namespace SPIRINTELFpga {
@@ -337,6 +339,15 @@ namespace clang {
     };
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  static constexpr uint64_t LargestBuiltinID = std::max<uint64_t>(
+      {NEON::FirstTSBuiltin, ARM::LastTSBuiltin, SVE::FirstTSBuiltin,
+       AArch64::LastTSBuiltin, BPF::LastTSBuiltin, PPC::LastTSBuiltin,
+       NVPTX::LastTSBuiltin, AMDGPU::LastTSBuiltin, X86::LastTSBuiltin,
+       Hexagon::LastTSBuiltin, Mips::LastTSBuiltin, XCore::LastTSBuiltin,
+       Le64::LastTSBuiltin, SystemZ::LastTSBuiltin,
+       WebAssembly::LastTSBuiltin});
+>>>>>>> ed86058b53f971ed93cc79c8b4fc76da37ca0664
 
 } // end namespace clang.
 
