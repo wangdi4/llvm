@@ -327,7 +327,6 @@ namespace clang {
     };
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// \brief FPGA builtins
   namespace SPIRINTELFpga {
@@ -339,7 +338,7 @@ namespace clang {
     };
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   static constexpr uint64_t LargestBuiltinID = std::max<uint64_t>(
       {NEON::FirstTSBuiltin, ARM::LastTSBuiltin, SVE::FirstTSBuiltin,
        AArch64::LastTSBuiltin, BPF::LastTSBuiltin, PPC::LastTSBuiltin,
@@ -347,7 +346,6 @@ namespace clang {
        Hexagon::LastTSBuiltin, Mips::LastTSBuiltin, XCore::LastTSBuiltin,
        Le64::LastTSBuiltin, SystemZ::LastTSBuiltin,
        WebAssembly::LastTSBuiltin});
->>>>>>> ed86058b53f971ed93cc79c8b4fc76da37ca0664
 
 } // end namespace clang.
 
