@@ -890,15 +890,6 @@ public:
   ///       may not be necessary.
   bool isLoadCombineReductionCandidate(unsigned ReductionOpcode) const;
 
-  /// Assume that a vector of stores of bitwise-or/shifted/zexted loaded values
-  /// can be load combined in the backend. Load combining may not be allowed in
-  /// the IR optimizer, so we do not want to alter the pattern. For example,
-  /// partially transforming a scalar bswap() pattern into vector code is
-  /// effectively impossible for the backend to undo.
-  /// TODO: If load combining is allowed in the IR optimizer, this analysis
-  ///       may not be necessary.
-  bool isLoadCombineCandidate() const;
-
   OptimizationRemarkEmitter *getORE() { return ORE; }
 
   /// This structure holds any data we need about the edges being traversed
@@ -6420,8 +6411,8 @@ bool BoUpSLP::isFullyVectorizableTinyTree() const {
   return true;
 }
 
-static bool isLoadCombineCandidateImpl(Value *Root, unsigned NumElts,
-                                       TargetTransformInfo *TTI) {
+static bool isLoadCombineCandidate(Value *Root, unsigned NumElts,
+                                   TargetTransformInfo *TTI) {
   // Look past the root to find a source value. Arbitrarily follow the
   // path through operand 0 of any 'or'. Also, peek through optional
   // shift-left-by-constant.
@@ -6430,9 +6421,9 @@ static bool isLoadCombineCandidateImpl(Value *Root, unsigned NumElts,
          match(ZextLoad, m_Shl(m_Value(), m_Constant())))
     ZextLoad = cast<BinaryOperator>(ZextLoad)->getOperand(0);
 
-  // Check if the input is an extended load of the required or/shift expression.
+  // Check if the input is an extended load.
   Value *LoadPtr;
-  if (ZextLoad == Root || !match(ZextLoad, m_ZExt(m_Load(m_Value(LoadPtr)))))
+  if (!match(ZextLoad, m_ZExt(m_Load(m_Value(LoadPtr)))))
     return false;
 
   // Require that the total load bit width is a legal integer type.
@@ -6457,20 +6448,7 @@ bool BoUpSLP::isLoadCombineReductionCandidate(unsigned RdxOpcode) const {
 
   unsigned NumElts = VectorizableTree[0]->Scalars.size();
   Value *FirstReduced = VectorizableTree[0]->Scalars[0];
-  return isLoadCombineCandidateImpl(FirstReduced, NumElts, TTI);
-}
-
-bool BoUpSLP::isLoadCombineCandidate() const {
-  // Peek through a final sequence of stores and check if all operations are
-  // likely to be load-combined.
-  unsigned NumElts = VectorizableTree[0]->Scalars.size();
-  for (Value *Scalar : VectorizableTree[0]->Scalars) {
-    Value *X;
-    if (!match(Scalar, m_Store(m_Value(X), m_Value())) ||
-        !isLoadCombineCandidateImpl(X, NumElts, TTI))
-      return false;
-  }
-  return true;
+  return isLoadCombineCandidate(FirstReduced, NumElts, TTI);
 }
 
 bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() const {
@@ -8840,9 +8818,12 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 #if !INTEL_CUSTOMIZATION
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
   if (R.isLoadCombineCandidate())
     return false;
+=======
+>>>>>>> c54c6ee1a7a26c994eff32ce35862641db47f305
 
   R.computeMinimumValueSizes();
 
@@ -9140,9 +9121,12 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 #if !INTEL_CUSTOMIZATION
       if (R.isTreeTinyAndNotFullyVectorizable())
         continue;
+<<<<<<< HEAD
 #endif // !INTEL_CUSTOMIZATION
       if (R.isLoadCombineCandidate())
         return false;
+=======
+>>>>>>> c54c6ee1a7a26c994eff32ce35862641db47f305
 
       R.computeMinimumValueSizes();
       int Cost = R.getTreeCost() - UserCost;
