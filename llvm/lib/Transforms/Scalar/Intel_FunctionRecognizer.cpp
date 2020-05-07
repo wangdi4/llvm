@@ -2051,6 +2051,139 @@ static bool isQsortSpecQsort(Function &F) {
   };
 
   //
+  // Return 'true' if 'BBI' in 'F' is a BasicBlock of the form:
+  //
+  //   'CIO' = call i32 'F(3)'(i8* 'VL', i8* 'VR')
+  //   %cmp100 = icmp 'Pred' i32 'CIO', 0
+  //   br i1 %cmp100, label 'BBL', label 'BBR'
+  //
+  // If we return 'true', set the values of 'CIO', 'BBL' and 'BBR'.
+  //
+  auto IsPvtCallBlock = [](Function &F, BasicBlock *BBI, Value *VL, Value *VR,
+                           ICmpInst::Predicate Pred, Value **CIO,
+                           BasicBlock **BBL, BasicBlock **BBR) -> bool {
+    BranchInst *BI = nullptr;
+    ICmpInst *IC = nullptr;
+    if (!getBIAndIC(BBI, Pred, &BI, &IC))
+      return false;
+    if (!match(IC->getOperand(1), m_Zero()))
+      return false;
+    auto CI = dyn_cast<CallInst>(IC->getOperand(0));
+    if (!CI || CI->arg_size() != 2 || CI->getCalledOperand() != F.getArg(3))
+      return false;
+    if (CI->getArgOperand(0) != VL || CI->getArgOperand(1) != VR)
+      return false;
+    *CIO = CI;
+    *BBL = BI->getSuccessor(0);
+    *BBR = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //   %cmp103 = icmp eq i32 'CCI', 0
+  //   br i1 %cmp103, label 'BBL', label 'BBR'
+  //
+  // If we return 'true', set the values of 'BBL' and 'BBR'.
+  //
+  auto IsPvtCallResBlock = [](BasicBlock *BBI, Value *CII, BasicBlock **BBL,
+                              BasicBlock **BBR) -> bool {
+    BranchInst *BI = nullptr;
+    ICmpInst *IC = nullptr;
+    if (!getBIAndIC(BBI, ICmpInst::ICMP_EQ, &BI, &IC))
+      return false;
+    if (IC->getOperand(0) != CII || !match(IC->getOperand(1), m_Zero()))
+      return false;
+    *BBL = BI->getSuccessor(0);
+    *BBR = BI->getSuccessor(1);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'IsFwd' is 'true' and 'BBI' is a BasicBlock of the form:
+  //
+  //   'GEPO' = getelementptr inbounds i8, i8* 'PHII', i64 'F(2)'
+  //   br label 'BBO'
+  //
+  // or if 'IsFwd' is 'false' and 'BBI' is a BasicBlock of the form:
+  //
+  //   %idx.neg147 = sub i64 0, 'F(2)'
+  //   'GEPO' = getelementptr inbounds i8, i8* 'PHII', i64 %idx.neg147
+  //   br label 'BBO'
+  //
+  // If we return 'true', set the values of 'GEPO' and 'BBO'.
+  //
+  auto IsPvtInnerIncBlock =
+      [&GetBFGEP](Function &F, BasicBlock *BBI, PHINode *PHII, bool IsFwd,
+                  GetElementPtrInst **GEPO, BasicBlock **BBO) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBI->getTerminator());
+    if (!BI || BI->isConditional())
+      return false;
+    GetElementPtrInst *GEP = GetBFGEP(BI->getPrevNonDebugInstruction(), PHII);
+    if (!GEP)
+      return false;
+    if (IsFwd) {
+      if (GEP->getOperand(1) != F.getArg(2))
+        return false;
+    } else {
+      if (!match(GEP->getOperand(1), m_Sub(m_Zero(), m_Specific(F.getArg(2)))))
+        return false;
+    }
+    *GEPO = GEP;
+    *BBO = BI->getSuccessor(0);
+    return true;
+  };
+
+  //
+  // Return 'true' if 'IsFwd' is 'true' and 'BBI' is a BasicBlock of the form:
+  //
+  //   'PHISWCO' = phi i32 [ 1, %if.end118 ], [ 'VSWPI', %while.body ]
+  //   'PHIIO' = phi i8* [ 'GEPI', %if.end118 ], [ 'PHIII', %while.body ]
+  //   'VOO' = getelementptr inbounds i8, i8* 'PHIOI', i64 'F(2)'
+  //   br label 'BOO'
+  //
+  // or if 'IsFwd' is 'false' and 'BBI' is a BasicBlock of the form:
+  //
+  //   'PHISWCO' = phi i32 [ 1, %if.end146 ], [ 'VSWPI', %while.body130 ]
+  //   'PHIIO' = phi i8* [ 'GEPI', %if.end146 ], [ 'PHIII', %while.body130 ]
+  //   %idx.neg150 = sub i64 0, 'F(2)'
+  //   'VOO' = getelementptr inbounds i8, i8* 'PHIOI', i64 %idx.neg150
+  //   br label 'BOO'
+  //
+  // If we return 'true', set the values of 'PHISWCO', 'PHIIO', 'VOO', and
+  // 'BBO'.
+  //
+  auto IsPvtOuterIncBlock = [&GetBFGEP, &IsPvtInnerIncBlock](
+                                Function &F, BasicBlock *BBI, PHINode *PHIII,
+                                PHINode *PHIOI, Value *VSWPI, Value *GEPI,
+                                bool IsFwd, PHINode **PHISWCO, PHINode **PHIIO,
+                                Value **VOO, BasicBlock **BBO) -> bool {
+    BasicBlock *BBX = nullptr;
+    GetElementPtrInst *GEP = nullptr;
+    if (!IsPvtInnerIncBlock(F, BBI, PHIOI, IsFwd, &GEP, &BBX))
+      return false;
+    Instruction *BP = BBI->getFirstNonPHI()->getPrevNonDebugInstruction();
+    PHINode *PHI = dyn_cast_or_null<PHINode>(BP);
+    if (!PHI || PHI->getNumIncomingValues() != 2)
+      return false;
+    if (PHI->getIncomingValue(0) != GEPI || PHI->getIncomingValue(1) != PHIII)
+      return false;
+    auto PHISWCX = dyn_cast_or_null<PHINode>(PHI->getPrevNonDebugInstruction());
+    if (!PHISWCX || PHISWCX->getNumIncomingValues() != 2)
+      return false;
+    if (!match(PHISWCX->getIncomingValue(0), m_One()))
+      return false;
+    if (PHISWCX->getIncomingValue(1) != VSWPI)
+      return false;
+    *PHISWCO = PHISWCX;
+    *PHIIO = PHI;
+    *VOO = GEP;
+    *BBO = BBX;
+    return true;
+  };
+
+  //
   // Return 'true' if 'BBI' is a BasicBlock of the form:
   //
   //   'PHISWC1' = phi i32 [ 'PHISWC0', %for.cond95 ],
@@ -2058,19 +2191,18 @@ static bool isQsortSpecQsort(Function &F) {
   //   'PHIPB1' = phi i8* [ 'PHIPB0', %for.cond95 ], [ %add.ptr121, %if.end120 ]
   //   'PHIPA1' = phi i8* [ 'PHIPA0', %for.cond95 ], [ %pa.2, %if.end120 ]
   //   %cmp96 = icmp ule i8* 'PHIPB1', 'PHIPC0'
-  //   br i1 %cmp96, label %land.rhs98, label 'BBO'
+  //   br i1 %cmp96, label 'BBL', label 'BBR'
   //
   // If we return 'true', we set the values of 'PHIPA1', 'PHIPB1', 'PHISWC1',
-  // and 'BBO'.
+  // 'BBL', and 'BBR'.
   //
   // Note: The incoming values on the right branch of the PHINodes in this
-  // BasicBlock will be checked when the rest of the code for the forward
-  // pivot loop is written.
+  // BasicBlock are checked in the call to 'ArePivPHIsOK'.
   //
   auto IsFwdPivotTestBlock =
       [](BasicBlock *BBI, PHINode *PHIPA0, PHINode *PHIPB0, PHINode *PHIPC0,
          PHINode *PHISWC0, PHINode **PHIPA1, PHINode **PHIPB1,
-         PHINode **PHISWC1, BasicBlock **BBO) -> bool {
+         PHINode **PHISWC1, BasicBlock **BBL, BasicBlock **BBR) -> bool {
     BranchInst *BI = nullptr;
     ICmpInst *IC = nullptr;
     if (!getBIAndIC(BBI, ICmpInst::ICMP_ULE, &BI, &IC))
@@ -2093,31 +2225,100 @@ static bool isQsortSpecQsort(Function &F) {
     *PHIPA1 = PHIPAX;
     *PHIPB1 = PHIPBX;
     *PHISWC1 = PHISWCX;
-    *BBO = BI->getSuccessor(1);
+    *BBL = BI->getSuccessor(0);
+    *BBR = BI->getSuccessor(1);
     return true;
   };
 
   //
-  // Return 'true' if 'BBI' matches the forward pivot loop in spec_qsort.
-  // The implementation is not complete now. It will be finished in a
-  // future change set.
+  // Return 'true' if 'BBI' is a BasicBlock of the form:
+  //
+  //   %swap_cnt.1 = phi i32 [ %swap_cnt.0, %for.cond95 ],
+  //       [ 'VSWCI', %if.end120 ]
+  //   %pb.1 = phi i8* [ %pb.0, %for.cond95 ], [ 'VPBI', %if.end120 ]
+  //   %pa.1 = phi i8* [ %pa.0, %for.cond95 ], [ 'VPAI', %if.end120 ]
+  //   %cmp96 = icmp ule i8* %pb.1, %pc.0
+  //   br i1 %cmp96, label %land.rhs98, label %while.end
+  //
+  // Note: This the same BasicBlock that we checked in 'IsFwdPivotTestBlock'
+  // and 'IsBwdPivotTestBlock', but now we are checking the right inputs of
+  // the PHINodes. We can use casts rather than dyn_casts because the
+  // relative order of the Instructions in this BasicBlock were already
+  // verified in 'IsFwdPivotTestBlock' and 'IsBwdPivotTestBlock'.
+  //
+  auto ArePivPHIsOK = [](BasicBlock *BBI, Value *VPAI, Value *VPBI,
+                         Value *VSWCI) -> bool {
+    auto BI = cast<BranchInst>(BBI->getTerminator());
+    auto IC = cast<ICmpInst>(BI->getPrevNonDebugInstruction());
+    auto PHIPA = cast<PHINode>(IC->getPrevNonDebugInstruction());
+    if (PHIPA->getIncomingValue(1) != VPAI)
+      return false;
+    auto PHIPB = cast<PHINode>(PHIPA->getPrevNonDebugInstruction());
+    if (PHIPB->getIncomingValue(1) != VPBI)
+      return false;
+    auto PHISWC = cast<PHINode>(PHIPB->getPrevNonDebugInstruction());
+    if (PHISWC->getIncomingValue(1) != VSWCI)
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBI' in 'F' matches the forward pivot loop in spec_qsort.
+  // 'PHIA' is the base of the array. 'PHIPA0', 'PHIPB0', 'PHIPC0', and
+  // 'PHISWCI' represent the values coming into the loop of 'pa', 'pb', 'pc',
+  // and 'swap_cnt'. 'PHIC0' is 'true' if we are swapping values as longs.
+  // 'PHIC1' is 'true' if we are swapping values as ints. If we are swapping
+  // values as chars, 'FSwapFunc' is used to do the swapping. 'BytesInLong' is
+  // the number of bytes in a long. If we return 'true', we set the values of
+  // 'PHIPA1', 'PHIPB1', 'PHISWCO', and 'BBO', which are the values of 'pa',
+  // 'pb', 'swap_cnt' and the exit BasicBlock out of the loop.
   //
   auto IsFwdPivotLoop =
-      [&IsFwdPivotTestBlock](BasicBlock *BBI, PHINode *PHIPA0, PHINode *PHIPB0,
-                             PHINode *PHIPC0, PHINode *PHISWC0,
-                             PHINode **PHIPA1, PHINode **PHIPB1,
-                             PHINode **PHISWC1, BasicBlock **BBO) -> bool {
+      [&IsFwdPivotTestBlock, &IsPvtCallBlock, &IsPvtCallResBlock, &IsEasySwap,
+       &IsPvtInnerIncBlock, IsPvtOuterIncBlock, ArePivPHIsOK](
+          Function &F, Function &FSwapFunc, BasicBlock *BBI, PHINode *PHIA,
+          PHINode *PHIPA0, PHINode *PHIPB0, PHINode *PHIPC0, PHINode *PHISWCI,
+          PHINode *PHIC0, PHINode *PHIC1, uint64_t BytesInLong,
+          PHINode **PHIPA1, PHINode **PHIPB1, PHINode **PHISWCO,
+          BasicBlock **BBO) -> bool {
     BasicBlock *BBX = nullptr;
+    BasicBlock *BBXT = nullptr;
+    BasicBlock *BBCB = nullptr;
+    BasicBlock *BBCRB = nullptr;
+    BasicBlock *BBSWP = nullptr;
+    BasicBlock *BBII = nullptr;
+    BasicBlock *BBOI = nullptr;
     PHINode *PHIPAX = nullptr;
+    PHINode *PHIPA2 = nullptr;
     PHINode *PHIPBX = nullptr;
-    PHINode *PHISWCX = nullptr;
-    if (!IsFwdPivotTestBlock(BBI, PHIPA0, PHIPB0, PHIPC0, PHISWC0, &PHIPAX,
-                             &PHIPBX, &PHISWCX, &BBX))
+    PHINode *PHISWC1 = nullptr;
+    PHINode *PHISWC2 = nullptr;
+    Value *CI = nullptr;
+    Value *VPBN = nullptr;
+    GetElementPtrInst *GEP = nullptr;
+    if (!IsFwdPivotTestBlock(BBI, PHIPA0, PHIPB0, PHIPC0, PHISWCI, &PHIPAX,
+                             &PHIPBX, &PHISWC1, &BBCB, &BBX))
       return false;
-    // More code to come here.
+    if (!IsPvtCallBlock(F, BBCB, PHIPBX, PHIA, ICmpInst::ICMP_SLE, &CI, &BBCRB,
+                        &BBXT) ||
+        BBXT != BBX)
+      return false;
+    if (!IsPvtCallResBlock(BBCRB, CI, &BBSWP, &BBOI))
+      return false;
+    if (!IsEasySwap(F, FSwapFunc, BBSWP, PHIPAX, PHIPBX, PHIC0, PHIC1,
+                    BytesInLong, &BBII))
+      return false;
+    if (!IsPvtInnerIncBlock(F, BBII, PHIPAX, true, &GEP, &BBOI))
+      return false;
+    if (!IsPvtOuterIncBlock(F, BBOI, PHIPAX, PHIPBX, PHISWC1, GEP, true,
+                            &PHISWC2, &PHIPA2, &VPBN, &BBXT) ||
+        BBXT != BBI)
+      return false;
+    if (!ArePivPHIsOK(BBI, PHIPA2, VPBN, PHISWC2))
+      return false;
     *PHIPA1 = PHIPAX;
     *PHIPB1 = PHIPBX;
-    *PHISWC1 = PHISWCX;
+    *PHISWCO = PHISWC1;
     *BBO = BBX;
     return true;
   };
@@ -2131,19 +2332,18 @@ static bool isQsortSpecQsort(Function &F) {
   //   'PHIPD1' = phi i8* [ 'PHIPD0', %while.end ], [ %pd.2, %if.end149 ]
   //   'PHIPC1' = phi i8* [ 'PHIPC0', %while.end ], [ %add.ptr151, %if.end149 ]
   //   %cmp123 = icmp ule i8* 'PHIPB1', 'PHIPC1'
-  //   br i1 %cmp123, label %land.rhs125, label 'BBO'
+  //   br i1 %cmp123, label 'BBL', label 'BBR'
   //
   // If we return 'true', we set the values of 'PHIPC1', 'PHIPD1', 'PHISWC3',
-  // and 'BBO'.
+  // 'BBL', 'BBR'.
   //
   // Note: The incoming values on the right branch of the PHINodes in this
-  // BasicBlock will be checked when the rest of the code for the backward
-  // pivot loop is written.
+  // BasicBlock are checked in the call to 'ArePivPHIsOK'.
   //
   auto IsBwdPivotTestBlock =
       [](BasicBlock *BBI, PHINode *PHIPB1, PHINode *PHIPC0, PHINode *PHIPD0,
          PHINode *PHISWC1, PHINode **PHIPC1, PHINode **PHIPD1,
-         PHINode **PHISWC3, BasicBlock **BBO) -> bool {
+         PHINode **PHISWC3, BasicBlock **BBL, BasicBlock **BBR) -> bool {
     BranchInst *BI = nullptr;
     ICmpInst *IC = nullptr;
     if (!getBIAndIC(BBI, ICmpInst::ICMP_ULE, &BI, &IC))
@@ -2167,31 +2367,68 @@ static bool isQsortSpecQsort(Function &F) {
     *PHIPC1 = PHIPCX;
     *PHIPD1 = PHIPDX;
     *PHISWC3 = PHISWCX;
-    *BBO = BI->getSuccessor(1);
+    *BBL = BI->getSuccessor(0);
+    *BBR = BI->getSuccessor(1);
     return true;
   };
 
   //
-  // Return 'true' if 'BBI' matches the backward pivot loop in spec_qsort.
-  // The implementation is not complete now. It will be finished in a
-  // future change set.
+  // Return 'true' if 'BBI' in 'F' matches the backward pivot loop in
+  // spec_qsort. 'PHIA' is the base of the array. 'PHIPB1', 'PHIPC0', 'PHIPD0',
+  // and 'PHISWCI' represent the values coming into the loop of 'pb', 'pc',
+  // 'pd', and 'swap_cnt'. 'PHIC0' is 'true' if we are swapping values as
+  // longs. 'PHIC1' is 'true' if we are swapping values as ints. If we are
+  // swapping values as chars, 'FSwapFunc' is used to do the swapping.
+  // 'BytesInLong' is the number of bytes in a long. If we return 'true', we set
+  // the values of 'PHIPC1', 'PHIPD1', 'PHISWCO', and 'BBO', which are the
+  // values of 'pc', 'pd', 'swap_cnt' and the exit BasicBlock out of the loop.
   //
   auto IsBwdPivotLoop =
-      [&IsBwdPivotTestBlock](BasicBlock *BBI, PHINode *PHIPB1, PHINode *PHIPC0,
-                             PHINode *PHIPD0, PHINode *PHISWC1,
-                             PHINode **PHIPC1, PHINode **PHIPD1,
-                             PHINode **PHISWC3, BasicBlock **BBO) -> bool {
+      [&IsBwdPivotTestBlock, &IsPvtCallBlock, &IsPvtCallResBlock, &IsEasySwap,
+       &IsPvtInnerIncBlock, IsPvtOuterIncBlock, ArePivPHIsOK](
+          Function &F, Function &FSwapFunc, BasicBlock *BBI, PHINode *PHIA,
+          PHINode *PHIPB1, PHINode *PHIPC0, PHINode *PHIPD0, PHINode *PHISWCI,
+          PHINode *PHIC0, PHINode *PHIC1, uint64_t BytesInLong,
+          PHINode **PHIPC1, PHINode **PHIPD1, PHINode **PHISWCO,
+          BasicBlock **BBO) -> bool {
+    BasicBlock *BBX = nullptr;
+    BasicBlock *BBXT = nullptr;
+    BasicBlock *BBCB = nullptr;
+    BasicBlock *BBCRB = nullptr;
+    BasicBlock *BBSWP = nullptr;
+    BasicBlock *BBII = nullptr;
+    BasicBlock *BBOI = nullptr;
     PHINode *PHIPCX = nullptr;
     PHINode *PHIPDX = nullptr;
-    PHINode *PHISWCX = nullptr;
-    BasicBlock *BBX = nullptr;
-    if (!IsBwdPivotTestBlock(BBI, PHIPB1, PHIPC0, PHIPD0, PHISWC1, &PHIPCX,
-                             &PHIPDX, &PHISWCX, &BBX))
+    PHINode *PHIPD2 = nullptr;
+    PHINode *PHISWC3 = nullptr;
+    PHINode *PHISWC4 = nullptr;
+    Value *CI = nullptr;
+    Value *VPCN = nullptr;
+    GetElementPtrInst *GEP = nullptr;
+    if (!IsBwdPivotTestBlock(BBI, PHIPB1, PHIPC0, PHIPD0, PHISWCI, &PHIPCX,
+                             &PHIPDX, &PHISWC3, &BBCB, &BBX))
       return false;
-    // More code to come here.
+    if (!IsPvtCallBlock(F, BBCB, PHIPCX, PHIA, ICmpInst::ICMP_SGE, &CI, &BBCRB,
+                        &BBXT) ||
+        BBXT != BBX)
+      return false;
+    if (!IsPvtCallResBlock(BBCRB, CI, &BBSWP, &BBOI))
+      return false;
+    if (!IsEasySwap(F, FSwapFunc, BBSWP, PHIPCX, PHIPDX, PHIC0, PHIC1,
+                    BytesInLong, &BBII))
+      return false;
+    if (!IsPvtInnerIncBlock(F, BBII, PHIPDX, false, &GEP, &BBOI))
+      return false;
+    if (!IsPvtOuterIncBlock(F, BBOI, PHIPDX, PHIPCX, PHISWC3, GEP, false,
+                            &PHISWC4, &PHIPD2, &VPCN, &BBXT) ||
+        BBXT != BBI)
+      return false;
+    if (!ArePivPHIsOK(BBI, VPCN, PHIPD2, PHISWC4))
+      return false;
     *PHIPC1 = PHIPCX;
     *PHIPD1 = PHIPDX;
-    *PHISWC3 = PHISWCX;
+    *PHISWCO = PHISWC3;
     *BBO = BBX;
     return true;
   };
@@ -2323,14 +2560,24 @@ static bool isQsortSpecQsort(Function &F) {
     if (!IsMainHeadBlock(BBL, VPAI, VPCI, &PHIPA0, &PHIPB0, &PHIPC0, &PHIPD0,
                          &PHISWC0, &BBFPV))
       return false;
-    if (!IsFwdPivotLoop(BBFPV, PHIPA0, PHIPB0, PHIPC0, PHISWC0, &PHIPA1,
-                        &PHIPB1, &PHISWC1, &BBFPVX))
+    if (!IsFwdPivotLoop(F, FSwapFunc, BBFPV, PHIA, PHIPA0, PHIPB0, PHIPC0,
+                        PHISWC0, PHIC0, PHIC1, BytesInLong, &PHIPA1, &PHIPB1,
+                        &PHISWC1, &BBFPVX)) {
+      DEBUG_WITH_TYPE(FXNREC_VERBOSE,
+                      dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
+                             << ": Is not forward pivot loop.\n");
       return false;
+    }
     if (!isDirectBranchBlock(BBFPVX, &BBBPV))
       return false;
-    if (!IsBwdPivotLoop(BBBPV, PHIPB1, PHIPC0, PHIPD0, PHISWC1, &PHIPC1,
-                        &PHIPD1, &PHISWC3, &BBBPVX))
+    if (!IsBwdPivotLoop(F, FSwapFunc, BBBPV, PHIA, PHIPB1, PHIPC0, PHIPD0,
+                        PHISWC1, PHIC0, PHIC1, BytesInLong, &PHIPC1, &PHIPD1,
+                        &PHISWC3, &BBBPVX)) {
+      DEBUG_WITH_TYPE(FXNREC_VERBOSE,
+                      dbgs() << "FXNREC: SPEC_QSORT: " << F.getName()
+                             << ": Is not backward pivot loop.\n");
       return false;
+    }
     if (!IsMainExitBlock(BBBPVX, PHIPB1, PHIPC1, &BBX, &BBSWP))
       return false;
     if (!IsEasySwap(F, FSwapFunc, BBSWP, PHIPB1, PHIPC1, PHIC0, PHIC1,
