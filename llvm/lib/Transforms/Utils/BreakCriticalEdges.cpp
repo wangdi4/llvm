@@ -421,7 +421,6 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
     if (FirstNonPHI->isEHPad() || Target->isLandingPad())
       continue;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     bool SelfLoop = IBRPred == Target;
 
@@ -448,7 +447,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
         continue;
     }
 #endif // INTEL_CUSTOMIZATION
-=======
+
     // Remember edge probabilities if needed.
     SmallVector<BranchProbability, 4> EdgeProbabilities;
     if (ShouldUpdateAnalysis) {
@@ -458,7 +457,6 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
         EdgeProbabilities.emplace_back(BPI->getEdgeProbability(Target, I));
       BPI->eraseBlock(Target);
     }
->>>>>>> b921543c494bfb321114602902aacb9392e840da
 
     BasicBlock *BodyBlock = Target->splitBasicBlock(FirstNonPHI, ".split");
     if (ShouldUpdateAnalysis) {
