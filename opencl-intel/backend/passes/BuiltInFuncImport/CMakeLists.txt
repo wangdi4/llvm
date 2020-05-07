@@ -1,6 +1,7 @@
 set(TARGET_NAME BuiltInFuncImport)
 
 include_directories(
+    ${BACKEND_ROOT_DIR}/arch_headers
     ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
 )
 

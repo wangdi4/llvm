@@ -1028,6 +1028,7 @@ unsigned int Prefetch::IterLength(Loop *L)
     }
 
     BBL = m_LI->getLoopFor(BB);
+    assert(BBL && "LoopInfo analysis can't find a loop for the basic block");
 
   } while (L->getHeader() != BB && (BBL == L || BBL->getParentLoop() == L));
 
@@ -1834,7 +1835,9 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
 void PrefetchCandidateUtils::statAccess(Instruction *I, bool isRandom,
     bool pfExclusive, PrefetchStats &s) {
   CallInst *pCallInst = dyn_cast<CallInst>(I);
-  assert (pCallInst && "Expecting pf stat for gather/scatter");
+  assert(pCallInst && "Expecting pf stat for gather/scatter");
+  assert(pCallInst->getCalledFunction() &&
+         "Unexpected indirect function invocation");
 
   StringRef Name = pCallInst->getCalledFunction()->getName();
   // ignore calls that are non intrinsic

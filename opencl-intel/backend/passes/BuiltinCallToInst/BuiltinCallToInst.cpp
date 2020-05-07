@@ -241,7 +241,7 @@ namespace intel{
     std::string strippedName;
     if (!isMangledName(calledFuncName.c_str()))
       return builtinType;
-    strippedName = stripName(calledFuncName.c_str());
+    strippedName = std::string(stripName(calledFuncName.c_str()));
 
     // Check if its a supported built-in function
     if (strippedName == "shuffle" || strippedName == "__ocl_helper_shuffle" ) {

@@ -62,6 +62,8 @@
 // Must be power of 2, No API to get max number of fibers
 #define CPU_MAX_WORK_GROUP_SIZE         (8*1024)
 #define FPGA_MAX_WORK_GROUP_SIZE        (64*1024*1024)
+// Upper bound of CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE
+#define CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND (64*1024*1024)
 
 #define CPU_DEFAULT_WG_SIZE             32
 #define CPU_MIN_ACTUAL_PARAM_SIZE       sizeof(size_t)
@@ -76,6 +78,11 @@
 // concurrent WG that utilize full "barrier" buffer, total 512kB/WG
 #define CPU_DEV_MAX_WG_PRIVATE_SIZE     (CPU_DEV_MIN_WI_PRIVATE_SIZE*64)
 
+// Maximum memory size that could be allocated for WG execution for FPGA,
+// total 8MB/WG and 256KB/WG. Only used when auto memory allocation is enabled.
+#define FPGA_DEV_MAX_WG_PRIVATE_SIZE    (8 * 1024 * 1024)
+#define FPGA_DEV_MAX_WG_LOCAL_SIZE    FPGA_DEV_LCL_MEM_SIZE
+
 // Maximum memory size that could be allocated for WG execution. This is the
 // sum of WG Private memory size + Kernel parameters size (twice to cover the
 // hidden parameters) + Local IDs buffer.
@@ -83,3 +90,8 @@
   (CPU_MAX_WORK_GROUP_SIZE*MAX_WI_DIM_POW_OF_2*sizeof(size_t)))
 #define FPGA_DEV_MAX_WG_TOTAL_SIZE      (CPU_DEV_MAX_WG_PRIVATE_SIZE + (2*CPU_MAX_PARAMETER_SIZE) + \
   (FPGA_MAX_WORK_GROUP_SIZE*MAX_WI_DIM_POW_OF_2*sizeof(size_t)))
+
+// Default stack size for kernel execution
+#define CPU_DEV_STACK_DEFAULT_SIZE  (4*1024*1024)
+// Extra stack size for execution of builtins and third-party functions
+#define CPU_DEV_STACK_EXTRA_SIZE (1024*1024)

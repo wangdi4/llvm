@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -36,7 +36,8 @@
 #ifdef _WIN32
 #include "lld/Common/TargetOptionsCommandFlags.h"
 #else
-#include "llvm/CodeGen/CommandFlags.inc"
+#include "llvm/CodeGen/CommandFlags.h"
+static codegen::RegisterCodeGenFlags CGF;
 #endif
 
 #include <sstream>
@@ -50,7 +51,7 @@ TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
     // We only link to LLD on Windows
     return lld::initTargetOptionsFromCodeGenFlags();
 #else
-    return InitTargetOptionsFromCodeGenFlags();
+    return codegen::InitTargetOptionsFromCodeGenFlags();
 #endif
 }
 
@@ -236,6 +237,8 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
         return;
     }
 
+    Optimizer::initializePasses();
+
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
@@ -322,7 +325,9 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_IRDumpDir(config.GetDumpIRDir()),
     m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
     m_debug(false),
-    m_useNativeDebugger(false)
+    m_disableOptimization(false),
+    m_useNativeDebugger(false),
+    m_streamingAlways(config.GetStreamingAlways())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -337,7 +342,7 @@ Compiler::~Compiler()
     delete m_pLLVMContext;
 }
 
-static void materializeSpirTriple(llvm::Module *M) {
+void Compiler::materializeSpirTriple(llvm::Module *M) {
   assert((llvm::StringRef(M->getTargetTriple())).startswith("spir")
     && "Triple is not spir!");
 
@@ -374,7 +379,7 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   }
 
   llvm::CodeGenOpt::Level CGOptLevel =
-    m_debug ? llvm::CodeGenOpt::None : llvm::CodeGenOpt::Default;
+    m_disableOptimization ? llvm::CodeGenOpt::None : llvm::CodeGenOpt::Default;
 
   llvm::EngineBuilder Builder;
 
@@ -393,9 +398,10 @@ llvm::TargetMachine* Compiler::GetTargetMachine(
   return TargetMachine;
 }
 
-llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
-                                     const char* pBuildOptions,
-                                     ProgramBuildResult* pResult)
+llvm::Module *
+Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
+                       ProgramBuildResult *pResult,
+                       std::unique_ptr<llvm::TargetMachine> &targetMachine)
 {
     assert(pModule && "pModule parameter must not be nullptr");
     assert(pResult && "Build results pointer must not be nullptr");
@@ -418,11 +424,12 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
 
     // Record the debug control flags.
     m_debug = buildOptions.GetDebugInfoFlag();
+    m_disableOptimization = buildOptions.GetDisableOpt();
     m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
     materializeSpirTriple(pModule);
 
-    std::unique_ptr<TargetMachine> targetMachine(GetTargetMachine(pModule));
+    targetMachine.reset(GetTargetMachine(pModule));
 
     pModule->setDataLayout(targetMachine->createDataLayout());
 
@@ -446,12 +453,19 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             m_bIsEyeQEmulator,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
-                                            m_rtLoopUnrollFactor);
+                                            m_rtLoopUnrollFactor,
+                                            m_streamingAlways);
     Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
     optimizer.Optimize();
 
     if(optimizer.hasUndefinedExternals())
     {
+        // For FPGA, Buitlin initialization log is a hint for undefiend externals.
+        // TODO: It's better to check whether the module contains IHC content.
+        if(m_bIsFPGAEmulator && !this->getBuiltinInitLog().empty()) {
+          pResult->LogS() << this->getBuiltinInitLog() << "\n";
+        }
+
         Utils::LogUndefinedExternals( pResult->LogS(), optimizer.GetUndefinedExternals());
         throw Exceptions::CompilerException( "Failed to parse IR", CL_DEV_INVALID_BINARY);
     }
@@ -490,17 +504,21 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
     //
     pResult->SetBuildResult( CL_DEV_SUCCESS );
 
-    // Execution Engine depends on module configuration and should
-    // be created per module.
-    // The object that owns module, should own the execution engine
-    // as well and be responsible for release, of course.
+    if (useLLDJITForExecution(pModule)) {
+        // Execution Engine depends on module configuration and should
+        // be created per module.
+        // The object that owns module, should own the execution engine
+        // as well and be responsible for release, of course.
 
-    // Compiler creates execution engine but only keeps a pointer to the latest
-    CreateExecutionEngine(pModule);
+        // Compiler creates execution engine but only keeps a pointer to the
+        // latest
+        CreateExecutionEngine(pModule);
+    }
     return pModule;
 }
 
-llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
+std::unique_ptr<llvm::Module>
+Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
     // Parse the module IR
     llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr =
@@ -511,7 +529,7 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
         throw Exceptions::CompilerException(std::string("Failed to parse IR: ")
               + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
     }
-    return pModuleOrErr.get().release();
+    return std::move(pModuleOrErr.get());
 }
 
 // RTL builtin modules consist of two libraries.

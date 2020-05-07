@@ -12,6 +12,7 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "cl_sys_defines.h"
 #include "CompilerConfig.h"
 #include "OclTune.h"
 #include "PipeCommon.h"
@@ -73,20 +74,18 @@ void GlobalCompilerConfig::LoadConfig()
     // Stat options are set as llvm options for 2 reasons
     // they are available also for opt
     // no need to fuse them all the way down to all passes
+
+    // If environment variable VOLCANO_STATS is set to any non-empty string,
+    // then IR containing statistic information will be dumped.
+    // If the environment variable is set to 'all' (case-insensitive), all
+    // statistic will be dumped, otherwise, only statistic with specified type
+    // will be dumped.
     if (const char *pEnv = getenv("VOLCANO_STATS"))
     {
-        intel::Statistic::enableStats();
-        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
-        {
-            intel::Statistic::setCurrentStatType(pEnv);
-        }
-    }
-    if (const char *pEnv = getenv("VOLCANO_EQUALIZER_DUMP"))
-    {
-        intel::Statistic::enableStats();
-        if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
-        {
-            intel::Statistic::setCurrentStatType(pEnv);
+        if (pEnv[0] != 0) {
+            intel::Statistic::enableStats();
+            if (STRCASECMP("all", pEnv))
+                intel::Statistic::setCurrentStatType(pEnv);
         }
     }
 #endif // INTEL_PRODUCT_RELEASE
@@ -163,6 +162,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
 void CompilerConfig::LoadDefaults()
 {
     m_cpuArch = CPU_ARCH_AUTO;
+    m_cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
     m_transposeSize = TRANSPOSE_SIZE_NOT_SET;
     m_rtLoopUnrollFactor = 1;
     m_cpuFeatures = "";
@@ -219,14 +219,21 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     }
     m_cpuArch       = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE, m_cpuArch.c_str());
     m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, m_cpuFeatures.c_str());
+    m_cpuMaxWGSize  = (size_t)pBackendOptions->GetIntValue(
+        (int)CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE, (int)m_cpuMaxWGSize);
     m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
     m_rtLoopUnrollFactor  = pBackendOptions->GetIntValue((int) CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR, m_rtLoopUnrollFactor);
     m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);
+    m_serializeWorkGroups = pBackendOptions->GetBooleanValue(
+        (int)CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS,
+        m_serializeWorkGroups);
     m_forcedPrivateMemorySize = pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE, m_forcedPrivateMemorySize);
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_AFTER, &m_DumpIROptionAfter, 0);
     pBackendOptions->GetValue((int)OPTION_IR_DUMPTYPE_BEFORE, &m_DumpIROptionBefore, 0);
     m_dumpIRDir     = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMP_IR_DIR, m_dumpIRDir.c_str());
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
+    m_streamingAlways = pBackendOptions->GetBooleanValue(
+        (int)CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS, m_streamingAlways);
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
 }

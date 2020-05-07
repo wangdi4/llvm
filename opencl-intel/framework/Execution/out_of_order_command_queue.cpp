@@ -19,6 +19,7 @@
 #include "events_manager.h"
 #include <assert.h>
 #include <cl_utils.h>
+#include "cl_shared_ptr.hpp"
 
 
 using namespace Intel::OpenCL::Framework;

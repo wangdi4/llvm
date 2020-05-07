@@ -217,12 +217,23 @@ macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
                 set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
             endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
 
+            if (WIN32)
+              # CMAKE_ASM_FLAGS is a list on Windows, so we can use it
+              # with add_custom_command( VERBATIM )
+              set(ASM_FLAGS_LIST ${CMAKE_ASM_FLAGS})
+            else()
+              # Transform string CMAKE_ASM_FLAGS into a list to work
+              # properly with add_custom_command( VERBATIM )
+              separate_arguments(ASM_FLAGS_LIST UNIX_COMMAND ${CMAKE_ASM_FLAGS})
+            endif()
+
             add_custom_command(OUTPUT ${OBJ_FILE}
                                COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
                                COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
-                                       ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
-                                                             ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
+                                       ${OPENCL_ASM_COMPILER} ${ASM_FLAGS_LIST}
+                                                              ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
                                                              ${OBJ_OUTPUT_NAME_FLAG}
+                                                             ${CMAKE_ASM_COMPILE_TO_OBJ_FLAG}
                                                              ${SRC_FILE}
                                MAIN_DEPENDENCY ${SRC_FILE}
                                VERBATIM
@@ -347,43 +358,48 @@ endfunction(ocl_replace_compiler_option_to_dynamic)
 #
 # Set compiler RTTI options according to the given flag
 #
-function(use_rtti val)
-    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+macro(use_rtti val)
+    #  !!! Don't change the order! ICX matches both MSVC and Clang, but it uses MSVC flags !!!
+    if (MSVC) # ICX/MSVC
+        if( ${val} )
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR")
+        else()
+            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GR-")
+        endif()
+    else() # GCC/Clang
         if( ${val} )
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-fno-rtti" "-frtti")
         else()
             ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-frtti" "-fno-rtti" )
         endif()
-    else(MSVC)
-        if( ${val} )
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR-" "/GR")
-        else()
-            ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/GR" "/GR-" )
-        endif()
     endif()
-    set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE )
-endfunction(use_rtti)
+endmacro(use_rtti)
 
 #
 # Set compiler Exception Handling options according to the given flag
 #
-function(use_eh val)
-    if( CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+macro(use_eh val)
+    #  !!! Don't change the order! ICX matches both MSVC and Clang, but it uses MSVC flag !!!
+    if (MSVC) # ICX/MSVC
+        if( ${val} )
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "")
+              set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+              add_definitions( /D_HAS_EXCEPTIONS=1 )
+        else()
+              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "")
+              set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHs-c-")
+              add_definitions( /D_HAS_EXCEPTIONS=0 )
+        endif()
+    else() # GCC/Clang
         if( ${val} )
             remove_definitions( -fno-exceptions )
         else()
             add_definitions( -fno-exceptions )
         endif()
-    else(MSVC)
-        if( ${val} )
-              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs-c-" "/EHsc" )
-              add_definitions( /D_HAS_EXCEPTIONS=1 )
-        else()
-              ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHs-c-")
-              add_definitions( /D_HAS_EXCEPTIONS=0 )
-        endif()
     endif()
-endfunction(use_eh)
+endmacro(use_eh)
 
 # Set of functions used to add unittests
 # TODO: reuse in backend
@@ -436,6 +452,7 @@ function (add_ocl_unittest test_name)
   add_lit_testsuite(${LIT_TARGET}
     "Running the OpenCL ${test_name} unittests"
     ${CMAKE_CURRENT_SOURCE_DIR}
+    EXCLUDE_FROM_CHECK_ALL
     PARAMS ${RT_TEST_PARAMS}
     DEPENDS ${test_name}
     ARGS ${RT_TEST_ARGS})

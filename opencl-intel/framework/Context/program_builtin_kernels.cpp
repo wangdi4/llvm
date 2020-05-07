@@ -15,6 +15,7 @@
 #include "Context.h"
 #include "program_builtin_kernels.h"
 #include "cl_logger.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "Device.h"
 

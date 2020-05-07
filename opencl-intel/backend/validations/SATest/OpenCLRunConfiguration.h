@@ -41,6 +41,7 @@ namespace Validation
         RC_BR_DUMP_OPTIMIZED_LLVM_IR,
         RC_BR_EXECUTE_ITERATIONS_COUNT,
         RC_BR_MEASURE_PERFORMANCE,
+        RC_BR_VECTORIZER_TYPE,
         RC_BR_TRANSPOSE_SIZE,
         RC_BR_VERBOSE,
         RC_BR_USE_SDE,
@@ -108,6 +109,7 @@ namespace Validation
         std::string m_TimePasses;
         std::string m_InjectedObject;
         bool m_dumpHeuristcIR;
+        VectorizerType m_vectorizerType;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;
@@ -115,6 +117,8 @@ namespace Validation
     template<> uint32_t BERunOptions::GetValue<uint32_t>(RunConfigurationOption rc, uint32_t defaultValue) const;
     template<> uint64_t BERunOptions::GetValue<uint64_t>(RunConfigurationOption rc, uint64_t defaultValue) const;
     template<> std::string BERunOptions::GetValue<std::string>(RunConfigurationOption rc, std::string defaultValue) const;
+    template<> VectorizerType
+        BERunOptions::GetValue<VectorizerType>(RunConfigurationOption rc, VectorizerType defaultValue) const;
     template<> Intel::OpenCL::DeviceBackend::ETransposeSize
         BERunOptions::GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RunConfigurationOption rc,
         Intel::OpenCL::DeviceBackend::ETransposeSize defaultValue) const;

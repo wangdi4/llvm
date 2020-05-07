@@ -31,11 +31,11 @@
 #include "MetadataAPI.h"
 #include "BitCodeContainer.h"
 #include "CompilationUtils.h"
-#include "cache_binary_handler.h"
 #include "ObjectCodeContainer.h"
 #include "ObjectCodeCache.h"
 #include "OclTune.h"
 #include "ChannelPipeUtils.h"
+#include "SystemInfo.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -52,19 +52,11 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-
-#if defined (WIN32)
-#include <windows.h>
-#include <shellapi.h>
-#include <codecvt>
-#endif // WIN32
 
 #include <algorithm>
 #include <atomic>
@@ -132,36 +124,13 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 }
 } //namespace Utils
 
-using namespace Intel::OpenCL::ELFUtils;
-
-// checks if the given program has an object binary to be loaded from
-static bool checkIfProgramHasCachedExecutable(Program *pProgram) {
-  assert(pProgram && "pProgram is null");
-  if (!pProgram->GetObjectCodeContainer())
-    return false;
-
-  const char *pObject =
-      (const char *)pProgram->GetObjectCodeContainer()->GetCode();
-  size_t objectSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
-  CacheBinaryReader reader(pObject, objectSize);
-  return reader.IsCachedObject();
-}
-
-// Update the size of the variables in global address space used by the program.
-static void updateGlobalVariableTotalSize(Program *pProgram, Module *pModule) {
-  auto globalSizeMetadata = ModuleInternalMetadataAPI(pModule).GlobalVariableTotalSize;
-  // The info is missing only when we build image built-ins and we don't
-  // care about the size of global variables in the program.
-  if (!globalSizeMetadata.hasValue())
-    return;
-  pProgram->SetGlobalVariableTotalSize(globalSizeMetadata.get());
-}
-
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
+    m_serializeWorkGroups(config.GetSerializeWorkGroups()),
     m_targetDevice(config.TargetDevice()),
     m_forcedPrivateMemorySize(config.GetForcedPrivateMemorySize()),
+    m_cpuMaxWGSize(config.GetCpuMaxWGSize()),
     m_statFileBaseName(config.GetStatFileBaseName())
 {
     // prepare default base file name for stat file in the following cases:
@@ -173,35 +142,9 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
         (!m_statFileBaseName.empty() &&
          llvm::sys::path::is_separator(*m_statFileBaseName.rbegin())))
     {
-#if defined (WIN32)
-        LPWSTR *cl;
-        int numArgs;
-        string nameStr, nameStr2;
-        const char *name = nullptr;
-
-        WCHAR path[MAX_PATH];
-        if (!GetModuleFileNameW(GetModuleHandleW(nullptr), path, MAX_PATH)) {
-            std::wstring wstr(path);
-            nameStr = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
-            name = nameStr.c_str();
-        }
-
-        // find the base name by searching for the last '/' in the name
-        // Remove .exe from the name. To actually create a file name without
-        // the extension, need to create it in a string and take it's c_str()
-        if (name != nullptr) {
-            nameStr2 = llvm::sys::path::stem(StringRef(name)).str();
-            name = nameStr2.c_str();
-        }
-
-#else // WIN32
-         const char *name = getenv("_");
-        // find the base name by searching for the last '/' in the name
-        if (name != nullptr)
-            name = llvm::sys::path::filename(StringRef(name)).data();
-#endif // WIN32
+        std::string name = Utils::SystemInfo::GetExecutableFilename();
         // if still no meaningful name just use "Program" as module name
-        if (name == nullptr || *name == 0)
+        if (name.empty())
             name = "Program";
 
         m_statFileBaseName += name;
@@ -217,17 +160,17 @@ ProgramBuilder::~ProgramBuilder()
 
 void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStats)
 {
+#ifndef INTEL_PRODUCT_RELEASE
     if (intel::Statistic::isEnabled() || !m_statFileBaseName.empty())
     {
         // use sequential number to distinguish dumped files
-        std::stringstream fileNameBuilder;
+        std::string fileId;
         if (isEqualizerStats)
-          fileNameBuilder << (Utils::getEqualizerDumpFileId());
+          fileId = std::to_string(Utils::getEqualizerDumpFileId());
         else
-          fileNameBuilder << (Utils::getVolcanoDumpFileId());
+          fileId = std::to_string(Utils::getVolcanoDumpFileId());
 
-        std::string fileName(m_statFileBaseName);
-        fileName += fileNameBuilder.str();
+        std::string fileName(m_statFileBaseName + fileId);
         if (isEqualizerStats)
           fileName += "_eq";
         fileName += ".ll";
@@ -237,7 +180,7 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStat
         {
           intel::Statistic::setModuleStatInfo(pModule,
               m_statWkldName.c_str(), // workload name
-              (m_statWkldName + fileNameBuilder.str()).c_str() // module name
+              (m_statWkldName + fileId).c_str() // module name
               );
         }
         // dump IR with stats
@@ -248,13 +191,15 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule, bool isEqualizerStat
         else
           throw Exceptions::CompilerException(ec.message());
     }
+#endif // INTEL_PRODUCT_RELEASE
 }
 
 void ProgramBuilder::ParseProgram(Program* pProgram)
 {
     try
     {
-        assert(!checkIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
+        assert(!pProgram->HasCachedExecutable() &&
+               "Program must not be loaded from cache");
         pProgram->SetModule( GetCompiler()->ParseModuleIR( Utils::GetProgramMemoryBuffer(pProgram)));
     }
     catch(Exceptions::CompilerException& e)
@@ -272,7 +217,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 
     try
     {
-        if(checkIfProgramHasCachedExecutable(pProgram))
+        if(pProgram->HasCachedExecutable())
         {
              std::string log = "Reload Program Binary Object.";
              ReloadProgramFromCachedExecutable(pProgram);
@@ -280,20 +225,20 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
              return CL_DEV_SUCCESS;
         }
         Compiler* pCompiler = GetCompiler();
-        llvm::Module* pModule = (llvm::Module*)pProgram->GetModule();
+        llvm::Module* pModule = pProgram->GetModule();
 
         if(!pModule)
         {
             ParseProgram(pProgram);
-            pModule = (llvm::Module*)pProgram->GetModule();
+            pModule = pProgram->GetModule();
         }
         assert(pModule && "Module parsing has failed without exception. Strange");
 
 #ifndef INTEL_PRODUCT_RELEASE
-        if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS"))
-        {
-            if (pEnv[0] != 0 && (strcmp("ALL", pEnv) || strcmp("all", pEnv)))
-            {
+        // If environment variable VOLCANO_EQUALIZER_STATS is set to any
+        // non-empty string, then we dump IR before optimization.
+        if (const char *pEnv = getenv("VOLCANO_EQUALIZER_STATS")) {
+            if (pEnv[0] != 0) {
                 DumpModuleStats(pModule, /*isEqualizerStats = */ true);
             }
         }
@@ -304,14 +249,18 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
                                                         nullptr);
 
-        pCompiler->BuildProgram(pModule, pBuildOpts, &buildResult);
-        // ObjectCodeCache structure will be filled by a callback after JIT
-        // happens.
-        std::unique_ptr<ObjectCodeCache>
-          pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
-        pCompiler->SetObjectCache(pObjectCodeCache.get());
+        std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
+        if((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
+           (CompilationUtils::getOptDisableFlagFromMetadata(pModule)))
+             MergeOptions.append(" -cl-opt-disable");
+        if((MergeOptions.find("-g") == std::string::npos) &&
+           (CompilationUtils::getDebugFlagFromMetadata(pModule)))
+             MergeOptions.append(" -g");
 
-        pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
+        std::unique_ptr<llvm::TargetMachine> targetMachine;
+        pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult,
+                                targetMachine);
+
         pProgram->SetBuiltinModule(pCompiler->GetBuiltinModuleList());
 
         // init refcounted runtime service shared storage between program
@@ -321,25 +270,28 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         // set runtime service for the program
         pProgram->SetRuntimeService(lRuntimeService);
 
+#ifndef INTEL_PRODUCT_RELEASE
         // Dump module stats just before lowering if requested
-        if (const char *pEnv = getenv("VOLCANO_STATS"))
-        {
-            if (pEnv[0] != 0 && strcmp("ALL", pEnv) && strcmp("all", pEnv))
-            {
-                DumpModuleStats(pModule, /*isEqualizerStats = */ false);
-            }
-        }
+        DumpModuleStats(pModule, /*isEqualizerStats = */ false);
+#endif // INTEL_PRODUCT_RELEASE
 
-        PostOptimizationProcessing(pProgram, pModule, pOptions);
+        PostOptimizationProcessing(pProgram);
+
+        // ObjectCodeCache structure will be filled by a callback after JIT
+        // happens.
+        std::unique_ptr<ObjectCodeCache>
+            objCache(new ObjectCodeCache(nullptr, nullptr, 0));
 
         if (!(pOptions && pOptions->
               GetBooleanValue(CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT, false)))
         {
+            JitProcessing(pProgram, pOptions, std::move(targetMachine),
+                          objCache.get());
+
             // LLVMBackend::GetInstance()->m_logger->Log(Logger::DEBUG_LEVEL,
             // L"Start iterating over kernels");
             KernelSet* pKernels = CreateKernels( pProgram,
-                                                 pModule,
-                                                 pBuildOpts,
+                                                 MergeOptions.c_str(),
                                                  buildResult);
             // update kernels with RuntimeService
             Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pKernels );
@@ -348,10 +300,9 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
         }
 
         // call post build method
-        PostBuildProgramStep( pProgram, pModule, pOptions );
-        updateGlobalVariableTotalSize(pProgram, pModule);
+        PostBuildProgramStep( pProgram, pOptions );
 
-        BuildProgramCachedExecutable(pObjectCodeCache.get(), pProgram);
+        BuildProgramCachedExecutable(objCache.get(), pProgram);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
     {
@@ -505,7 +456,12 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   // global size = (2^32, 2^32, 2^32) and local size = reqd_work_group_size, we
   // need to serialize work-groups even if there is no fpga pipes/channels to
   // avoid grabbing all of available threads by work-groups of autorun kernels
-  bool needSerializeWGs =
+  //
+  // Work-groups are serialized in the following cases:
+  //   1. CL_CONFIG_CPU_TBB_NUM_WORKERS is 1
+  //   2. Kernel has FPGA pipe/channel
+  //   3. Kernel is FPGA autorun.
+  bool needSerializeWGs = m_serializeWorkGroups ||
       (skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get()) || isAutorun;
 
   // Need to check if NoBarrierPath Value exists, it is not guaranteed that
@@ -592,6 +548,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   //
   pProps->SetTargetDevice(m_targetDevice);
+
+  pProps->SetCpuMaxWGSize(m_cpuMaxWGSize);
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=

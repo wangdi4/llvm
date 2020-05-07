@@ -16,11 +16,6 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # Settings for Linux compilation
 #
 if (NOT WIN32)
-    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-      set ( WARNING_LEVEL "${WARNING_LEVEL} -Werror")
-    endif()
-
     # Compiler switches that CANNOT be modified during makefile generation
     set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
 
@@ -28,11 +23,10 @@ if (NOT WIN32)
     set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}")
 
     set (ADD_C_FLAGS_DEBUG   "-O0 -ggdb -D _DEBUG")
-    set (ADD_C_FLAGS_RELEASE "-O2 -ggdb ")
+    set (ADD_C_FLAGS_RELEASE "-O2")
 
 
     # Compiler switches that CAN be modified during makefile generation and configuration-independent
-    add_definitions( ${WARNING_LEVEL} )
 
     # Linker switches
     set (ADD_LINKER_FLAGS_DEBUG   )
@@ -62,22 +56,6 @@ if (NOT WIN32)
     set( CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${ADD_LINKER_FLAGS_RELEASE}")
 
 endif (NOT WIN32)
-
-#
-# Settings for Windows compilation
-#
-if (WIN32)
-
-    # Assember and its flags
-    set( CMAKE_ASM_FLAGS /c /nologo /W3 /Zi /errorReport:prompt)
-    set( CMAKE_ASM_INCLUDE_DIR_FLAG   /I )
-    set( CMAKE_ASM_OUTPUT_NAME_FLAG   /Fo )
-    get_filename_component( CMAKE_ASM_COMPILER_DIR ${CMAKE_CXX_COMPILER} DIRECTORY )
-    set ( CMAKE_ASM_COMPILER "${CMAKE_ASM_COMPILER_DIR}/ml64.exe" )
-    set( CMAKE_ASM_LINK_FLAG "/nologo")
-
-endif (WIN32)
-
 
 use_rtti(FALSE)
 
@@ -113,6 +91,7 @@ set (OCL_CPU_BACKEND_INCLUDE_FILES
     CompilerConfig.h
     ExecutionService.h
     EyeQBuiltinLibrary.h
+    FPGAEmuBuiltinLibrary.h
     ImageCallbackLibrary.h
     ImageCallbackManager.h
     ImageCallbackServices.h
@@ -156,6 +135,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     CompilerConfig.cpp
     ExecutionService.cpp
     EyeQBuiltinLibrary.cpp
+    FPGAEmuBuiltinLibrary.cpp
     ImageCallbackLibrary.cpp
     ImageCallbackManager.cpp
     ImageCallbackServices.cpp
@@ -189,6 +169,11 @@ if (WIN32)
         LLDJITBuilder.cpp
         LLDJIT.cpp
         AsmCompiler.cpp
+        ihc_thread_win32.cpp
+    )
+else (WIN32)
+    list(APPEND OCL_CPU_BACKEND_SOURCE_FILES
+        ihc_thread_linux.cpp
     )
 endif (WIN32)
 
@@ -197,7 +182,7 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set (ASM_SOURCES kernel_execute_64.asm)
         CREATE_ASM_RULES( ASM_ADD_TO_SOURCES_LIST ${ASM_SOURCES} )
     else (WIN32)
-        set (ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
+        CREATE_ASM_RULES(ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
     endif (WIN32)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
@@ -246,8 +231,10 @@ set( BACKEND_PASSES
     PipeIOTransformation
     CleanupWrappedKernels
     CoerceTypes
+    RemoveAtExit
     PipeOrdering
     PipeSupport
+    HandleVPlanMask
     OclFunctionAttrs
     BuiltInFuncImport
     BuiltinLibInfo
@@ -283,6 +270,7 @@ set( BACKEND_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
+    AddNTAttr
 )
 
 set(UTILS_LIBS

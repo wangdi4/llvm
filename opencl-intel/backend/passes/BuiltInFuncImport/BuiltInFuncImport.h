@@ -60,16 +60,18 @@ namespace intel {
 
   protected:
     /// @brief update svml function names from shared libraries to
-    ///        reflect cpu prefix
-    /// @param [IN] fn function to process
-    /// @param [IN] pCPUPrefix prefix that will replace 'shared' substr
-    void UpdateSvmlBuiltinName(Function *F, const char *CPUPrefix) const;
+    ///        reflect cpu prefix and their calling conventions.
+    /// @param [IN] SvmlFunctions Shared svml functions used by the module.
+    /// @param [IN] M The module to process.
+    void UpdateSvmlBuiltin(const FunctionsVec &SvmlFunctions, Module &M) const;
 
     /// @brief Get all the functions called by given function.
-    /// @param [IN] pFunc The given function.
-    /// @param [OUT] calledFuncs The list of all functions called by pFunc.
+    /// @param [IN] Func The given function.
+    /// @param [OUT] CalledFuncs The list of all functions called by Func.
+    /// @param [OUT] SvmlFunctions List of shared svml functions called by Func.
     void GetCalledFunctions(const Function *Func,
-                            FunctionsVec &CalledFuncs) const;
+                            FunctionsVec &CalledFuncs,
+                            FunctionsVec &SvmlFunctions) const;
 
     /// @brief Find all functions and global variables
     ///        from the \p Modules used by the function \p Root
@@ -81,13 +83,15 @@ namespace intel {
     /// @param [IN] Modules modules with definitions of \p Root dependencies
     /// @param [OUT] UsedFunctions functions used by the \p Root
     /// @param [OUT] UsedGlobals global variables used by the \p Root
+    /// @param [OUT] SvmlFunctions Shared svml functions used by the \p Root
     void ExploreUses(Function *Root,
                      SmallVectorImpl<Module *> &Modules,
                      SmallPtrSetImpl<GlobalValue *> &UsedFunctions,
-                     SmallPtrSetImpl<GlobalVariable *> &UsedGlobals);
+                     SmallPtrSetImpl<GlobalVariable *> &UsedGlobals,
+                     FunctionsVec &SvmlFunctions);
   protected:
     /// @brief holds cpu perfix that would replace 'shared' substr in svml funcs
-    const std::string m_cpuPrefix;
+    std::string m_cpuPrefix;
 
     /// @brief Source module list - contains the source functions to import
     SmallVector<Module *, 2> m_runtimeModuleList;

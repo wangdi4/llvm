@@ -43,7 +43,7 @@ if.then:                                          ; preds = %entry
   %add.ptr = getelementptr inbounds i8, i8 addrspace(1)* %input_data, i64 %idx.ext
   %1 = bitcast i8 addrspace(1)* %add.ptr to i32 addrspace(1)*
   %call23_clone = tail call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %1) #5
-; CHECK-NOT: @maskedf_0__Z27intel_sub_group_block_read2PU3AS1Kj
+; CHECK: @maskedf_0__Z27intel_sub_group_block_read2PU3AS1Kj
   %2 = call i32 @fake.extract.element0(<2 x i32> %call23_clone, i32 0) #3
   %3 = call i32 @fake.extract.element1(<2 x i32> %call23_clone, i32 1) #3
   br label %if.end

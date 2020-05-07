@@ -38,7 +38,7 @@ struct FunctionPassPrinter : public FunctionPass {
 
   FunctionPassPrinter(const PassInfo *PI, raw_ostream &out, bool Quiet)
       : FunctionPass(ID), PassToPrint(PI), Out(out), QuietPass(Quiet) {
-    std::string PassToPrintName = PassToPrint->getPassName();
+    std::string PassToPrintName = std::string(PassToPrint->getPassName());
     PassName = "FunctionPass Printer: " + PassToPrintName;
   }
 
@@ -71,7 +71,7 @@ struct CallGraphSCCPassPrinter : public CallGraphSCCPass {
 
   CallGraphSCCPassPrinter(const PassInfo *PI, raw_ostream &out, bool Quiet)
       : CallGraphSCCPass(ID), PassToPrint(PI), Out(out), QuietPass(Quiet) {
-    std::string PassToPrintName = PassToPrint->getPassName();
+    std::string PassToPrintName = std::string(PassToPrint->getPassName());
     PassName = "CallGraphSCCPass Printer: " + PassToPrintName;
   }
 
@@ -108,7 +108,7 @@ struct ModulePassPrinter : public ModulePass {
 
   ModulePassPrinter(const PassInfo *PI, raw_ostream &out, bool Quiet)
       : ModulePass(ID), PassToPrint(PI), Out(out), QuietPass(Quiet) {
-    std::string PassToPrintName = PassToPrint->getPassName();
+    std::string PassToPrintName = std::string(PassToPrint->getPassName());
     PassName = "ModulePass Printer: " + PassToPrintName;
   }
 
@@ -140,7 +140,7 @@ struct LoopPassPrinter : public LoopPass {
 
   LoopPassPrinter(const PassInfo *PI, raw_ostream &out, bool Quiet)
       : LoopPass(ID), PassToPrint(PI), Out(out), QuietPass(Quiet) {
-    std::string PassToPrintName = PassToPrint->getPassName();
+    std::string PassToPrintName = std::string(PassToPrint->getPassName());
     PassName = "LoopPass Printer: " + PassToPrintName;
   }
 
@@ -173,7 +173,7 @@ struct RegionPassPrinter : public RegionPass {
 
   RegionPassPrinter(const PassInfo *PI, raw_ostream &out, bool Quiet)
       : RegionPass(ID), PassToPrint(PI), Out(out), QuietPass(Quiet) {
-    std::string PassToPrintName = PassToPrint->getPassName();
+    std::string PassToPrintName = std::string(PassToPrint->getPassName());
     PassName = "RegionPass Printer: " + PassToPrintName;
   }
 

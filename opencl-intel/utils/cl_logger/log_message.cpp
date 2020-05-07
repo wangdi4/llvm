@@ -59,7 +59,7 @@ LogMessage::LogMessage(ELogLevel eLevel,
 // LogMessage Dtor
 /////////////////////////////////////////////////////////////////////////////////////////
 
-inline LogMessage::~LogMessage()
+LogMessage::~LogMessage()
 {
 	if (m_bUnicodeMessage && m_psFormattedMsg)
 	{

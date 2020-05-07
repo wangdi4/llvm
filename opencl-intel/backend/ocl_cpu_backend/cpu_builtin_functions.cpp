@@ -18,6 +18,7 @@
 #include "cpu_dev_limits.h"
 #include "SystemInfo.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/DataTypes.h"
 
@@ -98,16 +99,42 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_exit_fun
 struct __emutls_control;
 extern "C" LLVM_BACKEND_API void *__opencl_emutls_get_address(__emutls_control *control);
 
+// IHC support for FPGA
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *_ihc_mutex_create() LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_mutex_delete(void *) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_mutex_lock(void *) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_mutex_unlock(void *) LLVM_BACKEND_NOINLINE_POST;
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *_ihc_cond_create() LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_cond_delete(void *cv) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_cond_notify_one(void *) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_cond_wait(void *, void *) LLVM_BACKEND_NOINLINE_POST;
+
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *_ihc_pthread_create(void *(*)(void *),void *) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_pthread_join(void *handle) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_pthread_detach(void *handle) LLVM_BACKEND_NOINLINE_POST;
+
 // OpenCL20. Extended execution
 class IDeviceCommandManager;
 class IBlockToKernelMapper;
 #include "opencl20_ext_execution.h"
 
-// Register BI functions defined above
-#define REGISTER_BI_FUNCTION(name,ptr) \
-  llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name), (void*)(intptr_t)ptr);
-void RegisterCPUBIFunctions(void)
+// Register BI functions defined above to JIT.
+//   MCJIT: use llvm::sys::DynamicLibrary::AddSymbol for each function.
+//   LLJIT: use defineAbsolute for each function.
+#define REGISTER_BI_FUNCTION(name, ptr)                                        \
+  if (LLJIT) {                                                                 \
+    if (auto Err = LLJIT->defineAbsolute(                                      \
+            name, llvm::JITEvaluatedSymbol(                                    \
+                      llvm::pointerToJITTargetAddress(&ptr), flag)))           \
+      return Err;                                                              \
+  } else {                                                                     \
+    llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name),                \
+                                         (void *)(intptr_t)ptr);               \
+  }
+llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT *LLJIT)
 {
+    llvm::JITSymbolFlags flag;
 
     REGISTER_BI_FUNCTION("dbg_print",cpu_dbg_print)
     REGISTER_BI_FUNCTION("lprefetch",cpu_lprefetch)
@@ -134,4 +161,18 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
     REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
     REGISTER_BI_FUNCTION("__emutls_get_address",__opencl_emutls_get_address)
+    // IHS support
+    REGISTER_BI_FUNCTION("_ihc_mutex_create", _ihc_mutex_create)
+    REGISTER_BI_FUNCTION("_ihc_mutex_delete", _ihc_mutex_delete)
+    REGISTER_BI_FUNCTION("_ihc_mutex_lock", _ihc_mutex_lock)
+    REGISTER_BI_FUNCTION("_ihc_mutex_unlock", _ihc_mutex_unlock)
+    REGISTER_BI_FUNCTION("_ihc_cond_create", _ihc_cond_create)
+    REGISTER_BI_FUNCTION("_ihc_cond_delete", _ihc_cond_delete)
+    REGISTER_BI_FUNCTION("_ihc_cond_notify_one",_ihc_cond_notify_one)
+    REGISTER_BI_FUNCTION("_ihc_cond_wait", _ihc_cond_wait)
+    REGISTER_BI_FUNCTION("_ihc_pthread_create", _ihc_pthread_create)
+    REGISTER_BI_FUNCTION("_ihc_pthread_join", _ihc_pthread_join)
+    REGISTER_BI_FUNCTION("_ihc_pthread_detach", _ihc_pthread_detach)
+
+    return llvm::Error::success();
 }

@@ -64,7 +64,7 @@ bool DetectRecursion::DetectRecursionInFunction(Function *fn) {
   for (scc_iterator<CallGraphNode *> SCCI = scc_begin(node), E = scc_end(node);
        SCCI != E; ++SCCI) {
     const std::vector<CallGraphNode *> &nextSCC = *SCCI;
-    if (nextSCC.size() > 1 || SCCI.hasLoop()) {
+    if (nextSCC.size() > 1 || SCCI.hasCycle()) {
       return true;
     }
   }

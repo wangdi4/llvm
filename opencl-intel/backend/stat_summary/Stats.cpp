@@ -24,7 +24,7 @@ const string &WorkloadInfo::getWorkloadID (const string &location,
   string *id = new string();
   assert (id && "No space for new workload ID");
 
-  id->assign(llvm::sys::path::parent_path(llvm::StringRef(location.c_str())));
+  id->assign(std::string(llvm::sys::path::parent_path(llvm::StringRef(location.c_str()))));
 
   if (id->size() == 0 || *id->rbegin() != '/')
     id->append("/");
@@ -87,7 +87,7 @@ void WorkloadInfo::dumpStats(stringstream &str, const StatValueMap &names,
     unsigned levels) const
 {
   // dump worload sums
-  string s = llvm::sys::path::filename(llvm::StringRef(id.c_str()));
+  string s = std::string(llvm::sys::path::filename(llvm::StringRef(id.c_str())));
 
   str << "1," << s << ",";
   StatValueMapC::dumpStatValueMapValue(str, names, workloadStats);

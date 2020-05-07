@@ -30,7 +30,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class ObjectCodeCache : public llvm::ObjectCache {
 private:
   // Pointers on the represented program
-  std::string m_CachedModuleBuffer;
   std::unique_ptr<llvm::MemoryBuffer> m_pObjectBuffer;
   bool m_isObjectAvailable;
 
@@ -38,8 +37,7 @@ private:
   ObjectCodeCache& operator=( const ObjectCodeCache& rhs );
 
 public:
-  ObjectCodeCache(): 
-    m_CachedModuleBuffer(""),
+  ObjectCodeCache():
     m_isObjectAvailable(false)
     { }
 
@@ -48,17 +46,15 @@ public:
   virtual ~ObjectCodeCache();
 
   /// notifyObjectCompiled - will be called once the codegen generates an object
-  virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef);
+  virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef)
+      override;
 
   /// getObject - Returns a pointer to a pre-compiled object buffer previously
   /// added to the cache or 0 if the object not found
-  virtual std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M);
+  virtual std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M)
+      override;
 
-  /// return pointer to the cached module raw data
-  virtual const std::string& getCachedModule();
-
-  /// return pointer to the object buffer
-  virtual const llvm::MemoryBuffer* getCachedObject();
+  virtual bool isObjectAvailable() const { return m_isObjectAvailable; }
 };
 
 }}}

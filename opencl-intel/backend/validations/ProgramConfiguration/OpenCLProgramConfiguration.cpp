@@ -46,7 +46,7 @@ namespace Utils
                                          fileName=" + fileName +
                                          " and baseDirectory=" +  baseDirectory);
             sys::path::native(absFilePath);
-            return absFilePath.str();
+            return std::string(absFilePath);
         }
 
         SmallString<128> fName(fileName);
@@ -190,7 +190,7 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
         llvm::sys::path::native(configPath);
     }
 
-    m_programName   = llvm::sys::path::stem(llvm::StringRef(configPath));
+    m_programName   = std::string(llvm::sys::path::stem(llvm::StringRef(configPath)));
     m_configFile    = configPath.c_str();
     m_baseDirectory = baseDir.empty() ? llvm::sys::path::parent_path(llvm::StringRef(configPath)).str()
                                       : baseDir;

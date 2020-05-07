@@ -377,6 +377,7 @@ code sincos_svml_rm = [{
 OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, [v16f32], 0, sincos_svml_rm>;
 OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, [v16f32], 0, sincos_svml_rm>;
 OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, [v16f32], 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_gen_svml_rm = OclBuiltinImpl<sincos_gen_rm, [v16f32], 0, sincos_svml_rm>;
 
 // divide_rm
 OclBuiltinImpl divide_svml_rm = OclBuiltinImpl<divide_rm, [v16f32], 0, [{

@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 #include <CL/cl.h>
+#include <CL/cl_fpga_ext.h>
 
 #include <string>
 

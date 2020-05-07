@@ -65,13 +65,13 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
     // running
     if (!pFunc || !pFunc->isDeclaration())
       continue;
-    llvm::StringRef func_name = pFunc->getName();
+    std::string func_name = std::string(pFunc->getName());
     if (CompilationUtils::isSubGroupBarrier(func_name)) {
       replaceFunction(pFunc, CompilationUtils::WG_BARRIER_FUNC_NAME);
     } else if (CompilationUtils::isGetSubGroupLocalId(func_name)) {
 
       BasicBlock *entry = BasicBlock::Create(*m_pLLVMContext, "entry", pFunc);
-      std::string fName = func_name.str();
+      std::string fName = func_name;
       reflection::FunctionDescriptor fd = demangle(fName.c_str());
       fd.name = CompilationUtils::NAME_GET_LINEAR_LID;
       fName = mangle(fd);
@@ -191,7 +191,7 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
 
 void SubGroupAdaptation::replaceFunction(Function *oldFunc,
                                          std::string newFuncName) {
-  std::string m_name = oldFunc->getName();
+  std::string m_name = std::string(oldFunc->getName());
   std::string newName(newFuncName);
   if (!CompilationUtils::isPipeBuiltin(m_name)) {
     reflection::FunctionDescriptor fd = demangle(m_name.c_str());
@@ -263,7 +263,7 @@ void SubGroupAdaptation::defineSubGroupBroadcast(Function *pFunc) {
       BinaryOperator::CreateUDiv(rd1, local_size_1, "lid2", entry);
   params.push_back(lid2);
 
-  std::string strFuncName = pFunc->getName();
+  std::string strFuncName = std::string(pFunc->getName());
   reflection::FunctionDescriptor fd = demangle(strFuncName.c_str());
 
   // replace built-in name

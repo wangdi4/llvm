@@ -12,12 +12,26 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <gtest/gtest.h>
-#include "CL/cl.h"
+#if defined _M_X64 || defined __x86_64__
 
+#include "common_utils.h"
+#include <CL/cl.h>
+#include <fstream>
+#include <gtest/gtest.h>
 #include <string>
 
 extern cl_device_type gDeviceType;
+
+static void readBinary(std::string filename,
+                       std::vector<unsigned char> &binary) {
+  std::ifstream binaryFile(get_exe_dir() + filename,
+                           std::fstream::binary | std::fstream::in);
+  ASSERT_TRUE(binaryFile.is_open()) << "Unable to open file";
+  std::copy(std::istreambuf_iterator<char>(binaryFile),
+            std::istreambuf_iterator<char>(), std::back_inserter(binary));
+  binaryFile.close();
+  ASSERT_NE(binary.size(), 0) << "Unable to read binary";
+}
 
 TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
   cl_int error = CL_SUCCESS;
@@ -34,17 +48,21 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
       &error);
   ASSERT_EQ(CL_SUCCESS, error) << "clCreateContext failed";
 
-  const char *kernel_source = "\
-      __attribute__((noinline))                                              \n\
-      int foo() { return 42; }                                               \n\
-      __kernel void test(__global int* data) {                               \n\
-        *data = foo();                                                       \n\
-      }                                                                      \n\
-  ";
+  // This spv file is generated from
+  //   sycl/test/function-pointers/fp-as-kernel-arg.cpp
+  // using following command:
+  //   clang++ -fsycl-device-only -fno-sycl-use-bitcode
+  //           -Xclang -fsycl-allow-func-ptr -std=c++14
+  //           fp-as-kernel-arg.cpp -o fp-as-kernel-arg.spv
+  std::string fileName = "fp-as-kernel-arg.spv";
+  const char *funcName = "add";
 
-  cl_program program =
-      clCreateProgramWithSource(context, 1, &kernel_source, nullptr, &error);
-  ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithSource failed";
+  std::vector<unsigned char> spvBinary;
+  ASSERT_NO_FATAL_FAILURE(readBinary(fileName, spvBinary));
+
+  cl_program program = clCreateProgramWithIL(context, spvBinary.data(),
+                                             spvBinary.size(), &error);
+  ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithIL failed";
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -62,12 +80,12 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
 #pragma GCC diagnosic pop
 
   cl_ulong fp = 0;
-  error = clGetDeviceFunctionPointerINTELPtr(device, program, "foo", &fp);
+  error = clGetDeviceFunctionPointerINTELPtr(device, program, funcName, &fp);
   ASSERT_EQ(CL_INVALID_PROGRAM_EXECUTABLE, error)
       << "clGetDeviceFunctionPointerINTEL must return "
          "CL_INVALID_PROGRAM_EXECUTABLE if program wasn't build";
 
-  error = clGetDeviceFunctionPointerINTELPtr(device, nullptr, "foo", &fp);
+  error = clGetDeviceFunctionPointerINTELPtr(device, nullptr, funcName, &fp);
   ASSERT_EQ(CL_INVALID_PROGRAM, error)
       << "clGetDeviceFunctionPointerINTEL must return CL_INVALID_PROGRAM if "
          "program is not a valid OpenCL program";
@@ -88,7 +106,8 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
     FAIL() << log << "\n";
   }
 
-  error = clGetDeviceFunctionPointerINTELPtr(device, program, "foo", nullptr);
+  error = clGetDeviceFunctionPointerINTELPtr(device, program, funcName,
+                                             nullptr);
   ASSERT_EQ(CL_INVALID_VALUE, error) << "clGetDeviceFunctionPointerINTEL "
     "must return CL_INVALID_VALUE if function_pointer_ret is nullptr";
 
@@ -98,8 +117,10 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
 
   // TODO: check for CL_INVALID_DEVICE
 
-  error = clGetDeviceFunctionPointerINTELPtr(device, program, "foo", &fp);
+  error = clGetDeviceFunctionPointerINTELPtr(device, program, funcName, &fp);
   ASSERT_EQ(CL_SUCCESS, error) << "clGetDeviceFunctionPointerINTEL failed";
   ASSERT_NE(0u, fp) << "clGetDeviceFunctionPointerINTEL must return a non-zero "
     "value via function_pointer_ret on success";
 }
+
+#endif

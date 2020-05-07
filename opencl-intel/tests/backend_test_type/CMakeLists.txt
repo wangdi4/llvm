@@ -22,7 +22,7 @@ function( compile INPUT_FILE OUTPUT_FILE_NAME)
   add_custom_command( TARGET ${TARGET_NAME}
     COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
     -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc ${SPIR_OPT}
-    -include opencl-c.h -O0 -disable-llvm-passes -disable-intel-proprietary-opts
+    -include opencl-c.h -disable-llvm-passes -disable-intel-proprietary-opts
     -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE_NAME}
     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h ${CLANG}

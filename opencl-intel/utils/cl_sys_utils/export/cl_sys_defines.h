@@ -67,6 +67,7 @@
 #define MIN(a, b)  (((a) > (b)) ? (b) : (a))
 
 #define STRDUP(X) (_strdup(X))
+#define STRCASECMP _stricmp
 #define CPUID(cpu_info, type) __cpuid((int*)(cpu_info), type)
 
 #define VA_COPY(dst, src) ((dst) = (src))
@@ -168,6 +169,7 @@ typedef int errno_t;
 #define MIN(a, b)  (((a) > (b)) ? (b) : (a))
 
 #define STRDUP(X) (strdup(X))
+#define STRCASECMP strcasecmp
 
 #if defined (__INTEL_COMPILER)
     #define CPUID(cpu_info, type) __cpuid(cpu_info, type)

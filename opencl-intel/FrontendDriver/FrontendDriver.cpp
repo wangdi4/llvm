@@ -83,7 +83,7 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
 }
 
 ClangFECompiler::~ClangFECompiler() {
-  if (!m_sDeviceInfo.sExtensionStrings)
+  if (m_sDeviceInfo.sExtensionStrings)
     free((void *)m_sDeviceInfo.sExtensionStrings);
 }
 
@@ -170,6 +170,12 @@ bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
                                        size_t uiUnrecognizedOptionsSize) {
   return ClangLinkOptions(szOptions).checkOptions(szUnrecognizedOptions,
                                                   uiUnrecognizedOptionsSize);
+}
+
+void ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc,
+                                      IOCLFESpecConstInfo **pSpecConstInfo) {
+  ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
+      .getSpecConstInfo(pSpecConstInfo);
 }
 
 namespace Intel {

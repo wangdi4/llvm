@@ -27,7 +27,7 @@ struct GlobalVariableMetadataAPI {
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipePacketAlignTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> PipeDepthTy;
-  typedef NamedMDValue<llvm::StringRef, MDValueGlobalObjectStrategy> PipeIOTy;
+  typedef NamedMDValue<std::string, MDValueGlobalObjectStrategy> PipeIOTy;
 
   GlobalVariableMetadataAPI(llvm::GlobalVariable *Global) :
         DepthIsIgnored(Global, "depth_is_ignored"),
@@ -67,7 +67,7 @@ struct KernelMetadataAPI {
   typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy>
       ArgTypeQualifierListTy;
   typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy> ArgNameListTy;
-  typedef NamedMDList<llvm::StringRef, MDValueGlobalObjectStrategy>
+  typedef NamedMDList<std::string, MDValueGlobalObjectStrategy>
       ArgIOAttributeListTy;
 
   // optional attributes
@@ -206,6 +206,7 @@ struct KernelInternalMetadataAPI {
         VectorizationDimension(Func, "vectorization_dimension"),
         CanUniteWorkgroups(Func, "can_unite_workgroups"),
         VectorizedKernel(Func, "vectorized_kernel"),
+        VectorizedMaskedKernel(Func, "vectorized_masked_kernel"),
         KernelWrapper(Func, "kernel_wrapper"),
         ScalarizedKernel(Func, "scalarized_kernel"),
         UseFPGAPipes(Func, "use_fpga_pipes")
@@ -225,6 +226,7 @@ struct KernelInternalMetadataAPI {
       MDNames.push_back(VectorizationDimension.getID());
       MDNames.push_back(CanUniteWorkgroups.getID());
       MDNames.push_back(VectorizedKernel.getID());
+      MDNames.push_back(VectorizedMaskedKernel.getID());
       MDNames.push_back(KernelWrapper.getID());
       MDNames.push_back(ScalarizedKernel.getID());
       MDNames.push_back(UseFPGAPipes.getID());
@@ -246,6 +248,7 @@ struct KernelInternalMetadataAPI {
   NamedMDValueAccessor<VectorizationDimensionTy> VectorizationDimension;
   NamedMDValueAccessor<CanUniteWorkgroupsTy> CanUniteWorkgroups;
   NamedMDValueAccessor<VectorizedKernelTy> VectorizedKernel;
+  NamedMDValueAccessor<VectorizedKernelTy> VectorizedMaskedKernel;
   NamedMDValueAccessor<KernelWrapperTy> KernelWrapper;
   NamedMDValueAccessor<ScalarizedKernelTy> ScalarizedKernel;
   NamedMDValueAccessor<UseFPGAPipesTy> UseFPGAPipes;
@@ -299,22 +302,17 @@ struct KernelList : public NamedMDList<llvm::Function, MDValueModuleStrategy> {
 
 // internal attributes
 struct ModuleInternalMetadataAPI {
-  typedef NamedMDValue<int32_t, MDValueModuleStrategy>
-      GlobalVariableTotalSizeTy;
   typedef NamedMDValue<int32_t, MDValueModuleStrategy> GASCounterTy;
   typedef NamedMDList<int32_t, MDValueModuleStrategy> GASWarningsListTy;
 
   ModuleInternalMetadataAPI(llvm::Module *pModule)
-      : GlobalVariableTotalSize(pModule, "opencl.global_variable_total_size"),
-        GASCounter(pModule, "opencl.gen_addr_space_pointer_counter"),
+      : GASCounter(pModule, "opencl.gen_addr_space_pointer_counter"),
         GASWarningsList(pModule, "opencl.gas_warning_line_numbers")
     {
-      MDNames.push_back(GlobalVariableTotalSize.getID());
       MDNames.push_back(GASCounter.getID());
       MDNames.push_back(GASWarningsList.getID());
     }
 
-  NamedMDValueAccessor<GlobalVariableTotalSizeTy> GlobalVariableTotalSize;
   NamedMDValueAccessor<GASCounterTy> GASCounter;
   GASWarningsListTy GASWarningsList;
 

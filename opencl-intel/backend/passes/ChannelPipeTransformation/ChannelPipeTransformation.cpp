@@ -128,6 +128,7 @@ static GlobalVariable *createGlobalPipeArray(Module &M, Type *PipeTy,
                                              ArrayRef<size_t> Dimensions,
                                              const Twine &Name) {
   auto *PipeArrayTy = CompilationUtils::createMultiDimArray(PipeTy, Dimensions);
+  assert(PipeArrayTy && "Is Dimensions invalid? Size of Dimensions must greater than 0.");
 
   auto *PipeGV = new GlobalVariable(
       M, PipeArrayTy, /*isConstant=*/false, GlobalValue::ExternalLinkage,
@@ -327,6 +328,10 @@ static bool replaceGlobalChannels(Module &M, Type *ChannelTy, Type *PipeTy,
 
     VMap[&ChannelGV] = PipeGV;
 
+    // ChannelGV is replaced with PipeGV. We set ChannelGV linkage to internal
+    // so that it is eliminated later by globaldce pass.
+    ChannelGV.setLinkage(GlobalValue::InternalLinkage);
+
     Changed = true;
   }
 
@@ -346,6 +351,18 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
     ConstantFolder Folder;
     return Folder.CreateGetElementPtr(PipeTy->getPointerElementType(),
                                       cast<Constant>(Pipe), IdxList);
+  }
+
+  // Temporary constant PtrToInt operator that uses channels may be created in
+  // InstCombine pass. It has no users now, but processing of this case is added
+  // for the future.
+  if (isa<Constant>(ChannelUser)) {
+    auto *CE = cast<ConstantExpr>(ChannelUser);
+    assert(CE->getOpcode() == Instruction::PtrToInt &&
+           "Unexpected constant value with channel variable");
+
+    ConstantFolder Folder;
+    return Folder.CreatePtrToInt(cast<Constant>(Pipe), CE->getType());
   }
 
   auto *ChannelInst = cast<Instruction>(ChannelUser);
@@ -552,8 +569,9 @@ static void replaceChannelBuiltinCall(Module &M, CallInst *ChannelCall, Value *G
                                       Value *Pipe, AllocaMapType &AllocaMap,
                                       OCLBuiltins &Builtins) {
   assert(GlobalPipe && "Failed to find corresponding global pipe");
-  ChannelKind CK = CompilationUtils::getChannelKind(
-      ChannelCall->getCalledFunction()->getName());
+  assert(ChannelCall && "ChannelCall should be null");
+  assert(ChannelCall->getCalledFunction() && "Indirect function is unexpected");
+  ChannelKind CK = CompilationUtils::getChannelKind(std::string(ChannelCall->getCalledFunction()->getName()));
 
   PipeKind PK;
   PK.Op = PipeKind::READWRITE;
@@ -588,7 +606,7 @@ static bool isChannelBuiltinCall(CallInst *Call) {
   assert(CalledFunction && "Indirect function call?");
 
   if (ChannelKind Kind =
-          CompilationUtils::getChannelKind(CalledFunction->getName())) {
+          CompilationUtils::getChannelKind(std::string(CalledFunction->getName()))) {
     return true;
   }
 
@@ -710,7 +728,7 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
   // remove channel built-ins declarations
   SmallVector<Function *, 8> FToDelete;
   for (auto &F : M) {
-    if (F.isDeclaration() && CompilationUtils::getChannelKind(F.getName())) {
+    if (F.isDeclaration() && CompilationUtils::getChannelKind(std::string(F.getName()))) {
       FToDelete.push_back(&F);
     }
   }
@@ -793,7 +811,8 @@ static void replaceGlobalChannelUses(Module &M, Type *ChannelTy,
 
       // isa<GEPOperator> returns true for instances of GetElementPtrInst class,
       // so there is an ugly if here
-      if (!isa<GEPOperator>(PipeUser) || isa<GetElementPtrInst>(PipeUser))
+      if ((!isa<GEPOperator>(PipeUser) || isa<GetElementPtrInst>(PipeUser)) &&
+          !isa<Constant>(PipeUser))
         cast<User>(PipeUser)->setOperand(OpNo, Pipe);
     }
   }

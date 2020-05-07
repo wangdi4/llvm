@@ -13,6 +13,7 @@
         clCreateProgramWithSource;
         clCreateProgramWithIL;
         clCreateProgramWithILKHR;
+        clSetProgramSpecializationConstant;
         clCreateSampler;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;
@@ -122,6 +123,8 @@
         clEnqueueSVMMigrateMem;
 
         clGetDeviceFunctionPointerINTEL;
+
+        clGetDeviceGlobalVariablePointerINTEL;
 
         clCreateTracingHandleINTEL;
         clSetTracingPointINTEL;

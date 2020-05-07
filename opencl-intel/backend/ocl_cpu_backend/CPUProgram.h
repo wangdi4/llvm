@@ -12,8 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE 
-//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS  
+// NOTICE: THIS CLASS WILL BE SERIALIZED TO THE DEVICE, IF YOU MAKE ANY CHANGE
+//  OF THE CLASS FIELDS YOU SHOULD UPDATE THE SERILIZE METHODS
 #pragma once
 
 #include "Program.h"
@@ -30,19 +30,31 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class CPUProgram : public Program
 {
 public:
-    CPUProgram()
-      :m_pExecutionEngine(NULL) {}
+    CPUProgram() : m_pExecutionEngine(nullptr) {}
     virtual ~CPUProgram();
-    
+
     virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module*, 2> bltnFuncList) { m_bltnFuncList = bltnFuncList; }
 
-    virtual void SetExecutionEngine(void* ee) { m_pExecutionEngine = (llvm::ExecutionEngine*)ee;}
+    virtual void SetExecutionEngine(void* ee) override {
+        m_pExecutionEngine = (llvm::ExecutionEngine*)ee;
+    }
 
     llvm::ExecutionEngine* GetExecutionEngine() { return m_pExecutionEngine; }
-    
+
+    void SetLLJIT(std::unique_ptr<llvm::orc::LLJIT> LLJIT) override {
+        m_LLJIT = std::move(LLJIT);
+    }
+
+    // Get LLJIT instance
+    llvm::orc::LLJIT* GetLLJIT() override { return m_LLJIT.get(); }
+
     void ReleaseExecutionEngine();
 
-    void* GetPointerToFunction(llvm::Function* F);
+    // Return the address of a function.
+    void* GetPointerToFunction(llvm::StringRef Name) const;
+
+    // Return the address of a global value
+    void* GetPointerToGlobalValue(llvm::StringRef Name) const;
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -53,8 +65,13 @@ public:
 
     cl_ulong GetFunctionPointerFor(const char *) const override;
 
+    // Get a map from global variable name to its property (size/pointer).
+    void GetGlobalVariablePointers(const cl_prog_gv **GVs, size_t *GVCount)
+        const override;
+
 private:
     llvm::ExecutionEngine*  m_pExecutionEngine;
+    std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;
     std::auto_ptr<ObjectCodeCache> m_ObjectCodeCache;
 

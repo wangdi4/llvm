@@ -37,13 +37,6 @@ public:
   PostDominanceFrontierBase() : llvm::DominanceFrontierBase<BlockT, true>() {}
 
   void analyze(DomTreeT &DT) {
-    // This tree represents the post-dominance relations for a function, however,
-    // this root may be a node with the block == NULL in the case when
-    // there are multiple exit nodes from a particular function.
-    // Here in Vectorizer such a case is anomaly since all exit basic blocks
-    // are unified into one, hence we assert this case.
-    assert(DT.getRoots().size() == 1 &&
-           "Only one entry block for post domfronts is expected!");
     calculate(DT, DT.getRootNode());
   }
 

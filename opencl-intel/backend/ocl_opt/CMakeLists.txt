@@ -16,9 +16,11 @@ set(OCL_BE_PASSES
     ChannelsUsageAnalysis
     CleanupWrappedKernels
     CoerceTypes
+    RemoveAtExit
     DebugInfoPass
     DetectRecursion
     GenericAddressResolution
+    HandleVPlanMask
     ImplicitArgsAnalysis
     InfiniteLoopCreator
     InstToFuncCall
@@ -51,6 +53,7 @@ set(OCL_BE_PASSES
     OCLAliasAnalysis
     PrintfArgumentsPromotion
     SYCLPipesHack
+    AddNTAttr
 )
 
 # Dependencies of the passes

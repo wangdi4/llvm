@@ -352,7 +352,7 @@ namespace Validation
         llvm::sys::path::append(path, m_baseName);
         if(path.back() != '.') path += ".";
         path += suffix;
-        return path.str();
+        return std::string(path);
     }
 
     const std::string RecorderContext::getPath( const std::string& kernelName,  const std::string& suffix ) const
@@ -363,7 +363,7 @@ namespace Validation
         path += kernelName;
         path += ".";
         path += suffix;
-        return path.str();
+        return std::string(path);
     }
 
     const std::string RecorderContext::getFileName( const std::string& suffix ) const
@@ -381,7 +381,7 @@ namespace Validation
         path += kernelName;
         path += ".";
         path += suffix;
-        return path.str();
+        return std::string(path);
     }
 
     const std::string RecorderContext::getByteCodeFilePath() const
@@ -955,7 +955,7 @@ namespace Validation
                 fileName = fileName.empty() ? prefix : std::string(fileName.c_str()) + "." + prefix;
 
                 llvm::sys::fs::make_absolute(logpath);
-                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), fileName.str());
+                pOclRecorder = new OCLRecorder(std::string(logpath.c_str()), std::string(fileName));
             }
             assignSourceRecorder();
             return pOclRecorder;

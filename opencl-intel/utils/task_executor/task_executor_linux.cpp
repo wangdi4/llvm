@@ -70,11 +70,16 @@ void dll_init(void)
 
 void dll_fini(void)
 {
+// We disable the release of this object temporarily.
+// TODO: We will refine the OpenCL runtime shutdown mechanism to
+// avoid library and object dependency conflict.
+#if 0
 	if ( nullptr != g_pTaskExecutor)
 	{
 		delete ((PTR_CAST*)g_pTaskExecutor);
 		g_pTaskExecutor = nullptr;
 	}
+#endif
 	if ( thkShedMaster )
 	{
 		pthread_key_delete(thkShedMaster);

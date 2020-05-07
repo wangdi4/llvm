@@ -35,6 +35,12 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
+if (NOT OPENCL_ASM_COMPILER)
+  # OPENCL_ASM_COMPILER defines the assembler program to build
+  # assembly sources. If it is not defined, then use the default.
+  set(OPENCL_ASM_COMPILER ${CMAKE_ASM_COMPILER})
+endif()
+
 # Due to some reason, CMAKE_SIZEOF_VOID_P is empty until enable_language is
 # called
 enable_language(C)
@@ -47,6 +53,9 @@ include(CheckCXXCompilerFlag)
 
 # Include functions for opencl targets
 include(CMakeFuncs)
+
+use_eh(TRUE)
+
 include(AddOpenCL)
 if (WIN32)
   include(CMake_windows_tools)
@@ -66,6 +75,9 @@ endif((NOT WIN32) AND USE_HARD_TRAPPING)
 if( BUILD_OPENCL_21 )
   add_definitions( -DBUILD_OPENCL_21 )
 endif( BUILD_OPENCL_21 )
+
+# Set default version to suppress warnings from cl_version.h
+add_definitions( -DCL_TARGET_OPENCL_VERSION=220 )
 
 add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}"
                  -D__TBB_NO_IMPLICIT_LINKAGE=1
@@ -122,14 +134,10 @@ endif ()
 # Turn off missing field initializer warnings for gcc to avoid noise from
 # false positives with empty {}. Turn them on otherwise (they're off by
 # default for clang).
-check_cxx_compiler_flag(
-    "-Wmissing-field-initializers" CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
-if (CXX_SUPPORTS_MISSING_FIELD_INITIALIZERS_FLAG)
-  if (CMAKE_COMPILER_IS_GNUCXX)
-    add_definitions( -Wno-missing-field-initializers )
-  else()
-    add_definitions( -Wmissing-field-initializers )
-  endif()
+if (CMAKE_COMPILER_IS_GNUCXX)
+  add_flag_if_supported("-Wno-missing-field-initializers" CMPLR_NO_MISSING_FIELD_INITIALIZERS)
+else()
+  add_flag_if_supported("-Wmissing-field-initializers" CMPLR_MISSING_FIELD_INITIALIZERS)
 endif()
 
 if (OPENCL_INTREE_BUILD)
@@ -174,6 +182,9 @@ if (WIN32)
 else (WIN32)
     set (BUILD_PLATFORM "")
 endif (WIN32)
+
+set_property(GLOBAL PROPERTY CXX_STANDARD 14)
+set_property(GLOBAL PROPERTY C_STANDARD 99)
 
 if (OPENCL_INTREE_BUILD)
   get_target_property(COMMON_CLANG_H_LOC common_clang${BUILD_PLATFORM} SOURCE_DIR)
@@ -243,7 +254,7 @@ message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")
 # Define product info (currently uses only for win resource file generation)
 set(PRODUCTNAME "Intel(R) OpenCL")
 set(COMPANYNAME "Intel Corporation")
-set(LEGALCOPYRIGHT "Copyright (C) 2018 ${COMPANYNAME}. All rights reserved.")
+set(LEGALCOPYRIGHT "Copyright (C) 2020 ${COMPANYNAME}. All rights reserved.")
 
 # --------------
 #  write a file with the BUILDVERSION define
@@ -319,6 +330,8 @@ SET_UNICODE_OFF()
 # paths
 
 set( TBB_INCLUDE_DIRS externals/tbb/include externals/tbb/enhancements )
+set( CL_API_HEADERS ${OpenCL_INCLUDE_DIR}
+                    ${OCL_SOURCE_DIR}/framework/inc )
 
 include_directories( BEFORE
         utils/cl_logger/export
@@ -331,13 +344,25 @@ include_directories( BEFORE
 # Framework IDE Folders Names
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 set( FRAMEWORK_FOLDER_NAME      Framework )
-set( CL_API_HEADERS             ${OCL_SOURCE_DIR}/framework/icd/inc)
 set( API_FOLDER_NAME            ${FRAMEWORK_FOLDER_NAME}/API )
 set( DEVICES_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Devices )
 set( RUNTIME_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Runtime )
 set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
+
+# For standalone OpenCL product we must deploy ICD loader ourselves.
+if (INTEL_OPENCL_STANDALONE_PRODUCT)
+  # FIXME: Cmake doesn't allow to install IMPORTED libraries before 3.13 version.
+  # So, we install ICD loader library files as ocl-OpenCL component.
+  get_filename_component( ICD_LOADER_OUTPUT_DIR ${OpenCL_LIBRARY} DIRECTORY )
+  file( GLOB ICD_LOADER
+      "${ICD_LOADER_OUTPUT_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL*" )
+  install_to( ${ICD_LOADER}
+      DESTINATION lib/${OUTPUT_ARCH_SUFF}
+      COMPONENT ocl-OpenCL
+  )
+endif()
 
 if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
@@ -413,7 +438,6 @@ if (NOT OPENCL_INTREE_BUILD)
     ocl-config
     ocl-cpu_device${BUILD_PLATFORM}
     ocl-task_executor${BUILD_PLATFORM}
-    ocl-tbb-ext
     ocl-common_clang
     ocl-builtins-shared
     ocl-cl_logger

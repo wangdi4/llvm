@@ -525,7 +525,7 @@ void WIAnalysis::updateCfDependency(const Instruction *inst) {
           br->isConditional() ? dyn_cast<CallInst>(br->getCondition()) : nullptr;
         bool branchIsAllZeroes = callInst &&
           callInst->getCalledFunction() &&
-          Mangler::isAllZero(callInst->getCalledFunction()->getName());
+          Mangler::isAllZero(std::string(callInst->getCalledFunction()->getName()));
 
         if (br->isConditional() && !branchIsAllOnes && !branchIsAllZeroes) {
           updateDepMap(term, WIAnalysis::RANDOM);

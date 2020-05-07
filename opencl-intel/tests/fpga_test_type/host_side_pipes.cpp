@@ -15,7 +15,7 @@
 #include "pretty_printers.h"
 
 #include <CL/cl.h>
-#include <CL/cl_ext.h>
+#include <CL/cl_fpga_ext.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>

@@ -31,6 +31,7 @@ add_opencl_executable(${TARGET_NAME}
   OclBuiltinEmitter.cpp
   OclBuiltinsHeaderGen.cpp
   VectorizerTableGen.cpp
+  VectInfoGenerator.cpp
   TableGen.cpp
   CodeFormatter.cpp
   ConversionParser.cpp

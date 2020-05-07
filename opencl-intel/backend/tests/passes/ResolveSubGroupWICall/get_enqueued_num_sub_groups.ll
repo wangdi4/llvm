@@ -31,20 +31,24 @@ entry:
 ; CHECK: %lsz0 = call i64 @_Z14get_local_sizej(i32 0)
 ; CHECK: %lsz1 = call i64 @_Z14get_local_sizej(i32 1)
 ; CHECK: %lsz2 = call i64 @_Z14get_local_sizej(i32 2)
-; CHECK: %mul.lsz0.lsz1 = mul i64 %lsz0, %lsz1
-; CHECK: %mul.lsz0.lsz1.lsz2 = mul i64 %mul.lsz0.lsz1, %lsz2
-; CHECK: %lszs.div = udiv i64 %mul.lsz0.lsz1.lsz2, 16
-; CHECK: %lszs.div.trunc = trunc i64 %lszs.div to i32
+; CHECK: %0 = sub i64 %lsz0, 1
+; CHECK: %1 = udiv i64 %0, 16
+; CHECK: %sg.num.vecdim = add i64 %1, 1
+; CHECK: %2 = mul i64 %sg.num.vecdim, %lsz1
+; CHECK: %3 = mul i64 %2, %lsz2
+; CHECK: %sg.num = trunc i64 %3 to i32
   %call2 = tail call i32 @_Z27get_enqueued_num_sub_groupsv() #4
 ; CHECK-NOT: @_Z27get_enqueued_num_sub_groupsv
 ; CHECK: %enqdlz0 = call i64 @_Z23get_enqueued_local_sizej(i32 0)
 ; CHECK: %enqdlz1 = call i64 @_Z23get_enqueued_local_sizej(i32 1)
 ; CHECK: %enqdlz2 = call i64 @_Z23get_enqueued_local_sizej(i32 2)
-; CHECK: %mul.enqdlsz0.enqdlsz1 = mul i64 %enqdlz0, %enqdlz1
-; CHECK: %mul.enqdlsz0.enqdlsz1.enqdlsz2 = mul i64 %mul.enqdlsz0.enqdlsz1, %enqdlz2
-; CHECK: %lgid.res.div = udiv i64 %mul.enqdlsz0.enqdlsz1.enqdlsz2, 16
-; CHECK: %lgid.res.div.trunc = trunc i64 %lgid.res.div to i32
-; CHECK: icmp eq i32 %lszs.div.trunc, %lgid.res.div.trunc
+; CHECK: %4 = sub i64 %enqdlz0, 1
+; CHECK: %5 = udiv i64 %4, 16
+; CHECK: %sg.num.vecdim.enqd = add i64 %5, 1
+; CHECK: %6 = mul i64 %sg.num.vecdim.enqd, %enqdlz1
+; CHECK: %7 = mul i64 %6, %enqdlz2
+; CHECK: %sg.num.enqd = trunc i64 %7 to i32
+; CHECK: icmp eq i32 %sg.num, %sg.num.enqd
   %cmp = icmp eq i32 %call1, %call2
   %cond = zext i1 %cmp to i32
   %temp17 = insertelement <16 x i32> undef, i32 %cond, i32 0

@@ -39,6 +39,7 @@ EXPORTS
 	clCreateProgramWithBuiltInKernels
 	clRetainProgram
 	clReleaseProgram
+	clSetProgramSpecializationConstant
 	clBuildProgram
 	clUnloadCompiler
 	clUnloadPlatformCompiler
@@ -122,6 +123,7 @@ EXPORTS
 	clUnmapHostPipeIntelFPGA
 	clGetProfileDataDeviceIntelFPGA
 	clGetDeviceFunctionPointerINTEL
+	clGetDeviceGlobalVariablePointerINTEL
 	clCreateTracingHandleINTEL
 	clSetTracingPointINTEL
 	clDestroyTracingHandleINTEL

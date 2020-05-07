@@ -18,8 +18,8 @@
 #include "llvm/IR/LLVMContext.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-BitCodeContainer::BitCodeContainer(const void *pBinary, size_t uiBinarySize, const char* name):
-    m_pModule(nullptr)
+BitCodeContainer::BitCodeContainer(const void *pBinary, size_t uiBinarySize,
+                                   const char* name)
 {
     assert(pBinary && "Code container pointer must be valid");
     m_pBuffer = llvm::MemoryBuffer::getMemBufferCopy(llvm::StringRef((const char*)pBinary, uiBinarySize), name);
@@ -27,12 +27,11 @@ BitCodeContainer::BitCodeContainer(const void *pBinary, size_t uiBinarySize, con
 
 BitCodeContainer::~BitCodeContainer()
 {
-    if(m_pModule) 
+    llvm::Module *pModule = GetModule();
+    if (pModule)
     {
-        llvm::Module* pModule = static_cast<llvm::Module*>(m_pModule);
         // [LLVM 3.6 UPGRADE] FIXME: see FIXME below on why it is commented out.
         // llvm::LLVMContext& context = pModule->getContext();
-        delete pModule;
 
         // Unused metadata nodes are left alive during deletion of Module
         // Module owns Functions which are often used in metadata
@@ -63,14 +62,27 @@ size_t BitCodeContainer::GetCodeSize() const
     return m_pBuffer->getBufferSize();
 }
 
-void   BitCodeContainer::SetModule( void* pModule)
+void   BitCodeContainer::SetModule(std::unique_ptr<llvm::Module> M)
 {
-    m_pModule = pModule;
+    m_M = std::move(M);
 }
 
-void*  BitCodeContainer::GetModule() const
+void BitCodeContainer::SetModule(llvm::orc::ThreadSafeModule TSM) {
+    // At this point, module ownership is already transferred to TSM
+    m_M.release();
+
+    m_TSM = std::move(TSM);
+}
+
+llvm::Module* BitCodeContainer::GetModule() const
 {
-    return m_pModule;
+    return m_TSM ? const_cast<llvm::Module*>(m_TSM.getModuleUnlocked())
+                 : m_M.get();
+}
+
+std::unique_ptr<llvm::Module> BitCodeContainer::GetModuleOwner()
+{
+    return std::move(m_M);
 }
 
 void* BitCodeContainer::GetMemoryBuffer() const

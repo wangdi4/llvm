@@ -23,11 +23,11 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <sstream>
 #include <set>
@@ -46,10 +46,12 @@ OCL_INITIALIZE_PASS_END(CLWGLoopCreator, "cl-loop-creator", "create loops opencl
 
 CLWGLoopCreator::CLWGLoopCreator() :
     ModulePass(ID), m_indTy(nullptr), m_constZero(nullptr), m_constOne(nullptr),
-    m_constPacket(nullptr), m_F(nullptr), m_M(nullptr), m_context(nullptr),
-    m_newEntry(nullptr), m_scalarEntry(nullptr), m_vectorFunc(nullptr),
-    m_packetWidth(0), m_numDim(0), m_rtServices(nullptr), m_scalarRet(nullptr),
-    m_vectorRet(nullptr), m_EECall(nullptr), m_vectorizedDim(0)
+    m_constPacket(nullptr), m_maskFn(nullptr), m_F(nullptr), m_M(nullptr),
+    m_context(nullptr), m_newEntry(nullptr), m_vectorMaskEntry(nullptr),
+    m_scalarEntry(nullptr), m_vectorFunc(nullptr), m_packetWidth(0),
+    m_numDim(0), m_rtServices(nullptr), m_scalarRet(nullptr),
+    m_vectorRet(nullptr), m_maskVectorRet(nullptr), m_EECall(nullptr),
+    m_vectorizedDim(0)
 {
   initializeCLWGLoopCreatorPass(*PassRegistry::getPassRegistry());
 }
@@ -131,10 +133,12 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
     }
   }
 
-  bool SubGroupPath = KernelInternalMetadataAPI(&F).KernelHasSubgroups.get();
+  auto skimd = KernelInternalMetadataAPI(&F);
+  bool SubGroupPath = skimd.KernelHasSubgroups.get();
 
   // Update member fields with the current kernel.
   m_F = &F;
+  m_maskFn = nullptr;
   m_M = F.getParent();
   m_vectorFunc = vectorFunc;
   m_packetWidth = packetWidth;
@@ -142,37 +146,58 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   m_baseGids.assign(MAX_OCL_NUM_DIM, nullptr);
   generateConstants();
 
-  // Collect get**id and return instructions from the kernels.
-  m_scalarRet = getFunctionData(m_F, m_gidCallsSc, m_lidCallsSc);
-
   // Get the number of the for which we need to create work group loops.
   m_numDim = computeNumDim();
-
-  // Mark scalar kernel entry and create new entry block for boundaries
-  // calculation.
-  m_scalarEntry = &m_F->getEntryBlock();
-  m_scalarEntry->setName("scalar_kernel_entry");
-  m_newEntry = BasicBlock::Create(*m_context, "", &F, m_scalarEntry);
-
-  // Create early exit call to obtain boundaries from.
-  m_EECall = createEECall();
-
-  // Obtain loops boundaries from early exit call.
-  getLoopsBoundaries();
 
   // Create WG loops.
   // If no work group loop are created (no calls to get***id) avoid
   // inlining the vector jit into the scalar since only one work item
   // need to be executed.
   loopRegion WGLoopRegion;
-  if (SubGroupPath && m_numDim)
+  BasicBlock *newRet = nullptr;
+  if (SubGroupPath && m_numDim &&
+      skimd.VectorizedMaskedKernel.hasValue()) {
+    m_maskFn = skimd.VectorizedMaskedKernel.get();
+    skimd.VectorizedMaskedKernel.set(nullptr);
+    m_maskVectorRet = getFunctionData(m_maskFn, m_gidCallsMaskedVec,
+                                      m_lidCallsMaskedVec);
+
+    m_vectorMaskEntry = &m_maskFn->getEntryBlock();
+    m_vectorMaskEntry->setName("masked_kernel_entry");
+
+    m_newEntry = BasicBlock::Create(*m_context, "", m_maskFn, m_vectorMaskEntry);
+
+    // Create early exit call to obtain boundaries from.
+    m_EECall = createEECall(m_maskFn);
+
+    // Obtain loops boundaries from early exit call.
+    getLoopsBoundaries();
+
     WGLoopRegion = createVectorAndMaskedRemainderLoops();
-  else
+
+    newRet = BasicBlock::Create(*m_context, "", m_maskFn);
+  } else {
+    // Collect get**id and return instructions from the kernels.
+    m_scalarRet = getFunctionData(m_F, m_gidCallsSc, m_lidCallsSc);
+
+    // Mark scalar kernel entry and create new entry block for boundaries
+    // calculation.
+    m_scalarEntry = &m_F->getEntryBlock();
+    m_scalarEntry->setName("scalar_kernel_entry");
+    m_newEntry = BasicBlock::Create(*m_context, "", &F, m_scalarEntry);
+
+    // Create early exit call to obtain boundaries from.
+    m_EECall = createEECall(m_F);
+
+    // Obtain loops boundaries from early exit call.
+    getLoopsBoundaries();
+
     WGLoopRegion = m_vectorFunc && m_numDim ?
       createVectorAndRemainderLoops() :
       AddWGLoops(m_scalarEntry, false, m_scalarRet, m_gidCallsSc, m_lidCallsSc,
                   m_initGIDs, m_loopSizes);
-
+    newRet = BasicBlock::Create(*m_context, "", m_F);
+  }
   assert(WGLoopRegion.m_preHeader && WGLoopRegion.m_exit &&
       "loops entry,exit not initialized");
 
@@ -183,12 +208,17 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // We must create separate block for the return since the it might be
   // that there are no WG loops (m_numDim=0) and WGLoopRegion.m_exit
   // is not empty.
-  BasicBlock *newRet = BasicBlock::Create(*m_context, "", m_F);
   BranchInst::Create(newRet, WGLoopRegion.m_exit);
   ReturnInst::Create(*m_context, newRet);
 
   // Create conditional jump over the WG loops incase of uniform early exit.
   handleUniformEE(newRet);
+
+  // Now the masked kernel is a full workgroup which is organized as
+  // several loops of vector kernel followed by one masked kernel.
+  // Replace the scalar kernel body with the masked kernel body.
+  if (m_maskFn)
+    LoopUtils::inlineMaskToScalar(m_F, m_maskFn);
   return true;
 }
 
@@ -251,16 +281,13 @@ loopRegion CLWGLoopCreator::createVectorAndMaskedRemainderLoops() {
   // Do not create scalar remainder for subgroup kernels
   // as the semantics does not allow execution of WIs in a serial
   // manner.
-  // TODO: What we need here is masked vector remainder.
-  // As soon as we have that we can add masked loop remainder.
-
   // Intentionally forget about scalar kernel. Let DCE delete it.
 
   // Collect get**id and return instructions in the vector kernel.
   m_vectorRet = getFunctionData(m_vectorFunc, m_gidCallsVec, m_lidCallsVec);
 
-  // Inline the vector kernel into the scalar kernel.
-  BasicBlock *vecEntry = inlineVectorFunction(m_scalarEntry);
+  // Inline the vector kernel into the masked kernel.
+  BasicBlock *vecEntry = inlineVectorFunction(m_vectorMaskEntry);
 
   // Obtain boundaries for the vector loops and scalar loops.
   loopBoundaries dim0Boundaries =
@@ -274,23 +301,52 @@ loopRegion CLWGLoopCreator::createVectorAndMaskedRemainderLoops() {
   loopRegion vectorBlocks = AddWGLoops(vecEntry, true, m_vectorRet,
      m_gidCallsVec, m_lidCallsVec, initGIDs, loopSizes);
 
+  // Create masked vector loops.
+  initGIDs[m_vectorizedDim] = dim0Boundaries.m_maxVector;
+  loopSizes[m_vectorizedDim] = m_constOne;
+  loopRegion vectorMaskBlocks = AddWGLoops(m_vectorMaskEntry, true,
+                                           m_maskVectorRet,
+                                           m_gidCallsMaskedVec,
+                                           m_lidCallsMaskedVec,
+                                           initGIDs, loopSizes);
+
   // Create blocks to jump over the loops.
   BasicBlock *loopsEntry =
     BasicBlock::Create(*m_context, "vect_if",
-                        m_F, vectorBlocks.m_preHeader);
+                        m_maskFn, vectorBlocks.m_preHeader);
 
-  BasicBlock *retBlock = BasicBlock::Create(*m_context, "ret", m_F);
+  BasicBlock *maskGeneration =
+    BasicBlock::Create(*m_context, "mask_generation",
+                        m_maskFn, vectorMaskBlocks.m_preHeader);
+  BasicBlock *maskLoopsEntry =
+    BasicBlock::Create(*m_context, "masked_vect_if",
+                        m_maskFn, maskGeneration);
+
+  BasicBlock *retBlock = BasicBlock::Create(*m_context, "ret", m_maskFn);
 
   // Execute the vector loops if(vectorLoopSize != 0).
   Instruction *vectcmp = new ICmpInst(*loopsEntry, CmpInst::ICMP_NE,
     dim0Boundaries.m_vectorLoopSize, m_constZero, "");
-  BranchInst::Create(vectorBlocks.m_preHeader, retBlock, vectcmp, loopsEntry);
+  BranchInst::Create(vectorBlocks.m_preHeader, maskLoopsEntry, vectcmp, loopsEntry);
+  BranchInst::Create(maskLoopsEntry, vectorBlocks.m_exit);
 
-  BranchInst::Create(retBlock, vectorBlocks.m_exit);
+  // Execute the masked kernel loops if(scalarLoopSize != 0).
+  Instruction *maskLoopCmp = new ICmpInst(*maskLoopsEntry, CmpInst::ICMP_NE,
+    dim0Boundaries.m_scalarLoopSize, m_constZero, "");
+  BranchInst::Create(maskGeneration, retBlock, maskLoopCmp, maskLoopsEntry);
+
+  // Generate mask.
+  auto mask = LoopUtils::generateRemainderMask(m_packetWidth, dim0Boundaries.m_scalarLoopSize, maskGeneration);
+  BranchInst::Create(vectorMaskBlocks.m_preHeader, maskGeneration);
+  auto maskArg = m_maskFn->arg_end()-1;
+  maskArg->replaceAllUsesWith(mask);
+
+  BranchInst::Create(retBlock, vectorMaskBlocks.m_exit);
+
   return loopRegion(loopsEntry, retBlock);
 }
 
-CallInst *CLWGLoopCreator::createEECall() {
+CallInst *CLWGLoopCreator::createEECall(Function* Fn) {
   // Obtain early exit function. Function should have the same arguments
   // as the kernel.
   std::string funcName = m_F->getName().str();
@@ -299,11 +355,11 @@ CallInst *CLWGLoopCreator::createEECall() {
   assert(EEFunc && "early exit function must exist!!!");
   std::vector<Value *> args;
   unsigned i=0;
-  for(Function::arg_iterator argIt = m_F->arg_begin(), argE = m_F->arg_end();
+  for(Function::arg_iterator argIt = EEFunc->arg_begin(), argE = EEFunc->arg_end();
       argIt != argE; ++argIt, ++i) {
-    Value* arg = &*argIt;
+    Value* arg = Fn->getArg(i);
     // Sanity: checks that early exit function has the same argument types.
-    assert(arg->getType() == m_F->getFunctionType()->getParamType(i) &&
+    assert(arg->getType() == argIt->getType() &&
         "mismatch types between function and Eearly exit");
     args.push_back(arg);
   }
@@ -474,61 +530,46 @@ void CLWGLoopCreator::replaceTIDsWithPHI(IVec &TIDs, Value *initVal,
   }
 }
 
-static void dropDISubprogram(Function *F) {
-  if (F->hasMetadata(LLVMContext::MD_dbg))
-    F->setSubprogram(nullptr);
-}
-
-// Remap DILocation of all instructions in the provided basic block
-// to be belong the provided function scope.
-static void fixDILocation(BasicBlock *BB, Function *ScopeF) {
-  auto I = BB->begin();
-  while (I != BB->end()) {
-    // Current implementation couldn't clone debug intrinsics in proper way.
-    // Workaround is to remove these intrinsics. TODO: implement correct
-    // handling of cloned debug instrinsics
-    if (isa<DbgVariableIntrinsic>(I)) {
-      auto ToRemove = I;
-      I++;
-      ToRemove->eraseFromParent();
-      continue;
-    }
-
-    if (DebugLoc DL = I->getDebugLoc())
-      I->setDebugLoc(
-          DebugLoc::get(DL.getLine(), DL.getCol(), ScopeF->getSubprogram()));
-    I++;
-  }
-}
-
 BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   // Create denseMap of function arguments
   ValueToValueMapTy valueMap;
   assert(m_F->getFunctionType() == m_vectorFunc->getFunctionType() &&
       "vector and scalar functtion type mismatch");
+  Function* Fn = BB->getParent();
   Function::const_arg_iterator VArgIt = m_vectorFunc->arg_begin();
-  Function::arg_iterator argIt = m_F->arg_begin();
-  Function::arg_iterator argE = m_F->arg_end();
-  for (; argIt != argE; ++argIt, ++VArgIt) {
+  Function::const_arg_iterator VArgE = m_vectorFunc->arg_end();
+  Function::arg_iterator argIt = Fn->arg_begin();
+  for (; VArgIt != VArgE; ++argIt, ++VArgIt) {
     valueMap[&*VArgIt] = &*argIt;
   }
 
   // create a list for return values
   SmallVector<ReturnInst*, 2> returns;
 
-  // Drop DISubprogram from the vector function to avoid it
-  // duplicating while cloning
-  dropDISubprogram(m_vectorFunc);
+  // Map debug information metadata entries in the cloned code from the vector
+  // DISubprogram to the scalar DISubprogram.
+  DISubprogram *SSP = m_F->getSubprogram();
+  DISubprogram *VSP = m_vectorFunc->getSubprogram();
+  if (SSP && VSP) {
+    auto &MD = valueMap.MD();
+    MD[VSP].reset(SSP);
+  }
 
   // Do actual cloning work
   // TODO: replace manual inlining by llvm::InlineFunction()
-  CloneFunctionInto(m_F, m_vectorFunc, valueMap, /*ModuleLevelChanges*/false,
+  CloneFunctionInto(Fn, m_vectorFunc, valueMap, /*ModuleLevelChanges*/ true,
                     returns, "vector_func");
+
+  // The CloneFunctionInto() above will move all function metadata from the
+  // vector function to the scalar function. Because the scalar function
+  // already has debug info metadata, it ends up with two DISubprograms
+  // assigned. The easiest way to assign the correct one is to erase both of
+  // them by resetting the original scalar subprogram.
+  m_F->setSubprogram(SSP);
 
   for (auto &VBB : *m_vectorFunc) {
     BasicBlock *clonedBB = dyn_cast<BasicBlock>(valueMap[&VBB]);
     clonedBB->moveBefore(BB);
-    fixDILocation(clonedBB, m_F);
   }
 
   for (unsigned dim=0; dim<m_numDim; ++dim) {
@@ -547,7 +588,7 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   BasicBlock *vectorEntryBlock =
       dyn_cast<BasicBlock>(valueMap[&*(m_vectorFunc->begin())]);
   // copy stats from vector function to scalar function
-  intel::Statistic::copyFunctionStats(*m_vectorFunc, *m_F);
+  intel::Statistic::copyFunctionStats(*m_vectorFunc, *Fn);
   // Get hold of the entry to the scalar section in the vectorized function...
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {

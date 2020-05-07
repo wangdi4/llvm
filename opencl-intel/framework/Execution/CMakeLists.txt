@@ -16,6 +16,14 @@ if (NOT WIN32)
     add_definitions( "-Wno-unused-function -Wno-conversion-null" )
 endif(NOT WIN32)
 
+if(WIN32)
+    check_cxx_compiler_flag("/QxSSSE3" CXX_SUPPORTS_QXSSSE3)
+    if (CXX_SUPPORTS_QXSSSE3)
+        # icx needs this
+        set_source_files_properties(conversion_rules.cpp COMPILE_FLAGS "/QxSSSE3")
+    endif()
+endif()
+
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 

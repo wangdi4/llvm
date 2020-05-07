@@ -4,6 +4,11 @@ endif(INCLUDE_MKL)
 
 set( TARGET framework_test_type )
 
+# Temporarily disable loopopt due to a LoopOpt bug, see CMPLRLLVM-11239 for details
+ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-mllvm -loopopt" "")
+ocl_replace_compiler_option(CMAKE_C_FLAGS "-mllvm -loopopt" "")
+add_flag_if_supported("-mllvm -loopopt=0" CMPLR_LLVM_LOOPOPT)
+
 include_directories( ${OCL_SOURCE_DIR}/framework/export
                      ${OCL_SOURCE_DIR}/framework/Tracing
                      ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
@@ -81,11 +86,11 @@ add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${SPIR_OPT} -disable-llvm-passes -O0 -disable-intel-proprietary-opts
+  ${SPIR_OPT} -disable-llvm-passes -disable-intel-proprietary-opts
   -include opencl-c.h -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${INV_SPIR_OPT} -disable-llvm-passes -O0 -disable-intel-proprietary-opts
+  ${INV_SPIR_OPT} -disable-llvm-passes -disable-intel-proprietary-opts
   -include opencl-c.h -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
   DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h
@@ -105,8 +110,11 @@ add_custom_command( TARGET ${TARGET}
 
 add_ocl_unittest_artifacts(
   FILES
+    cached_binary_current_version.bin
     cached_binary_without_section.bin
     cached_binary_with_wrong_version.bin
+    data/fp-as-kernel-arg.spv
+    spec_const.spv
 )
 
 add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )

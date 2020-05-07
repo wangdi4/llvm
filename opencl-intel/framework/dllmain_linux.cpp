@@ -67,8 +67,11 @@ void dll_init(void)
 
 void dll_fini(void)
 {
-	// release the framework proxy object 
-	Intel::OpenCL::Framework::FrameworkProxy::Destroy();
+// Disable it to avoid conflict with atexit() callback.
+#if 0
+    // release the framework proxy object
+    Intel::OpenCL::Framework::FrameworkProxy::Destroy();
+#endif
 #ifdef _DEBUG
     FiniSharedPts();
 #endif

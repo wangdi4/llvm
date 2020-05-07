@@ -22,6 +22,7 @@ if (WIN32)
 else(WIN32)
     # remove the restriction of warning as error for this component
     remove_definitions( -Werror )
+    set ( CMAKE_CXX_FLAGS   "${CMAKE_CXX_FLAGS} -Wno-overflow" )
 endif(WIN32)
 
 include_directories(

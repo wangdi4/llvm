@@ -78,7 +78,7 @@ public:
         {
             m_ArgInfoDesc.name = m_szArgName.c_str();
             m_ArgInfoDesc.typeName = m_szArgTypeName.c_str();
-            m_ArgInfoDesc.adressQualifier = addrQual;
+            m_ArgInfoDesc.addressQualifier = addrQual;
             m_ArgInfoDesc.accessQualifier = accsQual;
             m_ArgInfoDesc.typeQualifier = typeQual;
         }

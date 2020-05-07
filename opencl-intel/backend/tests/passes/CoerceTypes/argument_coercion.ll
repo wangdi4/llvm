@@ -16,6 +16,7 @@ target triple = "x86_64-pc-linux"
 %struct.TwoDifferentWords = type { double, i64 }
 %struct.TwoWordWithArray = type { float, [2 x i32], float }
 %struct.NestedStruct = type { float, %struct.TwoInts, float }
+%struct.OneElementFloatArray = type { [1 x float] }
 
 ; Function Attrs: convergent nounwind
 define void @test() #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel_arg_host_accessible !2 !kernel_arg_pipe_depth !2 !kernel_arg_pipe_io !2 !kernel_arg_buffer_location !2 !kernel_arg_name !2 {
@@ -30,6 +31,7 @@ entry:
   %TDW = alloca %struct.TwoDifferentWords, align 8
   %TWA = alloca %struct.TwoWordWithArray, align 4
   %NS = alloca %struct.NestedStruct, align 4
+  %OEFA = alloca %struct.OneElementFloatArray, align 4
   %0 = bitcast %struct.SingleInt* %SI to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
   call void @singleInt(%struct.SingleInt* byval(%struct.SingleInt) align 4 %SI) #4
@@ -60,28 +62,33 @@ entry:
   %9 = bitcast %struct.NestedStruct* %NS to i8*
   call void @llvm.lifetime.start.p0i8(i64 16, i8* %9) #3
   call void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4 %NS) #4
+  %10 = bitcast %struct.OneElementFloatArray* %OEFA to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %10) #3
+  call void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.OneElementFloatArray) align 4 %OEFA) #4
   call void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8 %TL, %struct.TwoLongs* byval(%struct.TwoLongs) align 8 %TL, %struct.SingleInt* byval(%struct.SingleInt) align 4 %SI, %struct.TwoLongs* byval(%struct.TwoLongs) align 8 %TL, %struct.SingleInt* byval(%struct.SingleInt) align 4 %SI, %struct.SingleInt* byval(%struct.SingleInt) align 4 %SI) #4
   call void @outOfSSERegisters(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.SingleFloat* byval(%struct.SingleFloat) align 4 %SF, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8 %TD, %struct.SingleFloat* byval(%struct.SingleFloat) align 4 %SF, %struct.SingleFloat* byval(%struct.SingleFloat) align 4 %SF) #4
-  %10 = bitcast %struct.NestedStruct* %NS to i8*
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* %10) #3
-  %11 = bitcast %struct.TwoWordWithArray* %TWA to i8*
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* %11) #3
-  %12 = bitcast %struct.TwoDifferentWords* %TDW to i8*
+  %11 = bitcast %struct.OneElementFloatArray* %OEFA to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %11) #3
+  %12 = bitcast %struct.NestedStruct* %NS to i8*
   call void @llvm.lifetime.end.p0i8(i64 16, i8* %12) #3
-  %13 = bitcast %struct.TwoLongs* %TL to i8*
+  %13 = bitcast %struct.TwoWordWithArray* %TWA to i8*
   call void @llvm.lifetime.end.p0i8(i64 16, i8* %13) #3
-  %14 = bitcast %struct.TwoInts* %TI to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %14) #3
-  %15 = bitcast %struct.TwoDoubles* %TD to i8*
+  %14 = bitcast %struct.TwoDifferentWords* %TDW to i8*
+  call void @llvm.lifetime.end.p0i8(i64 16, i8* %14) #3
+  %15 = bitcast %struct.TwoLongs* %TL to i8*
   call void @llvm.lifetime.end.p0i8(i64 16, i8* %15) #3
-  %16 = bitcast %struct.TwoFloats* %TF to i8*
+  %16 = bitcast %struct.TwoInts* %TI to i8*
   call void @llvm.lifetime.end.p0i8(i64 8, i8* %16) #3
-  %17 = bitcast %struct.IntAndSSE* %IAS to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %17) #3
-  %18 = bitcast %struct.SingleFloat* %SF to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %18) #3
-  %19 = bitcast %struct.SingleInt* %SI to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %19) #3
+  %17 = bitcast %struct.TwoDoubles* %TD to i8*
+  call void @llvm.lifetime.end.p0i8(i64 16, i8* %17) #3
+  %18 = bitcast %struct.TwoFloats* %TF to i8*
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %18) #3
+  %19 = bitcast %struct.IntAndSSE* %IAS to i8*
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %19) #3
+  %20 = bitcast %struct.SingleFloat* %SF to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %20) #3
+  %21 = bitcast %struct.SingleInt* %SI to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %21) #3
   ret void
 }
 
@@ -127,6 +134,10 @@ declare void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWi
 ; Function Attrs: convergent
 declare void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4) #2
 ; CHECK: declare void @nestedStruct(i64, i64) #2
+
+; Function Attrs: convergent
+declare void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.OneElementFloatArray) align 4) #2
+; CHECK: declare void @oneElementFLoatArray(float) #2
 
 ; Function Attrs: convergent
 declare void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2

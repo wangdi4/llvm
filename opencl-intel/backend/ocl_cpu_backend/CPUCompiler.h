@@ -17,6 +17,7 @@
 #include "Compiler.h"
 #include "ICompilerConfig.h"
 
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include <string>
@@ -45,10 +46,6 @@ public:
     CPUCompiler( const CPUCompiler& ) = delete;
     bool operator = ( const CPUCompiler& ) = delete;
 
-    // Returns pointer to jitted function if function hasn't been compiled
-    // Otherwise function is jitted and pointer is returned
-    void *GetPointerToFunction(llvm::Function *pf);
-
     // Create execution engine for the given module
     // Execution engine depends on module configuration
     void CreateExecutionEngine( llvm::Module* pModule ) override;
@@ -56,20 +53,29 @@ public:
     // Get execution engine
     void *GetExecutionEngine() override { return m_pExecEngine; }
 
-    void DumpJIT( llvm::Module* pModule, const std::string& filename,
-                  llvm::CodeGenFileType genType =
-                  llvm::CGFT_AssemblyFile) const;
+    // Create LLJIT instance
+    std::unique_ptr<llvm::orc::LLJIT> CreateLLJIT(
+        llvm::Module *M, std::unique_ptr<llvm::TargetMachine> TM,
+        ObjectCodeCache *ObjCache) override;
+
+    // Compile a module into a MemoryBuffer using llvm::orc::SimpleCompiler
+    std::unique_ptr<llvm::MemoryBuffer> SimpleCompile(
+        llvm::Module *module, ObjectCodeCache *objCache);
+
     void SetObjectCache(ObjectCodeCache* pCache) override;
 
     void SetBuiltinModules(const std::string& cpuName, const std::string& cpuFeatures) override;
+
+    bool useLLDJITForExecution(llvm::Module* pModule) const override;
+
 protected:
     // Returns a list of pointers to the RTL library modules
     llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() const override;
 
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
-    bool useLLDJITForExecution(llvm::Module* pModule) const;
     llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
+    void GetOrLoadBuiltinModules();
 
 private:
     BuiltinModules*         m_pBuiltinModule;

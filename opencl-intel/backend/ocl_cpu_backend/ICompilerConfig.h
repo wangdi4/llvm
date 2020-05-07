@@ -66,9 +66,11 @@ public:
 
     virtual std::string GetCpuArch() const = 0;
     virtual std::string GetCpuFeatures() const = 0;
+    virtual size_t GetCpuMaxWGSize() const = 0;
     virtual ETransposeSize GetTransposeSize() const = 0;
     virtual int GetRTLoopUnrollFactor() const = 0;
     virtual bool GetUseVTune() const = 0;
+    virtual bool GetSerializeWorkGroups() const = 0;
     virtual size_t GetForcedPrivateMemorySize() const = 0;
     // sets whether we need built-in module to be loaded for current compiler
     virtual bool GetLoadBuiltins() const = 0;
@@ -77,6 +79,7 @@ public:
     virtual std::string GetDumpIRDir() const = 0;
     virtual bool GetDumpHeuristicIRFlag() const = 0;
     virtual const std::string &GetStatFileBaseName() const = 0;
+    virtual bool GetStreamingAlways() const = 0;
 
     virtual DeviceMode TargetDevice() const = 0;
 };

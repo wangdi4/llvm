@@ -115,7 +115,7 @@ TEST_F(BackEndTests_CompilationService, CreateProgramFailure)
 
 
 
-TEST_F(BackEndTests_CompilationService, DISABLED_BuildProgramSuccess)
+TEST_F(BackEndTests_CompilationService, BuildProgramSuccess)
 {
     // get Backend service factory
     ICLDevBackendServiceFactory* funcGetFactory = BackendWrapper::GetInstance().GetBackendServiceFactory();;

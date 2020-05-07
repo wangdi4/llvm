@@ -145,6 +145,14 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   void collectTIDCallInst(const char *name, IVecVec &tidCalls,
                                  Function *F);
 
+  ///@brief generate the mask argument for masked vectorized kernel.
+  ///@param packetWidth - the vectorization factor.
+  ///@param loopLen - the max number of active WI.
+  ///@param BB - the entry basicblock of the masked vectorized kernel.
+  Value* generateRemainderMask(unsigned packetWidth, Value* loopLen, BasicBlock* BB);
+
+  ///@brief inline the masked kernel into scalar kernel.
+  void inlineMaskToScalar(Function* scalarKernel, Function* maskedKernel);
 }//LoopUtils
 }// namespace intel
 

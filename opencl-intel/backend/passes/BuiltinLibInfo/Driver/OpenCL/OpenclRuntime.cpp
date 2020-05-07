@@ -108,7 +108,7 @@ Function * OpenclRuntime::findInRuntimeModule(StringRef Name) const {
 
 std::auto_ptr<VectorizerFunction>
 OpenclRuntime::findBuiltinFunction(StringRef mangledName) const {
-  std::auto_ptr<VectorizerFunction> ret(new OpenClVFunction(mangledName));
+  std::auto_ptr<VectorizerFunction> ret(new OpenClVFunction(std::string(mangledName)));
   return ret;
 }
 
@@ -273,7 +273,9 @@ bool OpenclRuntime::needsVPlanStyleMask(StringRef name) const {
          name.contains("intel_sub_group_shuffle_down") ||
          name.contains("intel_sub_group_shuffle_xor") ||
          name.contains("intel_sub_group_shuffle_xor") ||
-         name.contains("intel_sub_group_shuffle");
+         name.contains("intel_sub_group_shuffle") ||
+         name.contains("intel_sub_group_block_read") ||
+         name.contains("intel_sub_group_block_write");
 }
 
 bool OpenclRuntime::needsConcatenatedVectorReturn(StringRef name) const {
@@ -285,13 +287,6 @@ bool OpenclRuntime::needsConcatenatedVectorReturn(StringRef name) const {
 bool OpenclRuntime::needsConcatenatedVectorParams(StringRef name) const {
   // So far these are the same functions as for ret value
   return needsConcatenatedVectorReturn(name);
-}
-
-bool OpenclRuntime::allowsUnpredicatedMemoryAccess(StringRef name) const {
-  // Per spec all work-items must hit this function
-  if (name.contains("intel_sub_group_block_"))
-    return true;
-  return false;
 }
 
 bool OpenclRuntime::isSyncWithSideEffect(const std::string &func_name) const {
@@ -352,6 +347,8 @@ bool OpenclRuntime::isSafeLLVMIntrinsic(const std::string &func_name) const {
   if (0 == func_name.compare("llvm.var.annotation")) return true;
   if (0 == func_name.compare("llvm.dbg.declare")) return true;
   if (0 == func_name.compare("llvm.dbg.value")) return true;
+  if (0 == func_name.compare("llvm.dbg.label")) return true;
+  if (0 == func_name.compare("llvm.dbg.address")) return true;
   return false;
 }
 
@@ -382,8 +379,8 @@ bool OpenclRuntime::isMaskedFunctionCall(const std::string &func_name) const{
 }
 
 bool OpenclRuntime::isFakedFunction(StringRef fname)const{
-  bool isFake = Mangler::isFakeInsert(fname) ||
-    Mangler::isFakeExtract(fname) || Mangler::isFakeBuiltin(fname);
+  bool isFake = Mangler::isFakeInsert(std::string(fname)) ||
+    Mangler::isFakeExtract(std::string(fname)) || Mangler::isFakeBuiltin(std::string(fname));
   if (isFake)
     return true;
   Function* pMaskedFunction = findInRuntimeModule(fname);
@@ -409,7 +406,7 @@ bool OpenclRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
                                           bool &isSigned) const {
   // funcName need to be mangled min or max.
   if (!isMangledName(funcName.data())) return false;
-  std::string strippedName = stripName(funcName.data());
+  std::string strippedName = std::string(stripName(funcName.data()));
   isMin = (strippedName == "min");
   if (!isMin && strippedName != "max") return false;
 

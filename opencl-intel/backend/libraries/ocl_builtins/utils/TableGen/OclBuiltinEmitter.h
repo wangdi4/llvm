@@ -26,8 +26,9 @@
 #include "llvm/TableGen/TableGenBackend.h"
 
 #include <map>
-#include <vector>
+#include <set>
 #include <string>
+#include <vector>
 
 namespace llvm {
 
@@ -41,6 +42,8 @@ public:
   virtual ~OclType() {};
 
   virtual const std::string& getGenType(const std::string&) const { return m_Name; }
+
+  std::string getMaskCastTy() const;
 
   std::string getCPattern() const;
 
@@ -168,9 +171,13 @@ public:
 
   std::string getArgumentSGBlockOpSuffix(unsigned, const std::string&) const;
 
+  std::string getReturnSGBlockOpSuffix(const std::string&) const;
+
   std::string getReturnCGenType(const std::string& Generator, const std::string& TyName) const;
 
   std::string getArgumentCName(unsigned, const std::string&) const;
+
+  std::string getCFunc() const;
 
   std::string getCFunc(const std::string&) const;
 
@@ -220,10 +227,10 @@ public:
   bool hasVolatile() const { return m_HasVolatile; }
 
   void addAttribute(const OclBuiltinAttr&);
-  
+
   void removeAttribute(const OclBuiltinAttr&);
 
-  bool shouldGenerate() const; 
+  bool shouldGenerate() const;
 
 protected:
   const OclBuiltinDB& m_DB;
@@ -311,6 +318,18 @@ public:
 
   std::string getSVMLRounding(const std::string&) const;
 
+  // Process AliasMap records.
+  void processAliasMap();
+
+  // Check whether the builtin has alias names.
+  bool hasAlias(const OclBuiltin* builtin) const;
+
+  // Return the alias name for a specific OclBuiltin record.
+  ArrayRef<std::string> getAliasNames(const OclBuiltin* builtin);
+
+  // Return the types for the alias of a specific OclBuiltin record.
+  const std::set<const OclType*>& getAliasTypes(const OclBuiltin* builtin);
+
 protected:
   RecordKeeper& m_Records;
   const Record* m_Record;
@@ -320,6 +339,9 @@ protected:
   std::map<std::string, OclType*> m_TypeMap;
   std::map<std::string, OclBuiltin*> m_ProtoMap;
   std::map<const OclBuiltin*, OclBuiltinImpl*> m_ImplMap;
+  std::map<const OclBuiltin*,
+           std::pair<std::vector<std::string>,
+                     std::set<const OclType*>>> m_AliasMap;
 };
 
 /// OclBuiltinEmitter

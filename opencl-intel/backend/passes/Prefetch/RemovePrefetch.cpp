@@ -24,6 +24,8 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 
+#include "InitializePasses.h"
+#include "OCLPassSupport.h"
 #include "OclTune.h"
 
 #include <sstream>
@@ -32,7 +34,7 @@
 using namespace llvm;
 using namespace intel;
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace intel {
 
 // The RemovePrefetch class is a pass that removes prefetch builtin calls if
 // the environment DISMPF is defined. With this pass it's possible to disable
@@ -104,17 +106,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return removedInst.size() > 0;
   }
 
+  char RemovePrefetch::ID = 0;
+  OCL_INITIALIZE_PASS(RemovePrefetch, "remove-pf", "Remove prefetch builtin calls from a module's code.", false, false)
 
-}}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
+} // namespace intel
 
 extern "C" {
 ModulePass * createRemovePrefetchPass() {
-  return new Intel::OpenCL::DeviceBackend::RemovePrefetch();
+  return new intel::RemovePrefetch();
 }
 }
-
-/// Support for dynamic loading of modules under Linux
-char Intel::OpenCL::DeviceBackend::RemovePrefetch::ID = 0;
-static RegisterPass<Intel::OpenCL::DeviceBackend::RemovePrefetch>
-    CLIRemovePrefetch("remove-pf", "Remove prefetch builtin calls from a module's code.");
 

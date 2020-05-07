@@ -226,6 +226,7 @@ typedef struct _cl_uniform_kernel_args {
     // Internal for Running the kernel
     const void *pUniformJITEntryPoint;                 // Filled by the BE
     const void *pNonUniformJITEntryPoint;              // Filled by the BE
+    size_t    stackSize;                               // Filled by the BE^M
 } PACKED cl_uniform_kernel_args;
 
 #ifdef _WIN32

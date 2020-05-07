@@ -47,8 +47,6 @@ bool clGetDeviceInfoTest();
 void clGetKernelSubGroupInfoKHR();
 bool clBuildProgramWithSourceTest();
 bool clCheckJITSaveLoadTest();
-bool clCheckJITSaveTest();
-bool clCheckJITLoadTest();
 bool GenerateBinaryFile();
 bool clCheckCPUArchForJIT();
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
@@ -176,4 +174,8 @@ bool TbbSetMaxThreads(int NumThreads);
 #endif
 bool cl_CheckBuildNumber();
 bool cl12_atomic_add_float_test();
+void clFuncSignatureInconsistencyOnLinkageTest();
+#if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
+void cl_DumpIRBeforeAndAfterPasses();
+#endif
 //#define CUDA_DEVICE

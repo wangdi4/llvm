@@ -19,6 +19,7 @@
 
 #include "CL/cl.h"
 #include "cl_types.h"
+#include <CL/cl_ext_intel.h>
 #include <stdio.h>
 #include "FrameworkTest.h"
 

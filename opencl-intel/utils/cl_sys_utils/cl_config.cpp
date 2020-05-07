@@ -16,6 +16,7 @@
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "cl_cpu_detect.h"
+#include "task_executor.h"
 
 #include <cassert>
 #ifdef _WIN32
@@ -23,6 +24,7 @@
 #else
 #include "hw_utils.h"
 #endif
+
 using namespace Intel::OpenCL::Utils;
 using std::string;
 
@@ -382,4 +384,39 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 
     s_ver = GetOpenclVerByCpuModel();
     return s_ver;
+}
+
+size_t BasicCLConfigWrapper::GetCpuMaxWGSize() const {
+  size_t cpuMaxWGSize =
+      m_pConfigFile->Read<size_t>("CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE",
+                                  CPU_MAX_WORK_GROUP_SIZE);
+  if (cpuMaxWGSize < CPU_MAX_WORK_GROUP_SIZE)
+      cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
+  if (cpuMaxWGSize > CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND)
+      cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND;
+  return cpuMaxWGSize;
+}
+
+unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
+  unsigned numWorkers;
+
+  std::string strEnv;
+  cl_err_code err = GetEnvVar(strEnv, "DPCPP_CPU_NUM_CUS");
+  if (CL_SUCCEEDED(err))
+    numWorkers = (unsigned)std::stoi(strEnv);
+  else {
+    // OCL_TBB_NUM_WORKERS is deprecated and should be removed.
+    err = GetEnvVar(strEnv, "OCL_TBB_NUM_WORKERS");
+    if (CL_SUCCEEDED(err))
+      numWorkers = (unsigned)std::stoi(strEnv);
+    else {
+      numWorkers = m_pConfigFile->Read<unsigned>(
+          "CL_CONFIG_CPU_TBB_NUM_WORKERS",
+          Intel::OpenCL::TaskExecutor::TE_AUTO_THREADS);
+    }
+  }
+
+  if (numWorkers < Intel::OpenCL::TaskExecutor::TE_MIN_WORKER_THREADS)
+    numWorkers = Intel::OpenCL::TaskExecutor::TE_MIN_WORKER_THREADS;
+  return numWorkers;
 }

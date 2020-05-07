@@ -342,16 +342,24 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
     pEntry->clBuildStatus = status;
 
-    // if the user requested -dump-opt-asm, emit the asm of this module into a file
+    // if the user requested -dump-opt-asm, disassemble object code and print
+    // into a file
     if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
         (nullptr != (p = strstr(options, "-dump-opt-asm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
         ProgramDumpConfig dumpOptions(p);
-        m_pBackendCompiler->DumpJITCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(),
-            dumpOptions.GetStringValue(CL_DEV_BACKEND_OPTION_DUMPFILE,""));
+        m_pBackendCompiler->DumpJITCodeContainer(
+            pEntry->pProgram->GetProgramCodeContainer(), &dumpOptions);
     }
 
+    if (m_pCPUConfig->DumpAsm()) {
+        assert( pEntry->pProgram && "Program must be created already");
+        m_pBackendCompiler->DumpJITCodeContainer(
+            pEntry->pProgram->GetProgramCodeContainer(), nullptr);
+    }
+
+#ifndef INTEL_PRODUCT_RELEASE
     // if the user requested -dump-opt-llvm, print the IR of this module
     if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
         (nullptr != (p = strstr(options, "-dump-opt-llvm="))))
@@ -360,6 +368,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         ProgramDumpConfig dumpOptions(p);
         m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(), &dumpOptions);
     }
+#endif
 
     if ( nullptr != buildStatus )
     {
@@ -389,6 +398,20 @@ cl_dev_err_code ProgramService::GetFunctionPointerFor(cl_dev_program IN prog,
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
     return CL_DEV_SUCCESS;
+}
+
+void ProgramService::GetGlobalVariablePointers(cl_dev_program IN prog,
+    const cl_prog_gv OUT **gvPtrs, size_t *gvCount) const
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+        TEXT("GetGlobalVariablePointers enter"));
+
+    TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
+    assert(CL_BUILD_SUCCESS == pEntry->clBuildStatus && "program not built");
+
+    pEntry->pProgram->GetGlobalVariablePointers(gvPtrs, gvCount);
+
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
 }
 
 /********************************************************************************************************************
@@ -745,9 +768,10 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         break;
 
     case CL_DEV_KERNEL_MAX_WG_SIZE:
+    case CL_DEV_KERNEL_WG_SIZE:
         // TODO: Current implementation uses constants and it's OK with allocated on the stack dynamic local buffers.
         //       But take it into account if the available stack frame size is known at RT. I.e.:
-        //          GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
+        //          GetMaxWorkGroupSize(GetCpuMaxWGSize(), stackFrameSize - CPU_DEV_LCL_MEM_SIZE);
         {
             size_t maxPrivateMemSize =
               (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
@@ -761,15 +785,17 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             else
             {
                 ullValue = pKernelProps->GetMaxWorkGroupSize(
-                    CPU_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
+                    m_pCPUConfig->GetCpuMaxWGSize(), maxPrivateMemSize);
+            }
+            // According to OpenCL spec, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
+            // query should be less then or equal to CL_KERNEL_WORK_GROUP_SIZE query.
+            if (param == CL_DEV_KERNEL_WG_SIZE)
+            {
+                ullValue = std::min(ullValue,
+                    (unsigned long long)pKernelProps->GetKernelPackCount());
             }
             stValSize = sizeof(size_t);
         }
-        break;
-
-    case CL_DEV_KERNEL_WG_SIZE:
-        ullValue = pKernelProps->GetKernelPackCount();
-        stValSize = sizeof(size_t);
         break;
 
     case CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE:
@@ -847,7 +873,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
             {
                 pKernelProps->GetLocalSizeForSubGroupCount(
                     desiredSGCount,
-                    CPU_MAX_WORK_GROUP_SIZE,
+                    m_pCPUConfig->GetCpuMaxWGSize(),
                     maxPrivateMemSize,
                     &vValues[0],
                     dim);
@@ -864,7 +890,8 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         }
         else
         {
-            ullValue = pKernelProps->GetMaxNumSubGroups(CPU_MAX_WORK_GROUP_SIZE);
+            ullValue = pKernelProps->GetMaxNumSubGroups(
+                m_pCPUConfig->GetCpuMaxWGSize());
         }
         stValSize = sizeof(size_t);
         break;

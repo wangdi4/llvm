@@ -118,7 +118,7 @@ static void findPipeCalls(Function &F,
     if (!Callee)
       continue;
 
-    PipeKind Kind = CompilationUtils::getPipeKind(Callee->getName());
+    PipeKind Kind = CompilationUtils::getPipeKind(std::string(Callee->getName()));
     if (Kind)
       PipeCalls.push_back({Call, Kind});
   }

@@ -24,6 +24,8 @@
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
+#include <string>
+
 using namespace llvm;
 using namespace Intel::MetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -42,7 +44,7 @@ OCL_INITIALIZE_PASS_END(PipeIOTransformation, "pipe-io-transformation",
 
 namespace {
 
-typedef SmallVector<std::pair<Value *, StringRef>, 4> PipesWithMDVector;
+typedef SmallVector<std::pair<Value *, std::string>, 4> PipesWithMDVector;
 typedef SmallVector<CallInst *, 4> PipesBuiltinsVector;
 
 } // anonymous namespace
@@ -84,7 +86,7 @@ static bool isPipe(const GlobalValue *GV, const PipeTypesHelper &PipeTypes) {
 }
 
 static GlobalVariable *createGlobalTextConstant(Module &M,
-                                                const StringRef Name) {
+                                                const std::string Name) {
   ArrayType *Ty =
       ArrayType::get(Type::getInt8Ty(M.getContext()), Name.size() + 1);
   auto *ConstStringGV = new GlobalVariable(
@@ -138,8 +140,16 @@ static bool processGlobalIOPipes(Module &M, const PipeTypesHelper &PipeTypes,
   for (auto &PipeGV : M.globals()) {
     if (!isPipe(&PipeGV, PipeTypes))
       continue;
-    if (PipeGV.hasMetadata() && !PipeGV.getMetadata("io"))
-      continue;
+
+    // If IO pipe MD string is empty or GV has no IO pipe MD at all - skip it
+    if (PipeGV.hasMetadata()) {
+      if (auto *IOMetadata = PipeGV.getMetadata("io")) {
+        if (llvm::cast<llvm::MDString>(
+              IOMetadata->getOperand(0))->getLength() == 0)
+          continue;
+      } else
+        continue;
+    }
 
     if (!GlobalDtor)
       GlobalDtor = createGlobalPipeDtor(M);
@@ -168,7 +178,7 @@ static bool processIOPipesFromKernelArg(Module &M,
     auto *it = Kernel->arg_begin();
     for (auto &IO : IOList) {
       Value *Pipe = it++;
-      StringRef IOName = IO;
+      std::string IOName = IO;
       if (IOName.empty())
         continue;
       PipesWithMDVec.push_back(std::make_pair(Pipe, IOName));
@@ -184,7 +194,24 @@ static void getPipeBuiltinCalls(PipesBuiltinsVector &PBV, Value *V) {
     if (CallInst *Call = dyn_cast<CallInst>(U)) {
       Function *CF = Call->getCalledFunction();
       assert(CF && "Indirect function call?");
-      if (CompilationUtils::isPipeBuiltin(CF->getName())) {
+      std::string CFName = std::string(CF->getName());
+      // If the callee is a function, that creates SYCL pipes - process its
+      // return value
+      if (CFName.find("__spirv_CreatePipeFromPipeStorage") !=
+          std::string::npos) {
+        for (auto *UU : Call->users()) {
+          // Result of __spirv_CreatePipeFromPipeStorage can be stored to a
+          // pointer, that represents a read/write pipe. Stores are having no
+          // users, but their pointer operand, as it was said, is a pipe itself,
+          // that is going to be used right after in read/write built-in calls.
+          if (StoreInst *Store = dyn_cast<StoreInst>(UU)) {
+            getPipeBuiltinCalls(PBV, Store->getPointerOperand());
+          } else {
+            getPipeBuiltinCalls(PBV, U);
+          }
+        }
+      }
+      if (CompilationUtils::isPipeBuiltin(CFName)) {
         PBV.push_back(Call);
       }
     } else {
@@ -197,7 +224,7 @@ static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
                                    OCLBuiltins &Builtins) {
   Function *CF = PipeCall->getCalledFunction();
   assert(CF && "Indirect function call");
-  PipeKind PK = CompilationUtils::getPipeKind(CF->getName());
+  PipeKind PK = CompilationUtils::getPipeKind(std::string(CF->getName()));
   PK.IO = true;
   PK.FPGA = true;
 

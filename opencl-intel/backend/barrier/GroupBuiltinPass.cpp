@@ -22,6 +22,7 @@
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Support/TypeSize.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -154,7 +155,8 @@ namespace intel {
 
     // Broadcast the constant to vector if relevant
     if (dataWidth > 1) {
-      pInitVal = ConstantVector::getSplat(dataWidth, pInitVal);
+      pInitVal =
+          ConstantVector::getSplat(ElementCount(dataWidth, false), pInitVal);
     }
 
     return pInitVal;
@@ -412,6 +414,11 @@ namespace intel {
         assert(pFinalizeFunc && "Non-function object with the same signature identified in the module");
 
         // c. Create call to finalization function object
+        if (params.size() < pFinalizeFunc->arg_size()) {
+          auto* dummyMask =
+            UndefValue::get((pFinalizeFunc->arg_end()-1)->getType());
+          params.push_back(dummyMask);
+        }
         CallInst *pFinalizeCall = CallInst::Create(pFinalizeFunc, ArrayRef<Value*>(params), "CallFinalizeWG", pWgCallInst);
         assert(pFinalizeCall && "Couldn't create CALL instruction!");
 

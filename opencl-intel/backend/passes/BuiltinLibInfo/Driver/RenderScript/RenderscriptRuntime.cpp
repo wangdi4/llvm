@@ -137,7 +137,7 @@ bool RenderscriptRuntime::isStreamFunc(const std::string &funcName) const {
 
 std::auto_ptr<VectorizerFunction>
 RenderscriptRuntime::findBuiltinFunction(StringRef mangledName) const {
-  std::auto_ptr<VectorizerFunction> ret(new RenderscriptVFunction(mangledName));
+  std::auto_ptr<VectorizerFunction> ret(new RenderscriptVFunction(std::string(mangledName)));
   return ret;
 }
 
@@ -280,8 +280,8 @@ bool RenderscriptRuntime::needsVPlanStyleMask(StringRef name) const {
 
 // TODO[MA]: revisit
 bool RenderscriptRuntime::isFakedFunction(StringRef fname)const{
-  bool isFake = Mangler::isFakeInsert(fname) ||
-    Mangler::isFakeExtract(fname) || Mangler::isFakeBuiltin(fname);
+  bool isFake = Mangler::isFakeInsert(std::string(fname)) ||
+    Mangler::isFakeExtract(std::string(fname)) || Mangler::isFakeBuiltin(std::string(fname));
   if (isFake)
     return true;
   Function* pMaskedFunction = findInRuntimeModule(fname);
@@ -309,7 +309,7 @@ bool RenderscriptRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
                                           bool &isSigned) const {
   // funcName need to be mangled min or max.
   if (!isMangledName(funcName.data())) return false;
-  std::string strippedName = stripName(funcName.data());
+  std::string strippedName = std::string(stripName(funcName.data()));
   isMin = (strippedName == "min");
   if (!isMin && strippedName != "max") return false;
 

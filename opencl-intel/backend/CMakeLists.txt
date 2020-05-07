@@ -27,67 +27,18 @@ if (NOT OPENCL_INTREE_BUILD)
   set_directory_properties(PROPERTIES INCLUDE_DIRECTORIES "")
 endif()
 
-# Version of cached binary
-add_definitions(-DOCL_CACHED_BINARY_VERSION=4)
+# Version of cached binary.
+# This value should be incremented each time cached binary format changes.
+add_definitions(-DOCL_CACHED_BINARY_VERSION=9)
 
 remove_definitions( -D_UNICODE -DUNICODE )
 
 #
 # Settings for Linux compilation
 #
-if (NOT WIN32)
-    set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-    set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
-    set ( WARNING_LEVEL  "-pedantic -Wall -Wextra -Wno-unknown-pragmas -Wno-strict-aliasing -Wno-variadic-macros -Wno-long-long -Wno-unused-parameter -Wno-unused-function")
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        set( WARNING_LEVEL "${WARNING_LEVEL} -Werror" )
-    endif()
-    add_definitions( ${WARNING_LEVEL} )
-endif (NOT WIN32)
-
-if(WIN32)
-#
-# Usage
-#     CREATE_ASM_RULES( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
-#
-# Creates ADD_TO_SOURCES_LIST_VAR that should be added to the source files list
-#
-macro( CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR )
-
-    if (${ARGC} GREATER  1)
-        foreach( FILE ${ARGN} )
-            get_filename_component( FILE_NAME ${FILE} NAME_WE )
-            set( BIN_DIR  ${CMAKE_CURRENT_BINARY_DIR}/${INSTALL_SUBDIR} )
-            set( OBJ_FILE ${BIN_DIR}/${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-            set( SRC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/${FILE} )
-
-            if (CMAKE_ASM_OUTPUT_NAME_FLAG)
-              set( OBJ_OUTPUT_NAME_FLAG ${CMAKE_ASM_OUTPUT_NAME_FLAG} ${FILE_NAME}${CMAKE_C_OUTPUT_EXTENSION} )
-            endif (CMAKE_ASM_OUTPUT_NAME_FLAG)
-
-            add_custom_command(OUTPUT ${OBJ_FILE}
-              COMMAND ${CMAKE_COMMAND} -E make_directory ${BIN_DIR}
-              COMMAND ${CMAKE_COMMAND} -E chdir ${BIN_DIR}
-                      ${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS}
-                      ${CMAKE_ASM_INCLUDE_DIR_FLAG} ${CMAKE_CURRENT_SOURCE_DIR}
-                      ${OBJ_OUTPUT_NAME_FLAG}
-                      ${SRC_FILE}
-              MAIN_DEPENDENCY ${SRC_FILE}
-              VERBATIM
-            )
-
-            list(APPEND OBJ_FILES ${OBJ_FILE})
-            list(APPEND SRC_FILES ${SRC_FILE})
-        endforeach( FILE )
-    endif (${ARGC} GREATER 1)
-
-    if (DEFINED OBJ_FILES)
-        set (${ADD_TO_SOURCES_LIST_VAR} ${SRC_FILES} ${OBJ_FILES})
-        set_source_files_properties( ${OBJ_FILES} PROPERTIES GENERATED TRUE EXTERNAL_OBJECT TRUE )
-    endif(DEFINED OBJ_FILES)
-
-endmacro( CREATE_ASM_RULES )
-endif(WIN32)
+if (NOT WIN32 AND (CMAKE_BUILD_TYPE MATCHES "Release"))
+    add_definitions(-D_FORTIFY_SOURCE=2)
+endif()
 
 ###############################################################################################
 

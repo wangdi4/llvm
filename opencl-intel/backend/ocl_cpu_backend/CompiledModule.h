@@ -16,6 +16,7 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 
 #include <memory>
 
@@ -29,28 +30,51 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 /// Container for a Module and an ExecutionEngine
 class CompiledModule {
 public:
-  CompiledModule(llvm::Module* M, llvm::ExecutionEngine* EE)
-    : m_Mod(M)
-    , m_EE(EE)
+  CompiledModule(llvm::Module *M, std::unique_ptr<llvm::ExecutionEngine> EE)
+    : m_M(M)
+    , m_EE(std::move(EE))
   { }
+
+  CompiledModule(llvm::Module *M, std::unique_ptr<llvm::orc::LLJIT> LLJIT)
+    : m_M(M)
+    , m_LLJIT(std::move(LLJIT))
+  { }
+
+  ~CompiledModule() {
+    if (m_LLJIT)
+      delete m_M;
+  }
 
   /// Looks up an llvm::Function by name in the Module.
   llvm::Function* getFunction(llvm::StringRef name) {
-      assert(m_Mod != 0 && "Module must be initialized");
-      return m_Mod->getFunction(name);
+      return m_M->getFunction(name);
   }
 
   /// Looks up a function pointer (to compiled code) in the ExecutionEngine
   void* getPointerToFunction(llvm::Function* func) {
-    return reinterpret_cast<void*>(m_EE->getFunctionAddress(func->getName().str()));
+    llvm::StringRef name = func->getName();
+    void *addr;
+    if (m_LLJIT) {
+      auto sym = m_LLJIT->lookup(name);
+      if (llvm::Error err = sym.takeError()) {
+        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+        addr = nullptr;
+      } else
+        addr = reinterpret_cast<void *>(static_cast<uintptr_t>(
+            sym->getAddress()));
+    } else
+      addr = reinterpret_cast<void *>(static_cast<uintptr_t>(
+          m_EE->getFunctionAddress(name.str())));
+    return addr;
   }
 
 private:
-  // Pointer to Module owned by ExecutionEngine
-  llvm::Module* m_Mod;
+  llvm::Module *m_M;
 
   // Freed automatically at destruction
   std::unique_ptr<llvm::ExecutionEngine> m_EE;
+
+  std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
 };
 
 }}}

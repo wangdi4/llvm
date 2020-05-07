@@ -29,6 +29,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
     extern void                  GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen);
     extern int                   GetModulePathName(const void* modulePtr, char* fileName, size_t strLen);
     extern unsigned long         GetNumberOfProcessors();
+    extern unsigned int          GetNumberOfCpuSockets();
+    extern bool                  IsHyperThreadingEnabled();
     extern unsigned long         GetMaxNumaNode();
     extern bool                  GetProcessorMaskFromNumaNode(unsigned long node, affinityMask_t* pMask, unsigned int* nodeSize = nullptr);
     extern unsigned int          GetCpuId();

@@ -655,9 +655,9 @@ void ScalarizeFunction::scalarizeInstruction(InsertElementInst *II)
 
   V_ASSERT(isa<ConstantInt>(scalarIndexVal) && "inst arguments error");
   uint64_t scalarIndex = cast<ConstantInt>(scalarIndexVal)->getZExtValue();
-  V_ASSERT(scalarIndex <= dyn_cast<VectorType>(II->getType())->getNumElements()
+  V_ASSERT(scalarIndex <= cast<VectorType>(II->getType())->getNumElements()
       && "index error");
-  V_ASSERT(dyn_cast<VectorType>(II->getType())->getNumElements() <=
+  V_ASSERT(cast<VectorType>(II->getType())->getNumElements() <=
        MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
   // Obtain breakdown of input vector
@@ -993,7 +993,7 @@ void ScalarizeFunction::scalarizeInstruction(GetElementPtrInst *GI) {
     V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
 
     SmallVector<Value*, 8> Idx;
-    Value * multiPtrOperand[MAX_PACKET_WIDTH];
+    Value * multiPtrOperand[MAX_INPUT_VECTOR_WIDTH];
     obtainScalarizedValues(multiPtrOperand, NULL, GI->getPointerOperand(), GI);
     for (unsigned int i = 0; i < GI->getNumOperands(); ++i) {
       if (i != GI->getPointerOperandIndex()) {
@@ -1307,6 +1307,7 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     // Instruction not found in SCM. Means it will be defined in a following basic block.
     // Generate a DRL: dummy values, which will be resolved after all scalarization is complete.
     V_PRINT(scalarizer, "\t\t\t*** Not found. Setting DRL. \n");
+    V_ASSERT(origType && "origType should not be null");
     Type *dummyType = m_soaAllocaAnalysis->isSoaAllocaRelatedPointer(origValue) ?
       VectorizerUtils::convertSoaAllocaType(origValue->getType(), 0) : origType->getElementType();
     V_PRINT(scalarizer, "\t\tCreate Dummy Scalar value/s (of type " << *dummyType << ")\n");

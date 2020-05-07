@@ -102,7 +102,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
         FName.equals("__get_kernel_preferred_work_group_size_multiple_impl"))
       return true;
     // It isn't needed to process pipes BIs
-    if (CompilationUtils::isPipeBuiltin(FName))
+    if (CompilationUtils::isPipeBuiltin(std::string(FName)))
       return true;
 
     return false;

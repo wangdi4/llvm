@@ -117,6 +117,24 @@ double  __attribute__((overloadable)) sub_group_scan_inclusive_max( double x );
 #endif
 #endif
 
+#if defined(cl_khr_subgroup_shuffle)
+char   __attribute__((overloadable)) sub_group_shuffle( char x, uint c );
+uchar  __attribute__((overloadable)) sub_group_shuffle( uchar x, uint c );
+short  __attribute__((overloadable)) sub_group_shuffle( short x, uint c );
+ushort __attribute__((overloadable)) sub_group_shuffle( ushort x, uint c );
+int    __attribute__((overloadable)) sub_group_shuffle( int x, uint c );
+uint   __attribute__((overloadable)) sub_group_shuffle( uint x, uint c );
+long   __attribute__((overloadable)) sub_group_shuffle( long x, uint c );
+ulong  __attribute__((overloadable)) sub_group_shuffle( ulong x, uint c );
+float  __attribute__((overloadable)) sub_group_shuffle( float x, uint c );
+#if defined(cl_khr_fp64)
+double __attribute__((overloadable)) sub_group_shuffle( double x, uint c );
+#endif
+#if defined(cl_khr_fp16)
+half __attribute__((overloadable)) sub_group_shuffle( half x, uint c );
+#endif
+#endif
+
 #if defined(cl_intel_subgroups)
 // Intel Sub Group Functions
 float   __attribute__((overloadable)) intel_sub_group_shuffle( float  x, uint c );
@@ -511,33 +529,39 @@ uchar   __attribute__((overloadable)) intel_sub_group_block_read_uc(read_only im
 uchar2  __attribute__((overloadable)) intel_sub_group_block_read_uc2(read_only image2d_t image, int2 coord);
 uchar4  __attribute__((overloadable)) intel_sub_group_block_read_uc4(read_only image2d_t image, int2 coord);
 uchar8  __attribute__((overloadable)) intel_sub_group_block_read_uc8(read_only image2d_t image, int2 coord);
+uchar16 __attribute__((overloadable)) intel_sub_group_block_read_uc16(read_only image2d_t image, int2 coord);
 
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 uchar   __attribute__((overloadable)) intel_sub_group_block_read_uc(read_write image2d_t image, int2 coord);
 uchar2  __attribute__((overloadable)) intel_sub_group_block_read_uc2(read_write image2d_t image, int2 coord);
 uchar4  __attribute__((overloadable)) intel_sub_group_block_read_uc4(read_write image2d_t image, int2 coord);
 uchar8  __attribute__((overloadable)) intel_sub_group_block_read_uc8(read_write image2d_t image, int2 coord);
+uchar16 __attribute__((overloadable)) intel_sub_group_block_read_uc16(read_write image2d_t image, int2 coord);
 
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc(read_write image2d_t image, int2 coord, uchar  data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc2(read_write image2d_t image, int2 coord, uchar2 data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc4(read_write image2d_t image, int2 coord, uchar4 data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc8(read_write image2d_t image, int2 coord, uchar8 data);
+void    __attribute__((overloadable)) intel_sub_group_block_write_uc16(read_write image2d_t image, int2 coord, uchar16 data);
 #endif // (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 uchar    __attribute__((overloadable)) intel_sub_group_block_read_uc(const __global uchar* p);
 uchar2   __attribute__((overloadable)) intel_sub_group_block_read_uc2(const __global uchar* p);
 uchar4   __attribute__((overloadable)) intel_sub_group_block_read_uc4(const __global uchar* p);
 uchar8   __attribute__((overloadable)) intel_sub_group_block_read_uc8(const __global uchar* p);
+uchar16  __attribute__((overloadable)) intel_sub_group_block_read_uc16(const __global uchar* p);
 
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc(write_only image2d_t image, int2 coord, uchar  data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc2(write_only image2d_t image, int2 coord, uchar2 data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc4(write_only image2d_t image, int2 coord, uchar4 data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc8(write_only image2d_t image, int2 coord, uchar8 data);
+void    __attribute__((overloadable)) intel_sub_group_block_write_uc16(write_only image2d_t image, int2 coord, uchar16 data);
 
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc(__global uchar* p, uchar  data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc2(__global uchar* p, uchar2 data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc4(__global uchar* p, uchar4 data);
 void    __attribute__((overloadable)) intel_sub_group_block_write_uc8(__global uchar* p, uchar8 data);
+void    __attribute__((overloadable)) intel_sub_group_block_write_uc16(__global uchar* p, uchar16 data);
 
 #endif // cl_intel_subgroups_char
 

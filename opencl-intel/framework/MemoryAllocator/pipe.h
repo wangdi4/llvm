@@ -17,6 +17,7 @@
 #include "GenericMemObj.h"
 #include "PipeCommon.h"
 #include "framework_proxy.h"
+#include "cl_shared_ptr.hpp"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

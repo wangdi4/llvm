@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,6 +20,8 @@
 #include "task_dispatcher.h"
 
 #include <CL/cl_ext.h>
+#include <CL/cl_ext_intel.h>
+#include <CL/cl_fpga_ext.h>
 #include <buildversion.h>
 #include <builtin_kernels.h>
 #include <cl_cpu_detect.h>
@@ -278,6 +280,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
     m_pLogDescriptor(logDesc),
     m_iLogHandle (0),
     m_defaultCommandList(nullptr),
+    m_pinMaster(false),
     m_numCores(0),
     m_pComputeUnitMap(nullptr)
 #ifdef __HARD_TRAPPING__
@@ -392,13 +395,26 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     m_pCoreToThread.resize(m_numCores);
     m_pCoreInUse.resize(m_numCores);
 
-    //Todo: calculate the real map here
     for (unsigned int i = 0; i < m_numCores; i++)
     {
-        m_pComputeUnitMap[i] = i;
         m_pCoreToThread[i]   = INVALID_THREAD_HANDLE;
         m_pCoreInUse[i]      = false;
     }
+
+    // Calculate m_pComputeUnitMap
+    calculateComputeUnitMap();
+
+    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
+
+    return CL_DEV_SUCCESS;
+}
+
+void CPUDevice::calculateComputeUnitMap()
+{
+    // default mapping
+    for (unsigned int i = 0; i < m_numCores; i++)
+        m_pComputeUnitMap[i] = i;
+
 #ifndef WIN32
     //For Linux, respect the process affinity mask in determining which cores to run on
     affinityMask_t myParentMask;
@@ -406,8 +422,119 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
     clGetThreadAffinityMask(&myParentMask, myParentId);
     clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
 #endif
-    m_uiMasterHWId = Intel::OpenCL::Utils::GetCpuId();
-    return CL_DEV_SUCCESS;
+
+    // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
+    // affinity, similar to OMP_PROC_BIND in OpenMP.
+    std::string env_dpcpp_affinity;
+    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(env_dpcpp_affinity,
+                                                      "DPCPP_CPU_CU_AFFINITY");
+    if (CL_FAILED(err))
+        return;
+
+    CPU_CU_AFFINITY affinity;
+    if ("close" == env_dpcpp_affinity)
+        affinity = CPU_CU_AFFINITY_CLOSE;
+    else if ("spread" == env_dpcpp_affinity)
+        affinity = CPU_CU_AFFINITY_SPREAD;
+    else if ("master" == env_dpcpp_affinity)
+        affinity = CPU_CU_AFFINITY_MASTER;
+    else
+        return;
+
+    // Pin master thread if DPCPP_CPU_CU_AFFINITY env is set.
+    // If we don't pin master thread, DPCPP_CPU_CU_AFFINITY affinity can't be
+    // set correctly.
+    m_pinMaster = true;
+
+    // DPCPP_CPU_PLACES = {sockets | cores | threads} controls which place to
+    // set affinity, analogous to OMP_PLACES in OpenMP.
+    std::string places;
+    (void)Intel::OpenCL::Utils::GetEnvVar(places, "DPCPP_CPU_PLACES");
+
+    // Assume we have a 2 sockets, 4 physical cores per socket
+    // Case 1: HT is enabled (2 HT threads per core).
+    //
+    // If DPCPP_CPU_NUM_CUS=16,
+    // DPCPP_CPU_PLACES=sockets,
+    //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+    //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
+    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+    // DPCPP_CPU_PLACES=cores,
+    //   close : S0:[T0 T8 T1 T9 T2 T10 T3 T11] S1:[T4 T12 T5 T13 T6 T14 T7 T15]
+    //   spread: S0:[T0 T8 T2 T10 T4 T12 T6 T14] S1:[T1 T9 T3 T11 T5 T13 T7 T15]
+    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+    // DPCPP_CPU_PLACES=threads,
+    //   close:  S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+    //   spread: S0:[T0 T2 T4 T6 T8 T10 T12 T14] S1:[T1 T3 T5 T7 T9 T11 T13 T15]
+    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[T8 T9 T10 T11 T12 T13 T14 T15]
+    //
+    // If DPCPP_CPU_NUM_CUS=8,
+    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+    //   close:  S0:[T0 - T1 - T2 - T3 -]     S1:[T4 - T5 - T6 - T7 -]
+    //   spread: S0:[T0 - T2 - T4 - T6 -]     S1:[T1 - T3 - T5 - T7 -]
+    //   master: S0:[T0 T1 T2 T3 T4 T5 T6 T7] S1:[]
+    // S is socket, T is tbb thread, and - denotes unused core.
+    //
+    // Case 2: HT is disabled.
+    //
+    // If DPCPP_CPU_NUM_CUS=8,
+    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+    //   close:  S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
+    //   spread: S0:[T0 T2 T4 T6]     S1:[T1 T3 T5 T7]
+    //   master: S0:[T0 T1 T2 T3]     S1:[T4 T5 T6 T7]
+    //
+    // If DPCPP_CPU_NUM_CUS=4,
+    // DPCPP_CPU_PLACES=sockets, cores and threads have the same bindings:
+    //   close:  S0:[T0 - T1 -]       S1:[T2 - T3 -]
+    //   spread: S0:[T0 - T2 -]       S1:[T1 - T3 -]
+    //   master: S0:[T0 T1 T2 T3]     S1:[]
+
+    const size_t numTbbThreads =
+        TaskExecutor::GetTaskExecutor()->GetMaxNumOfConcurrentThreads();
+    const unsigned int numSockets =
+        Intel::OpenCL::Utils::GetNumberOfCpuSockets();
+    const unsigned int numCoresPerSocket = m_numCores / numSockets;
+    const unsigned int numCoresHalf = m_numCores / 2;
+
+    std::vector<unsigned int> dpcppAffinityMap(m_numCores);
+
+    for (unsigned int i = 0; i < m_numCores; i++) {
+        unsigned int j = i;
+        if (CPU_CU_AFFINITY_CLOSE == affinity) {
+            if (numTbbThreads <= numCoresHalf)
+                j = i * 2;
+            else if ("cores" == places)
+                j = (i % numCoresHalf) * 2 + (i / numCoresHalf);
+        }
+        if (CPU_CU_AFFINITY_SPREAD == affinity) {
+            j = (i % numSockets) * numCoresPerSocket;
+            if (numTbbThreads <= numCoresHalf)
+                j += (i / numSockets) * 2;
+            else {
+                if (Intel::OpenCL::Utils::IsHyperThreadingEnabled() &&
+                    "cores" == places) {
+                    j += ((i - (i % numSockets)) % numCoresHalf) /
+                             numSockets * 2 +
+                         (i / numCoresHalf);
+                } else
+                    j += i / numSockets;
+            }
+        }
+        dpcppAffinityMap[i] = j;
+    }
+
+    // Apply mapping.
+    // dpcppAffinityMap's values can be out of range if number of cores in
+    // myParentMask is larger than numTbbThreads when numTbbThreads is set by
+    // DPCPP_CPU_NUM_CUS.
+    for (unsigned int i = 0; i < m_numCores; i++) {
+        if (dpcppAffinityMap[i] < m_numCores)
+            dpcppAffinityMap[i] = m_pComputeUnitMap[dpcppAffinityMap[i]];
+    }
+    for (unsigned int i = 0; i < m_numCores; i++) {
+        if (dpcppAffinityMap[i] < m_numCores)
+            m_pComputeUnitMap[i] = dpcppAffinityMap[i];
+    }
 }
 
 bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
@@ -454,12 +581,16 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
 {
     Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 
-    // Don't pin worker thread if
+    // Don't pin thread if
     // * core_index is not less than m_numCores. For example, for FPGA emulator
     //   we allow to have more TBB workers than the number of CPU cores.
-    // * it is mapped to the CPU core on which master thread is running.
-    if (core_index >= m_numCores ||
-        m_pComputeUnitMap[core_index] == m_uiMasterHWId)
+    // * pinning master thread is disabled and current thread is master.
+    //   See TaskDispatcher::OnThreadEntry.
+    // * pinning master thread is disabled, current thread is worker and it is
+    //   mapped to the CPU core on which master thread is running.
+    if (core_index >= m_numCores)
+        return;
+    if (!m_pinMaster && (m_pComputeUnitMap[core_index] == m_uiMasterHWId))
         return;
 
     if (relocate)
@@ -1109,6 +1240,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 switch (m_CPUDeviceConfig.GetDeviceMode())
                 {
                     case CPU_DEVICE:
+                        *(size_t*)paramVal = m_CPUDeviceConfig.GetCpuMaxWGSize();
+                        break;
                     case EYEQ_EMU_DEVICE:
                         *(size_t*)paramVal = CPU_MAX_WORK_GROUP_SIZE;
                         break;
@@ -1134,6 +1267,14 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 switch (m_CPUDeviceConfig.GetDeviceMode())
                 {
                     case CPU_DEVICE:
+                    {
+                        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
+                        const size_t cpuMaxWISizes[CPU_MAX_WORK_ITEM_DIMENSIONS] =
+                            {cpuMaxWGSize, cpuMaxWGSize, cpuMaxWGSize};
+                        MEMCPY_S(paramVal, valSize, cpuMaxWISizes,
+                                 *pinternalRetunedValueSize);
+                        break;
+                    }
                     case EYEQ_EMU_DEVICE:
                         MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES,
                                  *pinternalRetunedValueSize);
@@ -1751,8 +1892,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                         // This value depends on pipe algorithm limitations,
                         // max. compute units and max. work-group size.
                         cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
+                        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
                         *(cl_uint*)paramVal = totalPerPipeReservationsLimit /
-                          (GetNumberOfProcessors() * CPU_MAX_WORK_GROUP_SIZE);
+                          (GetNumberOfProcessors() * cpuMaxWGSize);
                         break;
                     }
                     case FPGA_EMU_DEVICE:
@@ -1919,20 +2061,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL:
         {
             *pinternalRetunedValueSize =
-                sizeof(cl_unified_shared_memory_capabilities_intel);
+                sizeof(cl_device_unified_shared_memory_capabilities_intel);
 
             if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 return CL_DEV_INVALID_VALUE;
 
             if (nullptr != paramVal)
             {
-                cl_unified_shared_memory_capabilities_intel cap =
+                cl_device_unified_shared_memory_capabilities_intel cap =
                   CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL |
                   CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL |
                   CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ACCESS_INTEL |
                   CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ATOMIC_ACCESS_INTEL;
 
-                *(cl_unified_shared_memory_capabilities_intel*)paramVal = cap;
+                *(cl_device_unified_shared_memory_capabilities_intel*)paramVal =
+                    cap;
             }
 
             break;
@@ -2022,6 +2165,14 @@ bool CPUDevice::CoreToCoreIndex(unsigned int* core)
     }
     return false;
 }
+
+void CPUDevice::clDevGetComputeUnitMap(const unsigned OUT **computeUnitMap,
+                                       size_t OUT *count) const {
+    assert(m_pComputeUnitMap && "m_pComputeUnitMap is not initialized");
+    *computeUnitMap = m_pComputeUnitMap;
+    *count = (size_t)m_numCores;
+}
+
 /****************************************************************************************************************
  clDevPartition
     Calculate appropriate affinity mask to support the partitioning mode and instantiate as many SubdeviceTaskDispatcher objects as needed
@@ -2640,6 +2791,14 @@ cl_dev_err_code CPUDevice::clDevGetFunctionPointerFor(cl_dev_program IN prog,
         TEXT("clDevGetFunctionPointerFor Function enter"));
     return m_pProgramService->GetFunctionPointerFor(prog, func_name,
         func_pointer_ret);
+}
+
+void CPUDevice::clDevGetGlobalVariablePointers(cl_dev_program IN prog,
+    const cl_prog_gv OUT **gvPtrs, size_t OUT *gvCount) const
+{
+    CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
+        TEXT("clDevGetGlobalVariablePointers Function enter"));
+    m_pProgramService->GetGlobalVariablePointers(prog, gvPtrs, gvCount);
 }
 
 /*******************************************************************************************************************

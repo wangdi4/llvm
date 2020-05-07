@@ -169,8 +169,16 @@ void OCLPrepareKernelForVecClone::addVectorVariantAttrsToKernel(Function *F) {
   SmallVector<ParamAttrTy, 3> ParamsVec;
   for (unsigned i = 0; i < F->arg_size(); i++)
     ParamsVec.push_back(ParamAttrTy(Uniform));
-
   createEncodingForVectorVariants(F, VectorLength, ParamsVec, MT_NonMask);
+
+  // Create masked variant when there are some subgroup calls
+  // in the kernel.
+  // TODO: When there are some barriers in the kernel, we can also run
+  // masked kernel instead of scalar kernel. In that case, we need
+  // to make a heuristic choice which kernel to run. That's may be a chance
+  // to improve the performance.
+  if (MD.KernelHasSubgroups.hasValue() && MD.KernelHasSubgroups.get())
+    createEncodingForVectorVariants(F, VectorLength, ParamsVec, MT_Mask);
 }
 
 void OCLPrepareKernelForVecClone::run(Function *F) {

@@ -14,6 +14,7 @@
 
 #include "MemoryObjectFactory.h"
 #include "Context.h"
+#include "cl_shared_ptr.hpp"
 #include <CL/cl.h>
 #include <assert.h>
 

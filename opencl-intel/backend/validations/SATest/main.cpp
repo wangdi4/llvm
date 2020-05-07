@@ -56,6 +56,18 @@ BaseDirectory("basedir",
                           "Default value - configuration file directory."),
            llvm::cl::value_desc("basedir"));
 
+llvm::cl::opt<VectorizerType>
+OptVectorizerType("vectorizer-type",
+               llvm::cl::desc("Specify vectorizer type. "
+                              "Default value - volcano."),
+               llvm::cl::values(
+                clEnumValN(VOLCANO_VECTORIZER, "volcano", "volcano vectorizer"),
+                clEnumValN(VPO_VECTORIZER,     "vpo",     "vplan vectorizer"),
+                clEnumValN(DEFAULT_VECTORIZER, "default",  "default vectorizer")
+               ),
+               llvm::cl::init(DEFAULT_VECTORIZER)
+              );
+
 llvm::cl::opt<ETransposeSize>
 TransposeSize("tsize",
          llvm::cl::desc("Transpose size:"),

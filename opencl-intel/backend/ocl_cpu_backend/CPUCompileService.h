@@ -34,8 +34,9 @@ public:
     const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
     ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
 
-    cl_dev_err_code DumpJITCodeContainer( const ICLDevBackendCodeContainer* pCodeContainer,
-                                          const std::string& filePath) const;
+    cl_dev_err_code DumpJITCodeContainer(
+        const ICLDevBackendCodeContainer* codeContainer,
+        const ICLDevBackendOptions* options) const;
 
     cl_dev_err_code CheckProgramBinary( const void* pBinary,
                                         size_t uiBinarySize );

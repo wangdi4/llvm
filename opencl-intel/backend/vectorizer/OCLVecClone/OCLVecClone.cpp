@@ -31,12 +31,13 @@
 ///
 /// 3. Updates the metadata that later passes use.
 // ===--------------------------------------------------------------------=== //
-#include "OCLVecClone.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "MetadataAPI.h"
+#include "NameMangleAPI.h"
 #include "OCLPrepareKernelForVecClone.h"
+#include "OCLVecClone.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IRBuilder.h"
@@ -45,6 +46,8 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
+
+#include <string>
 
 #define DEBUG_TYPE "OCLVecClone"
 #define SV_NAME "ocl-vecclone"
@@ -59,10 +62,14 @@ static cl::opt<std::string> ReqdSubGroupSizes("reqd-sub-group-size", cl::init(""
                                                  "size. Comma separated list of"
                                                  " name(num)"));
 
-static cl::opt<bool>
-    LT2GBWorkGroupSize("less-than-two-gig-max-work-group-size", cl::init(true),
-                       cl::Hidden,
-                       cl::desc("Max work group size is less than 2GB."));
+static cl::opt<bool> LT2GigWorkGroupSize(
+    "less-than-two-gig-max-work-group-size", cl::init(true), cl::Hidden,
+    cl::desc("Max work group size is less than 2 Gig elements."));
+
+static cl::opt<bool> LT2GigGlobalWorkSize(
+    "less-than-two-gig-max-global-work-size", cl::init(false), cl::Hidden,
+    cl::desc("Max global work size (global_work_offset + total work items) is "
+             "less than 2 Gig elements."));
 
 namespace intel {
 
@@ -122,9 +129,11 @@ static void updateMetadata(Function &F, Function *Clone) {
   // Set "vector_width" for the original kernel.
   FMD.VectorizedWidth.set(1);
   FMD.ScalarizedKernel.set(nullptr);
-  FMD.VectorizedKernel.set(Clone);
-  // Remove "ocl_recommended_vector_length" metadata
-  MDValueGlobalObjectStrategy::unset(&F, "ocl_recommended_vector_length");
+
+  if (F.getFunctionType() == Clone->getFunctionType())
+    FMD.VectorizedKernel.set(Clone);
+  else // Vectorized kernel with mask
+    FMD.VectorizedMaskedKernel.set(Clone);
 }
 
 // Updates all the uses of TID calls with TID + new induction variable.
@@ -184,25 +193,25 @@ static bool isShlAshrTruncationPattern(Value *V, unsigned TruncatedToBitSize) {
   return false;
 }
 
-static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
-                                BasicBlock *EntryBlock) {
+static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
+                                      BasicBlock *EntryBlock) {
   IRBuilder<> IRB(Phi);
   IRB.SetInsertPoint(Phi->getNextNode());
-  // TODO: assertions for type of LIDCallInst and Phi
-  // Truncate LID to Phi's type (we know LID is in range {0-8192} since max work
-  // group size is less than 2GB).
-  Instruction *LIDTrunc =
-      cast<Instruction>(IRB.CreateTrunc(LIDCallInst, Phi->getType()));
-  // Generates LID+ind.
-  Instruction *Add = cast<Instruction>(IRB.CreateNUWAdd(LIDTrunc, Phi, "add"));
+  // TODO: assertions for type of TIDCallInst and Phi
+  // Truncate TID to Phi's type (we know TID call return value is in 32-bit
+  // range, check LT2GBWorkGroupSize and LT2GigGlobalWorkSize).
+  Instruction *TIDTrunc =
+      cast<Instruction>(IRB.CreateTrunc(TIDCallInst, Phi->getType()));
+  // Generates TID+ind.
+  Instruction *Add = cast<Instruction>(IRB.CreateNUWAdd(TIDTrunc, Phi, "add"));
   unsigned AddTypeSize = Add->getType()->getPrimitiveSizeInBits();
-  // Sign extend result to 64-bit (LIDCallInst's type)
+  // Sign extend result to 64-bit (TIDCallInst's type)
   Instruction *AddSExt =
-      cast<Instruction>(IRB.CreateSExt(Add, LIDCallInst->getType()));
-  // Replace all uses of LID with AddSExt, except truncating sequences that go
-  // back to same size as Add. NOTE: This will also exclude LIDTrunc since Add
+      cast<Instruction>(IRB.CreateSExt(Add, TIDCallInst->getType()));
+  // Replace all uses of TID with AddSExt, except truncating sequences that go
+  // back to same size as Add. NOTE: This will also exclude TIDTrunc since Add
   // and Phi are of same type.
-  LIDCallInst->replaceUsesWithIf(AddSExt, [Add, AddTypeSize](Use &U) {
+  TIDCallInst->replaceUsesWithIf(AddSExt, [Add, AddTypeSize](Use &U) {
     User *Usr = U.getUser();
     if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr)) {
       if (UsrTruncInst->getDestTy() == Add->getType())
@@ -213,19 +222,19 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
     return true;
   });
 
-  // All the remaining users of LID are either LIDTrunc, trunc instructions or
+  // All the remaining users of TID are either TIDTrunc, trunc instructions or
   // truncating sequences (shl + ashr) from incoming IR which go back to same
   // size as Add. The last two cases are trivial and can be removed, with all
   // their uses replaced directly by Add (or AddSExt).
   SmallVector<std::pair<Instruction * /* From */, Instruction * /* To */>, 4>
       ReplacePairs;
-  for (auto *User : LIDCallInst->users()) {
+  for (auto *User : TIDCallInst->users()) {
     assert((isa<TruncInst>(User) ||
             isShlAshrTruncationPattern(User, AddTypeSize)) &&
-           "Invalid remaining user of get_local_id.");
+           "Invalid remaining user of TID.");
     Instruction *UserInst = cast<Instruction>(User);
 
-    if (UserInst == LIDTrunc)
+    if (UserInst == TIDTrunc)
       continue;
 
     if (isa<TruncInst>(UserInst)) {
@@ -233,7 +242,7 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
     } else {
       Instruction *AshrInst = cast<Instruction>(*UserInst->user_begin());
       ReplacePairs.emplace_back(AshrInst, AddSExt);
-      // The shl instruction using LID call needs to be only removed. A
+      // The shl instruction using TID call needs to be only removed. A
       // replacement is not needed since its only user (ashr) is already
       // removed.
       ReplacePairs.emplace_back(UserInst, nullptr);
@@ -252,11 +261,11 @@ static void updateAndMoveGetLID(Instruction *LIDCallInst, PHINode *Phi,
     From->eraseFromParent();
   }
 
-  // Reset the operand of LID's trunc, after all uses of LID are replaced.
-  assert(LIDTrunc->getOperand(0) == LIDCallInst && "LIDTrunc is corrupted.");
-  // Move LID and its trunc call outside of the loop.
-  LIDCallInst->moveBefore(EntryBlock->getTerminator());
-  LIDTrunc->moveBefore(EntryBlock->getTerminator());
+  // Reset the operand of TID's trunc, after all uses of TID are replaced.
+  assert(TIDTrunc->getOperand(0) == TIDCallInst && "TIDTrunc is corrupted.");
+  // Move TID and its trunc call outside of the loop.
+  TIDCallInst->moveBefore(EntryBlock->getTerminator());
+  TIDTrunc->moveBefore(EntryBlock->getTerminator());
 }
 
 void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
@@ -276,6 +285,8 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       std::make_pair(CompilationUtils::mangledGetGlobalOffset(),
                      FnAction::MoveOnly),
       std::make_pair(CompilationUtils::mangledGetGroupID(), FnAction::MoveOnly),
+      std::make_pair(CompilationUtils::mangledGetSubGroupSize(),
+                     FnAction::MoveOnly),
       std::make_pair(CompilationUtils::mangledGetLocalSize(),
                      FnAction::MoveOnly),
       std::make_pair(CompilationUtils::mangledGetEnqueuedLocalSize(),
@@ -308,8 +319,11 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         if (dim == 0) {
           // Currently, only zero dimension is vectorized.
           if (FuncName == CompilationUtils::mangledGetLID() &&
-              LT2GBWorkGroupSize)
-            updateAndMoveGetLID(CI, Phi, EntryBlock);
+              LT2GigWorkGroupSize)
+            optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
+          else if (FuncName == CompilationUtils::mangledGetGID() &&
+                   LT2GigGlobalWorkSize)
+            optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
         } else
@@ -338,7 +352,21 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
   updateMetadata(F, Clone);
 
-  static auto VecInfo = OCLBuiltinVecInfo();
+  std::vector<std::pair<const char*, std::string>> VectInfoStr = {
+    #include "VectInfo.gen"
+    {"intel_sub_group_ballot", VectorVariant{VectorVariant::ISAClass::XMM, true, 4,
+     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf4"}.toString()},
+    {"intel_sub_group_ballot", VectorVariant{VectorVariant::ISAClass::XMM, true, 8,
+     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf8"}.toString()},
+    {"intel_sub_group_ballot", VectorVariant{VectorVariant::ISAClass::XMM, true, 16,
+     {VectorKind::vector()}, "", "intel_sub_group_ballot_vf16"}.toString()},
+  };
+  ContainerTy VectInfo;
+  for (auto &vi : VectInfoStr) {
+    VectInfo.emplace_back(vi.first, std::move(vi.second));
+  }
+  static ContainerTy VecInfo = std::move(VectInfo);
+
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
     if (!Call)
@@ -368,389 +396,41 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     // This condition isn't expected to happen, but do the right thing anyway.
     if (Call->hasFnAttr("vector-variants"))
-      Variants = Call->getFnAttr("vector-variants").getValueAsString();
+      Variants = std::string(Call->getFnAttr("vector-variants").getValueAsString());
 
+    // Indicates the call must have mask arg.
+    bool HasMask = true;
+    // Indicates the call must not mask arg.
+    bool NotHasMask = true;
     for (auto &Variant : MatchingVariants) {
       if (!Variants.empty())
         Variants += ',';
 
       Variants +=  Variant.second.toString();
+      if (Variant.second.isMasked())
+        NotHasMask = false;
+      else
+        HasMask = false;
     }
 
     AttributeList AL = Call->getAttributes();
 
     AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
                          "vector-variants", Variants);
-
+    // TODO: So far the functions that have their vector variants assigned here
+    // are essentially "kernel-call-once" functions.
+    AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
+                         CompilationUtils::ATTR_KERNEL_CALL_ONCE);
+    if (HasMask)
+      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
+                           CompilationUtils::ATTR_HAS_VPLAN_MASK);
+    else if (!NotHasMask) {
+      unsigned ParamsNum = Call->arg_size();
+      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
+                           "call-params-num", std::to_string(ParamsNum));
+    }
     Call->setAttributes(AL);
   }
-}
-
-// TODO: Replace with tblgen-generated data. Currently we probably duplicate
-// some code for the mangling part, but that should go away once we start using
-// tblgen.
-//
-// The code below populates table with mapping from "scalar" OpenCL builin to
-// its vector-variants information that is used to annotate builtins' call-sites
-// to let VPlan vectorizer know how to process this particular builtin for a
-// given vectorized version of the kernel.
-namespace {
-struct TypeInfo {
-  char TypeLetter;
-  unsigned VF; // 1 means scalar.
-  TypeInfo(char TypeLetter, unsigned VF) : TypeLetter(TypeLetter), VF(VF) {}
-  TypeInfo(char TypeLetter) : TypeInfo(TypeLetter, 1) {}
-  TypeInfo() : TypeInfo('\0', 0) {}
-
-  std::string str() const {
-    if (VF == 1)
-      return std::string(1, TypeLetter);
-
-    return std::string("Dv") + std::to_string(VF) + "_" + TypeLetter;
-  }
-
-  TypeInfo multVF(unsigned VFMultiplier) {
-    TypeInfo New = *this;
-    New.VF *= VFMultiplier;
-    return New;
-  }
-
-  bool operator==(const TypeInfo &Other) const {
-    return TypeLetter == Other.TypeLetter && VF == Other.VF;
-  }
-};
-} // namespace
-
-//  The mangling part is probably duplicating existing code, but this is only a
-// temporary solution anyway and this simpler interface is enough currently.
-static std::string mangleTypes(std::vector<TypeInfo> Types) {
-  SmallVector<TypeInfo, 2> SubstitutableTypes;
-
-  std::string Result;
-
-  for (TypeInfo &Type : Types) {
-    if (Type.VF == 1) {
-      Result += Type.str();
-      continue;
-    }
-
-    auto It = llvm::find(SubstitutableTypes, Type);
-    if (It == SubstitutableTypes.end()) {
-      Result += Type.str();
-      SubstitutableTypes.push_back(Type);
-      continue;
-    }
-
-    int Idx = std::distance(SubstitutableTypes.begin(), It);
-    switch (Idx) {
-    case 0:
-      Result += "S_";
-      break;
-    case 1:
-      Result += "S0_";
-      break;
-    default:
-      llvm_unreachable("Not implemented!");
-    }
-  }
-
-  return Result;
-}
-
-static std::pair<std::string, VectorVariant>
-getEntry(std::string ScalarBaseName, std::vector<TypeInfo> ScalarTypes,
-         std::vector<VectorKind> Params, unsigned VL, bool Masked) {
-  // Calculate the scalar name before we modify the types vector.
-  std::string ScalarName = ScalarBaseName + mangleTypes(ScalarTypes);
-
-  // Modify the vector inplace, but under different name to avoid reader's
-  // confusion.
-  auto &Types = ScalarTypes;
-
-  if (Masked)
-    Types.emplace_back('j', 1);
-
-  // Calculate the type for the vector variant of the builtin, based on the
-  // information about the parameter VectorKind (i.e., is it widened or remains
-  // scalar).
-  for (unsigned TypeIdx = 0; TypeIdx < Types.size(); ++TypeIdx) {
-    TypeInfo Type = Types[TypeIdx];
-    bool IsUniform = TypeIdx < Params.size() && Params[TypeIdx].isUniform();
-    if (!IsUniform)
-      Type = Type.multVF(VL);
-
-    Types[TypeIdx] = Type;
-  }
-  std::string VectorName = ScalarBaseName + mangleTypes(Types);
-
-  return {ScalarName,
-          {VectorVariant::ISAClass::XMM /*does not matter*/, Masked, VL,
-           std::move(Params),
-           "", // Empty BaseName - does not matter.
-           VectorName}};
-}
-
-// Create entries for the whole set of VFs (4, 8, 16)
-static void addEntries(ContainerTy &Info, std::string ScalarBaseName,
-                       std::vector<TypeInfo> Types,
-                       std::vector<VectorKind> Params, bool Masked = false) {
-  Info.push_back(getEntry(ScalarBaseName, Types, Params, 4 /* VL */, Masked));
-  Info.push_back(getEntry(ScalarBaseName, Types, Params, 8 /* VL */, Masked));
-  Info.push_back(getEntry(ScalarBaseName, Types, Params, 16 /* VL */, Masked));
-}
-
-// Handy overload for single-argument builtins.
-static void addEntries(ContainerTy &Info, std::string ScalarBaseName,
-                       TypeInfo Type, std::vector<VectorKind> Params,
-                       bool Masked = false) {
-  std::vector<TypeInfo> Types = {Type};
-  addEntries(Info, ScalarBaseName, Types, std::move(Params), Masked);
-}
-
-// Handle built-ins that have different base name and do not rely
-// solely on overloading to distinguish between widened versions.
-static void addSpecialBuiltins(ContainerTy &Info) {
-  // Scalar -> [VF4, VF8, VF16]
-  using BuiltinInfo = std::pair<std::string, std::array<std::string, 3>>;
-  using BuiltinInfoList = std::vector<BuiltinInfo>;
-
-  const std::string BlockReadBaseName("intel_sub_group_block_read");
-  const std::string BlockWriteBaseName("intel_sub_group_block_write");
-
-  llvm::StringMap<std::string> SuffixMap{
-      {{"", "j"}, {"_ul", "m"}, {"_ui", "j"}, {"_us", "t"}, {"_uc", "h"}}};
-
-  std::array<std::string, 5> BlockReadWriteSuffixes{
-      {"", "_ul", "_ui", "_us", "_uc"}};
-  std::array<unsigned, 4> BlockReadWriteVecLengths{{1, 2, 4, 8}};
-
-  // Example:
-  // "intel_sub_group_block_read", "", 1 -> "intel_sub_group_block_read"
-  // "intel_sub_group_block_read", "_us", "2" ->
-  // "intel_sub_group_block_read_us2"
-  auto ConstructBaseName = [](const std::string &BaseName,
-                              const std::string &Suffix, unsigned OrigTypeVL) {
-    std::string OrigTypeVLStr = OrigTypeVL == 1 ? "" : std::to_string(OrigTypeVL);
-    return BaseName + Suffix + OrigTypeVLStr;
-  };
-
-  // Example:
-  // "intel_sub_group_block_read", "", "4" ->
-  //   "intel_sub_group_block_read1_4"
-  // "intel_sub_group_block_read", "_us", "2", "4" ->
-  //   "intel_sub_group_block_read_us2_4"
-  auto ConstructVFName = [](const std::string &BaseName,
-                            const std::string &Suffix, unsigned OrigTypeVL,
-                            unsigned VF) {
-    std::string OrigTypeVLStr = std::to_string(OrigTypeVL);
-    return BaseName + Suffix + OrigTypeVLStr + "_" + std::to_string(VF);
-  };
-
-  // Example:
-  // "intel_sub_group_block_read", "" ->
-  //   "_Z26intel_sub_group_block_readPU3AS1Kj"
-  // "intel_sub_group_block_read",
-  //   "_us" -> "_Z29intel_sub_group_block_read_usPU3AS1Kt"
-  auto ConstructReadMangledName = [&SuffixMap](const std::string &BaseName,
-                                               const std::string &Suffix) {
-    return "_Z" + std::to_string(BaseName.length()) + BaseName + "PU3AS1K" +
-           SuffixMap[Suffix];
-  };
-
-  // Example:
-  // "intel_sub_group_block_write1_4, "", 1, 4 ->
-  // "_Z30intel_sub_group_block_write1_4PU3AS1jDv4_j"
-  // "intel_sub_group_block_write_us2_4", "_us", 2, 4 ->
-  // "_Z33intel_sub_group_block_write_us2_4PU3AS1tDv8_t"
-  auto ConstructWriteMangledName =
-      [&SuffixMap](const std::string &BaseName, const std::string &Suffix,
-                   unsigned OrigTypeVL, unsigned VF) {
-    return "_Z" + std::to_string(BaseName.length()) + BaseName + "PU3AS1" +
-           SuffixMap[Suffix] +
-           TypeInfo(SuffixMap[Suffix][0], OrigTypeVL * VF).str();
-  };
-
-  BuiltinInfoList ReadBuiltins;
-  BuiltinInfoList WriteBuiltins;
-  for (auto Suffix : BlockReadWriteSuffixes) {
-    for (auto OrigTypeVL : BlockReadWriteVecLengths) {
-      const std::string BlockReadBaseName("intel_sub_group_block_read");
-      std::string ReadBaseName =
-          ConstructBaseName(BlockReadBaseName, Suffix, OrigTypeVL);
-      std::string ReadVF4Name =
-          ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 4);
-      std::string ReadVF8Name =
-          ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 8);
-      std::string ReadVF16Name =
-          ConstructVFName(BlockReadBaseName, Suffix, OrigTypeVL, 16);
-      ReadBuiltins.push_back({ConstructReadMangledName(ReadBaseName, Suffix),
-                              {ConstructReadMangledName(ReadVF4Name, Suffix),
-                               ConstructReadMangledName(ReadVF8Name, Suffix),
-                               ConstructReadMangledName(ReadVF16Name, Suffix)}});
-
-      const std::string BlockWriteBaseName("intel_sub_group_block_write");
-      std::string WriteBaseName =
-          ConstructBaseName(BlockWriteBaseName, Suffix, OrigTypeVL);
-      std::string WriteVF4Name =
-          ConstructVFName(BlockWriteBaseName, Suffix, OrigTypeVL, 4);
-      std::string WriteVF8Name =
-          ConstructVFName(BlockWriteBaseName, Suffix, OrigTypeVL, 8);
-      std::string WriteVF16Name =
-          ConstructVFName(BlockWriteBaseName, Suffix, OrigTypeVL, 16);
-      WriteBuiltins.push_back(
-          {ConstructWriteMangledName(WriteBaseName, Suffix, OrigTypeVL, 1),
-           {ConstructWriteMangledName(WriteVF4Name, Suffix, OrigTypeVL, 4),
-            ConstructWriteMangledName(WriteVF8Name, Suffix, OrigTypeVL, 8),
-            ConstructWriteMangledName(WriteVF16Name, Suffix, OrigTypeVL, 16)}});
-    }
-  }
-
-  // Handle unmangled ballot variant
-  BuiltinInfo BallotBuiltins[] = {
-      {"intel_sub_group_ballot",
-       {"intel_sub_group_ballot_vf4",
-        "intel_sub_group_ballot_vf8",
-        "intel_sub_group_ballot_vf16"}}
-  };
-
-
-  auto AddBuiltin = [&Info](BuiltinInfo &Builtin, bool Masked,
-                                std::vector<VectorKind> Params, unsigned VF,
-                                unsigned Idx) -> void {
-    Info.emplace_back(Builtin.first,
-                      VectorVariant{VectorVariant::ISAClass::XMM,
-                                    Masked,
-                                    VF,
-                                    Params,
-                                    "", // Empty BaseName - does not matter
-                                    Builtin.second[Idx]});
-  };
-
-  auto AddReadBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
-                                unsigned Idx) -> void {
-    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform()}, VF, Idx);
-  };
-
-  for (auto &ReadBuiltin : ReadBuiltins) {
-    AddReadBuiltin(ReadBuiltin, 4, 0);
-    AddReadBuiltin(ReadBuiltin, 8, 1);
-    AddReadBuiltin(ReadBuiltin, 16, 2);
-  }
-
-  auto AddWriteBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
-                                unsigned Idx) -> void {
-    AddBuiltin(Builtin, false /*Masked*/, {VectorKind::uniform(), VectorKind::vector()},
-               VF, Idx);
-  };
-
-  for (auto &WriteBuiltin : WriteBuiltins) {
-    AddWriteBuiltin(WriteBuiltin, 4, 0);
-    AddWriteBuiltin(WriteBuiltin, 8, 1);
-    AddWriteBuiltin(WriteBuiltin, 16, 2);
-  }
-
-  auto AddBallotBuiltin = [&AddBuiltin](BuiltinInfo &Builtin, unsigned VF,
-                                  unsigned Idx) -> void {
-    AddBuiltin(Builtin, true /*Masked*/, {VectorKind::vector()},
-               VF, Idx);
-  };
-
-  for (auto &BallotBuiltin : BallotBuiltins) {
-    AddBallotBuiltin(BallotBuiltin, 4, 0);
-    AddBallotBuiltin(BallotBuiltin, 8, 1);
-    AddBallotBuiltin(BallotBuiltin, 16, 2);
-  }
-}
-
-static ContainerTy OCLBuiltinVecInfo() {
-  ContainerTy Info;
-
-  addEntries(Info, "_Z13sub_group_all", TypeInfo{'i'}, {VectorKind::vector()}, true);
-  addEntries(Info, "_Z13sub_group_any", TypeInfo{'i'}, {VectorKind::vector()}, true);
-  addEntries(Info, "_Z14work_group_all", TypeInfo{'i'}, {VectorKind::vector()}, false);
-  addEntries(Info, "_Z14work_group_any", TypeInfo{'i'}, {VectorKind::vector()}, false);
-
-  addEntries(Info, "_Z22intel_sub_group_ballot", TypeInfo{'i'}, {VectorKind::vector()}, true);
-
-  addSpecialBuiltins(Info);
-
-  TypeInfo WorkGroupReductionTypes[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (TypeInfo &Type : WorkGroupReductionTypes) {
-    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}},
-               {VectorKind::vector(), VectorKind::uniform()}, false);
-    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}},
-               {VectorKind::vector(),
-                  VectorKind::uniform(), VectorKind::uniform()}, false);
-    addEntries(Info, std::string("_Z20work_group_broadcast"), {Type, {'m'}, {'m'}, {'m'}},
-               {VectorKind::vector(),
-                  VectorKind::uniform(), VectorKind::uniform(), VectorKind::uniform()},
-                false);
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
-       addEntries(Info, std::string("_Z21work_group_reduce_") + Op, Type,
-                 {VectorKind::vector()}, false);
-       addEntries(Info, std::string("_Z29work_group_scan_exclusive_") + Op, Type,
-                  {VectorKind::vector()}, false);
-       addEntries(Info, std::string("_Z29work_group_scan_inclusive_") + Op, Type,
-                  {VectorKind::vector()}, false);
-    }
-  }
-  TypeInfo SubGroupReductionsTypes[] =
-    {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (TypeInfo &Type : SubGroupReductionsTypes) {
-    addEntries(Info, std::string("_Z19sub_group_broadcast"), {Type, {'j'}},
-               {VectorKind::vector(), VectorKind::uniform()}, true);
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
-      addEntries(Info, std::string("_Z20sub_group_reduce_") + Op, Type,
-                 {VectorKind::vector()}, true);
-
-      addEntries(Info, std::string("_Z28sub_group_scan_exclusive_") + Op, Type,
-                 {VectorKind::vector()}, true);
-      addEntries(Info, std::string("_Z28sub_group_scan_inclusive_") + Op, Type,
-                 {VectorKind::vector()}, true);
-    }
-  }
-  TypeInfo IntelSubGroupReductionsTypes[] =
-    {{'c'}, {'h'}, {'s'}, {'t'}};
-  for (TypeInfo &Type : IntelSubGroupReductionsTypes) {
-    addEntries(Info, std::string("_Z25intel_sub_group_broadcast"), {Type, {'j'}},
-               {VectorKind::vector(), VectorKind::uniform()}, true);
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}}) {
-      addEntries(Info, std::string("_Z26intel_sub_group_reduce_") + Op, Type,
-                 {VectorKind::vector()}, true);
-
-      addEntries(Info, std::string("_Z34intel_sub_group_scan_exclusive_") + Op, Type,
-                 {VectorKind::vector()}, true);
-      addEntries(Info, std::string("_Z34intel_sub_group_scan_inclusive_") + Op, Type,
-                 {VectorKind::vector()}, true);
-    }
-  }
-  TypeInfo ShuffleTypes[] = {
-      {'c'}, {'c', 2}, {'c', 3}, {'c', 4}, {'c', 8}, {'c', 16},
-      {'h'}, {'h', 2}, {'h', 3}, {'h', 4}, {'h', 8}, {'h', 16},
-      {'s'}, {'s', 2}, {'s', 3}, {'s', 4}, {'s', 8}, {'s', 16},
-      {'t'}, {'t', 2}, {'t', 3}, {'t', 4}, {'t', 8}, {'t', 16},
-      {'i'}, {'i', 2}, {'i', 3}, {'i', 4}, {'i', 8}, {'i', 16},
-      {'j'}, {'j', 2}, {'j', 3}, {'j', 4}, {'j', 8}, {'j', 16},
-      {'f'}, {'f', 2}, {'f', 3}, {'f', 4}, {'f', 8}, {'f', 16},
-      {'l'}, {'m'},    {'d'}};
-  for (TypeInfo &Type : ShuffleTypes) {
-    addEntries(Info, std::string("_Z23intel_sub_group_shuffle"), {Type, {'j'}},
-               {VectorKind::vector(), VectorKind::vector()}, true);
-    addEntries(
-        Info, std::string("_Z28intel_sub_group_shuffle_down"),
-        {Type, Type, {'j'}},
-        {VectorKind::vector(), VectorKind::vector(), VectorKind::vector()},
-        true);
-    addEntries(
-        Info, std::string("_Z26intel_sub_group_shuffle_up"),
-        {Type, Type, {'j'}},
-        {VectorKind::vector(), VectorKind::vector(), VectorKind::vector()},
-        true);
-    addEntries(Info, std::string("_Z27intel_sub_group_shuffle_xor"),
-               {Type, {'j'}}, {VectorKind::vector(), VectorKind::vector()},
-               true);
-  }
-  return Info;
 }
 
 static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
@@ -762,13 +442,13 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
   // Work group uniform built-ins
   RetInfo.push_back({"_Z14work_group_alli", VectorKind::uniform()});
   RetInfo.push_back({"_Z14work_group_anyi", VectorKind::uniform()});
-  std::string WorkGroupTypes[] = {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (auto Type : WorkGroupTypes) {
+  const char WorkGroupTypes[] = {'i', 'j', 'l', 'm', 'f', 'd'};
+  for (char Type : WorkGroupTypes) {
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "m", VectorKind::uniform()});
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mm", VectorKind::uniform()});
     RetInfo.push_back({std::string("_Z20work_group_broadcast") + Type + "mmm", VectorKind::uniform()});
 
-    for (std::string Op : std::array<std::string, 3>{{"add", "min", "max"}})
+    for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z21work_group_reduce_") + Op + Type, VectorKind::uniform()});
   }
 
@@ -778,21 +458,23 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
 
   RetInfo.push_back({std::string("_Z22intel_sub_group_balloti"), VectorKind::uniform()});
 
-  std::string SubGroupTypes[] =
-    {{'i'}, {'j'}, {'l'}, {'m'}, {'f'}, {'d'}};
-  for (auto Type : SubGroupTypes) {
+  const char SubGroupTypes[] = {'i', 'j', 'l', 'm', 'f', 'd'};
+  for (char Type : SubGroupTypes) {
     RetInfo.push_back({std::string("_Z19sub_group_broadcast") + Type + 'j', VectorKind::uniform()});
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}})
+    for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z20sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
   }
 
-  std::string IntelSubGroupTypes[] =
-    {{'c'}, {'h'}, {'s'}, {'t'}};
-  for (auto Type : IntelSubGroupTypes) {
+  const char IntelSubGroupTypes[] = {'c', 'h', 's', 't'};
+  for (char Type : IntelSubGroupTypes) {
     RetInfo.push_back({std::string("_Z25intel_sub_group_broadcast") + Type + 'j', VectorKind::uniform()});
-    for (auto Op : std::array<std::string, 3>{{"add", "min", "max"}})
+    for (auto Op : {"add", "min", "max"})
       RetInfo.push_back({std::string("_Z26intel_sub_group_reduce_") + Op + Type,  VectorKind::uniform()});
   }
+
+  // Pipe functions
+  RetInfo.push_back({std::string("__work_group_reserve_write_pipe"), VectorKind::uniform()});
+  RetInfo.push_back({std::string("__work_group_reserve_read_pipe"), VectorKind::uniform()});
 
   return RetInfo;
 }
@@ -817,6 +499,28 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
 
     assert(Entry.second.isUniform() && "Only uniforms are supported by now!");
     Fn->addFnAttr("opencl-vec-uniform-return");
+  }
+  // Process async_work_group copies separately as it is easier to detect
+  // them via unmangling as the number of overloads is high.
+  for (auto &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    if (CompilationUtils::isAsyncWorkGroupCopy(std::string(F.getName())) ||
+        CompilationUtils::isAsyncWorkGroupStridedCopy(std::string(F.getName())))
+      F.addFnAttr("opencl-vec-uniform-return");
+  }
+
+  // Mark "kernel-uniform-call" (see LangRef for more details).
+  CompilationUtils::FunctionSet oclSyncBuiltins;
+  CompilationUtils::getAllSyncBuiltinsDclsForKernelUniformCallAttr(oclSyncBuiltins, &M);
+  // process call sites
+  for (auto *F : oclSyncBuiltins) {
+    for (auto *U : F->users()) {
+      if (auto *CI = dyn_cast<CallInst>(U)) {
+        CI->setAttributes(CI->getAttributes()
+          .addAttribute(CI->getContext(), AttributeList::FunctionIndex, "kernel-uniform-call"));
+      }
+    }
   }
 
   auto Kernels = KernelList(*&M).getList();

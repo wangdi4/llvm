@@ -11,5 +11,10 @@ config.intree_build = "@OPENCL_INTREE_BUILD@"
 
 config.host_arch = "@HOST_ARCH@"
 
+if 4 == @CMAKE_SIZEOF_VOID_P@:
+    config.available_features.add("32bit")
+else:
+    config.available_features.add("64bit")
+
 # Let the main config do the real work.
 lit_config.load_config(config, "@BACKEND_ROOT_DIR@/tests/lit.cfg")

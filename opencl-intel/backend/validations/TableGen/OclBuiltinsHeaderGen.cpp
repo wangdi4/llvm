@@ -220,7 +220,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     TypedBiIter typeit, typee = typedbiList.end();
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)
       code += generateBuiltinOverload(typeit->first, typeit->second);
-    build(code, fileName.str());
+    build(code, std::string(fileName));
     std::unique_ptr<llvm::Module> pModule = llvm::parseIRFile(fileName.str(), errDiagnostic, context);
     assert(pModule && "module parsing failed");
     //deleting the temporary output file
@@ -233,7 +233,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     assert(pModule->size() == typedbiList.size() && "number of builded functions does not match builtin list");
     int biCounter = 0;
     while (it != e&& typeit != typee ){
-        m_formatter << "BUILTINS_API llvm::GenericValue lle_X_" << deleteSuffix(it->getName()) 
+        m_formatter << "BUILTINS_API llvm::GenericValue lle_X_" << deleteSuffix(std::string(it->getName())) 
             << "( llvm::FunctionType *FT, llvm::ArrayRef<llvm::GenericValue> Args) { return " 
             << getRefFunction(typeit->first, typeit->second) << "(FT,Args);}//" << biCounter++;
       m_formatter.endl();

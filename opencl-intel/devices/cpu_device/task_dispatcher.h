@@ -69,6 +69,11 @@ public:
      */
     virtual void NotifyAffinity(threadid_t tid, unsigned int core_index,
                                 bool relocate = false) = 0;
+    /**
+     * Check if master thread will be pinned.
+     * @return true if master thread will be pinned.
+     */
+    virtual bool IsPinMasterAllowed() const = 0;
 };
 
 class TaskDispatcher : public Intel::OpenCL::TaskExecutor::ITaskExecutorObserver
@@ -140,6 +145,9 @@ protected:
     cl_dev_err_code	SubmitTaskArray(ITaskList* pList, cl_dev_cmd_desc* *cmds, cl_uint count);
 
     void	NotifyCommandStatusChange(const cl_dev_cmd_desc* pCmd, unsigned uStatus, int iErr);
+
+    // Get preferred scheduling, i.e. TBB partitioner
+    TE_CMD_LIST_PREFERRED_SCHEDULING getPreferredScheduling();
 
     // Task failure notification
     class TaskFailureNotification : public ITask

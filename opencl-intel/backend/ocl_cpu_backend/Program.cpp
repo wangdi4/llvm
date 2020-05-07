@@ -13,24 +13,29 @@
 // License.
 
 #include "BitCodeContainer.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
-#include "Program.h"
-#include "cl_device_api.h"
-#include "exceptions.h"
 #include "ObjectCodeContainer.h"
+#include "Program.h"
 #include "Serializer.h"
+#include "cache_binary_handler.h"
+#include "cl_device_api.h"
+#include "cl_sys_defines.h"
+#include "exceptions.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 Program::Program():
     m_pObjectCodeContainer(nullptr),
     m_pIRCodeContainer(nullptr),
-    m_kernels(nullptr),
-    m_globalVariableTotalSize(0)
+    m_kernels(nullptr)
 {}
 
 Program::~Program()
 {
     m_kernels.reset(nullptr);
+
+    for (auto &gv : m_globalVariables)
+        free(gv.name);
 
     delete m_pObjectCodeContainer;
     delete m_pIRCodeContainer;
@@ -54,7 +59,7 @@ const ICLDevBackendCodeContainer* Program::GetProgramIRCodeContainer() const
 
 const ICLDevBackendCodeContainer* Program::GetProgramCodeContainer() const
 {
-    return m_pObjectCodeContainer ? m_pObjectCodeContainer: GetProgramIRCodeContainer();
+    return m_pObjectCodeContainer;
 }
 
 const ICLDevBackendProgramJITCodeProperties* Program::GetProgramJITCodeProperties() const
@@ -115,14 +120,13 @@ cl_dev_err_code Program::GetKernel(int kernelIndex,
     return CL_DEV_SUCCESS;
 }
 
-size_t Program::GetGlobalVariableTotalSize() const
+void Program::SetGlobalVariables(std::vector<cl_prog_gv> gvs)
 {
-    return m_globalVariableTotalSize;
+    m_globalVariables = std::move(gvs);
 }
 
-void Program::SetGlobalVariableTotalSize(size_t size)
-{
-    m_globalVariableTotalSize = size;
+void Program::RecordCtorDtors(llvm::Module &M) {
+    CompilationUtils::recordGlobalCtorDtors(M, m_globalCtors, m_globalDtors);
 }
 
 void Program::SetObjectCodeContainer(ObjectCodeContainer* pObjCodeContainer)
@@ -152,16 +156,27 @@ void Program::SetKernelSet( KernelSet* pKernels)
     m_kernels.reset(pKernels);
 }
 
-void Program::SetModule( void* pModule)
+void Program::SetModule(std::unique_ptr<llvm::Module> M)
 {
     assert(m_pIRCodeContainer && "code container should be initialized by now");
-    m_pIRCodeContainer->SetModule(pModule);
+    m_pIRCodeContainer->SetModule(std::move(M));
 }
 
-void* Program::GetModule()
+void Program::SetModule(llvm::orc::ThreadSafeModule TSM) {
+    assert(m_pIRCodeContainer && "code container should be initialized by now");
+    m_pIRCodeContainer->SetModule(std::move(TSM));
+}
+
+llvm::Module* Program::GetModule()
 {
     assert(m_pIRCodeContainer && "code container should be initialized by now");
     return m_pIRCodeContainer->GetModule();
+}
+
+std::unique_ptr<llvm::Module> Program::GetModuleOwner()
+{
+    assert(m_pIRCodeContainer && "code container should be initialized by now");
+    return std::move(m_pIRCodeContainer->GetModuleOwner());
 }
 
 void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
@@ -179,8 +194,31 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
             currentKernel->Serialize(ost, stats);
         }
     }
-    unsigned long long int tmp = (unsigned long long int)m_globalVariableTotalSize;
+
+    // Global variables
+    unsigned long long int tmp =
+        (unsigned long long int)m_globalVariableTotalSize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    unsigned int gvCount = (unsigned int)m_globalVariables.size();
+    Serializer::SerialPrimitive<unsigned int>(&gvCount, ost);
+    for (auto &gv : m_globalVariables)
+    {
+        std::string name = gv.name;
+        Serializer::SerialString(name, ost);
+        tmp = (unsigned long long int)gv.size;
+        Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    }
+
+    // Global Ctor Names
+    unsigned int ctorCount = (unsigned int)m_globalCtors.size();
+    Serializer::SerialPrimitive<unsigned int>(&ctorCount, ost);
+    for (const std::string &ctor : m_globalCtors)
+        Serializer::SerialString(ctor, ost);
+    // Global Dtor Names
+    unsigned int dtorCount = (unsigned int)m_globalDtors.size();
+    Serializer::SerialPrimitive<unsigned int>(&dtorCount, ost);
+    for (const std::string &dtor : m_globalDtors)
+        Serializer::SerialString(dtor, ost);
 }
 
 void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
@@ -201,8 +239,50 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
             m_kernels->AddKernel(currentKernel);
         }
     }
+
+    // Global variables
     unsigned long long int tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_globalVariableTotalSize = (size_t)tmp;
+    unsigned int gvCount;
+    Serializer::DeserialPrimitive<unsigned int>(&gvCount, ist);
+    m_globalVariables.resize(gvCount);
+    for (unsigned int i = 0; i < gvCount; ++i)
+    {
+        std::string name;
+        Serializer::DeserialString(name, ist);
+        m_globalVariables[i].name = STRDUP(name.c_str());
+        Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+        m_globalVariables[i].size = (size_t)tmp;
+    }
+
+    // Global Ctor Names
+    unsigned int ctorCount;
+    Serializer::DeserialPrimitive<unsigned int>(&ctorCount, ist);
+    for (unsigned int i = 0; i < ctorCount; ++i)
+    {
+        std::string name;
+        Serializer::DeserialString(name, ist);
+        m_globalCtors.push_back(name);
+    }
+    // Global Dtor Names
+    unsigned int dtorCount;
+    Serializer::DeserialPrimitive<unsigned int>(&dtorCount, ist);
+    for (unsigned int i = 0; i < dtorCount; ++i)
+    {
+        std::string name;
+        Serializer::DeserialString(name, ist);
+        m_globalDtors.push_back(name);
+    }
+}
+
+bool Program::HasCachedExecutable() const
+{
+    if (!m_pObjectCodeContainer)
+        return false;
+    Intel::OpenCL::ELFUtils::CacheBinaryReader reader(
+        m_pObjectCodeContainer->GetCode(),
+        m_pObjectCodeContainer->GetCodeSize());
+    return reader.IsCachedObject();
 }
 }}}

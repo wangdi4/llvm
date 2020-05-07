@@ -19,6 +19,7 @@
 
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Linker/Linker.h"
@@ -124,6 +125,105 @@ bool ClangLinkOptions::checkOptions(char *pszUnknownOptions,
 
 bool ClangLinkOptions::hasArg(int id) const { return m_pArgs->hasArg(id); }
 
+// Check whether the module contains OpenCL or DPCPP version metadata.
+// Add "not-ocl-dpcpp" attribute to functions from neither ocl nor dpcpp
+// binary.
+void addAttrForNoneOCLDPCPPCode(llvm::Module* M) {
+  if (M->getNamedMetadata("opencl.ocl.version") == nullptr &&
+          M->getNamedMetadata("spirv.Source") == nullptr) {
+    for (auto &F: M->getFunctionList()) {
+      F.addFnAttr("not-ocl-dpcpp", "true");
+    }
+  }
+}
+
+static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
+                              llvm::ArrayRef<llvm::Value*> CIArgs,
+                              std::string &BadSigDesc)
+{
+  assert(FuncTy && "Func type not specified");
+
+  if (CIArgs.size() != FuncTy->getNumParams() && !FuncTy->isVarArg()) {
+    BadSigDesc = "arguments amount doesn't match";
+    return false;
+  } else if (CIArgs.size() < FuncTy->getNumParams()) {
+    BadSigDesc = "too few arguments in variadic function";
+    return false;
+  }
+
+  for (size_t i = 0; i < FuncTy->getNumParams(); ++i) {
+    const llvm::Type *FPTy = FuncTy->getParamType(i);
+    const llvm::Type *CIArgTy = CIArgs[i]->getType();
+    if (FPTy != CIArgTy) {
+      const auto *FPPTy = llvm::dyn_cast<llvm::PointerType>(FPTy);
+      const auto *CIArgPTy = llvm::dyn_cast<llvm::PointerType>(CIArgTy);
+      if (FPPTy && CIArgPTy &&
+          FPPTy->getElementType() == CIArgPTy->getElementType()) {
+        BadSigDesc = "arguments in different address spaces";
+      } else {
+        BadSigDesc = "arguments of different types";
+      }
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// If function signature in definition and declaration in two modules differ
+// then llvm::Linker selects signature in definition and updates function
+// call with bitcast instruction that casts pointer on called function to
+// a function pointer with signature at definition.
+// Example:
+//   call void bitcast (void (i32, i32)* @func to void (i32)*)(i32 sret %38)
+// Check that there is no such function pointers bitcasts.
+static bool checkAndThrowIfCallFuncCast(const llvm::Module& linkedModule,
+                                        std::string &funcSigErr) {
+  bool funcCallsValid = true;
+
+  for (const llvm::Function &SF : linkedModule) {
+    for (const llvm::BasicBlock &BB : SF) {
+      for (const llvm::Instruction &I : BB) {
+        // process ptr callinsts
+        const auto *CI = llvm::dyn_cast<llvm::CallInst>(&I);
+        if (!CI || CI->getCalledFunction())
+          continue;
+
+        const llvm::Value *VI = CI->getCalledValue();
+        if (!VI->getType()->isPointerTy())
+          continue;
+
+        // look through bitcast
+        if (const auto *CE = llvm::dyn_cast<llvm::ConstantExpr>(VI))
+          if (CE->getOpcode() == llvm::Instruction::BitCast)
+            VI = CE->getOperand(0);
+        else if (const auto *BCI = llvm::dyn_cast<llvm::BitCastInst>(VI))
+          VI = BCI->getOperand(0);
+        else
+          continue;
+
+        const auto *CF = llvm::dyn_cast<llvm::Function>(VI);
+        if(!CF)
+          continue;
+
+        const auto *RFuncTy = llvm::cast<llvm::FunctionType>(
+            llvm::cast<llvm::PointerType>(CF->getType())->getElementType());
+        llvm::SmallVector<llvm::Value *, 4> params(CI->arg_begin(),
+                                                   CI->arg_end());
+        std::string BadSigDesc;
+        if (!checkFuncCallArgs(RFuncTy, llvm::ArrayRef<llvm::Value *>(params),
+                               BadSigDesc)) {
+          funcCallsValid = false;
+          funcSigErr.append(CF->getName().str()).append(" [").
+              append(BadSigDesc).append("]\n");
+        }
+      }
+    }
+  }
+
+  return funcCallsValid;
+}
+
 OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
                                 unsigned int uiNumBinaries,
                                 const size_t *puiBinariesSizes,
@@ -151,7 +251,9 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
       throw ModuleOr.takeError();
     }
     std::unique_ptr<llvm::Module> composite = std::move(ModuleOr.get());
-
+    // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+    // binary.
+    addAttrForNoneOCLDPCPPCode(composite.get());
     // Parse options
     ClangLinkOptions optionsParser(pszOptions);
 
@@ -165,11 +267,21 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
         throw ModuleOr.takeError();
       }
       std::unique_ptr<llvm::Module> module = std::move(ModuleOr.get());
+      // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+      // binary.
+      addAttrForNoneOCLDPCPPCode(module.get());
 
       if (llvm::Linker::linkModules(*composite, std::move(module))) {
         throw std::string("Linking has failed");
       }
     }
+
+    std::string funcSigErr{};
+    if (uiNumBinaries > 1 && !checkAndThrowIfCallFuncCast(*composite, funcSigErr)) {
+      throw std::string(
+        "Error: call of function(s) with different signature:\n") + funcSigErr;
+    }
+
     IR_TYPE binaryType = optionsParser.hasArg(OPT_LINK_create_library)
                              ? IR_TYPE_LIBRARY
                              : IR_TYPE_EXECUTABLE;

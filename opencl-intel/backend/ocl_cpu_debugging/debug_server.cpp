@@ -428,7 +428,7 @@ void DebugServer::DebugServerImpl::SendStackTraceInfo()
         if (i->calling_line_metadata) {
             assert(dyn_cast<DILocation>(i->calling_line_metadata) && "DILocation is expected");
             const DILocation* loc = cast<DILocation>(i->calling_line_metadata);
-            call_line_info->set_file(loc->getFilename());
+            call_line_info->set_file(std::string(loc->getFilename()));
             call_line_info->set_lineno(loc->getLine());
         }
         else {
@@ -849,7 +849,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
     // This is required when .cl files include other .cl files,
     // In which case the "file" argument contains only relative path
     // while our breakpoints database deals with absolute paths.
-    string absPath = getAbsPath(file, dir);
+    string absPath = getAbsPath(std::string(file), std::string(dir));
 
     std::lock_guard<llvm::sys::Mutex> lock(m_Lock);
     d->m_prev_stoppoint_line = line_metadata;
@@ -904,7 +904,7 @@ void DebugServer::Stoppoint(const MDNode* line_metadata)
     if (stopped) {
         assert(d->m_stack.size() > 0);
         VarsMapping vars_info = d->CollectVisibleVars(line_metadata, d->m_stack.front());
-        d->NotifyBreakpointHit(file, lineno, vars_info);
+        d->NotifyBreakpointHit(std::string(file), lineno, vars_info);
         bool stuck = true;
         while (stuck) {
             // Block until message is received from client

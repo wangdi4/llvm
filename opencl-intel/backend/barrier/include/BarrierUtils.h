@@ -156,7 +156,7 @@ namespace intel {
 
     Instruction *createGetLocalSize(unsigned dim, Instruction *pInsertBefore);
     Instruction *createGetBaseGlobalId(Value* dim, Instruction *pInsertBefore);
-
+    Instruction *createGetSGSize(BasicBlock *pBB);
     /// @brief Create new call instruction to barrier()
     /// @param pInsertBefore instruction to insert new call instruction before
     /// @returns new created call instruction
@@ -253,6 +253,8 @@ namespace intel {
     Function  *m_getLocalSizeFunc;
     /// This holds the get_global_id() function
     Function  *m_getGIDFunc;
+    /// This holds the get_sub_group_size() function
+    Function  *m_getSGSizeFunc;
     /// This holds the get_base_global_id() function
     Function  *m_getBaseGIDFunc;
 

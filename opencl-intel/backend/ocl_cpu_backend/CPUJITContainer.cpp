@@ -12,10 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CompilationUtils.h"
 #include "CPUJITContainer.h"
+#include "CPUProgram.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "CPUProgram.h"
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
@@ -51,7 +52,7 @@ void CPUJITContainer::Serialize(IOutputStream& ost, SerializationStatus* stats) 
     Serializer::SerialPointerHint((const void**)&m_pFunction, ost);
     if(m_pFunction)
     {
-        std::string name = m_pFunction->getName();
+        std::string name = std::string(m_pFunction->getName());
         Serializer::SerialString(name, ost);
     }
     Serializer::SerialPointerHint((const void**)&m_pModule, ost);
@@ -78,22 +79,13 @@ void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
         m_pProps = stats->GetBackendFactory()->CreateKernelJITProperties();
         m_pProps->Deserialize(ist, stats);
     }
-    
+
     if(m_pModule)
-    {
         m_pModule = (llvm::Module*)stats->GetPointerMark("pModule");
-        if(m_pModule && m_pFunction)
-        {
-            m_pFunction = m_pModule->getFunction(name.c_str());
-        }
-    }
-    
+
     CPUProgram* pProgram = (CPUProgram*)stats->GetPointerMark("pProgram");
     if(pProgram && m_pFuncCode && m_pFunction)
-    {
-        m_pFuncCode = reinterpret_cast<const void*>(
-            pProgram->GetExecutionEngine()->getFunctionAddress(m_pFunction->getName().str()));
-    }
+        m_pFuncCode = pProgram->GetPointerToFunction(name);
 }
 
 }}} // namespace

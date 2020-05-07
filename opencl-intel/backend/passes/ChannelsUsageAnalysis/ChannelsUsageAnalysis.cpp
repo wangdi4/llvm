@@ -96,7 +96,7 @@ void ChannelsUsageAnalysis::print(raw_ostream &OS, const Module *M) const {
       CallInst *CI = cast<CallInst>(PipeUser);
       assert(CI->getCalledFunction() && "Indirect function call?");
       const PipeKind Kind =
-          CompilationUtils::getPipeKind(CI->getCalledFunction()->getName());
+          CompilationUtils::getPipeKind(std::string(CI->getCalledFunction()->getName()));
       if (!Kind)
         continue;
 

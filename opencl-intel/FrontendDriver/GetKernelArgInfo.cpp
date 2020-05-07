@@ -98,16 +98,20 @@ int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
       uint64_t uiAddressQualifier = pAddressQualifier->getZExtValue();
       switch (uiAddressQualifier) {
       case 0:
-        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+        argInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
         break;
       case 1:
-        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+        argInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
         break;
       case 2:
-        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
+        argInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_CONSTANT;
         break;
       case 3:
-        argInfo.adressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+        argInfo.addressQualifier = CL_KERNEL_ARG_ADDRESS_LOCAL;
+        break;
+      default:
+        throw std::string("Invalid address qualifier: ") +
+            std::to_string(uiAddressQualifier);
         break;
       }
 

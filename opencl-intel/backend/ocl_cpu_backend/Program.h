@@ -21,7 +21,9 @@
 #include "ICLDevBackendProgram.h"
 #include "RuntimeService.h"
 #include "Serializer.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include <string>
 #include <memory>
 
@@ -143,13 +145,58 @@ public:
      *  otherwise
      *      0 will be returned
      */
-    virtual size_t GetGlobalVariableTotalSize() const;
+    virtual size_t GetGlobalVariableTotalSize() const {
+        return m_globalVariableTotalSize;
+    }
 
     /**
      * Sets the total amount of storage, in bytes, used by
      * program variables in the global address space.
      */
-    void SetGlobalVariableTotalSize(size_t);
+    void SetGlobalVariableTotalSize(size_t size) {
+        m_globalVariableTotalSize = size;
+    }
+
+    /**
+     * Gets non-internal global variables.
+     * @return a vector of global variables.
+     */
+    virtual std::vector<cl_prog_gv>& GetGlobalVariables() {
+        return m_globalVariables;
+    }
+
+    /**
+     * Gets non-internal global variables.
+     * @return a vector of global variables.
+     */
+    virtual const std::vector<cl_prog_gv>& GetGlobalVariables() const {
+        return m_globalVariables;
+    }
+
+    /**
+     * Set non-internal global variables.
+     * @param gvs a vector of global variables.
+     */
+    void SetGlobalVariables(std::vector<cl_prog_gv> gvs);
+
+    /**
+     * Record name and promote linkage of global ctors and dtors.
+     */
+    void RecordCtorDtors(llvm::Module &M);
+
+    /**
+     * Return names of global ctors
+     */
+    const std::vector<std::string>& GetGlobalCtors() {
+        return m_globalCtors;
+    }
+
+    /**
+     * Return names of global dtors
+     */
+    const std::vector<std::string>& GetGlobalDtors() {
+        return m_globalDtors;
+    }
 
     /**
      * Sets the Object Code Container (program will take ownership of the container)
@@ -176,15 +223,36 @@ public:
     KernelSet* GetKernelSet() { return m_kernels.get(); }
 
     /**
-     * Store the given LLVM module (as a plain pointer)
-     * into the program
+     * Store the given LLVM module into the program
      *
      * Note: will take ownership on passed module
      */
-    void SetModule( void* pModule);
+    void SetModule(std::unique_ptr<llvm::Module> M);
+
+    /**
+     * Store the given LLVM module into the program
+     *
+     * Note: will take ownership on passed module
+     */
+    void SetModule(llvm::orc::ThreadSafeModule TSM);
+
+    /**
+     * Returns the LLVM module pointer
+     */
+    llvm::Module* GetModule();
+
+    /**
+     * Returns the LLVM module owner (smart pointer)
+     */
+    std::unique_ptr<llvm::Module> GetModuleOwner();
+
     virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module*, 2> bltnFuncList) {}
 
     virtual void SetExecutionEngine(void *eE) {}
+
+    virtual void SetLLJIT(std::unique_ptr<llvm::orc::LLJIT> LLJIT) = 0;
+
+    virtual llvm::orc::LLJIT* GetLLJIT() = 0;
 
     /// get runtime service
     RuntimeServiceSharedPtr GetRuntimeService() const{
@@ -197,15 +265,15 @@ public:
     }
 
     /**
-     * Returns the LLVM module (as a plain pointer)
-     */
-    void* GetModule();
-
-    /**
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
     virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
+
+    /**
+     * Checks if this program has an object binary to be loaded from
+     */
+    bool HasCachedExecutable() const;
 
 protected:
     ObjectCodeContainer* m_pObjectCodeContainer;
@@ -214,7 +282,14 @@ protected:
     std::auto_ptr<KernelSet> m_kernels;
     /// Runtime service. Reference counted
     RuntimeServiceSharedPtr m_RuntimeService;
+    // Total size, in bytes, of program variables in the global address space
     size_t            m_globalVariableTotalSize;
+    // Global variables (with non-internal linkage).
+    std::vector<cl_prog_gv> m_globalVariables;
+    // Names of global ctors sorted by priority
+    std::vector<std::string> m_globalCtors;
+    // Names of global dtors sorted by priority
+    std::vector<std::string> m_globalDtors;
 
 private:
     // Disable copy ctor and assignment operator

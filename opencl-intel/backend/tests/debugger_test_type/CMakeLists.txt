@@ -26,7 +26,7 @@ add_opencl_executable(${TARGET}
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 
     LINK_LIBS
-      OpenCL
+      ${OpenCL_LIBRARY}
       cl_sys_utils
   )
 

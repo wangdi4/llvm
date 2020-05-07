@@ -97,6 +97,22 @@ OclType::OclType(const OclBuiltinDB& DB, const Record* R)
   assert(R->isSubClassOf("OclType") && "Invalid OclType record.");
 }
 
+
+std::string
+OclType::getMaskCastTy() const
+{
+  StringRef Name(m_Name);
+  if (Name.endswith("64"))
+    return "long";
+  if (Name.endswith("32"))
+    return "int";
+  if (Name.endswith("16"))
+    return "short";
+  if (Name.endswith("8"))
+    return "char";
+  return "UnknownTy";
+}
+
 std::string
 OclType::getCType(const OclBuiltin* OB, bool NoAS) const
 {
@@ -110,7 +126,10 @@ OclType::getCType(const OclBuiltin* OB, bool NoAS) const
   if (OB->hasVolatile())
     Ret += (Ret.empty() ? "" : " ") + std::string("volatile");
 
-  Ret += (Ret.empty() ? "" : " ") + (NoAS ? "" : OB->getAS());
+  if (!NoAS)
+    if (!OB->getAS().empty())
+      Ret += (Ret.empty() ? "" : " ") + (NoAS ? "" : OB->getAS());
+
   Ret += (Ret.empty() ? "" : " ") + m_CType + " *";
 
   return Ret;
@@ -253,8 +272,8 @@ OclType::getExpandLoCPatternPtr() const
 {
   switch (m_VecLength) {
   // According to specification.
-  // "The suffixes .lo (or .even) and .hi (or .odd) for a 3-component vector type 
-  // operate as if the 3-component vector type is a 4-component vector type 
+  // "The suffixes .lo (or .even) and .hi (or .odd) for a 3-component vector type
+  // operate as if the 3-component vector type is a 4-component vector type
   // with the value in the w component
   // here we use ->s01 for good look of code since it will be used together with $ExpandHiPatternPtr
     case 3: return "->s01";
@@ -266,9 +285,9 @@ std::string
 OclType::getExpandHiCPatternPtr() const
 {
   switch (m_VecLength) {
-  // We don't use here ->hi since we don't want garbage 
-  // to get to s3 component of promoted type4 vector. 
-  // Getting garbage ther may lead to performance degradations. Since in case of float we can get there NaNs, denormals, etc  
+  // We don't use here ->hi since we don't want garbage
+  // to get to s3 component of promoted type4 vector.
+  // Getting garbage ther may lead to performance degradations. Since in case of float we can get there NaNs, denormals, etc
   case 3: return "->s2";
   }
   return "->hi";
@@ -294,8 +313,8 @@ OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
   for (ListInit::const_iterator I = Tin->begin(),
                                 O = Tout->begin(),
                                 E = Tin->end(); I != E; ++I, ++O) {
-    const std::string& istr = dyn_cast<StringInit>(*I)->getValue();
-    const std::string& ostr = dyn_cast<StringInit>(*O)->getValue();
+    const std::string& istr = std::string(dyn_cast<StringInit>(*I)->getValue());
+    const std::string& ostr = std::string(dyn_cast<StringInit>(*O)->getValue());
     m_GenMap.insert(std::pair<std::string, std::string>(istr, ostr));
   }
 }
@@ -351,16 +370,16 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     std::vector<Record*> Exs = R->getValueAsListOfDefs("ExceptionTypes");
     std::map<const OclType*, int> ExMap;
     for (std::vector<Record*>::const_iterator I = Exs.begin(), E = Exs.end(); I != E; ++I)
-      ExMap.insert(std::pair<const OclType*, int>(m_DB.getOclType((*I)->getName()), 1));
+      ExMap.insert(std::pair<const OclType*, int>(m_DB.getOclType(std::string((*I)->getName())), 1));
 
     for (std::vector<Record*>::const_iterator I = Tys.begin(), E = Tys.end(); I != E; ++I)
-      if (ExMap.end() == ExMap.find(m_DB.getOclType((*I)->getName())))
-        m_Types.push_back(m_DB.getOclType((*I)->getName()));
+      if (ExMap.end() == ExMap.find(m_DB.getOclType(std::string((*I)->getName()))))
+        m_Types.push_back(m_DB.getOclType(std::string((*I)->getName())));
 
     std::vector<Record*> Ads = R->getValueAsListOfDefs("AdditionTypes");
     for (std::vector<Record*>::const_iterator I = Ads.begin(), E = Ads.end(); I != E; ++I)
-      if (ExMap.end() == ExMap.find(m_DB.getOclType((*I)->getName())))
-        m_Types.push_back(m_DB.getOclType((*I)->getName()));
+      if (ExMap.end() == ExMap.find(m_DB.getOclType(std::string((*I)->getName()))))
+        m_Types.push_back(m_DB.getOclType(std::string((*I)->getName())));
   }
 
   // Outs
@@ -368,13 +387,13 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Outs = R->getValueAsDag("Outs");
     assert(Outs && "Invalid OclBuiltin record without outs.");
 
-    assert(dyn_cast<DefInit>(Outs->getOperator()) && 
-      dyn_cast<DefInit>(Outs->getOperator())->getDef()->getName() == "outs" && 
+    assert(dyn_cast<DefInit>(Outs->getOperator()) &&
+      dyn_cast<DefInit>(Outs->getOperator())->getDef()->getName() == "outs" &&
       "Invalid OclBuiltin record with invalid outputs.");
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName());
-      const std::string& ArgName = Outs->getArgNameStr(i);
+      const OclType* ArgTy = m_DB.getOclType(std::string(cast<DefInit>(Outs->getArg(i))->getDef()->getName()));
+      const std::string& ArgName = std::string(Outs->getArgNameStr(i));
       m_Outputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }
@@ -384,15 +403,15 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     DagInit* Ins = R->getValueAsDag("Ins");
     assert(Ins && "Invalid OclBuiltin record without ins.");
 
-    assert(dyn_cast<DefInit>(Ins->getOperator()) && 
-      dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
+    assert(dyn_cast<DefInit>(Ins->getOperator()) &&
+      dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" &&
       "Invalid OclBuiltin record with invalid inputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
       const DefInit* DI = dyn_cast<DefInit>(Ins->getArg(i));
       assert(DI && "Invalid built-in 'ins' argument.");
 
-      const OclType* ArgTy = m_DB.getOclType(DI->getDef()->getName());
-      const std::string& ArgName = Ins->getArgNameStr(i);
+      const OclType* ArgTy = m_DB.getOclType(std::string(DI->getDef()->getName()));
+      const std::string& ArgName = std::string(Ins->getArgNameStr(i));
       m_Inputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }
@@ -424,7 +443,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 
   // Optional ASQualifier
   if (R->getValue("ASQualifier"))
-    m_AS = R->getValueAsString("ASQualifier");
+    m_AS = std::string(R->getValueAsString("ASQualifier"));
   // Optional HasConst
   if (R->getValue("HasConst"))
     m_HasConst = R->getValueAsBit("HasConst");
@@ -474,6 +493,17 @@ OclBuiltin::getArgumentSGBlockOpSuffix(unsigned i, const std::string& TyName) co
   const OclType* T = m_DB.getOclType(GT);
   assert(T && "Invalid type found.");
 
+  return T->getSGBlockOpSuffix();
+}
+
+std::string
+OclBuiltin::getReturnSGBlockOpSuffix(const std::string& TyName) const
+{
+  assert(m_Outputs.size() && "This function return void");
+  assert(m_Outputs.size() == 1 && "Unsupported OclBuiltin with more than 1 outputs.");
+  const std::string& GT = m_Outputs[0].first->getGenType(TyName);
+  const OclType* T = m_DB.getOclType(GT);
+  assert(T && "Invalid type found.");
   return T->getSGBlockOpSuffix();
 }
 
@@ -625,6 +655,12 @@ OclBuiltin::getArgumentCName(unsigned i, const std::string&) const
   assert(i < m_Inputs.size() && "Argument index is out of bound.");
 
   return m_Inputs[i].second;
+}
+
+std::string
+OclBuiltin::getCFunc() const
+{
+  return m_CFunc;
 }
 
 std::string
@@ -785,7 +821,7 @@ void OclBuiltin::addAttribute(const OclBuiltinAttr& A){
   }
   m_Attrs.push_back(new OclBuiltinAttr(A));
 }
-  
+
 void OclBuiltin::removeAttribute(const OclBuiltinAttr& A){
   std::vector<const OclBuiltinAttr*>::iterator it = m_Attrs.begin(),
     e = m_Attrs.end();
@@ -807,7 +843,7 @@ bool OclBuiltin::shouldGenerate() const {
 /// OclBuiltinImpl
 OclBuiltinImpl::OclBuiltinImpl(const OclBuiltinDB& DB, const Record* R)
 : m_DB(DB)
-, m_Proto(DB.getOclBuiltin(R->getValueAsDef("Builtin")->getName()))
+, m_Proto(DB.getOclBuiltin(std::string(R->getValueAsDef("Builtin")->getName())))
 {
   appendImpl(R);
 }
@@ -962,6 +998,7 @@ OclBuiltinImpl::appendImpl(const Record* R)
   {
     std::vector<Record*> Tys;
     const RecordVal* RV = R->getValue("Types");
+    assert(RV && "Invalid OclBuiltinImpl record.");
     if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
       assert(IV && isa<ListInit>(IV->getValue()) &&
@@ -980,12 +1017,12 @@ OclBuiltinImpl::appendImpl(const Record* R)
 
     impl.reset(new Impl);
     for (std::vector<Record*>::const_iterator I = Tys.begin(), E = Tys.end(); I != E; ++I) {
-      if (!m_Proto->isValidType((*I)->getName())) {
+      if (!m_Proto->isValidType(std::string((*I)->getName()))) {
         if (GenOCLBuiltinVerbose)
           GENOCL_WARNING("'" << R->getName() << "' specifies invalid type '" << (*I)->getName() << "'.\n");
         continue;
       }
-      impl->m_Types.push_back(m_DB.getOclType((*I)->getName()));
+      impl->m_Types.push_back(m_DB.getOclType(std::string((*I)->getName())));
     }
   }
 
@@ -1003,9 +1040,9 @@ OclBuiltinImpl::appendImpl(const Record* R)
           assert(Pair->size() == 2 &&
                  "Custom macro supports only pairs of strings");
           std::string const& Key =
-            dyn_cast<StringInit>(Pair->getElement(0))->getValue();
+            std::string(dyn_cast<StringInit>(Pair->getElement(0))->getValue());
           std::string const& Replacement =
-            dyn_cast<StringInit>(Pair->getElement(1))->getValue();
+            std::string(dyn_cast<StringInit>(Pair->getElement(1))->getValue());
           impl->m_customMacro[Key] = Replacement;
         } else {
           GENOCL_WARNING("'" << R->getName() << "' specifes invalid custom macro.\n");
@@ -1016,20 +1053,75 @@ OclBuiltinImpl::appendImpl(const Record* R)
   // Impl
   {
     const RecordVal* RV = R->getValue("Impl");
+    assert(RV && "Invalid OclBuiltinImpl record.");
     if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
+      assert(IV && "Invalid OclBuiltinImpl record.");
       if (StringInit *SI = dyn_cast<StringInit>(IV->getValue()))
-        impl->m_Code = SI->getValue();
+        impl->m_Code = std::string(SI->getValue());
       else if(CodeInit *CI = dyn_cast<CodeInit>(IV->getValue()))
-        impl->m_Code = CI->getValue();
+        impl->m_Code = std::string(CI->getValue());
       else
         llvm_unreachable("Invalid OclBuiltinImpl record.");
     } else
-      impl->m_Code = R->getValueAsString("Impl");
+      impl->m_Code = std::string(R->getValueAsString("Impl"));
   }
   m_Impls.push_back(impl.release());
 }
 
+bool OclBuiltinDB::hasAlias(const OclBuiltin* builtin) const {
+  return m_AliasMap.find(builtin) != m_AliasMap.end();
+}
+
+ArrayRef<std::string> OclBuiltinDB::getAliasNames(const OclBuiltin* builtin) {
+  return m_AliasMap[builtin].first;
+}
+
+const std::set<const OclType*>&
+OclBuiltinDB::getAliasTypes(const OclBuiltin* builtin) {
+  return m_AliasMap[builtin].second;
+}
+
+void OclBuiltinDB::processAliasMap(){
+  const std::vector<Record*> &aliasMaps =
+    m_Records.getAllDerivedDefinitions("AliasMap");
+  for (const Record *pMap : aliasMaps) {
+    std::set<const OclType*> aliasTypes;
+    const std::vector<Record*> &aliasTypesVec = pMap->getValueAsListOfDefs("Types");
+    for (Record *item : aliasTypesVec)
+      aliasTypes.insert(m_TypeMap[std::string(item->getName())]);
+
+    ListInit *aliasList = pMap->getValueAsListInit("AliasList");
+    for (Init* const item : *aliasList) {
+      std::vector<std::string> aliasNames;
+      ListInit* aliasItem = cast<ListInit>(item);
+      const size_t aliasSize = aliasItem->size();
+      assert(aliasSize >= 2 && "Alias item must have as least one alias name");
+      const std::string &builtinDefName =
+        cast<StringInit>(aliasItem->getElement(0))->getAsUnquotedString();
+      assert(m_ProtoMap.find(builtinDefName) != m_ProtoMap.end() &&
+             "Undefined OclBuiltin record");
+      const OclBuiltin *pBuiltin = m_ProtoMap[builtinDefName];
+      assert(m_AliasMap.find(pBuiltin) == m_AliasMap.end() &&
+             "Builtin has more than one alias item");
+      for (size_t i = 1; i < aliasSize; ++i) {
+        aliasNames.push_back(
+          cast<StringInit>(aliasItem->getElement(i))->getAsUnquotedString());
+      }
+      std::set<const OclType*> types = aliasTypes;
+      // If we don't specify any type for the alias func, we generate
+      // protos and impls for all types by default.
+      if (types.empty()) {
+        for (OclBuiltin::const_type_iterator tyIt = pBuiltin->type_begin(),
+           tyEnd =  pBuiltin->type_end(); tyIt != tyEnd; tyIt++)
+          types.insert(*tyIt);
+      }
+
+      m_AliasMap.insert(std::make_pair(pBuiltin,
+                        std::make_pair(aliasNames, types)));
+    }
+  }
+}
 
 /// OclBuiltinDB
 OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
@@ -1059,33 +1151,35 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
     }
   }
 
+  processAliasMap();
+
   // OclBuiltinImpl
   {
     const char*const GENERIC = "Generic";
     std::vector<Record*> Rs = m_Records.getAllDerivedDefinitions(GENERIC);
     const Record* Rec = m_Record = (Rs.size() > 0) ? Rs.front() :
       m_Records.getClass(GENERIC);
-    
+
     // One and only one single instance of OclBuiltins is defined.
     assert(Rs.size() < 2 && "More than 1 Generic are defined!");
 
     assert(Rec && "Rec is nullptr");
 
     // Target
-    m_Target = Rec->getValueAsString("Target");
+    m_Target = std::string(Rec->getValueAsString("Target"));
 
     // Prolog & Epilog
     {
-      m_Prolog = Rec->getValueAsString("Prolog");
-      m_Epilog = Rec->getValueAsString("Epilog");
+      m_Prolog = std::string(Rec->getValueAsString("Prolog"));
+      m_Epilog = std::string(Rec->getValueAsString("Epilog"));
     }
 
     // NativeTypes
     {
       std::vector<Record*> Rs = Rec->getValueAsListOfDefs("NativeTypes");
       for (std::vector<Record*>::iterator I = Rs.begin(), E = Rs.end(); I != E; ++I) {
-        assert(m_TypeMap.find((*I)->getName()) != m_TypeMap.end() && "NativeTypes refers to invalid types.");
-        m_TypeMap.find((*I)->getName())->second->setNative(true);
+        assert(m_TypeMap.find(std::string((*I)->getName())) != m_TypeMap.end() && "NativeTypes refers to invalid types.");
+        m_TypeMap.find(std::string((*I)->getName()))->second->setNative(true);
       }
     }
 
@@ -1115,7 +1209,7 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
         }
 
         const Record* DefRec = cast<DefInit>(Def)->getDef();
-        const OclBuiltin* proto = getOclBuiltin(DefRec->getValueAsDef("Builtin")->getName());
+        const OclBuiltin* proto = getOclBuiltin(std::string(DefRec->getValueAsDef("Builtin")->getName()));
 
         std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
         if (m_ImplMap.end() == II) {
@@ -1149,8 +1243,8 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
             assert(isa<DefInit>(Def) && "Failed to resolve some references");
           }
 
-          const Record* DefRec = dyn_cast<DefInit>(Def)->getDef();
-          const OclBuiltin* proto = getOclBuiltin(DefRec->getValueAsDef("Builtin")->getName());
+          const Record* DefRec = cast<DefInit>(Def)->getDef();
+          const OclBuiltin* proto = getOclBuiltin(std::string(DefRec->getValueAsDef("Builtin")->getName()));
 
           std::map<const OclBuiltin*, OclBuiltinImpl*>::const_iterator II = m_ImplMap.find(proto);
           if (m_ImplMap.end() == II) {
@@ -1197,14 +1291,14 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
       // '#' is concatenate mark - exit loop
       if (text[dpos] == '#')
           break;
-      // Skip 'alphanum'. 
+      // Skip 'alphanum'.
     } while (isalnum(text[dpos]) );
 
     std::string pat = text.substr(cpos, dpos - cpos);
 
     // replace $pat with real text
     std::string val;
-    
+
     bool hardcodedMacro = true;
     std::map<std::string, std::string>::const_iterator iter = customMacro.find(pat);
     if (iter != customMacro.end())
@@ -1217,8 +1311,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           val = iter->second;
           hardcodedMacro = false;
         }
-    } 
-    
+    }
+
     if(hardcodedMacro)
     {
         if ("$Target" == pat) {
@@ -1292,6 +1386,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
         } else if ("$Arg" == pat.substr(0, 4) && pat.size() == 20 && "SGBlockOpSuffix" == pat.substr(5)) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentSGBlockOpSuffix(i, OT->getName());
+        } else if ("$Ret" == pat.substr(0, 4) && pat.size() == 19 && "SGBlockOpSuffix" == pat.substr(4)) {
+          val = OB->getReturnSGBlockOpSuffix(OT->getName());
         } else if ("$Arg" == pat.substr(0, 4) &&  pat.substr(5).find("gentype") != std::string::npos) {
           unsigned i = pat[4] - '0';
           val = OB->getArgumentCGenType(i, pat.substr(5), OT->getName());
@@ -1328,6 +1424,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
             val = getOclType(getExpandLoType(OT->getName()))->getSuffix();
         } else if ("$ExpandHiSuffix" == pat) {
             val = getOclType(getExpandHiType(OT->getName()))->getSuffix();
+        } else if ("$MaskCastTy" == pat) {
+            val = OT->getMaskCastTy();
         } else {
           GENOCL_WARNING("Invalid rewrite pattern: '" << pat << "'\n");
         }
@@ -1499,6 +1597,7 @@ OclBuiltinEmitter::OclBuiltinEmitter(RecordKeeper& R)
 void
 OclBuiltinEmitter::run(raw_ostream& OS)
 {
+  static std::map<std::string, std::string> nullMacro;
   emitSourceFileHeader("OpenCL Builtins", OS);
 
   if (!GenOCLBuiltinPrototype)
@@ -1510,9 +1609,24 @@ OclBuiltinEmitter::run(raw_ostream& OS)
     if (!GenOCLBuiltinPrototype && !P->needForwardDecl())
       continue;
 
+    bool hasAlias = m_DB.hasAlias(P);
+    const auto &aliasTypes = m_DB.getAliasTypes(P);
+    ArrayRef<std::string> aliasNames = m_DB.getAliasNames(P);
     for (OclBuiltin::const_type_iterator J = P->type_begin(), E = P->type_end(); J != E; ++J) {
       if (P->shouldGenerate()) {
-        OS << P->getCProto((*J)->getName(), true) << '\n';
+        std::string cProto = P->getCProto((*J)->getName(), true);
+        OS << cProto << '\n';
+        if (hasAlias && aliasTypes.count(*J)) {
+          const std::string &funcName = P->getCFunc((*J)->getName());
+          // Just need to replace the function name.
+          size_t pos = cProto.find(funcName);
+          size_t length = funcName.size();
+          for (const std::string& aliasName : aliasNames) {
+            const std::string& rewritedAlias =
+              m_DB.rewritePattern(P, *J, aliasName, nullMacro);
+            OS << cProto.replace(pos, length, rewritedAlias) << '\n';
+          }
+        }
       }
     }
     OS << '\n';
@@ -1536,6 +1650,9 @@ OclBuiltinEmitter::run(raw_ostream& OS)
       continue;
     }
 
+    bool hasAlias = m_DB.hasAlias(P);
+    auto &aliasTypes = m_DB.getAliasTypes(P);
+    ArrayRef<std::string> aliasNames = m_DB.getAliasNames(P);
     for (OclBuiltin::const_type_iterator J = P->type_begin(), E = P->type_end(); J != E; ++J) {
       std::string impl = Impl->getCImpl((*J)->getName());
       if (impl.empty()) {
@@ -1543,7 +1660,20 @@ OclBuiltinEmitter::run(raw_ostream& OS)
           << (*J)->getName() << "', for target: '" << m_DB.getTarget() << "'\n");
         continue;
       }
-      OS << Impl->getCImpl((*J)->getName()) << '\n';
+      OS << impl << '\n';
+      if (hasAlias && aliasTypes.count(*J)) {
+        const std::string &funcName = P->getCFunc((*J)->getName());
+        // Just need to replace the function name.
+        size_t pos = impl.find(funcName);
+        size_t length = funcName.size();
+        for (const std::string& aliasName : aliasNames) {
+          const std::string& rewritedAlias =
+            m_DB.rewritePattern(P, *J, aliasName, nullMacro);
+          // Since Impl is filtered by the type J, so there is only one
+          // function in impl.
+          OS << impl.replace(pos, length, rewritedAlias) << '\n';
+        }
+      }
     }
   }
 

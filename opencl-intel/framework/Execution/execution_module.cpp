@@ -12,6 +12,8 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include <algorithm>
+
 #include "framework_proxy.h"
 #include "execution_module.h"
 #include "platform_module.h"
@@ -80,6 +82,14 @@ ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule
  ******************************************************************/
 ExecutionModule::~ExecutionModule()
 {
+    for (auto e : m_OclKernelEventMap)
+    {
+        if (e.second)
+        {
+            delete e.second;
+        }
+    }
+    m_OclKernelEventMap.clear();
     RELEASE_LOGGER_CLIENT;
 }
 
@@ -2095,7 +2105,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_CONTEXT;
     }
 
-    if (pKernel->GetContext()->IsFPGAEmulator() &&
+    bool isFPGAEmulator = pKernel->GetContext()->IsFPGAEmulator();
+    if (isFPGAEmulator &&
         !pKernel->GetProgram()->TestAndSetAutorunKernelsLaunched())
     {
         errVal = RunAutorunKernels(pKernel->GetProgram(), apiLogger);
@@ -2176,7 +2187,100 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         __itt_task_begin(m_pGPAData->pAPIDomain, __itt_null, __itt_null, pTaskName);
       }
 #endif
-    errVal = pNDRangeKernelCmd->EnqueueSelf(false/*never blocking*/, uNumEventsInWaitList, cpEeventWaitList, pEvent, apiLogger);
+
+    // Kernel serialization.
+    // If we have the same kernel being enqueued on FPGA emulator several
+    // times - we don't want two or more instances of this kernel being
+    // executed concurrently. That is needed in some cases, if the kernel
+    // contains SYCL/OpenCL pipes/channels to prevent possible race condition
+    // because of several instances of the same kernel are using the same
+    // pipe/channel from different threads (that leads to program hang).
+    // None of the specifications guarantee this execution order, but FPGA
+    // hardware works that way and so the emulator shall mimic the
+    // hardware's behaviour.
+    // To achieve this, we create a map of events to kernels. If execution
+    // of a kernel is finished, we can enqueue it one more time. Otherwise,
+    // we wait until the kernel is finished.
+    // Please note, that for SYCL we currently have 1:1 mapping of Q.submit
+    // on enqueue_kernel OpenCL API function calls with the order of kernels
+    // to be enqueued saved from SYCL to OpenCL. But it isn't necessarily
+    // will be true in the future. When/if this behaviour is changed - this
+    // patch must be reverted and actually I don't know if kernel
+    // serialization is possible in this case.
+    bool updatedEventList = false;
+    // Do nothing in case of multi-device program
+    // Process kernel serialization only for out-of-order queues, so the
+    // runtime won't change any user's custom logic in his/her program.
+    SharedPtr<Program> program = pKernel->GetProgram();
+    if (isFPGAEmulator && (program->GetNumDevices() == 1) &&
+        pCommandQueue->IsOutOfOrderExecModeEnabled())
+    {
+        std::vector<cl_event> EventListToWait;
+        std::copy(cpEeventWaitList,
+                  cpEeventWaitList + uNumEventsInWaitList,
+                  back_inserter(EventListToWait));
+
+        // Don't try to serialize autorun kernels - they are running from a
+        // start of a program till its termination.
+        std::vector<SharedPtr<Kernel>> autoKernels;
+        errVal = program->GetAutorunKernels(autoKernels);
+        if (CL_FAILED(errVal))
+        {
+            return errVal;
+        }
+        bool isAutorunKernel =
+            (std::find(autoKernels.begin(), autoKernels.end(), pKernel) !=
+             autoKernels.end());
+        if (!isAutorunKernel)
+        {
+            // Query for kernel name to use in the map. With that approach a
+            // case when kernel is created with clCreateKernel is also handled.
+            size_t kernelNameLen = 0;
+            errVal = pKernel->GetInfo(CL_KERNEL_FUNCTION_NAME, 0, nullptr,
+                                      &kernelNameLen);
+            if (CL_FAILED(errVal))
+            {
+                return errVal;
+            }
+            std::string kernelName(kernelNameLen, '\0');
+            errVal = pKernel->GetInfo(CL_KERNEL_FUNCTION_NAME, kernelNameLen,
+                                      &kernelName[0], nullptr);
+            if (CL_FAILED(errVal))
+            {
+                return errVal;
+            }
+            auto it = m_OclKernelEventMap.find(kernelName);
+            if (it != m_OclKernelEventMap.end())
+            {
+                cl_event prevClEvent = *it->second;
+                SharedPtr<OclEvent> prevEvent =
+                    m_pEventsManager->GetEventClass<OclEvent>(prevClEvent);
+                if (prevEvent && CL_COMPLETE != prevEvent->GetEventExecState())
+                {
+                    EventListToWait.push_back(prevClEvent);
+                }
+                // Update the map replacing old with a newer one.
+                m_OclKernelEventMap.erase(kernelName);
+            }
+            // To track kernel execution we need to implicitly set a tracker
+            // event even if a user set it as null.
+            auto newPair = m_OclKernelEventMap.insert(
+                std::make_pair(kernelName, pEvent ? pEvent : ::new cl_event));
+            errVal = pNDRangeKernelCmd->EnqueueSelf(
+                false/*never blocking*/, EventListToWait.size(),
+                EventListToWait.empty() ? nullptr : &EventListToWait[0],
+                newPair.first->second, apiLogger);
+            updatedEventList = true;
+        }
+    }
+
+    if (!updatedEventList)
+    {
+        errVal = pNDRangeKernelCmd->EnqueueSelf(
+                           false/*never blocking*/, uNumEventsInWaitList,
+                           cpEeventWaitList, pEvent, apiLogger);
+    }
+
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
     {
@@ -3565,7 +3669,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
     Command* memsetCommand;
     void *pattern = &value;
     size_t pattern_size = 1;
-    if (nullptr == usmBuf.GetPtr())
+    if (nullptr != usmBuf.GetPtr())
         memsetCommand = new MemFillUsmBufferCommand(queue, m_pOclEntryPoints,
             usmBuf, pattern, pattern_size,
             (ptrdiff_t)dst_ptr - (ptrdiff_t)usmBuf->GetAddr(), size);
@@ -3622,7 +3726,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemFill(cl_command_queue command_queue,
 
     // do the work:
     Command* memFillCommand;
-    if (nullptr == usmBuf.GetPtr())
+    if (nullptr != usmBuf.GetPtr())
         memFillCommand = new MemFillUsmBufferCommand(queue, m_pOclEntryPoints,
             usmBuf, pattern, pattern_size,
             (ptrdiff_t)dst_ptr - (ptrdiff_t)usmBuf->GetAddr(), size);
@@ -3736,13 +3840,14 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
 
 cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     cl_command_queue command_queue, const void* ptr, size_t size,
-    cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
+    cl_mem_migration_flags_intel flags, cl_uint num_events_in_wait_list,
     const cl_event* event_wait_list, cl_event* event, ApiLogger* api_logger)
 {
-    // TODO: it is unresolved in spec (rev. H) whether nullptr is an invalid
+    // TODO: it is unresolved in spec (rev. O) whether nullptr is an invalid
     // value for ptr and whether 0 is invalid for size.
-    if (nullptr == ptr || 0 == size || (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST |
-        CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
+    if (nullptr == ptr || 0 == size || 0 == flags ||
+        (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST_INTEL |
+                   CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL)))
         return CL_INVALID_VALUE;
 
     SharedPtr<IOclCommandQueueBase> queue =
@@ -3797,14 +3902,9 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     if (CL_FAILED(err))
         return err;
 
-    if (advice != CL_MEM_ADVICE_TBD0_INTEL &&
-        advice != CL_MEM_ADVICE_TBD1_INTEL &&
-        advice != CL_MEM_ADVICE_TBD2_INTEL &&
-        advice != CL_MEM_ADVICE_TBD3_INTEL &&
-        advice != CL_MEM_ADVICE_TBD4_INTEL &&
-        advice != CL_MEM_ADVICE_TBD5_INTEL &&
-        advice != CL_MEM_ADVICE_TBD6_INTEL &&
-        advice != CL_MEM_ADVICE_TBD7_INTEL)
+    // Check if advice is zero or is not supported advice for the device
+    // associated with command_queue.
+    if (0 == advice)
         return CL_INVALID_VALUE;
 
     AdviseUSMMemCommand* adviseCommand = new AdviseUSMMemCommand(

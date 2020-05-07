@@ -293,6 +293,17 @@ void TBB_ExecutionSchedulers::affinity_executor(
     tbb::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), ap);
 }
 
+template <class BlockedRange, class TaskLoopBodySpecific>
+void TBB_ExecutionSchedulers::static_executor(
+    const size_t                                      dims[],
+    size_t                                            grainsize,
+    const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
+    base_command_list&                                cmdList )
+{
+    tbb::static_partitioner& sp = cmdList.GetStaticPartitioner();
+    tbb::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), sp);
+}
+
 #define DEFINE_EXECUTOR_DIMS_ARRAY( name, ExecutorFuncName, BlockedRangeNamePrefix )                  \
     TBB_ExecutionSchedulers::ExecutorFunc TBB_ExecutionSchedulers::name[MAX_WORK_DIM] =               \
     {                                                                                                 \
@@ -307,18 +318,22 @@ void TBB_ExecutionSchedulers::affinity_executor(
                         /* 1D,2D,3D array name */  /* use function */ /* use blocked range class */
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_default,     auto_executor,      BlockedRangeByDefaultTBB );
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_default, affinity_executor,  BlockedRangeByDefaultTBB );
+DEFINE_EXECUTOR_DIMS_ARRAY( static_block_default,   static_executor,    BlockedRangeByDefaultTBB );
 DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_default,   opencl_executor,    BlockedRangeByUnevenTBB );
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_row,         auto_executor,      BlockedRangeByRow );
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_row,     affinity_executor,  BlockedRangeByRow );
+DEFINE_EXECUTOR_DIMS_ARRAY( static_block_row,       static_executor,    BlockedRangeByRow );
 DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_row,       opencl_executor,    BlockedRangeByUnevenTBB );
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_column,      auto_executor,      BlockedRangeByColumn );   
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_column,  affinity_executor,  BlockedRangeByColumn );
+DEFINE_EXECUTOR_DIMS_ARRAY( static_block_column,    static_executor,    BlockedRangeByColumn );
 DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_column,    opencl_executor,    BlockedRangeByUnevenTBB );
 
 DEFINE_EXECUTOR_DIMS_ARRAY( auto_block_tile,        auto_executor,      BlockedRangeByTile );
 DEFINE_EXECUTOR_DIMS_ARRAY( affinity_block_tile,    affinity_executor,  BlockedRangeByTile );
+DEFINE_EXECUTOR_DIMS_ARRAY( static_block_tile,      static_executor,    BlockedRangeByTile );
 DEFINE_EXECUTOR_DIMS_ARRAY( opencl_block_tile,      opencl_executor,    BlockedRangeByUnevenTBB );
 
 TBB_ExecutionSchedulers::ExecutorFunc*  
@@ -327,6 +342,7 @@ TBB_ExecutionSchedulers::g_executor[TE_CMD_LIST_PREFERRED_SCHEDULING_LAST][TASK_
                   /* default by TBB tile */   /* by_row  */         /* by_column */         /* by_tile */
 /* auto     */{   auto_block_default,         auto_block_row,       auto_block_column,      auto_block_tile         },
 /* affinity */{   affinity_block_default,     affinity_block_row,   affinity_block_column,  affinity_block_tile     },
+/* static   */{   static_block_default,       static_block_row,     static_block_column,    static_block_tile       },
 /* opencl   */{   opencl_block_default,       opencl_block_row,     opencl_block_column,    opencl_block_tile       }
 };
 

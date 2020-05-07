@@ -35,6 +35,9 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_targetDevice   = cpuConfig.GetDeviceMode();
     m_forcedPrivateMemorySize = cpuConfig.GetForcedPrivateMemSize();
     m_channelDepthEmulationMode = cpuConfig.GetChannelDepthEmulationMode();
+    m_serializeWorkGroups = (cpuConfig.GetNumTBBWorkers() == 1);
+    m_cpuMaxWGSize = cpuConfig.GetCpuMaxWGSize();
+    m_streamingAlways = cpuConfig.GetStreamingAlways();
 }
 
 void ProgramDumpConfig::InitFromString(const char* options)

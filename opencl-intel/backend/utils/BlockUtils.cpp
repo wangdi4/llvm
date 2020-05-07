@@ -72,7 +72,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   {
     assert(s_IsBlockRegex.match(str) && "string is not block literal");
     const llvm::StringRef s(str);
-    return s.drop_front(strlen("__.kernel"));
+    return std::string(s.drop_front(strlen("__.kernel")));
   }
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

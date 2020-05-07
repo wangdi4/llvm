@@ -353,6 +353,30 @@ bool TaskDispatcher::isThreadAffinityRequired()
 #endif
 }
 
+TE_CMD_LIST_PREFERRED_SCHEDULING TaskDispatcher::getPreferredScheduling()
+{
+    TE_CMD_LIST_PREFERRED_SCHEDULING scheduling =
+        TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
+
+    // DPCPP_CPU_SCHEDULE = {dynamic | affinity | static} controls which TBB
+    // partitioner to use.
+    //   dynamic (default) : auto_partitioner
+    //   affinity          : affinity_partitioner
+    //   static            : static_partitioner
+    std::string env_dpcpp_schedule;
+    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(env_dpcpp_schedule,
+                                                      "DPCPP_CPU_SCHEDULE");
+    if (!CL_FAILED(err))
+    {
+        if ("affinity" == env_dpcpp_schedule)
+            scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY;
+        else if ("static" == env_dpcpp_schedule)
+            scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_STATIC;
+    }
+
+    return scheduling;
+}
+
 cl_dev_err_code TaskDispatcher::SetDefaultCommandList(const SharedPtr<ITaskList> IN list)
 {
     m_pDefaultQueue = list;
@@ -390,7 +414,7 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
         bool isOOO       = (0 != ((int)props & (int)CL_DEV_LIST_ENABLE_OOO));
         *list = pDevice->CreateTaskList(CommandListCreationParam(
                                             isOOO ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER,
-                                            TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC,
+                                            getPreferredScheduling(),
                                             props & CL_DEV_LIST_PROFILING, props & CL_DEV_LIST_QUEUE_DEFAULT)
                                         );
         if (props & CL_DEV_LIST_QUEUE_DEFAULT)
@@ -462,7 +486,8 @@ cl_dev_err_code TaskDispatcher::commandListExecute( const SharedPtr<ITaskList>& 
     {
       // Create temporary list
         SharedPtr<ITaskList> pLocalList;
-        pLocalList = m_pRootDevice->CreateTaskList(TE_CMD_LIST_IN_ORDER );
+        pLocalList = m_pRootDevice->CreateTaskList(CommandListCreationParam(
+            TE_CMD_LIST_IN_ORDER, getPreferredScheduling()));
         ret = SubmitTaskArray(pLocalList.GetPtr(), cmds, count);
         pLocalList->Flush();
     }
@@ -552,7 +577,7 @@ void* TaskDispatcher::OnThreadEntry(bool registerThread)
 {
     unsigned int   position_in_device = m_pTaskExecutor->GetPosition();
 
-    if ( !m_pTaskExecutor->IsMaster() )
+    if (!m_pTaskExecutor->IsMaster() || m_pObserver->IsPinMasterAllowed())
     {
         // We don't affinitize application threads
         if ( isThreadAffinityRequired() )

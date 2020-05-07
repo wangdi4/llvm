@@ -7,7 +7,7 @@
 //// whole or in part without explicit written authorization from the company.
 ////
 //// ===--------------------------------------------------------------------= //
-#include <CL/cl_ext.h>
+#include <CL/cl_ext_intel.h>
 #include "CL.h"
 
 void CL::ZeroLocalSize()

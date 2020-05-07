@@ -30,12 +30,12 @@
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MemoryBuffer.h"
 
 #include <string>
 
@@ -89,7 +89,7 @@ void SplitString( const std::string& s, const char* d, llvm::SmallVectorImpl<std
     llvm::SmallVector<llvm::StringRef,2> sv;
 
     sr.split(sv, d, -1, false);
-    std::copy( sv.begin(), sv.end(), std::back_inserter( v ));
+    std::transform( sv.begin(), sv.end(), std::back_inserter( v ), [](llvm::StringRef s) { return std::string(s); });
 }
 
 unsigned int SelectCpuFeatures(
@@ -233,6 +233,21 @@ unsigned int SelectCpuFeatures(
 
 }
 
+void CPUCompiler::GetOrLoadBuiltinModules()
+{
+    BuiltinLibrary *pLibrary =
+        m_bIsEyeQEmulator
+            ? BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId)
+            : m_bIsFPGAEmulator
+                  ? BuiltinModuleManager::GetInstance()
+                        ->GetOrLoadFPGAEmuLibrary(m_CpuId)
+                  : BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(
+                        m_CpuId);
+    llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
+    LoadBuiltinModules(pLibrary, bltnFuncList);
+    m_pBuiltinModule = new BuiltinModules(bltnFuncList);
+    setBuiltinInitLog(pLibrary->getLog());
+}
 // If binary not matchs current cpu arch
 // and cpu is backwards compatible,load builtin modules again
 void
@@ -242,13 +257,8 @@ CPUCompiler::SetBuiltinModules(const std::string& cpuName, const std::string& cp
     if(m_pBuiltinModule != nullptr)
     {
         SelectCpu(cpuName, cpuFeatures);
-        BuiltinLibrary* pLibrary = m_bIsEyeQEmulator ?
-                                   BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId) :
-                                   BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
-        llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
-        LoadBuiltinModules(pLibrary, bltnFuncList);
         delete m_pBuiltinModule;
-        m_pBuiltinModule = new BuiltinModules(bltnFuncList);
+        GetOrLoadBuiltinModules();
     }
 }
 
@@ -263,13 +273,7 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     // Initialize the BuiltinModules
     if(config.GetLoadBuiltins())
     {
-        BuiltinLibrary* pLibrary = EYEQ_EMU_DEVICE == config.TargetDevice() ?
-                                                      BuiltinModuleManager::GetInstance()->GetOrLoadEyeQLibrary(m_CpuId) :
-                                                      BuiltinModuleManager::GetInstance()->GetOrLoadCPULibrary(m_CpuId);
-
-        llvm::SmallVector<llvm::Module*, 2> bltnFuncList;
-        LoadBuiltinModules(pLibrary, bltnFuncList);
-        m_pBuiltinModule = new BuiltinModules(bltnFuncList);
+        GetOrLoadBuiltinModules();
     }
 
     // Create the listener that allows Amplifier to profile OpenCL kernels
@@ -287,17 +291,6 @@ CPUCompiler::~CPUCompiler()
 
     delete m_pBuiltinModule;
     delete m_pVTuneListener;
-}
-
-void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
-{
-    llvm::Module *pM = pf->getParent();
-
-    // Perform codegen if needed (by constructing an EE for the module)
-    if(!m_pExecEngine)
-      m_pExecEngine = CreateCPUExecutionEngine(pM);
-
-    return reinterpret_cast<void*>(m_pExecEngine->getFunctionAddress(pf->getName().str()));
 }
 
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )
@@ -385,7 +378,68 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
     m_pExecEngine = CreateCPUExecutionEngine(pModule);
 }
 
+std::unique_ptr<llvm::orc::LLJIT>
+CPUCompiler::CreateLLJIT(llvm::Module *M,
+                         std::unique_ptr<llvm::TargetMachine> TM,
+                         ObjectCodeCache *ObjCache) {
+    // TargetMachine builder
+    llvm::orc::JITTargetMachineBuilder
+        JTMB((llvm::Triple(M->getTargetTriple())));
+    if (!TM) {
+        auto TMDefault = JTMB.createTargetMachine();
+        if (!TMDefault)
+            throw Exceptions::CompilerException("createTargetMachine failed");
+        TM = std::move(*TMDefault);
+    }
+
+    // Create LLJIT instance
+    Expected<std::unique_ptr<llvm::orc::LLJIT>> LLJITOrErr =
+        llvm::orc::LLJITBuilder()
+            .setJITTargetMachineBuilder(std::move(JTMB))
+            .setCompileFunctionCreator(
+                [&](llvm::orc::JITTargetMachineBuilder JTMB)
+                    -> Expected<std::unique_ptr<
+                        llvm::orc::IRCompileLayer::IRCompiler>> {
+                    return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+                        std::move(TM), ObjCache);
+                })
+            .create();
+    if (!LLJITOrErr)
+        throw Exceptions::CompilerException("Failed to create LLJIT");
+    std::unique_ptr<llvm::orc::LLJIT> &LLJIT = LLJITOrErr.get();
+
+    // Register JITEventListener
+    llvm::orc::RTDyldObjectLinkingLayer &LL =
+        static_cast<llvm::orc::RTDyldObjectLinkingLayer &>(
+            LLJIT->getObjLinkingLayer());
+    LL.registerJITEventListener(
+        *llvm::JITEventListener::createGDBRegistrationListener());
+    if (m_pVTuneListener)
+        LL.registerJITEventListener(*m_pVTuneListener);
+
+    // Enable searching for symbols in the current process.
+    const llvm::DataLayout &DL = LLJIT->getDataLayout();
+    auto Generator =
+        llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+            DL.getGlobalPrefix());
+    if (!Generator)
+        throw Exceptions::CompilerException(
+            "Failed to create DynamicLibrarySearchGenerator");
+    (void)LLJIT->getMainJITDylib().addGenerator(std::move(*Generator));
+
+    // Add builtin function symbols
+    if (auto Err =
+            BuiltinModuleManager::GetInstance()->RegisterCPUBIFunctionsToLLJIT(
+                LLJIT.get())) {
+        llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+        throw Exceptions::CompilerException("Failed to add builtin symbols");
+    }
+
+    return std::move(LLJIT);
+}
+
 bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
+#ifdef _WIN32
     bool hasCUs =
         (pModule->debug_compile_units_begin() !=
          pModule->debug_compile_units_end());
@@ -396,42 +450,24 @@ bool CPUCompiler::useLLDJITForExecution(llvm::Module* pModule) const {
         intel::Native;
   
     return useLLDJIT;
+#else
+    return false;
+#endif
 }
 
 llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModule) const
 {
-    llvm::ExecutionEngine* pExecEngine;
+    llvm::ExecutionEngine* pExecEngine = nullptr;
 #ifdef _WIN32
-    if (useLLDJITForExecution(pModule))
-    {
-        LLDJITBuilder::prepareModuleForLLD(pModule);
-        auto TargetMachine = GetTargetMachine(pModule);
-        pExecEngine = LLDJITBuilder::CreateExecutionEngine(pModule, TargetMachine);
-    }
-    else
-#endif
-    {
-        std::string strErr;
-
-        std::unique_ptr<llvm::Module> pModuleUniquePtr(pModule);
-
-        llvm::EngineBuilder builder(std::move(pModuleUniquePtr));
-        builder.setEngineKind(llvm::EngineKind::JIT);
-        builder.setErrorStr(&strErr);
-        builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
-            new SectionMemoryManager()));
-
-        auto TargetMachine = GetTargetMachine(pModule);
-        pExecEngine = builder.create(TargetMachine);
-    }
+    LLDJITBuilder::prepareModuleForLLD(pModule);
+    auto TargetMachine = GetTargetMachine(pModule);
+    pExecEngine = LLDJITBuilder::CreateExecutionEngine(pModule, TargetMachine);
     if ( nullptr == pExecEngine )
-    {
         throw Exceptions::CompilerException("Failed to create execution engine");
-    }
 
     if (m_pVTuneListener)
         pExecEngine->RegisterJITEventListener(m_pVTuneListener);
-
+#endif
     return pExecEngine;
 }
 
@@ -440,31 +476,16 @@ llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList() const
     return m_pBuiltinModule->GetBuiltinModuleList();
 }
 
-void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename,
-                           CodeGenFileType genType) const
+std::unique_ptr<MemoryBuffer>
+CPUCompiler::SimpleCompile(llvm::Module *module, ObjectCodeCache *objCache)
 {
-    assert(pModule && "pModule parameter should be valid");
-
-    TargetMachine* pTargetMachine = GetTargetMachine(pModule);
-    if( nullptr == pTargetMachine )
-    {
-        throw Exceptions::CompilerException("Failed to create TargetMachine object");
-    }
-
-    std::error_code ec;
-    llvm::raw_fd_ostream out(filename.c_str(), ec, llvm::sys::fs::FA_Write);
-    if (ec)
-    {
+    llvm::TargetMachine* targetMachine = GetTargetMachine(module);
+    llvm::orc::SimpleCompiler simpleCompiler(*targetMachine, objCache);
+    auto objBuffer = simpleCompiler(*module);
+    if (!objBuffer)
         throw Exceptions::CompilerException(
-        std::string("Failed to open the target file for dump: error code:") + ec.message());
-    }
-
-    // Build up all of the passes that we want to do to the module.
-    llvm::legacy::PassManager pm;
-    pTargetMachine->addPassesToEmitFile(pm, out,
-        /*raw_pwrite_stream*/ nullptr, genType,
-        /*DisableVerify*/ true);
-    pm.run(*pModule);
+            "Failed to compile module using SimpleCompiler");
+    return std::move(*objBuffer);
 }
 
 void CPUCompiler::SetObjectCache(ObjectCodeCache* pCache)

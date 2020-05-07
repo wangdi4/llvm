@@ -48,15 +48,13 @@ entry:
 ; CHECK-NEXT:   [[VAR5:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR4]] to float addrspace(3)*
 
 ; CHECK:        %dummyInt = load i32, i32 addrspace(3)* [[VAR1]], align 4
-; CHECK-NEXT:   [[VAR6:%[a-zA-Z0-9]+]] = bitcast i32 addrspace(3)* @foo.localInt to i8 addrspace(3)*
-; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 4 [[VAR6]], i8 addrspace(3)* align 4 [[VAR0]], i64 4, i1 false)
+; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 4 bitcast (i32 addrspace(3)* @foo.localInt to i8 addrspace(3)*), i8 addrspace(3)* align 4 %0, i64 4, i1 false)
 
 ; CHECK:        %dummyChar = load i8, i8 addrspace(3)* [[VAR3]], align 1
 ; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 1 @foo.localChar, i8 addrspace(3)* align 1 [[VAR2]], i64 1, i1 false)
 
 ; CHECK:        %dummyFloat = load float, float addrspace(3)* [[VAR5]], align 4
-; CHECK-NEXT:   [[VAR7:%[a-zA-Z0-9]+]] = bitcast float addrspace(3)* @foo.localFloat to i8 addrspace(3)*
-; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 4 [[VAR7]], i8 addrspace(3)* align 4 [[VAR4]], i64 4, i1 false)
+; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 4 bitcast (float addrspace(3)* @foo.localFloat to i8 addrspace(3)*), i8 addrspace(3)* align 4 %4, i64 4, i1 false)
 
 ; CHECK:        ret void
 
@@ -69,11 +67,9 @@ entry:
 ; CHECK-NEXT:   [[VAR13:%[a-zA-Z0-9]+]] = bitcast i8 addrspace(3)* [[VAR12]] to <16 x i64> addrspace(3)*
 
 ; CHECK:        %dummyInt4 = load <4 x i32>, <4 x i32> addrspace(3)* [[VAR11]], align 16
-; CHECK-NEXT:   [[VAR14:%[a-zA-Z0-9]+]] = bitcast <4 x i32> addrspace(3)* @bar.localInt4 to i8 addrspace(3)*
-; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 16 [[VAR14]], i8 addrspace(3)* align 16 [[VAR10]], i64 16, i1 false)
+; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 16 bitcast (<4 x i32> addrspace(3)* @bar.localInt4 to i8 addrspace(3)*), i8 addrspace(3)* align 16 %0, i64 16, i1 false)
 
 ; CHECK:        %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(3)* [[VAR13]], align 128
-; CHECK-NEXT:   [[VAR15:%[a-zA-Z0-9]+]] = bitcast <16 x i64> addrspace(3)* @bar.localLong16 to i8 addrspace(3)*
-; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 128 [[VAR15]], i8 addrspace(3)* align 128 [[VAR12]], i64 128, i1 false)
+; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 128 bitcast (<16 x i64> addrspace(3)* @bar.localLong16 to i8 addrspace(3)*), i8 addrspace(3)* align 128 %2, i64 128, i1 false)
 
 ; CHECK:        ret void

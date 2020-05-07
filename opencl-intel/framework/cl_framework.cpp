@@ -19,6 +19,8 @@
 #include <ocl_itt.h>
 #include <cl_objects_map.h>
 #include <cl_shared_ptr.hpp>
+#include <CL/cl_gvp_ext.h>
+#include <CL/cl_fpga_ext.h>
 
 #include "cl_framework.h"
 #include "framework_proxy.h"
@@ -1243,6 +1245,33 @@ cl_int CL_API_CALL clReleaseProgram(cl_program program)
     }
 }
 SET_ALIAS(clReleaseProgram);
+
+
+cl_int CL_API_CALL clSetProgramSpecializationConstant(
+    cl_program program,
+    cl_uint spec_id,
+    size_t spec_size,
+    const void* spec_value)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clSetProgramSpecializationConstant);
+        apiLogger << "cl_program program" << program
+                  << "cl_unit spec_id" << spec_id
+                  << "size_t spec_size" << spec_size
+                  << "const void* spec_value" << spec_value;
+        OutputParamsValueProvider provider(apiLogger);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            clSetProgramSpecializationConstant(program, spec_id, spec_size, spec_value));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            clSetProgramSpecializationConstant(program, spec_id, spec_size, spec_value));
+    }
+}
+SET_ALIAS(clSetProgramSpecializationConstant);
+REGISTER_EXTENSION_FUNCTION(clSetProgramSpecializationConstant, clSetProgramSpecializationConstant);
 
 cl_int CL_API_CALL clBuildProgram(cl_program           program,
 					  cl_uint              num_devices,
@@ -3264,6 +3293,36 @@ SET_ALIAS(clGetDeviceFunctionPointerINTEL);
 REGISTER_EXTENSION_FUNCTION(clGetDeviceFunctionPointerINTEL,
     clGetDeviceFunctionPointerINTEL);
 
+cl_int CL_API_CALL clGetDeviceGlobalVariablePointerINTEL(cl_device_id device,
+    cl_program program, const char* gv_name, size_t* gv_size_ret,
+    void** gv_pointer_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        ApiLogger apiLogger("clGetDeviceGlobalVariablePointerINTEL");
+        apiLogger << "cl_device_id device" << device
+                  << "cl_program program" << program
+                  << "const char* gv_name" << gv_name
+                  << "size_t* gv_size_ret" << gv_size_ret
+                  << "void** gv_pointer_ret" << gv_pointer_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("gv_pointer_ret", gv_pointer_ret, false, true);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
+            GetDeviceGlobalVariablePointer(device, program, gv_name,
+                                           gv_size_ret, gv_pointer_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int,
+            GetDeviceGlobalVariablePointer(device, program, gv_name,
+                                           gv_size_ret, gv_pointer_ret));
+    }
+}
+SET_ALIAS(clGetDeviceGlobalVariablePointerINTEL);
+
+REGISTER_EXTENSION_FUNCTION(clGetDeviceGlobalVariablePointerINTEL,
+    clGetDeviceGlobalVariablePointerINTEL);
+
 void* CL_API_CALL clHostMemAllocINTEL(cl_context context,
                                       const cl_mem_properties_intel* properties,
                                       size_t size,
@@ -3342,13 +3401,12 @@ void* CL_API_CALL clSharedMemAllocINTEL(cl_context context,
 SET_ALIAS(clSharedMemAllocINTEL);
 REGISTER_EXTENSION_FUNCTION(clSharedMemAllocINTEL, clSharedMemAllocINTEL);
 
-cl_int CL_API_CALL clMemFreeINTEL(cl_context context,
-                                  const void* ptr)
+cl_int CL_API_CALL clMemFreeINTEL(cl_context context, void* ptr)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clMemFreeINTEL);
-        apiLogger << "cl_context context" << context << "void* ptr" << ptr;
+        apiLogger << "cl_context context" << context << "ptr" << ptr;
         CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int,
             USMFree(context, ptr));
     }
@@ -3513,7 +3571,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
             cl_command_queue command_queue,
             const void* ptr,
             size_t size,
-            cl_mem_migration_flags flags,
+            cl_mem_migration_flags_intel flags,
             cl_uint num_events_in_wait_list,
             const cl_event* event_wait_list,
             cl_event* event) CL_API_SUFFIX__VERSION_2_1
@@ -3523,7 +3581,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
         START_LOG_API(clEnqueueMigrateMemINTEL);
         apiLogger << "cl_command_queue command_queue" << command_queue <<
         "const void* ptr" << ptr << "size_t size" << size <<
-        "cl_mem_migration_flags flags" << flags <<
+        "cl_mem_migration_flags_intel flags" << flags <<
         "cl_uint num_events_in_wait_list" << num_events_in_wait_list <<
         "const cl_event* event_wait_list" << event_wait_list <<
         "cl_event* event" << event;

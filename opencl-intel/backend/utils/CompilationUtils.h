@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       int PacketSize;
       int PacketAlign;
       int Depth;
-      StringRef IO;
+      std::string IO;
     };
 
     ChannelPipeMD getChannelPipeMetadata(
@@ -183,7 +183,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// @brief collect built-ins declared in the module that require
     //         relaxation of noduplicate attribute to convergent.
+    //         Additionally assigns "kernel-convergent-call" and "kernel-call-once"
+    //         attributes (see LangRef).
     static void getAllSyncBuiltinsDclsForNoDuplicateRelax(
+      FunctionSet &functionSet, Module *pModule);
+
+    /// @brief collect built-ins declared in the module that require
+    //         assigning of "kernel-uniform-call" attribute
+    //         (see LangRef for details).
+    static void getAllSyncBuiltinsDclsForKernelUniformCallAttr(
       FunctionSet &functionSet, Module *pModule);
 
     /// @brief collect built-ins declared in the module and force synchronization.
@@ -251,6 +259,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetEnqueuedNumSubGroups(const std::string&);
     static bool isGetGroupId(const std::string&);
     static bool isGlobalOffset(const std::string&);
+    static bool isKMPAcquireReleaseLock(const std::string&);
     static bool isAsyncWorkGroupCopy(const std::string&);
     static bool isAsyncWorkGroupStridedCopy(const std::string&);
     static bool isWorkGroupReserveReadPipe(const std::string&);
@@ -349,6 +358,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_SUB_GROUP_RESERVE_WRITE_PIPE;
     static const std::string NAME_SUB_GROUP_COMMIT_WRITE_PIPE;
 
+    static const std::string NAME_IB_KMP_ACQUIRE_LOCK;
+    static const std::string NAME_IB_KMP_RELEASE_LOCK;
+
     static const std::string NAME_ATOMIC_WORK_ITEM_FENCE;
 
     static const std::string NAME_MEM_FENCE;
@@ -415,10 +427,25 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     static const std::string WG_BOUND_PREFIX;
 
+    // Kernel vectorization attributes strings
+    static const std::string ATTR_KERNEL_CALL_ONCE;
+    static const std::string ATTR_KERNEL_UNIFORM_CALL;
+    static const std::string ATTR_KERNEL_CONVERGENT_CALL;
+
+    // Builtin call attribute used to indicate the call may
+    // have a vplan style mask.
+    static const std::string ATTR_HAS_VPLAN_MASK;
+
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function mem_fence
     //////////////////////////////////////////////////////////////////
     static std::string mangledMemFence();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function read_mem_fence
+    static std::string mangledReadMemFence();
+    //////////////////////////////////////////////////////////////////
+    // @brief returns the mangled name of the function write_mem_fence
+    static std::string mangledWriteMemFence();
     //////////////////////////////////////////////////////////////////
     // @brief returns the mangled name of the function atomic_work_item_fence
     //////////////////////////////////////////////////////////////////
@@ -583,6 +610,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// for -g flag
     static bool getDebugFlagFromMetadata(Module *M);
 
+    /// getOptimizationFlagFromMetadata - check opencl.compiler.options
+    /// for -cl-opt-disable flag
+    static bool getOptDisableFlagFromMetadata(Module *M);
+
     /// generatedFromOCLCPP - check that IR was generated from OCL C++
     /// from "!spirv.Source" named metadata
     static bool generatedFromOCLCPP(const Module &M);
@@ -664,6 +695,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     //         NOTE: current implementation is *the only* workaround for global
     //         ctor/dtor for pipes. See TODO inside the implementation
     static bool isGlobalCtorDtor(Function *F);
+
+    // @brief Returns true if the function is global constructor or destructor
+    //        or it's from standard C++.
+    static bool isGlobalCtorDtorOrCPPFunc(Function *F);
+
+    /// @brief Get global Ctor/Dtor names sorted by priority. Set Ctor/Dtor
+    //         linkage is set to external.
+    static void recordGlobalCtorDtors(llvm::Module &M,
+                                      std::vector<std::string> &CtorNames,
+                                      std::vector<std::string> &DtorNames);
 
     /// @brief Returns true if the function is a block invoke kernel
     static bool isBlockInvocationKernel(Function *F);

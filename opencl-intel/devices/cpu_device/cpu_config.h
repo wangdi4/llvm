@@ -29,6 +29,7 @@
 #define CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE  "CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE"    // cl_ulong
 #define CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS   "CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS"     // bool
 #define CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR     "CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR"       // int
+#define CL_CONFIG_DUMP_ASM                      "CL_CONFIG_DUMP_ASM"                        // bool
 #define CL_CONFIG_USE_VECTORIZER                "CL_CONFIG_USE_VECTORIZER"                  // bool
 #define CL_CONFIG_USE_VTUNE                     "CL_CONFIG_USE_VTUNE"                       // bool
 #define CL_CONFIG_USE_TRAPPING                  "CL_CONFIG_USE_TRAPPING"                    // bool
@@ -53,6 +54,9 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         VectorizerType  GetVectorizerType() const;
         bool            GetUseNativeSubgroups() const;
+        bool            DumpAsm() const {
+            return m_pConfigFile->Read<bool>(CL_CONFIG_DUMP_ASM, false);
+        }
         bool            UseVectorizer() const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VECTORIZER, true ); }
         bool            UseVTune()      const  { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_VTUNE,      false); }
         int             GetRTLoopUnrollFactor() const { return m_pConfigFile->Read<int>(CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR, 1); }

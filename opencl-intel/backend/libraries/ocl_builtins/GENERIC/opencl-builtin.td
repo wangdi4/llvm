@@ -176,6 +176,7 @@ multiclass _OCLTYPE1_<string ss, int len, int width, string base> {
   def cgp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __global ", base), len, width, 1>;
   def clp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __local ", base), len, width, 1>;
   def cpp#NAME# : OclType<!strconcat("p", ss), !strconcat("const __private ", base), len, width, 1>;
+  def vgenp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile ", base), len, width, 1>;
   def vgp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __global ", base), len, width, 1>;
   def vlp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __local ", base), len, width, 1>;
   def vpp#NAME# : OclType<!strconcat("p", ss), !strconcat("volatile __private ", base), len, width, 1>;
@@ -841,6 +842,11 @@ def patomgentype : OclGenType<"patomgentype"> {
   list<string> Tin = Torig;
   list<string> Tout = !foreach(n, Tin, !strconcat("patom_", n));
 }
+// converts a type to a volatile generic pointer atomic type
+def vgenpatomgentype : OclGenType<"vgenpatomgentype"> {
+  list<string> Tin = Torig;
+  list<string> Tout = !foreach(n, Tin, !strconcat("vgenpatom_", n));
+}
 // converts a type to a volatile global pointer atomic type
 def vgpatomgentype : OclGenType<"vgpatomgentype"> {
   list<string> Tin = Torig;
@@ -910,6 +916,27 @@ def vppgentype : OclGenType<"vppgentype"> {
   list<string> Tout = !foreach(n, Tin, !strconcat("vpp", n));
 }
 
+// convert a type list to vectorized counterpart.
+class VFLength<int vf> {
+  int Length = vf;
+}
+def vf1 : VFLength<1>;
+def vf4 : VFLength<4>;
+def vf8 : VFLength<8>;
+def vf16 : VFLength<16>;
+class VFType<list<OclType> types, string suffix> {
+  string platform = suffix#"_";
+  string vfStr =
+  !subst("_", "vf1",
+  !subst("_avx_", "vf4",
+  !subst("_avx2_", "vf8",
+  !subst("_avx512_", "vf16",
+  platform))));
+  int vf = !cast<VFLength>(vfStr).Length;
+  list<OclType> Tys = types;
+  list<OclType> Tout = !foreach(ty, Tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value));
+}
+
 // OclBuiltinAttr
 class OclBuiltinAttr<string attr> {
   string Attr = attr;
@@ -972,9 +999,11 @@ class CONSTANT      : OclAddressSpace<"__constant", 1, 0>;
 class CONST_PRIVATE : OclAddressSpace<"__private",  1, 0>;
 class CONST_LOCAL   : OclAddressSpace<"__local",    1, 0>;
 class CONST_GLOBAL  : OclAddressSpace<"__global",   1, 0>;
+class CONST_GENERIC  : OclAddressSpace<"",   1, 0>;
 class VOLATILE_PRIVATE : OclAddressSpace<"__private",  0, 1>;
 class VOLATILE_LOCAL   : OclAddressSpace<"__local",    0, 1>;
 class VOLATILE_GLOBAL  : OclAddressSpace<"__global",   0, 1>;
+class VOLATILE_GENERIC : OclAddressSpace<"",   0, 1>;
 
 
 // OclBuiltinImpl
@@ -984,6 +1013,14 @@ class OclBuiltinImpl<OclBuiltin builtin, list<OclType> types, bit isDeclOnly, co
   code Impl = impl;
   bit IsDeclOnly = isDeclOnly; // Just need declaration, for OCL builtin implementation defined somewhere else.
   list<list<string>> CustomMacro = customMacro;
+}
+
+// Reflection alias map
+class AliasMap<list<list<string>> aliasList, list<OclType> types>{
+  // For every item in the aliasList, it should be a list whose first item is
+  // an OclBuiltin Record name, the other items should be alias name.
+  list<list<string>> AliasList = aliasList;
+  list<OclType> Types = types;
 }
 
 //Reflection module map cell
@@ -998,6 +1035,29 @@ class MapRow< list<MapCell> cl, bit is, bit ip>{
   list<MapCell> cellList = cl;
   bit isScalarizable = is;
   bit isPacketaizable= ip;
+}
+
+
+class FuncProto<OclBuiltin bi, list<OclType> tys>{
+  OclBuiltin builtin = bi;
+  list<OclType> types = tys;
+}
+class ScalarFunc<OclBuiltin bi, list<OclType> tys> : FuncProto<bi, tys>;
+class VectorFunc<OclBuiltin bi, list<OclType> tys, int vf, bit wt> : FuncProto<bi, tys>{
+  let types = !if(wt, !foreach(ty, tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value)), tys);
+}
+class VF4Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 4, wt>;
+class VF8Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 8, wt>;
+class VF16Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 16, wt>;
+
+class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, OclBuiltin v16>{
+  list<OclType> Types = tys;
+  bit HandleAlias = 1;
+  bit NeedWidenTypes = 1;
+  ScalarFunc v1Func = ScalarFunc<v1, Types>;
+  VF4Variant v4Func = VF4Variant<v4, Types, NeedWidenTypes>;
+  VF8Variant v8Func = VF8Variant<v8, Types, NeedWidenTypes>;
+  VF16Variant v16Func = VF16Variant<v16, Types, NeedWidenTypes>;
 }
 
 // TargetImpl

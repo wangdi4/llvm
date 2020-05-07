@@ -15,7 +15,7 @@
 #pragma once
 
 #include "PipeCommon.h"
-#include "common_dev_limits.h"
+#include "cpu_dev_limits.h"
 #include "cl_dev_backend_api.h"
 #include "cl_device_api.h"
 #include "cl_user_logger.h"
@@ -45,16 +45,29 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_enableNativeSubgroups(false),
             m_rtLoopUnrollFactor(0),
             m_useVTune(false),
+            m_serializeWorkGroups(false),
             m_forcedPrivateMemorySize(0),
             m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
-            m_targetDevice(CPU_DEVICE)
+            m_targetDevice(CPU_DEVICE),
+            m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
+            m_streamingAlways(false)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
 
         bool GetBooleanValue(int optionId, bool defaultValue) const
         {
-            return (CL_DEV_BACKEND_OPTION_USE_VTUNE == optionId) ? m_useVTune : defaultValue;
+            switch (optionId)
+            {
+                case CL_DEV_BACKEND_OPTION_USE_VTUNE:
+                    return m_useVTune;
+                case CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS:
+                    return m_serializeWorkGroups;
+                case CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS:
+                    return m_streamingAlways;
+                default:
+                    return defaultValue;
+            }
         }
 
         virtual int GetIntValue(int optionId, int defaultValue) const
@@ -64,6 +77,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 case CL_DEV_BACKEND_OPTION_DEVICE:
                 {
                     return m_targetDevice;
+                }
+                case CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE:
+                {
+                    return (int)m_cpuMaxWGSize;
                 }
                 case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
                 {
@@ -114,9 +131,12 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         bool m_enableNativeSubgroups;
         int  m_rtLoopUnrollFactor;
         bool m_useVTune;
+        bool m_serializeWorkGroups;
         int  m_forcedPrivateMemorySize;
         int  m_channelDepthEmulationMode;
         DeviceMode  m_targetDevice;
+        size_t m_cpuMaxWGSize;
+        bool m_streamingAlways;
     };
 
     /**

@@ -221,39 +221,108 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 	return GetModuleFileNameA(hModule, fileName, (DWORD)(strLen-1));
 }
 
+
+// Retrieve processor information
+static BOOL GetProcessorInfo(LOGICAL_PROCESSOR_RELATIONSHIP type,
+                             std::vector<unsigned char> &bytes, DWORD &size)
+{
+    size = 0;
+
+    // Ask for buffer size first
+    BOOL status = GetLogicalProcessorInformationEx(type, NULL, &size);
+
+    assert((!status && size) && "Failed to get required buffer size!");
+
+    // Alloc the memory
+    bytes.resize(size);
+
+    // Fill allocated buffer with information
+    status = GetLogicalProcessorInformationEx(type,
+        (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)bytes.data(), &size);
+    assert(status && "Failed to get Logical Processor Info!");
+
+    return status;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the number of logical processors in the current group.
 ////////////////////////////////////////////////////////////////////
 unsigned long Intel::OpenCL::Utils::GetNumberOfProcessors()
 {
-    DWORD Size = 0;
-
-    // Ask for buffer size first
-    auto Status = GetLogicalProcessorInformationEx(RelationProcessorCore, NULL, &Size);
-
-    assert((!Status && Size) && "Failed to get required buffer size!");
-
-    // Alloc the memory
-    std::vector<unsigned char> Bytes(Size);
-
-    // Fill allocated buffer with information
-    Status = GetLogicalProcessorInformationEx(RelationProcessorCore,
-        (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)Bytes.data(), &Size);
-    assert(Status && "Failed to get Logical Processor Info!");
+    DWORD size;
+    std::vector<unsigned char> bytes;
+    BOOL status = GetProcessorInfo(RelationProcessorCore, bytes, size);
+    if (!status)
+        return 0;
 
     // Parse the info
-    unsigned long CpuCount = 0;
-    unsigned char *BytePtr = Bytes.data(), *BytePtrEnd = Bytes.data() + Size;
-    while (BytePtr < BytePtrEnd) {
-        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX LPI = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)BytePtr;
-        for (int i = 0; i < LPI->Processor.GroupCount; ++i) {
-            std::bitset<64> bits(LPI->Processor.GroupMask[i].Mask);
-            CpuCount += bits.count();
+    unsigned long cpuCount = 0;
+    unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
+    while (ptr < ptrEnd) {
+        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
+            (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+        for (int i = 0; i < lpi->Processor.GroupCount; ++i) {
+            std::bitset<64> bits(lpi->Processor.GroupMask[i].Mask);
+            cpuCount += bits.count();
         }
-        BytePtr += LPI->Size;
+        ptr += lpi->Size;
     }
 
-    return CpuCount;
+    return cpuCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return the number of physical cpus (sockets) configured.
+////////////////////////////////////////////////////////////////////
+unsigned int Intel::OpenCL::Utils::GetNumberOfCpuSockets()
+{
+    static unsigned int numCpuSockets = 0;
+    if (0 == numCpuSockets)
+    {
+        DWORD size;
+        std::vector<unsigned char> bytes;
+        BOOL status = GetProcessorInfo(RelationProcessorPackage, bytes, size);
+        if (!status)
+            return 1;
+
+        unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
+        while (ptr < ptrEnd)
+        {
+            PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
+                (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+            numCpuSockets++;
+            ptr += lpi->Size;
+        }
+    }
+    return numCpuSockets;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// return whether cpu is using hyper-threading
+////////////////////////////////////////////////////////////////////
+bool Intel::OpenCL::Utils::IsHyperThreadingEnabled()
+{
+    static int hyperThreadingEnabled = -1;
+    if (-1 == hyperThreadingEnabled)
+    {
+        DWORD size;
+        std::vector<unsigned char> bytes;
+        BOOL status = GetProcessorInfo(RelationProcessorCore, bytes, size);
+        if (!status)
+            return false;
+
+        unsigned char *ptr = bytes.data(), *ptrEnd = bytes.data() + size;
+        while (ptr < ptrEnd) {
+            PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX lpi =
+                (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+            if (lpi->Processor.GroupCount >= 1) {
+                std::bitset<64> bits(lpi->Processor.GroupMask[0].Mask);
+                hyperThreadingEnabled = (bits.count() == 2) ? 1 : 0;
+                break;
+            }
+        }
+    }
+    return 1 == hyperThreadingEnabled;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

@@ -316,7 +316,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(pointeredBuiltins,
       allWidths);
     do{
-      PairSW key(pairs.get());
+      auto pair = pairs.get();
+      PairSW key(std::make_pair(std::string(pair.first), pair.second));
       m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
     }while(pairs.next());
   }
@@ -330,7 +331,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(relationals,
       allWidths);
     do{
-      PairSW key(pairs.get());
+      auto pair = pairs.get();
+      PairSW key(std::make_pair(std::string(pair.first), pair.second));
       m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
     }while(pairs.next());
   }
@@ -347,7 +349,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(uniform_work_group_builtins, allWidths);
     do{
-      PairSW key(pairs.get());
+      auto pair = pairs.get();
+      PairSW key(std::make_pair(std::string(pair.first), pair.second));
       m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
     }while(pairs.next());
   }
@@ -373,7 +376,8 @@ void BuiltinKeeper::initHardCodeStrategy(){
     llvm::ArrayRef<llvm::StringRef> arr(strraw);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(arr, arrSizes);
     do{
-      PairSW key(pairs.get());
+      auto pair = pairs.get();
+      PairSW key(std::make_pair(std::string(pair.first), pair.second));
       m_exceptionsMap.insert(std::make_pair(key, &m_hardCodedStrategy));
     } while(pairs.next());
   }
@@ -403,7 +407,8 @@ void BuiltinKeeper::addExceptionToWIFunctions (const StringArray& names,
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> keys(arrMangledNames,
       arrVWidth);
     do {
-      PairSW key(keys.get());
+      auto pair = keys.get();
+      PairSW key(std::make_pair(std::string(pair.first), pair.second));
       m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
     } while(keys.next());
     }
@@ -412,7 +417,8 @@ void BuiltinKeeper::addExceptionToWIFunctions (const StringArray& names,
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> keys(arrMangledNames,
       arrScalarWidth);
     do {
-      PairSW key(keys.get());
+      auto pair = keys.get();
+      PairSW key(std::make_pair(std::string(pair.first), pair.second));
       m_exceptionsMap.insert(std::make_pair(key, &m_indentityStrategy));
     } while(keys.next());
     }

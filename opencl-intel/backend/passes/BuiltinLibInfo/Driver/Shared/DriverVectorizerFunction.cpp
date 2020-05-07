@@ -79,7 +79,7 @@ std::string DriverVectorizerFunction::getVersion(unsigned index) const {
   // we need to comply with the 'wiered' indexing system of the interface
   const BuiltinKeeper *pKeeper = BuiltinKeeper::instance();
   if (!pKeeper->isBuiltin(m_name))
-    return FunctionDescriptor::nullString();
+    return std::string(FunctionDescriptor::nullString());
   width::V w;
   switch (index) {
   case 0U:
@@ -102,7 +102,7 @@ std::string DriverVectorizerFunction::getVersion(unsigned index) const {
     break;
   default:
     assert(false && "invalid index");
-    return FunctionDescriptor::nullString();
+    return std::string(FunctionDescriptor::nullString());
   }
   PairSW sw = pKeeper->getVersion(m_name, w);
   assert(sw.second == w && "requested width doesn't match");

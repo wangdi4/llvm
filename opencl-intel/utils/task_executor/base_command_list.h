@@ -136,6 +136,10 @@ public:
     ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_device.GetPtr(); }
     
     virtual tbb::affinity_partitioner& GetAffinityPartitioner() { return m_part; }
+    virtual tbb::static_partitioner&   GetStaticPartitioner()
+    {
+        return m_staticPartitioner;
+    }
     virtual tbb::task_group_context&   GetTBBContext() { return m_taskGroup->GetContext(); }
 
     virtual void Cancel() { m_bCanceled = true; }
@@ -194,6 +198,8 @@ protected:
 
     // Affinity partitioner used in execution
     tbb::affinity_partitioner	m_part;
+    // Static partitioner
+    tbb::static_partitioner     m_staticPartitioner;
 
     TE_CMD_LIST_PREFERRED_SCHEDULING m_scheduling;
 

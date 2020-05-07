@@ -46,16 +46,19 @@ namespace intel {
 
   private:
 
-    bool runOnFunction(Function &F, size_t VF);
+    bool runOnFunction(Function &F, size_t VF, int32_t VD);
 
-    Value* replaceGetSubGroupSize(Module *M, Value *insertBefore, size_t VF);
-    Value* replaceGetMaxSubGroupSize(Module *M, Value *insertBefore, size_t VF);
-    Value* replaceGetSubGroupLocalId(Module *M, Value *insertBefore, size_t VF);
+    Value* replaceGetSubGroupSize(
+      Module *M, Instruction *insertBefore, size_t VF, int32_t VD);
+    Value* replaceGetMaxSubGroupSize(
+      Module *M, Instruction *insertBefore, size_t VF);
+    Value* replaceGetSubGroupLocalId(
+      Module *M, Instruction *insertBefore, size_t VF);
 
     Instruction* replaceGetEnqueuedNumSubGroups(
-      Module *M, Instruction *insertBefore, size_t VF);
+      Module *M, Instruction *insertBefore, size_t VF, int32_t VD);
     Instruction* replaceGetNumSubGroups(
-      Module *M, Instruction *insertBefore, size_t VF);
+      Module *M, Instruction *insertBefore, size_t VF, int32_t VD);
     Instruction* replaceSubGroupBarrier(Module *M, CallInst *insertBefore);
 
     Instruction* replaceGetSubGroupId(Module *M, Instruction *insertBefore, size_t VF);

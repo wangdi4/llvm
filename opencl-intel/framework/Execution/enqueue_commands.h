@@ -23,6 +23,7 @@
 #include "MemoryObject.h"
 
 #include <CL/cl.h>
+#include <CL/cl_cmd_ext.h>
 #include <cl_types.h>
 #include <cl_device_api.h>
 #include <Logger.h>
@@ -1223,6 +1224,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         std::vector<IOCLDevMemoryObject*>   m_nonArgSvmBuffersVec;        
         std::vector<IOCLDevMemoryObject*>   m_nonArgUsmBuffersVec;
+        // Record device descriptor of buffers in order to release them
+        std::vector<IOCLDevMemoryObject*>   m_argDevDescMemObjects;
 #if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
 #endif
@@ -1372,7 +1375,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         MigrateUSMMemCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
             ContextModule* contextModule,
-            cl_mem_migration_flags clFlags,
+            cl_mem_migration_flags_intel clFlags,
             const void* ptr,
             size_t size
         );

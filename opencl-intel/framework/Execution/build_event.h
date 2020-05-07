@@ -17,6 +17,7 @@
 #include <cl_types.h>
 #include <cl_object.h>
 #include "ocl_event.h"
+#include "cl_shared_ptr.hpp"
 
 namespace Intel { namespace OpenCL { namespace Framework {
 

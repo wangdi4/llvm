@@ -72,6 +72,9 @@ code Prolog = [{
             return __builtin_astype(x, ocl_char32);
         }
     #endif
+    __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__read_only image2d_t image, int2 coord);
+    __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__write_only image2d_t image, int2 coord);
+    __private void* __attribute__((overloadable)) __attribute__((const)) extract_pixel_in_byte(__read_write image2d_t image, int2 coord);
 }];
 
 include "ssse3/common.td"
@@ -86,5 +89,5 @@ include "ssse3/vloadstore.td"
 include "ssse3/relational.td"
 include "ssse3/transpose.td"
 include "ssse3/masked_load_store.td"
-include "ssse3/sub_group_shuffle_impl.td"
+include "ssse3/sub_group_builtin_impl.td"
 }

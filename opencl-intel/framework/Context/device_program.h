@@ -20,8 +20,10 @@
 #include <cl_device_api.h>
 #include <observer.h>
 #include <build_event.h>
+#include <map>
 #include <vector>
 #include <string>
+
 
 namespace Intel { namespace OpenCL { namespace Framework {
     class Device;
@@ -145,6 +147,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_int GetFunctionPointer(const char* func_name,
             cl_ulong* func_pointer_ret);
 
+        // Collect all global variable pointers after device build in order to
+        // create USM wrappers.
+        void CollectGlobalVariablePointers();
+
+        // Get global variable pointers
+        const std::map<std::string, cl_prog_gv>& GetGlobalVariablePointers()
+            const {
+            return m_gvPointers;
+        }
+
     protected:
         // Current program state
         EDeviceProgramState m_state;
@@ -171,6 +183,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         char*               m_pBinaryBits;
         size_t              m_uiBinaryBitsSize;
         cl_program_binary_type m_clBinaryBitsType;
+
+        // Global variables
+        std::map<std::string, cl_prog_gv> m_gvPointers;
 
         // Ensure the object is multi-thread safe
         mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;

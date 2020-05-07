@@ -249,8 +249,8 @@ OclGenType::OclGenType(const OclBuiltinDB& DB, const Record* R)
   for (ListInit::const_iterator I = Tin->begin(),
                                 O = Tout->begin(),
                                 E = Tin->end(); I != E; ++I, ++O) {
-    const std::string& istr = dyn_cast<StringInit>(*I)->getValue();
-    const std::string& ostr = dyn_cast<StringInit>(*O)->getValue();
+    const std::string& istr = std::string(dyn_cast<StringInit>(*I)->getValue());
+    const std::string& ostr = std::string(dyn_cast<StringInit>(*O)->getValue());
     m_GenMap.insert(std::pair<std::string, std::string>(istr, ostr));
   }
 }
@@ -295,16 +295,16 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
     std::vector<Record*> Exs = R->getValueAsListOfDefs("ExceptionTypes");
     std::map<const OclType*, int> ExMap;
     for (std::vector<Record*>::const_iterator I = Exs.begin(), E = Exs.end(); I != E; ++I)
-      ExMap.insert(std::pair<const OclType*, int>(m_DB.getOclType((*I)->getName()), 1));
+      ExMap.insert(std::pair<const OclType*, int>(m_DB.getOclType(std::string((*I)->getName())), 1));
 
     for (std::vector<Record*>::const_iterator I = Tys.begin(), E = Tys.end(); I != E; ++I)
-      if (ExMap.end() == ExMap.find(m_DB.getOclType((*I)->getName())))
-        m_Types.push_back(m_DB.getOclType((*I)->getName()));
+      if (ExMap.end() == ExMap.find(m_DB.getOclType(std::string((*I)->getName()))))
+        m_Types.push_back(m_DB.getOclType(std::string((*I)->getName())));
 
     std::vector<Record*> Ads = R->getValueAsListOfDefs("AdditionTypes");
     for (std::vector<Record*>::const_iterator I = Ads.begin(), E = Ads.end(); I != E; ++I)
-      if (ExMap.end() == ExMap.find(m_DB.getOclType((*I)->getName())))
-        m_Types.push_back(m_DB.getOclType((*I)->getName()));
+      if (ExMap.end() == ExMap.find(m_DB.getOclType(std::string((*I)->getName()))))
+        m_Types.push_back(m_DB.getOclType(std::string((*I)->getName())));
   }
 
   // Outs
@@ -317,8 +317,8 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
       "Invalid OclBuiltin record with invalid outputs.");
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName());
-      const std::string& ArgName = Outs->getArgNameStr(i);
+      const OclType* ArgTy = m_DB.getOclType(std::string(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName()));
+      const std::string& ArgName = std::string(Outs->getArgNameStr(i));
       m_Outputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }
@@ -332,8 +332,8 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
       dyn_cast<DefInit>(Ins->getOperator())->getDef()->getName() == "ins" && 
       "Invalid OclBuiltin record with invalid outputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
-      const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName());
-      const std::string& ArgName = Ins->getArgNameStr(i);
+      const OclType* ArgTy = m_DB.getOclType(std::string(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName()));
+      const std::string& ArgName = std::string(Ins->getArgNameStr(i));
       m_Inputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }
@@ -376,7 +376,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 
   // Optional ASQualifier
   if (R->getValue("ASQualifier"))
-    m_AS = R->getValueAsString("ASQualifier");
+    m_AS = std::string(R->getValueAsString("ASQualifier"));
   // Optional HasConst
   if (R->getValue("HasConst"))
     m_HasConst = R->getValueAsBit("HasConst");
@@ -953,8 +953,8 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
 
     // Prolog & Epilog
     {
-      m_Prolog = Rec->getValueAsString("Prolog");
-      m_Epilog = Rec->getValueAsString("Epilog");
+      m_Prolog = std::string(Rec->getValueAsString("Prolog"));
+      m_Epilog = std::string(Rec->getValueAsString("Epilog"));
     }
   }
 

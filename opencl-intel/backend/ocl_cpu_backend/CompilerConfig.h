@@ -16,6 +16,7 @@
 #define COMPILER_CONFIG_H
 
 #include "ICompilerConfig.h"
+#include "cpu_dev_limits.h"
 #include "exceptions.h"
 
 #include <algorithm>
@@ -58,13 +59,16 @@ private:
 class CompilerConfig: public virtual ICompilerConfig
 {
 public:
-    CompilerConfig():m_transposeSize(TRANSPOSE_SIZE_NOT_SET),
+    CompilerConfig():m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
+                     m_transposeSize(TRANSPOSE_SIZE_NOT_SET),
                      m_rtLoopUnrollFactor(1),
                      m_useVTune(false),
+                     m_serializeWorkGroups(false),
                      m_loadBuiltins(true),
                      m_DumpIROptionAfter(NULL),
                      m_DumpIROptionBefore(NULL),
-                     m_dumpHeuristicIR(false) {}
+                     m_dumpHeuristicIR(false),
+                     m_streamingAlways(false) {}
 
     // CompilerConfiguration methods
     void LoadDefaults();
@@ -74,9 +78,11 @@ public:
 
     std::string GetCpuArch() const     { return m_cpuArch; }
     std::string GetCpuFeatures() const { return m_cpuFeatures; }
+    size_t GetCpuMaxWGSize() const override { return m_cpuMaxWGSize; }
     ETransposeSize GetTransposeSize() const   { return m_transposeSize; }
     int GetRTLoopUnrollFactor() const         { return m_rtLoopUnrollFactor; }
     bool GetUseVTune() const                  { return m_useVTune; }
+    bool GetSerializeWorkGroups() const       { return m_serializeWorkGroups; }
     bool GetLoadBuiltins() const              { return m_loadBuiltins; }
     size_t GetForcedPrivateMemorySize() const { return m_forcedPrivateMemorySize; }
     std::vector<int> GetIRDumpOptionsAfter() const
@@ -107,14 +113,18 @@ public:
 
     const std::string &GetStatFileBaseName() const { return m_statFileBaseName;}
 
+    bool GetStreamingAlways() const { return m_streamingAlways; }
+
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
 protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
+    size_t      m_cpuMaxWGSize;
     ETransposeSize m_transposeSize;
     int         m_rtLoopUnrollFactor;
     bool        m_useVTune;
+    bool        m_serializeWorkGroups;
     bool        m_loadBuiltins;
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
@@ -122,6 +132,7 @@ protected:
     bool m_dumpHeuristicIR;
     std::string m_statFileBaseName;
     int m_forcedPrivateMemorySize;
+    bool        m_streamingAlways;
     DeviceMode  m_targetDevice;
 };
 

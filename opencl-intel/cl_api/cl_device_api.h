@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <climits>
+#include <cstring>
 #include "CL/cl.h"
 #include "CL/cl_usm_ext.h"
 
@@ -93,7 +94,7 @@ struct cl_kernel_argument_info
 {
     const char*                     name;               //!< String specifies the name of the argument
     const char*                     typeName;           //!< String specifies the argument type
-    cl_kernel_arg_address_qualifier adressQualifier;    //!< Argument's address qualifier
+    cl_kernel_arg_address_qualifier addressQualifier;   //!< Argument's address qualifier
     cl_kernel_arg_access_qualifier  accessQualifier;    //!< Argument's access qualifier
     cl_kernel_arg_type_qualifier    typeQualifier;      //!< Argument's type qualifier
 };
@@ -131,6 +132,16 @@ struct cl_prog_program
 {
     cl_uint         kernel_count;           //!< Number of kernels in a program
     cl_prog_kernel* kernels;                //!< A pointer to list of cl_prog_kernel
+};
+
+/*! \struct cl_prog_gv
+ * \brief This struct defines properties of a global variable in a built program
+ */
+struct cl_prog_gv
+{
+    char*        name;     //!< Name of global variable
+    size_t       size;     //!< Size of global variable in bytes
+    void*        pointer;  //!< Address of global variable in program
 };
 
 /*! \def _CL_CONTAINER_MASK_
@@ -208,6 +219,7 @@ enum cl_dev_err_code
     CL_DEV_INVALID_VALUE,                       //!< Invalid value was passed to the function.
     CL_DEV_INVALID_PROPERTIES,                  //!< Properties might be valid but not supported
     CL_DEV_OUT_OF_MEMORY,                       //!< Resource allocation failure
+    CL_DEV_INVALID_ARG_VALUE,                   //!< Invalid kernel arg value
     CL_DEV_INVALID_COMMAND_LIST,                //!< Invalid command list handle
     CL_DEV_INVALID_COMMAND_TYPE,                //!< Invalid command type
     CL_DEV_INVALID_COMMAND_PARAM,               //!< Invalid command parameter
@@ -587,9 +599,9 @@ struct cl_dev_cmd_param_migrate
  */
 struct cl_dev_cmd_param_migrate_usm
 {
-    IOCLDevMemoryObject*        memObj;        //!< Handle to USM memory object
-    size_t                      size;          //!< Memory region size
-    cl_mem_migration_flags      flags;         //!< Migration flags
+    IOCLDevMemoryObject*         memObj;        //!< Handle to USM memory object
+    size_t                       size;          //!< Memory region size
+    cl_mem_migration_flags_intel flags;         //!< Migration flags
 };
 
 /**
@@ -1538,10 +1550,26 @@ public:
     */
     virtual IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() = 0;
 
-    //! Retrieves Function poitner to a function in a compiled program
+    //! Retrieves Function pointer to a function in a compiled program
     virtual cl_dev_err_code clDevGetFunctionPointerFor(cl_dev_program IN prog,
         const char* IN func_name, cl_ulong* OUT func_pointer_ret) const = 0;
 
+    //! Retrieves sizes/pointers of all global variables in a built program
+    /*!
+        \param[in]  prog   A handle to a program object which is already built.
+        \param[out] gvPtrs A pointer to array of global variables
+        \param[out] gvCount Total number of global variables
+    */
+    virtual void clDevGetGlobalVariablePointers(cl_dev_program IN prog,
+        const cl_prog_gv OUT **gvPtrs, size_t OUT *gvCount) const = 0;
+
+    //! Retrieves mapping between OpenCL-defined core ID and OS-defined core ID
+    /*!
+        \param[out] computeUnitMap A pointer to the map array
+        \param[out] size Number of elements in the array
+    */
+    virtual void clDevGetComputeUnitMap(
+        const unsigned OUT **computeUnitMap, size_t OUT *count) const = 0;
 };
 
 

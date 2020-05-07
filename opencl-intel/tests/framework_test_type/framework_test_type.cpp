@@ -123,7 +123,7 @@ TEST(FrameworkTestType, Test_clCreateContextTest)
 }
 
 
-TEST(FrameworkTestType, DISABLED_Test_clBuildProgramWithBinaryTest)
+TEST(FrameworkTestType, Test_clBuildProgramWithBinaryTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
     if (gBcfuncMap.end() == iter)
@@ -151,18 +151,6 @@ TEST(FrameworkTestType, Test_clBuildProgramWithSourceTest)
 TEST(FrameworkTestType, Test_clCheckJITSaveLoadTest)
 {
     EXPECT_TRUE(clCheckJITSaveLoadTest());
-}
-
-TEST(FrameworkTestType, Test_clCheckJITSaveTest)
-{
-    EXPECT_TRUE(clCheckJITSaveTest());
-}
-
-TEST(FrameworkTestType, Test_clJITLoadTest)
-{
-    // [QA]: save JIT file before loading
-    EXPECT_TRUE(clCheckJITSaveTest());
-    EXPECT_TRUE(clCheckJITLoadTest());
 }
 
 TEST(FrameworkTestType, DISABLED_Test_clCheckCPUArchForJIT)
@@ -193,7 +181,7 @@ TEST(FrameworkTestType, Test_clGetProgramBuildInfoTest)
     ASSERT_NO_FATAL_FAILURE(clGetProgramBuildInfoTest());
 }
 
-TEST(FrameworkTestType, DISABLED_Test_clCreateKernelTest)
+TEST(FrameworkTestType, Test_clCreateKernelTest)
 {
     std::map<cl_device_type, openBcFunc>::iterator iter = gBcfuncMap.find(gDeviceType);
     if (gBcfuncMap.end() == iter)
@@ -445,7 +433,7 @@ TEST(FrameworkTestType, Test_ShutdownFromChildThread)
     EXPECT_TRUE(ShutdownFromChildThread());
 }
 
-TEST(FrameworkTestType, Test_PredictablePartition)
+TEST(FrameworkTestType, DISABLED_Test_PredictablePartition)
 {
     EXPECT_TRUE(predictable_partition_test());
 }
@@ -486,7 +474,7 @@ TEST(FrameworkTestType, Test_GenStats)
     EXPECT_TRUE(cl_GenStats());
 }
 
-TEST(FrameworkTestType, DISABLED_clDoNotVectorizeUnreachable)
+TEST(FrameworkTestType, Test_clDoNotVectorizeUnreachable)
 {
     EXPECT_TRUE(clDoNotVectorizeUnreachable());
 }
@@ -568,11 +556,6 @@ TEST(FrameworkTestType, Test_clTracingFunctionsDisabledCheckTest)
     EXPECT_TRUE(clTracingFunctionsDisabledCheckTest());
 }
 
-TEST_F(CL, Test_CheckExtensions)
-{
-    CheckExtensions();
-}
-
 TEST_F(CL, DISABLED_Test_ZeroLocalSize)
 {
     ZeroLocalSize();
@@ -592,6 +575,13 @@ TEST(FrameworkTestType, Test_ClkEventAsKernelArg)
 {
     EXPECT_TRUE(ClkEventAsKernelArg());
 }
+
+#if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
+TEST(FrameworkTestType, Test_cl_DumpIRBeforeAfterPasses)
+{
+    cl_DumpIRBeforeAndAfterPasses();
+}
+#endif
 
 /////////////////////////////////////////////////////////////////////
 //////////////      CL20 tests.        //////////////////////////////
@@ -796,6 +786,11 @@ TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL_Negative)
     CreateProgramWithIL_PROGRAM_IL_Negative();
 }
 
+TEST_F(CL21, Test_BuildOptionsPropagate)
+{
+    BuildOptionsPropagate();
+}
+
 /////////////////////////////////////////////////////////////////////
 //////////////   End of CL21 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -840,6 +835,11 @@ TEST(FrameworkTestType, cl_CheckBuildNumber)
 TEST(FrameworkTestType, Test_cl12_atomic_add_float)
 {
     EXPECT_TRUE(cl12_atomic_add_float_test());
+}
+
+TEST(FrameworkTestType, Test_clFuncSignatureInconsistencyOnLinkageTest)
+{
+    clFuncSignatureInconsistencyOnLinkageTest();
 }
 
 /////////////////////////////////////////////////////////////////////

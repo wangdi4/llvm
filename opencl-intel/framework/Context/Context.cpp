@@ -261,7 +261,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     for (tSetOfDevices::const_iterator iter = pDevices->begin();
          iter != pDevices->end(); iter++)
     {
-        cl_unified_shared_memory_capabilities_intel usmCaps;
+        cl_device_unified_shared_memory_capabilities_intel usmCaps;
 
         cl_err_code err = (*iter)->GetInfo(
             CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL, sizeof(usmCaps), &usmCaps,
@@ -486,6 +486,17 @@ cl_err_code Context::CreateProgramWithIL(const unsigned char* pIL, const size_t 
     m_mapPrograms.AddObject(pProgram);
     *ppProgram = pProgram;
     return clErrRet;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// ContextModule::clSetProgramSpecializationConstant
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::SetSpecializationConstant(SharedPtr<Program> pProgram,
+                                               cl_uint uiSpecId,
+                                               size_t szSpecSize,
+                                               const void* pSpecValue)
+{
+    return m_programService.SetSpecializationConstant(pProgram, uiSpecId, szSpecSize, pSpecValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1821,18 +1832,36 @@ cl_mem_alloc_flags_intel Context::ParseUSMAllocProperties(
 void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
                         cl_device_id device,
                         const cl_mem_properties_intel* properties,
-                        size_t size, unsigned int alignment,
-                        cl_int* errcode_ret)
+                        size_t size, void* userPtr, unsigned int alignment,
+                        cl_int* errcode)
 {
+    // Check if USM of userPtr exists
+    if (userPtr && m_usmBuffers.count(userPtr))
+    {
+        if (errcode)
+            *errcode = CL_SUCCESS;
+        return userPtr;
+    }
+
+#define USM_ALLOC_ERR_RET(err)                                                 \
+  {                                                                            \
+    if (errcode)                                                               \
+      *errcode = err;                                                          \
+    return nullptr;                                                            \
+  }
+
+    // Check alignment
+    size_t forceAlignment = 0;
+    if (0 != alignment)
+    {
+        if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
+            USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
+        forceAlignment = alignment;
+    }
+
     cl_int err;
     cl_mem_alloc_flags_intel flags = ParseUSMAllocProperties(properties,
                                                              &err);
-#define USM_ALLOC_ERR_RET(err) \
-        { \
-            if (errcode_ret) \
-                *errcode_ret = err; \
-            return nullptr; \
-        }
     if (CL_SUCCESS != err)
         USM_ALLOC_ERR_RET(err);
 
@@ -1864,15 +1893,14 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
 
     // Check device capabilities
     bool capSupported = false;
-    bool sizeSupported = false;
     for (cl_uint i = 0; i < numDevices; i++)
     {
         SharedPtr<Device> rootDevice = pDevices[i]->GetRootDevice();
 
-        cl_unified_shared_memory_capabilities_intel hostCap;
-        cl_unified_shared_memory_capabilities_intel deviceCap;
-        cl_unified_shared_memory_capabilities_intel singleSharedCap;
-        cl_unified_shared_memory_capabilities_intel crossSharedCap;
+        cl_device_unified_shared_memory_capabilities_intel hostCap;
+        cl_device_unified_shared_memory_capabilities_intel deviceCap;
+        cl_device_unified_shared_memory_capabilities_intel singleSharedCap;
+        cl_device_unified_shared_memory_capabilities_intel crossSharedCap;
         err = rootDevice->GetInfo(CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
             sizeof(hostCap), &hostCap, nullptr);
         if (CL_SUCCESS != err)
@@ -1899,26 +1927,23 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
             capSupported = true;
         }
 
+        // Check size
         cl_ulong ulDevMaxAllocSize;
         err = rootDevice->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE,
             sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, nullptr);
         if (CL_SUCCESS != err)
             USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
-        if (size > 0 && size <= ulDevMaxAllocSize)
+        if (0 == size || size > ulDevMaxAllocSize)
         {
-            sizeSupported = true;
+            LOG_ERROR(TEXT("size is zero or greater than "
+                           "CL_DEVICE_MAX_MEM_ALLOC_SIZE for any device"), "");
+            USM_ALLOC_ERR_RET(CL_INVALID_BUFFER_SIZE);
         }
     }
     if (!capSupported)
     {
         LOG_ERROR(TEXT("no devices support this type of USM allocation"), "");
         USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
-    }
-    if (!sizeSupported)
-    {
-        LOG_ERROR(TEXT("size is zero or greater than "
-                       "CL_DEVICE_MAX_MEM_ALLOC_SIZE for all devices"), "");
-        USM_ALLOC_ERR_RET(CL_INVALID_BUFFER_SIZE);
     }
 
     // do the real work
@@ -1933,59 +1958,72 @@ void* Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     usmBuf->SetFlags(flags);
 
     flags |= CL_MEM_READ_WRITE;
-    size_t forceAlignment = 0;
-    if (0 != alignment)
-    {
-        if (!IsPowerOf2(alignment) || alignment > DEV_MAXIMUM_ALIGN)
-            USM_ALLOC_ERR_RET(CL_INVALID_VALUE);
-        forceAlignment = alignment;
-    }
+    if (nullptr != userPtr)
+        flags |= CL_MEM_USE_HOST_PTR;
 
     // these flags aren't needed anymore
     err = usmBuf->Initialize(flags & ~CL_MEM_ALLOC_WRITE_COMBINED_INTEL,
-        nullptr, 1, &size, nullptr, nullptr, 0, forceAlignment);
+        nullptr, 1, &size, nullptr, userPtr, 0, forceAlignment);
     if (CL_SUCCESS != err)
         USM_ALLOC_ERR_RET(err);
 
     OclAutoWriter mu(&m_usmBuffersRwlock);
     void* usmPtr = usmBuf->GetBackingStoreData();
-    m_usmBuffers[usmPtr] = usmBuf;
 
-    if (0 != forceAlignment && !IS_ALIGNED_ON(usmPtr, forceAlignment))
+    if (nullptr != userPtr && usmPtr != userPtr)
         USM_ALLOC_ERR_RET(CL_OUT_OF_RESOURCES);
 
-    if (errcode_ret)
-        *errcode_ret = CL_SUCCESS;
+    if (nullptr == userPtr && 0 != forceAlignment &&
+        !IS_ALIGNED_ON(usmPtr, forceAlignment))
+        USM_ALLOC_ERR_RET(CL_OUT_OF_RESOURCES);
+
+    m_usmBuffers[usmPtr] = usmBuf;
+
+    if (errcode)
+        *errcode = CL_SUCCESS;
     return usmPtr;
 }
 
 void* Context::USMHostAlloc(const cl_mem_properties_intel* properties,
                             size_t size,
                             cl_uint alignment,
-                            cl_int* errcode_ret)
+                            cl_int* errcode)
 {
     cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_HOST_INTEL;
-    return USMAlloc(type, nullptr, properties, size, alignment, errcode_ret);
+    return USMAlloc(type, nullptr, properties, size, nullptr, alignment,
+                    errcode);
 }
 
 void* Context::USMDeviceAlloc(cl_device_id device,
                               const cl_mem_properties_intel* properties,
                               size_t size,
                               cl_uint alignment,
-                              cl_int* errcode_ret)
+                              cl_int* errcode)
 {
     cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_DEVICE_INTEL;
-    return USMAlloc(type, device, properties, size, alignment, errcode_ret);
+    return USMAlloc(type, device, properties, size, nullptr, alignment,
+                    errcode);
+}
+
+cl_int Context::USMDeviceAllocGlobalVariable(cl_device_id device,
+                                             size_t gvSize,
+                                             void* gvPtr)
+{
+    cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_DEVICE_INTEL;
+    cl_int errcode;
+    (void)USMAlloc(type, device, nullptr, gvSize, gvPtr, 0, &errcode);
+    return errcode;
 }
 
 void* Context::USMSharedAlloc(cl_device_id device,
                               const cl_mem_properties_intel* properties,
                               size_t size,
                               cl_uint alignment,
-                              cl_int* errcode_ret)
+                              cl_int* errcode)
 {
     cl_unified_shared_memory_type_intel type = CL_MEM_TYPE_SHARED_INTEL;
-    return USMAlloc(type, device, properties, size, alignment, errcode_ret);
+    return USMAlloc(type, device, properties, size, nullptr, alignment,
+                    errcode);
 }
 
 cl_int Context::USMFree(void* usmPtr)
@@ -2053,12 +2091,10 @@ cl_int Context::GetMemAllocInfoINTEL(const void* ptr,
     }
     if (nullptr != param_value && param_value_size < valueSize)
         return CL_INVALID_VALUE;
+    if (nullptr != param_value && valueSize > 0)
+        MEMCPY_S(param_value, param_value_size, value, valueSize);
     if (nullptr != param_value_size_ret)
         *param_value_size_ret = valueSize;
-    if (nullptr != param_value && valueSize > 0)
-    {
-        MEMCPY_S(param_value, param_value_size, value, valueSize);
-    }
 
     return CL_SUCCESS;
 }

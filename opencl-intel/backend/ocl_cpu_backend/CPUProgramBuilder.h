@@ -66,11 +66,15 @@ public:
 protected:
 
     KernelSet* CreateKernels(Program* pProgram,
-                             llvm::Module* pModule,
                              const char* pBuildOpts,
                              ProgramBuildResult& buildResult) const;
 
-    void PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const;
+    void PostOptimizationProcessing(Program* pProgram) const;
+
+    void JitProcessing(Program* program,
+                       const ICLDevBackendOptions* options,
+                       std::unique_ptr<llvm::TargetMachine> targetMachine,
+                       ObjectCodeCache *objCache) override;
 
     /// @brief inherited method. create mapper from block to Kernel
     /// @param pProgram
@@ -81,8 +85,8 @@ protected:
 
     /// @brief Post build step. For CPU it is used for creating
     /// IBlockToKernelMapper object and running global ctors
-    virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
-      const ICLDevBackendOptions* pOptions) const ;
+    virtual void PostBuildProgramStep(Program* pProgram,
+      const ICLDevBackendOptions* pOptions) const override;
 
     // reloads the program container from the cached binary object
     virtual bool ReloadProgramFromCachedExecutable(Program* pProgram);
@@ -93,7 +97,7 @@ private:
   Kernel *CreateKernel(llvm::Function *pFunc, const std::string &funcName,
                        KernelProperties *pProps, bool useTLSGlobals) const;
 
-    void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm::Module* pModule,
+    void AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel,
                       llvm::Function* pFunc, KernelJITProperties* pProps) const;
 
     // Klockwork Issue

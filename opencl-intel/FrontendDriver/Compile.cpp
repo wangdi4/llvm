@@ -140,13 +140,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   if (m_sDeviceInfo.bEnableSourceLevelProfiling && !bProfiling)
     options << " -profiling";
 
-  // By default clang compiles OpenCL sources with '-O2' optimization level
-  // Force it to -O0 in case of compilation with debug information
-  if (bDebug && !bNoOpts) {
-    options << " -cl-opt-disable";
-    bNoOpts = true;
-  }
-
   // Passing -cl-fast-relaxed-math option if specifed in the environment
   // variable or in the config
   const bool useRelaxedMath = m_config.UseRelaxedMath();

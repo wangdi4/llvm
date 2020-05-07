@@ -159,10 +159,13 @@ bool CompileTask::Execute()
         if(pIL)
         {
             unsigned int binarySize = pIL->GetSize();
-
+            assert(szSource != NULL && "Invalid source code");
             m_pFECompiler->ParseSpirv(szSource,
                                       binarySize,
                                       m_sOptions.c_str(),
+                                      pIL->GetSpecConstCount(),
+                                      pIL->GetSpecConstIds(),
+                                      pIL->GetSpecConstValues(),
                                       pOutBinary.getOutPtr(),
                                       &uiOutBinarySize,
                                       szOutCompileLog.getOutPtr());
@@ -178,6 +181,7 @@ bool CompileTask::Execute()
             }
             else
             {
+                assert(szSource != NULL && "Invalid source code");
                 m_pFECompiler->CompileProgram(szSource,
                                               m_uiNumHeaders,
                                               m_pszHeaders,
@@ -258,6 +262,12 @@ bool CompileTask::Execute()
         return true;
     }
 
+    // Compilation is done, set used compile options so that program will not be
+    // recompiled if same options are passed. Also this is necessary to
+    // propagate "-cl-opt-disable" and "-g" options to build task which is
+    // actually peforming all backend optimizations depending on provided
+    // options.
+    m_pDeviceProgram->SetBuildOptionsInternal(m_sOptions.c_str());
     m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
     m_pDeviceProgram->SetBinaryInternal(uiBinarySize, pBinary.get(), CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT);
     SetComplete(CL_BUILD_SUCCESS);
@@ -532,6 +542,11 @@ bool DeviceBuildTask::Execute()
 
         m_pDeviceProgram->SetDeviceHandleInternal(programHandle);
 
+        std::string OptionsLog =
+            std::string("Options used by backend compiler: ") + m_sOptions +
+            std::string("\n");
+        m_pDeviceProgram->SetBuildLogInternal(OptionsLog.c_str());
+
         err = pDeviceAgent->clDevBuildProgram(programHandle, m_sOptions.c_str(), &build_status);
         if (CL_DEV_SUCCESS != err)
         {
@@ -551,6 +566,8 @@ bool DeviceBuildTask::Execute()
         SetComplete(CL_BUILD_SUCCESS);
         return true;
     }
+
+    m_pDeviceProgram->CollectGlobalVariablePointers();
 
     m_pDeviceProgram->SetBuildLogInternal("Device build done\n");
     SetComplete(CL_BUILD_SUCCESS);
@@ -1192,7 +1209,36 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
                 {
                     bNeedToBuild = true;
                     ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BE_BUILDING);
-                    arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(context, program, ppDevicePrograms[i], buildOptions.c_str());
+
+                    // Propagate "-cl-opt-disable" and "-g" options used for
+                    // compilation to build task because build task is actually
+                    // performing all backend optimizations depending on
+                    // provided options. This propagation is necessary for
+                    // scenario when SYCL compiler is used with CPU backend
+                    // because SYCL compiler doesn't add metadata for these
+                    // options. In case of OpenCL options are propagated using
+                    // opencl.compiler.options metadata.
+                    std::string compileOptions;
+                    for (unsigned int libIndex = 0;
+                         libIndex < num_input_programs; ++libIndex) {
+                      if (const char *opts =
+                              input_programs[libIndex]->GetBuildOptionsInternal(
+                                  ppDevicePrograms[i]->GetDeviceId())) {
+                        if (std::string(opts).find("-cl-opt-disable") !=
+                                std::string::npos &&
+                            compileOptions.find("-cl-opt-disable") ==
+                                std::string::npos)
+                          compileOptions.append(" -cl-opt-disable");
+                        if (std::string(opts).find("-g") != std::string::npos &&
+                            compileOptions.find("-g") == std::string::npos)
+                          compileOptions.append(" -g");
+                      }
+                    }
+
+                    std::string mergedOptions = compileOptions + buildOptions;
+                    arrDeviceBuildTasks[i] = DeviceBuildTask::Allocate(
+                        context, program, ppDevicePrograms[i],
+                        mergedOptions.c_str());
                     if (NULL == arrDeviceBuildTasks[i])
                     {
                         ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
@@ -1297,6 +1343,9 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
             pPostBuildTask->Launch();
         }
     }
+
+    if (bNeedToBuild && CL_DEV_SUCCESS != program->AllocUSMForGVPointers())
+        return CL_OUT_OF_RESOURCES;
 
     if (NULL == pfn_notify)
     {
@@ -1604,6 +1653,9 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         }
     }
 
+    if (bNeedToBuild && CL_DEV_SUCCESS != program->AllocUSMForGVPointers())
+        return CL_OUT_OF_RESOURCES;
+
     if (NULL == pfn_notify)
     {
         pPostBuildTask->Wait();
@@ -1668,3 +1720,35 @@ void CreateAutorunKernelsTask::Cancel()
 CreateAutorunKernelsTask::~CreateAutorunKernelsTask()
 {
 }
+
+cl_err_code ProgramService::SetSpecializationConstant(const SharedPtr<Program>& pProgram,
+                                                      cl_uint uiSpecId,
+                                                      size_t szSpecSize,
+                                                      const void* pSpecValue)
+{
+    SharedPtr<ProgramWithIL> pIL = pProgram.DynamicCast<ProgramWithIL>();
+    // Retrieve information about specialization constants from IL/SPIRV
+    // just once and cache it the ProgramWithIL object.
+    if (!pIL->IsSpecConstInfoCached()) {
+        // We need a frontend compiler to read SPIR-V. The program is
+        // associated with one or more devices. Each device in turn is
+        // associated with a frontend compiler.
+        // In the current implementaion we have single frontend compiler for
+        // all supported devices. So we can pick any device returned by
+        // GetProgramsForAllDevices().
+        auto& AllDevPrograms = pProgram->GetProgramsForAllDevices();
+        assert(!AllDevPrograms.empty() &&
+               "No device program is associated with the program");
+        unique_ptr<DeviceProgram>& pDevProgram = AllDevPrograms[0];
+        SharedPtr<Device> pDevice = pDevProgram->GetDevice()->GetRootDevice();
+        assert(pDevice && "No device is associated with the device program");
+        SharedPtr<FrontEndCompiler> pFECompiler = pDevice->GetFrontEndCompiler();
+        assert(pFECompiler && "No FE compiler is associated with the device");
+        pFECompiler->GetSpecConstInfo(pIL->GetSourceInternal(),
+                                      pIL->GetSize(),
+                                      pIL->GetSpecConstInfoRef());
+        pIL->SpecConstInfoIsCached();
+    }
+    return pIL->AddSpecConst(uiSpecId, szSpecSize, pSpecValue);
+}
+

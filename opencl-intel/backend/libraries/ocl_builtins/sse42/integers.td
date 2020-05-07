@@ -32,7 +32,7 @@ OclBuiltinImpl mul_hi_v4u32 = OclBuiltinImpl<mul_hi, [v4u32] , 0, [{
 /*****************************************************************\
  * mad_sat:                                                      *
  *   gentype mad_sat (gentype x , gentype y , gentype z)         *
- *   Returns a * b + c and saturates the result.                 *
+ *   Returns x * y + z and saturates the result.                 *
 \*****************************************************************/
 // mad_sat native int4
 OclBuiltinImpl mad_sat_v4i32 = OclBuiltinImpl<mad_sat, [v4i32] , 0, [{
@@ -44,9 +44,9 @@ OclBuiltinImpl mad_sat_v4i32 = OclBuiltinImpl<mad_sat, [v4i32] , 0, [{
     reslo = reslo & as_int4((long2)long_even_mask);
     $Arg0VarName = as_int4(as_long2($Arg0VarName) >> 32);
     $Arg1VarName = as_int4(as_long2($Arg1VarName) >> 32);
-    $Arg2VarName = as_int4(as_long2($Arg2VarName) >> 32);
+    int4 hiz = as_int4(_mm_srli_epi64((__m128i)$Arg2VarName, 32));
     int4 reshi = as_int4(_mm_mul_epi32((__m128i)$Arg0VarName, (__m128i)$Arg1VarName));
-    reshi = reshi + $Arg2VarName;
+    reshi = reshi + hiz;
     reshi = as_int4(max(as_long2(reshi), (long)generic_min_int));
     reshi = as_int4(min(as_long2(reshi), (long)generic_max_int));
     reshi = as_int4(as_long2(reshi) << 32);

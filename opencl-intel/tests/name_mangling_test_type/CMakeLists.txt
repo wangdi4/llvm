@@ -15,7 +15,7 @@ add_custom_command(
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
   -o ${CMAKE_CURRENT_BINARY_DIR}/MangledNames.inc
   DEPENDS ocl-tblgen
-  COMMENT "Genereating demangled headers..."
+  COMMENT "Generating demangled headers..."
   VERBATIM
 )
 

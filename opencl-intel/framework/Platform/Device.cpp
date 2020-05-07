@@ -483,7 +483,7 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor* Device::clDevGetTaskExecutor()
     return FrameworkProxy::Instance()->GetTaskExecutor();
 }
 
-cl_unified_shared_memory_capabilities_intel Device::GetUSMCapabilities(
+cl_device_unified_shared_memory_capabilities_intel Device::GetUSMCapabilities(
     cl_device_info param_name) const
 {
     switch (param_name)

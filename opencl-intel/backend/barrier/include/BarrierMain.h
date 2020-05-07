@@ -34,9 +34,10 @@ namespace intel {
     static char ID;
 
     /// @brief C'tor
+    /// @param optlevel the optimization level
     /// @param debugType the type of debugging support enabled
     /// @param useTLSGlobals use TLS globals instead of implicit arguments
-    BarrierMain(DebuggingServiceType debugType, bool useTLSGlobals);
+    BarrierMain(unsigned optLevel, DebuggingServiceType debugType, bool useTLSGlobals);
 
     /// @brief D'tor
     ~BarrierMain() {}
@@ -63,6 +64,9 @@ namespace intel {
       bufferStrideMap.insert(m_bufferStrideMap.begin(), m_bufferStrideMap.end());
     }
   private:
+    /// The optimization level being used
+    unsigned m_optLevel;
+
     /// The type of debugging service enabled
     DebuggingServiceType m_debugType;
 

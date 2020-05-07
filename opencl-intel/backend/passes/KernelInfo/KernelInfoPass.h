@@ -55,12 +55,6 @@ namespace intel {
     bool runOnModule(Module& M);
 
   protected:
-
-    /// @brief Returns the total amount of storage, in bytes, used by
-    ///        program variables in the global address space.
-    /// @param M Program module.
-    size_t getProgramGlobalVariableTotalSize(const Module& M);
-
   };
 
   /// This pass is responsible of getting some info about the OCL

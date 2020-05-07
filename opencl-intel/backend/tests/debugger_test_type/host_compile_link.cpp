@@ -27,7 +27,7 @@ static void host_compile_link_internal(
     const char* src = "__kernel void foo() { size_t gid = get_global_id(0); }";
     cl::Program program = cl::Program(context, src, /*build=*/ false,
                                       /*err=*/ NULL);
-    program.compile("-g -s compile_link.cl");
+    program.compile("-g -cl-opt-disable -s compile_link.cl");
     program = cl::linkProgram({program});
 
     cl::CommandQueue queue(context, device);

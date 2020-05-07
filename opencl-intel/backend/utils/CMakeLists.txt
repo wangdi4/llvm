@@ -32,6 +32,7 @@ set (TARGET_INCLUDE_FILES
   Atomics.h
   Logger.h
   OclTune.h
+  ObjectDump.h
   ${TARGET_EXTRA_INCLUDE_FILES}
 )
 
@@ -47,6 +48,7 @@ set (TARGET_SOURCE_FILES
   VectorizerUtils.cpp
   Atomics.cpp
   OclTune.cpp
+  ObjectDump.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
@@ -72,7 +74,7 @@ if(BUILD_X64)
     if (WIN32)
         CREATE_ASM_RULES( UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/kernel_execute_64.asm )
     else ()
-        set (UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/linux64_utils.s)
+        CREATE_ASM_RULES(UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/linux64_utils.s)
     endif ()
 endif(BUILD_X64)
 
@@ -82,7 +84,7 @@ add_library(${TARGET_NAME} STATIC
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 )
 
-target_link_libraries(${TARGET_NAME} name_mangle LLVMSupport)
+target_link_libraries(${TARGET_NAME} name_mangle LLVMOrcJIT LLVMSupport)
 
 if (OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} intrinsics_gen)

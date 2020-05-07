@@ -232,7 +232,7 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
     };
     // Swap byte order of SPIR-V BC
     for(auto & word : spvBC)
-        word = llvm::sys::SwapByteOrder_32(word);
+        word = llvm::ByteSwap_32(word);
 
     auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 

@@ -15,6 +15,7 @@
 #include "program_with_source.h"
 #include "Device.h"
 #include "Context.h"
+#include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 
 using namespace Intel::OpenCL::Framework;

@@ -22,6 +22,7 @@
 #include "ocl_itt.h"
 #include <platform_module.h>
 #include <Device.h>
+#include <CL/cl_fpga_ext.h>
 #include <cl_objects_map.h>
 #include <cl_utils.h>
 #include <assert.h>
@@ -1094,6 +1095,29 @@ cl_int ContextModule::GetProgramInfo(cl_program clProgram,
     }
     return pProgram->GetInfo((cl_int)clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::clSetProgramSpecializationConstant
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::clSetProgramSpecializationConstant(cl_program clProgram,
+                                                         cl_uint uiSpecId,
+                                                         size_t szSpecSize,
+                                                         const void* pSpecValue)
+{
+    LOG_INFO(TEXT("clSetProgramSpecializationConstant enter. program=%d, "
+                   "spec_id=%d, spec_size=%d, spec_value=%d"),
+             clProgram, uiSpecId, szSpecSize, pSpecValue);
+    SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject((_cl_program_int*)clProgram).DynamicCast<Program>();
+    if (NULL == pProgram)
+    {
+        LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+        return CL_INVALID_PROGRAM;
+    }
+
+    SharedPtr<Context> pContext = pProgram->GetContext();
+    return pContext->SetSpecializationConstant(pProgram, uiSpecId, szSpecSize, pSpecValue);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetProgramBuildInfo
 //////////////////////////////////////////////////////////////////////////
@@ -2884,7 +2908,8 @@ void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t
         return nullptr;
     }
     void* pSvmBuf = pContext->SVMAlloc(flags, size, uiAlignment);
-    m_mapSVMBuffers[pSvmBuf] = pContext;
+    if (pSvmBuf)
+        m_mapSVMBuffers[pSvmBuf] = pContext;
     return pSvmBuf;
 }
 
@@ -3028,6 +3053,21 @@ cl_int ContextModule::GetDeviceFunctionPointer(cl_device_id device,
     return error;
 }
 
+cl_int ContextModule::GetDeviceGlobalVariablePointer(cl_device_id device,
+    cl_program program, const char* gv_name, size_t* gv_size_ret,
+    void** gv_pointer_ret)
+{
+    if (nullptr == gv_name || nullptr == gv_pointer_ret)
+        return CL_INVALID_VALUE;
+
+    SharedPtr<Program> pProgram = m_mapPrograms.GetOCLObject(
+        (_cl_program_int*)program).DynamicCast<Program>();
+    if (nullptr == pProgram.GetPtr())
+        return CL_INVALID_PROGRAM;
+
+    return pProgram->GetDeviceGlobalVariablePointer(device, gv_name,
+        gv_size_ret, gv_pointer_ret);
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -3048,24 +3088,11 @@ void* ContextModule::USMHostAlloc(cl_context context,
             *errcode_ret = CL_INVALID_CONTEXT;
         return nullptr;
     }
-    if (0 == size)
-    {
-        LOG_ERROR(TEXT("size is 0"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_BUFFER_SIZE;
-        return nullptr;
-    }
-    if (alignment > 0 && (!IsPowerOf2(alignment) ||
-                          alignment > sizeof(cl_long16)))
-    {
-        LOG_ERROR(TEXT("invalid alignment"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_VALUE;
-        return nullptr;
-    }
+
     void* pUsmBuf = pContext->USMHostAlloc(properties, size, alignment,
                                            errcode_ret);
-    m_mapUSMBuffers[pUsmBuf] = pContext;
+    if (pUsmBuf)
+        m_mapUSMBuffers[pUsmBuf] = pContext;
     return pUsmBuf;
 }
 
@@ -3082,24 +3109,11 @@ void* ContextModule::USMDeviceAlloc(cl_context context, cl_device_id device,
             *errcode_ret = CL_INVALID_CONTEXT;
         return nullptr;
     }
-    if (0 == size)
-    {
-        LOG_ERROR(TEXT("size is 0"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_BUFFER_SIZE;
-        return nullptr;
-    }
-    if (alignment > 0 &&
-        (!IsPowerOf2(alignment) || alignment > sizeof(cl_long16)))
-    {
-        LOG_ERROR(TEXT("invalid alignment"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_VALUE;
-        return nullptr;
-    }
+
     void* pUsmBuf = pContext->USMDeviceAlloc(device, properties, size,
                                              alignment, errcode_ret);
-    m_mapUSMBuffers[pUsmBuf] = pContext;
+    if (pUsmBuf)
+        m_mapUSMBuffers[pUsmBuf] = pContext;
     return pUsmBuf;
 }
 
@@ -3116,28 +3130,15 @@ void* ContextModule::USMSharedAlloc(cl_context context, cl_device_id device,
             *errcode_ret = CL_INVALID_CONTEXT;
         return nullptr;
     }
-    if (0 == size)
-    {
-        LOG_ERROR(TEXT("size is 0"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_BUFFER_SIZE;
-        return nullptr;
-    }
-    if (alignment > 0 &&
-        (!IsPowerOf2(alignment) || alignment > sizeof(cl_long16)))
-    {
-        LOG_ERROR(TEXT("invalid alignment"), "");
-        if (errcode_ret)
-            *errcode_ret = CL_INVALID_VALUE;
-        return nullptr;
-    }
+
     void* pUsmBuf = pContext->USMSharedAlloc(device, properties, size,
                                              alignment, errcode_ret);
-    m_mapUSMBuffers[pUsmBuf] = pContext;
+    if (pUsmBuf)
+        m_mapUSMBuffers[pUsmBuf] = pContext;
     return pUsmBuf;
 }
 
-cl_int ContextModule::USMFree(cl_context context, const void* ptr)
+cl_int ContextModule::USMFree(cl_context context, void* ptr)
 {
     SharedPtr<Context> pContext = GetContext(context);
     if (nullptr == pContext.GetPtr())
@@ -3150,10 +3151,9 @@ cl_int ContextModule::USMFree(cl_context context, const void* ptr)
         LOG_INFO(TEXT("ptr is nullptr. No action occurs."), "");
         return CL_SUCCESS;
     }
-    void *usmPtr = const_cast<void*>(ptr);
-    cl_err_code err = pContext->USMFree(usmPtr);
+    cl_err_code err = pContext->USMFree(ptr);
     if (CL_SUCCESS == err)
-        m_mapUSMBuffers.erase(usmPtr);
+        m_mapUSMBuffers.erase(ptr);
     return err;
 }
 

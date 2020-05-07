@@ -117,6 +117,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const;
 
         /******************************************************************************************
+        * Function:     SetSpecializationConstant
+        * Description:  Set the value of a specialization constant
+        * Arguments:    pProgram[inout] - pointer to the program created from a SPIR-V module.
+        *               uiSpecId[in]    - id of the specialization constant whose value will be set.
+        *               szSpecSize[in]  - size in bytes of the data pointed to by spec_value.
+        *               pSpecValue[in]  - pointer to the memory location that contains the value
+        *                                 of the specialization constant.
+        * Return Value: CL_INVALID_PROGRAM    if program is not a valid program object created from
+        *                                     a module in an intermediate format (e.g. SPIR-V).
+        *               CL_INVALID_SPEC_ID    if spec_id is not a valid specialization constant ID
+        *               CL_INVALID_VALUE      if spec_size does not match the size of
+        *                                     the specialization constant in the module,
+        *                                     or if spec_value is NULL.
+        * Author:       Alexey Sotkin
+        * Date:         January 2020
+        ******************************************************************************************/
+        cl_err_code SetSpecializationConstant(SharedPtr<Program> pProgram,
+                                              cl_uint uiSpecId,
+                                              size_t szSpecSize,
+                                              const void* pSpecValue);
+        /******************************************************************************************
         * Function:     CreateProgramWithSource    
         * Description:  creates new program object with source code attached
         * Arguments:    
@@ -446,13 +467,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
                   their corresponding values.
          * @param size the size in bytes of the requested device allocation.
          * @param alignment the minimum alignment in bytes for the allocation.
-         * @param errcode_ret may return an appropriate error code.
+         * @param errcode may return an appropriate error code.
          * @return allocated host USM.
          */
         void* USMHostAlloc(const cl_mem_properties_intel* properties,
                            size_t size,
                            cl_uint alignment,
-                           cl_int* errcode_ret);
+                           cl_int* errcode);
 
         /**
          * Allocate host USM
@@ -461,14 +482,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
                   their corresponding values.
          * @param size the size in bytes of the requested device allocation.
          * @param alignment the minimum alignment in bytes for the allocation.
-         * @param errcode_ret may return an appropriate error code.
+         * @param errcode may return an appropriate error code.
          * @return allocated device USM.
          */
         void* USMDeviceAlloc(cl_device_id device,
                              const cl_mem_properties_intel* properties,
                              size_t size,
                              cl_uint alignment,
-                             cl_int* errcode_ret);
+                             cl_int* errcode);
 
         /**
          * Allocate USM with shared ownership between the host and the
@@ -478,14 +499,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
                   their corresponding values.
          * @param size the size in bytes of the requested device allocation.
          * @param alignment the minimum alignment in bytes for the allocation.
-         * @param errcode_ret may return an appropriate error code.
+         * @param errcode may return an appropriate error code.
          * @return allocated shared USM.
          */
         void* USMSharedAlloc(cl_device_id device,
                              const cl_mem_properties_intel* properties,
                              size_t size,
                              cl_uint alignment,
-                             cl_int* errcode_ret);
+                             cl_int* errcode);
 
         /**
          * Free USM allocation
@@ -511,6 +532,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                     size_t param_value_size,
                                     void* param_value,
                                     size_t* param_value_size_ret);
+
+        /**
+         * Allocate device USM to represent global variable pointer queried
+         * from OpenCL program.
+         * @param devide OpenCL device ID to associate with the allocation.
+           @param gvSize Size of the global variable
+           @param gvPtr Pointer to the global variable queried from program.
+           @return CL_SUCCESS if the function executes successfully and error
+         *  code if failed.
+         */
+        cl_int USMDeviceAllocGlobalVariable(cl_device_id device,
+                                            size_t gvSize,
+                                            void* gvPtr);
 
     protected:
         /******************************************************************************************
@@ -568,15 +602,18 @@ namespace Intel { namespace OpenCL { namespace Framework {
             their corresponding values. The list is terminated with the special
             property 0.
          * @param size the size in bytes of the requested device allocation.
+         * @param userPtr use as storage bits for mem object if userPtr is not
+            nullptr.
          * @param alignment the minimum alignment in bytes for the allocation.
-         * @param errcode_ret may return an appropriate error code.
+         * @param errcode may return an appropriate error code.
          */
         void* USMAlloc(cl_unified_shared_memory_type_intel type,
                        cl_device_id device,
                        const cl_mem_properties_intel* properties,
                        size_t size,
+                       void* userPtr,
                        unsigned int alignment,
-                       cl_int* errcode_ret);
+                       cl_int* errcode);
 
         bool                                    m_bTEActivated;
 

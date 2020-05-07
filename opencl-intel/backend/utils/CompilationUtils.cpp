@@ -22,13 +22,13 @@
 
 #include "CL/cl.h"
 
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/DebugInfo.h"
-
-#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Metadata.h"
 
 using namespace Intel::MetadataAPI;
 
@@ -38,6 +38,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
   const std::string CompilationUtils::WG_BOUND_PREFIX = "WG.boundaries.";
+
+  const std::string CompilationUtils::ATTR_KERNEL_CALL_ONCE = "kernel-call-once";
+  const std::string CompilationUtils::ATTR_KERNEL_UNIFORM_CALL = "kernel-uniform-call";
+  const std::string CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL = "kernel-convergent-call";
+
+  const std::string CompilationUtils::ATTR_HAS_VPLAN_MASK = "has-vplan-mask";
 
   const std::string CompilationUtils::NAME_GET_GID = "get_global_id";
   const std::string CompilationUtils::NAME_GET_BASE_GID = "get_base_global_id.";
@@ -76,6 +82,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_READ_PIPE = "__sub_group_commit_read_pipe";
   const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "__sub_group_reserve_write_pipe";
   const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "__sub_group_commit_write_pipe";
+
+  // KMP acquire/release
+  const std::string CompilationUtils::NAME_IB_KMP_ACQUIRE_LOCK = "__builtin_IB_kmp_acquire_lock";
+  const std::string CompilationUtils::NAME_IB_KMP_RELEASE_LOCK = "__builtin_IB_kmp_release_lock";
 
   // atomic fence functions
   const std::string CompilationUtils::NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
@@ -309,8 +319,30 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if (F.isDeclaration()) {
       llvm::StringRef func_name = F.getName();
       if (func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
-          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE))
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
+          CompilationUtils::isKMPAcquireReleaseLock(std::string(func_name)))
         functionSet.insert(&F);
+      }
+  }
+
+  void CompilationUtils::getAllSyncBuiltinsDclsForKernelUniformCallAttr(
+    FunctionSet &functionSet, Module *pModule) {
+    //Clear old collected data!
+    functionSet.clear();
+
+    for (auto &F : pModule->functions())
+      if (F.isDeclaration()) {
+        llvm::StringRef func_name = F.getName();
+        if (
+          func_name == CompilationUtils::mangledBarrier() ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
+          func_name == CompilationUtils::mangledSGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
+          CompilationUtils::isKMPAcquireReleaseLock(std::string(func_name)) ||
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(std::string(func_name), pModule)) {
+            functionSet.insert(&F);
+        }
       }
   }
 
@@ -326,9 +358,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_NO_SCOPE) ||
           func_name == CompilationUtils::mangledWGBarrier(CompilationUtils::BARRIER_WITH_SCOPE) ||
           /* work group built-ins */
-          CompilationUtils::isWorkGroupBuiltin(func_name)  ||
+          CompilationUtils::isWorkGroupBuiltin(std::string(func_name))  ||
           /* built-ins synced as if were called by a single work item */
-          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(func_name, pModule) ) {
+          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(std::string(func_name), pModule) ) {
             // Found synchronized built-in declared in the module add it to the container set.
             functionSet.insert(&*fi);
       }
@@ -348,6 +380,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // Vectorized is running in all scenarios.
       if (kimd.VectorizedKernel.hasValue() && kimd.VectorizedKernel.get()) {
         functionSet.insert(kimd.VectorizedKernel.get());
+      }
+      if (kimd.VectorizedMaskedKernel.hasValue() && kimd.VectorizedMaskedKernel.get()) {
+        functionSet.insert(kimd.VectorizedMaskedKernel.get());
       }
     }
   }
@@ -665,6 +700,23 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     return false;
   }
 
+  bool CompilationUtils::getOptDisableFlagFromMetadata(Module *M) {
+    if (llvm::NamedMDNode *CompileOptsNamed =
+            M->getNamedMetadata("opencl.compiler.options")) {
+
+      llvm::MDTupleTypedArrayWrapper<llvm::MDString> CompileOpts(
+          cast<llvm::MDTuple>(CompileOptsNamed->getOperand(0)));
+
+      for (llvm::MDString *Opt : CompileOpts) {
+        if (Opt->getString() == "-cl-opt-disable") {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   bool CompilationUtils::generatedFromOCLCPP(const Module &M) {
     /*
     Example of the metadata
@@ -762,8 +814,9 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
                                               ArrayRef<Value *> NewArgs,
                                               Function *NewF) {
   assert(OldC && "CallInst is NULL");
-  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size());
   assert(NewF && "function is NULL");
+  assert(OldC->getNumArgOperands() + NewArgs.size() == NewF->arg_size() &&
+         "Function argument number mismatch");
 
   SmallVector<Value *, 16> Args;
   for (unsigned I = 0, E = OldC->getNumArgOperands(); I != E; ++I)
@@ -865,6 +918,14 @@ static std::string mangleWithParam(const char*const N,
 
 std::string CompilationUtils::mangledMemFence() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_MEM_FENCE.c_str());
+}
+
+std::string CompilationUtils::mangledReadMemFence() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_READ_MEM_FENCE.c_str());
+}
+
+std::string CompilationUtils::mangledWriteMemFence() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_WRITE_MEM_FENCE.c_str());
 }
 
 std::string CompilationUtils::mangledAtomicWorkItemFence() {
@@ -1080,6 +1141,10 @@ bool CompilationUtils::isAsyncWorkGroupCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_COPY);
 }
 
+bool CompilationUtils::isKMPAcquireReleaseLock(const std::string& S){
+  return (S == NAME_IB_KMP_ACQUIRE_LOCK) || (S == NAME_IB_KMP_RELEASE_LOCK);
+}
+
 bool CompilationUtils::isAsyncWorkGroupStridedCopy(const std::string& S){
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
 }
@@ -1253,7 +1318,7 @@ bool CompilationUtils::isSubGroupScanInclusiveMax(const std::string& S) {
 
 bool CompilationUtils::hasWorkGroupFinalizePrefix(const std::string& S) {
   if (!isMangledName(S.c_str())) return false;
-  std::string funcName = stripName(S.c_str());
+  std::string funcName = std::string(stripName(S.c_str()));
   return StringRef(funcName).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
 }
 
@@ -1435,7 +1500,7 @@ PipeKind CompilationUtils::getPipeKind(const std::string &Name) {
   }
 
   if (N.consume_front("_") && N.startswith("v")) {
-    Kind.SimdSuffix = N;
+    Kind.SimdSuffix = std::string(N);
   }
 
   assert(Name == getPipeName(Kind) &&
@@ -1701,6 +1766,46 @@ bool CompilationUtils::isGlobalCtorDtor(Function *F) {
   // TODO: implement good solution based on value of @llvm.global_ctors variable
   return F->getName() == "__pipe_global_ctor" ||
          F->getName() == "__pipe_global_dtor";
+}
+
+bool CompilationUtils::isGlobalCtorDtorOrCPPFunc(Function *F) {
+  assert(F && "Invalid input for global ctor / dtor / cpp func check");
+  return isGlobalCtorDtor(F) || F->hasFnAttribute("not-ocl-dpcpp");
+}
+
+static void recordCtorDtors(
+    llvm::iterator_range<llvm::orc::CtorDtorIterator> CtorDtors,
+    std::vector<std::string> &CtorDtorNames) {
+  if (CtorDtors.empty())
+    return;
+
+  std::map<unsigned, std::vector<const llvm::Function *>> CtorDtorsByPriority;
+  for (auto CtorDtor : CtorDtors) {
+    assert(CtorDtor.Func && CtorDtor.Func->hasName() &&
+           "Ctor/Dtor must be a named function");
+    if (CtorDtor.Data &&
+        llvm::cast<llvm::GlobalValue>(CtorDtor.Data)->isDeclaration())
+      continue;
+
+    if (CtorDtor.Func->hasLocalLinkage()) {
+      CtorDtor.Func->setLinkage(llvm::GlobalValue::ExternalLinkage);
+      CtorDtor.Func->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    }
+
+    CtorDtorsByPriority[CtorDtor.Priority].push_back(CtorDtor.Func);
+  }
+
+  for (auto &KV : CtorDtorsByPriority) {
+    for (auto &Func : KV.second)
+      CtorDtorNames.push_back(Func->getName().str());
+  }
+}
+
+void CompilationUtils::recordGlobalCtorDtors(
+    llvm::Module &M, std::vector<std::string> &CtorNames,
+    std::vector<std::string> &DtorNames) {
+  recordCtorDtors(llvm::orc::getConstructors(M), CtorNames);
+  recordCtorDtors(llvm::orc::getDestructors(M), DtorNames);
 }
 
 bool CompilationUtils::isBlockInvocationKernel(Function *F) {

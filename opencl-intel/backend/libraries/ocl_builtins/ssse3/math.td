@@ -194,6 +194,9 @@ OclBuiltinImpl fract_las_f64_promote = OclBuiltinImpl<fract_las, math_svml_vFpvF
 OclBuiltinImpl fract_gas_f64_expand = OclBuiltinImpl<fract_gas, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl fract_gas_f64_promote = OclBuiltinImpl<fract_gas, math_svml_vFpvF_promote, 0, Promote_2Ptr_v3_to_v4>;
 
+OclBuiltinImpl fract_gen_f64_expand = OclBuiltinImpl<fract_gen, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl fract_gen_f64_promote = OclBuiltinImpl<fract_gen, math_svml_vFpvF_promote, 0, Promote_2Ptr_v3_to_v4>;
+
 // frexp f(vXfX, pvXI32)
 OclBuiltinImpl frexp_pas_expand = OclBuiltinImpl<frexp_pas, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
 OclBuiltinImpl frexp_pas_promote = OclBuiltinImpl<frexp_pas, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
@@ -203,6 +206,10 @@ OclBuiltinImpl frexp_gas_promote = OclBuiltinImpl<frexp_gas, [v3f64], 0, Promote
 
 OclBuiltinImpl frexp_las_expand = OclBuiltinImpl<frexp_las, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
 OclBuiltinImpl frexp_las_promote = OclBuiltinImpl<frexp_las, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
+
+OclBuiltinImpl frexp_gen_expand = OclBuiltinImpl<frexp_gen, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
+OclBuiltinImpl frexp_gen_promote = OclBuiltinImpl<frexp_gen, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
+
 
 // ldexp f(vXfX, vXI32)
 OclBuiltinImpl ldexp_svml_expand = OclBuiltinImpl<ldexp, math_svml_vF512_expand, 0, Expand2>;
@@ -219,6 +226,9 @@ OclBuiltinImpl lgamma_r_gas_promote = OclBuiltinImpl<lgamma_r_gas, [v3f64], 0, P
 
 OclBuiltinImpl lgamma_r_las_expand = OclBuiltinImpl<lgamma_r_las, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
 OclBuiltinImpl lgamma_r_las_promote = OclBuiltinImpl<lgamma_r_las, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
+
+OclBuiltinImpl lgamma_r_gen_expand = OclBuiltinImpl<lgamma_r_gen, math_svml_vFpvI32_expand, 0, Expand_frexp_lgamma >;
+OclBuiltinImpl lgamma_r_gen_promote = OclBuiltinImpl<lgamma_r_gen, [v3f64], 0, Promote_2Ptr_v3_to_v4 >;
 
 // log f(vXfX)
 OclBuiltinImpl log_svml_expand = OclBuiltinImpl<log, math_svml_vF512_expand, 0, Expand1>;
@@ -245,6 +255,9 @@ OclBuiltinImpl modf_las_f64_promote = OclBuiltinImpl<modf_las, math_svml_vFpvF_p
 OclBuiltinImpl modf_gas_f64_expand = OclBuiltinImpl<modf_gas, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl modf_gas_f64_promote = OclBuiltinImpl<modf_gas, math_svml_vFpvF_promote, 0, Promote_2Ptr_v3_to_v4>;
 
+OclBuiltinImpl modf_gen_f64_expand = OclBuiltinImpl<modf_gen, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl modf_gen_f64_promote = OclBuiltinImpl<modf_gen, math_svml_vFpvF_promote, 0, Promote_2Ptr_v3_to_v4>;
+
 // remquo f(vXfX, vXfX, pvI32X)
 OclBuiltinImpl remquo_pas_expand = OclBuiltinImpl<remquo_pas, math_svml_vFvFpvI32_expand, 0, Expand_remquo >;
 OclBuiltinImpl remquo_pas_promote = OclBuiltinImpl<remquo_pas, math_svml_vFvFpvI32_promote, 0, Promote_remquo_v3_to_v4 >;
@@ -254,6 +267,9 @@ OclBuiltinImpl remquo_gas_promote = OclBuiltinImpl<remquo_gas, math_svml_vFvFpvI
 
 OclBuiltinImpl remquo_las_expand = OclBuiltinImpl<remquo_las, math_svml_vFvFpvI32_expand, 0, Expand_remquo >;
 OclBuiltinImpl remquo_las_promote = OclBuiltinImpl<remquo_las, math_svml_vFvFpvI32_promote, 0, Promote_remquo_v3_to_v4 >;
+
+OclBuiltinImpl remquo_gen_expand = OclBuiltinImpl<remquo_gen, math_svml_vFvFpvI32_expand, 0, Expand_remquo >;
+OclBuiltinImpl remquo_gen_promote = OclBuiltinImpl<remquo_gen, math_svml_vFvFpvI32_promote, 0, Promote_remquo_v3_to_v4 >;
 
 // sin f(vXfX)
 OclBuiltinImpl sin_svml_expand = OclBuiltinImpl<sin, math_svml_vF512_expand, 0, Expand1>;
@@ -267,6 +283,9 @@ OclBuiltinImpl sincos_las_f64_promote = OclBuiltinImpl<sincos_las, math_svml_vFp
 
 OclBuiltinImpl sincos_gas_f64_expand = OclBuiltinImpl<sincos_gas, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl sincos_gas_f64_promote = OclBuiltinImpl<sincos_gas, math_svml_vFpvF_promote, 0, Promote_2Ptr_v3_to_v4>;
+
+OclBuiltinImpl sincos_gen_f64_expand = OclBuiltinImpl<sincos_gen, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl sincos_gen_f64_promote = OclBuiltinImpl<sincos_gen, math_svml_vFpvF_promote, 0, Promote_2Ptr_v3_to_v4>;
 
 // sin f(vXfX)
 OclBuiltinImpl sinh_svml_expand = OclBuiltinImpl<sinh, math_svml_vF512_expand, 0, Expand1>;
@@ -360,6 +379,10 @@ OclBuiltinImpl native_sincos_las_svml_promote = OclBuiltinImpl<native_sincos_las
 // native_sincos_gas f(vXfX)
 OclBuiltinImpl native_sincos_gas_svml_expand = OclBuiltinImpl<native_sincos_gas, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl native_sincos_gas_svml_promote = OclBuiltinImpl<native_sincos_gas, [v3f64], 0, Promote_2Ptr_v3_to_v4>;
+
+// native_sincos_gen f(vXfX)
+OclBuiltinImpl native_sincos_gen_svml_expand = OclBuiltinImpl<native_sincos_gen, math_svml_vFpvF_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl native_sincos_gen_svml_promote = OclBuiltinImpl<native_sincos_gen, [v3f64], 0, Promote_2Ptr_v3_to_v4>;
 
 OclBuiltinImpl native_divide_expand = OclBuiltinImpl<native_divide, math_svml_vF512_expand, 0, Expand2>;
 
@@ -522,6 +545,7 @@ OclBuiltinImpl tan_svml_rm_expand = OclBuiltinImpl<tan_rm, math_svml_v16f32_expa
 OclBuiltinImpl sincos_pas_svml_rm_expand = OclBuiltinImpl<sincos_pas_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl sincos_las_svml_rm_expand = OclBuiltinImpl<sincos_las_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
 OclBuiltinImpl sincos_gas_svml_rm_expand = OclBuiltinImpl<sincos_gas_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
+OclBuiltinImpl sincos_gen_svml_rm_expand = OclBuiltinImpl<sincos_gen_rm, math_svml_v16f32_expand, 0, Expand_2Ptr>;
 
 // divide_rm
 OclBuiltinImpl divide_svml_rm_expand = OclBuiltinImpl<divide_rm, math_svml_v16f32_expand, 0, Expand2>;

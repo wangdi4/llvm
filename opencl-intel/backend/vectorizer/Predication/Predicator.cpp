@@ -26,20 +26,21 @@
 
 #include "llvm/Pass.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPass.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <iostream>
@@ -1045,10 +1046,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
         V_ASSERT(CI->getCalledFunction() &&
                  "Unexpected indirect function invocation");
         std::string funcname = CI->getCalledFunction()->getName().str();
-        bool hasNoSideEffect = m_rtServices->hasNoSideEffect(funcname);
-        bool allowsUnpredication =
-          m_rtServices->allowsUnpredicatedMemoryAccess(funcname);
-        if (!hasNoSideEffect && !allowsUnpredication)  {
+        if (!m_rtServices->hasNoSideEffect(funcname))  {
           m_toPredicate.push_back(I);
         }
       }
@@ -2164,7 +2162,7 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
     return false;
   }
 
-  if (Mangler::isMangledLoad(call->getCalledFunction()->getName())) {
+  if (Mangler::isMangledLoad(std::string(call->getCalledFunction()->getName()))) {
     V_ASSERT(call->getNumArgOperands() == 2 && "expected 2 arguments");
     if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM) {
        V_ASSERT(m_predicatedToOriginalInst.count(call) &&
@@ -2178,7 +2176,7 @@ bool Predicator::isMaskedUniformStoreOrLoad(Instruction* inst) {
     }
     return false;
   }
-  if (Mangler::isMangledStore(call->getCalledFunction()->getName())) {
+  if (Mangler::isMangledStore(std::string(call->getCalledFunction()->getName()))) {
     V_ASSERT(call->getNumArgOperands() == 3 && "expected 3 arguments");
     if (m_WIA->whichDepend(call->getArgOperand(1)) == WIAnalysis::UNIFORM &&
       m_WIA->whichDepend(call->getArgOperand(2)) == WIAnalysis::UNIFORM) {
@@ -2308,12 +2306,32 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     clones.push_back(cloneBB);
   }
 
+  auto &MD = clonesMap.MD();
   // Update references inside the clones.
   for(SmallVector<BasicBlock *, 8>::iterator bbIt = clones.begin(), bbEnd = clones.end();
         bbIt != bbEnd; ++bbIt) {
     BasicBlock * cloneBB = *bbIt;
-    for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii)
+    for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii){
+      Instruction * I = &*ii;
+      // The source locations for the cloned instructions are already correct,
+      // avoid duplicating by remapping them to themselves.
+      if (DILocation* Loc = I->getDebugLoc().get())
+        MD[Loc].reset(Loc);
+      if (MDNode* MDloop = I->getMetadata(LLVMContext::MD_loop))
+        MD[MDloop].reset(MDloop);
+      // Remap DbgVariableIntrinsic instruction's variables to themselves, to make them
+      // agree with !dbg attachments's scopes
+      if (isa<DbgVariableIntrinsic>(I)){
+        if (DILocalVariable* Var = cast<DbgVariableIntrinsic>(I)->getVariable())
+          MD[Var].reset(Var);
+      }
+      // Remap DbgLabelInst instruction's Labels(llvm.dbg.label) to themselves
+      if (isa<DbgLabelInst>(I)){
+        if (DILabel* Label = cast<DbgLabelInst>(I)->getLabel())
+          MD[Label].reset(Label);
+      }
       RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingLocals);
+    }
   }
 
   // Create conditional branch to the original and cloned UCF entry BBs
@@ -2916,7 +2934,7 @@ BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
     CallInst* condCall = dyn_cast<CallInst>(cond);
     if (condCall && condCall->getCalledFunction()) {
       StringRef name = condCall->getCalledFunction()->getName();
-      if (Mangler::isAllOne(name))
+      if (Mangler::isAllOne(std::string(name)))
         return br;
     }
   }

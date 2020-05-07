@@ -363,7 +363,7 @@ int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
   llvm::WriteBitcodeToFile(*pModule, ir_ostream);
 
   pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
-  pResult->setIRName(pModule->getName());
+  pResult->setIRName(std::string(pModule->getName()));
 
   if (pBinaryResult) {
     *pBinaryResult = pResult.release();

@@ -46,6 +46,7 @@ extern HostProgramFunc host_fpga_channels;
 extern HostProgramFunc host_fpga_autorun;
 extern HostProgramFunc host_fpga_fp16;
 extern HostProgramFunc host_compile_link;
+extern HostProgramFunc host_jit_reload;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -146,6 +147,8 @@ HostProgramFunc get_host_program_by_name(string name)
         return host_fpga_fp16;
     else if (name == "host_compile_link")
         return host_compile_link;
+    else if (name == "jit_reload")
+        return host_jit_reload;
 
     throw runtime_error("Unknown host program: '" + name + "'");
 }
@@ -242,11 +245,21 @@ int main(int argc, char** argv)
         DTT_LOG("Preparing OpenCL execution...");
         vector<cl::Platform> platforms;
         cl::Platform::get(&platforms);
+
+        unsigned cl_platform_index = 0;
+        char *envIndex = getenv("CL_PLATFORM_INDEX");
+        if (envIndex) {
+            cl_platform_index = atoi(envIndex);
+        }
+
         if (platforms.size() == 0)
             throw runtime_error("0 platforms found");
+        else if (platforms.size() <= cl_platform_index)
+            throw runtime_error("CL_PLATFORM_INDEX out of bound");
 
         cl_context_properties properties[] = {
-            CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(), 0
+            CL_CONTEXT_PLATFORM,
+            (cl_context_properties)(platforms[cl_platform_index])(), 0
         };
 
         cl_device_type deviceType = CL_DEVICE_TYPE_DEFAULT;
@@ -303,8 +316,10 @@ int main(int argc, char** argv)
                 build_flags += gworkitem;
                 build_flags += " ";
             }
+            // As debug and optimization flag decoupled, we need to pass
+            // both "-g" and "-cl-opt-disable" to get complete debug info
             if (options.get("debug_build") != "off") {
-                build_flags += "-g ";
+                build_flags += "-g -cl-opt-disable ";
             }
             build_flags += string("-s \"") + cl_file_name + "\"";
             DTT_LOG("Build flags: " + build_flags);

@@ -31,7 +31,7 @@
 #include <Device.h>
 #include <assert.h>
 #include <cl_utils.h>
-#include <CL/cl_ext.h>
+#include <CL/cl_fpga_ext.h>
 
 
 using namespace Intel::OpenCL::Utils;
@@ -817,7 +817,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             SKernelArgumentInfo& argInfo = m_vArgumentsInfo[i];
              
             argInfo.accessQualifier = pArgsInfo->getArgAccessQualifier(i);
-            argInfo.adressQualifier = pArgsInfo->getArgAdressQualifier(i);
+            argInfo.addressQualifier = pArgsInfo->getArgAdressQualifier(i);
             argInfo.name            = pArgsInfo->getArgName(i);
             argInfo.typeName        = pArgsInfo->getArgTypeName(i);
             argInfo.typeQualifier   = pArgsInfo->getArgTypeQualifier(i);
@@ -825,7 +825,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             argInfo.localMemSize    = pArgsInfo->getArgLocalMemSize(i);
         }
 
-        pArgsInfo->Release();
+        delete pArgsInfo;
     }
     else
     {
@@ -848,7 +848,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
             SKernelArgumentInfo& argInfo = m_vArgumentsInfo[i];
              
             argInfo.accessQualifier = argInfoArray[i].accessQualifier;
-            argInfo.adressQualifier = argInfoArray[i].adressQualifier;
+            argInfo.addressQualifier = argInfoArray[i].addressQualifier;
             argInfo.name            = argInfoArray[i].name;
             argInfo.typeName        = argInfoArray[i].typeName;
             argInfo.typeQualifier   = argInfoArray[i].typeQualifier;
@@ -1062,11 +1062,16 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
         }
 
         cl_kernel_arg_type clArgType     = clArg.GetType(); 
-        bool depth_required = (clArgType == CL_KRNL_ARG_PTR_IMG_2D_DEPTH || clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH);
-        // either both depth_required and depth provided or not
-        if (depth_required ^ (imgFormat.image_channel_order == CL_DEPTH))
+
+        // Depth channel is only used for 2D image.
+        bool is_2dimage =
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D_DEPTH ||
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH ||
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D ||
+          clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR;
+        if (!is_2dimage && (imgFormat.image_channel_order == CL_DEPTH))
         {
-            return CL_INVALID_ARG_VALUE;   
+            return CL_INVALID_ARG_VALUE;
         }
 
         clArg.SetValue(sizeof(cl_mem), &clMemId); 
@@ -1312,7 +1317,7 @@ cl_err_code Kernel::GetKernelArgInfo (    cl_uint argIndx,
         stParamSize = m_vArgumentsInfo[argIndx].typeName.length() + 1;      
         break;
     case CL_KERNEL_ARG_ADDRESS_QUALIFIER:
-        pValue = &(m_vArgumentsInfo[argIndx].adressQualifier);
+        pValue = &(m_vArgumentsInfo[argIndx].addressQualifier);
         stParamSize = sizeof(cl_kernel_arg_address_qualifier);      
         break;
     case CL_KERNEL_ARG_ACCESS_QUALIFIER:

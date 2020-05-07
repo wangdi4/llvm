@@ -24,7 +24,7 @@
 
 #define MAX_SOURCE_SIZE 2048
 
-#ifdef GCC_VER_7X
+#if __GNUC__ > 7
   #pragma GCC diagnostic ignored "-Wmisleading-indentation"
 #endif
 
@@ -110,10 +110,10 @@ bool fission_buildMultipleSubDevices_test(){
         return bResult;
     }
 
-    while (!uiBuildDone);
+    while (!uiBuildDone) {}
 
     // Check that program was built for both devices
-	cl_build_status build_status;
+    cl_build_status build_status;
 
     for (int i = 0; i < 2; ++i)
     {

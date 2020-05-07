@@ -264,6 +264,9 @@ OclBuiltinImpl fract_gas_v1f32 = OclBuiltinImpl<fract_gas, [v1f32], 0, Promote_f
 OclBuiltinImpl fract_gas_f32 = OclBuiltinImpl<fract_gas, [v2f32, v3f32, v4f32, v8f32, v16f32], 0, fract_impl_f32>;
 OclBuiltinImpl fract_gas_f64 = OclBuiltinImpl<fract_gas, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, fract_svml>;
 
+OclBuiltinImpl fract_gen_v1f32 = OclBuiltinImpl<fract_gen, [v1f32], 0, Promote_fract>;
+OclBuiltinImpl fract_gen_f32 = OclBuiltinImpl<fract_gen, [v2f32, v3f32, v4f32, v8f32, v16f32], 0, fract_impl_f32>;
+OclBuiltinImpl fract_gen_f64 = OclBuiltinImpl<fract_gen, [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, fract_svml>;
 
 // frexp
 code frexp_svml = [{
@@ -272,6 +275,7 @@ code frexp_svml = [{
 OclBuiltinImpl frexp_pas_svml = OclBuiltinImpl<frexp_pas, frexp_pas.Types, 0, frexp_svml>;
 OclBuiltinImpl frexp_las_svml = OclBuiltinImpl<frexp_las, frexp_las.Types, 0, frexp_svml>;
 OclBuiltinImpl frexp_gas_svml = OclBuiltinImpl<frexp_gas, frexp_gas.Types, 0, frexp_svml>;
+OclBuiltinImpl frexp_gen_svml = OclBuiltinImpl<frexp_gen, frexp_gen.Types, 0, frexp_svml>;
 
 
 // ilogb float. call float2 version
@@ -324,6 +328,7 @@ code lgamma_r_svml = [{
 OclBuiltinImpl lgamma_r_pas_svml = OclBuiltinImpl<lgamma_r_pas, lgamma_r_pas.Types, 0, lgamma_r_svml>;
 OclBuiltinImpl lgamma_r_las_svml = OclBuiltinImpl<lgamma_r_las, lgamma_r_las.Types, 0, lgamma_r_svml>;
 OclBuiltinImpl lgamma_r_gas_svml = OclBuiltinImpl<lgamma_r_gas, lgamma_r_gas.Types, 0, lgamma_r_svml>;
+OclBuiltinImpl lgamma_r_gen_svml = OclBuiltinImpl<lgamma_r_gen, lgamma_r_gen.Types, 0, lgamma_r_svml>;
 
 // log
 OclBuiltinImpl log_svml_not_shared = OclBuiltinImpl<log, math_not_shared_types, 0, [{
@@ -367,6 +372,7 @@ code modf_svml = [{
 OclBuiltinImpl modf_pas_svml = OclBuiltinImpl<modf_pas, modf_pas.Types, 0, modf_svml>;
 OclBuiltinImpl modf_las_svml = OclBuiltinImpl<modf_las, modf_las.Types, 0, modf_svml>;
 OclBuiltinImpl modf_gas_svml = OclBuiltinImpl<modf_gas, modf_gas.Types, 0, modf_svml>;
+OclBuiltinImpl modf_gen_svml = OclBuiltinImpl<modf_gen, modf_gen.Types, 0, modf_svml>;
 
 // remquo
 code remquo_svml = [{
@@ -375,6 +381,7 @@ code remquo_svml = [{
 OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, remquo_pas.Types, 0, remquo_svml>;
 OclBuiltinImpl remquo_las_svml = OclBuiltinImpl<remquo_las, remquo_las.Types, 0, remquo_svml>;
 OclBuiltinImpl remquo_gas_svml = OclBuiltinImpl<remquo_gas, remquo_gas.Types, 0, remquo_svml>;
+OclBuiltinImpl remquo_gen_svml = OclBuiltinImpl<remquo_gen, remquo_gen.Types, 0, remquo_svml>;
 
 // rint
 OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, [v4f32, v8f32, v2f64, v4f64], 0, [{
@@ -407,6 +414,7 @@ code sincos_svml = [{
 OclBuiltinImpl sincos_pas_svml = OclBuiltinImpl<sincos_pas, sincos_pas.Types, 0, sincos_svml>;
 OclBuiltinImpl sincos_las_svml = OclBuiltinImpl<sincos_las, sincos_las.Types, 0, sincos_svml>;
 OclBuiltinImpl sincos_gas_svml = OclBuiltinImpl<sincos_gas, sincos_gas.Types, 0, sincos_svml>;
+OclBuiltinImpl sincos_gen_svml = OclBuiltinImpl<sincos_gen, sincos_gen.Types, 0, sincos_svml>;
 
 // sinh
 OclBuiltinImpl sinh_svml_not_shared = OclBuiltinImpl<sinh, math_not_shared_types, 0, [{
@@ -549,6 +557,7 @@ code native_fract_impl = [{
 OclBuiltinImpl native_fract_pas_f32 = OclBuiltinImpl<native_fract_pas, native_fract_pas.Types, 0, native_fract_impl>;
 OclBuiltinImpl native_fract_las_f32 = OclBuiltinImpl<native_fract_las, native_fract_las.Types, 0, native_fract_impl>;
 OclBuiltinImpl native_fract_gas_f32 = OclBuiltinImpl<native_fract_gas, native_fract_gas.Types, 0, native_fract_impl>;
+OclBuiltinImpl native_fract_gen_f32 = OclBuiltinImpl<native_fract_gen, native_fract_gen.Types, 0, native_fract_impl>;
 
 
 // native_sincos
@@ -558,6 +567,7 @@ code native_sincos_svml = [{
 OclBuiltinImpl native_sincos_pas_svml = OclBuiltinImpl<native_sincos_pas, native_sincos_pas.Types, 0, native_sincos_svml>;
 OclBuiltinImpl native_sincos_las_svml = OclBuiltinImpl<native_sincos_las, native_sincos_las.Types, 0, native_sincos_svml>;
 OclBuiltinImpl native_sincos_gas_svml = OclBuiltinImpl<native_sincos_gas, native_sincos_gas.Types, 0, native_sincos_svml>;
+OclBuiltinImpl native_sincos_gen_svml = OclBuiltinImpl<native_sincos_gen, native_sincos_gen.Types, 0, native_sincos_svml>;
 
 
 

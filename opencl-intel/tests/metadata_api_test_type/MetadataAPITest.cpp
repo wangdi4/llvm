@@ -440,32 +440,6 @@ TEST_F(MetadataTest, Test_ModuleSpirVersion) {
   EXPECT_TRUE(passed);
 }
 
-TEST_F(MetadataTest, Test_ModuleGlobalVariableTotalSize) {
-  auto pModule = GetTestModule();
-
-  const int32_t expected = 64;
-
-  {
-    ModuleInternalMetadataAPI MDApi(pModule);
-
-    auto GlobalVariableTotalSize = MDApi.GlobalVariableTotalSize;
-
-    EXPECT_FALSE(GlobalVariableTotalSize.hasValue());
-
-    GlobalVariableTotalSize.set(expected);
-  }
-
-  {
-    ModuleInternalMetadataAPI MDApi(pModule);
-
-    auto GlobalVariableTotalSize = MDApi.GlobalVariableTotalSize;
-
-    EXPECT_TRUE(GlobalVariableTotalSize.hasValue());
-
-    EXPECT_EQ(expected, GlobalVariableTotalSize.get());
-  }
-}
-
 // save the list to Metadata.
 
 TEST_F(MetadataTest, Test_SaveKernelArgNamesMetadata) {

@@ -30,27 +30,32 @@ dropped.
 Driver version
 ======================
 In order to distinguish different OpenCL runtimes with same yy.major.mm.minor
-library version info, the "dd_changeset" (changeset is hhmmss) is appended to
-reported driver version. For local build with "head" tag, we will append the
-tag name directly.
+library version info, the tag is appended to reported driver version. For local
+build with "head" tag, we will append the tag name directly.
 
-For non-official release build, the branch name is also appended.
+The following items explain the drvier info components one by one:
+* xmain_rel daily build:              [year].[llvm-verison].[month].0.[day]
+* xmain changset build:               [year].[llvm-verison].[month].0.[day]_[hour][minute][second].[branch]
+* xmain daily build:                  [year].[llvm-verison].[month].0.[day].[branch]
+* xmain local build with "head" tag:  [year].[llvm-verison].[month].0.head.[branch]
 
 Example
 =======
 
-Lets look as an example to upcoming April 2019 release.
+Lets look as an example to Dec 24 2019 build:
 
-               |  branch   |  Library version |  Driver version
+                 |  branch   |  Library version  |  Driver version
 ----------------------------------------------------------------------------
-Apr 17 release | xmain_rel |  2019.8.4.0      |  2019.8.4.0.17_112233
+  release build  | xmain_rel |  2019.9.12.0      |  2019.9.12.0.24
 ----------------------------------------------------------------------------
-               | xmain     |  2019.8.4.0      |  2019.8.4.0.17_112233.xmain
+changeset build  | xmain     |  2019.9.12.0      |  2019.9.12.0.24_112233.xmain
 ----------------------------------------------------------------------------
-               | xmain     |  2019.8.4.0      |  2019.8.4.0.head.xmain
+  daily build    | xmain     |  2019.9.12.0      |  2019.9.12.0.24.xmain
+----------------------------------------------------------------------------
+local head build | xmain     |  2019.9.12.0      |  2019.9.12.0.head.xmain
 ----------------------------------------------------------------------------
 
 So in library directory we see:
 
-libintelocl.so -> libintelocl.so.2019.8.4.0
-libintelocl.so.2019.8.4.0
+libintelocl.so -> libintelocl.so.2019.9.12.0
+libintelocl.so.2019.9.12.0

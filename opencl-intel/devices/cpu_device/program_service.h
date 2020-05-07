@@ -131,6 +131,10 @@ public:
     cl_dev_err_code GetFunctionPointerFor(cl_dev_program IN prog,
         const char* IN func_name, cl_ulong* OUT func_pointer_ret) const;
 
+    // Retrieves sizes/pointers of all global variables in a built program
+    void GetGlobalVariablePointers(cl_dev_program IN prog,
+        const cl_prog_gv OUT **gvPtrs, size_t OUT *gvCount) const;
+
     struct KernelMapEntry
     {
         const ICLDevBackendKernel_*  pBEKernel;

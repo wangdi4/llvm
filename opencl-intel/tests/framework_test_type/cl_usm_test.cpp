@@ -119,16 +119,17 @@ TEST_F(USMTest, checkCapacities) {
       CL_DEVICE_SINGLE_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
       CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
       CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL};
-  cl_unified_shared_memory_capabilities_intel caps_expected =
+  cl_device_unified_shared_memory_capabilities_intel caps_expected =
       CL_UNIFIED_SHARED_MEMORY_ACCESS_INTEL |
       CL_UNIFIED_SHARED_MEMORY_ATOMIC_ACCESS_INTEL |
       CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ACCESS_INTEL |
       CL_UNIFIED_SHARED_MEMORY_CONCURRENT_ATOMIC_ACCESS_INTEL;
   for (cl_bitfield param_name : cap_params) {
-    cl_unified_shared_memory_capabilities_intel caps;
+    cl_device_unified_shared_memory_capabilities_intel caps;
     cl_int err = clGetDeviceInfo(
         m_device, param_name,
-        sizeof(cl_unified_shared_memory_capabilities_intel), &caps, NULL);
+        sizeof(cl_device_unified_shared_memory_capabilities_intel),
+        &caps, NULL);
     ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
     ASSERT_EQ(caps, caps_expected);
   }
@@ -145,7 +146,7 @@ TEST_F(USMTest, memAlloc) {
   for (cl_mem_flags flag : correctFlags) {
     cl_mem_properties_intel properties[] = {CL_MEM_ALLOC_FLAGS_INTEL, flag, 0};
 
-    const void *buf0 =
+    void *buf0 =
         clHostMemAllocINTEL(m_context, properties, size, alignment, &err);
     ASSERT_OCL_SUCCESS(err, "clHostMemAllocINTEL");
     err = clMemFreeINTEL(m_context, buf0);
@@ -182,7 +183,7 @@ TEST_F(USMTest, memAlloc) {
   }
 
   // Test wrong alignments
-  int alignments[] = { 7, sizeof(cl_double16) * 8 };
+  int alignments[] = {7, sizeof(cl_double16) * 8};
   for (int alignment : alignments) {
     void *buf = clDeviceMemAllocINTEL(m_context, m_device, nullptr, size,
                                       alignment, &err);
@@ -251,17 +252,28 @@ TEST_F(USMTest, enqueueMemset) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  int countFillErrors = 0;
+  int countErrors = 0;
   for (size_t i = 0; i < num / 2; i++)
     if (buffer[i] != (char)value2)
-      countFillErrors++;
+      countErrors++;
   for (size_t i = num / 2; i < num; i++)
     if (buffer[i] != (char)value1)
-      countFillErrors++;
-  ASSERT_EQ(countFillErrors, 0);
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
 
   err = clMemFreeINTEL(m_context, buffer);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+
+  // Memset host ptr
+  char *data = new char[size];
+  err = clEnqueueMemsetINTEL(m_queue, data, value1, size, 0, NULL, NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
+  countErrors = 0;
+  for (size_t i = 0; i < num; i++)
+    if (data[i] != (char)value1)
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
+  delete[] data;
 }
 
 TEST_F(USMTest, enqueueMemFill) {
@@ -290,17 +302,29 @@ TEST_F(USMTest, enqueueMemFill) {
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
-  int countFillErrors = 0;
+  int countErrors = 0;
   for (size_t i = 0; i < size1; i += pattern1_size)
     if (0 != strncmp(&buffer[i], pattern1, pattern1_size))
-      countFillErrors++;
+      countErrors++;
   for (size_t i = size1; i < size; i += pattern2_size)
     if (0 != strncmp(&buffer[i], pattern2, pattern2_size))
-      countFillErrors++;
-  ASSERT_EQ(countFillErrors, 0);
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
 
   err = clMemFreeINTEL(m_context, buffer);
   ASSERT_OCL_SUCCESS(err, "clMemFreeINTEL");
+
+  // Fill host ptr
+  char *data = new char[size1];
+  err = clEnqueueMemFillINTEL(m_queue, data, pattern1, pattern1_size, size1, 0,
+                              NULL, NULL);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
+  countErrors = 0;
+  for (size_t i = 0; i < size1; i += pattern1_size)
+    if (0 != strncmp(&data[i], pattern1, pattern1_size))
+      countErrors++;
+  ASSERT_EQ(countErrors, 0);
+  delete[] data;
 }
 
 TEST_F(USMTest, enqueueMemcpy) {
@@ -398,7 +422,11 @@ TEST_F(USMTest, enqueueMigrateMem) {
   ASSERT_OCL_SUCCESS(err, "clGetMemAllocInfoINTEL");
   ASSERT_EQ(CL_MEM_TYPE_SHARED_INTEL, memType);
 
-  cl_mem_migration_flags flags = CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED;
+  cl_mem_migration_flags flags = 0;
+  err = clEnqueueMigrateMemINTEL(m_queue, buffer, size, flags, 0, NULL, NULL);
+  ASSERT_EQ(CL_INVALID_VALUE, err) << "clEnqueueMigrateMemINTEL failed";
+
+  flags = CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED;
   err = clEnqueueMigrateMemINTEL(m_queue, buffer, size, flags, 0, NULL, NULL);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMigrateMemINTEL");
 
@@ -429,9 +457,9 @@ TEST_F(USMTest, enqueueAdviseMem) {
                                                alignment, &err);
   ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
 
-  cl_mem_advice_intel advice = CL_MEM_ADVICE_TBD0_INTEL;
+  cl_mem_advice_intel advice = 0;
   err = clEnqueueMemAdviseINTEL(m_queue, buffer, size, advice, 0, NULL, NULL);
-  ASSERT_OCL_SUCCESS(err, "clEnqueueMemAdviseINTEL");
+  ASSERT_EQ(CL_INVALID_VALUE, err) << "clEnqueueMemAdviseINTEL failed";
 
   err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(err, "clFinish");

@@ -1,6 +1,24 @@
 use_rtti( FALSE )
 set( TARGET_NAME LLVMVectorizer)
 
+add_custom_command(
+  OUTPUT VectInfo.gen
+  COMMAND ocl-tblgen -gen-vectorization-info
+  -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
+  -o ${CMAKE_CURRENT_BINARY_DIR}/VectInfo.gen
+  DEPENDS ocl-tblgen
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v2.0WG.td
+  ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/sub_group_builtin.td
+  COMMENT "Generating built-in vectorization info ..."
+  VERBATIM
+)
+
+set(VECTORIZATION_INFO_GEN VectInfo.gen)
+
 include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "PostDominanceFrontier")
 include_directories(BEFORE "SoaAllocaAnalysis")
@@ -109,6 +127,7 @@ set(TARGET_SOURCE_FILES
   OCLBranchProbability/OCLBranchProbability.cpp
   ChooseVectorizationDimension/ChooseVectorizationDimension.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
+  ${VECTORIZATION_INFO_GEN}
 )
 
 add_library(

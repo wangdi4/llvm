@@ -41,6 +41,9 @@ ExecuteIterations;
 extern llvm::cl::opt<uint32_t>
 BuildIterations;
 
+extern llvm::cl::opt<VectorizerType>
+OptVectorizerType;
+
 extern llvm::cl::opt<Intel::OpenCL::DeviceBackend::ETransposeSize>
 TransposeSize;
 
@@ -126,7 +129,8 @@ namespace Validation
         m_DumpIRDir(::DumpIRDir),
         m_DumpJIT(::DumpJIT),
         m_TimePasses(::TimePasses),
-        m_dumpHeuristcIR(::DumpHeuristicIR)
+        m_dumpHeuristcIR(::DumpHeuristicIR),
+        m_vectorizerType(::OptVectorizerType)
     {
     }
 
@@ -227,6 +231,18 @@ namespace Validation
     }
 
     template<>
+    VectorizerType BERunOptions::GetValue<VectorizerType>(RunConfigurationOption rc, VectorizerType defaultValue) const
+    {
+        switch(rc)
+        {
+        case RC_BR_VECTORIZER_TYPE :
+            return m_vectorizerType;
+        default:
+            return defaultValue;
+        }
+    }
+
+    template<>
     ETransposeSize BERunOptions::GetValue<ETransposeSize>(RunConfigurationOption rc, ETransposeSize defaultValue) const
     {
         switch(rc)
@@ -299,6 +315,7 @@ namespace Validation
         m_InjectedObject = ::ObjectFile;
         m_dumpHeuristcIR = ::DumpHeuristicIR;
         m_verbose = ::Verbose;
+        m_vectorizerType = ::OptVectorizerType;
     }
 
     ComparatorRunOptions::ComparatorRunOptions():

@@ -80,7 +80,7 @@ BuiltinMap::MapRange BuiltinMap::equalRange (llvm::StringRef s)const{
   if (!isConversionFunction(s))
     name = s;
   else {
-    strConversion = getConversionCoreName(s);
+    strConversion = getConversionCoreName(std::string(s));
     name = strConversion;
   }
   NameToFDMultiMap::const_iterator it = m_nameToFd.find(name);
@@ -89,7 +89,7 @@ BuiltinMap::MapRange BuiltinMap::equalRange (llvm::StringRef s)const{
 
 void BuiltinMap::insert (const FunctionDescriptor& fd){
   if (isConversionFunction(fd.name)){
-    std::string name = getConversionCoreName(fd.name);
+    std::string name = getConversionCoreName(std::string(fd.name));
     m_nameToFd[name].append(1U, fd);
   } else
     m_nameToFd[fd.name].append(1U, fd);
@@ -101,8 +101,8 @@ BuiltinMap::isInSameCacheLine(llvm::StringRef strLeft, llvm::StringRef strRight)
     return true;
   
   if (isConversionFunction(strLeft) && isConversionFunction(strRight)){
-    std::string strl = getConversionCoreName(strLeft);
-    std::string strr = getConversionCoreName(strRight);
+    std::string strl = getConversionCoreName(std::string(strLeft));
+    std::string strr = getConversionCoreName(std::string(strRight));
     return  strl == strr;
   }
   return false;

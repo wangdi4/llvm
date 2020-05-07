@@ -90,8 +90,10 @@ bool SpecialCaseBuiltinResolver::runOnModule(Module &M) {
     fpm.add(createInstructionCombiningPass());
     SmallPtrSet<Function*, 8>::iterator it = m_changedKernels.begin();
     SmallPtrSet<Function*, 8>::iterator e  = m_changedKernels.end();
+    fpm.doInitialization();
     for (; it!=e ; ++it)
       fpm.run(**it);
+    fpm.doFinalization();
   }
   V_PRINT(SpecialCaseBuiltinResolver, "finished bltn resolver\n");
   return changed;

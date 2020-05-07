@@ -28,28 +28,35 @@ macro(set_opencl_version)
         math(EXPR LLVM_RELEASE_VER "${LLVM_VERSION_MAJOR} - 1")
         set(VERSIONSTRING "${PRODUCTVER_MAJOR}.${LLVM_RELEASE_VER}.${PRODUCTVER_MINOR}")
         # Get branch info
-        if ( $ENV{ICS_WSPROJECT} STREQUAL "xmain-rel" )
+        if ( ("${OCL_RELEASE_BRANCH}" STREQUAL "xmain-rel") OR
+             ("${OCL_RELEASE_BRANCH}" STREQUAL "") )
             set(WSPROJECT "")
         else ()
-            set(WSPROJECT ".$ENV{ICS_WSPROJECT}")
+            set(WSPROJECT ".${OCL_RELEASE_BRANCH}")
         endif()
         # Get dd_hhmmss info of changeset.
-        string(LENGTH "$ENV{ICS_WSVERSION}" CHANGESET_LEN)
+        string(LENGTH "${OCL_REVISION}" CHANGESET_LEN)
         if ( "${CHANGESET_LEN}" GREATER 7 ) # yyyymmdd or #yyyymmdd_hhmmss pattern
             # Exclude the "yyyymm" value from the changeset info.
             math(EXPR LENTH_LEFT "${CHANGESET_LEN} - 6")
-            string(SUBSTRING "$ENV{ICS_WSVERSION}" 6 ${LENTH_LEFT} WSDATE)
+            string(SUBSTRING "${OCL_REVISION}" 6 ${LENTH_LEFT} WSDATE)
         else ()
-            set(WSDATE "$ENV{ICS_WSVERSION}")
+            set(WSDATE "${OCL_REVISION}")
         endif()
+        if ( "${WSDATE}" STREQUAL "" )
+            set(VERSION_EXT ${WSPROJECT})
+        else ()
+            set(VERSION_EXT ".${WSDATE}${WSPROJECT}")
+        endif()
+
         add_definitions(-DVERSIONSTRING="${VERSIONSTRING}")
-        add_definitions(-DVERSIONSTRING_WITH_EXT="${VERSIONSTRING}.${WSDATE}${WSPROJECT}")
+        add_definitions(-DVERSIONSTRING_WITH_EXT="${VERSIONSTRING}${VERSION_EXT}")
         file(WRITE ${OCL_BINARY_DIR}/driverversion.h.txt
         "#ifndef VERSIONSTRIN\n
              #define VERSIONSTRING \"${VERSIONSTRING}\"\n
          #endif\n
          #ifndef VERSIONSTRINGEXT\n
-             #define VERSIONSTRING_WITH_EXT \"${VERSIONSTRING}.${WSDATE}${WSPROJECT}\"\n
+             #define VERSIONSTRING_WITH_EXT \"${VERSIONSTRING}${VERSION_EXT}\"\n
          #endif\n")
         execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
                         ${OCL_BINARY_DIR}/driverversion.h.txt

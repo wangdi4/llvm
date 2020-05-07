@@ -27,6 +27,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/TypeSize.h"
 
 static const int __logs_vals[] = {-1, 0, 1, -1, 2, -1, -1, -1, 3, -1, -1, -1, -1, -1, -1, -1, 4};
 #define LOG_(x) __logs_vals[x]
@@ -577,11 +578,11 @@ void PacketizeFunction::obtainTranspose() {
       V_ASSERT(CI->getCalledFunction() &&
                "Unexpected indirect function invocation");
       StringRef Name = CI->getCalledFunction()->getName();
-      if (Mangler::isMangledLoad(Name)) {
+      if (Mangler::isMangledLoad(std::string(Name))) {
         isTranspose = true;
         Address = CI->getArgOperand(1);
         isMasked = true;
-      } else if (Mangler::isMangledStore(Name)) {
+      } else if (Mangler::isMangledStore(std::string(Name))) {
         isTranspose = true;
         Val = CI->getArgOperand(1);
         Address = CI->getArgOperand(2);
@@ -631,10 +632,10 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
     CallInst* inst = dyn_cast<CallInst>(I);
     if (inst && inst->getCalledFunction()) {
       StringRef funcName = inst->getCalledFunction()->getName();
-      if (Mangler::isAllOne(funcName)) {
+      if (Mangler::isAllOne(std::string(funcName))) {
         isAllOneAllZeroFunctionCall = true;
       }
-      else if (Mangler::isAllZero(funcName)) {
+      else if (Mangler::isAllZero(std::string(funcName))) {
         isAllOneAllZeroFunctionCall = true;
       }
     }
@@ -1138,7 +1139,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
-    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+    vecWidthVal = ConstantVector::getSplat(ElementCount(m_packetWidth, false),
+                                           vecWidthVal);
     std::vector<Constant *> laneVec;
     for (unsigned int i=0; i < m_packetWidth; ++i) {
       laneVec.push_back(ConstantInt::get(indexType, i));
@@ -1172,7 +1174,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
     // Not replacing with ConstantDataVector here because the type isn't known to be
     // compatible.
-    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
+    vecWidthVal = ConstantVector::getSplat(ElementCount(m_packetWidth, false),
+                                           vecWidthVal);
     MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
 
     PointerType *elemType = PointerType::get(ElemTy, 0);
@@ -1183,7 +1186,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
   V_ASSERT(BaseTy && "Base is not a pointer!");
   PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
-  
+
   MO.Base = CastInst::CreatePointerCast(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
 
   SmallVector<Value*, 8> args;
@@ -1218,7 +1221,8 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   if (MO.type == PREFETCH && vectorWidth == 16 && BaseTy->getElementType()->getPrimitiveSizeInBits() == 64) {
     Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
     Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
-    vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
+    vecVal =
+        ConstantVector::getSplat(ElementCount(m_packetWidth, false), vecVal);
     args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
     VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args,
         SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
@@ -1289,7 +1293,7 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
     V_ASSERT(CI->getCalledFunction() &&
              "Unexpected indirect function invocation");
-    std::string vectorName = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
+    std::string vectorName = Mangler::getVectorizedPrefetchName(std::string(CI->getCalledFunction()->getName()), m_packetWidth);
     return VectorizerUtils::createFunctionCall(m_currFunc->getParent(), vectorName, MO.Orig->getType(), args,
         SmallVector<Attribute::AttrKind, 4>(), MO.Orig);
   }
@@ -1340,6 +1344,7 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       args.push_back(bitCastPtr);
       break;
     case STORE:
+      V_ASSERT(MO.Data && "Data for MemoryOperation with STORE type cannot be null");
       args.push_back(MO.Mask);
       obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
       args.push_back(MO.Data);
@@ -1357,7 +1362,7 @@ Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO)
       args.push_back(obtainNumElemsForConsecutivePrefetch(NumOfElements[0], MO.Orig));
       V_ASSERT(CI->getCalledFunction() &&
                "Unexpected indirect function invocation");
-      name = Mangler::getVectorizedPrefetchName(CI->getCalledFunction()->getName(), m_packetWidth);
+      name = Mangler::getVectorizedPrefetchName(std::string(CI->getCalledFunction()->getName()), m_packetWidth);
       DT = MO.Orig->getType();
       break;
     }
@@ -1900,7 +1905,8 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
       obtainVectorizedValue(&maskV, mask, CI);
     } else {
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(1,1));
-      maskV = ConstantVector::getSplat(m_packetWidth, mask);
+      maskV =
+          ConstantVector::getSplat(ElementCount(m_packetWidth, false), mask);
     }
     newArgs.push_back(maskV);
   }
@@ -1918,16 +1924,26 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     Type *curScalarArgType = curScalarArg->getType();
 
     V_ASSERT(CI->getCalledFunction() && "Indirect call is not expected!");
-    if (m_rtServices->needsConcatenatedVectorParams(
-            CI->getCalledFunction()->getName()) &&
+    const StringRef calleeName = CI->getCalledFunction()->getName();
+    if (m_rtServices->needsConcatenatedVectorParams(calleeName) &&
         curScalarArgType->isVectorTy()) {
-      operand = handleParamSOAVPlanStyle(CI, curScalarArg);
-      if (!operand || operand->getType() != neededType) {
-        V_ASSERT(0 && "unsupported parameter type");
-        return false;
+      if (calleeName.contains("14ocl_image2d") &&
+          calleeName.contains("intel_sub_group_block") &&
+          argIndex == 1){
+        V_ASSERT(curScalarArgType->getVectorNumElements() == 2 &&
+                 curScalarArgType->getVectorElementType()->isIntegerTy(32) &&
+                 "The second argument must be byte coordinate for image block r/w");
+        newArgs.push_back(curScalarArg);
+      } else {
+        operand = handleParamSOAVPlanStyle(CI, curScalarArg);
+        if (!operand || operand->getType() != neededType) {
+          V_ASSERT(0 && "unsupported parameter type");
+          return false;
+        }
+        newArgs.push_back(operand);
       }
-      newArgs.push_back(operand);
     }
+
     // In case current argument is a vector and runtime says we always
     // spread vector operands, then try to do it.
     else if (m_rtServices->alwaysSpreadVectorParams() &&
@@ -1999,7 +2015,8 @@ bool PacketizeFunction::obtainNewCallArgs(CallInst *CI, const Function *LibFunc,
     } else {
       // 0xffffffff means that mask is active
       Constant *mask = ConstantInt::get(CI->getContext(), APInt(32,-1));
-      maskV = ConstantVector::getSplat(m_packetWidth, mask);
+      maskV =
+          ConstantVector::getSplat(ElementCount(m_packetWidth, false), mask);
     }
     // VPlan style mask is the last argument.
     newArgs.push_back(maskV);
@@ -2031,6 +2048,7 @@ bool PacketizeFunction::handleCallReturn(CallInst *CI, CallInst * newCall) {
     // c.  <2 x float> foo(...) --> <8 x float> foo4(...)
     // array of vectors , or it is the return is by pointers as last arguments,
     // or VPlan style return type.
+    V_ASSERT(CI->getCalledFunction() && "Indirect call is not expected!");
     if (newCall->getType()->isVoidTy()) {
       // return by pointers.
       return handleReturnByPointers(CI, newCall);
@@ -2123,8 +2141,8 @@ bool PacketizeFunction::handleReturnValueSOAVPlanStyle(CallInst *CI,
   unsigned numElements = aosType->getNumElements();
   SmallVector<Instruction *, MAX_INPUT_VECTOR_WIDTH> scalars;
   for (unsigned i = 0; i < numElements; i++) {
-    Value *InsertInst =
-        ConstantVector::getSplat(m_packetWidth, UndefValue::get(elementType));
+    Value *InsertInst = ConstantVector::getSplat(
+        ElementCount(m_packetWidth, false), UndefValue::get(elementType));
     for (unsigned j = 0; j < m_packetWidth; j++) {
       unsigned index = j * numElements + i;
       Constant *indexVal =
@@ -2175,8 +2193,8 @@ bool PacketizeFunction::handleReturnByPointers(CallInst* CI, CallInst *newCall) 
   unsigned firstPtr = numArgs - numPtrs;
   for (unsigned i=0; i<numPtrs; i++) {
     Value *ptr = newCall->getArgOperand(i + firstPtr);
-    V_ASSERT(ptr->getType()->isPointerTy() && "bad signature");
     if (!ptr) return false;
+    V_ASSERT(ptr->getType()->isPointerTy() && "bad signature");
     Instruction* LI = new LoadInst(ptr, "", CI);
     V_ASSERT(LI->getType()->isVectorTy() && "bad signature");
     V_ASSERT(cast<VectorType>(LI->getType()) ==
@@ -2367,7 +2385,7 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
         V_ASSERT(CI->getCalledFunction() &&
                  "Unexpected indirect function invocation");
         StringRef Name = CI->getCalledFunction()->getName();
-        if (Mangler::isMangledLoad(Name)) {
+        if (Mangler::isMangledLoad(std::string(Name))) {
           Value *Address = CI->getArgOperand(1);
           if (m_depAnalysis->whichDepend(Address) != WIAnalysis::PTR_CONSECUTIVE)
             badForTranspose = true;
@@ -3275,7 +3293,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
   {
     Function *pCalledFunc = CI->getCalledFunction();
     V_ASSERT(pCalledFunc && "Unexpected indirect function invocation");
-    if (Mangler::isMangledCall(pCalledFunc->getName()))
+    if (Mangler::isMangledCall(std::string(pCalledFunc->getName())))
     {
       std::vector<Value*> params;
       // Create arguments for new function call, ignoring the predicate operand
@@ -3285,7 +3303,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
       }
 
       Function *origFunc = m_currFunc->getParent()->getFunction(
-        Mangler::demangle(pCalledFunc->getName()));
+        Mangler::demangle(std::string(pCalledFunc->getName())));
       V_ASSERT(origFunc && "error finding unmasked function!");
       tidGenInst = CallInst::Create(origFunc, ArrayRef<Value*>(params), "", I);
       VectorizerUtils::SetDebugLocBy(tidGenInst, I);

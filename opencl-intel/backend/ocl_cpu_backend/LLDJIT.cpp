@@ -92,6 +92,10 @@ LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)
   // Build debug information by default, since LLDJIT's purpose is to allow
   // native VS debugging.
   ArgvLLD.push_back("-debug");
+
+  // Don't allow embedded LLD to create additional threads.
+  //
+  ArgvLLD.push_back("-threads:no");
 }
 
 LLDJIT::~LLDJIT() {
@@ -276,7 +280,7 @@ std::set<std::string> LLDJIT::getExternalSymbolsList(
       assert(!errorToErrorCode(Symbol.takeError()));
       Coff->getSymbolName(*Symbol, Name);
       if (Symbol->getSectionNumber() == 0)
-        ExternalSymbols.insert(Name);
+        ExternalSymbols.insert(std::string(Name));
     }
   }
   return ExternalSymbols;
@@ -752,7 +756,7 @@ LLDJIT::TmpFile::TmpFile(const llvm::Twine &Prefix,
           Prefix, FileExtension, FD, ResultPath))
     report_fatal_error("Failed to create a temporary file on the system!");
   File = std::make_unique<llvm::ToolOutputFile>(ResultPath, FD);
-  Name = ResultPath.str();
+  Name = std::string(ResultPath);
 }
 
 void LLDJIT::notifyObjectLoaded(const object::ObjectFile &Obj,

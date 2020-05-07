@@ -11,5 +11,3 @@
 ; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
 ; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
 ; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
-
-; XFAIL: *
