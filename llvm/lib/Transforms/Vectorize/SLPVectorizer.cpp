@@ -8818,12 +8818,7 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain, BoUpSLP &R,
 #if !INTEL_CUSTOMIZATION
   if (R.isTreeTinyAndNotFullyVectorizable())
     return false;
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-  if (R.isLoadCombineCandidate())
-    return false;
-=======
->>>>>>> c54c6ee1a7a26c994eff32ce35862641db47f305
 
   R.computeMinimumValueSizes();
 
@@ -9121,12 +9116,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 #if !INTEL_CUSTOMIZATION
       if (R.isTreeTinyAndNotFullyVectorizable())
         continue;
-<<<<<<< HEAD
 #endif // !INTEL_CUSTOMIZATION
-      if (R.isLoadCombineCandidate())
-        return false;
-=======
->>>>>>> c54c6ee1a7a26c994eff32ce35862641db47f305
 
       R.computeMinimumValueSizes();
       int Cost = R.getTreeCost() - UserCost;
