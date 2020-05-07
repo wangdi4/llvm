@@ -21,6 +21,8 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/Dominators.h" // INTEL
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/Pass.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/Casting.h"
@@ -136,7 +138,9 @@ public:
   }
 
   void calculate(const Function &F, const LoopInfo &LI,
-                 const TargetLibraryInfo *TLI, PostDominatorTree *PDT);
+                 const TargetLibraryInfo *TLI, PostDominatorTree *PDT, // INTEL
+                 const TargetTransformInfo *TTI = nullptr,             // INTEL
+                 DominatorTree *DT = nullptr);                         // INTEL
 
   /// Forget analysis results for the given basic block.
   void eraseBlock(const BasicBlock *BB);
@@ -205,6 +209,8 @@ private:
   bool calcZeroHeuristics(const BasicBlock *BB, const TargetLibraryInfo *TLI);
   bool calcFloatingPointHeuristics(const BasicBlock *BB);
   bool calcInvokeHeuristics(const BasicBlock *BB);
+  DominatorTree *CurrentDT = nullptr; // INTEL
+  bool enableAbnormalDeepLoopHeuristics = false; // INTEL
 };
 
 /// Analysis pass which computes \c BranchProbabilityInfo.
