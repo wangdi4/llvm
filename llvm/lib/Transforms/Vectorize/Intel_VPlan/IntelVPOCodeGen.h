@@ -285,10 +285,6 @@ private:
   Value *getStepVector(Value *Val, int StartIdx, Value *Step,
                        Instruction::BinaryOps BinOp);
 
-  /// Widen Phi node, which is not an induction variable. This Phi node
-  /// is a result of merging blocks ruled out by uniform branch.
-  void widenNonInductionPhi(VPPHINode *Phi);
-
   void fixNonInductionVPPhis();
 
   /// Return true if \p FnName is the name of an OpenCL scalar select and \p Idx
@@ -550,9 +546,6 @@ private:
   // Generate code for given VPPHINode transforming it either into PHINode or
   // into Select instruction (for blends).
   void vectorizeVPPHINode(VPPHINode *VPPhi);
-
-  // Create a PHINode for VPPHINode that represent reduction.
-  void vectorizeReductionPHI(VPPHINode *Inst, PHINode *UnderlyingPhi = nullptr);
 
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML

@@ -902,7 +902,7 @@ void VPlanPredicator::sortIncomingBlocksForBlend(
 }
 
 // Predicate and linearize the CFG within Region.
-void VPlanPredicator::predicateAndLinearizeRegionRec(bool SearchLoopHack) {
+void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
   VPDomTree.recalculate(Plan);
   VPPostDomTree.recalculate(Plan);
@@ -1012,7 +1012,7 @@ void VPlanPredicator::predicate(void) {
   // Predicate the blocks within Region.
   Block2PredicateTermsAndUniformity[Plan.getEntryBlock()] = {{}, true};
 
-  predicateAndLinearizeRegionRec(SearchLoopHack);
+  predicateAndLinearizeRegion(SearchLoopHack);
   fixupUniformInnerLoops();
 #if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");

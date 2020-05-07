@@ -498,27 +498,6 @@ bool VPOCodeGen::needScalarCode(VPInstruction *V) {
   return isOrUsesVPInduction(V);
 }
 
-void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
-  auto PhiTy = VPPhi->getType();
-  PHINode *NewPhi;
-  // FIXME: Replace with proper SVA.
-  bool EmitScalarOnly =
-      !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
-  if (needScalarCode(VPPhi) || EmitScalarOnly) {
-    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
-    VPScalarMap[VPPhi][0] = NewPhi;
-    ScalarPhisToFix[VPPhi] = NewPhi;
-  }
-  if (EmitScalarOnly)
-    return;
-  if (needVectorCode(VPPhi)) {
-    PhiTy = getWidenedType(PhiTy, VF);
-    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
-    VPWidenMap[VPPhi] = NewPhi;
-    PhisToFix[VPPhi] = NewPhi;
-  }
-}
-
 std::unique_ptr<VectorVariant>
 VPOCodeGen::matchVectorVariantImpl(StringRef VecVariantStringValue,
                                    bool Masked) {
@@ -2522,7 +2501,7 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
     //
     // 1) A select is already generated for call results that are live outside
     //    of the predicated region by using the predicated region's mask. See
-    //    widenNonInductionPhi().
+    //    vectorizeVPPHINode().
     //
     // 2) Currently, masked stores are always generated for call results stored
     //    to memory within a predicated region. See vectorizeStoreInstruction().
@@ -3044,27 +3023,25 @@ void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
   VPWidenMap[Blend] = BlendVal;
 }
 
-void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
-                                       PHINode *UnderlyingPhi) {
-  Type *ScalarTy = VPPhi->getType();
-  assert(!ScalarTy->isAggregateType() && "Unexpected reduction type");
-  assert(VPPhi->getParent()->getNumPredecessors() == 2 &&
-         "Unexpected reduction phi placement");
-  Type *VecTy = VectorType::get(ScalarTy, VF);
-  PHINode *VecPhi = PHINode::Create(VecTy, 2, "vec.phi",
-                                    &*LoopVectorBody->getFirstInsertionPt());
-  VPWidenMap[VPPhi] = VecPhi;
-
-  // We need an additional fixup.
-  PhisToFix[VPPhi] = VecPhi;
-}
-
 void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
-  if (VPEntities && VPEntities->isReductionPhi(VPPhi))
-    // Handle reductions.
-    vectorizeReductionPHI(VPPhi);
-  else
-    widenNonInductionPhi(VPPhi);
+  auto PhiTy = VPPhi->getType();
+  PHINode *NewPhi;
+  // FIXME: Replace with proper SVA.
+  bool EmitScalarOnly =
+      !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
+  if (needScalarCode(VPPhi) || EmitScalarOnly) {
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+    VPScalarMap[VPPhi][0] = NewPhi;
+    ScalarPhisToFix[VPPhi] = NewPhi;
+  }
+  if (EmitScalarOnly)
+    return;
+  if (needVectorCode(VPPhi)) {
+    PhiTy = getWidenedType(PhiTy, VF);
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+    VPWidenMap[VPPhi] = NewPhi;
+    PhisToFix[VPPhi] = NewPhi;
+  }
 }
 
 void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
