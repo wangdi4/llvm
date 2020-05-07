@@ -2238,6 +2238,13 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   StringRef VariantAttributeString =
       BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
 
+  if (VariantAttributeString.empty()) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function "
+                      << BaseFunc->getName()
+                      << " does not have an openmp variant\n");
+    return VariantAttributeString; // null string
+  }
+
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function " << BaseFunc->getName()
                     << " has openmp-variant attribute: "
                     << VariantAttributeString << "\n");
