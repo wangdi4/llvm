@@ -757,13 +757,17 @@ def fno_PIC : Flag<["-"], "fno-PIC">, Group<f_Group>;
 def fPIE : Flag<["-"], "fPIE">, Group<f_Group>;
 def fno_PIE : Flag<["-"], "fno-PIE">, Group<f_Group>;
 def faccess_control : Flag<["-"], "faccess-control">, Group<f_Group>;
-def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>;
-def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>;
 #if INTEL_CUSTOMIZATION
+def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>,
+  HelpText<"align the start of functions to an optimal machine-dependent value.">;
+def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>,
+  HelpText<"Align the start of functions on a 2 (DEFAULT) or <n> byte boundary "
+  "where <n> is a power of 2.">;
+def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>,
+  HelpText<"Aligns on a 2-byte boundary">;
 def fno_alias : Flag<["-"], "fno-alias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 #endif // INTEL_CUSTOMIZATION
-def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>;
 def fallow_unsupported : Flag<["-"], "fallow-unsupported">, Group<f_Group>;
 def fapple_kext : Flag<["-"], "fapple-kext">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Use Apple's kernel extensions ABI">;
