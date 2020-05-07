@@ -4394,6 +4394,10 @@ public:
     llvm::Type *DestTy = I->getDestTy();
     llvm::Value *SrcVal = I->getOperand(0);
 
+    // If the BitCast is used as a dead argument then is safe to skip it
+    if (isBitCastUsedAsDeadArgument(I))
+      return;
+
     // If the source operand is not a value of interest, we only need to
     // consider the destination type.
     if (!isValueOfInterest(SrcVal)) {
@@ -6483,6 +6487,54 @@ private:
     }
   }
 
+  // Return true if the input BitCast is only used as a dead argument. Else,
+  // return false. For example:
+  //
+  // define void @bar(%struct.test01b* %p2) {
+  //   ret void
+  // }
+  //
+  // define void @foo(%struct.test01a* %p) {
+  //   %p2 = bitcast %struct.test01a* %p to %struct.test01b*
+  //   call void @bar(%struct.test01b* %p2)
+  //   ret void
+  // }
+  //
+  // In the example above, %p2 in @foo is a BitCast from %struct.test01a* to
+  // %struct.test01b* and it is only used as an argument in the callsite for
+  // @bar. The formal argument of %p2 in @bar doesn't have any user, therefore
+  // it will be a dead argument. This is safe to cast.
+  bool isBitCastUsedAsDeadArgument(BitCastOperator *BC) {
+    if (!BC)
+      return false;
+
+    if (BC->user_empty())
+      return false;
+
+    for (User *User : BC->users()) {
+      CallBase *CI = dyn_cast<CallBase>(User);
+      if (!CI)
+        return false;
+
+      if (CI->isIndirectCall())
+        return false;
+
+      Function *F = CI->getCalledFunction();
+      if (!F || F->isDeclaration() || F->isVarArg() || F->isIntrinsic())
+        return false;
+
+      for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; I++) {
+        if (BC == CI->getArgOperand(I)) {
+          Argument *FormalArg = F->getArg(I);
+          if (!FormalArg->user_empty())
+            return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
   // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The
   // caller has analyzed the bitcast instruction to determine that these
   // types need to be considered. These may not be the actual types used
@@ -6542,6 +6594,11 @@ private:
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "unsafe cast of aliased pointer:\n"
                       << "  " << *I << "\n");
+    DEBUG_WITH_TYPE(DTRANS_BCA, {
+      dbgs() << "dtrans-bca: Bad casting -- "
+             << "unsafe cast of aliased pointer:\n"
+             << "  " << *I << "\n";
+    });
     if (DTransOutOfBoundsOK)
       setValueTypeInfoSafetyData(I->getOperand(0), dtrans::BadCasting);
     else
