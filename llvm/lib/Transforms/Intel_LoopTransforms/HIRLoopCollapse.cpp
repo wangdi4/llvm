@@ -640,6 +640,17 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   AccumulatedTripCountCE->addConstant(-1, false);
 
+  // Force Ref to be consistent w.r.t. the LoopNest over all loops being
+  // collapsed, not including the loop with accumulated UpperDDRef
+  SmallVector<const RegDDRef *, MaxLoopNestLevel> UpperBoundRefs;
+  for (unsigned Level = OrigInnermostLevel - 1, EndLevel = OrigOutermostLevel;
+       Level >= EndLevel; --Level) {
+    UpperBoundRefs.push_back(LoopNest[Level]->getUpperDDRef());
+  }
+
+  auto *UBRef = ToCollapseLp->getUpperDDRef();
+  UBRef->makeConsistent(UpperBoundRefs, OrigOutermostLevel);
+
   // *** DO Collapsing ***
   // Move loop:
   // move InnerLp ahead of OrigOutermostLp, so the new loop-nesting will look
@@ -654,19 +665,6 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   // |  | ..|  empty body
   //
   HNU->moveBefore(OrigOutermostLp, ToCollapseLp);
-
-  // Force Ref to be consistent w.r.t. the LoopNest over all available loops'
-  // UpperBounds.
-  // Add UBDDRefs from the entire LoopNest into the vector
-  SmallVector<const RegDDRef *, MaxLoopNestLevel> UpperBoundRefs;
-  for (unsigned Level = OrigInnermostLevel, EndLevel = OrigOutermostLevel;
-       Level >= EndLevel; --Level) {
-    UpperBoundRefs.push_back(LoopNest[Level]->getUpperDDRef());
-  }
-
-  auto *UBRef = ToCollapseLp->getUpperDDRef();
-
-  UBRef->makeConsistent(UpperBoundRefs, ToCollapseLp->getNestingLevel());
 
   // Upper bound may have new temp blobs. Add them as livein to loop.
   for (auto BRefIt = UBRef->blob_begin(), E = UBRef->blob_end(); BRefIt != E;

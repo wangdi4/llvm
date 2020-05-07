@@ -682,15 +682,14 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel,
 
     // Check if CanonExpr is invariant i.e. IV is not present in any form inside
     // the canon expr.
-    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel,
-                                                  IgnoreInnerIVs)) {
+    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel, IgnoreInnerIVs)) {
       return false;
     }
 
-    if (HasGEPInfo && (!getDimensionLower(I)->isInvariantAtLevel(
-                           LoopLevel, IgnoreInnerIVs) ||
-                       !getDimensionStride(I)->isInvariantAtLevel(
-                           LoopLevel, IgnoreInnerIVs))) {
+    if (HasGEPInfo &&
+        (!getDimensionLower(I)->isInvariantAtLevel(LoopLevel, IgnoreInnerIVs) ||
+         !getDimensionStride(I)->isInvariantAtLevel(LoopLevel,
+                                                    IgnoreInnerIVs))) {
       return false;
     }
   }
@@ -1280,6 +1279,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
     for (auto *AuxRef : AuxRefs) {
       assert(AuxRef && "Unexpected nullptr ref");
+      assert(this != AuxRef && "Cannot use own ref to update internal blobs");
 
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
         if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
