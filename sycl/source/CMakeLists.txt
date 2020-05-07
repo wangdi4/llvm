@@ -24,17 +24,10 @@ function(add_sycl_rt_library LIB_NAME)
   set(LIB_OBJ_NAME ${LIB_NAME}_object)
 
   add_library(${LIB_OBJ_NAME} OBJECT ${ARG_SOURCES})
-<<<<<<< HEAD
   add_library(${LIB_NAME} SHARED 
               $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
               ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
     
-=======
-  add_library(${LIB_NAME} SHARED
-              $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
-              ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-
->>>>>>> dbf9e505439ce05da09a588f458c716b88057f0c
   if (ARG_COMPILE_OPTIONS)
     target_compile_options(${LIB_OBJ_NAME} PRIVATE ${ARG_COMPILE_OPTIONS})
   endif()
