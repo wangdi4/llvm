@@ -210,8 +210,7 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
                                             bool UnrollLoops,
                                             int rtLoopUnrollFactor,
                                             bool allowAllocaModificationOpt,
-                                            bool isDBG, unsigned RunVPOParopt,
-                                            bool UseVplan) {
+                                            bool isDBG, bool UseVplan) {
   if (OptLevel == 0) {
     return;
   }
@@ -224,17 +223,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     // be launched before VPO.
     PM->add(llvm::createDeadArgEliminationPass());
   }
-
-// INTEL VPO BEGIN
-
-  if (RunVPOParopt) {
-    PM->add(llvm::createLoopRotatePass(-1));
-    PM->add(llvm::createVPOCFGRestructuringPass());
-    PM->add(llvm::createVPOParoptPreparePass(RunVPOParopt));
-    PM->add(llvm::createVPOCFGRestructuringPass());
-    PM->add(llvm::createVPOParoptPass(RunVPOParopt));
-  }
-// INTEL VPO END
 
   if (UnitAtATime) {
     PM->add(llvm::createGlobalOptimizerPass());    // Optimize out global vars
@@ -273,14 +261,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   PM->add(llvm::createIndVarSimplifyPass()); // Canonicalize indvars
   PM->add(llvm::createLoopDeletionPass());   // Delete dead loops
 
-// INTEL VPO BEGIN
-  // VPO Driver
-  if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec)) {
-    PM->add(createVecClonePass());
-    PM->add(llvm::createVPOCFGRestructuringPass());
-    PM->add(llvm::createVPlanDriverPass());
-  }
-// INTEL VPO END
   // If a function appeared in a loop is a candidate to be inlined,
   // LoopUnroll pass refuses to unroll the loop, so we should inline the function
   // first to help unroller to decide if it's worthy to unroll the loop.
@@ -339,11 +319,6 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
       PM->add(llvm::createConstantMergePass()); // Merge dup global constants
   }
   PM->add(llvm::createUnifyFunctionExitNodesPass());
-// INTEL VPO BEGIN
-  if (!DisableVPlanVec && (RunVPOParopt & VPOParoptMode::OmpVec)) {
-    PM->add(createMapIntrinToImlPass());
-  }
-// INTEL VPO END
 }
 
 static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
@@ -456,15 +431,12 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   int rtLoopUnrollFactor = pConfig->GetRTLoopUnrollFactor();
 
-  unsigned RunVPOParopt = 0;
-
   bool allowAllocaModificationOpt = !HasGatherScatterPrefetch;
 
   createStandardLLVMPasses(
       &PM, OptLevel,
       UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
-      debugType != intel::None,
-      RunVPOParopt, UseVplan);  // INTEL VPO
+      debugType != intel::None, UseVplan);
 
   // check there is no recursion, if there is fail compilation
   PM.add(createDetectRecursionPass());
