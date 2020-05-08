@@ -69,9 +69,17 @@ set(SYCL_INCLUDE_DIR "include/sycl")
 set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
 set(SYCL_INCLUDE_DEPLOY_DIR ${CMAKE_INSTALL_PREFIX}/${SYCL_INCLUDE_DIR})
 
+<<<<<<< HEAD
 if( INTEL_CUSTOMIZATION )
   set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
 endif()
+=======
+# Find OpenCL headers and libraries installed in the system and use them to
+# build SYCL runtime.
+# WARNING: use with caution, building SYCL runtime with OpenCL implementation
+# instead of Khronos ICD loader might cause build and/or portability issues.
+option(OpenCL_BUILD_WITH_SYSTEM_SDK "Build SYCL with OpenCL coming from the build system" OFF)
+>>>>>>> fd64c8f94fb6217a2d6760bf59596c66da3aeb91
 
 if( OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY )
   # Use OpenCL ICD Loader and headers passed explicitely
@@ -97,7 +105,7 @@ endif()
 include(ExternalProject)
 
 if( NOT OpenCL_INCLUDE_DIRS )
-  message("OpenCL_INCLUDE_DIRS is missing. Will try to download OpenCL headers from github.com")
+  message(STATUS "OpenCL_INCLUDE_DIRS is missing. Will try to download OpenCL headers from github.com")
   set(OpenCL_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/inc")
   ExternalProject_Add(ocl-headers
     GIT_REPOSITORY    https://github.com/KhronosGroup/OpenCL-Headers.git
@@ -118,6 +126,7 @@ else()
   )
 endif()
 
+<<<<<<< HEAD
 if( DEFINED ICD_LOADER_SRC_DIR )
   message ("Build OpenCL from provided sources")
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy)
@@ -161,6 +170,10 @@ if( DEFINED ICD_LOADER_SRC_DIR )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
   message("OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
+=======
+if( NOT OpenCL_LIBRARIES )
+  message(STATUS "OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
+>>>>>>> fd64c8f94fb6217a2d6760bf59596c66da3aeb91
   if(MSVC)
     set(OpenCL_LIBRARIES
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -181,16 +194,31 @@ elseif( NOT OpenCL_LIBRARIES )
     GIT_TAG           origin/master
     SOURCE_DIR        "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/icd"
     BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
+    INSTALL_DIR       "${CMAKE_CURRENT_BINARY_DIR}/icd_install"
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
                -DOPENCL_ICD_LOADER_HEADERS_DIR=${OpenCL_INCLUDE_DIRS}
-               -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}
+               -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
                ${AUX_CMAKE_FLAGS}
     STEP_TARGETS      configure,build,install
     DEPENDS           ocl-headers
     BUILD_BYPRODUCTS ${OpenCL_LIBRARIES}
   )
+  ExternalProject_Add_Step(ocl-icd llvminstall
+    COMMAND ${CMAKE_COMMAND} -E copy_directory <INSTALL_DIR>/ ${LLVM_BINARY_DIR}
+    COMMENT "Installing ocl-icd into the LLVM binary directory"
+    DEPENDEES install
+  )
+  # Optionally install the ICD library along with LLVM.
+  option(OpenCL_INSTALL_KHRONOS_ICD_LOADER
+    "Install the Khronos ICD Loader built as part of LLVM" OFF)
+  if (OpenCL_INSTALL_KHRONOS_ICD_LOADER)
+    install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/icd_install/"
+      DESTINATION "."
+      COMPONENT opencl-icd
+    )
+  endif()
 else()
   file(GLOB ICD_LOADER_SRC "${OpenCL_LIBRARIES}*")
   file(COPY ${ICD_LOADER_SRC} DESTINATION ${LLVM_LIBRARY_OUTPUT_INTDIR})
@@ -357,6 +385,9 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      # guard below.
 # end INTEL_CUSTOMIZATION
 )
+if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET ocl-icd)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-icd)
+endif()
 
 if(INTEL_CUSTOMIZATION)
   # Add xmain specific deploy components here.
