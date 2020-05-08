@@ -79,9 +79,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:  <25>               [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u12
 ; CHECK-NEXT:  <27>               if (0 <u 12 * [[TGU0]])
 ; CHECK-NEXT:  <27>               {
-; CHECK-NEXT:  <29>                  [[RED_VAR0:%.*]] = 0
-; CHECK-NEXT:  <30>                  [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
-; CHECK-NEXT:  <26>
+; CHECK-NEXT:  <29>                     [[RED_VAR0:%.*]] = 0
+; CHECK-NEXT:  <30>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
 ; CHECK-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
 ; CHECK-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0]])[i1]
 ; CHECK-NEXT:  <32>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
@@ -90,8 +89,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:  <35>                  |   [[DOTVEC0]] = (<4 x i32>*)([[A0]])[i1 + 8]
 ; CHECK-NEXT:  <36>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <26>                  + END LOOP
-; CHECK-NEXT:  <26>
-; CHECK-NEXT:  <37>                  [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; CHECK-NEXT:  <37>                     [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; CHECK-NEXT:  <27>               }
 ; CHECK-NEXT:  <24>
 ; CHECK-NEXT:  <24>               + DO i1 = 12 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
@@ -108,9 +106,8 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:  <25>               [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u12
 ; VPVALCG-NEXT:  <27>               if (0 <u 12 * [[TGU0]])
 ; VPVALCG-NEXT:  <27>               {
-; VPVALCG-NEXT:  <29>                  [[RED_VAR0:%.*]] = 0
-; VPVALCG-NEXT:  <30>                  [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
-; VPVALCG-NEXT:  <26>
+; VPVALCG-NEXT:  <29>                     [[RED_VAR0:%.*]] = 0
+; VPVALCG-NEXT:  <30>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
 ; VPVALCG-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
 ; VPVALCG-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:  <32>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
@@ -124,8 +121,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:  <40>                  |   [[RED_VAR0]] = [[DOTVEC80]]  +  [[RED_VAR0]]
 ; VPVALCG-NEXT:  <41>                  |   [[DOTVEC100:%.*]] = [[DOTVEC60]]  +  4
 ; VPVALCG-NEXT:  <26>                  + END LOOP
-; VPVALCG-NEXT:  <26>
-; VPVALCG-NEXT:  <42>                  [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; VPVALCG-NEXT:  <42>                     [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; VPVALCG-NEXT:  <27>               }
 ; VPVALCG-NEXT:  <24>
 ; VPVALCG-NEXT:  <24>               + DO i1 = 12 * [[TGU0]], sext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
