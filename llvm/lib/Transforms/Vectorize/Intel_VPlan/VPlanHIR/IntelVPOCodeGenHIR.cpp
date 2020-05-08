@@ -33,8 +33,8 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TypeSize.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -2774,6 +2774,60 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
 #endif // INTEL_INCLUDE_DTRANS
 }
 
+RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
+  RegDDRef *ScalarRef = nullptr;
+
+  if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
+    return ScalarRef->clone();
+
+  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
+    const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
+
+    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
+      const auto *BlobRef = Blob->getBlob();
+      if (BlobRef->isSelfBlob())
+        ScalarRef = DDRefUtilities.createSelfBlobRef(
+            BlobRef->getSelfBlobIndex(), BlobRef->getDefinedAtLevel());
+      else {
+        unsigned BlobIndex = Blob->getBlobIndex();
+        const RegDDRef *RDDR = cast<RegDDRef>(BlobRef);
+
+        // Create a RegDDREF containing blob with index BlobIndex.
+        auto *CE = CanonExprUtilities.createCanonExpr(VPExtDef->getType());
+        CE->addBlob(BlobIndex, 1);
+        ScalarRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
+
+        // Use RDDR to set proper defined at level for blob in WideRef.
+        SmallVector<const RegDDRef *, 1> AuxRefs = {RDDR};
+        ScalarRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+      }
+    } else if (const auto *VPCE = dyn_cast<VPCanonExpr>(HIROperand)) {
+      auto *CE = VPCE->getCanonExpr()->clone();
+      auto *DDR = VPCE->getDDR();
+      ScalarRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
+      SmallVector<const RegDDRef *, 1> AuxRefs = {DDR};
+      ScalarRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+    } else {
+      const auto *IV = cast<VPIndVar>(HIROperand);
+      auto IVLevel = IV->getIVLevel();
+      auto RefDestTy = VPExtDef->getType();
+
+      auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
+      CE->addIV(IVLevel, loopopt::InvalidBlobIndex, 1);
+      ScalarRef = DDRefUtilities.createScalarRegDDRef(
+          DDRefUtilities.getNewSymbase(), CE);
+    }
+  } else if (auto *VPConst = dyn_cast<VPConstant>(VPVal)) {
+    ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
+  } else {
+    llvm_unreachable("Expected a VPExternalDef/VPConstant");
+  }
+
+  assert(ScalarRef && "Unexpected null scalar ref");
+  addVPValueScalRefMapping(VPVal, ScalarRef, 0);
+  return ScalarRef;
+}
+
 RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   RegDDRef *WideRef = nullptr;
 
@@ -2785,97 +2839,59 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   // Widended version of -
   // PHI = i1 + <0, 1,..., VF-1> (already in map and returned)
   // Add = i1 + <0, 1,..., VF-1> + VF * CurrentUnrollPart
-  // TODO: Remove this specialization when VPValue-based codegen is able to
-  // build CanonExprs and recognize IV expressions.
-  if (MainLoopIVInsts.count(VPVal)) {
+  // This handling is only needed in mixed code gen mode where we skip widening
+  // inductioninitstep instruction and to avoid generating unnecessary extracts
+  // in this mode. TODO: Once we have the change to fold adds for cases like
+  // IV + 4, we can get rid of this piece of code. At that point, we will also
+  // no longer need to tie generating code for VPInductionInitStep to codegen
+  // approach.
+  if (!EnableVPValueCodegenHIR && MainLoopIVInsts.count(VPVal)) {
     assert(!isa<VPPHINode>(VPVal) &&
            "Main loop IV PHI was not found in WidenMap!");
     assert(cast<VPInstruction>(VPVal)->getOpcode() == Instruction::Add &&
            "Invalid instruction associated with main loop IV.");
-    RegDDRef *IVRef = generateLoopInductionRef(VPVal->getType());
-    IVRef->shift(OrigLoop->getNestingLevel(), CurrentVPInstUnrollPart * VF);
-    return IVRef;
-  }
-
-  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
-    const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
-
-    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
-      const auto *BlobRef = Blob->getBlob();
-      if (BlobRef->isSelfBlob())
-        WideRef = DDRefUtilities.createSelfBlobRef(
-            BlobRef->getSelfBlobIndex(), BlobRef->getDefinedAtLevel());
-      else {
-        unsigned BlobIndex = Blob->getBlobIndex();
-        const RegDDRef *RDDR = cast<RegDDRef>(BlobRef);
-
-        // Create a RegDDREF containing blob with index BlobIndex.
-        auto *CE = CanonExprUtilities.createCanonExpr(VPExtDef->getType());
-        CE->addBlob(BlobIndex, 1);
-        WideRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-
-        // Use RDDR to set proper defined at level for blob in WideRef.
-        SmallVector<const RegDDRef *, 1> AuxRefs = {RDDR};
-        WideRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
-      }
-
-      WideRef = widenRef(WideRef, VF);
-    } else if (const auto *VPCE = dyn_cast<VPCanonExpr>(HIROperand)) {
-      auto *CE = VPCE->getCanonExpr()->clone();
-      auto *DDR = VPCE->getDDR();
-
-      WideRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-
-      // Make wide ref consistent using defined at level information in DDR.
-      SmallVector<const RegDDRef *, 1> AuxRefs = {DDR};
-      WideRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
-      WideRef = widenRef(WideRef, VF);
-    } else {
-      const auto *IV = cast<VPIndVar>(HIROperand);
-      auto IVLevel = IV->getIVLevel();
-      auto RefDestTy = VPExtDef->getType();
-      auto VecRefDestTy = VectorType::get(RefDestTy, VF);
-
-      auto *CE = CanonExprUtilities.createCanonExpr(VecRefDestTy);
-      CE->addIV(IVLevel, InvalidBlobIndex /* no blob */,
-                1 /* constant IV coefficient */);
-      WideRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
-    }
+    WideRef = generateLoopInductionRef(VPVal->getType());
+    WideRef->shift(OrigLoop->getNestingLevel(), CurrentVPInstUnrollPart * VF);
   } else {
-    assert(isa<VPConstant>(VPVal) && "Expected a VPConstant");
-    auto *VPConst = cast<VPConstant>(VPVal);
-    WideRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
+    assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal)) &&
+           "Expected VPExternalDef/VPConstant");
+    WideRef = getUniformScalarRef(VPVal);
     WideRef = widenRef(WideRef, VF);
   }
 
   assert(WideRef && "Expected non-null widened ref");
   LLVM_DEBUG(WideRef->dump(true));
   LLVM_DEBUG(errs() << "\n");
+  addVPValueWideRefMapping(VPVal, WideRef);
   return WideRef;
 }
 
-// Given a widened ref corresponding to the pointer operand of
-// a load/store instruction, setup and return the pointer operand
-// for use in generating the load/store HLInst.
-RegDDRef *VPOCodeGenHIR::getPointerOperand(RegDDRef *PtrOp, Type *VecRefDestTy,
-                                           unsigned AddressSpace,
-                                           unsigned ScalSymbase) {
-  RegDDRef *AddrRef;
-  if (PtrOp->isAddressOf()) {
+RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
+                                      unsigned ScalSymbase) {
+  bool IsUnitStride = isUnitStridePtr(VPPtr);
+
+  RegDDRef *PtrRef;
+  if (IsUnitStride)
+    PtrRef = getOrCreateScalarRef(VPPtr);
+  else
+    PtrRef = widenRef(VPPtr, getVF());
+
+  RegDDRef *MemRef;
+  if (PtrRef->isAddressOf()) {
     // We generate an addressof ref from the GEP instruction. For
     // generating load/store instruction, we need to clear the
     // addressof.
-    AddrRef = PtrOp;
-    AddrRef->setAddressOf(false);
+    MemRef = PtrRef;
+    MemRef->setAddressOf(false);
   } else {
-    // PtrOp is an invariant blob or value computed inside loop - we need to
+    // PtrRef is an invariant blob or value computed inside loop - we need to
     // generate a reference of the form blob[0].
-    assert(PtrOp->isSelfBlob() && "Expected self blob DDRef");
+    assert(PtrRef->isSelfBlob() && "Expected self blob DDRef");
     auto &HIRF = HLNodeUtilities.getHIRFramework();
     llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
     auto Is64Bit = TargetTriple.isArch64Bit();
-    AddrRef = DDRefUtilities.createMemRef(PtrOp->getSelfBlobIndex(),
-                                          PtrOp->getDefinedAtLevel());
+    MemRef = DDRefUtilities.createMemRef(PtrRef->getSelfBlobIndex(),
+                                         PtrRef->getDefinedAtLevel());
     auto Int32Ty = Type::getInt32Ty(HLNodeUtilities.getContext());
     auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
     auto Zero = CanonExprUtilities.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
@@ -2883,12 +2899,22 @@ RegDDRef *VPOCodeGenHIR::getPointerOperand(RegDDRef *PtrOp, Type *VecRefDestTy,
     // We need to set destination type of the created canon expression
     // to VF wide vector type.
     Zero->setDestType(VectorType::get(Zero->getSrcType(), VF));
-
-    AddrRef->addDimension(Zero);
+    MemRef->addDimension(Zero);
   }
-  AddrRef->setBitCastDestType(PointerType::get(VecRefDestTy, AddressSpace));
-  AddrRef->setSymbase(ScalSymbase);
-  return AddrRef;
+
+  PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
+  Type *ValTy = PtrTy->getElementType();
+  Type *VecValTy = VectorType::get(ValTy, VF);
+
+  // MemRef's bitcast type needs to be set to a pointer to <VF x ValType>.
+  MemRef->setBitCastDestType(
+      PointerType::get(VecValTy, PtrTy->getAddressSpace()));
+  MemRef->setSymbase(ScalSymbase);
+
+  // TODO - Alignment information needs to be obtained from VPInstruction.
+  // For now we are forcing alignment based on value type.
+  setRefAlignment(ValTy, MemRef);
+  return MemRef;
 }
 
 // Widen blend instruction. The implementation here generates a sequence
@@ -2948,6 +2974,14 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
     auto RefDestTy = VPPhi->getType();
     auto *NewRef = generateLoopInductionRef(RefDestTy);
     addVPValueWideRefMapping(VPPhi, NewRef);
+
+    // Create a scalar value for IV as well.
+    auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
+    CE->addIV(OrigLoop->getNestingLevel(), InvalidBlobIndex /* no blob */,
+              1 /* constant IV coefficient */);
+    auto *ScalRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
+    addVPValueScalRefMapping(VPPhi, ScalRef, 0);
+
     return;
   }
 
@@ -2979,27 +3013,22 @@ RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
   return NewRef;
 }
 
-RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
+RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal) {
   RegDDRef *ScalarRef = nullptr;
 
-  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
-    const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
+  if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
+    return ScalarRef->clone();
 
-    if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
-      auto *BlobRef = Blob->getBlob();
-      ScalarRef = DDRefUtilities.createSelfBlobRef(
-          BlobRef->getSelfBlobIndex(), BlobRef->getDefinedAtLevel());
-    } else {
-      llvm_unreachable("External def is not a VPBlob. Implement support to get "
-                       "uniform scalar IV ref.");
-    }
-  } else if (auto *VPConst = dyn_cast<VPConstant>(VPVal)) {
-    ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
+  if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal)) {
+    return getUniformScalarRef(VPVal);
   } else {
-    llvm_unreachable("Need uniform scalar ref for VPInstruction.");
+    RegDDRef *WideRef = widenRef(VPVal, getVF());
+    HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
+        WideRef->clone(), (unsigned)0, "uni.idx");
+    addInst(ExtractInst, nullptr /*unmasked*/);
+    ScalarRef = ExtractInst->getLvalDDRef();
+    return ScalarRef->clone();
   }
-
-  return ScalarRef;
 }
 
 // For the code generated see comment in *.h file.
@@ -3158,8 +3187,23 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::InductionInitStep: {
+    // The only expected induction currently is for the implicit IV.
+    auto *ConstStep = cast<VPConstant>(VPInst->getOperand(0));
+
+    assert((cast<VPInductionInitStep>(VPInst)->getBinOpcode() ==
+                Instruction::Add &&
+            ConstStep->getConstant()->isOneValue()) &&
+           "Expected an add induction with constant step of 1");
+    auto *ScalRef =
+        DDRefUtilities.createConstDDRef(ConstStep->getType(), getVF());
+    auto *WideRef = widenRef(ScalRef, getVF());
+    addVPValueWideRefMapping(VPInst, WideRef);
+    addVPValueScalRefMapping(VPInst, ScalRef, 0);
+    return;
+  }
+
   case VPInstruction::InductionInit:
-  case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal: {
     // TODO: Add codegen for induction initialization/finalization
     return;
@@ -3168,6 +3212,25 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
+}
+
+void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
+                                       RegDDRef *Mask) {
+  auto Opcode = VPInst->getOpcode();
+  assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
+         "Expected load/store instruction");
+
+  RegDDRef *MemRef = getMemoryRef(getLoadStorePointerOperand(VPInst),
+                                  VPInst->getSymbase());;
+  HLInst *WInst;
+  if (Opcode == Instruction::Load) {
+    WInst = HLNodeUtilities.createLoad(MemRef, ".vec");
+    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+  } else {
+    RegDDRef *StoreVal = widenRef(VPInst->getOperand(0), getVF());
+    WInst = HLNodeUtilities.createStore(StoreVal, ".vec", MemRef);
+  }
+  addInst(WInst, Mask);
 }
 
 void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
@@ -3192,7 +3255,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  // Skip loop induction related VPInstructions.
+  // Skip loop related VPInstructions other than IV-updates from unroller.
   // TODO: Revisit when HIR vectorizer supports outer-loop vectorization.
   if (VPInst->isUnderlyingIRValid()) {
     const HLNode *HNode =
@@ -3200,10 +3263,18 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
             ? VPInst->HIR.getUnderlyingNode()
             : VPInst->HIR.getMaster()->HIR.getUnderlyingNode();
     if (isa<HLLoop>(HNode))
-      return;
+      if (VPInst->getOpcode() != Instruction::Add ||
+          !MainLoopIVInsts.count(VPInst))
+        return;
   }
 
-  switch (VPInst->getOpcode()) {
+  auto Opcode = VPInst->getOpcode();
+  switch (Opcode) {
+  case Instruction::Load:
+  case Instruction::Store:
+    widenLoadStoreImpl(VPInst, Mask);
+    return;
+
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
   case VPInstruction::InductionInit:
@@ -3383,35 +3454,43 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
     NewRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
     addVPValueWideRefMapping(VPInst, NewRef);
-    return;
-  }
 
-  case Instruction::Load: {
-    auto RefDestTy = VPInst->getType();
-    auto VecRefDestTy = VectorType::get(RefDestTy, VF);
-    unsigned AddressSpace =
-        cast<PointerType>(VPInst->getOperand(0)->getType())->getAddressSpace();
-    RegDDRef *AddrRef = getPointerOperand(WideOps[0], VecRefDestTy,
-                                          AddressSpace, VPInst->getSymbase());
-    // TODO - Alignment information needs to be obtained from VPInstruction.
-    // For now we are forcing alignment based on RefDestTy.
-    setRefAlignment(RefDestTy, AddrRef);
-    WInst = HLNodeUtilities.createLoad(AddrRef, ".vec");
-    break;
-  }
+    // Create a scalar memref corresponding to lane 0. TODO- Use SVA
+    // to make such decisions later. Revisit this code to avoid
+    // duplication when creating scalar memref once we have VPSubscript
+    // support in place.
+    bool IsUnitStride = isUnitStridePtr(VPInst);
+    if (IsUnitStride) {
+      auto *BaseRef = getUniformScalarRef(VPInst->getOperand(0));
+      auto *NewRef = DDRefUtilities.createAddressOfRef(
+          BaseRef->getSelfBlobIndex(), BaseRef->getDefinedAtLevel());
+      SmallVector<const RegDDRef *, 4> AuxRefs;
 
-  case Instruction::Store: {
-    auto VecRefDestTy = WideOps[0]->getDestType();
-    unsigned AddressSpace =
-        cast<PointerType>(VPInst->getOperand(1)->getType())->getAddressSpace();
-    RegDDRef *AddrRef = getPointerOperand(WideOps[1], VecRefDestTy,
-                                          AddressSpace, VPInst->getSymbase());
-    // TODO - Alignment information needs to be obtained from VPInstruction.
-    // For now we are forcing alignment based on scalar type of value being
-    // stored.
-    setRefAlignment(VPInst->getOperand(0)->getType(), AddrRef);
-    WInst = HLNodeUtilities.createStore(WideOps[0], ".vec", AddrRef);
-    addInst(WInst, Mask);
+      // Operands contain reference dimensions and trailing struct
+      // offsets. Add reference dimensions and trailing struct offsets.
+      for (unsigned OpIdx = 1; OpIdx < WideOps.size();) {
+        auto Operand = getOrCreateScalarRef(VPInst->getOperand(OpIdx));
+        AuxRefs.push_back(Operand);
+        ++OpIdx;
+        SmallVector<unsigned, 2> StructOffsets;
+        while (OpIdx < WideOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
+          const VPValue *VPOffset = VPInst->getOperand(OpIdx);
+          ConstantInt *CVal =
+              cast<ConstantInt>(cast<VPConstant>(VPOffset)->getConstant());
+          unsigned Offset = CVal->getZExtValue();
+          StructOffsets.push_back(Offset);
+          ++OpIdx;
+        }
+        NewRef->addDimension(Operand->getSingleCanonExpr(), StructOffsets);
+      }
+
+      NewRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+      addVPValueScalRefMapping(VPInst, NewRef, 0);
+      // TODO - revisit this assert when we start handling input HIR loops with
+      // vector values.
+      assert(NewRef->getDestType()->isPointerTy() && "Expected pointer type");
+    }
+
     return;
   }
 

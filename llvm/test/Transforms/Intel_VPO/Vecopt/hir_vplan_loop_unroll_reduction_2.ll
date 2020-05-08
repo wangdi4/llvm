@@ -99,15 +99,17 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:  <19>                  [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080]],  0
 ; CHECK-NEXT:  <15>
 ; CHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <nounroll> <novectorize>
-; CHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3>]
+; CHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0]])[i1]
 ; CHECK-NEXT:  <21>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
-; CHECK-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 4]
-; CHECK-NEXT:  <23>                  |   [[RED_VAR0]] = [[DOTVEC20]]  +  [[RED_VAR0]]
-; CHECK-NEXT:  <24>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 8]
-; CHECK-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <22>                  |   [[UNI_IDX0:%.*]] = extractelement i1 + <i64 0, i64 1, i64 2, i64 3> + 4,  0
+; CHECK-NEXT:  <23>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx]
+; CHECK-NEXT:  <24>                  |   [[RED_VAR0]] = [[DOTVEC20]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <25>                  |   [[UNI_IDX40:%.*]] = extractelement i1 + <i64 0, i64 1, i64 2, i64 3> + 8,  0
+; CHECK-NEXT:  <26>                  |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx4]
+; CHECK-NEXT:  <27>                  |   [[RED_VAR0]] = [[DOTVEC50]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <15>                  + END LOOP
 ; CHECK-NEXT:  <15>
-; CHECK-NEXT:  <26>                  [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; CHECK-NEXT:  <28>                  [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; CHECK-NEXT:  <16>               }
 ; CHECK-NEXT:  <11>
 ; CHECK-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
@@ -126,15 +128,20 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; VPVALCG-NEXT:  <19>                  [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
 ; VPVALCG-NEXT:  <15>
 ; VPVALCG-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <nounroll> <novectorize>
-; VPVALCG-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>]
+; VPVALCG-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:  <21>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
-; VPVALCG-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 4]
-; VPVALCG-NEXT:  <23>                  |   [[RED_VAR0]] = [[DOTVEC20]]  +  [[RED_VAR0]]
-; VPVALCG-NEXT:  <24>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 8]
-; VPVALCG-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  4
+; VPVALCG-NEXT:  <23>                  |   [[UNI_IDX0:%.*]] = extractelement [[DOTVEC20]],  0
+; VPVALCG-NEXT:  <24>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx]
+; VPVALCG-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC30]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <26>                  |   [[DOTVEC50:%.*]] = [[DOTVEC20]]  +  4
+; VPVALCG-NEXT:  <27>                  |   [[UNI_IDX60:%.*]] = extractelement [[DOTVEC50]],  0
+; VPVALCG-NEXT:  <28>                  |   [[DOTVEC70:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx6]
+; VPVALCG-NEXT:  <29>                  |   [[RED_VAR0]] = [[DOTVEC70]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <30>                  |   [[DOTVEC90:%.*]] = [[DOTVEC50]]  +  4
 ; VPVALCG-NEXT:  <15>                  + END LOOP
 ; VPVALCG-NEXT:  <15>
-; VPVALCG-NEXT:  <26>                  [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; VPVALCG-NEXT:  <31>                  [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; VPVALCG-NEXT:  <16>               }
 ; VPVALCG-NEXT:  <11>
 ; VPVALCG-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>

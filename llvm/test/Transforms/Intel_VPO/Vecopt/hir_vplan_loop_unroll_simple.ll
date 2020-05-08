@@ -101,15 +101,22 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; VPVALCG-NEXT:  <25>               if (0 <u 12 * [[TGU0]])
 ; VPVALCG-NEXT:  <25>               {
 ; VPVALCG-NEXT:  <24>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
-; VPVALCG-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>]
+; VPVALCG-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:  <28>                  |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  1
-; VPVALCG-NEXT:  <29>                  |   (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3>] = [[DOTVEC20]]
-; VPVALCG-NEXT:  <30>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 4]
-; VPVALCG-NEXT:  <31>                  |   [[DOTVEC40:%.*]] = [[DOTVEC30]]  +  1
-; VPVALCG-NEXT:  <32>                  |   (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 4] = [[DOTVEC40]]
-; VPVALCG-NEXT:  <33>                  |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 8]
-; VPVALCG-NEXT:  <34>                  |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  +  1
-; VPVALCG-NEXT:  <35>                  |   (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 8] = [[DOTVEC60]]
+; VPVALCG-NEXT:  <29>                  |   (<4 x i32>*)([[A0]])[i1] = [[DOTVEC20]]
+; VPVALCG-NEXT:  <30>                  |   [[DOTVEC30:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  4
+; VPVALCG-NEXT:  <31>                  |   [[UNI_IDX0:%.*]] = extractelement [[DOTVEC30]],  0
+; VPVALCG-NEXT:  <32>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx]
+; VPVALCG-NEXT:  <33>                  |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  +  1
+; VPVALCG-NEXT:  <34>                  |   [[UNI_IDX60:%.*]] = extractelement [[DOTVEC30]],  0
+; VPVALCG-NEXT:  <35>                  |   (<4 x i32>*)([[A0]])[%uni.idx6] = [[DOTVEC50]]
+; VPVALCG-NEXT:  <36>                  |   [[DOTVEC70:%.*]] = [[DOTVEC30]]  +  4
+; VPVALCG-NEXT:  <37>                  |   [[UNI_IDX80:%.*]] = extractelement [[DOTVEC70]],  0
+; VPVALCG-NEXT:  <38>                  |   [[DOTVEC90:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx8]
+; VPVALCG-NEXT:  <39>                  |   [[DOTVEC100:%.*]] = [[DOTVEC90]]  +  1
+; VPVALCG-NEXT:  <40>                  |   [[UNI_IDX110:%.*]] = extractelement [[DOTVEC70]],  0
+; VPVALCG-NEXT:  <41>                  |   (<4 x i32>*)([[A0]])[%uni.idx11] = [[DOTVEC100]]
+; VPVALCG-NEXT:  <42>                  |   [[DOTVEC120:%.*]] = [[DOTVEC70]]  +  4
 ; VPVALCG-NEXT:  <24>                  + END LOOP
 ; VPVALCG-NEXT:  <25>               }
 ; VPVALCG-NEXT:  <22>
