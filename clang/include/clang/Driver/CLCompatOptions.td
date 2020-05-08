@@ -180,6 +180,14 @@ def _SLASH_fp_COL : CLJoined<"fp:">, Alias<ffp_model_EQ>;
 def _SLASH_Qfp_speculation_EQ : CLJoined<"Qfp-speculation=">, Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 def _SLASH_Qfp_speculation_COL : CLJoined<"Qfp-speculation:">, Alias<ffp_exception_behavior_EQ>;
+def _SLASH_Qfnalign : CLFlag<"Qfnalign">, Alias<falign_functions>,
+  HelpText<"align the start of functions to an optimal machine-dependent value.">;
+def _SLASH_Qfnalign_COL : CLJoined<"Qfnalign:">, Alias<falign_functions_EQ>,
+  HelpText<"Align the start of functions on a 2 (DEFAULT) or <n> byte boundary "
+  "where <n> is a power of 2.">;
+def _SLASH_Qfnalign_EQ : CLJoined<"Qfnalign=">, Alias<falign_functions_EQ>;
+def _SLASH_Qfnalign_ : CLFlag<"Qfnalign-">, Alias<fno_align_functions>,
+  HelpText<"Aligns on a 2-byte boundary">;
 def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
 def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
