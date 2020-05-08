@@ -69,17 +69,9 @@ set(SYCL_INCLUDE_DIR "include/sycl")
 set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
 set(SYCL_INCLUDE_DEPLOY_DIR ${CMAKE_INSTALL_PREFIX}/${SYCL_INCLUDE_DIR})
 
-<<<<<<< HEAD
 if( INTEL_CUSTOMIZATION )
   set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
 endif()
-=======
-# Find OpenCL headers and libraries installed in the system and use them to
-# build SYCL runtime.
-# WARNING: use with caution, building SYCL runtime with OpenCL implementation
-# instead of Khronos ICD loader might cause build and/or portability issues.
-option(OpenCL_BUILD_WITH_SYSTEM_SDK "Build SYCL with OpenCL coming from the build system" OFF)
->>>>>>> fd64c8f94fb6217a2d6760bf59596c66da3aeb91
 
 if( OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY )
   # Use OpenCL ICD Loader and headers passed explicitely
@@ -95,7 +87,7 @@ else()
   # build SYCL runtime.
   # WARNING: use with caution, building SYCL runtime with OpenCL implementation
   # instead of Khronos ICD loader might cause build and/or portability issues.
-  option(OpenCL_BUILD_WITH_SYSTEM_SDK OFF)
+  option(OpenCL_BUILD_WITH_SYSTEM_SDK "Build SYCL with OpenCL coming from the build system" OFF)
 
   if( (OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY) OR OpenCL_BUILD_WITH_SYSTEM_SDK)
     find_package(OpenCL)
@@ -126,7 +118,6 @@ else()
   )
 endif()
 
-<<<<<<< HEAD
 if( DEFINED ICD_LOADER_SRC_DIR )
   message ("Build OpenCL from provided sources")
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy)
@@ -169,11 +160,7 @@ if( DEFINED ICD_LOADER_SRC_DIR )
     )
   endif()
 elseif( NOT OpenCL_LIBRARIES )
-  message("OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
-=======
-if( NOT OpenCL_LIBRARIES )
   message(STATUS "OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
->>>>>>> fd64c8f94fb6217a2d6760bf59596c66da3aeb91
   if(MSVC)
     set(OpenCL_LIBRARIES
         "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")
