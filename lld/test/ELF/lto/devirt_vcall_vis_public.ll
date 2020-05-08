@@ -7,38 +7,24 @@
 
 ; Index based WPD
 ; Generate unsplit module with summary for ThinLTO index-based WPD.
-<<<<<<< HEAD
-; RUN: opt -thinlto-bc -o %t2.o %s
-; RUN: ld.lld %t2.o -o %t3 -save-temps -lto-whole-program-visibility \
-; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
-=======
 ; RUN: opt --thinlto-bc -o %t2.o %s
 ; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
->>>>>>> e20a215992dc685ed843b1023143f914edbb1211
+; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
 ; RUN: 	 -mllvm -pass-remarks=. --export-dynamic 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ; Hybrid WPD
 ; Generate split module with summary for hybrid Thin/Regular LTO WPD.
-<<<<<<< HEAD
-; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
-; RUN: ld.lld %t.o -o %t3 -save-temps -lto-whole-program-visibility \
-; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
-=======
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t.o %s
 ; RUN: ld.lld %t.o -o %t3 -save-temps --lto-whole-program-visibility \
->>>>>>> e20a215992dc685ed843b1023143f914edbb1211
+; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
 ; RUN: 	 -mllvm -pass-remarks=. --export-dynamic 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
-<<<<<<< HEAD
-; RUN: ld.lld %t4.o -o %t3 -save-temps -lto-whole-program-visibility \
-; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
-=======
 ; RUN: ld.lld %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
->>>>>>> e20a215992dc685ed843b1023143f914edbb1211
+; RUN:   -mllvm -wholeprogramdevirt-multiversion=false \
 ; RUN: 	 -mllvm -pass-remarks=. --export-dynamic 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
