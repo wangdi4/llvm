@@ -8,18 +8,18 @@
 #include <level_zero/ze_api.h>
 
 template<class To, class From>
-To pi_cast(From value) {
+To pi_cast(From Value) {
   // TODO: see if more sanity checks are possible.
   assert(sizeof(From) == sizeof(To));
-  return (To)(value);
+  return (To)(Value);
 }
 
 template<>
-uint32_t pi_cast(uint64_t value) {
+uint32_t pi_cast(uint64_t Value) {
   // Cast value and check that we don't lose any information.
-  uint32_t casted_value = (uint32_t)(value);
-  assert((uint64_t)casted_value == value);
-  return casted_value;
+  uint32_t CastedValue = (uint32_t)(Value);
+  assert((uint64_t)CastedValue == Value);
+  return CastedValue;
 }
 
 // TODO: Currently die is defined in each plugin. Probably some
@@ -33,27 +33,27 @@ uint32_t pi_cast(uint64_t value) {
 // Define the types that are opaque in pi.h in a manner suitabale for L0 plugin
 
 struct _pi_platform {
-  _pi_platform(ze_driver_handle_t Driver) : L0Driver{Driver} {}
+  _pi_platform(ze_driver_handle_t Driver) : ZeDriver{Driver} {}
 
   // L0 lacks the notion of a platform, but thert is a driver, which is a
   // pretty good fit to keep here.
   //
-  ze_driver_handle_t L0Driver;
+  ze_driver_handle_t ZeDriver;
 
   // Cache versions info from zeDriverGetProperties.
-  std::string L0DriverVersion;
-  std::string L0DriverApiVersion;
+  std::string ZeDriverVersion;
+  std::string ZeDriverApiVersion;
 };
 
 struct _pi_device {
   _pi_device(ze_device_handle_t Device, pi_platform Plt,
              bool isSubDevice = false)
-      : L0Device{Device}, Platform{Plt}, L0CommandListInit{nullptr},
-        IsSubDevice{isSubDevice}, RefCount{1}, L0DeviceProperties{},
-        L0DeviceComputeProperties{} {}
+      : ZeDevice{Device}, Platform{Plt}, ZeCommandListInit{nullptr},
+        IsSubDevice{isSubDevice}, RefCount{1}, ZeDeviceProperties{},
+        ZeDeviceComputeProperties{} {}
 
   // L0 device handle.
-  ze_device_handle_t L0Device;
+  ze_device_handle_t ZeDevice;
 
   // PI platform to which this device belongs.
   pi_platform Platform;
@@ -64,7 +64,7 @@ struct _pi_device {
   //   offloaded to the device.
   // - Synchronous: So implicit synchronization is made inside the level-zero
   //   driver.
-  ze_command_list_handle_t L0CommandListInit;
+  ze_command_list_handle_t ZeCommandListInit;
 
   // Indicates if this is a root-device or a sub-device.
   // Technically this information can be queried from a device handle, but it
@@ -83,13 +83,13 @@ struct _pi_device {
   pi_result createCommandList(ze_command_list_handle_t *ze_command_list);
 
   // Cache of the immutable device properties.
-  ze_device_properties_t L0DeviceProperties;
-  ze_device_compute_properties_t L0DeviceComputeProperties;
+  ze_device_properties_t ZeDeviceProperties;
+  ze_device_compute_properties_t ZeDeviceComputeProperties;
 };
 
 struct _pi_context {
   _pi_context(pi_device Device)
-      : Device{Device}, RefCount{1}, L0EventPool{nullptr},
+      : Device{Device}, RefCount{1}, ZeEventPool{nullptr},
         NumEventsAvailableInEventPool{}, NumEventsLiveInEventPool{} {}
 
   // L0 does not have notion of contexts.
@@ -117,7 +117,7 @@ private:
   // TODO: These variables may be moved to pi_device and pi_platform
   // if appropriate
   // Event pool to which events are being added to
-  ze_event_pool_handle_t L0EventPool;
+  ze_event_pool_handle_t ZeEventPool;
   // This map will be used to determine if a pool is full or not
   // by storing number of empty slots available in the pool
   std::map<ze_event_pool_handle_t, pi_uint32> NumEventsAvailableInEventPool;
@@ -139,10 +139,10 @@ private:
 
 struct _pi_queue {
   _pi_queue(ze_command_queue_handle_t Queue, pi_context Context)
-      : L0CommandQueue{Queue}, Context{Context}, RefCount{1} {}
+      : ZeCommandQueue{Queue}, Context{Context}, RefCount{1} {}
 
   // L0 command queue handle.
-  ze_command_queue_handle_t L0CommandQueue;
+  ze_command_queue_handle_t ZeCommandQueue;
 
   // Keeps the PI context to which this queue belongs.
   pi_context Context;
@@ -155,7 +155,7 @@ struct _pi_queue {
   // Note that this command list cannot be appended to after this.
   // The "is_blocking" tells if the wait for completion is requested.
   //
-  pi_result executeCommandList(ze_command_list_handle_t L0CommandList,
+  pi_result executeCommandList(ze_command_list_handle_t ZeCommandList,
                                    bool is_blocking = false);
 };
 
@@ -176,25 +176,25 @@ struct _pi_mem {
   // Supplementary data to keep track of the mappings of this memory
   // created with piEnqueueMemBufferMap and piEnqueueMemImageMap.
   //
-  struct mapping {
+  struct Mapping {
     // The offset in the buffer giving the start of the mapped region.
-    size_t offset;
+    size_t Offset;
     // The size of the mapped region.
-    size_t size;
+    size_t Size;
   };
 
   virtual ~_pi_mem() = default;
 
   // Interface of the _pi_mem object.
-  virtual void *getL0Handle() = 0;
+  virtual void *getZeHandle() = 0;
 
-  virtual void *getL0HandlePtr() = 0;
+  virtual void *getZeHandlePtr() = 0;
 
   virtual bool isImage() const = 0;
 
   // Thread-safe methods to work with memory mappings
-  pi_result addMapping(void *MappedTo, size_t size, size_t offset);
-  pi_result removeMapping(void *MappedTo, mapping& map_info);
+  pi_result addMapping(void *MappedTo, size_t Size, size_t Offset);
+  pi_result removeMapping(void *MappedTo, Mapping& MapInfo);
 
 protected:
   _pi_mem(pi_platform Plt, char *HostPtr)
@@ -204,7 +204,7 @@ private:
   // The key is the host pointer representing an active mapping.
   // The value is the information needed to maintain/undo the mapping.
   //
-  std::map<void *, mapping> Mappings;
+  std::map<void *, Mapping> Mappings;
 
   // TODO: we'd like to create a thread safe map class instead of mutex + map,
   // that must be carefully used together.
@@ -216,12 +216,12 @@ struct _pi_buffer final : _pi_mem {
   // Buffer/Sub-buffer constructor
   _pi_buffer(pi_platform Plt, char *Mem, char *HostPtr,
              _pi_mem *Parent = nullptr, size_t Origin = 0, size_t Size = 0)
-      : _pi_mem(Plt, HostPtr), L0Mem{Mem}, SubBuffer{Parent, Origin,
+      : _pi_mem(Plt, HostPtr), ZeMem{Mem}, SubBuffer{Parent, Origin,
                                                           Size} {}
 
-  void *getL0Handle() override { return L0Mem; }
+  void *getZeHandle() override { return ZeMem; }
 
-  void *getL0HandlePtr() override { return &L0Mem; }
+  void *getZeHandlePtr() override { return &ZeMem; }
 
   bool isImage() const override { return false; }
 
@@ -230,7 +230,7 @@ struct _pi_buffer final : _pi_mem {
   // L0 memory handle is really just a naked pointer.
   // It is just convenient to have it char * to simplify offset arithmetics.
   //
-  char *L0Mem;
+  char *ZeMem;
 
   struct {
     _pi_mem *Parent;
@@ -242,40 +242,40 @@ struct _pi_buffer final : _pi_mem {
 struct _pi_image final : _pi_mem {
   // Image constructor
   _pi_image(pi_platform Plt, ze_image_handle_t Image, char *HostPtr)
-      : _pi_mem(Plt, HostPtr), L0Image{Image} {}
+      : _pi_mem(Plt, HostPtr), ZeImage{Image} {}
 
-  void *getL0Handle() override { return L0Image; }
+  void *getZeHandle() override { return ZeImage; }
 
-  void *getL0HandlePtr() override { return &L0Image; }
+  void *getZeHandlePtr() override { return &ZeImage; }
 
   bool isImage() const override { return true; }
 
 #ifndef NDEBUG
   // Keep the descriptor of the image (for debugging purposes)
-  ze_image_desc_t L0ImageDesc;
+  ze_image_desc_t ZeImageDesc;
 #endif // !NDEBUG
 
   // L0 image handle.
-  ze_image_handle_t L0Image;
+  ze_image_handle_t ZeImage;
 };
 
 struct _pi_event {
-  _pi_event(ze_event_handle_t L0Event, ze_event_pool_handle_t L0EventPool,
+  _pi_event(ze_event_handle_t ZeEvent, ze_event_pool_handle_t ZeEventPool,
             pi_context Context, pi_command_type CommandType)
-      : L0Event{L0Event}, L0EventPool{L0EventPool}, L0CommandList{nullptr},
+      : ZeEvent{ZeEvent}, ZeEventPool{ZeEventPool}, ZeCommandList{nullptr},
         CommandType{CommandType}, Context{Context},
         CommandData{nullptr}, RefCount{1} {}
 
   // L0 event handle.
-  ze_event_handle_t L0Event;
+  ze_event_handle_t ZeEvent;
   // L0 event pool handle.
-  ze_event_pool_handle_t L0EventPool;
+  ze_event_pool_handle_t ZeEventPool;
 
   // L0 command list where the command signaling this event was appended to.
   // This is currently used to remember/destroy the command list after
   // all commands in it are completed, i.e. this event signaled.
   //
-  ze_command_list_handle_t L0CommandList;
+  ze_command_list_handle_t ZeCommandList;
 
   // Keeps the command-queue and command associated with the event.
   // These are NULL for the user events.
@@ -294,17 +294,17 @@ struct _pi_event {
   std::atomic<pi_uint32> RefCount;
 
   // Methods for translating PI events list into L0 events list
-  static ze_event_handle_t * createL0EventList(pi_uint32, const pi_event *);
-  static void deleteL0EventList(ze_event_handle_t *);
+  static ze_event_handle_t * createZeEventList(pi_uint32, const pi_event *);
+  static void deleteZeEventList(ze_event_handle_t *);
 
 };
 
 struct _pi_program {
   _pi_program(ze_module_handle_t Module, pi_context Context)
-      : L0Module{Module}, Context{Context}, RefCount{1} {}
+      : ZeModule{Module}, Context{Context}, RefCount{1} {}
 
   // L0 module handle.
-  ze_module_handle_t L0Module;
+  ze_module_handle_t ZeModule;
 
   // Keep the context of the program.
   pi_context Context;
@@ -316,10 +316,10 @@ struct _pi_program {
 
 struct _pi_kernel {
   _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program)
-      : L0Kernel{Kernel}, Program{Program}, RefCount{1} {}
+      : ZeKernel{Kernel}, Program{Program}, RefCount{1} {}
 
   // L0 function handle.
-  ze_kernel_handle_t L0Kernel;
+  ze_kernel_handle_t ZeKernel;
 
   // Keep the program of the kernel.
   pi_program Program;
@@ -330,13 +330,13 @@ struct _pi_kernel {
 };
 
 struct _pi_sampler {
-  _pi_sampler(ze_sampler_handle_t Sampler) : L0Sampler{Sampler}, RefCount{1} {}
+  _pi_sampler(ze_sampler_handle_t Sampler) : ZeSampler{Sampler}, RefCount{1} {}
 
   // L0 sampler handle.
   // TODO: It is important that L0 handler is the first data member. Workaround
   // in SYCL RT (in ExecCGCommand::enqueueImp()) relies on this. This comment
   // should be removed when workaround in SYCL runtime will be removed.
-  ze_sampler_handle_t L0Sampler;
+  ze_sampler_handle_t ZeSampler;
 
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
