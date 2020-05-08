@@ -555,6 +555,20 @@ private:
   /// Generate the reduction code for reduction clause.
   bool genReductionCode(WRegionNode *W);
 
+  /// Check if it's array reduction (type of reduction variable is array).
+  bool isArrayReduction(ReductionItem *I);
+
+  /// Check if we want to generate fast reduction code (including tree-like
+  /// reduction, atomic and etc).
+  int checkFastReduction(WRegionNode *W);
+
+  /// Generate the tree-like reduction callback routine
+  RDECL genFastReductionRoutine(WRegionNode *W, StructType *FastRedStructTy);
+
+  /// Create struct type and variable for fast reduction.
+  std::pair<StructType *, Value *> createFastRedTyAndVar(WRegionNode *W,
+                                                         int FastReduction);
+
   /// For the given region \p W returns a BasicBlock, where
   /// new alloca instructions may be inserted.
   /// If the region itself or one of its ancestors will be outlined,
@@ -589,10 +603,10 @@ private:
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
   /// reduction update code.
-  bool genReductionScalarFini(
-      WRegionNode *W, ReductionItem *RedI,
-      Value *ReductionVar, Value *ReductionValueLoc,
-      Type *ScalarTy, IRBuilder<> &Builder);
+  bool genReductionScalarFini(WRegionNode *W, ReductionItem *RedI,
+                              Value *ReductionVar, Value *ReductionValueLoc,
+                              Type *ScalarTy, IRBuilder<> &Builder,
+                              DominatorTree *DT);
 
   /// Generate the reduction initialization/update for array.
   /// Returns true iff critical section is required around the generated
@@ -609,7 +623,8 @@ private:
   /// Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
                                     Value *Rhs2, Type *ScalarTy,
-                                    IRBuilder<> &Builder, bool IsAnd);
+                                    IRBuilder<> &Builder, DominatorTree *DT,
+                                    bool IsAnd);
   /// @}
 
   /// Generate the firstprivate initialization code.

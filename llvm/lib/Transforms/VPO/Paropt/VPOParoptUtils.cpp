@@ -2731,6 +2731,170 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                 DT, LI, IsTargetSPIRV, LockNameSuffix);
 }
 
+// Generates reduce block around Instructions `begin` and `end`.
+// Here is an example of fast reduction for the scalar type.
+// omp.loop.exit.split:                              ; preds =
+// %tree.reduce.exit, %DIR.OMP.PARALLEL.LOOP.3
+//   br label %DIR.OMP.END.PARALLEL.LOOP.4
+// ...
+// loop.region.exit.split:                           ; preds = %loop.region.exit
+//   %my.tid13 = load i32, i32* %tid, align 4
+//   %5 = call i32 @__kmpc_reduce(%struct.ident_t* @.kmpc_loc.0.0.4,
+//   i32 %my.tid13, i32 1, i32 4, %struct.fast_red_t* %fast_red_struct,
+//   void (%struct.fast_red_t*, %struct.fast_red_t*)* @main_tree_reduce_4,
+//   [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
+//   %tobool = icmp eq i32 %5, 1
+//   br i1 %tobool, label %tree.reduce, label %tree.reduce.exit
+//
+// tree.reduce:                                      ; preds =
+// %loop.region.exit.split
+//   br label %loop.region.exit.split.split
+//
+// tree.reduce.exit:                                  ; preds =
+// %loop.region.exit.split, %loop.region.exit.split.split.split
+//   %6 = phi i1 [ false, %loop.region.exit.split ], [ true,
+//   %loop.region.exit.split.split.split ]
+//   br label %omp.loop.exit.split
+//
+// loop.region.exit.split.split:                     ; preds = %tree.reduce
+//   %7 = load i32, i32* %sum.fast_red, align 4
+//   %8 = load i32, i32* %sum, align 4
+//   %9 = add i32 %8, %7
+//   store i32 %9, i32* %sum, align 4
+//   br label %loop.region.exit.split.split.split
+//
+// loop.region.exit.split.split.split:               ; preds =
+// %loop.region.exit.split.split
+//   %my.tid14 = load i32, i32* %tid, align 4
+//   call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.0.0.6,
+//   i32 %my.tid14, [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
+//   br label %tree.reduce.exit
+//
+// DIR.OMP.END.PARALLEL.LOOP.4:                      ; preds =
+// %omp.loop.exit.split
+//   br label %DIR.OMP.END.PARALLEL.LOOP.5.exitStub
+//
+bool VPOParoptUtils::genKmpcReduceImpl(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr, Value *RedVar,
+    RDECL RedCallback, Instruction *BeginInst, Instruction *EndInst,
+    GlobalVariable *LockVar, DominatorTree *DT, LoopInfo *LI,
+    bool IsTargetSPIRV) {
+
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+  assert(BeginInst != nullptr && "BeginInst is null.");
+  assert(EndInst != nullptr && "EndInst is null.");
+  assert(LockVar != nullptr && "LockVar is null.");
+
+  assert(!IsTargetSPIRV && "Support in target region is not implemented!");
+
+  IRBuilder<> Builder(BeginInst);
+  auto *RetTy = Builder.getInt32Ty();
+
+  bool Nowait = false;
+  if (W->canHaveNowait())
+    Nowait = W->getNowait();
+
+  StringRef BeginName = "__kmpc_reduce";
+  if (Nowait)
+    BeginName = "__kmpc_reduce_nowait";
+
+  CallInst *BeginReduce = nullptr;
+  SmallVector<Value *, 5> BeginArgs;
+
+  Value *RedVarI8 = Builder.CreateBitCast(RedVar, Builder.getInt8PtrTy());
+
+  // add num of reductions, reduction variable, and size of reduction variable
+  ReductionClause &RedClause = W->getRed();
+  Value *NumOfRed = Builder.getInt32(RedClause.size());
+  BeginArgs.push_back(NumOfRed);
+  const auto DL = BeginInst->getModule()->getDataLayout();
+  Value *SizeOfRedVar = Builder.getInt32(
+      DL.getTypeAllocSize(cast<AllocaInst>(RedVar)->getAllocatedType()));
+  BeginArgs.push_back(SizeOfRedVar);
+  BeginArgs.push_back(RedVarI8);
+  BeginArgs.push_back(RedCallback);
+  BeginArgs.push_back(LockVar);
+
+  BeginReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
+                                   RetTy, BeginArgs);
+  assert(BeginReduce != nullptr && "Could not call __kmp_reduce");
+
+  if (BeginReduce == nullptr)
+    return false;
+
+  StringRef EndName = "__kmpc_end_reduce";
+  if (Nowait)
+    EndName = "__kmpc_end_reduce_nowait";
+  CallInst *EndReduce = nullptr;
+
+  auto *EndRetTy = Builder.getVoidTy();
+  Value *EndArg = LockVar;
+  EndReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, EndName, EndRetTy,
+                                 {EndArg});
+
+  assert(EndReduce != nullptr && "Could not call __kmpc_end_reduce");
+
+  if (EndReduce == nullptr)
+    return false;
+
+  Builder.Insert(BeginReduce);
+  if (EndInst->isTerminator())
+    EndReduce->insertBefore(EndInst);
+  else
+    EndReduce->insertAfter(EndInst);
+
+  ConstantInt *ValueOne = Builder.getInt32(1);
+  auto IsTrue = Builder.CreateICmpEQ(BeginReduce, ValueOne, "to.tree.reduce");
+  auto EntryBB = Builder.GetInsertBlock();
+  auto ContBB = SplitBlock(EntryBB, BeginInst, DT, LI);
+  ContBB->setName("tree.reduce");
+
+  Instruction *SplitPt = GeneralUtils::nextUniqueInstruction(EndReduce);
+  // TODO: add atomic reduce function call in ElseBB
+  auto ElseBB = SplitBlock(SplitPt->getParent(), SplitPt, DT, LI);
+  ElseBB->setName("tree.reduce.exit");
+
+  EntryBB->getTerminator()->eraseFromParent();
+  Builder.SetInsertPoint(EntryBB);
+  Builder.CreateCondBr(IsTrue, ContBB, ElseBB);
+
+  Builder.SetInsertPoint(ElseBB->getTerminator());
+  PHINode *PN = Builder.CreatePHI(Builder.getInt1Ty(), 2, "");
+  auto PhiEntryBBVal = Builder.getFalse();
+  PN->addIncoming(PhiEntryBBVal, EntryBB);
+  auto PhiElseBBVal = Builder.getTrue();
+  PN->addIncoming(PhiElseBBVal, EndReduce->getParent());
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Fast Reduce Block generated.\n");
+  return true;
+}
+
+// Generates a reduce block around Instructions `BeginInst` and `Endinst`,
+// by emitting calls to `__kmpc_reduce` before `BeginInst`, and
+// `__kmpc_end_reduce` after `EndInst`.
+bool VPOParoptUtils::genKmpcReduce(WRegionNode *W, StructType *IdentTy,
+                                   Constant *TidPtr, Value *RedVar,
+                                   RDECL RedCallback, Instruction *BeginInst,
+                                   Instruction *EndInst, DominatorTree *DT,
+                                   LoopInfo *LI, bool IsTargetSPIRV,
+                                   const StringRef LockNameSuffix) {
+  assert(W != nullptr && "WRegionNode is null.");
+  assert(IdentTy != nullptr && "IdentTy is null.");
+  assert(TidPtr != nullptr && "TidPtr is null.");
+  assert(BeginInst != nullptr && "BeginInst is null.");
+  assert(EndInst != nullptr && "EndInst is null.");
+
+  // Generate the Lock object for reduce block.
+  GlobalVariable *Lock =
+      genKmpcCriticalLockVar(W, LockNameSuffix, IsTargetSPIRV);
+  assert(Lock != nullptr && "Could not create reduce block lock variable.");
+
+  return genKmpcReduceImpl(W, IdentTy, TidPtr, RedVar, RedCallback, BeginInst,
+                           EndInst, Lock, DT, LI, IsTargetSPIRV);
+}
+
 // Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
 CallInst *VPOParoptUtils::genKmpcCallWithTid(
     WRegionNode *W, StructType *IdentTy, Value *TidPtr, Instruction *InsertPt,
@@ -3232,7 +3396,6 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   // create and insert it into the symbol table first.
   FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
   Function *Fn = cast<Function>(FnC.getCallee());
-
   CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
   return Call;
 }
@@ -3429,7 +3592,7 @@ SmallString<64> VPOParoptUtils::getKmpcCriticalLockNamePrefix(WRegionNode *W) {
     // TODO: Check if we need to check for other architectures here.
   }
 
-  // TODO: Check if we need to check for Architectre/ OS types here.
+  // TODO: Check if we need to check for Architecture/ OS types here.
   return SmallString<64>(".gomp_critical_user_");
 }
 

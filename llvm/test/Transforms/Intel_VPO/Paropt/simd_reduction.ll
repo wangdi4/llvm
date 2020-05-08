@@ -1,5 +1,7 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s --check-prefix=FASTRED
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'   -S | FileCheck %s --check-prefix=FASTRED
 
 ; Original code:
 ; void foo()
@@ -10,26 +12,49 @@
 ;     ++l;
 ; }
 
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.REDUCTION.ADD"(i32* %[[RPRIV:[^,]+]]){{.*}} ]
-; CHECK: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
-; CHECK: [[PHB]]:
-; CHECK: br label %[[LOOPBODY:[^,]+]]
-; CHECK: [[LOOPBODY]]:
-; CHECK: load {{.*}}i32* %[[RPRIV]]
-; CHECK: store {{.*}}i32* %[[RPRIV]]
-; CHECK: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
-; CHECK: [[LEXIT]]:
-; CHECK: br label %[[LEXIT_SPLIT:[^,]+]]
-; CHECK: [[LEXIT_SPLIT]]:
-; CHECK: br label %[[LEXIT_SPLIT_SPLIT:[^,]+]]
-; CHECK: [[LEXIT_SPLIT_SPLIT]]:
-; CHECK: %[[V:.+]] = load i32, i32* %[[RPRIV]]
-; CHECK: %[[OV:.+]] = load i32, i32* %l
-; CHECK: %[[ADD:.+]] = add i32 %[[OV]], %[[V]]
-; CHECK: store i32 %[[ADD]], i32* %l
-; CHECK: br label %[[REXIT]]
-; CHECK: [[REXIT]]:
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
+; CRITICAL: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.REDUCTION.ADD"(i32* %[[RPRIV:[^,]+]]){{.*}} ]
+; CRITICAL: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
+; CRITICAL: [[PHB]]:
+; CRITICAL: br label %[[LOOPBODY:[^,]+]]
+; CRITICAL: [[LOOPBODY]]:
+; CRITICAL: load {{.*}}i32* %[[RPRIV]]
+; CRITICAL: store {{.*}}i32* %[[RPRIV]]
+; CRITICAL: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
+; CRITICAL: [[LEXIT]]:
+; CRITICAL: br label %[[LEXIT_SPLIT:[^,]+]]
+; CRITICAL: [[LEXIT_SPLIT]]:
+; CRITICAL: br label %[[LEXIT_SPLIT_SPLIT:[^,]+]]
+; CRITICAL: [[LEXIT_SPLIT_SPLIT]]:
+; CRITICAL: %[[V:.+]] = load i32, i32* %[[RPRIV]]
+; CRITICAL: %[[OV:.+]] = load i32, i32* %l
+; CRITICAL: %[[ADD:.+]] = add i32 %[[OV]], %[[V]]
+; CRITICAL: store i32 %[[ADD]], i32* %l
+; CRITICAL: br label %[[REXIT]]
+; CRITICAL: [[REXIT]]:
+; CRITICAL: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
+
+; FASTRED: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.REDUCTION.ADD"(i32* %[[RPRIV:[^,]+]]){{.*}} ]
+; FASTRED: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
+; FASTRED: [[PHB]]:
+; FASTRED: br label %[[LOOPBODY:[^,]+]]
+; FASTRED: [[LOOPBODY]]:
+; FASTRED: load {{.*}}i32* %[[RPRIV]]
+; FASTRED: store {{.*}}i32* %[[RPRIV]]
+; FASTRED: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
+; FASTRED: [[LEXIT]]:
+; FASTRED: %[[R:.+]] = load i32, i32* %[[RPRIV]]
+; FASTRED: store i32 %[[R]], i32* %[[FRPRIV:.+]]
+; FASTRED: br label %[[LEXIT_SPLIT:[^,]+]]
+; FASTRED: [[LEXIT_SPLIT]]:
+; FASTRED: br label %[[LEXIT_SPLIT_SPLIT:[^,]+]]
+; FASTRED: [[LEXIT_SPLIT_SPLIT]]:
+; FASTRED: %[[V:.+]] = load i32, i32* %[[FRPRIV]]
+; FASTRED: %[[OV:.+]] = load i32, i32* %l
+; FASTRED: %[[ADD:.+]] = add i32 %[[OV]], %[[V]]
+; FASTRED: store i32 %[[ADD]], i32* %l
+; FASTRED: br label %[[REXIT]]
+; FASTRED: [[REXIT]]:
+; FASTRED: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
 
 ; ModuleID = 'simd.cpp'
 source_filename = "simd.cpp"

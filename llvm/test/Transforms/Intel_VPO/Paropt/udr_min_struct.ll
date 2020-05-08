@@ -1,6 +1,7 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
-
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=FASTRED
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=FASTRED
 
 ;
 ; typedef struct {int x; int y;} point;
@@ -135,12 +136,19 @@ for.end:                                          ; preds = %for.cond
   store i32 999, i32* %.omp.ub, align 4
   %14 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.UDR"(%struct.point* @corner, i8* null, void (%struct.point*)* @_ZTS5point.omp.destr, void (%struct.point*, %struct.point*)* @.omp_combiner., void (%struct.point*, %struct.point*)* @.omp_initializer.), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"([1000 x %struct.point]* @points) ]
 
-; CHECK-NOT: "QUAL.OMP.REDUCTION.UDR"
-; CHECK: call void @.omp_initializer.(%struct.point* %corner.red{{.*}}, %struct.point* @corner)
-; CHECK: call void @__kmpc_critical({{.*}})
-; CHECK: call void @.omp_combiner.(%struct.point* @corner, %struct.point* %corner.red{{.*}})
-; CHECK: call void @__kmpc_end_critical({{.*}})
-; CHECK: call void @_ZTS5point.omp.destr(%struct.point* %corner.red{{.*}})
+; CRITICAL-NOT: "QUAL.OMP.REDUCTION.UDR"
+; CRITICAL: call void @.omp_initializer.(%struct.point* %corner.red{{.*}}, %struct.point* @corner)
+; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @.omp_combiner.(%struct.point* @corner, %struct.point* %corner.red{{.*}})
+; CRITICAL: call void @__kmpc_end_critical({{.*}})
+; CRITICAL: call void @_ZTS5point.omp.destr(%struct.point* %corner.red{{.*}})
+
+; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
+; FASTRED: call void @.omp_initializer.(%struct.point* %corner.red{{.*}}, %struct.point* @corner)
+; FASTRED: call i32 @__kmpc_reduce({{.*}})
+; FASTRED: call void @.omp_combiner.(%struct.point* @corner, %struct.point* %corner.fast_red{{.*}})
+; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})
+; FASTRED-DAG: call void @_ZTS5point.omp.destr(%struct.point* %corner.fast_red{{.*}})
 
   %15 = load i32, i32* %.omp.lb, align 4
   store i32 %15, i32* %.omp.iv, align 4

@@ -1,6 +1,7 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
-
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=FASTRED
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=FASTRED
 
 ;
 ; int a[1000];
@@ -74,12 +75,19 @@ for.end:                                          ; preds = %for.cond
   store i32 999, i32* %.omp.ub, align 4
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.UDR"(i32* %sum_udr, i8* null, void (i32*)* @_ZTSi.omp.destr, void (i32*, i32*)* @.omp_combiner., void (i32*, i32*)* @.omp_initializer.), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"([1000 x i32]* @a) ]
 
-; CHECK-NOT: "QUAL.OMP.REDUCTION.UDR"
-; CHECK: call void @.omp_initializer.(i32* %sum_udr.red{{.*}}, i32* %sum_udr)
-; CHECK: call void @__kmpc_critical({{.*}})
-; CHECK: call void @.omp_combiner.(i32* %sum_udr, i32* %sum_udr.red{{.*}})
-; CHECK: call void @__kmpc_end_critical({{.*}})
-; CHECK: call void @_ZTSi.omp.destr(i32* %sum_udr.red{{.*}})
+; CRITICAL-NOT: "QUAL.OMP.REDUCTION.UDR"
+; CRITICAL: call void @.omp_initializer.(i32* %sum_udr.red{{.*}}, i32* %sum_udr)
+; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @.omp_combiner.(i32* %sum_udr, i32* %sum_udr.red{{.*}})
+; CRITICAL: call void @__kmpc_end_critical({{.*}})
+; CRITICAL: call void @_ZTSi.omp.destr(i32* %sum_udr.red{{.*}})
+
+; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
+; FASTRED: call void @.omp_initializer.(i32* %sum_udr.red{{.*}}, i32* %sum_udr)
+; FASTRED: call i32 @__kmpc_reduce({{.*}})
+; FASTRED-DAG: call void @.omp_combiner.(i32* %sum_udr, i32* %sum_udr.fast_red{{.*}})
+; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})
+; FASTRED-DAG: call void @_ZTSi.omp.destr(i32* %sum_udr.fast_red{{.*}})
 
   %5 = load i32, i32* %.omp.lb, align 4
   store i32 %5, i32* %.omp.iv, align 4

@@ -228,6 +228,7 @@ public:
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
   bool canHaveCollapse() const;
+  bool canHaveNowait() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate

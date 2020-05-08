@@ -1553,6 +1553,23 @@ bool WRegionNode::canHaveReduction() const {
   return false;
 }
 
+bool WRegionNode::canHaveNowait() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+  case WRNTargetVariant:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNWorkshare:
+  case WRNSingle:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveCopyin() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {

@@ -1,7 +1,9 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=PREPR -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s -check-prefix=PREPR -check-prefix=ALL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S < %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL -check-prefix=CRITICAL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s -check-prefix=TFORM -check-prefix=ALL -check-prefix=CRITICAL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL -check-prefix=FASTRED
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s -check-prefix=TFORM -check-prefix=ALL -check-prefix=FASTRED
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare  -S < %s | FileCheck %s -check-prefix=PREPR -check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'   -S | FileCheck %s -check-prefix=PREPR -check-prefix=ALL
 
 ; #include <stdio.h>
 ;
@@ -177,8 +179,11 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
 ; Reduction Handling
-; TFORM: call void @__kmpc_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
-; TFORM: call void @__kmpc_end_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
+; CRITICAL: call void @__kmpc_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
+; CRITICAL: call void @__kmpc_end_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
+
+; FASTRED: call i32 @__kmpc_reduce({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 {{[0-9]*}}, i32 {{[0-9]*}}, i8* %{{[a-zA-Z._0-9]*}}, void (i8*, i8*)* @{{[a-zA-Z._0-9]*}}, [8 x i32]* @{{[a-zA-Z._0-9]*}})
+; FASTRED: call void @__kmpc_end_reduce({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
 
   %24 = load i32, i32* @x, align 4, !tbaa !2
   %call4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.2, i32 0, i32 0), i32 %24)
