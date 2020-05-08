@@ -108,6 +108,9 @@ public:
   /// Predicate all unique non-scalar VPlans
   void predicate(void);
 
+  /// Insert all-zero bypasses for \p Plan.
+  void insertAllZeroBypasses(VPlan *Plan);
+
   /// Perform VPlan loop unrolling if needed
   void
   unroll(VPlan &Plan, unsigned UF,

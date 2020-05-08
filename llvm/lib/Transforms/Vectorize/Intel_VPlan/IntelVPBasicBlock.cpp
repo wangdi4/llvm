@@ -268,6 +268,24 @@ VPBasicBlock *VPBlockUtils::splitBlockEnd(VPBasicBlock *BB, VPLoopInfo *VPLInfo,
   return splitBlock(BB, BB->end(), VPLInfo, DomTree, PostDomTree);
 }
 
+VPBasicBlock *VPBlockUtils::splitBlockAtPredicate(
+    VPBasicBlock *BB,
+    VPLoopInfo *VPLInfo,
+    VPDominatorTree *DomTree,
+    VPPostDominatorTree *PostDomTree) {
+
+  VPBasicBlock::iterator SplitPt = BB->end();
+  for (auto &VPInst : *BB) {
+    if (VPInst.getOpcode() == VPInstruction::Pred) {
+      SplitPt = VPInst.getIterator();
+      break;
+    }
+  }
+  assert(SplitPt != BB->end() && "Block predicate not found.");
+
+  return splitBlock(BB, SplitPt, VPLInfo, DomTree, PostDomTree);
+}
+
 VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
     : VPValue(VPBasicBlockSC, Type::getLabelTy(*Plan->getLLVMContext())),
       // We don't insert the VPBB into the Plan's VPBasicBlockList here,

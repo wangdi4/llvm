@@ -3463,6 +3463,34 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case VPInstruction::AllZeroCheck: {
+    RegDDRef *A = WideOps[0];
+    Type *Ty = A->getDestType();
+    if (Mask) {
+      // TODO: Is this needed for HIR? The comment block in LLVM-IR CG adds this
+      // case for masked inner-loops which we won't see in HIR. add A, Mask
+      assert(false && "Mask supported for AllZeroCheck?");
+    }
+
+    // Bitcast <VF x i1> to an integer value VF bits long.
+    Type *IntTy =
+        IntegerType::get(Ty->getContext(), Ty->getPrimitiveSizeInBits());
+    auto *BitCastInst =
+        HLNodeUtilities.createCastHLInst(IntTy, Instruction::BitCast, A);
+    addInst(BitCastInst, Mask);
+
+    // Compare the bitcast value to zero. Compare will be true if all the i1
+    // masks in <VF x i1> are false.
+    auto *CmpInst = HLNodeUtilities.createCmp(
+        PredicateTy::ICMP_EQ, BitCastInst->getLvalDDRef()->clone(),
+        DDRefUtilities.createNullDDRef(IntTy));
+    addInst(CmpInst, Mask);
+
+    WInst = HLNodeUtilities.createCopyInst(
+        widenRef(CmpInst->getLvalDDRef()->clone(), getVF()), "all.zero.check");
+    break;
+  }
+
   default:
     LLVM_DEBUG(VPInst->dump());
     llvm_unreachable("Unexpected VPInstruction opcode");

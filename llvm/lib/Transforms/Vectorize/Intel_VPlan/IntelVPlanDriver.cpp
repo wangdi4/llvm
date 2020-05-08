@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#include "IntelVPlanAllZeroBypass.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOCodeGen.h"
@@ -103,6 +104,10 @@ static cl::opt<bool> VPlanPrintAfterSingleTripCountOpt(
     "vplan-print-after-single-trip-count-opt", cl::init(false),
     cl::desc("Print after backedge branch rewrite for single trip count vector "
              "loop"));
+
+static cl::opt<bool> EnableAllZeroBypass(
+    "vplan-enable-all-zero-bypass", cl::init(false), cl::Hidden,
+    cl::desc("Enable all-zero bypass insertion for VPlan."));
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
@@ -269,6 +274,11 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
 #endif //INTEL_CUSTOMIZATION
+
+  // All-zero bypass is added after best plan selection because cost model
+  // tuning is not yet implemented and we don't want to prevent vectorization.
+  if (EnableAllZeroBypass)
+    LVP.insertAllZeroBypasses(Plan);
 
   unsigned UF = VPlanForceUF;
   if (UF == 0)
@@ -1045,6 +1055,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     Plan->dump(errs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
+
+  // All-zero bypass is added after best plan selection because cost model
+  // tuning is not yet implemented and we don't want to prevent vectorization.
+  if (EnableAllZeroBypass)
+    LVP.insertAllZeroBypasses(Plan);
 
   unsigned UF = HLoop->getUnrollPragmaCount();
   if (VPlanForceUF)
