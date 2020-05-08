@@ -2162,7 +2162,15 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(cl_command_queue	command_queue,
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueNDRangeKernel);
-        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_kernel kernel" << kernel << "cl_uint work_dim" << work_dim << "const size_t * global_work_offset" << global_work_offset << "const size_t * global_work_size" << global_work_size << "const size_t * local_work_size" << local_work_size << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list" << event_wait_list << "cl_event * event" << event;
+        apiLogger << "cl_command_queue command_queue" << command_queue << "cl_kernel kernel" << kernel << "cl_uint work_dim" << work_dim << "const size_t * global_work_offset";
+        apiLogger.PrintArray(work_dim, global_work_offset);
+        apiLogger << "const size_t * global_work_size";
+        apiLogger.PrintArray(work_dim, global_work_size);
+        apiLogger << "const size_t * local_work_size";
+        apiLogger.PrintArray(work_dim, local_work_size);
+        apiLogger << "cl_uint num_events_in_wait_list" << num_events_in_wait_list << "const cl_event * event_wait_list";
+        apiLogger.PrintArray(num_events_in_wait_list, event_wait_list);
+        apiLogger << "cl_event * event" << event;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("event", event, true);
 	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event, &apiLogger),

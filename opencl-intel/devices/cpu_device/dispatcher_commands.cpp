@@ -888,10 +888,10 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 
     // if logger is enabled, always print local work size from BE
     if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
-    {
-        vector<size_t> dims(m_pImplicitArgs->LocalSize[0], &m_pImplicitArgs->LocalSize[0][cmdParams->work_dim]);
-        g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, dims);
-    }
+        g_pUserLogger->SetWGSizeCount(m_pCmd->id, (size_t)cmdParams->work_dim,
+            m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX],
+            m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX],
+            m_pImplicitArgs->WGCount);
 
     const size_t*    pWGSize = m_pImplicitArgs->WGCount;
     assert(pWGSize && "pWGSize must be non zero pointer");

@@ -76,11 +76,16 @@ public:
     void PrintError(const std::string& msg);
 
     /**
-     * Set the local work size calculated by BE for a specific NDRange command identified by cl_dev_cmd_id
-     * @param id the cl_dev_cmd_id identifying the NDRange command
-     * @param localWorkSize the local work size calculated by BE
+     * Set the uniform/non-uniform work group size and count calculated by BE
+     * for a specific NDRange command identified by cl_dev_cmd_id.
+     * @param id the cl_dev_cmd_id identifying the NDRange command.
+     * @param localSizeUniform the uniform local work size.
+     * @param localSizeNonUniform non-uniform local work size.
+     * @param workgroupCount work group count.
      */
-    void SetLocalWorkSize4ArgValues(cl_dev_cmd_id id, const std::vector<size_t>& localWorkSize);
+    void SetWGSizeCount(cl_dev_cmd_id id, size_t ndim,
+        const size_t *localSizeUniform, const size_t *localSizeNonUniform,
+        const size_t *workgroupCount);
 
 private:    
 
@@ -90,7 +95,7 @@ private:
 
     void PrintStringInternal(const std::string& str);    
 
-    std::string FormatLocalWorkSize(const std::vector<size_t>& localWorkSize);
+    std::string FormatLocalWorkSize(size_t ndim, const size_t *localWorkSize);
 
     // do not implement
     FrameworkUserLogger(const FrameworkUserLogger&);
@@ -177,6 +182,25 @@ public:
      * @return this FrameworkUserLogger
      */
     ApiLogger& PrintCStringVal(const char* sVal);
+
+
+    template<typename T>
+    ApiLogger& PrintArray(cl_uint size, const T *values) {
+        if (m_bLogApis)
+        {
+            m_strStream << values;
+            if (size >= 1 && values) {
+                m_strStream << " [";
+                for (cl_uint i = 0; i < size; ++i) {
+                    m_strStream << values[i];
+                    if (i < (size - 1))
+                        m_strStream << ",";
+                }
+                m_strStream << "]";
+            }
+        }
+        return *this;
+    }
 
     /**
      * End logging of an API function with a pointer return value
