@@ -1811,11 +1811,6 @@ Instruction *InstCombiner::visitFPToUI(FPToUIInst &FI) {
 }
 
 Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
-<<<<<<< HEAD
-  Instruction *OpI = dyn_cast<Instruction>(FI.getOperand(0));
-  if (!OpI)
-    return commonCastTransforms(FI);
-
 #if INTEL_CUSTOMIZATION
 //  [CMPLRLLVM-1509] Optimize Round2nearestinteger(fp +int) for invariants.
 //  If the parent function has "unsafe-fp-math" set, then we can
@@ -1831,6 +1826,9 @@ Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
 //   %X = call fast double @llvm.rint.f64(double %mean_location.sroa.0.0)
 //   %Y = fptosi double %X to i64
 //   %FI = add i64 %Y, %u.0
+  Instruction *OpI = dyn_cast<Instruction>(FI.getOperand(0));
+  if (!OpI)
+    return commonCastTransforms(FI);
 
   if (hasUnsafeFPMathAttrSet(FI)) {
     Value *FAddOp0, *SIOp0;
@@ -1847,8 +1845,6 @@ Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
   }
 #endif  // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 09d70e058853ee8f7f599d328bf2a20f2e0c0e71
   if (Instruction *I = FoldItoFPtoI(FI))
     return I;
 
