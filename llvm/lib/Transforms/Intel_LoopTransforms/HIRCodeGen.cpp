@@ -829,8 +829,8 @@ Value *CGVisitor::getTokenVal(unsigned Symbase) const {
 }
 
 void CGVisitor::addTokenEntry(unsigned Symbase, Value *TokenVal) {
-  assert(TokenMap.find(Symbase) == TokenMap.end() &&
-         "Redefinition of token found!");
+  // Token redifinition is possible if a SIMD loop reaches codegen without
+  // getting processed.
   assert(TokenVal->getType()->isTokenTy() && "Token type value expected!");
   TokenMap[Symbase] = TokenVal;
 }

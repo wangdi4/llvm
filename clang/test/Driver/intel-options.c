@@ -210,3 +210,11 @@
 // RUN: %clang_cl -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-S %s
 // CHECK-S: clang{{.*}} "-S"
 // CHECK-S-NOT: link.exe
+
+// /Qstd behavior with clang-cl
+// RUN: %clang_cl -### /Qstd:c++14 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD %s
+// RUN: %clang_cl -### /Qstd=c++14 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD %s
+// CHECK-STD: clang{{.*}} "-std=c++14"
+// RUN: %clang_cl -### /Qstd:c11 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD-C11 %s
+// RUN: %clang_cl -### /Qstd=c11 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD-C11 %s
+// CHECK-STD-C11: clang{{.*}} "-std=c11"

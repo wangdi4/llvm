@@ -849,8 +849,11 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   // edge between the two new loops when considering I. Distributing
   // again won't enable vectorization, but create more loop overhead.
 
+  // Disabled distribution of loop inside SIMD region as scalar expansion can
+  // introduce new allocas which are not marked as private for outer SIMD loop.
+
   if (Lp->hasUnrollEnablingPragma() || Lp->hasVectorizeEnablingPragma() ||
-      !Lp->isDo()) {
+      !Lp->isDo() || Lp->isInSIMDRegion()) {
     return false;
   }
 

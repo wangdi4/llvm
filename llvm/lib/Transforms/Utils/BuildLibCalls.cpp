@@ -376,6 +376,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_rmdir:
   case LibFunc_remove:
+  case LibFunc_under_wremove:                  // INTEL
   case LibFunc_realpath:
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
@@ -448,6 +449,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
   case LibFunc_access:
+  case LibFunc_under_waccess:                   // INTEL
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
@@ -745,6 +747,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   // stat and its other form can throw an exception handler in Windows
   case LibFunc_under_stat64:
   case LibFunc_under_stat64i32:
+   case LibFunc_under_wstat64:
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
@@ -1018,6 +1021,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_under_chdir:
     return Changed;
+  case LibFunc_under_commit:
+    return Changed;
   // _close in Windows can throw an exception compared to
   // the Linux version (LibFunc_close)
   case LibFunc_under_close:
@@ -1049,6 +1054,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_under_localtime64:
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_under_lseeki64:
     return Changed;
   case LibFunc_under_set_errno:
     return Changed;
