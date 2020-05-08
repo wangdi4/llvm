@@ -1804,10 +1804,6 @@ Instruction *InstCombiner::FoldItoFPtoI(Instruction &FI) {
 }
 
 Instruction *InstCombiner::visitFPToUI(FPToUIInst &FI) {
-  Instruction *OpI = dyn_cast<Instruction>(FI.getOperand(0));
-  if (!OpI)
-    return commonCastTransforms(FI);
-
   if (Instruction *I = FoldItoFPtoI(FI))
     return I;
 
@@ -1815,6 +1811,7 @@ Instruction *InstCombiner::visitFPToUI(FPToUIInst &FI) {
 }
 
 Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
+<<<<<<< HEAD
   Instruction *OpI = dyn_cast<Instruction>(FI.getOperand(0));
   if (!OpI)
     return commonCastTransforms(FI);
@@ -1850,6 +1847,8 @@ Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
   }
 #endif  // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 09d70e058853ee8f7f599d328bf2a20f2e0c0e71
   if (Instruction *I = FoldItoFPtoI(FI))
     return I;
 
