@@ -345,6 +345,7 @@ namespace clang {
        NVPTX::LastTSBuiltin, AMDGPU::LastTSBuiltin, X86::LastTSBuiltin,
        Hexagon::LastTSBuiltin, Mips::LastTSBuiltin, XCore::LastTSBuiltin,
        Le64::LastTSBuiltin, SystemZ::LastTSBuiltin,
+       SPIRINTELFpga::LastTSBuiltin, // INTEL
        WebAssembly::LastTSBuiltin});
 
 } // end namespace clang.
