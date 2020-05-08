@@ -13,4 +13,11 @@ add_llvm_tool(sycl-post-link
 
   DEPENDS
   intrinsics_gen
+  CUSTOM_WIN_VER
   )
+if(INTEL_CUSTOMIZATION)
+  dpcpptarget_add_resource_file(sycl-post-link
+    "sycl-post-link.exe"
+    "Intel(R) oneAPI DPC++ Compiler"
+    "SYCL post-link device code processing tool")
+endif()

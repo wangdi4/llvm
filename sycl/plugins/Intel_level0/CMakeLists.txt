@@ -48,6 +48,12 @@ else()
 
   add_dependencies(pi_level0 l0-lib-file)
   target_link_libraries(pi_level0 PRIVATE ${L0_LIB_FILE})
+  if (INTEL_CUSTOMIZATION)
+    dpcpptarget_add_resource_file(pi_level0
+                                  "pi_level0.dll"
+                                  "Intel(R) oneAPI DPC++ Library"
+                                  "Intel(R) oneAPI DPC++ Library")
+  endif()
 endif()
 
 add_common_options(pi_level0)
