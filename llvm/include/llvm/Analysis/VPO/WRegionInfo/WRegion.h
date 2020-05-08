@@ -91,15 +91,21 @@ namespace vpo {
 /// Loop information associated with loop-type constructs
 class WRNLoopInfo {
 private:
-  LoopInfo   *LI;
-  Loop       *Lp;
+  LoopInfo   *LI = nullptr;
+  Loop       *Lp = nullptr;
   SmallVector<Value *, 2> NormIV; // normalized IV's created by FE
   SmallVector<Value *, 2> NormUB; // normalized UB's
 
   /// Basic blocks with the zero-trip test for all loops in a loop nest.
   DenseMap<unsigned, BasicBlock *> ZTTBB;
+
+  /// If set to true, then the associated loop(s) tripcounts
+  /// are present in the NDRANGE clause of the enclosing "omp target"
+  /// region.
+  bool KnownNDRange = false;
+
 public:
-  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr) {}
+  WRNLoopInfo(LoopInfo *L) : LI(L) {}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
   void addNormIV(Value *IV) { NormIV.push_back(IV); }
@@ -133,6 +139,7 @@ public:
   }
   Value *getNormIV(unsigned I=0) const;
   Value *getNormUB(unsigned I=0) const;
+  ArrayRef<Value *> getNormUBs() const { return NormUB; }
   unsigned getNormIVSize() const { return NormIV.size(); }
   unsigned getNormUBSize() const { return NormUB.size(); }
 
@@ -153,6 +160,12 @@ public:
   BasicBlock *getZTTBBOrNull(unsigned Idx = 0) const {
     return ZTTBB.lookup(Idx);
   }
+
+  void setKnownNDRange() {
+    assert(!KnownNDRange && "KnownNDRange must be set only once.");
+    KnownNDRange = true;
+  }
+  bool isKnownNDRange() const { return KnownNDRange; }
 
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;
@@ -590,8 +603,11 @@ protected:
     Defaultmap[C] = B;
   }
   void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
-  void addUncollapsedNDRangeDimension(Value *V) {
-    UncollapsedNDRange.push_back(V);
+  void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) {
+    assert(UncollapsedNDRange.empty() &&
+           "Uncollapsed NDRange must be set only once.");
+    UncollapsedNDRange.insert(
+        UncollapsedNDRange.begin(), Dims.begin(), Dims.end());
   }
 
 public:

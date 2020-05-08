@@ -4953,6 +4953,9 @@ bool VPOParoptUtils::mayUseSPMDMode(WRegionNode *W) {
   if (VPOParoptUtils::getSPIRExecutionScheme() != spirv::ImplicitSIMDSPMDES)
     return false;
 
+  if (!W->getIsOmpLoop())
+    return false;
+
   // Reductions require global locks. With SPMD mode there will be
   // to many of them (basically, a lock per each sub-group) and it
   // will result in too long serial sequence of updates.

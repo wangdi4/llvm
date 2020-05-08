@@ -419,11 +419,13 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
           "Expected LowerBnd and SchedStride to be of same type");
 
   unsigned NumLoops = 0;
-  WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-  if (!WT || WT->getUncollapsedNDRange().empty())
+  if (!VPOParoptUtils::useSPMDMode(W))
     NumLoops = W->getWRNLoopInfo().getNormIVSize();
-  else
+  else {
+    WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+    assert(WT && "No enclosing target region for SPMD loop.");
     NumLoops = WT->getUncollapsedNDRange().size();
+  }
 
   assert(NumLoops != 0 && "Zero loops in loop construct.");
   assert(NumLoops <= 3 && "Max 3 loops in a loop nest for SPIR-V targets.");
@@ -9016,10 +9018,11 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
   if (!VPOParoptUtils::mayUseSPMDMode(W))
     return Changed;
 
+  assert(W->getIsOmpLoop() && "Non-loop region in useSPMDMode.");
   WRegionNode *WTarget =
       WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
 
-  if (!WTarget) {
+  if (!WTarget || !W->getWRNLoopInfo().isKnownNDRange()) {
     if (isTargetSPIRV()) {
       // Emit opt-report only during SPIR compilation.
       OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
@@ -9088,12 +9091,17 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
 
   unsigned NumLoops = W->getWRNLoopInfo().getNormIVSize();
 
-  if (NumLoops <= 1) {
-    LLVM_DEBUG(dbgs() << "No loop nest to collapse.  Exiting.\n");
+  if (NumLoops == 0) {
+    // SIMD loops combined with other loop constructs do not have
+    // associated loops.
+    LLVM_DEBUG(dbgs() << "Loop is associated with an enclosing construct.\n");
     return Exiter(false);
   }
 
-  assert(NumLoops == (unsigned)W->getCollapse() &&
+  assert(((W->getCollapse() == 0 && NumLoops == 1) ||
+          // TODO: replace <= with ==, when we enable late collapsing
+          //       for all compilations.
+          NumLoops <= (unsigned)W->getCollapse()) &&
          "Number of loops does not match the collapse clause value.");
 
   // If there is a parent "omp target", we may want to hoist the computation
@@ -9127,7 +9135,27 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   bool SetNDRange = false;
   bool Use1DRange = false;
 
-  if (NumLoops > 3) {
+  if (NumLoops > 3 ||
+      // Always collapse "omp distribute" loop nests.
+      // Ideally, on SPIR targets each iteration of the collapsed loop nest
+      // must be run by one WG, but there is currently no way to communicate
+      // this to the runtime.
+      //
+      // TODO:
+      //   #pragma omp distribute collapse(2)
+      //   for (int i = 0; i < 10; ++i)
+      //     for (int j = 0; j < 10; ++j)
+      //
+      // When we collapse the loop, the global size becomes 100,
+      // and the local size must be 1. Then, the parallel threads
+      // running the inner "parallel" regions may be created by
+      // using another ND-range dimension, e.g. with
+      // global size (100, N), and local size (1, N).
+      // N may not exceed the kernel limitations, and this limit
+      // is only known in runtime. We need to communicate to runtime
+      // that it has to choose some N and use it both for global
+      // and local sizes for 0 dimension.
+      isa<WRNDistributeNode>(W)) {
     // FIXME: this is a temporary limitation. We need to decide
     //        which loops to collapse for SPIR target and leave
     //        3 of them for 3D-range parallelization.
@@ -9146,15 +9174,27 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
            spirv::ImplicitSIMDSPMDES) {
     // Do not collapse the loop nest for SPIR target.
     if (VPOAnalysisUtils::isTargetSPIRV(F->getParent())) {
-      LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. " <<
-                 "ND-range parallelization will be applied.\n");
-      return Exiter(false);
+      if (W->getCollapse() == 0)
+        LLVM_DEBUG(dbgs() <<
+                   "ND-range parallelization will be applied for loop.\n");
+      else
+        LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. " <<
+                   "ND-range parallelization will be applied.\n");
+      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
+      return Exiter(true);
     }
 
     // Collapse the loop nest for all other targets and the host
     // and use NumLoops ND-range. Note that we do not need to hoist
     // the combined upper bound computation before the target region.
     SetNDRange = true;
+  }
+
+  if (NumLoops == 1) {
+    LLVM_DEBUG(dbgs() << "No loop nest to collapse.  Exiting.\n");
+    if (SetNDRange)
+      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
+    return Exiter(true);
   }
 
   W->populateBBSet();
@@ -9750,12 +9790,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       PassedTarget = true;
   }
 
-  if (SetNDRange) {
-    SmallVector<Value *, 3> NDRangeDims;
-    CallInst *EntryCI = cast<CallInst>(WTarget->getEntryDirective());
-    StringRef NDClause =
-        VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
-
+  if (SetNDRange)
     if (Use1DRange) {
       assert(HoistCombinedUBBeforeTarget &&
              "Inconsistent use of Use1DRange and HoistCombinedUBBeforeTarget.");
@@ -9764,19 +9799,31 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       // because the ND-range parallelization will kick in just
       // by the fact that the combined UB is rematerializable before
       // the target region. Just add it for consistency.
-      NDRangeDims.push_back(NewUBPtrDef);
+      setNDRangeClause(WTarget, W, {NewUBPtrDef});
     } else
       // Add the original loops' upper bounds to OFFLOAD.NDRANGE clause.
-      for (unsigned Idx = 0; Idx < NumLoops; ++Idx)
-        NDRangeDims.push_back(W->getWRNLoopInfo().getNormUB(Idx));
-
-    EntryCI =
-        VPOParoptUtils::addOperandBundlesInCall(EntryCI,
-                                                { { NDClause, NDRangeDims } });
-
-    WTarget->setEntryDirective(EntryCI);
-  }
+      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
 
   return Exiter(true);
+}
+
+void VPOParoptTransform::setNDRangeClause(
+    WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims) const {
+  assert(!NDRangeDims.empty() && NDRangeDims.size() <= 3 &&
+         "Invalid number of ND-range dimensions.");
+  CallInst *EntryCI = cast<CallInst>(WT->getEntryDirective());
+  StringRef Clause =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
+
+  EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI,
+                                                    {{Clause, NDRangeDims}});
+  WT->setEntryDirective(EntryCI);
+
+  // The region's loop(s) now have its tripcounts in the NDRANGE clause
+  // of the "omp target" region. Mark it as such.
+  EntryCI = cast<CallInst>(WL->getEntryDirective());
+  Clause = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
+  EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI, {{Clause, {}}});
+  WL->setEntryDirective(EntryCI);
 }
 #endif // INTEL_COLLAB

@@ -396,7 +396,7 @@ public:
   virtual void addDirectlyUsedNonPointerValue(Value *V) {
     WRNERROR("DIRECTLY_USED_NON_POINTER_VALUES");
   }
-  virtual void addUncollapsedNDRangeDimension(Value *V) {
+  virtual void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) {
     WRNERROR("OFFLOAD_NDRANGE");
   }
   virtual const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
