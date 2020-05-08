@@ -298,12 +298,18 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.run_team_nd_region_nowait) = dlsym(
               dynlib_handle, "__tgt_rtl_run_target_team_nd_region_nowait")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region_nowait\n");
-    if ((*((void **)&R.create_offload_pipe) =
-              dlsym(dynlib_handle, "__tgt_rtl_create_offload_pipe")))
-      DP("Optional interface: __tgt_rtl_create_offload_pipe\n");
-    if ((*((void **)&R.release_offload_pipe) =
-              dlsym(dynlib_handle, "__tgt_rtl_release_offload_pipe")))
-      DP("Optional interface: __tgt_rtl_release_offload_pipe\n");
+    if ((*((void **)&R.create_offload_queue) =
+              dlsym(dynlib_handle, "__tgt_rtl_create_offload_queue")))
+      DP("Optional interface: __tgt_rtl_create_offload_queue\n");
+    if ((*((void **)&R.release_offload_queue) =
+              dlsym(dynlib_handle, "__tgt_rtl_release_offload_queue")))
+      DP("Optional interface: __tgt_rtl_release_offload_queue\n");
+    if ((*((void **)&R.get_platform_handle) =
+              dlsym(dynlib_handle, "__tgt_rtl_get_platform_handle")))
+      DP("Optional interface: __tgt_rtl_get_platform_handle\n");
+    if ((*((void **)&R.get_device_handle) =
+              dlsym(dynlib_handle, "__tgt_rtl_get_device_handle")))
+      DP("Optional interface: __tgt_rtl_get_device_handle\n");
     if ((*((void **)&R.data_alloc_managed) =
               dlsym(dynlib_handle, "__tgt_rtl_data_alloc_managed")))
       DP("Optional interface: __tgt_rtl_data_alloc_managed\n");

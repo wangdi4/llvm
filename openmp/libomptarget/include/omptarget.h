@@ -90,7 +90,11 @@ enum InteropPropertyTy : int32_t {
   INTEROP_IS_ASYNC,
   INTEROP_ASYNC_OBJ,
   INTEROP_ASYNC_CALLBACK,
-  INTEROP_OFFLOAD_PIPE,
+  INTEROP_OFFLOAD_QUEUE,
+  INTEROP_PLATFORM_HANDLE,
+  INTEROP_CONTEXT =  INTEROP_PLATFORM_HANDLE,
+  INTEROP_DRIVER_HANDLE =  INTEROP_PLATFORM_HANDLE,
+  INTEROP_DEVICE_HANDLE,
   INTEROP_PLUGIN_INTERFACE
 };
 
@@ -105,7 +109,11 @@ struct __tgt_interop_obj {
   bool is_async; // Whether it is for asynchronous operation
   void *async_obj; // Pointer to the asynchronous object
   void (*async_handler)(void *); // Callback function for asynchronous operation
-  void *pipe; // Opaque handle to device-dependent offload pipe
+  void *queue; // Opaque handle to device-dependent offload queue
+  void *platform_handle; // Opaque handle:  For opencl  cl_context,
+                         //for level0  ze_driver_handle_t
+  void *device_handle; // Opaque handle:  For level0 ze_device_handle_t.
+                       // Not valid for opencl
   int32_t plugin_interface; // Plugin selector
 };
 #endif // INTEL_COLLAB
