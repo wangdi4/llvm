@@ -2417,6 +2417,21 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
     if (!matchWrapper(N, AM))
       return false;
     break;
+
+  case ISD::FrameIndex:
+    if (AM.BaseType == X86ISelAddressMode::RegBase &&
+        AM.Base_Reg.getNode() == nullptr &&
+        (!Subtarget->is64Bit() || isDispSafeForFrameIndex(AM.Disp))) {
+      AM.BaseType = X86ISelAddressMode::FrameIndexBase;
+      AM.Base_FrameIndex = cast<FrameIndexSDNode>(N)->getIndex();
+      return false;
+    }
+    break;
+
+  case ISD::OR:
+    if (!CurDAG->haveNoCommonBitsSet(N.getOperand(0), N.getOperand(1)))
+      break;
+    LLVM_FALLTHROUGH;
   case ISD::ADD: {
     // Add an artificial use to this node so that we can keep track of
     // it if it gets CSE'd with a different node.
@@ -2439,6 +2454,7 @@ bool X86DAGToDAGISel::matchVectorAddressRecursively(SDValue N,
     AM = Backup;
 
     N = Handle.getValue();
+    break;
   }
   }
 

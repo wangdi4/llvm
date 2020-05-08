@@ -108,3 +108,32 @@ entry:
   %res = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %arrayidx, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef)
   ret <8 x i32> %res
 }
+
+; Make sure we can fold stack addresses into gather.
+%struct.ST2 = type { i32, [8 x i32] }
+
+define <8 x i32> @test6(<8 x i1> %mask, <8 x i64> %index) {
+; SKX-LABEL: test6:
+; SKX:       # %bb.0: # %entry
+; SKX-NEXT:    vpsllw $15, %xmm0, %xmm0
+; SKX-NEXT:    vpmovw2m %xmm0, %k1
+; SKX-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKX-NEXT:    vpgatherqd -36(%rsp,%zmm1,4), %ymm0 {%k1}
+; SKX-NEXT:    retq
+;
+; KNL-LABEL: test6:
+; KNL:       # %bb.0: # %entry
+; KNL-NEXT:    vpmovsxwq %xmm0, %zmm0
+; KNL-NEXT:    vpsllq $63, %zmm0, %zmm0
+; KNL-NEXT:    vptestmq %zmm0, %zmm0, %k1
+; KNL-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; KNL-NEXT:    vpgatherqd -36(%rsp,%zmm1,4), %ymm0 {%k1}
+; KNL-NEXT:    retq
+entry:
+  %base = alloca %struct.ST2
+  %gep = getelementptr %struct.ST2, %struct.ST2* %base, i32 0, i32 1
+  %arrayidx = getelementptr [8 x i32], [8 x i32]* %gep, i32 0, <8 x i64> %index
+  %res = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> %arrayidx, i32 4, <8 x i1> %mask, <8 x i32> undef)
+  ret <8 x i32> %res
+}
+
