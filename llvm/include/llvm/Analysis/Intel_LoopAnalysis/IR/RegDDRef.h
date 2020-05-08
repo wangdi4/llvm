@@ -372,7 +372,7 @@ public:
   // to the BaseCE: &((%b)[0]).
   bool isSelfAddressOf() const {
     return isAddressOf() && (getNumDimensions() == 1) &&
-           getSingleCanonExpr()->isZero() &&
+           getSingleCanonExpr()->isZero() && getDimensionLower(1)->isZero() &&
            getTrailingStructOffsets(1).empty() && !getBitCastDestType();
   }
 
