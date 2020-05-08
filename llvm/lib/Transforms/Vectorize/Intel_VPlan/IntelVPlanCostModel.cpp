@@ -16,6 +16,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlan.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "IntelVPlanUtils.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
 using namespace loopopt;
@@ -204,6 +205,11 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   return DL->getABITypeAlignment(getMemInstValueType(VPInst));
 }
 
+bool VPlanCostModel::isUnitStrideLoadStore(const VPInstruction *VPInst) const {
+  return
+    Plan->getVPlanDA()->isUnitStridePtr(getLoadStorePointerOperand(VPInst));
+}
+
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
@@ -211,7 +217,14 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
   unsigned Opcode = VPInst->getOpcode();
   unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
+  Type *VecTy = getVectorizedType(OpTy, VF);
+
   // FIXME: Take into account masked case.
+
+  if (isUnitStrideLoadStore(VPInst))
+    return TTI->getMemoryOpCost(Opcode, VecTy, MaybeAlign(Alignment),
+                                AddrSpace);
+
   // FIXME: Shouldn't use underlying IR, because at this point it can be
   // invalid. For instance, vectorizer may decide to generate 32-bit gather
   // instead of 64-bit, while GEP may have 64-bit index.
@@ -220,7 +233,6 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
   //  rather then GEP
   //  2. Templatize TTI to use VPValue.
   if (auto GEPInst = getGEP(VPInst)) {
-    Type *VecTy = getVectorizedType(OpTy, VF);
     return TTI->getGatherScatterOpCost(Opcode, VecTy, GEPInst,
                                        false /* Masked */, Alignment);
   }

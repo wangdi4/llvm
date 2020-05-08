@@ -39,56 +39,10 @@ namespace llvm {
 
 namespace vpo {
 
-// TODO: Ideally this function must not be a member function of
-// VPlanCostModelProprietary, however now it accesses
-// VPInstruction::getHIRData() which is protected.
-bool VPlanCostModelProprietary::isUnitStrideLoadStore(
-    const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
-         "Is not load or store instruction.");
-  if (!VPInst->HIR.isMaster())
-    return false; // CHECKME: Is that correct?
-
-  if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
-    // FIXME: It's not correct to getParentLoop() for outerloop
-    // vectorization.
-    if (!Inst->getParentLoop()) {
-      return false;
-    }
-    assert(Inst->getParentLoop()->isInnermost() &&
-           "Outerloop vectorization is not supported.");
-    unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
-
-    return Opcode == Instruction::Load
-               ? VPlanVLSAnalysisHIR::isUnitStride(Inst->getOperandDDRef(1),
-                                                   NestingLevel)
-               : VPlanVLSAnalysisHIR::isUnitStride(Inst->getLvalDDRef(),
-                                                   NestingLevel);
-  }
-  return false;
-}
-
 unsigned
 VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
                                             const bool UseVLSCost) const {
-  Type *OpTy = getMemInstValueType(VPInst);
-  assert(OpTy && "Can't get type of the load/store instruction!");
-
-  unsigned Opcode = VPInst->getOpcode();
-  unsigned Alignment = getMemInstAlignment(VPInst);
-  unsigned AddrSpace = getMemInstAddressSpace(VPInst);
-
-  bool IsUnit = isUnitStrideLoadStore(VPInst);
-
-  // TODO: On archs w/o native masked operations support next estimation is
-  // still not accurate. Masked loads or stores will be emulated with
-  // if-then-else statements, thus additional cost of movemask and cmps
-  // must be added.
-  unsigned Cost =
-      IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
-                                    MaybeAlign(Alignment), AddrSpace)
-             : VPlanCostModel::getLoadStoreCost(VPInst);
+  unsigned Cost = VPlanCostModel::getLoadStoreCost(VPInst);
 
   if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)
     if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))

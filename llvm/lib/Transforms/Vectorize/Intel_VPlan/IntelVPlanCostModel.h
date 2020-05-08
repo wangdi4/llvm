@@ -117,6 +117,9 @@ protected:
   /// for the base type in case of zero alignment in the underlying IR, so this
   /// method can freely be used even for widening of the \p VPInst.
   unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
+
+  /// \Returns True iff \p VPInst is Unit Strided load or store.
+  virtual bool isUnitStrideLoadStore(const VPInstruction *VPInst) const;
 };
 
 } // namespace vpo

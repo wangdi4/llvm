@@ -45,9 +45,8 @@ public:
   ~VPlanCostModelProprietary() {}
 
 private:
-  static bool isUnitStrideLoadStore(const VPInstruction *VPinst);
-
-  // FIXME: This is a temporary workaround until proper cost modeling is implemented.
+  // FIXME: This is a temporary workaround until proper cost modeling is
+  // implemented.
   //
   // To bail out if too many i1 operations are inside the loop as that (most
   // probably) represents complicated CFG and we need to use Basic Block
