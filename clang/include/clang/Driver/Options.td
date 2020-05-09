@@ -398,6 +398,12 @@ def x_intel : Joined<["-"], "x">, Flags<[DriverOption]>,
 
 def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[DriverOption, CoreOption]>,
     HelpText<"Print (but do not run) the commands to run for this compilation">;
+#if INTEL_CUSTOMIZATION
+def _dryrun : Flag<["-"], "dryrun">, Flags<[DriverOption]>, Alias<_HASH_HASH_HASH>,
+  HelpText<"Print (but do not run) the commands to run for this compilation">;
+def _HASH : Flag<["-"], "#">, Flags<[DriverOption]>, Alias<_HASH_HASH_HASH>,
+    HelpText<"Print (but do not run) the commands to run for this compilation">;
+#endif // INTEL_CUSTOMIZATION
 def _DASH_DASH : Option<["--"], "", KIND_REMAINING_ARGS>,
     Flags<[DriverOption, CoreOption]>;
 def A : JoinedOrSeparate<["-"], "A">, Flags<[RenderJoined]>, Group<gfortran_Group>;

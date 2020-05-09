@@ -125,6 +125,10 @@ def _SLASH_Gw_ : CLFlag<"Gw-">,
 def _SLASH_help : CLFlag<"help">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_HELP : CLFlag<"HELP">, Alias<help>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_HASH : CLFlag<"#">, Alias<_HASH_HASH_HASH>,
+  HelpText<"Print (but do not run) the commands to run for this compilation">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_I : CLJoinedOrSeparate<"I">,
   HelpText<"Add directory to include search path">, MetaVarName<"<dir>">,
   Alias<I>;
