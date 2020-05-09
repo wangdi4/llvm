@@ -428,6 +428,35 @@ struct Parser::ConditionDeclarationOrInitStatementState {
   }
 };
 
+bool Parser::isEnumBase(bool AllowSemi) {
+  assert(Tok.is(tok::colon) && "should be looking at the ':'");
+
+  RevertingTentativeParsingAction PA(*this);
+  ConsumeToken();
+
+  bool InvalidAsDeclSpec = false;
+  TPResult R = isCXXDeclarationSpecifier(/*BracedCastResult*/ TPResult::True,
+                                         &InvalidAsDeclSpec);
+  if (R == TPResult::Ambiguous) {
+    // We either have a decl-specifier followed by '(' or an undeclared
+    // identifier.
+    if (TryConsumeDeclarationSpecifier() == TPResult::Error)
+      return true;
+
+    // If we get to the end of the enum-base, we hit either a '{' or a ';'.
+    // Don't bother checking the enumerator-list.
+    if (Tok.is(tok::colon) || (AllowSemi && Tok.is(tok::semi)))
+      return true;
+
+    // A second decl-specifier unambiguously indicatges an enum-base.
+    // The grammar permits an arbitrary type-name here, but we need an
+    // integral type, so no declarator pieces could ever work.
+    R = isCXXDeclarationSpecifier(TPResult::True, &InvalidAsDeclSpec);
+  }
+
+  return R != TPResult::False;
+}
+
 /// Disambiguates between a declaration in a condition, a
 /// simple-declaration in an init-statement, and an expression for
 /// a condition of a if/switch statement.
@@ -1067,6 +1096,7 @@ Parser::TPResult Parser::TryParseDeclarator(bool mayBeAbstract,
   return TPResult::Ambiguous;
 }
 
+<<<<<<< HEAD
 Parser::TPResult
 Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   switch (Kind) {
@@ -1197,6 +1227,8 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   return TPResult::Ambiguous;
 }
 
+=======
+>>>>>>> c90e198107431f64b73686bdce31c293e3380ac7
 bool Parser::isTentativelyDeclared(IdentifierInfo *II) {
   return std::find(TentativelyDeclaredIdentifiers.begin(),
                    TentativelyDeclaredIdentifiers.end(), II)
