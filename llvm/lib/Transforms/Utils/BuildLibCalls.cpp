@@ -197,11 +197,13 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_strcpy:
   case LibFunc_strncpy:
+  case LibFunc_wcscpy:                      // INTEL
     Changed |= setDoesNotAlias(F, 0);
     Changed |= setDoesNotAlias(F, 1);
     LLVM_FALLTHROUGH;
   case LibFunc_strcat:
   case LibFunc_strncat:
+  case LibFunc_wcsncat:                     // INTEL
     Changed |= setReturnedArg(F, 0);
     LLVM_FALLTHROUGH;
   case LibFunc_stpcpy:
@@ -1011,6 +1013,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_under_getdrive:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  // gmtime in Windows can throw an exception as opposed to the
+  // Linux version (LibFunc_gmtime)
+  case LibFunc_under_gmtime64:
+    return Changed;
   case LibFunc_under_Tolower:
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
@@ -1585,6 +1591,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_islower:
+    Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_isprint:
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
