@@ -5272,7 +5272,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VSQRTSDZrb_Int:
   case X86::VSQRTSDZm:
   case X86::VSQRTSDZm_Int:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   case X86::VCVTSD2SHZrr:
@@ -5297,10 +5296,7 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTSH2SSZrm_Int:
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-    return true;
-=======
     return OpNum == 1;
->>>>>>> c7be6a86f44a0df4f47c183c828ea3e29840ade2
   case X86::VMOVSSZrrk:
   case X86::VMOVSDZrrk:
     return OpNum == 3 && !ForLoadFold;
