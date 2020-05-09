@@ -600,7 +600,11 @@ void TempSubstituter::visit(HLDDNode *Node) {
         // self blobs if they represent a self value not an expression.
         //   %16 = (%4)[4 * i1];
         //   &((%16)[0]) -> (%4)[4 * i1]
-        bool IsSelfPointer = Ref->isSelfAddressOf();
+        //
+        // Temp may be referring to stride of the SelfAddressOf ref so we need
+        // to check the base pointer index to be sure.
+        bool IsSelfPointer =
+            Ref->isSelfAddressOf() && (Ref->getBasePtrBlobIndex() == TempIndex);
 
         // Cannot subtitute load if-
         // 1) There is more than one use, OR
