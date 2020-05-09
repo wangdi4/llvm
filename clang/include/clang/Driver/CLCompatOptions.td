@@ -286,6 +286,10 @@ def _SLASH_Qtemplate_depth_COL : CLJoined<"Qtemplate-depth:">,
 def _SLASH_Qtemplate_depth_EQ : CLJoined<"Qtemplate-depth=">,
   Alias<ftemplate_depth_EQ>;
 def : CLFlag<"S">, Alias<S>, HelpText<"Compile to assembly only, do not link">;
+def _SLASH_Qvla : CLFlag<"Qvla">, HelpText<"Enable Variable Length "
+  "Arrays (C99 feature)">;
+def _SLASH_Qvla_ : CLFlag<"Qvla-">, HelpText<"Disable(DEFAULT) "
+  "Variable Length Arrays (C99 feature)">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

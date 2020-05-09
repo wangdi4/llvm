@@ -5343,6 +5343,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fopenmp-simd");
     CmdArgs.push_back("-fopenmp-late-outline");
   }
+
+  if (Args.hasFlag(options::OPT__SLASH_Qvla_, options::OPT__SLASH_Qvla, false))
+    CmdArgs.push_back("-Werror=vla");
 #endif // INTEL_CUSTOMIZATION
 
   // Pass -fmessage-length=.

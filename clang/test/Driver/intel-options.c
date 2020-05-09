@@ -102,6 +102,12 @@
 // CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS:"-lirc" "-lsvml"
 
+// Behavior with Qvla and Qvla- option
+// RUN: %clang_cl -### -c /Qvla- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-VLA %s
+// RUN: %clang_cl -### -c /Qvla %s 2>&1 | FileCheck -check-prefix CHECK-QVLA %s
+// CHECK-QNO-VLA: "-Werror=vla"
+// CHECK-QVLA-NOT: "-Werror=vla"
+
 // RUN: %clang -### -fp-speculation=strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
