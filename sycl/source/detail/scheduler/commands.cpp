@@ -1664,7 +1664,8 @@ cl_int ExecCGCommand::enqueueImp() {
       Kernel = ExecKernel->MSyclKernel->getHandleRef();
     } else
       Kernel = detail::ProgramManager::getInstance().getOrCreateKernel(
-          ExecKernel->MOSModuleHandle, Context, ExecKernel->MKernelName);
+          ExecKernel->MOSModuleHandle, Context, ExecKernel->MKernelName,
+          nullptr);
 
     for (ArgDesc &Arg : ExecKernel->MArgs) {
       switch (Arg.MType) {
