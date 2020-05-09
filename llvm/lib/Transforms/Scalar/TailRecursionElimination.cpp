@@ -496,6 +496,7 @@ class TailRecursionEliminator {
 public:
   static bool eliminate(Function &F, const TargetTransformInfo *TTI,
                         AliasAnalysis *AA, OptimizationRemarkEmitter *ORE,
+                        bool SkipRecProgression, // INTEL
                         DomTreeUpdater &DTU);
 };
 } // namespace
@@ -817,19 +818,12 @@ void TailRecursionEliminator::cleanupAndFinalize() {
   }
 }
 
-<<<<<<< HEAD
-static bool eliminateTailRecursion(Function &F, const TargetTransformInfo *TTI,
-                                   AliasAnalysis *AA,
-                                   OptimizationRemarkEmitter *ORE,
-                                   bool SkipRecProgression, // INTEL
-                                   DomTreeUpdater &DTU) {
-=======
 bool TailRecursionEliminator::eliminate(Function &F,
                                         const TargetTransformInfo *TTI,
                                         AliasAnalysis *AA,
                                         OptimizationRemarkEmitter *ORE,
+                                        bool SkipRecProgression, // INTEL
                                         DomTreeUpdater &DTU) {
->>>>>>> 23cbea9a04e023d5b79dfee5964fae769340c993
   if (F.getFnAttribute("disable-tail-calls").getValueAsString() == "true")
     return false;
 #if INTEL_CUSTOMIZATION
@@ -945,12 +939,9 @@ PreservedAnalyses TailCallElimPass::run(Function &F,
   // UpdateStrategy based on some test results. It is feasible to switch the
   // UpdateStrategy to Lazy if we find it profitable later.
   DomTreeUpdater DTU(DT, PDT, DomTreeUpdater::UpdateStrategy::Eager);
-<<<<<<< HEAD
-  bool Changed = eliminateTailRecursion(F, &TTI, &AA, &ORE, // INTEL
-      SkipRecProgression, DTU);                             // INTEL
-=======
-  bool Changed = TailRecursionEliminator::eliminate(F, &TTI, &AA, &ORE, DTU);
->>>>>>> 23cbea9a04e023d5b79dfee5964fae769340c993
+  bool Changed =                                                   // INTEL
+      TailRecursionEliminator::eliminate(F, &TTI, &AA, &ORE,       // INTEL
+                                         SkipRecProgression, DTU); // INTEL
 
   if (!Changed)
     return PreservedAnalyses::all();
