@@ -2485,15 +2485,15 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
       else if (Prefix == "vex")
-        ForcedVEXEncoding = VEXEncoding_VEX2;
+        ForcedVEXEncoding = VEXEncoding_VEX;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_AVX_BF16
       else if (Prefix == "vex")
-        ForcedVEXEncoding = VEXEncoding_VEX2;
+        ForcedVEXEncoding = VEXEncoding_VEX;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #if INTEL_FEATURE_ISA_AVX_IFMA
       else if (Prefix == "vex")
-        ForcedVEXEncoding = VEXEncoding_VEX2;
+        ForcedVEXEncoding = VEXEncoding_VEX;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
       else if (Prefix == "evex")
@@ -3502,7 +3502,7 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   case X86::VPDPWSSDrm:
   case X86::VPDPWSSDrr:
     // These instructions are only available with {vex2} or {vex3} prefix
-    if (ForcedVEXEncoding != VEXEncoding_VEX2 &&
+    if (ForcedVEXEncoding != VEXEncoding_VEX &&
         ForcedVEXEncoding != VEXEncoding_VEX3)
       return Match_Unsupported;
     break;
@@ -3521,7 +3521,7 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   case X86::VCVTNEPS2BF16Yrr:
   case X86::VCVTNEPS2BF16Yrm:
     // These instructions are only available with {vex2} or {vex3} prefix
-    if (ForcedVEXEncoding != VEXEncoding_VEX2 &&
+    if (ForcedVEXEncoding != VEXEncoding_VEX &&
         ForcedVEXEncoding != VEXEncoding_VEX3)
       return Match_Unsupported;
     break;
@@ -3536,7 +3536,7 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   case X86:: VPMADD52LUQYrr:
   case X86:: VPMADD52LUQYrm:
     // These instructions are only available with {vex2} or {vex3} prefix
-    if (ForcedVEXEncoding != VEXEncoding_VEX2 &&
+    if (ForcedVEXEncoding != VEXEncoding_VEX &&
         ForcedVEXEncoding != VEXEncoding_VEX3)
       return Match_Unsupported;
     break;
