@@ -98,7 +98,17 @@ protected:
   std::shared_ptr<VPlanVLSCostModel> VLSCM;
 #endif // INTEL_CUSTOMIZATION
 
-  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock) const;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  std::string getCostNumberString(unsigned Cost) const {
+    if (Cost == UnknownCost)
+      return std::string("Unknown");
+    return std::to_string(Cost);
+  };
+  void printForVPInstruction(
+    raw_ostream &OS, const VPInstruction *VPInst) const;
+  void printForVPBasicBlock(
+    raw_ostream &OS, const VPBasicBlock *VPBlock) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in

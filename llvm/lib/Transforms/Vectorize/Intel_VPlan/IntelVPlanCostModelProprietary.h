@@ -45,6 +45,13 @@ public:
   ~VPlanCostModelProprietary() {}
 
 private:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printForVPInstruction(
+    raw_ostream &OS, const VPInstruction *VPInst) const;
+  void printForVPBasicBlock(
+    raw_ostream &OS, const VPBasicBlock *VPBlock) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
   // FIXME: This is a temporary workaround until proper cost modeling is
   // implemented.
   //

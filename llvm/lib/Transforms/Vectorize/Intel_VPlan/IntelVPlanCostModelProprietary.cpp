@@ -131,6 +131,26 @@ unsigned VPlanCostModelProprietary::getCost() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPlanCostModelProprietary::printForVPInstruction(
+  raw_ostream &OS, const VPInstruction *VPInst) const {
+  OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
+  VPInst->print(OS);
+  // TODO: Attributes yet to be populated.
+  std::string Attributes = "";
+  if (!Attributes.empty())
+    OS << "(" << Attributes << ")";
+  OS << '\n';
+}
+
+void VPlanCostModelProprietary::printForVPBasicBlock(
+  raw_ostream &OS, const VPBasicBlock *VPBB) const {
+  // Additional stuff for proprietary CM to be printed here.
+  OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
+    getCostNumberString(getCost(VPBB)) << '\n';
+  for (const VPInstruction &VPInst : *VPBB)
+    printForVPInstruction(OS, &VPInst);
+}
+
 void VPlanCostModelProprietary::print(
   raw_ostream &OS, const std::string &Header) {
   OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
