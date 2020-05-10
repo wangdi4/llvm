@@ -1600,6 +1600,18 @@ def fimf_max_error_EQ : Joined<["-"],"fimf-max-error=">,
   Group<f_Group>, Flags<[DriverOption]>, HelpText<"defines the "
   "maximum allowable relative error, measured in ulps, for math "
   "library function results">;
+def fimf_absolute_error_EQ : Joined<["-"],"fimf-absolute-error=">, Group<f_Group>,
+  Flags<[DriverOption]>, HelpText<"Define the maximum allowable "
+  "absolute error for math library function results">;
+def fimf_accuracy_bits_EQ : Joined<["-"],"fimf-accuracy-bits=">, Group<f_Group>,
+  Flags<[DriverOption]>, HelpText<"Define the relative error, measured "
+  "by the number of correct bits,for math library function results">;
+def fimf_domain_exclusion_EQ : Joined<["-"],"fimf-domain-exclusion=">, Group<f_Group>,
+  Flags<[DriverOption]>, HelpText<"Indicates the input arguments "
+  "domain on which math functions must provide correct results.">;
+def fimf_precision_EQ : Joined<["-"],"fimf-precision=">,Group<f_Group>,
+  Flags<[DriverOption]>, HelpText<"Defines the accuracy (precision) "
+  "for math library functions.">;
 #endif // INTEL_CUSTOMIZATION
 def fmodules_ts : Flag <["-"], "fmodules-ts">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Enable support for the C++ Modules TS">;
