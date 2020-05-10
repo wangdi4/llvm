@@ -1384,7 +1384,9 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
         CodeGenOpts.SanitizeCoverageIndirectCalls ||
         CodeGenOpts.SanitizeCoverageTraceCmp) {
       auto SancovOpts = getSancovOptsFromCGOpts(CodeGenOpts);
-      MPM.addPass(ModuleSanitizerCoveragePass(SancovOpts));
+      MPM.addPass(ModuleSanitizerCoveragePass(
+          SancovOpts, CodeGenOpts.SanitizeCoverageWhitelistFiles,
+          CodeGenOpts.SanitizeCoverageBlacklistFiles));
     }
 
     if (LangOpts.Sanitize.has(SanitizerKind::HWAddress)) {
