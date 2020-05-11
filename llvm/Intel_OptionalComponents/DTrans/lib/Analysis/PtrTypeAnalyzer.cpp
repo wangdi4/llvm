@@ -2921,8 +2921,7 @@ bool PtrTypeAnalyzerImpl::isElementZeroAccess(DTransType *SrcTy,
     if (auto *StTy = dyn_cast<DTransStructType>(CompTy))
       ElementZeroTy = StTy->getFieldType(0);
     else
-      ElementZeroTy =
-          dyn_cast<DTransSequentialType>(CompTy)->getTypeAtIndex(0u);
+      ElementZeroTy = cast<DTransSequentialType>(CompTy)->getTypeAtIndex(0u);
 
     if (!ElementZeroTy)
       return false;
