@@ -1396,7 +1396,7 @@ void OpenMPLateOutliner::emitOMPNowaitClause(const OMPNowaitClause *Cl) {
 void OpenMPLateOutliner::emitOMPUseDevicePtrClause(
     const OMPUseDevicePtrClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_use_device_ptr);
-  addArg("QUAL.OMP.USE_DEVICE_PTR");
+  addArg("QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR");
   for (auto *E : Cl->varlists())
     addArg(E);
 }
